@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
+import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 
 const TITLES: Record<string, string> = {
   "/admin": "Dashboard",
@@ -12,10 +13,23 @@ const TITLES: Record<string, string> = {
   "/admin/settings": "Settings",
 };
 
+function resolveTitle(pathname: string): string {
+  const direct = TITLES[pathname];
+  if (direct) return direct;
+  const orgMatch = pathname.match(/^\/admin\/crews\/([^/]+)$/);
+  if (orgMatch) {
+    const slug = orgMatch[1];
+    if (isOrganizationSlug(slug)) {
+      return `Crew Management · ${ORGANIZATION_LABEL[slug]}`;
+    }
+  }
+  return "Admin";
+}
+
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const title = TITLES[pathname] ?? "Admin";
+  const title = resolveTitle(pathname);
 
   const handleLogout = async () => {
     await supabaseClient.auth.signOut();
