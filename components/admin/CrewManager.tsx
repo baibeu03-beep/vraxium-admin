@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Pencil, Plus, Search, X } from "lucide-react";
 import {
   Card,
@@ -30,7 +31,6 @@ import { cn } from "@/lib/utils";
 import {
   ORGANIZATIONS,
   ORGANIZATION_LABEL,
-  isOrganizationSlug,
   type OrganizationSlug,
 } from "@/lib/organizations";
 
@@ -114,6 +114,7 @@ export default function CrewManager({
 }: {
   organization: OrganizationSlug;
 }) {
+  const router = useRouter();
   const [data, setData] = useState<Crew[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -196,22 +197,14 @@ export default function CrewManager({
     setModalOpen(true);
   };
 
+  // Edit는 운영 테이블 편집을 위해 풀페이지 editor로 이동.
+  // 기존 modal은 legacy_crew_import staging 신규 등록(Add) 전용으로 유지.
   const openEdit = (crew: Crew) => {
-    setEditing(crew);
-    setForm({
-      legacy_user_id: String(crew.legacyUserId),
-      display_name: crew.displayName ?? "",
-      team_name: crew.teamName ?? "",
-      part_name: crew.partName ?? "",
-      cumulative_weeks:
-        crew.cumulativeWeeks == null ? "0" : String(crew.cumulativeWeeks),
-      is_visible: crew.isVisible,
-      admin_note: crew.adminNote ?? "",
-      organization_slug: isOrganizationSlug(crew.organizationSlug)
-        ? crew.organizationSlug
-        : organization,
-    });
-    setModalOpen(true);
+    router.push(
+      `/admin/crews/${encodeURIComponent(organization)}/${encodeURIComponent(
+        String(crew.legacyUserId),
+      )}`,
+    );
   };
 
   const closeModal = () => {
