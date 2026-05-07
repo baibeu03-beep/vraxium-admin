@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
+import { getAdminCrewDtoByLegacyUserId, listAdminCrewDtos } from "@/lib/adminCrewData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import type { OrganizationSlug } from "@/lib/organizations";
 import { isOrganizationSlug } from "@/lib/organizations";
 
 const TABLE = "legacy_crew_import";
-const VIEW = "admin_crew_list_view";
 
 const WRITABLE_FIELDS = [
   "legacy_user_id",
@@ -20,9 +21,9 @@ type CrewInput = Partial<Record<(typeof WRITABLE_FIELDS)[number], unknown>>;
 function pickWritable(body: unknown): CrewInput {
   if (!body || typeof body !== "object") return {};
   const out: CrewInput = {};
-  for (const k of WRITABLE_FIELDS) {
-    if (k in (body as Record<string, unknown>)) {
-      out[k] = (body as Record<string, unknown>)[k];
+  for (const key of WRITABLE_FIELDS) {
+    if (key in (body as Record<string, unknown>)) {
+      out[key] = (body as Record<string, unknown>)[key];
     }
   }
   return out;
@@ -30,33 +31,29 @@ function pickWritable(body: unknown): CrewInput {
 
 export async function GET(request: NextRequest) {
   const org = request.nextUrl.searchParams.get("organization");
+  let organization: OrganizationSlug | undefined;
 
-  let q = supabaseAdmin
-    .from(VIEW)
-    .select("*")
-    .order("is_visible", { ascending: false })
-    .order("team_name", { ascending: true, nullsFirst: false })
-    .order("display_name", { ascending: true });
-
-  if (org) {
-    if (!isOrganizationSlug(org)) {
-      return Response.json(
-        { success: false, error: `Unknown organization: ${org}` },
-        { status: 400 },
-      );
-    }
-    q = q.eq("organization_slug", org);
+  if (org && !isOrganizationSlug(org)) {
+    return Response.json(
+      { success: false, error: `Unknown organization: ${org}` },
+      { status: 400 },
+    );
   }
+  if (org) organization = org as OrganizationSlug;
 
-  const { data, error } = await q;
-  if (error) {
+  try {
+    const data = await listAdminCrewDtos(organization);
+    return Response.json({ success: true, data });
+  } catch (error) {
     console.error("[admin/crews GET]", error);
     return Response.json(
-      { success: false, error: error.message },
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to load crews",
+      },
       { status: 500 },
     );
   }
-  return Response.json({ success: true, data });
 }
 
 export async function POST(request: NextRequest) {
@@ -103,13 +100,9 @@ export async function POST(request: NextRequest) {
   if (error) {
     console.error("[admin/crews POST insert]", error);
     const status = error.code === "23505" ? 409 : 500;
-    return Response.json(
-      { success: false, error: error.message },
-      { status },
-    );
+    return Response.json({ success: false, error: error.message }, { status });
   }
 
-  // user_profiles.organization_slug도 함께 갱신 (행이 없으면 0 반환 → 경고만)
   const { data: matched, error: rpcError } = await supabaseAdmin.rpc(
     "set_crew_organization",
     {
@@ -118,12 +111,14 @@ export async function POST(request: NextRequest) {
     },
   );
 
+  const normalized = await getAdminCrewDtoByLegacyUserId(String(payload.legacy_user_id));
+
   if (rpcError) {
     console.error("[admin/crews POST rpc]", rpcError);
     return Response.json(
       {
         success: true,
-        data,
+        data: normalized ?? data,
         warning: `legacy_crew_import은 저장됐지만 organization 동기화 실패: ${rpcError.message}`,
       },
       { status: 201 },
@@ -133,7 +128,7 @@ export async function POST(request: NextRequest) {
   return Response.json(
     {
       success: true,
-      data,
+      data: normalized ?? data,
       warning:
         matched === 0
           ? "user_profiles에 매칭되는 행이 없어 organization_slug를 설정하지 못했습니다. 인증 가입 후 다시 시도하세요."
