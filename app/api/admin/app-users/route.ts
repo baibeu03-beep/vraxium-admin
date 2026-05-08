@@ -1,0 +1,42 @@
+import { NextRequest } from "next/server";
+import { ADMIN_READ_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
+import { isAppUserStatus, listAppUsers } from "@/lib/adminAppUsersData";
+
+export async function GET(request: NextRequest) {
+  try {
+    await requireAdmin(ADMIN_READ_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
+  const params = request.nextUrl.searchParams;
+  const statusParam = params.get("status");
+  if (statusParam && !isAppUserStatus(statusParam)) {
+    return Response.json(
+      { success: false, error: `Unknown user status: ${statusParam}` },
+      { status: 400 },
+    );
+  }
+
+  const queryParam = params.get("query")?.trim() ?? null;
+
+  try {
+    const data = await listAppUsers({
+      query: queryParam,
+      status: isAppUserStatus(statusParam) ? statusParam : null,
+    });
+    return Response.json({ success: true, data });
+  } catch (error) {
+    console.error("[admin/app-users GET]", error);
+    return Response.json(
+      {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to load app users",
+      },
+      { status: 500 },
+    );
+  }
+}

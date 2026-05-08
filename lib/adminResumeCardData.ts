@@ -6,8 +6,10 @@ import type { OrganizationSlug } from "@/lib/organizations";
 // Writable field whitelists
 // 임의 컬럼 update 방지용. 화면에서 수정 가능한 컬럼만 명시한다.
 // ─────────────────────────────────────────────────────────────────────
-// 실제 user_profiles 스키마 기준 (2026-05-07 확인).
-// 제거됨: eng_name, phone, email, bio, contact_available (DB 컬럼 미존재 → 500 유발)
+// 실제 user_profiles 스키마 기준 (2026-05-08 확인).
+// contact_available: text 컬럼. user-app resume-card 모달에서 "연락 가능 시간대/코멘트"를
+//   저장 (plain text 또는 JSON 문자열). admin editor에서도 동일 컬럼을 직접 편집한다.
+// 제거됨: eng_name, phone, email, bio (DB 컬럼 미존재 → 500 유발)
 // 제외(시스템): user_id, created_at, updated_at, growth_status, organization_slug,
 //               school_name, department_name (학력은 user_educations에서 관리)
 export const PROFILE_FIELDS = [
@@ -17,6 +19,7 @@ export const PROFILE_FIELDS = [
   "address",
   "contact_phone",
   "contact_email",
+  "contact_available",
   "profile_photo_url",
   "vision",
   "status",

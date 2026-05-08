@@ -1,0 +1,102 @@
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  APP_USER_STATUSES,
+  isAppUserStatus,
+  type AdminAppUserDto,
+  type AppUserStatus,
+  type ListAppUsersOptions,
+} from "@/lib/adminAppUsersTypes";
+
+// user_profiles 읽기 전용 목록.
+// 어드민 운영자가 "가입된 사용자"를 한눈에 확인하려고 사용하는 뷰이므로
+// /api/admin/user-profiles 의 검색 전용 endpoint와는 별도로 둔다 (그쪽은
+// applicant 연결 검색 전용으로 limit 20).
+//
+// 모든 user_profiles 컬럼을 반환하지 않고, 화면에 보여줄 컬럼만 select 한다.
+//
+// Pure constants/types live in lib/adminAppUsersTypes.ts so client components
+// can import them without pulling supabaseAdmin into the browser bundle
+// (which would crash with "supabaseKey is required" since
+// SUPABASE_SERVICE_ROLE_KEY is server-only).
+
+export {
+  APP_USER_STATUSES,
+  isAppUserStatus,
+  type AdminAppUserDto,
+  type AppUserStatus,
+  type ListAppUsersOptions,
+};
+
+const APP_USER_SELECT = [
+  "user_id",
+  "display_name",
+  "contact_email",
+  "auth_email",
+  "organization_slug",
+  "status",
+  "created_at",
+  "updated_at",
+].join(",");
+
+type AppUserRow = {
+  user_id: string;
+  display_name: string | null;
+  contact_email: string | null;
+  auth_email: string | null;
+  organization_slug: string | null;
+  status: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+function toDto(row: AppUserRow): AdminAppUserDto {
+  return {
+    userId: row.user_id,
+    displayName: row.display_name,
+    contactEmail: row.contact_email,
+    authEmail: row.auth_email,
+    organizationSlug: row.organization_slug,
+    status: row.status,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function escapeForIlike(value: string) {
+  return value.replace(/[%_,()]/g, "").trim();
+}
+
+export async function listAppUsers(
+  options: ListAppUsersOptions = {},
+): Promise<AdminAppUserDto[]> {
+  const limit = Math.min(Math.max(options.limit ?? 200, 1), 500);
+
+  let queryBuilder = supabaseAdmin
+    .from("user_profiles")
+    .select(APP_USER_SELECT)
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  if (options.status) {
+    queryBuilder = queryBuilder.eq("status", options.status);
+  }
+
+  const trimmed = options.query ? escapeForIlike(options.query) : "";
+  if (trimmed) {
+    const pattern = `%${trimmed}%`;
+    queryBuilder = queryBuilder.or(
+      [
+        `display_name.ilike.${pattern}`,
+        `contact_email.ilike.${pattern}`,
+        `auth_email.ilike.${pattern}`,
+        `organization_slug.ilike.${pattern}`,
+        `user_id.ilike.${pattern}`,
+      ].join(","),
+    );
+  }
+
+  const { data, error } = await queryBuilder;
+  if (error) throw new Error(error.message);
+
+  return ((data ?? []) as unknown as AppUserRow[]).map(toDto);
+}

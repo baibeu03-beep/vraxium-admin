@@ -4,8 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
-  useState,
+  useSyncExternalStore,
 } from "react";
 
 type SidebarContextValue = {
@@ -18,30 +17,45 @@ const SidebarContext = createContext<SidebarContextValue | null>(null);
 
 const STORAGE_KEY = "admin.sidebar.open";
 
-export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  // SSR 일치를 위해 항상 펼침 상태로 초기 렌더, 마운트 후 localStorage 동기화.
-  const [open, setOpen] = useState(true);
+function getSnapshot() {
+  if (typeof window === "undefined") return true;
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    if (saved === "false") return false;
+  } catch {
+    // localStorage unavailable
+  }
+  return true;
+}
 
-  useEffect(() => {
+function subscribe(onStoreChange: () => void) {
+  if (typeof window === "undefined") {
+    return () => {};
+  }
+
+  const handler = (event: StorageEvent) => {
+    if (!event.key || event.key === STORAGE_KEY) {
+      onStoreChange();
+    }
+  };
+
+  window.addEventListener("storage", handler);
+  return () => window.removeEventListener("storage", handler);
+}
+
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const open = useSyncExternalStore(subscribe, getSnapshot, () => true);
+
+  const setOpen = useCallback((value: boolean) => {
     try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
-      if (saved === "true" || saved === "false") {
-        setOpen(saved === "true");
-      }
+      window.localStorage.setItem(STORAGE_KEY, String(value));
+      window.dispatchEvent(new StorageEvent("storage", { key: STORAGE_KEY }));
     } catch {
-      // localStorage 사용 불가 환경 무시
+      // ignore
     }
   }, []);
 
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, String(open));
-    } catch {
-      // 무시
-    }
-  }, [open]);
-
-  const toggle = useCallback(() => setOpen((o) => !o), []);
+  const toggle = useCallback(() => setOpen(!open), [open, setOpen]);
 
   return (
     <SidebarContext.Provider value={{ open, toggle, setOpen }}>

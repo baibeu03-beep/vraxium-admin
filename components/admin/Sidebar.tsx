@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,6 +9,7 @@ import {
   PanelLeft,
   PanelLeftClose,
   Upload,
+  UserCog,
   Users,
   Settings as SettingsIcon,
   type LucideIcon,
@@ -46,6 +47,17 @@ const MENU: MenuItem[] = [
       href: `/admin/crews/${slug}`,
     })),
   },
+  {
+    kind: "branch",
+    label: "사용자 관리",
+    icon: UserCog,
+    basePath: "/admin/users",
+    children: [
+      { label: "가입된 사용자", href: "/admin/users/app-users" },
+      { label: "가입 대기자", href: "/admin/users/applicants" },
+      { label: "관리자 계정", href: "/admin/users/admin-users" },
+    ],
+  },
   { kind: "leaf", label: "Import", href: "/admin/import", icon: Upload },
   { kind: "leaf", label: "Settings", href: "/admin/settings", icon: SettingsIcon },
 ];
@@ -78,21 +90,6 @@ export default function Sidebar() {
       return init;
     },
   );
-
-  useEffect(() => {
-    setOpenBranches((prev) => {
-      const next = { ...prev };
-      let changed = false;
-      for (const item of MENU) {
-        if (item.kind !== "branch") continue;
-        if (isUnderBase(pathname, item.basePath) && !next[item.basePath]) {
-          next[item.basePath] = true;
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [pathname]);
 
   return (
     <aside

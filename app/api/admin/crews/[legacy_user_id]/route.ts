@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { ADMIN_READ_ROLES, ADMIN_WRITE_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isOrganizationSlug } from "@/lib/organizations";
@@ -29,6 +30,14 @@ function pickUpdate(body: unknown): UpdateInput {
 }
 
 export async function GET(_request: NextRequest, { params }: Ctx) {
+  try {
+    await requireAdmin(ADMIN_READ_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   const { legacy_user_id } = await params;
 
   try {
@@ -54,6 +63,14 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
 }
 
 export async function PATCH(request: NextRequest, { params }: Ctx) {
+  try {
+    await requireAdmin(ADMIN_WRITE_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   const { legacy_user_id } = await params;
 
   let body: unknown;
@@ -142,6 +159,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(_request: NextRequest, { params }: Ctx) {
+  try {
+    await requireAdmin(ADMIN_WRITE_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   const { legacy_user_id } = await params;
 
   const { error } = await supabaseAdmin

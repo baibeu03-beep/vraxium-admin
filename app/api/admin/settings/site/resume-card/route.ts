@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { ADMIN_READ_ROLES, ADMIN_WRITE_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import {
   getSiteResumeCard,
   patchSiteResumeCard,
@@ -6,6 +7,14 @@ import {
 } from "@/lib/adminResumeCardData";
 
 export async function GET() {
+  try {
+    await requireAdmin(ADMIN_READ_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   try {
     const data = await getSiteResumeCard();
     return Response.json({ success: true, data });
@@ -25,6 +34,14 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
+  try {
+    await requireAdmin(ADMIN_WRITE_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   let body: unknown;
   try {
     body = await request.json();

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { ADMIN_READ_ROLES, ADMIN_WRITE_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { getAdminCrewDtoByLegacyUserId, listAdminCrewDtos } from "@/lib/adminCrewData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
@@ -30,6 +31,14 @@ function pickWritable(body: unknown): CrewInput {
 }
 
 export async function GET(request: NextRequest) {
+  try {
+    await requireAdmin(ADMIN_READ_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   const org = request.nextUrl.searchParams.get("organization");
   let organization: OrganizationSlug | undefined;
 
@@ -57,6 +66,14 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  try {
+    await requireAdmin(ADMIN_WRITE_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   let body: unknown;
   try {
     body = await request.json();

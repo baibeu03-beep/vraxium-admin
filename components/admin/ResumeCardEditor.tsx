@@ -89,7 +89,9 @@ type FormState = Record<Section, Record<string, unknown>>;
 // Field definitions (must match lib/adminResumeCardData.ts whitelists)
 // ─────────────────────────────────────────────────────────────────────
 // 실제 user_profiles 스키마 기준. lib/adminResumeCardData.ts:PROFILE_FIELDS 와 일치해야 함.
-// 제거됨: eng_name, phone, email, bio, contact_available — DB 컬럼 미존재로 PATCH 500 유발
+// contact_available: text 컬럼. user-app resume-card 모달이 plain text 또는 JSON 문자열로
+//   저장하므로 admin 측에선 textarea로 그대로 노출한다.
+// 제거됨: eng_name, phone, email, bio — DB 컬럼 미존재로 PATCH 500 유발
 const PROFILE_FIELDS: readonly FieldDef[] = [
   { key: "display_name", label: "이름 (display_name)", type: "text" },
   { key: "gender", label: "성별 (gender)", type: "text" },
@@ -97,6 +99,13 @@ const PROFILE_FIELDS: readonly FieldDef[] = [
   { key: "address", label: "주소 (address)", type: "text", full: true },
   { key: "contact_phone", label: "Phone (contact_phone)", type: "text" },
   { key: "contact_email", label: "Email (contact_email)", type: "text" },
+  {
+    key: "contact_available",
+    label: "연락 가능 시간대/코멘트 (contact_available)",
+    type: "textarea",
+    full: true,
+    placeholder: "예: 평일 19~22시 / 또는 user-app이 저장한 JSON 문자열 그대로",
+  },
   {
     key: "profile_photo_url",
     label: "Profile Photo URL",
@@ -570,6 +579,9 @@ export default function ResumeCardEditor({
                 {fmt(form.profile.phone ?? form.profile.contact_phone)}
                 {" / "}
                 {fmt(form.profile.email ?? form.profile.contact_email)}
+              </PreviewBlock>
+              <PreviewBlock title="연락 가능 시간대/코멘트">
+                {fmt(form.profile.contact_available)}
               </PreviewBlock>
               <PreviewBlock title="학교 · 학과">
                 {fmt(form.education.school_name)} ·{" "}

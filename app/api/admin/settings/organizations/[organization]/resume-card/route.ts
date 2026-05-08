@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { ADMIN_READ_ROLES, ADMIN_WRITE_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import {
   getOrganizationResumeCard,
   patchOrganizationResumeCard,
@@ -9,6 +10,14 @@ import { isOrganizationSlug } from "@/lib/organizations";
 type Ctx = { params: Promise<{ organization: string }> };
 
 export async function GET(_request: NextRequest, { params }: Ctx) {
+  try {
+    await requireAdmin(ADMIN_READ_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   const { organization } = await params;
   if (!isOrganizationSlug(organization)) {
     return Response.json(
@@ -39,6 +48,14 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
 }
 
 export async function PATCH(request: NextRequest, { params }: Ctx) {
+  try {
+    await requireAdmin(ADMIN_WRITE_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   const { organization } = await params;
   if (!isOrganizationSlug(organization)) {
     return Response.json(

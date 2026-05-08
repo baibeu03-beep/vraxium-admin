@@ -8,6 +8,7 @@ import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 
 const TITLES: Record<string, string> = {
   "/admin": "Dashboard",
+  "/admin/applicants": "Applicants",
   "/admin/crews": "Crew Management",
   "/admin/import": "Import",
   "/admin/settings": "Settings",
