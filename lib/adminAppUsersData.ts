@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isUuid } from "@/lib/isUuid";
 import {
   APP_USER_STATUSES,
   isAppUserStatus,
@@ -81,17 +82,23 @@ export async function listAppUsers(
     queryBuilder = queryBuilder.eq("status", options.status);
   }
 
-  const trimmed = options.query ? escapeForIlike(options.query) : "";
-  if (trimmed) {
-    const pattern = `%${trimmed}%`;
+  const rawQuery = options.query?.trim() ?? "";
+  const trimmed = rawQuery ? escapeForIlike(rawQuery) : "";
+  const filters = [
+    ...(trimmed
+      ? [
+          `display_name.ilike.%${trimmed}%`,
+          `contact_email.ilike.%${trimmed}%`,
+          `auth_email.ilike.%${trimmed}%`,
+          `organization_slug.ilike.%${trimmed}%`,
+        ]
+      : []),
+    ...(isUuid(rawQuery) ? [`user_id.eq.${rawQuery}`] : []),
+  ];
+
+  if (filters.length > 0) {
     queryBuilder = queryBuilder.or(
-      [
-        `display_name.ilike.${pattern}`,
-        `contact_email.ilike.${pattern}`,
-        `auth_email.ilike.${pattern}`,
-        `organization_slug.ilike.${pattern}`,
-        `user_id.ilike.${pattern}`,
-      ].join(","),
+      filters.join(","),
     );
   }
 

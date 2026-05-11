@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { ADMIN_READ_ROLES, type AdminRole } from "@/lib/adminAuth";
+import { isUuid } from "@/lib/isUuid";
 
 // admin_users 읽기 전용 목록.
 // 운영자가 "관리자 계정"을 한눈에 확인하려고 사용하는 뷰.
@@ -73,15 +74,16 @@ export async function listAdminUsers(
     queryBuilder = queryBuilder.eq("is_active", options.isActive);
   }
 
-  const trimmed = options.query ? escapeForIlike(options.query) : "";
-  if (trimmed) {
-    const pattern = `%${trimmed}%`;
+  const rawQuery = options.query?.trim() ?? "";
+  const trimmed = rawQuery ? escapeForIlike(rawQuery) : "";
+  const filters = [
+    ...(trimmed ? [`email.ilike.%${trimmed}%`, `role.ilike.%${trimmed}%`] : []),
+    ...(isUuid(rawQuery) ? [`id.eq.${rawQuery}`] : []),
+  ];
+
+  if (filters.length > 0) {
     queryBuilder = queryBuilder.or(
-      [
-        `email.ilike.${pattern}`,
-        `role.ilike.${pattern}`,
-        `id.ilike.${pattern}`,
-      ].join(","),
+      filters.join(","),
     );
   }
 

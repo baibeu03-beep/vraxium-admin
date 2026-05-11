@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isUuid } from "@/lib/isUuid";
 import {
   APPLICANT_STATUSES,
   isApplicantStatus,
@@ -137,22 +138,26 @@ export async function getApplicantById(id: string) {
 }
 
 export async function searchUserProfiles(query: string) {
-  const trimmed = escapeForIlike(query);
-  if (!trimmed) return [];
+  const rawQuery = query.trim();
+  const trimmed = escapeForIlike(rawQuery);
+  const filters = [
+    ...(trimmed
+      ? [
+          `display_name.ilike.%${trimmed}%`,
+          `contact_email.ilike.%${trimmed}%`,
+          `auth_email.ilike.%${trimmed}%`,
+          `organization_slug.ilike.%${trimmed}%`,
+        ]
+      : []),
+    ...(isUuid(rawQuery) ? [`user_id.eq.${rawQuery}`] : []),
+  ];
 
-  const pattern = `%${trimmed}%`;
+  if (filters.length === 0) return [];
+
   const { data, error } = await supabaseAdmin
     .from("user_profiles")
     .select(USER_PROFILE_SELECT)
-    .or(
-      [
-        `display_name.ilike.${pattern}`,
-        `contact_email.ilike.${pattern}`,
-        `auth_email.ilike.${pattern}`,
-        `organization_slug.ilike.${pattern}`,
-        `user_id.ilike.${pattern}`,
-      ].join(","),
-    )
+    .or(filters.join(","))
     .order("display_name", { ascending: true })
     .limit(20);
 

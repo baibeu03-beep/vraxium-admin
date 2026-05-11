@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,12 +34,69 @@ async function waitForServerAdminSession() {
   return false;
 }
 
+function describeCallbackParams(params: URLSearchParams): {
+  kind: "info" | "error";
+  message: string;
+} | null {
+  const error = params.get("error");
+  if (error) {
+    if (error === "missing_email") {
+      return {
+        kind: "error",
+        message:
+          "카카오 계정의 이메일 동의를 받지 못했습니다. Kakao 동의항목에서 이메일을 허용한 뒤 다시 시도해주세요.",
+      };
+    }
+    if (error === "missing_code") {
+      return {
+        kind: "error",
+        message: "로그인 응답이 비어 있습니다. 다시 시도해주세요.",
+      };
+    }
+    if (error === "exchange_failed") {
+      return {
+        kind: "error",
+        message: "세션 발급에 실패했습니다. 다시 시도해주세요.",
+      };
+    }
+    return { kind: "error", message: error };
+  }
+
+  if (params.get("pending") === "1") {
+    return {
+      kind: "info",
+      message:
+        "가입 신청을 접수했습니다. 관리자의 승인을 기다려주세요.",
+    };
+  }
+
+  const info = params.get("info");
+  if (info === "approved_user_no_app") {
+    return {
+      kind: "info",
+      message:
+        "승인된 일반 사용자 계정입니다. 이 화면은 어드민 전용이므로, 사용자 페이지에서 로그인해주세요.",
+    };
+  }
+
+  return null;
+}
+
 export default function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [kakaoLoading, setKakaoLoading] = useState(false);
+  const [callbackBanner, setCallbackBanner] = useState<
+    ReturnType<typeof describeCallbackParams>
+  >(null);
+
+  useEffect(() => {
+    setCallbackBanner(describeCallbackParams(searchParams));
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +138,31 @@ export default function LoginForm() {
     router.replace("/admin");
   };
 
+  const handleKakaoLogin = async () => {
+    if (kakaoLoading) return;
+    setErrorMessage("");
+    setKakaoLoading(true);
+
+    const redirectTo = `${window.location.origin}/auth/callback`;
+
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider: "kakao",
+      options: {
+        redirectTo,
+      },
+    });
+
+    if (error) {
+      setErrorMessage(
+        error.message ?? "카카오 로그인을 시작하지 못했습니다.",
+      );
+      setKakaoLoading(false);
+      return;
+    }
+    // signInWithOAuth triggers a full-page redirect — keep the spinner visible
+    // until the navigation happens.
+  };
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/40 px-6">
       <Card className="w-full max-w-sm">
@@ -88,6 +170,18 @@ export default function LoginForm() {
           <CardTitle>Admin Login</CardTitle>
         </CardHeader>
         <CardContent>
+          {callbackBanner && (
+            <div
+              className={
+                "mb-4 rounded-md border px-3 py-2 text-sm " +
+                (callbackBanner.kind === "info"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-red-200 bg-red-50 text-red-700")
+              }
+            >
+              {callbackBanner.message}
+            </div>
+          )}
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">Email</Label>
@@ -112,10 +206,30 @@ export default function LoginForm() {
             {errorMessage && (
               <p className="text-sm text-destructive">{errorMessage}</p>
             )}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading || kakaoLoading}>
               {loading ? "로그인 중..." : "로그인"}
             </Button>
           </form>
+
+          <div className="my-4 flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
+            <span className="h-px flex-1 bg-border" />
+            <span>또는</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full bg-[#FEE500] text-[#191919] hover:bg-[#FEE500]/90 hover:text-[#191919]"
+            onClick={() => void handleKakaoLogin()}
+            disabled={loading || kakaoLoading}
+          >
+            {kakaoLoading ? "카카오로 이동 중..." : "카카오로 로그인"}
+          </Button>
+          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+            처음 카카오 로그인 시에는 가입 신청이 접수되며, 관리자의 승인 후
+            이용할 수 있습니다.
+          </p>
         </CardContent>
       </Card>
     </main>

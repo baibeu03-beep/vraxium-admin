@@ -12,6 +12,10 @@ Supabase SQL Editor에서 **파일명 알파벳 순서대로** 실행한다.
 | 1  | `2026-05-05_admin_crew_management.sql`        | `legacy_crew_import` 관리 컬럼(`is_visible`, `admin_note`, `updated_at`) + `crew_list_view` 재정의 |
 | 2  | `2026-05-05_organization_aware_crew.sql`      | `organization_slug` join + `admin_crew_list_view` + `set_crew_organization()` RPC                    |
 | 3  | `2026-05-07_resume_card_admin.sql`            | resume-card admin 3개 테이블 (`user_resume_card_settings`, `organization_resume_card_settings`, `site_resume_card_settings`) + seed |
+| 4  | `2026-05-08_admin_applicants.sql`             | `public.applicants` + `auth_email` unique index + `touch_applicants_updated_at` trigger                |
+| 5  | `2026-05-08_admin_users_hardening.sql`        | admin user-profiles 운영 컬럼 보강                                                                     |
+| 6  | `2026-05-11_users_legacy_user_id_default.sql` | `users.legacy_user_id`에 synthetic bigint sequence default 부여 (신규 승인 사용자용, 100000000+)   |
+| 7  | `2026-05-11_applicants_email_provider_unique.sql` | Kakao 재로그인 idempotency를 위한 `applicants(lower(email), provider)` unique index            |
 
 ## 주의사항
 
