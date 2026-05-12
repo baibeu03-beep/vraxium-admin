@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Loader2, RefreshCw, Search } from "lucide-react";
 import {
   Card,
@@ -310,6 +311,7 @@ export default function AppUsersList() {
                   <TableHead>상태</TableHead>
                   <TableHead>가입일</TableHead>
                   <TableHead>최근 수정</TableHead>
+                  <TableHead className="w-[200px] text-right">관리</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -375,13 +377,42 @@ export default function AppUsersList() {
                       <TableCell className="whitespace-nowrap text-xs">
                         {fmtDate(user.updatedAt)}
                       </TableCell>
+                      <TableCell className="text-right">
+                        {currentSlug ? (
+                          <div className="flex justify-end items-center gap-1">
+                            <Link
+                              href={`/admin/crews/${encodeURIComponent(
+                                currentSlug,
+                              )}/${encodeURIComponent(user.userId)}`}
+                              className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                            >
+                              Resume
+                            </Link>
+                            <Link
+                              href={`/admin/crews/${encodeURIComponent(
+                                currentSlug,
+                              )}/${encodeURIComponent(user.userId)}/cluster2`}
+                              className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                            >
+                              Cluster 2
+                            </Link>
+                          </div>
+                        ) : (
+                          <span
+                            className="text-[10px] text-muted-foreground"
+                            title="organization_slug 가 없는 사용자입니다. 소속을 먼저 지정하세요."
+                          >
+                            소속 필요
+                          </span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {!loading && users.length === 0 && !error && (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="py-10 text-center text-muted-foreground"
                     >
                       조회된 사용자가 없습니다.
@@ -391,7 +422,7 @@ export default function AppUsersList() {
                 {loading && users.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="py-10 text-center text-muted-foreground"
                     >
                       불러오는 중...

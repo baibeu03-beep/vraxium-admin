@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import ResumeCardEditor from "@/components/admin/ResumeCardEditor";
+import Cluster2Editor from "@/components/admin/Cluster2Editor";
 import { isOrganizationSlug, ORGANIZATION_LABEL } from "@/lib/organizations";
 
 type Props = {
   params: Promise<{ organization: string; legacy_user_id: string }>;
 };
 
-export default async function CrewResumeCardPage({ params }: Props) {
+export default async function CrewCluster2Page({ params }: Props) {
   const { organization, legacy_user_id } = await params;
   if (!isOrganizationSlug(organization)) notFound();
 
@@ -34,18 +34,18 @@ export default async function CrewResumeCardPage({ params }: Props) {
       </div>
 
       <div className="flex items-center gap-2 text-xs">
-        <span className="rounded-md border bg-foreground px-2 py-1 text-background">
-          Resume Card
-        </span>
         <Link
-          href={`/admin/crews/${organization}/${legacy_user_id}/cluster2`}
+          href={`/admin/crews/${organization}/${legacy_user_id}`}
           className="rounded-md border px-2 py-1 hover:bg-muted"
         >
-          Cluster 2
+          Resume Card
         </Link>
+        <span className="rounded-md border bg-foreground px-2 py-1 text-background">
+          Cluster 2
+        </span>
       </div>
 
-      <ResumeCardEditor
+      <Cluster2Editor
         organization={organization}
         legacyUserId={legacy_user_id}
       />

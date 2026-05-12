@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Pencil, Plus, Search, X } from "lucide-react";
+import Link from "next/link";
+import { Eye, EyeOff, Plus, Search, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -114,7 +114,6 @@ export default function CrewManager({
 }: {
   organization: OrganizationSlug;
 }) {
-  const router = useRouter();
   const [data, setData] = useState<Crew[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -197,15 +196,8 @@ export default function CrewManager({
     setModalOpen(true);
   };
 
-  // Edit는 운영 테이블 편집을 위해 풀페이지 editor로 이동.
+  // Edit 진입은 row 안의 "Resume Card" / "Cluster 2" 텍스트 링크로 대체했다.
   // 기존 modal은 legacy_crew_import staging 신규 등록(Add) 전용으로 유지.
-  const openEdit = (crew: Crew) => {
-    router.push(
-      `/admin/crews/${encodeURIComponent(organization)}/${encodeURIComponent(
-        String(crew.legacyUserId),
-      )}`,
-    );
-  };
 
   const closeModal = () => {
     if (submitting) return;
@@ -412,7 +404,7 @@ export default function CrewManager({
                   <TableHead className="text-right">Approved</TableHead>
                   <TableHead>Organization</TableHead>
                   <TableHead>Admin Note</TableHead>
-                  <TableHead className="w-32 text-right">Actions</TableHead>
+                  <TableHead className="w-56 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -458,15 +450,27 @@ export default function CrewManager({
                       {crew.adminNote ?? ""}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => openEdit(crew)}
-                          aria-label="Edit"
+                      <div className="flex justify-end items-center gap-1">
+                        <Link
+                          href={`/admin/crews/${encodeURIComponent(
+                            organization,
+                          )}/${encodeURIComponent(
+                            String(crew.userId ?? crew.legacyUserId),
+                          )}`}
+                          className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                         >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                          Resume Card
+                        </Link>
+                        <Link
+                          href={`/admin/crews/${encodeURIComponent(
+                            organization,
+                          )}/${encodeURIComponent(
+                            String(crew.userId ?? crew.legacyUserId),
+                          )}/cluster2`}
+                          className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                        >
+                          Cluster 2
+                        </Link>
                         <Button
                           variant="ghost"
                           size="icon-sm"

@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 
 const TITLES: Record<string, string> = {
-  "/admin": "Dashboard",
+  "/admin": "대시보드",
   "/admin/applicants": "Applicants",
-  "/admin/crews": "Crew Management",
-  "/admin/import": "Import",
-  "/admin/settings": "Settings",
+  "/admin/crews": "조직 관리",
+  "/admin/import": "가져오기",
+  "/admin/settings": "설정",
 };
 
 function resolveTitle(pathname: string): string {
@@ -21,7 +21,7 @@ function resolveTitle(pathname: string): string {
   if (orgMatch) {
     const slug = orgMatch[1];
     if (isOrganizationSlug(slug)) {
-      return `Crew Management · ${ORGANIZATION_LABEL[slug]}`;
+      return `조직 관리 · ${ORGANIZATION_LABEL[slug]}`;
     }
   }
   return "Admin";

@@ -1,12 +1,23 @@
 import { NextRequest } from "next/server";
-import { ADMIN_READ_ROLES, ADMIN_WRITE_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
-import { getAdminCrewDtoByLegacyUserId, listAdminCrewDtos } from "@/lib/adminCrewData";
+import {
+  ADMIN_READ_ROLES,
+  ADMIN_WRITE_ROLES,
+  requireAdmin,
+  toAdminErrorResponse,
+} from "@/lib/adminAuth";
+import {
+  getAdminCrewDtoByLegacyUserId,
+  listAdminCrewDtos,
+} from "@/lib/adminCrewData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { isOrganizationSlug } from "@/lib/organizations";
 
-const TABLE = "legacy_crew_import";
+const LEGACY_TABLE = "legacy_crew_import";
 
+// Add Crew 모달 — legacy 정적 import 데이터를 보강하기 위한 경로다.
+// 신규 카카오 승인 사용자는 /admin/applicants → approve-new 경로로 추가되고,
+// /admin/users 에서 organization_slug 가 부여되므로 본 POST 를 거치지 않는다.
 const WRITABLE_FIELDS = [
   "legacy_user_id",
   "display_name",
@@ -108,48 +119,59 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data, error } = await supabaseAdmin
-    .from(TABLE)
+  const { data: inserted, error: insertError } = await supabaseAdmin
+    .from(LEGACY_TABLE)
     .insert(payload)
     .select("*")
     .single();
 
-  if (error) {
-    console.error("[admin/crews POST insert]", error);
-    const status = error.code === "23505" ? 409 : 500;
-    return Response.json({ success: false, error: error.message }, { status });
-  }
-
-  const { data: matched, error: rpcError } = await supabaseAdmin.rpc(
-    "set_crew_organization",
-    {
-      p_legacy_user_id: String(payload.legacy_user_id),
-      p_organization_slug: organizationSlug,
-    },
-  );
-
-  const normalized = await getAdminCrewDtoByLegacyUserId(String(payload.legacy_user_id));
-
-  if (rpcError) {
-    console.error("[admin/crews POST rpc]", rpcError);
+  if (insertError) {
+    console.error("[admin/crews POST insert]", insertError);
+    const status = insertError.code === "23505" ? 409 : 500;
     return Response.json(
-      {
-        success: true,
-        data: normalized ?? data,
-        warning: `legacy_crew_import은 저장됐지만 organization 동기화 실패: ${rpcError.message}`,
-      },
-      { status: 201 },
+      { success: false, error: insertError.message },
+      { status },
     );
   }
+
+  // organization_slug 는 user_profiles 에 직접 반영한다.
+  // users.legacy_user_id = payload.legacy_user_id 로 매칭되는 user_profiles 가
+  // 있어야 한다. 매칭되지 않으면 경고만 띄우고 legacy row 는 유지한다.
+  let warning: string | undefined;
+
+  const legacyUserId = String(payload.legacy_user_id);
+  const { data: userRow, error: userErr } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .eq("legacy_user_id", legacyUserId)
+    .maybeSingle();
+
+  if (userErr) {
+    console.error("[admin/crews POST users lookup]", userErr);
+    warning = `users 조회 실패: ${userErr.message}`;
+  } else if (!userRow?.id) {
+    warning =
+      "users 테이블에 legacy_user_id 매칭 row 가 없어 organization_slug 를 동기화하지 못했습니다. 사용자가 가입한 뒤 다시 시도하세요.";
+  } else {
+    const { error: orgErr } = await supabaseAdmin
+      .from("user_profiles")
+      .update({ organization_slug: organizationSlug })
+      .eq("user_id", userRow.id);
+    if (orgErr) {
+      console.error("[admin/crews POST organization_slug]", orgErr);
+      warning = `legacy_crew_import 은 저장됐지만 organization_slug 동기화 실패: ${orgErr.message}`;
+    }
+  }
+
+  const normalized = userRow?.id
+    ? await getAdminCrewDtoByLegacyUserId(userRow.id)
+    : null;
 
   return Response.json(
     {
       success: true,
-      data: normalized ?? data,
-      warning:
-        matched === 0
-          ? "user_profiles에 매칭되는 행이 없어 organization_slug를 설정하지 못했습니다. 인증 가입 후 다시 시도하세요."
-          : undefined,
+      data: normalized ?? inserted,
+      warning,
     },
     { status: 201 },
   );

@@ -1,12 +1,24 @@
 import { NextRequest } from "next/server";
-import { ADMIN_READ_ROLES, ADMIN_WRITE_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
-import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
+import {
+  ADMIN_READ_ROLES,
+  ADMIN_WRITE_ROLES,
+  requireAdmin,
+  toAdminErrorResponse,
+} from "@/lib/adminAuth";
+import {
+  getAdminCrewDtoByLegacyUserId,
+  getUsersLegacyUserIdByUserId,
+} from "@/lib/adminCrewData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isOrganizationSlug } from "@/lib/organizations";
 
-const TABLE = "legacy_crew_import";
+const LEGACY_TABLE = "legacy_crew_import";
 
-const UPDATABLE_FIELDS = [
+// legacy_crew_import 에 남아 있는 admin 메타데이터.
+// is_visible / admin_note / cumulative_weeks 는 schema 이전 전까지 이 테이블에 유지한다.
+// display_name / team_name / part_name 도 화면 호환을 위해 받지만, 권장 채널은
+// user_profiles / user_memberships / user_growth_stats 다.
+const LEGACY_UPDATABLE_FIELDS = [
   "display_name",
   "team_name",
   "part_name",
@@ -15,13 +27,13 @@ const UPDATABLE_FIELDS = [
   "admin_note",
 ] as const;
 
-type UpdateInput = Partial<Record<(typeof UPDATABLE_FIELDS)[number], unknown>>;
+type LegacyUpdate = Partial<Record<(typeof LEGACY_UPDATABLE_FIELDS)[number], unknown>>;
 type Ctx = { params: Promise<{ legacy_user_id: string }> };
 
-function pickUpdate(body: unknown): UpdateInput {
+function pickLegacyUpdate(body: unknown): LegacyUpdate {
   if (!body || typeof body !== "object") return {};
-  const out: UpdateInput = {};
-  for (const key of UPDATABLE_FIELDS) {
+  const out: LegacyUpdate = {};
+  for (const key of LEGACY_UPDATABLE_FIELDS) {
     if (key in (body as Record<string, unknown>)) {
       out[key] = (body as Record<string, unknown>)[key];
     }
@@ -51,7 +63,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
 
     return Response.json({ success: true, data: crew });
   } catch (error) {
-    console.error("[admin/crews/:legacy_user_id GET]", error);
+    console.error("[admin/crews/:id GET]", error);
     return Response.json(
       {
         success: false,
@@ -83,39 +95,31 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     );
   }
 
-  const patch = pickUpdate(body);
+  const legacyPatch = pickLegacyUpdate(body);
   const organizationSlug = (body as { organization_slug?: unknown })
     ?.organization_slug;
   const wantsOrgUpdate = organizationSlug !== undefined;
 
-  if (Object.keys(patch).length === 0 && !wantsOrgUpdate) {
+  if (Object.keys(legacyPatch).length === 0 && !wantsOrgUpdate) {
     return Response.json(
       { success: false, error: "No updatable fields in body" },
       { status: 400 },
     );
   }
 
-  if (Object.keys(patch).length > 0) {
-    const { error } = await supabaseAdmin
-      .from(TABLE)
-      .update(patch)
-      .eq("legacy_user_id", legacy_user_id)
-      .select("legacy_user_id")
-      .single();
-
-    if (error) {
-      console.error("[admin/crews PATCH]", error);
-      const status = error.code === "PGRST116" ? 404 : 500;
-      return Response.json(
-        { success: false, error: error.message },
-        { status },
-      );
-    }
+  const existing = await getAdminCrewDtoByLegacyUserId(legacy_user_id);
+  if (!existing) {
+    return Response.json(
+      { success: false, error: "Crew not found" },
+      { status: 404 },
+    );
   }
 
   let warning: string | undefined;
+
+  // 1) organization_slug — user_profiles canonical 업데이트
   if (wantsOrgUpdate) {
-    if (!isOrganizationSlug(organizationSlug)) {
+    if (organizationSlug !== null && !isOrganizationSlug(organizationSlug)) {
       return Response.json(
         {
           success: false,
@@ -125,32 +129,91 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       );
     }
 
-    const { data: matched, error: rpcError } = await supabaseAdmin.rpc(
-      "set_crew_organization",
-      {
-        p_legacy_user_id: String(legacy_user_id),
-        p_organization_slug: organizationSlug,
-      },
-    );
+    const { error: orgError } = await supabaseAdmin
+      .from("user_profiles")
+      .update({ organization_slug: organizationSlug ?? null })
+      .eq("user_id", existing.userId);
 
-    if (rpcError) {
-      console.error("[admin/crews PATCH rpc]", rpcError);
+    if (orgError) {
+      console.error("[admin/crews PATCH organization_slug]", orgError);
       return Response.json(
-        { success: false, error: rpcError.message },
+        { success: false, error: orgError.message },
+        { status: 500 },
+      );
+    }
+  }
+
+  // 2) legacy_crew_import 메타데이터 (is_visible / admin_note 등)
+  if (Object.keys(legacyPatch).length > 0) {
+    let legacyUserId = existing.usersLegacyUserId;
+    if (!legacyUserId) {
+      legacyUserId = await getUsersLegacyUserIdByUserId(existing.userId);
+    }
+
+    if (!legacyUserId) {
+      return Response.json(
+        {
+          success: false,
+          error:
+            "users.legacy_user_id 가 없어 legacy_crew_import 메타데이터를 업데이트할 수 없습니다.",
+        },
+        { status: 409 },
+      );
+    }
+
+    const { data: existingLegacy, error: legacySelErr } = await supabaseAdmin
+      .from(LEGACY_TABLE)
+      .select("legacy_user_id")
+      .eq("legacy_user_id", legacyUserId)
+      .maybeSingle();
+    if (legacySelErr) {
+      console.error("[admin/crews PATCH legacy select]", legacySelErr);
+      return Response.json(
+        { success: false, error: legacySelErr.message },
         { status: 500 },
       );
     }
 
-    if (matched === 0) {
+    if (existingLegacy) {
+      const { error: updErr } = await supabaseAdmin
+        .from(LEGACY_TABLE)
+        .update(legacyPatch)
+        .eq("legacy_user_id", legacyUserId);
+      if (updErr) {
+        console.error("[admin/crews PATCH legacy update]", updErr);
+        return Response.json(
+          { success: false, error: updErr.message },
+          { status: 500 },
+        );
+      }
+    } else {
+      const insertPayload = {
+        ...legacyPatch,
+        legacy_user_id: legacyUserId,
+        display_name:
+          typeof legacyPatch.display_name === "string" && legacyPatch.display_name
+            ? legacyPatch.display_name
+            : existing.displayName,
+      };
+      const { error: insErr } = await supabaseAdmin
+        .from(LEGACY_TABLE)
+        .insert(insertPayload);
+      if (insErr) {
+        console.error("[admin/crews PATCH legacy insert]", insErr);
+        return Response.json(
+          { success: false, error: insErr.message },
+          { status: 500 },
+        );
+      }
       warning =
-        "user_profiles에 매칭되는 행이 없어 organization_slug를 설정하지 못했습니다.";
+        "legacy_crew_import 행이 없어 새로 생성했습니다 (운영 메타데이터 보존용).";
     }
   }
 
   const crew = await getAdminCrewDtoByLegacyUserId(legacy_user_id);
   if (!crew) {
     return Response.json(
-      { success: false, error: "Crew not found" },
+      { success: false, error: "Crew not found after update" },
       { status: 404 },
     );
   }
@@ -169,20 +232,60 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
 
   const { legacy_user_id } = await params;
 
-  const { error } = await supabaseAdmin
-    .from(TABLE)
-    .update({ is_visible: false })
-    .eq("legacy_user_id", legacy_user_id)
-    .select("legacy_user_id")
-    .single();
-
-  if (error) {
-    console.error("[admin/crews DELETE]", error);
-    const status = error.code === "PGRST116" ? 404 : 500;
+  const existing = await getAdminCrewDtoByLegacyUserId(legacy_user_id);
+  if (!existing) {
     return Response.json(
-      { success: false, error: error.message },
-      { status },
+      { success: false, error: "Crew not found" },
+      { status: 404 },
     );
+  }
+
+  const legacyUserId =
+    existing.usersLegacyUserId ??
+    (await getUsersLegacyUserIdByUserId(existing.userId));
+
+  if (!legacyUserId) {
+    return Response.json(
+      {
+        success: false,
+        error:
+          "users.legacy_user_id 가 없어 visibility 를 변경할 수 없습니다.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const { data: legacyRow } = await supabaseAdmin
+    .from(LEGACY_TABLE)
+    .select("legacy_user_id")
+    .eq("legacy_user_id", legacyUserId)
+    .maybeSingle();
+
+  if (legacyRow) {
+    const { error } = await supabaseAdmin
+      .from(LEGACY_TABLE)
+      .update({ is_visible: false })
+      .eq("legacy_user_id", legacyUserId);
+    if (error) {
+      console.error("[admin/crews DELETE]", error);
+      return Response.json(
+        { success: false, error: error.message },
+        { status: 500 },
+      );
+    }
+  } else {
+    const { error } = await supabaseAdmin.from(LEGACY_TABLE).insert({
+      legacy_user_id: legacyUserId,
+      display_name: existing.displayName,
+      is_visible: false,
+    });
+    if (error) {
+      console.error("[admin/crews DELETE legacy insert]", error);
+      return Response.json(
+        { success: false, error: error.message },
+        { status: 500 },
+      );
+    }
   }
 
   const crew = await getAdminCrewDtoByLegacyUserId(legacy_user_id);

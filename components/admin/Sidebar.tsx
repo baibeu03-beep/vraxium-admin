@@ -36,10 +36,10 @@ type BranchItem = {
 type MenuItem = LeafItem | BranchItem;
 
 const MENU: MenuItem[] = [
-  { kind: "leaf", label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { kind: "leaf", label: "대시보드", href: "/admin", icon: LayoutDashboard },
   {
     kind: "branch",
-    label: "Crew Management",
+    label: "조직 관리",
     icon: Users,
     basePath: "/admin/crews",
     children: ORGANIZATIONS.map((slug) => ({
@@ -58,8 +58,8 @@ const MENU: MenuItem[] = [
       { label: "관리자 계정", href: "/admin/users/admin-users" },
     ],
   },
-  { kind: "leaf", label: "Import", href: "/admin/import", icon: Upload },
-  { kind: "leaf", label: "Settings", href: "/admin/settings", icon: SettingsIcon },
+  { kind: "leaf", label: "가져오기", href: "/admin/import", icon: Upload },
+  { kind: "leaf", label: "설정", href: "/admin/settings", icon: SettingsIcon },
 ];
 
 function isLeafActive(pathname: string, href: string) {

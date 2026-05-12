@@ -19,6 +19,7 @@ Supabase SQL Editor에서 **파일명 알파벳 순서대로** 실행한다.
 
 ## 주의사항
 
+- **Deprecated (2026-05-11 이후 admin app 사용 안 함)**: `admin_crew_list_view` 와 `set_crew_organization(text, text)` RPC. admin `/admin/crews/[slug]` 경로가 `user_profiles.organization_slug` 를 source of truth 로 직접 조회하면서 더는 참조하지 않는다. 사용자 앱이 아직 `crew_list_view` 를 읽을 수 있으므로 그쪽은 유지한다. 후속 cleanup migration 으로 drop 예정.
 - **1·2번 SQL의 user 매칭 컬럼**: 파일 내 `⚠` 라인(`up.user_id::text = lci.legacy_user_id::text`)은 운영 DB의 `user_profiles` 키 컬럼이 `user_id`인지 `id`인지에 맞춰 한 번 조정해야 한다. STEP 0 probe 쿼리 참조.
 - **3번 SQL은 1번에 의존**: `user_resume_card_settings.user_id`가 `user_profiles(user_id)`를 FK로 참조한다.
 - **권한 정책**: 신규 테이블은 모두 `anon`/`authenticated` SELECT만, write는 `service_role`(=`supabaseAdmin`) 경유 admin API에서만. 별도 RLS 정책은 두지 않는다.
