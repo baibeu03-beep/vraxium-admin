@@ -30,6 +30,7 @@ type BranchItem = {
   label: string;
   icon: LucideIcon;
   basePath: string;
+  matchPaths?: string[];
   children: { label: string; href: string }[];
 };
 
@@ -39,13 +40,17 @@ const MENU: MenuItem[] = [
   { kind: "leaf", label: "대시보드", href: "/admin", icon: LayoutDashboard },
   {
     kind: "branch",
-    label: "조직 관리",
+    label: "멤버 관리",
     icon: Users,
     basePath: "/admin/crews",
-    children: ORGANIZATIONS.map((slug) => ({
-      label: ORGANIZATION_LABEL[slug],
-      href: `/admin/crews/${slug}`,
-    })),
+    matchPaths: ["/admin/crews", "/admin/members"],
+    children: [
+      { label: "전체 멤버", href: "/admin/members" },
+      ...ORGANIZATIONS.map((slug) => ({
+        label: ORGANIZATION_LABEL[slug],
+        href: `/admin/crews/${slug}`,
+      })),
+    ],
   },
   {
     kind: "branch",
@@ -59,7 +64,15 @@ const MENU: MenuItem[] = [
     ],
   },
   { kind: "leaf", label: "가져오기", href: "/admin/import", icon: Upload },
-  { kind: "leaf", label: "설정", href: "/admin/settings", icon: SettingsIcon },
+  {
+    kind: "branch",
+    label: "설정",
+    icon: SettingsIcon,
+    basePath: "/admin/settings",
+    children: [
+      { label: "작성 기간 관리", href: "/admin/settings/edit-windows" },
+    ],
+  },
 ];
 
 function isLeafActive(pathname: string, href: string) {
@@ -69,6 +82,11 @@ function isLeafActive(pathname: string, href: string) {
 
 function isUnderBase(pathname: string, basePath: string) {
   return pathname === basePath || pathname.startsWith(basePath + "/");
+}
+
+function isUnderAnyBase(pathname: string, item: BranchItem) {
+  const paths = item.matchPaths ?? [item.basePath];
+  return paths.some((p) => isUnderBase(pathname, p));
 }
 
 export default function Sidebar() {
@@ -83,7 +101,7 @@ export default function Sidebar() {
     () => {
       const init: Record<string, boolean> = {};
       for (const item of MENU) {
-        if (item.kind === "branch" && isUnderBase(pathname, item.basePath)) {
+        if (item.kind === "branch" && isUnderAnyBase(pathname, item)) {
           init[item.basePath] = true;
         }
       }
@@ -158,7 +176,7 @@ export default function Sidebar() {
           }
 
           const Icon = item.icon;
-          const inSection = isUnderBase(pathname, item.basePath);
+          const inSection = isUnderAnyBase(pathname, item);
           const branchOpen = openBranches[item.basePath] ?? inSection;
 
           // 사이드바가 접힌 상태: 아이콘만, 클릭 시 펼치고 분기도 같이 연다.

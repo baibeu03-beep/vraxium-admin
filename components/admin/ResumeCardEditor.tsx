@@ -57,12 +57,18 @@ type SiteSettings = {
   help_tooltip_default: string | null;
 } | null;
 
+// Section = FormState 보관용 union (preview/표시까지 포함).
+// EditableSection = 실제 PATCH body 에 포함되는 union — dual-write 정리 (2026-05-13) 후
+//   profile / membership / resumeCardSettings 만 편집 가능.
+//   education, introduction(slogan_1) 은 Cluster 2 가 canonical writer 이므로 표시만.
 type Section =
   | "profile"
   | "education"
   | "membership"
   | "introduction"
   | "resumeCardSettings";
+
+type EditableSection = "profile" | "membership" | "resumeCardSettings";
 
 type FormState = Record<Section, Record<string, unknown>>;
 
@@ -73,6 +79,7 @@ type FormState = Record<Section, Record<string, unknown>>;
 // contact_available: text 컬럼. user-app resume-card 모달이 plain text 또는 JSON 문자열로
 //   저장하므로 admin 측에선 textarea로 그대로 노출한다.
 // 제거됨: eng_name, phone, email, bio — DB 컬럼 미존재로 PATCH 500 유발
+// dual-write 정리 (2026-05-13): profile_photo_url 제거 — Cluster 2 → Photos 가 canonical writer.
 const PROFILE_FIELDS: readonly FieldDef[] = [
   { key: "display_name", label: "이름 (display_name)", type: "text" },
   { key: "gender", label: "성별 (gender)", type: "text" },
@@ -86,12 +93,6 @@ const PROFILE_FIELDS: readonly FieldDef[] = [
     type: "textarea",
     full: true,
     placeholder: "예: 평일 19~22시 / 또는 user-app이 저장한 JSON 문자열 그대로",
-  },
-  {
-    key: "profile_photo_url",
-    label: "Profile Photo URL",
-    type: "url",
-    full: true,
   },
   { key: "vision", label: "Vision", type: "textarea", full: true },
   {
@@ -108,19 +109,9 @@ const PROFILE_FIELDS: readonly FieldDef[] = [
   },
 ];
 
-// 실제 user_educations 스키마 기준. lib/adminResumeCardData.ts:EDUCATION_FIELDS 와 일치해야 함.
-// 제거됨: major_name_2/3, status, admission_year, graduation_year, grade_value, grade_max_type
-const EDUCATION_FIELDS: readonly FieldDef[] = [
-  { key: "school_name", label: "학교 (school_name)", type: "text" },
-  { key: "major_name_1", label: "전공 (major_name_1)", type: "text" },
-  {
-    key: "is_primary",
-    label: "is_primary (대표 학력 여부)",
-    type: "checkbox",
-    full: true,
-  },
-  { key: "sort_order", label: "Sort Order", type: "number" },
-];
+// dual-write 정리 (2026-05-13): EDUCATION_FIELDS / INTRODUCTION_FIELDS 입력 제거.
+// 학력은 Cluster 2 → Educations, slogan_1 은 Cluster 2 → Slogans 에서만 수정.
+// Resume Card 는 GET 응답을 읽기 전용으로 표시한다.
 
 const MEMBERSHIP_FIELDS: readonly FieldDef[] = [
   { key: "team_name", label: "팀 (team_name)", type: "text" },
@@ -133,10 +124,6 @@ const MEMBERSHIP_FIELDS: readonly FieldDef[] = [
     type: "checkbox",
     full: true,
   },
-];
-
-const INTRODUCTION_FIELDS: readonly FieldDef[] = [
-  { key: "slogan_1", label: "Slogan 1", type: "textarea", full: true },
 ];
 
 const RESUME_CARD_SETTINGS_FIELDS: readonly FieldDef[] = [
@@ -157,7 +144,7 @@ const RESUME_CARD_SETTINGS_FIELDS: readonly FieldDef[] = [
 ];
 
 const SECTION_DEFS: Record<
-  Section,
+  EditableSection,
   { label: string; description: string; fields: readonly FieldDef[] }
 > = {
   profile: {
@@ -165,20 +152,10 @@ const SECTION_DEFS: Record<
     description: "user_profiles · 1:1",
     fields: PROFILE_FIELDS,
   },
-  education: {
-    label: "Education",
-    description: "user_educations · sort_order = 0",
-    fields: EDUCATION_FIELDS,
-  },
   membership: {
     label: "Membership",
     description: "user_memberships · is_current = true",
     fields: MEMBERSHIP_FIELDS,
-  },
-  introduction: {
-    label: "Introduction",
-    description: "user_introductions",
-    fields: INTRODUCTION_FIELDS,
   },
   resumeCardSettings: {
     label: "Resume Card Settings",
@@ -187,11 +164,10 @@ const SECTION_DEFS: Record<
   },
 };
 
-const SECTION_ORDER: readonly Section[] = [
+// dual-write 정리 (2026-05-13): education / introduction 은 PATCH 대상에서 제외.
+const SECTION_ORDER: readonly EditableSection[] = [
   "profile",
-  "education",
   "membership",
-  "introduction",
   "resumeCardSettings",
 ];
 
@@ -219,8 +195,10 @@ function syncFormFromBundle(bundle: Bundle | null): FormState {
   };
 }
 
-function buildPatchBody(form: FormState): Record<Section, Record<string, unknown>> {
-  const out = {} as Record<Section, Record<string, unknown>>;
+function buildPatchBody(
+  form: FormState,
+): Record<EditableSection, Record<string, unknown>> {
+  const out = {} as Record<EditableSection, Record<string, unknown>>;
   for (const section of SECTION_ORDER) {
     const def = SECTION_DEFS[section];
     const sectionPatch: Record<string, unknown> = {};
@@ -358,7 +336,11 @@ export default function ResumeCardEditor({
     }
   };
 
-  const setFieldValue = (section: Section, key: string, value: unknown) => {
+  const setFieldValue = (
+    section: EditableSection,
+    key: string,
+    value: unknown,
+  ) => {
     setForm((current) => ({
       ...current,
       [section]: { ...current[section], [key]: value },
@@ -478,12 +460,90 @@ export default function ResumeCardEditor({
       )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        {/* form (5 sections) */}
+        {/* form — 편집 가능 섹션은 SECTION_ORDER 만, 학력/슬로건은 readonly 카드 */}
         <div className="flex flex-col gap-4 xl:col-span-2">
-          {SECTION_ORDER.map((section) => {
-            const def = SECTION_DEFS[section];
+          {/* Profile (편집) — profile_photo_url 은 dual-write 정리로 제거됨 */}
+          {(() => {
+            const def = SECTION_DEFS.profile;
+            const photoUrl =
+              (bundle?.profile?.profile_photo_url as string | null) ?? null;
             return (
-              <Card key={section}>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">{def.label}</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {def.description}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-3 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    프로필 사진은 <strong>Cluster 2 → Photos</strong> 에서
+                    수정합니다.
+                    {photoUrl && (
+                      <div className="mt-1 break-all font-mono text-[10px]">
+                        {photoUrl}
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {def.fields.map((field) => (
+                      <FieldCell
+                        key={field.key}
+                        field={field}
+                        value={form.profile[field.key]}
+                        onChange={(v) =>
+                          setFieldValue("profile", field.key, v)
+                        }
+                        disabled={inputsDisabled}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* Education (readonly) — Cluster 2 → Educations 가 canonical writer */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Education{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  (readonly)
+                </span>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                user_educations · 대표학력 표시 전용
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-3 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                학력은 <strong>Cluster 2 → Educations</strong> 에서 수정합니다.
+                Resume Card 는 대표학력
+                (<code className="font-mono">is_primary=true</code>) 만 표시합니다.
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 text-sm">
+                <PreviewBlock title="학교 (school_name)">
+                  {fmt(form.education.school_name)}
+                </PreviewBlock>
+                <PreviewBlock title="전공 (major_name_1)">
+                  {fmt(form.education.major_name_1)}
+                </PreviewBlock>
+                <PreviewBlock title="is_primary">
+                  {String(Boolean(form.education.is_primary))}
+                </PreviewBlock>
+                <PreviewBlock title="sort_order">
+                  {fmt(form.education.sort_order)}
+                </PreviewBlock>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Membership (편집) */}
+          {(() => {
+            const def = SECTION_DEFS.membership;
+            return (
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-base">{def.label}</CardTitle>
                   <p className="text-xs text-muted-foreground">
@@ -496,8 +556,10 @@ export default function ResumeCardEditor({
                       <FieldCell
                         key={field.key}
                         field={field}
-                        value={form[section][field.key]}
-                        onChange={(v) => setFieldValue(section, field.key, v)}
+                        value={form.membership[field.key]}
+                        onChange={(v) =>
+                          setFieldValue("membership", field.key, v)
+                        }
                         disabled={inputsDisabled}
                       />
                     ))}
@@ -505,7 +567,60 @@ export default function ResumeCardEditor({
                 </CardContent>
               </Card>
             );
-          })}
+          })()}
+
+          {/* Introduction (readonly) — Cluster 2 → Slogans 가 canonical writer */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                Introduction{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  (readonly)
+                </span>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                user_introductions · slogan 표시 전용
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-3 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                Slogan 은 <strong>Cluster 2 → Slogans</strong> 에서 수정합니다.
+              </div>
+              <PreviewBlock title="Slogan 1">
+                {fmt(form.introduction.slogan_1)}
+              </PreviewBlock>
+            </CardContent>
+          </Card>
+
+          {/* Resume Card Settings (편집) */}
+          {(() => {
+            const def = SECTION_DEFS.resumeCardSettings;
+            return (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">{def.label}</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    {def.description}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {def.fields.map((field) => (
+                      <FieldCell
+                        key={field.key}
+                        field={field}
+                        value={form.resumeCardSettings[field.key]}
+                        onChange={(v) =>
+                          setFieldValue("resumeCardSettings", field.key, v)
+                        }
+                        disabled={inputsDisabled}
+                      />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
         </div>
 
         {/* preview + debug */}

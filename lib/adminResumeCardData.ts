@@ -12,6 +12,8 @@ import type { OrganizationSlug } from "@/lib/organizations";
 // 제거됨: eng_name, phone, email, bio (DB 컬럼 미존재 → 500 유발)
 // 제외(시스템): user_id, created_at, updated_at, growth_status, organization_slug,
 //               school_name, department_name (학력은 user_educations에서 관리)
+// dual-write 정리 (2026-05-13): profile_photo_url 제거 — Cluster 2 → Photos 가
+//   canonical writer. Resume Card 는 표시만.
 export const PROFILE_FIELDS = [
   "display_name",
   "gender",
@@ -20,20 +22,13 @@ export const PROFILE_FIELDS = [
   "contact_phone",
   "contact_email",
   "contact_available",
-  "profile_photo_url",
   "vision",
   "status",
 ] as const;
 
-// 실제 user_educations 스키마 기준 (2026-05-07 확인).
-// 제거됨: major_name_2, major_name_3, status, admission_year, graduation_year,
-//         grade_value, grade_max_type (DB 컬럼 미존재)
-export const EDUCATION_FIELDS = [
-  "school_name",
-  "major_name_1",
-  "is_primary",
-  "sort_order",
-] as const;
+// dual-write 정리 (2026-05-13): EDUCATION_FIELDS / body.education PATCH 블록 제거.
+// user_educations 의 canonical writer 는 Cluster 2 → Educations (전체 row delete+insert).
+// Resume Card GET 응답의 `education` 필드는 pickPrimaryEducation 결과로 계속 채움 (표시 전용).
 
 export const MEMBERSHIP_FIELDS = [
   "team_name",
@@ -43,7 +38,9 @@ export const MEMBERSHIP_FIELDS = [
   "is_current",
 ] as const;
 
-export const INTRODUCTION_FIELDS = ["slogan_1"] as const;
+// dual-write 정리 (2026-05-13): slogan_1 제거 — Cluster 2 → Slogans 가 canonical writer.
+// 빈 whitelist 로 둬서 body.introduction 이 들어와도 서버가 silently drop 한다.
+export const INTRODUCTION_FIELDS = [] as const;
 
 export const USER_RESUME_CARD_SETTINGS_FIELDS = [
   "hexagon_link_1",
@@ -342,75 +339,10 @@ export async function patchResumeCardForCrew(
     }
   }
 
-  // 2. user_educations (대표 학력 row) — find-or-create
-  //    선택 기준: is_primary=true → sort_order ASC → updated_at DESC.
-  //    user-app /api/profile, /api/educations 와 일치해야 한다.
-  if (body.education !== undefined) {
-    const patch = pickWritable(body.education, EDUCATION_FIELDS);
-    if (Object.keys(patch).length > 0) {
-      applied.education = patch;
-      const { data: existingRows, error: selErr } = await supabaseAdmin
-        .from("user_educations")
-        .select("id, is_primary, sort_order, updated_at")
-        .eq("user_id", userId);
-      if (selErr) throw selErr;
-
-      const rows = (existingRows ?? []) as EducationCandidate[];
-      const primary = pickPrimaryEducation(rows);
-
-      // Diagnostic warnings — admin이 데이터 정리해야 하는 케이스를 surfacing
-      const primaryRows = rows.filter((r) => r.is_primary === true);
-      if (primaryRows.length > 1) {
-        warnings.push(
-          `user_educations에 is_primary=true row가 ${primaryRows.length}개입니다 ` +
-            `(id=${primaryRows.map((r) => r.id).join(", ")}). 데이터 정리가 필요합니다.`,
-        );
-      }
-      const zeroRows = rows.filter((r) => (r.sort_order ?? -1) === 0);
-      if (
-        zeroRows.length > 0 &&
-        primary &&
-        !zeroRows.some((z) => z.id === primary.id)
-      ) {
-        warnings.push(
-          `user_educations에 sort_order=0 row(id=${zeroRows
-            .map((z) => z.id)
-            .join(", ")})가 대표 학력(id=${primary.id})과 별도로 존재합니다. ` +
-            `과거 admin editor 버그로 만들어진 ghost row일 수 있습니다 — 한쪽을 정리하세요.`,
-        );
-      }
-      if (zeroRows.length > 1) {
-        warnings.push(
-          `user_educations에 sort_order=0 row가 ${zeroRows.length}개 있습니다 ` +
-            `(id=${zeroRows.map((z) => z.id).join(", ")}).`,
-        );
-      }
-
-      if (primary) {
-        const { error } = await supabaseAdmin
-          .from("user_educations")
-          .update(patch)
-          .eq("id", primary.id);
-        if (error) throw error;
-      } else {
-        warnings.push(
-          "user_educations에 대표 학력 row가 없어 새로 생성했습니다 (is_primary=true, sort_order=1).",
-        );
-        const insertPayload = {
-          ...patch,
-          user_id: userId,
-          is_primary:
-            typeof patch.is_primary === "boolean" ? patch.is_primary : true,
-          sort_order:
-            typeof patch.sort_order === "number" ? patch.sort_order : 1,
-        };
-        const { error } = await supabaseAdmin
-          .from("user_educations")
-          .insert(insertPayload);
-        if (error) throw error;
-      }
-    }
-  }
+  // 2. user_educations — dual-write 정리 (2026-05-13) 로 PATCH 처리 제거됨.
+  //    canonical writer = Cluster 2 → Educations (전체 row delete+insert).
+  //    Resume Card 가 body.education 을 보내더라도 여기서 silently drop 한다.
+  //    GET 의 대표학력 표시(`pickPrimaryEducation`)는 유지.
 
   // 3. user_memberships (is_current=true) — find-or-create
   if (body.membership !== undefined) {
