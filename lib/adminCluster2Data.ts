@@ -1,4 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  REVIEW_LINK_RESOURCE_KEY,
+  REVIEW_LINK_SLOTS,
+  type ReviewLinkDto,
+} from "@/lib/reviewLinks";
 
 // ─────────────────────────────────────────────────────────────────────
 // Cluster2 admin — source of truth (실제 supabase schema 기준, 2026-05-12)
@@ -184,6 +189,7 @@ export type Cluster2Bundle = {
   educations: Cluster2EducationDto[];
   reviewLink: {
     cluving_review_link: string | null;
+    links: ReviewLinkDto[];
     readonly: true;
     window: {
       resourceKey: typeof REVIEW_LINK_RESOURCE_KEY;
@@ -229,10 +235,6 @@ export type Cluster2PatchBody = {
 
 type Section = "photos" | "slogans" | "videos" | "introductions" | "educations";
 
-// admin editor 의 Review Link 값 자체는 1차 범위에서 readonly 유지하지만,
-// 사용자의 작성 가능 여부는 user_edit_windows 로 판정해서 안내 문구로 노출한다.
-const REVIEW_LINK_RESOURCE_KEY = "cluster2.review_links" as const;
-
 type ReviewLinkWindow = Cluster2Bundle["reviewLink"]["window"];
 
 function computeReviewLinkWindow(
@@ -268,6 +270,34 @@ function computeReviewLinkWindow(
     openedAt: openedValid ? opened.toISOString() : row.opened_at,
     expiresAt: expiresValid ? expires.toISOString() : row.expires_at,
   };
+}
+
+function buildReviewLinks(
+  rows: Array<{
+    week_index: number;
+    url: string | null;
+    is_visible: boolean | null;
+  }>,
+  legacyTotalComplete: string | null,
+): ReviewLinkDto[] {
+  const byWeek = new Map<number, (typeof rows)[number]>();
+  for (const row of rows) {
+    byWeek.set(row.week_index, row);
+  }
+
+  return REVIEW_LINK_SLOTS.map((slot) => {
+    const row = byWeek.get(slot.weekIndex);
+    const legacyUrl =
+      slot.weekIndex === 30 && legacyTotalComplete?.trim()
+        ? legacyTotalComplete
+        : null;
+    return {
+      ...slot,
+      url: row?.url ?? legacyUrl,
+      isVisible: row?.is_visible ?? true,
+      isLegacyBackfilled: !row && Boolean(legacyUrl),
+    };
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -421,13 +451,21 @@ export async function getCluster2ForCrew(
       educations: [],
       reviewLink: {
         cluving_review_link: null,
+        links: buildReviewLinks([], null),
         readonly: true,
         window: computeReviewLinkWindow(null),
       },
     };
   }
 
-  const [profileRes, clusterRes, introRes, eduRes, windowRes] = await Promise.all([
+  const [
+    profileRes,
+    clusterRes,
+    introRes,
+    eduRes,
+    windowRes,
+    reviewLinksRes,
+  ] = await Promise.all([
     supabaseAdmin
       .from("user_profiles")
       .select("profile_photo_url")
@@ -461,9 +499,20 @@ export async function getCluster2ForCrew(
       .eq("user_id", userId)
       .eq("resource_key", REVIEW_LINK_RESOURCE_KEY)
       .maybeSingle(),
+    supabaseAdmin
+      .from("user_review_links")
+      .select("week_index,url,is_visible")
+      .eq("user_id", userId),
   ]);
 
-  for (const res of [profileRes, clusterRes, introRes, eduRes, windowRes]) {
+  for (const res of [
+    profileRes,
+    clusterRes,
+    introRes,
+    eduRes,
+    windowRes,
+    reviewLinksRes,
+  ]) {
     if (res.error) {
       console.error("[cluster2] query failed (GET bundle)", {
         userId,
@@ -521,6 +570,8 @@ export async function getCluster2ForCrew(
     opened_at: string | null;
     expires_at: string | null;
   } | null;
+  const legacyTotalComplete =
+    (cluster?.cluving_review_link as string | null) ?? null;
 
   return {
     legacyUserId,
@@ -531,8 +582,15 @@ export async function getCluster2ForCrew(
     introductions,
     educations: eduRows.map(toEducationDto),
     reviewLink: {
-      cluving_review_link:
-        (cluster?.cluving_review_link as string | null) ?? null,
+      cluving_review_link: legacyTotalComplete,
+      links: buildReviewLinks(
+        ((reviewLinksRes.data ?? []) as unknown) as Array<{
+          week_index: number;
+          url: string | null;
+          is_visible: boolean | null;
+        }>,
+        legacyTotalComplete,
+      ),
       readonly: true,
       window: computeReviewLinkWindow(windowRow),
     },

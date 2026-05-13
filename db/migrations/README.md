@@ -18,6 +18,7 @@ Supabase SQL Editor에서 **파일명 알파벳 순서대로** 실행한다.
 | 7  | `2026-05-11_applicants_email_provider_unique.sql` | Kakao 재로그인 idempotency를 위한 `applicants(lower(email), provider)` unique index            |
 | 8  | `2026-05-12_schools_source_unique.sql`        | `schools(source, source_id)` 복합 unique index — 외부 sync 의 idempotent upsert 용              |
 | 9  | `2026-05-13_user_edit_windows.sql`            | 범용 사용자×리소스 편집 가능 기간 관리 (`user_edit_windows`) — 1차 resource: `cluster2.review_links` |
+| 10 | `2026-05-13_user_review_links.sql`            | Cluster2 Club Review 10개 슬롯 저장 (`user_review_links`) + 기존 `cluving_review_link` backfill |
 
 ## 주의사항
 

@@ -33,6 +33,7 @@ import {
   CLUSTER2_SLOGAN_OPTIONS,
   isCanonicalSloganOption,
 } from "@/lib/cluster2SloganOptions";
+import { type ReviewLinkDto } from "@/lib/reviewLinks";
 
 // Cluster2 admin editor.
 // resume-card editor 와 동일한 패턴:
@@ -60,6 +61,7 @@ type Bundle = {
   educations: EducationDto[];
   reviewLink: {
     cluving_review_link: string | null;
+    links: ReviewLinkDto[];
     readonly: true;
     window: {
       resourceKey: "cluster2.review_links";
@@ -374,46 +376,29 @@ function ReviewLinkWindowNotice({
   );
 }
 
-const REVIEW_LINK_SLOTS = [
-  {
-    key: "cluving_review_link",
-    label: "Total Complete",
-    stored: true,
-    helper: "user_cluster2.cluving_review_link",
-  },
-  { key: "review_link_3w", label: "3 weeks", stored: false },
-  { key: "review_link_6w", label: "6 weeks", stored: false },
-  { key: "review_link_9w", label: "9 weeks", stored: false },
-  { key: "review_link_12w", label: "12 weeks", stored: false },
-  { key: "review_link_15w", label: "15 weeks", stored: false },
-  { key: "review_link_18w", label: "18 weeks", stored: false },
-  { key: "review_link_21w", label: "21 weeks", stored: false },
-  { key: "review_link_24w", label: "24 weeks", stored: false },
-  { key: "review_link_27w", label: "27 weeks", stored: false },
-] as const;
-
 function ReviewLinkSlots({
-  value,
+  links,
 }: {
-  value: string | null | undefined;
+  links: ReviewLinkDto[] | undefined;
 }) {
+  const normalizedLinks = links ?? [];
   return (
     <div className="flex flex-col gap-3">
-      <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
-        <div className="font-medium">현재 운영 저장 슬롯: Total Complete 1개</div>
+      <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+        <div className="font-medium">현재 운영 저장 슬롯: Club Review 10개</div>
         <div className="mt-0.5">
-          3w~27w 슬롯은 프론트 demo UI이며 DB 저장 대상이 아닙니다.
+          3w~27w와 Total Complete 모두 public.user_review_links에 저장됩니다.
+          기존 Total Complete 호환 컬럼은 user_cluster2.cluving_review_link 입니다.
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {REVIEW_LINK_SLOTS.map((slot) => {
-          const slotValue = slot.stored ? value : null;
+        {normalizedLinks.map((slot) => {
           return (
-            <div key={slot.key} className="flex flex-col gap-1.5">
+            <div key={slot.weekIndex} className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between gap-2">
                 <label
-                  htmlFor={`review-link-${slot.key}`}
+                  htmlFor={`review-link-${slot.weekIndex}`}
                   className="text-xs font-medium"
                 >
                   {slot.label}
@@ -421,34 +406,26 @@ function ReviewLinkSlots({
                 <span
                   className={cn(
                     "rounded-full border px-2 py-0.5 text-[10px]",
-                    slot.stored
+                    slot.isVisible
                       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                       : "border-zinc-200 bg-zinc-50 text-zinc-600",
                   )}
                 >
-                  {slot.stored ? "DB 저장" : "DB 미연결"}
+                  {slot.isVisible ? "DB 저장" : "숨김"}
                 </span>
               </div>
               <Input
-                id={`review-link-${slot.key}`}
-                value={
-                  slot.stored
-                    ? slotValue?.trim()
-                      ? slotValue
-                      : "—"
-                    : "미운영 슬롯 / DB 미연결"
-                }
+                id={`review-link-${slot.weekIndex}`}
+                value={slot.url?.trim() ? slot.url : "—"}
                 readOnly
-                disabled={!slot.stored}
-                className={cn(
-                  "font-mono text-xs",
-                  !slot.stored && "text-muted-foreground",
-                )}
+                className="font-mono text-xs"
               />
               <div className="min-h-4 text-[10px] text-muted-foreground">
-                {slot.stored
-                  ? slot.helper
-                  : "프론트 표시용 demo 슬롯입니다. 현재 저장 API/DB 컬럼과 연결되어 있지 않습니다."}
+                user_review_links.week_index={slot.weekIndex}
+                {slot.weekIndex === 30
+                  ? " · legacy: user_cluster2.cluving_review_link"
+                  : ""}
+                {slot.isLegacyBackfilled ? " · legacy 값 fallback 표시 중" : ""}
               </div>
             </div>
           );
@@ -456,7 +433,8 @@ function ReviewLinkSlots({
       </div>
 
       <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        주차별 Review Link 운영화 시 user_review_links 또는 user_cluster2 확장 필요
+        Admin 직접 수정은 후속 단계에서 열 수 있습니다. 1차 운영 저장은 Front
+        Club Review API와 public.user_review_links 기준입니다.
       </div>
     </div>
   );
@@ -882,7 +860,7 @@ export default function Cluster2Editor({
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <ReviewLinkWindowNotice window={bundle?.reviewLink.window} />
-              <ReviewLinkSlots value={bundle?.reviewLink.cluving_review_link} />
+              <ReviewLinkSlots links={bundle?.reviewLink.links} />
             </CardContent>
           </Card>
         </div>
@@ -949,10 +927,13 @@ export default function Cluster2Editor({
                 </ol>
               </PreviewBlock>
               <PreviewBlock title="Review Link (readonly)">
-                <div>Total Complete: {fmt(bundle?.reviewLink.cluving_review_link)}</div>
-                <div className="mt-1 text-[10px] text-muted-foreground">
-                  3w~27w: demo UI / DB 미연결
-                </div>
+                <ol className="list-decimal pl-4 text-xs">
+                  {(bundle?.reviewLink.links ?? []).map((link) => (
+                    <li key={link.weekIndex}>
+                      {link.label}: {fmt(link.url)}
+                    </li>
+                  ))}
+                </ol>
               </PreviewBlock>
             </CardContent>
           </Card>
