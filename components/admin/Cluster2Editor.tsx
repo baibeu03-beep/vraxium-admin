@@ -27,6 +27,10 @@ import EducationsList, {
   EDUCATION_FIELD_DEFS,
   type EducationDto,
 } from "@/components/admin/cluster2/EducationsList";
+import {
+  CLUSTER2_SLOGAN_OPTIONS,
+  isCanonicalSloganOption,
+} from "@/lib/cluster2SloganOptions";
 
 // Cluster2 admin editor.
 // resume-card editor 와 동일한 패턴:
@@ -77,11 +81,48 @@ type FormState = {
 // Field definitions
 //   서버 whitelist (lib/adminCluster2Data.ts) 와 1:1.
 // ─────────────────────────────────────────────────────────────────────
-const SLOGAN_FIELDS: readonly FieldDef[] = [
-  { key: "slogan_1", label: "Slogan 1", type: "textarea", full: true },
-  { key: "slogan_2", label: "Slogan 2", type: "textarea", full: true },
-  { key: "slogan_3", label: "Slogan 3", type: "textarea", full: true },
-];
+// 슬로건은 1/2/3 세트별로 text + tag + rating 을 함께 편집한다.
+// 서버 lib/adminCluster2Data.ts:SLOGAN_FIELDS 의 9 컬럼과 1:1 대응.
+type SloganGroup = {
+  index: 1 | 2 | 3;
+  text: FieldDef;
+  tag: FieldDef;
+  rating: FieldDef;
+};
+
+const SLOGAN_GROUPS: readonly SloganGroup[] = [1, 2, 3].map((i) => ({
+  index: i as 1 | 2 | 3,
+  text: {
+    key: `slogan_${i}`,
+    label: `Text (slogan_${i})`,
+    type: "textarea",
+    full: true,
+  },
+  // options 는 render 시점에 legacy 값을 fallback 으로 합쳐서 다시 주입한다.
+  // canonical 목록은 lib/cluster2SloganOptions.ts (front 와 mirror).
+  tag: {
+    key: `slogan_${i}_tag`,
+    label: `Tag (slogan_${i}_tag)`,
+    type: "select",
+    options: CLUSTER2_SLOGAN_OPTIONS,
+  },
+  rating: {
+    key: `slogan_${i}_rating`,
+    label: `Rating 0–10 (slogan_${i}_rating)`,
+    type: "number",
+    min: 0,
+    max: 10,
+    step: 1,
+    placeholder: "0–10 정수",
+  },
+}));
+
+// SLOGAN_GROUPS 의 9개 FieldDef 를 일렬로 펼친 형태 — buildPatchBody 가 일괄 normalize 할 때 사용.
+const SLOGAN_FIELDS: readonly FieldDef[] = SLOGAN_GROUPS.flatMap((g) => [
+  g.text,
+  g.tag,
+  g.rating,
+]);
 
 const VIDEO_FIELDS: readonly FieldDef[] = [
   {
@@ -192,7 +233,17 @@ function sanitizeStorageUrl(value: string | null | undefined): string | null {
 function buildPatchBody(form: FormState) {
   const slogans: Record<string, unknown> = {};
   for (const field of SLOGAN_FIELDS) {
-    slogans[field.key] = normalizeForPatch(form.slogans[field.key], field.type);
+    const normalized = normalizeForPatch(form.slogans[field.key], field.type);
+    // rating 컬럼은 DB 가 integer 라 0–10 정수로 클램프해서 보낸다.
+    if (
+      field.key.endsWith("_rating") &&
+      typeof normalized === "number" &&
+      Number.isFinite(normalized)
+    ) {
+      slogans[field.key] = Math.max(0, Math.min(10, Math.round(normalized)));
+    } else {
+      slogans[field.key] = normalized;
+    }
   }
   const videos: Record<string, unknown> = {};
   for (const field of VIDEO_FIELDS) {
@@ -460,25 +511,75 @@ export default function Cluster2Editor({
             </CardContent>
           </Card>
 
-          {/* Slogans */}
+          {/* Slogans — 1/2/3 세트별로 text + tag + rating */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Slogans</CardTitle>
               <p className="text-xs text-muted-foreground">
-                user_introductions.slogan_{`{1,2,3}`} · _tag · _rating
+                user_introductions.slogan_{`{1,2,3}`} · _tag · _rating (0–10
+                정수)
               </p>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {SLOGAN_FIELDS.map((field) => (
-                  <FieldCell
-                    key={field.key}
-                    field={field}
-                    value={form.slogans[field.key]}
-                    onChange={(v) => setSloganValue(field.key, v)}
-                    disabled={inputsDisabled}
-                  />
-                ))}
+              <div className="flex flex-col gap-6">
+                {SLOGAN_GROUPS.map((group) => {
+                  // DB 의 기존 값이 canonical 옵션에 없는 경우 (front 옵션이 바뀌었거나
+                  // 과거 자유 입력 값) 유실 방지를 위해 select options 끝에 fallback 으로 추가.
+                  const tagRaw = form.slogans[group.tag.key];
+                  const tagValueStr =
+                    typeof tagRaw === "string" ? tagRaw.trim() : "";
+                  const isLegacyTag =
+                    tagValueStr.length > 0 &&
+                    !isCanonicalSloganOption(tagValueStr);
+                  const tagField: FieldDef = isLegacyTag
+                    ? {
+                        ...group.tag,
+                        options: [...CLUSTER2_SLOGAN_OPTIONS, tagValueStr],
+                      }
+                    : group.tag;
+                  return (
+                    <div
+                      key={group.index}
+                      className={cn(
+                        "flex flex-col gap-3",
+                        group.index > 1 && "border-t pt-6",
+                      )}
+                    >
+                      <div className="text-sm font-medium">
+                        Slogan {group.index}
+                      </div>
+                      <FieldCell
+                        field={group.text}
+                        value={form.slogans[group.text.key]}
+                        onChange={(v) => setSloganValue(group.text.key, v)}
+                        disabled={inputsDisabled}
+                      />
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="flex flex-col gap-1">
+                          <FieldCell
+                            field={tagField}
+                            value={tagValueStr}
+                            onChange={(v) => setSloganValue(group.tag.key, v)}
+                            disabled={inputsDisabled}
+                          />
+                          {isLegacyTag && (
+                            <p className="text-[10px] text-amber-700">
+                              기존 값 <code className="font-mono">{tagValueStr}</code>{" "}
+                              는 canonical 옵션에 없습니다. 다른 옵션을 고르면
+                              덮어쓰입니다.
+                            </p>
+                          )}
+                        </div>
+                        <FieldCell
+                          field={group.rating}
+                          value={form.slogans[group.rating.key]}
+                          onChange={(v) => setSloganValue(group.rating.key, v)}
+                          disabled={inputsDisabled}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -613,15 +714,18 @@ export default function Cluster2Editor({
                   ))}
                 </ol>
               </PreviewBlock>
-              <PreviewBlock title="Slogan 1">
-                {fmt(form.slogans.slogan_1)}
-              </PreviewBlock>
-              <PreviewBlock title="Slogan 2">
-                {fmt(form.slogans.slogan_2)}
-              </PreviewBlock>
-              <PreviewBlock title="Slogan 3">
-                {fmt(form.slogans.slogan_3)}
-              </PreviewBlock>
+              {SLOGAN_GROUPS.map((group) => (
+                <PreviewBlock
+                  key={group.index}
+                  title={`Slogan ${group.index}`}
+                >
+                  {fmt(form.slogans[group.text.key])}
+                  <div className="mt-0.5 text-[10px] text-muted-foreground">
+                    tag: {fmt(form.slogans[group.tag.key])} · rating:{" "}
+                    {fmt(form.slogans[group.rating.key])}
+                  </div>
+                </PreviewBlock>
+              ))}
               <PreviewBlock title="Videos">
                 <ol className="list-decimal pl-4">
                   <li>{fmt(form.videos.video_url_1)}</li>

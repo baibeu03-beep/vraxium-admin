@@ -10,20 +10,30 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 //     - cluving_review_link   (readonly — admin editor 표시만)
 //
 //   user_introductions (1:1, PK: user_id)
-//     - slogan_1, slogan_2, slogan_3
-//     (slogan_*_tag / _rating 같은 컬럼은 schema 에 없음 — 사용 금지)
+//     - slogan_1 / slogan_2 / slogan_3                 (text)
+//     - slogan_1_tag / slogan_2_tag / slogan_3_tag     (text)
+//     - slogan_1_rating / slogan_2_rating / slogan_3_rating (integer, 0~10 권장)
 //
 //   user_educations (1:N, PK: id, key: user_id)
-//     - school_name, major_name_1, sort_order, is_primary
+//     core (편집):  school_name, major_name_1, sort_order(integer), is_primary(boolean)
+//     extra (편집, 모두 text):
+//       education_level, status, major_category,
+//       major_name_2, major_name_3,
+//       admission_year, admission_month,
+//       graduation_year, graduation_month,
+//       grade_max_type, grade_value, note
+//     readonly:     id(uuid), user_id(uuid), created_at, updated_at
+//     (2026-05-13 PostgREST OpenAPI 기준 — admission_year/month, graduation_year/month,
+//      grade_value 는 모두 DB 가 text 컬럼. 정수 캐스팅 금지.)
 //
 // 정책:
 //   - routeParam = user_profiles.user_id (UUID) 만 사용.
 //   - user_cluster2 / user_introductions row 가 없으면 GET 은 null-safe bundle,
 //     PATCH 첫 저장 시 자동 upsert.
 //   - user_educations 는 body 에 포함된 경우에만 user_id 전체 delete + insert.
+//     ⇒ id 는 매번 새로 발급되므로 admin form 에서 readonly 표시만 한다.
 //   - cluving_review_link 는 admin editor 에서 readonly 표시. PATCH 미수용.
-//   - 존재하지 않는 컬럼 (sub_photo_5, slogan_*_tag, education status/category 등)은
-//     절대 select / update 하지 않는다.
+//   - 존재하지 않는 컬럼 (sub_photo_5 등)은 절대 select / update 하지 않는다.
 // ─────────────────────────────────────────────────────────────────────
 
 export class Cluster2Error extends Error {
@@ -67,24 +77,89 @@ export const INTRODUCTION_FIELDS = [
   "personal_story",
 ] as const;
 
-export const SLOGAN_FIELDS = ["slogan_1", "slogan_2", "slogan_3"] as const;
+// text 3 + tag(text) 3 + rating(integer) 3. PostgREST OpenAPI 로 schema 확인됨 (2026-05-13).
+// slogan_*_rating 은 DB 가 integer 라 admin 측에서도 정수로 normalize 한다.
+export const SLOGAN_FIELDS = [
+  "slogan_1",
+  "slogan_2",
+  "slogan_3",
+  "slogan_1_tag",
+  "slogan_2_tag",
+  "slogan_3_tag",
+  "slogan_1_rating",
+  "slogan_2_rating",
+  "slogan_3_rating",
+] as const;
 
-export const EDUCATION_INPUT_FIELDS = [
+// 편집 가능한 컬럼 화이트리스트 (id/user_id/created_at/updated_at 제외).
+// DB 컬럼 타입은 sort_order=integer, is_primary=boolean, 나머지 12개=text.
+export const EDUCATION_CORE_FIELDS = [
   "school_name",
   "major_name_1",
   "sort_order",
   "is_primary",
 ] as const;
 
+export const EDUCATION_EXTRA_TEXT_FIELDS = [
+  "education_level",
+  "status",
+  "major_category",
+  "major_name_2",
+  "major_name_3",
+  "admission_year",
+  "admission_month",
+  "graduation_year",
+  "graduation_month",
+  "grade_max_type",
+  "grade_value",
+  "note",
+] as const;
+
+export const EDUCATION_INPUT_FIELDS = [
+  ...EDUCATION_CORE_FIELDS,
+  ...EDUCATION_EXTRA_TEXT_FIELDS,
+] as const;
+
+// GET 시 함께 가져오는 readonly meta 컬럼.
+const EDUCATION_READONLY_META_FIELDS = [
+  "id",
+  "user_id",
+  "created_at",
+  "updated_at",
+] as const;
+
+const EDUCATION_SELECT = [
+  ...EDUCATION_READONLY_META_FIELDS,
+  ...EDUCATION_INPUT_FIELDS,
+].join(",");
+
 // ─────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────
 export type Cluster2EducationDto = {
+  // readonly meta
   id: string | number;
+  user_id: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  // core (editable)
   school_name: string | null;
   major_name_1: string | null;
   sort_order: number;
   is_primary: boolean;
+  // extra text columns (editable)
+  education_level: string | null;
+  status: string | null;
+  major_category: string | null;
+  major_name_2: string | null;
+  major_name_3: string | null;
+  admission_year: string | null;
+  admission_month: string | null;
+  graduation_year: string | null;
+  graduation_month: string | null;
+  grade_max_type: string | null;
+  grade_value: string | null;
+  note: string | null;
 };
 
 export type Cluster2Bundle = {
@@ -95,7 +170,9 @@ export type Cluster2Bundle = {
     mainPhoto: string | null;
     subPhotos: (string | null)[]; // 길이 4 — sub_photo_1_url ~ _4_url
   } | null;
-  slogans: Record<(typeof SLOGAN_FIELDS)[number], string | null> | null;
+  slogans:
+    | Record<(typeof SLOGAN_FIELDS)[number], string | number | null>
+    | null;
   videos: Record<(typeof VIDEO_FIELDS)[number], string | null> | null;
   introductions:
     | Record<(typeof INTRODUCTION_FIELDS)[number], string | null>
@@ -113,6 +190,18 @@ export type EducationInput = Partial<{
   major_name_1: string | null;
   sort_order: number;
   is_primary: boolean;
+  education_level: string | null;
+  status: string | null;
+  major_category: string | null;
+  major_name_2: string | null;
+  major_name_3: string | null;
+  admission_year: string | null;
+  admission_month: string | null;
+  graduation_year: string | null;
+  graduation_month: string | null;
+  grade_max_type: string | null;
+  grade_value: string | null;
+  note: string | null;
 }>;
 
 export type Cluster2PatchBody = {
@@ -175,17 +264,45 @@ function pickWritable(
   return out;
 }
 
+function readText(row: Row, key: string): string | null {
+  const v = row[key];
+  return typeof v === "string" ? v : v == null ? null : String(v);
+}
+
 function toEducationDto(row: Row): Cluster2EducationDto {
-  return {
+  const dto: Cluster2EducationDto = {
     id: (row.id as string | number) ?? "",
-    school_name: (row.school_name as string | null) ?? null,
-    major_name_1: (row.major_name_1 as string | null) ?? null,
+    user_id: readText(row, "user_id"),
+    created_at: readText(row, "created_at"),
+    updated_at: readText(row, "updated_at"),
+    school_name: readText(row, "school_name"),
+    major_name_1: readText(row, "major_name_1"),
     sort_order:
       typeof row.sort_order === "number"
         ? row.sort_order
         : Number(row.sort_order ?? 0),
     is_primary: Boolean(row.is_primary),
+    education_level: readText(row, "education_level"),
+    status: readText(row, "status"),
+    major_category: readText(row, "major_category"),
+    major_name_2: readText(row, "major_name_2"),
+    major_name_3: readText(row, "major_name_3"),
+    admission_year: readText(row, "admission_year"),
+    admission_month: readText(row, "admission_month"),
+    graduation_year: readText(row, "graduation_year"),
+    graduation_month: readText(row, "graduation_month"),
+    grade_max_type: readText(row, "grade_max_type"),
+    grade_value: readText(row, "grade_value"),
+    note: readText(row, "note"),
   };
+  return dto;
+}
+
+function normString(value: string | null | undefined) {
+  if (value === undefined || value === null) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed || trimmed === "-") return null;
+  return trimmed;
 }
 
 function fromEducationInput(input: EducationInput, fallbackIndex: number) {
@@ -194,19 +311,18 @@ function fromEducationInput(input: EducationInput, fallbackIndex: number) {
       ? input.sort_order
       : Number(input.sort_order ?? fallbackIndex + 1);
 
-  const normString = (value: string | null | undefined) => {
-    if (value === undefined || value === null) return null;
-    const trimmed = String(value).trim();
-    if (!trimmed || trimmed === "-") return null;
-    return trimmed;
-  };
-
-  return {
+  const out: Record<string, unknown> = {
     school_name: normString(input.school_name),
     major_name_1: normString(input.major_name_1),
     sort_order: Number.isFinite(sortOrder) ? sortOrder : fallbackIndex + 1,
     is_primary: Boolean(input.is_primary),
   };
+  for (const key of EDUCATION_EXTRA_TEXT_FIELDS) {
+    out[key] = normString(
+      (input as Record<string, string | null | undefined>)[key],
+    );
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -289,7 +405,7 @@ export async function getCluster2ForCrew(
       .maybeSingle(),
     supabaseAdmin
       .from("user_educations")
-      .select("id, school_name, major_name_1, sort_order, is_primary")
+      .select(EDUCATION_SELECT)
       .eq("user_id", userId)
       .order("sort_order", { ascending: true }),
   ]);
@@ -309,7 +425,7 @@ export async function getCluster2ForCrew(
   } | null;
   const cluster = (clusterRes.data ?? null) as Row | null;
   const intro = (introRes.data ?? null) as Row | null;
-  const eduRows = (eduRes.data ?? []) as Row[];
+  const eduRows = ((eduRes.data ?? []) as unknown) as Row[];
 
   const photos = {
     sidebarPhoto: profile?.profile_photo_url ?? null,
@@ -340,6 +456,12 @@ export async function getCluster2ForCrew(
     slogan_1: (intro?.slogan_1 as string | null) ?? null,
     slogan_2: (intro?.slogan_2 as string | null) ?? null,
     slogan_3: (intro?.slogan_3 as string | null) ?? null,
+    slogan_1_tag: (intro?.slogan_1_tag as string | null) ?? null,
+    slogan_2_tag: (intro?.slogan_2_tag as string | null) ?? null,
+    slogan_3_tag: (intro?.slogan_3_tag as string | null) ?? null,
+    slogan_1_rating: (intro?.slogan_1_rating as number | null) ?? null,
+    slogan_2_rating: (intro?.slogan_2_rating as number | null) ?? null,
+    slogan_3_rating: (intro?.slogan_3_rating as number | null) ?? null,
   };
 
   return {
@@ -534,12 +656,27 @@ export async function patchCluster2ForCrew(
       throw new Cluster2Error(400, "educations must be an array");
     }
 
-    const primaryCount = body.educations.filter(
-      (e) => Boolean(e.is_primary) || Number(e.sort_order) === 0,
-    ).length;
-    if (primaryCount > 1) {
+    const primaryRows = body.educations.filter((e) => Boolean(e.is_primary));
+    const sortZeroRows = body.educations.filter(
+      (e) => Number(e.sort_order) === 0,
+    );
+    if (primaryRows.length > 1) {
       warnings.push(
-        `is_primary=true (또는 sort_order=0) row 가 ${primaryCount}개입니다. front Cluster2 표시가 비결정적일 수 있습니다.`,
+        `is_primary=true row 가 ${primaryRows.length}개입니다. front Cluster2 표시가 비결정적일 수 있습니다.`,
+      );
+    }
+    if (sortZeroRows.length > 1) {
+      warnings.push(
+        `sort_order=0 row 가 ${sortZeroRows.length}개입니다. 대표 학력 정렬이 불안정할 수 있습니다.`,
+      );
+    }
+    // is_primary 와 sort_order=0 이 같은 row 를 가리키지 않으면 경고.
+    const mismatchCount = body.educations.filter(
+      (e) => Boolean(e.is_primary) !== (Number(e.sort_order) === 0),
+    ).length;
+    if (mismatchCount > 0) {
+      warnings.push(
+        `is_primary 와 sort_order=0 이 ${mismatchCount}개 row 에서 불일치합니다. 대표 학력 toggle 로 정리하는 것을 권장합니다.`,
       );
     }
 

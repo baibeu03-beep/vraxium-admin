@@ -345,9 +345,20 @@ export async function patchResumeCardForCrew(
   //    GET 의 대표학력 표시(`pickPrimaryEducation`)는 유지.
 
   // 3. user_memberships (is_current=true) — find-or-create
+  // ResumeCardEditor.buildPatchBody 가 form 전체를 항상 PATCH 하므로, 다른 섹션만
+  // 수정해도 membership payload 가 같이 실린다. 정체성 컬럼(team_name 등)이 모두
+  // 비어 있으면 사용자가 membership 을 의도적으로 편집한 게 아니므로 skip — 빈 row
+  // 자동 생성 / 같은 값으로 덮어쓰기 / "row 새로 생성했습니다" 경고를 모두 방지한다.
+  // is_current 만 있는 경우는 checkbox 기본값(false) 일 수 있어 meaningful 로 치지 않는다.
   if (body.membership !== undefined) {
     const patch = pickWritable(body.membership, MEMBERSHIP_FIELDS);
-    if (Object.keys(patch).length > 0) {
+    const hasMeaningfulMembership =
+      !!patch.team_name ||
+      !!patch.part_name ||
+      !!patch.membership_level ||
+      !!patch.membership_state;
+
+    if (Object.keys(patch).length > 0 && hasMeaningfulMembership) {
       applied.membership = patch;
       const { data: existingRows, error: selErr } = await supabaseAdmin
         .from("user_memberships")

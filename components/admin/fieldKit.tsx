@@ -31,6 +31,10 @@ export type FieldDef = {
   options?: readonly string[];
   placeholder?: string;
   full?: boolean;
+  // number 타입에서만 사용. 브라우저 native 검증/스피너 동작용.
+  min?: number;
+  max?: number;
+  step?: number;
 };
 
 // PATCH body 로 보내기 전 값 정규화.
@@ -167,6 +171,9 @@ export function FieldInput({
       onChange={(e) => onChange(e.target.value)}
       placeholder={field.placeholder}
       disabled={disabled}
+      min={field.type === "number" ? field.min : undefined}
+      max={field.type === "number" ? field.max : undefined}
+      step={field.type === "number" ? field.step : undefined}
     />
   );
 }
