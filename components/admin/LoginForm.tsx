@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
@@ -90,13 +90,10 @@ export default function LoginForm() {
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [kakaoLoading, setKakaoLoading] = useState(false);
-  const [callbackBanner, setCallbackBanner] = useState<
-    ReturnType<typeof describeCallbackParams>
-  >(null);
-
-  useEffect(() => {
-    setCallbackBanner(describeCallbackParams(searchParams));
-  }, [searchParams]);
+  const callbackBanner = useMemo(
+    () => describeCallbackParams(searchParams),
+    [searchParams],
+  );
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

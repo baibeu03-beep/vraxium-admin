@@ -76,6 +76,26 @@ export type ListEditWindowsOptions = {
   offset?: number;
 };
 
+function applyProfileFilters<T extends { or: (s: string) => T }>(
+  queryBuilder: T,
+  rawQuery: string,
+): T {
+  const trimmed = rawQuery ? escapeForIlike(rawQuery) : "";
+  const filters = [
+    ...(trimmed
+      ? [
+          `display_name.ilike.%${trimmed}%`,
+          `auth_email.ilike.%${trimmed}%`,
+          `contact_email.ilike.%${trimmed}%`,
+          `organization_slug.ilike.%${trimmed}%`,
+        ]
+      : []),
+    ...(isUuid(rawQuery) ? [`user_id.eq.${rawQuery}`] : []),
+  ];
+  if (filters.length === 0) return queryBuilder;
+  return queryBuilder.or(filters.join(","));
+}
+
 export async function listEditWindowsWithUsers(
   options: ListEditWindowsOptions,
 ): Promise<ListEditWindowsResult> {
@@ -94,23 +114,7 @@ export async function listEditWindowsWithUsers(
     .select(PROFILE_SELECT, { count: "exact" });
 
   const rawQuery = options.query?.trim() ?? "";
-  const trimmed = rawQuery ? escapeForIlike(rawQuery) : "";
-  const filters = [
-    ...(trimmed
-      ? [
-          `display_name.ilike.%${trimmed}%`,
-          `auth_email.ilike.%${trimmed}%`,
-          `contact_email.ilike.%${trimmed}%`,
-          `organization_slug.ilike.%${trimmed}%`,
-        ]
-      : []),
-    ...(isUuid(rawQuery) ? [`user_id.eq.${rawQuery}`] : []),
-  ];
-  if (filters.length > 0) {
-    queryBuilder = (queryBuilder as { or: (s: string) => typeof queryBuilder }).or(
-      filters.join(","),
-    );
-  }
+  queryBuilder = applyProfileFilters(queryBuilder, rawQuery);
 
   queryBuilder = queryBuilder
     .order("display_name", { ascending: true, nullsFirst: false })
@@ -159,6 +163,36 @@ export async function listEditWindowsWithUsers(
     limit,
     offset,
   };
+}
+
+export async function listMatchingEditWindowUserIds(options: {
+  query?: string | null;
+  resourceKey: string;
+  max?: number;
+}): Promise<string[]> {
+  if (!isEditableResourceKey(options.resourceKey)) {
+    throw new EditWindowError(
+      400,
+      `Unknown resource_key: ${options.resourceKey}`,
+    );
+  }
+
+  const max = Math.min(Math.max(options.max ?? 5000, 1), 10000);
+  let queryBuilder = supabaseAdmin
+    .from("user_profiles")
+    .select("user_id")
+    .order("display_name", { ascending: true, nullsFirst: false })
+    .order("user_id", { ascending: true })
+    .range(0, max - 1);
+
+  queryBuilder = applyProfileFilters(queryBuilder, options.query?.trim() ?? "");
+
+  const { data, error } = await queryBuilder;
+  if (error) {
+    throw new EditWindowError(500, error.message);
+  }
+
+  return ((data ?? []) as Array<{ user_id: string }>).map((row) => row.user_id);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -234,6 +268,74 @@ export async function upsertEditWindow(
   return toDto(data as unknown as EditWindowRow);
 }
 
+export async function upsertEditWindowsBulk(input: {
+  userIds: string[];
+  resourceKey: string;
+  openedAt: Date;
+  expiresAt: Date;
+  note: string | null;
+  grantedBy: string | null;
+}): Promise<EditWindowDto[]> {
+  const userIds = Array.from(new Set(input.userIds));
+  if (userIds.length === 0) return [];
+  if (userIds.some((userId) => !isUuid(userId))) {
+    throw new EditWindowError(400, "Every user_id must be a UUID");
+  }
+  if (!isEditableResourceKey(input.resourceKey)) {
+    throw new EditWindowError(400, `Unknown resource_key: ${input.resourceKey}`);
+  }
+  if (
+    Number.isNaN(input.openedAt.getTime()) ||
+    Number.isNaN(input.expiresAt.getTime())
+  ) {
+    throw new EditWindowError(400, "opened_at / expires_at must be valid dates");
+  }
+  if (input.expiresAt.getTime() <= input.openedAt.getTime()) {
+    throw new EditWindowError(400, "expires_at must be after opened_at");
+  }
+
+  const { data: profiles, error: profileError } = await supabaseAdmin
+    .from("user_profiles")
+    .select("user_id")
+    .in("user_id", userIds);
+  if (profileError) {
+    throw new EditWindowError(500, profileError.message);
+  }
+  const foundIds = new Set(
+    ((profiles ?? []) as Array<{ user_id: string }>).map((row) => row.user_id),
+  );
+  const missing = userIds.filter((userId) => !foundIds.has(userId));
+  if (missing.length > 0) {
+    throw new EditWindowError(
+      404,
+      `user_profile not found: ${missing.slice(0, 5).join(", ")}`,
+    );
+  }
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabaseAdmin
+    .from("user_edit_windows")
+    .upsert(
+      userIds.map((userId) => ({
+        user_id: userId,
+        resource_key: input.resourceKey,
+        opened_at: input.openedAt.toISOString(),
+        expires_at: input.expiresAt.toISOString(),
+        note: input.note,
+        granted_by: input.grantedBy,
+        updated_at: now,
+      })),
+      { onConflict: "user_id,resource_key" },
+    )
+    .select(WINDOW_SELECT);
+
+  if (error) {
+    throw new EditWindowError(500, error.message);
+  }
+
+  return ((data ?? []) as unknown as EditWindowRow[]).map(toDto);
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // CLOSE: expires_at = now 로 즉시 만료 처리.
 // row 가 없으면 noop (열린 적 없는 사용자를 닫는 것은 의미가 없으므로 무시).
@@ -266,6 +368,34 @@ export async function closeEditWindow(
 
   if (!data) return null;
   return toDto(data as unknown as EditWindowRow);
+}
+
+export async function closeEditWindowsBulk(
+  userIdsInput: string[],
+  resourceKey: string,
+): Promise<EditWindowDto[]> {
+  const userIds = Array.from(new Set(userIdsInput));
+  if (userIds.length === 0) return [];
+  if (userIds.some((userId) => !isUuid(userId))) {
+    throw new EditWindowError(400, "Every user_id must be a UUID");
+  }
+  if (!isEditableResourceKey(resourceKey)) {
+    throw new EditWindowError(400, `Unknown resource_key: ${resourceKey}`);
+  }
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabaseAdmin
+    .from("user_edit_windows")
+    .update({ expires_at: now, updated_at: now })
+    .eq("resource_key", resourceKey)
+    .in("user_id", userIds)
+    .select(WINDOW_SELECT);
+
+  if (error) {
+    throw new EditWindowError(500, error.message);
+  }
+
+  return ((data ?? []) as unknown as EditWindowRow[]).map(toDto);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -305,4 +435,84 @@ export function isWindowActive(
     return false;
   }
   return now >= opened && now <= expires;
+}
+
+export type EditWindowPermissionReason =
+  | "open"
+  | "not_granted"
+  | "not_started"
+  | "expired"
+  | "admin";
+
+export type EditWindowPermission = {
+  resourceKey: string;
+  canEdit: boolean;
+  reason: EditWindowPermissionReason;
+  openedAt: string | null;
+  expiresAt: string | null;
+};
+
+export function evaluateEditWindowPermission(
+  resourceKey: string,
+  window: EditWindowDto | null,
+  options: { isAdmin?: boolean; now?: Date } = {},
+): EditWindowPermission {
+  if (options.isAdmin) {
+    return {
+      resourceKey,
+      canEdit: true,
+      reason: "admin",
+      openedAt: window?.openedAt ?? null,
+      expiresAt: window?.expiresAt ?? null,
+    };
+  }
+
+  if (!window) {
+    return {
+      resourceKey,
+      canEdit: false,
+      reason: "not_granted",
+      openedAt: null,
+      expiresAt: null,
+    };
+  }
+
+  const now = options.now ?? new Date();
+  const opened = new Date(window.openedAt);
+  const expires = new Date(window.expiresAt);
+  if (Number.isNaN(opened.getTime()) || Number.isNaN(expires.getTime())) {
+    return {
+      resourceKey,
+      canEdit: false,
+      reason: "not_granted",
+      openedAt: window.openedAt,
+      expiresAt: window.expiresAt,
+    };
+  }
+  if (now < opened) {
+    return {
+      resourceKey,
+      canEdit: false,
+      reason: "not_started",
+      openedAt: window.openedAt,
+      expiresAt: window.expiresAt,
+    };
+  }
+  if (now > expires) {
+    return {
+      resourceKey,
+      canEdit: false,
+      reason: "expired",
+      openedAt: window.openedAt,
+      expiresAt: window.expiresAt,
+    };
+  }
+
+  return {
+    resourceKey,
+    canEdit: true,
+    reason: "open",
+    openedAt: window.openedAt,
+    expiresAt: window.expiresAt,
+  };
 }

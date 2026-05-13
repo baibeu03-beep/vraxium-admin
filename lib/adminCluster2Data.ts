@@ -69,6 +69,10 @@ export const VIDEO_FIELDS = [
   "video_url_3",
 ] as const;
 
+// 자기소개서 5문항 — front 와 동일하게 각 항목 1,000자 제한.
+// admin editor / API 모두 이 상수를 기준으로 검증한다.
+export const INTRODUCTION_MAX_LENGTH = 1000;
+
 export const INTRODUCTION_FIELDS = [
   "growth_story",
   "social_experience",
@@ -180,8 +184,13 @@ export type Cluster2Bundle = {
   educations: Cluster2EducationDto[];
   reviewLink: {
     cluving_review_link: string | null;
-    locked: true;
-    lockReason: string;
+    readonly: true;
+    window: {
+      resourceKey: typeof REVIEW_LINK_RESOURCE_KEY;
+      status: "open" | "scheduled" | "expired" | "not_granted";
+      openedAt: string | null;
+      expiresAt: string | null;
+    };
   };
 };
 
@@ -220,8 +229,46 @@ export type Cluster2PatchBody = {
 
 type Section = "photos" | "slogans" | "videos" | "introductions" | "educations";
 
-const REVIEW_LINK_LOCK_REASON =
-  "policy: review-link 은 관리자 권한/윈도우 정책 도입 전까지 readonly 입니다.";
+// admin editor 의 Review Link 값 자체는 1차 범위에서 readonly 유지하지만,
+// 사용자의 작성 가능 여부는 user_edit_windows 로 판정해서 안내 문구로 노출한다.
+const REVIEW_LINK_RESOURCE_KEY = "cluster2.review_links" as const;
+
+type ReviewLinkWindow = Cluster2Bundle["reviewLink"]["window"];
+
+function computeReviewLinkWindow(
+  row: {
+    opened_at: string | null;
+    expires_at: string | null;
+  } | null,
+  now: Date = new Date(),
+): ReviewLinkWindow {
+  if (!row) {
+    return {
+      resourceKey: REVIEW_LINK_RESOURCE_KEY,
+      status: "not_granted",
+      openedAt: null,
+      expiresAt: null,
+    };
+  }
+  const opened = row.opened_at ? new Date(row.opened_at) : null;
+  const expires = row.expires_at ? new Date(row.expires_at) : null;
+  const openedValid = opened && !Number.isNaN(opened.getTime());
+  const expiresValid = expires && !Number.isNaN(expires.getTime());
+
+  let status: ReviewLinkWindow["status"] = "not_granted";
+  if (openedValid && expiresValid) {
+    if (now.getTime() < opened.getTime()) status = "scheduled";
+    else if (now.getTime() > expires.getTime()) status = "expired";
+    else status = "open";
+  }
+
+  return {
+    resourceKey: REVIEW_LINK_RESOURCE_KEY,
+    status,
+    openedAt: openedValid ? opened.toISOString() : row.opened_at,
+    expiresAt: expiresValid ? expires.toISOString() : row.expires_at,
+  };
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // Helpers
@@ -374,13 +421,13 @@ export async function getCluster2ForCrew(
       educations: [],
       reviewLink: {
         cluving_review_link: null,
-        locked: true,
-        lockReason: REVIEW_LINK_LOCK_REASON,
+        readonly: true,
+        window: computeReviewLinkWindow(null),
       },
     };
   }
 
-  const [profileRes, clusterRes, introRes, eduRes] = await Promise.all([
+  const [profileRes, clusterRes, introRes, eduRes, windowRes] = await Promise.all([
     supabaseAdmin
       .from("user_profiles")
       .select("profile_photo_url")
@@ -408,9 +455,15 @@ export async function getCluster2ForCrew(
       .select(EDUCATION_SELECT)
       .eq("user_id", userId)
       .order("sort_order", { ascending: true }),
+    supabaseAdmin
+      .from("user_edit_windows")
+      .select("opened_at,expires_at")
+      .eq("user_id", userId)
+      .eq("resource_key", REVIEW_LINK_RESOURCE_KEY)
+      .maybeSingle(),
   ]);
 
-  for (const res of [profileRes, clusterRes, introRes, eduRes]) {
+  for (const res of [profileRes, clusterRes, introRes, eduRes, windowRes]) {
     if (res.error) {
       console.error("[cluster2] query failed (GET bundle)", {
         userId,
@@ -464,6 +517,11 @@ export async function getCluster2ForCrew(
     slogan_3_rating: (intro?.slogan_3_rating as number | null) ?? null,
   };
 
+  const windowRow = (windowRes.data ?? null) as {
+    opened_at: string | null;
+    expires_at: string | null;
+  } | null;
+
   return {
     legacyUserId,
     userId,
@@ -475,8 +533,8 @@ export async function getCluster2ForCrew(
     reviewLink: {
       cluving_review_link:
         (cluster?.cluving_review_link as string | null) ?? null,
-      locked: true,
-      lockReason: REVIEW_LINK_LOCK_REASON,
+      readonly: true,
+      window: computeReviewLinkWindow(windowRow),
     },
   };
 }
@@ -637,8 +695,20 @@ export async function patchCluster2ForCrew(
   }
 
   // 3) Introductions (5 문항) → user_cluster2
+  //    각 항목 INTRODUCTION_MAX_LENGTH(1,000자) 이내만 허용.
   if (body.introductions !== undefined) {
     const patch = pickWritable(body.introductions, INTRODUCTION_FIELDS);
+    const overLength = Object.entries(patch).filter(
+      ([, v]) => typeof v === "string" && v.length > INTRODUCTION_MAX_LENGTH,
+    );
+    if (overLength.length > 0) {
+      throw new Cluster2Error(
+        400,
+        `Introduction fields must be ${INTRODUCTION_MAX_LENGTH} characters or less (over: ${overLength
+          .map(([k]) => k)
+          .join(", ")})`,
+      );
+    }
     await upsertCluster2(userId, patch);
     applied.introductions = patch;
   }

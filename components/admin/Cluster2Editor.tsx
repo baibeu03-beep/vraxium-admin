@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, Save } from "lucide-react";
+import Link from "next/link";
+import { CalendarClock, RefreshCw, Save } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -9,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
   ORGANIZATION_LABEL,
@@ -58,8 +60,13 @@ type Bundle = {
   educations: EducationDto[];
   reviewLink: {
     cluving_review_link: string | null;
-    locked: true;
-    lockReason: string;
+    readonly: true;
+    window: {
+      resourceKey: "cluster2.review_links";
+      status: "open" | "scheduled" | "expired" | "not_granted";
+      openedAt: string | null;
+      expiresAt: string | null;
+    };
   };
 };
 
@@ -148,36 +155,45 @@ const VIDEO_FIELDS: readonly FieldDef[] = [
   },
 ];
 
+// 자기소개서 5문항 — front 와 동일하게 각 항목 1,000자 제한.
+// 서버(lib/adminCluster2Data.ts) 도 동일 상한으로 reject.
+export const INTRODUCTION_MAX_LENGTH = 1000;
+
 const INTRODUCTION_FIELDS: readonly FieldDef[] = [
   {
     key: "growth_story",
     label: "성장 과정 (growth_story)",
     type: "textarea",
     full: true,
+    maxLength: INTRODUCTION_MAX_LENGTH,
   },
   {
     key: "social_experience",
     label: "사회 경험 (social_experience)",
     type: "textarea",
     full: true,
+    maxLength: INTRODUCTION_MAX_LENGTH,
   },
   {
     key: "career_direction",
     label: "커리어 방향 (career_direction)",
     type: "textarea",
     full: true,
+    maxLength: INTRODUCTION_MAX_LENGTH,
   },
   {
     key: "work_style",
     label: "실무 스타일 (work_style)",
     type: "textarea",
     full: true,
+    maxLength: INTRODUCTION_MAX_LENGTH,
   },
   {
     key: "personal_story",
     label: "퍼스널 스토리 (personal_story)",
     type: "textarea",
     full: true,
+    maxLength: INTRODUCTION_MAX_LENGTH,
   },
 ];
 
@@ -294,6 +310,158 @@ function getYouTubeThumbnail(url: string | null | undefined): string | null {
   return m ? `https://img.youtube.com/vi/${m[1]}/maxresdefault.jpg` : null;
 }
 
+function formatWindowDate(value: string | null | undefined): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
+}
+
+function ReviewLinkWindowNotice({
+  window,
+}: {
+  window: Bundle["reviewLink"]["window"] | undefined;
+}) {
+  if (!window || window.status === "not_granted") {
+    return (
+      <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <div className="font-medium">작성 권한 없음</div>
+        <div className="mt-0.5">
+          설정 &gt; 작성 기간 관리에서 권한을 부여할 수 있습니다.
+        </div>
+      </div>
+    );
+  }
+
+  if (window.status === "open") {
+    return (
+      <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+        <div className="font-medium">작성 가능</div>
+        <div className="mt-0.5">
+          만료: {formatWindowDate(window.expiresAt)}
+        </div>
+      </div>
+    );
+  }
+
+  if (window.status === "scheduled") {
+    return (
+      <div className="rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+        <div className="font-medium">작성 예정</div>
+        <div className="mt-0.5">
+          시작: {formatWindowDate(window.openedAt)}
+        </div>
+        <div>만료: {formatWindowDate(window.expiresAt)}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-800">
+      <div className="font-medium">작성 기간 만료</div>
+      <div className="mt-0.5">만료: {formatWindowDate(window.expiresAt)}</div>
+    </div>
+  );
+}
+
+const REVIEW_LINK_SLOTS = [
+  {
+    key: "cluving_review_link",
+    label: "Total Complete",
+    stored: true,
+    helper: "user_cluster2.cluving_review_link",
+  },
+  { key: "review_link_3w", label: "3 weeks", stored: false },
+  { key: "review_link_6w", label: "6 weeks", stored: false },
+  { key: "review_link_9w", label: "9 weeks", stored: false },
+  { key: "review_link_12w", label: "12 weeks", stored: false },
+  { key: "review_link_15w", label: "15 weeks", stored: false },
+  { key: "review_link_18w", label: "18 weeks", stored: false },
+  { key: "review_link_21w", label: "21 weeks", stored: false },
+  { key: "review_link_24w", label: "24 weeks", stored: false },
+  { key: "review_link_27w", label: "27 weeks", stored: false },
+] as const;
+
+function ReviewLinkSlots({
+  value,
+}: {
+  value: string | null | undefined;
+}) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+        <div className="font-medium">현재 운영 저장 슬롯: Total Complete 1개</div>
+        <div className="mt-0.5">
+          3w~27w 슬롯은 프론트 demo UI이며 DB 저장 대상이 아닙니다.
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        {REVIEW_LINK_SLOTS.map((slot) => {
+          const slotValue = slot.stored ? value : null;
+          return (
+            <div key={slot.key} className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label
+                  htmlFor={`review-link-${slot.key}`}
+                  className="text-xs font-medium"
+                >
+                  {slot.label}
+                </label>
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10px]",
+                    slot.stored
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-zinc-200 bg-zinc-50 text-zinc-600",
+                  )}
+                >
+                  {slot.stored ? "DB 저장" : "DB 미연결"}
+                </span>
+              </div>
+              <Input
+                id={`review-link-${slot.key}`}
+                value={
+                  slot.stored
+                    ? slotValue?.trim()
+                      ? slotValue
+                      : "—"
+                    : "미운영 슬롯 / DB 미연결"
+                }
+                readOnly
+                disabled={!slot.stored}
+                className={cn(
+                  "font-mono text-xs",
+                  !slot.stored && "text-muted-foreground",
+                )}
+              />
+              <div className="min-h-4 text-[10px] text-muted-foreground">
+                {slot.stored
+                  ? slot.helper
+                  : "프론트 표시용 demo 슬롯입니다. 현재 저장 API/DB 컬럼과 연결되어 있지 않습니다."}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        주차별 Review Link 운영화 시 user_review_links 또는 user_cluster2 확장 필요
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────────────
@@ -355,6 +523,23 @@ export default function Cluster2Editor({
 
   const handleSave = async () => {
     if (saving || !bundle?.userId) return;
+
+    // Introductions 1,000자 사전 검증 — textarea 의 maxLength 가 paste 도 잘라내지만
+    // form state 가 다른 경로로 길어졌을 가능성 대비 한 번 더 확인.
+    const overLengthFields = INTRODUCTION_FIELDS.filter((f) => {
+      const v = form.introductions[f.key];
+      return typeof v === "string" && v.length > INTRODUCTION_MAX_LENGTH;
+    });
+    if (overLengthFields.length > 0) {
+      setBanner({
+        kind: "error",
+        message: `자기소개서 ${INTRODUCTION_MAX_LENGTH.toLocaleString()}자 초과: ${overLengthFields
+          .map((f) => f.key)
+          .join(", ")} — 저장을 중단했습니다.`,
+      });
+      return;
+    }
+
     setSaving(true);
     setWarnings([]);
     try {
@@ -655,7 +840,8 @@ export default function Cluster2Editor({
             <CardHeader>
               <CardTitle className="text-base">Introductions</CardTitle>
               <p className="text-xs text-muted-foreground">
-                user_introductions · 5 문항
+                user_cluster2 · 5 문항 · 각 항목{" "}
+                {INTRODUCTION_MAX_LENGTH.toLocaleString()}자 제한
               </p>
             </CardHeader>
             <CardContent>
@@ -676,17 +862,27 @@ export default function Cluster2Editor({
           {/* Review Link (readonly) */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">
-                Review Link <span className="text-xs font-normal text-muted-foreground">(readonly)</span>
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                {bundle?.reviewLink.lockReason ?? "정책상 제한 필드입니다."}
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="rounded-md border bg-muted/30 px-2.5 py-1.5 text-sm break-all">
-                {fmt(bundle?.reviewLink.cluving_review_link)}
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <CardTitle className="text-base">
+                  Review Link{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    (readonly)
+                  </span>
+                </CardTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  render={<Link href="/admin/settings/edit-windows" />}
+                >
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  작성 기간 관리
+                </Button>
               </div>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              <ReviewLinkWindowNotice window={bundle?.reviewLink.window} />
+              <ReviewLinkSlots value={bundle?.reviewLink.cluving_review_link} />
             </CardContent>
           </Card>
         </div>
@@ -753,7 +949,10 @@ export default function Cluster2Editor({
                 </ol>
               </PreviewBlock>
               <PreviewBlock title="Review Link (readonly)">
-                {fmt(bundle?.reviewLink.cluving_review_link)}
+                <div>Total Complete: {fmt(bundle?.reviewLink.cluving_review_link)}</div>
+                <div className="mt-1 text-[10px] text-muted-foreground">
+                  3w~27w: demo UI / DB 미연결
+                </div>
               </PreviewBlock>
             </CardContent>
           </Card>

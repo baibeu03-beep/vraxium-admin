@@ -109,12 +109,21 @@ export default function EditWindowsManager() {
   const [refreshTick, setRefreshTick] = useState(0);
   const [banner, setBanner] = useState<Banner>(null);
   const [editing, setEditing] = useState<EditWindowUserRow | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [allMatchingSelected, setAllMatchingSelected] = useState(false);
+  const [bulkEditing, setBulkEditing] = useState(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
       setDebouncedQuery((prev) => {
         const next = query.trim();
-        if (prev !== next) setOffset(0);
+        if (prev !== next) {
+          setOffset(0);
+          setSelectedUserIds(new Set());
+          setAllMatchingSelected(false);
+        }
         return next;
       });
     }, 250);
@@ -166,6 +175,100 @@ export default function EditWindowsManager() {
   }, [banner]);
 
   const reload = () => setRefreshTick((n) => n + 1);
+
+  const selectedCount = allMatchingSelected ? total : selectedUserIds.size;
+  const pageAllSelected =
+    allMatchingSelected ||
+    (rows.length > 0 && rows.every((row) => selectedUserIds.has(row.userId)));
+
+  const clearSelection = useCallback(() => {
+    setSelectedUserIds(new Set());
+    setAllMatchingSelected(false);
+  }, []);
+
+  const handleTogglePage = useCallback(
+    (checked: boolean) => {
+      setAllMatchingSelected(false);
+      setSelectedUserIds((prev) => {
+        const next = new Set(prev);
+        for (const row of rows) {
+          if (checked) next.add(row.userId);
+          else next.delete(row.userId);
+        }
+        return next;
+      });
+    },
+    [rows],
+  );
+
+  const handleToggleUser = useCallback((userId: string, checked: boolean) => {
+    setAllMatchingSelected(false);
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(userId);
+      else next.delete(userId);
+      return next;
+    });
+  }, []);
+
+  const handleBulkQuickAction = useCallback(
+    async (action: QuickActionKey) => {
+      const { openedAt, expiresAt } = computeQuickActionRange(action);
+      await bulkWindow({
+        resource_key: resourceKey,
+        opened_at: openedAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        user_ids: Array.from(selectedUserIds),
+        select_all_matching: allMatchingSelected,
+        filters: { q: debouncedQuery },
+      })
+        .then((count) => {
+          clearSelection();
+          reload();
+          setBanner({
+            kind: "success",
+            message: `${count}명에게 ${getResourceLabel(resourceKey)} 권한을 부여했습니다.`,
+          });
+        })
+        .catch((err: Error) => {
+          setBanner({ kind: "error", message: err.message });
+        });
+    },
+    [
+      allMatchingSelected,
+      clearSelection,
+      debouncedQuery,
+      resourceKey,
+      selectedUserIds,
+    ],
+  );
+
+  const handleBulkClose = useCallback(async () => {
+    await bulkWindow({
+      resource_key: resourceKey,
+      action: "close",
+      user_ids: Array.from(selectedUserIds),
+      select_all_matching: allMatchingSelected,
+      filters: { q: debouncedQuery },
+    })
+      .then((count) => {
+        clearSelection();
+        reload();
+        setBanner({
+          kind: "success",
+          message: `${count}명의 ${getResourceLabel(resourceKey)} 권한을 닫았습니다.`,
+        });
+      })
+      .catch((err: Error) => {
+        setBanner({ kind: "error", message: err.message });
+      });
+  }, [
+    allMatchingSelected,
+    clearSelection,
+    debouncedQuery,
+    resourceKey,
+    selectedUserIds,
+  ]);
 
   const applyWindowToRow = useCallback(
     (userId: string, window: EditWindowDto | null) => {
@@ -278,6 +381,8 @@ export default function EditWindowsManager() {
                 onValueChange={(v: string | null) => {
                   setResourceKey(v ?? DEFAULT_RESOURCE_KEY);
                   setOffset(0);
+                  setSelectedUserIds(new Set());
+                  setAllMatchingSelected(false);
                 }}
               >
                 <SelectTrigger id="resource-key">
@@ -317,10 +422,88 @@ export default function EditWindowsManager() {
             </div>
           )}
 
+          <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={pageAllSelected}
+                  onChange={(e) => handleTogglePage(e.target.checked)}
+                  aria-label="현재 페이지 전체 선택"
+                />
+                현재 페이지 전체 선택
+              </label>
+              <button
+                type="button"
+                className="rounded-md border bg-background px-2.5 py-1 text-xs hover:bg-muted"
+                onClick={() => {
+                  setSelectedUserIds(new Set(rows.map((row) => row.userId)));
+                  setAllMatchingSelected(true);
+                }}
+                disabled={total === 0}
+              >
+                현재 필터 결과 전체 선택
+              </button>
+              <span className="text-muted-foreground">
+                선택됨: {selectedCount.toLocaleString()}명
+              </span>
+              {selectedCount > 0 && (
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                  onClick={clearSelection}
+                >
+                  선택 해제
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={selectedCount === 0}
+                onClick={() => void handleBulkQuickAction("open_24h")}
+              >
+                24시간 열기
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={selectedCount === 0}
+                onClick={() => void handleBulkQuickAction("open_7d")}
+              >
+                7일 열기
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={selectedCount === 0}
+                onClick={() => setBulkEditing(true)}
+              >
+                직접 기간 설정
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={selectedCount === 0}
+                onClick={() => void handleBulkClose()}
+              >
+                선택 기간 닫기
+              </Button>
+            </div>
+          </div>
+
           <div className="overflow-hidden rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <span className="sr-only">선택</span>
+                  </TableHead>
                   <TableHead>이름 / user_id</TableHead>
                   <TableHead>auth_email</TableHead>
                   <TableHead>소속</TableHead>
@@ -334,6 +517,19 @@ export default function EditWindowsManager() {
                   const status = computeEditWindowStatus(row.window);
                   return (
                     <TableRow key={row.userId}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={
+                            allMatchingSelected ||
+                            selectedUserIds.has(row.userId)
+                          }
+                          onChange={(e) =>
+                            handleToggleUser(row.userId, e.target.checked)
+                          }
+                          aria-label={`${row.displayName ?? row.userId} 선택`}
+                        />
+                      </TableCell>
                       <TableCell className="max-w-[220px]">
                         <div className="font-medium">
                           {fmt(row.displayName)}
@@ -432,7 +628,7 @@ export default function EditWindowsManager() {
                 {!loading && rows.length === 0 && !error && (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={7}
                       className="py-10 text-center text-muted-foreground"
                     >
                       조회된 사용자가 없습니다.
@@ -442,7 +638,7 @@ export default function EditWindowsManager() {
                 {loading && rows.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={7}
                       className="py-10 text-center text-muted-foreground"
                     >
                       불러오는 중...
@@ -494,6 +690,26 @@ export default function EditWindowsManager() {
           });
         }}
       />
+      <BulkEditWindowDrawer
+        open={bulkEditing}
+        resourceKey={resourceKey}
+        selectedCount={selectedCount}
+        onClose={() => setBulkEditing(false)}
+        onSaved={(count) => {
+          setBulkEditing(false);
+          clearSelection();
+          reload();
+          setBanner({
+            kind: "success",
+            message: `${count}명에게 ${getResourceLabel(resourceKey)} 기간을 저장했습니다.`,
+          });
+        }}
+        getPayloadBase={() => ({
+          user_ids: Array.from(selectedUserIds),
+          select_all_matching: allMatchingSelected,
+          filters: { q: debouncedQuery },
+        })}
+      />
     </div>
   );
 }
@@ -527,6 +743,28 @@ async function patchWindow(
     throw new Error(json?.error ?? "Failed to save");
   }
   return (json.data?.window ?? null) as EditWindowDto | null;
+}
+
+type BulkPayloadBase = {
+  user_ids: string[];
+  select_all_matching: boolean;
+  filters: { q: string };
+};
+
+type BulkUpsertBody = UpsertBody & BulkPayloadBase;
+type BulkCloseBody = CloseBody & BulkPayloadBase;
+
+async function bulkWindow(body: BulkUpsertBody | BulkCloseBody): Promise<number> {
+  const res = await fetch("/api/admin/edit-windows/bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json?.error ?? "Failed to save selected users");
+  }
+  return Number(json.data?.count ?? 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -737,6 +975,218 @@ function EditWindowDrawerInner({
               취소
             </Button>
             <Button type="submit" disabled={saving}>
+              {saving && (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              )}
+              저장
+            </Button>
+          </footer>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function BulkEditWindowDrawer({
+  open,
+  resourceKey,
+  selectedCount,
+  onClose,
+  onSaved,
+  getPayloadBase,
+}: {
+  open: boolean;
+  resourceKey: string;
+  selectedCount: number;
+  onClose: () => void;
+  onSaved: (count: number) => void;
+  getPayloadBase: () => BulkPayloadBase;
+}) {
+  if (!open) return null;
+  return (
+    <BulkEditWindowDrawerInner
+      resourceKey={resourceKey}
+      selectedCount={selectedCount}
+      onClose={onClose}
+      onSaved={onSaved}
+      getPayloadBase={getPayloadBase}
+    />
+  );
+}
+
+function BulkEditWindowDrawerInner({
+  resourceKey,
+  selectedCount,
+  onClose,
+  onSaved,
+  getPayloadBase,
+}: {
+  resourceKey: string;
+  selectedCount: number;
+  onClose: () => void;
+  onSaved: (count: number) => void;
+  getPayloadBase: () => BulkPayloadBase;
+}) {
+  const initial = useMemo(() => {
+    const now = new Date();
+    const later = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return {
+      opened: toLocalInputValue(now),
+      expires: toLocalInputValue(later),
+      note: "",
+    };
+  }, []);
+
+  const [opened, setOpened] = useState(initial.opened);
+  const [expires, setExpires] = useState(initial.expires);
+  const [note, setNote] = useState(initial.note);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !saving) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [saving, onClose]);
+
+  const handleQuick = (action: QuickActionKey) => {
+    const { openedAt, expiresAt } = computeQuickActionRange(action);
+    setOpened(toLocalInputValue(openedAt));
+    setExpires(toLocalInputValue(expiresAt));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (saving) return;
+    const openedDate = fromLocalInputValue(opened);
+    const expiresDate = fromLocalInputValue(expires);
+    if (Number.isNaN(openedDate.getTime()) || Number.isNaN(expiresDate.getTime())) {
+      setError("올바른 날짜를 입력하세요.");
+      return;
+    }
+    if (expiresDate.getTime() <= openedDate.getTime()) {
+      setError("만료 시각은 시작 시각보다 이후여야 합니다.");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const count = await bulkWindow({
+        ...getPayloadBase(),
+        resource_key: resourceKey,
+        opened_at: openedDate.toISOString(),
+        expires_at: expiresDate.toISOString(),
+        note: note.trim() ? note.trim() : null,
+      });
+      onSaved(count);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="선택 사용자 작성 기간 설정"
+      className="fixed inset-0 z-50 flex"
+    >
+      <div
+        className="absolute inset-0 bg-foreground/40"
+        onClick={() => !saving && onClose()}
+      />
+      <div className="relative ml-auto flex h-full w-full max-w-md flex-col bg-background shadow-xl">
+        <header className="flex items-center justify-between border-b px-5 py-4">
+          <div>
+            <h3 className="text-base font-semibold">선택 기간 설정</h3>
+            <p className="text-xs text-muted-foreground">
+              선택됨: {selectedCount.toLocaleString()}명
+            </p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              리소스: <code className="font-mono">{resourceKey}</code>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+            aria-label="닫기"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col overflow-y-auto"
+        >
+          <div className="flex flex-1 flex-col gap-4 px-5 py-4">
+            <div className="flex flex-wrap gap-2">
+              {QUICK_ACTIONS.map((q) => (
+                <button
+                  key={q.key}
+                  type="button"
+                  onClick={() => handleQuick(q.key)}
+                  className="rounded-md border px-2.5 py-1 text-xs hover:bg-muted"
+                >
+                  {q.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bulk-window-opened">시작 (opened_at)</Label>
+              <Input
+                id="bulk-window-opened"
+                type="datetime-local"
+                value={opened}
+                onChange={(e) => setOpened(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bulk-window-expires">만료 (expires_at)</Label>
+              <Input
+                id="bulk-window-expires"
+                type="datetime-local"
+                value={expires}
+                onChange={(e) => setExpires(e.target.value)}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="bulk-window-note">메모 (note)</Label>
+              <Input
+                id="bulk-window-note"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="예: 일괄 작성 기간 부여"
+              />
+            </div>
+
+            {error && (
+              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+          </div>
+
+          <footer className="flex items-center justify-end gap-2 border-t bg-muted/30 px-5 py-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={saving}
+            >
+              취소
+            </Button>
+            <Button type="submit" disabled={saving || selectedCount === 0}>
               {saving && (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
               )}

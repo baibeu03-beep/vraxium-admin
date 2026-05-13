@@ -35,6 +35,9 @@ export type FieldDef = {
   min?: number;
   max?: number;
   step?: number;
+  // text/textarea 에 적용. 지정 시 native maxLength + 카운터(`현재/최대`) 표시.
+  // 카운터 색상: 0~maxLength-100 normal, ~-1 warning, maxLength reached.
+  maxLength?: number;
 };
 
 // PATCH body 로 보내기 전 값 정규화.
@@ -70,6 +73,21 @@ export function FieldCell({
   onChange: (v: unknown) => void;
   disabled?: boolean;
 }) {
+  const showCounter =
+    typeof field.maxLength === "number" &&
+    (field.type === "text" || field.type === "textarea" || field.type === "url");
+  const currentLength =
+    typeof value === "string" ? value.length : value == null ? 0 : String(value).length;
+  const maxLength = field.maxLength ?? 0;
+  // 색상 상태: 0~max-100 normal, max-99~max-1 warning, max reached.
+  const counterTone = !showCounter
+    ? "muted"
+    : currentLength >= maxLength
+      ? "limit"
+      : currentLength >= maxLength - 100
+        ? "warning"
+        : "muted";
+
   return (
     <div className={cn("flex flex-col gap-1.5", field.full && "sm:col-span-2")}>
       <Label className="text-xs">{field.label}</Label>
@@ -79,6 +97,20 @@ export function FieldCell({
         onChange={onChange}
         disabled={disabled}
       />
+      {showCounter && (
+        <div
+          className={cn(
+            "self-end text-[10px] tabular-nums",
+            counterTone === "limit" && "font-semibold text-red-600",
+            counterTone === "warning" && "font-medium text-amber-600",
+            counterTone === "muted" && "text-muted-foreground",
+          )}
+          aria-live="polite"
+        >
+          {currentLength.toLocaleString()} / {maxLength.toLocaleString()}
+          {counterTone === "limit" && " · 제한 도달"}
+        </div>
+      )}
     </div>
   );
 }
@@ -100,10 +132,18 @@ export function FieldInput({
     return (
       <textarea
         value={stringValue}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          // maxLength 가 있으면 paste 등 비표준 경로에서도 잘라낸다.
+          const next =
+            typeof field.maxLength === "number"
+              ? e.target.value.slice(0, field.maxLength)
+              : e.target.value;
+          onChange(next);
+        }}
         disabled={disabled}
         rows={3}
         placeholder={field.placeholder}
+        maxLength={field.maxLength}
         className="w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60"
       />
     );
@@ -168,12 +208,19 @@ export function FieldInput({
     <Input
       type={field.type === "number" ? "number" : "text"}
       value={stringValue}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => {
+        const next =
+          typeof field.maxLength === "number" && field.type !== "number"
+            ? e.target.value.slice(0, field.maxLength)
+            : e.target.value;
+        onChange(next);
+      }}
       placeholder={field.placeholder}
       disabled={disabled}
       min={field.type === "number" ? field.min : undefined}
       max={field.type === "number" ? field.max : undefined}
       step={field.type === "number" ? field.step : undefined}
+      maxLength={field.type === "number" ? undefined : field.maxLength}
     />
   );
 }
