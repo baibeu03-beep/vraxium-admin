@@ -208,6 +208,7 @@ export default function LoginForm() {
             </Button>
           </form>
 
+          {/* 카카오 로그인 — 어드민 페이지에서는 사용 불가 (주석 처리)
           <div className="my-4 flex items-center gap-3 text-xs uppercase tracking-wider text-muted-foreground">
             <span className="h-px flex-1 bg-border" />
             <span>또는</span>
@@ -227,6 +228,7 @@ export default function LoginForm() {
             처음 카카오 로그인 시에는 가입 신청이 접수되며, 관리자의 승인 후
             이용할 수 있습니다.
           </p>
+          */}
         </CardContent>
       </Card>
     </main>
