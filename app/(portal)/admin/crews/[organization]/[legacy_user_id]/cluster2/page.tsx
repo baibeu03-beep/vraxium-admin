@@ -43,6 +43,12 @@ export default async function CrewCluster2Page({ params }: Props) {
         <span className="rounded-md border bg-foreground px-2 py-1 text-background">
           Cluster 2
         </span>
+        <Link
+          href={`/admin/crews/${organization}/${legacy_user_id}/cluster3`}
+          className="rounded-md border px-2 py-1 hover:bg-muted"
+        >
+          Cluster 3
+        </Link>
       </div>
 
       <Cluster2Editor

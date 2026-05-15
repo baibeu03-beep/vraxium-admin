@@ -471,6 +471,16 @@ export default function CrewManager({
                         >
                           Cluster 2
                         </Link>
+                        <Link
+                          href={`/admin/crews/${encodeURIComponent(
+                            organization,
+                          )}/${encodeURIComponent(
+                            String(crew.userId ?? crew.legacyUserId),
+                          )}/cluster3`}
+                          className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                        >
+                          Cluster 3
+                        </Link>
                         <Button
                           variant="ghost"
                           size="icon-sm"
