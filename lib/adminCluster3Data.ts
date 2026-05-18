@@ -27,25 +27,29 @@ import {
 } from "@/lib/adminCluster3Types";
 
 // ─────────────────────────────────────────────────────────────────────
-// Cluster3 admin — read-only (Phase 1)
+// Cluster3 admin
 //
 // Canonical:
 //   portfolio_channel_cards     → channel 16
 //   portfolio_top_cards         → card_type='output' (5) + card_type='detail' (10)
 //
-// 정책 (Phase 3):
+// 정책 (Phase 4):
 //   - GET: 두 테이블 read.
 //   - PATCH:
-//       (a) portfolio_channel_cards 모두 write 허용 (Phase 2 도입).
-//       (b) portfolio_top_cards.card_type='output' write 허용 (Phase 3 신규).
-//       (c) portfolio_top_cards.card_type='detail' 는 본 Phase 에서 절대 write 하지 않는다.
-//           detailCards payload 는 명시적 400 거절. Phase 4 에서 별도 도입.
+//       (a) portfolio_channel_cards 모두 write 허용.
+//       (b) portfolio_top_cards.card_type='output' write 허용.
+//       (c) portfolio_top_cards.card_type='detail' write 허용 (Phase 4 신규).
+//           output 과 동일한 sanitize / replace 흐름을 사용한다.
 //   - portfolio_top_cards 의 모든 write (delete/upsert) 는 반드시 .eq("card_type", ...)
 //     scope 를 포함한다. 한 종류 write 가 다른 종류 row 를 건드려선 안 된다.
+//     output 호출은 detail row 를 mutate 하지 않고, detail 호출은 output row 를
+//     mutate 하지 않는다.
 //   - routeParam = user_profiles.user_id (UUID) 만 사용. legacy_user_id (bigint) 사용 금지.
 //   - user_profiles 매칭 실패 시 GET 은 readonly bundle, PATCH 은 409 거절.
 //   - card_index / card_type 는 server-side stamp. 클라이언트가 보낸 값은 무시한다.
 //   - 존재하지 않는 컬럼 select/update 금지. 컬럼 추정 금지.
+//   - Admin route 는 requireAdmin 으로 보호되므로 user_edit_windows
+//     (사용자-facing 작성 기간) 와 무관하게 저장한다.
 // ─────────────────────────────────────────────────────────────────────
 
 export class Cluster3Error extends Error {
@@ -355,17 +359,14 @@ export async function patchCluster3ForCrew(
     throw new Cluster3Error(400, "Invalid body");
   }
 
-  // Phase 3 정책:
-  //   - detailCards payload 는 여전히 금지 (Phase 4 에서 열림).
-  //   - outputCards / channelCards 는 둘 다 또는 한쪽만 와도 됨.
-  if (body.detailCards !== undefined) {
-    throw new Cluster3Error(
-      400,
-      "Phase 3 미지원: detailCards write 는 Phase 4 에서 열립니다 (portfolio_top_cards card_type='detail').",
-    );
-  }
-
-  if (body.channelCards === undefined && body.outputCards === undefined) {
+  // Phase 4 정책:
+  //   - channelCards / outputCards / detailCards 중 한 섹션 이상이 와야 함.
+  //   - 각 섹션은 정해진 슬롯 길이를 강제. 길이가 어긋나면 400.
+  if (
+    body.channelCards === undefined &&
+    body.outputCards === undefined &&
+    body.detailCards === undefined
+  ) {
     throw new Cluster3Error(400, "No updatable sections in body");
   }
 
@@ -389,6 +390,18 @@ export async function patchCluster3ForCrew(
       throw new Cluster3Error(
         400,
         `outputCards must have length ${OUTPUT_CARD_SLOT_COUNT} (got ${body.outputCards.length})`,
+      );
+    }
+  }
+
+  if (body.detailCards !== undefined) {
+    if (!Array.isArray(body.detailCards)) {
+      throw new Cluster3Error(400, "detailCards must be an array");
+    }
+    if (body.detailCards.length !== DETAIL_CARD_SLOT_COUNT) {
+      throw new Cluster3Error(
+        400,
+        `detailCards must have length ${DETAIL_CARD_SLOT_COUNT} (got ${body.detailCards.length})`,
       );
     }
   }
@@ -499,88 +512,38 @@ export async function patchCluster3ForCrew(
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // Section B: outputCards → portfolio_top_cards WHERE card_type='output'
+  // Section B/C: portfolio_top_cards WHERE card_type='output' | 'detail'
   //
-  // 회귀 핵심:
-  //   1. card_type 은 server-side 에서 'output' 로 hardcoded stamp.
-  //      클라이언트가 보낸 card_type 필드는 sanitizeTopCard 가 무시한다.
-  //   2. 모든 supabase 호출에 .eq("card_type", "output") scope 가 포함됨.
-  //      이 scope 가 빠지면 detail row 가 영향을 받을 수 있다.
-  //   3. onConflict 키는 (user_id, card_type, card_index) — card_type 까지
-  //      conflict resolution 에 포함시켜야 같은 card_index 의 detail row 와
-  //      충돌하지 않는다.
+  // output / detail 은 같은 테이블·같은 row shape 이며 card_type 만 다르다.
+  // 한 헬퍼로 처리하되, 호출마다 반드시 다음을 강제한다:
+  //   1. card_type 은 server-side hardcoded stamp. 클라이언트 입력은 무시.
+  //   2. 모든 supabase 호출에 .eq("card_type", cardType) scope 포함 —
+  //      output 호출이 detail row 를 mutate 하거나 그 반대가 일어나선 안 됨.
+  //   3. onConflict 키는 (user_id, card_type, card_index) — 같은 card_index 의
+  //      다른 card_type row 와 충돌하지 않도록 card_type 까지 포함.
   // ─────────────────────────────────────────────────────────────────
   if (body.outputCards !== undefined) {
-    const sanitized: SanitizedTopCard[] = [];
-    let totalStrippedMainImage = 0;
-    let totalStrippedSubImage = 0;
-    for (let i = 0; i < OUTPUT_CARD_SLOT_COUNT; i++) {
-      const { card, strippedMainImage, strippedSubImageCount } =
-        sanitizeTopCard(body.outputCards[i], i + 1);
-      sanitized.push(card);
-      if (strippedMainImage) totalStrippedMainImage += 1;
-      totalStrippedSubImage += strippedSubImageCount;
-    }
+    await applyTopCardsSection({
+      userId,
+      cardType: "output",
+      slotCount: OUTPUT_CARD_SLOT_COUNT,
+      payload: body.outputCards,
+      nowIso,
+      warnings,
+      applied,
+    });
+  }
 
-    if (totalStrippedMainImage > 0) {
-      warnings.push(
-        `[output] main_image_url blob:/data:/file: ${totalStrippedMainImage}개 슬롯에서 null 로 정규화했습니다.`,
-      );
-    }
-    if (totalStrippedSubImage > 0) {
-      warnings.push(
-        `[output] sub_image_urls blob:/data:/file: ${totalStrippedSubImage}개를 제외했습니다.`,
-      );
-    }
-
-    const nonEmpty = sanitized.filter((c) => !isTopCardEmpty(c));
-    const empty = sanitized.filter((c) => isTopCardEmpty(c));
-    const upsertedIndices = nonEmpty.map((c) => c.card_index);
-    const deletedIndices = empty.map((c) => c.card_index);
-
-    // (1) 빈 슬롯 row 삭제 — 반드시 card_type='output' scope 포함
-    if (deletedIndices.length > 0) {
-      const { error: delErr } = await supabaseAdmin
-        .from("portfolio_top_cards")
-        .delete()
-        .eq("user_id", userId)
-        .eq("card_type", "output") // ⚠ detail row 보호 핵심 scope
-        .in("card_index", deletedIndices);
-      if (delErr) {
-        console.error(
-          "[cluster3] query failed (delete portfolio_top_cards output)",
-          { userId, message: delErr.message },
-        );
-        throw new Cluster3Error(500, delErr.message);
-      }
-    }
-
-    // (2) 비어있지 않은 슬롯 upsert — card_type 은 server stamp.
-    //     id 는 supply 하지 않음 (기존 row 는 onConflict update, 신규 row 는 DB default).
-    if (nonEmpty.length > 0) {
-      const records = nonEmpty.map((c) => buildTopCardRecord(userId, "output", c, nowIso));
-
-      const { error: upErr } = await supabaseAdmin
-        .from("portfolio_top_cards")
-        .upsert(records, { onConflict: "user_id,card_type,card_index" });
-      if (upErr) {
-        console.error(
-          "[cluster3] query failed (upsert portfolio_top_cards output)",
-          { userId, message: upErr.message },
-        );
-        throw new Cluster3Error(500, upErr.message);
-      }
-    }
-
-    applied.topCards = {
-      ...(applied.topCards ?? {}),
-      output: {
-        upserted: nonEmpty.length,
-        deleted: deletedIndices.length,
-        upsertedIndices,
-        deletedIndices,
-      },
-    };
+  if (body.detailCards !== undefined) {
+    await applyTopCardsSection({
+      userId,
+      cardType: "detail",
+      slotCount: DETAIL_CARD_SLOT_COUNT,
+      payload: body.detailCards as unknown[],
+      nowIso,
+      warnings,
+      applied,
+    });
   }
 
   const bundle = await getCluster3ForCrew(legacyUserId);
@@ -753,6 +716,101 @@ function isTopCardEmpty(card: SanitizedTopCard): boolean {
   if (card.metrics && card.metrics.length > 0) return false;
   if (card.links && card.links.length > 0) return false;
   return true;
+}
+
+// portfolio_top_cards 한 card_type 의 모든 슬롯을 sanitize → empty 삭제 + non-empty
+// upsert 흐름으로 replace 한다. output / detail 공용.
+//
+// 회귀 보호:
+//   - delete / upsert 모두 .eq("card_type", cardType) scope 강제.
+//   - card_index 는 배열 위치 + 1 로 server stamp. 클라이언트 값은 무시.
+//   - duplicate card_index 는 발생 불가 (배열 위치로만 stamp 되기 때문).
+async function applyTopCardsSection(args: {
+  userId: string;
+  cardType: TopCardType;
+  slotCount: number;
+  payload: ReadonlyArray<unknown>;
+  nowIso: string;
+  warnings: string[];
+  applied: Cluster3ApplySummary;
+}): Promise<void> {
+  const { userId, cardType, slotCount, payload, nowIso, warnings, applied } =
+    args;
+
+  const sanitized: SanitizedTopCard[] = [];
+  let totalStrippedMainImage = 0;
+  let totalStrippedSubImage = 0;
+  for (let i = 0; i < slotCount; i++) {
+    const { card, strippedMainImage, strippedSubImageCount } = sanitizeTopCard(
+      payload[i],
+      i + 1,
+    );
+    sanitized.push(card);
+    if (strippedMainImage) totalStrippedMainImage += 1;
+    totalStrippedSubImage += strippedSubImageCount;
+  }
+
+  if (totalStrippedMainImage > 0) {
+    warnings.push(
+      `[${cardType}] main_image_url blob:/data:/file: ${totalStrippedMainImage}개 슬롯에서 null 로 정규화했습니다.`,
+    );
+  }
+  if (totalStrippedSubImage > 0) {
+    warnings.push(
+      `[${cardType}] sub_image_urls blob:/data:/file: ${totalStrippedSubImage}개를 제외했습니다.`,
+    );
+  }
+
+  const nonEmpty = sanitized.filter((c) => !isTopCardEmpty(c));
+  const empty = sanitized.filter((c) => isTopCardEmpty(c));
+  const upsertedIndices = nonEmpty.map((c) => c.card_index);
+  const deletedIndices = empty.map((c) => c.card_index);
+
+  // (1) 빈 슬롯 row 삭제 — 반드시 card_type scope 포함 (다른 card_type row 보호)
+  if (deletedIndices.length > 0) {
+    const { error: delErr } = await supabaseAdmin
+      .from("portfolio_top_cards")
+      .delete()
+      .eq("user_id", userId)
+      .eq("card_type", cardType)
+      .in("card_index", deletedIndices);
+    if (delErr) {
+      console.error(
+        `[cluster3] query failed (delete portfolio_top_cards ${cardType})`,
+        { userId, message: delErr.message },
+      );
+      throw new Cluster3Error(500, delErr.message);
+    }
+  }
+
+  // (2) 비어있지 않은 슬롯 upsert — card_type 은 server stamp.
+  //     id 는 supply 하지 않음 (기존 row 는 onConflict update, 신규 row 는 DB default).
+  if (nonEmpty.length > 0) {
+    const records = nonEmpty.map((c) =>
+      buildTopCardRecord(userId, cardType, c, nowIso),
+    );
+
+    const { error: upErr } = await supabaseAdmin
+      .from("portfolio_top_cards")
+      .upsert(records, { onConflict: "user_id,card_type,card_index" });
+    if (upErr) {
+      console.error(
+        `[cluster3] query failed (upsert portfolio_top_cards ${cardType})`,
+        { userId, message: upErr.message },
+      );
+      throw new Cluster3Error(500, upErr.message);
+    }
+  }
+
+  applied.topCards = {
+    ...(applied.topCards ?? {}),
+    [cardType]: {
+      upserted: nonEmpty.length,
+      deleted: deletedIndices.length,
+      upsertedIndices,
+      deletedIndices,
+    },
+  };
 }
 
 // upsert 용 DB row 변환. card_type 은 호출자가 hardcoded 로 stamp.

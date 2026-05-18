@@ -26,13 +26,13 @@
 //     roles / tools / sub_image_urls / sub_image_captions / metrics / links text[] NULL
 //     created_at / updated_at timestamptz NULL
 //
-// 정책 (Phase 3):
+// 정책 (Phase 4):
 //   - portfolio_detail_cards 테이블 가정 금지 — detail 은 portfolio_top_cards.card_type='detail'.
 //   - slot_index / sort_order 컬럼 없음. 슬롯 식별자는 card_index.
-//   - portfolio_channel_cards write 허용 (Phase 2 도입).
-//   - portfolio_top_cards card_type='output' write 허용 (Phase 3 신규).
-//   - portfolio_top_cards card_type='detail' 은 본 Phase 에서 여전히 read-only.
-//     write 는 Phase 4 에서 별도 추가. detail row 보존이 본 Phase 핵심 회귀 게이트.
+//   - portfolio_channel_cards write 허용.
+//   - portfolio_top_cards card_type='output' (1~5) write 허용.
+//   - portfolio_top_cards card_type='detail' (1~10) write 허용 (Phase 4 신규).
+//     output 과 동일한 row shape / sanitize / replace 흐름. card_type 만 다름.
 // ─────────────────────────────────────────────────────────────────────
 
 export const CHANNEL_CARD_SLOT_COUNT = 16;
@@ -114,12 +114,12 @@ export type Cluster3Bundle = {
 };
 
 // ─────────────────────────────────────────────────────────────────────
-// PATCH input types (Phase 2 — channelCards 만 write 허용)
+// PATCH input types
 //
 //   - 클라이언트는 card_index 를 절대 전달하지 않는다. 서버가 배열 위치에서
-//     1~CHANNEL_CARD_SLOT_COUNT 로 stamp 한다.
-//   - portfolio_top_cards 의 write 는 Phase 3/4 에서 별도 추가. 본 Phase 에서
-//     outputCards / detailCards payload 는 명시적으로 거절한다.
+//     1~slotCount 로 stamp 한다.
+//   - card_type 도 클라이언트가 전달하지 않는다. 서버가 outputCards / detailCards
+//     섹션 키에서 'output' / 'detail' 로 hardcoded stamp.
 // ─────────────────────────────────────────────────────────────────────
 
 // portfolio_channel_cards 의 admin editable text 컬럼 12개.
@@ -243,17 +243,16 @@ export type Cluster3PatchBody = {
   channelCards?: ChannelCardInput[];
   // 길이 OUTPUT_CARD_SLOT_COUNT(5) 강제. server 가 card_type='output' stamp.
   outputCards?: TopCardInput[];
-  // Phase 4 에서 열림. 본 Phase 에서 전달되면 명시적 400.
-  detailCards?: unknown;
+  // 길이 DETAIL_CARD_SLOT_COUNT(10) 강제. server 가 card_type='detail' stamp.
+  detailCards?: TopCardInput[];
 };
 
 // PATCH 응답의 applied 필드 — 클라이언트 DebugSection 에 표시.
 // "어느 슬롯이 upsert 되었고 어느 슬롯이 비어서 delete 되었는가" 를
 // indices 까지 노출해 회귀 진단을 돕는다.
 //
-// 회귀 핵심: topCards 객체는 본 응답에서 "어떤 card_type 이 건드려졌는지" 를
-// 명시한다. detail 키가 본 Phase 응답에 등장하면 buggy — Phase 4 까지 detail
-// write 는 절대 일어나면 안 된다.
+// topCards 객체는 어떤 card_type 이 건드려졌는지 명시한다. output / detail 은
+// 각자의 키에만 등장 — output 호출이 detail 키를 생성하거나 그 반대가 일어나선 안 됨.
 export type Cluster3ApplySummary = {
   channelCards?: {
     upserted: number;
@@ -268,6 +267,11 @@ export type Cluster3ApplySummary = {
       upsertedIndices: number[]; // 1~5
       deletedIndices: number[];
     };
-    // detail 키는 Phase 4 에서 도입. 본 Phase 에서 응답에 등장해서는 안 됨.
+    detail?: {
+      upserted: number;
+      deleted: number;
+      upsertedIndices: number[]; // 1~10
+      deletedIndices: number[];
+    };
   };
 };

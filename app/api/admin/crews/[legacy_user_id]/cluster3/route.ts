@@ -12,9 +12,11 @@ import {
 } from "@/lib/adminCluster3Data";
 import type { Cluster3PatchBody } from "@/lib/adminCluster3Types";
 
-// Cluster3 admin — Phase 2: GET + PATCH(channelCards 만).
-// portfolio_top_cards 의 write 는 본 route 에서 절대 트리거되지 않는다.
-// (outputCards / detailCards payload 는 patchCluster3ForCrew 가 명시적으로 400 거절)
+// Cluster3 admin — Phase 4: GET + PATCH.
+// PATCH body 는 channelCards / outputCards / detailCards 중 한 섹션 이상이 와야 하며
+// 각 섹션의 슬롯 길이(16/5/10)와 형식 검증은 patchCluster3ForCrew 가 담당.
+// requireAdmin 으로 보호되므로 user_edit_windows (사용자-facing 작성 기간) 와
+// 무관하게 저장한다.
 // POST / PUT / DELETE 는 의도적으로 export 하지 않는다 → Next 가 405 자동 응답.
 
 type Ctx = { params: Promise<{ legacy_user_id: string }> };

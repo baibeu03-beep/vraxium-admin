@@ -39,10 +39,10 @@ import {
   type TopCardSlot,
 } from "@/lib/adminCluster3Types";
 
-// Cluster3 admin editor — Phase 3.
+// Cluster3 admin editor — Phase 4.
 //   Section 3 Channel Cards: editable (portfolio_channel_cards write)
 //   Section 4 Output Cards:   editable (portfolio_top_cards WHERE card_type='output')
-//   Section 5 Detail Cards:   여전히 read-only (Phase 4 에서 enable)
+//   Section 5 Detail Cards:   editable (portfolio_top_cards WHERE card_type='detail')
 //
 // 저장 흐름:
 //   GET bundle → syncFormFromBundle(bundle) → form state hydrate
@@ -50,13 +50,16 @@ import {
 //   응답: { success, data, warnings?, applied } → bundle/form 재 resync.
 //
 // 회귀 핵심:
-//   - PATCH body 에 detailCards 를 절대 포함하지 않는다. 서버는 detailCards
-//     payload 도착 시 명시적 400.
 //   - card_type / card_index 는 서버 stamp. 클라이언트는 어느 쪽도 전송하지 않는다.
+//   - output 호출은 card_type='detail' row 를 mutate 하지 않고, detail 호출도
+//     card_type='output' row 를 mutate 하지 않는다 (server-side scope).
+//   - Admin route 는 requireAdmin 으로 보호되므로 user_edit_windows 작성 기간과
+//     무관하게 저장 가능하다. (사용자-facing 권한과 혼동 금지)
 
 type FormState = {
   channelCards: ChannelCardFormCard[]; // length CHANNEL_CARD_SLOT_COUNT (16)
   outputCards: TopCardFormCard[]; // length OUTPUT_CARD_SLOT_COUNT (5)
+  detailCards: TopCardFormCard[]; // length DETAIL_CARD_SLOT_COUNT (10)
 };
 
 // ─────────────────────────────────────────────────────────────────────
@@ -164,16 +167,19 @@ function emptyForm(): FormState {
     outputCards: Array.from({ length: OUTPUT_CARD_SLOT_COUNT }, () =>
       emptyTopFormCard(),
     ),
+    detailCards: Array.from({ length: DETAIL_CARD_SLOT_COUNT }, () =>
+      emptyTopFormCard(),
+    ),
   };
 }
 
 function syncFormFromBundle(bundle: Cluster3Bundle): FormState {
-  // bundle.channelCards 는 length CHANNEL_CARD_SLOT_COUNT, bundle.outputCards 는
-  // OUTPUT_CARD_SLOT_COUNT 보장 — server-side buildChannelSlots / buildTopSlots
-  // 가 빈 슬롯도 wrapper 로 채워서 반환.
+  // bundle.channelCards / outputCards / detailCards 는 각각 16 / 5 / 10 길이 보장.
+  // server-side buildChannelSlots / buildTopSlots 가 빈 슬롯도 wrapper 로 채움.
   return {
     channelCards: bundle.channelCards.map(slotToFormCard),
     outputCards: bundle.outputCards.map(topSlotToFormCard),
+    detailCards: bundle.detailCards.map(topSlotToFormCard),
   };
 }
 
@@ -290,6 +296,7 @@ function topCardsSnapshot(slots: TopCardSlot[]): {
 function buildPatchBody(form: FormState): {
   channelCards: ChannelCardInput[];
   outputCards: TopCardInput[];
+  detailCards: TopCardInput[];
 } {
   const channelCards: ChannelCardInput[] = form.channelCards.map((card) => ({
     channel_name: normalizeStr(card.channel_name),
@@ -306,9 +313,9 @@ function buildPatchBody(form: FormState): {
     metrics: normalizeStr(card.metrics),
     image_urls: card.image_urls.map((u) => sanitizeStorageUrl(u)),
   }));
-  // detailCards 는 절대 포함하지 않음 (Phase 4 까지 서버 거절 대상).
   const outputCards: TopCardInput[] = form.outputCards.map(buildTopCardInput);
-  return { channelCards, outputCards };
+  const detailCards: TopCardInput[] = form.detailCards.map(buildTopCardInput);
+  return { channelCards, outputCards, detailCards };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -479,6 +486,13 @@ export default function Cluster3Editor({
       return { ...cur, outputCards: list };
     });
 
+  const setDetailCard = (index: number, next: TopCardFormCard) =>
+    setForm((cur) => {
+      const list = [...cur.detailCards];
+      list[index] = next;
+      return { ...cur, detailCards: list };
+    });
+
   // ───────────────────────────────────────────────────────────────────
   // Tabs + unsaved 표시
   //
@@ -486,7 +500,6 @@ export default function Cluster3Editor({
   //   - dirty 판정: bundle 기준 "마지막 서버 저장 상태" 와 현재 form 의 deep compare.
   //     bundle 은 PATCH 응답 후 setBundle(next) 로 갱신되므로 저장 직후엔 자동으로
   //     clean 상태로 돌아간다.
-  //   - Detail 은 Phase 3 read-only — dirty 판정에서 제외.
   // ───────────────────────────────────────────────────────────────────
   type TabKey = "channel" | "output" | "detail" | "debug";
   const [activeTab, setActiveTab] = useState<TabKey>("channel");
@@ -504,12 +517,18 @@ export default function Cluster3Editor({
       JSON.stringify(savedForm.outputCards),
     [form.outputCards, savedForm.outputCards],
   );
-  const anyDirty = channelDirty || outputDirty;
+  const detailDirty = useMemo(
+    () =>
+      JSON.stringify(form.detailCards) !==
+      JSON.stringify(savedForm.detailCards),
+    [form.detailCards, savedForm.detailCards],
+  );
+  const anyDirty = channelDirty || outputDirty || detailDirty;
 
   const TABS: { key: TabKey; label: string; dirty: boolean }[] = [
     { key: "channel", label: "Channel Cards", dirty: channelDirty },
     { key: "output", label: "Top 5", dirty: outputDirty },
-    { key: "detail", label: "Detail 10", dirty: false },
+    { key: "detail", label: "Detail 10", dirty: detailDirty },
     { key: "debug", label: "Preview / Debug", dirty: false },
   ];
 
@@ -521,7 +540,7 @@ export default function Cluster3Editor({
           <h1 className="text-lg font-semibold">
             Cluster 3 Editor{" "}
             <span className="text-xs font-normal text-muted-foreground">
-              (Phase 3 · Channel + Output editable / Detail read-only)
+              (Phase 4 · Channel + Output + Detail editable)
             </span>
           </h1>
           <div className="text-xs text-muted-foreground">
@@ -581,11 +600,12 @@ export default function Cluster3Editor({
       )}
 
       <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        Phase 3 — Channel Cards (portfolio_channel_cards) 와 Output Cards
-        (portfolio_top_cards card_type=&apos;output&apos;) 편집 가능. Detail Cards
-        (card_type=&apos;detail&apos;) 는 read-only 이며 PATCH body 에 detailCards 가
-        포함될 경우 server 가 400 으로 거절합니다. detail row 보존이 본 Phase 핵심
-        회귀 게이트입니다.
+        Phase 4 — Channel Cards (portfolio_channel_cards), Output Cards
+        (portfolio_top_cards card_type=&apos;output&apos;, 1~5), Detail Cards
+        (card_type=&apos;detail&apos;, 1~10) 모두 편집 가능. card_type / card_index
+        는 서버 stamp 이며 한 card_type write 가 다른 card_type row 를 mutate
+        하지 않습니다. Admin route 는 requireAdmin 보호이므로 user_edit_windows
+        작성 기간과 무관하게 저장됩니다.
       </div>
 
       {/* counts strip — 탭과 무관하게 항상 보이는 상태 요약.
@@ -621,17 +641,19 @@ export default function Cluster3Editor({
         </div>
         <div className="rounded-md border bg-background px-3 py-2 text-xs">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Top cards · detail (read-only)
+            Top cards · detail · editable
           </div>
           <div className="mt-1 text-sm">
             {detailFilled} / {DETAIL_CARD_SLOT_COUNT} filled
+            {detailDirty && (
+              <span className="ml-2 text-[10px] text-amber-600">* unsaved</span>
+            )}
           </div>
           <div className="mt-0.5 text-[10px] text-muted-foreground">
             latest updated_at:{" "}
             <code className="font-mono">
               {fmt(detailSnapshot.latestUpdatedAt)}
             </code>
-            <span className="ml-1 text-amber-700">· Phase 3 회귀 게이트</span>
           </div>
         </div>
       </div>
@@ -755,11 +777,18 @@ export default function Cluster3Editor({
 
       {activeTab === "detail" && (
         <TopCardsEditor
-          title="Section 5 — Detail 10 Second Cards (read-only · Phase 4 에서 enable)"
+          title={
+            detailDirty
+              ? "Section 5 — Detail 10 Second Cards * unsaved"
+              : "Section 5 — Detail 10 Second Cards"
+          }
           cardType="detail"
           slotCount={DETAIL_CARD_SLOT_COUNT}
-          editable={false}
+          editable
           slots={bundle.detailCards}
+          formCards={form.detailCards}
+          onChangeCard={setDetailCard}
+          disabled={inputsDisabled}
           headerExtras={
             <EditWindowsLinkButton
               userId={bundle.userId}
@@ -815,11 +844,12 @@ export default function Cluster3Editor({
                 }}
               />
               <DebugSection
-                title="topCards preservation snapshot (Phase 3 회귀 게이트)"
+                title="topCards preservation snapshot"
                 data={{
                   hint:
-                    "output 저장 전후로 detail 의 latestUpdatedAt / rows 가 동일해야 합니다. " +
-                    "한 row 라도 updated_at 이 흔들리면 detail row mutate 회귀입니다.",
+                    "output 만 저장하면 detail 의 latestUpdatedAt / rows 가 변하지 않아야 하고, " +
+                    "detail 만 저장하면 output 의 latestUpdatedAt / rows 가 변하지 않아야 합니다. " +
+                    "한 쪽 호출이 다른 card_type row 의 updated_at 을 흔들면 scope 누락 회귀입니다.",
                   output: {
                     count: outputSnapshot.count,
                     slotCount: outputSnapshot.slotCount,
@@ -839,7 +869,7 @@ export default function Cluster3Editor({
                 data={bundle.outputCards}
               />
               <DebugSection
-                title="topCards.detail (Section 5 · read-only · card_type='detail')"
+                title="topCards.detail (Section 5 · editable · card_type='detail')"
                 data={bundle.detailCards}
               />
               <DebugSection
@@ -859,14 +889,12 @@ export default function Cluster3Editor({
                   <li>
                     portfolio_top_cards · card_type=&apos;output&apos; · card_index
                     1~5 ·{" "}
-                    <span className="text-emerald-700">writable (Phase 3)</span>
+                    <span className="text-emerald-700">writable</span>
                   </li>
                   <li>
                     portfolio_top_cards · card_type=&apos;detail&apos; · card_index
                     1~10 ·{" "}
-                    <span className="text-muted-foreground">
-                      read-only (Phase 4 에서 enable)
-                    </span>
+                    <span className="text-emerald-700">writable (Phase 4)</span>
                   </li>
                 </ul>
               </div>
