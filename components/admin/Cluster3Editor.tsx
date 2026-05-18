@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, Save } from "lucide-react";
+import Link from "next/link";
+import { CalendarClock, RefreshCw, Save } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -743,6 +744,12 @@ export default function Cluster3Editor({
           formCards={form.outputCards}
           onChangeCard={setOutputCard}
           disabled={inputsDisabled}
+          headerExtras={
+            <EditWindowsLinkButton
+              userId={bundle.userId}
+              resourceKey="cluster3.output_cards"
+            />
+          }
         />
       )}
 
@@ -753,6 +760,12 @@ export default function Cluster3Editor({
           slotCount={DETAIL_CARD_SLOT_COUNT}
           editable={false}
           slots={bundle.detailCards}
+          headerExtras={
+            <EditWindowsLinkButton
+              userId={bundle.userId}
+              resourceKey="cluster3.detail_cards"
+            />
+          }
         />
       )}
 
@@ -862,5 +875,33 @@ export default function Cluster3Editor({
         </Card>
       )}
     </div>
+  );
+}
+
+// 작성 기간 관리 진입 버튼 — Cluster2 Review Link 의 동일 버튼과 톤/스타일 mirror.
+// userId 가 있으면 ?q= 까지 붙여 EditWindowsManager 의 검색창에 시드된다.
+// resource 는 EditWindowsManager 가 mount 시 1회 isEditableResourceKey 로
+// 검증해 안전 fallback.
+function EditWindowsLinkButton({
+  userId,
+  resourceKey,
+}: {
+  userId: string | null;
+  resourceKey: "cluster3.output_cards" | "cluster3.detail_cards";
+}) {
+  const params = new URLSearchParams();
+  if (userId) params.set("q", userId);
+  params.set("resource", resourceKey);
+  const href = `/admin/settings/edit-windows?${params.toString()}`;
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      render={<Link href={href} />}
+    >
+      <CalendarClock className="h-3.5 w-3.5" />
+      작성 기간 관리
+    </Button>
   );
 }

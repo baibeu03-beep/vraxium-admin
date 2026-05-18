@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { FieldCell, type FieldDef } from "@/components/admin/fieldKit";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -585,6 +586,7 @@ export default function TopCardsEditor({
   editable = true,
   title,
   slotCount,
+  headerExtras,
 }: {
   slots: TopCardSlot[];
   cardType: TopCardType;
@@ -594,6 +596,9 @@ export default function TopCardsEditor({
   editable?: boolean;
   title?: string;
   slotCount?: number;
+  // 섹션 헤더 우측 영역에 끼워 넣을 추가 액션 (예: "작성 기간 관리" 버튼).
+  // title 이 있을 때만 렌더된다 (header 가 렌더되는 조건).
+  headerExtras?: ReactNode;
 }) {
   const slotMismatch =
     typeof slotCount === "number" && slots.length !== slotCount;
@@ -634,6 +639,7 @@ export default function TopCardsEditor({
             >
               {editable ? "editable" : "read-only (Phase 4)"}
             </span>
+            {headerExtras}
           </div>
         </header>
       )}

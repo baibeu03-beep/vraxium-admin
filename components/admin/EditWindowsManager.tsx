@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, RefreshCw, Search, X } from "lucide-react";
 import {
   Card,
@@ -39,6 +40,7 @@ import {
   computeEditWindowStatus,
   computeQuickActionRange,
   getResourceLabel,
+  isEditableResourceKey,
   statusLabel,
   type EditWindowDto,
   type EditWindowStatus,
@@ -98,9 +100,29 @@ function statusBadgeClass(status: EditWindowStatus): string {
 }
 
 export default function EditWindowsManager() {
-  const [resourceKey, setResourceKey] = useState<string>(DEFAULT_RESOURCE_KEY);
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const searchParams = useSearchParams();
+
+  // URL ?q= 와 ?resource= 를 초기 값으로 사용한다. mount 시점 1회만 읽으며
+  // 이후 URL 동기화는 하지 않는다 (사용자가 자유롭게 바꿀 수 있도록).
+  // 호출 진입점:
+  //   - /admin/members 의 "작성 기간" 버튼 → ?q=<userId>
+  //   - Cluster2 Review Link / Cluster3 Output|Detail 의 "작성 기간 관리" 버튼
+  //     → ?q=<userId>&resource=<resource_key>
+  // resource_key 가 EDITABLE_RESOURCES 에 없으면 DEFAULT 로 fallback.
+  const initialQuery = useMemo(
+    () => searchParams.get("q")?.trim() ?? "",
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const initialResourceKey = useMemo(() => {
+    const raw = searchParams.get("resource")?.trim() ?? "";
+    return isEditableResourceKey(raw) ? raw : DEFAULT_RESOURCE_KEY;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const [resourceKey, setResourceKey] = useState<string>(initialResourceKey);
+  const [query, setQuery] = useState(initialQuery);
+  const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [rows, setRows] = useState<EditWindowUserRow[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);

@@ -13,11 +13,23 @@ export type EditableResource = {
   description: string;
 };
 
+// 호스트(사용자) 앱 PUT 핸들러는 card_type 에 따라 아래 두 키 중 하나를 골라
+// 동일한 user_edit_windows row 를 조회한다. (cluster3 channel cards 는 제한 대상 아님)
 export const EDITABLE_RESOURCES: readonly EditableResource[] = [
   {
     key: "cluster2.review_links",
     label: "Cluster2 · Review Links",
     description: "Cluster2 의 10개 review link 슬롯 편집 권한",
+  },
+  {
+    key: "cluster3.output_cards",
+    label: "Cluster3 · Output Cards",
+    description: "Cluster3 Output (portfolio_top_cards.card_type='output', 5장) 편집 권한",
+  },
+  {
+    key: "cluster3.detail_cards",
+    label: "Cluster3 · Detail Cards",
+    description: "Cluster3 Detail (portfolio_top_cards.card_type='detail', 10장) 편집 권한",
   },
 ] as const;
 

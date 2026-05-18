@@ -569,6 +569,30 @@ export default function Cluster2Editor({
 
   const nextPatchPayload = useMemo(() => buildPatchBody(form), [form]);
 
+  // ─── 섹션 탭 (Cluster3 Editor 동일 패턴) ───────────────────────────────
+  //   - 한 화면에 모든 카드를 펼치면 스크롤이 길어져 운영 시 길을 잃기 쉽다.
+  //   - 탭으로 분리해도 form state 는 단일 객체에 보관되므로 탭 전환 시 입력값
+  //     유실 없음. Save All 은 활성 탭과 무관하게 buildPatchBody(form) 으로
+  //     전체 섹션을 한 번에 PATCH 한다 (기존 동작 유지).
+  type TabKey =
+    | "photos"
+    | "slogans"
+    | "videos"
+    | "educations"
+    | "introductions"
+    | "review_link"
+    | "debug";
+  const [activeTab, setActiveTab] = useState<TabKey>("photos");
+  const TABS: { key: TabKey; label: string }[] = [
+    { key: "photos", label: "Photos" },
+    { key: "slogans", label: "Slogans" },
+    { key: "videos", label: "Videos" },
+    { key: "educations", label: "Educations" },
+    { key: "introductions", label: "Introductions" },
+    { key: "review_link", label: "Review Link" },
+    { key: "debug", label: "Preview / Debug" },
+  ];
+
   return (
     <div className="flex flex-col gap-4">
       {/* top bar */}
@@ -651,31 +675,52 @@ export default function Cluster2Editor({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-        {/* form */}
-        <div className="flex flex-col gap-4 xl:col-span-2">
-          {/* Photos */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Photos</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                sidebar = user_profiles.profile_photo_url · main+sub =
-                user_introductions.sub_photo_5 / 1~4
-              </p>
-            </CardHeader>
-            <CardContent>
-              <PhotoSlots
-                value={form.photos}
-                onChange={(next) =>
-                  setForm((c) => ({ ...c, photos: next }))
-                }
-                disabled={inputsDisabled}
-              />
-            </CardContent>
-          </Card>
+      {/* Tab bar — Cluster3 Editor 와 동일 톤/스타일. */}
+      <div className="flex flex-wrap items-center gap-1 border-b">
+        {TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "relative -mb-px rounded-t-md border border-b-0 px-3 py-1.5 text-xs",
+                isActive
+                  ? "border-foreground bg-background font-semibold text-foreground"
+                  : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted",
+              )}
+              aria-pressed={isActive}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
 
-          {/* Slogans — 1/2/3 세트별로 text + tag + rating */}
-          <Card>
+      {/* Photos */}
+      {activeTab === "photos" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Photos</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              sidebar = user_profiles.profile_photo_url · main+sub =
+              user_introductions.sub_photo_5 / 1~4
+            </p>
+          </CardHeader>
+          <CardContent>
+            <PhotoSlots
+              value={form.photos}
+              onChange={(next) => setForm((c) => ({ ...c, photos: next }))}
+              disabled={inputsDisabled}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Slogans — 1/2/3 세트별로 text + tag + rating */}
+      {activeTab === "slogans" && (
+        <Card>
             <CardHeader>
               <CardTitle className="text-base">Slogans</CardTitle>
               <p className="text-xs text-muted-foreground">
@@ -746,9 +791,11 @@ export default function Cluster2Editor({
               </div>
             </CardContent>
           </Card>
+      )}
 
-          {/* Videos */}
-          <Card>
+      {/* Videos */}
+      {activeTab === "videos" && (
+        <Card>
             <CardHeader>
               <CardTitle className="text-base">Videos</CardTitle>
               <p className="text-xs text-muted-foreground">
@@ -792,9 +839,11 @@ export default function Cluster2Editor({
               </div>
             </CardContent>
           </Card>
+      )}
 
-          {/* Educations */}
-          <Card>
+      {/* Educations */}
+      {activeTab === "educations" && (
+        <Card>
             <CardHeader>
               <CardTitle className="text-base">Educations</CardTitle>
               <p className="text-xs text-muted-foreground">
@@ -812,9 +861,11 @@ export default function Cluster2Editor({
               />
             </CardContent>
           </Card>
+      )}
 
-          {/* Introductions */}
-          <Card>
+      {/* Introductions */}
+      {activeTab === "introductions" && (
+        <Card>
             <CardHeader>
               <CardTitle className="text-base">Introductions</CardTitle>
               <p className="text-xs text-muted-foreground">
@@ -836,9 +887,11 @@ export default function Cluster2Editor({
               </div>
             </CardContent>
           </Card>
+      )}
 
-          {/* Review Link (readonly) */}
-          <Card>
+      {/* Review Link (readonly) */}
+      {activeTab === "review_link" && (
+        <Card>
             <CardHeader>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <CardTitle className="text-base">
@@ -863,9 +916,10 @@ export default function Cluster2Editor({
               <ReviewLinkSlots links={bundle?.reviewLink.links} />
             </CardContent>
           </Card>
-        </div>
+      )}
 
-        {/* preview + debug */}
+      {/* Preview · Debug — Cluster3 와 동일하게 별도 탭으로 분리. */}
+      {activeTab === "debug" && (
         <div className="flex flex-col gap-4">
           <Card>
             <CardHeader>
@@ -983,7 +1037,7 @@ export default function Cluster2Editor({
             )}
           </Card>
         </div>
-      </div>
+      )}
     </div>
   );
 }

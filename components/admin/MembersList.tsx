@@ -405,7 +405,7 @@ export default function MembersList() {
                       />
                     );
                   })}
-                  <TableHead className="w-[260px] text-right">바로가기</TableHead>
+                  <TableHead className="w-[460px] text-right">바로가기</TableHead>
                 </TableRow>
                 {/* Column filter row */}
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
@@ -509,6 +509,14 @@ export default function MembersList() {
                               >
                                 Cluster 2
                               </Link>
+                              <Link
+                                href={`/admin/crews/${encodeURIComponent(
+                                  slug,
+                                )}/${encodeURIComponent(member.userId)}/cluster3`}
+                                className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                              >
+                                Cluster 3
+                              </Link>
                             </>
                           ) : (
                             <>
@@ -526,8 +534,24 @@ export default function MembersList() {
                               >
                                 Cluster 2
                               </span>
+                              <span
+                                aria-disabled
+                                title="organization_slug 가 없는 사용자입니다."
+                                className="cursor-not-allowed rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
+                              >
+                                Cluster 3
+                              </span>
                             </>
                           )}
+                          <Link
+                            href={`/admin/settings/edit-windows?q=${encodeURIComponent(
+                              member.userId,
+                            )}`}
+                            title="이 사용자의 작성 기간 관리로 이동"
+                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                          >
+                            작성 기간
+                          </Link>
                           <button
                             type="button"
                             onClick={() =>
