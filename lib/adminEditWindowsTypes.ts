@@ -9,27 +9,65 @@
 
 export type EditableResource = {
   key: string;
+  // 운영자에게 노출되는 기본 라벨/설명 — "무엇을 할 수 있는가" 중심.
   label: string;
   description: string;
+  // ?dev=true 에서만 노출되는 개발자용 라벨/설명 — 기존 DB/cluster 식별자 유지.
+  devLabel: string;
+  devDescription: string;
 };
 
 // 호스트(사용자) 앱 PUT 핸들러는 card_type 에 따라 아래 두 키 중 하나를 골라
 // 동일한 user_edit_windows row 를 조회한다. (cluster3 channel cards 는 제한 대상 아님)
+// Cluster4 키 (weekly_reviews / activity_details / season_review) 는 Front/Host
+// 측에서 이미 동일 문자열로 user_edit_windows 를 조회하므로 여기에 entry 만 추가
+// 하면 작성 기간 관리 UI 가 즉시 노출된다. user_edit_windows 스키마/마이그레이션
+// 변경은 필요 없다.
 export const EDITABLE_RESOURCES: readonly EditableResource[] = [
   {
     key: "cluster2.review_links",
-    label: "Cluster2 · Review Links",
-    description: "Cluster2 의 10개 review link 슬롯 편집 권한",
+    label: "클럽 리뷰 링크",
+    description: "주차별 Club Review 링크 10개 작성 권한을 관리합니다.",
+    devLabel: "Cluster2 · Review Links",
+    devDescription: "Cluster2 의 10개 review link 슬롯 편집 권한",
   },
   {
     key: "cluster3.output_cards",
-    label: "Cluster3 · Output Cards",
-    description: "Cluster3 Output (portfolio_top_cards.card_type='output', 5장) 편집 권한",
+    label: "포트폴리오 대표 카드",
+    description: "포트폴리오 대표 카드 5장 작성 권한을 관리합니다.",
+    devLabel: "Cluster3 · Output Cards",
+    devDescription:
+      "Cluster3 Output (portfolio_top_cards.card_type='output', 5장) 편집 권한",
   },
   {
     key: "cluster3.detail_cards",
-    label: "Cluster3 · Detail Cards",
-    description: "Cluster3 Detail (portfolio_top_cards.card_type='detail', 10장) 편집 권한",
+    label: "포트폴리오 상세 카드",
+    description: "포트폴리오 상세 카드 10장 작성 권한을 관리합니다.",
+    devLabel: "Cluster3 · Detail Cards",
+    devDescription:
+      "Cluster3 Detail (portfolio_top_cards.card_type='detail', 10장) 편집 권한",
+  },
+  {
+    key: "cluster4.weekly_reviews",
+    label: "주간 회고",
+    description: "주차별 회고 작성 권한을 관리합니다.",
+    devLabel: "Cluster4 · 주간 리뷰",
+    devDescription: "Cluster4 weekly_reviews (주차별 회고) 편집 권한",
+  },
+  {
+    key: "cluster4.activity_details",
+    label: "활동 상세",
+    description: "활동별 상세 입력 작성 권한을 관리합니다.",
+    devLabel: "Cluster4 · 활동 상세",
+    devDescription: "Cluster4 user_activity_details (활동별 상세 입력) 편집 권한",
+  },
+  {
+    key: "cluster4.season_review",
+    label: "시즌 종합 평가",
+    description: "시즌 종합 평가(평점 / 코멘트) 작성 권한을 관리합니다.",
+    devLabel: "Cluster4 · 시즌 리뷰",
+    devDescription:
+      "Cluster4 시즌 종합 (user_season_histories.rating / review) 편집 권한",
   },
 ] as const;
 
@@ -42,8 +80,18 @@ export function isEditableResourceKey(value: unknown): value is string {
   );
 }
 
-export function getResourceLabel(key: string): string {
-  return EDITABLE_RESOURCES.find((r) => r.key === key)?.label ?? key;
+// devMode=true 면 기존 cluster/DB 식별자 기반 라벨, false 면 운영자 친화 라벨.
+// 대시보드처럼 devMode 컨텍스트가 없는 server component 는 인자 없이 호출해 운영자 라벨을 받는다.
+export function getResourceLabel(key: string, devMode = false): string {
+  const r = EDITABLE_RESOURCES.find((x) => x.key === key);
+  if (!r) return key;
+  return devMode ? r.devLabel : r.label;
+}
+
+export function getResourceDescription(key: string, devMode = false): string {
+  const r = EDITABLE_RESOURCES.find((x) => x.key === key);
+  if (!r) return "";
+  return devMode ? r.devDescription : r.description;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

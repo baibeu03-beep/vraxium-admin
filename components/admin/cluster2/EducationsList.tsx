@@ -1,10 +1,21 @@
 "use client";
 
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Plus, Star, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FieldCell, fmt, type FieldDef } from "@/components/admin/fieldKit";
+
+// "학교 (school_name)" → "학교" (운영자 친화)
+// 라벨 끝 괄호가 영문/언더스코어 (= column name) 일 때만 제거한다.
+function operatorLabel(label: string): string {
+  return label.replace(/\s*\([a-z0-9_,\s]+\)\s*$/i, "").trim() || label;
+}
+
+function operatorize(fields: readonly FieldDef[]): readonly FieldDef[] {
+  return fields.map((f) => ({ ...f, label: operatorLabel(f.label) }));
+}
 
 // user_educations (실제 schema 기준 — 2026-05-13 PostgREST OpenAPI 확인):
 //   readonly meta:  id (uuid), user_id (uuid), created_at, updated_at
@@ -99,12 +110,22 @@ export default function EducationsList({
   rows,
   onChange,
   disabled,
+  devMode = false,
 }: {
   rows: EducationDto[];
   onChange: (next: EducationDto[]) => void;
   disabled?: boolean;
+  devMode?: boolean;
 }) {
   const primaryIndex = rows.findIndex((r) => r.is_primary);
+  const coreFields = useMemo(
+    () => (devMode ? EDUCATION_CORE_TEXT_FIELDS : operatorize(EDUCATION_CORE_TEXT_FIELDS)),
+    [devMode],
+  );
+  const extraFields = useMemo(
+    () => (devMode ? EDUCATION_EXTRA_FIELDS : operatorize(EDUCATION_EXTRA_FIELDS)),
+    [devMode],
+  );
 
   const setFieldValue = (index: number, key: string, value: unknown) => {
     const next = rows.map((row, i) =>
@@ -144,7 +165,7 @@ export default function EducationsList({
     <div className="flex flex-col gap-3">
       {rows.length === 0 && (
         <div className="rounded-md border border-dashed bg-muted/10 px-3 py-6 text-center text-sm text-muted-foreground">
-          등록된 학력 row 가 없습니다.
+          {devMode ? "등록된 학력 row 가 없습니다." : "등록된 학력이 없습니다."}
         </div>
       )}
 
@@ -216,7 +237,7 @@ export default function EducationsList({
 
             {/* Core 편집 영역 */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {EDUCATION_CORE_TEXT_FIELDS.map((field) => (
+              {coreFields.map((field) => (
                 <FieldCell
                   key={field.key}
                   field={field}
@@ -226,7 +247,9 @@ export default function EducationsList({
                 />
               ))}
               <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">sort_order (integer)</Label>
+                <Label className="text-xs">
+                  {devMode ? "sort_order (integer)" : "정렬 순서"}
+                </Label>
                 <input
                   type="number"
                   value={row.sort_order}
@@ -243,7 +266,9 @@ export default function EducationsList({
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">is_primary (대표 여부)</Label>
+                <Label className="text-xs">
+                  {devMode ? "is_primary (대표 여부)" : "대표학력"}
+                </Label>
                 <label className="mt-1 inline-flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -256,7 +281,13 @@ export default function EducationsList({
                     disabled={disabled}
                   />
                   <span className="text-muted-foreground">
-                    {row.is_primary ? "true" : "false"}
+                    {row.is_primary
+                      ? devMode
+                        ? "true"
+                        : "예"
+                      : devMode
+                        ? "false"
+                        : "아니오"}
                   </span>
                 </label>
               </div>
@@ -265,10 +296,10 @@ export default function EducationsList({
             {/* Extra (optional) 편집 영역 */}
             <details className="mt-3 rounded-md border border-dashed border-border/60 bg-muted/10 p-2 open:bg-muted/20">
               <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
-                추가 필드 (12개, 모두 text)
+                {devMode ? "추가 필드 (12개, 모두 text)" : "추가 정보 (12개 항목)"}
               </summary>
               <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {EDUCATION_EXTRA_FIELDS.map((field) => (
+                {extraFields.map((field) => (
                   <FieldCell
                     key={field.key}
                     field={field}
@@ -280,33 +311,39 @@ export default function EducationsList({
               </div>
             </details>
 
-            {/* Readonly meta (id / user_id / created_at / updated_at) */}
-            <dl className="mt-3 grid grid-cols-1 gap-x-3 gap-y-1 rounded-md bg-muted/30 px-2 py-1.5 text-[10px] text-muted-foreground sm:grid-cols-2">
-              <div className="flex gap-1">
-                <dt className="font-medium">id:</dt>
-                <dd className="break-all">{fmt(row.id)}</dd>
-              </div>
-              <div className="flex gap-1">
-                <dt className="font-medium">user_id:</dt>
-                <dd className="break-all">{fmt(row.user_id)}</dd>
-              </div>
-              <div className="flex gap-1">
-                <dt className="font-medium">created_at:</dt>
-                <dd>{fmt(row.created_at)}</dd>
-              </div>
-              <div className="flex gap-1">
-                <dt className="font-medium">updated_at:</dt>
-                <dd>{fmt(row.updated_at)}</dd>
-              </div>
-            </dl>
+            {/* Readonly meta (id / user_id / created_at / updated_at) — dev only */}
+            {devMode && (
+              <dl className="mt-3 grid grid-cols-1 gap-x-3 gap-y-1 rounded-md bg-muted/30 px-2 py-1.5 text-[10px] text-muted-foreground sm:grid-cols-2">
+                <div className="flex gap-1">
+                  <dt className="font-medium">id:</dt>
+                  <dd className="break-all">{fmt(row.id)}</dd>
+                </div>
+                <div className="flex gap-1">
+                  <dt className="font-medium">user_id:</dt>
+                  <dd className="break-all">{fmt(row.user_id)}</dd>
+                </div>
+                <div className="flex gap-1">
+                  <dt className="font-medium">created_at:</dt>
+                  <dd>{fmt(row.created_at)}</dd>
+                </div>
+                <div className="flex gap-1">
+                  <dt className="font-medium">updated_at:</dt>
+                  <dd>{fmt(row.updated_at)}</dd>
+                </div>
+              </dl>
+            )}
           </div>
         );
       })}
 
       <div className="flex items-center justify-between text-xs text-muted-foreground">
         <span>
-          대표학력 (is_primary=true):{" "}
-          {primaryIndex >= 0 ? `Row #${primaryIndex + 1}` : "없음"}
+          {devMode ? "대표학력 (is_primary=true): " : "대표학력: "}
+          {primaryIndex >= 0
+            ? devMode
+              ? `Row #${primaryIndex + 1}`
+              : `${primaryIndex + 1}번째 학력`
+            : "없음"}
         </span>
         <Button
           type="button"
@@ -316,7 +353,7 @@ export default function EducationsList({
           disabled={disabled}
         >
           <Plus className="h-4 w-4" />
-          학력 row 추가
+          {devMode ? "학력 row 추가" : "학력 추가"}
         </Button>
       </div>
     </div>

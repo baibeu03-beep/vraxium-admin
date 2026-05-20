@@ -24,6 +24,20 @@ import {
   normalizeForPatch,
   type FieldDef,
 } from "@/components/admin/fieldKit";
+
+// 운영자 모드용 라벨 정제 — "Text (slogan_1)" → "Text", "성장 과정 (growth_story)" → "성장 과정".
+// 라벨 말미의 영문 column-name 괄호만 제거하고, 한글/공백 라벨은 그대로 둔다.
+function operatorLabel(label: string): string {
+  return label.replace(/\s*\([a-z0-9_,\s]+\)\s*$/i, "").trim() || label;
+}
+
+function applyOperatorLabels(
+  fields: readonly FieldDef[],
+  devMode: boolean,
+): readonly FieldDef[] {
+  if (devMode) return fields;
+  return fields.map((f) => ({ ...f, label: operatorLabel(f.label) }));
+}
 import PhotoSlots from "@/components/admin/cluster2/PhotoSlots";
 import EducationsList, {
   EDUCATION_FIELD_DEFS,
@@ -34,6 +48,10 @@ import {
   isCanonicalSloganOption,
 } from "@/lib/cluster2SloganOptions";
 import { type ReviewLinkDto } from "@/lib/reviewLinks";
+import {
+  useAdminDevMode,
+  useWithDevQuery,
+} from "@/components/admin/useAdminDevMode";
 
 // Cluster2 admin editor.
 // resume-card editor 와 동일한 패턴:
@@ -378,18 +396,23 @@ function ReviewLinkWindowNotice({
 
 function ReviewLinkSlots({
   links,
+  devMode,
 }: {
   links: ReviewLinkDto[] | undefined;
+  devMode: boolean;
 }) {
   const normalizedLinks = links ?? [];
   return (
     <div className="flex flex-col gap-3">
       <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
         <div className="font-medium">현재 운영 저장 슬롯: Club Review 10개</div>
-        <div className="mt-0.5">
-          3w~27w와 Total Complete 모두 public.user_review_links에 저장됩니다.
-          기존 Total Complete 호환 컬럼은 user_cluster2.cluving_review_link 입니다.
-        </div>
+        {devMode && (
+          <div className="mt-0.5">
+            3w~27w와 Total Complete 모두 public.user_review_links에 저장됩니다.
+            기존 Total Complete 호환 컬럼은 user_cluster2.cluving_review_link
+            입니다.
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -411,7 +434,7 @@ function ReviewLinkSlots({
                       : "border-zinc-200 bg-zinc-50 text-zinc-600",
                   )}
                 >
-                  {slot.isVisible ? "DB 저장" : "숨김"}
+                  {slot.isVisible ? (devMode ? "DB 저장" : "저장됨") : "숨김"}
                 </span>
               </div>
               <Input
@@ -420,22 +443,28 @@ function ReviewLinkSlots({
                 readOnly
                 className="font-mono text-xs"
               />
-              <div className="min-h-4 text-[10px] text-muted-foreground">
-                user_review_links.week_index={slot.weekIndex}
-                {slot.weekIndex === 30
-                  ? " · legacy: user_cluster2.cluving_review_link"
-                  : ""}
-                {slot.isLegacyBackfilled ? " · legacy 값 fallback 표시 중" : ""}
-              </div>
+              {devMode && (
+                <div className="min-h-4 text-[10px] text-muted-foreground">
+                  user_review_links.week_index={slot.weekIndex}
+                  {slot.weekIndex === 30
+                    ? " · legacy: user_cluster2.cluving_review_link"
+                    : ""}
+                  {slot.isLegacyBackfilled
+                    ? " · legacy 값 fallback 표시 중"
+                    : ""}
+                </div>
+              )}
             </div>
           );
         })}
       </div>
 
-      <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        Admin 직접 수정은 후속 단계에서 열 수 있습니다. 1차 운영 저장은 Front
-        Club Review API와 public.user_review_links 기준입니다.
-      </div>
+      {devMode && (
+        <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          Admin 직접 수정은 후속 단계에서 열 수 있습니다. 1차 운영 저장은 Front
+          Club Review API와 public.user_review_links 기준입니다.
+        </div>
+      )}
     </div>
   );
 }
@@ -450,6 +479,8 @@ export default function Cluster2Editor({
   organization: OrganizationSlug;
   legacyUserId: string;
 }) {
+  const devMode = useAdminDevMode();
+  const withDev = useWithDevQuery();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [bundle, setBundle] = useState<Bundle | null>(null);
@@ -569,6 +600,16 @@ export default function Cluster2Editor({
 
   const nextPatchPayload = useMemo(() => buildPatchBody(form), [form]);
 
+  // 운영자 모드용 라벨 — VIDEO_FIELDS 는 "Video 1 URL" 같은 영문이라 별도 매핑.
+  const videoFieldsRendered = useMemo<readonly FieldDef[]>(() => {
+    if (devMode) return VIDEO_FIELDS;
+    return VIDEO_FIELDS.map((f, i) => ({ ...f, label: `영상 ${i + 1} URL` }));
+  }, [devMode]);
+  const introductionFieldsRendered = useMemo<readonly FieldDef[]>(
+    () => applyOperatorLabels(INTRODUCTION_FIELDS, devMode),
+    [devMode],
+  );
+
   // ─── 섹션 탭 (Cluster3 Editor 동일 패턴) ───────────────────────────────
   //   - 한 화면에 모든 카드를 펼치면 스크롤이 길어져 운영 시 길을 잃기 쉽다.
   //   - 탭으로 분리해도 form state 는 단일 객체에 보관되므로 탭 전환 시 입력값
@@ -584,13 +625,15 @@ export default function Cluster2Editor({
     | "debug";
   const [activeTab, setActiveTab] = useState<TabKey>("photos");
   const TABS: { key: TabKey; label: string }[] = [
-    { key: "photos", label: "Photos" },
-    { key: "slogans", label: "Slogans" },
-    { key: "videos", label: "Videos" },
-    { key: "educations", label: "Educations" },
-    { key: "introductions", label: "Introductions" },
-    { key: "review_link", label: "Review Link" },
-    { key: "debug", label: "Preview / Debug" },
+    { key: "photos", label: devMode ? "Photos" : "사진" },
+    { key: "slogans", label: devMode ? "Slogans" : "슬로건" },
+    { key: "videos", label: devMode ? "Videos" : "영상" },
+    { key: "educations", label: devMode ? "Educations" : "학력" },
+    { key: "introductions", label: devMode ? "Introductions" : "자기소개서" },
+    { key: "review_link", label: devMode ? "Review Link" : "리뷰 링크" },
+    ...(devMode
+      ? [{ key: "debug" as TabKey, label: "Preview / Debug" }]
+      : []),
   ];
 
   return (
@@ -598,11 +641,19 @@ export default function Cluster2Editor({
       {/* top bar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-lg font-semibold">Cluster 2 Editor</h1>
+          <h1 className="text-lg font-semibold">
+            {devMode ? "Cluster 2 Editor" : "활동 페이지 편집"}
+          </h1>
           <div className="text-xs text-muted-foreground">
-            {ORGANIZATION_LABEL[organization]} · crew id:{" "}
-            <code className="font-mono">{legacyUserId}</code>
-            {bundle?.userId && (
+            {ORGANIZATION_LABEL[organization]} ·{" "}
+            {devMode ? (
+              <>
+                crew id: <code className="font-mono">{legacyUserId}</code>
+              </>
+            ) : (
+              <>회원 ID: <span className="font-mono">{legacyUserId}</span></>
+            )}
+            {devMode && bundle?.userId && (
               <>
                 {" "}
                 · user_id: <code className="font-mono">{bundle.userId}</code>
@@ -611,7 +662,8 @@ export default function Cluster2Editor({
             {lastSavedAt && (
               <>
                 {" "}
-                · last saved: <code className="font-mono">{lastSavedAt}</code>
+                · {devMode ? "last saved" : "최근 저장"}:{" "}
+                <code className="font-mono">{lastSavedAt}</code>
               </>
             )}
           </div>
@@ -625,7 +677,7 @@ export default function Cluster2Editor({
             disabled={loading || saving}
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-            Reload
+            {devMode ? "Reload" : "새로고침"}
           </Button>
           <Button
             type="button"
@@ -634,7 +686,13 @@ export default function Cluster2Editor({
             disabled={inputsDisabled}
           >
             <Save className="h-4 w-4" />
-            {saving ? "Saving..." : "Save All"}
+            {saving
+              ? devMode
+                ? "Saving..."
+                : "저장 중..."
+              : devMode
+                ? "Save All"
+                : "전체 저장"}
           </Button>
         </div>
       </div>
@@ -642,9 +700,19 @@ export default function Cluster2Editor({
       {/* read-only notice */}
       {isReadOnly && !loading && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          이 crew 는 user_profiles 매칭 행이 없어 <strong>읽기 전용</strong>
-          입니다. crew id <code className="font-mono">{legacyUserId}</code> 의
-          인증 가입 후 다시 시도하세요.
+          {devMode ? (
+            <>
+              이 crew 는 user_profiles 매칭 행이 없어{" "}
+              <strong>읽기 전용</strong>입니다. crew id{" "}
+              <code className="font-mono">{legacyUserId}</code> 의 인증 가입
+              후 다시 시도하세요.
+            </>
+          ) : (
+            <>
+              이 회원은 아직 가입 전이라 <strong>읽기 전용</strong>입니다.
+              회원 가입 완료 후 다시 시도하세요.
+            </>
+          )}
         </div>
       )}
 
@@ -702,17 +770,20 @@ export default function Cluster2Editor({
       {activeTab === "photos" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Photos</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              sidebar = user_profiles.profile_photo_url · main+sub =
-              user_introductions.sub_photo_5 / 1~4
-            </p>
+            <CardTitle className="text-base">{devMode ? "Photos" : "사진"}</CardTitle>
+            {devMode && (
+              <p className="text-xs text-muted-foreground">
+                sidebar = user_profiles.profile_photo_url · main+sub =
+                user_introductions.sub_photo_5 / 1~4
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             <PhotoSlots
               value={form.photos}
               onChange={(next) => setForm((c) => ({ ...c, photos: next }))}
               disabled={inputsDisabled}
+              devMode={devMode}
             />
           </CardContent>
         </Card>
@@ -722,11 +793,13 @@ export default function Cluster2Editor({
       {activeTab === "slogans" && (
         <Card>
             <CardHeader>
-              <CardTitle className="text-base">Slogans</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                user_introductions.slogan_{`{1,2,3}`} · _tag · _rating (0–10
-                정수)
-              </p>
+              <CardTitle className="text-base">{devMode ? "Slogans" : "슬로건"}</CardTitle>
+              {devMode && (
+                <p className="text-xs text-muted-foreground">
+                  user_introductions.slogan_{`{1,2,3}`} · _tag · _rating (0–10
+                  정수)
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <div className="flex flex-col gap-6">
@@ -739,12 +812,16 @@ export default function Cluster2Editor({
                   const isLegacyTag =
                     tagValueStr.length > 0 &&
                     !isCanonicalSloganOption(tagValueStr);
-                  const tagField: FieldDef = isLegacyTag
+                  const tagFieldRaw: FieldDef = isLegacyTag
                     ? {
                         ...group.tag,
                         options: [...CLUSTER2_SLOGAN_OPTIONS, tagValueStr],
                       }
                     : group.tag;
+                  const [textField, tagField, ratingField] = applyOperatorLabels(
+                    [group.text, tagFieldRaw, group.rating],
+                    devMode,
+                  );
                   return (
                     <div
                       key={group.index}
@@ -754,10 +831,10 @@ export default function Cluster2Editor({
                       )}
                     >
                       <div className="text-sm font-medium">
-                        Slogan {group.index}
+                        {devMode ? `Slogan ${group.index}` : `슬로건 ${group.index}`}
                       </div>
                       <FieldCell
-                        field={group.text}
+                        field={textField}
                         value={form.slogans[group.text.key]}
                         onChange={(v) => setSloganValue(group.text.key, v)}
                         disabled={inputsDisabled}
@@ -779,7 +856,7 @@ export default function Cluster2Editor({
                           )}
                         </div>
                         <FieldCell
-                          field={group.rating}
+                          field={ratingField}
                           value={form.slogans[group.rating.key]}
                           onChange={(v) => setSloganValue(group.rating.key, v)}
                           disabled={inputsDisabled}
@@ -797,15 +874,21 @@ export default function Cluster2Editor({
       {activeTab === "videos" && (
         <Card>
             <CardHeader>
-              <CardTitle className="text-base">Videos</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                user_introductions.video_url_{`{1,2,3}`} · 썸네일은 자동 계산
-                (저장 불가)
-              </p>
+              <CardTitle className="text-base">{devMode ? "Videos" : "영상"}</CardTitle>
+              {devMode ? (
+                <p className="text-xs text-muted-foreground">
+                  user_introductions.video_url_{`{1,2,3}`} · 썸네일은 자동
+                  계산 (저장 불가)
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  영상 URL 3개. 썸네일은 자동으로 표시됩니다.
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {VIDEO_FIELDS.map((field) => (
+                {videoFieldsRendered.map((field) => (
                   <div
                     key={field.key}
                     className={cn(field.full && "sm:col-span-2")}
@@ -845,11 +928,18 @@ export default function Cluster2Editor({
       {activeTab === "educations" && (
         <Card>
             <CardHeader>
-              <CardTitle className="text-base">Educations</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                user_educations · 저장 시 user_id 전체 삭제+재삽입 · sort_order
-                = 0 이 대표학력
-              </p>
+              <CardTitle className="text-base">{devMode ? "Educations" : "학력"}</CardTitle>
+              {devMode ? (
+                <p className="text-xs text-muted-foreground">
+                  user_educations · 저장 시 user_id 전체 삭제+재삽입 ·
+                  sort_order = 0 이 대표학력
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  학력은 저장 시 전체가 다시 기록됩니다. 별표(대표학력)는 한
+                  개만 지정할 수 있습니다.
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <EducationsList
@@ -858,6 +948,7 @@ export default function Cluster2Editor({
                   setForm((c) => ({ ...c, educations: next }))
                 }
                 disabled={inputsDisabled}
+                devMode={devMode}
               />
             </CardContent>
           </Card>
@@ -867,15 +958,22 @@ export default function Cluster2Editor({
       {activeTab === "introductions" && (
         <Card>
             <CardHeader>
-              <CardTitle className="text-base">Introductions</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                user_cluster2 · 5 문항 · 각 항목{" "}
-                {INTRODUCTION_MAX_LENGTH.toLocaleString()}자 제한
-              </p>
+              <CardTitle className="text-base">{devMode ? "Introductions" : "자기소개서"}</CardTitle>
+              {devMode ? (
+                <p className="text-xs text-muted-foreground">
+                  user_cluster2 · 5 문항 · 각 항목{" "}
+                  {INTRODUCTION_MAX_LENGTH.toLocaleString()}자 제한
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  자기소개서 5문항 · 각 항목{" "}
+                  {INTRODUCTION_MAX_LENGTH.toLocaleString()}자 제한
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-3">
-                {INTRODUCTION_FIELDS.map((field) => (
+                {introductionFieldsRendered.map((field) => (
                   <FieldCell
                     key={field.key}
                     field={field}
@@ -895,16 +993,18 @@ export default function Cluster2Editor({
             <CardHeader>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <CardTitle className="text-base">
-                  Review Link{" "}
+                  {devMode ? "Review Link" : "리뷰 링크"}{" "}
                   <span className="text-xs font-normal text-muted-foreground">
-                    (readonly)
+                    {devMode ? "(readonly)" : "(읽기 전용)"}
                   </span>
                 </CardTitle>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  render={<Link href="/admin/settings/edit-windows" />}
+                  render={
+                    <Link href={withDev("/admin/settings/edit-windows")} />
+                  }
                 >
                   <CalendarClock className="h-3.5 w-3.5" />
                   작성 기간 관리
@@ -913,13 +1013,16 @@ export default function Cluster2Editor({
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <ReviewLinkWindowNotice window={bundle?.reviewLink.window} />
-              <ReviewLinkSlots links={bundle?.reviewLink.links} />
+              <ReviewLinkSlots
+                links={bundle?.reviewLink.links}
+                devMode={devMode}
+              />
             </CardContent>
           </Card>
       )}
 
       {/* Preview · Debug — Cluster3 와 동일하게 별도 탭으로 분리. */}
-      {activeTab === "debug" && (
+      {activeTab === "debug" && devMode && (
         <div className="flex flex-col gap-4">
           <Card>
             <CardHeader>

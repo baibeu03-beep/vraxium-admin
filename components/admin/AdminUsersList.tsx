@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { ADMIN_READ_ROLES } from "@/lib/adminAuthRoles";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 type AdminUser = {
   id: string;
@@ -82,6 +83,7 @@ function roleBadgeClass(role: string | null) {
 }
 
 export default function AdminUsersList() {
+  const devMode = useAdminDevMode();
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -147,8 +149,16 @@ export default function AdminUsersList() {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">관리자 계정</h2>
           <p className="text-sm text-muted-foreground">
-            어드민 페이지에 로그인할 수 있는 계정 목록입니다. 기준 테이블:
-            <code className="mx-1 font-mono">public.admin_users</code>
+            {devMode
+              ? "어드민 페이지에 로그인할 수 있는 계정 목록입니다."
+              : "관리자 페이지에 로그인할 수 있는 계정 목록입니다."}
+            {devMode && (
+              <>
+                {" "}
+                기준 테이블:
+                <code className="mx-1 font-mono">public.admin_users</code>
+              </>
+            )}
           </p>
         </div>
         <Button
@@ -173,7 +183,7 @@ export default function AdminUsersList() {
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="email, role, id 검색"
+                placeholder={devMode ? "email, role, id 검색" : "이메일, 역할, ID로 검색"}
                 className="pl-9"
               />
             </div>
@@ -189,7 +199,7 @@ export default function AdminUsersList() {
                   <SelectItem value={ROLE_ALL}>전체 역할</SelectItem>
                   {ADMIN_READ_ROLES.map((r) => (
                     <SelectItem key={r} value={r}>
-                      {roleLabel(r)} ({r})
+                      {devMode ? `${roleLabel(r)} (${r})` : roleLabel(r)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -222,12 +232,12 @@ export default function AdminUsersList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Email</TableHead>
+                  <TableHead>{devMode ? "Email" : "이메일"}</TableHead>
                   <TableHead>역할</TableHead>
                   <TableHead>활성</TableHead>
                   <TableHead>생성일</TableHead>
                   <TableHead>최근 수정</TableHead>
-                  <TableHead>id</TableHead>
+                  {devMode && <TableHead>id</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -264,15 +274,17 @@ export default function AdminUsersList() {
                     <TableCell className="whitespace-nowrap text-xs">
                       {fmtDate(user.updatedAt)}
                     </TableCell>
-                    <TableCell className="font-mono text-[11px]">
-                      {user.id}
-                    </TableCell>
+                    {devMode && (
+                      <TableCell className="font-mono text-[11px]">
+                        {user.id}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
                 {!loading && filtered.length === 0 && !error && (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={devMode ? 6 : 5}
                       className="py-10 text-center text-muted-foreground"
                     >
                       조회된 관리자가 없습니다.
@@ -282,7 +294,7 @@ export default function AdminUsersList() {
                 {loading && filtered.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={devMode ? 6 : 5}
                       className="py-10 text-center text-muted-foreground"
                     >
                       불러오는 중...

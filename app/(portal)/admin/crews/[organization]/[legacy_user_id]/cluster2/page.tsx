@@ -6,17 +6,24 @@ import { isOrganizationSlug, ORGANIZATION_LABEL } from "@/lib/organizations";
 
 type Props = {
   params: Promise<{ organization: string; legacy_user_id: string }>;
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export default async function CrewCluster2Page({ params }: Props) {
+export default async function CrewCluster2Page({
+  params,
+  searchParams,
+}: Props) {
   const { organization, legacy_user_id } = await params;
+  const sp = await searchParams;
   if (!isOrganizationSlug(organization)) notFound();
+
+  const devSuffix = sp?.dev === "true" ? "?dev=true" : "";
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link
-          href="/admin/crews"
+          href={`/admin/crews${devSuffix}`}
           className="inline-flex items-center gap-1 hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
@@ -24,7 +31,7 @@ export default async function CrewCluster2Page({ params }: Props) {
         </Link>
         <span>/</span>
         <Link
-          href={`/admin/crews/${organization}`}
+          href={`/admin/crews/${organization}${devSuffix}`}
           className="hover:text-foreground"
         >
           {ORGANIZATION_LABEL[organization]}
@@ -35,7 +42,7 @@ export default async function CrewCluster2Page({ params }: Props) {
 
       <div className="flex items-center gap-2 text-xs">
         <Link
-          href={`/admin/crews/${organization}/${legacy_user_id}`}
+          href={`/admin/crews/${organization}/${legacy_user_id}${devSuffix}`}
           className="rounded-md border px-2 py-1 hover:bg-muted"
         >
           Resume Card
@@ -44,7 +51,7 @@ export default async function CrewCluster2Page({ params }: Props) {
           Cluster 2
         </span>
         <Link
-          href={`/admin/crews/${organization}/${legacy_user_id}/cluster3`}
+          href={`/admin/crews/${organization}/${legacy_user_id}/cluster3${devSuffix}`}
           className="rounded-md border px-2 py-1 hover:bg-muted"
         >
           Cluster 3

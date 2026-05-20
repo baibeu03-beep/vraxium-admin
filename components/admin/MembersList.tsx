@@ -52,6 +52,7 @@ import {
 import MemberEditDrawer, {
   type EditableMember,
 } from "@/components/admin/MemberEditDrawer";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 type Member = {
   userId: string;
@@ -74,19 +75,18 @@ const PAGE_SIZE = 100;
 
 const GROWTH_STATUSES = APP_USER_STATUSES;
 
-const COLUMNS: {
-  key: MemberSortColumn;
-  label: string;
-}[] = [
-  { key: "display_name", label: "이름 / user_id" },
-  { key: "contact_email", label: "연락 이메일" },
-  { key: "auth_email", label: "로그인 이메일" },
-  { key: "organization_slug", label: "소속" },
-  { key: "status", label: "상태" },
-  { key: "growth_status", label: "성장" },
-  { key: "created_at", label: "가입일" },
-  { key: "updated_at", label: "최근 수정" },
-];
+function buildColumns(devMode: boolean): { key: MemberSortColumn; label: string }[] {
+  return [
+    { key: "display_name", label: devMode ? "이름 / user_id" : "이름" },
+    { key: "contact_email", label: "연락 이메일" },
+    { key: "auth_email", label: devMode ? "auth_email" : "로그인 이메일" },
+    { key: "organization_slug", label: "소속" },
+    { key: "status", label: "상태" },
+    { key: "growth_status", label: "성장" },
+    { key: "created_at", label: "가입일" },
+    { key: "updated_at", label: "최근 수정" },
+  ];
+}
 
 function fmt(value: string | null | undefined) {
   return value?.trim() ? value : "—";
@@ -118,6 +118,7 @@ export default function MembersList() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const devMode = useAdminDevMode();
 
   // 정렬은 nullable. null = "기본 정렬"(서버에서 created_at desc 적용).
   // 초기값은 URL 의 sort= 가 있으면 사용, 없으면 null.
@@ -312,6 +313,7 @@ export default function MembersList() {
   const pageEnd = offset + members.length;
   const hasPrev = offset > 0;
   const hasNext = pageEnd < total;
+  const columns = useMemo(() => buildColumns(devMode), [devMode]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -319,8 +321,16 @@ export default function MembersList() {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">전체 멤버</h2>
           <p className="text-sm text-muted-foreground">
-            조직과 관계없이 전체 사용자를 한 화면에서 운영합니다. 기준 테이블:{" "}
-            <code className="mx-1 font-mono">public.user_profiles</code>
+            {devMode
+              ? "조직과 관계없이 전체 사용자를 한 화면에서 운영합니다."
+              : "소속과 관계없이 전체 회원을 한 화면에서 관리합니다."}
+            {devMode && (
+              <>
+                {" "}
+                기준 테이블:
+                <code className="mx-1 font-mono">public.user_profiles</code>
+              </>
+            )}
           </p>
         </div>
         <Button variant="outline" onClick={reload} disabled={loading}>
@@ -339,7 +349,7 @@ export default function MembersList() {
           loading={loading}
         />
         <SummaryChip
-          label="auth_email 없음"
+          label={devMode ? "auth_email 없음" : "로그인 이메일 없음"}
           value={withoutAuthCount}
           tone={withoutAuthCount > 0 ? "warning" : "muted"}
           loading={loading}
@@ -378,7 +388,11 @@ export default function MembersList() {
             <Input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="이름, contact_email, auth_email, user_id 검색"
+              placeholder={
+                devMode
+                  ? "이름, contact_email, auth_email, user_id 검색"
+                  : "이름, 이메일, 회원 ID로 검색"
+              }
               className="pl-9"
             />
           </div>
@@ -393,7 +407,7 @@ export default function MembersList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {COLUMNS.map((c) => {
+                  {columns.map((c) => {
                     const active = sort?.col === c.key;
                     return (
                       <SortableHeader
@@ -470,9 +484,11 @@ export default function MembersList() {
                     <TableRow key={member.userId}>
                       <TableCell className="max-w-[220px]">
                         <div className="font-medium">{fmt(member.displayName)}</div>
-                        <div className="font-mono text-[10px] text-muted-foreground">
-                          {member.userId}
-                        </div>
+                        {devMode && (
+                          <div className="font-mono text-[10px] text-muted-foreground">
+                            {member.userId}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="max-w-[220px] truncate">
                         {fmt(member.contactEmail)}
@@ -494,25 +510,36 @@ export default function MembersList() {
                           {slug ? (
                             <>
                               <Link
-                                href={`/admin/crews/${encodeURIComponent(
-                                  slug,
-                                )}/${encodeURIComponent(member.userId)}`}
+                                href={
+                                  `/admin/crews/${encodeURIComponent(
+                                    slug,
+                                  )}/${encodeURIComponent(member.userId)}` +
+                                  (devMode ? "?dev=true" : "")
+                                }
                                 className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                               >
                                 Resume Card
                               </Link>
                               <Link
-                                href={`/admin/crews/${encodeURIComponent(
-                                  slug,
-                                )}/${encodeURIComponent(member.userId)}/cluster2`}
+                                href={
+                                  `/admin/crews/${encodeURIComponent(
+                                    slug,
+                                  )}/${encodeURIComponent(
+                                    member.userId,
+                                  )}/cluster2` + (devMode ? "?dev=true" : "")
+                                }
                                 className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                               >
                                 Cluster 2
                               </Link>
                               <Link
-                                href={`/admin/crews/${encodeURIComponent(
-                                  slug,
-                                )}/${encodeURIComponent(member.userId)}/cluster3`}
+                                href={
+                                  `/admin/crews/${encodeURIComponent(
+                                    slug,
+                                  )}/${encodeURIComponent(
+                                    member.userId,
+                                  )}/cluster3` + (devMode ? "?dev=true" : "")
+                                }
                                 className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                               >
                                 Cluster 3
@@ -522,21 +549,33 @@ export default function MembersList() {
                             <>
                               <span
                                 aria-disabled
-                                title="organization_slug 가 없는 사용자입니다. 멤버 정보 수정에서 소속을 먼저 지정하세요."
+                                title={
+                                  devMode
+                                    ? "organization_slug 가 없는 사용자입니다. 멤버 정보 수정에서 소속을 먼저 지정하세요."
+                                    : "소속이 지정되지 않은 회원입니다. '멤버 정보 수정'에서 소속을 먼저 지정하세요."
+                                }
                                 className="cursor-not-allowed rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
                               >
                                 Resume Card
                               </span>
                               <span
                                 aria-disabled
-                                title="organization_slug 가 없는 사용자입니다."
+                                title={
+                                  devMode
+                                    ? "organization_slug 가 없는 사용자입니다."
+                                    : "소속이 지정되지 않은 회원입니다."
+                                }
                                 className="cursor-not-allowed rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
                               >
                                 Cluster 2
                               </span>
                               <span
                                 aria-disabled
-                                title="organization_slug 가 없는 사용자입니다."
+                                title={
+                                  devMode
+                                    ? "organization_slug 가 없는 사용자입니다."
+                                    : "소속이 지정되지 않은 회원입니다."
+                                }
                                 className="cursor-not-allowed rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
                               >
                                 Cluster 3
@@ -544,10 +583,16 @@ export default function MembersList() {
                             </>
                           )}
                           <Link
-                            href={`/admin/settings/edit-windows?q=${encodeURIComponent(
-                              member.userId,
-                            )}`}
-                            title="이 사용자의 작성 기간 관리로 이동"
+                            href={
+                              `/admin/settings/edit-windows?q=${encodeURIComponent(
+                                member.userId,
+                              )}` + (devMode ? "&dev=true" : "")
+                            }
+                            title={
+                              devMode
+                                ? "이 사용자의 작성 기간 관리로 이동"
+                                : "이 회원의 작성 기간 관리로 이동"
+                            }
                             className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                           >
                             작성 기간
@@ -578,7 +623,7 @@ export default function MembersList() {
                 {!loading && members.length === 0 && !error && (
                   <TableRow>
                     <TableCell
-                      colSpan={COLUMNS.length + 1}
+                      colSpan={columns.length + 1}
                       className="py-10 text-center text-muted-foreground"
                     >
                       조회된 멤버가 없습니다.
@@ -588,7 +633,7 @@ export default function MembersList() {
                 {loading && members.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={COLUMNS.length + 1}
+                      colSpan={columns.length + 1}
                       className="py-10 text-center text-muted-foreground"
                     >
                       불러오는 중...

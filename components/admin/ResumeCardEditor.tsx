@@ -22,6 +22,20 @@ import {
   normalizeForPatch,
   type FieldDef,
 } from "@/components/admin/fieldKit";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+
+// 라벨 끝의 영문 column-name 괄호 제거 — "이름 (display_name)" → "이름".
+function operatorLabel(label: string): string {
+  return label.replace(/\s*\([a-z0-9_,\s]+\)\s*$/i, "").trim() || label;
+}
+
+function operatorizeFields(
+  fields: readonly FieldDef[],
+  devMode: boolean,
+): readonly FieldDef[] {
+  if (devMode) return fields;
+  return fields.map((f) => ({ ...f, label: operatorLabel(f.label) }));
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // Types
@@ -145,20 +159,28 @@ const RESUME_CARD_SETTINGS_FIELDS: readonly FieldDef[] = [
 
 const SECTION_DEFS: Record<
   EditableSection,
-  { label: string; description: string; fields: readonly FieldDef[] }
+  {
+    label: string;
+    operatorLabel: string;
+    description: string;
+    fields: readonly FieldDef[];
+  }
 > = {
   profile: {
     label: "Profile",
+    operatorLabel: "기본 정보",
     description: "user_profiles · 1:1",
     fields: PROFILE_FIELDS,
   },
   membership: {
     label: "Membership",
+    operatorLabel: "활동 정보",
     description: "user_memberships · is_current = true",
     fields: MEMBERSHIP_FIELDS,
   },
   resumeCardSettings: {
     label: "Resume Card Settings",
+    operatorLabel: "이력 카드 설정",
     description: "user_resume_card_settings",
     fields: RESUME_CARD_SETTINGS_FIELDS,
   },
@@ -224,6 +246,7 @@ export default function ResumeCardEditor({
   organization: OrganizationSlug;
   legacyUserId: string;
 }) {
+  const devMode = useAdminDevMode();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [bundle, setBundle] = useState<Bundle | null>(null);
@@ -380,11 +403,14 @@ export default function ResumeCardEditor({
       {/* top bar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-lg font-semibold">Resume Card Editor</h1>
+          <h1 className="text-lg font-semibold">
+            {devMode ? "Resume Card Editor" : "이력 카드 편집"}
+          </h1>
           <div className="text-xs text-muted-foreground">
-            {ORGANIZATION_LABEL[organization]} · legacy_user_id:{" "}
+            {ORGANIZATION_LABEL[organization]} ·{" "}
+            {devMode ? "legacy_user_id" : "회원 ID"}:{" "}
             <code className="font-mono">{legacyUserId}</code>
-            {bundle?.userId && (
+            {devMode && bundle?.userId && (
               <>
                 {" "}
                 · user_id: <code className="font-mono">{bundle.userId}</code>
@@ -393,7 +419,7 @@ export default function ResumeCardEditor({
             {lastSavedAt && (
               <>
                 {" "}
-                · last saved:{" "}
+                · {devMode ? "last saved" : "최근 저장"}:{" "}
                 <code className="font-mono">{lastSavedAt}</code>
               </>
             )}
@@ -408,7 +434,7 @@ export default function ResumeCardEditor({
             disabled={loading || saving}
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-            Reload
+            {devMode ? "Reload" : "새로고침"}
           </Button>
           <Button
             type="button"
@@ -417,7 +443,13 @@ export default function ResumeCardEditor({
             disabled={inputsDisabled}
           >
             <Save className="h-4 w-4" />
-            {saving ? "Saving..." : "Save All"}
+            {saving
+              ? devMode
+                ? "Saving..."
+                : "저장 중..."
+              : devMode
+                ? "Save All"
+                : "전체 저장"}
           </Button>
         </div>
       </div>
@@ -425,10 +457,19 @@ export default function ResumeCardEditor({
       {/* read-only notice */}
       {isReadOnly && !loading && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          이 crew는 user_profiles에 매칭되는 행이 없어 <strong>읽기 전용</strong>
-          입니다. legacy_user_id{" "}
-          <code className="font-mono">{legacyUserId}</code>의 인증 가입 후 다시
-          시도하세요.
+          {devMode ? (
+            <>
+              이 crew는 user_profiles에 매칭되는 행이 없어{" "}
+              <strong>읽기 전용</strong>입니다. legacy_user_id{" "}
+              <code className="font-mono">{legacyUserId}</code>의 인증 가입 후
+              다시 시도하세요.
+            </>
+          ) : (
+            <>
+              이 회원은 아직 가입 전이라 <strong>읽기 전용</strong>입니다. 회원
+              가입 완료 후 다시 시도하세요.
+            </>
+          )}
         </div>
       )}
 
@@ -470,23 +511,36 @@ export default function ResumeCardEditor({
             return (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">{def.label}</CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    {def.description}
-                  </p>
+                  <CardTitle className="text-base">
+                    {devMode ? def.label : def.operatorLabel}
+                  </CardTitle>
+                  {devMode && (
+                    <p className="text-xs text-muted-foreground">
+                      {def.description}
+                    </p>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="mb-3 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                    프로필 사진은 <strong>Cluster 2 → Photos</strong> 에서
-                    수정합니다.
-                    {photoUrl && (
+                    {devMode ? (
+                      <>
+                        프로필 사진은 <strong>Cluster 2 → Photos</strong> 에서
+                        수정합니다.
+                      </>
+                    ) : (
+                      <>
+                        프로필 사진은 <strong>활동 페이지 편집 → 사진</strong>{" "}
+                        에서 수정합니다.
+                      </>
+                    )}
+                    {devMode && photoUrl && (
                       <div className="mt-1 break-all font-mono text-[10px]">
                         {photoUrl}
                       </div>
                     )}
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {def.fields.map((field) => (
+                    {operatorizeFields(def.fields, devMode).map((field) => (
                       <FieldCell
                         key={field.key}
                         field={field}
@@ -507,34 +561,50 @@ export default function ResumeCardEditor({
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Education{" "}
+                {devMode ? "Education" : "학력"}{" "}
                 <span className="text-xs font-normal text-muted-foreground">
-                  (readonly)
+                  {devMode ? "(readonly)" : "(읽기 전용)"}
                 </span>
               </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                user_educations · 대표학력 표시 전용
-              </p>
+              {devMode && (
+                <p className="text-xs text-muted-foreground">
+                  user_educations · 대표학력 표시 전용
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <div className="mb-3 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                학력은 <strong>Cluster 2 → Educations</strong> 에서 수정합니다.
-                Resume Card 는 대표학력
-                (<code className="font-mono">is_primary=true</code>) 만 표시합니다.
+                {devMode ? (
+                  <>
+                    학력은 <strong>Cluster 2 → Educations</strong> 에서
+                    수정합니다. Resume Card 는 대표학력
+                    (<code className="font-mono">is_primary=true</code>) 만
+                    표시합니다.
+                  </>
+                ) : (
+                  <>
+                    학력은 <strong>활동 페이지 편집 → 학력</strong> 에서
+                    수정합니다. 이력 카드에는 대표학력만 표시됩니다.
+                  </>
+                )}
               </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 text-sm">
-                <PreviewBlock title="학교 (school_name)">
+                <PreviewBlock title={devMode ? "학교 (school_name)" : "학교"}>
                   {fmt(form.education.school_name)}
                 </PreviewBlock>
-                <PreviewBlock title="전공 (major_name_1)">
+                <PreviewBlock title={devMode ? "전공 (major_name_1)" : "전공"}>
                   {fmt(form.education.major_name_1)}
                 </PreviewBlock>
-                <PreviewBlock title="is_primary">
-                  {String(Boolean(form.education.is_primary))}
-                </PreviewBlock>
-                <PreviewBlock title="sort_order">
-                  {fmt(form.education.sort_order)}
-                </PreviewBlock>
+                {devMode && (
+                  <>
+                    <PreviewBlock title="is_primary">
+                      {String(Boolean(form.education.is_primary))}
+                    </PreviewBlock>
+                    <PreviewBlock title="sort_order">
+                      {fmt(form.education.sort_order)}
+                    </PreviewBlock>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -545,14 +615,18 @@ export default function ResumeCardEditor({
             return (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">{def.label}</CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    {def.description}
-                  </p>
+                  <CardTitle className="text-base">
+                    {devMode ? def.label : def.operatorLabel}
+                  </CardTitle>
+                  {devMode && (
+                    <p className="text-xs text-muted-foreground">
+                      {def.description}
+                    </p>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {def.fields.map((field) => (
+                    {operatorizeFields(def.fields, devMode).map((field) => (
                       <FieldCell
                         key={field.key}
                         field={field}
@@ -573,20 +647,32 @@ export default function ResumeCardEditor({
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
-                Introduction{" "}
+                {devMode ? "Introduction" : "슬로건"}{" "}
                 <span className="text-xs font-normal text-muted-foreground">
-                  (readonly)
+                  {devMode ? "(readonly)" : "(읽기 전용)"}
                 </span>
               </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                user_introductions · slogan 표시 전용
-              </p>
+              {devMode && (
+                <p className="text-xs text-muted-foreground">
+                  user_introductions · slogan 표시 전용
+                </p>
+              )}
             </CardHeader>
             <CardContent>
               <div className="mb-3 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                Slogan 은 <strong>Cluster 2 → Slogans</strong> 에서 수정합니다.
+                {devMode ? (
+                  <>
+                    Slogan 은 <strong>Cluster 2 → Slogans</strong> 에서
+                    수정합니다.
+                  </>
+                ) : (
+                  <>
+                    슬로건은 <strong>활동 페이지 편집 → 슬로건</strong> 에서
+                    수정합니다.
+                  </>
+                )}
               </div>
-              <PreviewBlock title="Slogan 1">
+              <PreviewBlock title={devMode ? "Slogan 1" : "슬로건 1"}>
                 {fmt(form.introduction.slogan_1)}
               </PreviewBlock>
             </CardContent>
@@ -598,14 +684,18 @@ export default function ResumeCardEditor({
             return (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">{def.label}</CardTitle>
-                  <p className="text-xs text-muted-foreground">
-                    {def.description}
-                  </p>
+                  <CardTitle className="text-base">
+                    {devMode ? def.label : def.operatorLabel}
+                  </CardTitle>
+                  {devMode && (
+                    <p className="text-xs text-muted-foreground">
+                      {def.description}
+                    </p>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {def.fields.map((field) => (
+                    {operatorizeFields(def.fields, devMode).map((field) => (
                       <FieldCell
                         key={field.key}
                         field={field}
@@ -627,9 +717,13 @@ export default function ResumeCardEditor({
         <div className="flex flex-col gap-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Sidebar Preview</CardTitle>
+              <CardTitle className="text-base">
+                {devMode ? "Sidebar Preview" : "이력 카드 미리보기"}
+              </CardTitle>
               <p className="text-xs text-muted-foreground">
-                resume-card 표시값 미리보기 (form 기준)
+                {devMode
+                  ? "resume-card 표시값 미리보기 (form 기준)"
+                  : "이력 카드에 표시될 값을 미리 보여줍니다."}
               </p>
             </CardHeader>
             <CardContent className="text-sm">

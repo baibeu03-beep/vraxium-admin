@@ -40,6 +40,7 @@ type SlotKey = "sidebar" | "main" | "sub";
 type SlotDef = {
   key: string;
   label: string;
+  operatorLabel: string;
   hint: string;
   kind: SlotKey;
   subIndex?: number; // sub 슬롯만 사용
@@ -49,18 +50,21 @@ const SLOT_DEFS: readonly SlotDef[] = [
   {
     key: "sidebar",
     label: "Sidebar (slot 0)",
+    operatorLabel: "프로필 사진",
     hint: "user_profiles.profile_photo_url",
     kind: "sidebar",
   },
   {
     key: "main",
     label: "Main (slot 1)",
+    operatorLabel: "대표 사진",
     hint: "user_introductions.sub_photo_5",
     kind: "main",
   },
   {
     key: "sub_1",
     label: "Sub 1 (slot 2)",
+    operatorLabel: "추가 사진 1",
     hint: "user_introductions.sub_photo_1",
     kind: "sub",
     subIndex: 0,
@@ -68,6 +72,7 @@ const SLOT_DEFS: readonly SlotDef[] = [
   {
     key: "sub_2",
     label: "Sub 2 (slot 3)",
+    operatorLabel: "추가 사진 2",
     hint: "user_introductions.sub_photo_2",
     kind: "sub",
     subIndex: 1,
@@ -75,6 +80,7 @@ const SLOT_DEFS: readonly SlotDef[] = [
   {
     key: "sub_3",
     label: "Sub 3 (slot 4)",
+    operatorLabel: "추가 사진 3",
     hint: "user_introductions.sub_photo_3",
     kind: "sub",
     subIndex: 2,
@@ -82,6 +88,7 @@ const SLOT_DEFS: readonly SlotDef[] = [
   {
     key: "sub_4",
     label: "Sub 4 (slot 5)",
+    operatorLabel: "추가 사진 4",
     hint: "user_introductions.sub_photo_4",
     kind: "sub",
     subIndex: 3,
@@ -92,10 +99,12 @@ export default function PhotoSlots({
   value,
   onChange,
   disabled,
+  devMode = false,
 }: {
   value: PhotosForm;
   onChange: (next: PhotosForm) => void;
   disabled?: boolean;
+  devMode?: boolean;
 }) {
   const readSlot = (slot: SlotDef): string => {
     if (slot.kind === "sidebar") return value.sidebarPhoto ?? "";
@@ -125,7 +134,9 @@ export default function PhotoSlots({
         const current = readSlot(slot);
         return (
           <div key={slot.key} className="flex flex-col gap-1.5">
-            <Label className="text-xs">{slot.label}</Label>
+            <Label className="text-xs">
+              {devMode ? slot.label : slot.operatorLabel}
+            </Label>
             <Input
               type="url"
               value={current}
@@ -133,7 +144,11 @@ export default function PhotoSlots({
               placeholder="https://..."
               disabled={disabled}
             />
-            <div className="text-[10px] text-muted-foreground">{slot.hint}</div>
+            {devMode && (
+              <div className="text-[10px] text-muted-foreground">
+                {slot.hint}
+              </div>
+            )}
             {isRenderableImageUrl(current) ? (
               <div
                 className={cn(

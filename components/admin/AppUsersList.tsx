@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { APP_USER_STATUSES } from "@/lib/adminAppUsersTypes";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 type AppUser = {
   userId: string;
@@ -67,6 +68,7 @@ function fmtDate(value: string | null | undefined) {
 }
 
 export default function AppUsersList() {
+  const devMode = useAdminDevMode();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -229,8 +231,16 @@ export default function AppUsersList() {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">가입된 사용자</h2>
           <p className="text-sm text-muted-foreground">
-            사용자 페이지(user-app)에 가입된 계정 목록입니다. 기준 테이블:
-            <code className="mx-1 font-mono">public.user_profiles</code>
+            {devMode
+              ? "사용자 페이지(user-app)에 가입된 계정 목록입니다."
+              : "회원 페이지에 가입된 계정 목록입니다."}
+            {devMode && (
+              <>
+                {" "}
+                기준 테이블:
+                <code className="mx-1 font-mono">public.user_profiles</code>
+              </>
+            )}
           </p>
         </div>
         <Button variant="outline" onClick={reload} disabled={loading}>
@@ -270,7 +280,11 @@ export default function AppUsersList() {
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="이름, contact_email, auth_email, organization, user_id 검색"
+                placeholder={
+                  devMode
+                    ? "이름, contact_email, auth_email, organization, user_id 검색"
+                    : "이름, 이메일, 소속, 회원 ID로 검색"
+                }
                 className="pl-9"
               />
             </div>
@@ -325,9 +339,11 @@ export default function AppUsersList() {
                     <TableRow key={user.userId}>
                       <TableCell className="max-w-[180px]">
                         <div className="font-medium">{fmt(user.displayName)}</div>
-                        <div className="font-mono text-[10px] text-muted-foreground">
-                          {user.userId}
-                        </div>
+                        {devMode && (
+                          <div className="font-mono text-[10px] text-muted-foreground">
+                            {user.userId}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="max-w-[220px] truncate">
                         {fmt(user.contactEmail)}
@@ -381,17 +397,24 @@ export default function AppUsersList() {
                         {currentSlug ? (
                           <div className="flex justify-end items-center gap-1">
                             <Link
-                              href={`/admin/crews/${encodeURIComponent(
-                                currentSlug,
-                              )}/${encodeURIComponent(user.userId)}`}
+                              href={
+                                `/admin/crews/${encodeURIComponent(
+                                  currentSlug,
+                                )}/${encodeURIComponent(user.userId)}` +
+                                (devMode ? "?dev=true" : "")
+                              }
                               className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                             >
                               Resume
                             </Link>
                             <Link
-                              href={`/admin/crews/${encodeURIComponent(
-                                currentSlug,
-                              )}/${encodeURIComponent(user.userId)}/cluster2`}
+                              href={
+                                `/admin/crews/${encodeURIComponent(
+                                  currentSlug,
+                                )}/${encodeURIComponent(
+                                  user.userId,
+                                )}/cluster2` + (devMode ? "?dev=true" : "")
+                              }
                               className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                             >
                               Cluster 2
@@ -400,7 +423,11 @@ export default function AppUsersList() {
                         ) : (
                           <span
                             className="text-[10px] text-muted-foreground"
-                            title="organization_slug 가 없는 사용자입니다. 소속을 먼저 지정하세요."
+                            title={
+                              devMode
+                                ? "organization_slug 가 없는 사용자입니다. 소속을 먼저 지정하세요."
+                                : "소속이 지정되지 않은 회원입니다. 소속을 먼저 지정하세요."
+                            }
                           >
                             소속 필요
                           </span>
@@ -434,10 +461,19 @@ export default function AppUsersList() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            소속을 변경하면 즉시{" "}
-            <code className="font-mono">user_profiles.organization_slug</code>{" "}
-            컬럼이 업데이트됩니다. 신규/무소속 사용자의 최초 조직 배정은 이
-            화면에서 진행합니다.
+            {devMode ? (
+              <>
+                소속을 변경하면 즉시{" "}
+                <code className="font-mono">user_profiles.organization_slug</code>{" "}
+                컬럼이 업데이트됩니다. 신규/무소속 사용자의 최초 조직 배정은 이
+                화면에서 진행합니다.
+              </>
+            ) : (
+              <>
+                소속을 변경하면 즉시 회원 정보에 반영됩니다. 신규 또는 무소속
+                회원의 첫 소속 지정은 이 화면에서 진행합니다.
+              </>
+            )}
           </p>
         </CardContent>
       </Card>

@@ -18,6 +18,16 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
+  /* Semantic status tones — neutral-first, ride on top of base theme. */
+  --color-tone-ok: var(--tone-ok);
+  --color-tone-ok-bg: var(--tone-ok-bg);
+  --color-tone-warn: var(--tone-warn);
+  --color-tone-warn-bg: var(--tone-warn-bg);
+  --color-tone-danger: var(--tone-danger);
+  --color-tone-danger-bg: var(--tone-danger-bg);
+  --color-tone-accent: var(--tone-accent);
+  --color-tone-accent-bg: var(--tone-accent-bg);
+  --color-surface-subtle: var(--surface-subtle);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -81,6 +91,16 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Status tones — desaturated to match operational console feel. */
+  --tone-ok: oklch(0.55 0.09 150);
+  --tone-ok-bg: oklch(0.965 0.025 150);
+  --tone-warn: oklch(0.62 0.13 75);
+  --tone-warn-bg: oklch(0.97 0.04 80);
+  --tone-danger: oklch(0.55 0.21 27);
+  --tone-danger-bg: oklch(0.97 0.03 27);
+  --tone-accent: oklch(0.55 0.05 75);
+  --tone-accent-bg: oklch(0.96 0.02 75);
+  --surface-subtle: oklch(0.975 0 0);
 }
 
 .dark {
@@ -115,6 +135,16 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  /* Status tones — dark mirror, slightly brighter against dark surface. */
+  --tone-ok: oklch(0.74 0.13 150);
+  --tone-ok-bg: oklch(0.28 0.04 150);
+  --tone-warn: oklch(0.80 0.15 80);
+  --tone-warn-bg: oklch(0.30 0.06 75);
+  --tone-danger: oklch(0.72 0.20 27);
+  --tone-danger-bg: oklch(0.30 0.07 27);
+  --tone-accent: oklch(0.78 0.05 75);
+  --tone-accent-bg: oklch(0.27 0.02 75);
+  --surface-subtle: oklch(0.22 0 0);
 }
 
 @layer base {

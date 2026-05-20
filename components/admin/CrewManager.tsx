@@ -33,6 +33,7 @@ import {
   ORGANIZATION_LABEL,
   type OrganizationSlug,
 } from "@/lib/organizations";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 type Crew = {
   id?: string | number;
@@ -67,7 +68,12 @@ type Crew = {
 };
 
 const ALL = "__all__";
-const VISIBILITY_OPTIONS = [
+const VISIBILITY_OPTIONS_OPERATOR = [
+  { value: ALL, label: "전체" },
+  { value: "visible", label: "공개" },
+  { value: "hidden", label: "숨김" },
+];
+const VISIBILITY_OPTIONS_DEV = [
   { value: ALL, label: "All" },
   { value: "visible", label: "Visible" },
   { value: "hidden", label: "Hidden" },
@@ -114,6 +120,7 @@ export default function CrewManager({
 }: {
   organization: OrganizationSlug;
 }) {
+  const devMode = useAdminDevMode();
   const [data, setData] = useState<Crew[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -209,12 +216,18 @@ export default function CrewManager({
     if (submitting) return;
 
     if (!form.legacy_user_id.trim()) {
-      setBanner({ kind: "error", message: "legacy_user_id is required." });
+      setBanner({
+        kind: "error",
+        message: devMode ? "legacy_user_id is required." : "회원 ID를 입력해 주세요.",
+      });
       return;
     }
 
     if (!form.display_name.trim()) {
-      setBanner({ kind: "error", message: "display_name is required." });
+      setBanner({
+        kind: "error",
+        message: devMode ? "display_name is required." : "이름을 입력해 주세요.",
+      });
       return;
     }
 
@@ -313,18 +326,24 @@ export default function CrewManager({
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <StatCard label="Organization" value={ORGANIZATION_LABEL[organization]} isText />
-        <StatCard label="Total Crews" value={data.length} />
-        <StatCard label="Visible" value={visibleCount} />
-        <StatCard label="Filtered" value={filtered.length} />
+        <StatCard
+          label={devMode ? "Organization" : "소속"}
+          value={ORGANIZATION_LABEL[organization]}
+          isText
+        />
+        <StatCard label={devMode ? "Total Crews" : "전체 인원"} value={data.length} />
+        <StatCard label={devMode ? "Visible" : "공개"} value={visibleCount} />
+        <StatCard label={devMode ? "Filtered" : "검색 결과"} value={filtered.length} />
       </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>{ORGANIZATION_LABEL[organization]} Crews</CardTitle>
+          <CardTitle>
+            {ORGANIZATION_LABEL[organization]} {devMode ? "Crews" : "멤버"}
+          </CardTitle>
           <Button onClick={openCreate} size="sm">
             <Plus className="h-4 w-4" />
-            Add Crew
+            {devMode ? "Add Crew" : "멤버 추가"}
           </Button>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -334,17 +353,17 @@ export default function CrewManager({
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search name"
+                placeholder={devMode ? "Search name" : "이름으로 검색"}
                 className="pl-8"
               />
             </div>
 
             <Select value={team} onValueChange={(value) => setTeam(value ?? ALL)}>
               <SelectTrigger className="w-40">
-                <SelectValue placeholder="All teams" />
+                <SelectValue placeholder={devMode ? "All teams" : "전체 팀"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>All teams</SelectItem>
+                <SelectItem value={ALL}>{devMode ? "All teams" : "전체 팀"}</SelectItem>
                 {teams.map((value) => (
                   <SelectItem key={value} value={value}>
                     {value}
@@ -355,10 +374,10 @@ export default function CrewManager({
 
             <Select value={part} onValueChange={(value) => setPart(value ?? ALL)}>
               <SelectTrigger className="w-40">
-                <SelectValue placeholder="All parts" />
+                <SelectValue placeholder={devMode ? "All parts" : "전체 파트"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>All parts</SelectItem>
+                <SelectItem value={ALL}>{devMode ? "All parts" : "전체 파트"}</SelectItem>
                 {parts.map((value) => (
                   <SelectItem key={value} value={value}>
                     {value}
@@ -372,14 +391,16 @@ export default function CrewManager({
               onValueChange={(value) => setVisibility(value ?? ALL)}
             >
               <SelectTrigger className="w-32">
-                <SelectValue placeholder="Visibility" />
+                <SelectValue placeholder={devMode ? "Visibility" : "공개 여부"} />
               </SelectTrigger>
               <SelectContent>
-                {VISIBILITY_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
+                {(devMode ? VISIBILITY_OPTIONS_DEV : VISIBILITY_OPTIONS_OPERATOR).map(
+                  (option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -388,23 +409,29 @@ export default function CrewManager({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">Status</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Gender</TableHead>
-                  <TableHead>Birth Date</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>School</TableHead>
-                  <TableHead>Department</TableHead>
-                  <TableHead>Team</TableHead>
-                  <TableHead>Part</TableHead>
-                  <TableHead>Level</TableHead>
-                  <TableHead>State</TableHead>
-                  <TableHead className="text-right">Cumulative</TableHead>
-                  <TableHead className="text-right">Approved</TableHead>
-                  <TableHead>Organization</TableHead>
-                  <TableHead>Admin Note</TableHead>
-                  <TableHead className="w-56 text-right">Actions</TableHead>
+                  <TableHead className="w-16">{devMode ? "Status" : "상태"}</TableHead>
+                  <TableHead>{devMode ? "Name" : "이름"}</TableHead>
+                  <TableHead>{devMode ? "Gender" : "성별"}</TableHead>
+                  <TableHead>{devMode ? "Birth Date" : "생년월일"}</TableHead>
+                  <TableHead>{devMode ? "Contact" : "연락처"}</TableHead>
+                  <TableHead>{devMode ? "Email" : "이메일"}</TableHead>
+                  <TableHead>{devMode ? "School" : "학교"}</TableHead>
+                  <TableHead>{devMode ? "Department" : "학과"}</TableHead>
+                  <TableHead>{devMode ? "Team" : "팀"}</TableHead>
+                  <TableHead>{devMode ? "Part" : "파트"}</TableHead>
+                  <TableHead>{devMode ? "Level" : "단계"}</TableHead>
+                  <TableHead>{devMode ? "State" : "활동 상태"}</TableHead>
+                  <TableHead className="text-right">
+                    {devMode ? "Cumulative" : "누적 주차"}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {devMode ? "Approved" : "승인 주차"}
+                  </TableHead>
+                  <TableHead>{devMode ? "Organization" : "소속"}</TableHead>
+                  <TableHead>{devMode ? "Admin Note" : "운영 메모"}</TableHead>
+                  <TableHead className="w-56 text-right">
+                    {devMode ? "Actions" : "바로가기"}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -422,7 +449,13 @@ export default function CrewManager({
                             : "bg-muted text-muted-foreground",
                         )}
                       >
-                        {crew.isVisible ? "Visible" : "Hidden"}
+                        {crew.isVisible
+                          ? devMode
+                            ? "Visible"
+                            : "공개"
+                          : devMode
+                            ? "Hidden"
+                            : "숨김"}
                       </span>
                     </TableCell>
                     <TableCell className="font-medium">{crew.displayName}</TableCell>
@@ -452,31 +485,37 @@ export default function CrewManager({
                     <TableCell className="text-right">
                       <div className="flex justify-end items-center gap-1">
                         <Link
-                          href={`/admin/crews/${encodeURIComponent(
-                            organization,
-                          )}/${encodeURIComponent(
-                            String(crew.userId ?? crew.legacyUserId),
-                          )}`}
+                          href={
+                            `/admin/crews/${encodeURIComponent(
+                              organization,
+                            )}/${encodeURIComponent(
+                              String(crew.userId ?? crew.legacyUserId),
+                            )}` + (devMode ? "?dev=true" : "")
+                          }
                           className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                         >
                           Resume Card
                         </Link>
                         <Link
-                          href={`/admin/crews/${encodeURIComponent(
-                            organization,
-                          )}/${encodeURIComponent(
-                            String(crew.userId ?? crew.legacyUserId),
-                          )}/cluster2`}
+                          href={
+                            `/admin/crews/${encodeURIComponent(
+                              organization,
+                            )}/${encodeURIComponent(
+                              String(crew.userId ?? crew.legacyUserId),
+                            )}/cluster2` + (devMode ? "?dev=true" : "")
+                          }
                           className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                         >
                           Cluster 2
                         </Link>
                         <Link
-                          href={`/admin/crews/${encodeURIComponent(
-                            organization,
-                          )}/${encodeURIComponent(
-                            String(crew.userId ?? crew.legacyUserId),
-                          )}/cluster3`}
+                          href={
+                            `/admin/crews/${encodeURIComponent(
+                              organization,
+                            )}/${encodeURIComponent(
+                              String(crew.userId ?? crew.legacyUserId),
+                            )}/cluster3` + (devMode ? "?dev=true" : "")
+                          }
                           className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                         >
                           Cluster 3
@@ -504,7 +543,7 @@ export default function CrewManager({
                       colSpan={17}
                       className="h-24 text-center text-muted-foreground"
                     >
-                      No crews found.
+                      {devMode ? "No crews found." : "검색 결과가 없습니다."}
                     </TableCell>
                   </TableRow>
                 )}
@@ -515,7 +554,7 @@ export default function CrewManager({
                       colSpan={17}
                       className="h-24 text-center text-muted-foreground"
                     >
-                      Loading crews...
+                      {devMode ? "Loading crews..." : "불러오는 중..."}
                     </TableCell>
                   </TableRow>
                 )}
@@ -532,6 +571,7 @@ export default function CrewManager({
           setForm={setForm}
           submitting={submitting}
           organization={organization}
+          devMode={devMode}
           onClose={closeModal}
           onSubmit={handleSubmit}
         />
@@ -571,6 +611,7 @@ type ModalProps = {
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   submitting: boolean;
   organization: OrganizationSlug;
+  devMode: boolean;
   onClose: () => void;
   onSubmit: (event: React.FormEvent) => void;
 };
@@ -581,6 +622,7 @@ function CrewFormModal({
   setForm,
   submitting,
   organization,
+  devMode,
   onClose,
   onSubmit,
 }: ModalProps) {
@@ -600,7 +642,13 @@ function CrewFormModal({
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">
-            {isEdit ? "Edit Crew" : "Add Crew"}{" "}
+            {isEdit
+              ? devMode
+                ? "Edit Crew"
+                : "멤버 수정"
+              : devMode
+                ? "Add Crew"
+                : "멤버 추가"}{" "}
             <span className="text-sm font-normal text-muted-foreground">
               @ {ORGANIZATION_LABEL[organization]}
             </span>
@@ -609,7 +657,7 @@ function CrewFormModal({
             variant="ghost"
             size="icon-sm"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={devMode ? "Close" : "닫기"}
             disabled={submitting}
           >
             <X className="h-4 w-4" />
@@ -619,27 +667,44 @@ function CrewFormModal({
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           {editing && (
             <div className="grid grid-cols-1 gap-3 rounded-lg border bg-muted/20 p-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-              <ReadonlyField label="Name" value={editing.displayName} />
-              <ReadonlyField label="Gender" value={editing.gender} />
-              <ReadonlyField label="Birth Date" value={formatBirthDate(editing)} />
-              <ReadonlyField label="Contact" value={editing.contactPhone} />
-              <ReadonlyField label="Email" value={editing.contactEmail} />
+              <ReadonlyField label={devMode ? "Name" : "이름"} value={editing.displayName} />
+              <ReadonlyField label={devMode ? "Gender" : "성별"} value={editing.gender} />
               <ReadonlyField
-                label="School / Department"
-                value={editing.universityMajor ?? editing.schoolName ?? editing.departmentName}
+                label={devMode ? "Birth Date" : "생년월일"}
+                value={formatBirthDate(editing)}
               />
-              <ReadonlyField label="Team" value={editing.teamName} />
-              <ReadonlyField label="Part" value={editing.partName} />
-              <ReadonlyField label="Level" value={editing.membershipLevel} />
-              <ReadonlyField label="State" value={editing.membershipState} />
-              <ReadonlyField label="Cumulative Weeks" value={editing.cumulativeWeeks} />
-              <ReadonlyField label="Approved Weeks" value={editing.approvedWeeks} />
-              <ReadonlyField label="Organization" value={editing.organizationSlug} />
+              <ReadonlyField label={devMode ? "Contact" : "연락처"} value={editing.contactPhone} />
+              <ReadonlyField label={devMode ? "Email" : "이메일"} value={editing.contactEmail} />
+              <ReadonlyField
+                label={devMode ? "School / Department" : "학교 / 학과"}
+                value={
+                  editing.universityMajor ?? editing.schoolName ?? editing.departmentName
+                }
+              />
+              <ReadonlyField label={devMode ? "Team" : "팀"} value={editing.teamName} />
+              <ReadonlyField label={devMode ? "Part" : "파트"} value={editing.partName} />
+              <ReadonlyField label={devMode ? "Level" : "단계"} value={editing.membershipLevel} />
+              <ReadonlyField
+                label={devMode ? "State" : "활동 상태"}
+                value={editing.membershipState}
+              />
+              <ReadonlyField
+                label={devMode ? "Cumulative Weeks" : "누적 주차"}
+                value={editing.cumulativeWeeks}
+              />
+              <ReadonlyField
+                label={devMode ? "Approved Weeks" : "승인 주차"}
+                value={editing.approvedWeeks}
+              />
+              <ReadonlyField
+                label={devMode ? "Organization" : "소속"}
+                value={editing.organizationSlug}
+              />
             </div>
           )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="legacy_user_id" required>
+            <Field label={devMode ? "legacy_user_id" : "회원 ID"} required>
               <Input
                 value={form.legacy_user_id}
                 onChange={(event) =>
@@ -649,12 +714,14 @@ function CrewFormModal({
                   }))
                 }
                 disabled={isEdit}
-                placeholder="Mapped user_profiles account id"
+                placeholder={
+                  devMode ? "Mapped user_profiles account id" : "연결할 회원 계정 ID"
+                }
                 required
               />
             </Field>
 
-            <Field label="Display Name" required>
+            <Field label={devMode ? "Display Name" : "이름"} required>
               <Input
                 value={form.display_name}
                 onChange={(event) =>
@@ -667,7 +734,7 @@ function CrewFormModal({
               />
             </Field>
 
-            <Field label="Team">
+            <Field label={devMode ? "Team" : "팀"}>
               <Input
                 value={form.team_name}
                 onChange={(event) =>
@@ -679,7 +746,7 @@ function CrewFormModal({
               />
             </Field>
 
-            <Field label="Part">
+            <Field label={devMode ? "Part" : "파트"}>
               <Input
                 value={form.part_name}
                 onChange={(event) =>
@@ -691,7 +758,7 @@ function CrewFormModal({
               />
             </Field>
 
-            <Field label="Organization" required>
+            <Field label={devMode ? "Organization" : "소속"} required>
               <Select
                 value={form.organization_slug}
                 onValueChange={(value) =>
@@ -702,7 +769,7 @@ function CrewFormModal({
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select organization" />
+                  <SelectValue placeholder={devMode ? "Select organization" : "소속 선택"} />
                 </SelectTrigger>
                 <SelectContent>
                   {ORGANIZATIONS.map((slug) => (
@@ -714,7 +781,7 @@ function CrewFormModal({
               </Select>
             </Field>
 
-            <Field label="Cumulative Weeks">
+            <Field label={devMode ? "Cumulative Weeks" : "누적 주차"}>
               <Input
                 type="number"
                 inputMode="numeric"
@@ -729,7 +796,7 @@ function CrewFormModal({
               />
             </Field>
 
-            <Field label="Visibility">
+            <Field label={devMode ? "Visibility" : "공개 여부"}>
               <label className="mt-1 inline-flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
@@ -741,12 +808,12 @@ function CrewFormModal({
                     }))
                   }
                 />
-                Expose on user app `/crews`
+                {devMode ? "Expose on user app `/crews`" : "회원 앱의 '크루' 페이지에 공개"}
               </label>
             </Field>
           </div>
 
-          <Field label="Admin Note">
+          <Field label={devMode ? "Admin Note" : "운영 메모"}>
             <textarea
               value={form.admin_note}
               onChange={(event) =>
@@ -757,7 +824,11 @@ function CrewFormModal({
               }
               rows={3}
               className="w-full resize-y rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-              placeholder="Internal note not shown to end users"
+              placeholder={
+                devMode
+                  ? "Internal note not shown to end users"
+                  : "회원에게는 보이지 않는 내부 메모"
+              }
             />
           </Field>
 
@@ -768,10 +839,16 @@ function CrewFormModal({
               onClick={onClose}
               disabled={submitting}
             >
-              Cancel
+              {devMode ? "Cancel" : "취소"}
             </Button>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving..." : "Save"}
+              {submitting
+                ? devMode
+                  ? "Saving..."
+                  : "저장 중..."
+                : devMode
+                  ? "Save"
+                  : "저장"}
             </Button>
           </div>
         </form>

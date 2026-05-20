@@ -39,6 +39,7 @@ import {
   QUICK_ACTIONS,
   computeEditWindowStatus,
   computeQuickActionRange,
+  getResourceDescription,
   getResourceLabel,
   isEditableResourceKey,
   statusLabel,
@@ -47,6 +48,7 @@ import {
   type EditWindowUserRow,
   type QuickActionKey,
 } from "@/lib/adminEditWindowsTypes";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 const PAGE_SIZE = 50;
 
@@ -101,6 +103,7 @@ function statusBadgeClass(status: EditWindowStatus): string {
 
 export default function EditWindowsManager() {
   const searchParams = useSearchParams();
+  const devMode = useAdminDevMode();
 
   // URL ?q= 와 ?resource= 를 초기 값으로 사용한다. mount 시점 1회만 읽으며
   // 이후 URL 동기화는 하지 않는다 (사용자가 자유롭게 바꿀 수 있도록).
@@ -249,7 +252,7 @@ export default function EditWindowsManager() {
           reload();
           setBanner({
             kind: "success",
-            message: `${count}명에게 ${getResourceLabel(resourceKey)} 권한을 부여했습니다.`,
+            message: `${count}명에게 ${getResourceLabel(resourceKey, devMode)} 권한을 부여했습니다.`,
           });
         })
         .catch((err: Error) => {
@@ -260,6 +263,7 @@ export default function EditWindowsManager() {
       allMatchingSelected,
       clearSelection,
       debouncedQuery,
+      devMode,
       resourceKey,
       selectedUserIds,
     ],
@@ -278,7 +282,7 @@ export default function EditWindowsManager() {
         reload();
         setBanner({
           kind: "success",
-          message: `${count}명의 ${getResourceLabel(resourceKey)} 권한을 닫았습니다.`,
+          message: `${count}명의 ${getResourceLabel(resourceKey, devMode)} 권한을 닫았습니다.`,
         });
       })
       .catch((err: Error) => {
@@ -288,6 +292,7 @@ export default function EditWindowsManager() {
     allMatchingSelected,
     clearSelection,
     debouncedQuery,
+    devMode,
     resourceKey,
     selectedUserIds,
   ]);
@@ -319,6 +324,7 @@ export default function EditWindowsManager() {
             kind: "success",
             message: `${row.displayName ?? row.userId} · ${getResourceLabel(
               resourceKey,
+              devMode,
             )} 권한을 부여했습니다.`,
           });
         })
@@ -326,7 +332,7 @@ export default function EditWindowsManager() {
           setBanner({ kind: "error", message: err.message });
         });
     },
-    [resourceKey, applyWindowToRow],
+    [devMode, resourceKey, applyWindowToRow],
   );
 
   const handleClose = useCallback(
@@ -341,6 +347,7 @@ export default function EditWindowsManager() {
             kind: "success",
             message: `${row.displayName ?? row.userId} · ${getResourceLabel(
               resourceKey,
+              devMode,
             )} 권한을 닫았습니다.`,
           });
         })
@@ -348,7 +355,7 @@ export default function EditWindowsManager() {
           setBanner({ kind: "error", message: err.message });
         });
     },
-    [resourceKey, applyWindowToRow],
+    [devMode, resourceKey, applyWindowToRow],
   );
 
   const pageEnd = offset + rows.length;
@@ -363,8 +370,16 @@ export default function EditWindowsManager() {
             작성 기간 관리
           </h2>
           <p className="text-sm text-muted-foreground">
-            사용자별 / 리소스별 편집 가능 기간을 열고 닫습니다. 기준 테이블:{" "}
-            <code className="mx-1 font-mono">public.user_edit_windows</code>
+            {devMode
+              ? "사용자별 / 리소스별 편집 가능 기간을 열고 닫습니다."
+              : "회원별로 어떤 작성을 언제까지 할 수 있는지 관리합니다."}
+            {devMode && (
+              <>
+                {" "}
+                기준 테이블:{" "}
+                <code className="mx-1 font-mono">public.user_edit_windows</code>
+              </>
+            )}
           </p>
         </div>
         <Button variant="outline" onClick={reload} disabled={loading}>
@@ -388,16 +403,19 @@ export default function EditWindowsManager() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">사용자 & 리소스</CardTitle>
+          <CardTitle className="text-base">
+            {devMode ? "사용자 & 리소스" : "회원 & 작성 항목"}
+          </CardTitle>
           <CardDescription>
-            리소스를 선택하고 사용자를 검색한 뒤, 빠른 액션이나 직접 기간 설정으로
-            권한을 부여하세요.
+            {devMode
+              ? "리소스를 선택하고 사용자를 검색한 뒤, 빠른 액션이나 직접 기간 설정으로 권한을 부여하세요."
+              : "작성 항목을 고른 뒤 회원을 검색해, 빠른 열기 또는 직접 기간 설정으로 권한을 부여하세요."}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="grid gap-3 sm:grid-cols-[260px_1fr]">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="resource-key">리소스</Label>
+              <Label htmlFor="resource-key">{devMode ? "리소스" : "작성 항목"}</Label>
               <Select
                 value={resourceKey}
                 onValueChange={(v: string | null) => {
@@ -413,25 +431,28 @@ export default function EditWindowsManager() {
                 <SelectContent>
                   {EDITABLE_RESOURCES.map((r) => (
                     <SelectItem key={r.key} value={r.key}>
-                      {r.label}
+                      {devMode ? r.devLabel : r.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                {EDITABLE_RESOURCES.find((r) => r.key === resourceKey)
-                  ?.description ?? ""}
+                {getResourceDescription(resourceKey, devMode)}
               </p>
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="user-search">사용자 검색</Label>
+              <Label htmlFor="user-search">{devMode ? "사용자 검색" : "회원 검색"}</Label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="user-search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="display_name, auth_email, contact_email, organization, user_id"
+                  placeholder={
+                    devMode
+                      ? "display_name, auth_email, contact_email, organization, user_id"
+                      : "이름, 이메일, 소속, 회원 ID로 검색"
+                  }
                   className="pl-9"
                 />
               </div>
@@ -526,8 +547,8 @@ export default function EditWindowsManager() {
                   <TableHead className="w-10">
                     <span className="sr-only">선택</span>
                   </TableHead>
-                  <TableHead>이름 / user_id</TableHead>
-                  <TableHead>auth_email</TableHead>
+                  <TableHead>{devMode ? "이름 / user_id" : "이름"}</TableHead>
+                  <TableHead>{devMode ? "auth_email" : "로그인 이메일"}</TableHead>
                   <TableHead>소속</TableHead>
                   <TableHead>상태</TableHead>
                   <TableHead>기간</TableHead>
@@ -556,9 +577,11 @@ export default function EditWindowsManager() {
                         <div className="font-medium">
                           {fmt(row.displayName)}
                         </div>
-                        <div className="font-mono text-[10px] text-muted-foreground">
-                          {row.userId}
-                        </div>
+                        {devMode && (
+                          <div className="font-mono text-[10px] text-muted-foreground">
+                            {row.userId}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="max-w-[220px] truncate">
                         {fmt(row.authEmail)}
@@ -702,13 +725,14 @@ export default function EditWindowsManager() {
       <EditWindowDrawer
         row={editing}
         resourceKey={resourceKey}
+        devMode={devMode}
         onClose={() => setEditing(null)}
         onSaved={(userId, window) => {
           applyWindowToRow(userId, window);
           setEditing(null);
           setBanner({
             kind: "success",
-            message: `${getResourceLabel(resourceKey)} 기간이 저장되었습니다.`,
+            message: `${getResourceLabel(resourceKey, devMode)} 기간이 저장되었습니다.`,
           });
         }}
       />
@@ -716,6 +740,7 @@ export default function EditWindowsManager() {
         open={bulkEditing}
         resourceKey={resourceKey}
         selectedCount={selectedCount}
+        devMode={devMode}
         onClose={() => setBulkEditing(false)}
         onSaved={(count) => {
           setBulkEditing(false);
@@ -723,7 +748,7 @@ export default function EditWindowsManager() {
           reload();
           setBanner({
             kind: "success",
-            message: `${count}명에게 ${getResourceLabel(resourceKey)} 기간을 저장했습니다.`,
+            message: `${count}명에게 ${getResourceLabel(resourceKey, devMode)} 기간을 저장했습니다.`,
           });
         }}
         getPayloadBase={() => ({
@@ -796,11 +821,13 @@ async function bulkWindow(body: BulkUpsertBody | BulkCloseBody): Promise<number>
 function EditWindowDrawer({
   row,
   resourceKey,
+  devMode,
   onClose,
   onSaved,
 }: {
   row: EditWindowUserRow | null;
   resourceKey: string;
+  devMode: boolean;
   onClose: () => void;
   onSaved: (userId: string, window: EditWindowDto | null) => void;
 }) {
@@ -810,6 +837,7 @@ function EditWindowDrawer({
       key={`${row.userId}:${resourceKey}`}
       row={row}
       resourceKey={resourceKey}
+      devMode={devMode}
       onClose={onClose}
       onSaved={onSaved}
     />
@@ -819,11 +847,13 @@ function EditWindowDrawer({
 function EditWindowDrawerInner({
   row,
   resourceKey,
+  devMode,
   onClose,
   onSaved,
 }: {
   row: EditWindowUserRow;
   resourceKey: string;
+  devMode: boolean;
   onClose: () => void;
   onSaved: (userId: string, window: EditWindowDto | null) => void;
 }) {
@@ -913,12 +943,20 @@ function EditWindowDrawerInner({
             <h3 className="text-base font-semibold">작성 기간 설정</h3>
             <p className="text-xs text-muted-foreground">
               {row.displayName ?? "(이름 없음)"}
-              <span className="ml-2 font-mono text-[10px] text-muted-foreground">
-                {row.userId}
-              </span>
+              {devMode && (
+                <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                  {row.userId}
+                </span>
+              )}
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              리소스: <code className="font-mono">{resourceKey}</code>
+              {devMode ? (
+                <>
+                  리소스: <code className="font-mono">{resourceKey}</code>
+                </>
+              ) : (
+                <>작성 항목: {getResourceLabel(resourceKey, false)}</>
+              )}
             </p>
           </div>
           <button
@@ -951,7 +989,9 @@ function EditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="window-opened">시작 (opened_at)</Label>
+              <Label htmlFor="window-opened">
+                {devMode ? "시작 (opened_at)" : "시작 시각"}
+              </Label>
               <Input
                 id="window-opened"
                 type="datetime-local"
@@ -961,7 +1001,9 @@ function EditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="window-expires">만료 (expires_at)</Label>
+              <Label htmlFor="window-expires">
+                {devMode ? "만료 (expires_at)" : "만료 시각"}
+              </Label>
               <Input
                 id="window-expires"
                 type="datetime-local"
@@ -971,7 +1013,9 @@ function EditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="window-note">메모 (note)</Label>
+              <Label htmlFor="window-note">
+                {devMode ? "메모 (note)" : "메모"}
+              </Label>
               <Input
                 id="window-note"
                 value={note}
@@ -1013,6 +1057,7 @@ function BulkEditWindowDrawer({
   open,
   resourceKey,
   selectedCount,
+  devMode,
   onClose,
   onSaved,
   getPayloadBase,
@@ -1020,6 +1065,7 @@ function BulkEditWindowDrawer({
   open: boolean;
   resourceKey: string;
   selectedCount: number;
+  devMode: boolean;
   onClose: () => void;
   onSaved: (count: number) => void;
   getPayloadBase: () => BulkPayloadBase;
@@ -1029,6 +1075,7 @@ function BulkEditWindowDrawer({
     <BulkEditWindowDrawerInner
       resourceKey={resourceKey}
       selectedCount={selectedCount}
+      devMode={devMode}
       onClose={onClose}
       onSaved={onSaved}
       getPayloadBase={getPayloadBase}
@@ -1039,12 +1086,14 @@ function BulkEditWindowDrawer({
 function BulkEditWindowDrawerInner({
   resourceKey,
   selectedCount,
+  devMode,
   onClose,
   onSaved,
   getPayloadBase,
 }: {
   resourceKey: string;
   selectedCount: number;
+  devMode: boolean;
   onClose: () => void;
   onSaved: (count: number) => void;
   getPayloadBase: () => BulkPayloadBase;
@@ -1130,7 +1179,13 @@ function BulkEditWindowDrawerInner({
               선택됨: {selectedCount.toLocaleString()}명
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              리소스: <code className="font-mono">{resourceKey}</code>
+              {devMode ? (
+                <>
+                  리소스: <code className="font-mono">{resourceKey}</code>
+                </>
+              ) : (
+                <>작성 항목: {getResourceLabel(resourceKey, false)}</>
+              )}
             </p>
           </div>
           <button
@@ -1163,7 +1218,9 @@ function BulkEditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bulk-window-opened">시작 (opened_at)</Label>
+              <Label htmlFor="bulk-window-opened">
+                {devMode ? "시작 (opened_at)" : "시작 시각"}
+              </Label>
               <Input
                 id="bulk-window-opened"
                 type="datetime-local"
@@ -1173,7 +1230,9 @@ function BulkEditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bulk-window-expires">만료 (expires_at)</Label>
+              <Label htmlFor="bulk-window-expires">
+                {devMode ? "만료 (expires_at)" : "만료 시각"}
+              </Label>
               <Input
                 id="bulk-window-expires"
                 type="datetime-local"
@@ -1183,7 +1242,9 @@ function BulkEditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bulk-window-note">메모 (note)</Label>
+              <Label htmlFor="bulk-window-note">
+                {devMode ? "메모 (note)" : "메모"}
+              </Label>
               <Input
                 id="bulk-window-note"
                 value={note}

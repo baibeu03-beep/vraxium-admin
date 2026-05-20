@@ -15,6 +15,7 @@ import {
 import { ORGANIZATIONS, ORGANIZATION_LABEL } from "@/lib/organizations";
 import { APP_USER_STATUSES } from "@/lib/adminAppUsersTypes";
 import { cn } from "@/lib/utils";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 export type EditableMember = {
   userId: string;
@@ -107,6 +108,7 @@ function MemberEditDrawerInner({
   onClose: () => void;
   onSaved: (updated: EditableMember) => void;
 }) {
+  const devMode = useAdminDevMode();
   const initial = useMemo(() => toForm(member), [member]);
   const [form, setForm] = useState<Form>(initial);
   const [saving, setSaving] = useState(false);
@@ -192,9 +194,11 @@ function MemberEditDrawerInner({
             <h3 className="text-base font-semibold">멤버 정보 수정</h3>
             <p className="text-xs text-muted-foreground">
               {member.displayName ?? "(이름 없음)"}
-              <span className="ml-2 font-mono text-[10px] text-muted-foreground">
-                {member.userId}
-              </span>
+              {devMode && (
+                <span className="ml-2 font-mono text-[10px] text-muted-foreground">
+                  {member.userId}
+                </span>
+              )}
             </p>
           </div>
           <button
@@ -214,15 +218,19 @@ function MemberEditDrawerInner({
         >
           <div className="flex flex-1 flex-col gap-4 px-5 py-4">
             <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              로그인 이메일(auth_email):{" "}
+              {devMode ? "로그인 이메일(auth_email): " : "로그인 이메일: "}
               <span className="font-mono">{member.authEmail ?? "—"}</span>
               <div className="mt-1 text-[10px]">
-                auth_email 은 로그인 연결 정보이므로 이 화면에서 직접 수정하지 않습니다.
+                {devMode
+                  ? "auth_email 은 로그인 연결 정보이므로 이 화면에서 직접 수정하지 않습니다."
+                  : "로그인 이메일은 계정 연결 정보라 이 화면에서 직접 바꿀 수 없습니다."}
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="member-org">소속 (organization_slug)</Label>
+              <Label htmlFor="member-org">
+                {devMode ? "소속 (organization_slug)" : "소속"}
+              </Label>
               <Select
                 value={form.organization_slug}
                 onValueChange={(v: string | null) =>
@@ -247,7 +255,7 @@ function MemberEditDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="member-status">상태 (status)</Label>
+              <Label htmlFor="member-status">{devMode ? "상태 (status)" : "상태"}</Label>
               <Select
                 value={form.status}
                 onValueChange={(v: string | null) =>
@@ -269,7 +277,9 @@ function MemberEditDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="member-growth">성장 상태 (growth_status)</Label>
+              <Label htmlFor="member-growth">
+                {devMode ? "성장 상태 (growth_status)" : "성장 상태"}
+              </Label>
               <Select
                 value={form.growth_status}
                 onValueChange={(v: string | null) =>
@@ -294,7 +304,9 @@ function MemberEditDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="member-contact-email">연락 이메일 (contact_email)</Label>
+              <Label htmlFor="member-contact-email">
+                {devMode ? "연락 이메일 (contact_email)" : "연락 이메일"}
+              </Label>
               <Input
                 id="member-contact-email"
                 type="email"
@@ -305,12 +317,14 @@ function MemberEditDrawerInner({
                     contact_email: e.target.value,
                   }))
                 }
-                placeholder="비워두면 null"
+                placeholder={devMode ? "비워두면 null" : "비워두면 미지정"}
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="member-contact-phone">연락 전화 (contact_phone)</Label>
+              <Label htmlFor="member-contact-phone">
+                {devMode ? "연락 전화 (contact_phone)" : "연락 전화"}
+              </Label>
               <Input
                 id="member-contact-phone"
                 type="tel"
@@ -321,7 +335,7 @@ function MemberEditDrawerInner({
                     contact_phone: e.target.value,
                   }))
                 }
-                placeholder="비워두면 null"
+                placeholder={devMode ? "비워두면 null" : "비워두면 미지정"}
               />
             </div>
 

@@ -5,13 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   ChevronRight,
+  Database,
   LayoutDashboard,
   PanelLeft,
   PanelLeftClose,
-  Upload,
-  UserCog,
   Users,
-  Settings as SettingsIcon,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,43 +33,51 @@ type BranchItem = {
   children: { label: string; href: string }[];
 };
 
-type MenuItem = LeafItem | BranchItem;
+type SectionHeader = { kind: "section"; label: string };
 
+type MenuItem = LeafItem | BranchItem | SectionHeader;
+
+// 4-axis IA: 대시보드 / 멤버 관리 / 운영 관리 / 데이터 관리.
+// 사이드바는 운영 행위(사람·정책·데이터) 기준으로 묶고, 프론트 화면 단위(cluster 등)는 노출하지 않는다.
+// section 헤더는 사람(워크) vs 시스템(정책·데이터) 두 묶음을 시각적으로 구분만 한다 — 라우팅 없음.
+// 모든 href 는 현재 실재하는 admin route 만 사용한다. (route 가 없는 항목은 메뉴에 두지 않는다.)
 const MENU: MenuItem[] = [
   { kind: "leaf", label: "대시보드", href: "/admin", icon: LayoutDashboard },
+  { kind: "section", label: "WORKSPACE" },
   {
     kind: "branch",
     label: "멤버 관리",
     icon: Users,
-    basePath: "/admin/crews",
-    matchPaths: ["/admin/crews", "/admin/members"],
+    basePath: "/admin/members",
+    matchPaths: ["/admin/members", "/admin/crews", "/admin/users"],
     children: [
       { label: "전체 멤버", href: "/admin/members" },
       ...ORGANIZATIONS.map((slug) => ({
         label: ORGANIZATION_LABEL[slug],
         href: `/admin/crews/${slug}`,
       })),
-    ],
-  },
-  {
-    kind: "branch",
-    label: "사용자 관리",
-    icon: UserCog,
-    basePath: "/admin/users",
-    children: [
+      { label: "승인 대기", href: "/admin/users/applicants" },
       { label: "가입된 사용자", href: "/admin/users/app-users" },
-      { label: "가입 대기자", href: "/admin/users/applicants" },
       { label: "관리자 계정", href: "/admin/users/admin-users" },
     ],
   },
-  { kind: "leaf", label: "가져오기", href: "/admin/import", icon: Upload },
+  { kind: "section", label: "SYSTEM" },
   {
     kind: "branch",
-    label: "설정",
-    icon: SettingsIcon,
+    label: "운영 관리",
+    icon: Wrench,
     basePath: "/admin/settings",
     children: [
       { label: "작성 기간 관리", href: "/admin/settings/edit-windows" },
+    ],
+  },
+  {
+    kind: "branch",
+    label: "데이터 관리",
+    icon: Database,
+    basePath: "/admin/import",
+    children: [
+      { label: "가져오기", href: "/admin/import" },
     ],
   },
 ];
@@ -109,6 +116,12 @@ export default function Sidebar() {
     },
   );
 
+  // section 헤더는 다음에 오는 branch 들의 상위 묶음이지만 라우팅을 갖지 않으므로
+  // 사이드바가 접힌 상태에서는 숨겨서 아이콘 줄을 일관되게 유지한다.
+  const visibleMenu = sidebarOpen
+    ? MENU
+    : MENU.filter((item) => item.kind !== "section");
+
   return (
     <aside
       data-collapsed={!sidebarOpen}
@@ -124,8 +137,8 @@ export default function Sidebar() {
         )}
       >
         {sidebarOpen && (
-          <span className="text-base font-semibold tracking-tight text-sidebar-foreground">
-            Vraxium Admin
+          <span className="text-[13px] font-semibold tracking-[0.02em] text-sidebar-foreground">
+            Vraxium <span className="text-sidebar-foreground/50">Admin</span>
           </span>
         )}
         <button
@@ -146,11 +159,22 @@ export default function Sidebar() {
 
       <nav
         className={cn(
-          "flex flex-col gap-1",
-          sidebarOpen ? "p-3" : "p-2",
+          "flex flex-col",
+          sidebarOpen ? "gap-0.5 p-2.5" : "gap-1 p-2",
         )}
       >
-        {MENU.map((item) => {
+        {visibleMenu.map((item, idx) => {
+          if (item.kind === "section") {
+            return (
+              <div
+                key={`section-${idx}`}
+                className="mt-3 mb-1 px-3 text-[10px] font-semibold tracking-[0.12em] text-sidebar-foreground/40 uppercase first:mt-1"
+              >
+                {item.label}
+              </div>
+            );
+          }
+
           if (item.kind === "leaf") {
             const Icon = item.icon;
             const active = isLeafActive(pathname, item.href);
@@ -159,18 +183,19 @@ export default function Sidebar() {
                 key={item.href}
                 href={item.href}
                 title={!sidebarOpen ? item.label : undefined}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex items-center rounded-md text-sm font-medium transition-colors",
+                  "group/leaf relative flex items-center rounded-md text-sm transition-colors",
                   sidebarOpen
-                    ? "gap-2 px-3 py-2"
+                    ? "gap-2 px-3 py-1.5"
                     : "h-9 w-9 justify-center self-center",
                   active
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
+                    : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
                 )}
               >
-                <Icon className="h-4 w-4" />
-                {sidebarOpen && item.label}
+                <Icon className={cn("h-4 w-4 shrink-0", !active && "text-sidebar-foreground/55 group-hover/leaf:text-sidebar-accent-foreground")} />
+                {sidebarOpen && <span className="truncate">{item.label}</span>}
               </Link>
             );
           }
@@ -191,10 +216,10 @@ export default function Sidebar() {
                   setOpenBranches((p) => ({ ...p, [item.basePath]: true }));
                 }}
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center self-center rounded-md text-sm font-medium transition-colors",
+                  "flex h-9 w-9 items-center justify-center self-center rounded-md text-sm transition-colors",
                   inSection
-                    ? "bg-sidebar-primary/15 text-sidebar-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    ? "bg-sidebar-accent text-sidebar-foreground"
+                    : "text-sidebar-foreground/60 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -215,17 +240,17 @@ export default function Sidebar() {
                 aria-expanded={branchOpen}
                 aria-controls={`submenu-${item.basePath}`}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "group/branch flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
                   inSection
-                    ? "bg-sidebar-primary/15 text-sidebar-foreground"
-                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    ? "text-sidebar-foreground font-medium"
+                    : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
                 )}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className={cn("h-4 w-4 shrink-0", !inSection && "text-sidebar-foreground/55 group-hover/branch:text-sidebar-accent-foreground")} />
                 <span className="flex-1 text-left">{item.label}</span>
                 <ChevronRight
                   className={cn(
-                    "h-3.5 w-3.5 transition-transform",
+                    "h-3.5 w-3.5 text-sidebar-foreground/40 transition-transform",
                     branchOpen && "rotate-90",
                   )}
                 />
@@ -234,7 +259,7 @@ export default function Sidebar() {
               {branchOpen && (
                 <ul
                   id={`submenu-${item.basePath}`}
-                  className="mt-1 flex flex-col gap-0.5 border-l border-sidebar-border/60 pl-3 ml-4"
+                  className="mt-0.5 mb-1 ml-[1.0625rem] flex flex-col gap-px border-l border-sidebar-border pl-2"
                 >
                   {item.children.map((child) => {
                     const childActive = isLeafActive(pathname, child.href);
@@ -242,11 +267,12 @@ export default function Sidebar() {
                       <li key={child.href}>
                         <Link
                           href={child.href}
+                          aria-current={childActive ? "page" : undefined}
                           className={cn(
-                            "block rounded-md px-2.5 py-1.5 text-sm transition-colors",
+                            "block rounded-md px-2.5 py-1 text-[13px] transition-colors",
                             childActive
                               ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
-                              : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                              : "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
                           )}
                         >
                           {child.label}

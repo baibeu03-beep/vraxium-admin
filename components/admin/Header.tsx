@@ -1,27 +1,36 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { LogOut, Wrench } from "lucide-react";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
+import {
+  toggleDevQuery,
+  useAdminDevMode,
+} from "@/components/admin/useAdminDevMode";
+import { cn } from "@/lib/utils";
 
+// 사이드바 IA 와 1:1 동기화. (사용자 관리/설정 같은 옛 라벨은 더 이상 노출하지 않는다.)
 const TITLES: Record<string, string> = {
   "/admin": "대시보드",
-  "/admin/applicants": "Applicants",
-  "/admin/crews": "조직 관리",
-  "/admin/import": "가져오기",
-  "/admin/settings": "설정",
+  "/admin/members": "멤버 관리 · 전체 멤버",
+  "/admin/crews": "멤버 관리 · 조직별",
+  "/admin/users/applicants": "멤버 관리 · 승인 대기",
+  "/admin/users/app-users": "멤버 관리 · 가입된 사용자",
+  "/admin/users/admin-users": "멤버 관리 · 관리자 계정",
+  "/admin/settings/edit-windows": "운영 관리 · 작성 기간",
+  "/admin/import": "데이터 관리 · 가져오기",
 };
 
 function resolveTitle(pathname: string): string {
   const direct = TITLES[pathname];
   if (direct) return direct;
-  const orgMatch = pathname.match(/^\/admin\/crews\/([^/]+)$/);
+  const orgMatch = pathname.match(/^\/admin\/crews\/([^/]+)/);
   if (orgMatch) {
     const slug = orgMatch[1];
     if (isOrganizationSlug(slug)) {
-      return `조직 관리 · ${ORGANIZATION_LABEL[slug]}`;
+      return `멤버 관리 · ${ORGANIZATION_LABEL[slug]}`;
     }
   }
   return "Admin";
@@ -30,6 +39,8 @@ function resolveTitle(pathname: string): string {
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const devMode = useAdminDevMode();
   const title = resolveTitle(pathname);
 
   const handleLogout = async () => {
@@ -38,13 +49,48 @@ export default function Header() {
     router.refresh();
   };
 
+  // dev=true 만 토글하고 나머지 query/hash 는 보존.
+  const handleToggleDev = () => {
+    const qs = searchParams?.toString() ?? "";
+    const current = qs ? `${pathname}?${qs}` : pathname;
+    const next = toggleDevQuery(current, !devMode);
+    router.replace(next);
+  };
+
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-background px-6">
-      <h1 className="text-base font-semibold text-foreground">{title}</h1>
-      <Button variant="ghost" size="sm" onClick={handleLogout}>
-        <LogOut className="h-4 w-4" />
-        로그아웃
-      </Button>
+      <h1 className="text-[13.5px] font-semibold tracking-tight text-foreground">{title}</h1>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant={devMode ? "default" : "ghost"}
+          size="sm"
+          onClick={handleToggleDev}
+          aria-pressed={devMode}
+          title={
+            devMode
+              ? "개발자 표시 모드 ON — 클릭하여 끄기"
+              : "개발자 표시 모드 OFF — 클릭하여 켜기"
+          }
+        >
+          <Wrench className="h-4 w-4" />
+          개발자 표시
+          <span
+            className={cn(
+              "ml-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold",
+              devMode
+                ? "border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground"
+                : "border-border bg-muted text-muted-foreground",
+            )}
+          >
+            {devMode ? "ON" : "OFF"}
+          </span>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={handleLogout}>
+          <LogOut className="h-4 w-4" />
+          로그아웃
+        </Button>
+      </div>
     </header>
   );
 }

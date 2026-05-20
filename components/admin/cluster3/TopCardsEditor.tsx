@@ -69,6 +69,35 @@ export type TopCardFormCard = {
 // FieldDef list — server 측 TOP_CARD_EDITABLE_TEXT_FIELDS 의 plain text 6개.
 // platform 은 select 로 별도 렌더 (PLATFORM_OPTIONS + legacy fallback).
 // main_image_caption 은 plain text 로 유지.
+// 운영자 모드용 한글 라벨은 OPERATOR_LABELS 에서 lookup. 누락 시 dev label fallback.
+const OPERATOR_LABELS: Record<string, string> = {
+  main_title: "메인 타이틀",
+  sub_title: "서브 타이틀",
+  role_description: "역할 설명",
+  report: "보고",
+  insight: "인사이트",
+  main_image_caption: "대표 이미지 캡션",
+  contribution: "기여도",
+  period_start_year: "시작 연도",
+  period_start_month: "시작 월",
+  period_start_day: "시작 일",
+  period_end_year: "종료 연도",
+  period_end_month: "종료 월",
+  period_end_day: "종료 일",
+  platform: "플랫폼",
+};
+
+function operatorizeFields(
+  fields: readonly FieldDef[],
+  devMode: boolean,
+): readonly FieldDef[] {
+  if (devMode) return fields;
+  return fields.map((f) => ({
+    ...f,
+    label: OPERATOR_LABELS[f.key] ?? f.label,
+  }));
+}
+
 const TEXT_FIELDS: readonly FieldDef[] = [
   { key: "main_title", label: "main_title", type: "textarea", full: true },
   { key: "sub_title", label: "sub_title", type: "textarea", full: true },
@@ -187,6 +216,7 @@ function MultiSelectChips({
   onChange,
   isCanonicalKey,
   disabled,
+  devMode = false,
 }: {
   label: string;
   options: readonly Cluster3KeyLabel[];
@@ -194,6 +224,7 @@ function MultiSelectChips({
   onChange: (next: string[]) => void;
   isCanonicalKey: (key: unknown) => boolean;
   disabled?: boolean;
+  devMode?: boolean;
 }) {
   const legacy = selectedKeys.filter((k) => !isCanonicalKey(k));
   const toggle = (key: string, next: boolean) => {
@@ -210,7 +241,9 @@ function MultiSelectChips({
       <Label className="text-xs">
         {label}{" "}
         <span className="font-normal text-muted-foreground">
-          (selected {selectedKeys.length})
+          {devMode
+            ? `(selected ${selectedKeys.length})`
+            : `(${selectedKeys.length}개 선택됨)`}
         </span>
       </Label>
       <div className="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-4">
@@ -234,7 +267,9 @@ function MultiSelectChips({
                 disabled={disabled}
               />
               <span className="flex-1">{opt.label}</span>
-              <code className="text-[9px] text-muted-foreground">{opt.key}</code>
+              {devMode && (
+                <code className="text-[9px] text-muted-foreground">{opt.key}</code>
+              )}
             </label>
           );
         })}
@@ -313,6 +348,7 @@ function TopCardSlotEditor({
   card,
   onChange,
   disabled,
+  devMode = false,
 }: {
   cardIndex: number;
   cardType: TopCardType;
@@ -320,6 +356,7 @@ function TopCardSlotEditor({
   card: TopCardFormCard;
   onChange: (next: TopCardFormCard) => void;
   disabled?: boolean;
+  devMode?: boolean;
 }) {
   const row = meta.row;
   const typeMismatch = row !== null && row.card_type !== cardType;
@@ -355,16 +392,17 @@ function TopCardSlotEditor({
   const platformValue = card.platform.trim();
   const platformIsLegacy =
     platformValue.length > 0 && !isCanonicalPlatform(platformValue);
+  const platformLabel = devMode ? "platform" : OPERATOR_LABELS.platform;
   const platformField: FieldDef = platformIsLegacy
     ? {
         key: "platform",
-        label: "platform",
+        label: platformLabel,
         type: "select",
         options: [...PLATFORM_OPTIONS, platformValue],
       }
     : {
         key: "platform",
-        label: "platform",
+        label: platformLabel,
         type: "select",
         options: PLATFORM_OPTIONS,
       };
@@ -393,10 +431,14 @@ function TopCardSlotEditor({
     >
       <div className="flex items-center justify-between">
         <div className="text-[11px] font-semibold">
-          {cardType === "output" ? "Output" : "Detail"} #{cardIndex}
-          <span className="ml-1 font-normal text-muted-foreground">
-            (card_type={cardType}, server-stamped)
-          </span>
+          {devMode
+            ? `${cardType === "output" ? "Output" : "Detail"} #${cardIndex}`
+            : `${cardType === "output" ? "대표 카드" : "상세 카드"} ${cardIndex}`}
+          {devMode && (
+            <span className="ml-1 font-normal text-muted-foreground">
+              (card_type={cardType}, server-stamped)
+            </span>
+          )}
         </div>
         <span
           className={cn(
@@ -409,10 +451,16 @@ function TopCardSlotEditor({
           )}
         >
           {cardIsEmpty
-            ? "empty (no DB row)"
+            ? devMode
+              ? "empty (no DB row)"
+              : "비어 있음"
             : row
-              ? "DB row"
-              : "신규 (저장 시 insert)"}
+              ? devMode
+                ? "DB row"
+                : "저장됨"
+              : devMode
+                ? "신규 (저장 시 insert)"
+                : "신규 (저장 시 등록)"}
         </span>
       </div>
 
@@ -424,14 +472,15 @@ function TopCardSlotEditor({
 
       {cardIsEmpty && (
         <div className="rounded border border-dashed bg-muted/20 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-          모든 필드가 비어있어 저장 시 DB row 를 생성하지 않습니다. 기존 row 가
-          있었다면 같은 (card_type, card_index) 의 row 가 삭제됩니다.
+          {devMode
+            ? "모든 필드가 비어있어 저장 시 DB row 를 생성하지 않습니다. 기존 row 가 있었다면 같은 (card_type, card_index) 의 row 가 삭제됩니다."
+            : "모든 항목이 비어 있어 저장하지 않습니다. 이전에 저장된 내용이 있다면 이 카드 자리는 비워집니다."}
         </div>
       )}
 
       {/* text scalars */}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {TEXT_FIELDS.map((field) => (
+        {operatorizeFields(TEXT_FIELDS, devMode).map((field) => (
           <FieldCell
             key={field.key}
             field={field}
@@ -460,7 +509,11 @@ function TopCardSlotEditor({
 
       {/* main_image_url + preview (URL sanitize 대상) */}
       <div className="flex flex-col gap-1.5">
-        <Label className="text-xs">main_image_url (URL — blob:/data:/file: 정규화)</Label>
+        <Label className="text-xs">
+          {devMode
+            ? "main_image_url (URL — blob:/data:/file: 정규화)"
+            : "대표 이미지 URL"}
+        </Label>
         <Input
           type="url"
           value={card.main_image_url}
@@ -473,7 +526,7 @@ function TopCardSlotEditor({
 
       {/* number scalars */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-4">
-        {NUMBER_FIELDS.map((field) => (
+        {operatorizeFields(NUMBER_FIELDS, devMode).map((field) => (
           <FieldCell
             key={field.key}
             field={field}
@@ -486,31 +539,33 @@ function TopCardSlotEditor({
 
       {/* roles / tools — multi-select (DB 저장은 ROLE_OPTIONS / TOOL_OPTIONS 의 key) */}
       <MultiSelectChips
-        label="roles (multi-select · ROLE_OPTIONS key)"
+        label={devMode ? "roles (multi-select · ROLE_OPTIONS key)" : "역할"}
         options={ROLE_OPTIONS}
         selectedKeys={card.roles}
         onChange={(next) => setField("roles", next)}
         isCanonicalKey={isCanonicalRoleKey}
         disabled={disabled}
+        devMode={devMode}
       />
       <MultiSelectChips
-        label="tools (multi-select · TOOL_OPTIONS key)"
+        label={devMode ? "tools (multi-select · TOOL_OPTIONS key)" : "사용 도구"}
         options={TOOL_OPTIONS}
         selectedKeys={card.tools}
         onChange={(next) => setField("tools", next)}
         isCanonicalKey={isCanonicalToolKey}
         disabled={disabled}
+        devMode={devMode}
       />
       {/* 선택된 key → label 미리보기 (front Cluster3 에서 보이는 모습 검증용) */}
       <div className="rounded border bg-muted/30 px-2 py-1.5 text-[10px] text-muted-foreground">
         <div>
-          roles 표시:{" "}
+          {devMode ? "roles 표시: " : "역할 표시: "}
           {card.roles.length === 0
             ? "—"
             : card.roles.map((k) => getRoleLabel(k)).join(", ")}
         </div>
         <div>
-          tools 표시:{" "}
+          {devMode ? "tools 표시: " : "사용 도구 표시: "}
           {card.tools.length === 0
             ? "—"
             : card.tools.map((k) => getToolLabel(k)).join(", ")}
@@ -519,7 +574,11 @@ function TopCardSlotEditor({
 
       {/* sub_image_urls (URL, sanitize) */}
       <SlotInputRow
-        label={`sub_image_urls (text[]) · 최대 ${TOP_CARD_SUB_IMAGE_SLOTS} 슬롯 · blob:/data:/file: 정규화`}
+        label={
+          devMode
+            ? `sub_image_urls (text[]) · 최대 ${TOP_CARD_SUB_IMAGE_SLOTS} 슬롯 · blob:/data:/file: 정규화`
+            : `추가 이미지 URL · 최대 ${TOP_CARD_SUB_IMAGE_SLOTS} 개`
+        }
         values={card.sub_image_urls}
         onChange={(i, next) => setArraySlot("sub_image_urls", i, next)}
         inputType="url"
@@ -529,7 +588,11 @@ function TopCardSlotEditor({
 
       {/* sub_image_captions */}
       <SlotInputRow
-        label={`sub_image_captions (text[]) · 최대 ${TOP_CARD_SUB_IMAGE_CAPTION_SLOTS} 슬롯`}
+        label={
+          devMode
+            ? `sub_image_captions (text[]) · 최대 ${TOP_CARD_SUB_IMAGE_CAPTION_SLOTS} 슬롯`
+            : `추가 이미지 설명 · 최대 ${TOP_CARD_SUB_IMAGE_CAPTION_SLOTS} 개`
+        }
         values={card.sub_image_captions}
         onChange={(i, next) => setArraySlot("sub_image_captions", i, next)}
         inputType="text"
@@ -538,7 +601,11 @@ function TopCardSlotEditor({
 
       {/* metrics */}
       <SlotInputRow
-        label={`metrics (text[]) · 최대 ${TOP_CARD_METRIC_SLOTS} 슬롯`}
+        label={
+          devMode
+            ? `metrics (text[]) · 최대 ${TOP_CARD_METRIC_SLOTS} 슬롯`
+            : `성과 지표 · 최대 ${TOP_CARD_METRIC_SLOTS} 개`
+        }
         values={card.metrics}
         onChange={(i, next) => setArraySlot("metrics", i, next)}
         inputType="text"
@@ -547,29 +614,36 @@ function TopCardSlotEditor({
 
       {/* links */}
       <SlotInputRow
-        label={`links (text[]) · 최대 ${TOP_CARD_LINK_SLOTS} 슬롯`}
+        label={
+          devMode
+            ? `links (text[]) · 최대 ${TOP_CARD_LINK_SLOTS} 슬롯`
+            : `링크 · 최대 ${TOP_CARD_LINK_SLOTS} 개`
+        }
         values={card.links}
         onChange={(i, next) => setArraySlot("links", i, next)}
         inputType="url"
         disabled={disabled}
       />
 
-      {/* readonly DB meta */}
-      <div className="border-t pt-1.5 text-[10px] text-muted-foreground">
-        {row ? (
-          <>
-            id <code className="font-mono">{row.id}</code> · card_type{" "}
-            <code className="font-mono">{row.card_type}</code> · created{" "}
-            <code className="font-mono">{row.created_at ?? "—"}</code> · updated{" "}
-            <code className="font-mono">{row.updated_at ?? "—"}</code>
-          </>
-        ) : (
-          <>
-            portfolio_top_cards row 없음 (card_type=&apos;{cardType}&apos;,
-            card_index={cardIndex})
-          </>
-        )}
-      </div>
+      {/* readonly DB meta — dev only */}
+      {devMode && (
+        <div className="border-t pt-1.5 text-[10px] text-muted-foreground">
+          {row ? (
+            <>
+              id <code className="font-mono">{row.id}</code> · card_type{" "}
+              <code className="font-mono">{row.card_type}</code> · created{" "}
+              <code className="font-mono">{row.created_at ?? "—"}</code> ·
+              updated{" "}
+              <code className="font-mono">{row.updated_at ?? "—"}</code>
+            </>
+          ) : (
+            <>
+              portfolio_top_cards row 없음 (card_type=&apos;{cardType}&apos;,
+              card_index={cardIndex})
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -587,6 +661,7 @@ export default function TopCardsEditor({
   title,
   slotCount,
   headerExtras,
+  devMode = false,
 }: {
   slots: TopCardSlot[];
   cardType: TopCardType;
@@ -599,6 +674,7 @@ export default function TopCardsEditor({
   // 섹션 헤더 우측 영역에 끼워 넣을 추가 액션 (예: "작성 기간 관리" 버튼).
   // title 이 있을 때만 렌더된다 (header 가 렌더되는 조건).
   headerExtras?: ReactNode;
+  devMode?: boolean;
 }) {
   const slotMismatch =
     typeof slotCount === "number" && slots.length !== slotCount;
@@ -620,14 +696,21 @@ export default function TopCardsEditor({
         <header className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex flex-col gap-0.5">
             <h2 className="text-base font-semibold">{title}</h2>
-            <p className="text-xs text-muted-foreground">
-              portfolio_top_cards · card_type=&apos;{cardType}&apos; · card_index 1~
-              {slots.length} · {cardLabel} #1 ~ {cardLabel} #{slots.length}
-            </p>
+            {devMode ? (
+              <p className="text-xs text-muted-foreground">
+                portfolio_top_cards · card_type=&apos;{cardType}&apos; ·
+                card_index 1~{slots.length} · {cardLabel} #1 ~ {cardLabel} #
+                {slots.length}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                {cardLabel} #1 ~ {cardLabel} #{slots.length}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-2 text-xs">
             <span className="rounded-md border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
-              {filled} / {slots.length} filled
+              {filled} / {slots.length} {devMode ? "filled" : "장 입력됨"}
             </span>
             <span
               className={cn(
@@ -637,14 +720,20 @@ export default function TopCardsEditor({
                   : "border-amber-300 bg-amber-50 text-amber-900",
               )}
             >
-              {editable ? "editable" : "read-only (Phase 4)"}
+              {editable
+                ? devMode
+                  ? "editable"
+                  : "편집 가능"
+                : devMode
+                  ? "read-only (Phase 4)"
+                  : "읽기 전용"}
             </span>
             {headerExtras}
           </div>
         </header>
       )}
 
-      {slotMismatch && (
+      {devMode && slotMismatch && (
         <div className="rounded border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] text-amber-900">
           slot 길이 {slots.length} ≠ 기대 {slotCount} (cardType={cardType})
         </div>
@@ -661,6 +750,7 @@ export default function TopCardsEditor({
               card={formCards![i]}
               onChange={(next) => onChangeCard!(i, next)}
               disabled={disabled}
+              devMode={devMode}
             />
           ))}
         </div>

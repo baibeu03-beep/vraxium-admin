@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { APPLICANT_STATUSES } from "@/lib/adminApplicantTypes";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 type Applicant = {
   id: string;
@@ -94,6 +95,7 @@ function statusBadgeClass(status: Applicant["status"]) {
 }
 
 export default function ApplicantsList() {
+  const devMode = useAdminDevMode();
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -215,8 +217,12 @@ export default function ApplicantsList() {
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">가입 대기자</h2>
           <p className="text-sm text-muted-foreground">
-            카카오 로그인으로 가입을 시도한 요청 목록입니다.
-            <code className="mx-1 font-mono">public.applicants</code>
+            {devMode
+              ? "카카오 로그인으로 가입을 시도한 요청 목록입니다."
+              : "카카오 로그인으로 가입을 신청한 사람들의 목록입니다. 승인 또는 거절을 결정해 주세요."}
+            {devMode && (
+              <code className="mx-1 font-mono">public.applicants</code>
+            )}
           </p>
         </div>
         <Button
@@ -254,7 +260,11 @@ export default function ApplicantsList() {
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="이름, email, provider, linked_user_id 검색"
+                placeholder={
+                  devMode
+                    ? "이름, email, provider, linked_user_id 검색"
+                    : "이름, 이메일, 로그인 수단으로 검색"
+                }
                 className="pl-9"
               />
             </div>
@@ -270,7 +280,7 @@ export default function ApplicantsList() {
                   <SelectItem value={STATUS_ALL}>전체 상태</SelectItem>
                   {APPLICANT_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {statusLabel(s)} ({s})
+                      {devMode ? `${statusLabel(s)} (${s})` : statusLabel(s)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -289,10 +299,10 @@ export default function ApplicantsList() {
               <TableHeader>
                 <TableRow>
                   <TableHead>이름</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Provider</TableHead>
+                  <TableHead>{devMode ? "Email" : "이메일"}</TableHead>
+                  <TableHead>{devMode ? "Provider" : "로그인 수단"}</TableHead>
                   <TableHead>상태</TableHead>
-                  <TableHead>연결된 user_id</TableHead>
+                  <TableHead>{devMode ? "연결된 user_id" : "연결된 회원"}</TableHead>
                   <TableHead>신청일</TableHead>
                   <TableHead>최근 수정</TableHead>
                   <TableHead className="w-[180px] text-right">액션</TableHead>
@@ -383,8 +393,9 @@ export default function ApplicantsList() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            승인 시 선택한 user_profile의 auth_email에 카카오 이메일을 연결하고,
-            applicant 상태를 approved로 변경합니다.
+            {devMode
+              ? "승인 시 선택한 user_profile의 auth_email에 카카오 이메일을 연결하고, applicant 상태를 approved로 변경합니다."
+              : "승인하면 선택한 회원의 로그인 이메일에 카카오 이메일을 연결하고, 신청 상태를 '승인'으로 바꿉니다."}
           </p>
         </CardContent>
       </Card>
@@ -392,6 +403,7 @@ export default function ApplicantsList() {
       {approveTarget && (
         <ApproveDialog
           applicant={approveTarget}
+          devMode={devMode}
           onClose={() => setApproveTarget(null)}
           onApproved={handleApproveSuccess}
           onError={(message) => setBanner({ kind: "error", message })}
@@ -403,6 +415,7 @@ export default function ApplicantsList() {
 
 type ApproveDialogProps = {
   applicant: Applicant;
+  devMode: boolean;
   onClose: () => void;
   onApproved: (linkedDisplayName: string | null) => void;
   onError: (message: string) => void;
@@ -410,6 +423,7 @@ type ApproveDialogProps = {
 
 function ApproveDialog({
   applicant,
+  devMode,
   onClose,
   onApproved,
   onError,
@@ -550,14 +564,15 @@ function ApproveDialog({
 
         <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 text-sm sm:grid-cols-2">
           <Detail label="신청자 이름" value={applicant.name} />
-          <Detail label="Kakao Email" value={applicant.email} />
-          <Detail label="Provider" value={applicant.provider} />
-          <Detail label="Applied At" value={fmtDate(applicant.createdAt)} />
+          <Detail label={devMode ? "Kakao Email" : "카카오 이메일"} value={applicant.email} />
+          <Detail label={devMode ? "Provider" : "로그인 수단"} value={applicant.provider} />
+          <Detail label={devMode ? "Applied At" : "신청 일시"} value={fmtDate(applicant.createdAt)} />
         </div>
 
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          이름만으로 자동 연결하지 않습니다. applicant.email과 contact_email이
-          다르더라도 관리자가 명시적으로 선택하면 연결할 수 있습니다.
+          {devMode
+            ? "이름만으로 자동 연결하지 않습니다. applicant.email과 contact_email이 다르더라도 관리자가 명시적으로 선택하면 연결할 수 있습니다."
+            : "이름만으로 자동 연결하지 않습니다. 신청한 카카오 이메일과 기존 연락 이메일이 달라도, 운영자가 직접 선택하면 연결할 수 있습니다."}
         </div>
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -567,7 +582,11 @@ function ApproveDialog({
               autoFocus
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="이름, 연락 이메일, auth_email 또는 user_id(UUID) 검색"
+              placeholder={
+                devMode
+                  ? "이름, 연락 이메일, auth_email 또는 user_id(UUID) 검색"
+                  : "이름, 연락 이메일, 로그인 이메일 또는 회원 ID로 검색"
+              }
               className="pl-9"
               disabled={approving}
               onKeyDown={(event) => {
@@ -598,10 +617,10 @@ function ApproveDialog({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User</TableHead>
-                <TableHead>Contact</TableHead>
-                <TableHead>Auth Email</TableHead>
-                <TableHead>Org</TableHead>
+                <TableHead>{devMode ? "User" : "회원"}</TableHead>
+                <TableHead>{devMode ? "Contact" : "연락 이메일"}</TableHead>
+                <TableHead>{devMode ? "Auth Email" : "로그인 이메일"}</TableHead>
+                <TableHead>{devMode ? "Org" : "소속"}</TableHead>
                 <TableHead className="w-[120px] text-right">선택</TableHead>
               </TableRow>
             </TableHeader>
@@ -625,9 +644,11 @@ function ApproveDialog({
                           <span className="ml-2 text-xs text-primary">선택됨</span>
                         )}
                       </div>
-                      <div className="font-mono text-[11px] text-muted-foreground">
-                        {profile.user_id}
-                      </div>
+                      {devMode && (
+                        <div className="font-mono text-[11px] text-muted-foreground">
+                          {profile.user_id}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {fmt(profile.contact_email)}
@@ -696,11 +717,15 @@ function ApproveDialog({
             <div className="mt-1 font-medium">
               {fmt(selectedUser.name)} / {fmt(selectedUser.contact_email)}
             </div>
-            <div className="mt-1 font-mono text-xs text-muted-foreground">
-              {selectedUser.user_id}
-            </div>
+            {devMode && (
+              <div className="mt-1 font-mono text-xs text-muted-foreground">
+                {selectedUser.user_id}
+              </div>
+            )}
             <div className="mt-1 text-xs text-muted-foreground">
-              승인 시 auth_email은 {fmt(applicant.email)} 로 연결됩니다.
+              {devMode
+                ? `승인 시 auth_email은 ${fmt(applicant.email)} 로 연결됩니다.`
+                : `승인하면 로그인 이메일이 ${fmt(applicant.email)} 로 연결됩니다.`}
             </div>
           </div>
         )}

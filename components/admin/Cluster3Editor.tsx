@@ -16,6 +16,10 @@ import {
   type OrganizationSlug,
 } from "@/lib/organizations";
 import { DebugSection, fmt } from "@/components/admin/fieldKit";
+import {
+  useAdminDevMode,
+  useWithDevQuery,
+} from "@/components/admin/useAdminDevMode";
 import ChannelCardsGrid, {
   type ChannelCardFormCard,
 } from "@/components/admin/cluster3/ChannelCardsGrid";
@@ -329,6 +333,8 @@ export default function Cluster3Editor({
   organization: OrganizationSlug;
   legacyUserId: string;
 }) {
+  const devMode = useAdminDevMode();
+  const withDev = useWithDevQuery();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [bundle, setBundle] = useState<Cluster3Bundle>(() =>
@@ -526,10 +532,18 @@ export default function Cluster3Editor({
   const anyDirty = channelDirty || outputDirty || detailDirty;
 
   const TABS: { key: TabKey; label: string; dirty: boolean }[] = [
-    { key: "channel", label: "Channel Cards", dirty: channelDirty },
-    { key: "output", label: "Top 5", dirty: outputDirty },
-    { key: "detail", label: "Detail 10", dirty: detailDirty },
-    { key: "debug", label: "Preview / Debug", dirty: false },
+    { key: "channel", label: devMode ? "Channel Cards" : "채널 카드", dirty: channelDirty },
+    { key: "output", label: devMode ? "Top 5" : "대표 카드 (5장)", dirty: outputDirty },
+    { key: "detail", label: devMode ? "Detail 10" : "상세 카드 (10장)", dirty: detailDirty },
+    ...(devMode
+      ? [
+          {
+            key: "debug" as TabKey,
+            label: "Preview / Debug",
+            dirty: false,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -538,21 +552,29 @@ export default function Cluster3Editor({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-col gap-0.5">
           <h1 className="text-lg font-semibold">
-            Cluster 3 Editor{" "}
-            <span className="text-xs font-normal text-muted-foreground">
-              (Phase 4 · Channel + Output + Detail editable)
-            </span>
+            {devMode ? "Cluster 3 Editor" : "포트폴리오 편집"}{" "}
+            {devMode && (
+              <span className="text-xs font-normal text-muted-foreground">
+                (Phase 4 · Channel + Output + Detail editable)
+              </span>
+            )}
           </h1>
           <div className="text-xs text-muted-foreground">
-            {ORGANIZATION_LABEL[organization]} · crew id:{" "}
-            <code className="font-mono">{legacyUserId}</code>
-            {bundle.userId && (
+            {ORGANIZATION_LABEL[organization]} ·{" "}
+            {devMode ? (
+              <>
+                crew id: <code className="font-mono">{legacyUserId}</code>
+              </>
+            ) : (
+              <>회원 ID: <span className="font-mono">{legacyUserId}</span></>
+            )}
+            {devMode && bundle.userId && (
               <>
                 {" "}
                 · user_id: <code className="font-mono">{bundle.userId}</code>
               </>
             )}
-            {lastLoadedAt && (
+            {devMode && lastLoadedAt && (
               <>
                 {" "}
                 · last loaded:{" "}
@@ -562,7 +584,8 @@ export default function Cluster3Editor({
             {lastSavedAt && (
               <>
                 {" "}
-                · last saved: <code className="font-mono">{lastSavedAt}</code>
+                · {devMode ? "last saved" : "최근 저장"}:{" "}
+                <code className="font-mono">{lastSavedAt}</code>
               </>
             )}
           </div>
@@ -576,7 +599,7 @@ export default function Cluster3Editor({
             disabled={loading || saving}
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-            Reload
+            {devMode ? "Reload" : "새로고침"}
           </Button>
           <Button
             type="button"
@@ -585,7 +608,17 @@ export default function Cluster3Editor({
             disabled={inputsDisabled}
           >
             <Save className="h-4 w-4" />
-            {saving ? "Saving..." : anyDirty ? "Save All *" : "Save All"}
+            {saving
+              ? devMode
+                ? "Saving..."
+                : "저장 중..."
+              : devMode
+                ? anyDirty
+                  ? "Save All *"
+                  : "Save All"
+                : anyDirty
+                  ? "전체 저장 *"
+                  : "전체 저장"}
           </Button>
         </div>
       </div>
@@ -593,68 +626,93 @@ export default function Cluster3Editor({
       {/* read-only notice */}
       {isReadOnlyFallback && !loading && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          이 crew 는 user_profiles 매칭 행이 없어 <strong>읽기 전용</strong>
-          입니다. crew id <code className="font-mono">{legacyUserId}</code>{" "}
-          의 인증 가입 후 다시 시도하세요.
+          {devMode ? (
+            <>
+              이 crew 는 user_profiles 매칭 행이 없어{" "}
+              <strong>읽기 전용</strong>입니다. crew id{" "}
+              <code className="font-mono">{legacyUserId}</code> 의 인증 가입
+              후 다시 시도하세요.
+            </>
+          ) : (
+            <>
+              이 회원은 아직 가입 전이라 <strong>읽기 전용</strong>입니다.
+              회원 가입 완료 후 다시 시도하세요.
+            </>
+          )}
         </div>
       )}
 
-      <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        Phase 4 — Channel Cards (portfolio_channel_cards), Output Cards
-        (portfolio_top_cards card_type=&apos;output&apos;, 1~5), Detail Cards
-        (card_type=&apos;detail&apos;, 1~10) 모두 편집 가능. card_type / card_index
-        는 서버 stamp 이며 한 card_type write 가 다른 card_type row 를 mutate
-        하지 않습니다. Admin route 는 requireAdmin 보호이므로 user_edit_windows
-        작성 기간과 무관하게 저장됩니다.
-      </div>
+      {devMode && (
+        <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          Phase 4 — Channel Cards (portfolio_channel_cards), Output Cards
+          (portfolio_top_cards card_type=&apos;output&apos;, 1~5), Detail Cards
+          (card_type=&apos;detail&apos;, 1~10) 모두 편집 가능. card_type /
+          card_index 는 서버 stamp 이며 한 card_type write 가 다른 card_type
+          row 를 mutate 하지 않습니다. Admin route 는 requireAdmin 보호이므로
+          user_edit_windows 작성 기간과 무관하게 저장됩니다.
+        </div>
+      )}
 
       {/* counts strip — 탭과 무관하게 항상 보이는 상태 요약.
           detail latestUpdatedAt 은 Phase 3 회귀 게이트라 편집 중에도 노출. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-md border bg-background px-3 py-2 text-xs">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Channel cards · editable
+            {devMode ? "Channel cards · editable" : "채널 카드"}
           </div>
           <div className="mt-1 text-sm">
-            {channelFilled} / {CHANNEL_CARD_SLOT_COUNT} filled
+            {channelFilled} / {CHANNEL_CARD_SLOT_COUNT}{" "}
+            {devMode ? "filled" : "장 입력됨"}
             {channelDirty && (
-              <span className="ml-2 text-[10px] text-amber-600">* unsaved</span>
+              <span className="ml-2 text-[10px] text-amber-600">
+                {devMode ? "* unsaved" : "* 저장 안 됨"}
+              </span>
             )}
           </div>
         </div>
         <div className="rounded-md border bg-background px-3 py-2 text-xs">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Top cards · output · editable
+            {devMode ? "Top cards · output · editable" : "포트폴리오 대표 카드"}
           </div>
           <div className="mt-1 text-sm">
-            {outputFilled} / {OUTPUT_CARD_SLOT_COUNT} filled
+            {outputFilled} / {OUTPUT_CARD_SLOT_COUNT}{" "}
+            {devMode ? "filled" : "장 입력됨"}
             {outputDirty && (
-              <span className="ml-2 text-[10px] text-amber-600">* unsaved</span>
+              <span className="ml-2 text-[10px] text-amber-600">
+                {devMode ? "* unsaved" : "* 저장 안 됨"}
+              </span>
             )}
           </div>
-          <div className="mt-0.5 text-[10px] text-muted-foreground">
-            latest updated_at:{" "}
-            <code className="font-mono">
-              {fmt(outputSnapshot.latestUpdatedAt)}
-            </code>
-          </div>
+          {devMode && (
+            <div className="mt-0.5 text-[10px] text-muted-foreground">
+              latest updated_at:{" "}
+              <code className="font-mono">
+                {fmt(outputSnapshot.latestUpdatedAt)}
+              </code>
+            </div>
+          )}
         </div>
         <div className="rounded-md border bg-background px-3 py-2 text-xs">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            Top cards · detail · editable
+            {devMode ? "Top cards · detail · editable" : "포트폴리오 상세 카드"}
           </div>
           <div className="mt-1 text-sm">
-            {detailFilled} / {DETAIL_CARD_SLOT_COUNT} filled
+            {detailFilled} / {DETAIL_CARD_SLOT_COUNT}{" "}
+            {devMode ? "filled" : "장 입력됨"}
             {detailDirty && (
-              <span className="ml-2 text-[10px] text-amber-600">* unsaved</span>
+              <span className="ml-2 text-[10px] text-amber-600">
+                {devMode ? "* unsaved" : "* 저장 안 됨"}
+              </span>
             )}
           </div>
-          <div className="mt-0.5 text-[10px] text-muted-foreground">
-            latest updated_at:{" "}
-            <code className="font-mono">
-              {fmt(detailSnapshot.latestUpdatedAt)}
-            </code>
-          </div>
+          {devMode && (
+            <div className="mt-0.5 text-[10px] text-muted-foreground">
+              latest updated_at:{" "}
+              <code className="font-mono">
+                {fmt(detailSnapshot.latestUpdatedAt)}
+              </code>
+            </div>
+          )}
         </div>
       </div>
 
@@ -683,7 +741,7 @@ export default function Cluster3Editor({
         </div>
       )}
 
-      {shapeWarnings.length > 0 && (
+      {devMode && shapeWarnings.length > 0 && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           <div className="mb-1 font-medium">Slot shape mismatch</div>
           <ul className="list-disc pl-4">
@@ -730,16 +788,25 @@ export default function Cluster3Editor({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">
-              Channel Cards (16) · portfolio_channel_cards · editable
+              {devMode ? "Channel Cards (16)" : "채널 카드 (16장)"}
+              {devMode && " · portfolio_channel_cards · editable"}
               {channelDirty && (
-                <span className="ml-2 text-xs text-amber-600">* unsaved</span>
+                <span className="ml-2 text-xs text-amber-600">
+                  {devMode ? "* unsaved" : "* 저장 안 됨"}
+                </span>
               )}
             </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              card_index 1~16 자리 고정. server 가 배열 위치에서 stamp.
-              모든 필드가 빈 카드는 저장 시 DB row 가 생성되지 않으며, 기존 row 가
-              있었다면 해당 card_index 의 row 가 삭제됩니다.
-            </p>
+            {devMode ? (
+              <p className="text-xs text-muted-foreground">
+                card_index 1~16 자리 고정. server 가 배열 위치에서 stamp. 모든
+                필드가 빈 카드는 저장 시 DB row 가 생성되지 않으며, 기존 row
+                가 있었다면 해당 card_index 의 row 가 삭제됩니다.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                채널 카드 16개. 모든 필드가 비어 있는 카드는 저장하지 않습니다.
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             <ChannelCardsGrid
@@ -747,6 +814,7 @@ export default function Cluster3Editor({
               formCards={form.channelCards}
               onChangeCard={setChannelCard}
               disabled={inputsDisabled}
+              devMode={devMode}
             />
           </CardContent>
         </Card>
@@ -755,9 +823,13 @@ export default function Cluster3Editor({
       {activeTab === "output" && (
         <TopCardsEditor
           title={
-            outputDirty
-              ? "Section 4 — Top 5 Output Cards * unsaved"
-              : "Section 4 — Top 5 Output Cards"
+            devMode
+              ? outputDirty
+                ? "Section 4 — Top 5 Output Cards * unsaved"
+                : "Section 4 — Top 5 Output Cards"
+              : outputDirty
+                ? "포트폴리오 대표 카드 5장 * 저장 안 됨"
+                : "포트폴리오 대표 카드 5장"
           }
           cardType="output"
           slotCount={OUTPUT_CARD_SLOT_COUNT}
@@ -766,10 +838,12 @@ export default function Cluster3Editor({
           formCards={form.outputCards}
           onChangeCard={setOutputCard}
           disabled={inputsDisabled}
+          devMode={devMode}
           headerExtras={
             <EditWindowsLinkButton
               userId={bundle.userId}
               resourceKey="cluster3.output_cards"
+              withDev={withDev}
             />
           }
         />
@@ -778,9 +852,13 @@ export default function Cluster3Editor({
       {activeTab === "detail" && (
         <TopCardsEditor
           title={
-            detailDirty
-              ? "Section 5 — Detail 10 Second Cards * unsaved"
-              : "Section 5 — Detail 10 Second Cards"
+            devMode
+              ? detailDirty
+                ? "Section 5 — Detail 10 Second Cards * unsaved"
+                : "Section 5 — Detail 10 Second Cards"
+              : detailDirty
+                ? "포트폴리오 상세 카드 10장 * 저장 안 됨"
+                : "포트폴리오 상세 카드 10장"
           }
           cardType="detail"
           slotCount={DETAIL_CARD_SLOT_COUNT}
@@ -789,16 +867,18 @@ export default function Cluster3Editor({
           formCards={form.detailCards}
           onChangeCard={setDetailCard}
           disabled={inputsDisabled}
+          devMode={devMode}
           headerExtras={
             <EditWindowsLinkButton
               userId={bundle.userId}
               resourceKey="cluster3.detail_cards"
+              withDev={withDev}
             />
           }
         />
       )}
 
-      {activeTab === "debug" && (
+      {activeTab === "debug" && devMode && (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between">
             <div>
@@ -913,14 +993,18 @@ export default function Cluster3Editor({
 function EditWindowsLinkButton({
   userId,
   resourceKey,
+  withDev,
 }: {
   userId: string | null;
   resourceKey: "cluster3.output_cards" | "cluster3.detail_cards";
+  withDev: (href: string) => string;
 }) {
   const params = new URLSearchParams();
   if (userId) params.set("q", userId);
   params.set("resource", resourceKey);
-  const href = `/admin/settings/edit-windows?${params.toString()}`;
+  const href = withDev(
+    `/admin/settings/edit-windows?${params.toString()}`,
+  );
   return (
     <Button
       type="button"
