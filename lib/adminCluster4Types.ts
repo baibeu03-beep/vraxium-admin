@@ -8,12 +8,26 @@ import type {
   WeeklyColleagueRow,
   WeeklyColleaguePatchRow,
 } from "@/lib/weeklyColleaguesTypes";
+import type {
+  UserActivityDetailRow,
+  UserActivityDetailUpsertInput,
+  UserActivityModalKey,
+} from "@/lib/userActivityDetailsTypes";
+import type {
+  CareerRecordRow,
+  CareerRecordUpsertInput,
+} from "@/lib/careerRecordsTypes";
 
 export type {
   ReputationKeywordRow,
   WeeklyReputationRow,
   WeeklyReviewRow,
   WeeklyColleagueRow,
+  UserActivityDetailRow,
+  UserActivityDetailUpsertInput,
+  UserActivityModalKey,
+  CareerRecordRow,
+  CareerRecordUpsertInput,
 };
 
 export type SeasonRow = Record<string, unknown>;
@@ -53,6 +67,10 @@ export type Cluster4Bundle = {
   receivedWeeklyReputations: WeeklyReputationRow[];
   weeklyReviews: WeeklyReviewRow[];
   weeklyColleagues: WeeklyColleagueRow[];
+  // 4개 모달 — user_activity_details 단일 테이블을 classifyActivityType 기준으로 그룹핑.
+  userActivityDetails: UserActivityDetailRow[];
+  // Work Career 모달 — career_records (+ project join).
+  careerRecords: CareerRecordRow[];
   tablesAvailable: {
     seasons: boolean;
     weeks: boolean;
@@ -62,6 +80,8 @@ export type Cluster4Bundle = {
     weeklyReputations: boolean;
     weeklyReviews: boolean;
     weeklyColleagues: boolean;
+    userActivityDetails: boolean;
+    careerRecords: boolean;
   };
 };
 
@@ -91,12 +111,23 @@ export type Cluster4WeeklyReputationPatchRow = {
 
 export type { WeeklyReviewPatchRow, WeeklyColleaguePatchRow };
 
+// Work Info/Ability/Exp 공통 upsert payload. modal 분류는 server 가 activity_type_id 로
+// 추론하지만, Front 가 의도한 분류를 명시적으로 보낼 수도 있도록 optional `modal` 포함.
+export type Cluster4UserActivityDetailPatchRow = UserActivityDetailUpsertInput & {
+  // optional. 명시되면 rating 정책 일치 검증에만 사용 (DB 컬럼에 저장 X).
+  modal?: UserActivityModalKey;
+};
+
+export type Cluster4CareerRecordPatchRow = CareerRecordUpsertInput;
+
 export type Cluster4PatchBody = {
   userSeasonHistories?: Cluster4UserSeasonHistoryPatchRow[];
   seasonReputations?: Cluster4SeasonReputationPatchRow[];
   weeklyReputations?: Cluster4WeeklyReputationPatchRow[];
   weeklyReviews?: WeeklyReviewPatchRow[];
   weeklyColleagues?: WeeklyColleaguePatchRow[];
+  userActivityDetails?: Cluster4UserActivityDetailPatchRow[];
+  careerRecords?: Cluster4CareerRecordPatchRow[];
 };
 
 export type Cluster4ApplySummary = {
@@ -105,6 +136,8 @@ export type Cluster4ApplySummary = {
   weeklyReputations?: { updated: number; ids: string[] };
   weeklyReviews?: { updated: number; ids: string[] };
   weeklyColleagues?: { updated: number; ids: string[] };
+  userActivityDetails?: { upserted: number; ids: string[] };
+  careerRecords?: { upserted: number; ids: string[] };
 };
 
 // DELETE 분기에서 사용. id 기반 단일 row 삭제.
@@ -112,4 +145,6 @@ export type Cluster4DeleteResource =
   | "seasonReputation"
   | "weeklyReputation"
   | "weeklyReview"
-  | "weeklyColleague";
+  | "weeklyColleague"
+  | "userActivityDetail"
+  | "careerRecord";

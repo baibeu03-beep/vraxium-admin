@@ -2,72 +2,162 @@
 // Must not import server-only modules (supabaseAdmin, next/headers, ...),
 // because client components import from here.
 
-// 범용 edit-window 시스템.
-// resource_key 단위로 사용자에게 "지금부터 N시간 / N일 동안 수정 가능" 권한을 부여한다.
-// 1차 적용 resource: cluster2.review_links.
-// 향후 cluster3 / cluster4 등은 EDITABLE_RESOURCES 에 항목을 추가하기만 하면 된다.
-
 export type EditableResource = {
   key: string;
-  // 운영자에게 노출되는 기본 라벨/설명 — "무엇을 할 수 있는가" 중심.
+  section: "cluster2" | "cluster3" | "cluster4";
+  group: "weekly" | "season" | "activity" | "review_links" | "portfolio";
+  order: number;
   label: string;
   description: string;
-  // ?dev=true 에서만 노출되는 개발자용 라벨/설명 — 기존 DB/cluster 식별자 유지.
   devLabel: string;
   devDescription: string;
+  // legacy: 기존 grants 와 backward-compat 을 위해 EDITABLE_RESOURCES 에 남겨두지만
+  // 새 grant 생성 흐름에서는 노출하지 않는다. 새 4개 키(work_info/work_ability/
+  // work_exp/work_career) 가 운영되면 향후 단계에서 완전 제거.
+  legacy?: boolean;
 };
 
-// 호스트(사용자) 앱 PUT 핸들러는 card_type 에 따라 아래 두 키 중 하나를 골라
-// 동일한 user_edit_windows row 를 조회한다. (cluster3 channel cards 는 제한 대상 아님)
-// Cluster4 키 (weekly_reviews / activity_details / season_review) 는 Front/Host
-// 측에서 이미 동일 문자열로 user_edit_windows 를 조회하므로 여기에 entry 만 추가
-// 하면 작성 기간 관리 UI 가 즉시 노출된다. user_edit_windows 스키마/마이그레이션
-// 변경은 필요 없다.
 export const EDITABLE_RESOURCES: readonly EditableResource[] = [
   {
     key: "cluster2.review_links",
-    label: "클럽 리뷰 링크",
-    description: "주차별 Club Review 링크 10개 작성 권한을 관리합니다.",
-    devLabel: "Cluster2 · Review Links",
-    devDescription: "Cluster2 의 10개 review link 슬롯 편집 권한",
+    section: "cluster2",
+    group: "review_links",
+    order: 10,
+    label: "\uD074\uB7FD \uB9AC\uBDF0 \uB9C1\uD06C",
+    description:
+      "\uC8FC\uCC28\uBCC4 Club Review \uB9C1\uD06C 10\uAC1C \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
+    devLabel: "Cluster2 / Review Links",
+    devDescription: "Cluster2 review link permissions",
   },
   {
     key: "cluster3.output_cards",
-    label: "포트폴리오 대표 카드",
-    description: "포트폴리오 대표 카드 5장 작성 권한을 관리합니다.",
-    devLabel: "Cluster3 · Output Cards",
+    section: "cluster3",
+    group: "portfolio",
+    order: 20,
+    label: "\uD3EC\uD2B8\uD3F4\uB9AC\uC624 \uB300\uD45C \uCE74\uB4DC",
+    description:
+      "\uD3EC\uD2B8\uD3F4\uB9AC\uC624 \uB300\uD45C \uCE74\uB4DC 5\uAC1C \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
+    devLabel: "Cluster3 / Output Cards",
     devDescription:
-      "Cluster3 Output (portfolio_top_cards.card_type='output', 5장) 편집 권한",
+      "Cluster3 output card permissions (portfolio_top_cards.card_type='output')",
   },
   {
     key: "cluster3.detail_cards",
-    label: "포트폴리오 상세 카드",
-    description: "포트폴리오 상세 카드 10장 작성 권한을 관리합니다.",
-    devLabel: "Cluster3 · Detail Cards",
+    section: "cluster3",
+    group: "portfolio",
+    order: 21,
+    label: "\uD3EC\uD2B8\uD3F4\uB9AC\uC624 \uC0C1\uC138 \uCE74\uB4DC",
+    description:
+      "\uD3EC\uD2B8\uD3F4\uB9AC\uC624 \uC0C1\uC138 \uCE74\uB4DC 10\uAC1C \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
+    devLabel: "Cluster3 / Detail Cards",
     devDescription:
-      "Cluster3 Detail (portfolio_top_cards.card_type='detail', 10장) 편집 권한",
+      "Cluster3 detail card permissions (portfolio_top_cards.card_type='detail')",
   },
   {
     key: "cluster4.weekly_reviews",
-    label: "주간 회고",
-    description: "주차별 회고 작성 권한을 관리합니다.",
-    devLabel: "Cluster4 · 주간 리뷰",
-    devDescription: "Cluster4 weekly_reviews (주차별 회고) 편집 권한",
+    section: "cluster4",
+    group: "weekly",
+    order: 30,
+    label: "\uC8FC\uAC04 \uD68C\uACE0",
+    description:
+      "\uC8FC\uCC28\uBCC4 \uD68C\uACE0 \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
+    devLabel: "Cluster4 / Weekly Review",
+    devDescription: "Cluster4 weekly_reviews permissions",
   },
   {
-    key: "cluster4.activity_details",
-    label: "활동 상세",
-    description: "활동별 상세 입력 작성 권한을 관리합니다.",
-    devLabel: "Cluster4 · 활동 상세",
-    devDescription: "Cluster4 user_activity_details (활동별 상세 입력) 편집 권한",
+    key: "cluster4.weekly_colleagues",
+    section: "cluster4",
+    group: "weekly",
+    order: 31,
+    label: "\uC8FC\uAC04 \uB3D9\uB8CC",
+    description:
+      "\uC8FC\uCC28\uBCC4 \uD568\uAED8\uD55C \uB3D9\uB8CC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
+    devLabel: "Cluster4 / Weekly Colleagues",
+    devDescription: "Cluster4 weekly_colleagues permissions",
   },
   {
     key: "cluster4.season_review",
-    label: "시즌 종합 평가",
-    description: "시즌 종합 평가(평점 / 코멘트) 작성 권한을 관리합니다.",
-    devLabel: "Cluster4 · 시즌 리뷰",
+    section: "cluster4",
+    group: "season",
+    order: 32,
+    label: "\uC2DC\uC98C \uB9AC\uBDF0",
+    description:
+      "\uBCF8\uC778 \uC2DC\uC98C \uC885\uD569 \uD3C9\uAC00 \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
+    devLabel: "Cluster4 / Season Review",
     devDescription:
-      "Cluster4 시즌 종합 (user_season_histories.rating / review) 편집 권한",
+      "Cluster4 user_season_histories.rating / review permissions",
+  },
+  {
+    key: "cluster4.season_reputation",
+    section: "cluster4",
+    group: "season",
+    order: 33,
+    label: "\uC2DC\uC98C \uD3C9\uD310",
+    description:
+      "\uC2DC\uC98C \uD3C9\uD310 \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
+    devLabel: "Cluster4 / Season Reputation",
+    devDescription: "Cluster4 season_reputations permissions",
+  },
+  {
+    key: "cluster4.activity_details",
+    section: "cluster4",
+    group: "activity",
+    order: 34,
+    label: "\uD65C\uB3D9 \uC0C1\uC138 (legacy)",
+    description:
+      "\uAE30\uC874 \uD65C\uB3D9\uBCC4 \uC0C1\uC138 \uC785\uB825 \uAD8C\uD55C \uD0A4 \u2014 \uC2E0\uADDC 4\uAC1C \uD0A4(work_info / work_ability / work_exp / work_career)\uB85C \uBD84\uB9AC\uB418\uBA70 \uBCF8 \uD0A4\uB294 \uAE30\uC874 grants \uBCF4\uC874\uC6A9 alias \uB85C \uC720\uC9C0\uB429\uB2C8\uB2E4.",
+    devLabel: "Cluster4 / Activity Details (legacy alias)",
+    devDescription:
+      "Cluster4 user_activity_details permissions (legacy single key; superseded by cluster4.work_info / .work_ability / .work_exp / .work_career)",
+    legacy: true,
+  },
+  {
+    key: "cluster4.work_info",
+    section: "cluster4",
+    group: "activity",
+    order: 35,
+    label: "\uC2E4\uBB34 \uC815\uBCF4 (Work Info)",
+    description:
+      "Cluster4-card \uC2E4\uBB34 \uC815\uBCF4 \uBAA8\uB2EC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
+    devLabel: "Cluster4 / Work Info",
+    devDescription:
+      "Cluster4 work_info permissions (user_activity_details, info taxonomy)",
+  },
+  {
+    key: "cluster4.work_ability",
+    section: "cluster4",
+    group: "activity",
+    order: 36,
+    label: "\uC2E4\uBB34 \uC5ED\uB7C9 (Work Ability)",
+    description:
+      "Cluster4-card \uC2E4\uBB34 \uC5ED\uB7C9 \uBAA8\uB2EC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
+    devLabel: "Cluster4 / Work Ability",
+    devDescription:
+      "Cluster4 work_ability permissions (user_activity_details, competency taxonomy)",
+  },
+  {
+    key: "cluster4.work_exp",
+    section: "cluster4",
+    group: "activity",
+    order: 37,
+    label: "\uC2E4\uBB34 \uACBD\uD5D8 (Work Exp)",
+    description:
+      "Cluster4-card \uC2E4\uBB34 \uACBD\uD5D8 \uBAA8\uB2EC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4. rating(0~10) \uC800\uC7A5 \uACBD\uB85C\uB294 \uC774 \uD0A4\uB85C \uAC8C\uC774\uD2B8\uB429\uB2C8\uB2E4.",
+    devLabel: "Cluster4 / Work Exp",
+    devDescription:
+      "Cluster4 work_exp permissions (user_activity_details, experience taxonomy + rating)",
+  },
+  {
+    key: "cluster4.work_career",
+    section: "cluster4",
+    group: "activity",
+    order: 38,
+    label: "\uC2E4\uBB34 \uACBD\uB825 (Work Career)",
+    description:
+      "Cluster4-card \uC2E4\uBB34 \uACBD\uB825 \uBAA8\uB2EC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4. career_records grade / enhancement_status \uC800\uC7A5 \uACBD\uB85C.",
+    devLabel: "Cluster4 / Work Career",
+    devDescription:
+      "Cluster4 work_career permissions (career_records grade / enhancement_status / career_code)",
   },
 ] as const;
 
@@ -76,41 +166,59 @@ export const DEFAULT_RESOURCE_KEY = EDITABLE_RESOURCES[0].key;
 export function isEditableResourceKey(value: unknown): value is string {
   return (
     typeof value === "string" &&
-    EDITABLE_RESOURCES.some((r) => r.key === value)
+    EDITABLE_RESOURCES.some((resource) => resource.key === value)
   );
 }
 
-// devMode=true 면 기존 cluster/DB 식별자 기반 라벨, false 면 운영자 친화 라벨.
-// 대시보드처럼 devMode 컨텍스트가 없는 server component 는 인자 없이 호출해 운영자 라벨을 받는다.
 export function getResourceLabel(key: string, devMode = false): string {
-  const r = EDITABLE_RESOURCES.find((x) => x.key === key);
-  if (!r) return key;
-  return devMode ? r.devLabel : r.label;
+  const resource = EDITABLE_RESOURCES.find((item) => item.key === key);
+  if (!resource) return key;
+  return devMode ? resource.devLabel : resource.label;
 }
 
 export function getResourceDescription(key: string, devMode = false): string {
-  const r = EDITABLE_RESOURCES.find((x) => x.key === key);
-  if (!r) return "";
-  return devMode ? r.devDescription : r.description;
+  const resource = EDITABLE_RESOURCES.find((item) => item.key === key);
+  if (!resource) return "";
+  return devMode ? resource.devDescription : resource.description;
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// DTO
-// ─────────────────────────────────────────────────────────────────────────
+export function getEditableResource(key: string): EditableResource | undefined {
+  return EDITABLE_RESOURCES.find((resource) => resource.key === key);
+}
+
+export const CLUSTER4_EDIT_RESOURCES = EDITABLE_RESOURCES.filter(
+  (resource) => resource.section === "cluster4" && !resource.legacy,
+);
+
+export const CLUSTER4_WEEKLY_EDIT_RESOURCES = CLUSTER4_EDIT_RESOURCES.filter(
+  (resource) => resource.group === "weekly",
+);
+
+export const CLUSTER4_SEASON_EDIT_RESOURCES = CLUSTER4_EDIT_RESOURCES.filter(
+  (resource) => resource.group === "season",
+);
+
+// 4개 활동 모달(work_info / work_ability / work_exp / work_career)을 묶어 노출.
+// legacy alias 인 cluster4.activity_details 는 본 목록에 포함되지 않으며,
+// 기존 grants 데이터는 user_edit_windows 에 그대로 보존되어 admin 이 닫기/열기로
+// 마이그레이션 가능하다 (EDITABLE_RESOURCES select 에는 legacy 도 나타남).
+export const CLUSTER4_ACTIVITY_EDIT_RESOURCES = CLUSTER4_EDIT_RESOURCES.filter(
+  (resource) => resource.group === "activity",
+);
 
 export type EditWindowDto = {
   id: string;
   userId: string;
   resourceKey: string;
-  openedAt: string; // ISO
-  expiresAt: string; // ISO
+  openedAt: string;
+  expiresAt: string;
   grantedBy: string | null;
+  grantedByEmail: string | null;
   note: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
 
-// 한 사용자의 한 resource 에 대한 현재 상태 — UI 가 곧바로 렌더할 수 있는 형태.
 export type EditWindowUserRow = {
   userId: string;
   displayName: string | null;
@@ -127,10 +235,6 @@ export type ListEditWindowsResult = {
   limit: number;
   offset: number;
 };
-
-// ─────────────────────────────────────────────────────────────────────────
-// Status helpers
-// ─────────────────────────────────────────────────────────────────────────
 
 export type EditWindowStatus = "open" | "closed" | "expired" | "none";
 
@@ -152,29 +256,27 @@ export function computeEditWindowStatus(
 export function statusLabel(status: EditWindowStatus): string {
   switch (status) {
     case "open":
-      return "열림";
+      return "\uC5F4\uB9BC";
     case "closed":
-      return "닫힘";
+      return "\uB2EB\uD798";
     case "expired":
-      return "만료됨";
+      return "\uB9CC\uB8CC";
     case "none":
-      return "권한 없음";
+      return "\uAD8C\uD55C \uC5C6\uC74C";
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// Quick actions
-// ─────────────────────────────────────────────────────────────────────────
 
 export type QuickActionKey = "open_24h" | "open_7d" | "open_until_midnight";
 
 export const QUICK_ACTIONS: { key: QuickActionKey; label: string }[] = [
-  { key: "open_24h", label: "지금부터 24시간 열기" },
-  { key: "open_7d", label: "지금부터 7일 열기" },
-  { key: "open_until_midnight", label: "오늘 자정까지 열기" },
+  { key: "open_24h", label: "\uC9C0\uAE08\uBD80\uD130 24\uC2DC\uAC04 \uC5F4\uAE30" },
+  { key: "open_7d", label: "\uC9C0\uAE08\uBD80\uD130 7\uC77C \uC5F4\uAE30" },
+  {
+    key: "open_until_midnight",
+    label: "\uC624\uB298 \uC790\uC815\uAE4C\uC9C0 \uC5F4\uAE30",
+  },
 ];
 
-// 클라이언트/서버 모두 같은 결과를 내도록, now 기준으로 opened/expires 계산.
 export function computeQuickActionRange(
   action: QuickActionKey,
   now: Date = new Date(),
@@ -190,17 +292,12 @@ export function computeQuickActionRange(
       return { openedAt: opened, expiresAt: expires };
     }
     case "open_until_midnight": {
-      // 로컬 자정. 서버에서도 호출되므로 호출자(UI)가 now 를 넘기는 게 안전.
       const expires = new Date(opened);
       expires.setHours(23, 59, 59, 999);
       return { openedAt: opened, expiresAt: expires };
     }
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────
-// PATCH payload
-// ─────────────────────────────────────────────────────────────────────────
 
 export type EditWindowUpsertPayload = {
   resource_key: string;

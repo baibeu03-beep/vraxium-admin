@@ -113,6 +113,8 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 //   - weeklyReputationId
 //   - weeklyReviewId
 //   - weeklyColleagueId
+//   - userActivityDetailId  (Work Info / Work Ability / Work Exp)
+//   - careerRecordId        (Work Career)
 // 정확히 하나만 지정되어야 함.
 const DELETE_PARAM_MAP: Array<{
   param: string;
@@ -122,6 +124,8 @@ const DELETE_PARAM_MAP: Array<{
   { param: "weeklyReputationId", resource: "weeklyReputation" },
   { param: "weeklyReviewId", resource: "weeklyReview" },
   { param: "weeklyColleagueId", resource: "weeklyColleague" },
+  { param: "userActivityDetailId", resource: "userActivityDetail" },
+  { param: "careerRecordId", resource: "careerRecord" },
 ];
 
 export async function DELETE(request: NextRequest, { params }: Ctx) {
@@ -151,7 +155,7 @@ export async function DELETE(request: NextRequest, { params }: Ctx) {
       {
         success: false,
         error:
-          "Exactly one of seasonReputationId / weeklyReputationId / weeklyReviewId / weeklyColleagueId query parameters is required.",
+          "Exactly one of seasonReputationId / weeklyReputationId / weeklyReviewId / weeklyColleagueId / userActivityDetailId / careerRecordId query parameters is required.",
       },
       { status: 400 },
     );

@@ -17,6 +17,7 @@ import {
 } from "@/lib/organizations";
 import { DebugSection } from "@/components/admin/fieldKit";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import ActivityTab from "@/components/admin/cluster4/ActivityTab";
 import type {
   Cluster4ApplySummary,
   Cluster4Bundle,
@@ -48,11 +49,6 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "activities", label: "활동" },
   { key: "debug", label: "디버그" },
 ];
-
-const NOT_IMPLEMENTED_ACTIVITIES = [
-  "user_activity_details",
-  "weekly_activities",
-] as const;
 
 // ─────────────────────────────────────────────────────────────
 // Form row types — bundle row 의 editable subset.
@@ -140,6 +136,8 @@ function emptyBundle(legacyUserId: string): Cluster4Bundle {
     receivedWeeklyReputations: [],
     weeklyReviews: [],
     weeklyColleagues: [],
+    userActivityDetails: [],
+    careerRecords: [],
     tablesAvailable: {
       seasons: false,
       weeks: false,
@@ -149,6 +147,8 @@ function emptyBundle(legacyUserId: string): Cluster4Bundle {
       weeklyReputations: false,
       weeklyReviews: false,
       weeklyColleagues: false,
+      userActivityDetails: false,
+      careerRecords: false,
     },
   };
 }
@@ -528,19 +528,6 @@ function TableNotAvailable({ table }: { table: string }) {
   );
 }
 
-function NotImplementedNotice({
-  tables,
-}: {
-  tables: readonly string[];
-}) {
-  return (
-    <div className="rounded-md border border-dashed bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-      <div className="font-medium">아직 구현되지 않음</div>
-      <div className="mt-1 font-mono text-xs">{tables.join(", ")}</div>
-    </div>
-  );
-}
-
 function IdMono({ value, label }: { value: string; label?: string }) {
   if (!value) return null;
   return (
@@ -807,6 +794,8 @@ export default function Cluster4Editor({
     const paramKeyMap: Record<Cluster4DeleteResource, string> = {
       seasonReputation: "seasonReputationId",
       weeklyReputation: "weeklyReputationId",
+      userActivityDetail: "userActivityDetailId",
+      careerRecord: "careerRecordId",
       weeklyReview: "weeklyReviewId",
       weeklyColleague: "weeklyColleagueId",
     };
@@ -1570,19 +1559,21 @@ export default function Cluster4Editor({
         </Card>
       )}
 
-      {/* ───────────── 활동 (미구현) ───────────── */}
+      {/* ───────────── 활동 (Work Info / Ability / Exp / Career) ───────────── */}
       {activeTab === "activities" && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">활동</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              user_activity_details / weekly_activities 관리 UI 는 다음 단계입니다.
-            </p>
-          </CardHeader>
-          <CardContent>
-            <NotImplementedNotice tables={NOT_IMPLEMENTED_ACTIVITIES} />
-          </CardContent>
-        </Card>
+        <ActivityTab
+          bundle={bundle}
+          legacyUserId={legacyUserId}
+          weekLabels={weekLabels}
+          saveDisabled={saveDisabled}
+          onBundleUpdate={(next) => {
+            setBundle(next);
+            setForm(syncFormFromBundle(next));
+            setLastSavedAt(new Date().toISOString());
+          }}
+          onBanner={(next) => setBanner(next)}
+          devMode={devMode}
+        />
       )}
 
       {/* ───────────── 디버그 ───────────── */}
@@ -1648,6 +1639,14 @@ export default function Cluster4Editor({
               <DebugSection
                 title="weekly_colleagues"
                 data={bundle.weeklyColleagues}
+              />
+              <DebugSection
+                title="user_activity_details"
+                data={bundle.userActivityDetails}
+              />
+              <DebugSection
+                title="career_records"
+                data={bundle.careerRecords}
               />
               <DebugSection
                 title="reputation_keywords"

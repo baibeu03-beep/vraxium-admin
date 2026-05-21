@@ -29,11 +29,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 import {
-  ORGANIZATION_LABEL,
-  isOrganizationSlug,
-} from "@/lib/organizations";
-import {
+  CLUSTER4_ACTIVITY_EDIT_RESOURCES,
+  CLUSTER4_EDIT_RESOURCES,
+  CLUSTER4_SEASON_EDIT_RESOURCES,
+  CLUSTER4_WEEKLY_EDIT_RESOURCES,
   DEFAULT_RESOURCE_KEY,
   EDITABLE_RESOURCES,
   QUICK_ACTIONS,
@@ -51,15 +52,16 @@ import {
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 const PAGE_SIZE = 50;
+const RESOURCE_OPTIONS = [...EDITABLE_RESOURCES].sort((a, b) => a.order - b.order);
 
 type Banner = { kind: "success" | "error"; message: string } | null;
 
 function fmt(value: string | null | undefined) {
-  return value?.trim() ? value : "—";
+  return value?.trim() ? value : "-";
 }
 
 function fmtDate(value: string | null | undefined) {
-  if (!value) return "—";
+  if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("ko-KR", {
@@ -69,12 +71,11 @@ function fmtDate(value: string | null | undefined) {
 }
 
 function orgLabel(slug: string | null) {
-  if (!slug) return "미지정";
+  if (!slug) return "-";
   if (isOrganizationSlug(slug)) return ORGANIZATION_LABEL[slug];
   return slug;
 }
 
-// datetime-local input 은 로컬타임존 기준 "YYYY-MM-DDTHH:mm" 문자열을 다룬다.
 function toLocalInputValue(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return (
@@ -84,7 +85,6 @@ function toLocalInputValue(date: Date): string {
 }
 
 function fromLocalInputValue(value: string): Date {
-  // new Date("YYYY-MM-DDTHH:mm") 은 로컬타임존으로 해석된다.
   return new Date(value);
 }
 
@@ -105,13 +105,6 @@ export default function EditWindowsManager() {
   const searchParams = useSearchParams();
   const devMode = useAdminDevMode();
 
-  // URL ?q= 와 ?resource= 를 초기 값으로 사용한다. mount 시점 1회만 읽으며
-  // 이후 URL 동기화는 하지 않는다 (사용자가 자유롭게 바꿀 수 있도록).
-  // 호출 진입점:
-  //   - /admin/members 의 "작성 기간" 버튼 → ?q=<userId>
-  //   - Cluster2 Review Link / Cluster3 Output|Detail 의 "작성 기간 관리" 버튼
-  //     → ?q=<userId>&resource=<resource_key>
-  // resource_key 가 EDITABLE_RESOURCES 에 없으면 DEFAULT 로 fallback.
   const initialQuery = useMemo(
     () => searchParams.get("q")?.trim() ?? "",
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -166,7 +159,7 @@ export default function EditWindowsManager() {
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String(offset));
       try {
-        const res = await fetch(`/api/admin/edit-windows?${params}`, {
+        const res = await fetch("/api/admin/edit-windows?" + params.toString(), {
           cache: "no-store",
         });
         const json = await res.json();
@@ -252,7 +245,11 @@ export default function EditWindowsManager() {
           reload();
           setBanner({
             kind: "success",
-            message: `${count}명에게 ${getResourceLabel(resourceKey, devMode)} 권한을 부여했습니다.`,
+            message:
+              String(count) +
+              "명에게 " +
+              getResourceLabel(resourceKey, devMode) +
+              " 권한을 부여했습니다.",
           });
         })
         .catch((err: Error) => {
@@ -282,7 +279,11 @@ export default function EditWindowsManager() {
         reload();
         setBanner({
           kind: "success",
-          message: `${count}명의 ${getResourceLabel(resourceKey, devMode)} 권한을 닫았습니다.`,
+          message:
+            String(count) +
+            "명의 " +
+            getResourceLabel(resourceKey, devMode) +
+            " 권한을 닫았습니다.",
         });
       })
       .catch((err: Error) => {
@@ -300,9 +301,8 @@ export default function EditWindowsManager() {
   const applyWindowToRow = useCallback(
     (userId: string, window: EditWindowDto | null) => {
       setRows((prev) =>
-        prev.map((r) => (r.userId === userId ? { ...r, window } : r)),
+        prev.map((row) => (row.userId === userId ? { ...row, window } : row)),
       );
-      // editing 상태도 동일하게 업데이트.
       setEditing((prev) =>
         prev && prev.userId === userId ? { ...prev, window } : prev,
       );
@@ -320,19 +320,21 @@ export default function EditWindowsManager() {
       })
         .then((win) => {
           applyWindowToRow(row.userId, win);
+          reload();
           setBanner({
             kind: "success",
-            message: `${row.displayName ?? row.userId} · ${getResourceLabel(
-              resourceKey,
-              devMode,
-            )} 권한을 부여했습니다.`,
+            message:
+              (row.displayName ?? row.userId) +
+              " · " +
+              getResourceLabel(resourceKey, devMode) +
+              " 권한을 열었습니다.",
           });
         })
         .catch((err: Error) => {
           setBanner({ kind: "error", message: err.message });
         });
     },
-    [devMode, resourceKey, applyWindowToRow],
+    [applyWindowToRow, devMode, resourceKey],
   );
 
   const handleClose = useCallback(
@@ -343,19 +345,21 @@ export default function EditWindowsManager() {
       })
         .then((win) => {
           applyWindowToRow(row.userId, win);
+          reload();
           setBanner({
             kind: "success",
-            message: `${row.displayName ?? row.userId} · ${getResourceLabel(
-              resourceKey,
-              devMode,
-            )} 권한을 닫았습니다.`,
+            message:
+              (row.displayName ?? row.userId) +
+              " · " +
+              getResourceLabel(resourceKey, devMode) +
+              " 권한을 닫았습니다.",
           });
         })
         .catch((err: Error) => {
           setBanner({ kind: "error", message: err.message });
         });
     },
-    [devMode, resourceKey, applyWindowToRow],
+    [applyWindowToRow, devMode, resourceKey],
   );
 
   const pageEnd = offset + rows.length;
@@ -366,17 +370,14 @@ export default function EditWindowsManager() {
     <div className="flex flex-col gap-6">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">
-            작성 기간 관리
-          </h2>
+          <h2 className="text-2xl font-semibold tracking-tight">작성기간 관리</h2>
           <p className="text-sm text-muted-foreground">
             {devMode
               ? "사용자별 / 리소스별 편집 가능 기간을 열고 닫습니다."
               : "회원별로 어떤 작성을 언제까지 할 수 있는지 관리합니다."}
             {devMode && (
               <>
-                {" "}
-                기준 테이블:{" "}
+                {" "}기준 테이블:{" "}
                 <code className="mx-1 font-mono">public.user_edit_windows</code>
               </>
             )}
@@ -403,6 +404,104 @@ export default function EditWindowsManager() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-base">Cluster4</CardTitle>
+          <CardDescription>
+            {"Cluster4 작성기간 리소스 " +
+              String(CLUSTER4_EDIT_RESOURCES.length) +
+              "개를 주간 / 시즌 / 활동 세 그룹으로 나눠 관리합니다."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-lg border p-4">
+            <div className="mb-3">
+              <div className="text-sm font-medium">주간 작성</div>
+              <div className="text-xs text-muted-foreground">
+                Weekly Review와 Weekly Colleagues를 동일 정책 그룹으로 관리합니다.
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {CLUSTER4_WEEKLY_EDIT_RESOURCES.map((resource) => {
+                const active = resource.key === resourceKey;
+                return (
+                  <Button
+                    key={resource.key}
+                    type="button"
+                    variant={active ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setResourceKey(resource.key);
+                      setOffset(0);
+                      clearSelection();
+                    }}
+                  >
+                    {devMode ? resource.devLabel : resource.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="mb-3">
+              <div className="text-sm font-medium">시즌 작성</div>
+              <div className="text-xs text-muted-foreground">
+                Season Review와 Season Reputation을 같은 섹션에서 관리합니다.
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {CLUSTER4_SEASON_EDIT_RESOURCES.map((resource) => {
+                const active = resource.key === resourceKey;
+                return (
+                  <Button
+                    key={resource.key}
+                    type="button"
+                    variant={active ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setResourceKey(resource.key);
+                      setOffset(0);
+                      clearSelection();
+                    }}
+                  >
+                    {devMode ? resource.devLabel : resource.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="rounded-lg border p-4">
+            <div className="mb-3">
+              <div className="text-sm font-medium">활동 작성</div>
+              <div className="text-xs text-muted-foreground">
+                Cluster4-card 4개 모달(Work Info / Ability / Exp / Career)을 분리 관리합니다.
+                기존 단일 키(activity_details)는 legacy alias 로 보존됩니다.
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {CLUSTER4_ACTIVITY_EDIT_RESOURCES.map((resource) => {
+                const active = resource.key === resourceKey;
+                return (
+                  <Button
+                    key={resource.key}
+                    type="button"
+                    variant={active ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      setResourceKey(resource.key);
+                      setOffset(0);
+                      clearSelection();
+                    }}
+                  >
+                    {devMode ? resource.devLabel : resource.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-base">
             {devMode ? "사용자 & 리소스" : "회원 & 작성 항목"}
           </CardTitle>
@@ -418,20 +517,19 @@ export default function EditWindowsManager() {
               <Label htmlFor="resource-key">{devMode ? "리소스" : "작성 항목"}</Label>
               <Select
                 value={resourceKey}
-                onValueChange={(v: string | null) => {
-                  setResourceKey(v ?? DEFAULT_RESOURCE_KEY);
+                onValueChange={(value: string | null) => {
+                  setResourceKey(value ?? DEFAULT_RESOURCE_KEY);
                   setOffset(0);
-                  setSelectedUserIds(new Set());
-                  setAllMatchingSelected(false);
+                  clearSelection();
                 }}
               >
                 <SelectTrigger id="resource-key">
-                  <SelectValue />
+                  <SelectValue>{getResourceLabel(resourceKey, devMode)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {EDITABLE_RESOURCES.map((r) => (
-                    <SelectItem key={r.key} value={r.key}>
-                      {devMode ? r.devLabel : r.label}
+                  {RESOURCE_OPTIONS.map((resource) => (
+                    <SelectItem key={resource.key} value={resource.key}>
+                      {devMode ? resource.devLabel : resource.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -451,7 +549,7 @@ export default function EditWindowsManager() {
                   placeholder={
                     devMode
                       ? "display_name, auth_email, contact_email, organization, user_id"
-                      : "이름, 이메일, 소속, 회원 ID로 검색"
+                      : "이름, 이메일, 소속, user_id로 검색"
                   }
                   className="pl-9"
                 />
@@ -553,6 +651,8 @@ export default function EditWindowsManager() {
                   <TableHead>상태</TableHead>
                   <TableHead>기간</TableHead>
                   <TableHead className="w-[320px] text-right">액션</TableHead>
+                  <TableHead>수정자</TableHead>
+                  <TableHead>수정일시</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -570,13 +670,11 @@ export default function EditWindowsManager() {
                           onChange={(e) =>
                             handleToggleUser(row.userId, e.target.checked)
                           }
-                          aria-label={`${row.displayName ?? row.userId} 선택`}
+                          aria-label={(row.displayName ?? row.userId) + " 선택"}
                         />
                       </TableCell>
                       <TableCell className="max-w-[220px]">
-                        <div className="font-medium">
-                          {fmt(row.displayName)}
-                        </div>
+                        <div className="font-medium">{fmt(row.displayName)}</div>
                         {devMode && (
                           <div className="font-mono text-[10px] text-muted-foreground">
                             {row.userId}
@@ -605,30 +703,26 @@ export default function EditWindowsManager() {
                               {fmtDate(row.window.openedAt)}
                             </span>
                             <span>
-                              <span className="text-muted-foreground">만료</span>{" "}
+                              <span className="text-muted-foreground">종료</span>{" "}
                               {fmtDate(row.window.expiresAt)}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"
-                            onClick={() =>
-                              void handleQuickAction(row, "open_24h")
-                            }
+                            onClick={() => void handleQuickAction(row, "open_24h")}
                             className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                           >
                             24h
                           </button>
                           <button
                             type="button"
-                            onClick={() =>
-                              void handleQuickAction(row, "open_7d")
-                            }
+                            onClick={() => void handleQuickAction(row, "open_7d")}
                             className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                           >
                             7d
@@ -636,10 +730,7 @@ export default function EditWindowsManager() {
                           <button
                             type="button"
                             onClick={() =>
-                              void handleQuickAction(
-                                row,
-                                "open_until_midnight",
-                              )
+                              void handleQuickAction(row, "open_until_midnight")
                             }
                             className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                           >
@@ -667,13 +758,27 @@ export default function EditWindowsManager() {
                           </button>
                         </div>
                       </TableCell>
+                      <TableCell className="max-w-[220px] truncate text-xs">
+                        {row.window ? (
+                          fmt(row.window.grantedByEmail ?? row.window.grantedBy)
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">
+                        {row.window?.updatedAt ? (
+                          fmtDate(row.window.updatedAt)
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   );
                 })}
                 {!loading && rows.length === 0 && !error && (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={9}
                       className="py-10 text-center text-muted-foreground"
                     >
                       조회된 사용자가 없습니다.
@@ -683,7 +788,7 @@ export default function EditWindowsManager() {
                 {loading && rows.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={9}
                       className="py-10 text-center text-muted-foreground"
                     >
                       불러오는 중...
@@ -698,7 +803,12 @@ export default function EditWindowsManager() {
             <span>
               {total === 0
                 ? "0건"
-                : `${(offset + 1).toLocaleString()}–${pageEnd.toLocaleString()} / ${total.toLocaleString()}건`}
+                : String(offset + 1) +
+                  "-" +
+                  String(pageEnd) +
+                  " / " +
+                  String(total) +
+                  "건"}
             </span>
             <div className="flex items-center gap-1">
               <Button
@@ -729,10 +839,11 @@ export default function EditWindowsManager() {
         onClose={() => setEditing(null)}
         onSaved={(userId, window) => {
           applyWindowToRow(userId, window);
+          reload();
           setEditing(null);
           setBanner({
             kind: "success",
-            message: `${getResourceLabel(resourceKey, devMode)} 기간이 저장되었습니다.`,
+            message: getResourceLabel(resourceKey, devMode) + " 기간이 저장되었습니다.",
           });
         }}
       />
@@ -748,7 +859,11 @@ export default function EditWindowsManager() {
           reload();
           setBanner({
             kind: "success",
-            message: `${count}명에게 ${getResourceLabel(resourceKey, devMode)} 기간을 저장했습니다.`,
+            message:
+              String(count) +
+              "명에게 " +
+              getResourceLabel(resourceKey, devMode) +
+              " 기간을 저장했습니다.",
           });
         }}
         getPayloadBase={() => ({
@@ -761,16 +876,13 @@ export default function EditWindowsManager() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// PATCH helper
-// ─────────────────────────────────────────────────────────────────────────
-
 type UpsertBody = {
   resource_key: string;
   opened_at: string;
   expires_at: string;
   note?: string | null;
 };
+
 type CloseBody = { resource_key: string; action: "close" };
 
 async function patchWindow(
@@ -778,7 +890,7 @@ async function patchWindow(
   body: UpsertBody | CloseBody,
 ): Promise<EditWindowDto | null> {
   const res = await fetch(
-    `/api/admin/edit-windows/${encodeURIComponent(userId)}`,
+    "/api/admin/edit-windows/" + encodeURIComponent(userId),
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -814,10 +926,6 @@ async function bulkWindow(body: BulkUpsertBody | BulkCloseBody): Promise<number>
   return Number(json.data?.count ?? 0);
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Drawer: 직접 기간 설정 + note
-// ─────────────────────────────────────────────────────────────────────────
-
 function EditWindowDrawer({
   row,
   resourceKey,
@@ -834,7 +942,7 @@ function EditWindowDrawer({
   if (!row) return null;
   return (
     <EditWindowDrawerInner
-      key={`${row.userId}:${resourceKey}`}
+      key={row.userId + ":" + resourceKey}
       row={row}
       resourceKey={resourceKey}
       devMode={devMode}
@@ -858,15 +966,14 @@ function EditWindowDrawerInner({
   onSaved: (userId: string, window: EditWindowDto | null) => void;
 }) {
   const initial = useMemo(() => {
-    const w = row.window;
-    if (w) {
+    const window = row.window;
+    if (window) {
       return {
-        opened: toLocalInputValue(new Date(w.openedAt)),
-        expires: toLocalInputValue(new Date(w.expiresAt)),
-        note: w.note ?? "",
+        opened: toLocalInputValue(new Date(window.openedAt)),
+        expires: toLocalInputValue(new Date(window.expiresAt)),
+        note: window.note ?? "",
       };
     }
-    // 기본값: 지금부터 7일.
     const now = new Date();
     const later = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     return {
@@ -888,7 +995,7 @@ function EditWindowDrawerInner({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saving, onClose]);
+  }, [onClose, saving]);
 
   const handleQuick = (action: QuickActionKey) => {
     const { openedAt, expiresAt } = computeQuickActionRange(action);
@@ -901,12 +1008,15 @@ function EditWindowDrawerInner({
     if (saving) return;
     const openedDate = fromLocalInputValue(opened);
     const expiresDate = fromLocalInputValue(expires);
-    if (Number.isNaN(openedDate.getTime()) || Number.isNaN(expiresDate.getTime())) {
-      setError("올바른 날짜를 입력하세요.");
+    if (
+      Number.isNaN(openedDate.getTime()) ||
+      Number.isNaN(expiresDate.getTime())
+    ) {
+      setError("올바른 날짜를 입력해주세요.");
       return;
     }
     if (expiresDate.getTime() <= openedDate.getTime()) {
-      setError("만료 시각은 시작 시각보다 이후여야 합니다.");
+      setError("종료 시각은 시작 시각보다 이후여야 합니다.");
       return;
     }
     setSaving(true);
@@ -930,7 +1040,7 @@ function EditWindowDrawerInner({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="작성 기간 설정"
+      aria-label="작성기간 설정"
       className="fixed inset-0 z-50 flex"
     >
       <div
@@ -940,7 +1050,7 @@ function EditWindowDrawerInner({
       <div className="relative ml-auto flex h-full w-full max-w-md flex-col bg-background shadow-xl">
         <header className="flex items-center justify-between border-b px-5 py-4">
           <div>
-            <h3 className="text-base font-semibold">작성 기간 설정</h3>
+            <h3 className="text-base font-semibold">작성기간 설정</h3>
             <p className="text-xs text-muted-foreground">
               {row.displayName ?? "(이름 없음)"}
               {devMode && (
@@ -952,7 +1062,7 @@ function EditWindowDrawerInner({
             <p className="mt-1 text-[11px] text-muted-foreground">
               {devMode ? (
                 <>
-                  리소스: <code className="font-mono">{resourceKey}</code>
+                  리소스 <code className="font-mono">{resourceKey}</code>
                 </>
               ) : (
                 <>작성 항목: {getResourceLabel(resourceKey, false)}</>
@@ -976,14 +1086,14 @@ function EditWindowDrawerInner({
         >
           <div className="flex flex-1 flex-col gap-4 px-5 py-4">
             <div className="flex flex-wrap gap-2">
-              {QUICK_ACTIONS.map((q) => (
+              {QUICK_ACTIONS.map((action) => (
                 <button
-                  key={q.key}
+                  key={action.key}
                   type="button"
-                  onClick={() => handleQuick(q.key)}
+                  onClick={() => handleQuick(action.key)}
                   className="rounded-md border px-2.5 py-1 text-xs hover:bg-muted"
                 >
-                  {q.label}
+                  {action.label}
                 </button>
               ))}
             </div>
@@ -1002,7 +1112,7 @@ function EditWindowDrawerInner({
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="window-expires">
-                {devMode ? "만료 (expires_at)" : "만료 시각"}
+                {devMode ? "종료 (expires_at)" : "종료 시각"}
               </Label>
               <Input
                 id="window-expires"
@@ -1020,7 +1130,7 @@ function EditWindowDrawerInner({
                 id="window-note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="예: 1차 작성 마감 연장"
+                placeholder="예: 1차 작성 기간 연장"
               />
             </div>
 
@@ -1041,9 +1151,7 @@ function EditWindowDrawerInner({
               취소
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving && (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              )}
+              {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
               저장
             </Button>
           </footer>
@@ -1120,7 +1228,7 @@ function BulkEditWindowDrawerInner({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saving, onClose]);
+  }, [onClose, saving]);
 
   const handleQuick = (action: QuickActionKey) => {
     const { openedAt, expiresAt } = computeQuickActionRange(action);
@@ -1133,12 +1241,15 @@ function BulkEditWindowDrawerInner({
     if (saving) return;
     const openedDate = fromLocalInputValue(opened);
     const expiresDate = fromLocalInputValue(expires);
-    if (Number.isNaN(openedDate.getTime()) || Number.isNaN(expiresDate.getTime())) {
-      setError("올바른 날짜를 입력하세요.");
+    if (
+      Number.isNaN(openedDate.getTime()) ||
+      Number.isNaN(expiresDate.getTime())
+    ) {
+      setError("올바른 날짜를 입력해주세요.");
       return;
     }
     if (expiresDate.getTime() <= openedDate.getTime()) {
-      setError("만료 시각은 시작 시각보다 이후여야 합니다.");
+      setError("종료 시각은 시작 시각보다 이후여야 합니다.");
       return;
     }
 
@@ -1164,7 +1275,7 @@ function BulkEditWindowDrawerInner({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="선택 사용자 작성 기간 설정"
+      aria-label="선택 기간 설정"
       className="fixed inset-0 z-50 flex"
     >
       <div
@@ -1176,12 +1287,12 @@ function BulkEditWindowDrawerInner({
           <div>
             <h3 className="text-base font-semibold">선택 기간 설정</h3>
             <p className="text-xs text-muted-foreground">
-              선택됨: {selectedCount.toLocaleString()}명
+              선택된 {selectedCount.toLocaleString()}명
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">
               {devMode ? (
                 <>
-                  리소스: <code className="font-mono">{resourceKey}</code>
+                  리소스 <code className="font-mono">{resourceKey}</code>
                 </>
               ) : (
                 <>작성 항목: {getResourceLabel(resourceKey, false)}</>
@@ -1205,14 +1316,14 @@ function BulkEditWindowDrawerInner({
         >
           <div className="flex flex-1 flex-col gap-4 px-5 py-4">
             <div className="flex flex-wrap gap-2">
-              {QUICK_ACTIONS.map((q) => (
+              {QUICK_ACTIONS.map((action) => (
                 <button
-                  key={q.key}
+                  key={action.key}
                   type="button"
-                  onClick={() => handleQuick(q.key)}
+                  onClick={() => handleQuick(action.key)}
                   className="rounded-md border px-2.5 py-1 text-xs hover:bg-muted"
                 >
-                  {q.label}
+                  {action.label}
                 </button>
               ))}
             </div>
@@ -1231,7 +1342,7 @@ function BulkEditWindowDrawerInner({
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="bulk-window-expires">
-                {devMode ? "만료 (expires_at)" : "만료 시각"}
+                {devMode ? "종료 (expires_at)" : "종료 시각"}
               </Label>
               <Input
                 id="bulk-window-expires"
@@ -1270,9 +1381,7 @@ function BulkEditWindowDrawerInner({
               취소
             </Button>
             <Button type="submit" disabled={saving || selectedCount === 0}>
-              {saving && (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              )}
+              {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
               저장
             </Button>
           </footer>

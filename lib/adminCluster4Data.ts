@@ -3,6 +3,18 @@ import { listReputationKeywords } from "@/lib/reputationKeywordsData";
 import { listWeeklyReputations } from "@/lib/weeklyReputationsData";
 import { listWeeklyReviews } from "@/lib/weeklyReviewsData";
 import { listWeeklyColleagues } from "@/lib/weeklyColleaguesData";
+import {
+  deleteUserActivityDetail,
+  listUserActivityDetails,
+  upsertUserActivityDetail,
+  UserActivityDetailsError,
+} from "@/lib/userActivityDetailsData";
+import {
+  CareerRecordsError,
+  deleteCareerRecord,
+  listCareerRecords,
+  upsertCareerRecord,
+} from "@/lib/careerRecordsData";
 import type {
   Cluster4ApplySummary,
   Cluster4Bundle,
@@ -312,6 +324,8 @@ async function fetchCluster4Tables(userId: string) {
     weeklyReputations,
     weeklyReviews,
     weeklyColleagues,
+    userActivityDetails,
+    careerRecords,
   ] = await Promise.all([
     supabaseAdmin.from("seasons").select("*"),
     supabaseAdmin.from("weeks").select("*"),
@@ -321,6 +335,8 @@ async function fetchCluster4Tables(userId: string) {
     listWeeklyReputations({ targetUserId: userId }),
     listWeeklyReviews({ userId }),
     listWeeklyColleagues({ userId }),
+    listUserActivityDetails({ userId }),
+    listCareerRecords({ userId }),
   ]);
 
   return {
@@ -336,6 +352,8 @@ async function fetchCluster4Tables(userId: string) {
     weeklyReputations,
     weeklyReviews,
     weeklyColleagues,
+    userActivityDetails,
+    careerRecords,
   };
 }
 
@@ -356,6 +374,8 @@ export async function getCluster4ForCrew(
       receivedWeeklyReputations: [],
       weeklyReviews: [],
       weeklyColleagues: [],
+      userActivityDetails: [],
+      careerRecords: [],
       tablesAvailable: {
         seasons: false,
         weeks: false,
@@ -365,6 +385,8 @@ export async function getCluster4ForCrew(
         weeklyReputations: false,
         weeklyReviews: false,
         weeklyColleagues: false,
+        userActivityDetails: false,
+        careerRecords: false,
       },
     };
   }
@@ -382,6 +404,8 @@ export async function getCluster4ForCrew(
     receivedWeeklyReputations: tables.weeklyReputations.rows,
     weeklyReviews: tables.weeklyReviews.rows,
     weeklyColleagues: tables.weeklyColleagues.rows,
+    userActivityDetails: tables.userActivityDetails.rows,
+    careerRecords: tables.careerRecords.rows,
     tablesAvailable: {
       seasons: tables.seasons.available,
       weeks: tables.weeks.available,
@@ -391,6 +415,8 @@ export async function getCluster4ForCrew(
       weeklyReputations: tables.weeklyReputations.available,
       weeklyReviews: tables.weeklyReviews.available,
       weeklyColleagues: tables.weeklyColleagues.available,
+      userActivityDetails: tables.userActivityDetails.available,
+      careerRecords: tables.careerRecords.available,
     },
   };
 }
@@ -837,6 +863,52 @@ export async function patchCluster4ForCrew(
     };
   }
 
+  if (body.userActivityDetails !== undefined) {
+    if (!Array.isArray(body.userActivityDetails)) {
+      throw new Cluster4Error(400, "userActivityDetails must be an array.");
+    }
+
+    const upsertedIds: string[] = [];
+    for (const input of body.userActivityDetails) {
+      try {
+        const row = await upsertUserActivityDetail(userId, input);
+        upsertedIds.push(row.id);
+      } catch (error) {
+        if (error instanceof UserActivityDetailsError) {
+          throw new Cluster4Error(error.status, error.message);
+        }
+        throw error;
+      }
+    }
+    applied.userActivityDetails = {
+      upserted: upsertedIds.length,
+      ids: upsertedIds,
+    };
+  }
+
+  if (body.careerRecords !== undefined) {
+    if (!Array.isArray(body.careerRecords)) {
+      throw new Cluster4Error(400, "careerRecords must be an array.");
+    }
+
+    const upsertedIds: string[] = [];
+    for (const input of body.careerRecords) {
+      try {
+        const row = await upsertCareerRecord(userId, input);
+        upsertedIds.push(row.id);
+      } catch (error) {
+        if (error instanceof CareerRecordsError) {
+          throw new Cluster4Error(error.status, error.message);
+        }
+        throw error;
+      }
+    }
+    applied.careerRecords = {
+      upserted: upsertedIds.length,
+      ids: upsertedIds,
+    };
+  }
+
   const bundle = await getCluster4ForCrew(legacyUserId);
   return { bundle, warnings, applied };
 }
@@ -850,7 +922,7 @@ type DeleteSpec = {
   outOfScopeMessage: string;
 };
 
-const DELETE_SPECS: Record<Cluster4DeleteResource, DeleteSpec> = {
+const DELETE_SPECS: Partial<Record<Cluster4DeleteResource, DeleteSpec>> = {
   seasonReputation: {
     table: "season_reputations",
     scopeColumn: "target_user_id",
@@ -890,6 +962,34 @@ export async function deleteCluster4Resource(
   const id = String(rowId ?? "").trim();
   if (!id) {
     throw new Cluster4Error(400, `${resource} id is required.`);
+  }
+
+  // user_activity_details / career_records 는 전용 데이터 레이어가 ownership 검증을
+  // 포함한 delete 를 제공하므로 별도 처리.
+  if (resource === "userActivityDetail") {
+    try {
+      const deletedId = await deleteUserActivityDetail(userId, id);
+      const bundle = await getCluster4ForCrew(legacyUserId);
+      return { bundle, deletedId };
+    } catch (error) {
+      if (error instanceof UserActivityDetailsError) {
+        throw new Cluster4Error(error.status, error.message);
+      }
+      throw error;
+    }
+  }
+
+  if (resource === "careerRecord") {
+    try {
+      const deletedId = await deleteCareerRecord(userId, id);
+      const bundle = await getCluster4ForCrew(legacyUserId);
+      return { bundle, deletedId };
+    } catch (error) {
+      if (error instanceof CareerRecordsError) {
+        throw new Cluster4Error(error.status, error.message);
+      }
+      throw error;
+    }
   }
 
   const spec = DELETE_SPECS[resource];
