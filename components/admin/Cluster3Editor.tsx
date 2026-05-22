@@ -329,9 +329,11 @@ function buildPatchBody(form: FormState): {
 export default function Cluster3Editor({
   organization,
   legacyUserId,
+  memberDisplayName,
 }: {
   organization: OrganizationSlug;
   legacyUserId: string;
+  memberDisplayName?: string | null;
 }) {
   const devMode = useAdminDevMode();
   const withDev = useWithDevQuery();
@@ -561,12 +563,14 @@ export default function Cluster3Editor({
           </h1>
           <div className="text-xs text-muted-foreground">
             {ORGANIZATION_LABEL[organization]} ·{" "}
-            {devMode ? (
+            <span className="font-medium text-foreground">
+              {memberDisplayName ?? (devMode ? legacyUserId : "이름 미등록")}
+            </span>
+            {devMode && (
               <>
-                crew id: <code className="font-mono">{legacyUserId}</code>
+                {" "}
+                · crew id: <code className="font-mono">{legacyUserId}</code>
               </>
-            ) : (
-              <>회원 ID: <span className="font-mono">{legacyUserId}</span></>
             )}
             {devMode && bundle.userId && (
               <>

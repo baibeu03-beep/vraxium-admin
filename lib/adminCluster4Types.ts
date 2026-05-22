@@ -9,6 +9,7 @@ import type {
   WeeklyColleaguePatchRow,
 } from "@/lib/weeklyColleaguesTypes";
 import type {
+  ActivityTypeClusterMap,
   UserActivityDetailRow,
   UserActivityDetailUpsertInput,
   UserActivityModalKey,
@@ -23,6 +24,7 @@ export type {
   WeeklyReputationRow,
   WeeklyReviewRow,
   WeeklyColleagueRow,
+  ActivityTypeClusterMap,
   UserActivityDetailRow,
   UserActivityDetailUpsertInput,
   UserActivityModalKey,
@@ -71,6 +73,10 @@ export type Cluster4Bundle = {
   userActivityDetails: UserActivityDetailRow[];
   // Work Career 모달 — career_records (+ project join).
   careerRecords: CareerRecordRow[];
+  // activity_types(id → cluster_id) lookup. 클라이언트는 이 map 으로 row 의
+  // activity_type_id 를 cluster_id 로 변환 후 modal(work_ability/exp/career) 을
+  // 분류한다 (canonical 분류 기준). activity_types 테이블 부재 시 빈 객체.
+  activityTypesClusterMap: ActivityTypeClusterMap;
   tablesAvailable: {
     seasons: boolean;
     weeks: boolean;
@@ -82,6 +88,7 @@ export type Cluster4Bundle = {
     weeklyColleagues: boolean;
     userActivityDetails: boolean;
     careerRecords: boolean;
+    activityTypes: boolean;
   };
 };
 

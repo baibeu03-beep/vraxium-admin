@@ -12,7 +12,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ORGANIZATIONS, ORGANIZATION_LABEL } from "@/lib/organizations";
+import {
+  ORGANIZATIONS,
+  ORGANIZATION_COMMON_LABEL,
+  ORGANIZATION_LABEL,
+} from "@/lib/organizations";
 import { APP_USER_STATUSES } from "@/lib/adminAppUsersTypes";
 import { cn } from "@/lib/utils";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
@@ -244,7 +248,9 @@ function MemberEditDrawerInner({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ORG_NONE}>미지정</SelectItem>
+                  <SelectItem value={ORG_NONE}>
+                    {ORGANIZATION_COMMON_LABEL}
+                  </SelectItem>
                   {ORGANIZATIONS.map((slug) => (
                     <SelectItem key={slug} value={slug}>
                       {ORGANIZATION_LABEL[slug]}

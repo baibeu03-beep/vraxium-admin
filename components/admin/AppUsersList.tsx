@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { ORGANIZATION_COMMON_LABEL } from "@/lib/organizations";
 import { APP_USER_STATUSES } from "@/lib/adminAppUsersTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
@@ -209,7 +210,7 @@ export default function AppUsersList() {
       );
       const label = updatedSlug
         ? orgLookup.get(updatedSlug)?.name ?? updatedSlug
-        : "소속 없음";
+        : ORGANIZATION_COMMON_LABEL;
       setBanner({
         kind: "success",
         message: `${user.displayName ?? user.userId} 소속을 ${label}(으)로 변경했습니다.`,
@@ -318,7 +319,7 @@ export default function AppUsersList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>이름</TableHead>
+                  <TableHead className="sticky left-0 z-20 bg-card border-r">이름</TableHead>
                   <TableHead>연락 이메일</TableHead>
                   <TableHead>로그인 이메일</TableHead>
                   <TableHead className="w-[200px]">소속</TableHead>
@@ -337,10 +338,10 @@ export default function AppUsersList() {
                   const selectValue = currentSlug ?? ORG_NONE;
                   return (
                     <TableRow key={user.userId}>
-                      <TableCell className="max-w-[180px]">
-                        <div className="font-medium">{fmt(user.displayName)}</div>
+                      <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[180px]">
+                        <div className="truncate font-medium">{fmt(user.displayName)}</div>
                         {devMode && (
-                          <div className="font-mono text-[10px] text-muted-foreground">
+                          <div className="truncate font-mono text-[10px] text-muted-foreground">
                             {user.userId}
                           </div>
                         )}
@@ -368,7 +369,9 @@ export default function AppUsersList() {
                               <SelectValue placeholder="소속 선택" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value={ORG_NONE}>소속 없음</SelectItem>
+                              <SelectItem value={ORG_NONE}>
+                                {ORGANIZATION_COMMON_LABEL}
+                              </SelectItem>
                               {!currentInOptions && currentSlug && (
                                 <SelectItem value={currentSlug} disabled>
                                   {currentSlug} (목록 외)

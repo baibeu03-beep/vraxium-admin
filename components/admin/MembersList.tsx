@@ -39,6 +39,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   ORGANIZATIONS,
+  ORGANIZATION_COMMON_LABEL,
   ORGANIZATION_LABEL,
   isOrganizationSlug,
 } from "@/lib/organizations";
@@ -103,7 +104,7 @@ function fmtDate(value: string | null | undefined) {
 }
 
 function orgLabel(slug: string | null | undefined) {
-  if (!slug) return "미지정";
+  if (!slug) return ORGANIZATION_COMMON_LABEL;
   if (slug in ORGANIZATION_LABEL) {
     return ORGANIZATION_LABEL[slug as keyof typeof ORGANIZATION_LABEL];
   }
@@ -407,7 +408,7 @@ export default function MembersList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {columns.map((c) => {
+                  {columns.map((c, idx) => {
                     const active = sort?.col === c.key;
                     return (
                       <SortableHeader
@@ -416,14 +417,19 @@ export default function MembersList() {
                         label={c.label}
                         dir={active ? sort?.dir ?? null : null}
                         onSort={handleSort}
+                        className={
+                          idx === 0
+                            ? "sticky left-0 z-20 bg-card border-r"
+                            : undefined
+                        }
                       />
                     );
                   })}
-                  <TableHead className="w-[460px] text-right">바로가기</TableHead>
+                  <TableHead className="w-[560px] text-right">바로가기</TableHead>
                 </TableRow>
                 {/* Column filter row */}
                 <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableCell className="py-2" />
+                  <TableCell className="sticky left-0 z-10 bg-muted/95 border-r py-2" />
                   <TableCell className="py-2">
                     <PresenceMiniSelect
                       value={contactEmailPresence}
@@ -455,7 +461,9 @@ export default function MembersList() {
                             {ORGANIZATION_LABEL[slug]}
                           </SelectItem>
                         ))}
-                        <SelectItem value={ORG_NONE}>미지정</SelectItem>
+                        <SelectItem value={ORG_NONE}>
+                          {ORGANIZATION_COMMON_LABEL}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </TableCell>
@@ -482,10 +490,10 @@ export default function MembersList() {
                   const slug = member.organizationSlug;
                   return (
                     <TableRow key={member.userId}>
-                      <TableCell className="max-w-[220px]">
-                        <div className="font-medium">{fmt(member.displayName)}</div>
+                      <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[220px]">
+                        <div className="truncate font-medium">{fmt(member.displayName)}</div>
                         {devMode && (
-                          <div className="font-mono text-[10px] text-muted-foreground">
+                          <div className="truncate font-mono text-[10px] text-muted-foreground">
                             {member.userId}
                           </div>
                         )}
@@ -518,7 +526,7 @@ export default function MembersList() {
                                 }
                                 className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                               >
-                                Resume Card
+                                Cluster1
                               </Link>
                               <Link
                                 href={
@@ -544,6 +552,18 @@ export default function MembersList() {
                               >
                                 Cluster 3
                               </Link>
+                              <Link
+                                href={
+                                  `/admin/crews/${encodeURIComponent(
+                                    slug,
+                                  )}/${encodeURIComponent(
+                                    member.userId,
+                                  )}/cluster4` + (devMode ? "?dev=true" : "")
+                                }
+                                className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                              >
+                                Cluster 4
+                              </Link>
                             </>
                           ) : (
                             <>
@@ -556,7 +576,7 @@ export default function MembersList() {
                                 }
                                 className="cursor-not-allowed rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
                               >
-                                Resume Card
+                                Cluster1
                               </span>
                               <span
                                 aria-disabled
@@ -579,6 +599,17 @@ export default function MembersList() {
                                 className="cursor-not-allowed rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
                               >
                                 Cluster 3
+                              </span>
+                              <span
+                                aria-disabled
+                                title={
+                                  devMode
+                                    ? "organization_slug 媛 ?녿뒗 ?ъ슜?먯엯?덈떎."
+                                    : "?뚯냽??吏?뺣릺吏 ?딆? ?뚯썝?낅땲??"
+                                }
+                                className="cursor-not-allowed rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
+                              >
+                                Cluster 4
                               </span>
                             </>
                           )}
@@ -688,11 +719,13 @@ function SortableHeader({
   label,
   dir,
   onSort,
+  className,
 }: {
   column: MemberSortColumn;
   label: string;
   dir: MemberSortDir | null;
   onSort: (col: MemberSortColumn) => void;
+  className?: string;
 }) {
   if (!MEMBER_SORT_COLUMNS.includes(column)) return null;
   const active = dir != null;
@@ -702,7 +735,7 @@ function SortableHeader({
       ? "내림차순 정렬"
       : "정렬 해제";
   return (
-    <TableHead>
+    <TableHead className={className}>
       <button
         type="button"
         onClick={() => onSort(column)}
@@ -728,7 +761,7 @@ function SortableHeader({
 
 function orgFilterLabel(value: unknown): string {
   if (value === FILTER_ALL || value == null) return "전체";
-  if (value === ORG_NONE) return "미지정";
+  if (value === ORG_NONE) return ORGANIZATION_COMMON_LABEL;
   if (typeof value === "string" && isOrganizationSlug(value)) {
     return ORGANIZATION_LABEL[value];
   }

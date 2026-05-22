@@ -14,9 +14,12 @@ export default async function PortalLayout({
     <SidebarProvider>
       <div className="flex flex-1 min-h-screen bg-muted/40">
         <Sidebar />
-        <div className="flex flex-1 flex-col">
+        {/* min-w-0 lets this flex child shrink below intrinsic content width so
+            wide tables scroll inside their own container instead of pushing the
+            whole page (header + sidebar) horizontally. */}
+        <div className="flex flex-1 flex-col min-w-0">
           <Header />
-          <main className="flex-1 p-6">{children}</main>
+          <main className="flex-1 min-w-0 p-6">{children}</main>
         </div>
       </div>
     </SidebarProvider>

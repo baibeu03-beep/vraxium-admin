@@ -13,6 +13,9 @@ export type AdminApplicantDto = {
   provider: string | null;
   status: ApplicantStatus;
   linkedUserId: string | null;
+  // user_profiles.display_name of the linked user, enriched by the loader.
+  // Null when no link exists or the linked profile was deleted.
+  linkedDisplayName: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };

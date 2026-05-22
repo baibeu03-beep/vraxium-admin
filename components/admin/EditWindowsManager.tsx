@@ -31,10 +31,6 @@ import {
 import { cn } from "@/lib/utils";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 import {
-  CLUSTER4_ACTIVITY_EDIT_RESOURCES,
-  CLUSTER4_EDIT_RESOURCES,
-  CLUSTER4_SEASON_EDIT_RESOURCES,
-  CLUSTER4_WEEKLY_EDIT_RESOURCES,
   DEFAULT_RESOURCE_KEY,
   EDITABLE_RESOURCES,
   QUICK_ACTIONS,
@@ -404,104 +400,6 @@ export default function EditWindowsManager() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Cluster4</CardTitle>
-          <CardDescription>
-            {"Cluster4 작성기간 리소스 " +
-              String(CLUSTER4_EDIT_RESOURCES.length) +
-              "개를 주간 / 시즌 / 활동 세 그룹으로 나눠 관리합니다."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 lg:grid-cols-3">
-          <div className="rounded-lg border p-4">
-            <div className="mb-3">
-              <div className="text-sm font-medium">주간 작성</div>
-              <div className="text-xs text-muted-foreground">
-                Weekly Review와 Weekly Colleagues를 동일 정책 그룹으로 관리합니다.
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {CLUSTER4_WEEKLY_EDIT_RESOURCES.map((resource) => {
-                const active = resource.key === resourceKey;
-                return (
-                  <Button
-                    key={resource.key}
-                    type="button"
-                    variant={active ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setResourceKey(resource.key);
-                      setOffset(0);
-                      clearSelection();
-                    }}
-                  >
-                    {devMode ? resource.devLabel : resource.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="rounded-lg border p-4">
-            <div className="mb-3">
-              <div className="text-sm font-medium">시즌 작성</div>
-              <div className="text-xs text-muted-foreground">
-                Season Review와 Season Reputation을 같은 섹션에서 관리합니다.
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {CLUSTER4_SEASON_EDIT_RESOURCES.map((resource) => {
-                const active = resource.key === resourceKey;
-                return (
-                  <Button
-                    key={resource.key}
-                    type="button"
-                    variant={active ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setResourceKey(resource.key);
-                      setOffset(0);
-                      clearSelection();
-                    }}
-                  >
-                    {devMode ? resource.devLabel : resource.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="rounded-lg border p-4">
-            <div className="mb-3">
-              <div className="text-sm font-medium">활동 작성</div>
-              <div className="text-xs text-muted-foreground">
-                Cluster4-card 4개 모달(Work Info / Ability / Exp / Career)을 분리 관리합니다.
-                기존 단일 키(activity_details)는 legacy alias 로 보존됩니다.
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {CLUSTER4_ACTIVITY_EDIT_RESOURCES.map((resource) => {
-                const active = resource.key === resourceKey;
-                return (
-                  <Button
-                    key={resource.key}
-                    type="button"
-                    variant={active ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => {
-                      setResourceKey(resource.key);
-                      setOffset(0);
-                      clearSelection();
-                    }}
-                  >
-                    {devMode ? resource.devLabel : resource.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle className="text-base">
             {devMode ? "사용자 & 리소스" : "회원 & 작성 항목"}
           </CardTitle>
@@ -642,10 +540,12 @@ export default function EditWindowsManager() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-10">
+                  <TableHead className="sticky left-0 z-20 bg-card w-10">
                     <span className="sr-only">선택</span>
                   </TableHead>
-                  <TableHead>{devMode ? "이름 / user_id" : "이름"}</TableHead>
+                  <TableHead className="sticky left-10 z-20 bg-card border-r">
+                    {devMode ? "이름 / user_id" : "이름"}
+                  </TableHead>
                   <TableHead>{devMode ? "auth_email" : "로그인 이메일"}</TableHead>
                   <TableHead>소속</TableHead>
                   <TableHead>상태</TableHead>
@@ -660,7 +560,7 @@ export default function EditWindowsManager() {
                   const status = computeEditWindowStatus(row.window);
                   return (
                     <TableRow key={row.userId}>
-                      <TableCell>
+                      <TableCell className="sticky left-0 z-10 bg-card w-10">
                         <input
                           type="checkbox"
                           checked={
@@ -673,10 +573,10 @@ export default function EditWindowsManager() {
                           aria-label={(row.displayName ?? row.userId) + " 선택"}
                         />
                       </TableCell>
-                      <TableCell className="max-w-[220px]">
-                        <div className="font-medium">{fmt(row.displayName)}</div>
+                      <TableCell className="sticky left-10 z-10 bg-card border-r max-w-[220px]">
+                        <div className="truncate font-medium">{fmt(row.displayName)}</div>
                         {devMode && (
-                          <div className="font-mono text-[10px] text-muted-foreground">
+                          <div className="truncate font-mono text-[10px] text-muted-foreground">
                             {row.userId}
                           </div>
                         )}

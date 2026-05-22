@@ -4,6 +4,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   classifyActivityType,
+  type ActivityTypeClusterMap,
   type UserActivityDetailRow,
   type UserActivityDetailUpsertInput,
   type UserActivityDetailsListOptions,
@@ -13,7 +14,7 @@ import {
 } from "@/lib/userActivityDetailsTypes";
 
 const SELECT_COLUMNS =
-  "id,user_id,week_id,activity_type_id,sub_title,output_links,growth_point,image_urls,image_captions,growth_image_url,growth_image_caption,rating,created_at,updated_at";
+  "id,user_id,week_id,activity_type_id,sub_title,output_links,growth_point,image_urls,image_captions,rating,created_at,updated_at";
 
 function isMissingRelationError(
   error: { code?: string; message?: string } | null | undefined,
@@ -70,23 +71,51 @@ function normalizeRow(raw: Record<string, unknown>): UserActivityDetailRow {
         : null,
     image_urls: toStringArray(raw.image_urls),
     image_captions: toStringArray(raw.image_captions),
-    growth_image_url:
-      typeof raw.growth_image_url === "string" && raw.growth_image_url.trim() !== ""
-        ? raw.growth_image_url
-        : null,
-    growth_image_caption:
-      typeof raw.growth_image_caption === "string" &&
-      raw.growth_image_caption.trim() !== ""
-        ? raw.growth_image_caption
-        : null,
     rating: toNullableNumber(raw.rating),
     created_at: typeof raw.created_at === "string" ? raw.created_at : null,
     updated_at: typeof raw.updated_at === "string" ? raw.updated_at : null,
   };
 }
 
+// activity_types(id, cluster_id) lookup map. cluster_id 기반 분류의 canonical
+// source. Career-Resume 프론트도 이 값을 기준으로 modal 을 분기하므로 어드민도
+// 동일 source 를 써야 mismatch 없이 분류된다.
+export async function fetchActivityTypesClusterMap(): Promise<{
+  map: ActivityTypeClusterMap;
+  available: boolean;
+}> {
+  const { data, error } = await supabaseAdmin
+    .from("activity_types")
+    .select("id, cluster_id");
+
+  if (error) {
+    if (isMissingRelationError(error)) {
+      console.warn(
+        "[activity_types] table not found; cluster-id classification disabled (prefix fallback only).",
+        { message: error.message },
+      );
+      return { map: {}, available: false };
+    }
+    console.error("[activity_types] query failed", { message: error.message });
+    throw new Error(error.message);
+  }
+
+  const map: ActivityTypeClusterMap = {};
+  for (const row of (data ?? []) as Array<{
+    id?: string | null;
+    cluster_id?: string | null;
+  }>) {
+    const id = typeof row.id === "string" ? row.id.trim() : "";
+    const clusterId =
+      typeof row.cluster_id === "string" ? row.cluster_id.trim() : "";
+    if (id && clusterId) map[id] = clusterId;
+  }
+  return { map, available: true };
+}
+
 export async function listUserActivityDetails(
   options: UserActivityDetailsListOptions,
+  clusterMap?: ActivityTypeClusterMap | null,
 ): Promise<UserActivityDetailsListResult> {
   const userId = String(options.userId ?? "").trim();
   if (!userId) {
@@ -120,10 +149,20 @@ export async function listUserActivityDetails(
 
   const rows = ((data ?? []) as Record<string, unknown>[]).map(normalizeRow);
 
-  // modal 필터는 classification 으로 클라이언트단에서 적용 (DB 컬럼이 아니라 prefix rule).
+  // modal 필터는 classification 으로 적용. cluster map 이 있으면 cluster_id 기반,
+  // 없으면 prefix fallback (legacy 호환).
   if (options.modal) {
+    let effectiveMap = clusterMap ?? null;
+    if (effectiveMap === null) {
+      const fetched = await fetchActivityTypesClusterMap();
+      effectiveMap = fetched.available ? fetched.map : null;
+    }
     return {
-      rows: rows.filter((row) => classifyActivityType(row.activity_type_id) === options.modal),
+      rows: rows.filter(
+        (row) =>
+          classifyActivityType(row.activity_type_id, effectiveMap) ===
+          options.modal,
+      ),
       available: true,
     };
   }
@@ -236,11 +275,26 @@ function normalizeRating(
   return n;
 }
 
-// 본 admin upsert 는 (user_id, week_id, activity_type_id) scope.
-// id 가 입력으로 주어지면 해당 row 의 ownership 만 확인 후 같은 scope 으로 update.
+// Partial upsert by (user_id, week_id, activity_type_id) scope.
+//
+// 동작 (2026-05-22 partial-update 도입):
+//   1) (user_id, week_id, activity_type_id) 로 기존 row 를 select.
+//   2) 존재 → input 에 키가 포함된 컬럼만 UPDATE 한다. 미포함 컬럼은 보존.
+//      이미지 페어(image_urls / image_captions) 는 한쪽만 input 에 있어도
+//      나머지를 기존 DB 값으로 채워 정렬 후 함께 update.
+//   3) 부재 → INSERT. 누락된 optional 필드는 default(null/[]/null) 로 채움.
+//
+// clusterMap 이 전달되면 cluster_id 기반 modal 분류로 rating 정책을 결정 (없으면
+// prefix fallback). bundle 단위 호출자는 한번 fetch 한 map 을 재사용한다.
+//
+// Rationale: 이전 full-replace upsert 는 admin 폼이 빈 슬롯을 가진 상태에서
+// 사용자가 한 필드만 수정해도 다른 컬럼을 빈 값으로 덮어쓰는 버그가 있었다
+// (예: 프론트가 growth_point + 이미지 저장 → 어드민이 sub_title 만 수정 →
+// 이미지/growth_point 가 [] / null 로 덮어써짐). partial-update 로 해결.
 export async function upsertUserActivityDetail(
   userId: string,
   input: UserActivityDetailUpsertInput,
+  clusterMap?: ActivityTypeClusterMap | null,
 ): Promise<UserActivityDetailRow> {
   const trimmedUser = String(userId ?? "").trim();
   if (!trimmedUser) {
@@ -255,48 +309,124 @@ export async function upsertUserActivityDetail(
     throw new UserActivityDetailsError(400, "activity_type_id is required.");
   }
 
-  const modal = classifyActivityType(activityTypeId);
+  const modal = classifyActivityType(activityTypeId, clusterMap ?? null);
 
-  const payload = {
-    sub_title: normalizeNullableText(input.sub_title, SUB_TITLE_MAX, "sub_title"),
-    growth_point: normalizeNullableText(
+  // (1) 기존 row lookup. 부재면 null.
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("user_activity_details")
+    .select(SELECT_COLUMNS)
+    .eq("user_id", trimmedUser)
+    .eq("week_id", weekId)
+    .eq("activity_type_id", activityTypeId)
+    .maybeSingle();
+
+  if (existingError) {
+    console.error("[user_activity_details] lookup failed", {
+      message: existingError.message,
+    });
+    throw new UserActivityDetailsError(500, existingError.message);
+  }
+
+  const existingRow = existing
+    ? normalizeRow(existing as Record<string, unknown>)
+    : null;
+
+  // 어느 키가 explicit 으로 제공됐는지 추적 (undefined ≠ null).
+  const has = <K extends keyof UserActivityDetailUpsertInput>(key: K): boolean =>
+    Object.prototype.hasOwnProperty.call(input, key) && input[key] !== undefined;
+
+  // 이미지 페어 처리: 한쪽만 있어도 나머지를 기존 값으로 채워 정렬.
+  let normalizedImages:
+    | { urls: string[]; captions: string[] }
+    | null = null;
+  if (has("image_urls") || has("image_captions")) {
+    const urlsInput = has("image_urls")
+      ? input.image_urls
+      : existingRow?.image_urls ?? [];
+    const captionsInput = has("image_captions")
+      ? input.image_captions
+      : existingRow?.image_captions ?? [];
+    normalizedImages = normalizeImageArray(urlsInput, captionsInput);
+  }
+
+  // 각 필드별 patch 값을 키 존재 시에만 산출.
+  const patch: Record<string, unknown> = {};
+  if (has("sub_title")) {
+    patch.sub_title = normalizeNullableText(
+      input.sub_title,
+      SUB_TITLE_MAX,
+      "sub_title",
+    );
+  }
+  if (has("growth_point")) {
+    patch.growth_point = normalizeNullableText(
       input.growth_point,
       GROWTH_POINT_MAX,
       "growth_point",
-    ),
-    output_links: normalizeOutputLinks(input.output_links),
-    ...normalizeImageArray(input.image_urls, input.image_captions),
-    growth_image_url: normalizeNullableText(
-      input.growth_image_url,
-      500,
-      "growth_image_url",
-    ),
-    growth_image_caption: normalizeNullableText(
-      input.growth_image_caption,
-      IMAGE_CAPTION_MAX,
-      "growth_image_caption",
-    ),
-    rating: normalizeRating(input.rating, modal),
-  };
+    );
+  }
+  if (has("output_links")) {
+    patch.output_links = normalizeOutputLinks(input.output_links);
+  }
+  if (normalizedImages) {
+    patch.image_urls = normalizedImages.urls;
+    patch.image_captions = normalizedImages.captions;
+  }
+  if (has("rating")) {
+    patch.rating = normalizeRating(input.rating, modal);
+  }
 
-  const upsertRow = {
+  // (2) UPDATE 분기: 기존 row 가 있고 patch 가 비어 있지 않으면 update.
+  if (existingRow) {
+    if (Object.keys(patch).length === 0) {
+      // no-op: 편집된 필드가 없음. 기존 row 그대로 반환.
+      return existingRow;
+    }
+    patch.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabaseAdmin
+      .from("user_activity_details")
+      .update(patch)
+      .eq("id", existingRow.id)
+      .eq("user_id", trimmedUser)
+      .select(SELECT_COLUMNS)
+      .single();
+
+    if (error || !data) {
+      if (error && /user_activity_details_rating_range/i.test(error.message)) {
+        throw new UserActivityDetailsError(400, "rating 은 0~10 사이여야 합니다.");
+      }
+      console.error("[user_activity_details] partial update failed", {
+        message: error?.message,
+      });
+      throw new UserActivityDetailsError(
+        500,
+        error?.message ?? "Failed to update user_activity_details.",
+      );
+    }
+    return normalizeRow(data as Record<string, unknown>);
+  }
+
+  // (3) INSERT 분기: 기존 row 부재. 누락된 필드에 default 적용.
+  const insertRow = {
     user_id: trimmedUser,
     week_id: weekId,
     activity_type_id: activityTypeId,
-    sub_title: payload.sub_title,
-    growth_point: payload.growth_point,
-    output_links: payload.output_links,
-    image_urls: payload.urls,
-    image_captions: payload.captions,
-    growth_image_url: payload.growth_image_url,
-    growth_image_caption: payload.growth_image_caption,
-    rating: payload.rating,
-    updated_at: new Date().toISOString(),
+    sub_title: has("sub_title") ? (patch.sub_title as string | null) : null,
+    growth_point: has("growth_point")
+      ? (patch.growth_point as string | null)
+      : null,
+    output_links: has("output_links")
+      ? (patch.output_links as UserActivityOutputLink[])
+      : [],
+    image_urls: normalizedImages ? normalizedImages.urls : [],
+    image_captions: normalizedImages ? normalizedImages.captions : [],
+    rating: has("rating") ? (patch.rating as number | null) : null,
   };
 
   const { data, error } = await supabaseAdmin
     .from("user_activity_details")
-    .upsert(upsertRow, { onConflict: "user_id,week_id,activity_type_id" })
+    .insert(insertRow)
     .select(SELECT_COLUMNS)
     .single();
 
@@ -304,12 +434,12 @@ export async function upsertUserActivityDetail(
     if (error && /user_activity_details_rating_range/i.test(error.message)) {
       throw new UserActivityDetailsError(400, "rating 은 0~10 사이여야 합니다.");
     }
-    console.error("[user_activity_details] upsert failed", {
+    console.error("[user_activity_details] insert failed", {
       message: error?.message,
     });
     throw new UserActivityDetailsError(
       500,
-      error?.message ?? "Failed to upsert user_activity_details.",
+      error?.message ?? "Failed to insert user_activity_details.",
     );
   }
 

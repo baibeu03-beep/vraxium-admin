@@ -203,7 +203,7 @@ export default function CrewManager({
     setModalOpen(true);
   };
 
-  // Edit 진입은 row 안의 "Resume Card" / "Cluster 2" 텍스트 링크로 대체했다.
+  // Edit 진입은 row 안의 "Cluster1" / "Cluster 2" 텍스트 링크로 대체했다.
   // 기존 modal은 legacy_crew_import staging 신규 등록(Add) 전용으로 유지.
 
   const closeModal = () => {
@@ -405,12 +405,16 @@ export default function CrewManager({
             </Select>
           </div>
 
-          <div className="overflow-x-auto rounded-md border">
+          <div className="overflow-hidden rounded-md border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">{devMode ? "Status" : "상태"}</TableHead>
-                  <TableHead>{devMode ? "Name" : "이름"}</TableHead>
+                  <TableHead className="sticky left-0 z-20 bg-card w-16">
+                    {devMode ? "Status" : "상태"}
+                  </TableHead>
+                  <TableHead className="sticky left-16 z-20 bg-card border-r">
+                    {devMode ? "Name" : "이름"}
+                  </TableHead>
                   <TableHead>{devMode ? "Gender" : "성별"}</TableHead>
                   <TableHead>{devMode ? "Birth Date" : "생년월일"}</TableHead>
                   <TableHead>{devMode ? "Contact" : "연락처"}</TableHead>
@@ -429,7 +433,7 @@ export default function CrewManager({
                   </TableHead>
                   <TableHead>{devMode ? "Organization" : "소속"}</TableHead>
                   <TableHead>{devMode ? "Admin Note" : "운영 메모"}</TableHead>
-                  <TableHead className="w-56 text-right">
+                  <TableHead className="w-72 text-right">
                     {devMode ? "Actions" : "바로가기"}
                   </TableHead>
                 </TableRow>
@@ -440,7 +444,7 @@ export default function CrewManager({
                     key={String(crew.legacyUserId)}
                     className={cn(!crew.isVisible && "opacity-60")}
                   >
-                    <TableCell>
+                    <TableCell className="sticky left-0 z-10 bg-card w-16">
                       <span
                         className={cn(
                           "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
@@ -458,7 +462,9 @@ export default function CrewManager({
                             : "숨김"}
                       </span>
                     </TableCell>
-                    <TableCell className="font-medium">{crew.displayName}</TableCell>
+                    <TableCell className="sticky left-16 z-10 bg-card border-r font-medium">
+                      {crew.displayName}
+                    </TableCell>
                     <TableCell>{formatValue(crew.gender)}</TableCell>
                     <TableCell>{formatBirthDate(crew)}</TableCell>
                     <TableCell>{formatValue(crew.contactPhone)}</TableCell>
@@ -494,7 +500,7 @@ export default function CrewManager({
                           }
                           className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
                         >
-                          Resume Card
+                          Cluster1
                         </Link>
                         <Link
                           href={
@@ -520,6 +526,32 @@ export default function CrewManager({
                         >
                           Cluster 3
                         </Link>
+                        {crew.organizationSlug ? (
+                          <Link
+                            href={
+                              `/admin/crews/${encodeURIComponent(
+                                crew.organizationSlug,
+                              )}/${encodeURIComponent(
+                                String(crew.userId ?? crew.legacyUserId),
+                              )}/cluster4` + (devMode ? "?dev=true" : "")
+                            }
+                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                          >
+                            Cluster 4
+                          </Link>
+                        ) : (
+                          <span
+                            aria-disabled
+                            title={
+                              devMode
+                                ? "organization_slug is missing for this crew."
+                                : "organization_slug 가 없어 진입할 수 없습니다."
+                            }
+                            className="cursor-not-allowed rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
+                          >
+                            Cluster 4
+                          </span>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon-sm"

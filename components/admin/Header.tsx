@@ -20,6 +20,7 @@ const TITLES: Record<string, string> = {
   "/admin/users/app-users": "멤버 관리 · 가입된 사용자",
   "/admin/users/admin-users": "멤버 관리 · 관리자 계정",
   "/admin/settings/edit-windows": "운영 관리 · 작성 기간",
+  "/admin/career-projects": "라인 개설 · 실무 경력",
   "/admin/import": "데이터 관리 · 가져오기",
 };
 

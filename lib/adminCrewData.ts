@@ -418,6 +418,25 @@ export async function getAdminCrewDtoByLegacyUserId(routeParam: string) {
   return buildAdminCrewDtos(rows)[0] ?? null;
 }
 
+// 어드민 화면 상단/breadcrumb 등에서 회원명을 노출하기 위한 경량 lookup.
+// 전체 crew DTO 를 빌드할 필요 없을 때 1-row select 만으로 끝낸다.
+// 매칭 row 가 없으면 null — 호출자는 fallback (예: ID) 을 직접 결정한다.
+export async function getMemberDisplayName(userId: string) {
+  const id = String(userId ?? "").trim();
+  if (!id) return null;
+  const { data, error } = await supabaseAdmin
+    .from("user_profiles")
+    .select("display_name")
+    .eq("user_id", id)
+    .maybeSingle();
+  if (error) {
+    console.error("[admin] getMemberDisplayName failed", { userId: id, error });
+    return null;
+  }
+  const name = (data as { display_name: string | null } | null)?.display_name;
+  return name && name.trim() !== "" ? name : null;
+}
+
 // users.legacy_user_id 를 user_profiles.user_id 로 변환 (없으면 null).
 // PATCH 경로에서 legacy_crew_import row 를 upsert 할 때 사용한다.
 export async function getUsersLegacyUserIdByUserId(userId: string) {

@@ -64,7 +64,10 @@ function isMissingApplicantsTableError(error: { code?: string; message?: string 
   );
 }
 
-function toApplicantDto(row: ApplicantRow): AdminApplicantDto {
+function toApplicantDto(
+  row: ApplicantRow,
+  linkedDisplayName: string | null = null,
+): AdminApplicantDto {
   return {
     id: row.id,
     email: row.email,
@@ -72,9 +75,35 @@ function toApplicantDto(row: ApplicantRow): AdminApplicantDto {
     provider: row.provider,
     status: row.status,
     linkedUserId: row.linked_user_id,
+    linkedDisplayName,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+// Batch-fetch display_name for a set of linked user_ids and return a Map keyed
+// by user_id. Empty/blank display_name becomes null so the UI can fall back to
+// "이름 미등록" rather than rendering an empty cell.
+async function fetchLinkedDisplayNames(userIds: string[]) {
+  const map = new Map<string, string | null>();
+  const unique = Array.from(new Set(userIds.filter((id): id is string => Boolean(id))));
+  if (unique.length === 0) return map;
+
+  const { data, error } = await supabaseAdmin
+    .from("user_profiles")
+    .select("user_id, display_name")
+    .in("user_id", unique);
+
+  if (error) {
+    console.error("[admin] fetchLinkedDisplayNames failed", { error });
+    return map;
+  }
+
+  for (const row of (data ?? []) as { user_id: string; display_name: string | null }[]) {
+    const name = row.display_name?.trim();
+    map.set(row.user_id, name && name !== "" ? name : null);
+  }
+  return map;
 }
 
 function toUserProfileCandidateDto(row: UserProfileRow): UserProfileCandidateDto {
@@ -115,7 +144,14 @@ export async function listApplicants(status?: ApplicantStatus) {
     throw new Error(error.message);
   }
 
-  return ((data ?? []) as unknown as ApplicantRow[]).map(toApplicantDto);
+  const rows = (data ?? []) as unknown as ApplicantRow[];
+  const linkedIds = rows
+    .map((row) => row.linked_user_id)
+    .filter((id): id is string => Boolean(id));
+  const displayNames = await fetchLinkedDisplayNames(linkedIds);
+  return rows.map((row) =>
+    toApplicantDto(row, row.linked_user_id ? displayNames.get(row.linked_user_id) ?? null : null),
+  );
 }
 
 export async function getApplicantById(id: string) {
@@ -134,7 +170,15 @@ export async function getApplicantById(id: string) {
     throw new Error(error.message);
   }
 
-  return data ? toApplicantDto(data as unknown as ApplicantRow) : null;
+  if (!data) return null;
+  const row = data as unknown as ApplicantRow;
+  const displayNames = await fetchLinkedDisplayNames(
+    row.linked_user_id ? [row.linked_user_id] : [],
+  );
+  return toApplicantDto(
+    row,
+    row.linked_user_id ? displayNames.get(row.linked_user_id) ?? null : null,
+  );
 }
 
 export async function searchUserProfiles(query: string) {
@@ -250,9 +294,13 @@ export async function approveApplicant(applicantId: string, userId: string) {
     throw new Error(updateApplicantError.message);
   }
 
+  const profileDto = toUserProfileCandidateDto(updatedProfile as unknown as UserProfileRow);
   return {
-    applicant: toApplicantDto(updatedApplicant as unknown as ApplicantRow),
-    profile: toUserProfileCandidateDto(updatedProfile as unknown as UserProfileRow),
+    applicant: toApplicantDto(
+      updatedApplicant as unknown as ApplicantRow,
+      profileDto.displayName,
+    ),
+    profile: profileDto,
   };
 }
 

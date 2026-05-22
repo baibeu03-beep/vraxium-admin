@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Briefcase,
   ChevronRight,
   Database,
   LayoutDashboard,
@@ -33,17 +34,12 @@ type BranchItem = {
   children: { label: string; href: string }[];
 };
 
-type SectionHeader = { kind: "section"; label: string };
 
-type MenuItem = LeafItem | BranchItem | SectionHeader;
+type MenuItem = LeafItem | BranchItem;
 
-// 4-axis IA: 대시보드 / 멤버 관리 / 운영 관리 / 데이터 관리.
-// 사이드바는 운영 행위(사람·정책·데이터) 기준으로 묶고, 프론트 화면 단위(cluster 등)는 노출하지 않는다.
-// section 헤더는 사람(워크) vs 시스템(정책·데이터) 두 묶음을 시각적으로 구분만 한다 — 라우팅 없음.
 // 모든 href 는 현재 실재하는 admin route 만 사용한다. (route 가 없는 항목은 메뉴에 두지 않는다.)
 const MENU: MenuItem[] = [
   { kind: "leaf", label: "대시보드", href: "/admin", icon: LayoutDashboard },
-  { kind: "section", label: "WORKSPACE" },
   {
     kind: "branch",
     label: "멤버 관리",
@@ -57,11 +53,17 @@ const MENU: MenuItem[] = [
         href: `/admin/crews/${slug}`,
       })),
       { label: "승인 대기", href: "/admin/users/applicants" },
-      { label: "가입된 사용자", href: "/admin/users/app-users" },
-      { label: "관리자 계정", href: "/admin/users/admin-users" },
     ],
   },
-  { kind: "section", label: "SYSTEM" },
+  {
+    kind: "branch",
+    label: "라인 개설",
+    icon: Briefcase,
+    basePath: "/admin/career-projects",
+    children: [
+      { label: "실무 경력", href: "/admin/career-projects" },
+    ],
+  },
   {
     kind: "branch",
     label: "운영 관리",
@@ -69,6 +71,8 @@ const MENU: MenuItem[] = [
     basePath: "/admin/settings",
     children: [
       { label: "작성 기간 관리", href: "/admin/settings/edit-windows" },
+      { label: "권한 설정", href: "/admin/settings/permissions" },
+      { label: "계정 관리", href: "/admin/settings/accounts" },
     ],
   },
   {
@@ -116,11 +120,6 @@ export default function Sidebar() {
     },
   );
 
-  // section 헤더는 다음에 오는 branch 들의 상위 묶음이지만 라우팅을 갖지 않으므로
-  // 사이드바가 접힌 상태에서는 숨겨서 아이콘 줄을 일관되게 유지한다.
-  const visibleMenu = sidebarOpen
-    ? MENU
-    : MENU.filter((item) => item.kind !== "section");
 
   return (
     <aside
@@ -163,18 +162,7 @@ export default function Sidebar() {
           sidebarOpen ? "gap-0.5 p-2.5" : "gap-1 p-2",
         )}
       >
-        {visibleMenu.map((item, idx) => {
-          if (item.kind === "section") {
-            return (
-              <div
-                key={`section-${idx}`}
-                className="mt-3 mb-1 px-3 text-[10px] font-semibold tracking-[0.12em] text-sidebar-foreground/40 uppercase first:mt-1"
-              >
-                {item.label}
-              </div>
-            );
-          }
-
+        {MENU.map((item) => {
           if (item.kind === "leaf") {
             const Icon = item.icon;
             const active = isLeafActive(pathname, item.href);
@@ -228,7 +216,7 @@ export default function Sidebar() {
           }
 
           return (
-            <div key={item.basePath} className="flex flex-col">
+            <div key={item.basePath} className="mt-1 first:mt-0 flex flex-col">
               <button
                 type="button"
                 onClick={() =>
@@ -289,3 +277,5 @@ export default function Sidebar() {
     </aside>
   );
 }
+
+

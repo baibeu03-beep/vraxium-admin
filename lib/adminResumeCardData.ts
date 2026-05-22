@@ -13,7 +13,7 @@ import type { OrganizationSlug } from "@/lib/organizations";
 // 제외(시스템): user_id, created_at, updated_at, growth_status, organization_slug,
 //               school_name, department_name (학력은 user_educations에서 관리)
 // dual-write 정리 (2026-05-13): profile_photo_url 제거 — Cluster 2 → Photos 가
-//   canonical writer. Resume Card 는 표시만.
+//   canonical writer. Cluster1 는 표시만.
 export const PROFILE_FIELDS = [
   "display_name",
   "gender",
@@ -28,7 +28,7 @@ export const PROFILE_FIELDS = [
 
 // dual-write 정리 (2026-05-13): EDUCATION_FIELDS / body.education PATCH 블록 제거.
 // user_educations 의 canonical writer 는 Cluster 2 → Educations (전체 row delete+insert).
-// Resume Card GET 응답의 `education` 필드는 pickPrimaryEducation 결과로 계속 채움 (표시 전용).
+// Cluster1 GET 응답의 `education` 필드는 pickPrimaryEducation 결과로 계속 채움 (표시 전용).
 
 export const MEMBERSHIP_FIELDS = [
   "team_name",
@@ -341,7 +341,7 @@ export async function patchResumeCardForCrew(
 
   // 2. user_educations — dual-write 정리 (2026-05-13) 로 PATCH 처리 제거됨.
   //    canonical writer = Cluster 2 → Educations (전체 row delete+insert).
-  //    Resume Card 가 body.education 을 보내더라도 여기서 silently drop 한다.
+  //    Cluster1 가 body.education 을 보내더라도 여기서 silently drop 한다.
   //    GET 의 대표학력 표시(`pickPrimaryEducation`)는 유지.
 
   // 3. user_memberships (is_current=true) — find-or-create

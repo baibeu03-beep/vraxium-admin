@@ -44,6 +44,5 @@ export type WeeklyColleaguesListResult = {
 
 export type WeeklyColleaguePatchRow = {
   id: string;
-  rank: unknown;
   message: unknown;
 };

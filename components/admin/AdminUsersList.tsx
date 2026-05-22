@@ -232,7 +232,9 @@ export default function AdminUsersList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{devMode ? "Email" : "이메일"}</TableHead>
+                  <TableHead className="sticky left-0 z-20 bg-card border-r">
+                    {devMode ? "Email" : "이메일"}
+                  </TableHead>
                   <TableHead>역할</TableHead>
                   <TableHead>활성</TableHead>
                   <TableHead>생성일</TableHead>
@@ -243,7 +245,7 @@ export default function AdminUsersList() {
               <TableBody>
                 {filtered.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="max-w-[260px] truncate font-medium">
+                    <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[260px] truncate font-medium">
                       {fmt(user.email)}
                     </TableCell>
                     <TableCell>
@@ -275,7 +277,7 @@ export default function AdminUsersList() {
                       {fmtDate(user.updatedAt)}
                     </TableCell>
                     {devMode && (
-                      <TableCell className="font-mono text-[11px]">
+                      <TableCell className="max-w-[280px] truncate font-mono text-[11px]" title={user.id}>
                         {user.id}
                       </TableCell>
                     )}

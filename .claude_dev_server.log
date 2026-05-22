@@ -1,0 +1,19 @@
+
+> vraxium-admin@0.1.0 dev
+> next dev
+
+⚠ Port 3000 is in use by process 63664, using available port 3002 instead.
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3002
+- Network:       http://100.126.81.110:3002
+- Environments: .env.local
+✓ Ready in 480ms
+⨯ Another next dev server is already running.
+
+- Local:        http://localhost:3000
+- PID:          63664
+- Dir:          C:\Users\ynlee\OneDrive\바탕 화면\vraxium-admin
+- Log:          .next\dev\logs\next-development.log
+
+Run taskkill /PID 63664 /F to stop it.
+[?25h

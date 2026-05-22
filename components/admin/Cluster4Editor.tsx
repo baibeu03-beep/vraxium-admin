@@ -105,7 +105,6 @@ type WeeklyColleagueFormRow = {
   user_id: string;
   week_card_id: string;
   colleague_id: string;
-  rank: string;
   message: string;
   created_at: string | null;
   updated_at: string | null;
@@ -138,6 +137,7 @@ function emptyBundle(legacyUserId: string): Cluster4Bundle {
     weeklyColleagues: [],
     userActivityDetails: [],
     careerRecords: [],
+    activityTypesClusterMap: {},
     tablesAvailable: {
       seasons: false,
       weeks: false,
@@ -149,6 +149,7 @@ function emptyBundle(legacyUserId: string): Cluster4Bundle {
       weeklyColleagues: false,
       userActivityDetails: false,
       careerRecords: false,
+      activityTypes: false,
     },
   };
 }
@@ -290,7 +291,6 @@ function syncFormFromBundle(bundle: Cluster4Bundle): FormState {
       user_id: row.user_id,
       week_card_id: row.week_card_id,
       colleague_id: row.colleague_id,
-      rank: row.rank === null || row.rank === undefined ? "" : String(row.rank),
       message: row.message ?? "",
       created_at: row.created_at,
       updated_at: row.updated_at,
@@ -404,16 +404,11 @@ function validateWeeklyReviewForm(form: FormState): string | null {
   return null;
 }
 
-const WEEKLY_COLLEAGUE_RANK_MESSAGE = "rank 는 1~3 사이의 정수여야 합니다.";
 const WEEKLY_COLLEAGUE_MESSAGE_MESSAGE =
   "한 줄 코멘트는 비워두거나 1~200 자여야 합니다.";
 
 function validateWeeklyColleagueForm(form: FormState): string | null {
   for (const row of form.weeklyColleagueRows) {
-    const rank = Number(row.rank);
-    if (!Number.isFinite(rank) || !Number.isInteger(rank) || rank < 1 || rank > 3) {
-      return WEEKLY_COLLEAGUE_RANK_MESSAGE;
-    }
     const trimmed = row.message.trim();
     if (trimmed.length > 200) {
       return WEEKLY_COLLEAGUE_MESSAGE_MESSAGE;
@@ -476,7 +471,6 @@ function buildWeeklyColleaguePatch(form: FormState): Cluster4PatchBody {
   return {
     weeklyColleagues: form.weeklyColleagueRows.map((row) => ({
       id: row.id,
-      rank: row.rank,
       message: row.message.trim() === "" ? null : row.message,
     })),
   };
@@ -612,9 +606,11 @@ function CharCounter({ current, max }: { current: number; max: number }) {
 export default function Cluster4Editor({
   organization,
   legacyUserId,
+  memberDisplayName,
 }: {
   organization: OrganizationSlug;
   legacyUserId: string;
+  memberDisplayName?: string | null;
 }) {
   const devMode = useAdminDevMode();
   const [activeTab, setActiveTab] = useState<TabKey>("season_review");
@@ -927,13 +923,12 @@ export default function Cluster4Editor({
           </h1>
           <div className="text-xs text-muted-foreground">
             {ORGANIZATION_LABEL[organization]} ·{" "}
-            {devMode ? (
+            <span className="font-medium text-foreground">
+              {memberDisplayName ?? (devMode ? legacyUserId : "이름 미등록")}
+            </span>
+            {devMode && (
               <>
-                crew id: <code className="font-mono">{legacyUserId}</code>
-              </>
-            ) : (
-              <>
-                회원 ID: <span className="font-mono">{legacyUserId}</span>
+                {" "}· crew id: <code className="font-mono">{legacyUserId}</code>
               </>
             )}
             {devMode && bundle.userId && (
@@ -1372,23 +1367,6 @@ export default function Cluster4Editor({
                 </RowCard>
               ))
             )}
-
-            <div className="mt-2 rounded-md border bg-muted/30 p-3">
-              <div className="mb-1 text-xs font-semibold text-muted-foreground">
-                참고: 5군락 키워드 마스터 (reputation_keywords)
-              </div>
-              {!bundle.tablesAvailable.reputationKeywords ? (
-                <p className="text-xs text-muted-foreground">
-                  reputation_keywords 테이블을 조회할 수 없습니다.
-                </p>
-              ) : bundle.reputationKeywords.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  표시할 키워드가 없습니다 (seed 미적용).
-                </p>
-              ) : (
-                <ReputationKeywordsLegend rows={bundle.reputationKeywords} />
-              )}
-            </div>
           </CardContent>
         </Card>
       )}
@@ -1477,8 +1455,8 @@ export default function Cluster4Editor({
             <CardTitle className="text-base">연계 동료</CardTitle>
             <p className="text-xs text-muted-foreground">
               한 주차에 함께한 동료(<code className="font-mono">weekly_colleagues</code>).
-              운영자는 순번(1~3) / 한 줄 코멘트를 수정·삭제할 수 있습니다. 동료 변경은 삭제 후
-              사용자 화면에서 다시 등록해야 합니다.
+              운영자는 한 줄 코멘트를 수정·삭제할 수 있습니다. 동료 변경은 삭제 후 사용자
+              화면에서 다시 등록해야 합니다. 목록은 rank(내부 정렬 키) 오름차순으로 표시됩니다.
             </p>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -1520,22 +1498,6 @@ export default function Cluster4Editor({
                   }
                   deleteDisabled={saveDisabled}
                 >
-                  <div className="flex flex-col gap-1.5 sm:col-span-1">
-                    <FieldLabel>순번 (1~3)</FieldLabel>
-                    <Input
-                      type="number"
-                      min={1}
-                      max={3}
-                      step={1}
-                      value={row.rank}
-                      onChange={(event) =>
-                        setWeeklyColleagueRow(index, { rank: event.target.value })
-                      }
-                      disabled={saveDisabled}
-                      inputMode="numeric"
-                      className="h-9"
-                    />
-                  </div>
                   <div className="flex flex-col gap-1.5 sm:col-span-2">
                     <FieldLabel>한 줄 코멘트 (선택, 1~200자)</FieldLabel>
                     <textarea
@@ -1661,54 +1623,3 @@ export default function Cluster4Editor({
   );
 }
 
-// 5군락 키워드 마스터를 가벼운 chip 형태로 노출. 관리자는 본 단계에서 mutate 하지 않음.
-function ReputationKeywordsLegend({ rows }: { rows: ReputationKeywordRow[] }) {
-  type Cluster = {
-    number: number;
-    name: string;
-    color: string;
-    keywords: string[];
-  };
-  const byCluster = new Map<number, Cluster>();
-  for (const row of rows) {
-    const cluster = byCluster.get(row.cluster_number) ?? {
-      number: row.cluster_number,
-      name: row.cluster_name,
-      color: row.cluster_color,
-      keywords: [],
-    };
-    cluster.keywords.push(row.keyword);
-    byCluster.set(row.cluster_number, cluster);
-  }
-  const clusters = [...byCluster.values()].sort((a, b) => a.number - b.number);
-  return (
-    <div className="flex flex-col gap-2">
-      {clusters.map((cluster) => (
-        <div key={cluster.number} className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <span
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ backgroundColor: cluster.color }}
-            />
-            <span className="text-xs font-semibold">
-              {cluster.number}. {cluster.name}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              ({cluster.keywords.length}개)
-            </span>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {cluster.keywords.map((keyword) => (
-              <span
-                key={keyword}
-                className="rounded-full border bg-background px-2 py-0.5 text-[10px]"
-              >
-                {keyword}
-              </span>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}

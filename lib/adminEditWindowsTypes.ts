@@ -76,10 +76,22 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     devDescription: "Cluster4 weekly_colleagues permissions",
   },
   {
+    key: "cluster4.weekly_reputation",
+    section: "cluster4",
+    group: "weekly",
+    order: 32,
+    label: "주간 평판",
+    description:
+      "주차별 받은 주간 평판 작성 권한을 관리합니다.",
+    devLabel: "Cluster4 / Weekly Reputation",
+    devDescription:
+      "Cluster4 weekly_reputations permissions (peer-review row; reviewer-side gate lives in Front repo)",
+  },
+  {
     key: "cluster4.season_review",
     section: "cluster4",
     group: "season",
-    order: 32,
+    order: 33,
     label: "\uC2DC\uC98C \uB9AC\uBDF0",
     description:
       "\uBCF8\uC778 \uC2DC\uC98C \uC885\uD569 \uD3C9\uAC00 \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
@@ -91,7 +103,7 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     key: "cluster4.season_reputation",
     section: "cluster4",
     group: "season",
-    order: 33,
+    order: 34,
     label: "\uC2DC\uC98C \uD3C9\uD310",
     description:
       "\uC2DC\uC98C \uD3C9\uD310 \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
@@ -102,7 +114,7 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     key: "cluster4.activity_details",
     section: "cluster4",
     group: "activity",
-    order: 34,
+    order: 35,
     label: "\uD65C\uB3D9 \uC0C1\uC138 (legacy)",
     description:
       "\uAE30\uC874 \uD65C\uB3D9\uBCC4 \uC0C1\uC138 \uC785\uB825 \uAD8C\uD55C \uD0A4 \u2014 \uC2E0\uADDC 4\uAC1C \uD0A4(work_info / work_ability / work_exp / work_career)\uB85C \uBD84\uB9AC\uB418\uBA70 \uBCF8 \uD0A4\uB294 \uAE30\uC874 grants \uBCF4\uC874\uC6A9 alias \uB85C \uC720\uC9C0\uB429\uB2C8\uB2E4.",
@@ -115,7 +127,7 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     key: "cluster4.work_info",
     section: "cluster4",
     group: "activity",
-    order: 35,
+    order: 36,
     label: "\uC2E4\uBB34 \uC815\uBCF4 (Work Info)",
     description:
       "Cluster4-card \uC2E4\uBB34 \uC815\uBCF4 \uBAA8\uB2EC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
@@ -127,7 +139,7 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     key: "cluster4.work_ability",
     section: "cluster4",
     group: "activity",
-    order: 36,
+    order: 37,
     label: "\uC2E4\uBB34 \uC5ED\uB7C9 (Work Ability)",
     description:
       "Cluster4-card \uC2E4\uBB34 \uC5ED\uB7C9 \uBAA8\uB2EC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
@@ -139,7 +151,7 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     key: "cluster4.work_exp",
     section: "cluster4",
     group: "activity",
-    order: 37,
+    order: 38,
     label: "\uC2E4\uBB34 \uACBD\uD5D8 (Work Exp)",
     description:
       "Cluster4-card \uC2E4\uBB34 \uACBD\uD5D8 \uBAA8\uB2EC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4. rating(0~10) \uC800\uC7A5 \uACBD\uB85C\uB294 \uC774 \uD0A4\uB85C \uAC8C\uC774\uD2B8\uB429\uB2C8\uB2E4.",
@@ -151,7 +163,7 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     key: "cluster4.work_career",
     section: "cluster4",
     group: "activity",
-    order: 38,
+    order: 39,
     label: "\uC2E4\uBB34 \uACBD\uB825 (Work Career)",
     description:
       "Cluster4-card \uC2E4\uBB34 \uACBD\uB825 \uBAA8\uB2EC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4. career_records grade / enhancement_status \uC800\uC7A5 \uACBD\uB85C.",

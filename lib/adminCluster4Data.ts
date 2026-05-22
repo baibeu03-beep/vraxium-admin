@@ -5,6 +5,7 @@ import { listWeeklyReviews } from "@/lib/weeklyReviewsData";
 import { listWeeklyColleagues } from "@/lib/weeklyColleaguesData";
 import {
   deleteUserActivityDetail,
+  fetchActivityTypesClusterMap,
   listUserActivityDetails,
   upsertUserActivityDetail,
   UserActivityDetailsError,
@@ -190,23 +191,8 @@ function normalizeWeeklyReviewContent(value: unknown): string {
   return trimmed;
 }
 
-const WEEKLY_COLLEAGUE_RANK_MESSAGE = "rank 는 1~3 사이의 정수여야 합니다.";
 const WEEKLY_COLLEAGUE_MESSAGE_MESSAGE =
   "한 줄 코멘트는 비워두거나 1~200 자여야 합니다.";
-
-function normalizeWeeklyColleagueRank(value: unknown): number {
-  const n =
-    typeof value === "number" ? value : Number(String(value ?? "").trim());
-  if (
-    !Number.isFinite(n) ||
-    !Number.isInteger(n) ||
-    n < 1 ||
-    n > 3
-  ) {
-    throw new Cluster4Error(400, WEEKLY_COLLEAGUE_RANK_MESSAGE);
-  }
-  return n;
-}
 
 function normalizeWeeklyColleagueMessage(value: unknown): string | null {
   if (value === null || value === undefined) return null;
@@ -326,6 +312,7 @@ async function fetchCluster4Tables(userId: string) {
     weeklyColleagues,
     userActivityDetails,
     careerRecords,
+    activityTypesClusterMap,
   ] = await Promise.all([
     supabaseAdmin.from("seasons").select("*"),
     supabaseAdmin.from("weeks").select("*"),
@@ -337,6 +324,7 @@ async function fetchCluster4Tables(userId: string) {
     listWeeklyColleagues({ userId }),
     listUserActivityDetails({ userId }),
     listCareerRecords({ userId }),
+    fetchActivityTypesClusterMap(),
   ]);
 
   return {
@@ -354,6 +342,7 @@ async function fetchCluster4Tables(userId: string) {
     weeklyColleagues,
     userActivityDetails,
     careerRecords,
+    activityTypesClusterMap,
   };
 }
 
@@ -376,6 +365,7 @@ export async function getCluster4ForCrew(
       weeklyColleagues: [],
       userActivityDetails: [],
       careerRecords: [],
+      activityTypesClusterMap: {},
       tablesAvailable: {
         seasons: false,
         weeks: false,
@@ -387,6 +377,7 @@ export async function getCluster4ForCrew(
         weeklyColleagues: false,
         userActivityDetails: false,
         careerRecords: false,
+        activityTypes: false,
       },
     };
   }
@@ -406,6 +397,7 @@ export async function getCluster4ForCrew(
     weeklyColleagues: tables.weeklyColleagues.rows,
     userActivityDetails: tables.userActivityDetails.rows,
     careerRecords: tables.careerRecords.rows,
+    activityTypesClusterMap: tables.activityTypesClusterMap.map,
     tablesAvailable: {
       seasons: tables.seasons.available,
       weeks: tables.weeks.available,
@@ -417,6 +409,7 @@ export async function getCluster4ForCrew(
       weeklyColleagues: tables.weeklyColleagues.available,
       userActivityDetails: tables.userActivityDetails.available,
       careerRecords: tables.careerRecords.available,
+      activityTypes: tables.activityTypesClusterMap.available,
     },
   };
 }
@@ -799,7 +792,6 @@ export async function patchCluster4ForCrew(
 
     const normalized = body.weeklyColleagues.map((row) => ({
       id: String(row.id).trim(),
-      rank: normalizeWeeklyColleagueRank(row.rank),
       message: normalizeWeeklyColleagueMessage(row.message),
     }));
 
@@ -833,7 +825,7 @@ export async function patchCluster4ForCrew(
 
       const { error } = await supabaseAdmin
         .from("weekly_colleagues")
-        .update({ rank: row.rank, message: row.message })
+        .update({ message: row.message })
         .eq("id", row.id)
         .eq("user_id", userId);
 
@@ -842,13 +834,11 @@ export async function patchCluster4ForCrew(
           id: row.id,
           message: error.message,
         });
-        if (error.message) {
-          if (/weekly_colleagues_rank_range/i.test(error.message)) {
-            throw new Cluster4Error(400, WEEKLY_COLLEAGUE_RANK_MESSAGE);
-          }
-          if (/weekly_colleagues_message_length/i.test(error.message)) {
-            throw new Cluster4Error(400, WEEKLY_COLLEAGUE_MESSAGE_MESSAGE);
-          }
+        if (
+          error.message &&
+          /weekly_colleagues_message_length/i.test(error.message)
+        ) {
+          throw new Cluster4Error(400, WEEKLY_COLLEAGUE_MESSAGE_MESSAGE);
         }
         throw new Cluster4Error(500, error.message);
       }
@@ -868,10 +858,18 @@ export async function patchCluster4ForCrew(
       throw new Cluster4Error(400, "userActivityDetails must be an array.");
     }
 
+    // upsert 내부 rating 정책이 cluster_id 기반 modal 분류를 사용하도록 한번
+    // 만 fetch 해서 batch 전체에 재사용한다 (per-row fetch 회피).
+    const { map: upsertClusterMap } = await fetchActivityTypesClusterMap();
+
     const upsertedIds: string[] = [];
     for (const input of body.userActivityDetails) {
       try {
-        const row = await upsertUserActivityDetail(userId, input);
+        const row = await upsertUserActivityDetail(
+          userId,
+          input,
+          upsertClusterMap,
+        );
         upsertedIds.push(row.id);
       } catch (error) {
         if (error instanceof UserActivityDetailsError) {

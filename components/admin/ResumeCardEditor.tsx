@@ -125,7 +125,7 @@ const PROFILE_FIELDS: readonly FieldDef[] = [
 
 // dual-write 정리 (2026-05-13): EDUCATION_FIELDS / INTRODUCTION_FIELDS 입력 제거.
 // 학력은 Cluster 2 → Educations, slogan_1 은 Cluster 2 → Slogans 에서만 수정.
-// Resume Card 는 GET 응답을 읽기 전용으로 표시한다.
+// Cluster1 는 GET 응답을 읽기 전용으로 표시한다.
 
 const MEMBERSHIP_FIELDS: readonly FieldDef[] = [
   { key: "team_name", label: "팀 (team_name)", type: "text" },
@@ -179,7 +179,7 @@ const SECTION_DEFS: Record<
     fields: MEMBERSHIP_FIELDS,
   },
   resumeCardSettings: {
-    label: "Resume Card Settings",
+    label: "Cluster1 Settings",
     operatorLabel: "이력 카드 설정",
     description: "user_resume_card_settings",
     fields: RESUME_CARD_SETTINGS_FIELDS,
@@ -242,9 +242,11 @@ function buildPatchBody(
 export default function ResumeCardEditor({
   organization,
   legacyUserId,
+  memberDisplayName,
 }: {
   organization: OrganizationSlug;
   legacyUserId: string;
+  memberDisplayName?: string | null;
 }) {
   const devMode = useAdminDevMode();
   const [loading, setLoading] = useState(true);
@@ -404,12 +406,20 @@ export default function ResumeCardEditor({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-col gap-0.5">
           <h1 className="text-lg font-semibold">
-            {devMode ? "Resume Card Editor" : "이력 카드 편집"}
+            {devMode ? "Cluster1 Editor" : "이력 카드 편집"}
           </h1>
           <div className="text-xs text-muted-foreground">
             {ORGANIZATION_LABEL[organization]} ·{" "}
-            {devMode ? "legacy_user_id" : "회원 ID"}:{" "}
-            <code className="font-mono">{legacyUserId}</code>
+            <span className="font-medium text-foreground">
+              {memberDisplayName ?? (devMode ? legacyUserId : "이름 미등록")}
+            </span>
+            {devMode && (
+              <>
+                {" "}
+                · legacy_user_id:{" "}
+                <code className="font-mono">{legacyUserId}</code>
+              </>
+            )}
             {devMode && bundle?.userId && (
               <>
                 {" "}
@@ -577,7 +587,7 @@ export default function ResumeCardEditor({
                 {devMode ? (
                   <>
                     학력은 <strong>Cluster 2 → Educations</strong> 에서
-                    수정합니다. Resume Card 는 대표학력
+                    수정합니다. Cluster1 는 대표학력
                     (<code className="font-mono">is_primary=true</code>) 만
                     표시합니다.
                   </>
@@ -678,7 +688,7 @@ export default function ResumeCardEditor({
             </CardContent>
           </Card>
 
-          {/* Resume Card Settings (편집) */}
+          {/* Cluster1 Settings (편집) */}
           {(() => {
             const def = SECTION_DEFS.resumeCardSettings;
             return (

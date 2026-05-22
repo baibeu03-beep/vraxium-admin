@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import ResumeCardEditor from "@/components/admin/ResumeCardEditor";
+import { getMemberDisplayName } from "@/lib/adminCrewData";
 import { isOrganizationSlug, ORGANIZATION_LABEL } from "@/lib/organizations";
 
 type Props = {
@@ -17,7 +18,10 @@ export default async function CrewResumeCardPage({
   const sp = await searchParams;
   if (!isOrganizationSlug(organization)) notFound();
 
-  const devSuffix = sp?.dev === "true" ? "?dev=true" : "";
+  const devMode = sp?.dev === "true";
+  const devSuffix = devMode ? "?dev=true" : "";
+  const memberName = await getMemberDisplayName(legacy_user_id);
+  const crumbLabel = memberName ?? (devMode ? legacy_user_id : "이름 미등록");
 
   return (
     <div className="flex flex-col gap-4">
@@ -37,12 +41,20 @@ export default async function CrewResumeCardPage({
           {ORGANIZATION_LABEL[organization]}
         </Link>
         <span>/</span>
-        <span className="font-mono text-foreground">{legacy_user_id}</span>
+        <span className="text-foreground">{crumbLabel}</span>
+        {devMode && memberName && (
+          <span
+            className="font-mono text-[11px] text-muted-foreground"
+            title={legacy_user_id}
+          >
+            ({legacy_user_id})
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-2 text-xs">
         <span className="rounded-md border bg-foreground px-2 py-1 text-background">
-          Resume Card
+          Cluster1
         </span>
         <Link
           href={`/admin/crews/${organization}/${legacy_user_id}/cluster2${devSuffix}`}
@@ -61,6 +73,7 @@ export default async function CrewResumeCardPage({
       <ResumeCardEditor
         organization={organization}
         legacyUserId={legacy_user_id}
+        memberDisplayName={memberName}
       />
     </div>
   );

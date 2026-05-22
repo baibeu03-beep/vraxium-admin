@@ -37,6 +37,7 @@ type Applicant = {
   provider: string | null;
   status: "pending" | "approved" | "rejected";
   linkedUserId: string | null;
+  linkedDisplayName: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -298,7 +299,7 @@ export default function ApplicantsList() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>이름</TableHead>
+                  <TableHead className="sticky left-0 z-20 bg-card border-r">이름</TableHead>
                   <TableHead>{devMode ? "Email" : "이메일"}</TableHead>
                   <TableHead>{devMode ? "Provider" : "로그인 수단"}</TableHead>
                   <TableHead>상태</TableHead>
@@ -314,7 +315,7 @@ export default function ApplicantsList() {
                   const isRejecting = rejectingId === applicant.id;
                   return (
                     <TableRow key={applicant.id}>
-                      <TableCell className="max-w-[160px] truncate font-medium">
+                      <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[160px] truncate font-medium">
                         {fmt(applicant.name)}
                       </TableCell>
                       <TableCell className="max-w-[220px] truncate">
@@ -331,8 +332,24 @@ export default function ApplicantsList() {
                           {statusLabel(applicant.status)}
                         </span>
                       </TableCell>
-                      <TableCell className="font-mono text-[11px]">
-                        {fmt(applicant.linkedUserId)}
+                      <TableCell className="max-w-[200px]">
+                        {applicant.linkedUserId ? (
+                          <>
+                            <div className="truncate font-medium">
+                              {applicant.linkedDisplayName ?? "이름 미등록"}
+                            </div>
+                            {devMode && (
+                              <div
+                                className="truncate font-mono text-[10px] text-muted-foreground"
+                                title={applicant.linkedUserId}
+                              >
+                                {applicant.linkedUserId}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-xs">
                         {fmtDate(applicant.createdAt)}
@@ -613,7 +630,7 @@ function ApproveDialog({
           바로 생성할 수 있습니다.
         </p>
 
-        <div className="mt-4 flex-1 overflow-auto rounded-lg border">
+        <div className="mt-4 flex-1 overflow-y-auto overflow-x-hidden rounded-lg border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -637,15 +654,15 @@ function ApproveDialog({
                       }
                     }}
                   >
-                    <TableCell className="max-w-[200px] truncate">
-                      <div className="font-medium">
+                    <TableCell className="max-w-[200px]">
+                      <div className="truncate font-medium">
                         {fmt(profile.name)}
                         {isSelected && (
                           <span className="ml-2 text-xs text-primary">선택됨</span>
                         )}
                       </div>
                       {devMode && (
-                        <div className="font-mono text-[11px] text-muted-foreground">
+                        <div className="truncate font-mono text-[11px] text-muted-foreground">
                           {profile.user_id}
                         </div>
                       )}
