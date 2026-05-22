@@ -31,6 +31,11 @@ type EditWindowRow = {
   updated_at: string | null;
 };
 
+type AdminUserRow = {
+  id: string;
+  email: string | null;
+};
+
 type UserProfileRow = {
   user_id: string;
   display_name: string | null;
@@ -53,6 +58,7 @@ function toDto(row: EditWindowRow): EditWindowDto {
     openedAt: row.opened_at,
     expiresAt: row.expires_at,
     grantedBy: row.granted_by,
+    grantedByEmail: null,
     note: row.note,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -145,6 +151,27 @@ export async function listEditWindowsWithUsers(
     }
   }
 
+  const grantedByIds = Array.from(
+    new Set(
+      Array.from(windowsByUser.values())
+        .map((row) => row.granted_by)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const adminEmailById = new Map<string, string | null>();
+  if (grantedByIds.length > 0) {
+    const { data: adminRows, error: adminError } = await supabaseAdmin
+      .from("admin_users")
+      .select("id,email")
+      .in("id", grantedByIds);
+    if (adminError) {
+      throw new EditWindowError(500, adminError.message);
+    }
+    for (const row of (adminRows ?? []) as unknown as AdminUserRow[]) {
+      adminEmailById.set(row.id, row.email);
+    }
+  }
+
   const rows: EditWindowUserRow[] = profiles.map((p) => ({
     userId: p.user_id,
     displayName: p.display_name,
@@ -152,7 +179,12 @@ export async function listEditWindowsWithUsers(
     contactEmail: p.contact_email,
     organizationSlug: p.organization_slug,
     window: windowsByUser.has(p.user_id)
-      ? toDto(windowsByUser.get(p.user_id)!)
+      ? {
+          ...toDto(windowsByUser.get(p.user_id)!),
+          grantedByEmail: adminEmailById.get(
+            windowsByUser.get(p.user_id)!.granted_by ?? "",
+          ) ?? null,
+        }
       : null,
   }));
 
