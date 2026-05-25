@@ -42,6 +42,7 @@ import {
   type TopCardInput,
   type TopCardSlot,
 } from "@/lib/adminCluster3Types";
+import type { GrowthIndicatorsDto, ClubRankDto } from "@/lib/cluster3GrowthTypes";
 
 // Cluster3 admin editor — Phase 4.
 //   Section 3 Channel Cards: editable (portfolio_channel_cards write)
@@ -347,6 +348,10 @@ export default function Cluster3Editor({
     { kind: "success" | "error"; message: string } | null
   >(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [growth, setGrowth] = useState<GrowthIndicatorsDto | null>(null);
+  const [growthError, setGrowthError] = useState<string | null>(null);
+  const [clubRank, setClubRank] = useState<ClubRankDto | null>(null);
+  const [clubRankError, setClubRankError] = useState<string | null>(null);
   const [debugOpen, setDebugOpen] = useState(false);
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
@@ -357,10 +362,12 @@ export default function Cluster3Editor({
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        `/api/admin/crews/${encodeURIComponent(legacyUserId)}/cluster3`,
-        { cache: "no-store" },
-      );
+      const encodedId = encodeURIComponent(legacyUserId);
+      const [res, growthRes, rankRes] = await Promise.all([
+        fetch(`/api/admin/crews/${encodedId}/cluster3`, { cache: "no-store" }),
+        fetch(`/api/admin/crews/${encodedId}/cluster3/growth`, { cache: "no-store" }),
+        fetch(`/api/admin/crews/${encodedId}/cluster3/growth/rank`, { cache: "no-store" }),
+      ]);
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json?.error ?? "Failed to load cluster3.");
@@ -370,6 +377,24 @@ export default function Cluster3Editor({
       setForm(syncFormFromBundle(b));
       setLastLoadedAt(new Date().toISOString());
       setBanner(null);
+
+      const growthJson = await growthRes.json();
+      if (growthRes.ok && growthJson.success) {
+        setGrowth(growthJson.data as GrowthIndicatorsDto);
+        setGrowthError(null);
+      } else {
+        setGrowth(null);
+        setGrowthError(growthJson?.error ?? "Failed to load growth indicators.");
+      }
+
+      const rankJson = await rankRes.json();
+      if (rankRes.ok && rankJson.success) {
+        setClubRank(rankJson.data as ClubRankDto);
+        setClubRankError(null);
+      } else {
+        setClubRank(null);
+        setClubRankError(rankJson?.error ?? "Failed to load club rank.");
+      }
     } catch (err) {
       setBanner({
         kind: "error",
@@ -654,6 +679,186 @@ export default function Cluster3Editor({
           card_index 는 서버 stamp 이며 한 card_type write 가 다른 card_type
           row 를 mutate 하지 않습니다. Admin route 는 requireAdmin 보호이므로
           user_edit_windows 작성 기간과 무관하게 저장됩니다.
+        </div>
+      )}
+
+      {/* 성장 지표 요약 — process + period + point */}
+      {growthError && !loading && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          성장 지표 로드 실패: {growthError}
+        </div>
+      )}
+      {growth && (
+        <div className="rounded-md border bg-background">
+          <div className="border-b px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              성장 지표 · Growth Indicators
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4 lg:grid-cols-6">
+            {/* Process */}
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">상태</div>
+              <div className="mt-0.5 text-sm font-medium">
+                {growth.process.growthStatusDisplay}
+              </div>
+              <div className="text-[10px] text-muted-foreground">
+                {growth.process.growthDisplayKey}
+              </div>
+            </div>
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">성장 시작</div>
+              <div className="mt-0.5 text-sm font-medium">
+                {growth.process.activityStartedAtDisplay}
+              </div>
+            </div>
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">성장 종료</div>
+              <div className="mt-0.5 text-sm font-medium">
+                {growth.process.activityEndedAtDisplay}
+              </div>
+            </div>
+
+            {/* Period — 주차 */}
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">성장(성공) 주차 · a</div>
+              <div className="mt-0.5 text-sm font-medium">{growth.period.a}</div>
+            </div>
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">성장(실패) 주차 · b</div>
+              <div className="mt-0.5 text-sm font-medium">{growth.period.b}</div>
+            </div>
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">휴식(개인) 주차 · c</div>
+              <div className="mt-0.5 text-sm font-medium">{growth.period.c}</div>
+            </div>
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">휴식(공식) 주차 · d</div>
+              <div className="mt-0.5 text-sm font-medium">{growth.period.d}</div>
+            </div>
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">성장 가능 주차 · e</div>
+              <div className="mt-0.5 text-sm font-medium">{growth.period.e}</div>
+            </div>
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">물리적 주차 · h</div>
+              <div className="mt-0.5 text-sm font-medium">{growth.period.h}</div>
+            </div>
+
+            {/* Period — 시즌 (핵심 지표) */}
+            <div className="bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
+              <div className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                성장 휴식 시즌 · f
+              </div>
+              <div className="mt-0.5 text-lg font-bold text-emerald-800 dark:text-emerald-300">
+                {growth.period.f}
+              </div>
+            </div>
+            <div className="bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
+              <div className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                성장(성공) 시즌 · g
+              </div>
+              <div className="mt-0.5 text-lg font-bold text-emerald-800 dark:text-emerald-300">
+                {growth.period.g}
+              </div>
+            </div>
+
+            {/* Point */}
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">
+                {growth.point.pointsLabel}
+              </div>
+              <div className="mt-0.5 text-sm font-medium">
+                {growth.point.points}개
+              </div>
+            </div>
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">
+                {growth.point.advantagesLabel} (순)
+              </div>
+              <div className="mt-0.5 text-sm font-medium">
+                {growth.point.netAdvantages}개
+              </div>
+              <div className="mt-0.5 space-y-px text-[10px] text-muted-foreground">
+                <div>{growth.point.advantagesLabel} {growth.point.rawAdvantages}개</div>
+                <div>{growth.point.penaltyLabel} -{growth.point.penalty}개</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 클럽 강화 품계 */}
+      {clubRankError && !loading && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          클럽 강화 품계 로드 실패: {clubRankError}
+        </div>
+      )}
+      {clubRank && (
+        <div className="rounded-md border bg-background">
+          <div className="border-b px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              클럽 강화 품계{clubRank.isFrozen ? " · 고정" : ""}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-px bg-border">
+            <div className="bg-amber-50 px-4 py-3 dark:bg-amber-950/30">
+              <div className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                종합 품계
+              </div>
+              <div className="mt-1 text-2xl font-bold text-amber-800 dark:text-amber-300">
+                {clubRank.rankGrade ?? "—"}
+              </div>
+              {clubRank.isFrozen && (
+                <div className="mt-0.5 text-[10px] text-amber-600">고정됨</div>
+              )}
+            </div>
+            <div className="bg-amber-50 px-4 py-3 dark:bg-amber-950/30">
+              <div className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                주차 평균 백분위
+              </div>
+              <div className="mt-1 text-2xl font-bold text-amber-800 dark:text-amber-300">
+                {clubRank.avgPercentileDisplay}
+              </div>
+            </div>
+          </div>
+          {devMode && clubRank.weeklyDetails.length > 0 && (
+            <div className="border-t px-3 py-2">
+              <div className="text-[10px] text-muted-foreground mb-1">
+                주차별 상세 (onboarding 제외 표시: *)
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[10px]">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="px-1 py-0.5">주차</th>
+                      <th className="px-1 py-0.5">점수</th>
+                      <th className="px-1 py-0.5">등수</th>
+                      <th className="px-1 py-0.5">참가자</th>
+                      <th className="px-1 py-0.5">백분위</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {clubRank.weeklyDetails.map((d) => (
+                      <tr
+                        key={`${d.year}-${d.weekNumber}`}
+                        className={d.isOnboarding ? "text-muted-foreground/50" : ""}
+                      >
+                        <td className="px-1 py-0.5 font-mono">
+                          {d.year}-W{String(d.weekNumber).padStart(2, "0")}
+                          {d.isOnboarding ? " *" : ""}
+                        </td>
+                        <td className="px-1 py-0.5">{d.weeklyScore}</td>
+                        <td className="px-1 py-0.5">{d.weeklyRank}등</td>
+                        <td className="px-1 py-0.5">{d.totalParticipants}명</td>
+                        <td className="px-1 py-0.5">{d.weeklyPercentile}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -955,6 +1160,14 @@ export default function Cluster3Editor({
               <DebugSection
                 title="topCards.detail (Section 5 · editable · card_type='detail')"
                 data={bundle.detailCards}
+              />
+              <DebugSection
+                title="growth indicators (GET /cluster3/growth)"
+                data={growth}
+              />
+              <DebugSection
+                title="club rank (GET /cluster3/growth/rank)"
+                data={clubRank}
               />
               <DebugSection
                 title="bundle (admin GET · full)"

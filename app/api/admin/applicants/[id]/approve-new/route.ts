@@ -57,6 +57,12 @@ export async function POST(
     );
   }
 
+  const now = new Date();
+  const dow = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+  const activityStartedAt = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}T00:00:00+09:00`;
+
   const { data: newProfile, error: insertError } = await supabaseAdmin
     .from("user_profiles")
     .insert({
@@ -66,6 +72,7 @@ export async function POST(
       contact_email: applicant.email,
       status: "active",
       growth_status: "active",
+      activity_started_at: activityStartedAt,
     })
     .select("user_id")
     .single();

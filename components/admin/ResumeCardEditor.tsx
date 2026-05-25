@@ -23,6 +23,7 @@ import {
   type FieldDef,
 } from "@/components/admin/fieldKit";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import type { Cluster1ResumeDto } from "@/lib/cluster1ResumeTypes";
 
 // 라벨 끝의 영문 column-name 괄호 제거 — "이름 (display_name)" → "이름".
 function operatorLabel(label: string): string {
@@ -259,6 +260,7 @@ export default function ResumeCardEditor({
     { kind: "success" | "error"; message: string } | null
   >(null);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [resume, setResume] = useState<Cluster1ResumeDto | null>(null);
   const [debugOpen, setDebugOpen] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [lastApplied, setLastApplied] = useState<Record<
@@ -269,7 +271,7 @@ export default function ResumeCardEditor({
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [bundleRes, orgRes, siteRes] = await Promise.all([
+      const [bundleRes, orgRes, siteRes, resumeRes] = await Promise.all([
         fetch(
           `/api/admin/crews/${encodeURIComponent(legacyUserId)}/resume-card`,
           { cache: "no-store" },
@@ -281,11 +283,16 @@ export default function ResumeCardEditor({
           { cache: "no-store" },
         ),
         fetch(`/api/admin/settings/site/resume-card`, { cache: "no-store" }),
+        fetch(
+          `/api/admin/crews/${encodeURIComponent(legacyUserId)}/resume-card/resume`,
+          { cache: "no-store" },
+        ),
       ]);
-      const [bundleJson, orgJson, siteJson] = await Promise.all([
+      const [bundleJson, orgJson, siteJson, resumeJson] = await Promise.all([
         bundleRes.json(),
         orgRes.json(),
         siteRes.json(),
+        resumeRes.json(),
       ]);
       if (!bundleRes.ok || !bundleJson.success) {
         throw new Error(bundleJson?.error ?? "Failed to load resume-card.");
@@ -295,6 +302,11 @@ export default function ResumeCardEditor({
       setForm(syncFormFromBundle(b));
       setOrgSettings((orgJson?.data ?? null) as OrgSettings);
       setSiteSettings((siteJson?.data ?? null) as SiteSettings);
+      setResume(
+        resumeRes.ok && resumeJson?.success
+          ? (resumeJson.data as Cluster1ResumeDto)
+          : null,
+      );
     } catch (err) {
       setBanner({
         kind: "error",
@@ -721,6 +733,340 @@ export default function ResumeCardEditor({
               </Card>
             );
           })()}
+
+          {/* ── Resume Card 확장 섹션 (readonly) ── */}
+
+          {/* 1. Resume 상태 배지 */}
+          {resume && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {devMode ? "Resume Status Badge" : "이력 상태 배지"}
+                </CardTitle>
+                {devMode && (
+                  <p className="text-xs text-muted-foreground">
+                    user_profiles.status → resume badge mapping
+                  </p>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-3 py-1.5 text-sm font-semibold",
+                      resume.resumeStatus.status === "complete"
+                        ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-300"
+                        : resume.resumeStatus.status === "running"
+                          ? "bg-blue-100 text-blue-800 ring-1 ring-blue-300"
+                          : resume.resumeStatus.status === "on_rest"
+                            ? "bg-amber-100 text-amber-800 ring-1 ring-amber-300"
+                            : resume.resumeStatus.status === "recharging"
+                              ? "bg-purple-100 text-purple-800 ring-1 ring-purple-300"
+                              : "bg-gray-100 text-gray-600 ring-1 ring-gray-300",
+                      resume.resumeStatus.isBadgeDimmed && "opacity-60",
+                    )}
+                  >
+                    {resume.resumeStatus.label}
+                  </span>
+                  {resume.resumeStatus.status === "complete" && (
+                    <span className="text-xs font-medium text-emerald-600">
+                      ✓ Complete
+                    </span>
+                  )}
+                </div>
+                {devMode && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    status: <code>{resume.resumeStatus.status}</code> ·
+                    dimmed: <code>{String(resume.resumeStatus.isBadgeDimmed)}</code>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 2. 일정 신뢰도 */}
+          {resume && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {devMode ? "Schedule Reliability" : "일정 신뢰도"}
+                </CardTitle>
+                {devMode && (
+                  <p className="text-xs text-muted-foreground">
+                    ((d + b) / (a - e)) × 100
+                  </p>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="mb-3 flex items-baseline gap-1">
+                  <span className="text-2xl font-bold tabular-nums">
+                    {resume.scheduleReliability.rate}
+                  </span>
+                  <span className="text-sm text-muted-foreground">%</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+                    <div className="text-[10px] uppercase text-muted-foreground">
+                      {devMode ? "a · 물리 주차" : "물리 주차"}
+                    </div>
+                    <div className="font-medium tabular-nums">
+                      {resume.scheduleReliability.physicalWeeks}
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+                    <div className="text-[10px] uppercase text-muted-foreground">
+                      {devMode ? "b · 사전 휴식" : "사전 휴식"}
+                    </div>
+                    <div className="font-medium tabular-nums">
+                      {resume.scheduleReliability.preRestWeeks}
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+                    <div className="text-[10px] uppercase text-muted-foreground">
+                      {devMode ? "c · 미인정" : "미인정"}
+                    </div>
+                    <div className="font-medium tabular-nums">
+                      {resume.scheduleReliability.unapprovedActiveWeeks}
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+                    <div className="text-[10px] uppercase text-muted-foreground">
+                      {devMode ? "d · 인정" : "인정"}
+                    </div>
+                    <div className="font-medium tabular-nums">
+                      {resume.scheduleReliability.approvedActiveWeeks}
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 px-2 py-1.5 col-span-2">
+                    <div className="text-[10px] uppercase text-muted-foreground">
+                      {devMode ? "e · 공식 휴식" : "공식 휴식"}
+                    </div>
+                    <div className="font-medium tabular-nums">
+                      {resume.scheduleReliability.officialRestWeeks}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 3. 활동 완료율 */}
+          {resume && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {devMode ? "Activity Completion" : "활동 완료율"}
+                </CardTitle>
+                {devMode && (
+                  <p className="text-xs text-muted-foreground">
+                    (r / p) × 100 · Cluster4 연동 전 더미
+                  </p>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="mb-3 flex items-baseline gap-1">
+                  <span className="text-2xl font-bold tabular-nums">
+                    {resume.activityCompletion.rate}
+                  </span>
+                  <span className="text-sm text-muted-foreground">%</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+                    <div className="text-[10px] uppercase text-muted-foreground">
+                      {devMode ? "p · 가능 활동" : "가능 활동"}
+                    </div>
+                    <div className="font-medium tabular-nums">
+                      {resume.activityCompletion.availableActivities}
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 px-2 py-1.5">
+                    <div className="text-[10px] uppercase text-muted-foreground">
+                      {devMode ? "r · 이행 활동" : "이행 활동"}
+                    </div>
+                    <div className="font-medium tabular-nums">
+                      {resume.activityCompletion.completedActivities}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-foreground transition-all"
+                    style={{
+                      width: `${Math.min(100, resume.activityCompletion.rate)}%`,
+                    }}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 4. 진행 시즌 리스트 */}
+          {resume && resume.seasonRecords.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {devMode ? "Season Records" : "진행 시즌 리스트"}
+                </CardTitle>
+                {devMode && (
+                  <p className="text-xs text-muted-foreground">
+                    season_definitions + user_week_statuses
+                  </p>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="pb-1.5 pr-2 font-medium">
+                          {devMode ? "Year" : "년도"}
+                        </th>
+                        <th className="pb-1.5 pr-2 font-medium">
+                          {devMode ? "Season" : "시즌"}
+                        </th>
+                        <th className="pb-1.5 pr-2 font-medium">
+                          {devMode ? "Position" : "포지션"}
+                        </th>
+                        <th className="pb-1.5 pr-2 font-medium">
+                          {devMode ? "Status" : "상태"}
+                        </th>
+                        <th className="pb-1.5 pr-2 font-medium text-right">
+                          {devMode ? "Weeks" : "주차"}
+                        </th>
+                        <th className="pb-1.5 font-medium">
+                          {devMode ? "Review" : "검수"}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {resume.seasonRecords.map((rec, idx) => (
+                        <tr
+                          key={idx}
+                          className="border-b border-border/40 last:border-b-0"
+                        >
+                          <td className="py-1.5 pr-2 tabular-nums">
+                            {rec.year}
+                          </td>
+                          <td className="py-1.5 pr-2">{rec.seasonName}</td>
+                          <td className="py-1.5 pr-2">
+                            <span className="inline-flex rounded bg-muted px-1.5 py-0.5 text-[10px]">
+                              {rec.position}
+                            </span>
+                          </td>
+                          <td className="py-1.5 pr-2">
+                            <span
+                              className={cn(
+                                "inline-flex rounded px-1.5 py-0.5 text-[10px] font-medium",
+                                rec.progressStatus === "진행 중" &&
+                                  "bg-blue-50 text-blue-700",
+                                rec.progressStatus === "정상 완료" &&
+                                  "bg-emerald-50 text-emerald-700",
+                                rec.progressStatus === "정상 졸업" &&
+                                  "bg-emerald-100 text-emerald-800",
+                                rec.progressStatus === "통합 휴식" &&
+                                  "bg-amber-50 text-amber-700",
+                                rec.progressStatus === "활동 중단" &&
+                                  "bg-red-50 text-red-700",
+                              )}
+                            >
+                              {rec.progressStatus}
+                            </span>
+                          </td>
+                          <td className="py-1.5 pr-2 text-right tabular-nums">
+                            {rec.approvedWeeks}/{rec.totalWeeks}
+                          </td>
+                          <td className="py-1.5">
+                            <span
+                              className={cn(
+                                "text-[10px]",
+                                rec.reviewStatus === "검수 중"
+                                  ? "text-amber-600"
+                                  : "text-emerald-600",
+                              )}
+                            >
+                              {rec.reviewStatus}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 5. 실무 성적 요약 */}
+          {resume && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {devMode ? "Practical Stats" : "실무 성적 요약"}
+                </CardTitle>
+                {devMode && (
+                  <p className="text-xs text-muted-foreground">
+                    Cluster4 연동 전 더미
+                  </p>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div className="rounded-md border bg-muted/30 px-2 py-2">
+                    <div className="text-[10px] uppercase text-muted-foreground">
+                      {devMode
+                        ? "실무 정보 습득 (infoCount)"
+                        : "실무 정보 습득"}
+                    </div>
+                    <div className="mt-0.5 font-semibold tabular-nums">
+                      {resume.practicalStats.infoCount}
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        회
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 px-2 py-2">
+                    <div className="text-[10px] uppercase text-muted-foreground">
+                      {devMode
+                        ? "실무 경험 축적 (experienceCount)"
+                        : "실무 경험 축적"}
+                    </div>
+                    <div className="mt-0.5 font-semibold tabular-nums">
+                      {resume.practicalStats.experienceCount}
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        건
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 px-2 py-2">
+                    <div className="text-[10px] uppercase text-muted-foreground">
+                      {devMode
+                        ? "실무 역량 성장 (abilityUnitCount)"
+                        : "실무 역량 성장"}
+                    </div>
+                    <div className="mt-0.5 font-semibold tabular-nums">
+                      {resume.practicalStats.abilityUnitCount}
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        unit
+                      </span>
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 px-2 py-2">
+                    <div className="text-[10px] uppercase text-muted-foreground">
+                      {devMode
+                        ? "실무 경력 누적 (careerProjectCount)"
+                        : "실무 경력 누적"}
+                    </div>
+                    <div className="mt-0.5 font-semibold tabular-nums">
+                      {resume.practicalStats.careerProjectCount}
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        proj
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* preview + debug */}
@@ -843,6 +1189,7 @@ export default function ResumeCardEditor({
                   data={lastApplied}
                 />
                 <DebugSection title="bundle (admin GET)" data={bundle} />
+                <DebugSection title="resume (Cluster1 Resume DTO)" data={resume} />
                 <DebugSection title="orgSettings" data={orgSettings} />
                 <DebugSection title="siteSettings" data={siteSettings} />
                 <p className="mt-3 text-muted-foreground">

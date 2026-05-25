@@ -314,8 +314,8 @@ async function fetchCluster4Tables(userId: string) {
     careerRecords,
     activityTypesClusterMap,
   ] = await Promise.all([
-    supabaseAdmin.from("seasons").select("*"),
-    supabaseAdmin.from("weeks").select("*"),
+    supabaseAdmin.from("season_definitions").select("*"),
+    supabaseAdmin.from("weeks").select("id,week_number,start_date,end_date,season_key,is_official_rest,holiday_name,iso_year,iso_week,created_at"),
     supabaseAdmin.from("user_season_histories").select("*").eq("user_id", userId),
     fetchReceivedSeasonReputations(userId),
     listReputationKeywords(),
@@ -328,7 +328,7 @@ async function fetchCluster4Tables(userId: string) {
   ]);
 
   return {
-    seasons: handleResult<SeasonRow>("seasons", seasonsRaw.data, seasonsRaw.error),
+    seasons: handleResult<SeasonRow>("season_definitions", seasonsRaw.data, seasonsRaw.error),
     weeks: handleResult<WeekRow>("weeks", weeksRaw.data, weeksRaw.error),
     userSeasonHistories: handleResult<UserSeasonHistoryRow>(
       "user_season_histories",

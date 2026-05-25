@@ -30,6 +30,13 @@ Supabase SQL Editor에서 **파일명 알파벳 순서대로** 실행한다.
 | 19 | `2026-05-22_account_management_step2_backfill_operators.sql`     | 계정 관리: 기존 운영자 2명 `users` / `user_profiles` 백필 (role='super_admin'), **step1 의존**. probe 결과 id+email 명시 |
 | 20 | `2026-05-22_account_management_step3_promote_operators_to_owner.sql` | 계정 관리: 기존 운영자 2명 `admin_users.role` `admin` → `owner` 승격 (super_admin gate 통과), **step2 의존**. 적용 직후 운영자 로그인 스모크 필수 |
 | 21 | `2026-05-22_career_projects_admin_meta.sql`                          | `career_projects` 어드민 CRUD 메타: `updated_at` 컬럼 + `created_at DESC` 인덱스 + BEFORE UPDATE 트리거. **#12 (step2) 의존**, 기존 컬럼 변경 없음 |
+| 22 | `2026-05-25_cluster3_growth_indicators.sql`   | Cluster3 성장 지표 최소 스키마: `activity_started_at/ended_at` + `user_week_statuses` + `total_raw_advantages` + 시드 + 검증 |
+| 23 | `2026-05-25_cluster3_growth_seed_diversify.sql` | 시드 데이터 다양화: 30명을 6그룹(A~F)으로 재배분 + 특수 상태(weekly_rest/seasonal_rest/graduated/suspended) 포함. ⚠ 시드 전용, 운영 환경 실행 금지 |
+| 24 | `2026-05-25_season_definitions_and_user_seasons.sql` | `season_definitions` (2021~2029 시즌 36개, 52주 고정 체인 공식 기반, 전환 주차 귀속 포함) + `user_season_statuses` (사용자별 시즌 success/rest) + 30명 시드 |
+| 25 | `2026-05-25_official_rest_weeks_and_override.sql` | `official_rest_weeks` (공식 휴식 주차 정의) + `user_week_statuses.is_official_rest_override` + override 샘플 |
+| 26 | `2026-05-25_week_season_key_attribution.sql` | `user_week_statuses.season_key` + `resolve_season_key(date)` 함수 + 기존 데이터 backfill |
+| 27 | `2026-05-25_season_rest_request_policy.sql` | `user_season_statuses.requested_at` + `validate_season_rest_request()` 함수 + 1주차 비활동 전환 + 더미 보정 |
+| 28 | `2026-05-25_fix_activity_started_at_backfill.sql` | `activity_started_at IS NULL` 전체 백필 — #22 의 `growth_status IS NOT NULL` 조건 제거. 모든 사용자에게 성장 시작일 보장 |
 
 ## 주의사항
 

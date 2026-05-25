@@ -415,6 +415,12 @@ export async function createAccount(
   }
 
   // ── Step 3: user_profiles insert ─────────────────────────────────
+  const now = new Date();
+  const dow = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+  const activityStartedAt = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, "0")}-${String(mon.getDate()).padStart(2, "0")}T00:00:00+09:00`;
+
   const profileInsert = await supabaseAdmin.from("user_profiles").insert({
     user_id: newUserId,
     auth_email: email,
@@ -424,6 +430,7 @@ export async function createAccount(
     role: userProfileRole,
     status: isActive ? "active" : "inactive",
     growth_status: "active",
+    activity_started_at: activityStartedAt,
   });
   if (profileInsert.error) {
     await rollback(["users", "auth"]);

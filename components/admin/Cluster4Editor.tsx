@@ -30,8 +30,19 @@ import type {
   WeeklyColleagueRow,
   WeeklyReputationRow,
 } from "@/lib/adminCluster4Types";
+import {
+  formatRestReasonLabel,
+  WEEK_STATUS_STYLE,
+  WEEK_STATUS_LABEL,
+  RESULT_OPTIONS,
+  type WeeklyGrowthDto,
+  type WeeklyCardDto,
+  type WeekResultStatus,
+} from "@/lib/cluster4WeeklyGrowthTypes";
+import { getPointLabels } from "@/lib/pointLabels";
 
 type TabKey =
+  | "weekly_growth"
   | "season_review"
   | "season_reputation"
   | "weekly_reputation"
@@ -41,6 +52,7 @@ type TabKey =
   | "debug";
 
 const TABS: { key: TabKey; label: string }[] = [
+  { key: "weekly_growth", label: "주간 성장" },
   { key: "season_review", label: "시즌 리뷰" },
   { key: "season_reputation", label: "받은 시즌 평판" },
   { key: "weekly_reputation", label: "주간 평판" },
@@ -180,12 +192,12 @@ function pickValue(
 }
 
 function seasonIdOf(row: Record<string, unknown> | null | undefined): string | null {
-  const value = pickValue(row, ["season_id", "seasonId", "id"]);
+  const value = pickValue(row, ["season_key", "season_id", "seasonId", "id"]);
   return value === undefined ? null : String(value);
 }
 
 function seasonLabelFromSeason(row: Record<string, unknown> | null | undefined): string {
-  const value = pickValue(row, ["name", "label", "title", "season_name", "code", "id"]);
+  const value = pickValue(row, ["season_label", "season_type", "season_key", "id"]);
   return value === undefined ? "-" : String(value);
 }
 
@@ -599,6 +611,197 @@ function CharCounter({ current, max }: { current: number; max: number }) {
   );
 }
 
+const RESULT_STATUS_STYLE = WEEK_STATUS_STYLE;
+
+function WeeklyListCard({
+  card: c,
+  organization,
+}: {
+  card: WeeklyCardDto;
+  organization: OrganizationSlug;
+}) {
+  const style = RESULT_STATUS_STYLE[c.resultStatus];
+  const isRest =
+    c.resultStatus === "personal_rest" || c.resultStatus === "official_rest";
+  const isRuntime =
+    c.resultStatus === "running" || c.resultStatus === "tallying";
+  const pl = getPointLabels(organization);
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <div className="rounded-lg border bg-card shadow-sm">
+      {/* header */}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
+        <div className="flex items-center gap-3">
+          {/* 주차 이미지 */}
+          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border bg-muted/30">
+            {imgError ? (
+              <div
+                className={cn(
+                  "flex h-full w-full items-center justify-center text-[10px] font-bold",
+                  style.text,
+                )}
+              >
+                W{c.weekNumber}
+              </div>
+            ) : (
+              <img
+                src={c.weekImagePath}
+                alt={`${c.seasonYear} ${c.seasonName} ${c.weekNumber}주차`}
+                className="h-full w-full object-cover"
+                onError={() => setImgError(true)}
+              />
+            )}
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <div className="text-sm font-semibold">
+              {c.seasonYear} {c.seasonName}, {c.weekNumber}주차
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {c.dateRangeDisplay}
+            </div>
+          </div>
+        </div>
+        <span
+          className={cn(
+            "rounded-full px-2.5 py-0.5 text-xs font-medium",
+            style.bg,
+            style.text,
+          )}
+        >
+          {c.resultLabel}
+        </span>
+      </div>
+
+      {/* body */}
+      <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3 sm:grid-cols-3 lg:grid-cols-4">
+        {/* 활동 누적 주차 */}
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            활동 누적 주차
+          </div>
+          <div className="mt-0.5 text-sm font-medium tabular-nums">
+            {c.accumulatedApprovedWeeks}{" "}
+            <span className="text-muted-foreground">/ {c.targetWeeks} 주차</span>
+          </div>
+        </div>
+
+        {/* 활동 상태 */}
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            활동 상태
+          </div>
+          <div className="mt-0.5 text-sm font-medium">{c.activityStatus}</div>
+        </div>
+
+        {/* 활동 소속 */}
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            활동 소속
+          </div>
+          <div className="mt-0.5 text-sm font-medium">
+            <span className="text-muted-foreground">[팀]</span> {c.teamLabel}{" "}
+            <span className="text-muted-foreground">[파트]</span> {c.partLabel}
+          </div>
+        </div>
+
+        {/* 포인트 (조직별 명칭) */}
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {pl.points} · {pl.advantages} · {pl.penalty}
+          </div>
+          <div className="mt-0.5 flex items-center gap-2 text-sm font-medium tabular-nums">
+            <span>{c.points}개</span>
+            <span className="text-muted-foreground">·</span>
+            <span>{c.advantages}개</span>
+            <span className="text-muted-foreground">·</span>
+            <span className={c.penalty < 0 ? "text-red-600" : ""}>
+              {c.penalty}개
+            </span>
+          </div>
+        </div>
+
+        {/* 주차 평판 */}
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            주차 평판
+          </div>
+          <div className="mt-0.5 text-sm font-medium tabular-nums">
+            {c.weeklyReputationCount}개
+            <span className="ml-1 text-muted-foreground">/ 4</span>
+          </div>
+        </div>
+
+        {/* 명성도(FM) */}
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            명성도(FM)
+          </div>
+          <div className="mt-0.5 text-sm font-medium tabular-nums">
+            {c.totalFmScore}
+          </div>
+        </div>
+
+        {/* 연계 동료 */}
+        <div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            연계 동료
+          </div>
+          <div className="mt-0.5 text-sm font-medium tabular-nums">
+            {c.linkedCrewCount}명
+            <span className="ml-1 text-muted-foreground">/ 3</span>
+          </div>
+        </div>
+
+        {/* 주차 성장률 */}
+        <div className="col-span-2 sm:col-span-3 lg:col-span-4">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            주차 성장률
+          </div>
+          {isRest ? (
+            <div className="mt-0.5 text-sm text-muted-foreground">
+              휴식 주차 — 해당 없음
+            </div>
+          ) : (
+            <div className="mt-1 flex flex-col gap-1.5">
+              <div className="flex items-baseline gap-2">
+                <span className="text-lg font-bold tabular-nums">
+                  {c.weeklyGrowth.rate}%
+                </span>
+                <span className="text-sm tabular-nums text-muted-foreground">
+                  {c.weeklyGrowth.completedLines} / {c.weeklyGrowth.availableLines}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                {(
+                  [
+                    ["실무 정보", c.lineBreakdown.info],
+                    ["실무 역량", c.lineBreakdown.ability],
+                    ["실무 경험", c.lineBreakdown.experience],
+                    ["실무 경력", c.lineBreakdown.career],
+                  ] as const
+                ).map(([label, line]) => (
+                  <div
+                    key={label}
+                    className="rounded-md border bg-muted/30 px-2 py-1"
+                  >
+                    <div className="text-[10px] text-muted-foreground">
+                      {label}
+                    </div>
+                    <div className="text-xs font-medium tabular-nums">
+                      {line.completed} / {line.available}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────
@@ -613,9 +816,10 @@ export default function Cluster4Editor({
   memberDisplayName?: string | null;
 }) {
   const devMode = useAdminDevMode();
-  const [activeTab, setActiveTab] = useState<TabKey>("season_review");
+  const [activeTab, setActiveTab] = useState<TabKey>("weekly_growth");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [weeklyGrowth, setWeeklyGrowth] = useState<WeeklyGrowthDto | null>(null);
   const [bundle, setBundle] = useState<Cluster4Bundle>(() =>
     emptyBundle(legacyUserId),
   );
@@ -629,20 +833,76 @@ export default function Cluster4Editor({
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [lastApplied, setLastApplied] = useState<Cluster4ApplySummary | null>(null);
 
+  const [wlSeason, setWlSeason] = useState("all");
+  const [wlResult, setWlResult] = useState("all");
+  const [wlPage, setWlPage] = useState(1);
+  const WL_PAGE_SIZE = 4;
+
+  const weeklyCards: WeeklyCardDto[] = weeklyGrowth?.weeklyCards ?? [];
+
+  const seasonOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const c of weeklyCards) {
+      const key = c.seasonKey ?? `${c.seasonYear}_${c.seasonName}`;
+      if (!seen.has(key)) {
+        seen.set(key, `${c.seasonYear} ${c.seasonName}`);
+      }
+    }
+    return [
+      { value: "all", label: "전체" },
+      ...[...seen.entries()].map(([value, label]) => ({ value, label })),
+    ];
+  }, [weeklyCards]);
+
+  const wlFiltered = useMemo(() => {
+    let list = weeklyCards;
+    if (wlSeason !== "all") {
+      list = list.filter((c) => {
+        const key = c.seasonKey ?? `${c.seasonYear}_${c.seasonName}`;
+        return key === wlSeason;
+      });
+    }
+    if (wlResult !== "all") {
+      list = list.filter((c) => c.resultStatus === wlResult);
+    }
+    return list;
+  }, [weeklyCards, wlSeason, wlResult]);
+
+  const wlTotalPages = Math.max(1, Math.ceil(wlFiltered.length / WL_PAGE_SIZE));
+  const wlPageClamped = Math.min(wlPage, wlTotalPages);
+  const wlPaged = wlFiltered.slice(
+    (wlPageClamped - 1) * WL_PAGE_SIZE,
+    wlPageClamped * WL_PAGE_SIZE,
+  );
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `/api/admin/crews/${encodeURIComponent(legacyUserId)}/cluster4`,
-        { cache: "no-store" },
-      );
-      const json = await response.json();
+      const [response, growthRes] = await Promise.all([
+        fetch(
+          `/api/admin/crews/${encodeURIComponent(legacyUserId)}/cluster4`,
+          { cache: "no-store" },
+        ),
+        fetch(
+          `/api/admin/crews/${encodeURIComponent(legacyUserId)}/cluster4/weekly-growth`,
+          { cache: "no-store" },
+        ),
+      ]);
+      const [json, growthJson] = await Promise.all([
+        response.json(),
+        growthRes.json(),
+      ]);
       if (!response.ok || !json.success) {
         throw new Error(json?.error ?? "Failed to load cluster4.");
       }
       const nextBundle = json.data as Cluster4Bundle;
       setBundle(nextBundle);
       setForm(syncFormFromBundle(nextBundle));
+      setWeeklyGrowth(
+        growthRes.ok && growthJson?.success
+          ? (growthJson.data as WeeklyGrowthDto)
+          : null,
+      );
       setLastLoadedAt(new Date().toISOString());
       setBanner(null);
     } catch (error) {
@@ -876,6 +1136,7 @@ export default function Cluster4Editor({
     });
 
   const tabHasSave = ![
+    "weekly_growth",
     "activities",
     "debug",
   ].includes(activeTab);
@@ -1059,6 +1320,323 @@ export default function Cluster4Editor({
           );
         })}
       </div>
+
+      {/* ───────────── 주간 성장 (WEEKLY GROWTH) ───────────── */}
+      {activeTab === "weekly_growth" && (
+        <>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {devMode ? "Weekly Growth" : "주간 성장"}
+            </CardTitle>
+            {devMode && (
+              <p className="text-xs text-muted-foreground">
+                user_week_statuses + season_definitions + official_rest_weeks
+              </p>
+            )}
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {!weeklyGrowth ? (
+              <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">
+                {loading ? "로딩 중..." : "주간 성장 데이터를 불러올 수 없습니다."}
+              </div>
+            ) : (
+              <>
+                {/* 현재 클럽 진행 문구 */}
+                <div className="rounded-lg border bg-muted/20 px-4 py-3">
+                  <p className="text-sm leading-relaxed">
+                    {weeklyGrowth.currentWeekInfo.status === "running" ? (
+                      <>
+                        현재 클럽은,{" "}
+                        <span className="font-semibold">
+                          {weeklyGrowth.currentWeekInfo.year}년{" "}
+                          {weeklyGrowth.currentWeekInfo.seasonName}
+                        </span>
+                        ,{" "}
+                        <span className="font-semibold">
+                          {weeklyGrowth.currentWeekInfo.weekNumber}주차
+                        </span>{" "}
+                        를 진행 중에 있습니다.
+                      </>
+                    ) : weeklyGrowth.currentWeekInfo.status === "transition" ? (
+                      <>
+                        현재 클럽은,{" "}
+                        <span className="font-semibold">
+                          {weeklyGrowth.currentWeekInfo.year}년{" "}
+                          {weeklyGrowth.currentWeekInfo.seasonName}
+                        </span>
+                        에서,{" "}
+                        <span className="font-semibold">
+                          {weeklyGrowth.currentWeekInfo.year}년{" "}
+                          {weeklyGrowth.currentWeekInfo.nextSeasonName ??
+                            "다음 시즌"}
+                        </span>
+                        으로 전환하는, 휴식(전환 준비) 중에 있습니다.
+                      </>
+                    ) : (
+                      <>
+                        현재 클럽은,{" "}
+                        <span className="font-semibold">
+                          {weeklyGrowth.currentWeekInfo.year}년{" "}
+                          {weeklyGrowth.currentWeekInfo.seasonName}
+                        </span>
+                        ,{" "}
+                        <span className="font-semibold">
+                          {weeklyGrowth.currentWeekInfo.weekNumber}주차
+                        </span>{" "}
+                        를 휴식(
+                        {weeklyGrowth.currentWeekInfo.restReason
+                          ? formatRestReasonLabel(
+                              weeklyGrowth.currentWeekInfo.restReason,
+                            )
+                          : "공식 휴식"}
+                        ) 중에 있습니다.
+                      </>
+                    )}
+                  </p>
+                  {devMode && (
+                    <div className="mt-2 text-[10px] text-muted-foreground">
+                      status: {weeklyGrowth.currentWeekInfo.status} ·
+                      restReason: {String(weeklyGrowth.currentWeekInfo.restReason)} ·
+                      period: {weeklyGrowth.currentWeekInfo.startDate} ~ {weeklyGrowth.currentWeekInfo.endDate}
+                    </div>
+                  )}
+                </div>
+
+                {/* Details 6개 항목 */}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {/* 1. 성장 시작 주차 */}
+                  <div className="rounded-md border bg-muted/30 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {devMode ? "1. 성장 시작 주차 (startWeekDisplay)" : "성장 시작 주차"}
+                    </div>
+                    <div className="mt-0.5 text-sm font-medium">
+                      {weeklyGrowth.growthSummary.startWeekDisplay}
+                    </div>
+                  </div>
+
+                  {/* 2. 성장 가능 주차 */}
+                  <div className="rounded-md border bg-muted/30 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {devMode
+                        ? "2. 성장 가능 주차 (availableWeeks)"
+                        : "성장 가능 주차"}
+                    </div>
+                    <div className="mt-0.5 text-sm font-medium tabular-nums">
+                      {weeklyGrowth.growthSummary.availableWeeks}개 주차
+                    </div>
+                    {devMode && (
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">
+                        = 성공({weeklyGrowth.growthSummary.approvedWeeks}) + 실패(
+                        {weeklyGrowth.growthSummary.failedWeeks}) + 휴식(
+                        {weeklyGrowth.growthSummary.restWeeks})
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. 성장 성공 주차 */}
+                  <div className="rounded-md border bg-muted/30 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {devMode
+                        ? "3. 성장 성공 주차 (approvedWeeks)"
+                        : "성장 성공 주차"}
+                    </div>
+                    <div className="mt-0.5 text-sm font-medium tabular-nums">
+                      {weeklyGrowth.growthSummary.approvedWeeks}개 주차
+                    </div>
+                  </div>
+
+                  {/* 4. 성장 실패 주차 */}
+                  <div className="rounded-md border bg-muted/30 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {devMode
+                        ? "4. 성장 실패 주차 (failedWeeks)"
+                        : "성장 실패 주차"}
+                    </div>
+                    <div className="mt-0.5 text-sm font-medium tabular-nums">
+                      {weeklyGrowth.growthSummary.failedWeeks}개 주차
+                    </div>
+                  </div>
+
+                  {/* 5. 성장 휴식 주차 */}
+                  <div className="rounded-md border bg-muted/30 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {devMode
+                        ? "5. 성장 휴식 주차 (restWeeks)"
+                        : "성장 휴식 주차"}
+                    </div>
+                    <div className="mt-0.5 text-sm font-medium tabular-nums">
+                      {weeklyGrowth.growthSummary.restSeasonCount > 0
+                        ? `${weeklyGrowth.growthSummary.restWeeks}(${weeklyGrowth.growthSummary.restSeasonCount})개 주차`
+                        : `${weeklyGrowth.growthSummary.restWeeks}개 주차`}
+                    </div>
+                    {devMode &&
+                      weeklyGrowth.growthSummary.restSeasonCount > 0 && (
+                        <div className="mt-0.5 text-[10px] text-muted-foreground">
+                          괄호 안 = 시즌 휴식 카운트 (restSeasonCount)
+                        </div>
+                      )}
+                  </div>
+
+                  {/* 6. 성장 종료 주차 */}
+                  <div className="rounded-md border bg-muted/30 px-3 py-2">
+                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {devMode
+                        ? "6. 성장 종료 주차 (endWeekDisplay)"
+                        : "성장 종료 주차"}
+                    </div>
+                    <div
+                      className={cn(
+                        "mt-0.5 text-sm font-medium",
+                        weeklyGrowth.growthSummary.endStatus === "in_progress" &&
+                          "text-blue-600",
+                        weeklyGrowth.growthSummary.endStatus === "completed" &&
+                          "text-emerald-600",
+                        weeklyGrowth.growthSummary.endStatus === "stopped" &&
+                          "text-red-600",
+                      )}
+                    >
+                      {weeklyGrowth.growthSummary.endWeekDisplay}
+                    </div>
+                    {devMode && (
+                      <div className="mt-0.5 text-[10px] text-muted-foreground">
+                        endStatus: {weeklyGrowth.growthSummary.endStatus}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ───────────── 주차 리스트 (WEEKLY LIST) ───────────── */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {devMode ? "Weekly List" : "주차 리스트"}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {/* filter bar */}
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/20 px-3 py-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setWlSeason("all");
+                  setWlResult("all");
+                  setWlPage(1);
+                }}
+                className="rounded-md border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted"
+              >
+                Reset
+              </button>
+
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  역대 시즌
+                </span>
+                <select
+                  value={wlSeason}
+                  onChange={(e) => {
+                    setWlSeason(e.target.value);
+                    setWlPage(1);
+                  }}
+                  className="h-7 rounded-md border bg-background px-2 text-xs"
+                >
+                  {seasonOptions.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  주차 결과
+                </span>
+                <select
+                  value={wlResult}
+                  onChange={(e) => {
+                    setWlResult(e.target.value);
+                    setWlPage(1);
+                  }}
+                  className="h-7 rounded-md border bg-background px-2 text-xs"
+                >
+                  {RESULT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
+                <span>
+                  검색 결과{" "}
+                  <span className="font-semibold text-foreground">
+                    {wlFiltered.length}
+                  </span>
+                  건
+                </span>
+                <span>
+                  전체 주차{" "}
+                  <span className="font-semibold text-foreground">
+                    {weeklyCards.length}
+                  </span>
+                  개
+                </span>
+              </div>
+            </div>
+
+            {/* cards */}
+            {wlPaged.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {wlPaged.map((c) => (
+                  <WeeklyListCard
+                    key={`${c.seasonYear}-${c.seasonName}-${c.weekNumber}`}
+                    card={c}
+                    organization={organization}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">
+                현재 해당하는 주차가 없습니다.
+              </div>
+            )}
+
+            {/* pagination */}
+            {wlFiltered.length > WL_PAGE_SIZE && (
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={wlPageClamped <= 1}
+                  onClick={() => setWlPage((p) => Math.max(1, p - 1))}
+                >
+                  이전
+                </Button>
+                <span className="text-xs tabular-nums text-muted-foreground">
+                  {wlPageClamped} / {wlTotalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={wlPageClamped >= wlTotalPages}
+                  onClick={() => setWlPage((p) => Math.min(wlTotalPages, p + 1))}
+                >
+                  다음
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        </>
+      )}
 
       {/* ───────────── 시즌 리뷰 ───────────── */}
       {activeTab === "season_review" && (

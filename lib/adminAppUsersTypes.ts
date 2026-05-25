@@ -6,6 +6,7 @@ export const APP_USER_STATUSES = [
   "active",
   "weekly_rest",
   "seasonal_rest",
+  "paused",
   "graduated",
   "suspended",
 ] as const;

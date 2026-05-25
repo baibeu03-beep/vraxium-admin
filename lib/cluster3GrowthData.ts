@@ -1,0 +1,395 @@
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
+import { getGraduationThreshold, getPointLabels } from "@/lib/pointLabels";
+import {
+  GROWTH_DISPLAY_LABELS,
+  type GrowthDisplayKey,
+  type GrowthIndicatorsDto,
+  type GrowthIndicatorsInternal,
+  type GrowthPeriod,
+  type GrowthPointLabeled,
+  type GrowthProcess,
+} from "@/lib/cluster3GrowthTypes";
+
+// Cluster3 성장 지표 계산 — server-only.
+
+export class GrowthError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "GrowthError";
+    this.status = status;
+  }
+}
+
+type ProfileRow = {
+  user_id: string;
+  growth_status: string | null;
+  activity_started_at: string | null;
+  activity_ended_at: string | null;
+  organization_slug: string | null;
+};
+
+type WeekStatusRow = {
+  status: string;
+  year?: number;
+  week_number?: number;
+  is_official_rest_override?: boolean;
+};
+
+type PointRow = {
+  total_stars: number | null;
+  total_shields: number | null;
+  total_lightnings: number | null;
+  total_raw_advantages: number | null;
+};
+
+type SeasonStatusRow = { user_id?: string; status: string };
+
+const DEFAULT_POINT_LABELS = { points: "점수", advantages: "이점", penalty: "패널티" };
+
+// ─── route param → user_profiles.user_id 변환 ─────────────────────────
+// URL 에 UUID 가 오면 user_profiles 에서 직접 매칭,
+// 정수(legacy_user_id)가 오면 users 테이블을 경유해 UUID 로 변환.
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function resolveGrowthUserId(routeParam: string): Promise<string> {
+  const id = String(routeParam ?? "").trim();
+  if (!id) throw new GrowthError(400, "userId is empty");
+
+  if (UUID_RE.test(id)) {
+    const { data, error } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id")
+      .eq("user_id", id)
+      .maybeSingle();
+    if (error) throw new GrowthError(500, error.message);
+    if (data) return (data as { user_id: string }).user_id;
+  }
+
+  // integer legacy_user_id → users.id(UUID)
+  if (/^\d+$/.test(id)) {
+    const { data, error } = await supabaseAdmin
+      .from("users")
+      .select("id")
+      .eq("legacy_user_id", Number(id))
+      .maybeSingle();
+    if (error) throw new GrowthError(500, error.message);
+    if (data) return (data as { id: string }).id;
+  }
+
+  throw new GrowthError(404, `user not found for param "${id}"`);
+}
+
+// ─── 현재 ISO 주차 ─────────────────────────────────────────────────
+
+function getCurrentISOWeek(): { year: number; week: number } {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return { year: d.getUTCFullYear(), week };
+}
+
+// ─── 표시명 10종 우선순위 결정 ──────────────────────────────────────
+//
+//  10. graduated      → "성장 완료(졸업)"
+//   9. suspended      → "성장 중단"
+//   8. paused         → "성장 유보"
+//   7. graduating     → "졸업 절차 중"
+//   6. seasonal_rest  → "시즌 휴식 중"
+//   5. weekly_rest    → "휴식(개인) 중"
+//   4. 현재 주차 official_rest → "휴식(공식) 중"
+//   3. h <= 1 && active        → "클럽 온보딩 중"
+//   2. a >= threshold && active → "추가 성장 중"
+//   1. active                   → "성장 중"
+
+function resolveDisplayKey(
+  dbStatus: string | null,
+  currentWeekStatus: string | null,
+  a: number,
+  h: number,
+  graduationThreshold: number | null,
+): GrowthDisplayKey {
+  switch (dbStatus) {
+    case "graduated": return "graduated";
+    case "suspended": return "suspended";
+    case "paused": return "paused";
+    case "graduating": return "graduating";
+    case "seasonal_rest": return "seasonal_rest";
+    case "weekly_rest": return "weekly_rest";
+  }
+
+  // DB status = active (또는 null) → 계산 상태로 분기
+  if (currentWeekStatus === "official_rest") return "official_rest";
+  if (h <= 1) return "onboarding";
+  if (graduationThreshold !== null && a >= graduationThreshold) return "extra_growth";
+  return "active";
+}
+
+// ─── 내부 빌더 ──────────────────────────────────────────────────────
+
+function buildIndicators(
+  profile: ProfileRow,
+  weekRows: WeekStatusRow[],
+  pts: PointRow | null,
+  currentWeekStatus: string | null,
+  seasonRows: SeasonStatusRow[],
+): GrowthIndicatorsInternal {
+  const org = profile.organization_slug;
+  const orgValid = org && isOrganizationSlug(org) ? (org as OrganizationSlug) : null;
+  const threshold = orgValid ? getGraduationThreshold(orgValid) : null;
+
+  let a = 0, b = 0, c = 0, d = 0, overrideCount = 0;
+  for (const row of weekRows) {
+    switch (row.status) {
+      case "success": a++; break;
+      case "fail": b++; break;
+      case "personal_rest": c++; break;
+      case "official_rest": d++; break;
+    }
+    if (row.is_official_rest_override) overrideCount++;
+  }
+  const h = a + b + c + d;
+
+  // f = 성장 휴식 시즌 (시즌 전체 휴식 신청)
+  // g = 성장(성공) 시즌 (f 가 아닌 시즌)
+  let f = 0, g = 0;
+  for (const sr of seasonRows) {
+    if (sr.status === "rest") f++;
+    else g++;
+  }
+
+  const displayKey = resolveDisplayKey(
+    profile.growth_status, currentWeekStatus, a, h, threshold,
+  );
+
+  const process: GrowthProcess = {
+    growthStatus: profile.growth_status,
+    growthStatusDisplay: GROWTH_DISPLAY_LABELS[displayKey],
+    growthDisplayKey: displayKey,
+    activityStartedAt: profile.activity_started_at,
+    activityStartedAtDisplay: profile.activity_started_at
+      ? new Date(profile.activity_started_at).toISOString().slice(0, 10)
+      : "—",
+    activityEndedAt: profile.activity_ended_at,
+    activityEndedAtDisplay: profile.activity_ended_at
+      ? new Date(profile.activity_ended_at).toISOString().slice(0, 10)
+      : "Be Cluving",
+  };
+
+  const period: GrowthPeriod = { a, b, c, d, e: a + b + c, h, f, g };
+
+  const j = pts?.total_stars ?? 0;
+  const k0 = pts?.total_raw_advantages ?? 0;
+  const l = Math.abs(pts?.total_lightnings ?? 0);
+  const k = k0 - l;
+  const storedShields = pts?.total_shields ?? 0;
+
+  const labels = orgValid ? getPointLabels(orgValid) : DEFAULT_POINT_LABELS;
+
+  const point: GrowthPointLabeled = {
+    points: j,
+    rawAdvantages: k0,
+    penalty: l,
+    netAdvantages: k,
+    pointsLabel: labels.points,
+    advantagesLabel: labels.advantages,
+    penaltyLabel: labels.penalty,
+  };
+
+  return {
+    userId: profile.user_id,
+    organizationSlug: org,
+    process,
+    period,
+    point,
+    _debug: {
+      graduationThreshold: threshold,
+      graduationEligible: threshold !== null && a >= threshold,
+      integrityOk: storedShields === k,
+      currentWeekStatus,
+      officialRestOverrideCount: overrideCount,
+      weekRowCount: weekRows.length,
+      seasonRowCount: seasonRows.length,
+    },
+  };
+}
+
+function toPublicDto(internal: GrowthIndicatorsInternal): GrowthIndicatorsDto {
+  const { _debug: _, ...dto } = internal;
+  return dto;
+}
+
+// ─── 현재 주차 상태 조회 헬퍼 ───────────────────────────────────────
+
+async function fetchCurrentWeekStatus(userId: string): Promise<string | null> {
+  const { year, week } = getCurrentISOWeek();
+  const { data } = await supabaseAdmin
+    .from("user_week_statuses")
+    .select("status")
+    .eq("user_id", userId)
+    .eq("year", year)
+    .eq("week_number", week)
+    .maybeSingle();
+  return (data as { status: string } | null)?.status ?? null;
+}
+
+async function fetchCurrentWeekStatusBatch(
+  userIds: string[],
+): Promise<Map<string, string>> {
+  const { year, week } = getCurrentISOWeek();
+  const { data } = await supabaseAdmin
+    .from("user_week_statuses")
+    .select("user_id,status")
+    .in("user_id", userIds)
+    .eq("year", year)
+    .eq("week_number", week);
+
+  const map = new Map<string, string>();
+  for (const row of (data ?? []) as Array<{ user_id: string; status: string }>) {
+    map.set(row.user_id, row.status);
+  }
+  return map;
+}
+
+// ─── 공개 API (UI 용) ───────────────────────────────────────────────
+
+export async function getGrowthIndicators(
+  userId: string,
+): Promise<GrowthIndicatorsDto> {
+  const internal = await getGrowthIndicatorsInternal(userId);
+  return toPublicDto(internal);
+}
+
+export async function getGrowthIndicatorsBatch(
+  userIds: string[],
+): Promise<GrowthIndicatorsDto[]> {
+  const internals = await getGrowthIndicatorsBatchInternal(userIds);
+  return internals.map(toPublicDto);
+}
+
+// ─── 내부 API (디버깅 · 테스트 · 관리자 검증) ──────────────────────
+
+export async function getGrowthIndicatorsInternal(
+  userId: string,
+): Promise<GrowthIndicatorsInternal> {
+  const [profileRes, weekRes, pointRes, seasonRes, currentWeekStatus] = await Promise.all([
+    supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("user_week_statuses")
+      .select("status,is_official_rest_override")
+      .eq("user_id", userId),
+    supabaseAdmin
+      .from("user_cumulative_points")
+      .select("total_stars,total_shields,total_lightnings,total_raw_advantages")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("user_season_statuses")
+      .select("status")
+      .eq("user_id", userId),
+    fetchCurrentWeekStatus(userId),
+  ]);
+
+  if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
+  if (weekRes.error) throw new GrowthError(500, weekRes.error.message);
+  if (pointRes.error) throw new GrowthError(500, pointRes.error.message);
+  if (seasonRes.error) throw new GrowthError(500, seasonRes.error.message);
+
+  const profile = (profileRes.data ?? null) as ProfileRow | null;
+  if (!profile) throw new GrowthError(404, "user_profiles not found");
+
+  const weekRows = (weekRes.data ?? []) as WeekStatusRow[];
+  const seasonRows = (seasonRes.data ?? []) as SeasonStatusRow[];
+
+  if (weekRows.length === 0) {
+    console.warn(
+      `[growth] user_week_statuses is EMPTY for user ${userId} — all Period week counts will be 0`,
+    );
+  }
+  if (seasonRows.length === 0) {
+    console.warn(
+      `[growth] user_season_statuses is EMPTY for user ${userId} — season counts (f/g) will be 0`,
+    );
+  }
+
+  return buildIndicators(
+    profile,
+    weekRows,
+    (pointRes.data ?? null) as PointRow | null,
+    currentWeekStatus,
+    seasonRows,
+  );
+}
+
+export async function getGrowthIndicatorsBatchInternal(
+  userIds: string[],
+): Promise<GrowthIndicatorsInternal[]> {
+  if (userIds.length === 0) return [];
+
+  const [profileRes, weekRes, pointRes, seasonRes, currentWeekMap] = await Promise.all([
+    supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
+      .in("user_id", userIds),
+    supabaseAdmin
+      .from("user_week_statuses")
+      .select("user_id,status,is_official_rest_override")
+      .in("user_id", userIds),
+    supabaseAdmin
+      .from("user_cumulative_points")
+      .select("user_id,total_stars,total_shields,total_lightnings,total_raw_advantages")
+      .in("user_id", userIds),
+    supabaseAdmin
+      .from("user_season_statuses")
+      .select("user_id,status")
+      .in("user_id", userIds),
+    fetchCurrentWeekStatusBatch(userIds),
+  ]);
+
+  if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
+  if (weekRes.error) throw new GrowthError(500, weekRes.error.message);
+  if (pointRes.error) throw new GrowthError(500, pointRes.error.message);
+  if (seasonRes.error) throw new GrowthError(500, seasonRes.error.message);
+
+  const profiles = (profileRes.data ?? []) as ProfileRow[];
+  const allWeeks = (weekRes.data ?? []) as (WeekStatusRow & { user_id: string })[];
+  const allPoints = (pointRes.data ?? []) as (PointRow & { user_id: string })[];
+  const allSeasons = (seasonRes.data ?? []) as (SeasonStatusRow & { user_id: string })[];
+
+  const weeksByUser = new Map<string, WeekStatusRow[]>();
+  for (const row of allWeeks) {
+    const list = weeksByUser.get(row.user_id) ?? [];
+    list.push(row);
+    weeksByUser.set(row.user_id, list);
+  }
+
+  const pointsByUser = new Map<string, PointRow>();
+  for (const row of allPoints) {
+    pointsByUser.set(row.user_id, row);
+  }
+
+  const seasonsByUser = new Map<string, SeasonStatusRow[]>();
+  for (const row of allSeasons) {
+    const list = seasonsByUser.get(row.user_id!) ?? [];
+    list.push(row);
+    seasonsByUser.set(row.user_id!, list);
+  }
+
+  return profiles.map((profile) =>
+    buildIndicators(
+      profile,
+      weeksByUser.get(profile.user_id) ?? [],
+      pointsByUser.get(profile.user_id) ?? null,
+      currentWeekMap.get(profile.user_id) ?? null,
+      seasonsByUser.get(profile.user_id) ?? [],
+    ),
+  );
+}
