@@ -34,7 +34,7 @@ export type CareerProjectDto = {
   supervisorProfileImg: string | null;
 
   createdAt: string;
-  updatedAt: string;
+  updatedAt: string | null;
 
   // 운영 보조 — 목록 화면에서 연결된 주차 수를 보여주기 위함
   weekCount: number;

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
+import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import {
   EditWindowError,
   evaluateEditWindowPermission,
@@ -29,15 +30,7 @@ async function getCurrentUserId(): Promise<string | null> {
   } = await supabase.auth.getUser();
   if (error || !user) return null;
 
-  const { data, error: profileError } = await supabaseAdmin
-    .from("user_profiles")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (profileError) {
-    throw new Error(profileError.message);
-  }
-  return (data as { user_id: string } | null)?.user_id ?? null;
+  return resolveProfileUserId(user.id, user.email);
 }
 
 async function isCurrentUserAdmin(userId: string): Promise<boolean> {

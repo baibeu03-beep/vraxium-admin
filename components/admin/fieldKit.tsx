@@ -264,3 +264,11 @@ export function fmt(value: unknown): string {
   if (typeof value === "boolean") return value ? "true" : "false";
   return String(value);
 }
+
+export function formatDepartmentName(name: unknown): string {
+  if (name === null || name === undefined || name === "") return "—";
+  const str = String(name).trim();
+  if (str === "") return "—";
+  if (str.endsWith("학과")) return str.slice(0, -2);
+  return str;
+}

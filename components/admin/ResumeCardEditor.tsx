@@ -19,6 +19,7 @@ import {
   FieldCell,
   PreviewBlock,
   fmt,
+  formatDepartmentName,
   normalizeForPatch,
   type FieldDef,
 } from "@/components/admin/fieldKit";
@@ -63,6 +64,7 @@ type OrgSettings = {
   medal_theme: string | null;
   notice_top_text: string | null;
   notice_top_stamp_image_url: string | null;
+  point_label: string | null;
 } | null;
 
 type SiteSettings = {
@@ -615,7 +617,7 @@ export default function ResumeCardEditor({
                   {fmt(form.education.school_name)}
                 </PreviewBlock>
                 <PreviewBlock title={devMode ? "전공 (major_name_1)" : "전공"}>
-                  {fmt(form.education.major_name_1)}
+                  {formatDepartmentName(form.education.major_name_1)}
                 </PreviewBlock>
                 {devMode && (
                   <>
@@ -859,7 +861,7 @@ export default function ResumeCardEditor({
                 </CardTitle>
                 {devMode && (
                   <p className="text-xs text-muted-foreground">
-                    (r / p) × 100 · Cluster4 연동 전 더미
+                    (r / p) × 100 · Cluster4 실데이터 연동
                   </p>
                 )}
               </CardHeader>
@@ -1005,7 +1007,7 @@ export default function ResumeCardEditor({
                 </CardTitle>
                 {devMode && (
                   <p className="text-xs text-muted-foreground">
-                    Cluster4 연동 전 더미
+                    Cluster4 실데이터 연동
                   </p>
                 )}
               </CardHeader>
@@ -1108,7 +1110,7 @@ export default function ResumeCardEditor({
               </PreviewBlock>
               <PreviewBlock title="학교 · 학과">
                 {fmt(form.education.school_name)} ·{" "}
-                {fmt(form.education.major_name_1)}
+                {formatDepartmentName(form.education.major_name_1)}
               </PreviewBlock>
               <PreviewBlock title="팀 · 파트 · 단계">
                 {fmt(form.membership.team_name)} ·{" "}

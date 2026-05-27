@@ -34,6 +34,7 @@ import {
   type OrganizationSlug,
 } from "@/lib/organizations";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import { formatDepartmentName } from "@/components/admin/fieldKit";
 
 type Crew = {
   id?: string | number;
@@ -470,7 +471,7 @@ export default function CrewManager({
                     <TableCell>{formatValue(crew.contactPhone)}</TableCell>
                     <TableCell>{formatValue(crew.contactEmail)}</TableCell>
                     <TableCell>{formatValue(crew.schoolName)}</TableCell>
-                    <TableCell>{formatValue(crew.departmentName ?? crew.majorName)}</TableCell>
+                    <TableCell>{formatDepartmentName(crew.departmentName ?? crew.majorName)}</TableCell>
                     <TableCell>{formatValue(crew.teamName)}</TableCell>
                     <TableCell>{formatValue(crew.partName)}</TableCell>
                     <TableCell>{formatValue(crew.membershipLevel)}</TableCell>
@@ -709,9 +710,9 @@ function CrewFormModal({
               <ReadonlyField label={devMode ? "Email" : "이메일"} value={editing.contactEmail} />
               <ReadonlyField
                 label={devMode ? "School / Department" : "학교 / 학과"}
-                value={
+                value={formatDepartmentName(
                   editing.universityMajor ?? editing.schoolName ?? editing.departmentName
-                }
+                )}
               />
               <ReadonlyField label={devMode ? "Team" : "팀"} value={editing.teamName} />
               <ReadonlyField label={devMode ? "Part" : "파트"} value={editing.partName} />

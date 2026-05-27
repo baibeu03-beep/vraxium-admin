@@ -53,7 +53,7 @@ export const WEEK_STATUS_STYLE: Record<
 };
 
 // ─────────────────────────────────────────────────────────────────────
-// 주간 카드 DTO (더미 → 실데이터 통합)
+// 주간 카드 DTO
 // ─────────────────────────────────────────────────────────────────────
 
 export type WeeklyCardLineDetail = {
@@ -125,10 +125,19 @@ export type GrowthSummary = {
   endStatus: EndStatus;
 };
 
+export type SeasonGrowthRate = {
+  seasonKey: string;
+  seasonLabel: string;
+  totalCompleted: number;
+  totalAvailable: number;
+  rate: number;
+};
+
 export type WeeklyGrowthDto = {
   currentWeekInfo: CurrentWeekInfo;
   growthSummary: GrowthSummary;
   weeklyCards: WeeklyCardDto[];
+  seasonGrowthRates: SeasonGrowthRate[];
 };
 
 // ─────────────────────────────────────────────────────────────────────

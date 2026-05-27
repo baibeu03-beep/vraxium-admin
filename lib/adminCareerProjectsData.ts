@@ -41,14 +41,37 @@ type CareerProjectRow = {
   supervisor_company: string | null;
   supervisor_profile_img: string | null;
   created_at: string;
-  updated_at: string;
+  updated_at?: string | null;
 };
 
-const PROJECT_SELECT =
-  "id,company_name,company_logo_url,job_position,project_name,project_description,line_code,line_name,output_links,output_images,company_homepage_links,secondary_info_deadline,supervisor_name,supervisor_position,supervisor_department,supervisor_company,supervisor_profile_img,created_at,updated_at";
+const PROJECT_SELECT_BASE =
+  "id,company_name,company_logo_url,job_position,project_name,project_description,line_code,line_name,output_links,output_images,company_homepage_links,secondary_info_deadline,supervisor_name,supervisor_position,supervisor_department,supervisor_company,supervisor_profile_img,created_at";
+const PROJECT_SELECT_WITH_UPDATED_AT = `${PROJECT_SELECT_BASE},updated_at`;
 
 function escapeForIlike(value: string) {
   return value.replace(/[%_,()]/g, "").trim();
+}
+
+function isMissingUpdatedAtColumn(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  if (error.code === "42703") return true;
+  return /career_projects\.updated_at/i.test(error.message ?? "");
+}
+
+async function withCareerProjectsSelect<T>(
+  run: (selectClause: string) => Promise<T>,
+): Promise<T> {
+  try {
+    return await run(PROJECT_SELECT_WITH_UPDATED_AT);
+  } catch (error) {
+    if (
+      error instanceof CareerProjectError &&
+      isMissingUpdatedAtColumn(error)
+    ) {
+      return run(PROJECT_SELECT_BASE);
+    }
+    throw error;
+  }
 }
 
 function toDto(row: CareerProjectRow, weekCount: number): CareerProjectDto {
@@ -71,7 +94,7 @@ function toDto(row: CareerProjectRow, weekCount: number): CareerProjectDto {
     supervisorCompany: row.supervisor_company,
     supervisorProfileImg: row.supervisor_profile_img,
     createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    updatedAt: row.updated_at ?? row.created_at ?? null,
     weekCount,
   };
 }
@@ -159,40 +182,44 @@ export async function listCareerProjects(
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
   const offset = Math.max(options.offset ?? 0, 0);
 
-  let queryBuilder = supabaseAdmin
-    .from("career_projects")
-    .select(PROJECT_SELECT, { count: "exact" });
-
   const rawQuery = options.query?.trim() ?? "";
-  if (rawQuery.length > 0) {
-    const escaped = escapeForIlike(rawQuery);
-    if (escaped.length > 0) {
-      const filters = [
-        `company_name.ilike.%${escaped}%`,
-        `project_name.ilike.%${escaped}%`,
-        `job_position.ilike.%${escaped}%`,
-        `line_code.ilike.%${escaped}%`,
-        `line_name.ilike.%${escaped}%`,
-      ];
-      if (isUuid(rawQuery)) {
-        filters.push(`id.eq.${rawQuery}`);
+  const runListQuery = async (selectClause: string) => {
+    let queryBuilder = supabaseAdmin
+      .from("career_projects")
+      .select(selectClause, { count: "exact" });
+
+    if (rawQuery.length > 0) {
+      const escaped = escapeForIlike(rawQuery);
+      if (escaped.length > 0) {
+        const filters = [
+          `company_name.ilike.%${escaped}%`,
+          `project_name.ilike.%${escaped}%`,
+          `job_position.ilike.%${escaped}%`,
+          `line_code.ilike.%${escaped}%`,
+          `line_name.ilike.%${escaped}%`,
+        ];
+        if (isUuid(rawQuery)) {
+          filters.push(`id.eq.${rawQuery}`);
+        }
+        queryBuilder = queryBuilder.or(filters.join(","));
+      } else if (isUuid(rawQuery)) {
+        queryBuilder = queryBuilder.eq("id", rawQuery);
       }
-      queryBuilder = queryBuilder.or(filters.join(","));
-    } else if (isUuid(rawQuery)) {
-      queryBuilder = queryBuilder.eq("id", rawQuery);
     }
-  }
 
-  queryBuilder = queryBuilder
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: true })
-    .range(offset, offset + limit - 1);
+    queryBuilder = queryBuilder
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(offset, offset + limit - 1);
 
-  const { data, error, count } = await queryBuilder;
-  if (error) {
-    throw new CareerProjectError(500, error.message);
-  }
+    const { data, error, count } = await queryBuilder;
+    if (error) {
+      throw new CareerProjectError(500, error.message);
+    }
+    return { data, count };
+  };
 
+  const { data, count } = await withCareerProjectsSelect(runListQuery);
   const rows = (data ?? []) as unknown as CareerProjectRow[];
   const counts = await fetchWeekCounts(rows.map((row) => row.id));
   return {
@@ -211,14 +238,17 @@ export async function getCareerProject(id: string): Promise<CareerProjectDto> {
   if (!isUuid(id)) {
     throw new CareerProjectError(400, "id must be a UUID");
   }
-  const { data, error } = await supabaseAdmin
-    .from("career_projects")
-    .select(PROJECT_SELECT)
-    .eq("id", id)
-    .maybeSingle();
-  if (error) {
-    throw new CareerProjectError(500, error.message);
-  }
+  const { data } = await withCareerProjectsSelect(async (selectClause) => {
+    const result = await supabaseAdmin
+      .from("career_projects")
+      .select(selectClause)
+      .eq("id", id)
+      .maybeSingle();
+    if (result.error) {
+      throw new CareerProjectError(500, result.error.message);
+    }
+    return { data: result.data };
+  });
   if (!data) {
     throw new CareerProjectError(404, "career_project not found");
   }
@@ -235,17 +265,20 @@ export async function createCareerProject(
   input: CareerProjectUpsertInput,
 ): Promise<CareerProjectDto> {
   const payload = buildPayload(input);
-  const { data, error } = await supabaseAdmin
-    .from("career_projects")
-    .insert(payload)
-    .select(PROJECT_SELECT)
-    .single();
-  if (error || !data) {
-    throw new CareerProjectError(
-      500,
-      error?.message ?? "Failed to insert career_project",
-    );
-  }
+  const { data } = await withCareerProjectsSelect(async (selectClause) => {
+    const result = await supabaseAdmin
+      .from("career_projects")
+      .insert(payload)
+      .select(selectClause)
+      .single();
+    if (result.error || !result.data) {
+      throw new CareerProjectError(
+        500,
+        result.error?.message ?? "Failed to insert career_project",
+      );
+    }
+    return { data: result.data };
+  });
   return toDto(data as unknown as CareerProjectRow, 0);
 }
 
@@ -261,15 +294,18 @@ export async function updateCareerProject(
     throw new CareerProjectError(400, "id must be a UUID");
   }
   const payload = buildPayload(input);
-  const { data, error } = await supabaseAdmin
-    .from("career_projects")
-    .update(payload)
-    .eq("id", id)
-    .select(PROJECT_SELECT)
-    .maybeSingle();
-  if (error) {
-    throw new CareerProjectError(500, error.message);
-  }
+  const { data } = await withCareerProjectsSelect(async (selectClause) => {
+    const result = await supabaseAdmin
+      .from("career_projects")
+      .update(payload)
+      .eq("id", id)
+      .select(selectClause)
+      .maybeSingle();
+    if (result.error) {
+      throw new CareerProjectError(500, result.error.message);
+    }
+    return { data: result.data };
+  });
   if (!data) {
     throw new CareerProjectError(404, "career_project not found");
   }

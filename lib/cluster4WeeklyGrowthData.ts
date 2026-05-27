@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
+import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import {
   getSeasonForDate,
   getSeasonCalendar,
@@ -19,9 +20,17 @@ import {
   type WeekResultStatus,
   type CurrentWeekInfo,
   type GrowthSummary,
+  type SeasonGrowthRate,
   type RestReason,
   type EndStatus,
 } from "@/lib/cluster4WeeklyGrowthTypes";
+import {
+  fetchInfoLineCountsByWeek,
+  fetchCareerProjectCountsByWeek,
+  buildWeekAvailability,
+  ceilGrowthRate,
+  type LineCategory,
+} from "@/lib/lineAvailability";
 
 // ─────────────────────────────────────────────────────────────────────
 // Date/week utilities
@@ -309,13 +318,6 @@ function emptyGrowthSummary(): GrowthSummary {
 // Weekly Cards: 실제 DB 기반 주차 카드 목록
 // ─────────────────────────────────────────────────────────────────────
 
-const STANDARD_LINE_AVAILABLE = {
-  info: 7,
-  ability: 1,
-  experience: 2,
-  career: 2,
-};
-
 type UwsRow = {
   year: number;
   week_number: number;
@@ -344,7 +346,7 @@ type PointsRow = {
   penalty: number;
 };
 
-function classifyActivityType(clusterId: string | null): keyof typeof STANDARD_LINE_AVAILABLE {
+function classifyActivityType(clusterId: string | null): LineCategory {
   if (!clusterId) return "info";
   if (clusterId === "practical_competency" || clusterId.startsWith("comp-")) return "ability";
   if (clusterId === "practical_experience" || clusterId.startsWith("exp-")) return "experience";
@@ -446,12 +448,14 @@ async function computeWeeklyCards(
     }
   }
 
-  // 6. 주차별 활동 상세 (라인 분류별 카운트)
+  // 6. 주차별 활동 상세 (라인 분류별 카운트) + 가용 라인 수
   type ActivityRow = { week_id: string; activity_type_id: string };
   const activityByWeek = new Map<string, { info: number; ability: number; experience: number; career: number }>();
+  let infoLineMap = new Map<string, number>();
+  let careerProjectMap = new Map<string, number>();
 
   if (weekCardIds.length > 0) {
-    const [detailsRes, clusterMapRes] = await Promise.all([
+    const [detailsRes, clusterMapRes, infoMap, careerMap] = await Promise.all([
       supabaseAdmin
         .from("user_activity_details")
         .select("week_id,activity_type_id")
@@ -460,7 +464,12 @@ async function computeWeeklyCards(
       supabaseAdmin
         .from("activity_types")
         .select("id,cluster_id"),
+      fetchInfoLineCountsByWeek(userId, weekCardIds),
+      fetchCareerProjectCountsByWeek(weekCardIds),
     ]);
+
+    infoLineMap = infoMap;
+    careerProjectMap = careerMap;
 
     const clusterMap = new Map<string, string>();
     if (clusterMapRes.data) {
@@ -561,33 +570,18 @@ async function computeWeeklyCards(
       resultStatus === "personal_rest" ||
       resultStatus === "official_rest";
 
-    // 라인 분류
+    // 라인 분류: 가용 수는 동적 조회, 이행 수는 user_activity_details 기반
     const actCounts = weekCardId ? activityByWeek.get(weekCardId) : null;
-    const lineBreakdown: WeeklyCardLineBreakdown = isRest
-      ? {
-          info: { completed: 0, available: 0 },
-          ability: { completed: 0, available: 0 },
-          experience: { completed: 0, available: 0 },
-          career: { completed: 0, available: 0 },
-        }
-      : {
-          info: {
-            completed: actCounts?.info ?? 0,
-            available: STANDARD_LINE_AVAILABLE.info,
-          },
-          ability: {
-            completed: actCounts?.ability ?? 0,
-            available: STANDARD_LINE_AVAILABLE.ability,
-          },
-          experience: {
-            completed: actCounts?.experience ?? 0,
-            available: STANDARD_LINE_AVAILABLE.experience,
-          },
-          career: {
-            completed: actCounts?.career ?? 0,
-            available: STANDARD_LINE_AVAILABLE.career,
-          },
-        };
+    const avail = isRest
+      ? { info: 0, ability: 0, experience: 0, career: 0 }
+      : buildWeekAvailability(weekCardId, infoLineMap, careerProjectMap, organization);
+
+    const lineBreakdown: WeeklyCardLineBreakdown = {
+      info: { completed: isRest ? 0 : (actCounts?.info ?? 0), available: avail.info },
+      ability: { completed: isRest ? 0 : (actCounts?.ability ?? 0), available: avail.ability },
+      experience: { completed: isRest ? 0 : (actCounts?.experience ?? 0), available: avail.experience },
+      career: { completed: isRest ? 0 : (actCounts?.career ?? 0), available: avail.career },
+    };
 
     const completedLines =
       lineBreakdown.info.completed +
@@ -599,10 +593,7 @@ async function computeWeeklyCards(
       lineBreakdown.ability.available +
       lineBreakdown.experience.available +
       lineBreakdown.career.available;
-    const rate =
-      availableLines === 0
-        ? 0
-        : Math.ceil((completedLines / availableLines) * 100);
+    const rate = ceilGrowthRate(completedLines, availableLines);
 
     const displayWeekNum = seasonWeekNumber ?? uws.week_number;
 
@@ -644,6 +635,32 @@ async function computeWeeklyCards(
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// 시즌 성장률: 주차별 평균이 아니라 시즌 전체 합산 기반
+//   rate = ceil(totalCompleted / totalAvailable × 100)
+// ─────────────────────────────────────────────────────────────────────
+function computeSeasonGrowthRates(cards: WeeklyCardDto[]): SeasonGrowthRate[] {
+  const map = new Map<string, { label: string; completed: number; available: number }>();
+
+  for (const c of cards) {
+    if (!c.seasonKey) continue;
+    if (!map.has(c.seasonKey)) {
+      map.set(c.seasonKey, { label: c.seasonName, completed: 0, available: 0 });
+    }
+    const s = map.get(c.seasonKey)!;
+    s.completed += c.weeklyGrowth.completedLines;
+    s.available += c.weeklyGrowth.availableLines;
+  }
+
+  return [...map.entries()].map(([key, v]) => ({
+    seasonKey: key,
+    seasonLabel: v.label,
+    totalCompleted: v.completed,
+    totalAvailable: v.available,
+    rate: ceilGrowthRate(v.completed, v.available),
+  }));
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Main: Weekly Growth DTO (카드 포함)
 // ─────────────────────────────────────────────────────────────────────
 export async function getWeeklyGrowth(
@@ -659,6 +676,7 @@ export async function getWeeklyGrowth(
       currentWeekInfo,
       growthSummary: emptyGrowthSummary(),
       weeklyCards: [],
+      seasonGrowthRates: [],
     };
   }
 
@@ -673,5 +691,30 @@ export async function getWeeklyGrowth(
     ),
   ]);
 
-  return { currentWeekInfo, growthSummary, weeklyCards };
+  const seasonGrowthRates = computeSeasonGrowthRates(weeklyCards);
+
+  return { currentWeekInfo, growthSummary, weeklyCards, seasonGrowthRates };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// User-facing: auth.users.id → profile.user_id 해소 후
+// 어드민과 동일한 getWeeklyGrowth() 경로를 호출하여 1:1 일치 보장.
+// ─────────────────────────────────────────────────────────────────────
+export async function getWeeklyGrowthByUserId(
+  authUserId: string,
+  authEmail?: string | null,
+): Promise<WeeklyGrowthDto | null> {
+  const TAG = "[getWeeklyGrowthByUserId]";
+
+  const resolvedUserId = await resolveProfileUserId(authUserId, authEmail);
+  if (!resolvedUserId) {
+    console.warn(TAG, "no profile for auth.id =", authUserId, "| email =", authEmail);
+    return null;
+  }
+
+  if (resolvedUserId !== authUserId) {
+    console.log(TAG, "ID resolved: auth.id =", authUserId, "→ profile.user_id =", resolvedUserId);
+  }
+
+  return getWeeklyGrowth(resolvedUserId);
 }

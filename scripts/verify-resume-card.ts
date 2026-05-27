@@ -9,7 +9,10 @@ const sb = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-const LINES_PER_WEEK = 12;
+// 가용 라인 수가 동적(주차별 info 라인 개설 수 + org별 경험 + 경력 프로젝트 수)이므로
+// 이 스크립트에서는 ability(1) + experience(2) + career(cap 5) 기본값으로 근사치 검증.
+// 정확한 계산은 lib/lineAvailability.ts 참조.
+const LINES_PER_WEEK_APPROX = 1 + 2 + 5; // ability + experience + career (info 제외, 동적)
 
 async function main() {
   console.log("Resume Card 실데이터 검증\n");
@@ -70,7 +73,7 @@ async function main() {
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId);
 
-    const available = growable * LINES_PER_WEEK;
+    const available = growable * LINES_PER_WEEK_APPROX;
     const completed = actCount ?? 0;
     const actRate = available > 0 ? Math.round((completed / available) * 1000) / 10 : 0;
 

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ORGANIZATIONS, ORGANIZATION_LABEL } from "@/lib/organizations";
+import { ADMIN_LINE_OPENING_VISIBLE_PARTS } from "@/lib/adminLineOpening";
 import { useSidebar } from "@/components/admin/sidebarContext";
 
 type LeafItem = {
@@ -60,9 +61,14 @@ const MENU: MenuItem[] = [
     label: "라인 개설",
     icon: Briefcase,
     basePath: "/admin/career-projects",
-    children: [
-      { label: "실무 경력", href: "/admin/career-projects" },
+    matchPaths: [
+      "/admin/line-opening",
+      ...ADMIN_LINE_OPENING_VISIBLE_PARTS.map((part) => part.href),
     ],
+    children: ADMIN_LINE_OPENING_VISIBLE_PARTS.map((part) => ({
+      label: part.label,
+      href: part.href,
+    })),
   },
   {
     kind: "branch",

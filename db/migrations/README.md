@@ -37,6 +37,9 @@ Supabase SQL Editor에서 **파일명 알파벳 순서대로** 실행한다.
 | 26 | `2026-05-25_week_season_key_attribution.sql` | `user_week_statuses.season_key` + `resolve_season_key(date)` 함수 + 기존 데이터 backfill |
 | 27 | `2026-05-25_season_rest_request_policy.sql` | `user_season_statuses.requested_at` + `validate_season_rest_request()` 함수 + 1주차 비활동 전환 + 더미 보정 |
 | 28 | `2026-05-25_fix_activity_started_at_backfill.sql` | `activity_started_at IS NULL` 전체 백필 — #22 의 `growth_status IS NOT NULL` 조건 제거. 모든 사용자에게 성장 시작일 보장 |
+| 29 | `2026-05-27_org_settings_add_point_label.sql` | `organization_resume_card_settings.point_label` 컬럼 추가 + 3개 조직 시드 (encre→별, oranke→단감, phalanx→투구). 실무 경험 포인트 UI 표시명 |
+| 30 | `2026-05-27_cluster4_experience_phase1.sql` | Cluster4 실무 경험 Phase 1 — `cluster4_teams` + `cluster4_experience_line_masters` + `cluster4_experience_line_evaluations` 테이블 3종 생성, `cluster4_lines` 에 `line_code`·`experience_line_master_id` 추가 + 기존 `team_id` FK 부여, info/competency/career line_code backfill. **#29 의존 없음, step1_tables·bridge_columns 의존** |
+| 31 | `2026-05-27_cluster4_teams_org_slug.sql` | `cluster4_teams` 조직별 팀 마스터 재구성 — `organization_slug` 컬럼 추가, UNIQUE(team_name)→UNIQUE(organization_slug, team_name), 잘못 seed된 encre/oranke 삭제, 3개 조직 13팀 seed. **#30 의존** |
 
 ## 주의사항
 

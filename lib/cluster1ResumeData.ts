@@ -1,5 +1,12 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
+import {
+  fetchInfoLineCountsByWeek,
+  fetchCareerProjectCountsByWeek,
+  buildWeekAvailability,
+  totalAvailable,
+} from "@/lib/lineAvailability";
+import type { OrganizationSlug } from "@/lib/organizations";
 import type {
   Cluster1ResumeDto,
   ResumeStatus,
@@ -128,18 +135,17 @@ function dummyScheduleReliability(): ScheduleReliability {
 
 // ─────────────────────────────────────────────────────────────────────
 // Activity Completion — Cluster4 user_activity_details 기반
-//   available = 성장 가능 주차 × 12 (info 7 + ability 1 + exp 2 + career 2)
+//   available = 주차별 동적 가용 라인 합산 (lineAvailability 모듈 공유)
 //   completed = user_activity_details 총 row 수
 // ─────────────────────────────────────────────────────────────────────
-const LINES_PER_WEEK = 7 + 1 + 2 + 2; // info + ability + experience + career
-
 async function computeActivityCompletion(
   userId: string,
+  organization: OrganizationSlug | null,
 ): Promise<ActivityCompletion> {
   const [weekRes, actRes] = await Promise.all([
     supabaseAdmin
       .from("user_week_statuses")
-      .select("status")
+      .select("week_start_date,status")
       .eq("user_id", userId),
     supabaseAdmin
       .from("user_activity_details")
@@ -151,10 +157,33 @@ async function computeActivityCompletion(
     return { availableActivities: 0, completedActivities: 0, rate: 0 };
   }
 
-  const growableWeeks = (weekRes.data as { status: string }[]).filter(
+  const growable = (weekRes.data as { week_start_date: string; status: string }[]).filter(
     (w) => w.status !== "official_rest",
-  ).length;
-  const availableActivities = growableWeeks * LINES_PER_WEEK;
+  );
+
+  if (growable.length === 0) {
+    return { availableActivities: 0, completedActivities: actRes.count ?? 0, rate: 0 };
+  }
+
+  const startDates = growable.map((w) => w.week_start_date);
+  const { data: weeksData } = await supabaseAdmin
+    .from("weeks")
+    .select("id,start_date")
+    .in("start_date", startDates);
+
+  const weekIds = (weeksData ?? []).map((w: { id: string }) => w.id);
+
+  const [infoMap, careerMap] = await Promise.all([
+    fetchInfoLineCountsByWeek(userId, weekIds),
+    fetchCareerProjectCountsByWeek(weekIds),
+  ]);
+
+  let availableActivities = 0;
+  for (const wid of weekIds) {
+    const avail = buildWeekAvailability(wid, infoMap, careerMap, organization);
+    availableActivities += totalAvailable(avail);
+  }
+
   const completedActivities = actRes.count ?? 0;
   const rate =
     availableActivities > 0
@@ -426,7 +455,7 @@ export async function getCluster1Resume(
     await Promise.all([
       computeScheduleReliability(userId),
       computeSeasonRecords(userId),
-      computeActivityCompletion(userId),
+      computeActivityCompletion(userId, (crew.organizationSlug as OrganizationSlug) ?? null),
       computePracticalStats(userId),
     ]);
 

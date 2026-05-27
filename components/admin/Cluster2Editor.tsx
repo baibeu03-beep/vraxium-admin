@@ -21,6 +21,7 @@ import {
   FieldCell,
   PreviewBlock,
   fmt,
+  formatDepartmentName,
   normalizeForPatch,
   type FieldDef,
 } from "@/components/admin/fieldKit";
@@ -1072,7 +1073,7 @@ export default function Cluster2Editor({
                 {(() => {
                   const primary = form.educations.find((e) => e.is_primary);
                   if (!primary) return "—";
-                  return `${fmt(primary.school_name)} · ${fmt(primary.major_name_1)}`;
+                  return `${fmt(primary.school_name)} · ${formatDepartmentName(primary.major_name_1)}`;
                 })()}
               </PreviewBlock>
               <PreviewBlock title="Educations · count">

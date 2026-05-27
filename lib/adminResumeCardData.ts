@@ -54,6 +54,7 @@ export const ORG_RESUME_CARD_SETTINGS_FIELDS = [
   "medal_theme",
   "notice_top_text",
   "notice_top_stamp_image_url",
+  "point_label",
 ] as const;
 
 export const SITE_RESUME_CARD_SETTINGS_FIELDS = [

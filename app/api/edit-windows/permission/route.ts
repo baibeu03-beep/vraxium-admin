@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import {
   EditWindowError,
   evaluateEditWindowPermission,
@@ -43,23 +44,10 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { data: profileRow, error: profileError } = await supabaseAdmin
-    .from("user_profiles")
-    .select("user_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (profileError) {
-    return Response.json(
-      { success: false, error: profileError.message },
-      { status: 500 },
-    );
-  }
-
   const isAdmin = Boolean(
     adminRow && (adminRow as { is_active: boolean | null }).is_active,
   );
-  const userId = (profileRow as { user_id: string } | null)?.user_id ?? null;
+  const userId = await resolveProfileUserId(user.id, user.email);
 
   try {
     const window = userId
