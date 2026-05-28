@@ -346,21 +346,30 @@ type PointsRow = {
   penalty: number;
 };
 
-function classifyActivityType(clusterId: string | null): LineCategory {
-  if (!clusterId) return "info";
-  if (clusterId === "practical_competency" || clusterId.startsWith("comp-")) return "ability";
-  if (clusterId === "practical_experience" || clusterId.startsWith("exp-")) return "experience";
-  if (clusterId === "practical_career" || clusterId.startsWith("car-")) return "career";
+function classifyByPartType(partType: string | null): LineCategory {
+  if (partType === "competency") return "ability";
+  if (partType === "experience") return "experience";
+  if (partType === "career") return "career";
   return "info";
 }
+
+type CrewMetadata = {
+  teamLabel: string;
+  partLabel: string;
+  activityStatus: string;
+  teamNameRaw: string | null;
+  partNameRaw: string | null;
+  roleLabelRaw: string | null;
+  membershipStatusLabelRaw: string | null;
+  organizationSlug: string | null;
+};
 
 async function computeWeeklyCards(
   userId: string,
   organization: OrganizationSlug | null,
-  teamLabel: string,
-  partLabel: string,
-  activityStatus: string,
+  crewMeta: CrewMetadata,
 ): Promise<WeeklyCardDto[]> {
+  const { teamLabel, partLabel, activityStatus } = crewMeta;
   // 1. 사용자 주차 상태 조회 (최신순)
   const { data: uwsData, error: uwsErr } = await supabaseAdmin
     .from("user_week_statuses")
@@ -455,15 +464,16 @@ async function computeWeeklyCards(
   let careerProjectMap = new Map<string, number>();
 
   if (weekCardIds.length > 0) {
-    const [detailsRes, clusterMapRes, infoMap, careerMap] = await Promise.all([
+    const [detailsRes, partTypeMapRes, infoMap, careerMap] = await Promise.all([
       supabaseAdmin
         .from("user_activity_details")
         .select("week_id,activity_type_id")
         .eq("user_id", userId)
         .in("week_id", weekCardIds),
       supabaseAdmin
-        .from("activity_types")
-        .select("id,cluster_id"),
+        .from("cluster4_lines")
+        .select("activity_type_id,part_type")
+        .not("activity_type_id", "is", null),
       fetchInfoLineCountsByWeek(userId, weekCardIds),
       fetchCareerProjectCountsByWeek(weekCardIds),
     ]);
@@ -471,17 +481,17 @@ async function computeWeeklyCards(
     infoLineMap = infoMap;
     careerProjectMap = careerMap;
 
-    const clusterMap = new Map<string, string>();
-    if (clusterMapRes.data) {
-      for (const t of clusterMapRes.data as { id: string; cluster_id: string | null }[]) {
-        if (t.cluster_id) clusterMap.set(t.id, t.cluster_id);
+    const partTypeMap = new Map<string, string>();
+    if (partTypeMapRes.data) {
+      for (const l of partTypeMapRes.data as { activity_type_id: string; part_type: string }[]) {
+        partTypeMap.set(l.activity_type_id, l.part_type);
       }
     }
 
     if (detailsRes.data) {
       for (const d of detailsRes.data as ActivityRow[]) {
         const weekId = d.week_id;
-        const classification = classifyActivityType(clusterMap.get(d.activity_type_id) ?? null);
+        const classification = classifyByPartType(partTypeMap.get(d.activity_type_id) ?? null);
         if (!activityByWeek.has(weekId)) {
           activityByWeek.set(weekId, { info: 0, ability: 0, experience: 0, career: 0 });
         }
@@ -508,13 +518,25 @@ async function computeWeeklyCards(
     accMap.set(`${w.year}-${w.week_number}`, cumulativeSuccess);
   }
 
-  // 누적 포인트 (FM score proxy)
+  // 누적 포인트 (FM score proxy). Null when no points row exists for this week
+  // AND no prior week contributed — distinguishes "no data" from "real 0".
   let cumulativePoints = 0;
-  const fmMap = new Map<string, number>();
+  let cumulativeAdvantages = 0;
+  let anyPointsSeen = false;
+  let anyAdvantagesSeen = false;
+  const fmMap = new Map<string, number | null>();
+  const cumAdvMap = new Map<string, number | null>();
   for (const w of sorted) {
-    const p = pointsMap.get(`${w.year}-${w.week_number}`);
-    if (p) cumulativePoints += p.points + p.advantages * 3 - p.penalty * 5;
-    fmMap.set(`${w.year}-${w.week_number}`, cumulativePoints);
+    const key = `${w.year}-${w.week_number}`;
+    const p = pointsMap.get(key);
+    if (p) {
+      cumulativePoints += p.points + p.advantages * 3 - p.penalty * 5;
+      cumulativeAdvantages += p.advantages;
+      anyPointsSeen = true;
+      anyAdvantagesSeen = true;
+    }
+    fmMap.set(key, anyPointsSeen ? cumulativePoints : null);
+    cumAdvMap.set(key, anyAdvantagesSeen ? cumulativeAdvantages : null);
   }
 
   const targetWeeks = organization
@@ -597,6 +619,11 @@ async function computeWeeklyCards(
 
     const displayWeekNum = seasonWeekNumber ?? uws.week_number;
 
+    const fmRaw = fmMap.get(weekKey) ?? null;
+    const cumAdvRaw = cumAdvMap.get(weekKey) ?? null;
+    const repCountRaw = weekCardId ? (repCountMap.get(weekCardId) ?? 0) : null;
+    const colCountRaw = weekCardId ? (colCountMap.get(weekCardId) ?? 0) : null;
+
     cards.push({
       weekId: weekCardId,
       seasonYear,
@@ -613,16 +640,24 @@ async function computeWeeklyCards(
       activityStatus,
       teamLabel,
       partLabel,
+      teamNameRaw: crewMeta.teamNameRaw,
+      partNameRaw: crewMeta.partNameRaw,
+      roleLabelRaw: crewMeta.roleLabelRaw,
+      membershipStatusLabelRaw: crewMeta.membershipStatusLabelRaw,
+      organizationSlug: crewMeta.organizationSlug,
       points: pts?.points ?? 0,
       advantages: pts?.advantages ?? 0,
       penalty: pts?.penalty ?? 0,
-      weeklyReputationCount: weekCardId
-        ? (repCountMap.get(weekCardId) ?? 0)
-        : 0,
-      totalFmScore: fmMap.get(weekKey) ?? 0,
-      linkedCrewCount: weekCardId
-        ? (colCountMap.get(weekCardId) ?? 0)
-        : 0,
+      pointsRaw: pts ? pts.points : null,
+      advantagesRaw: pts ? pts.advantages : null,
+      penaltyRaw: pts ? pts.penalty : null,
+      cumulativeAdvantages: cumAdvRaw,
+      weeklyReputationCount: repCountRaw ?? 0,
+      weeklyReputationCountRaw: repCountRaw,
+      totalFmScore: fmRaw ?? 0,
+      totalFmScoreRaw: fmRaw,
+      linkedCrewCount: colCountRaw ?? 0,
+      linkedCrewCountRaw: colCountRaw,
       weekImagePath: seasonKey
         ? `/images/0/cluster4/weekly/${seasonKey}-week${displayWeekNum}.png`
         : "",
@@ -685,9 +720,16 @@ export async function getWeeklyGrowth(
     computeWeeklyCards(
       crew.userId,
       (crew.organizationSlug as OrganizationSlug) ?? null,
-      crew.teamName ?? "-",
-      crew.partName ?? "-",
-      crew.membershipLevel ?? "일반",
+      {
+        teamLabel: crew.teamName ?? "-",
+        partLabel: crew.partName ?? "-",
+        activityStatus: crew.membershipLevel ?? "일반",
+        teamNameRaw: crew.teamName ?? null,
+        partNameRaw: crew.partName ?? null,
+        roleLabelRaw: crew.membershipLevel ?? null,
+        membershipStatusLabelRaw: crew.membershipState ?? null,
+        organizationSlug: crew.organizationSlug ?? null,
+      },
     ),
   ]);
 

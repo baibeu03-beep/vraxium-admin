@@ -150,6 +150,13 @@ function emptyBundle(legacyUserId: string): Cluster4Bundle {
     userActivityDetails: [],
     careerRecords: [],
     activityTypesClusterMap: {},
+    cluster4LineTargets: [],
+    cluster4HubEditWindows: {
+      "cluster4.work_info": null,
+      "cluster4.work_ability": null,
+      "cluster4.work_exp": null,
+      "cluster4.work_career": null,
+    },
     tablesAvailable: {
       seasons: false,
       weeks: false,
@@ -162,6 +169,8 @@ function emptyBundle(legacyUserId: string): Cluster4Bundle {
       userActivityDetails: false,
       careerRecords: false,
       activityTypes: false,
+      cluster4LineTargets: false,
+      userEditWindows: false,
     },
   };
 }

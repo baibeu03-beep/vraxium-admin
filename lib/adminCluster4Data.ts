@@ -20,12 +20,19 @@ import type {
   Cluster4ApplySummary,
   Cluster4Bundle,
   Cluster4DeleteResource,
+  Cluster4HubEditWindowSnapshot,
+  Cluster4LineTargetSnapshot,
   Cluster4PatchBody,
   ReceivedSeasonReputationRow,
   SeasonRow,
   UserSeasonHistoryRow,
   WeekRow,
 } from "@/lib/adminCluster4Types";
+import type { Cluster4LinePartType } from "@/lib/cluster4LinesTypes";
+import {
+  CLUSTER4_HUB_EDIT_WINDOW_KEYS,
+  type Cluster4HubEditWindowKey,
+} from "@/lib/cluster4LinePermission";
 
 export class Cluster4Error extends Error {
   status: number;
@@ -300,6 +307,121 @@ async function fetchReceivedSeasonReputations(
   return { rows, available: true };
 }
 
+type Cluster4LineTargetJoinRow = {
+  id: string;
+  line_id: string;
+  week_id: string;
+  target_mode: "user" | "rule";
+  target_user_id: string | null;
+  cluster4_lines: {
+    id: string;
+    part_type: Cluster4LinePartType;
+    main_title: string;
+    submission_opens_at: string;
+    submission_closes_at: string;
+    is_active: boolean;
+  } | null;
+};
+
+async function fetchCluster4LineTargets(
+  userId: string,
+): Promise<FetchResult<Cluster4LineTargetSnapshot>> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select(
+      `id,line_id,week_id,target_mode,target_user_id,
+       cluster4_lines!inner(
+         id,part_type,main_title,submission_opens_at,submission_closes_at,is_active
+       )`,
+    )
+    .eq("target_mode", "user")
+    .eq("target_user_id", userId);
+
+  if (error) {
+    if (isMissingRelationError(error)) {
+      console.warn(
+        '[cluster4] table "cluster4_line_targets" not found; returning empty result.',
+        { message: error.message },
+      );
+      return { rows: [], available: false };
+    }
+    console.error("[cluster4] query failed (cluster4_line_targets)", {
+      message: error.message,
+    });
+    throw new Cluster4Error(500, error.message);
+  }
+
+  const rows = ((data ?? []) as unknown as Cluster4LineTargetJoinRow[])
+    .filter((row) => row.cluster4_lines !== null)
+    .map((row) => ({
+      lineTargetId: row.id,
+      lineId: row.line_id,
+      weekId: row.week_id,
+      partType: row.cluster4_lines!.part_type,
+      targetMode: row.target_mode,
+      targetUserId: row.target_user_id,
+      line: {
+        isActive: row.cluster4_lines!.is_active,
+        submissionOpensAt: row.cluster4_lines!.submission_opens_at,
+        submissionClosesAt: row.cluster4_lines!.submission_closes_at,
+        mainTitle: row.cluster4_lines!.main_title,
+      },
+    }));
+
+  return { rows, available: true };
+}
+
+type EditWindowDbRow = {
+  user_id: string;
+  resource_key: string;
+  opened_at: string;
+  expires_at: string;
+};
+
+async function fetchCluster4HubEditWindows(userId: string): Promise<{
+  windows: Record<Cluster4HubEditWindowKey, Cluster4HubEditWindowSnapshot>;
+  available: boolean;
+}> {
+  const empty: Record<Cluster4HubEditWindowKey, Cluster4HubEditWindowSnapshot> = {
+    "cluster4.work_info": null,
+    "cluster4.work_ability": null,
+    "cluster4.work_exp": null,
+    "cluster4.work_career": null,
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from("user_edit_windows")
+    .select("user_id,resource_key,opened_at,expires_at")
+    .eq("user_id", userId)
+    .in("resource_key", CLUSTER4_HUB_EDIT_WINDOW_KEYS as readonly string[]);
+
+  if (error) {
+    if (isMissingRelationError(error)) {
+      console.warn(
+        '[cluster4] table "user_edit_windows" not found; returning empty hub windows.',
+        { message: error.message },
+      );
+      return { windows: empty, available: false };
+    }
+    console.error("[cluster4] query failed (user_edit_windows)", {
+      message: error.message,
+    });
+    throw new Cluster4Error(500, error.message);
+  }
+
+  const windows = { ...empty };
+  for (const row of (data ?? []) as EditWindowDbRow[]) {
+    const key = row.resource_key as Cluster4HubEditWindowKey;
+    if (!(key in windows)) continue;
+    windows[key] = {
+      resourceKey: key,
+      openedAt: row.opened_at,
+      expiresAt: row.expires_at,
+    };
+  }
+  return { windows, available: true };
+}
+
 async function fetchCluster4Tables(userId: string) {
   const [
     seasonsRaw,
@@ -313,6 +435,8 @@ async function fetchCluster4Tables(userId: string) {
     userActivityDetails,
     careerRecords,
     activityTypesClusterMap,
+    cluster4LineTargets,
+    cluster4HubEditWindows,
   ] = await Promise.all([
     supabaseAdmin.from("season_definitions").select("*"),
     supabaseAdmin.from("weeks").select("id,week_number,start_date,end_date,season_key,is_official_rest,holiday_name,iso_year,iso_week,created_at"),
@@ -325,6 +449,8 @@ async function fetchCluster4Tables(userId: string) {
     listUserActivityDetails({ userId }),
     listCareerRecords({ userId }),
     fetchActivityTypesClusterMap(),
+    fetchCluster4LineTargets(userId),
+    fetchCluster4HubEditWindows(userId),
   ]);
 
   return {
@@ -343,6 +469,8 @@ async function fetchCluster4Tables(userId: string) {
     userActivityDetails,
     careerRecords,
     activityTypesClusterMap,
+    cluster4LineTargets,
+    cluster4HubEditWindows,
   };
 }
 
@@ -366,6 +494,13 @@ export async function getCluster4ForCrew(
       userActivityDetails: [],
       careerRecords: [],
       activityTypesClusterMap: {},
+      cluster4LineTargets: [],
+      cluster4HubEditWindows: {
+        "cluster4.work_info": null,
+        "cluster4.work_ability": null,
+        "cluster4.work_exp": null,
+        "cluster4.work_career": null,
+      },
       tablesAvailable: {
         seasons: false,
         weeks: false,
@@ -378,6 +513,8 @@ export async function getCluster4ForCrew(
         userActivityDetails: false,
         careerRecords: false,
         activityTypes: false,
+        cluster4LineTargets: false,
+        userEditWindows: false,
       },
     };
   }
@@ -398,6 +535,8 @@ export async function getCluster4ForCrew(
     userActivityDetails: tables.userActivityDetails.rows,
     careerRecords: tables.careerRecords.rows,
     activityTypesClusterMap: tables.activityTypesClusterMap.map,
+    cluster4LineTargets: tables.cluster4LineTargets.rows,
+    cluster4HubEditWindows: tables.cluster4HubEditWindows.windows,
     tablesAvailable: {
       seasons: tables.seasons.available,
       weeks: tables.weeks.available,
@@ -410,6 +549,8 @@ export async function getCluster4ForCrew(
       userActivityDetails: tables.userActivityDetails.available,
       careerRecords: tables.careerRecords.available,
       activityTypes: tables.activityTypesClusterMap.available,
+      cluster4LineTargets: tables.cluster4LineTargets.available,
+      userEditWindows: tables.cluster4HubEditWindows.available,
     },
   };
 }

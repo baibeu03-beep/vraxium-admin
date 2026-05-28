@@ -10,6 +10,10 @@ import {
   Upload,
   Trash2,
   Pencil,
+  Eye,
+  CheckCircle2,
+  XCircle,
+  ExternalLink,
 } from "lucide-react";
 import {
   Card,
@@ -30,6 +34,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import {
+  ORGANIZATIONS,
+  ORGANIZATION_LABEL,
+  ORGANIZATION_COMMON_LABEL,
+} from "@/lib/organizations";
+
+const ORG_OPTIONS: Array<{ value: string; label: string }> = [
+  ...ORGANIZATIONS.map((slug) => ({ value: slug, label: ORGANIZATION_LABEL[slug] })),
+  { value: "common", label: ORGANIZATION_COMMON_LABEL },
+];
+
+function formatOrgLabel(slug: string | null | undefined): string {
+  if (!slug) return "-";
+  if (slug === "common") return ORGANIZATION_COMMON_LABEL;
+  return (ORGANIZATION_LABEL as Record<string, string>)[slug] ?? slug;
+}
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -51,6 +71,22 @@ type CurrentWeekData = {
   submissionClosesAt: string | null;
 };
 
+type WeekOption = {
+  id: string;             // weeks.id (UUID).
+  label: string;          // "{year}년도 {season} {weekNumber}w".
+  seasonKey: string;
+  seasonName: string;
+  year: number;
+  weekNumber: number;
+  startDate: string;
+  endDate: string;
+  isOfficialRest: boolean;
+  canOpen: boolean;
+  isCurrent: boolean;
+  submissionOpensAt: string | null;
+  submissionClosesAt: string | null;
+};
+
 type TeamItem = {
   id: string;
   teamName: string;
@@ -60,6 +96,7 @@ type TeamItem = {
 
 type LineMasterItem = {
   id: string;
+  organizationSlug: string;
   lineCode: string;
   lineName: string;
   mainTitle: string | null;
@@ -82,30 +119,55 @@ type CrewItem = {
   membershipState: string | null;
 };
 
-type ExistingLineDto = {
+type ExperienceDraftDto = {
   id: string;
-  lineCode: string | null;
+  weekId: string;
+  organizationSlug: string;
+  teamId: string | null;
+  teamName: string | null;
+  partName: string | null;
+  targetUserId: string;
+  targetUserName: string | null;
+  experienceLineMasterId: string;
+  lineCode: string;
+  lineName: string | null;
   mainTitle: string;
   outputLink1: string | null;
   outputLink2: string | null;
   outputImages: string[];
-  submissionOpensAt: string;
-  submissionClosesAt: string;
-  isActive: boolean;
-  targetCount: number;
-  submissionCount: number;
+  rating: number | null;
+  memo: string | null;
+  inputStatus: "draft" | "submitted";
+  reviewStatus: "pending" | "approved" | "rejected";
+  openStatus: "pending" | "opened";
+  rejectionReason: string | null;
+  enteredBy: string | null;
+  enteredAt: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  openedBy: string | null;
+  openedAt: string | null;
+  openedLineId: string | null;
   createdAt: string;
+  updatedAt: string;
 };
 
-type UploadedImage = {
-  url: string;
-  name: string;
+type WorkflowSummary = {
+  weekId: string;
+  totalDrafts: number;
+  draftCount: number;
+  submittedCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+  openedCount: number;
 };
 
-type TabKey = "masters" | "opening" | "evaluation";
+type UploadedImage = { url: string; name: string };
+
+type TabKey = "masters" | "input" | "review" | "open";
 
 // ──────────────────────────────────────────────────────────────
-// Date formatting
+// Date formatting (KST locale, 12-hour clock with day-of-week)
 // ──────────────────────────────────────────────────────────────
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
@@ -128,14 +190,13 @@ function fmtDateTimeWithDay(iso: string): string {
   return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${DAY_NAMES[d.getDay()]}) ${ampm} ${h}:${minStr}`;
 }
 
-function fmtDateShort(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
+function urlToImage(url: string): UploadedImage {
+  const name = url.split("/").pop()?.split("?")[0] ?? "image";
+  return { url, name };
 }
 
 // ──────────────────────────────────────────────────────────────
-// Image Upload Component (reused from PracticalInfoManager)
+// Image Upload Slot
 // ──────────────────────────────────────────────────────────────
 
 function ImageUploadSlot({
@@ -196,9 +257,11 @@ function ImageUploadSlot({
             <p className="truncate text-sm">{image.name}</p>
             <p className="truncate text-xs text-muted-foreground">{image.url}</p>
           </div>
-          <Button variant="ghost" size="icon" className="shrink-0" onClick={onRemove}>
-            <Trash2 className="h-4 w-4 text-red-500" />
-          </Button>
+          {!disabled && (
+            <Button variant="ghost" size="icon" className="shrink-0" onClick={onRemove}>
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </Button>
+          )}
         </div>
       ) : (
         <div>
@@ -230,19 +293,17 @@ function ImageUploadSlot({
 }
 
 // ──────────────────────────────────────────────────────────────
-// Tab Button
+// Tab Button / Summary Card / Status Badge
 // ──────────────────────────────────────────────────────────────
 
 function TabButton({
   label,
   active,
   onClick,
-  disabled,
 }: {
   label: string;
   active: boolean;
   onClick: () => void;
-  disabled?: boolean;
 }) {
   return (
     <button
@@ -251,13 +312,100 @@ function TabButton({
         active
           ? "border-b-2 border-primary bg-background text-primary"
           : "text-muted-foreground hover:text-foreground",
-        disabled && "cursor-not-allowed opacity-50",
       )}
       onClick={onClick}
-      disabled={disabled}
     >
       {label}
     </button>
+  );
+}
+
+function SummaryCard({
+  title,
+  count,
+  variant = "default",
+}: {
+  title: string;
+  count: number;
+  variant?: "default" | "warning" | "success" | "error" | "info";
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-lg border px-4 py-3 text-center",
+        variant === "warning" && "border-yellow-200 bg-yellow-50",
+        variant === "success" && "border-green-200 bg-green-50",
+        variant === "error" && "border-red-200 bg-red-50",
+        variant === "info" && "border-blue-200 bg-blue-50",
+        variant === "default" && "border-gray-200 bg-gray-50",
+      )}
+    >
+      <p
+        className={cn(
+          "text-2xl font-bold",
+          variant === "warning" && "text-yellow-800",
+          variant === "success" && "text-green-800",
+          variant === "error" && "text-red-800",
+          variant === "info" && "text-blue-800",
+          variant === "default" && "text-gray-800",
+        )}
+      >
+        {count}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">{title}</p>
+    </div>
+  );
+}
+
+function InputStatusBadge({ value }: { value: "draft" | "submitted" }) {
+  if (value === "draft") {
+    return (
+      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+        임시저장
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+      제출완료
+    </span>
+  );
+}
+
+function ReviewStatusBadge({ value }: { value: "pending" | "approved" | "rejected" }) {
+  if (value === "pending") {
+    return (
+      <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+        검수 대기
+      </span>
+    );
+  }
+  if (value === "approved") {
+    return (
+      <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+        승인
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">
+      반려
+    </span>
+  );
+}
+
+function OpenStatusBadge({ value }: { value: "pending" | "opened" }) {
+  if (value === "pending") {
+    return (
+      <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+        개설 대기
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+      개설완료
+    </span>
   );
 }
 
@@ -266,106 +414,167 @@ function TabButton({
 // ──────────────────────────────────────────────────────────────
 
 export default function PracticalExperienceManager() {
-  const [activeTab, setActiveTab] = useState<TabKey>("masters");
+  const [activeTab, setActiveTab] = useState<TabKey>("input");
   const [adminOrg, setAdminOrg] = useState<string | null>(null);
   const [teams, setTeams] = useState<TeamItem[]>([]);
   const [masters, setMasters] = useState<LineMasterItem[]>([]);
   const [currentWeek, setCurrentWeek] = useState<CurrentWeekData | null>(null);
-  const [existingLines, setExistingLines] = useState<ExistingLineDto[]>([]);
+  const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
+  const [selectedWeekId, setSelectedWeekId] = useState<string>("");
   const [crews, setCrews] = useState<CrewItem[]>([]);
+  const [drafts, setDrafts] = useState<ExperienceDraftDto[]>([]);
+  const [summary, setSummary] = useState<WorkflowSummary | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 
   // ── Master form state ──
   const [masterFormOpen, setMasterFormOpen] = useState(false);
   const [editingMasterId, setEditingMasterId] = useState<string | null>(null);
+  const [mfOrgSlug, setMfOrgSlug] = useState("");
   const [mfLineCode, setMfLineCode] = useState("");
   const [mfLineName, setMfLineName] = useState("");
   const [mfDefaultTitle, setMfDefaultTitle] = useState("");
   const [mfTeamId, setMfTeamId] = useState("");
   const [mfSourceFile, setMfSourceFile] = useState("");
 
-  // ── Line opening form state ──
-  const [lineFormOpen, setLineFormOpen] = useState(false);
-  const [selectedMasterId, setSelectedMasterId] = useState("");
-  const [lineLink1, setLineLink1] = useState("");
-  const [lineLink2, setLineLink2] = useState("");
-  const [lineImage1, setLineImage1] = useState<UploadedImage | null>(null);
-  const [lineImage2, setLineImage2] = useState<UploadedImage | null>(null);
-  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+  // ── Draft form state (Input tab) ──
+  const [draftFormOpen, setDraftFormOpen] = useState(false);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [dfTargetUserId, setDfTargetUserId] = useState("");
+  const [dfMasterId, setDfMasterId] = useState("");
+  const [dfLink1, setDfLink1] = useState("");
+  const [dfLink2, setDfLink2] = useState("");
+  const [dfImage1, setDfImage1] = useState<UploadedImage | null>(null);
+  const [dfImage2, setDfImage2] = useState<UploadedImage | null>(null);
+  const [dfRating, setDfRating] = useState<string>("");
+  const [dfMemo, setDfMemo] = useState("");
 
-  // ── Crew filter state ──
-  const [crewFilterTeam, setCrewFilterTeam] = useState("");
-  const [crewFilterPart, setCrewFilterPart] = useState("");
-  const [crewFilterLevel, setCrewFilterLevel] = useState("");
-  const [crewFilterStatus, setCrewFilterStatus] = useState("active");
-  const [crewSearch, setCrewSearch] = useState("");
+  // ── Input tab filters ──
+  const [inputFilterTeam, setInputFilterTeam] = useState("");
+  const [inputFilterPart, setInputFilterPart] = useState("");
+  const [inputFilterStatus, setInputFilterStatus] = useState("");
+  const [inputSearch, setInputSearch] = useState("");
 
-  // ── Computed ──
-  const lineAssetCount = useMemo(() => {
-    let count = 0;
-    if (lineLink1.trim()) count++;
-    if (lineLink2.trim()) count++;
-    if (lineImage1) count++;
-    if (lineImage2) count++;
-    return count;
-  }, [lineLink1, lineLink2, lineImage1, lineImage2]);
+  // ── Review tab state ──
+  const [reviewingDraftId, setReviewingDraftId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [reviewFilterStatus, setReviewFilterStatus] = useState("pending");
 
-  const lineAssetValid = lineAssetCount >= 1 && lineAssetCount <= 2;
+  // ── Open tab state ──
+  const [openSelectedIds, setOpenSelectedIds] = useState<Set<string>>(new Set());
 
-  const selectedMaster = useMemo(
-    () => masters.find((m) => m.id === selectedMasterId) ?? null,
-    [masters, selectedMasterId],
-  );
+  // ──────────────────────────────────────────────────────────────
+  // Computed
+  // ──────────────────────────────────────────────────────────────
 
-  const activeMasters = useMemo(
-    () => masters.filter((m) => m.isActive),
-    [masters],
-  );
+  const activeMasters = useMemo(() => masters.filter((m) => m.isActive), [masters]);
 
   const uniqueParts = useMemo(() => {
     const set = new Set<string>();
-    for (const c of crews) {
-      if (c.partName) set.add(c.partName);
-    }
+    for (const c of crews) if (c.partName) set.add(c.partName);
+    for (const d of drafts) if (d.partName) set.add(d.partName);
     return Array.from(set).sort();
-  }, [crews]);
+  }, [crews, drafts]);
 
-  const uniqueLevels = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of crews) {
-      if (c.membershipLevel) set.add(c.membershipLevel);
-    }
-    return Array.from(set).sort();
-  }, [crews]);
+  const editingDraft = useMemo(
+    () => (editingDraftId ? drafts.find((d) => d.id === editingDraftId) ?? null : null),
+    [drafts, editingDraftId],
+  );
 
-  const filteredCrews = useMemo(() => {
-    let result = crews;
-    if (crewFilterTeam) {
-      result = result.filter((c) => c.teamName === crewFilterTeam);
-    }
-    if (crewFilterPart) {
-      result = result.filter((c) => c.partName === crewFilterPart);
-    }
-    if (crewFilterLevel) {
-      result = result.filter((c) => c.membershipLevel === crewFilterLevel);
-    }
-    if (crewSearch.trim()) {
-      const q = crewSearch.trim().toLowerCase();
-      result = result.filter((c) => c.displayName.toLowerCase().includes(q));
-    }
-    return result;
-  }, [crews, crewFilterTeam, crewFilterPart, crewFilterLevel, crewSearch]);
+  const reviewingDraft = useMemo(
+    () => (reviewingDraftId ? drafts.find((d) => d.id === reviewingDraftId) ?? null : null),
+    [drafts, reviewingDraftId],
+  );
 
-  // ── Data fetching ──
+  const selectedDraftMaster = useMemo(
+    () => masters.find((m) => m.id === dfMasterId) ?? null,
+    [masters, dfMasterId],
+  );
+
+  // Output asset count (links + images, max 2)
+  const dfAssetCount = useMemo(() => {
+    let c = 0;
+    if (dfLink1.trim()) c++;
+    if (dfLink2.trim()) c++;
+    if (dfImage1) c++;
+    if (dfImage2) c++;
+    return c;
+  }, [dfLink1, dfLink2, dfImage1, dfImage2]);
+
+  const draftReadonly = useMemo(() => {
+    if (!editingDraft) return false;
+    return (
+      editingDraft.reviewStatus === "approved" || editingDraft.openStatus === "opened"
+    );
+  }, [editingDraft]);
+
+  // Filter helpers ────────────────────────────────────────────
+
+  const inputDrafts = useMemo(() => {
+    return drafts.filter((d) => {
+      if (d.openStatus === "opened") return false;
+      if (inputFilterTeam && d.teamName !== inputFilterTeam) return false;
+      if (inputFilterPart && d.partName !== inputFilterPart) return false;
+      if (inputFilterStatus === "draft" && d.inputStatus !== "draft") return false;
+      if (
+        inputFilterStatus === "submitted" &&
+        !(d.inputStatus === "submitted" && d.reviewStatus === "pending")
+      )
+        return false;
+      if (inputFilterStatus === "approved" && d.reviewStatus !== "approved") return false;
+      if (inputFilterStatus === "rejected" && d.reviewStatus !== "rejected") return false;
+      if (inputSearch.trim()) {
+        const q = inputSearch.trim().toLowerCase();
+        if (!d.targetUserName?.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [drafts, inputFilterTeam, inputFilterPart, inputFilterStatus, inputSearch]);
+
+  const reviewDrafts = useMemo(() => {
+    return drafts.filter((d) => {
+      if (d.openStatus === "opened") return false;
+      if (d.inputStatus !== "submitted") return false;
+      if (reviewFilterStatus === "pending" && d.reviewStatus !== "pending") return false;
+      if (reviewFilterStatus === "approved" && d.reviewStatus !== "approved") return false;
+      if (reviewFilterStatus === "rejected" && d.reviewStatus !== "rejected") return false;
+      return true;
+    });
+  }, [drafts, reviewFilterStatus]);
+
+  const openDrafts = useMemo(() => {
+    return drafts.filter(
+      (d) => d.reviewStatus === "approved" || d.openStatus === "opened",
+    );
+  }, [drafts]);
+
+  // Input tab summary counts ──────────────────────────────────
+  const inputCounts = useMemo(() => {
+    const usersWithDrafts = new Set(drafts.map((d) => d.targetUserId));
+    const totalUserCount = crews.length;
+    const noInput = Math.max(0, totalUserCount - usersWithDrafts.size);
+    return {
+      noInput,
+      drafted: summary?.draftCount ?? 0,
+      submitted: summary?.submittedCount ?? 0,
+      rejected: summary?.rejectedCount ?? 0,
+    };
+  }, [drafts, crews, summary]);
+
+  // ──────────────────────────────────────────────────────────────
+  // Data fetching
+  // ──────────────────────────────────────────────────────────────
+
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
     try {
-      const [orgRes, weekRes] = await Promise.all([
+      const [orgRes, weekRes, weeksRes] = await Promise.all([
         fetch("/api/admin/cluster4/admin-org"),
         fetch("/api/admin/cluster4/current-week"),
+        fetch("/api/admin/cluster4/weeks-options?limit=3"),
       ]);
 
       const orgJson = await orgRes.json();
@@ -373,14 +582,28 @@ export default function PracticalExperienceManager() {
       setAdminOrg(org);
 
       const weekJson = await weekRes.json();
-      if (weekJson.success) setCurrentWeek(weekJson.data);
+      const week = weekJson.success ? weekJson.data : null;
+      setCurrentWeek(week);
+
+      const weeksJson = await weeksRes.json();
+      let initialWeekId: string | null = null;
+      if (weeksJson.success) {
+        const opts: WeekOption[] = weeksJson.data.weeks ?? [];
+        setWeekOptions(opts);
+        const current = opts.find((o) => o.isCurrent) ?? opts[0];
+        if (current) initialWeekId = current.id;
+      }
+      const effectiveWeekId = selectedWeekId || initialWeekId || week?.weekId || null;
+      if (initialWeekId && !selectedWeekId) setSelectedWeekId(initialWeekId);
 
       const orgParam = org ? `?organization=${org}` : "";
-      const [teamsRes, mastersRes, linesRes, crewsRes] = await Promise.all([
+      const [teamsRes, mastersRes, crewsRes] = await Promise.all([
         fetch(`/api/admin/cluster4/teams${orgParam}`),
-        fetch(`/api/admin/cluster4/experience-line-masters${orgParam}`),
-        fetch("/api/admin/cluster4/lines?partType=experience&limit=100"),
-        fetch(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`),
+        // 라인 등록 데이터는 조직별 권한 분리 전 단계라 전체 조직을 조회한다.
+        fetch(`/api/admin/cluster4/experience-line-masters`),
+        fetch(
+          `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`,
+        ),
       ]);
 
       const teamsJson = await teamsRes.json();
@@ -389,11 +612,22 @@ export default function PracticalExperienceManager() {
       const mastersJson = await mastersRes.json();
       if (mastersJson.success) setMasters(mastersJson.data);
 
-      const linesJson = await linesRes.json();
-      if (linesJson.success) setExistingLines(linesJson.data?.rows ?? linesJson.data ?? []);
-
       const crewsJson = await crewsRes.json();
       if (crewsJson.success) setCrews(crewsJson.data);
+
+      if (effectiveWeekId) {
+        const params = new URLSearchParams();
+        params.set("week_id", effectiveWeekId);
+        if (org) params.set("organization", org);
+        const [draftsRes, summaryRes] = await Promise.all([
+          fetch(`/api/admin/cluster4/experience-drafts?${params}`),
+          fetch(`/api/admin/cluster4/experience-workflow-summary?${params}`),
+        ]);
+        const draftsJson = await draftsRes.json();
+        if (draftsJson.success) setDrafts(draftsJson.data);
+        const summaryJson = await summaryRes.json();
+        if (summaryJson.success) setSummary(summaryJson.data);
+      }
     } catch (error) {
       console.error("Failed to fetch data", error);
       setBanner({ kind: "error", message: "데이터를 불러오는데 실패했습니다" });
@@ -402,31 +636,47 @@ export default function PracticalExperienceManager() {
     }
   }, []);
 
+  const refetchDrafts = useCallback(async () => {
+    const targetWeekId = selectedWeekId || currentWeek?.weekId || null;
+    if (!targetWeekId) return;
+    setRefreshing(true);
+    try {
+      const params = new URLSearchParams();
+      params.set("week_id", targetWeekId);
+      if (adminOrg) params.set("organization", adminOrg);
+      const [draftsRes, summaryRes] = await Promise.all([
+        fetch(`/api/admin/cluster4/experience-drafts?${params}`),
+        fetch(`/api/admin/cluster4/experience-workflow-summary?${params}`),
+      ]);
+      const draftsJson = await draftsRes.json();
+      if (draftsJson.success) setDrafts(draftsJson.data);
+      const summaryJson = await summaryRes.json();
+      if (summaryJson.success) setSummary(summaryJson.data);
+    } catch (error) {
+      console.error("Failed to refetch drafts", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [currentWeek, adminOrg, selectedWeekId]);
+
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  const refetchCrews = useCallback(async () => {
-    if (!adminOrg) return;
-    try {
-      const params = new URLSearchParams();
-      params.set("organization", adminOrg);
-      if (crewFilterStatus) params.set("status", crewFilterStatus);
-      const res = await fetch(`/api/admin/cluster4/crews?${params}`);
-      const json = await res.json();
-      if (json.success) setCrews(json.data);
-    } catch {
-      // silent
-    }
-  }, [adminOrg, crewFilterStatus]);
-
+  // 선택된 주차가 바뀌면 drafts/summary 재조회 — 초기 fetch 와 중복되지 않도록 loading 가드.
   useEffect(() => {
-    if (!loading) refetchCrews();
+    if (!loading && selectedWeekId) {
+      refetchDrafts();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [crewFilterStatus]);
+  }, [selectedWeekId]);
 
-  // ── Master form helpers ──
+  // ──────────────────────────────────────────────────────────────
+  // Master form handlers
+  // ──────────────────────────────────────────────────────────────
+
   const resetMasterForm = useCallback(() => {
+    setMfOrgSlug("");
     setMfLineCode("");
     setMfLineName("");
     setMfDefaultTitle("");
@@ -436,20 +686,23 @@ export default function PracticalExperienceManager() {
     setMasterFormOpen(false);
   }, []);
 
-  const openEditMaster = useCallback(
-    (m: LineMasterItem) => {
-      setEditingMasterId(m.id);
-      setMfLineCode(m.lineCode);
-      setMfLineName(m.lineName);
-      setMfDefaultTitle(m.mainTitle ?? "");
-      setMfTeamId(m.teamId ?? "");
-      setMfSourceFile(m.sourceFileName ?? "");
-      setMasterFormOpen(true);
-    },
-    [],
-  );
+  const openEditMaster = useCallback((m: LineMasterItem) => {
+    setEditingMasterId(m.id);
+    setMfOrgSlug(m.organizationSlug ?? "");
+    setMfLineCode(m.lineCode);
+    setMfLineName(m.lineName);
+    setMfDefaultTitle(m.mainTitle ?? "");
+    setMfTeamId(m.teamId ?? "");
+    setMfSourceFile(m.sourceFileName ?? "");
+    setMasterFormOpen(true);
+  }, []);
 
   const handleSaveMaster = useCallback(async () => {
+    const orgSlug = (mfOrgSlug || adminOrg || "").trim();
+    if (!orgSlug) {
+      setBanner({ kind: "error", message: "조직은 필수입니다" });
+      return;
+    }
     if (!mfLineCode.trim() || !mfLineName.trim()) {
       setBanner({ kind: "error", message: "라인 코드와 라인명은 필수입니다" });
       return;
@@ -458,19 +711,17 @@ export default function PracticalExperienceManager() {
     setBanner(null);
     try {
       const payload: Record<string, unknown> = {
-        organization_slug: adminOrg,
+        organization_slug: orgSlug,
         line_code: mfLineCode.trim(),
         line_name: mfLineName.trim(),
         main_title: mfDefaultTitle.trim() || null,
         team_id: mfTeamId || null,
         source_file_name: mfSourceFile.trim() || null,
       };
-
       const url = editingMasterId
         ? `/api/admin/cluster4/experience-line-masters/${editingMasterId}`
         : "/api/admin/cluster4/experience-line-masters";
       const method = editingMasterId ? "PATCH" : "POST";
-
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
@@ -483,7 +734,9 @@ export default function PracticalExperienceManager() {
       }
       setBanner({
         kind: "success",
-        message: editingMasterId ? "라인 마스터가 수정되었습니다" : "라인 마스터가 생성되었습니다",
+        message: editingMasterId
+          ? "라인이 수정되었습니다"
+          : "라인이 등록되었습니다",
       });
       resetMasterForm();
       await fetchInitialData();
@@ -493,24 +746,25 @@ export default function PracticalExperienceManager() {
       setSaving(false);
     }
   }, [
+    mfOrgSlug,
     mfLineCode,
     mfLineName,
     mfDefaultTitle,
     mfTeamId,
     mfSourceFile,
     editingMasterId,
+    adminOrg,
     resetMasterForm,
     fetchInitialData,
   ]);
 
   const handleDeleteMaster = useCallback(
     async (id: string) => {
-      if (!confirm("이 라인 마스터를 삭제하시겠습니까?")) return;
+      if (!confirm("이 라인을 삭제하시겠습니까?")) return;
       try {
-        const res = await fetch(
-          `/api/admin/cluster4/experience-line-masters/${id}`,
-          { method: "DELETE" },
-        );
+        const res = await fetch(`/api/admin/cluster4/experience-line-masters/${id}`, {
+          method: "DELETE",
+        });
         const json = await res.json();
         if (!json.success) {
           setBanner({ kind: "error", message: json.error ?? "삭제 실패" });
@@ -525,116 +779,301 @@ export default function PracticalExperienceManager() {
     [fetchInitialData],
   );
 
-  // ── Line opening helpers ──
-  const resetLineForm = useCallback(() => {
-    setSelectedMasterId("");
-    setLineLink1("");
-    setLineLink2("");
-    setLineImage1(null);
-    setLineImage2(null);
-    setSelectedUserIds(new Set());
-    setCrewSearch("");
-    setLineFormOpen(false);
+  // ──────────────────────────────────────────────────────────────
+  // Draft form handlers (Input tab)
+  // ──────────────────────────────────────────────────────────────
+
+  const resetDraftForm = useCallback(() => {
+    setEditingDraftId(null);
+    setDfTargetUserId("");
+    setDfMasterId("");
+    setDfLink1("");
+    setDfLink2("");
+    setDfImage1(null);
+    setDfImage2(null);
+    setDfRating("");
+    setDfMemo("");
+    setDraftFormOpen(false);
   }, []);
 
-  const lineMainTitle = selectedMaster?.mainTitle ?? selectedMaster?.lineName ?? "";
+  const openNewDraft = useCallback(() => {
+    resetDraftForm();
+    setDraftFormOpen(true);
+  }, [resetDraftForm]);
 
-  const toggleUser = useCallback((userId: string) => {
-    setSelectedUserIds((prev) => {
+  const openEditDraft = useCallback((d: ExperienceDraftDto) => {
+    setEditingDraftId(d.id);
+    setDfTargetUserId(d.targetUserId);
+    setDfMasterId(d.experienceLineMasterId);
+    setDfLink1(d.outputLink1 ?? "");
+    setDfLink2(d.outputLink2 ?? "");
+    setDfImage1(d.outputImages[0] ? urlToImage(d.outputImages[0]) : null);
+    setDfImage2(d.outputImages[1] ? urlToImage(d.outputImages[1]) : null);
+    setDfRating(d.rating !== null ? String(d.rating) : "");
+    setDfMemo(d.memo ?? "");
+    setDraftFormOpen(true);
+  }, []);
+
+  const saveDraft = useCallback(
+    async (asSubmit: boolean) => {
+      // PATCH 경로 (editingDraftId 있음) 는 draft 의 기존 week_id 를 그대로 유지하므로
+      // selectedWeekId 검증을 생략한다. POST (신규 작성) 경로에서만 weekId 가 필요하다.
+      const isPatch = Boolean(editingDraftId);
+      const targetWeekId = isPatch
+        ? null
+        : (selectedWeekId || currentWeek?.weekId || null);
+      if (!isPatch && !selectedWeekId) {
+        setBanner({ kind: "error", message: "주차를 선택해주세요" });
+        return;
+      }
+      if (!isPatch && !targetWeekId) {
+        setBanner({ kind: "error", message: "선택한 주차 정보를 확인할 수 없습니다" });
+        return;
+      }
+      if (!editingDraftId && !dfTargetUserId) {
+        setBanner({ kind: "error", message: "대상 사용자를 선택해주세요" });
+        return;
+      }
+      if (!dfMasterId) {
+        setBanner({ kind: "error", message: "라인을 선택해주세요" });
+        return;
+      }
+      if (asSubmit) {
+        if (dfAssetCount < 1) {
+          setBanner({ kind: "error", message: "Output을 최소 1개 입력해주세요" });
+          return;
+        }
+        if (dfAssetCount > 2) {
+          setBanner({ kind: "error", message: "Output은 최대 2개까지 입력 가능합니다" });
+          return;
+        }
+        if (dfRating === "") {
+          setBanner({ kind: "error", message: "제출 시 평점은 필수입니다" });
+          return;
+        }
+      }
+      if (dfAssetCount > 2) {
+        setBanner({ kind: "error", message: "Output은 최대 2개까지 입력 가능합니다" });
+        return;
+      }
+
+      const master = selectedDraftMaster;
+      if (!master) {
+        setBanner({ kind: "error", message: "유효하지 않은 라인입니다" });
+        return;
+      }
+
+      const outputImages: string[] = [];
+      if (dfImage1) outputImages.push(dfImage1.url);
+      if (dfImage2) outputImages.push(dfImage2.url);
+      const rating = dfRating === "" ? null : Number(dfRating);
+
+      setSaving(true);
+      setBanner(null);
+      try {
+        if (editingDraftId) {
+          const patch: Record<string, unknown> = {
+            experience_line_master_id: dfMasterId,
+            line_code: master.lineCode,
+            main_title: master.mainTitle ?? master.lineName,
+            output_link_1: dfLink1.trim() || null,
+            output_link_2: dfLink2.trim() || null,
+            output_images: outputImages,
+            rating,
+            memo: dfMemo.trim() || null,
+            input_status: asSubmit ? "submitted" : "draft",
+          };
+          const res = await fetch(
+            `/api/admin/cluster4/experience-drafts/${editingDraftId}`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(patch),
+            },
+          );
+          const json = await res.json();
+          if (!json.success) {
+            setBanner({ kind: "error", message: json.error ?? "저장 실패" });
+            return;
+          }
+          setBanner({
+            kind: "success",
+            message: asSubmit ? "제출되었습니다" : "임시 저장되었습니다",
+          });
+        } else {
+          const crew = crews.find((c) => c.userId === dfTargetUserId);
+          const team = teams.find((t) => t.teamName === crew?.teamName);
+          const payload = {
+            week_id: targetWeekId,
+            organization_slug: adminOrg ?? "oranke",
+            team_id: team?.id ?? null,
+            part_name: crew?.partName ?? null,
+            target_user_id: dfTargetUserId,
+            experience_line_master_id: dfMasterId,
+            line_code: master.lineCode,
+            main_title: master.mainTitle ?? master.lineName,
+            output_link_1: dfLink1.trim() || null,
+            output_link_2: dfLink2.trim() || null,
+            output_images: outputImages,
+            rating,
+            memo: dfMemo.trim() || null,
+            input_status: asSubmit ? "submitted" : "draft",
+          };
+          console.log("[experience draft create payload]", {
+            selectedWeekId,
+            selectedWeekOption: weekOptions.find((w) => w.id === selectedWeekId) ?? null,
+            body: payload,
+          });
+          const res = await fetch("/api/admin/cluster4/experience-drafts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const json = await res.json();
+          if (!json.success) {
+            setBanner({ kind: "error", message: json.error ?? "저장 실패" });
+            return;
+          }
+          setBanner({
+            kind: "success",
+            message: asSubmit ? "제출되었습니다" : "임시 저장되었습니다",
+          });
+        }
+        resetDraftForm();
+        await refetchDrafts();
+      } catch {
+        setBanner({ kind: "error", message: "저장 중 오류가 발생했습니다" });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [
+      currentWeek,
+      selectedWeekId,
+      weekOptions,
+      editingDraftId,
+      dfTargetUserId,
+      dfMasterId,
+      dfAssetCount,
+      dfRating,
+      selectedDraftMaster,
+      dfImage1,
+      dfImage2,
+      dfLink1,
+      dfLink2,
+      dfMemo,
+      crews,
+      teams,
+      adminOrg,
+      resetDraftForm,
+      refetchDrafts,
+    ],
+  );
+
+  // ──────────────────────────────────────────────────────────────
+  // Review handlers
+  // ──────────────────────────────────────────────────────────────
+
+  const openReviewDetail = useCallback((d: ExperienceDraftDto) => {
+    setReviewingDraftId(d.id);
+    setRejectionReason(d.rejectionReason ?? "");
+  }, []);
+
+  const closeReviewDetail = useCallback(() => {
+    setReviewingDraftId(null);
+    setRejectionReason("");
+  }, []);
+
+  const submitReview = useCallback(
+    async (decision: "approved" | "rejected") => {
+      if (!reviewingDraftId) return;
+      if (decision === "rejected" && !rejectionReason.trim()) {
+        setBanner({ kind: "error", message: "반려 시 사유는 필수입니다" });
+        return;
+      }
+      setSaving(true);
+      setBanner(null);
+      try {
+        const res = await fetch(
+          `/api/admin/cluster4/experience-drafts/${reviewingDraftId}/review`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              review_status: decision,
+              rejection_reason: decision === "rejected" ? rejectionReason.trim() : null,
+            }),
+          },
+        );
+        const json = await res.json();
+        if (!json.success) {
+          setBanner({ kind: "error", message: json.error ?? "검수 실패" });
+          return;
+        }
+        setBanner({
+          kind: "success",
+          message: decision === "approved" ? "승인되었습니다" : "반려되었습니다",
+        });
+        closeReviewDetail();
+        await refetchDrafts();
+      } catch {
+        setBanner({ kind: "error", message: "검수 중 오류가 발생했습니다" });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [reviewingDraftId, rejectionReason, closeReviewDetail, refetchDrafts],
+  );
+
+  // ──────────────────────────────────────────────────────────────
+  // Open handlers
+  // ──────────────────────────────────────────────────────────────
+
+  const toggleOpenSelect = useCallback((id: string) => {
+    setOpenSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(userId)) next.delete(userId);
-      else next.add(userId);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }, []);
 
-  const selectAllFiltered = useCallback(() => {
-    setSelectedUserIds(new Set(filteredCrews.map((c) => c.userId)));
-  }, [filteredCrews]);
-
-  const deselectAll = useCallback(() => {
-    setSelectedUserIds(new Set());
-  }, []);
-
-  const handleSaveLine = useCallback(async () => {
-    if (!currentWeek?.weekId || !currentWeek.canOpen) return;
-
-    if (!selectedMaster) {
-      setBanner({ kind: "error", message: "라인을 선택해주세요" });
-      return;
-    }
-    if (!lineAssetValid) {
-      setBanner({
-        kind: "error",
-        message:
-          lineAssetCount < 1
-            ? "Output을 최소 1개 입력해주세요"
-            : "Output은 최대 2개까지 입력 가능합니다",
-      });
-      return;
-    }
-    if (selectedUserIds.size === 0) {
-      setBanner({ kind: "error", message: "개설 대상을 최소 1명 이상 선택해주세요" });
-      return;
-    }
-
+  const handleOpenDrafts = useCallback(async () => {
+    if (openSelectedIds.size === 0) return;
+    if (!confirm(`선택한 ${openSelectedIds.size}건을 최종 개설하시겠습니까?`)) return;
     setSaving(true);
     setBanner(null);
     try {
-      const outputImages: string[] = [];
-      if (lineImage1) outputImages.push(lineImage1.url);
-      if (lineImage2) outputImages.push(lineImage2.url);
-
-      const res = await fetch("/api/admin/cluster4/experience-lines", {
+      const res = await fetch("/api/admin/cluster4/experience-drafts/open", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          experience_line_master_id: selectedMaster.id,
-          line_code: selectedMaster.lineCode,
-          main_title: selectedMaster.mainTitle ?? selectedMaster.lineName,
-          team_id: selectedMaster.teamId,
-          output_link_1: lineLink1.trim() || null,
-          output_link_2: lineLink2.trim() || null,
-          output_images: outputImages,
-          target_user_ids: Array.from(selectedUserIds),
-          week_id: currentWeek.weekId,
-          submission_opens_at: currentWeek.submissionOpensAt,
-          submission_closes_at: currentWeek.submissionClosesAt,
-        }),
+        body: JSON.stringify({ draft_ids: Array.from(openSelectedIds) }),
       });
-
       const json = await res.json();
       if (!json.success) {
-        setBanner({ kind: "error", message: json.error ?? "저장에 실패했습니다" });
+        setBanner({ kind: "error", message: json.error ?? "개설 실패" });
         return;
       }
-
-      setBanner({
-        kind: "success",
-        message: `실무 경험 라인이 생성되었습니다 (대상: ${json.data?.targetCount ?? 0}명)`,
-      });
-      resetLineForm();
-      await fetchInitialData();
+      const data = json.data;
+      const warnings: string[] = json.warnings ?? data?.warnings ?? [];
+      let msg = `${data.openedCount}건 개설 완료 (라인 ${data.linesCreated}개, 대상 ${data.targetsCreated}명, 평가 ${data.evaluationsCreated}건)`;
+      if (warnings.length > 0) {
+        msg += ` · 경고 ${warnings.length}건: ${warnings.join(" / ")}`;
+      }
+      setBanner({ kind: warnings.length > 0 ? "error" : "success", message: msg });
+      setOpenSelectedIds(new Set());
+      await refetchDrafts();
     } catch {
-      setBanner({ kind: "error", message: "저장 중 오류가 발생했습니다" });
+      setBanner({ kind: "error", message: "개설 중 오류가 발생했습니다" });
     } finally {
       setSaving(false);
     }
-  }, [
-    currentWeek,
-    selectedMaster,
-    lineAssetValid,
-    lineAssetCount,
-    lineLink1,
-    lineLink2,
-    lineImage1,
-    lineImage2,
-    selectedUserIds,
-    resetLineForm,
-    fetchInitialData,
-  ]);
+  }, [openSelectedIds, refetchDrafts]);
 
-  // ── Render ──
+  // ──────────────────────────────────────────────────────────────
+  // Render
+  // ──────────────────────────────────────────────────────────────
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -643,14 +1082,16 @@ export default function PracticalExperienceManager() {
     );
   }
 
+  const weekAvailable = !!currentWeek?.weekId;
+
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <h1 className="text-2xl font-bold">실무 경험 라인 관리</h1>
+    <div className="mx-auto max-w-6xl space-y-6 p-6">
+      <h1 className="text-2xl font-bold">실무 경험 워크플로우</h1>
 
       {banner && (
         <div
           className={cn(
-            "rounded-md border px-4 py-3 text-sm",
+            "whitespace-pre-wrap rounded-md border px-4 py-3 text-sm",
             banner.kind === "success"
               ? "border-green-300 bg-green-50 text-green-800"
               : "border-red-300 bg-red-50 text-red-800",
@@ -666,42 +1107,44 @@ export default function PracticalExperienceManager() {
       {/* Tabs */}
       <div className="flex gap-1 border-b">
         <TabButton
-          label="라인 마스터"
+          label="라인 등록"
           active={activeTab === "masters"}
           onClick={() => setActiveTab("masters")}
         />
         <TabButton
-          label="라인 개설"
-          active={activeTab === "opening"}
-          onClick={() => setActiveTab("opening")}
+          label="입력 관리"
+          active={activeTab === "input"}
+          onClick={() => setActiveTab("input")}
         />
         <TabButton
-          label="평가 관리"
-          active={activeTab === "evaluation"}
-          onClick={() => setActiveTab("evaluation")}
-          disabled
+          label="검수 관리"
+          active={activeTab === "review"}
+          onClick={() => setActiveTab("review")}
+        />
+        <TabButton
+          label="최종 개설"
+          active={activeTab === "open"}
+          onClick={() => setActiveTab("open")}
         />
       </div>
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* Tab: 라인 마스터 */}
+      {/* Tab: 라인 등록 */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === "masters" && (
         <div className="space-y-4">
-          {/* Master list */}
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base">실무 경험 라인 마스터</CardTitle>
+                  <CardTitle className="text-base">라인 등록</CardTitle>
                   <CardDescription>
-                    등록된 마스터 {masters.length}개
-                    {adminOrg && <span className="ml-1">({adminOrg})</span>}
+                    등록된 라인 {masters.length}개
                   </CardDescription>
                 </div>
                 {!masterFormOpen && (
                   <Button size="sm" onClick={() => setMasterFormOpen(true)}>
-                    <Plus className="mr-1 h-4 w-4" /> 새 마스터
+                    <Plus className="mr-1 h-4 w-4" /> 새 라인
                   </Button>
                 )}
               </div>
@@ -709,12 +1152,13 @@ export default function PracticalExperienceManager() {
             <CardContent>
               {masters.length === 0 ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">
-                  등록된 라인 마스터가 없습니다
+                  등록된 라인이 없습니다
                 </p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>조직</TableHead>
                       <TableHead>라인 코드</TableHead>
                       <TableHead>라인명</TableHead>
                       <TableHead>메인 타이틀</TableHead>
@@ -726,9 +1170,8 @@ export default function PracticalExperienceManager() {
                   <TableBody>
                     {masters.map((m) => (
                       <TableRow key={m.id}>
-                        <TableCell className="font-mono text-xs">
-                          {m.lineCode}
-                        </TableCell>
+                        <TableCell className="text-xs">{formatOrgLabel(m.organizationSlug)}</TableCell>
+                        <TableCell className="font-mono text-xs">{m.lineCode}</TableCell>
                         <TableCell className="font-medium">{m.lineName}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {m.mainTitle ?? "-"}
@@ -769,15 +1212,32 @@ export default function PracticalExperienceManager() {
             </CardContent>
           </Card>
 
-          {/* Master form */}
           {masterFormOpen && (
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">
-                  {editingMasterId ? "라인 마스터 수정" : "새 라인 마스터"}
+                  {editingMasterId ? "라인 등록 수정" : "새 라인 등록"}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>
+                    조직 <span className="text-red-500">*</span>
+                  </Label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={mfOrgSlug}
+                    onChange={(e) => setMfOrgSlug(e.target.value)}
+                  >
+                    <option value="">조직을 선택하세요</option>
+                    {ORG_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>
@@ -786,7 +1246,7 @@ export default function PracticalExperienceManager() {
                     <Input
                       value={mfLineCode}
                       onChange={(e) => setMfLineCode(e.target.value)}
-                      placeholder="exp-design"
+                      placeholder="EXEC-EN0001"
                     />
                   </div>
                   <div className="space-y-2">
@@ -796,7 +1256,7 @@ export default function PracticalExperienceManager() {
                     <Input
                       value={mfLineName}
                       onChange={(e) => setMfLineName(e.target.value)}
-                      placeholder="디자인 실무"
+                      placeholder="[기획] 엔터테인먼트/미디어 콘텐츠 제작"
                     />
                   </div>
                 </div>
@@ -852,115 +1312,281 @@ export default function PracticalExperienceManager() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* Tab: 라인 개설 */}
+      {/* Tab: 입력 관리 */}
       {/* ═══════════════════════════════════════════════════════════ */}
-      {activeTab === "opening" && (
+      {activeTab === "input" && (
         <div className="space-y-4">
-          {/* Current Week */}
+          {/* Week selector + info */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">현재 개설 주차</CardTitle>
+              <CardTitle className="text-base">대상 주차</CardTitle>
+              <CardDescription>운영 기본값은 현재 주차이며, 테스트/검증 목적으로 직전 주차도 선택할 수 있습니다.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3 text-sm">
+              {weekOptions.length > 0 && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">대상 주차</Label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={selectedWeekId}
+                    onChange={(e) => setSelectedWeekId(e.target.value)}
+                  >
+                    <option value="">주차를 선택해주세요</option>
+                    {weekOptions.map((w) => (
+                      <option key={w.id} value={w.id} disabled={!w.canOpen}>
+                        {w.label} ({w.startDate} ~ {w.endDate})
+                        {w.isCurrent ? " · 현재" : ""}
+                        {!w.canOpen ? " · 휴식" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               {currentWeek ? (
-                <div className="space-y-1 text-sm">
+                <>
                   <p>
                     <span className="font-medium">
-                      {currentWeek.year} {currentWeek.seasonName} W
-                      {currentWeek.weekNumber}
+                      {currentWeek.year} {currentWeek.seasonName} W{currentWeek.weekNumber}
                     </span>{" "}
                     ({fmtDateWithDay(currentWeek.startDate)} ~{" "}
                     {fmtDateWithDay(currentWeek.endDate)})
                   </p>
-                  {currentWeek.canOpen &&
-                    currentWeek.submissionOpensAt &&
-                    currentWeek.submissionClosesAt && (
-                      <p className="text-muted-foreground">
-                        제출 기간: {fmtDateTimeWithDay(currentWeek.submissionOpensAt)} ~{" "}
-                        {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
-                      </p>
-                    )}
-                  {!currentWeek.canOpen && (
+                  <p className="text-muted-foreground">
+                    입력 권장 마감: 월요일 오후 2:00
+                  </p>
+                  {!weekAvailable && (
                     <p className="font-medium text-orange-600">
-                      {currentWeek.isOfficialRest
-                        ? "이번 주는 공식 휴식 주차입니다. 라인 개설이 불가합니다."
-                        : "현재 주차에 해당하는 주차 데이터가 없습니다."}
+                      현재 주차 데이터가 없습니다
                     </p>
                   )}
-                </div>
+                </>
               ) : (
-                <p className="text-sm text-muted-foreground">
-                  주차 정보를 불러올 수 없습니다.
-                </p>
+                <p className="text-muted-foreground">주차 정보를 불러올 수 없습니다</p>
               )}
             </CardContent>
           </Card>
 
-          {/* Existing experience lines */}
-          {existingLines.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">개설된 실무 경험 라인</CardTitle>
-                <CardDescription>
-                  현재 등록된 실무 경험 라인 {existingLines.length}개
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+          {/* Summary cards */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <SummaryCard title="미입력" count={inputCounts.noInput} variant="default" />
+            <SummaryCard title="임시저장" count={inputCounts.drafted} variant="info" />
+            <SummaryCard
+              title="제출완료"
+              count={inputCounts.submitted}
+              variant="success"
+            />
+            <SummaryCard title="반려" count={inputCounts.rejected} variant="error" />
+          </div>
+
+          {/* Filters */}
+          <Card>
+            <CardContent className="py-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <select
+                  className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                  value={inputFilterTeam}
+                  onChange={(e) => setInputFilterTeam(e.target.value)}
+                >
+                  <option value="">전체 팀</option>
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.teamName}>
+                      {t.teamName}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                  value={inputFilterPart}
+                  onChange={(e) => setInputFilterPart(e.target.value)}
+                >
+                  <option value="">전체 파트</option>
+                  {uniqueParts.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                  value={inputFilterStatus}
+                  onChange={(e) => setInputFilterStatus(e.target.value)}
+                >
+                  <option value="">전체 상태</option>
+                  <option value="draft">임시저장</option>
+                  <option value="submitted">제출완료</option>
+                  <option value="approved">승인</option>
+                  <option value="rejected">반려</option>
+                </select>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="이름 검색..."
+                    value={inputSearch}
+                    onChange={(e) => setInputSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Draft list */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">
+                  Draft 목록 ({inputDrafts.length}건)
+                </CardTitle>
+                {weekAvailable && !draftFormOpen && (
+                  <Button size="sm" onClick={openNewDraft}>
+                    <Plus className="mr-1 h-4 w-4" /> 새 입력
+                  </Button>
+                )}
+                {refreshing && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!weekAvailable ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  현재 주차 데이터가 없습니다
+                </p>
+              ) : inputDrafts.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  표시할 항목이 없습니다
+                </p>
+              ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>라인 코드</TableHead>
-                      <TableHead>메인 타이틀</TableHead>
-                      <TableHead className="text-center">대상</TableHead>
-                      <TableHead className="text-center">활성</TableHead>
-                      <TableHead>생성일</TableHead>
+                      <TableHead>사용자명</TableHead>
+                      <TableHead>팀</TableHead>
+                      <TableHead>파트</TableHead>
+                      <TableHead>라인</TableHead>
+                      <TableHead className="text-center">평점</TableHead>
+                      <TableHead>입력</TableHead>
+                      <TableHead>검수</TableHead>
+                      <TableHead className="w-12" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {existingLines.map((line) => (
-                      <TableRow key={line.id}>
-                        <TableCell className="font-mono text-xs">
-                          {line.lineCode ?? "-"}
+                    {inputDrafts.map((d) => (
+                      <TableRow key={d.id}>
+                        <TableCell className="font-medium">
+                          {d.targetUserName ?? "-"}
                         </TableCell>
-                        <TableCell>{line.mainTitle}</TableCell>
+                        <TableCell>{d.teamName ?? "-"}</TableCell>
+                        <TableCell>{d.partName ?? "-"}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{d.lineName ?? d.lineCode}</p>
+                            <p className="font-mono text-xs text-muted-foreground">
+                              {d.lineCode}
+                            </p>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-center">
-                          {line.targetCount}명
+                          {d.rating !== null ? `${d.rating}/10` : "-"}
                         </TableCell>
-                        <TableCell className="text-center">
-                          {line.isActive ? (
-                            <Check className="mx-auto h-4 w-4 text-green-600" />
-                          ) : (
-                            <X className="mx-auto h-4 w-4 text-muted-foreground" />
-                          )}
+                        <TableCell>
+                          <InputStatusBadge value={d.inputStatus} />
                         </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {fmtDateShort(line.createdAt)}
+                        <TableCell>
+                          <ReviewStatusBadge value={d.reviewStatus} />
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => openEditDraft(d)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
 
-          {/* New line button */}
-          {!lineFormOpen && currentWeek?.canOpen && (
-            <Button onClick={() => setLineFormOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> 새 실무 경험 라인 개설
-            </Button>
-          )}
-
-          {/* New line form */}
-          {lineFormOpen && currentWeek?.canOpen && currentWeek.submissionClosesAt && (
+          {/* Draft form */}
+          {draftFormOpen && weekAvailable && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">새 실무 경험 라인</CardTitle>
-                <CardDescription>
-                  제출 마감: {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
-                </CardDescription>
+                <CardTitle className="text-base">
+                  {editingDraftId
+                    ? draftReadonly
+                      ? "Draft 조회 (수정 불가)"
+                      : "Draft 수정"
+                    : "새 Draft 입력"}
+                </CardTitle>
+                {editingDraft?.rejectionReason && (
+                  <CardDescription className="text-red-600">
+                    반려 사유: {editingDraft.rejectionReason}
+                  </CardDescription>
+                )}
               </CardHeader>
               <CardContent className="space-y-5">
+                {/* Target user */}
+                <div className="space-y-2">
+                  <Label>
+                    대상 사용자 <span className="text-red-500">*</span>
+                  </Label>
+                  {editingDraftId ? (
+                    <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                      {editingDraft?.targetUserName ?? "-"}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {[editingDraft?.teamName, editingDraft?.partName]
+                          .filter(Boolean)
+                          .join(" / ")}
+                      </span>
+                    </div>
+                  ) : (
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      value={dfTargetUserId}
+                      onChange={(e) => setDfTargetUserId(e.target.value)}
+                      disabled={saving}
+                    >
+                      <option value="">사용자를 선택해주세요</option>
+                      {teams.map((team) => {
+                        const teamCrews = crews.filter((c) => c.teamName === team.teamName);
+                        if (teamCrews.length === 0) return null;
+                        return (
+                          <optgroup key={team.id} label={team.teamName}>
+                            {teamCrews.map((c) => (
+                              <option key={c.userId} value={c.userId}>
+                                {c.displayName}
+                                {c.partName ? ` (${c.partName})` : ""}
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      })}
+                      {(() => {
+                        const noTeam = crews.filter(
+                          (c) => !c.teamName || !teams.some((t) => t.teamName === c.teamName),
+                        );
+                        if (noTeam.length === 0) return null;
+                        return (
+                          <optgroup label="(팀 미지정)">
+                            {noTeam.map((c) => (
+                              <option key={c.userId} value={c.userId}>
+                                {c.displayName}
+                                {c.partName ? ` (${c.partName})` : ""}
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      })()}
+                    </select>
+                  )}
+                </div>
+
                 {/* Master selection */}
                 <div className="space-y-2">
                   <Label>
@@ -968,10 +1594,11 @@ export default function PracticalExperienceManager() {
                   </Label>
                   <select
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={selectedMasterId}
-                    onChange={(e) => setSelectedMasterId(e.target.value)}
+                    value={dfMasterId}
+                    onChange={(e) => setDfMasterId(e.target.value)}
+                    disabled={saving || draftReadonly}
                   >
-                    <option value="">선택해주세요</option>
+                    <option value="">라인을 선택해주세요</option>
                     {activeMasters.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.lineName}
@@ -980,218 +1607,144 @@ export default function PracticalExperienceManager() {
                   </select>
                 </div>
 
-                {/* Auto-populated fields from master */}
-                {selectedMaster && (
-                  <div className="space-y-3 rounded-md border bg-muted/30 p-4">
-                    <div className="space-y-1">
+                {/* Auto-populated fields */}
+                {selectedDraftMaster && (
+                  <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+                    <div>
                       <Label className="text-xs text-muted-foreground">라인 코드</Label>
-                      <p className="font-mono text-sm">{selectedMaster.lineCode}</p>
+                      <p className="font-mono">{selectedDraftMaster.lineCode}</p>
                     </div>
-                    <div className="space-y-1">
+                    <div>
                       <Label className="text-xs text-muted-foreground">메인 타이틀</Label>
-                      <p className="text-sm">{lineMainTitle}</p>
+                      <p>
+                        {selectedDraftMaster.mainTitle ?? selectedDraftMaster.lineName}
+                      </p>
                     </div>
-                    {selectedMaster.teamName && (
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">팀</Label>
-                        <p className="text-sm">{selectedMaster.teamName}</p>
-                      </div>
-                    )}
                   </div>
                 )}
 
-                {/* Output Assets */}
+                {/* Output assets */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label>
-                      Output Asset <span className="text-red-500">*</span>
+                      Output <span className="text-red-500">*</span>
                     </Label>
                     <span
                       className={cn(
                         "text-xs",
-                        lineAssetCount === 0
+                        dfAssetCount === 0
                           ? "text-red-500"
-                          : lineAssetCount <= 2
+                          : dfAssetCount <= 2
                             ? "text-green-600"
                             : "text-red-500",
                       )}
                     >
-                      {lineAssetCount}/2 (최소 1, 최대 2)
+                      {dfAssetCount}/2 (최소 1, 최대 2)
                     </span>
                   </div>
-                  <div className="grid gap-3">
+
+                  <div className="space-y-3">
                     <div className="space-y-1">
-                      <Label htmlFor="expLink1" className="text-xs text-muted-foreground">
-                        Link 1
-                      </Label>
+                      <Label className="text-xs text-muted-foreground">Output Link 1</Label>
                       <Input
-                        id="expLink1"
-                        value={lineLink1}
-                        onChange={(e) => setLineLink1(e.target.value)}
+                        value={dfLink1}
+                        onChange={(e) => setDfLink1(e.target.value)}
                         placeholder="https://..."
-                        disabled={!lineLink1.trim() && lineAssetCount >= 2}
+                        disabled={
+                          saving ||
+                          draftReadonly ||
+                          (!dfLink1.trim() && dfAssetCount >= 2)
+                        }
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="expLink2" className="text-xs text-muted-foreground">
-                        Link 2
-                      </Label>
+                      <Label className="text-xs text-muted-foreground">Output Link 2</Label>
                       <Input
-                        id="expLink2"
-                        value={lineLink2}
-                        onChange={(e) => setLineLink2(e.target.value)}
+                        value={dfLink2}
+                        onChange={(e) => setDfLink2(e.target.value)}
                         placeholder="https://..."
-                        disabled={!lineLink2.trim() && lineAssetCount >= 2}
+                        disabled={
+                          saving ||
+                          draftReadonly ||
+                          (!dfLink2.trim() && dfAssetCount >= 2)
+                        }
                       />
                     </div>
                     <ImageUploadSlot
-                      label="Image 1"
-                      image={lineImage1}
-                      onUpload={setLineImage1}
-                      onRemove={() => setLineImage1(null)}
-                      disabled={!lineImage1 && lineAssetCount >= 2}
+                      label="Output Image 1"
+                      image={dfImage1}
+                      onUpload={setDfImage1}
+                      onRemove={() => setDfImage1(null)}
+                      disabled={
+                        saving || draftReadonly || (!dfImage1 && dfAssetCount >= 2)
+                      }
                     />
                     <ImageUploadSlot
-                      label="Image 2"
-                      image={lineImage2}
-                      onUpload={setLineImage2}
-                      onRemove={() => setLineImage2(null)}
-                      disabled={!lineImage2 && lineAssetCount >= 2}
+                      label="Output Image 2"
+                      image={dfImage2}
+                      onUpload={setDfImage2}
+                      onRemove={() => setDfImage2(null)}
+                      disabled={
+                        saving || draftReadonly || (!dfImage2 && dfAssetCount >= 2)
+                      }
                     />
                   </div>
                 </div>
 
-                {/* Target Crew Selection */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>
-                      개설 대상 크루 <span className="text-red-500">*</span>
-                    </Label>
-                    <span className="text-xs text-muted-foreground">
-                      선택됨: {selectedUserIds.size}명
-                    </span>
-                  </div>
+                {/* Rating */}
+                <div className="space-y-2">
+                  <Label>
+                    평점 (0~10) <span className="text-red-500">*</span>
+                  </Label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={dfRating}
+                    onChange={(e) => setDfRating(e.target.value)}
+                    disabled={saving || draftReadonly}
+                  >
+                    <option value="">선택해주세요</option>
+                    {Array.from({ length: 11 }, (_, i) => i).map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                  {/* Filters */}
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <select
-                      className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-                      value={crewFilterTeam}
-                      onChange={(e) => setCrewFilterTeam(e.target.value)}
-                    >
-                      <option value="">전체 팀</option>
-                      {teams.map((t) => (
-                        <option key={t.id} value={t.teamName}>
-                          {t.teamName}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-                      value={crewFilterPart}
-                      onChange={(e) => setCrewFilterPart(e.target.value)}
-                    >
-                      <option value="">전체 파트</option>
-                      {uniqueParts.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-                      value={crewFilterLevel}
-                      onChange={(e) => setCrewFilterLevel(e.target.value)}
-                    >
-                      <option value="">전체 레벨</option>
-                      {uniqueLevels.map((l) => (
-                        <option key={l} value={l}>
-                          {l}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-                      value={crewFilterStatus}
-                      onChange={(e) => setCrewFilterStatus(e.target.value)}
-                    >
-                      <option value="active">활동중</option>
-                      <option value="rest">휴식중</option>
-                      <option value="">전체</option>
-                    </select>
-                  </div>
-
-                  {/* Search + Select All */}
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        className="pl-9"
-                        placeholder="이름 검색..."
-                        value={crewSearch}
-                        onChange={(e) => setCrewSearch(e.target.value)}
-                      />
-                    </div>
-                    <Button variant="outline" size="sm" onClick={selectAllFiltered}>
-                      전체 선택
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={deselectAll}>
-                      선택 해제
-                    </Button>
-                  </div>
-
-                  {/* Crew list */}
-                  <div className="max-h-60 overflow-y-auto rounded-md border p-2">
-                    {filteredCrews.length === 0 ? (
-                      <p className="py-4 text-center text-sm text-muted-foreground">
-                        {crews.length === 0
-                          ? "등록된 크루가 없습니다"
-                          : "검색 결과가 없습니다"}
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                        {filteredCrews.map((crew) => (
-                          <label
-                            key={crew.userId}
-                            className={cn(
-                              "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted",
-                              selectedUserIds.has(crew.userId) && "bg-muted",
-                            )}
-                          >
-                            <input
-                              type="checkbox"
-                              className="rounded border-gray-300"
-                              checked={selectedUserIds.has(crew.userId)}
-                              onChange={() => toggleUser(crew.userId)}
-                            />
-                            <span className="truncate">{crew.displayName}</span>
-                            <span className="ml-auto text-xs text-muted-foreground">
-                              {[crew.teamName, crew.partName]
-                                .filter(Boolean)
-                                .join(" / ") || ""}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                {/* Memo */}
+                <div className="space-y-2">
+                  <Label>메모 (선택)</Label>
+                  <textarea
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    rows={3}
+                    value={dfMemo}
+                    onChange={(e) => setDfMemo(e.target.value)}
+                    placeholder="추가 메모를 입력하세요"
+                    disabled={saving || draftReadonly}
+                  />
                 </div>
 
                 {/* Actions */}
                 <div className="flex justify-end gap-3 pt-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      resetLineForm();
-                    }}
-                    disabled={saving}
-                  >
+                  <Button variant="outline" onClick={resetDraftForm} disabled={saving}>
                     취소
                   </Button>
-                  <Button onClick={handleSaveLine} disabled={saving}>
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    저장
-                  </Button>
+                  {!draftReadonly && (
+                    <>
+                      <Button
+                        variant="outline"
+                        onClick={() => saveDraft(false)}
+                        disabled={saving}
+                      >
+                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        임시 저장
+                      </Button>
+                      <Button onClick={() => saveDraft(true)} disabled={saving}>
+                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        제출
+                      </Button>
+                    </>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -1200,19 +1753,436 @@ export default function PracticalExperienceManager() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* Tab: 평가 관리 (준비 중) */}
+      {/* Tab: 검수 관리 */}
       {/* ═══════════════════════════════════════════════════════════ */}
-      {activeTab === "evaluation" && (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="text-lg font-medium text-muted-foreground">
-              평가 관리 기능은 준비 중입니다
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              이 기능은 추후 업데이트에서 제공될 예정입니다.
-            </p>
-          </CardContent>
-        </Card>
+      {activeTab === "review" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">현재 주차</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              {currentWeek && (
+                <p>
+                  <span className="font-medium">
+                    {currentWeek.year} {currentWeek.seasonName} W{currentWeek.weekNumber}
+                  </span>{" "}
+                  ({fmtDateWithDay(currentWeek.startDate)} ~{" "}
+                  {fmtDateWithDay(currentWeek.endDate)})
+                </p>
+              )}
+              <p className="text-muted-foreground">검수 권장 마감: 월요일 오후 8:00</p>
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-3 gap-3">
+            <SummaryCard
+              title="검수 대기"
+              count={summary?.submittedCount ?? 0}
+              variant="warning"
+            />
+            <SummaryCard
+              title="승인"
+              count={(summary?.approvedCount ?? 0) + (summary?.openedCount ?? 0)}
+              variant="success"
+            />
+            <SummaryCard title="반려" count={summary?.rejectedCount ?? 0} variant="error" />
+          </div>
+
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm">상태 필터:</Label>
+                <select
+                  className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                  value={reviewFilterStatus}
+                  onChange={(e) => setReviewFilterStatus(e.target.value)}
+                >
+                  <option value="pending">검수 대기</option>
+                  <option value="approved">승인</option>
+                  <option value="rejected">반려</option>
+                  <option value="all">전체</option>
+                </select>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">검수 목록 ({reviewDrafts.length}건)</CardTitle>
+                {refreshing && (
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!weekAvailable ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  현재 주차 데이터가 없습니다
+                </p>
+              ) : reviewDrafts.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  검수할 항목이 없습니다
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>사용자명</TableHead>
+                      <TableHead>팀</TableHead>
+                      <TableHead>파트</TableHead>
+                      <TableHead>라인</TableHead>
+                      <TableHead className="text-center">평점</TableHead>
+                      <TableHead>입력 시간</TableHead>
+                      <TableHead>검수</TableHead>
+                      <TableHead className="w-12" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reviewDrafts.map((d) => (
+                      <TableRow
+                        key={d.id}
+                        className={cn(reviewingDraftId === d.id && "bg-muted/40")}
+                      >
+                        <TableCell className="font-medium">
+                          {d.targetUserName ?? "-"}
+                        </TableCell>
+                        <TableCell>{d.teamName ?? "-"}</TableCell>
+                        <TableCell>{d.partName ?? "-"}</TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{d.lineName ?? d.lineCode}</p>
+                            <p className="font-mono text-xs text-muted-foreground">
+                              {d.lineCode}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {d.rating !== null ? `${d.rating}/10` : "-"}
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {d.enteredAt ? fmtDateTimeWithDay(d.enteredAt) : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <ReviewStatusBadge value={d.reviewStatus} />
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => openReviewDetail(d)}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Review detail panel */}
+          {reviewingDraft && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-base">검수 상세</CardTitle>
+                    <CardDescription>
+                      {reviewingDraft.targetUserName} ·{" "}
+                      {[reviewingDraft.teamName, reviewingDraft.partName]
+                        .filter(Boolean)
+                        .join(" / ")}
+                    </CardDescription>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={closeReviewDetail}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Line info */}
+                <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                  <p className="font-medium">{reviewingDraft.lineName ?? "-"}</p>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {reviewingDraft.lineCode}
+                  </p>
+                  <p className="mt-2">
+                    <span className="text-xs text-muted-foreground">메인 타이틀: </span>
+                    {reviewingDraft.mainTitle}
+                  </p>
+                </div>
+
+                {/* Outputs */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Output</Label>
+                  <div className="space-y-2">
+                    {reviewingDraft.outputLink1 && (
+                      <a
+                        href={reviewingDraft.outputLink1}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-md border p-2 text-sm hover:bg-muted"
+                      >
+                        <ExternalLink className="h-4 w-4 text-blue-600" />
+                        <span className="truncate">{reviewingDraft.outputLink1}</span>
+                      </a>
+                    )}
+                    {reviewingDraft.outputLink2 && (
+                      <a
+                        href={reviewingDraft.outputLink2}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-md border p-2 text-sm hover:bg-muted"
+                      >
+                        <ExternalLink className="h-4 w-4 text-blue-600" />
+                        <span className="truncate">{reviewingDraft.outputLink2}</span>
+                      </a>
+                    )}
+                    {reviewingDraft.outputImages.map((url, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center gap-3 rounded-md border p-2"
+                      >
+                        <img
+                          src={url}
+                          alt={`output ${i + 1}`}
+                          className="h-16 w-16 shrink-0 rounded object-cover"
+                        />
+                        <p className="truncate text-xs text-muted-foreground">{url}</p>
+                      </div>
+                    ))}
+                    {!reviewingDraft.outputLink1 &&
+                      !reviewingDraft.outputLink2 &&
+                      reviewingDraft.outputImages.length === 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          Output 정보가 없습니다
+                        </p>
+                      )}
+                  </div>
+                </div>
+
+                {/* Rating */}
+                <div>
+                  <Label className="text-xs text-muted-foreground">평점</Label>
+                  <p className="text-lg font-semibold">
+                    {reviewingDraft.rating !== null ? `${reviewingDraft.rating}/10` : "-"}
+                  </p>
+                </div>
+
+                {/* Memo */}
+                <div>
+                  <Label className="text-xs text-muted-foreground">메모</Label>
+                  <p className="whitespace-pre-wrap text-sm">
+                    {reviewingDraft.memo || "-"}
+                  </p>
+                </div>
+
+                {/* Rejection reason input */}
+                {reviewingDraft.reviewStatus === "pending" && (
+                  <div className="space-y-2">
+                    <Label>반려 사유 (반려 시 필수)</Label>
+                    <textarea
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      rows={3}
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      placeholder="반려 사유를 입력하세요"
+                      disabled={saving}
+                    />
+                  </div>
+                )}
+
+                {reviewingDraft.reviewStatus === "rejected" &&
+                  reviewingDraft.rejectionReason && (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm">
+                      <Label className="text-xs text-red-700">기존 반려 사유</Label>
+                      <p className="text-red-800">{reviewingDraft.rejectionReason}</p>
+                    </div>
+                  )}
+
+                {/* Action buttons */}
+                {reviewingDraft.reviewStatus === "pending" && (
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button
+                      variant="outline"
+                      className="border-red-300 text-red-700 hover:bg-red-50"
+                      onClick={() => submitReview("rejected")}
+                      disabled={saving}
+                    >
+                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <XCircle className="mr-1 h-4 w-4" /> 반려
+                    </Button>
+                    <Button
+                      className="bg-green-600 hover:bg-green-700"
+                      onClick={() => submitReview("approved")}
+                      disabled={saving}
+                    >
+                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <CheckCircle2 className="mr-1 h-4 w-4" /> 승인
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {/* Tab: 최종 개설 */}
+      {/* ═══════════════════════════════════════════════════════════ */}
+      {activeTab === "open" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">현재 주차</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1 text-sm">
+              {currentWeek && (
+                <p>
+                  <span className="font-medium">
+                    {currentWeek.year} {currentWeek.seasonName} W{currentWeek.weekNumber}
+                  </span>{" "}
+                  ({fmtDateWithDay(currentWeek.startDate)} ~{" "}
+                  {fmtDateWithDay(currentWeek.endDate)})
+                </p>
+              )}
+              <p className="text-muted-foreground">
+                라인 개설 권장 마감: 월요일 오후 10:00
+              </p>
+              {currentWeek?.canOpen && currentWeek.submissionClosesAt && (
+                <p className="text-xs text-muted-foreground">
+                  실제 제출 마감: {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <SummaryCard
+              title="승인 완료"
+              count={(summary?.approvedCount ?? 0) + (summary?.openedCount ?? 0)}
+              variant="success"
+            />
+            <SummaryCard
+              title="개설 대기"
+              count={summary?.approvedCount ?? 0}
+              variant="warning"
+            />
+            <SummaryCard
+              title="개설 완료"
+              count={summary?.openedCount ?? 0}
+              variant="info"
+            />
+            <SummaryCard
+              title="미검수 경고"
+              count={summary?.submittedCount ?? 0}
+              variant="error"
+            />
+          </div>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base">
+                  최종 개설 목록 ({openDrafts.length}건)
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {refreshing && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={handleOpenDrafts}
+                    disabled={saving || openSelectedIds.size === 0}
+                  >
+                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    선택 일괄 개설 ({openSelectedIds.size}건)
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!weekAvailable ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  현재 주차 데이터가 없습니다
+                </p>
+              ) : openDrafts.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  개설할 항목이 없습니다 (검수 승인 완료 시 표시됩니다)
+                </p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10" />
+                      <TableHead>사용자명</TableHead>
+                      <TableHead>팀</TableHead>
+                      <TableHead>파트</TableHead>
+                      <TableHead>라인</TableHead>
+                      <TableHead className="text-center">평점</TableHead>
+                      <TableHead>검수일시</TableHead>
+                      <TableHead>개설 상태</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {openDrafts.map((d) => {
+                      const opened = d.openStatus === "opened";
+                      return (
+                        <TableRow key={d.id} className={cn(opened && "opacity-70")}>
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              className="rounded border-gray-300"
+                              checked={openSelectedIds.has(d.id)}
+                              disabled={opened || saving}
+                              onChange={() => toggleOpenSelect(d.id)}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {d.targetUserName ?? "-"}
+                          </TableCell>
+                          <TableCell>{d.teamName ?? "-"}</TableCell>
+                          <TableCell>{d.partName ?? "-"}</TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{d.lineName ?? d.lineCode}</p>
+                              <p className="font-mono text-xs text-muted-foreground">
+                                {d.lineCode}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {d.rating !== null ? `${d.rating}/10` : "-"}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {d.reviewedAt ? fmtDateTimeWithDay(d.reviewedAt) : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <OpenStatusBadge value={d.openStatus} />
+                            {opened && d.openedLineId && (
+                              <p
+                                className="mt-1 truncate font-mono text-[10px] text-muted-foreground"
+                                title={d.openedLineId}
+                              >
+                                line: {d.openedLineId.slice(0, 8)}…
+                              </p>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

@@ -82,14 +82,29 @@ export type WeeklyCardDto = {
   accumulatedApprovedWeeks: number;
   targetWeeks: number;
   activityStatus: string;
+  // Raw crew metadata (null when source row missing) — used by public DTO.
+  // teamLabel/partLabel/activityStatus keep "-"/"일반" fallbacks for admin UI.
   teamLabel: string;
   partLabel: string;
+  teamNameRaw: string | null;
+  partNameRaw: string | null;
+  roleLabelRaw: string | null;
+  membershipStatusLabelRaw: string | null;
+  organizationSlug: string | null;
   points: number;
   advantages: number;
   penalty: number;
+  // Raw nullable values: null when the source row is absent for this week.
+  pointsRaw: number | null;
+  advantagesRaw: number | null;
+  penaltyRaw: number | null;
+  cumulativeAdvantages: number | null;
   weeklyReputationCount: number;
+  weeklyReputationCountRaw: number | null;
   totalFmScore: number;
+  totalFmScoreRaw: number | null;
   linkedCrewCount: number;
+  linkedCrewCountRaw: number | null;
   weekImagePath: string;
   weeklyGrowth: {
     completedLines: number;

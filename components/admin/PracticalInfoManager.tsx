@@ -42,6 +42,22 @@ type CurrentWeekData = {
   submissionClosesAt: string | null;
 };
 
+type WeekOption = {
+  id: string;             // weeks.id (UUID). POST body 의 week_id 로 그대로 전달.
+  label: string;          // 표시용 — "{year}년도 {season} {weekNumber}w".
+  seasonKey: string;
+  seasonName: string;
+  year: number;
+  weekNumber: number;
+  startDate: string;
+  endDate: string;
+  isOfficialRest: boolean;
+  canOpen: boolean;
+  isCurrent: boolean;
+  submissionOpensAt: string | null;
+  submissionClosesAt: string | null;
+};
+
 type ActivityType = {
   id: string;
   name: string;
@@ -231,6 +247,8 @@ function ImageUploadSlot({
 export default function PracticalInfoManager() {
   // ── State ──
   const [currentWeek, setCurrentWeek] = useState<CurrentWeekData | null>(null);
+  const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
+  const [selectedWeekId, setSelectedWeekId] = useState<string>("");
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
   const [users, setUsers] = useState<UserItem[]>([]);
   const [existingLines, setExistingLines] = useState<LineDto[]>([]);
@@ -273,8 +291,9 @@ export default function PracticalInfoManager() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [weekRes, typesRes, usersRes, linesRes] = await Promise.all([
+      const [weekRes, weeksRes, typesRes, usersRes, linesRes] = await Promise.all([
         fetch("/api/admin/cluster4/current-week"),
+        fetch("/api/admin/cluster4/weeks-options?limit=3"),
         fetch("/api/admin/cluster4/activity-types?cluster=practical_info"),
         fetch("/api/admin/cluster4/users"),
         fetch("/api/admin/cluster4/lines?partType=info&limit=100"),
@@ -282,6 +301,14 @@ export default function PracticalInfoManager() {
 
       const weekJson = await weekRes.json();
       if (weekJson.success) setCurrentWeek(weekJson.data);
+
+      const weeksJson = await weeksRes.json();
+      if (weeksJson.success) {
+        const opts: WeekOption[] = weeksJson.data.weeks ?? [];
+        setWeekOptions(opts);
+        const current = opts.find((o) => o.isCurrent) ?? opts[0];
+        if (current) setSelectedWeekId((prev) => prev || current.id);
+      }
 
       const typesJson = await typesRes.json();
       if (typesJson.success) setActivityTypes(typesJson.data);
@@ -333,9 +360,35 @@ export default function PracticalInfoManager() {
     setSelectedUserIds(new Set());
   }, []);
 
+  // 선택된 주차 정보 — UI/POST 모두 이 값을 사용한다.
+  const selectedWeek = useMemo(
+    () => weekOptions.find((w) => w.id === selectedWeekId) ?? null,
+    [weekOptions, selectedWeekId],
+  );
+
+  const canOpenSelected = useMemo(() => {
+    if (selectedWeek) return selectedWeek.canOpen;
+    return !!currentWeek?.weekId && currentWeek.canOpen;
+  }, [selectedWeek, currentWeek]);
+
   // ── Save ──
   const handleSave = useCallback(async () => {
-    if (!currentWeek?.weekId || !currentWeek.canOpen) return;
+    // selectedWeekId 가 비어 있으면 명시적으로 차단한다 — 빈 값으로 API 를 호출하지 않는다.
+    if (!selectedWeekId) {
+      setBanner({ kind: "error", message: "주차를 선택해주세요" });
+      return;
+    }
+    const targetWeekId = selectedWeek?.id ?? null;
+    const targetOpens = selectedWeek?.submissionOpensAt ?? null;
+    const targetCloses = selectedWeek?.submissionClosesAt ?? null;
+    if (!targetWeekId || !targetOpens || !targetCloses) {
+      setBanner({ kind: "error", message: "선택한 주차 정보를 확인할 수 없습니다" });
+      return;
+    }
+    if (!selectedWeek?.canOpen) {
+      setBanner({ kind: "error", message: "선택한 주차는 라인 개설이 불가합니다" });
+      return;
+    }
 
     if (!selectedActivityType) {
       setBanner({ kind: "error", message: "활동 유형을 선택해주세요" });
@@ -368,20 +421,26 @@ export default function PracticalInfoManager() {
       if (uploadedImage1) outputImages.push(uploadedImage1.url);
       if (uploadedImage2) outputImages.push(uploadedImage2.url);
 
+      const payload = {
+        activity_type_id: selectedActivityType,
+        main_title: mainTitle.trim(),
+        output_link_1: outputLink1.trim() || null,
+        output_link_2: outputLink2.trim() || null,
+        output_images: outputImages,
+        target_user_ids: Array.from(selectedUserIds),
+        week_id: targetWeekId,
+        submission_opens_at: targetOpens,
+        submission_closes_at: targetCloses,
+      };
+      console.log("[info line open payload]", {
+        selectedWeekId,
+        selectedWeekOption: selectedWeek,
+        body: payload,
+      });
       const res = await fetch("/api/admin/cluster4/info-lines", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          activity_type_id: selectedActivityType,
-          main_title: mainTitle.trim(),
-          output_link_1: outputLink1.trim() || null,
-          output_link_2: outputLink2.trim() || null,
-          output_images: outputImages,
-          target_user_ids: Array.from(selectedUserIds),
-          week_id: currentWeek.weekId,
-          submission_opens_at: currentWeek.submissionOpensAt,
-          submission_closes_at: currentWeek.submissionClosesAt,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
@@ -406,6 +465,8 @@ export default function PracticalInfoManager() {
     }
   }, [
     currentWeek,
+    selectedWeek,
+    selectedWeekId,
     selectedActivityType,
     mainTitle,
     assetValid,
@@ -449,49 +510,83 @@ export default function PracticalInfoManager() {
         </div>
       )}
 
-      {/* Current Week Info */}
+      {/* Current Week Info + Week Selector */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">현재 개설 주차</CardTitle>
+          <CardTitle className="text-base">라인 개설 대상 주차</CardTitle>
+          <CardDescription>
+            운영 기본값은 현재 주차이며, 테스트/검증 목적으로 직전 주차도 선택할 수 있습니다.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          {currentWeek ? (
+        <CardContent className="space-y-3">
+          {weekOptions.length > 0 && (
+            <div className="space-y-1">
+              <Label htmlFor="weekSelect" className="text-xs text-muted-foreground">
+                대상 주차
+              </Label>
+              <select
+                id="weekSelect"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={selectedWeekId}
+                onChange={(e) => setSelectedWeekId(e.target.value)}
+              >
+                <option value="">주차를 선택해주세요</option>
+                {weekOptions.map((w) => (
+                  <option key={w.id} value={w.id} disabled={!w.canOpen}>
+                    {w.label} ({w.startDate} ~ {w.endDate})
+                    {w.isCurrent ? " · 현재" : ""}
+                    {!w.canOpen ? " · 휴식" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          {selectedWeek ? (
             <div className="space-y-1 text-sm">
               <p>
                 <span className="font-medium">
-                  {currentWeek.year} {currentWeek.seasonName} W
-                  {currentWeek.weekNumber}
+                  {selectedWeek.year} {selectedWeek.seasonName} W{selectedWeek.weekNumber}
                 </span>{" "}
-                ({fmtDateWithDay(currentWeek.startDate)} ~{" "}
-                {fmtDateWithDay(currentWeek.endDate)})
+                ({fmtDateWithDay(selectedWeek.startDate)} ~ {fmtDateWithDay(selectedWeek.endDate)})
               </p>
-              {currentWeek.canOpen &&
-                currentWeek.submissionOpensAt &&
-                currentWeek.submissionClosesAt && (
+              {selectedWeek.canOpen &&
+                selectedWeek.submissionOpensAt &&
+                selectedWeek.submissionClosesAt && (
                   <>
                     <p className="text-muted-foreground">
-                      제출 기간:{" "}
-                      {fmtDateTimeWithDay(currentWeek.submissionOpensAt)} ~{" "}
-                      {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
+                      제출 기간: {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~{" "}
+                      {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}
                     </p>
                     <p className="text-muted-foreground">
                       크루원 2차 정보 입력 마감:{" "}
-                      {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
+                      {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}
                     </p>
                   </>
                 )}
+              {!selectedWeek.canOpen && (
+                <p className="font-medium text-orange-600">
+                  선택한 주차는 공식 휴식 주차입니다. 라인 개설이 불가합니다.
+                </p>
+              )}
+            </div>
+          ) : currentWeek ? (
+            <div className="space-y-1 text-sm">
+              <p>
+                <span className="font-medium">
+                  {currentWeek.year} {currentWeek.seasonName} W{currentWeek.weekNumber}
+                </span>{" "}
+                ({fmtDateWithDay(currentWeek.startDate)} ~ {fmtDateWithDay(currentWeek.endDate)})
+              </p>
               {!currentWeek.canOpen && (
                 <p className="font-medium text-orange-600">
                   {currentWeek.isOfficialRest
-                    ? "이번 주는 공식 휴식 주차입니다. 라인 개설이 불가합니다."
-                    : "현재 주차에 해당하는 주차 데이터가 없습니다."}
+                    ? "이번 주는 공식 휴식 주차입니다."
+                    : "현재 주차 데이터가 없습니다."}
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              주차 정보를 불러올 수 없습니다.
-            </p>
+            <p className="text-sm text-muted-foreground">주차 정보를 불러올 수 없습니다.</p>
           )}
         </CardContent>
       </Card>
@@ -550,19 +645,21 @@ export default function PracticalInfoManager() {
       )}
 
       {/* New Line Form */}
-      {!showForm && currentWeek?.canOpen && (
+      {!showForm && canOpenSelected && (
         <Button onClick={() => setShowForm(true)}>
           <Plus className="mr-2 h-4 w-4" /> 새 라인 개설
         </Button>
       )}
 
-      {showForm && currentWeek?.canOpen && currentWeek.submissionClosesAt && (
+      {showForm && canOpenSelected && (selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">새 실무 정보 라인</CardTitle>
             <CardDescription>
               크루원 2차 정보 입력 마감:{" "}
-              {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
+              {fmtDateTimeWithDay(
+                (selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string,
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">

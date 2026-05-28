@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
     }
     if (!master) {
       return Response.json(
-        { success: false, error: "해당 라인 마스터를 찾을 수 없습니다" },
+        { success: false, error: "해당 라인을 찾을 수 없습니다" },
         { status: 404 },
       );
     }

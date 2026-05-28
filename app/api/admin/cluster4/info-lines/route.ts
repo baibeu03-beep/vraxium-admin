@@ -146,8 +146,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Diagnostic: raw body inspection — request payload 가 실제로 어떤 키를 가지는지 확인.
+  console.log("[info-lines POST raw body]", body);
+
   const parsed = parseBody(body);
   if (!parsed.ok) {
+    console.log("[info-lines POST parse failed]", parsed.error);
     return Response.json(
       { success: false, error: parsed.error },
       { status: parsed.status },

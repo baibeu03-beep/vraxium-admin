@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Save, Trash2, X } from "lucide-react";
 import {
   Card,
@@ -38,6 +38,13 @@ import type {
   Cluster4DeleteResource,
   Cluster4PatchBody,
 } from "@/lib/adminCluster4Types";
+import {
+  evaluateCluster4HubEdit,
+  modalKeyToPartType,
+  partTypeToEditWindowResourceKey,
+  type Cluster4HubEditDecision,
+} from "@/lib/cluster4LinePermission";
+import type { Cluster4LinePartType } from "@/lib/cluster4LinesTypes";
 
 // 4개 모달(Work Info / Work Ability / Work Exp / Work Career) 을 묶는 활동 탭.
 // 부모(Cluster4Editor) 의 bundle 을 받아 자체 form state 를 유지하고, 저장/삭제 시
@@ -366,7 +373,143 @@ export default function ActivityTab({
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
 
   const targetUserId = bundle.userId ?? "";
-  const canAdd = Boolean(bundle.userId) && !saveDisabled;
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Cluster4 4허브 권한: legacy `Boolean(bundle.userId)` 가 아닌 cluster4_line_targets
+  // + user_edit_windows 기준으로 hub 단위 canEdit 을 계산한다.
+  //
+  // Hub-level decision:
+  //   - bundle.cluster4LineTargets 중 partType 매칭 row 중 가장 "유리한" 하나를 선택
+  //     (window 가 열린 row 우선; 없으면 closes_at 가 가장 늦은 row).
+  //   - + bundle.cluster4HubEditWindows[resource_key] 와 함께 evaluateCluster4HubEdit.
+  //   - override 가 active 이면 target 부재여도 canEdit=true (운영자 명시적 부여).
+  //
+  // 결정은 (1) "새 항목 추가" 버튼 활성 (2) 기존 row 의 저장/삭제/입력 disabled
+  // 에 동일하게 적용된다. parent 의 saveDisabled (loading/saving + !bundle.userId) 는
+  // 그대로 위에 덮어쓰는 별도 UX 게이트.
+  // ────────────────────────────────────────────────────────────────────────
+  const nowMs = useMemo(() => Date.now(), [bundle]);
+
+  const hubDecisions = useMemo<
+    Record<Cluster4LinePartType, Cluster4HubEditDecision>
+  >(() => {
+    const result = {} as Record<Cluster4LinePartType, Cluster4HubEditDecision>;
+    const partTypes: Cluster4LinePartType[] = [
+      "info",
+      "competency",
+      "experience",
+      "career",
+    ];
+
+    for (const partType of partTypes) {
+      const candidates = bundle.cluster4LineTargets.filter(
+        (t) => t.partType === partType,
+      );
+      // 우선순위: 현재 window 가 열려 있는 target → 가장 늦게 닫히는 target → null.
+      const inWindow = candidates.find((t) => {
+        const opens = new Date(t.line.submissionOpensAt).getTime();
+        const closes = new Date(t.line.submissionClosesAt).getTime();
+        return (
+          t.line.isActive &&
+          (!Number.isFinite(opens) || nowMs >= opens) &&
+          (!Number.isFinite(closes) || nowMs <= closes)
+        );
+      });
+      const picked =
+        inWindow ??
+        [...candidates].sort(
+          (a, b) =>
+            new Date(b.line.submissionClosesAt).getTime() -
+            new Date(a.line.submissionClosesAt).getTime(),
+        )[0] ??
+        null;
+
+      const resourceKey = partTypeToEditWindowResourceKey(partType);
+      const editWindow = bundle.cluster4HubEditWindows[resourceKey];
+
+      result[partType] = evaluateCluster4HubEdit({
+        target: picked
+          ? {
+              target_mode: picked.targetMode,
+              target_user_id: picked.targetUserId,
+              line: {
+                is_active: picked.line.isActive,
+                submission_opens_at: picked.line.submissionOpensAt,
+                submission_closes_at: picked.line.submissionClosesAt,
+              },
+            }
+          : null,
+        editWindow,
+        profileUserId: bundle.userId,
+        now: nowMs,
+      });
+    }
+
+    return result;
+  }, [
+    bundle.cluster4LineTargets,
+    bundle.cluster4HubEditWindows,
+    bundle.userId,
+    nowMs,
+  ]);
+
+  const canEditModal = useCallback(
+    (modal: UserActivityModalKey | "work_career"): boolean => {
+      if (!bundle.userId) return false;
+      const partType = modalKeyToPartType(modal);
+      return hubDecisions[partType].canEdit;
+    },
+    [bundle.userId, hubDecisions],
+  );
+
+  // Hub-level "새 항목 추가" 게이트. saveDisabled (loading/saving) 위에 hub canEdit 을 덮는다.
+  const canAddForModal = useCallback(
+    (modal: UserActivityModalKey | "work_career"): boolean => {
+      return !saveDisabled && canEditModal(modal);
+    },
+    [saveDisabled, canEditModal],
+  );
+
+  // devMode 일 때 한 번씩 결정 근거를 출력. 디버깅 / 운영 confirmation 용.
+  useEffect(() => {
+    if (!devMode || !bundle.userId) return;
+    const partTypes: Cluster4LinePartType[] = [
+      "info",
+      "competency",
+      "experience",
+      "career",
+    ];
+    for (const partType of partTypes) {
+      const decision = hubDecisions[partType];
+      const resourceKey = partTypeToEditWindowResourceKey(partType);
+      const window = bundle.cluster4HubEditWindows[resourceKey];
+      const target = bundle.cluster4LineTargets.find(
+        (t) => t.partType === partType,
+      );
+      // eslint-disable-next-line no-console
+      console.log("[ActivityTab canEdit]", {
+        partType,
+        targetId: target?.lineTargetId ?? null,
+        targetUserId: target?.targetUserId ?? null,
+        profileUserId: bundle.userId,
+        targetMode: target?.targetMode ?? null,
+        submissionOpensAt: target?.line.submissionOpensAt ?? null,
+        submissionClosesAt: target?.line.submissionClosesAt ?? null,
+        lineWindowCanEdit: decision.lineWindowCanEdit,
+        editWindowResourceKey: resourceKey,
+        editWindowOpen: decision.editWindowOpen,
+        editWindowExpiresAt: window?.expiresAt ?? null,
+        finalCanEdit: decision.canEdit,
+        reason: decision.reason,
+      });
+    }
+  }, [
+    devMode,
+    bundle.userId,
+    bundle.cluster4LineTargets,
+    bundle.cluster4HubEditWindows,
+    hubDecisions,
+  ]);
 
   const weekOptions = useMemo<Array<{ id: string; label: string }>>(() => {
     return Array.from(weekLabels.entries()).map(([id, label]) => ({ id, label }));
@@ -462,7 +605,8 @@ export default function ActivityTab({
     });
 
   const handleAddActivityDraft = (modal: UserActivityModalKey) => {
-    if (!canAdd || !targetUserId) return;
+    if (!targetUserId) return;
+    if (!canAddForModal(modal)) return;
     if (activityDrafts[modal]) return; // 이미 활성 draft 있음
     setActivityDrafts((current) => ({
       ...current,
@@ -482,7 +626,8 @@ export default function ActivityTab({
   };
 
   const handleAddCareerDraft = () => {
-    if (!canAdd || !targetUserId) return;
+    if (!targetUserId) return;
+    if (!canAddForModal("work_career")) return;
     if (careerDraft) return;
     setCareerDraft(createEmptyCareerDraft(targetUserId));
     onBanner(null);
@@ -512,6 +657,17 @@ export default function ActivityTab({
       target = activityForm.find((row) => row.id === rowId);
     }
     if (!target) return;
+
+    // hub-level 권한 재확인 (button disabled 와 defense-in-depth).
+    // legacy "Boolean(bundle.userId)" 게이트 대신 cluster4_line_targets +
+    // user_edit_windows 기준의 결정을 사용한다.
+    if (!canEditModal(target.modal)) {
+      onBanner({
+        kind: "error",
+        message: `${target.modal} 허브 편집 권한이 없습니다 (라인 target / edit window 모두 미부여).`,
+      });
+      return;
+    }
 
     // draft 만 추가 검증 (week / activity_type_id 필수 + cluster_id 또는 prefix 규칙).
     if (isDraft) {
@@ -591,6 +747,16 @@ export default function ActivityTab({
       : careerForm.find((row) => row.id === rowId);
     if (!target) return;
 
+    // career_records 는 cluster4.work_career 권한 한 개에 묶인다.
+    if (!canEditModal("work_career")) {
+      onBanner({
+        kind: "error",
+        message:
+          "work_career 허브 편집 권한이 없습니다 (라인 target / edit window 모두 미부여).",
+      });
+      return;
+    }
+
     if (isDraft) {
       if (!target.week_id) {
         onBanner({ kind: "error", message: "week 를 선택해 주세요." });
@@ -651,6 +817,29 @@ export default function ActivityTab({
     confirmMessage: string,
   ) => {
     if (saveDisabled) return;
+
+    // hub-level 권한 가드. ActivityTab 이 책임지는 두 리소스만 처리; 그 외는
+    // (별도 탭에서 호출되는 경우) 그대로 통과시킨다.
+    if (resource === "careerRecord" && !canEditModal("work_career")) {
+      onBanner({
+        kind: "error",
+        message: "work_career 허브 편집 권한이 없습니다.",
+      });
+      return;
+    }
+    if (resource === "userActivityDetail") {
+      // user_activity_details 는 modal 분류가 row 별로 다르다. 행 데이터에서 modal 을
+      // 역추적 — 없으면 (race condition) 일단 통과 시키고 서버 검증에 맡긴다.
+      const row = activityForm.find((item) => item.id === id);
+      if (row && !canEditModal(row.modal)) {
+        onBanner({
+          kind: "error",
+          message: `${row.modal} 허브 편집 권한이 없습니다.`,
+        });
+        return;
+      }
+    }
+
     const ok = window.confirm(`${confirmMessage}\n\nid: ${id}`);
     if (!ok) return;
 
@@ -728,7 +917,9 @@ export default function ActivityTab({
             tableAvailable={bundle.tablesAvailable.userActivityDetails}
             getWeekLabel={getWeekLabel}
             weekOptions={weekOptions}
-            canAdd={canAdd}
+            canAdd={canAddForModal(activeSub)}
+            hubCanEdit={canEditModal(activeSub)}
+            hubDecision={hubDecisions[modalKeyToPartType(activeSub)]}
             draftActive={!!activityDrafts[activeSub]}
             onAddDraft={() => handleAddActivityDraft(activeSub)}
             onCancelDraft={() => handleCancelActivityDraft(activeSub)}
@@ -760,7 +951,9 @@ export default function ActivityTab({
                 tableAvailable={bundle.tablesAvailable.userActivityDetails}
                 getWeekLabel={getWeekLabel}
                 weekOptions={weekOptions}
-                canAdd={canAdd}
+                canAdd={canAddForModal("work_career")}
+                hubCanEdit={canEditModal("work_career")}
+                hubDecision={hubDecisions.career}
                 draftActive={!!activityDrafts.work_career}
                 onAddDraft={() => handleAddActivityDraft("work_career")}
                 onCancelDraft={() => handleCancelActivityDraft("work_career")}
@@ -791,7 +984,9 @@ export default function ActivityTab({
                 tableAvailable={bundle.tablesAvailable.careerRecords}
                 getWeekLabel={getWeekLabel}
                 weekOptions={weekOptions}
-                canAdd={canAdd}
+                canAdd={canAddForModal("work_career")}
+                hubCanEdit={canEditModal("work_career")}
+                hubDecision={hubDecisions.career}
                 draftActive={!!careerDraft}
                 onAddDraft={handleAddCareerDraft}
                 onCancelDraft={handleCancelCareerDraft}
@@ -825,6 +1020,8 @@ function ActivitySubPane({
   getWeekLabel,
   weekOptions,
   canAdd,
+  hubCanEdit,
+  hubDecision,
   draftActive,
   onAddDraft,
   onCancelDraft,
@@ -833,7 +1030,7 @@ function ActivitySubPane({
   onDelete,
   devMode,
 }: {
-  modal: UserActivityModalKey;
+  modal: UserActivityModalKey | "work_career";
   rows: ActivityFormRow[];
   saveDisabled: boolean;
   savingRowId: string | null;
@@ -841,6 +1038,8 @@ function ActivitySubPane({
   getWeekLabel: (id: string | null | undefined) => string;
   weekOptions: Array<{ id: string; label: string }>;
   canAdd: boolean;
+  hubCanEdit: boolean;
+  hubDecision: Cluster4HubEditDecision;
   draftActive: boolean;
   onAddDraft: () => void;
   onCancelDraft: () => void;
@@ -849,6 +1048,9 @@ function ActivitySubPane({
   onDelete: (rowId: string, label: string) => void;
   devMode: boolean;
 }) {
+  // 기존 saveDisabled (loading/saving) 위에 hub 권한을 덮는다. hubCanEdit=false 이면
+  // 입력 / 저장 / 삭제 모두 disabled.
+  const rowDisabled = saveDisabled || !hubCanEdit;
   if (!tableAvailable) {
     return (
       <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -935,7 +1137,7 @@ function ActivitySubPane({
                   type="button"
                   size="sm"
                   onClick={() => onSave(row.id)}
-                  disabled={saveDisabled || savingRowId === row.id}
+                  disabled={rowDisabled || savingRowId === row.id}
                 >
                   <Save className="h-4 w-4" />
                   {savingRowId === row.id
@@ -966,7 +1168,7 @@ function ActivitySubPane({
                         `${row.activity_type_id} · ${getWeekLabel(row.week_id)}`,
                       )
                     }
-                    disabled={saveDisabled || savingRowId === row.id}
+                    disabled={rowDisabled || savingRowId === row.id}
                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -988,7 +1190,7 @@ function ActivitySubPane({
                           week_id: value === "__none__" ? "" : (value ?? ""),
                         })
                       }
-                      disabled={saveDisabled}
+                      disabled={rowDisabled}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="주차 선택" />
@@ -1014,7 +1216,7 @@ function ActivitySubPane({
                               value === "__none__" ? "" : (value ?? ""),
                           })
                         }
-                        disabled={saveDisabled}
+                        disabled={rowDisabled}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="활동 종류 선택" />
@@ -1036,7 +1238,7 @@ function ActivitySubPane({
                             activity_type_id: event.target.value,
                           })
                         }
-                        disabled={saveDisabled}
+                        disabled={rowDisabled}
                         placeholder={
                           modal === "work_ability"
                             ? "activity_types.id (cluster_id=practical_competency) 또는 comp- 로 시작"
@@ -1056,7 +1258,7 @@ function ActivitySubPane({
                   onChange={(event) =>
                     onChange(row.id, { sub_title: event.target.value })
                   }
-                  disabled={saveDisabled}
+                  disabled={rowDisabled}
                   rows={2}
                   maxLength={300}
                   className="resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -1073,7 +1275,7 @@ function ActivitySubPane({
                   onChange={(event) =>
                     onChange(row.id, { growth_point: event.target.value })
                   }
-                  disabled={saveDisabled}
+                  disabled={rowDisabled}
                   rows={3}
                   maxLength={2000}
                   className="resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -1090,7 +1292,7 @@ function ActivitySubPane({
                   onChange={(event) =>
                     onChange(row.id, { output_links_json: event.target.value })
                   }
-                  disabled={saveDisabled}
+                  disabled={rowDisabled}
                   rows={3}
                   spellCheck={false}
                   className="resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -1104,7 +1306,7 @@ function ActivitySubPane({
                   onChange={(event) =>
                     onChange(row.id, { image_urls_json: event.target.value })
                   }
-                  disabled={saveDisabled}
+                  disabled={rowDisabled}
                   rows={3}
                   spellCheck={false}
                   className="resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -1117,7 +1319,7 @@ function ActivitySubPane({
                   onChange={(event) =>
                     onChange(row.id, { image_captions_json: event.target.value })
                   }
-                  disabled={saveDisabled}
+                  disabled={rowDisabled}
                   rows={3}
                   spellCheck={false}
                   className="resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
@@ -1137,7 +1339,7 @@ function ActivitySubPane({
                     onChange={(event) =>
                       onChange(row.id, { rating: event.target.value })
                     }
-                    disabled={saveDisabled}
+                    disabled={rowDisabled}
                     className="h-9"
                   />
                 </div>
@@ -1160,6 +1362,8 @@ function CareerSubPane({
   getWeekLabel,
   weekOptions,
   canAdd,
+  hubCanEdit,
+  hubDecision,
   draftActive,
   onAddDraft,
   onCancelDraft,
@@ -1175,6 +1379,8 @@ function CareerSubPane({
   getWeekLabel: (id: string | null | undefined) => string;
   weekOptions: Array<{ id: string; label: string }>;
   canAdd: boolean;
+  hubCanEdit: boolean;
+  hubDecision: Cluster4HubEditDecision;
   draftActive: boolean;
   onAddDraft: () => void;
   onCancelDraft: () => void;
@@ -1183,6 +1389,7 @@ function CareerSubPane({
   onDelete: (rowId: string, label: string) => void;
   devMode: boolean;
 }) {
+  const rowDisabled = saveDisabled || !hubCanEdit;
   if (!tableAvailable) {
     return (
       <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -1274,7 +1481,7 @@ function CareerSubPane({
                   type="button"
                   size="sm"
                   onClick={() => onSave(row.id)}
-                  disabled={saveDisabled || savingRowId === row.id}
+                  disabled={rowDisabled || savingRowId === row.id}
                 >
                   <Save className="h-4 w-4" />
                   {savingRowId === row.id
@@ -1305,7 +1512,7 @@ function CareerSubPane({
                         `${projectLabel} · ${getWeekLabel(row.week_id)}`,
                       )
                     }
-                    disabled={saveDisabled || savingRowId === row.id}
+                    disabled={rowDisabled || savingRowId === row.id}
                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -1326,7 +1533,7 @@ function CareerSubPane({
                           week_id: value === "__none__" ? "" : (value ?? ""),
                         })
                       }
-                      disabled={saveDisabled}
+                      disabled={rowDisabled}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="주차 선택" />
@@ -1348,7 +1555,7 @@ function CareerSubPane({
                       onChange={(event) =>
                         onChange(row.id, { project_id: event.target.value })
                       }
-                      disabled={saveDisabled}
+                      disabled={rowDisabled}
                       placeholder="career_projects.id UUID 입력"
                       className="h-9 font-mono text-xs"
                     />
@@ -1396,7 +1603,7 @@ function CareerSubPane({
                       enhancement_status: value === "__none__" ? "" : (value ?? ""),
                     })
                   }
-                  disabled={saveDisabled}
+                  disabled={rowDisabled}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="—" />
@@ -1421,7 +1628,7 @@ function CareerSubPane({
                       grade: value === "__none__" ? "" : (value ?? ""),
                     })
                   }
-                  disabled={saveDisabled}
+                  disabled={rowDisabled}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="—" />
@@ -1448,7 +1655,7 @@ function CareerSubPane({
                   onChange={(event) =>
                     onChange(row.id, { grade_points: event.target.value })
                   }
-                  disabled={saveDisabled}
+                  disabled={rowDisabled}
                   className="h-9"
                 />
               </div>
@@ -1460,7 +1667,7 @@ function CareerSubPane({
                   onChange={(event) =>
                     onChange(row.id, { career_code: event.target.value })
                   }
-                  disabled={saveDisabled}
+                  disabled={rowDisabled}
                   maxLength={50}
                   className="h-9"
                 />
