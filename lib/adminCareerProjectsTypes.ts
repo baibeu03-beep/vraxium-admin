@@ -33,6 +33,16 @@ export type CareerProjectDto = {
   supervisorCompany: string | null;
   supervisorProfileImg: string | null;
 
+  // career line defaults (MVP 확장)
+  startDate: string | null;
+  endDate: string | null;
+  defaultMainTitle: string | null;
+  defaultOutputLink1: string | null;
+  defaultOutputLink2: string | null;
+  defaultOutputImages: string[];
+  defaultTargetUserIds: string[];
+  organizationSlug: string;
+
   createdAt: string;
   updatedAt: string | null;
 
@@ -67,6 +77,15 @@ export type CareerProjectUpsertInput = {
   supervisorDepartment: string | null;
   supervisorCompany: string | null;
   supervisorProfileImg: string | null;
+
+  startDate: string | null;
+  endDate: string | null;
+  defaultMainTitle: string | null;
+  defaultOutputLink1: string | null;
+  defaultOutputLink2: string | null;
+  defaultOutputImages: string[];
+  defaultTargetUserIds: string[];
+  organizationSlug: string | null;
 };
 
 // 주차 연결 상태 — 한 프로젝트가 어떤 주차들에 attach 되어 있고 각 상태가 무엇인지.
@@ -177,6 +196,12 @@ const TEXT_KEYS = [
   "supervisor_department",
   "supervisor_company",
   "supervisor_profile_img",
+  "start_date",
+  "end_date",
+  "default_main_title",
+  "default_output_link_1",
+  "default_output_link_2",
+  "organization_slug",
 ] as const;
 
 type TextKey = (typeof TEXT_KEYS)[number];
@@ -236,6 +261,34 @@ export function parseCareerProjectUpsertBody(
     secondaryInfoDeadline = trimmed.length ? trimmed : null;
   }
 
+  // default_output_images — jsonb array of URLs
+  const defaultOutputImages = parseJsonField(
+    input.default_output_images,
+    "default_output_images",
+  );
+  if (!defaultOutputImages.ok) {
+    return { ok: false, status: 400, error: defaultOutputImages.error };
+  }
+  const defaultImgs = Array.isArray(defaultOutputImages.value)
+    ? (defaultOutputImages.value as unknown[]).filter(
+        (v): v is string => typeof v === "string" && v.trim().length > 0,
+      )
+    : [];
+
+  // default_target_user_ids — jsonb array of UUIDs
+  let defaultTargetUserIds: string[] = [];
+  if (input.default_target_user_ids !== undefined && input.default_target_user_ids !== null) {
+    if (!Array.isArray(input.default_target_user_ids)) {
+      return { ok: false, status: 400, error: "default_target_user_ids must be an array" };
+    }
+    for (const uid of input.default_target_user_ids) {
+      if (typeof uid !== "string" || uid.trim().length === 0) {
+        return { ok: false, status: 400, error: "default_target_user_ids items must be non-empty strings" };
+      }
+      defaultTargetUserIds.push(uid.trim());
+    }
+  }
+
   return {
     ok: true,
     value: {
@@ -255,6 +308,14 @@ export function parseCareerProjectUpsertBody(
       supervisorDepartment: texts.supervisor_department ?? null,
       supervisorCompany: texts.supervisor_company ?? null,
       supervisorProfileImg: texts.supervisor_profile_img ?? null,
+      startDate: texts.start_date ?? null,
+      endDate: texts.end_date ?? null,
+      defaultMainTitle: texts.default_main_title ?? null,
+      defaultOutputLink1: texts.default_output_link_1 ?? null,
+      defaultOutputLink2: texts.default_output_link_2 ?? null,
+      defaultOutputImages: defaultImgs,
+      defaultTargetUserIds: defaultTargetUserIds,
+      organizationSlug: texts.organization_slug ?? null,
     },
   };
 }

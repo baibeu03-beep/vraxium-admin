@@ -8,6 +8,10 @@ import type {
   Cluster4LineSubmissionInput,
   Cluster4VisibleLineDto,
 } from "@/lib/cluster4LinesTypes";
+import {
+  canEditCluster4Line,
+  type Cluster4LineCanEditReason,
+} from "@/lib/cluster4LinePermission";
 
 export class Cluster4PublicLineError extends Error {
   status: number;
@@ -98,15 +102,49 @@ function toSubmissionDto(row: Cluster4SubmissionRow): Cluster4LineSubmissionDto 
   };
 }
 
-function isWithinSubmissionWindow(opensAt: string, closesAt: string, now = new Date()) {
-  const opens = new Date(opensAt).getTime();
-  const closes = new Date(closesAt).getTime();
-  const current = now.getTime();
-  return opens <= current && current <= closes;
-}
-
 function isSubmissionClosed(closesAt: string, now = new Date()) {
   return now.getTime() > new Date(closesAt).getTime();
+}
+
+// Maps the unified canEdit reason to the HTTP status this API previously emitted.
+// Preserves the existing 4xx/501 contract while making the actual decision come from
+// one helper shared with the admin ActivityTab.
+function lineReasonToHttp(
+  reason: Cluster4LineCanEditReason,
+): { status: number; message: string } {
+  switch (reason) {
+    case "target_missing":
+      return { status: 404, message: "Line target not found." };
+    case "unsupported_target_mode":
+      return {
+        status: 501,
+        message: "Rule-based line targets are not implemented yet.",
+      };
+    case "line_inactive":
+      return { status: 410, message: "Line is not active." };
+    case "not_owner":
+      return { status: 403, message: "This line target is not accessible." };
+    case "window_not_open":
+      return { status: 410, message: "Submission window is not open yet." };
+    case "window_closed":
+      return { status: 410, message: "Submission window is closed." };
+    case "ok":
+      return { status: 200, message: "ok" };
+  }
+}
+
+function toPermissionTarget(row: Cluster4LineTargetJoinedRow) {
+  return {
+    target_mode: row.target_mode,
+    target_user_id: row.target_user_id,
+    line: row.cluster4_lines
+      ? {
+          is_active: row.cluster4_lines.is_active,
+          submission_opens_at: row.cluster4_lines.submission_opens_at,
+          submission_closes_at: row.cluster4_lines.submission_closes_at,
+        }
+      : null,
+  };
 }
 
 async function resolveAuthenticatedProfileUserId(authUserId: string, authEmail?: string | null) {
@@ -154,10 +192,9 @@ async function getSubmissionForTargetAndUser(lineTargetId: string, profileUserId
   return (data ?? null) as Cluster4SubmissionRow | null;
 }
 
-async function getAccessibleTargetById(
-  lineTargetId: string,
-  profileUserId: string,
-) {
+// Fetches the target row by id; ownership / window checks are handled separately by
+// the unified canEditCluster4Line helper so admin and portal paths agree on policy.
+async function fetchTargetById(lineTargetId: string) {
   if (!isUuid(lineTargetId)) {
     throw new Cluster4PublicLineError(400, "lineTargetId must be a UUID");
   }
@@ -166,7 +203,6 @@ async function getAccessibleTargetById(
     .from("cluster4_line_targets")
     .select(TARGET_WITH_LINE_SELECT)
     .eq("id", lineTargetId)
-    .eq("cluster4_lines.is_active", true)
     .maybeSingle();
   if (error) {
     throw new Cluster4PublicLineError(500, error.message);
@@ -175,15 +211,24 @@ async function getAccessibleTargetById(
     throw new Cluster4PublicLineError(404, "Line target not found.");
   }
 
-  const row = data as unknown as Cluster4LineTargetJoinedRow;
-  if (row.target_mode === "rule") {
-    throw new Cluster4PublicLineError(
-      501,
-      "Rule-based line targets are not implemented yet.",
-    );
-  }
-  if (row.target_user_id !== profileUserId) {
-    throw new Cluster4PublicLineError(403, "This line target is not accessible.");
+  return data as unknown as Cluster4LineTargetJoinedRow;
+}
+
+// Strict gate for portal submit/update: requires target ownership AND the submission
+// window to be open. Translates the unified reason → the HTTP status this API has
+// historically returned (403 / 404 / 410 / 501).
+async function requireEditableTarget(
+  lineTargetId: string,
+  profileUserId: string,
+): Promise<Cluster4LineTargetJoinedRow> {
+  const row = await fetchTargetById(lineTargetId);
+  const decision = canEditCluster4Line(
+    toPermissionTarget(row),
+    profileUserId,
+  );
+  if (!decision.canEdit) {
+    const http = lineReasonToHttp(decision.reason);
+    throw new Cluster4PublicLineError(http.status, http.message);
   }
   return row;
 }
@@ -256,12 +301,7 @@ export async function createCluster4LineSubmissionForAuthUser(
   input: Cluster4LineSubmissionInput,
 ): Promise<Cluster4LineSubmissionDto> {
   const profileUserId = await resolveAuthenticatedProfileUserId(authUserId, authEmail);
-  const target = await getAccessibleTargetById(lineTargetId, profileUserId);
-  const line = toVisibleLine(target);
-
-  if (!isWithinSubmissionWindow(line.submissionOpensAt, line.submissionClosesAt)) {
-    throw new Cluster4PublicLineError(410, "Submission window is closed.");
-  }
+  await requireEditableTarget(lineTargetId, profileUserId);
 
   const existing = await getSubmissionForTargetAndUser(lineTargetId, profileUserId);
   if (existing) {
@@ -293,12 +333,7 @@ export async function updateCluster4LineSubmissionForAuthUser(
   input: Cluster4LineSubmissionInput,
 ): Promise<Cluster4LineSubmissionDto> {
   const profileUserId = await resolveAuthenticatedProfileUserId(authUserId, authEmail);
-  const target = await getAccessibleTargetById(lineTargetId, profileUserId);
-  const line = toVisibleLine(target);
-
-  if (!isWithinSubmissionWindow(line.submissionOpensAt, line.submissionClosesAt)) {
-    throw new Cluster4PublicLineError(410, "Submission window is closed.");
-  }
+  await requireEditableTarget(lineTargetId, profileUserId);
 
   const existing = await getSubmissionForTargetAndUser(lineTargetId, profileUserId);
   if (!existing) {

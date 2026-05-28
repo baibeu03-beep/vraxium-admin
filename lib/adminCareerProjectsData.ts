@@ -40,12 +40,20 @@ type CareerProjectRow = {
   supervisor_department: string | null;
   supervisor_company: string | null;
   supervisor_profile_img: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  default_main_title: string | null;
+  default_output_link_1: string | null;
+  default_output_link_2: string | null;
+  default_output_images: unknown;
+  default_target_user_ids: unknown;
+  organization_slug: string;
   created_at: string;
   updated_at?: string | null;
 };
 
 const PROJECT_SELECT_BASE =
-  "id,company_name,company_logo_url,job_position,project_name,project_description,line_code,line_name,output_links,output_images,company_homepage_links,secondary_info_deadline,supervisor_name,supervisor_position,supervisor_department,supervisor_company,supervisor_profile_img,created_at";
+  "id,company_name,company_logo_url,job_position,project_name,project_description,line_code,line_name,output_links,output_images,company_homepage_links,secondary_info_deadline,supervisor_name,supervisor_position,supervisor_department,supervisor_company,supervisor_profile_img,start_date,end_date,default_main_title,default_output_link_1,default_output_link_2,default_output_images,default_target_user_ids,organization_slug,created_at";
 const PROJECT_SELECT_WITH_UPDATED_AT = `${PROJECT_SELECT_BASE},updated_at`;
 
 function escapeForIlike(value: string) {
@@ -74,6 +82,11 @@ async function withCareerProjectsSelect<T>(
   }
 }
 
+function toStringArray(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((v): v is string => typeof v === "string");
+}
+
 function toDto(row: CareerProjectRow, weekCount: number): CareerProjectDto {
   return {
     id: row.id,
@@ -93,6 +106,14 @@ function toDto(row: CareerProjectRow, weekCount: number): CareerProjectDto {
     supervisorDepartment: row.supervisor_department,
     supervisorCompany: row.supervisor_company,
     supervisorProfileImg: row.supervisor_profile_img,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    defaultMainTitle: row.default_main_title,
+    defaultOutputLink1: row.default_output_link_1,
+    defaultOutputLink2: row.default_output_link_2,
+    defaultOutputImages: toStringArray(row.default_output_images),
+    defaultTargetUserIds: toStringArray(row.default_target_user_ids),
+    organizationSlug: row.organization_slug ?? "oranke",
     createdAt: row.created_at,
     updatedAt: row.updated_at ?? row.created_at ?? null,
     weekCount,
@@ -146,6 +167,14 @@ function buildPayload(input: CareerProjectUpsertInput) {
     supervisor_department: normalizeText(input.supervisorDepartment),
     supervisor_company: normalizeText(input.supervisorCompany),
     supervisor_profile_img: normalizeText(input.supervisorProfileImg),
+    start_date: normalizeText(input.startDate),
+    end_date: normalizeText(input.endDate),
+    default_main_title: normalizeText(input.defaultMainTitle),
+    default_output_link_1: normalizeText(input.defaultOutputLink1),
+    default_output_link_2: normalizeText(input.defaultOutputLink2),
+    default_output_images: input.defaultOutputImages ?? [],
+    default_target_user_ids: input.defaultTargetUserIds ?? [],
+    organization_slug: normalizeText(input.organizationSlug) ?? "oranke",
   };
 }
 

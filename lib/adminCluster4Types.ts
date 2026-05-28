@@ -18,6 +18,8 @@ import type {
   CareerRecordRow,
   CareerRecordUpsertInput,
 } from "@/lib/careerRecordsTypes";
+import type { Cluster4LinePartType } from "@/lib/cluster4LinesTypes";
+import type { Cluster4HubEditWindowKey } from "@/lib/cluster4LinePermission";
 
 export type {
   ReputationKeywordRow,
@@ -31,6 +33,32 @@ export type {
   CareerRecordRow,
   CareerRecordUpsertInput,
 };
+
+// Snapshot of a cluster4_line_targets row joined with cluster4_lines.is_active +
+// submission_opens_at / submission_closes_at. Browser-safe shape; consumed by
+// canEditCluster4Line in lib/cluster4LinePermission.ts.
+export type Cluster4LineTargetSnapshot = {
+  lineTargetId: string;
+  lineId: string;
+  weekId: string;
+  partType: Cluster4LinePartType;
+  targetMode: "user" | "rule";
+  targetUserId: string | null;
+  line: {
+    isActive: boolean;
+    submissionOpensAt: string;
+    submissionClosesAt: string;
+    mainTitle: string;
+  };
+};
+
+// Snapshot of a user_edit_windows row for one of the 4 cluster4.work_* keys.
+// null = no row exists for this resource_key.
+export type Cluster4HubEditWindowSnapshot = {
+  resourceKey: Cluster4HubEditWindowKey;
+  openedAt: string;
+  expiresAt: string;
+} | null;
 
 export type SeasonRow = Record<string, unknown>;
 export type WeekRow = Record<string, unknown>;
@@ -77,6 +105,14 @@ export type Cluster4Bundle = {
   // activity_type_id 를 cluster_id 로 변환 후 modal(work_ability/exp/career) 을
   // 분류한다 (canonical 분류 기준). activity_types 테이블 부재 시 빈 객체.
   activityTypesClusterMap: ActivityTypeClusterMap;
+  // Cluster4 4허브 (info / competency / experience / career) 라인 시스템의 권한
+  // snapshot. ActivityTab 의 per-row canEdit 은 이 두 필드 + canEditCluster4Line /
+  // evaluateCluster4HubEdit 헬퍼로 결정된다 (legacy Boolean(bundle.userId) 대체).
+  cluster4LineTargets: Cluster4LineTargetSnapshot[];
+  cluster4HubEditWindows: Record<
+    Cluster4HubEditWindowKey,
+    Cluster4HubEditWindowSnapshot
+  >;
   tablesAvailable: {
     seasons: boolean;
     weeks: boolean;
@@ -89,6 +125,8 @@ export type Cluster4Bundle = {
     userActivityDetails: boolean;
     careerRecords: boolean;
     activityTypes: boolean;
+    cluster4LineTargets: boolean;
+    userEditWindows: boolean;
   };
 };
 

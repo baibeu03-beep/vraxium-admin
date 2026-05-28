@@ -1,0 +1,336 @@
+import { NextRequest } from "next/server";
+import { requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
+import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isUuid } from "@/lib/isUuid";
+import {
+  getSeasonForDate,
+  getCalendarWeekStatus,
+} from "@/lib/seasonCalendar";
+
+type CompetencyLineCreateBody = {
+  competency_line_master_id: string;
+  output_link_1: string | null;
+  output_link_2: string | null;
+  output_images: string[];
+  target_user_ids: string[];
+  // 어드민/테스트 모드 override — 미지정 시 서버가 current week 로 폴백.
+  week_id: string | null;
+  submission_opens_at: string | null;
+  submission_closes_at: string | null;
+};
+
+function parseBody(
+  body: unknown,
+): { ok: true; value: CompetencyLineCreateBody } | { ok: false; status: number; error: string } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { ok: false, status: 400, error: "Request body must be a JSON object" };
+  }
+  const b = body as Record<string, unknown>;
+
+  if (typeof b.competency_line_master_id !== "string" || !isUuid(b.competency_line_master_id)) {
+    return { ok: false, status: 400, error: "competency_line_master_id is required (UUID)" };
+  }
+
+  let outputLink1: string | null = null;
+  if (b.output_link_1 !== undefined && b.output_link_1 !== null) {
+    if (typeof b.output_link_1 !== "string") {
+      return { ok: false, status: 400, error: "output_link_1 must be a string or null" };
+    }
+    const trimmed = b.output_link_1.trim();
+    outputLink1 = trimmed.length > 0 ? trimmed : null;
+  }
+
+  let outputLink2: string | null = null;
+  if (b.output_link_2 !== undefined && b.output_link_2 !== null) {
+    if (typeof b.output_link_2 !== "string") {
+      return { ok: false, status: 400, error: "output_link_2 must be a string or null" };
+    }
+    const trimmed = b.output_link_2.trim();
+    outputLink2 = trimmed.length > 0 ? trimmed : null;
+  }
+
+  let outputImages: string[] = [];
+  if (b.output_images !== undefined && b.output_images !== null) {
+    if (!Array.isArray(b.output_images)) {
+      return { ok: false, status: 400, error: "output_images must be an array" };
+    }
+    for (const item of b.output_images) {
+      if (typeof item !== "string") {
+        return { ok: false, status: 400, error: "output_images items must be strings" };
+      }
+      const trimmed = item.trim();
+      if (trimmed.length > 0) outputImages.push(trimmed);
+    }
+  }
+
+  const totalAssets = (outputLink1 ? 1 : 0) + (outputLink2 ? 1 : 0) + outputImages.length;
+  if (totalAssets < 1) {
+    return { ok: false, status: 400, error: "Output을 최소 1개 입력해주세요 (Link + Image 합산)" };
+  }
+  if (totalAssets > 2) {
+    return { ok: false, status: 400, error: "Output은 최대 2개까지 입력 가능합니다 (Link + Image 합산)" };
+  }
+
+  if (!Array.isArray(b.target_user_ids) || b.target_user_ids.length === 0) {
+    return { ok: false, status: 400, error: "개설 대상을 최소 1명 이상 선택해주세요" };
+  }
+  const targetUserIds: string[] = [];
+  for (const uid of b.target_user_ids) {
+    if (typeof uid !== "string" || !isUuid(uid)) {
+      return { ok: false, status: 400, error: "target_user_ids must contain valid UUIDs" };
+    }
+    targetUserIds.push(uid);
+  }
+
+  let weekId: string | null = null;
+  if (b.week_id !== undefined && b.week_id !== null && b.week_id !== "") {
+    if (typeof b.week_id !== "string" || !isUuid(b.week_id)) {
+      return { ok: false, status: 400, error: "week_id must be a UUID" };
+    }
+    weekId = b.week_id;
+  }
+
+  let submissionOpensAt: string | null = null;
+  if (b.submission_opens_at !== undefined && b.submission_opens_at !== null && b.submission_opens_at !== "") {
+    if (typeof b.submission_opens_at !== "string") {
+      return { ok: false, status: 400, error: "submission_opens_at must be a string" };
+    }
+    submissionOpensAt = b.submission_opens_at;
+  }
+  let submissionClosesAt: string | null = null;
+  if (b.submission_closes_at !== undefined && b.submission_closes_at !== null && b.submission_closes_at !== "") {
+    if (typeof b.submission_closes_at !== "string") {
+      return { ok: false, status: 400, error: "submission_closes_at must be a string" };
+    }
+    submissionClosesAt = b.submission_closes_at;
+  }
+
+  return {
+    ok: true,
+    value: {
+      competency_line_master_id: b.competency_line_master_id,
+      output_link_1: outputLink1,
+      output_link_2: outputLink2,
+      output_images: outputImages,
+      target_user_ids: targetUserIds,
+      week_id: weekId,
+      submission_opens_at: submissionOpensAt,
+      submission_closes_at: submissionClosesAt,
+    },
+  };
+}
+
+const DAY_MS = 86_400_000;
+
+function deriveSubmissionWindow(weekStartIso: string): {
+  submissionOpensAt: string;
+  submissionClosesAt: string;
+} {
+  const weekStartMs = Date.UTC(
+    +weekStartIso.slice(0, 4),
+    +weekStartIso.slice(5, 7) - 1,
+    +weekStartIso.slice(8, 10),
+  );
+  const wednesdayMs = weekStartMs + 2 * DAY_MS;
+  // KST = UTC+9 ⇒ open=주 시작 00:00 KST(-9h UTC), close=Wed 22:00 KST(+13h UTC).
+  return {
+    submissionOpensAt: new Date(weekStartMs - 9 * 3600_000).toISOString(),
+    submissionClosesAt: new Date(wednesdayMs + 22 * 3600_000 - 9 * 3600_000).toISOString(),
+  };
+}
+
+function resolveCurrentWeek(): {
+  weekStart: string;
+  weekEnd: string;
+  weekNumber: number;
+  isoYear: number;
+  isoWeek: number;
+  isOfficialRest: boolean;
+  submissionOpensAt: string;
+  submissionClosesAt: string;
+} | null {
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const season = getSeasonForDate(todayIso);
+  if (!season) return null;
+
+  const seasonStartMs = Date.UTC(+season.startDate.slice(0, 4), +season.startDate.slice(5, 7) - 1, +season.startDate.slice(8, 10));
+  const dateMs = Date.UTC(+todayIso.slice(0, 4), +todayIso.slice(5, 7) - 1, +todayIso.slice(8, 10));
+  const weekIndex = Math.floor((dateMs - seasonStartMs) / (7 * DAY_MS));
+  const weekNumber = weekIndex + 1;
+  const weekStartMs = seasonStartMs + weekIndex * 7 * DAY_MS;
+  const weekEndMs = weekStartMs + 6 * DAY_MS;
+
+  const calendarStatus = getCalendarWeekStatus(season.type, weekNumber, season.seasonWeeks);
+  const isOfficialRest = calendarStatus === "official_rest" || calendarStatus === "transition";
+
+  const d = new Date(`${new Date(weekStartMs).toISOString().slice(0, 10)}T00:00:00Z`);
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const isoYear = d.getUTCFullYear();
+  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
+  const isoWeek = Math.ceil(((d.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7);
+
+  const wednesdayMs = weekStartMs + 2 * DAY_MS;
+  const submissionOpensAt = new Date(weekStartMs - 9 * 3600_000).toISOString();
+  const submissionClosesAt = new Date(wednesdayMs + 22 * 3600_000 - 9 * 3600_000).toISOString();
+
+  return {
+    weekStart: new Date(weekStartMs).toISOString().slice(0, 10),
+    weekEnd: new Date(weekEndMs).toISOString().slice(0, 10),
+    weekNumber,
+    isoYear,
+    isoWeek,
+    isOfficialRest,
+    submissionOpensAt,
+    submissionClosesAt,
+  };
+}
+
+export async function POST(request: NextRequest) {
+  let admin;
+  try {
+    admin = await requireAdmin(CLUSTER4_LINE_WRITE_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const parsed = parseBody(body);
+  if (!parsed.ok) {
+    return Response.json({ success: false, error: parsed.error }, { status: parsed.status });
+  }
+
+  const input = parsed.value;
+
+  try {
+    // 1. Resolve target week — override 우선, 미지정 시 current week.
+    let weekRowId: string;
+    let submissionOpensAt: string;
+    let submissionClosesAt: string;
+
+    if (input.week_id) {
+      const { data: weekRow, error: weekError } = await supabaseAdmin
+        .from("weeks")
+        .select("id,start_date,is_official_rest")
+        .eq("id", input.week_id)
+        .maybeSingle();
+      if (weekError) return Response.json({ success: false, error: weekError.message }, { status: 500 });
+      if (!weekRow) return Response.json({ success: false, error: "지정한 주차를 찾을 수 없습니다" }, { status: 404 });
+      if ((weekRow as { is_official_rest: boolean | null }).is_official_rest) {
+        return Response.json(
+          { success: false, error: "공식 휴식 주차에는 라인을 개설할 수 없습니다" },
+          { status: 400 },
+        );
+      }
+      weekRowId = (weekRow as { id: string }).id;
+      const startDate = (weekRow as { start_date: string }).start_date;
+      const derived = deriveSubmissionWindow(startDate);
+      submissionOpensAt = input.submission_opens_at ?? derived.submissionOpensAt;
+      submissionClosesAt = input.submission_closes_at ?? derived.submissionClosesAt;
+    } else {
+      const week = resolveCurrentWeek();
+      if (!week || week.isOfficialRest) {
+        return Response.json(
+          { success: false, error: "현재 주차에 라인을 개설할 수 없습니다" },
+          { status: 400 },
+        );
+      }
+
+      const { data: weekRow, error: weekError } = await supabaseAdmin
+        .from("weeks")
+        .select("id")
+        .eq("iso_year", week.isoYear)
+        .eq("iso_week", week.isoWeek)
+        .maybeSingle();
+      if (weekError) return Response.json({ success: false, error: weekError.message }, { status: 500 });
+      if (!weekRow) return Response.json({ success: false, error: "현재 주차 데이터를 찾을 수 없습니다" }, { status: 404 });
+      weekRowId = (weekRow as { id: string }).id;
+      submissionOpensAt = week.submissionOpensAt;
+      submissionClosesAt = week.submissionClosesAt;
+    }
+
+    // 2. Lookup master for line_code + main_title
+    const { data: master, error: masterError } = await supabaseAdmin
+      .from("cluster4_competency_line_masters")
+      .select("id,line_code,line_name,main_title")
+      .eq("id", input.competency_line_master_id)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (masterError) return Response.json({ success: false, error: masterError.message }, { status: 500 });
+    if (!master) return Response.json({ success: false, error: "해당 라인을 찾을 수 없습니다" }, { status: 404 });
+
+    const lineCode = (master as { line_code: string }).line_code;
+    const mainTitle = (master as { main_title: string | null; line_name: string }).main_title
+      ?? (master as { line_name: string }).line_name;
+
+    // 3. Create cluster4_lines row
+    const { data: lineRow, error: lineError } = await supabaseAdmin
+      .from("cluster4_lines")
+      .insert({
+        part_type: "competency",
+        competency_line_master_id: input.competency_line_master_id,
+        line_code: lineCode,
+        main_title: mainTitle,
+        output_link_1: input.output_link_1,
+        output_link_2: input.output_link_2,
+        output_images: input.output_images,
+        submission_opens_at: submissionOpensAt,
+        submission_closes_at: submissionClosesAt,
+        is_active: true,
+        created_by: admin.userId,
+        updated_by: admin.userId,
+      })
+      .select("id,part_type,line_code,competency_line_master_id,main_title,output_link_1,output_link_2,output_images,submission_opens_at,submission_closes_at,is_active,created_at")
+      .single();
+
+    if (lineError || !lineRow) {
+      const msg = lineError?.message ?? "Failed to create competency line";
+      const status = lineError?.code === "23505" ? 409 : 500;
+      return Response.json({ success: false, error: msg }, { status });
+    }
+
+    // 4. Bulk-create targets
+    const targetRows = input.target_user_ids.map((userId) => ({
+      line_id: lineRow.id,
+      week_id: weekRowId,
+      target_mode: "user" as const,
+      target_user_id: userId,
+      target_rule: {},
+      created_by: admin.userId,
+      updated_by: admin.userId,
+    }));
+
+    const { data: targets, error: targetError } = await supabaseAdmin
+      .from("cluster4_line_targets")
+      .insert(targetRows)
+      .select("id,line_id,week_id,target_user_id");
+
+    if (targetError) {
+      console.error("[competency-lines POST] targets insert failed", targetError);
+      return Response.json(
+        { success: false, error: `라인은 생성되었으나 대상 등록에 실패했습니다: ${targetError.message}`, data: { lineId: lineRow.id } },
+        { status: 500 },
+      );
+    }
+
+    return Response.json(
+      { success: true, data: { line: lineRow, targets: targets ?? [], targetCount: input.target_user_ids.length } },
+      { status: 201 },
+    );
+  } catch (error) {
+    console.error("[competency-lines POST]", error);
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Failed to create competency line" },
+      { status: 500 },
+    );
+  }
+}
