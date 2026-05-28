@@ -80,17 +80,38 @@ async function logWeekComparison(
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = await getSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const internalKey = request.headers.get("x-internal-api-key");
+  const expectedInternalKey = process.env.INTERNAL_API_KEY;
+  const internalAuthAccepted =
+    !!internalKey &&
+    !!expectedInternalKey &&
+    internalKey === expectedInternalKey;
 
-  if (authError || !user) {
-    return Response.json(
-      { success: false, error: "Authentication required." },
-      { status: 401 },
+  if (internalKey) {
+    console.log(
+      internalAuthAccepted
+        ? "[weekly-cards] internal auth accepted"
+        : "[weekly-cards] internal auth rejected",
     );
+  }
+
+  let sessionUser: { id: string; email: string | null | undefined } | null =
+    null;
+
+  if (!internalAuthAccepted) {
+    const supabase = await getSupabaseServerClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return Response.json(
+        { success: false, error: "Authentication required." },
+        { status: 401 },
+      );
+    }
+    sessionUser = { id: user.id, email: user.email };
   }
 
   try {
@@ -99,8 +120,20 @@ export async function GET(request: NextRequest) {
 
     let data;
     let profileUserIdForLog: string | null = null;
-    if (requestedUserId) {
-      const ownProfileUserId = await resolveProfileUserId(user.id, user.email);
+    if (internalAuthAccepted) {
+      if (!requestedUserId) {
+        return Response.json(
+          { success: false, error: "userId is required for internal calls." },
+          { status: 400 },
+        );
+      }
+      data = await getCluster4WeeklyCardsForProfileUser(requestedUserId);
+      profileUserIdForLog = requestedUserId;
+    } else if (requestedUserId) {
+      const ownProfileUserId = await resolveProfileUserId(
+        sessionUser!.id,
+        sessionUser!.email,
+      );
       if (requestedUserId !== ownProfileUserId) {
         await requireAdmin(ADMIN_READ_ROLES);
       }
@@ -108,10 +141,13 @@ export async function GET(request: NextRequest) {
       profileUserIdForLog = requestedUserId;
     } else {
       data = await getCluster4WeeklyCardsForAuthUser(
-        user.id,
-        user.email ?? null,
+        sessionUser!.id,
+        sessionUser!.email ?? null,
       );
-      profileUserIdForLog = await resolveProfileUserId(user.id, user.email);
+      profileUserIdForLog = await resolveProfileUserId(
+        sessionUser!.id,
+        sessionUser!.email,
+      );
     }
 
     if (profileUserIdForLog) {
