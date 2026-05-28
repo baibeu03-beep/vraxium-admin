@@ -38,10 +38,6 @@ async function main() {
   // ────────────────────────────────────────────────
   console.log("[1] cluster4_lines 신규 컬럼 존재 확인");
 
-  const { data: colData, error: colErr } = await sb.rpc("", undefined).then(
-    () => ({ data: null, error: null }),
-  ).catch(() => ({ data: null, error: null }));
-
   // 컬럼 존재 확인: activity_type_id가 있는 행을 select 시도
   const { data: linesSample, error: linesErr } = await sb
     .from("cluster4_lines")
