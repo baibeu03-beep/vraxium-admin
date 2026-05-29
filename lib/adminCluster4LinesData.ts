@@ -40,6 +40,11 @@ type Cluster4LineRow = {
   id: string;
   part_type: Cluster4LineDto["partType"];
   activity_type_id: string | null;
+  week_id: string | null;
+  source_type: string | null;
+  recognition_mode: string | null;
+  source_sheet_name: string | null;
+  is_recurring_content: boolean | null;
   line_code: string | null;
   main_title: string;
   info_subtitle: string | null;
@@ -76,7 +81,7 @@ type Cluster4SubmissionCountRow = {
 };
 
 const LINE_SELECT =
-  "id,part_type,activity_type_id,line_code,main_title,info_subtitle,info_growth_point,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_by,updated_by,created_at,updated_at";
+  "id,part_type,activity_type_id,week_id,source_type,recognition_mode,source_sheet_name,is_recurring_content,line_code,main_title,info_subtitle,info_growth_point,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_by,updated_by,created_at,updated_at";
 const TARGET_SELECT =
   "id,line_id,week_id,target_mode,target_user_id,target_rule,created_by,updated_by,created_at,updated_at";
 
@@ -310,6 +315,48 @@ function translatePostgrestError(message: string, code?: string) {
   return new Cluster4LineError(500, message);
 }
 
+async function fetchLineIdsForWeekFilter(
+  weekId: string,
+  options: { targetMode?: Cluster4LineTargetDto["targetMode"] | null } = {},
+) {
+  const lineIds = new Set<string>();
+
+  let targetQuery = supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("line_id")
+    .eq("week_id", weekId);
+  if (options.targetMode) {
+    targetQuery = targetQuery.eq("target_mode", options.targetMode);
+  }
+
+  const { data: targetRows, error: targetError } = await targetQuery;
+  if (targetError) {
+    throw new Cluster4LineError(500, targetError.message);
+  }
+  for (const row of (targetRows ?? []) as Array<{ line_id: string | null }>) {
+    if (row.line_id) lineIds.add(row.line_id);
+  }
+
+  // Excel-imported lines intentionally have no cluster4_line_targets. Include
+  // them by their line-level week_id only when the caller is not specifically
+  // asking for a target mode.
+  if (!options.targetMode) {
+    const { data: lineRows, error: lineError } = await supabaseAdmin
+      .from("cluster4_lines")
+      .select("id")
+      .eq("week_id", weekId)
+      .eq("source_type", "excel_import");
+    if (lineError) {
+      throw new Cluster4LineError(500, lineError.message);
+    }
+    for (const row of (lineRows ?? []) as Array<{ id: string | null }>) {
+      if (row.id) lineIds.add(row.id);
+    }
+  }
+
+  return Array.from(lineIds);
+}
+
 export type ListCluster4LinesOptions = {
   partType?: Cluster4LineDto["partType"] | null;
   weekId?: string | null;
@@ -327,20 +374,25 @@ export async function listCluster4Lines(
 
   let lineIdsFilter: string[] | null = null;
   if (options.weekId || options.targetMode) {
-    let targetQuery = supabaseAdmin.from("cluster4_line_targets").select("line_id");
-    if (options.weekId) targetQuery = targetQuery.eq("week_id", options.weekId);
-    if (options.targetMode) targetQuery = targetQuery.eq("target_mode", options.targetMode);
-    const { data: targetRows, error: targetError } = await targetQuery;
-    if (targetError) {
-      throw new Cluster4LineError(500, targetError.message);
+    if (options.weekId) {
+      lineIdsFilter = await fetchLineIdsForWeekFilter(options.weekId, {
+        targetMode: options.targetMode ?? null,
+      });
+    } else {
+      let targetQuery = supabaseAdmin.from("cluster4_line_targets").select("line_id");
+      if (options.targetMode) targetQuery = targetQuery.eq("target_mode", options.targetMode);
+      const { data: targetRows, error: targetError } = await targetQuery;
+      if (targetError) {
+        throw new Cluster4LineError(500, targetError.message);
+      }
+      lineIdsFilter = Array.from(
+        new Set(
+          ((targetRows ?? []) as Array<{ line_id: string | null }>)
+            .map((row) => row.line_id)
+            .filter((value): value is string => typeof value === "string"),
+        ),
+      );
     }
-    lineIdsFilter = Array.from(
-      new Set(
-        ((targetRows ?? []) as Array<{ line_id: string | null }>)
-          .map((row) => row.line_id)
-          .filter((value): value is string => typeof value === "string"),
-      ),
-    );
     if (lineIdsFilter.length === 0) {
       return { rows: [], total: 0, limit, offset };
     }
@@ -660,18 +712,7 @@ export async function listCluster4LinesDetailed(
     if (!isUuid(options.weekId)) {
       throw new Cluster4LineError(400, "week_id must be a UUID");
     }
-    const { data, error } = await supabaseAdmin
-      .from("cluster4_line_targets")
-      .select("line_id")
-      .eq("week_id", options.weekId);
-    if (error) throw new Cluster4LineError(500, error.message);
-    lineIdsFilter = Array.from(
-      new Set(
-        ((data ?? []) as Array<{ line_id: string | null }>)
-          .map((row) => row.line_id)
-          .filter((value): value is string => typeof value === "string"),
-      ),
-    );
+    lineIdsFilter = await fetchLineIdsForWeekFilter(options.weekId);
     if (lineIdsFilter.length === 0) return { rows: [], total: 0, limit, offset };
   }
 
@@ -778,8 +819,10 @@ export async function listCluster4LinesDetailed(
   // 6. 주차 라벨.
   const weekIds = Array.from(
     new Set(
-      targetRows
-        .map((row) => row.week_id)
+      [
+        ...targetRows.map((row) => row.week_id),
+        ...lineRows.map((row) => row.week_id),
+      ]
         .filter((value): value is string => typeof value === "string"),
     ),
   );
@@ -906,7 +949,7 @@ export async function listCluster4LinesDetailed(
     });
 
     const targetCount = lineTargets.length;
-    const weekId = lineTargets[0]?.week_id ?? null;
+    const weekId = line.week_id ?? lineTargets[0]?.week_id ?? null;
     const weekLabel = weekId ? weekLabelById.get(weekId) ?? null : null;
     const base = toLineDto(line, targetCount, submittedCount);
 
