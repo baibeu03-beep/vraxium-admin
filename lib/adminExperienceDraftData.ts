@@ -7,6 +7,7 @@ import type {
   ExperienceDraftReviewInput,
   InputStatus,
 } from "@/lib/adminExperienceDraftTypes";
+import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
 
 // ── Row → DTO mapping ─────────────────────────────────────
 
@@ -33,6 +34,10 @@ function toDraftDto(row: ExperienceDraftRow): ExperienceDraftDto {
     mainTitle: row.main_title,
     outputLink1: row.output_link_1,
     outputLink2: row.output_link_2,
+    outputLinks: resolveOutputLinks(row.output_links, [
+      row.output_link_1,
+      row.output_link_2,
+    ]),
     outputImages: Array.isArray(row.output_images) ? row.output_images : [],
     rating: row.rating,
     memo: row.memo,
@@ -116,6 +121,7 @@ export async function createExperienceDraft(
       main_title: input.mainTitle,
       output_link_1: input.outputLink1,
       output_link_2: input.outputLink2,
+      output_links: input.outputLinks,
       output_images: input.outputImages,
       rating: input.rating,
       memo: input.memo,
@@ -177,6 +183,7 @@ export async function updateExperienceDraft(
   if (input.mainTitle !== undefined) patch.main_title = input.mainTitle;
   if (input.outputLink1 !== undefined) patch.output_link_1 = input.outputLink1;
   if (input.outputLink2 !== undefined) patch.output_link_2 = input.outputLink2;
+  if (input.outputLinks !== undefined) patch.output_links = input.outputLinks;
   if (input.outputImages !== undefined) patch.output_images = input.outputImages;
   if (input.rating !== undefined) patch.rating = input.rating;
   if (input.memo !== undefined) patch.memo = input.memo;
@@ -353,6 +360,7 @@ type DraftForOpen = {
   main_title: string;
   output_link_1: string | null;
   output_link_2: string | null;
+  output_links: unknown;
   output_images: string[];
   rating: number | null;
   review_status: string;
@@ -371,7 +379,7 @@ export async function openExperienceDrafts(
     .select(
       "id,week_id,organization_slug,team_id,target_user_id," +
       "experience_line_master_id,line_code,main_title," +
-      "output_link_1,output_link_2,output_images," +
+      "output_link_1,output_link_2,output_links,output_images," +
       "rating,review_status,open_status,entered_by,entered_at",
     )
     .in("id", draftIds);
@@ -481,6 +489,10 @@ export async function openExperienceDrafts(
         team_id: first.team_id,
         output_link_1: first.output_link_1,
         output_link_2: first.output_link_2,
+        output_links: resolveOutputLinks(first.output_links, [
+          first.output_link_1,
+          first.output_link_2,
+        ]),
         output_images: first.output_images,
         submission_opens_at: submissionOpensAt,
         submission_closes_at: submissionClosesAt,

@@ -1,6 +1,14 @@
 // Browser-safe types for public-facing cluster4 line APIs.
 // Must not import server-only modules here.
 
+import {
+  type Cluster4OutputLink,
+  outputLinksFromLegacy,
+  parseOutputLinksInput,
+} from "@/lib/cluster4OutputLinks";
+
+export type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
+
 export type Cluster4LineStatus = "void" | "pending" | "success" | "fail";
 
 export type Cluster4LinePartType =
@@ -18,6 +26,7 @@ export type Cluster4VisibleLineDto = {
   targetMode: Cluster4LineTargetMode;
   mainTitle: string;
   outputLink1: string | null;
+  outputLinks: Cluster4OutputLink[];
   submissionOpensAt: string;
   submissionClosesAt: string;
 };
@@ -30,6 +39,7 @@ export type Cluster4LineSubmissionDto = {
   outputLink3: string | null;
   outputLink4: string | null;
   outputLink5: string | null;
+  outputLinks: Cluster4OutputLink[];
   submittedAt: string;
   updatedAt: string;
 };
@@ -47,6 +57,8 @@ export type Cluster4LineSubmissionInput = {
   outputLink3: string | null;
   outputLink4: string | null;
   outputLink5: string | null;
+  // 신규 canonical 구조. 저장 시 output_links jsonb 로 기록하고 레거시 컬럼에도 mirror 한다.
+  outputLinks: Cluster4OutputLink[];
 };
 
 export type ParseSubmissionBodyResult =
@@ -87,6 +99,19 @@ export function parseCluster4LineSubmissionBody(
   const outputLink5 = normalizeTextField(body.output_link_5, "output_link_5");
   if (!outputLink5.ok) return { ok: false, status: 400, error: outputLink5.error };
 
+  // output_links 우선. 미제공 시 레거시 output_link_2~5 로부터 파생.
+  const parsedLinks = parseOutputLinksInput(body.output_links);
+  if (!parsedLinks.ok) return { ok: false, status: 400, error: parsedLinks.error };
+  const outputLinks =
+    parsedLinks.value.length > 0
+      ? parsedLinks.value
+      : outputLinksFromLegacy([
+          outputLink2.value,
+          outputLink3.value,
+          outputLink4.value,
+          outputLink5.value,
+        ]);
+
   return {
     ok: true,
     value: {
@@ -95,6 +120,7 @@ export function parseCluster4LineSubmissionBody(
       outputLink3: outputLink3.value,
       outputLink4: outputLink4.value,
       outputLink5: outputLink5.value,
+      outputLinks,
     },
   };
 }

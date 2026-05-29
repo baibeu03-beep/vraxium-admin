@@ -2,8 +2,15 @@
 
 import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
 import { isUuid } from "@/lib/isUuid";
+import {
+  type Cluster4OutputLink,
+  outputLinksFromLegacy,
+  outputLinksToLegacySlots,
+  parseOutputLinksInput,
+} from "@/lib/cluster4OutputLinks";
 
 export { CLUSTER4_LINE_WRITE_ROLES as EXPERIENCE_DRAFT_WRITE_ROLES };
+export type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
 
 // ── Status literals ────────────────────────────────────────
 
@@ -28,6 +35,7 @@ export type ExperienceDraftDto = {
   mainTitle: string;
   outputLink1: string | null;
   outputLink2: string | null;
+  outputLinks: Cluster4OutputLink[];
   outputImages: string[];
   rating: number | null;
   memo: string | null;
@@ -58,6 +66,7 @@ export type ExperienceDraftRow = {
   main_title: string;
   output_link_1: string | null;
   output_link_2: string | null;
+  output_links: unknown;
   output_images: string[];
   rating: number | null;
   memo: string | null;
@@ -93,6 +102,7 @@ export type ExperienceDraftCreateInput = {
   mainTitle: string;
   outputLink1: string | null;
   outputLink2: string | null;
+  outputLinks: Cluster4OutputLink[];
   outputImages: string[];
   rating: number | null;
   memo: string | null;
@@ -107,6 +117,7 @@ export type ExperienceDraftPatchInput = {
   mainTitle?: string;
   outputLink1?: string | null;
   outputLink2?: string | null;
+  outputLinks?: Cluster4OutputLink[];
   outputImages?: string[];
   rating?: number | null;
   memo?: string | null;
@@ -151,14 +162,6 @@ function parseOutputImages(v: unknown): string[] | null {
   return result;
 }
 
-function countOutputAssets(
-  link1: string | null,
-  link2: string | null,
-  images: string[],
-): number {
-  return (link1 ? 1 : 0) + (link2 ? 1 : 0) + images.length;
-}
-
 // ── Create parser ──────────────────────────────────────────
 
 export function parseExperienceDraftCreateBody(
@@ -198,6 +201,17 @@ export function parseExperienceDraftCreateBody(
   const outputLink1 = trimOrNull(body.output_link_1);
   const outputLink2 = trimOrNull(body.output_link_2);
 
+  // output_links 우선. 미제공 시 레거시 output_link_1/2 로부터 파생. 드래프트는 슬롯 2개.
+  const parsedLinks = parseOutputLinksInput(body.output_links, { maxLinks: 2 });
+  if (!parsedLinks.ok) {
+    return { ok: false, status: 400, error: parsedLinks.error };
+  }
+  const outputLinks =
+    parsedLinks.value.length > 0
+      ? parsedLinks.value
+      : outputLinksFromLegacy([outputLink1, outputLink2]);
+  const [mirrorLink1, mirrorLink2] = outputLinksToLegacySlots(outputLinks, 2);
+
   const outputImages = parseOutputImages(body.output_images);
   if (outputImages === null) {
     return { ok: false, status: 400, error: "output_images must be an array of strings" };
@@ -234,7 +248,7 @@ export function parseExperienceDraftCreateBody(
     if (rating === null) {
       return { ok: false, status: 400, error: "제출 시 평점은 필수입니다" };
     }
-    const assetCount = countOutputAssets(outputLink1, outputLink2, outputImages);
+    const assetCount = outputLinks.length + outputImages.length;
     if (assetCount < 1) {
       return { ok: false, status: 400, error: "제출 시 Output을 최소 1개 입력해주세요 (Link + Image 합산)" };
     }
@@ -260,8 +274,9 @@ export function parseExperienceDraftCreateBody(
       experienceLineMasterId,
       lineCode: lineCode ?? "",
       mainTitle: mainTitle ?? "",
-      outputLink1,
-      outputLink2,
+      outputLink1: mirrorLink1,
+      outputLink2: mirrorLink2,
+      outputLinks,
       outputImages,
       rating,
       memo,
@@ -323,14 +338,35 @@ export function parseExperienceDraftPatchBody(
     hasField = true;
   }
 
+  let legacyLinkProvided = false;
   if (body.output_link_1 !== undefined) {
     patch.outputLink1 = trimOrNull(body.output_link_1);
     hasField = true;
+    legacyLinkProvided = true;
   }
 
   if (body.output_link_2 !== undefined) {
     patch.outputLink2 = trimOrNull(body.output_link_2);
     hasField = true;
+    legacyLinkProvided = true;
+  }
+
+  // output_links 우선 채택 + 레거시 mirror. 레거시만 오면 output_links 동기화.
+  if (body.output_links !== undefined) {
+    const result = parseOutputLinksInput(body.output_links, { maxLinks: 2 });
+    if (!result.ok) {
+      return { ok: false, status: 400, error: result.error };
+    }
+    patch.outputLinks = result.value;
+    const [mirrorLink1, mirrorLink2] = outputLinksToLegacySlots(result.value, 2);
+    patch.outputLink1 = mirrorLink1;
+    patch.outputLink2 = mirrorLink2;
+    hasField = true;
+  } else if (legacyLinkProvided) {
+    patch.outputLinks = outputLinksFromLegacy([
+      patch.outputLink1 ?? null,
+      patch.outputLink2 ?? null,
+    ]);
   }
 
   if (body.output_images !== undefined) {

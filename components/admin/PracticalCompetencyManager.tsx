@@ -13,6 +13,12 @@ import {
   ORGANIZATION_LABEL,
   ORGANIZATION_COMMON_LABEL,
 } from "@/lib/organizations";
+import Cluster4LineTable from "@/components/admin/cluster4/Cluster4LineTable";
+import {
+  buildOutputLinksFromForm,
+  OUTPUT_LINK_LABEL_PLACEHOLDER,
+  OUTPUT_LINK_URL_PLACEHOLDER,
+} from "@/lib/cluster4OutputLinks";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   ...ORGANIZATIONS.map((slug) => ({ value: slug, label: ORGANIZATION_LABEL[slug] })),
@@ -171,6 +177,7 @@ export default function PracticalCompetencyManager() {
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
   const [existingLines, setExistingLines] = useState<ExistingLineDto[]>([]);
+  const [lineRefreshKey, setLineRefreshKey] = useState(0);
   const [crews, setCrews] = useState<CrewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -189,7 +196,9 @@ export default function PracticalCompetencyManager() {
   const [lineFormOpen, setLineFormOpen] = useState(false);
   const [selectedMasterId, setSelectedMasterId] = useState("");
   const [lineLink1, setLineLink1] = useState("");
+  const [lineLabel1, setLineLabel1] = useState("");
   const [lineLink2, setLineLink2] = useState("");
+  const [lineLabel2, setLineLabel2] = useState("");
   const [lineImage1, setLineImage1] = useState<UploadedImage | null>(null);
   const [lineImage2, setLineImage2] = useState<UploadedImage | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
@@ -303,7 +312,7 @@ export default function PracticalCompetencyManager() {
   }, [fetchInitialData]);
 
   // Line opening
-  const resetLineForm = useCallback(() => { setSelectedMasterId(""); setLineLink1(""); setLineLink2(""); setLineImage1(null); setLineImage2(null); setSelectedUserIds(new Set()); setCrewSearch(""); setLineFormOpen(false); }, []);
+  const resetLineForm = useCallback(() => { setSelectedMasterId(""); setLineLink1(""); setLineLabel1(""); setLineLink2(""); setLineLabel2(""); setLineImage1(null); setLineImage2(null); setSelectedUserIds(new Set()); setCrewSearch(""); setLineFormOpen(false); }, []);
 
   const toggleUser = useCallback((uid: string) => { setSelectedUserIds((prev) => { const n = new Set(prev); if (n.has(uid)) n.delete(uid); else n.add(uid); return n; }); }, []);
   const selectAllFiltered = useCallback(() => { setSelectedUserIds(new Set(filteredCrews.map((c) => c.userId))); }, [filteredCrews]);
@@ -326,14 +335,22 @@ export default function PracticalCompetencyManager() {
     if (!selectedMaster) { setBanner({ kind: "error", message: "라인을 선택해주세요" }); return; }
     if (!lineAssetValid) { setBanner({ kind: "error", message: lineAssetCount < 1 ? "Output을 최소 1개 입력해주세요" : "Output은 최대 2개까지 입력 가능합니다" }); return; }
     if (selectedUserIds.size === 0) { setBanner({ kind: "error", message: "개설 대상을 최소 1명 이상 선택해주세요" }); return; }
+    const built = buildOutputLinksFromForm([
+      { url: lineLink1, label: lineLabel1 },
+      { url: lineLink2, label: lineLabel2 },
+    ]);
+    if (!built.ok) { setBanner({ kind: "error", message: built.error }); return; }
+    const outputLinks = built.value;
 
     setSaving(true); setBanner(null);
     try {
       const imgs: string[] = []; if (lineImage1) imgs.push(lineImage1.url); if (lineImage2) imgs.push(lineImage2.url);
       const payload = {
         competency_line_master_id: selectedMaster.id,
-        output_link_1: lineLink1.trim() || null,
-        output_link_2: lineLink2.trim() || null,
+        // output_links 우선 + 레거시 컬럼 backward-compat mirror.
+        output_links: outputLinks,
+        output_link_1: outputLinks[0]?.url ?? null,
+        output_link_2: outputLinks[1]?.url ?? null,
         output_images: imgs,
         target_user_ids: Array.from(selectedUserIds),
         week_id: targetWeekId,
@@ -352,14 +369,14 @@ export default function PracticalCompetencyManager() {
       const json = await res.json();
       if (!json.success) { setBanner({ kind: "error", message: json.error ?? "저장 실패" }); return; }
       setBanner({ kind: "success", message: `실무 역량 라인이 생성되었습니다 (대상: ${json.data?.targetCount ?? 0}명)` });
-      resetLineForm(); await fetchInitialData();
+      resetLineForm(); setLineRefreshKey((k) => k + 1); await fetchInitialData();
     } catch { setBanner({ kind: "error", message: "저장 중 오류" }); } finally { setSaving(false); }
-  }, [currentWeek, selectedWeek, selectedWeekId, canOpenSelected, selectedMaster, lineAssetValid, lineAssetCount, lineLink1, lineLink2, lineImage1, lineImage2, selectedUserIds, resetLineForm, fetchInitialData]);
+  }, [currentWeek, selectedWeek, selectedWeekId, canOpenSelected, selectedMaster, lineAssetValid, lineAssetCount, lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2, selectedUserIds, resetLineForm, fetchInitialData]);
 
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
       <h1 className="text-2xl font-bold">실무 역량 라인 관리</h1>
 
       {banner && (
@@ -407,7 +424,7 @@ export default function PracticalCompetencyManager() {
                 <div className="space-y-1 text-sm">
                   <p><span className="font-medium">{selectedWeek.year} {selectedWeek.seasonName} W{selectedWeek.weekNumber}</span>{" "}({fmtDateWithDay(selectedWeek.startDate)} ~ {fmtDateWithDay(selectedWeek.endDate)})</p>
                   {selectedWeek.canOpen && selectedWeek.submissionOpensAt && selectedWeek.submissionClosesAt && (
-                    <p className="text-muted-foreground">제출 기간: {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}</p>
+                    <p className="text-muted-foreground">기입 기간: {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}</p>
                   )}
                   {!selectedWeek.canOpen && <p className="font-medium text-orange-600">선택한 주차는 공식 휴식 주차입니다.</p>}
                 </div>
@@ -420,33 +437,19 @@ export default function PracticalCompetencyManager() {
             </CardContent>
           </Card>
 
-          {existingLines.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3"><CardTitle className="text-base">개설된 실무 역량 라인</CardTitle><CardDescription>현재 등록된 라인 {existingLines.length}개</CardDescription></CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader><TableRow><TableHead>라인 코드</TableHead><TableHead>메인 타이틀</TableHead><TableHead className="text-center">대상</TableHead><TableHead className="text-center">활성</TableHead><TableHead>생성일</TableHead></TableRow></TableHeader>
-                  <TableBody>
-                    {existingLines.map((l) => (
-                      <TableRow key={l.id}>
-                        <TableCell className="font-mono text-xs">{l.lineCode ?? "-"}</TableCell>
-                        <TableCell>{l.mainTitle}</TableCell>
-                        <TableCell className="text-center">{l.targetCount}명</TableCell>
-                        <TableCell className="text-center">{l.isActive ? <Check className="mx-auto h-4 w-4 text-green-600" /> : <X className="mx-auto h-4 w-4 text-muted-foreground" />}</TableCell>
-                        <TableCell className="text-muted-foreground">{fmtDateShort(l.createdAt)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
+          <Cluster4LineTable
+            partType="competency"
+            title="개설된 실무 역량 라인"
+            nameColumnLabel="역량 라인"
+            refreshSignal={lineRefreshKey}
+            weekId={selectedWeekId}
+          />
 
           {!lineFormOpen && canOpenSelected && <Button onClick={() => setLineFormOpen(true)}><Plus className="mr-2 h-4 w-4" /> 새 실무 역량 라인 개설</Button>}
 
           {lineFormOpen && canOpenSelected && (selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) && (
             <Card>
-              <CardHeader><CardTitle className="text-base">새 실무 역량 라인</CardTitle><CardDescription>제출 마감: {fmtDateTimeWithDay((selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string)}</CardDescription></CardHeader>
+              <CardHeader><CardTitle className="text-base">새 실무 역량 라인</CardTitle><CardDescription>기입 마감: {fmtDateTimeWithDay((selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string)}</CardDescription></CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-2">
                   <Label>라인 <span className="text-red-500">*</span></Label>
@@ -469,8 +472,8 @@ export default function PracticalCompetencyManager() {
                     <span className={cn("text-xs", lineAssetCount === 0 ? "text-red-500" : lineAssetCount <= 2 ? "text-green-600" : "text-red-500")}>{lineAssetCount}/2 (최소 1, 최대 2)</span>
                   </div>
                   <div className="grid gap-3">
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Link 1</Label><Input value={lineLink1} onChange={(e) => setLineLink1(e.target.value)} placeholder="https://..." disabled={!lineLink1.trim() && lineAssetCount >= 2} /></div>
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Link 2</Label><Input value={lineLink2} onChange={(e) => setLineLink2(e.target.value)} placeholder="https://..." disabled={!lineLink2.trim() && lineAssetCount >= 2} /></div>
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Link 1 URL</Label><Input value={lineLink1} onChange={(e) => setLineLink1(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink1.trim() && lineAssetCount >= 2} /><Input value={lineLabel1} onChange={(e) => setLineLabel1(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 1 설명" /></div>
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Link 2 URL</Label><Input value={lineLink2} onChange={(e) => setLineLink2(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink2.trim() && lineAssetCount >= 2} /><Input value={lineLabel2} onChange={(e) => setLineLabel2(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 2 설명" /></div>
                     <ImageUploadSlot label="Image 1" image={lineImage1} onUpload={setLineImage1} onRemove={() => setLineImage1(null)} disabled={!lineImage1 && lineAssetCount >= 2} />
                     <ImageUploadSlot label="Image 2" image={lineImage2} onUpload={setLineImage2} onRemove={() => setLineImage2(null)} disabled={!lineImage2 && lineAssetCount >= 2} />
                   </div>

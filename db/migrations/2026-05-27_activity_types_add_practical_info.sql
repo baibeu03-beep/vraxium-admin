@@ -44,9 +44,9 @@ VALUES
   ('calendar',          '캘린더',           'calendar',          'practical_info', true),
   ('forum',             '포럼',             'forum',             'practical_info', true),
   ('session',           '세션',             'session',           'practical_info', true),
-  ('practical_lecture',  '프랙티컬 렉처',   'practical_lecture',  'practical_info', true),
+  ('practical_lecture',  '실무특강',        'practical_lecture',  'practical_info', true),
   ('community',         '커뮤니티',         'community',         'practical_info', true),
-  ('etc_a',             '기타',             'etc_a',             'practical_info', true)
+  ('etc_a',             '기타A',            'etc_a',             'practical_info', true)
 ON CONFLICT (id) DO NOTHING;
 
 COMMIT;

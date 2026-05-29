@@ -39,6 +39,20 @@ import {
   ORGANIZATION_LABEL,
   ORGANIZATION_COMMON_LABEL,
 } from "@/lib/organizations";
+import {
+  type Cluster4OutputLink,
+  buildOutputLinksFromForm,
+  OUTPUT_LINK_LABEL_PLACEHOLDER,
+  OUTPUT_LINK_URL_PLACEHOLDER,
+} from "@/lib/cluster4OutputLinks";
+import type { Cluster4LineDetail } from "@/lib/adminCluster4LinesTypes";
+import {
+  EnhancementStatusBadge,
+  SubmissionStatusBadge,
+  ENHANCEMENT_FILTER_OPTIONS,
+  matchesEnhancementFilter,
+  type EnhancementFilter,
+} from "@/components/admin/cluster4/enhancementBadges";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   ...ORGANIZATIONS.map((slug) => ({ value: slug, label: ORGANIZATION_LABEL[slug] })),
@@ -134,6 +148,7 @@ type ExperienceDraftDto = {
   mainTitle: string;
   outputLink1: string | null;
   outputLink2: string | null;
+  outputLinks: Cluster4OutputLink[];
   outputImages: string[];
   rating: number | null;
   memo: string | null;
@@ -446,7 +461,9 @@ export default function PracticalExperienceManager() {
   const [dfTargetUserId, setDfTargetUserId] = useState("");
   const [dfMasterId, setDfMasterId] = useState("");
   const [dfLink1, setDfLink1] = useState("");
+  const [dfLabel1, setDfLabel1] = useState("");
   const [dfLink2, setDfLink2] = useState("");
+  const [dfLabel2, setDfLabel2] = useState("");
   const [dfImage1, setDfImage1] = useState<UploadedImage | null>(null);
   const [dfImage2, setDfImage2] = useState<UploadedImage | null>(null);
   const [dfRating, setDfRating] = useState<string>("");
@@ -456,7 +473,9 @@ export default function PracticalExperienceManager() {
   const [inputFilterTeam, setInputFilterTeam] = useState("");
   const [inputFilterPart, setInputFilterPart] = useState("");
   const [inputFilterStatus, setInputFilterStatus] = useState("");
+  const [inputFilterOrg, setInputFilterOrg] = useState("");
   const [inputSearch, setInputSearch] = useState("");
+  const [inputLineSearch, setInputLineSearch] = useState("");
 
   // ── Review tab state ──
   const [reviewingDraftId, setReviewingDraftId] = useState<string | null>(null);
@@ -465,6 +484,69 @@ export default function PracticalExperienceManager() {
 
   // ── Open tab state ──
   const [openSelectedIds, setOpenSelectedIds] = useState<Set<string>>(new Set());
+  // 개설된 experience line target 목록 (target 기반, ?detailed=1). draft 워크플로우와 독립.
+  const [expLines, setExpLines] = useState<Cluster4LineDetail[]>([]);
+  const [expLinesLoading, setExpLinesLoading] = useState(false);
+  const [expLinesError, setExpLinesError] = useState<string | null>(null);
+  const [expEnhancementFilter, setExpEnhancementFilter] =
+    useState<EnhancementFilter>("all");
+
+  // 개설된 experience 라인 목록 조회 (draft/검수/개설 로직과 완전 분리 — 읽기 전용).
+  const fetchExperienceLines = useCallback(async () => {
+    setExpLinesLoading(true);
+    setExpLinesError(null);
+    try {
+      const res = await fetch(
+        "/api/admin/cluster4/lines?partType=experience&detailed=1&limit=500",
+      );
+      const json = await res.json();
+      if (json.success) {
+        setExpLines(json.data.rows ?? []);
+      } else {
+        setExpLines([]);
+        setExpLinesError(json.error ?? "개설 라인 목록을 불러오지 못했습니다");
+      }
+    } catch (e) {
+      console.error("[experience open] detailed lines fetch failed", e);
+      setExpLines([]);
+      setExpLinesError("개설 라인 목록을 불러오지 못했습니다");
+    } finally {
+      setExpLinesLoading(false);
+    }
+  }, []);
+
+  // 최종개설 탭에 진입할 때마다 최신 개설 라인을 다시 불러온다 (개설 직후 갱신 포함).
+  useEffect(() => {
+    if (activeTab !== "open") return;
+    void (async () => {
+      await fetchExperienceLines();
+    })();
+  }, [activeTab, fetchExperienceLines]);
+
+  // 라인 × 대상자 평면화 — 각 line target 1행. 강화 상태 필터는 대상자 단위로 적용.
+  const expTargetRows = useMemo(() => {
+    const out: Array<{
+      key: string;
+      weekLabel: string | null;
+      lineName: string;
+      lineCode: string | null;
+      target: Cluster4LineDetail["targets"][number];
+    }> = [];
+    for (const line of expLines) {
+      for (const t of line.targets) {
+        if (!matchesEnhancementFilter(expEnhancementFilter, t.enhancementStatus))
+          continue;
+        out.push({
+          key: t.lineTargetId,
+          weekLabel: line.weekLabel,
+          lineName: line.mainTitle,
+          lineCode: line.lineCode,
+          target: t,
+        });
+      }
+    }
+    return out;
+  }, [expLines, expEnhancementFilter]);
 
   // ──────────────────────────────────────────────────────────────
   // Computed
@@ -478,6 +560,12 @@ export default function PracticalExperienceManager() {
     for (const d of drafts) if (d.partName) set.add(d.partName);
     return Array.from(set).sort();
   }, [crews, drafts]);
+
+  const uniqueOrgs = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of drafts) if (d.organizationSlug) set.add(d.organizationSlug);
+    return Array.from(set).sort();
+  }, [drafts]);
 
   const editingDraft = useMemo(
     () => (editingDraftId ? drafts.find((d) => d.id === editingDraftId) ?? null : null),
@@ -516,6 +604,7 @@ export default function PracticalExperienceManager() {
   const inputDrafts = useMemo(() => {
     return drafts.filter((d) => {
       if (d.openStatus === "opened") return false;
+      if (inputFilterOrg && d.organizationSlug !== inputFilterOrg) return false;
       if (inputFilterTeam && d.teamName !== inputFilterTeam) return false;
       if (inputFilterPart && d.partName !== inputFilterPart) return false;
       if (inputFilterStatus === "draft" && d.inputStatus !== "draft") return false;
@@ -530,9 +619,22 @@ export default function PracticalExperienceManager() {
         const q = inputSearch.trim().toLowerCase();
         if (!d.targetUserName?.toLowerCase().includes(q)) return false;
       }
+      if (inputLineSearch.trim()) {
+        const q = inputLineSearch.trim().toLowerCase();
+        const hay = `${d.lineName ?? ""} ${d.lineCode ?? ""} ${d.mainTitle ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
       return true;
     });
-  }, [drafts, inputFilterTeam, inputFilterPart, inputFilterStatus, inputSearch]);
+  }, [
+    drafts,
+    inputFilterOrg,
+    inputFilterTeam,
+    inputFilterPart,
+    inputFilterStatus,
+    inputSearch,
+    inputLineSearch,
+  ]);
 
   const reviewDrafts = useMemo(() => {
     return drafts.filter((d) => {
@@ -788,7 +890,9 @@ export default function PracticalExperienceManager() {
     setDfTargetUserId("");
     setDfMasterId("");
     setDfLink1("");
+    setDfLabel1("");
     setDfLink2("");
+    setDfLabel2("");
     setDfImage1(null);
     setDfImage2(null);
     setDfRating("");
@@ -805,8 +909,11 @@ export default function PracticalExperienceManager() {
     setEditingDraftId(d.id);
     setDfTargetUserId(d.targetUserId);
     setDfMasterId(d.experienceLineMasterId);
-    setDfLink1(d.outputLink1 ?? "");
-    setDfLink2(d.outputLink2 ?? "");
+    // output_links 우선 prefill (DTO 가 이미 jsonb→legacy fallback 해석). 슬롯 순서 보존.
+    setDfLink1(d.outputLinks[0]?.url ?? d.outputLink1 ?? "");
+    setDfLabel1(d.outputLinks[0]?.label ?? "");
+    setDfLink2(d.outputLinks[1]?.url ?? d.outputLink2 ?? "");
+    setDfLabel2(d.outputLinks[1]?.label ?? "");
     setDfImage1(d.outputImages[0] ? urlToImage(d.outputImages[0]) : null);
     setDfImage2(d.outputImages[1] ? urlToImage(d.outputImages[1]) : null);
     setDfRating(d.rating !== null ? String(d.rating) : "");
@@ -863,6 +970,16 @@ export default function PracticalExperienceManager() {
         return;
       }
 
+      const built = buildOutputLinksFromForm([
+        { url: dfLink1, label: dfLabel1 },
+        { url: dfLink2, label: dfLabel2 },
+      ]);
+      if (!built.ok) {
+        setBanner({ kind: "error", message: built.error });
+        return;
+      }
+      const outputLinks = built.value;
+
       const outputImages: string[] = [];
       if (dfImage1) outputImages.push(dfImage1.url);
       if (dfImage2) outputImages.push(dfImage2.url);
@@ -876,8 +993,10 @@ export default function PracticalExperienceManager() {
             experience_line_master_id: dfMasterId,
             line_code: master.lineCode,
             main_title: master.mainTitle ?? master.lineName,
-            output_link_1: dfLink1.trim() || null,
-            output_link_2: dfLink2.trim() || null,
+            // output_links 우선 + 레거시 컬럼 backward-compat mirror.
+            output_links: outputLinks,
+            output_link_1: outputLinks[0]?.url ?? null,
+            output_link_2: outputLinks[1]?.url ?? null,
             output_images: outputImages,
             rating,
             memo: dfMemo.trim() || null,
@@ -912,8 +1031,10 @@ export default function PracticalExperienceManager() {
             experience_line_master_id: dfMasterId,
             line_code: master.lineCode,
             main_title: master.mainTitle ?? master.lineName,
-            output_link_1: dfLink1.trim() || null,
-            output_link_2: dfLink2.trim() || null,
+            // output_links 우선 + 레거시 컬럼 backward-compat mirror.
+            output_links: outputLinks,
+            output_link_1: outputLinks[0]?.url ?? null,
+            output_link_2: outputLinks[1]?.url ?? null,
             output_images: outputImages,
             rating,
             memo: dfMemo.trim() || null,
@@ -960,7 +1081,9 @@ export default function PracticalExperienceManager() {
       dfImage1,
       dfImage2,
       dfLink1,
+      dfLabel1,
       dfLink2,
+      dfLabel2,
       dfMemo,
       crews,
       teams,
@@ -1085,7 +1208,7 @@ export default function PracticalExperienceManager() {
   const weekAvailable = !!currentWeek?.weekId;
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
+    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
       <h1 className="text-2xl font-bold">실무 경험 워크플로우</h1>
 
       {banner && (
@@ -1381,7 +1504,21 @@ export default function PracticalExperienceManager() {
           {/* Filters */}
           <Card>
             <CardContent className="py-4">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                {uniqueOrgs.length > 0 && (
+                  <select
+                    className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+                    value={inputFilterOrg}
+                    onChange={(e) => setInputFilterOrg(e.target.value)}
+                  >
+                    <option value="">전체 조직</option>
+                    {uniqueOrgs.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <select
                   className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
                   value={inputFilterTeam}
@@ -1421,9 +1558,18 @@ export default function PracticalExperienceManager() {
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     className="pl-9"
-                    placeholder="이름 검색..."
+                    placeholder="대상자 검색..."
                     value={inputSearch}
                     onChange={(e) => setInputSearch(e.target.value)}
+                  />
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    className="pl-9"
+                    placeholder="라인명 검색..."
+                    value={inputLineSearch}
+                    onChange={(e) => setInputLineSearch(e.target.value)}
                   />
                 </div>
               </div>
@@ -1645,29 +1791,43 @@ export default function PracticalExperienceManager() {
 
                   <div className="space-y-3">
                     <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Output Link 1</Label>
+                      <Label className="text-xs text-muted-foreground">Output Link 1 URL</Label>
                       <Input
                         value={dfLink1}
                         onChange={(e) => setDfLink1(e.target.value)}
-                        placeholder="https://..."
+                        placeholder={OUTPUT_LINK_URL_PLACEHOLDER}
                         disabled={
                           saving ||
                           draftReadonly ||
                           (!dfLink1.trim() && dfAssetCount >= 2)
                         }
                       />
+                      <Input
+                        value={dfLabel1}
+                        onChange={(e) => setDfLabel1(e.target.value)}
+                        placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
+                        aria-label="Link 1 설명"
+                        disabled={saving || draftReadonly}
+                      />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Output Link 2</Label>
+                      <Label className="text-xs text-muted-foreground">Output Link 2 URL</Label>
                       <Input
                         value={dfLink2}
                         onChange={(e) => setDfLink2(e.target.value)}
-                        placeholder="https://..."
+                        placeholder={OUTPUT_LINK_URL_PLACEHOLDER}
                         disabled={
                           saving ||
                           draftReadonly ||
                           (!dfLink2.trim() && dfAssetCount >= 2)
                         }
+                      />
+                      <Input
+                        value={dfLabel2}
+                        onChange={(e) => setDfLabel2(e.target.value)}
+                        placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
+                        aria-label="Link 2 설명"
+                        disabled={saving || draftReadonly}
                       />
                     </div>
                     <ImageUploadSlot
@@ -2057,7 +2217,7 @@ export default function PracticalExperienceManager() {
               </p>
               {currentWeek?.canOpen && currentWeek.submissionClosesAt && (
                 <p className="text-xs text-muted-foreground">
-                  실제 제출 마감: {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
+                  실제 기입 마감: {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
                 </p>
               )}
             </CardContent>
@@ -2179,6 +2339,134 @@ export default function PracticalExperienceManager() {
                     })}
                   </TableBody>
                 </Table>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* 개설된 경험 라인 목록 — target 기반(?detailed=1). 강화/기입 상태 표시 (읽기 전용). */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-base">
+                    개설된 경험 라인 목록 ({expTargetRows.length}건)
+                  </CardTitle>
+                  <CardDescription>
+                    개설 완료된 라인의 대상자별 강화 상태 · 라인칸 기입 상태 (서버 계산값)
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                    value={expEnhancementFilter}
+                    onChange={(e) =>
+                      setExpEnhancementFilter(e.target.value as EnhancementFilter)
+                    }
+                  >
+                    {ENHANCEMENT_FILTER_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void fetchExperienceLines()}
+                    disabled={expLinesLoading}
+                  >
+                    {expLinesLoading && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    새로고침
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {expLinesError ? (
+                <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  {expLinesError}
+                </p>
+              ) : expLinesLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : expTargetRows.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  {expLines.length === 0
+                    ? "개설된 경험 라인이 없습니다."
+                    : "필터 결과가 없습니다."}
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap">주차</TableHead>
+                        <TableHead>경험 라인명</TableHead>
+                        <TableHead>대상자</TableHead>
+                        <TableHead className="text-center">라인칸 기입 상태</TableHead>
+                        <TableHead className="text-center">강화 상태</TableHead>
+                        <TableHead className="font-mono text-[11px]">
+                          submissionStatus
+                        </TableHead>
+                        <TableHead className="font-mono text-[11px]">
+                          enhancementStatus
+                        </TableHead>
+                        <TableHead className="font-mono text-[11px]">
+                          enhancementReason
+                        </TableHead>
+                        <TableHead className="font-mono text-[11px]">
+                          lineTargetId
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {expTargetRows.map((r) => (
+                        <TableRow key={r.key}>
+                          <TableCell className="whitespace-nowrap text-xs">
+                            {r.weekLabel ?? "—"}
+                          </TableCell>
+                          <TableCell className="max-w-[220px]">
+                            <div className="truncate font-medium">{r.lineName}</div>
+                            {r.lineCode && (
+                              <div className="truncate font-mono text-[10px] text-muted-foreground">
+                                {r.lineCode}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {r.target.displayName}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <SubmissionStatusBadge status={r.target.submissionStatus} />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <EnhancementStatusBadge
+                              status={r.target.enhancementStatus}
+                              reason={r.target.enhancementReason}
+                            />
+                          </TableCell>
+                          <TableCell className="font-mono text-[11px] text-muted-foreground">
+                            {r.target.submissionStatus}
+                          </TableCell>
+                          <TableCell className="font-mono text-[11px] text-muted-foreground">
+                            {r.target.enhancementStatus}
+                          </TableCell>
+                          <TableCell className="font-mono text-[11px] text-muted-foreground">
+                            {r.target.enhancementReason}
+                          </TableCell>
+                          <TableCell className="font-mono text-[10px] text-muted-foreground">
+                            <span className="block max-w-[140px] truncate" title={r.target.lineTargetId}>
+                              {r.target.lineTargetId}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>

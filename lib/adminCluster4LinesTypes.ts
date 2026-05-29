@@ -1,6 +1,21 @@
 // Browser-safe constants and types for the cluster4 line opening admin APIs.
 // Must not import server-only modules here.
 
+import type { Cluster4HubEditDecisionReason } from "@/lib/cluster4LinePermission";
+import type {
+  Cluster4EnhancementReason,
+  Cluster4EnhancementStatus,
+  Cluster4SubmissionStatus,
+} from "@/shared/cluster4.contracts";
+import {
+  type Cluster4OutputLink,
+  outputLinksFromLegacy,
+  outputLinksToLegacySlots,
+  parseOutputLinksInput,
+} from "@/lib/cluster4OutputLinks";
+
+export type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
+
 export type Cluster4LinePartType =
   | "info"
   | "experience"
@@ -15,9 +30,15 @@ export type Cluster4LineDto = {
   activityTypeId: string | null;
   lineCode: string | null;
   mainTitle: string;
+  // 실무 정보(info) 라인 운영자 입력값. 크루원 제출 subtitle 과 별개 축. info 외 part 는 null.
+  infoSubtitle: string | null;
+  infoGrowthPoint: string | null;
   outputLink1: string | null;
   outputLink2: string | null;
+  outputLinks: Cluster4OutputLink[];
   outputImages: string[];
+  // outputImages 와 index 정렬 일치하는 이미지 캡션. 캡션 없으면 null. (append-only)
+  outputImageCaptions: (string | null)[];
   submissionOpensAt: string;
   submissionClosesAt: string;
   isActive: boolean;
@@ -55,12 +76,69 @@ export type ListCluster4LineTargetsResult = {
   rows: Cluster4LineTargetDto[];
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+// Enriched info-line listing — append-only DTOs for the 실무 정보 admin UI.
+// Extends Cluster4LineDto (no field removed) with the joins the operator needs
+// to manage lines per activity-type tab: activity/week labels, per-target
+// names + submission status + lineTargetId-level canEdit.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type Cluster4InfoLineTargetDetail = {
+  lineTargetId: string;
+  weekId: string;
+  targetUserId: string | null;
+  displayName: string;
+  organizationSlug: string | null;
+  targetMode: Cluster4LineTargetMode;
+  submissionId: string | null;
+  submitted: boolean;
+  submittedAt: string | null;
+  // 강화 상태 — 서버 계산값(재계산 금지). 어드민 상세는 target 이 항상 존재하므로
+  // 마감 여부에 따라 success/pending 으로만 산정된다 (마감 후면 미기입이라도 success).
+  // submitted 와 분리된 축이다.
+  enhancementStatus: Cluster4EnhancementStatus;
+  submissionStatus: Cluster4SubmissionStatus;
+  enhancementReason: Cluster4EnhancementReason;
+  // lineTargetId 단위 편집 가능 여부 — 프론트 canEdit(evaluateCluster4HubEdit)와 동일 기준.
+  canEdit: boolean;
+  editReason: Cluster4HubEditDecisionReason;
+};
+
+export type Cluster4InfoLineDetail = Cluster4LineDto & {
+  activityTypeName: string | null;
+  weekId: string | null;
+  weekLabel: string | null;
+  submittedCount: number;
+  pendingCount: number;
+  canEditCount: number;
+  targets: Cluster4InfoLineTargetDetail[];
+};
+
+export type ListCluster4InfoLinesDetailedResult = {
+  rows: Cluster4InfoLineDetail[];
+};
+
+// 4허브 공통(info/experience/competency/career) enriched 라인/대상 타입 별칭.
+// Cluster4InfoLineDetail 은 info 전용이 아니라 partType 무관 공통 shape 이므로
+// 가독성을 위해 일반 이름으로도 노출한다.
+export type Cluster4LineTargetDetail2 = Cluster4InfoLineTargetDetail;
+export type Cluster4LineDetail = Cluster4InfoLineDetail;
+export type ListCluster4LinesDetailedResult = {
+  rows: Cluster4LineDetail[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type Cluster4LineUpsertInput = {
   partType: Cluster4LinePartType;
   activityTypeId: string | null;
   mainTitle: string;
+  infoSubtitle: string | null;
+  infoGrowthPoint: string | null;
   outputLink1: string | null;
   outputLink2: string | null;
+  outputLinks: Cluster4OutputLink[];
   outputImages: string[];
   submissionOpensAt: string;
   submissionClosesAt: string;
@@ -214,6 +292,10 @@ export function parseCluster4LineCreateBody(body: unknown): ParseBodyResult<Clus
   if (!activityTypeId.ok) return activityTypeId as ParseBodyResult<Cluster4LineUpsertInput>;
   const mainTitle = normalizeTextField(body.main_title, "main_title", { required: true });
   if (!mainTitle.ok || !mainTitle.value) return mainTitle as ParseBodyResult<Cluster4LineUpsertInput>;
+  const infoSubtitle = normalizeTextField(body.info_subtitle, "info_subtitle", { required: false });
+  if (!infoSubtitle.ok) return infoSubtitle as ParseBodyResult<Cluster4LineUpsertInput>;
+  const infoGrowthPoint = normalizeTextField(body.info_growth_point, "info_growth_point", { required: false });
+  if (!infoGrowthPoint.ok) return infoGrowthPoint as ParseBodyResult<Cluster4LineUpsertInput>;
   const outputLink1 = normalizeTextField(body.output_link_1, "output_link_1", { required: false });
   if (!outputLink1.ok) return outputLink1 as ParseBodyResult<Cluster4LineUpsertInput>;
   const outputLink2 = normalizeTextField(body.output_link_2, "output_link_2", { required: false });
@@ -226,6 +308,16 @@ export function parseCluster4LineCreateBody(body: unknown): ParseBodyResult<Clus
   if (!closesAt.ok || !closesAt.value) return closesAt as ParseBodyResult<Cluster4LineUpsertInput>;
   const isActive = normalizeBooleanField(body.is_active, "is_active", { required: false });
   if (!isActive.ok) return isActive as ParseBodyResult<Cluster4LineUpsertInput>;
+
+  // output_links 우선. 미제공 시 레거시 output_link_1/2 로부터 파생. 라인은 슬롯 2개.
+  const parsedLinks = parseOutputLinksInput(body.output_links, { maxLinks: 2 });
+  if (!parsedLinks.ok) return { ok: false, status: 400, error: parsedLinks.error };
+  const outputLinks =
+    parsedLinks.value.length > 0
+      ? parsedLinks.value
+      : outputLinksFromLegacy([outputLink1.value ?? null, outputLink2.value ?? null]);
+  // 레거시 컬럼은 항상 output_links 로부터 mirror (backward compatibility).
+  const [mirror1, mirror2] = outputLinksToLegacySlots(outputLinks, 2);
 
   if (new Date(opensAt.value).getTime() > new Date(closesAt.value).getTime()) {
     return {
@@ -241,8 +333,11 @@ export function parseCluster4LineCreateBody(body: unknown): ParseBodyResult<Clus
       partType: body.part_type,
       activityTypeId: activityTypeId.value ?? null,
       mainTitle: mainTitle.value,
-      outputLink1: outputLink1.value ?? null,
-      outputLink2: outputLink2.value ?? null,
+      infoSubtitle: infoSubtitle.value ?? null,
+      infoGrowthPoint: infoGrowthPoint.value ?? null,
+      outputLink1: mirror1,
+      outputLink2: mirror2,
+      outputLinks,
       outputImages: outputImages.value,
       submissionOpensAt: opensAt.value,
       submissionClosesAt: closesAt.value,
@@ -277,16 +372,47 @@ export function parseCluster4LinePatchBody(body: unknown): ParseBodyResult<Clust
     patch.mainTitle = result.value;
   }
 
+  if (body.info_subtitle !== undefined) {
+    const result = normalizeTextField(body.info_subtitle, "info_subtitle", { required: false });
+    if (!result.ok) return result as ParseBodyResult<Cluster4LinePatchInput>;
+    patch.infoSubtitle = result.value ?? null;
+  }
+
+  if (body.info_growth_point !== undefined) {
+    const result = normalizeTextField(body.info_growth_point, "info_growth_point", { required: false });
+    if (!result.ok) return result as ParseBodyResult<Cluster4LinePatchInput>;
+    patch.infoGrowthPoint = result.value ?? null;
+  }
+
+  let legacyLinkProvided = false;
   if (body.output_link_1 !== undefined) {
     const result = normalizeTextField(body.output_link_1, "output_link_1", { required: false });
     if (!result.ok) return result as ParseBodyResult<Cluster4LinePatchInput>;
     patch.outputLink1 = result.value ?? null;
+    legacyLinkProvided = true;
   }
 
   if (body.output_link_2 !== undefined) {
     const result = normalizeTextField(body.output_link_2, "output_link_2", { required: false });
     if (!result.ok) return result as ParseBodyResult<Cluster4LinePatchInput>;
     patch.outputLink2 = result.value ?? null;
+    legacyLinkProvided = true;
+  }
+
+  // output_links 가 오면 canonical 로 채택하고 레거시 컬럼에 mirror.
+  // 반대로 레거시 링크만 오면 output_links 도 동기화하여 두 표현을 일치시킨다.
+  if (body.output_links !== undefined) {
+    const result = parseOutputLinksInput(body.output_links, { maxLinks: 2 });
+    if (!result.ok) return { ok: false, status: 400, error: result.error };
+    patch.outputLinks = result.value;
+    const [mirror1, mirror2] = outputLinksToLegacySlots(result.value, 2);
+    patch.outputLink1 = mirror1;
+    patch.outputLink2 = mirror2;
+  } else if (legacyLinkProvided) {
+    patch.outputLinks = outputLinksFromLegacy([
+      patch.outputLink1 ?? null,
+      patch.outputLink2 ?? null,
+    ]);
   }
 
   if (body.output_images !== undefined) {

@@ -7,12 +7,19 @@ import {
   getSeasonForDate,
   getCalendarWeekStatus,
 } from "@/lib/seasonCalendar";
+import {
+  type Cluster4OutputLink,
+  outputLinksFromLegacy,
+  outputLinksToLegacySlots,
+  parseOutputLinksInput,
+} from "@/lib/cluster4OutputLinks";
 
 type CareerLineCreateBody = {
   career_project_id: string;
   main_title: string;
   output_link_1: string | null;
   output_link_2: string | null;
+  output_links: Cluster4OutputLink[];
   output_images: string[];
   target_user_ids: string[];
   // 어드민/테스트 모드 override — 미지정 시 서버가 current week 로 폴백.
@@ -55,7 +62,7 @@ function parseBody(
     outputLink2 = trimmed.length > 0 ? trimmed : null;
   }
 
-  let outputImages: string[] = [];
+  const outputImages: string[] = [];
   if (b.output_images !== undefined && b.output_images !== null) {
     if (!Array.isArray(b.output_images)) {
       return { ok: false, status: 400, error: "output_images must be an array" };
@@ -69,7 +76,20 @@ function parseBody(
     }
   }
 
-  const totalAssets = (outputLink1 ? 1 : 0) + (outputLink2 ? 1 : 0) + outputImages.length;
+  // output_links 우선. 미제공 시 레거시 output_link_1/2 로부터 파생. 라인은 슬롯 2개.
+  const parsedLinks = parseOutputLinksInput(b.output_links, { maxLinks: 2 });
+  if (!parsedLinks.ok) {
+    return { ok: false, status: 400, error: parsedLinks.error };
+  }
+  const outputLinks =
+    parsedLinks.value.length > 0
+      ? parsedLinks.value
+      : outputLinksFromLegacy([outputLink1, outputLink2]);
+  const [mirrorLink1, mirrorLink2] = outputLinksToLegacySlots(outputLinks, 2);
+  outputLink1 = mirrorLink1;
+  outputLink2 = mirrorLink2;
+
+  const totalAssets = outputLinks.length + outputImages.length;
   if (totalAssets < 1) {
     return { ok: false, status: 400, error: "Output을 최소 1개 입력해주세요 (Link + Image 합산)" };
   }
@@ -118,6 +138,7 @@ function parseBody(
       main_title: b.main_title.trim(),
       output_link_1: outputLink1,
       output_link_2: outputLink2,
+      output_links: outputLinks,
       output_images: outputImages,
       target_user_ids: targetUserIds,
       week_id: weekId,
@@ -268,6 +289,36 @@ export async function POST(request: NextRequest) {
 
     const lineCode = (project as { line_code: string | null }).line_code;
 
+    // 주차 단위 중복 체크: 같은 주차 + career_project_id 의 active 라인이 있으면 차단.
+    // (cluster4_lines 에는 week_id 가 없어 cluster4_line_targets.week_id 로 판정한다.)
+    const { data: careerActiveLines, error: careerActiveErr } = await supabaseAdmin
+      .from("cluster4_lines")
+      .select("id")
+      .eq("part_type", "career")
+      .eq("career_project_id", input.career_project_id)
+      .eq("is_active", true);
+    if (careerActiveErr) {
+      return Response.json({ success: false, error: careerActiveErr.message }, { status: 500 });
+    }
+    const careerActiveLineIds = (careerActiveLines ?? []).map((l) => (l as { id: string }).id);
+    if (careerActiveLineIds.length > 0) {
+      const { data: careerClash, error: careerClashErr } = await supabaseAdmin
+        .from("cluster4_line_targets")
+        .select("id")
+        .eq("week_id", weekRowId)
+        .in("line_id", careerActiveLineIds)
+        .limit(1);
+      if (careerClashErr) {
+        return Response.json({ success: false, error: careerClashErr.message }, { status: 500 });
+      }
+      if (careerClash && careerClash.length > 0) {
+        return Response.json(
+          { success: false, error: "선택한 주차에는 이 경력 프로젝트의 활성 라인이 이미 있습니다" },
+          { status: 409 },
+        );
+      }
+    }
+
     const { data: lineRow, error: lineError } = await supabaseAdmin
       .from("cluster4_lines")
       .insert({
@@ -277,6 +328,7 @@ export async function POST(request: NextRequest) {
         main_title: input.main_title,
         output_link_1: input.output_link_1,
         output_link_2: input.output_link_2,
+        output_links: input.output_links,
         output_images: input.output_images,
         submission_opens_at: submissionOpensAt,
         submission_closes_at: submissionClosesAt,
@@ -284,7 +336,7 @@ export async function POST(request: NextRequest) {
         created_by: admin.userId,
         updated_by: admin.userId,
       })
-      .select("id,part_type,career_project_id,line_code,main_title,output_link_1,output_link_2,output_images,submission_opens_at,submission_closes_at,is_active,created_at")
+      .select("id,part_type,career_project_id,line_code,main_title,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_at")
       .single();
 
     if (lineError || !lineRow) {

@@ -3,6 +3,12 @@ import { requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
+import {
+  type Cluster4OutputLink,
+  outputLinksFromLegacy,
+  outputLinksToLegacySlots,
+  parseOutputLinksInput,
+} from "@/lib/cluster4OutputLinks";
 
 type ExperienceLineCreateBody = {
   experience_line_master_id: string;
@@ -11,6 +17,7 @@ type ExperienceLineCreateBody = {
   team_id: string | null;
   output_link_1: string | null;
   output_link_2: string | null;
+  output_links: Cluster4OutputLink[];
   output_images: string[];
   target_user_ids: string[];
   week_id: string;
@@ -64,7 +71,7 @@ function parseBody(
     outputLink2 = trimmed.length > 0 ? trimmed : null;
   }
 
-  let outputImages: string[] = [];
+  const outputImages: string[] = [];
   if (b.output_images !== undefined && b.output_images !== null) {
     if (!Array.isArray(b.output_images)) {
       return { ok: false, status: 400, error: "output_images must be an array" };
@@ -78,7 +85,20 @@ function parseBody(
     }
   }
 
-  const linkCount = (outputLink1 ? 1 : 0) + (outputLink2 ? 1 : 0);
+  // output_links 우선. 미제공 시 레거시 output_link_1/2 로부터 파생. 라인은 슬롯 2개.
+  const parsedLinks = parseOutputLinksInput(b.output_links, { maxLinks: 2 });
+  if (!parsedLinks.ok) {
+    return { ok: false, status: 400, error: parsedLinks.error };
+  }
+  const outputLinks =
+    parsedLinks.value.length > 0
+      ? parsedLinks.value
+      : outputLinksFromLegacy([outputLink1, outputLink2]);
+  const [mirrorLink1, mirrorLink2] = outputLinksToLegacySlots(outputLinks, 2);
+  outputLink1 = mirrorLink1;
+  outputLink2 = mirrorLink2;
+
+  const linkCount = outputLinks.length;
   const totalAssets = linkCount + outputImages.length;
   if (totalAssets < 1) {
     return { ok: false, status: 400, error: "Output을 최소 1개 입력해주세요 (Link + Image 합산)" };
@@ -118,6 +138,7 @@ function parseBody(
       team_id: teamId,
       output_link_1: outputLink1,
       output_link_2: outputLink2,
+      output_links: outputLinks,
       output_images: outputImages,
       target_user_ids: targetUserIds,
       week_id: b.week_id,
@@ -196,6 +217,7 @@ export async function POST(request: NextRequest) {
         team_id: input.team_id,
         output_link_1: input.output_link_1,
         output_link_2: input.output_link_2,
+        output_links: input.output_links,
         output_images: input.output_images,
         submission_opens_at: input.submission_opens_at,
         submission_closes_at: input.submission_closes_at,
@@ -203,7 +225,7 @@ export async function POST(request: NextRequest) {
         created_by: admin.userId,
         updated_by: admin.userId,
       })
-      .select("id,part_type,line_code,experience_line_master_id,main_title,team_id,output_link_1,output_link_2,output_images,submission_opens_at,submission_closes_at,is_active,created_at")
+      .select("id,part_type,line_code,experience_line_master_id,main_title,team_id,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_at")
       .single();
 
     if (lineError || !lineRow) {

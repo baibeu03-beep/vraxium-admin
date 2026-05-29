@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Plus, Search, Check, X, Upload, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  Plus,
+  Search,
+  Check,
+  X,
+  Upload,
+  Trash2,
+  Pencil,
+  Users,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,6 +31,20 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import type { Cluster4InfoLineDetail } from "@/lib/adminCluster4LinesTypes";
+import {
+  buildOutputLinksFromForm,
+  OUTPUT_LINK_LABEL_PLACEHOLDER,
+  OUTPUT_LINK_URL_PLACEHOLDER,
+} from "@/lib/cluster4OutputLinks";
+import {
+  EnhancementStatusBadge,
+  SubmissionStatusBadge,
+  ENHANCEMENT_FILTER_OPTIONS,
+  matchesEnhancementFilter,
+  type EnhancementFilter,
+} from "@/components/admin/cluster4/enhancementBadges";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -43,8 +67,8 @@ type CurrentWeekData = {
 };
 
 type WeekOption = {
-  id: string;             // weeks.id (UUID). POST body 의 week_id 로 그대로 전달.
-  label: string;          // 표시용 — "{year}년도 {season} {weekNumber}w".
+  id: string;
+  label: string;
   seasonKey: string;
   seasonName: string;
   year: number;
@@ -54,6 +78,8 @@ type WeekOption = {
   isOfficialRest: boolean;
   canOpen: boolean;
   isCurrent: boolean;
+  // 운영 정책상 개설 가능 주차(N-1). 일반 모드 기본 선택 대상.
+  isOpenTarget: boolean;
   submissionOpensAt: string | null;
   submissionClosesAt: string | null;
 };
@@ -74,24 +100,40 @@ type UserItem = {
   organization: string | null;
 };
 
-type LineDto = {
-  id: string;
-  activityTypeId: string | null;
-  mainTitle: string;
-  outputLink1: string | null;
-  outputLink2: string | null;
-  outputImages: string[];
-  submissionOpensAt: string;
-  submissionClosesAt: string;
-  isActive: boolean;
-  targetCount: number;
-  submissionCount: number;
-  createdAt: string;
-};
-
 type UploadedImage = {
   url: string;
   name: string;
+  caption: string;
+};
+
+// 실무 정보 탭 표시 순서 — 운영 요청에 따라 9개 활동 유형의 표시 순서를 명시적으로 고정한다.
+// DB 조회 순서(activity-types API 는 id ASC)나 id 알파벳 순에 의존하지 않고, 아래 배열 순서를
+// UI 표시 순서로 강제한다. 여기 나열되지 않은(신규) 활동 유형은 API 순서로 뒤에 append 되므로
+// 아래 9개의 상대 순서는 항상 유지된다.
+//   위즈덤 → 에세이 → 인포데스크 → 캘린더 → 포럼 → 세션 → 실무특강 → 커뮤니티 → 기타A
+// /crews/encre/[userId]/cluster4 프론트 카드와 동일하게 activity_types(cluster_id='practical_info')
+// 를 단일 기준으로 사용한다 (lib/userActivityDetailsTypes.WORK_INFO_ACTIVITY_TYPE_IDS 참고).
+const PREFERRED_TAB_ORDER = [
+  "wisdom",
+  "essay",
+  "infodesk",
+  "calendar",
+  "forum",
+  "session",
+  "practical_lecture",
+  "community",
+  "etc_a",
+] as const;
+
+const EDIT_REASON_LABEL: Record<string, string> = {
+  ok: "편집 가능",
+  ok_override: "오버라이드",
+  target_missing: "대상 없음",
+  not_owner: "비대상",
+  line_inactive: "라인 비활성",
+  window_not_open: "기간 전",
+  window_closed: "마감",
+  unsupported_target_mode: "rule 대상",
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -136,6 +178,21 @@ function fmtDateShort(iso: string): string {
   return `${y}. ${m}. ${day}. (${dow})`;
 }
 
+// ISO ↔ <input type="datetime-local"> 변환 (로컬 타임존 기준).
+function isoToLocalInput(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function localInputToIso(local: string): string | null {
+  if (!local) return null;
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
 // ──────────────────────────────────────────────────────────────
 // Image Upload Component
 // ──────────────────────────────────────────────────────────────
@@ -145,12 +202,14 @@ function ImageUploadSlot({
   image,
   onUpload,
   onRemove,
+  onCaptionChange,
   disabled,
 }: {
   label: string;
   image: UploadedImage | null;
   onUpload: (img: UploadedImage) => void;
   onRemove: () => void;
+  onCaptionChange: (caption: string) => void;
   disabled: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -177,7 +236,7 @@ function ImageUploadSlot({
           return;
         }
 
-        onUpload({ url: json.data.url, name: file.name });
+        onUpload({ url: json.data.url, name: file.name, caption: "" });
       } catch {
         alert("업로드 중 오류가 발생했습니다");
       } finally {
@@ -192,24 +251,33 @@ function ImageUploadSlot({
     <div className="space-y-1">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {image ? (
-        <div className="flex items-center gap-3 rounded-md border p-2">
-          <img
-            src={image.url}
-            alt={image.name}
-            className="h-16 w-16 shrink-0 rounded object-cover"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm">{image.name}</p>
-            <p className="truncate text-xs text-muted-foreground">{image.url}</p>
+        <div className="space-y-2 rounded-md border p-2">
+          <div className="flex items-center gap-3">
+            <img
+              src={image.url}
+              alt={image.name}
+              className="h-16 w-16 shrink-0 rounded object-cover"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm">{image.name}</p>
+              <p className="truncate text-xs text-muted-foreground">{image.url}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0"
+              onClick={onRemove}
+            >
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="shrink-0"
-            onClick={onRemove}
-          >
-            <Trash2 className="h-4 w-4 text-red-500" />
-          </Button>
+          {/* 이미지 캡션 — 고객 페이지 .image-caption-overlay .caption-text 에 표시됨. 비우면 null 저장. */}
+          <Input
+            value={image.caption}
+            onChange={(e) => onCaptionChange(e.target.value)}
+            placeholder="이미지 캡션 (선택)"
+            aria-label={`${label} 캡션`}
+          />
         </div>
       ) : (
         <div>
@@ -241,17 +309,391 @@ function ImageUploadSlot({
 }
 
 // ──────────────────────────────────────────────────────────────
+// canEdit badge
+// ──────────────────────────────────────────────────────────────
+
+function CanEditBadge({
+  canEdit,
+  reason,
+}: {
+  canEdit: boolean;
+  reason: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+        canEdit
+          ? "bg-green-100 text-green-800"
+          : "bg-gray-100 text-gray-600",
+      )}
+    >
+      {EDIT_REASON_LABEL[reason] ?? reason}
+    </span>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Line Detail / Edit Modal
+// ──────────────────────────────────────────────────────────────
+
+function LineDetailModal({
+  line,
+  activityTypeName,
+  onClose,
+  onSaved,
+}: {
+  line: Cluster4InfoLineDetail;
+  activityTypeName: string;
+  onClose: () => void;
+  onSaved: (message: string) => void;
+}) {
+  const [mainTitle, setMainTitle] = useState(line.mainTitle);
+  // 운영자 입력 서브 타이틀·그로스 포인트 prefill (info 전용). 크루원 제출 subtitle 과 별개.
+  const [infoSubtitle, setInfoSubtitle] = useState(line.infoSubtitle ?? "");
+  const [infoGrowthPoint, setInfoGrowthPoint] = useState(line.infoGrowthPoint ?? "");
+  // output_links 우선 prefill (DTO 가 이미 jsonb→legacy fallback 해석). 슬롯 순서 보존.
+  const [outputLink1, setOutputLink1] = useState(line.outputLinks[0]?.url ?? line.outputLink1 ?? "");
+  const [outputLabel1, setOutputLabel1] = useState(line.outputLinks[0]?.label ?? "");
+  const [outputLink2, setOutputLink2] = useState(line.outputLinks[1]?.url ?? line.outputLink2 ?? "");
+  const [outputLabel2, setOutputLabel2] = useState(line.outputLinks[1]?.label ?? "");
+  const [opensAt, setOpensAt] = useState(isoToLocalInput(line.submissionOpensAt));
+  const [closesAt, setClosesAt] = useState(isoToLocalInput(line.submissionClosesAt));
+  const [isActive, setIsActive] = useState(line.isActive);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = useCallback(async () => {
+    if (!mainTitle.trim()) {
+      setError("메인 타이틀을 입력해주세요");
+      return;
+    }
+    const built = buildOutputLinksFromForm([
+      { url: outputLink1, label: outputLabel1 },
+      { url: outputLink2, label: outputLabel2 },
+    ]);
+    if (!built.ok) {
+      setError(built.error);
+      return;
+    }
+    const outputLinks = built.value;
+    const opensIso = localInputToIso(opensAt);
+    const closesIso = localInputToIso(closesAt);
+    if (!opensIso || !closesIso) {
+      setError("기입 기간을 올바르게 입력해주세요");
+      return;
+    }
+    if (new Date(opensIso).getTime() > new Date(closesIso).getTime()) {
+      setError("기입 시작은 마감보다 이후일 수 없습니다");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/cluster4/lines/${line.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          main_title: mainTitle.trim(),
+          // 운영자 서브 타이틀·그로스 포인트 — 비우면 null 저장.
+          info_subtitle: infoSubtitle.trim() ? infoSubtitle.trim() : null,
+          info_growth_point: infoGrowthPoint.trim() ? infoGrowthPoint.trim() : null,
+          // output_links 우선 저장 + 레거시 컬럼 backward-compat mirror.
+          output_links: outputLinks,
+          output_link_1: outputLinks[0]?.url ?? null,
+          output_link_2: outputLinks[1]?.url ?? null,
+          submission_opens_at: opensIso,
+          submission_closes_at: closesIso,
+          is_active: isActive,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setError(json.error ?? "저장에 실패했습니다");
+        return;
+      }
+      onSaved("라인 정보가 수정되었습니다");
+    } catch {
+      setError("저장 중 오류가 발생했습니다");
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    line.id,
+    mainTitle,
+    infoSubtitle,
+    infoGrowthPoint,
+    outputLink1,
+    outputLabel1,
+    outputLink2,
+    outputLabel2,
+    opensAt,
+    closesAt,
+    isActive,
+    onSaved,
+  ]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl space-y-6 rounded-lg bg-background p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground">
+              {activityTypeName} · {line.weekLabel ?? "주차 미상"}
+            </p>
+            <h2 className="truncate text-lg font-bold">{line.mainTitle}</h2>
+            <p className="font-mono text-xs text-muted-foreground">lineId: {line.id}</p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
+        {error && (
+          <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+            {error}
+          </div>
+        )}
+
+        {/* Editable line fields */}
+        <section className="space-y-4">
+          <h3 className="text-sm font-semibold">라인 기본 정보 (편집)</h3>
+          <div className="space-y-2">
+            <Label htmlFor="d-title">메인 타이틀</Label>
+            <Input
+              id="d-title"
+              value={mainTitle}
+              onChange={(e) => setMainTitle(e.target.value)}
+            />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="d-subtitle">서브 타이틀</Label>
+              <Input
+                id="d-subtitle"
+                value={infoSubtitle}
+                onChange={(e) => setInfoSubtitle(e.target.value)}
+                placeholder="서브 타이틀 (선택)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="d-growth">그로스 포인트</Label>
+              <Input
+                id="d-growth"
+                value={infoGrowthPoint}
+                onChange={(e) => setInfoGrowthPoint(e.target.value)}
+                placeholder="그로스 포인트 (선택)"
+              />
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label htmlFor="d-link1" className="text-xs text-muted-foreground">
+                  Output Link 1 URL
+                </Label>
+                <Input
+                  id="d-link1"
+                  value={outputLink1}
+                  onChange={(e) => setOutputLink1(e.target.value)}
+                  placeholder={OUTPUT_LINK_URL_PLACEHOLDER}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="d-label1" className="text-xs text-muted-foreground">
+                  Link 1 설명
+                </Label>
+                <Input
+                  id="d-label1"
+                  value={outputLabel1}
+                  onChange={(e) => setOutputLabel1(e.target.value)}
+                  placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label htmlFor="d-link2" className="text-xs text-muted-foreground">
+                  Output Link 2 URL
+                </Label>
+                <Input
+                  id="d-link2"
+                  value={outputLink2}
+                  onChange={(e) => setOutputLink2(e.target.value)}
+                  placeholder={OUTPUT_LINK_URL_PLACEHOLDER}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="d-label2" className="text-xs text-muted-foreground">
+                  Link 2 설명
+                </Label>
+                <Input
+                  id="d-label2"
+                  value={outputLabel2}
+                  onChange={(e) => setOutputLabel2(e.target.value)}
+                  placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="d-opens" className="text-xs text-muted-foreground">
+                기입 시작
+              </Label>
+              <Input
+                id="d-opens"
+                type="datetime-local"
+                value={opensAt}
+                onChange={(e) => setOpensAt(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="d-closes" className="text-xs text-muted-foreground">
+                기입 마감
+              </Label>
+              <Input
+                id="d-closes"
+                type="datetime-local"
+                value={closesAt}
+                onChange={(e) => setClosesAt(e.target.value)}
+              />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="rounded border-gray-300"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+            />
+            활성 라인 (is_active)
+          </label>
+
+          {/* Output images — read-only */}
+          {line.outputImages.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">
+                Output 이미지 (읽기 전용)
+              </Label>
+              <div className="flex flex-wrap gap-3">
+                {line.outputImages.map((url, i) => (
+                  <figure key={`${url}-${i}`} className="w-16 space-y-1">
+                    <img
+                      src={url}
+                      alt={line.outputImageCaptions[i] ?? "output"}
+                      className="h-16 w-16 rounded border object-cover"
+                    />
+                    {line.outputImageCaptions[i] ? (
+                      <figcaption className="truncate text-[10px] text-muted-foreground">
+                        {line.outputImageCaptions[i]}
+                      </figcaption>
+                    ) : null}
+                  </figure>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Targets — read-only */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">
+              대상자 ({line.targets.length}명) · 기입 {line.submittedCount} / 미기입{" "}
+              {line.pendingCount} · 편집가능 {line.canEditCount}
+            </h3>
+            <span className="text-xs text-muted-foreground">
+              대상 추가/제거는 안전을 위해 읽기 전용입니다
+            </span>
+          </div>
+          <div className="max-h-72 overflow-y-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>이름</TableHead>
+                  <TableHead className="text-center">강화 상태</TableHead>
+                  <TableHead className="text-center">라인칸 기입 상태</TableHead>
+                  <TableHead>canEdit</TableHead>
+                  <TableHead>lineTargetId / submissionId</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {line.targets.map((t) => (
+                  <TableRow key={t.lineTargetId}>
+                    <TableCell className="font-medium">{t.displayName}</TableCell>
+                    <TableCell className="text-center">
+                      <EnhancementStatusBadge
+                        status={t.enhancementStatus}
+                        reason={t.enhancementReason}
+                      />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <SubmissionStatusBadge status={t.submissionStatus} />
+                      {t.submitted && t.submittedAt ? (
+                        <span className="ml-1 text-[11px] text-muted-foreground">
+                          · {fmtDateShort(t.submittedAt)}
+                        </span>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>
+                      <CanEditBadge canEdit={t.canEdit} reason={t.editReason} />
+                    </TableCell>
+                    <TableCell className="font-mono text-[11px] text-muted-foreground">
+                      <div className="truncate">{t.lineTargetId}</div>
+                      <div className="truncate">{t.submissionId ?? "—"}</div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+
+        <div className="flex justify-end gap-3 border-t pt-4">
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            닫기
+          </Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            라인 정보 저장
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
 // Main Component
 // ──────────────────────────────────────────────────────────────
 
 export default function PracticalInfoManager() {
+  // dev 모드(?dev=true): 주차 선택 UI 노출 + 과거 주차 개설 허용 (테스트용).
+  // 일반 모드: weekSelect 미렌더 + 서버가 N-1 강제.
+  const devMode = useAdminDevMode();
+
   // ── State ──
   const [currentWeek, setCurrentWeek] = useState<CurrentWeekData | null>(null);
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
   const [users, setUsers] = useState<UserItem[]>([]);
-  const [existingLines, setExistingLines] = useState<LineDto[]>([]);
+
+  const [activeTypeId, setActiveTypeId] = useState<string>("");
+  const [detailLines, setDetailLines] = useState<Cluster4InfoLineDetail[]>([]);
+  const [linesLoading, setLinesLoading] = useState(false);
+  // 탭 dot 계산용 — 선택 주차(selectedWeekId)의 모든 활동 유형 라인. activeTypeId 와
+  // 무관하게 주차 전체를 받아 (weekId + activityTypeId) 조합으로 dot 을 산정한다.
+  const [weekLines, setWeekLines] = useState<Cluster4InfoLineDetail[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -259,14 +701,54 @@ export default function PracticalInfoManager() {
 
   // Form state
   const [showForm, setShowForm] = useState(false);
-  const [selectedActivityType, setSelectedActivityType] = useState("");
   const [mainTitle, setMainTitle] = useState("");
+  // 운영자 입력 서브 타이틀·그로스 포인트 (info 전용). 크루원 제출 subtitle 과 별개.
+  const [infoSubtitle, setInfoSubtitle] = useState("");
+  const [infoGrowthPoint, setInfoGrowthPoint] = useState("");
   const [outputLink1, setOutputLink1] = useState("");
+  const [outputLabel1, setOutputLabel1] = useState("");
   const [outputLink2, setOutputLink2] = useState("");
+  const [outputLabel2, setOutputLabel2] = useState("");
   const [uploadedImage1, setUploadedImage1] = useState<UploadedImage | null>(null);
   const [uploadedImage2, setUploadedImage2] = useState<UploadedImage | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [userSearch, setUserSearch] = useState("");
+
+  // Detail modal
+  const [detailLineId, setDetailLineId] = useState<string | null>(null);
+  const [enhancementFilter, setEnhancementFilter] = useState<EnhancementFilter>("all");
+
+  // ── Ordered tabs (커뮤니티/에세이/위즈덤 우선) ──
+  const orderedTypes = useMemo(() => {
+    const preferred = PREFERRED_TAB_ORDER.map((id) =>
+      activityTypes.find((t) => t.id === id),
+    ).filter((t): t is ActivityType => Boolean(t));
+    const preferredIds = new Set(preferred.map((t) => t.id));
+    const rest = activityTypes.filter((t) => !preferredIds.has(t.id));
+    return [...preferred, ...rest];
+  }, [activityTypes]);
+
+  const activeType = useMemo(
+    () => orderedTypes.find((t) => t.id === activeTypeId) ?? null,
+    [orderedTypes, activeTypeId],
+  );
+
+  // ── 탭 dot 산정 — (weekId + activityTypeId) 조합 ──
+  // dot 은 activityTypeId 단독이 아니라 "선택 주차에 그 활동 유형의 활성 라인이 있는지"로
+  // 판단한다. weekLines 는 이미 selectedWeekId 로 조회되지만, 안전을 위해 weekId 도 재확인한다.
+  const openedActivityTypeIdsForSelectedWeek = useMemo(() => {
+    const set = new Set<string>();
+    for (const line of weekLines) {
+      if (
+        line.isActive &&
+        line.weekId === selectedWeekId &&
+        line.activityTypeId
+      ) {
+        set.add(line.activityTypeId);
+      }
+    }
+    return set;
+  }, [weekLines, selectedWeekId]);
 
   // ── Output Asset count ──
   const assetCount = useMemo(() => {
@@ -287,16 +769,14 @@ export default function PracticalInfoManager() {
     return users.filter((u) => u.displayName.toLowerCase().includes(q));
   }, [users, userSearch]);
 
-  // ── Data fetching ──
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
+  // ── Meta fetch (weeks / types / users) ──
+  const fetchMeta = useCallback(async () => {
     try {
-      const [weekRes, weeksRes, typesRes, usersRes, linesRes] = await Promise.all([
+      const [weekRes, weeksRes, typesRes, usersRes] = await Promise.all([
         fetch("/api/admin/cluster4/current-week"),
         fetch("/api/admin/cluster4/weeks-options?limit=3"),
         fetch("/api/admin/cluster4/activity-types?cluster=practical_info"),
         fetch("/api/admin/cluster4/users"),
-        fetch("/api/admin/cluster4/lines?partType=info&limit=100"),
       ]);
 
       const weekJson = await weekRes.json();
@@ -306,41 +786,125 @@ export default function PracticalInfoManager() {
       if (weeksJson.success) {
         const opts: WeekOption[] = weeksJson.data.weeks ?? [];
         setWeekOptions(opts);
-        const current = opts.find((o) => o.isCurrent) ?? opts[0];
-        if (current) setSelectedWeekId((prev) => prev || current.id);
+        // 운영 정책: 기본 개설 대상 = N-1(isOpenTarget). 없으면 현재(N) → 첫 항목 순으로 fallback.
+        const defaultWeek =
+          opts.find((o) => o.isOpenTarget) ??
+          opts.find((o) => o.isCurrent) ??
+          opts[0];
+        if (defaultWeek) setSelectedWeekId((prev) => prev || defaultWeek.id);
       }
 
       const typesJson = await typesRes.json();
-      if (typesJson.success) setActivityTypes(typesJson.data);
+      if (typesJson.success) {
+        const types: ActivityType[] = typesJson.data;
+        setActivityTypes(types);
+        // 기본 활성 탭 지정 — 커뮤니티/에세이/위즈덤 우선, 그 외 API 순서.
+        const firstId =
+          PREFERRED_TAB_ORDER.map((id) => types.find((t) => t.id === id)?.id).find(
+            Boolean,
+          ) ?? types[0]?.id;
+        if (firstId) setActiveTypeId((prev) => prev || firstId);
+      }
 
       const usersJson = await usersRes.json();
       if (usersJson.success) setUsers(usersJson.data);
-
-      const linesJson = await linesRes.json();
-      if (linesJson.success) setExistingLines(linesJson.data.rows ?? []);
     } catch (error) {
-      console.error("Failed to fetch data", error);
+      console.error("Failed to fetch meta", error);
       setBanner({ kind: "error", message: "데이터를 불러오는데 실패했습니다" });
-    } finally {
-      setLoading(false);
     }
   }, []);
 
+  // ── Lines fetch (per active activity-type tab + 선택한 주차) ──
+  const fetchLines = useCallback(async (typeId: string, weekId: string) => {
+    if (!typeId) {
+      setDetailLines([]);
+      return;
+    }
+    setLinesLoading(true);
+    try {
+      const qs = new URLSearchParams({ activity_type_id: typeId });
+      // 개설된 라인 목록은 선택한 주차(selectedWeekId) 기준으로만 표시한다.
+      if (weekId) qs.set("week_id", weekId);
+      const res = await fetch(`/api/admin/cluster4/info-lines?${qs.toString()}`);
+      const json = await res.json();
+      if (json.success) {
+        setDetailLines(json.data.rows ?? []);
+      } else {
+        setDetailLines([]);
+        setBanner({ kind: "error", message: json.error ?? "라인 목록을 불러오지 못했습니다" });
+      }
+    } catch (error) {
+      console.error("Failed to fetch lines", error);
+      setDetailLines([]);
+    } finally {
+      setLinesLoading(false);
+    }
+  }, []);
+
+  // ── Week-scoped lines fetch (탭 dot 계산용 — 활동 유형 무관, 선택 주차 전체) ──
+  const fetchWeekLines = useCallback(async (weekId: string) => {
+    if (!weekId) {
+      setWeekLines([]);
+      return;
+    }
+    try {
+      const qs = new URLSearchParams({ week_id: weekId });
+      const res = await fetch(`/api/admin/cluster4/info-lines?${qs.toString()}`);
+      const json = await res.json();
+      setWeekLines(json.success ? (json.data.rows ?? []) : []);
+    } catch (error) {
+      console.error("Failed to fetch week lines", error);
+      setWeekLines([]);
+    }
+  }, []);
+
+  // ── Initial load ──
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    (async () => {
+      setLoading(true);
+      await fetchMeta();
+      setLoading(false);
+    })();
+  }, [fetchMeta]);
+
+  // ── Refetch lines when tab OR 선택 주차 changes ──
+  useEffect(() => {
+    if (!activeTypeId) return;
+    void (async () => {
+      await fetchLines(activeTypeId, selectedWeekId);
+    })();
+  }, [activeTypeId, selectedWeekId, fetchLines]);
+
+  // ── 주차 변경 시 탭 dot 데이터(weekLines) 즉시 재계산 ──
+  useEffect(() => {
+    void fetchWeekLines(selectedWeekId);
+  }, [selectedWeekId, fetchWeekLines]);
 
   // ── Form reset ──
   const resetForm = useCallback(() => {
-    setSelectedActivityType("");
     setMainTitle("");
+    setInfoSubtitle("");
+    setInfoGrowthPoint("");
     setOutputLink1("");
+    setOutputLabel1("");
     setOutputLink2("");
+    setOutputLabel2("");
     setUploadedImage1(null);
     setUploadedImage2(null);
     setSelectedUserIds(new Set());
     setUserSearch("");
   }, []);
+
+  // ── Tab switch ──
+  const switchTab = useCallback(
+    (typeId: string) => {
+      setActiveTypeId(typeId);
+      setShowForm(false);
+      resetForm();
+      setBanner(null);
+    },
+    [resetForm],
+  );
 
   // ── Toggle user selection ──
   const toggleUser = useCallback((userId: string) => {
@@ -360,7 +924,7 @@ export default function PracticalInfoManager() {
     setSelectedUserIds(new Set());
   }, []);
 
-  // 선택된 주차 정보 — UI/POST 모두 이 값을 사용한다.
+  // 선택된 주차 정보 — 신규 라인 개설에 사용.
   const selectedWeek = useMemo(
     () => weekOptions.find((w) => w.id === selectedWeekId) ?? null,
     [weekOptions, selectedWeekId],
@@ -371,9 +935,12 @@ export default function PracticalInfoManager() {
     return !!currentWeek?.weekId && currentWeek.canOpen;
   }, [selectedWeek, currentWeek]);
 
-  // ── Save ──
+  // ── Save (신규 라인 개설) — 활동 유형은 현재 탭으로 고정 ──
   const handleSave = useCallback(async () => {
-    // selectedWeekId 가 비어 있으면 명시적으로 차단한다 — 빈 값으로 API 를 호출하지 않는다.
+    if (!activeTypeId) {
+      setBanner({ kind: "error", message: "활동 유형 탭을 선택해주세요" });
+      return;
+    }
     if (!selectedWeekId) {
       setBanner({ kind: "error", message: "주차를 선택해주세요" });
       return;
@@ -387,11 +954,6 @@ export default function PracticalInfoManager() {
     }
     if (!selectedWeek?.canOpen) {
       setBanner({ kind: "error", message: "선택한 주차는 라인 개설이 불가합니다" });
-      return;
-    }
-
-    if (!selectedActivityType) {
-      setBanner({ kind: "error", message: "활동 유형을 선택해주세요" });
       return;
     }
     if (!mainTitle.trim()) {
@@ -412,36 +974,56 @@ export default function PracticalInfoManager() {
       setBanner({ kind: "error", message: "개설 대상을 최소 1명 이상 선택해주세요" });
       return;
     }
+    const built = buildOutputLinksFromForm([
+      { url: outputLink1, label: outputLabel1 },
+      { url: outputLink2, label: outputLabel2 },
+    ]);
+    if (!built.ok) {
+      setBanner({ kind: "error", message: built.error });
+      return;
+    }
+    const outputLinks = built.value;
 
     setSaving(true);
     setBanner(null);
 
     try {
-      const outputImages: string[] = [];
-      if (uploadedImage1) outputImages.push(uploadedImage1.url);
-      if (uploadedImage2) outputImages.push(uploadedImage2.url);
+      // output_images = [{url, caption}] — 캡션 비우면 null 저장. URL 없으면 제외(append).
+      const outputImages: { url: string; caption: string | null }[] = [];
+      for (const img of [uploadedImage1, uploadedImage2]) {
+        if (!img) continue;
+        outputImages.push({
+          url: img.url,
+          caption: img.caption.trim() ? img.caption.trim() : null,
+        });
+      }
 
       const payload = {
-        activity_type_id: selectedActivityType,
+        activity_type_id: activeTypeId,
         main_title: mainTitle.trim(),
-        output_link_1: outputLink1.trim() || null,
-        output_link_2: outputLink2.trim() || null,
+        // 운영자 서브 타이틀·그로스 포인트 — 비우면 null 저장.
+        info_subtitle: infoSubtitle.trim() ? infoSubtitle.trim() : null,
+        info_growth_point: infoGrowthPoint.trim() ? infoGrowthPoint.trim() : null,
+        // output_links 우선 + 레거시 컬럼 backward-compat mirror.
+        output_links: outputLinks,
+        output_link_1: outputLinks[0]?.url ?? null,
+        output_link_2: outputLinks[1]?.url ?? null,
         output_images: outputImages,
         target_user_ids: Array.from(selectedUserIds),
         week_id: targetWeekId,
         submission_opens_at: targetOpens,
         submission_closes_at: targetCloses,
       };
-      console.log("[info line open payload]", {
-        selectedWeekId,
-        selectedWeekOption: selectedWeek,
-        body: payload,
-      });
-      const res = await fetch("/api/admin/cluster4/info-lines", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      // dev 모드에서만 ?dev=true 를 전달 → 서버가 과거 주차 개설을 허용.
+      // 일반 모드에서는 서버가 N-1 을 강제하므로 week_id 조작이 무력화된다.
+      const res = await fetch(
+        `/api/admin/cluster4/info-lines${devMode ? "?dev=true" : ""}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
 
       const json = await res.json();
 
@@ -456,7 +1038,9 @@ export default function PracticalInfoManager() {
       });
       resetForm();
       setShowForm(false);
-      await fetchAll();
+      await fetchMeta();
+      await fetchLines(activeTypeId, selectedWeekId);
+      await fetchWeekLines(selectedWeekId);
     } catch (error) {
       console.error("Save failed", error);
       setBanner({ kind: "error", message: "저장 중 오류가 발생했습니다" });
@@ -464,21 +1048,44 @@ export default function PracticalInfoManager() {
       setSaving(false);
     }
   }, [
-    currentWeek,
+    activeTypeId,
     selectedWeek,
     selectedWeekId,
-    selectedActivityType,
     mainTitle,
+    infoSubtitle,
+    infoGrowthPoint,
     assetValid,
     assetCount,
     outputLink1,
+    outputLabel1,
     outputLink2,
+    outputLabel2,
     uploadedImage1,
     uploadedImage2,
     selectedUserIds,
     resetForm,
-    fetchAll,
+    fetchMeta,
+    fetchLines,
+    fetchWeekLines,
+    devMode,
   ]);
+
+  const detailLine = useMemo(
+    () => detailLines.find((l) => l.id === detailLineId) ?? null,
+    [detailLines, detailLineId],
+  );
+
+  // 라인 단위 강화 상태 = 대표 대상자(첫 행) 값 (대상자 전원 동일).
+  const filteredLines = useMemo(
+    () =>
+      detailLines.filter((l) =>
+        matchesEnhancementFilter(
+          enhancementFilter,
+          l.targets[0]?.enhancementStatus ?? null,
+        ),
+      ),
+    [detailLines, enhancementFilter],
+  );
 
   // ── Render ──
   if (loading) {
@@ -489,9 +1096,49 @@ export default function PracticalInfoManager() {
     );
   }
 
+  // 중복 기준: activity_type_id + week_id. detailLines 는 이미 현재 탭(activity_type)
+  // + 선택 주차(selectedWeekId) 로 필터된 목록이므로, 그 안의 active 라인 유무로 판단한다.
+  // 다른 주차의 active 라인은 현재 주차 신규 개설을 막지 않는다.
+  const newLineDisabled = detailLines.some((l) => l.isActive);
+
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6">
-      <h1 className="text-2xl font-bold">실무 정보 라인 개설</h1>
+    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">실무 정보 라인 운영</h1>
+          <p className="text-sm text-muted-foreground">
+            활동 유형 탭별로 라인을 개설하고, 개설된 라인의 대상자·기입·편집권을 관리합니다.
+          </p>
+        </div>
+
+        {/* Week selector (신규 개설 대상 주차) — dev 모드에서만 노출.
+            일반 모드에서는 렌더링하지 않으며, 서버가 N-1 을 강제한다. */}
+        {devMode && weekOptions.length > 0 && (
+          <div className="flex items-end gap-2">
+            <div className="space-y-1">
+              <Label htmlFor="weekSelect" className="text-xs text-muted-foreground">
+                신규 개설 대상 주차 <span className="text-amber-600">(dev)</span>
+              </Label>
+              <select
+                id="weekSelect"
+                className="w-72 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={selectedWeekId}
+                onChange={(e) => setSelectedWeekId(e.target.value)}
+              >
+                <option value="">주차를 선택해주세요</option>
+                {weekOptions.map((w) => (
+                  <option key={w.id} value={w.id} disabled={!w.canOpen}>
+                    {w.label} ({w.startDate} ~ {w.endDate})
+                    {w.isOpenTarget ? " · 개설대상(N-1)" : ""}
+                    {w.isCurrent ? " · 현재(N)" : ""}
+                    {!w.canOpen ? " · 휴식" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Banner */}
       {banner && (
@@ -510,343 +1157,460 @@ export default function PracticalInfoManager() {
         </div>
       )}
 
-      {/* Current Week Info + Week Selector */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">라인 개설 대상 주차</CardTitle>
-          <CardDescription>
-            운영 기본값은 현재 주차이며, 테스트/검증 목적으로 직전 주차도 선택할 수 있습니다.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {weekOptions.length > 0 && (
-            <div className="space-y-1">
-              <Label htmlFor="weekSelect" className="text-xs text-muted-foreground">
-                대상 주차
-              </Label>
-              <select
-                id="weekSelect"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={selectedWeekId}
-                onChange={(e) => setSelectedWeekId(e.target.value)}
-              >
-                <option value="">주차를 선택해주세요</option>
-                {weekOptions.map((w) => (
-                  <option key={w.id} value={w.id} disabled={!w.canOpen}>
-                    {w.label} ({w.startDate} ~ {w.endDate})
-                    {w.isCurrent ? " · 현재" : ""}
-                    {!w.canOpen ? " · 휴식" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* Selected week summary */}
+      {selectedWeek && (
+        <p className="text-sm text-muted-foreground">
+          신규 개설 주차:{" "}
+          <span className="font-medium text-foreground">
+            {selectedWeek.year} {selectedWeek.seasonName} W{selectedWeek.weekNumber}
+          </span>{" "}
+          ({fmtDateWithDay(selectedWeek.startDate)} ~ {fmtDateWithDay(selectedWeek.endDate)})
+          {selectedWeek.canOpen &&
+            selectedWeek.submissionOpensAt &&
+            selectedWeek.submissionClosesAt && (
+              <>
+                {" · 기입 "}
+                {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~{" "}
+                {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}
+              </>
+            )}
+          {!selectedWeek.canOpen && (
+            <span className="font-medium text-orange-600"> · 공식 휴식 주차 (개설 불가)</span>
           )}
-          {selectedWeek ? (
-            <div className="space-y-1 text-sm">
-              <p>
-                <span className="font-medium">
-                  {selectedWeek.year} {selectedWeek.seasonName} W{selectedWeek.weekNumber}
-                </span>{" "}
-                ({fmtDateWithDay(selectedWeek.startDate)} ~ {fmtDateWithDay(selectedWeek.endDate)})
-              </p>
-              {selectedWeek.canOpen &&
-                selectedWeek.submissionOpensAt &&
-                selectedWeek.submissionClosesAt && (
-                  <>
-                    <p className="text-muted-foreground">
-                      제출 기간: {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~{" "}
-                      {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}
-                    </p>
-                    <p className="text-muted-foreground">
-                      크루원 2차 정보 입력 마감:{" "}
-                      {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}
-                    </p>
-                  </>
-                )}
-              {!selectedWeek.canOpen && (
-                <p className="font-medium text-orange-600">
-                  선택한 주차는 공식 휴식 주차입니다. 라인 개설이 불가합니다.
-                </p>
-              )}
-            </div>
-          ) : currentWeek ? (
-            <div className="space-y-1 text-sm">
-              <p>
-                <span className="font-medium">
-                  {currentWeek.year} {currentWeek.seasonName} W{currentWeek.weekNumber}
-                </span>{" "}
-                ({fmtDateWithDay(currentWeek.startDate)} ~ {fmtDateWithDay(currentWeek.endDate)})
-              </p>
-              {!currentWeek.canOpen && (
-                <p className="font-medium text-orange-600">
-                  {currentWeek.isOfficialRest
-                    ? "이번 주는 공식 휴식 주차입니다."
-                    : "현재 주차 데이터가 없습니다."}
-                </p>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">주차 정보를 불러올 수 없습니다.</p>
-          )}
-        </CardContent>
-      </Card>
+        </p>
+      )}
 
-      {/* Existing Lines */}
-      {existingLines.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">개설된 실무 정보 라인</CardTitle>
-            <CardDescription>
-              현재 등록된 실무 정보 라인 {existingLines.length}개
-            </CardDescription>
+      {/* Activity-type tabs */}
+      <div className="flex flex-wrap gap-2 border-b pb-px">
+        {orderedTypes.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => switchTab(t.id)}
+            className={cn(
+              "relative -mb-px rounded-t-md border border-b-0 px-4 py-2 text-sm font-medium transition-colors",
+              activeTypeId === t.id
+                ? "border-input bg-background text-foreground"
+                : "border-transparent bg-muted/40 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t.name}
+            {openedActivityTypeIdsForSelectedWeek.has(t.id) && (
+              <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-green-500 align-middle" />
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content: list + form */}
+      <div
+        className={cn(
+          "grid gap-6",
+          showForm ? "xl:grid-cols-[minmax(0,1fr)_440px]" : "grid-cols-1",
+        )}
+      >
+        {/* Lines list */}
+        <Card className="min-w-0">
+          <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+            <div>
+              <CardTitle className="text-base">
+                {activeType?.name ?? "활동 유형"} 라인 목록
+              </CardTitle>
+              <CardDescription>
+                개설된 라인 {detailLines.length}개 · 행을 클릭하면 상세/편집
+              </CardDescription>
+            </div>
+            {!showForm && (
+              <Button
+                onClick={() => setShowForm(true)}
+                disabled={!canOpenSelected || newLineDisabled}
+                title={
+                  newLineDisabled
+                    ? "선택한 주차에 이 활동 유형의 활성 라인이 있습니다"
+                    : !canOpenSelected
+                      ? "선택한 주차는 개설 불가"
+                      : undefined
+                }
+              >
+                <Plus className="mr-2 h-4 w-4" /> 새 라인 개설
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>활동 유형</TableHead>
-                  <TableHead>메인 타이틀</TableHead>
-                  <TableHead className="text-center">대상</TableHead>
-                  <TableHead className="text-center">활성</TableHead>
-                  <TableHead>생성일</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {existingLines.map((line) => {
-                  const typeName =
-                    activityTypes.find((t) => t.id === line.activityTypeId)
-                      ?.name ??
-                    line.activityTypeId ??
-                    "-";
-                  return (
-                    <TableRow key={line.id}>
-                      <TableCell className="font-medium">{typeName}</TableCell>
-                      <TableCell>{line.mainTitle}</TableCell>
-                      <TableCell className="text-center">
-                        {line.targetCount}명
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {line.isActive ? (
-                          <Check className="mx-auto h-4 w-4 text-green-600" />
-                        ) : (
-                          <X className="mx-auto h-4 w-4 text-muted-foreground" />
-                        )}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {fmtDateShort(line.createdAt)}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* New Line Form */}
-      {!showForm && canOpenSelected && (
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="mr-2 h-4 w-4" /> 새 라인 개설
-        </Button>
-      )}
-
-      {showForm && canOpenSelected && (selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">새 실무 정보 라인</CardTitle>
-            <CardDescription>
-              크루원 2차 정보 입력 마감:{" "}
-              {fmtDateTimeWithDay(
-                (selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string,
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {/* Activity Type */}
-            <div className="space-y-2">
-              <Label htmlFor="activityType">
-                활동 유형 <span className="text-red-500">*</span>
-              </Label>
-              <select
-                id="activityType"
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={selectedActivityType}
-                onChange={(e) => setSelectedActivityType(e.target.value)}
-              >
-                <option value="">선택해주세요</option>
-                {activityTypes.map((t) => (
-                  <option key={t.id} value={t.id} disabled={t.hasActiveLine}>
-                    {t.name}
-                    {t.hasActiveLine ? " (사용중)" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Main Title */}
-            <div className="space-y-2">
-              <Label htmlFor="mainTitle">
-                메인 타이틀 <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="mainTitle"
-                value={mainTitle}
-                onChange={(e) => setMainTitle(e.target.value)}
-                placeholder="메인 타이틀을 입력하세요"
-              />
-            </div>
-
-            {/* Output Assets */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>
-                  Output Asset <span className="text-red-500">*</span>
-                </Label>
-                <span
-                  className={cn(
-                    "text-xs",
-                    assetCount === 0
-                      ? "text-red-500"
-                      : assetCount <= 2
-                        ? "text-green-600"
-                        : "text-red-500",
-                  )}
+            {newLineDisabled && !showForm && (
+              <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                선택한 주차에는 이 활동 유형의 활성 라인이 이미 있습니다. 신규 개설은 기존 라인 비활성화 후 가능합니다.
+              </p>
+            )}
+            {detailLines.length > 0 && (
+              <div className="mb-3 flex items-center gap-2">
+                <Label className="text-xs text-muted-foreground">강화 상태</Label>
+                <select
+                  className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                  value={enhancementFilter}
+                  onChange={(e) =>
+                    setEnhancementFilter(e.target.value as EnhancementFilter)
+                  }
                 >
-                  {assetCount}/2 (최소 1, 최대 2)
-                </span>
+                  {ENHANCEMENT_FILTER_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-
-              <div className="grid gap-3">
-                {/* Links */}
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="link1"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Link 1
-                  </Label>
-                  <Input
-                    id="link1"
-                    value={outputLink1}
-                    onChange={(e) => setOutputLink1(e.target.value)}
-                    placeholder="https://..."
-                    disabled={!outputLink1.trim() && assetCount >= 2}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label
-                    htmlFor="link2"
-                    className="text-xs text-muted-foreground"
-                  >
-                    Link 2
-                  </Label>
-                  <Input
-                    id="link2"
-                    value={outputLink2}
-                    onChange={(e) => setOutputLink2(e.target.value)}
-                    placeholder="https://..."
-                    disabled={!outputLink2.trim() && assetCount >= 2}
-                  />
-                </div>
-
-                {/* Image Uploads */}
-                <ImageUploadSlot
-                  label="Image 1"
-                  image={uploadedImage1}
-                  onUpload={setUploadedImage1}
-                  onRemove={() => setUploadedImage1(null)}
-                  disabled={!uploadedImage1 && assetCount >= 2}
-                />
-                <ImageUploadSlot
-                  label="Image 2"
-                  image={uploadedImage2}
-                  onUpload={setUploadedImage2}
-                  onRemove={() => setUploadedImage2(null)}
-                  disabled={!uploadedImage2 && assetCount >= 2}
-                />
+            )}
+            {linesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-            </div>
-
-            {/* Target Users */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>
-                  개설 대상 크루 <span className="text-red-500">*</span>
-                </Label>
-                <span className="text-xs text-muted-foreground">
-                  선택됨: {selectedUserIds.size}명
-                </span>
+            ) : detailLines.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                개설된 라인이 없습니다.
+              </p>
+            ) : filteredLines.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                필터 결과가 없습니다.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>주차</TableHead>
+                      <TableHead>메인 타이틀</TableHead>
+                      <TableHead className="text-center">강화 상태</TableHead>
+                      <TableHead>대상자</TableHead>
+                      <TableHead className="text-center">대상</TableHead>
+                      <TableHead className="text-center">기입/미기입</TableHead>
+                      <TableHead className="text-center">편집가능</TableHead>
+                      <TableHead className="whitespace-nowrap">기입 기간</TableHead>
+                      <TableHead className="text-center">활성</TableHead>
+                      <TableHead className="whitespace-nowrap">생성일</TableHead>
+                      <TableHead className="text-right">동작</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLines.map((line) => {
+                      const names = line.targets.map((t) => t.displayName);
+                      const preview = names.slice(0, 3).join(", ");
+                      const extra = names.length > 3 ? ` 외 ${names.length - 3}명` : "";
+                      return (
+                        <TableRow
+                          key={line.id}
+                          className="cursor-pointer"
+                          onClick={() => setDetailLineId(line.id)}
+                        >
+                          <TableCell className="whitespace-nowrap text-xs">
+                            {line.weekLabel ?? "—"}
+                          </TableCell>
+                          <TableCell className="max-w-[220px]">
+                            <div className="truncate font-medium">{line.mainTitle}</div>
+                            <div className="truncate font-mono text-[10px] text-muted-foreground">
+                              {line.id}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {line.targets[0] ? (
+                              <EnhancementStatusBadge
+                                status={line.targets[0].enhancementStatus}
+                                reason={line.targets[0].enhancementReason}
+                              />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="max-w-[200px]">
+                            <span className="text-xs text-muted-foreground">
+                              {preview}
+                              {extra}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">{line.targetCount}명</TableCell>
+                          <TableCell className="text-center text-xs">
+                            <span className="text-green-700">{line.submittedCount}</span>
+                            {" / "}
+                            <span className="text-orange-600">{line.pendingCount}</span>
+                          </TableCell>
+                          <TableCell className="text-center">{line.canEditCount}</TableCell>
+                          <TableCell className="whitespace-nowrap text-[11px] text-muted-foreground">
+                            {fmtDateShort(line.submissionOpensAt)}
+                            <br />~ {fmtDateShort(line.submissionClosesAt)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {line.isActive ? (
+                              <Check className="mx-auto h-4 w-4 text-green-600" />
+                            ) : (
+                              <X className="mx-auto h-4 w-4 text-muted-foreground" />
+                            )}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                            {fmtDateShort(line.createdAt)}
+                          </TableCell>
+                          <TableCell
+                            className="text-right"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDetailLineId(line.id)}
+                            >
+                              <Pencil className="mr-1 h-3 w-3" /> 상세
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
-
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    className="pl-9"
-                    placeholder="이름 검색..."
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                  />
-                </div>
-                <Button variant="outline" size="sm" onClick={selectAll}>
-                  전체 선택
-                </Button>
-                <Button variant="outline" size="sm" onClick={deselectAll}>
-                  선택 해제
-                </Button>
-              </div>
-
-              <div className="max-h-60 overflow-y-auto rounded-md border p-2">
-                {filteredUsers.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-muted-foreground">
-                    {users.length === 0
-                      ? "등록된 사용자가 없습니다"
-                      : "검색 결과가 없습니다"}
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
-                    {filteredUsers.map((user) => (
-                      <label
-                        key={user.userId}
-                        className={cn(
-                          "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted",
-                          selectedUserIds.has(user.userId) && "bg-muted",
-                        )}
-                      >
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300"
-                          checked={selectedUserIds.has(user.userId)}
-                          onChange={() => toggleUser(user.userId)}
-                        />
-                        <span className="truncate">{user.displayName}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  resetForm();
-                  setShowForm(false);
-                }}
-                disabled={saving}
-              >
-                취소
-              </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                저장
-              </Button>
-            </div>
+            )}
           </CardContent>
         </Card>
+
+        {/* New Line Form */}
+        {showForm && (
+          <Card className="h-fit xl:sticky xl:top-6">
+            <CardHeader>
+              <CardTitle className="text-base">새 실무 정보 라인</CardTitle>
+              <CardDescription>
+                {selectedWeek?.submissionClosesAt
+                  ? `크루원 2차 입력 마감: ${fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}`
+                  : "주차를 선택해주세요"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Activity Type — read-only (탭 값으로 고정) */}
+              <div className="space-y-2">
+                <Label>활동 유형</Label>
+                <div className="flex items-center gap-2 rounded-md border border-input bg-muted/50 px-3 py-2 text-sm">
+                  <span className="font-medium">{activeType?.name ?? "-"}</span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    ({activeTypeId})
+                  </span>
+                  <span className="ml-auto text-xs text-muted-foreground">탭 고정</span>
+                </div>
+              </div>
+
+              {/* Main Title */}
+              <div className="space-y-2">
+                <Label htmlFor="mainTitle">
+                  메인 타이틀 <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="mainTitle"
+                  value={mainTitle}
+                  onChange={(e) => setMainTitle(e.target.value)}
+                  placeholder="메인 타이틀을 입력하세요"
+                />
+              </div>
+
+              {/* Sub Title (운영자 입력) */}
+              <div className="space-y-2">
+                <Label htmlFor="infoSubtitle">서브 타이틀</Label>
+                <Input
+                  id="infoSubtitle"
+                  value={infoSubtitle}
+                  onChange={(e) => setInfoSubtitle(e.target.value)}
+                  placeholder="서브 타이틀 (선택)"
+                />
+              </div>
+
+              {/* Growth Point (운영자 입력) */}
+              <div className="space-y-2">
+                <Label htmlFor="infoGrowthPoint">그로스 포인트</Label>
+                <Input
+                  id="infoGrowthPoint"
+                  value={infoGrowthPoint}
+                  onChange={(e) => setInfoGrowthPoint(e.target.value)}
+                  placeholder="그로스 포인트 (선택)"
+                />
+              </div>
+
+              {/* Output Assets */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>
+                    Output Asset <span className="text-red-500">*</span>
+                  </Label>
+                  <span
+                    className={cn(
+                      "text-xs",
+                      assetCount === 0
+                        ? "text-red-500"
+                        : assetCount <= 2
+                          ? "text-green-600"
+                          : "text-red-500",
+                    )}
+                  >
+                    {assetCount}/2 (최소 1, 최대 2)
+                  </span>
+                </div>
+
+                <div className="grid gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="link1" className="text-xs text-muted-foreground">
+                      Link 1 URL
+                    </Label>
+                    <Input
+                      id="link1"
+                      value={outputLink1}
+                      onChange={(e) => setOutputLink1(e.target.value)}
+                      placeholder={OUTPUT_LINK_URL_PLACEHOLDER}
+                      disabled={!outputLink1.trim() && assetCount >= 2}
+                    />
+                    <Input
+                      id="label1"
+                      value={outputLabel1}
+                      onChange={(e) => setOutputLabel1(e.target.value)}
+                      placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
+                      aria-label="Link 1 설명"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="link2" className="text-xs text-muted-foreground">
+                      Link 2 URL
+                    </Label>
+                    <Input
+                      id="link2"
+                      value={outputLink2}
+                      onChange={(e) => setOutputLink2(e.target.value)}
+                      placeholder={OUTPUT_LINK_URL_PLACEHOLDER}
+                      disabled={!outputLink2.trim() && assetCount >= 2}
+                    />
+                    <Input
+                      id="label2"
+                      value={outputLabel2}
+                      onChange={(e) => setOutputLabel2(e.target.value)}
+                      placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
+                      aria-label="Link 2 설명"
+                    />
+                  </div>
+
+                  <ImageUploadSlot
+                    label="Image 1"
+                    image={uploadedImage1}
+                    onUpload={setUploadedImage1}
+                    onRemove={() => setUploadedImage1(null)}
+                    onCaptionChange={(caption) =>
+                      setUploadedImage1((prev) =>
+                        prev ? { ...prev, caption } : prev,
+                      )
+                    }
+                    disabled={!uploadedImage1 && assetCount >= 2}
+                  />
+                  <ImageUploadSlot
+                    label="Image 2"
+                    image={uploadedImage2}
+                    onUpload={setUploadedImage2}
+                    onRemove={() => setUploadedImage2(null)}
+                    onCaptionChange={(caption) =>
+                      setUploadedImage2((prev) =>
+                        prev ? { ...prev, caption } : prev,
+                      )
+                    }
+                    disabled={!uploadedImage2 && assetCount >= 2}
+                  />
+                </div>
+              </div>
+
+              {/* Target Users */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>
+                    개설 대상 크루 <span className="text-red-500">*</span>
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    <Users className="mr-1 inline h-3 w-3" />
+                    {selectedUserIds.size}명
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      className="pl-9"
+                      placeholder="이름 검색..."
+                      value={userSearch}
+                      onChange={(e) => setUserSearch(e.target.value)}
+                    />
+                  </div>
+                  <Button variant="outline" size="sm" onClick={selectAll}>
+                    전체
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={deselectAll}>
+                    해제
+                  </Button>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto rounded-md border p-2">
+                  {filteredUsers.length === 0 ? (
+                    <p className="py-4 text-center text-sm text-muted-foreground">
+                      {users.length === 0
+                        ? "등록된 사용자가 없습니다"
+                        : "검색 결과가 없습니다"}
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-1">
+                      {filteredUsers.map((user) => (
+                        <label
+                          key={user.userId}
+                          className={cn(
+                            "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted",
+                            selectedUserIds.has(user.userId) && "bg-muted",
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300"
+                            checked={selectedUserIds.has(user.userId)}
+                            onChange={() => toggleUser(user.userId)}
+                          />
+                          <span className="truncate">{user.displayName}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    resetForm();
+                    setShowForm(false);
+                  }}
+                  disabled={saving}
+                >
+                  취소
+                </Button>
+                <Button onClick={handleSave} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  저장
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Detail / Edit modal */}
+      {detailLine && (
+        <LineDetailModal
+          line={detailLine}
+          activityTypeName={detailLine.activityTypeName ?? activeType?.name ?? "-"}
+          onClose={() => setDetailLineId(null)}
+          onSaved={(message) => {
+            setBanner({ kind: "success", message });
+            setDetailLineId(null);
+            fetchLines(activeTypeId, selectedWeekId);
+            fetchWeekLines(selectedWeekId);
+            fetchMeta();
+          }}
+        />
       )}
     </div>
   );

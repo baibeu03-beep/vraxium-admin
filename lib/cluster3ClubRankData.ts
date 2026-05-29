@@ -95,12 +95,29 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
   if (userFirstWeekRes.error) throw new GrowthError(500, userFirstWeekRes.error.message);
   const firstWeek = userFirstWeekRes.data as UserWeekStatusRow | null;
 
-  const allPointsRes = await supabaseAdmin
-    .from("user_weekly_points")
-    .select("user_id,year,week_number,points,advantages,penalty");
+  // 주차별 RANK 는 전 사용자 대비 상대 순위라 user_weekly_points 전체가 필요하다.
+  // Supabase(PostgREST) 기본 1000행 제한을 .range() 페이지네이션으로 우회한다.
+  // (전체 row 가 1000 을 넘으면 무제한 select 는 조용히 잘려, 잘린 구간의
+  //  사용자는 weeklyDetails 가 비어 avgPercentile=null 이 되고, 남은 사용자의
+  //  주차별 totalParticipants/순위도 틀어진다.)
+  const allPoints: WeeklyPointRow[] = [];
+  const pageSize = 1000;
+  let from = 0;
+  while (true) {
+    const pageRes = await supabaseAdmin
+      .from("user_weekly_points")
+      .select("user_id,year,week_number,points,advantages,penalty")
+      .order("year", { ascending: true })
+      .order("week_number", { ascending: true })
+      .order("user_id", { ascending: true })
+      .range(from, from + pageSize - 1);
 
-  if (allPointsRes.error) throw new GrowthError(500, allPointsRes.error.message);
-  const allPoints = (allPointsRes.data ?? []) as WeeklyPointRow[];
+    if (pageRes.error) throw new GrowthError(500, pageRes.error.message);
+    const rows = (pageRes.data ?? []) as WeeklyPointRow[];
+    allPoints.push(...rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
 
   if (allPoints.length === 0) {
     return {

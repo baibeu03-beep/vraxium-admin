@@ -30,6 +30,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import Cluster4LineTable from "@/components/admin/cluster4/Cluster4LineTable";
+import {
+  buildOutputLinksFromForm,
+  OUTPUT_LINK_LABEL_PLACEHOLDER,
+  OUTPUT_LINK_URL_PLACEHOLDER,
+} from "@/lib/cluster4OutputLinks";
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -308,6 +314,7 @@ export default function PracticalCareerManager() {
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
   const [existingLines, setExistingLines] = useState<ExistingLineDto[]>([]);
+  const [lineRefreshKey, setLineRefreshKey] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -341,7 +348,9 @@ export default function PracticalCareerManager() {
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [lineMainTitle, setLineMainTitle] = useState("");
   const [lineLink1, setLineLink1] = useState("");
+  const [lineLabel1, setLineLabel1] = useState("");
   const [lineLink2, setLineLink2] = useState("");
+  const [lineLabel2, setLineLabel2] = useState("");
   const [lineImage1, setLineImage1] = useState<UploadedImage | null>(null);
   const [lineImage2, setLineImage2] = useState<UploadedImage | null>(null);
   const [lineSelectedUserIds, setLineSelectedUserIds] = useState<Set<string>>(new Set());
@@ -619,7 +628,9 @@ export default function PracticalCareerManager() {
     setSelectedProjectId("");
     setLineMainTitle("");
     setLineLink1("");
+    setLineLabel1("");
     setLineLink2("");
+    setLineLabel2("");
     setLineImage1(null);
     setLineImage2(null);
     setLineSelectedUserIds(new Set());
@@ -632,7 +643,9 @@ export default function PracticalCareerManager() {
     if (!selectedOption) return;
     setLineMainTitle(selectedOption.defaultMainTitle ?? selectedOption.lineName ?? "");
     setLineLink1(selectedOption.defaultOutputLink1 ?? "");
+    setLineLabel1("");
     setLineLink2(selectedOption.defaultOutputLink2 ?? "");
+    setLineLabel2("");
     if (selectedOption.defaultOutputImages.length > 0) {
       setLineImage1({ url: selectedOption.defaultOutputImages[0], name: "기존 이미지" });
     } else {
@@ -670,6 +683,12 @@ export default function PracticalCareerManager() {
       return;
     }
     if (lineSelectedUserIds.size === 0) { setBanner({ kind: "error", message: "개설 대상을 최소 1명 이상 선택해주세요" }); return; }
+    const built = buildOutputLinksFromForm([
+      { url: lineLink1, label: lineLabel1 },
+      { url: lineLink2, label: lineLabel2 },
+    ]);
+    if (!built.ok) { setBanner({ kind: "error", message: built.error }); return; }
+    const outputLinks = built.value;
 
     setSaving(true);
     setBanner(null);
@@ -681,8 +700,10 @@ export default function PracticalCareerManager() {
       const payload = {
         career_project_id: selectedOption.id,
         main_title: lineMainTitle.trim(),
-        output_link_1: lineLink1.trim() || null,
-        output_link_2: lineLink2.trim() || null,
+        // output_links 우선 + 레거시 컬럼 backward-compat mirror.
+        output_links: outputLinks,
+        output_link_1: outputLinks[0]?.url ?? null,
+        output_link_2: outputLinks[1]?.url ?? null,
         output_images: outputImages,
         target_user_ids: Array.from(lineSelectedUserIds),
         week_id: targetWeekId,
@@ -707,6 +728,7 @@ export default function PracticalCareerManager() {
         message: `실무 경력 라인이 개설되었습니다 (대상: ${json.data?.targetCount ?? 0}명)`,
       });
       resetLineForm();
+      setLineRefreshKey((k) => k + 1);
       await fetchInitialData();
     } catch {
       setBanner({ kind: "error", message: "저장 중 오류가 발생했습니다" });
@@ -715,7 +737,7 @@ export default function PracticalCareerManager() {
     }
   }, [
     currentWeek, selectedWeek, selectedWeekId, selectedOption, lineMainTitle, lineAssetValid, lineAssetCount,
-    lineLink1, lineLink2, lineImage1, lineImage2, lineSelectedUserIds,
+    lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2, lineSelectedUserIds,
     resetLineForm, fetchInitialData,
   ]);
 
@@ -864,7 +886,7 @@ export default function PracticalCareerManager() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
       <h1 className="text-2xl font-bold">실무 경력 라인 관리</h1>
 
       {banner && (
@@ -1147,7 +1169,7 @@ export default function PracticalCareerManager() {
                   </p>
                   {selectedWeek.canOpen && selectedWeek.submissionOpensAt && selectedWeek.submissionClosesAt && (
                     <p className="text-muted-foreground">
-                      제출 기간: {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}
+                      기입 기간: {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}
                     </p>
                   )}
                   {!selectedWeek.canOpen && (
@@ -1161,7 +1183,7 @@ export default function PracticalCareerManager() {
                     ({fmtDateWithDay(currentWeek.weekStart)} ~ {fmtDateWithDay(currentWeek.weekEnd)})
                   </p>
                   <p className="text-muted-foreground">
-                    제출 기간: {fmtDateTimeWithDay(currentWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
+                    기입 기간: {fmtDateTimeWithDay(currentWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
                   </p>
                 </div>
               ) : (
@@ -1173,46 +1195,13 @@ export default function PracticalCareerManager() {
           </Card>
 
           {/* Existing career lines */}
-          {existingLines.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">개설된 실무 경력 라인</CardTitle>
-                <CardDescription>
-                  현재 등록된 실무 경력 라인 {existingLines.length}개
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>라인 코드</TableHead>
-                      <TableHead>메인 타이틀</TableHead>
-                      <TableHead className="text-center">대상</TableHead>
-                      <TableHead className="text-center">활성</TableHead>
-                      <TableHead>생성일</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {existingLines.map((line) => (
-                      <TableRow key={line.id}>
-                        <TableCell className="font-mono text-xs">{line.lineCode ?? "-"}</TableCell>
-                        <TableCell>{line.mainTitle}</TableCell>
-                        <TableCell className="text-center">{line.targetCount}명</TableCell>
-                        <TableCell className="text-center">
-                          {line.isActive ? (
-                            <Check className="mx-auto h-4 w-4 text-green-600" />
-                          ) : (
-                            <X className="mx-auto h-4 w-4 text-muted-foreground" />
-                          )}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{fmtDateShort(line.createdAt)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
+          <Cluster4LineTable
+            partType="career"
+            title="개설된 실무 경력 라인"
+            nameColumnLabel="경력 프로젝트"
+            refreshSignal={lineRefreshKey}
+            weekId={selectedWeekId}
+          />
 
           {/* New line button */}
           {!lineFormOpen && canOpenSelected && (
@@ -1227,7 +1216,7 @@ export default function PracticalCareerManager() {
               <CardHeader>
                 <CardTitle className="text-base">새 실무 경력 라인</CardTitle>
                 <CardDescription>
-                  제출 마감: {fmtDateTimeWithDay((selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string)}
+                  기입 마감: {fmtDateTimeWithDay((selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string)}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
@@ -1298,12 +1287,14 @@ export default function PracticalCareerManager() {
                   </div>
                   <div className="grid gap-3">
                     <div className="space-y-1">
-                      <Label htmlFor="careerLink1" className="text-xs text-muted-foreground">Link 1</Label>
-                      <Input id="careerLink1" value={lineLink1} onChange={(e) => setLineLink1(e.target.value)} placeholder="https://..." disabled={!lineLink1.trim() && lineAssetCount >= 2} />
+                      <Label htmlFor="careerLink1" className="text-xs text-muted-foreground">Link 1 URL</Label>
+                      <Input id="careerLink1" value={lineLink1} onChange={(e) => setLineLink1(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink1.trim() && lineAssetCount >= 2} />
+                      <Input id="careerLabel1" value={lineLabel1} onChange={(e) => setLineLabel1(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 1 설명" />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="careerLink2" className="text-xs text-muted-foreground">Link 2</Label>
-                      <Input id="careerLink2" value={lineLink2} onChange={(e) => setLineLink2(e.target.value)} placeholder="https://..." disabled={!lineLink2.trim() && lineAssetCount >= 2} />
+                      <Label htmlFor="careerLink2" className="text-xs text-muted-foreground">Link 2 URL</Label>
+                      <Input id="careerLink2" value={lineLink2} onChange={(e) => setLineLink2(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink2.trim() && lineAssetCount >= 2} />
+                      <Input id="careerLabel2" value={lineLabel2} onChange={(e) => setLineLabel2(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 2 설명" />
                     </div>
                     <ImageUploadSlot
                       label="Image 1"

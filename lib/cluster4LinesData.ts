@@ -9,9 +9,15 @@ import type {
   Cluster4VisibleLineDto,
 } from "@/lib/cluster4LinesTypes";
 import {
-  canEditCluster4Line,
-  type Cluster4LineCanEditReason,
+  PART_TYPE_TO_EDIT_WINDOW_KEY,
+  evaluateCluster4HubEdit,
+  type Cluster4EditWindowSnapshot,
+  type Cluster4HubEditDecisionReason,
 } from "@/lib/cluster4LinePermission";
+import {
+  resolveOutputLinks,
+  outputLinksToLegacySlots,
+} from "@/lib/cluster4OutputLinks";
 
 export class Cluster4PublicLineError extends Error {
   status: number;
@@ -35,6 +41,7 @@ type Cluster4LineTargetJoinedRow = {
     part_type: Cluster4LinePartType;
     main_title: string;
     output_link_1: string | null;
+    output_links: unknown;
     submission_opens_at: string;
     submission_closes_at: string;
     is_active: boolean;
@@ -49,6 +56,7 @@ type Cluster4SubmissionRow = {
   output_link_3: string | null;
   output_link_4: string | null;
   output_link_5: string | null;
+  output_links: unknown;
   submitted_at: string;
   updated_at: string;
 };
@@ -65,6 +73,7 @@ const TARGET_WITH_LINE_SELECT = `
     part_type,
     main_title,
     output_link_1,
+    output_links,
     submission_opens_at,
     submission_closes_at,
     is_active
@@ -83,6 +92,7 @@ function toVisibleLine(row: Cluster4LineTargetJoinedRow): Cluster4VisibleLineDto
     targetMode: row.target_mode,
     mainTitle: line.main_title,
     outputLink1: line.output_link_1,
+    outputLinks: resolveOutputLinks(line.output_links, [line.output_link_1]),
     submissionOpensAt: line.submission_opens_at,
     submissionClosesAt: line.submission_closes_at,
   };
@@ -97,6 +107,12 @@ function toSubmissionDto(row: Cluster4SubmissionRow): Cluster4LineSubmissionDto 
     outputLink3: row.output_link_3,
     outputLink4: row.output_link_4,
     outputLink5: row.output_link_5,
+    outputLinks: resolveOutputLinks(row.output_links, [
+      row.output_link_2,
+      row.output_link_3,
+      row.output_link_4,
+      row.output_link_5,
+    ]),
     submittedAt: row.submitted_at,
     updatedAt: row.updated_at,
   };
@@ -106,11 +122,11 @@ function isSubmissionClosed(closesAt: string, now = new Date()) {
   return now.getTime() > new Date(closesAt).getTime();
 }
 
-// Maps the unified canEdit reason to the HTTP status this API previously emitted.
-// Preserves the existing 4xx/501 contract while making the actual decision come from
-// one helper shared with the admin ActivityTab.
-function lineReasonToHttp(
-  reason: Cluster4LineCanEditReason,
+// Maps the unified hub edit reason to the HTTP status this API previously emitted.
+// Preserves the existing 4xx/501 contract. ok_override 는 운영자 user_edit_windows
+// override 가 OPEN 인 경우로, ok 와 동일하게 200 으로 처리한다.
+function hubReasonToHttp(
+  reason: Cluster4HubEditDecisionReason,
 ): { status: number; message: string } {
   switch (reason) {
     case "target_missing":
@@ -129,8 +145,36 @@ function lineReasonToHttp(
     case "window_closed":
       return { status: 410, message: "Submission window is closed." };
     case "ok":
+    case "ok_override":
       return { status: 200, message: "ok" };
   }
+}
+
+// 해당 part_type 의 cluster4.work_* override 스냅샷을 조회한다. 없으면 null.
+async function fetchHubEditWindow(
+  profileUserId: string,
+  partType: Cluster4LinePartType,
+): Promise<Cluster4EditWindowSnapshot> {
+  const resourceKey = PART_TYPE_TO_EDIT_WINDOW_KEY[partType];
+  const { data, error } = await supabaseAdmin
+    .from("user_edit_windows")
+    .select("opened_at,expires_at")
+    .eq("user_id", profileUserId)
+    .eq("resource_key", resourceKey)
+    .maybeSingle();
+  if (error) {
+    // 누락 테이블 등은 strict 정책으로 폴백.
+    console.warn("[cluster4/lines] user_edit_windows lookup failed", {
+      message: error.message,
+      resourceKey,
+    });
+    return null;
+  }
+  if (!data) return null;
+  return {
+    openedAt: (data as { opened_at: string }).opened_at,
+    expiresAt: (data as { expires_at: string }).expires_at,
+  };
 }
 
 function toPermissionTarget(row: Cluster4LineTargetJoinedRow) {
@@ -182,7 +226,7 @@ async function listCandidateTargetsForUser(
 async function getSubmissionForTargetAndUser(lineTargetId: string, profileUserId: string) {
   const { data, error } = await supabaseAdmin
     .from("cluster4_line_submissions")
-    .select("id,line_target_id,subtitle,output_link_2,output_link_3,output_link_4,output_link_5,submitted_at,updated_at")
+    .select("id,line_target_id,subtitle,output_link_2,output_link_3,output_link_4,output_link_5,output_links,submitted_at,updated_at")
     .eq("line_target_id", lineTargetId)
     .eq("user_id", profileUserId)
     .maybeSingle();
@@ -214,32 +258,42 @@ async function fetchTargetById(lineTargetId: string) {
   return data as unknown as Cluster4LineTargetJoinedRow;
 }
 
-// Strict gate for portal submit/update: requires target ownership AND the submission
-// window to be open. Translates the unified reason → the HTTP status this API has
-// historically returned (403 / 404 / 410 / 501).
+// 포털 submit/update 게이트. ownership 은 항상 강제하되, submission window 가 닫혀 있어도
+// user_edit_windows.cluster4.work_<hub> override 가 OPEN 이면 ok_override 로 저장을 허용한다.
+// 어드민 ActivityTab(evaluateCluster4HubEdit) 과 동일한 정책. canEdit=true 인 weekly-cards
+// DTO 와 실제 저장 API 결과가 일치하도록 한다.
 async function requireEditableTarget(
   lineTargetId: string,
   profileUserId: string,
 ): Promise<Cluster4LineTargetJoinedRow> {
   const row = await fetchTargetById(lineTargetId);
-  const decision = canEditCluster4Line(
-    toPermissionTarget(row),
+  const partType = row.cluster4_lines?.part_type ?? null;
+  const editWindow = partType
+    ? await fetchHubEditWindow(profileUserId, partType)
+    : null;
+  const decision = evaluateCluster4HubEdit({
+    target: toPermissionTarget(row),
+    editWindow,
     profileUserId,
-  );
+  });
   if (!decision.canEdit) {
-    const http = lineReasonToHttp(decision.reason);
+    const http = hubReasonToHttp(decision.reason);
     throw new Cluster4PublicLineError(http.status, http.message);
   }
   return row;
 }
 
 function buildSubmissionPayload(input: Cluster4LineSubmissionInput) {
+  // output_links 가 canonical. 레거시 output_link_2~5 는 backward-compat mirror.
+  // 제출 슬롯은 4개(2~5) 이므로 jsonb 의 앞 4개 url 을 mirror 한다.
+  const [link2, link3, link4, link5] = outputLinksToLegacySlots(input.outputLinks, 4);
   return {
     subtitle: input.subtitle,
-    output_link_2: input.outputLink2,
-    output_link_3: input.outputLink3,
-    output_link_4: input.outputLink4,
-    output_link_5: input.outputLink5,
+    output_link_2: link2,
+    output_link_3: link3,
+    output_link_4: link4,
+    output_link_5: link5,
+    output_links: input.outputLinks,
   };
 }
 
@@ -315,7 +369,7 @@ export async function createCluster4LineSubmissionForAuthUser(
       user_id: profileUserId,
       ...buildSubmissionPayload(input),
     })
-    .select("id,line_target_id,subtitle,output_link_2,output_link_3,output_link_4,output_link_5,submitted_at,updated_at")
+    .select("id,line_target_id,subtitle,output_link_2,output_link_3,output_link_4,output_link_5,output_links,submitted_at,updated_at")
     .single();
   if (error || !data) {
     throw new Cluster4PublicLineError(
@@ -345,7 +399,7 @@ export async function updateCluster4LineSubmissionForAuthUser(
     .update(buildSubmissionPayload(input))
     .eq("id", existing.id)
     .eq("user_id", profileUserId)
-    .select("id,line_target_id,subtitle,output_link_2,output_link_3,output_link_4,output_link_5,submitted_at,updated_at")
+    .select("id,line_target_id,subtitle,output_link_2,output_link_3,output_link_4,output_link_5,output_links,submitted_at,updated_at")
     .maybeSingle();
   if (error) {
     throw new Cluster4PublicLineError(500, error.message);

@@ -1,15 +1,30 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import type {
+  Cluster4InfoLineDetail,
+  Cluster4InfoLineTargetDetail,
   Cluster4LineDto,
   Cluster4LinePatchInput,
   Cluster4LineTargetCreateInput,
   Cluster4LineTargetDto,
   Cluster4LineTargetPatchInput,
   Cluster4LineUpsertInput,
+  ListCluster4InfoLinesDetailedResult,
+  ListCluster4LinesDetailedResult,
   ListCluster4LinesResult,
   ListCluster4LineTargetsResult,
 } from "@/lib/adminCluster4LinesTypes";
+import {
+  evaluateCluster4HubEdit,
+  PART_TYPE_TO_EDIT_WINDOW_KEY,
+  type Cluster4EditWindowSnapshot,
+} from "@/lib/cluster4LinePermission";
+import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
+import {
+  outputImageUrls,
+  outputImageCaptions as outputImageCaptionList,
+} from "@/lib/cluster4OutputImages";
+import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
 
 export class Cluster4LineError extends Error {
   status: number;
@@ -27,9 +42,13 @@ type Cluster4LineRow = {
   activity_type_id: string | null;
   line_code: string | null;
   main_title: string;
+  info_subtitle: string | null;
+  info_growth_point: string | null;
   output_link_1: string | null;
   output_link_2: string | null;
-  output_images: string[] | null;
+  output_links: unknown;
+  // 레거시 string[] · 신규 [{url,caption}] 혼재 가능 → unknown 으로 받아 정규화.
+  output_images: unknown;
   submission_opens_at: string;
   submission_closes_at: string;
   is_active: boolean;
@@ -57,7 +76,7 @@ type Cluster4SubmissionCountRow = {
 };
 
 const LINE_SELECT =
-  "id,part_type,activity_type_id,line_code,main_title,output_link_1,output_link_2,output_images,submission_opens_at,submission_closes_at,is_active,created_by,updated_by,created_at,updated_at";
+  "id,part_type,activity_type_id,line_code,main_title,info_subtitle,info_growth_point,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_by,updated_by,created_at,updated_at";
 const TARGET_SELECT =
   "id,line_id,week_id,target_mode,target_user_id,target_rule,created_by,updated_by,created_at,updated_at";
 
@@ -76,9 +95,17 @@ function toLineDto(
     activityTypeId: row.activity_type_id,
     lineCode: row.line_code ?? null,
     mainTitle: row.main_title,
+    infoSubtitle: row.info_subtitle ?? null,
+    infoGrowthPoint: row.info_growth_point ?? null,
     outputLink1: row.output_link_1,
     outputLink2: row.output_link_2,
-    outputImages: Array.isArray(row.output_images) ? row.output_images : [],
+    outputLinks: resolveOutputLinks(row.output_links, [
+      row.output_link_1,
+      row.output_link_2,
+    ]),
+    // output_images 는 레거시 string[] · 신규 [{url,caption}] 두 형태가 섞일 수 있어 정규화.
+    outputImages: outputImageUrls(row.output_images),
+    outputImageCaptions: outputImageCaptionList(row.output_images),
     submissionOpensAt: row.submission_opens_at,
     submissionClosesAt: row.submission_closes_at,
     isActive: Boolean(row.is_active),
@@ -123,11 +150,21 @@ function linePayload(
     payload.activity_type_id = input.activityTypeId?.trim() || null;
   }
   if ("mainTitle" in input && input.mainTitle !== undefined) payload.main_title = input.mainTitle.trim();
+  if ("infoSubtitle" in input && input.infoSubtitle !== undefined) {
+    payload.info_subtitle = input.infoSubtitle?.trim() || null;
+  }
+  if ("infoGrowthPoint" in input && input.infoGrowthPoint !== undefined) {
+    payload.info_growth_point = input.infoGrowthPoint?.trim() || null;
+  }
   if ("outputLink1" in input && input.outputLink1 !== undefined) {
     payload.output_link_1 = input.outputLink1?.trim() || null;
   }
   if ("outputLink2" in input && input.outputLink2 !== undefined) {
     payload.output_link_2 = input.outputLink2?.trim() || null;
+  }
+  // output_links (URL + label) canonical 저장. 레거시 output_link_1/2 는 위에서 mirror 됨.
+  if ("outputLinks" in input && input.outputLinks !== undefined) {
+    payload.output_links = input.outputLinks;
   }
   if ("outputImages" in input && input.outputImages !== undefined) {
     payload.output_images = input.outputImages;
@@ -588,4 +625,321 @@ export async function deleteCluster4LineTarget(targetId: string): Promise<void> 
   if (error) {
     throw translatePostgrestError(error.message, error.code);
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Enriched 라인 listing for the 4허브 admin UI (info/experience/competency/career).
+// 활동 유형 탭/검색·필터 운영을 위해 필요한 모든 조인(활동 유형명, 주차 라벨,
+// 대상자 이름·조직, 제출 상태, lineTargetId 단위 canEdit)을 한 번에 묶어 돌려준다.
+// 기존 listCluster4Lines 는 그대로 유지한다 (append-only).
+// ─────────────────────────────────────────────────────────────────────────
+
+export type ListCluster4LinesDetailedOptions = {
+  partType?: Cluster4LineDto["partType"] | null;
+  weekId?: string | null;
+  activityTypeId?: string | null;
+  limit?: number;
+  offset?: number;
+};
+
+export async function listCluster4LinesDetailed(
+  options: ListCluster4LinesDetailedOptions = {},
+): Promise<ListCluster4LinesDetailedResult> {
+  const now = Date.now();
+  const limit = Math.min(Math.max(options.limit ?? 200, 1), 500);
+  const offset = Math.max(options.offset ?? 0, 0);
+  const partType = options.partType ?? null;
+  // partType 별 운영자 편집권 override resource_key. partType 미지정 시 info 기준.
+  const editWindowKey = partType
+    ? PART_TYPE_TO_EDIT_WINDOW_KEY[partType]
+    : PART_TYPE_TO_EDIT_WINDOW_KEY.info;
+
+  // 0. weekId 필터: 해당 주차에 target 이 있는 라인 id 만 추린다 (listCluster4Lines 와 동일 전략).
+  let lineIdsFilter: string[] | null = null;
+  if (options.weekId) {
+    if (!isUuid(options.weekId)) {
+      throw new Cluster4LineError(400, "week_id must be a UUID");
+    }
+    const { data, error } = await supabaseAdmin
+      .from("cluster4_line_targets")
+      .select("line_id")
+      .eq("week_id", options.weekId);
+    if (error) throw new Cluster4LineError(500, error.message);
+    lineIdsFilter = Array.from(
+      new Set(
+        ((data ?? []) as Array<{ line_id: string | null }>)
+          .map((row) => row.line_id)
+          .filter((value): value is string => typeof value === "string"),
+      ),
+    );
+    if (lineIdsFilter.length === 0) return { rows: [], total: 0, limit, offset };
+  }
+
+  // 1. 라인 목록.
+  let lineQuery = supabaseAdmin
+    .from("cluster4_lines")
+    .select(LINE_SELECT);
+  if (partType) {
+    lineQuery = lineQuery.eq("part_type", partType);
+  }
+  if (options.activityTypeId && options.activityTypeId.trim().length > 0) {
+    lineQuery = lineQuery.eq("activity_type_id", options.activityTypeId.trim());
+  }
+  if (lineIdsFilter) {
+    lineQuery = lineQuery.in("id", lineIdsFilter);
+  }
+  lineQuery = lineQuery
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true })
+    .range(offset, offset + limit - 1);
+
+  const { data: lineData, error: lineError } = await lineQuery;
+  if (lineError) throw new Cluster4LineError(500, lineError.message);
+  const lineRows = (lineData ?? []) as unknown as Cluster4LineRow[];
+  if (lineRows.length === 0) return { rows: [], total: 0, limit, offset };
+
+  const lineIds = lineRows.map((row) => row.id);
+
+  // 2. 대상 target 목록.
+  const { data: targetData, error: targetError } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select(TARGET_SELECT)
+    .in("line_id", lineIds);
+  if (targetError) throw new Cluster4LineError(500, targetError.message);
+  const targetRows = (targetData ?? []) as unknown as Cluster4LineTargetRow[];
+  const targetIds = targetRows.map((row) => row.id);
+
+  // 3. 제출(submission) — line_target_id 단위.
+  const submissionByTargetId = new Map<string, { id: string; submittedAt: string | null }>();
+  if (targetIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("cluster4_line_submissions")
+      .select("id,line_target_id,submitted_at")
+      .in("line_target_id", targetIds);
+    if (error) throw new Cluster4LineError(500, error.message);
+    for (const row of (data ?? []) as Array<{
+      id: string;
+      line_target_id: string;
+      submitted_at: string | null;
+    }>) {
+      submissionByTargetId.set(row.line_target_id, {
+        id: row.id,
+        submittedAt: row.submitted_at,
+      });
+    }
+  }
+
+  // 4. 대상자 이름.
+  const userIds = Array.from(
+    new Set(
+      targetRows
+        .map((row) => row.target_user_id)
+        .filter((value): value is string => typeof value === "string"),
+    ),
+  );
+  const nameByUserId = new Map<string, string>();
+  const orgByUserId = new Map<string, string | null>();
+  if (userIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,display_name,organization_slug")
+      .in("user_id", userIds);
+    if (error) throw new Cluster4LineError(500, error.message);
+    for (const row of (data ?? []) as Array<{
+      user_id: string;
+      display_name: string | null;
+      organization_slug: string | null;
+    }>) {
+      nameByUserId.set(row.user_id, row.display_name ?? "(이름 없음)");
+      orgByUserId.set(row.user_id, row.organization_slug ?? null);
+    }
+  }
+
+  // 5. 활동 유형명.
+  const activityTypeIds = Array.from(
+    new Set(
+      lineRows
+        .map((row) => row.activity_type_id)
+        .filter((value): value is string => typeof value === "string"),
+    ),
+  );
+  const activityNameById = new Map<string, string>();
+  if (activityTypeIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("activity_types")
+      .select("id,name")
+      .in("id", activityTypeIds);
+    if (error) throw new Cluster4LineError(500, error.message);
+    for (const row of (data ?? []) as Array<{ id: string; name: string | null }>) {
+      activityNameById.set(row.id, row.name ?? row.id);
+    }
+  }
+
+  // 6. 주차 라벨.
+  const weekIds = Array.from(
+    new Set(
+      targetRows
+        .map((row) => row.week_id)
+        .filter((value): value is string => typeof value === "string"),
+    ),
+  );
+  const weekLabelById = new Map<string, string>();
+  if (weekIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("weeks")
+      .select("id,iso_year,iso_week,start_date,end_date")
+      .in("id", weekIds);
+    if (error) throw new Cluster4LineError(500, error.message);
+    for (const row of (data ?? []) as Array<{
+      id: string;
+      iso_year: number | null;
+      iso_week: number | null;
+      start_date: string | null;
+      end_date: string | null;
+    }>) {
+      const wk =
+        row.iso_year && row.iso_week
+          ? `${row.iso_year}-W${String(row.iso_week).padStart(2, "0")}`
+          : "주차";
+      const range =
+        row.start_date && row.end_date ? ` (${row.start_date} ~ ${row.end_date})` : "";
+      weekLabelById.set(row.id, `${wk}${range}`);
+    }
+  }
+
+  // 7. 운영자 편집권 override (cluster4.work_info). 테이블 부재 시 무시.
+  const overrideByUserId = new Map<string, Cluster4EditWindowSnapshot>();
+  if (userIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("user_edit_windows")
+      .select("user_id,opened_at,expires_at")
+      .eq("resource_key", editWindowKey)
+      .in("user_id", userIds);
+    if (error) {
+      console.warn(
+        "[admin/cluster4 info-lines] user_edit_windows lookup failed; treating as no override",
+        { message: error.message },
+      );
+    } else {
+      for (const row of (data ?? []) as Array<{
+        user_id: string;
+        opened_at: string;
+        expires_at: string;
+      }>) {
+        overrideByUserId.set(row.user_id, {
+          openedAt: row.opened_at,
+          expiresAt: row.expires_at,
+        });
+      }
+    }
+  }
+
+  // 8. 라인별 조립.
+  const targetsByLineId = new Map<string, Cluster4LineTargetRow[]>();
+  for (const target of targetRows) {
+    const list = targetsByLineId.get(target.line_id) ?? [];
+    list.push(target);
+    targetsByLineId.set(target.line_id, list);
+  }
+
+  const rows: Cluster4InfoLineDetail[] = lineRows.map((line) => {
+    const lineTargets = targetsByLineId.get(line.id) ?? [];
+    let submittedCount = 0;
+    let canEditCount = 0;
+
+    const targets: Cluster4InfoLineTargetDetail[] = lineTargets.map((target) => {
+      const submission = submissionByTargetId.get(target.id) ?? null;
+      const submitted = submission != null;
+      if (submitted) submittedCount += 1;
+
+      // 강화 상태: 어드민 상세는 target 이 항상 존재(hasTarget=true)하므로
+      // 마감 여부로만 success/pending 을 가른다 (마감 후면 미기입이라도 success).
+      // submitted 와는 분리된 축.
+      const deadlinePassed =
+        Boolean(line.submission_closes_at) &&
+        now > new Date(line.submission_closes_at).getTime();
+      const enhancement = computeCluster4Enhancement({
+        hasTarget: true,
+        deadlinePassed,
+        hasSubmission: submitted,
+        isCareer: line.part_type === "career",
+      });
+
+      const decision = evaluateCluster4HubEdit({
+        target: {
+          target_mode: target.target_mode,
+          target_user_id: target.target_user_id,
+          line: {
+            is_active: Boolean(line.is_active),
+            submission_opens_at: line.submission_opens_at,
+            submission_closes_at: line.submission_closes_at,
+          },
+        },
+        editWindow: target.target_user_id
+          ? overrideByUserId.get(target.target_user_id) ?? null
+          : null,
+        profileUserId: target.target_user_id,
+        now,
+      });
+      if (decision.canEdit) canEditCount += 1;
+
+      return {
+        lineTargetId: target.id,
+        weekId: target.week_id,
+        targetUserId: target.target_user_id,
+        displayName: target.target_user_id
+          ? nameByUserId.get(target.target_user_id) ?? "(알 수 없음)"
+          : "(rule)",
+        organizationSlug: target.target_user_id
+          ? orgByUserId.get(target.target_user_id) ?? null
+          : null,
+        targetMode: target.target_mode,
+        submissionId: submission?.id ?? null,
+        submitted,
+        submittedAt: submission?.submittedAt ?? null,
+        enhancementStatus: enhancement.enhancementStatus,
+        submissionStatus: enhancement.submissionStatus,
+        enhancementReason: enhancement.enhancementReason,
+        canEdit: decision.canEdit,
+        editReason: decision.reason,
+      };
+    });
+
+    const targetCount = lineTargets.length;
+    const weekId = lineTargets[0]?.week_id ?? null;
+    const weekLabel = weekId ? weekLabelById.get(weekId) ?? null : null;
+    const base = toLineDto(line, targetCount, submittedCount);
+
+    return {
+      ...base,
+      activityTypeName: line.activity_type_id
+        ? activityNameById.get(line.activity_type_id) ?? null
+        : null,
+      weekId,
+      weekLabel,
+      submittedCount,
+      pendingCount: targetCount - submittedCount,
+      canEditCount,
+      targets,
+    };
+  });
+
+  return { rows, total: rows.length, limit, offset };
+}
+
+// 실무 정보(part_type='info') 전용 wrapper — 기존 info-lines GET 호환 유지.
+export type ListCluster4InfoLinesDetailedOptions = {
+  weekId?: string | null;
+  activityTypeId?: string | null;
+};
+
+export async function listCluster4InfoLinesDetailed(
+  options: ListCluster4InfoLinesDetailedOptions = {},
+): Promise<ListCluster4InfoLinesDetailedResult> {
+  const { rows } = await listCluster4LinesDetailed({
+    partType: "info",
+    weekId: options.weekId,
+    activityTypeId: options.activityTypeId,
+  });
+  return { rows };
 }

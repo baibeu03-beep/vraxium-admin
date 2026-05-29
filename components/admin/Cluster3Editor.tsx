@@ -772,16 +772,25 @@ export default function Cluster3Editor({
                 {growth.point.points}개
               </div>
             </div>
+            {/* 방패: 큰 숫자 = netAdvantages(패널티 적용 후), 보조 = rawAdvantages(순) */}
             <div className="bg-background px-3 py-2">
               <div className="text-[10px] text-muted-foreground">
-                {growth.point.advantagesLabel} (순)
+                {growth.point.advantagesLabel}
               </div>
               <div className="mt-0.5 text-sm font-medium">
                 {growth.point.netAdvantages}개
               </div>
-              <div className="mt-0.5 space-y-px text-[10px] text-muted-foreground">
-                <div>{growth.point.advantagesLabel} {growth.point.rawAdvantages}개</div>
-                <div>{growth.point.penaltyLabel} -{growth.point.penalty}개</div>
+              <div className="mt-0.5 text-[10px] text-muted-foreground">
+                {growth.point.advantagesLabel}(순) {growth.point.rawAdvantages}개
+              </div>
+            </div>
+            {/* 번개: 패널티 */}
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">
+                {growth.point.penaltyLabel}
+              </div>
+              <div className="mt-0.5 text-sm font-medium">
+                -{growth.point.penalty}개
               </div>
             </div>
           </div>

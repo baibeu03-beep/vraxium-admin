@@ -8,6 +8,7 @@ import {
   Cluster4LineError,
   createCluster4Line,
   listCluster4Lines,
+  listCluster4LinesDetailed,
 } from "@/lib/adminCluster4LinesData";
 import {
   CLUSTER4_LINE_WRITE_ROLES,
@@ -40,7 +41,13 @@ export async function GET(request: NextRequest) {
   const partType = params.get("partType")?.trim() || null;
   const weekId = params.get("weekId")?.trim() || null;
   const targetMode = params.get("targetMode")?.trim() || null;
-  const limit = parseIntParam(params.get("limit"), 50, { min: 1, max: 200 });
+  const activityTypeId = params.get("activityTypeId")?.trim() || null;
+  // detailed=1 → 대상자 이름·조직, 제출 상태, lineTargetId 단위 canEdit 까지 append.
+  // 미지정 시 기존 shape 그대로 (하위 호환).
+  const detailed = ["1", "true", "yes"].includes(
+    (params.get("detailed")?.trim() ?? "").toLowerCase(),
+  );
+  const limit = parseIntParam(params.get("limit"), 50, { min: 1, max: 500 });
   const offset = parseIntParam(params.get("offset"), 0, { min: 0, max: 100000 });
 
   if (
@@ -69,6 +76,21 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    if (detailed) {
+      const data = await listCluster4LinesDetailed({
+        partType: partType as
+          | "info"
+          | "experience"
+          | "competency"
+          | "career"
+          | null,
+        weekId,
+        activityTypeId,
+        limit,
+        offset,
+      });
+      return Response.json({ success: true, data });
+    }
     const data = await listCluster4Lines({
       query: q,
       partType,

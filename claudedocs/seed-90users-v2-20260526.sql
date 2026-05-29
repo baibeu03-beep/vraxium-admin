@@ -335,8 +335,17 @@ BEGIN
       v_success       := v_total_weeks - v_official_rest - v_personal_rest - v_fail;
       IF v_success < 2 THEN v_success := 2; v_fail := v_total_weeks - v_official_rest - v_personal_rest - v_success; END IF;
       v_total_stars   := v_success * 2 + (v_sub % 3);
-      v_total_raw_adv := v_success + v_sub;
-      v_total_light   := v_fail;
+      -- 방패 데모 고정값: 화면에서 「방패 = 방패(순) − 번개」 관계가 직관적으로 드러나도록
+      -- raw_adv(방패순) / light(번개) 를 명확한 예시값으로 고정한다. (week 카운트와 무관)
+      --   방패(순) − 번개 = 방패
+      --     8 − 3 = 5  /  12 − 3 = 9  /  15 − 4 = 11
+      CASE v_sub
+        WHEN 0 THEN v_total_raw_adv := 8;  v_total_light := 3;
+        WHEN 1 THEN v_total_raw_adv := 12; v_total_light := 3;
+        WHEN 2 THEN v_total_raw_adv := 15; v_total_light := 4;
+        WHEN 3 THEN v_total_raw_adv := 8;  v_total_light := 3;
+        WHEN 4 THEN v_total_raw_adv := 12; v_total_light := 3;
+      END CASE;
 
     ELSIF rec.category = 'rest' THEN
       CASE v_sub
