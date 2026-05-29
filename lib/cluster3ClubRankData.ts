@@ -235,6 +235,9 @@ export async function syncGradeStats(userId: string): Promise<{
   const gradeNum = toGradeNumber(clubRank.rankGrade as RankGradeLabel);
   const gradeLbl = toGradeLabel(clubRank.rankGrade as RankGradeLabel);
 
+  // updated_at 을 명시적으로 넣어야 ON CONFLICT DO UPDATE 시 캐시 신선도가 갱신된다.
+  // (Supabase upsert 는 페이로드에 준 컬럼만 UPDATE 하므로, 생략하면 컬럼
+  //  DEFAULT now() 는 INSERT 에만 적용되고 갱신 경로에서 updated_at 이 고정된다.)
   const { error } = await supabaseAdmin
     .from("user_grade_stats")
     .upsert(
@@ -243,6 +246,7 @@ export async function syncGradeStats(userId: string): Promise<{
         avg_percentile: avgPct,
         grade: gradeNum,
         grade_label: gradeLbl,
+        updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" },
     );
@@ -285,4 +289,51 @@ export async function syncAllGradeStats(): Promise<{
   }
 
   return { synced, skipped, results };
+}
+
+// ─── app-level 캐시 동기화 오케스트레이터 ────────────────────────────
+//
+// user_weekly_points 변경(seed/script/admin API) 직후 호출한다.
+// DB 트리거가 아니라 app-level 에서 순서를 명시적으로 보장한다.
+//
+// 순서:
+//   1) cumulative points 재계산
+//      user_weekly_points 쓰기는 DB 트리거 sync_cumulative_on_weekly_change 가
+//      같은 트랜잭션에서 user_cumulative_points 를 동기화한다. 다만 트리거 우회
+//      경로(bulk COPY, 트리거 미설치 환경 등)에 대비해, 변경된 user_id 가 주어지면
+//      sync_cumulative_points_for_user RPC 로 한 번 더 명시적으로 재계산한다.
+//      (RPC 는 weekly 합계를 다시 UPSERT 하므로 idempotent.)
+//   2) grade stats 재계산
+//      품계는 "상대" 백분위 기반이라 한 사용자만 갱신하면 나머지 사용자의 주차별
+//      순위·총원이 틀어진다. 반드시 syncAllGradeStats() 로 전체 사용자를 재계산한다.
+
+export type GrowthCacheSyncResult = {
+  cumulativeResynced: number;
+  gradeStats: Awaited<ReturnType<typeof syncAllGradeStats>>;
+};
+
+export async function syncGrowthCachesAfterPointsChange(
+  options: { affectedUserIds?: string[] } = {},
+): Promise<GrowthCacheSyncResult> {
+  const affectedUserIds = options.affectedUserIds ?? [];
+
+  // 1) cumulative 재계산 (변경된 사용자만 — 명시적 순서 보장)
+  let cumulativeResynced = 0;
+  for (const userId of affectedUserIds) {
+    const { error } = await supabaseAdmin.rpc("sync_cumulative_points_for_user", {
+      p_user_id: userId,
+    });
+    if (error) {
+      throw new GrowthError(
+        500,
+        `cumulative resync failed for ${userId}: ${error.message}`,
+      );
+    }
+    cumulativeResynced++;
+  }
+
+  // 2) grade stats 전체 재계산 (상대 백분위 → 전체 사용자 필수)
+  const gradeStats = await syncAllGradeStats();
+
+  return { cumulativeResynced, gradeStats };
 }

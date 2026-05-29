@@ -27,6 +27,7 @@ import type {
   Cluster4LinePartType,
   Cluster4LineSubmissionDto,
   Cluster4LineTargetMode,
+  Cluster4StatusIconKey,
   Cluster4StatusTone,
   Cluster4UserWeekStatus,
   Cluster4WeeklyCardDto,
@@ -394,8 +395,95 @@ function statusTone(status: WeekResultStatus): Cluster4StatusTone {
   }
 }
 
-function weekLabel(seasonName: string, weekNumber: number): string {
-  return seasonName ? `${seasonName} ${weekNumber}w` : `${weekNumber}w`;
+// section1-title 정규화: 최종 형식 `${year} ${seasonName} 시즌, ${weekNumber}주차`.
+// 입력 source 가 섞여 있어도 (DB "2026년도 봄시즌" / fallback "봄 시즌" / "" / season_key 단독)
+// 모든 사용자에 대해 동일한 형식으로 통일된다. displayTitle/titleText/weekLabel/weekTitle 공통 source.
+const SECTION1_SEASON_KEY_TO_KO: Record<string, string> = {
+  spring: "봄",
+  summer: "여름",
+  autumn: "가을",
+  fall: "가을",
+  winter: "겨울",
+};
+const SECTION1_SEASON_NAMES_KO = ["봄", "여름", "가을", "겨울"];
+
+function extractSeasonNameKo(
+  seasonName: string | null | undefined,
+  seasonKey: string | null | undefined,
+): string | null {
+  if (seasonKey) {
+    for (const part of seasonKey.split("-")) {
+      const mapped = SECTION1_SEASON_KEY_TO_KO[part.toLowerCase()];
+      if (mapped) return mapped;
+    }
+  }
+  if (seasonName) {
+    for (const name of SECTION1_SEASON_NAMES_KO) {
+      if (seasonName.includes(name)) return name;
+    }
+  }
+  return null;
+}
+
+function extractYear(
+  seasonYear: number | null | undefined,
+  seasonKey: string | null | undefined,
+  seasonName: string | null | undefined,
+): number | null {
+  if (typeof seasonYear === "number" && seasonYear > 0) return seasonYear;
+  if (seasonKey) {
+    const m = seasonKey.match(/(\d{4})/);
+    if (m) return Number(m[1]);
+  }
+  if (seasonName) {
+    const m = seasonName.match(/(\d{4})/);
+    if (m) return Number(m[1]);
+  }
+  return null;
+}
+
+function formatSection1Title(
+  seasonYear: number | null | undefined,
+  seasonName: string | null | undefined,
+  seasonKey: string | null | undefined,
+  weekNumber: number,
+): string {
+  const year = extractYear(seasonYear, seasonKey, seasonName);
+  const season = extractSeasonNameKo(seasonName, seasonKey);
+  const weekPart = `${weekNumber}주차`;
+  if (year != null && season) return `${year} ${season} 시즌, ${weekPart}`;
+  if (season) return `${season} 시즌, ${weekPart}`;
+  if (year != null) return `${year}, ${weekPart}`;
+  return weekPart;
+}
+
+// ── section1-header status-badge 아이콘 매핑 (백엔드 SoT) ──
+// userWeekStatus 와 1:1. statusTone(semantic) 으로는 personal/official rest 와
+// running/tallying 을 구분하지 못하므로 별도 매핑이 필요하다.
+const STATUS_ICON_URL: Record<Cluster4StatusIconKey, string> = {
+  success: "/images/0/cluster4/icon/icon - 성장(성공).png",
+  fail: "/images/0/cluster4/icon/icon - 성장(실패).png",
+  running: "/images/0/cluster4/icon/icon - 성장 (진행 중).png",
+  tallying: "/images/0/cluster4/icon/icon - 성장 (집계 중).png",
+  personal_rest: "/images/0/cluster4/icon/icon - 휴식(개인).png",
+  official_rest: "/images/0/cluster4/icon/icon - 휴식(공식).png",
+};
+
+function statusIconUrl(key: Cluster4StatusIconKey): string {
+  return STATUS_ICON_URL[key];
+}
+
+// 본 주차 진행 라벨. running/tallying 만 highlight 부분이 "+1" 로 표시되고
+// 그 외 (success/fail/personal_rest/official_rest) 는 accumulatedApprovedWeeks 그대로.
+// "주차" 접미사는 i18n 영향 받지만 현재 화면이 한국어 고정이므로 그대로 둔다.
+function buildWeekProgressLabel(
+  status: Cluster4UserWeekStatus,
+  approved: number,
+  target: number,
+): string {
+  const highlight =
+    status === "running" || status === "tallying" ? "+1" : String(approved);
+  return `${highlight} / ${target} 주차`;
 }
 
 function cardMessage(card: WeeklyCardDto): string | null {
@@ -406,15 +494,35 @@ function cardMessage(card: WeeklyCardDto): string | null {
   return null;
 }
 
+type HeaderExtras = {
+  generation: number | null;
+  managedTeamName: string | null;
+  isOnboarding: boolean;
+};
+
 function toWeeklyCardDto(
   card: WeeklyCardDto,
   lines: Cluster4LineDetailDto[],
+  extras: HeaderExtras,
 ): Cluster4WeeklyCardDto {
-  const title = weekLabel(card.seasonName, card.weekNumber);
+  const title = formatSection1Title(
+    card.seasonYear,
+    card.seasonName,
+    card.seasonKey,
+    card.weekNumber,
+  );
   const imageUrl = card.weekImagePath || null;
   const rest = isRestWeek(card.resultStatus);
   const fmScore = card.totalFmScoreRaw;
   const linesWithBreakdown = attachLineBreakdown(lines, card.lineBreakdown, rest);
+  const userWeekStatusValue = toUserWeekStatus(card.resultStatus);
+  // statusIconKey = userWeekStatus (1:1). icon URL 은 정적 매핑.
+  const iconKey: Cluster4StatusIconKey = userWeekStatusValue;
+  const progressLabel = buildWeekProgressLabel(
+    userWeekStatusValue,
+    card.accumulatedApprovedWeeks,
+    card.targetWeeks,
+  );
 
   return {
     weekId: card.weekId,
@@ -424,7 +532,7 @@ function toWeeklyCardDto(
     displayTitle: title,
     startDate: card.startDate,
     endDate: card.endDate,
-    userWeekStatus: toUserWeekStatus(card.resultStatus),
+    userWeekStatus: userWeekStatusValue,
     statusLabel: card.resultLabel,
     statusTone: statusTone(card.resultStatus),
     isRestWeek: rest,
@@ -456,6 +564,17 @@ function toWeeklyCardDto(
     cardMessage: cardMessage(card),
     titleText: title,
     lines: linesWithBreakdown,
+
+    // ── section1-header 보강 필드 ──
+    statusIconKey: iconKey,
+    statusIconUrl: statusIconUrl(iconKey),
+    accumulatedApprovedWeeks: card.accumulatedApprovedWeeks,
+    totalRequiredWeeks: card.targetWeeks,
+    baseWeekCount: card.targetWeeks,
+    displayWeekProgressLabel: progressLabel,
+    generation: extras.generation,
+    managedTeamName: extras.managedTeamName,
+    isOnboarding: extras.isOnboarding,
   };
 }
 
@@ -637,6 +756,118 @@ async function fetchLineDetailsByWeek(
   return result;
 }
 
+// ── section1-header 보강용 사용자 단위 스냅샷 ──
+// user_team_parts 의 (joined_at, left_at) 윈도 안에 카드의 week_start_date 가 들어가는 row 1건을
+// 선택하고, 같은 row 의 generation + (managed_team_id → teams.name) 을 카드별로 노출한다.
+// onboardingWeekId 는 user_profiles.onboarding_week_id 그대로 — 카드별 weekId 비교 1회.
+type UserTeamPartRow = {
+  generation: number | null;
+  joined_at: string;
+  left_at: string | null;
+  managed_team_id: string | null;
+};
+
+type HeaderExtrasSnapshot = {
+  teamParts: UserTeamPartRow[];
+  managedTeamNameById: Map<string, string>;
+  onboardingWeekId: string | null;
+};
+
+async function fetchHeaderExtrasSnapshot(
+  profileUserId: string,
+): Promise<HeaderExtrasSnapshot> {
+  // 카드 보강용 보조 데이터 — 실패해도 weekly-cards 본 흐름을 깨뜨리지 않는다 (null/empty 폴백).
+  const [teamPartsRes, profileRes] = await Promise.all([
+    supabaseAdmin
+      .from("user_team_parts")
+      .select("generation,joined_at,left_at,managed_team_id")
+      .eq("user_id", profileUserId),
+    supabaseAdmin
+      .from("user_profiles")
+      .select("onboarding_week_id")
+      .eq("user_id", profileUserId)
+      .maybeSingle(),
+  ]);
+
+  if (teamPartsRes.error) {
+    console.warn("[cluster4/weekly-cards] user_team_parts lookup failed", {
+      message: teamPartsRes.error.message,
+    });
+  }
+  if (profileRes.error) {
+    console.warn("[cluster4/weekly-cards] user_profiles lookup failed", {
+      message: profileRes.error.message,
+    });
+  }
+
+  const teamParts = ((teamPartsRes.data ?? []) as UserTeamPartRow[]).filter(
+    (row) => Boolean(row.joined_at),
+  );
+
+  const managedTeamIds = Array.from(
+    new Set(
+      teamParts
+        .map((row) => row.managed_team_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const managedTeamNameById = new Map<string, string>();
+  if (managedTeamIds.length > 0) {
+    const { data: teamsData, error: teamsError } = await supabaseAdmin
+      .from("teams")
+      .select("id,name")
+      .in("id", managedTeamIds);
+    if (teamsError) {
+      console.warn("[cluster4/weekly-cards] teams lookup failed", {
+        message: teamsError.message,
+      });
+    } else if (teamsData) {
+      for (const row of teamsData as { id: string; name: string | null }[]) {
+        if (row.id && row.name) managedTeamNameById.set(row.id, row.name);
+      }
+    }
+  }
+
+  const onboardingWeekId =
+    (profileRes.data as { onboarding_week_id: string | null } | null)
+      ?.onboarding_week_id ?? null;
+
+  return { teamParts, managedTeamNameById, onboardingWeekId };
+}
+
+function resolveHeaderExtras(
+  card: WeeklyCardDto,
+  snapshot: HeaderExtrasSnapshot,
+): HeaderExtras {
+  // joined_at <= weekStart 이고 (left_at IS NULL OR left_at > weekStart) 인 row.
+  // 프론트(Cluster4CardContent.tsx) 의 윈도 매칭 규칙과 동일.
+  const weekStart = card.startDate;
+  const matched = weekStart
+    ? snapshot.teamParts.find((row) => {
+        if (!row.joined_at) return false;
+        if (row.joined_at > weekStart) return false;
+        if (row.left_at && row.left_at <= weekStart) return false;
+        return true;
+      }) ?? null
+    : null;
+
+  const managedTeamName = matched?.managed_team_id
+    ? snapshot.managedTeamNameById.get(matched.managed_team_id) ?? null
+    : null;
+
+  const isOnboarding = Boolean(
+    snapshot.onboardingWeekId &&
+      card.weekId &&
+      snapshot.onboardingWeekId === card.weekId,
+  );
+
+  return {
+    generation: matched?.generation ?? null,
+    managedTeamName,
+    isOnboarding,
+  };
+}
+
 export async function getCluster4WeeklyCardsForAuthUser(
   authUserId: string,
   authEmail?: string | null,
@@ -653,7 +884,10 @@ export async function getCluster4WeeklyCardsForAuthUser(
   const weekIds = weeklyGrowth.weeklyCards
     .map((card) => card.weekId)
     .filter((weekId): weekId is string => Boolean(weekId));
-  const lineMap = await fetchLineDetailsByWeek(profileUserId, weekIds);
+  const [lineMap, headerSnapshot] = await Promise.all([
+    fetchLineDetailsByWeek(profileUserId, weekIds),
+    fetchHeaderExtrasSnapshot(profileUserId),
+  ]);
 
   return weeklyGrowth.weeklyCards.map((card) =>
     toWeeklyCardDto(
@@ -661,6 +895,7 @@ export async function getCluster4WeeklyCardsForAuthUser(
       card.weekId
         ? (lineMap.get(card.weekId) ?? PUBLIC_PARTS.map((p) => emptyLine(p, card.weekId)))
         : PUBLIC_PARTS.map((p) => emptyLine(p, null)),
+      resolveHeaderExtras(card, headerSnapshot),
     ),
   );
 }
@@ -676,7 +911,10 @@ export async function getCluster4WeeklyCardsForProfileUser(
   const weekIds = weeklyGrowth.weeklyCards
     .map((card) => card.weekId)
     .filter((weekId): weekId is string => Boolean(weekId));
-  const lineMap = await fetchLineDetailsByWeek(profileUserId, weekIds);
+  const [lineMap, headerSnapshot] = await Promise.all([
+    fetchLineDetailsByWeek(profileUserId, weekIds),
+    fetchHeaderExtrasSnapshot(profileUserId),
+  ]);
 
   return weeklyGrowth.weeklyCards.map((card) =>
     toWeeklyCardDto(
@@ -684,6 +922,7 @@ export async function getCluster4WeeklyCardsForProfileUser(
       card.weekId
         ? (lineMap.get(card.weekId) ?? PUBLIC_PARTS.map((p) => emptyLine(p, card.weekId)))
         : PUBLIC_PARTS.map((p) => emptyLine(p, null)),
+      resolveHeaderExtras(card, headerSnapshot),
     ),
   );
 }

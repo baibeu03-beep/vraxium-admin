@@ -15,6 +15,7 @@ import type { OrganizationSlug } from "@/lib/organizations";
 type UserProfileRow = {
   user_id: string;
   display_name: string | null;
+  english_name: string | null;
   gender: string | null;
   birth_date: string | null;
   contact_phone: string | null;
@@ -82,6 +83,7 @@ export type AdminCrewDto = {
   usersLegacyUserId: string | null;
   displayName: string;
   name: string;
+  englishName: string | null;
   gender: string | null;
   birthDate: string | null;
   age: number | null;
@@ -111,6 +113,7 @@ export type AdminCrewDto = {
 const PROFILE_SELECT = [
   "user_id",
   "display_name",
+  "english_name",
   "gender",
   "birth_date",
   "contact_phone",
@@ -365,6 +368,7 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
       usersLegacyUserId,
       displayName,
       name: displayName,
+      englishName: preferString(profile.english_name),
       gender: preferString(profile.gender, legacy?.gender),
       birthDate,
       age: computeAge(birthDate),

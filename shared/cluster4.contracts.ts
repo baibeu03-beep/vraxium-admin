@@ -175,6 +175,11 @@ export type Cluster4WeeklyPointsDto = {
   lightning: number | null;  // user_weekly_points.penalty
 };
 
+// status-badge 아이콘 키 — Cluster4UserWeekStatus 와 1:1 동일.
+// statusTone(semantic) 은 색상 톤 결정용이라 아이콘 매핑에는 사용하지 못한다(neutral/info/success/warning/danger 는
+// running 과 tallying, personal_rest 와 official_rest 를 구분하지 못함). 그래서 별도 icon key 를 둔다.
+export type Cluster4StatusIconKey = Cluster4UserWeekStatus;
+
 export type Cluster4WeeklyCardDto = {
   weekId: string | null;
   weekNumber: number;
@@ -218,4 +223,30 @@ export type Cluster4WeeklyCardDto = {
   cardMessage: string | null;
   titleText: string;
   lines: Cluster4LineDetailDto[];
+
+  // ── section1-header 단일 출처 보강 필드 (append-only) ──
+  // status-badge 아이콘 결정. userWeekStatus 와 동일 enum 이지만 "아이콘용" 이라는 의도를 명시.
+  statusIconKey: Cluster4StatusIconKey;
+  // 공개 정적 자산 경로. 프론트 매핑 테이블 없이 곧바로 <img src={statusIconUrl}/> 로 사용.
+  statusIconUrl: string;
+
+  // 누적 승인 주차 수 (status='success' 합 — 본 주차 포함, '진행/집계 중' +1 보정 미포함).
+  // 진행/집계 중 표시는 displayWeekProgressLabel 로 별도 제공.
+  // 출처: user_week_statuses.status='success' cumulative.
+  accumulatedApprovedWeeks: number;
+  // 졸업 목표 주차 수 (조직 상수: encre/phalanx=30, oranke=25).
+  // 출처: lib/pointLabels.ts:GRADUATION_THRESHOLDS[organization].
+  totalRequiredWeeks: number;
+  // totalRequiredWeeks 의 alias (사양 호환용).
+  baseWeekCount: number;
+  // 프론트 계산 없이 곧바로 표시 가능한 주차 진행 라벨 (예: "+1 / 25 주차", "30 / 25 주차").
+  // running/tallying 일 때만 highlight 부분이 "+1" 로 치환된다 — 이외에는 accumulatedApprovedWeeks.
+  displayWeekProgressLabel: string;
+
+  // 본 주차 시점의 사용자 기수 (user_team_parts.generation, joined_at<=weekStart<left_at). 없으면 null.
+  generation: number | null;
+  // 본 주차 시점의 운영진/팀장이 관리하는 팀 이름 (user_team_parts.managed_team_id → teams.name). 없으면 null.
+  managedTeamName: string | null;
+  // 본 주차가 사용자의 온보딩 주차인지 여부 (weekId === user_profiles.onboarding_week_id).
+  isOnboarding: boolean;
 };

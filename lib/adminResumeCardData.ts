@@ -138,6 +138,10 @@ type Row = Record<string, unknown>;
 export type ResumeCardBundle = {
   legacyUserId: string;
   userId: string | null;
+  // user_profiles.english_name 의 camelCase 미러. sidebar resume-card 의
+  // `<span class="name-eng">` 영역이 직접 읽는다. snake_case 값은
+  // `profile.english_name` 에도 계속 노출되므로 기존 consumer 는 영향 없음.
+  englishName: string | null;
   profile: Row | null;
   education: Row | null;
   membership: Row | null;
@@ -175,6 +179,7 @@ export async function getResumeCardForCrew(
     return {
       legacyUserId: crew.legacyUserId,
       userId: null,
+      englishName: crew.englishName ?? null,
       profile: null,
       education: null,
       membership: null,
@@ -273,10 +278,17 @@ export async function getResumeCardForCrew(
   >;
   const primaryEducation = pickPrimaryEducation(educationRows);
 
+  const profileRow = (profileRes.data ?? null) as Row | null;
+  const profileEnglishName =
+    profileRow && typeof profileRow.english_name === "string"
+      ? (profileRow.english_name as string)
+      : null;
+
   return {
     legacyUserId: crew.legacyUserId,
     userId,
-    profile: (profileRes.data ?? null) as Row | null,
+    englishName: profileEnglishName ?? crew.englishName ?? null,
+    profile: profileRow,
     education: (primaryEducation ?? null) as Row | null,
     membership: (membershipRes.data ?? null) as Row | null,
     introduction: (introductionRes.data ?? null) as Row | null,
