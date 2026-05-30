@@ -2,6 +2,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import {
   fetchInfoLineCountsByWeek,
+  fetchInfoLineSuccessCountsByWeek,
+  fetchLineSuccessCountsByWeek,
   fetchCareerProjectCountsByWeek,
   buildWeekAvailability,
   totalAvailable,
@@ -134,24 +136,20 @@ function dummyScheduleReliability(): ScheduleReliability {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Activity Completion — Cluster4 user_activity_details 기반
-//   available = 주차별 동적 가용 라인 합산 (lineAvailability 모듈 공유)
-//   completed = user_activity_details 총 row 수
+// Activity Completion — Cluster4 라인 target+마감 기준
+//   available(A) = 주차별 동적 가용 라인 합산 (lineAvailability 모듈 공유)
+//   completed(B) = 4개 part(info/ability/exp/career) target+마감 success 합산
+//                  (weekly-cards 의 completedLines 와 동일 기준, 제출 무관).
+//                  user_activity_details 미사용.
 // ─────────────────────────────────────────────────────────────────────
 async function computeActivityCompletion(
   userId: string,
   organization: OrganizationSlug | null,
 ): Promise<ActivityCompletion> {
-  const [weekRes, actRes] = await Promise.all([
-    supabaseAdmin
-      .from("user_week_statuses")
-      .select("week_start_date,status")
-      .eq("user_id", userId),
-    supabaseAdmin
-      .from("user_activity_details")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId),
-  ]);
+  const weekRes = await supabaseAdmin
+    .from("user_week_statuses")
+    .select("week_start_date,status")
+    .eq("user_id", userId);
 
   if (weekRes.error || !weekRes.data) {
     return { availableActivities: 0, completedActivities: 0, rate: 0 };
@@ -162,7 +160,7 @@ async function computeActivityCompletion(
   );
 
   if (growable.length === 0) {
-    return { availableActivities: 0, completedActivities: actRes.count ?? 0, rate: 0 };
+    return { availableActivities: 0, completedActivities: 0, rate: 0 };
   }
 
   const startDates = growable.map((w) => w.week_start_date);
@@ -173,18 +171,34 @@ async function computeActivityCompletion(
 
   const weekIds = (weeksData ?? []).map((w: { id: string }) => w.id);
 
-  const [infoMap, careerMap] = await Promise.all([
+  const [
+    infoAvailMap,
+    careerAvailMap,
+    infoSuccessMap,
+    abilitySuccessMap,
+    experienceSuccessMap,
+    careerSuccessMap,
+  ] = await Promise.all([
     fetchInfoLineCountsByWeek(userId, weekIds),
     fetchCareerProjectCountsByWeek(weekIds),
+    fetchInfoLineSuccessCountsByWeek(userId, weekIds),
+    fetchLineSuccessCountsByWeek(userId, weekIds, "competency"),
+    fetchLineSuccessCountsByWeek(userId, weekIds, "experience"),
+    fetchLineSuccessCountsByWeek(userId, weekIds, "career"),
   ]);
 
   let availableActivities = 0;
+  let completedActivities = 0;
   for (const wid of weekIds) {
-    const avail = buildWeekAvailability(wid, infoMap, careerMap, organization);
+    const avail = buildWeekAvailability(wid, infoAvailMap, careerAvailMap, organization);
     availableActivities += totalAvailable(avail);
+    completedActivities +=
+      (infoSuccessMap.get(wid) ?? 0) +
+      (abilitySuccessMap.get(wid) ?? 0) +
+      (experienceSuccessMap.get(wid) ?? 0) +
+      (careerSuccessMap.get(wid) ?? 0);
   }
 
-  const completedActivities = actRes.count ?? 0;
   const rate =
     availableActivities > 0
       ? Math.round((completedActivities / availableActivities) * 1000) / 10
@@ -365,58 +379,67 @@ function dummySeasonRecords(): SeasonRecord[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Practical Stats — Cluster4 user_activity_details + career_records
-//   activity_types.cluster_id 기반 분류:
-//     work_info: cluster_id 없음 또는 기타
-//     work_ability: practical_competency / comp-*
-//     work_exp: practical_experience / exp-*
-//     work_career: practical_career / car-* 또는 career_records
+// Practical Stats — Cluster4 라인 target+마감 기준
+//   infoCount / abilityUnitCount / experienceCount = 주차별 part target+마감 success 합산
+//     (weekly-cards / activity-completion 과 동일 SoT, 제출 무관). user_activity_details 미사용.
+//   careerProjectCount = career success 합산과 career_records distinct project 중 큰 값
+//     (career_records 보강 역할 유지).
 // ─────────────────────────────────────────────────────────────────────
 async function computePracticalStats(
   userId: string,
 ): Promise<PracticalStats> {
-  const [detailsRes, typesRes, careerRes] = await Promise.all([
+  const [weekRes, careerRes] = await Promise.all([
     supabaseAdmin
-      .from("user_activity_details")
-      .select("activity_type_id")
+      .from("user_week_statuses")
+      .select("week_start_date")
       .eq("user_id", userId),
-    supabaseAdmin.from("activity_types").select("id,cluster_id"),
     supabaseAdmin
       .from("career_records")
       .select("project_id")
       .eq("user_id", userId),
   ]);
 
-  const clusterMap = new Map<string, string>();
-  if (typesRes.data) {
-    for (const t of typesRes.data as { id: string; cluster_id: string | null }[]) {
-      if (t.cluster_id) clusterMap.set(t.id, t.cluster_id);
-    }
-  }
+  const distinctProjects = new Set(
+    ((careerRes.data ?? []) as { project_id: string }[]).map((r) => r.project_id),
+  );
 
   let infoCount = 0;
   let experienceCount = 0;
   let abilityUnitCount = 0;
   let careerActivityCount = 0;
 
-  if (detailsRes.data) {
-    for (const d of detailsRes.data as { activity_type_id: string }[]) {
-      const c = clusterMap.get(d.activity_type_id) ?? "";
-      if (c === "practical_competency" || c.startsWith("comp-"))
-        abilityUnitCount++;
-      else if (c === "practical_experience" || c.startsWith("exp-"))
-        experienceCount++;
-      else if (c === "practical_career" || c.startsWith("car-"))
-        careerActivityCount++;
-      else infoCount++;
+  const startDates = ((weekRes.data ?? []) as { week_start_date: string }[]).map(
+    (w) => w.week_start_date,
+  );
+
+  if (startDates.length > 0) {
+    const { data: weeksData } = await supabaseAdmin
+      .from("weeks")
+      .select("id")
+      .in("start_date", startDates);
+    const weekIds = (weeksData ?? []).map((w: { id: string }) => w.id);
+
+    if (weekIds.length > 0) {
+      const [
+        infoSuccessMap,
+        abilitySuccessMap,
+        experienceSuccessMap,
+        careerSuccessMap,
+      ] = await Promise.all([
+        fetchInfoLineSuccessCountsByWeek(userId, weekIds),
+        fetchLineSuccessCountsByWeek(userId, weekIds, "competency"),
+        fetchLineSuccessCountsByWeek(userId, weekIds, "experience"),
+        fetchLineSuccessCountsByWeek(userId, weekIds, "career"),
+      ]);
+      for (const wid of weekIds) {
+        infoCount += infoSuccessMap.get(wid) ?? 0;
+        abilityUnitCount += abilitySuccessMap.get(wid) ?? 0;
+        experienceCount += experienceSuccessMap.get(wid) ?? 0;
+        careerActivityCount += careerSuccessMap.get(wid) ?? 0;
+      }
     }
   }
 
-  const distinctProjects = new Set(
-    ((careerRes.data ?? []) as { project_id: string }[]).map(
-      (r) => r.project_id,
-    ),
-  );
   const careerProjectCount = Math.max(careerActivityCount, distinctProjects.size);
 
   return { infoCount, experienceCount, abilityUnitCount, careerProjectCount };

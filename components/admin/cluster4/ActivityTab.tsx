@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Save, Trash2, X } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, Plus, Save, Trash2, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -19,14 +19,6 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
-  WORK_INFO_ACTIVITY_TYPE_IDS,
-  classifyActivityType,
-  type ActivityTypeClusterMap,
-  type UserActivityDetailRow,
-  type UserActivityModalKey,
-  type UserActivityOutputLink,
-} from "@/lib/userActivityDetailsTypes";
-import {
   CAREER_ENHANCEMENT_STATUSES,
   CAREER_GRADES,
   type CareerEnhancementStatus,
@@ -34,28 +26,26 @@ import {
   type CareerRecordRow,
 } from "@/lib/careerRecordsTypes";
 import type {
+  Cluster4AdminSubmissionRow,
   Cluster4Bundle,
   Cluster4DeleteResource,
   Cluster4PatchBody,
 } from "@/lib/adminCluster4Types";
-import {
-  evaluateCluster4HubEdit,
-  modalKeyToPartType,
-  partTypeToEditWindowResourceKey,
-  type Cluster4HubEditDecision,
-} from "@/lib/cluster4LinePermission";
 import type { Cluster4LinePartType } from "@/lib/cluster4LinesTypes";
+import type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
+import type { Cluster4OutputImage } from "@/lib/cluster4OutputImages";
 
-// 4개 모달(Work Info / Work Ability / Work Exp / Work Career) 을 묶는 활동 탭.
-// 부모(Cluster4Editor) 의 bundle 을 받아 자체 form state 를 유지하고, 저장/삭제 시
-// /api/admin/crews/[id]/cluster4 PATCH/DELETE 를 호출한 뒤 응답 bundle 로 부모를 갱신.
+// Cluster4 4허브(Work Info / Ability / Exp / Career)의 운영 편집 영역.
 //
-// (2026-05-22) 신규: 비어있는 상태에서도 admin 이 새 row 를 생성할 수 있도록 각
-// sub-modal 에 "새 항목 추가" 버튼 + draft row 편집 UI 추가. draft 는 synthetic id
-// (`__draft_*`) 로 React key 관리하며, build*PatchInput 에서 null 로 변환되어 server
-// upsert (id 미지정) 경로로 라우팅된다. server 측 upsert 는 user_activity_details 의
-// 경우 (user_id, week_id, activity_type_id) UNIQUE, career_records 의 경우
-// (user_id, week_id, project_id) scope 로 idempotent insert 동작.
+// (2026 전환) 편집 SoT 를 user_activity_details → cluster4_line_submissions 로 이관.
+//   - 편집 단위는 cluster4_line_targets(user-mode) 슬롯. 각 슬롯의 본문이 곧 submission 1행.
+//   - 운영자는 target 을 자유 생성할 수 없다(라인 개설/배정 선행). submission 미제출 슬롯은
+//     "미제출" 로 표시하고 그 자리에서 바로 입력/저장(upsert)한다.
+//   - 운영자 저장/삭제는 작성기간(submission_closes_at)과 무관하게 가능(어드민 전용 배선).
+//   - rating 은 이번 단계에서 노출하지 않는다(submissions 에 컬럼 없음 — 보류).
+//   - Work Career 탭은 submission 슬롯 + career_records(프로젝트 기록) 영역을 함께 렌더한다.
+//
+// 고객 포털 제출/수정 API, info 읽기 DTO 경로는 변경하지 않는다.
 
 type Props = {
   bundle: Cluster4Bundle;
@@ -67,19 +57,28 @@ type Props = {
   devMode: boolean;
 };
 
-type ActivityFormRow = {
-  id: string;
-  user_id: string;
-  week_id: string;
-  activity_type_id: string;
-  sub_title: string;
+// 슬롯(line target) + 제출 본문 편집 폼.
+type SubmissionFormRow = {
+  lineTargetId: string;
+  weekId: string;
+  partType: Cluster4LinePartType;
+  mainTitle: string;
+  activityTypeId: string | null;
+  submissionId: string | null; // null = 미제출
+  submissionClosesAt: string;
+  updatedAt: string | null;
+  subtitle: string;
   growth_point: string;
-  output_links_json: string; // JSON text — admin power-user 입력
-  image_urls_json: string; // JSON text — string[]
-  image_captions_json: string; // JSON text — string[]
-  rating: string; // string for input, "" = null
-  modal: UserActivityModalKey;
+  output_links_json: string; // JSON text — [{url, label}]
+  output_images_json: string; // JSON text — [{url, caption}]
 };
+
+type SubmissionFormPatch = Partial<
+  Pick<
+    SubmissionFormRow,
+    "subtitle" | "growth_point" | "output_links_json" | "output_images_json"
+  >
+>;
 
 type CareerFormRow = {
   id: string;
@@ -93,48 +92,34 @@ type CareerFormRow = {
   project: CareerRecordRow["project"];
 };
 
-const SUB_TABS: { key: UserActivityModalKey | "work_career"; label: string }[] = [
-  { key: "work_info", label: "Work Info" },
-  { key: "work_exp", label: "Work Exp" },
-  { key: "work_ability", label: "Work Ability" },
-  { key: "work_career", label: "Work Career" },
-];
+const SUB_TABS = [
+  { key: "work_info", label: "Work Info", partType: "info" },
+  { key: "work_exp", label: "Work Exp", partType: "experience" },
+  { key: "work_ability", label: "Work Ability", partType: "competency" },
+  { key: "work_career", label: "Work Career", partType: "career" },
+] as const;
 
-const ACTIVITY_MODAL_LABEL: Record<UserActivityModalKey, string> = {
+type SubmissionTabKey = (typeof SUB_TABS)[number]["key"];
+
+const PART_TYPE_BY_TAB: Record<SubmissionTabKey, Cluster4LinePartType> = {
+  work_info: "info",
+  work_exp: "experience",
+  work_ability: "competency",
+  work_career: "career",
+};
+
+const TAB_LABEL: Record<SubmissionTabKey, string> = {
   work_info: "Work Info",
-  work_ability: "Work Ability",
   work_exp: "Work Exp",
+  work_ability: "Work Ability",
   work_career: "Work Career",
 };
 
-// ───────────── draft helpers ─────────────
+// ───────────── draft helpers (career_records 전용) ─────────────
 
 const DRAFT_PREFIX = "__draft_";
-const draftIdActivity = (modal: UserActivityModalKey) =>
-  `${DRAFT_PREFIX}activity_${modal}`;
 const DRAFT_ID_CAREER = `${DRAFT_PREFIX}career`;
 const isDraftId = (id: string) => id.startsWith(DRAFT_PREFIX);
-
-function createEmptyActivityDraft(
-  modal: UserActivityModalKey,
-  userId: string,
-): ActivityFormRow {
-  // Work Info 는 fixed 목록 첫 값, 그 외는 빈 문자열로 두고 입력 강제.
-  const defaultActivityType = modal === "work_info" ? "wisdom" : "";
-  return {
-    id: draftIdActivity(modal),
-    user_id: userId,
-    week_id: "",
-    activity_type_id: defaultActivityType,
-    sub_title: "",
-    growth_point: "",
-    output_links_json: "[]",
-    image_urls_json: "[]",
-    image_captions_json: "[]",
-    rating: "",
-    modal,
-  };
-}
 
 function createEmptyCareerDraft(userId: string): CareerFormRow {
   return {
@@ -150,50 +135,21 @@ function createEmptyCareerDraft(userId: string): CareerFormRow {
   };
 }
 
-// Draft 의 activity_type_id 가 의도한 modal 과 일치하는지 사전 차단.
-// 분류 우선순위: (1) Work Info 고정 ID 목록 (2) activity_types.cluster_id lookup
-// (3) Legacy prefix (comp-/exp-/car-). cluster map 이 있으면 lookup 결과로
-// 검증하고, 없거나 매칭 실패 시 prefix 규칙으로 폴백.
-function validateDraftActivityType(
-  modal: UserActivityModalKey,
-  activityTypeId: string,
-  clusterMap: ActivityTypeClusterMap,
-): string | null {
-  const trimmed = activityTypeId.trim();
-  if (!trimmed) return "activity_type_id 를 입력해 주세요.";
-  if (modal === "work_info") {
-    if (!(WORK_INFO_ACTIVITY_TYPE_IDS as readonly string[]).includes(trimmed)) {
-      return `Work Info activity_type_id 는 다음 중 하나여야 합니다: ${WORK_INFO_ACTIVITY_TYPE_IDS.join(", ")}.`;
-    }
-    return null;
-  }
-  const classified = classifyActivityType(trimmed, clusterMap);
-  if (classified === modal) return null;
-  if (modal === "work_ability") {
-    return "Work Ability 의 activity_type_id 는 activity_types 에 cluster_id='practical_competency' 로 등록돼 있거나 'comp-' 로 시작해야 합니다.";
-  }
-  if (modal === "work_exp") {
-    return "Work Exp 의 activity_type_id 는 activity_types 에 cluster_id='practical_experience' 로 등록돼 있거나 'exp-' 로 시작해야 합니다.";
-  }
-  return null;
-}
-
-function toActivityForm(
-  row: UserActivityDetailRow,
-  clusterMap: ActivityTypeClusterMap,
-): ActivityFormRow {
+function toSubmissionForm(row: Cluster4AdminSubmissionRow): SubmissionFormRow {
+  const s = row.submission;
   return {
-    id: row.id,
-    user_id: row.user_id,
-    week_id: row.week_id,
-    activity_type_id: row.activity_type_id,
-    sub_title: row.sub_title ?? "",
-    growth_point: row.growth_point ?? "",
-    output_links_json: JSON.stringify(row.output_links, null, 2),
-    image_urls_json: JSON.stringify(row.image_urls, null, 2),
-    image_captions_json: JSON.stringify(row.image_captions, null, 2),
-    rating: row.rating === null || row.rating === undefined ? "" : String(row.rating),
-    modal: classifyActivityType(row.activity_type_id, clusterMap),
+    lineTargetId: row.lineTargetId,
+    weekId: row.weekId,
+    partType: row.partType,
+    mainTitle: row.mainTitle,
+    activityTypeId: row.activityTypeId,
+    submissionId: s?.id ?? null,
+    submissionClosesAt: row.submissionClosesAt,
+    updatedAt: s?.updatedAt ?? null,
+    subtitle: s?.subtitle ?? "",
+    growth_point: s?.growthPoint ?? "",
+    output_links_json: JSON.stringify(s?.outputLinks ?? [], null, 2),
+    output_images_json: JSON.stringify(s?.outputImages ?? [], null, 2),
   };
 }
 
@@ -212,7 +168,10 @@ function toCareerForm(row: CareerRecordRow): CareerFormRow {
 }
 
 // safe JSON parse with error string.
-function tryParseJson<T>(value: string, fallback: T): { ok: true; value: T } | { ok: false; error: string } {
+function tryParseJson<T>(
+  value: string,
+  fallback: T,
+): { ok: true; value: T } | { ok: false; error: string } {
   const trimmed = value.trim();
   if (trimmed === "") return { ok: true, value: fallback };
   try {
@@ -223,95 +182,10 @@ function tryParseJson<T>(value: string, fallback: T): { ok: true; value: T } | {
   }
 }
 
-type ActivityPatchValue = NonNullable<Cluster4PatchBody["userActivityDetails"]>[number];
+type SubmissionPatchValue = NonNullable<
+  Cluster4PatchBody["cluster4LineSubmissions"]
+>[number];
 type CareerPatchValue = NonNullable<Cluster4PatchBody["careerRecords"]>[number];
-
-// Partial-emit mode (2026-05-22):
-//   - mode="all" → 모든 컨텐츠 필드를 payload 에 포함 (draft / 신규 INSERT 용).
-//   - mode={...edits} → 편집된 필드만 payload 에 포함 (기존 row 의 partial UPDATE 용).
-//     서버는 키가 빠진 필드를 건드리지 않고 기존 DB 값을 보존한다.
-// 이미지 페어(image_urls / image_captions) 는 어느 한쪽이라도 편집되면 둘 다 emit
-// (정합 깨짐 방지). 서버도 한쪽만 와도 처리 가능하지만, 클라이언트에서 페어로
-// 묶어 보내면 의도가 명확해진다.
-function buildActivityPatchInput(
-  form: ActivityFormRow,
-  mode: "all" | Partial<ActivityFormRow>,
-):
-  | { ok: true; value: ActivityPatchValue }
-  | { ok: false; error: string } {
-  const isAll = mode === "all";
-  const edits = isAll ? null : mode;
-  const editedKey = (key: keyof ActivityFormRow): boolean =>
-    isAll ||
-    (edits !== null &&
-      Object.prototype.hasOwnProperty.call(edits, key) &&
-      edits[key] !== undefined);
-
-  // synthetic draft id 는 server 로 전달하지 않는다 (server 가 INSERT 분기로 라우팅).
-  const persistedId = form.id && !isDraftId(form.id) ? form.id : null;
-
-  // 식별 키 + modal hint 는 항상 포함.
-  const value: ActivityPatchValue = {
-    id: persistedId,
-    week_id: form.week_id,
-    activity_type_id: form.activity_type_id,
-    modal: form.modal,
-  };
-
-  if (editedKey("sub_title")) {
-    value.sub_title = form.sub_title || null;
-  }
-  if (editedKey("growth_point")) {
-    value.growth_point = form.growth_point || null;
-  }
-  if (editedKey("output_links_json")) {
-    const outputLinks = tryParseJson<UserActivityOutputLink[]>(
-      form.output_links_json,
-      [],
-    );
-    if (!outputLinks.ok) {
-      return {
-        ok: false,
-        error: `output_links JSON 파싱 오류: ${outputLinks.error}`,
-      };
-    }
-    value.output_links = outputLinks.value;
-  }
-
-  // image_urls / image_captions 는 페어로 묶어 emit.
-  const imagesEdited =
-    editedKey("image_urls_json") || editedKey("image_captions_json");
-  if (imagesEdited) {
-    const imageUrls = tryParseJson<string[]>(form.image_urls_json, []);
-    if (!imageUrls.ok) {
-      return { ok: false, error: `image_urls JSON 파싱 오류: ${imageUrls.error}` };
-    }
-    const imageCaptions = tryParseJson<string[]>(form.image_captions_json, []);
-    if (!imageCaptions.ok) {
-      return {
-        ok: false,
-        error: `image_captions JSON 파싱 오류: ${imageCaptions.error}`,
-      };
-    }
-    value.image_urls = imageUrls.value;
-    value.image_captions = imageCaptions.value;
-  }
-
-  // rating: work_exp 만 슬라이더 노출, 다른 modal 에서는 edits 에 들어올 일이 없음.
-  if (editedKey("rating")) {
-    if (form.rating.trim() === "") {
-      value.rating = null;
-    } else {
-      const n = Number(form.rating);
-      if (!Number.isFinite(n) || n < 0 || n > 10) {
-        return { ok: false, error: "rating 은 0~10 사이여야 합니다." };
-      }
-      value.rating = n;
-    }
-  }
-
-  return { ok: true, value };
-}
 
 function buildCareerPatchInput(form: CareerFormRow):
   | { ok: true; value: CareerPatchValue }
@@ -353,167 +227,30 @@ export default function ActivityTab({
   onBanner,
   devMode,
 }: Props) {
-  const [activeSub, setActiveSub] = useState<UserActivityModalKey | "work_career">(
-    "work_info",
-  );
-  // bundle 은 외부 source-of-truth. 사용자의 미저장 편집은 row id 별 patch 로 보관해
-  // bundle 갱신과 자연스럽게 머지. effect 없이 setState 회피 + 다른 row 의 미저장
-  // 입력을 잃지 않도록 함.
-  const [activityEdits, setActivityEdits] = useState<
-    Map<string, Partial<ActivityFormRow>>
+  const [activeSub, setActiveSub] = useState<SubmissionTabKey>("work_info");
+  // 미저장 편집: submission 은 lineTargetId 별, career 는 row id 별 patch 로 보관.
+  const [submissionEdits, setSubmissionEdits] = useState<
+    Map<string, SubmissionFormPatch>
   >(() => new Map());
   const [careerEdits, setCareerEdits] = useState<
     Map<string, Partial<CareerFormRow>>
   >(() => new Map());
-  // 신규 생성 draft. sub-modal 별 최대 1개. career 는 별도 단일 slot.
-  const [activityDrafts, setActivityDrafts] = useState<
-    Partial<Record<UserActivityModalKey, ActivityFormRow>>
-  >({});
   const [careerDraft, setCareerDraft] = useState<CareerFormRow | null>(null);
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
 
   const targetUserId = bundle.userId ?? "";
 
-  // ────────────────────────────────────────────────────────────────────────
-  // Cluster4 4허브 권한: legacy `Boolean(bundle.userId)` 가 아닌 cluster4_line_targets
-  // + user_edit_windows 기준으로 hub 단위 canEdit 을 계산한다.
-  //
-  // Hub-level decision:
-  //   - bundle.cluster4LineTargets 중 partType 매칭 row 중 가장 "유리한" 하나를 선택
-  //     (window 가 열린 row 우선; 없으면 closes_at 가 가장 늦은 row).
-  //   - + bundle.cluster4HubEditWindows[resource_key] 와 함께 evaluateCluster4HubEdit.
-  //   - override 가 active 이면 target 부재여도 canEdit=true (운영자 명시적 부여).
-  //
-  // 결정은 (1) "새 항목 추가" 버튼 활성 (2) 기존 row 의 저장/삭제/입력 disabled
-  // 에 동일하게 적용된다. parent 의 saveDisabled (loading/saving + !bundle.userId) 는
-  // 그대로 위에 덮어쓰는 별도 UX 게이트.
-  // ────────────────────────────────────────────────────────────────────────
-  const nowMs = useMemo(() => Date.now(), [bundle]);
+  // 운영자 편집 게이트: 작성기간(submission window)과 무관. parent 의 saveDisabled
+  // (loading/saving + !bundle.userId) 만 적용한다 — 마감 지난 라인도 운영자는 편집 가능.
+  const canOperate = !saveDisabled && Boolean(bundle.userId);
 
-  const hubDecisions = useMemo<
-    Record<Cluster4LinePartType, Cluster4HubEditDecision>
-  >(() => {
-    const result = {} as Record<Cluster4LinePartType, Cluster4HubEditDecision>;
-    const partTypes: Cluster4LinePartType[] = [
-      "info",
-      "competency",
-      "experience",
-      "career",
-    ];
-
-    for (const partType of partTypes) {
-      const candidates = bundle.cluster4LineTargets.filter(
-        (t) => t.partType === partType,
-      );
-      // 우선순위: 현재 window 가 열려 있는 target → 가장 늦게 닫히는 target → null.
-      const inWindow = candidates.find((t) => {
-        const opens = new Date(t.line.submissionOpensAt).getTime();
-        const closes = new Date(t.line.submissionClosesAt).getTime();
-        return (
-          t.line.isActive &&
-          (!Number.isFinite(opens) || nowMs >= opens) &&
-          (!Number.isFinite(closes) || nowMs <= closes)
-        );
-      });
-      const picked =
-        inWindow ??
-        [...candidates].sort(
-          (a, b) =>
-            new Date(b.line.submissionClosesAt).getTime() -
-            new Date(a.line.submissionClosesAt).getTime(),
-        )[0] ??
-        null;
-
-      const resourceKey = partTypeToEditWindowResourceKey(partType);
-      const editWindow = bundle.cluster4HubEditWindows[resourceKey];
-
-      result[partType] = evaluateCluster4HubEdit({
-        target: picked
-          ? {
-              target_mode: picked.targetMode,
-              target_user_id: picked.targetUserId,
-              line: {
-                is_active: picked.line.isActive,
-                submission_opens_at: picked.line.submissionOpensAt,
-                submission_closes_at: picked.line.submissionClosesAt,
-              },
-            }
-          : null,
-        editWindow,
-        profileUserId: bundle.userId,
-        now: nowMs,
-      });
-    }
-
-    return result;
-  }, [
-    bundle.cluster4LineTargets,
-    bundle.cluster4HubEditWindows,
-    bundle.userId,
-    nowMs,
-  ]);
-
-  const canEditModal = useCallback(
-    (modal: UserActivityModalKey | "work_career"): boolean => {
-      if (!bundle.userId) return false;
-      const partType = modalKeyToPartType(modal);
-      return hubDecisions[partType].canEdit;
-    },
-    [bundle.userId, hubDecisions],
+  const submissionRows = useMemo<Cluster4AdminSubmissionRow[]>(
+    () => bundle.cluster4LineSubmissions ?? [],
+    [bundle.cluster4LineSubmissions],
   );
 
-  // Hub-level "새 항목 추가" 게이트. saveDisabled (loading/saving) 위에 hub canEdit 을 덮는다.
-  const canAddForModal = useCallback(
-    (modal: UserActivityModalKey | "work_career"): boolean => {
-      return !saveDisabled && canEditModal(modal);
-    },
-    [saveDisabled, canEditModal],
-  );
-
-  // devMode 일 때 한 번씩 결정 근거를 출력. 디버깅 / 운영 confirmation 용.
-  useEffect(() => {
-    if (!devMode || !bundle.userId) return;
-    const partTypes: Cluster4LinePartType[] = [
-      "info",
-      "competency",
-      "experience",
-      "career",
-    ];
-    for (const partType of partTypes) {
-      const decision = hubDecisions[partType];
-      const resourceKey = partTypeToEditWindowResourceKey(partType);
-      const window = bundle.cluster4HubEditWindows[resourceKey];
-      const target = bundle.cluster4LineTargets.find(
-        (t) => t.partType === partType,
-      );
-      // eslint-disable-next-line no-console
-      console.log("[ActivityTab canEdit]", {
-        partType,
-        targetId: target?.lineTargetId ?? null,
-        targetUserId: target?.targetUserId ?? null,
-        profileUserId: bundle.userId,
-        targetMode: target?.targetMode ?? null,
-        submissionOpensAt: target?.line.submissionOpensAt ?? null,
-        submissionClosesAt: target?.line.submissionClosesAt ?? null,
-        lineWindowCanEdit: decision.lineWindowCanEdit,
-        editWindowResourceKey: resourceKey,
-        editWindowOpen: decision.editWindowOpen,
-        editWindowExpiresAt: window?.expiresAt ?? null,
-        finalCanEdit: decision.canEdit,
-        reason: decision.reason,
-      });
-    }
-  }, [
-    devMode,
-    bundle.userId,
-    bundle.cluster4LineTargets,
-    bundle.cluster4HubEditWindows,
-    hubDecisions,
-  ]);
-
-  const weekOptions = useMemo<Array<{ id: string; label: string }>>(() => {
-    return Array.from(weekLabels.entries()).map(([id, label]) => ({ id, label }));
-  }, [weekLabels]);
+  const submissionTableAvailable =
+    bundle.tablesAvailable.cluster4LineSubmissions !== false;
 
   const getWeekLabel = useCallback(
     (id: string | null | undefined) => {
@@ -523,13 +260,25 @@ export default function ActivityTab({
     [weekLabels],
   );
 
-  const activityForm = useMemo<ActivityFormRow[]>(() => {
-    return bundle.userActivityDetails.map((row) => {
-      const base = toActivityForm(row, bundle.activityTypesClusterMap);
-      const patch = activityEdits.get(row.id);
+  // 주차 정렬용 시작일 맵 (weekId → start_date). 최근 주차 우선 정렬에 사용.
+  const weekStartById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const week of bundle.weeks as Array<Record<string, unknown>>) {
+      const id = week?.id;
+      if (id === undefined || id === null) continue;
+      const start = week.start_date ?? week.startDate ?? week.starts_at ?? null;
+      map.set(String(id), start ? String(start) : "");
+    }
+    return map;
+  }, [bundle.weeks]);
+
+  const submissionForms = useMemo<SubmissionFormRow[]>(() => {
+    return submissionRows.map((row) => {
+      const base = toSubmissionForm(row);
+      const patch = submissionEdits.get(row.lineTargetId);
       return patch ? { ...base, ...patch } : base;
     });
-  }, [bundle.userActivityDetails, bundle.activityTypesClusterMap, activityEdits]);
+  }, [submissionRows, submissionEdits]);
 
   const careerForm = useMemo<CareerFormRow[]>(() => {
     return bundle.careerRecords.map((row) => {
@@ -539,41 +288,35 @@ export default function ActivityTab({
     });
   }, [bundle.careerRecords, careerEdits]);
 
-  // Work Career 도 user_activity_details 에 row 를 가질 수 있어서 (프론트
-  // Cluster4Card 4번째 모달이 동일 테이블에 저장) 더 이상 short-circuit 하지 않는다.
-  // work_career 탭은 ActivitySubPane(user_activity_details) + CareerSubPane(career_records)
-  // 를 같이 렌더한다.
-  const visibleActivityRows = useMemo<ActivityFormRow[]>(() => {
-    const existing = activityForm.filter((row) => row.modal === activeSub);
-    const draft = activityDrafts[activeSub];
-    return draft ? [draft, ...existing] : existing;
-  }, [activityForm, activeSub, activityDrafts]);
+  const visibleSubmissionRows = useMemo<SubmissionFormRow[]>(() => {
+    const partType = PART_TYPE_BY_TAB[activeSub];
+    return submissionForms.filter((row) => row.partType === partType);
+  }, [submissionForms, activeSub]);
+
+  const careerSlotRows = useMemo<SubmissionFormRow[]>(() => {
+    return submissionForms.filter((row) => row.partType === "career");
+  }, [submissionForms]);
 
   const visibleCareerRows = useMemo<CareerFormRow[]>(() => {
     return careerDraft ? [careerDraft, ...careerForm] : careerForm;
   }, [careerDraft, careerForm]);
 
-  const setActivityRow = (rowId: string, patch: Partial<ActivityFormRow>) => {
-    if (isDraftId(rowId)) {
-      setActivityDrafts((current) => {
-        const next = { ...current };
-        for (const modal of Object.keys(next) as UserActivityModalKey[]) {
-          if (next[modal]?.id === rowId) {
-            next[modal] = { ...next[modal]!, ...patch };
-            break;
-          }
-        }
-        return next;
-      });
-      return;
-    }
-    setActivityEdits((current) => {
+  const setSubmissionRow = (lineTargetId: string, patch: SubmissionFormPatch) => {
+    setSubmissionEdits((current) => {
       const next = new Map(current);
-      const existing = next.get(rowId) ?? {};
-      next.set(rowId, { ...existing, ...patch });
+      const existing = next.get(lineTargetId) ?? {};
+      next.set(lineTargetId, { ...existing, ...patch });
       return next;
     });
   };
+
+  const clearSubmissionEdits = (lineTargetId: string) =>
+    setSubmissionEdits((current) => {
+      if (!current.has(lineTargetId)) return current;
+      const next = new Map(current);
+      next.delete(lineTargetId);
+      return next;
+    });
 
   const setCareerRow = (rowId: string, patch: Partial<CareerFormRow>) => {
     if (isDraftId(rowId)) {
@@ -588,14 +331,6 @@ export default function ActivityTab({
     });
   };
 
-  const clearActivityEdits = (rowId: string) =>
-    setActivityEdits((current) => {
-      if (!current.has(rowId)) return current;
-      const next = new Map(current);
-      next.delete(rowId);
-      return next;
-    });
-
   const clearCareerEdits = (rowId: string) =>
     setCareerEdits((current) => {
       if (!current.has(rowId)) return current;
@@ -604,30 +339,8 @@ export default function ActivityTab({
       return next;
     });
 
-  const handleAddActivityDraft = (modal: UserActivityModalKey) => {
-    if (!targetUserId) return;
-    if (!canAddForModal(modal)) return;
-    if (activityDrafts[modal]) return; // 이미 활성 draft 있음
-    setActivityDrafts((current) => ({
-      ...current,
-      [modal]: createEmptyActivityDraft(modal, targetUserId),
-    }));
-    onBanner(null);
-  };
-
-  const handleCancelActivityDraft = (modal: UserActivityModalKey) => {
-    setActivityDrafts((current) => {
-      if (!current[modal]) return current;
-      const next = { ...current };
-      delete next[modal];
-      return next;
-    });
-    onBanner(null);
-  };
-
   const handleAddCareerDraft = () => {
-    if (!targetUserId) return;
-    if (!canAddForModal("work_career")) return;
+    if (!targetUserId || !canOperate) return;
     if (careerDraft) return;
     setCareerDraft(createEmptyCareerDraft(targetUserId));
     onBanner(null);
@@ -638,67 +351,44 @@ export default function ActivityTab({
     onBanner(null);
   };
 
-  const handleSaveActivityRow = async (rowId: string) => {
+  // ── submission upsert (line_target_id 기준, 작성기간 무관) ──
+  const handleSaveSubmission = async (lineTargetId: string) => {
     if (saveDisabled) return;
-    const isDraft = isDraftId(rowId);
+    const row = submissionForms.find((r) => r.lineTargetId === lineTargetId);
+    if (!row) return;
 
-    let target: ActivityFormRow | undefined;
-    let draftModal: UserActivityModalKey | undefined;
-
-    if (isDraft) {
-      for (const modal of Object.keys(activityDrafts) as UserActivityModalKey[]) {
-        if (activityDrafts[modal]?.id === rowId) {
-          target = activityDrafts[modal];
-          draftModal = modal;
-          break;
-        }
-      }
-    } else {
-      target = activityForm.find((row) => row.id === rowId);
-    }
-    if (!target) return;
-
-    // hub-level 권한 재확인 (button disabled 와 defense-in-depth).
-    // legacy "Boolean(bundle.userId)" 게이트 대신 cluster4_line_targets +
-    // user_edit_windows 기준의 결정을 사용한다.
-    if (!canEditModal(target.modal)) {
+    const linksParsed = tryParseJson<Cluster4OutputLink[]>(
+      row.output_links_json,
+      [],
+    );
+    if (!linksParsed.ok) {
       onBanner({
         kind: "error",
-        message: `${target.modal} 허브 편집 권한이 없습니다 (라인 target / edit window 모두 미부여).`,
+        message: `output_links JSON 파싱 오류: ${linksParsed.error}`,
+      });
+      return;
+    }
+    const imagesParsed = tryParseJson<Cluster4OutputImage[]>(
+      row.output_images_json,
+      [],
+    );
+    if (!imagesParsed.ok) {
+      onBanner({
+        kind: "error",
+        message: `output_images JSON 파싱 오류: ${imagesParsed.error}`,
       });
       return;
     }
 
-    // draft 만 추가 검증 (week / activity_type_id 필수 + cluster_id 또는 prefix 규칙).
-    if (isDraft) {
-      if (!target.week_id) {
-        onBanner({ kind: "error", message: "week 를 선택해 주세요." });
-        return;
-      }
-      const typeError = validateDraftActivityType(
-        target.modal,
-        target.activity_type_id,
-        bundle.activityTypesClusterMap,
-      );
-      if (typeError) {
-        onBanner({ kind: "error", message: typeError });
-        return;
-      }
-    }
+    const value: SubmissionPatchValue = {
+      lineTargetId: row.lineTargetId,
+      subtitle: row.subtitle.trim() === "" ? null : row.subtitle,
+      growthPoint: row.growth_point.trim() === "" ? null : row.growth_point,
+      outputLinks: linksParsed.value,
+      outputImages: imagesParsed.value,
+    };
 
-    // draft → 전체 필드 emit (INSERT). 기존 row → activityEdits 의 변경 키만 emit
-    // (partial UPDATE). 편집 없이 "저장" 누른 경우 mode 가 빈 객체가 되어 서버에서
-    // no-op 으로 처리됨.
-    const mode: "all" | Partial<ActivityFormRow> = isDraft
-      ? "all"
-      : activityEdits.get(rowId) ?? {};
-    const built = buildActivityPatchInput(target, mode);
-    if (!built.ok) {
-      onBanner({ kind: "error", message: built.error });
-      return;
-    }
-
-    setSavingRowId(rowId);
+    setSavingRowId(lineTargetId);
     onBanner(null);
     try {
       const response = await fetch(
@@ -706,7 +396,7 @@ export default function ActivityTab({
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userActivityDetails: [built.value] }),
+          body: JSON.stringify({ cluster4LineSubmissions: [value] }),
         },
       );
       const json = await response.json();
@@ -714,21 +404,8 @@ export default function ActivityTab({
         throw new Error(json?.error ?? "Failed to save.");
       }
       onBundleUpdate(json.data as Cluster4Bundle);
-      if (isDraft && draftModal) {
-        const slot = draftModal;
-        setActivityDrafts((current) => {
-          if (!current[slot]) return current;
-          const next = { ...current };
-          delete next[slot];
-          return next;
-        });
-      } else {
-        clearActivityEdits(rowId);
-      }
-      onBanner({
-        kind: "success",
-        message: isDraft ? "신규 항목이 추가되었습니다." : "저장되었습니다.",
-      });
+      clearSubmissionEdits(lineTargetId);
+      onBanner({ kind: "success", message: "저장되었습니다." });
     } catch (error) {
       onBanner({
         kind: "error",
@@ -746,16 +423,6 @@ export default function ActivityTab({
       ? careerDraft
       : careerForm.find((row) => row.id === rowId);
     if (!target) return;
-
-    // career_records 는 cluster4.work_career 권한 한 개에 묶인다.
-    if (!canEditModal("work_career")) {
-      onBanner({
-        kind: "error",
-        message:
-          "work_career 허브 편집 권한이 없습니다 (라인 target / edit window 모두 미부여).",
-      });
-      return;
-    }
 
     if (isDraft) {
       if (!target.week_id) {
@@ -818,28 +485,6 @@ export default function ActivityTab({
   ) => {
     if (saveDisabled) return;
 
-    // hub-level 권한 가드. ActivityTab 이 책임지는 두 리소스만 처리; 그 외는
-    // (별도 탭에서 호출되는 경우) 그대로 통과시킨다.
-    if (resource === "careerRecord" && !canEditModal("work_career")) {
-      onBanner({
-        kind: "error",
-        message: "work_career 허브 편집 권한이 없습니다.",
-      });
-      return;
-    }
-    if (resource === "userActivityDetail") {
-      // user_activity_details 는 modal 분류가 row 별로 다르다. 행 데이터에서 modal 을
-      // 역추적 — 없으면 (race condition) 일단 통과 시키고 서버 검증에 맡긴다.
-      const row = activityForm.find((item) => item.id === id);
-      if (row && !canEditModal(row.modal)) {
-        onBanner({
-          kind: "error",
-          message: `${row.modal} 허브 편집 권한이 없습니다.`,
-        });
-        return;
-      }
-    }
-
     const ok = window.confirm(`${confirmMessage}\n\nid: ${id}`);
     if (!ok) return;
 
@@ -850,6 +495,7 @@ export default function ActivityTab({
       weeklyColleague: "weeklyColleagueId",
       userActivityDetail: "userActivityDetailId",
       careerRecord: "careerRecordId",
+      cluster4LineSubmission: "cluster4LineSubmissionId",
     };
 
     setSavingRowId(id);
@@ -880,9 +526,9 @@ export default function ActivityTab({
       <CardHeader>
         <CardTitle className="text-base">활동</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Cluster4-card 4개 모달(Work Info / Ability / Exp / Career)의 운영 편집 영역입니다.
-          작성기간 게이트는 사용자에게만 적용되며, 운영자는 작성기간과 무관하게 수정/삭제할 수
-          있습니다.
+          Cluster4-card 4개 허브(Work Info / Ability / Exp / Career)의 운영 편집 영역입니다.
+          개설·배정된 라인(line target) 슬롯의 제출값을 편집하며, 운영자는 작성기간과
+          무관하게 수정/삭제할 수 있습니다.
         </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -909,27 +555,24 @@ export default function ActivityTab({
         </div>
 
         {activeSub !== "work_career" ? (
-          <ActivitySubPane
-            modal={activeSub}
-            rows={visibleActivityRows}
-            saveDisabled={saveDisabled}
+          <SubmissionSubPane
+            key={activeSub}
+            label={TAB_LABEL[activeSub]}
+            rows={visibleSubmissionRows}
+            canOperate={canOperate}
             savingRowId={savingRowId}
-            tableAvailable={bundle.tablesAvailable.userActivityDetails}
+            tableAvailable={submissionTableAvailable}
             getWeekLabel={getWeekLabel}
-            weekOptions={weekOptions}
-            canAdd={canAddForModal(activeSub)}
-            hubCanEdit={canEditModal(activeSub)}
-            hubDecision={hubDecisions[modalKeyToPartType(activeSub)]}
-            draftActive={!!activityDrafts[activeSub]}
-            onAddDraft={() => handleAddActivityDraft(activeSub)}
-            onCancelDraft={() => handleCancelActivityDraft(activeSub)}
-            onChange={(rowId, patch) => setActivityRow(rowId, patch)}
-            onSave={(rowId) => void handleSaveActivityRow(rowId)}
-            onDelete={(rowId, label) =>
+            weekStartById={weekStartById}
+            onChange={(lineTargetId, patch) =>
+              setSubmissionRow(lineTargetId, patch)
+            }
+            onSave={(lineTargetId) => void handleSaveSubmission(lineTargetId)}
+            onDelete={(submissionId, label) =>
               void handleDelete(
-                "userActivityDetail",
-                rowId,
-                `${label} 행을 삭제할까요?`,
+                "cluster4LineSubmission",
+                submissionId,
+                `${label} 제출값을 삭제할까요?`,
               )
             }
             devMode={devMode}
@@ -940,30 +583,27 @@ export default function ActivityTab({
               <h3 className="text-sm font-semibold text-foreground">
                 카드 내용{" "}
                 <span className="font-mono text-xs text-muted-foreground">
-                  user_activity_details
+                  cluster4_line_submissions
                 </span>
               </h3>
-              <ActivitySubPane
-                modal="work_career"
-                rows={visibleActivityRows}
-                saveDisabled={saveDisabled}
+              <SubmissionSubPane
+                key="work_career_submissions"
+                label="Work Career"
+                rows={careerSlotRows}
+                canOperate={canOperate}
                 savingRowId={savingRowId}
-                tableAvailable={bundle.tablesAvailable.userActivityDetails}
+                tableAvailable={submissionTableAvailable}
                 getWeekLabel={getWeekLabel}
-                weekOptions={weekOptions}
-                canAdd={canAddForModal("work_career")}
-                hubCanEdit={canEditModal("work_career")}
-                hubDecision={hubDecisions.career}
-                draftActive={!!activityDrafts.work_career}
-                onAddDraft={() => handleAddActivityDraft("work_career")}
-                onCancelDraft={() => handleCancelActivityDraft("work_career")}
-                onChange={(rowId, patch) => setActivityRow(rowId, patch)}
-                onSave={(rowId) => void handleSaveActivityRow(rowId)}
-                onDelete={(rowId, label) =>
+                weekStartById={weekStartById}
+                onChange={(lineTargetId, patch) =>
+                  setSubmissionRow(lineTargetId, patch)
+                }
+                onSave={(lineTargetId) => void handleSaveSubmission(lineTargetId)}
+                onDelete={(submissionId, label) =>
                   void handleDelete(
-                    "userActivityDetail",
-                    rowId,
-                    `${label} 행을 삭제할까요?`,
+                    "cluster4LineSubmission",
+                    submissionId,
+                    `${label} 제출값을 삭제할까요?`,
                   )
                 }
                 devMode={devMode}
@@ -983,10 +623,10 @@ export default function ActivityTab({
                 savingRowId={savingRowId}
                 tableAvailable={bundle.tablesAvailable.careerRecords}
                 getWeekLabel={getWeekLabel}
-                weekOptions={weekOptions}
-                canAdd={canAddForModal("work_career")}
-                hubCanEdit={canEditModal("work_career")}
-                hubDecision={hubDecisions.career}
+                weekOptions={Array.from(weekLabels.entries()).map(
+                  ([id, label]) => ({ id, label }),
+                )}
+                canAdd={canOperate}
                 draftActive={!!careerDraft}
                 onAddDraft={handleAddCareerDraft}
                 onCancelDraft={handleCancelCareerDraft}
@@ -1009,52 +649,116 @@ export default function ActivityTab({
   );
 }
 
-// ───────────── Work Info / Ability / Exp pane ─────────────
+// ───────────── Submission(line target) pane — 주차 그룹핑 + 아코디언 ─────────────
 
-function ActivitySubPane({
-  modal,
+type WeekGroup = {
+  weekId: string;
+  label: string;
+  sortKey: string;
+  rows: SubmissionFormRow[];
+  total: number;
+  submitted: number;
+  missing: number;
+};
+
+// 슬롯을 weekId 로 묶고 주차 헤더 요약(총/제출/미제출)을 계산한다. 최근 주차 우선 정렬.
+function buildWeekGroups(
+  rows: SubmissionFormRow[],
+  getWeekLabel: (id: string | null | undefined) => string,
+  weekStartById: Map<string, string>,
+): WeekGroup[] {
+  const byWeek = new Map<string, SubmissionFormRow[]>();
+  for (const row of rows) {
+    const arr = byWeek.get(row.weekId) ?? [];
+    arr.push(row);
+    byWeek.set(row.weekId, arr);
+  }
+  const groups: WeekGroup[] = [];
+  for (const [weekId, weekRows] of byWeek.entries()) {
+    const submitted = weekRows.filter((r) => r.submissionId !== null).length;
+    const label = getWeekLabel(weekId);
+    const start = weekStartById.get(weekId) ?? "";
+    // start_date 우선, 없으면 라벨에 박힌 날짜, 최후엔 weekId 로 정렬키 구성.
+    const labelDate = label.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? "";
+    groups.push({
+      weekId,
+      label,
+      sortKey: start || labelDate || weekId,
+      rows: weekRows,
+      total: weekRows.length,
+      submitted,
+      missing: weekRows.length - submitted,
+    });
+  }
+  groups.sort((a, b) =>
+    a.sortKey < b.sortKey ? 1 : a.sortKey > b.sortKey ? -1 : 0,
+  );
+  return groups;
+}
+
+// 기본 펼침: 가장 최근 주차(첫 그룹) + submission 이 하나라도 있는 주차.
+function defaultOpenWeeks(groups: WeekGroup[]): Set<string> {
+  const open = new Set<string>();
+  if (groups.length > 0) open.add(groups[0].weekId);
+  for (const g of groups) if (g.submitted > 0) open.add(g.weekId);
+  return open;
+}
+
+function SubmissionSubPane({
+  label,
   rows,
-  saveDisabled,
+  canOperate,
   savingRowId,
   tableAvailable,
   getWeekLabel,
-  weekOptions,
-  canAdd,
-  hubCanEdit,
-  hubDecision,
-  draftActive,
-  onAddDraft,
-  onCancelDraft,
+  weekStartById,
   onChange,
   onSave,
   onDelete,
   devMode,
 }: {
-  modal: UserActivityModalKey | "work_career";
-  rows: ActivityFormRow[];
-  saveDisabled: boolean;
+  label: string;
+  rows: SubmissionFormRow[];
+  canOperate: boolean;
   savingRowId: string | null;
   tableAvailable: boolean;
   getWeekLabel: (id: string | null | undefined) => string;
-  weekOptions: Array<{ id: string; label: string }>;
-  canAdd: boolean;
-  hubCanEdit: boolean;
-  hubDecision: Cluster4HubEditDecision;
-  draftActive: boolean;
-  onAddDraft: () => void;
-  onCancelDraft: () => void;
-  onChange: (rowId: string, patch: Partial<ActivityFormRow>) => void;
-  onSave: (rowId: string) => void;
-  onDelete: (rowId: string, label: string) => void;
+  weekStartById: Map<string, string>;
+  onChange: (lineTargetId: string, patch: SubmissionFormPatch) => void;
+  onSave: (lineTargetId: string) => void;
+  onDelete: (submissionId: string, label: string) => void;
   devMode: boolean;
 }) {
-  // 기존 saveDisabled (loading/saving) 위에 hub 권한을 덮는다. hubCanEdit=false 이면
-  // 입력 / 저장 / 삭제 모두 disabled.
-  const rowDisabled = saveDisabled || !hubCanEdit;
+  const rowDisabled = !canOperate;
+  const groups = useMemo(
+    () => buildWeekGroups(rows, getWeekLabel, weekStartById),
+    [rows, getWeekLabel, weekStartById],
+  );
+  // 컴포넌트는 탭 전환 시 key 로 remount 되므로, 마운트 시점의 groups 로 기본 펼침을 1회 계산.
+  const [openWeeks, setOpenWeeks] = useState<Set<string>>(() =>
+    defaultOpenWeeks(groups),
+  );
+  const [openSlots, setOpenSlots] = useState<Set<string>>(() => new Set());
+
+  const toggleWeek = (weekId: string) =>
+    setOpenWeeks((prev) => {
+      const next = new Set(prev);
+      if (next.has(weekId)) next.delete(weekId);
+      else next.add(weekId);
+      return next;
+    });
+  const toggleSlot = (lineTargetId: string) =>
+    setOpenSlots((prev) => {
+      const next = new Set(prev);
+      if (next.has(lineTargetId)) next.delete(lineTargetId);
+      else next.add(lineTargetId);
+      return next;
+    });
+
   if (!tableAvailable) {
     return (
       <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-        <span className="font-mono text-xs">user_activity_details</span> 테이블을 조회할 수
+        <span className="font-mono text-xs">cluster4_line_submissions</span> 를 조회할 수
         없습니다.
       </div>
     );
@@ -1062,289 +766,68 @@ function ActivitySubPane({
 
   if (rows.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 rounded-md border border-dashed bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
-        <p>
-          {ACTIVITY_MODAL_LABEL[modal]} 에 해당하는 user_activity_details row 가 없습니다.
-        </p>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={onAddDraft}
-          disabled={!canAdd}
-        >
-          <Plus className="h-4 w-4" />새 항목 추가
-        </Button>
+      <div className="flex flex-col items-center gap-2 rounded-md border border-dashed bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
+        <p>{label} 에 개설/배정된 라인이 없습니다.</p>
+        <p className="text-xs">먼저 라인 개설/배정을 진행해주세요.</p>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {!draftActive && (
-        <div className="flex items-center justify-end">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={onAddDraft}
-            disabled={!canAdd}
-          >
-            <Plus className="h-4 w-4" />새 항목 추가
-          </Button>
-        </div>
-      )}
-      {rows.map((row) => {
-        const isDraft = isDraftId(row.id);
-        const headerLabel = isDraft
-          ? `${ACTIVITY_MODAL_LABEL[modal]} · 신규 항목`
-          : `${row.activity_type_id} · ${getWeekLabel(row.week_id)}`;
+      {groups.map((group) => {
+        const weekOpen = openWeeks.has(group.weekId);
         return (
           <div
-            key={row.id}
-            className={cn(
-              "rounded-lg border bg-card shadow-sm",
-              isDraft && "border-primary/40 bg-primary/5",
-            )}
+            key={group.weekId}
+            className="overflow-hidden rounded-lg border bg-card shadow-sm"
           >
-            <div className="flex flex-wrap items-start justify-between gap-2 border-b px-4 py-3">
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  {isDraft && (
-                    <span className="rounded bg-primary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-foreground">
-                      신규
-                    </span>
-                  )}
-                  {isDraft ? (
-                    <span>{ACTIVITY_MODAL_LABEL[modal]}</span>
-                  ) : (
-                    <>
-                      <span className="font-mono">{row.activity_type_id}</span>
-                      <span className="text-xs font-normal text-muted-foreground">
-                        · {getWeekLabel(row.week_id)}
-                      </span>
-                    </>
-                  )}
-                </div>
-                {devMode && !isDraft && (
-                  <div className="font-mono text-[10px] text-muted-foreground">
-                    id: {row.id}
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => onSave(row.id)}
-                  disabled={rowDisabled || savingRowId === row.id}
-                >
-                  <Save className="h-4 w-4" />
-                  {savingRowId === row.id
-                    ? "저장 중..."
-                    : isDraft
-                      ? "추가"
-                      : "저장"}
-                </Button>
-                {isDraft ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={onCancelDraft}
-                    disabled={savingRowId === row.id}
-                  >
-                    <X className="h-4 w-4" />
-                    취소
-                  </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      onDelete(
-                        row.id,
-                        `${row.activity_type_id} · ${getWeekLabel(row.week_id)}`,
-                      )
-                    }
-                    disabled={rowDisabled || savingRowId === row.id}
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    삭제
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 px-4 py-3 sm:grid-cols-2">
-              {isDraft && (
-                <>
-                  <div className="flex flex-col gap-1.5">
-                    <FieldLabel>week (작성 주차)</FieldLabel>
-                    <Select
-                      value={row.week_id || "__none__"}
-                      onValueChange={(value: string | null) =>
-                        onChange(row.id, {
-                          week_id: value === "__none__" ? "" : (value ?? ""),
-                        })
-                      }
-                      disabled={rowDisabled}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="주차 선택" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— 선택</SelectItem>
-                        {weekOptions.map((opt) => (
-                          <SelectItem key={opt.id} value={opt.id}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <FieldLabel>activity_type_id</FieldLabel>
-                    {modal === "work_info" ? (
-                      <Select
-                        value={row.activity_type_id || "__none__"}
-                        onValueChange={(value: string | null) =>
-                          onChange(row.id, {
-                            activity_type_id:
-                              value === "__none__" ? "" : (value ?? ""),
-                          })
-                        }
-                        disabled={rowDisabled}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="활동 종류 선택" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">— 선택</SelectItem>
-                          {WORK_INFO_ACTIVITY_TYPE_IDS.map((id) => (
-                            <SelectItem key={id} value={id}>
-                              {id}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <Input
-                        value={row.activity_type_id}
-                        onChange={(event) =>
-                          onChange(row.id, {
-                            activity_type_id: event.target.value,
-                          })
-                        }
-                        disabled={rowDisabled}
-                        placeholder={
-                          modal === "work_ability"
-                            ? "activity_types.id (cluster_id=practical_competency) 또는 comp- 로 시작"
-                            : "activity_types.id (cluster_id=practical_experience) 또는 exp- 로 시작"
-                        }
-                        className="h-9 font-mono"
-                      />
-                    )}
-                  </div>
-                </>
+            <button
+              type="button"
+              onClick={() => toggleWeek(group.weekId)}
+              className="flex w-full flex-wrap items-center gap-2 px-4 py-3 text-left hover:bg-muted/40"
+              aria-expanded={weekOpen}
+            >
+              {weekOpen ? (
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+              ) : (
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               )}
+              <span className="text-sm font-semibold text-foreground">
+                {group.label}
+              </span>
+              <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+                <span className="rounded bg-muted px-2 py-0.5">
+                  총 {group.total}
+                </span>
+                <span className="rounded bg-emerald-100 px-2 py-0.5 text-emerald-700">
+                  제출 {group.submitted}
+                </span>
+                <span className="rounded bg-amber-100 px-2 py-0.5 text-amber-700">
+                  미제출 {group.missing}
+                </span>
+              </span>
+            </button>
 
-              <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <FieldLabel>sub_title</FieldLabel>
-                <textarea
-                  value={row.sub_title}
-                  onChange={(event) =>
-                    onChange(row.id, { sub_title: event.target.value })
-                  }
-                  disabled={rowDisabled}
-                  rows={2}
-                  maxLength={300}
-                  className="resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <div className="self-end text-[10px] text-muted-foreground">
-                  {row.sub_title.length}/300
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <FieldLabel>growth_point</FieldLabel>
-                <textarea
-                  value={row.growth_point}
-                  onChange={(event) =>
-                    onChange(row.id, { growth_point: event.target.value })
-                  }
-                  disabled={rowDisabled}
-                  rows={3}
-                  maxLength={2000}
-                  className="resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                />
-                <div className="self-end text-[10px] text-muted-foreground">
-                  {row.growth_point.length}/2000
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <FieldLabel>output_links (JSON array of {`{desc, url}`})</FieldLabel>
-                <textarea
-                  value={row.output_links_json}
-                  onChange={(event) =>
-                    onChange(row.id, { output_links_json: event.target.value })
-                  }
-                  disabled={rowDisabled}
-                  rows={3}
-                  spellCheck={false}
-                  className="resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <FieldLabel>image_urls (JSON array of strings, ≤4)</FieldLabel>
-                <textarea
-                  value={row.image_urls_json}
-                  onChange={(event) =>
-                    onChange(row.id, { image_urls_json: event.target.value })
-                  }
-                  disabled={rowDisabled}
-                  rows={3}
-                  spellCheck={false}
-                  className="resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <FieldLabel>image_captions (JSON array)</FieldLabel>
-                <textarea
-                  value={row.image_captions_json}
-                  onChange={(event) =>
-                    onChange(row.id, { image_captions_json: event.target.value })
-                  }
-                  disabled={rowDisabled}
-                  rows={3}
-                  spellCheck={false}
-                  className="resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </div>
-
-              {modal === "work_exp" && (
-                <div className="flex flex-col gap-1.5">
-                  <FieldLabel>rating (0~10, 비우면 NULL)</FieldLabel>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={10}
-                    step={1}
-                    inputMode="numeric"
-                    value={row.rating}
-                    onChange={(event) =>
-                      onChange(row.id, { rating: event.target.value })
-                    }
-                    disabled={rowDisabled}
-                    className="h-9"
+            {weekOpen && (
+              <div className="flex flex-col gap-2 border-t bg-muted/20 px-3 py-3">
+                {group.rows.map((row) => (
+                  <SubmissionSlotCard
+                    key={row.lineTargetId}
+                    row={row}
+                    open={openSlots.has(row.lineTargetId)}
+                    rowDisabled={rowDisabled}
+                    savingRowId={savingRowId}
+                    getWeekLabel={getWeekLabel}
+                    onToggle={() => toggleSlot(row.lineTargetId)}
+                    onChange={onChange}
+                    onSave={onSave}
+                    onDelete={onDelete}
+                    devMode={devMode}
                   />
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
@@ -1352,7 +835,184 @@ function ActivitySubPane({
   );
 }
 
-// ───────────── Work Career pane ─────────────
+// 슬롯 카드 — 접힘 시 최소 정보(mainTitle/상태/수정일), 펼침 시 상세 입력 + 저장/삭제.
+function SubmissionSlotCard({
+  row,
+  open,
+  rowDisabled,
+  savingRowId,
+  getWeekLabel,
+  onToggle,
+  onChange,
+  onSave,
+  onDelete,
+  devMode,
+}: {
+  row: SubmissionFormRow;
+  open: boolean;
+  rowDisabled: boolean;
+  savingRowId: string | null;
+  getWeekLabel: (id: string | null | undefined) => string;
+  onToggle: () => void;
+  onChange: (lineTargetId: string, patch: SubmissionFormPatch) => void;
+  onSave: (lineTargetId: string) => void;
+  onDelete: (submissionId: string, label: string) => void;
+  devMode: boolean;
+}) {
+  const isSubmitted = row.submissionId !== null;
+  const updated = row.updatedAt ? row.updatedAt.slice(0, 10) : null;
+  const headerTitle = `${row.mainTitle} · ${getWeekLabel(row.weekId)}`;
+
+  return (
+    <div
+      className={cn(
+        "rounded-md border bg-background",
+        !isSubmitted && "border-amber-300/60",
+      )}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full flex-wrap items-center gap-2 px-3 py-2 text-left hover:bg-muted/40"
+        aria-expanded={open}
+      >
+        {open ? (
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        )}
+        <span
+          className={cn(
+            "rounded px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+            isSubmitted ? "bg-emerald-600 text-white" : "bg-amber-500 text-white",
+          )}
+        >
+          {isSubmitted ? "제출됨" : "미제출"}
+        </span>
+        <span className="truncate text-sm font-medium text-foreground">
+          {row.mainTitle}
+        </span>
+        {row.activityTypeId && (
+          <span className="font-mono text-[11px] text-muted-foreground">
+            [{row.activityTypeId}]
+          </span>
+        )}
+        <span className="ml-auto text-[11px] text-muted-foreground">
+          {updated ? `수정 ${updated}` : "—"}
+        </span>
+      </button>
+
+      {open && (
+        <div className="flex flex-col gap-3 border-t px-3 py-3">
+          <div className="flex items-center justify-between gap-2">
+            {devMode ? (
+              <span className="font-mono text-[10px] text-muted-foreground">
+                lineTargetId: {row.lineTargetId}
+                {row.submissionId ? ` · submissionId: ${row.submissionId}` : ""}
+              </span>
+            ) : (
+              <span />
+            )}
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => onSave(row.lineTargetId)}
+                disabled={rowDisabled || savingRowId === row.lineTargetId}
+              >
+                <Save className="h-4 w-4" />
+                {savingRowId === row.lineTargetId ? "저장 중..." : "저장"}
+              </Button>
+              {isSubmitted && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDelete(row.submissionId!, headerTitle)}
+                  disabled={rowDisabled || savingRowId === row.submissionId}
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  삭제
+                </Button>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <FieldLabel>subtitle</FieldLabel>
+              <textarea
+                value={row.subtitle}
+                onChange={(event) =>
+                  onChange(row.lineTargetId, { subtitle: event.target.value })
+                }
+                disabled={rowDisabled}
+                rows={2}
+                maxLength={300}
+                className="resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <div className="self-end text-[10px] text-muted-foreground">
+                {row.subtitle.length}/300
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <FieldLabel>growthPoint</FieldLabel>
+              <textarea
+                value={row.growth_point}
+                onChange={(event) =>
+                  onChange(row.lineTargetId, { growth_point: event.target.value })
+                }
+                disabled={rowDisabled}
+                rows={3}
+                maxLength={2000}
+                className="resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <div className="self-end text-[10px] text-muted-foreground">
+                {row.growth_point.length}/2000
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <FieldLabel>outputLinks (JSON array of {`{url, label}`})</FieldLabel>
+              <textarea
+                value={row.output_links_json}
+                onChange={(event) =>
+                  onChange(row.lineTargetId, {
+                    output_links_json: event.target.value,
+                  })
+                }
+                disabled={rowDisabled}
+                rows={3}
+                spellCheck={false}
+                className="resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <FieldLabel>outputImages (JSON array of {`{url, caption}`})</FieldLabel>
+              <textarea
+                value={row.output_images_json}
+                onChange={(event) =>
+                  onChange(row.lineTargetId, {
+                    output_images_json: event.target.value,
+                  })
+                }
+                disabled={rowDisabled}
+                rows={3}
+                spellCheck={false}
+                className="resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ───────────── Work Career pane (career_records) ─────────────
 
 function CareerSubPane({
   rows,
@@ -1362,8 +1022,6 @@ function CareerSubPane({
   getWeekLabel,
   weekOptions,
   canAdd,
-  hubCanEdit,
-  hubDecision,
   draftActive,
   onAddDraft,
   onCancelDraft,
@@ -1379,8 +1037,6 @@ function CareerSubPane({
   getWeekLabel: (id: string | null | undefined) => string;
   weekOptions: Array<{ id: string; label: string }>;
   canAdd: boolean;
-  hubCanEdit: boolean;
-  hubDecision: Cluster4HubEditDecision;
   draftActive: boolean;
   onAddDraft: () => void;
   onCancelDraft: () => void;
@@ -1389,7 +1045,7 @@ function CareerSubPane({
   onDelete: (rowId: string, label: string) => void;
   devMode: boolean;
 }) {
-  const rowDisabled = saveDisabled || !hubCanEdit;
+  const rowDisabled = saveDisabled;
   if (!tableAvailable) {
     return (
       <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">

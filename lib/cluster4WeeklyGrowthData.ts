@@ -27,10 +27,10 @@ import {
 import {
   fetchInfoLineCountsByWeek,
   fetchInfoLineSuccessCountsByWeek,
+  fetchLineSuccessCountsByWeek,
   fetchCareerProjectCountsByWeek,
   buildWeekAvailability,
   roundGrowthRate,
-  type LineCategory,
 } from "@/lib/lineAvailability";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -347,13 +347,6 @@ type PointsRow = {
   penalty: number;
 };
 
-function classifyByPartType(partType: string | null): LineCategory {
-  if (partType === "competency") return "ability";
-  if (partType === "experience") return "experience";
-  if (partType === "career") return "career";
-  return "info";
-}
-
 type CrewMetadata = {
   teamLabel: string;
   partLabel: string;
@@ -458,52 +451,39 @@ async function computeWeeklyCards(
     }
   }
 
-  // 6. 주차별 활동 상세 (라인 분류별 카운트) + 가용 라인 수
-  type ActivityRow = { week_id: string; activity_type_id: string };
-  const activityByWeek = new Map<string, { info: number; ability: number; experience: number; career: number }>();
+  // 6. 주차별 강화율 분자 B = part별 (배정 target 중 마감 지난) success 수 + 가용 라인 수.
+  // 4개 part 모두 동일 기준: target + submission_closes_at 마감, 제출 무관 (강화상태 success 와 동일).
+  // user_activity_details 미사용 (구 source 제거, target+마감 기준으로 통일).
   let infoLineMap = new Map<string, number>();
-  // info 강화율 B(분자) = 사용자 배정 info target 중 마감 지난(success) 라인 수.
-  // user_activity_details 가 아니라 target+마감 기준 (강화상태 success 와 동일 기준).
   let infoSuccessMap = new Map<string, number>();
+  let abilitySuccessMap = new Map<string, number>();
+  let experienceSuccessMap = new Map<string, number>();
+  let careerSuccessMap = new Map<string, number>();
   let careerProjectMap = new Map<string, number>();
 
   if (weekCardIds.length > 0) {
-    const [detailsRes, partTypeMapRes, infoMap, infoSuccess, careerMap] = await Promise.all([
-      supabaseAdmin
-        .from("user_activity_details")
-        .select("week_id,activity_type_id")
-        .eq("user_id", userId)
-        .in("week_id", weekCardIds),
-      supabaseAdmin
-        .from("cluster4_lines")
-        .select("activity_type_id,part_type")
-        .not("activity_type_id", "is", null),
+    const [
+      infoMap,
+      infoSuccess,
+      abilitySuccess,
+      experienceSuccess,
+      careerSuccess,
+      careerMap,
+    ] = await Promise.all([
       fetchInfoLineCountsByWeek(userId, weekCardIds),
       fetchInfoLineSuccessCountsByWeek(userId, weekCardIds),
+      fetchLineSuccessCountsByWeek(userId, weekCardIds, "competency"),
+      fetchLineSuccessCountsByWeek(userId, weekCardIds, "experience"),
+      fetchLineSuccessCountsByWeek(userId, weekCardIds, "career"),
       fetchCareerProjectCountsByWeek(weekCardIds),
     ]);
 
     infoLineMap = infoMap;
     infoSuccessMap = infoSuccess;
+    abilitySuccessMap = abilitySuccess;
+    experienceSuccessMap = experienceSuccess;
+    careerSuccessMap = careerSuccess;
     careerProjectMap = careerMap;
-
-    const partTypeMap = new Map<string, string>();
-    if (partTypeMapRes.data) {
-      for (const l of partTypeMapRes.data as { activity_type_id: string; part_type: string }[]) {
-        partTypeMap.set(l.activity_type_id, l.part_type);
-      }
-    }
-
-    if (detailsRes.data) {
-      for (const d of detailsRes.data as ActivityRow[]) {
-        const weekId = d.week_id;
-        const classification = classifyByPartType(partTypeMap.get(d.activity_type_id) ?? null);
-        if (!activityByWeek.has(weekId)) {
-          activityByWeek.set(weekId, { info: 0, ability: 0, experience: 0, career: 0 });
-        }
-        activityByWeek.get(weekId)![classification]++;
-      }
-    }
   }
 
   // 7. 현재 주 판별 (running/tallying)
@@ -598,18 +578,17 @@ async function computeWeeklyCards(
       resultStatus === "personal_rest" ||
       resultStatus === "official_rest";
 
-    // 라인 분류: 가용 수는 동적 조회, 이행 수는 user_activity_details 기반
-    const actCounts = weekCardId ? activityByWeek.get(weekCardId) : null;
+    // 라인 가용 수(A)는 동적 조회. 이행 수(B)는 4개 part 모두 target+마감 기준 success.
     const avail = isRest
       ? { info: 0, ability: 0, experience: 0, career: 0 }
       : buildWeekAvailability(weekCardId, infoLineMap, careerProjectMap, organization);
 
     const lineBreakdown: WeeklyCardLineBreakdown = {
-      // info B(completed) = target+마감 기준 success 수 (강화상태 success 와 동일). 제출 무관.
+      // 4개 part 모두 B(completed) = target+마감 기준 success 수 (강화상태 success 와 동일 기준). 제출 무관.
       info: { completed: isRest ? 0 : (weekCardId ? (infoSuccessMap.get(weekCardId) ?? 0) : 0), available: avail.info },
-      ability: { completed: isRest ? 0 : (actCounts?.ability ?? 0), available: avail.ability },
-      experience: { completed: isRest ? 0 : (actCounts?.experience ?? 0), available: avail.experience },
-      career: { completed: isRest ? 0 : (actCounts?.career ?? 0), available: avail.career },
+      ability: { completed: isRest ? 0 : (weekCardId ? (abilitySuccessMap.get(weekCardId) ?? 0) : 0), available: avail.ability },
+      experience: { completed: isRest ? 0 : (weekCardId ? (experienceSuccessMap.get(weekCardId) ?? 0) : 0), available: avail.experience },
+      career: { completed: isRest ? 0 : (weekCardId ? (careerSuccessMap.get(weekCardId) ?? 0) : 0), available: avail.career },
     };
 
     const completedLines =

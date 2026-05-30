@@ -16,6 +16,12 @@ import {
   listCareerRecords,
   upsertCareerRecord,
 } from "@/lib/careerRecordsData";
+import {
+  AdminCluster4SubmissionError,
+  adminDeleteCluster4LineSubmission,
+  adminUpsertCluster4LineSubmission,
+  listCluster4LineSubmissionsForUser,
+} from "@/lib/adminCluster4LineSubmissionsData";
 import type {
   Cluster4ApplySummary,
   Cluster4Bundle,
@@ -437,6 +443,7 @@ async function fetchCluster4Tables(userId: string) {
     activityTypesClusterMap,
     cluster4LineTargets,
     cluster4HubEditWindows,
+    cluster4LineSubmissions,
   ] = await Promise.all([
     supabaseAdmin.from("season_definitions").select("*"),
     supabaseAdmin.from("weeks").select("id,week_number,start_date,end_date,season_key,is_official_rest,holiday_name,iso_year,iso_week,created_at"),
@@ -451,6 +458,7 @@ async function fetchCluster4Tables(userId: string) {
     fetchActivityTypesClusterMap(),
     fetchCluster4LineTargets(userId),
     fetchCluster4HubEditWindows(userId),
+    listCluster4LineSubmissionsForUser(userId),
   ]);
 
   return {
@@ -471,6 +479,7 @@ async function fetchCluster4Tables(userId: string) {
     activityTypesClusterMap,
     cluster4LineTargets,
     cluster4HubEditWindows,
+    cluster4LineSubmissions,
   };
 }
 
@@ -501,6 +510,7 @@ export async function getCluster4ForCrew(
         "cluster4.work_exp": null,
         "cluster4.work_career": null,
       },
+      cluster4LineSubmissions: [],
       tablesAvailable: {
         seasons: false,
         weeks: false,
@@ -515,6 +525,7 @@ export async function getCluster4ForCrew(
         activityTypes: false,
         cluster4LineTargets: false,
         userEditWindows: false,
+        cluster4LineSubmissions: false,
       },
     };
   }
@@ -537,6 +548,7 @@ export async function getCluster4ForCrew(
     activityTypesClusterMap: tables.activityTypesClusterMap.map,
     cluster4LineTargets: tables.cluster4LineTargets.rows,
     cluster4HubEditWindows: tables.cluster4HubEditWindows.windows,
+    cluster4LineSubmissions: tables.cluster4LineSubmissions.rows,
     tablesAvailable: {
       seasons: tables.seasons.available,
       weeks: tables.weeks.available,
@@ -551,6 +563,7 @@ export async function getCluster4ForCrew(
       activityTypes: tables.activityTypesClusterMap.available,
       cluster4LineTargets: tables.cluster4LineTargets.available,
       userEditWindows: tables.cluster4HubEditWindows.available,
+      cluster4LineSubmissions: tables.cluster4LineSubmissions.available,
     },
   };
 }
@@ -1048,6 +1061,30 @@ export async function patchCluster4ForCrew(
     };
   }
 
+  if (body.cluster4LineSubmissions !== undefined) {
+    if (!Array.isArray(body.cluster4LineSubmissions)) {
+      throw new Cluster4Error(400, "cluster4LineSubmissions must be an array.");
+    }
+
+    // line_target_id 기준 upsert. 작성기간(submission_closes_at) 미검사 — 운영자 상시 편집.
+    const upsertedIds: string[] = [];
+    for (const input of body.cluster4LineSubmissions) {
+      try {
+        const row = await adminUpsertCluster4LineSubmission(userId, input);
+        if (row.submission) upsertedIds.push(row.submission.id);
+      } catch (error) {
+        if (error instanceof AdminCluster4SubmissionError) {
+          throw new Cluster4Error(error.status, error.message);
+        }
+        throw error;
+      }
+    }
+    applied.cluster4LineSubmissions = {
+      upserted: upsertedIds.length,
+      ids: upsertedIds,
+    };
+  }
+
   const bundle = await getCluster4ForCrew(legacyUserId);
   return { bundle, warnings, applied };
 }
@@ -1125,6 +1162,20 @@ export async function deleteCluster4Resource(
       return { bundle, deletedId };
     } catch (error) {
       if (error instanceof CareerRecordsError) {
+        throw new Cluster4Error(error.status, error.message);
+      }
+      throw error;
+    }
+  }
+
+  // cluster4_line_submissions: 전용 어드민 레이어가 ownership 검증 + 작성기간 무시 삭제 제공.
+  if (resource === "cluster4LineSubmission") {
+    try {
+      const deletedId = await adminDeleteCluster4LineSubmission(userId, id);
+      const bundle = await getCluster4ForCrew(legacyUserId);
+      return { bundle, deletedId };
+    } catch (error) {
+      if (error instanceof AdminCluster4SubmissionError) {
         throw new Cluster4Error(error.status, error.message);
       }
       throw error;

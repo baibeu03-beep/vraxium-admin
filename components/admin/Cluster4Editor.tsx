@@ -1063,6 +1063,7 @@ export default function Cluster4Editor({
       careerRecord: "careerRecordId",
       weeklyReview: "weeklyReviewId",
       weeklyColleague: "weeklyColleagueId",
+      cluster4LineSubmission: "cluster4LineSubmissionId",
     };
     const paramKey = paramKeyMap[resource];
 

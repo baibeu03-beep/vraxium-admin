@@ -143,6 +143,48 @@ export async function fetchInfoLineSuccessCountsByWeek(
   return result;
 }
 
+// part별 강화율 분자 B = 그 주차에 사용자가 배정된 active 라인 target 중 "강화 성공"(마감 지남) 수.
+// info 의 fetchInfoLineSuccessCountsByWeek 와 동일 기준(target + submission_closes_at 마감, 제출 무관)을
+// ability(competency) / experience / career 에도 적용한다. user_activity_details 미사용.
+export async function fetchLineSuccessCountsByWeek(
+  userId: string,
+  weekIds: string[],
+  partType: "info" | "competency" | "experience" | "career",
+  now: number = Date.now(),
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (weekIds.length === 0) return result;
+
+  const { data: lines } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id,submission_closes_at")
+    .eq("part_type", partType)
+    .eq("is_active", true);
+
+  const closesById = new Map<string, string>();
+  for (const l of (lines ?? []) as { id: string; submission_closes_at: string }[]) {
+    closesById.set(l.id, l.submission_closes_at);
+  }
+  if (closesById.size === 0) return result;
+
+  const { data: targets } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("week_id,line_id")
+    .eq("target_mode", "user")
+    .eq("target_user_id", userId)
+    .in("line_id", Array.from(closesById.keys()))
+    .in("week_id", weekIds);
+
+  for (const t of (targets ?? []) as { week_id: string; line_id: string }[]) {
+    const closes = closesById.get(t.line_id);
+    // success = 마감(submission_closes_at) 지남. 제출 유무 무관.
+    if (closes && new Date(closes).getTime() < now) {
+      result.set(t.week_id, (result.get(t.week_id) ?? 0) + 1);
+    }
+  }
+  return result;
+}
+
 // 그 주차에 info 라인이 (누구든) 개설됐는지 — fail vs not_applicable 구분 신호.
 // 배정 없음 + 개설됨 → fail / 미개설 → not_applicable.
 export async function fetchWeeksWithAnyInfoLine(

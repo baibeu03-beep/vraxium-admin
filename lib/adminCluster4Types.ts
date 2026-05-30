@@ -20,6 +20,8 @@ import type {
 } from "@/lib/careerRecordsTypes";
 import type { Cluster4LinePartType } from "@/lib/cluster4LinesTypes";
 import type { Cluster4HubEditWindowKey } from "@/lib/cluster4LinePermission";
+import type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
+import type { Cluster4OutputImage } from "@/lib/cluster4OutputImages";
 
 export type {
   ReputationKeywordRow,
@@ -50,6 +52,42 @@ export type Cluster4LineTargetSnapshot = {
     submissionClosesAt: string;
     mainTitle: string;
   };
+};
+
+// 어드민 활동 편집의 새 SoT 단위 — cluster4_line_targets(user-mode) 1행에 매달린
+// cluster4_line_submissions 본문(없으면 null). user_activity_details 를 대체한다.
+// 편집은 line_target_id 기준이며, target 이 없으면 submission 을 만들 수 없다(라인 개설/배정 선행).
+export type Cluster4AdminSubmissionRow = {
+  lineTargetId: string;
+  lineId: string;
+  weekId: string;
+  partType: Cluster4LinePartType;
+  mainTitle: string;
+  // info sub-line 식별자 (activity_types.id). info 외 part 는 보통 null.
+  activityTypeId: string | null;
+  submissionOpensAt: string;
+  submissionClosesAt: string;
+  isActive: boolean;
+  // 제출 본문. 미제출 슬롯은 null.
+  submission: {
+    id: string;
+    subtitle: string | null;
+    growthPoint: string | null;
+    outputLinks: Cluster4OutputLink[];
+    outputImages: Cluster4OutputImage[];
+    submittedAt: string;
+    updatedAt: string;
+  } | null;
+};
+
+// 어드민 submission upsert 입력 — line_target_id 기준. rating 은 이번 단계 제외(보류).
+// 작성기간(submission_closes_at)은 검사하지 않는다 (운영자 상시 편집).
+export type Cluster4AdminSubmissionUpsertInput = {
+  lineTargetId: string;
+  subtitle?: string | null;
+  growthPoint?: string | null;
+  outputLinks?: Cluster4OutputLink[];
+  outputImages?: Cluster4OutputImage[];
 };
 
 // Snapshot of a user_edit_windows row for one of the 4 cluster4.work_* keys.
@@ -113,6 +151,9 @@ export type Cluster4Bundle = {
     Cluster4HubEditWindowKey,
     Cluster4HubEditWindowSnapshot
   >;
+  // ActivityTab 전환용 — user-mode line target + 조인된 submission 본문 슬롯.
+  // (staging) 배선 단계에서 항상 채워지며, 그 전까지는 optional 로 둔다.
+  cluster4LineSubmissions?: Cluster4AdminSubmissionRow[];
   tablesAvailable: {
     seasons: boolean;
     weeks: boolean;
@@ -127,6 +168,8 @@ export type Cluster4Bundle = {
     activityTypes: boolean;
     cluster4LineTargets: boolean;
     userEditWindows: boolean;
+    // (staging) 배선 단계에서 항상 채워진다.
+    cluster4LineSubmissions?: boolean;
   };
 };
 
@@ -165,6 +208,9 @@ export type Cluster4UserActivityDetailPatchRow = UserActivityDetailUpsertInput &
 
 export type Cluster4CareerRecordPatchRow = CareerRecordUpsertInput;
 
+// 어드민 submission 편집 payload — line_target_id 기준 upsert. rating 미포함.
+export type Cluster4LineSubmissionPatchRow = Cluster4AdminSubmissionUpsertInput;
+
 export type Cluster4PatchBody = {
   userSeasonHistories?: Cluster4UserSeasonHistoryPatchRow[];
   seasonReputations?: Cluster4SeasonReputationPatchRow[];
@@ -173,6 +219,7 @@ export type Cluster4PatchBody = {
   weeklyColleagues?: WeeklyColleaguePatchRow[];
   userActivityDetails?: Cluster4UserActivityDetailPatchRow[];
   careerRecords?: Cluster4CareerRecordPatchRow[];
+  cluster4LineSubmissions?: Cluster4LineSubmissionPatchRow[];
 };
 
 export type Cluster4ApplySummary = {
@@ -183,6 +230,7 @@ export type Cluster4ApplySummary = {
   weeklyColleagues?: { updated: number; ids: string[] };
   userActivityDetails?: { upserted: number; ids: string[] };
   careerRecords?: { upserted: number; ids: string[] };
+  cluster4LineSubmissions?: { upserted: number; ids: string[] };
 };
 
 // DELETE 분기에서 사용. id 기반 단일 row 삭제.
@@ -192,4 +240,5 @@ export type Cluster4DeleteResource =
   | "weeklyReview"
   | "weeklyColleague"
   | "userActivityDetail"
-  | "careerRecord";
+  | "careerRecord"
+  | "cluster4LineSubmission";

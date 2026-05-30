@@ -113,8 +113,9 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 //   - weeklyReputationId
 //   - weeklyReviewId
 //   - weeklyColleagueId
-//   - userActivityDetailId  (Work Info / Work Ability / Work Exp)
+//   - userActivityDetailId  (Work Info / Work Ability / Work Exp) — legacy, 병존 유지
 //   - careerRecordId        (Work Career)
+//   - cluster4LineSubmissionId (어드민 submission 편집 — user_activity_details 대체 경로)
 // 정확히 하나만 지정되어야 함.
 const DELETE_PARAM_MAP: Array<{
   param: string;
@@ -126,6 +127,7 @@ const DELETE_PARAM_MAP: Array<{
   { param: "weeklyColleagueId", resource: "weeklyColleague" },
   { param: "userActivityDetailId", resource: "userActivityDetail" },
   { param: "careerRecordId", resource: "careerRecord" },
+  { param: "cluster4LineSubmissionId", resource: "cluster4LineSubmission" },
 ];
 
 export async function DELETE(request: NextRequest, { params }: Ctx) {
