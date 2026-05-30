@@ -30,9 +30,6 @@ export type Cluster4LineDto = {
   activityTypeId: string | null;
   lineCode: string | null;
   mainTitle: string;
-  // 실무 정보(info) 라인 운영자 입력값. 크루원 제출 subtitle 과 별개 축. info 외 part 는 null.
-  infoSubtitle: string | null;
-  infoGrowthPoint: string | null;
   outputLink1: string | null;
   outputLink2: string | null;
   outputLinks: Cluster4OutputLink[];
@@ -93,6 +90,11 @@ export type Cluster4InfoLineTargetDetail = {
   submissionId: string | null;
   submitted: boolean;
   submittedAt: string | null;
+  // 크루원 제출값 — 어드민 상세 읽기 전용 표시용. 미제출이면 null/[].
+  // (구 cluster4_lines.info_subtitle/info_growth_point → cluster4_line_submissions 로 이전)
+  subtitle: string | null;
+  growthPoint: string | null;
+  outputImages: string[];
   // 강화 상태 — 서버 계산값(재계산 금지). 어드민 상세는 target 이 항상 존재하므로
   // 마감 여부에 따라 success/pending 으로만 산정된다 (마감 후면 미기입이라도 success).
   // submitted 와 분리된 축이다.
@@ -134,8 +136,6 @@ export type Cluster4LineUpsertInput = {
   partType: Cluster4LinePartType;
   activityTypeId: string | null;
   mainTitle: string;
-  infoSubtitle: string | null;
-  infoGrowthPoint: string | null;
   outputLink1: string | null;
   outputLink2: string | null;
   outputLinks: Cluster4OutputLink[];
@@ -292,10 +292,6 @@ export function parseCluster4LineCreateBody(body: unknown): ParseBodyResult<Clus
   if (!activityTypeId.ok) return activityTypeId as ParseBodyResult<Cluster4LineUpsertInput>;
   const mainTitle = normalizeTextField(body.main_title, "main_title", { required: true });
   if (!mainTitle.ok || !mainTitle.value) return mainTitle as ParseBodyResult<Cluster4LineUpsertInput>;
-  const infoSubtitle = normalizeTextField(body.info_subtitle, "info_subtitle", { required: false });
-  if (!infoSubtitle.ok) return infoSubtitle as ParseBodyResult<Cluster4LineUpsertInput>;
-  const infoGrowthPoint = normalizeTextField(body.info_growth_point, "info_growth_point", { required: false });
-  if (!infoGrowthPoint.ok) return infoGrowthPoint as ParseBodyResult<Cluster4LineUpsertInput>;
   const outputLink1 = normalizeTextField(body.output_link_1, "output_link_1", { required: false });
   if (!outputLink1.ok) return outputLink1 as ParseBodyResult<Cluster4LineUpsertInput>;
   const outputLink2 = normalizeTextField(body.output_link_2, "output_link_2", { required: false });
@@ -333,8 +329,6 @@ export function parseCluster4LineCreateBody(body: unknown): ParseBodyResult<Clus
       partType: body.part_type,
       activityTypeId: activityTypeId.value ?? null,
       mainTitle: mainTitle.value,
-      infoSubtitle: infoSubtitle.value ?? null,
-      infoGrowthPoint: infoGrowthPoint.value ?? null,
       outputLink1: mirror1,
       outputLink2: mirror2,
       outputLinks,
@@ -370,18 +364,6 @@ export function parseCluster4LinePatchBody(body: unknown): ParseBodyResult<Clust
     const result = normalizeTextField(body.main_title, "main_title", { required: true });
     if (!result.ok || !result.value) return result as ParseBodyResult<Cluster4LinePatchInput>;
     patch.mainTitle = result.value;
-  }
-
-  if (body.info_subtitle !== undefined) {
-    const result = normalizeTextField(body.info_subtitle, "info_subtitle", { required: false });
-    if (!result.ok) return result as ParseBodyResult<Cluster4LinePatchInput>;
-    patch.infoSubtitle = result.value ?? null;
-  }
-
-  if (body.info_growth_point !== undefined) {
-    const result = normalizeTextField(body.info_growth_point, "info_growth_point", { required: false });
-    if (!result.ok) return result as ParseBodyResult<Cluster4LinePatchInput>;
-    patch.infoGrowthPoint = result.value ?? null;
   }
 
   let legacyLinkProvided = false;

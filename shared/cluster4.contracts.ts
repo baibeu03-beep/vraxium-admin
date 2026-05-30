@@ -63,12 +63,17 @@ export type Cluster4LineSubmissionDto = {
   id: string;
   lineTargetId: string;
   subtitle: string | null;
+  // 크루원 제출 그로스 포인트 (4개 허브 공통 제출 필드). 미제출/구버전 응답이면 null.
+  growthPoint: string | null;
   outputLink2: string | null;
   outputLink3: string | null;
   outputLink4: string | null;
   outputLink5: string | null;
   // URL + label 구조. output_links jsonb 우선, 없으면 outputLink2~5 fallback.
   outputLinks: Cluster4OutputLink[];
+  // 크루원 제출 이미지 (URL 목록 + index 정렬 일치 캡션). 없으면 [].
+  outputImages: string[];
+  outputImageCaptions: (string | null)[];
   submittedAt: string;
   updatedAt: string;
 };
@@ -81,9 +86,10 @@ export type Cluster4VisibleLineDto = {
   lineTargetId: string | null;
   targetMode: Cluster4LineTargetMode | null;
   mainTitle: string | null;
-  // 실무 정보(information) 라인에서 운영자가 라인 개설/관리 시 입력한 서브 타이틀·그로스 포인트.
-  // cluster4_lines.info_subtitle / info_growth_point. 크루원 제출 submission.subtitle 과 별개 축.
-  // info 외 part 또는 미입력 시 null. (append-only)
+  // 실무 정보(information) 카드의 서브 타이틀·그로스 포인트 — 크루원 제출값(submission)에서 내려준다.
+  // source: cluster4_line_submissions.subtitle / growth_point (= submission.subtitle / submission.growthPoint).
+  //   (구: cluster4_lines.info_subtitle / info_growth_point 운영자 입력값 → 2026-05-30 deprecated)
+  // info 외 part 또는 미제출 시 null. 소비처 호환을 위해 최상위 필드 유지(=submission.* 별칭).
   infoSubtitle: string | null;
   infoGrowthPoint: string | null;
   outputLink1: string | null;

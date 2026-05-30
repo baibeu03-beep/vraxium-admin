@@ -349,9 +349,8 @@ function LineDetailModal({
   onSaved: (message: string) => void;
 }) {
   const [mainTitle, setMainTitle] = useState(line.mainTitle);
-  // 운영자 입력 서브 타이틀·그로스 포인트 prefill (info 전용). 크루원 제출 subtitle 과 별개.
-  const [infoSubtitle, setInfoSubtitle] = useState(line.infoSubtitle ?? "");
-  const [infoGrowthPoint, setInfoGrowthPoint] = useState(line.infoGrowthPoint ?? "");
+  // 서브 타이틀·그로스 포인트는 크루원 제출값으로 이전됨 → 라인 편집에서 제거.
+  // (대상자별 제출값은 아래 대상자 테이블에서 읽기 전용으로 표시한다.)
   // output_links 우선 prefill (DTO 가 이미 jsonb→legacy fallback 해석). 슬롯 순서 보존.
   const [outputLink1, setOutputLink1] = useState(line.outputLinks[0]?.url ?? line.outputLink1 ?? "");
   const [outputLabel1, setOutputLabel1] = useState(line.outputLinks[0]?.label ?? "");
@@ -396,9 +395,6 @@ function LineDetailModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           main_title: mainTitle.trim(),
-          // 운영자 서브 타이틀·그로스 포인트 — 비우면 null 저장.
-          info_subtitle: infoSubtitle.trim() ? infoSubtitle.trim() : null,
-          info_growth_point: infoGrowthPoint.trim() ? infoGrowthPoint.trim() : null,
           // output_links 우선 저장 + 레거시 컬럼 backward-compat mirror.
           output_links: outputLinks,
           output_link_1: outputLinks[0]?.url ?? null,
@@ -422,8 +418,6 @@ function LineDetailModal({
   }, [
     line.id,
     mainTitle,
-    infoSubtitle,
-    infoGrowthPoint,
     outputLink1,
     outputLabel1,
     outputLink2,
@@ -473,26 +467,6 @@ function LineDetailModal({
               value={mainTitle}
               onChange={(e) => setMainTitle(e.target.value)}
             />
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="d-subtitle">서브 타이틀</Label>
-              <Input
-                id="d-subtitle"
-                value={infoSubtitle}
-                onChange={(e) => setInfoSubtitle(e.target.value)}
-                placeholder="서브 타이틀 (선택)"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="d-growth">그로스 포인트</Label>
-              <Input
-                id="d-growth"
-                value={infoGrowthPoint}
-                onChange={(e) => setInfoGrowthPoint(e.target.value)}
-                placeholder="그로스 포인트 (선택)"
-              />
-            </div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
@@ -620,6 +594,8 @@ function LineDetailModal({
               <TableHeader>
                 <TableRow>
                   <TableHead>이름</TableHead>
+                  <TableHead>서브 타이틀</TableHead>
+                  <TableHead>그로스 포인트</TableHead>
                   <TableHead className="text-center">강화 상태</TableHead>
                   <TableHead className="text-center">라인칸 기입 상태</TableHead>
                   <TableHead>canEdit</TableHead>
@@ -630,6 +606,12 @@ function LineDetailModal({
                 {line.targets.map((t) => (
                   <TableRow key={t.lineTargetId}>
                     <TableCell className="font-medium">{t.displayName}</TableCell>
+                    <TableCell className="max-w-[160px] truncate text-xs text-muted-foreground">
+                      {t.subtitle ?? "—"}
+                    </TableCell>
+                    <TableCell className="max-w-[160px] truncate text-xs text-muted-foreground">
+                      {t.growthPoint ?? "—"}
+                    </TableCell>
                     <TableCell className="text-center">
                       <EnhancementStatusBadge
                         status={t.enhancementStatus}
@@ -702,9 +684,7 @@ export default function PracticalInfoManager() {
   // Form state
   const [showForm, setShowForm] = useState(false);
   const [mainTitle, setMainTitle] = useState("");
-  // 운영자 입력 서브 타이틀·그로스 포인트 (info 전용). 크루원 제출 subtitle 과 별개.
-  const [infoSubtitle, setInfoSubtitle] = useState("");
-  const [infoGrowthPoint, setInfoGrowthPoint] = useState("");
+  // 서브 타이틀·그로스 포인트는 크루원 제출값으로 이전됨 → 라인 개설 폼에서 제거.
   const [outputLink1, setOutputLink1] = useState("");
   const [outputLabel1, setOutputLabel1] = useState("");
   const [outputLink2, setOutputLink2] = useState("");
@@ -883,8 +863,6 @@ export default function PracticalInfoManager() {
   // ── Form reset ──
   const resetForm = useCallback(() => {
     setMainTitle("");
-    setInfoSubtitle("");
-    setInfoGrowthPoint("");
     setOutputLink1("");
     setOutputLabel1("");
     setOutputLink2("");
@@ -1001,9 +979,6 @@ export default function PracticalInfoManager() {
       const payload = {
         activity_type_id: activeTypeId,
         main_title: mainTitle.trim(),
-        // 운영자 서브 타이틀·그로스 포인트 — 비우면 null 저장.
-        info_subtitle: infoSubtitle.trim() ? infoSubtitle.trim() : null,
-        info_growth_point: infoGrowthPoint.trim() ? infoGrowthPoint.trim() : null,
         // output_links 우선 + 레거시 컬럼 backward-compat mirror.
         output_links: outputLinks,
         output_link_1: outputLinks[0]?.url ?? null,
@@ -1052,8 +1027,6 @@ export default function PracticalInfoManager() {
     selectedWeek,
     selectedWeekId,
     mainTitle,
-    infoSubtitle,
-    infoGrowthPoint,
     assetValid,
     assetCount,
     outputLink1,
@@ -1405,27 +1378,8 @@ export default function PracticalInfoManager() {
                 />
               </div>
 
-              {/* Sub Title (운영자 입력) */}
-              <div className="space-y-2">
-                <Label htmlFor="infoSubtitle">서브 타이틀</Label>
-                <Input
-                  id="infoSubtitle"
-                  value={infoSubtitle}
-                  onChange={(e) => setInfoSubtitle(e.target.value)}
-                  placeholder="서브 타이틀 (선택)"
-                />
-              </div>
-
-              {/* Growth Point (운영자 입력) */}
-              <div className="space-y-2">
-                <Label htmlFor="infoGrowthPoint">그로스 포인트</Label>
-                <Input
-                  id="infoGrowthPoint"
-                  value={infoGrowthPoint}
-                  onChange={(e) => setInfoGrowthPoint(e.target.value)}
-                  placeholder="그로스 포인트 (선택)"
-                />
-              </div>
+              {/* 서브 타이틀·그로스 포인트는 크루원 제출값으로 이전됨 → 라인 개설 폼에서 제거.
+                  (크루원 제출 후 라인 상세의 대상자 테이블에서 읽기 전용으로 확인) */}
 
               {/* Output Assets */}
               <div className="space-y-3">

@@ -47,8 +47,6 @@ type Cluster4LineRow = {
   is_recurring_content: boolean | null;
   line_code: string | null;
   main_title: string;
-  info_subtitle: string | null;
-  info_growth_point: string | null;
   output_link_1: string | null;
   output_link_2: string | null;
   output_links: unknown;
@@ -81,7 +79,7 @@ type Cluster4SubmissionCountRow = {
 };
 
 const LINE_SELECT =
-  "id,part_type,activity_type_id,week_id,source_type,recognition_mode,source_sheet_name,is_recurring_content,line_code,main_title,info_subtitle,info_growth_point,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_by,updated_by,created_at,updated_at";
+  "id,part_type,activity_type_id,week_id,source_type,recognition_mode,source_sheet_name,is_recurring_content,line_code,main_title,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_by,updated_by,created_at,updated_at";
 const TARGET_SELECT =
   "id,line_id,week_id,target_mode,target_user_id,target_rule,created_by,updated_by,created_at,updated_at";
 
@@ -100,8 +98,6 @@ function toLineDto(
     activityTypeId: row.activity_type_id,
     lineCode: row.line_code ?? null,
     mainTitle: row.main_title,
-    infoSubtitle: row.info_subtitle ?? null,
-    infoGrowthPoint: row.info_growth_point ?? null,
     outputLink1: row.output_link_1,
     outputLink2: row.output_link_2,
     outputLinks: resolveOutputLinks(row.output_links, [
@@ -155,12 +151,6 @@ function linePayload(
     payload.activity_type_id = input.activityTypeId?.trim() || null;
   }
   if ("mainTitle" in input && input.mainTitle !== undefined) payload.main_title = input.mainTitle.trim();
-  if ("infoSubtitle" in input && input.infoSubtitle !== undefined) {
-    payload.info_subtitle = input.infoSubtitle?.trim() || null;
-  }
-  if ("infoGrowthPoint" in input && input.infoGrowthPoint !== undefined) {
-    payload.info_growth_point = input.infoGrowthPoint?.trim() || null;
-  }
   if ("outputLink1" in input && input.outputLink1 !== undefined) {
     payload.output_link_1 = input.outputLink1?.trim() || null;
   }
@@ -751,21 +741,38 @@ export async function listCluster4LinesDetailed(
   const targetIds = targetRows.map((row) => row.id);
 
   // 3. 제출(submission) — line_target_id 단위.
-  const submissionByTargetId = new Map<string, { id: string; submittedAt: string | null }>();
+  // 어드민 상세는 크루원 제출값(subtitle/growth_point/output_images)을 대상자별 읽기 전용으로
+  // 노출한다. (구 cluster4_lines.info_* 운영자 입력 → deprecated. 제출값으로 이전됨.)
+  const submissionByTargetId = new Map<
+    string,
+    {
+      id: string;
+      submittedAt: string | null;
+      subtitle: string | null;
+      growthPoint: string | null;
+      outputImages: string[];
+    }
+  >();
   if (targetIds.length > 0) {
     const { data, error } = await supabaseAdmin
       .from("cluster4_line_submissions")
-      .select("id,line_target_id,submitted_at")
+      .select("id,line_target_id,submitted_at,subtitle,growth_point,output_images")
       .in("line_target_id", targetIds);
     if (error) throw new Cluster4LineError(500, error.message);
     for (const row of (data ?? []) as Array<{
       id: string;
       line_target_id: string;
       submitted_at: string | null;
+      subtitle: string | null;
+      growth_point: string | null;
+      output_images: unknown;
     }>) {
       submissionByTargetId.set(row.line_target_id, {
         id: row.id,
         submittedAt: row.submitted_at,
+        subtitle: row.subtitle ?? null,
+        growthPoint: row.growth_point ?? null,
+        outputImages: outputImageUrls(row.output_images),
       });
     }
   }
@@ -940,6 +947,10 @@ export async function listCluster4LinesDetailed(
         submissionId: submission?.id ?? null,
         submitted,
         submittedAt: submission?.submittedAt ?? null,
+        // 크루원 제출값 — 읽기 전용 표시용. 미제출이면 null/[].
+        subtitle: submission?.subtitle ?? null,
+        growthPoint: submission?.growthPoint ?? null,
+        outputImages: submission?.outputImages ?? [],
         enhancementStatus: enhancement.enhancementStatus,
         submissionStatus: enhancement.submissionStatus,
         enhancementReason: enhancement.enhancementReason,

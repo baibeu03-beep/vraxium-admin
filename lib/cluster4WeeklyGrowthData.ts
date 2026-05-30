@@ -26,9 +26,10 @@ import {
 } from "@/lib/cluster4WeeklyGrowthTypes";
 import {
   fetchInfoLineCountsByWeek,
+  fetchInfoLineSuccessCountsByWeek,
   fetchCareerProjectCountsByWeek,
   buildWeekAvailability,
-  ceilGrowthRate,
+  roundGrowthRate,
   type LineCategory,
 } from "@/lib/lineAvailability";
 
@@ -461,10 +462,13 @@ async function computeWeeklyCards(
   type ActivityRow = { week_id: string; activity_type_id: string };
   const activityByWeek = new Map<string, { info: number; ability: number; experience: number; career: number }>();
   let infoLineMap = new Map<string, number>();
+  // info 강화율 B(분자) = 사용자 배정 info target 중 마감 지난(success) 라인 수.
+  // user_activity_details 가 아니라 target+마감 기준 (강화상태 success 와 동일 기준).
+  let infoSuccessMap = new Map<string, number>();
   let careerProjectMap = new Map<string, number>();
 
   if (weekCardIds.length > 0) {
-    const [detailsRes, partTypeMapRes, infoMap, careerMap] = await Promise.all([
+    const [detailsRes, partTypeMapRes, infoMap, infoSuccess, careerMap] = await Promise.all([
       supabaseAdmin
         .from("user_activity_details")
         .select("week_id,activity_type_id")
@@ -475,10 +479,12 @@ async function computeWeeklyCards(
         .select("activity_type_id,part_type")
         .not("activity_type_id", "is", null),
       fetchInfoLineCountsByWeek(userId, weekCardIds),
+      fetchInfoLineSuccessCountsByWeek(userId, weekCardIds),
       fetchCareerProjectCountsByWeek(weekCardIds),
     ]);
 
     infoLineMap = infoMap;
+    infoSuccessMap = infoSuccess;
     careerProjectMap = careerMap;
 
     const partTypeMap = new Map<string, string>();
@@ -599,7 +605,8 @@ async function computeWeeklyCards(
       : buildWeekAvailability(weekCardId, infoLineMap, careerProjectMap, organization);
 
     const lineBreakdown: WeeklyCardLineBreakdown = {
-      info: { completed: isRest ? 0 : (actCounts?.info ?? 0), available: avail.info },
+      // info B(completed) = target+마감 기준 success 수 (강화상태 success 와 동일). 제출 무관.
+      info: { completed: isRest ? 0 : (weekCardId ? (infoSuccessMap.get(weekCardId) ?? 0) : 0), available: avail.info },
       ability: { completed: isRest ? 0 : (actCounts?.ability ?? 0), available: avail.ability },
       experience: { completed: isRest ? 0 : (actCounts?.experience ?? 0), available: avail.experience },
       career: { completed: isRest ? 0 : (actCounts?.career ?? 0), available: avail.career },
@@ -615,7 +622,7 @@ async function computeWeeklyCards(
       lineBreakdown.ability.available +
       lineBreakdown.experience.available +
       lineBreakdown.career.available;
-    const rate = ceilGrowthRate(completedLines, availableLines);
+    const rate = roundGrowthRate(completedLines, availableLines);
 
     const displayWeekNum = seasonWeekNumber ?? uws.week_number;
 
@@ -691,7 +698,7 @@ function computeSeasonGrowthRates(cards: WeeklyCardDto[]): SeasonGrowthRate[] {
     seasonLabel: v.label,
     totalCompleted: v.completed,
     totalAvailable: v.available,
-    rate: ceilGrowthRate(v.completed, v.available),
+    rate: roundGrowthRate(v.completed, v.available),
   }));
 }
 

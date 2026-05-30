@@ -6,8 +6,13 @@ import {
   outputLinksFromLegacy,
   parseOutputLinksInput,
 } from "@/lib/cluster4OutputLinks";
+import {
+  type Cluster4OutputImage,
+  parseOutputImagesInput,
+} from "@/lib/cluster4OutputImages";
 
 export type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
+export type { Cluster4OutputImage } from "@/lib/cluster4OutputImages";
 
 export type Cluster4LineStatus = "void" | "pending" | "success" | "fail";
 
@@ -35,11 +40,16 @@ export type Cluster4LineSubmissionDto = {
   id: string;
   lineTargetId: string;
   subtitle: string | null;
+  // 크루원 제출 그로스 포인트 (4개 허브 공통 제출 필드). 미제출/구버전 응답이면 null.
+  growthPoint: string | null;
   outputLink2: string | null;
   outputLink3: string | null;
   outputLink4: string | null;
   outputLink5: string | null;
   outputLinks: Cluster4OutputLink[];
+  // 크루원 제출 이미지 (URL 목록 + index 정렬 일치 캡션). 없으면 [].
+  outputImages: string[];
+  outputImageCaptions: (string | null)[];
   submittedAt: string;
   updatedAt: string;
 };
@@ -53,12 +63,16 @@ export type Cluster4LineDetailDto = {
 
 export type Cluster4LineSubmissionInput = {
   subtitle: string | null;
+  // 크루원 제출 그로스 포인트 (4개 허브 공통).
+  growthPoint: string | null;
   outputLink2: string | null;
   outputLink3: string | null;
   outputLink4: string | null;
   outputLink5: string | null;
   // 신규 canonical 구조. 저장 시 output_links jsonb 로 기록하고 레거시 컬럼에도 mirror 한다.
   outputLinks: Cluster4OutputLink[];
+  // 크루원 제출 이미지. 저장 시 output_images jsonb([{url,caption}]) 로 기록.
+  outputImages: Cluster4OutputImage[];
 };
 
 export type ParseSubmissionBodyResult =
@@ -90,6 +104,8 @@ export function parseCluster4LineSubmissionBody(
 
   const subtitle = normalizeTextField(body.subtitle, "subtitle");
   if (!subtitle.ok) return { ok: false, status: 400, error: subtitle.error };
+  const growthPoint = normalizeTextField(body.growth_point, "growth_point");
+  if (!growthPoint.ok) return { ok: false, status: 400, error: growthPoint.error };
   const outputLink2 = normalizeTextField(body.output_link_2, "output_link_2");
   if (!outputLink2.ok) return { ok: false, status: 400, error: outputLink2.error };
   const outputLink3 = normalizeTextField(body.output_link_3, "output_link_3");
@@ -112,15 +128,21 @@ export function parseCluster4LineSubmissionBody(
           outputLink5.value,
         ]);
 
+  // 크루원 제출 이미지. string[] 또는 [{url,caption}] 모두 허용. 미지정이면 [].
+  const parsedImages = parseOutputImagesInput(body.output_images);
+  if (!parsedImages.ok) return { ok: false, status: 400, error: parsedImages.error };
+
   return {
     ok: true,
     value: {
       subtitle: subtitle.value,
+      growthPoint: growthPoint.value,
       outputLink2: outputLink2.value,
       outputLink3: outputLink3.value,
       outputLink4: outputLink4.value,
       outputLink5: outputLink5.value,
       outputLinks,
+      outputImages: parsedImages.value,
     },
   };
 }

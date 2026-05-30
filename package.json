@@ -9,7 +9,8 @@
     "lint": "eslint",
     "sync:schools": "tsx --env-file=.env.local scripts/sync-schools.ts",
     "sync:grade-stats": "tsx --env-file=.env.local scripts/sync-grade-stats.ts",
-    "verify:grade-stats-sync": "tsx --env-file=.env.local scripts/verify-grade-stats-sync.ts"
+    "verify:grade-stats-sync": "tsx --env-file=.env.local scripts/verify-grade-stats-sync.ts",
+    "verify:cluster4-submission-fields": "tsx --env-file=.env.local scripts/verify-cluster4-submission-fields.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

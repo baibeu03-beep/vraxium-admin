@@ -73,8 +73,6 @@ export async function GET(request: NextRequest) {
 type InfoLineCreateBody = {
   activity_type_id: string;
   main_title: string;
-  info_subtitle: string | null;
-  info_growth_point: string | null;
   output_link_1: string | null;
   output_link_2: string | null;
   output_links: Cluster4OutputLink[];
@@ -103,25 +101,8 @@ function parseBody(
     return { ok: false, status: 400, error: "main_title is required" };
   }
 
-  // info_subtitle — optional (운영자 서브 타이틀). 크루원 제출 subtitle 과 별개.
-  let infoSubtitle: string | null = null;
-  if (b.info_subtitle !== undefined && b.info_subtitle !== null) {
-    if (typeof b.info_subtitle !== "string") {
-      return { ok: false, status: 400, error: "info_subtitle must be a string or null" };
-    }
-    const trimmed = b.info_subtitle.trim();
-    infoSubtitle = trimmed.length > 0 ? trimmed : null;
-  }
-
-  // info_growth_point — optional (운영자 그로스 포인트).
-  let infoGrowthPoint: string | null = null;
-  if (b.info_growth_point !== undefined && b.info_growth_point !== null) {
-    if (typeof b.info_growth_point !== "string") {
-      return { ok: false, status: 400, error: "info_growth_point must be a string or null" };
-    }
-    const trimmed = b.info_growth_point.trim();
-    infoGrowthPoint = trimmed.length > 0 ? trimmed : null;
-  }
+  // info_subtitle / info_growth_point 는 크루원 제출값으로 재정의됨 → 라인 개설 입력에서 제거.
+  //   (cluster4_line_submissions.subtitle / growth_point 로 이전. 2026-05-30)
 
   // output_link_1 — optional
   let outputLink1: string | null = null;
@@ -205,8 +186,6 @@ function parseBody(
     value: {
       activity_type_id: b.activity_type_id.trim(),
       main_title: b.main_title.trim(),
-      info_subtitle: infoSubtitle,
-      info_growth_point: infoGrowthPoint,
       output_link_1: outputLink1,
       output_link_2: outputLink2,
       output_links: outputLinks,
@@ -397,8 +376,6 @@ export async function POST(request: NextRequest) {
         part_type: "info",
         activity_type_id: input.activity_type_id,
         main_title: input.main_title,
-        info_subtitle: input.info_subtitle,
-        info_growth_point: input.info_growth_point,
         output_link_1: input.output_link_1,
         output_link_2: input.output_link_2,
         output_links: input.output_links,
@@ -410,7 +387,7 @@ export async function POST(request: NextRequest) {
         created_by: admin.userId,
         updated_by: admin.userId,
       })
-      .select("id,part_type,activity_type_id,main_title,info_subtitle,info_growth_point,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_at")
+      .select("id,part_type,activity_type_id,main_title,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_at")
       .single();
 
     if (lineError || !lineRow) {

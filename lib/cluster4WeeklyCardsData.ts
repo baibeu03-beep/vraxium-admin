@@ -10,7 +10,7 @@ import type {
   WeeklyCardLineBreakdown,
   WeeklyCardLineDetail,
 } from "@/lib/cluster4WeeklyGrowthTypes";
-import { ceilGrowthRate } from "@/lib/lineAvailability";
+import { roundGrowthRate, fetchWeeksWithAnyInfoLine } from "@/lib/lineAvailability";
 import { normalizeOutputImages } from "@/lib/cluster4OutputImages";
 import {
   CLUSTER4_HUB_EDIT_WINDOW_KEYS,
@@ -50,8 +50,6 @@ type TargetWithLineRow = {
     id: string;
     part_type: DbLinePartType;
     main_title: string;
-    info_subtitle: string | null;
-    info_growth_point: string | null;
     output_link_1: string | null;
     output_links: unknown;
     // 레거시 string[] · 신규 [{url,caption}] 혼재 가능 → unknown 으로 받아 정규화.
@@ -78,11 +76,14 @@ type SubmissionRow = {
   id: string;
   line_target_id: string;
   subtitle: string | null;
+  growth_point: string | null;
   output_link_2: string | null;
   output_link_3: string | null;
   output_link_4: string | null;
   output_link_5: string | null;
   output_links: unknown;
+  // 레거시 string[] · 신규 [{url,caption}] 혼재 가능 → 정규화.
+  output_images: unknown;
   submitted_at: string;
   updated_at: string;
 };
@@ -120,8 +121,6 @@ const TARGET_WITH_LINE_SELECT = `
     id,
     part_type,
     main_title,
-    info_subtitle,
-    info_growth_point,
     output_link_1,
     output_links,
     output_images,
@@ -153,18 +152,20 @@ function toPublicPart(partType: DbLinePartType): Cluster4LinePartType {
 function emptyLine(
   partType: Cluster4LinePartType,
   weekId: string | null = null,
+  expectedWhenMissing = false,
 ): Cluster4LineDetailDto {
   // partType 단위 "미개설" placeholder. lineTargetId 가 없으므로 canEdit=false /
   // editReason="target_missing" 으로 고정 (override 가 OPEN 이어도 동일 — target 없는
   // sub-line 에는 override 가 적용되면 안 된다).
-  // 강화 상태: 타깃 부재 = 미배정 = 제출 불필요 → not_applicable.
-  // (weekly-cards 에는 "제출했어야 함" 을 판정할 신호가 없으므로 expectedWhenMissing=false 고정)
+  // 강화 상태: 타깃 부재일 때 — 그 주차에 (해당 part) 라인이 개설됐으면 fail,
+  // 미개설이면 not_applicable. expectedWhenMissing 이 그 신호다.
+  //   info: weeksWithInfoLine.has(weekId) 를 전달 → fail/not_applicable 구분.
   const enhancement = computeCluster4Enhancement({
     hasTarget: false,
     deadlinePassed: false,
     hasSubmission: false,
     isCareer: partType === "career",
-    expectedWhenMissing: false,
+    expectedWhenMissing,
   });
   return {
     partType,
@@ -206,10 +207,12 @@ function emptyLine(
 }
 
 function toSubmissionDto(row: SubmissionRow): Cluster4LineSubmissionDto {
+  const images = normalizeOutputImages(row.output_images);
   return {
     id: row.id,
     lineTargetId: row.line_target_id,
     subtitle: row.subtitle,
+    growthPoint: row.growth_point ?? null,
     outputLink2: row.output_link_2,
     outputLink3: row.output_link_3,
     outputLink4: row.output_link_4,
@@ -220,6 +223,8 @@ function toSubmissionDto(row: SubmissionRow): Cluster4LineSubmissionDto {
       row.output_link_4,
       row.output_link_5,
     ]),
+    outputImages: images.map((i) => i.url),
+    outputImageCaptions: images.map((i) => i.caption),
     submittedAt: row.submitted_at,
     updatedAt: row.updated_at,
   };
@@ -298,9 +303,10 @@ function toLineDetail(
     lineTargetId: target.id,
     targetMode: target.target_mode,
     mainTitle: line.main_title,
-    // 실무 정보(information) 라인만 노출. 그 외 part 는 null (운영자 입력 대상 아님).
-    infoSubtitle: partType === "information" ? line.info_subtitle : null,
-    infoGrowthPoint: partType === "information" ? line.info_growth_point : null,
+    // 실무 정보(information) 카드의 서브 타이틀·그로스 포인트는 크루원 제출값(submission)에서 내려준다.
+    // (구: cluster4_lines.info_* 운영자 입력값 → deprecated). 제출 전이면 null. 그 외 part 는 null.
+    infoSubtitle: partType === "information" ? (submission?.subtitle ?? null) : null,
+    infoGrowthPoint: partType === "information" ? (submission?.growth_point ?? null) : null,
     outputLink1: line.output_link_1,
     outputLinks: adminOutputLinks,
     outputImages: adminOutputImages,
@@ -367,7 +373,7 @@ function attachLineBreakdown(
       ...line,
       numerator: b.completed,
       denominator: b.available,
-      rate: ceilGrowthRate(b.completed, b.available),
+      rate: roundGrowthRate(b.completed, b.available),
     };
   });
 }
@@ -657,7 +663,7 @@ async function fetchLineDetailsByWeek(
   const result = new Map<string, Cluster4LineDetailDto[]>();
   if (weekIds.length === 0) return result;
 
-  const [targetResult, editWindowByPart] = await Promise.all([
+  const [targetResult, editWindowByPart, weeksWithInfoLine] = await Promise.all([
     supabaseAdmin
       .from("cluster4_line_targets")
       .select(TARGET_WITH_LINE_SELECT)
@@ -665,6 +671,8 @@ async function fetchLineDetailsByWeek(
       .eq("cluster4_lines.is_active", true)
       .order("created_at", { ascending: false }),
     fetchHubEditWindows(profileUserId),
+    // 그 주차에 info 라인이 (누구든) 개설됐는지 — 미배정 시 fail/not_applicable 구분용.
+    fetchWeeksWithAnyInfoLine(weekIds),
   ]);
 
   const { data: targetData, error: targetError } = targetResult;
@@ -682,7 +690,7 @@ async function fetchLineDetailsByWeek(
   if (targetIds.length > 0) {
     const { data: submissionData, error: submissionError } = await supabaseAdmin
       .from("cluster4_line_submissions")
-      .select("id,line_target_id,subtitle,output_link_2,output_link_3,output_link_4,output_link_5,output_links,submitted_at,updated_at")
+      .select("id,line_target_id,subtitle,growth_point,output_link_2,output_link_3,output_link_4,output_link_5,output_links,output_images,submitted_at,updated_at")
       .eq("user_id", profileUserId)
       .in("line_target_id", targetIds);
 
@@ -746,7 +754,11 @@ async function fetchLineDetailsByWeek(
     // 는 lineTargetId 가 없어 canEdit=false / editReason="target_missing" 으로 고정.
     for (const partType of PUBLIC_PARTS) {
       if (!partsWithTarget.has(partType)) {
-        lines.push(emptyLine(partType, weekId));
+        // info 미배정: 그 주차에 info 라인이 개설됐으면 fail, 미개설이면 not_applicable.
+        // (info 외 part 는 이번 범위 밖 — 기존대로 not_applicable)
+        const expectedWhenMissing =
+          partType === "information" && weeksWithInfoLine.has(weekId);
+        lines.push(emptyLine(partType, weekId, expectedWhenMissing));
       }
     }
 

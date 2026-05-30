@@ -18,6 +18,10 @@ import {
   resolveOutputLinks,
   outputLinksToLegacySlots,
 } from "@/lib/cluster4OutputLinks";
+import {
+  outputImageUrls,
+  outputImageCaptions as outputImageCaptionList,
+} from "@/lib/cluster4OutputImages";
 
 export class Cluster4PublicLineError extends Error {
   status: number;
@@ -52,14 +56,21 @@ type Cluster4SubmissionRow = {
   id: string;
   line_target_id: string;
   subtitle: string | null;
+  growth_point: string | null;
   output_link_2: string | null;
   output_link_3: string | null;
   output_link_4: string | null;
   output_link_5: string | null;
   output_links: unknown;
+  // 레거시 string[] · 신규 [{url,caption}] 혼재 가능 → unknown 으로 받아 정규화.
+  output_images: unknown;
   submitted_at: string;
   updated_at: string;
 };
+
+// 제출 SELECT — growth_point/output_images 공통 제출 컬럼 포함.
+const SUBMISSION_SELECT =
+  "id,line_target_id,subtitle,growth_point,output_link_2,output_link_3,output_link_4,output_link_5,output_links,output_images,submitted_at,updated_at";
 
 const TARGET_WITH_LINE_SELECT = `
   id,
@@ -103,6 +114,7 @@ function toSubmissionDto(row: Cluster4SubmissionRow): Cluster4LineSubmissionDto 
     id: row.id,
     lineTargetId: row.line_target_id,
     subtitle: row.subtitle,
+    growthPoint: row.growth_point ?? null,
     outputLink2: row.output_link_2,
     outputLink3: row.output_link_3,
     outputLink4: row.output_link_4,
@@ -113,6 +125,8 @@ function toSubmissionDto(row: Cluster4SubmissionRow): Cluster4LineSubmissionDto 
       row.output_link_4,
       row.output_link_5,
     ]),
+    outputImages: outputImageUrls(row.output_images),
+    outputImageCaptions: outputImageCaptionList(row.output_images),
     submittedAt: row.submitted_at,
     updatedAt: row.updated_at,
   };
@@ -226,7 +240,7 @@ async function listCandidateTargetsForUser(
 async function getSubmissionForTargetAndUser(lineTargetId: string, profileUserId: string) {
   const { data, error } = await supabaseAdmin
     .from("cluster4_line_submissions")
-    .select("id,line_target_id,subtitle,output_link_2,output_link_3,output_link_4,output_link_5,output_links,submitted_at,updated_at")
+    .select(SUBMISSION_SELECT)
     .eq("line_target_id", lineTargetId)
     .eq("user_id", profileUserId)
     .maybeSingle();
@@ -289,11 +303,13 @@ function buildSubmissionPayload(input: Cluster4LineSubmissionInput) {
   const [link2, link3, link4, link5] = outputLinksToLegacySlots(input.outputLinks, 4);
   return {
     subtitle: input.subtitle,
+    growth_point: input.growthPoint,
     output_link_2: link2,
     output_link_3: link3,
     output_link_4: link4,
     output_link_5: link5,
     output_links: input.outputLinks,
+    output_images: input.outputImages,
   };
 }
 
@@ -369,7 +385,7 @@ export async function createCluster4LineSubmissionForAuthUser(
       user_id: profileUserId,
       ...buildSubmissionPayload(input),
     })
-    .select("id,line_target_id,subtitle,output_link_2,output_link_3,output_link_4,output_link_5,output_links,submitted_at,updated_at")
+    .select(SUBMISSION_SELECT)
     .single();
   if (error || !data) {
     throw new Cluster4PublicLineError(
@@ -399,7 +415,7 @@ export async function updateCluster4LineSubmissionForAuthUser(
     .update(buildSubmissionPayload(input))
     .eq("id", existing.id)
     .eq("user_id", profileUserId)
-    .select("id,line_target_id,subtitle,output_link_2,output_link_3,output_link_4,output_link_5,output_links,submitted_at,updated_at")
+    .select(SUBMISSION_SELECT)
     .maybeSingle();
   if (error) {
     throw new Cluster4PublicLineError(500, error.message);

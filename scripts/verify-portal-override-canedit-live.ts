@@ -105,11 +105,13 @@ async function main() {
       lineTargetId,
       {
         subtitle: "[verify-portal-override-canedit-live] POST",
+        growthPoint: null,
         outputLink2: null,
         outputLink3: null,
         outputLink4: null,
         outputLink5: null,
         outputLinks: [],
+        outputImages: [],
       },
     );
     createdId = created.id;
@@ -127,11 +129,13 @@ async function main() {
       lineTargetId,
       {
         subtitle: "[verify-portal-override-canedit-live] PATCH",
+        growthPoint: null,
         outputLink2: null,
         outputLink3: null,
         outputLink4: null,
         outputLink5: null,
         outputLinks: [],
+        outputImages: [],
       },
     );
     console.log("PATCH ok:", { id: updated.id, subtitle: updated.subtitle });
