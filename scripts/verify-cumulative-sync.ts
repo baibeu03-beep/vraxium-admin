@@ -70,11 +70,11 @@ async function verifySync() {
 
   const cumAll = await query<{
     user_id: string;
-    total_stars: number | null;
+    total_checks: number | null;
     total_raw_advantages: number | null;
-    total_lightnings: number | null;
-    total_shields: number | null;
-  }>("user_cumulative_points", "user_id,total_stars,total_raw_advantages,total_lightnings,total_shields");
+    total_penalties: number | null;
+    total_advantages: number | null;
+  }>("user_cumulative_points", "user_id,total_checks,total_raw_advantages,total_penalties,total_advantages");
 
   let ok = 0;
   let mismatch = 0;
@@ -85,17 +85,17 @@ async function verifySync() {
     const expectedShields = w.adv - Math.abs(w.light);
 
     const match =
-      (c.total_stars ?? 0) === w.stars &&
+      (c.total_checks ?? 0) === w.stars &&
       (c.total_raw_advantages ?? 0) === w.adv &&
-      (c.total_lightnings ?? 0) === w.light &&
-      (c.total_shields ?? 0) === expectedShields;
+      (c.total_penalties ?? 0) === w.light &&
+      (c.total_advantages ?? 0) === expectedShields;
 
     if (match) {
       ok++;
     } else {
       mismatch++;
       mismatches.push(
-        `  ${c.user_id}: cum(${c.total_stars},${c.total_raw_advantages},${c.total_lightnings},${c.total_shields}) vs weekly(${w.stars},${w.adv},${w.light},${expectedShields})`,
+        `  ${c.user_id}: cum(${c.total_checks},${c.total_raw_advantages},${c.total_penalties},${c.total_advantages}) vs weekly(${w.stars},${w.adv},${w.light},${expectedShields})`,
       );
     }
     weeklyByUser.delete(c.user_id);
@@ -211,14 +211,14 @@ async function verifyTriggerBehavior() {
   // 현재 cumulative 스냅샷
   const { data: before } = await supabase
     .from("user_cumulative_points")
-    .select("total_stars,total_raw_advantages,total_lightnings,total_shields")
+    .select("total_checks,total_raw_advantages,total_penalties,total_advantages")
     .eq("user_id", testUserId)
     .maybeSingle();
 
-  const b = (before ?? { total_stars: 0, total_raw_advantages: 0, total_lightnings: 0, total_shields: 0 }) as {
-    total_stars: number; total_raw_advantages: number; total_lightnings: number; total_shields: number;
+  const b = (before ?? { total_checks: 0, total_raw_advantages: 0, total_penalties: 0, total_advantages: 0 }) as {
+    total_checks: number; total_raw_advantages: number; total_penalties: number; total_advantages: number;
   };
-  console.log(`  [before]  stars=${b.total_stars} adv=${b.total_raw_advantages} light=${b.total_lightnings} shields=${b.total_shields}`);
+  console.log(`  [before]  stars=${b.total_checks} adv=${b.total_raw_advantages} light=${b.total_penalties} shields=${b.total_advantages}`);
 
   // ── INSERT 테스트 ──
   const { error: insErr } = await supabase
@@ -240,17 +240,17 @@ async function verifyTriggerBehavior() {
 
   const { data: afterInsert } = await supabase
     .from("user_cumulative_points")
-    .select("total_stars,total_raw_advantages,total_lightnings,total_shields")
+    .select("total_checks,total_raw_advantages,total_penalties,total_advantages")
     .eq("user_id", testUserId)
     .maybeSingle();
 
   const ai = afterInsert as typeof b;
-  console.log(`  [INSERT]  stars=${ai.total_stars} adv=${ai.total_raw_advantages} light=${ai.total_lightnings} shields=${ai.total_shields}`);
+  console.log(`  [INSERT]  stars=${ai.total_checks} adv=${ai.total_raw_advantages} light=${ai.total_penalties} shields=${ai.total_advantages}`);
 
   const insertOk =
-    ai.total_stars === b.total_stars + 5 &&
+    ai.total_checks === b.total_checks + 5 &&
     ai.total_raw_advantages === b.total_raw_advantages + 2 &&
-    ai.total_lightnings === b.total_lightnings + 1;
+    ai.total_penalties === b.total_penalties + 1;
 
   console.log(`            ${insertOk ? "✅ INSERT 반영 정상" : "❌ INSERT 반영 실패"} (expected stars +5, adv +2, light +1)`);
 
@@ -268,14 +268,14 @@ async function verifyTriggerBehavior() {
 
   const { data: afterUpdate } = await supabase
     .from("user_cumulative_points")
-    .select("total_stars,total_raw_advantages,total_lightnings,total_shields")
+    .select("total_checks,total_raw_advantages,total_penalties,total_advantages")
     .eq("user_id", testUserId)
     .maybeSingle();
 
   const au = afterUpdate as typeof b;
-  console.log(`  [UPDATE]  stars=${au.total_stars} adv=${au.total_raw_advantages} light=${au.total_lightnings} shields=${au.total_shields}`);
+  console.log(`  [UPDATE]  stars=${au.total_checks} adv=${au.total_raw_advantages} light=${au.total_penalties} shields=${au.total_advantages}`);
 
-  const updateOk = au.total_stars === b.total_stars + 10;
+  const updateOk = au.total_checks === b.total_checks + 10;
   console.log(`            ${updateOk ? "✅ UPDATE 반영 정상" : "❌ UPDATE 반영 실패"} (expected stars +10 from original)`);
 
   // ── DELETE 테스트 (원복) ──
@@ -292,18 +292,18 @@ async function verifyTriggerBehavior() {
 
   const { data: afterDelete } = await supabase
     .from("user_cumulative_points")
-    .select("total_stars,total_raw_advantages,total_lightnings,total_shields")
+    .select("total_checks,total_raw_advantages,total_penalties,total_advantages")
     .eq("user_id", testUserId)
     .maybeSingle();
 
   const ad = afterDelete as typeof b;
-  console.log(`  [DELETE]  stars=${ad.total_stars} adv=${ad.total_raw_advantages} light=${ad.total_lightnings} shields=${ad.total_shields}`);
+  console.log(`  [DELETE]  stars=${ad.total_checks} adv=${ad.total_raw_advantages} light=${ad.total_penalties} shields=${ad.total_advantages}`);
 
   const deleteOk =
-    ad.total_stars === b.total_stars &&
+    ad.total_checks === b.total_checks &&
     ad.total_raw_advantages === b.total_raw_advantages &&
-    ad.total_lightnings === b.total_lightnings &&
-    ad.total_shields === b.total_shields;
+    ad.total_penalties === b.total_penalties &&
+    ad.total_advantages === b.total_advantages;
 
   console.log(`            ${deleteOk ? "✅ DELETE 원복 정상" : "❌ DELETE 원복 실패"} (should match [before])`);
   console.log();
@@ -321,7 +321,7 @@ async function verifyDisplayValues() {
   // cumulative에서 읽어 Growth와 동일한 계산 수행
   const { data: samples } = await supabase
     .from("user_cumulative_points")
-    .select("user_id,total_stars,total_raw_advantages,total_lightnings,total_shields")
+    .select("user_id,total_checks,total_raw_advantages,total_penalties,total_advantages")
     .limit(5);
 
   if (!samples || samples.length === 0) {
@@ -347,17 +347,17 @@ async function verifyDisplayValues() {
   let allOk = true;
   for (const s of samples as Array<{
     user_id: string;
-    total_stars: number | null;
+    total_checks: number | null;
     total_raw_advantages: number | null;
-    total_lightnings: number | null;
-    total_shields: number | null;
+    total_penalties: number | null;
+    total_advantages: number | null;
   }>) {
     const p = profileMap.get(s.user_id);
-    const j = s.total_stars ?? 0;
+    const j = s.total_checks ?? 0;
     const k0 = s.total_raw_advantages ?? 0;
-    const l = Math.abs(s.total_lightnings ?? 0);
+    const l = Math.abs(s.total_penalties ?? 0);
     const k = k0 - l;
-    const storedShields = s.total_shields ?? 0;
+    const storedShields = s.total_advantages ?? 0;
     const integrity = storedShields === k;
     if (!integrity) allOk = false;
 
@@ -389,8 +389,8 @@ async function diagnoseSingleUser() {
   // 불일치 유저 1명 찾기: cumulative에 값이 있고 weekly가 없는 유저
   const { data: cumAll } = await supabase
     .from("user_cumulative_points")
-    .select("user_id,total_stars,total_raw_advantages,total_lightnings,total_shields")
-    .gt("total_stars", 0)
+    .select("user_id,total_checks,total_raw_advantages,total_penalties,total_advantages")
+    .gt("total_checks", 0)
     .limit(200);
 
   const { data: weeklyAll } = await supabase
@@ -402,9 +402,9 @@ async function diagnoseSingleUser() {
   );
 
   const orphan = ((cumAll ?? []) as Array<{
-    user_id: string; total_stars: number | null;
-    total_raw_advantages: number | null; total_lightnings: number | null;
-    total_shields: number | null;
+    user_id: string; total_checks: number | null;
+    total_raw_advantages: number | null; total_penalties: number | null;
+    total_advantages: number | null;
   }>).find((r) => !weeklySet.has(r.user_id));
 
   if (!orphan) {
@@ -414,7 +414,7 @@ async function diagnoseSingleUser() {
 
   const uid = orphan.user_id;
   console.log(`  대상: ${uid}`);
-  console.log(`  현재 cumulative: stars=${orphan.total_stars} adv=${orphan.total_raw_advantages} light=${orphan.total_lightnings} shields=${orphan.total_shields}`);
+  console.log(`  현재 cumulative: stars=${orphan.total_checks} adv=${orphan.total_raw_advantages} light=${orphan.total_penalties} shields=${orphan.total_advantages}`);
 
   // weekly 행 수 확인
   const { data: weeklyRows, count: weeklyCount } = await supabase
@@ -435,19 +435,19 @@ async function diagnoseSingleUser() {
   // 결과 확인
   const { data: after } = await supabase
     .from("user_cumulative_points")
-    .select("total_stars,total_raw_advantages,total_lightnings,total_shields")
+    .select("total_checks,total_raw_advantages,total_penalties,total_advantages")
     .eq("user_id", uid)
     .maybeSingle();
 
-  const a = after as { total_stars: number; total_raw_advantages: number; total_lightnings: number; total_shields: number } | null;
-  console.log(`  RPC 후 cumulative: stars=${a?.total_stars} adv=${a?.total_raw_advantages} light=${a?.total_lightnings} shields=${a?.total_shields}`);
+  const a = after as { total_checks: number; total_raw_advantages: number; total_penalties: number; total_advantages: number } | null;
+  console.log(`  RPC 후 cumulative: stars=${a?.total_checks} adv=${a?.total_raw_advantages} light=${a?.total_penalties} shields=${a?.total_advantages}`);
 
   const changed = a && (
-    a.total_stars !== (orphan.total_stars ?? 0) ||
+    a.total_checks !== (orphan.total_checks ?? 0) ||
     a.total_raw_advantages !== (orphan.total_raw_advantages ?? 0)
   );
 
-  if (a && a.total_stars === 0 && a.total_raw_advantages === 0 && a.total_lightnings === 0 && a.total_shields === 0) {
+  if (a && a.total_checks === 0 && a.total_raw_advantages === 0 && a.total_penalties === 0 && a.total_advantages === 0) {
     console.log(`  ✅ 0으로 정상 리셋됨\n`);
   } else if (!changed) {
     console.log(`  ❌ 값이 변하지 않음! RPC가 반영되지 않는 중`);
@@ -455,16 +455,16 @@ async function diagnoseSingleUser() {
     console.log(`  직접 .update() 시도...`);
     const { error: updErr, count: updCount } = await supabase
       .from("user_cumulative_points")
-      .update({ total_stars: 0, total_raw_advantages: 0, total_lightnings: 0, total_shields: 0 })
+      .update({ total_checks: 0, total_raw_advantages: 0, total_penalties: 0, total_advantages: 0 })
       .eq("user_id", uid);
     console.log(`  update 결과: error=${updErr?.message ?? "없음"}, count=${updCount}`);
 
     const { data: after2 } = await supabase
       .from("user_cumulative_points")
-      .select("total_stars")
+      .select("total_checks")
       .eq("user_id", uid)
       .maybeSingle();
-    console.log(`  직접 update 후: stars=${(after2 as { total_stars: number } | null)?.total_stars}\n`);
+    console.log(`  직접 update 후: stars=${(after2 as { total_checks: number } | null)?.total_checks}\n`);
   } else {
     console.log(`  값이 변경됨 (예상과 다를 수 있음)\n`);
   }

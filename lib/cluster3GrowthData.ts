@@ -37,10 +37,15 @@ type WeekStatusRow = {
   is_official_rest_override?: boolean;
 };
 
+// user_cumulative_points 실제 컬럼명에 맞춘다.
+//   total_checks   → 별(star)/성장 점수 총합
+//   total_advantages → 방패(shield) = net advantages (= raw - penalties)
+//   total_penalties  → 번개(lightning)/penalty 총합
+// (과거 total_stars/total_shields/total_lightnings 로 SELECT 하여 컬럼 부재로 500 발생 → 정정)
 type PointRow = {
-  total_stars: number | null;
-  total_shields: number | null;
-  total_lightnings: number | null;
+  total_checks: number | null;
+  total_advantages: number | null;
+  total_penalties: number | null;
   total_raw_advantages: number | null;
 };
 
@@ -182,11 +187,11 @@ function buildIndicators(
 
   const period: GrowthPeriod = { a, b, c, d, e: a + b + c, h, f, g };
 
-  const j = pts?.total_stars ?? 0;
+  const j = pts?.total_checks ?? 0;
   const k0 = pts?.total_raw_advantages ?? 0;
-  const l = Math.abs(pts?.total_lightnings ?? 0);
+  const l = Math.abs(pts?.total_penalties ?? 0);
   const k = k0 - l;
-  const storedShields = pts?.total_shields ?? 0;
+  const storedShields = pts?.total_advantages ?? 0;
 
   const labels = orgValid ? getPointLabels(orgValid) : DEFAULT_POINT_LABELS;
 
@@ -288,7 +293,7 @@ export async function getGrowthIndicatorsInternal(
       .eq("user_id", userId),
     supabaseAdmin
       .from("user_cumulative_points")
-      .select("total_stars,total_shields,total_lightnings,total_raw_advantages")
+      .select("total_checks,total_advantages,total_penalties,total_raw_advantages")
       .eq("user_id", userId)
       .maybeSingle(),
     supabaseAdmin
@@ -345,7 +350,7 @@ export async function getGrowthIndicatorsBatchInternal(
       .in("user_id", userIds),
     supabaseAdmin
       .from("user_cumulative_points")
-      .select("user_id,total_stars,total_shields,total_lightnings,total_raw_advantages")
+      .select("user_id,total_checks,total_advantages,total_penalties,total_raw_advantages")
       .in("user_id", userIds),
     supabaseAdmin
       .from("user_season_statuses")

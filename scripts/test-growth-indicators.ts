@@ -47,7 +47,7 @@ async function main() {
       .in("user_id", userIds),
     supabase
       .from("user_cumulative_points")
-      .select("user_id,total_stars,total_shields,total_lightnings,total_raw_advantages")
+      .select("user_id,total_checks,total_advantages,total_penalties,total_raw_advantages")
       .in("user_id", userIds),
   ]);
 
@@ -98,11 +98,11 @@ async function main() {
 
     // Point
     const pts = pointsByUser.get(user.user_id);
-    const j = pts?.total_stars ?? 0;
+    const j = pts?.total_checks ?? 0;
     const k0 = pts?.total_raw_advantages ?? 0;
-    const l = Math.abs(pts?.total_lightnings ?? 0);
+    const l = Math.abs(pts?.total_penalties ?? 0);
     const k = k0 - l;
-    const storedShields = pts?.total_shields ?? 0;
+    const storedShields = pts?.total_advantages ?? 0;
     const integrityOk = storedShields === k;
 
     const gradEligible = threshold !== null && e >= threshold;
@@ -138,7 +138,7 @@ async function main() {
   const allUserIds = profiles.map((p: { user_id: string }) => p.user_id);
   const [allWeekRes, allPointRes, allGrowthRes] = await Promise.all([
     supabase.from("user_week_statuses").select("user_id,status").in("user_id", allUserIds),
-    supabase.from("user_cumulative_points").select("user_id,total_stars,total_shields,total_lightnings,total_raw_advantages").in("user_id", allUserIds),
+    supabase.from("user_cumulative_points").select("user_id,total_checks,total_advantages,total_penalties,total_raw_advantages").in("user_id", allUserIds),
     supabase.from("user_growth_stats").select("user_id,approved_weeks,cumulative_weeks").in("user_id", allUserIds),
   ]);
 
@@ -163,12 +163,12 @@ async function main() {
 
     const pt = (allPointRes.data ?? []).find((r: { user_id: string }) => r.user_id === uid);
     if (pt) {
-      const calcK = (pt.total_raw_advantages ?? 0) - Math.abs(pt.total_lightnings ?? 0);
-      if ((pt.total_shields ?? 0) === calcK) {
+      const calcK = (pt.total_raw_advantages ?? 0) - Math.abs(pt.total_penalties ?? 0);
+      if ((pt.total_advantages ?? 0) === calcK) {
         pointOk++;
       } else {
         pointFail++;
-        console.log(`   POINT MISMATCH: ${profile.display_name} — stored_shields=${pt.total_shields} vs calc_k=${calcK}`);
+        console.log(`   POINT MISMATCH: ${profile.display_name} — stored_shields=${pt.total_advantages} vs calc_k=${calcK}`);
       }
     } else {
       pointOk++;

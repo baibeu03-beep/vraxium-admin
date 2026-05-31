@@ -10,7 +10,7 @@
 //                      + user_week_statuses (현재 ISO 주차 status, 표시 라벨 도출용)
 //   period weeks     ← user_week_statuses.status COUNT (success/fail/personal_rest/official_rest)
 //   period seasons   ← user_season_statuses.status COUNT (rest/그 외)
-//   points.*         ← user_cumulative_points (total_stars, total_raw_advantages, total_lightnings)
+//   points.*         ← user_cumulative_points (total_checks, total_raw_advantages, total_penalties)
 
 import type { GrowthDisplayKey } from "@/lib/cluster3GrowthTypes";
 
@@ -60,11 +60,11 @@ export type Cluster3StatsPeriod = {
 
 // ─── 성장 점수 기록 (Point) ─────────────────────────────────────────
 export type Cluster3StatsPoints = {
-  /** 별(총합) — user_cumulative_points.total_stars (j). */
+  /** 별(총합) — user_cumulative_points.total_checks (j). */
   totalStars: number;
-  /** 방패(총합) — netAdvantages = total_raw_advantages - abs(total_lightnings) (k = k0 - l). */
+  /** 방패(총합) — netAdvantages = total_raw_advantages - abs(total_penalties) (k = k0 - l). */
   totalShields: number;
-  /** 번개(총합) — abs(user_cumulative_points.total_lightnings) (l). */
+  /** 번개(총합) — abs(user_cumulative_points.total_penalties) (l). */
   totalLightning: number;
   /** 조직별 라벨 — 별 (예: oranke="단감", encre="별"). */
   starsLabel: string;

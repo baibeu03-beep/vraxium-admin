@@ -242,7 +242,9 @@ export async function getResumeCardForCrew(
       .maybeSingle(),
     supabaseAdmin
       .from("user_cumulative_points")
-      .select("total_stars,total_shields,total_lightnings")
+      // 실제 DB 컬럼명: total_checks(별), total_advantages(방패), total_penalties(번개)
+      // (과거 total_stars/total_shields/total_lightnings 는 존재하지 않아 500 발생 → 정정)
+      .select("total_checks,total_advantages,total_penalties")
       .eq("user_id", userId)
       .limit(1)
       .maybeSingle(),
@@ -267,9 +269,9 @@ export async function getResumeCardForCrew(
     | null;
   const points = (pointsRes.data ?? null) as
     | {
-        total_stars: number | null;
-        total_shields: number | null;
-        total_lightnings: number | null;
+        total_checks: number | null;
+        total_advantages: number | null;
+        total_penalties: number | null;
       }
     | null;
 
@@ -296,9 +298,9 @@ export async function getResumeCardForCrew(
     computed: {
       approvedWeeks: growth?.approved_weeks ?? crew.approvedWeeks ?? null,
       cumulativeWeeks: growth?.cumulative_weeks ?? crew.cumulativeWeeks ?? null,
-      totalStars: points?.total_stars ?? null,
-      totalShields: points?.total_shields ?? null,
-      totalLightnings: points?.total_lightnings ?? null,
+      totalStars: points?.total_checks ?? null,
+      totalShields: points?.total_advantages ?? null,
+      totalLightnings: points?.total_penalties ?? null,
     },
   };
 }

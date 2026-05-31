@@ -22,6 +22,7 @@ import { GrowthError } from "@/lib/cluster3GrowthData";
 
 export async function GET(request: NextRequest) {
   const TAG = "[cluster3/stats-cards GET]";
+  const requestStartedAt = Date.now();
 
   // weekly-cards 와 동일한 internal API key 인증 분기.
   // 프론트(NextAuth)는 Supabase sb-* 쿠키가 없으므로, SSR 서버 간 호출은
@@ -32,6 +33,19 @@ export async function GET(request: NextRequest) {
     !!internalKey &&
     !!expectedInternalKey &&
     internalKey === expectedInternalKey;
+  const requestedUserId =
+    request.nextUrl.searchParams.get("userId")?.trim() || null;
+
+  console.log(TAG, "request received", {
+    host: request.headers.get("host"),
+    pathname: request.nextUrl.pathname,
+    hasUserId: !!requestedUserId,
+    hasInternalKey: !!internalKey,
+    internalKeyLength: internalKey?.length ?? 0,
+    hasExpectedInternalKey: !!expectedInternalKey,
+    expectedInternalKeyLength: expectedInternalKey?.length ?? 0,
+    internalAuthAccepted,
+  });
 
   // 키 값은 절대 로그하지 않는다 — hasKey/keyLength/accepted 만 출력.
   if (internalKey) {
@@ -45,9 +59,8 @@ export async function GET(request: NextRequest) {
   let userId: string | null = null;
 
   if (internalAuthAccepted) {
-    const requestedUserId =
-      request.nextUrl.searchParams.get("userId")?.trim() || null;
     if (!requestedUserId) {
+      console.warn(TAG, "internal request rejected: missing userId");
       return Response.json(
         { success: false, error: "userId is required for internal calls." },
         { status: 400 },
@@ -65,6 +78,11 @@ export async function GET(request: NextRequest) {
       } = await supabase.auth.getUser();
 
       if (authError || !user) {
+        console.warn(TAG, "session auth rejected", {
+          hasAuthError: !!authError,
+          authErrorMessage: authError?.message,
+          elapsedMs: Date.now() - requestStartedAt,
+        });
         return Response.json(
           { success: false, error: "Authentication required." },
           { status: 401 },
@@ -91,6 +109,7 @@ export async function GET(request: NextRequest) {
       growthStatus: dto.process.growthStatusKey,
       successWeeks: dto.period.successWeeks,
       totalStars: dto.points.totalStars,
+      elapsedMs: Date.now() - requestStartedAt,
     });
 
     return Response.json({ success: true, data: dto });
