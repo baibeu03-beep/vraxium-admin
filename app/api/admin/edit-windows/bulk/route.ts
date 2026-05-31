@@ -60,6 +60,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const weekId =
+    typeof input.week_id === "string" && input.week_id.trim()
+      ? input.week_id.trim()
+      : null;
+
   try {
     let userIds = parseUserIds(input.user_ids);
     if (input.select_all_matching === true) {
@@ -81,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (input.action === "close") {
-      const windows = await closeEditWindowsBulk(userIds, resourceKey);
+      const windows = await closeEditWindowsBulk(userIds, resourceKey, weekId);
       return Response.json({
         success: true,
         data: { count: userIds.length, windows },
@@ -98,6 +103,7 @@ export async function POST(request: NextRequest) {
     const windows = await upsertEditWindowsBulk({
       userIds,
       resourceKey,
+      weekId,
       openedAt: new Date(input.opened_at),
       expiresAt: new Date(input.expires_at),
       note: parseNote(input.note),

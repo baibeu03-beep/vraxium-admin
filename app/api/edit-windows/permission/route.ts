@@ -7,7 +7,10 @@ import {
   evaluateEditWindowPermission,
   getEditWindowForUser,
 } from "@/lib/adminEditWindowsData";
-import { isEditableResourceKey } from "@/lib/adminEditWindowsTypes";
+import {
+  isEditableResourceKey,
+  isWeekScopedResourceKey,
+} from "@/lib/adminEditWindowsTypes";
 
 export async function GET(request: NextRequest) {
   const resourceKey = request.nextUrl.searchParams.get("resource_key") ?? "";
@@ -17,6 +20,12 @@ export async function GET(request: NextRequest) {
       { status: 400 },
     );
   }
+
+  // 주간 자원(주간 회고/동료/평판)은 반드시 현재 보고 있는 주차의 week_id 를 함께
+  // 받아야 한다. 프론트 고객 페이지는 카드의 weekId 를 ?week_id 로 전달한다.
+  const requiresWeek = isWeekScopedResourceKey(resourceKey);
+  const weekId =
+    request.nextUrl.searchParams.get("week_id")?.trim() || null;
 
   const supabase = await getSupabaseServerClient();
   const {
@@ -50,11 +59,15 @@ export async function GET(request: NextRequest) {
   const userId = await resolveProfileUserId(user.id, user.email);
 
   try {
-    const window = userId
-      ? await getEditWindowForUser(userId, resourceKey)
-      : null;
+    // 주간 자원인데 week_id 가 없으면 조회 자체를 건너뛰고 week_required 로 막는다.
+    const window =
+      userId && !(requiresWeek && !weekId)
+        ? await getEditWindowForUser(userId, resourceKey, weekId)
+        : null;
     const permission = evaluateEditWindowPermission(resourceKey, window, {
       isAdmin,
+      requiresWeek,
+      weekId,
     });
     return Response.json({ success: true, data: permission });
   } catch (error) {

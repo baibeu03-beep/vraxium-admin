@@ -17,6 +17,9 @@ type MasterRow = {
   team_id: string | null;
   source_file_name: string | null;
   is_active: boolean;
+  // 5슬롯 분류 (마이그레이션 적용 전 환경에서는 select '*' 에 없을 수 있어 optional).
+  experience_category?: ExperienceLineMasterDto["experienceCategory"];
+  experience_slot_order?: number | null;
   created_at: string;
   updated_at: string;
   cluster4_teams: { team_name: string } | null;
@@ -33,6 +36,8 @@ function toMasterDto(row: MasterRow): ExperienceLineMasterDto {
     teamName: row.cluster4_teams?.team_name ?? null,
     sourceFileName: row.source_file_name,
     isActive: row.is_active,
+    experienceCategory: row.experience_category ?? null,
+    experienceSlotOrder: row.experience_slot_order ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

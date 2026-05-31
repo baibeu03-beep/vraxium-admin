@@ -40,6 +40,14 @@ import {
   type WeekResultStatus,
 } from "@/lib/cluster4WeeklyGrowthTypes";
 import { getPointLabels } from "@/lib/pointLabels";
+import {
+  computeEditWindowStatus,
+  computeQuickActionRange,
+  statusLabel as editWindowStatusLabel,
+  type EditWindowDto,
+  type EditWindowStatus,
+  type QuickActionKey,
+} from "@/lib/adminEditWindowsTypes";
 
 type TabKey =
   | "weekly_growth"
@@ -55,9 +63,9 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "weekly_growth", label: "주간 성장" },
   { key: "season_review", label: "시즌 리뷰" },
   { key: "season_reputation", label: "받은 시즌 평판" },
-  { key: "weekly_reputation", label: "주간 평판" },
-  { key: "weekly_review", label: "주간 리뷰" },
-  { key: "weekly_colleague", label: "연계 동료" },
+  { key: "weekly_reputation", label: "위클리 평판" },
+  { key: "weekly_review", label: "위클리 리뷰" },
+  { key: "weekly_colleague", label: "위클리 연계동료" },
   { key: "activities", label: "활동" },
   { key: "debug", label: "디버그" },
 ];
@@ -620,6 +628,133 @@ function CharCounter({ current, max }: { current: number; max: number }) {
   );
 }
 
+// ─────────────────────────────────────────────────────────────
+// 위클리 리뷰 주차별 제출 현황 + 작성 기간(열기/닫기) 카드.
+// 작성 기간은 운영관리 > 작성 기간 관리와 동일한 user_edit_windows
+// (resource_key = "cluster4.weekly_reviews") 를 주차별로 제어한다.
+// ─────────────────────────────────────────────────────────────
+
+type WeeklyReviewWeekStatusRow = {
+  weekId: string;
+  weekNumber: number;
+  label: string;
+  submitted: boolean;
+  status: EditWindowStatus;
+};
+
+function weeklyReviewWindowBadgeClass(status: EditWindowStatus): string {
+  switch (status) {
+    case "open":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
+    case "closed":
+      return "border-slate-200 bg-slate-50 text-slate-600";
+    case "expired":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    case "none":
+      return "border-border bg-muted/40 text-muted-foreground";
+  }
+}
+
+function WeeklyReviewWeekStatus({
+  rows,
+  busyWeekId,
+  disabled,
+  onWindowAction,
+}: {
+  rows: WeeklyReviewWeekStatusRow[];
+  busyWeekId: string | null;
+  disabled: boolean;
+  onWindowAction: (weekId: string, action: QuickActionKey | "close") => void;
+}) {
+  return (
+    <div className="rounded-lg border bg-muted/10">
+      <div className="border-b px-4 py-2.5">
+        <div className="text-sm font-semibold text-foreground">
+          주차별 제출 현황 · 작성 기간
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          주차별 위클리 리뷰 제출 여부와 수정 가능 여부를 확인하고, 작성 기간을
+          열고 닫습니다. (자원{" "}
+          <code className="font-mono">cluster4.weekly_reviews</code> · 운영관리
+          &gt; 작성 기간 관리와 동일)
+        </p>
+      </div>
+      {rows.length === 0 ? (
+        <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+          주차 데이터가 없습니다.
+        </div>
+      ) : (
+        <div className="max-h-72 divide-y overflow-y-auto">
+          {rows.map((w) => {
+            const busy = busyWeekId === w.weekId;
+            const canClose = w.status === "open";
+            return (
+              <div
+                key={w.weekId}
+                className="flex flex-wrap items-center justify-between gap-2 px-4 py-2"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium">{w.label}</span>
+                  <span
+                    className={cn(
+                      "rounded-full border px-2 py-0.5 text-[11px]",
+                      w.submitted
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                        : "border-border bg-muted/40 text-muted-foreground",
+                    )}
+                  >
+                    {w.submitted ? "제출" : "미제출"}
+                  </span>
+                  <span
+                    className={cn(
+                      "rounded-full border px-2 py-0.5 text-[11px]",
+                      weeklyReviewWindowBadgeClass(w.status),
+                    )}
+                  >
+                    {editWindowStatusLabel(w.status)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {(
+                    [
+                      ["open_24h", "24h"],
+                      ["open_7d", "7d"],
+                      ["open_until_midnight", "자정"],
+                    ] as const
+                  ).map(([action, label]) => (
+                    <button
+                      key={action}
+                      type="button"
+                      disabled={disabled || busy}
+                      onClick={() => onWindowAction(w.weekId, action)}
+                      className="rounded-md border px-2 py-1 text-[11px] hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled={disabled || busy || !canClose}
+                    onClick={() => onWindowAction(w.weekId, "close")}
+                    className={cn(
+                      "rounded-md border px-2 py-1 text-[11px]",
+                      canClose && !disabled
+                        ? "hover:bg-muted"
+                        : "cursor-not-allowed text-muted-foreground",
+                    )}
+                  >
+                    닫기
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const RESULT_STATUS_STYLE = WEEK_STATUS_STYLE;
 
 function WeeklyListCard({
@@ -751,10 +886,10 @@ function WeeklyListCard({
           </div>
         </div>
 
-        {/* 연계 동료 */}
+        {/* 위클리 연계동료 */}
         <div>
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            연계 동료
+            위클리 연계동료
           </div>
           <div className="mt-0.5 text-sm font-medium tabular-nums">
             {c.linkedCrewCount}명
@@ -945,6 +1080,100 @@ export default function Cluster4Editor({
       return weekLabels.get(String(id)) ?? String(id);
     },
     [weekLabels],
+  );
+
+  // 위클리 리뷰 주차별 작성 기간(열기/닫기) 진행 중인 주차.
+  const [windowBusyWeek, setWindowBusyWeek] = useState<string | null>(null);
+
+  // 주차별 위클리 리뷰 제출 여부 + 작성 기간 상태. weeks 를 기준으로
+  // bundle.weeklyReviews(제출) 와 bundle.weeklyReviewWindows(작성 기간) 를 조인.
+  const weeklyReviewWeekRows = useMemo<WeeklyReviewWeekStatusRow[]>(() => {
+    const submitted = new Set(
+      bundle.weeklyReviews.map((r) => String(r.week_card_id)),
+    );
+    const windowByWeek = new Map(
+      (bundle.weeklyReviewWindows ?? []).map((w) => [w.weekId, w]),
+    );
+    return [...bundle.weeks]
+      .map((week) => {
+        const row = week as Record<string, unknown>;
+        const id = String(pickValue(row, ["id"]) ?? "");
+        const weekNumber = Number(pickValue(row, ["week_number"]) ?? 0);
+        const win = windowByWeek.get(id) ?? null;
+        return {
+          weekId: id,
+          weekNumber: Number.isFinite(weekNumber) ? weekNumber : 0,
+          label: getWeekLabel(id),
+          submitted: submitted.has(id),
+          status: computeEditWindowStatus(
+            win
+              ? ({
+                  openedAt: win.openedAt,
+                  expiresAt: win.expiresAt,
+                } as unknown as EditWindowDto)
+              : null,
+          ),
+        };
+      })
+      .filter((r) => r.weekId)
+      .sort((a, b) => a.weekNumber - b.weekNumber);
+  }, [bundle.weeklyReviews, bundle.weeklyReviewWindows, bundle.weeks, getWeekLabel]);
+
+  // 위클리 리뷰 작성 기간 열기/닫기 — 운영관리 > 작성 기간 관리와 동일 API 재사용.
+  const handleWeeklyReviewWindow = useCallback(
+    async (weekId: string, action: QuickActionKey | "close") => {
+      if (!bundle.userId) return;
+      setWindowBusyWeek(weekId);
+      try {
+        const payload =
+          action === "close"
+            ? {
+                resource_key: "cluster4.weekly_reviews",
+                week_id: weekId,
+                action: "close" as const,
+              }
+            : (() => {
+                const { openedAt, expiresAt } = computeQuickActionRange(action);
+                return {
+                  resource_key: "cluster4.weekly_reviews",
+                  week_id: weekId,
+                  opened_at: openedAt.toISOString(),
+                  expires_at: expiresAt.toISOString(),
+                };
+              })();
+        const res = await fetch(
+          `/api/admin/edit-windows/${encodeURIComponent(bundle.userId)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error ?? "작성 기간 변경에 실패했습니다.");
+        }
+        setBanner({
+          kind: "success",
+          message:
+            action === "close"
+              ? "위클리 리뷰 작성 기간을 닫았습니다."
+              : "위클리 리뷰 작성 기간을 열었습니다.",
+        });
+        await loadAll();
+      } catch (error) {
+        setBanner({
+          kind: "error",
+          message:
+            error instanceof Error
+              ? error.message
+              : "작성 기간 변경에 실패했습니다.",
+        });
+      } finally {
+        setWindowBusyWeek(null);
+      }
+    },
+    [bundle.userId, loadAll],
   );
 
   const dirty = useMemo(() => {
@@ -1852,13 +2081,13 @@ export default function Cluster4Editor({
         </Card>
       )}
 
-      {/* ───────────── 주간 평판 (받은) ───────────── */}
+      {/* ───────────── 위클리 평판 (받은) ───────────── */}
       {activeTab === "weekly_reputation" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">받은 주간 평판</CardTitle>
+            <CardTitle className="text-base">받은 위클리 평판</CardTitle>
             <p className="text-xs text-muted-foreground">
-              타인이 이 사용자(target_user_id)에 대해 남긴 주간 평판(peer-review row).
+              타인이 이 사용자(target_user_id)에 대해 남긴 위클리 평판(peer-review row).
               운영자는 점수 / 본문 / 키워드를 수정·삭제할 수 있습니다.
             </p>
           </CardHeader>
@@ -1866,7 +2095,7 @@ export default function Cluster4Editor({
             {!bundle.tablesAvailable.weeklyReputations ? (
               <TableNotAvailable table="weekly_reputations" />
             ) : form.weeklyReputationRows.length === 0 ? (
-              <EmptyState>받은 주간 평판이 없습니다.</EmptyState>
+              <EmptyState>받은 위클리 평판이 없습니다.</EmptyState>
             ) : (
               form.weeklyReputationRows.map((row, index) => (
                 <RowCard
@@ -1899,7 +2128,7 @@ export default function Cluster4Editor({
                     void handleDelete(
                       "weeklyReputation",
                       row.id,
-                      `${formatReviewerName(row.reviewer, row.reviewer_id)} 님이 작성한 주간 평판을 삭제할까요?`,
+                      `${formatReviewerName(row.reviewer, row.reviewer_id)} 님이 작성한 위클리 평판을 삭제할까요?`,
                     )
                   }
                   deleteDisabled={saveDisabled}
@@ -1959,21 +2188,27 @@ export default function Cluster4Editor({
         </Card>
       )}
 
-      {/* ───────────── 주간 리뷰 (본인 회고) ───────────── */}
+      {/* ───────────── 위클리 리뷰 (본인 회고) ───────────── */}
       {activeTab === "weekly_review" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">주간 리뷰</CardTitle>
+            <CardTitle className="text-base">위클리 리뷰</CardTitle>
             <p className="text-xs text-muted-foreground">
-              본인이 한 주차에 작성한 회고(<code className="font-mono">weekly_reviews</code>).
+              본인이 한 주차에 작성한 위클리 리뷰(<code className="font-mono">weekly_reviews</code>).
               운영자는 평점(1~10 정수) / 내용(1~200자)을 수정·삭제할 수 있습니다.
             </p>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
+            <WeeklyReviewWeekStatus
+              rows={weeklyReviewWeekRows}
+              busyWeekId={windowBusyWeek}
+              disabled={saveDisabled || !bundle.userId}
+              onWindowAction={handleWeeklyReviewWindow}
+            />
             {!bundle.tablesAvailable.weeklyReviews ? (
               <TableNotAvailable table="weekly_reviews" />
             ) : form.weeklyReviewRows.length === 0 ? (
-              <EmptyState>작성된 주간 리뷰가 없습니다.</EmptyState>
+              <EmptyState>작성된 위클리 리뷰가 없습니다.</EmptyState>
             ) : (
               form.weeklyReviewRows.map((row, index) => (
                 <RowCard
@@ -1992,7 +2227,7 @@ export default function Cluster4Editor({
                     void handleDelete(
                       "weeklyReview",
                       row.id,
-                      `${getWeekLabel(row.week_card_id)} 주차의 주간 리뷰를 삭제할까요?`,
+                      `${getWeekLabel(row.week_card_id)} 주차의 위클리 리뷰를 삭제할까요?`,
                     )
                   }
                   deleteDisabled={saveDisabled}
@@ -2014,7 +2249,7 @@ export default function Cluster4Editor({
                     />
                   </div>
                   <div className="flex flex-col gap-1.5 sm:col-span-2">
-                    <FieldLabel>회고 내용 (1~200자)</FieldLabel>
+                    <FieldLabel>위클리 리뷰 내용 (1~200자)</FieldLabel>
                     <textarea
                       value={row.content}
                       onChange={(event) =>
@@ -2036,11 +2271,11 @@ export default function Cluster4Editor({
         </Card>
       )}
 
-      {/* ───────────── 연계 동료 ───────────── */}
+      {/* ───────────── 위클리 연계동료 ───────────── */}
       {activeTab === "weekly_colleague" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">연계 동료</CardTitle>
+            <CardTitle className="text-base">위클리 연계동료</CardTitle>
             <p className="text-xs text-muted-foreground">
               한 주차에 함께한 동료(<code className="font-mono">weekly_colleagues</code>).
               운영자는 한 줄 코멘트를 수정·삭제할 수 있습니다. 동료 변경은 삭제 후 사용자
@@ -2051,7 +2286,7 @@ export default function Cluster4Editor({
             {!bundle.tablesAvailable.weeklyColleagues ? (
               <TableNotAvailable table="weekly_colleagues" />
             ) : form.weeklyColleagueRows.length === 0 ? (
-              <EmptyState>등록된 연계 동료가 없습니다.</EmptyState>
+              <EmptyState>등록된 위클리 연계동료가 없습니다.</EmptyState>
             ) : (
               form.weeklyColleagueRows.map((row, index) => (
                 <RowCard
@@ -2081,7 +2316,7 @@ export default function Cluster4Editor({
                     void handleDelete(
                       "weeklyColleague",
                       row.id,
-                      `${getWeekLabel(row.week_card_id)} - ${formatReviewerName(row.colleague, row.colleague_id)} 연계 동료를 삭제할까요?`,
+                      `${getWeekLabel(row.week_card_id)} - ${formatReviewerName(row.colleague, row.colleague_id)} 위클리 연계동료를 삭제할까요?`,
                     )
                   }
                   deleteDisabled={saveDisabled}

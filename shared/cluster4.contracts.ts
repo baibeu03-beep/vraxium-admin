@@ -44,12 +44,43 @@ export type Cluster4EnhancementReason =
 
 export type Cluster4LineTargetMode = "user" | "rule";
 
+// 실무 경험 5슬롯 분류 (cluster4_experience_line_masters.experience_category).
+// slot 과 1:1: derivation=1, analysis=2, evaluation=3, extension=4, management=5.
+export type Cluster4ExperienceCategory =
+  | "derivation"
+  | "analysis"
+  | "evaluation"
+  | "extension"
+  | "management";
+
 export type Cluster4StatusTone =
   | "neutral"
   | "info"
   | "success"
   | "warning"
   | "danger";
+
+// 실무 경험 필수 슬롯(도출/분석/평가) 기준 주차 성장 판정 (2026-05-30).
+// 백엔드 SoT — 프론트는 재계산 없이 이 값을 그대로 렌더한다.
+export type Cluster4ExperienceGrowthStatus =
+  | "pass" // 성장 실패 아님
+  | "fail" // 성장(실패)
+  | "pending" // 진행·대기
+  | "not_applicable"; // 규칙 미적용 (필수 슬롯 모두 미개설)
+
+export type Cluster4ExperienceGrowthSlot = {
+  slotOrder: number; // 1=도출 / 2=분석 / 3=평가
+  category: Cluster4ExperienceCategory;
+  enhancementStatus: Cluster4EnhancementStatus;
+};
+
+export type Cluster4ExperienceGrowth = {
+  status: Cluster4ExperienceGrowthStatus;
+  requiredSlots: Cluster4ExperienceGrowthSlot[];
+  failedSlotOrders: number[];
+  // verdict 가 userWeekStatus 에 fail 로 반영되었는지 (현재주/휴식 주차는 제외되어 false).
+  appliedToWeekStatus: boolean;
+};
 
 export type Cluster4UserWeekStatus =
   | "running"
@@ -133,6 +164,17 @@ export type Cluster4VisibleLineDto = {
 
   // 실무 경험 (experience)
   experienceLineMasterId: string | null;
+  // 실무 경험 평점 — 운영자/평가값. source: cluster4_experience_line_evaluations.rating (0~10).
+  //   (line_target_id + user_id) 단위로 현재 대상자의 평점만 매핑. experience 외 part 또는 미평가 시 null.
+  //   사용자 제출값(submission)과 무관하며, draft 단계의 rating 은 open 이후 evaluations 로 복사된 값만 노출.
+  //   프론트는 null 이면 "-" fallback.
+  experienceRating: number | null;
+  // 실무 경험 5슬롯 분류 — source: cluster4_experience_line_masters.experience_category / experience_slot_order.
+  //   join: cluster4_lines.experience_line_master_id → masters.id. experience 외 part 또는 미분류 시 null.
+  //   프론트는 experienceSlotOrder(1~5)로 고정 슬롯 배치, experienceCategory 가 null 이면 "-" fallback.
+  //   category: derivation(도출,1)/analysis(분석,2)/evaluation(평가,3)/extension(확장,4)/management(관리,5).
+  experienceCategory: Cluster4ExperienceCategory | null;
+  experienceSlotOrder: number | null;
 
   // 실무 경력 (career)
   careerProjectId: string | null;
@@ -223,6 +265,10 @@ export type Cluster4WeeklyCardDto = {
   weeklyGrowthRate: number;
   growthNumerator: number;
   growthDenominator: number;
+
+  // 실무 경험 필수 슬롯(도출/분석/평가) 기준 성장 판정 (append-only).
+  // userWeekStatus 가 fail 인 사유가 이 verdict 인지 appliedToWeekStatus 로 확인 가능.
+  experienceGrowth: Cluster4ExperienceGrowth;
 
   imageUrl: string | null;
   thumbnailUrl: string | null;

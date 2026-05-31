@@ -98,6 +98,15 @@ export type Cluster4HubEditWindowSnapshot = {
   expiresAt: string;
 } | null;
 
+// 위클리 리뷰(weekly_reviews) 작성 기간 — user_edit_windows 의
+// resource_key = "cluster4.weekly_reviews" 주차별 행. 운영관리 > 작성 기간 관리와
+// 동일한 자원이며, Cluster4 위클리 리뷰 탭에서 주차별 열기/닫기에 사용한다.
+export type Cluster4WeeklyReviewWindow = {
+  weekId: string;
+  openedAt: string;
+  expiresAt: string;
+};
+
 export type SeasonRow = Record<string, unknown>;
 export type WeekRow = Record<string, unknown>;
 export type UserSeasonHistoryRow = Record<string, unknown>;
@@ -134,6 +143,8 @@ export type Cluster4Bundle = {
   reputationKeywords: ReputationKeywordRow[];
   receivedWeeklyReputations: WeeklyReputationRow[];
   weeklyReviews: WeeklyReviewRow[];
+  // 위클리 리뷰 주차별 작성 기간(user_edit_windows, cluster4.weekly_reviews).
+  weeklyReviewWindows?: Cluster4WeeklyReviewWindow[];
   weeklyColleagues: WeeklyColleagueRow[];
   // 4개 모달 — user_activity_details 단일 테이블을 classifyActivityType 기준으로 그룹핑.
   userActivityDetails: UserActivityDetailRow[];

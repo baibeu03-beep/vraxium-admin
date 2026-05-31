@@ -20,6 +20,9 @@ type UserProfileRow = {
   birth_date: string | null;
   contact_phone: string | null;
   contact_email: string | null;
+  auth_email: string | null;
+  status: string | null;
+  growth_status: string | null;
   profile_photo_url: string | null;
   school_name: string | null;
   department_name: string | null;
@@ -89,6 +92,9 @@ export type AdminCrewDto = {
   age: number | null;
   contactPhone: string | null;
   contactEmail: string | null;
+  authEmail: string | null;
+  status: string | null;
+  growthStatus: string | null;
   schoolName: string | null;
   departmentName: string | null;
   majorName: string | null;
@@ -118,6 +124,9 @@ const PROFILE_SELECT = [
   "birth_date",
   "contact_phone",
   "contact_email",
+  "auth_email",
+  "status",
+  "growth_status",
   "profile_photo_url",
   "school_name",
   "department_name",
@@ -374,6 +383,9 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
       age: computeAge(birthDate),
       contactPhone: preferString(profile.contact_phone, legacy?.contact_phone),
       contactEmail: preferString(profile.contact_email, legacy?.contact_email),
+      authEmail: profile.auth_email ?? null,
+      status: profile.status ?? null,
+      growthStatus: profile.growth_status ?? null,
       schoolName,
       departmentName,
       majorName: departmentName,

@@ -54,11 +54,28 @@ export type Cluster4LineSubmissionDto = {
   updatedAt: string;
 };
 
+// 실무 경험 5슬롯 분류 (cluster4_experience_line_masters.experience_category).
+// slot 과 1:1: derivation=1, analysis=2, evaluation=3, extension=4, management=5.
+export type Cluster4ExperienceCategory =
+  | "derivation"
+  | "analysis"
+  | "evaluation"
+  | "extension"
+  | "management";
+
 export type Cluster4LineDetailDto = {
   status: Cluster4LineStatus;
   partType: Cluster4LinePartType;
   line: Cluster4VisibleLineDto | null;
   submission: Cluster4LineSubmissionDto | null;
+  // 실무 경험 평점 — 운영자/평가값. source: cluster4_experience_line_evaluations.rating (0~10).
+  //   (line_target_id + user_id) 단위로 현재 대상자의 평점만 매핑. experience 외 part 또는 미평가 시 null.
+  //   사용자 제출값(submission)과 무관. 프론트는 null 이면 "-" fallback.
+  experienceRating: number | null;
+  // 실무 경험 5슬롯 분류 — source: cluster4_experience_line_masters.experience_category / experience_slot_order.
+  //   join: cluster4_lines.experience_line_master_id → masters.id. experience 외 part 또는 미분류 시 null.
+  experienceCategory: Cluster4ExperienceCategory | null;
+  experienceSlotOrder: number | null;
 };
 
 export type Cluster4LineSubmissionInput = {

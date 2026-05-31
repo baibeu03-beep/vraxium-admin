@@ -3,12 +3,20 @@ import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import {
   Cluster4PublicLineError,
   createCluster4LineSubmissionForAuthUser,
+  createCluster4LineSubmissionForProfileUser,
   updateCluster4LineSubmissionForAuthUser,
+  updateCluster4LineSubmissionForProfileUser,
 } from "@/lib/cluster4LinesData";
 import { parseCluster4LineSubmissionBody } from "@/lib/cluster4LinesTypes";
+import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
 
 type Ctx = { params: Promise<{ lineTargetId: string }> };
 
+// 데모 쓰기 주체 해소.
+//   - demoUserId 없음 → null (일반 세션 인증 경로)
+//   - 데모 모드 on + test_user_markers 등재 유저 → 그 profile.user_id (쓰기 허용)
+//   - 데모 모드 on + 미등재(운영 일반) user_id → DemoModeError(403) (resolveDemoProfileUserId 내부)
+//   - 데모 모드 off(운영 + ENABLE_DEMO_MODE 미설정) → null → 일반 세션 인증 경로
 async function requireAuthenticatedUser() {
   const supabase = await getSupabaseServerClient();
   const {
@@ -23,17 +31,33 @@ async function requireAuthenticatedUser() {
 }
 
 export async function POST(request: NextRequest, { params }: Ctx) {
-  let user;
+  // 데모 쓰기 주체 해소 (test_user_markers 검증 + 운영 게이트는 resolveDemoProfileUserId 내부).
+  let demoProfileUserId: string | null = null;
   try {
-    user = await requireAuthenticatedUser();
+    demoProfileUserId = await resolveDemoProfileUserId(request);
   } catch (error) {
-    if (error instanceof Cluster4PublicLineError) {
+    if (error instanceof DemoModeError) {
       return Response.json(
         { success: false, error: error.message },
         { status: error.status },
       );
     }
     throw error;
+  }
+
+  let user;
+  if (!demoProfileUserId) {
+    try {
+      user = await requireAuthenticatedUser();
+    } catch (error) {
+      if (error instanceof Cluster4PublicLineError) {
+        return Response.json(
+          { success: false, error: error.message },
+          { status: error.status },
+        );
+      }
+      throw error;
+    }
   }
 
   const { lineTargetId } = await params;
@@ -57,12 +81,18 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   }
 
   try {
-    const submission = await createCluster4LineSubmissionForAuthUser(
-      user.id,
-      user.email ?? null,
-      lineTargetId,
-      parsed.value,
-    );
+    const submission = demoProfileUserId
+      ? await createCluster4LineSubmissionForProfileUser(
+          demoProfileUserId,
+          lineTargetId,
+          parsed.value,
+        )
+      : await createCluster4LineSubmissionForAuthUser(
+          user!.id,
+          user!.email ?? null,
+          lineTargetId,
+          parsed.value,
+        );
     return Response.json({ success: true, data: { submission } }, { status: 201 });
   } catch (error) {
     if (error instanceof Cluster4PublicLineError) {
@@ -83,17 +113,33 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 }
 
 export async function PATCH(request: NextRequest, { params }: Ctx) {
-  let user;
+  // 데모 쓰기 주체 해소 (test_user_markers 검증 + 운영 게이트는 resolveDemoProfileUserId 내부).
+  let demoProfileUserId: string | null = null;
   try {
-    user = await requireAuthenticatedUser();
+    demoProfileUserId = await resolveDemoProfileUserId(request);
   } catch (error) {
-    if (error instanceof Cluster4PublicLineError) {
+    if (error instanceof DemoModeError) {
       return Response.json(
         { success: false, error: error.message },
         { status: error.status },
       );
     }
     throw error;
+  }
+
+  let user;
+  if (!demoProfileUserId) {
+    try {
+      user = await requireAuthenticatedUser();
+    } catch (error) {
+      if (error instanceof Cluster4PublicLineError) {
+        return Response.json(
+          { success: false, error: error.message },
+          { status: error.status },
+        );
+      }
+      throw error;
+    }
   }
 
   const { lineTargetId } = await params;
@@ -117,12 +163,18 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   }
 
   try {
-    const submission = await updateCluster4LineSubmissionForAuthUser(
-      user.id,
-      user.email ?? null,
-      lineTargetId,
-      parsed.value,
-    );
+    const submission = demoProfileUserId
+      ? await updateCluster4LineSubmissionForProfileUser(
+          demoProfileUserId,
+          lineTargetId,
+          parsed.value,
+        )
+      : await updateCluster4LineSubmissionForAuthUser(
+          user!.id,
+          user!.email ?? null,
+          lineTargetId,
+          parsed.value,
+        );
     return Response.json({ success: true, data: { submission } });
   } catch (error) {
     if (error instanceof Cluster4PublicLineError) {

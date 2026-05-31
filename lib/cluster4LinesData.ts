@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import type {
+  Cluster4ExperienceCategory,
   Cluster4LineDetailDto,
   Cluster4LinePartType,
   Cluster4LineSubmissionDto,
@@ -49,6 +50,8 @@ type Cluster4LineTargetJoinedRow = {
     submission_opens_at: string;
     submission_closes_at: string;
     is_active: boolean;
+    // experience 5슬롯 분류 조인용 (experience part 라인에만 값 존재).
+    experience_line_master_id: string | null;
   } | null;
 };
 
@@ -87,7 +90,8 @@ const TARGET_WITH_LINE_SELECT = `
     output_links,
     submission_opens_at,
     submission_closes_at,
-    is_active
+    is_active,
+    experience_line_master_id
   )
 `;
 
@@ -250,6 +254,55 @@ async function getSubmissionForTargetAndUser(lineTargetId: string, profileUserId
   return (data ?? null) as Cluster4SubmissionRow | null;
 }
 
+// 실무 경험 평점 — cluster4_experience_line_evaluations.rating (운영자/평가값).
+// (line_target_id + user_id) 단위로 현재 대상자의 평점만 조회. 미평가/조회 실패 시 null.
+// 사용자 제출(submission)과 무관하며 experience part 에서만 호출한다.
+async function getExperienceRatingForTargetAndUser(
+  lineTargetId: string,
+  profileUserId: string,
+): Promise<number | null> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_experience_line_evaluations")
+    .select("rating")
+    .eq("line_target_id", lineTargetId)
+    .eq("user_id", profileUserId)
+    .maybeSingle();
+  if (error) {
+    console.warn("[cluster4/lines/detail] experience evaluation lookup failed", {
+      message: error.message,
+    });
+    return null;
+  }
+  return (data as { rating: number } | null)?.rating ?? null;
+}
+
+// 실무 경험 5슬롯 분류 — cluster4_experience_line_masters (experience_line_master_id 단건 조회).
+// experience part 에서만 호출. 미분류/조회 실패 시 {category:null, slotOrder:null}.
+async function getExperienceMasterMeta(
+  experienceLineMasterId: string | null,
+): Promise<{ category: Cluster4ExperienceCategory | null; slotOrder: number | null }> {
+  if (!experienceLineMasterId) return { category: null, slotOrder: null };
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_experience_line_masters")
+    .select("experience_category,experience_slot_order")
+    .eq("id", experienceLineMasterId)
+    .maybeSingle();
+  if (error) {
+    console.warn("[cluster4/lines/detail] experience master lookup failed", {
+      message: error.message,
+    });
+    return { category: null, slotOrder: null };
+  }
+  const row = data as {
+    experience_category: Cluster4ExperienceCategory | null;
+    experience_slot_order: number | null;
+  } | null;
+  return {
+    category: row?.experience_category ?? null,
+    slotOrder: row?.experience_slot_order ?? null,
+  };
+}
+
 // Fetches the target row by id; ownership / window checks are handled separately by
 // the unified canEditCluster4Line helper so admin and portal paths agree on policy.
 async function fetchTargetById(lineTargetId: string) {
@@ -319,10 +372,20 @@ export async function getCluster4LineDetailForAuthUser(
   weekId: string,
   partType: Cluster4LinePartType,
 ): Promise<Cluster4LineDetailDto> {
+  const profileUserId = await resolveAuthenticatedProfileUserId(authUserId, authEmail);
+  return getCluster4LineDetailForProfileUser(profileUserId, weekId, partType);
+}
+
+// 데모/어드민 경로: profile.user_id 를 직접 받아 라인 상세를 조회한다.
+// auth 변형(getCluster4LineDetailForAuthUser)은 세션 → profile 해소 후 이 함수에 위임한다.
+export async function getCluster4LineDetailForProfileUser(
+  profileUserId: string,
+  weekId: string,
+  partType: Cluster4LinePartType,
+): Promise<Cluster4LineDetailDto> {
   if (!isUuid(weekId)) {
     throw new Cluster4PublicLineError(400, "weekId must be a UUID");
   }
-  const profileUserId = await resolveAuthenticatedProfileUserId(authUserId, authEmail);
   const { matched, hasRuleTargets } = await listCandidateTargetsForUser(
     profileUserId,
     weekId,
@@ -336,15 +399,27 @@ export async function getCluster4LineDetailForAuthUser(
         { profileUserId, weekId, partType },
       );
     }
+    // 미배정(void): 타깃이 없으므로 평점·분류도 없다.
     return {
       status: "void",
       partType,
       line: null,
       submission: null,
+      experienceRating: null,
+      experienceCategory: null,
+      experienceSlotOrder: null,
     };
   }
 
   const line = toVisibleLine(matched);
+  // 실무 경험 평점·5슬롯 분류는 experience part 에서만 조회. 그 외 part 는 null.
+  const isExperience = partType === "experience";
+  const experienceRating = isExperience
+    ? await getExperienceRatingForTargetAndUser(matched.id, profileUserId)
+    : null;
+  const experienceMeta = isExperience
+    ? await getExperienceMasterMeta(matched.cluster4_lines?.experience_line_master_id ?? null)
+    : { category: null, slotOrder: null };
   const submission = await getSubmissionForTargetAndUser(matched.id, profileUserId);
   if (submission) {
     return {
@@ -352,6 +427,9 @@ export async function getCluster4LineDetailForAuthUser(
       partType,
       line,
       submission: toSubmissionDto(submission),
+      experienceRating,
+      experienceCategory: experienceMeta.category,
+      experienceSlotOrder: experienceMeta.slotOrder,
     };
   }
 
@@ -361,6 +439,9 @@ export async function getCluster4LineDetailForAuthUser(
     partType,
     line,
     submission: null,
+    experienceRating,
+    experienceCategory: experienceMeta.category,
+    experienceSlotOrder: experienceMeta.slotOrder,
   };
 }
 
@@ -371,6 +452,19 @@ export async function createCluster4LineSubmissionForAuthUser(
   input: Cluster4LineSubmissionInput,
 ): Promise<Cluster4LineSubmissionDto> {
   const profileUserId = await resolveAuthenticatedProfileUserId(authUserId, authEmail);
+  return createCluster4LineSubmissionForProfileUser(profileUserId, lineTargetId, input);
+}
+
+// 데모/어드민 경로: profile.user_id 를 직접 받아 제출을 생성한다.
+// auth 변형은 세션 → profile 해소 후 이 함수에 위임한다.
+// 작성 기간(edit window) 검증(requireEditableTarget)과 소유자(user_id=profileUserId)는
+// 일반 고객 흐름과 동일하게 적용된다 → 데모라고 무조건 허용되지 않으며, 저장 row 는
+// 항상 해당 테스트 유저 소유다.
+export async function createCluster4LineSubmissionForProfileUser(
+  profileUserId: string,
+  lineTargetId: string,
+  input: Cluster4LineSubmissionInput,
+): Promise<Cluster4LineSubmissionDto> {
   await requireEditableTarget(lineTargetId, profileUserId);
 
   const existing = await getSubmissionForTargetAndUser(lineTargetId, profileUserId);
@@ -403,6 +497,15 @@ export async function updateCluster4LineSubmissionForAuthUser(
   input: Cluster4LineSubmissionInput,
 ): Promise<Cluster4LineSubmissionDto> {
   const profileUserId = await resolveAuthenticatedProfileUserId(authUserId, authEmail);
+  return updateCluster4LineSubmissionForProfileUser(profileUserId, lineTargetId, input);
+}
+
+// 데모/어드민 경로: profile.user_id 를 직접 받아 제출을 수정한다 (위 create 와 동일 정책).
+export async function updateCluster4LineSubmissionForProfileUser(
+  profileUserId: string,
+  lineTargetId: string,
+  input: Cluster4LineSubmissionInput,
+): Promise<Cluster4LineSubmissionDto> {
   await requireEditableTarget(lineTargetId, profileUserId);
 
   const existing = await getSubmissionForTargetAndUser(lineTargetId, profileUserId);

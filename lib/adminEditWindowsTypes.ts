@@ -58,9 +58,9 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     section: "cluster4",
     group: "weekly",
     order: 30,
-    label: "\uC8FC\uAC04 \uD68C\uACE0",
+    label: "\uC704\uD074\uB9AC \uB9AC\uBDF0",
     description:
-      "\uC8FC\uCC28\uBCC4 \uD68C\uACE0 \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
+      "\uC8FC\uCC28\uBCC4 \uC704\uD074\uB9AC \uB9AC\uBDF0 \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
     devLabel: "Cluster4 / Weekly Review",
     devDescription: "Cluster4 weekly_reviews permissions",
   },
@@ -69,9 +69,9 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     section: "cluster4",
     group: "weekly",
     order: 31,
-    label: "\uC8FC\uAC04 \uB3D9\uB8CC",
+    label: "\uC704\uD074\uB9AC \uC5F0\uACC4\uB3D9\uB8CC",
     description:
-      "\uC8FC\uCC28\uBCC4 \uD568\uAED8\uD55C \uB3D9\uB8CC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
+      "\uC8FC\uCC28\uBCC4 \uC704\uD074\uB9AC \uC5F0\uACC4\uB3D9\uB8CC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
     devLabel: "Cluster4 / Weekly Colleagues",
     devDescription: "Cluster4 weekly_colleagues permissions",
   },
@@ -80,9 +80,9 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     section: "cluster4",
     group: "weekly",
     order: 32,
-    label: "주간 평판",
+    label: "위클리 평판",
     description:
-      "주차별 받은 주간 평판 작성 권한을 관리합니다.",
+      "주차별 받은 위클리 평판 작성 권한을 관리합니다.",
     devLabel: "Cluster4 / Weekly Reputation",
     devDescription:
       "Cluster4 weekly_reputations permissions (peer-review row; reviewer-side gate lives in Front repo)",
@@ -198,6 +198,25 @@ export function getEditableResource(key: string): EditableResource | undefined {
   return EDITABLE_RESOURCES.find((resource) => resource.key === key);
 }
 
+// 주간 자원(주간 회고/동료/평판)은 group === "weekly". 이 자원들의 권한은 반드시
+// 특정 week_id 를 가리켜야 한다 (정책: 주차 필수). 비주간 자원은 전역(week_id=NULL).
+export function isWeekScopedResourceKey(key: string): boolean {
+  const resource = EDITABLE_RESOURCES.find((item) => item.key === key);
+  return resource?.group === "weekly";
+}
+
+// admin 주차 선택 드롭다운 / 권한 판정에서 공용으로 쓰는 주차 옵션.
+// label 예: "2026 봄 시즌 12주차". weekId = weeks.id (UUID).
+export type WeekOption = {
+  weekId: string;
+  seasonKey: string | null;
+  seasonLabel: string | null;
+  weekNumber: number | null;
+  startDate: string | null;
+  endDate: string | null;
+  label: string;
+};
+
 export const CLUSTER4_EDIT_RESOURCES = EDITABLE_RESOURCES.filter(
   (resource) => resource.section === "cluster4" && !resource.legacy,
 );
@@ -222,6 +241,9 @@ export type EditWindowDto = {
   id: string;
   userId: string;
   resourceKey: string;
+  // 주간 자원이면 가리키는 주차(weeks.id) + 파생 시즌. 전역/비주간이면 null.
+  weekId: string | null;
+  seasonKey: string | null;
   openedAt: string;
   expiresAt: string;
   grantedBy: string | null;
@@ -313,6 +335,8 @@ export function computeQuickActionRange(
 
 export type EditWindowUpsertPayload = {
   resource_key: string;
+  // 주간 자원이면 필수, 비주간이면 생략/ null. season_key 는 서버에서 파생한다.
+  week_id?: string | null;
   opened_at: string;
   expires_at: string;
   note?: string | null;
@@ -320,6 +344,7 @@ export type EditWindowUpsertPayload = {
 
 export type EditWindowClosePayload = {
   resource_key: string;
+  week_id?: string | null;
   action: "close";
 };
 

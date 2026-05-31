@@ -7,10 +7,38 @@
 // 반환: WeeklyGrowthDto (currentWeekInfo + growthSummary + weeklyCards)
 //   어드민 /api/admin/crews/[legacy_user_id]/cluster4/weekly-growth 와 동일 DTO.
 
+import type { NextRequest } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
-import { getWeeklyGrowthByUserId } from "@/lib/cluster4WeeklyGrowthData";
+import {
+  getWeeklyGrowth,
+  getWeeklyGrowthByUserId,
+} from "@/lib/cluster4WeeklyGrowthData";
+import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // 데모 모드: demoUserId 가 유효한 테스트 유저면 세션 인증 대신 그 유저 데이터를 반환.
+  try {
+    const demoProfileUserId = await resolveDemoProfileUserId(request);
+    if (demoProfileUserId) {
+      const dto = await getWeeklyGrowth(demoProfileUserId);
+      if (!dto) {
+        return Response.json(
+          { success: false, error: "User profile not found." },
+          { status: 404 },
+        );
+      }
+      return Response.json({ success: true, data: dto });
+    }
+  } catch (error) {
+    if (error instanceof DemoModeError) {
+      return Response.json(
+        { success: false, error: error.message },
+        { status: error.status },
+      );
+    }
+    throw error;
+  }
+
   const supabase = await getSupabaseServerClient();
   const {
     data: { user },

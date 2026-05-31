@@ -10,7 +10,11 @@ import type {
   WeeklyCardLineBreakdown,
   WeeklyCardLineDetail,
 } from "@/lib/cluster4WeeklyGrowthTypes";
-import { roundGrowthRate, fetchWeeksWithAnyInfoLine } from "@/lib/lineAvailability";
+import {
+  roundGrowthRate,
+  fetchWeeksWithAnyInfoLine,
+  fetchWeeksWithAnyExperienceLine,
+} from "@/lib/lineAvailability";
 import { normalizeOutputImages } from "@/lib/cluster4OutputImages";
 import {
   CLUSTER4_HUB_EDIT_WINDOW_KEYS,
@@ -22,6 +26,7 @@ import {
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
 import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
 import type {
+  Cluster4ExperienceCategory,
   Cluster4LineDetailDto,
   Cluster4LineEditReason,
   Cluster4LinePartType,
@@ -70,6 +75,12 @@ type TargetWithLineRow = {
 type ActivityTypeRow = {
   id: string;
   name: string;
+};
+
+// cluster4_experience_line_masters 의 5슬롯 분류 메타 (experience part 라인에만 적용).
+type ExperienceMasterMeta = {
+  category: Cluster4ExperienceCategory | null;
+  slotOrder: number | null;
 };
 
 type SubmissionRow = {
@@ -153,19 +164,27 @@ function emptyLine(
   partType: Cluster4LinePartType,
   weekId: string | null = null,
   expectedWhenMissing = false,
+  restWeek = false,
 ): Cluster4LineDetailDto {
+  // 미개설 placeholder — 타깃/평가가 없으므로 experienceRating 은 항상 null.
   // partType 단위 "미개설" placeholder. lineTargetId 가 없으므로 canEdit=false /
   // editReason="target_missing" 으로 고정 (override 가 OPEN 이어도 동일 — target 없는
   // sub-line 에는 override 가 적용되면 안 된다).
   // 강화 상태: 타깃 부재일 때 — 그 주차에 (해당 part) 라인이 개설됐으면 fail,
   // 미개설이면 not_applicable. expectedWhenMissing 이 그 신호다.
   //   info: weeksWithInfoLine.has(weekId) 를 전달 → fail/not_applicable 구분.
+  // competency(실무 역량) 예외: 허브 정책상 not_applicable 이 절대 나오면 안 된다
+  //   (라인 미개설/미배정 모두 fail). 따라서 호출부 신호와 무관하게 항상 fail 로 본다.
+  // 단, 휴식 주차(personal_rest/official_rest)는 평가/집계 제외(void)이므로 competency 도
+  //   fail 로 강제하지 않는다 — 휴식 상태가 not_applicable 제거 정책보다 우선한다.
+  //   (DB status 는 그대로 personal_rest/official_rest, enhancementStatus 만 not_applicable.)
+  const competencyExpectsFail = partType === "competency" && !restWeek;
   const enhancement = computeCluster4Enhancement({
     hasTarget: false,
     deadlinePassed: false,
     hasSubmission: false,
     isCareer: partType === "career",
-    expectedWhenMissing,
+    expectedWhenMissing: competencyExpectsFail ? true : expectedWhenMissing,
   });
   return {
     partType,
@@ -194,6 +213,9 @@ function emptyLine(
     activityTypeName: null,
     competencyLineMasterId: null,
     experienceLineMasterId: null,
+    experienceRating: null,
+    experienceCategory: null,
+    experienceSlotOrder: null,
     careerProjectId: null,
     lineCode: null,
     projectCode: null,
@@ -257,6 +279,8 @@ function toLineDetail(
   target: TargetWithLineRow,
   submission: SubmissionRow | null,
   activityTypeNameById: Map<string, string>,
+  experienceRatingByTargetId: Map<string, number>,
+  experienceMasterMetaById: Map<string, ExperienceMasterMeta>,
 ): Cluster4LineDetailDto | null {
   const line = target.cluster4_lines;
   if (!line) return null;
@@ -324,6 +348,22 @@ function toLineDetail(
       : null,
     competencyLineMasterId,
     experienceLineMasterId,
+    // 실무 경험 평점: cluster4_experience_line_evaluations.rating (현재 대상자 기준).
+    // experience part 만 매핑하고 그 외 part 는 null. 미평가면 null.
+    experienceRating:
+      partType === "experience"
+        ? experienceRatingByTargetId.get(target.id) ?? null
+        : null,
+    // 실무 경험 5슬롯 분류: cluster4_experience_line_masters (experience_line_master_id 조인).
+    // experience part 만 매핑하고 그 외 part 는 null. 미분류면 null.
+    experienceCategory:
+      partType === "experience" && experienceLineMasterId
+        ? experienceMasterMetaById.get(experienceLineMasterId)?.category ?? null
+        : null,
+    experienceSlotOrder:
+      partType === "experience" && experienceLineMasterId
+        ? experienceMasterMetaById.get(experienceLineMasterId)?.slotOrder ?? null
+        : null,
     careerProjectId,
     lineCode: line.line_code,
     // career part 의 line_code 는 career_projects.line_code 와 동일 (= projectCode).
@@ -565,6 +605,10 @@ function toWeeklyCardDto(
     weeklyGrowthRate: card.weeklyGrowth.rate,
     growthNumerator: card.weeklyGrowth.completedLines,
     growthDenominator: card.weeklyGrowth.availableLines,
+
+    // 실무 경험 필수 슬롯(도출/분석/평가) 성장 판정 — 백엔드 verdict 그대로 패스스루.
+    // (WeeklyCardDto.experienceGrowth 의 string-literal union 은 Cluster4ExperienceGrowth 에 구조적으로 대입 가능)
+    experienceGrowth: card.experienceGrowth,
     imageUrl,
     thumbnailUrl: imageUrl,
     cardMessage: cardMessage(card),
@@ -604,6 +648,36 @@ async function fetchActivityTypeNamesByIds(
   }
   for (const row of (data ?? []) as ActivityTypeRow[]) {
     map.set(row.id, row.name);
+  }
+  return map;
+}
+
+// experience_line_master_id → {category, slotOrder} 일괄 룩업.
+// experience sub-line 5슬롯 분류 노출용. 실패해도 카드를 깨뜨리지 않고 분류만 null 폴백한다.
+async function fetchExperienceMasterMetaByIds(
+  ids: string[],
+): Promise<Map<string, ExperienceMasterMeta>> {
+  const map = new Map<string, ExperienceMasterMeta>();
+  if (ids.length === 0) return map;
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_experience_line_masters")
+    .select("id,experience_category,experience_slot_order")
+    .in("id", ids);
+  if (error) {
+    console.warn("[cluster4/weekly-cards] experience masters lookup failed", {
+      message: error.message,
+    });
+    return map;
+  }
+  for (const row of (data ?? []) as {
+    id: string;
+    experience_category: Cluster4ExperienceCategory | null;
+    experience_slot_order: number | null;
+  }[]) {
+    map.set(row.id, {
+      category: row.experience_category ?? null,
+      slotOrder: row.experience_slot_order ?? null,
+    });
   }
   return map;
 }
@@ -659,21 +733,25 @@ async function fetchHubEditWindows(
 async function fetchLineDetailsByWeek(
   profileUserId: string,
   weekIds: string[],
+  restWeekIds: Set<string>,
 ): Promise<Map<string, Cluster4LineDetailDto[]>> {
   const result = new Map<string, Cluster4LineDetailDto[]>();
   if (weekIds.length === 0) return result;
 
-  const [targetResult, editWindowByPart, weeksWithInfoLine] = await Promise.all([
-    supabaseAdmin
-      .from("cluster4_line_targets")
-      .select(TARGET_WITH_LINE_SELECT)
-      .in("week_id", weekIds)
-      .eq("cluster4_lines.is_active", true)
-      .order("created_at", { ascending: false }),
-    fetchHubEditWindows(profileUserId),
-    // 그 주차에 info 라인이 (누구든) 개설됐는지 — 미배정 시 fail/not_applicable 구분용.
-    fetchWeeksWithAnyInfoLine(weekIds),
-  ]);
+  const [targetResult, editWindowByPart, weeksWithInfoLine, weeksWithExperienceLine] =
+    await Promise.all([
+      supabaseAdmin
+        .from("cluster4_line_targets")
+        .select(TARGET_WITH_LINE_SELECT)
+        .in("week_id", weekIds)
+        .eq("cluster4_lines.is_active", true)
+        .order("created_at", { ascending: false }),
+      fetchHubEditWindows(profileUserId),
+      // 그 주차에 info 라인이 (누구든) 개설됐는지 — 미배정 시 fail/not_applicable 구분용.
+      fetchWeeksWithAnyInfoLine(weekIds),
+      // experience 도 동일하게 — 미배정 시 fail/not_applicable 구분용.
+      fetchWeeksWithAnyExperienceLine(weekIds),
+    ]);
 
   const { data: targetData, error: targetError } = targetResult;
   if (targetError) {
@@ -703,6 +781,33 @@ async function fetchLineDetailsByWeek(
     }
   }
 
+  // 실무 경험 평점(cluster4_experience_line_evaluations.rating) 일괄 룩업.
+  // experience part target 에 한해 (line_target_id + user_id) 단위로 현재 대상자의 평점만 매핑.
+  // 조회 실패해도 카드 전체를 깨뜨리지 않고 평점만 null 폴백한다.
+  const experienceTargetIds = relevantTargets
+    .filter((row) => row.cluster4_lines?.part_type === "experience")
+    .map((row) => row.id);
+  const experienceRatingByTargetId = new Map<string, number>();
+  if (experienceTargetIds.length > 0) {
+    const { data: evalData, error: evalError } = await supabaseAdmin
+      .from("cluster4_experience_line_evaluations")
+      .select("line_target_id,rating")
+      .eq("user_id", profileUserId)
+      .in("line_target_id", experienceTargetIds);
+    if (evalError) {
+      console.warn("[cluster4/weekly-cards] experience evaluations lookup failed", {
+        message: evalError.message,
+      });
+    } else {
+      for (const row of (evalData ?? []) as {
+        line_target_id: string;
+        rating: number;
+      }[]) {
+        experienceRatingByTargetId.set(row.line_target_id, row.rating);
+      }
+    }
+  }
+
   // information sub-line 라벨 (activity_types.name) 일괄 룩업.
   const activityTypeIds = Array.from(
     new Set(
@@ -713,6 +818,18 @@ async function fetchLineDetailsByWeek(
   );
   const activityTypeNameById =
     await fetchActivityTypeNamesByIds(activityTypeIds);
+
+  // experience sub-line 5슬롯 분류 (experience_line_master_id → {category, slotOrder}) 일괄 룩업.
+  const experienceMasterIds = Array.from(
+    new Set(
+      relevantTargets
+        .filter((row) => row.cluster4_lines?.part_type === "experience")
+        .map((row) => row.cluster4_lines?.experience_line_master_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const experienceMasterMetaById =
+    await fetchExperienceMasterMetaByIds(experienceMasterIds);
 
   const now = Date.now();
   for (const weekId of weekIds) {
@@ -728,6 +845,8 @@ async function fetchLineDetailsByWeek(
         target,
         submissionsByTargetId.get(target.id) ?? null,
         activityTypeNameById,
+        experienceRatingByTargetId,
+        experienceMasterMetaById,
       );
       if (!base) continue;
       const dbPartType = target.cluster4_lines?.part_type;
@@ -754,11 +873,17 @@ async function fetchLineDetailsByWeek(
     // 는 lineTargetId 가 없어 canEdit=false / editReason="target_missing" 으로 고정.
     for (const partType of PUBLIC_PARTS) {
       if (!partsWithTarget.has(partType)) {
-        // info 미배정: 그 주차에 info 라인이 개설됐으면 fail, 미개설이면 not_applicable.
-        // (info 외 part 는 이번 범위 밖 — 기존대로 not_applicable)
+        // 미배정: 그 주차에 해당 part 라인이 개설됐으면 fail, 미개설이면 not_applicable.
+        //   info       → weeksWithInfoLine
+        //   experience → weeksWithExperienceLine
+        //   competency → emptyLine 내부에서 fail 강제 (단, 휴식 주차는 제외 — restWeek 신호)
+        //   (career 는 이번 범위 밖 — 기존대로 not_applicable)
         const expectedWhenMissing =
-          partType === "information" && weeksWithInfoLine.has(weekId);
-        lines.push(emptyLine(partType, weekId, expectedWhenMissing));
+          (partType === "information" && weeksWithInfoLine.has(weekId)) ||
+          (partType === "experience" && weeksWithExperienceLine.has(weekId));
+        lines.push(
+          emptyLine(partType, weekId, expectedWhenMissing, restWeekIds.has(weekId)),
+        );
       }
     }
 
@@ -896,20 +1021,25 @@ export async function getCluster4WeeklyCardsForAuthUser(
   const weekIds = weeklyGrowth.weeklyCards
     .map((card) => card.weekId)
     .filter((weekId): weekId is string => Boolean(weekId));
+  // 휴식 주차(personal_rest/official_rest) — competency placeholder 를 fail 로 강제하지 않기 위한 신호.
+  const restWeekIds = new Set(
+    weeklyGrowth.weeklyCards
+      .filter((card) => card.weekId && isRestWeek(card.resultStatus))
+      .map((card) => card.weekId as string),
+  );
   const [lineMap, headerSnapshot] = await Promise.all([
-    fetchLineDetailsByWeek(profileUserId, weekIds),
+    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds),
     fetchHeaderExtrasSnapshot(profileUserId),
   ]);
 
-  return weeklyGrowth.weeklyCards.map((card) =>
-    toWeeklyCardDto(
-      card,
-      card.weekId
-        ? (lineMap.get(card.weekId) ?? PUBLIC_PARTS.map((p) => emptyLine(p, card.weekId)))
-        : PUBLIC_PARTS.map((p) => emptyLine(p, null)),
-      resolveHeaderExtras(card, headerSnapshot),
-    ),
-  );
+  return weeklyGrowth.weeklyCards.map((card) => {
+    const restWeek = isRestWeek(card.resultStatus);
+    const lines = card.weekId
+      ? (lineMap.get(card.weekId) ??
+          PUBLIC_PARTS.map((p) => emptyLine(p, card.weekId, false, restWeek)))
+      : PUBLIC_PARTS.map((p) => emptyLine(p, null, false, restWeek));
+    return toWeeklyCardDto(card, lines, resolveHeaderExtras(card, headerSnapshot));
+  });
 }
 
 export async function getCluster4WeeklyCardsForProfileUser(
@@ -923,18 +1053,23 @@ export async function getCluster4WeeklyCardsForProfileUser(
   const weekIds = weeklyGrowth.weeklyCards
     .map((card) => card.weekId)
     .filter((weekId): weekId is string => Boolean(weekId));
+  // 휴식 주차(personal_rest/official_rest) — competency placeholder 를 fail 로 강제하지 않기 위한 신호.
+  const restWeekIds = new Set(
+    weeklyGrowth.weeklyCards
+      .filter((card) => card.weekId && isRestWeek(card.resultStatus))
+      .map((card) => card.weekId as string),
+  );
   const [lineMap, headerSnapshot] = await Promise.all([
-    fetchLineDetailsByWeek(profileUserId, weekIds),
+    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds),
     fetchHeaderExtrasSnapshot(profileUserId),
   ]);
 
-  return weeklyGrowth.weeklyCards.map((card) =>
-    toWeeklyCardDto(
-      card,
-      card.weekId
-        ? (lineMap.get(card.weekId) ?? PUBLIC_PARTS.map((p) => emptyLine(p, card.weekId)))
-        : PUBLIC_PARTS.map((p) => emptyLine(p, null)),
-      resolveHeaderExtras(card, headerSnapshot),
-    ),
-  );
+  return weeklyGrowth.weeklyCards.map((card) => {
+    const restWeek = isRestWeek(card.resultStatus);
+    const lines = card.weekId
+      ? (lineMap.get(card.weekId) ??
+          PUBLIC_PARTS.map((p) => emptyLine(p, card.weekId, false, restWeek)))
+      : PUBLIC_PARTS.map((p) => emptyLine(p, null, false, restWeek));
+    return toWeeklyCardDto(card, lines, resolveHeaderExtras(card, headerSnapshot));
+  });
 }

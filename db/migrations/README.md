@@ -40,6 +40,8 @@ Supabase SQL Editor에서 **파일명 알파벳 순서대로** 실행한다.
 | 29 | `2026-05-27_org_settings_add_point_label.sql` | `organization_resume_card_settings.point_label` 컬럼 추가 + 3개 조직 시드 (encre→별, oranke→단감, phalanx→투구). 실무 경험 포인트 UI 표시명 |
 | 30 | `2026-05-27_cluster4_experience_phase1.sql` | Cluster4 실무 경험 Phase 1 — `cluster4_teams` + `cluster4_experience_line_masters` + `cluster4_experience_line_evaluations` 테이블 3종 생성, `cluster4_lines` 에 `line_code`·`experience_line_master_id` 추가 + 기존 `team_id` FK 부여, info/competency/career line_code backfill. **#29 의존 없음, step1_tables·bridge_columns 의존** |
 | 31 | `2026-05-27_cluster4_teams_org_slug.sql` | `cluster4_teams` 조직별 팀 마스터 재구성 — `organization_slug` 컬럼 추가, UNIQUE(team_name)→UNIQUE(organization_slug, team_name), 잘못 seed된 encre/oranke 삭제, 3개 조직 13팀 seed. **#30 의존** |
+| 32 | `2026-05-30_experience_masters_category_slot.sql` | `cluster4_experience_line_masters` 에 `experience_category`(5종)·`experience_slot_order`(1~5) append + 도메인/1:1 정합 CHECK + 인덱스 + line_code 기준 25행 백필 + NULL 검증 NOTICE. **org_slug seed·xlsx seed 의존, append-only** |
+| 33 | `2026-05-31_user_edit_windows_week_scope.sql` | 주간 자원(주간 회고/동료/평판) 편집 권한을 주차 단위로 분리 — `user_edit_windows` 에 `week_id`(weeks FK)·`season_key`(season_definitions FK) append, 기존 `UNIQUE(user_id, resource_key)` 제거 후 부분 unique index 2종(week別 / 전역 NULL)으로 대체 + 조회 인덱스. **#9·#24·weeks 의존, append-only / 기존 row 는 week_id=NULL 전역 권한 유지** |
 
 ## 주의사항
 

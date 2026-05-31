@@ -46,11 +46,13 @@ export async function GET(request: NextRequest) {
 
   const limit = parseIntParam(params.get("limit"), 50, { min: 1, max: 200 });
   const offset = parseIntParam(params.get("offset"), 0, { min: 0, max: 100000 });
+  const weekId = params.get("week_id")?.trim() || null;
 
   try {
     const data = await listEditWindowsWithUsers({
       query: q,
       resourceKey: resourceKeyRaw,
+      weekId,
       limit,
       offset,
     });

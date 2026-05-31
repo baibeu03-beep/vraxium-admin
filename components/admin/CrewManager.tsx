@@ -35,6 +35,9 @@ import {
 } from "@/lib/organizations";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { formatDepartmentName } from "@/components/admin/fieldKit";
+import MemberEditDrawer, {
+  type EditableMember,
+} from "@/components/admin/MemberEditDrawer";
 
 type Crew = {
   id?: string | number;
@@ -47,6 +50,9 @@ type Crew = {
   gender?: string | null;
   contactPhone?: string | null;
   contactEmail?: string | null;
+  authEmail?: string | null;
+  status?: string | null;
+  growthStatus?: string | null;
   schoolName?: string | null;
   departmentName?: string | null;
   majorName?: string | null;
@@ -131,6 +137,7 @@ export default function CrewManager({
   const [banner, setBanner] = useState<Banner>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Crew | null>(null);
+  const [editingMember, setEditingMember] = useState<EditableMember | null>(null);
   const [form, setForm] = useState<FormState>(() => createEmptyForm(organization));
   const [submitting, setSubmitting] = useState(false);
 
@@ -310,6 +317,20 @@ export default function CrewManager({
     }
   };
 
+  // 멤버 정보 수정(MemberEditDrawer)은 /admin/members 와 동일한 흐름.
+  // PATCH /api/admin/members/:userId 로 user_profiles 를 수정하므로
+  // 저장 후에는 crew 목록을 다시 불러와 organization/연락처 변경을 반영한다.
+  const handleMemberSaved = (updated: EditableMember) => {
+    setEditingMember(null);
+    setBanner({
+      kind: "success",
+      message: `${updated.displayName ?? updated.userId} ${
+        devMode ? "updated." : "정보가 저장되었습니다."
+      }`,
+    });
+    void refresh(organization);
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {banner && (
@@ -434,7 +455,7 @@ export default function CrewManager({
                   </TableHead>
                   <TableHead>{devMode ? "Organization" : "소속"}</TableHead>
                   <TableHead>{devMode ? "Admin Note" : "운영 메모"}</TableHead>
-                  <TableHead className="w-72 text-right">
+                  <TableHead className="w-[640px] text-right">
                     {devMode ? "Actions" : "바로가기"}
                   </TableHead>
                 </TableRow>
@@ -490,7 +511,7 @@ export default function CrewManager({
                       {crew.adminNote ?? ""}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end items-center gap-1">
+                      <div className="flex flex-wrap justify-end items-center gap-1">
                         <Link
                           href={
                             `/admin/crews/${encodeURIComponent(
@@ -565,6 +586,39 @@ export default function CrewManager({
                             <Eye className="h-3.5 w-3.5" />
                           )}
                         </Button>
+                        <Link
+                          href={
+                            `/admin/settings/edit-windows?q=${encodeURIComponent(
+                              String(crew.userId ?? crew.legacyUserId),
+                            )}` + (devMode ? "&dev=true" : "")
+                          }
+                          title={
+                            devMode
+                              ? "이 사용자의 작성 기간 관리로 이동"
+                              : "이 회원의 작성 기간 관리로 이동"
+                          }
+                          className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                        >
+                          작성 기간
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setEditingMember({
+                              userId: String(crew.userId ?? crew.legacyUserId),
+                              displayName: crew.displayName,
+                              authEmail: crew.authEmail ?? null,
+                              organizationSlug: crew.organizationSlug,
+                              status: crew.status ?? null,
+                              growthStatus: crew.growthStatus ?? null,
+                              contactEmail: crew.contactEmail ?? null,
+                              contactPhone: crew.contactPhone ?? null,
+                            })
+                          }
+                          className="rounded-md border bg-foreground px-2 py-1 text-xs text-background hover:opacity-90"
+                        >
+                          멤버 정보 수정
+                        </button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -609,6 +663,12 @@ export default function CrewManager({
           onSubmit={handleSubmit}
         />
       )}
+
+      <MemberEditDrawer
+        member={editingMember}
+        onClose={() => setEditingMember(null)}
+        onSaved={handleMemberSaved}
+      />
     </div>
   );
 }

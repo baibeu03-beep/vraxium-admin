@@ -53,6 +53,7 @@ import {
   matchesEnhancementFilter,
   type EnhancementFilter,
 } from "@/components/admin/cluster4/enhancementBadges";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   ...ORGANIZATIONS.map((slug) => ({ value: slug, label: ORGANIZATION_LABEL[slug] })),
@@ -108,6 +109,13 @@ type TeamItem = {
   isActive: boolean;
 };
 
+type ExperienceCategory =
+  | "derivation"
+  | "analysis"
+  | "evaluation"
+  | "extension"
+  | "management";
+
 type LineMasterItem = {
   id: string;
   organizationSlug: string;
@@ -118,9 +126,29 @@ type LineMasterItem = {
   teamName: string | null;
   sourceFileName: string | null;
   isActive: boolean;
+  // 5슬롯 분류 (표시 전용). 미분류면 null.
+  experienceCategory: ExperienceCategory | null;
+  experienceSlotOrder: number | null;
   createdAt: string;
   updatedAt: string;
 };
+
+// 5슬롯 분류 한글 라벨 (slot 1~5 ↔ category 1:1).
+const EXPERIENCE_CATEGORY_LABEL: Record<ExperienceCategory, string> = {
+  derivation: "도출",
+  analysis: "분석",
+  evaluation: "평가",
+  extension: "확장",
+  management: "관리",
+};
+
+function formatExperienceSlotLabel(
+  category: ExperienceCategory | null,
+  slotOrder: number | null,
+): string {
+  if (!category || slotOrder == null) return "-";
+  return `${slotOrder}. ${EXPERIENCE_CATEGORY_LABEL[category]}`;
+}
 
 type CrewItem = {
   userId: string;
@@ -424,11 +452,50 @@ function OpenStatusBadge({ value }: { value: "pending" | "opened" }) {
   );
 }
 
+// 대상 주차 선택 — dev 모드(?dev=true) 전용. 일반 모드에서는 렌더하지 않으며,
+// selectedWeekId 는 정책 주차(현재 주차)로 고정된다. 실무 정보(info) 와 동일 UX.
+function DevWeekSelector({
+  weekOptions,
+  value,
+  onChange,
+}: {
+  weekOptions: WeekOption[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  if (weekOptions.length === 0) return null;
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">
+        대상 주차 <span className="text-amber-600">(dev)</span>
+      </Label>
+      <select
+        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        <option value="">주차를 선택해주세요</option>
+        {weekOptions.map((w) => (
+          <option key={w.id} value={w.id} disabled={!w.canOpen}>
+            {w.label} ({w.startDate} ~ {w.endDate})
+            {w.isCurrent ? " · 현재" : ""}
+            {!w.canOpen ? " · 휴식" : ""}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 // ──────────────────────────────────────────────────────────────
 // Main Component
 // ──────────────────────────────────────────────────────────────
 
 export default function PracticalExperienceManager() {
+  // dev 모드(?dev=true): 주차 선택 UI 노출 + 과거 주차 검수/개설 허용 (테스트용).
+  // 일반 모드: 주차 선택 UI 미렌더 + 정책 주차(현재 주차) 강제. 실무 정보(info) 와 동일 정책.
+  const devMode = useAdminDevMode();
+
   const [activeTab, setActiveTab] = useState<TabKey>("input");
   const [adminOrg, setAdminOrg] = useState<string | null>(null);
   const [teams, setTeams] = useState<TeamItem[]>([]);
@@ -443,6 +510,7 @@ export default function PracticalExperienceManager() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 
   // ── Master form state ──
@@ -667,6 +735,21 @@ export default function PracticalExperienceManager() {
   }, [drafts, crews, summary]);
 
   // ──────────────────────────────────────────────────────────────
+  // 주차 결정 (week_id SoT)
+  // ──────────────────────────────────────────────────────────────
+
+  // 운영 정책 주차(현재 주차). 일반 모드에서 강제 사용하는 주차.
+  const policyWeekId = useMemo(
+    () => weekOptions.find((w) => w.isCurrent)?.id ?? currentWeek?.weekId ?? "",
+    [weekOptions, currentWeek],
+  );
+
+  // 실제 사용 주차.
+  //   - dev 모드: 사용자가 고른 주차(미선택 시 정책 주차 폴백).
+  //   - 일반 모드: 항상 정책 주차 — selectedWeekId 의 dev 잔여값이 새지 않도록 강제.
+  const activeWeekId = devMode ? selectedWeekId || policyWeekId : policyWeekId;
+
+  // ──────────────────────────────────────────────────────────────
   // Data fetching
   // ──────────────────────────────────────────────────────────────
 
@@ -739,7 +822,7 @@ export default function PracticalExperienceManager() {
   }, []);
 
   const refetchDrafts = useCallback(async () => {
-    const targetWeekId = selectedWeekId || currentWeek?.weekId || null;
+    const targetWeekId = activeWeekId || currentWeek?.weekId || null;
     if (!targetWeekId) return;
     setRefreshing(true);
     try {
@@ -759,19 +842,19 @@ export default function PracticalExperienceManager() {
     } finally {
       setRefreshing(false);
     }
-  }, [currentWeek, adminOrg, selectedWeekId]);
+  }, [currentWeek, adminOrg, activeWeekId]);
 
   useEffect(() => {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  // 선택된 주차가 바뀌면 drafts/summary 재조회 — 초기 fetch 와 중복되지 않도록 loading 가드.
+  // 사용 주차가 바뀌면 drafts/summary 재조회 — 초기 fetch 와 중복되지 않도록 loading 가드.
   useEffect(() => {
-    if (!loading && selectedWeekId) {
+    if (!loading && activeWeekId) {
       refetchDrafts();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWeekId]);
+  }, [activeWeekId]);
 
   // ──────────────────────────────────────────────────────────────
   // Master form handlers
@@ -926,15 +1009,13 @@ export default function PracticalExperienceManager() {
       // PATCH 경로 (editingDraftId 있음) 는 draft 의 기존 week_id 를 그대로 유지하므로
       // selectedWeekId 검증을 생략한다. POST (신규 작성) 경로에서만 weekId 가 필요하다.
       const isPatch = Boolean(editingDraftId);
+      // POST 신규 작성만 week_id 필요. activeWeekId 가 일반 모드=정책 주차 / dev=선택 주차를
+      // 이미 강제하므로, 일반 모드에서 dev 선택 잔여값이 payload 에 새지 않는다.
       const targetWeekId = isPatch
         ? null
-        : (selectedWeekId || currentWeek?.weekId || null);
-      if (!isPatch && !selectedWeekId) {
-        setBanner({ kind: "error", message: "주차를 선택해주세요" });
-        return;
-      }
+        : activeWeekId || currentWeek?.weekId || null;
       if (!isPatch && !targetWeekId) {
-        setBanner({ kind: "error", message: "선택한 주차 정보를 확인할 수 없습니다" });
+        setBanner({ kind: "error", message: devMode ? "주차를 선택해주세요" : "현재 주차 정보를 확인할 수 없습니다" });
         return;
       }
       if (!editingDraftId && !dfTargetUserId) {
@@ -1070,6 +1151,8 @@ export default function PracticalExperienceManager() {
     },
     [
       currentWeek,
+      devMode,
+      activeWeekId,
       selectedWeekId,
       weekOptions,
       editingDraftId,
@@ -1207,9 +1290,124 @@ export default function PracticalExperienceManager() {
 
   const weekAvailable = !!currentWeek?.weekId;
 
+  // 실무경험 성장 상태 동기화 (success → fail 단방향). 서버 sync 가 DB SoT 를 확정한다.
+  //
+  // 개발자 모드 기준 (devMode = ?dev=true):
+  //   - devMode=ON  → 서버가 scope 를 강제로 test 로 (테스트 사용자 %T% 만, 실사용자 보호).
+  //   - devMode=OFF → 운영 모드. scope="all"(실사용자 포함)은 dry-run → confirm=true 흐름 필수.
+  type SyncAllData = {
+    usersScanned: number;
+    usersFlipped: number;
+    totalFlippedToFail: number;
+    dryRun?: boolean;
+  };
+
+  const postSync = async (body: {
+    devMode: boolean;
+    scope: "test" | "all";
+    confirm?: boolean;
+  }) => {
+    const res = await fetch("/api/admin/sync/experience-growth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return (await res.json()) as {
+      success: boolean;
+      error?: string;
+      scope?: "test" | "all";
+      dryRun?: boolean;
+      data?: SyncAllData;
+    };
+  };
+
+  const handleSyncExperienceGrowth = async (scope: "test" | "all") => {
+    setSyncing(true);
+    setBanner(null);
+    try {
+      // 운영 전체(실사용자 포함): devMode=OFF + scope=all → 1) dry-run 으로 영향 범위 확인.
+      if (scope === "all" && !devMode) {
+        const dry = await postSync({ devMode, scope: "all", confirm: false });
+        if (!dry.success || !dry.data) {
+          setBanner({ kind: "error", message: dry.error ?? "dry-run 실패" });
+          return;
+        }
+        const d = dry.data;
+        const ok = window.confirm(
+          `운영 전체 동기화 — dry-run 결과\n\n대상 ${d.usersScanned}명 중 ${d.usersFlipped}명, ${d.totalFlippedToFail}개 주차가 성장(실패)로 변경됩니다.\n실사용자가 포함되며 되돌리기 어렵습니다.\n\n실제로 DB에 반영하시겠습니까?`,
+        );
+        if (!ok) {
+          setBanner({
+            kind: "success",
+            message: `[dry-run · 미반영] 운영 전체 예상 변경 — 대상 ${d.usersScanned}명 중 ${d.usersFlipped}명, ${d.totalFlippedToFail}개 주차 (DB 변경 없음).`,
+          });
+          return;
+        }
+        // 2) confirm=true → 실제 반영.
+        const real = await postSync({ devMode, scope: "all", confirm: true });
+        if (!real.success || !real.data) {
+          setBanner({ kind: "error", message: real.error ?? "동기화 실패" });
+          return;
+        }
+        const r = real.data;
+        setBanner({
+          kind: "success",
+          message: `[운영 전체 · 반영 완료] 대상 ${r.usersScanned}명 중 ${r.usersFlipped}명, ${r.totalFlippedToFail}개 주차를 성장(실패)로 반영했습니다.`,
+        });
+        return;
+      }
+
+      // 테스트 sync (devMode 무관, 서버가 test 로 처리). devMode=ON 에서 scope=all 도 서버가 test 강제.
+      const json = await postSync({ devMode, scope });
+      if (!json.success || !json.data) {
+        setBanner({ kind: "error", message: json.error ?? "동기화 실패" });
+        return;
+      }
+      const d = json.data;
+      const label =
+        json.scope === "all" ? "[운영 전체]" : "[테스트 사용자]";
+      const dryNote = json.dryRun ? " (dry-run · DB 미반영)" : "";
+      setBanner({
+        kind: "success",
+        message: `${label} 실무경험 성장 상태 동기화 완료${dryNote} — 대상 ${d.usersScanned}명 중 ${d.usersFlipped}명, ${d.totalFlippedToFail}개 주차.`,
+      });
+    } catch {
+      setBanner({ kind: "error", message: "동기화 중 오류가 발생했습니다" });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
-      <h1 className="text-2xl font-bold">실무 경험 워크플로우</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">실무 경험 워크플로우</h1>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleSyncExperienceGrowth("test")}
+            disabled={syncing}
+            title="테스트 사용자(display_name 에 'T' 포함)만 대상으로 성장 상태 동기화 (success→fail 단방향)"
+          >
+            {syncing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            성장 동기화(테스트)
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => handleSyncExperienceGrowth("all")}
+            disabled={syncing || devMode}
+            title={
+              devMode
+                ? "개발자 모드(ON)에서는 운영 전체 동기화가 비활성화됩니다. ?dev=true 를 끄면 dry-run→confirm 흐름으로 사용할 수 있습니다."
+                : "운영 전체(실사용자 포함). dry-run 후 confirm 시 반영 — success→fail 단방향, 되돌리기 주의"
+            }
+          >
+            전체 동기화(운영)
+          </Button>
+        </div>
+      </div>
 
       {banner && (
         <div
@@ -1283,6 +1481,7 @@ export default function PracticalExperienceManager() {
                     <TableRow>
                       <TableHead>조직</TableHead>
                       <TableHead>라인 코드</TableHead>
+                      <TableHead>유형/슬롯</TableHead>
                       <TableHead>라인명</TableHead>
                       <TableHead>메인 타이틀</TableHead>
                       <TableHead>팀</TableHead>
@@ -1295,6 +1494,9 @@ export default function PracticalExperienceManager() {
                       <TableRow key={m.id}>
                         <TableCell className="text-xs">{formatOrgLabel(m.organizationSlug)}</TableCell>
                         <TableCell className="font-mono text-xs">{m.lineCode}</TableCell>
+                        <TableCell className="text-xs whitespace-nowrap">
+                          {formatExperienceSlotLabel(m.experienceCategory, m.experienceSlotOrder)}
+                        </TableCell>
                         <TableCell className="font-medium">{m.lineName}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {m.mainTitle ?? "-"}
@@ -1446,24 +1648,13 @@ export default function PracticalExperienceManager() {
               <CardDescription>운영 기본값은 현재 주차이며, 테스트/검증 목적으로 직전 주차도 선택할 수 있습니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {weekOptions.length > 0 && (
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">대상 주차</Label>
-                  <select
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    value={selectedWeekId}
-                    onChange={(e) => setSelectedWeekId(e.target.value)}
-                  >
-                    <option value="">주차를 선택해주세요</option>
-                    {weekOptions.map((w) => (
-                      <option key={w.id} value={w.id} disabled={!w.canOpen}>
-                        {w.label} ({w.startDate} ~ {w.endDate})
-                        {w.isCurrent ? " · 현재" : ""}
-                        {!w.canOpen ? " · 휴식" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* 주차 선택은 dev 모드에서만 노출. 일반 모드는 정책 주차(현재 주차) 자동 사용. */}
+              {devMode && (
+                <DevWeekSelector
+                  weekOptions={weekOptions}
+                  value={selectedWeekId}
+                  onChange={setSelectedWeekId}
+                />
               )}
               {currentWeek ? (
                 <>
@@ -1932,6 +2123,14 @@ export default function PracticalExperienceManager() {
                 </p>
               )}
               <p className="text-muted-foreground">검수 권장 마감: 월요일 오후 8:00</p>
+              {/* dev 모드 전용: 검수 대상 주차 override (과거 주차 검수 허용). */}
+              {devMode && (
+                <DevWeekSelector
+                  weekOptions={weekOptions}
+                  value={selectedWeekId}
+                  onChange={setSelectedWeekId}
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -2219,6 +2418,15 @@ export default function PracticalExperienceManager() {
                 <p className="text-xs text-muted-foreground">
                   실제 기입 마감: {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
                 </p>
+              )}
+              {/* dev 모드 전용: 개설 대상 주차 override (과거 주차 개설 허용).
+                  open payload 는 draft_ids 만 전송하며, 서버가 각 draft.week_id 로 개설한다. */}
+              {devMode && (
+                <DevWeekSelector
+                  weekOptions={weekOptions}
+                  value={selectedWeekId}
+                  onChange={setSelectedWeekId}
+                />
               )}
             </CardContent>
           </Card>

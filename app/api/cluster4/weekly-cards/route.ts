@@ -12,6 +12,7 @@ import {
   getCluster4WeeklyCardsForProfileUser,
 } from "@/lib/cluster4WeeklyCardsData";
 import { getWeeklyGrowth } from "@/lib/cluster4WeeklyGrowthData";
+import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 
 // 디버깅: W12/W11 에 대해 백엔드(getWeeklyGrowth) ↔ DTO 응답값 매핑을 콘솔에 비교 출력.
@@ -80,6 +81,25 @@ async function logWeekComparison(
 }
 
 export async function GET(request: NextRequest) {
+  // 데모 모드: demoUserId 가 유효한 테스트 유저면 세션 인증 대신 그 유저 데이터를 반환.
+  // (DTO shape 은 일반 경로와 동일 — 프론트 컴포넌트 재사용 가능)
+  try {
+    const demoProfileUserId = await resolveDemoProfileUserId(request);
+    if (demoProfileUserId) {
+      const data = await getCluster4WeeklyCardsForProfileUser(demoProfileUserId);
+      await logWeekComparison(demoProfileUserId, data);
+      return Response.json({ success: true, data });
+    }
+  } catch (error) {
+    if (error instanceof DemoModeError) {
+      return Response.json(
+        { success: false, error: error.message },
+        { status: error.status },
+      );
+    }
+    throw error;
+  }
+
   const internalKey = request.headers.get("x-internal-api-key");
   const expectedInternalKey = process.env.INTERNAL_API_KEY;
   const internalAuthAccepted =

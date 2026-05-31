@@ -1,8 +1,10 @@
 // Browser-safe types for experience line master admin APIs.
 
 import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
+import type { Cluster4ExperienceCategory } from "@/lib/cluster4LinesTypes";
 
 export { CLUSTER4_LINE_WRITE_ROLES as EXPERIENCE_LINE_WRITE_ROLES };
+export type { Cluster4ExperienceCategory } from "@/lib/cluster4LinesTypes";
 
 export type ExperienceLineMasterDto = {
   id: string;
@@ -14,6 +16,10 @@ export type ExperienceLineMasterDto = {
   teamName: string | null;
   sourceFileName: string | null;
   isActive: boolean;
+  // 5슬롯 분류 (cluster4_experience_line_masters.experience_category / experience_slot_order).
+  // 미분류면 null. 어드민 표시 전용(읽기).
+  experienceCategory: Cluster4ExperienceCategory | null;
+  experienceSlotOrder: number | null;
   createdAt: string;
   updatedAt: string;
 };

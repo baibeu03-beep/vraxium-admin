@@ -29,6 +29,7 @@ import type {
   Cluster4HubEditWindowSnapshot,
   Cluster4LineTargetSnapshot,
   Cluster4PatchBody,
+  Cluster4WeeklyReviewWindow,
   ReceivedSeasonReputationRow,
   SeasonRow,
   UserSeasonHistoryRow,
@@ -428,6 +429,47 @@ async function fetchCluster4HubEditWindows(userId: string): Promise<{
   return { windows, available: true };
 }
 
+// 위클리 리뷰 작성 기간 — user_edit_windows 의 cluster4.weekly_reviews 주차별 행.
+// 운영관리 > 작성 기간 관리와 동일 자원. week_id 가 있는 행만 의미가 있다(주차 필수).
+async function fetchWeeklyReviewEditWindows(
+  userId: string,
+): Promise<FetchResult<Cluster4WeeklyReviewWindow>> {
+  const { data, error } = await supabaseAdmin
+    .from("user_edit_windows")
+    .select("week_id,opened_at,expires_at")
+    .eq("user_id", userId)
+    .eq("resource_key", "cluster4.weekly_reviews")
+    .not("week_id", "is", null);
+
+  if (error) {
+    if (isMissingRelationError(error)) {
+      console.warn(
+        '[cluster4] table "user_edit_windows" not found; returning empty weekly review windows.',
+        { message: error.message },
+      );
+      return { rows: [], available: false };
+    }
+    console.error("[cluster4] query failed (user_edit_windows weekly_reviews)", {
+      message: error.message,
+    });
+    throw new Cluster4Error(500, error.message);
+  }
+
+  const rows = ((data ?? []) as Array<{
+    week_id: string | null;
+    opened_at: string;
+    expires_at: string;
+  }>)
+    .filter((row) => row.week_id)
+    .map((row) => ({
+      weekId: row.week_id as string,
+      openedAt: row.opened_at,
+      expiresAt: row.expires_at,
+    }));
+
+  return { rows, available: true };
+}
+
 async function fetchCluster4Tables(userId: string) {
   const [
     seasonsRaw,
@@ -444,6 +486,7 @@ async function fetchCluster4Tables(userId: string) {
     cluster4LineTargets,
     cluster4HubEditWindows,
     cluster4LineSubmissions,
+    weeklyReviewWindows,
   ] = await Promise.all([
     supabaseAdmin.from("season_definitions").select("*"),
     supabaseAdmin.from("weeks").select("id,week_number,start_date,end_date,season_key,is_official_rest,holiday_name,iso_year,iso_week,created_at"),
@@ -459,6 +502,7 @@ async function fetchCluster4Tables(userId: string) {
     fetchCluster4LineTargets(userId),
     fetchCluster4HubEditWindows(userId),
     listCluster4LineSubmissionsForUser(userId),
+    fetchWeeklyReviewEditWindows(userId),
   ]);
 
   return {
@@ -480,6 +524,7 @@ async function fetchCluster4Tables(userId: string) {
     cluster4LineTargets,
     cluster4HubEditWindows,
     cluster4LineSubmissions,
+    weeklyReviewWindows,
   };
 }
 
@@ -542,6 +587,7 @@ export async function getCluster4ForCrew(
     reputationKeywords: tables.reputationKeywords.rows,
     receivedWeeklyReputations: tables.weeklyReputations.rows,
     weeklyReviews: tables.weeklyReviews.rows,
+    weeklyReviewWindows: tables.weeklyReviewWindows.rows,
     weeklyColleagues: tables.weeklyColleagues.rows,
     userActivityDetails: tables.userActivityDetails.rows,
     careerRecords: tables.careerRecords.rows,

@@ -7,6 +7,7 @@ import {
   Briefcase,
   ChevronRight,
   Database,
+  FlaskConical,
   LayoutDashboard,
   PanelLeft,
   PanelLeftClose,
@@ -89,6 +90,12 @@ const MENU: MenuItem[] = [
     children: [
       { label: "가져오기", href: "/admin/import" },
     ],
+  },
+  {
+    kind: "leaf",
+    label: "테스트 모드",
+    href: "/admin/test-users",
+    icon: FlaskConical,
   },
 ];
 

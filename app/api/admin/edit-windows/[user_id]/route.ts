@@ -55,10 +55,16 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     );
   }
 
+  // 주간 자원이면 어느 주차 권한인지 week_id 로 지정한다 (비주간이면 무시됨).
+  const weekId =
+    typeof input.week_id === "string" && input.week_id.trim()
+      ? input.week_id.trim()
+      : null;
+
   // ── close ──
   if (input.action === "close") {
     try {
-      const closed = await closeEditWindow(user_id, resourceKey);
+      const closed = await closeEditWindow(user_id, resourceKey, weekId);
       return Response.json({ success: true, data: { window: closed } });
     } catch (error) {
       if (error instanceof EditWindowError) {
@@ -113,6 +119,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     const window = await upsertEditWindow({
       userId: user_id,
       resourceKey,
+      weekId,
       openedAt,
       expiresAt,
       note,

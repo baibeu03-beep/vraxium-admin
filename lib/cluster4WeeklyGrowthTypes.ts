@@ -68,6 +68,25 @@ export type WeeklyCardLineBreakdown = {
   career: WeeklyCardLineDetail;
 };
 
+// ─────────────────────────────────────────────────────────────────────
+// 실무 경험 필수 슬롯(도출/분석/평가) 기준 주차 성장 판정 (2026-05-30)
+// 백엔드 SoT — 프론트는 재계산 없이 이 값을 그대로 사용한다.
+// ─────────────────────────────────────────────────────────────────────
+export type ExperienceGrowthSlotDto = {
+  slotOrder: number;
+  category: "derivation" | "analysis" | "evaluation";
+  enhancementStatus: "success" | "fail" | "pending" | "not_applicable";
+};
+
+export type ExperienceGrowthVerdictDto = {
+  // pass = 성장 실패 아님 / fail = 성장(실패) / pending = 진행·대기 / not_applicable = 규칙 미적용
+  status: "pass" | "fail" | "pending" | "not_applicable";
+  requiredSlots: ExperienceGrowthSlotDto[];
+  failedSlotOrders: number[];
+  // verdict 가 이 주차 userWeekStatus 에 fail 로 실제 반영되었는지 (현재주/휴식 제외).
+  appliedToWeekStatus: boolean;
+};
+
 export type WeeklyCardDto = {
   weekId: string | null;
   seasonYear: number;
@@ -112,6 +131,8 @@ export type WeeklyCardDto = {
     rate: number;
   };
   lineBreakdown: WeeklyCardLineBreakdown;
+  // 실무 경험 필수 슬롯(도출/분석/평가) 기준 성장 판정.
+  experienceGrowth: ExperienceGrowthVerdictDto;
 };
 
 // ─────────────────────────────────────────────────────────────────────

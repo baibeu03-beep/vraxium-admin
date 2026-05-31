@@ -3,7 +3,9 @@ import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import {
   Cluster4PublicLineError,
   getCluster4LineDetailForAuthUser,
+  getCluster4LineDetailForProfileUser,
 } from "@/lib/cluster4LinesData";
+import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
 
 function isPartType(value: string | null): value is "info" | "experience" | "competency" | "career" {
   return (
@@ -15,17 +17,36 @@ function isPartType(value: string | null): value is "info" | "experience" | "com
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = await getSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  // 데모 모드: demoUserId 가 유효한 테스트 유저면 세션 인증을 건너뛴다.
+  let demoProfileUserId: string | null = null;
+  try {
+    demoProfileUserId = await resolveDemoProfileUserId(request);
+  } catch (error) {
+    if (error instanceof DemoModeError) {
+      return Response.json(
+        { success: false, error: error.message },
+        { status: error.status },
+      );
+    }
+    throw error;
+  }
 
-  if (authError || !user) {
-    return Response.json(
-      { success: false, error: "Authentication required." },
-      { status: 401 },
-    );
+  let sessionUser: { id: string; email: string | null | undefined } | null =
+    null;
+  if (!demoProfileUserId) {
+    const supabase = await getSupabaseServerClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return Response.json(
+        { success: false, error: "Authentication required." },
+        { status: 401 },
+      );
+    }
+    sessionUser = { id: user.id, email: user.email };
   }
 
   const weekId = request.nextUrl.searchParams.get("weekId")?.trim() || null;
@@ -45,12 +66,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await getCluster4LineDetailForAuthUser(
-      user.id,
-      user.email ?? null,
-      weekId,
-      partType,
-    );
+    const data = demoProfileUserId
+      ? await getCluster4LineDetailForProfileUser(
+          demoProfileUserId,
+          weekId,
+          partType,
+        )
+      : await getCluster4LineDetailForAuthUser(
+          sessionUser!.id,
+          sessionUser!.email ?? null,
+          weekId,
+          partType,
+        );
     return Response.json({ success: true, data });
   } catch (error) {
     if (error instanceof Cluster4PublicLineError) {

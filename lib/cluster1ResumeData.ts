@@ -2,6 +2,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import {
   fetchInfoLineCountsByWeek,
+  fetchExperienceLineCountsByWeek,
+  fetchCompetencyLineCountsByWeek,
   fetchInfoLineSuccessCountsByWeek,
   fetchLineSuccessCountsByWeek,
   fetchCareerProjectCountsByWeek,
@@ -173,6 +175,8 @@ async function computeActivityCompletion(
 
   const [
     infoAvailMap,
+    experienceAvailMap,
+    competencyAvailMap,
     careerAvailMap,
     infoSuccessMap,
     abilitySuccessMap,
@@ -180,6 +184,11 @@ async function computeActivityCompletion(
     careerSuccessMap,
   ] = await Promise.all([
     fetchInfoLineCountsByWeek(userId, weekIds),
+    // experience 분모 A = 배정된 experience 라인 수 (weekly-cards 와 동일 기준). 상수 2 대체.
+    fetchExperienceLineCountsByWeek(userId, weekIds),
+    // competency 분모 A = 배정된 competency 라인 수 (weekly-cards 와 동일 기준). 상수 1 대체.
+    // 휴식 주차엔 competency 라인이 개설되지 않아 A=0 → 0/0 으로 자연 제외된다.
+    fetchCompetencyLineCountsByWeek(userId, weekIds),
     fetchCareerProjectCountsByWeek(weekIds),
     fetchInfoLineSuccessCountsByWeek(userId, weekIds),
     fetchLineSuccessCountsByWeek(userId, weekIds, "competency"),
@@ -190,7 +199,14 @@ async function computeActivityCompletion(
   let availableActivities = 0;
   let completedActivities = 0;
   for (const wid of weekIds) {
-    const avail = buildWeekAvailability(wid, infoAvailMap, careerAvailMap, organization);
+    const avail = buildWeekAvailability(
+      wid,
+      infoAvailMap,
+      careerAvailMap,
+      organization,
+      experienceAvailMap,
+      competencyAvailMap,
+    );
     availableActivities += totalAvailable(avail);
     completedActivities +=
       (infoSuccessMap.get(wid) ?? 0) +

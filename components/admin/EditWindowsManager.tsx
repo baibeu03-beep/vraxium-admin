@@ -39,11 +39,13 @@ import {
   getResourceDescription,
   getResourceLabel,
   isEditableResourceKey,
+  isWeekScopedResourceKey,
   statusLabel,
   type EditWindowDto,
   type EditWindowStatus,
   type EditWindowUserRow,
   type QuickActionKey,
+  type WeekOption,
 } from "@/lib/adminEditWindowsTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
@@ -113,6 +115,17 @@ export default function EditWindowsManager() {
   }, []);
 
   const [resourceKey, setResourceKey] = useState<string>(initialResourceKey);
+  const weekScoped = isWeekScopedResourceKey(resourceKey);
+  const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
+  const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
+  const selectedWeek = useMemo(
+    () => weekOptions.find((w) => w.weekId === selectedWeekId) ?? null,
+    [weekOptions, selectedWeekId],
+  );
+  // 주간 자원인데 주차가 아직 선택되지 않은 상태 — 권한 열기/닫기를 막는다.
+  const weekBlocked = weekScoped && !selectedWeekId;
+  // 실제 payload 에 실릴 week_id. 비주간 자원이면 항상 null.
+  const effectiveWeekId = weekScoped ? selectedWeekId : null;
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [rows, setRows] = useState<EditWindowUserRow[]>([]);
@@ -144,6 +157,35 @@ export default function EditWindowsManager() {
     return () => window.clearTimeout(t);
   }, [query]);
 
+  // 주차 선택 드롭다운 옵션 (weeks ⨝ season_definitions) — 1회 로드.
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/admin/edit-windows/weeks", {
+          cache: "no-store",
+        });
+        const json = await res.json();
+        if (!cancelled && res.ok && json.success) {
+          setWeekOptions((json.data?.weeks ?? []) as WeekOption[]);
+        }
+      } catch {
+        // 주차 목록 로드 실패는 치명적이지 않다 — 셀렉트가 비어 있을 뿐.
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 주간 자원으로 전환했고 아직 주차가 없으면 가장 최근 주차를 기본 선택한다.
+  useEffect(() => {
+    if (weekScoped && !selectedWeekId && weekOptions.length > 0) {
+      setSelectedWeekId(weekOptions[0].weekId);
+    }
+  }, [weekScoped, selectedWeekId, weekOptions]);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -152,6 +194,7 @@ export default function EditWindowsManager() {
       const params = new URLSearchParams();
       params.set("resource_key", resourceKey);
       if (debouncedQuery) params.set("q", debouncedQuery);
+      if (weekScoped && selectedWeekId) params.set("week_id", selectedWeekId);
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String(offset));
       try {
@@ -180,7 +223,7 @@ export default function EditWindowsManager() {
     return () => {
       cancelled = true;
     };
-  }, [resourceKey, debouncedQuery, offset, refreshTick]);
+  }, [resourceKey, debouncedQuery, offset, refreshTick, weekScoped, selectedWeekId]);
 
   useEffect(() => {
     if (!banner) return;
@@ -228,14 +271,17 @@ export default function EditWindowsManager() {
   const handleBulkQuickAction = useCallback(
     async (action: QuickActionKey) => {
       const { openedAt, expiresAt } = computeQuickActionRange(action);
-      await bulkWindow({
-        resource_key: resourceKey,
-        opened_at: openedAt.toISOString(),
-        expires_at: expiresAt.toISOString(),
-        user_ids: Array.from(selectedUserIds),
-        select_all_matching: allMatchingSelected,
-        filters: { q: debouncedQuery },
-      })
+      await bulkWindow(
+        {
+          resource_key: resourceKey,
+          opened_at: openedAt.toISOString(),
+          expires_at: expiresAt.toISOString(),
+          user_ids: Array.from(selectedUserIds),
+          select_all_matching: allMatchingSelected,
+          filters: { q: debouncedQuery },
+        },
+        effectiveWeekId,
+      )
         .then((count) => {
           clearSelection();
           reload();
@@ -259,17 +305,21 @@ export default function EditWindowsManager() {
       devMode,
       resourceKey,
       selectedUserIds,
+      effectiveWeekId,
     ],
   );
 
   const handleBulkClose = useCallback(async () => {
-    await bulkWindow({
-      resource_key: resourceKey,
-      action: "close",
-      user_ids: Array.from(selectedUserIds),
-      select_all_matching: allMatchingSelected,
-      filters: { q: debouncedQuery },
-    })
+    await bulkWindow(
+      {
+        resource_key: resourceKey,
+        action: "close",
+        user_ids: Array.from(selectedUserIds),
+        select_all_matching: allMatchingSelected,
+        filters: { q: debouncedQuery },
+      },
+      effectiveWeekId,
+    )
       .then((count) => {
         clearSelection();
         reload();
@@ -292,6 +342,7 @@ export default function EditWindowsManager() {
     devMode,
     resourceKey,
     selectedUserIds,
+    effectiveWeekId,
   ]);
 
   const applyWindowToRow = useCallback(
@@ -309,11 +360,15 @@ export default function EditWindowsManager() {
   const handleQuickAction = useCallback(
     async (row: EditWindowUserRow, action: QuickActionKey) => {
       const { openedAt, expiresAt } = computeQuickActionRange(action);
-      await patchWindow(row.userId, {
-        resource_key: resourceKey,
-        opened_at: openedAt.toISOString(),
-        expires_at: expiresAt.toISOString(),
-      })
+      await patchWindow(
+        row.userId,
+        {
+          resource_key: resourceKey,
+          opened_at: openedAt.toISOString(),
+          expires_at: expiresAt.toISOString(),
+        },
+        effectiveWeekId,
+      )
         .then((win) => {
           applyWindowToRow(row.userId, win);
           reload();
@@ -330,15 +385,19 @@ export default function EditWindowsManager() {
           setBanner({ kind: "error", message: err.message });
         });
     },
-    [applyWindowToRow, devMode, resourceKey],
+    [applyWindowToRow, devMode, resourceKey, effectiveWeekId],
   );
 
   const handleClose = useCallback(
     async (row: EditWindowUserRow) => {
-      await patchWindow(row.userId, {
-        resource_key: resourceKey,
-        action: "close",
-      })
+      await patchWindow(
+        row.userId,
+        {
+          resource_key: resourceKey,
+          action: "close",
+        },
+        effectiveWeekId,
+      )
         .then((win) => {
           applyWindowToRow(row.userId, win);
           reload();
@@ -355,7 +414,7 @@ export default function EditWindowsManager() {
           setBanner({ kind: "error", message: err.message });
         });
     },
-    [applyWindowToRow, devMode, resourceKey],
+    [applyWindowToRow, devMode, resourceKey, effectiveWeekId],
   );
 
   const pageEnd = offset + rows.length;
@@ -410,8 +469,8 @@ export default function EditWindowsManager() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="grid gap-3 sm:grid-cols-[260px_1fr]">
-            <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+            <div className="flex flex-col gap-1.5 sm:w-[260px]">
               <Label htmlFor="resource-key">{devMode ? "리소스" : "작성 항목"}</Label>
               <Select
                 value={resourceKey}
@@ -436,7 +495,44 @@ export default function EditWindowsManager() {
                 {getResourceDescription(resourceKey, devMode)}
               </p>
             </div>
-            <div className="flex flex-col gap-1.5">
+            {weekScoped && (
+              <div className="flex flex-col gap-1.5 sm:w-[260px]">
+                <Label htmlFor="week-select">{devMode ? "주차 (week_id)" : "주차"}</Label>
+                <Select
+                  value={selectedWeekId ?? ""}
+                  onValueChange={(value: string | null) => {
+                    setSelectedWeekId(value ?? null);
+                    setOffset(0);
+                    clearSelection();
+                  }}
+                >
+                  <SelectTrigger id="week-select">
+                    <SelectValue placeholder={devMode ? "주차 선택" : "주차를 선택하세요"}>
+                      {selectedWeek?.label ?? (devMode ? "주차 선택" : "주차를 선택하세요")}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weekOptions.length === 0 ? (
+                      <SelectItem value="__none__" disabled>
+                        주차 데이터 없음
+                      </SelectItem>
+                    ) : (
+                      weekOptions.map((week) => (
+                        <SelectItem key={week.weekId} value={week.weekId}>
+                          {week.label}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {devMode
+                    ? "주간 자원 권한은 선택한 주차에만 적용됩니다."
+                    : "이 작성 항목 권한은 선택한 주차에만 적용됩니다."}
+                </p>
+              </div>
+            )}
+            <div className="flex flex-col gap-1.5 sm:flex-1">
               <Label htmlFor="user-search">{devMode ? "사용자 검색" : "회원 검색"}</Label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -460,6 +556,20 @@ export default function EditWindowsManager() {
               {error}
             </div>
           )}
+
+          {weekScoped &&
+            (weekBlocked ? (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                {devMode
+                  ? "주간 자원입니다. 권한을 열기 전에 위에서 주차(week_id)를 먼저 선택하세요."
+                  : "주차별 작성 항목입니다. 권한을 부여하려면 위에서 주차를 먼저 선택하세요."}
+              </div>
+            ) : (
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs text-emerald-700">
+                현재 선택된 주차: <strong>{selectedWeek?.label ?? selectedWeekId}</strong>
+                {" — "}이 주차에만 권한이 적용됩니다.
+              </div>
+            ))}
 
           <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -501,7 +611,7 @@ export default function EditWindowsManager() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || weekBlocked}
                 onClick={() => void handleBulkQuickAction("open_24h")}
               >
                 24시간 열기
@@ -510,7 +620,7 @@ export default function EditWindowsManager() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || weekBlocked}
                 onClick={() => void handleBulkQuickAction("open_7d")}
               >
                 7일 열기
@@ -519,7 +629,7 @@ export default function EditWindowsManager() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || weekBlocked}
                 onClick={() => setBulkEditing(true)}
               >
                 직접 기간 설정
@@ -528,7 +638,7 @@ export default function EditWindowsManager() {
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={selectedCount === 0}
+                disabled={selectedCount === 0 || weekBlocked}
                 onClick={() => void handleBulkClose()}
               >
                 선택 기간 닫기
@@ -616,14 +726,16 @@ export default function EditWindowsManager() {
                           <button
                             type="button"
                             onClick={() => void handleQuickAction(row, "open_24h")}
-                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                            disabled={weekBlocked}
+                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             24h
                           </button>
                           <button
                             type="button"
                             onClick={() => void handleQuickAction(row, "open_7d")}
-                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                            disabled={weekBlocked}
+                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             7d
                           </button>
@@ -632,17 +744,18 @@ export default function EditWindowsManager() {
                             onClick={() =>
                               void handleQuickAction(row, "open_until_midnight")
                             }
-                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                            disabled={weekBlocked}
+                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             자정
                           </button>
                           <button
                             type="button"
                             onClick={() => void handleClose(row)}
-                            disabled={status !== "open"}
+                            disabled={status !== "open" || weekBlocked}
                             className={cn(
                               "rounded-md border px-2 py-1 text-xs",
-                              status === "open"
+                              status === "open" && !weekBlocked
                                 ? "hover:bg-muted"
                                 : "cursor-not-allowed text-muted-foreground",
                             )}
@@ -652,7 +765,8 @@ export default function EditWindowsManager() {
                           <button
                             type="button"
                             onClick={() => setEditing(row)}
-                            className="rounded-md border bg-foreground px-2 py-1 text-xs text-background hover:opacity-90"
+                            disabled={weekBlocked}
+                            className="rounded-md border bg-foreground px-2 py-1 text-xs text-background hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             기간 설정
                           </button>
@@ -735,6 +849,8 @@ export default function EditWindowsManager() {
       <EditWindowDrawer
         row={editing}
         resourceKey={resourceKey}
+        weekId={effectiveWeekId}
+        weekLabel={selectedWeek?.label ?? null}
         devMode={devMode}
         onClose={() => setEditing(null)}
         onSaved={(userId, window) => {
@@ -750,6 +866,8 @@ export default function EditWindowsManager() {
       <BulkEditWindowDrawer
         open={bulkEditing}
         resourceKey={resourceKey}
+        weekId={effectiveWeekId}
+        weekLabel={selectedWeek?.label ?? null}
         selectedCount={selectedCount}
         devMode={devMode}
         onClose={() => setBulkEditing(false)}
@@ -788,13 +906,14 @@ type CloseBody = { resource_key: string; action: "close" };
 async function patchWindow(
   userId: string,
   body: UpsertBody | CloseBody,
+  weekId: string | null = null,
 ): Promise<EditWindowDto | null> {
   const res = await fetch(
     "/api/admin/edit-windows/" + encodeURIComponent(userId),
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ...body, week_id: weekId }),
     },
   );
   const json = await res.json();
@@ -813,11 +932,14 @@ type BulkPayloadBase = {
 type BulkUpsertBody = UpsertBody & BulkPayloadBase;
 type BulkCloseBody = CloseBody & BulkPayloadBase;
 
-async function bulkWindow(body: BulkUpsertBody | BulkCloseBody): Promise<number> {
+async function bulkWindow(
+  body: BulkUpsertBody | BulkCloseBody,
+  weekId: string | null = null,
+): Promise<number> {
   const res = await fetch("/api/admin/edit-windows/bulk", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, week_id: weekId }),
   });
   const json = await res.json();
   if (!res.ok || !json.success) {
@@ -829,12 +951,16 @@ async function bulkWindow(body: BulkUpsertBody | BulkCloseBody): Promise<number>
 function EditWindowDrawer({
   row,
   resourceKey,
+  weekId,
+  weekLabel,
   devMode,
   onClose,
   onSaved,
 }: {
   row: EditWindowUserRow | null;
   resourceKey: string;
+  weekId: string | null;
+  weekLabel: string | null;
   devMode: boolean;
   onClose: () => void;
   onSaved: (userId: string, window: EditWindowDto | null) => void;
@@ -842,9 +968,11 @@ function EditWindowDrawer({
   if (!row) return null;
   return (
     <EditWindowDrawerInner
-      key={row.userId + ":" + resourceKey}
+      key={row.userId + ":" + resourceKey + ":" + (weekId ?? "")}
       row={row}
       resourceKey={resourceKey}
+      weekId={weekId}
+      weekLabel={weekLabel}
       devMode={devMode}
       onClose={onClose}
       onSaved={onSaved}
@@ -855,12 +983,16 @@ function EditWindowDrawer({
 function EditWindowDrawerInner({
   row,
   resourceKey,
+  weekId,
+  weekLabel,
   devMode,
   onClose,
   onSaved,
 }: {
   row: EditWindowUserRow;
   resourceKey: string;
+  weekId: string | null;
+  weekLabel: string | null;
   devMode: boolean;
   onClose: () => void;
   onSaved: (userId: string, window: EditWindowDto | null) => void;
@@ -922,12 +1054,16 @@ function EditWindowDrawerInner({
     setSaving(true);
     setError(null);
     try {
-      const window = await patchWindow(row.userId, {
-        resource_key: resourceKey,
-        opened_at: openedDate.toISOString(),
-        expires_at: expiresDate.toISOString(),
-        note: note.trim() ? note.trim() : null,
-      });
+      const window = await patchWindow(
+        row.userId,
+        {
+          resource_key: resourceKey,
+          opened_at: openedDate.toISOString(),
+          expires_at: expiresDate.toISOString(),
+          note: note.trim() ? note.trim() : null,
+        },
+        weekId,
+      );
       onSaved(row.userId, window);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
@@ -968,6 +1104,11 @@ function EditWindowDrawerInner({
                 <>작성 항목: {getResourceLabel(resourceKey, false)}</>
               )}
             </p>
+            {weekLabel && (
+              <p className="mt-0.5 text-[11px] font-medium text-emerald-700">
+                주차: {weekLabel}
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -1064,6 +1205,8 @@ function EditWindowDrawerInner({
 function BulkEditWindowDrawer({
   open,
   resourceKey,
+  weekId,
+  weekLabel,
   selectedCount,
   devMode,
   onClose,
@@ -1072,6 +1215,8 @@ function BulkEditWindowDrawer({
 }: {
   open: boolean;
   resourceKey: string;
+  weekId: string | null;
+  weekLabel: string | null;
   selectedCount: number;
   devMode: boolean;
   onClose: () => void;
@@ -1082,6 +1227,8 @@ function BulkEditWindowDrawer({
   return (
     <BulkEditWindowDrawerInner
       resourceKey={resourceKey}
+      weekId={weekId}
+      weekLabel={weekLabel}
       selectedCount={selectedCount}
       devMode={devMode}
       onClose={onClose}
@@ -1093,6 +1240,8 @@ function BulkEditWindowDrawer({
 
 function BulkEditWindowDrawerInner({
   resourceKey,
+  weekId,
+  weekLabel,
   selectedCount,
   devMode,
   onClose,
@@ -1100,6 +1249,8 @@ function BulkEditWindowDrawerInner({
   getPayloadBase,
 }: {
   resourceKey: string;
+  weekId: string | null;
+  weekLabel: string | null;
   selectedCount: number;
   devMode: boolean;
   onClose: () => void;
@@ -1156,13 +1307,16 @@ function BulkEditWindowDrawerInner({
     setSaving(true);
     setError(null);
     try {
-      const count = await bulkWindow({
-        ...getPayloadBase(),
-        resource_key: resourceKey,
-        opened_at: openedDate.toISOString(),
-        expires_at: expiresDate.toISOString(),
-        note: note.trim() ? note.trim() : null,
-      });
+      const count = await bulkWindow(
+        {
+          ...getPayloadBase(),
+          resource_key: resourceKey,
+          opened_at: openedDate.toISOString(),
+          expires_at: expiresDate.toISOString(),
+          note: note.trim() ? note.trim() : null,
+        },
+        weekId,
+      );
       onSaved(count);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
@@ -1198,6 +1352,11 @@ function BulkEditWindowDrawerInner({
                 <>작성 항목: {getResourceLabel(resourceKey, false)}</>
               )}
             </p>
+            {weekLabel && (
+              <p className="mt-0.5 text-[11px] font-medium text-emerald-700">
+                주차: {weekLabel}
+              </p>
+            )}
           </div>
           <button
             type="button"
