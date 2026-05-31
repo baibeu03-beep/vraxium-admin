@@ -76,8 +76,11 @@ const MENU: MenuItem[] = [
     label: "운영 관리",
     icon: Wrench,
     basePath: "/admin/settings",
+    matchPaths: ["/admin/settings", "/admin/season-weeks"],
     children: [
       { label: "작성 기간 관리", href: "/admin/settings/edit-windows" },
+      { label: "시즌/주차 기준표", href: "/admin/season-weeks" },
+      { label: "공식 휴식 관리", href: "/admin/official-rest-periods" },
       { label: "권한 설정", href: "/admin/settings/permissions" },
       { label: "계정 관리", href: "/admin/settings/accounts" },
     ],
