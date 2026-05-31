@@ -24,6 +24,7 @@ import {
   parseOutputImagesInput,
 } from "@/lib/cluster4OutputImages";
 import { describeOpenableWeek } from "@/lib/cluster4WeekPolicy";
+import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
 
 // GET /api/admin/cluster4/info-lines?week_id=&activity_type_id=
 // 실무 정보(part_type='info') 라인을 활동 유형 탭별/주차별로 운영하기 위한
@@ -253,8 +254,14 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+    // 공식 휴식 = seasonCalendar rule(시험기간) ∨ official_rest_periods overlap(설/추석/임시).
+    // weeks.is_official_rest 는 참조하지 않는다.
+    const openableRest = await resolveWeekOfficialRest({
+      startDate: openable.weekStart,
+      endDate: openable.weekEnd,
+    });
     if (
-      openable.isOfficialRest ||
+      openableRest.isOfficialRest ||
       !openable.submissionOpensAt ||
       !openable.submissionClosesAt
     ) {

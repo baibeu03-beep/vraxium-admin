@@ -4,6 +4,12 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
+import {
+  matchOfficialRestPeriods,
+  resolveOfficialRest,
+  type OfficialRestSource,
+} from "@/lib/officialRestPeriodsTypes";
 
 type SeasonDefinitionRow = {
   season_key: string;
@@ -49,6 +55,9 @@ type SeasonWeekDto = {
   week_start_date: string | null;
   week_end_date: string | null;
   is_official_rest: boolean;
+  // 공식 휴식 판정 출처(복수 가능). 최종 is_official_rest = season_rule ∨ date_period.
+  // legacy_iso_week 는 표시 전용으로 판정에 반영되지 않는다.
+  official_rest_sources: OfficialRestSource[];
   is_current_week: boolean;
 };
 
@@ -57,8 +66,9 @@ type SeasonWeekConflictDto = {
   week_id: string;
   week_number: number | null;
   week_start_date: string | null;
-  db_is_official_rest: boolean;
-  calendar_is_official_rest: boolean;
+  // 신규 판정(season_rule ∨ date_period) 과 legacy(official_rest_weeks/weeks.is_official_rest) 의 불일치.
+  resolved_is_official_rest: boolean;
+  legacy_is_official_rest: boolean;
   reason: string;
 };
 
@@ -220,6 +230,9 @@ export async function GET() {
       }
     }
 
+    // 신규 SoT: 활성 official_rest_periods. 테이블 미생성이면 [] 로 graceful degrade.
+    const activePeriods = await fetchActiveRestPeriods();
+
     const seasonByKey = new Map(
       seasons.map((season) => [season.season_key, season]),
     );
@@ -232,25 +245,43 @@ export async function GET() {
       const season = seasonByKey.get(week.season_key);
       if (!season) continue;
 
+      // legacy(표시 전용): official_rest_weeks(year, iso_week) 또는 weeks.is_official_rest.
       const restKey = officialRestKey(week.iso_year, week.iso_week);
-      const dbOfficialRest =
+      const legacyRest =
         week.is_official_rest === true ||
         (restKey != null && officialRestKeys.has(restKey));
-      const calendarRest = calendarOfficialRest(
-        season.season_type,
-        week.week_number,
-      );
 
-      if (calendarRest != null && calendarRest !== dbOfficialRest) {
+      // season_rule: seasonCalendar 규칙(시험기간). null(판정 불가) 은 false 취급.
+      const seasonRuleRest =
+        calendarOfficialRest(season.season_type, week.week_number) === true;
+
+      // date_period: 활성 official_rest_periods 와 주차 날짜 범위 overlap.
+      // 다중 주차 겹침(옵션 A) — 겹치는 모든 주차가 휴식이 된다.
+      const matchedDatePeriods =
+        week.start_date && week.end_date
+          ? matchOfficialRestPeriods(
+              { startDate: week.start_date, endDate: week.end_date },
+              activePeriods,
+            ).length
+          : 0;
+
+      const { isOfficialRest, sources } = resolveOfficialRest({
+        seasonRuleRest,
+        matchedDatePeriods,
+        legacyRest,
+      });
+
+      // 신규 판정과 legacy 가 어긋나면 정합 점검용 conflict 로 노출(데이터 정리 도구).
+      if (legacyRest !== isOfficialRest) {
         conflicts.push({
           season_key: season.season_key,
           week_id: week.id,
           week_number: week.week_number,
           week_start_date: week.start_date,
-          db_is_official_rest: dbOfficialRest,
-          calendar_is_official_rest: calendarRest,
+          resolved_is_official_rest: isOfficialRest,
+          legacy_is_official_rest: legacyRest,
           reason:
-            "seasonCalendar.ts derived official-rest rule differs from weeks/official_rest_weeks.",
+            "신규 판정(season_rule ∨ date_period)이 legacy(official_rest_weeks/weeks.is_official_rest)와 다릅니다.",
         });
       }
 
@@ -266,7 +297,8 @@ export async function GET() {
           week.week_number == null ? "주차 미지정" : `${week.week_number}주차`,
         week_start_date: week.start_date,
         week_end_date: week.end_date,
-        is_official_rest: dbOfficialRest,
+        is_official_rest: isOfficialRest,
+        official_rest_sources: sources,
         is_current_week: isCurrentWeek(week.start_date, week.end_date, today),
       });
     }

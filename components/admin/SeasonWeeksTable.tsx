@@ -28,6 +28,8 @@ type SeasonSummary = {
   season_end_date: string | null;
 };
 
+type OfficialRestSource = "season_rule" | "date_period" | "legacy_iso_week";
+
 type SeasonWeekRow = SeasonSummary & {
   week_id: string;
   week_number: number | null;
@@ -35,6 +37,7 @@ type SeasonWeekRow = SeasonSummary & {
   week_start_date: string | null;
   week_end_date: string | null;
   is_official_rest: boolean;
+  official_rest_sources?: OfficialRestSource[];
   is_current_week: boolean;
 };
 
@@ -43,9 +46,15 @@ type SeasonWeekConflict = {
   week_id: string;
   week_number: number | null;
   week_start_date: string | null;
-  db_is_official_rest: boolean;
-  calendar_is_official_rest: boolean;
+  resolved_is_official_rest: boolean;
+  legacy_is_official_rest: boolean;
   reason: string;
+};
+
+const SOURCE_LABELS: Record<OfficialRestSource, string> = {
+  season_rule: "시험기간 규칙",
+  date_period: "날짜 등록",
+  legacy_iso_week: "legacy",
 };
 
 type ApiPayload = {
@@ -309,6 +318,7 @@ export default function SeasonWeeksTable() {
                           <TableHead>주차</TableHead>
                           <TableHead>주차 기간</TableHead>
                           <TableHead>공식 휴식 여부</TableHead>
+                          <TableHead>판정 출처</TableHead>
                           <TableHead>현재 주차 여부</TableHead>
                           <TableHead>규칙 충돌</TableHead>
                         </TableRow>
@@ -343,6 +353,28 @@ export default function SeasonWeeksTable() {
                                 )}
                               </TableCell>
                               <TableCell>
+                                {row.official_rest_sources &&
+                                row.official_rest_sources.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {row.official_rest_sources.map((source) => (
+                                      <span
+                                        key={source}
+                                        className={cn(
+                                          "inline-flex h-6 items-center rounded-md px-2 text-xs font-medium",
+                                          source === "legacy_iso_week"
+                                            ? "bg-muted text-muted-foreground line-through"
+                                            : "bg-sky-100 text-sky-800 ring-1 ring-sky-200",
+                                        )}
+                                      >
+                                        {SOURCE_LABELS[source]}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted-foreground">-</span>
+                                )}
+                              </TableCell>
+                              <TableCell>
                                 {row.is_current_week ? (
                                   <StatusBadge tone="current">
                                     현재 주차
@@ -356,12 +388,12 @@ export default function SeasonWeeksTable() {
                               <TableCell>
                                 {conflict ? (
                                   <StatusBadge tone="warning">
-                                    DB{" "}
-                                    {conflict.db_is_official_rest
+                                    판정{" "}
+                                    {conflict.resolved_is_official_rest
                                       ? "휴식"
                                       : "운영"}{" "}
-                                    / 규칙{" "}
-                                    {conflict.calendar_is_official_rest
+                                    / legacy{" "}
+                                    {conflict.legacy_is_official_rest
                                       ? "휴식"
                                       : "운영"}
                                   </StatusBadge>

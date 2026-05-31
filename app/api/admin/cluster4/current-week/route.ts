@@ -4,11 +4,8 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import {
-  getSeasonForDate,
-  getCalendarWeekStatus,
-  seasonDbKey,
-} from "@/lib/seasonCalendar";
+import { getSeasonForDate, seasonDbKey } from "@/lib/seasonCalendar";
+import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
 
 const DAY_MS = 86_400_000;
 
@@ -65,20 +62,19 @@ export async function GET() {
     const weekStart = fmtDate(weekStartMs);
     const weekEnd = fmtDate(weekEndMs);
 
-    const calendarStatus = getCalendarWeekStatus(
-      season.type,
-      weekNumber,
-      season.seasonWeeks,
-    );
-
-    const isOfficialRest =
-      calendarStatus === "official_rest" || calendarStatus === "transition";
+    // 최종 공식 휴식 = seasonCalendar rule(시험기간) ∨ official_rest_periods overlap.
+    // weeks.is_official_rest 는 참조하지 않는다.
+    const rest = await resolveWeekOfficialRest({
+      startDate: weekStart,
+      endDate: weekEnd,
+    });
+    const isOfficialRest = rest.isOfficialRest;
 
     // Look up week row by ISO year/week
     const { isoYear, isoWeek } = getISOWeekInfo(weekStart);
     const { data: weekRow } = await supabaseAdmin
       .from("weeks")
-      .select("id,start_date,end_date,season_key,is_official_rest,week_number")
+      .select("id,start_date,end_date,season_key,week_number")
       .eq("iso_year", isoYear)
       .eq("iso_week", isoWeek)
       .maybeSingle();
@@ -101,7 +97,7 @@ export async function GET() {
         weekNumber,
         startDate: weekStart,
         endDate: weekEnd,
-        isOfficialRest: weekRow?.is_official_rest ?? isOfficialRest,
+        isOfficialRest,
         canOpen: !isOfficialRest && weekRow?.id != null,
         submissionOpensAt: isOfficialRest ? null : submissionOpensAt,
         submissionClosesAt: isOfficialRest ? null : submissionClosesAt,

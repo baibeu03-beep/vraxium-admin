@@ -7,6 +7,7 @@ import {
   getSeasonForDate,
   getCalendarWeekStatus,
 } from "@/lib/seasonCalendar";
+import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
 import {
   type Cluster4OutputLink,
   outputLinksFromLegacy,
@@ -241,19 +242,25 @@ export async function POST(request: NextRequest) {
     if (input.week_id) {
       const { data: weekRow, error: weekError } = await supabaseAdmin
         .from("weeks")
-        .select("id,start_date,is_official_rest")
+        .select("id,start_date,end_date")
         .eq("id", input.week_id)
         .maybeSingle();
       if (weekError) return Response.json({ success: false, error: weekError.message }, { status: 500 });
       if (!weekRow) return Response.json({ success: false, error: "지정한 주차를 찾을 수 없습니다" }, { status: 404 });
-      if ((weekRow as { is_official_rest: boolean | null }).is_official_rest) {
+      const startDate = (weekRow as { start_date: string }).start_date;
+      // 공식 휴식 = seasonCalendar rule ∨ official_rest_periods overlap.
+      // weeks.is_official_rest 는 참조하지 않는다.
+      const rest = await resolveWeekOfficialRest({
+        startDate,
+        endDate: (weekRow as { end_date: string | null }).end_date,
+      });
+      if (rest.isOfficialRest) {
         return Response.json(
           { success: false, error: "공식 휴식 주차에는 라인을 개설할 수 없습니다" },
           { status: 400 },
         );
       }
       weekRowId = (weekRow as { id: string }).id;
-      const startDate = (weekRow as { start_date: string }).start_date;
       const derived = deriveSubmissionWindow(startDate);
       submissionOpensAt = input.submission_opens_at ?? derived.submissionOpensAt;
       submissionClosesAt = input.submission_closes_at ?? derived.submissionClosesAt;
@@ -268,12 +275,23 @@ export async function POST(request: NextRequest) {
 
       const { data: weekRow, error: weekError } = await supabaseAdmin
         .from("weeks")
-        .select("id")
+        .select("id,start_date,end_date")
         .eq("iso_year", week.isoYear)
         .eq("iso_week", week.isoWeek)
         .maybeSingle();
       if (weekError) return Response.json({ success: false, error: weekError.message }, { status: 500 });
       if (!weekRow) return Response.json({ success: false, error: "현재 주차 데이터를 찾을 수 없습니다" }, { status: 404 });
+      // 현재 주차도 날짜형 공식 휴식(설/추석/임시)과 겹치면 차단.
+      const rest = await resolveWeekOfficialRest({
+        startDate: (weekRow as { start_date: string }).start_date,
+        endDate: (weekRow as { end_date: string | null }).end_date,
+      });
+      if (rest.isOfficialRest) {
+        return Response.json(
+          { success: false, error: "현재 주차에 라인을 개설할 수 없습니다" },
+          { status: 400 },
+        );
+      }
       weekRowId = (weekRow as { id: string }).id;
       submissionOpensAt = week.submissionOpensAt;
       submissionClosesAt = week.submissionClosesAt;

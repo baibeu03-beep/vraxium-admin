@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CalendarPlus, Pencil, Power } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CalendarPlus, Pencil, Power, RefreshCw, Trash2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,32 +21,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-
-type RestPeriodType = "lunar_new_year" | "chuseok" | "temporary" | "other";
-
-type OfficialRestPeriod = {
-  id: string;
-  name: string;
-  type: RestPeriodType;
-  startDate: string;
-  endDate: string;
-  description: string;
-  isActive: boolean;
-};
+import {
+  OFFICIAL_REST_PERIOD_TYPE_LABELS,
+  OFFICIAL_REST_PERIOD_TYPES,
+  type OfficialRestPeriodDto,
+  type OfficialRestPeriodType,
+} from "@/lib/officialRestPeriodsTypes";
 
 type Draft = {
   name: string;
-  type: RestPeriodType;
+  type: OfficialRestPeriodType;
   startDate: string;
   endDate: string;
   description: string;
-};
-
-const TYPE_LABELS: Record<RestPeriodType, string> = {
-  lunar_new_year: "설 연휴",
-  chuseok: "추석 연휴",
-  temporary: "임시 휴식",
-  other: "기타",
 };
 
 const EMPTY_DRAFT: Draft = {
@@ -57,26 +44,17 @@ const EMPTY_DRAFT: Draft = {
   description: "",
 };
 
-const INITIAL_PERIODS: OfficialRestPeriod[] = [
-  {
-    id: "mock-2026-lunar-new-year",
-    name: "2026 설 연휴",
-    type: "lunar_new_year",
-    startDate: "2026-02-16",
-    endDate: "2026-02-18",
-    description: "2026년 설 명절 공식 휴식",
-    isActive: true,
-  },
-  {
-    id: "mock-2026-chuseok",
-    name: "2026 추석 연휴",
-    type: "chuseok",
-    startDate: "2026-09-24",
-    endDate: "2026-09-27",
-    description: "2026년 추석 명절 공식 휴식",
-    isActive: true,
-  },
-];
+const API_BASE = "/api/admin/official-rest-periods";
+
+function draftToBody(draft: Draft) {
+  return {
+    name: draft.name.trim(),
+    type: draft.type,
+    start_date: draft.startDate,
+    end_date: draft.endDate,
+    description: draft.description.trim() || null,
+  };
+}
 
 function OfficialRestPolicyInfo() {
   return (
@@ -108,8 +86,8 @@ function OfficialRestPolicyInfo() {
               처리됩니다.
             </li>
             <li>
-              이 화면에서는 설 연휴, 추석 연휴, 임시 휴식 등 날짜 기반
-              공식 휴식만 관리합니다.
+              이 화면에서 등록한 설/추석/임시 휴식은 날짜 범위가 겹치는 주차에
+              별도 SQL 없이 즉시 공식 휴식으로 반영됩니다.
             </li>
           </ul>
         </div>
@@ -134,9 +112,48 @@ function StatusBadge({ active }: { active: boolean }) {
 }
 
 export default function OfficialRestPeriodsManager() {
-  const [periods, setPeriods] = useState<OfficialRestPeriod[]>(INITIAL_PERIODS);
+  const [periods, setPeriods] = useState<OfficialRestPeriodDto[]>([]);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  const refresh = useCallback(() => setRefreshTick((value) => value + 1), []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API_BASE}?includeInactive=1`, {
+          cache: "no-store",
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error ?? "Failed to load official rest periods.");
+        }
+        if (!cancelled) {
+          setPeriods((json.data?.rows ?? []) as OfficialRestPeriodDto[]);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load.");
+          setPeriods([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick]);
 
   const activeCount = useMemo(
     () => periods.filter((period) => period.isActive).length,
@@ -148,6 +165,7 @@ export default function OfficialRestPeriodsManager() {
     : null;
 
   const canSubmit =
+    !saving &&
     draft.name.trim().length > 0 &&
     draft.startDate.trim().length > 0 &&
     draft.endDate.trim().length > 0 &&
@@ -158,92 +176,135 @@ export default function OfficialRestPeriodsManager() {
     setEditingId(null);
   }
 
-  function startEdit(period: OfficialRestPeriod) {
+  function startEdit(period: OfficialRestPeriodDto) {
     setEditingId(period.id);
     setDraft({
       name: period.name,
       type: period.type,
       startDate: period.startDate,
       endDate: period.endDate,
-      description: period.description,
+      description: period.description ?? "",
     });
   }
 
-  function saveDraft() {
+  async function saveDraft() {
     if (!canSubmit) return;
-
-    if (editing) {
-      setPeriods((current) =>
-        current.map((period) =>
-          period.id === editing.id
-            ? {
-                ...period,
-                name: draft.name.trim(),
-                type: draft.type,
-                startDate: draft.startDate,
-                endDate: draft.endDate,
-                description: draft.description.trim(),
-              }
-            : period,
-        ),
-      );
-    } else {
-      setPeriods((current) => [
-        ...current,
-        {
-          id: `mock-${Date.now()}`,
-          name: draft.name.trim(),
-          type: draft.type,
-          startDate: draft.startDate,
-          endDate: draft.endDate,
-          description: draft.description.trim(),
-          isActive: true,
-        },
-      ]);
+    setSaving(true);
+    setError(null);
+    try {
+      const url = editing ? `${API_BASE}/${editing.id}` : API_BASE;
+      const method = editing ? "PATCH" : "POST";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draftToBody(draft)),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error ?? "저장에 실패했습니다.");
+      }
+      resetForm();
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
     }
-
-    resetForm();
   }
 
-  function deactivatePeriod(id: string) {
-    setPeriods((current) =>
-      current.map((period) =>
-        period.id === id ? { ...period, isActive: false } : period,
-      ),
-    );
-    if (editingId === id) resetForm();
+  async function toggleActive(period: OfficialRestPeriodDto) {
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/${period.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !period.isActive }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error ?? "상태 변경에 실패했습니다.");
+      }
+      if (editingId === period.id) resetForm();
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "상태 변경에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removePeriod(period: OfficialRestPeriodDto) {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(`"${period.name}" 기간을 삭제하시겠습니까?`)
+    ) {
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/${period.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error ?? "삭제에 실패했습니다.");
+      }
+      if (editingId === period.id) resetForm();
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold tracking-normal text-foreground">
-          공식 휴식 관리
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          명절 및 임시 공식 휴식 기간을 관리합니다.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-normal text-foreground">
+            공식 휴식 관리
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            명절 및 임시 공식 휴식 기간을 관리합니다.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={refresh}
+          disabled={loading}
+        >
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          새로고침
+        </Button>
       </div>
 
       <OfficialRestPolicyInfo />
+
+      {error && (
+        <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card size="sm">
           <CardHeader>
             <CardDescription>전체 기간</CardDescription>
-            <CardTitle>{periods.length}개</CardTitle>
+            <CardTitle>{loading ? "-" : `${periods.length}개`}</CardTitle>
           </CardHeader>
         </Card>
         <Card size="sm">
           <CardHeader>
             <CardDescription>활성 기간</CardDescription>
-            <CardTitle>{activeCount}개</CardTitle>
+            <CardTitle>{loading ? "-" : `${activeCount}개`}</CardTitle>
           </CardHeader>
         </Card>
         <Card size="sm">
           <CardHeader>
             <CardDescription>데이터 소스</CardDescription>
-            <CardTitle>Mock</CardTitle>
+            <CardTitle>official_rest_periods</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -252,7 +313,7 @@ export default function OfficialRestPeriodsManager() {
         <CardHeader>
           <CardTitle>{editing ? "공식 휴식 수정" : "공식 휴식 추가"}</CardTitle>
           <CardDescription>
-            현재 화면은 mock 데이터만 사용하며 DB에는 저장하지 않습니다.
+            등록/수정한 날짜 범위는 겹치는 주차에 공식 휴식으로 즉시 반영됩니다.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -279,14 +340,14 @@ export default function OfficialRestPeriodsManager() {
                 onChange={(event) =>
                   setDraft((current) => ({
                     ...current,
-                    type: event.target.value as RestPeriodType,
+                    type: event.target.value as OfficialRestPeriodType,
                   }))
                 }
                 className="h-8 rounded-lg border border-input bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
               >
-                {Object.entries(TYPE_LABELS).map(([value, label]) => (
+                {OFFICIAL_REST_PERIOD_TYPES.map((value) => (
                   <option key={value} value={value}>
-                    {label}
+                    {OFFICIAL_REST_PERIOD_TYPE_LABELS[value]}
                   </option>
                 ))}
               </select>
@@ -339,7 +400,12 @@ export default function OfficialRestPeriodsManager() {
                 {editing ? "수정" : "추가"}
               </Button>
               {editing && (
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={resetForm}
+                  disabled={saving}
+                >
                   취소
                 </Button>
               )}
@@ -351,66 +417,89 @@ export default function OfficialRestPeriodsManager() {
       <Card>
         <CardHeader>
           <CardTitle>공식 휴식 기간</CardTitle>
-          <CardDescription>날짜 범위 기반 공식 휴식 mock 목록입니다.</CardDescription>
+          <CardDescription>날짜 범위 기반 공식 휴식 목록입니다.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>이름</TableHead>
-                  <TableHead>유형</TableHead>
-                  <TableHead>시작일</TableHead>
-                  <TableHead>종료일</TableHead>
-                  <TableHead>설명</TableHead>
-                  <TableHead>활성 여부</TableHead>
-                  <TableHead className="text-right">작업</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {periods.map((period) => (
-                  <TableRow
-                    key={period.id}
-                    className={cn(!period.isActive && "opacity-60")}
-                  >
-                    <TableCell className="font-medium">{period.name}</TableCell>
-                    <TableCell>{TYPE_LABELS[period.type]}</TableCell>
-                    <TableCell>{period.startDate}</TableCell>
-                    <TableCell>{period.endDate}</TableCell>
-                    <TableCell className="max-w-[320px] truncate">
-                      {period.description || "-"}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge active={period.isActive} />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => startEdit(period)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                          수정
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => deactivatePeriod(period.id)}
-                          disabled={!period.isActive}
-                        >
-                          <Power className="h-3.5 w-3.5" />
-                          비활성화
-                        </Button>
-                      </div>
-                    </TableCell>
+          {loading ? (
+            <div className="flex h-24 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+              데이터를 불러오는 중입니다.
+            </div>
+          ) : periods.length === 0 ? (
+            <div className="flex h-24 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
+              등록된 공식 휴식 기간이 없습니다.
+            </div>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>이름</TableHead>
+                    <TableHead>유형</TableHead>
+                    <TableHead>시작일</TableHead>
+                    <TableHead>종료일</TableHead>
+                    <TableHead>설명</TableHead>
+                    <TableHead>활성 여부</TableHead>
+                    <TableHead className="text-right">작업</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {periods.map((period) => (
+                    <TableRow
+                      key={period.id}
+                      className={cn(!period.isActive && "opacity-60")}
+                    >
+                      <TableCell className="font-medium">{period.name}</TableCell>
+                      <TableCell>
+                        {OFFICIAL_REST_PERIOD_TYPE_LABELS[period.type]}
+                      </TableCell>
+                      <TableCell>{period.startDate}</TableCell>
+                      <TableCell>{period.endDate}</TableCell>
+                      <TableCell className="max-w-[320px] truncate">
+                        {period.description || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge active={period.isActive} />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => startEdit(period)}
+                            disabled={saving}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            수정
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleActive(period)}
+                            disabled={saving}
+                          >
+                            <Power className="h-3.5 w-3.5" />
+                            {period.isActive ? "비활성화" : "활성화"}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removePeriod(period)}
+                            disabled={saving}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            삭제
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -11,6 +11,8 @@ import {
   describeWeekByStartMs,
   getCurrentWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
+import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
+import { matchOfficialRestPeriods } from "@/lib/officialRestPeriodsTypes";
 
 // 라인 개설 어드민 UI 에서 사용하는 "최근 주차 옵션" 엔드포인트.
 // 현재 주차 N 을 포함해 직전 몇 주(N-1, N-2 ...) 까지 weeks 테이블에서 매칭한 행만 돌려준다.
@@ -107,7 +109,7 @@ export async function GET(request: NextRequest) {
 
     const { data: weekRows, error: weekError } = await supabaseAdmin
       .from("weeks")
-      .select("id,iso_year,iso_week,start_date,end_date,is_official_rest")
+      .select("id,iso_year,iso_week,start_date,end_date")
       .or(orExpr);
 
     if (weekError) {
@@ -117,13 +119,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // 날짜형 공식 휴식(설/추석/임시) — 활성 official_rest_periods 1회 prefetch.
+    const activeRestPeriods = await fetchActiveRestPeriods();
+
     type WeekRow = {
       id: string;
       iso_year: number;
       iso_week: number;
       start_date: string;
       end_date: string;
-      is_official_rest: boolean | null;
     };
 
     const weekRowByKey = new Map<string, WeekRow>();
@@ -136,7 +140,14 @@ export async function GET(request: NextRequest) {
       const row = weekRowByKey.get(`${info.isoYear}::${info.isoWeek}`);
       if (!row) continue;
 
-      const isOfficialRest = row.is_official_rest ?? info.isOfficialRest;
+      // 최종 공식 휴식 = seasonCalendar rule(info.isOfficialRest) ∨ 날짜 overlap.
+      // weeks.is_official_rest 는 참조하지 않는다.
+      const isOfficialRest =
+        info.isOfficialRest ||
+        matchOfficialRestPeriods(
+          { startDate: info.weekStart, endDate: info.weekEnd },
+          activeRestPeriods,
+        ).length > 0;
       const canOpen = !isOfficialRest;
       const label = `${info.year}년도 ${info.seasonName} ${info.weekNumber}w`;
       weeks.push({

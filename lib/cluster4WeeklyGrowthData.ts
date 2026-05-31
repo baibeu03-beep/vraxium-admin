@@ -9,6 +9,14 @@ import {
   type Season,
 } from "@/lib/seasonCalendar";
 import { getGraduationThreshold } from "@/lib/pointLabels";
+import {
+  fetchActiveRestPeriods,
+  isSeasonRuleRestForWeekStart,
+} from "@/lib/officialRestPeriodsData";
+import {
+  matchOfficialRestPeriods,
+  periodTypeToRestReason,
+} from "@/lib/officialRestPeriodsTypes";
 import type { OrganizationSlug } from "@/lib/organizations";
 import {
   WEEK_STATUS_LABEL,
@@ -75,18 +83,6 @@ function getWeekInSeason(
   };
 }
 
-function getISOWeekInfo(iso: string): { isoYear: number; isoWeek: number } {
-  const date = new Date(`${iso}T00:00:00Z`);
-  const dayNum = date.getUTCDay() || 7;
-  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
-  const isoYear = date.getUTCFullYear();
-  const yearStart = new Date(Date.UTC(isoYear, 0, 1));
-  const isoWeek = Math.ceil(
-    ((date.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7,
-  );
-  return { isoYear, isoWeek };
-}
-
 function seasonDisplayName(season: Season): string {
   return `${season.type} 시즌`;
 }
@@ -99,18 +95,6 @@ function getNextSeason(current: Season): Season | null {
   if (idx >= 0 && idx < cal.length - 1) return cal[idx + 1];
   const nextYearCal = getSeasonCalendar(current.year + 1);
   return nextYearCal[0] ?? null;
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Holiday detection from official_rest_weeks DB table
-// ─────────────────────────────────────────────────────────────────────
-function mapHolidayReason(reason: string | null): RestReason {
-  if (!reason) return null;
-  const lower = reason.toLowerCase();
-  if (lower.includes("추석") || lower.includes("chuseok")) return "chuseok";
-  if (lower.includes("설") || lower.includes("구정") || lower.includes("lunar"))
-    return "lunar_new_year";
-  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -151,24 +135,18 @@ async function computeCurrentWeekInfo(): Promise<CurrentWeekInfo> {
     const next = getNextSeason(season);
     nextSeasonName = next ? seasonDisplayName(next) : null;
   } else if (calendarStatus === "official_rest") {
+    // 시험기간(seasonCalendar 규칙). 별도 사유 없음.
     status = "official_rest";
     restReason = null;
   } else {
-    const { isoYear, isoWeek } = getISOWeekInfo(weekStart);
-    const holidayRes = await supabaseAdmin
-      .from("official_rest_weeks")
-      .select("reason")
-      .eq("year", isoYear)
-      .eq("week_number", isoWeek)
-      .maybeSingle();
-
-    const hasHoliday = !holidayRes.error && holidayRes.data !== null;
-
-    if (hasHoliday) {
+    // 설/추석/임시 휴식 — official_rest_periods 날짜 overlap 으로 판정.
+    const matched = matchOfficialRestPeriods(
+      { startDate: weekStart, endDate: weekEnd },
+      await fetchActiveRestPeriods(),
+    );
+    if (matched.length > 0) {
       status = "official_rest";
-      restReason = mapHolidayReason(
-        (holidayRes.data as { reason: string | null })?.reason ?? null,
-      );
+      restReason = periodTypeToRestReason(matched[0].type);
     } else {
       status = "running";
     }
@@ -384,6 +362,10 @@ async function computeWeeklyCards(
   }
   const uwsRows = uwsData as UwsRow[];
 
+  // 공식 휴식 재판정용 — 활성 official_rest_periods 를 1회 prefetch 하여
+  // 루프 안에서 주차별로 seasonCalendar rule ∨ 날짜 overlap 으로 판정한다.
+  const activeRestPeriods = await fetchActiveRestPeriods();
+
   // 1b. season_definitions에서 season_label 조회
   const seasonKeys = [
     ...new Set(uwsRows.map((r) => r.season_key).filter(Boolean) as string[]),
@@ -597,6 +579,13 @@ async function computeWeeklyCards(
     const endDateMs = toMs(startDate) + 6 * DAY_MS;
     const endDate = weeksRow?.end_date ?? fmtDate(endDateMs);
 
+    // 공식 휴식 여부(신규 SoT): seasonCalendar rule ∨ official_rest_periods overlap.
+    // weeks.is_official_rest 는 더 이상 참조하지 않는다.
+    const weekIsOfficialRest =
+      isSeasonRuleRestForWeekStart(startDate) ||
+      matchOfficialRestPeriods({ startDate, endDate }, activeRestPeriods).length >
+        0;
+
     // 상태 결정: 현재 주이면 running/tallying
     let resultStatus: WeekResultStatus;
     const isCurrentWeek =
@@ -605,7 +594,7 @@ async function computeWeeklyCards(
       uws.year === new Date().getUTCFullYear() &&
       startDate === currentWeek.weekStart;
 
-    if (uws.status === "official_rest" && weeksRow?.is_official_rest === false) {
+    if (uws.status === "official_rest" && !weekIsOfficialRest) {
       resultStatus = isCurrentWeek ? "running" : "fail";
     } else if (isCurrentWeek && uws.status === "success") {
       resultStatus = "running";
