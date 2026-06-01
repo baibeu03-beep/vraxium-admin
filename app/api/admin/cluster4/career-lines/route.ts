@@ -18,7 +18,7 @@ import {
   type Cluster4OutputImage,
   parseOutputImagesInput,
 } from "@/lib/cluster4OutputImages";
-import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 type CareerLineCreateBody = {
   career_project_id: string;
@@ -422,9 +422,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 대상자들의 weekly-cards snapshot 을 stale 처리한다(career 라인이 새로 보이도록).
-    // best-effort — 실패해도 라인 개설 응답은 정상 반환(다음 조회 lazy / cron 이 보정).
-    await markWeeklyCardsSnapshotStaleMany(input.target_user_ids);
+    // 대상자들의 weekly-cards snapshot 을 즉시 재계산한다(career 라인이 placeholder 가 아닌
+    // 실제 데이터로 바로 내려오도록). ≤10명 즉시 recompute / >10명 stale+after 백그라운드.
+    // best-effort — 실패는 격리되어 라인 개설 응답은 정상 반환(cron 이 보정).
+    await invalidateWeeklyCardsForUsers(input.target_user_ids);
 
     return Response.json(
       { success: true, data: { line: lineRow, targets: targets ?? [], targetCount: input.target_user_ids.length } },

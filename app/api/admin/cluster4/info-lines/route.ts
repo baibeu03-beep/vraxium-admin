@@ -12,6 +12,7 @@ import {
   listCluster4InfoLinesDetailed,
 } from "@/lib/adminCluster4LinesData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { isUuid } from "@/lib/isUuid";
 import {
   type Cluster4OutputLink,
@@ -431,6 +432,10 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+
+    // 대상자 weekly-cards snapshot 즉시 재계산 → 고객 앱에 실제 라인이 바로 내려오게 한다.
+    // (cron 축소로 stale-only 는 미반영) ≤10명 즉시 / >10명 백그라운드. best-effort.
+    await invalidateWeeklyCardsForUsers(input.target_user_ids);
 
     return Response.json(
       {

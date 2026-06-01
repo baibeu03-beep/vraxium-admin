@@ -1,9 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
-import {
-  markWeeklyCardsSnapshotStale,
-  markWeeklyCardsSnapshotStaleMany,
-} from "@/lib/cluster4WeeklyCardsSnapshot";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import type {
   Cluster4InfoLineDetail,
   Cluster4InfoLineTargetDetail,
@@ -318,6 +315,28 @@ function translatePostgrestError(message: string, code?: string) {
   return new Cluster4LineError(500, message);
 }
 
+// 라인에 연결된 대상자(target_mode='user')들의 weekly-card snapshot 을 즉시 무효화/재계산한다.
+// 라인 메타 변경/활성 토글처럼 "라인 단위" 변경이 모든 대상자 카드에 영향을 줄 때 사용.
+// best-effort: invalidateWeeklyCardsForUsers 가 실패를 격리하므로 본 쓰기 요청을 깨뜨리지 않는다.
+async function invalidateSnapshotsForLineTargets(lineId: string): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("target_user_id")
+    .eq("line_id", lineId)
+    .eq("target_mode", "user");
+  if (error) {
+    console.warn("[cluster4/lines] snapshot 재계산용 대상자 조회 실패", {
+      lineId,
+      message: error.message,
+    });
+    return;
+  }
+  const userIds = (data ?? [])
+    .map((r) => (r as { target_user_id: string | null }).target_user_id)
+    .filter((u): u is string => Boolean(u));
+  await invalidateWeeklyCardsForUsers(userIds);
+}
+
 async function fetchLineIdsForWeekFilter(
   weekId: string,
   options: { targetMode?: Cluster4LineTargetDto["targetMode"] | null } = {},
@@ -525,6 +544,8 @@ export async function updateCluster4Line(
   if (!data) {
     throw new Cluster4LineError(404, "cluster4 line not found");
   }
+  // 라인 메타(title/output/기입기간/is_active 등) 변경은 모든 대상자 주차 카드에 영향 → 즉시 재계산.
+  await invalidateSnapshotsForLineTargets(id);
   const { targetCounts, submissionCounts } = await fetchTargetCountsByLineIds([id]);
   return toLineDto(
     data as unknown as Cluster4LineRow,
@@ -612,10 +633,21 @@ export async function setCluster4LineWorkflowStage(
 
 export async function deleteCluster4Line(id: string): Promise<void> {
   await ensureLineExists(id);
+  // 삭제 전 대상자 수집 — FK cascade 로 targets 가 사라지기 전에 확보(삭제 후 재계산 대상).
+  const { data: affectedTargets } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("target_user_id")
+    .eq("line_id", id)
+    .eq("target_mode", "user");
+  const affectedUserIds = (affectedTargets ?? [])
+    .map((r) => (r as { target_user_id: string | null }).target_user_id)
+    .filter((u): u is string => Boolean(u));
   const { error } = await supabaseAdmin.from("cluster4_lines").delete().eq("id", id);
   if (error) {
     throw translatePostgrestError(error.message, error.code);
   }
+  // 라인 삭제 = 대상자 주차 카드에서 라인 제거 → 즉시 재계산(placeholder 로 복귀 반영).
+  await invalidateWeeklyCardsForUsers(affectedUserIds);
 }
 
 export async function listCluster4LineTargets(
@@ -668,10 +700,11 @@ export async function createCluster4LineTarget(
       error?.code,
     );
   }
-  // 라인 타깃 개설은 그 사용자 주차의 가용 라인(분모)/상태를 바꾼다 → 구조 변경이므로 stale 표시.
-  // (조회 즉시성보다 다건 개설 시 비용 절감 우선 — cron 이 재생성. best-effort.)
+  // 라인 타깃 개설은 그 사용자 주차의 가용 라인(분모)/상태를 바꾼다 → 즉시 재계산해 고객 앱에
+  // 라인이 placeholder 가 아닌 실제 데이터로 바로 내려오게 한다(cron 축소로 stale-only 는 미반영).
+  // invalidateWeeklyCardsForUsers: ≤10명 즉시 recompute / >10명 stale+after 백그라운드. best-effort.
   if (input.targetMode === "user" && input.targetUserId) {
-    await markWeeklyCardsSnapshotStale(input.targetUserId);
+    await invalidateWeeklyCardsForUsers([input.targetUserId]);
   }
   return toTargetDto(data as unknown as Cluster4LineTargetRow, 0);
 }
@@ -736,8 +769,8 @@ export async function updateCluster4LineTarget(
   if (!data) {
     throw new Cluster4LineError(404, "cluster4 line target not found");
   }
-  // 대상자 변경 가능성 → 이전/이후 대상자 양쪽 모두 stale 표시(구조 변경, cron 재생성).
-  await markWeeklyCardsSnapshotStaleMany(
+  // 대상자 변경 가능성 → 이전/이후 대상자 양쪽 모두 즉시 재계산(구조 변경).
+  await invalidateWeeklyCardsForUsers(
     [existingRow.target_user_id, nextMode === "user" ? nextUserId : null].filter(
       (id): id is string => Boolean(id),
     ),
@@ -768,10 +801,10 @@ export async function deleteCluster4LineTarget(targetId: string): Promise<void> 
   if (error) {
     throw translatePostgrestError(error.message, error.code);
   }
-  // 타깃 해제는 그 사용자 주차의 가용 라인을 줄인다 → 구조 변경이므로 stale 표시(cron 재생성).
+  // 타깃 해제는 그 사용자 주차의 가용 라인을 줄인다 → 즉시 재계산(구조 변경).
   const removedUserId = (existing as { target_user_id: string | null }).target_user_id;
   if (removedUserId) {
-    await markWeeklyCardsSnapshotStale(removedUserId);
+    await invalidateWeeklyCardsForUsers([removedUserId]);
   }
 }
 
