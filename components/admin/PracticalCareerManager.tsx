@@ -932,8 +932,10 @@ export default function PracticalCareerManager() {
         output_images: outputImages,
         target_user_ids: Array.from(lineSelectedUserIds),
         week_id: targetWeekId,
-        submission_opens_at: selectedWeek.submissionOpensAt,
-        submission_closes_at: selectedWeek.submissionClosesAt,
+        // 기입 기간은 귀속 주차(week_id, N-1)와 무관하게 현재 주차(N) 기준으로 보낸다.
+        // (서버도 현재 주차로 강제 저장하지만, 표시/전송 값을 일치시켜 혼동을 막는다.)
+        submission_opens_at: currentWeek?.submissionOpensAt ?? selectedWeek.submissionOpensAt,
+        submission_closes_at: currentWeek?.submissionClosesAt ?? selectedWeek.submissionClosesAt,
       };
       console.log("[career line open payload]", {
         selectedWeekId,
@@ -1425,9 +1427,10 @@ export default function PracticalCareerManager() {
                     <span className="font-medium">{selectedWeek.year} {selectedWeek.seasonName} W{selectedWeek.weekNumber}</span>{" "}
                     ({fmtDateWithDay(selectedWeek.startDate)} ~ {fmtDateWithDay(selectedWeek.endDate)})
                   </p>
-                  {selectedWeek.canOpen && selectedWeek.submissionOpensAt && selectedWeek.submissionClosesAt && (
+                  {/* 기입 기간은 귀속 주차(W13 등)가 아니라 항상 현재 주차(N) 기준으로 표시한다. */}
+                  {selectedWeek.canOpen && currentWeek?.submissionOpensAt && currentWeek?.submissionClosesAt && (
                     <p className="text-muted-foreground">
-                      기입 기간: {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}
+                      기입 기간(현재 주차 기준): {fmtDateTimeWithDay(currentWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(currentWeek.submissionClosesAt)}
                     </p>
                   )}
                   {!selectedWeek.canOpen && (
@@ -1469,12 +1472,12 @@ export default function PracticalCareerManager() {
           )}
 
           {/* New line form */}
-          {lineFormOpen && canOpenSelected && (selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) && (
+          {lineFormOpen && canOpenSelected && (currentWeek?.submissionClosesAt ?? selectedWeek?.submissionClosesAt) && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">새 실무 경력 라인</CardTitle>
                 <CardDescription>
-                  기입 마감: {fmtDateTimeWithDay((selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string)}
+                  기입 마감(현재 주차 기준): {fmtDateTimeWithDay((currentWeek?.submissionClosesAt ?? selectedWeek?.submissionClosesAt) as string)}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">

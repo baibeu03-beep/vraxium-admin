@@ -296,6 +296,16 @@ export async function POST(request: NextRequest) {
       submissionClosesAt = week.submissionClosesAt;
     }
 
+    // 기입 기간(submission window)은 라인 귀속 주차(week_id, 운영상 N-1)와 무관하게
+    // 항상 "현재 주차(N)" 기준으로 저장한다. 라인은 N-1 에 귀속되더라도 대상자는 현재 주차에
+    // 기입/제출하므로(고객 카드도 현재 주차에 노출). 클라이언트가 보낸 window 값도 무시한다.
+    // 단, 현재 주차 계산 실패/공식 휴식이면 위에서 정한 (타깃 주차/클라이언트) 값을 유지한다.
+    const currentWeekWindow = resolveCurrentWeek();
+    if (currentWeekWindow && !currentWeekWindow.isOfficialRest) {
+      submissionOpensAt = currentWeekWindow.submissionOpensAt;
+      submissionClosesAt = currentWeekWindow.submissionClosesAt;
+    }
+
     const { data: project, error: projectError } = await supabaseAdmin
       .from("career_projects")
       .select("id,line_code,line_name,default_target_user_ids")
