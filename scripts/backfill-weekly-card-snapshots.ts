@@ -46,7 +46,9 @@ async function run() {
 
   let done = 0;
   let ok = 0;
-  let failed = 0;
+  const failedUserIds: string[] = [];
+  const durations: number[] = []; // 성공한 재계산의 소요(ms)
+  let slowest = { uid: "", ms: 0 };
   const t0 = Date.now();
 
   // 간단한 동시성 풀.
@@ -55,19 +57,23 @@ async function run() {
     while (cursor < userIds.length) {
       const i = cursor++;
       const uid = userIds[i];
+      const tu = Date.now();
       try {
         const cards = await recomputeAndStoreWeeklyCardsSnapshot(uid);
+        const ms = Date.now() - tu;
         ok++;
+        durations.push(ms);
+        if (ms > slowest.ms) slowest = { uid, ms };
         if ((done + 1) % 25 === 0 || single) {
-          console.log(`[backfill][w${workerId}] ${uid} → ${cards.length} cards`);
+          console.log(`[backfill][w${workerId}] ${uid} → ${cards.length} cards (${ms}ms)`);
         }
       } catch (e) {
-        failed++;
+        failedUserIds.push(uid);
         console.warn(`[backfill][w${workerId}] FAILED ${uid}:`, e instanceof Error ? e.message : e);
       } finally {
         done++;
         if (done % 100 === 0) {
-          console.log(`[backfill] progress ${done}/${userIds.length} (ok=${ok}, failed=${failed})`);
+          console.log(`[backfill] progress ${done}/${userIds.length} (ok=${ok}, failed=${failedUserIds.length})`);
         }
       }
     }
@@ -77,9 +83,19 @@ async function run() {
     Array.from({ length: Math.min(CONCURRENCY, userIds.length) }, (_, w) => worker(w)),
   );
 
-  console.log(
-    `[backfill] DONE in ${Math.round((Date.now() - t0) / 1000)}s — ok=${ok}, failed=${failed}, total=${userIds.length}`,
-  );
+  const avgMs = durations.length
+    ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+    : 0;
+
+  console.log("\n========== BACKFILL SUMMARY ==========");
+  console.log(`전체 대상 수 : ${userIds.length}`);
+  console.log(`성공 수      : ${ok}`);
+  console.log(`실패 수      : ${failedUserIds.length}`);
+  console.log(`실패 user_id : ${failedUserIds.length ? failedUserIds.join(", ") : "(없음)"}`);
+  console.log(`평균 소요    : ${avgMs}ms (성공 ${durations.length}건 기준)`);
+  console.log(`최장 소요    : ${slowest.ms}ms (user=${slowest.uid || "-"})`);
+  console.log(`총 소요      : ${Math.round((Date.now() - t0) / 1000)}s (동시성 ${CONCURRENCY})`);
+  console.log("======================================");
 }
 
 run().catch((e) => {
