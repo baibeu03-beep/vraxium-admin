@@ -97,6 +97,106 @@ export async function recomputeAndStoreWeeklyCardsSnapshot(
   return cards;
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Cron/배치 재계산: is_stale=true 또는 computed_at 이 오래된(due) 기존 snapshot 을
+// 오래된 순으로 maxUsers 만큼 재계산한다. 조회 API 는 절대 이 경로를 타지 않는다.
+//
+// 안전: 사용자별 재계산 실패는 격리(로그+계속)하며, 실패 시 upsert 가 일어나지 않아
+//   기존 snapshot 이 그대로 유지된다(정책: Cron 실패 시 기존 값 보존).
+// 신규 사용자(행 없음)는 여기서 다루지 않는다 — 백필/lazy 가 담당.
+// ─────────────────────────────────────────────────────────────────────
+export type SnapshotRecomputeResult = {
+  scanned: number;
+  recomputed: number;
+  failed: number;
+  failedUserIds: string[];
+  durationMs: number;
+};
+
+export async function recomputeStaleOrDueSnapshots(opts: {
+  maxUsers?: number;
+  dueOlderThanMs?: number;
+  concurrency?: number;
+  now?: number;
+} = {}): Promise<SnapshotRecomputeResult> {
+  const now = opts.now ?? Date.now();
+  const maxUsers = opts.maxUsers ?? 200;
+  const dueOlderThanMs = opts.dueOlderThanMs ?? 60 * 60 * 1000; // 기본 1시간
+  const concurrency = Math.max(1, opts.concurrency ?? 3);
+  const t0 = Date.now();
+  const dueThresholdIso = new Date(now - dueOlderThanMs).toISOString();
+
+  // 재계산 후보: stale 이거나 computed_at 이 오래된 행. 오래된 순(asc)으로 우선.
+  const { data, error } = await supabaseAdmin
+    .from(TABLE)
+    .select("user_id,computed_at,is_stale")
+    .or(`is_stale.eq.true,computed_at.lt.${dueThresholdIso}`)
+    .order("computed_at", { ascending: true })
+    .limit(maxUsers);
+
+  if (error) {
+    console.warn("[weekly-cards][snapshot] recompute candidate scan failed", error.message);
+    return { scanned: 0, recomputed: 0, failed: 0, failedUserIds: [], durationMs: Date.now() - t0 };
+  }
+
+  const userIds = ((data ?? []) as { user_id: string }[]).map((r) => r.user_id);
+  const failedUserIds: string[] = [];
+  let recomputed = 0;
+
+  let cursor = 0;
+  async function worker() {
+    while (cursor < userIds.length) {
+      const uid = userIds[cursor++];
+      try {
+        await recomputeAndStoreWeeklyCardsSnapshot(uid);
+        recomputed++;
+      } catch (e) {
+        // 실패 격리: 기존 snapshot 은 보존(upsert 미수행). 다음 run 에서 재시도.
+        failedUserIds.push(uid);
+        console.warn("[weekly-cards][snapshot] recompute failed (keeping old)", {
+          userId: uid,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, userIds.length) }, () => worker()),
+  );
+
+  return {
+    scanned: userIds.length,
+    recomputed,
+    failed: failedUserIds.length,
+    failedUserIds,
+    durationMs: Date.now() - t0,
+  };
+}
+
+// 조회 시 snapshot miss + lazy 비활성(WEEKLY_CARDS_DISABLE_LAZY=1)일 때 사용.
+// 무거운 계산 대신, cron 이 곧바로 집어가도록 "비어있는 stale placeholder 행"을 큐잉한다.
+// computed_at 을 epoch(아주 과거)로 두어 due+stale 양쪽으로 잡힌다 → 다음 cron 1순위 재계산.
+// 이 함수는 "miss(행 없음)" 경로에서만 호출되므로 ignoreDuplicates 로 기존 정상 snapshot 은 건드리지 않는다.
+export async function enqueueStaleSnapshot(profileUserId: string): Promise<void> {
+  const { error } = await supabaseAdmin.from(TABLE).upsert(
+    {
+      user_id: profileUserId,
+      cards: [],
+      card_count: 0,
+      dto_version: WEEKLY_CARDS_DTO_VERSION,
+      is_stale: true,
+      computed_at: new Date(0).toISOString(),
+    },
+    { onConflict: "user_id", ignoreDuplicates: true },
+  );
+  if (error) {
+    console.warn("[weekly-cards][snapshot] enqueue stale failed", {
+      profileUserId,
+      message: error.message,
+    });
+  }
+}
+
 // 입력 변경 시 "재계산 필요" 표시만 남긴다(즉시 계산하지 않음). 관리자 저장/sync 훅에서 사용 예정.
 // cron 이 is_stale=true 행을 모아 재계산한다. 행이 없으면 no-op(다음 lazy/cron 에서 생성).
 export async function markWeeklyCardsSnapshotStale(

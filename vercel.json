@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/admin/cluster4/recompute-snapshots?dueMinutes=60&maxUsers=300",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/admin/cluster4/recompute-snapshots?dueMinutes=0&maxUsers=1000",
+      "schedule": "0 15 * * 0"
+    },
+    {
+      "path": "/api/admin/cluster4/recompute-snapshots?dueMinutes=0&maxUsers=1000",
+      "schedule": "0 13 * * 3"
+    }
+  ]
+}

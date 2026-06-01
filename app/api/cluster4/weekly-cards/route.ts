@@ -9,6 +9,7 @@ import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import { Cluster4WeeklyCardsError } from "@/lib/cluster4WeeklyCardsData";
 import { getWeeklyGrowth } from "@/lib/cluster4WeeklyGrowthData";
 import {
+  enqueueStaleSnapshot,
   readWeeklyCardsSnapshot,
   recomputeAndStoreWeeklyCardsSnapshot,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
@@ -27,6 +28,10 @@ export const dynamic = "force-dynamic";
 // 디버그 비교 로그(getWeeklyGrowth 2차 호출)는 비용이 크므로 기본 OFF.
 // 필요 시 Vercel 환경변수 CLUSTER4_WEEKLY_CARDS_DEBUG=1 로만 켠다.
 const DEBUG_COMPARE = process.env.CLUSTER4_WEEKLY_CARDS_DEBUG === "1";
+
+// 백필+Cron 안정화 후 1 로 설정하면 조회 API 가 절대 실시간 계산을 하지 않는다(snapshot-only).
+// miss 시에는 cron 재계산을 큐잉하고 빈 배열을 반환한다. 전환 초기에는 0(=lazy 허용)로 둔다.
+const DISABLE_LAZY = process.env.WEEKLY_CARDS_DISABLE_LAZY === "1";
 
 // 응답 형식 고정:
 //   성공: { success: true,  data: [...], error: null }
@@ -59,7 +64,16 @@ async function loadWeeklyCards(
     }
     return snap.cards;
   }
-  // miss 일 때만 무거운 계산 허용. (신규 유저/최초 배포/스키마 버전 변경)
+  // snapshot-only 모드: 조회 경로에서 절대 계산하지 않는다. cron 재계산 큐잉 후 빈 배열 반환.
+  if (DISABLE_LAZY) {
+    console.warn(
+      "[weekly-cards] snapshot MISS + lazy disabled → enqueue for cron, return empty",
+      `user=${profileUserId}`,
+    );
+    await enqueueStaleSnapshot(profileUserId);
+    return [];
+  }
+  // 전환 초기 임시 안전장치: miss 일 때만 무거운 계산 허용. (신규 유저/최초 배포/스키마 버전 변경)
   console.warn("[weekly-cards] snapshot MISS → lazy compute+store", `user=${profileUserId}`);
   return recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
 }
