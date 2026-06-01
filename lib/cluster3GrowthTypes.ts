@@ -1,14 +1,15 @@
 // Cluster3 성장 지표 (Process / Period / Point) — browser-safe types.
 // DB 접근 없이 client components 에서 import 할 수 있다.
+//
+// 성장 상태 라벨/키·주차 결과 상태의 단일 출처는 shared/growth.contracts.ts 다.
+// 아래는 기존 export 이름을 유지한 채 공통 contract 를 재참조한다(값 불변).
 
-export type WeekStatus = "success" | "fail" | "personal_rest" | "official_rest";
+import type { WeekDbStatusKey, GrowthStatusKey } from "@/shared/growth.contracts";
+import { WEEK_DB_STATUSES, GROWTH_STATUS_LABELS } from "@/shared/growth.contracts";
 
-export const WEEK_STATUSES: readonly WeekStatus[] = [
-  "success",
-  "fail",
-  "personal_rest",
-  "official_rest",
-] as const;
+export type WeekStatus = WeekDbStatusKey;
+
+export const WEEK_STATUSES: readonly WeekStatus[] = WEEK_DB_STATUSES;
 
 // ─── 성장 상태 표시명 10종 ──────────────────────────────────────────
 //
@@ -27,20 +28,10 @@ export const WEEK_STATUSES: readonly WeekStatus[] = [
 //    2. (계산) a >= threshold && active  → "추가 성장 중"
 //    1. active                          → "성장 중"
 
-export const GROWTH_DISPLAY_LABELS = {
-  graduated: "성장 완료(졸업)",
-  suspended: "성장 중단",
-  paused: "성장 유보",
-  graduating: "졸업 절차 중",
-  seasonal_rest: "시즌 휴식 중",
-  weekly_rest: "휴식(개인) 중",
-  official_rest: "휴식(공식) 중",
-  onboarding: "클럽 온보딩 중",
-  extra_growth: "추가 성장 중",
-  active: "성장 중",
-} as const;
+// 공통 contract 재참조 (값/이름 불변). 단일 출처: shared/growth.contracts.ts
+export const GROWTH_DISPLAY_LABELS = GROWTH_STATUS_LABELS;
 
-export type GrowthDisplayKey = keyof typeof GROWTH_DISPLAY_LABELS;
+export type GrowthDisplayKey = GrowthStatusKey;
 
 // ─── Process (공개) ─────────────────────────────────────────────────
 export type GrowthProcess = {

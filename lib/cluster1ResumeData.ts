@@ -13,11 +13,14 @@ import {
   totalAvailable,
 } from "@/lib/lineAvailability";
 import type { OrganizationSlug } from "@/lib/organizations";
+import { getGrowthIndicators } from "@/lib/cluster3GrowthData";
+import {
+  RESUME_BADGE_BY_GROWTH_STATUS,
+  type GrowthStatusKey,
+} from "@/shared/growth.contracts";
 import type {
   Cluster1ResumeDto,
   ResumeStatus,
-  ResumeStatusCode,
-  ResumeStatusLabel,
   ScheduleReliability,
   ActivityCompletion,
   SeasonRecord,
@@ -26,30 +29,26 @@ import type {
 } from "@/lib/cluster1ResumeTypes";
 
 // ─────────────────────────────────────────────────────────────────────
-// Status mapping: user_profiles.status → Resume badge
+// Resume badge: Growth Core 의 성장 상태(GrowthStatusKey) 기준 (user_profiles.status 미사용).
+//   10종 상태 → 5종 뱃지 매핑은 shared/growth.contracts.RESUME_BADGE_BY_GROWTH_STATUS 단일 출처.
+//   (구 STATUS_MAP/user_profiles.status 기반 판정은 제거 — growth_status≠status 불일치로
+//    잘못된 뱃지가 나오던 문제 해소.)
 // ─────────────────────────────────────────────────────────────────────
-const STATUS_MAP: Record<
-  string,
-  { status: ResumeStatusCode; label: ResumeStatusLabel }
-> = {
-  active: { status: "running", label: "Running" },
-  graduated: { status: "complete", label: "Complete" },
-  weekly_rest: { status: "on_rest", label: "On Rest" },
-  seasonal_rest: { status: "recharging", label: "Recharging" },
-  paused: { status: "next_challenge", label: "Next Challenge" },
-  suspended: { status: "next_challenge", label: "Next Challenge" },
-};
-
-function resolveResumeStatus(profileStatus: string | null): ResumeStatus {
-  const mapped = STATUS_MAP[profileStatus ?? ""] ?? {
-    status: "next_challenge" as const,
-    label: "Next Challenge" as const,
-  };
+function resolveResumeStatusFromGrowthKey(key: GrowthStatusKey): ResumeStatus {
+  const spec = RESUME_BADGE_BY_GROWTH_STATUS[key];
   return {
-    ...mapped,
-    isBadgeDimmed: mapped.status !== "complete",
+    status: spec.code,
+    label: spec.label,
+    isBadgeDimmed: spec.isBadgeDimmed,
   };
 }
+
+// growth 지표 조회 실패/미상 시 기본 뱃지(활동 중단 계열).
+const DEFAULT_RESUME_STATUS: ResumeStatus = {
+  status: "next_challenge",
+  label: "Next Challenge",
+  isBadgeDimmed: true,
+};
 
 // ─────────────────────────────────────────────────────────────────────
 // Schedule Reliability computation
@@ -484,7 +483,7 @@ export async function getCluster1Resume(
 
   if (!userId) {
     return {
-      resumeStatus: resolveResumeStatus(null),
+      resumeStatus: DEFAULT_RESUME_STATUS,
       scheduleReliability: dummyScheduleReliability(),
       activityCompletion: { availableActivities: 0, completedActivities: 0, rate: 0 },
       seasonRecords: dummySeasonRecords(),
@@ -492,24 +491,30 @@ export async function getCluster1Resume(
     };
   }
 
-  const profileRes = await supabaseAdmin
-    .from("user_profiles")
-    .select("status")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  const profileStatus = (profileRes.data?.status as string | null) ?? null;
-
-  const [scheduleReliability, seasonRecords, activityCompletion, practicalStats] =
+  const [scheduleReliability, seasonRecords, activityCompletion, practicalStats, growth] =
     await Promise.all([
       computeScheduleReliability(userId),
       computeSeasonRecords(userId),
       computeActivityCompletion(userId, (crew.organizationSlug as OrganizationSlug) ?? null),
       computePracticalStats(userId),
+      // resume 뱃지 = Growth Core 의 성장 상태(GrowthStatusKey) 기준. 실패 시 기본 뱃지로 폴백.
+      getGrowthIndicators(userId).catch((e) => {
+        console.warn("[cluster1] resume badge growth resolve failed → default", {
+          userId,
+          message: e instanceof Error ? e.message : String(e),
+        });
+        return null;
+      }),
     ]);
 
+  const resumeStatus = growth
+    ? resolveResumeStatusFromGrowthKey(
+        growth.process.growthDisplayKey as GrowthStatusKey,
+      )
+    : DEFAULT_RESUME_STATUS;
+
   return {
-    resumeStatus: resolveResumeStatus(profileStatus),
+    resumeStatus,
     scheduleReliability,
     activityCompletion,
     seasonRecords,

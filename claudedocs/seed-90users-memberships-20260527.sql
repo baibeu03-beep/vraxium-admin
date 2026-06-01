@@ -16,6 +16,14 @@
  *   나머지                       → membership_level '일반'
  *   rest                        → membership_state 'weekly_rest'
  *   나머지                       → membership_state 'active'
+ *
+ * ⚠ 교정 노트 (2026-06-01):
+ *   이 seed 는 encre↔oranke 의 team/part 를 뒤바꿔 배정했다(조직 라벨 오류).
+ *   - team_name : fix-test-user-operating-teams.ts 로 조직별 정규 팀 재배정 완료.
+ *   - part_name : db/fix_test_user_part_names.sql / scripts/fix-test-user-part-names.ts
+ *                 로 각 팀에 맞는 canonical part 재배정 완료.
+ *   정규 매핑: encre = 갤러리/비주얼/팬마케팅/프로듀싱/A&R,
+ *             oranke = 스타일/F&B/콘텐츠/엔터테인먼트/커머스 (cluster4_teams 기준).
  *************************************************************/
 
 

@@ -71,6 +71,7 @@ type Crew = {
   isVisible: boolean;
   adminNote: string | null;
   organizationSlug: string | null;
+  role?: string | null;
   updatedAt?: string;
 };
 
@@ -642,6 +643,9 @@ export default function CrewManager({
                               growthStatus: crew.growthStatus ?? null,
                               contactEmail: crew.contactEmail ?? null,
                               contactPhone: crew.contactPhone ?? null,
+                              role: crew.role ?? null,
+                              currentTeamName: crew.teamName ?? null,
+                              currentPartName: crew.partName ?? null,
                             })
                           }
                           className="rounded-md border bg-foreground px-2 py-1 text-xs text-background hover:opacity-90"

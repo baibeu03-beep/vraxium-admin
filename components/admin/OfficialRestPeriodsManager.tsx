@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarPlus, Pencil, Power, RefreshCw, Trash2 } from "lucide-react";
+import {
+  CalendarPlus,
+  Calculator,
+  Pencil,
+  Power,
+  RefreshCw,
+  Trash2,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -120,6 +127,13 @@ export default function OfficialRestPeriodsManager() {
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
+  // 영향 대상 snapshot 재계산(6-C): cron 제거로 공식휴식 변경 후 수동 재계산이 필요하다.
+  const [rcStart, setRcStart] = useState("");
+  const [rcEnd, setRcEnd] = useState("");
+  const [rcBusy, setRcBusy] = useState(false);
+  const [rcResult, setRcResult] = useState<string | null>(null);
+  const [rcError, setRcError] = useState<string | null>(null);
+
   const refresh = useCallback(() => setRefreshTick((value) => value + 1), []);
 
   useEffect(() => {
@@ -231,6 +245,67 @@ export default function OfficialRestPeriodsManager() {
       setError(err instanceof Error ? err.message : "상태 변경에 실패했습니다.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  function prefillRecompute(period: OfficialRestPeriodDto) {
+    setRcStart(period.startDate);
+    setRcEnd(period.endDate);
+    setRcResult(null);
+    setRcError(null);
+  }
+
+  async function runRecompute(dryRun: boolean) {
+    if (!(rcStart && rcEnd && rcStart <= rcEnd)) {
+      setRcError("시작일/종료일을 올바르게 입력하세요 (시작일 ≤ 종료일).");
+      return;
+    }
+    if (
+      !dryRun &&
+      typeof window !== "undefined" &&
+      !window.confirm(
+        `${rcStart} ~ ${rcEnd} 범위의 영향 대상 snapshot 을 재계산합니다. 진행할까요?`,
+      )
+    ) {
+      return;
+    }
+    setRcBusy(true);
+    setRcError(null);
+    setRcResult(null);
+    try {
+      const res = await fetch(
+        "/api/admin/cluster4/recompute-official-rest-snapshots",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            start_date: rcStart,
+            end_date: rcEnd,
+            dry_run: dryRun,
+          }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error ?? "재계산 호출에 실패했습니다.");
+      }
+      const d = json.data;
+      if (d.dry_run) {
+        const sample = (d.sample_user_ids ?? []).slice(0, 5).join(", ");
+        setRcResult(
+          `대상 ${d.target_count}명${sample ? ` (예: ${sample}…)` : ""}. 확인 후 '재계산 실행'을 누르세요.`,
+        );
+      } else {
+        const failSample = (d.failed_user_ids ?? []).slice(0, 10).join(", ");
+        setRcResult(
+          `재계산 완료 — 요청 ${d.requested} / 성공 ${d.recomputed} / 실패 ${d.failed}` +
+            (d.failed > 0 ? ` (실패 user: ${failSample})` : ""),
+        );
+      }
+    } catch (err) {
+      setRcError(err instanceof Error ? err.message : "재계산 호출에 실패했습니다.");
+    } finally {
+      setRcBusy(false);
     }
   }
 
@@ -492,12 +567,83 @@ export default function OfficialRestPeriodsManager() {
                             <Trash2 className="h-3.5 w-3.5" />
                             삭제
                           </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => prefillRecompute(period)}
+                            disabled={rcBusy}
+                            title="이 기간을 아래 '영향 대상 재계산' 범위로 채웁니다"
+                          >
+                            <Calculator className="h-3.5 w-3.5" />
+                            재계산 범위
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="border-amber-300/40 bg-amber-50/40">
+        <CardHeader>
+          <CardTitle>영향 대상 snapshot 재계산</CardTitle>
+          <CardDescription>
+            공식 휴식 기간을 추가/수정/삭제하면 해당 날짜 범위의 주차 카드 판정이 바뀝니다.
+            자동 재계산(cron)이 없으므로, 변경 후 이 버튼으로 영향 대상의 카드 snapshot 을
+            수동 재계산하세요. (각 기간 행의 &quot;재계산 범위&quot; 버튼으로 날짜를 채울 수 있습니다.)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid items-end gap-3 sm:grid-cols-[0.8fr_0.8fr_auto_auto]">
+            <div className="grid gap-1.5">
+              <Label htmlFor="rc-start">시작일</Label>
+              <Input
+                id="rc-start"
+                type="date"
+                value={rcStart}
+                onChange={(event) => setRcStart(event.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="rc-end">종료일</Label>
+              <Input
+                id="rc-end"
+                type="date"
+                value={rcEnd}
+                onChange={(event) => setRcEnd(event.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => runRecompute(true)}
+              disabled={rcBusy}
+            >
+              <Calculator className={cn("h-4 w-4", rcBusy && "animate-spin")} />
+              대상 확인(미리보기)
+            </Button>
+            <Button
+              type="button"
+              onClick={() => runRecompute(false)}
+              disabled={rcBusy}
+            >
+              <RefreshCw className={cn("h-4 w-4", rcBusy && "animate-spin")} />
+              재계산 실행
+            </Button>
+          </div>
+          {rcError && (
+            <div className="mt-3 rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {rcError}
+            </div>
+          )}
+          {rcResult && (
+            <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              {rcResult}
             </div>
           )}
         </CardContent>

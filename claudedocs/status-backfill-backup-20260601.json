@@ -1,0 +1,47 @@
+[
+  {
+    "user_id": "5fa52ea5-d2a4-45df-900c-e08b0effc2fb",
+    "status": "weekly_rest",
+    "growth_status": "seasonal_rest"
+  },
+  {
+    "user_id": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+    "status": "graduated",
+    "growth_status": "graduated"
+  },
+  {
+    "user_id": "63813dc4-9dec-4511-83be-1f54196d09cf",
+    "status": "graduated",
+    "growth_status": "graduated"
+  },
+  {
+    "user_id": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+    "status": "graduated",
+    "growth_status": "graduated"
+  },
+  {
+    "user_id": "28c60d60-aa17-4614-9127-fd65a8aebcaf",
+    "status": "weekly_rest",
+    "growth_status": "seasonal_rest"
+  },
+  {
+    "user_id": "ea286f9d-fb5b-492e-a081-cd5c200a4455",
+    "status": "weekly_rest",
+    "growth_status": "seasonal_rest"
+  },
+  {
+    "user_id": "42864260-e4ea-4150-a87f-cff545b02af1",
+    "status": "graduated",
+    "growth_status": "graduated"
+  },
+  {
+    "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+    "status": "graduated",
+    "growth_status": "graduated"
+  },
+  {
+    "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+    "status": "graduated",
+    "growth_status": "graduated"
+  }
+]

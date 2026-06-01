@@ -10,10 +10,7 @@ import {
   type Season,
 } from "@/lib/seasonCalendar";
 import { getGraduationThreshold } from "@/lib/pointLabels";
-import {
-  fetchActiveRestPeriods,
-  isSeasonRuleRestForWeekStart,
-} from "@/lib/officialRestPeriodsData";
+import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import {
   matchOfficialRestPeriods,
   periodTypeToRestReason,
@@ -37,12 +34,14 @@ import {
 import {
   fetchWeeklyCardLineAggregates,
   fetchExperienceRequiredSlotStatusByWeek,
-  shouldApplyExperienceFail,
   shouldSyncWeekStatusToFail,
   buildWeekAvailability,
   roundGrowthRate,
   type ExperienceGrowthVerdict,
 } from "@/lib/lineAvailability";
+import { foldGrowthMetrics, deriveEndStatus } from "@/lib/growthCore";
+import { loadGrowthInput } from "@/lib/growthLoader";
+import { buildResolvedWeeks } from "@/lib/growthResolve";
 
 // ─────────────────────────────────────────────────────────────────────
 // Date/week utilities
@@ -163,82 +162,50 @@ async function computeCurrentWeekInfo(): Promise<CurrentWeekInfo> {
 // ─────────────────────────────────────────────────────────────────────
 // Compute growth summary for a user
 // ─────────────────────────────────────────────────────────────────────
-async function computeGrowthSummary(userId: string): Promise<GrowthSummary> {
-  const [weekRes, profileRes, seasonStatusRes] = await Promise.all([
-    supabaseAdmin
-      .from("user_week_statuses")
-      .select("year,week_number,status,season_key,week_start_date")
-      .eq("user_id", userId)
-      .order("year", { ascending: true })
-      .order("week_number", { ascending: true }),
-    supabaseAdmin
-      .from("user_profiles")
-      .select("activity_started_at,activity_ended_at,growth_status")
-      .eq("user_id", userId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("user_season_statuses")
-      .select("status")
-      .eq("user_id", userId)
-      .eq("status", "rest"),
-  ]);
-
-  if (weekRes.error || !weekRes.data || profileRes.error) {
+async function computeGrowthSummary(
+  userId: string,
+  cards: WeeklyCardDto[],
+): Promise<GrowthSummary> {
+  // Growth Core 공통 입력 번들(Layer 0)로 조회 일원화. profile/week/season 은
+  // start/end 표시·시즌 휴식 수·종료 상태 산정에 사용한다.
+  let input;
+  try {
+    input = await loadGrowthInput(userId);
+  } catch {
     return emptyGrowthSummary();
   }
 
-  type WeekRow = {
-    year: number;
-    week_number: number;
-    status: string;
-    season_key: string | null;
-    week_start_date: string | null;
-  };
-  const weeks = weekRes.data as WeekRow[];
-
+  const weeks = input.weekStatuses;
   if (weeks.length === 0) return emptyGrowthSummary();
 
-  let approvedWeeks = 0;
-  let failedWeeks = 0;
-  let restWeeks = 0;
+  const restSeasonCount = input.seasonStatuses.filter(
+    (s) => s.status === "rest",
+  ).length;
 
-  for (const w of weeks) {
-    // 전환 주차는 성장 요약(분자·분모) 집계에서 제외(공식 휴식 아님).
-    if (w.week_start_date && isTransitionWeekStart(w.week_start_date)) continue;
-    switch (w.status) {
-      case "success":
-        approvedWeeks++;
-        break;
-      case "fail":
-        failedWeeks++;
-        break;
-      case "personal_rest":
-        restWeeks++;
-        break;
-    }
-  }
-
-  const availableWeeks = approvedWeeks + failedWeeks + restWeeks;
-
-  const restSeasonCount =
-    !seasonStatusRes.error && seasonStatusRes.data
-      ? (seasonStatusRes.data as Array<unknown>).length
-      : 0;
+  // 성장 지표 카운트 — ResolvedWeek(카드) 기반 클린 파이프라인.
+  //   raw uws 가 아니라 resolveWeekResultStatus 결과(카드 resultStatus)를 fold 한다.
+  //   → 미공표 success 는 tallying 으로 빠지고, verdict fail 전환이 자동 반영된다.
+  const { approvedWeeks, failedWeeks, restWeeks, availableWeeks } =
+    foldGrowthMetrics({
+      weeks: cards.map((c) => ({
+        status: c.resultStatus,
+        isTransition: c.isTransition,
+      })),
+      restSeasonCount,
+    });
 
   const first = weeks[0];
   const startWeekDisplay = `${first.year}년, ${first.week_number}주차`;
 
-  const profileData = profileRes.data as {
-    activity_started_at: string | null;
-    activity_ended_at: string | null;
-    growth_status: string | null;
-  } | null;
+  const profileData = input.profile;
 
-  let endStatus: EndStatus = "in_progress";
+  // 종료 상태 — Growth Core 순수 함수로 추출(동작 불변). endWeekDisplay 포맷은 유지.
+  const endStatus: EndStatus = deriveEndStatus(
+    profileData?.growth_status ?? null,
+  );
   let endWeekDisplay = "~ing (성장 진행 중)";
 
-  if (profileData?.growth_status === "graduated") {
-    endStatus = "completed";
+  if (endStatus === "completed") {
     const last = weeks[weeks.length - 1];
     const seasonLabel = last.season_key
       ? formatSeasonKeyToLabel(last.season_key)
@@ -246,11 +213,7 @@ async function computeGrowthSummary(userId: string): Promise<GrowthSummary> {
     endWeekDisplay = seasonLabel
       ? `${last.year}년, ${seasonLabel}, ${last.week_number}주차(성장 완료)`
       : `${last.year}년, ${last.week_number}주차(성장 완료)`;
-  } else if (
-    profileData?.growth_status === "suspended" ||
-    profileData?.growth_status === "paused"
-  ) {
-    endStatus = "stopped";
+  } else if (endStatus === "stopped") {
     const last = weeks[weeks.length - 1];
     const seasonLabel = last.season_key
       ? formatSeasonKeyToLabel(last.season_key)
@@ -348,7 +311,7 @@ async function computeWeeklyCards(
   userId: string,
   organization: OrganizationSlug | null,
   crewMeta: CrewMetadata,
-): Promise<{ cards: WeeklyCardDto[]; flippedToFail: number }> {
+): Promise<{ cards: WeeklyCardDto[] }> {
   const { teamLabel, partLabel, activityStatus } = crewMeta;
   // 1. 사용자 주차 상태 조회 (보조 데이터). 카드 루프의 기준은 weeks 이며, uws 는 있으면 붙인다.
   const { data: uwsData, error: uwsErr } = await supabaseAdmin
@@ -360,7 +323,7 @@ async function computeWeeklyCards(
 
   if (uwsErr || !uwsData || uwsData.length === 0) {
     // 활동 이력(uws)이 전혀 없으면 표시할 궤적이 없다 → 기존과 동일하게 빈 목록.
-    return { cards: [], flippedToFail: 0 };
+    return { cards: [] };
   }
   const uwsRows = uwsData as UwsRow[];
   // week_start_date → uws (보조 데이터 lookup). 카드 주차에 붙인다.
@@ -615,8 +578,19 @@ async function computeWeeklyCards(
 
   // 9. 카드 조립 (최신순)
   const cards: WeeklyCardDto[] = [];
-  // DB success → 필수 슬롯 verdict=fail 로 전환된 주차 수 (요약 approved/failed 보정용).
-  let flippedToFail = 0;
+  // 주차별 resolved status 목록(공유 resolver). 카드 조립은 이 결과를 소비한다.
+  //   (buildResolvedWeeks 는 flippedToFail 도 반환하지만 요약은 카드 fold 로 산출하므로 미사용.)
+  const { byStart: resolvedByStart } = buildResolvedWeeks(
+    cardWeeksDesc,
+    {
+      getUwsStatus: (s) => uwsByStart.get(s)?.status ?? null,
+      getVerdictStatus: (id) =>
+        id ? (experienceVerdictMap.get(id)?.status ?? null) : null,
+      activeRestPeriods,
+      isCurrentWeekStart,
+      isWeekPublished,
+    },
+  );
 
   for (const week of cardWeeksDesc) {
     const startDate = week.start_date;
@@ -646,85 +620,15 @@ async function computeWeeklyCards(
     const endDateMs = toMs(startDate) + 6 * DAY_MS;
     const endDate = week.end_date ?? fmtDate(endDateMs);
 
-    // 공식 휴식 여부(신규 SoT): seasonCalendar rule ∨ official_rest_periods overlap.
-    // weeks.is_official_rest 는 더 이상 참조하지 않는다.
-    const weekIsOfficialRest =
-      isSeasonRuleRestForWeekStart(startDate) ||
-      matchOfficialRestPeriods({ startDate, endDate }, activeRestPeriods).length >
-        0;
-
-    // ── 상태 결정 (6종 + no_data skip) — 기준은 weeks, uws 는 보조 ──
-    // 정책:
-    //   1) 현재 주차 → 공식 휴식이면 휴식(공식), uws=개인휴식이면 휴식(개인), 그 외 진행 중(running).
-    //   2) uws 존재(과거/직전) → 기존 로직 그대로 보존 (공표 전 성장주차는 집계 중 등).
-    //   3) uws 없음 → 공식 휴식이면 휴식(공식), 미공표면 집계 중, 공표완료면 no_data(카드 미생성).
-    //   ⚠ tallying / no_data 모두 read-time 판정 — DB(user_week_statuses)는 건드리지 않는다.
-    const isCurrentWeek = isCurrentWeekStart(startDate);
-    const isPublished = isWeekPublished(week);
-    let resultStatus: WeekResultStatus;
-
-    if (isCurrentWeek) {
-      // 현재 주차는 결과 확정 전이므로 항상 진행 중 — 단, 휴식 주차는 휴식으로 표시.
-      resultStatus = weekIsOfficialRest
-        ? "official_rest"
-        : uws?.status === "personal_rest"
-          ? "personal_rest"
-          : "running";
-    } else if (uws) {
-      // ── uws 존재: 기존 표시 로직 100% 보존 (과거/직전 카드 불변) ──
-      if (uws.status === "official_rest" && !weekIsOfficialRest) {
-        // 공식 휴식으로 기록됐으나 재판정상 활동 주차 → 성장 주차로 간주.
-        resultStatus = isPublished ? "fail" : "tallying";
-      } else if (
-        uws.status === "personal_rest" ||
-        uws.status === "official_rest"
-      ) {
-        resultStatus = uws.status as WeekResultStatus;
-      } else if (!isPublished) {
-        // 성장 주차(success/fail) + 미공표 → 집계 중.
-        resultStatus = "tallying";
-      } else {
-        resultStatus = uws.status as WeekResultStatus;
-      }
-    } else {
-      // ── uws 없음 (비-현재주): weeks 기준 기본 상태 ──
-      //   - 미공표 → 집계 중 (참여했으나 uws 미생성 가능성 — 직전/최근 주차).
-      //   - 공표완료 → no_data 정책: 카드 미생성(skip). 공식 휴식이라도 uws 가 없으면
-      //     해당 주차에 참여 기록이 없는 것이므로(늦은 합류/시즌 휴식) 날조하지 않고 카드 없음.
-      //     기존(uws 기준) 동작과 동일하게 과거 비참여 주차는 카드가 없다.
-      //     (현재 주차의 공식 휴식은 위 isCurrentWeek 분기에서 uws 없이도 official_rest 로 노출.)
-      //   ⚠ fail 로 보고 싶다면 아래 continue 를 resultStatus = "fail" 로 바꾸면 된다.
-      if (!isPublished) {
-        resultStatus = "tallying";
-      } else {
-        continue;
-      }
-    }
-
-    // ── 실무 경험 필수 슬롯(도출/분석/평가) verdict 반영 (read-time override) ──
-    // verdict=fail 이면 (휴식/진행=현재주 제외) 주차 성장 상태를 fail 로 확정한다.
-    // 강화율/평점/5슬롯/info 로직은 건드리지 않는다 (별개 source).
-    //
-    // ⚠ 운영 주의(SoT 정책): 이 override 는 "sync 전 갭 보정용"이다.
-    //   SoT = user_week_statuses.status. sync(syncExperienceGrowthWeekStatuses)가
-    //   DB 에 fail 을 영속화하기 전까지는, 같은 주차가 cluster4(weekly-cards)에서는
-    //   override 로 '성장(실패)'로 보이지만 cluster1(이력서)·cluster3(성장지표)는
-    //   raw DB status(=success)를 읽으므로 '성공'으로 집계될 수 있다(일시적 불일치).
-    //   sync 로 DB=fail 이 되면 이 override 는 no-op 이 되고 세 클러스터가 일치한다.
-    //   cluster1/cluster3 에는 override 를 추가하지 않는다(정책).
+    // ── 주차 결과 6종 — 공유 resolver(buildResolvedWeeks) 결과 소비 ──
+    //   no_data 주차는 맵에 없음 → 카드 미생성(기존 `continue` 동일).
+    //   experienceVerdict 는 아래 experienceGrowth DTO 표시에만 사용(판정은 이미 resolver 내부).
+    const rw = resolvedByStart.get(startDate);
+    if (!rw) continue;
+    const resultStatus: WeekResultStatus = rw.resultStatus;
     const experienceVerdict = weekCardId
       ? experienceVerdictMap.get(weekCardId)
       : undefined;
-    const baseStatusBeforeVerdict = resultStatus;
-    if (
-      experienceVerdict &&
-      shouldApplyExperienceFail(experienceVerdict.status, resultStatus)
-    ) {
-      resultStatus = "fail";
-    }
-    if (baseStatusBeforeVerdict === "success" && resultStatus === "fail") {
-      flippedToFail++;
-    }
     const experienceGrowth: ExperienceGrowthVerdictDto = experienceVerdict
       ? {
           status: experienceVerdict.status,
@@ -835,7 +739,7 @@ async function computeWeeklyCards(
     });
   }
 
-  return { cards, flippedToFail };
+  return { cards };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -889,23 +793,24 @@ export async function getWeeklyGrowth(
   }
 
   const tCurrentWeek = Date.now();
-  const [growthSummary, weeklyResult] = await Promise.all([
-    computeGrowthSummary(crew.userId),
-    computeWeeklyCards(
-      crew.userId,
-      (crew.organizationSlug as OrganizationSlug) ?? null,
-      {
-        teamLabel: crew.teamName ?? "-",
-        partLabel: crew.partName ?? "-",
-        activityStatus: crew.membershipLevel ?? "일반",
-        teamNameRaw: crew.teamName ?? null,
-        partNameRaw: crew.partName ?? null,
-        roleLabelRaw: crew.membershipLevel ?? null,
-        membershipStatusLabelRaw: crew.membershipState ?? null,
-        organizationSlug: crew.organizationSlug ?? null,
-      },
-    ),
-  ]);
+  // 클린 파이프라인: 카드(resolved)를 먼저 만든 뒤 그 카드로 요약을 fold 한다.
+  //   → growthSummary 와 weeklyCards 가 동일 ResolvedWeek 소스를 공유(수동 보정 불필요).
+  const weeklyResult = await computeWeeklyCards(
+    crew.userId,
+    (crew.organizationSlug as OrganizationSlug) ?? null,
+    {
+      teamLabel: crew.teamName ?? "-",
+      partLabel: crew.partName ?? "-",
+      activityStatus: crew.membershipLevel ?? "일반",
+      teamNameRaw: crew.teamName ?? null,
+      partNameRaw: crew.partName ?? null,
+      roleLabelRaw: crew.membershipLevel ?? null,
+      membershipStatusLabelRaw: crew.membershipState ?? null,
+      organizationSlug: crew.organizationSlug ?? null,
+    },
+  );
+  const weeklyCards = weeklyResult.cards;
+  const growthSummary = await computeGrowthSummary(crew.userId, weeklyCards);
   const tCards = Date.now();
   console.log(
     "[weekly-cards][timing] getWeeklyGrowth",
@@ -914,18 +819,6 @@ export async function getWeeklyGrowth(
     `summary+cards=${tCards - tCurrentWeek}ms`,
     `total=${tCards - t0}ms`,
   );
-
-  const { cards: weeklyCards, flippedToFail } = weeklyResult;
-
-  // 요약 일관성: computeGrowthSummary 는 DB status 만 집계하므로, 필수 슬롯 verdict 로
-  // success→fail 전환된 주차 수만큼 approved↓ / failed↑ 보정한다 (availableWeeks 불변).
-  if (flippedToFail > 0) {
-    growthSummary.approvedWeeks = Math.max(
-      0,
-      growthSummary.approvedWeeks - flippedToFail,
-    );
-    growthSummary.failedWeeks += flippedToFail;
-  }
 
   const seasonGrowthRates = computeSeasonGrowthRates(weeklyCards);
 

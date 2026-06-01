@@ -1,0 +1,871 @@
+[impact] 대상 사용자 = 121
+[weekly-cards][timing] line aggregates+verdict 159ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=190ms currentWeek=0ms summary+cards=538ms total=728ms
+[weekly-cards][timing] line aggregates+verdict 175ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=181ms currentWeek=0ms summary+cards=555ms total=736ms
+[weekly-cards][timing] line aggregates+verdict 160ms | weeks=37
+[weekly-cards][timing] getWeeklyGrowth crew=194ms currentWeek=0ms summary+cards=571ms total=765ms
+[weekly-cards][timing] line aggregates+verdict 159ms | weeks=14
+[weekly-cards][timing] getWeeklyGrowth crew=195ms currentWeek=0ms summary+cards=547ms total=742ms
+[weekly-cards][timing] line aggregates+verdict 173ms | weeks=18
+[weekly-cards][timing] getWeeklyGrowth crew=179ms currentWeek=0ms summary+cards=552ms total=731ms
+[weekly-cards][timing] line aggregates+verdict 161ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=530ms total=702ms
+[weekly-cards][timing] line aggregates+verdict 155ms | weeks=12
+[weekly-cards][timing] getWeeklyGrowth crew=158ms currentWeek=0ms summary+cards=545ms total=703ms
+[weekly-cards][timing] line aggregates+verdict 160ms | weeks=32
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=526ms total=698ms
+[weekly-cards][timing] line aggregates+verdict 151ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=181ms currentWeek=0ms summary+cards=524ms total=705ms
+[weekly-cards][timing] line aggregates+verdict 157ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=157ms currentWeek=0ms summary+cards=524ms total=681ms
+[weekly-cards][timing] line aggregates+verdict 160ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=175ms currentWeek=0ms summary+cards=550ms total=725ms
+[weekly-cards][timing] line aggregates+verdict 188ms | weeks=4
+[weekly-cards][timing] getWeeklyGrowth crew=167ms currentWeek=0ms summary+cards=565ms total=732ms
+[weekly-cards][timing] line aggregates+verdict 157ms | weeks=16
+[weekly-cards][timing] getWeeklyGrowth crew=175ms currentWeek=0ms summary+cards=528ms total=703ms
+[weekly-cards][timing] line aggregates+verdict 169ms | weeks=16
+[weekly-cards][timing] getWeeklyGrowth crew=168ms currentWeek=0ms summary+cards=535ms total=703ms
+[weekly-cards][timing] line aggregates+verdict 175ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=594ms total=766ms
+[weekly-cards][timing] line aggregates+verdict 160ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=517ms total=689ms
+[weekly-cards][timing] line aggregates+verdict 169ms | weeks=14
+[weekly-cards][timing] getWeeklyGrowth crew=161ms currentWeek=0ms summary+cards=571ms total=732ms
+[weekly-cards][timing] line aggregates+verdict 153ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=168ms currentWeek=0ms summary+cards=527ms total=695ms
+[weekly-cards][timing] line aggregates+verdict 157ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=170ms currentWeek=0ms summary+cards=531ms total=701ms
+[weekly-cards][timing] line aggregates+verdict 172ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=562ms total=734ms
+[weekly-cards][timing] line aggregates+verdict 164ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=168ms currentWeek=0ms summary+cards=543ms total=711ms
+[weekly-cards][timing] line aggregates+verdict 164ms | weeks=35
+[weekly-cards][timing] getWeeklyGrowth crew=181ms currentWeek=0ms summary+cards=549ms total=730ms
+[weekly-cards][timing] line aggregates+verdict 158ms | weeks=14
+[weekly-cards][timing] getWeeklyGrowth crew=165ms currentWeek=0ms summary+cards=529ms total=694ms
+[weekly-cards][timing] line aggregates+verdict 169ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=194ms currentWeek=0ms summary+cards=548ms total=742ms
+[weekly-cards][timing] line aggregates+verdict 157ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=548ms total=720ms
+[impact] 25/121
+[weekly-cards][timing] line aggregates+verdict 166ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=165ms currentWeek=0ms summary+cards=533ms total=698ms
+[weekly-cards][timing] line aggregates+verdict 156ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=169ms currentWeek=0ms summary+cards=552ms total=721ms
+[weekly-cards][timing] line aggregates+verdict 170ms | weeks=12
+[weekly-cards][timing] getWeeklyGrowth crew=163ms currentWeek=0ms summary+cards=539ms total=702ms
+[weekly-cards][timing] line aggregates+verdict 153ms | weeks=40
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=530ms total=702ms
+[weekly-cards][timing] line aggregates+verdict 156ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=162ms currentWeek=0ms summary+cards=514ms total=676ms
+[weekly-cards][timing] line aggregates+verdict 153ms | weeks=21
+[weekly-cards][timing] getWeeklyGrowth crew=178ms currentWeek=0ms summary+cards=514ms total=692ms
+[weekly-cards][timing] line aggregates+verdict 155ms | weeks=40
+[weekly-cards][timing] getWeeklyGrowth crew=160ms currentWeek=0ms summary+cards=550ms total=710ms
+[weekly-cards][timing] line aggregates+verdict 156ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=161ms currentWeek=0ms summary+cards=540ms total=701ms
+[weekly-cards][timing] line aggregates+verdict 157ms | weeks=16
+[weekly-cards][timing] getWeeklyGrowth crew=175ms currentWeek=0ms summary+cards=516ms total=691ms
+[weekly-cards][timing] line aggregates+verdict 168ms | weeks=18
+[weekly-cards][timing] getWeeklyGrowth crew=157ms currentWeek=0ms summary+cards=538ms total=695ms
+[weekly-cards][timing] line aggregates+verdict 165ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=193ms currentWeek=0ms summary+cards=549ms total=742ms
+[weekly-cards][timing] line aggregates+verdict 161ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=184ms currentWeek=0ms summary+cards=525ms total=709ms
+[weekly-cards][timing] line aggregates+verdict 148ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=163ms currentWeek=0ms summary+cards=539ms total=702ms
+[weekly-cards][timing] line aggregates+verdict 163ms | weeks=14
+[weekly-cards][timing] getWeeklyGrowth crew=163ms currentWeek=0ms summary+cards=537ms total=700ms
+[weekly-cards][timing] line aggregates+verdict 156ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=196ms currentWeek=0ms summary+cards=522ms total=718ms
+[weekly-cards][timing] line aggregates+verdict 159ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=180ms currentWeek=0ms summary+cards=554ms total=734ms
+[weekly-cards][timing] line aggregates+verdict 162ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=168ms currentWeek=0ms summary+cards=529ms total=697ms
+[weekly-cards][timing] line aggregates+verdict 154ms | weeks=16
+[weekly-cards][timing] getWeeklyGrowth crew=175ms currentWeek=0ms summary+cards=527ms total=702ms
+[weekly-cards][timing] line aggregates+verdict 162ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=165ms currentWeek=0ms summary+cards=531ms total=696ms
+[weekly-cards][timing] line aggregates+verdict 156ms | weeks=14
+[weekly-cards][timing] getWeeklyGrowth crew=160ms currentWeek=0ms summary+cards=532ms total=692ms
+[weekly-cards][timing] line aggregates+verdict 154ms | weeks=16
+[weekly-cards][timing] getWeeklyGrowth crew=173ms currentWeek=0ms summary+cards=541ms total=714ms
+[weekly-cards][timing] line aggregates+verdict 169ms | weeks=35
+[weekly-cards][timing] getWeeklyGrowth crew=165ms currentWeek=0ms summary+cards=544ms total=709ms
+[weekly-cards][timing] line aggregates+verdict 155ms | weeks=35
+[weekly-cards][timing] getWeeklyGrowth crew=178ms currentWeek=0ms summary+cards=537ms total=715ms
+[weekly-cards][timing] line aggregates+verdict 153ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=158ms currentWeek=0ms summary+cards=527ms total=685ms
+[weekly-cards][timing] line aggregates+verdict 159ms | weeks=16
+[weekly-cards][timing] getWeeklyGrowth crew=175ms currentWeek=0ms summary+cards=529ms total=704ms
+[impact] 50/121
+[weekly-cards][timing] line aggregates+verdict 157ms | weeks=18
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=517ms total=689ms
+[weekly-cards][timing] line aggregates+verdict 161ms | weeks=37
+[weekly-cards][timing] getWeeklyGrowth crew=168ms currentWeek=0ms summary+cards=556ms total=724ms
+[weekly-cards][timing] line aggregates+verdict 158ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=174ms currentWeek=0ms summary+cards=567ms total=741ms
+[weekly-cards][timing] line aggregates+verdict 158ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=164ms currentWeek=0ms summary+cards=521ms total=685ms
+[weekly-cards][timing] line aggregates+verdict 158ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=173ms currentWeek=0ms summary+cards=542ms total=715ms
+[weekly-cards][timing] line aggregates+verdict 169ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=164ms currentWeek=0ms summary+cards=579ms total=743ms
+[weekly-cards][timing] line aggregates+verdict 154ms | weeks=22
+[weekly-cards][timing] getWeeklyGrowth crew=169ms currentWeek=0ms summary+cards=536ms total=705ms
+[weekly-cards][timing] line aggregates+verdict 165ms | weeks=13
+[weekly-cards][timing] getWeeklyGrowth crew=161ms currentWeek=0ms summary+cards=546ms total=707ms
+[weekly-cards][timing] line aggregates+verdict 167ms | weeks=30
+[weekly-cards][timing] getWeeklyGrowth crew=170ms currentWeek=0ms summary+cards=568ms total=738ms
+[weekly-cards][timing] line aggregates+verdict 154ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=163ms currentWeek=0ms summary+cards=545ms total=708ms
+[weekly-cards][timing] line aggregates+verdict 162ms | weeks=18
+[weekly-cards][timing] getWeeklyGrowth crew=192ms currentWeek=0ms summary+cards=525ms total=717ms
+[weekly-cards][timing] line aggregates+verdict 152ms | weeks=21
+[weekly-cards][timing] getWeeklyGrowth crew=163ms currentWeek=0ms summary+cards=531ms total=694ms
+[weekly-cards][timing] line aggregates+verdict 167ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=169ms currentWeek=0ms summary+cards=542ms total=711ms
+[weekly-cards][timing] line aggregates+verdict 160ms | weeks=16
+[weekly-cards][timing] getWeeklyGrowth crew=159ms currentWeek=0ms summary+cards=536ms total=695ms
+[weekly-cards][timing] line aggregates+verdict 153ms | weeks=18
+[weekly-cards][timing] getWeeklyGrowth crew=178ms currentWeek=0ms summary+cards=522ms total=700ms
+[weekly-cards][timing] line aggregates+verdict 170ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=168ms currentWeek=0ms summary+cards=543ms total=711ms
+[weekly-cards][timing] line aggregates+verdict 156ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=171ms currentWeek=0ms summary+cards=537ms total=708ms
+[weekly-cards][timing] line aggregates+verdict 170ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=174ms currentWeek=1ms summary+cards=534ms total=709ms
+[weekly-cards][timing] line aggregates+verdict 154ms | weeks=13
+[weekly-cards][timing] getWeeklyGrowth crew=182ms currentWeek=0ms summary+cards=537ms total=719ms
+[weekly-cards][timing] line aggregates+verdict 158ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=158ms currentWeek=0ms summary+cards=556ms total=714ms
+[weekly-cards][timing] line aggregates+verdict 152ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=177ms currentWeek=0ms summary+cards=536ms total=713ms
+[weekly-cards][timing] line aggregates+verdict 157ms | weeks=20
+[weekly-cards][timing] getWeeklyGrowth crew=158ms currentWeek=0ms summary+cards=565ms total=723ms
+[growth] user_season_statuses is EMPTY for user aac4639b-7c22-4a53-9f2e-08076d5aa620 — season counts (f/g) will be 0
+[weekly-cards][timing] line aggregates+verdict 157ms | weeks=24
+[weekly-cards][timing] getWeeklyGrowth crew=194ms currentWeek=0ms summary+cards=526ms total=720ms
+[weekly-cards][timing] line aggregates+verdict 156ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=163ms currentWeek=0ms summary+cards=522ms total=685ms
+[weekly-cards][timing] line aggregates+verdict 158ms | weeks=3
+[weekly-cards][timing] getWeeklyGrowth crew=166ms currentWeek=1ms summary+cards=555ms total=722ms
+[impact] 75/121
+[weekly-cards][timing] line aggregates+verdict 152ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=178ms currentWeek=0ms summary+cards=534ms total=712ms
+[weekly-cards][timing] line aggregates+verdict 162ms | weeks=23
+[weekly-cards][timing] getWeeklyGrowth crew=165ms currentWeek=0ms summary+cards=529ms total=694ms
+[weekly-cards][timing] line aggregates+verdict 154ms | weeks=20
+[weekly-cards][timing] getWeeklyGrowth crew=194ms currentWeek=0ms summary+cards=556ms total=750ms
+[weekly-cards][timing] line aggregates+verdict 158ms | weeks=35
+[weekly-cards][timing] getWeeklyGrowth crew=169ms currentWeek=0ms summary+cards=548ms total=717ms
+[weekly-cards][timing] line aggregates+verdict 167ms | weeks=23
+[weekly-cards][timing] getWeeklyGrowth crew=174ms currentWeek=0ms summary+cards=533ms total=707ms
+[weekly-cards][timing] line aggregates+verdict 152ms | weeks=22
+[weekly-cards][timing] getWeeklyGrowth crew=163ms currentWeek=0ms summary+cards=541ms total=704ms
+[weekly-cards][timing] line aggregates+verdict 161ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=161ms currentWeek=0ms summary+cards=523ms total=684ms
+[weekly-cards][timing] line aggregates+verdict 154ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=529ms total=701ms
+[weekly-cards][timing] line aggregates+verdict 170ms | weeks=24
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=556ms total=728ms
+[weekly-cards][timing] line aggregates+verdict 159ms | weeks=22
+[weekly-cards][timing] getWeeklyGrowth crew=164ms currentWeek=0ms summary+cards=540ms total=704ms
+[growth] user_season_statuses is EMPTY for user c28b2409-4118-49fc-a42e-68e18dbd194c — season counts (f/g) will be 0
+[weekly-cards][timing] line aggregates+verdict 153ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=170ms currentWeek=0ms summary+cards=525ms total=695ms
+[weekly-cards][timing] line aggregates+verdict 164ms | weeks=14
+[weekly-cards][timing] getWeeklyGrowth crew=164ms currentWeek=0ms summary+cards=524ms total=688ms
+[weekly-cards][timing] line aggregates+verdict 164ms | weeks=3
+[weekly-cards][timing] getWeeklyGrowth crew=186ms currentWeek=0ms summary+cards=544ms total=730ms
+[weekly-cards][timing] line aggregates+verdict 157ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=162ms currentWeek=0ms summary+cards=530ms total=692ms
+[weekly-cards][timing] line aggregates+verdict 156ms | weeks=40
+[weekly-cards][timing] getWeeklyGrowth crew=169ms currentWeek=0ms summary+cards=541ms total=710ms
+[weekly-cards][timing] line aggregates+verdict 156ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=177ms currentWeek=0ms summary+cards=522ms total=699ms
+[weekly-cards][timing] line aggregates+verdict 176ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=302ms currentWeek=0ms summary+cards=547ms total=849ms
+[weekly-cards][timing] line aggregates+verdict 168ms | weeks=16
+[weekly-cards][timing] getWeeklyGrowth crew=163ms currentWeek=0ms summary+cards=549ms total=712ms
+[weekly-cards][timing] line aggregates+verdict 158ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=165ms currentWeek=0ms summary+cards=521ms total=686ms
+[weekly-cards][timing] line aggregates+verdict 157ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=178ms currentWeek=0ms summary+cards=516ms total=694ms
+[weekly-cards][timing] line aggregates+verdict 180ms | weeks=13
+[weekly-cards][timing] getWeeklyGrowth crew=168ms currentWeek=0ms summary+cards=576ms total=744ms
+[weekly-cards][timing] line aggregates+verdict 160ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=182ms currentWeek=0ms summary+cards=522ms total=704ms
+[weekly-cards][timing] line aggregates+verdict 168ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=162ms currentWeek=0ms summary+cards=558ms total=720ms
+[weekly-cards][timing] line aggregates+verdict 159ms | weeks=12
+[weekly-cards][timing] getWeeklyGrowth crew=176ms currentWeek=0ms summary+cards=539ms total=715ms
+[weekly-cards][timing] line aggregates+verdict 164ms | weeks=20
+[weekly-cards][timing] getWeeklyGrowth crew=161ms currentWeek=0ms summary+cards=545ms total=706ms
+[impact] 100/121
+[weekly-cards][timing] line aggregates+verdict 154ms | weeks=40
+[weekly-cards][timing] getWeeklyGrowth crew=179ms currentWeek=0ms summary+cards=543ms total=722ms
+[weekly-cards][timing] line aggregates+verdict 162ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=184ms currentWeek=0ms summary+cards=533ms total=717ms
+[weekly-cards][timing] line aggregates+verdict 169ms | weeks=35
+[weekly-cards][timing] getWeeklyGrowth crew=233ms currentWeek=0ms summary+cards=550ms total=783ms
+[weekly-cards][timing] line aggregates+verdict 190ms | weeks=14
+[weekly-cards][timing] getWeeklyGrowth crew=187ms currentWeek=0ms summary+cards=558ms total=745ms
+[weekly-cards][timing] line aggregates+verdict 160ms | weeks=16
+[weekly-cards][timing] getWeeklyGrowth crew=167ms currentWeek=0ms summary+cards=530ms total=697ms
+[weekly-cards][timing] line aggregates+verdict 165ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=176ms currentWeek=0ms summary+cards=548ms total=724ms
+[weekly-cards][timing] line aggregates+verdict 169ms | weeks=35
+[weekly-cards][timing] getWeeklyGrowth crew=162ms currentWeek=0ms summary+cards=554ms total=716ms
+[weekly-cards][timing] line aggregates+verdict 181ms | weeks=14
+[weekly-cards][timing] getWeeklyGrowth crew=170ms currentWeek=0ms summary+cards=547ms total=717ms
+[weekly-cards][timing] line aggregates+verdict 170ms | weeks=14
+[weekly-cards][timing] getWeeklyGrowth crew=178ms currentWeek=0ms summary+cards=563ms total=741ms
+[weekly-cards][timing] line aggregates+verdict 172ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=189ms currentWeek=0ms summary+cards=548ms total=737ms
+[weekly-cards][timing] line aggregates+verdict 193ms | weeks=18
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=600ms total=772ms
+[weekly-cards][timing] line aggregates+verdict 164ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=194ms currentWeek=0ms summary+cards=563ms total=757ms
+[weekly-cards][timing] line aggregates+verdict 158ms | weeks=23
+[weekly-cards][timing] getWeeklyGrowth crew=161ms currentWeek=0ms summary+cards=545ms total=706ms
+[weekly-cards][timing] line aggregates+verdict 158ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=183ms currentWeek=0ms summary+cards=551ms total=734ms
+[weekly-cards][timing] line aggregates+verdict 184ms | weeks=21
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=548ms total=720ms
+[weekly-cards][timing] line aggregates+verdict 160ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=182ms currentWeek=0ms summary+cards=525ms total=707ms
+[weekly-cards][timing] line aggregates+verdict 195ms | weeks=24
+[weekly-cards][timing] getWeeklyGrowth crew=175ms currentWeek=0ms summary+cards=572ms total=747ms
+[weekly-cards][timing] line aggregates+verdict 161ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=185ms currentWeek=0ms summary+cards=563ms total=748ms
+[weekly-cards][timing] line aggregates+verdict 172ms | weeks=30
+[weekly-cards][timing] getWeeklyGrowth crew=176ms currentWeek=0ms summary+cards=579ms total=755ms
+[weekly-cards][timing] line aggregates+verdict 179ms | weeks=5
+[weekly-cards][timing] getWeeklyGrowth crew=178ms currentWeek=0ms summary+cards=574ms total=752ms
+[weekly-cards][timing] line aggregates+verdict 163ms | weeks=6
+[weekly-cards][timing] getWeeklyGrowth crew=160ms currentWeek=0ms summary+cards=585ms total=745ms
+
+================= 영향도 리포트 =================
+전체 대상       : 121
+비교 가능       : 121
+비교 불가(skip) : 0
+변화 없음       : 0
+변화 있음       : 121
+
+--- 상태키 전이 집계 ---
+(상태키 변화 없음)
+
+--- 변화 사용자 상세 ---
+
+user=00b75923-2109-4214-806a-37667d64ac5e dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=020ec835-1ead-4ef5-adce-d0d97585beaa dbStatus=paused
+  before: a8 b2 c2 d2 e12 h14 [paused]
+  after : a8 b2 c2 d1 e12 h14 [paused]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=05ff6b96-b3e7-4050-97f1-080633f183d3 dbStatus=graduating
+  before: a28 b3 c1 d2 e32 h34 [graduating]
+  after : a28 b3 c1 d2 e32 h35 [graduating]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=0a113e53-b678-40d1-b51c-1278e1c3f0fa dbStatus=active
+  before: a3 b8 c0 d2 e11 h13 [active]
+  after : a3 b8 c0 d1 e11 h13 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=0d6ec2d3-ec7a-43cc-b1a9-8bb8b3f18df3 dbStatus=seasonal_rest
+  before: a9 b1 c3 d2 e13 h15 [seasonal_rest]
+  after : a9 b1 c3 d1 e13 h15 [seasonal_rest]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=11867101-8086-43d6-9349-6307ee286966 dbStatus=active
+  before: a0 b4 c0 d0 e4 h4 [active]
+  after : a0 b4 c0 d1 e4 h6 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=13b8e55e-ff49-43f3-a01f-cb68bfb74581 dbStatus=active
+  before: a3 b7 c0 d1 e10 h11 [active]
+  after : a3 b7 c0 d1 e10 h12 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a dbStatus=graduating
+  before: a23 b3 c1 d2 e27 h29 [graduating]
+  after : a23 b3 c1 d1 e27 h29 [graduating]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=19cb4129-ba73-4685-9912-7d9d4ed3768b dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=1cde2e27-3069-4890-847c-83fd20a81f74 dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=24caea11-ae48-489f-83a9-52780cb9eb96 dbStatus=active
+  before: a0 b4 c0 d0 e4 h4 [active]
+  after : a0 b4 c0 d1 e4 h6 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=247021bc-374b-48f4-8d49-b181d149ee33 dbStatus=active
+  before: a1 b2 c0 d0 e3 h3 [active]
+  after : a1 b2 c0 d1 e3 h5 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=28a39131-a719-4264-b2a4-96dbda64cbb6 dbStatus=active
+  before: a2 b10 c0 d2 e12 h14 [active]
+  after : a2 b10 c0 d1 e12 h14 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=28c60d60-aa17-4614-9127-fd65a8aebcaf dbStatus=seasonal_rest
+  before: a6 b1 c4 d2 e11 h13 [seasonal_rest]
+  after : a6 b1 c4 d1 e11 h13 [seasonal_rest]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=296de78e-2a24-450c-9af1-c93a66b9f982 dbStatus=active
+  before: a0 b4 c0 d0 e4 h4 [active]
+  after : a0 b4 c0 d1 e4 h6 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=2dc7f9ac-3452-426f-a948-51e40dc953de dbStatus=active
+  before: a1 b3 c0 d0 e4 h4 [active]
+  after : a1 b3 c0 d1 e4 h6 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=3330f4c3-5331-4632-bbe6-01a19017a089 dbStatus=seasonal_rest
+  before: a7 b1 c2 d2 e10 h12 [seasonal_rest]
+  after : a7 b1 c2 d1 e10 h12 [seasonal_rest]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=33cd8f8a-a412-49dc-914c-01b1251871f9 dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=35c987bf-015f-482c-b966-63fe55af0256 dbStatus=paused
+  before: a8 b2 c2 d2 e12 h14 [paused]
+  after : a8 b2 c2 d1 e12 h14 [paused]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=35cd5770-98ec-49b4-95db-8ca6c92e53bf dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=36138fb1-6fea-4b22-b6d2-9c46cba47314 dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=369d11e5-8c9e-423c-95e8-4e52a62460d7 dbStatus=graduating
+  before: a26 b4 c1 d1 e31 h32 [graduating]
+  after : a26 b4 c1 d2 e31 h34 [graduating]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=3ba642d8-d658-4e87-8e15-3afdab8415c2 dbStatus=active
+  before: a3 b8 c0 d2 e11 h13 [active]
+  after : a3 b8 c0 d1 e11 h13 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=37b7ddce-6146-4941-8c5f-c1dfa4e09f7e dbStatus=paused
+  before: a5 b2 c3 d2 e10 h12 [paused]
+  after : a5 b2 c3 d1 e10 h12 [paused]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=3c9d2dfe-629c-4d81-b847-80e42e656d4c dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=3d968dba-77a4-4382-a5ad-ad5cad7c1c34 dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=3fec1a7e-4a88-4bc7-8da8-9eb9daff6f8a dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=4263f72d-60e8-4235-bae2-3ed0921e1508 dbStatus=active
+  before: a3 b7 c0 d1 e10 h11 [active]
+  after : a3 b7 c0 d1 e10 h12 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=42864260-e4ea-4150-a87f-cff545b02af1 dbStatus=graduated
+  before: a30 b2 c1 d2 e33 h35 [graduated]
+  after : a30 b2 c1 d2 e33 h36 [graduated]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=42913661-f637-4282-bdc5-04406dcb1aca dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=43503c70-8518-4cdf-a05b-e78b5c721ff9 dbStatus=active
+  before: a16 b2 c0 d1 e18 h19 [active]
+  after : a16 b2 c0 d1 e18 h20 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=4a81b6d1-e488-4f14-8530-0cad60fe4f0d dbStatus=graduated
+  before: a29 b3 c0 d2 e32 h34 [graduated]
+  after : a29 b3 c0 d2 e32 h35 [graduated]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=49453df4-6f6e-4480-b69f-be034ba97a46 dbStatus=active
+  before: a1 b3 c0 d0 e4 h4 [active]
+  after : a1 b3 c0 d1 e4 h6 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=4bd185be-0c54-470e-a254-588e69064e37 dbStatus=active
+  before: a5 b6 c1 d2 e12 h14 [active]
+  after : a5 b6 c1 d1 e12 h14 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=50f6a693-45fd-4b24-b8ee-959ce3e7fc4c dbStatus=seasonal_rest
+  before: a9 b1 c3 d2 e13 h15 [seasonal_rest]
+  after : a9 b1 c3 d1 e13 h15 [seasonal_rest]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=566900f7-f4b2-4a95-bf11-d3dc4346453a dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=56c46098-5c4c-4da8-8658-a6eb57fc1bad dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=58a4c844-6fd2-4108-8d2d-51c701018a7b dbStatus=active
+  before: a3 b8 c0 d2 e11 h13 [active]
+  after : a3 b8 c0 d1 e11 h13 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=59c22d30-aece-4855-9958-bf34f8795d2a dbStatus=active
+  before: a7 b4 c1 d1 e12 h13 [active]
+  after : a7 b4 c1 d1 e12 h14 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=5b3c0935-9bff-4e96-8efb-b7cbcb092bb2 dbStatus=active
+  before: a6 b5 c1 d1 e12 h13 [active]
+  after : a6 b5 c1 d1 e12 h14 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=5cd3cf48-0a62-41db-beb9-960987a485d2 dbStatus=paused
+  before: a5 b2 c3 d2 e10 h12 [paused]
+  after : a5 b2 c3 d1 e10 h12 [paused]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=5ce78bd8-126f-4636-b6a9-a43031a21930 dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=5fa52ea5-d2a4-45df-900c-e08b0effc2fb dbStatus=seasonal_rest
+  before: a6 b1 c4 d2 e11 h13 [seasonal_rest]
+  after : a6 b1 c4 d1 e11 h13 [seasonal_rest]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=5fe0f152-3e4c-4313-8203-6fb6002c5393 dbStatus=paused
+  before: a8 b2 c2 d2 e12 h14 [paused]
+  after : a8 b2 c2 d1 e12 h14 [paused]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=614f78f4-c372-4c11-a17f-46b9e7bd4523 dbStatus=seasonal_rest
+  before: a7 b1 c2 d2 e10 h12 [seasonal_rest]
+  after : a7 b1 c2 d1 e10 h12 [seasonal_rest]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=6293191d-f862-468d-96c3-f1a09c8d36aa dbStatus=active
+  before: a5 b6 c1 d2 e12 h14 [active]
+  after : a5 b6 c1 d1 e12 h14 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=63813dc4-9dec-4511-83be-1f54196d09cf dbStatus=graduated
+  before: a24 b3 c0 d2 e27 h29 [graduated]
+  after : a24 b3 c0 d2 e27 h30 [graduated]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=6678e364-68ad-4aa1-a531-79f62c2c166a dbStatus=graduating
+  before: a26 b4 c1 d1 e31 h32 [graduating]
+  after : a26 b4 c1 d2 e31 h34 [graduating]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=6bd51d10-8f4d-48ba-82cf-9284fc75eff0 dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=70abfec0-660b-4af3-a940-5d318f76bd4e dbStatus=active
+  before: a2 b10 c0 d2 e12 h14 [active]
+  after : a2 b10 c0 d1 e12 h14 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=75d9cb24-b6ab-495d-a46d-5e021d04bf7b dbStatus=active
+  before: a8 b5 c1 d2 e14 h16 [active]
+  after : a8 b5 c1 d1 e14 h16 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=76a42307-f3b2-4c08-92ab-f339a20b7d38 dbStatus=graduating
+  before: a28 b3 c1 d2 e32 h34 [graduating]
+  after : a28 b3 c1 d2 e32 h35 [graduating]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=7a119bfc-32ef-4615-9ad0-22410785ac4e dbStatus=active
+  before: a8 b4 c1 d2 e13 h15 [active]
+  after : a8 b4 c1 d1 e13 h15 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=7dfad8dc-b900-4e3c-a13b-e0b6b42342ca dbStatus=active
+  before: a1 b3 c0 d0 e4 h4 [active]
+  after : a1 b3 c0 d1 e4 h6 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=7e15f412-65be-481c-8525-460b161244ca dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=7fc78617-7a56-4fe0-8cbd-a9d857f292bc dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06 dbStatus=active
+  before: a17 b1 c0 d2 e18 h20 [active]
+  after : a17 b1 c0 d1 e18 h20 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=87fbff25-c77a-4cf3-9482-67212e55aa6d dbStatus=active
+  before: a4 b7 c0 d1 e11 h12 [active]
+  after : a4 b7 c0 d1 e11 h13 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=8e38d52f-727e-429b-9db3-423cd031d2a5 dbStatus=graduating
+  before: a21 b4 c1 d1 e26 h27 [graduating]
+  after : a21 b4 c1 d1 e26 h28 [graduating]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=90de758a-3b0c-498d-af55-9b1324f36b88 dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=92de9b41-6c4f-4684-87d9-6f9db01e5601 dbStatus=active
+  before: a8 b5 c1 d2 e14 h16 [active]
+  after : a8 b5 c1 d1 e14 h16 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=98807fea-2137-4160-ba5c-dedcbdced0e8 dbStatus=active
+  before: a16 b2 c0 d1 e18 h19 [active]
+  after : a16 b2 c0 d1 e18 h20 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=974ba08b-7411-4fc8-ab22-178977de73a8 dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=9898f4a2-b873-4231-b2ac-321afa74555c dbStatus=active
+  before: a5 b6 c1 d2 e12 h14 [active]
+  after : a5 b6 c1 d1 e12 h14 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=9e2f8097-b1ce-4920-9c67-af9989074cfd dbStatus=seasonal_rest
+  before: a9 b1 c3 d2 e13 h15 [seasonal_rest]
+  after : a9 b1 c3 d1 e13 h15 [seasonal_rest]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=9d73cad4-12ec-4bd8-a118-58f8cf705122 dbStatus=active
+  before: a8 b4 c1 d2 e13 h15 [active]
+  after : a8 b4 c1 d1 e13 h15 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=a26729db-1c3b-42c0-9bce-4316dd15b2a2 dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=a35a306b-6f53-4b0e-8b8b-afb6c34ec93a dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=a3a91b4c-e3e7-45c8-9076-80eea01ad809 dbStatus=active
+  before: a4 b7 c0 d1 e11 h12 [active]
+  after : a4 b7 c0 d1 e11 h13 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=a3cdb8ca-f9c6-4122-b881-35c5f529f29f dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=a4f686e1-867e-4a61-8323-c518c4288a14 dbStatus=active
+  before: a6 b5 c1 d1 e12 h13 [active]
+  after : a6 b5 c1 d1 e12 h14 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=a714b4c6-84f8-4773-b83d-e5d484a1d30c dbStatus=active
+  before: a15 b2 c0 d1 e17 h18 [active]
+  after : a15 b2 c0 d1 e17 h19 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=a80ea67a-8836-4c13-8568-66dff79d7a66 dbStatus=active
+  before: a18 b2 c0 d1 e20 h21 [active]
+  after : a18 b2 c0 d1 e20 h22 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=a90bc300-6f64-450f-b107-ab112ab944ca dbStatus=active
+  before: a2 b2 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=aac4639b-7c22-4a53-9f2e-08076d5aa620 dbStatus=active
+  before: a0 b2 c0 d0 e2 h2 [active]
+  after : a0 b2 c0 d1 e2 h4 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=abef6e53-53c5-4277-bb70-e031153e533f dbStatus=active
+  before: a2 b2 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=ae55adcf-fd72-479f-86d3-60863b39a03d dbStatus=active
+  before: a17 b2 c0 d2 e19 h21 [active]
+  after : a17 b2 c0 d1 e19 h21 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=b2e2d277-d40c-4cef-91cb-733b7d6e658a dbStatus=active
+  before: a15 b2 c0 d1 e17 h18 [active]
+  after : a15 b2 c0 d1 e17 h19 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=b303c17e-26ec-429c-804e-f0d25c3f9463 dbStatus=graduating
+  before: a27 b3 c1 d1 e31 h32 [graduating]
+  after : a27 b3 c1 d2 e31 h34 [graduating]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=b70636ec-ad98-43fd-aaf9-4209b9bd1dd4 dbStatus=active
+  before: a17 b2 c0 d2 e19 h21 [active]
+  after : a17 b2 c0 d1 e19 h21 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=b817db7d-ecd5-46bb-ab13-cc34134e5f9a dbStatus=active
+  before: a17 b1 c0 d2 e18 h20 [active]
+  after : a17 b1 c0 d1 e18 h20 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=b9cb873d-1052-438f-825f-85af589fab82 dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=bab78175-fd69-4ad3-b59d-6dead49ac3e3 dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=bd57f30b-308f-4fbb-a7b7-71d76b3ce73a dbStatus=active
+  before: a18 b2 c0 d1 e20 h21 [active]
+  after : a18 b2 c0 d1 e20 h22 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=bf3b4305-751a-49e3-88ad-95a20e5c4dad dbStatus=active
+  before: a17 b1 c0 d2 e18 h20 [active]
+  after : a17 b1 c0 d1 e18 h20 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=c144d6fb-5a01-4453-aded-ae00dffdcf0b dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=c17542ff-4eb2-4b4e-b584-1dfcb8ca39f5 dbStatus=seasonal_rest
+  before: a7 b1 c2 d2 e10 h12 [seasonal_rest]
+  after : a7 b1 c2 d1 e10 h12 [seasonal_rest]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=c28b2409-4118-49fc-a42e-68e18dbd194c dbStatus=active
+  before: a0 b2 c0 d0 e2 h2 [active]
+  after : a0 b2 c0 d1 e2 h4 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=cc05522b-7a71-48fb-a291-3aaaefdf4865 dbStatus=paused
+  before: a5 b2 c3 d2 e10 h12 [paused]
+  after : a5 b2 c3 d1 e10 h12 [paused]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=cc1b58e6-b14d-45a0-b389-2df3c27a0b25 dbStatus=graduated
+  before: a29 b3 c0 d2 e32 h34 [graduated]
+  after : a29 b3 c0 d2 e32 h35 [graduated]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=ce4085e9-5dff-4f5d-a64a-5ca99c0bfb0e dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=d151c37b-5195-4ae1-ba79-d3b229a49eff dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=d4033172-918e-4e76-9857-b5b2bb4601cf dbStatus=active
+  before: a2 b10 c0 d2 e12 h14 [active]
+  after : a2 b10 c0 d1 e12 h14 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=d43fff71-8f90-465a-a471-c65abfa3ce36 dbStatus=active
+  before: a1 b3 c0 d0 e4 h4 [active]
+  after : a1 b3 c0 d1 e4 h6 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=d7cb79cc-9ed4-4ae1-bac3-cf86a684dd3e dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=db913eae-d0b2-4681-a257-723f84a4da9d dbStatus=active
+  before: a4 b7 c0 d1 e11 h12 [active]
+  after : a4 b7 c0 d1 e11 h13 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=ddce842a-23a4-49a1-b947-78b2a3f9ca64 dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=dff09eb2-6534-42de-99bd-8bf2ed315c01 dbStatus=active
+  before: a8 b4 c1 d2 e13 h15 [active]
+  after : a8 b4 c1 d1 e13 h15 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=e0fc0a80-a4ae-4e39-b709-e09fabc174bd dbStatus=active
+  before: a3 b7 c0 d1 e10 h11 [active]
+  after : a3 b7 c0 d1 e10 h12 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=e1a17a4a-05b5-443e-a95d-db20ec2ad9af dbStatus=active
+  before: a15 b2 c0 d1 e17 h18 [active]
+  after : a15 b2 c0 d1 e17 h19 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=e4dcb97e-a515-4ec5-a91e-32ca4e629dae dbStatus=graduated
+  before: a30 b2 c1 d2 e33 h35 [graduated]
+  after : a30 b2 c1 d2 e33 h36 [graduated]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=e649370f-ba2c-4d2f-b642-6800cb078d54 dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=e6574586-6279-41cc-ae36-1c9dc3078bc3 dbStatus=graduated
+  before: a25 b2 c1 d2 e28 h30 [graduated]
+  after : a25 b2 c1 d2 e28 h31 [graduated]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=e81c8b30-20a2-4a10-bf2c-8c3ca474e4e7 dbStatus=active
+  before: a3 b8 c0 d2 e11 h13 [active]
+  after : a3 b8 c0 d1 e11 h13 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=ea286f9d-fb5b-492e-a081-cd5c200a4455 dbStatus=seasonal_rest
+  before: a6 b1 c4 d2 e11 h13 [seasonal_rest]
+  after : a6 b1 c4 d1 e11 h13 [seasonal_rest]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=ebd7cf95-4e48-4ec4-9cf9-4392be5e59ac dbStatus=active
+  before: a1 b3 c0 d0 e4 h4 [active]
+  after : a1 b3 c0 d1 e4 h6 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=ec11fe34-0cba-4bbc-afae-6d7514fdf57e dbStatus=graduating
+  before: a27 b3 c1 d1 e31 h32 [graduating]
+  after : a27 b3 c1 d2 e31 h34 [graduating]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=edfe7e58-4681-4d40-ba46-199fc9d99d82 dbStatus=active
+  before: a7 b4 c1 d1 e12 h13 [active]
+  after : a7 b4 c1 d1 e12 h14 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=ee9bf53b-b7cf-4a27-8aeb-fa4a7ec605eb dbStatus=active
+  before: a7 b4 c1 d1 e12 h13 [active]
+  after : a7 b4 c1 d1 e12 h14 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=f2d5c378-6a50-477f-b50d-2a21241e7640 dbStatus=active
+  before: a6 b5 c1 d1 e12 h13 [active]
+  after : a6 b5 c1 d1 e12 h14 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=f26e0bab-e138-41e6-a28b-676036a6a5aa dbStatus=active
+  before: a8 b5 c1 d2 e14 h16 [active]
+  after : a8 b5 c1 d1 e14 h16 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=f3a9bd26-46c1-4bb7-9285-94692380145f dbStatus=active
+  before: a3 b8 c0 d2 e11 h13 [active]
+  after : a3 b8 c0 d1 e11 h13 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=f980b257-12b1-4f9c-ae71-307336071785 dbStatus=active
+  before: a17 b2 c0 d2 e19 h21 [active]
+  after : a17 b2 c0 d1 e19 h21 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=f5ea2501-1319-443a-9326-78f6bdce522d dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=fcfbe22a-05d2-4260-bfa4-c716d11d38bd dbStatus=active
+  before: a16 b2 c0 d1 e18 h19 [active]
+  after : a16 b2 c0 d1 e18 h20 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=fd2afa0a-48c8-423c-b3a8-df417990002a dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=fe17f587-b518-4b72-9646-5a590524355c dbStatus=active
+  before: a18 b2 c0 d1 e20 h21 [active]
+  after : a18 b2 c0 d1 e20 h22 [active]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=fecffe36-1e01-40d6-aa83-7e2b698b6b89 dbStatus=active
+  before: a3 b8 c0 d2 e11 h13 [active]
+  after : a3 b8 c0 d1 e11 h13 [active]
+  원인  : official_rest ↓1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee dbStatus=graduating
+  before: a22 b3 c1 d1 e26 h27 [graduating]
+  after : a22 b3 c1 d1 e26 h28 [graduating]
+  원인  : tallying 1건 (신 h 정의에 포함)
+
+user=ff93b3dd-2bbd-44ad-9f2f-467a1dbe298f dbStatus=active
+  before: a3 b1 c0 d0 e4 h4 [active]
+  after : a2 b2 c0 d1 e4 h6 [active]
+  원인  : verdict fail 전환 (success→fail 1건) | official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+user=fff3941f-071c-4cca-b99a-da8bd6d2fae2 dbStatus=active
+  before: a3 b2 c0 d0 e5 h5 [active]
+  after : a3 b2 c0 d1 e5 h7 [active]
+  원인  : official_rest ↑1 (현재주 official_rest 카드화 / no_data skip / seasonCalendar∪periods 재판정) | tallying 1건 (신 h 정의에 포함)
+
+=================================================
+
+[JSON]
+{"total":121,"comparable":121,"skipped":0,"unchanged":0,"changed":121,"transitions":{}}

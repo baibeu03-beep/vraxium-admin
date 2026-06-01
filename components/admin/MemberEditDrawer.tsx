@@ -17,7 +17,13 @@ import {
   ORGANIZATION_COMMON_LABEL,
   ORGANIZATION_LABEL,
 } from "@/lib/organizations";
-import { APP_USER_STATUSES } from "@/lib/adminAppUsersTypes";
+import { ACCOUNT_STATUSES } from "@/lib/adminAppUsersTypes";
+import { GROWTH_STATUSES } from "@/shared/growth.contracts";
+import {
+  MEMBER_ASSIGNABLE_ROLES,
+  isMemberAssignableRole,
+} from "@/lib/adminMembersTypes";
+import { USER_FACING_ROLE_LABELS } from "@/lib/adminPermissionsTypes";
 import { cn } from "@/lib/utils";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
@@ -30,6 +36,9 @@ export type EditableMember = {
   growthStatus: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  role: string | null;
+  currentTeamName: string | null;
+  currentPartName: string | null;
 };
 
 type Form = {
@@ -38,10 +47,18 @@ type Form = {
   growth_status: string;
   contact_email: string;
   contact_phone: string;
+  role: string;
 };
 
 const ORG_NONE = "__none__";
 const STATUS_NONE = "__none__";
+// 4종 외(ambassador/admin/super_admin 등)의 역할은 이 화면에서 변경 불가 — 잠금 표시.
+const ROLE_LOCKED = "__locked__";
+
+function roleLabel(role: string | null): string {
+  if (!role) return "미지정";
+  return (USER_FACING_ROLE_LABELS as Record<string, string>)[role] ?? role;
+}
 
 function toForm(member: EditableMember): Form {
   return {
@@ -50,6 +67,8 @@ function toForm(member: EditableMember): Form {
     growth_status: member.growthStatus ?? STATUS_NONE,
     contact_email: member.contactEmail ?? "",
     contact_phone: member.contactPhone ?? "",
+    // 4종 역할이면 편집 가능, 그 외(보존 역할)는 잠금.
+    role: isMemberAssignableRole(member.role) ? member.role : ROLE_LOCKED,
   };
 }
 
@@ -78,6 +97,15 @@ function diffPatch(initial: Form, next: Form) {
   }
   if (initial.contact_phone !== next.contact_phone) {
     patch.contact_phone = emptyToNull(next.contact_phone);
+  }
+
+  // 잠긴 역할(ROLE_LOCKED)은 절대 patch 에 싣지 않는다(보존 역할 보호).
+  if (
+    next.role !== ROLE_LOCKED &&
+    initial.role !== next.role &&
+    isMemberAssignableRole(next.role)
+  ) {
+    patch.role = next.role;
   }
 
   return patch;
@@ -163,6 +191,9 @@ function MemberEditDrawerInner({
         growthStatus: string | null;
         contactEmail: string | null;
         contactPhone: string | null;
+        role: string | null;
+        currentTeamName: string | null;
+        currentPartName: string | null;
       };
       onSaved({
         userId: updated.userId,
@@ -173,6 +204,9 @@ function MemberEditDrawerInner({
         growthStatus: updated.growthStatus,
         contactEmail: updated.contactEmail,
         contactPhone: updated.contactPhone,
+        role: updated.role,
+        currentTeamName: updated.currentTeamName,
+        currentPartName: updated.currentPartName,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
@@ -261,6 +295,45 @@ function MemberEditDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
+              <Label htmlFor="member-role">{devMode ? "역할 (role)" : "역할"}</Label>
+              {form.role === ROLE_LOCKED ? (
+                <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                  <span className="font-medium">{roleLabel(member.role)}</span>
+                  <div className="mt-1 text-[10px] text-muted-foreground">
+                    {devMode
+                      ? "ambassador/admin/super_admin 등 보존 역할은 이 화면에서 변경하지 않습니다(계정/권한 관리에서 처리)."
+                      : "이 역할은 이 화면에서 변경할 수 없습니다."}
+                  </div>
+                </div>
+              ) : (
+                <Select
+                  value={form.role}
+                  onValueChange={(v: string | null) =>
+                    setForm((prev) => ({ ...prev, role: v ?? prev.role }))
+                  }
+                >
+                  <SelectTrigger id="member-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MEMBER_ASSIGNABLE_ROLES.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {roleLabel(r)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                현재 팀: <span className="font-medium">{member.currentTeamName ?? "—"}</span>
+                {" / "}
+                파트: <span className="font-medium">{member.currentPartName ?? "—"}</span>
+                <br />
+                에이전트·파트장은 같은 파트에 1명, 팀장은 같은 팀에 1명만 지정할 수 있습니다.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="member-status">{devMode ? "상태 (status)" : "상태"}</Label>
               <Select
                 value={form.status}
@@ -273,7 +346,7 @@ function MemberEditDrawerInner({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={STATUS_NONE}>미지정</SelectItem>
-                  {APP_USER_STATUSES.map((s) => (
+                  {ACCOUNT_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
                     </SelectItem>
@@ -300,7 +373,7 @@ function MemberEditDrawerInner({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={STATUS_NONE}>미지정</SelectItem>
-                  {APP_USER_STATUSES.map((s) => (
+                  {GROWTH_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
                     </SelectItem>

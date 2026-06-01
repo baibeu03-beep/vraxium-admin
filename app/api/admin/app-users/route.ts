@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { ADMIN_READ_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
-import { isAppUserStatus, listAppUsers } from "@/lib/adminAppUsersData";
+import { isAccountStatus, listAppUsers } from "@/lib/adminAppUsersData";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,9 +13,9 @@ export async function GET(request: NextRequest) {
 
   const params = request.nextUrl.searchParams;
   const statusParam = params.get("status");
-  if (statusParam && !isAppUserStatus(statusParam)) {
+  if (statusParam && !isAccountStatus(statusParam)) {
     return Response.json(
-      { success: false, error: `Unknown user status: ${statusParam}` },
+      { success: false, error: `Unknown account status: ${statusParam}` },
       { status: 400 },
     );
   }
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   try {
     const data = await listAppUsers({
       query: queryParam,
-      status: isAppUserStatus(statusParam) ? statusParam : null,
+      status: isAccountStatus(statusParam) ? statusParam : null,
     });
     return Response.json({ success: true, data });
   } catch (error) {

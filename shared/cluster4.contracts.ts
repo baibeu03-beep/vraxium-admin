@@ -202,6 +202,17 @@ export type Cluster4VisibleLineDto = {
   // career part 의 경우 career_projects.line_code 와 동일 (= projectCode).
   lineCode: string | null;
   projectCode: string | null;
+
+  // 실무 경력(career) sponsor-card 메타 — source: career_projects (careerProjectId 로 조회).
+  //   companyName 의 SoT 는 career_projects.company_name (supervisor_company 아님).
+  //   supervisorPhotoUrl 의 source 는 career_projects.supervisor_profile_img.
+  //   career part 에만 값이 들어가고 그 외 part 는 전부 null. (append-only)
+  companyName: string | null;
+  companyLogoUrl: string | null;
+  supervisorName: string | null;
+  supervisorDepartment: string | null;
+  supervisorPosition: string | null;
+  supervisorPhotoUrl: string | null;
 };
 
 // 포털 사용자 수정 가능 여부 사유. evaluateCluster4HubEdit 결과를 그대로 노출한다.

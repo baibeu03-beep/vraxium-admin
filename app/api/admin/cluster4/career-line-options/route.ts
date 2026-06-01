@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     let query = supabaseAdmin
       .from("career_projects")
       .select(
-        "id,line_code,line_name,supervisor_company,supervisor_name,company_logo_url,default_main_title,default_output_link_1,default_output_link_2,default_output_images,default_target_user_ids,start_date,end_date,organization_slug",
+        "id,line_code,line_name,company_name,company_logo_url,supervisor_name,supervisor_department,supervisor_position,supervisor_profile_img,default_main_title,default_output_link_1,default_output_link_2,default_output_images,default_target_user_ids,start_date,end_date,organization_slug",
       )
       .not("line_code", "is", null)
       .order("line_code", { ascending: true });
@@ -99,9 +99,12 @@ export async function GET(request: NextRequest) {
       id: string;
       line_code: string;
       line_name: string | null;
-      supervisor_company: string | null;
-      supervisor_name: string | null;
+      company_name: string | null;
       company_logo_url: string | null;
+      supervisor_name: string | null;
+      supervisor_department: string | null;
+      supervisor_position: string | null;
+      supervisor_profile_img: string | null;
       default_main_title: string | null;
       default_output_link_1: string | null;
       default_output_link_2: string | null;
@@ -119,9 +122,15 @@ export async function GET(request: NextRequest) {
       id: r.id,
       lineCode: r.line_code,
       lineName: r.line_name,
-      supervisorCompany: r.supervisor_company,
-      supervisorName: r.supervisor_name,
+      // 기업명 SoT = career_projects.company_name (supervisor_company 아님).
+      companyName: r.company_name,
+      // companyLogoUrl 는 업로드된 이미지 URL (career_projects.company_logo_url).
       companyLogoUrl: r.company_logo_url,
+      // sponsor-card 감독자 메타 6필드 — weekly-cards DTO 와 동일 source 로 라인 개설 옵션에도 노출.
+      supervisorName: r.supervisor_name,
+      supervisorDepartment: r.supervisor_department,
+      supervisorPosition: r.supervisor_position,
+      supervisorPhotoUrl: r.supervisor_profile_img,
       defaultMainTitle: r.default_main_title,
       defaultOutputLink1: r.default_output_link_1,
       defaultOutputLink2: r.default_output_link_2,

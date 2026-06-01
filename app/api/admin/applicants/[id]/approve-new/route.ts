@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { randomUUID } from "crypto";
+import { recomputeAndStoreWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 export async function POST(
   _req: Request,
@@ -138,6 +139,17 @@ export async function POST(
       },
       { status: 500 },
     );
+  }
+
+  // 신규 유저 snapshot 최초 생성(쓰기 시점). uws 가 아직 없으면 빈 카드로 저장 → 조회 시
+  // miss→fallback(실시간 계산) 대신 hit 으로 응답. best-effort — 실패해도 승인은 유지.
+  try {
+    await recomputeAndStoreWeeklyCardsSnapshot(newProfile.user_id);
+  } catch (snapErr) {
+    console.warn("approve-new initial snapshot create failed (non-fatal)", {
+      userId: newProfile.user_id,
+      message: snapErr instanceof Error ? snapErr.message : String(snapErr),
+    });
   }
 
   return NextResponse.json({

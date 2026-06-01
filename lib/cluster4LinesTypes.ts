@@ -36,6 +36,17 @@ export type Cluster4VisibleLineDto = {
   outputLinks: Cluster4OutputLink[];
   submissionOpensAt: string;
   submissionClosesAt: string;
+
+  // 실무 경력(career) sponsor-card 메타 — source: career_projects (career_project_id 로 조회).
+  //   companyName 의 SoT 는 career_projects.company_name (supervisor_company 아님).
+  //   supervisorPhotoUrl 의 source 는 career_projects.supervisor_profile_img.
+  //   career part 에만 값이 들어가고 그 외 part 는 전부 null. (append-only)
+  companyName: string | null;
+  companyLogoUrl: string | null;
+  supervisorName: string | null;
+  supervisorDepartment: string | null;
+  supervisorPosition: string | null;
+  supervisorPhotoUrl: string | null;
 };
 
 export type Cluster4LineSubmissionDto = {

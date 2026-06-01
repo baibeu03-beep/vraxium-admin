@@ -4,8 +4,8 @@
 // competency / career / (필요 시 info·experience) 매니저에서 재사용한다.
 // 데이터는 GET /api/admin/cluster4/lines?partType=&detailed=1 (append-only) 로 자체 조회.
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Check, X, Search, ChevronDown, ChevronRight, Pencil } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Check, X, Search, ChevronDown, ChevronRight, Pencil, Upload, Trash2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -77,6 +77,91 @@ function localInputToIso(local: string): string | null {
   return d.toISOString();
 }
 
+// 기업 로고 / 감독자 사진 공용 업로드 필드 — URL input 이 아니라 업로드 후 반환 URL 만 저장.
+// /api/admin/cluster4/upload-image (라인 등록 화면과 동일 엔드포인트) 사용.
+function MetaImageUploadField({
+  label,
+  value,
+  onChange,
+  onRemove,
+  disabled,
+  rounded = "rounded",
+  emptyButtonLabel = "이미지 업로드",
+  altText = "이미지",
+}: {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  onRemove: () => void;
+  disabled?: boolean;
+  rounded?: "rounded" | "rounded-full";
+  emptyButtonLabel?: string;
+  altText?: string;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch("/api/admin/cluster4/upload-image", {
+          method: "POST",
+          body: formData,
+        });
+        const json = await res.json();
+        if (!json.success) {
+          alert(json.error || "업로드에 실패했습니다");
+          return;
+        }
+        onChange(json.data.url);
+      } catch {
+        alert("업로드 중 오류가 발생했습니다");
+      } finally {
+        setUploading(false);
+        if (fileRef.current) fileRef.current.value = "";
+      }
+    },
+    [onChange],
+  );
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={handleFileChange}
+        disabled={disabled || uploading}
+      />
+      {value ? (
+        <div className="flex items-center gap-2 rounded-md border p-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={value} alt={altText} className={cn("h-10 w-10 shrink-0 border object-cover", rounded)} />
+          <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{value}</p>
+          <Button type="button" variant="outline" size="sm" className="shrink-0" disabled={disabled || uploading} onClick={() => fileRef.current?.click()}>
+            교체
+          </Button>
+          <Button type="button" variant="ghost" size="icon" className="shrink-0" disabled={disabled || uploading} onClick={onRemove}>
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ) : (
+        <Button type="button" variant="outline" className="w-full" disabled={disabled || uploading} onClick={() => fileRef.current?.click()}>
+          {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+          {uploading ? "업로드 중..." : emptyButtonLabel}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function CanEditBadge({ canEdit, reason }: { canEdit: boolean; reason: string }) {
   return (
     <span
@@ -94,18 +179,172 @@ function CanEditBadge({ canEdit, reason }: { canEdit: boolean; reason: string })
 // Detail / Edit modal
 // ──────────────────────────────────────────────────────────────
 
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${DAY_NAMES[d.getDay()]}) ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// 라인 개설 역할별 진행 상태 + 담당자 기록 + 권장 시간 안내 (실무 경력 라인 전용).
+// 운영 정책: 파트장(입력) → 에이전트(검수) → 팀장(개설). 안내 문구는 순수 텍스트이며
+// 시간/순서/권한 차단은 없다 — 버튼은 마감 후에도 항상 동작하고 단계 순서도 강제하지 않는다.
+const WORKFLOW_ROLES = [
+  {
+    key: "input" as const,
+    role: "파트장",
+    title: "입력",
+    guide: "권장 입력 기한 : 월요일 14시",
+    action: "input_complete" as const,
+    buttonLabel: "입력 완료",
+    doneLabel: "입력 완료",
+    pendingLabel: "입력 중",
+    actorLabel: "입력자",
+  },
+  {
+    key: "review" as const,
+    role: "에이전트",
+    title: "검수",
+    guide: "권장 검수 기한 : 월요일 20시",
+    action: "review_complete" as const,
+    buttonLabel: "검수 완료",
+    doneLabel: "검수 완료",
+    pendingLabel: "미검수",
+    actorLabel: "검수자",
+  },
+  {
+    key: "open" as const,
+    role: "팀장",
+    title: "개설",
+    guide: "권장 개설 기한 : 월요일 22시",
+    action: "open" as const,
+    buttonLabel: "개설",
+    doneLabel: "개설 완료",
+    pendingLabel: "미개설",
+    actorLabel: "개설자",
+  },
+];
+
+function LineWorkflowSection({
+  line,
+  onRefresh,
+}: {
+  line: Cluster4LineDetail;
+  onRefresh: () => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const stageState = {
+    input: { done: Boolean(line.inputCompletedAt), at: line.inputCompletedAt, actor: line.createdByName },
+    review: { done: Boolean(line.reviewedAt), at: line.reviewedAt, actor: line.reviewedByName },
+    open: { done: Boolean(line.openedAt), at: line.openedAt, actor: line.openedByName },
+  };
+
+  const handleAction = useCallback(
+    async (action: "input_complete" | "review_complete" | "open") => {
+      setBusy(action);
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin/cluster4/lines/${line.id}/workflow`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        const json = await res.json();
+        if (!json.success) {
+          setError(json.error ?? "처리에 실패했습니다");
+          return;
+        }
+        // 목록 재조회 → detailId 유지로 모달의 line prop 이 최신 상태/담당자로 갱신된다.
+        onRefresh();
+      } catch {
+        setError("처리 중 오류가 발생했습니다");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [line.id, onRefresh],
+  );
+
+  return (
+    <section className="space-y-3 rounded-md border bg-muted/30 p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">라인 개설 진행 상태</h3>
+        <p className="text-xs text-muted-foreground">
+          입력자 : {stageState.input.actor ?? "-"}
+          {"  ·  "}검수자 : {stageState.review.actor ?? "-"}
+          {"  ·  "}개설자 : {stageState.open.actor ?? "-"}
+        </p>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+          {error}
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        {WORKFLOW_ROLES.map((cfg) => {
+          const st = stageState[cfg.key];
+          return (
+            <div key={cfg.key} className="space-y-2 rounded-md border bg-background p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold">
+                  {cfg.role} · {cfg.title}
+                </span>
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    st.done
+                      ? "bg-emerald-100 text-emerald-800"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {st.done ? cfg.doneLabel : cfg.pendingLabel}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">{cfg.guide}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {cfg.actorLabel} : {st.actor ?? "-"}
+                {st.at ? ` · ${fmtDateTime(st.at)}` : ""}
+              </p>
+              <Button
+                size="sm"
+                variant={st.done ? "outline" : "default"}
+                className="w-full"
+                disabled={busy !== null}
+                onClick={() => handleAction(cfg.action)}
+              >
+                {busy === cfg.action && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {st.done ? `${cfg.doneLabel} (다시 처리)` : cfg.buttonLabel}
+              </Button>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        ※ 안내 문구는 권장 기한일 뿐 시간/순서/권한 제한은 없습니다. 마감 후에도 모든 단계 처리가 가능하며, 입력자와 검수자가 같아도 됩니다.
+      </p>
+    </section>
+  );
+}
+
 function LineDetailModal({
   line,
   nameColumnLabel,
   editable,
   onClose,
   onSaved,
+  onRefresh,
 }: {
   line: Cluster4LineDetail;
   nameColumnLabel: string;
   editable: boolean;
   onClose: () => void;
   onSaved: (message: string) => void;
+  onRefresh: () => void;
 }) {
   const [mainTitle, setMainTitle] = useState(line.mainTitle);
   // output_links 우선 prefill (DTO 가 이미 jsonb→legacy fallback 해석). 슬롯 순서 보존.
@@ -118,6 +357,16 @@ function LineDetailModal({
   const [isActive, setIsActive] = useState(line.isActive);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // career 라인 sponsor-card 메타 — 편집 가능. source = career_projects (company_name 기준).
+  // careerProjectId 가 있을 때만 편집 UI 노출 / 저장 시 함께 PATCH.
+  const isCareerLine = Boolean(line.careerProjectId);
+  const [companyName, setCompanyName] = useState(line.companyName ?? "");
+  const [companyLogoUrl, setCompanyLogoUrl] = useState(line.companyLogoUrl ?? "");
+  const [supervisorName, setSupervisorName] = useState(line.supervisorName ?? "");
+  const [supervisorDepartment, setSupervisorDepartment] = useState(line.supervisorDepartment ?? "");
+  const [supervisorPosition, setSupervisorPosition] = useState(line.supervisorPosition ?? "");
+  const [supervisorPhotoUrl, setSupervisorPhotoUrl] = useState(line.supervisorPhotoUrl ?? "");
 
   const handleSave = useCallback(async () => {
     if (!mainTitle.trim()) {
@@ -143,6 +392,10 @@ function LineDetailModal({
       setError("기입 시작은 마감보다 이후일 수 없습니다");
       return;
     }
+    if (isCareerLine && !companyName.trim()) {
+      setError("기업명을 입력해주세요");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -165,7 +418,38 @@ function LineDetailModal({
         setError(json.error ?? "저장에 실패했습니다");
         return;
       }
-      onSaved("라인 정보가 수정되었습니다");
+
+      // career 라인이면 연결된 career_project 의 sponsor-card 6필드도 함께 PATCH.
+      // 성공 시 서버가 해당 프로젝트를 보는 대상자 snapshot 을 stale 처리한다.
+      if (isCareerLine && line.careerProjectId) {
+        const metaRes = await fetch(
+          `/api/admin/career-projects/${line.careerProjectId}/sponsor-meta`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              company_name: companyName.trim() || null,
+              // 로고/사진은 업로드 후 반환 URL 만 저장 (URL input 아님).
+              company_logo_url: companyLogoUrl.trim() || null,
+              supervisor_name: supervisorName.trim() || null,
+              supervisor_department: supervisorDepartment.trim() || null,
+              supervisor_position: supervisorPosition.trim() || null,
+              supervisor_profile_img: supervisorPhotoUrl.trim() || null,
+            }),
+          },
+        );
+        const metaJson = await metaRes.json();
+        if (!metaJson.success) {
+          setError(metaJson.error ?? "기업/감독자 정보 저장에 실패했습니다");
+          return;
+        }
+      }
+
+      onSaved(
+        isCareerLine
+          ? "라인 정보 및 기업/감독자 정보가 수정되었습니다"
+          : "라인 정보가 수정되었습니다",
+      );
     } catch {
       setError("저장 중 오류가 발생했습니다");
     } finally {
@@ -173,6 +457,8 @@ function LineDetailModal({
     }
   }, [
     line.id,
+    line.careerProjectId,
+    isCareerLine,
     mainTitle,
     outputLink1,
     outputLabel1,
@@ -181,6 +467,12 @@ function LineDetailModal({
     opensAt,
     closesAt,
     isActive,
+    companyName,
+    companyLogoUrl,
+    supervisorName,
+    supervisorDepartment,
+    supervisorPosition,
+    supervisorPhotoUrl,
     onSaved,
   ]);
 
@@ -211,6 +503,106 @@ function LineDetailModal({
           <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
             {error}
           </div>
+        )}
+
+        {/* 라인 개설 역할별 진행 상태 + 담당자 기록 + 권장 시간 안내 (실무 경력 라인 전용). */}
+        {isCareerLine && <LineWorkflowSection line={line} onRefresh={onRefresh} />}
+
+        {/* career 라인 sponsor-card 메타. source = career_projects (company_name 기준).
+            careerProjectId 가 있는 라인(=career part 연결)에서만 노출.
+            editable 이면 input/upload 로 직접 수정 가능 — 저장 시 career_projects PATCH. */}
+        {isCareerLine && (
+          <section className="space-y-3 rounded-md border bg-muted/30 p-4">
+            <h3 className="text-sm font-semibold">
+              기업 · 감독자 정보 {editable ? "(편집)" : "(읽기 전용)"}
+            </h3>
+            {editable ? (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="cm-company" className="text-xs text-muted-foreground">
+                      기업명 <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="cm-company"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      placeholder="기업명"
+                    />
+                  </div>
+                  <MetaImageUploadField
+                    label="기업 로고"
+                    value={companyLogoUrl}
+                    onChange={setCompanyLogoUrl}
+                    onRemove={() => setCompanyLogoUrl("")}
+                    disabled={saving}
+                    emptyButtonLabel="로고 이미지 업로드"
+                    altText="기업 로고"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="cm-sup-name" className="text-xs text-muted-foreground">감독자명</Label>
+                    <Input id="cm-sup-name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} placeholder="김담당" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="cm-sup-dept" className="text-xs text-muted-foreground">감독자 부서</Label>
+                    <Input id="cm-sup-dept" value={supervisorDepartment} onChange={(e) => setSupervisorDepartment(e.target.value)} placeholder="마케팅팀" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="cm-sup-pos" className="text-xs text-muted-foreground">감독자 직책</Label>
+                    <Input id="cm-sup-pos" value={supervisorPosition} onChange={(e) => setSupervisorPosition(e.target.value)} placeholder="팀장" />
+                  </div>
+                </div>
+                <div className="sm:max-w-sm">
+                  <MetaImageUploadField
+                    label="감독자 사진"
+                    value={supervisorPhotoUrl}
+                    onChange={setSupervisorPhotoUrl}
+                    onRemove={() => setSupervisorPhotoUrl("")}
+                    disabled={saving}
+                    rounded="rounded-full"
+                    emptyButtonLabel="감독자 사진 업로드"
+                    altText="감독자 사진"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  기업/감독자 정보는 연결된 경력 프로젝트(career_projects)에 저장됩니다. 저장 시 대상자 weekly-card 가 갱신됩니다.
+                </p>
+              </>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">기업</Label>
+                  <div className="flex items-center gap-2">
+                    {companyLogoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={companyLogoUrl} alt="기업 로고" className="h-8 w-8 shrink-0 rounded border object-cover" />
+                    ) : null}
+                    <span className="text-sm font-medium">{companyName || "기업명 미등록"}</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">감독자</Label>
+                  <div className="flex items-center gap-2">
+                    {supervisorPhotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={supervisorPhotoUrl} alt="감독자 사진" className="h-8 w-8 shrink-0 rounded-full border object-cover" />
+                    ) : null}
+                    <span className="text-sm">
+                      <span className="font-medium">{supervisorName || "-"}</span>
+                      {(supervisorDepartment || supervisorPosition) && (
+                        <span className="text-muted-foreground">
+                          {" · "}
+                          {[supervisorDepartment, supervisorPosition].filter(Boolean).join(" ")}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
         )}
 
         <section className="space-y-4">
@@ -831,6 +1223,10 @@ export default function Cluster4LineTable({
           onClose={() => setDetailId(null)}
           onSaved={() => {
             setDetailId(null);
+            void fetchRows();
+          }}
+          onRefresh={() => {
+            // 모달을 닫지 않고 목록만 재조회 → detailId 유지로 line prop 이 최신화된다.
             void fetchRows();
           }}
         />

@@ -93,6 +93,17 @@ type CareerGradeEval = {
   points: number;
 };
 
+// career_projects 의 sponsor-card 메타 (career part 라인에만 적용).
+// careerProjectId → 회사/감독자 표시 값. companyName 의 SoT 는 career_projects.company_name.
+type CareerProjectMeta = {
+  companyName: string | null;
+  companyLogoUrl: string | null;
+  supervisorName: string | null;
+  supervisorDepartment: string | null;
+  supervisorPosition: string | null;
+  supervisorPhotoUrl: string | null;
+};
+
 type SubmissionRow = {
   id: string;
   line_target_id: string;
@@ -232,6 +243,13 @@ function emptyLine(
     careerRatingStatus: null,
     lineCode: null,
     projectCode: null,
+    // sponsor-card 메타 — 미개설 placeholder 이므로 항상 null.
+    companyName: null,
+    companyLogoUrl: null,
+    supervisorName: null,
+    supervisorDepartment: null,
+    supervisorPosition: null,
+    supervisorPhotoUrl: null,
     submission: null,
     numerator: null,
     denominator: null,
@@ -295,6 +313,7 @@ function toLineDetail(
   experienceRatingByTargetId: Map<string, number>,
   experienceMasterMetaById: Map<string, ExperienceMasterMeta>,
   careerGradeByTargetId: Map<string, CareerGradeEval>,
+  careerProjectMetaById: Map<string, CareerProjectMeta>,
 ): Cluster4LineDetailDto | null {
   const line = target.cluster4_lines;
   if (!line) return null;
@@ -317,6 +336,12 @@ function toLineDetail(
   const careerGradePoints = careerEval?.points ?? null;
   const careerRatingStatus =
     partType === "career" ? careerRatingStatusFromGrade(careerGrade) : null;
+  // sponsor-card 메타: career part 만 careerProjectId 로 career_projects 를 조회해 매핑.
+  // 비career 또는 미연결/미존재면 전부 null (프론트 fallback).
+  const careerMeta =
+    partType === "career" && careerProjectId
+      ? careerProjectMetaById.get(careerProjectId) ?? null
+      : null;
   // 강화 상태: 타깃이 존재하므로(1차 대상자) 마감 여부로 success/pending 을 가른다.
   // 마감(submission_closes_at = 수 22:00 KST) 후면 미기입이라도 success.
   // career 는 추가로 평점을 반영한다 — 마감 후 D=fail / S~C=success / 미평가=pending(unevaluated).
@@ -396,6 +421,13 @@ function toLineDetail(
     lineCode: line.line_code,
     // career part 의 line_code 는 career_projects.line_code 와 동일 (= projectCode).
     projectCode: partType === "career" ? line.line_code : null,
+    // sponsor-card 메타 (career part 만 값, 그 외 null).
+    companyName: careerMeta?.companyName ?? null,
+    companyLogoUrl: careerMeta?.companyLogoUrl ?? null,
+    supervisorName: careerMeta?.supervisorName ?? null,
+    supervisorDepartment: careerMeta?.supervisorDepartment ?? null,
+    supervisorPosition: careerMeta?.supervisorPosition ?? null,
+    supervisorPhotoUrl: careerMeta?.supervisorPhotoUrl ?? null,
     submission: submission ? toSubmissionDto(submission) : null,
     numerator: null,
     denominator: null,
@@ -714,6 +746,47 @@ async function fetchExperienceMasterMetaByIds(
   return map;
 }
 
+// career_project_id → sponsor-card 메타 일괄 룩업 (career sub-line 표시용).
+// companyName 의 SoT = career_projects.company_name (supervisor_company 아님).
+// 실패해도 카드를 깨뜨리지 않고 메타만 null 폴백한다.
+async function fetchCareerProjectMetaByIds(
+  ids: string[],
+): Promise<Map<string, CareerProjectMeta>> {
+  const map = new Map<string, CareerProjectMeta>();
+  if (ids.length === 0) return map;
+  const { data, error } = await supabaseAdmin
+    .from("career_projects")
+    .select(
+      "id,company_name,company_logo_url,supervisor_name,supervisor_department,supervisor_position,supervisor_profile_img",
+    )
+    .in("id", ids);
+  if (error) {
+    console.warn("[cluster4/weekly-cards] career_projects lookup failed", {
+      message: error.message,
+    });
+    return map;
+  }
+  for (const row of (data ?? []) as {
+    id: string;
+    company_name: string | null;
+    company_logo_url: string | null;
+    supervisor_name: string | null;
+    supervisor_department: string | null;
+    supervisor_position: string | null;
+    supervisor_profile_img: string | null;
+  }[]) {
+    map.set(row.id, {
+      companyName: row.company_name ?? null,
+      companyLogoUrl: row.company_logo_url ?? null,
+      supervisorName: row.supervisor_name ?? null,
+      supervisorDepartment: row.supervisor_department ?? null,
+      supervisorPosition: row.supervisor_position ?? null,
+      supervisorPhotoUrl: row.supervisor_profile_img ?? null,
+    });
+  }
+  return map;
+}
+
 function toPermissionTarget(target: TargetWithLineRow | null) {
   if (!target) return null;
   const line = target.cluster4_lines;
@@ -894,6 +967,18 @@ async function fetchLineDetailsByWeek(
   const experienceMasterMetaById =
     await fetchExperienceMasterMetaByIds(experienceMasterIds);
 
+  // career sub-line sponsor-card 메타 (career_project_id → 회사/감독자) 일괄 룩업.
+  const careerProjectIds = Array.from(
+    new Set(
+      relevantTargets
+        .filter((row) => row.cluster4_lines?.part_type === "career")
+        .map((row) => row.cluster4_lines?.career_project_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  );
+  const careerProjectMetaById =
+    await fetchCareerProjectMetaByIds(careerProjectIds);
+
   const now = Date.now();
   for (const weekId of weekIds) {
     // 같은 주차의 user-mode target 만 카드에 매핑한다. 다른 주차의 target 은 절대
@@ -911,6 +996,7 @@ async function fetchLineDetailsByWeek(
         experienceRatingByTargetId,
         experienceMasterMetaById,
         careerGradeByTargetId,
+        careerProjectMetaById,
       );
       if (!base) continue;
       const dbPartType = target.cluster4_lines?.part_type;

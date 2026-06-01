@@ -14,6 +14,7 @@ import {
   CAREER_PROJECTS_WRITE_ROLES,
   parseCareerProjectUpsertBody,
 } from "@/lib/adminCareerProjectsTypes";
+import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 // /api/admin/career-projects/[id]
 //   GET    — 단건 조회 (read roles)
@@ -86,6 +87,9 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
   try {
     const project = await updateCareerProject(id, parsed.value);
+    // 회사/감독자 sponsor-card 메타가 바뀌면 선발 로스터(default_target_user_ids) 사용자들의
+    // weekly-cards snapshot 을 stale 처리한다(다음 조회 lazy 재계산 / cron 보정). best-effort.
+    await markWeeklyCardsSnapshotStaleMany(project.defaultTargetUserIds);
     return Response.json({ success: true, data: { project } });
   } catch (error) {
     if (error instanceof CareerProjectError) {

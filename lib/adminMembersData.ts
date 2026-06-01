@@ -1,11 +1,16 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import {
+  isMemberAssignableRole,
+  MEMBER_ASSIGNABLE_ROLES,
   MEMBER_PATCH_FIELDS,
   ORG_NONE_SENTINEL,
+  PART_UNIQUE_ROLES,
+  TEAM_UNIQUE_ROLES,
   type AdminMemberDto,
   type ListMembersOptions,
   type ListMembersResult,
+  type MemberAssignableRole,
   type MemberPatchField,
   type MemberSortColumn,
   type MemberSortDir,
@@ -16,11 +21,13 @@ import {
 // 브라우저 안전한 상수/타입은 lib/adminMembersTypes.ts 에 분리되어 있다.
 
 export {
+  MEMBER_ASSIGNABLE_ROLES,
   MEMBER_PATCH_FIELDS,
   ORG_NONE_SENTINEL,
   type AdminMemberDto,
   type ListMembersOptions,
   type ListMembersResult,
+  type MemberAssignableRole,
   type MemberPatchField,
   type MemberSortColumn,
   type MemberSortDir,
@@ -35,6 +42,9 @@ const MEMBER_SELECT = [
   "organization_slug",
   "status",
   "growth_status",
+  "role",
+  "current_team_name",
+  "current_part_name",
   "created_at",
   "updated_at",
 ].join(",");
@@ -48,6 +58,9 @@ type MemberRow = {
   organization_slug: string | null;
   status: string | null;
   growth_status: string | null;
+  role: string | null;
+  current_team_name: string | null;
+  current_part_name: string | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -62,6 +75,9 @@ function toDto(row: MemberRow): AdminMemberDto {
     organizationSlug: row.organization_slug,
     status: row.status,
     growthStatus: row.growth_status,
+    role: row.role,
+    currentTeamName: row.current_team_name,
+    currentPartName: row.current_part_name,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -231,6 +247,8 @@ export type MemberPatchInput = Partial<{
   growth_status: string | null;
   contact_email: string | null;
   contact_phone: string | null;
+  // role 은 enum(4종) 검증을 거치므로 nullable-string 화이트리스트와 별도로 다룬다.
+  role: MemberAssignableRole;
 }>;
 
 function coerceNullableString(
@@ -255,18 +273,128 @@ export function pickMemberPatch(body: unknown): MemberPatchInput {
     if (!(key in input)) continue;
     patch[key] = coerceNullableString(input[key], key);
   }
+  // role 은 4종 enum 만 허용. null/미지정은 허용하지 않는다(역할은 항상 1개).
+  if ("role" in input) {
+    const raw = input.role;
+    if (!isMemberAssignableRole(raw)) {
+      throw new MemberPatchError(
+        400,
+        `role must be one of: ${MEMBER_ASSIGNABLE_ROLES.join(", ")}`,
+      );
+    }
+    patch.role = raw;
+  }
   if (Object.keys(patch).length === 0) {
     throw new MemberPatchError(400, "No editable fields provided");
   }
   return patch;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// 유일성 검증.
+//   - team_leader : 같은 (org, current_team_name) 에 1명
+//   - agent / part_leader : 같은 (org, current_team_name, current_part_name) 에 1명
+//     (part_name 이 팀별로 재사용되므로 팀 + 파트를 함께 봐야 한다 →
+//      2026-06-01_member_roles_part_scope_fix.sql 의 부분 유니크 인덱스와 일치)
+// role 은 user_profiles, 팀/파트는 비정규화된 current_* 를 사용한다.
+// DB 의 부분 유니크 인덱스가 최종 방어선이고, 이 함수는 친절한 한국어 409 를 위한 1차 검증.
+// ─────────────────────────────────────────────────────────────────────────
+
+const ROLE_LABEL: Record<MemberAssignableRole, string> = {
+  crew: "크루",
+  agent: "에이전트",
+  part_leader: "파트장",
+  team_leader: "팀장",
+};
+
+async function assertRoleUniqueness(
+  userId: string,
+  role: MemberAssignableRole,
+  org: string | null,
+  currentTeamName: string | null,
+  currentPartName: string | null,
+): Promise<void> {
+  const isPartUnique = (PART_UNIQUE_ROLES as readonly string[]).includes(role);
+  const isTeamUnique = (TEAM_UNIQUE_ROLES as readonly string[]).includes(role);
+  if (!isPartUnique && !isTeamUnique) return; // crew 등은 제한 없음
+
+  // 비교 축이 비어 있으면 유일성 강제 불가 → 통과시킨다.
+  // (NULL 은 부분 유니크 인덱스에서도 충돌하지 않으므로 일관된 동작.)
+  //   team_leader        → current_team_name 필요
+  //   agent/part_leader  → current_team_name + current_part_name 모두 필요
+  if (!currentTeamName) return;
+  if (isPartUnique && !currentPartName) return;
+
+  let query = supabaseAdmin
+    .from("user_profiles")
+    .select("user_id")
+    .eq("role", role)
+    .eq("current_team_name", currentTeamName)
+    .neq("user_id", userId);
+
+  if (isPartUnique) {
+    query = query.eq("current_part_name", currentPartName as string);
+  }
+
+  query = org === null ? query.is("organization_slug", null) : query.eq("organization_slug", org);
+
+  const { data, error } = await query.limit(1);
+  if (error) {
+    throw new MemberPatchError(500, `유일성 검증 실패: ${error.message}`);
+  }
+  if (data && data.length > 0) {
+    const scopeLabel = isTeamUnique
+      ? `팀(${currentTeamName})`
+      : `파트(${currentTeamName} / ${currentPartName})`;
+    throw new MemberPatchError(
+      409,
+      `해당 ${scopeLabel}에는 이미 ${ROLE_LABEL[role]} 역할의 멤버가 있습니다. 한 ${isTeamUnique ? "팀" : "파트"}에는 ${ROLE_LABEL[role]}이 최대 1명만 가능합니다.`,
+    );
+  }
+}
+
 export async function updateMember(
   userId: string,
   patch: MemberPatchInput,
+  actorId?: string | null,
 ): Promise<AdminMemberDto> {
   if (!isUuid(userId)) {
     throw new MemberPatchError(400, "user_id must be a UUID");
+  }
+
+  // role 변경 시: 현재 행을 먼저 읽어 (이전 role / 현재 소속 / org) 를 확보하고
+  // 유일성을 사전 검증한다. (org 가 동시에 바뀌면 새 org 기준으로 검증.)
+  let oldRole: string | null = null;
+  if (patch.role !== undefined) {
+    const { data: current, error: readError } = await supabaseAdmin
+      .from("user_profiles")
+      .select("role,organization_slug,current_team_name,current_part_name")
+      .eq("user_id", userId)
+      .single();
+
+    if (readError || !current) {
+      if (readError?.code === "PGRST116") {
+        throw new MemberPatchError(404, "user_profile not found");
+      }
+      throw new MemberPatchError(
+        500,
+        readError?.message ?? "Failed to read user_profile",
+      );
+    }
+
+    oldRole = (current.role as string | null) ?? null;
+    const effectiveOrg =
+      patch.organization_slug !== undefined
+        ? patch.organization_slug
+        : ((current.organization_slug as string | null) ?? null);
+
+    await assertRoleUniqueness(
+      userId,
+      patch.role,
+      effectiveOrg,
+      (current.current_team_name as string | null) ?? null,
+      (current.current_part_name as string | null) ?? null,
+    );
   }
 
   const { data, error } = await supabaseAdmin
@@ -280,8 +408,38 @@ export async function updateMember(
     if (error?.code === "PGRST116") {
       throw new MemberPatchError(404, "user_profile not found");
     }
+    // 부분 유니크 인덱스 위반 — 동시성/외부 경로로 검증을 빠져나간 경우의 최종 방어.
+    if (error?.code === "23505") {
+      throw new MemberPatchError(
+        409,
+        "같은 파트/팀에 동일 역할 멤버가 이미 존재합니다(유일성 제약 위반).",
+      );
+    }
     throw new MemberPatchError(500, error?.message ?? "Failed to update user_profile");
   }
 
-  return toDto(data as unknown as MemberRow);
+  const dto = toDto(data as unknown as MemberRow);
+
+  // 역할이 실제로 바뀐 경우만 감사 로그 (best-effort — 실패해도 저장은 성공 처리).
+  if (patch.role !== undefined && actorId && dto.role !== oldRole) {
+    const { error: auditError } = await supabaseAdmin
+      .from("user_role_audit")
+      .insert({
+        user_id: userId,
+        old_role: oldRole,
+        new_role: dto.role,
+        changed_by: actorId,
+        reason: "updated via /admin/members",
+      });
+    if (auditError) {
+      console.error("[updateMember] role audit insert failed", {
+        userId,
+        oldRole,
+        newRole: dto.role,
+        error: auditError.message,
+      });
+    }
+  }
+
+  return dto;
 }

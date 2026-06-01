@@ -14,6 +14,11 @@ import {
   outputLinksToLegacySlots,
   parseOutputLinksInput,
 } from "@/lib/cluster4OutputLinks";
+import {
+  type Cluster4OutputImage,
+  parseOutputImagesInput,
+} from "@/lib/cluster4OutputImages";
+import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 type CareerLineCreateBody = {
   career_project_id: string;
@@ -21,7 +26,8 @@ type CareerLineCreateBody = {
   output_link_1: string | null;
   output_link_2: string | null;
   output_links: Cluster4OutputLink[];
-  output_images: string[];
+  // string[] legacy · [{url, caption}] 신규 둘 다 허용 (URL + 캡션 저장).
+  output_images: Cluster4OutputImage[];
   target_user_ids: string[];
   // 어드민/테스트 모드 override — 미지정 시 서버가 current week 로 폴백.
   week_id: string | null;
@@ -63,19 +69,12 @@ function parseBody(
     outputLink2 = trimmed.length > 0 ? trimmed : null;
   }
 
-  const outputImages: string[] = [];
-  if (b.output_images !== undefined && b.output_images !== null) {
-    if (!Array.isArray(b.output_images)) {
-      return { ok: false, status: 400, error: "output_images must be an array" };
-    }
-    for (const item of b.output_images) {
-      if (typeof item !== "string") {
-        return { ok: false, status: 400, error: "output_images items must be strings" };
-      }
-      const trimmed = item.trim();
-      if (trimmed.length > 0) outputImages.push(trimmed);
-    }
+  // output_images — optional. string[] 또는 [{url, caption?}] 둘 다 허용 (info-lines 와 동일).
+  const parsedImages = parseOutputImagesInput(b.output_images);
+  if (!parsedImages.ok) {
+    return { ok: false, status: 400, error: parsedImages.error };
   }
+  const outputImages = parsedImages.value;
 
   // output_links 우선. 미제공 시 레거시 output_link_1/2 로부터 파생. 라인은 슬롯 2개.
   const parsedLinks = parseOutputLinksInput(b.output_links, { maxLinks: 2 });
@@ -412,6 +411,10 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
+
+    // 대상자들의 weekly-cards snapshot 을 stale 처리한다(career 라인이 새로 보이도록).
+    // best-effort — 실패해도 라인 개설 응답은 정상 반환(다음 조회 lazy / cron 이 보정).
+    await markWeeklyCardsSnapshotStaleMany(input.target_user_ids);
 
     return Response.json(
       { success: true, data: { line: lineRow, targets: targets ?? [], targetCount: input.target_user_ids.length } },

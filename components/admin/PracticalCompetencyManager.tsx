@@ -119,9 +119,13 @@ function fmtDateShort(iso: string): string {
   return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}.`;
 }
 
-function ImageUploadSlot({ label, image, onUpload, onRemove, disabled }: {
+function ImageUploadSlot({ label, image, caption, onUpload, onRemove, onCaptionChange, disabled }: {
   label: string; image: UploadedImage | null;
-  onUpload: (img: UploadedImage) => void; onRemove: () => void; disabled: boolean;
+  // 캡션은 이미지와 분리된 독립 state. 업로드 전에도 입력 가능.
+  caption?: string;
+  onUpload: (img: UploadedImage) => void; onRemove: () => void;
+  // 제공 시 캡션 입력 UI 노출 (라인 개설 output_images 전용). 미제공 시 캡션 미노출.
+  onCaptionChange?: (caption: string) => void; disabled: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -155,6 +159,10 @@ function ImageUploadSlot({ label, image, onUpload, onRemove, disabled }: {
             {uploading ? "업로드 중..." : "이미지 업로드"}
           </Button>
         </div>
+      )}
+      {/* 이미지 캡션 — 업로드 전/후 항상 노출. 이미지 없으면 payload 미포함. 비우면 null 저장. */}
+      {onCaptionChange && (
+        <Input value={caption ?? ""} onChange={(e) => onCaptionChange(e.target.value)} placeholder="이미지 캡션을 입력하세요" aria-label={`${label} 캡션`} disabled={disabled} />
       )}
     </div>
   );
@@ -201,6 +209,9 @@ export default function PracticalCompetencyManager() {
   const [lineLabel2, setLineLabel2] = useState("");
   const [lineImage1, setLineImage1] = useState<UploadedImage | null>(null);
   const [lineImage2, setLineImage2] = useState<UploadedImage | null>(null);
+  // 이미지 캡션 — 이미지와 분리된 독립 state (업로드 전에도 입력 가능).
+  const [lineCaption1, setLineCaption1] = useState("");
+  const [lineCaption2, setLineCaption2] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
   // Crew filters
@@ -312,7 +323,7 @@ export default function PracticalCompetencyManager() {
   }, [fetchInitialData]);
 
   // Line opening
-  const resetLineForm = useCallback(() => { setSelectedMasterId(""); setLineLink1(""); setLineLabel1(""); setLineLink2(""); setLineLabel2(""); setLineImage1(null); setLineImage2(null); setSelectedUserIds(new Set()); setCrewSearch(""); setLineFormOpen(false); }, []);
+  const resetLineForm = useCallback(() => { setSelectedMasterId(""); setLineLink1(""); setLineLabel1(""); setLineLink2(""); setLineLabel2(""); setLineImage1(null); setLineImage2(null); setLineCaption1(""); setLineCaption2(""); setSelectedUserIds(new Set()); setCrewSearch(""); setLineFormOpen(false); }, []);
 
   const toggleUser = useCallback((uid: string) => { setSelectedUserIds((prev) => { const n = new Set(prev); if (n.has(uid)) n.delete(uid); else n.add(uid); return n; }); }, []);
   const selectAllFiltered = useCallback(() => { setSelectedUserIds(new Set(filteredCrews.map((c) => c.userId))); }, [filteredCrews]);
@@ -344,7 +355,15 @@ export default function PracticalCompetencyManager() {
 
     setSaving(true); setBanner(null);
     try {
-      const imgs: string[] = []; if (lineImage1) imgs.push(lineImage1.url); if (lineImage2) imgs.push(lineImage2.url);
+      // output_images = [{url, caption}] — 이미지 있는 항목만 포함. 캡션 비우면 null.
+      const imgs: { url: string; caption: string | null }[] = [];
+      for (const [img, cap] of [
+        [lineImage1, lineCaption1],
+        [lineImage2, lineCaption2],
+      ] as const) {
+        if (!img) continue;
+        imgs.push({ url: img.url, caption: cap.trim() ? cap.trim() : null });
+      }
       const payload = {
         competency_line_master_id: selectedMaster.id,
         // output_links 우선 + 레거시 컬럼 backward-compat mirror.
@@ -371,7 +390,7 @@ export default function PracticalCompetencyManager() {
       setBanner({ kind: "success", message: `실무 역량 라인이 생성되었습니다 (대상: ${json.data?.targetCount ?? 0}명)` });
       resetLineForm(); setLineRefreshKey((k) => k + 1); await fetchInitialData();
     } catch { setBanner({ kind: "error", message: "저장 중 오류" }); } finally { setSaving(false); }
-  }, [currentWeek, selectedWeek, selectedWeekId, canOpenSelected, selectedMaster, lineAssetValid, lineAssetCount, lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2, selectedUserIds, resetLineForm, fetchInitialData]);
+  }, [currentWeek, selectedWeek, selectedWeekId, canOpenSelected, selectedMaster, lineAssetValid, lineAssetCount, lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2, lineCaption1, lineCaption2, selectedUserIds, resetLineForm, fetchInitialData]);
 
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
@@ -474,8 +493,8 @@ export default function PracticalCompetencyManager() {
                   <div className="grid gap-3">
                     <div className="space-y-1"><Label className="text-xs text-muted-foreground">Link 1 URL</Label><Input value={lineLink1} onChange={(e) => setLineLink1(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink1.trim() && lineAssetCount >= 2} /><Input value={lineLabel1} onChange={(e) => setLineLabel1(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 1 설명" /></div>
                     <div className="space-y-1"><Label className="text-xs text-muted-foreground">Link 2 URL</Label><Input value={lineLink2} onChange={(e) => setLineLink2(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink2.trim() && lineAssetCount >= 2} /><Input value={lineLabel2} onChange={(e) => setLineLabel2(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 2 설명" /></div>
-                    <ImageUploadSlot label="Image 1" image={lineImage1} onUpload={setLineImage1} onRemove={() => setLineImage1(null)} disabled={!lineImage1 && lineAssetCount >= 2} />
-                    <ImageUploadSlot label="Image 2" image={lineImage2} onUpload={setLineImage2} onRemove={() => setLineImage2(null)} disabled={!lineImage2 && lineAssetCount >= 2} />
+                    <ImageUploadSlot label="Image 1" image={lineImage1} caption={lineCaption1} onUpload={setLineImage1} onRemove={() => { setLineImage1(null); setLineCaption1(""); }} onCaptionChange={setLineCaption1} disabled={!lineImage1 && lineAssetCount >= 2} />
+                    <ImageUploadSlot label="Image 2" image={lineImage2} caption={lineCaption2} onUpload={setLineImage2} onRemove={() => { setLineImage2(null); setLineCaption2(""); }} onCaptionChange={setLineCaption2} disabled={!lineImage2 && lineAssetCount >= 2} />
                   </div>
                 </div>
 

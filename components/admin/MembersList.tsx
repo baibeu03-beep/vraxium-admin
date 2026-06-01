@@ -43,13 +43,15 @@ import {
   ORGANIZATION_LABEL,
   isOrganizationSlug,
 } from "@/lib/organizations";
-import { APP_USER_STATUSES } from "@/lib/adminAppUsersTypes";
+import { ACCOUNT_STATUSES } from "@/lib/adminAppUsersTypes";
+import { GROWTH_STATUSES } from "@/shared/growth.contracts";
 import {
   MEMBER_SORT_COLUMNS,
   isMemberSortColumn,
   type MemberSortColumn,
   type MemberSortDir,
 } from "@/lib/adminMembersTypes";
+import { USER_FACING_ROLE_LABELS } from "@/lib/adminPermissionsTypes";
 import MemberEditDrawer, {
   type EditableMember,
 } from "@/components/admin/MemberEditDrawer";
@@ -64,6 +66,9 @@ type Member = {
   organizationSlug: string | null;
   status: string | null;
   growthStatus: string | null;
+  role: string | null;
+  currentTeamName: string | null;
+  currentPartName: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -73,8 +78,6 @@ const ORG_NONE = "__none__";
 const PRESENCE_HAS = "has";
 const PRESENCE_MISSING = "missing";
 const PAGE_SIZE = 100;
-
-const GROWTH_STATUSES = APP_USER_STATUSES;
 
 function buildColumns(devMode: boolean): { key: MemberSortColumn; label: string }[] {
   return [
@@ -101,6 +104,11 @@ function fmtDate(value: string | null | undefined) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
+}
+
+function roleLabel(role: string | null | undefined) {
+  if (!role) return "미지정";
+  return (USER_FACING_ROLE_LABELS as Record<string, string>)[role] ?? role;
 }
 
 function orgLabel(slug: string | null | undefined) {
@@ -298,6 +306,9 @@ export default function MembersList() {
               growthStatus: updated.growthStatus,
               contactEmail: updated.contactEmail,
               contactPhone: updated.contactPhone,
+              role: updated.role,
+              currentTeamName: updated.currentTeamName,
+              currentPartName: updated.currentPartName,
             }
           : m,
       ),
@@ -491,7 +502,12 @@ export default function MembersList() {
                   return (
                     <TableRow key={member.userId}>
                       <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[220px]">
-                        <div className="truncate font-medium">{fmt(member.displayName)}</div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate font-medium">{fmt(member.displayName)}</span>
+                          <span className="shrink-0 rounded-full border bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                            {roleLabel(member.role)}
+                          </span>
+                        </div>
                         {devMode && (
                           <div className="truncate font-mono text-[10px] text-muted-foreground">
                             {member.userId}
@@ -655,6 +671,9 @@ export default function MembersList() {
                                 growthStatus: member.growthStatus,
                                 contactEmail: member.contactEmail,
                                 contactPhone: member.contactPhone,
+                                role: member.role,
+                                currentTeamName: member.currentTeamName,
+                                currentPartName: member.currentPartName,
                               })
                             }
                             className="rounded-md border bg-foreground px-2 py-1 text-xs text-background hover:opacity-90"
@@ -822,7 +841,7 @@ function PresenceMiniSelect({
 function StatusMiniSelect({
   value,
   onChange,
-  values = APP_USER_STATUSES,
+  values = ACCOUNT_STATUSES,
 }: {
   value: string;
   onChange: (v: string) => void;

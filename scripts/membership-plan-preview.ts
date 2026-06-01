@@ -13,7 +13,12 @@ const supabase = createClient(
 
 interface Slot { team: string; part: string; count: number }
 
-const orankeSlots: Slot[] = [
+// ── 조직 라벨 교정(2026-06-01) ──
+// 이전 버전은 encre↔oranke 라벨이 뒤바뀐 채로 정의되어, encre 유저에게 oranke 팀/파트가,
+// oranke 유저에게 encre 팀/파트가 배정됐다. cluster4_teams 정규 마스터 기준으로 바로잡는다:
+//   encre  = 갤러리 / 비주얼 / 팬마케팅 / 프로듀싱 / A&R
+//   oranke = 스타일 / F&B / 콘텐츠 / 엔터테인먼트 / 커머스
+const encreSlots: Slot[] = [
   { team: "갤러리",   part: "컬쳐",    count: 5 },
   { team: "갤러리",   part: "매거진",   count: 3 },
   { team: "갤러리",   part: "코믹스",   count: 2 },  // 갤러리 소계: 10
@@ -26,7 +31,7 @@ const orankeSlots: Slot[] = [
   { team: "A&R",     part: "일반",    count: 2 },  // A&R 소계: 2
 ];
 
-const encreSlots: Slot[] = [
+const orankeSlots: Slot[] = [
   { team: "스타일",     part: "패션",    count: 3 },
   { team: "스타일",     part: "뷰티",    count: 2 },  // 스타일 소계: 5
   { team: "F&B",       part: "릴스",    count: 3 },

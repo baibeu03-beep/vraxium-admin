@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { ORGANIZATION_COMMON_LABEL } from "@/lib/organizations";
-import { APP_USER_STATUSES } from "@/lib/adminAppUsersTypes";
+import { ACCOUNT_STATUSES } from "@/lib/adminAppUsersTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 type AppUser = {
@@ -299,7 +299,7 @@ export default function AppUsersList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={STATUS_ALL}>전체 상태</SelectItem>
-                  {APP_USER_STATUSES.map((s) => (
+                  {ACCOUNT_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
                       {s}
                     </SelectItem>

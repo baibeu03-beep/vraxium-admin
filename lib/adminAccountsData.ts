@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
+import { recomputeAndStoreWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 import {
   ORGANIZATIONS,
   isOrganizationSlug,
@@ -469,6 +470,17 @@ export async function createAccount(
     console.error("[createAccount] audit insert failed", {
       newUserId,
       error: auditError.message,
+    });
+  }
+
+  // 신규 유저 snapshot 최초 생성(쓰기 시점). uws 가 아직 없으면 빈 카드로 저장되어
+  // 조회 시 miss→fallback(실시간 계산) 대신 hit(빈 배열)로 빠르게 응답된다. best-effort.
+  try {
+    await recomputeAndStoreWeeklyCardsSnapshot(newUserId);
+  } catch (e) {
+    console.warn("[createAccount] initial snapshot create failed (non-fatal)", {
+      newUserId,
+      message: e instanceof Error ? e.message : String(e),
     });
   }
 

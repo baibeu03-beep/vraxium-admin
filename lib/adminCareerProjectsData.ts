@@ -344,6 +344,118 @@ export async function updateCareerProject(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// SPONSOR-META 부분 수정 — sponsor-card 6필드만 갱신한다(나머지 컬럼/career_records 불변).
+//   라인 편집 모달 / 라인 개설 화면에서 기업·감독자 정보를 바로 고칠 때 사용.
+//   full upsert(updateCareerProject)와 달리 6컬럼만 update → job_position/project_name/
+//   line_code/output_*/default_* 등 다른 필드를 절대 건드리지 않는다.
+//   companyName SoT = company_name (supervisor_company fallback 미사용).
+// ─────────────────────────────────────────────────────────────────────────
+
+export type CareerProjectSponsorMetaInput = {
+  companyName: string | null;
+  companyLogoUrl: string | null;
+  supervisorName: string | null;
+  supervisorDepartment: string | null;
+  supervisorPosition: string | null;
+  supervisorProfileImg: string | null;
+};
+
+export type CareerProjectSponsorMetaDto = CareerProjectSponsorMetaInput & {
+  id: string;
+  defaultTargetUserIds: string[];
+};
+
+export async function updateCareerProjectSponsorMeta(
+  id: string,
+  input: CareerProjectSponsorMetaInput,
+): Promise<CareerProjectSponsorMetaDto> {
+  if (!isUuid(id)) {
+    throw new CareerProjectError(400, "id must be a UUID");
+  }
+  // 6컬럼만 부분 update. normalizeText 로 빈 문자열 → null 정규화.
+  const payload = {
+    company_name: normalizeText(input.companyName),
+    company_logo_url: normalizeText(input.companyLogoUrl),
+    supervisor_name: normalizeText(input.supervisorName),
+    supervisor_department: normalizeText(input.supervisorDepartment),
+    supervisor_position: normalizeText(input.supervisorPosition),
+    supervisor_profile_img: normalizeText(input.supervisorProfileImg),
+  };
+  const { data, error } = await supabaseAdmin
+    .from("career_projects")
+    .update(payload)
+    .eq("id", id)
+    .select(
+      "id,company_name,company_logo_url,supervisor_name,supervisor_department,supervisor_position,supervisor_profile_img,default_target_user_ids",
+    )
+    .maybeSingle();
+  if (error) {
+    throw new CareerProjectError(500, error.message);
+  }
+  if (!data) {
+    throw new CareerProjectError(404, "career_project not found");
+  }
+  const row = data as {
+    id: string;
+    company_name: string | null;
+    company_logo_url: string | null;
+    supervisor_name: string | null;
+    supervisor_department: string | null;
+    supervisor_position: string | null;
+    supervisor_profile_img: string | null;
+    default_target_user_ids: unknown;
+  };
+  return {
+    id: row.id,
+    companyName: row.company_name,
+    companyLogoUrl: row.company_logo_url,
+    supervisorName: row.supervisor_name,
+    supervisorDepartment: row.supervisor_department,
+    supervisorPosition: row.supervisor_position,
+    supervisorProfileImg: row.supervisor_profile_img,
+    defaultTargetUserIds: toStringArray(row.default_target_user_ids),
+  };
+}
+
+// sponsor-card 메타 변경 시 stale 처리할 대상자 집합 — 이 프로젝트를 보는 모든 유저.
+//   = 선발 로스터(default_target_user_ids) ∪ 이 프로젝트 라인들의 user-mode target.
+// (career_project 메타는 주차 무관하게 모든 career 라인 카드에 영향을 주므로 합집합으로 무효화.)
+export async function collectCareerProjectTargetUserIds(
+  careerProjectId: string,
+): Promise<string[]> {
+  if (!isUuid(careerProjectId)) return [];
+  const ids = new Set<string>();
+
+  const { data: proj } = await supabaseAdmin
+    .from("career_projects")
+    .select("default_target_user_ids")
+    .eq("id", careerProjectId)
+    .maybeSingle();
+  for (const uid of toStringArray(
+    (proj as { default_target_user_ids: unknown } | null)?.default_target_user_ids,
+  )) {
+    ids.add(uid);
+  }
+
+  const { data: lines } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id")
+    .eq("career_project_id", careerProjectId);
+  const lineIds = ((lines ?? []) as Array<{ id: string }>).map((l) => l.id);
+  if (lineIds.length > 0) {
+    const { data: tgts } = await supabaseAdmin
+      .from("cluster4_line_targets")
+      .select("target_user_id")
+      .in("line_id", lineIds)
+      .eq("target_mode", "user");
+    for (const t of (tgts ?? []) as Array<{ target_user_id: string | null }>) {
+      if (t.target_user_id) ids.add(t.target_user_id);
+    }
+  }
+  return Array.from(ids);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
 // DELETE — career_records 참조가 있으면 차단(409).
 //   career_project_weeks 는 ON DELETE CASCADE 라 정상 정리.
 //   career_records 는 FK 가 없을 수 있어 application 레벨에서 사전 검사한다.

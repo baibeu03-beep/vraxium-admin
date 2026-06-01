@@ -66,9 +66,15 @@ type CareerProjectOption = {
   id: string;
   lineCode: string;
   lineName: string | null;
-  supervisorCompany: string | null;
-  supervisorName: string | null;
+  // 기업명 SoT = career_projects.company_name.
+  companyName: string | null;
+  // companyLogoUrl 는 업로드된 이미지 URL (URL input 값 아님).
   companyLogoUrl: string | null;
+  // sponsor-card 감독자 메타 6필드 — weekly-cards DTO 와 동일.
+  supervisorName: string | null;
+  supervisorDepartment: string | null;
+  supervisorPosition: string | null;
+  supervisorPhotoUrl: string | null;
   defaultMainTitle: string | null;
   defaultOutputLink1: string | null;
   defaultOutputLink2: string | null;
@@ -107,9 +113,13 @@ type CareerProjectDto = {
   id: string;
   lineCode: string | null;
   lineName: string | null;
+  // 기업명 SoT = career_projects.company_name. (supervisor_company 는 sponsor-card 표시에 미사용)
+  companyName: string | null;
   companyLogoUrl: string | null;
-  supervisorCompany: string | null;
   supervisorName: string | null;
+  supervisorDepartment: string | null;
+  supervisorPosition: string | null;
+  supervisorProfileImg: string | null;
   startDate: string | null;
   endDate: string | null;
   defaultMainTitle: string | null;
@@ -180,14 +190,20 @@ function fmtDateShort(iso: string): string {
 function ImageUploadSlot({
   label,
   image,
+  caption,
   onUpload,
   onRemove,
+  onCaptionChange,
   disabled,
 }: {
   label: string;
   image: UploadedImage | null;
+  // 캡션은 이미지와 분리된 독립 state. 업로드 전에도 입력 가능.
+  caption?: string;
   onUpload: (img: UploadedImage) => void;
   onRemove: () => void;
+  // 제공 시 캡션 입력 UI 노출 (라인 개설 output_images 전용). 미제공 시 캡션 미노출.
+  onCaptionChange?: (caption: string) => void;
   disabled: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -264,6 +280,132 @@ function ImageUploadSlot({
           </Button>
         </div>
       )}
+      {/* 이미지 캡션 — 업로드 전/후 항상 노출. 이미지 없으면 payload 미포함. 비우면 null 저장. */}
+      {onCaptionChange && (
+        <Input
+          value={caption ?? ""}
+          onChange={(e) => onCaptionChange(e.target.value)}
+          placeholder="이미지 캡션을 입력하세요"
+          aria-label={`${label} 캡션`}
+          disabled={disabled}
+        />
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Logo Upload Field (단일 URL 문자열 ↔ 이미지 업로드)
+// company_logo_url(text) 그대로 저장. 캡션 없음.
+// ──────────────────────────────────────────────────────────────
+
+function LogoUploadField({
+  value,
+  onChange,
+  onRemove,
+  disabled,
+  label = "기업 로고",
+  required = true,
+  altText = "기업 로고",
+  emptyButtonLabel = "로고 이미지 업로드",
+}: {
+  value: string;
+  onChange: (url: string) => void;
+  onRemove: () => void;
+  disabled?: boolean;
+  // 동일 업로드 패턴을 기업 로고 / 감독자 사진에서 공용으로 쓰기 위한 라벨 커스터마이즈.
+  label?: string;
+  required?: boolean;
+  altText?: string;
+  emptyButtonLabel?: string;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch("/api/admin/cluster4/upload-image", {
+          method: "POST",
+          body: formData,
+        });
+        const json = await res.json();
+        if (!json.success) {
+          alert(json.error || "업로드에 실패했습니다");
+          return;
+        }
+        onChange(json.data.url);
+      } catch {
+        alert("업로드 중 오류가 발생했습니다");
+      } finally {
+        setUploading(false);
+        if (fileRef.current) fileRef.current.value = "";
+      }
+    },
+    [onChange],
+  );
+
+  return (
+    <div className="space-y-1">
+      <Label>{label} {required && <span className="text-red-500">*</span>}</Label>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={handleFileChange}
+        disabled={disabled || uploading}
+      />
+      {value ? (
+        <div className="flex items-center gap-3 rounded-md border p-2">
+          <img
+            src={value}
+            alt={altText}
+            className="h-12 w-12 shrink-0 rounded object-cover"
+          />
+          <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{value}</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0"
+            disabled={disabled || uploading}
+            onClick={() => fileRef.current?.click()}
+          >
+            교체
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="shrink-0"
+            disabled={disabled || uploading}
+            onClick={onRemove}
+          >
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          disabled={disabled || uploading}
+          onClick={() => fileRef.current?.click()}
+        >
+          {uploading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Upload className="mr-2 h-4 w-4" />
+          )}
+          {uploading ? "업로드 중..." : emptyButtonLabel}
+        </Button>
+      )}
     </div>
   );
 }
@@ -328,9 +470,12 @@ export default function PracticalCareerManager() {
   const [rfLineName, setRfLineName] = useState("");
   const [rfStartDate, setRfStartDate] = useState("");
   const [rfEndDate, setRfEndDate] = useState("");
-  const [rfSupervisorCompany, setRfSupervisorCompany] = useState("");
+  const [rfCompanyName, setRfCompanyName] = useState("");
   const [rfCompanyLogo, setRfCompanyLogo] = useState("");
   const [rfSupervisorName, setRfSupervisorName] = useState("");
+  const [rfSupervisorDepartment, setRfSupervisorDepartment] = useState("");
+  const [rfSupervisorPosition, setRfSupervisorPosition] = useState("");
+  const [rfSupervisorPhoto, setRfSupervisorPhoto] = useState("");
   const [rfDefaultTitle, setRfDefaultTitle] = useState("");
   const [rfOutputLink1, setRfOutputLink1] = useState("");
   const [rfOutputLink2, setRfOutputLink2] = useState("");
@@ -354,7 +499,19 @@ export default function PracticalCareerManager() {
   const [lineLabel2, setLineLabel2] = useState("");
   const [lineImage1, setLineImage1] = useState<UploadedImage | null>(null);
   const [lineImage2, setLineImage2] = useState<UploadedImage | null>(null);
+  // 이미지 캡션 — 이미지와 분리된 독립 state (업로드 전에도 입력 가능).
+  const [lineCaption1, setLineCaption1] = useState("");
+  const [lineCaption2, setLineCaption2] = useState("");
   const [lineSelectedUserIds, setLineSelectedUserIds] = useState<Set<string>>(new Set());
+
+  // ── 라인 개설 화면의 기업/감독자(sponsor-card) 편집 state ──
+  // 선택한 career project 의 현재 6필드를 prefill, 수정 후 개설 시 career_projects 에 PATCH.
+  const [loCompanyName, setLoCompanyName] = useState("");
+  const [loCompanyLogo, setLoCompanyLogo] = useState("");
+  const [loSupervisorName, setLoSupervisorName] = useState("");
+  const [loSupervisorDept, setLoSupervisorDept] = useState("");
+  const [loSupervisorPos, setLoSupervisorPos] = useState("");
+  const [loSupervisorPhoto, setLoSupervisorPhoto] = useState("");
 
   // ── Line opening crew filters ──
   const [lineCrewFilterTeam, setLineCrewFilterTeam] = useState("");
@@ -447,8 +604,13 @@ export default function PracticalCareerManager() {
       const teamsJson = await teamsRes.json();
       if (teamsJson.success) setTeams(teamsJson.data);
 
+      // /api/admin/career-projects 응답은 { success, data: { rows, total, ... } } 형태.
+      // rows 는 data.rows 에 있다(과거 projectsJson.rows 직접 참조 → 항상 undefined → 목록이 빈 채로 표시되던 버그).
+      // career_projects 마스터 목록은 개설(cluster4_lines) 여부와 무관하게 그대로 노출한다.
       const projectsJson = await projectsRes.json();
-      if (projectsJson.rows) setProjects(projectsJson.rows);
+      if (projectsJson.success && Array.isArray(projectsJson.data?.rows)) {
+        setProjects(projectsJson.data.rows);
+      }
 
       const optionsJson = await optionsRes.json();
       if (optionsJson.success) {
@@ -509,9 +671,12 @@ export default function PracticalCareerManager() {
     setRfLineName("");
     setRfStartDate("");
     setRfEndDate("");
-    setRfSupervisorCompany("");
+    setRfCompanyName("");
     setRfCompanyLogo("");
     setRfSupervisorName("");
+    setRfSupervisorDepartment("");
+    setRfSupervisorPosition("");
+    setRfSupervisorPhoto("");
     setRfDefaultTitle("");
     setRfOutputLink1("");
     setRfOutputLink2("");
@@ -528,9 +693,12 @@ export default function PracticalCareerManager() {
     setRfLineName(p.lineName ?? "");
     setRfStartDate(p.startDate ?? "");
     setRfEndDate(p.endDate ?? "");
-    setRfSupervisorCompany(p.supervisorCompany ?? "");
+    setRfCompanyName(p.companyName ?? "");
     setRfCompanyLogo(p.companyLogoUrl ?? "");
     setRfSupervisorName(p.supervisorName ?? "");
+    setRfSupervisorDepartment(p.supervisorDepartment ?? "");
+    setRfSupervisorPosition(p.supervisorPosition ?? "");
+    setRfSupervisorPhoto(p.supervisorProfileImg ?? "");
     setRfDefaultTitle(p.defaultMainTitle ?? "");
     setRfOutputLink1(p.defaultOutputLink1 ?? "");
     setRfOutputLink2(p.defaultOutputLink2 ?? "");
@@ -549,7 +717,7 @@ export default function PracticalCareerManager() {
     if (!rfStartDate) { setBanner({ kind: "error", message: "시작일을 입력해주세요" }); return; }
     if (!rfEndDate) { setBanner({ kind: "error", message: "종료일을 입력해주세요" }); return; }
     if (rfEndDate < rfStartDate) { setBanner({ kind: "error", message: "종료일은 시작일 이후여야 합니다" }); return; }
-    if (!rfSupervisorCompany.trim()) { setBanner({ kind: "error", message: "기업명을 입력해주세요" }); return; }
+    if (!rfCompanyName.trim()) { setBanner({ kind: "error", message: "기업명을 입력해주세요" }); return; }
     if (!rfCompanyLogo.trim()) { setBanner({ kind: "error", message: "기업 로고를 등록해주세요" }); return; }
     if (!rfSupervisorName.trim()) { setBanner({ kind: "error", message: "담당자명을 입력해주세요" }); return; }
     if (rfSelectedUserIds.size === 0) { setBanner({ kind: "error", message: "선발 크루를 최소 1명 이상 선택해주세요" }); return; }
@@ -566,9 +734,13 @@ export default function PracticalCareerManager() {
         line_name: rfLineName.trim(),
         start_date: rfStartDate,
         end_date: rfEndDate,
-        supervisor_company: rfSupervisorCompany.trim(),
+        // 기업명 SoT = career_projects.company_name (supervisor_company 아님).
+        company_name: rfCompanyName.trim(),
         company_logo_url: rfCompanyLogo.trim(),
         supervisor_name: rfSupervisorName.trim(),
+        supervisor_department: rfSupervisorDepartment.trim() || null,
+        supervisor_position: rfSupervisorPosition.trim() || null,
+        supervisor_profile_img: rfSupervisorPhoto.trim() || null,
         default_main_title: rfDefaultTitle.trim() || null,
         default_output_link_1: rfOutputLink1.trim() || null,
         default_output_link_2: rfOutputLink2.trim() || null,
@@ -605,7 +777,8 @@ export default function PracticalCareerManager() {
     }
   }, [
     rfLineCode, rfLineName, rfStartDate, rfEndDate,
-    rfSupervisorCompany, rfCompanyLogo, rfSupervisorName,
+    rfCompanyName, rfCompanyLogo, rfSupervisorName,
+    rfSupervisorDepartment, rfSupervisorPosition, rfSupervisorPhoto,
     rfDefaultTitle, rfOutputLink1, rfOutputLink2, rfOutputImage,
     rfSelectedUserIds, rfAssetCount, adminOrg, editingProjectId,
     resetRegForm, fetchInitialData,
@@ -634,8 +807,16 @@ export default function PracticalCareerManager() {
     setLineLabel2("");
     setLineImage1(null);
     setLineImage2(null);
+    setLineCaption1("");
+    setLineCaption2("");
     setLineSelectedUserIds(new Set());
     setLineCrewSearch("");
+    setLoCompanyName("");
+    setLoCompanyLogo("");
+    setLoSupervisorName("");
+    setLoSupervisorDept("");
+    setLoSupervisorPos("");
+    setLoSupervisorPhoto("");
     setLineFormOpen(false);
   }, []);
 
@@ -653,6 +834,16 @@ export default function PracticalCareerManager() {
       setLineImage1(null);
     }
     setLineImage2(null);
+    // default 이미지는 캡션을 저장하지 않으므로 초기화.
+    setLineCaption1("");
+    setLineCaption2("");
+    // 선택한 career project 의 sponsor-card 6필드 prefill (수정 가능).
+    setLoCompanyName(selectedOption.companyName ?? "");
+    setLoCompanyLogo(selectedOption.companyLogoUrl ?? "");
+    setLoSupervisorName(selectedOption.supervisorName ?? "");
+    setLoSupervisorDept(selectedOption.supervisorDepartment ?? "");
+    setLoSupervisorPos(selectedOption.supervisorPosition ?? "");
+    setLoSupervisorPhoto(selectedOption.supervisorPhotoUrl ?? "");
     const validCrewIds = new Set(
       selectedOption.defaultTargetUserIds.filter((uid) =>
         crews.some((c) => c.userId === uid),
@@ -684,6 +875,7 @@ export default function PracticalCareerManager() {
       return;
     }
     if (lineSelectedUserIds.size === 0) { setBanner({ kind: "error", message: "개설 대상을 최소 1명 이상 선택해주세요" }); return; }
+    if (!loCompanyName.trim()) { setBanner({ kind: "error", message: "기업명을 입력해주세요" }); return; }
     const built = buildOutputLinksFromForm([
       { url: lineLink1, label: lineLabel1 },
       { url: lineLink2, label: lineLabel2 },
@@ -694,9 +886,41 @@ export default function PracticalCareerManager() {
     setSaving(true);
     setBanner(null);
     try {
-      const outputImages: string[] = [];
-      if (lineImage1) outputImages.push(lineImage1.url);
-      if (lineImage2) outputImages.push(lineImage2.url);
+      // 1) 기업/감독자(sponsor-card) 6필드를 연결된 career_project 에 먼저 PATCH.
+      //    target/line 생성 로직은 아래에서 기존대로 수행한다(분리 유지).
+      const metaRes = await fetch(
+        `/api/admin/career-projects/${selectedOption.id}/sponsor-meta`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            company_name: loCompanyName.trim() || null,
+            // 로고/사진은 업로드 후 반환 URL 만 저장 (URL input 아님).
+            company_logo_url: loCompanyLogo.trim() || null,
+            supervisor_name: loSupervisorName.trim() || null,
+            supervisor_department: loSupervisorDept.trim() || null,
+            supervisor_position: loSupervisorPos.trim() || null,
+            supervisor_profile_img: loSupervisorPhoto.trim() || null,
+          }),
+        },
+      );
+      const metaJson = await metaRes.json();
+      if (!metaJson.success) {
+        setBanner({ kind: "error", message: metaJson.error ?? "기업/감독자 정보 저장에 실패했습니다" });
+        return;
+      }
+      // output_images = [{url, caption}] — 이미지 있는 항목만 포함. 캡션 비우면 null.
+      const outputImages: { url: string; caption: string | null }[] = [];
+      for (const [img, cap] of [
+        [lineImage1, lineCaption1],
+        [lineImage2, lineCaption2],
+      ] as const) {
+        if (!img) continue;
+        outputImages.push({
+          url: img.url,
+          caption: cap.trim() ? cap.trim() : null,
+        });
+      }
 
       const payload = {
         career_project_id: selectedOption.id,
@@ -738,7 +962,9 @@ export default function PracticalCareerManager() {
     }
   }, [
     currentWeek, selectedWeek, selectedWeekId, selectedOption, lineMainTitle, lineAssetValid, lineAssetCount,
-    lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2, lineSelectedUserIds,
+    lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2,
+    lineCaption1, lineCaption2, lineSelectedUserIds,
+    loCompanyName, loCompanyLogo, loSupervisorName, loSupervisorDept, loSupervisorPos, loSupervisorPhoto,
     resetLineForm, fetchInitialData,
   ]);
 
@@ -977,7 +1203,7 @@ export default function PracticalCareerManager() {
                               {p.companyLogoUrl && (
                                 <img src={p.companyLogoUrl} alt="" className="h-5 w-5 rounded object-cover" />
                               )}
-                              <span className="text-sm">{p.supervisorCompany ?? "-"}</span>
+                              <span className="text-sm">{p.companyName ?? "-"}</span>
                             </div>
                           </TableCell>
                           <TableCell>{p.supervisorName ?? "-"}</TableCell>
@@ -1038,19 +1264,51 @@ export default function PracticalCareerManager() {
                   </div>
                 </div>
 
-                {/* Supervisor */}
-                <div className="grid grid-cols-3 gap-4">
+                {/* 기업 정보 */}
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>기업명 <span className="text-red-500">*</span></Label>
-                    <Input value={rfSupervisorCompany} onChange={(e) => setRfSupervisorCompany(e.target.value)} placeholder="브랙시움" />
+                    <Input value={rfCompanyName} onChange={(e) => setRfCompanyName(e.target.value)} placeholder="브랙시움" />
                   </div>
                   <div className="space-y-2">
-                    <Label>기업 로고 URL <span className="text-red-500">*</span></Label>
-                    <Input value={rfCompanyLogo} onChange={(e) => setRfCompanyLogo(e.target.value)} placeholder="https://..." />
+                    <LogoUploadField
+                      value={rfCompanyLogo}
+                      onChange={setRfCompanyLogo}
+                      onRemove={() => setRfCompanyLogo("")}
+                      disabled={saving}
+                    />
                   </div>
+                </div>
+
+                {/* 감독자 정보 */}
+                <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>담당자명 <span className="text-red-500">*</span></Label>
+                    <Label>감독자명 <span className="text-red-500">*</span></Label>
                     <Input value={rfSupervisorName} onChange={(e) => setRfSupervisorName(e.target.value)} placeholder="김담당" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>감독자 부서 (선택)</Label>
+                    <Input value={rfSupervisorDepartment} onChange={(e) => setRfSupervisorDepartment(e.target.value)} placeholder="마케팅팀" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>감독자 직책 (선택)</Label>
+                    <Input value={rfSupervisorPosition} onChange={(e) => setRfSupervisorPosition(e.target.value)} placeholder="팀장" />
+                  </div>
+                </div>
+
+                {/* 감독자 사진 — 기업 로고와 동일한 업로드 패턴 재사용. 저장 필드: supervisor_profile_img */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <LogoUploadField
+                      value={rfSupervisorPhoto}
+                      onChange={setRfSupervisorPhoto}
+                      onRemove={() => setRfSupervisorPhoto("")}
+                      disabled={saving}
+                      label="감독자 사진 (선택)"
+                      required={false}
+                      altText="감독자 사진"
+                      emptyButtonLabel="감독자 사진 업로드"
+                    />
                   </div>
                 </div>
 
@@ -1231,36 +1489,73 @@ export default function PracticalCareerManager() {
                     <option value="">선택해주세요</option>
                     {careerOptions.map((o) => (
                       <option key={o.id} value={o.id}>
-                        [{o.lineCode}] {o.lineName ?? ""} — {o.supervisorCompany ?? ""}
+                        [{o.lineCode}] {o.lineName ?? ""} — {o.companyName ?? ""}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Auto-populated fields */}
+                {/* 선택한 career project 메타 — 라인 코드/기간은 읽기 전용, 기업/감독자는 편집 가능.
+                    수정 후 개설하면 career_projects 에 PATCH 되고 대상자 weekly-card 가 갱신된다. */}
                 {selectedOption && (
-                  <div className="space-y-3 rounded-md border bg-muted/30 p-4">
+                  <div className="space-y-4 rounded-md border bg-muted/30 p-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">라인 코드</Label>
                         <p className="font-mono text-sm">{selectedOption.lineCode}</p>
                       </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">기업</Label>
-                        <div className="flex items-center gap-2">
-                          {selectedOption.companyLogoUrl && (
-                            <img src={selectedOption.companyLogoUrl} alt="" className="h-5 w-5 rounded object-cover" />
-                          )}
-                          <p className="text-sm">{selectedOption.supervisorCompany ?? "-"} / {selectedOption.supervisorName ?? "-"}</p>
+                      {selectedOption.startDate && selectedOption.endDate && (
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">프로젝트 기간</Label>
+                          <p className="text-sm">{selectedOption.startDate} ~ {selectedOption.endDate}</p>
                         </div>
+                      )}
+                    </div>
+
+                    {/* 기업 정보 (편집) */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs">기업명 <span className="text-red-500">*</span></Label>
+                        <Input value={loCompanyName} onChange={(e) => setLoCompanyName(e.target.value)} placeholder="기업명" />
+                      </div>
+                      <LogoUploadField
+                        value={loCompanyLogo}
+                        onChange={setLoCompanyLogo}
+                        onRemove={() => setLoCompanyLogo("")}
+                        disabled={saving}
+                      />
+                    </div>
+
+                    {/* 감독자 정보 (편집) */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-xs">감독자명</Label>
+                        <Input value={loSupervisorName} onChange={(e) => setLoSupervisorName(e.target.value)} placeholder="김담당" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">감독자 부서</Label>
+                        <Input value={loSupervisorDept} onChange={(e) => setLoSupervisorDept(e.target.value)} placeholder="마케팅팀" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">감독자 직책</Label>
+                        <Input value={loSupervisorPos} onChange={(e) => setLoSupervisorPos(e.target.value)} placeholder="팀장" />
                       </div>
                     </div>
-                    {selectedOption.startDate && selectedOption.endDate && (
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">프로젝트 기간</Label>
-                        <p className="text-sm">{selectedOption.startDate} ~ {selectedOption.endDate}</p>
-                      </div>
-                    )}
+                    <div className="grid grid-cols-2 gap-4">
+                      <LogoUploadField
+                        value={loSupervisorPhoto}
+                        onChange={setLoSupervisorPhoto}
+                        onRemove={() => setLoSupervisorPhoto("")}
+                        disabled={saving}
+                        label="감독자 사진 (선택)"
+                        required={false}
+                        altText="감독자 사진"
+                        emptyButtonLabel="감독자 사진 업로드"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      기업/감독자 정보는 연결된 경력 프로젝트에 저장됩니다(개설 시 함께 반영).
+                    </p>
                   </div>
                 )}
 
@@ -1299,15 +1594,19 @@ export default function PracticalCareerManager() {
                     <ImageUploadSlot
                       label="Image 1"
                       image={lineImage1}
+                      caption={lineCaption1}
                       onUpload={setLineImage1}
-                      onRemove={() => setLineImage1(null)}
+                      onRemove={() => { setLineImage1(null); setLineCaption1(""); }}
+                      onCaptionChange={setLineCaption1}
                       disabled={!lineImage1 && lineAssetCount >= 2}
                     />
                     <ImageUploadSlot
                       label="Image 2"
                       image={lineImage2}
+                      caption={lineCaption2}
                       onUpload={setLineImage2}
-                      onRemove={() => setLineImage2(null)}
+                      onRemove={() => { setLineImage2(null); setLineCaption2(""); }}
+                      onCaptionChange={setLineCaption2}
                       disabled={!lineImage2 && lineAssetCount >= 2}
                     />
                   </div>

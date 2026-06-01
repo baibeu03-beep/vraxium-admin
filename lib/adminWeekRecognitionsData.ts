@@ -25,6 +25,10 @@ import type {
   WeekResultPublishResult,
 } from "@/lib/adminWeekRecognitionsTypes";
 import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
+import {
+  refreshWeeklyCardsSnapshotSafe,
+  recomputeWeeklyCardsSnapshotsForUsers,
+} from "@/lib/cluster4WeeklyCardsSnapshot";
 
 // 안전 상한. 앱 규모상 충분하지만 무한정 로드를 막기 위해 캡을 둔다.
 const MAX_ROWS = 5000;
@@ -433,6 +437,9 @@ export async function updateWeekRecognition(
     updated_at: row.updated_at ?? null,
   };
 
+  // 쓰기 시점 snapshot 갱신: uws 변경 → 해당 사용자 카드 즉시 재계산(best-effort, 롤백 안 함).
+  await refreshWeeklyCardsSnapshotSafe(row.user_id);
+
   // 해당 사용자만 user_growth_stats 재집계. 실패해도 status 수정은 유지(롤백 안 함).
   try {
     const stats = await recalcUserGrowthStats(row.user_id);
@@ -537,12 +544,52 @@ export async function publishWeekResult(
       : row.iso_week != null
         ? `${row.iso_week}주(ISO)`
         : "주차 미지정";
+
+  // 쓰기 시점 snapshot 갱신: 공표로 해당 주차 카드가 tallying→success/fail 로 전환되므로,
+  // 그 주차 참여자(user_week_statuses 보유) 전원의 snapshot 을 즉시 재계산한다.
+  // best-effort — 실패해도 공표(weeks.result_published_at)는 롤백하지 않고 로그만 남긴다.
+  let snapshotRecompute: WeekResultPublishResult["snapshot_recompute"];
+  try {
+    const startDate = row.start_date;
+    if (startDate) {
+      const { data: parts } = await supabaseAdmin
+        .from("user_week_statuses")
+        .select("user_id")
+        .eq("week_start_date", startDate);
+      const userIds = Array.from(
+        new Set(
+          ((parts ?? []) as { user_id: string }[]).map((p) => p.user_id),
+        ),
+      );
+      const r = await recomputeWeeklyCardsSnapshotsForUsers(userIds, {
+        concurrency: 3,
+      });
+      snapshotRecompute = {
+        requested: r.requested,
+        recomputed: r.recomputed,
+        failed: r.failed,
+      };
+      if (r.failed > 0) {
+        console.warn("[publish-result] snapshot recompute partial fail", {
+          weekId: row.id,
+          failedUserIds: r.failedUserIds,
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("[publish-result] snapshot recompute hook failed (publish kept)", {
+      weekId: row.id,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   return {
     week_id: row.id,
     week_label: label,
     week_start_date: row.start_date ?? null,
     week_end_date: row.end_date ?? null,
     result_published_at: row.result_published_at ?? nowIso,
+    snapshot_recompute: snapshotRecompute,
   };
 }
 

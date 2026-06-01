@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { refreshWeeklyCardsSnapshotSafe } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 // 시즌 전체 휴식 신청 검증 + 실행 — server-only.
 //
@@ -98,6 +99,9 @@ export async function requestSeasonRest(
       .from("user_growth_stats")
       .update({ approved_weeks: successCount, cumulative_weeks: totalCount })
       .eq("user_id", userId);
+
+    // 쓰기 시점 snapshot 갱신: 1주차가 personal_rest 로 바뀌어 카드가 변하므로 즉시 재계산.
+    await refreshWeeklyCardsSnapshotSafe(userId);
   }
 
   return { ok: true, seasonKey, requestedAt };
@@ -143,6 +147,9 @@ export async function convertRemainingToPersonalRest(
     .from("user_growth_stats")
     .update({ approved_weeks: successCount, cumulative_weeks: totalCount })
     .eq("user_id", userId);
+
+  // 쓰기 시점 snapshot 갱신: 남은 주차가 personal_rest 로 바뀌어 카드가 변하므로 즉시 재계산.
+  await refreshWeeklyCardsSnapshotSafe(userId);
 
   return { converted: ids.length };
 }

@@ -6,6 +6,7 @@ import {
   listCareerEvaluationTargetsForLine,
   upsertCareerEvaluation,
 } from "@/lib/adminCareerEvaluationsData";
+import { markWeeklyCardsSnapshotStale } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 // GET /api/admin/cluster4/career-evaluations?line_id=<uuid>
 // 평가 탭 로드용 — career 라인의 user-mode 대상자별 현재 평점.
@@ -78,6 +79,9 @@ export async function POST(request: NextRequest) {
       admin.userId,
       new Date().toISOString(),
     );
+    // 평가 저장/수정으로 careerGrade/careerGradePoints/enhancementStatus 가 바뀌므로
+    // 해당 대상자의 weekly-cards snapshot 을 stale 처리한다. best-effort(throw 안 함).
+    await markWeeklyCardsSnapshotStale(b.user_id);
     return Response.json({ success: true, data: { evaluation } }, { status: 200 });
   } catch (error) {
     if (error instanceof CareerEvaluationError) {

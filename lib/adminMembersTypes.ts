@@ -11,9 +11,37 @@ export type AdminMemberDto = {
   organizationSlug: string | null;
   status: string | null;
   growthStatus: string | null;
+  role: string | null;
+  // user_memberships(is_current=true) 의 비정규화 값 (읽기 전용 — 트리거가 동기화).
+  currentTeamName: string | null;
+  currentPartName: string | null;
   createdAt: string | null;
   updatedAt: string | null;
 };
+
+// 멤버 관리 UI/API 에서 지정 가능한 역할 4종.
+// user_profiles.role CHECK(7종) 의 부분집합이며, ambassador/admin/super_admin 은
+// 기존 시스템 보존용이라 이 화면에서는 다루지 않는다(노출/지정 모두 불가).
+export const MEMBER_ASSIGNABLE_ROLES = [
+  "crew", // 일반 멤버
+  "agent",
+  "part_leader",
+  "team_leader",
+] as const;
+export type MemberAssignableRole = (typeof MEMBER_ASSIGNABLE_ROLES)[number];
+
+export function isMemberAssignableRole(
+  value: unknown,
+): value is MemberAssignableRole {
+  return (
+    typeof value === "string" &&
+    (MEMBER_ASSIGNABLE_ROLES as readonly string[]).includes(value)
+  );
+}
+
+// 같은 파트/팀 안에서 최대 1명만 허용되는 역할 (유일성 검증 대상).
+export const PART_UNIQUE_ROLES = ["agent", "part_leader"] as const;
+export const TEAM_UNIQUE_ROLES = ["team_leader"] as const;
 
 // 정렬 가능한 컬럼 whitelist. 임의 컬럼명을 그대로 order() 에 넘기지 않는다.
 export const MEMBER_SORT_COLUMNS = [

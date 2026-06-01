@@ -177,7 +177,9 @@ type ExperienceDraftDto = {
   outputLink1: string | null;
   outputLink2: string | null;
   outputLinks: Cluster4OutputLink[];
+  // outputImages 와 index 정렬 일치하는 캡션. 캡션 없으면 null.
   outputImages: string[];
+  outputImageCaptions: (string | null)[];
   rating: number | null;
   memo: string | null;
   inputStatus: "draft" | "submitted";
@@ -245,14 +247,20 @@ function urlToImage(url: string): UploadedImage {
 function ImageUploadSlot({
   label,
   image,
+  caption,
   onUpload,
   onRemove,
+  onCaptionChange,
   disabled,
 }: {
   label: string;
   image: UploadedImage | null;
+  // 캡션은 이미지와 분리된 독립 state. 업로드 전에도 입력 가능.
+  caption?: string;
   onUpload: (img: UploadedImage) => void;
   onRemove: () => void;
+  // 제공 시 캡션 입력 UI 노출 (draft output_images 전용). 미제공 시 캡션 미노출.
+  onCaptionChange?: (caption: string) => void;
   disabled: boolean;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -330,6 +338,16 @@ function ImageUploadSlot({
             {uploading ? "업로드 중..." : "이미지 업로드"}
           </Button>
         </div>
+      )}
+      {/* 이미지 캡션 — 업로드 전/후 항상 노출. 이미지 없으면 payload 미포함. 비우면 null 저장. */}
+      {onCaptionChange && (
+        <Input
+          value={caption ?? ""}
+          onChange={(e) => onCaptionChange(e.target.value)}
+          placeholder="이미지 캡션을 입력하세요"
+          aria-label={`${label} 캡션`}
+          disabled={disabled}
+        />
       )}
     </div>
   );
@@ -534,6 +552,9 @@ export default function PracticalExperienceManager() {
   const [dfLabel2, setDfLabel2] = useState("");
   const [dfImage1, setDfImage1] = useState<UploadedImage | null>(null);
   const [dfImage2, setDfImage2] = useState<UploadedImage | null>(null);
+  // 이미지 캡션 — 이미지와 분리된 독립 state (업로드 전에도 입력 가능).
+  const [dfCaption1, setDfCaption1] = useState("");
+  const [dfCaption2, setDfCaption2] = useState("");
   const [dfRating, setDfRating] = useState<string>("");
   const [dfMemo, setDfMemo] = useState("");
 
@@ -978,6 +999,8 @@ export default function PracticalExperienceManager() {
     setDfLabel2("");
     setDfImage1(null);
     setDfImage2(null);
+    setDfCaption1("");
+    setDfCaption2("");
     setDfRating("");
     setDfMemo("");
     setDraftFormOpen(false);
@@ -999,6 +1022,8 @@ export default function PracticalExperienceManager() {
     setDfLabel2(d.outputLinks[1]?.label ?? "");
     setDfImage1(d.outputImages[0] ? urlToImage(d.outputImages[0]) : null);
     setDfImage2(d.outputImages[1] ? urlToImage(d.outputImages[1]) : null);
+    setDfCaption1(d.outputImageCaptions?.[0] ?? "");
+    setDfCaption2(d.outputImageCaptions?.[1] ?? "");
     setDfRating(d.rating !== null ? String(d.rating) : "");
     setDfMemo(d.memo ?? "");
     setDraftFormOpen(true);
@@ -1061,9 +1086,18 @@ export default function PracticalExperienceManager() {
       }
       const outputLinks = built.value;
 
-      const outputImages: string[] = [];
-      if (dfImage1) outputImages.push(dfImage1.url);
-      if (dfImage2) outputImages.push(dfImage2.url);
+      // output_images = [{url, caption}] — 이미지 있는 항목만 포함. 캡션 비우면 null.
+      const outputImages: { url: string; caption: string | null }[] = [];
+      for (const [img, cap] of [
+        [dfImage1, dfCaption1],
+        [dfImage2, dfCaption2],
+      ] as const) {
+        if (!img) continue;
+        outputImages.push({
+          url: img.url,
+          caption: cap.trim() ? cap.trim() : null,
+        });
+      }
       const rating = dfRating === "" ? null : Number(dfRating);
 
       setSaving(true);
@@ -1163,6 +1197,8 @@ export default function PracticalExperienceManager() {
       selectedDraftMaster,
       dfImage1,
       dfImage2,
+      dfCaption1,
+      dfCaption2,
       dfLink1,
       dfLabel1,
       dfLink2,
@@ -2024,8 +2060,10 @@ export default function PracticalExperienceManager() {
                     <ImageUploadSlot
                       label="Output Image 1"
                       image={dfImage1}
+                      caption={dfCaption1}
                       onUpload={setDfImage1}
-                      onRemove={() => setDfImage1(null)}
+                      onRemove={() => { setDfImage1(null); setDfCaption1(""); }}
+                      onCaptionChange={setDfCaption1}
                       disabled={
                         saving || draftReadonly || (!dfImage1 && dfAssetCount >= 2)
                       }
@@ -2033,8 +2071,10 @@ export default function PracticalExperienceManager() {
                     <ImageUploadSlot
                       label="Output Image 2"
                       image={dfImage2}
+                      caption={dfCaption2}
                       onUpload={setDfImage2}
-                      onRemove={() => setDfImage2(null)}
+                      onRemove={() => { setDfImage2(null); setDfCaption2(""); }}
+                      onCaptionChange={setDfCaption2}
                       disabled={
                         saving || draftReadonly || (!dfImage2 && dfAssetCount >= 2)
                       }

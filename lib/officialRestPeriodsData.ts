@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import { describeWeekByStartMs } from "@/lib/cluster4WeekPolicy";
+import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 import {
   matchOfficialRestPeriods,
   resolveOfficialRest,
@@ -172,6 +173,49 @@ export async function getOfficialRestPeriod(
   return toDto(data as OfficialRestPeriodRow);
 }
 
+// 공식 휴식 기간 변경은 날짜 overlap 으로 다수(전역) 사용자의 카드 판정에 영향을 준다.
+// ⚠ 이번 단계(cron 제거)에서는 즉시 전체 recompute 를 하지 않는다(대량 비용). 대신 영향 주차
+//   범위에 속한 사용자의 snapshot 을 markStale 만 하고 warning 을 남긴다.
+// 수동 재계산(6-C 구현됨): cron 이 제거되어 stale 표시만으로는 자동 재생성되지 않으므로,
+//   운영자가 관리자 화면 '영향 대상 재계산' 버튼 또는
+//   POST /api/admin/cluster4/recompute-official-rest-snapshots 로 재계산한다.
+async function markOfficialRestAffectedSnapshotsStale(
+  startDate: string,
+  endDate: string,
+  reason: "create" | "update" | "delete",
+): Promise<void> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("user_week_statuses")
+      .select("user_id")
+      .gte("week_start_date", startDate)
+      .lte("week_start_date", endDate);
+    if (error) {
+      console.warn("[official-rest-periods] affected scan failed", {
+        reason,
+        message: error.message,
+      });
+      return;
+    }
+    const userIds = Array.from(
+      new Set(((data ?? []) as { user_id: string }[]).map((r) => r.user_id)),
+    );
+    if (userIds.length === 0) return;
+    await markWeeklyCardsSnapshotStaleMany(userIds);
+    console.warn(
+      `[official-rest-periods] ${reason}: 영향 사용자 ${userIds.length}명 snapshot 을 stale 처리함. ` +
+        `cron 제거됨 → 자동 재생성 안 됨. 관리자 화면 '영향 대상 재계산' 버튼 또는 ` +
+        `POST /api/admin/cluster4/recompute-official-rest-snapshots ` +
+        `(start_date=${startDate}, end_date=${endDate}) 로 수동 재계산하세요.`,
+    );
+  } catch (e) {
+    console.warn("[official-rest-periods] markAffected stale failed (non-fatal)", {
+      reason,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
 export async function createOfficialRestPeriod(
   input: OfficialRestPeriodUpsertInput,
 ): Promise<OfficialRestPeriodDto> {
@@ -189,7 +233,9 @@ export async function createOfficialRestPeriod(
     .single();
 
   if (error) throw mapWriteError(error);
-  return toDto(data as OfficialRestPeriodRow);
+  const dto = toDto(data as OfficialRestPeriodRow);
+  await markOfficialRestAffectedSnapshotsStale(dto.startDate, dto.endDate, "create");
+  return dto;
 }
 
 export async function updateOfficialRestPeriod(
@@ -221,18 +267,32 @@ export async function updateOfficialRestPeriod(
 
   if (error) throw mapWriteError(error);
   if (!data) throw new OfficialRestPeriodError(404, "공식 휴식 기간을 찾을 수 없습니다");
-  return toDto(data as OfficialRestPeriodRow);
+  const dto = toDto(data as OfficialRestPeriodRow);
+  // 갱신된 범위 기준 영향 대상 markStale. (날짜를 옮긴 경우 옛 범위 사용자는 누락될 수 있으므로
+  //  TODO(6-C) 수동 재계산 시 전체 범위를 함께 처리할 것.)
+  await markOfficialRestAffectedSnapshotsStale(dto.startDate, dto.endDate, "update");
+  return dto;
 }
 
 export async function deleteOfficialRestPeriod(id: string): Promise<void> {
   if (!isUuid(id)) {
     throw new OfficialRestPeriodError(400, "Invalid id");
   }
+  // 삭제 전 날짜 범위 확보(영향 대상 markStale 용).
+  const { data: existing } = await supabaseAdmin
+    .from("official_rest_periods")
+    .select("start_date,end_date")
+    .eq("id", id)
+    .maybeSingle();
   const { error } = await supabaseAdmin
     .from("official_rest_periods")
     .delete()
     .eq("id", id);
   if (error) throw new OfficialRestPeriodError(500, error.message);
+  const row = existing as { start_date: string; end_date: string } | null;
+  if (row) {
+    await markOfficialRestAffectedSnapshotsStale(row.start_date, row.end_date, "delete");
+  }
 }
 
 // CHECK 제약(date 순서/type) 위반 등은 400 으로 안내, 그 외는 그대로 500.

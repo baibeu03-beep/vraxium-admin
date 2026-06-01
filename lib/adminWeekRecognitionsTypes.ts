@@ -135,4 +135,11 @@ export type WeekResultPublishResult = {
   week_start_date: string | null;
   week_end_date: string | null;
   result_published_at: string;
+  // 공표 직후 해당 주차 참여자 snapshot 재계산 결과(쓰기 시점 갱신). best-effort —
+  // 실패해도 공표는 유지되며, 이 필드는 운영 안내용(optional, append-only).
+  snapshot_recompute?: {
+    requested: number;
+    recomputed: number;
+    failed: number;
+  };
 };

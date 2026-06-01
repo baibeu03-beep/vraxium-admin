@@ -114,7 +114,60 @@ export type Cluster4InfoLineDetail = Cluster4LineDto & {
   pendingCount: number;
   canEditCount: number;
   targets: Cluster4InfoLineTargetDetail[];
+  // career part 전용 sponsor-card 메타 — 연결된 career_projects 의 읽기 전용 표시값.
+  // source = career_projects (companyName 은 company_name 기준, supervisor_company fallback 미사용).
+  // 비career 라인이거나 미연결이면 전부 null. weekly-cards DTO 의 6필드와 동일 의미.
+  careerProjectId: string | null;
+  companyName: string | null;
+  companyLogoUrl: string | null;
+  supervisorName: string | null;
+  supervisorDepartment: string | null;
+  supervisorPosition: string | null;
+  supervisorPhotoUrl: string | null;
+  // ── 라인 개설 역할별 진행 상태 + 담당자 기록 (career 전용, append-only) ──────
+  // 운영 정책: 파트장(입력) → 에이전트(검수) → 팀장(개설). 시간/순서/권한 강제 없음.
+  // 비career 라인이거나 미처리 단계는 전부 null / "input_pending".
+  // 담당자 이름은 admin_users.email (display name 컬럼 부재) 기준 표시값.
+  inputCompletedAt: string | null;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  reviewedByName: string | null;
+  openedAt: string | null;
+  openedBy: string | null;
+  openedByName: string | null;
+  // created_by(= 최초 입력자)의 표시 이름. createdBy(id)는 Cluster4LineDto 에 이미 존재.
+  createdByName: string | null;
+  workflowStatus: Cluster4LineWorkflowStatus;
 };
+
+// 라인 개설 진행 상태 — 저장하지 않고 timestamp 조합으로 파생.
+//   opened_at → "opened" · reviewed_at → "reviewed" · input_completed_at → "input_done" · else "input_pending"
+export type Cluster4LineWorkflowStatus =
+  | "input_pending"
+  | "input_done"
+  | "reviewed"
+  | "opened";
+
+// 워크플로 단계 전이 액션 (POST /api/admin/cluster4/lines/[id]/workflow).
+export type Cluster4LineWorkflowAction =
+  | "input_complete"
+  | "review_complete"
+  | "open";
+
+export const CLUSTER4_LINE_WORKFLOW_ACTIONS = [
+  "input_complete",
+  "review_complete",
+  "open",
+] as const;
+
+export function isCluster4LineWorkflowAction(
+  value: unknown,
+): value is Cluster4LineWorkflowAction {
+  return (
+    typeof value === "string" &&
+    (CLUSTER4_LINE_WORKFLOW_ACTIONS as readonly string[]).includes(value)
+  );
+}
 
 export type ListCluster4InfoLinesDetailedResult = {
   rows: Cluster4InfoLineDetail[];

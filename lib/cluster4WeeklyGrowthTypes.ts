@@ -4,16 +4,25 @@
 // DB 저장값 4종 + 런타임 2종 = 총 6종 통합.
 //   DB: success, fail, personal_rest, official_rest
 //   런타임: running (진행 중), tallying (집계 중)
+//
+// 주차 결과 상태/라벨의 단일 출처는 shared/growth.contracts.ts 다.
+// 아래는 기존 export 이름을 유지한 채 공통 contract 를 재참조한다(값 불변).
 // ─────────────────────────────────────────────────────────────────────
 
+import type {
+  WeekDbStatusKey,
+  WeekRuntimeStatusKey,
+  WeekResultStatusKey,
+} from "@/shared/growth.contracts";
+
 // DB에 저장되는 주차 결과 상태 (user_week_statuses.status)
-export type WeekDbStatus = "success" | "fail" | "personal_rest" | "official_rest";
+export type WeekDbStatus = WeekDbStatusKey;
 
 // 런타임 전용 상태 (현재 주차 판별용)
-export type WeekRuntimeStatus = "running" | "tallying";
+export type WeekRuntimeStatus = WeekRuntimeStatusKey;
 
 // 통합 6종 상태
-export type WeekResultStatus = WeekDbStatus | WeekRuntimeStatus;
+export type WeekResultStatus = WeekResultStatusKey;
 
 // 현재 주차 진행 상태 (기존 호환)
 export type WeeklyGrowthStatus = "running" | "official_rest" | "transition";
@@ -31,14 +40,8 @@ export type EndStatus = "completed" | "stopped" | "in_progress";
 // 상태 라벨 매핑 (6종 통합)
 // ─────────────────────────────────────────────────────────────────────
 
-export const WEEK_STATUS_LABEL: Record<WeekResultStatus, string> = {
-  running: "성장(진행 중)",
-  tallying: "성장(집계 중)",
-  success: "성장(성공)",
-  fail: "성장(실패)",
-  personal_rest: "휴식(개인)",
-  official_rest: "휴식(공식)",
-};
+// 공통 contract 재노출 (값/이름 불변). 단일 출처: shared/growth.contracts.ts
+export { WEEK_RESULT_LABELS as WEEK_STATUS_LABEL } from "@/shared/growth.contracts";
 
 export const WEEK_STATUS_STYLE: Record<
   WeekResultStatus,

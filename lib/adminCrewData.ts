@@ -27,6 +27,7 @@ type UserProfileRow = {
   school_name: string | null;
   department_name: string | null;
   organization_slug: string | null;
+  role: string | null;
   updated_at: string | null;
 };
 
@@ -110,6 +111,7 @@ export type AdminCrewDto = {
   approvedWeeks: number | null;
   cumulativeWeeks: number | null;
   organizationSlug: string | null;
+  role: string | null;
   profilePhotoUrl: string | null;
   isVisible: boolean;
   adminNote: string | null;
@@ -131,6 +133,7 @@ const PROFILE_SELECT = [
   "school_name",
   "department_name",
   "organization_slug",
+  "role",
   "updated_at",
 ].join(",");
 
@@ -404,6 +407,7 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
       approvedWeeks,
       cumulativeWeeks,
       organizationSlug: profile.organization_slug ?? null,
+      role: profile.role ?? null,
       profilePhotoUrl: profile.profile_photo_url ?? null,
       isVisible: legacy?.is_visible ?? true,
       adminNote: legacy?.admin_note ?? null,

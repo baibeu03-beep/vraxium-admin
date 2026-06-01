@@ -4,13 +4,20 @@ import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import { getGraduationThreshold, getPointLabels } from "@/lib/pointLabels";
 import {
   GROWTH_DISPLAY_LABELS,
-  type GrowthDisplayKey,
   type GrowthIndicatorsDto,
   type GrowthIndicatorsInternal,
   type GrowthPeriod,
   type GrowthPointLabeled,
   type GrowthProcess,
 } from "@/lib/cluster3GrowthTypes";
+// Growth Core 통일(5-B-1): 주차 결과/지표/상태를 cluster4 와 동일한 ResolvedWeek 기반으로 산출.
+// 6-A: ResolvedWeek 소스를 snapshot-first 로 — cluster4_weekly_card_snapshots.cards 를 먼저 읽고,
+//   없거나 invalid 하면 getWeeklyGrowth 로 fallback 한다(고객 stats-cards 핫패스 무거운 계산 회피).
+import { getWeeklyGrowth } from "@/lib/cluster4WeeklyGrowthData";
+import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
+import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
+import { foldGrowthMetrics, resolveGrowthStatus } from "@/lib/growthCore";
+import type { WeekResultStatusKey } from "@/shared/growth.contracts";
 
 // Cluster3 성장 지표 계산 — server-only.
 
@@ -113,27 +120,70 @@ function getCurrentISOWeek(): { year: number; week: number } {
 //   2. a >= threshold && active → "추가 성장 중"
 //   1. active                   → "성장 중"
 
-function resolveDisplayKey(
-  dbStatus: string | null,
-  currentWeekStatus: string | null,
-  a: number,
-  h: number,
-  graduationThreshold: number | null,
-): GrowthDisplayKey {
-  switch (dbStatus) {
-    case "graduated": return "graduated";
-    case "suspended": return "suspended";
-    case "paused": return "paused";
-    case "graduating": return "graduating";
-    case "seasonal_rest": return "seasonal_rest";
-    case "weekly_rest": return "weekly_rest";
-  }
+// 성장 상태 10종 판정 SoT = growthCore.resolveGrowthStatus (이 파일은 로컬 판정 함수를 두지 않는다).
 
-  // DB status = active (또는 null) → 계산 상태로 분기
-  if (currentWeekStatus === "official_rest") return "official_rest";
-  if (h <= 1) return "onboarding";
-  if (graduationThreshold !== null && a >= graduationThreshold) return "extra_growth";
-  return "active";
+// ─── ResolvedWeek 소스 (snapshot-first, fallback=getWeeklyGrowth) ───
+//
+// buildIndicators 가 fold 에 쓰는 최소 필드만 담은 정규형. snapshot(public DTO)·
+// fallback(internal DTO) 어느 쪽이든 동일 shape 로 정규화한다.
+//   resultStatus = card status(6종) / isTransition = isTransitionWeekStart(startDate) 재계산.
+type ResolvedCardLite = {
+  resultStatus: WeekResultStatusKey;
+  startDate: string;
+  endDate: string;
+  isTransition: boolean;
+};
+
+const WEEK_RESULT_STATUS_SET = new Set<string>([
+  "running",
+  "tallying",
+  "success",
+  "fail",
+  "personal_rest",
+  "official_rest",
+]);
+
+// snapshot public 카드 → ResolvedCardLite. shape 부족(필드 누락/상태값 비정상)이면 null → fallback.
+function snapshotCardsToLite(
+  cards: Cluster4WeeklyCardDto[],
+): ResolvedCardLite[] | null {
+  const lite: ResolvedCardLite[] = [];
+  for (const c of cards) {
+    if (typeof c.startDate !== "string" || typeof c.endDate !== "string") {
+      return null;
+    }
+    if (!WEEK_RESULT_STATUS_SET.has(c.userWeekStatus)) return null;
+    lite.push({
+      resultStatus: c.userWeekStatus,
+      startDate: c.startDate,
+      endDate: c.endDate,
+      // 내부 카드의 isTransition 과 동일 산식(isTransitionWeekStart(startDate)).
+      isTransition: isTransitionWeekStart(c.startDate),
+    });
+  }
+  return lite;
+}
+
+// 1순위: snapshot.cards (무거운 계산 0). 2순위: getWeeklyGrowth fallback.
+//   hit → 사용(빈 배열이어도 fresh 진실). stale → 비어있지 않을 때만 사용(placeholder[] 회피).
+//   miss/error/shape부족/placeholder → fallback.
+async function getResolvedCardsForUser(
+  userId: string,
+): Promise<{ cards: ResolvedCardLite[]; source: "snapshot" | "fallback" }> {
+  const snap = await readWeeklyCardsSnapshot(userId);
+  if (snap.status === "hit" || (snap.status === "stale" && snap.cards.length > 0)) {
+    const lite = snapshotCardsToLite(snap.cards);
+    if (lite) return { cards: lite, source: "snapshot" };
+  }
+  // fallback: 실시간 계산(무겁다). snapshot 백필/즉시갱신이 정상화되면 거의 타지 않는다.
+  const g = await getWeeklyGrowth(userId);
+  const cards: ResolvedCardLite[] = (g?.weeklyCards ?? []).map((c) => ({
+    resultStatus: c.resultStatus,
+    startDate: c.startDate,
+    endDate: c.endDate,
+    isTransition: c.isTransition,
+  }));
+  return { cards, source: "fallback" };
 }
 
 // ─── 내부 빌더 ──────────────────────────────────────────────────────
@@ -141,6 +191,7 @@ function resolveDisplayKey(
 function buildIndicators(
   profile: ProfileRow,
   weekRows: WeekStatusRow[],
+  cards: ResolvedCardLite[],
   pts: PointRow | null,
   currentWeekStatus: string | null,
   seasonRows: SeasonStatusRow[],
@@ -149,19 +200,31 @@ function buildIndicators(
   const orgValid = org && isOrganizationSlug(org) ? (org as OrganizationSlug) : null;
   const threshold = orgValid ? getGraduationThreshold(orgValid) : null;
 
-  let a = 0, b = 0, c = 0, d = 0, overrideCount = 0;
+  // 주차 지표 — cluster4 resolved 카드(ResolvedWeek) 기반 클린 파이프라인.
+  //   a/b/c = resolveWeekResultStatus 결과 fold (미공표 success 는 tallying 으로 빠지고
+  //   verdict fail 전환이 자동 반영됨). d = 공식휴식 카드. e = a+b+c.
+  const { approvedWeeks: a, failedWeeks: b, restWeeks: c } = foldGrowthMetrics({
+    weeks: cards.map((card) => ({
+      status: card.resultStatus,
+      isTransition: card.isTransition,
+    })),
+    restSeasonCount: 0,
+  });
+  const d = cards.filter(
+    (card) => !card.isTransition && card.resultStatus === "official_rest",
+  ).length;
+  // 지나간 주차 h: end_date < today 인 전환 제외 주차 (현재 진행중/미래 제외).
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const h = cards.filter(
+    (card) => !card.isTransition && card.endDate < todayIso,
+  ).length;
+
+  // overrideCount(_debug 전용): 공식휴식 활동 인정 표시 — raw uws 기준 유지.
+  let overrideCount = 0;
   for (const row of weekRows) {
-    // 전환 주차는 공식 휴식이 아니며 성장/휴식 집계의 분자·분모 모두에서 제외.
     if (row.week_start_date && isTransitionWeekStart(row.week_start_date)) continue;
-    switch (row.status) {
-      case "success": a++; break;
-      case "fail": b++; break;
-      case "personal_rest": c++; break;
-      case "official_rest": d++; break;
-    }
     if (row.is_official_rest_override) overrideCount++;
   }
-  const h = a + b + c + d;
 
   // f = 성장 휴식 시즌 (시즌 전체 휴식 신청)
   // g = 성장(성공) 시즌 (f 가 아닌 시즌)
@@ -171,9 +234,13 @@ function buildIndicators(
     else g++;
   }
 
-  const displayKey = resolveDisplayKey(
-    profile.growth_status, currentWeekStatus, a, h, threshold,
-  );
+  const displayKey = resolveGrowthStatus({
+    growthStatus: profile.growth_status,
+    currentWeekStatus,
+    approvedWeeks: a,
+    elapsedWeeks: h,
+    graduationThreshold: threshold,
+  });
 
   const process: GrowthProcess = {
     growthStatus: profile.growth_status,
@@ -293,27 +360,30 @@ export async function getGrowthIndicatorsBatch(
 export async function getGrowthIndicatorsInternal(
   userId: string,
 ): Promise<GrowthIndicatorsInternal> {
-  const [profileRes, weekRes, pointRes, seasonRes, currentWeekStatus] = await Promise.all([
-    supabaseAdmin
-      .from("user_profiles")
-      .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
-      .eq("user_id", userId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("user_week_statuses")
-      .select("status,week_start_date,is_official_rest_override")
-      .eq("user_id", userId),
-    supabaseAdmin
-      .from("user_cumulative_points")
-      .select("total_checks,total_advantages,total_penalties,total_raw_advantages")
-      .eq("user_id", userId)
-      .maybeSingle(),
-    supabaseAdmin
-      .from("user_season_statuses")
-      .select("status")
-      .eq("user_id", userId),
-    fetchCurrentWeekStatus(userId),
-  ]);
+  const [profileRes, weekRes, pointRes, seasonRes, currentWeekStatus, resolvedCards] =
+    await Promise.all([
+      supabaseAdmin
+        .from("user_profiles")
+        .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("user_week_statuses")
+        .select("status,week_start_date,is_official_rest_override")
+        .eq("user_id", userId),
+      supabaseAdmin
+        .from("user_cumulative_points")
+        .select("total_checks,total_advantages,total_penalties,total_raw_advantages")
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("user_season_statuses")
+        .select("status")
+        .eq("user_id", userId),
+      fetchCurrentWeekStatus(userId),
+      // ResolvedWeek 카드 소스 — snapshot-first(무거운 계산 0), 없으면 getWeeklyGrowth fallback.
+      getResolvedCardsForUser(userId),
+    ]);
 
   if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
   if (weekRes.error) throw new GrowthError(500, weekRes.error.message);
@@ -337,9 +407,15 @@ export async function getGrowthIndicatorsInternal(
     );
   }
 
+  console.log(
+    "[cluster3][growth] card source",
+    `user=${userId}`,
+    resolvedCards.source,
+  );
   return buildIndicators(
     profile,
     weekRows,
+    resolvedCards.cards,
     (pointRes.data ?? null) as PointRow | null,
     currentWeekStatus,
     seasonRows,
@@ -400,10 +476,30 @@ export async function getGrowthIndicatorsBatchInternal(
     seasonsByUser.set(row.user_id!, list);
   }
 
+  // ResolvedWeek 카드 소스 — snapshot-first(무거운 계산 0), miss/invalid 시 getWeeklyGrowth fallback.
+  //   대량 배치에서 snapshot 이 fresh 하면 fallback(실시간 계산)을 거의 타지 않는다.
+  const cardsByUser = new Map<string, ResolvedCardLite[]>();
+  let snapshotHits = 0;
+  let fallbacks = 0;
+  await Promise.all(
+    profiles.map(async (profile) => {
+      const r = await getResolvedCardsForUser(profile.user_id);
+      cardsByUser.set(profile.user_id, r.cards);
+      if (r.source === "snapshot") snapshotHits++;
+      else fallbacks++;
+    }),
+  );
+  console.log(
+    "[cluster3][growth] batch card source",
+    `snapshot=${snapshotHits}`,
+    `fallback=${fallbacks}`,
+  );
+
   return profiles.map((profile) =>
     buildIndicators(
       profile,
       weeksByUser.get(profile.user_id) ?? [],
+      cardsByUser.get(profile.user_id) ?? [],
       pointsByUser.get(profile.user_id) ?? null,
       currentWeekMap.get(profile.user_id) ?? null,
       seasonsByUser.get(profile.user_id) ?? [],

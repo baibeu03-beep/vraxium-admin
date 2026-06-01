@@ -103,7 +103,6 @@ type UserItem = {
 type UploadedImage = {
   url: string;
   name: string;
-  caption: string;
 };
 
 // 실무 정보 탭 표시 순서 — 운영 요청에 따라 9개 활동 유형의 표시 순서를 명시적으로 고정한다.
@@ -200,6 +199,7 @@ function localInputToIso(local: string): string | null {
 function ImageUploadSlot({
   label,
   image,
+  caption,
   onUpload,
   onRemove,
   onCaptionChange,
@@ -207,6 +207,8 @@ function ImageUploadSlot({
 }: {
   label: string;
   image: UploadedImage | null;
+  // 캡션은 이미지와 분리된 독립 state. 업로드 전에도 입력 가능.
+  caption: string;
   onUpload: (img: UploadedImage) => void;
   onRemove: () => void;
   onCaptionChange: (caption: string) => void;
@@ -236,7 +238,7 @@ function ImageUploadSlot({
           return;
         }
 
-        onUpload({ url: json.data.url, name: file.name, caption: "" });
+        onUpload({ url: json.data.url, name: file.name });
       } catch {
         alert("업로드 중 오류가 발생했습니다");
       } finally {
@@ -251,33 +253,24 @@ function ImageUploadSlot({
     <div className="space-y-1">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       {image ? (
-        <div className="space-y-2 rounded-md border p-2">
-          <div className="flex items-center gap-3">
-            <img
-              src={image.url}
-              alt={image.name}
-              className="h-16 w-16 shrink-0 rounded object-cover"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm">{image.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{image.url}</p>
-            </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="shrink-0"
-              onClick={onRemove}
-            >
-              <Trash2 className="h-4 w-4 text-red-500" />
-            </Button>
-          </div>
-          {/* 이미지 캡션 — 고객 페이지 .image-caption-overlay .caption-text 에 표시됨. 비우면 null 저장. */}
-          <Input
-            value={image.caption}
-            onChange={(e) => onCaptionChange(e.target.value)}
-            placeholder="이미지 캡션 (선택)"
-            aria-label={`${label} 캡션`}
+        <div className="flex items-center gap-3 rounded-md border p-2">
+          <img
+            src={image.url}
+            alt={image.name}
+            className="h-16 w-16 shrink-0 rounded object-cover"
           />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm">{image.name}</p>
+            <p className="truncate text-xs text-muted-foreground">{image.url}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0"
+            onClick={onRemove}
+          >
+            <Trash2 className="h-4 w-4 text-red-500" />
+          </Button>
         </div>
       ) : (
         <div>
@@ -304,6 +297,14 @@ function ImageUploadSlot({
           </Button>
         </div>
       )}
+      {/* 이미지 캡션 — 업로드 전/후 항상 노출. 이미지 없으면 payload 미포함. 비우면 null 저장. */}
+      <Input
+        value={caption}
+        onChange={(e) => onCaptionChange(e.target.value)}
+        placeholder="이미지 캡션을 입력하세요"
+        aria-label={`${label} 캡션`}
+        disabled={disabled}
+      />
     </div>
   );
 }
@@ -691,6 +692,9 @@ export default function PracticalInfoManager() {
   const [outputLabel2, setOutputLabel2] = useState("");
   const [uploadedImage1, setUploadedImage1] = useState<UploadedImage | null>(null);
   const [uploadedImage2, setUploadedImage2] = useState<UploadedImage | null>(null);
+  // 이미지 캡션 — 이미지와 분리된 독립 state (업로드 전에도 입력 가능).
+  const [caption1, setCaption1] = useState("");
+  const [caption2, setCaption2] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [userSearch, setUserSearch] = useState("");
 
@@ -869,6 +873,8 @@ export default function PracticalInfoManager() {
     setOutputLabel2("");
     setUploadedImage1(null);
     setUploadedImage2(null);
+    setCaption1("");
+    setCaption2("");
     setSelectedUserIds(new Set());
     setUserSearch("");
   }, []);
@@ -966,13 +972,16 @@ export default function PracticalInfoManager() {
     setBanner(null);
 
     try {
-      // output_images = [{url, caption}] — 캡션 비우면 null 저장. URL 없으면 제외(append).
+      // output_images = [{url, caption}] — 이미지 있는 항목만 포함. 캡션 비우면 null.
       const outputImages: { url: string; caption: string | null }[] = [];
-      for (const img of [uploadedImage1, uploadedImage2]) {
+      for (const [img, cap] of [
+        [uploadedImage1, caption1],
+        [uploadedImage2, caption2],
+      ] as const) {
         if (!img) continue;
         outputImages.push({
           url: img.url,
-          caption: img.caption.trim() ? img.caption.trim() : null,
+          caption: cap.trim() ? cap.trim() : null,
         });
       }
 
@@ -1035,6 +1044,8 @@ export default function PracticalInfoManager() {
     outputLabel2,
     uploadedImage1,
     uploadedImage2,
+    caption1,
+    caption2,
     selectedUserIds,
     resetForm,
     fetchMeta,
@@ -1444,25 +1455,19 @@ export default function PracticalInfoManager() {
                   <ImageUploadSlot
                     label="Image 1"
                     image={uploadedImage1}
+                    caption={caption1}
                     onUpload={setUploadedImage1}
-                    onRemove={() => setUploadedImage1(null)}
-                    onCaptionChange={(caption) =>
-                      setUploadedImage1((prev) =>
-                        prev ? { ...prev, caption } : prev,
-                      )
-                    }
+                    onRemove={() => { setUploadedImage1(null); setCaption1(""); }}
+                    onCaptionChange={setCaption1}
                     disabled={!uploadedImage1 && assetCount >= 2}
                   />
                   <ImageUploadSlot
                     label="Image 2"
                     image={uploadedImage2}
+                    caption={caption2}
                     onUpload={setUploadedImage2}
-                    onRemove={() => setUploadedImage2(null)}
-                    onCaptionChange={(caption) =>
-                      setUploadedImage2((prev) =>
-                        prev ? { ...prev, caption } : prev,
-                      )
-                    }
+                    onRemove={() => { setUploadedImage2(null); setCaption2(""); }}
+                    onCaptionChange={setCaption2}
                     disabled={!uploadedImage2 && assetCount >= 2}
                   />
                 </div>

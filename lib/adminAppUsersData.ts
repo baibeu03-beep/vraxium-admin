@@ -1,8 +1,11 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import {
+  ACCOUNT_STATUSES,
+  isAccountStatus,
   APP_USER_STATUSES,
   isAppUserStatus,
+  type AccountStatus,
   type AdminAppUserDto,
   type AppUserStatus,
   type ListAppUsersOptions,
@@ -21,8 +24,11 @@ import {
 // SUPABASE_SERVICE_ROLE_KEY is server-only).
 
 export {
+  ACCOUNT_STATUSES,
+  isAccountStatus,
   APP_USER_STATUSES,
   isAppUserStatus,
+  type AccountStatus,
   type AdminAppUserDto,
   type AppUserStatus,
   type ListAppUsersOptions,

@@ -13,6 +13,8 @@ import type {
   Cluster4LineTargetDto,
   Cluster4LineTargetPatchInput,
   Cluster4LineUpsertInput,
+  Cluster4LineWorkflowAction,
+  Cluster4LineWorkflowStatus,
   ListCluster4InfoLinesDetailedResult,
   ListCluster4LinesDetailedResult,
   ListCluster4LinesResult,
@@ -64,6 +66,12 @@ type Cluster4LineRow = {
   updated_by: string | null;
   created_at: string;
   updated_at: string;
+  // 라인 개설 역할별 진행 상태/담당자 (career 전용, nullable).
+  input_completed_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  opened_at: string | null;
+  opened_by: string | null;
 };
 
 type Cluster4LineTargetRow = {
@@ -84,7 +92,7 @@ type Cluster4SubmissionCountRow = {
 };
 
 const LINE_SELECT =
-  "id,part_type,activity_type_id,week_id,source_type,recognition_mode,source_sheet_name,is_recurring_content,line_code,career_project_id,main_title,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_by,updated_by,created_at,updated_at";
+  "id,part_type,activity_type_id,week_id,source_type,recognition_mode,source_sheet_name,is_recurring_content,line_code,career_project_id,main_title,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_by,updated_by,created_at,updated_at,input_completed_at,reviewed_at,reviewed_by,opened_at,opened_by";
 const TARGET_SELECT =
   "id,line_id,week_id,target_mode,target_user_id,target_rule,created_by,updated_by,created_at,updated_at";
 
@@ -508,6 +516,83 @@ export async function updateCluster4Line(
   const { data, error } = await supabaseAdmin
     .from("cluster4_lines")
     .update(linePayload(input, actorAdminId, "update"))
+    .eq("id", id)
+    .select(LINE_SELECT)
+    .maybeSingle();
+  if (error) {
+    throw translatePostgrestError(error.message, error.code);
+  }
+  if (!data) {
+    throw new Cluster4LineError(404, "cluster4 line not found");
+  }
+  const { targetCounts, submissionCounts } = await fetchTargetCountsByLineIds([id]);
+  return toLineDto(
+    data as unknown as Cluster4LineRow,
+    targetCounts.get(id) ?? 0,
+    submissionCounts.get(id) ?? 0,
+  );
+}
+
+// 라인 개설 진행 상태 — 저장하지 않고 timestamp 조합으로 파생.
+function deriveWorkflowStatus(row: {
+  input_completed_at: string | null;
+  reviewed_at: string | null;
+  opened_at: string | null;
+}): Cluster4LineWorkflowStatus {
+  if (row.opened_at) return "opened";
+  if (row.reviewed_at) return "reviewed";
+  if (row.input_completed_at) return "input_done";
+  return "input_pending";
+}
+
+// 역할별 워크플로 단계 처리(파트장 입력완료 / 에이전트 검수완료 / 팀장 개설).
+// career 라인 전용. 시간/순서/권한 강제 없음 — 단계 기록만 갱신한다(자기 검수 허용).
+export async function setCluster4LineWorkflowStage(
+  id: string,
+  action: Cluster4LineWorkflowAction,
+  actorAdminId: string,
+): Promise<Cluster4LineDto> {
+  if (!isUuid(id)) {
+    throw new Cluster4LineError(400, "line id must be a UUID");
+  }
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id,part_type")
+    .eq("id", id)
+    .maybeSingle();
+  if (existingError) {
+    throw new Cluster4LineError(500, existingError.message);
+  }
+  if (!existing) {
+    throw new Cluster4LineError(404, "cluster4 line not found");
+  }
+  if ((existing as { part_type: string }).part_type !== "career") {
+    throw new Cluster4LineError(
+      400,
+      "라인 개설 진행 상태는 실무 경력(career) 라인에서만 사용할 수 있습니다",
+    );
+  }
+
+  const nowIso = new Date().toISOString();
+  const payload: Record<string, unknown> = { updated_by: actorAdminId };
+  switch (action) {
+    case "input_complete":
+      payload.input_completed_at = nowIso;
+      break;
+    case "review_complete":
+      payload.reviewed_at = nowIso;
+      payload.reviewed_by = actorAdminId;
+      break;
+    case "open":
+      payload.opened_at = nowIso;
+      payload.opened_by = actorAdminId;
+      break;
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_lines")
+    .update(payload)
     .eq("id", id)
     .select(LINE_SELECT)
     .maybeSingle();
@@ -960,6 +1045,36 @@ export async function listCluster4LinesDetailed(
     }
   }
 
+  // 7.6 라인 개설 담당자(created_by=입력자 / reviewed_by=검수자 / opened_by=개설자) 이름 일괄 룩업.
+  // admin_users 에 display name 컬럼이 없어 email 을 표시값으로 사용한다.
+  // career 라인에만 의미가 있으므로 career 라인의 3개 admin id 만 모은다.
+  // 조회 실패해도 목록을 깨뜨리지 않고 이름만 null 폴백.
+  const adminEmailById = new Map<string, string>();
+  const workflowAdminIds = Array.from(
+    new Set(
+      lineRows
+        .filter((row) => row.part_type === "career")
+        .flatMap((row) => [row.created_by, row.reviewed_by, row.opened_by])
+        .filter((value): value is string => typeof value === "string"),
+    ),
+  );
+  if (workflowAdminIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("admin_users")
+      .select("id,email")
+      .in("id", workflowAdminIds);
+    if (error) {
+      console.warn(
+        "[admin/cluster4 lines] admin_users name lookup failed; treating as null",
+        { message: error.message },
+      );
+    } else {
+      for (const row of (data ?? []) as Array<{ id: string; email: string | null }>) {
+        if (row.email) adminEmailById.set(row.id, row.email);
+      }
+    }
+  }
+
   // 8. 라인별 조립.
   const targetsByLineId = new Map<string, Cluster4LineTargetRow[]>();
   for (const target of targetRows) {
@@ -1040,9 +1155,9 @@ export async function listCluster4LinesDetailed(
     const weekLabel = weekId ? weekLabelById.get(weekId) ?? null : null;
     const base = toLineDto(line, targetCount, submittedCount);
 
-    // career part 만 sponsor-card 메타를 채운다. 그 외 part / 미연결은 전부 null.
-    const careerProjectId =
-      line.part_type === "career" ? line.career_project_id ?? null : null;
+    // career part 만 sponsor-card 메타 + 라인 개설 워크플로 필드를 채운다.
+    const isCareer = line.part_type === "career";
+    const careerProjectId = isCareer ? line.career_project_id ?? null : null;
     const careerMeta = careerProjectId
       ? careerMetaByProjectId.get(careerProjectId) ?? null
       : null;
@@ -1065,6 +1180,19 @@ export async function listCluster4LinesDetailed(
       supervisorDepartment: careerMeta?.supervisorDepartment ?? null,
       supervisorPosition: careerMeta?.supervisorPosition ?? null,
       supervisorPhotoUrl: careerMeta?.supervisorPhotoUrl ?? null,
+      // 라인 개설 역할별 진행 상태/담당자 — career 라인에만 채우고 그 외는 null/input_pending.
+      inputCompletedAt: isCareer ? line.input_completed_at ?? null : null,
+      reviewedAt: isCareer ? line.reviewed_at ?? null : null,
+      reviewedBy: isCareer ? line.reviewed_by ?? null : null,
+      reviewedByName:
+        isCareer && line.reviewed_by ? adminEmailById.get(line.reviewed_by) ?? null : null,
+      openedAt: isCareer ? line.opened_at ?? null : null,
+      openedBy: isCareer ? line.opened_by ?? null : null,
+      openedByName:
+        isCareer && line.opened_by ? adminEmailById.get(line.opened_by) ?? null : null,
+      createdByName:
+        isCareer && line.created_by ? adminEmailById.get(line.created_by) ?? null : null,
+      workflowStatus: isCareer ? deriveWorkflowStatus(line) : "input_pending",
     };
   });
 

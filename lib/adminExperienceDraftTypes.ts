@@ -8,9 +8,14 @@ import {
   outputLinksToLegacySlots,
   parseOutputLinksInput,
 } from "@/lib/cluster4OutputLinks";
+import {
+  type Cluster4OutputImage,
+  parseOutputImagesInput,
+} from "@/lib/cluster4OutputImages";
 
 export { CLUSTER4_LINE_WRITE_ROLES as EXPERIENCE_DRAFT_WRITE_ROLES };
 export type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
+export type { Cluster4OutputImage } from "@/lib/cluster4OutputImages";
 
 // ── Status literals ────────────────────────────────────────
 
@@ -36,7 +41,9 @@ export type ExperienceDraftDto = {
   outputLink1: string | null;
   outputLink2: string | null;
   outputLinks: Cluster4OutputLink[];
+  // outputImages = URL 목록(레거시 string[] 호환). outputImageCaptions 와 index 정렬 일치.
   outputImages: string[];
+  outputImageCaptions: (string | null)[];
   rating: number | null;
   memo: string | null;
   inputStatus: InputStatus;
@@ -67,7 +74,8 @@ export type ExperienceDraftRow = {
   output_link_1: string | null;
   output_link_2: string | null;
   output_links: unknown;
-  output_images: string[];
+  // 레거시 string[] · 신규 [{url,caption}] 혼재 가능 → unknown 으로 받아 정규화.
+  output_images: unknown;
   rating: number | null;
   memo: string | null;
   input_status: InputStatus;
@@ -103,7 +111,8 @@ export type ExperienceDraftCreateInput = {
   outputLink1: string | null;
   outputLink2: string | null;
   outputLinks: Cluster4OutputLink[];
-  outputImages: string[];
+  // string[] legacy · [{url, caption}] 신규 둘 다 허용 (URL + 캡션 저장).
+  outputImages: Cluster4OutputImage[];
   rating: number | null;
   memo: string | null;
   inputStatus: InputStatus;
@@ -118,7 +127,7 @@ export type ExperienceDraftPatchInput = {
   outputLink1?: string | null;
   outputLink2?: string | null;
   outputLinks?: Cluster4OutputLink[];
-  outputImages?: string[];
+  outputImages?: Cluster4OutputImage[];
   rating?: number | null;
   memo?: string | null;
   inputStatus?: InputStatus;
@@ -148,18 +157,6 @@ function trimOrNull(v: unknown): string | null {
   if (typeof v !== "string") return null;
   const t = v.trim();
   return t.length > 0 ? t : null;
-}
-
-function parseOutputImages(v: unknown): string[] | null {
-  if (v === undefined || v === null) return [];
-  if (!Array.isArray(v)) return null;
-  const result: string[] = [];
-  for (const item of v) {
-    if (typeof item !== "string") return null;
-    const trimmed = item.trim();
-    if (trimmed.length > 0) result.push(trimmed);
-  }
-  return result;
 }
 
 // ── Create parser ──────────────────────────────────────────
@@ -212,10 +209,12 @@ export function parseExperienceDraftCreateBody(
       : outputLinksFromLegacy([outputLink1, outputLink2]);
   const [mirrorLink1, mirrorLink2] = outputLinksToLegacySlots(outputLinks, 2);
 
-  const outputImages = parseOutputImages(body.output_images);
-  if (outputImages === null) {
-    return { ok: false, status: 400, error: "output_images must be an array of strings" };
+  // output_images — string[] 또는 [{url, caption?}] 둘 다 허용 (info/career 와 동일).
+  const parsedImages = parseOutputImagesInput(body.output_images);
+  if (!parsedImages.ok) {
+    return { ok: false, status: 400, error: parsedImages.error };
   }
+  const outputImages = parsedImages.value;
 
   let rating: number | null = null;
   if (body.rating !== undefined && body.rating !== null) {
@@ -370,11 +369,11 @@ export function parseExperienceDraftPatchBody(
   }
 
   if (body.output_images !== undefined) {
-    const imgs = parseOutputImages(body.output_images);
-    if (imgs === null) {
-      return { ok: false, status: 400, error: "output_images must be an array of strings" };
+    const parsedImages = parseOutputImagesInput(body.output_images);
+    if (!parsedImages.ok) {
+      return { ok: false, status: 400, error: parsedImages.error };
     }
-    patch.outputImages = imgs;
+    patch.outputImages = parsedImages.value;
     hasField = true;
   }
 

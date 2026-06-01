@@ -14,8 +14,10 @@ import { isOrganizationSlug } from "@/lib/organizations";
 type Ctx = { params: Promise<{ user_id: string }> };
 
 export async function PATCH(request: NextRequest, { params }: Ctx) {
+  let actorId: string | null = null;
   try {
-    await requireAdmin(ADMIN_WRITE_ROLES);
+    const admin = await requireAdmin(ADMIN_WRITE_ROLES);
+    actorId = admin.userId;
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -59,7 +61,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   }
 
   try {
-    const member = await updateMember(user_id, patch);
+    const member = await updateMember(user_id, patch, actorId);
     return Response.json({ success: true, data: member });
   } catch (error) {
     if (error instanceof MemberPatchError) {
