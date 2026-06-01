@@ -190,6 +190,53 @@ export async function recomputeStaleOrDueSnapshots(opts: {
   };
 }
 
+// 다건 변경(공표/라인 CRUD/프로젝트/마스터/휴식정책)용 정책 일원화 진입점.
+//   - 대상 0명         → no-op
+//   - 대상 ≤ THRESHOLD → 요청 내 즉시 병렬 recompute(제한 concurrency) → 응답 시점에 이미 fresh
+//   - 대상 >  THRESHOLD → markStaleMany(즉시, reads 는 구값 노출·계산 0) + after()로 응답 후
+//                         백그라운드 recompute(cron 없이 수초 내 반영). after 불가 컨텍스트면 stale-only.
+// 조회 API 는 어느 경우에도 계산하지 않는다(snapshot-only 불변). 직렬 N명 recompute 금지(≤THRESHOLD 만 병렬).
+export const SNAPSHOT_RECOMPUTE_THRESHOLD = 10;
+
+export async function invalidateWeeklyCardsForUsers(
+  userIds: string[],
+): Promise<{ mode: "none" | "immediate" | "background" | "stale_only"; count: number }> {
+  const ids = Array.from(new Set(userIds.filter((id): id is string => Boolean(id))));
+  if (ids.length === 0) return { mode: "none", count: 0 };
+
+  if (ids.length <= SNAPSHOT_RECOMPUTE_THRESHOLD) {
+    await recomputeWeeklyCardsSnapshotsForUsers(ids);
+    console.log("[weekly-cards][snapshot] invalidate immediate", `count=${ids.length}`);
+    return { mode: "immediate", count: ids.length };
+  }
+
+  // 많음: 먼저 stale 로 막아 조회가 구값을 즉시 노출(계산 0). 그다음 백그라운드 재계산.
+  await markWeeklyCardsSnapshotStaleMany(ids);
+  try {
+    // next/server 의 after(): 요청 컨텍스트에서만 동작. 응답 후 같은 인스턴스에서 실행 → cron 불필요.
+    const { after } = await import("next/server");
+    after(async () => {
+      try {
+        await recomputeWeeklyCardsSnapshotsForUsers(ids);
+        console.log("[weekly-cards][snapshot] invalidate background done", `count=${ids.length}`);
+      } catch (e) {
+        console.warn("[weekly-cards][snapshot] background recompute failed (stale kept, cron recovers)", {
+          count: ids.length,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    });
+    return { mode: "background", count: ids.length };
+  } catch (e) {
+    // 요청 컨텍스트 밖(after 불가) → stale 만 유지, daily cron 이 복구.
+    console.warn("[weekly-cards][snapshot] after() unavailable → stale-only (cron recovers)", {
+      count: ids.length,
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return { mode: "stale_only", count: ids.length };
+  }
+}
+
 // 특정 사용자들의 snapshot 을 즉시 재계산·저장한다(관리자 저장 직후 변경 즉시 반영용).
 //   mark-stale 만 하면 lazy-on-read 또는 cron 에 의존하는데, snapshot-only(DISABLE_LAZY) 런타임이나
 //   다음 조회가 늦어지는 경우 옛값이 계속 노출된다. 저장 시점에 바로 재계산해 그 race 를 제거한다.

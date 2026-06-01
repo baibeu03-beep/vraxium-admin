@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { refreshWeeklyCardsSnapshotSafe } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { listReputationKeywords } from "@/lib/reputationKeywordsData";
 import { listWeeklyReputations } from "@/lib/weeklyReputationsData";
 import { listWeeklyReviews } from "@/lib/weeklyReviewsData";
@@ -1130,6 +1131,10 @@ export async function patchCluster4ForCrew(
       ids: upsertedIds,
     };
   }
+
+  // 이 편집(평판/연계동료/제출 등)은 단일 크루(userId) 카드에 영향 → 단건 즉시 재계산.
+  // 조회는 snapshot-only 이므로 저장 시점에 즉시 반영해야 한다. best-effort(실패 시 stale → cron 복구).
+  await refreshWeeklyCardsSnapshotSafe(userId);
 
   const bundle = await getCluster4ForCrew(legacyUserId);
   return { bundle, warnings, applied };
