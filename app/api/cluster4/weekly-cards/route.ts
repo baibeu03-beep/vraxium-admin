@@ -6,12 +6,12 @@ import {
 } from "@/lib/adminAuth";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
-import {
-  Cluster4WeeklyCardsError,
-  getCluster4WeeklyCardsForAuthUser,
-  getCluster4WeeklyCardsForProfileUser,
-} from "@/lib/cluster4WeeklyCardsData";
+import { Cluster4WeeklyCardsError } from "@/lib/cluster4WeeklyCardsData";
 import { getWeeklyGrowth } from "@/lib/cluster4WeeklyGrowthData";
+import {
+  readWeeklyCardsSnapshot,
+  recomputeAndStoreWeeklyCardsSnapshot,
+} from "@/lib/cluster4WeeklyCardsSnapshot";
 import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
 import {
   currentQueryCount,
@@ -40,6 +40,28 @@ function fail(status: number, message: string, code: string) {
     { success: false, data: [] as Cluster4WeeklyCardDto[], error: { message, code } },
     { status },
   );
+}
+
+// 카드 로딩의 단일 진입점: 저장된 snapshot 우선(정상 경로 = SELECT 1개, 무거운 계산 0).
+//   - snapshot hit  → 그대로 반환. is_stale 이면 로그만 남기고 노출(정책: cron/훅이 재계산).
+//   - snapshot miss → (행 없음/스키마 버전 불일치) 이때만 기존 실시간 계산 1회 후 저장하고 반환.
+async function loadWeeklyCards(
+  profileUserId: string,
+): Promise<Cluster4WeeklyCardDto[]> {
+  const snap = await readWeeklyCardsSnapshot(profileUserId);
+  if (snap) {
+    if (snap.isStale) {
+      console.warn(
+        "[weekly-cards] serving STALE snapshot (cron/hook will recompute)",
+        `user=${profileUserId}`,
+        `computedAt=${snap.computedAt}`,
+      );
+    }
+    return snap.cards;
+  }
+  // miss 일 때만 무거운 계산 허용. (신규 유저/최초 배포/스키마 버전 변경)
+  console.warn("[weekly-cards] snapshot MISS → lazy compute+store", `user=${profileUserId}`);
+  return recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
 }
 
 // 디버깅: W12/W11 에 대해 백엔드(getWeeklyGrowth) ↔ DTO 응답값 매핑을 콘솔에 비교 출력.
@@ -128,7 +150,7 @@ async function handleGet(request: NextRequest): Promise<Response> {
   try {
     const demoProfileUserId = await resolveDemoProfileUserId(request);
     if (demoProfileUserId) {
-      const data = await getCluster4WeeklyCardsForProfileUser(demoProfileUserId);
+      const data = await loadWeeklyCards(demoProfileUserId);
       if (DEBUG_COMPARE) await logWeekComparison(demoProfileUserId, data);
       return done(ok(data), "demo");
     }
@@ -184,8 +206,8 @@ async function handleGet(request: NextRequest): Promise<Response> {
     const requestedUserId =
       request.nextUrl.searchParams.get("userId")?.trim() || null;
 
-    let data: Cluster4WeeklyCardDto[];
-    let profileUserIdForLog: string | null = null;
+    // 모든 분기에서 먼저 profileUserId 를 확정한 뒤, snapshot 우선 로더로 카드를 가져온다.
+    let profileUserId: string;
     if (internalAuthAccepted) {
       if (!requestedUserId) {
         return done(
@@ -193,8 +215,7 @@ async function handleGet(request: NextRequest): Promise<Response> {
           "internal-missing-user",
         );
       }
-      data = await getCluster4WeeklyCardsForProfileUser(requestedUserId);
-      profileUserIdForLog = requestedUserId;
+      profileUserId = requestedUserId;
     } else if (requestedUserId) {
       const ownProfileUserId = await resolveProfileUserId(
         sessionUser!.id,
@@ -203,17 +224,20 @@ async function handleGet(request: NextRequest): Promise<Response> {
       if (requestedUserId !== ownProfileUserId) {
         await requireAdmin(ADMIN_READ_ROLES);
       }
-      data = await getCluster4WeeklyCardsForProfileUser(requestedUserId);
-      profileUserIdForLog = requestedUserId;
+      profileUserId = requestedUserId;
     } else {
-      data = await getCluster4WeeklyCardsForAuthUser(
+      const ownProfileUserId = await resolveProfileUserId(
         sessionUser!.id,
-        sessionUser!.email ?? null,
+        sessionUser!.email,
       );
-      profileUserIdForLog = DEBUG_COMPARE
-        ? await resolveProfileUserId(sessionUser!.id, sessionUser!.email)
-        : null;
+      if (!ownProfileUserId) {
+        return done(fail(404, "User profile not found.", "profile_not_found"), "no-profile");
+      }
+      profileUserId = ownProfileUserId;
     }
+
+    const data = await loadWeeklyCards(profileUserId);
+    const profileUserIdForLog = DEBUG_COMPARE ? profileUserId : null;
 
     // 디버그 비교 로그는 getWeeklyGrowth 를 2차로 다시 호출(요청 비용 약 2배) → 기본 OFF.
     if (DEBUG_COMPARE && profileUserIdForLog) {

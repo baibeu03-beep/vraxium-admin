@@ -10,7 +10,8 @@
     "sync:schools": "tsx --env-file=.env.local scripts/sync-schools.ts",
     "sync:grade-stats": "tsx --env-file=.env.local scripts/sync-grade-stats.ts",
     "verify:grade-stats-sync": "tsx --env-file=.env.local scripts/verify-grade-stats-sync.ts",
-    "verify:cluster4-submission-fields": "tsx --env-file=.env.local scripts/verify-cluster4-submission-fields.ts"
+    "verify:cluster4-submission-fields": "tsx --env-file=.env.local scripts/verify-cluster4-submission-fields.ts",
+    "backfill:weekly-card-snapshots": "tsx --env-file=.env.local scripts/backfill-weekly-card-snapshots.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
