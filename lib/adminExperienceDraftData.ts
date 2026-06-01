@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 import type {
   ExperienceDraftDto,
   ExperienceDraftRow,
@@ -8,6 +9,10 @@ import type {
   InputStatus,
 } from "@/lib/adminExperienceDraftTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
+import {
+  outputImageUrls,
+  outputImageCaptions as toOutputImageCaptions,
+} from "@/lib/cluster4OutputImages";
 
 // ── Row → DTO mapping ─────────────────────────────────────
 
@@ -38,7 +43,9 @@ function toDraftDto(row: ExperienceDraftRow): ExperienceDraftDto {
       row.output_link_1,
       row.output_link_2,
     ]),
-    outputImages: Array.isArray(row.output_images) ? row.output_images : [],
+    // output_images 는 레거시 string[] · 신규 [{url,caption}] 혼재 가능 → 정규화.
+    outputImages: outputImageUrls(row.output_images),
+    outputImageCaptions: toOutputImageCaptions(row.output_images),
     rating: row.rating,
     memo: row.memo,
     inputStatus: row.input_status,
@@ -361,7 +368,8 @@ type DraftForOpen = {
   output_link_1: string | null;
   output_link_2: string | null;
   output_links: unknown;
-  output_images: string[];
+  // 레거시 string[] · 신규 [{url,caption}] 혼재 가능 → 개설 미러 시 그대로 전달.
+  output_images: unknown;
   rating: number | null;
   review_status: string;
   open_status: string;
@@ -588,6 +596,10 @@ export async function openExperienceDrafts(
       });
     }
   }
+
+  // 개설로 라인/타깃/평가가 생성되어 대상자들의 주차 카드(가용 라인·평점)가 바뀐다 → 다건 stale 표시.
+  // 구조 변경이며 대상자가 N명이므로 즉시 재계산이 아니라 markStaleMany(저렴) + cron 재생성. best-effort.
+  await markWeeklyCardsSnapshotStaleMany(drafts.map((d) => d.target_user_id));
 
   return {
     openedCount: results.length,

@@ -1,5 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
+import {
+  markWeeklyCardsSnapshotStale,
+  markWeeklyCardsSnapshotStaleMany,
+} from "@/lib/cluster4WeeklyCardsSnapshot";
 import type {
   Cluster4InfoLineDetail,
   Cluster4InfoLineTargetDetail,
@@ -46,6 +50,7 @@ type Cluster4LineRow = {
   source_sheet_name: string | null;
   is_recurring_content: boolean | null;
   line_code: string | null;
+  career_project_id: string | null;
   main_title: string;
   output_link_1: string | null;
   output_link_2: string | null;
@@ -79,7 +84,7 @@ type Cluster4SubmissionCountRow = {
 };
 
 const LINE_SELECT =
-  "id,part_type,activity_type_id,week_id,source_type,recognition_mode,source_sheet_name,is_recurring_content,line_code,main_title,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_by,updated_by,created_at,updated_at";
+  "id,part_type,activity_type_id,week_id,source_type,recognition_mode,source_sheet_name,is_recurring_content,line_code,career_project_id,main_title,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_by,updated_by,created_at,updated_at";
 const TARGET_SELECT =
   "id,line_id,week_id,target_mode,target_user_id,target_rule,created_by,updated_by,created_at,updated_at";
 
@@ -578,6 +583,11 @@ export async function createCluster4LineTarget(
       error?.code,
     );
   }
+  // 라인 타깃 개설은 그 사용자 주차의 가용 라인(분모)/상태를 바꾼다 → 구조 변경이므로 stale 표시.
+  // (조회 즉시성보다 다건 개설 시 비용 절감 우선 — cron 이 재생성. best-effort.)
+  if (input.targetMode === "user" && input.targetUserId) {
+    await markWeeklyCardsSnapshotStale(input.targetUserId);
+  }
   return toTargetDto(data as unknown as Cluster4LineTargetRow, 0);
 }
 
@@ -641,6 +651,12 @@ export async function updateCluster4LineTarget(
   if (!data) {
     throw new Cluster4LineError(404, "cluster4 line target not found");
   }
+  // 대상자 변경 가능성 → 이전/이후 대상자 양쪽 모두 stale 표시(구조 변경, cron 재생성).
+  await markWeeklyCardsSnapshotStaleMany(
+    [existingRow.target_user_id, nextMode === "user" ? nextUserId : null].filter(
+      (id): id is string => Boolean(id),
+    ),
+  );
   const submissionCounts = await fetchSubmissionCountsByTargetIds([targetId]);
   return toTargetDto(
     data as unknown as Cluster4LineTargetRow,
@@ -654,7 +670,7 @@ export async function deleteCluster4LineTarget(targetId: string): Promise<void> 
   }
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("cluster4_line_targets")
-    .select("id")
+    .select("id,target_user_id")
     .eq("id", targetId)
     .maybeSingle();
   if (existingError) {
@@ -666,6 +682,11 @@ export async function deleteCluster4LineTarget(targetId: string): Promise<void> 
   const { error } = await supabaseAdmin.from("cluster4_line_targets").delete().eq("id", targetId);
   if (error) {
     throw translatePostgrestError(error.message, error.code);
+  }
+  // 타깃 해제는 그 사용자 주차의 가용 라인을 줄인다 → 구조 변경이므로 stale 표시(cron 재생성).
+  const removedUserId = (existing as { target_user_id: string | null }).target_user_id;
+  if (removedUserId) {
+    await markWeeklyCardsSnapshotStale(removedUserId);
   }
 }
 
@@ -884,6 +905,61 @@ export async function listCluster4LinesDetailed(
     }
   }
 
+  // 7.5 career 라인 sponsor-card 메타 (career_project_id → career_projects 6필드) 일괄 룩업.
+  // source = career_projects (companyName 은 company_name 기준, supervisor_company fallback 미사용 —
+  // weekly-cards DTO 와 동일 SoT). career part 라인에만 매핑하고 그 외/미연결은 null.
+  // 조회 실패해도 라인 목록을 깨뜨리지 않고 메타만 null 폴백한다.
+  type CareerLineMeta = {
+    companyName: string | null;
+    companyLogoUrl: string | null;
+    supervisorName: string | null;
+    supervisorDepartment: string | null;
+    supervisorPosition: string | null;
+    supervisorPhotoUrl: string | null;
+  };
+  const careerMetaByProjectId = new Map<string, CareerLineMeta>();
+  const careerProjectIds = Array.from(
+    new Set(
+      lineRows
+        .filter((row) => row.part_type === "career")
+        .map((row) => row.career_project_id)
+        .filter((value): value is string => typeof value === "string"),
+    ),
+  );
+  if (careerProjectIds.length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("career_projects")
+      .select(
+        "id,company_name,company_logo_url,supervisor_name,supervisor_department,supervisor_position,supervisor_profile_img",
+      )
+      .in("id", careerProjectIds);
+    if (error) {
+      console.warn(
+        "[admin/cluster4 lines] career_projects meta lookup failed; treating as null",
+        { message: error.message },
+      );
+    } else {
+      for (const row of (data ?? []) as Array<{
+        id: string;
+        company_name: string | null;
+        company_logo_url: string | null;
+        supervisor_name: string | null;
+        supervisor_department: string | null;
+        supervisor_position: string | null;
+        supervisor_profile_img: string | null;
+      }>) {
+        careerMetaByProjectId.set(row.id, {
+          companyName: row.company_name ?? null,
+          companyLogoUrl: row.company_logo_url ?? null,
+          supervisorName: row.supervisor_name ?? null,
+          supervisorDepartment: row.supervisor_department ?? null,
+          supervisorPosition: row.supervisor_position ?? null,
+          supervisorPhotoUrl: row.supervisor_profile_img ?? null,
+        });
+      }
+    }
+  }
+
   // 8. 라인별 조립.
   const targetsByLineId = new Map<string, Cluster4LineTargetRow[]>();
   for (const target of targetRows) {
@@ -964,6 +1040,13 @@ export async function listCluster4LinesDetailed(
     const weekLabel = weekId ? weekLabelById.get(weekId) ?? null : null;
     const base = toLineDto(line, targetCount, submittedCount);
 
+    // career part 만 sponsor-card 메타를 채운다. 그 외 part / 미연결은 전부 null.
+    const careerProjectId =
+      line.part_type === "career" ? line.career_project_id ?? null : null;
+    const careerMeta = careerProjectId
+      ? careerMetaByProjectId.get(careerProjectId) ?? null
+      : null;
+
     return {
       ...base,
       activityTypeName: line.activity_type_id
@@ -975,6 +1058,13 @@ export async function listCluster4LinesDetailed(
       pendingCount: targetCount - submittedCount,
       canEditCount,
       targets,
+      careerProjectId,
+      companyName: careerMeta?.companyName ?? null,
+      companyLogoUrl: careerMeta?.companyLogoUrl ?? null,
+      supervisorName: careerMeta?.supervisorName ?? null,
+      supervisorDepartment: careerMeta?.supervisorDepartment ?? null,
+      supervisorPosition: careerMeta?.supervisorPosition ?? null,
+      supervisorPhotoUrl: careerMeta?.supervisorPhotoUrl ?? null,
     };
   });
 

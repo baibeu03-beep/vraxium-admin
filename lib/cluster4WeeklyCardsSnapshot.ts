@@ -190,6 +190,54 @@ export async function recomputeStaleOrDueSnapshots(opts: {
   };
 }
 
+// 특정 사용자들의 snapshot 을 즉시 재계산·저장한다(관리자 저장 직후 변경 즉시 반영용).
+//   mark-stale 만 하면 lazy-on-read 또는 cron 에 의존하는데, snapshot-only(DISABLE_LAZY) 런타임이나
+//   다음 조회가 늦어지는 경우 옛값이 계속 노출된다. 저장 시점에 바로 재계산해 그 race 를 제거한다.
+// 실패는 사용자별로 격리(로그+계속) — 실패한 사용자는 markStale 상태로 남아 cron 이 보정한다.
+// best-effort: 전체가 throw 하지 않는다(본 저장 요청 응답을 깨뜨리지 않음).
+export async function recomputeWeeklyCardsSnapshotsForUsers(
+  profileUserIds: string[],
+  opts: { concurrency?: number } = {},
+): Promise<{ requested: number; recomputed: number; failed: number; failedUserIds: string[] }> {
+  const uniqueIds = Array.from(
+    new Set(profileUserIds.filter((id): id is string => Boolean(id))),
+  );
+  if (uniqueIds.length === 0) {
+    return { requested: 0, recomputed: 0, failed: 0, failedUserIds: [] };
+  }
+  const concurrency = Math.max(1, opts.concurrency ?? 3);
+  const failedUserIds: string[] = [];
+  let recomputed = 0;
+
+  let cursor = 0;
+  async function worker() {
+    while (cursor < uniqueIds.length) {
+      const uid = uniqueIds[cursor++];
+      try {
+        await recomputeAndStoreWeeklyCardsSnapshot(uid);
+        recomputed++;
+      } catch (e) {
+        // 실패 격리: 해당 사용자는 markStale 상태로 남아 cron/lazy 가 보정.
+        failedUserIds.push(uid);
+        console.warn("[weekly-cards][snapshot] eager recompute failed (left stale)", {
+          userId: uid,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, uniqueIds.length) }, () => worker()),
+  );
+
+  return {
+    requested: uniqueIds.length,
+    recomputed,
+    failed: failedUserIds.length,
+    failedUserIds,
+  };
+}
+
 // 조회 시 snapshot miss + lazy 비활성(WEEKLY_CARDS_DISABLE_LAZY=1)일 때 사용.
 // 무거운 계산 대신, cron 이 곧바로 집어가도록 "비어있는 stale placeholder 행"을 큐잉한다.
 // computed_at 을 epoch(아주 과거)로 두어 due+stale 양쪽으로 잡힌다 → 다음 cron 1순위 재계산.
@@ -214,9 +262,28 @@ export async function enqueueStaleSnapshot(profileUserId: string): Promise<void>
   }
 }
 
+// 관리자 훅 전용: 변경된 사용자의 snapshot 을 그 자리에서 즉시 재계산(변경 즉시 반영용).
+// 조회 경로는 snapshot-only(계산 안 함)이므로, 즉시 반영이 필요한 단건 변경은 쓰기 시점에 여기서 갱신한다.
+// best-effort: 재계산이 실패해도 본 쓰기 요청을 깨뜨리지 않는다 — 실패 시 stale 로 표시해 cron 이 재시도.
+//   (실패 시에도 upsert 가 일어나지 않아 기존 snapshot 은 보존된다.)
+export async function refreshWeeklyCardsSnapshotSafe(
+  profileUserId: string,
+): Promise<void> {
+  try {
+    await recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
+  } catch (e) {
+    console.warn(
+      "[weekly-cards][snapshot] hook recompute failed → mark stale for cron retry",
+      { profileUserId, message: e instanceof Error ? e.message : String(e) },
+    );
+    await markWeeklyCardsSnapshotStale(profileUserId);
+  }
+}
+
 // 입력 변경 시 "재계산 필요" 표시만 남긴다(즉시 계산하지 않음). 관리자 저장/sync 훅에서 사용.
-// 조회 경로(route.ts)가 is_stale=true 행을 읽으면 그 자리에서 재계산하고(lazy), cron 도 보조로 재계산한다.
-// 행이 없으면 no-op(UPDATE 라 신규 유저에는 영향 없음 — 다음 lazy/cron/백필 에서 생성).
+// 조회 경로는 stale 여도 구 카드를 그대로 노출하고 계산하지 않는다(snapshot-only). 재생성은 cron 이
+// is_stale=true / dto_version 불일치 / due 행을 모아 수행한다(주기 갱신).
+// 행이 없으면 no-op(UPDATE 라 신규 유저에는 영향 없음 — 다음 cron/백필 에서 생성).
 // best-effort: 실패해도 throw 하지 않는다(본 쓰기 요청을 깨뜨리지 않음, 다음 cron 이 보정).
 export async function markWeeklyCardsSnapshotStale(
   profileUserId: string,

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
+import { refreshWeeklyCardsSnapshotSafe } from "@/lib/cluster4WeeklyCardsSnapshot";
 import type {
   Cluster4ExperienceCategory,
   Cluster4LineDetailDto,
@@ -57,7 +58,28 @@ type Cluster4LineTargetJoinedRow = {
     is_active: boolean;
     // experience 5슬롯 분류 조인용 (experience part 라인에만 값 존재).
     experience_line_master_id: string | null;
+    // career sponsor-card 메타 조인용 (career part 라인에만 값 존재).
+    career_project_id: string | null;
   } | null;
+};
+
+// career_projects 의 sponsor-card 메타 (career part 라인 detail 에만 적용).
+type CareerProjectMeta = {
+  companyName: string | null;
+  companyLogoUrl: string | null;
+  supervisorName: string | null;
+  supervisorDepartment: string | null;
+  supervisorPosition: string | null;
+  supervisorPhotoUrl: string | null;
+};
+
+const EMPTY_CAREER_PROJECT_META: CareerProjectMeta = {
+  companyName: null,
+  companyLogoUrl: null,
+  supervisorName: null,
+  supervisorDepartment: null,
+  supervisorPosition: null,
+  supervisorPhotoUrl: null,
 };
 
 type Cluster4SubmissionRow = {
@@ -96,11 +118,15 @@ const TARGET_WITH_LINE_SELECT = `
     submission_opens_at,
     submission_closes_at,
     is_active,
-    experience_line_master_id
+    experience_line_master_id,
+    career_project_id
   )
 `;
 
-function toVisibleLine(row: Cluster4LineTargetJoinedRow): Cluster4VisibleLineDto {
+function toVisibleLine(
+  row: Cluster4LineTargetJoinedRow,
+  careerMeta: CareerProjectMeta = EMPTY_CAREER_PROJECT_META,
+): Cluster4VisibleLineDto {
   const line = row.cluster4_lines;
   if (!line) {
     throw new Cluster4PublicLineError(500, "cluster4 line join missing");
@@ -115,6 +141,13 @@ function toVisibleLine(row: Cluster4LineTargetJoinedRow): Cluster4VisibleLineDto
     outputLinks: resolveOutputLinks(line.output_links, [line.output_link_1]),
     submissionOpensAt: line.submission_opens_at,
     submissionClosesAt: line.submission_closes_at,
+    // sponsor-card 메타 (career part 만 값, 그 외 EMPTY = 전부 null).
+    companyName: careerMeta.companyName,
+    companyLogoUrl: careerMeta.companyLogoUrl,
+    supervisorName: careerMeta.supervisorName,
+    supervisorDepartment: careerMeta.supervisorDepartment,
+    supervisorPosition: careerMeta.supervisorPosition,
+    supervisorPhotoUrl: careerMeta.supervisorPhotoUrl,
   };
 }
 
@@ -332,6 +365,45 @@ async function getCareerGradeForTargetAndUser(
   return { grade: row.grade, points: row.grade_points };
 }
 
+// 실무 경력 sponsor-card 메타 — career_projects 단건 조회 (career_project_id 기준).
+// career part 에서만 호출. companyName 의 SoT = career_projects.company_name.
+// 미연결/조회 실패 시 전부 null (프론트 fallback).
+async function getCareerProjectMeta(
+  careerProjectId: string | null,
+): Promise<CareerProjectMeta> {
+  if (!careerProjectId) return EMPTY_CAREER_PROJECT_META;
+  const { data, error } = await supabaseAdmin
+    .from("career_projects")
+    .select(
+      "company_name,company_logo_url,supervisor_name,supervisor_department,supervisor_position,supervisor_profile_img",
+    )
+    .eq("id", careerProjectId)
+    .maybeSingle();
+  if (error) {
+    console.warn("[cluster4/lines/detail] career_projects lookup failed", {
+      message: error.message,
+    });
+    return EMPTY_CAREER_PROJECT_META;
+  }
+  const row = data as {
+    company_name: string | null;
+    company_logo_url: string | null;
+    supervisor_name: string | null;
+    supervisor_department: string | null;
+    supervisor_position: string | null;
+    supervisor_profile_img: string | null;
+  } | null;
+  if (!row) return EMPTY_CAREER_PROJECT_META;
+  return {
+    companyName: row.company_name ?? null,
+    companyLogoUrl: row.company_logo_url ?? null,
+    supervisorName: row.supervisor_name ?? null,
+    supervisorDepartment: row.supervisor_department ?? null,
+    supervisorPosition: row.supervisor_position ?? null,
+    supervisorPhotoUrl: row.supervisor_profile_img ?? null,
+  };
+}
+
 // Fetches the target row by id; ownership / window checks are handled separately by
 // the unified canEditCluster4Line helper so admin and portal paths agree on policy.
 async function fetchTargetById(lineTargetId: string) {
@@ -443,7 +515,12 @@ export async function getCluster4LineDetailForProfileUser(
     };
   }
 
-  const line = toVisibleLine(matched);
+  // 실무 경력 sponsor-card 메타는 career part 에서만 조회. 그 외 part 는 전부 null.
+  const isCareerForMeta = partType === "career";
+  const careerMeta = isCareerForMeta
+    ? await getCareerProjectMeta(matched.cluster4_lines?.career_project_id ?? null)
+    : EMPTY_CAREER_PROJECT_META;
+  const line = toVisibleLine(matched, careerMeta);
   // 실무 경험 평점·5슬롯 분류는 experience part 에서만 조회. 그 외 part 는 null.
   const isExperience = partType === "experience";
   const experienceRating = isExperience
@@ -535,6 +612,10 @@ export async function createCluster4LineSubmissionForProfileUser(
       error?.message ?? "Failed to create submission.",
     );
   }
+  // 제출 생성으로 submission 필드(subtitle/growthPoint/outputLinks/outputImages)와 라인 상태가
+  // 바뀐다. 조회는 snapshot-only(계산 안 함)이므로, 제출자가 즉시 반영을 보도록 단건 즉시 재계산.
+  // best-effort(실패 시 stale 표시 → cron 재시도, 본 저장은 성공으로 응답).
+  await refreshWeeklyCardsSnapshotSafe(profileUserId);
   return toSubmissionDto(data as unknown as Cluster4SubmissionRow);
 }
 
@@ -574,5 +655,7 @@ export async function updateCluster4LineSubmissionForProfileUser(
   if (!data) {
     throw new Cluster4PublicLineError(404, "Submission not found.");
   }
+  // 제출 수정으로 submission 필드가 바뀌므로 단건 즉시 재계산(조회 snapshot-only → 즉시 반영용).
+  await refreshWeeklyCardsSnapshotSafe(profileUserId);
   return toSubmissionDto(data as unknown as Cluster4SubmissionRow);
 }

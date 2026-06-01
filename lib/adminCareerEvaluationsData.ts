@@ -21,6 +21,7 @@ import type {
   CareerEvaluationTargetDto,
   UpsertCareerEvaluationInput,
 } from "@/lib/adminCareerEvaluationsTypes";
+import { refreshWeeklyCardsSnapshotSafe } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 export class CareerEvaluationError extends Error {
   status: number;
@@ -129,6 +130,8 @@ export async function upsertCareerEvaluation(
     if (error || !data) {
       throw new CareerEvaluationError(500, error?.message ?? "평가 수정 실패");
     }
+    // 평점 변경은 그 사용자 career 카드에 즉시 반영되어야 함 → 단건 즉시 재계산(best-effort).
+    await refreshWeeklyCardsSnapshotSafe(input.userId);
     return toEvaluationDto(data as EvaluationRow);
   }
 
@@ -147,6 +150,7 @@ export async function upsertCareerEvaluation(
   if (error || !data) {
     throw new CareerEvaluationError(500, error?.message ?? "평가 생성 실패");
   }
+  await refreshWeeklyCardsSnapshotSafe(input.userId);
   return toEvaluationDto(data as EvaluationRow);
 }
 

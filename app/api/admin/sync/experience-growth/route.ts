@@ -7,6 +7,7 @@ import {
   syncAllExperienceGrowthWeekStatuses,
   syncTestExperienceGrowthWeekStatuses,
 } from "@/lib/cluster4WeeklyGrowthData";
+import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 // 실무경험 성장 상태 동기화 (success → fail 단방향, rest/현재주 제외, 멱등).
 //
@@ -53,6 +54,11 @@ export async function POST(request: Request) {
       scope === "all"
         ? await syncAllExperienceGrowthWeekStatuses({ dryRun })
         : await syncTestExperienceGrowthWeekStatuses();
+    // 실제 반영(dryRun=false)된 경우, fail 로 전환된 사용자들의 카드가 바뀐다 → 다건 stale 표시.
+    // 대량(운영 전체)일 수 있으므로 즉시 재계산이 아니라 markStaleMany(저렴) + cron 재생성. best-effort.
+    if (!data.dryRun && data.results.length > 0) {
+      await markWeeklyCardsSnapshotStaleMany(data.results.map((r) => r.userId));
+    }
     return Response.json({ success: true, devMode, scope, dryRun, confirm, data });
   } catch (error) {
     console.error("[admin/sync/experience-growth POST]", error);

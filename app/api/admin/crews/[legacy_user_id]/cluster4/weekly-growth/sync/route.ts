@@ -5,6 +5,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { syncExperienceGrowthForCrew } from "@/lib/cluster4WeeklyGrowthData";
+import { refreshWeeklyCardsSnapshotSafe } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 type Ctx = { params: Promise<{ legacy_user_id: string }> };
 
@@ -48,6 +49,11 @@ export async function POST(request: NextRequest, { params }: Ctx) {
         { success: false, error: "Crew not found" },
         { status: 404 },
       );
+    }
+    // 실제 DB 반영(write) + 주차 상태가 fail 로 전환된 경우에만 그 사용자 카드가 바뀐다 →
+    // 단건 즉시 재계산(관리자 동기화 직후 반영). dry-run/무변경이면 snapshot 손대지 않음. best-effort.
+    if (decision.mode === "write" && decision.result.flippedToFail > 0) {
+      await refreshWeeklyCardsSnapshotSafe(decision.userId);
     }
     return Response.json({
       success: true,
