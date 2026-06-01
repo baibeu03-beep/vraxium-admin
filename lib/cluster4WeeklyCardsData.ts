@@ -25,6 +25,10 @@ import {
 } from "@/lib/cluster4LinePermission";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
 import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
+import {
+  type CareerGrade,
+  careerRatingStatusFromGrade,
+} from "@/lib/careerGrade";
 import type {
   Cluster4ExperienceCategory,
   Cluster4LineDetailDto,
@@ -81,6 +85,12 @@ type ActivityTypeRow = {
 type ExperienceMasterMeta = {
   category: Cluster4ExperienceCategory | null;
   slotOrder: number | null;
+};
+
+// cluster4_career_line_evaluations 의 평점 (career part 라인에만 적용).
+type CareerGradeEval = {
+  grade: CareerGrade;
+  points: number;
 };
 
 type SubmissionRow = {
@@ -217,6 +227,9 @@ function emptyLine(
     experienceCategory: null,
     experienceSlotOrder: null,
     careerProjectId: null,
+    careerGrade: null,
+    careerGradePoints: null,
+    careerRatingStatus: null,
     lineCode: null,
     projectCode: null,
     submission: null,
@@ -281,6 +294,7 @@ function toLineDetail(
   activityTypeNameById: Map<string, string>,
   experienceRatingByTargetId: Map<string, number>,
   experienceMasterMetaById: Map<string, ExperienceMasterMeta>,
+  careerGradeByTargetId: Map<string, CareerGradeEval>,
 ): Cluster4LineDetailDto | null {
   const line = target.cluster4_lines;
   if (!line) return null;
@@ -295,8 +309,17 @@ function toLineDetail(
     partType === "experience" ? line.experience_line_master_id : null;
   const careerProjectId =
     partType === "career" ? line.career_project_id : null;
-  // 강화 상태: 타깃이 존재하므로(1차 대상자) 마감 여부로만 success/pending 을 가른다.
+  // 실무 경력 평점: cluster4_career_line_evaluations.grade / grade_points (현재 대상자 기준).
+  // career part 만 매핑하고 그 외 part 는 null. 미평가면 null → careerRatingStatus="unevaluated".
+  const careerEval =
+    partType === "career" ? careerGradeByTargetId.get(target.id) ?? null : null;
+  const careerGrade = careerEval?.grade ?? null;
+  const careerGradePoints = careerEval?.points ?? null;
+  const careerRatingStatus =
+    partType === "career" ? careerRatingStatusFromGrade(careerGrade) : null;
+  // 강화 상태: 타깃이 존재하므로(1차 대상자) 마감 여부로 success/pending 을 가른다.
   // 마감(submission_closes_at = 수 22:00 KST) 후면 미기입이라도 success.
+  // career 는 추가로 평점을 반영한다 — 마감 후 D=fail / S~C=success / 미평가=pending(unevaluated).
   // submission 존재 여부는 submissionStatus 로만 분리 반영한다.
   const closesAt = line.submission_closes_at;
   const deadlinePassed =
@@ -306,6 +329,8 @@ function toLineDetail(
     deadlinePassed,
     hasSubmission: Boolean(submission),
     isCareer: partType === "career",
+    // career 만 평점 verdict 를 전달한다. 비career 는 undefined → 기존 동작(마감 후 success).
+    careerGradeVerdict: partType === "career" ? careerRatingStatus : undefined,
   });
   // 관리자(라인 개설/관리)가 입력한 결과물만 추린다 — 사용자 제출분(cluster4_line_submissions)은
   // 별도 source 이므로 여기 어디에도 섞이지 않는다. resolveOutputLinks 는 URL 없는 항목을
@@ -365,6 +390,9 @@ function toLineDetail(
         ? experienceMasterMetaById.get(experienceLineMasterId)?.slotOrder ?? null
         : null,
     careerProjectId,
+    careerGrade,
+    careerGradePoints,
+    careerRatingStatus,
     lineCode: line.line_code,
     // career part 의 line_code 는 career_projects.line_code 와 동일 (= projectCode).
     projectCode: partType === "career" ? line.line_code : null,
@@ -506,20 +534,24 @@ function formatSection1Title(
 // ── section1-header status-badge 아이콘 매핑 (백엔드 SoT) ──
 // userWeekStatus 와 1:1. statusTone(semantic) 으로는 personal/official rest 와
 // running/tallying 을 구분하지 못하므로 별도 매핑이 필요하다.
+// 경로는 ASCII 파일명으로 통일한다 — 한글/공백/괄호 파일명(icon - 성장 (집계 중).png 등)은
+// 일부 서빙 환경(프록시/CDN/정적 핸들러)에서 %20%28 인코딩으로 404 가 난다. 프론트 방어 로직에
+// 의존하지 않고 API 가 처음부터 안전한 ASCII 경로를 내려준다. (기존 한글 파일은 삭제하지 않음.)
 const STATUS_ICON_URL: Record<Cluster4StatusIconKey, string> = {
-  success: "/images/0/cluster4/icon/icon - 성장(성공).png",
-  fail: "/images/0/cluster4/icon/icon - 성장(실패).png",
-  running: "/images/0/cluster4/icon/icon - 성장 (진행 중).png",
-  tallying: "/images/0/cluster4/icon/icon - 성장 (집계 중).png",
-  personal_rest: "/images/0/cluster4/icon/icon - 휴식(개인).png",
-  official_rest: "/images/0/cluster4/icon/icon - 휴식(공식).png",
+  success: "/images/0/cluster4/icon/icon-growth-success.png",
+  fail: "/images/0/cluster4/icon/icon-growth-fail.png",
+  running: "/images/0/cluster4/icon/icon-growth-running.png",
+  tallying: "/images/0/cluster4/icon/icon-growth-tallying.png",
+  personal_rest: "/images/0/cluster4/icon/icon-rest-personal.png",
+  official_rest: "/images/0/cluster4/icon/icon-rest-official.png",
 };
 
 function statusIconUrl(key: Cluster4StatusIconKey): string {
   return STATUS_ICON_URL[key];
 }
 
-// 본 주차 진행 라벨. running/tallying 만 highlight 부분이 "+1" 로 표시되고
+// 본 주차 진행 라벨. running/tallying 은 결과 미확정이므로 확정 누적(approved)에 표시용으로
+// +1 한 값을 보여준다 (정책 5: 예) 1/25 → 2/25). 실제 DB 카운트는 올리지 않는다.
 // 그 외 (success/fail/personal_rest/official_rest) 는 accumulatedApprovedWeeks 그대로.
 // "주차" 접미사는 i18n 영향 받지만 현재 화면이 한국어 고정이므로 그대로 둔다.
 function buildWeekProgressLabel(
@@ -527,9 +559,9 @@ function buildWeekProgressLabel(
   approved: number,
   target: number,
 ): string {
-  const highlight =
-    status === "running" || status === "tallying" ? "+1" : String(approved);
-  return `${highlight} / ${target} 주차`;
+  const displayCount =
+    status === "running" || status === "tallying" ? approved + 1 : approved;
+  return `${displayCount} / ${target} 주차`;
 }
 
 function cardMessage(card: WeeklyCardDto): string | null {
@@ -808,6 +840,37 @@ async function fetchLineDetailsByWeek(
     }
   }
 
+  // 실무 경력 평점(cluster4_career_line_evaluations.grade / grade_points) 일괄 룩업.
+  // career part target 에 한해 (line_target_id + user_id) 단위로 현재 대상자의 평점만 매핑.
+  // 조회 실패해도 카드 전체를 깨뜨리지 않고 평점만 null 폴백(→ unevaluated)한다.
+  const careerTargetIds = relevantTargets
+    .filter((row) => row.cluster4_lines?.part_type === "career")
+    .map((row) => row.id);
+  const careerGradeByTargetId = new Map<string, CareerGradeEval>();
+  if (careerTargetIds.length > 0) {
+    const { data: careerEvalData, error: careerEvalError } = await supabaseAdmin
+      .from("cluster4_career_line_evaluations")
+      .select("line_target_id,grade,grade_points")
+      .eq("user_id", profileUserId)
+      .in("line_target_id", careerTargetIds);
+    if (careerEvalError) {
+      console.warn("[cluster4/weekly-cards] career evaluations lookup failed", {
+        message: careerEvalError.message,
+      });
+    } else {
+      for (const row of (careerEvalData ?? []) as {
+        line_target_id: string;
+        grade: CareerGrade;
+        grade_points: number;
+      }[]) {
+        careerGradeByTargetId.set(row.line_target_id, {
+          grade: row.grade,
+          points: row.grade_points,
+        });
+      }
+    }
+  }
+
   // information sub-line 라벨 (activity_types.name) 일괄 룩업.
   const activityTypeIds = Array.from(
     new Set(
@@ -847,6 +910,7 @@ async function fetchLineDetailsByWeek(
         activityTypeNameById,
         experienceRatingByTargetId,
         experienceMasterMetaById,
+        careerGradeByTargetId,
       );
       if (!base) continue;
       const dbPartType = target.cluster4_lines?.part_type;
@@ -1024,16 +1088,22 @@ export async function getCluster4WeeklyCardsForAuthUser(
   // 휴식 주차(personal_rest/official_rest) — competency placeholder 를 fail 로 강제하지 않기 위한 신호.
   const restWeekIds = new Set(
     weeklyGrowth.weeklyCards
-      .filter((card) => card.weekId && isRestWeek(card.resultStatus))
+      .filter((card) => card.weekId && (card.isTransition || isRestWeek(card.resultStatus)))
       .map((card) => card.weekId as string),
   );
+  const tLinesStart = Date.now();
   const [lineMap, headerSnapshot] = await Promise.all([
     fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds),
     fetchHeaderExtrasSnapshot(profileUserId),
   ]);
+  console.log(
+    "[weekly-cards][timing] lineDetails+headerExtras",
+    `${Date.now() - tLinesStart}ms`,
+    `| weeks=${weekIds.length}`,
+  );
 
   return weeklyGrowth.weeklyCards.map((card) => {
-    const restWeek = isRestWeek(card.resultStatus);
+    const restWeek = card.isTransition || isRestWeek(card.resultStatus);
     const lines = card.weekId
       ? (lineMap.get(card.weekId) ??
           PUBLIC_PARTS.map((p) => emptyLine(p, card.weekId, false, restWeek)))
@@ -1045,7 +1115,12 @@ export async function getCluster4WeeklyCardsForAuthUser(
 export async function getCluster4WeeklyCardsForProfileUser(
   profileUserId: string,
 ): Promise<Cluster4WeeklyCardDto[]> {
+  const tGrowthStart = Date.now();
   const weeklyGrowth = await getWeeklyGrowth(profileUserId);
+  console.log(
+    "[weekly-cards][timing] getWeeklyGrowth(profileUser)",
+    `${Date.now() - tGrowthStart}ms`,
+  );
   if (!weeklyGrowth) {
     throw new Cluster4WeeklyCardsError(404, "User profile not found.");
   }
@@ -1056,16 +1131,22 @@ export async function getCluster4WeeklyCardsForProfileUser(
   // 휴식 주차(personal_rest/official_rest) — competency placeholder 를 fail 로 강제하지 않기 위한 신호.
   const restWeekIds = new Set(
     weeklyGrowth.weeklyCards
-      .filter((card) => card.weekId && isRestWeek(card.resultStatus))
+      .filter((card) => card.weekId && (card.isTransition || isRestWeek(card.resultStatus)))
       .map((card) => card.weekId as string),
   );
+  const tLinesStart = Date.now();
   const [lineMap, headerSnapshot] = await Promise.all([
     fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds),
     fetchHeaderExtrasSnapshot(profileUserId),
   ]);
+  console.log(
+    "[weekly-cards][timing] lineDetails+headerExtras",
+    `${Date.now() - tLinesStart}ms`,
+    `| weeks=${weekIds.length}`,
+  );
 
   return weeklyGrowth.weeklyCards.map((card) => {
-    const restWeek = isRestWeek(card.resultStatus);
+    const restWeek = card.isTransition || isRestWeek(card.resultStatus);
     const lines = card.weekId
       ? (lineMap.get(card.weekId) ??
           PUBLIC_PARTS.map((p) => emptyLine(p, card.weekId, false, restWeek)))

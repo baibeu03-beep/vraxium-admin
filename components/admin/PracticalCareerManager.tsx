@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import Cluster4LineTable from "@/components/admin/cluster4/Cluster4LineTable";
+import CareerEvaluationTab from "@/components/admin/cluster4/CareerEvaluationTab";
 import {
   buildOutputLinksFromForm,
   OUTPUT_LINK_LABEL_PLACEHOLDER,
@@ -921,7 +922,6 @@ export default function PracticalCareerManager() {
           label="경력 기록/평가 관리"
           active={activeTab === "evaluation"}
           onClick={() => setActiveTab("evaluation")}
-          disabled
         />
       </div>
 
@@ -1357,19 +1357,16 @@ export default function PracticalCareerManager() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════ */}
-      {/* Tab: 경력 기록/평가 관리 (준비 중) */}
+      {/* Tab: 경력 기록/평가 관리 */}
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === "evaluation" && (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="text-lg font-medium text-muted-foreground">
-              경력 기록/평가 관리 기능은 준비 중입니다
-            </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              이 기능은 추후 업데이트에서 제공될 예정입니다.
-            </p>
-          </CardContent>
-        </Card>
+        <CareerEvaluationTab
+          lines={existingLines.map((l) => ({
+            id: l.id,
+            lineCode: l.lineCode,
+            mainTitle: l.mainTitle,
+          }))}
+        />
       )}
     </div>
   );

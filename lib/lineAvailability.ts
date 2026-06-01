@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
 import type { Cluster4EnhancementStatus } from "@/shared/cluster4.contracts";
+import { type CareerGrade, isCareerGradeFail } from "@/lib/careerGrade";
 
 export type LineCategory = "info" | "ability" | "experience" | "career";
 
@@ -150,6 +151,244 @@ export async function fetchCareerProjectCountsByWeek(
   return result;
 }
 
+// 강화율 분모 A(career, P1) = 그 주차에 해당 사용자가 배정된 active career 라인 target 수.
+// info/experience/competency 와 동일 방식(part_type 만 'career'). user_activity_details 미사용.
+// (구: fetchCareerProjectCountsByWeek = career_project_weeks 프로젝트 개설 수 — "실제 라인" 아님.)
+export async function fetchCareerLineCountsByWeek(
+  userId: string,
+  weekIds: string[],
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (weekIds.length === 0) return result;
+
+  const { data: lines } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id")
+    .eq("part_type", "career")
+    .eq("is_active", true);
+
+  const lineIds = (lines ?? []).map((l: { id: string }) => l.id);
+  if (lineIds.length === 0) return result;
+
+  const { data: targets } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("week_id")
+    .eq("target_mode", "user")
+    .eq("target_user_id", userId)
+    .in("line_id", lineIds)
+    .in("week_id", weekIds);
+
+  if (targets) {
+    for (const t of targets as { week_id: string }[]) {
+      result.set(t.week_id, (result.get(t.week_id) ?? 0) + 1);
+    }
+  }
+  return result;
+}
+
+// 강화율 분자 B(career, P1) = 그 주차 사용자 career 라인 중 강화 success 수.
+// success = 마감(submission_closes_at) 지남 + grade S/A/B/C(4점 이상). D(2점)·미평가·미제출은 제외.
+// 즉 per-line enhancementStatus==="success" 와 동일 기준(평점 반영). user_activity_details 미사용.
+export async function fetchCareerLineSuccessCountsByWeek(
+  userId: string,
+  weekIds: string[],
+  now: number = Date.now(),
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (weekIds.length === 0) return result;
+
+  const { data: lines } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id,submission_closes_at")
+    .eq("part_type", "career")
+    .eq("is_active", true);
+
+  const closesById = new Map<string, string>();
+  for (const l of (lines ?? []) as { id: string; submission_closes_at: string }[]) {
+    closesById.set(l.id, l.submission_closes_at);
+  }
+  if (closesById.size === 0) return result;
+
+  const { data: targets } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("id,week_id,line_id")
+    .eq("target_mode", "user")
+    .eq("target_user_id", userId)
+    .in("line_id", Array.from(closesById.keys()))
+    .in("week_id", weekIds);
+
+  const targetRows = (targets ?? []) as { id: string; week_id: string; line_id: string }[];
+  // 마감 지난 타깃만 success 후보. 그 중 grade C 이상인 것을 센다.
+  const deadlinePassed = targetRows.filter((t) => {
+    const closes = closesById.get(t.line_id);
+    return closes && new Date(closes).getTime() < now;
+  });
+  if (deadlinePassed.length === 0) return result;
+
+  const { data: evals } = await supabaseAdmin
+    .from("cluster4_career_line_evaluations")
+    .select("line_target_id,grade")
+    .eq("user_id", userId)
+    .in("line_target_id", deadlinePassed.map((t) => t.id));
+  const gradeByTarget = new Map<string, CareerGrade>();
+  for (const e of (evals ?? []) as { line_target_id: string; grade: CareerGrade }[]) {
+    gradeByTarget.set(e.line_target_id, e.grade);
+  }
+
+  for (const t of deadlinePassed) {
+    const grade = gradeByTarget.get(t.id);
+    // success = grade 존재 + 강화 실패(D) 아님 (= S/A/B/C).
+    if (grade && !isCareerGradeFail(grade)) {
+      result.set(t.week_id, (result.get(t.week_id) ?? 0) + 1);
+    }
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// BULK: weekly-cards 1회 호출에 필요한 8개 맵을 묶어 한 번에 산정.
+//
+// 기존 computeWeeklyCards 는 part 별로 fetchInfoLineCountsByWeek /
+// fetchExperienceLineCountsByWeek / fetchCompetencyLineCountsByWeek /
+// fetchInfoLineSuccessCountsByWeek / fetchLineSuccessCountsByWeek×2 /
+// fetchCareerLineSuccessCountsByWeek / fetchCareerLineCountsByWeek 를 각각 호출했다.
+// → cluster4_lines 9회 + cluster4_line_targets 8회 = 약 17~20 쿼리.
+//
+// 이 함수는 동일 결과를 cluster4_lines 1회 + cluster4_line_targets 1회
+// (+ career grade 1회) = 최대 3 쿼리로 계산한다. 의미는 기존 함수들과 1:1 동일:
+//   - 카운트 맵: 그 주차 사용자 active 라인 target 수 (part 별).
+//   - success 맵(info/ability/experience): target + submission_closes_at 마감(now 기준), 제출 무관.
+//   - careerSuccess 맵: 마감 + grade C이상(S/A/B/C). D/미평가/미제출 제외.
+// (기존 fetch* 함수는 cluster1ResumeData / smoke 스크립트가 계속 사용 → 보존.)
+// ─────────────────────────────────────────────────────────────────────
+export type WeeklyCardLineAggregates = {
+  infoLineMap: Map<string, number>;
+  experienceLineMap: Map<string, number>;
+  competencyLineMap: Map<string, number>;
+  careerLineMap: Map<string, number>;
+  infoSuccessMap: Map<string, number>;
+  abilitySuccessMap: Map<string, number>; // competency success
+  experienceSuccessMap: Map<string, number>;
+  careerSuccessMap: Map<string, number>;
+};
+
+function emptyWeeklyCardLineAggregates(): WeeklyCardLineAggregates {
+  return {
+    infoLineMap: new Map(),
+    experienceLineMap: new Map(),
+    competencyLineMap: new Map(),
+    careerLineMap: new Map(),
+    infoSuccessMap: new Map(),
+    abilitySuccessMap: new Map(),
+    experienceSuccessMap: new Map(),
+    careerSuccessMap: new Map(),
+  };
+}
+
+export async function fetchWeeklyCardLineAggregates(
+  userId: string,
+  weekIds: string[],
+  now: number = Date.now(),
+): Promise<WeeklyCardLineAggregates> {
+  const agg = emptyWeeklyCardLineAggregates();
+  if (weekIds.length === 0) return agg;
+
+  // Q1: 해당 유저의 주차별 라인 타깃 (전 part 한 번에) — part 별 반복 조회를 1회로.
+  // 유저+주차로 한정되어 행 수가 작다(암묵적 1000행 상한 무관). 먼저 타깃을 받아
+  // 필요한 line_id 만 추려 Q2 를 좁힌다.
+  const { data: targetRows } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("id,week_id,line_id")
+    .eq("target_mode", "user")
+    .eq("target_user_id", userId)
+    .in("week_id", weekIds);
+  const targets = (targetRows ?? []) as {
+    id: string;
+    week_id: string;
+    line_id: string;
+  }[];
+  if (targets.length === 0) return agg;
+
+  // Q2: 그 타깃들이 가리키는 active cluster4_lines 만 (part_type + 마감). is_active 필터로
+  // 비활성 라인은 lineById 에 없게 되어 아래 루프에서 자동 제외(기존 함수와 동일 기준).
+  const targetLineIds = [...new Set(targets.map((t) => t.line_id))];
+  const { data: lineRows } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id,part_type,submission_closes_at")
+    .in("id", targetLineIds)
+    .eq("is_active", true);
+  const lines = (lineRows ?? []) as {
+    id: string;
+    part_type: string;
+    submission_closes_at: string | null;
+  }[];
+  if (lines.length === 0) return agg;
+  const lineById = new Map<
+    string,
+    { partType: string; closesAt: string | null }
+  >();
+  for (const l of lines) {
+    lineById.set(l.id, { partType: l.part_type, closesAt: l.submission_closes_at });
+  }
+
+  const bump = (m: Map<string, number>, k: string) =>
+    m.set(k, (m.get(k) ?? 0) + 1);
+  const careerDeadlinePassed: { id: string; week_id: string }[] = [];
+
+  for (const t of targets) {
+    const line = lineById.get(t.line_id);
+    if (!line) continue;
+    const deadlinePassed =
+      Boolean(line.closesAt) &&
+      new Date(line.closesAt as string).getTime() < now;
+    switch (line.partType) {
+      case "info":
+        bump(agg.infoLineMap, t.week_id);
+        if (deadlinePassed) bump(agg.infoSuccessMap, t.week_id);
+        break;
+      case "experience":
+        bump(agg.experienceLineMap, t.week_id);
+        if (deadlinePassed) bump(agg.experienceSuccessMap, t.week_id);
+        break;
+      case "competency":
+        bump(agg.competencyLineMap, t.week_id);
+        if (deadlinePassed) bump(agg.abilitySuccessMap, t.week_id);
+        break;
+      case "career":
+        bump(agg.careerLineMap, t.week_id);
+        // career success 는 마감 + grade C이상 → 마감 지난 타깃만 grade 조회 후보.
+        if (deadlinePassed) careerDeadlinePassed.push({ id: t.id, week_id: t.week_id });
+        break;
+    }
+  }
+
+  // Q3: career success grade (마감 지난 career 타깃에 한해). 후보 없으면 쿼리 자체를 생략.
+  if (careerDeadlinePassed.length > 0) {
+    const { data: evals } = await supabaseAdmin
+      .from("cluster4_career_line_evaluations")
+      .select("line_target_id,grade")
+      .eq("user_id", userId)
+      .in(
+        "line_target_id",
+        careerDeadlinePassed.map((t) => t.id),
+      );
+    const gradeByTarget = new Map<string, CareerGrade>();
+    for (const e of (evals ?? []) as {
+      line_target_id: string;
+      grade: CareerGrade;
+    }[]) {
+      gradeByTarget.set(e.line_target_id, e.grade);
+    }
+    for (const t of careerDeadlinePassed) {
+      const grade = gradeByTarget.get(t.id);
+      // success = grade 존재 + 강화 실패(D) 아님 (= S/A/B/C).
+      if (grade && !isCareerGradeFail(grade)) bump(agg.careerSuccessMap, t.week_id);
+    }
+  }
+
+  return agg;
+}
+
 export function buildWeekAvailability(
   weekId: string | null,
   infoMap: Map<string, number>,
@@ -157,9 +396,16 @@ export function buildWeekAvailability(
   organization: OrganizationSlug | null,
   experienceMap?: Map<string, number>,
   competencyMap?: Map<string, number>,
+  // P1: career 분모를 "사용자 배정 라인 수"(per-user)로 동적화. 미제공(이력서 등 레거시 호출) 시
+  // careerMap(career_project_weeks 기반)으로 폴백 — 하위호환 유지(experience/competency 와 동일 패턴).
+  careerUserMap?: Map<string, number>,
 ): WeekLineAvailability {
   const info = weekId ? (infoMap.get(weekId) ?? 0) : 0;
-  const rawCareer = weekId ? (careerMap.get(weekId) ?? 0) : 0;
+  const rawCareer = weekId
+    ? careerUserMap
+      ? careerUserMap.get(weekId) ?? 0
+      : careerMap.get(weekId) ?? 0
+    : 0;
   // experience A(분모): 그 주차에 사용자에게 배정된 active experience 라인 target 수.
   // experienceMap 제공 시 동적 배정 수(info 와 동일 기준)를 쓰고, 미제공(레거시 호출) 시
   // 기존 조직별 상수로 폴백한다 — 하위호환 유지.

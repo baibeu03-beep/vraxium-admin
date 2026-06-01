@@ -23,6 +23,11 @@ import {
   outputImageUrls,
   outputImageCaptions as outputImageCaptionList,
 } from "@/lib/cluster4OutputImages";
+import {
+  type CareerGrade,
+  type CareerRatingStatus,
+  careerRatingStatusFromGrade,
+} from "@/lib/careerGrade";
 
 export class Cluster4PublicLineError extends Error {
   status: number;
@@ -303,6 +308,30 @@ async function getExperienceMasterMeta(
   };
 }
 
+// 실무 경력 평점 — cluster4_career_line_evaluations.grade / grade_points (운영자/평가값).
+// (line_target_id + user_id) 단위로 현재 대상자의 평점만 조회. 미평가/조회 실패 시 null.
+// 사용자 제출(submission)과 무관하며 career part 에서만 호출한다. weekly-cards 와 동일 값.
+async function getCareerGradeForTargetAndUser(
+  lineTargetId: string,
+  profileUserId: string,
+): Promise<{ grade: CareerGrade; points: number } | null> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_career_line_evaluations")
+    .select("grade,grade_points")
+    .eq("line_target_id", lineTargetId)
+    .eq("user_id", profileUserId)
+    .maybeSingle();
+  if (error) {
+    console.warn("[cluster4/lines/detail] career evaluation lookup failed", {
+      message: error.message,
+    });
+    return null;
+  }
+  const row = data as { grade: CareerGrade; grade_points: number } | null;
+  if (!row) return null;
+  return { grade: row.grade, points: row.grade_points };
+}
+
 // Fetches the target row by id; ownership / window checks are handled separately by
 // the unified canEditCluster4Line helper so admin and portal paths agree on policy.
 async function fetchTargetById(lineTargetId: string) {
@@ -408,6 +437,9 @@ export async function getCluster4LineDetailForProfileUser(
       experienceRating: null,
       experienceCategory: null,
       experienceSlotOrder: null,
+      careerGrade: null,
+      careerGradePoints: null,
+      careerRatingStatus: null,
     };
   }
 
@@ -420,6 +452,16 @@ export async function getCluster4LineDetailForProfileUser(
   const experienceMeta = isExperience
     ? await getExperienceMasterMeta(matched.cluster4_lines?.experience_line_master_id ?? null)
     : { category: null, slotOrder: null };
+  // 실무 경력 평점은 career part 에서만 조회. 그 외 part 는 null → careerRatingStatus 도 null.
+  const isCareer = partType === "career";
+  const careerEval = isCareer
+    ? await getCareerGradeForTargetAndUser(matched.id, profileUserId)
+    : null;
+  const careerGrade: CareerGrade | null = careerEval?.grade ?? null;
+  const careerGradePoints: number | null = careerEval?.points ?? null;
+  const careerRatingStatus: CareerRatingStatus | null = isCareer
+    ? careerRatingStatusFromGrade(careerGrade)
+    : null;
   const submission = await getSubmissionForTargetAndUser(matched.id, profileUserId);
   if (submission) {
     return {
@@ -430,6 +472,9 @@ export async function getCluster4LineDetailForProfileUser(
       experienceRating,
       experienceCategory: experienceMeta.category,
       experienceSlotOrder: experienceMeta.slotOrder,
+      careerGrade,
+      careerGradePoints,
+      careerRatingStatus,
     };
   }
 
@@ -442,6 +487,9 @@ export async function getCluster4LineDetailForProfileUser(
     experienceRating,
     experienceCategory: experienceMeta.category,
     experienceSlotOrder: experienceMeta.slotOrder,
+    careerGrade,
+    careerGradePoints,
+    careerRatingStatus,
   };
 }
 

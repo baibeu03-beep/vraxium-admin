@@ -2,8 +2,10 @@
 // Keep this file free of server-only imports.
 
 import type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
+import type { CareerGrade, CareerRatingStatus } from "@/lib/careerGrade";
 
 export type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
+export type { CareerGrade, CareerRatingStatus } from "@/lib/careerGrade";
 
 export type Cluster4LinePartType =
   | "information"
@@ -40,7 +42,15 @@ export type Cluster4EnhancementReason =
   // 타깃 없음 + 제출 불필요 + career → not_applicable
   | "target_missing_not_required_career"
   // 타깃 없음 + 제출 불필요 + 비career → not_applicable
-  | "target_missing_not_required_non_career";
+  | "target_missing_not_required_non_career"
+  // career 전용 (P0): 타깃 있음 + 마감 후 + grade S/A/B/C → success
+  | "career_grade_success"
+  // career 전용 (P0): 타깃 있음 + 마감 후 + grade D(2점, 3점 이하) → fail
+  | "career_grade_fail"
+  // career 전용 (P0): 타깃 있음 + 마감 후 + 제출함 + grade 미입력 → pending (평가 대기)
+  | "career_unevaluated_after_deadline"
+  // career 전용 (P1): 타깃 있음(선발) + 마감 후 + 미제출 → fail
+  | "career_not_submitted";
 
 export type Cluster4LineTargetMode = "user" | "rule";
 
@@ -178,6 +188,15 @@ export type Cluster4VisibleLineDto = {
 
   // 실무 경력 (career)
   careerProjectId: string | null;
+  // 실무 경력 평점 — source: cluster4_career_line_evaluations.grade / grade_points (P0).
+  //   (line_target_id + user_id) 단위로 현재 대상자의 평점만 매핑. career 외 part 또는 미평가 시 null.
+  //   사용자 제출값(submission)과 무관. grade: S/A/B/C/D, gradePoints: 10/8/6/4/2.
+  careerGrade: CareerGrade | null;
+  careerGradePoints: number | null;
+  // 평가 결과 축 (마감 여부와 독립). career 외 part 는 null.
+  //   unevaluated: grade 미입력 / success: S~C(4점 이상) / fail: D(2점, 3점 이하).
+  //   강화 실패(D)는 enhancementStatus 에도 fail 로 반영된다(마감 후 기준).
+  careerRatingStatus: CareerRatingStatus | null;
 
   // cluster4_lines.line_code — competency/experience/career 공통 식별 코드.
   // career part 의 경우 career_projects.line_code 와 동일 (= projectCode).
@@ -282,17 +301,17 @@ export type Cluster4WeeklyCardDto = {
   // 공개 정적 자산 경로. 프론트 매핑 테이블 없이 곧바로 <img src={statusIconUrl}/> 로 사용.
   statusIconUrl: string;
 
-  // 누적 승인 주차 수 (status='success' 합 — 본 주차 포함, '진행/집계 중' +1 보정 미포함).
-  // 진행/집계 중 표시는 displayWeekProgressLabel 로 별도 제공.
-  // 출처: user_week_statuses.status='success' cumulative.
+  // 확정 누적 승인 주차 수 = 공표 완료(weeks.result_published_at)된 status='success' 합.
+  // 현재주(진행 중)·미공표 주차(집계 중)는 미확정이므로 제외 → '진행/집계 중' 카드의 +1 base.
+  // 표시용 +1 보정은 displayWeekProgressLabel 로 별도 제공 (이 값 자체는 보정 미포함).
   accumulatedApprovedWeeks: number;
   // 졸업 목표 주차 수 (조직 상수: encre/phalanx=30, oranke=25).
   // 출처: lib/pointLabels.ts:GRADUATION_THRESHOLDS[organization].
   totalRequiredWeeks: number;
   // totalRequiredWeeks 의 alias (사양 호환용).
   baseWeekCount: number;
-  // 프론트 계산 없이 곧바로 표시 가능한 주차 진행 라벨 (예: "+1 / 25 주차", "30 / 25 주차").
-  // running/tallying 일 때만 highlight 부분이 "+1" 로 치환된다 — 이외에는 accumulatedApprovedWeeks.
+  // 프론트 계산 없이 곧바로 표시 가능한 주차 진행 라벨 (예: "2 / 25 주차", "30 / 25 주차").
+  // running/tallying 이면 accumulatedApprovedWeeks + 1 (표시용 프리뷰), 그 외에는 그대로.
   displayWeekProgressLabel: string;
 
   // 본 주차 시점의 사용자 기수 (user_team_parts.generation, joined_at<=weekStart<left_at). 없으면 null.

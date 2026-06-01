@@ -98,6 +98,8 @@ export type WeeklyCardDto = {
   dateRangeDisplay: string;
   resultStatus: WeekResultStatus;
   resultLabel: string;
+  // 전환 주차(시즌 정규 주수 +1). 공식 휴식이 아니며 성장률·요약 집계에서 제외된다.
+  isTransition: boolean;
   accumulatedApprovedWeeks: number;
   targetWeeks: number;
   activityStatus: string;

@@ -12,6 +12,16 @@
 // submission(기입) 존재 여부는 submissionStatus 로 분리해 반환한다.
 // fail 은 "원래 개설되어야 하는데 target/line 이 없음" 같은 예외에만 쓴다.
 //
+// career 평점 반영 (P0 → P1 갱신 — 2026-06-01):
+//   career 라인은 선발(=타깃)·제출·평점(grade)을 함께 본다. 타깃 있음(선발됨) + 마감 후 기준:
+//     - grade D(2점, 3점 이하)            → fail    (career_grade_fail)
+//     - grade S/A/B/C(4점 이상)           → success (career_grade_success)
+//     - grade 미입력 + 제출함              → pending (career_unevaluated_after_deadline; 평가 대기)
+//     - grade 미입력 + 미제출 (P1)         → fail    (career_not_submitted; 선발됐는데 미진행)
+//   careerGradeVerdict 는 career 호출부(weekly-cards)만 전달한다. 미전달(undefined)이면
+//   기존 동작(마감 후 = success) 그대로이므로 info/experience/competency 는 영향받지 않는다.
+//   마감 전(deadlinePassed=false)에는 grade·제출과 무관하게 항상 pending.
+//
 // 서버(weekly-cards / 어드민 라인 API)에서만 호출하고, 결과를 DTO 에 그대로 append 한다.
 // DB 저장 컬럼이 아니라 런타임 파생값이다.
 
@@ -35,6 +45,9 @@ export type Cluster4EnhancementInput = {
   // 현재 weekly-cards 는 타깃 부재 = 미배정 = 제출 불필요로 보므로 항상 false 를 전달한다.
   // (향후 명시적 기대-대상 신호가 생기면 true 를 넘겨 fail 분기를 활성화한다.)
   expectedWhenMissing?: boolean;
+  // career 평점 평가 결과 (P0). career 호출부만 전달한다. 미전달이면 기존 동작 유지.
+  //   "success" → 마감 후 success, "fail" → 마감 후 fail, "unevaluated" → 마감 후 pending.
+  careerGradeVerdict?: "success" | "fail" | "unevaluated" | null;
 };
 
 export type Cluster4EnhancementResult = {
@@ -76,6 +89,38 @@ export function computeCluster4Enhancement(
     : "not_submitted";
 
   if (deadlinePassed) {
+    // career 평점 반영 (P0). careerGradeVerdict 미전달(undefined)인 비career 경로는
+    // 아래 분기를 모두 건너뛰고 기존대로 success 를 반환한다.
+    const careerGradeVerdict = input.careerGradeVerdict ?? null;
+    if (careerGradeVerdict === "fail") {
+      return {
+        enhancementStatus: "fail",
+        submissionStatus,
+        enhancementReason: "career_grade_fail",
+      };
+    }
+    if (careerGradeVerdict === "unevaluated") {
+      // 미평가: 제출했으면 평가 대기(pending), 미제출이면 강화 실패(P1).
+      if (hasSubmission) {
+        return {
+          enhancementStatus: "pending",
+          submissionStatus,
+          enhancementReason: "career_unevaluated_after_deadline",
+        };
+      }
+      return {
+        enhancementStatus: "fail",
+        submissionStatus,
+        enhancementReason: "career_not_submitted",
+      };
+    }
+    if (careerGradeVerdict === "success") {
+      return {
+        enhancementStatus: "success",
+        submissionStatus,
+        enhancementReason: "career_grade_success",
+      };
+    }
     return {
       enhancementStatus: "success",
       submissionStatus,

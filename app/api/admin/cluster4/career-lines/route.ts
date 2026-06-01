@@ -299,13 +299,40 @@ export async function POST(request: NextRequest) {
 
     const { data: project, error: projectError } = await supabaseAdmin
       .from("career_projects")
-      .select("id,line_code,line_name")
+      .select("id,line_code,line_name,default_target_user_ids")
       .eq("id", input.career_project_id)
       .maybeSingle();
     if (projectError) return Response.json({ success: false, error: projectError.message }, { status: 500 });
     if (!project) return Response.json({ success: false, error: "해당 경력 프로젝트를 찾을 수 없습니다" }, { status: 404 });
 
     const lineCode = (project as { line_code: string | null }).line_code;
+
+    // 선발 검증 (P1): 실무 경력은 선발된 크루만 대상자가 될 수 있다.
+    // 선발 SoT = career_projects.default_target_user_ids (등록 시 입력한 "선발 크루" 로스터).
+    // target_user_ids ⊄ 선발 로스터 면 차단한다.
+    const rawSelected = (project as { default_target_user_ids: unknown }).default_target_user_ids;
+    const selectedUserIds = new Set(
+      Array.isArray(rawSelected)
+        ? rawSelected.filter((v): v is string => typeof v === "string")
+        : [],
+    );
+    if (selectedUserIds.size === 0) {
+      return Response.json(
+        { success: false, error: "선발된 크루가 없습니다. 경력 라인 등록에서 선발 크루를 먼저 지정해주세요" },
+        { status: 400 },
+      );
+    }
+    const notSelected = input.target_user_ids.filter((uid) => !selectedUserIds.has(uid));
+    if (notSelected.length > 0) {
+      return Response.json(
+        {
+          success: false,
+          error: "선발되지 않은 사용자는 대상자로 지정할 수 없습니다",
+          data: { notSelected },
+        },
+        { status: 400 },
+      );
+    }
 
     // 주차 단위 중복 체크: 같은 주차 + career_project_id 의 active 라인이 있으면 차단.
     // (cluster4_lines 에는 week_id 가 없어 cluster4_line_targets.week_id 로 판정한다.)

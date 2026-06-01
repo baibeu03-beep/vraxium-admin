@@ -586,6 +586,35 @@ export default function CrewManager({
                             <Eye className="h-3.5 w-3.5" />
                           )}
                         </Button>
+                        {crew.userId ? (
+                          <Link
+                            href={
+                              `/admin/members/${encodeURIComponent(
+                                crew.userId,
+                              )}/weekly-status` + (devMode ? "?dev=true" : "")
+                            }
+                            title={
+                              devMode
+                                ? "이 사용자의 주차 상태 조회로 이동"
+                                : "이 회원의 주차 상태 조회로 이동"
+                            }
+                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                          >
+                            주차 상태
+                          </Link>
+                        ) : (
+                          <span
+                            aria-disabled
+                            title={
+                              devMode
+                                ? "user_id 가 없어 주차 상태를 조회할 수 없습니다."
+                                : "user_id 가 없어 주차 상태를 조회할 수 없는 회원입니다."
+                            }
+                            className="cursor-not-allowed rounded-md border border-dashed px-2 py-1 text-xs text-muted-foreground"
+                          >
+                            주차 상태
+                          </span>
+                        )}
                         <Link
                           href={
                             `/admin/settings/edit-windows?q=${encodeURIComponent(

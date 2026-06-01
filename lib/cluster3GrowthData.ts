@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isTransitionWeekStart } from "@/lib/seasonCalendar";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import { getGraduationThreshold, getPointLabels } from "@/lib/pointLabels";
 import {
@@ -34,6 +35,7 @@ type WeekStatusRow = {
   status: string;
   year?: number;
   week_number?: number;
+  week_start_date?: string | null;
   is_official_rest_override?: boolean;
 };
 
@@ -149,6 +151,8 @@ function buildIndicators(
 
   let a = 0, b = 0, c = 0, d = 0, overrideCount = 0;
   for (const row of weekRows) {
+    // 전환 주차는 공식 휴식이 아니며 성장/휴식 집계의 분자·분모 모두에서 제외.
+    if (row.week_start_date && isTransitionWeekStart(row.week_start_date)) continue;
     switch (row.status) {
       case "success": a++; break;
       case "fail": b++; break;
@@ -234,12 +238,14 @@ async function fetchCurrentWeekStatus(userId: string): Promise<string | null> {
   const { year, week } = getCurrentISOWeek();
   const { data } = await supabaseAdmin
     .from("user_week_statuses")
-    .select("status")
+    .select("status,week_start_date")
     .eq("user_id", userId)
     .eq("year", year)
     .eq("week_number", week)
     .maybeSingle();
-  return (data as { status: string } | null)?.status ?? null;
+  const row = data as { status: string; week_start_date: string | null } | null;
+  if (row?.week_start_date && isTransitionWeekStart(row.week_start_date)) return null;
+  return row?.status ?? null;
 }
 
 async function fetchCurrentWeekStatusBatch(
@@ -248,13 +254,19 @@ async function fetchCurrentWeekStatusBatch(
   const { year, week } = getCurrentISOWeek();
   const { data } = await supabaseAdmin
     .from("user_week_statuses")
-    .select("user_id,status")
+    .select("user_id,status,week_start_date")
     .in("user_id", userIds)
     .eq("year", year)
     .eq("week_number", week);
 
   const map = new Map<string, string>();
-  for (const row of (data ?? []) as Array<{ user_id: string; status: string }>) {
+  for (const row of (data ?? []) as Array<{
+    user_id: string;
+    status: string;
+    week_start_date: string | null;
+  }>) {
+    // 전환 주차는 현재 주차 휴식 판정에서 제외(공식 휴식 아님).
+    if (row.week_start_date && isTransitionWeekStart(row.week_start_date)) continue;
     map.set(row.user_id, row.status);
   }
   return map;
@@ -289,7 +301,7 @@ export async function getGrowthIndicatorsInternal(
       .maybeSingle(),
     supabaseAdmin
       .from("user_week_statuses")
-      .select("status,is_official_rest_override")
+      .select("status,week_start_date,is_official_rest_override")
       .eq("user_id", userId),
     supabaseAdmin
       .from("user_cumulative_points")
@@ -346,7 +358,7 @@ export async function getGrowthIndicatorsBatchInternal(
       .in("user_id", userIds),
     supabaseAdmin
       .from("user_week_statuses")
-      .select("user_id,status,is_official_rest_override")
+      .select("user_id,status,week_start_date,is_official_rest_override")
       .in("user_id", userIds),
     supabaseAdmin
       .from("user_cumulative_points")

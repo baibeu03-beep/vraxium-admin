@@ -59,6 +59,9 @@ type SeasonWeekDto = {
   // legacy_iso_week 는 표시 전용으로 판정에 반영되지 않는다.
   official_rest_sources: OfficialRestSource[];
   is_current_week: boolean;
+  // 전환 주차: 시즌 정규 주수(seasonWeeks)를 초과하는 +1 주차(시즌당 최대 1주).
+  // 공식 휴식이 아니며 시즌 end_date 범위 안(마지막 주)에 위치한다. 직전 시즌에 귀속.
+  is_transition: boolean;
 };
 
 type SeasonWeekConflictDto = {
@@ -107,7 +110,10 @@ function calendarOfficialRest(
 
   const seasonWeeks = SEASON_WEEKS[seasonType];
   if (seasonWeeks == null) return null;
-  if (weekNumber > seasonWeeks) return true;
+
+  // 전환 주차(정규 주수 +1)는 공식 휴식이 아니다 → is_transition 으로만 표시.
+  // 여름/겨울은 시험기간 휴식이 없어 마지막 +1주는 전환 주차일 뿐이며 여기서 false.
+  if (weekNumber > seasonWeeks) return false;
 
   if (seasonType === "spring" || seasonType === "autumn") {
     if (weekNumber >= 6 && weekNumber <= 8) return true;
@@ -285,6 +291,16 @@ export async function GET() {
         });
       }
 
+      // 전환 주차 판정(파생): 시즌 정규 주수(seasonWeeks)를 초과하는 +1 주차 = 전환.
+      // 시즌 end_date 는 전환 주차를 포함하므로 날짜 비교로는 잡히지 않는다(week_number 기준).
+      const transitionSeasonWeeks =
+        season.season_type != null ? SEASON_WEEKS[season.season_type] : null;
+      const isTransition = Boolean(
+        transitionSeasonWeeks != null &&
+          week.week_number != null &&
+          week.week_number > transitionSeasonWeeks,
+      );
+
       rows.push({
         season_key: season.season_key,
         season_label: season.season_label,
@@ -300,6 +316,7 @@ export async function GET() {
         is_official_rest: isOfficialRest,
         official_rest_sources: sources,
         is_current_week: isCurrentWeek(week.start_date, week.end_date, today),
+        is_transition: isTransition,
       });
     }
 

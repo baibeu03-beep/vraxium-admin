@@ -124,6 +124,26 @@ export function getCalendarWeekStatus(
   return "running";
 }
 
+// 주차 시작일(월요일) → 시즌 상대 주차 상태(running/official_rest/transition).
+// DB 무관, 순수 캘린더 규칙. week_start_date 만으로 판정한다.
+export function getSeasonWeekStatusForDate(
+  weekStartIso: string,
+): CalendarWeekStatus | null {
+  const season = getSeasonForDate(weekStartIso);
+  if (!season) return null;
+  const weekIndex = Math.floor(
+    (toMs(weekStartIso) - toMs(season.startDate)) / WEEK_MS,
+  );
+  if (weekIndex < 0) return null;
+  return getCalendarWeekStatus(season.type, weekIndex + 1, season.seasonWeeks);
+}
+
+// 전환 주차(시즌 정규 주수 +1) 여부. 전환 주차는 공식 휴식이 아니며,
+// 성장/휴식/인정 집계의 분자·분모 모두에서 제외한다.
+export function isTransitionWeekStart(weekStartIso: string): boolean {
+  return getSeasonWeekStatusForDate(weekStartIso) === "transition";
+}
+
 export function getUserSeasons(
   activityStartedAt: string,
   activityEndedAt: string | null,

@@ -615,6 +615,21 @@ export default function MembersList() {
                           )}
                           <Link
                             href={
+                              `/admin/members/${encodeURIComponent(
+                                member.userId,
+                              )}/weekly-status` + (devMode ? "?dev=true" : "")
+                            }
+                            title={
+                              devMode
+                                ? "이 사용자의 주차 상태 조회로 이동"
+                                : "이 회원의 주차 상태 조회로 이동"
+                            }
+                            className="rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                          >
+                            주차 상태
+                          </Link>
+                          <Link
+                            href={
                               `/admin/settings/edit-windows?q=${encodeURIComponent(
                                 member.userId,
                               )}` + (devMode ? "&dev=true" : "")

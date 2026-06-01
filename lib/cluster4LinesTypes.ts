@@ -10,9 +10,11 @@ import {
   type Cluster4OutputImage,
   parseOutputImagesInput,
 } from "@/lib/cluster4OutputImages";
+import type { CareerGrade, CareerRatingStatus } from "@/lib/careerGrade";
 
 export type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
 export type { Cluster4OutputImage } from "@/lib/cluster4OutputImages";
+export type { CareerGrade, CareerRatingStatus } from "@/lib/careerGrade";
 
 export type Cluster4LineStatus = "void" | "pending" | "success" | "fail";
 
@@ -76,6 +78,13 @@ export type Cluster4LineDetailDto = {
   //   join: cluster4_lines.experience_line_master_id → masters.id. experience 외 part 또는 미분류 시 null.
   experienceCategory: Cluster4ExperienceCategory | null;
   experienceSlotOrder: number | null;
+  // 실무 경력 평점 — source: cluster4_career_line_evaluations.grade / grade_points (P0).
+  //   (line_target_id + user_id) 단위로 현재 대상자의 평점만 매핑. career 외 part 또는 미평가 시 null.
+  //   weekly-cards DTO 와 동일 값. grade: S/A/B/C/D, gradePoints: 10/8/6/4/2.
+  careerGrade: CareerGrade | null;
+  careerGradePoints: number | null;
+  // 평가 결과 축 (마감 무관). unevaluated/success/fail. career 외 part 는 null.
+  careerRatingStatus: CareerRatingStatus | null;
 };
 
 export type Cluster4LineSubmissionInput = {

@@ -14,19 +14,41 @@ import {
   getWeeklyGrowthByUserId,
 } from "@/lib/cluster4WeeklyGrowthData";
 import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
+import {
+  currentQueryCount,
+  runWithQueryMeter,
+} from "@/lib/supabaseQueryMeter";
+
+// 무거운 데이터 라우트 — 실행시간 상한 명시 + 항상 동적 실행(인증/유저별).
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  return runWithQueryMeter("[weekly-growth]", () => handleGet(request));
+}
+
+async function handleGet(request: NextRequest) {
+  const tStart = Date.now();
+  const logDone = (label: string) =>
+    console.log(
+      "[weekly-growth] done",
+      label,
+      `| ${Date.now() - tStart}ms`,
+      `| supabaseQueries=${currentQueryCount()}`,
+    );
   // 데모 모드: demoUserId 가 유효한 테스트 유저면 세션 인증 대신 그 유저 데이터를 반환.
   try {
     const demoProfileUserId = await resolveDemoProfileUserId(request);
     if (demoProfileUserId) {
       const dto = await getWeeklyGrowth(demoProfileUserId);
       if (!dto) {
+        logDone("demo-404");
         return Response.json(
           { success: false, error: "User profile not found." },
           { status: 404 },
         );
       }
+      logDone("demo");
       return Response.json({ success: true, data: dto });
     }
   } catch (error) {
@@ -71,8 +93,10 @@ export async function GET(request: NextRequest) {
       weeklyCards_count: dto.weeklyCards.length,
     });
 
+    logDone("ok");
     return Response.json({ success: true, data: dto });
   } catch (error) {
+    logDone("error");
     console.error(TAG, error);
     return Response.json(
       {

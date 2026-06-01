@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isTransitionWeekStart } from "@/lib/seasonCalendar";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import {
   fetchInfoLineCountsByWeek,
@@ -6,7 +7,8 @@ import {
   fetchCompetencyLineCountsByWeek,
   fetchInfoLineSuccessCountsByWeek,
   fetchLineSuccessCountsByWeek,
-  fetchCareerProjectCountsByWeek,
+  fetchCareerLineCountsByWeek,
+  fetchCareerLineSuccessCountsByWeek,
   buildWeekAvailability,
   totalAvailable,
 } from "@/lib/lineAvailability";
@@ -61,7 +63,7 @@ async function computeScheduleReliability(
   const [weekRes, profileRes] = await Promise.all([
     supabaseAdmin
       .from("user_week_statuses")
-      .select("status")
+      .select("week_start_date,status")
       .eq("user_id", userId),
     supabaseAdmin
       .from("user_profiles")
@@ -87,13 +89,22 @@ async function computeScheduleReliability(
     Math.floor((now.getTime() - startDate.getTime()) / msPerWeek),
   );
 
-  const rows = weekRes.data as Array<{ status: string }>;
+  const rows = weekRes.data as Array<{
+    week_start_date: string | null;
+    status: string;
+  }>;
   let preRestWeeks = 0;
   let unapprovedActiveWeeks = 0;
   let approvedActiveWeeks = 0;
   let officialRestWeeks = 0;
+  let transitionWeeks = 0;
 
   for (const row of rows) {
+    // 전환 주차는 신뢰율 분자·분모 모두에서 제외(공식 휴식 아님). 분모 보정용으로만 카운트.
+    if (row.week_start_date && isTransitionWeekStart(row.week_start_date)) {
+      transitionWeeks++;
+      continue;
+    }
     switch (row.status) {
       case "success":
         approvedActiveWeeks++;
@@ -110,7 +121,8 @@ async function computeScheduleReliability(
     }
   }
 
-  const denominator = physicalWeeks - officialRestWeeks;
+  // physicalWeeks(시간기반 분모)에서 공식 휴식 + 전환 주차를 제외.
+  const denominator = physicalWeeks - officialRestWeeks - transitionWeeks;
   const rate =
     denominator > 0
       ? Math.round(((approvedActiveWeeks + preRestWeeks) / denominator) * 100)
@@ -158,7 +170,9 @@ async function computeActivityCompletion(
   }
 
   const growable = (weekRes.data as { week_start_date: string; status: string }[]).filter(
-    (w) => w.status !== "official_rest",
+    (w) =>
+      w.status !== "official_rest" &&
+      !(w.week_start_date && isTransitionWeekStart(w.week_start_date)),
   );
 
   if (growable.length === 0) {
@@ -189,11 +203,14 @@ async function computeActivityCompletion(
     // competency 분모 A = 배정된 competency 라인 수 (weekly-cards 와 동일 기준). 상수 1 대체.
     // 휴식 주차엔 competency 라인이 개설되지 않아 A=0 → 0/0 으로 자연 제외된다.
     fetchCompetencyLineCountsByWeek(userId, weekIds),
-    fetchCareerProjectCountsByWeek(weekIds),
+    // career 분모 A(P1) = 사용자에게 배정된 active career 라인 target 수 (허브와 동일).
+    //   (구: fetchCareerProjectCountsByWeek = career_project_weeks 개설 수 — 불일치 원인)
+    fetchCareerLineCountsByWeek(userId, weekIds),
     fetchInfoLineSuccessCountsByWeek(userId, weekIds),
     fetchLineSuccessCountsByWeek(userId, weekIds, "competency"),
     fetchLineSuccessCountsByWeek(userId, weekIds, "experience"),
-    fetchLineSuccessCountsByWeek(userId, weekIds, "career"),
+    // career 분자 B(P1) = 마감 + grade S/A/B/C success (허브와 동일). D/미평가/미제출 제외.
+    fetchCareerLineSuccessCountsByWeek(userId, weekIds),
   ]);
 
   let availableActivities = 0;
@@ -202,10 +219,12 @@ async function computeActivityCompletion(
     const avail = buildWeekAvailability(
       wid,
       infoAvailMap,
-      careerAvailMap,
+      // 레거시 careerMap(project 기반) 미사용. career A 는 careerUserMap(per-user)로 전달 — 허브와 동일.
+      new Map<string, number>(),
       organization,
       experienceAvailMap,
       competencyAvailMap,
+      careerAvailMap,
     );
     availableActivities += totalAvailable(avail);
     completedActivities +=
@@ -395,29 +414,18 @@ function dummySeasonRecords(): SeasonRecord[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Practical Stats — Cluster4 라인 target+마감 기준
-//   infoCount / abilityUnitCount / experienceCount = 주차별 part target+마감 success 합산
-//     (weekly-cards / activity-completion 과 동일 SoT, 제출 무관). user_activity_details 미사용.
-//   careerProjectCount = career success 합산과 career_records distinct project 중 큰 값
-//     (career_records 보강 역할 유지).
+// Practical Stats — Cluster4 라인 기준 (허브 weekly-cards 와 동일 SoT). user_activity_details 미사용.
+//   infoCount / abilityUnitCount / experienceCount = 주차별 part target+마감 success 합산 (제출 무관).
+//   careerProjectCount(P1) = career success(마감 + grade S/A/B/C) 합산.
+//     D/미평가/미제출은 success 아님 → 미포함. career_records 미사용(legacy 동결).
 // ─────────────────────────────────────────────────────────────────────
 async function computePracticalStats(
   userId: string,
 ): Promise<PracticalStats> {
-  const [weekRes, careerRes] = await Promise.all([
-    supabaseAdmin
-      .from("user_week_statuses")
-      .select("week_start_date")
-      .eq("user_id", userId),
-    supabaseAdmin
-      .from("career_records")
-      .select("project_id")
-      .eq("user_id", userId),
-  ]);
-
-  const distinctProjects = new Set(
-    ((careerRes.data ?? []) as { project_id: string }[]).map((r) => r.project_id),
-  );
+  const weekRes = await supabaseAdmin
+    .from("user_week_statuses")
+    .select("week_start_date")
+    .eq("user_id", userId);
 
   let infoCount = 0;
   let experienceCount = 0;
@@ -445,7 +453,8 @@ async function computePracticalStats(
         fetchInfoLineSuccessCountsByWeek(userId, weekIds),
         fetchLineSuccessCountsByWeek(userId, weekIds, "competency"),
         fetchLineSuccessCountsByWeek(userId, weekIds, "experience"),
-        fetchLineSuccessCountsByWeek(userId, weekIds, "career"),
+        // career success(P1) = 마감 + grade S/A/B/C (허브와 동일). D/미평가/미제출 제외.
+        fetchCareerLineSuccessCountsByWeek(userId, weekIds),
       ]);
       for (const wid of weekIds) {
         infoCount += infoSuccessMap.get(wid) ?? 0;
@@ -456,7 +465,8 @@ async function computePracticalStats(
     }
   }
 
-  const careerProjectCount = Math.max(careerActivityCount, distinctProjects.size);
+  // P1: 허브와 동일하게 grade 기준 success 합산. (구: career_records distinct project 와 max 보정 제거)
+  const careerProjectCount = careerActivityCount;
 
   return { infoCount, experienceCount, abilityUnitCount, careerProjectCount };
 }

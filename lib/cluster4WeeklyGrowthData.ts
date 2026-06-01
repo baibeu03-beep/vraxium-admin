@@ -5,6 +5,7 @@ import {
   getSeasonForDate,
   getSeasonCalendar,
   getCalendarWeekStatus,
+  isTransitionWeekStart,
   seasonDbKey,
   type Season,
 } from "@/lib/seasonCalendar";
@@ -34,12 +35,7 @@ import {
   type EndStatus,
 } from "@/lib/cluster4WeeklyGrowthTypes";
 import {
-  fetchInfoLineCountsByWeek,
-  fetchExperienceLineCountsByWeek,
-  fetchCompetencyLineCountsByWeek,
-  fetchInfoLineSuccessCountsByWeek,
-  fetchLineSuccessCountsByWeek,
-  fetchCareerProjectCountsByWeek,
+  fetchWeeklyCardLineAggregates,
   fetchExperienceRequiredSlotStatusByWeek,
   shouldApplyExperienceFail,
   shouldSyncWeekStatusToFail,
@@ -171,7 +167,7 @@ async function computeGrowthSummary(userId: string): Promise<GrowthSummary> {
   const [weekRes, profileRes, seasonStatusRes] = await Promise.all([
     supabaseAdmin
       .from("user_week_statuses")
-      .select("year,week_number,status,season_key")
+      .select("year,week_number,status,season_key,week_start_date")
       .eq("user_id", userId)
       .order("year", { ascending: true })
       .order("week_number", { ascending: true }),
@@ -196,6 +192,7 @@ async function computeGrowthSummary(userId: string): Promise<GrowthSummary> {
     week_number: number;
     status: string;
     season_key: string | null;
+    week_start_date: string | null;
   };
   const weeks = weekRes.data as WeekRow[];
 
@@ -206,6 +203,8 @@ async function computeGrowthSummary(userId: string): Promise<GrowthSummary> {
   let restWeeks = 0;
 
   for (const w of weeks) {
+    // 전환 주차는 성장 요약(분자·분모) 집계에서 제외(공식 휴식 아님).
+    if (w.week_start_date && isTransitionWeekStart(w.week_start_date)) continue;
     switch (w.status) {
       case "success":
         approvedWeeks++;
@@ -322,6 +321,8 @@ type WeeksRow = {
   holiday_name: string | null;
   iso_year: number | null;
   iso_week: number | null;
+  // 집계/공표 완료 시점. NULL=미공표(집계 중), 값 존재=공표 완료(success/fail 노출).
+  result_published_at: string | null;
 };
 
 type PointsRow = {
@@ -349,7 +350,7 @@ async function computeWeeklyCards(
   crewMeta: CrewMetadata,
 ): Promise<{ cards: WeeklyCardDto[]; flippedToFail: number }> {
   const { teamLabel, partLabel, activityStatus } = crewMeta;
-  // 1. 사용자 주차 상태 조회 (최신순)
+  // 1. 사용자 주차 상태 조회 (보조 데이터). 카드 루프의 기준은 weeks 이며, uws 는 있으면 붙인다.
   const { data: uwsData, error: uwsErr } = await supabaseAdmin
     .from("user_week_statuses")
     .select("year,week_number,week_start_date,status,season_key")
@@ -358,17 +359,111 @@ async function computeWeeklyCards(
     .order("week_number", { ascending: false });
 
   if (uwsErr || !uwsData || uwsData.length === 0) {
+    // 활동 이력(uws)이 전혀 없으면 표시할 궤적이 없다 → 기존과 동일하게 빈 목록.
     return { cards: [], flippedToFail: 0 };
   }
   const uwsRows = uwsData as UwsRow[];
+  // week_start_date → uws (보조 데이터 lookup). 카드 주차에 붙인다.
+  const uwsByStart = new Map<string, UwsRow>();
+  for (const r of uwsRows) uwsByStart.set(r.week_start_date, r);
 
   // 공식 휴식 재판정용 — 활성 official_rest_periods 를 1회 prefetch 하여
   // 루프 안에서 주차별로 seasonCalendar rule ∨ 날짜 overlap 으로 판정한다.
   const activeRestPeriods = await fetchActiveRestPeriods();
 
-  // 1b. season_definitions에서 season_label 조회
+  // 2. 현재 시즌/주차 판별 (카드 범위 상한 + running/official_rest 판정).
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const currentSeason = getSeasonForDate(todayIso);
+  const currentWeek = currentSeason
+    ? getWeekInSeason(currentSeason, todayIso)
+    : null;
+  const currentWeekStart = currentWeek?.weekStart ?? null;
+
+  // 3. 카드 대상 weeks 범위: [가장 이른 uws 주차, 현재 주차]. 현재 주차가 없으면 최신 uws 까지.
+  //    미래 주차(현재 주차 이후)는 제외한다.
+  const uwsStartsSorted = uwsRows.map((r) => r.week_start_date).sort();
+  const lowerBound = uwsStartsSorted[0];
+  const latestUwsStart = uwsStartsSorted[uwsStartsSorted.length - 1];
+  const upperBound = currentWeekStart
+    ? currentWeekStart > latestUwsStart
+      ? currentWeekStart
+      : currentWeekStart
+    : latestUwsStart;
+
+  // 4. 범위 내 weeks 조회 — 카드 루프의 기준 source (uws 가 아니라 weeks 가 카드를 만든다).
+  const { data: weeksData } = await supabaseAdmin
+    .from("weeks")
+    .select("id,week_number,start_date,end_date,season_key,is_official_rest,holiday_name,iso_year,iso_week,result_published_at")
+    .gte("start_date", lowerBound)
+    .lte("start_date", upperBound)
+    .order("start_date", { ascending: false });
+
+  const weeksByDate = new Map<string, WeeksRow>();
+  for (const w of (weeksData ?? []) as WeeksRow[]) {
+    if (w.start_date) weeksByDate.set(w.start_date, w);
+  }
+
+  // 5. 카드 대상 주차 집합 = 범위 내 weeks ∪ (weeks row 가 없는 orphan uws 합성).
+  //    orphan uws(예: 2025-09): weeks 테이블에 대응 row 가 없던 과거 주차. 카드가 사라지지 않도록
+  //    합성 주차로 포함하고, 공표 개념 도입 전 데이터이므로 "공표 완료"로 취급해 기존 표시(uws.status)를 보존한다.
+  type CardWeek = {
+    id: string | null;
+    week_number: number | null;
+    start_date: string;
+    end_date: string | null;
+    season_key: string | null;
+    iso_year: number | null;
+    iso_week: number | null;
+    result_published_at: string | null;
+    synthetic: boolean;
+  };
+  const cardWeekByStart = new Map<string, CardWeek>();
+  for (const w of weeksByDate.values()) {
+    if (!w.start_date) continue;
+    cardWeekByStart.set(w.start_date, {
+      id: w.id,
+      week_number: w.week_number,
+      start_date: w.start_date,
+      end_date: w.end_date,
+      season_key: w.season_key,
+      iso_year: w.iso_year,
+      iso_week: w.iso_week,
+      result_published_at: w.result_published_at,
+      synthetic: false,
+    });
+  }
+  for (const r of uwsRows) {
+    if (cardWeekByStart.has(r.week_start_date)) continue;
+    // orphan uws → 합성 주차 (id 없음 → 라인/포인트-by-id 맵에서 자동 제외, 기존 동작과 동일).
+    cardWeekByStart.set(r.week_start_date, {
+      id: null,
+      week_number: null, // displayWeekNum 은 uws.week_number(iso) 로 폴백
+      start_date: r.week_start_date,
+      end_date: null,
+      season_key: r.season_key,
+      iso_year: r.year,
+      iso_week: r.week_number,
+      result_published_at: null,
+      synthetic: true,
+    });
+  }
+  // 최신순(내림차순) 카드 출력 / 오름차순은 누적 계산용.
+  const cardWeeksDesc = [...cardWeekByStart.values()].sort((a, b) =>
+    a.start_date < b.start_date ? 1 : a.start_date > b.start_date ? -1 : 0,
+  );
+  const cardWeeksAsc = [...cardWeeksDesc].reverse();
+
+  // 합성(orphan)은 공표 완료로 취급 — 공표 개념 도입 전 과거 데이터의 기존 표시 보존.
+  const isWeekPublished = (w: CardWeek): boolean =>
+    Boolean(w.result_published_at) || w.synthetic;
+  const isCurrentWeekStart = (start: string): boolean =>
+    currentWeekStart != null && start === currentWeekStart;
+
+  // 6. season_definitions 라벨 (카드 주차들의 season_key 기준).
   const seasonKeys = [
-    ...new Set(uwsRows.map((r) => r.season_key).filter(Boolean) as string[]),
+    ...new Set(
+      cardWeeksDesc.map((w) => w.season_key).filter(Boolean) as string[],
+    ),
   ];
   type SeasonDefRow = { season_key: string; season_label: string; year: number };
   const seasonLabelMap = new Map<string, SeasonDefRow>();
@@ -384,21 +479,7 @@ async function computeWeeklyCards(
     }
   }
 
-  // 2. weeks 테이블에서 대응 row 조회 (start_date 매칭)
-  const weekStartDates = uwsRows.map((r) => r.week_start_date);
-  const { data: weeksData } = await supabaseAdmin
-    .from("weeks")
-    .select("id,week_number,start_date,end_date,season_key,is_official_rest,holiday_name,iso_year,iso_week")
-    .in("start_date", weekStartDates);
-
-  const weeksByDate = new Map<string, WeeksRow>();
-  if (weeksData) {
-    for (const w of weeksData as WeeksRow[]) {
-      if (w.start_date) weeksByDate.set(w.start_date, w);
-    }
-  }
-
-  // 3. 주차별 포인트 조회
+  // 7. 주차별 포인트 조회 (iso year/week 키).
   const { data: pointsData } = await supabaseAdmin
     .from("user_weekly_points")
     .select("year,week_number,points,advantages,penalty")
@@ -411,8 +492,10 @@ async function computeWeeklyCards(
     }
   }
 
-  // 4. 주차별 평판 카운트
-  const weekCardIds = [...weeksByDate.values()].map((w) => w.id);
+  // 8. 평판/동료/라인/verdict 맵 (weeks.id 기준 — 합성 주차는 id 없어 자동 제외).
+  const weekCardIds = cardWeeksDesc
+    .map((w) => w.id)
+    .filter((id): id is string => Boolean(id));
   const repCountMap = new Map<string, number>();
   if (weekCardIds.length > 0) {
     const { data: repData } = await supabaseAdmin
@@ -452,77 +535,55 @@ async function computeWeeklyCards(
   let abilitySuccessMap = new Map<string, number>();
   let experienceSuccessMap = new Map<string, number>();
   let careerSuccessMap = new Map<string, number>();
-  let careerProjectMap = new Map<string, number>();
+  // P1: 사용자 배정 career 라인 수(분모 A). (구: career_project_weeks 프로젝트 개설 수)
+  let careerLineMap = new Map<string, number>();
   // 실무 경험 필수 슬롯(도출/분석/평가) verdict: weekId → verdict. (강화율/평점/5슬롯 로직과 독립)
   let experienceVerdictMap = new Map<string, ExperienceGrowthVerdict>();
 
   if (weekCardIds.length > 0) {
-    const [
-      infoMap,
-      experienceMap,
-      competencyMap,
-      infoSuccess,
-      abilitySuccess,
-      experienceSuccess,
-      careerSuccess,
-      careerMap,
-      experienceVerdict,
-    ] = await Promise.all([
-      fetchInfoLineCountsByWeek(userId, weekCardIds),
-      // experience 분모 A = 배정된 experience 라인 수 (info 와 동일 기준). 상수 2 대체.
-      fetchExperienceLineCountsByWeek(userId, weekCardIds),
-      // competency 분모 A = 배정된 competency 라인 수 (info/experience 와 동일 기준). 상수 1 대체.
-      fetchCompetencyLineCountsByWeek(userId, weekCardIds),
-      fetchInfoLineSuccessCountsByWeek(userId, weekCardIds),
-      fetchLineSuccessCountsByWeek(userId, weekCardIds, "competency"),
-      fetchLineSuccessCountsByWeek(userId, weekCardIds, "experience"),
-      fetchLineSuccessCountsByWeek(userId, weekCardIds, "career"),
-      fetchCareerProjectCountsByWeek(weekCardIds),
+    // 기존 9개 fetch* (cluster4_lines 9회 + cluster4_line_targets 8회 ≈ 17~20 쿼리) 를
+    // bulk aggregate(최대 3쿼리) + verdict(최대 3쿼리) = 최대 6쿼리로 축소.
+    const tLines = Date.now();
+    const [aggregates, experienceVerdict] = await Promise.all([
+      fetchWeeklyCardLineAggregates(userId, weekCardIds),
       // 필수 슬롯 verdict (성장 실패 판정 SoT). 강화율 분자/분모와 별개 source.
       fetchExperienceRequiredSlotStatusByWeek(userId, weekCardIds),
     ]);
+    console.log(
+      "[weekly-cards][timing] line aggregates+verdict",
+      `${Date.now() - tLines}ms`,
+      `| weeks=${weekCardIds.length}`,
+    );
 
-    infoLineMap = infoMap;
-    experienceLineMap = experienceMap;
-    competencyLineMap = competencyMap;
-    infoSuccessMap = infoSuccess;
-    abilitySuccessMap = abilitySuccess;
-    experienceSuccessMap = experienceSuccess;
-    careerSuccessMap = careerSuccess;
-    careerProjectMap = careerMap;
+    infoLineMap = aggregates.infoLineMap;
+    experienceLineMap = aggregates.experienceLineMap;
+    competencyLineMap = aggregates.competencyLineMap;
+    infoSuccessMap = aggregates.infoSuccessMap;
+    abilitySuccessMap = aggregates.abilitySuccessMap;
+    experienceSuccessMap = aggregates.experienceSuccessMap;
+    careerSuccessMap = aggregates.careerSuccessMap;
+    careerLineMap = aggregates.careerLineMap;
     experienceVerdictMap = experienceVerdict;
   }
 
-  // 7. 현재 주 판별 (running/tallying)
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const currentSeason = getSeasonForDate(todayIso);
-  const currentWeek = currentSeason
-    ? getWeekInSeason(currentSeason, todayIso)
-    : null;
-
-  // 8. 누적 성공 주차 계산 (시간순 → 역순 매핑)
-  const sorted = [...uwsRows].sort(
-    (a, b) => a.year - b.year || a.week_number - b.week_number,
-  );
+  // 9. 누적 계산 (오름차순) — 카드 주차 기준, start_date 키.
+  //    확정 누적 = "공표 완료된 DB success" 만 센다. 현재주(진행 중)·미공표 주차(집계 중)·
+  //    uws 없는 주차는 확정 전/대상 아님이므로 제외 → 카드의 +1 프리뷰가 더할 base (정책 5).
+  //    필수 슬롯 verdict=fail 이면 success 에서 제외 → 배지·누적·요약 일관성 유지.
   let cumulativeSuccess = 0;
-  const accMap = new Map<string, number>();
-  for (const w of sorted) {
-    const wkId = weeksByDate.get(w.week_start_date)?.id ?? null;
-    const verdict = wkId ? experienceVerdictMap.get(wkId) : undefined;
-    const isCurrent = Boolean(
-      currentSeason &&
-        currentWeek &&
-        w.year === new Date().getUTCFullYear() &&
-        w.week_start_date === currentWeek.weekStart,
-    );
-    // 누적 성공 = DB success, 단 필수 슬롯 verdict=fail 이면(현재주 제외) 성공에서 제외 →
-    // 배지(resultStatus)·누적·요약이 동일 기준으로 일관되게 움직인다.
-    let countsAsSuccess = w.status === "success";
-    if (countsAsSuccess && verdict?.status === "fail" && !isCurrent) {
+  const accByStart = new Map<string, number>();
+  for (const w of cardWeeksAsc) {
+    const uws = uwsByStart.get(w.start_date);
+    const verdict = w.id ? experienceVerdictMap.get(w.id) : undefined;
+    const isCurrent = isCurrentWeekStart(w.start_date);
+    const published = isWeekPublished(w);
+    let countsAsSuccess =
+      uws?.status === "success" && published && !isCurrent;
+    if (countsAsSuccess && verdict?.status === "fail") {
       countsAsSuccess = false;
     }
     if (countsAsSuccess) cumulativeSuccess++;
-    accMap.set(`${w.year}-${w.week_number}`, cumulativeSuccess);
+    accByStart.set(w.start_date, cumulativeSuccess);
   }
 
   // 누적 포인트 (FM score proxy). Null when no points row exists for this week
@@ -531,19 +592,21 @@ async function computeWeeklyCards(
   let cumulativeAdvantages = 0;
   let anyPointsSeen = false;
   let anyAdvantagesSeen = false;
-  const fmMap = new Map<string, number | null>();
-  const cumAdvMap = new Map<string, number | null>();
-  for (const w of sorted) {
-    const key = `${w.year}-${w.week_number}`;
-    const p = pointsMap.get(key);
+  const fmByStart = new Map<string, number | null>();
+  const cumAdvByStart = new Map<string, number | null>();
+  for (const w of cardWeeksAsc) {
+    const p = pointsMap.get(`${w.iso_year}-${w.iso_week}`);
     if (p) {
       cumulativePoints += p.points + p.advantages * 3 - p.penalty * 5;
       cumulativeAdvantages += p.advantages;
       anyPointsSeen = true;
       anyAdvantagesSeen = true;
     }
-    fmMap.set(key, anyPointsSeen ? cumulativePoints : null);
-    cumAdvMap.set(key, anyAdvantagesSeen ? cumulativeAdvantages : null);
+    fmByStart.set(w.start_date, anyPointsSeen ? cumulativePoints : null);
+    cumAdvByStart.set(
+      w.start_date,
+      anyAdvantagesSeen ? cumulativeAdvantages : null,
+    );
   }
 
   const targetWeeks = organization
@@ -555,29 +618,33 @@ async function computeWeeklyCards(
   // DB success → 필수 슬롯 verdict=fail 로 전환된 주차 수 (요약 approved/failed 보정용).
   let flippedToFail = 0;
 
-  for (const uws of uwsRows) {
-    const weekKey = `${uws.year}-${uws.week_number}`;
-    const weeksRow = weeksByDate.get(uws.week_start_date);
-    const pts = pointsMap.get(weekKey);
-    const weekCardId = weeksRow?.id ?? null;
+  for (const week of cardWeeksDesc) {
+    const startDate = week.start_date;
+    // uws 는 보조 데이터 — 있으면 붙이고, 없으면 weeks 기준 기본 상태로 카드를 만든다.
+    const uws = uwsByStart.get(startDate) ?? null;
+    const weekCardId = week.id;
+    const pts = pointsMap.get(`${week.iso_year}-${week.iso_week}`);
 
-    // 시즌 정보 결정 (season_definitions.season_label 우선)
-    const seasonKey = uws.season_key ?? weeksRow?.season_key ?? null;
+    // 시즌 정보 결정 (season_definitions.season_label 우선). 기준은 weeks.season_key.
+    const seasonKey = week.season_key ?? uws?.season_key ?? null;
     const seasonDef = seasonKey ? seasonLabelMap.get(seasonKey) : null;
-    const seasonYear = seasonDef?.year ?? uws.year;
+    const seasonYear =
+      seasonDef?.year ??
+      week.iso_year ??
+      uws?.year ??
+      new Date().getUTCFullYear();
     const seasonName = seasonDef
       ? seasonDef.season_label
       : seasonKey
         ? formatSeasonKeyToLabel(seasonKey)
         : "";
 
-    // 시즌 내 주차 번호
-    const seasonWeekNumber = weeksRow?.week_number ?? null;
+    // 시즌 내 주차 번호 (weeks.week_number 우선, 합성주차는 uws.week_number(iso) 폴백).
+    const seasonWeekNumber = week.week_number ?? null;
 
-    // 주차 시작/종료일
-    const startDate = weeksRow?.start_date ?? uws.week_start_date;
+    // 주차 종료일 (weeks.end_date 우선, 없으면 start+6).
     const endDateMs = toMs(startDate) + 6 * DAY_MS;
-    const endDate = weeksRow?.end_date ?? fmtDate(endDateMs);
+    const endDate = week.end_date ?? fmtDate(endDateMs);
 
     // 공식 휴식 여부(신규 SoT): seasonCalendar rule ∨ official_rest_periods overlap.
     // weeks.is_official_rest 는 더 이상 참조하지 않는다.
@@ -586,22 +653,52 @@ async function computeWeeklyCards(
       matchOfficialRestPeriods({ startDate, endDate }, activeRestPeriods).length >
         0;
 
-    // 상태 결정: 현재 주이면 running/tallying
+    // ── 상태 결정 (6종 + no_data skip) — 기준은 weeks, uws 는 보조 ──
+    // 정책:
+    //   1) 현재 주차 → 공식 휴식이면 휴식(공식), uws=개인휴식이면 휴식(개인), 그 외 진행 중(running).
+    //   2) uws 존재(과거/직전) → 기존 로직 그대로 보존 (공표 전 성장주차는 집계 중 등).
+    //   3) uws 없음 → 공식 휴식이면 휴식(공식), 미공표면 집계 중, 공표완료면 no_data(카드 미생성).
+    //   ⚠ tallying / no_data 모두 read-time 판정 — DB(user_week_statuses)는 건드리지 않는다.
+    const isCurrentWeek = isCurrentWeekStart(startDate);
+    const isPublished = isWeekPublished(week);
     let resultStatus: WeekResultStatus;
-    const isCurrentWeek =
-      currentSeason &&
-      currentWeek &&
-      uws.year === new Date().getUTCFullYear() &&
-      startDate === currentWeek.weekStart;
 
-    if (uws.status === "official_rest" && !weekIsOfficialRest) {
-      resultStatus = isCurrentWeek ? "running" : "fail";
-    } else if (isCurrentWeek && uws.status === "success") {
-      resultStatus = "running";
-    } else if (isCurrentWeek && uws.status === "fail") {
-      resultStatus = "running";
+    if (isCurrentWeek) {
+      // 현재 주차는 결과 확정 전이므로 항상 진행 중 — 단, 휴식 주차는 휴식으로 표시.
+      resultStatus = weekIsOfficialRest
+        ? "official_rest"
+        : uws?.status === "personal_rest"
+          ? "personal_rest"
+          : "running";
+    } else if (uws) {
+      // ── uws 존재: 기존 표시 로직 100% 보존 (과거/직전 카드 불변) ──
+      if (uws.status === "official_rest" && !weekIsOfficialRest) {
+        // 공식 휴식으로 기록됐으나 재판정상 활동 주차 → 성장 주차로 간주.
+        resultStatus = isPublished ? "fail" : "tallying";
+      } else if (
+        uws.status === "personal_rest" ||
+        uws.status === "official_rest"
+      ) {
+        resultStatus = uws.status as WeekResultStatus;
+      } else if (!isPublished) {
+        // 성장 주차(success/fail) + 미공표 → 집계 중.
+        resultStatus = "tallying";
+      } else {
+        resultStatus = uws.status as WeekResultStatus;
+      }
     } else {
-      resultStatus = uws.status as WeekResultStatus;
+      // ── uws 없음 (비-현재주): weeks 기준 기본 상태 ──
+      //   - 미공표 → 집계 중 (참여했으나 uws 미생성 가능성 — 직전/최근 주차).
+      //   - 공표완료 → no_data 정책: 카드 미생성(skip). 공식 휴식이라도 uws 가 없으면
+      //     해당 주차에 참여 기록이 없는 것이므로(늦은 합류/시즌 휴식) 날조하지 않고 카드 없음.
+      //     기존(uws 기준) 동작과 동일하게 과거 비참여 주차는 카드가 없다.
+      //     (현재 주차의 공식 휴식은 위 isCurrentWeek 분기에서 uws 없이도 official_rest 로 노출.)
+      //   ⚠ fail 로 보고 싶다면 아래 continue 를 resultStatus = "fail" 로 바꾸면 된다.
+      if (!isPublished) {
+        resultStatus = "tallying";
+      } else {
+        continue;
+      }
     }
 
     // ── 실무 경험 필수 슬롯(도출/분석/평가) verdict 반영 (read-time override) ──
@@ -651,20 +748,23 @@ async function computeWeeklyCards(
       resultStatus === "personal_rest" ||
       resultStatus === "official_rest";
 
-    // 라인 가용 수(A)는 동적 조회. 이행 수(B)는 4개 part 모두 target+마감 기준 success.
+    // 라인 가용 수(A)는 동적 조회. 이행 수(B): info/ability/experience 는 target+마감 기준,
+    // career(P1)는 target+마감+grade C이상 기준(평점 반영 — per-line enhancementStatus 와 일치).
     const avail = isRest
       ? { info: 0, ability: 0, experience: 0, career: 0 }
       : buildWeekAvailability(
           weekCardId,
           infoLineMap,
-          careerProjectMap,
+          // careerMap(레거시 project 기반)은 미사용. career A 는 careerUserMap(per-user)로 전달.
+          new Map<string, number>(),
           organization,
           experienceLineMap,
           competencyLineMap,
+          careerLineMap,
         );
 
     const lineBreakdown: WeeklyCardLineBreakdown = {
-      // 4개 part 모두 B(completed) = target+마감 기준 success 수 (강화상태 success 와 동일 기준). 제출 무관.
+      // info/ability/experience B = target+마감 success(제출 무관). career B = target+마감+grade C이상(P1).
       info: { completed: isRest ? 0 : (weekCardId ? (infoSuccessMap.get(weekCardId) ?? 0) : 0), available: avail.info },
       ability: { completed: isRest ? 0 : (weekCardId ? (abilitySuccessMap.get(weekCardId) ?? 0) : 0), available: avail.ability },
       experience: { completed: isRest ? 0 : (weekCardId ? (experienceSuccessMap.get(weekCardId) ?? 0) : 0), available: avail.experience },
@@ -683,10 +783,11 @@ async function computeWeeklyCards(
       lineBreakdown.career.available;
     const rate = roundGrowthRate(completedLines, availableLines);
 
-    const displayWeekNum = seasonWeekNumber ?? uws.week_number;
+    const displayWeekNum =
+      seasonWeekNumber ?? uws?.week_number ?? week.iso_week ?? 0;
 
-    const fmRaw = fmMap.get(weekKey) ?? null;
-    const cumAdvRaw = cumAdvMap.get(weekKey) ?? null;
+    const fmRaw = fmByStart.get(startDate) ?? null;
+    const cumAdvRaw = cumAdvByStart.get(startDate) ?? null;
     const repCountRaw = weekCardId ? (repCountMap.get(weekCardId) ?? 0) : null;
     const colCountRaw = weekCardId ? (colCountMap.get(weekCardId) ?? 0) : null;
 
@@ -701,7 +802,8 @@ async function computeWeeklyCards(
       dateRangeDisplay: formatDateRange(startDate, endDate),
       resultStatus,
       resultLabel: WEEK_STATUS_LABEL[resultStatus] ?? resultStatus,
-      accumulatedApprovedWeeks: accMap.get(weekKey) ?? 0,
+      isTransition: isTransitionWeekStart(startDate),
+      accumulatedApprovedWeeks: accByStart.get(startDate) ?? 0,
       targetWeeks,
       activityStatus,
       teamLabel,
@@ -745,6 +847,8 @@ function computeSeasonGrowthRates(cards: WeeklyCardDto[]): SeasonGrowthRate[] {
 
   for (const c of cards) {
     if (!c.seasonKey) continue;
+    // 전환 주차는 시즌 성장률(분자·분모)에서 제외.
+    if (c.isTransition) continue;
     if (!map.has(c.seasonKey)) {
       map.set(c.seasonKey, { label: c.seasonName, completed: 0, available: 0 });
     }
@@ -768,8 +872,10 @@ function computeSeasonGrowthRates(cards: WeeklyCardDto[]): SeasonGrowthRate[] {
 export async function getWeeklyGrowth(
   legacyUserId: string,
 ): Promise<WeeklyGrowthDto | null> {
+  const t0 = Date.now();
   const crew = await getAdminCrewDtoByLegacyUserId(legacyUserId);
   if (!crew) return null;
+  const tCrew = Date.now();
 
   const currentWeekInfo = await computeCurrentWeekInfo();
 
@@ -782,6 +888,7 @@ export async function getWeeklyGrowth(
     };
   }
 
+  const tCurrentWeek = Date.now();
   const [growthSummary, weeklyResult] = await Promise.all([
     computeGrowthSummary(crew.userId),
     computeWeeklyCards(
@@ -799,6 +906,14 @@ export async function getWeeklyGrowth(
       },
     ),
   ]);
+  const tCards = Date.now();
+  console.log(
+    "[weekly-cards][timing] getWeeklyGrowth",
+    `crew=${tCrew - t0}ms`,
+    `currentWeek=${tCurrentWeek - tCrew}ms`,
+    `summary+cards=${tCards - tCurrentWeek}ms`,
+    `total=${tCards - t0}ms`,
+  );
 
   const { cards: weeklyCards, flippedToFail } = weeklyResult;
 
