@@ -271,6 +271,8 @@ export async function refreshWeeklyCardsSnapshotSafe(
 ): Promise<void> {
   try {
     await recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
+    // 관리자 저장 직후 즉시 재계산이 일어났음을 운영 로그로 확인 가능하게 한다(항목 3 검증용).
+    console.log("[weekly-cards][snapshot] hook recompute ok", `user=${profileUserId}`);
   } catch (e) {
     console.warn(
       "[weekly-cards][snapshot] hook recompute failed → mark stale for cron retry",
@@ -297,7 +299,9 @@ export async function markWeeklyCardsSnapshotStale(
       profileUserId,
       message: error.message,
     });
+    return;
   }
+  console.log("[weekly-cards][snapshot] mark stale ok", `user=${profileUserId}`);
 }
 
 // 여러 사용자 snapshot 을 한 번의 UPDATE 로 stale 처리한다(career 라인 개설 = 대상자 N명).
@@ -318,5 +322,7 @@ export async function markWeeklyCardsSnapshotStaleMany(
       count: uniqueIds.length,
       message: error.message,
     });
+    return;
   }
+  console.log("[weekly-cards][snapshot] mark stale (many) ok", `count=${uniqueIds.length}`);
 }
