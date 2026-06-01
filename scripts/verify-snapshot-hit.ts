@@ -47,13 +47,13 @@ async function main() {
 
   let queries = 0;
   let cardCount = 0;
-  let isStale: boolean | null = null;
+  let status = "";
   const t0 = Date.now();
   await runWithQueryMeter("[verify]", async () => {
     const snap = await readWeeklyCardsSnapshot(row.user_id);
     queries = currentQueryCount();
-    isStale = snap ? snap.isStale : null;
-    cardCount = snap ? snap.cards.length : -1;
+    status = snap.status;
+    cardCount = snap.status === "hit" || snap.status === "stale" ? snap.cards.length : -1;
   });
   const ms = Date.now() - t0;
 
@@ -66,13 +66,13 @@ async function main() {
 
   console.log("\n========== SNAPSHOT HIT 검증 ==========");
   console.log(`반환 카드 수        : ${cardCount}`);
-  console.log(`is_stale            : ${isStale}`);
+  console.log(`outcome             : ${status}  (기대 = hit)`);
   console.log(`supabaseQueries     : ${queries}  (HIT 기대값 = 1)`);
   console.log(`소요(읽기)          : ${ms}ms`);
   console.log(`무거운 계산 로그     : ${heavyHits.length === 0 ? "없음 ✅" : `발생 ❌ → ${heavyHits.join(" | ")}`}`);
   console.log("======================================");
   console.log(
-    queries <= 1 && heavyHits.length === 0 && isStale === false
+    queries <= 1 && heavyHits.length === 0 && status === "hit"
       ? "RESULT: PASS — snapshot HIT 단일 쿼리, 무거운 계산 미발생."
       : "RESULT: CHECK — 기대와 다름(위 값 확인).",
   );

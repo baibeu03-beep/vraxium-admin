@@ -29,9 +29,13 @@ export const dynamic = "force-dynamic";
 // 필요 시 Vercel 환경변수 CLUSTER4_WEEKLY_CARDS_DEBUG=1 로만 켠다.
 const DEBUG_COMPARE = process.env.CLUSTER4_WEEKLY_CARDS_DEBUG === "1";
 
-// 백필+Cron 안정화 후 1 로 설정하면 조회 API 가 절대 실시간 계산을 하지 않는다(snapshot-only).
-// miss 시에는 cron 재계산을 큐잉하고 빈 배열을 반환한다. 전환 초기에는 0(=lazy 허용)로 둔다.
-const DISABLE_LAZY = process.env.WEEKLY_CARDS_DISABLE_LAZY === "1";
+// ⚠ 504 방지 핵심: 조회 API 는 기본적으로 절대 실시간 계산을 하지 않는다(snapshot-only).
+// MISS/STALE/버전불일치/조회오류 어느 경우에도 무거운 getWeeklyGrowth/computeWeeklyCards 를
+// 타지 않는다 — 재계산은 Cron/관리자 훅에서만. (과거: lazy 가 기본 ON 이라 버전 bump 시 전원
+// 재계산 → 504. 이제 기본 OFF 로 반전.)
+//   WEEKLY_CARDS_ALLOW_LAZY=1 로만 lazy(조회 중 계산)를 한시적으로 켤 수 있다(전환/디버그용).
+//   (구 WEEKLY_CARDS_DISABLE_LAZY 는 이제 무의미 — 기본이 곧 snapshot-only.)
+const ALLOW_LAZY = process.env.WEEKLY_CARDS_ALLOW_LAZY === "1";
 
 // 응답 형식 고정:
 //   성공: { success: true,  data: [...], error: null }
@@ -47,35 +51,47 @@ function fail(status: number, message: string, code: string) {
   );
 }
 
-// 카드 로딩의 단일 진입점: 저장된 snapshot 우선(정상 경로 = SELECT 1개, 무거운 계산 0).
-//   - snapshot hit  → 그대로 반환. is_stale 이면 로그만 남기고 노출(정책: cron/훅이 재계산).
-//   - snapshot miss → (행 없음/스키마 버전 불일치) 이때만 기존 실시간 계산 1회 후 저장하고 반환.
-async function loadWeeklyCards(
-  profileUserId: string,
-): Promise<Cluster4WeeklyCardDto[]> {
+type LoadOutcome = "hit" | "stale" | "miss" | "error";
+type LoadResult = {
+  cards: Cluster4WeeklyCardDto[];
+  outcome: LoadOutcome;
+  detail: string; // stale 사유 / error 메시지 등
+  lazyRan: boolean; // 조회 경로에서 무거운 계산이 실제 실행됐는지
+};
+
+// 카드 로딩의 단일 진입점. 기본은 snapshot-only(무거운 계산 0):
+//   - hit            → 저장 카드 그대로 (쿼리 1).
+//   - stale(版 불일치 포함) → 저장된 구 카드 graceful 노출 (쿼리 1). cron 이 재생성.
+//   - miss(행 없음)   → 빈 배열 + cron 큐잉(enqueue). 빈 화면은 cron/백필이 곧 채움.
+//   - error(조회 실패) → 빈 배열(+호출부가 error 응답). 절대 계산으로 빠지지 않음.
+//   ALLOW_LAZY=1 일 때만 stale/miss 에서 즉시 재계산(전환/디버그용).
+async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
   const snap = await readWeeklyCardsSnapshot(profileUserId);
-  if (snap) {
-    if (snap.isStale) {
-      console.warn(
-        "[weekly-cards] serving STALE snapshot (cron/hook will recompute)",
-        `user=${profileUserId}`,
-        `computedAt=${snap.computedAt}`,
-      );
+
+  if (snap.status === "hit") {
+    return { cards: snap.cards, outcome: "hit", detail: "", lazyRan: false };
+  }
+
+  if (snap.status === "stale") {
+    if (ALLOW_LAZY) {
+      const cards = await recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
+      return { cards, outcome: "stale", detail: `${snap.reason}+lazy`, lazyRan: true };
     }
-    return snap.cards;
+    // 조회 경로 계산 금지 → 구 카드 노출, cron 이 재생성(版 불일치는 cron 후보 쿼리가 직접 잡음).
+    return { cards: snap.cards, outcome: "stale", detail: snap.reason, lazyRan: false };
   }
-  // snapshot-only 모드: 조회 경로에서 절대 계산하지 않는다. cron 재계산 큐잉 후 빈 배열 반환.
-  if (DISABLE_LAZY) {
-    console.warn(
-      "[weekly-cards] snapshot MISS + lazy disabled → enqueue for cron, return empty",
-      `user=${profileUserId}`,
-    );
-    await enqueueStaleSnapshot(profileUserId);
-    return [];
+
+  if (snap.status === "miss") {
+    if (ALLOW_LAZY) {
+      const cards = await recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
+      return { cards, outcome: "miss", detail: "lazy", lazyRan: true };
+    }
+    await enqueueStaleSnapshot(profileUserId); // cron 이 생성하도록 placeholder 큐잉
+    return { cards: [], outcome: "miss", detail: "enqueued", lazyRan: false };
   }
-  // 전환 초기 임시 안전장치: miss 일 때만 무거운 계산 허용. (신규 유저/최초 배포/스키마 버전 변경)
-  console.warn("[weekly-cards] snapshot MISS → lazy compute+store", `user=${profileUserId}`);
-  return recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
+
+  // error: 조회 실패. 무거운 계산으로 빠지지 않는다(ALLOW_LAZY 라도 — 일시 오류에 계산 폭증 방지).
+  return { cards: [], outcome: "error", detail: snap.message, lazyRan: false };
 }
 
 // 디버깅: W12/W11 에 대해 백엔드(getWeeklyGrowth) ↔ DTO 응답값 매핑을 콘솔에 비교 출력.
@@ -149,12 +165,21 @@ export async function GET(request: NextRequest) {
 
 async function handleGet(request: NextRequest): Promise<Response> {
   const tStart = Date.now();
-  const done = (res: Response, label: string) => {
+  const done = (
+    res: Response,
+    label: string,
+    meta?: { userId: string } & LoadResult,
+  ) => {
+    // 요청 단위 구조화 로그(요구사항): userId / HIT·MISS·STALE / lazy 실행 / 쿼리수 / 총 ms.
+    const metaStr = meta
+      ? ` | user=${meta.userId} | outcome=${meta.outcome.toUpperCase()}` +
+        `${meta.detail ? `(${meta.detail})` : ""} | lazyRan=${meta.lazyRan} | cards=${meta.cards.length}`
+      : "";
     console.log(
       "[weekly-cards] done",
       label,
       `| ${Date.now() - tStart}ms`,
-      `| supabaseQueries=${currentQueryCount()}`,
+      `| supabaseQueries=${currentQueryCount()}` + metaStr,
     );
     return res;
   };
@@ -164,9 +189,9 @@ async function handleGet(request: NextRequest): Promise<Response> {
   try {
     const demoProfileUserId = await resolveDemoProfileUserId(request);
     if (demoProfileUserId) {
-      const data = await loadWeeklyCards(demoProfileUserId);
-      if (DEBUG_COMPARE) await logWeekComparison(demoProfileUserId, data);
-      return done(ok(data), "demo");
+      const result = await loadWeeklyCards(demoProfileUserId);
+      if (DEBUG_COMPARE) await logWeekComparison(demoProfileUserId, result.cards);
+      return done(ok(result.cards), "demo", { userId: demoProfileUserId, ...result });
     }
   } catch (error) {
     if (error instanceof DemoModeError) {
@@ -250,15 +275,27 @@ async function handleGet(request: NextRequest): Promise<Response> {
       profileUserId = ownProfileUserId;
     }
 
-    const data = await loadWeeklyCards(profileUserId);
-    const profileUserIdForLog = DEBUG_COMPARE ? profileUserId : null;
+    const result = await loadWeeklyCards(profileUserId);
 
     // 디버그 비교 로그는 getWeeklyGrowth 를 2차로 다시 호출(요청 비용 약 2배) → 기본 OFF.
-    if (DEBUG_COMPARE && profileUserIdForLog) {
-      await logWeekComparison(profileUserIdForLog, data);
+    if (DEBUG_COMPARE) {
+      await logWeekComparison(profileUserId, result.cards);
     }
 
-    return done(ok(data), "ok");
+    // error outcome 은 200(빈 카드)으로 내리되 error 필드를 채워 프론트가 덮어쓰지 않게 한다.
+    if (result.outcome === "error") {
+      return done(
+        Response.json({
+          success: false,
+          data: result.cards,
+          error: { message: result.detail || "snapshot read failed", code: "snapshot_read_error" },
+        }),
+        "ok",
+        { userId: profileUserId, ...result },
+      );
+    }
+
+    return done(ok(result.cards), "ok", { userId: profileUserId, ...result });
   } catch (error) {
     if (error instanceof AdminAuthError) {
       return done(fail(error.status, error.message, "forbidden"), "admin-error");
