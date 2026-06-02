@@ -10,6 +10,10 @@ import {
   outputLinksToLegacySlots,
   parseOutputLinksInput,
 } from "@/lib/cluster4OutputLinks";
+import {
+  type Cluster4OutputImage,
+  parseOutputImagesInput,
+} from "@/lib/cluster4OutputImages";
 
 type ExperienceLineCreateBody = {
   experience_line_master_id: string;
@@ -19,7 +23,7 @@ type ExperienceLineCreateBody = {
   output_link_1: string | null;
   output_link_2: string | null;
   output_links: Cluster4OutputLink[];
-  output_images: string[];
+  output_images: Cluster4OutputImage[];
   target_user_ids: string[];
   week_id: string;
   submission_opens_at: string;
@@ -72,19 +76,12 @@ function parseBody(
     outputLink2 = trimmed.length > 0 ? trimmed : null;
   }
 
-  const outputImages: string[] = [];
-  if (b.output_images !== undefined && b.output_images !== null) {
-    if (!Array.isArray(b.output_images)) {
-      return { ok: false, status: 400, error: "output_images must be an array" };
-    }
-    for (const item of b.output_images) {
-      if (typeof item !== "string") {
-        return { ok: false, status: 400, error: "output_images items must be strings" };
-      }
-      const trimmed = item.trim();
-      if (trimmed.length > 0) outputImages.push(trimmed);
-    }
+  // output_images — optional. string[] 또는 [{url, caption?}] 둘 다 허용 (URL + 캡션 저장).
+  const parsedImages = parseOutputImagesInput(b.output_images);
+  if (!parsedImages.ok) {
+    return { ok: false, status: 400, error: parsedImages.error };
   }
+  const outputImages = parsedImages.value;
 
   // output_links 우선. 미제공 시 레거시 output_link_1/2 로부터 파생. 라인은 슬롯 2개.
   const parsedLinks = parseOutputLinksInput(b.output_links, { maxLinks: 2 });
