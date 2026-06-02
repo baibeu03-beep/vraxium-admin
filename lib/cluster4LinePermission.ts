@@ -204,9 +204,12 @@ export function evaluateCluster4HubEdit(input: {
     };
   }
 
-  if (override) {
-    // 운영자가 명시적으로 편집권을 부여한 상태 — line 상태(target_missing /
-    // window_closed / window_not_open / line_inactive / not_owner)와 무관하게 허용.
+  // 운영자가 명시적으로 편집권(edit-window override)을 부여한 상태 — 시간 게이트(window_closed /
+  // window_not_open) 및 라인 부재(target_missing: 레거시 user_activity_details 등) / line_inactive 는
+  // 우회 허용한다. 단 not_owner(타깃이 "다른 사용자" 소유)는 override 로도 우회하면 안 된다 —
+  // override 는 본인 허브의 시간 게이트만 완화할 뿐, 타인 라인에 대한 소유권을 부여하지 않는다.
+  // (이 게이트가 없으면 foreign viewer 가 본인 override 가 열린 동안 타 유저 lineTargetId 에 제출 가능.)
+  if (override && line.reason !== "not_owner" && line.reason !== "unsupported_target_mode") {
     return {
       canEdit: true,
       reason: "ok_override",

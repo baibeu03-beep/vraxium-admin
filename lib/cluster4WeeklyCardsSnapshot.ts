@@ -40,7 +40,20 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 //   enhancementStatus: v6 fail → v7 not_applicable. info/experience(fail+내용)·competency(보이드)는
 //   불변. DTO 모양은 동일하나 career 미배정 라인의 값이 달라지므로 기존 v6 snapshot 을
 //   stale(version_mismatch) 처리해 cron/lazy 가 신정책으로 재계산하게 한다. (DB 백필 아님 — 캐시 재생성.)
-export const WEEKLY_CARDS_DTO_VERSION = 7;
+// v8 (2026-06-02): 4허브 라인 노출에 조직(org) 필터 추가 — 라인 org SoT=허브 마스터 organization_slug
+//   (experience/competency/career). encre/oranke/phalanx=전용, common·info=공통 노출.
+//   org 판정 불가 라인은 기본 숨김(fail-closed) — 단 Step 1(본인 실제 배정 라인)만 예외로 노출 허용,
+//   Step 2(개설·미배정 openedByWeek)는 숨김. 사용자 org(user_profiles.organization_slug)와 불일치
+//   라인은 본인 배정(Step 1)·미배정(Step 2) 모두 노출 제외(특히 Step 2 의 타 조직 라인 누수 차단 —
+//   예: PHALANX 사용자에게 EC 라인). DTO 모양은 동일하나 카드의 lines 구성(타 조직/판정불가 라인 제거)이
+//   달라지므로 기존 v7 snapshot 을 stale 처리해 cron/lazy 가 신정책으로 재계산하게 한다.
+//   (DB 백필 아님 — 파생 캐시 재생성.)
+// v9 (2026-06-02): org 판정 우선순위 변경 — line_code 토큰(BS>EC>OK>PX)이 마스터 organization_slug
+//   보다 우선. 특히 line_code 에 'BS' 가 들어간 라인(EXBS-EL*, CPBS-*, WCBS-NL0000 등)은 master org 가
+//   특정 조직이어도 무조건 common(전체 노출). v8(마스터 org 우선)에서는 이런 라인이 특정 조직에만
+//   보였으므로 노출 집합이 달라진다(예: WCBS career 라인이 oranke 전용 → 전체 공통). DTO 모양은 동일하나
+//   값(카드 lines 노출 구성)이 달라지므로 기존 v8 snapshot 을 stale 처리해 재계산하게 한다.
+export const WEEKLY_CARDS_DTO_VERSION = 9;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

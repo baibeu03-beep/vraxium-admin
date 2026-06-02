@@ -29,6 +29,13 @@ import {
   careerRatingStatusFromGrade,
 } from "@/lib/careerGrade";
 import {
+  isLineVisibleForUserOrg,
+  normalizeLineOrg,
+  parseLineCodeOrg,
+  type LineOrgScope,
+} from "@/lib/cluster4LineOrg";
+import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
+import {
   emptyWeeklyPeople,
   fetchWeeklyPeopleByWeek,
   type WeeklyPeople,
@@ -91,6 +98,16 @@ type ExperienceMasterMeta = {
   slotOrder: number | null;
   // 라인명 (DTO.lineName source). main_title 과 별개 — 섞지 않는다.
   lineName: string | null;
+  // 조직 노출 판정 SoT (org 필터용). 'encre'|'oranke'|'phalanx'|'common'|null.
+  organizationSlug: string | null;
+};
+
+// cluster4_competency_line_masters 메타 (competency part 라인에만 적용).
+type CompetencyMasterMeta = {
+  // 라인명 (DTO.lineName source).
+  lineName: string | null;
+  // 조직 노출 판정 SoT (org 필터용).
+  organizationSlug: string | null;
 };
 
 // cluster4_career_line_evaluations 의 평점 (career part 라인에만 적용).
@@ -110,6 +127,8 @@ type CareerProjectMeta = {
   supervisorPhotoUrl: string | null;
   // 라인명 (DTO.lineName source). career_projects.line_name. default_main_title 과 별개.
   lineName: string | null;
+  // 조직 노출 판정 SoT (org 필터용).
+  organizationSlug: string | null;
 };
 
 type SubmissionRow = {
@@ -448,6 +467,89 @@ function openedCareerLineDetail(
   };
 }
 
+// 개설됐지만 본인 미배정인 competency 라인의 "강화 실패" DTO (2026-06-02 정책 재개정).
+//   - 정책 변경: competency 의 미배정 fail 도 더 이상 보이드(emptyLine, 메타 null)로 비우지 않고,
+//     개설된 라인 content 를 노출한다 — info/experience 의 openedFailLineDetail 과 동일한 취지로
+//     "왜 실패(미배정)인지" 알 수 있도록 lineName/lineCode/mainTitle/output_* 을 채워 내려준다.
+//   - lineTargetId=null (본인 타깃 없음) → canEdit=false / editReason="target_missing" 고정 → 읽기 전용.
+//     (프론트는 canEdit && lineTargetId 로 수정/저장 게이트 → 미배정이면 자동 readonly.)
+//   - 내용(main_title/line_code/output_*)은 cluster4_lines(운영자 1차 입력), lineName 은 competency
+//     master(line_name)에서 가져온다. 사용자 2차 submission 은 없으므로 submission=null.
+//   - enhancementStatus=fail (computeCluster4Enhancement 의 미배정+개설 분기와 동일 — competencyRate
+//     분모/분자는 enhancementStatus 기준이라 불변, 표시 메타만 추가된다).
+//   - status="fail"(미기입) — 보이드("void")가 아니므로 프론트가 라인 내용을 렌더한다
+//     (career 는 not_applicable 유지차 status="void" 였지만 competency 는 fail 이라 status 도 fail).
+function openedCompetencyFailLineDetail(
+  line: NonNullable<TargetWithLineRow["cluster4_lines"]>,
+  weekId: string,
+  competencyMasterMetaById: Map<string, CompetencyMasterMeta>,
+): Cluster4LineDetailDto {
+  const enhancement = computeCluster4Enhancement({
+    hasTarget: false,
+    deadlinePassed: false,
+    hasSubmission: false,
+    isCareer: false,
+    expectedWhenMissing: true, // 개설됨 + 미배정 → fail
+  });
+  const competencyLineMasterId = line.competency_line_master_id;
+  const adminOutputLinks = resolveOutputLinks(line.output_links, [line.output_link_1]);
+  const adminOutputImageItems = normalizeOutputImages(line.output_images);
+  const adminOutputImages = adminOutputImageItems.map((i) => i.url);
+  const adminOutputImageCaptions = adminOutputImageItems.map((i) => i.caption);
+  return {
+    partType: "competency",
+    status: "fail",
+    statusLabel: lineStatusLabel("fail"),
+    enhancementStatus: enhancement.enhancementStatus,
+    submissionStatus: enhancement.submissionStatus,
+    enhancementReason: enhancement.enhancementReason,
+    lineId: line.id,
+    lineTargetId: null,
+    targetMode: null,
+    lineName: competencyLineMasterId
+      ? competencyMasterMetaById.get(competencyLineMasterId)?.lineName ?? null
+      : null,
+    mainTitle: line.main_title,
+    infoSubtitle: null,
+    infoGrowthPoint: null,
+    outputLink1: line.output_link_1,
+    outputLinks: adminOutputLinks,
+    outputImages: adminOutputImages,
+    outputImageCaptions: adminOutputImageCaptions,
+    adminOutputLinkCount: adminOutputLinks.length,
+    adminOutputImageCount: adminOutputImages.length,
+    submissionOpensAt: line.submission_opens_at,
+    submissionClosesAt: line.submission_closes_at,
+    weekId,
+    activityTypeId: null,
+    activityTypeKey: null,
+    activityTypeName: null,
+    competencyLineMasterId,
+    experienceLineMasterId: null,
+    experienceRating: null,
+    experienceCategory: null,
+    experienceSlotOrder: null,
+    careerProjectId: null,
+    careerGrade: null,
+    careerGradePoints: null,
+    careerRatingStatus: null,
+    lineCode: line.line_code,
+    projectCode: null,
+    companyName: null,
+    companyLogoUrl: null,
+    supervisorName: null,
+    supervisorDepartment: null,
+    supervisorPosition: null,
+    supervisorPhotoUrl: null,
+    submission: null,
+    numerator: null,
+    denominator: null,
+    rate: null,
+    canEdit: false,
+    editReason: "target_missing",
+  };
+}
+
 function toSubmissionDto(row: SubmissionRow): Cluster4LineSubmissionDto {
   const images = normalizeOutputImages(row.output_images);
   return {
@@ -503,7 +605,7 @@ function toLineDetail(
   experienceMasterMetaById: Map<string, ExperienceMasterMeta>,
   careerGradeByTargetId: Map<string, CareerGradeEval>,
   careerProjectMetaById: Map<string, CareerProjectMeta>,
-  competencyMasterLineNameById: Map<string, string | null>,
+  competencyMasterMetaById: Map<string, CompetencyMasterMeta>,
 ): Cluster4LineDetailDto | null {
   const line = target.cluster4_lines;
   if (!line) return null;
@@ -538,7 +640,7 @@ function toLineDetail(
     partType === "experience" && experienceLineMasterId
       ? experienceMasterMetaById.get(experienceLineMasterId)?.lineName ?? null
       : partType === "competency" && competencyLineMasterId
-        ? competencyMasterLineNameById.get(competencyLineMasterId) ?? null
+        ? competencyMasterMetaById.get(competencyLineMasterId)?.lineName ?? null
         : partType === "career"
           ? careerMeta?.lineName ?? null
           : null;
@@ -945,7 +1047,7 @@ async function fetchExperienceMasterMetaByIds(
   if (ids.length === 0) return map;
   const { data, error } = await supabaseAdmin
     .from("cluster4_experience_line_masters")
-    .select("id,experience_category,experience_slot_order,line_name")
+    .select("id,experience_category,experience_slot_order,line_name,organization_slug")
     .in("id", ids);
   if (error) {
     console.warn("[cluster4/weekly-cards] experience masters lookup failed", {
@@ -958,27 +1060,30 @@ async function fetchExperienceMasterMetaByIds(
     experience_category: Cluster4ExperienceCategory | null;
     experience_slot_order: number | null;
     line_name: string | null;
+    organization_slug: string | null;
   }[]) {
     map.set(row.id, {
       category: row.experience_category ?? null,
       slotOrder: row.experience_slot_order ?? null,
       lineName: row.line_name ?? null,
+      organizationSlug: row.organization_slug ?? null,
     });
   }
   return map;
 }
 
-// competency_line_master_id → line_name 일괄 룩업 (DTO.lineName source).
-// competency 는 5슬롯/sponsor 메타가 없어 별도 메타 fetch 가 없었으므로 lineName 전용 룩업을 둔다.
-// 실패해도 카드를 깨뜨리지 않고 lineName 만 null 폴백한다.
-async function fetchCompetencyMasterLineNamesByIds(
+// competency_line_master_id → {line_name, organization_slug} 일괄 룩업.
+//   lineName: DTO.lineName source. organizationSlug: org 노출 판정 SoT.
+// competency 는 5슬롯/sponsor 메타가 없어 별도 메타 fetch 가 없었으므로 전용 룩업을 둔다.
+// 실패해도 카드를 깨뜨리지 않고 meta 만 null 폴백한다.
+async function fetchCompetencyMasterMetaByIds(
   ids: string[],
-): Promise<Map<string, string | null>> {
-  const map = new Map<string, string | null>();
+): Promise<Map<string, CompetencyMasterMeta>> {
+  const map = new Map<string, CompetencyMasterMeta>();
   if (ids.length === 0) return map;
   const { data, error } = await supabaseAdmin
     .from("cluster4_competency_line_masters")
-    .select("id,line_name")
+    .select("id,line_name,organization_slug")
     .in("id", ids);
   if (error) {
     console.warn("[cluster4/weekly-cards] competency masters lookup failed", {
@@ -986,8 +1091,15 @@ async function fetchCompetencyMasterLineNamesByIds(
     });
     return map;
   }
-  for (const row of (data ?? []) as { id: string; line_name: string | null }[]) {
-    map.set(row.id, row.line_name ?? null);
+  for (const row of (data ?? []) as {
+    id: string;
+    line_name: string | null;
+    organization_slug: string | null;
+  }[]) {
+    map.set(row.id, {
+      lineName: row.line_name ?? null,
+      organizationSlug: row.organization_slug ?? null,
+    });
   }
   return map;
 }
@@ -1003,7 +1115,7 @@ async function fetchCareerProjectMetaByIds(
   const { data, error } = await supabaseAdmin
     .from("career_projects")
     .select(
-      "id,company_name,company_logo_url,supervisor_name,supervisor_department,supervisor_position,supervisor_profile_img,line_name",
+      "id,company_name,company_logo_url,supervisor_name,supervisor_department,supervisor_position,supervisor_profile_img,line_name,organization_slug",
     )
     .in("id", ids);
   if (error) {
@@ -1021,6 +1133,7 @@ async function fetchCareerProjectMetaByIds(
     supervisor_position: string | null;
     supervisor_profile_img: string | null;
     line_name: string | null;
+    organization_slug: string | null;
   }[]) {
     map.set(row.id, {
       companyName: row.company_name ?? null,
@@ -1030,6 +1143,7 @@ async function fetchCareerProjectMetaByIds(
       supervisorPosition: row.supervisor_position ?? null,
       supervisorPhotoUrl: row.supervisor_profile_img ?? null,
       lineName: row.line_name ?? null,
+      organizationSlug: row.organization_slug ?? null,
     });
   }
   return map;
@@ -1081,6 +1195,87 @@ async function fetchHubEditWindows(
     map.set(dbPart, { openedAt: row.opened_at, expiresAt: row.expires_at });
   }
   return map;
+}
+
+// 조회 대상 사용자의 조직(org)을 user_profiles.organization_slug 에서 읽는다.
+// org 라인 노출 필터의 기준값. null(미상/미지정)이면 org 필터를 적용하지 않는다(fail-open).
+// 실패해도 weekly-cards 전체를 깨뜨리지 않고 null 폴백한다.
+async function fetchUserOrganizationSlug(
+  profileUserId: string,
+): Promise<OrganizationSlug | null> {
+  const { data, error } = await supabaseAdmin
+    .from("user_profiles")
+    .select("organization_slug")
+    .eq("user_id", profileUserId)
+    .maybeSingle();
+  if (error) {
+    console.warn("[cluster4/weekly-cards] user org lookup failed (fail-open)", {
+      profileUserId,
+      message: error.message,
+    });
+    return null;
+  }
+  const slug = (data as { organization_slug: string | null } | null)?.organization_slug;
+  return isOrganizationSlug(slug) ? slug : null;
+}
+
+// 라인 마스터 organization_slug(폴백용)을 판정한다 — line_code 로 판정 불가일 때만 쓴다.
+//   info        → org 컬럼 없음 → 'common'(전체 공통).
+//   experience  → cluster4_experience_line_masters.organization_slug
+//   competency  → cluster4_competency_line_masters.organization_slug
+//   career      → career_projects.organization_slug
+// 마스터 미발견/null 이면 null(판정 불가).
+function resolveMasterOrg(
+  line: NonNullable<TargetWithLineRow["cluster4_lines"]>,
+  experienceMasterMetaById: Map<string, ExperienceMasterMeta>,
+  competencyMasterMetaById: Map<string, CompetencyMasterMeta>,
+  careerProjectMetaById: Map<string, CareerProjectMeta>,
+): LineOrgScope | null {
+  switch (line.part_type) {
+    case "info":
+      return "common";
+    case "experience":
+      return normalizeLineOrg(
+        line.experience_line_master_id
+          ? experienceMasterMetaById.get(line.experience_line_master_id)
+              ?.organizationSlug
+          : null,
+      );
+    case "competency":
+      return normalizeLineOrg(
+        line.competency_line_master_id
+          ? competencyMasterMetaById.get(line.competency_line_master_id)
+              ?.organizationSlug
+          : null,
+      );
+    case "career":
+      return normalizeLineOrg(
+        line.career_project_id
+          ? careerProjectMetaById.get(line.career_project_id)?.organizationSlug
+          : null,
+      );
+  }
+}
+
+// 라인의 노출 org 을 판정한다(최종 정책 — cluster4LineOrg.ts 우선순위).
+//   1) line_code 토큰(BS>EC>OK>PX) 이 있으면 그것을 우선(코드에 BS 가 있으면 무조건 common).
+//   2) line_code 로 판정 불가면 허브 마스터 organization_slug 로 폴백.
+//   3) 둘 다 불가면 null(판정 불가) → 호출부에서 Step 2 숨김 / Step 1 허용.
+function resolveLineOrg(
+  line: NonNullable<TargetWithLineRow["cluster4_lines"]>,
+  experienceMasterMetaById: Map<string, ExperienceMasterMeta>,
+  competencyMasterMetaById: Map<string, CompetencyMasterMeta>,
+  careerProjectMetaById: Map<string, CareerProjectMeta>,
+): LineOrgScope | null {
+  return (
+    parseLineCodeOrg(line.line_code) ??
+    resolveMasterOrg(
+      line,
+      experienceMasterMetaById,
+      competencyMasterMetaById,
+      careerProjectMetaById,
+    )
+  );
 }
 
 // PostgREST 기본 1000행 cap 회피용 순수 페이지네이션 루프.
@@ -1144,9 +1339,10 @@ async function fetchLineDetailsByWeek(
   // 걸리면 openedByWeek(개설 신호)·본인 real DTO·canEdit 가 누락되고, 헤더 분모 A
   // (growth 경로 fetchWeeksWithOpenLinesByPart)와 어긋나 "총 N개 중 …인데 칸은 N-1개"가 발생한다.
   // 완전 집합 위에서 계산하면 두 경로가 동일 opened-line 집합을 공유해 정합이 보장된다(요구 2·3).
-  const [targetRows, editWindowByPart] = await Promise.all([
+  const [targetRows, editWindowByPart, userOrg] = await Promise.all([
     fetchAllLineTargetsByWeek(weekIds),
     fetchHubEditWindows(profileUserId),
+    fetchUserOrganizationSlug(profileUserId),
   ]);
   const relevantTargets = targetRows.filter(
     (row) => row.target_mode === "user" && row.target_user_id === profileUserId,
@@ -1254,8 +1450,9 @@ async function fetchLineDetailsByWeek(
     await fetchExperienceMasterMetaByIds(experienceMasterIds);
 
   // competency sub-line 라인명 (competency_line_master_id → line_name) 일괄 룩업.
-  // 미배정 competency 는 보이드(emptyLine, lineName=null)이므로 본인 배정 라인만 있으면 충분하나,
-  // experience/career 와 동일하게 targetRows(전 유저) 기준으로 넓혀 일관성을 둔다.
+  // 미배정 competency 도 이제 개설 라인 content(lineName 포함)를 노출하므로
+  // (openedCompetencyFailLineDetail), experience/career 와 동일하게 targetRows(전 유저) 기준으로
+  // 넓혀 본인 미배정 라인의 master line_name 까지 매핑한다.
   const competencyMasterIds = Array.from(
     new Set(
       targetRows
@@ -1264,8 +1461,8 @@ async function fetchLineDetailsByWeek(
         .filter((id): id is string => Boolean(id)),
     ),
   );
-  const competencyMasterLineNameById =
-    await fetchCompetencyMasterLineNamesByIds(competencyMasterIds);
+  const competencyMasterMetaById =
+    await fetchCompetencyMasterMetaByIds(competencyMasterIds);
 
   // 그 주차에 개설된(=any target 존재) distinct 라인(대표 content) 수집 — 본인 미배정 라인 표시용.
   // week_id → line_id → {dbPart, line content}. targetRows 는 active 라인 inner-join 이므로 비활성 제외.
@@ -1298,6 +1495,47 @@ async function fetchLineDetailsByWeek(
   const careerProjectMetaById =
     await fetchCareerProjectMetaByIds(careerProjectIds);
 
+  // 라인 org 노출 판정 맵 (lineId → org SoT). 본인 배정(Step 1)·미배정(Step 2) 양쪽 필터 공통.
+  // 동시에 line_code 프리픽스(보조값)와 마스터 org(SoT) 불일치를 진단 로그로 남긴다(판정엔 미사용).
+  const lineOrgById = new Map<string, LineOrgScope | null>();
+  for (const row of targetRows) {
+    const line = row.cluster4_lines;
+    if (!line || lineOrgById.has(line.id)) continue;
+    const org = resolveLineOrg(
+      line,
+      experienceMasterMetaById,
+      competencyMasterMetaById,
+      careerProjectMetaById,
+    );
+    lineOrgById.set(line.id, org);
+    // 진단(판정엔 미사용 — line_code 가 우선): line_code 가 "특정 조직"(EC/OK/PX)을 가리키는데 마스터
+    //   org 가 다른 "특정 조직"이면 데이터 불일치 경고(노출은 line_code 우선으로 처리됨). codeOrg==='common'
+    //   (BS) 은 정책상 master 를 덮어 common 으로 가는 의도된 동작이라 노이즈 제거 차 제외한다.
+    const codeOrg = parseLineCodeOrg(line.line_code);
+    const masterOrg = resolveMasterOrg(
+      line,
+      experienceMasterMetaById,
+      competencyMasterMetaById,
+      careerProjectMetaById,
+    );
+    if (
+      codeOrg &&
+      codeOrg !== "common" &&
+      masterOrg &&
+      masterOrg !== "common" &&
+      codeOrg !== masterOrg
+    ) {
+      console.warn("[cluster4/weekly-cards] line org disagreement (line_code wins)", {
+        lineId: line.id,
+        partType: line.part_type,
+        lineCode: line.line_code,
+        lineCodeOrg: codeOrg,
+        masterOrg,
+        applied: codeOrg,
+      });
+    }
+  }
+
   const now = Date.now();
   for (const weekId of weekIds) {
     // 같은 주차의 user-mode target 만 카드에 매핑한다. 다른 주차의 target 은 절대
@@ -1310,6 +1548,18 @@ async function fetchLineDetailsByWeek(
 
     // 1. 본인 배정 라인 (real DTO).
     for (const target of weekTargets) {
+      // org 노출 필터: 다른 조직 라인이면 본인 배정이라도 제외(요구 6).
+      //   미배정으로 강등되는 것이 아니라 아예 누락 → Step 3 가 not_applicable placeholder 로 채운다.
+      //   allowUnknown=true: 본인에게 실제 배정된 라인은 org 판정 불가여도 노출 허용(Step 1 예외).
+      const targetLine = target.cluster4_lines;
+      if (
+        targetLine &&
+        !isLineVisibleForUserOrg(lineOrgById.get(targetLine.id) ?? null, userOrg, {
+          allowUnknown: true,
+        })
+      ) {
+        continue;
+      }
       const base = toLineDetail(
         target,
         submissionsByTargetId.get(target.id) ?? null,
@@ -1318,7 +1568,7 @@ async function fetchLineDetailsByWeek(
         experienceMasterMetaById,
         careerGradeByTargetId,
         careerProjectMetaById,
-        competencyMasterLineNameById,
+        competencyMasterMetaById,
       );
       if (!base) continue;
       if (target.cluster4_lines) userTargetedLineIds.add(target.cluster4_lines.id);
@@ -1345,7 +1595,9 @@ async function fetchLineDetailsByWeek(
     //   career          → not_applicable("해당 없음") 유지하되 개설 라인 content 노출(2026-06-02
     //                     career 정책 개정). status=void / enhancementStatus=not_applicable 이면서도
     //                     mainTitle/outputLinks/outputImages/projectCode/companyName 등은 채운다.
-    //   competency      → 보이드 fail (emptyLine, status="void" 유지 — 정책상 competency 만 보이드).
+    //   competency      → fail + 개설 라인 content 노출(읽기 전용). 2026-06-02 재개정으로 보이드
+    //                     (emptyLine, 메타 null) 폐기 — info/experience 와 동일하게 lineName/lineCode/
+    //                     mainTitle/output_* 을 채워 "왜 미배정 실패인지" 보이게 한다. 수정은 canEdit=false.
     //   휴식/전환 주차(restWeekIds)는 평가/집계 제외 → synthetic 라인 미적용(아래 not_applicable).
     const restWeek = restWeekIds.has(weekId);
     if (!restWeek) {
@@ -1353,9 +1605,17 @@ async function fetchLineDetailsByWeek(
       if (weekOpened) {
         for (const { dbPart, line } of weekOpened.values()) {
           if (userTargetedLineIds.has(line.id)) continue; // 본인 배정 → 1단계 real DTO 가 처리
+          // org 노출 필터(핵심 수정 — EC 라인이 PHALANX 에 누수되던 지점). 다른 조직 + org 판정
+          //   불가 라인 모두 차단(fail-closed). allowUnknown 기본 false → 미배정 unknown 라인은 숨김.
+          if (!isLineVisibleForUserOrg(lineOrgById.get(line.id) ?? null, userOrg)) {
+            continue;
+          }
           const publicPart = toPublicPart(dbPart);
           if (publicPart === "competency") {
-            lines.push(emptyLine(publicPart, weekId, true)); // 보이드 + fail
+            // 개설됨 + 본인 미배정 → fail + 개설 라인 content 노출(읽기 전용). emptyLine(보이드) 폐기.
+            lines.push(
+              openedCompetencyFailLineDetail(line, weekId, competencyMasterMetaById),
+            );
           } else if (publicPart === "career") {
             // career 미선발 = not_applicable 유지 + 개설 라인 content 노출.
             lines.push(openedCareerLineDetail(line, weekId, careerProjectMetaById));

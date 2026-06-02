@@ -189,9 +189,16 @@ async function handleGet(request: NextRequest): Promise<Response> {
   try {
     const demoProfileUserId = await resolveDemoProfileUserId(request);
     if (demoProfileUserId) {
-      const result = await loadWeeklyCards(demoProfileUserId);
-      if (DEBUG_COMPARE) await logWeekComparison(demoProfileUserId, result.cards);
-      return done(ok(result.cards), "demo", { userId: demoProfileUserId, ...result });
+      // 데모(테스트유저) 인증은 demoUserId 로 통과하되, 카드 조회 대상은 userId(페이지 주인)가
+      // 있으면 그것을 우선한다. foreign viewer(테스트유저 demoUserId 가 다른 유저 userId 페이지를
+      // 조회) 시 4허브 카드는 반드시 페이지 주인(userId) 기준이어야 하며 viewer(demoUserId)
+      // 데이터가 섞이면 안 된다. userId 가 없으면(본인 페이지) 기존대로 demoUserId 기준.
+      const requestedUserId =
+        request.nextUrl.searchParams.get("userId")?.trim() || null;
+      const cardTargetUserId = requestedUserId || demoProfileUserId;
+      const result = await loadWeeklyCards(cardTargetUserId);
+      if (DEBUG_COMPARE) await logWeekComparison(cardTargetUserId, result.cards);
+      return done(ok(result.cards), "demo", { userId: cardTargetUserId, ...result });
     }
   } catch (error) {
     if (error instanceof DemoModeError) {

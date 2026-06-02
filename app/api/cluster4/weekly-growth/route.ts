@@ -40,7 +40,11 @@ async function handleGet(request: NextRequest) {
   try {
     const demoProfileUserId = await resolveDemoProfileUserId(request);
     if (demoProfileUserId) {
-      const dto = await getWeeklyGrowth(demoProfileUserId);
+      // 데모 인증은 demoUserId(viewer)로 통과하되, 조회 대상은 userId(pageOwner)가 있으면 우선한다.
+      // foreign viewer(테스트유저가 타 유저 페이지 조회) 시 성장 데이터는 페이지 주인 기준이어야 함.
+      const requestedUserId =
+        request.nextUrl.searchParams.get("userId")?.trim() || null;
+      const dto = await getWeeklyGrowth(requestedUserId || demoProfileUserId);
       if (!dto) {
         logDone("demo-404");
         return Response.json(

@@ -65,10 +65,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // 데모 인증은 demoUserId(viewer)로 통과하되, 조회 대상은 userId(pageOwner)가 있으면 우선한다.
+  // foreign viewer(테스트유저가 타 유저 페이지 조회) 시 라인 상세는 페이지 주인 기준이어야 함.
+  const requestedUserId = request.nextUrl.searchParams.get("userId")?.trim() || null;
+
   try {
     const data = demoProfileUserId
       ? await getCluster4LineDetailForProfileUser(
-          demoProfileUserId,
+          requestedUserId || demoProfileUserId,
           weekId,
           partType,
         )
