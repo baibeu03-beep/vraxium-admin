@@ -17,7 +17,30 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 // v2 (2026-06-01): career line DTO 에 sponsor-card 메타 6필드(companyName/companyLogoUrl/
 //   supervisorName/supervisorDepartment/supervisorPosition/supervisorPhotoUrl) 추가.
 //   기존 v1 snapshot 은 해당 필드가 없으므로 읽기에서 miss 처리 → 재계산되어 신필드가 채워진다.
-export const WEEKLY_CARDS_DTO_VERSION = 2;
+// v3 (2026-06-02): "라인 개설" 기준을 cluster4_lines 행 존재(=any target)로 통일하면서 계산
+//   결과(값)가 바뀐다 — competency 미개설 주차가 fail→not_applicable, 개설+미배정 synthetic fail
+//   이 강화율 분모 A 에 반영, experience rating<=3 → fail. DTO 모양은 동일하나 값이 달라지므로
+//   기존 v2 snapshot 을 stale(version_mismatch) 처리해 cron/lazy 가 신정책으로 재계산하게 한다.
+//   (DB 백필 아님 — 파생 캐시 재생성. target 데이터는 건드리지 않는다.)
+// v4 (2026-06-02): 라인 DTO 에 lineName 필드 추가(= 마스터 line_name, mainTitle 과 분리 축).
+//   기존 v3 snapshot 의 cards 에는 lineName 키가 없으므로 stale(version_mismatch) 처리해
+//   cron/lazy 가 재계산하면서 각 line 에 lineName 이 채워지게 한다. (DB 백필 아님 — 캐시 재생성.)
+// v5 (2026-06-02): 카드에 위클리 평판/연계동료 상세 4필드 추가 — reputationSummary(fm=받은 평판
+//   rating 합, fameScore/누적포인트와 별개), colleagueSummary, weeklyReputations[](인적사항 포함,
+//   방어적 최대 4건), weeklyColleagues[](인적사항 포함). 기존 v4 snapshot 에는 이 키들이 없으므로
+//   stale(version_mismatch) 처리 → cron/lazy 가 재계산하며 채운다. (DB 백필 아님 — 캐시 재생성.)
+// v6 (2026-06-02): career 미배정 개설 라인 노출 정책 확정 — 개설됐지만 본인 미배정인 career 라인을
+//   not_applicable(void)이 아니라 "강화 실패 + 내용(lineName/mainTitle/output/sponsor 메타/projectCode)"
+//   으로 노출(openedFailLineDetail 의 career 분기). competency 만 보이드 유지. DTO 모양은 동일하나
+//   career 미배정 라인의 값(status void→fail, 내용 채움)이 달라지므로 기존 v5 snapshot 을
+//   stale(version_mismatch) 처리해 cron/lazy 가 신정책으로 재계산하게 한다. (DB 백필 아님 — 캐시 재생성.)
+// v7 (2026-06-02): career 미선발/미배정 정책 재개정 — 개설 career 라인을 fail 이 아니라
+//   not_applicable("해당 없음")로 되돌리되 개설 라인 content(mainTitle/outputLinks/outputImages/
+//   projectCode/companyName 등)는 계속 노출한다(openedCareerLineDetail). status: v6 fail → v7 void,
+//   enhancementStatus: v6 fail → v7 not_applicable. info/experience(fail+내용)·competency(보이드)는
+//   불변. DTO 모양은 동일하나 career 미배정 라인의 값이 달라지므로 기존 v6 snapshot 을
+//   stale(version_mismatch) 처리해 cron/lazy 가 신정책으로 재계산하게 한다. (DB 백필 아님 — 캐시 재생성.)
+export const WEEKLY_CARDS_DTO_VERSION = 7;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

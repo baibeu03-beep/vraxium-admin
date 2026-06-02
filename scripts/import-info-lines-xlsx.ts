@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
 import { createClient } from "@supabase/supabase-js";
+import { resolvePeriodLabelFromWeek } from "@/lib/cluster4PeriodLabel";
 
 type Mode = "weekly" | "recurring_weekly";
 
@@ -19,6 +20,7 @@ type WeekRow = {
   iso_year: number | null;
   iso_week: number | null;
   week_number: number | null;
+  season_key: string | null;
   is_official_rest: boolean | null;
 };
 
@@ -27,7 +29,7 @@ type ImportCandidate = {
   sheetName: string;
   mode: Mode;
   rowNumber: number;
-  periodLabel: string;
+  periodLabel: string | null;
   startDate: string;
   endDate: string;
   weekId: string;
@@ -298,6 +300,17 @@ function weekLabel(week: WeekRow): string {
   return `${week.start_date}~${week.end_date}`;
 }
 
+// period_label SoT: Excel 셀(직접 입력)이나 ISO weekLabel 을 신뢰하지 않고, 항상 week 행의
+// iso_year(YY) + season_key(시즌명) + week_number(N) 에서 "{YY} {시즌명} {N}주차" 로 생성한다.
+// ⛔ start_date 계산 금지. 세 값 중 하나라도 없으면 null(period_label 미기입).
+function periodLabelForWeek(week: WeekRow): string | null {
+  return resolvePeriodLabelFromWeek({
+    isoYear: week.iso_year,
+    seasonKey: week.season_key,
+    weekNumber: week.week_number,
+  });
+}
+
 function findWeekByStartDate(weeks: WeekRow[], startDate: string): WeekRow | null {
   return weeks.find((week) => week.start_date === startDate) ?? null;
 }
@@ -330,7 +343,7 @@ async function main() {
 
   const { data: weeksData, error: weeksError } = await supabase
     .from("weeks")
-    .select("id,start_date,end_date,iso_year,iso_week,week_number,is_official_rest")
+    .select("id,start_date,end_date,iso_year,iso_week,week_number,season_key,is_official_rest")
     .order("start_date", { ascending: true });
   if (weeksError) throw new Error(`weeks query failed: ${weeksError.message}`);
   const weeks = (weeksData ?? []) as WeekRow[];
@@ -451,7 +464,8 @@ async function main() {
           sheetName: spec.sheetName,
           mode: spec.mode,
           rowNumber: entry.rowNumber,
-          periodLabel,
+          // 직접 입력값(Excel 셀)을 신뢰하지 않고 week 기준 정규 표기로 생성한다.
+          periodLabel: periodLabelForWeek(week),
           startDate: week.start_date,
           endDate: week.end_date,
           weekId: week.id,
@@ -483,7 +497,8 @@ async function main() {
           sheetName: template.spec.sheetName,
           mode: template.spec.mode,
           rowNumber: template.rowNumber,
-          periodLabel: weekLabel(week),
+          // 반복 콘텐츠도 동일하게 week 기준 정규 표기(구: ISO weekLabel)로 생성한다.
+          periodLabel: periodLabelForWeek(week),
           startDate: week.start_date,
           endDate: week.end_date,
           weekId: week.id,

@@ -7,7 +7,6 @@ import {
   Briefcase,
   ChevronRight,
   Database,
-  FlaskConical,
   LayoutDashboard,
   PanelLeft,
   PanelLeftClose,
@@ -47,7 +46,13 @@ const MENU: MenuItem[] = [
     label: "멤버 관리",
     icon: Users,
     basePath: "/admin/members",
-    matchPaths: ["/admin/members", "/admin/crews", "/admin/users"],
+    matchPaths: [
+      "/admin/members",
+      "/admin/crews",
+      "/admin/users",
+      "/admin/test-users",
+      "/admin/settings/accounts",
+    ],
     children: [
       { label: "전체 멤버", href: "/admin/members" },
       ...ORGANIZATIONS.map((slug) => ({
@@ -55,6 +60,8 @@ const MENU: MenuItem[] = [
         href: `/admin/crews/${slug}`,
       })),
       { label: "승인 대기", href: "/admin/users/applicants" },
+      { label: "운영자 계정", href: "/admin/settings/accounts" },
+      { label: "테스트 모드", href: "/admin/test-users" },
     ],
   },
   {
@@ -76,11 +83,16 @@ const MENU: MenuItem[] = [
     label: "운영 관리",
     icon: Wrench,
     basePath: "/admin/settings",
+    // "/admin/settings" 광역 매칭 대신 실제 남은 children 경로만 매칭한다.
+    // (계정 관리가 멤버 관리로 이동했으므로 /admin/settings/accounts 가 운영 관리까지
+    //  동시에 활성화되지 않도록 한다.)
     matchPaths: [
-      "/admin/settings",
+      "/admin/settings/edit-windows",
+      "/admin/settings/permissions",
       "/admin/season-weeks",
       "/admin/week-recognitions",
       "/admin/season-participations",
+      "/admin/official-rest-periods",
       "/admin/operation-health-check",
     ],
     children: [
@@ -91,7 +103,6 @@ const MENU: MenuItem[] = [
       { label: "공식 휴식 관리", href: "/admin/official-rest-periods" },
       { label: "운영 정합성 점검", href: "/admin/operation-health-check" },
       { label: "권한 설정", href: "/admin/settings/permissions" },
-      { label: "계정 관리", href: "/admin/settings/accounts" },
     ],
   },
   {
@@ -102,12 +113,6 @@ const MENU: MenuItem[] = [
     children: [
       { label: "가져오기", href: "/admin/import" },
     ],
-  },
-  {
-    kind: "leaf",
-    label: "테스트 모드",
-    href: "/admin/test-users",
-    icon: FlaskConical,
   },
 ];
 

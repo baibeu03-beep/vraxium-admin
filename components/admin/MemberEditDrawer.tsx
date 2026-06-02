@@ -222,10 +222,8 @@ function MemberEditDrawerInner({
       aria-label="멤버 정보 수정"
       className="fixed inset-0 z-50 flex"
     >
-      <div
-        className="absolute inset-0 bg-foreground/40"
-        onClick={() => !saving && onClose()}
-      />
+      {/* 배경 클릭/드래그로는 닫히지 않는다. 닫기는 X·취소·저장 버튼 또는 Esc 로만. */}
+      <div className="absolute inset-0 bg-foreground/40" />
       <div className="relative ml-auto flex h-full w-full max-w-md flex-col bg-background shadow-xl">
         <header className="flex items-center justify-between border-b px-5 py-4">
           <div>

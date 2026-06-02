@@ -44,6 +44,8 @@ Supabase SQL Editor에서 **파일명 알파벳 순서대로** 실행한다.
 | 33 | `2026-05-31_user_edit_windows_week_scope.sql` | 주간 자원(주간 회고/동료/평판) 편집 권한을 주차 단위로 분리 — `user_edit_windows` 에 `week_id`(weeks FK)·`season_key`(season_definitions FK) append, 기존 `UNIQUE(user_id, resource_key)` 제거 후 부분 unique index 2종(week別 / 전역 NULL)으로 대체 + 조회 인덱스. **#9·#24·weeks 의존, append-only / 기존 row 는 week_id=NULL 전역 권한 유지** |
 | 34 | `2026-05-31_official_rest_periods.sql` | 날짜 이동형 공식 휴식(설/추석/임시) 신규 테이블 `official_rest_periods`(start_date~end_date 기준, type CHECK 4종, end_date≥start_date CHECK, updated_at trigger, 부분/타입 인덱스) **생성만**(시드 없음, 운영자가 Admin 에서 등록). 공식 휴식 판정 = seasonCalendar rule ∨ official_rest_periods overlap. **legacy `official_rest_weeks`·`weeks.is_official_rest` 는 보존(deprecated COMMENT), 삭제·backfill 금지**, 의존 없음 |
 | 35 | `2026-06-01_weeks_result_published.sql` | `weeks.result_published_at` (집계/공표 완료 시점) append. NULL=미공표→고객 카드 "성장(집계 중)"(tallying, read-time only), 값 존재=공표 완료→success/fail 노출. 기존 종료 주차(`end_date < CURRENT_DATE`) 일괄 공표 백필(멱등). **`user_week_statuses.status` CHECK 미변경**, **weeks 의존, append-only** |
+| 36 | `2026-06-01_cluster4_lines_role_workflow.sql` | `cluster4_lines` 라인 개설 역할별 진행 상태/담당자 5개 컬럼 append: `input_completed_at`(파트장 입력완료) · `reviewed_at`/`reviewed_by`(에이전트 검수) · `opened_at`/`opened_by`(팀장 개설). 전부 nullable, CHECK/트리거 없음 — workflowStatus 는 timestamp 조합으로 read-time 파생. `LINE_SELECT`(4허브 공통 조회) 가 이 컬럼들을 참조하므로 **미적용 시 4허브 전체 `column ... does not exist`**. **admin_users 의존, append-only** |
+| 37 | `2026-06-02_user_profiles_profile_tagline.sql` | `user_profiles.profile_tagline` (한줄 소개 — 희망 기업/직무/진로 목표) text NULL append. 위클리 평판/연계동료 카드 프로필 영역 노출용. 평판 keyword(평가 태그)와 다른 축. 기존 데이터 NULL 유지(프론트 "-" fallback), 입력 UI 는 범위 외. **의존 없음, append-only** |
 
 ## 주의사항
 

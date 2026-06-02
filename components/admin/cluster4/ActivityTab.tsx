@@ -1205,14 +1205,22 @@ function CareerSubPane({
                     </Select>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <FieldLabel>project_id (career_projects.id, UUID)</FieldLabel>
+                    <FieldLabel>
+                      {devMode
+                        ? "project_id (career_projects.id, UUID)"
+                        : "실무 경력 프로젝트 식별값"}
+                    </FieldLabel>
                     <Input
                       value={row.project_id}
                       onChange={(event) =>
                         onChange(row.id, { project_id: event.target.value })
                       }
                       disabled={rowDisabled}
-                      placeholder="career_projects.id UUID 입력"
+                      placeholder={
+                        devMode
+                          ? "career_projects.id UUID 입력"
+                          : "실무 경력 프로젝트 식별값 입력"
+                      }
                       className="h-9 font-mono text-xs"
                     />
                   </div>

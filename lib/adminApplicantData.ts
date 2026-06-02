@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
+import { excludeSuperAdmins } from "@/lib/superAdmins";
 import {
   APPLICANT_STATUSES,
   isApplicantStatus,
@@ -198,10 +199,13 @@ export async function searchUserProfiles(query: string) {
 
   if (filters.length === 0) return [];
 
-  const { data, error } = await supabaseAdmin
-    .from("user_profiles")
-    .select(USER_PROFILE_SELECT)
-    .or(filters.join(","))
+  // super admin 은 멤버 검색/자동완성 결과에서 제외 (목록 노출에서만 숨김).
+  const { data, error } = await excludeSuperAdmins(
+    supabaseAdmin
+      .from("user_profiles")
+      .select(USER_PROFILE_SELECT)
+      .or(filters.join(",")),
+  )
     .order("display_name", { ascending: true })
     .limit(20);
 

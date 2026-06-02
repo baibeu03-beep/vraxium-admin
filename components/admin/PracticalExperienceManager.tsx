@@ -2656,18 +2656,22 @@ export default function PracticalExperienceManager() {
                         <TableHead>대상자</TableHead>
                         <TableHead className="text-center">라인칸 기입 상태</TableHead>
                         <TableHead className="text-center">강화 상태</TableHead>
-                        <TableHead className="font-mono text-[11px]">
-                          submissionStatus
-                        </TableHead>
-                        <TableHead className="font-mono text-[11px]">
-                          enhancementStatus
-                        </TableHead>
-                        <TableHead className="font-mono text-[11px]">
-                          enhancementReason
-                        </TableHead>
-                        <TableHead className="font-mono text-[11px]">
-                          lineTargetId
-                        </TableHead>
+                        {devMode && (
+                          <>
+                            <TableHead className="font-mono text-[11px]">
+                              submissionStatus
+                            </TableHead>
+                            <TableHead className="font-mono text-[11px]">
+                              enhancementStatus
+                            </TableHead>
+                            <TableHead className="font-mono text-[11px]">
+                              enhancementReason
+                            </TableHead>
+                            <TableHead className="font-mono text-[11px]">
+                              lineTargetId
+                            </TableHead>
+                          </>
+                        )}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2696,20 +2700,24 @@ export default function PracticalExperienceManager() {
                               reason={r.target.enhancementReason}
                             />
                           </TableCell>
-                          <TableCell className="font-mono text-[11px] text-muted-foreground">
-                            {r.target.submissionStatus}
-                          </TableCell>
-                          <TableCell className="font-mono text-[11px] text-muted-foreground">
-                            {r.target.enhancementStatus}
-                          </TableCell>
-                          <TableCell className="font-mono text-[11px] text-muted-foreground">
-                            {r.target.enhancementReason}
-                          </TableCell>
-                          <TableCell className="font-mono text-[10px] text-muted-foreground">
-                            <span className="block max-w-[140px] truncate" title={r.target.lineTargetId}>
-                              {r.target.lineTargetId}
-                            </span>
-                          </TableCell>
+                          {devMode && (
+                            <>
+                              <TableCell className="font-mono text-[11px] text-muted-foreground">
+                                {r.target.submissionStatus}
+                              </TableCell>
+                              <TableCell className="font-mono text-[11px] text-muted-foreground">
+                                {r.target.enhancementStatus}
+                              </TableCell>
+                              <TableCell className="font-mono text-[11px] text-muted-foreground">
+                                {r.target.enhancementReason}
+                              </TableCell>
+                              <TableCell className="font-mono text-[10px] text-muted-foreground">
+                                <span className="block max-w-[140px] truncate" title={r.target.lineTargetId}>
+                                  {r.target.lineTargetId}
+                                </span>
+                              </TableCell>
+                            </>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>

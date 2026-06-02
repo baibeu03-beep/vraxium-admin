@@ -359,7 +359,7 @@ export default function CareerProjectsManager() {
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="회사명 · 프로젝트명 · 직무 · 라인 · UUID 검색"
+                placeholder="회사명 · 프로젝트명 · 직무 · 라인 검색"
                 className="pl-8"
               />
               {query && (
@@ -634,9 +634,6 @@ function CareerProjectEditor({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
     >
       <div
         ref={dialogRef}

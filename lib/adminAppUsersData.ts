@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
+import { excludeSuperAdmins } from "@/lib/superAdmins";
 import {
   ACCOUNT_STATUSES,
   isAccountStatus,
@@ -83,6 +84,9 @@ export async function listAppUsers(
     .select(APP_USER_SELECT)
     .order("updated_at", { ascending: false, nullsFirst: false })
     .limit(limit);
+
+  // super admin 은 사용자 목록에서 제외 (목록 노출에서만 숨김).
+  queryBuilder = excludeSuperAdmins(queryBuilder);
 
   if (options.status) {
     queryBuilder = queryBuilder.eq("status", options.status);

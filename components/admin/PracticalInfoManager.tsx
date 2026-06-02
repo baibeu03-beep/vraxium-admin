@@ -349,6 +349,7 @@ function LineDetailModal({
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
+  const devMode = useAdminDevMode();
   const [mainTitle, setMainTitle] = useState(line.mainTitle);
   // 서브 타이틀·그로스 포인트는 크루원 제출값으로 이전됨 → 라인 편집에서 제거.
   // (대상자별 제출값은 아래 대상자 테이블에서 읽기 전용으로 표시한다.)
@@ -432,7 +433,6 @@ function LineDetailModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8"
-      onClick={onClose}
     >
       <div
         className="w-full max-w-3xl space-y-6 rounded-lg bg-background p-6 shadow-xl"
@@ -445,7 +445,9 @@ function LineDetailModal({
               {activityTypeName} · {line.weekLabel ?? "주차 미상"}
             </p>
             <h2 className="truncate text-lg font-bold">{line.mainTitle}</h2>
-            <p className="font-mono text-xs text-muted-foreground">lineId: {line.id}</p>
+            {devMode && (
+              <p className="font-mono text-xs text-muted-foreground">lineId: {line.id}</p>
+            )}
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-5 w-5" />
@@ -599,8 +601,8 @@ function LineDetailModal({
                   <TableHead>그로스 포인트</TableHead>
                   <TableHead className="text-center">강화 상태</TableHead>
                   <TableHead className="text-center">라인칸 기입 상태</TableHead>
-                  <TableHead>canEdit</TableHead>
-                  <TableHead>lineTargetId / submissionId</TableHead>
+                  <TableHead>{devMode ? "canEdit" : "수정 가능 여부"}</TableHead>
+                  {devMode && <TableHead>lineTargetId / submissionId</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -630,10 +632,12 @@ function LineDetailModal({
                     <TableCell>
                       <CanEditBadge canEdit={t.canEdit} reason={t.editReason} />
                     </TableCell>
-                    <TableCell className="font-mono text-[11px] text-muted-foreground">
-                      <div className="truncate">{t.lineTargetId}</div>
-                      <div className="truncate">{t.submissionId ?? "—"}</div>
-                    </TableCell>
+                    {devMode && (
+                      <TableCell className="font-mono text-[11px] text-muted-foreground">
+                        <div className="truncate">{t.lineTargetId}</div>
+                        <div className="truncate">{t.submissionId ?? "—"}</div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

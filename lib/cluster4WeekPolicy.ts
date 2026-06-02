@@ -60,6 +60,37 @@ export type Cluster4WeekDescriptor = {
   submissionClosesAt: string | null;
 };
 
+// 기입(제출) 기간 = "귀속 주차의 다음 주". 라인은 운영상 N-1 주차에 귀속되지만
+// 대상자는 그 다음 주(현재 주차 N)에 기입/제출한다. 따라서 기입 기간은 항상
+// 귀속 주차 시작일을 기준으로 1주 뒤로 산출한다.
+//   기입 시작 = 귀속 주차 시작일 + 7일 (다음 주 월요일) 00:00 KST
+//   기입 마감 = 귀속 주차 시작일 + 9일 (다음 주 수요일) 22:00 KST
+// KST = UTC+9 → 00:00 KST = −9h UTC, 22:00 KST = +13h UTC.
+//
+// 4허브(실무 정보/역량/경험/경력) 라인 개설 화면의 모든 기입 기간 표시·저장은
+// 이 단일 함수로 계산한다(하드코딩/개별 계산 금지).
+export function submissionWindowForWeekStartMs(weekStartMs: number): {
+  submissionOpensAt: string;
+  submissionClosesAt: string;
+} {
+  const openMondayMs = weekStartMs + 7 * DAY_MS; // 다음 주 월요일 00:00 KST
+  const closeWednesdayMs = weekStartMs + 9 * DAY_MS; // 다음 주 수요일 22:00 KST
+  return {
+    submissionOpensAt: new Date(openMondayMs - 9 * 3600_000).toISOString(),
+    submissionClosesAt: new Date(
+      closeWednesdayMs + 22 * 3600_000 - 9 * 3600_000,
+    ).toISOString(),
+  };
+}
+
+// ISO(YYYY-MM-DD) 주차 시작일(월요일) → 기입 기간. 서버 라우트 등 ms 가 없는 호출부용.
+export function submissionWindowForWeekStartIso(weekStartIso: string): {
+  submissionOpensAt: string;
+  submissionClosesAt: string;
+} {
+  return submissionWindowForWeekStartMs(toMs(weekStartIso));
+}
+
 // 주차 시작(월요일) ms → 주차 서술자. 시즌/주차번호/기입기간/iso 키를 산출한다.
 export function describeWeekByStartMs(
   weekStartMs: number,
@@ -81,12 +112,9 @@ export function describeWeekByStartMs(
   );
   const isOfficialRest = status === "official_rest" || status === "transition";
 
-  // KST = UTC+9 → 00:00 KST = week start −9h UTC, 수 22:00 KST = +13h UTC.
-  const wednesdayMs = weekStartMs + 2 * DAY_MS;
-  const submissionOpensAt = new Date(weekStartMs - 9 * 3600_000).toISOString();
-  const submissionClosesAt = new Date(
-    wednesdayMs + 22 * 3600_000 - 9 * 3600_000,
-  ).toISOString();
+  // 기입 기간 = 귀속 주차의 다음 주(월 00:00 ~ 수 22:00 KST). 공통 함수로 계산.
+  const { submissionOpensAt, submissionClosesAt } =
+    submissionWindowForWeekStartMs(weekStartMs);
 
   const { isoYear, isoWeek } = getISOWeekInfo(weekStart);
 

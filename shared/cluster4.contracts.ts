@@ -50,7 +50,9 @@ export type Cluster4EnhancementReason =
   // career 전용 (P0): 타깃 있음 + 마감 후 + 제출함 + grade 미입력 → pending (평가 대기)
   | "career_unevaluated_after_deadline"
   // career 전용 (P1): 타깃 있음(선발) + 마감 후 + 미제출 → fail
-  | "career_not_submitted";
+  | "career_not_submitted"
+  // experience 전용: 타깃 있음 + 마감 후 + 평점 3점 이하(rating <= 3) → fail
+  | "experience_rating_fail";
 
 export type Cluster4LineTargetMode = "user" | "rule";
 
@@ -126,6 +128,13 @@ export type Cluster4VisibleLineDto = {
   lineId: string | null;
   lineTargetId: string | null;
   targetMode: Cluster4LineTargetMode | null;
+  // 라인명 — source: 마스터 테이블 line_name (experience/competency masters, career_projects).
+  //   mainTitle 과 별개 축이다. 절대 서로 fallback 으로 섞지 않는다:
+  //     lineName  ← master.line_name 만 (없으면 null)
+  //     mainTitle ← cluster4_lines.main_title 만 (없으면 null)
+  //   information part 는 마스터 line_name 이 없으므로 항상 null (라벨은 activityTypeName 사용).
+  //   프론트는 라인명 슬롯(상단 문구·카드 배지)에 lineName 을, Main Title 입력칸에 mainTitle 을 매핑한다.
+  lineName: string | null;
   mainTitle: string | null;
   // 실무 정보(information) 카드의 서브 타이틀·그로스 포인트 — 크루원 제출값(submission)에서 내려준다.
   // source: cluster4_line_submissions.subtitle / growth_point (= submission.subtitle / submission.growthPoint).
@@ -258,6 +267,76 @@ export type Cluster4WeeklyPointsDto = {
 // running 과 tallying, personal_rest 와 official_rest 를 구분하지 못함). 그래서 별도 icon key 를 둔다.
 export type Cluster4StatusIconKey = Cluster4UserWeekStatus;
 
+// ── 위클리 평판 / 연계 동료 인적사항 + 입력값 (append-only, 2026-06-02) ──
+// 평판/동료 카드(미리보기·모달)의 프로필 영역에 표시할 대상자 인적사항 단일 출처.
+//   - name        = user_profiles.display_name
+//   - gender      = user_profiles.gender (원본 값 그대로, 매핑 없음)
+//   - age         = user_profiles.birth_date 로부터 파생(만 나이). 없으면 null.
+//   - school      = user_profiles.school_name
+//   - department  = user_profiles.department_name
+//   - team/part   = user_memberships(is_current 우선).team_name / part_name
+//   - membershipLevel = user_memberships.membership_state (일반/심화 상태값)
+//   - profileImageUrl = user_profiles.profile_photo_url
+//   - profileTagline  = user_profiles.profile_tagline (한줄 소개 — 희망 기업/직무/진로 목표).
+//                       평판 keyword(평가 태그)와 다른 축. 없으면 null(프론트 "-" fallback).
+export type Cluster4PersonProfileDto = {
+  userId: string;
+  name: string | null;
+  gender: string | null;
+  age: number | null;
+  school: string | null;
+  department: string | null;
+  team: string | null;
+  part: string | null;
+  membershipLevel: string | null;
+  profileImageUrl: string | null;
+  profileTagline: string | null;
+};
+
+// 받은 주간 평판 1건 (target_user_id = 카드 주인). 미리보기/모달 표시용.
+//   fromUserId = reviewer_id(작성자), toUserId = target_user_id(=카드 주인).
+//   fromProfile = 작성자 인적사항, toProfile = 대상자(카드 주인) 인적사항.
+export type Cluster4WeeklyReputationDto = {
+  id: string;
+  weekId: string;
+  fromUserId: string;
+  toUserId: string;
+  rating: number;
+  comment: string;            // = weekly_reputations.content
+  keyword: string;            // = weekly_reputations.keyword (tag)
+  createdAt: string | null;
+  fromProfile: Cluster4PersonProfileDto | null;
+  toProfile: Cluster4PersonProfileDto | null;
+};
+
+// 작성한 연계 동료 1건 (user_id = 카드 주인). 미리보기/모달 표시용.
+//   fromUserId = user_id(작성자=카드 주인), colleagueUserId = colleague_id(지목된 동료).
+//   colleagueProfile = 지목된 동료의 인적사항.
+export type Cluster4WeeklyColleagueDto = {
+  id: string;
+  weekId: string;
+  fromUserId: string;
+  colleagueUserId: string;
+  rank: number;
+  message: string | null;     // = weekly_colleagues.message
+  createdAt: string | null;
+  colleagueProfile: Cluster4PersonProfileDto | null;
+};
+
+// 주차 평판 요약. receivedCount 는 0~receivedLimit 로 cap, fm 은 반영 대상(≤4)의 rating 합.
+//   fameScore/fmScore(누적 포인트)와는 별개 축 — 절대 혼동 금지.
+export type Cluster4ReputationSummaryDto = {
+  receivedCount: number;      // 0~4 (방어적 cap)
+  receivedLimit: number;      // 4
+  fm: number;                 // 반영 대상 평판 rating 합계
+};
+
+// 연계 동료 요약. writtenCount 는 그 주차 작성 건수, writtenLimit=3.
+export type Cluster4ColleagueSummaryDto = {
+  writtenCount: number;       // 작성 건수
+  writtenLimit: number;       // 3
+};
+
 export type Cluster4WeeklyCardDto = {
   weekId: string | null;
   weekNumber: number;
@@ -290,6 +369,15 @@ export type Cluster4WeeklyCardDto = {
   reputationTotal: number;             // 4
   colleagueCount: number | null;
   colleagueTotal: number;              // 3
+
+  // ── 위클리 평판 / 연계 동료 상세 (append-only, 2026-06-02) ──
+  // 미리보기/모달에서 인적사항·입력값을 렌더하기 위한 row 배열 + 요약.
+  //   reputationSummary.fm 은 "받은 평판 rating 합계" (fameScore/fmScore=누적포인트 와 무관·별개).
+  //   weeklyReputations 는 받은 평판(최대 4건, 방어적 cap). weeklyColleagues 는 작성한 동료.
+  reputationSummary: Cluster4ReputationSummaryDto;
+  colleagueSummary: Cluster4ColleagueSummaryDto;
+  weeklyReputations: Cluster4WeeklyReputationDto[];
+  weeklyColleagues: Cluster4WeeklyColleagueDto[];
 
   // 주차 성장률
   weeklyGrowthRate: number;

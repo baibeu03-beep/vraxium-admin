@@ -5,7 +5,7 @@
 export type EditableResource = {
   key: string;
   section: "cluster2" | "cluster3" | "cluster4";
-  group: "weekly" | "season" | "activity" | "review_links" | "portfolio";
+  group: "weekly" | "season" | "activity" | "review_links" | "portfolio" | "education";
   order: number;
   label: string;
   description: string;
@@ -28,6 +28,19 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
       "\uC8FC\uCC28\uBCC4 Club Review \uB9C1\uD06C 10\uAC1C \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
     devLabel: "Cluster2 / Review Links",
     devDescription: "Cluster2 review link permissions",
+  },
+  {
+    key: "cluster2.primary_education",
+    section: "cluster2",
+    group: "education",
+    order: 11,
+    // "1번 학력 = 대표 학력". 비주간(전역) window — review_links 와 동일 패턴.
+    label: "1번 학력 수정",
+    description:
+      "대표(1번) 학력 정보 수정 가능 기간을 관리합니다.",
+    devLabel: "Cluster2 / Primary Education",
+    devDescription:
+      "Cluster2 primary education edit permissions (user_profiles 1st/primary education record)",
   },
   {
     key: "cluster3.output_cards",

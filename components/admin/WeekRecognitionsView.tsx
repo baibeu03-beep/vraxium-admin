@@ -600,9 +600,6 @@ function PublishWeekModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={() => {
-        if (!saving) onClose();
-      }}
     >
       <div
         role="dialog"
@@ -714,9 +711,6 @@ function WeekRecognitionEditModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onClick={() => {
-        if (!saving) onClose();
-      }}
     >
       <div
         role="dialog"

@@ -5,6 +5,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { excludeSuperAdmins } from "@/lib/superAdmins";
 
 type UserProfileRow = {
   user_id: string;
@@ -42,6 +43,9 @@ export async function GET(request: NextRequest) {
       .from("user_profiles")
       .select("user_id,display_name,profile_photo_url,organization_slug")
       .order("display_name", { ascending: true });
+
+    // super admin 은 라인/허브 멤버 선택 목록에서 제외 (목록 노출에서만 숨김).
+    query = excludeSuperAdmins(query);
 
     if (org) {
       query = query.eq("organization_slug", org);

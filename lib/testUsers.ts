@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
+import { SUPER_ADMIN_ROLE } from "@/lib/superAdmins";
 
 // 데모/테스트 대상 유저 source of truth = public.test_user_markers.
 // ─────────────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ type ProfileRow = {
   status: string | null;
   growth_status: string | null;
   organization_slug: string | null;
+  role: string | null;
 };
 
 type MembershipRow = {
@@ -131,7 +133,7 @@ export async function listTestUsers(): Promise<TestUserDto[]> {
     supabaseAdmin
       .from("user_profiles")
       .select(
-        "user_id,display_name,auth_email,contact_email,status,growth_status,organization_slug",
+        "user_id,display_name,auth_email,contact_email,status,growth_status,organization_slug,role",
       )
       .in("user_id", userIds),
     supabaseAdmin
@@ -149,6 +151,12 @@ export async function listTestUsers(): Promise<TestUserDto[]> {
     profileById.set(row.user_id, row);
   }
 
+  // super admin 은 테스트 유저 목록에서 제외 (목록 노출에서만 숨김 — 인가와 무관).
+  // marker 가 찍혀 있더라도 role='super_admin' 이면 출력하지 않는다.
+  const visibleMarkers = markers.filter(
+    (m) => profileById.get(m.user_id)?.role !== SUPER_ADMIN_ROLE,
+  );
+
   const membershipsByUser = new Map<string, MembershipRow[]>();
   for (const row of (membershipsRes.data ?? []) as unknown as MembershipRow[]) {
     const list = membershipsByUser.get(row.user_id) ?? [];
@@ -156,7 +164,7 @@ export async function listTestUsers(): Promise<TestUserDto[]> {
     membershipsByUser.set(row.user_id, list);
   }
 
-  return markers.map((marker) => {
+  return visibleMarkers.map((marker) => {
     const profile = profileById.get(marker.user_id) ?? null;
     const membership = pickCurrentMembership(
       membershipsByUser.get(marker.user_id) ?? [],

@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
+import { excludeSuperAdmins } from "@/lib/superAdmins";
 
 // Crews source of truth
 // ─────────────────────────────────────────────────────────────────────
@@ -247,6 +248,10 @@ async function fetchCrewSourceRows(options: {
   }
   if (options.userId) {
     profileQuery = profileQuery.eq("user_id", options.userId);
+  } else {
+    // 크루 "목록" 조회 시 super admin 제외. 단건 user_id 조회(POST 후 정규화 등)는
+    // 노출 목록이 아니므로 그대로 둔다 — super admin 의 단건 조회/권한에는 영향 없음.
+    profileQuery = excludeSuperAdmins(profileQuery);
   }
 
   const profileRes = await profileQuery;

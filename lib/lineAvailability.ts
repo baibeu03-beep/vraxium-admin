@@ -1,6 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
-import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
+import {
+  computeCluster4Enhancement,
+  EXPERIENCE_RATING_FAIL_THRESHOLD,
+} from "@/lib/cluster4Enhancement";
 import type { Cluster4EnhancementStatus } from "@/shared/cluster4.contracts";
 import { type CareerGrade, isCareerGradeFail } from "@/lib/careerGrade";
 
@@ -334,6 +337,9 @@ export async function fetchWeeklyCardLineAggregates(
   const bump = (m: Map<string, number>, k: string) =>
     m.set(k, (m.get(k) ?? 0) + 1);
   const careerDeadlinePassed: { id: string; week_id: string }[] = [];
+  // experience success 는 마감 + 평점 rating>3 (또는 미평가) → 마감 지난 experience 타깃만 평점 조회 후보.
+  // rating<=3 은 강화 실패(per-line enhancementStatus=fail)이므로 분자 B 에서 제외한다(career grade D 와 동일 취지).
+  const experienceDeadlinePassed: { id: string; week_id: string }[] = [];
 
   for (const t of targets) {
     const line = lineById.get(t.line_id);
@@ -348,7 +354,8 @@ export async function fetchWeeklyCardLineAggregates(
         break;
       case "experience":
         bump(agg.experienceLineMap, t.week_id);
-        if (deadlinePassed) bump(agg.experienceSuccessMap, t.week_id);
+        // success 여부는 평점 조회 후 결정(rating<=3 제외). 마감 지난 타깃만 후보.
+        if (deadlinePassed) experienceDeadlinePassed.push({ id: t.id, week_id: t.week_id });
         break;
       case "competency":
         bump(agg.competencyLineMap, t.week_id);
@@ -359,6 +366,26 @@ export async function fetchWeeklyCardLineAggregates(
         // career success 는 마감 + grade C이상 → 마감 지난 타깃만 grade 조회 후보.
         if (deadlinePassed) careerDeadlinePassed.push({ id: t.id, week_id: t.week_id });
         break;
+    }
+  }
+
+  // Q3b: experience success 평점 (마감 지난 experience 타깃에 한해). rating<=3(EXPERIENCE_RATING_FAIL_THRESHOLD)
+  //   은 강화 실패로 분자 제외. rating 미평가/>3 은 success(기존 마감 기준 유지). 후보 없으면 쿼리 생략.
+  if (experienceDeadlinePassed.length > 0) {
+    const { data: expEvals } = await supabaseAdmin
+      .from("cluster4_experience_line_evaluations")
+      .select("line_target_id,rating")
+      .eq("user_id", userId)
+      .in("line_target_id", experienceDeadlinePassed.map((t) => t.id));
+    const ratingByTarget = new Map<string, number>();
+    for (const e of (expEvals ?? []) as { line_target_id: string; rating: number }[]) {
+      ratingByTarget.set(e.line_target_id, e.rating);
+    }
+    for (const t of experienceDeadlinePassed) {
+      const rating = ratingByTarget.get(t.id);
+      // rating<=3 → 강화 실패(분자 제외). 미평가(undefined)·rating>3 → success.
+      if (rating != null && rating <= EXPERIENCE_RATING_FAIL_THRESHOLD) continue;
+      bump(agg.experienceSuccessMap, t.week_id);
     }
   }
 
@@ -522,9 +549,22 @@ export async function fetchLineSuccessCountsByWeek(
   return result;
 }
 
-// 그 주차에 info 라인이 (누구든) 개설됐는지 — fail vs not_applicable 구분 신호.
-// 배정 없음 + 개설됨 → fail / 미개설 → not_applicable.
-export async function fetchWeeksWithAnyInfoLine(
+// ─────────────────────────────────────────────────────────────────────
+// "라인 개설" 신호 (fail vs not_applicable 구분) — 기준: cluster4_lines 행 존재.
+//
+// 중요(2026-06-02): cluster4_lines 에는 week_id 가 없다(2026-05-29 마이그레이션 참고).
+// 라인의 주차 SoT 는 cluster4_line_targets.week_id 이므로, "그 주차에 라인이 개설됨"은
+// "그 주차에 해당 part 의 active 라인을 가리키는 target 행이 (누구든·어느 mode든) 존재"로만
+// 표현할 수 있다. 따라서 과거의 target_mode='user' 한정을 제거하고 mode 무관(any target)으로
+// 본다 — 이것이 "target(=배정) 존재가 아니라 line 행(=개설 이력) 존재" 기준의 스키마상 구현이다.
+//
+//   배정(=본인 user target) 없음 + 개설됨(any target 존재) → fail
+//   배정 없음 + 미개설(any target 없음)                    → not_applicable
+// ─────────────────────────────────────────────────────────────────────
+
+// 단일 part 의 "개설된 주차" 집합. mode 무관(개설 이력 = 행 존재) 기준.
+async function fetchOpenWeeksForPart(
+  partType: "info" | "experience" | "competency" | "career",
   weekIds: string[],
 ): Promise<Set<string>> {
   const result = new Set<string>();
@@ -533,7 +573,7 @@ export async function fetchWeeksWithAnyInfoLine(
   const { data: lines } = await supabaseAdmin
     .from("cluster4_lines")
     .select("id")
-    .eq("part_type", "info")
+    .eq("part_type", partType)
     .eq("is_active", true);
   const lineIds = (lines ?? []).map((l: { id: string }) => l.id);
   if (lineIds.length === 0) return result;
@@ -541,7 +581,6 @@ export async function fetchWeeksWithAnyInfoLine(
   const { data: targets } = await supabaseAdmin
     .from("cluster4_line_targets")
     .select("week_id")
-    .eq("target_mode", "user")
     .in("line_id", lineIds)
     .in("week_id", weekIds);
 
@@ -551,34 +590,91 @@ export async function fetchWeeksWithAnyInfoLine(
   return result;
 }
 
-// 그 주차에 experience 라인이 (누구든) 개설됐는지 — fail vs not_applicable 구분 신호.
-// 배정 없음 + 개설됨 → fail / 미개설 → not_applicable.
-// fetchWeeksWithAnyInfoLine 와 동일 방식(part_type 만 'experience').
+// 그 주차에 info 라인이 (누구든) 개설됐는지 — fail vs not_applicable 구분 신호.
+export async function fetchWeeksWithAnyInfoLine(
+  weekIds: string[],
+): Promise<Set<string>> {
+  return fetchOpenWeeksForPart("info", weekIds);
+}
+
+// 그 주차에 experience 라인이 (누구든) 개설됐는지.
 export async function fetchWeeksWithAnyExperienceLine(
   weekIds: string[],
 ): Promise<Set<string>> {
-  const result = new Set<string>();
-  if (weekIds.length === 0) return result;
+  return fetchOpenWeeksForPart("experience", weekIds);
+}
 
-  const { data: lines } = await supabaseAdmin
+// 그 주차에 competency(실무 역량) 라인이 (누구든) 개설됐는지. (2026-06-02 신설)
+// 기존 "competency 는 항상 fail" 정책 폐기 → 개설됨(=행 존재)일 때만 미배정 fail, 미개설은 not_applicable.
+export async function fetchWeeksWithAnyCompetencyLine(
+  weekIds: string[],
+): Promise<Set<string>> {
+  return fetchOpenWeeksForPart("competency", weekIds);
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// BULK: info/experience/competency 의 "주차별 개설 라인 수(distinct line_id)"를
+// cluster4_lines 1회 + cluster4_line_targets 1회 = 2 쿼리로 산정한다.
+//
+// 강화율 분모 A 의 정의(2026-06-02):
+//   A_part(주차) = 그 주차에 개설된(=any target 존재) distinct 라인 수.
+//   - 본인 배정 라인 ⊆ 개설 라인 이므로, "개설됐는데 본인 미배정"인 라인이 곧 synthetic fail.
+//     (A 에는 포함, 분자 B 에는 미포함 → 강화 실패 1건.)
+//   - 미개설(개설 라인 0)이면 A=0 → not_applicable(분모 제외).
+// career 는 제외 — career 의 "개설+미배정"은 미선발(not_applicable)이므로 A 에 넣지 않는다
+//   (career A 는 본인 배정 수 = careerLineMap 그대로 사용).
+// ─────────────────────────────────────────────────────────────────────
+export type OpenLinesByPart = {
+  info: Map<string, number>;
+  experience: Map<string, number>;
+  competency: Map<string, number>;
+};
+
+export async function fetchWeeksWithOpenLinesByPart(
+  weekIds: string[],
+): Promise<OpenLinesByPart> {
+  const empty: OpenLinesByPart = {
+    info: new Map(),
+    experience: new Map(),
+    competency: new Map(),
+  };
+  if (weekIds.length === 0) return empty;
+
+  const { data: lineRows } = await supabaseAdmin
     .from("cluster4_lines")
-    .select("id")
-    .eq("part_type", "experience")
+    .select("id,part_type")
+    .in("part_type", ["info", "experience", "competency"])
     .eq("is_active", true);
-  const lineIds = (lines ?? []).map((l: { id: string }) => l.id);
-  if (lineIds.length === 0) return result;
+  const lines = (lineRows ?? []) as { id: string; part_type: string }[];
+  if (lines.length === 0) return empty;
+
+  const partByLineId = new Map<string, string>();
+  for (const l of lines) partByLineId.set(l.id, l.part_type);
 
   const { data: targets } = await supabaseAdmin
     .from("cluster4_line_targets")
-    .select("week_id")
-    .eq("target_mode", "user")
-    .in("line_id", lineIds)
+    .select("week_id,line_id")
+    .in("line_id", [...partByLineId.keys()])
     .in("week_id", weekIds);
 
-  for (const t of (targets ?? []) as { week_id: string }[]) {
-    result.add(t.week_id);
+  // week → part → distinct line_id 집합 (중복 타깃/유저 다수를 1라인으로 접는다).
+  const seen = new Map<string, Set<string>>(); // key = `${part}:${week}`
+  for (const t of (targets ?? []) as { week_id: string; line_id: string }[]) {
+    const part = partByLineId.get(t.line_id);
+    if (part !== "info" && part !== "experience" && part !== "competency") continue;
+    const key = `${part}:${t.week_id}`;
+    let s = seen.get(key);
+    if (!s) {
+      s = new Set();
+      seen.set(key, s);
+    }
+    s.add(t.line_id);
   }
-  return result;
+  for (const [key, s] of seen) {
+    const [part, week] = key.split(":") as [keyof OpenLinesByPart, string];
+    empty[part].set(week, s.size);
+  }
+  return empty;
 }
 
 // ─────────────────────────────────────────────────────────────────────

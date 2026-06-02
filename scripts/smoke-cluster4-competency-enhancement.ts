@@ -1,14 +1,15 @@
 /**
- * 실무 역량(competency) 강화율 분모 A 동적화 + not_applicable 제거 smoke (P0, 2026-05-31).
+ * 실무 역량(competency) 강화율 분모 A 동적화 + line-row 기준 개설 판정 smoke.
+ * (2026-06-02 정책 개정: 구 "competency 항상 fail / not_applicable 0건" 폐기.)
  *
  *   npx tsx --env-file=.env.local scripts/smoke-cluster4-competency-enhancement.ts
  *
- * 검증 항목 (사용자 요구):
+ * 검증 항목 (개정 정책):
  *   1) competency 배정 있음 + 마감 전 → pending
  *   2) competency 배정 있음 + 마감 후 → success
- *   3) competency 라인 개설됨 + 미배정 → fail
- *   4) competency 라인 미개설 → fail
- *   5) competency 에서 not_applicable 0건 (실 DTO end-to-end)
+ *   3) competency 라인 개설됨(행 존재) + 미배정 → fail
+ *   4) competency 라인 미개설(행 없음) → not_applicable   ← 개정(구: fail)
+ *   5) end-to-end: competency placeholder 는 개설됨↔fail / 미개설↔not_applicable
  *   6) A = 실제 배정 수 (fetchCompetencyLineCountsByWeek)
  *   7) B <= A
  *   8) A = 0 이면 rate = 0
@@ -26,6 +27,7 @@ import {
   fetchInfoLineCountsByWeek,
   fetchExperienceLineCountsByWeek,
   fetchLineSuccessCountsByWeek,
+  fetchWeeksWithAnyCompetencyLine,
 } from "@/lib/lineAvailability";
 import { getCluster4WeeklyCardsForProfileUser } from "@/lib/cluster4WeeklyCardsData";
 
@@ -54,17 +56,17 @@ async function main() {
     computeCluster4Enhancement({ hasTarget: true, deadlinePassed: true, hasSubmission: false, isCareer: false }).enhancementStatus,
     "success",
   );
-  // 3)+4) competency 미배정은 라인 개설/미개설 무관하게 항상 fail.
-  //    emptyLine 이 competency 에 대해 expectedWhenMissing=true 를 강제하므로 둘 다 fail.
+  // 3)+4) (개정) competency 미배정은 info/experience 와 동일 — line-row 개설 신호로 분기.
+  //    개설됨(expectedWhenMissing=true) → fail / 미개설(false) → not_applicable.
   assert(
-    "case3 미배정(개설O 신호) → fail",
+    "case3 미배정(개설O = 행 존재) → fail",
     computeCluster4Enhancement({ hasTarget: false, deadlinePassed: false, hasSubmission: false, isCareer: false, expectedWhenMissing: true }).enhancementStatus,
     "fail",
   );
   assert(
-    "case4 미배정(미개설 신호여도 competency 는 true 강제) → fail",
-    computeCluster4Enhancement({ hasTarget: false, deadlinePassed: false, hasSubmission: false, isCareer: false, expectedWhenMissing: true }).enhancementStatus,
-    "fail",
+    "case4 미배정(미개설 = 행 없음) → not_applicable",
+    computeCluster4Enhancement({ hasTarget: false, deadlinePassed: false, hasSubmission: false, isCareer: false, expectedWhenMissing: false }).enhancementStatus,
+    "not_applicable",
   );
 
   console.log("\n════════ B. A=0 → rate=0 ════════");
@@ -128,9 +130,9 @@ async function main() {
     }
   }
 
-  console.log("\n════════ D. end-to-end: competency not_applicable 0건 (placeholder 경로) ════════");
-  // competency 라인이 아직 없으므로 모든 사용자 weekly-cards 의 competency 칸은 placeholder(emptyLine).
-  // 변경 전: not_applicable, 변경 후: fail 이어야 한다. 임의의 line_target 보유 사용자로 검증.
+  console.log("\n════════ D. end-to-end: competency placeholder 개설↔fail / 미개설↔not_applicable ════════");
+  // (개정) competency placeholder(lineTargetId=null, 미배정 칸)는 그 주차 competency 라인
+  // 개설 여부에 따라 갈린다: 개설됨 → fail, 미개설 → not_applicable. 휴식주차는 평가 제외.
   const { data: anyTarget } = await sb
     .from("cluster4_line_targets")
     .select("target_user_id")
@@ -141,20 +143,30 @@ async function main() {
     console.log("  ⚠️ line_target 보유 사용자 없음 — end-to-end 생략");
   } else {
     const cards = await getCluster4WeeklyCardsForProfileUser(probeUser.target_user_id);
-    let naCount = 0;
+    const weekIds = cards.map((c) => c.weekId).filter((w): w is string => Boolean(w));
+    const openedComp = await fetchWeeksWithAnyCompetencyLine(weekIds);
     let compLineCount = 0;
+    let placeholderCount = 0;
+    let consistent = 0;
     const statusTally: Record<string, number> = {};
     for (const card of cards) {
       for (const line of card.lines) {
         if (line.partType !== "competency") continue;
         compLineCount += 1;
         statusTally[line.enhancementStatus] = (statusTally[line.enhancementStatus] ?? 0) + 1;
-        if (line.enhancementStatus === "not_applicable") naCount += 1;
+        // placeholder(미배정 칸)만 개설↔상태 일관성 검사. 휴식주차는 모든 part not_applicable.
+        if (line.lineTargetId === null && card.weekId && !card.isRestWeek) {
+          placeholderCount += 1;
+          const want = openedComp.has(card.weekId) ? "fail" : "not_applicable";
+          if (line.enhancementStatus === want) consistent += 1;
+          else console.log(`    ❌ week=${card.weekId.slice(0, 8)} opened=${openedComp.has(card.weekId)} got=${line.enhancementStatus} want=${want}`);
+        }
       }
     }
     console.log(`  사용자 ${probeUser.target_user_id}`);
     console.log(`  competency 라인 ${compLineCount}건, 상태 분포: ${JSON.stringify(statusTally)}`);
-    assert("competency not_applicable 0건", naCount, 0);
+    console.log(`  placeholder ${placeholderCount}건 중 개설↔상태 일관 ${consistent}건`);
+    assert("competency placeholder 개설↔fail / 미개설↔not_applicable 100%", consistent, placeholderCount);
     assert("competency 라인이 1건 이상 스캔됨", compLineCount > 0, true);
   }
 
@@ -223,9 +235,9 @@ async function main() {
     }
     console.log(`  사용자 ${restUser.user_id}`);
     console.log(`  휴식주차 competency ${restComp}건, 상태 분포: ${JSON.stringify(restStatusTally)}`);
-    console.log(`  일반주차 competency ${normalComp}건 (그 중 not_applicable ${normalCompNa}건)`);
+    console.log(`  일반주차 competency ${normalComp}건 (그 중 not_applicable ${normalCompNa}건 — 개정 정책상 허용)`);
+    // 개정 정책: 일반주차도 competency 라인 미개설이면 not_applicable 허용 (구 "0건" 단언 폐기).
     assert("휴식 주차 competency fail 0건", restCompFail, 0);
-    assert("일반 주차 competency not_applicable 0건", normalCompNa, 0);
     assert("휴식 주차 competency 1건 이상 스캔됨", restComp > 0, true);
   }
 

@@ -22,6 +22,13 @@
 //   기존 동작(마감 후 = success) 그대로이므로 info/experience/competency 는 영향받지 않는다.
 //   마감 전(deadlinePassed=false)에는 grade·제출과 무관하게 항상 pending.
 //
+// experience 평점 반영 (2026-06-02):
+//   experience 라인은 마감 후 평점(cluster4_experience_line_evaluations.rating)을 본다.
+//     - rating <= 3 (EXPERIENCE_RATING_FAIL_THRESHOLD) → fail (experience_rating_fail)
+//     - rating 미입력 / rating >= 4                    → 기존 동작(마감 후 success)
+//   experienceRatingVerdict 는 experience 호출부(weekly-cards)만 전달한다. career 와
+//   상호배타(한 라인은 career 또는 experience 중 하나)이며, 미전달(undefined)이면 영향 없음.
+//
 // 서버(weekly-cards / 어드민 라인 API)에서만 호출하고, 결과를 DTO 에 그대로 append 한다.
 // DB 저장 컬럼이 아니라 런타임 파생값이다.
 
@@ -48,7 +55,13 @@ export type Cluster4EnhancementInput = {
   // career 평점 평가 결과 (P0). career 호출부만 전달한다. 미전달이면 기존 동작 유지.
   //   "success" → 마감 후 success, "fail" → 마감 후 fail, "unevaluated" → 마감 후 pending.
   careerGradeVerdict?: "success" | "fail" | "unevaluated" | null;
+  // experience 평점 평가 결과. experience 호출부만 전달한다. 미전달이면 기존 동작 유지.
+  //   "fail" → 마감 후 fail (rating <= 3), "pass"/null → 기존 동작(마감 후 success).
+  experienceRatingVerdict?: "fail" | "pass" | null;
 };
+
+// experience 평점 강화 실패 임계: rating <= 3. weekly-cards / smoke 공용 SoT.
+export const EXPERIENCE_RATING_FAIL_THRESHOLD = 3;
 
 export type Cluster4EnhancementResult = {
   enhancementStatus: Cluster4EnhancementStatus;
@@ -89,6 +102,15 @@ export function computeCluster4Enhancement(
     : "not_submitted";
 
   if (deadlinePassed) {
+    // experience 평점 반영. experienceRatingVerdict 미전달(undefined)인 비experience 경로는
+    // 이 분기를 건너뛴다. career 와 상호배타이므로 순서 무관.
+    if (input.experienceRatingVerdict === "fail") {
+      return {
+        enhancementStatus: "fail",
+        submissionStatus,
+        enhancementReason: "experience_rating_fail",
+      };
+    }
     // career 평점 반영 (P0). careerGradeVerdict 미전달(undefined)인 비career 경로는
     // 아래 분기를 모두 건너뛰고 기존대로 success 를 반환한다.
     const careerGradeVerdict = input.careerGradeVerdict ?? null;

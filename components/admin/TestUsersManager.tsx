@@ -18,6 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { organizationRouteSuffix } from "@/lib/organizations";
+import { resolveCustomerAppUrl } from "@/lib/customerAppUrl";
 
 // GET /api/admin/test-users 응답 row (lib/testUsers.ts TestUserDto 와 동일 shape).
 type TestUser = {
@@ -35,13 +36,6 @@ type TestUser = {
   userType: string | null;
   legacyUserId: string | null;
 };
-
-// 고객 페이지(front) 앱 origin. admin(3000)과 포트가 달라 sessionStorage 가 공유되지
-// 않으므로, 이동은 절대 URL + 쿼리(demoUserId/demoUserName)로만 상태를 전달한다.
-// 미설정 시 로컬 기본값(3001)로 폴백 — 운영에서는 NEXT_PUBLIC_CUSTOMER_APP_URL 필수.
-const CUSTOMER_APP_URL = (
-  process.env.NEXT_PUBLIC_CUSTOMER_APP_URL ?? "http://localhost:3001"
-).replace(/\/+$/, "");
 
 // 조직(organization_slug) → 고객 페이지 라우트 분기.
 // API 경로(/api/cluster4/...)는 그대로, 페이지 라우트만 조직별로 나눈다.
@@ -94,14 +88,26 @@ export default function TestUsersManager() {
   }, [refresh]);
 
   const openCustomerPage = useCallback((user: TestUser) => {
-    // 고객 앱은 다른 origin(포트 3001)이라 sessionStorage 가 공유되지 않는다.
-    // → 상태(테스트 유저 id/이름)는 쿼리스트링으로만 전달하고, 절대 URL 로 이동한다.
-    //   router.push(상대경로) 는 admin(3000) 기준이라 404 → 절대 URL 로 처리.
+    // 고객 앱은 다른 origin(별도 Vercel 배포/도메인)이라 sessionStorage 가 공유되지
+    // 않는다. → 상태(테스트 유저 id/이름)는 쿼리스트링으로만 전달하고, 절대 URL 로 이동.
+    //   router.push(상대경로) 는 admin 기준이라 404 → 절대 URL 로 처리.
+    // 고객 도메인은 admin 도메인과 다르므로 window.location.origin 으로 유추 불가 →
+    //   lib/customerAppUrl 의 단일 resolver(env 우선, 운영 localhost 금지)를 사용한다.
+    const customerAppUrl = resolveCustomerAppUrl();
+    if (!customerAppUrl) {
+      // 운영에서 env 미설정: localhost 로 가지 않고 명시적으로 차단/안내.
+      setError(
+        "고객 앱 URL이 설정되지 않았습니다. Vercel 환경변수 NEXT_PUBLIC_CUSTOMER_APP_URL " +
+          "(예: https://<고객앱>.vercel.app)을 설정해 주세요.",
+      );
+      return;
+    }
+
     // 어드민 탭(/admin/test-users)은 그대로 두고 고객 페이지는 새 탭에서 연다.
     //   window.open(_blank, noopener,noreferrer) → opener 노출 차단 + 새 브라우징 컨텍스트.
     // 조직(organization_slug)에 따라 페이지 라우트만 분기한다.
     const path = customerRouteForOrg(user.organizationSlug);
-    const url = new URL(`${CUSTOMER_APP_URL}${path}`);
+    const url = new URL(`${customerAppUrl}${path}`);
     url.searchParams.set("admin", "true");
     url.searchParams.set("demoUserId", user.userId);
     // 배너 이름 표시용 — sessionStorage 대체 (cross-origin 미공유).

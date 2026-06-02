@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
+import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import {
   isMemberAssignableRole,
   MEMBER_ASSIGNABLE_ROLES,
@@ -106,6 +107,9 @@ function applyFilters<T extends { eq: unknown; is: unknown; or: unknown }>(
     not: (col: string, op: string, value: null) => typeof q;
     or: (filters: string) => typeof q;
   };
+
+  // super admin 은 멤버 목록/카운트 전부에서 제외 (목록 노출에서만 숨김, 인가와 무관).
+  q = q.or(SUPER_ADMIN_EXCLUDE_OR);
 
   if (flags.applyOrganization && options.organization) {
     if (options.organization === ORG_NONE_SENTINEL) {

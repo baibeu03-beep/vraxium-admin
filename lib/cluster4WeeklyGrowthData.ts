@@ -34,6 +34,7 @@ import {
 import {
   fetchWeeklyCardLineAggregates,
   fetchExperienceRequiredSlotStatusByWeek,
+  fetchWeeksWithOpenLinesByPart,
   shouldSyncWeekStatusToFail,
   buildWeekAvailability,
   roundGrowthRate,
@@ -488,29 +489,36 @@ async function computeWeeklyCards(
     }
   }
 
-  // 6. 주차별 강화율 분자 B = part별 (배정 target 중 마감 지난) success 수 + 가용 라인 수.
+  // 6. 주차별 강화율 분자 B = part별 (배정 target 중 마감 지난) success 수.
   // 4개 part 모두 동일 기준: target + submission_closes_at 마감, 제출 무관 (강화상태 success 와 동일).
-  // user_activity_details 미사용 (구 source 제거, target+마감 기준으로 통일).
-  let infoLineMap = new Map<string, number>();
-  let experienceLineMap = new Map<string, number>();
-  let competencyLineMap = new Map<string, number>();
+  // (info/experience/competency 의 분모 A 는 본인 배정 수가 아니라 openedByPart 의 "개설 라인 수"를 쓴다.)
   let infoSuccessMap = new Map<string, number>();
   let abilitySuccessMap = new Map<string, number>();
   let experienceSuccessMap = new Map<string, number>();
   let careerSuccessMap = new Map<string, number>();
-  // P1: 사용자 배정 career 라인 수(분모 A). (구: career_project_weeks 프로젝트 개설 수)
+  // career 분모 A = 사용자 배정 career 라인 수 (미선발=not_applicable → 개설 수 미사용).
   let careerLineMap = new Map<string, number>();
   // 실무 경험 필수 슬롯(도출/분석/평가) verdict: weekId → verdict. (강화율/평점/5슬롯 로직과 독립)
   let experienceVerdictMap = new Map<string, ExperienceGrowthVerdict>();
+  // 강화율 분모 A(info/experience/competency) = 그 주차 "개설된 distinct 라인 수".
+  //   본인 배정 ⊆ 개설 → "개설됐는데 본인 미배정"이 synthetic fail (A 포함, B 미포함).
+  //   미개설(0) → not_applicable(분모 제외). career 는 제외(미선발=not_applicable → careerLineMap 사용).
+  // 안전 바닥값: 개설 수와 "본인 배정 수"(aggregates)의 max 를 쓴다 — 만일 전-유저 타깃 조회가
+  //   행 상한에 걸려 개설 수를 과소집계해도 본인 배정 수 미만으로 떨어지지 않아 rate>100% 를 방지한다.
+  let infoAvailMap = new Map<string, number>();
+  let experienceAvailMap = new Map<string, number>();
+  let competencyAvailMap = new Map<string, number>();
 
   if (weekCardIds.length > 0) {
     // 기존 9개 fetch* (cluster4_lines 9회 + cluster4_line_targets 8회 ≈ 17~20 쿼리) 를
-    // bulk aggregate(최대 3쿼리) + verdict(최대 3쿼리) = 최대 6쿼리로 축소.
+    // bulk aggregate(최대 3쿼리) + verdict(최대 3쿼리) + opened(2쿼리) = 최대 8쿼리로 축소.
     const tLines = Date.now();
-    const [aggregates, experienceVerdict] = await Promise.all([
+    const [aggregates, experienceVerdict, opened] = await Promise.all([
       fetchWeeklyCardLineAggregates(userId, weekCardIds),
       // 필수 슬롯 verdict (성장 실패 판정 SoT). 강화율 분자/분모와 별개 source.
       fetchExperienceRequiredSlotStatusByWeek(userId, weekCardIds),
+      // 라인 개설 여부(part별) — synthetic fail 분모 A 가산용.
+      fetchWeeksWithOpenLinesByPart(weekCardIds),
     ]);
     console.log(
       "[weekly-cards][timing] line aggregates+verdict",
@@ -518,15 +526,24 @@ async function computeWeeklyCards(
       `| weeks=${weekCardIds.length}`,
     );
 
-    infoLineMap = aggregates.infoLineMap;
-    experienceLineMap = aggregates.experienceLineMap;
-    competencyLineMap = aggregates.competencyLineMap;
     infoSuccessMap = aggregates.infoSuccessMap;
     abilitySuccessMap = aggregates.abilitySuccessMap;
     experienceSuccessMap = aggregates.experienceSuccessMap;
     careerSuccessMap = aggregates.careerSuccessMap;
     careerLineMap = aggregates.careerLineMap;
     experienceVerdictMap = experienceVerdict;
+    // A = max(개설 distinct 라인 수, 본인 배정 수). 보통 개설 수가 더 크다(synthetic fail 포함).
+    const maxMerge = (
+      openedMap: Map<string, number>,
+      userMap: Map<string, number>,
+    ): Map<string, number> => {
+      const out = new Map(openedMap);
+      for (const [k, v] of userMap) out.set(k, Math.max(out.get(k) ?? 0, v));
+      return out;
+    };
+    infoAvailMap = maxMerge(opened.info, aggregates.infoLineMap);
+    experienceAvailMap = maxMerge(opened.experience, aggregates.experienceLineMap);
+    competencyAvailMap = maxMerge(opened.competency, aggregates.competencyLineMap);
   }
 
   // 9. 누적 계산 (오름차순) — 카드 주차 기준, start_date 키.
@@ -652,18 +669,20 @@ async function computeWeeklyCards(
       resultStatus === "personal_rest" ||
       resultStatus === "official_rest";
 
-    // 라인 가용 수(A)는 동적 조회. 이행 수(B): info/ability/experience 는 target+마감 기준,
-    // career(P1)는 target+마감+grade C이상 기준(평점 반영 — per-line enhancementStatus 와 일치).
+    // 라인 가용 수(A): info/experience/competency 는 "개설 라인 수"(개설+본인미배정 synthetic fail 포함),
+    // career 는 본인 배정 수(careerLineMap, 미선발=not_applicable). 이행 수(B): info/ability/experience 는
+    // target+마감 기준, career(P1)는 target+마감+grade C이상 기준(평점 반영 — per-line 과 일치).
+    // 본인 배정 ⊆ 개설 라인 이므로 항상 B ≤ A. 미개설(0)·휴식(isRest)이면 A=0(not_applicable·분모 제외).
     const avail = isRest
       ? { info: 0, ability: 0, experience: 0, career: 0 }
       : buildWeekAvailability(
           weekCardId,
-          infoLineMap,
+          infoAvailMap,
           // careerMap(레거시 project 기반)은 미사용. career A 는 careerUserMap(per-user)로 전달.
           new Map<string, number>(),
           organization,
-          experienceLineMap,
-          competencyLineMap,
+          experienceAvailMap,
+          competencyAvailMap,
           careerLineMap,
         );
 
