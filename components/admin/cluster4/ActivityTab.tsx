@@ -69,14 +69,16 @@ type SubmissionFormRow = {
   updatedAt: string | null;
   subtitle: string;
   growth_point: string;
-  output_links_json: string; // JSON text — [{url, label}]
-  output_images_json: string; // JSON text — [{url, caption}]
+  // 구조화 편집: raw JSON 문자열 대신 객체 배열로 보유해 url↔label / url↔caption 페어를
+  // 한 행씩 렌더·편집한다. 저장 시 서버가 normalize(빈 url 제거, 빈 label/caption→null).
+  outputLinks: Cluster4OutputLink[]; // [{url, label}]
+  outputImages: Cluster4OutputImage[]; // [{url, caption}]
 };
 
 type SubmissionFormPatch = Partial<
   Pick<
     SubmissionFormRow,
-    "subtitle" | "growth_point" | "output_links_json" | "output_images_json"
+    "subtitle" | "growth_point" | "outputLinks" | "outputImages"
   >
 >;
 
@@ -148,8 +150,15 @@ function toSubmissionForm(row: Cluster4AdminSubmissionRow): SubmissionFormRow {
     updatedAt: s?.updatedAt ?? null,
     subtitle: s?.subtitle ?? "",
     growth_point: s?.growthPoint ?? "",
-    output_links_json: JSON.stringify(s?.outputLinks ?? [], null, 2),
-    output_images_json: JSON.stringify(s?.outputImages ?? [], null, 2),
+    // 객체 페어를 그대로 보유(얕은 복사). label/caption 은 null 가능.
+    outputLinks: (s?.outputLinks ?? []).map((l) => ({
+      url: l.url,
+      label: l.label,
+    })),
+    outputImages: (s?.outputImages ?? []).map((i) => ({
+      url: i.url,
+      caption: i.caption,
+    })),
   };
 }
 
@@ -165,21 +174,6 @@ function toCareerForm(row: CareerRecordRow): CareerFormRow {
     career_code: row.career_code ?? "",
     project: row.project,
   };
-}
-
-// safe JSON parse with error string.
-function tryParseJson<T>(
-  value: string,
-  fallback: T,
-): { ok: true; value: T } | { ok: false; error: string } {
-  const trimmed = value.trim();
-  if (trimmed === "") return { ok: true, value: fallback };
-  try {
-    const parsed = JSON.parse(trimmed) as T;
-    return { ok: true, value: parsed };
-  } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Invalid JSON" };
-  }
 }
 
 type SubmissionPatchValue = NonNullable<
@@ -357,35 +351,14 @@ export default function ActivityTab({
     const row = submissionForms.find((r) => r.lineTargetId === lineTargetId);
     if (!row) return;
 
-    const linksParsed = tryParseJson<Cluster4OutputLink[]>(
-      row.output_links_json,
-      [],
-    );
-    if (!linksParsed.ok) {
-      onBanner({
-        kind: "error",
-        message: `output_links JSON 파싱 오류: ${linksParsed.error}`,
-      });
-      return;
-    }
-    const imagesParsed = tryParseJson<Cluster4OutputImage[]>(
-      row.output_images_json,
-      [],
-    );
-    if (!imagesParsed.ok) {
-      onBanner({
-        kind: "error",
-        message: `output_images JSON 파싱 오류: ${imagesParsed.error}`,
-      });
-      return;
-    }
-
+    // 구조화 입력 → 저장 payload. 서버(buildAdminSubmissionPayload)가 normalize 하므로
+    // (빈 url 항목 제거, 빈 label/caption → null) 여기선 그대로 전달한다.
     const value: SubmissionPatchValue = {
       lineTargetId: row.lineTargetId,
       subtitle: row.subtitle.trim() === "" ? null : row.subtitle,
       growthPoint: row.growth_point.trim() === "" ? null : row.growth_point,
-      outputLinks: linksParsed.value,
-      outputImages: imagesParsed.value,
+      outputLinks: row.outputLinks,
+      outputImages: row.outputImages,
     };
 
     setSavingRowId(lineTargetId);
@@ -974,38 +947,276 @@ function SubmissionSlotCard({
               </div>
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <FieldLabel>outputLinks (JSON array of {`{url, label}`})</FieldLabel>
-              <textarea
-                value={row.output_links_json}
-                onChange={(event) =>
-                  onChange(row.lineTargetId, {
-                    output_links_json: event.target.value,
-                  })
-                }
+            <div className="sm:col-span-2">
+              <OutputLinksEditor
+                links={row.outputLinks}
                 disabled={rowDisabled}
-                rows={3}
-                spellCheck={false}
-                className="resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                onChange={(next) =>
+                  onChange(row.lineTargetId, { outputLinks: next })
+                }
               />
             </div>
 
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <FieldLabel>outputImages (JSON array of {`{url, caption}`})</FieldLabel>
-              <textarea
-                value={row.output_images_json}
-                onChange={(event) =>
-                  onChange(row.lineTargetId, {
-                    output_images_json: event.target.value,
-                  })
-                }
+            <div className="sm:col-span-2">
+              <OutputImagesEditor
+                images={row.outputImages}
                 disabled={rowDisabled}
-                rows={3}
-                spellCheck={false}
-                className="resize-y rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50"
+                onChange={(next) =>
+                  onChange(row.lineTargetId, { outputImages: next })
+                }
               />
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ───────────── output_links / output_images 구조화 에디터 ─────────────
+// raw JSON 노출 대신 항목별 카드로 url ↔ label / url ↔ caption 페어를 한눈에 보여준다.
+// 저장 시 서버가 normalize 하므로(빈 url 제거, 빈 label/caption→null) 여기선 페어를 그대로 보관.
+
+function OutputLinksEditor({
+  links,
+  disabled,
+  onChange,
+}: {
+  links: Cluster4OutputLink[];
+  disabled: boolean;
+  onChange: (next: Cluster4OutputLink[]) => void;
+}) {
+  const update = (idx: number, patch: Partial<Cluster4OutputLink>) =>
+    onChange(links.map((l, i) => (i === idx ? { ...l, ...patch } : l)));
+  const add = () => onChange([...links, { url: "", label: null }]);
+  const remove = (idx: number) => onChange(links.filter((_, i) => i !== idx));
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <FieldLabel>
+          outputLinks{" "}
+          <span className="font-mono normal-case text-muted-foreground">
+            [{links.length}] {`{url, label}`}
+          </span>
+        </FieldLabel>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={add}
+          disabled={disabled}
+          className="h-7 text-xs"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          링크 추가
+        </Button>
+      </div>
+
+      {links.length === 0 ? (
+        <p className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-center text-xs text-muted-foreground">
+          등록된 결과물 링크가 없습니다.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {links.map((link, idx) => (
+            <div
+              key={idx}
+              className="rounded-md border bg-muted/20 px-3 py-2.5"
+            >
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-foreground">
+                  결과물 {idx + 1}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => remove(idx)}
+                  disabled={disabled}
+                  className="h-6 px-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    설명 (label)
+                  </span>
+                  <Input
+                    value={link.label ?? ""}
+                    onChange={(event) =>
+                      update(idx, {
+                        label:
+                          event.target.value === "" ? null : event.target.value,
+                      })
+                    }
+                    disabled={disabled}
+                    maxLength={200}
+                    placeholder="예) GitHub 저장소, 발표 자료"
+                    className="h-8 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    URL
+                  </span>
+                  <Input
+                    value={link.url}
+                    onChange={(event) => update(idx, { url: event.target.value })}
+                    disabled={disabled}
+                    spellCheck={false}
+                    placeholder="https://..."
+                    className="h-8 font-mono text-xs"
+                  />
+                  {link.url.trim() !== "" && (
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate text-[11px] text-blue-600 underline-offset-2 hover:underline"
+                    >
+                      {link.url}
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OutputImagesEditor({
+  images,
+  disabled,
+  onChange,
+}: {
+  images: Cluster4OutputImage[];
+  disabled: boolean;
+  onChange: (next: Cluster4OutputImage[]) => void;
+}) {
+  const update = (idx: number, patch: Partial<Cluster4OutputImage>) =>
+    onChange(images.map((im, i) => (i === idx ? { ...im, ...patch } : im)));
+  const add = () => onChange([...images, { url: "", caption: null }]);
+  const remove = (idx: number) => onChange(images.filter((_, i) => i !== idx));
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <FieldLabel>
+          outputImages{" "}
+          <span className="font-mono normal-case text-muted-foreground">
+            [{images.length}] {`{url, caption}`}
+          </span>
+        </FieldLabel>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={add}
+          disabled={disabled}
+          className="h-7 text-xs"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          이미지 추가
+        </Button>
+      </div>
+
+      {images.length === 0 ? (
+        <p className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-center text-xs text-muted-foreground">
+          등록된 이미지가 없습니다.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {images.map((image, idx) => (
+            <div
+              key={idx}
+              className="rounded-md border bg-muted/20 px-3 py-2.5"
+            >
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-foreground">
+                  이미지 {idx + 1}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => remove(idx)}
+                  disabled={disabled}
+                  className="h-6 px-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <div className="flex gap-3">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md border bg-background">
+                  {image.url.trim() !== "" ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={image.url}
+                      alt={image.caption ?? `이미지 ${idx + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">
+                      미리보기
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col gap-1.5">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      설명 (caption)
+                    </span>
+                    <Input
+                      value={image.caption ?? ""}
+                      onChange={(event) =>
+                        update(idx, {
+                          caption:
+                            event.target.value === ""
+                              ? null
+                              : event.target.value,
+                        })
+                      }
+                      disabled={disabled}
+                      maxLength={200}
+                      placeholder="예) 아키텍처 도면"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      원본 URL
+                    </span>
+                    <Input
+                      value={image.url}
+                      onChange={(event) =>
+                        update(idx, { url: event.target.value })
+                      }
+                      disabled={disabled}
+                      spellCheck={false}
+                      placeholder="https://..."
+                      className="h-8 font-mono text-xs"
+                    />
+                    {image.url.trim() !== "" && (
+                      <a
+                        href={image.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="truncate text-[11px] text-blue-600 underline-offset-2 hover:underline"
+                      >
+                        {image.url}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

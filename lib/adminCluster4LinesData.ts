@@ -12,11 +12,15 @@ import type {
   Cluster4LineUpsertInput,
   Cluster4LineWorkflowAction,
   Cluster4LineWorkflowStatus,
+  Cluster4OpenedLineDto,
+  Cluster4OpenedLineStatus,
   ListCluster4InfoLinesDetailedResult,
   ListCluster4LinesDetailedResult,
   ListCluster4LinesResult,
   ListCluster4LineTargetsResult,
+  ListCluster4OpenedLinesResult,
 } from "@/lib/adminCluster4LinesTypes";
+import { CLUSTER4_HUB_LABEL } from "@/lib/adminCluster4LinesTypes";
 import {
   evaluateCluster4HubEdit,
   PART_TYPE_TO_EDIT_WINDOW_KEY,
@@ -28,6 +32,13 @@ import {
   outputImageCaptions as outputImageCaptionList,
 } from "@/lib/cluster4OutputImages";
 import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
+import {
+  isLineVisibleForUserOrg,
+  normalizeLineOrg,
+  parseLineCodeOrg,
+  type LineOrgScope,
+} from "@/lib/cluster4LineOrg";
+import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 
 export class Cluster4LineError extends Error {
   status: number;
@@ -315,9 +326,118 @@ function translatePostgrestError(message: string, code?: string) {
   return new Cluster4LineError(500, message);
 }
 
-// 라인에 연결된 대상자(target_mode='user')들의 weekly-card snapshot 을 즉시 무효화/재계산한다.
-// 라인 메타 변경/활성 토글처럼 "라인 단위" 변경이 모든 대상자 카드에 영향을 줄 때 사용.
+// 라인 org 노출 대상(=그 라인을 synthetic fail 로 보게 되는 사용자) 집합을 계산한다.
+//
+// 강화율 분모 A 정책(2026-06-02): info/experience/competency 라인은 "개설(=any target 존재)"만으로
+// 그 라인을 볼 수 있는 모든 사용자의 분모를 +1 시킨다(개설 + 본인 미배정 = synthetic fail).
+// 따라서 라인 타깃 개설/해제/메타변경 시 "배정 대상자만" 무효화하면, 그 라인을 미배정으로 보게 되는
+// 같은 org 사용자들의 snapshot 이 stale 로 남는다(과거 회귀: 신규 competency 라인이 배정자 1명만
+// 재계산 → 비배정 org 전원 분모 stale). 이 함수가 그 audience 를 산정한다.
+//
+// 판정은 weekly-cards Step 2 노출 필터(isLineVisibleForUserOrg, allowUnknown=false)와 동일하게 맞춘다:
+//   - lineOrg='common'        → 스냅샷 보유 전원
+//   - lineOrg=특정 조직        → 그 조직 사용자(+ org 미상 사용자: userOrg null 이면 항상 노출)
+//   - lineOrg=null(판정 불가)   → audience 없음(Step 2 숨김, fail-closed). 배정자(Step 1)는 호출부 union.
+//   - career part             → 미선발/미배정 = not_applicable(분모 무변) → org audience 없음(배정자만).
+async function collectLineOrgAudience(lineId: string): Promise<string[]> {
+  const { data: line } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select(
+      "part_type,line_code,competency_line_master_id,experience_line_master_id",
+    )
+    .eq("id", lineId)
+    .maybeSingle();
+  if (!line) return [];
+  const row = line as {
+    part_type: string;
+    line_code: string | null;
+    competency_line_master_id: string | null;
+    experience_line_master_id: string | null;
+  };
+  // career: 개설+미배정 = not_applicable → 비배정 분모 무변 → org audience 없음.
+  if (row.part_type === "career") return [];
+
+  // org 판정: line_code 토큰(BS>EC>OK>PX) 우선, 그다음 part별 마스터 organization_slug, info 는 common.
+  let lineOrg: LineOrgScope | null = parseLineCodeOrg(row.line_code);
+  if (lineOrg == null) {
+    if (row.part_type === "info") {
+      lineOrg = "common";
+    } else if (row.part_type === "experience" && row.experience_line_master_id) {
+      const { data: m } = await supabaseAdmin
+        .from("cluster4_experience_line_masters")
+        .select("organization_slug")
+        .eq("id", row.experience_line_master_id)
+        .maybeSingle();
+      lineOrg = normalizeLineOrg(
+        (m as { organization_slug: string | null } | null)?.organization_slug,
+      );
+    } else if (row.part_type === "competency" && row.competency_line_master_id) {
+      const { data: m } = await supabaseAdmin
+        .from("cluster4_competency_line_masters")
+        .select("organization_slug")
+        .eq("id", row.competency_line_master_id)
+        .maybeSingle();
+      lineOrg = normalizeLineOrg(
+        (m as { organization_slug: string | null } | null)?.organization_slug,
+      );
+    }
+  }
+  // 판정 불가 → Step 2 숨김(fail-closed) → org audience 없음(배정자만 호출부에서 union).
+  if (lineOrg == null) return [];
+
+  // 스냅샷 보유 사용자 + org → Step 2 노출 필터(allowUnknown=false)로 audience 산정.
+  const { data: snaps } = await supabaseAdmin
+    .from("cluster4_weekly_card_snapshots")
+    .select("user_id");
+  const userIds = ((snaps ?? []) as { user_id: string }[]).map((r) => r.user_id);
+  if (userIds.length === 0) return [];
+
+  const orgByUser = new Map<string, OrganizationSlug | null>();
+  const { data: profs } = await supabaseAdmin
+    .from("user_profiles")
+    .select("user_id,organization_slug")
+    .in("user_id", userIds);
+  for (const p of (profs ?? []) as {
+    user_id: string;
+    organization_slug: string | null;
+  }[]) {
+    orgByUser.set(
+      p.user_id,
+      isOrganizationSlug(p.organization_slug) ? p.organization_slug : null,
+    );
+  }
+
+  return userIds.filter((uid) =>
+    isLineVisibleForUserOrg(lineOrg, orgByUser.get(uid) ?? null),
+  );
+}
+
+// 라인 단위 변경(타깃 개설/해제/메타변경/라인 삭제)으로 영향받는 전원(org audience + 명시 추가분)을
+// 즉시 무효화/재계산한다. 과거에는 배정 대상자만 무효화했으나, 개설된 라인은 org audience 전원의
+// 분모 A(synthetic fail)에 반영되므로 audience 전체를 무효화해야 stale 이 생기지 않는다.
 // best-effort: invalidateWeeklyCardsForUsers 가 실패를 격리하므로 본 쓰기 요청을 깨뜨리지 않는다.
+async function invalidateWeeklyCardsForLineChange(
+  lineId: string,
+  extraUserIds: Array<string | null | undefined> = [],
+): Promise<void> {
+  let audience: string[] = [];
+  try {
+    audience = await collectLineOrgAudience(lineId);
+  } catch (e) {
+    console.warn("[cluster4/lines] org audience 산정 실패 (배정자만 무효화)", {
+      lineId,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+  const ids = [
+    ...audience,
+    ...extraUserIds.filter((u): u is string => Boolean(u)),
+  ];
+  await invalidateWeeklyCardsForUsers(ids);
+}
+
+// 라인에 연결된 대상자(target_mode='user') + org 노출 audience 의 weekly-card snapshot 을 무효화한다.
+// 라인 메타 변경/활성 토글처럼 "라인 단위" 변경이 모든 노출 대상 카드에 영향을 줄 때 사용.
 async function invalidateSnapshotsForLineTargets(lineId: string): Promise<void> {
   const { data, error } = await supabaseAdmin
     .from("cluster4_line_targets")
@@ -329,12 +449,12 @@ async function invalidateSnapshotsForLineTargets(lineId: string): Promise<void> 
       lineId,
       message: error.message,
     });
-    return;
   }
-  const userIds = (data ?? [])
+  const assignedIds = (data ?? [])
     .map((r) => (r as { target_user_id: string | null }).target_user_id)
     .filter((u): u is string => Boolean(u));
-  await invalidateWeeklyCardsForUsers(userIds);
+  // 배정자(Step 1) + org 노출 audience(Step 2) 모두 무효화.
+  await invalidateWeeklyCardsForLineChange(lineId, assignedIds);
 }
 
 async function fetchLineIdsForWeekFilter(
@@ -633,12 +753,16 @@ export async function setCluster4LineWorkflowStage(
 
 export async function deleteCluster4Line(id: string): Promise<void> {
   await ensureLineExists(id);
-  // 삭제 전 대상자 수집 — FK cascade 로 targets 가 사라지기 전에 확보(삭제 후 재계산 대상).
-  const { data: affectedTargets } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("target_user_id")
-    .eq("line_id", id)
-    .eq("target_mode", "user");
+  // 삭제 전 대상자 + org audience 수집 — FK cascade 로 targets/라인 행이 사라지기 전에 확보.
+  //   (collectLineOrgAudience 는 cluster4_lines 행을 읽으므로 반드시 삭제 전에 호출한다.)
+  const [{ data: affectedTargets }, orgAudience] = await Promise.all([
+    supabaseAdmin
+      .from("cluster4_line_targets")
+      .select("target_user_id")
+      .eq("line_id", id)
+      .eq("target_mode", "user"),
+    collectLineOrgAudience(id).catch(() => [] as string[]),
+  ]);
   const affectedUserIds = (affectedTargets ?? [])
     .map((r) => (r as { target_user_id: string | null }).target_user_id)
     .filter((u): u is string => Boolean(u));
@@ -646,8 +770,9 @@ export async function deleteCluster4Line(id: string): Promise<void> {
   if (error) {
     throw translatePostgrestError(error.message, error.code);
   }
-  // 라인 삭제 = 대상자 주차 카드에서 라인 제거 → 즉시 재계산(placeholder 로 복귀 반영).
-  await invalidateWeeklyCardsForUsers(affectedUserIds);
+  // 라인 삭제 = 배정자 카드에서 라인 제거 + org audience 의 분모 A(synthetic fail) 제거 →
+  // 배정자 + org audience 전원 즉시 재계산(placeholder/분모 복귀 반영).
+  await invalidateWeeklyCardsForUsers([...affectedUserIds, ...orgAudience]);
 }
 
 export async function listCluster4LineTargets(
@@ -700,12 +825,14 @@ export async function createCluster4LineTarget(
       error?.code,
     );
   }
-  // 라인 타깃 개설은 그 사용자 주차의 가용 라인(분모)/상태를 바꾼다 → 즉시 재계산해 고객 앱에
-  // 라인이 placeholder 가 아닌 실제 데이터로 바로 내려오게 한다(cron 축소로 stale-only 는 미반영).
+  // 라인 타깃 개설은 그 라인을 "개설(any target)"로 만들어 배정자뿐 아니라 같은 org 의
+  // 비배정 사용자 분모 A(synthetic fail)까지 바꾼다 → 배정자 + org audience 전원 재계산.
+  // (과거: 배정자만 무효화 → 비배정 org 사용자 stale. info/exp/competency 회귀 지점.)
   // invalidateWeeklyCardsForUsers: ≤10명 즉시 recompute / >10명 stale+after 백그라운드. best-effort.
-  if (input.targetMode === "user" && input.targetUserId) {
-    await invalidateWeeklyCardsForUsers([input.targetUserId]);
-  }
+  await invalidateWeeklyCardsForLineChange(
+    lineId,
+    input.targetMode === "user" ? [input.targetUserId] : [],
+  );
   return toTargetDto(data as unknown as Cluster4LineTargetRow, 0);
 }
 
@@ -769,12 +896,11 @@ export async function updateCluster4LineTarget(
   if (!data) {
     throw new Cluster4LineError(404, "cluster4 line target not found");
   }
-  // 대상자 변경 가능성 → 이전/이후 대상자 양쪽 모두 즉시 재계산(구조 변경).
-  await invalidateWeeklyCardsForUsers(
-    [existingRow.target_user_id, nextMode === "user" ? nextUserId : null].filter(
-      (id): id is string => Boolean(id),
-    ),
-  );
+  // 대상자/주차 변경 → 이전/이후 대상자 + 라인 org audience 모두 즉시 재계산(구조 변경).
+  await invalidateWeeklyCardsForLineChange(existingRow.line_id, [
+    existingRow.target_user_id,
+    nextMode === "user" ? nextUserId : null,
+  ]);
   const submissionCounts = await fetchSubmissionCountsByTargetIds([targetId]);
   return toTargetDto(
     data as unknown as Cluster4LineTargetRow,
@@ -788,7 +914,7 @@ export async function deleteCluster4LineTarget(targetId: string): Promise<void> 
   }
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("cluster4_line_targets")
-    .select("id,target_user_id")
+    .select("id,line_id,target_user_id")
     .eq("id", targetId)
     .maybeSingle();
   if (existingError) {
@@ -801,11 +927,10 @@ export async function deleteCluster4LineTarget(targetId: string): Promise<void> 
   if (error) {
     throw translatePostgrestError(error.message, error.code);
   }
-  // 타깃 해제는 그 사용자 주차의 가용 라인을 줄인다 → 즉시 재계산(구조 변경).
-  const removedUserId = (existing as { target_user_id: string | null }).target_user_id;
-  if (removedUserId) {
-    await invalidateWeeklyCardsForUsers([removedUserId]);
-  }
+  // 타깃 해제는 해제 대상자의 가용 라인을 줄이고, 그것이 그 라인의 마지막 타깃이면 org audience 의
+  // 분모 A(synthetic fail)도 사라진다 → 해제 대상자 + 라인 org audience 전원 재계산.
+  const removed = existing as { line_id: string; target_user_id: string | null };
+  await invalidateWeeklyCardsForLineChange(removed.line_id, [removed.target_user_id]);
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1247,4 +1372,332 @@ export async function listCluster4InfoLinesDetailed(
     activityTypeId: options.activityTypeId,
   });
   return { rows };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 라인 개설 이력 listing (과거/현재/전체) — /admin/line-opening "개설 이력" + history API 전용.
+//
+// 단순 DB 조회다. weekly-cards 스냅샷을 읽지도 쓰지도 않으며(SoT 무관) 재계산을 트리거하지 않는다.
+// (대상자/조직 노출/강화율 같은 파생값을 다루지 않고, 라인 메타 + 주차/시즌 라벨 + 집계 카운트만 본다.)
+//
+// status 판정: 기입 마감(submission_closes_at) 대비 현재시각.
+//   past = closes_at < now / current = closes_at >= now (DB where 절로 직접 필터 가능).
+// 시즌 필터(seasonKey): 라인은 시즌 컬럼이 없으므로 그 시즌의 weeks 를 먼저 구하고,
+//   (a) 그 주차를 가리키는 target 의 line_id + (b) 라인 자신의 week_id 가 그 주차인 라인 으로 후보를 좁힌다.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type ListCluster4OpenedLinesOptions = {
+  status?: Cluster4OpenedLineStatus | "all" | null;
+  partType?: Cluster4LineDto["partType"] | null;
+  activityTypeId?: string | null;
+  seasonKey?: string | null;
+  query?: string | null;
+  limit?: number;
+  offset?: number;
+};
+
+// seasonKey → 그 시즌에 속한 라인 id 집합. (target.week_id ∈ 시즌주차) ∪ (line.week_id ∈ 시즌주차).
+async function fetchLineIdsForSeasonFilter(seasonKey: string): Promise<string[]> {
+  const { data: weekRows, error: weekError } = await supabaseAdmin
+    .from("weeks")
+    .select("id")
+    .eq("season_key", seasonKey);
+  if (weekError) {
+    throw new Cluster4LineError(500, weekError.message);
+  }
+  const weekIds = ((weekRows ?? []) as Array<{ id: string }>).map((r) => r.id);
+  if (weekIds.length === 0) return [];
+
+  const lineIds = new Set<string>();
+
+  const { data: targetRows, error: targetError } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("line_id")
+    .in("week_id", weekIds);
+  if (targetError) {
+    throw new Cluster4LineError(500, targetError.message);
+  }
+  for (const row of (targetRows ?? []) as Array<{ line_id: string | null }>) {
+    if (row.line_id) lineIds.add(row.line_id);
+  }
+
+  const { data: lineRows, error: lineError } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id")
+    .in("week_id", weekIds);
+  if (lineError) {
+    throw new Cluster4LineError(500, lineError.message);
+  }
+  for (const row of (lineRows ?? []) as Array<{ id: string | null }>) {
+    if (row.id) lineIds.add(row.id);
+  }
+
+  return Array.from(lineIds);
+}
+
+export async function listCluster4OpenedLines(
+  options: ListCluster4OpenedLinesOptions = {},
+): Promise<ListCluster4OpenedLinesResult> {
+  const now = Date.now();
+  const nowIso = new Date(now).toISOString();
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
+  const offset = Math.max(options.offset ?? 0, 0);
+  const status = options.status ?? "all";
+
+  // 0. seasonKey 필터 → 후보 라인 id 집합.
+  let lineIdsFilter: string[] | null = null;
+  if (options.seasonKey && options.seasonKey.trim().length > 0) {
+    lineIdsFilter = await fetchLineIdsForSeasonFilter(options.seasonKey.trim());
+    if (lineIdsFilter.length === 0) return { rows: [], total: 0, limit, offset };
+  }
+
+  // 1. 라인 목록(메타) — cluster4_lines 단일 SELECT + 카운트.
+  let queryBuilder = supabaseAdmin
+    .from("cluster4_lines")
+    .select(LINE_SELECT, { count: "exact" });
+
+  if (options.partType) {
+    queryBuilder = queryBuilder.eq("part_type", options.partType);
+  }
+  if (options.activityTypeId && options.activityTypeId.trim().length > 0) {
+    queryBuilder = queryBuilder.eq("activity_type_id", options.activityTypeId.trim());
+  }
+  if (status === "past") {
+    queryBuilder = queryBuilder.lt("submission_closes_at", nowIso);
+  } else if (status === "current") {
+    queryBuilder = queryBuilder.gte("submission_closes_at", nowIso);
+  }
+  if (lineIdsFilter) {
+    queryBuilder = queryBuilder.in("id", lineIdsFilter);
+  }
+
+  const rawQuery = options.query?.trim() ?? "";
+  if (rawQuery.length > 0) {
+    const escaped = escapeForIlike(rawQuery);
+    if (escaped.length > 0) {
+      const filters = [`main_title.ilike.%${escaped}%`];
+      if (isUuid(rawQuery)) filters.push(`id.eq.${rawQuery}`);
+      queryBuilder = queryBuilder.or(filters.join(","));
+    } else if (isUuid(rawQuery)) {
+      queryBuilder = queryBuilder.eq("id", rawQuery);
+    }
+  }
+
+  // 기본 정렬: 기입 시작일(startDate) desc → 생성일 desc → id (안정 정렬).
+  queryBuilder = queryBuilder
+    .order("submission_opens_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true })
+    .range(offset, offset + limit - 1);
+
+  const { data, error, count } = await queryBuilder;
+  if (error) {
+    throw new Cluster4LineError(500, error.message);
+  }
+  const lineRows = (data ?? []) as unknown as Cluster4LineRow[];
+  if (lineRows.length === 0) return { rows: [], total: count ?? 0, limit, offset };
+
+  const lineIds = lineRows.map((row) => row.id);
+
+  // 2. target → 라인별 대상 수 + 주차 후보(week_id) + target id (제출 카운트용).
+  const targetCountByLine = new Map<string, number>();
+  const weekIdsByLine = new Map<string, Set<string>>();
+  const targetIdToLineId = new Map<string, string>();
+  {
+    const { data: targetRows, error: targetError } = await supabaseAdmin
+      .from("cluster4_line_targets")
+      .select("id,line_id,week_id")
+      .in("line_id", lineIds);
+    if (targetError) {
+      throw new Cluster4LineError(500, targetError.message);
+    }
+    for (const row of (targetRows ?? []) as Array<{
+      id: string;
+      line_id: string;
+      week_id: string | null;
+    }>) {
+      targetCountByLine.set(row.line_id, (targetCountByLine.get(row.line_id) ?? 0) + 1);
+      targetIdToLineId.set(row.id, row.line_id);
+      if (row.week_id) {
+        const set = weekIdsByLine.get(row.line_id) ?? new Set<string>();
+        set.add(row.week_id);
+        weekIdsByLine.set(row.line_id, set);
+      }
+    }
+  }
+  // 라인 자신의 week_id(엑셀 import 라인)도 주차 후보에 포함.
+  for (const line of lineRows) {
+    if (line.week_id) {
+      const set = weekIdsByLine.get(line.id) ?? new Set<string>();
+      set.add(line.week_id);
+      weekIdsByLine.set(line.id, set);
+    }
+  }
+
+  // 3. 제출 수 — line_target_id → line_id 로 집계.
+  const submissionCountByLine = new Map<string, number>();
+  const allTargetIds = Array.from(targetIdToLineId.keys());
+  if (allTargetIds.length > 0) {
+    const { data: subRows, error: subError } = await supabaseAdmin
+      .from("cluster4_line_submissions")
+      .select("line_target_id")
+      .in("line_target_id", allTargetIds);
+    if (subError) {
+      throw new Cluster4LineError(500, subError.message);
+    }
+    for (const row of (subRows ?? []) as Cluster4SubmissionCountRow[]) {
+      const lineId = targetIdToLineId.get(row.line_target_id);
+      if (!lineId) continue;
+      submissionCountByLine.set(lineId, (submissionCountByLine.get(lineId) ?? 0) + 1);
+    }
+  }
+
+  // 4. weeks 룩업 — 주차 라벨 + season_key + week_number + 시작일(대표 주차 선정용).
+  const allWeekIds = Array.from(
+    new Set(Array.from(weekIdsByLine.values()).flatMap((set) => Array.from(set))),
+  );
+  type WeekMeta = {
+    seasonKey: string | null;
+    weekNumber: number | null;
+    startDate: string | null;
+    endDate: string | null;
+  };
+  const weekMetaById = new Map<string, WeekMeta>();
+  if (allWeekIds.length > 0) {
+    const { data: weeksData, error: weeksError } = await supabaseAdmin
+      .from("weeks")
+      .select("id,season_key,week_number,start_date,end_date")
+      .in("id", allWeekIds);
+    if (weeksError) {
+      throw new Cluster4LineError(500, weeksError.message);
+    }
+    for (const row of (weeksData ?? []) as Array<{
+      id: string;
+      season_key: string | null;
+      week_number: number | null;
+      start_date: string | null;
+      end_date: string | null;
+    }>) {
+      weekMetaById.set(row.id, {
+        seasonKey: row.season_key,
+        weekNumber: row.week_number,
+        startDate: row.start_date,
+        endDate: row.end_date,
+      });
+    }
+  }
+
+  // 5. season_definitions 룩업 — season_key → 한글 시즌명(season_label).
+  const seasonKeys = Array.from(
+    new Set(
+      Array.from(weekMetaById.values())
+        .map((w) => w.seasonKey)
+        .filter((v): v is string => typeof v === "string"),
+    ),
+  );
+  const seasonNameByKey = new Map<string, string>();
+  if (seasonKeys.length > 0) {
+    const { data: seasonData, error: seasonError } = await supabaseAdmin
+      .from("season_definitions")
+      .select("season_key,season_label")
+      .in("season_key", seasonKeys);
+    if (seasonError) {
+      console.warn(
+        "[admin/cluster4 history] season_definitions lookup failed; falling back to season_key",
+        { message: seasonError.message },
+      );
+    } else {
+      for (const row of (seasonData ?? []) as Array<{
+        season_key: string;
+        season_label: string | null;
+      }>) {
+        if (row.season_label) seasonNameByKey.set(row.season_key, row.season_label);
+      }
+    }
+  }
+
+  // 6. activity_types 룩업 — categoryName.
+  const activityTypeIds = Array.from(
+    new Set(
+      lineRows
+        .map((row) => row.activity_type_id)
+        .filter((v): v is string => typeof v === "string"),
+    ),
+  );
+  const activityNameById = new Map<string, string>();
+  if (activityTypeIds.length > 0) {
+    const { data: actData, error: actError } = await supabaseAdmin
+      .from("activity_types")
+      .select("id,name")
+      .in("id", activityTypeIds);
+    if (actError) {
+      throw new Cluster4LineError(500, actError.message);
+    }
+    for (const row of (actData ?? []) as Array<{ id: string; name: string | null }>) {
+      activityNameById.set(row.id, row.name ?? row.id);
+    }
+  }
+
+  // 7. 조립. 라인별 대표 주차 = 후보 중 start_date 가장 이른 주차(결정적).
+  const rows: Cluster4OpenedLineDto[] = lineRows.map((line) => {
+    const candidateWeekIds = Array.from(weekIdsByLine.get(line.id) ?? []);
+    let repWeekId: string | null = null;
+    let repWeek: WeekMeta | null = null;
+    for (const wid of candidateWeekIds) {
+      const meta = weekMetaById.get(wid);
+      if (!meta) continue;
+      if (
+        repWeek == null ||
+        (meta.startDate ?? "") < (repWeek.startDate ?? "") ||
+        // start_date 동률/미상이면 첫 주차 유지
+        (repWeekId == null && meta.startDate == null)
+      ) {
+        repWeek = meta;
+        repWeekId = wid;
+      }
+    }
+
+    const seasonKey = repWeek?.seasonKey ?? null;
+    const seasonName = seasonKey
+      ? seasonNameByKey.get(seasonKey) ?? seasonKey
+      : null;
+    const weekNumber = repWeek?.weekNumber ?? null;
+    const weekLabel =
+      seasonName != null && weekNumber != null
+        ? `${seasonName} ${weekNumber}주차`
+        : seasonName ?? null;
+
+    const closesMs = line.submission_closes_at
+      ? new Date(line.submission_closes_at).getTime()
+      : null;
+    const status: Cluster4OpenedLineStatus =
+      closesMs != null && now > closesMs ? "past" : "current";
+
+    return {
+      id: line.id,
+      partType: line.part_type,
+      hubName: CLUSTER4_HUB_LABEL[line.part_type] ?? line.part_type,
+      categoryName: line.activity_type_id
+        ? activityNameById.get(line.activity_type_id) ?? null
+        : null,
+      activityTypeId: line.activity_type_id ?? null,
+      lineCode: line.line_code ?? null,
+      lineName: line.main_title,
+      seasonKey,
+      seasonName,
+      weekId: repWeekId,
+      weekNumber,
+      weekLabel,
+      startDate: line.submission_opens_at,
+      endDate: line.submission_closes_at,
+      status,
+      isActive: Boolean(line.is_active),
+      openedAt: line.part_type === "career" ? line.opened_at ?? null : null,
+      targetCount: targetCountByLine.get(line.id) ?? 0,
+      submissionCount: submissionCountByLine.get(line.id) ?? 0,
+      createdAt: line.created_at,
+    };
+  });
+
+  return { rows, total: count ?? rows.length, limit, offset };
 }

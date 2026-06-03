@@ -957,6 +957,9 @@ function toWeeklyCardDto(
     displayTitle: title,
     startDate: card.startDate,
     endDate: card.endDate,
+    // 시즌 단위 집계(area-6-circles) 그룹 키 + 전환주차 제외 플래그 (v10, snapshot 저장).
+    seasonKey: card.seasonKey,
+    isTransition: card.isTransition,
     userWeekStatus: userWeekStatusValue,
     statusLabel: card.resultLabel,
     statusTone: statusTone(card.resultStatus),

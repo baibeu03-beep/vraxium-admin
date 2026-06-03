@@ -2,17 +2,12 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isTransitionWeekStart } from "@/lib/seasonCalendar";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import {
-  fetchInfoLineCountsByWeek,
-  fetchExperienceLineCountsByWeek,
-  fetchCompetencyLineCountsByWeek,
   fetchInfoLineSuccessCountsByWeek,
   fetchLineSuccessCountsByWeek,
-  fetchCareerLineCountsByWeek,
   fetchCareerLineSuccessCountsByWeek,
-  buildWeekAvailability,
-  totalAvailable,
 } from "@/lib/lineAvailability";
-import type { OrganizationSlug } from "@/lib/organizations";
+import { getCluster4WeeklyCardsForProfileUser } from "@/lib/cluster4WeeklyCardsData";
+import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { getGrowthIndicators } from "@/lib/cluster3GrowthData";
 import {
   RESUME_BADGE_BY_GROWTH_STATUS,
@@ -149,93 +144,42 @@ function dummyScheduleReliability(): ScheduleReliability {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Activity Completion — Cluster4 라인 target+마감 기준
-//   available(A) = 주차별 동적 가용 라인 합산 (lineAvailability 모듈 공유)
-//   completed(B) = 4개 part(info/ability/exp/career) target+마감 success 합산
-//                  (weekly-cards 의 completedLines 와 동일 기준, 제출 무관).
-//                  user_activity_details 미사용.
+// Activity Completion — 단일 SoT = 허브 weekly-cards 카드(area-6/area-7 과 동일).
+//
+//   활동 완료율 = (전체 기간 이행 라인 수) / (전체 기간 개설된 모든 라인 수) × 100
+//
+//   분자(completedActivities) = Σ card.growthNumerator   (= 이행 라인 = weeklyGrowth.completedLines)
+//   분모(availableActivities) = Σ card.growthDenominator (= 개설된 모든 라인 = weeklyGrowth.availableLines)
+//
+//   growthDenominator 는 "개설된(any-target) 모든 distinct 라인"(info/exp/competency, synthetic
+//   fail 포함) + career 본인배정 으로, 허브 강화율 분모 정의와 1:1 동일하다
+//   (lib/cluster4SeasonCircles.computeSeasonAreaProgress / computeAreaSixCircles 와 같은 source).
+//   전환 주차(isTransition)만 제외 — 휴식 주차는 카드 단계에서 denominator=0 이라 자연 제외된다.
+//   현재 시즌만 보는 area-6 와 달리 "전체 활동 기간"을 위해 모든 시즌 카드를 합산한다.
+//   별도 라인 재집계 없이 카드 파생값을 그대로 합산하므로 허브 화면과 항상 같은 값이 나온다.
 // ─────────────────────────────────────────────────────────────────────
 async function computeActivityCompletion(
   userId: string,
-  organization: OrganizationSlug | null,
 ): Promise<ActivityCompletion> {
-  const weekRes = await supabaseAdmin
-    .from("user_week_statuses")
-    .select("week_start_date,status")
-    .eq("user_id", userId);
-
-  if (weekRes.error || !weekRes.data) {
+  let cards: Cluster4WeeklyCardDto[];
+  try {
+    cards = await getCluster4WeeklyCardsForProfileUser(userId);
+  } catch {
     return { availableActivities: 0, completedActivities: 0, rate: 0 };
   }
-
-  const growable = (weekRes.data as { week_start_date: string; status: string }[]).filter(
-    (w) =>
-      w.status !== "official_rest" &&
-      !(w.week_start_date && isTransitionWeekStart(w.week_start_date)),
-  );
-
-  if (growable.length === 0) {
-    return { availableActivities: 0, completedActivities: 0, rate: 0 };
-  }
-
-  const startDates = growable.map((w) => w.week_start_date);
-  const { data: weeksData } = await supabaseAdmin
-    .from("weeks")
-    .select("id,start_date")
-    .in("start_date", startDates);
-
-  const weekIds = (weeksData ?? []).map((w: { id: string }) => w.id);
-
-  const [
-    infoAvailMap,
-    experienceAvailMap,
-    competencyAvailMap,
-    careerAvailMap,
-    infoSuccessMap,
-    abilitySuccessMap,
-    experienceSuccessMap,
-    careerSuccessMap,
-  ] = await Promise.all([
-    fetchInfoLineCountsByWeek(userId, weekIds),
-    // experience 분모 A = 배정된 experience 라인 수 (weekly-cards 와 동일 기준). 상수 2 대체.
-    fetchExperienceLineCountsByWeek(userId, weekIds),
-    // competency 분모 A = 배정된 competency 라인 수 (weekly-cards 와 동일 기준). 상수 1 대체.
-    // 휴식 주차엔 competency 라인이 개설되지 않아 A=0 → 0/0 으로 자연 제외된다.
-    fetchCompetencyLineCountsByWeek(userId, weekIds),
-    // career 분모 A(P1) = 사용자에게 배정된 active career 라인 target 수 (허브와 동일).
-    //   (구: fetchCareerProjectCountsByWeek = career_project_weeks 개설 수 — 불일치 원인)
-    fetchCareerLineCountsByWeek(userId, weekIds),
-    fetchInfoLineSuccessCountsByWeek(userId, weekIds),
-    fetchLineSuccessCountsByWeek(userId, weekIds, "competency"),
-    fetchLineSuccessCountsByWeek(userId, weekIds, "experience"),
-    // career 분자 B(P1) = 마감 + grade S/A/B/C success (허브와 동일). D/미평가/미제출 제외.
-    fetchCareerLineSuccessCountsByWeek(userId, weekIds),
-  ]);
 
   let availableActivities = 0;
   let completedActivities = 0;
-  for (const wid of weekIds) {
-    const avail = buildWeekAvailability(
-      wid,
-      infoAvailMap,
-      // 레거시 careerMap(project 기반) 미사용. career A 는 careerUserMap(per-user)로 전달 — 허브와 동일.
-      new Map<string, number>(),
-      organization,
-      experienceAvailMap,
-      competencyAvailMap,
-      careerAvailMap,
-    );
-    availableActivities += totalAvailable(avail);
-    completedActivities +=
-      (infoSuccessMap.get(wid) ?? 0) +
-      (abilitySuccessMap.get(wid) ?? 0) +
-      (experienceSuccessMap.get(wid) ?? 0) +
-      (careerSuccessMap.get(wid) ?? 0);
+  for (const card of cards) {
+    if (card.isTransition) continue; // 전환 주차 제외 (area-6/7 과 동일 범위)
+    availableActivities += card.growthDenominator;
+    completedActivities += card.growthNumerator;
   }
 
+  // 허브(roundGrowthRate / pct)와 동일한 정수 반올림. available 0 → 0.
   const rate =
     availableActivities > 0
-      ? Math.round((completedActivities / availableActivities) * 1000) / 10
+      ? Math.round((completedActivities / availableActivities) * 100)
       : 0;
 
   return { availableActivities, completedActivities, rate };
@@ -495,7 +439,7 @@ export async function getCluster1Resume(
     await Promise.all([
       computeScheduleReliability(userId),
       computeSeasonRecords(userId),
-      computeActivityCompletion(userId, (crew.organizationSlug as OrganizationSlug) ?? null),
+      computeActivityCompletion(userId),
       computePracticalStats(userId),
       // resume 뱃지 = Growth Core 의 성장 상태(GrowthStatusKey) 기준. 실패 시 기본 뱃지로 폴백.
       getGrowthIndicators(userId).catch((e) => {

@@ -174,11 +174,73 @@ export type SeasonGrowthRate = {
   rate: number;
 };
 
+// ─────────────────────────────────────────────────────────────────────
+// cluster-4-1 진입 화면 상단 시즌 요약 (area-1-title / area-4-stats).
+//   화면 단위 단일 시즌 정보 + 그 시즌 누적 포인트. 카드별 값이 아니다.
+//   source: seasonSummary = seasonCalendar(현재 시즌) / seasonPointSummary =
+//   weeklyCards 중 현재 시즌·비전환 주차의 user_weekly_points 누적.
+// ─────────────────────────────────────────────────────────────────────
+export type SeasonStatus = "active" | "ended" | "upcoming";
+
+export type SeasonSummary = {
+  year: number; // 시즌 연도 (예: 2026 → 프론트 "26년도")
+  seasonName: string; // 한글 시즌명 ("봄"/"여름"/"가을"/"겨울") — 프론트 "봄 시즌" 표기 시 +" 시즌"
+  seasonCode: string; // 영문 코드 ("spring"/"summer"/"autumn"/"winter")
+  displayTitle: string; // "26년도 봄 시즌" (year+seasonName 조합 완제품)
+  dateRangeLabel: string; // "2026.03.02 - 2026.06.21" — 전환주차 제외 정규 시즌 범위
+  status: SeasonStatus; // 진행중/종료/예정 (오늘 vs 정규 시즌 범위)
+  statusLabel: string; // "진행중"/"종료"/"예정"
+  startDate: string; // 시즌 1주차 월요일 (YYYY-MM-DD)
+  endDate: string; // 시즌 정규 마지막 주 일요일 (전환주차 제외, YYYY-MM-DD)
+};
+
+export type SeasonPointSummary = {
+  star: number; // sum(user_weekly_points.points) — 전환주차 제외
+  shield: number; // sum(user_weekly_points.advantages)
+  lightning: number; // sum(user_weekly_points.penalty)
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// cluster-4 진입 화면 area-8-season-status — 현재 시즌 동안의 팀/파트/상태 활동 이력.
+//   "이 시즌에 어떤 팀/파트로, 어떤 상태(일반/심화/운영진)로 활동했는가" 를 발생 순서대로 보여준다.
+//   source(이력):  user_team_parts(team_id/part_id/joined_at/left_at/managed_team_id) — 팀/파트 시간축,
+//                  user_role_history(role/started_at/ended_at) — 역할(상태) 시간축.
+//   라벨:          teams.name / parts.name.
+//   상태 결정:     role(이력 우선) + user_memberships.membership_level(현재 등급) + user_profiles.role(fallback).
+//   필터:          현재 시즌 범위(season.startDate ~ season.endDate, 전환주차 포함)와 겹치는 row 만.
+//   정렬:          startedAt ASC (없으면 마지막). 연속 동일(team/part/status) 병합 후 최대 6개.
+//   이력 row 가 없으면 현재 membership/profile 로 단일 항목 fallback(startedAt/endedAt=null).
+//
+// 표시 규칙(프론트 area-8-season-status):
+//   A. 일반/심화 크루   → teamLabel=팀, partLabel=파트, statusLabel ∈ {일반, 심화(에이전트), 심화(파트장)}
+//   B. 운영진(팀장)     → teamLabel="운영진(n기)", partLabel="클럽 단위", statusLabel="팀장(00 팀)"
+//   C. 운영진(앰배서더) → teamLabel="운영진(n기)", partLabel="클럽 단위", statusLabel="앰배서더"
+//   (기수 정보 미보유 — 운영진 teamLabel 은 일단 항상 "운영진(n기)".)
+export type SeasonActivityStatus = {
+  id: string; // 안정적 식별자 (user_team_parts.id 또는 fallback 합성 키)
+  order: number; // 발생 순서 (1-base, startedAt ASC)
+  teamLabel: string; // 팀명 / 운영진(n기). 없으면 "-".
+  partLabel: string; // 파트명 / 클럽 단위. 없으면 "-".
+  statusLabel: string; // 상태 (일반/심화(…)/팀장(…)/앰배서더). 없으면 "-".
+  rawRole: string | null; // 판정에 쓰인 raw role (user_role_history 또는 user_profiles.role)
+  rawMembershipLevel: string | null; // user_memberships.membership_level (일반/심화)
+  startedAt: string | null; // 활동 시작 (user_team_parts.joined_at). fallback 시 null.
+  endedAt: string | null; // 활동 종료 (user_team_parts.left_at). 진행 중/ fallback 시 null.
+};
+
 export type WeeklyGrowthDto = {
   currentWeekInfo: CurrentWeekInfo;
   growthSummary: GrowthSummary;
   weeklyCards: WeeklyCardDto[];
   seasonGrowthRates: SeasonGrowthRate[];
+  // cluster-4-1 진입 화면 상단 시즌 요약. seasonSummary 의 시즌과 seasonPointSummary 의
+  // 누적 범위는 항상 동일 시즌(현재 시즌)이며 전환주차를 제외한다.
+  // 현재 시즌 판별 불가(달력 갭) 시 seasonSummary=null, seasonPointSummary=0.
+  seasonSummary: SeasonSummary | null;
+  seasonPointSummary: SeasonPointSummary;
+  // area-8-season-status — 현재 시즌 팀/파트/상태 활동 이력(최대 6개, 발생순).
+  // 현재 시즌 판별 불가 시 [].
+  seasonActivityStatuses: SeasonActivityStatus[];
 };
 
 // ─────────────────────────────────────────────────────────────────────

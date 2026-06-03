@@ -92,6 +92,11 @@ export function seasonDbKey(season: Season): DbSeasonKey {
   return toDbSeasonKey(season.year, season.type);
 }
 
+// 한글 시즌 타입 → 영문 코드 ("봄"→"spring"). seasonSummary.seasonCode source.
+export function seasonTypeToCode(type: SeasonType): string {
+  return SEASON_TYPE_DB[type];
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // 주간 공식 상태 판별 (DB 무관, 순수 캘린더 규칙)
 //

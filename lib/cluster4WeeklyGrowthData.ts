@@ -7,6 +7,7 @@ import {
   getCalendarWeekStatus,
   isTransitionWeekStart,
   seasonDbKey,
+  seasonTypeToCode,
   type Season,
 } from "@/lib/seasonCalendar";
 import { getGraduationThreshold } from "@/lib/pointLabels";
@@ -28,6 +29,10 @@ import {
   type CurrentWeekInfo,
   type GrowthSummary,
   type SeasonGrowthRate,
+  type SeasonSummary,
+  type SeasonStatus,
+  type SeasonPointSummary,
+  type SeasonActivityStatus,
   type RestReason,
   type EndStatus,
 } from "@/lib/cluster4WeeklyGrowthTypes";
@@ -790,6 +795,440 @@ function computeSeasonGrowthRates(cards: WeeklyCardDto[]): SeasonGrowthRate[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// cluster-4-1 진입 화면 시즌 요약 (area-1-title / area-4-stats).
+//   seasonSummary  — 현재 시즌(seasonCalendar) 단일 정보. 사용자 무관(달력만).
+//   seasonPointSummary — 그 시즌의 비전환 주차 user_weekly_points 누적(별/방패/번개).
+//     이미 조립된 weeklyCards 에서 집계하므로 추가 쿼리 0 + 화면 카드와 값 일치 보장.
+//
+// 시즌 범위는 "정규 주수"(봄/가을 16, 여름/겨울 8)만 — 전환 주차(seasonWeeks+1)는 제외한다.
+//   seasonCalendar 의 season.endDate 는 전환 주차를 포함한 집계 끝이므로, 여기서는
+//   start + seasonWeeks*7 - 1 로 정규 시즌의 마지막 일요일을 따로 계산한다.
+// ─────────────────────────────────────────────────────────────────────
+function fmtDotDate(iso: string): string {
+  return `${iso.slice(0, 4)}.${iso.slice(5, 7)}.${iso.slice(8, 10)}`;
+}
+
+const SEASON_STATUS_LABEL: Record<SeasonStatus, string> = {
+  active: "진행중",
+  ended: "종료",
+  upcoming: "예정",
+};
+
+function buildSeasonSummary(season: Season, todayIso: string): SeasonSummary {
+  // 정규 시즌 마지막 일요일 (전환 주차 제외) = start + seasonWeeks 주 - 1일.
+  const seasonProperEndMs =
+    toMs(season.startDate) + season.seasonWeeks * 7 * DAY_MS - DAY_MS;
+  const startDate = season.startDate;
+  const endDate = fmtDate(seasonProperEndMs);
+
+  const todayMs = toMs(todayIso);
+  let status: SeasonStatus;
+  if (todayMs < toMs(startDate)) status = "upcoming";
+  else if (todayMs > seasonProperEndMs) status = "ended";
+  else status = "active";
+
+  const yy = String(season.year).slice(2);
+  return {
+    year: season.year,
+    seasonName: season.type,
+    seasonCode: seasonTypeToCode(season.type),
+    displayTitle: `${yy}년도 ${season.type} 시즌`,
+    dateRangeLabel: `${fmtDotDate(startDate)} - ${fmtDotDate(endDate)}`,
+    status,
+    statusLabel: SEASON_STATUS_LABEL[status],
+    startDate,
+    endDate,
+  };
+}
+
+// 현재 시즌 누적 포인트 — weeklyCards 중 (seasonKey == 현재 시즌) && (전환 주차 아님)
+// 카드의 raw 포인트(별=points, 방패=advantages, 번개=penalty)를 합산한다.
+//   카드 범위는 [최초 활동 주차, 현재 주차]이므로 "현재 시즌 현재까지 누적"과 일치.
+//   포인트 row 없는 주차(pointsRaw=null)는 0 으로 취급(미데이터=0 누적).
+function computeSeasonPointSummary(
+  cards: WeeklyCardDto[],
+  currentSeasonKey: string | null,
+): SeasonPointSummary {
+  const summary: SeasonPointSummary = { star: 0, shield: 0, lightning: 0 };
+  if (!currentSeasonKey) return summary;
+  for (const c of cards) {
+    if (c.seasonKey !== currentSeasonKey) continue;
+    if (c.isTransition) continue; // 전환 주차 제외
+    summary.star += c.pointsRaw ?? 0;
+    summary.shield += c.advantagesRaw ?? 0;
+    summary.lightning += c.penaltyRaw ?? 0;
+  }
+  return summary;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// area-8-season-status: 현재 시즌 팀/파트/상태 활동 이력 (최대 6개, 발생순).
+//
+// source(이력):  user_team_parts (team_id/part_id/joined_at/left_at/managed_team_id) — 팀/파트 시간축.
+//                user_role_history (role/started_at/ended_at) — 역할(상태) 시간축.
+// 라벨:          teams.name / parts.name.
+// 상태 결정:     role(이력 우선) + user_memberships.membership_level(현재 등급) + user_profiles.role(fallback).
+// 시즌 범위:     [season.startDate, season.endDate] (전환주차 포함)와 겹치는 user_team_parts row 만.
+// 정렬:          startedAt(=joined_at) ASC, 없으면 마지막. 연속 동일(team/part/status) 병합 후 최대 6개.
+// fallback:      시즌과 겹치는 user_team_parts row 가 없으면 현재 membership/profile 로 단일 항목
+//                (startedAt/endedAt=null) — 대부분의 실사용자(이력 테이블 미사용)가 이 경로.
+// 실패 안전:     어떤 쿼리가 실패해도 throw 하지 않고 [] 로 폴백 — DTO 전체를 보호한다.
+// ─────────────────────────────────────────────────────────────────────
+
+const OPERATIONS_TEAM_LABEL = "운영진(n기)";
+const OPERATIONS_PART_LABEL = "클럽 단위";
+const MAX_SEASON_ACTIVITY_STATUSES = 6;
+
+function firstNonEmpty(...values: Array<string | null | undefined>): string | null {
+  for (const v of values) {
+    if (typeof v === "string" && v.trim() !== "") return v;
+  }
+  return null;
+}
+
+function normalizeRoleToken(role: string | null): string {
+  return (role ?? "").trim().toLowerCase();
+}
+
+function isTeamLeaderRole(role: string | null): boolean {
+  const r = normalizeRoleToken(role);
+  const raw = (role ?? "").trim();
+  return (
+    r === "team_leader" ||
+    r === "operations_team_leader" ||
+    r === "operations_teamleader" ||
+    raw === "운영진(팀장)" ||
+    raw === "팀장"
+  );
+}
+
+function isAmbassadorRole(role: string | null): boolean {
+  const r = normalizeRoleToken(role);
+  const raw = (role ?? "").trim();
+  return (
+    r === "ambassador" ||
+    r === "operations_ambassador" ||
+    raw === "운영진(앰배서더)" ||
+    raw === "앰배서더"
+  );
+}
+
+function isPartLeaderRole(role: string | null, level: string | null): boolean {
+  const r = normalizeRoleToken(role);
+  const raw = (role ?? "").trim();
+  return r === "part_leader" || raw === "파트장" || (level ?? "").trim() === "심화(파트장)";
+}
+
+function isAgentRole(role: string | null, level: string | null): boolean {
+  const r = normalizeRoleToken(role);
+  const lv = (level ?? "").trim();
+  return r === "agent" || lv === "심화" || lv === "심화(에이전트)";
+}
+
+// "팀장(00 팀)" 라벨. 이름이 이미 "팀"으로 끝나면 중복하지 않는다.
+function formatTeamLeaderStatus(teamName: string | null): string {
+  const base = (teamName ?? "").trim().replace(/\s*팀$/, "");
+  return base ? `팀장(${base} 팀)` : "운영진(팀장)";
+}
+
+// (rawRole, rawLevel, teamName, partName, managedTeamName) → 화면 3슬롯(teamLabel/partLabel/statusLabel).
+function buildActivityLabels(input: {
+  rawRole: string | null;
+  rawLevel: string | null;
+  teamName: string | null;
+  partName: string | null;
+  managedTeamName: string | null;
+}): { teamLabel: string; partLabel: string; statusLabel: string } {
+  const { rawRole, rawLevel, teamName, partName, managedTeamName } = input;
+
+  // B. 운영진(팀장) — 팀/파트를 운영진 단위로 덮어쓰고, 상태에 관리 팀명을 붙인다.
+  if (isTeamLeaderRole(rawRole)) {
+    return {
+      teamLabel: OPERATIONS_TEAM_LABEL,
+      partLabel: OPERATIONS_PART_LABEL,
+      statusLabel: formatTeamLeaderStatus(managedTeamName ?? teamName),
+    };
+  }
+  // C. 운영진(앰배서더)
+  if (isAmbassadorRole(rawRole)) {
+    return {
+      teamLabel: OPERATIONS_TEAM_LABEL,
+      partLabel: OPERATIONS_PART_LABEL,
+      statusLabel: "앰배서더",
+    };
+  }
+
+  // A. 일반/심화 크루 — 팀/파트 그대로, 상태는 등급/역할로 판정.
+  const teamLabel = firstNonEmpty(teamName) ?? "-";
+  const partLabel = firstNonEmpty(partName) ?? "-";
+  let statusLabel = "일반";
+  if (isPartLeaderRole(rawRole, rawLevel)) statusLabel = "심화(파트장)";
+  else if (isAgentRole(rawRole, rawLevel)) statusLabel = "심화(에이전트)";
+  return { teamLabel, partLabel, statusLabel };
+}
+
+// 시즌 [seasonStart, seasonEnd] 와 [start, end] 윈도가 겹치는가 (date 부분만 비교).
+function windowOverlapsSeason(
+  start: string | null,
+  end: string | null,
+  seasonStart: string,
+  seasonEnd: string,
+): boolean {
+  const ws = (start ?? "").slice(0, 10);
+  if (!ws) return false;
+  if (ws > seasonEnd) return false; // 시즌 종료 후 시작
+  const we = end ? end.slice(0, 10) : null;
+  if (we && we < seasonStart) return false; // 시즌 시작 전 종료
+  return true;
+}
+
+type TeamPartRow = {
+  id: string | null;
+  team_id: string | null;
+  part_id: string | null;
+  joined_at: string | null;
+  left_at: string | null;
+  managed_team_id: string | null;
+};
+
+type RoleHistoryRow = {
+  role: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+};
+
+type ActivitySource = {
+  id: string;
+  teamName: string | null;
+  partName: string | null;
+  managedTeamName: string | null;
+  rawRole: string | null;
+  rawLevel: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+};
+
+async function computeSeasonActivityStatuses(
+  userId: string,
+  season: Season | null,
+): Promise<SeasonActivityStatus[]> {
+  if (!season) return []; // 현재 시즌 판별 불가(달력 갭) → 빈 배열.
+  const seasonStart = season.startDate;
+  const seasonEnd = season.endDate;
+
+  try {
+    const [teamPartsRes, roleHistRes, membershipRes, profileRes] =
+      await Promise.all([
+        supabaseAdmin
+          .from("user_team_parts")
+          .select("id,team_id,part_id,joined_at,left_at,managed_team_id")
+          .eq("user_id", userId),
+        supabaseAdmin
+          .from("user_role_history")
+          .select("role,started_at,ended_at")
+          .eq("user_id", userId),
+        supabaseAdmin
+          .from("user_memberships")
+          .select("team_name,part_name,membership_level,is_current,updated_at")
+          .eq("user_id", userId),
+        supabaseAdmin
+          .from("user_profiles")
+          .select("role")
+          .eq("user_id", userId)
+          .maybeSingle(),
+      ]);
+
+    if (teamPartsRes.error)
+      console.warn("[weekly-growth][area-8] user_team_parts lookup failed", {
+        message: teamPartsRes.error.message,
+      });
+    if (roleHistRes.error)
+      console.warn("[weekly-growth][area-8] user_role_history lookup failed", {
+        message: roleHistRes.error.message,
+      });
+    if (membershipRes.error)
+      console.warn("[weekly-growth][area-8] user_memberships lookup failed", {
+        message: membershipRes.error.message,
+      });
+    if (profileRes.error)
+      console.warn("[weekly-growth][area-8] user_profiles lookup failed", {
+        message: profileRes.error.message,
+      });
+
+    const teamParts = (teamPartsRes.data ?? []) as TeamPartRow[];
+    const roleHistory = (roleHistRes.data ?? []) as RoleHistoryRow[];
+
+    // 현재 등급(level)/팀/파트 — user_memberships(is_current 우선, 그다음 updated_at 최신).
+    type MemRow = {
+      team_name: string | null;
+      part_name: string | null;
+      membership_level: string | null;
+      is_current: boolean | null;
+      updated_at: string | null;
+    };
+    const memberships = ((membershipRes.data ?? []) as MemRow[]).slice().sort(
+      (a, b) => {
+        const cur = Number(Boolean(b.is_current)) - Number(Boolean(a.is_current));
+        if (cur !== 0) return cur;
+        return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
+      },
+    );
+    const currentMembership = memberships[0] ?? null;
+    const currentLevel = currentMembership?.membership_level ?? null;
+    const currentTeamName = currentMembership?.team_name ?? null;
+    const currentPartName = currentMembership?.part_name ?? null;
+    const currentRole =
+      (profileRes.data as { role: string | null } | null)?.role ?? null;
+
+    // 윈도 시작 시점에 활성인 role (started_at <= winStart < ended_at). 최신 started_at 우선.
+    const resolveRoleForWindow = (winStart: string | null): string | null => {
+      if (!winStart || roleHistory.length === 0) return null;
+      const ws = winStart.slice(0, 10);
+      const active = roleHistory
+        .filter((r) => {
+          const s = (r.started_at ?? "").slice(0, 10);
+          if (!s || s > ws) return false;
+          const e = r.ended_at ? r.ended_at.slice(0, 10) : null;
+          return e === null || e > ws;
+        })
+        .sort((a, b) =>
+          (b.started_at ?? "").localeCompare(a.started_at ?? ""),
+        );
+      return active[0]?.role ?? null;
+    };
+
+    // teams / parts 라벨 일괄 조회.
+    const teamIds = new Set<string>();
+    const partIds = new Set<string>();
+    for (const tp of teamParts) {
+      if (tp.team_id) teamIds.add(tp.team_id);
+      if (tp.managed_team_id) teamIds.add(tp.managed_team_id);
+      if (tp.part_id) partIds.add(tp.part_id);
+    }
+    const teamNameById = new Map<string, string>();
+    const partNameById = new Map<string, string>();
+    if (teamIds.size > 0) {
+      const { data } = await supabaseAdmin
+        .from("teams")
+        .select("id,name")
+        .in("id", [...teamIds]);
+      for (const t of (data ?? []) as { id: string; name: string | null }[]) {
+        if (t.id && t.name) teamNameById.set(t.id, t.name);
+      }
+    }
+    if (partIds.size > 0) {
+      const { data } = await supabaseAdmin
+        .from("parts")
+        .select("id,name")
+        .in("id", [...partIds]);
+      for (const p of (data ?? []) as { id: string; name: string | null }[]) {
+        if (p.id && p.name) partNameById.set(p.id, p.name);
+      }
+    }
+
+    // 시즌과 겹치는 user_team_parts → 활동 source.
+    const sources: ActivitySource[] = [];
+    for (const tp of teamParts) {
+      if (!windowOverlapsSeason(tp.joined_at, tp.left_at, seasonStart, seasonEnd))
+        continue;
+      sources.push({
+        id: tp.id ?? `tp-${tp.team_id ?? "?"}-${tp.joined_at ?? "?"}`,
+        teamName: tp.team_id ? teamNameById.get(tp.team_id) ?? null : null,
+        partName: tp.part_id ? partNameById.get(tp.part_id) ?? null : null,
+        managedTeamName: tp.managed_team_id
+          ? teamNameById.get(tp.managed_team_id) ?? null
+          : null,
+        // 역할: 윈도 시작 시점 role 이력 우선, 없으면 현재 role(profile).
+        rawRole: resolveRoleForWindow(tp.joined_at) ?? currentRole,
+        rawLevel: currentLevel,
+        startedAt: tp.joined_at ?? null,
+        endedAt: tp.left_at ?? null,
+      });
+    }
+
+    // fallback: 이력 row 가 없으면 현재 membership/profile 로 단일 항목.
+    if (sources.length === 0) {
+      // 현재 활동 신호(팀/파트/등급/역할)가 하나도 없으면 표시할 궤적이 없다 → [].
+      if (
+        !firstNonEmpty(currentTeamName, currentPartName, currentLevel, currentRole)
+      ) {
+        return [];
+      }
+      sources.push({
+        id: `current-${userId}`,
+        teamName: currentTeamName,
+        partName: currentPartName,
+        managedTeamName: null,
+        rawRole: currentRole,
+        rawLevel: currentLevel,
+        startedAt: null,
+        endedAt: null,
+      });
+    }
+
+    // 정렬: startedAt ASC, null 은 마지막.
+    sources.sort((a, b) => {
+      const sa = a.startedAt;
+      const sb = b.startedAt;
+      if (sa && sb) return sa < sb ? -1 : sa > sb ? 1 : 0;
+      if (sa && !sb) return -1;
+      if (!sa && sb) return 1;
+      return 0;
+    });
+
+    // 라벨 산출 + 연속 동일(team/part/status) 병합.
+    const merged: SeasonActivityStatus[] = [];
+    for (const s of sources) {
+      const labels = buildActivityLabels({
+        rawRole: s.rawRole,
+        rawLevel: s.rawLevel,
+        teamName: s.teamName,
+        partName: s.partName,
+        managedTeamName: s.managedTeamName,
+      });
+      const prev = merged[merged.length - 1];
+      if (
+        prev &&
+        prev.teamLabel === labels.teamLabel &&
+        prev.partLabel === labels.partLabel &&
+        prev.statusLabel === labels.statusLabel
+      ) {
+        // 병합: 진행 중(null endedAt)이면 계속 열린 채로, 아니면 더 늦은 종료일로 확장.
+        if (prev.endedAt !== null) {
+          prev.endedAt =
+            s.endedAt === null
+              ? null
+              : s.endedAt > prev.endedAt
+                ? s.endedAt
+                : prev.endedAt;
+        }
+        continue;
+      }
+      merged.push({
+        id: s.id,
+        order: 0, // 아래에서 1-base 재부여
+        teamLabel: labels.teamLabel,
+        partLabel: labels.partLabel,
+        statusLabel: labels.statusLabel,
+        rawRole: s.rawRole,
+        rawMembershipLevel: s.rawLevel,
+        startedAt: s.startedAt,
+        endedAt: s.endedAt,
+      });
+    }
+
+    return merged
+      .slice(0, MAX_SEASON_ACTIVITY_STATUSES)
+      .map((e, i) => ({ ...e, order: i + 1 }));
+  } catch (error) {
+    console.warn("[weekly-growth][area-8] computeSeasonActivityStatuses failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Main: Weekly Growth DTO (카드 포함)
 // ─────────────────────────────────────────────────────────────────────
 export async function getWeeklyGrowth(
@@ -802,12 +1241,23 @@ export async function getWeeklyGrowth(
 
   const currentWeekInfo = await computeCurrentWeekInfo();
 
+  // 진입 화면 시즌 요약 — 현재 시즌(달력) 단일 정보. 사용자 데이터와 무관하게 항상 산출.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const currentSeason = getSeasonForDate(todayIso);
+  const seasonSummary = currentSeason
+    ? buildSeasonSummary(currentSeason, todayIso)
+    : null;
+  const currentSeasonKey = currentSeason ? seasonDbKey(currentSeason) : null;
+
   if (!crew.userId) {
     return {
       currentWeekInfo,
       growthSummary: emptyGrowthSummary(),
       weeklyCards: [],
       seasonGrowthRates: [],
+      seasonSummary,
+      seasonPointSummary: { star: 0, shield: 0, lightning: 0 },
+      seasonActivityStatuses: [],
     };
   }
 
@@ -840,8 +1290,26 @@ export async function getWeeklyGrowth(
   );
 
   const seasonGrowthRates = computeSeasonGrowthRates(weeklyCards);
+  const seasonPointSummary = computeSeasonPointSummary(
+    weeklyCards,
+    currentSeasonKey,
+  );
+  // area-8-season-status — 현재 시즌 팀/파트/상태 활동 이력. seasonSummary 와 동일하게
+  // live 경로(snapshot 미사용)이며 현재 시즌(currentSeason) 범위로 필터한다.
+  const seasonActivityStatuses = await computeSeasonActivityStatuses(
+    crew.userId,
+    currentSeason,
+  );
 
-  return { currentWeekInfo, growthSummary, weeklyCards, seasonGrowthRates };
+  return {
+    currentWeekInfo,
+    growthSummary,
+    weeklyCards,
+    seasonGrowthRates,
+    seasonSummary,
+    seasonPointSummary,
+    seasonActivityStatuses,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────

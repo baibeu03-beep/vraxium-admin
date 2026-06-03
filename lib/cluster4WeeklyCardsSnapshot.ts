@@ -53,7 +53,12 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 //   특정 조직이어도 무조건 common(전체 노출). v8(마스터 org 우선)에서는 이런 라인이 특정 조직에만
 //   보였으므로 노출 집합이 달라진다(예: WCBS career 라인이 oranke 전용 → 전체 공통). DTO 모양은 동일하나
 //   값(카드 lines 노출 구성)이 달라지므로 기존 v8 snapshot 을 stale 처리해 재계산하게 한다.
-export const WEEKLY_CARDS_DTO_VERSION = 9;
+// v10 (2026-06-03): 카드 DTO 에 seasonKey(weeks.season_key) + isTransition 추가 — cluster-4-1
+//   진입 화면 area-6-circles(주차 활용도/일정 신뢰도/시즌 성장률)를 weekly-cards 스냅샷 단일
+//   출처로 현재 시즌 단위 집계하기 위함(lib/cluster4SeasonCircles.computeAreaSixCircles).
+//   기존 v9 snapshot 의 cards 에는 seasonKey/isTransition 키가 없어 집계가 비게 되므로 stale
+//   (version_mismatch) 처리 → cron/lazy 가 재계산하며 채운다. (DB 백필 아님 — 캐시 재생성.)
+export const WEEKLY_CARDS_DTO_VERSION = 10;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

@@ -73,10 +73,13 @@ const MENU: MenuItem[] = [
       "/admin/line-opening",
       ...ADMIN_LINE_OPENING_VISIBLE_PARTS.map((part) => part.href),
     ],
-    children: ADMIN_LINE_OPENING_VISIBLE_PARTS.map((part) => ({
-      label: part.label,
-      href: part.href,
-    })),
+    children: [
+      ...ADMIN_LINE_OPENING_VISIBLE_PARTS.map((part) => ({
+        label: part.label,
+        href: part.href,
+      })),
+      { label: "개설 이력", href: "/admin/line-opening/line-history" },
+    ],
   },
   {
     kind: "branch",

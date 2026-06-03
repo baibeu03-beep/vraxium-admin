@@ -18,7 +18,16 @@ import {
   currentQueryCount,
   runWithQueryMeter,
 } from "@/lib/supabaseQueryMeter";
-import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
+import type {
+  Cluster4AreaSixCirclesDto,
+  Cluster4SeasonAreaProgressDto,
+  Cluster4WeeklyCardDto,
+} from "@/shared/cluster4.contracts";
+import {
+  computeAreaSixCircles,
+  computeSeasonAreaProgress,
+} from "@/lib/cluster4SeasonCircles";
+import { getSeasonForDate, seasonDbKey } from "@/lib/seasonCalendar";
 
 // 무거운 list API — Vercel function 최대 실행시간 상한을 명시(안전망).
 // dynamic: 인증/유저별 데이터이므로 캐시 금지(항상 동적 실행).
@@ -38,17 +47,42 @@ const DEBUG_COMPARE = process.env.CLUSTER4_WEEKLY_CARDS_DEBUG === "1";
 const ALLOW_LAZY = process.env.WEEKLY_CARDS_ALLOW_LAZY === "1";
 
 // 응답 형식 고정:
-//   성공: { success: true,  data: [...], error: null }
-//   실패: { success: false, data: [],     error: { message, code } }
+//   성공: { success: true,  data: [...], areaSixCircles: {...}, seasonAreaProgress: [...], error: null }
+//   실패: { success: false, data: [],     areaSixCircles: {...}, seasonAreaProgress: [...], error: {…} }
 // data 는 어떤 경우에도 배열이며 undefined 가 되지 않는다(프론트 .length/.map 방어).
-function ok(data: Cluster4WeeklyCardDto[]) {
-  return Response.json({ success: true, data, error: null });
+// areaSixCircles 는 현재 시즌 단위 집계(주차 활용도/일정 신뢰도/시즌 성장률) — snapshot cards
+//   파생값(append-only). 실패/빈 카드면 0 세트.
+// seasonAreaProgress 는 area-7-progress 용 실무 4허브(정보/경험/역량/경력) 시즌 누적 강화율 —
+//   동일 snapshot cards 파생값(append-only). 항상 4개 항목, 실패/빈 카드면 0 세트.
+function ok(
+  data: Cluster4WeeklyCardDto[],
+  areaSixCircles: Cluster4AreaSixCirclesDto,
+  seasonAreaProgress: Cluster4SeasonAreaProgressDto,
+) {
+  return Response.json({ success: true, data, areaSixCircles, seasonAreaProgress, error: null });
 }
 function fail(status: number, message: string, code: string) {
   return Response.json(
-    { success: false, data: [] as Cluster4WeeklyCardDto[], error: { message, code } },
+    {
+      success: false,
+      data: [] as Cluster4WeeklyCardDto[],
+      areaSixCircles: emptyAreaSixCircles(),
+      seasonAreaProgress: computeSeasonAreaProgress([], currentSeasonKey()),
+      error: { message, code },
+    },
     { status },
   );
+}
+
+// 오늘 날짜 기준 현재 시즌 key (area-6-circles 집계 대상 시즌). 달력 갭이면 null.
+//   area-1/area-4(seasonSummary)와 동일한 seasonCalendar 현재 시즌 기준으로 통일.
+function currentSeasonKey(): string | null {
+  const season = getSeasonForDate(new Date().toISOString().slice(0, 10));
+  return season ? seasonDbKey(season) : null;
+}
+
+function emptyAreaSixCircles(): Cluster4AreaSixCirclesDto {
+  return computeAreaSixCircles([], currentSeasonKey());
 }
 
 type LoadOutcome = "hit" | "stale" | "miss" | "error";
@@ -198,7 +232,11 @@ async function handleGet(request: NextRequest): Promise<Response> {
       const cardTargetUserId = requestedUserId || demoProfileUserId;
       const result = await loadWeeklyCards(cardTargetUserId);
       if (DEBUG_COMPARE) await logWeekComparison(cardTargetUserId, result.cards);
-      return done(ok(result.cards), "demo", { userId: cardTargetUserId, ...result });
+      // area-6-circles / area-7-progress: 로드된 스냅샷 cards 에서 현재 시즌 집계(snapshot-only 파생).
+      const seasonKey = currentSeasonKey();
+      const circles = computeAreaSixCircles(result.cards, seasonKey);
+      const areaProgress = computeSeasonAreaProgress(result.cards, seasonKey);
+      return done(ok(result.cards, circles, areaProgress), "demo", { userId: cardTargetUserId, ...result });
     }
   } catch (error) {
     if (error instanceof DemoModeError) {
@@ -289,12 +327,19 @@ async function handleGet(request: NextRequest): Promise<Response> {
       await logWeekComparison(profileUserId, result.cards);
     }
 
+    // area-6-circles / area-7-progress: 로드된 스냅샷 cards 에서 현재 시즌 집계(snapshot-only 파생).
+    const seasonKey = currentSeasonKey();
+    const circles = computeAreaSixCircles(result.cards, seasonKey);
+    const areaProgress = computeSeasonAreaProgress(result.cards, seasonKey);
+
     // error outcome 은 200(빈 카드)으로 내리되 error 필드를 채워 프론트가 덮어쓰지 않게 한다.
     if (result.outcome === "error") {
       return done(
         Response.json({
           success: false,
           data: result.cards,
+          areaSixCircles: circles,
+          seasonAreaProgress: areaProgress,
           error: { message: result.detail || "snapshot read failed", code: "snapshot_read_error" },
         }),
         "ok",
@@ -302,7 +347,7 @@ async function handleGet(request: NextRequest): Promise<Response> {
       );
     }
 
-    return done(ok(result.cards), "ok", { userId: profileUserId, ...result });
+    return done(ok(result.cards, circles, areaProgress), "ok", { userId: profileUserId, ...result });
   } catch (error) {
     if (error instanceof AdminAuthError) {
       return done(fail(error.status, error.message, "forbidden"), "admin-error");

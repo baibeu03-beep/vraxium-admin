@@ -352,6 +352,11 @@ export type Cluster4WeeklyCardDto = {
   displayTitle: string;
   startDate: string;
   endDate: string;
+  // season_key (예: "2026-spring"). 시즌 단위 집계(area-6-circles 등)의 그룹 키.
+  //   source: weeks.season_key. 합성/미상 주차는 null. (append-only, v10)
+  seasonKey: string | null;
+  // 전환 주차(시즌 정규 주수 +1) 여부. 성장률·주차 집계에서 제외 대상. (append-only, v10)
+  isTransition: boolean;
   userWeekStatus: Cluster4UserWeekStatus;
   statusLabel: string;
   statusTone: Cluster4StatusTone;
@@ -427,3 +432,71 @@ export type Cluster4WeeklyCardDto = {
   // 본 주차가 사용자의 온보딩 주차인지 여부 (weekId === user_profiles.onboarding_week_id).
   isOnboarding: boolean;
 };
+
+// ─────────────────────────────────────────────────────────────────────
+// cluster-4-1 진입 화면 area-6-circles (원형 지표 3개). 현재 시즌 단위 집계.
+//   단일 출처(SoT) = weekly-cards 스냅샷 cards 배열 (snapshot-only).
+//   파생 규칙(lib/cluster4SeasonCircles.computeAreaSixCircles)은 순수 함수이며
+//   동일 cards 입력에 항상 동일 결과 → demoUserId/일반 모드 동일 DTO, 실시간 계산값과
+//   스냅샷 응답값이 갈라지지 않는다. 모든 분모/분자는 현재 시즌·전환주차 제외 기준.
+//
+//   1) 주차 활용도 weekUsage   = round(approvedWeeks / availableWeeks * 100)
+//   2) 일정 신뢰도 scheduleReliability = round(reliableWeeks(=approved+rest) / availableWeeks * 100)
+//   3) 시즌 성장률 seasonGrowth = round(completedLines / availableLines * 100)
+//
+//   주차 정의(admin Cluster4 SoT, 공식 휴식 제외):
+//     approvedWeeks(a) = userWeekStatus==success   (published + verdict 반영된 카드 상태)
+//     restWeeks(c)     = userWeekStatus==personal_rest
+//     availableWeeks(e)= success + fail + personal_rest
+//     reliableWeeks    = approvedWeeks + restWeeks (= a + c)
+//   라인 정의: 현재 시즌·비전환 카드의 growthNumerator/growthDenominator 합
+//     (org 필터·강화 정책은 카드 계산 시점에 이미 반영됨).
+// ─────────────────────────────────────────────────────────────────────
+export type Cluster4AreaSixCirclesDto = {
+  // 집계 대상 현재 시즌 키. 현재 시즌 카드가 없으면 null(전부 0).
+  seasonKey: string | null;
+  // 주차 활용도
+  weekUsage: number; // %
+  approvedWeeks: number; // a (분자)
+  // 일정 신뢰도
+  scheduleReliability: number; // %
+  reliableWeeks: number; // a + c (분자)
+  restWeeks: number; // c
+  // 두 주차 지표 공통 분모
+  availableWeeks: number; // e (분모)
+  // 시즌 성장률
+  seasonGrowth: number; // %
+  completedLines: number; // 이행 라인 (분자)
+  availableLines: number; // 전체 가용 라인 (분모)
+};
+
+// ─────────────────────────────────────────────────────────────────────
+// cluster-4-1 진입 화면 area-7-progress (실무 4허브 강화율 4개). 현재 시즌 단위 누적.
+//   단일 출처(SoT) = weekly-cards 스냅샷 cards 배열 (snapshot-only) — area-6-circles 와 동일.
+//   파생 규칙(lib/cluster4SeasonCircles.computeSeasonAreaProgress)은 순수 함수이며
+//   동일 cards 입력에 항상 동일 결과 → demoUserId/일반 모드 동일 DTO, 실시간 계산값과
+//   스냅샷 응답값이 갈라지지 않는다.
+//
+//   허브(part) 단위 누적: 현재 시즌·비전환 카드의 각 part 라인 numerator/denominator 합.
+//     earned = Σ part numerator, total = Σ part denominator, rate = round(earned/total*100).
+//   분모/분자 정의는 cluster-4-card 주차 성장률/허브 강화율과 동일 source(카드 라인 breakdown):
+//     · 같은 주차·같은 part 의 sub-line 들은 동일 part 집계값을 공유하므로 카드당 part 1회만 합산.
+//     · available<=0(미개설)·휴식 주차 라인은 numerator/denominator=null 로 자연 제외.
+//   key/label 매핑: information=실무 정보 / experience=실무 경험 / competency=실무 역량 / career=실무 경력.
+// ─────────────────────────────────────────────────────────────────────
+export type Cluster4SeasonAreaProgressKey =
+  | "practical_info"
+  | "practical_experience"
+  | "practical_competency"
+  | "practical_career";
+
+export type Cluster4SeasonAreaProgressItem = {
+  key: Cluster4SeasonAreaProgressKey;
+  label: string; // "실무 정보" / "실무 경험" / "실무 역량" / "실무 경력"
+  rate: number; // round(earned/total*100), total 0 → 0
+  total: number; // 시즌 누적 가용 라인 (분모)
+  earned: number; // 시즌 누적 이행 라인 (분자)
+};
+
+// area-7-progress 응답 — 항상 4개 항목(정보/경험/역량/경력) 고정 순서.
+export type Cluster4SeasonAreaProgressDto = Cluster4SeasonAreaProgressItem[];

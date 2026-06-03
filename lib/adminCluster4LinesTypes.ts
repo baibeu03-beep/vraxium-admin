@@ -68,6 +68,62 @@ export type ListCluster4LinesResult = {
   offset: number;
 };
 
+// ─────────────────────────────────────────────────────────────────────────
+// 라인 개설 이력 (과거/현재/전체) listing — append-only.
+// /admin/line-opening 하위 "개설 이력" 화면 + GET /api/admin/cluster4/lines/history
+// 전용 read-only DTO. 단순 DB 조회(스냅샷 무관, 재계산 불필요).
+//
+// status 판정은 라인의 기입 마감(submission_closes_at) 대비 현재시각으로 파생한다:
+//   - "current": now <= submission_closes_at  (아직 기입 가능/예정)
+//   - "past":    now >  submission_closes_at  (기입 마감됨)
+// 시즌/주차는 라인 자신의 week_id(엑셀 import 라인) 또는 대상(target)의 week_id 로
+// 역참조하여 weeks → season_definitions 로 라벨을 채운다. (라인에 seasonHistoryId 컬럼은 없음)
+// ─────────────────────────────────────────────────────────────────────────
+
+export type Cluster4OpenedLineStatus = "current" | "past";
+
+// 4허브(part_type) → 한글 허브명. /admin/line-opening 메뉴 라벨과 동일 기준.
+export const CLUSTER4_HUB_LABEL: Record<Cluster4LinePartType, string> = {
+  info: "실무 정보",
+  experience: "실무 경험",
+  competency: "실무 역량",
+  career: "실무 경력",
+};
+
+export type Cluster4OpenedLineDto = {
+  id: string;
+  partType: Cluster4LinePartType;
+  // 허브명 = part_type 한글 라벨. categoryName = 활동 유형명(있으면).
+  hubName: string;
+  categoryName: string | null;
+  activityTypeId: string | null;
+  lineCode: string | null;
+  lineName: string;
+  // 시즌/주차 (라인 week_id 또는 대상 week_id 로 역참조). 미연결이면 null.
+  seasonKey: string | null;
+  seasonName: string | null;
+  weekId: string | null;
+  weekNumber: number | null;
+  weekLabel: string | null;
+  // startDate/endDate = 기입 시작/마감 (submission_opens_at/closes_at).
+  startDate: string;
+  endDate: string;
+  status: Cluster4OpenedLineStatus;
+  isActive: boolean;
+  // career 라인 최종 개설 시각(워크플로). 그 외 라인은 null.
+  openedAt: string | null;
+  targetCount: number;
+  submissionCount: number;
+  createdAt: string;
+};
+
+export type ListCluster4OpenedLinesResult = {
+  rows: Cluster4OpenedLineDto[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type ListCluster4LineTargetsResult = {
   lineId: string;
   rows: Cluster4LineTargetDto[];
