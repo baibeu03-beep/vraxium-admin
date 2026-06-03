@@ -76,7 +76,11 @@ async function main() {
   const { data: after } = await sb
     .from("user_profiles")
     .select("user_id,profile_keyword,profile_tagline");
-  const a = (after ?? []) as { profile_keyword: string | null; profile_tagline: string | null }[];
+  const a = (after ?? []) as {
+    user_id: string;
+    profile_keyword: string | null;
+    profile_tagline: string | null;
+  }[];
   const tagFilled = a.filter((r) => r.profile_tagline && r.profile_tagline.trim() !== "").length;
   const kwFilled = a.filter((r) => r.profile_keyword && r.profile_keyword.trim() !== "").length;
   const mismatch = a.filter(

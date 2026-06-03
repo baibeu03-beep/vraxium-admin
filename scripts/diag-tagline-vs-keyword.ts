@@ -5,11 +5,11 @@ async function colHas(col: string) {
   if (error) return { col, exists: false, err: error.message };
   let nonEmpty = 0;
   for (const r of data ?? []) {
-    const v = (r as Record<string, unknown>)[col];
+    const v = (r as unknown as Record<string, unknown>)[col];
     if (v != null && String(v).trim() !== "") nonEmpty++;
   }
   const samples = (data ?? [])
-    .map((r) => (r as Record<string, unknown>)[col])
+    .map((r) => (r as unknown as Record<string, unknown>)[col])
     .filter((v) => v != null && String(v).trim() !== "")
     .slice(0, 5);
   return { col, exists: true, rows: data?.length ?? 0, nonEmpty, samples };

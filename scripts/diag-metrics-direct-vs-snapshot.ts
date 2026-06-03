@@ -12,16 +12,22 @@ import { createClient } from "@supabase/supabase-js";
 import { getCluster4WeeklyCardsForProfileUser } from "@/lib/cluster4WeeklyCardsData";
 import { WEEKLY_CARDS_DTO_VERSION } from "@/lib/cluster4WeeklyCardsSnapshot";
 
-const sb = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !serviceRoleKey) {
+  throw new Error(
+    "Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY",
+  );
+}
+
+const sb = createClient(supabaseUrl, serviceRoleKey);
 
 const SAMPLE_N = Number(process.argv[2] ?? "6");
 
-function pad(s, n) {
-  s = String(s);
-  return s.length >= n ? s : s + " ".repeat(n - s.length);
+function pad(s: unknown, n: number) {
+  const str = String(s);
+  return str.length >= n ? str : str + " ".repeat(n - str.length);
 }
 
 // ── 1. 전수 staleness 스캔 ──
@@ -33,8 +39,8 @@ async function scanStaleness() {
     console.log("스냅샷 스캔 실패:", error.message);
     return [];
   }
-  const rows = data ?? [];
-  const byVer = {};
+  const rows: any[] = data ?? [];
+  const byVer: Record<string, number> = {};
   let staleTrue = 0;
   let verMismatch = 0;
   let epochQueued = 0;
@@ -51,17 +57,17 @@ async function scanStaleness() {
   console.log(`is_stale=true: ${staleTrue}`);
   console.log(`dto_version != ${WEEKLY_CARDS_DTO_VERSION} (버전 stale): ${verMismatch}`);
   console.log(`computed_at=epoch (cron 큐 placeholder): ${epochQueued}`);
-  const staleClass = (r) =>
+  const staleClass = (r: any) =>
     r.dto_version !== WEEKLY_CARDS_DTO_VERSION
       ? "version_mismatch"
       : r.is_stale
         ? "is_stale"
         : "hit";
-  return rows.map((r) => ({ ...r, _class: staleClass(r) }));
+  return rows.map((r: any) => ({ ...r, _class: staleClass(r) }));
 }
 
 // ── 2. 표본 사용자: 라인 타깃이 있는(=카드 비자명) 유저 우선 ──
-async function pickUsers(rows) {
+async function pickUsers(rows: any[]) {
   // 라인 타깃 보유 유저
   const { data: tgts } = await sb
     .from("cluster4_line_targets")
@@ -81,21 +87,21 @@ async function pickUsers(rows) {
     .filter(([u]) => snapUsers.has(u))
     .sort((a, b) => b[1] - a[1])
     .map(([u]) => u);
-  const fallback = rows.map((r) => r.user_id);
+  const fallback = rows.map((r: any) => r.user_id);
   const ordered = [...new Set([...preferred, ...fallback])];
   return ordered.slice(0, SAMPLE_N);
 }
 
-function lineKey(l) {
+function lineKey(l: any) {
   // 같은 라인 칸 매칭용 키. lineTargetId 우선, 없으면 lineId+partType.
   return `${l.partType}|${l.lineTargetId ?? l.lineId ?? "null"}`;
 }
 
-function metricEq(a, b) {
+function metricEq(a: any, b: any) {
   return a === b || (a == null && b == null);
 }
 
-async function fetchStoredCards(userId) {
+async function fetchStoredCards(userId: string): Promise<any[]> {
   const { data } = await sb
     .from("cluster4_weekly_card_snapshots")
     .select("cards")
@@ -104,16 +110,16 @@ async function fetchStoredCards(userId) {
   return Array.isArray(data?.cards) ? data.cards : [];
 }
 
-async function compareUser(userId, snapRow) {
+async function compareUser(userId: string, snapRow: any): Promise<any> {
   const stored = await fetchStoredCards(userId);
-  let direct;
+  let direct: any[];
   try {
-    direct = await getCluster4WeeklyCardsForProfileUser(userId);
+    direct = (await getCluster4WeeklyCardsForProfileUser(userId)) as any[];
   } catch (e) {
-    return { userId, error: e?.message ?? String(e) };
+    return { userId, error: (e as any)?.message ?? String(e) };
   }
-  const storedByWeek = new Map(stored.map((c) => [c.weekId, c]));
-  const directByWeek = new Map(direct.map((c) => [c.weekId, c]));
+  const storedByWeek = new Map<any, any>(stored.map((c: any) => [c.weekId, c]));
+  const directByWeek = new Map<any, any>(direct.map((c: any) => [c.weekId, c]));
   const allWeeks = new Set([...storedByWeek.keys(), ...directByWeek.keys()]);
 
   let weekDiffs = 0;
@@ -144,8 +150,12 @@ async function compareUser(userId, snapRow) {
         );
     }
     // 라인별 numerator/denominator/rate/status/enhancementStatus
-    const sLines = new Map((s.lines ?? []).map((l) => [lineKey(l), l]));
-    const dLines = new Map((d.lines ?? []).map((l) => [lineKey(l), l]));
+    const sLines = new Map<any, any>(
+      (s.lines ?? []).map((l: any) => [lineKey(l), l]),
+    );
+    const dLines = new Map<any, any>(
+      (d.lines ?? []).map((l: any) => [lineKey(l), l]),
+    );
     const keys = new Set([...sLines.keys(), ...dLines.keys()]);
     for (const k of keys) {
       const sl = sLines.get(k);
@@ -255,7 +265,7 @@ async function main() {
     if (!card) continue;
     shown++;
     const lb = card.lineBreakdown ?? {};
-    const fmt = (b) =>
+    const fmt = (b: any) =>
       b ? `${b.completed}/${b.available}` : "없음";
     const sumC =
       (lb.info?.completed ?? 0) +
@@ -283,9 +293,9 @@ async function main() {
     );
     // per-line numerator/denominator/rate 가 허브 분해와 일치하는지(같은 part 라인들)
     for (const part of ["information", "experience", "competency", "career"]) {
-      const lines = (card.lines ?? []).filter((l) => l.partType === part);
+      const lines = (card.lines ?? []).filter((l: any) => l.partType === part);
       if (lines.length === 0) continue;
-      const dline = lines.find((l) => l.denominator != null) ?? lines[0];
+      const dline = lines.find((l: any) => l.denominator != null) ?? lines[0];
       console.log(
         `    [${part}] 칸수=${lines.length} 대표 numerator/denominator/rate=${dline.numerator}/${dline.denominator}/${dline.rate}`,
       );
