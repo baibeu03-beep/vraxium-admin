@@ -90,16 +90,27 @@ type ProfileRow = {
   department_name: string | null;
   profile_photo_url: string | null;
   profile_tagline: string | null;
+  profile_keyword: string | null;
+  vision: string | null;
+  role: string | null;
 };
 
 type MembershipRow = {
   user_id: string;
   team_name: string | null;
   part_name: string | null;
-  membership_state: string | null;
+  membership_level: string | null;
   is_current: boolean | null;
   updated_at: string | null;
 };
+
+// 첫 비어있지 않은(트림 후 길이>0) 문자열을 고른다. profileTagline fallback 체인 등에 사용.
+function preferString(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim() !== "") return value;
+  }
+  return null;
+}
 
 function toNumber(value: unknown): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
@@ -121,11 +132,21 @@ function computeAge(birthDate: string | null): number | null {
   return age >= 0 ? age : null;
 }
 
-// is_current 우선, 그다음 updated_at 최신 (adminCrewData.pickBestMembership 와 동일 규칙).
+// 멤버십 선택 우선순위: is_current → team/part 값 보유 → updated_at 최신.
+//   user_memberships 는 한 사용자에 여러 row 가 존재할 수 있고(이력서 저장 시 find-or-create),
+//   is_current=true 가 한 건도 없는 사용자도 많다. 이때 "최신 updated_at" 만으로 고르면
+//   team_name/part_name 이 비어 있는 빈 row 가 최신이라는 이유로 선택돼, 실제 팀/파트를
+//   보유한 과거 row(예: 이유나 = A&R/일반)를 가려 team/part 가 null 로 내려가는 버그가 있었다.
+//   → is_current 가 동률이면 팀/파트 값을 가진 row 를 먼저 고른다.
+function membershipHasTeamPart(m: MembershipRow): boolean {
+  return Boolean(m.team_name) || Boolean(m.part_name);
+}
 function pickBestMembership(rows: MembershipRow[]): MembershipRow | undefined {
   return [...rows].sort((a, b) => {
     const currentDelta = Number(Boolean(b.is_current)) - Number(Boolean(a.is_current));
     if (currentDelta !== 0) return currentDelta;
+    const teamPartDelta = Number(membershipHasTeamPart(b)) - Number(membershipHasTeamPart(a));
+    if (teamPartDelta !== 0) return teamPartDelta;
     return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
   })[0];
 }
@@ -142,12 +163,12 @@ async function buildPersonProfileMap(
     supabaseAdmin
       .from("user_profiles")
       .select(
-        "user_id,display_name,gender,birth_date,school_name,department_name,profile_photo_url,profile_tagline",
+        "user_id,display_name,gender,birth_date,school_name,department_name,profile_photo_url,profile_tagline,profile_keyword,vision,role",
       )
       .in("user_id", ids),
     supabaseAdmin
       .from("user_memberships")
-      .select("user_id,team_name,part_name,membership_state,is_current,updated_at")
+      .select("user_id,team_name,part_name,membership_level,is_current,updated_at")
       .in("user_id", ids),
   ]);
 
@@ -181,9 +202,13 @@ async function buildPersonProfileMap(
       department: p.department_name ?? null,
       team: m?.team_name ?? null,
       part: m?.part_name ?? null,
-      membershipLevel: m?.membership_state ?? null,
+      // badge-status 의 등급 source. membership_state("active" 등 상태값)가 아닌 등급(level).
+      // 값 없을 때 role 로의 fallback 은 프론트(resolvePersonalInfo)가 수행 — 여기선 raw 등급만.
+      membershipLevel: m?.membership_level ?? null,
+      role: p.role ?? null,
       profileImageUrl: p.profile_photo_url ?? null,
-      profileTagline: p.profile_tagline ?? null,
+      // 한줄소개: profile_tagline 우선 → profile_keyword → vision (첫 비어있지 않은 값).
+      profileTagline: preferString(p.profile_tagline, p.profile_keyword, p.vision),
     });
   }
 

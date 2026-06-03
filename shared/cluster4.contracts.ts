@@ -275,10 +275,16 @@ export type Cluster4StatusIconKey = Cluster4UserWeekStatus;
 //   - school      = user_profiles.school_name
 //   - department  = user_profiles.department_name
 //   - team/part   = user_memberships(is_current 우선).team_name / part_name
-//   - membershipLevel = user_memberships.membership_state (일반/심화 상태값)
+//   - membershipLevel = user_memberships.membership_level (일반/심화 등급값).
+//                       ⚠ membership_state("active"/"weekly_rest" 등 상태값) 아님 — badge-status 는
+//                       등급(level)이어야 하며 status=active 를 멤버십 값처럼 쓰면 안 된다.
+//                       값 없을 때 role 로의 fallback 은 프론트(resolvePersonalInfo)가 수행.
+//   - role        = user_profiles.role (crew/part_leader/agent/team_leader …). badge-status 의
+//                   membership_level 미보유 시 fallback source.
 //   - profileImageUrl = user_profiles.profile_photo_url
-//   - profileTagline  = user_profiles.profile_tagline (한줄 소개 — 희망 기업/직무/진로 목표).
-//                       평판 keyword(평가 태그)와 다른 축. 없으면 null(프론트 "-" fallback).
+//   - profileTagline  = user_profiles.profile_tagline 우선 → 없으면 profile_keyword → 없으면 vision.
+//                       (한줄 소개 — 희망 기업/직무/진로 목표). 평판 keyword(평가 태그)와 다른 축.
+//                       셋 다 없으면 null(프론트 "-" fallback).
 export type Cluster4PersonProfileDto = {
   userId: string;
   name: string | null;
@@ -289,6 +295,7 @@ export type Cluster4PersonProfileDto = {
   team: string | null;
   part: string | null;
   membershipLevel: string | null;
+  role: string | null;
   profileImageUrl: string | null;
   profileTagline: string | null;
 };
