@@ -69,6 +69,9 @@ type Member = {
   role: string | null;
   currentTeamName: string | null;
   currentPartName: string | null;
+  checkPoints: number;
+  advantagePoints: number;
+  penaltyPoints: number;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -87,6 +90,9 @@ function buildColumns(devMode: boolean): { key: MemberSortColumn; label: string 
     { key: "organization_slug", label: "소속" },
     { key: "status", label: "상태" },
     { key: "growth_status", label: "성장" },
+    { key: "check_points", label: "체크" },
+    { key: "advantage_points", label: "어드밴티지" },
+    { key: "penalty_points", label: "패널티" },
     { key: "created_at", label: "가입일" },
     { key: "updated_at", label: "최근 수정" },
   ];
@@ -94,6 +100,11 @@ function buildColumns(devMode: boolean): { key: MemberSortColumn; label: string 
 
 function fmt(value: string | null | undefined) {
   return value?.trim() ? value : "—";
+}
+
+// 포인트는 수치 컬럼이라 빈 값도 0 으로 표기한다(요약 칩과 동일하게 천단위 구분).
+function fmtPoints(value: number | null | undefined) {
+  return (value ?? 0).toLocaleString();
 }
 
 function fmtDate(value: string | null | undefined) {
@@ -491,6 +502,10 @@ export default function MembersList() {
                       values={GROWTH_STATUSES}
                     />
                   </TableCell>
+                  {/* 체크 / 어드밴티지 / 패널티: 필터 없음 */}
+                  <TableCell className="py-2" />
+                  <TableCell className="py-2" />
+                  <TableCell className="py-2" />
                   <TableCell className="py-2" />
                   <TableCell className="py-2" />
                   <TableCell className="py-2" />
@@ -523,6 +538,15 @@ export default function MembersList() {
                       <TableCell>{orgLabel(slug)}</TableCell>
                       <TableCell>{fmt(member.status)}</TableCell>
                       <TableCell>{fmt(member.growthStatus)}</TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">
+                        {fmtPoints(member.checkPoints)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">
+                        {fmtPoints(member.advantagePoints)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-right tabular-nums">
+                        {fmtPoints(member.penaltyPoints)}
+                      </TableCell>
                       <TableCell className="whitespace-nowrap text-xs">
                         {fmtDate(member.createdAt)}
                       </TableCell>

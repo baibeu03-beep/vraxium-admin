@@ -15,6 +15,15 @@ export type AdminMemberDto = {
   // user_memberships(is_current=true) 의 비정규화 값 (읽기 전용 — 트리거가 동기화).
   currentTeamName: string | null;
   currentPartName: string | null;
+  // 전체기간 포인트 집계 = user_weekly_points 직접합산(시즌/주차/타입 무필터).
+  // user_profiles 에는 캐시 컬럼이 없어 listMembers 가 집계해 채운다(읽기 전용).
+  // 이력서 카드의 누적 포인트와 동일한 단일 SoT 합산이며, null 은 0 으로 합산한다.
+  //   checkPoints     = SUM(points)      (이력서 "별")
+  //   advantagePoints = SUM(advantages)
+  //   penaltyPoints   = SUM(penalty)
+  checkPoints: number;
+  advantagePoints: number;
+  penaltyPoints: number;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -44,6 +53,9 @@ export const PART_UNIQUE_ROLES = ["agent", "part_leader"] as const;
 export const TEAM_UNIQUE_ROLES = ["team_leader"] as const;
 
 // 정렬 가능한 컬럼 whitelist. 임의 컬럼명을 그대로 order() 에 넘기지 않는다.
+// check_points / advantage_points / penalty_points 는 user_profiles 컬럼이 아니라
+// user_weekly_points 집계라서 DB .order() 로는 정렬할 수 없다. listMembers 가 이
+// 키들을 별도 경로(전체 집계 후 메모리 정렬)로 처리한다.
 export const MEMBER_SORT_COLUMNS = [
   "display_name",
   "contact_email",
@@ -51,6 +63,9 @@ export const MEMBER_SORT_COLUMNS = [
   "organization_slug",
   "status",
   "growth_status",
+  "check_points",
+  "advantage_points",
+  "penalty_points",
   "created_at",
   "updated_at",
 ] as const;

@@ -201,7 +201,7 @@ async function computeGrowthSummary(
     });
 
   const first = weeks[0];
-  const startWeekDisplay = `${first.year}년, ${first.week_number}주차`;
+  const startWeekDisplay = formatSeasonRelativeWeekDisplay(first, "");
 
   const profileData = input.profile;
 
@@ -213,20 +213,10 @@ async function computeGrowthSummary(
 
   if (endStatus === "completed") {
     const last = weeks[weeks.length - 1];
-    const seasonLabel = last.season_key
-      ? formatSeasonKeyToLabel(last.season_key)
-      : "";
-    endWeekDisplay = seasonLabel
-      ? `${last.year}년, ${seasonLabel}, ${last.week_number}주차(성장 완료)`
-      : `${last.year}년, ${last.week_number}주차(성장 완료)`;
+    endWeekDisplay = formatSeasonRelativeWeekDisplay(last, "(성장 완료)");
   } else if (endStatus === "stopped") {
     const last = weeks[weeks.length - 1];
-    const seasonLabel = last.season_key
-      ? formatSeasonKeyToLabel(last.season_key)
-      : "";
-    endWeekDisplay = seasonLabel
-      ? `${last.year}년, ${seasonLabel}, ${last.week_number}주차(성장 중단)`
-      : `${last.year}년, ${last.week_number}주차(성장 중단)`;
+    endWeekDisplay = formatSeasonRelativeWeekDisplay(last, "(성장 중단)");
   }
 
   return {
@@ -239,6 +229,34 @@ async function computeGrowthSummary(
     endWeekDisplay,
     endStatus,
   };
+}
+
+// 성장 시작/종료 주차 표기 — "현재 클럽 상태 문구"(currentWeekInfo)와 **동일 기준**으로
+// 시즌상대주차를 산정한다: getSeasonForDate(week_start_date) → getWeekInSeason(season, …).
+//   - 화면 표기: "{시즌 연도}년, {시즌명} 시즌, {시즌상대주차}주차{suffix}"
+//   - user_week_statuses.week_number(ISO 원본)는 내부 보존되며, 화면 display 만 시즌상대주차로 내려간다.
+//   - week_start_date 없음 또는 달력 갭(시즌 판별 불가) → 기존 ISO 표기로 안전 폴백.
+function formatSeasonRelativeWeekDisplay(
+  row: {
+    year: number;
+    week_number: number;
+    week_start_date: string | null;
+    season_key: string | null;
+  },
+  suffix: string,
+): string {
+  const startIso = row.week_start_date;
+  const season = startIso ? getSeasonForDate(startIso) : null;
+  if (season && startIso) {
+    // currentWeekInfo.weekNumber 와 동일 산정식(시즌 시작일 기준 7일 블록).
+    const { weekNumber } = getWeekInSeason(season, startIso);
+    return `${season.year}년, ${season.type} 시즌, ${weekNumber}주차${suffix}`;
+  }
+  // 폴백: season_key 라벨 + ISO 주차(시즌 판별 불가 시에만).
+  const label = row.season_key ? formatSeasonKeyToLabel(row.season_key) : "";
+  return label
+    ? `${row.year}년, ${label}, ${row.week_number}주차${suffix}`
+    : `${row.year}년, ${row.week_number}주차${suffix}`;
 }
 
 function formatSeasonKeyToLabel(key: string): string {
@@ -1033,7 +1051,7 @@ async function computeSeasonActivityStatuses(
           .eq("user_id", userId),
         supabaseAdmin
           .from("user_profiles")
-          .select("role")
+          .select("role,current_team_name,current_part_name")
           .eq("user_id", userId)
           .maybeSingle(),
       ]);
@@ -1066,19 +1084,42 @@ async function computeSeasonActivityStatuses(
       is_current: boolean | null;
       updated_at: string | null;
     };
+    // 고객앱과 동일한 membership 선택 resolver(team_name 보유 행 우선) — adminCrewData.pickBestMembership
+    // 와 동일 규칙. is_current=true 라도 team_name 이 NULL 이면 team_name 보유 행을 우선해 팀/파트가
+    // 비지 않게 한다(area-8 상태 이력의 fallback 단일 항목에도 동일 적용).
+    const memRank = (r: MemRow): number => {
+      const cur = Boolean(r.is_current);
+      const team = typeof r.team_name === "string" && r.team_name.trim() !== "";
+      if (cur && team) return 0;
+      if (team) return 1;
+      if (cur) return 2;
+      return 3;
+    };
     const memberships = ((membershipRes.data ?? []) as MemRow[]).slice().sort(
       (a, b) => {
-        const cur = Number(Boolean(b.is_current)) - Number(Boolean(a.is_current));
-        if (cur !== 0) return cur;
+        const rankDelta = memRank(a) - memRank(b);
+        if (rankDelta !== 0) return rankDelta;
         return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
       },
     );
     const currentMembership = memberships[0] ?? null;
+    const profileRow =
+      (profileRes.data as {
+        role: string | null;
+        current_team_name: string | null;
+        current_part_name: string | null;
+      } | null) ?? null;
     const currentLevel = currentMembership?.membership_level ?? null;
-    const currentTeamName = currentMembership?.team_name ?? null;
-    const currentPartName = currentMembership?.part_name ?? null;
-    const currentRole =
-      (profileRes.data as { role: string | null } | null)?.role ?? null;
+    // 고객앱 resolver 규칙 5: membership 행에 team/part 가 없으면 profile 의 current_* 로 폴백.
+    const currentTeamName = firstNonEmpty(
+      currentMembership?.team_name,
+      profileRow?.current_team_name,
+    );
+    const currentPartName = firstNonEmpty(
+      currentMembership?.part_name,
+      profileRow?.current_part_name,
+    );
+    const currentRole = profileRow?.role ?? null;
 
     // 윈도 시작 시점에 활성인 role (started_at <= winStart < ended_at). 최신 started_at 우선.
     const resolveRoleForWindow = (winStart: string | null): string | null => {

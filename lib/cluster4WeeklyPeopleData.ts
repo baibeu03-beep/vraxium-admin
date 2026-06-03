@@ -93,6 +93,9 @@ type ProfileRow = {
   profile_keyword: string | null;
   vision: string | null;
   role: string | null;
+  // membership 행에 team/part 가 전혀 없을 때의 최종 폴백(고객앱 resolver 규칙 5).
+  current_team_name: string | null;
+  current_part_name: string | null;
 };
 
 type MembershipRow = {
@@ -132,21 +135,31 @@ function computeAge(birthDate: string | null): number | null {
   return age >= 0 ? age : null;
 }
 
-// 멤버십 선택 우선순위: is_current → team/part 값 보유 → updated_at 최신.
+// 고객앱과 동일한 membership 선택 resolver (adminCrewData.pickBestMembership 와 동일 규칙).
 //   user_memberships 는 한 사용자에 여러 row 가 존재할 수 있고(이력서 저장 시 find-or-create),
-//   is_current=true 가 한 건도 없는 사용자도 많다. 이때 "최신 updated_at" 만으로 고르면
-//   team_name/part_name 이 비어 있는 빈 row 가 최신이라는 이유로 선택돼, 실제 팀/파트를
-//   보유한 과거 row(예: 이유나 = A&R/일반)를 가려 team/part 가 null 로 내려가는 버그가 있었다.
-//   → is_current 가 동률이면 팀/파트 값을 가진 row 를 먼저 고른다.
-function membershipHasTeamPart(m: MembershipRow): boolean {
-  return Boolean(m.team_name) || Boolean(m.part_name);
+//   is_current=true 가 한 건도 없거나, 반대로 is_current=true 인데 team_name 이 NULL 인
+//   사용자도 있다. is_current 만 먼저 보면 후자에서 빈 team 행이 뽑혀 실제 팀/파트(예: 이유나
+//   = A&R/일반)를 가려 null 로 내려간다. 그래서 "team_name 보유 여부"를 is_current 보다 우선한다.
+//   우선순위 (작을수록 우선):
+//     0) is_current=true && team_name 존재
+//     1) team_name 존재
+//     2) is_current=true
+//     3) 그 외(첫 행)
+//   같은 등급 안에서는 updated_at 최신 우선.
+// (어떤 행도 team_name 이 없으면 user_profiles.current_team_name/current_part_name 으로 폴백 —
+//  규칙 5. buildPersonProfileMap 에서 처리.)
+function membershipRank(m: MembershipRow): number {
+  const isCurrent = Boolean(m.is_current);
+  const hasTeam = typeof m.team_name === "string" && m.team_name.trim() !== "";
+  if (isCurrent && hasTeam) return 0;
+  if (hasTeam) return 1;
+  if (isCurrent) return 2;
+  return 3;
 }
 function pickBestMembership(rows: MembershipRow[]): MembershipRow | undefined {
   return [...rows].sort((a, b) => {
-    const currentDelta = Number(Boolean(b.is_current)) - Number(Boolean(a.is_current));
-    if (currentDelta !== 0) return currentDelta;
-    const teamPartDelta = Number(membershipHasTeamPart(b)) - Number(membershipHasTeamPart(a));
-    if (teamPartDelta !== 0) return teamPartDelta;
+    const rankDelta = membershipRank(a) - membershipRank(b);
+    if (rankDelta !== 0) return rankDelta;
     return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
   })[0];
 }
@@ -163,7 +176,7 @@ async function buildPersonProfileMap(
     supabaseAdmin
       .from("user_profiles")
       .select(
-        "user_id,display_name,gender,birth_date,school_name,department_name,profile_photo_url,profile_tagline,profile_keyword,vision,role",
+        "user_id,display_name,gender,birth_date,school_name,department_name,profile_photo_url,profile_tagline,profile_keyword,vision,role,current_team_name,current_part_name",
       )
       .in("user_id", ids),
     supabaseAdmin
@@ -200,8 +213,8 @@ async function buildPersonProfileMap(
       age: computeAge(p.birth_date ?? null),
       school: p.school_name ?? null,
       department: p.department_name ?? null,
-      team: m?.team_name ?? null,
-      part: m?.part_name ?? null,
+      team: preferString(m?.team_name, p.current_team_name),
+      part: preferString(m?.part_name, p.current_part_name),
       // badge-status 의 등급 source. membership_state("active" 등 상태값)가 아닌 등급(level).
       // 값 없을 때 role 로의 fallback 은 프론트(resolvePersonalInfo)가 수행 — 여기선 raw 등급만.
       membershipLevel: m?.membership_level ?? null,

@@ -204,6 +204,22 @@ const SEASON_LABEL_MAP: Record<string, string> = {
   winter: "겨울 시즌",
 };
 
+// KST(UTC+9) 기준 오늘 날짜 문자열 "YYYY-MM-DD". 시즌 검수 경계는 날짜 단위라
+// 서버 타임존(UTC)·시각(00:00 등)에 흔들리지 않도록 KST 달력일로 환산해 비교한다.
+function kstDateString(d: Date): string {
+  return new Date(d.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
+}
+
+// "YYYY-MM-DD" + n일 → "YYYY-MM-DD". UTC 자정 기준 달력일 가산(시/분/타임존 무관).
+function addCalendarDays(dateStr: string, days: number): string {
+  const ms = Date.UTC(
+    +dateStr.slice(0, 4),
+    +dateStr.slice(5, 7) - 1,
+    +dateStr.slice(8, 10),
+  );
+  return new Date(ms + days * 86_400_000).toISOString().slice(0, 10);
+}
+
 async function computeSeasonRecords(
   userId: string,
 ): Promise<SeasonRecord[]> {
@@ -267,13 +283,9 @@ async function computeSeasonRecords(
       (w) => w.status === "success",
     ).length;
 
-    const endDate = new Date(season.end_date);
     const now = new Date();
-    const twoWeeksAfterEnd = new Date(endDate);
-    twoWeeksAfterEnd.setDate(twoWeeksAfterEnd.getDate() + 14);
-
-    const isOngoing = now <= endDate;
-    const isReviewPeriod = now > endDate && now <= twoWeeksAfterEnd;
+    // progressStatus "진행 중" 판정은 기존 동작 보존(시즌 종료일 timestamp 기준).
+    const isOngoing = now <= new Date(season.end_date);
 
     let progressStatus: SeasonRecord["progressStatus"];
     const hasRest = seasonWeeks.some((w) => w.status === "personal_rest");
@@ -291,8 +303,15 @@ async function computeSeasonRecords(
         : "정상 완료";
     }
 
+    // 시즌 검수 상태 — KST date-only 경계(UTC timestamp 비교 금지).
+    //   시작 후 ~ 종료 후 14일째(포함)까지 "검수 중", 15일째부터 "승인 완료".
+    //   end_date(KST 달력일) + 14일을 포함 상한으로 두고 오늘(KST) 날짜와 비교한다.
+    //   end_date 를 new Date 로 UTC 자정 비교하면 14일째 00:00 직후 승인 완료로
+    //   빠지는 off-by-one 이 생기므로 날짜 문자열 비교로 처리한다.
+    const todayKst = kstDateString(now);
+    const reviewCutoff = addCalendarDays(season.end_date.slice(0, 10), 14);
     const reviewStatus: SeasonRecord["reviewStatus"] =
-      isOngoing || isReviewPeriod ? "검수 중" : "승인 완료";
+      todayKst <= reviewCutoff ? "검수 중" : "승인 완료";
 
     const yearStr = season.season_key.slice(2, 4);
     const seasonName =

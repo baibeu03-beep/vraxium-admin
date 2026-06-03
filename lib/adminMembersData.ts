@@ -66,7 +66,20 @@ type MemberRow = {
   updated_at: string | null;
 };
 
-function toDto(row: MemberRow): AdminMemberDto {
+// 전체기간 포인트 집계 단위. null 은 0 으로 합산.
+type PointAggregate = {
+  checkPoints: number; // SUM(points)
+  advantagePoints: number; // SUM(advantages)
+  penaltyPoints: number; // SUM(penalty)
+};
+
+const ZERO_POINTS: PointAggregate = {
+  checkPoints: 0,
+  advantagePoints: 0,
+  penaltyPoints: 0,
+};
+
+function toDto(row: MemberRow, points: PointAggregate = ZERO_POINTS): AdminMemberDto {
   return {
     userId: row.user_id,
     displayName: row.display_name,
@@ -79,9 +92,101 @@ function toDto(row: MemberRow): AdminMemberDto {
     role: row.role,
     currentTeamName: row.current_team_name,
     currentPartName: row.current_part_name,
+    checkPoints: points.checkPoints,
+    advantagePoints: points.advantagePoints,
+    penaltyPoints: points.penaltyPoints,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+// 집계 정렬 컬럼 → PointAggregate 필드 매핑. 이 키로 정렬 요청이 오면 DB order
+// 대신 전체 집계 후 메모리 정렬 경로로 처리한다.
+const POINTS_SORT_FIELDS: Partial<
+  Record<MemberSortColumn, keyof PointAggregate>
+> = {
+  check_points: "checkPoints",
+  advantage_points: "advantagePoints",
+  penalty_points: "penaltyPoints",
+};
+
+// 주어진 user_id 들의 전체기간 포인트 집계 = SUM(points/advantages/penalty).
+// 단일 SoT 직접합산(시즌/주차/point_type 무필터) — 이력서 카드와 동일 기준.
+// PostgREST 기본 1000행 제한이 있어 .range() 로 페이지네이션하고, 거대한 IN()
+// URL 을 피하려고 user_id 리스트도 청크로 나눠 조회한다. 누락분은 0(미참여) 처리.
+async function sumPointsForUsers(
+  userIds: string[],
+): Promise<Map<string, PointAggregate>> {
+  const sums = new Map<string, PointAggregate>();
+  if (userIds.length === 0) return sums;
+
+  const ID_CHUNK = 100; // IN() URL 길이 방어
+  const ROW_PAGE = 1000; // PostgREST max-rows 방어
+
+  for (let i = 0; i < userIds.length; i += ID_CHUNK) {
+    const idChunk = userIds.slice(i, i + ID_CHUNK);
+    let from = 0;
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data, error } = await supabaseAdmin
+        .from("user_weekly_points")
+        .select("user_id,points,advantages,penalty")
+        .in("user_id", idChunk)
+        .order("user_id", { ascending: true })
+        .range(from, from + ROW_PAGE - 1);
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []) as Array<{
+        user_id: string;
+        points: number | null;
+        advantages: number | null;
+        penalty: number | null;
+      }>;
+      for (const r of rows) {
+        const acc = sums.get(r.user_id) ?? {
+          checkPoints: 0,
+          advantagePoints: 0,
+          penaltyPoints: 0,
+        };
+        acc.checkPoints += r.points ?? 0;
+        acc.advantagePoints += r.advantages ?? 0;
+        acc.penaltyPoints += r.penalty ?? 0;
+        sums.set(r.user_id, acc);
+      }
+      if (rows.length < ROW_PAGE) break;
+      from += ROW_PAGE;
+    }
+  }
+  return sums;
+}
+
+// 현재 필터 조건에 맞는 전체 user_id 를 (페이지네이션 없이) 모은다.
+// 포인트 집계 정렬은 user_weekly_points 합산이라 DB order 로 풀 수 없어, 전체
+// 대상 id 를 모아 메모리에서 정렬·슬라이스한다. select 가 user_id 1컬럼이라
+// 가벼우며, 카운트/필터 의미는 기존 목록 쿼리와 동일하게 applyFilters 로 맞춘다.
+async function fetchAllMatchingUserIds(
+  options: ListMembersOptions,
+): Promise<string[]> {
+  const ids: string[] = [];
+  const ROW_PAGE = 1000;
+  let from = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let builder = supabaseAdmin.from("user_profiles").select("user_id");
+    builder = applyFilters(builder, options, {
+      applyOrganization: true,
+      applyAuthEmailPresence: true,
+      applyContactEmailPresence: true,
+    });
+    const { data, error } = await builder
+      .order("user_id", { ascending: true })
+      .range(from, from + ROW_PAGE - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as Array<{ user_id: string }>;
+    for (const r of rows) ids.push(r.user_id);
+    if (rows.length < ROW_PAGE) break;
+    from += ROW_PAGE;
+  }
+  return ids;
 }
 
 function escapeForIlike(value: string) {
@@ -173,23 +278,69 @@ export async function listMembers(
   const sortBy: MemberSortColumn = options.sortBy ?? "created_at";
   const sortDir: MemberSortDir = options.sortDir ?? "desc";
 
-  let queryBuilder = supabaseAdmin
-    .from("user_profiles")
-    .select(MEMBER_SELECT, { count: "exact" });
+  let members: AdminMemberDto[];
+  let total: number;
 
-  queryBuilder = applyFilters(queryBuilder, options, {
-    applyOrganization: true,
-    applyAuthEmailPresence: true,
-    applyContactEmailPresence: true,
-  });
+  const pointsSortField = POINTS_SORT_FIELDS[sortBy];
 
-  queryBuilder = queryBuilder
-    .order(sortBy, { ascending: sortDir === "asc", nullsFirst: false })
-    .order("user_id", { ascending: true })
-    .range(offset, offset + limit - 1);
+  if (pointsSortField) {
+    // 포인트 집계 정렬: user_weekly_points 집계라 DB order 불가.
+    // 전체 대상 id → 포인트 합 → 메모리 정렬 → 페이지 슬라이스 순으로 처리한다.
+    const allIds = await fetchAllMatchingUserIds(options);
+    total = allIds.length;
+    const sums = await sumPointsForUsers(allIds);
+    const sorted = [...allIds].sort((a, b) => {
+      const pa = sums.get(a)?.[pointsSortField] ?? 0;
+      const pb = sums.get(b)?.[pointsSortField] ?? 0;
+      if (pa !== pb) return sortDir === "asc" ? pa - pb : pb - pa;
+      return a.localeCompare(b); // 동점은 user_id 로 안정 정렬
+    });
+    const pageIds = sorted.slice(offset, offset + limit);
 
-  const { data, error, count } = await queryBuilder;
-  if (error) throw new Error(error.message);
+    if (pageIds.length === 0) {
+      members = [];
+    } else {
+      const { data, error } = await supabaseAdmin
+        .from("user_profiles")
+        .select(MEMBER_SELECT)
+        .in("user_id", pageIds);
+      if (error) throw new Error(error.message);
+      const byId = new Map<string, MemberRow>();
+      for (const row of (data ?? []) as unknown as MemberRow[]) {
+        byId.set(row.user_id, row);
+      }
+      // pageIds 정렬 순서를 보존하며 DTO 로 매핑.
+      members = pageIds
+        .map((id) => {
+          const row = byId.get(id);
+          return row ? toDto(row, sums.get(id) ?? ZERO_POINTS) : null;
+        })
+        .filter((m): m is AdminMemberDto => m !== null);
+    }
+  } else {
+    let queryBuilder = supabaseAdmin
+      .from("user_profiles")
+      .select(MEMBER_SELECT, { count: "exact" });
+
+    queryBuilder = applyFilters(queryBuilder, options, {
+      applyOrganization: true,
+      applyAuthEmailPresence: true,
+      applyContactEmailPresence: true,
+    });
+
+    queryBuilder = queryBuilder
+      .order(sortBy, { ascending: sortDir === "asc", nullsFirst: false })
+      .order("user_id", { ascending: true })
+      .range(offset, offset + limit - 1);
+
+    const { data, error, count } = await queryBuilder;
+    if (error) throw new Error(error.message);
+
+    const rows = (data ?? []) as unknown as MemberRow[];
+    const sums = await sumPointsForUsers(rows.map((r) => r.user_id));
+    members = rows.map((r) => toDto(r, sums.get(r.user_id) ?? ZERO_POINTS));
+    total = count ?? 0;
+  }
 
   // 요약 카운트 — 각 카운트는 해당 컬럼 필터를 제외한 동일 검색 조건으로 집계한다.
   // 운영자가 "지금 조건에서 소속 없음 N명" 처럼 안내받기 위함.
@@ -222,8 +373,8 @@ export async function listMembers(
   if (withoutAuthResult.error) throw new Error(withoutAuthResult.error.message);
 
   return {
-    members: ((data ?? []) as unknown as MemberRow[]).map(toDto),
-    total: count ?? 0,
+    members,
+    total,
     withoutOrganizationCount: withoutOrgResult.count ?? 0,
     withoutAuthEmailCount: withoutAuthResult.count ?? 0,
     limit,
@@ -422,7 +573,13 @@ export async function updateMember(
     throw new MemberPatchError(500, error?.message ?? "Failed to update user_profile");
   }
 
-  const dto = toDto(data as unknown as MemberRow);
+  // PATCH 는 포인트를 바꾸지 않지만, 응답 DTO 가 포인트 집계를 항상 정확히
+  // 담도록 단일 사용자 합을 채운다(목록 row 와 동일 의미 유지).
+  const pointSums = await sumPointsForUsers([userId]);
+  const dto = toDto(
+    data as unknown as MemberRow,
+    pointSums.get(userId) ?? ZERO_POINTS,
+  );
 
   // 역할이 실제로 바뀐 경우만 감사 로그 (best-effort — 실패해도 저장은 성공 처리).
   if (patch.role !== undefined && actorId && dto.role !== oldRole) {

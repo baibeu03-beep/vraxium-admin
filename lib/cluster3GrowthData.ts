@@ -46,17 +46,65 @@ type WeekStatusRow = {
   is_official_rest_override?: boolean;
 };
 
-// user_cumulative_points 실제 컬럼명에 맞춘다.
-//   total_checks   → 별(star)/성장 점수 총합
-//   total_advantages → 방패(shield) = net advantages (= raw - penalties)
-//   total_penalties  → 번개(lightning)/penalty 총합
-// (과거 total_stars/total_shields/total_lightnings 로 SELECT 하여 컬럼 부재로 500 발생 → 정정)
+// PointRow = 전기간 누적 포인트 (별/방패/번개).
+//   total_checks         → 별(star)/성장 점수 총합  = Σ user_weekly_points.points
+//   total_raw_advantages → 방패 raw                 = Σ user_weekly_points.advantages
+//   total_penalties      → 번개(lightning)/penalty  = Σ user_weekly_points.penalty
+//   total_advantages     → 방패 net (= raw - |penalty|)
+// SoT = user_weekly_points 직접합산.
+//   과거: user_cumulative_points 캐시 read. 그러나 누적 동기화 트리거
+//   (2026-05-28_cumulative_points_auto_sync.sql)는 컬럼명 불일치(total_stars 부재)로
+//   이 DB 에 미적용 → weekly write 후 캐시 stale 위험. 이력서 카드와 동일하게 원천 직접합산.
 type PointRow = {
   total_checks: number | null;
   total_advantages: number | null;
   total_penalties: number | null;
   total_raw_advantages: number | null;
 };
+
+// user_weekly_points 전체기간 직접합산 → PointRow per user (season/week 무필터).
+// 행이 없는 유저는 Map 에 부재 → 호출부에서 null 처리(기존 캐시-미존재 시멘틱과 동일).
+async function sumWeeklyPointsByUser(
+  userIds: string[],
+): Promise<Map<string, PointRow>> {
+  if (userIds.length === 0) return new Map();
+  const acc = new Map<string, { star: number; adv: number; pen: number }>();
+  const page = 1000;
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabaseAdmin
+      .from("user_weekly_points")
+      .select("user_id,points,advantages,penalty")
+      .in("user_id", userIds)
+      .range(from, from + page - 1);
+    if (error) throw new GrowthError(500, error.message);
+    const batch = (data ?? []) as Array<{
+      user_id: string;
+      points: number | null;
+      advantages: number | null;
+      penalty: number | null;
+    }>;
+    for (const r of batch) {
+      const cur = acc.get(r.user_id) ?? { star: 0, adv: 0, pen: 0 };
+      cur.star += r.points ?? 0;
+      cur.adv += r.advantages ?? 0;
+      cur.pen += r.penalty ?? 0;
+      acc.set(r.user_id, cur);
+    }
+    if (batch.length < page) break;
+    from += page;
+  }
+  const out = new Map<string, PointRow>();
+  for (const [uid, s] of acc) {
+    out.set(uid, {
+      total_checks: s.star,
+      total_raw_advantages: s.adv,
+      total_penalties: s.pen,
+      total_advantages: s.adv - Math.abs(s.pen), // net (integrity 항상 OK)
+    });
+  }
+  return out;
+}
 
 type SeasonStatusRow = { user_id?: string; status: string };
 
@@ -360,7 +408,7 @@ export async function getGrowthIndicatorsBatch(
 export async function getGrowthIndicatorsInternal(
   userId: string,
 ): Promise<GrowthIndicatorsInternal> {
-  const [profileRes, weekRes, pointRes, seasonRes, currentWeekStatus, resolvedCards] =
+  const [profileRes, weekRes, pointMap, seasonRes, currentWeekStatus, resolvedCards] =
     await Promise.all([
       supabaseAdmin
         .from("user_profiles")
@@ -371,11 +419,8 @@ export async function getGrowthIndicatorsInternal(
         .from("user_week_statuses")
         .select("status,week_start_date,is_official_rest_override")
         .eq("user_id", userId),
-      supabaseAdmin
-        .from("user_cumulative_points")
-        .select("total_checks,total_advantages,total_penalties,total_raw_advantages")
-        .eq("user_id", userId)
-        .maybeSingle(),
+      // 누적 포인트 = user_weekly_points 전기간 직접합산 (캐시 의존 제거).
+      sumWeeklyPointsByUser([userId]),
       supabaseAdmin
         .from("user_season_statuses")
         .select("status")
@@ -387,7 +432,6 @@ export async function getGrowthIndicatorsInternal(
 
   if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
   if (weekRes.error) throw new GrowthError(500, weekRes.error.message);
-  if (pointRes.error) throw new GrowthError(500, pointRes.error.message);
   if (seasonRes.error) throw new GrowthError(500, seasonRes.error.message);
 
   const profile = (profileRes.data ?? null) as ProfileRow | null;
@@ -416,7 +460,7 @@ export async function getGrowthIndicatorsInternal(
     profile,
     weekRows,
     resolvedCards.cards,
-    (pointRes.data ?? null) as PointRow | null,
+    pointMap.get(userId) ?? null,
     currentWeekStatus,
     seasonRows,
   );
@@ -427,7 +471,7 @@ export async function getGrowthIndicatorsBatchInternal(
 ): Promise<GrowthIndicatorsInternal[]> {
   if (userIds.length === 0) return [];
 
-  const [profileRes, weekRes, pointRes, seasonRes, currentWeekMap] = await Promise.all([
+  const [profileRes, weekRes, pointsByUser, seasonRes, currentWeekMap] = await Promise.all([
     supabaseAdmin
       .from("user_profiles")
       .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
@@ -436,10 +480,8 @@ export async function getGrowthIndicatorsBatchInternal(
       .from("user_week_statuses")
       .select("user_id,status,week_start_date,is_official_rest_override")
       .in("user_id", userIds),
-    supabaseAdmin
-      .from("user_cumulative_points")
-      .select("user_id,total_checks,total_advantages,total_penalties,total_raw_advantages")
-      .in("user_id", userIds),
+    // 누적 포인트 = user_weekly_points 전기간 직접합산 per user (캐시 의존 제거).
+    sumWeeklyPointsByUser(userIds),
     supabaseAdmin
       .from("user_season_statuses")
       .select("user_id,status")
@@ -449,12 +491,10 @@ export async function getGrowthIndicatorsBatchInternal(
 
   if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
   if (weekRes.error) throw new GrowthError(500, weekRes.error.message);
-  if (pointRes.error) throw new GrowthError(500, pointRes.error.message);
   if (seasonRes.error) throw new GrowthError(500, seasonRes.error.message);
 
   const profiles = (profileRes.data ?? []) as ProfileRow[];
   const allWeeks = (weekRes.data ?? []) as (WeekStatusRow & { user_id: string })[];
-  const allPoints = (pointRes.data ?? []) as (PointRow & { user_id: string })[];
   const allSeasons = (seasonRes.data ?? []) as (SeasonStatusRow & { user_id: string })[];
 
   const weeksByUser = new Map<string, WeekStatusRow[]>();
@@ -462,11 +502,6 @@ export async function getGrowthIndicatorsBatchInternal(
     const list = weeksByUser.get(row.user_id) ?? [];
     list.push(row);
     weeksByUser.set(row.user_id, list);
-  }
-
-  const pointsByUser = new Map<string, PointRow>();
-  for (const row of allPoints) {
-    pointsByUser.set(row.user_id, row);
   }
 
   const seasonsByUser = new Map<string, SeasonStatusRow[]>();

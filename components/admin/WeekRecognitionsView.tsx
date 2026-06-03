@@ -115,20 +115,55 @@ function StatusBadge({ row }: { row: WeekRecognitionRow }) {
   );
 }
 
-function PublishBadge({ at }: { at: string | null }) {
-  if (at) {
-    return (
-      <span
-        className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700"
-        title={`공표 완료 · ${formatDateTime(at)}`}
-      >
-        공표 완료
-      </span>
-    );
-  }
+// 운영자 관점 주차 결과 확정 상태(KST date-only):
+//   확정 완료 = result_published_at 있음 (고객 카드 성공/실패로 전환된 상태)
+//   집계 중   = 미확정 + 종료 주차(오늘 KST > 종료일) — 결과 확정 가능 대상
+//   진행 중   = 미확정 + 아직 진행/예정(오늘 KST ≤ 종료일)
+// 주차 성공/실패 자체는 여기서 계산하지 않는다(기존 publishWeekResult / snapshot 로직 담당).
+type ConfirmStatus = "진행 중" | "집계 중" | "확정 완료";
+
+function kstToday(): string {
+  return new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+}
+
+function confirmStatusOf(
+  endDate: string | null,
+  publishedAt: string | null,
+): ConfirmStatus {
+  if (publishedAt) return "확정 완료";
+  if (endDate && kstToday() > endDate.slice(0, 10)) return "집계 중";
+  return "진행 중";
+}
+
+function ConfirmStatusBadge({
+  endDate,
+  at,
+}: {
+  endDate: string | null;
+  at: string | null;
+}) {
+  const status = confirmStatusOf(endDate, at);
+  const cls =
+    status === "확정 완료"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : status === "집계 중"
+        ? "border-amber-200 bg-amber-50 text-amber-700"
+        : "border-slate-200 bg-slate-100 text-slate-600";
+  const title =
+    status === "확정 완료" && at
+      ? `확정 완료 · ${formatDateTime(at)}`
+      : status === "집계 중"
+        ? "집계 중 — 결과 확정 전"
+        : "진행 중";
   return (
-    <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-      미공표
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+        cls,
+      )}
+      title={title}
+    >
+      {status}
     </span>
   );
 }
@@ -263,7 +298,7 @@ export default function WeekRecognitionsView() {
     setPublishTarget(null);
     setBanner({
       kind: "success",
-      message: `${label} 결과를 공표했습니다. 고객 페이지에서 이 주차 카드가 성공/실패 상태로 전환됩니다.`,
+      message: `${label} 결과를 확정했습니다. 고객 페이지에서 이 주차 카드가 성공/실패 상태로 전환됩니다.`,
     });
     setRefreshTick((n) => n + 1);
   }, []);
@@ -273,7 +308,7 @@ export default function WeekRecognitionsView() {
   const rows = data?.rows ?? [];
   const summary = data?.summary;
 
-  // 단일 주차가 선택됐을 때만 그 주차의 공표 상태/액션 패널을 노출한다.
+  // 단일 주차가 선택됐을 때만 그 주차의 결과 확정 상태/액션 패널을 노출한다.
   const selectedWeek = useMemo(
     () =>
       weekId === ALL
@@ -418,31 +453,46 @@ export default function WeekRecognitionsView() {
             </div>
           </div>
 
-          {/* 주차 공표: 단일 주차 선택 시에만 노출 */}
-          {selectedWeek && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 px-4 py-3">
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">
-                    {selectedWeek.week_label} 결과 공표
-                  </span>
-                  <PublishBadge at={selectedWeek.result_published_at} />
+          {/* 주차 결과 확정: 단일 주차 선택 시에만 노출 */}
+          {selectedWeek &&
+            (() => {
+              const confirmStatus = confirmStatusOf(
+                selectedWeek.week_end_date,
+                selectedWeek.result_published_at,
+              );
+              const confirmed = confirmStatus === "확정 완료";
+              // 결과 확정은 "집계 중"(종료·미확정) 주차에서만 가능. 진행 중/확정 완료는 비활성.
+              const canConfirm = confirmStatus === "집계 중";
+              return (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 px-4 py-3">
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">
+                        {selectedWeek.week_label} 결과 확정
+                      </span>
+                      <ConfirmStatusBadge
+                        endDate={selectedWeek.week_end_date}
+                        at={selectedWeek.result_published_at}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {confirmed
+                        ? `확정 완료 · ${formatDateTime(selectedWeek.result_published_at)}`
+                        : confirmStatus === "집계 중"
+                          ? '집계 중 — 결과 확정 전. 고객 페이지에서 이 주차는 "성장(집계 중)"으로 표시됩니다.'
+                          : "진행 중 — 주차 종료 후 결과를 확정할 수 있습니다."}
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => setPublishTarget(selectedWeek)}
+                    disabled={!canConfirm}
+                  >
+                    {confirmed ? "확정 완료" : "이 주차 결과 확정"}
+                  </Button>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {selectedWeek.result_published_at
-                    ? `공표 완료 · ${formatDateTime(selectedWeek.result_published_at)}`
-                    : '미공표 — 고객 페이지에서 이 주차는 "성장(집계 중)"으로 표시됩니다.'}
-                </span>
-              </div>
-              <Button
-                type="button"
-                onClick={() => setPublishTarget(selectedWeek)}
-                disabled={Boolean(selectedWeek.result_published_at)}
-              >
-                {selectedWeek.result_published_at ? "공표 완료" : "이 주차 공표"}
-              </Button>
-            </div>
-          )}
+              );
+            })()}
 
           <div className="overflow-hidden rounded-lg border">
             <Table>
@@ -454,7 +504,7 @@ export default function WeekRecognitionsView() {
                   <TableHead>주차</TableHead>
                   <TableHead>기간</TableHead>
                   <TableHead>상태</TableHead>
-                  <TableHead>공표</TableHead>
+                  <TableHead>확정</TableHead>
                   <TableHead>공식 휴식 인정</TableHead>
                   <TableHead>메모</TableHead>
                   <TableHead>수정일</TableHead>
@@ -485,7 +535,10 @@ export default function WeekRecognitionsView() {
                       <StatusBadge row={row} />
                     </TableCell>
                     <TableCell>
-                      <PublishBadge at={row.week_result_published_at} />
+                      <ConfirmStatusBadge
+                        endDate={row.week_end_date}
+                        at={row.week_result_published_at}
+                      />
                     </TableCell>
                     <TableCell>
                       {row.is_official_rest_override ? (
@@ -604,12 +657,12 @@ function PublishWeekModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="주차 결과 공표"
+        aria-label="주차 결과 확정"
         className="w-full max-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold">주차 결과 공표</h2>
+          <h2 className="text-base font-semibold">주차 결과 확정</h2>
           <button
             type="button"
             onClick={onClose}
@@ -635,9 +688,9 @@ function PublishWeekModal({
         )}
 
         <p className="text-sm text-muted-foreground">
-          이 주차 결과를 공표하면 고객 페이지에서 해당 주차 카드가
+          이 주차 결과를 확정하면 고객 페이지에서 해당 주차 카드가
           {' "성장(집계 중)"에서 사용자별 성공/실패 상태로 전환됩니다. '}
-          사용자별 인정 상태(성공/실패/휴식) 자체는 변경되지 않으며, 공표는 취소할 수
+          사용자별 인정 상태(성공/실패/휴식) 자체는 변경되지 않으며, 결과 확정은 취소할 수
           없습니다.
         </p>
 
@@ -646,7 +699,7 @@ function PublishWeekModal({
             취소
           </Button>
           <Button type="button" onClick={submit} disabled={saving}>
-            {saving ? "공표 중..." : "공표"}
+            {saving ? "확정 중..." : "결과 확정"}
           </Button>
         </div>
       </div>

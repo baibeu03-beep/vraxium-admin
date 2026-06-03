@@ -240,14 +240,16 @@ export async function getResumeCardForCrew(
       .eq("user_id", userId)
       .limit(1)
       .maybeSingle(),
+    // 포인트 단일 SoT = user_weekly_points (전체기간·전 point_type 직접합산).
+    //   과거: user_cumulative_points 캐시 read. 그러나 누적 동기화 트리거
+    //   (2026-05-28_cumulative_points_auto_sync.sql)는 컬럼명 불일치
+    //   (total_stars 부재)로 이 DB 에 미적용 → 캐시가 weekly write 후 stale 될
+    //   위험. 이력서 "누적 포인트"는 항상 전체기간 합이어야 하므로 원천 직접합산.
+    //   별=Σpoints, 방패(net)=Σadvantages-|Σpenalty|, 번개=Σpenalty (시즌/주차 무필터).
     supabaseAdmin
-      .from("user_cumulative_points")
-      // 실제 DB 컬럼명: total_checks(별), total_advantages(방패), total_penalties(번개)
-      // (과거 total_stars/total_shields/total_lightnings 는 존재하지 않아 500 발생 → 정정)
-      .select("total_checks,total_advantages,total_penalties")
-      .eq("user_id", userId)
-      .limit(1)
-      .maybeSingle(),
+      .from("user_weekly_points")
+      .select("points,advantages,penalty")
+      .eq("user_id", userId),
   ]);
 
   const errors = [
@@ -267,13 +269,29 @@ export async function getResumeCardForCrew(
   const growth = (growthRes.data ?? null) as
     | { approved_weeks: number | null; cumulative_weeks: number | null }
     | null;
-  const points = (pointsRes.data ?? null) as
-    | {
-        total_checks: number | null;
-        total_advantages: number | null;
-        total_penalties: number | null;
-      }
-    | null;
+  // user_weekly_points 전체기간 직접합산 → 이력서 누적 포인트.
+  // 행이 0건이면 null 유지 (기존 캐시-미존재 시멘틱과 동일: totalStars=null).
+  const weeklyPointRows = (pointsRes.data ?? []) as Array<{
+    points: number | null;
+    advantages: number | null;
+    penalty: number | null;
+  }>;
+  let sumStars = 0;
+  let sumAdvantages = 0;
+  let sumPenalty = 0;
+  for (const r of weeklyPointRows) {
+    sumStars += r.points ?? 0;
+    sumAdvantages += r.advantages ?? 0;
+    sumPenalty += r.penalty ?? 0;
+  }
+  const points =
+    weeklyPointRows.length > 0
+      ? {
+          total_checks: sumStars,
+          total_advantages: sumAdvantages - Math.abs(sumPenalty), // 방패(net)
+          total_penalties: sumPenalty,
+        }
+      : null;
 
   const educationRows = (educationRes.data ?? []) as Array<
     Row & EducationCandidate

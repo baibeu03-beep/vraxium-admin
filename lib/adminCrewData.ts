@@ -29,6 +29,9 @@ type UserProfileRow = {
   department_name: string | null;
   organization_slug: string | null;
   role: string | null;
+  // 비정규화된 현재 팀/파트 — membership 행에 team_name 이 전혀 없을 때의 최종 폴백(고객앱 resolver 규칙 5).
+  current_team_name: string | null;
+  current_part_name: string | null;
   updated_at: string | null;
 };
 
@@ -135,6 +138,8 @@ const PROFILE_SELECT = [
   "department_name",
   "organization_slug",
   "role",
+  "current_team_name",
+  "current_part_name",
   "updated_at",
 ].join(",");
 
@@ -208,10 +213,36 @@ function computeAge(birthDate: string | null) {
   return age >= 0 ? age : null;
 }
 
+function membershipHasTeam(row: UserMembershipRow): boolean {
+  return typeof row.team_name === "string" && row.team_name.trim() !== "";
+}
+
+// 고객앱과 동일한 membership 선택 resolver.
+// 일부 실사용자는 is_current=true 행의 team_name 이 NULL 이고, 실제 팀/파트는 is_current=false
+// 행에 들어있다. is_current 만으로 정렬하면 NULL 행이 뽑혀 team/part 가 비고, 그 값이 그대로
+// weekly-cards snapshot 에 저장된다(고객앱 프록시가 응답 시점에만 보강 → snapshot 자체는 오염).
+// 그래서 "team_name 보유 여부"를 is_current 보다 우선한다.
+//   우선순위 (작을수록 우선):
+//     0) is_current=true && team_name 존재
+//     1) team_name 존재
+//     2) is_current=true
+//     3) 그 외(첫 행)
+//   같은 등급 안에서는 updated_at 최신 우선(안정적 tie-break).
+// (user_profiles.current_team_name/current_part_name fallback 은 buildAdminCrewDtos 의 preferString
+//  체인에서 처리 — 어떤 membership 행도 team_name 이 없을 때의 최종 폴백.)
+function membershipRank(row: UserMembershipRow): number {
+  const isCurrent = Boolean(row.is_current);
+  const hasTeam = membershipHasTeam(row);
+  if (isCurrent && hasTeam) return 0;
+  if (hasTeam) return 1;
+  if (isCurrent) return 2;
+  return 3;
+}
+
 function pickBestMembership(rows: UserMembershipRow[]) {
   return [...rows].sort((a, b) => {
-    const currentDelta = Number(Boolean(b.is_current)) - Number(Boolean(a.is_current));
-    if (currentDelta !== 0) return currentDelta;
+    const rankDelta = membershipRank(a) - membershipRank(b);
+    if (rankDelta !== 0) return rankDelta;
     return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
   })[0];
 }
@@ -361,8 +392,18 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
       profile.department_name,
       legacy?.major_name,
     );
-    const teamName = preferString(membership?.team_name, legacy?.team_name);
-    const partName = preferString(membership?.part_name, legacy?.part_name);
+    // 고객앱 resolver 규칙 5: membership 행에 team/part 가 전혀 없으면 user_profiles 의
+    // 비정규화 current_team_name/current_part_name 으로 폴백(legacy 보다 우선 — profile 이 정본에 가깝다).
+    const teamName = preferString(
+      membership?.team_name,
+      profile.current_team_name,
+      legacy?.team_name,
+    );
+    const partName = preferString(
+      membership?.part_name,
+      profile.current_part_name,
+      legacy?.part_name,
+    );
     const membershipLevel = preferString(
       membership?.membership_level,
       legacy?.membership_level,
