@@ -91,7 +91,11 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 // v15 (2026-06-04): 포인트 표시 정책 통일 — points.shield = net(advantages−penalty),
 //   points.lightning = −penalty (음수 표기). raw advantage 는 내부 집계 전용으로 고객 DTO 미노출.
 //   별(points.star)은 불변. 값이 달라지므로 기존 v14 snapshot 을 stale 처리해 재계산하게 한다.
-export const WEEKLY_CARDS_DTO_VERSION = 15;
+// v16 (2026-06-04): 누적 주차 SoT 통일 — accumulatedApprovedWeeks(및 displayWeekProgressLabel)
+//   에서 전환 주차 success 를 제외. 이력서 카드(computeSeasonRecords)·cluster3(foldGrowthMetrics)
+//   와 동일 규칙으로 통일(종전 cluster4 만 전환 success +1 → 8 vs 7 불일치). 값이 달라지므로
+//   기존 v15 snapshot 을 stale 처리해 재계산하게 한다.
+export const WEEKLY_CARDS_DTO_VERSION = 16;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

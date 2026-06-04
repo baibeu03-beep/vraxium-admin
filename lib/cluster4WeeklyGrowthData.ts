@@ -631,6 +631,9 @@ async function computeWeeklyCards(
   //    확정 누적 = "공표 완료된 DB success" 만 센다. 현재주(진행 중)·미공표 주차(집계 중)·
   //    uws 없는 주차는 확정 전/대상 아님이므로 제외 → 카드의 +1 프리뷰가 더할 base (정책 5).
   //    필수 슬롯 verdict=fail 이면 success 에서 제외 → 배지·누적·요약 일관성 유지.
+  //    전환 주차는 제외(2026-06-04 누적 주차 SoT 통일) — 이력서 카드(computeSeasonRecords)·
+  //    cluster3(foldGrowthMetrics)와 동일 규칙. 종전에는 전환 주차 success 가 +1 되어
+  //    cluster4 누적(8)이 이력서/cluster3(7)와 갈라지는 결함이 있었다.
   let cumulativeSuccess = 0;
   const accByStart = new Map<string, number>();
   for (const w of cardWeeksAsc) {
@@ -639,7 +642,10 @@ async function computeWeeklyCards(
     const isCurrent = isCurrentWeekStart(w.start_date);
     const published = isWeekPublished(w);
     let countsAsSuccess =
-      uws?.status === "success" && published && !isCurrent;
+      uws?.status === "success" &&
+      published &&
+      !isCurrent &&
+      !isTransitionWeekStart(w.start_date);
     if (countsAsSuccess && verdict?.status === "fail") {
       countsAsSuccess = false;
     }
