@@ -74,6 +74,7 @@ type Member = {
   checkPoints: number;
   advantagePoints: number;
   penaltyPoints: number;
+  netAdvantagePoints: number;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -84,7 +85,11 @@ const PRESENCE_HAS = "has";
 const PRESENCE_MISSING = "missing";
 const PAGE_SIZE = 100;
 
-function buildColumns(devMode: boolean): { key: MemberSortColumn; label: string }[] {
+function buildColumns(devMode: boolean): {
+  key: MemberSortColumn;
+  label: string;
+  hint?: string;
+}[] {
   return [
     { key: "display_name", label: devMode ? "이름 / user_id" : "이름" },
     { key: "contact_email", label: "연락 이메일" },
@@ -92,9 +97,23 @@ function buildColumns(devMode: boolean): { key: MemberSortColumn; label: string 
     { key: "organization_slug", label: "소속" },
     { key: "status", label: "상태" },
     { key: "growth_status", label: "성장" },
-    { key: "check_points", label: "체크" },
-    { key: "advantage_points", label: "어드밴티지" },
-    { key: "penalty_points", label: "패널티" },
+    // 포인트 표시 정책(2026-06-04): 고객 화면 방패 = Net Advantage. raw 는 내부 전용.
+    { key: "check_points", label: "Check", hint: "별 = point.check" },
+    {
+      key: "advantage_points",
+      label: "Advantage (Raw)",
+      hint: "받은 방패 원본(point.advantage) — 내부 집계/검증 전용, 고객 화면에는 노출되지 않습니다.",
+    },
+    {
+      key: "penalty_points",
+      label: "Penalty",
+      hint: "번개 원본값(point.penalty) — 고객 화면에는 −Penalty 로 표시됩니다.",
+    },
+    {
+      key: "net_advantage_points",
+      label: "Net Advantage",
+      hint: "고객 화면 표시 방패 = Advantage(Raw) − Penalty. 고객 화면에 쓰이는 값은 이 값입니다.",
+    },
     { key: "created_at", label: "가입일" },
     { key: "updated_at", label: "최근 수정" },
   ];
@@ -439,6 +458,7 @@ export default function MembersList() {
                         key={c.key}
                         column={c.key}
                         label={c.label}
+                        hint={c.hint}
                         dir={active ? sort?.dir ?? null : null}
                         onSort={handleSort}
                         className={
@@ -504,7 +524,8 @@ export default function MembersList() {
                       values={GROWTH_STATUSES}
                     />
                   </TableCell>
-                  {/* 체크 / 어드밴티지 / 패널티: 필터 없음 */}
+                  {/* Check / Advantage(Raw) / Penalty / Net Advantage: 필터 없음 */}
+                  <TableCell className="py-2" />
                   <TableCell className="py-2" />
                   <TableCell className="py-2" />
                   <TableCell className="py-2" />
@@ -553,11 +574,23 @@ export default function MembersList() {
                       <TableCell className="whitespace-nowrap text-right tabular-nums">
                         {fmtPoints(member.checkPoints)}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-right tabular-nums">
+                      <TableCell
+                        title="raw — 내부 전용, 고객 화면 미노출"
+                        className="whitespace-nowrap text-right tabular-nums text-muted-foreground"
+                      >
                         {fmtPoints(member.advantagePoints)}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap text-right tabular-nums">
+                      <TableCell
+                        title={`고객 화면 표시: ${-(member.penaltyPoints ?? 0)}`}
+                        className="whitespace-nowrap text-right tabular-nums"
+                      >
                         {fmtPoints(member.penaltyPoints)}
+                      </TableCell>
+                      <TableCell
+                        title="고객 화면 표시 방패 = Advantage(Raw) − Penalty"
+                        className="whitespace-nowrap text-right font-medium tabular-nums"
+                      >
+                        {fmtPoints(member.netAdvantagePoints)}
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-xs">
                         {fmtDate(member.createdAt)}
@@ -787,12 +820,14 @@ export default function MembersList() {
 function SortableHeader({
   column,
   label,
+  hint,
   dir,
   onSort,
   className,
 }: {
   column: MemberSortColumn;
   label: string;
+  hint?: string;
   dir: MemberSortDir | null;
   onSort: (col: MemberSortColumn) => void;
   className?: string;
@@ -810,7 +845,7 @@ function SortableHeader({
         type="button"
         onClick={() => onSort(column)}
         aria-label={`${label} — ${nextStateLabel}`}
-        title={nextStateLabel}
+        title={hint ? `${hint} (클릭: ${nextStateLabel})` : nextStateLabel}
         className={cn(
           "inline-flex items-center gap-1 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground",
           active && "text-foreground",

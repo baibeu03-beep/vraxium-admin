@@ -39,9 +39,15 @@ export type UserWeeklyStatusRow = {
   // 전환 주차(시즌 정규 주수 +1). 공식 휴식이 아니며 요약 카운트에서 제외된다.
   is_transition: boolean;
   // 주차별 포인트(user_weekly_points). 없으면 0.
+  // 포인트 표시 정책(2026-06-04): 고객 화면 방패 = net(advantage − penalty).
+  //   weekly_star_count       = points (check)
+  //   weekly_shield_count     = advantages (raw — 내부 전용, 고객 미노출)
+  //   weekly_lightning_count  = penalty (원본. 고객 화면에는 −penalty 로 표시)
+  //   weekly_net_shield_count = advantages − penalty (고객 화면 표시 방패)
   weekly_star_count: number;
   weekly_shield_count: number;
   weekly_lightning_count: number;
+  weekly_net_shield_count: number;
   // 받은 평판(weekly_reputations). 없으면 count=0, score=null.
   weekly_reputation_count: number;
   reputation_score: number | null;

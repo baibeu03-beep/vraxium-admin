@@ -68,16 +68,19 @@ type MemberRow = {
 };
 
 // 전체기간 포인트 집계 단위. null 은 0 으로 합산.
+// netAdvantagePoints 는 파생값(advantage − penalty)으로, 고객 화면 표시 방패와 동일 기준.
 type PointAggregate = {
   checkPoints: number; // SUM(points)
-  advantagePoints: number; // SUM(advantages)
+  advantagePoints: number; // SUM(advantages) — raw, 내부 전용
   penaltyPoints: number; // SUM(penalty)
+  netAdvantagePoints: number; // advantagePoints − penaltyPoints (고객 표시 방패)
 };
 
 const ZERO_POINTS: PointAggregate = {
   checkPoints: 0,
   advantagePoints: 0,
   penaltyPoints: 0,
+  netAdvantagePoints: 0,
 };
 
 function toDto(
@@ -103,6 +106,7 @@ function toDto(
     checkPoints: points.checkPoints,
     advantagePoints: points.advantagePoints,
     penaltyPoints: points.penaltyPoints,
+    netAdvantagePoints: points.netAdvantagePoints,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -116,6 +120,7 @@ const POINTS_SORT_FIELDS: Partial<
   check_points: "checkPoints",
   advantage_points: "advantagePoints",
   penalty_points: "penaltyPoints",
+  net_advantage_points: "netAdvantagePoints",
 };
 
 // 주어진 user_id 들의 전체기간 포인트 집계 = SUM(points/advantages/penalty).
@@ -154,10 +159,12 @@ async function sumPointsForUsers(
           checkPoints: 0,
           advantagePoints: 0,
           penaltyPoints: 0,
+          netAdvantagePoints: 0,
         };
         acc.checkPoints += r.points ?? 0;
         acc.advantagePoints += r.advantages ?? 0;
         acc.penaltyPoints += r.penalty ?? 0;
+        acc.netAdvantagePoints = acc.advantagePoints - acc.penaltyPoints;
         sums.set(r.user_id, acc);
       }
       if (rows.length < ROW_PAGE) break;

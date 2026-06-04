@@ -216,9 +216,27 @@ export default function UserWeeklyStatusView({
                   <TableHead>주차</TableHead>
                   <TableHead>주차 기간</TableHead>
                   <TableHead>상태</TableHead>
-                  <TableHead className="text-right">별</TableHead>
-                  <TableHead className="text-right">방패</TableHead>
-                  <TableHead className="text-right">번개</TableHead>
+                  <TableHead className="text-right" title="별 = point.check">
+                    Check
+                  </TableHead>
+                  <TableHead
+                    className="text-right"
+                    title="받은 방패 원본(point.advantage) — 내부 집계/검증 전용, 고객 화면에는 노출되지 않습니다."
+                  >
+                    Advantage (Raw)
+                  </TableHead>
+                  <TableHead
+                    className="text-right"
+                    title="번개 원본값(point.penalty) — 고객 화면에는 −Penalty 로 표시됩니다."
+                  >
+                    Penalty
+                  </TableHead>
+                  <TableHead
+                    className="text-right"
+                    title="고객 화면 표시 방패 = Advantage(Raw) − Penalty. 고객 화면에 쓰이는 값은 이 값입니다."
+                  >
+                    Net Advantage
+                  </TableHead>
                   <TableHead className="text-right">평판</TableHead>
                   <TableHead className="text-right">동료 수</TableHead>
                   <TableHead>실패 사유</TableHead>
@@ -242,11 +260,23 @@ export default function UserWeeklyStatusView({
                     <TableCell className="text-right tabular-nums">
                       {row.weekly_star_count.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell
+                      title="raw — 내부 전용, 고객 화면 미노출"
+                      className="text-right tabular-nums text-muted-foreground"
+                    >
                       {row.weekly_shield_count.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell
+                      title={`고객 화면 표시: ${-row.weekly_lightning_count}`}
+                      className="text-right tabular-nums"
+                    >
                       {row.weekly_lightning_count.toLocaleString()}
+                    </TableCell>
+                    <TableCell
+                      title="고객 화면 표시 방패 = Advantage(Raw) − Penalty"
+                      className="text-right font-medium tabular-nums"
+                    >
+                      {row.weekly_net_shield_count.toLocaleString()}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {row.reputation_score != null
@@ -266,7 +296,7 @@ export default function UserWeeklyStatusView({
                 {!loading && rows.length === 0 && !error && (
                   <TableRow>
                     <TableCell
-                      colSpan={10}
+                      colSpan={11}
                       className="py-10 text-center text-muted-foreground"
                     >
                       조회된 주차 상태가 없습니다.
@@ -276,7 +306,7 @@ export default function UserWeeklyStatusView({
                 {loading && rows.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={10}
+                      colSpan={11}
                       className="py-10 text-center text-muted-foreground"
                     >
                       불러오는 중...

@@ -849,17 +849,30 @@ function WeeklyListCard({
           </div>
         </div>
 
-        {/* 포인트 (조직별 명칭) */}
+        {/* 포인트 (조직별 명칭) — 방패는 raw/net 병기.
+            포인트 표시 정책(2026-06-04): 고객 카드 방패 = net(advantage − penalty),
+            번개 = −penalty. raw 는 내부 검증용으로만 표시한다. */}
         <div>
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            {pl.points} · {pl.advantages} · {pl.penalty}
+            {pl.points} · {pl.advantages}(raw → net) · {pl.penalty}
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-sm font-medium tabular-nums">
-            <span>{c.points}개</span>
+            <span title={`${pl.points} = check`}>{c.points}개</span>
             <span className="text-muted-foreground">·</span>
-            <span>{c.advantages}개</span>
+            <span
+              title={`raw ${c.advantages} − penalty ${c.penalty} = net ${
+                c.advantages - c.penalty
+              } — 고객 카드에는 net 만 표시됩니다.`}
+            >
+              <span className="text-muted-foreground">{c.advantages}</span>
+              <span className="text-muted-foreground"> → </span>
+              {c.advantages - c.penalty}개
+            </span>
             <span className="text-muted-foreground">·</span>
-            <span className={c.penalty < 0 ? "text-red-600" : ""}>
+            <span
+              title={`고객 카드 표시: ${-c.penalty}`}
+              className={c.penalty < 0 ? "text-red-600" : ""}
+            >
               {c.penalty}개
             </span>
           </div>

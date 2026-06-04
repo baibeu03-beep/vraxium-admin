@@ -23,12 +23,15 @@ export type AdminMemberDto = {
   // 전체기간 포인트 집계 = user_weekly_points 직접합산(시즌/주차/타입 무필터).
   // user_profiles 에는 캐시 컬럼이 없어 listMembers 가 집계해 채운다(읽기 전용).
   // 이력서 카드의 누적 포인트와 동일한 단일 SoT 합산이며, null 은 0 으로 합산한다.
-  //   checkPoints     = SUM(points)      (이력서 "별")
-  //   advantagePoints = SUM(advantages)
-  //   penaltyPoints   = SUM(penalty)
+  // 포인트 표시 정책(2026-06-04 통일): 고객 화면 방패 = net(advantage − penalty).
+  //   checkPoints        = SUM(points)      (이력서 "별", check)
+  //   advantagePoints    = SUM(advantages)  (raw — 내부 집계/검증 전용, 고객 미노출)
+  //   penaltyPoints      = SUM(penalty)     (원본값. 고객 화면에는 −penalty 로 표시)
+  //   netAdvantagePoints = advantagePoints − penaltyPoints (고객 화면 표시 방패)
   checkPoints: number;
   advantagePoints: number;
   penaltyPoints: number;
+  netAdvantagePoints: number;
   createdAt: string | null;
   updatedAt: string | null;
 };
@@ -94,6 +97,7 @@ export const MEMBER_SORT_COLUMNS = [
   "check_points",
   "advantage_points",
   "penalty_points",
+  "net_advantage_points",
   "created_at",
   "updated_at",
 ] as const;

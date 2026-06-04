@@ -290,6 +290,9 @@ export async function getUserWeeklyStatus(
       weekly_star_count: toCount(point?.points),
       weekly_shield_count: toCount(point?.advantages),
       weekly_lightning_count: toCount(point?.penalty),
+      // 고객 화면 표시 방패 = raw advantage − penalty (포인트 표시 정책 2026-06-04).
+      weekly_net_shield_count:
+        toCount(point?.advantages) - toCount(point?.penalty),
       weekly_reputation_count: reputationCount,
       reputation_score: reputationScore,
       colleague_count: week ? colleagueCount.get(week.id) ?? 0 : 0,
