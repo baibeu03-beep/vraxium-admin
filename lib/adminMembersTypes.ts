@@ -12,6 +12,11 @@ export type AdminMemberDto = {
   status: string | null;
   growthStatus: string | null;
   role: string | null;
+  // user_memberships(is_current=true).membership_level 원본 ("일반"/"심화", 없으면 null).
+  membershipLevel: string | null;
+  // 상태 칩 표기 = memberStatusLabel(role, membershipLevel). 등급 SoT 는
+  // membership_level 이며 role 단독으로 "파트장"을 만들지 않는다(아래 함수 주석 참조).
+  statusLabel: string;
   // user_memberships(is_current=true) 의 비정규화 값 (읽기 전용 — 트리거가 동기화).
   currentTeamName: string | null;
   currentPartName: string | null;
@@ -27,6 +32,29 @@ export type AdminMemberDto = {
   createdAt: string | null;
   updatedAt: string | null;
 };
+
+// 상태 칩 라벨 — 등급 SoT = user_memberships.membership_level(일반/심화).
+// user_profiles.role 은 보조 정보로만 쓴다:
+//   - 운영진(team_leader/ambassador, 관리자 계정)은 멤버십 등급 체계 밖 → role 표기.
+//   - "심화" 등급의 직책 구분(파트장/에이전트)에만 role 을 참조한다.
+// role=part_leader 여도 level=일반이면 "일반" — "심화(파트장)" 일 때만 파트장 표기.
+// (cluster4 statusLabel 도메인과 동일한 라벨 집합: 일반/심화(파트장)/심화(에이전트)/팀장/앰배서더)
+export function memberStatusLabel(
+  role: string | null,
+  membershipLevel: string | null,
+): string {
+  if (role === "super_admin") return "최고 관리자";
+  if (role === "admin") return "관리자";
+  if (role === "team_leader") return "팀장";
+  if (role === "ambassador") return "앰배서더";
+  const lv = (membershipLevel ?? "").trim();
+  if (lv.startsWith("심화")) {
+    if (role === "part_leader" || lv === "심화(파트장)") return "심화(파트장)";
+    return "심화(에이전트)";
+  }
+  if (lv === "일반") return "일반";
+  return "크루"; // 멤버십 등급 정보 없음 → 등급 미부여 기본 표기
+}
 
 // 멤버 관리 UI/API 에서 지정 가능한 역할 4종.
 // user_profiles.role CHECK(7종) 의 부분집합이며, ambassador/admin/super_admin 은

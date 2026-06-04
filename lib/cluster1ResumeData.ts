@@ -266,11 +266,22 @@ async function computeSeasonRecords(
     weeksBySeason.set(key, arr);
   }
 
-  const membershipRes = await supabaseAdmin
-    .from("user_memberships")
-    .select("membership_level,created_at,updated_at")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+  // 시즌 직책 = 등급 SoT(user_memberships.membership_level, is_current 우선) + role 보조.
+  // role 은 "심화" 등급 내 파트장/에이전트 구분과 운영진 표기에만 쓴다(단독 사용 금지).
+  const [membershipRes, profileRoleRes] = await Promise.all([
+    supabaseAdmin
+      .from("user_memberships")
+      .select("membership_level,is_current,created_at,updated_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
+    supabaseAdmin
+      .from("user_profiles")
+      .select("role")
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+  const profileRole =
+    ((profileRoleRes.data as { role: string | null } | null)?.role ?? null);
 
   const records: SeasonRecord[] = [];
 
@@ -317,7 +328,7 @@ async function computeSeasonRecords(
     const seasonName =
       SEASON_LABEL_MAP[season.season_type] ?? season.season_label;
 
-    const position = resolvePosition(membershipRes.data ?? []);
+    const position = resolvePosition(membershipRes.data ?? [], profileRole);
 
     records.push({
       year: yearStr,
@@ -333,13 +344,31 @@ async function computeSeasonRecords(
   return records.length > 0 ? records : dummySeasonRecords();
 }
 
+// 등급 SoT = membership_level("일반"/"심화"), role 은 보조 (2026-06-04 통일 —
+// /admin/members memberStatusLabel · cluster4 buildActivityLabels 와 동일 정책).
+//   - 운영진 role(team_leader/ambassador) → 등급 체계 밖, 운영진 라벨 (기존 정책 유지)
+//   - 심화 + part_leader → "심화(파트장)" / 심화 + 그 외 role → "심화(에이전트)"
+//   - 일반(또는 등급 미보유/미확정) → "일반(정규)" — role 단독으로 직책을 만들지 않는다.
+// 종전 구현은 POSITION_RANK 의 풀라벨 키("심화(파트장)" 등)만 인정해 실제 DB 값
+// "심화"가 전부 "일반(정규)"으로 떨어지는 결함이 있었다(심화 멤버 전원 오표기).
 function resolvePosition(
   memberships: Array<Record<string, unknown>>,
+  role: string | null,
 ): PositionLabel {
-  if (!memberships || memberships.length === 0) return "일반(정규)";
+  if (role === "team_leader") return "운영진(팀장)";
+  if (role === "ambassador") return "운영진(앰배서더)";
 
-  const level = memberships[0]?.membership_level as string | null;
-  if (level && level in POSITION_RANK) return level as PositionLabel;
+  // is_current=true 행 우선, 없으면 최신(created_at desc 정렬) 첫 행.
+  const current =
+    memberships.find((m) => Boolean(m.is_current)) ?? memberships[0];
+  const level = ((current?.membership_level as string | null) ?? "").trim();
+
+  // 레거시 풀라벨("심화(파트장)" 등)이 저장돼 있으면 그대로 인정 (하위 호환).
+  if (level in POSITION_RANK) return level as PositionLabel;
+
+  if (level.startsWith("심화")) {
+    return role === "part_leader" ? "심화(파트장)" : "심화(에이전트)";
+  }
   return "일반(정규)";
 }
 

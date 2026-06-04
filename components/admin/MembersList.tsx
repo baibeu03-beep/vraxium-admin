@@ -67,6 +67,8 @@ type Member = {
   status: string | null;
   growthStatus: string | null;
   role: string | null;
+  membershipLevel: string | null;
+  statusLabel: string;
   currentTeamName: string | null;
   currentPartName: string | null;
   checkPoints: number;
@@ -519,8 +521,18 @@ export default function MembersList() {
                       <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[220px]">
                         <div className="flex items-center gap-1.5">
                           <span className="truncate font-medium">{fmt(member.displayName)}</span>
-                          <span className="shrink-0 rounded-full border bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                            {roleLabel(member.role)}
+                          {/* 상태 칩 — 서버 계산값(statusLabel, 등급 SoT=membership_level).
+                              role 단독 표기(roleLabel)는 level=일반인 part_leader 를
+                              "파트장"으로 잘못 보여줘 폐기. devMode 에선 raw role 병기. */}
+                          <span
+                            title={
+                              devMode
+                                ? `role=${member.role ?? "-"} / level=${member.membershipLevel ?? "-"}`
+                                : undefined
+                            }
+                            className="shrink-0 rounded-full border bg-muted/50 px-1.5 py-0.5 text-[10px] text-muted-foreground"
+                          >
+                            {member.statusLabel || roleLabel(member.role)}
                           </span>
                         </div>
                         {devMode && (

@@ -5,6 +5,7 @@ import {
   isMemberAssignableRole,
   MEMBER_ASSIGNABLE_ROLES,
   MEMBER_PATCH_FIELDS,
+  memberStatusLabel,
   ORG_NONE_SENTINEL,
   PART_UNIQUE_ROLES,
   TEAM_UNIQUE_ROLES,
@@ -79,7 +80,11 @@ const ZERO_POINTS: PointAggregate = {
   penaltyPoints: 0,
 };
 
-function toDto(row: MemberRow, points: PointAggregate = ZERO_POINTS): AdminMemberDto {
+function toDto(
+  row: MemberRow,
+  points: PointAggregate = ZERO_POINTS,
+  membershipLevel: string | null = null,
+): AdminMemberDto {
   return {
     userId: row.user_id,
     displayName: row.display_name,
@@ -90,6 +95,9 @@ function toDto(row: MemberRow, points: PointAggregate = ZERO_POINTS): AdminMembe
     status: row.status,
     growthStatus: row.growth_status,
     role: row.role,
+    membershipLevel,
+    // 상태 칩 표기. 등급 SoT=membership_level — role 단독으로 "파트장"을 만들지 않는다.
+    statusLabel: memberStatusLabel(row.role, membershipLevel),
     currentTeamName: row.current_team_name,
     currentPartName: row.current_part_name,
     checkPoints: points.checkPoints,
@@ -157,6 +165,36 @@ async function sumPointsForUsers(
     }
   }
   return sums;
+}
+
+// 주어진 user_id 들의 현재 멤버십 등급(user_memberships.membership_level).
+// is_current=true 행을 우선하고, 없으면 임의의 행을 폴백으로 쓴다(다중행은 드묾).
+// 멤버십 row 가 없는 사용자는 Map 에 없음 → 등급 미부여(null) 처리.
+async function fetchMembershipLevels(
+  userIds: string[],
+): Promise<Map<string, string | null>> {
+  const levels = new Map<string, string | null>();
+  if (userIds.length === 0) return levels;
+
+  const ID_CHUNK = 100; // IN() URL 길이 방어 (sumPointsForUsers 와 동일)
+  for (let i = 0; i < userIds.length; i += ID_CHUNK) {
+    const idChunk = userIds.slice(i, i + ID_CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from("user_memberships")
+      .select("user_id,membership_level,is_current")
+      .in("user_id", idChunk);
+    if (error) throw new Error(error.message);
+    for (const r of (data ?? []) as Array<{
+      user_id: string;
+      membership_level: string | null;
+      is_current: boolean | null;
+    }>) {
+      if (!levels.has(r.user_id) || r.is_current) {
+        levels.set(r.user_id, r.membership_level);
+      }
+    }
+  }
+  return levels;
 }
 
 // 현재 필터 조건에 맞는 전체 user_id 를 (페이지네이션 없이) 모은다.
@@ -300,10 +338,13 @@ export async function listMembers(
     if (pageIds.length === 0) {
       members = [];
     } else {
-      const { data, error } = await supabaseAdmin
-        .from("user_profiles")
-        .select(MEMBER_SELECT)
-        .in("user_id", pageIds);
+      const [{ data, error }, levels] = await Promise.all([
+        supabaseAdmin
+          .from("user_profiles")
+          .select(MEMBER_SELECT)
+          .in("user_id", pageIds),
+        fetchMembershipLevels(pageIds),
+      ]);
       if (error) throw new Error(error.message);
       const byId = new Map<string, MemberRow>();
       for (const row of (data ?? []) as unknown as MemberRow[]) {
@@ -313,7 +354,9 @@ export async function listMembers(
       members = pageIds
         .map((id) => {
           const row = byId.get(id);
-          return row ? toDto(row, sums.get(id) ?? ZERO_POINTS) : null;
+          return row
+            ? toDto(row, sums.get(id) ?? ZERO_POINTS, levels.get(id) ?? null)
+            : null;
         })
         .filter((m): m is AdminMemberDto => m !== null);
     }
@@ -337,8 +380,14 @@ export async function listMembers(
     if (error) throw new Error(error.message);
 
     const rows = (data ?? []) as unknown as MemberRow[];
-    const sums = await sumPointsForUsers(rows.map((r) => r.user_id));
-    members = rows.map((r) => toDto(r, sums.get(r.user_id) ?? ZERO_POINTS));
+    const pageUserIds = rows.map((r) => r.user_id);
+    const [sums, levels] = await Promise.all([
+      sumPointsForUsers(pageUserIds),
+      fetchMembershipLevels(pageUserIds),
+    ]);
+    members = rows.map((r) =>
+      toDto(r, sums.get(r.user_id) ?? ZERO_POINTS, levels.get(r.user_id) ?? null),
+    );
     total = count ?? 0;
   }
 
@@ -573,12 +622,16 @@ export async function updateMember(
     throw new MemberPatchError(500, error?.message ?? "Failed to update user_profile");
   }
 
-  // PATCH 는 포인트를 바꾸지 않지만, 응답 DTO 가 포인트 집계를 항상 정확히
-  // 담도록 단일 사용자 합을 채운다(목록 row 와 동일 의미 유지).
-  const pointSums = await sumPointsForUsers([userId]);
+  // PATCH 는 포인트를 바꾸지 않지만, 응답 DTO 가 포인트 집계/상태 표기를 항상
+  // 정확히 담도록 단일 사용자 합·멤버십 등급을 채운다(목록 row 와 동일 의미 유지).
+  const [pointSums, levels] = await Promise.all([
+    sumPointsForUsers([userId]),
+    fetchMembershipLevels([userId]),
+  ]);
   const dto = toDto(
     data as unknown as MemberRow,
     pointSums.get(userId) ?? ZERO_POINTS,
+    levels.get(userId) ?? null,
   );
 
   // 역할이 실제로 바뀐 경우만 감사 로그 (best-effort — 실패해도 저장은 성공 처리).
