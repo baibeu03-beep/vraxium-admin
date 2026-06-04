@@ -10,8 +10,10 @@ import {
 import {
   REVIEW_LINK_RESOURCE_KEY,
   REVIEW_LINK_SLOTS,
+  findReviewLinkOrderViolation,
   isReviewLinkWeekIndex,
   normalizeReviewLinkUrl,
+  reviewLinkOrderErrorMessage,
   type ReviewLinkDto,
   type ReviewLinkWeekIndex,
 } from "@/lib/reviewLinks";
@@ -199,6 +201,29 @@ export async function PUT(request: NextRequest) {
         { success: false, error: "No review links supplied" },
         { status: 400 },
       );
+    }
+
+    // ── 순차 작성 검증 (전사 공통 정책) ──
+    // 클럽 리뷰는 3 → 6 → … → 27 → 30(Total Complete) 순서대로만 작성/삭제할 수 있다.
+    // "이번 요청에서 변경되는 슬롯"만 검사한다(레거시로 순서가 깨진 데이터가 있어도
+    // 무관한 슬롯 저장은 막지 않음). front repo PUT /api/review-link 와 동일 규칙.
+    {
+      const { data: existingRows, error: existingError } = await supabaseAdmin
+        .from("user_review_links")
+        .select("week_index,url")
+        .eq("user_id", userId);
+      if (existingError) throw new Error(existingError.message);
+      const existingByWeek = new Map<number, string | null>();
+      for (const row of (existingRows ?? []) as Array<{ week_index: number; url: string | null }>) {
+        existingByWeek.set(row.week_index, normalizeReviewLinkUrl(row.url));
+      }
+      const violation = findReviewLinkOrderViolation(existingByWeek, updates);
+      if (violation) {
+        return Response.json(
+          { success: false, error: reviewLinkOrderErrorMessage(violation), data: violation },
+          { status: 400 },
+        );
+      }
     }
 
     const rows = Array.from(updates.entries()).map(([weekIndex, url]) => ({
