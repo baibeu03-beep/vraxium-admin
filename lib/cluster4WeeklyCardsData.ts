@@ -316,6 +316,21 @@ function experienceSlotPlaceholderLine(
   };
 }
 
+// 실무 역량 "강화 대기" placeholder (2026-06-04 v14 단일 정규화).
+//   역량은 선택 과제 — 1인·1주차 항상 1칸이며 해당 없음(not_applicable)이 존재할 수 없다.
+//   라인이 0개(미개설 포함)면 보이드 칸(status="void", 내용 없음)에 enhancementStatus="pending"
+//   ("강화 대기")을 실어 분모 A=1 을 유지한다. (휴식/전환 주차는 기존 na placeholder — 집계 제외.)
+function competencyPendingPlaceholderLine(
+  weekId: string | null,
+): Cluster4LineDetailDto {
+  return {
+    ...emptyLine("competency", weekId, false),
+    enhancementStatus: "pending",
+    submissionStatus: "not_submitted",
+    enhancementReason: "competency_optional_pending",
+  };
+}
+
 // 개설됐지만 본인이 미배정인 info/experience 라인의 "강화 실패" DTO (2026-06-02).
 //   - 정책: info/experience 의 미배정 fail 은 보이드가 아니라 개설된 라인 내용을 노출한다.
 //     (competency 만 보이드 유지. career 는 2026-06-02 개정으로 fail 이 아니라 not_applicable +
@@ -1836,6 +1851,33 @@ async function fetchLineDetailsByWeek(
       lines.push(emptyLine("career", weekId, false));
     }
     partsPresent.add("career");
+
+    // 2.7 실무 역량 단일 정규화 (2026-06-04 v14): 역량은 1인·1주차 항상 정확히 1칸.
+    //   - 라인 N개(개설/배정 무관) → 대표 1개로 fold: success > pending > fail 우선.
+    //     (성공이 하나라도 있으면 주차 역량은 성공, 진행 중이 있으면 대기, 그 외 실패.)
+    //   - 라인 0개(미개설 포함) → "강화 대기" placeholder (선택 과제 — 해당 없음 금지).
+    //   - 휴식/전환 주차(restWeek)는 기존 na placeholder 유지(분모 제외) — step 3 에서 채움.
+    //   → 분모 A(ability)는 비휴식 주차에서 항상 1, 주차 성장률 합산에도 역량은 항상 1만 기여.
+    if (!restWeek) {
+      const compLines = lines.filter((l) => l.partType === "competency");
+      const fold =
+        compLines.find((l) => l.enhancementStatus === "success") ??
+        compLines.find((l) => l.enhancementStatus === "pending") ??
+        compLines.find((l) => l.enhancementStatus === "fail") ??
+        null;
+      if (compLines.length !== 1 || !fold) {
+        for (let i = lines.length - 1; i >= 0; i--) {
+          if (lines[i].partType === "competency") lines.splice(i, 1);
+        }
+        lines.push(fold ?? competencyPendingPlaceholderLine(weekId));
+      } else if (fold !== compLines[0]) {
+        // 단일 라인이지만 대표가 아닌 경우는 구조상 없음(방어) — fold 만 남긴다.
+        for (let i = lines.length - 1; i >= 0; i--) {
+          if (lines[i].partType === "competency" && lines[i] !== fold) lines.splice(i, 1);
+        }
+      }
+      partsPresent.add("competency");
+    }
 
     // 3. 라인이 전혀 없는 part → not_applicable placeholder (UI 완결성; 미개설·휴식주차).
     //   (experience/career 는 2.5/2.6 에서 항상 채워지므로 사실상 info/competency 전용.)

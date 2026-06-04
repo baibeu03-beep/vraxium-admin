@@ -52,7 +52,10 @@ export type Cluster4EnhancementReason =
   // career 전용 (P1): 타깃 있음(선발) + 마감 후 + 미제출 → fail
   | "career_not_submitted"
   // experience 전용: 타깃 있음 + 마감 후 + 평점 3점 이하(rating <= 3) → fail
-  | "experience_rating_fail";
+  | "experience_rating_fail"
+  // competency 전용 (2026-06-04 v14): 선택 과제 미수행(라인 0개 포함) → 해당 없음이 아니라 강화 대기.
+  // 역량은 1인·1주차 단일 칸 정규화 — not_applicable 불가.
+  | "competency_optional_pending";
 
 export type Cluster4LineTargetMode = "user" | "rule";
 

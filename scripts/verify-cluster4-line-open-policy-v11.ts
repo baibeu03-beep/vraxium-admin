@@ -126,6 +126,17 @@ function checkCards(
         issues.push({ week: wk, msg: `competency fail 칸 status=${l.status} (void 여야 함)` });
       }
     }
+    // competency 단일 정규화 (v14): 비휴식·비전환 주차는 역량 칸 정확히 1개 + 해당 없음 금지.
+    if (!card.isRestWeek && !card.isTransition) {
+      if (comp.length !== 1) {
+        issues.push({ week: wk, msg: `competency 칸 ${comp.length}개 (항상 1이어야 함 — v14 단일 정규화)` });
+      }
+      for (const l of comp) {
+        if (l.enhancementStatus === "not_applicable") {
+          issues.push({ week: wk, msg: `competency 칸 not_applicable (역량은 해당 없음 금지 — 강화 대기여야 함)` });
+        }
+      }
+    }
 
     // 강화율 정합 (휴식 주차는 denominator null — 스킵)
     if (!card.isRestWeek) {

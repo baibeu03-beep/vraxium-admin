@@ -83,7 +83,12 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 //   렌더 불가한 라인(예: EX02A 레거시)이 본인 배정/개설-미배정 양쪽에서 분모 A 에만 들어가
 //   "총 N개 > 표시 칸"이 되는 것을 차단. 카드 칸·weekly-growth 개설 distinct 모두 제외(+warn).
 //   근본 해결은 라인 master 연결(데이터 정비) — 연결되면 자동 복귀. 값이 달라지므로 v12 → stale.
-export const WEEKLY_CARDS_DTO_VERSION = 13;
+// v14 (2026-06-04): 실무 역량 단일 정규화 — 역량은 1인·1주차 항상 정확히 1칸(분모 A=1).
+//   라인 N개 → success > pending > fail 우선 대표 1개로 fold, 라인 0개(미개설) → "강화 대기"
+//   placeholder(competency_optional_pending — 선택 과제라 해당 없음 금지). 휴식/전환 주차만
+//   기존 na placeholder(분모 제외). weekly-growth lineBreakdown.ability 도 동일 산식(A=1·B cap 1).
+//   값(역량 분모/칸 수/상태)이 달라지므로 기존 v13 snapshot 을 stale 처리해 재계산하게 한다.
+export const WEEKLY_CARDS_DTO_VERSION = 14;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

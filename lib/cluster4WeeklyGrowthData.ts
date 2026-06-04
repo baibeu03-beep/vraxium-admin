@@ -766,10 +766,19 @@ async function computeWeeklyCards(
           careerLineMap,
         );
 
+    // 실무 역량 단일 정규화 (2026-06-04 v14): 역량은 1인·1주차 항상 1칸 — 라인 수 무관 A=1,
+    // B=성공 1건 이상이면 1 (cap). 휴식/전환 주차만 0 (분모 제외). 카드 경로(2.7 fold)와 동일 산식.
+    const abilityNormalized =
+      isRest || isTransitionWeekStart(startDate) || !weekCardId
+        ? { completed: 0, available: 0 } // 휴식/전환/weekId 미상(degenerate) — 분모 제외(카드 경로 동일)
+        : {
+            completed: (abilitySuccessMap.get(weekCardId) ?? 0) > 0 ? 1 : 0,
+            available: 1,
+          };
     const lineBreakdown: WeeklyCardLineBreakdown = {
-      // info/ability/experience B = target+마감 success(제출 무관). career B = target+마감+grade C이상(P1).
+      // info/experience B = target+마감 success(제출 무관). career B = target+마감+grade C이상(P1).
       info: { completed: isRest ? 0 : (weekCardId ? (infoSuccessMap.get(weekCardId) ?? 0) : 0), available: avail.info },
-      ability: { completed: isRest ? 0 : (weekCardId ? (abilitySuccessMap.get(weekCardId) ?? 0) : 0), available: avail.ability },
+      ability: abilityNormalized,
       experience: { completed: isRest ? 0 : (weekCardId ? (experienceSuccessMap.get(weekCardId) ?? 0) : 0), available: avail.experience },
       career: { completed: isRest ? 0 : (weekCardId ? (careerSuccessMap.get(weekCardId) ?? 0) : 0), available: avail.career },
     };
