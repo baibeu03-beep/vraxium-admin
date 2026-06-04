@@ -15,7 +15,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ORGANIZATIONS, ORGANIZATION_LABEL } from "@/lib/organizations";
+import {
+  ORGANIZATIONS,
+  ORGANIZATION_LABEL,
+  isOrganizationSlug,
+} from "@/lib/organizations";
 import { ADMIN_LINE_OPENING_VISIBLE_PARTS } from "@/lib/adminLineOpening";
 import { useSidebar } from "@/components/admin/sidebarContext";
 
@@ -141,6 +145,26 @@ export default function Sidebar() {
     toggle: toggleSidebar,
   } = useSidebar();
 
+  // /admin HOME 화면에서는 메뉴 UI 는 보이되 클릭/이동을 막는다.
+  // (다른 하위 페이지에서는 기존대로 동작, 사이드바 접기/펼치기는 항상 가능)
+  const navLocked = pathname === "/admin";
+
+  // 조직 모드: /admin/crews/{org} 이하에서는 멤버 관리 메뉴를 해당 조직 기준으로만 노출.
+  // (전체 멤버·타 조직 링크 숨김 — HOME 의 엥크레/오랑캐/팔랑크스 진입 정책)
+  const crewsMatch = pathname.match(/^\/admin\/crews\/([^/]+)/);
+  const orgFocus =
+    crewsMatch && isOrganizationSlug(crewsMatch[1]) ? crewsMatch[1] : null;
+
+  const visibleChildren = (item: BranchItem) => {
+    if (item.basePath !== "/admin/members" || !orgFocus) return item.children;
+    return item.children.filter((child) => {
+      if (child.href === "/admin/members") return false;
+      const m = child.href.match(/^\/admin\/crews\/([^/]+)$/);
+      if (m) return m[1] === orgFocus;
+      return true;
+    });
+  };
+
   const [openBranches, setOpenBranches] = useState<Record<string, boolean>>(
     () => {
       const init: Record<string, boolean> = {};
@@ -170,7 +194,7 @@ export default function Sidebar() {
       >
         {sidebarOpen && (
           <span className="text-[13px] font-semibold tracking-[0.02em] text-sidebar-foreground">
-            Vraxium <span className="text-sidebar-foreground/50">Admin</span>
+            HOME
           </span>
         )}
         <button
@@ -205,6 +229,11 @@ export default function Sidebar() {
                 href={item.href}
                 title={!sidebarOpen ? item.label : undefined}
                 aria-current={active ? "page" : undefined}
+                aria-disabled={navLocked || undefined}
+                tabIndex={navLocked ? -1 : undefined}
+                onClick={(e) => {
+                  if (navLocked) e.preventDefault();
+                }}
                 className={cn(
                   "group/leaf relative flex items-center rounded-md text-sm transition-colors",
                   sidebarOpen
@@ -213,6 +242,7 @@ export default function Sidebar() {
                   active
                     ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
                     : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+                  navLocked && "pointer-events-none",
                 )}
               >
                 <Icon className={cn("h-4 w-4 shrink-0", !active && "text-sidebar-foreground/55 group-hover/leaf:text-sidebar-accent-foreground")} />
@@ -232,6 +262,7 @@ export default function Sidebar() {
                 key={item.basePath}
                 type="button"
                 title={item.label}
+                disabled={navLocked}
                 onClick={() => {
                   setSidebarOpen(true);
                   setOpenBranches((p) => ({ ...p, [item.basePath]: true }));
@@ -252,6 +283,7 @@ export default function Sidebar() {
             <div key={item.basePath} className="mt-1 first:mt-0 flex flex-col">
               <button
                 type="button"
+                disabled={navLocked}
                 onClick={() =>
                   setOpenBranches((p) => ({
                     ...p,
@@ -282,18 +314,24 @@ export default function Sidebar() {
                   id={`submenu-${item.basePath}`}
                   className="mt-0.5 mb-1 ml-[1.0625rem] flex flex-col gap-px border-l border-sidebar-border pl-2"
                 >
-                  {item.children.map((child) => {
+                  {visibleChildren(item).map((child) => {
                     const childActive = isLeafActive(pathname, child.href);
                     return (
                       <li key={child.href}>
                         <Link
                           href={child.href}
                           aria-current={childActive ? "page" : undefined}
+                          aria-disabled={navLocked || undefined}
+                          tabIndex={navLocked ? -1 : undefined}
+                          onClick={(e) => {
+                            if (navLocked) e.preventDefault();
+                          }}
                           className={cn(
                             "block rounded-md px-2.5 py-1 text-[13px] transition-colors",
                             childActive
                               ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
                               : "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
+                            navLocked && "pointer-events-none",
                           )}
                         >
                           {child.label}

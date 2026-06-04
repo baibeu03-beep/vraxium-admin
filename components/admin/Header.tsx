@@ -58,6 +58,13 @@ export default function Header() {
     router.replace(next);
   };
 
+  // /admin HOME 화면에서는 헤더를 빈 상태로 둔다 (타이틀/버튼 모두 숨김).
+  if (pathname === "/admin") {
+    return (
+      <header className="flex h-14 items-center border-b border-border bg-background px-6" />
+    );
+  }
+
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-background px-6">
       <h1 className="text-[13.5px] font-semibold tracking-tight text-foreground">{title}</h1>
