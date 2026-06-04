@@ -16,7 +16,7 @@ import { isOrganizationSlug } from "@/lib/organizations";
 const LEGACY_TABLE = "legacy_crew_import";
 
 // Add Crew 모달 — legacy 정적 import 데이터를 보강하기 위한 경로다.
-// 신규 카카오 승인 사용자는 /admin/applicants → approve-new 경로로 추가되고,
+// 신규 소셜 로그인 승인 사용자는 /admin/applicants → approve-new 경로로 추가되고,
 // /admin/users 에서 organization_slug 가 부여되므로 본 POST 를 거치지 않는다.
 const WRITABLE_FIELDS = [
   "legacy_user_id",

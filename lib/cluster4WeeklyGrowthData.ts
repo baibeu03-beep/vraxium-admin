@@ -927,23 +927,28 @@ function buildSeasonSummary(season: Season, todayIso: string): SeasonSummary {
 }
 
 // 현재 시즌 누적 포인트 — weeklyCards 중 (seasonKey == 현재 시즌) && (전환 주차 아님)
-// 카드의 raw 포인트(별=points, 방패=advantages, 번개=penalty)를 합산한다.
 //   카드 범위는 [최초 활동 주차, 현재 주차]이므로 "현재 시즌 현재까지 누적"과 일치.
 //   포인트 row 없는 주차(pointsRaw=null)는 0 으로 취급(미데이터=0 누적).
+// 포인트 표시 정책(2026-06-04 통일): 고객 노출 값은 표시 최종값.
+//   별 = Σpoints · 방패 = net(Σadvantages−Σpenalty) · 번개 = −Σpenalty (음수 표기).
+//   raw advantage 는 내부 집계 전용 — 고객 DTO 로 내보내지 않는다.
 function computeSeasonPointSummary(
   cards: WeeklyCardDto[],
   currentSeasonKey: string | null,
 ): SeasonPointSummary {
-  const summary: SeasonPointSummary = { star: 0, shield: 0, lightning: 0 };
-  if (!currentSeasonKey) return summary;
-  for (const c of cards) {
-    if (c.seasonKey !== currentSeasonKey) continue;
-    if (c.isTransition) continue; // 전환 주차 제외
-    summary.star += c.pointsRaw ?? 0;
-    summary.shield += c.advantagesRaw ?? 0;
-    summary.lightning += c.penaltyRaw ?? 0;
+  let star = 0;
+  let advRaw = 0;
+  let pen = 0;
+  if (currentSeasonKey) {
+    for (const c of cards) {
+      if (c.seasonKey !== currentSeasonKey) continue;
+      if (c.isTransition) continue; // 전환 주차 제외
+      star += c.pointsRaw ?? 0;
+      advRaw += c.advantagesRaw ?? 0;
+      pen += c.penaltyRaw ?? 0;
+    }
   }
-  return summary;
+  return { star, shield: advRaw - pen, lightning: -pen };
 }
 
 // ─────────────────────────────────────────────────────────────────────

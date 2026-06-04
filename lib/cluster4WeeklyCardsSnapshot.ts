@@ -88,7 +88,10 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 //   placeholder(competency_optional_pending — 선택 과제라 해당 없음 금지). 휴식/전환 주차만
 //   기존 na placeholder(분모 제외). weekly-growth lineBreakdown.ability 도 동일 산식(A=1·B cap 1).
 //   값(역량 분모/칸 수/상태)이 달라지므로 기존 v13 snapshot 을 stale 처리해 재계산하게 한다.
-export const WEEKLY_CARDS_DTO_VERSION = 14;
+// v15 (2026-06-04): 포인트 표시 정책 통일 — points.shield = net(advantages−penalty),
+//   points.lightning = −penalty (음수 표기). raw advantage 는 내부 집계 전용으로 고객 DTO 미노출.
+//   별(points.star)은 불변. 값이 달라지므로 기존 v14 snapshot 을 stale 처리해 재계산하게 한다.
+export const WEEKLY_CARDS_DTO_VERSION = 15;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

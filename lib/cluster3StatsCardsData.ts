@@ -44,10 +44,12 @@ export async function getCluster3StatsCards(
       personalRestSeasons: g.period.f,
       successSeasons: g.period.g,
     },
+    // 포인트 표시 정책(2026-06-04 통일): 고객 노출 값은 표시 최종값.
+    //   방패 = net(raw−penalty), 번개 = −penalty (음수 표기). raw advantage 미노출.
     points: {
       totalStars: g.point.points,
       totalShields: g.point.netAdvantages,
-      totalLightning: g.point.penalty,
+      totalLightning: -g.point.penalty,
       starsLabel: g.point.pointsLabel,
       shieldsLabel: g.point.advantagesLabel,
       lightningLabel: g.point.penaltyLabel,

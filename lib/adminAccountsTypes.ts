@@ -5,7 +5,7 @@
 // 이 페이지의 primary 데이터 출처는 public.admin_users 다.
 //   - admin_users 에 row 가 있는 계정 = 어드민 페이지에 로그인 가능한 운영 계정
 //   - admin_users.role 의 owner / admin / viewer 가 본 페이지의 primary role
-//   - 일반 카카오 사용자(프론트 회원) 는 user_profiles 에만 존재하며 본 페이지 노출 대상이 아님
+//   - 일반 소셜 로그인 사용자(프론트 회원) 는 user_profiles 에만 존재하며 본 페이지 노출 대상이 아님
 //
 // user_profiles 는 부가 정보(이름·이메일·조직) 노출 + 서비스 역할(user_profiles.role)
 // 동기화 용도로만 join 된다.

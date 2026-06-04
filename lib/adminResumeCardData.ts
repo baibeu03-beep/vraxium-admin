@@ -245,7 +245,8 @@ export async function getResumeCardForCrew(
     //   (2026-05-28_cumulative_points_auto_sync.sql)는 컬럼명 불일치
     //   (total_stars 부재)로 이 DB 에 미적용 → 캐시가 weekly write 후 stale 될
     //   위험. 이력서 "누적 포인트"는 항상 전체기간 합이어야 하므로 원천 직접합산.
-    //   별=Σpoints, 방패(net)=Σadvantages-|Σpenalty|, 번개=Σpenalty (시즌/주차 무필터).
+    //   별=Σpoints, 방패(net)=Σadvantages−Σpenalty, 번개=−Σpenalty (시즌/주차 무필터,
+    //   2026-06-04 표시 정책 통일 — penalty 는 음수 표기, raw advantage 는 내부 전용).
     supabaseAdmin
       .from("user_weekly_points")
       .select("points,advantages,penalty")
@@ -284,12 +285,15 @@ export async function getResumeCardForCrew(
     sumAdvantages += r.advantages ?? 0;
     sumPenalty += r.penalty ?? 0;
   }
+  // 포인트 표시 정책(2026-06-04 통일): 고객 노출 값은 표시 최종값.
+  //   별 = check(Σpoints) · 방패 = net(Σadvantages−Σpenalty) · 번개 = −Σpenalty (음수 표기).
+  //   raw advantage(sumAdvantages)는 내부 집계 전용 — DTO 로 내보내지 않는다.
   const points =
     weeklyPointRows.length > 0
       ? {
           total_checks: sumStars,
-          total_advantages: sumAdvantages - Math.abs(sumPenalty), // 방패(net)
-          total_penalties: sumPenalty,
+          total_advantages: sumAdvantages - sumPenalty, // 방패(net)
+          total_penalties: -sumPenalty, // 번개(−n 표기)
         }
       : null;
 

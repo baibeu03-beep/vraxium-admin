@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // 3) New Kakao user → create applicants row (idempotent via unique index)
+  // 3) New OAuth user → create applicants row (idempotent via unique index)
   //    and bounce to login with pending message.
   if (!email) {
     await supabase.auth.signOut();

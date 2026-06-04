@@ -58,7 +58,7 @@ import {
 
 // /admin/settings/accounts — 운영 계정 관리 UI.
 //   본 페이지는 어드민 페이지에 로그인할 수 있는 admin_users row 만 다룬다.
-//   일반 카카오 회원(프론트 사용자)은 노출되지 않는다.
+//   일반 소셜 로그인 회원(프론트 사용자)은 노출되지 않는다.
 //
 //   GET  /api/admin/accounts              로 admin_users 기반 운영 계정 목록 조회
 //   POST /api/admin/accounts              로 신규 운영 계정 생성 (super_admin 단독)

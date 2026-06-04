@@ -219,8 +219,8 @@ export default function ApplicantsList() {
           <h2 className="text-2xl font-semibold tracking-tight">가입 대기자</h2>
           <p className="text-sm text-muted-foreground">
             {devMode
-              ? "카카오 로그인으로 가입을 시도한 요청 목록입니다."
-              : "카카오 로그인으로 가입을 신청한 사람들의 목록입니다. 승인 또는 거절을 결정해 주세요."}
+              ? "소셜 로그인으로 가입을 시도한 요청 목록입니다."
+              : "소셜 로그인으로 가입을 신청한 사람들의 목록입니다. 승인 또는 거절을 결정해 주세요."}
             {devMode && (
               <code className="mx-1 font-mono">public.applicants</code>
             )}
@@ -411,8 +411,8 @@ export default function ApplicantsList() {
 
           <p className="text-xs text-muted-foreground">
             {devMode
-              ? "승인 시 선택한 user_profile의 auth_email에 카카오 이메일을 연결하고, applicant 상태를 approved로 변경합니다."
-              : "승인하면 선택한 회원의 로그인 이메일에 카카오 이메일을 연결하고, 신청 상태를 '승인'으로 바꿉니다."}
+              ? "승인 시 선택한 user_profile의 auth_email에 applicant.email을 연결하고, applicant 상태를 approved로 변경합니다."
+              : "승인하면 선택한 회원의 로그인 이메일에 신청한 계정 이메일을 연결하고, 신청 상태를 '승인'으로 바꿉니다."}
           </p>
         </CardContent>
       </Card>
@@ -561,7 +561,7 @@ function ApproveDialog({
           <div>
             <h3 className="text-base font-semibold">가입 신청 승인</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              카카오 계정 정보만으로는 기존 사용자를 자동 식별할 수 없습니다.
+              외부 계정 정보만으로는 기존 사용자를 자동 식별할 수 없습니다.
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
               기존 사용자와 연결하거나, 신규 사용자로 생성 후 승인할 수 있습니다.
@@ -580,7 +580,7 @@ function ApproveDialog({
 
         <div className="grid gap-3 rounded-lg border bg-muted/20 p-3 text-sm sm:grid-cols-2">
           <Detail label="신청자 이름" value={applicant.name} />
-          <Detail label={devMode ? "Kakao Email" : "카카오 이메일"} value={applicant.email} />
+          <Detail label={devMode ? "Email" : "계정 이메일"} value={applicant.email} />
           <Detail label={devMode ? "Provider" : "로그인 수단"} value={applicant.provider} />
           <Detail label={devMode ? "Applied At" : "신청 일시"} value={fmtDate(applicant.createdAt)} />
         </div>
@@ -588,7 +588,7 @@ function ApproveDialog({
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {devMode
             ? "이름만으로 자동 연결하지 않습니다. applicant.email과 contact_email이 다르더라도 관리자가 명시적으로 선택하면 연결할 수 있습니다."
-            : "이름만으로 자동 연결하지 않습니다. 신청한 카카오 이메일과 기존 연락 이메일이 달라도, 운영자가 직접 선택하면 연결할 수 있습니다."}
+            : "이름만으로 자동 연결하지 않습니다. 신청한 계정 이메일과 기존 연락 이메일이 달라도, 운영자가 직접 선택하면 연결할 수 있습니다."}
         </div>
 
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">

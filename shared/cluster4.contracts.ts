@@ -264,10 +264,13 @@ export type Cluster4LineDetailDto = Cluster4VisibleLineDto & {
   editReason: Cluster4LineEditReason;
 };
 
+// 포인트 표시 정책(2026-06-04 통일): 고객 노출 값은 표시 최종값.
+//   별 = check · 방패 = net(advantages−penalty) · 번개 = −penalty (음수 표기).
+//   raw advantage(user_weekly_points.advantages)는 내부 집계 전용 — 고객 DTO 미노출.
 export type Cluster4WeeklyPointsDto = {
   star: number | null;       // user_weekly_points.points
-  shield: number | null;     // user_weekly_points.advantages
-  lightning: number | null;  // user_weekly_points.penalty
+  shield: number | null;     // net = advantages − penalty (per-week)
+  lightning: number | null;  // −penalty (음수 표기, per-week)
 };
 
 // status-badge 아이콘 키 — Cluster4UserWeekStatus 와 1:1 동일.

@@ -8,7 +8,7 @@ import { excludeSuperAdmins } from "@/lib/superAdmins";
 //   - DTO 한 row = `user_profiles` 한 row
 //   - `legacy_crew_import` 는 더 이상 row source 가 아니며, 운영 메타데이터
 //     (is_visible, admin_note, cumulative_weeks) 만 enrich 한다.
-//   - 신규 카카오 승인 사용자는 user_profiles 만 있으면 즉시 crews 목록에 노출된다.
+//   - 신규 소셜 로그인 승인 사용자는 user_profiles 만 있으면 즉시 crews 목록에 노출된다.
 //   - 식별자(`legacyUserId`)는 `user_profiles.user_id` (UUID) 를 사용한다.
 //     URL/route 호환을 위해 필드명을 유지하지만 의미는 "crew identifier" 이다.
 // ─────────────────────────────────────────────────────────────────────

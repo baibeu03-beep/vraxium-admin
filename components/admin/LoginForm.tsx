@@ -45,7 +45,7 @@ function describeCallbackParams(params: URLSearchParams): {
       return {
         kind: "error",
         message:
-          "카카오 계정의 이메일 동의를 받지 못했습니다. Kakao 동의항목에서 이메일을 허용한 뒤 다시 시도해주세요.",
+          "소셜 계정에서 이메일 정보를 제공받지 못했습니다. 계정 설정(예: Kakao 동의항목)에서 이메일 제공을 허용한 뒤 다시 시도해주세요.",
       };
     }
     if (error === "missing_code") {

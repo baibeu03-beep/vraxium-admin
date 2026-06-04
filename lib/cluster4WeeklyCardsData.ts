@@ -1099,10 +1099,17 @@ function toWeeklyCardDto(
     roleLabel: card.roleLabelRaw,
     membershipStatusLabel: card.membershipStatusLabelRaw,
 
+    // 포인트 표시 정책(2026-06-04 통일): 고객 노출 DTO 는 표시 최종값만 담는다.
+    //   별 = check(points) · 방패 = net(advantages−penalty) · 번개 = −penalty.
+    //   raw advantage 는 DB/내부 집계 전용 — 고객 DTO 로 내보내지 않는다.
+    //   null 시멘틱 유지: 원천 row 부재 시 null (별/방패/번개 동일).
     points: {
       star: card.pointsRaw,
-      shield: card.advantagesRaw,
-      lightning: card.penaltyRaw,
+      shield:
+        card.advantagesRaw === null && card.penaltyRaw === null
+          ? null
+          : (card.advantagesRaw ?? 0) - (card.penaltyRaw ?? 0),
+      lightning: card.penaltyRaw === null ? null : -card.penaltyRaw,
     },
     cumulativeInjeolmi: card.cumulativeAdvantages,
     fameScore: fmScore,

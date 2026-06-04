@@ -27,7 +27,7 @@ import {
 //
 // PRIMARY 데이터 소스: public.admin_users
 //   - 본 페이지는 어드민 페이지에 로그인할 수 있는 "운영 계정" 만 다룬다.
-//   - 일반 카카오 회원(프론트 사용자)은 user_profiles 에만 존재하며 본 페이지 노출 대상이 아님.
+//   - 일반 소셜 로그인 회원(프론트 사용자)은 user_profiles 에만 존재하며 본 페이지 노출 대상이 아님.
 //
 // JOIN: public.user_profiles
 //   - 표시용 부가 정보(display_name, organization_slug, contact_email)
