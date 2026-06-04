@@ -50,6 +50,7 @@ import {
   type ExperienceGrowthVerdict,
 } from "@/lib/lineAvailability";
 import { foldGrowthMetrics, deriveEndStatus } from "@/lib/growthCore";
+import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
 import { loadGrowthInput } from "@/lib/growthLoader";
 import { buildResolvedWeeks } from "@/lib/growthResolve";
 
@@ -1626,6 +1627,17 @@ export async function syncExperienceGrowthWeekStatuses(
 
     if (!updErr && updated && updated.length > 0) {
       flippedWeekKeys.push(`${r.year}-${r.week_number}`);
+    }
+  }
+
+  // 6. user_week_statuses 가 실제로 바뀐 경우 파생 캐시(user_growth_stats)를 즉시 재집계.
+  //    /crews 누적·승인 주차가 이 캐시를 읽으므로, 여기서 갱신하지 않으면 화면 간
+  //    주차 수가 분기한다(stale 캐시 회귀의 근본 원인). best-effort — 실패해도 flip 은 유지.
+  if (!dryRun && flippedWeekKeys.length > 0) {
+    try {
+      await recalcUserGrowthStats(userId);
+    } catch (e) {
+      console.error("[cluster4][sync] recalcUserGrowthStats failed", userId, e);
     }
   }
 

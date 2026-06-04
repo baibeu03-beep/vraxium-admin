@@ -1,0 +1,226 @@
+{
+  "247021bc-374b-48f4-8d49-b181d149ee33": {
+    "name": "이유나",
+    "resume": {
+      "resumeStatus": {
+        "status": "running",
+        "label": "Running",
+        "isBadgeDimmed": true
+      },
+      "scheduleReliability": {
+        "physicalWeeks": 3,
+        "preRestWeeks": 0,
+        "unapprovedActiveWeeks": 2,
+        "approvedActiveWeeks": 1,
+        "officialRestWeeks": 0,
+        "rate": 33
+      },
+      "activityCompletion": {
+        "availableActivities": 12,
+        "completedActivities": 8,
+        "rate": 67
+      },
+      "seasonRecords": [
+        {
+          "year": "26",
+          "seasonName": "봄 시즌",
+          "position": "일반(정규)",
+          "progressStatus": "진행 중",
+          "approvedWeeks": 1,
+          "totalWeeks": 3,
+          "reviewStatus": "검수 중"
+        }
+      ],
+      "practicalStats": {
+        "infoCount": 4,
+        "experienceCount": 5,
+        "abilityUnitCount": 1,
+        "careerProjectCount": 0
+      }
+    },
+    "cardAgg": [
+      {
+        "week": "2026-06-01",
+        "status": "official_rest",
+        "den": 0,
+        "num": 0,
+        "lineCount": 13
+      },
+      {
+        "week": "2026-05-25",
+        "status": "tallying",
+        "den": 5,
+        "num": 3,
+        "lineCount": 14
+      },
+      {
+        "week": "2026-05-18",
+        "status": "fail",
+        "den": 6,
+        "num": 5,
+        "lineCount": 15
+      },
+      {
+        "week": "2026-05-11",
+        "status": "fail",
+        "den": 1,
+        "num": 0,
+        "lineCount": 13
+      }
+    ]
+  },
+  "296de78e-2a24-450c-9af1-c93a66b9f982": {
+    "name": "조은재",
+    "resume": {
+      "resumeStatus": {
+        "status": "running",
+        "label": "Running",
+        "isBadgeDimmed": true
+      },
+      "scheduleReliability": {
+        "physicalWeeks": 4,
+        "preRestWeeks": 0,
+        "unapprovedActiveWeeks": 4,
+        "approvedActiveWeeks": 0,
+        "officialRestWeeks": 0,
+        "rate": 0
+      },
+      "activityCompletion": {
+        "availableActivities": 9,
+        "completedActivities": 0,
+        "rate": 0
+      },
+      "seasonRecords": [
+        {
+          "year": "26",
+          "seasonName": "봄 시즌",
+          "position": "일반(정규)",
+          "progressStatus": "진행 중",
+          "approvedWeeks": 0,
+          "totalWeeks": 4,
+          "reviewStatus": "검수 중"
+        }
+      ],
+      "practicalStats": {
+        "infoCount": 0,
+        "experienceCount": 0,
+        "abilityUnitCount": 0,
+        "careerProjectCount": 0
+      }
+    },
+    "cardAgg": [
+      {
+        "week": "2026-06-01",
+        "status": "official_rest",
+        "den": 0,
+        "num": 0,
+        "lineCount": 13
+      },
+      {
+        "week": "2026-05-25",
+        "status": "tallying",
+        "den": 3,
+        "num": 0,
+        "lineCount": 14
+      },
+      {
+        "week": "2026-05-18",
+        "status": "fail",
+        "den": 4,
+        "num": 0,
+        "lineCount": 15
+      },
+      {
+        "week": "2026-05-11",
+        "status": "fail",
+        "den": 1,
+        "num": 0,
+        "lineCount": 13
+      },
+      {
+        "week": "2026-05-04",
+        "status": "fail",
+        "den": 1,
+        "num": 0,
+        "lineCount": 13
+      }
+    ]
+  },
+  "d7cb79cc-9ed4-4ae1-bac3-cf86a684dd3e": {
+    "name": "조정인",
+    "resume": {
+      "resumeStatus": {
+        "status": "running",
+        "label": "Running",
+        "isBadgeDimmed": true
+      },
+      "scheduleReliability": {
+        "physicalWeeks": 4,
+        "preRestWeeks": 0,
+        "unapprovedActiveWeeks": 1,
+        "approvedActiveWeeks": 3,
+        "officialRestWeeks": 0,
+        "rate": 75
+      },
+      "activityCompletion": {
+        "availableActivities": 9,
+        "completedActivities": 0,
+        "rate": 0
+      },
+      "seasonRecords": [
+        {
+          "year": "26",
+          "seasonName": "봄 시즌",
+          "position": "일반(정규)",
+          "progressStatus": "진행 중",
+          "approvedWeeks": 3,
+          "totalWeeks": 4,
+          "reviewStatus": "검수 중"
+        }
+      ],
+      "practicalStats": {
+        "infoCount": 0,
+        "experienceCount": 0,
+        "abilityUnitCount": 0,
+        "careerProjectCount": 0
+      }
+    },
+    "cardAgg": [
+      {
+        "week": "2026-06-01",
+        "status": "official_rest",
+        "den": 0,
+        "num": 0,
+        "lineCount": 13
+      },
+      {
+        "week": "2026-05-25",
+        "status": "tallying",
+        "den": 3,
+        "num": 0,
+        "lineCount": 14
+      },
+      {
+        "week": "2026-05-18",
+        "status": "fail",
+        "den": 4,
+        "num": 0,
+        "lineCount": 15
+      },
+      {
+        "week": "2026-05-11",
+        "status": "success",
+        "den": 1,
+        "num": 0,
+        "lineCount": 13
+      },
+      {
+        "week": "2026-05-04",
+        "status": "success",
+        "den": 1,
+        "num": 0,
+        "lineCount": 13
+      }
+    ]
+  }
+}

@@ -1,12 +1,16 @@
 // Server-only data layer: user_growth_stats(approved_weeks/cumulative_weeks)
 // 단일 사용자 재집계.
 //
-// 표준 정의(아래 3곳의 마이그레이션에서 동일하게 사용되는 SoT 공식):
-//   - approved_weeks   = user_week_statuses 중 status='success' 인 row 수
+// 표준 정의(2026-06-04 전환제외 정책 반영 — 이력서 seasonRecords·weekly-status summary·
+// season-participations 집계·cluster4 growthSummary 와 동일 기준):
+//   - approved_weeks   = user_week_statuses 중 status='success' 인 row 수, 전환 주차 제외
 //                        (공식 휴식 override 는 status 가 'success' 로 저장되므로 자동 포함)
-//   - cumulative_weeks = user_week_statuses 전체 row 수 (official_rest 포함, 제외하지 않음)
+//   - cumulative_weeks = user_week_statuses 전체 row 수, 전환 주차 제외 (official_rest 포함)
 //
-// 참조:
+// 전환 주차 판정은 isTransitionWeekStart(week_start_date) — 다른 모든 화면과 동일 함수.
+// (종전 공식은 전환 주차를 포함해 weekly-status total_weeks 와 분기했었다.)
+//
+// 참조(종전 공식·시드 시점):
 //   db/migrations/2026-05-25_cluster3_growth_indicators.sql (INSERT … COUNT(*) FILTER(success), COUNT(*))
 //   db/migrations/2026-05-25_season_rest_request_policy.sql  (approved=success_count, cumulative=total_count)
 //   db/migrations/2026-05-25_official_rest_weeks_and_override.sql (approved=success_count, cumulative 변동 없음)
@@ -16,6 +20,7 @@
 // unique(ON CONFLICT (user_id)) 이므로 onConflict 로 UPSERT 한다 — row 가 없으면 생성.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isTransitionWeekStart } from "@/lib/seasonCalendar";
 
 export type UserGrowthStatsValues = {
   approved_weeks: number;
@@ -40,16 +45,21 @@ export async function recalcUserGrowthStats(
   }
 
   // 1) 기준 집계 — 사용자의 모든 주차 상태를 읽어 success / 전체 수를 센다.
+  //    전환 주차는 양쪽 카운트 모두에서 제외 (2026-06-04 전환제외 정책).
   const { data, error } = await supabaseAdmin
     .from("user_week_statuses")
-    .select("status")
+    .select("status, week_start_date")
     .eq("user_id", id);
 
   if (error) {
     throw new UserGrowthStatsRecalcError(error.message);
   }
 
-  const rows = (data ?? []) as { status: string }[];
+  const rows = (
+    (data ?? []) as { status: string; week_start_date: string | null }[]
+  ).filter(
+    (r) => !(r.week_start_date && isTransitionWeekStart(r.week_start_date)),
+  );
   const cumulative_weeks = rows.length;
   const approved_weeks = rows.filter((r) => r.status === "success").length;
 

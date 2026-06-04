@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { refreshWeeklyCardsSnapshotSafe } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
 
 // 시즌 전체 휴식 신청 검증 + 실행 — server-only.
 //
@@ -86,19 +87,8 @@ export async function requestSeasonRest(
       })
       .eq("id", firstWeek.id);
 
-    // 7. growth_stats 재집계
-    const { data: weekCounts } = await supabaseAdmin
-      .from("user_week_statuses")
-      .select("status")
-      .eq("user_id", userId);
-
-    const successCount = (weekCounts ?? []).filter(r => r.status === "success").length;
-    const totalCount = (weekCounts ?? []).length;
-
-    await supabaseAdmin
-      .from("user_growth_stats")
-      .update({ approved_weeks: successCount, cumulative_weeks: totalCount })
-      .eq("user_id", userId);
+    // 7. growth_stats 재집계 — 표준 공식 단일 소스(recalcUserGrowthStats, 전환 제외) 사용.
+    await recalcUserGrowthStats(userId);
 
     // 쓰기 시점 snapshot 갱신: 1주차가 personal_rest 로 바뀌어 카드가 변하므로 즉시 재계산.
     await refreshWeeklyCardsSnapshotSafe(userId);
@@ -134,19 +124,8 @@ export async function convertRemainingToPersonalRest(
     })
     .in("id", ids);
 
-  // growth_stats 재집계
-  const { data: weekCounts } = await supabaseAdmin
-    .from("user_week_statuses")
-    .select("status")
-    .eq("user_id", userId);
-
-  const successCount = (weekCounts ?? []).filter(r => r.status === "success").length;
-  const totalCount = (weekCounts ?? []).length;
-
-  await supabaseAdmin
-    .from("user_growth_stats")
-    .update({ approved_weeks: successCount, cumulative_weeks: totalCount })
-    .eq("user_id", userId);
+  // growth_stats 재집계 — 표준 공식 단일 소스(recalcUserGrowthStats, 전환 제외) 사용.
+  await recalcUserGrowthStats(userId);
 
   // 쓰기 시점 snapshot 갱신: 남은 주차가 personal_rest 로 바뀌어 카드가 변하므로 즉시 재계산.
   await refreshWeeklyCardsSnapshotSafe(userId);

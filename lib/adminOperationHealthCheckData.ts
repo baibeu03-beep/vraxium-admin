@@ -6,6 +6,7 @@
 // 점검 항목과 issue_type 매핑은 lib/adminOperationHealthCheckTypes 주석 참조.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isTransitionWeekStart } from "@/lib/seasonCalendar";
 import {
   HEALTH_ISSUE_TYPE_META,
   type HealthIssue,
@@ -38,6 +39,7 @@ type WeekStatusRow = {
   week_number: number | null;
   season_key: string | null;
   status: string;
+  week_start_date: string | null;
 };
 
 type SeasonStatusRow = {
@@ -86,8 +88,8 @@ type GrowthAgg = { total: number; success: number };
 // 성장 통계 불일치 판정(SoT). user_growth_stats 캐시값과 user_week_statuses 집계를
 // 비교해 불일치 항목을 돌려준다. health-check 항목 1·2 와 수동 재집계가 공유한다.
 //   - missing_row : growth row 자체가 없는데 uws 가 존재(누적 캐시 부재)
-//   - approved    : approved_weeks ≠ uws(status='success') 수
-//   - cumulative  : cumulative_weeks ≠ uws 전체 row 수
+//   - approved    : approved_weeks ≠ uws(status='success', 전환 제외) 수
+//   - cumulative  : cumulative_weeks ≠ uws 전체 row 수(전환 제외)
 type GrowthMismatchKind = "missing_row" | "approved" | "cumulative";
 
 type GrowthMismatch = {
@@ -140,12 +142,14 @@ function collectGrowthStatsMismatches(
   return out;
 }
 
-// uws status 목록만으로 사용자별 (전체/ success) 집계를 만든다.
+// uws 목록으로 사용자별 (전체/ success) 집계를 만든다.
+// 전환 주차는 양쪽 카운트 모두 제외 — recalcUserGrowthStats 표준 공식과 동일 기준.
 function aggregateGrowthByUser(
-  rows: { user_id: string; status: string }[],
+  rows: { user_id: string; status: string; week_start_date: string | null }[],
 ): Map<string, GrowthAgg> {
   const aggByUser = new Map<string, GrowthAgg>();
   for (const r of rows) {
+    if (r.week_start_date && isTransitionWeekStart(r.week_start_date)) continue;
     const ua = aggByUser.get(r.user_id) ?? { total: 0, success: 0 };
     ua.total += 1;
     if (r.status === "success") ua.success += 1;
@@ -165,8 +169,11 @@ export async function getGrowthStatsMismatchedUserIds(): Promise<string[]> {
         .from("user_growth_stats")
         .select("user_id,approved_weeks,cumulative_weeks"),
     ),
-    fetchAllRows<{ user_id: string; status: string }>(() =>
-      supabaseAdmin.from("user_week_statuses").select("user_id,status"),
+    fetchAllRows<{ user_id: string; status: string; week_start_date: string | null }>(
+      () =>
+        supabaseAdmin
+          .from("user_week_statuses")
+          .select("user_id,status,week_start_date"),
     ),
   ]);
 
@@ -205,7 +212,7 @@ export async function getOperationHealthCheck(): Promise<OperationHealthCheckDto
       fetchAllRows<WeekStatusRow>(() =>
         supabaseAdmin
           .from("user_week_statuses")
-          .select("id,user_id,year,week_number,season_key,status"),
+          .select("id,user_id,year,week_number,season_key,status,week_start_date"),
       ),
       fetchAllRows<SeasonStatusRow>(() =>
         supabaseAdmin.from("user_season_statuses").select("user_id,season_key,status"),
@@ -286,7 +293,7 @@ export async function getOperationHealthCheck(): Promise<OperationHealthCheckDto
       push("growth_approved_mismatch", {
         ...base,
         message:
-          "user_growth_stats.approved_weeks 가 user_week_statuses(status='success') 수와 다릅니다.",
+          "user_growth_stats.approved_weeks 가 user_week_statuses(status='success', 전환 제외) 수와 다릅니다.",
         expected_value: String(m.expected),
         actual_value: String(m.actual ?? 0),
       });
@@ -294,7 +301,7 @@ export async function getOperationHealthCheck(): Promise<OperationHealthCheckDto
       push("growth_cumulative_mismatch", {
         ...base,
         message:
-          "user_growth_stats.cumulative_weeks 가 user_week_statuses 전체 row 수와 다릅니다.",
+          "user_growth_stats.cumulative_weeks 가 user_week_statuses 전체 row 수(전환 제외)와 다릅니다.",
         expected_value: String(m.expected),
         actual_value: String(m.actual ?? 0),
       });

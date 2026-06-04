@@ -12,7 +12,7 @@ export async function POST(
 
   const { data: applicant, error: applicantError } = await supabaseAdmin
     .from("applicants")
-    .select("id, email, provider, status, name")
+    .select("id, email, provider, status, name, provider_user_id")
     .eq("id", applicantId)
     .single();
 
@@ -139,6 +139,27 @@ export async function POST(
       },
       { status: 500 },
     );
+  }
+
+  // google 신청은 provider 계정(auth_accounts)에 user_id 링크 — 매칭 키가 email 이 아닌
+  // (provider, provider_user_id) 이므로 여기서 연결해야 다음 로그인이 approved 로 풀린다.
+  // best-effort: 실패해도 고객 앱 resolveGoogleAccountAccess 가 applicants.linked_user_id 로 self-heal.
+  if (applicant.provider === "google" && applicant.provider_user_id) {
+    const { error: linkError } = await supabaseAdmin
+      .from("auth_accounts")
+      .update({
+        user_id: newProfile.user_id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("provider", "google")
+      .eq("provider_user_id", applicant.provider_user_id);
+
+    if (linkError) {
+      console.warn("approve-new auth_accounts link failed (non-fatal)", {
+        applicantId,
+        message: linkError.message,
+      });
+    }
   }
 
   // 신규 유저 snapshot 최초 생성(쓰기 시점). uws 가 아직 없으면 빈 카드로 저장 → 조회 시

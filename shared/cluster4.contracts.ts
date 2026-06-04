@@ -55,7 +55,12 @@ export type Cluster4EnhancementReason =
   | "experience_rating_fail"
   // competency 전용 (2026-06-04 v14): 선택 과제 미수행(라인 0개 포함) → 해당 없음이 아니라 강화 대기.
   // 역량은 1인·1주차 단일 칸 정규화 — not_applicable 불가.
-  | "competency_optional_pending";
+  //   ⚠ v14.1 보정: "강화 대기"는 미확정(running/tallying) 주차에서만. 확정(공표) 주차의
+  //   미수행은 competency_optional_unfulfilled_confirmed(강화 실패)로 내려간다.
+  | "competency_optional_pending"
+  // competency 전용 (2026-06-04 v14.1): 확정(result_published_at NOT NULL) 주차 + 선택 과제
+  // 미수행(라인 0개) → 더 이상 수행 불가이므로 강화 실패(보이드 표시). den 수식(A=1·B=0) 불변.
+  | "competency_optional_unfulfilled_confirmed";
 
 export type Cluster4LineTargetMode = "user" | "rule";
 

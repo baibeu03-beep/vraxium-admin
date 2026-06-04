@@ -802,17 +802,42 @@ export async function fetchWeeksWithOpenLinesByPart(
     }
   }
 
-  const { data: targets } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("week_id,line_id")
-    .in("line_id", [...partByLineId.keys()])
-    .in("week_id", weekIds);
+  // ⚠ 전수 페이지네이션(안정 정렬 id asc) — PostgREST 기본 1000행 cap 절단 방지.
+  //   절단되면 분모 A(개설 distinct 라인 수)가 재계산 시점마다 비결정적으로 흔들린다
+  //   (2026-06-04 실측: 37주차 보유자 매칭 2,765행 > cap).
+  //   fetchExperienceRequiredSlotStatusByWeek 와 동일 패턴 — 집계 정책/수식 무변경.
+  let targets: { week_id: string; line_id: string }[] = [];
+  {
+    const pageSize = 1000;
+    let from = 0;
+    for (;;) {
+      const { data: page, error: pageErr } = await supabaseAdmin
+        .from("cluster4_line_targets")
+        .select("week_id,line_id,id")
+        .in("line_id", [...partByLineId.keys()])
+        .in("week_id", weekIds)
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (pageErr) {
+        // 기존 동작 보존: 조회 에러는 무시하고 수집분으로 계속(원본도 에러를 무시했음).
+        console.warn("[lineAvailability] open-lines targets page fetch failed", {
+          from,
+          message: pageErr.message,
+        });
+        break;
+      }
+      const rows = (page ?? []) as { week_id: string; line_id: string }[];
+      targets = targets.concat(rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+  }
 
   // week → part → distinct line_id 집합 (중복 타깃/유저 다수를 1라인으로 접는다).
   const seen = new Map<string, Set<string>>(); // key = `${part}:${week}`
   // week → 관리(5) 슬롯 distinct line_id 집합 (잠금 사용자 분모 차감용).
   const managementSeen = new Map<string, Set<string>>();
-  for (const t of (targets ?? []) as { week_id: string; line_id: string }[]) {
+  for (const t of targets) {
     const part = partByLineId.get(t.line_id);
     if (part !== "info" && part !== "experience" && part !== "competency") continue;
     // experience 슬롯/관리 게이트 선판정 — 슬롯 미상(master 미연결) 라인은 카드 경로가
@@ -1056,6 +1081,10 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
   }
 
   // 4. 해당 라인들의 주차별 타깃 (user 본인 배정 + "개설됨" 신호용 전체).
+  //    ⚠ 전수 페이지네이션(안정 정렬 id asc) — PostgREST 기본 1000행 cap 절단 방지.
+  //    절단되면 본인 타깃이 무작위로 누락돼 "항상-개설 + 타깃 없음 = fail" 오판이 비결정적으로
+  //    발생한다(2026-06-04 실측: 17주차 보유자 매칭 1,338행 > cap → sync 무작위 flip).
+  //    카드 라인 수집 경로(fetchAllLineTargetsByWeek)와 동일한 전수 수집 패턴 — 판정 정책/수식 무변경.
   let targets: {
     week_id: string;
     line_id: string;
@@ -1063,12 +1092,29 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
     target_user_id: string | null;
   }[] = [];
   if (lineSlot.size > 0) {
-    const { data: targetRows } = await supabaseAdmin
-      .from("cluster4_line_targets")
-      .select("week_id,line_id,target_mode,target_user_id")
-      .in("line_id", [...lineSlot.keys()])
-      .in("week_id", weekIds);
-    targets = (targetRows ?? []) as typeof targets;
+    const pageSize = 1000;
+    let from = 0;
+    for (;;) {
+      const { data: targetRows, error: targetErr } = await supabaseAdmin
+        .from("cluster4_line_targets")
+        .select("week_id,line_id,target_mode,target_user_id,id")
+        .in("line_id", [...lineSlot.keys()])
+        .in("week_id", weekIds)
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (targetErr) {
+        // 기존 동작 보존: 조회 에러는 무시하고 수집분으로 계속(원본도 에러를 무시했음).
+        console.warn("[lineAvailability] required-slot targets page fetch failed", {
+          from,
+          message: targetErr.message,
+        });
+        break;
+      }
+      const page = (targetRows ?? []) as (typeof targets[number] & { id: string })[];
+      targets = targets.concat(page);
+      if (page.length < pageSize) break;
+      from += pageSize;
+    }
   }
 
   // week → slot → { 사용자 배정 라인 마감들, 그 주차에 (누구든) 개설 여부 }

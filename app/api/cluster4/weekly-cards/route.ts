@@ -9,10 +9,10 @@ import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import { Cluster4WeeklyCardsError } from "@/lib/cluster4WeeklyCardsData";
 import { getWeeklyGrowth } from "@/lib/cluster4WeeklyGrowthData";
 import {
-  enqueueStaleSnapshot,
   readWeeklyCardsSnapshot,
   recomputeAndStoreWeeklyCardsSnapshot,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
 import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
 import {
   currentQueryCount,
@@ -38,13 +38,15 @@ export const dynamic = "force-dynamic";
 // 필요 시 Vercel 환경변수 CLUSTER4_WEEKLY_CARDS_DEBUG=1 로만 켠다.
 const DEBUG_COMPARE = process.env.CLUSTER4_WEEKLY_CARDS_DEBUG === "1";
 
-// ⚠ 504 방지 핵심: 조회 API 는 기본적으로 절대 실시간 계산을 하지 않는다(snapshot-only).
-// MISS/STALE/버전불일치/조회오류 어느 경우에도 무거운 getWeeklyGrowth/computeWeeklyCards 를
-// 타지 않는다 — 재계산은 Cron/관리자 훅에서만. (과거: lazy 가 기본 ON 이라 버전 bump 시 전원
-// 재계산 → 504. 이제 기본 OFF 로 반전.)
-//   WEEKLY_CARDS_ALLOW_LAZY=1 로만 lazy(조회 중 계산)를 한시적으로 켤 수 있다(전환/디버그용).
-//   (구 WEEKLY_CARDS_DISABLE_LAZY 는 이제 무의미 — 기본이 곧 snapshot-only.)
-const ALLOW_LAZY = process.env.WEEKLY_CARDS_ALLOW_LAZY === "1";
+// ⚠ 504 방지 핵심(2026-06-04 lazy 전환 후에도 유지): 조회의 SoT 는 snapshot 저장본이며,
+// "전원 일괄" 재계산은 조회 경로에서 절대 일어나지 않는다. 단건 lazy 재계산만 허용:
+//   - boundary-stale (computed_at < 현재 주차 시작 — 주차 경계 통과)
+//   - is_stale=true  (관리자 훅 무효화 표시)
+//   - miss           (snapshot 행 없음 — 신규 유저)
+//   → 그 자리에서 해당 1명만 재계산·저장 후 최신 저장본을 반환 (~1.5–3s, 실측 2026-06-04).
+// version_mismatch(DTO 버전 bump)는 재계산하지 않는다 — 과거 504 의 원인이던 전원 동시
+// 재계산 시나리오이므로, 구 카드 graceful 노출 + 수동 ops(GET /api/admin/cluster4/
+// recompute-snapshots, x-internal-api-key)로만 일괄 수렴한다. Vercel cron 의존성 제거됨.
 
 // 응답 형식 고정:
 //   성공: { success: true,  data: [...], areaSixCircles: {...}, seasonAreaProgress: [...], error: null }
@@ -93,38 +95,66 @@ type LoadResult = {
   lazyRan: boolean; // 조회 경로에서 무거운 계산이 실제 실행됐는지
 };
 
-// 카드 로딩의 단일 진입점. 기본은 snapshot-only(무거운 계산 0):
-//   - hit            → 저장 카드 그대로 (쿼리 1).
-//   - stale(版 불일치 포함) → 저장된 구 카드 graceful 노출 (쿼리 1). cron 이 재생성.
-//   - miss(행 없음)   → 빈 배열 + cron 큐잉(enqueue). 빈 화면은 cron/백필이 곧 채움.
-//   - error(조회 실패) → 빈 배열(+호출부가 error 응답). 절대 계산으로 빠지지 않음.
-//   ALLOW_LAZY=1 일 때만 stale/miss 에서 즉시 재계산(전환/디버그용).
+// 카드 로딩의 단일 진입점 (demo/일반/internal 모든 경로 공용 — DTO·로직 단일).
+//   - hit + 신선(computed_at ≥ 현재 주차 시작) → 저장 카드 그대로 (쿼리 1, 계산 0). 대다수 요청.
+//   - hit + boundary-stale(주차 경계 통과)     → 단건 재계산·저장 → 최신 반환. 실패 시 구 카드 폴백.
+//   - stale(is_stale=true)                    → 단건 재계산·저장 → 최신 반환. 실패 시 구 카드 폴백.
+//   - stale(version_mismatch)                 → 구 카드 graceful 노출 (재계산 금지 — 수동 ops 전용).
+//   - miss(행 없음, 신규 유저)                 → 단건 재계산·저장 → 최신 반환. 실패 시 빈 배열.
+//   - error(조회 실패)                         → 빈 배열. 일시 오류에 계산 폭증 방지 — 절대 계산 안 함.
 async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
   const snap = await readWeeklyCardsSnapshot(profileUserId);
 
+  // 현재 주차 시작(월요일 00:00 UTC) — computed_at 이 이보다 과거면 주차 경계를 지난 snapshot.
+  // 추가 쿼리 0 (순수 달력 연산). 달력 갭(시즌 판별 불가)이면 경계 판정 생략(신선 취급).
+  const weekStartMs = getCurrentWeekStartMs(
+    new Date().toISOString().slice(0, 10),
+  );
+
+  // 단건 lazy 재계산 — 실패해도 throw 하지 않고 null 반환(호출부가 구 값으로 폴백).
+  const lazyRecompute = async (): Promise<Cluster4WeeklyCardDto[] | null> => {
+    try {
+      return await recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
+    } catch (e) {
+      console.warn("[weekly-cards] lazy recompute failed → 기존 저장본 폴백", {
+        profileUserId,
+        message: e instanceof Error ? e.message : String(e),
+      });
+      return null;
+    }
+  };
+
   if (snap.status === "hit") {
-    return { cards: snap.cards, outcome: "hit", detail: "", lazyRan: false };
+    const boundaryStale =
+      weekStartMs != null && Date.parse(snap.computedAt) < weekStartMs;
+    if (!boundaryStale) {
+      return { cards: snap.cards, outcome: "hit", detail: "", lazyRan: false };
+    }
+    const cards = await lazyRecompute();
+    return cards
+      ? { cards, outcome: "stale", detail: "boundary+lazy", lazyRan: true }
+      : { cards: snap.cards, outcome: "stale", detail: "boundary+lazy-failed", lazyRan: false };
   }
 
   if (snap.status === "stale") {
-    if (ALLOW_LAZY) {
-      const cards = await recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
-      return { cards, outcome: "stale", detail: `${snap.reason}+lazy`, lazyRan: true };
+    if (snap.reason === "version_mismatch") {
+      // DTO 버전 bump 일괄 수렴은 수동 ops 전용(전원 동시 lazy = 과거 504 시나리오 금지).
+      return { cards: snap.cards, outcome: "stale", detail: snap.reason, lazyRan: false };
     }
-    // 조회 경로 계산 금지 → 구 카드 노출, cron 이 재생성(版 불일치는 cron 후보 쿼리가 직접 잡음).
-    return { cards: snap.cards, outcome: "stale", detail: snap.reason, lazyRan: false };
+    const cards = await lazyRecompute();
+    return cards
+      ? { cards, outcome: "stale", detail: `${snap.reason}+lazy`, lazyRan: true }
+      : { cards: snap.cards, outcome: "stale", detail: `${snap.reason}+lazy-failed`, lazyRan: false };
   }
 
   if (snap.status === "miss") {
-    if (ALLOW_LAZY) {
-      const cards = await recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
-      return { cards, outcome: "miss", detail: "lazy", lazyRan: true };
-    }
-    await enqueueStaleSnapshot(profileUserId); // cron 이 생성하도록 placeholder 큐잉
-    return { cards: [], outcome: "miss", detail: "enqueued", lazyRan: false };
+    const cards = await lazyRecompute();
+    return cards
+      ? { cards, outcome: "miss", detail: "lazy", lazyRan: true }
+      : { cards: [], outcome: "miss", detail: "lazy-failed", lazyRan: false };
   }
 
-  // error: 조회 실패. 무거운 계산으로 빠지지 않는다(ALLOW_LAZY 라도 — 일시 오류에 계산 폭증 방지).
+  // error: 조회 실패. 무거운 계산으로 빠지지 않는다 — 일시 오류에 계산 폭증 방지.
   return { cards: [], outcome: "error", detail: snap.message, lazyRan: false };
 }
 

@@ -320,6 +320,7 @@ function experienceSlotPlaceholderLine(
 //   역량은 선택 과제 — 1인·1주차 항상 1칸이며 해당 없음(not_applicable)이 존재할 수 없다.
 //   라인이 0개(미개설 포함)면 보이드 칸(status="void", 내용 없음)에 enhancementStatus="pending"
 //   ("강화 대기")을 실어 분모 A=1 을 유지한다. (휴식/전환 주차는 기존 na placeholder — 집계 제외.)
+//   ⚠ 미확정(running/tallying) 주차 전용 — 확정(공표) 주차는 competencyFailPlaceholderLine 사용.
 function competencyPendingPlaceholderLine(
   weekId: string | null,
 ): Cluster4LineDetailDto {
@@ -328,6 +329,23 @@ function competencyPendingPlaceholderLine(
     enhancementStatus: "pending",
     submissionStatus: "not_submitted",
     enhancementReason: "competency_optional_pending",
+  };
+}
+
+// 실무 역량 확정(공표) 주차 placeholder (2026-06-04 v14.1 보정).
+//   "강화 대기"는 미확정(running/tallying) 주차에서만 가능 — result_published_at 이 찍힌
+//   확정 주차에서 선택 과제 미수행(라인 0개)은 더 이상 수행할 수 없으므로 "강화 실패"다.
+//   den 정합: growth 경로 abilityNormalized 는 비휴식 주차 A=1·B=0(성공 없음)으로 이미
+//   미수행=미완료로 집계하므로, fail(분모 포함) 표시가 den/num 수식과 1:1 — 수식 무변경.
+//   표시: competency fail=보이드(v11) — status="void" 유지, 배지만 강화 실패.
+function competencyFailPlaceholderLine(
+  weekId: string | null,
+): Cluster4LineDetailDto {
+  return {
+    ...emptyLine("competency", weekId, false),
+    enhancementStatus: "fail",
+    submissionStatus: "not_submitted",
+    enhancementReason: "competency_optional_unfulfilled_confirmed",
   };
 }
 
@@ -1452,6 +1470,10 @@ async function fetchLineDetailsByWeek(
   // 관리(5) 슬롯 개방 여부(membership_level 심화/운영진) — 잠금 사용자는 관리 슬롯 라인을
   // 분모 A/fail 칸에서 제외(해당 없음)해 고객앱 슬롯 잠금(카드 미노출)과 "총 N개"를 일치시킨다.
   managementSlotOpen: boolean,
+  // 확정(공표) 주차 — resultStatus가 success/fail 로 판정 완료된 주차(result_published_at 반영).
+  // v14.1: 확정 주차의 competency 0라인 placeholder 는 "강화 대기"가 아니라 "강화 실패"
+  // (대기는 미확정 running/tallying 주차에서만 가능). 미전달(기본 빈 셋)이면 기존 v14 동작.
+  confirmedWeekIds: Set<string> = new Set(),
 ): Promise<Map<string, Cluster4LineDetailDto[]>> {
   const result = new Map<string, Cluster4LineDetailDto[]>();
   if (weekIds.length === 0) return result;
@@ -1855,7 +1877,9 @@ async function fetchLineDetailsByWeek(
     // 2.7 실무 역량 단일 정규화 (2026-06-04 v14): 역량은 1인·1주차 항상 정확히 1칸.
     //   - 라인 N개(개설/배정 무관) → 대표 1개로 fold: success > pending > fail 우선.
     //     (성공이 하나라도 있으면 주차 역량은 성공, 진행 중이 있으면 대기, 그 외 실패.)
-    //   - 라인 0개(미개설 포함) → "강화 대기" placeholder (선택 과제 — 해당 없음 금지).
+    //   - 라인 0개(미개설 포함) → placeholder. (v14.1) "강화 대기"는 미확정(running/tallying)
+    //     주차에서만 — 확정(공표) 주차의 미수행은 더 이상 수행 불가이므로 "강화 실패"(보이드).
+    //     growth 경로 abilityNormalized(A=1·B=0)와 동일 의미라 den/num 수식은 변하지 않는다.
     //   - 휴식/전환 주차(restWeek)는 기존 na placeholder 유지(분모 제외) — step 3 에서 채움.
     //   → 분모 A(ability)는 비휴식 주차에서 항상 1, 주차 성장률 합산에도 역량은 항상 1만 기여.
     if (!restWeek) {
@@ -1869,7 +1893,12 @@ async function fetchLineDetailsByWeek(
         for (let i = lines.length - 1; i >= 0; i--) {
           if (lines[i].partType === "competency") lines.splice(i, 1);
         }
-        lines.push(fold ?? competencyPendingPlaceholderLine(weekId));
+        lines.push(
+          fold ??
+            (confirmedWeekIds.has(weekId)
+              ? competencyFailPlaceholderLine(weekId)
+              : competencyPendingPlaceholderLine(weekId)),
+        );
       } else if (fold !== compLines[0]) {
         // 단일 라인이지만 대표가 아닌 경우는 구조상 없음(방어) — fold 만 남긴다.
         for (let i = lines.length - 1; i >= 0; i--) {
@@ -2035,9 +2064,20 @@ export async function getCluster4WeeklyCardsForAuthUser(
     fetchManagementSlotOpen(profileUserId),
   ]);
   const slotFailWeekIds = buildSlotFailWeekIds(weeklyGrowth.weeklyCards, isTestUser);
+  // 확정(공표) 주차 — resultStatus 가 success/fail (resolver 가 result_published_at 반영).
+  // v14.1 competency placeholder 분기(확정=강화 실패 / 미확정=강화 대기)용.
+  const confirmedWeekIds = new Set(
+    weeklyGrowth.weeklyCards
+      .filter(
+        (card) =>
+          card.weekId &&
+          (card.resultStatus === "success" || card.resultStatus === "fail"),
+      )
+      .map((card) => card.weekId as string),
+  );
   const tLinesStart = Date.now();
   const [lineMap, headerSnapshot, peopleMap] = await Promise.all([
-    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen),
+    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds),
     fetchHeaderExtrasSnapshot(profileUserId),
     // 위클리 평판/연계동료 + 인적사항 (주차별). 실패해도 빈 맵 폴백 → 카드 보호.
     fetchWeeklyPeopleByWeek(profileUserId, weekIds),
@@ -2095,9 +2135,20 @@ export async function getCluster4WeeklyCardsForProfileUser(
     fetchManagementSlotOpen(profileUserId),
   ]);
   const slotFailWeekIds = buildSlotFailWeekIds(weeklyGrowth.weeklyCards, isTestUser);
+  // 확정(공표) 주차 — resultStatus 가 success/fail (resolver 가 result_published_at 반영).
+  // v14.1 competency placeholder 분기(확정=강화 실패 / 미확정=강화 대기)용.
+  const confirmedWeekIds = new Set(
+    weeklyGrowth.weeklyCards
+      .filter(
+        (card) =>
+          card.weekId &&
+          (card.resultStatus === "success" || card.resultStatus === "fail"),
+      )
+      .map((card) => card.weekId as string),
+  );
   const tLinesStart = Date.now();
   const [lineMap, headerSnapshot, peopleMap] = await Promise.all([
-    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen),
+    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds),
     fetchHeaderExtrasSnapshot(profileUserId),
     // 위클리 평판/연계동료 + 인적사항 (주차별). 실패해도 빈 맵 폴백 → 카드 보호.
     fetchWeeklyPeopleByWeek(profileUserId, weekIds),

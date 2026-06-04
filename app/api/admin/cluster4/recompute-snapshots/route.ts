@@ -1,9 +1,11 @@
 // GET /api/admin/cluster4/recompute-snapshots
 //
-// 주차 카드 snapshot 주기 재계산 엔드포인트. Vercel Cron + 관리자 수동/ops 트리거.
+// 주차 카드 snapshot 일괄 재계산 엔드포인트 — 수동 ops/관리자 트리거 전용.
+//   (2026-06-04) Vercel cron 의존성 제거: 일상 갱신은 조회 경로의 단건 lazy 재계산이 담당
+//   (주차 경계/is_stale/miss — app/api/cluster4/weekly-cards loadWeeklyCards 참조).
+//   이 엔드포인트는 DTO 버전 bump 등 "전원 일괄 수렴"이 필요할 때만 수동 호출한다.
 //   - is_stale=true 또는 computed_at 이 오래된(due) 기존 snapshot 을 오래된 순으로 재계산.
-//   - 조회 API(/api/cluster4/weekly-cards)는 절대 재계산하지 않는다 — 재계산은 여기서만.
-//   - 사용자별 실패는 격리(기존 snapshot 유지). Cron 실패가 화면을 깨뜨리지 않는다.
+//   - 사용자별 실패는 격리(기존 snapshot 유지). 일괄 실패가 화면을 깨뜨리지 않는다.
 //
 // 인증(우선순위):
 //   1) Vercel Cron: Authorization: Bearer <CRON_SECRET>  (CRON_SECRET 환경변수 설정 시 자동 부착)

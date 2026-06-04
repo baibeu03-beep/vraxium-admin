@@ -1,0 +1,12 @@
+import { chromium } from "playwright";
+const browser = await chromium.launch();
+const page = await browser.newPage();
+page.on("pageerror", (e) => console.log("[pageerror]", e.message));
+page.on("console", (m) => { if (m.type() === "error") console.log("[console.error]", m.text().slice(0, 400)); });
+const url = "http://localhost:3001/cluster-4-card/00000000-0000-0000-0000-202605210002?demoUserId=36138fb1-6fea-4b22-b6d2-9c46cba47314&userId=36138fb1-6fea-4b22-b6d2-9c46cba47314";
+const resp = await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
+console.log("status:", resp?.status());
+await page.waitForTimeout(12000);
+const body = await page.evaluate(() => document.body?.innerText?.slice(0, 500) ?? "(no body)");
+console.log("body snippet:", JSON.stringify(body));
+await browser.close();

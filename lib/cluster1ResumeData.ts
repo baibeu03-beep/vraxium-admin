@@ -204,6 +204,14 @@ const SEASON_LABEL_MAP: Record<string, string> = {
   winter: "겨울 시즌",
 };
 
+// 시즌 타입별 정규 주차 수(전환 주차 제외) — lib/seasonCalendar CHAIN 과 동일 고정값.
+const SEASON_TOTAL_WEEKS: Record<string, number> = {
+  spring: 16,
+  summer: 8,
+  autumn: 16,
+  winter: 8,
+};
+
 // KST(UTC+9) 기준 오늘 날짜 문자열 "YYYY-MM-DD". 시즌 검수 경계는 날짜 단위라
 // 서버 타임존(UTC)·시각(00:00 등)에 흔들리지 않도록 KST 달력일로 환산해 비교한다.
 function kstDateString(d: Date): string {
@@ -230,7 +238,7 @@ async function computeSeasonRecords(
       .order("start_date", { ascending: false }),
     supabaseAdmin
       .from("user_week_statuses")
-      .select("year,week_number,status,season_key")
+      .select("year,week_number,status,season_key,week_start_date")
       .eq("user_id", userId),
   ]);
 
@@ -250,6 +258,7 @@ async function computeSeasonRecords(
     week_number: number;
     status: string;
     season_key: string | null;
+    week_start_date: string | null;
   };
 
   const seasons = seasonRes.data as SeasonDef[];
@@ -261,6 +270,9 @@ async function computeSeasonRecords(
   for (const w of weeks) {
     const key = w.season_key;
     if (!key) continue;
+    // 전환 주차는 활동 주차 수·총 주차 수·진행 상태 판정 모두에서 제외
+    // (computeScheduleReliability 와 동일 규칙 — 전환 주차는 시즌 정규 주차가 아님).
+    if (w.week_start_date && isTransitionWeekStart(w.week_start_date)) continue;
     const arr = weeksBySeason.get(key) ?? [];
     arr.push(w);
     weeksBySeason.set(key, arr);
@@ -289,7 +301,11 @@ async function computeSeasonRecords(
     const seasonWeeks = weeksBySeason.get(season.season_key);
     if (!seasonWeeks || seasonWeeks.length === 0) continue;
 
-    const totalWeeks = seasonWeeks.length;
+    // 총 주차 수 = 시즌 타입별 고정값(봄/가을 16 · 여름/겨울 8, seasonCalendar CHAIN 과 동일).
+    // 종전에는 user_week_statuses 행 개수를 그대로 써서 전환 주차 포함 시 "4주 / 9주"처럼
+    // 분모가 부풀었다. 미정의 season_type 만 전환 제외 행 수로 폴백.
+    const totalWeeks =
+      SEASON_TOTAL_WEEKS[season.season_type] ?? seasonWeeks.length;
     const approvedWeeks = seasonWeeks.filter(
       (w) => w.status === "success",
     ).length;
