@@ -214,6 +214,18 @@ export default function PracticalCompetencyManager() {
   const [lineCaption2, setLineCaption2] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
 
+  // 카페 링크 집계 (Phase 1 — 닉네임 수집만, 포인트/매칭/snapshot 미관여)
+  const [cafeUrl, setCafeUrl] = useState("");
+  const [cafeLoading, setCafeLoading] = useState(false);
+  const [cafeError, setCafeError] = useState<string | null>(null);
+  const [cafeResult, setCafeResult] = useState<{
+    articleUrl: string;
+    totalComments: number;
+    uniqueNicknames: number;
+    nicknames: string[];
+    nicknameCounts: Array<{ nickname: string; count: number }>;
+  } | null>(null);
+
   // Crew filters
   const [crewFilterTeam, setCrewFilterTeam] = useState("");
   const [crewFilterPart, setCrewFilterPart] = useState("");
@@ -392,6 +404,21 @@ export default function PracticalCompetencyManager() {
     } catch { setBanner({ kind: "error", message: "저장 중 오류" }); } finally { setSaving(false); }
   }, [currentWeek, selectedWeek, selectedWeekId, canOpenSelected, selectedMaster, lineAssetValid, lineAssetCount, lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2, lineCaption1, lineCaption2, selectedUserIds, resetLineForm, fetchInitialData]);
 
+  // 카페 댓글 닉네임 수집 (Phase 1 — read-only, DB/snapshot 미관여)
+  const handleCollectCafeComments = useCallback(async () => {
+    if (!cafeUrl.trim()) { setCafeError("게시글 URL을 입력해주세요"); return; }
+    setCafeLoading(true); setCafeError(null); setCafeResult(null);
+    try {
+      const res = await fetch("/api/admin/cluster4/cafe-comments", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: cafeUrl.trim() }),
+      });
+      const json = await res.json();
+      if (!json.success) { setCafeError(json.message ?? json.error ?? "수집 실패"); return; }
+      setCafeResult(json.data);
+    } catch { setCafeError("댓글 수집 요청 중 오류가 발생했습니다"); } finally { setCafeLoading(false); }
+  }, [cafeUrl]);
+
   if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
 
   return (
@@ -408,7 +435,7 @@ export default function PracticalCompetencyManager() {
       <div className="flex gap-1 border-b">
         <TabButton label="라인 등록" active={activeTab === "masters"} onClick={() => setActiveTab("masters")} />
         <TabButton label="라인 개설" active={activeTab === "opening"} onClick={() => setActiveTab("opening")} />
-        <TabButton label="카페 링크 집계" active={activeTab === "cafe"} onClick={() => setActiveTab("cafe")} disabled />
+        <TabButton label="카페 링크 집계" active={activeTab === "cafe"} onClick={() => setActiveTab("cafe")} />
       </div>
 
       {/* ══ 라인 개설 ══ */}
@@ -607,14 +634,78 @@ export default function PracticalCompetencyManager() {
         </div>
       )}
 
-      {/* ══ 카페 링크 집계 (준비 중) ══ */}
+      {/* ══ 카페 링크 집계 — Phase 1: 댓글 작성자 닉네임 수집 (포인트/매칭/snapshot 미관여) ══ */}
       {activeTab === "cafe" && (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <p className="text-lg font-medium text-muted-foreground">카페 링크 집계 기능은 준비 중입니다</p>
-            <p className="mt-2 text-sm text-muted-foreground">이 기능은 Phase 2에서 제공될 예정입니다.</p>
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">카페 댓글 닉네임 수집</CardTitle>
+              <CardDescription>네이버 카페 게시글 URL을 입력하면 댓글 작성자 닉네임 목록을 수집합니다. (로컬 관리자 환경 전용)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Input
+                  className="flex-1"
+                  placeholder="https://cafe.naver.com/..."
+                  value={cafeUrl}
+                  onChange={(e) => setCafeUrl(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !cafeLoading) handleCollectCafeComments(); }}
+                  disabled={cafeLoading}
+                />
+                <Button onClick={handleCollectCafeComments} disabled={cafeLoading}>
+                  {cafeLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                  {cafeLoading ? "수집 중..." : "댓글 수집"}
+                </Button>
+              </div>
+              {cafeLoading && <p className="text-xs text-muted-foreground">댓글 페이지를 순회하며 수집 중입니다. 댓글 수에 따라 수십 초가 걸릴 수 있습니다.</p>}
+              {cafeError && <p className="text-sm text-red-600">{cafeError}</p>}
+            </CardContent>
+          </Card>
+
+          {cafeResult && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">수집 결과</CardTitle>
+                <CardDescription className="break-all">{cafeResult.articleUrl}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-3 sm:max-w-xl">
+                  <div className="rounded-md border bg-muted/30 p-4 text-center">
+                    <p className="text-2xl font-bold">{cafeResult.totalComments}</p>
+                    <p className="text-xs text-muted-foreground">전체 댓글 수</p>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 p-4 text-center">
+                    <p className="text-2xl font-bold">{cafeResult.uniqueNicknames}</p>
+                    <p className="text-xs text-muted-foreground">참여 인원 수</p>
+                  </div>
+                  <div className="rounded-md border bg-muted/30 p-4 text-center">
+                    <p className="text-2xl font-bold">{cafeResult.totalComments - cafeResult.uniqueNicknames}</p>
+                    <p className="text-xs text-muted-foreground">추가 댓글 수</p>
+                  </div>
+                </div>
+                {cafeResult.nicknameCounts.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-muted-foreground">수집된 댓글이 없습니다</p>
+                ) : (
+                  <Table>
+                    {/* 컬럼 확장 예정: 추후 회원 매칭 단계에서 "회원 매칭" 컬럼 추가 (Phase 2) */}
+                    <TableHeader><TableRow><TableHead className="w-12">#</TableHead><TableHead>닉네임</TableHead><TableHead className="w-24 text-right">댓글 수</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {[...cafeResult.nicknameCounts]
+                        .sort((a, b) => b.count - a.count || a.nickname.localeCompare(b.nickname, "ko"))
+                        .map((n, i) => (
+                          <TableRow key={n.nickname}>
+                            <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
+                            <TableCell className="font-medium">{n.nickname}</TableCell>
+                            <TableCell className="text-right">{n.count}</TableCell>
+                          </TableRow>
+                        ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );

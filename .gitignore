@@ -36,6 +36,9 @@ yarn-error.log*
 # claude
 .claude/
 
+# naver cafe crawl session (local only — never commit)
+.naver-profile/
+
 # codex agent logs
 .codex-*.log
 
