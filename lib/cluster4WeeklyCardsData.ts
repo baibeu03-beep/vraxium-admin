@@ -1678,6 +1678,18 @@ async function fetchLineDetailsByWeek(
       );
       if (!base) continue;
       if (target.cluster4_lines) userTargetedLineIds.add(target.cluster4_lines.id);
+      // 슬롯 미상(experience master 미연결) 라인 fail-closed (2026-06-04 v13):
+      // 고객앱 실무 경험 UI 는 고정 5슬롯(experienceSlotOrder 1~5)에만 카드를 놓는다 — 슬롯 미상
+      // 라인은 본인 배정이어도 화면 어디에도 렌더되지 않으면서 분모 A 에만 들어가 "총 N개 > 표시
+      // 칸"이 된다(예: EX02A 레거시 라인). org 판정불가 fail-closed 와 동일 원칙으로 칸/분모에서
+      // 제외하고 warn 만 남긴다 — 근본 해결은 라인의 master 연결(데이터 정비).
+      if (base.partType === "experience" && base.experienceSlotOrder == null) {
+        console.warn(
+          "[cluster4/weekly-cards] 슬롯 미상(master 미연결) experience 라인 제외 — master 연결 필요",
+          { profileUserId, weekId, lineId: base.lineId, lineCode: base.lineCode },
+        );
+        continue;
+      }
       const dbPartType = target.cluster4_lines?.part_type;
       // evaluateCluster4HubEdit 는 단일 line target 단위로 ownership / window 를 평가.
       // editWindow override 가 OPEN 이면 마감된 line target 의 canEdit 만 ok_override 로 우회된다.
@@ -1730,14 +1742,21 @@ async function fetchLineDetailsByWeek(
             // 고객앱이 관리 슬롯 카드를 잠금(미노출)하므로 분모 A 에 들어가면 "총 N개 > 표시 칸"
             // 불일치가 난다(예: T최수빈 봄 12주차 — 표시 1칸 · 총 2개). 칸은 2.5 단계 placeholder
             // (해당 없음)가 채운다.
-            if (
-              publicPart === "experience" &&
-              !managementSlotOpen &&
-              line.experience_line_master_id != null &&
-              experienceMasterMetaById.get(line.experience_line_master_id)
-                ?.slotOrder === EXPERIENCE_MANAGEMENT_SLOT_ORDER
-            ) {
-              continue;
+            if (publicPart === "experience") {
+              const slotOrder = line.experience_line_master_id
+                ? experienceMasterMetaById.get(line.experience_line_master_id)?.slotOrder ?? null
+                : null;
+              // 슬롯 미상(master 미연결) — 5슬롯 UI 에 렌더 불가 → fail-closed 제외 (step 1 과 동일 원칙).
+              if (slotOrder == null) {
+                console.warn(
+                  "[cluster4/weekly-cards] 슬롯 미상(master 미연결) 개설 experience 라인 제외 — master 연결 필요",
+                  { profileUserId, weekId, lineId: line.id, lineCode: line.line_code },
+                );
+                continue;
+              }
+              if (!managementSlotOpen && slotOrder === EXPERIENCE_MANAGEMENT_SLOT_ORDER) {
+                continue;
+              }
             }
             lines.push(
               openedFailLineDetail(

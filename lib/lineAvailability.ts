@@ -815,6 +815,14 @@ export async function fetchWeeksWithOpenLinesByPart(
   for (const t of (targets ?? []) as { week_id: string; line_id: string }[]) {
     const part = partByLineId.get(t.line_id);
     if (part !== "info" && part !== "experience" && part !== "competency") continue;
+    // experience 슬롯/관리 게이트 선판정 — 슬롯 미상(master 미연결) 라인은 카드 경로가
+    // fail-closed 제외하므로(5슬롯 UI 렌더 불가) 분모 distinct 에서도 제외해 정합 유지(2026-06-04 v13).
+    let expSlot: number | undefined;
+    if (part === "experience") {
+      const masterId = masterIdByLineId.get(t.line_id);
+      expSlot = masterId ? slotByMasterId.get(masterId) : undefined;
+      if (expSlot == null) continue;
+    }
     const key = `${part}:${t.week_id}`;
     let s = seen.get(key);
     if (!s) {
@@ -823,24 +831,20 @@ export async function fetchWeeksWithOpenLinesByPart(
     }
     s.add(t.line_id);
     // experience 개설 슬롯 집합 갱신.
-    if (part === "experience") {
-      const masterId = masterIdByLineId.get(t.line_id);
-      const slot = masterId ? slotByMasterId.get(masterId) : undefined;
-      if (slot != null) {
-        let slots = empty.experienceOpenSlots.get(t.week_id);
-        if (!slots) {
-          slots = new Set();
-          empty.experienceOpenSlots.set(t.week_id, slots);
+    if (part === "experience" && expSlot != null) {
+      let slots = empty.experienceOpenSlots.get(t.week_id);
+      if (!slots) {
+        slots = new Set();
+        empty.experienceOpenSlots.set(t.week_id, slots);
+      }
+      slots.add(expSlot);
+      if (expSlot === EXPERIENCE_MANAGEMENT_SLOT_ORDER) {
+        let mgmt = managementSeen.get(t.week_id);
+        if (!mgmt) {
+          mgmt = new Set();
+          managementSeen.set(t.week_id, mgmt);
         }
-        slots.add(slot);
-        if (slot === EXPERIENCE_MANAGEMENT_SLOT_ORDER) {
-          let mgmt = managementSeen.get(t.week_id);
-          if (!mgmt) {
-            mgmt = new Set();
-            managementSeen.set(t.week_id, mgmt);
-          }
-          mgmt.add(t.line_id);
-        }
+        mgmt.add(t.line_id);
       }
     }
   }

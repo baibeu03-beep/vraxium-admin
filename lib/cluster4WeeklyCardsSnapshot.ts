@@ -79,7 +79,11 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 //   개설-미배정 관리 라인 synthetic fail 생략 + 관리 슬롯 placeholder 는 신정책 주차에도
 //   not_opened(not_applicable). 심화/운영진은 v11 동작 유지. weekly-growth 분모 A 도 동일 게이트.
 //   값(분모/칸 상태)이 달라지므로 기존 v11 snapshot 을 stale 처리해 재계산하게 한다.
-export const WEEKLY_CARDS_DTO_VERSION = 12;
+// v13 (2026-06-04): 슬롯 미상(experience master 미연결) 라인 fail-closed — 고객앱 5슬롯 UI 에
+//   렌더 불가한 라인(예: EX02A 레거시)이 본인 배정/개설-미배정 양쪽에서 분모 A 에만 들어가
+//   "총 N개 > 표시 칸"이 되는 것을 차단. 카드 칸·weekly-growth 개설 distinct 모두 제외(+warn).
+//   근본 해결은 라인 master 연결(데이터 정비) — 연결되면 자동 복귀. 값이 달라지므로 v12 → stale.
+export const WEEKLY_CARDS_DTO_VERSION = 13;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 
