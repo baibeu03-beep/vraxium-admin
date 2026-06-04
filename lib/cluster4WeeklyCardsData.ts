@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import {
+  fetchIsTestUser,
   getWeeklyGrowth,
   getWeeklyGrowthByUserId,
 } from "@/lib/cluster4WeeklyGrowthData";
@@ -10,7 +11,15 @@ import type {
   WeeklyCardLineBreakdown,
   WeeklyCardLineDetail,
 } from "@/lib/cluster4WeeklyGrowthTypes";
-import { roundGrowthRate } from "@/lib/lineAvailability";
+import {
+  CAREER_DISPLAY_CAP,
+  CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM,
+  EXPERIENCE_ALWAYS_OPEN_SLOT_ORDERS,
+  EXPERIENCE_MANAGEMENT_SLOT_ORDER,
+  EXPERIENCE_SLOT_CATEGORY,
+  fetchManagementSlotOpen,
+  roundGrowthRate,
+} from "@/lib/lineAvailability";
 import { normalizeOutputImages } from "@/lib/cluster4OutputImages";
 import {
   CLUSTER4_HUB_EDIT_WINDOW_KEYS,
@@ -283,6 +292,30 @@ function emptyLine(
   };
 }
 
+// 실무 경험 슬롯 placeholder (2026-06-04 슬롯 정책 + 적용 시점 분리).
+//   - 필수 슬롯(1·2·3·5): "신정책 적용 주차"(buildSlotFailWeekIds — 판정 완료 + 테스트 사용자
+//     전 주차 / 실사용자 EFFECTIVE_FROM 이후)에서는 라인 행이 없어도 항상 오픈/마감 간주 →
+//     강화 실패 placeholder(status="fail", 내용 없음, 해당 없음 불가).
+//   - fail 선반영 금지: 진행 중(running)·집계 중(tallying) 주차는 아직 N+1 판정 시점 전이므로
+//     not_opened(해당 없음/보이드)로 내린다. 휴식/전환 주차·실사용자 과거 주차도 not_opened.
+//   - 확장 슬롯(4): 정해진 주차에만 열린다 → 미개설 주차는 항상 해당 없음
+//     (status="void", enhancementStatus=not_applicable).
+function experienceSlotPlaceholderLine(
+  weekId: string | null,
+  slotOrder: 1 | 2 | 3 | 4 | 5,
+  kind: "required_fail" | "not_opened",
+): Cluster4LineDetailDto {
+  const base = emptyLine("experience", weekId, kind === "required_fail");
+  return {
+    ...base,
+    ...(kind === "required_fail"
+      ? { status: "fail" as const, statusLabel: lineStatusLabel("fail") }
+      : {}),
+    experienceSlotOrder: slotOrder,
+    experienceCategory: EXPERIENCE_SLOT_CATEGORY[slotOrder],
+  };
+}
+
 // 개설됐지만 본인이 미배정인 info/experience 라인의 "강화 실패" DTO (2026-06-02).
 //   - 정책: info/experience 의 미배정 fail 은 보이드가 아니라 개설된 라인 내용을 노출한다.
 //     (competency 만 보이드 유지. career 는 2026-06-02 개정으로 fail 이 아니라 not_applicable +
@@ -467,18 +500,14 @@ function openedCareerLineDetail(
   };
 }
 
-// 개설됐지만 본인 미배정인 competency 라인의 "강화 실패" DTO (2026-06-02 정책 재개정).
-//   - 정책 변경: competency 의 미배정 fail 도 더 이상 보이드(emptyLine, 메타 null)로 비우지 않고,
-//     개설된 라인 content 를 노출한다 — info/experience 의 openedFailLineDetail 과 동일한 취지로
-//     "왜 실패(미배정)인지" 알 수 있도록 lineName/lineCode/mainTitle/output_* 을 채워 내려준다.
+// 개설됐지만 본인 미배정인 competency 라인의 "강화 실패(보이드 표시)" DTO.
+//   - 2026-06-04 정책 재개정: competency 강화 실패는 보이드로 표시한다 —
+//     status="void"(보이드/미개설 표시축) + enhancementStatus="fail"(판정축).
+//     (2026-06-02 의 "fail + content 노출" 재개정을 되돌림. 판정축 fail 은 유지되므로
+//      강화율 분모 A 에는 그대로 포함된다 — 보이드 '표시'이지 해당 없음이 아니다.)
 //   - lineTargetId=null (본인 타깃 없음) → canEdit=false / editReason="target_missing" 고정 → 읽기 전용.
-//     (프론트는 canEdit && lineTargetId 로 수정/저장 게이트 → 미배정이면 자동 readonly.)
-//   - 내용(main_title/line_code/output_*)은 cluster4_lines(운영자 1차 입력), lineName 은 competency
-//     master(line_name)에서 가져온다. 사용자 2차 submission 은 없으므로 submission=null.
-//   - enhancementStatus=fail (computeCluster4Enhancement 의 미배정+개설 분기와 동일 — competencyRate
-//     분모/분자는 enhancementStatus 기준이라 불변, 표시 메타만 추가된다).
-//   - status="fail"(미기입) — 보이드("void")가 아니므로 프론트가 라인 내용을 렌더한다
-//     (career 는 not_applicable 유지차 status="void" 였지만 competency 는 fail 이라 status 도 fail).
+//   - content(lineName/lineCode/mainTitle/output_*)는 진단/어드민 활용을 위해 계속 채워 내려준다.
+//     프론트는 status="void" 기준으로 빈 칸(보이드)을 렌더한다.
 function openedCompetencyFailLineDetail(
   line: NonNullable<TargetWithLineRow["cluster4_lines"]>,
   weekId: string,
@@ -498,8 +527,9 @@ function openedCompetencyFailLineDetail(
   const adminOutputImageCaptions = adminOutputImageItems.map((i) => i.caption);
   return {
     partType: "competency",
-    status: "fail",
-    statusLabel: lineStatusLabel("fail"),
+    // 표시축 = 보이드(2026-06-04). 판정축(enhancementStatus)은 fail 그대로.
+    status: "void",
+    statusLabel: lineStatusLabel("void"),
     enhancementStatus: enhancement.enhancementStatus,
     submissionStatus: enhancement.submissionStatus,
     enhancementReason: enhancement.enhancementReason,
@@ -769,6 +799,37 @@ function breakdownForPart(
   }
 }
 
+// 강화율 A/B 를 카드의 라인 DTO(enhancementStatus)에서 직접 파생한다 (2026-06-04).
+//   A(분모) = enhancementStatus ∈ {pending, success, fail} 인 칸 수
+//             (해당 없음·보이드 = not_applicable → 분모 제외).
+//   B(분자) = enhancementStatus === "success" 인 칸 수 (대기/실패 → 분자 제외).
+// 별도 SQL 집계(weekly-growth 경로)와 어긋날 수 없도록 카드에 실제로 실린 칸을 그대로 센다 —
+// "라인 칸은 강화 실패인데 헤더 강화율은 성공으로 카운트" 류의 불일치가 구조적으로 불가능해진다.
+// (org 노출 필터·슬롯 placeholder·career 패딩까지 모두 반영된 최종 칸 집합 기준.)
+function breakdownFromLines(
+  lines: Cluster4LineDetailDto[],
+): WeeklyCardLineBreakdown {
+  const mk = (): WeeklyCardLineDetail => ({ completed: 0, available: 0 });
+  const breakdown: WeeklyCardLineBreakdown = {
+    info: mk(),
+    ability: mk(),
+    experience: mk(),
+    career: mk(),
+  };
+  for (const line of lines) {
+    if (line.enhancementStatus === "not_applicable") continue;
+    const detail = breakdownForPart(breakdown, line.partType);
+    detail.available += 1;
+    if (line.enhancementStatus === "success") detail.completed += 1;
+  }
+  return breakdown;
+}
+
+function emptyBreakdown(): WeeklyCardLineBreakdown {
+  const mk = (): WeeklyCardLineDetail => ({ completed: 0, available: 0 });
+  return { info: mk(), ability: mk(), experience: mk(), career: mk() };
+}
+
 function attachLineBreakdown(
   lines: Cluster4LineDetailDto[],
   breakdown: WeeklyCardLineBreakdown,
@@ -794,6 +855,27 @@ function attachLineBreakdown(
 
 function isRestWeek(status: WeekResultStatus): boolean {
   return status === "personal_rest" || status === "official_rest";
+}
+
+// v11 "필수 슬롯 fail" 적용 주차 집합 (적용 시점 분리 — CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM 주석 참고).
+//   포함 조건: weekId 존재 && 판정 완료(resultStatus success|fail) && 비전환 주차 &&
+//             (테스트 사용자 || start_date >= EFFECTIVE_FROM).
+//   running/tallying(아직 N+1 판정 시점 전 — fail 선반영 금지)·휴식·전환·실사용자 과거 주차는
+//   제외 → 필수 슬롯 placeholder 가 해당 없음(not_opened)으로 내려간다.
+//   weekly-growth 경로의 slotPolicyWeekIds(공표·현재주 기준)와 동일 의미 — resolver 의
+//   resultStatus 가 공표/현재주 판정을 이미 반영하므로 여기선 상태값으로 가른다.
+function buildSlotFailWeekIds(
+  cards: WeeklyCardDto[],
+  isTestUser: boolean,
+): Set<string> {
+  const out = new Set<string>();
+  for (const c of cards) {
+    if (!c.weekId || c.isTransition) continue;
+    if (c.resultStatus !== "success" && c.resultStatus !== "fail") continue;
+    if (!isTestUser && c.startDate < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) continue;
+    out.add(c.weekId);
+  }
+  return out;
 }
 
 function toUserWeekStatus(status: WeekResultStatus): Cluster4UserWeekStatus {
@@ -939,7 +1021,21 @@ function toWeeklyCardDto(
   const imageUrl = card.weekImagePath || null;
   const rest = isRestWeek(card.resultStatus);
   const fmScore = card.totalFmScoreRaw;
-  const linesWithBreakdown = attachLineBreakdown(lines, card.lineBreakdown, rest);
+  // 강화율 A/B: 카드에 실린 라인 칸의 enhancementStatus 에서 직접 파생 (2026-06-04 정합 정책).
+  // 휴식 주차는 기존대로 분모 0(전부 null 노출). card.lineBreakdown(SQL 집계)은 더 이상
+  // 카드 표시에 쓰지 않는다 — weekly-growth 단독 경로 전용으로만 남는다.
+  const breakdown = rest ? emptyBreakdown() : breakdownFromLines(lines);
+  const completedLines =
+    breakdown.info.completed +
+    breakdown.ability.completed +
+    breakdown.experience.completed +
+    breakdown.career.completed;
+  const availableLines =
+    breakdown.info.available +
+    breakdown.ability.available +
+    breakdown.experience.available +
+    breakdown.career.available;
+  const linesWithBreakdown = attachLineBreakdown(lines, breakdown, rest);
   const userWeekStatusValue = toUserWeekStatus(card.resultStatus);
   // statusIconKey = userWeekStatus (1:1). icon URL 은 정적 매핑.
   const iconKey: Cluster4StatusIconKey = userWeekStatusValue;
@@ -991,9 +1087,10 @@ function toWeeklyCardDto(
     weeklyReputations: people.weeklyReputations,
     weeklyColleagues: people.weeklyColleagues,
 
-    weeklyGrowthRate: card.weeklyGrowth.rate,
-    growthNumerator: card.weeklyGrowth.completedLines,
-    growthDenominator: card.weeklyGrowth.availableLines,
+    // 라인 칸 파생값(breakdownFromLines)과 동일 source — 칸 상태와 헤더 수치 정합 보장.
+    weeklyGrowthRate: roundGrowthRate(completedLines, availableLines),
+    growthNumerator: completedLines,
+    growthDenominator: availableLines,
 
     // 실무 경험 필수 슬롯(도출/분석/평가) 성장 판정 — 백엔드 verdict 그대로 패스스루.
     // (WeeklyCardDto.experienceGrowth 의 string-literal union 은 Cluster4ExperienceGrowth 에 구조적으로 대입 가능)
@@ -1334,6 +1431,12 @@ async function fetchLineDetailsByWeek(
   profileUserId: string,
   weekIds: string[],
   restWeekIds: Set<string>,
+  // v11 "필수 슬롯 fail" 적용 주차 (buildSlotFailWeekIds). 미포함 주차의 필수 슬롯 placeholder 는
+  // fail 이 아니라 해당 없음(not_opened) — 진행/집계 중 fail 선반영 금지 + 실사용자 과거 보존.
+  slotFailWeekIds: Set<string>,
+  // 관리(5) 슬롯 개방 여부(membership_level 심화/운영진) — 잠금 사용자는 관리 슬롯 라인을
+  // 분모 A/fail 칸에서 제외(해당 없음)해 고객앱 슬롯 잠금(카드 미노출)과 "총 N개"를 일치시킨다.
+  managementSlotOpen: boolean,
 ): Promise<Map<string, Cluster4LineDetailDto[]>> {
   const result = new Map<string, Cluster4LineDetailDto[]>();
   if (weekIds.length === 0) return result;
@@ -1623,6 +1726,19 @@ async function fetchLineDetailsByWeek(
             // career 미선발 = not_applicable 유지 + 개설 라인 content 노출.
             lines.push(openedCareerLineDetail(line, weekId, careerProjectMetaById));
           } else {
+            // 관리(5) 슬롯 잠금 사용자: 관리 슬롯 개설-미배정 라인은 synthetic fail 로 넣지 않는다.
+            // 고객앱이 관리 슬롯 카드를 잠금(미노출)하므로 분모 A 에 들어가면 "총 N개 > 표시 칸"
+            // 불일치가 난다(예: T최수빈 봄 12주차 — 표시 1칸 · 총 2개). 칸은 2.5 단계 placeholder
+            // (해당 없음)가 채운다.
+            if (
+              publicPart === "experience" &&
+              !managementSlotOpen &&
+              line.experience_line_master_id != null &&
+              experienceMasterMetaById.get(line.experience_line_master_id)
+                ?.slotOrder === EXPERIENCE_MANAGEMENT_SLOT_ORDER
+            ) {
+              continue;
+            }
             lines.push(
               openedFailLineDetail(
                 line,
@@ -1638,7 +1754,72 @@ async function fetchLineDetailsByWeek(
       }
     }
 
-    // 3. 라인이 전혀 없는 part → not_applicable placeholder (UI 완결성; 미개설·career 미선발·휴식주차).
+    // 2.5 실무 경험 슬롯 placeholder (2026-06-04 슬롯 정책 + 적용 시점 분리).
+    //   지금까지 모인 experience 칸(본인 배정 + 개설 미배정)의 슬롯 집합을 보고:
+    //     - 필수 슬롯(1·2·3·5)이 비어 있으면 → 신정책 적용 주차(slotFailWeekIds: 판정 완료 +
+    //       테스트 전 주차/실사용자 EFFECTIVE_FROM 이후)는 강화 실패 placeholder, 그 외
+    //       (진행/집계 중 fail 선반영 금지·휴식/전환·실사용자 과거 보존)는 해당 없음.
+    //     - 확장 슬롯(4)이 비어 있으면 → 해당 없음 placeholder (정해진 주차에만 열림).
+    //   org 필터로 숨겨진 라인 칸도 "이 사용자에게 없는 칸"이므로 placeholder 가 자리를 채운다.
+    const experienceSlotsPresent = new Set<number>();
+    for (const l of lines) {
+      if (l.partType === "experience" && l.experienceSlotOrder != null) {
+        experienceSlotsPresent.add(l.experienceSlotOrder);
+      }
+    }
+    for (const slot of EXPERIENCE_ALWAYS_OPEN_SLOT_ORDERS) {
+      if (!experienceSlotsPresent.has(slot)) {
+        // 관리(5) 슬롯은 잠금 사용자(membership_level 일반/미확정)에게 "항상-개설 fail" 미적용 —
+        // 고객앱이 슬롯 자체를 잠가 카드를 노출하지 않으므로 해당 없음(분모 제외)으로 내린다.
+        const managementLocked =
+          slot === EXPERIENCE_MANAGEMENT_SLOT_ORDER && !managementSlotOpen;
+        lines.push(
+          experienceSlotPlaceholderLine(
+            weekId,
+            slot,
+            !managementLocked && slotFailWeekIds.has(weekId)
+              ? "required_fail"
+              : "not_opened",
+          ),
+        );
+      }
+    }
+    if (!experienceSlotsPresent.has(4)) {
+      lines.push(experienceSlotPlaceholderLine(weekId, 4, "not_opened"));
+    }
+    // 데이터 이상 신호: 잠금 사용자에게 관리(5) 슬롯 라인이 직접 배정돼 있으면(본인 타깃 보유)
+    // 칸은 분모에 들어가지만 고객앱은 슬롯을 잠가 카드를 숨긴다 → "총 N개" 불일치 재발 후보.
+    // 실데이터를 임의로 가리지 않고(배정 = 운영자 의도) 경고만 남긴다 — membership_level 정비 대상.
+    if (
+      !managementSlotOpen &&
+      lines.some(
+        (l) =>
+          l.partType === "experience" &&
+          l.experienceSlotOrder === EXPERIENCE_MANAGEMENT_SLOT_ORDER &&
+          l.lineTargetId != null,
+      )
+    ) {
+      console.warn(
+        "[cluster4/weekly-cards] 관리 슬롯 잠금 사용자에게 관리 라인 직접 배정 감지 — membership_level 확인 필요",
+        { profileUserId, weekId },
+      );
+    }
+    partsPresent.add("experience");
+
+    // 2.6 실무 경력 6칸 패딩 (2026-06-04 정책: 항상 6개 칸 표시).
+    //   개설/선발/미선발(content 노출)로 채워지지 않은 나머지 칸은 보이드
+    //   (status="void", enhancementStatus=not_applicable → 분모 제외).
+    const careerCount = lines.reduce(
+      (n, l) => (l.partType === "career" ? n + 1 : n),
+      0,
+    );
+    for (let i = careerCount; i < CAREER_DISPLAY_CAP; i++) {
+      lines.push(emptyLine("career", weekId, false));
+    }
+    partsPresent.add("career");
+
+    // 3. 라인이 전혀 없는 part → not_applicable placeholder (UI 완결성; 미개설·휴식주차).
+    //   (experience/career 는 2.5/2.6 에서 항상 채워지므로 사실상 info/competency 전용.)
     //   lineTargetId 없음 → canEdit=false / editReason="target_missing" 고정.
     for (const partType of PUBLIC_PARTS) {
       if (!partsPresent.has(partType)) {
@@ -1786,9 +1967,16 @@ export async function getCluster4WeeklyCardsForAuthUser(
       .filter((card) => card.weekId && (card.isTransition || isRestWeek(card.resultStatus)))
       .map((card) => card.weekId as string),
   );
+  // v11 적용 시점 분리: 필수 슬롯 fail 적용 주차(판정 완료 + 테스트 전 주차/실사용자 EFFECTIVE_FROM 이후).
+  // 관리(5) 슬롯 게이트: membership_level 심화/운영진만 개방 — 잠금 사용자는 분모 제외(해당 없음).
+  const [isTestUser, managementSlotOpen] = await Promise.all([
+    fetchIsTestUser(profileUserId),
+    fetchManagementSlotOpen(profileUserId),
+  ]);
+  const slotFailWeekIds = buildSlotFailWeekIds(weeklyGrowth.weeklyCards, isTestUser);
   const tLinesStart = Date.now();
   const [lineMap, headerSnapshot, peopleMap] = await Promise.all([
-    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds),
+    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen),
     fetchHeaderExtrasSnapshot(profileUserId),
     // 위클리 평판/연계동료 + 인적사항 (주차별). 실패해도 빈 맵 폴백 → 카드 보호.
     fetchWeeklyPeopleByWeek(profileUserId, weekIds),
@@ -1839,9 +2027,16 @@ export async function getCluster4WeeklyCardsForProfileUser(
       .filter((card) => card.weekId && (card.isTransition || isRestWeek(card.resultStatus)))
       .map((card) => card.weekId as string),
   );
+  // v11 적용 시점 분리: 필수 슬롯 fail 적용 주차(판정 완료 + 테스트 전 주차/실사용자 EFFECTIVE_FROM 이후).
+  // 관리(5) 슬롯 게이트: membership_level 심화/운영진만 개방 — 잠금 사용자는 분모 제외(해당 없음).
+  const [isTestUser, managementSlotOpen] = await Promise.all([
+    fetchIsTestUser(profileUserId),
+    fetchManagementSlotOpen(profileUserId),
+  ]);
+  const slotFailWeekIds = buildSlotFailWeekIds(weeklyGrowth.weeklyCards, isTestUser);
   const tLinesStart = Date.now();
   const [lineMap, headerSnapshot, peopleMap] = await Promise.all([
-    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds),
+    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen),
     fetchHeaderExtrasSnapshot(profileUserId),
     // 위클리 평판/연계동료 + 인적사항 (주차별). 실패해도 빈 맵 폴백 → 카드 보호.
     fetchWeeklyPeopleByWeek(profileUserId, weekIds),

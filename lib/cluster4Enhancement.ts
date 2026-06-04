@@ -29,6 +29,19 @@
 //   experienceRatingVerdict 는 experience 호출부(weekly-cards)만 전달한다. career 와
 //   상호배타(한 라인은 career 또는 experience 중 하나)이며, 미전달(undefined)이면 영향 없음.
 //
+// 허브별 칸 정책 (2026-06-04 확정 — 본 함수는 불변, 호출부에서 입력으로 표현):
+//   - info: 라인별 오픈/마감 여부. 미개설=not_applicable, 개설+미배정=fail(expectedWhenMissing),
+//     배정+마감 전=pending(강화 대기), 배정+마감 후=success. 제출 여부는 판정 기준이 아니다.
+//   - experience: 필수 슬롯(1·2·3·5)은 라인 행이 없어도 항상 오픈/마감 간주 → 해당 없음 불가
+//     (칸 없으면 expectedWhenMissing=true placeholder → fail). 확장 슬롯(4)만 미개설=not_applicable.
+//     rating<=3 은 마감 후 fail (experienceRatingVerdict).
+//   - competency: 배정 칸은 pending→(수 22:00 마감)→success. 미배정+개설=fail 이되 표시축은
+//     보이드(status="void") — enhancementStatus=fail 은 유지(분모 포함).
+//   - career: 항상 6칸(부족분 보이드 패딩, not_applicable·분모 제외). 선발=pending/success/fail
+//     (grade 반영), 미지원/미선발=not_applicable(개설 content 노출).
+//   - 강화율: A = enhancementStatus ∈ {pending,success,fail} 칸 수, B = success 칸 수
+//     (weekly-cards breakdownFromLines — 칸 상태와 강제 정합).
+//
 // 서버(weekly-cards / 어드민 라인 API)에서만 호출하고, 결과를 DTO 에 그대로 append 한다.
 // DB 저장 컬럼이 아니라 런타임 파생값이다.
 

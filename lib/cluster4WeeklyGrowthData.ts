@@ -37,6 +37,10 @@ import {
   type EndStatus,
 } from "@/lib/cluster4WeeklyGrowthTypes";
 import {
+  CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM,
+  EXPERIENCE_ALWAYS_OPEN_SLOT_ORDERS,
+  EXPERIENCE_MANAGEMENT_SLOT_ORDER,
+  fetchManagementSlotOpen,
   fetchWeeklyCardLineAggregates,
   fetchExperienceRequiredSlotStatusByWeek,
   fetchWeeksWithOpenLinesByPart,
@@ -533,13 +537,34 @@ async function computeWeeklyCards(
   let competencyAvailMap = new Map<string, number>();
 
   if (weekCardIds.length > 0) {
+    // v11 적용 시점 분리(2026-06-04): "필수 슬롯 항상-개설(라인 행 없어도 fail)" 신정책 적용
+    // 주차 집합. 조건 = 공표 완료(판정 완료) && 비현재주 && 비전환주 && (테스트 사용자 ||
+    // start_date >= CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM). running/tallying(판정 전)은
+    // fail 선반영 금지, 실사용자 과거 주차는 누적 인정/시즌 성장률 보존을 위해 제외.
+    // 관리(5) 슬롯 게이트 — weekly-cards 라인 빌더와 동일 기준(membership_level 심화/운영진만 개방).
+    const [isTestUser, managementSlotOpen] = await Promise.all([
+      fetchIsTestUser(userId),
+      fetchManagementSlotOpen(userId),
+    ]);
+    const slotPolicyWeekIds = new Set<string>();
+    for (const w of cardWeeksDesc) {
+      if (!w.id) continue;
+      if (!isWeekPublished(w) || isCurrentWeekStart(w.start_date)) continue;
+      if (isTransitionWeekStart(w.start_date)) continue;
+      if (!isTestUser && w.start_date < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) continue;
+      slotPolicyWeekIds.add(w.id);
+    }
+
     // 기존 9개 fetch* (cluster4_lines 9회 + cluster4_line_targets 8회 ≈ 17~20 쿼리) 를
     // bulk aggregate(최대 3쿼리) + verdict(최대 3쿼리) + opened(2쿼리) = 최대 8쿼리로 축소.
     const tLines = Date.now();
     const [aggregates, experienceVerdict, opened] = await Promise.all([
       fetchWeeklyCardLineAggregates(userId, weekCardIds),
-      // 필수 슬롯 verdict (성장 실패 판정 SoT). 강화율 분자/분모와 별개 source.
-      fetchExperienceRequiredSlotStatusByWeek(userId, weekCardIds),
+      // 필수 슬롯 verdict (성장 실패 판정 SoT). 신정책 주차(slotPolicyWeekIds)만
+      // "항상-개설" 기준으로 산정 — 그 외 주차는 기존(개설 시에만 fail) 유지.
+      fetchExperienceRequiredSlotStatusByWeek(userId, weekCardIds, Date.now(), {
+        alwaysOpenWeekIds: slotPolicyWeekIds,
+      }),
       // 라인 개설 여부(part별) — synthetic fail 분모 A 가산용.
       fetchWeeksWithOpenLinesByPart(weekCardIds),
     ]);
@@ -565,8 +590,40 @@ async function computeWeeklyCards(
       return out;
     };
     infoAvailMap = maxMerge(opened.info, aggregates.infoLineMap);
-    experienceAvailMap = maxMerge(opened.experience, aggregates.experienceLineMap);
+    // 관리(5) 슬롯 잠금 사용자: 개설 distinct 라인 수에서 관리 슬롯 라인을 차감한다 —
+    // 고객앱이 관리 슬롯 카드를 잠가(미노출) 분모에 들어가면 "총 N개 > 표시 칸" 불일치
+    // (weekly-cards 라인 빌더의 synthetic fail 생략과 동일 게이트).
+    const openedExperienceForUser = new Map(opened.experience);
+    if (!managementSlotOpen) {
+      for (const [w, mgmtCount] of opened.experienceManagementLineCount) {
+        const cur = openedExperienceForUser.get(w);
+        if (cur != null && mgmtCount > 0) {
+          openedExperienceForUser.set(w, Math.max(0, cur - mgmtCount));
+        }
+      }
+    }
+    experienceAvailMap = maxMerge(openedExperienceForUser, aggregates.experienceLineMap);
     competencyAvailMap = maxMerge(opened.competency, aggregates.competencyLineMap);
+
+    // 실무 경험 분모 A 슬롯 보정 (2026-06-04): 신정책 주차(slotPolicyWeekIds — 판정 완료 +
+    // 테스트 전 주차/실사용자 EFFECTIVE_FROM 이후)에 한해, 필수 슬롯(1·2·3·5)을 라인 행이
+    // 없어도 "오픈/마감된 칸"으로 본다 → A = max(개설 distinct, 본인 배정) + 미개설 필수 슬롯 수.
+    // 개설 0 주차도 A=4 (필수 슬롯 4칸 전부 fail). 확장 슬롯(4)은 개설 주차에만 분모 포함(기존).
+    // 신정책 미적용 주차(진행/집계 중·실사용자 과거·휴식·전환)는 기존 분모 유지 — 라인 칸
+    // placeholder(해당 없음, 분모 제외)와 정합.
+    // 관리(5) 슬롯은 잠금 사용자에게 "항상-개설" 미적용(차감과 동일 게이트) — A=3 (1·2·3만).
+    for (const w of weekCardIds) {
+      if (!slotPolicyWeekIds.has(w)) continue;
+      const openSlots = opened.experienceOpenSlots.get(w);
+      let missing = 0;
+      for (const s of EXPERIENCE_ALWAYS_OPEN_SLOT_ORDERS) {
+        if (s === EXPERIENCE_MANAGEMENT_SLOT_ORDER && !managementSlotOpen) continue;
+        if (!openSlots?.has(s)) missing += 1;
+      }
+      if (missing > 0) {
+        experienceAvailMap.set(w, (experienceAvailMap.get(w) ?? 0) + missing);
+      }
+    }
   }
 
   // 9. 누적 계산 (오름차순) — 카드 주차 기준, start_date 키.
@@ -931,16 +988,26 @@ function isAmbassadorRole(role: string | null): boolean {
   );
 }
 
+// 등급 SoT = user_memberships.membership_level (2026-06-04 통일 — /admin/members
+// memberStatusLabel 과 동일 정책). role 은 "심화" 등급 내 직책(파트장/에이전트) 구분
+// 보조로만 쓴다 — role=part_leader 여도 level=일반이면 "일반"(role 단독으로
+// 심화(파트장)을 만들지 않는다). 운영진(팀장/앰배서더)은 등급 체계 밖이라 기존
+// role 판정 유지(isTeamLeaderRole/isAmbassadorRole — buildActivityLabels 선행 분기).
+function isAdvancedLevel(level: string | null): boolean {
+  return (level ?? "").trim().startsWith("심화");
+}
+
 function isPartLeaderRole(role: string | null, level: string | null): boolean {
+  if (!isAdvancedLevel(level)) return false; // 등급 게이트: 심화가 아니면 파트장 표기 금지
   const r = normalizeRoleToken(role);
   const raw = (role ?? "").trim();
   return r === "part_leader" || raw === "파트장" || (level ?? "").trim() === "심화(파트장)";
 }
 
 function isAgentRole(role: string | null, level: string | null): boolean {
-  const r = normalizeRoleToken(role);
-  const lv = (level ?? "").trim();
-  return r === "agent" || lv === "심화" || lv === "심화(에이전트)";
+  // 심화 등급에서 파트장이 아니면 전부 에이전트 표기 (role=agent/crew/기타 무관 —
+  // 기존에도 lv==="심화" 단독으로 에이전트 처리했던 동작을 보존).
+  return isAdvancedLevel(level) && !isPartLeaderRole(role, level);
 }
 
 // "팀장(00 팀)" 라벨. 이름이 이미 "팀"으로 끝나면 중복하지 않는다.
@@ -1392,6 +1459,11 @@ export async function getWeeklyGrowthByUserId(
 // ─────────────────────────────────────────────────────────────────────
 
 export type ExperienceGrowthSyncResult = {
+  // (v11 적용 시점 분리) 실사용자 과거(effectiveFrom 이전) 주차 중 verdict 상 fail 인데
+  // 보호되어 update 하지 않은 주차 키 — dry-run 성격의 관찰값.
+  protectedWeekKeys: string[];
+  isTestUser: boolean;
+  effectiveFromDate: string;
   userId: string;
   scannedSuccessWeeks: number; // status='success' 후보 주차 수
   flippedToFail: number; // dryRun=false: 실제 success→fail 갱신 수 / dryRun=true: 변경 예정 수
@@ -1405,17 +1477,42 @@ export function isTestDisplayName(name: string | null | undefined): boolean {
   return !!name && /t/i.test(name);
 }
 
+// 사용자 테스트 여부 단건 조회 (isTestDisplayName 단일 기준).
+// v11 슬롯 정책 적용 시점 분리(테스트=과거 전 주차 적용, 실사용자=EFFECTIVE_FROM 이후만)에 사용.
+// 조회 실패 시 false(실사용자, 보수적) — 과거 데이터 보호가 기본.
+export async function fetchIsTestUser(userId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from("user_profiles")
+    .select("display_name")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return isTestDisplayName(
+    (data as { display_name: string | null } | null)?.display_name,
+  );
+}
+
 export async function syncExperienceGrowthWeekStatuses(
   userId: string,
-  opts: { now?: number; dryRun?: boolean } = {},
+  opts: { now?: number; dryRun?: boolean; effectiveFromDate?: string } = {},
 ): Promise<ExperienceGrowthSyncResult> {
   const now = opts.now ?? Date.now();
   const dryRun = opts.dryRun ?? false;
+  // v11 적용 시점 분리 (2026-06-04):
+  //   - 테스트 사용자: 시점 제한 없음 — 과거 전 주차에 신정책(필수 슬롯 항상-개설) verdict + write.
+  //   - 실사용자: effectiveFromDate(기본 CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) 이후 시작 주차만
+  //     신정책 verdict + write. 그 이전 주차는 verdict 기준과 무관하게 **update 금지**(소급 강등
+  //     금지) — would-flip 은 protectedWeekKeys 로 dry-run 집계만 한다.
+  const effectiveFromDate =
+    opts.effectiveFromDate ?? CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM;
+  const isTestUser = await fetchIsTestUser(userId);
   const empty: ExperienceGrowthSyncResult = {
     userId,
     scannedSuccessWeeks: 0,
     flippedToFail: 0,
     flippedWeekKeys: [],
+    protectedWeekKeys: [],
+    isTestUser,
+    effectiveFromDate,
     dryRun,
   };
 
@@ -1453,10 +1550,21 @@ export async function syncExperienceGrowthWeekStatuses(
   }
 
   // 3. 필수 슬롯 verdict (weekly-cards 와 동일 함수·기준 → 화면=DB 일치 보장).
+  //   신정책(항상-개설) 적용 주차 = 테스트 사용자 전 주차 / 실사용자 effectiveFrom 이후 주차.
+  //   (성공 row 는 모두 공표·과거 주차이므로 별도 published/현재주 게이트는 아래 단계가 담당.)
+  const alwaysOpenWeekIds = new Set<string>();
+  for (const r of successRows) {
+    const weekId = weekIdByStart.get(r.week_start_date);
+    if (!weekId) continue;
+    if (isTestUser || r.week_start_date >= effectiveFromDate) {
+      alwaysOpenWeekIds.add(weekId);
+    }
+  }
   const verdictMap = await fetchExperienceRequiredSlotStatusByWeek(
     userId,
     weekCardIds,
     now,
+    { alwaysOpenWeekIds },
   );
 
   // 4. 현재 주차 (running = DB 미반영 상태 → sync 대상에서 제외).
@@ -1470,6 +1578,7 @@ export async function syncExperienceGrowthWeekStatuses(
 
   // 5. fail 대상만 success→fail 갱신. .eq("status","success") 가 rest/fail 방어 + 멱등 보장.
   const flippedWeekKeys: string[] = [];
+  const protectedWeekKeys: string[] = [];
   for (const r of successRows) {
     const weekId = weekIdByStart.get(r.week_start_date);
     if (!weekId) continue;
@@ -1482,6 +1591,13 @@ export async function syncExperienceGrowthWeekStatuses(
     // 후보는 모두 status='success' 이므로 currentStatus='success' 고정. verdict fail + 비현재주만 통과.
     if (!shouldSyncWeekStatusToFail("success", verdict?.status ?? "pass", isCurrent)) {
       continue; // pass/pending/not_applicable/현재주 → no-op
+    }
+
+    // 실사용자 과거 주차 보호 (v11 적용 시점 분리): effectiveFrom 이전 주차는 verdict 와 무관하게
+    // **update 금지** — 소급 success→fail 강등 방지. would-flip 만 protected 로 집계(관찰용).
+    if (!isTestUser && r.week_start_date < effectiveFromDate) {
+      protectedWeekKeys.push(`${r.year}-${r.week_number}`);
+      continue;
     }
 
     // dry-run: 변경 예정만 집계하고 DB 는 건드리지 않는다.
@@ -1509,6 +1625,9 @@ export async function syncExperienceGrowthWeekStatuses(
     scannedSuccessWeeks: successRows.length,
     flippedToFail: flippedWeekKeys.length,
     flippedWeekKeys,
+    protectedWeekKeys,
+    isTestUser,
+    effectiveFromDate,
     dryRun,
   };
 }
@@ -1576,7 +1695,9 @@ export type ExperienceGrowthSyncAllResult = {
   usersScanned: number; // 이 scope 에서 success 보유 대상 사용자 수
   usersFlipped: number; // 1건 이상 fail 전환(예정)된 사용자 수
   totalFlippedToFail: number; // 전체 success→fail 전환(예정) 주차 수
-  results: ExperienceGrowthSyncResult[]; // 변경(예정) 발생한 사용자만
+  // (v11) 실사용자 과거(effectiveFrom 이전) 보호로 update 가 차단된 주차 총수 — 관찰값.
+  totalProtected: number;
+  results: ExperienceGrowthSyncResult[]; // 변경(예정) 또는 보호 발생한 사용자만
 };
 
 // status='success' 보유 사용자 distinct.
@@ -1607,9 +1728,14 @@ async function syncExperienceGrowthForUserIds(
   const dryRun = opts.dryRun ?? false;
   const results: ExperienceGrowthSyncResult[] = [];
   let totalFlippedToFail = 0;
+  let totalProtected = 0;
+  let usersFlipped = 0;
   for (const uid of userIds) {
     const r = await syncExperienceGrowthWeekStatuses(uid, { now: opts.now, dryRun });
-    if (r.flippedToFail > 0) {
+    totalProtected += r.protectedWeekKeys.length;
+    if (r.flippedToFail > 0) usersFlipped += 1;
+    // 변경(예정) 또는 과거 보호 발생 사용자만 상세 수집 (no-op 사용자는 생략).
+    if (r.flippedToFail > 0 || r.protectedWeekKeys.length > 0) {
       results.push(r);
       totalFlippedToFail += r.flippedToFail;
     }
@@ -1618,8 +1744,9 @@ async function syncExperienceGrowthForUserIds(
     scope,
     dryRun,
     usersScanned: userIds.length,
-    usersFlipped: results.length,
+    usersFlipped,
     totalFlippedToFail,
+    totalProtected,
     results,
   };
 }

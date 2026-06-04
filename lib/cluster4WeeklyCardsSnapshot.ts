@@ -58,7 +58,28 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 //   출처로 현재 시즌 단위 집계하기 위함(lib/cluster4SeasonCircles.computeAreaSixCircles).
 //   기존 v9 snapshot 의 cards 에는 seasonKey/isTransition 키가 없어 집계가 비게 되므로 stale
 //   (version_mismatch) 처리 → cron/lazy 가 재계산하며 채운다. (DB 백필 아님 — 캐시 재생성.)
-export const WEEKLY_CARDS_DTO_VERSION = 10;
+// v11 (2026-06-04): 라인 개설/강화상태 정책 재정비 —
+//   ① 실무 경험 슬롯 정책: 필수 슬롯(1·2·3·5)은 라인 행이 없어도 항상 오픈/마감 간주 →
+//      칸 없으면 fail placeholder(해당 없음 불가), 확장 슬롯(4)은 미개설 주차 not_applicable
+//      placeholder. 휴식/전환 주차는 placeholder 전부 not_applicable.
+//   ② competency 미배정 fail 의 표시축을 보이드로 변경(status fail→void, enhancementStatus=fail 유지).
+//   ③ career 항상 6칸: 부족분을 보이드 placeholder 로 패딩(분모 cap 도 5→6).
+//   ④ 강화율 A/B 를 카드 라인 칸의 enhancementStatus 에서 직접 파생(breakdownFromLines) —
+//      A = not_applicable 제외 칸 수, B = success 칸 수. 칸 상태↔헤더/허브 수치 정합 보장.
+//   ⑤ 적용 시점 분리(같은 날 후속 확정): 필수 슬롯 fail placeholder 는 "판정 완료(success/fail)
+//      주차 + (테스트 사용자 전 주차 / 실사용자 CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM=2026-06-08
+//      이후 주차)"에만 적용. 진행(running)/집계 중(tallying) 주차는 fail 선반영 금지 → 해당 없음,
+//      실사용자 과거 주차도 해당 없음(누적 인정·시즌 성장률 보존). 주차 verdict/sync 도 동일 게이트.
+//   DTO 모양은 동일하나 lines 구성(placeholder 추가)·강화율 값이 달라지므로 기존 v10 snapshot 을
+//   stale(version_mismatch) 처리해 cron/lazy 가 신정책으로 재계산하게 한다. (DB 백필 아님 — 캐시 재생성.)
+// v12 (2026-06-04): 관리(5) 슬롯 단계 게이트 — membership_level 일반/미확정(잠금) 사용자는
+//   관리 슬롯을 분모 A·fail 칸에서 제외(해당 없음)한다. 고객앱이 관리 슬롯을 잠가 카드를 노출하지
+//   않으므로, v11 까지는 "화면 카드 1개 · 헤더 총 2개"(예: T최수빈 봄 12주차 — 타 유저 배정
+//   EXBS-EL0001 관리 라인이 synthetic fail 로 분모에 포함) 불일치가 났다. 잠금 사용자의
+//   개설-미배정 관리 라인 synthetic fail 생략 + 관리 슬롯 placeholder 는 신정책 주차에도
+//   not_opened(not_applicable). 심화/운영진은 v11 동작 유지. weekly-growth 분모 A 도 동일 게이트.
+//   값(분모/칸 상태)이 달라지므로 기존 v11 snapshot 을 stale 처리해 재계산하게 한다.
+export const WEEKLY_CARDS_DTO_VERSION = 12;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

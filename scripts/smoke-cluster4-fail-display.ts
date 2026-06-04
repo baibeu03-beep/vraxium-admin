@@ -3,12 +3,14 @@
  *
  *   npx tsx --env-file=.env.local scripts/smoke-cluster4-fail-display.ts
  *
- * 정책:
- *   - info / experience  : enhancementStatus=fail 이어도 보이드가 아니라 개설 라인 content 노출
- *                          (status != "void", mainTitle 존재). synthetic fail = lineTargetId 없음.
- *   - competency         : enhancementStatus=fail 은 보이드(status="void") 유지.
+ * 정책 (2026-06-04 개정 반영):
+ *   - info / experience  : "개설 라인" synthetic fail(lineId 있음 + lineTargetId 없음)은 보이드가
+ *                          아니라 개설 라인 content 노출(status != "void", mainTitle 존재).
+ *                          단 experience "필수 슬롯 placeholder fail"(lineId=null — 라인 행이
+ *                          없어도 슬롯 1·2·3·5 는 항상 개설 간주)은 내용 없는 fail 칸이 정상.
+ *   - competency         : enhancementStatus=fail 은 보이드(status="void") 표시.
  *   - career             : 미선발 = not_applicable(보이드). fail(grade D 등)은 타깃 보유 → content 노출.
- *   - not_applicable     : 보이드(미개설).
+ *   - not_applicable     : 보이드(미개설·career 패딩 포함).
  *
  * 실 DB 의 weekly-cards DTO 를 사용자별로 생성해 위 정책을 전수 검증한다.
  */
@@ -78,7 +80,9 @@ async function main() {
           lineDenomLtNumer += 1;
         const isSynthetic = line.lineTargetId === null;
         if (line.partType === "information" || line.partType === "experience") {
-          if (isSynthetic && line.enhancementStatus === "fail") {
+          // 개설 라인 기반 synthetic fail(lineId 있음)만 content 노출 대상.
+          // lineId=null 인 fail 은 필수 슬롯 placeholder(라인 행 없음) — 내용 없음이 정상.
+          if (isSynthetic && line.lineId !== null && line.enhancementStatus === "fail") {
             infoExpSyntheticFail += 1;
             const hasContent = line.status !== "void" && Boolean(line.mainTitle);
             if (hasContent) infoExpContentShown += 1;
