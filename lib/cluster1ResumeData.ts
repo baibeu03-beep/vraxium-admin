@@ -3,7 +3,7 @@ import { isTransitionWeekStart } from "@/lib/seasonCalendar";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import { EXPERIENCE_RATING_FAIL_THRESHOLD } from "@/lib/cluster4Enhancement";
 import { isCareerGradeFail, type CareerGrade } from "@/lib/careerGrade";
-import { getCluster4WeeklyCardsForProfileUser } from "@/lib/cluster4WeeklyCardsData";
+import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { getGrowthIndicators } from "@/lib/cluster3GrowthData";
 import {
@@ -154,16 +154,33 @@ function dummyScheduleReliability(): ScheduleReliability {
 //   전환 주차(isTransition)만 제외 — 휴식 주차는 카드 단계에서 denominator=0 이라 자연 제외된다.
 //   현재 시즌만 보는 area-6 와 달리 "전체 활동 기간"을 위해 모든 시즌 카드를 합산한다.
 //   별도 라인 재집계 없이 카드 파생값을 그대로 합산하므로 허브 화면과 항상 같은 값이 나온다.
+//
+//   (2026-06-05 경량화) 카드 source 를 라이브 계산(getCluster4WeeklyCardsForProfileUser,
+//   40주 사용자 기준 8~10s)에서 weekly-cards snapshot 직독(readWeeklyCardsSnapshot, 단일
+//   SELECT)으로 교체. 고객 front 의 resume 그래프트가 타임아웃으로 레거시 폴백에 빠지던
+//   원인 제거. stale(구버전 포함)도 카드 배열을 그대로 합산(허브 HTTP 와 동일한 graceful
+//   노출 정책). miss/error 만 0/0/0 — 이 경로에서 라이브 재계산은 절대 하지 않는다.
 // ─────────────────────────────────────────────────────────────────────
 async function computeActivityCompletion(
   userId: string,
 ): Promise<ActivityCompletion> {
-  let cards: Cluster4WeeklyCardDto[];
-  try {
-    cards = await getCluster4WeeklyCardsForProfileUser(userId);
-  } catch {
+  const snapshot = await readWeeklyCardsSnapshot(userId);
+  if (snapshot.status === "miss" || snapshot.status === "error") {
+    console.warn("[cluster1] activityCompletion snapshot unavailable → 0/0/0", {
+      userId,
+      status: snapshot.status,
+      message: snapshot.status === "error" ? snapshot.message : undefined,
+    });
     return { availableActivities: 0, completedActivities: 0, rate: 0 };
   }
+  if (snapshot.status === "stale") {
+    console.warn("[cluster1] activityCompletion snapshot stale → 구값 합산", {
+      userId,
+      reason: snapshot.reason,
+      computedAt: snapshot.computedAt,
+    });
+  }
+  const cards: Cluster4WeeklyCardDto[] = snapshot.cards;
 
   let availableActivities = 0;
   let completedActivities = 0;
