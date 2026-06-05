@@ -1,8 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { LogOut, Wrench } from "lucide-react";
-import { supabaseClient } from "@/lib/supabaseClient";
+import { Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 import {
@@ -44,11 +43,7 @@ export default function Header() {
   const devMode = useAdminDevMode();
   const title = resolveTitle(pathname);
 
-  const handleLogout = async () => {
-    await supabaseClient.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  };
+  // 로그아웃 버튼은 사이드바 최하단으로 이동했다 (components/admin/Sidebar.tsx).
 
   // dev=true 만 토글하고 나머지 query/hash 는 보존.
   const handleToggleDev = () => {
@@ -93,10 +88,6 @@ export default function Header() {
           >
             {devMode ? "ON" : "OFF"}
           </span>
-        </Button>
-        <Button variant="ghost" size="sm" onClick={handleLogout}>
-          <LogOut className="h-4 w-4" />
-          로그아웃
         </Button>
       </div>
     </header>

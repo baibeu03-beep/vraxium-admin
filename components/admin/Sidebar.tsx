@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Briefcase,
   ChevronRight,
   Database,
   LayoutDashboard,
+  LogOut,
   PanelLeft,
   PanelLeftClose,
   Users,
@@ -15,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabaseClient } from "@/lib/supabaseClient";
 import {
   ORGANIZATIONS,
   ORGANIZATION_LABEL,
@@ -139,11 +141,20 @@ function isUnderAnyBase(pathname: string, item: BranchItem) {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const {
     open: sidebarOpen,
     setOpen: setSidebarOpen,
     toggle: toggleSidebar,
   } = useSidebar();
+
+  // Header 에 있던 기존 로그아웃 로직을 그대로 재사용 (신규 API 없음).
+  // navLocked(HOME) 상태에서도 로그아웃만은 항상 동작해야 한다.
+  const handleLogout = async () => {
+    await supabaseClient.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
 
   // /admin HOME 화면에서는 메뉴 UI 는 보이되 클릭/이동을 막는다.
   // (다른 하위 페이지에서는 기존대로 동작, 사이드바 접기/펼치기는 항상 가능)
@@ -182,13 +193,13 @@ export default function Sidebar() {
     <aside
       data-collapsed={!sidebarOpen}
       className={cn(
-        "shrink-0 border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
+        "flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
         sidebarOpen ? "w-60" : "w-14",
       )}
     >
       <div
         className={cn(
-          "flex h-14 items-center border-b border-sidebar-border",
+          "flex h-14 shrink-0 items-center border-b border-sidebar-border",
           sidebarOpen ? "justify-between px-4" : "justify-center px-0",
         )}
       >
@@ -215,7 +226,7 @@ export default function Sidebar() {
 
       <nav
         className={cn(
-          "flex flex-col",
+          "flex flex-1 flex-col overflow-y-auto",
           sidebarOpen ? "gap-0.5 p-2.5" : "gap-1 p-2",
         )}
       >
@@ -345,6 +356,30 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* 로그아웃: 항상 사이드바 최하단 고정. HOME(navLocked) 에서도 클릭 가능해야 한다. */}
+      <div
+        className={cn(
+          "shrink-0 border-t border-sidebar-border",
+          sidebarOpen ? "p-2.5" : "p-2",
+        )}
+      >
+        <button
+          type="button"
+          onClick={handleLogout}
+          title={!sidebarOpen ? "로그아웃" : undefined}
+          className={cn(
+            "flex items-center rounded-md text-sm transition-colors",
+            sidebarOpen
+              ? "w-full gap-2 px-3 py-1.5"
+              : "h-9 w-9 justify-center mx-auto",
+            "text-destructive/80 hover:bg-destructive/10 hover:text-destructive",
+          )}
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          {sidebarOpen && <span className="truncate">로그아웃</span>}
+        </button>
+      </div>
     </aside>
   );
 }
