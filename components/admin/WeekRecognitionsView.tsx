@@ -40,6 +40,7 @@ import {
   type WeekRecognitionStatus,
   type WeekRecognitionWeekOption,
 } from "@/lib/adminWeekRecognitionsTypes";
+import { DEFAULT_WEEK_CHECK_THRESHOLD } from "@/lib/cluster4Enhancement";
 
 const ALL = "__all__";
 
@@ -596,6 +597,17 @@ export default function WeekRecognitionsView() {
         </CardContent>
       </Card>
 
+      <CheckThresholdManager
+        weeks={weekOptions}
+        seasons={seasons}
+        loading={loading}
+        onSaved={(message) => {
+          setBanner({ kind: "success", message });
+          setRefreshTick((n) => n + 1);
+        }}
+        onError={(message) => setBanner({ kind: "error", message })}
+      />
+
       {editing && (
         <WeekRecognitionEditModal
           row={editing}
@@ -704,6 +716,212 @@ function PublishWeekModal({
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── 주차 인정 check 기준 관리 ────────────────────────────────────────
+// 주차별 "주차 인정 point.check 기준값"(weeks.check_threshold) 표시/수정.
+//   - 주차 성공 판정에는 point.check 만 사용 (advantage/penalty 미사용).
+//   - 기준값 없음(null) = 기본값(DEFAULT_WEEK_CHECK_THRESHOLD=30) 적용 — "기본값" 배지로 표시.
+//   - 레거시(2026 여름 W1 이전) 통합 라인 주차 판정에 적용: 평점 ≥4(강화 성공) AND
+//     check >= 기준값이어야 주차 성공.
+
+function CheckThresholdManager({
+  weeks,
+  seasons,
+  loading,
+  onSaved,
+  onError,
+}: {
+  weeks: WeekRecognitionWeekOption[];
+  seasons: { season_key: string; season_label: string | null }[];
+  loading: boolean;
+  onSaved: (message: string) => void;
+  onError: (message: string) => void;
+}) {
+  const seasonLabelByKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of seasons) m.set(s.season_key, s.season_label ?? s.season_key);
+    return m;
+  }, [seasons]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">주차 인정 check 기준 관리</CardTitle>
+        <CardDescription>
+          주차 성공 판정에 필요한 point.check 개수 기준입니다. 주차 성공 = [실무 경험]
+          통합 라인 평점 4점 이상(강화 성공) <span className="font-medium">그리고</span> check
+          획득 수가 이 기준 이상. advantage / penalty 는 판정에 사용하지 않습니다.
+          비워 두면 기본값 {DEFAULT_WEEK_CHECK_THRESHOLD}개가 적용됩니다.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-hidden rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>시즌</TableHead>
+                <TableHead>주차</TableHead>
+                <TableHead>기간</TableHead>
+                <TableHead>공표 상태</TableHead>
+                <TableHead>check 인정 기준</TableHead>
+                <TableHead className="w-56">수정</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {weeks.map((w) => (
+                <CheckThresholdRow
+                  key={w.week_id}
+                  week={w}
+                  seasonLabel={
+                    w.season_key
+                      ? seasonLabelByKey.get(w.season_key) ?? w.season_key
+                      : "—"
+                  }
+                  onSaved={onSaved}
+                  onError={onError}
+                />
+              ))}
+              {!loading && weeks.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="py-10 text-center text-muted-foreground"
+                  >
+                    표시할 주차가 없습니다.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CheckThresholdRow({
+  week,
+  seasonLabel,
+  onSaved,
+  onError,
+}: {
+  week: WeekRecognitionWeekOption;
+  seasonLabel: string;
+  onSaved: (message: string) => void;
+  onError: (message: string) => void;
+}) {
+  // 입력값: "" = 기본값 사용(null 저장). 주차 옵션이 갱신되면 동기화.
+  const [value, setValue] = useState<string>(
+    week.check_threshold == null ? "" : String(week.check_threshold),
+  );
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setValue(week.check_threshold == null ? "" : String(week.check_threshold));
+  }, [week.check_threshold, week.week_id]);
+
+  const trimmed = value.trim();
+  const parsed = trimmed === "" ? null : Number(trimmed);
+  const invalid =
+    parsed !== null &&
+    (!Number.isInteger(parsed) || parsed < 0 || parsed > 10000);
+  const dirty =
+    (parsed === null ? null : parsed) !== (week.check_threshold ?? null);
+
+  const save = async () => {
+    if (saving || invalid || !dirty) return;
+    setSaving(true);
+    try {
+      const res = await fetch(
+        `/api/admin/weeks/${encodeURIComponent(week.week_id)}/check-threshold`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ check_threshold: parsed }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error ?? "Failed to update check threshold.");
+      }
+      const d = json.data as {
+        week_label: string;
+        effective_check_threshold: number;
+        check_threshold_is_default: boolean;
+        snapshot_recompute?: { requested: number; recomputed: number };
+      };
+      const snap = d.snapshot_recompute
+        ? ` (snapshot ${d.snapshot_recompute.recomputed}/${d.snapshot_recompute.requested}명 재계산)`
+        : "";
+      onSaved(
+        `${seasonLabel} ${d.week_label} check 인정 기준을 ${
+          d.check_threshold_is_default
+            ? `기본값(${d.effective_check_threshold}개)`
+            : `${d.effective_check_threshold}개`
+        }로 저장했습니다.${snap}`,
+      );
+    } catch (err) {
+      onError(
+        err instanceof Error ? err.message : "Failed to update check threshold.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <TableRow>
+      <TableCell className="whitespace-nowrap">{seasonLabel}</TableCell>
+      <TableCell className="whitespace-nowrap font-medium">
+        {week.week_label}
+      </TableCell>
+      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+        {formatRange(week.week_start_date, week.week_end_date)}
+      </TableCell>
+      <TableCell>
+        <ConfirmStatusBadge
+          endDate={week.week_end_date}
+          at={week.result_published_at}
+        />
+      </TableCell>
+      <TableCell className="whitespace-nowrap">
+        <span className="font-medium tabular-nums">
+          {week.effective_check_threshold}개
+        </span>
+        {week.check_threshold_is_default && (
+          <span className="ml-2 inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+            기본값
+          </span>
+        )}
+      </TableCell>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <Input
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            placeholder={`기본 ${DEFAULT_WEEK_CHECK_THRESHOLD}`}
+            inputMode="numeric"
+            className={cn("h-8 w-24", invalid && "border-red-400")}
+            aria-label={`${seasonLabel} ${week.week_label} check 인정 기준`}
+          />
+          <Button
+            type="button"
+            size="sm"
+            onClick={save}
+            disabled={saving || invalid || !dirty}
+          >
+            {saving ? "저장 중..." : "저장"}
+          </Button>
+        </div>
+        {invalid && (
+          <div className="mt-1 text-xs text-red-600">
+            0 이상 10000 이하 정수만 가능합니다.
+          </div>
+        )}
+      </TableCell>
+    </TableRow>
   );
 }
 

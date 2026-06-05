@@ -3,6 +3,7 @@ import type { OrganizationSlug } from "@/lib/organizations";
 import {
   computeCluster4Enhancement,
   EXPERIENCE_RATING_FAIL_THRESHOLD,
+  DEFAULT_WEEK_CHECK_THRESHOLD,
 } from "@/lib/cluster4Enhancement";
 import type {
   Cluster4EnhancementStatus,
@@ -954,10 +955,22 @@ export type ExperienceGrowthVerdictStatus =
   | "pending"
   | "not_applicable";
 
+// 주차 인정 check 게이트 (2026-06-05 정책 정정 — 레거시 통합 라인 전용).
+//   주차 성공 = 강화 성공(평점 ≥4/미평가) AND earned(check) >= required(기준값).
+//   passed=false 면 verdict.status 가 fail 로 강등되지만 슬롯 enhancementStatus(강화)는
+//   success 그대로 유지된다 — "강화 성공 + 주차 실패" 분리 표시의 근거.
+export type WeekCheckGate = {
+  required: number; // 적용된 기준값 (weeks.check_threshold ?? DEFAULT_WEEK_CHECK_THRESHOLD)
+  earned: number; // 그 주차 본인 point.check (user_weekly_points.points, 행 없으면 0)
+  passed: boolean;
+};
+
 export type ExperienceGrowthVerdict = {
   status: ExperienceGrowthVerdictStatus;
   requiredSlots: ExperienceRequiredSlotStatus[];
   failedSlotOrders: number[];
+  // 레거시 통합 라인 주차에서 check 게이트가 평가된 경우에만 채워진다(append-only).
+  checkGate?: WeekCheckGate | null;
 };
 
 const REQUIRED_SLOTS: ReadonlyArray<{
@@ -1033,6 +1046,9 @@ export type LegacyUnifiedWeekState = {
   hasTarget: boolean; // 본인 user 타깃 존재
   deadlinePassed: boolean; // 통합 라인 마감(submission_closes_at) 경과
   rating: number | null; // 본인 평점 (cluster4_experience_line_evaluations)
+  // ── 주차 인정 check 게이트 입력 (2026-06-05 정책 정정) ──
+  checkCount: number; // 본인 point.check (user_weekly_points.points, 행 없으면 0)
+  checkThreshold: number; // 적용 기준값 (weeks.check_threshold ?? DEFAULT_WEEK_CHECK_THRESHOLD)
 };
 
 export async function fetchLegacyUnifiedExperienceByWeek(
@@ -1061,7 +1077,14 @@ export async function fetchLegacyUnifiedExperienceByWeek(
   const ensure = (week: string): LegacyUnifiedWeekState => {
     let s = result.get(week);
     if (!s) {
-      s = { opened: false, hasTarget: false, deadlinePassed: false, rating: null };
+      s = {
+        opened: false,
+        hasTarget: false,
+        deadlinePassed: false,
+        rating: null,
+        checkCount: 0,
+        checkThreshold: DEFAULT_WEEK_CHECK_THRESHOLD,
+      };
       result.set(week, s);
     }
     return s;
@@ -1126,12 +1149,92 @@ export async function fetchLegacyUnifiedExperienceByWeek(
     }
   }
 
+  // ── 주차 인정 check 게이트 입력 (2026-06-05 정책 정정) ──
+  //   weeks.check_threshold(NULL=기본값) + user_weekly_points.points(ISO year/week 매칭).
+  //   상태가 만들어진 주차(개설 주차)에만 채운다 — 미개설(not_applicable) 주차는 게이트 미적용.
+  if (result.size > 0) {
+    type WeekMetaRow = {
+      id: string;
+      iso_year: number | null;
+      iso_week: number | null;
+      check_threshold?: number | null;
+    };
+    let weekMeta: WeekMetaRow[] = [];
+    {
+      // check_threshold 컬럼 미적용 DB(마이그레이션 전) 방어: 실패 시 컬럼 없이 재조회.
+      const ids = [...result.keys()];
+      const { data, error } = await supabaseAdmin
+        .from("weeks")
+        .select("id,iso_year,iso_week,check_threshold")
+        .in("id", ids);
+      if (error) {
+        console.warn(
+          "[lineAvailability] weeks.check_threshold select failed — fallback to default threshold",
+          { message: error.message },
+        );
+        const { data: fallback } = await supabaseAdmin
+          .from("weeks")
+          .select("id,iso_year,iso_week")
+          .in("id", ids);
+        weekMeta = (fallback ?? []) as WeekMetaRow[];
+      } else {
+        weekMeta = (data ?? []) as WeekMetaRow[];
+      }
+    }
+
+    const isoByWeekId = new Map<string, { year: number; week: number }>();
+    for (const w of weekMeta) {
+      const s = result.get(w.id);
+      if (!s) continue;
+      s.checkThreshold =
+        w.check_threshold != null && w.check_threshold >= 0
+          ? w.check_threshold
+          : DEFAULT_WEEK_CHECK_THRESHOLD;
+      if (w.iso_year != null && w.iso_week != null) {
+        isoByWeekId.set(w.id, { year: w.iso_year, week: w.iso_week });
+      }
+    }
+
+    if (isoByWeekId.size > 0) {
+      const years = [...new Set([...isoByWeekId.values()].map((v) => v.year))];
+      const { data: pointRows, error: pointsErr } = await supabaseAdmin
+        .from("user_weekly_points")
+        .select("year,week_number,points")
+        .eq("user_id", userId)
+        .in("year", years);
+      if (pointsErr) {
+        console.warn("[lineAvailability] user_weekly_points fetch failed", {
+          message: pointsErr.message,
+        });
+      } else {
+        const pointsByIso = new Map<string, number>();
+        for (const p of (pointRows ?? []) as {
+          year: number;
+          week_number: number;
+          points: number;
+        }[]) {
+          pointsByIso.set(`${p.year}-${p.week_number}`, p.points);
+        }
+        for (const [weekId, iso] of isoByWeekId) {
+          const s = result.get(weekId);
+          if (!s) continue;
+          s.checkCount = pointsByIso.get(`${iso.year}-${iso.week}`) ?? 0;
+        }
+      }
+    }
+  }
+
   return result;
 }
 
 // 레거시 통합 라인 상태 → 주차 verdict (단일 슬롯 환원).
-//   개설 + 본인 타깃 + (평점 ≥4 또는 미평가) → pass / 평점 ≤3 → fail
-//   개설 + 미배정 → fail / 미개설 → not_applicable (기존 status 유지 — 실사용자 보존)
+//   강화(슬롯 enhancementStatus): 개설 + 본인 타깃 + (평점 ≥4 또는 미평가) → success /
+//     평점 ≤3 → fail / 개설 + 미배정 → fail / 미개설 → not_applicable (기존 status 유지 — 실사용자 보존)
+//   주차 성공(verdict.status) — 2026-06-05 정책 정정으로 강화 성공과 분리:
+//     강화 success 라도 그 주차 check(user_weekly_points.points) < 기준값
+//     (weeks.check_threshold ?? 30) 이면 verdict=fail (주차 실패).
+//     슬롯 enhancementStatus 는 success 그대로 → "강화 성공 + 주차 실패" 표시 분리.
+//     advantage/penalty 는 게이트에 사용하지 않는다.
 export function reduceLegacyUnifiedVerdict(
   state: LegacyUnifiedWeekState | undefined,
 ): ExperienceGrowthVerdict {
@@ -1157,9 +1260,26 @@ export function reduceLegacyUnifiedVerdict(
           : "pass"
         : undefined,
   }).enhancementStatus;
-  return reduceExperienceRequiredSlotVerdict([
+  const verdict = reduceExperienceRequiredSlotVerdict([
     { slotOrder: 1, category: "derivation", enhancementStatus },
   ]);
+
+  // ── check 게이트 (강화 success = 조건 A 충족 시에만 평가) ──
+  //   pending(마감 전)·fail(평점/미배정)은 게이트 무관 — 기존 상태 유지.
+  if (enhancementStatus === "success") {
+    const gate: WeekCheckGate = {
+      required: state.checkThreshold,
+      earned: state.checkCount,
+      passed: state.checkCount >= state.checkThreshold,
+    };
+    return {
+      ...verdict,
+      // 조건 B 미달 → 주차 실패. failedSlotOrders 는 비움 — 슬롯(강화)은 실패가 아니다.
+      status: gate.passed ? verdict.status : "fail",
+      checkGate: gate,
+    };
+  }
+  return verdict;
 }
 
 // 주차별 필수 슬롯(1/2/3) verdict. weekId(weeks.id) → verdict.

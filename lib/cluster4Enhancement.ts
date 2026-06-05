@@ -76,6 +76,12 @@ export type Cluster4EnhancementInput = {
 // experience 평점 강화 실패 임계: rating <= 3. weekly-cards / smoke 공용 SoT.
 export const EXPERIENCE_RATING_FAIL_THRESHOLD = 3;
 
+// 주차 인정 point.check 기본 기준값 (2026-06-05 레거시 통합 라인 정책 정정).
+//   주차 성공 = 평점 4점 이상(강화 성공) AND 그 주차 check(user_weekly_points.points) >= 기준값.
+//   weeks.check_threshold 가 NULL 인 주차에 이 기본값을 적용한다. 관리자 UI/판정 공용 SoT.
+//   강화 성공 판정(평점)에는 사용하지 않는다 — 주차 성공 게이트 전용.
+export const DEFAULT_WEEK_CHECK_THRESHOLD = 30;
+
 export type Cluster4EnhancementResult = {
   enhancementStatus: Cluster4EnhancementStatus;
   submissionStatus: Cluster4SubmissionStatus;

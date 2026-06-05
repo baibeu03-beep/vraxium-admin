@@ -23,7 +23,10 @@ import type {
   WeekRecognitionUpdateResult,
   WeekRecognitionUpdatedRow,
   WeekResultPublishResult,
+  WeekCheckThresholdUpdateInput,
+  WeekCheckThresholdUpdateResult,
 } from "@/lib/adminWeekRecognitionsTypes";
+import { DEFAULT_WEEK_CHECK_THRESHOLD } from "@/lib/cluster4Enhancement";
 import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
 import {
   refreshWeeklyCardsSnapshotSafe,
@@ -50,7 +53,48 @@ type WeekRow = {
   iso_year: number | null;
   iso_week: number | null;
   result_published_at: string | null;
+  // 주차 인정 point.check 기준값. NULL=기본값. 마이그레이션 미적용 DB 폴백 시 undefined.
+  check_threshold?: number | null;
 };
+
+// weeks 조회 — check_threshold 컬럼 미적용 DB(마이그레이션 전) 방어 폴백 포함.
+async function fetchWeekRows(): Promise<WeekRow[]> {
+  const WITH_THRESHOLD =
+    "id,season_key,week_number,start_date,end_date,iso_year,iso_week,result_published_at,check_threshold";
+  const { data, error } = await supabaseAdmin
+    .from("weeks")
+    .select(WITH_THRESHOLD)
+    .order("start_date", { ascending: true });
+  if (!error) return (data ?? []) as WeekRow[];
+
+  console.warn(
+    "[week-recognitions] weeks.check_threshold select failed — fallback without column",
+    { message: error.message },
+  );
+  const { data: fallback, error: fallbackError } = await supabaseAdmin
+    .from("weeks")
+    .select(
+      "id,season_key,week_number,start_date,end_date,iso_year,iso_week,result_published_at",
+    )
+    .order("start_date", { ascending: true });
+  if (fallbackError) throw new Error(fallbackError.message);
+  return (fallback ?? []) as WeekRow[];
+}
+
+function weekOptionOf(w: WeekRow) {
+  const threshold = w.check_threshold ?? null;
+  return {
+    week_id: w.id,
+    season_key: w.season_key,
+    week_label: weekLabelOf(w, w.iso_week),
+    week_start_date: w.start_date,
+    week_end_date: w.end_date,
+    result_published_at: w.result_published_at ?? null,
+    check_threshold: threshold,
+    effective_check_threshold: threshold ?? DEFAULT_WEEK_CHECK_THRESHOLD,
+    check_threshold_is_default: threshold == null,
+  };
+}
 
 type UserWeekStatusRow = {
   id: string;
@@ -106,22 +150,17 @@ export async function getWeekRecognitions(
   const search = options.search?.trim() || null;
 
   // 1) 시즌/주차 메타.
-  const [seasonRes, weekRes] = await Promise.all([
+  const [seasonRes, weeks] = await Promise.all([
     supabaseAdmin
       .from("season_definitions")
       .select("season_key,season_label,season_type,start_date,end_date")
       .order("start_date", { ascending: true }),
-    supabaseAdmin
-      .from("weeks")
-      .select("id,season_key,week_number,start_date,end_date,iso_year,iso_week,result_published_at")
-      .order("start_date", { ascending: true }),
+    fetchWeekRows(),
   ]);
 
   if (seasonRes.error) throw new Error(seasonRes.error.message);
-  if (weekRes.error) throw new Error(weekRes.error.message);
 
   const seasons = (seasonRes.data ?? []) as SeasonDefinitionRow[];
-  const weeks = (weekRes.data ?? []) as WeekRow[];
 
   const seasonByKey = new Map<string, SeasonDefinitionRow>();
   for (const s of seasons) seasonByKey.set(s.season_key, s);
@@ -307,14 +346,7 @@ export async function getWeekRecognitions(
       season_key: s.season_key,
       season_label: seasonName(s),
     })),
-    weeks: weeks.map((w) => ({
-      week_id: w.id,
-      season_key: w.season_key,
-      week_label: weekLabelOf(w, w.iso_week),
-      week_start_date: w.start_date,
-      week_end_date: w.end_date,
-      result_published_at: w.result_published_at ?? null,
-    })),
+    weeks: weeks.map(weekOptionOf),
     truncated,
     generated_at: new Date().toISOString(),
   };
@@ -593,6 +625,146 @@ export async function publishWeekResult(
   };
 }
 
+// ─── 주차 인정 check 기준값 수정(PATCH) ──────────────────────────────
+//
+// weeks.check_threshold 를 수정한다 (null = 기본값 사용). 이 값은 레거시(허브 도입 전)
+// 통합 라인 주차의 "주차 성공" read-time 판정(평점 ≥4 AND check >= 기준값)에 쓰인다.
+//   - user_week_statuses 는 절대 건드리지 않는다 (read-time 판정 — uws 원본 보존).
+//   - 변경 직후 그 주차 참여자(user_week_statuses 보유) 전원의 weekly-cards snapshot 을
+//     재계산한다 (publish-result 와 동일 패턴, best-effort).
+
+export class WeekCheckThresholdUpdateError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "WeekCheckThresholdUpdateError";
+    this.status = status;
+  }
+}
+
+export async function updateWeekCheckThreshold(
+  weekId: string,
+  input: WeekCheckThresholdUpdateInput,
+): Promise<WeekCheckThresholdUpdateResult> {
+  const id = String(weekId ?? "").trim();
+  if (!id) {
+    throw new WeekCheckThresholdUpdateError(400, "week_id is required.");
+  }
+
+  const raw = input?.check_threshold;
+  let nextValue: number | null;
+  if (raw === null || raw === undefined) {
+    nextValue = null; // 기본값 사용으로 되돌리기
+  } else if (
+    typeof raw === "number" &&
+    Number.isInteger(raw) &&
+    raw >= 0 &&
+    raw <= 10000
+  ) {
+    nextValue = raw;
+  } else {
+    throw new WeekCheckThresholdUpdateError(
+      400,
+      "check_threshold must be an integer between 0 and 10000, or null (use default).",
+    );
+  }
+
+  // 1) 대상 주차 확인 — 없으면 404.
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("weeks")
+    .select("id,week_number,iso_week,start_date")
+    .eq("id", id)
+    .maybeSingle();
+  if (existingError) {
+    throw new WeekCheckThresholdUpdateError(500, existingError.message);
+  }
+  if (!existing) {
+    throw new WeekCheckThresholdUpdateError(404, "weeks row not found.");
+  }
+
+  // 2) 갱신. check_threshold 컬럼 미적용 DB 면 명시적 에러로 안내.
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from("weeks")
+    .update({ check_threshold: nextValue })
+    .eq("id", id)
+    .select("id,week_number,iso_week,start_date,check_threshold")
+    .maybeSingle();
+  if (updateError) {
+    const missingColumn = /check_threshold/.test(updateError.message);
+    throw new WeekCheckThresholdUpdateError(
+      missingColumn ? 409 : 500,
+      missingColumn
+        ? "weeks.check_threshold 컬럼이 없습니다. db/migrations/2026-06-05_weeks_check_threshold.sql 을 Supabase SQL Editor 에서 먼저 적용하세요."
+        : updateError.message,
+    );
+  }
+  if (!updated) {
+    throw new WeekCheckThresholdUpdateError(404, "weeks row not found.");
+  }
+
+  const row = updated as {
+    id: string;
+    week_number: number | null;
+    iso_week: number | null;
+    start_date: string | null;
+    check_threshold: number | null;
+  };
+  const label =
+    row.week_number != null
+      ? `${row.week_number}주차`
+      : row.iso_week != null
+        ? `${row.iso_week}주(ISO)`
+        : "주차 미지정";
+
+  // 3) 쓰기 시점 snapshot 갱신: 기준값 변경 → 그 주차 참여자 전원의 read-time 판정이
+  //    달라질 수 있으므로 snapshot 재계산 (publish-result 와 동일 패턴, best-effort).
+  let snapshotRecompute: WeekCheckThresholdUpdateResult["snapshot_recompute"];
+  try {
+    if (row.start_date) {
+      const { data: parts } = await supabaseAdmin
+        .from("user_week_statuses")
+        .select("user_id")
+        .eq("week_start_date", row.start_date);
+      const userIds = Array.from(
+        new Set(((parts ?? []) as { user_id: string }[]).map((p) => p.user_id)),
+      );
+      const r = await recomputeWeeklyCardsSnapshotsForUsers(userIds, {
+        concurrency: 3,
+      });
+      snapshotRecompute = {
+        requested: r.requested,
+        recomputed: r.recomputed,
+        failed: r.failed,
+      };
+      if (r.failed > 0) {
+        console.warn("[check-threshold] snapshot recompute partial fail", {
+          weekId: row.id,
+          failedUserIds: r.failedUserIds,
+        });
+      }
+    }
+  } catch (e) {
+    console.warn(
+      "[check-threshold] snapshot recompute hook failed (update kept)",
+      {
+        weekId: row.id,
+        message: e instanceof Error ? e.message : String(e),
+      },
+    );
+  }
+
+  return {
+    week_id: row.id,
+    week_label: label,
+    week_start_date: row.start_date ?? null,
+    check_threshold: row.check_threshold ?? null,
+    effective_check_threshold:
+      row.check_threshold ?? DEFAULT_WEEK_CHECK_THRESHOLD,
+    check_threshold_is_default: row.check_threshold == null,
+    snapshot_recompute: snapshotRecompute,
+  };
+}
+
 function emptyResult(
   seasons: SeasonDefinitionRow[],
   weeks: WeekRow[],
@@ -610,14 +782,7 @@ function emptyResult(
       season_key: s.season_key,
       season_label: seasonName(s),
     })),
-    weeks: weeks.map((w) => ({
-      week_id: w.id,
-      season_key: w.season_key,
-      week_label: weekLabelOf(w, w.iso_week),
-      week_start_date: w.start_date,
-      week_end_date: w.end_date,
-      result_published_at: w.result_published_at ?? null,
-    })),
+    weeks: weeks.map(weekOptionOf),
     truncated: false,
     generated_at: new Date().toISOString(),
   };

@@ -103,7 +103,14 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 //      개설+미배정 = 실패, 미개설 = not_applicable → uws 보존). ④ weekly-growth 집계도 동일
 //      override. lines 구성·강화율·verdict 가 달라지므로 기존 v16 snapshot 을 stale 처리해
 //      재계산하게 한다. (DB 백필 아님 — 캐시 재생성. 데이터는 별도 마이그레이션 스크립트.)
-export const WEEKLY_CARDS_DTO_VERSION = 17;
+// v18 (2026-06-05): 레거시 통합 라인 정책 정정 — 강화 성공과 주차 성공 분리.
+//   강화 성공 = 평점 4점 이상(기존 유지). 주차 성공 = 평점 4점 이상 AND 그 주차
+//   point.check(user_weekly_points.points) >= 기준값(weeks.check_threshold ?? 30).
+//   check 기준 미달이면 verdict=fail(주차 실패)이지만 통합 라인 enhancementStatus(강화)는
+//   success 유지. experienceGrowth.checkGate(required/earned/passed) append-only 추가.
+//   advantage/penalty 는 게이트 미사용. uws 는 불변(레거시 sync 보호 유지) — read-time 판정.
+//   userWeekStatus/verdict 가 달라지므로 기존 v17 snapshot 을 stale 처리해 재계산하게 한다.
+export const WEEKLY_CARDS_DTO_VERSION = 18;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

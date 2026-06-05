@@ -786,12 +786,15 @@ async function computeWeeklyCards(
           failedSlotOrders: experienceVerdict.failedSlotOrders,
           appliedToWeekStatus:
             experienceVerdict.status === "fail" && resultStatus === "fail",
+          // 주차 인정 check 게이트 (레거시 통합 라인 주차에서만 채워짐).
+          checkGate: experienceVerdict.checkGate ?? null,
         }
       : {
           status: "not_applicable",
           requiredSlots: [],
           failedSlotOrders: [],
           appliedToWeekStatus: false,
+          checkGate: null,
         };
 
     const isRest =

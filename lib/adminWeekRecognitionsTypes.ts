@@ -66,6 +66,13 @@ export type WeekRecognitionWeekOption = {
   week_end_date: string | null;
   // weeks.result_published_at — 주차 선택 시 공표 상태/버튼 표시에 사용.
   result_published_at: string | null;
+  // ── 주차 인정 point.check 기준값 (2026-06-05 레거시 통합 라인 정책 정정) ──
+  // weeks.check_threshold 원본값. NULL = 기본값 적용 (마이그레이션 미적용 DB 도 NULL 취급).
+  check_threshold: number | null;
+  // 실제 판정에 적용되는 값 = check_threshold ?? DEFAULT_WEEK_CHECK_THRESHOLD(30).
+  effective_check_threshold: number;
+  // 기본값이 적용 중인지 (check_threshold == null) — UI "기본값 적용" 표시용.
+  check_threshold_is_default: boolean;
 };
 
 export type WeekRecognitionFilterOptions = {
@@ -137,6 +144,30 @@ export type WeekResultPublishResult = {
   result_published_at: string;
   // 공표 직후 해당 주차 참여자 snapshot 재계산 결과(쓰기 시점 갱신). best-effort —
   // 실패해도 공표는 유지되며, 이 필드는 운영 안내용(optional, append-only).
+  snapshot_recompute?: {
+    requested: number;
+    recomputed: number;
+    failed: number;
+  };
+};
+
+// ─── 주차 인정 check 기준값 수정(PATCH) 전용 DTO ─────────────────────
+// weeks.check_threshold 를 수정한다. null = 기본값(DEFAULT_WEEK_CHECK_THRESHOLD) 사용.
+
+export type WeekCheckThresholdUpdateInput = {
+  // 0 이상 정수 또는 null(기본값 사용으로 되돌리기).
+  check_threshold: number | null;
+};
+
+export type WeekCheckThresholdUpdateResult = {
+  week_id: string;
+  week_label: string;
+  week_start_date: string | null;
+  check_threshold: number | null;
+  effective_check_threshold: number;
+  check_threshold_is_default: boolean;
+  // 기준값 변경은 레거시 주차 read-time 판정(주차 성공/실패)을 바꾸므로, 그 주차 참여자
+  // (user_week_statuses 보유) 전원의 weekly-cards snapshot 을 즉시 재계산한다. best-effort.
   snapshot_recompute?: {
     requested: number;
     recomputed: number;
