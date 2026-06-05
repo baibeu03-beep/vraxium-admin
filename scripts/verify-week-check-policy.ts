@@ -30,7 +30,10 @@ import {
   WEEKLY_CARDS_DTO_VERSION,
   recomputeAndStoreWeeklyCardsSnapshot,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
-import { LEGACY_UNIFIED_LINE_NAME } from "@/lib/lineAvailability";
+import {
+  LEGACY_UNIFIED_LINE_NAME,
+  reduceLegacyUnifiedVerdict,
+} from "@/lib/lineAvailability";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 
 const sb = createClient(
@@ -98,16 +101,28 @@ async function main() {
     check(`케이스 ${k} 존재 (${seedLog.caseCounts[k]}건)`, (seedLog.caseCounts[k] ?? 0) > 0);
   }
 
-  // 케이스별 샘플 1명 (서로 다른 사용자 우선)
+  // 케이스별 샘플 1명 (서로 다른 사용자 우선) — 공표 완료 주차만
+  //   (미공표 주차는 tallying 으로 표시되는 게 정상이라 성공/실패 단언 불가).
+  const { data: pubWeeks } = await sb
+    .from("weeks")
+    .select("start_date")
+    .not("result_published_at", "is", null);
+  const publishedStarts = new Set(
+    ((pubWeeks ?? []) as { start_date: string }[]).map((w) => w.start_date),
+  );
   const samples = new Map<string, SeedPlan>();
   const usedUsers = new Set<string>();
   for (const k of ["A", "B", "C", "D"] as const) {
+    const candidates = seedLog.plans.filter(
+      (x) => x.case === k && publishedStarts.has(x.weekStart),
+    );
     const p =
-      seedLog.plans.find((x) => x.case === k && !usedUsers.has(x.userId)) ??
-      seedLog.plans.find((x) => x.case === k);
+      candidates.find((x) => !usedUsers.has(x.userId)) ?? candidates[0] ?? null;
     if (p) {
       samples.set(k, p);
       usedUsers.add(p.userId);
+    } else {
+      check(`케이스 ${k} 공표 주차 샘플 존재`, false, "공표 완료 주차 내 샘플 없음");
     }
   }
 
@@ -138,11 +153,12 @@ async function main() {
     );
     if (k === "A" || k === "B") {
       check(
-        `[${k}] checkGate required=${p.threshold} earned=${p.points} passed=${k === "A"}`,
+        `[${k}] checkGate required=${p.threshold} earned=${p.points} passed=${k === "A"} enforced=true`,
         gate != null &&
           gate.required === p.threshold &&
           gate.earned === p.points &&
-          gate.passed === (k === "A"),
+          gate.passed === (k === "A") &&
+          gate.enforced === true,
         gate ? JSON.stringify(gate) : "checkGate 없음",
       );
     } else {
@@ -169,10 +185,19 @@ async function main() {
         http != null && direct != null && http.userWeekStatus === direct.userWeekStatus,
         `http=${http?.userWeekStatus}`,
       );
+      // JSONB 저장 시 키 순서가 재배열되므로 필드 단위로 비교한다.
+      const hg = http?.experienceGrowth.checkGate ?? null;
+      const dg = direct?.experienceGrowth.checkGate ?? null;
       check(
         `[${k}] HTTP checkGate == direct`,
-        JSON.stringify(http?.experienceGrowth.checkGate ?? null) ===
-          JSON.stringify(direct?.experienceGrowth.checkGate ?? null),
+        (hg == null && dg == null) ||
+          (hg != null &&
+            dg != null &&
+            hg.required === dg.required &&
+            hg.earned === dg.earned &&
+            hg.passed === dg.passed &&
+            hg.enforced === dg.enforced),
+        `http=${JSON.stringify(hg)} direct=${JSON.stringify(dg)}`,
       );
     }
   } else {
@@ -275,6 +300,142 @@ async function main() {
       // 최종 snapshot 정합 보장(테스트 잔재 제거).
       await recomputeAndStoreWeeklyCardsSnapshot(a.userId);
     }
+  }
+
+  // ── 7) 실사용자 보존 (check 미이관 fallback) ─────────────────────────
+  console.log("\n══ 실사용자 보존 (check 미이관 — 기존 표시 유지) ══");
+  {
+    const { data: markers } = await sb.from("test_user_markers").select("user_id");
+    const testers = new Set((markers ?? []).map((m: any) => m.user_id));
+    const { data: uws } = await sb
+      .from("user_week_statuses")
+      .select("user_id,week_start_date,status")
+      .lt("week_start_date", "2026-06-29")
+      .eq("status", "success")
+      .limit(5000);
+    const realSuccess = (uws ?? []).filter((r: any) => !testers.has(r.user_id));
+    const sampleUsers = [...new Set(realSuccess.map((r: any) => r.user_id))].slice(0, 3);
+    for (const uid of sampleUsers as string[]) {
+      const expect = new Set(
+        realSuccess
+          .filter((r: any) => r.user_id === uid)
+          .map((r: any) => r.week_start_date),
+      );
+      const cards = await getCluster4WeeklyCardsForProfileUser(uid);
+      let preserved = true;
+      let demotedWeek: string | null = null;
+      for (const ws of expect) {
+        const card = findCard(cards, ws as string);
+        if (card && card.userWeekStatus !== "success") {
+          preserved = false;
+          demotedWeek = ws as string;
+          break;
+        }
+      }
+      const gates = cards
+        .filter((c) => expect.has(c.startDate))
+        .map((c) => c.experienceGrowth.checkGate)
+        .filter(Boolean);
+      check(
+        `실사용자 ${uid.slice(0, 8)} success ${expect.size}주차 표시 보존`,
+        preserved,
+        demotedWeek ? `${demotedWeek} 강등됨` : undefined,
+      );
+      check(
+        `실사용자 ${uid.slice(0, 8)} checkGate enforced=false (미이관)`,
+        gates.every((g) => g!.enforced === false),
+        JSON.stringify(gates[0] ?? null),
+      );
+    }
+  }
+
+  // ── 8) 향후 이관 자동 적용 (순수 함수 시뮬레이션 — checks_migrated 행 단위 플래그) ──
+  console.log("\n══ 향후 실사용자 check 이관 시 자동 적용 (reduceLegacyUnifiedVerdict 순수 검증) ══");
+  {
+    const base = {
+      opened: true,
+      hasTarget: true,
+      deadlinePassed: true,
+      rating: 8,
+      checkThreshold: 30,
+    };
+    // 미이관(잔존 3, checks_migrated=false): 강등 없음 — 기존 결과 보존
+    const before = reduceLegacyUnifiedVerdict({
+      ...base,
+      checkCount: 3,
+      checkDataMigrated: false,
+    });
+    check(
+      "미이관(check=3, flag=false) → verdict pass(보존)",
+      before.status === "pass" && before.checkGate?.enforced === false,
+      JSON.stringify(before.checkGate),
+    );
+    // 이관 후(실값 25 < 30, flag=true): 자동 강등 — 동일 로직 적용
+    const afterFail = reduceLegacyUnifiedVerdict({
+      ...base,
+      checkCount: 25,
+      checkDataMigrated: true,
+    });
+    check(
+      "이관 후(check=25<30, flag=true) → verdict fail(자동 적용)",
+      afterFail.status === "fail" && afterFail.checkGate?.enforced === true,
+      JSON.stringify(afterFail.checkGate),
+    );
+    // 이관 후(실값 33 >= 30): 성공 유지
+    const afterPass = reduceLegacyUnifiedVerdict({
+      ...base,
+      checkCount: 33,
+      checkDataMigrated: true,
+    });
+    check(
+      "이관 후(check=33>=30) → verdict pass",
+      afterPass.status === "pass" && afterPass.checkGate?.passed === true,
+    );
+    // 강화 실패(rating 2)는 게이트와 무관하게 fail + 슬롯도 fail
+    const ratingFail = reduceLegacyUnifiedVerdict({
+      ...base,
+      rating: 2,
+      checkCount: 40,
+      checkDataMigrated: true,
+    });
+    check(
+      "평점 2 → 강화 실패 + 주차 실패 (게이트 미평가)",
+      ratingFail.status === "fail" && ratingFail.checkGate == null,
+    );
+
+    // ── 시나리오 1: 일부 사용자만 이관 — 행 단위 플래그라 사용자별 독립 ──
+    //   (위 미이관/이관 케이스가 곧 사용자 A/B — 추가 단언 불필요하나 명시적으로 기록)
+    check(
+      "시나리오1(일부 사용자만 이관): 이관 사용자만 enforce, 미이관 사용자 보존",
+      before.status === "pass" && afterFail.status === "fail",
+    );
+    // ── 시나리오 2: 일부 시즌만 이관 — 같은 사용자라도 주차(행) 단위로 분리 ──
+    const springMigrated = reduceLegacyUnifiedVerdict({
+      ...base,
+      checkCount: 12, // 이관된 봄 주차 — 실값 12 < 30 → fail
+      checkDataMigrated: true,
+    });
+    const autumnNotMigrated = reduceLegacyUnifiedVerdict({
+      ...base,
+      checkCount: 3, // 미이관 가을 주차 — 잔존값 → 보존
+      checkDataMigrated: false,
+    });
+    check(
+      "시나리오2(일부 시즌만 이관): 이관 주차 fail / 같은 사용자의 미이관 주차 보존",
+      springMigrated.status === "fail" && autumnNotMigrated.status === "pass",
+      `spring=${springMigrated.status} autumn=${autumnNotMigrated.status}`,
+    );
+    // ── 시나리오 3: 분포가 예상보다 낮아도 — 플래그는 크기와 무관 ──
+    const lowMigrated = reduceLegacyUnifiedVerdict({
+      ...base,
+      checkCount: 3, // 이관됐지만 실제로 3개뿐 → 정책대로 fail
+      checkDataMigrated: true,
+    });
+    check(
+      "시나리오3(저분포 이관): check=3 이라도 flag=true 면 정책대로 fail (크기 추론 없음)",
+      lowMigrated.status === "fail" && lowMigrated.checkGate?.enforced === true,
+      JSON.stringify(lowMigrated.checkGate),
+    );
   }
 
   console.log(`\n결과: ✅ ${pass} / ❌ ${fail}`);

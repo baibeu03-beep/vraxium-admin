@@ -1,6 +1,6 @@
 {
-  "mode": "dry-run",
-  "generatedAt": "2026-06-05T04:23:14.036Z",
+  "mode": "apply",
+  "generatedAt": "2026-06-05T05:12:10.685Z",
   "caseCounts": {
     "A": 814,
     "B": 133,
@@ -10,7 +10,7 @@
   "planCount": 1135,
   "ratingUpdates": 0,
   "evalInserts": 0,
-  "pointsUpserts": 0,
+  "pointsUpserts": 1135,
   "realUserAudit": [
     {
       "userId": "c144d6fb-5a01-4453-aded-ae00dffdcf0b",
@@ -342,7 +342,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 16,
-      "prevRating": 3
+      "prevRating": 8
     },
     {
       "userId": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
@@ -422,7 +422,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 15,
-      "prevRating": 3
+      "prevRating": 6
     },
     {
       "userId": "fecffe36-1e01-40d6-aa83-7e2b698b6b89",
@@ -512,7 +512,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 23,
-      "prevRating": 3
+      "prevRating": 9
     },
     {
       "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
@@ -532,7 +532,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 11,
-      "prevRating": 1
+      "prevRating": 8
     },
     {
       "userId": "f2d5c378-6a50-477f-b50d-2a21241e7640",
@@ -722,7 +722,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 12,
-      "prevRating": 2
+      "prevRating": 5
     },
     {
       "userId": "00b75923-2109-4214-806a-37667d64ac5e",
@@ -742,7 +742,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 10,
-      "prevRating": 2
+      "prevRating": 7
     },
     {
       "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
@@ -942,7 +942,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 13,
-      "prevRating": 3
+      "prevRating": 4
     },
     {
       "userId": "5cd3cf48-0a62-41db-beb9-960987a485d2",
@@ -952,7 +952,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 21,
-      "prevRating": 2
+      "prevRating": 10
     },
     {
       "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
@@ -1112,7 +1112,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 17,
-      "prevRating": 3
+      "prevRating": 5
     },
     {
       "userId": "d4033172-918e-4e76-9857-b5b2bb4601cf",
@@ -1122,7 +1122,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 16,
-      "prevRating": 3
+      "prevRating": 10
     },
     {
       "userId": "5fa52ea5-d2a4-45df-900c-e08b0effc2fb",
@@ -1162,7 +1162,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 23,
-      "prevRating": 3
+      "prevRating": 7
     },
     {
       "userId": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
@@ -1182,7 +1182,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 13,
-      "prevRating": 3
+      "prevRating": 5
     },
     {
       "userId": "3330f4c3-5331-4632-bbe6-01a19017a089",
@@ -1262,7 +1262,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 12,
-      "prevRating": 3
+      "prevRating": 10
     },
     {
       "userId": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
@@ -1352,7 +1352,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 9,
-      "prevRating": 1
+      "prevRating": 6
     },
     {
       "userId": "87fbff25-c77a-4cf3-9482-67212e55aa6d",
@@ -1432,7 +1432,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 25,
-      "prevRating": 3
+      "prevRating": 4
     },
     {
       "userId": "8e38d52f-727e-429b-9db3-423cd031d2a5",
@@ -1552,7 +1552,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 22,
-      "prevRating": 2
+      "prevRating": 6
     },
     {
       "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
@@ -1682,7 +1682,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 14,
-      "prevRating": 2
+      "prevRating": 8
     },
     {
       "userId": "fe17f587-b518-4b72-9646-5a590524355c",
@@ -1742,7 +1742,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 20,
-      "prevRating": 2
+      "prevRating": 9
     },
     {
       "userId": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
@@ -1792,7 +1792,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 13,
-      "prevRating": 1
+      "prevRating": 8
     },
     {
       "userId": "d4033172-918e-4e76-9857-b5b2bb4601cf",
@@ -1852,7 +1852,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 19,
-      "prevRating": 3
+      "prevRating": 6
     },
     {
       "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
@@ -1962,7 +1962,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 23,
-      "prevRating": 1
+      "prevRating": 4
     },
     {
       "userId": "a3a91b4c-e3e7-45c8-9076-80eea01ad809",
@@ -2072,7 +2072,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 20,
-      "prevRating": 2
+      "prevRating": 8
     },
     {
       "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
@@ -2132,7 +2132,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 22,
-      "prevRating": 1
+      "prevRating": 8
     },
     {
       "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
@@ -2462,7 +2462,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 19,
-      "prevRating": 1
+      "prevRating": 6
     },
     {
       "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
@@ -2592,7 +2592,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 23,
-      "prevRating": 2
+      "prevRating": 10
     },
     {
       "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
@@ -2612,7 +2612,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 11,
-      "prevRating": 2
+      "prevRating": 6
     },
     {
       "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
@@ -2702,7 +2702,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 24,
-      "prevRating": 3
+      "prevRating": 8
     },
     {
       "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
@@ -2882,7 +2882,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 20,
-      "prevRating": 1
+      "prevRating": 4
     },
     {
       "userId": "9e2f8097-b1ce-4920-9c67-af9989074cfd",
@@ -3082,7 +3082,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 21,
-      "prevRating": 2
+      "prevRating": 6
     },
     {
       "userId": "cc05522b-7a71-48fb-a291-3aaaefdf4865",
@@ -3092,7 +3092,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 25,
-      "prevRating": 1
+      "prevRating": 10
     },
     {
       "userId": "a4f686e1-867e-4a61-8323-c518c4288a14",
@@ -3192,7 +3192,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 17,
-      "prevRating": 3
+      "prevRating": 9
     },
     {
       "userId": "b303c17e-26ec-429c-804e-f0d25c3f9463",
@@ -3332,7 +3332,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 16,
-      "prevRating": 3
+      "prevRating": 10
     },
     {
       "userId": "fe17f587-b518-4b72-9646-5a590524355c",
@@ -3412,7 +3412,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 20,
-      "prevRating": 3
+      "prevRating": 8
     },
     {
       "userId": "f26e0bab-e138-41e6-a28b-676036a6a5aa",
@@ -3472,7 +3472,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 14,
-      "prevRating": 1
+      "prevRating": 5
     },
     {
       "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
@@ -3502,7 +3502,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 25,
-      "prevRating": 3
+      "prevRating": 10
     },
     {
       "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
@@ -3592,7 +3592,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 13,
-      "prevRating": 1
+      "prevRating": 4
     },
     {
       "userId": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
@@ -3652,7 +3652,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 21,
-      "prevRating": 1
+      "prevRating": 9
     },
     {
       "userId": "dff09eb2-6534-42de-99bd-8bf2ed315c01",
@@ -3692,7 +3692,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 21,
-      "prevRating": 1
+      "prevRating": 9
     },
     {
       "userId": "6293191d-f862-468d-96c3-f1a09c8d36aa",
@@ -3842,7 +3842,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 9,
-      "prevRating": 3
+      "prevRating": 7
     },
     {
       "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
@@ -3872,7 +3872,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 21,
-      "prevRating": 1
+      "prevRating": 4
     },
     {
       "userId": "70abfec0-660b-4af3-a940-5d318f76bd4e",
@@ -3962,7 +3962,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 17,
-      "prevRating": 3
+      "prevRating": 6
     },
     {
       "userId": "a3a91b4c-e3e7-45c8-9076-80eea01ad809",
@@ -3982,7 +3982,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 9,
-      "prevRating": 2
+      "prevRating": 4
     },
     {
       "userId": "b2e2d277-d40c-4cef-91cb-733b7d6e658a",
@@ -4042,7 +4042,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 10,
-      "prevRating": 3
+      "prevRating": 7
     },
     {
       "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
@@ -4082,7 +4082,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 20,
-      "prevRating": 1
+      "prevRating": 6
     },
     {
       "userId": "13b8e55e-ff49-43f3-a01f-cb68bfb74581",
@@ -4152,7 +4152,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 22,
-      "prevRating": 1
+      "prevRating": 10
     },
     {
       "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
@@ -4332,7 +4332,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 20,
-      "prevRating": 3
+      "prevRating": 5
     },
     {
       "userId": "8e38d52f-727e-429b-9db3-423cd031d2a5",
@@ -4352,7 +4352,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 14,
-      "prevRating": 1
+      "prevRating": 5
     },
     {
       "userId": "5fe0f152-3e4c-4313-8203-6fb6002c5393",
@@ -4412,7 +4412,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 25,
-      "prevRating": 1
+      "prevRating": 5
     },
     {
       "userId": "8e38d52f-727e-429b-9db3-423cd031d2a5",
@@ -4532,7 +4532,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 23,
-      "prevRating": 2
+      "prevRating": 4
     },
     {
       "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
@@ -4782,7 +4782,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 19,
-      "prevRating": 3
+      "prevRating": 6
     },
     {
       "userId": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
@@ -4992,7 +4992,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 14,
-      "prevRating": 2
+      "prevRating": 7
     },
     {
       "userId": "5ce78bd8-126f-4636-b6a9-a43031a21930",
@@ -5002,7 +5002,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 26,
-      "prevRating": 2
+      "prevRating": 8
     },
     {
       "userId": "5fe0f152-3e4c-4313-8203-6fb6002c5393",
@@ -5032,7 +5032,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 16,
-      "prevRating": 3
+      "prevRating": 10
     },
     {
       "userId": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
@@ -5052,7 +5052,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 25,
-      "prevRating": 1
+      "prevRating": 10
     },
     {
       "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
@@ -5122,7 +5122,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 18,
-      "prevRating": 2
+      "prevRating": 4
     },
     {
       "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
@@ -5252,7 +5252,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 22,
-      "prevRating": 2
+      "prevRating": 10
     },
     {
       "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
@@ -5312,7 +5312,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 15,
-      "prevRating": 3
+      "prevRating": 6
     },
     {
       "userId": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
@@ -5382,7 +5382,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 23,
-      "prevRating": 3
+      "prevRating": 5
     },
     {
       "userId": "fe17f587-b518-4b72-9646-5a590524355c",
@@ -5392,7 +5392,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 9,
-      "prevRating": 2
+      "prevRating": 10
     },
     {
       "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
@@ -5412,7 +5412,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 26,
-      "prevRating": 3
+      "prevRating": 5
     },
     {
       "userId": "d4033172-918e-4e76-9857-b5b2bb4601cf",
@@ -5652,7 +5652,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 20,
-      "prevRating": 1
+      "prevRating": 9
     },
     {
       "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
@@ -5672,7 +5672,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 23,
-      "prevRating": 3
+      "prevRating": 7
     },
     {
       "userId": "3330f4c3-5331-4632-bbe6-01a19017a089",
@@ -5812,7 +5812,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 25,
-      "prevRating": 2
+      "prevRating": 6
     },
     {
       "userId": "4263f72d-60e8-4235-bae2-3ed0921e1508",
@@ -5862,7 +5862,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 14,
-      "prevRating": 2
+      "prevRating": 9
     },
     {
       "userId": "edfe7e58-4681-4d40-ba46-199fc9d99d82",
@@ -5892,7 +5892,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 10,
-      "prevRating": 1
+      "prevRating": 7
     },
     {
       "userId": "36138fb1-6fea-4b22-b6d2-9c46cba47314",
@@ -5972,7 +5972,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 15,
-      "prevRating": 1
+      "prevRating": 8
     },
     {
       "userId": "dff09eb2-6534-42de-99bd-8bf2ed315c01",
@@ -6002,7 +6002,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 18,
-      "prevRating": 2
+      "prevRating": 6
     },
     {
       "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
@@ -6032,7 +6032,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 13,
-      "prevRating": 2
+      "prevRating": 6
     },
     {
       "userId": "e1a17a4a-05b5-443e-a95d-db20ec2ad9af",
@@ -6092,7 +6092,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 11,
-      "prevRating": 2
+      "prevRating": 7
     },
     {
       "userId": "4bd185be-0c54-470e-a254-588e69064e37",
@@ -6282,7 +6282,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 13,
-      "prevRating": 2
+      "prevRating": 8
     },
     {
       "userId": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
@@ -6352,7 +6352,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 19,
-      "prevRating": 1
+      "prevRating": 5
     },
     {
       "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
@@ -6382,7 +6382,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 14,
-      "prevRating": 1
+      "prevRating": 9
     },
     {
       "userId": "5cd3cf48-0a62-41db-beb9-960987a485d2",
@@ -6432,7 +6432,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 15,
-      "prevRating": 2
+      "prevRating": 5
     },
     {
       "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
@@ -6542,7 +6542,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 12,
-      "prevRating": 3
+      "prevRating": 5
     },
     {
       "userId": "4263f72d-60e8-4235-bae2-3ed0921e1508",
@@ -6602,7 +6602,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 21,
-      "prevRating": 1
+      "prevRating": 8
     },
     {
       "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
@@ -6902,7 +6902,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 14,
-      "prevRating": 3
+      "prevRating": 7
     },
     {
       "userId": "614f78f4-c372-4c11-a17f-46b9e7bd4523",
@@ -6912,7 +6912,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 15,
-      "prevRating": 1
+      "prevRating": 7
     },
     {
       "userId": "37b7ddce-6146-4941-8c5f-c1dfa4e09f7e",
@@ -6922,7 +6922,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 10,
-      "prevRating": 2
+      "prevRating": 9
     },
     {
       "userId": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
@@ -7092,7 +7092,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 22,
-      "prevRating": 2
+      "prevRating": 5
     },
     {
       "userId": "92de9b41-6c4f-4684-87d9-6f9db01e5601",
@@ -7122,7 +7122,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 17,
-      "prevRating": 1
+      "prevRating": 6
     },
     {
       "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
@@ -7232,7 +7232,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 17,
-      "prevRating": 1
+      "prevRating": 6
     },
     {
       "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
@@ -7252,7 +7252,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 26,
-      "prevRating": 2
+      "prevRating": 5
     },
     {
       "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
@@ -7272,7 +7272,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 17,
-      "prevRating": 3
+      "prevRating": 6
     },
     {
       "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
@@ -7312,7 +7312,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 18,
-      "prevRating": 3
+      "prevRating": 7
     },
     {
       "userId": "9898f4a2-b873-4231-b2ac-321afa74555c",
@@ -7342,7 +7342,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 14,
-      "prevRating": 2
+      "prevRating": 10
     },
     {
       "userId": "829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06",
@@ -7472,7 +7472,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 9,
-      "prevRating": 1
+      "prevRating": 8
     },
     {
       "userId": "3ba642d8-d658-4e87-8e15-3afdab8415c2",
@@ -7542,7 +7542,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 24,
-      "prevRating": 2
+      "prevRating": 6
     },
     {
       "userId": "e1a17a4a-05b5-443e-a95d-db20ec2ad9af",
@@ -7572,7 +7572,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 9,
-      "prevRating": 1
+      "prevRating": 9
     },
     {
       "userId": "614f78f4-c372-4c11-a17f-46b9e7bd4523",
@@ -7622,7 +7622,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 18,
-      "prevRating": 1
+      "prevRating": 9
     },
     {
       "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
@@ -7662,7 +7662,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 11,
-      "prevRating": 2
+      "prevRating": 7
     },
     {
       "userId": "db913eae-d0b2-4681-a257-723f84a4da9d",
@@ -7672,7 +7672,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 11,
-      "prevRating": 3
+      "prevRating": 4
     },
     {
       "userId": "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
@@ -7752,7 +7752,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 10,
-      "prevRating": 3
+      "prevRating": 7
     },
     {
       "userId": "ee9bf53b-b7cf-4a27-8aeb-fa4a7ec605eb",
@@ -7852,7 +7852,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 17,
-      "prevRating": 3
+      "prevRating": 9
     },
     {
       "userId": "59c22d30-aece-4855-9958-bf34f8795d2a",
@@ -8082,7 +8082,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 12,
-      "prevRating": 1
+      "prevRating": 7
     },
     {
       "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
@@ -8212,7 +8212,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 18,
-      "prevRating": 1
+      "prevRating": 10
     },
     {
       "userId": "37b7ddce-6146-4941-8c5f-c1dfa4e09f7e",
@@ -8302,7 +8302,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 21,
-      "prevRating": 3
+      "prevRating": 9
     },
     {
       "userId": "0d6ec2d3-ec7a-43cc-b1a9-8bb8b3f18df3",
@@ -8532,7 +8532,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 14,
-      "prevRating": 1
+      "prevRating": 8
     },
     {
       "userId": "f2d5c378-6a50-477f-b50d-2a21241e7640",
@@ -8842,7 +8842,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 23,
-      "prevRating": 3
+      "prevRating": 4
     },
     {
       "userId": "bab78175-fd69-4ad3-b59d-6dead49ac3e3",
@@ -8852,7 +8852,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 20,
-      "prevRating": 1
+      "prevRating": 5
     },
     {
       "userId": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
@@ -8922,7 +8922,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 12,
-      "prevRating": 1
+      "prevRating": 7
     },
     {
       "userId": "020ec835-1ead-4ef5-adce-d0d97585beaa",
@@ -9062,7 +9062,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 20,
-      "prevRating": 2
+      "prevRating": 7
     },
     {
       "userId": "3330f4c3-5331-4632-bbe6-01a19017a089",
@@ -9442,7 +9442,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 16,
-      "prevRating": 2
+      "prevRating": 4
     },
     {
       "userId": "614f78f4-c372-4c11-a17f-46b9e7bd4523",
@@ -9492,7 +9492,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 13,
-      "prevRating": 2
+      "prevRating": 10
     },
     {
       "userId": "f2d5c378-6a50-477f-b50d-2a21241e7640",
@@ -9592,7 +9592,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 22,
-      "prevRating": 1
+      "prevRating": 5
     },
     {
       "userId": "bab78175-fd69-4ad3-b59d-6dead49ac3e3",
@@ -9812,7 +9812,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 20,
-      "prevRating": 1
+      "prevRating": 5
     },
     {
       "userId": "e0fc0a80-a4ae-4e39-b709-e09fabc174bd",
@@ -9852,7 +9852,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 20,
-      "prevRating": 2
+      "prevRating": 10
     },
     {
       "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
@@ -9912,7 +9912,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 18,
-      "prevRating": 3
+      "prevRating": 8
     },
     {
       "userId": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
@@ -10072,7 +10072,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 19,
-      "prevRating": 1
+      "prevRating": 5
     },
     {
       "userId": "28a39131-a719-4264-b2a4-96dbda64cbb6",
@@ -10092,7 +10092,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 19,
-      "prevRating": 2
+      "prevRating": 8
     },
     {
       "userId": "00b75923-2109-4214-806a-37667d64ac5e",
@@ -10102,7 +10102,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 9,
-      "prevRating": 3
+      "prevRating": 5
     },
     {
       "userId": "f980b257-12b1-4f9c-ae71-307336071785",
@@ -10162,7 +10162,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 21,
-      "prevRating": 3
+      "prevRating": 8
     },
     {
       "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
@@ -10252,7 +10252,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 13,
-      "prevRating": 2
+      "prevRating": 7
     },
     {
       "userId": "9898f4a2-b873-4231-b2ac-321afa74555c",
@@ -10322,7 +10322,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 12,
-      "prevRating": 1
+      "prevRating": 7
     },
     {
       "userId": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
@@ -10382,7 +10382,7 @@
       "threshold": 30,
       "rating": 6,
       "points": 20,
-      "prevRating": 3
+      "prevRating": 6
     },
     {
       "userId": "c17542ff-4eb2-4b4e-b584-1dfcb8ca39f5",
@@ -10422,7 +10422,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 12,
-      "prevRating": 2
+      "prevRating": 10
     },
     {
       "userId": "5fa52ea5-d2a4-45df-900c-e08b0effc2fb",
@@ -10432,7 +10432,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 20,
-      "prevRating": 3
+      "prevRating": 5
     },
     {
       "userId": "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
@@ -10442,7 +10442,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 26,
-      "prevRating": 2
+      "prevRating": 7
     },
     {
       "userId": "a26729db-1c3b-42c0-9bce-4316dd15b2a2",
@@ -10572,7 +10572,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 26,
-      "prevRating": 1
+      "prevRating": 8
     },
     {
       "userId": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
@@ -10662,7 +10662,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 10,
-      "prevRating": 1
+      "prevRating": 5
     },
     {
       "userId": "6293191d-f862-468d-96c3-f1a09c8d36aa",
@@ -10872,7 +10872,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 20,
-      "prevRating": 3
+      "prevRating": 10
     },
     {
       "userId": "b303c17e-26ec-429c-804e-f0d25c3f9463",
@@ -10922,7 +10922,7 @@
       "threshold": 30,
       "rating": 7,
       "points": 13,
-      "prevRating": 3
+      "prevRating": 7
     },
     {
       "userId": "edfe7e58-4681-4d40-ba46-199fc9d99d82",
@@ -10972,7 +10972,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 11,
-      "prevRating": 1
+      "prevRating": 8
     },
     {
       "userId": "87fbff25-c77a-4cf3-9482-67212e55aa6d",
@@ -11002,7 +11002,7 @@
       "threshold": 30,
       "rating": 10,
       "points": 11,
-      "prevRating": 3
+      "prevRating": 10
     },
     {
       "userId": "fcfbe22a-05d2-4260-bfa4-c716d11d38bd",
@@ -11062,7 +11062,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 13,
-      "prevRating": 3
+      "prevRating": 9
     },
     {
       "userId": "9898f4a2-b873-4231-b2ac-321afa74555c",
@@ -11102,7 +11102,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 14,
-      "prevRating": 1
+      "prevRating": 9
     },
     {
       "userId": "db913eae-d0b2-4681-a257-723f84a4da9d",
@@ -11112,7 +11112,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 21,
-      "prevRating": 2
+      "prevRating": 8
     },
     {
       "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
@@ -11132,7 +11132,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 10,
-      "prevRating": 1
+      "prevRating": 8
     },
     {
       "userId": "a80ea67a-8836-4c13-8568-66dff79d7a66",
@@ -11172,7 +11172,7 @@
       "threshold": 30,
       "rating": 8,
       "points": 13,
-      "prevRating": 1
+      "prevRating": 8
     },
     {
       "userId": "0d6ec2d3-ec7a-43cc-b1a9-8bb8b3f18df3",
@@ -11262,7 +11262,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 19,
-      "prevRating": 3
+      "prevRating": 5
     },
     {
       "userId": "36138fb1-6fea-4b22-b6d2-9c46cba47314",
@@ -11272,7 +11272,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 15,
-      "prevRating": 2
+      "prevRating": 4
     },
     {
       "userId": "35c987bf-015f-482c-b966-63fe55af0256",
@@ -11322,7 +11322,7 @@
       "threshold": 30,
       "rating": 5,
       "points": 15,
-      "prevRating": 3
+      "prevRating": 5
     },
     {
       "userId": "a3a91b4c-e3e7-45c8-9076-80eea01ad809",
@@ -11522,7 +11522,7 @@
       "threshold": 30,
       "rating": 4,
       "points": 18,
-      "prevRating": 2
+      "prevRating": 4
     },
     {
       "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
@@ -11632,7 +11632,7 @@
       "threshold": 30,
       "rating": 9,
       "points": 21,
-      "prevRating": 3
+      "prevRating": 9
     },
     {
       "userId": "bab78175-fd69-4ad3-b59d-6dead49ac3e3",

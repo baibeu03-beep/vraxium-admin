@@ -82,6 +82,17 @@ export const EXPERIENCE_RATING_FAIL_THRESHOLD = 3;
 //   강화 성공 판정(평점)에는 사용하지 않는다 — 주차 성공 게이트 전용.
 export const DEFAULT_WEEK_CHECK_THRESHOLD = 30;
 
+// check 게이트 강제(enforce) 기준 (2026-06-05 개정 — 명시적 provenance 플래그):
+//   user_weekly_points.checks_migrated = true 인 행만 게이트를 강제한다.
+//   (종전의 "사용자별 check 최대값 >= 10" 휴리스틱은 부분 시즌 이관·저분포 사용자에서
+//    오판하므로 폐기 — 크기 추론이 아니라 행 단위 이관 여부로 판정한다.)
+//   - 테스터: 시드 스크립트가 행 기록 시 true 설정 → enforce.
+//   - 실사용자: 이관 전 잔존 행(default false) → 보존. 이관 파이프라인이 행을
+//     checks_migrated=true 로 기록하면 별도 코드 수정 없이 그 (사용자, 주차)만 자동 enforce.
+//     ⚠ 이관 계약: 이관 주차에 check 0건이어도 행(points=0, true)을 기록할 것 —
+//       행 부재/false = 미이관(fail-safe 보존).
+//   비레거시(2026 여름 W1 이후) 주차는 이 게이트를 사용하지 않는다.
+
 export type Cluster4EnhancementResult = {
   enhancementStatus: Cluster4EnhancementStatus;
   submissionStatus: Cluster4SubmissionStatus;

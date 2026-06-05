@@ -957,12 +957,16 @@ export type ExperienceGrowthVerdictStatus =
 
 // 주차 인정 check 게이트 (2026-06-05 정책 정정 — 레거시 통합 라인 전용).
 //   주차 성공 = 강화 성공(평점 ≥4/미평가) AND earned(check) >= required(기준값).
-//   passed=false 면 verdict.status 가 fail 로 강등되지만 슬롯 enhancementStatus(강화)는
-//   success 그대로 유지된다 — "강화 성공 + 주차 실패" 분리 표시의 근거.
+//   passed=false && enforced=true 면 verdict.status 가 fail 로 강등되지만 슬롯
+//   enhancementStatus(강화)는 success 그대로 유지된다 — "강화 성공 + 주차 실패" 분리 표시 근거.
+//   enforced = user_weekly_points.checks_migrated (행 단위 이관 provenance). false/행 부재 =
+//   미이관 → 기존 결과 보존(강등 없음). 이관 파이프라인이 행을 true 로 기록하면 그
+//   (사용자, 주차)만 별도 코드 수정 없이 자동 enforce.
 export type WeekCheckGate = {
   required: number; // 적용된 기준값 (weeks.check_threshold ?? DEFAULT_WEEK_CHECK_THRESHOLD)
   earned: number; // 그 주차 본인 point.check (user_weekly_points.points, 행 없으면 0)
   passed: boolean;
+  enforced: boolean; // 강등 적용 여부 (check 데이터 이관 스케일 감지 시 true)
 };
 
 export type ExperienceGrowthVerdict = {
@@ -1049,6 +1053,10 @@ export type LegacyUnifiedWeekState = {
   // ── 주차 인정 check 게이트 입력 (2026-06-05 정책 정정) ──
   checkCount: number; // 본인 point.check (user_weekly_points.points, 행 없으면 0)
   checkThreshold: number; // 적용 기준값 (weeks.check_threshold ?? DEFAULT_WEEK_CHECK_THRESHOLD)
+  // 이 (사용자, 주차) 행의 check 가 정식 이관된 값인가 = user_weekly_points.checks_migrated.
+  // 행 부재/false = 미이관 → 게이트 미강제(기존 결과 보존, fail-safe). 크기 추론 아님 —
+  // 행 단위 provenance 라 일부 사용자/일부 시즌만 이관돼도 정확히 그 범위에만 적용된다.
+  checkDataMigrated: boolean;
 };
 
 export async function fetchLegacyUnifiedExperienceByWeek(
@@ -1084,6 +1092,7 @@ export async function fetchLegacyUnifiedExperienceByWeek(
         rating: null,
         checkCount: 0,
         checkThreshold: DEFAULT_WEEK_CHECK_THRESHOLD,
+        checkDataMigrated: false,
       };
       result.set(week, s);
     }
@@ -1197,28 +1206,54 @@ export async function fetchLegacyUnifiedExperienceByWeek(
 
     if (isoByWeekId.size > 0) {
       const years = [...new Set([...isoByWeekId.values()].map((v) => v.year))];
-      const { data: pointRows, error: pointsErr } = await supabaseAdmin
-        .from("user_weekly_points")
-        .select("year,week_number,points")
-        .eq("user_id", userId)
-        .in("year", years);
-      if (pointsErr) {
-        console.warn("[lineAvailability] user_weekly_points fetch failed", {
-          message: pointsErr.message,
-        });
-      } else {
-        const pointsByIso = new Map<string, number>();
-        for (const p of (pointRows ?? []) as {
-          year: number;
-          week_number: number;
-          points: number;
-        }[]) {
-          pointsByIso.set(`${p.year}-${p.week_number}`, p.points);
+      type PointsRow = {
+        year: number;
+        week_number: number;
+        points: number;
+        checks_migrated?: boolean | null;
+      };
+      let pointRows: PointsRow[] | null = null;
+      {
+        const { data, error } = await supabaseAdmin
+          .from("user_weekly_points")
+          .select("year,week_number,points,checks_migrated")
+          .eq("user_id", userId)
+          .in("year", years);
+        if (!error) {
+          pointRows = (data ?? []) as PointsRow[];
+        } else {
+          // checks_migrated 컬럼 미적용 DB 방어: 컬럼 없이 재조회 — 전 행 "미이관" 취급
+          // (게이트 미강제 = 기존 결과 보존, fail-safe).
+          console.warn(
+            "[lineAvailability] user_weekly_points.checks_migrated select failed — fallback (gate not enforced)",
+            { message: error.message },
+          );
+          const { data: fallback, error: fallbackErr } = await supabaseAdmin
+            .from("user_weekly_points")
+            .select("year,week_number,points")
+            .eq("user_id", userId)
+            .in("year", years);
+          if (fallbackErr) {
+            console.warn("[lineAvailability] user_weekly_points fetch failed", {
+              message: fallbackErr.message,
+            });
+          } else {
+            pointRows = (fallback ?? []) as PointsRow[];
+          }
         }
+      }
+      if (pointRows) {
+        const rowByIso = new Map<string, PointsRow>();
+        for (const p of pointRows) {
+          rowByIso.set(`${p.year}-${p.week_number}`, p);
+        }
+        // 행 단위 이관 플래그(checks_migrated) 직독 — 행 부재/false = 미이관(보존).
         for (const [weekId, iso] of isoByWeekId) {
           const s = result.get(weekId);
           if (!s) continue;
-          s.checkCount = pointsByIso.get(`${iso.year}-${iso.week}`) ?? 0;
+          const row = rowByIso.get(`${iso.year}-${iso.week}`);
+          s.checkCount = row?.points ?? 0;
+          s.checkDataMigrated = row?.checks_migrated === true;
         }
       }
     }
@@ -1266,16 +1301,19 @@ export function reduceLegacyUnifiedVerdict(
 
   // ── check 게이트 (강화 success = 조건 A 충족 시에만 평가) ──
   //   pending(마감 전)·fail(평점/미배정)은 게이트 무관 — 기존 상태 유지.
+  //   enforced=false (그 행의 checks_migrated 가 아니거나 행 부재 = check 미이관) 면
+  //   강등하지 않고 기존 결과를 보존한다. 이관 행(true) 은 별도 작업 없이 자동 강등 적용.
   if (enhancementStatus === "success") {
     const gate: WeekCheckGate = {
       required: state.checkThreshold,
       earned: state.checkCount,
       passed: state.checkCount >= state.checkThreshold,
+      enforced: state.checkDataMigrated,
     };
     return {
       ...verdict,
-      // 조건 B 미달 → 주차 실패. failedSlotOrders 는 비움 — 슬롯(강화)은 실패가 아니다.
-      status: gate.passed ? verdict.status : "fail",
+      // 조건 B 미달 + 강제 적용 → 주차 실패. failedSlotOrders 는 비움 — 슬롯(강화)은 실패가 아니다.
+      status: gate.passed || !gate.enforced ? verdict.status : "fail",
       checkGate: gate,
     };
   }

@@ -414,12 +414,15 @@ async function main() {
   }
 
   // 3b. points upsert (UNIQUE user_id,year,week_number — points 만 갱신, advantage/penalty 불변)
+  //   checks_migrated=true: 테스터 행은 "이관 완료" 취급 → check 게이트 강제(enforce) 대상.
   for (const c of chunk(plans, 200)) {
     const rows = c.map((p) => ({
       user_id: p.userId,
       year: p.isoYear,
       week_number: p.isoWeek,
+      week_start_date: p.weekStart,
       points: p.points,
+      checks_migrated: true,
     }));
     const { error } = await sb
       .from("user_weekly_points")

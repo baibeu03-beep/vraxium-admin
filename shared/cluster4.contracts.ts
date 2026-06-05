@@ -101,12 +101,14 @@ export type Cluster4ExperienceGrowth = {
   // verdict 가 userWeekStatus 에 fail 로 반영되었는지 (현재주/휴식 주차는 제외되어 false).
   appliedToWeekStatus: boolean;
   // 주차 인정 check 게이트 (2026-06-05 레거시 통합 라인 정책 — append-only).
-  //   레거시 주차 + 강화 성공(평점 ≥4/미평가)일 때만 평가. passed=false 면 주차 실패이지만
-  //   requiredSlots 의 enhancementStatus(강화)는 success 유지 — 강화/주차 성공 분리 표시 근거.
+  //   레거시 주차 + 강화 성공(평점 ≥4/미평가)일 때만 평가. passed=false && enforced=true 면
+  //   주차 실패이지만 requiredSlots 의 enhancementStatus(강화)는 success 유지 — 강화/주차
+  //   성공 분리 표시 근거. enforced=false = check 데이터 미이관 사용자 보존(강등 없음).
   checkGate?: {
     required: number; // 적용 기준값 (weeks.check_threshold ?? 30)
     earned: number; // 본인 point.check
     passed: boolean;
+    enforced: boolean;
   } | null;
 };
 

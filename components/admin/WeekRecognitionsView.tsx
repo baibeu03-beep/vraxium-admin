@@ -44,6 +44,13 @@ import { DEFAULT_WEEK_CHECK_THRESHOLD } from "@/lib/cluster4Enhancement";
 
 const ALL = "__all__";
 
+// 상단 탭 — 인정 결과 목록과 check 기준 관리를 동시에 노출하지 않는다.
+const VIEW_TABS = [
+  { key: "recognitions", label: "주차 인정 결과" },
+  { key: "check_threshold", label: "check 기준 관리" },
+] as const;
+type ViewTabKey = (typeof VIEW_TABS)[number]["key"];
+
 type Banner = { kind: "success" | "error"; message: string } | null;
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
@@ -205,6 +212,7 @@ export default function WeekRecognitionsView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [activeTab, setActiveTab] = useState<ViewTabKey>("recognitions");
 
   const [seasonKey, setSeasonKey] = useState<string>(ALL);
   const [weekId, setWeekId] = useState<string>(ALL);
@@ -366,8 +374,37 @@ export default function WeekRecognitionsView() {
         </div>
       )}
 
-      {/* 요약 카드 */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      {/* 탭 — 기본은 주차 인정 결과, check 기준 관리는 탭 전환으로 노출 */}
+      <div role="tablist" className="flex flex-wrap items-center gap-1 border-b">
+        {VIEW_TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "relative -mb-px rounded-t-md border border-b-0 px-3 py-1.5 text-sm",
+                isActive
+                  ? "border-foreground bg-background font-semibold text-foreground"
+                  : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 요약 카드 (주차 인정 결과 탭) — 필터 상태 유지를 위해 unmount 대신 hidden 전환 */}
+      <div
+        className={cn(
+          "grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5",
+          activeTab !== "recognitions" && "hidden",
+        )}
+      >
         <SummaryCard label="전체" value={summary?.total_count ?? null} loading={loading} />
         <SummaryCard label="인정" value={summary?.success_count ?? null} tone="success" loading={loading} />
         <SummaryCard label="미인정" value={summary?.fail_count ?? null} tone="fail" loading={loading} />
@@ -375,7 +412,7 @@ export default function WeekRecognitionsView() {
         <SummaryCard label="공식 휴식" value={summary?.official_rest_count ?? null} tone="official" loading={loading} />
       </div>
 
-      <Card>
+      <Card className={cn(activeTab !== "recognitions" && "hidden")}>
         <CardHeader>
           <CardTitle className="text-base">인정 결과 목록</CardTitle>
           <CardDescription>
@@ -597,16 +634,19 @@ export default function WeekRecognitionsView() {
         </CardContent>
       </Card>
 
-      <CheckThresholdManager
-        weeks={weekOptions}
-        seasons={seasons}
-        loading={loading}
-        onSaved={(message) => {
-          setBanner({ kind: "success", message });
-          setRefreshTick((n) => n + 1);
-        }}
-        onError={(message) => setBanner({ kind: "error", message })}
-      />
+      {/* check 기준 관리 탭 — 수정 중 입력 유지를 위해 hidden 전환 */}
+      <div className={cn(activeTab !== "check_threshold" && "hidden")}>
+        <CheckThresholdManager
+          weeks={weekOptions}
+          seasons={seasons}
+          loading={loading}
+          onSaved={(message) => {
+            setBanner({ kind: "success", message });
+            setRefreshTick((n) => n + 1);
+          }}
+          onError={(message) => setBanner({ kind: "error", message })}
+        />
+      </div>
 
       {editing && (
         <WeekRecognitionEditModal
@@ -725,6 +765,7 @@ function PublishWeekModal({
 //   - 기준값 없음(null) = 기본값(DEFAULT_WEEK_CHECK_THRESHOLD=30) 적용 — "기본값" 배지로 표시.
 //   - 레거시(2026 여름 W1 이전) 통합 라인 주차 판정에 적용: 평점 ≥4(강화 성공) AND
 //     check >= 기준값이어야 주차 성공.
+//   - 노출은 상단 "check 기준 관리" 탭으로 제어(인정 결과 목록과 동시 노출 안 함).
 
 function CheckThresholdManager({
   weeks,
@@ -746,7 +787,7 @@ function CheckThresholdManager({
   }, [seasons]);
 
   return (
-    <Card>
+    <Card id="check-threshold">
       <CardHeader>
         <CardTitle className="text-base">주차 인정 check 기준 관리</CardTitle>
         <CardDescription>
