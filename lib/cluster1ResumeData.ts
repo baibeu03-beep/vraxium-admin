@@ -1,11 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isTransitionWeekStart } from "@/lib/seasonCalendar";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
-import {
-  fetchInfoLineSuccessCountsByWeek,
-  fetchLineSuccessCountsByWeek,
-  fetchCareerLineSuccessCountsByWeek,
-} from "@/lib/lineAvailability";
+import { EXPERIENCE_RATING_FAIL_THRESHOLD } from "@/lib/cluster4Enhancement";
+import { isCareerGradeFail, type CareerGrade } from "@/lib/careerGrade";
 import { getCluster4WeeklyCardsForProfileUser } from "@/lib/cluster4WeeklyCardsData";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { getGrowthIndicators } from "@/lib/cluster3GrowthData";
@@ -231,7 +228,7 @@ function addCalendarDays(dateStr: string, days: number): string {
 async function computeSeasonRecords(
   userId: string,
 ): Promise<SeasonRecord[]> {
-  const [seasonRes, weekRes] = await Promise.all([
+  const [seasonRes, weekRes, weeksPubRes] = await Promise.all([
     supabaseAdmin
       .from("season_definitions")
       .select("season_key,season_label,season_type,start_date,end_date")
@@ -240,11 +237,30 @@ async function computeSeasonRecords(
       .from("user_week_statuses")
       .select("year,week_number,status,season_key,week_start_date")
       .eq("user_id", userId),
+    // 공표 여부(weeks.result_published_at) — approvedWeeks(시즌 줄 분자)는 공표 완료
+    // 성공 주차만 센다 (2026-06-05 통일: cluster4 accumulatedApprovedWeeks·medal-week-num
+    // 과 동일 기준 — 미공표/검수중 주차는 success 라도 제외).
+    supabaseAdmin.from("weeks").select("start_date,result_published_at"),
   ]);
 
   if (seasonRes.error || !seasonRes.data || weekRes.error || !weekRes.data) {
     return dummySeasonRecords();
   }
+
+  // 주차 시작일 → 공표 완료 여부. weeks 행이 없는 과거(공표 개념 도입 전) 주차는 공표
+  // 완료로 간주 — getWeeklyGrowth 의 synthetic isWeekPublished=true 규칙과 동일(표시 보존).
+  // weeks 조회 실패 시에도 동일 폴백(전부 공표 취급) — 분자 과소 방지(기존 동작 보존).
+  const publishedByStart = new Map<string, boolean>();
+  for (const w of (weeksPubRes.data ?? []) as {
+    start_date: string | null;
+    result_published_at: string | null;
+  }[]) {
+    if (w.start_date) publishedByStart.set(w.start_date, Boolean(w.result_published_at));
+  }
+  const isPublishedStart = (start: string | null): boolean => {
+    if (!start) return true;
+    return publishedByStart.get(start) ?? true;
+  };
 
   type SeasonDef = {
     season_key: string;
@@ -306,8 +322,10 @@ async function computeSeasonRecords(
     // 분모가 부풀었다. 미정의 season_type 만 전환 제외 행 수로 폴백.
     const totalWeeks =
       SEASON_TOTAL_WEEKS[season.season_type] ?? seasonWeeks.length;
+    // 분자 = "공표 완료된" 성공 주차만 (2026-06-05 통일). 미공표(집계 중/검수중) 주차는
+    // success 상태가 있어도 제외 — cluster4 누적·medal-week-num 과 동일 기준.
     const approvedWeeks = seasonWeeks.filter(
-      (w) => w.status === "success",
+      (w) => w.status === "success" && isPublishedStart(w.week_start_date),
     ).length;
 
     const now = new Date();
@@ -421,61 +439,153 @@ function dummySeasonRecords(): SeasonRecord[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Practical Stats — Cluster4 라인 기준 (허브 weekly-cards 와 동일 SoT). user_activity_details 미사용.
-//   infoCount / abilityUnitCount / experienceCount = 주차별 part target+마감 success 합산 (제출 무관).
-//   careerProjectCount(P1) = career success(마감 + grade S/A/B/C) 합산.
-//     D/미평가/미제출은 success 아님 → 미포함. career_records 미사용(legacy 동결).
+// Practical Stats — "공표 완료된 강화 성공 결과"만 카운트 (2026-06-05 정책 확정).
+//   이력서 = 공표 완료 확정 성과 / 허브 weekly-cards = 실시간·검수 현황 으로 도메인 분리 —
+//   허브 식(fetchWeeklyCardLineAggregates)과 일부러 다르다. 허브·snapshot·uws 는 불변.
+//
+//   4개 공통 규칙:
+//     ① 공표 필터: weeks.result_published_at 있는 주차만 (미공표/검수중 제외).
+//     ② 강화 성공만: 마감(submission_closes_at) 지난 본인 user target 중 success 만.
+//        - info/competency: 마감 = success (평가 체계 없음 — 허브와 동일 기준).
+//        - experience: rating ≥ 4 만. rating ≤ 3(강화 실패)·미평가 제외
+//          (허브는 미평가=success 로 치지만 이력서는 "평가 확정" 전엔 카운트하지 않는다).
+//        - career: grade S/A/B/C 만. D(강화 실패)·미평가 제외.
+//     ③ 주차 fold: 같은 주차에 success 가 여러 개여도 part 당 1 unit
+//        (카드 v14 의 주차 1칸 fold 기준과 동일 — 값 = "공표 완료된 강화 성공 주차 수").
+//   user_activity_details / career_records 미사용(legacy 동결). 제출 여부 무관.
 // ─────────────────────────────────────────────────────────────────────
 async function computePracticalStats(
   userId: string,
+  now: number = Date.now(),
 ): Promise<PracticalStats> {
+  const empty: PracticalStats = {
+    infoCount: 0,
+    experienceCount: 0,
+    abilityUnitCount: 0,
+    careerProjectCount: 0,
+  };
+
   const weekRes = await supabaseAdmin
     .from("user_week_statuses")
     .select("week_start_date")
     .eq("user_id", userId);
-
-  let infoCount = 0;
-  let experienceCount = 0;
-  let abilityUnitCount = 0;
-  let careerActivityCount = 0;
-
   const startDates = ((weekRes.data ?? []) as { week_start_date: string }[]).map(
     (w) => w.week_start_date,
   );
+  if (startDates.length === 0) return empty;
 
-  if (startDates.length > 0) {
-    const { data: weeksData } = await supabaseAdmin
-      .from("weeks")
-      .select("id")
-      .in("start_date", startDates);
-    const weekIds = (weeksData ?? []).map((w: { id: string }) => w.id);
+  // ① 공표 완료 주차만. weeks 행이 없는 start_date 는 week_id 가 없어 target 도 없으므로
+  //   자연 제외(폴백 불필요 — seasonRecords 의 "weeks 행 없음=공표 간주"와 결과 동일).
+  const { data: weeksData } = await supabaseAdmin
+    .from("weeks")
+    .select("id,result_published_at")
+    .in("start_date", startDates);
+  const publishedWeekIds = ((weeksData ?? []) as {
+    id: string;
+    result_published_at: string | null;
+  }[])
+    .filter((w) => Boolean(w.result_published_at))
+    .map((w) => w.id);
+  if (publishedWeekIds.length === 0) return empty;
 
-    if (weekIds.length > 0) {
-      const [
-        infoSuccessMap,
-        abilitySuccessMap,
-        experienceSuccessMap,
-        careerSuccessMap,
-      ] = await Promise.all([
-        fetchInfoLineSuccessCountsByWeek(userId, weekIds),
-        fetchLineSuccessCountsByWeek(userId, weekIds, "competency"),
-        fetchLineSuccessCountsByWeek(userId, weekIds, "experience"),
-        // career success(P1) = 마감 + grade S/A/B/C (허브와 동일). D/미평가/미제출 제외.
-        fetchCareerLineSuccessCountsByWeek(userId, weekIds),
-      ]);
-      for (const wid of weekIds) {
-        infoCount += infoSuccessMap.get(wid) ?? 0;
-        abilityUnitCount += abilitySuccessMap.get(wid) ?? 0;
-        experienceCount += experienceSuccessMap.get(wid) ?? 0;
-        careerActivityCount += careerSuccessMap.get(wid) ?? 0;
+  // 본인 user target (공표 주차 한정). 유저+주차로 한정되어 행 수가 작다(1000행 cap 무관).
+  const { data: targetRows } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("id,week_id,line_id")
+    .eq("target_mode", "user")
+    .eq("target_user_id", userId)
+    .in("week_id", publishedWeekIds);
+  const targets = (targetRows ?? []) as { id: string; week_id: string; line_id: string }[];
+  if (targets.length === 0) return empty;
+
+  // active 라인만 (part_type + 마감). 비활성 라인 target 은 자동 제외.
+  const targetLineIds = [...new Set(targets.map((t) => t.line_id))];
+  const { data: lineRows } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id,part_type,submission_closes_at")
+    .in("id", targetLineIds)
+    .eq("is_active", true);
+  const lineById = new Map(
+    ((lineRows ?? []) as {
+      id: string;
+      part_type: string;
+      submission_closes_at: string | null;
+    }[]).map((l) => [l.id, l]),
+  );
+
+  // ② 마감 지난 target 분류. experience/career 는 평가 조회 후 success 확정.
+  const infoWeeks = new Set<string>();
+  const abilityWeeks = new Set<string>();
+  const experienceCandidates: { id: string; week_id: string }[] = [];
+  const careerCandidates: { id: string; week_id: string }[] = [];
+  for (const t of targets) {
+    const line = lineById.get(t.line_id);
+    if (!line) continue;
+    const deadlinePassed =
+      Boolean(line.submission_closes_at) &&
+      new Date(line.submission_closes_at as string).getTime() < now;
+    if (!deadlinePassed) continue;
+    switch (line.part_type) {
+      case "info":
+        infoWeeks.add(t.week_id);
+        break;
+      case "competency":
+        abilityWeeks.add(t.week_id);
+        break;
+      case "experience":
+        experienceCandidates.push({ id: t.id, week_id: t.week_id });
+        break;
+      case "career":
+        careerCandidates.push({ id: t.id, week_id: t.week_id });
+        break;
+    }
+  }
+
+  // experience: rating ≥ 4 만 success (미평가·rating≤3 제외).
+  const experienceWeeks = new Set<string>();
+  if (experienceCandidates.length > 0) {
+    const { data: expEvals } = await supabaseAdmin
+      .from("cluster4_experience_line_evaluations")
+      .select("line_target_id,rating")
+      .eq("user_id", userId)
+      .in("line_target_id", experienceCandidates.map((t) => t.id));
+    const ratingByTarget = new Map<string, number>();
+    for (const e of (expEvals ?? []) as { line_target_id: string; rating: number }[]) {
+      ratingByTarget.set(e.line_target_id, e.rating);
+    }
+    for (const t of experienceCandidates) {
+      const rating = ratingByTarget.get(t.id);
+      if (rating != null && rating > EXPERIENCE_RATING_FAIL_THRESHOLD) {
+        experienceWeeks.add(t.week_id);
       }
     }
   }
 
-  // P1: 허브와 동일하게 grade 기준 success 합산. (구: career_records distinct project 와 max 보정 제거)
-  const careerProjectCount = careerActivityCount;
+  // career: grade S/A/B/C 만 success (미평가·D 제외).
+  const careerWeeks = new Set<string>();
+  if (careerCandidates.length > 0) {
+    const { data: evals } = await supabaseAdmin
+      .from("cluster4_career_line_evaluations")
+      .select("line_target_id,grade")
+      .eq("user_id", userId)
+      .in("line_target_id", careerCandidates.map((t) => t.id));
+    const gradeByTarget = new Map<string, CareerGrade>();
+    for (const e of (evals ?? []) as { line_target_id: string; grade: CareerGrade }[]) {
+      gradeByTarget.set(e.line_target_id, e.grade);
+    }
+    for (const t of careerCandidates) {
+      const grade = gradeByTarget.get(t.id);
+      if (grade && !isCareerGradeFail(grade)) careerWeeks.add(t.week_id);
+    }
+  }
 
-  return { infoCount, experienceCount, abilityUnitCount, careerProjectCount };
+  // ③ 주차 fold — Set 크기 = part 당 성공 주차 수.
+  return {
+    infoCount: infoWeeks.size,
+    experienceCount: experienceWeeks.size,
+    abilityUnitCount: abilityWeeks.size,
+    careerProjectCount: careerWeeks.size,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────

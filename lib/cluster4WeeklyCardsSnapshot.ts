@@ -95,7 +95,15 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 //   에서 전환 주차 success 를 제외. 이력서 카드(computeSeasonRecords)·cluster3(foldGrowthMetrics)
 //   와 동일 규칙으로 통일(종전 cluster4 만 전환 success +1 → 8 vs 7 불일치). 값이 달라지므로
 //   기존 v15 snapshot 을 stale 처리해 재계산하게 한다.
-export const WEEKLY_CARDS_DTO_VERSION = 16;
+// v17 (2026-06-05): 레거시 통합 라인 정책 — 허브/라인 체계 적용 시점을 2026 여름 W1(2026-06-29)
+//   로 통일(테스터 전 주차 예외 폐기). 레거시(그 이전 = 2026 봄 W16 이하 전체) 주차는:
+//   ① 실무 경험 허브에 [통합] 주차 활동 내역 라인 1개만 렌더(마스터 매칭, slot 1, common).
+//   ② 실무 정보/역량/경력 = 라인 없음(na placeholder) — slot placeholder/career 패딩/competency
+//      fold 미적용. ③ 주차 verdict = 통합 라인 단일 기준(평점 4점 이상/미평가 = 성공, ≤3 = 실패,
+//      개설+미배정 = 실패, 미개설 = not_applicable → uws 보존). ④ weekly-growth 집계도 동일
+//      override. lines 구성·강화율·verdict 가 달라지므로 기존 v16 snapshot 을 stale 처리해
+//      재계산하게 한다. (DB 백필 아님 — 캐시 재생성. 데이터는 별도 마이그레이션 스크립트.)
+export const WEEKLY_CARDS_DTO_VERSION = 17;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

@@ -40,6 +40,7 @@ import {
   CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM,
   EXPERIENCE_ALWAYS_OPEN_SLOT_ORDERS,
   EXPERIENCE_MANAGEMENT_SLOT_ORDER,
+  fetchLegacyUnifiedExperienceByWeek,
   fetchManagementSlotOpen,
   fetchWeeklyCardLineAggregates,
   fetchExperienceRequiredSlotStatusByWeek,
@@ -48,7 +49,9 @@ import {
   buildWeekAvailability,
   roundGrowthRate,
   type ExperienceGrowthVerdict,
+  type LegacyUnifiedWeekState,
 } from "@/lib/lineAvailability";
+import { EXPERIENCE_RATING_FAIL_THRESHOLD } from "@/lib/cluster4Enhancement";
 import { foldGrowthMetrics, deriveEndStatus } from "@/lib/growthCore";
 import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
 import { loadGrowthInput } from "@/lib/growthLoader";
@@ -537,34 +540,47 @@ async function computeWeeklyCards(
   let experienceAvailMap = new Map<string, number>();
   let competencyAvailMap = new Map<string, number>();
 
+  // 레거시(허브 도입 전) 주차 집합 — weekId 기준 (id 있는 카드 주차만).
+  const legacyWeekIdSet = new Set<string>();
+  for (const w of cardWeeksDesc) {
+    if (w.id && w.start_date < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) {
+      legacyWeekIdSet.add(w.id);
+    }
+  }
+  // 레거시 주차의 통합 라인 상태 (집계 override + verdict 공용).
+  let legacyUnifiedStates = new Map<string, LegacyUnifiedWeekState>();
+
   if (weekCardIds.length > 0) {
-    // v11 적용 시점 분리(2026-06-04): "필수 슬롯 항상-개설(라인 행 없어도 fail)" 신정책 적용
-    // 주차 집합. 조건 = 공표 완료(판정 완료) && 비현재주 && 비전환주 && (테스트 사용자 ||
-    // start_date >= CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM). running/tallying(판정 전)은
-    // fail 선반영 금지, 실사용자 과거 주차는 누적 인정/시즌 성장률 보존을 위해 제외.
+    // 허브/라인 체계 적용 주차(2026-06-05 개정): "필수 슬롯 항상-개설(라인 행 없어도 fail)"
+    // 신정책 적용 집합. 조건 = 공표 완료(판정 완료) && 비현재주 && 비전환주 &&
+    // start_date >= CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM (사용자 유형 무관 — 테스터 예외 폐기).
+    // running/tallying(판정 전)은 fail 선반영 금지. 레거시 주차는 통합 라인 정책으로 별도 처리.
     // 관리(5) 슬롯 게이트 — weekly-cards 라인 빌더와 동일 기준(membership_level 심화/운영진만 개방).
-    const [isTestUser, managementSlotOpen] = await Promise.all([
-      fetchIsTestUser(userId),
-      fetchManagementSlotOpen(userId),
-    ]);
+    const managementSlotOpen = await fetchManagementSlotOpen(userId);
     const slotPolicyWeekIds = new Set<string>();
     for (const w of cardWeeksDesc) {
       if (!w.id) continue;
       if (!isWeekPublished(w) || isCurrentWeekStart(w.start_date)) continue;
       if (isTransitionWeekStart(w.start_date)) continue;
-      if (!isTestUser && w.start_date < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) continue;
+      if (w.start_date < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) continue;
       slotPolicyWeekIds.add(w.id);
     }
 
     // 기존 9개 fetch* (cluster4_lines 9회 + cluster4_line_targets 8회 ≈ 17~20 쿼리) 를
     // bulk aggregate(최대 3쿼리) + verdict(최대 3쿼리) + opened(2쿼리) = 최대 8쿼리로 축소.
     const tLines = Date.now();
+    legacyUnifiedStates = await fetchLegacyUnifiedExperienceByWeek(
+      userId,
+      [...legacyWeekIdSet],
+      Date.now(),
+    );
     const [aggregates, experienceVerdict, opened] = await Promise.all([
       fetchWeeklyCardLineAggregates(userId, weekCardIds),
       // 필수 슬롯 verdict (성장 실패 판정 SoT). 신정책 주차(slotPolicyWeekIds)만
-      // "항상-개설" 기준으로 산정 — 그 외 주차는 기존(개설 시에만 fail) 유지.
+      // "항상-개설" 기준으로 산정 — 레거시 주차는 통합 라인 단일 verdict(상태 재사용).
       fetchExperienceRequiredSlotStatusByWeek(userId, weekCardIds, Date.now(), {
         alwaysOpenWeekIds: slotPolicyWeekIds,
+        legacyUnifiedStates,
       }),
       // 라인 개설 여부(part별) — synthetic fail 분모 A 가산용.
       fetchWeeksWithOpenLinesByPart(weekCardIds),
@@ -623,6 +639,32 @@ async function computeWeeklyCards(
       }
       if (missing > 0) {
         experienceAvailMap.set(w, (experienceAvailMap.get(w) ?? 0) + missing);
+      }
+    }
+
+    // 레거시(허브 도입 전) 주차 집계 override (2026-06-05 통합 라인 정책):
+    //   실무 정보/역량/경력 = 라인 없음 → A·B 전부 0 (not_applicable, 분모 제외).
+    //   실무 경험 = 통합 라인 1개 기준 — 개설 시 A=1, B=강화 성공(타깃+마감+평점 4 이상/미평가) 1.
+    //   미개설 주차 A=0. 카드 경로(fetchLineDetailsByWeek 레거시 게이트 + breakdownFromLines)와
+    //   동일 칸 집합을 SQL 집계 경로에도 강제해 weekly-growth 단독 소비 화면과의 divergence 를 막는다.
+    for (const w of legacyWeekIdSet) {
+      infoAvailMap.delete(w);
+      infoSuccessMap.delete(w);
+      competencyAvailMap.delete(w);
+      abilitySuccessMap.delete(w);
+      careerLineMap.delete(w);
+      careerSuccessMap.delete(w);
+      const u = legacyUnifiedStates.get(w);
+      if (u?.opened) {
+        experienceAvailMap.set(w, 1);
+        const success =
+          u.hasTarget &&
+          u.deadlinePassed &&
+          !(u.rating != null && u.rating <= EXPERIENCE_RATING_FAIL_THRESHOLD);
+        experienceSuccessMap.set(w, success ? 1 : 0);
+      } else {
+        experienceAvailMap.delete(w);
+        experienceSuccessMap.delete(w);
       }
     }
   }
@@ -775,9 +817,13 @@ async function computeWeeklyCards(
 
     // 실무 역량 단일 정규화 (2026-06-04 v14): 역량은 1인·1주차 항상 1칸 — 라인 수 무관 A=1,
     // B=성공 1건 이상이면 1 (cap). 휴식/전환 주차만 0 (분모 제외). 카드 경로(2.7 fold)와 동일 산식.
+    // 레거시(허브 도입 전) 주차는 역량 허브 자체가 없으므로 A=0 (통합 라인 정책 — 카드 경로 동일).
     const abilityNormalized =
-      isRest || isTransitionWeekStart(startDate) || !weekCardId
-        ? { completed: 0, available: 0 } // 휴식/전환/weekId 미상(degenerate) — 분모 제외(카드 경로 동일)
+      isRest ||
+      isTransitionWeekStart(startDate) ||
+      !weekCardId ||
+      legacyWeekIdSet.has(weekCardId)
+        ? { completed: 0, available: 0 } // 휴식/전환/weekId 미상/레거시 — 분모 제외(카드 경로 동일)
         : {
             completed: (abilitySuccessMap.get(weekCardId) ?? 0) > 0 ? 1 : 0,
             available: 1,
@@ -1518,11 +1564,12 @@ export async function syncExperienceGrowthWeekStatuses(
 ): Promise<ExperienceGrowthSyncResult> {
   const now = opts.now ?? Date.now();
   const dryRun = opts.dryRun ?? false;
-  // v11 적용 시점 분리 (2026-06-04):
-  //   - 테스트 사용자: 시점 제한 없음 — 과거 전 주차에 신정책(필수 슬롯 항상-개설) verdict + write.
-  //   - 실사용자: effectiveFromDate(기본 CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) 이후 시작 주차만
-  //     신정책 verdict + write. 그 이전 주차는 verdict 기준과 무관하게 **update 금지**(소급 강등
-  //     금지) — would-flip 은 protectedWeekKeys 로 dry-run 집계만 한다.
+  // 허브/라인 체계 적용 시점 (2026-06-05 개정 — 사용자 유형 무관):
+  //   - effectiveFromDate(기본 CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM = 2026 여름 W1) 이후 시작
+  //     주차만 신정책 verdict + write. 레거시(그 이전) 주차는 verdict 기준과 무관하게
+  //     **update 금지**(소급 강등 금지 — 테스터 포함 전원). 레거시 주차의 성공/실패 SoT 는
+  //     마이그레이션으로 정렬된 user_week_statuses 그대로다. would-flip 은 protectedWeekKeys
+  //     로 dry-run 집계만 한다.
   const effectiveFromDate =
     opts.effectiveFromDate ?? CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM;
   const isTestUser = await fetchIsTestUser(userId);
@@ -1571,13 +1618,14 @@ export async function syncExperienceGrowthWeekStatuses(
   }
 
   // 3. 필수 슬롯 verdict (weekly-cards 와 동일 함수·기준 → 화면=DB 일치 보장).
-  //   신정책(항상-개설) 적용 주차 = 테스트 사용자 전 주차 / 실사용자 effectiveFrom 이후 주차.
+  //   신정책(항상-개설) 적용 주차 = effectiveFrom 이후 시작 주차 (사용자 유형 무관 —
+  //   테스터 전 주차 예외 폐기, 2026-06-05 레거시 통합 정책).
   //   (성공 row 는 모두 공표·과거 주차이므로 별도 published/현재주 게이트는 아래 단계가 담당.)
   const alwaysOpenWeekIds = new Set<string>();
   for (const r of successRows) {
     const weekId = weekIdByStart.get(r.week_start_date);
     if (!weekId) continue;
-    if (isTestUser || r.week_start_date >= effectiveFromDate) {
+    if (r.week_start_date >= effectiveFromDate) {
       alwaysOpenWeekIds.add(weekId);
     }
   }
@@ -1614,9 +1662,10 @@ export async function syncExperienceGrowthWeekStatuses(
       continue; // pass/pending/not_applicable/현재주 → no-op
     }
 
-    // 실사용자 과거 주차 보호 (v11 적용 시점 분리): effectiveFrom 이전 주차는 verdict 와 무관하게
-    // **update 금지** — 소급 success→fail 강등 방지. would-flip 만 protected 로 집계(관찰용).
-    if (!isTestUser && r.week_start_date < effectiveFromDate) {
+    // 레거시(허브 도입 전) 주차 보호: effectiveFrom 이전 주차는 verdict 와 무관하게
+    // **update 금지**(테스터 포함 전원) — 소급 success→fail 강등 방지. 레거시 성공/실패 SoT 는
+    // 마이그레이션으로 정렬된 uws 그대로. would-flip 만 protected 로 집계(관찰용).
+    if (r.week_start_date < effectiveFromDate) {
       protectedWeekKeys.push(`${r.year}-${r.week_number}`);
       continue;
     }

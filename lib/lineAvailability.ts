@@ -21,18 +21,53 @@ import { type CareerGrade, isCareerGradeFail } from "@/lib/careerGrade";
 export const EXPERIENCE_ALWAYS_OPEN_SLOT_ORDERS = [1, 2, 3, 5] as const;
 
 // ─────────────────────────────────────────────────────────────────────
-// v11 슬롯 정책 적용 시점 분리 (2026-06-04 확정):
-//   - 실사용자: start_date >= 이 날짜인 주차(= 정책 채택일 2026-06-04 이후 시작하는 첫 주차
-//     2026-06-08 = 2026-spring W15)부터 "필수 슬롯 항상-개설(fail)" 신정책을 라인 칸·강화율·
-//     주차 verdict·user_week_statuses sync 전부에 적용한다.
-//   - 실사용자의 이 날짜 이전 주차: 신정책 미적용(placeholder 는 해당 없음) — 과거
-//     user_week_statuses success 소급 강등 금지, 누적 인정 주차·시즌 성장률 보존.
-//   - 테스트 사용자(isTestDisplayName, display_name ILIKE '%T%'): 시점 제한 없음 — 과거
-//     주차에도 전면 적용(대량 fail 전환 허용).
+// 허브/라인 체계 적용 시점 (2026-06-05 개정 — 레거시 통합 라인 정책):
+//   - 허브/라인 체계(4허브·5슬롯·필수 슬롯 항상-개설)는 2026 여름 시즌 1주차
+//     (2026-06-29) 시작 주차부터 적용한다. 실사용자/테스트 사용자 구분 없음 —
+//     종전의 "테스트 사용자 전 주차 적용" 예외는 폐기한다.
+//   - 이 날짜 이전(= 2026 봄 시즌 16주차 이하 전체 포함) 주차는 "허브/라인 체계
+//     도입 이전" 레거시 기간이다. 레거시 주차는:
+//       · 실무 경험 허브에 [통합] 주차 활동 내역 라인 1개만 존재한다
+//         (LEGACY_UNIFIED_LINE_NAME 마스터, slot 1, line_code 'EXBS-…' = common).
+//       · 실무 정보/역량/경력 허브에는 라인이 없다 (placeholder/fold/패딩 미적용).
+//       · 주차 성장 verdict 는 3슬롯 규칙이 아니라 통합 라인 1개 기준
+//         (타깃 존재 + 평점 4점 이상/미평가 → pass, 평점 ≤3 → fail,
+//          개설 + 미배정 → fail, 미개설 → not_applicable).
 //   - 공통: 진행 중(running)·집계 중(tallying = 미공표) 주차에는 placeholder fail 선반영 금지 —
 //     마감/판정 완료(공표) 주차에만 fail. 그 전에는 해당 없음(void)으로 둔다.
+//   (구: 2026-06-08 = 2026-spring W15, 테스터 전 주차 — 2026-06-05 레거시 통합 정책으로 대체.)
 // ─────────────────────────────────────────────────────────────────────
-export const CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM = "2026-06-08";
+export const CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM = "2026-06-29";
+
+// 레거시(허브 도입 전) 주차 판별 — start_date < 2026 여름 W1.
+export function isLegacyUnifiedWeekStart(startDate: string): boolean {
+  return startDate < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM;
+}
+
+// 레거시 통합 라인 식별자 (마스터 line_name 고정 매칭).
+//   마스터: cluster4_experience_line_masters (slot 1 / line_code 'EXBS-UN0000' / org null —
+//   라인 line_code 'EXBS-…' 의 BS 토큰이 common 노출을 보장한다).
+export const LEGACY_UNIFIED_LINE_NAME = "[통합] 주차 활동 내역";
+
+// 통합 마스터 id 룩업 (모듈 캐시 — 마스터는 마이그레이션으로 1회 생성되는 고정 행).
+let legacyUnifiedMasterIdCache: string | null | undefined;
+export async function fetchLegacyUnifiedMasterId(): Promise<string | null> {
+  if (legacyUnifiedMasterIdCache !== undefined) return legacyUnifiedMasterIdCache;
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_experience_line_masters")
+    .select("id")
+    .eq("line_name", LEGACY_UNIFIED_LINE_NAME)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.warn("[lineAvailability] legacy unified master lookup failed", {
+      message: error.message,
+    });
+    return null; // 캐시하지 않음 — 다음 호출에서 재시도
+  }
+  legacyUnifiedMasterIdCache = (data as { id: string } | null)?.id ?? null;
+  return legacyUnifiedMasterIdCache;
+}
 
 export const EXPERIENCE_SLOT_CATEGORY: Record<
   1 | 2 | 3 | 4 | 5,
@@ -988,21 +1023,166 @@ export function shouldSyncWeekStatusToFail(
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// 레거시(허브 도입 전) 주차의 통합 라인 상태 (2026-06-05 레거시 통합 정책).
+//   주차별로: 통합 라인 개설 여부(any target) / 본인 타깃 / 마감 경과 / 본인 평점.
+//   weekly-growth 집계 override + 레거시 주차 verdict 산정의 공용 SoT.
+// ─────────────────────────────────────────────────────────────────────
+export type LegacyUnifiedWeekState = {
+  opened: boolean; // 그 주차에 통합 라인이 개설(any target 존재)됐는가
+  hasTarget: boolean; // 본인 user 타깃 존재
+  deadlinePassed: boolean; // 통합 라인 마감(submission_closes_at) 경과
+  rating: number | null; // 본인 평점 (cluster4_experience_line_evaluations)
+};
+
+export async function fetchLegacyUnifiedExperienceByWeek(
+  userId: string,
+  weekIds: string[],
+  now: number = Date.now(),
+): Promise<Map<string, LegacyUnifiedWeekState>> {
+  const result = new Map<string, LegacyUnifiedWeekState>();
+  if (weekIds.length === 0) return result;
+  const masterId = await fetchLegacyUnifiedMasterId();
+  if (!masterId) return result; // 마스터 미생성 → 전부 미개설(not_applicable) 취급
+
+  const { data: lineRows, error: lineErr } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id,submission_closes_at")
+    .eq("part_type", "experience")
+    .eq("experience_line_master_id", masterId)
+    .eq("is_active", true);
+  if (lineErr || !lineRows || lineRows.length === 0) return result;
+  const closesByLineId = new Map<string, string | null>();
+  for (const l of lineRows as { id: string; submission_closes_at: string | null }[]) {
+    closesByLineId.set(l.id, l.submission_closes_at);
+  }
+
+  // 타깃 전수 페이지네이션 (개설 신호 = any target / 본인 타깃 분리 집계).
+  const ensure = (week: string): LegacyUnifiedWeekState => {
+    let s = result.get(week);
+    if (!s) {
+      s = { opened: false, hasTarget: false, deadlinePassed: false, rating: null };
+      result.set(week, s);
+    }
+    return s;
+  };
+  const ownTargetWeekById = new Map<string, string>(); // own target id → week_id
+  {
+    const pageSize = 1000;
+    let from = 0;
+    for (;;) {
+      const { data: page, error: pageErr } = await supabaseAdmin
+        .from("cluster4_line_targets")
+        .select("id,week_id,line_id,target_mode,target_user_id")
+        .in("line_id", [...closesByLineId.keys()])
+        .in("week_id", weekIds)
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (pageErr) {
+        console.warn("[lineAvailability] legacy unified targets page fetch failed", {
+          from,
+          message: pageErr.message,
+        });
+        break;
+      }
+      const rows = (page ?? []) as {
+        id: string;
+        week_id: string;
+        line_id: string;
+        target_mode: string;
+        target_user_id: string | null;
+      }[];
+      for (const t of rows) {
+        const s = ensure(t.week_id);
+        s.opened = true;
+        if (t.target_mode === "user" && t.target_user_id === userId) {
+          s.hasTarget = true;
+          const closes = closesByLineId.get(t.line_id);
+          if (closes && new Date(closes).getTime() < now) s.deadlinePassed = true;
+          ownTargetWeekById.set(t.id, t.week_id);
+        }
+      }
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+  }
+
+  // 본인 평점 (통합 라인 타깃 한정).
+  if (ownTargetWeekById.size > 0) {
+    const ids = [...ownTargetWeekById.keys()];
+    for (let i = 0; i < ids.length; i += 200) {
+      const chunk = ids.slice(i, i + 200);
+      const { data: evals } = await supabaseAdmin
+        .from("cluster4_experience_line_evaluations")
+        .select("line_target_id,rating")
+        .eq("user_id", userId)
+        .in("line_target_id", chunk);
+      for (const e of (evals ?? []) as { line_target_id: string; rating: number }[]) {
+        const week = ownTargetWeekById.get(e.line_target_id);
+        if (!week) continue;
+        const s = ensure(week);
+        s.rating = e.rating;
+      }
+    }
+  }
+
+  return result;
+}
+
+// 레거시 통합 라인 상태 → 주차 verdict (단일 슬롯 환원).
+//   개설 + 본인 타깃 + (평점 ≥4 또는 미평가) → pass / 평점 ≤3 → fail
+//   개설 + 미배정 → fail / 미개설 → not_applicable (기존 status 유지 — 실사용자 보존)
+export function reduceLegacyUnifiedVerdict(
+  state: LegacyUnifiedWeekState | undefined,
+): ExperienceGrowthVerdict {
+  if (!state || !state.opened) {
+    return reduceExperienceRequiredSlotVerdict([
+      {
+        slotOrder: 1,
+        category: "derivation",
+        enhancementStatus: "not_applicable" as Cluster4EnhancementStatus,
+      },
+    ]);
+  }
+  const enhancementStatus = computeCluster4Enhancement({
+    hasTarget: state.hasTarget,
+    deadlinePassed: state.deadlinePassed,
+    hasSubmission: false, // enhancementStatus 산정에 미사용 (정책 유지)
+    isCareer: false,
+    expectedWhenMissing: true, // 개설됨 — 미배정이면 fail
+    experienceRatingVerdict:
+      state.hasTarget && state.rating != null
+        ? state.rating <= EXPERIENCE_RATING_FAIL_THRESHOLD
+          ? "fail"
+          : "pass"
+        : undefined,
+  }).enhancementStatus;
+  return reduceExperienceRequiredSlotVerdict([
+    { slotOrder: 1, category: "derivation", enhancementStatus },
+  ]);
+}
+
 // 주차별 필수 슬롯(1/2/3) verdict. weekId(weeks.id) → verdict.
 // cluster4_lines(experience) + cluster4_experience_line_masters.slot_order + targets + 마감 으로
 // computeCluster4Enhancement 와 동일 기준으로 슬롯 상태를 산정한다. 추가 컬럼/제출 구조 변경 없음.
 // 조회 실패 시 안전 폴백: 모든 슬롯 not_applicable (= 실패로 보지 않음).
+// 레거시(허브 도입 전, start_date < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) 주차는 3슬롯 규칙이
+//   아니라 통합 라인 1개 기준(reduceLegacyUnifiedVerdict)으로 판정한다 — 내부에서 weeks.start_date
+//   로 자동 분리하므로 호출부 변경 불요.
 // opts.alwaysOpenWeekIds (2026-06-04 적용 시점 분리):
-//   이 집합에 속한 주차는 "필수 슬롯 항상-개설" 신정책 적용 — 슬롯 라인 행이 없어도
+//   이 집합에 속한 (비레거시) 주차는 "필수 슬롯 항상-개설" 신정책 적용 — 슬롯 라인 행이 없어도
 //   expectedWhenMissing=true → 본인 타깃 없으면 fail. 집합 밖 주차는 기존 기준(그 주차에
-//   슬롯 라인이 실제 개설됐을 때만 fail) 유지. 호출부가 effectiveFrom(실사용자
-//   CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM 이후 주차)·테스트 사용자(전 주차)·공표 여부로 집합을
-//   구성한다 — 과거 실사용자의 누적 인정/시즌 성장률 보존이 목적.
+//   슬롯 라인이 실제 개설됐을 때만 fail) 유지. 호출부가 effectiveFrom(
+//   CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM 이후 주차)·공표 여부로 집합을 구성한다.
 export async function fetchExperienceRequiredSlotStatusByWeek(
   userId: string,
   weekIds: string[],
   now: number = Date.now(),
-  opts: { alwaysOpenWeekIds?: ReadonlySet<string> } = {},
+  opts: {
+    alwaysOpenWeekIds?: ReadonlySet<string>;
+    // 레거시 주차의 통합 라인 상태를 호출부가 이미 갖고 있으면 재조회를 생략한다.
+    legacyUnifiedStates?: Map<string, LegacyUnifiedWeekState>;
+  } = {},
 ): Promise<Map<string, ExperienceGrowthVerdict>> {
   const alwaysOpenWeekIds = opts.alwaysOpenWeekIds ?? new Set<string>();
   const result = new Map<string, ExperienceGrowthVerdict>();
@@ -1017,6 +1197,34 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
       })),
     );
 
+  // 0. 레거시(허브 도입 전) 주차 분리 — weeks.start_date < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM.
+  //    레거시 주차는 통합 라인 단일 verdict, 그 외 주차는 기존 3슬롯 로직.
+  //    weeks 조회 실패 시 전부 비레거시 취급(기존 로직 — 보수적).
+  const legacyWeekIdSet = new Set<string>();
+  {
+    const { data: weekRows, error: weeksErr } = await supabaseAdmin
+      .from("weeks")
+      .select("id,start_date")
+      .in("id", weekIds);
+    if (!weeksErr) {
+      for (const w of (weekRows ?? []) as { id: string; start_date: string | null }[]) {
+        if (w.start_date && isLegacyUnifiedWeekStart(w.start_date)) {
+          legacyWeekIdSet.add(w.id);
+        }
+      }
+    }
+  }
+  if (legacyWeekIdSet.size > 0) {
+    const states =
+      opts.legacyUnifiedStates ??
+      (await fetchLegacyUnifiedExperienceByWeek(userId, [...legacyWeekIdSet], now));
+    for (const w of legacyWeekIdSet) {
+      result.set(w, reduceLegacyUnifiedVerdict(states.get(w)));
+    }
+  }
+  const currentWeekIds = weekIds.filter((w) => !legacyWeekIdSet.has(w));
+  if (currentWeekIds.length === 0) return result;
+
   // 1. active experience 라인 + 마감 + 마스터 id
   const { data: lineRows, error: lineErr } = await supabaseAdmin
     .from("cluster4_lines")
@@ -1026,7 +1234,7 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
 
   // 조회 실패(에러)만 안전 폴백 — "행이 없음"은 폴백이 아니라 정책상 fail 로 계산된다.
   if (lineErr) {
-    for (const w of weekIds) result.set(w, allNotApplicable());
+    for (const w of currentWeekIds) result.set(w, allNotApplicable());
     return result;
   }
 
@@ -1073,10 +1281,19 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
     }
   }
 
+  // 레거시 통합 마스터 라인은 3슬롯 로직에서 제외한다 (slot 1 마스터지만 레거시 전용 —
+  // 비레거시 주차에는 타깃이 없어 실질 영향은 없으나 이중 방어).
+  const unifiedMasterId = await fetchLegacyUnifiedMasterId();
+  if (unifiedMasterId) {
+    for (const l of lines) {
+      if (l.experience_line_master_id === unifiedMasterId) lineSlot.delete(l.id);
+    }
+  }
+
   // 필수 슬롯 라인이 하나도 없으면: alwaysOpen 주차는 아래 루프에서 fail 로 계산해야 하므로
   // 신정책 주차가 하나도 없을 때만 not_applicable 단락한다.
   if (lineSlot.size === 0 && alwaysOpenWeekIds.size === 0) {
-    for (const w of weekIds) result.set(w, allNotApplicable());
+    for (const w of currentWeekIds) result.set(w, allNotApplicable());
     return result;
   }
 
@@ -1099,7 +1316,7 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
         .from("cluster4_line_targets")
         .select("week_id,line_id,target_mode,target_user_id,id")
         .in("line_id", [...lineSlot.keys()])
-        .in("week_id", weekIds)
+        .in("week_id", currentWeekIds)
         .order("id", { ascending: true })
         .range(from, from + pageSize - 1);
       if (targetErr) {
@@ -1149,7 +1366,7 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
   //   fail)" 신정책. 그 외 주차는 기존 기준(실제 개설됐을 때만 fail) — 과거 실사용자의
   //   누적 인정 주차/시즌 성장률이 소급 붕괴하지 않도록 호출부가 effectiveFrom/테스트 여부로
   //   집합을 제한한다.
-  for (const w of weekIds) {
+  for (const w of currentWeekIds) {
     const wk = byWeek.get(w);
     const alwaysOpen = alwaysOpenWeekIds.has(w);
     const slots: ExperienceRequiredSlotStatus[] = REQUIRED_SLOTS.map((s) => {
