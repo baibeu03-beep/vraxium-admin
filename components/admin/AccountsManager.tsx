@@ -7,9 +7,11 @@ import {
   useState,
 } from "react";
 import {
+  Check,
   Copy,
   KeyRound,
   Loader2,
+  Pencil,
   RefreshCw,
   Search,
   UserPlus,
@@ -66,6 +68,8 @@ import {
 //   POST /api/admin/accounts/[user_id]/password-reset  로 비밀번호 재설정
 
 const PAGE_SIZE = 50;
+// 백엔드 validateDisplayName(DISPLAY_NAME_MAX_LENGTH)과 동일하게 유지.
+const DISPLAY_NAME_MAX_LENGTH = 50;
 const ROLE_ALL = "__all__";
 const ACTIVE_ALL = "__all__";
 const ORG_NONE = "__none__"; // organization_slug=null sentinel (CreateDrawer + 인라인 Select 공용)
@@ -114,6 +118,10 @@ export default function AccountsManager() {
   const [activeFilter, setActiveFilter] = useState<string>(ACTIVE_ALL);
 
   const [pendingUserIds, setPendingUserIds] = useState<Set<string>>(() => new Set());
+
+  // 이름 인라인 수정 — 한 번에 한 행만 편집한다.
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
 
   const [createOpen, setCreateOpen] = useState(false);
   const [tempPassword, setTempPassword] = useState<{
@@ -336,6 +344,72 @@ export default function AccountsManager() {
     [applyAccount, isSuperAdmin, markPending],
   );
 
+  const startNameEdit = useCallback((account: AccountDto) => {
+    setEditingUserId(account.userId);
+    setEditingName(account.displayName ?? "");
+  }, []);
+
+  const cancelNameEdit = useCallback(() => {
+    setEditingUserId(null);
+    setEditingName("");
+  }, []);
+
+  const handleNameSave = useCallback(
+    async (account: AccountDto) => {
+      if (!isSuperAdmin) return;
+      const trimmed = editingName.trim();
+      if (trimmed.length === 0) {
+        setBanner({ kind: "error", message: "이름을 입력해주세요." });
+        return;
+      }
+      if (trimmed.length > DISPLAY_NAME_MAX_LENGTH) {
+        setBanner({
+          kind: "error",
+          message: `이름은 ${DISPLAY_NAME_MAX_LENGTH}자 이하여야 합니다.`,
+        });
+        return;
+      }
+      if (trimmed === (account.displayName ?? "")) {
+        cancelNameEdit();
+        return;
+      }
+
+      markPending(account.userId, true);
+      try {
+        const res = await fetch(
+          "/api/admin/accounts/" + encodeURIComponent(account.userId),
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ display_name: trimmed }),
+          },
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error ?? "Failed to update display name");
+        }
+        applyAccount(json.data.account as AccountDto);
+        cancelNameEdit();
+        setBanner({
+          kind: "success",
+          message:
+            (account.displayName ?? account.email ?? account.userId) +
+            " 이름 변경: " +
+            trimmed,
+        });
+      } catch (err) {
+        setBanner({
+          kind: "error",
+          message:
+            err instanceof Error ? err.message : "Failed to update display name",
+        });
+      } finally {
+        markPending(account.userId, false);
+      }
+    },
+    [applyAccount, cancelNameEdit, editingName, isSuperAdmin, markPending],
+  );
+
   const handleResetPassword = useCallback(
     async (account: AccountDto) => {
       if (!isSuperAdmin) return;
@@ -507,9 +581,71 @@ export default function AccountsManager() {
                   return (
                     <TableRow key={account.userId}>
                       <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[240px]">
-                        <div className="truncate font-medium">
-                          {fmt(account.displayName)}
-                        </div>
+                        {editingUserId === account.userId ? (
+                          <div className="flex items-center gap-1">
+                            <Input
+                              value={editingName}
+                              onChange={(e) => setEditingName(e.target.value)}
+                              maxLength={DISPLAY_NAME_MAX_LENGTH}
+                              autoFocus
+                              disabled={isPending}
+                              aria-label="이름 수정 입력"
+                              className="h-8 text-sm"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  void handleNameSave(account);
+                                } else if (e.key === "Escape") {
+                                  cancelNameEdit();
+                                }
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 px-2"
+                              disabled={isPending}
+                              onClick={() => void handleNameSave(account)}
+                              title="저장"
+                              aria-label="이름 저장"
+                            >
+                              {isPending ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Check className="h-3.5 w-3.5" />
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-2"
+                              disabled={isPending}
+                              onClick={cancelNameEdit}
+                              title="취소"
+                              aria-label="이름 수정 취소"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1">
+                            <div className="truncate font-medium">
+                              {fmt(account.displayName)}
+                            </div>
+                            {isSuperAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => startNameEdit(account)}
+                                disabled={isPending}
+                                title="이름 수정"
+                                aria-label="이름 수정"
+                                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        )}
                         <div className="truncate font-mono text-[10px] text-muted-foreground">
                           {account.userId}
                         </div>
@@ -846,6 +982,7 @@ function CreateAccountDrawerInner({
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder="예: 홍길동"
+                maxLength={DISPLAY_NAME_MAX_LENGTH}
                 required
               />
             </div>

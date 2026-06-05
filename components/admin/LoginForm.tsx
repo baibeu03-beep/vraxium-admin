@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { supabaseClient } from "@/lib/supabaseClient";
@@ -224,6 +225,12 @@ export default function LoginForm() {
             <Button type="submit" className="w-full" disabled={loading || kakaoLoading}>
               {loading ? "로그인 중..." : "로그인"}
             </Button>
+            <Link
+              href="/forgot-password"
+              className="text-center text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+            >
+              비밀번호를 잊으셨나요?
+            </Link>
           </form>
 
           {/* 카카오 로그인 — 어드민 페이지에서는 사용 불가 (주석 처리)

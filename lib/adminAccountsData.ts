@@ -105,16 +105,22 @@ function validateEmail(value: unknown): string {
   return normalized;
 }
 
+// 관리자 이름 최대 길이 — 프론트(AccountsManager input maxLength)와 동일하게 유지.
+export const DISPLAY_NAME_MAX_LENGTH = 50;
+
 function validateDisplayName(value: unknown): string {
   if (typeof value !== "string") {
     throw new AccountsError(400, "display_name must be a string");
   }
   const trimmed = value.trim();
   if (trimmed.length === 0) {
-    throw new AccountsError(400, "display_name is required");
+    throw new AccountsError(400, "이름을 입력해주세요.");
   }
-  if (trimmed.length > 100) {
-    throw new AccountsError(400, "display_name must be 100 characters or fewer");
+  if (trimmed.length > DISPLAY_NAME_MAX_LENGTH) {
+    throw new AccountsError(
+      400,
+      `이름은 ${DISPLAY_NAME_MAX_LENGTH}자 이하여야 합니다.`,
+    );
   }
   return trimmed;
 }
@@ -591,14 +597,27 @@ export async function updateAccount(
     profilePatch.status = newIsActive ? "active" : "inactive";
   }
   if (Object.keys(profilePatch).length > 0) {
-    const { error } = await supabaseAdmin
+    const { data: updatedProfiles, error } = await supabaseAdmin
       .from("user_profiles")
       .update(profilePatch)
-      .eq("user_id", input.userId);
+      .eq("user_id", input.userId)
+      .select("user_id");
     if (error) {
       throw new AccountsError(
         500,
         `Failed to update user_profiles: ${error.message}`,
+      );
+    }
+    // display_name 수정 요청인데 user_profiles row 가 없으면 조용히 no-op 되어
+    // "저장됐는데 안 바뀜" 으로 보인다 — 명시적으로 실패시킨다.
+    // (role/status 동기화만 있는 기존 경로는 종전대로 조용히 통과.)
+    if (
+      input.payload.display_name !== undefined &&
+      (!updatedProfiles || updatedProfiles.length === 0)
+    ) {
+      throw new AccountsError(
+        404,
+        "user_profiles row 가 없어 이름을 저장하지 못했습니다.",
       );
     }
   }

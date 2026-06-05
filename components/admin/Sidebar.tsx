@@ -139,7 +139,17 @@ function isUnderAnyBase(pathname: string, item: BranchItem) {
   return paths.some((p) => isUnderBase(pathname, p));
 }
 
-export default function Sidebar() {
+type SidebarProps = {
+  // 로그인된 관리자 정보 — 표시 전용. (portal) layout(서버)에서 내려준다.
+  // null 이면 "관리자님" fallback. 권한/메뉴 로직과는 무관하다.
+  adminDisplayName?: string | null;
+  adminEmail?: string | null;
+};
+
+export default function Sidebar({
+  adminDisplayName = null,
+  adminEmail = null,
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const {
@@ -357,13 +367,39 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* 로그아웃: 항상 사이드바 최하단 고정. HOME(navLocked) 에서도 클릭 가능해야 한다. */}
+      {/* 관리자 정보 + 로그아웃: 항상 사이드바 최하단 고정.
+          HOME(navLocked) 에서도 표시/로그아웃 모두 동작해야 한다. */}
       <div
         className={cn(
           "shrink-0 border-t border-sidebar-border",
           sidebarOpen ? "p-2.5" : "p-2",
         )}
       >
+        {sidebarOpen ? (
+          <div className="mb-1 px-3 py-1.5">
+            <p className="truncate text-sm font-medium text-sidebar-foreground">
+              {(adminDisplayName ?? "관리자") + "님"}
+            </p>
+            <p className="text-xs text-sidebar-foreground/70">환영합니다 😊</p>
+            {adminEmail && (
+              <p className="mt-1 truncate text-[11px] text-sidebar-foreground/55">
+                {adminEmail}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div
+            title={
+              (adminDisplayName ?? "관리자") +
+              "님" +
+              (adminEmail ? ` · ${adminEmail}` : "")
+            }
+            aria-label="로그인된 관리자 정보"
+            className="mx-auto mb-1 flex h-8 w-8 items-center justify-center rounded-full bg-sidebar-accent text-xs font-semibold text-sidebar-foreground/80"
+          >
+            {Array.from(adminDisplayName ?? "관")[0]}
+          </div>
+        )}
         <button
           type="button"
           onClick={handleLogout}
