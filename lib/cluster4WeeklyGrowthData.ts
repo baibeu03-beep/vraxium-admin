@@ -379,10 +379,15 @@ async function computeWeeklyCards(
   const uwsStartsSorted = uwsRows.map((r) => r.week_start_date).sort();
   const lowerBound = uwsStartsSorted[0];
   const latestUwsStart = uwsStartsSorted[uwsStartsSorted.length - 1];
+  // 상한 = max(현재 주차, 마지막 uws 주차). 시즌 전체가 시드된 사용자(테스터)는 미래 주차
+  // uws 가 존재하므로 latestUwsStart 까지 weeks 를 조회해야 한다. 종전엔 삼항 양쪽이 모두
+  // currentWeekStart 인 no-op 이라 미래 주차 weeks row 가 조회 범위 밖 → 해당 uws 가 고아로
+  // 오인돼 합성주차(week_number=null)가 되고 displayWeekNum 이 ISO 주차(24/25)로 폴백,
+  // "봄 시즌 24주차" 같은 시즌 초과 주차 제목이 만들어지는 버그가 있었다 (2026-06-05 수정).
   const upperBound = currentWeekStart
     ? currentWeekStart > latestUwsStart
       ? currentWeekStart
-      : currentWeekStart
+      : latestUwsStart
     : latestUwsStart;
 
   // 4. 범위 내 weeks 조회 — 카드 루프의 기준 source (uws 가 아니라 weeks 가 카드를 만든다).

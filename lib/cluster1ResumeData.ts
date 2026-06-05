@@ -321,12 +321,21 @@ async function computeSeasonRecords(
       .order("created_at", { ascending: false }),
     supabaseAdmin
       .from("user_profiles")
-      .select("role")
+      .select("role,growth_status")
       .eq("user_id", userId)
       .maybeSingle(),
   ]);
-  const profileRole =
-    ((profileRoleRes.data as { role: string | null } | null)?.role ?? null);
+  const profileRow = profileRoleRes.data as {
+    role: string | null;
+    growth_status: string | null;
+  } | null;
+  const profileRole = profileRow?.role ?? null;
+  // "정상 졸업" = 실제 졸업(growth_status SoT)일 때만. 종전에는 시즌 완주(approved≥total−1)를
+  // 졸업으로 라벨링해, 미졸업자의 과거 완료 시즌에도 "정상 졸업"이 붙었다 (2026-06-05 수정).
+  const isGraduated = profileRow?.growth_status === "graduated";
+  // 마지막 활동 시즌 = uws 가 존재하는 시즌 중 최신(seasons 는 start_date DESC 정렬).
+  const latestActivitySeasonKey =
+    seasons.find((s) => weeksBySeason.has(s.season_key))?.season_key ?? null;
 
   const records: SeasonRecord[] = [];
 
@@ -353,16 +362,19 @@ async function computeSeasonRecords(
     const hasRest = seasonWeeks.some((w) => w.status === "personal_rest");
     const hasFail = seasonWeeks.some((w) => w.status === "fail");
 
-    if (isOngoing) {
+    // "정상 졸업"은 실졸업자(growth_status=graduated)의 마지막 활동 시즌 행에만 붙는다.
+    // 진행 중 시즌이더라도 졸업이 확정된 사용자의 최신 행은 "정상 졸업"이 우선한다
+    // (정상 졸업은 맨 윗 행 = 현재/최신 시즌에 표시 — 2026-06-05 정책).
+    if (isGraduated && season.season_key === latestActivitySeasonKey) {
+      progressStatus = "정상 졸업";
+    } else if (isOngoing) {
       progressStatus = "진행 중";
     } else if (hasRest && !hasFail) {
       progressStatus = "통합 휴식";
     } else if (hasFail && approvedWeeks < totalWeeks / 2) {
       progressStatus = "활동 중단";
     } else {
-      progressStatus = approvedWeeks >= totalWeeks - 1
-        ? "정상 졸업"
-        : "정상 완료";
+      progressStatus = "정상 완료";
     }
 
     // 시즌 검수 상태 — KST date-only 경계(UTC timestamp 비교 금지).
