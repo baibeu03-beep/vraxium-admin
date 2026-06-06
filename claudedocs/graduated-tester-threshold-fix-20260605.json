@@ -1,0 +1,87 @@
+{
+  "runs": [
+    {
+      "runAt": "2026-06-05T09:41:08.277Z",
+      "activeElapsed": 27,
+      "kept": [
+        "T송태현(oranke a=26≥25)",
+        "T류민서(oranke a=26≥25)",
+        "T홍지환(oranke a=26≥25)"
+      ],
+      "demotes": [
+        {
+          "userId": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+          "name": "T윤태현",
+          "org": "phalanx",
+          "threshold": 30,
+          "displayA": 26,
+          "displayH": 37,
+          "before": {
+            "growth_status": "graduated",
+            "activity_ended_at": null
+          }
+        },
+        {
+          "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+          "name": "T임다인",
+          "org": "encre",
+          "threshold": 30,
+          "displayA": 26,
+          "displayH": 37,
+          "before": {
+            "growth_status": "graduated",
+            "activity_ended_at": "2026-05-19T00:00:00+00:00"
+          }
+        },
+        {
+          "userId": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+          "name": "T장유준",
+          "org": "encre",
+          "threshold": 30,
+          "displayA": 26,
+          "displayH": 37,
+          "before": {
+            "growth_status": "graduated",
+            "activity_ended_at": "2026-05-12T00:00:00+00:00"
+          }
+        },
+        {
+          "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+          "name": "T윤도현",
+          "org": "encre",
+          "threshold": 30,
+          "displayA": 26,
+          "displayH": 37,
+          "before": {
+            "growth_status": "graduated",
+            "activity_ended_at": null
+          }
+        },
+        {
+          "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+          "name": "T장시현",
+          "org": "phalanx",
+          "threshold": 30,
+          "displayA": 26,
+          "displayH": 37,
+          "before": {
+            "growth_status": "graduated",
+            "activity_ended_at": "2026-05-12T00:00:00+00:00"
+          }
+        },
+        {
+          "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+          "name": "T임건우",
+          "org": "phalanx",
+          "threshold": 30,
+          "displayA": 26,
+          "displayH": 37,
+          "before": {
+            "growth_status": "graduated",
+            "activity_ended_at": "2026-05-19T00:00:00+00:00"
+          }
+        }
+      ]
+    }
+  ]
+}
