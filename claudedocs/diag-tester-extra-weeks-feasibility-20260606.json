@@ -1,0 +1,461 @@
+{
+  "runAt": "2026-06-06T00:43:18.631Z",
+  "weeksBySeason": {
+    "2025-autumn": {
+      "count": 17,
+      "min": "2025-09-01",
+      "max": "2025-12-22"
+    },
+    "2026-winter": {
+      "count": 9,
+      "min": "2025-12-29",
+      "max": "2026-02-23"
+    },
+    "2026-spring": {
+      "count": 16,
+      "min": "2026-03-02",
+      "max": "2026-06-15"
+    }
+  },
+  "weeksMin": "2025-09-01",
+  "weeksMax": "2026-06-15",
+  "uws": {
+    "total": 1726,
+    "realMinWeek": "2026-05-04",
+    "testerMinWeek": "2025-09-01",
+    "realUserCount": 31
+  },
+  "candidates": [
+    {
+      "start": "2025-06-09",
+      "error": "iso.slice is not a function"
+    },
+    {
+      "start": "2025-06-16",
+      "error": "iso.slice is not a function"
+    },
+    {
+      "start": "2025-06-23",
+      "error": "iso.slice is not a function"
+    },
+    {
+      "start": "2025-06-30",
+      "error": "iso.slice is not a function"
+    },
+    {
+      "start": "2025-07-07",
+      "error": "iso.slice is not a function"
+    },
+    {
+      "start": "2025-07-14",
+      "error": "iso.slice is not a function"
+    },
+    {
+      "start": "2025-07-21",
+      "error": "iso.slice is not a function"
+    },
+    {
+      "start": "2025-07-28",
+      "error": "iso.slice is not a function"
+    },
+    {
+      "start": "2025-08-04",
+      "error": "iso.slice is not a function"
+    },
+    {
+      "start": "2025-08-11",
+      "error": "iso.slice is not a function"
+    },
+    {
+      "start": "2025-08-18",
+      "error": "iso.slice is not a function"
+    },
+    {
+      "start": "2025-08-25",
+      "error": "iso.slice is not a function"
+    }
+  ],
+  "officialRestPeriods": [
+    {
+      "id": "4babecd7-11a8-4110-a1a8-e546ce4e7cab",
+      "name": "2026 설 연휴",
+      "type": "temporary",
+      "start_date": "2026-02-16",
+      "end_date": "2026-02-22",
+      "description": null,
+      "is_active": true,
+      "created_at": "2026-05-31T14:22:46.359571+00:00",
+      "updated_at": "2026-05-31T14:22:46.359571+00:00"
+    }
+  ],
+  "unifiedMasters": [
+    {
+      "id": "04e1f6ad-f7cb-4b1d-b758-a2452f544e0a",
+      "line_code": "EXBS-UN0000",
+      "line_name": "[통합] 주차 활동 내역",
+      "organization_slug": "common",
+      "experience_slot_order": 1
+    }
+  ],
+  "seasonDefinitions": [
+    {
+      "id": 3,
+      "season_key": "2021-autumn",
+      "season_label": "2021년도 가을시즌",
+      "season_type": "autumn",
+      "start_date": "2021-09-06",
+      "end_date": "2021-12-25",
+      "year": 2021
+    },
+    {
+      "id": 1,
+      "season_key": "2021-spring",
+      "season_label": "2021년도 봄시즌",
+      "season_type": "spring",
+      "start_date": "2021-03-01",
+      "end_date": "2021-06-26",
+      "year": 2021
+    },
+    {
+      "id": 2,
+      "season_key": "2021-summer",
+      "season_label": "2021년도 여름시즌",
+      "season_type": "summer",
+      "start_date": "2021-07-05",
+      "end_date": "2021-08-28",
+      "year": 2021
+    },
+    {
+      "id": 7,
+      "season_key": "2022-autumn",
+      "season_label": "2022년도 가을시즌",
+      "season_type": "autumn",
+      "start_date": "2022-09-05",
+      "end_date": "2022-12-25",
+      "year": 2022
+    },
+    {
+      "id": 5,
+      "season_key": "2022-spring",
+      "season_label": "2022년도 봄시즌",
+      "season_type": "spring",
+      "start_date": "2022-03-07",
+      "end_date": "2022-06-25",
+      "year": 2022
+    },
+    {
+      "id": 6,
+      "season_key": "2022-summer",
+      "season_label": "2022년도 여름시즌",
+      "season_type": "summer",
+      "start_date": "2022-07-04",
+      "end_date": "2022-08-27",
+      "year": 2022
+    },
+    {
+      "id": 4,
+      "season_key": "2022-winter",
+      "season_label": "2022년도 겨울시즌",
+      "season_type": "winter",
+      "start_date": "2022-01-03",
+      "end_date": "2022-02-26",
+      "year": 2022
+    },
+    {
+      "id": 11,
+      "season_key": "2023-autumn",
+      "season_label": "2023년도 가을시즌",
+      "season_type": "autumn",
+      "start_date": "2023-09-04",
+      "end_date": "2023-12-24",
+      "year": 2023
+    },
+    {
+      "id": 9,
+      "season_key": "2023-spring",
+      "season_label": "2023년도 봄시즌",
+      "season_type": "spring",
+      "start_date": "2023-03-06",
+      "end_date": "2023-06-25",
+      "year": 2023
+    },
+    {
+      "id": 10,
+      "season_key": "2023-summer",
+      "season_label": "2023년도 여름시즌",
+      "season_type": "summer",
+      "start_date": "2023-07-03",
+      "end_date": "2023-08-27",
+      "year": 2023
+    },
+    {
+      "id": 8,
+      "season_key": "2023-winter",
+      "season_label": "2023년도 겨울시즌",
+      "season_type": "winter",
+      "start_date": "2023-01-02",
+      "end_date": "2023-02-26",
+      "year": 2023
+    },
+    {
+      "id": 15,
+      "season_key": "2024-autumn",
+      "season_label": "2024년도 가을시즌",
+      "season_type": "autumn",
+      "start_date": "2024-09-02",
+      "end_date": "2024-12-22",
+      "year": 2024
+    },
+    {
+      "id": 13,
+      "season_key": "2024-spring",
+      "season_label": "2024년도 봄시즌",
+      "season_type": "spring",
+      "start_date": "2024-03-04",
+      "end_date": "2024-06-23",
+      "year": 2024
+    },
+    {
+      "id": 14,
+      "season_key": "2024-summer",
+      "season_label": "2024년도 여름시즌",
+      "season_type": "summer",
+      "start_date": "2024-07-01",
+      "end_date": "2024-08-24",
+      "year": 2024
+    },
+    {
+      "id": 12,
+      "season_key": "2024-winter",
+      "season_label": "2024년도 겨울시즌",
+      "season_type": "winter",
+      "start_date": "2024-01-01",
+      "end_date": "2024-02-25",
+      "year": 2024
+    },
+    {
+      "id": 19,
+      "season_key": "2025-autumn",
+      "season_label": "2025년도 가을시즌",
+      "season_type": "autumn",
+      "start_date": "2025-09-01",
+      "end_date": "2025-12-21",
+      "year": 2025
+    },
+    {
+      "id": 17,
+      "season_key": "2025-spring",
+      "season_label": "2025년도 봄시즌",
+      "season_type": "spring",
+      "start_date": "2025-03-03",
+      "end_date": "2025-06-22",
+      "year": 2025
+    },
+    {
+      "id": 18,
+      "season_key": "2025-summer",
+      "season_label": "2025년도 여름시즌",
+      "season_type": "summer",
+      "start_date": "2025-06-30",
+      "end_date": "2025-08-23",
+      "year": 2025
+    },
+    {
+      "id": 16,
+      "season_key": "2025-winter",
+      "season_label": "2025년도 겨울시즌",
+      "season_type": "winter",
+      "start_date": "2024-12-31",
+      "end_date": "2025-02-23",
+      "year": 2025
+    },
+    {
+      "id": 23,
+      "season_key": "2026-autumn",
+      "season_label": "2026년도 가을시즌",
+      "season_type": "autumn",
+      "start_date": "2026-08-31",
+      "end_date": "2026-12-20",
+      "year": 2026
+    },
+    {
+      "id": 21,
+      "season_key": "2026-spring",
+      "season_label": "2026년도 봄시즌",
+      "season_type": "spring",
+      "start_date": "2026-03-02",
+      "end_date": "2026-06-21",
+      "year": 2026
+    },
+    {
+      "id": 22,
+      "season_key": "2026-summer",
+      "season_label": "2026년도 여름시즌",
+      "season_type": "summer",
+      "start_date": "2026-06-29",
+      "end_date": "2026-08-22",
+      "year": 2026
+    },
+    {
+      "id": 20,
+      "season_key": "2026-winter",
+      "season_label": "2026년도 겨울시즌",
+      "season_type": "winter",
+      "start_date": "2025-12-29",
+      "end_date": "2026-02-22",
+      "year": 2026
+    },
+    {
+      "id": 27,
+      "season_key": "2027-autumn",
+      "season_label": "2027년도 가을시즌",
+      "season_type": "autumn",
+      "start_date": "2027-08-30",
+      "end_date": "2027-12-19",
+      "year": 2027
+    },
+    {
+      "id": 25,
+      "season_key": "2027-spring",
+      "season_label": "2027년도 봄시즌",
+      "season_type": "spring",
+      "start_date": "2027-03-01",
+      "end_date": "2027-06-20",
+      "year": 2027
+    },
+    {
+      "id": 26,
+      "season_key": "2027-summer",
+      "season_label": "2027년도 여름시즌",
+      "season_type": "summer",
+      "start_date": "2027-06-28",
+      "end_date": "2027-08-21",
+      "year": 2027
+    },
+    {
+      "id": 24,
+      "season_key": "2027-winter",
+      "season_label": "2027년도 겨울시즌",
+      "season_type": "winter",
+      "start_date": "2026-12-29",
+      "end_date": "2027-02-21",
+      "year": 2027
+    },
+    {
+      "id": 31,
+      "season_key": "2028-autumn",
+      "season_label": "2028년도 가을시즌",
+      "season_type": "autumn",
+      "start_date": "2028-08-28",
+      "end_date": "2028-12-17",
+      "year": 2028
+    },
+    {
+      "id": 29,
+      "season_key": "2028-spring",
+      "season_label": "2028년도 봄시즌",
+      "season_type": "spring",
+      "start_date": "2028-02-29",
+      "end_date": "2028-06-18",
+      "year": 2028
+    },
+    {
+      "id": 30,
+      "season_key": "2028-summer",
+      "season_label": "2028년도 여름시즌",
+      "season_type": "summer",
+      "start_date": "2028-06-26",
+      "end_date": "2028-08-19",
+      "year": 2028
+    },
+    {
+      "id": 28,
+      "season_key": "2028-winter",
+      "season_label": "2028년도 겨울시즌",
+      "season_type": "winter",
+      "start_date": "2027-12-28",
+      "end_date": "2028-02-20",
+      "year": 2028
+    },
+    {
+      "id": 35,
+      "season_key": "2029-autumn",
+      "season_label": "2029년도 가을시즌",
+      "season_type": "autumn",
+      "start_date": "2029-08-27",
+      "end_date": "2029-12-16",
+      "year": 2029
+    },
+    {
+      "id": 33,
+      "season_key": "2029-spring",
+      "season_label": "2029년도 봄시즌",
+      "season_type": "spring",
+      "start_date": "2029-02-28",
+      "end_date": "2029-06-17",
+      "year": 2029
+    },
+    {
+      "id": 34,
+      "season_key": "2029-summer",
+      "season_label": "2029년도 여름시즌",
+      "season_type": "summer",
+      "start_date": "2029-06-25",
+      "end_date": "2029-08-18",
+      "year": 2029
+    },
+    {
+      "id": 32,
+      "season_key": "2029-winter",
+      "season_label": "2029년도 겨울시즌",
+      "season_type": "winter",
+      "start_date": "2028-12-27",
+      "end_date": "2029-02-19",
+      "year": 2029
+    }
+  ],
+  "sixTesters": [
+    {
+      "name": "T윤도현",
+      "activity_started_at": "2025-09-01T00:00:00+00:00",
+      "uwsMin": "2025-09-01",
+      "uwsMax": "2026-06-15",
+      "uwsCount": 42
+    },
+    {
+      "name": "T장유준",
+      "activity_started_at": "2025-09-01T00:00:00+00:00",
+      "uwsMin": "2025-09-01",
+      "uwsMax": "2026-06-15",
+      "uwsCount": 42
+    },
+    {
+      "name": "T윤태현",
+      "activity_started_at": "2025-09-01T00:00:00+00:00",
+      "uwsMin": "2025-09-01",
+      "uwsMax": "2026-06-15",
+      "uwsCount": 42
+    },
+    {
+      "name": "T임다인",
+      "activity_started_at": "2025-09-01T00:00:00+00:00",
+      "uwsMin": "2025-09-01",
+      "uwsMax": "2026-06-15",
+      "uwsCount": 42
+    },
+    {
+      "name": "T임건우",
+      "activity_started_at": "2025-09-01T00:00:00+00:00",
+      "uwsMin": "2025-09-01",
+      "uwsMax": "2026-06-15",
+      "uwsCount": 42
+    },
+    {
+      "name": "T장시현",
+      "activity_started_at": "2025-09-01T00:00:00+00:00",
+      "uwsMin": "2025-09-01",
+      "uwsMax": "2026-06-15",
+      "uwsCount": 42
+    }
+  ]
+}

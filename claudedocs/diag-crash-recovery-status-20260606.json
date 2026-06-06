@@ -1,0 +1,355 @@
+{
+  "runAt": "2026-06-06T00:19:32.847Z",
+  "item1_profiles": [
+    {
+      "name": "T윤도현",
+      "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "org": "encre",
+      "growth_status": "active",
+      "activity_ended_at": null,
+      "displayA": 26,
+      "displayH": 37,
+      "displayKey": "official_rest",
+      "cacheApproved": 27,
+      "cacheCumulative": 40,
+      "gsUpdatedAt": "2026-05-26T05:34:31.528622+00:00"
+    },
+    {
+      "name": "T임다인",
+      "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+      "org": "encre",
+      "growth_status": "active",
+      "activity_ended_at": null,
+      "displayA": 26,
+      "displayH": 37,
+      "displayKey": "official_rest",
+      "cacheApproved": 27,
+      "cacheCumulative": 40,
+      "gsUpdatedAt": "2026-05-26T05:34:31.528622+00:00"
+    },
+    {
+      "name": "T장유준",
+      "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "org": "encre",
+      "growth_status": "active",
+      "activity_ended_at": null,
+      "displayA": 26,
+      "displayH": 37,
+      "displayKey": "official_rest",
+      "cacheApproved": 27,
+      "cacheCumulative": 40,
+      "gsUpdatedAt": "2026-05-26T05:34:31.528622+00:00"
+    },
+    {
+      "name": "T윤태현",
+      "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "org": "phalanx",
+      "growth_status": "active",
+      "activity_ended_at": null,
+      "displayA": 26,
+      "displayH": 37,
+      "displayKey": "official_rest",
+      "cacheApproved": 27,
+      "cacheCumulative": 40,
+      "gsUpdatedAt": "2026-05-26T05:34:31.528622+00:00"
+    },
+    {
+      "name": "T임건우",
+      "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "org": "phalanx",
+      "growth_status": "active",
+      "activity_ended_at": null,
+      "displayA": 26,
+      "displayH": 37,
+      "displayKey": "official_rest",
+      "cacheApproved": 27,
+      "cacheCumulative": 40,
+      "gsUpdatedAt": "2026-05-26T05:34:31.528622+00:00"
+    },
+    {
+      "name": "T장시현",
+      "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "org": "phalanx",
+      "growth_status": "active",
+      "activity_ended_at": null,
+      "displayA": 26,
+      "displayH": 37,
+      "displayKey": "official_rest",
+      "cacheApproved": 27,
+      "cacheCumulative": 40,
+      "gsUpdatedAt": "2026-05-26T05:34:31.528622+00:00"
+    }
+  ],
+  "item2_override": {
+    "total": 0,
+    "users": [],
+    "weeks": [],
+    "rows": []
+  },
+  "item2_planWeeksCurrent": [
+    {
+      "user_id": "42864260-e4ea-4150-a87f-cff545b02af1",
+      "week_start_date": "2026-02-16",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "week_start_date": "2026-02-16",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "week_start_date": "2026-04-06",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "week_start_date": "2026-04-13",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "42864260-e4ea-4150-a87f-cff545b02af1",
+      "week_start_date": "2026-04-06",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "42864260-e4ea-4150-a87f-cff545b02af1",
+      "week_start_date": "2026-04-13",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "42864260-e4ea-4150-a87f-cff545b02af1",
+      "week_start_date": "2026-04-20",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "week_start_date": "2026-02-16",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "week_start_date": "2026-04-06",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "week_start_date": "2026-04-13",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "week_start_date": "2026-04-20",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "week_start_date": "2026-04-13",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "week_start_date": "2026-04-06",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "week_start_date": "2026-04-13",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "week_start_date": "2026-04-20",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "week_start_date": "2026-04-13",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "week_start_date": "2026-04-20",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "week_start_date": "2026-04-06",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "week_start_date": "2026-02-16",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "week_start_date": "2026-04-20",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "week_start_date": "2026-02-16",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "week_start_date": "2026-02-16",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "week_start_date": "2026-04-20",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "week_start_date": "2026-04-06",
+      "status": "official_rest",
+      "is_official_rest_override": false
+    }
+  ],
+  "item3_snapshots": [
+    {
+      "name": "T윤도현",
+      "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "snapshotRows": 1,
+      "staleRows": 0,
+      "latestComputedAt": "2026-06-05T07:36:58.179+00:00"
+    },
+    {
+      "name": "T임다인",
+      "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+      "snapshotRows": 1,
+      "staleRows": 0,
+      "latestComputedAt": "2026-06-05T07:36:40.052+00:00"
+    },
+    {
+      "name": "T장유준",
+      "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "snapshotRows": 1,
+      "staleRows": 0,
+      "latestComputedAt": "2026-06-05T07:36:49.242+00:00"
+    },
+    {
+      "name": "T윤태현",
+      "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "snapshotRows": 1,
+      "staleRows": 0,
+      "latestComputedAt": "2026-06-05T07:36:59.821+00:00"
+    },
+    {
+      "name": "T임건우",
+      "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "snapshotRows": 1,
+      "staleRows": 0,
+      "latestComputedAt": "2026-06-05T07:36:58.474+00:00"
+    },
+    {
+      "name": "T장시현",
+      "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "snapshotRows": 1,
+      "staleRows": 0,
+      "latestComputedAt": "2026-06-05T07:36:48.486+00:00"
+    }
+  ],
+  "item4_graduatedNow": {
+    "testers": [
+      {
+        "uid": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+        "name": "T송태현",
+        "org": "oranke"
+      },
+      {
+        "uid": "63813dc4-9dec-4511-83be-1f54196d09cf",
+        "name": "T류민서",
+        "org": "oranke"
+      },
+      {
+        "uid": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+        "name": "T홍지환",
+        "org": "oranke"
+      }
+    ],
+    "real": []
+  },
+  "item57_directVsHttp": [
+    {
+      "name": "T윤도현",
+      "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "directKey": "official_rest",
+      "httpAdminKey": "official_rest",
+      "adminMatch": true,
+      "frontLabels": "2026-spring:시즌 진행 중 / 2026-winter:시즌 성공 / 2025-autumn:시즌 성공",
+      "frontHasMidGrad": false
+    },
+    {
+      "name": "T임다인",
+      "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+      "directKey": "official_rest",
+      "httpAdminKey": "official_rest",
+      "adminMatch": true,
+      "frontLabels": "2026-spring:시즌 진행 중 / 2026-winter:시즌 성공 / 2025-autumn:시즌 성공",
+      "frontHasMidGrad": false
+    },
+    {
+      "name": "T장유준",
+      "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "directKey": "official_rest",
+      "httpAdminKey": "official_rest",
+      "adminMatch": true,
+      "frontLabels": "2026-spring:시즌 진행 중 / 2026-winter:시즌 성공 / 2025-autumn:시즌 성공",
+      "frontHasMidGrad": false
+    },
+    {
+      "name": "T윤태현",
+      "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "directKey": "official_rest",
+      "httpAdminKey": "official_rest",
+      "adminMatch": true,
+      "frontLabels": "2026-spring:시즌 진행 중 / 2026-winter:시즌 성공 / 2025-autumn:시즌 성공",
+      "frontHasMidGrad": false
+    },
+    {
+      "name": "T임건우",
+      "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "directKey": "official_rest",
+      "httpAdminKey": "official_rest",
+      "adminMatch": true,
+      "frontLabels": "2026-spring:시즌 진행 중 / 2026-winter:시즌 성공 / 2025-autumn:시즌 성공",
+      "frontHasMidGrad": false
+    },
+    {
+      "name": "T장시현",
+      "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "directKey": "official_rest",
+      "httpAdminKey": "official_rest",
+      "adminMatch": true,
+      "frontLabels": "2026-spring:시즌 진행 중 / 2026-winter:시즌 성공 / 2025-autumn:시즌 성공",
+      "frontHasMidGrad": false
+    }
+  ]
+}
