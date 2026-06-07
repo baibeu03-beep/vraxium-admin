@@ -721,6 +721,466 @@
         "hash": "0f5366e2aa1fbe0ce23ccbb2d6dd14f79fccb62c4694aa66879ca092d019f582"
       },
       "realUserDiffZero": true
+    },
+    {
+      "runAt": "2026-06-07T00:30:00.766Z",
+      "mode": "MOVE W1~4 → W5~8",
+      "fpBefore": {
+        "uws": 1474,
+        "profiles": 116,
+        "points": 1462,
+        "snapshots": 116,
+        "hash": "0f5366e2aa1fbe0ce23ccbb2d6dd14f79fccb62c4694aa66879ca092d019f582"
+      },
+      "insertedWeeks": [
+        {
+          "id": "733141d1-fc02-406d-b6de-e60492cb6432",
+          "start": "2025-07-28"
+        },
+        {
+          "id": "12793bb0-5424-4d47-8af7-796caa03b6aa",
+          "start": "2025-08-04"
+        },
+        {
+          "id": "39bade12-8e78-466c-98da-3549dded2b47",
+          "start": "2025-08-11"
+        },
+        {
+          "id": "a1f381ca-752a-4320-844a-f9192071854f",
+          "start": "2025-08-18"
+        }
+      ],
+      "insertedLines": [
+        {
+          "weekStart": "2025-07-28",
+          "id": "75250f5e-f8ed-4548-80d8-00ab3601b42a"
+        },
+        {
+          "weekStart": "2025-08-04",
+          "id": "d27762fc-cda0-4a88-ac46-5f8abd6b99fb"
+        },
+        {
+          "weekStart": "2025-08-11",
+          "id": "4bf06de5-3704-4654-af49-37125ed7bf95"
+        },
+        {
+          "weekStart": "2025-08-18",
+          "id": "4d9dd7f4-ff3a-424c-aa89-4a55b24bf031"
+        }
+      ],
+      "insertedTargets": [
+        "2086bf2b-de7c-4853-8512-4155031e22a2",
+        "d1e1fe63-e9b5-4476-8009-0db940439c5e",
+        "b862de65-8d18-4a29-a502-bb32daea76c7",
+        "0c0a57ec-0c3f-4d01-879d-7dc2914769cf",
+        "959f5373-7f64-444a-9505-38137b067678",
+        "a6cc49b9-21d0-4f0a-9d1a-2cda77816614",
+        "ce62990d-06f7-4012-bb4d-6d6c6864a568",
+        "e93703ab-a7ff-4d97-8125-7630fed11887",
+        "af0bcd3d-972f-4b9e-86f2-863e04dd4ced",
+        "d4e99398-f6a3-4d66-96ef-c6ddeb320e72",
+        "4fbd2c82-96c0-42e7-a1d0-2b2b6ff039f1",
+        "d37c9466-7e8f-49ea-bb63-0f7d574f5125",
+        "3f060d8a-5460-47b9-ae3f-ee3239afe5f8",
+        "650f4c39-8216-441d-9980-c382184ebc43",
+        "8b4f8c1f-440e-4138-8f34-ad43a78d69ab",
+        "7f42949e-3328-4071-918d-71e873091e73",
+        "1375587e-be1f-4be3-b61c-c26728eb7b8e",
+        "808d275a-af4e-4169-9d05-1e13a1b6076b",
+        "4da2fb4d-6529-48cb-94cb-84a586cc2066",
+        "7d9d02d2-e2c6-47bf-a09c-46cf9f41c991",
+        "14763ad5-2f8e-4b7c-bc2a-9a62eb6851b9",
+        "1fe453b9-0db0-403d-82d5-5b14e6f33aa4",
+        "4f2db494-1d81-47b5-916f-2f960e81d3e3",
+        "7a7d09d0-7c0c-4106-a96b-2548b13cea33"
+      ],
+      "insertedSubmissions": [
+        "bf3b4305-751a-49e3-88ad-95a20e5c4dad|2025-07-28",
+        "bf3b4305-751a-49e3-88ad-95a20e5c4dad|2025-08-04",
+        "bf3b4305-751a-49e3-88ad-95a20e5c4dad|2025-08-11",
+        "bf3b4305-751a-49e3-88ad-95a20e5c4dad|2025-08-18",
+        "42864260-e4ea-4150-a87f-cff545b02af1|2025-07-28",
+        "42864260-e4ea-4150-a87f-cff545b02af1|2025-08-04",
+        "42864260-e4ea-4150-a87f-cff545b02af1|2025-08-11",
+        "42864260-e4ea-4150-a87f-cff545b02af1|2025-08-18",
+        "4a81b6d1-e488-4f14-8530-0cad60fe4f0d|2025-07-28",
+        "4a81b6d1-e488-4f14-8530-0cad60fe4f0d|2025-08-04",
+        "4a81b6d1-e488-4f14-8530-0cad60fe4f0d|2025-08-11",
+        "4a81b6d1-e488-4f14-8530-0cad60fe4f0d|2025-08-18",
+        "05ff6b96-b3e7-4050-97f1-080633f183d3|2025-07-28",
+        "05ff6b96-b3e7-4050-97f1-080633f183d3|2025-08-04",
+        "05ff6b96-b3e7-4050-97f1-080633f183d3|2025-08-11",
+        "05ff6b96-b3e7-4050-97f1-080633f183d3|2025-08-18",
+        "e4dcb97e-a515-4ec5-a91e-32ca4e629dae|2025-07-28",
+        "e4dcb97e-a515-4ec5-a91e-32ca4e629dae|2025-08-04",
+        "e4dcb97e-a515-4ec5-a91e-32ca4e629dae|2025-08-11",
+        "e4dcb97e-a515-4ec5-a91e-32ca4e629dae|2025-08-18",
+        "cc1b58e6-b14d-45a0-b389-2df3c27a0b25|2025-07-28",
+        "cc1b58e6-b14d-45a0-b389-2df3c27a0b25|2025-08-04",
+        "cc1b58e6-b14d-45a0-b389-2df3c27a0b25|2025-08-11",
+        "cc1b58e6-b14d-45a0-b389-2df3c27a0b25|2025-08-18"
+      ],
+      "insertedEvals": [
+        "bf3b4305-751a-49e3-88ad-95a20e5c4dad|2025-07-28",
+        "bf3b4305-751a-49e3-88ad-95a20e5c4dad|2025-08-04",
+        "bf3b4305-751a-49e3-88ad-95a20e5c4dad|2025-08-11",
+        "bf3b4305-751a-49e3-88ad-95a20e5c4dad|2025-08-18",
+        "42864260-e4ea-4150-a87f-cff545b02af1|2025-07-28",
+        "42864260-e4ea-4150-a87f-cff545b02af1|2025-08-04",
+        "42864260-e4ea-4150-a87f-cff545b02af1|2025-08-11",
+        "42864260-e4ea-4150-a87f-cff545b02af1|2025-08-18",
+        "4a81b6d1-e488-4f14-8530-0cad60fe4f0d|2025-07-28",
+        "4a81b6d1-e488-4f14-8530-0cad60fe4f0d|2025-08-04",
+        "4a81b6d1-e488-4f14-8530-0cad60fe4f0d|2025-08-11",
+        "4a81b6d1-e488-4f14-8530-0cad60fe4f0d|2025-08-18",
+        "05ff6b96-b3e7-4050-97f1-080633f183d3|2025-07-28",
+        "05ff6b96-b3e7-4050-97f1-080633f183d3|2025-08-04",
+        "05ff6b96-b3e7-4050-97f1-080633f183d3|2025-08-11",
+        "05ff6b96-b3e7-4050-97f1-080633f183d3|2025-08-18",
+        "e4dcb97e-a515-4ec5-a91e-32ca4e629dae|2025-07-28",
+        "e4dcb97e-a515-4ec5-a91e-32ca4e629dae|2025-08-04",
+        "e4dcb97e-a515-4ec5-a91e-32ca4e629dae|2025-08-11",
+        "e4dcb97e-a515-4ec5-a91e-32ca4e629dae|2025-08-18",
+        "cc1b58e6-b14d-45a0-b389-2df3c27a0b25|2025-07-28",
+        "cc1b58e6-b14d-45a0-b389-2df3c27a0b25|2025-08-04",
+        "cc1b58e6-b14d-45a0-b389-2df3c27a0b25|2025-08-11",
+        "cc1b58e6-b14d-45a0-b389-2df3c27a0b25|2025-08-18"
+      ],
+      "insertedUws": [
+        {
+          "id": "c14be249-50bf-47f9-9db4-7fcde6e8620b",
+          "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+          "weekStart": "2025-07-28"
+        },
+        {
+          "id": "6a347834-2a4c-45be-8bdb-55ed6be50c8c",
+          "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+          "weekStart": "2025-08-04"
+        },
+        {
+          "id": "7b1f09d3-6f0d-4f87-9c99-7a991fbca739",
+          "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+          "weekStart": "2025-08-11"
+        },
+        {
+          "id": "ff3c17c2-3708-4860-8021-cb1e099a05ce",
+          "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+          "weekStart": "2025-08-18"
+        },
+        {
+          "id": "78244885-14f6-4e2a-89f8-84c7e01f2500",
+          "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+          "weekStart": "2025-07-28"
+        },
+        {
+          "id": "df78e330-4c5c-477f-a176-f16acbe6143a",
+          "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+          "weekStart": "2025-08-04"
+        },
+        {
+          "id": "d57b2820-7cb3-40f8-b06d-037106d7a2ac",
+          "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+          "weekStart": "2025-08-11"
+        },
+        {
+          "id": "574496f2-7df1-4144-b6e7-6eb4f17747ac",
+          "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+          "weekStart": "2025-08-18"
+        },
+        {
+          "id": "7a22d701-aef6-47c3-9f30-df198acf77c4",
+          "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+          "weekStart": "2025-07-28"
+        },
+        {
+          "id": "251b23b3-deeb-430b-a463-3675adf0528a",
+          "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+          "weekStart": "2025-08-04"
+        },
+        {
+          "id": "fd9d1980-938a-459c-a777-9779eded1816",
+          "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+          "weekStart": "2025-08-11"
+        },
+        {
+          "id": "1243bd53-04d7-4a64-a449-d7ab7a96da27",
+          "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+          "weekStart": "2025-08-18"
+        },
+        {
+          "id": "3bfd5ecf-e32f-4d5a-ac5f-a236f5c05052",
+          "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+          "weekStart": "2025-07-28"
+        },
+        {
+          "id": "9d92b31f-d9e8-436c-ba3e-9fed236d9c3e",
+          "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+          "weekStart": "2025-08-04"
+        },
+        {
+          "id": "24a82175-f7c9-458d-8abd-947a8becfd96",
+          "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+          "weekStart": "2025-08-11"
+        },
+        {
+          "id": "36a733a0-d765-4aa3-97dd-a18a49b933a2",
+          "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+          "weekStart": "2025-08-18"
+        },
+        {
+          "id": "86a2b33c-05a9-4d58-a64d-b0393d340b59",
+          "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+          "weekStart": "2025-07-28"
+        },
+        {
+          "id": "13743269-a55b-4181-98e9-e8f278423082",
+          "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+          "weekStart": "2025-08-04"
+        },
+        {
+          "id": "a09db1de-64cd-4e80-9851-acb735ed2acb",
+          "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+          "weekStart": "2025-08-11"
+        },
+        {
+          "id": "5a9e309d-fde2-4e7c-87cc-14a63cc4292c",
+          "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+          "weekStart": "2025-08-18"
+        },
+        {
+          "id": "049bea35-59ba-4ead-b7cd-83df74f183a0",
+          "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+          "weekStart": "2025-07-28"
+        },
+        {
+          "id": "969aee3a-5945-48cf-aa1f-d9ccf28d4acc",
+          "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+          "weekStart": "2025-08-04"
+        },
+        {
+          "id": "069af42a-6e58-4c4d-b07a-69641f2139c2",
+          "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+          "weekStart": "2025-08-11"
+        },
+        {
+          "id": "73393d5c-d551-453e-894d-88662f564a4c",
+          "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+          "weekStart": "2025-08-18"
+        }
+      ],
+      "removed": {
+        "weekStarts": [
+          "2025-06-30",
+          "2025-07-07",
+          "2025-07-14",
+          "2025-07-21"
+        ],
+        "weeks": [
+          {
+            "id": "08949a62-b517-4bce-b621-5c600aad6c6a",
+            "start": "2025-07-07",
+            "week_number": 2
+          },
+          {
+            "id": "4d6a4f86-5e09-4428-b693-b8bc10ed9b43",
+            "start": "2025-07-21",
+            "week_number": 4
+          },
+          {
+            "id": "09a021d5-102b-413e-b580-da1366f7c91e",
+            "start": "2025-06-30",
+            "week_number": 1
+          },
+          {
+            "id": "0decdea5-f174-4a71-b18a-e294a8f7dca3",
+            "start": "2025-07-14",
+            "week_number": 3
+          }
+        ],
+        "lines": [
+          "2d71f1d1-a89e-4af7-8f76-6a5a30cd83d5",
+          "2fc8ebc2-4952-472b-9a8d-5a9b9d0abc33",
+          "c763ad6b-c895-4215-a0d9-bb2f15202697",
+          "f75dc6ca-fc87-4ada-bf23-34e331c92c1e"
+        ],
+        "targets": 24,
+        "submissions": 24,
+        "evaluations": 24,
+        "uws": [
+          {
+            "id": "09b0e0cd-a3c1-4eb2-a175-21d71691b681",
+            "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+            "weekStart": "2025-07-07"
+          },
+          {
+            "id": "108625ce-dfc1-4df6-813d-a4b906c1811e",
+            "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+            "weekStart": "2025-07-14"
+          },
+          {
+            "id": "16963612-6ad2-4fa4-a9e4-692b293fb0bc",
+            "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+            "weekStart": "2025-06-30"
+          },
+          {
+            "id": "2349706d-8843-4242-9e47-b8ee393c5f56",
+            "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+            "weekStart": "2025-07-07"
+          },
+          {
+            "id": "246e631c-d1a4-495b-be64-4d4dd3ef1f14",
+            "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+            "weekStart": "2025-07-07"
+          },
+          {
+            "id": "26795121-e51c-4f10-9cfd-a3b2e46870cb",
+            "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+            "weekStart": "2025-07-21"
+          },
+          {
+            "id": "2689525e-9b46-4629-b4ac-20c439be0837",
+            "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+            "weekStart": "2025-07-14"
+          },
+          {
+            "id": "2765ec3b-4fd0-4f4e-9120-50f170a5711d",
+            "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+            "weekStart": "2025-07-07"
+          },
+          {
+            "id": "631981a0-16a7-4be8-898f-195371572cb8",
+            "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+            "weekStart": "2025-07-21"
+          },
+          {
+            "id": "653c252a-52c5-46ac-8856-c3c56590fa77",
+            "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+            "weekStart": "2025-07-21"
+          },
+          {
+            "id": "6f5ae204-48da-4dde-ac62-9012544deba3",
+            "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+            "weekStart": "2025-07-21"
+          },
+          {
+            "id": "744cffe9-6f2c-4296-9802-f95c03c4715e",
+            "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+            "weekStart": "2025-07-21"
+          },
+          {
+            "id": "78a911b0-562c-4625-ba70-e9a78524968a",
+            "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+            "weekStart": "2025-07-14"
+          },
+          {
+            "id": "7c1ccd9f-5ac5-4242-a55f-29f95b44c9c4",
+            "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+            "weekStart": "2025-07-14"
+          },
+          {
+            "id": "903748f6-68e7-4d83-a23b-140cfc318190",
+            "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+            "weekStart": "2025-07-07"
+          },
+          {
+            "id": "b37264ad-9bd5-40f4-9b24-476e7a8629de",
+            "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+            "weekStart": "2025-06-30"
+          },
+          {
+            "id": "bbccdbc1-f60f-4cca-983f-0701acd967ff",
+            "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+            "weekStart": "2025-06-30"
+          },
+          {
+            "id": "cdeb0271-52c4-4a84-8df8-ed0b7b39be6a",
+            "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+            "weekStart": "2025-07-14"
+          },
+          {
+            "id": "d42ef8e2-64c8-4fc0-847a-7c19bc241c80",
+            "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+            "weekStart": "2025-06-30"
+          },
+          {
+            "id": "e223ceef-e91a-4a35-b923-9e008aa3e8c7",
+            "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+            "weekStart": "2025-07-07"
+          },
+          {
+            "id": "e59a9e54-9d14-4545-ac3d-72a075fde141",
+            "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+            "weekStart": "2025-07-21"
+          },
+          {
+            "id": "eab3bacd-7183-4514-880e-07c7d55f7c12",
+            "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+            "weekStart": "2025-06-30"
+          },
+          {
+            "id": "ee956d16-e257-484e-8b97-13fb6e19054d",
+            "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+            "weekStart": "2025-06-30"
+          },
+          {
+            "id": "f770299a-2ee8-42e6-8769-433d7c5d075f",
+            "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+            "weekStart": "2025-07-14"
+          }
+        ]
+      },
+      "profileBefore": [
+        {
+          "uid": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+          "name": "T윤도현",
+          "growth_status": "graduated",
+          "activity_started_at": "2025-06-30T00:00:00+00:00",
+          "activity_ended_at": null
+        },
+        {
+          "uid": "42864260-e4ea-4150-a87f-cff545b02af1",
+          "name": "T임다인",
+          "growth_status": "graduated",
+          "activity_started_at": "2025-06-30T00:00:00+00:00",
+          "activity_ended_at": "2026-05-19T00:00:00+00:00"
+        },
+        {
+          "uid": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+          "name": "T장유준",
+          "growth_status": "graduated",
+          "activity_started_at": "2025-06-30T00:00:00+00:00",
+          "activity_ended_at": "2026-05-12T00:00:00+00:00"
+        },
+        {
+          "uid": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+          "name": "T윤태현",
+          "growth_status": "graduated",
+          "activity_started_at": "2025-06-30T00:00:00+00:00",
+          "activity_ended_at": null
+        },
+        {
+          "uid": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+          "name": "T임건우",
+          "growth_status": "graduated",
+          "activity_started_at": "2025-06-30T00:00:00+00:00",
+          "activity_ended_at": "2026-05-19T00:00:00+00:00"
+        },
+        {
+          "uid": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+          "name": "T장시현",
+          "growth_status": "graduated",
+          "activity_started_at": "2025-06-30T00:00:00+00:00",
+          "activity_ended_at": "2026-05-12T00:00:00+00:00"
+        }
+      ],
+      "fpAfter": {
+        "uws": 1474,
+        "profiles": 116,
+        "points": 1462,
+        "snapshots": 116,
+        "hash": "0f5366e2aa1fbe0ce23ccbb2d6dd14f79fccb62c4694aa66879ca092d019f582"
+      },
+      "realUserDiffZero": true
     }
   ]
 }
