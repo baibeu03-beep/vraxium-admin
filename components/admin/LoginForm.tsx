@@ -109,7 +109,7 @@ export default function LoginForm() {
     });
 
     if (error || !data.user) {
-      setErrorMessage("이메일 또는 비밀번호가 올바르지 않습니다.");
+      setErrorMessage("Cluv Code 또는 비밀번호가 올바르지 않습니다.");
       setLoading(false);
       return;
     }
@@ -184,7 +184,7 @@ export default function LoginForm() {
           )}
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Cluv Code</Label>
               <Input
                 id="email"
                 type="email"

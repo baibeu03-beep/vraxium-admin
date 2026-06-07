@@ -203,7 +203,9 @@ export default function Sidebar({
     <aside
       data-collapsed={!sidebarOpen}
       className={cn(
-        "flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
+        // sticky+h-screen: 페이지 콘텐츠가 길어 문서 전체가 스크롤돼도 사이드바는
+        // 뷰포트에 고정 → 하단 로그아웃 footer 가 항상 보인다(메뉴는 nav 내부 스크롤).
+        "sticky top-0 h-screen flex shrink-0 flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200",
         sidebarOpen ? "w-60" : "w-14",
       )}
     >
