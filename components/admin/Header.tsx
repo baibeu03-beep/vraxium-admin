@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 // 사이드바 IA 와 1:1 동기화. (사용자 관리/설정 같은 옛 라벨은 더 이상 노출하지 않는다.)
 const TITLES: Record<string, string> = {
   "/admin": "대시보드",
+  "/admin/periods/register": "주차와 시즌 · 기간 등록",
+  "/admin/season-weeks": "주차와 시즌 · 기간 정보",
   "/admin/members": "멤버 관리 · 전체 멤버",
   "/admin/crews": "멤버 관리 · 조직별",
   "/admin/users/applicants": "멤버 관리 · 승인 대기",

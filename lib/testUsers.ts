@@ -68,20 +68,28 @@ type SeasonRow = {
   season_index: number | null;
 };
 
-// 현재 시즌 선택 규칙: ended_at IS NULL 우선 → started_at DESC → season_index DESC
-// (seed-step1 Q15 에서 확정한 규칙과 동일). 시즌별 per-user 매핑 없이 단일 현재
-// 시즌명을 목록 전체에 적용한다 — 테스트 유저는 모두 현재 시즌 seed 대상이다.
+// 현재 시즌 선택 규칙 (2026-06-07 정책 확정: 오늘 날짜가 포함된 시즌 기준):
+//   1) started_at <= 오늘 인 행만 후보 — 미래 시즌(기간 등록 선등록분)은 절대 선택하지 않는다.
+//      (종전 started_at DESC 규칙은 미래 seasons 행이 생기면 현재 시즌이 조기 flip 되는 결함)
+//   2) 후보 중 오늘을 포함(ended_at IS NULL 또는 오늘 <= ended_at)하는 행 우선.
+//   3) 동순위는 started_at DESC → season_index DESC.
+// 시즌별 per-user 매핑 없이 단일 현재 시즌명을 목록 전체에 적용한다 —
+// 테스트 유저는 모두 현재 시즌 seed 대상이다.
 async function resolveCurrentSeasonName(): Promise<string | null> {
   const { data, error } = await supabaseAdmin
     .from("seasons")
     .select("name,started_at,ended_at,season_index");
   if (error || !data || data.length === 0) return null;
 
-  const rows = data as unknown as SeasonRow[];
+  const nowIso = new Date().toISOString();
+  const rows = (data as unknown as SeasonRow[]).filter(
+    (r) => r.started_at != null && r.started_at <= nowIso,
+  );
+  const containsToday = (r: SeasonRow) =>
+    r.ended_at === null || nowIso <= r.ended_at;
   const sorted = [...rows].sort((a, b) => {
-    const openDelta =
-      Number(a.ended_at === null ? 0 : 1) - Number(b.ended_at === null ? 0 : 1);
-    if (openDelta !== 0) return openDelta;
+    const todayDelta = Number(containsToday(b)) - Number(containsToday(a));
+    if (todayDelta !== 0) return todayDelta;
     const startDelta = (b.started_at ?? "").localeCompare(a.started_at ?? "");
     if (startDelta !== 0) return startDelta;
     return (b.season_index ?? 0) - (a.season_index ?? 0);
