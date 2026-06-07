@@ -653,3 +653,95 @@ export async function getGrowthIndicatorsBatchInternal(
     ),
   );
 }
+
+// ─── displayGrowthStatus 경량 배치 (고객앱 /crews graft 용) ─────────────
+// getGrowthIndicatorsBatchInternal 에서 상태 판정에 불필요한 무거운 소스
+// (user_weekly_points 전기간 합산 · user_week_statuses 전체 · override audit 메타)를
+// 뺀 변형. 판정 입력(a/h fold · 현재주 상태 · 시즌휴식 · 졸업 threshold)과
+// buildIndicators 경로를 그대로 재사용하므로 상태 계산 drift 가 없다.
+//   - weekRows=[] / pts=null / overrideMeta=null 은 process 의 상태 4필드
+//     (growthDisplayKey/autoGrowthStatusKey/manualOverrideStatus/overrideMismatch)에
+//     영향이 없다 (_debug·point·override 메타 표기 전용 입력).
+export type GrowthStatusResolutionRow = {
+  userId: string;
+  organizationSlug: string | null;
+  growthStatusRaw: GrowthProcess["growthStatus"];
+  autoGrowthStatusKey: GrowthProcess["autoGrowthStatusKey"];
+  manualOverrideStatus: GrowthProcess["manualOverrideStatus"];
+  displayGrowthStatus: GrowthProcess["growthDisplayKey"];
+  overrideMismatch: GrowthProcess["overrideMismatch"];
+};
+
+export async function getGrowthStatusResolutionBatch(
+  userIds: string[],
+): Promise<GrowthStatusResolutionRow[]> {
+  if (userIds.length === 0) return [];
+
+  const [profileRes, seasonRes, currentWeekMap] = await Promise.all([
+    supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
+      .in("user_id", userIds),
+    supabaseAdmin
+      .from("user_season_statuses")
+      .select("user_id,status,season_key")
+      .in("user_id", userIds),
+    fetchCurrentWeekStatusBatch(userIds),
+  ]);
+
+  if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
+  if (seasonRes.error) throw new GrowthError(500, seasonRes.error.message);
+
+  const profiles = (profileRes.data ?? []) as ProfileRow[];
+  const allSeasons = (seasonRes.data ?? []) as (SeasonStatusRow & { user_id: string })[];
+
+  const seasonsByUser = new Map<string, SeasonStatusRow[]>();
+  for (const row of allSeasons) {
+    const list = seasonsByUser.get(row.user_id!) ?? [];
+    list.push(row);
+    seasonsByUser.set(row.user_id!, list);
+  }
+
+  // ResolvedWeek 카드 — snapshot-first (배치 internal 과 동일 소스).
+  const cardsByUser = new Map<string, ResolvedCardLite[]>();
+  let snapshotHits = 0;
+  let fallbacks = 0;
+  await Promise.all(
+    profiles.map(async (profile) => {
+      const r = await getResolvedCardsForUser(profile.user_id);
+      cardsByUser.set(profile.user_id, r.cards);
+      if (r.source === "snapshot") snapshotHits++;
+      else fallbacks++;
+    }),
+  );
+  console.log(
+    "[cluster3][growth-status-batch] card source",
+    `users=${profiles.length}`,
+    `snapshot=${snapshotHits}`,
+    `fallback=${fallbacks}`,
+  );
+
+  const seasonKey = currentSeasonDbKey();
+  return profiles.map((profile) => {
+    const internal = buildIndicators(
+      profile,
+      [], // weekRows — _debug 전용 입력
+      cardsByUser.get(profile.user_id) ?? [],
+      null, // pts — point 표기 전용 입력
+      currentWeekMap.get(profile.user_id) ?? null,
+      seasonsByUser.get(profile.user_id) ?? [],
+      seasonKey,
+      null, // overrideMeta — 표기 전용 입력
+    );
+    const p = internal.process;
+    return {
+      userId: profile.user_id,
+      organizationSlug: profile.organization_slug,
+      growthStatusRaw: p.growthStatus,
+      autoGrowthStatusKey: p.autoGrowthStatusKey,
+      manualOverrideStatus: p.manualOverrideStatus,
+      displayGrowthStatus: p.growthDisplayKey,
+      overrideMismatch: p.overrideMismatch,
+    };
+  });
+}
