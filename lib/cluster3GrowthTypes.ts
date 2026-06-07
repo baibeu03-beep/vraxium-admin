@@ -13,20 +13,11 @@ export const WEEK_STATUSES: readonly WeekStatus[] = WEEK_DB_STATUSES;
 
 // ─── 성장 상태 표시명 10종 ──────────────────────────────────────────
 //
-// DB growth_status 와 1:1 이 아님.
-// 일부는 계산 상태(DB + Period 조합)로 도출됨.
-//
-// 우선순위 (높은 번호가 우선):
-//   10. graduated      → "성장 완료(졸업)"
-//    9. suspended      → "성장 중단"
-//    8. paused         → "성장 유보"
-//    7. graduating     → "졸업 절차 중"
-//    6. seasonal_rest  → "시즌 휴식 중"
-//    5. weekly_rest    → "휴식(개인) 중"
-//    4. (계산) 현재 주차 official_rest  → "휴식(공식) 중"
-//    3. (계산) h <= 1 && active         → "클럽 온보딩 중"
-//    2. (계산) a >= threshold && active  → "추가 성장 중"
-//    1. active                          → "성장 중"
+// (2026-06-07 개정) 자동 계산(auto) / 수동 오버라이드(override) 분리.
+//   displayGrowthStatus = override(graduated/suspended/paused) ?? autoGrowthStatus.
+//   자동 우선순위: seasonal_rest > weekly_rest > official_rest > onboarding
+//                  > graduating(a>=29) > extra_growth(a>=조직임계) > active.
+//   단일 출처: lib/growthCore.ts resolveGrowthStatusDetail.
 
 // 공통 contract 재참조 (값/이름 불변). 단일 출처: shared/growth.contracts.ts
 export const GROWTH_DISPLAY_LABELS = GROWTH_STATUS_LABELS;
@@ -35,9 +26,20 @@ export type GrowthDisplayKey = GrowthStatusKey;
 
 // ─── Process (공개) ─────────────────────────────────────────────────
 export type GrowthProcess = {
-  growthStatus: string | null;
+  growthStatus: string | null; // raw user_profiles.growth_status (legacy 값 포함)
+  // 최종 표시 상태 = override ?? auto (고객/관리자/이력서 공통).
   growthStatusDisplay: string;
   growthDisplayKey: GrowthDisplayKey;
+  // 자동 계산 상태 (관리자 화면 병기용).
+  autoGrowthStatusKey: GrowthDisplayKey;
+  autoGrowthStatusDisplay: string;
+  // 수동 오버라이드 (graduated/suspended/paused 외 = null).
+  manualOverrideStatus: string | null;
+  manualOverrideReason: string | null; // 최근 변경 사유 (audit, 없으면 null)
+  manualOverrideByName: string | null; // 최근 변경자 표시명 (audit, 없으면 null)
+  manualOverrideAt: string | null; // 최근 변경일 ISO (audit, 없으면 null)
+  // 오버라이드 ≠ 자동 계산 (관리자 경고용 raw 신호).
+  overrideMismatch: boolean;
   activityStartedAt: string | null;
   activityStartedAtDisplay: string;
   activityEndedAt: string | null;

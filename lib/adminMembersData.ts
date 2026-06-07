@@ -2,6 +2,10 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import {
+  isManualOverrideStatus,
+  MANUAL_OVERRIDE_STATUSES,
+} from "@/shared/growth.contracts";
+import {
   isMemberAssignableRole,
   MEMBER_ASSIGNABLE_ROLES,
   MEMBER_PATCH_FIELDS,
@@ -455,7 +459,11 @@ export class MemberPatchError extends Error {
 export type MemberPatchInput = Partial<{
   organization_slug: string | null;
   status: string | null;
+  // 성장 상태 수동 오버라이드 — MANUAL_OVERRIDE_STATUSES(graduated/suspended/paused)
+  // 또는 null(오버라이드 해제)만 허용. 그 외 값(graduating 등)은 400.
   growth_status: string | null;
+  // 오버라이드 변경 사유 (user_profiles 컬럼 아님 — user_growth_status_audit 기록용).
+  growth_status_reason: string | null;
   contact_email: string | null;
   contact_phone: string | null;
   // role 은 enum(4종) 검증을 거치므로 nullable-string 화이트리스트와 별도로 다룬다.
@@ -483,6 +491,26 @@ export function pickMemberPatch(body: unknown): MemberPatchInput {
   for (const key of MEMBER_PATCH_FIELDS) {
     if (!(key in input)) continue;
     patch[key] = coerceNullableString(input[key], key);
+  }
+  // growth_status 는 수동 오버라이드 3종 + null(해제)만 신규 쓰기 허용.
+  // (자동 계산 상태 graduating/seasonal_rest/weekly_rest/active 는 저장 금지 —
+  //  2026-06-07 auto/override 분리 정책)
+  if (patch.growth_status !== undefined && patch.growth_status !== null) {
+    if (!isManualOverrideStatus(patch.growth_status)) {
+      throw new MemberPatchError(
+        400,
+        `growth_status must be one of: ${MANUAL_OVERRIDE_STATUSES.join(", ")} (or null to clear) — 그 외 상태는 자동 계산됩니다`,
+      );
+    }
+  }
+  // 오버라이드 변경 사유 (audit 전용 — growth_status 와 함께 올 때만 의미).
+  if ("growth_status_reason" in input) {
+    const raw = input.growth_status_reason;
+    if (raw !== null && typeof raw !== "string") {
+      throw new MemberPatchError(400, "growth_status_reason must be a string or null");
+    }
+    const trimmed = typeof raw === "string" ? raw.trim() : null;
+    patch.growth_status_reason = trimmed?.length ? trimmed : null;
   }
   // role 은 4종 enum 만 허용. null/미지정은 허용하지 않는다(역할은 항상 1개).
   if ("role" in input) {
@@ -573,13 +601,21 @@ export async function updateMember(
     throw new MemberPatchError(400, "user_id must be a UUID");
   }
 
-  // role 변경 시: 현재 행을 먼저 읽어 (이전 role / 현재 소속 / org) 를 확보하고
-  // 유일성을 사전 검증한다. (org 가 동시에 바뀌면 새 org 기준으로 검증.)
+  // 감사용 사유는 user_profiles 컬럼이 아니므로 DB update payload 에서 분리한다.
+  const { growth_status_reason: overrideReason, ...dbPatch } = patch;
+  if (Object.keys(dbPatch).length === 0) {
+    throw new MemberPatchError(400, "No editable fields provided");
+  }
+
+  // role/growth_status 변경 시: 현재 행을 먼저 읽어 이전 값을 확보한다.
+  // (role 은 유일성 사전 검증, growth_status 는 audit old_status 기록용.
+  //  org 가 동시에 바뀌면 새 org 기준으로 검증.)
   let oldRole: string | null = null;
-  if (patch.role !== undefined) {
+  let oldGrowthStatus: string | null = null;
+  if (patch.role !== undefined || patch.growth_status !== undefined) {
     const { data: current, error: readError } = await supabaseAdmin
       .from("user_profiles")
-      .select("role,organization_slug,current_team_name,current_part_name")
+      .select("role,growth_status,organization_slug,current_team_name,current_part_name")
       .eq("user_id", userId)
       .single();
 
@@ -594,23 +630,27 @@ export async function updateMember(
     }
 
     oldRole = (current.role as string | null) ?? null;
-    const effectiveOrg =
-      patch.organization_slug !== undefined
-        ? patch.organization_slug
-        : ((current.organization_slug as string | null) ?? null);
+    oldGrowthStatus = (current.growth_status as string | null) ?? null;
 
-    await assertRoleUniqueness(
-      userId,
-      patch.role,
-      effectiveOrg,
-      (current.current_team_name as string | null) ?? null,
-      (current.current_part_name as string | null) ?? null,
-    );
+    if (patch.role !== undefined) {
+      const effectiveOrg =
+        patch.organization_slug !== undefined
+          ? patch.organization_slug
+          : ((current.organization_slug as string | null) ?? null);
+
+      await assertRoleUniqueness(
+        userId,
+        patch.role,
+        effectiveOrg,
+        (current.current_team_name as string | null) ?? null,
+        (current.current_part_name as string | null) ?? null,
+      );
+    }
   }
 
   const { data, error } = await supabaseAdmin
     .from("user_profiles")
-    .update(patch)
+    .update(dbPatch)
     .eq("user_id", userId)
     .select(MEMBER_SELECT)
     .single();
@@ -658,6 +698,32 @@ export async function updateMember(
         oldRole,
         newRole: dto.role,
         error: auditError.message,
+      });
+    }
+  }
+
+  // 성장 상태 오버라이드가 실제로 바뀐 경우 사유/변경자 감사 로그
+  // (best-effort — 테이블 미생성/실패여도 저장은 성공 처리).
+  if (
+    patch.growth_status !== undefined &&
+    actorId &&
+    dto.growthStatus !== oldGrowthStatus
+  ) {
+    const { error: growthAuditError } = await supabaseAdmin
+      .from("user_growth_status_audit")
+      .insert({
+        user_id: userId,
+        old_status: oldGrowthStatus,
+        new_status: dto.growthStatus,
+        changed_by: actorId,
+        reason: overrideReason ?? null,
+      });
+    if (growthAuditError) {
+      console.error("[updateMember] growth_status audit insert failed", {
+        userId,
+        oldGrowthStatus,
+        newGrowthStatus: dto.growthStatus,
+        error: growthAuditError.message,
       });
     }
   }

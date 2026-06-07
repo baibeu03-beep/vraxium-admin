@@ -1,5 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isTransitionWeekStart } from "@/lib/seasonCalendar";
+import {
+  getSeasonForDate,
+  isTransitionWeekStart,
+  seasonDbKey,
+} from "@/lib/seasonCalendar";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import { getGraduationThreshold, getPointLabels } from "@/lib/pointLabels";
 import {
@@ -16,7 +20,7 @@ import {
 import { getWeeklyGrowth } from "@/lib/cluster4WeeklyGrowthData";
 import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
-import { foldGrowthMetrics, resolveGrowthStatus } from "@/lib/growthCore";
+import { foldGrowthMetrics, resolveGrowthStatusDetail } from "@/lib/growthCore";
 import type { WeekResultStatusKey } from "@/shared/growth.contracts";
 
 // Cluster3 성장 지표 계산 — server-only.
@@ -106,7 +110,80 @@ async function sumWeeklyPointsByUser(
   return out;
 }
 
-type SeasonStatusRow = { user_id?: string; status: string };
+type SeasonStatusRow = {
+  user_id?: string;
+  status: string;
+  season_key?: string | null;
+};
+
+// ─── 수동 오버라이드 audit 메타 (user_growth_status_audit 최신 1건) ──
+//
+// 마이그레이션(2026-06-07_user_growth_status_audit.sql) 미적용 환경에서도
+// 성장 지표 자체는 깨지지 않도록 best-effort 로 조회한다(실패 → 빈 맵 + warn).
+type OverrideAuditMeta = {
+  reason: string | null;
+  changedByName: string | null;
+  changedAt: string | null;
+};
+
+async function fetchOverrideAuditMeta(
+  userIds: string[],
+): Promise<Map<string, OverrideAuditMeta>> {
+  const out = new Map<string, OverrideAuditMeta>();
+  if (userIds.length === 0) return out;
+  const { data, error } = await supabaseAdmin
+    .from("user_growth_status_audit")
+    .select("user_id,reason,changed_by,created_at")
+    .in("user_id", userIds)
+    .order("created_at", { ascending: false });
+  if (error) {
+    // 테이블 미생성(마이그레이션 전) 등 — 메타 없이 진행.
+    console.warn("[cluster3][growth] override audit unavailable:", error.message);
+    return out;
+  }
+  const rows = (data ?? []) as Array<{
+    user_id: string;
+    reason: string | null;
+    changed_by: string | null;
+    created_at: string | null;
+  }>;
+  // created_at desc 정렬 → 사용자별 첫 행이 최신.
+  const latest = new Map<string, (typeof rows)[number]>();
+  for (const r of rows) {
+    if (!latest.has(r.user_id)) latest.set(r.user_id, r);
+  }
+  // 변경자 표시명 resolve (관리자 이름 SoT = user_profiles.display_name).
+  const actorIds = [
+    ...new Set([...latest.values()].map((r) => r.changed_by).filter(Boolean)),
+  ] as string[];
+  const nameMap = new Map<string, string>();
+  if (actorIds.length > 0) {
+    const { data: names } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,display_name")
+      .in("user_id", actorIds);
+    for (const n of (names ?? []) as Array<{
+      user_id: string;
+      display_name: string | null;
+    }>) {
+      if (n.display_name) nameMap.set(n.user_id, n.display_name);
+    }
+  }
+  for (const [uid, r] of latest) {
+    out.set(uid, {
+      reason: r.reason,
+      changedByName: r.changed_by ? (nameMap.get(r.changed_by) ?? r.changed_by) : null,
+      changedAt: r.created_at,
+    });
+  }
+  return out;
+}
+
+// 현재 시즌 db key ("2026-spring" 형식) — 시즌 휴식 자동 판정 기준.
+function currentSeasonDbKey(): string | null {
+  const season = getSeasonForDate(new Date().toISOString().slice(0, 10));
+  return season ? seasonDbKey(season) : null;
+}
 
 const DEFAULT_POINT_LABELS = { points: "점수", advantages: "이점", penalty: "패널티" };
 
@@ -155,17 +232,17 @@ function getCurrentISOWeek(): { year: number; week: number } {
   return { year: d.getUTCFullYear(), week };
 }
 
-// ─── 표시명 10종 우선순위 결정 ──────────────────────────────────────
+// ─── 표시명 10종 우선순위 결정 (2026-06-07 graduating 자동 계산 개정) ──
 //
-//  10. graduated      → "성장 완료(졸업)"
-//   9. suspended      → "성장 중단"
-//   8. paused         → "성장 유보"
-//   7. graduating     → "졸업 절차 중"
-//   6. seasonal_rest  → "시즌 휴식 중"
-//   5. weekly_rest    → "휴식(개인) 중"
-//   4. 현재 주차 official_rest → "휴식(공식) 중"
-//   3. h <= 1 && active        → "클럽 온보딩 중"
-//   2. a >= threshold && active → "추가 성장 중"
+//  10. graduated      → "성장 완료(졸업)"   (운영 override)
+//   9. suspended      → "성장 중단"         (운영 override)
+//   8. paused         → "성장 유보"         (운영 override)
+//   7. seasonal_rest  → "시즌 휴식 중"
+//   6. weekly_rest    → "휴식(개인) 중"
+//   5. 현재 주차 official_rest → "휴식(공식) 중"
+//   4. h <= 1                  → "클럽 온보딩 중"
+//   3. a >= 29 && 미졸업        → "졸업 절차 중" (자동 — DB graduating 수동값 비신뢰)
+//   2. a >= threshold           → "추가 성장 중"
 //   1. active                   → "성장 중"
 
 // 성장 상태 10종 판정 SoT = growthCore.resolveGrowthStatus (이 파일은 로컬 판정 함수를 두지 않는다).
@@ -243,6 +320,8 @@ function buildIndicators(
   pts: PointRow | null,
   currentWeekStatus: string | null,
   seasonRows: SeasonStatusRow[],
+  currentSeasonKey: string | null,
+  overrideMeta: OverrideAuditMeta | null,
 ): GrowthIndicatorsInternal {
   const org = profile.organization_slug;
   const orgValid = org && isOrganizationSlug(org) ? (org as OrganizationSlug) : null;
@@ -282,18 +361,36 @@ function buildIndicators(
     else g++;
   }
 
-  const displayKey = resolveGrowthStatus({
+  // 시즌 휴식 자동 판정 = 현재 시즌에 user_season_statuses.status='rest' 존재.
+  const seasonRestActive =
+    currentSeasonKey !== null &&
+    seasonRows.some(
+      (sr) => sr.status === "rest" && sr.season_key === currentSeasonKey,
+    );
+
+  const resolution = resolveGrowthStatusDetail({
     growthStatus: profile.growth_status,
+    seasonRestActive,
     currentWeekStatus,
     approvedWeeks: a,
     elapsedWeeks: h,
     graduationThreshold: threshold,
   });
+  const displayKey = resolution.display;
 
   const process: GrowthProcess = {
     growthStatus: profile.growth_status,
     growthStatusDisplay: GROWTH_DISPLAY_LABELS[displayKey],
     growthDisplayKey: displayKey,
+    autoGrowthStatusKey: resolution.auto,
+    autoGrowthStatusDisplay: GROWTH_DISPLAY_LABELS[resolution.auto],
+    manualOverrideStatus: resolution.override,
+    manualOverrideReason: resolution.override ? (overrideMeta?.reason ?? null) : null,
+    manualOverrideByName: resolution.override
+      ? (overrideMeta?.changedByName ?? null)
+      : null,
+    manualOverrideAt: resolution.override ? (overrideMeta?.changedAt ?? null) : null,
+    overrideMismatch: resolution.overrideMismatch,
     activityStartedAt: profile.activity_started_at,
     activityStartedAtDisplay: profile.activity_started_at
       ? new Date(profile.activity_started_at).toISOString().slice(0, 10)
@@ -408,27 +505,35 @@ export async function getGrowthIndicatorsBatch(
 export async function getGrowthIndicatorsInternal(
   userId: string,
 ): Promise<GrowthIndicatorsInternal> {
-  const [profileRes, weekRes, pointMap, seasonRes, currentWeekStatus, resolvedCards] =
-    await Promise.all([
-      supabaseAdmin
-        .from("user_profiles")
-        .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
-        .eq("user_id", userId)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("user_week_statuses")
-        .select("status,week_start_date,is_official_rest_override")
-        .eq("user_id", userId),
-      // 누적 포인트 = user_weekly_points 전기간 직접합산 (캐시 의존 제거).
-      sumWeeklyPointsByUser([userId]),
-      supabaseAdmin
-        .from("user_season_statuses")
-        .select("status")
-        .eq("user_id", userId),
-      fetchCurrentWeekStatus(userId),
-      // ResolvedWeek 카드 소스 — snapshot-first(무거운 계산 0), 없으면 getWeeklyGrowth fallback.
-      getResolvedCardsForUser(userId),
-    ]);
+  const [
+    profileRes,
+    weekRes,
+    pointMap,
+    seasonRes,
+    currentWeekStatus,
+    resolvedCards,
+    overrideMetaMap,
+  ] = await Promise.all([
+    supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from("user_week_statuses")
+      .select("status,week_start_date,is_official_rest_override")
+      .eq("user_id", userId),
+    // 누적 포인트 = user_weekly_points 전기간 직접합산 (캐시 의존 제거).
+    sumWeeklyPointsByUser([userId]),
+    supabaseAdmin
+      .from("user_season_statuses")
+      .select("status,season_key")
+      .eq("user_id", userId),
+    fetchCurrentWeekStatus(userId),
+    // ResolvedWeek 카드 소스 — snapshot-first(무거운 계산 0), 없으면 getWeeklyGrowth fallback.
+    getResolvedCardsForUser(userId),
+    fetchOverrideAuditMeta([userId]),
+  ]);
 
   if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
   if (weekRes.error) throw new GrowthError(500, weekRes.error.message);
@@ -463,6 +568,8 @@ export async function getGrowthIndicatorsInternal(
     pointMap.get(userId) ?? null,
     currentWeekStatus,
     seasonRows,
+    currentSeasonDbKey(),
+    overrideMetaMap.get(userId) ?? null,
   );
 }
 
@@ -471,23 +578,25 @@ export async function getGrowthIndicatorsBatchInternal(
 ): Promise<GrowthIndicatorsInternal[]> {
   if (userIds.length === 0) return [];
 
-  const [profileRes, weekRes, pointsByUser, seasonRes, currentWeekMap] = await Promise.all([
-    supabaseAdmin
-      .from("user_profiles")
-      .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
-      .in("user_id", userIds),
-    supabaseAdmin
-      .from("user_week_statuses")
-      .select("user_id,status,week_start_date,is_official_rest_override")
-      .in("user_id", userIds),
-    // 누적 포인트 = user_weekly_points 전기간 직접합산 per user (캐시 의존 제거).
-    sumWeeklyPointsByUser(userIds),
-    supabaseAdmin
-      .from("user_season_statuses")
-      .select("user_id,status")
-      .in("user_id", userIds),
-    fetchCurrentWeekStatusBatch(userIds),
-  ]);
+  const [profileRes, weekRes, pointsByUser, seasonRes, currentWeekMap, overrideMetaMap] =
+    await Promise.all([
+      supabaseAdmin
+        .from("user_profiles")
+        .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
+        .in("user_id", userIds),
+      supabaseAdmin
+        .from("user_week_statuses")
+        .select("user_id,status,week_start_date,is_official_rest_override")
+        .in("user_id", userIds),
+      // 누적 포인트 = user_weekly_points 전기간 직접합산 per user (캐시 의존 제거).
+      sumWeeklyPointsByUser(userIds),
+      supabaseAdmin
+        .from("user_season_statuses")
+        .select("user_id,status,season_key")
+        .in("user_id", userIds),
+      fetchCurrentWeekStatusBatch(userIds),
+      fetchOverrideAuditMeta(userIds),
+    ]);
 
   if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
   if (weekRes.error) throw new GrowthError(500, weekRes.error.message);
@@ -530,6 +639,7 @@ export async function getGrowthIndicatorsBatchInternal(
     `fallback=${fallbacks}`,
   );
 
+  const seasonKey = currentSeasonDbKey();
   return profiles.map((profile) =>
     buildIndicators(
       profile,
@@ -538,6 +648,8 @@ export async function getGrowthIndicatorsBatchInternal(
       pointsByUser.get(profile.user_id) ?? null,
       currentWeekMap.get(profile.user_id) ?? null,
       seasonsByUser.get(profile.user_id) ?? [],
+      seasonKey,
+      overrideMetaMap.get(profile.user_id) ?? null,
     ),
   );
 }

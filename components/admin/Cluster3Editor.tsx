@@ -695,16 +695,60 @@ export default function Cluster3Editor({
               성장 지표 · Growth Indicators
             </div>
           </div>
+          {/* 오버라이드 ≠ 자동 계산 경고.
+              예외(경고 생략): graduated←(graduating/extra_growth)=정상 졸업 경로,
+              graduated←official_rest=공식휴식 주차의 일시 상태(다음 주 자동 해소). */}
+          {growth.process.manualOverrideStatus &&
+            growth.process.overrideMismatch &&
+            !(
+              growth.process.manualOverrideStatus === "graduated" &&
+              (growth.process.autoGrowthStatusKey === "graduating" ||
+                growth.process.autoGrowthStatusKey === "extra_growth" ||
+                growth.process.autoGrowthStatusKey === "official_rest")
+            ) && (
+              <div className="border-b border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                ⚠ 수동 오버라이드(
+                {growth.process.manualOverrideStatus})가 자동 계산 상태(
+                {growth.process.autoGrowthStatusDisplay})와 다릅니다.
+                {growth.process.manualOverrideReason &&
+                  ` 사유: ${growth.process.manualOverrideReason}`}
+              </div>
+            )}
           <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4 lg:grid-cols-6">
             {/* Process */}
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">상태</div>
+              <div className="text-[10px] text-muted-foreground">상태(최종)</div>
               <div className="mt-0.5 text-sm font-medium">
                 {growth.process.growthStatusDisplay}
               </div>
               <div className="text-[10px] text-muted-foreground">
                 {growth.process.growthDisplayKey}
               </div>
+            </div>
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">자동 계산</div>
+              <div className="mt-0.5 text-sm font-medium">
+                {growth.process.autoGrowthStatusDisplay}
+              </div>
+              <div className="text-[10px] text-muted-foreground">
+                {growth.process.autoGrowthStatusKey}
+              </div>
+            </div>
+            <div className="bg-background px-3 py-2">
+              <div className="text-[10px] text-muted-foreground">오버라이드</div>
+              <div className="mt-0.5 text-sm font-medium">
+                {growth.process.manualOverrideStatus ?? "-"}
+              </div>
+              {growth.process.manualOverrideStatus && (
+                <div className="text-[10px] text-muted-foreground">
+                  {[
+                    growth.process.manualOverrideByName,
+                    growth.process.manualOverrideAt?.slice(0, 10),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "기록 없음"}
+                </div>
+              )}
             </div>
             <div className="bg-background px-3 py-2">
               <div className="text-[10px] text-muted-foreground">성장 시작</div>

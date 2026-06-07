@@ -18,7 +18,11 @@ import {
   ORGANIZATION_LABEL,
 } from "@/lib/organizations";
 import { ACCOUNT_STATUSES } from "@/lib/adminAppUsersTypes";
-import { GROWTH_STATUSES } from "@/shared/growth.contracts";
+import {
+  GROWTH_STATUS_LABELS,
+  MANUAL_OVERRIDE_STATUSES,
+  isManualOverrideStatus,
+} from "@/shared/growth.contracts";
 import {
   MEMBER_ASSIGNABLE_ROLES,
   isMemberAssignableRole,
@@ -45,6 +49,7 @@ type Form = {
   organization_slug: string;
   status: string;
   growth_status: string;
+  growth_status_reason: string;
   contact_email: string;
   contact_phone: string;
   role: string;
@@ -65,6 +70,7 @@ function toForm(member: EditableMember): Form {
     organization_slug: member.organizationSlug ?? ORG_NONE,
     status: member.status ?? STATUS_NONE,
     growth_status: member.growthStatus ?? STATUS_NONE,
+    growth_status_reason: "",
     contact_email: member.contactEmail ?? "",
     contact_phone: member.contactPhone ?? "",
     // 4종 역할이면 편집 가능, 그 외(보존 역할)는 잠금.
@@ -90,7 +96,11 @@ function diffPatch(initial: Form, next: Form) {
 
   const initialGrowth = initial.growth_status === STATUS_NONE ? null : initial.growth_status;
   const nextGrowth = next.growth_status === STATUS_NONE ? null : next.growth_status;
-  if (initialGrowth !== nextGrowth) patch.growth_status = nextGrowth;
+  if (initialGrowth !== nextGrowth) {
+    patch.growth_status = nextGrowth;
+    // 오버라이드 변경 시에만 사유 동봉 (audit 기록용 — 빈 값은 null).
+    patch.growth_status_reason = emptyToNull(next.growth_status_reason);
+  }
 
   if (initial.contact_email !== next.contact_email) {
     patch.contact_email = emptyToNull(next.contact_email);
@@ -355,7 +365,9 @@ function MemberEditDrawerInner({
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="member-growth">
-                {devMode ? "성장 상태 (growth_status)" : "성장 상태"}
+                {devMode
+                  ? "성장 상태 오버라이드 (growth_status)"
+                  : "성장 상태 오버라이드"}
               </Label>
               <Select
                 value={form.growth_status}
@@ -370,14 +382,51 @@ function MemberEditDrawerInner({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={STATUS_NONE}>미지정</SelectItem>
-                  {GROWTH_STATUSES.map((s) => (
+                  <SelectItem value={STATUS_NONE}>미지정 (자동 계산)</SelectItem>
+                  {MANUAL_OVERRIDE_STATUSES.map((s) => (
                     <SelectItem key={s} value={s}>
-                      {s}
+                      {GROWTH_STATUS_LABELS[s]} ({s})
                     </SelectItem>
                   ))}
+                  {/* legacy 값(seasonal_rest 등) 보유 행: 현재값 표시용 — 저장은 3종+해제만 허용 */}
+                  {form.growth_status !== STATUS_NONE &&
+                    !isManualOverrideStatus(form.growth_status) && (
+                      <SelectItem value={form.growth_status} disabled>
+                        {form.growth_status} (legacy — 자동 계산으로 대체됨)
+                      </SelectItem>
+                    )}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-muted-foreground">
+                오버라이드 3종(졸업/중단/유보) 외 상태는 자동 계산됩니다. 졸업
+                절차 중(graduating)은 29주차 승인 완료 시 자동 표시 — 수동 지정
+                불가.
+              </p>
+              {(initial.growth_status === STATUS_NONE
+                ? null
+                : initial.growth_status) !==
+                (form.growth_status === STATUS_NONE
+                  ? null
+                  : form.growth_status) && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="member-growth-reason">
+                    {devMode
+                      ? "변경 사유 (growth_status_reason)"
+                      : "변경 사유"}
+                  </Label>
+                  <Input
+                    id="member-growth-reason"
+                    value={form.growth_status_reason}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        growth_status_reason: e.target.value,
+                      }))
+                    }
+                    placeholder="감사 로그에 기록됩니다 (선택)"
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-1.5">

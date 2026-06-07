@@ -125,6 +125,9 @@ async function compute(userId: string): Promise<Row> {
   const hNew = cards.filter((c) => c.endDate < TODAY_ISO).length;
   const keyNew = resolveGrowthStatus({
     growthStatus: base.dbStatus,
+    // (2026-06-07 API 변경 호환) 본 one-off impact 스크립트는 시즌휴식 자동
+    // 판정 이전 기준이므로 false 고정 — 당시 비교 의미는 보존되지 않는다.
+    seasonRestActive: false,
     currentWeekStatus,
     approvedWeeks: aNew,
     elapsedWeeks: hNew,

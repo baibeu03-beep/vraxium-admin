@@ -13,7 +13,9 @@ import type {
   WeekDbStatusKey,
   WeekResultStatusKey,
   GrowthStatusKey,
+  ManualOverrideStatus,
 } from "@/shared/growth.contracts";
+import { isManualOverrideStatus } from "@/shared/growth.contracts";
 
 // 실무 경험 필수 슬롯 verdict 상태 (cluster4 ExperienceGrowthVerdictDto.status 와 동일 집합).
 export type ExperienceVerdictStatus =
@@ -195,48 +197,98 @@ export function deriveEndStatus(growthStatus: string | null): GrowthEndStatus {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// 성장 상태 10종 판정 (cluster1/3 의 단일 SoT). DB enum(graduated~weekly_rest) 우선,
-// 그 외(active/null)는 현재주 official_rest → onboarding(h<=1) → extra_growth(a>=기준) → active.
+// 성장 상태 10종 판정 (cluster1/3 의 단일 SoT).
+//
+// 2026-06-07 정책 개정 2단계 — 자동 계산(auto) / 수동 오버라이드(override) 분리:
+//   - autoGrowthStatus  = 원천 기록만으로 결정적 계산 (DB growth_status 비참조).
+//   - manualOverride    = user_profiles.growth_status ∈ {graduated,suspended,paused}
+//                         일 때만 인정 (운영 이벤트 — 자동 도출 불가).
+//     legacy 값(seasonal_rest/weekly_rest/graduating/active)은 오버라이드가 아니며
+//     표시 계산에서 무시된다(휴식 2종은 신청 기록 uss/uws 에서 자동 도출 —
+//     2026-06-07 전수점검에서 DB 값과 양방향 불일치 0건 실측).
+//   - displayGrowthStatus = override ?? auto. 고객/관리자/이력서 공통.
+//
+// 자동 계산 우선순위:
+//   seasonal_rest(현재시즌 휴식 신청) → weekly_rest(현재주 personal_rest)
+//   → official_rest(현재주 공식휴식) → onboarding(h<=1) → graduating(a>=29)
+//   → extra_growth(a>=조직 졸업기준) → active.
 //   a = approvedWeeks(성공 주차), h = elapsedWeeks(지나간 주차).
 // ─────────────────────────────────────────────────────────────────────
-export type ResolveGrowthStatusInput = {
-  growthStatus: string | null; // user_profiles.growth_status
+
+// 졸업 절차 개시 기준: 29주차까지 승인(성공 주차 a)이 완료된 시점.
+//   조직별 졸업기준(GRADUATION_THRESHOLDS: encre/phalanx 30, oranke 25)과 별개의
+//   고정 상수 — oranke(25)는 25~28 구간에서 extra_growth 가 먼저 표시된다.
+//   graduating 은 자동 계산 전용 — 수동 오버라이드 불가(MANUAL_OVERRIDE_STATUSES 제외).
+export const GRADUATING_FROM_APPROVED_WEEKS = 29;
+
+// user_profiles.growth_status 원본값 → 수동 오버라이드 3종 추출 (그 외 = null).
+export function extractManualOverride(
+  growthStatus: string | null,
+): ManualOverrideStatus | null {
+  return isManualOverrideStatus(growthStatus) ? growthStatus : null;
+}
+
+export type ComputeAutoGrowthStatusInput = {
+  // 현재 시즌에 시즌 휴식 신청(user_season_statuses.status='rest')이 있는가.
+  seasonRestActive: boolean;
   currentWeekStatus: string | null; // 현재 주차 user_week_statuses.status
   approvedWeeks: number; // a
   elapsedWeeks: number; // h
   graduationThreshold: number | null;
 };
 
-export function resolveGrowthStatus(
-  input: ResolveGrowthStatusInput,
+// 자동 계산 상태 (DB growth_status 를 전혀 보지 않는다 — 순수·결정적).
+export function computeAutoGrowthStatus(
+  input: ComputeAutoGrowthStatusInput,
 ): GrowthStatusKey {
   const {
-    growthStatus,
+    seasonRestActive,
     currentWeekStatus,
     approvedWeeks,
     elapsedWeeks,
     graduationThreshold,
   } = input;
 
-  switch (growthStatus) {
-    case "graduated":
-      return "graduated";
-    case "suspended":
-      return "suspended";
-    case "paused":
-      return "paused";
-    case "graduating":
-      return "graduating";
-    case "seasonal_rest":
-      return "seasonal_rest";
-    case "weekly_rest":
-      return "weekly_rest";
-  }
-
-  // DB status = active (또는 null) → 계산 상태로 분기
+  if (seasonRestActive) return "seasonal_rest";
+  if (currentWeekStatus === "personal_rest") return "weekly_rest";
   if (currentWeekStatus === "official_rest") return "official_rest";
   if (elapsedWeeks <= 1) return "onboarding";
+  if (approvedWeeks >= GRADUATING_FROM_APPROVED_WEEKS) return "graduating";
   if (graduationThreshold !== null && approvedWeeks >= graduationThreshold)
     return "extra_growth";
   return "active";
+}
+
+export type ResolveGrowthStatusInput = ComputeAutoGrowthStatusInput & {
+  growthStatus: string | null; // user_profiles.growth_status (오버라이드 후보)
+};
+
+export type GrowthStatusResolution = {
+  auto: GrowthStatusKey; // 자동 계산 상태
+  override: ManualOverrideStatus | null; // 수동 오버라이드 (3종 외 = null)
+  display: GrowthStatusKey; // 최종 표시 = override ?? auto
+  // 오버라이드가 자동 계산과 다른가 (관리자 경고용 raw 신호 — UI 에서
+  // graduated←graduating/extra_growth 정상 졸업 경로는 예외 처리 가능).
+  overrideMismatch: boolean;
+};
+
+export function resolveGrowthStatusDetail(
+  input: ResolveGrowthStatusInput,
+): GrowthStatusResolution {
+  const auto = computeAutoGrowthStatus(input);
+  const override = extractManualOverride(input.growthStatus);
+  const display = override ?? auto;
+  return {
+    auto,
+    override,
+    display,
+    overrideMismatch: override !== null && override !== auto,
+  };
+}
+
+// 호환 래퍼 — 최종 표시 키만 필요할 때.
+export function resolveGrowthStatus(
+  input: ResolveGrowthStatusInput,
+): GrowthStatusKey {
+  return resolveGrowthStatusDetail(input).display;
 }
