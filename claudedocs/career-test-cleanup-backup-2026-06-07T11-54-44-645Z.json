@@ -1,0 +1,83 @@
+{
+  "project": {
+    "id": "3f8c0cef-a3c6-4013-99e9-9a95ec2d60ca",
+    "company_name": "스파르타코딩클럽",
+    "company_logo_url": "https://oksnumlerbaybxlmgdux.supabase.co/storage/v1/object/public/cluster4-line-images/info-lines/1780300775489-3vowjc.jpg",
+    "job_position": null,
+    "project_name": null,
+    "project_description": null,
+    "line_code": "WCBS-NL0000",
+    "line_name": "테스트 라인명 프로젝트",
+    "output_links": [],
+    "output_images": [],
+    "company_homepage_links": [],
+    "secondary_info_deadline": null,
+    "supervisor_name": "김테스트",
+    "supervisor_position": "팀장",
+    "supervisor_department": "마케팅팀",
+    "supervisor_company": "스파르타코딩클럽",
+    "supervisor_profile_img": "https://oksnumlerbaybxlmgdux.supabase.co/storage/v1/object/public/cluster4-line-images/info-lines/1780300754622-hy2y5k.png",
+    "created_at": "2026-06-01T05:09:59.643733+00:00",
+    "start_date": "2026-04-01",
+    "end_date": "2026-05-31",
+    "default_main_title": "라인 등록 테스트 테스트 라인 등록 테스트 테스트 라인 등록 테스트 테스트 라인 등록 테스트 테스트 라인 등록 테스트 테스트 라인 등록 테스트 테스트 라인 등록 테스트 테스트 라인 등록 테스트 테스트",
+    "default_output_link_1": "https://github.com/baibeu03-beep/vraxium-admin",
+    "default_output_link_2": null,
+    "default_output_images": [
+      "https://oksnumlerbaybxlmgdux.supabase.co/storage/v1/object/public/cluster4-line-images/info-lines/1780290580284-p5198g.png"
+    ],
+    "default_target_user_ids": [
+      "e1a17a4a-05b5-443e-a95d-db20ec2ad9af"
+    ],
+    "organization_slug": "oranke"
+  },
+  "lines": [
+    {
+      "id": "d7946d3e-c782-4eda-84e5-e068f0749cd6",
+      "part_type": "career",
+      "main_title": "라인 등록 테스트 테스트 라인 등록 테스트 테스트 테스트",
+      "output_link_1": "https://github.com/baibeu03-beep/vraxium-admin",
+      "submission_opens_at": "2026-05-31T15:00:00+00:00",
+      "submission_closes_at": "2026-06-03T13:00:00+00:00",
+      "is_active": true,
+      "created_by": "c28b2409-4118-49fc-a42e-68e18dbd194c",
+      "updated_by": "c28b2409-4118-49fc-a42e-68e18dbd194c",
+      "created_at": "2026-06-01T05:11:05.239182+00:00",
+      "updated_at": "2026-06-01T14:08:18.769385+00:00",
+      "activity_type_id": null,
+      "output_images": [
+        "https://oksnumlerbaybxlmgdux.supabase.co/storage/v1/object/public/cluster4-line-images/info-lines/1780290580284-p5198g.png"
+      ],
+      "team_id": null,
+      "career_project_id": "3f8c0cef-a3c6-4013-99e9-9a95ec2d60ca",
+      "output_link_2": null,
+      "line_code": "WCBS-NL0000",
+      "experience_line_master_id": null,
+      "competency_line_master_id": null,
+      "output_links": [
+        {
+          "url": "https://github.com/baibeu03-beep/vraxium-admin",
+          "label": "챗gpt 자료를 참고해보자!"
+        }
+      ],
+      "info_subtitle": null,
+      "info_growth_point": null,
+      "source_type": null,
+      "recognition_mode": null,
+      "is_readonly": false,
+      "period_label": null,
+      "start_date": null,
+      "end_date": null,
+      "week_id": null,
+      "source_file_name": null,
+      "source_sheet_name": null,
+      "is_recurring_content": false,
+      "recurring_source_sheet_name": null,
+      "input_completed_at": null,
+      "reviewed_at": null,
+      "reviewed_by": null,
+      "opened_at": null,
+      "opened_by": null
+    }
+  ]
+}

@@ -9,6 +9,7 @@
  * 실행: npx tsx --env-file=.env.local scripts/apply-weeks-backfill.ts
  */
 import { createClient } from "@supabase/supabase-js";
+import { assertSummerW58PublishGuard } from "@/lib/summerWeeksPublishGuard";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -16,6 +17,11 @@ const sb = createClient(url, key);
 
 async function main() {
   console.log("=== weeks 백필 시작 ===\n");
+
+  // 2025-summer W5~8 publish 보호 가드 (2026-06-07 운영 확정).
+  //   본 스크립트는 누락 주차를 uws 기준으로 재생성하므로, 보호 구간이 삭제/변형된
+  //   상태에서 실행되면 publish=NULL 행을 만들 수 있다 → 기대값과 다르면 즉시 중단.
+  await assertSummerW58PublishGuard(sb);
 
   // 0. 현재 상태
   const { count: weeksBefore } = await sb.from("weeks").select("*", { count: "exact", head: true });

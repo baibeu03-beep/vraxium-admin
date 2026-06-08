@@ -1,0 +1,1730 @@
+[
+ {
+  "source": "manageractivities",
+  "Season": "3",
+  "SeasonWeek": 0,
+  "cnt": 13,
+  "withActivity": 13,
+  "withStar": 13
+ },
+ {
+  "source": "manageractivities",
+  "Season": "S10",
+  "SeasonWeek": 1,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을",
+  "SeasonWeek": 0,
+  "cnt": 11,
+  "withActivity": 11,
+  "withStar": 11
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을",
+  "SeasonWeek": 1,
+  "cnt": 270,
+  "withActivity": 270,
+  "withStar": 270
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을",
+  "SeasonWeek": 2,
+  "cnt": 222,
+  "withActivity": 222,
+  "withStar": 222
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을",
+  "SeasonWeek": 3,
+  "cnt": 150,
+  "withActivity": 150,
+  "withStar": 150
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을",
+  "SeasonWeek": 4,
+  "cnt": 230,
+  "withActivity": 230,
+  "withStar": 230
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을",
+  "SeasonWeek": 5,
+  "cnt": 320,
+  "withActivity": 320,
+  "withStar": 320
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을",
+  "SeasonWeek": 9,
+  "cnt": 300,
+  "withActivity": 299,
+  "withStar": 300
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을",
+  "SeasonWeek": 10,
+  "cnt": 351,
+  "withActivity": 351,
+  "withStar": 351
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을",
+  "SeasonWeek": 11,
+  "cnt": 232,
+  "withActivity": 231,
+  "withStar": 232
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을",
+  "SeasonWeek": 12,
+  "cnt": 221,
+  "withActivity": 221,
+  "withStar": 221
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을",
+  "SeasonWeek": 13,
+  "cnt": 185,
+  "withActivity": 185,
+  "withStar": 185
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 ",
+  "SeasonWeek": 2,
+  "cnt": 3,
+  "withActivity": 3,
+  "withStar": 3
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 ",
+  "SeasonWeek": 4,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 ",
+  "SeasonWeek": 5,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 ",
+  "SeasonWeek": 10,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 ",
+  "SeasonWeek": 11,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 ",
+  "SeasonWeek": 12,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 0,
+  "cnt": 5,
+  "withActivity": 5,
+  "withStar": 5
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 1,
+  "cnt": 15,
+  "withActivity": 15,
+  "withStar": 15
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 2,
+  "cnt": 21,
+  "withActivity": 21,
+  "withStar": 21
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 3,
+  "cnt": 10,
+  "withActivity": 10,
+  "withStar": 10
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 4,
+  "cnt": 6,
+  "withActivity": 6,
+  "withStar": 6
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 5,
+  "cnt": 16,
+  "withActivity": 16,
+  "withStar": 16
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 9,
+  "cnt": 15,
+  "withActivity": 15,
+  "withStar": 15
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 10,
+  "cnt": 14,
+  "withActivity": 14,
+  "withStar": 14
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 시즌 ",
+  "SeasonWeek": 4,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을 시즌 ",
+  "SeasonWeek": 5,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 2,
+  "cnt": 5,
+  "withActivity": 5,
+  "withStar": 5
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 4,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 5,
+  "cnt": 9,
+  "withActivity": 9,
+  "withStar": 9
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 9,
+  "cnt": 9,
+  "withActivity": 9,
+  "withStar": 9
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 10,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "manageractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 13,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울",
+  "SeasonWeek": 0,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울",
+  "SeasonWeek": 1,
+  "cnt": 153,
+  "withActivity": 153,
+  "withStar": 153
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울",
+  "SeasonWeek": 2,
+  "cnt": 165,
+  "withActivity": 165,
+  "withStar": 165
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울",
+  "SeasonWeek": 3,
+  "cnt": 166,
+  "withActivity": 166,
+  "withStar": 166
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울",
+  "SeasonWeek": 4,
+  "cnt": 188,
+  "withActivity": 188,
+  "withStar": 188
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울",
+  "SeasonWeek": 5,
+  "cnt": 194,
+  "withActivity": 194,
+  "withStar": 194
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울",
+  "SeasonWeek": 6,
+  "cnt": 87,
+  "withActivity": 87,
+  "withStar": 87
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울",
+  "SeasonWeek": 7,
+  "cnt": 289,
+  "withActivity": 289,
+  "withStar": 289
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울",
+  "SeasonWeek": 8,
+  "cnt": 196,
+  "withActivity": 196,
+  "withStar": 196
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울 ",
+  "SeasonWeek": 2,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울 ",
+  "SeasonWeek": 7,
+  "cnt": 6,
+  "withActivity": 6,
+  "withStar": 6
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울 ",
+  "SeasonWeek": 8,
+  "cnt": 7,
+  "withActivity": 7,
+  "withStar": 7
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울 시즌",
+  "SeasonWeek": 1,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울시즌",
+  "SeasonWeek": 1,
+  "cnt": 13,
+  "withActivity": 13,
+  "withStar": 13
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울시즌",
+  "SeasonWeek": 7,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "manageractivities",
+  "Season": "겨울시즌",
+  "SeasonWeek": 8,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄",
+  "SeasonWeek": 1,
+  "cnt": 232,
+  "withActivity": 232,
+  "withStar": 232
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄",
+  "SeasonWeek": 2,
+  "cnt": 236,
+  "withActivity": 236,
+  "withStar": 236
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄",
+  "SeasonWeek": 3,
+  "cnt": 251,
+  "withActivity": 251,
+  "withStar": 251
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄",
+  "SeasonWeek": 4,
+  "cnt": 309,
+  "withActivity": 309,
+  "withStar": 309
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄",
+  "SeasonWeek": 5,
+  "cnt": 352,
+  "withActivity": 352,
+  "withStar": 352
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄",
+  "SeasonWeek": 9,
+  "cnt": 397,
+  "withActivity": 397,
+  "withStar": 397
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄",
+  "SeasonWeek": 10,
+  "cnt": 433,
+  "withActivity": 433,
+  "withStar": 433
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄",
+  "SeasonWeek": 11,
+  "cnt": 381,
+  "withActivity": 381,
+  "withStar": 381
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄",
+  "SeasonWeek": 12,
+  "cnt": 383,
+  "withActivity": 383,
+  "withStar": 383
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄",
+  "SeasonWeek": 13,
+  "cnt": 341,
+  "withActivity": 341,
+  "withStar": 341
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄 ",
+  "SeasonWeek": 1,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄 ",
+  "SeasonWeek": 11,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄 ",
+  "SeasonWeek": 12,
+  "cnt": 5,
+  "withActivity": 5,
+  "withStar": 5
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄 ",
+  "SeasonWeek": 13,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄 시즌",
+  "SeasonWeek": 2,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "봄 시즌",
+  "SeasonWeek": 4,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름",
+  "SeasonWeek": 0,
+  "cnt": 5,
+  "withActivity": 5,
+  "withStar": 5
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름",
+  "SeasonWeek": 1,
+  "cnt": 192,
+  "withActivity": 192,
+  "withStar": 192
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름",
+  "SeasonWeek": 2,
+  "cnt": 205,
+  "withActivity": 205,
+  "withStar": 205
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름",
+  "SeasonWeek": 3,
+  "cnt": 231,
+  "withActivity": 231,
+  "withStar": 231
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름",
+  "SeasonWeek": 4,
+  "cnt": 285,
+  "withActivity": 285,
+  "withStar": 285
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름",
+  "SeasonWeek": 5,
+  "cnt": 398,
+  "withActivity": 398,
+  "withStar": 398
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름",
+  "SeasonWeek": 6,
+  "cnt": 367,
+  "withActivity": 367,
+  "withStar": 367
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름",
+  "SeasonWeek": 7,
+  "cnt": 332,
+  "withActivity": 332,
+  "withStar": 332
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름",
+  "SeasonWeek": 8,
+  "cnt": 275,
+  "withActivity": 275,
+  "withStar": 275
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름 ",
+  "SeasonWeek": 2,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름 ",
+  "SeasonWeek": 5,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름 ",
+  "SeasonWeek": 8,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 2,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 3,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 5,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 6,
+  "cnt": 9,
+  "withActivity": 9,
+  "withStar": 9
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 7,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 8,
+  "cnt": 11,
+  "withActivity": 11,
+  "withStar": 11
+ },
+ {
+  "source": "manageractivities",
+  "Season": "여름시즌",
+  "SeasonWeek": 3,
+  "cnt": 3,
+  "withActivity": 3,
+  "withStar": 3
+ },
+ {
+  "source": "manageractivities",
+  "Season": "테스트",
+  "SeasonWeek": 3,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "manageractivities",
+  "Season": "테스트123",
+  "SeasonWeek": 2,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "4",
+  "SeasonWeek": 3,
+  "cnt": 42,
+  "withActivity": 42,
+  "withStar": 42
+ },
+ {
+  "source": "useractivities",
+  "Season": "S10",
+  "SeasonWeek": 1,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 0,
+  "cnt": 16,
+  "withActivity": 16,
+  "withStar": 16
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 1,
+  "cnt": 415,
+  "withActivity": 415,
+  "withStar": 415
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 2,
+  "cnt": 396,
+  "withActivity": 396,
+  "withStar": 396
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 3,
+  "cnt": 286,
+  "withActivity": 286,
+  "withStar": 286
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 4,
+  "cnt": 335,
+  "withActivity": 335,
+  "withStar": 335
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 5,
+  "cnt": 531,
+  "withActivity": 529,
+  "withStar": 531
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 6,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 7,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 8,
+  "cnt": 9,
+  "withActivity": 9,
+  "withStar": 9
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 9,
+  "cnt": 456,
+  "withActivity": 456,
+  "withStar": 456
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 10,
+  "cnt": 568,
+  "withActivity": 568,
+  "withStar": 568
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 11,
+  "cnt": 501,
+  "withActivity": 500,
+  "withStar": 501
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 12,
+  "cnt": 480,
+  "withActivity": 480,
+  "withStar": 480
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 13,
+  "cnt": 435,
+  "withActivity": 434,
+  "withStar": 435
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 14,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 15,
+  "cnt": 5,
+  "withActivity": 5,
+  "withStar": 5
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을",
+  "SeasonWeek": 16,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을\r",
+  "SeasonWeek": 1,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을\r",
+  "SeasonWeek": 2,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을\r",
+  "SeasonWeek": 3,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을\r",
+  "SeasonWeek": 4,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을\r",
+  "SeasonWeek": 5,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을\r",
+  "SeasonWeek": 9,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을\r",
+  "SeasonWeek": 10,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을\r",
+  "SeasonWeek": 11,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을\r",
+  "SeasonWeek": 12,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 1,
+  "cnt": 15,
+  "withActivity": 15,
+  "withStar": 15
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 2,
+  "cnt": 21,
+  "withActivity": 21,
+  "withStar": 21
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 3,
+  "cnt": 10,
+  "withActivity": 10,
+  "withStar": 10
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 4,
+  "cnt": 7,
+  "withActivity": 7,
+  "withStar": 7
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 5,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 9,
+  "cnt": 14,
+  "withActivity": 14,
+  "withStar": 14
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을 시즌",
+  "SeasonWeek": 10,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 2,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 4,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 5,
+  "cnt": 9,
+  "withActivity": 9,
+  "withStar": 9
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 9,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 10,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "가을시즌",
+  "SeasonWeek": 13,
+  "cnt": 7,
+  "withActivity": 7,
+  "withStar": 7
+ },
+ {
+  "source": "useractivities",
+  "Season": "거울",
+  "SeasonWeek": 2,
+  "cnt": 11,
+  "withActivity": 11,
+  "withStar": 11
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울",
+  "SeasonWeek": 0,
+  "cnt": 32,
+  "withActivity": 32,
+  "withStar": 32
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울",
+  "SeasonWeek": 1,
+  "cnt": 402,
+  "withActivity": 402,
+  "withStar": 402
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울",
+  "SeasonWeek": 2,
+  "cnt": 369,
+  "withActivity": 369,
+  "withStar": 369
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울",
+  "SeasonWeek": 3,
+  "cnt": 398,
+  "withActivity": 398,
+  "withStar": 398
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울",
+  "SeasonWeek": 4,
+  "cnt": 472,
+  "withActivity": 472,
+  "withStar": 472
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울",
+  "SeasonWeek": 5,
+  "cnt": 295,
+  "withActivity": 295,
+  "withStar": 295
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울",
+  "SeasonWeek": 6,
+  "cnt": 276,
+  "withActivity": 275,
+  "withStar": 276
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울",
+  "SeasonWeek": 7,
+  "cnt": 417,
+  "withActivity": 417,
+  "withStar": 417
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울",
+  "SeasonWeek": 8,
+  "cnt": 323,
+  "withActivity": 323,
+  "withStar": 323
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울",
+  "SeasonWeek": 9,
+  "cnt": 6,
+  "withActivity": 6,
+  "withStar": 6
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울 ",
+  "SeasonWeek": 7,
+  "cnt": 6,
+  "withActivity": 6,
+  "withStar": 6
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울 시즌8주차",
+  "SeasonWeek": 0,
+  "cnt": 15,
+  "withActivity": 15,
+  "withStar": 15
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울->봄 시즌 전환",
+  "SeasonWeek": 0,
+  "cnt": 3,
+  "withActivity": 3,
+  "withStar": 3
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울`",
+  "SeasonWeek": 3,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울시즌",
+  "SeasonWeek": 1,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울시즌",
+  "SeasonWeek": 2,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울시즌",
+  "SeasonWeek": 3,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울시즌",
+  "SeasonWeek": 4,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울시즌",
+  "SeasonWeek": 5,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울시즌",
+  "SeasonWeek": 7,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "useractivities",
+  "Season": "겨울시즌",
+  "SeasonWeek": 8,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 0,
+  "cnt": 27,
+  "withActivity": 27,
+  "withStar": 27
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 1,
+  "cnt": 396,
+  "withActivity": 396,
+  "withStar": 396
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 2,
+  "cnt": 448,
+  "withActivity": 448,
+  "withStar": 448
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 3,
+  "cnt": 536,
+  "withActivity": 536,
+  "withStar": 536
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 4,
+  "cnt": 613,
+  "withActivity": 613,
+  "withStar": 613
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 5,
+  "cnt": 692,
+  "withActivity": 692,
+  "withStar": 692
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 6,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 7,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 8,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 9,
+  "cnt": 739,
+  "withActivity": 739,
+  "withStar": 739
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 10,
+  "cnt": 728,
+  "withActivity": 728,
+  "withStar": 728
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 11,
+  "cnt": 704,
+  "withActivity": 704,
+  "withStar": 704
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 12,
+  "cnt": 690,
+  "withActivity": 690,
+  "withStar": 690
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 13,
+  "cnt": 640,
+  "withActivity": 637,
+  "withStar": 640
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 14,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 15,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 16,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄",
+  "SeasonWeek": 17,
+  "cnt": 16,
+  "withActivity": 16,
+  "withStar": 16
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄 시즌",
+  "SeasonWeek": 1,
+  "cnt": 24,
+  "withActivity": 24,
+  "withStar": 24
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄 시즌",
+  "SeasonWeek": 2,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄 시즌",
+  "SeasonWeek": 4,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄 시즌",
+  "SeasonWeek": 10,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄 시즌",
+  "SeasonWeek": 11,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄 시즌",
+  "SeasonWeek": 12,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄시즌",
+  "SeasonWeek": 1,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄시즌",
+  "SeasonWeek": 2,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄시즌",
+  "SeasonWeek": 3,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄시즌",
+  "SeasonWeek": 4,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄시즌",
+  "SeasonWeek": 5,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄시즌",
+  "SeasonWeek": 9,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "봄시즌",
+  "SeasonWeek": 13,
+  "cnt": 7,
+  "withActivity": 7,
+  "withStar": 7
+ },
+ {
+  "source": "useractivities",
+  "Season": "시즌전환",
+  "SeasonWeek": 1,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "useractivities",
+  "Season": "시즌전환",
+  "SeasonWeek": 2,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름",
+  "SeasonWeek": 0,
+  "cnt": 12,
+  "withActivity": 12,
+  "withStar": 12
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름",
+  "SeasonWeek": 1,
+  "cnt": 436,
+  "withActivity": 436,
+  "withStar": 436
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름",
+  "SeasonWeek": 2,
+  "cnt": 516,
+  "withActivity": 515,
+  "withStar": 516
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름",
+  "SeasonWeek": 3,
+  "cnt": 519,
+  "withActivity": 519,
+  "withStar": 519
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름",
+  "SeasonWeek": 4,
+  "cnt": 578,
+  "withActivity": 577,
+  "withStar": 578
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름",
+  "SeasonWeek": 5,
+  "cnt": 555,
+  "withActivity": 555,
+  "withStar": 555
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름",
+  "SeasonWeek": 6,
+  "cnt": 532,
+  "withActivity": 530,
+  "withStar": 532
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름",
+  "SeasonWeek": 7,
+  "cnt": 518,
+  "withActivity": 517,
+  "withStar": 518
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름",
+  "SeasonWeek": 8,
+  "cnt": 460,
+  "withActivity": 459,
+  "withStar": 460
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름",
+  "SeasonWeek": 9,
+  "cnt": 2,
+  "withActivity": 2,
+  "withStar": 2
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름",
+  "SeasonWeek": 10,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름\r",
+  "SeasonWeek": 1,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름\r",
+  "SeasonWeek": 2,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름\r",
+  "SeasonWeek": 3,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름\r",
+  "SeasonWeek": 4,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름\r",
+  "SeasonWeek": 5,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름\r",
+  "SeasonWeek": 6,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름\r",
+  "SeasonWeek": 7,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름\r",
+  "SeasonWeek": 8,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 1,
+  "cnt": 3,
+  "withActivity": 3,
+  "withStar": 3
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 3,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 4,
+  "cnt": 4,
+  "withActivity": 4,
+  "withStar": 4
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 5,
+  "cnt": 5,
+  "withActivity": 5,
+  "withStar": 5
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 6,
+  "cnt": 14,
+  "withActivity": 14,
+  "withStar": 14
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 7,
+  "cnt": 8,
+  "withActivity": 8,
+  "withStar": 8
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름 시즌",
+  "SeasonWeek": 8,
+  "cnt": 16,
+  "withActivity": 16,
+  "withStar": 16
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름시즌",
+  "SeasonWeek": 1,
+  "cnt": 10,
+  "withActivity": 10,
+  "withStar": 10
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름시즌",
+  "SeasonWeek": 2,
+  "cnt": 3,
+  "withActivity": 3,
+  "withStar": 3
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름시즌",
+  "SeasonWeek": 3,
+  "cnt": 6,
+  "withActivity": 6,
+  "withStar": 6
+ },
+ {
+  "source": "useractivities",
+  "Season": "여름시즌",
+  "SeasonWeek": 8,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ },
+ {
+  "source": "useractivities",
+  "Season": "중간",
+  "SeasonWeek": 0,
+  "cnt": 46,
+  "withActivity": 46,
+  "withStar": 46
+ },
+ {
+  "source": "useractivities",
+  "Season": "테스트",
+  "SeasonWeek": 1,
+  "cnt": 1,
+  "withActivity": 1,
+  "withStar": 1
+ }
+]

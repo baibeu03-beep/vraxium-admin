@@ -1,0 +1,256 @@
+[
+ {
+  "target": "hrdb 1348 이유나",
+  "usersinfo": {
+   "State": "운영진",
+   "UserRole": "운영진",
+   "TeamRole": "팀장",
+   "Team": "리포터",
+   "Part": "신입",
+   "Week": 0,
+   "Level": "일반",
+   "StartDate": "2024-10-07 00:00:00"
+  },
+  "pointlogSummary": {
+   "totalRows": 11,
+   "createtimeFallbackRows": 0,
+   "lastCorrected": "2026-03-29",
+   "lastCreatetime": "2026-04-09"
+  },
+  "recentPointlogs": [
+   {
+    "LogNum": 725189,
+    "corrected": "2026-03-29",
+    "ActivityTime": "2026-03-29 00:00:00",
+    "createtime": "2026-04-09 06:53:26",
+    "usedCreatetimeFallback": false,
+    "code": "00",
+    "log": "진행",
+    "Info": "주차 후기",
+    "Star": 2,
+    "Shield": 0
+   },
+   {
+    "LogNum": 720080,
+    "corrected": "2026-03-17",
+    "ActivityTime": "2026-03-17 00:00:00",
+    "createtime": "2026-03-30 09:12:27",
+    "usedCreatetimeFallback": false,
+    "code": "00",
+    "log": "신입 크루 환영 인사",
+    "Info": "봄 시즌 3주차 ",
+    "Star": 3,
+    "Shield": 0
+   },
+   {
+    "LogNum": 718298,
+    "corrected": "2026-03-10",
+    "ActivityTime": "2026-03-10 00:00:00",
+    "createtime": "2026-03-24 07:22:57",
+    "usedCreatetimeFallback": false,
+    "code": "00",
+    "log": "신입 크루 환영 인사",
+    "Info": "봄 시즌 2주차 ",
+    "Star": 3,
+    "Shield": 0
+   },
+   {
+    "LogNum": 714208,
+    "corrected": "2026-03-02",
+    "ActivityTime": "2026-03-02 00:00:00",
+    "createtime": "2026-03-11 08:05:26",
+    "usedCreatetimeFallback": false,
+    "code": "00",
+    "log": "방패 부여",
+    "Info": "봄 시즌 시작 응원 ",
+    "Star": 0,
+    "Shield": 3
+   },
+   {
+    "LogNum": 709611,
+    "corrected": "2026-02-07",
+    "ActivityTime": "2026-02-07 00:00:00",
+    "createtime": "2026-02-12 01:38:27",
+    "usedCreatetimeFallback": false,
+    "code": "00",
+    "log": "일괄 부여",
+    "Info": "호응집계",
+    "Star": 10,
+    "Shield": 0
+   },
+   {
+    "LogNum": 699334,
+    "corrected": "2026-01-10",
+    "ActivityTime": "2026-01-10 00:00:00",
+    "createtime": "2026-01-14 11:31:02",
+    "usedCreatetimeFallback": false,
+    "code": "0",
+    "log": "일괄 부여 ",
+    "Info": "호응집계 관련",
+    "Star": 30,
+    "Shield": 0
+   },
+   {
+    "LogNum": 663364,
+    "corrected": "2025-08-30",
+    "ActivityTime": "2025-08-30 00:00:00",
+    "createtime": "2025-09-04 09:39:07",
+    "usedCreatetimeFallback": false,
+    "code": "가을 시즌 등록 크루",
+    "log": "방패 부여",
+    "Info": "활동응원",
+    "Star": 0,
+    "Shield": 3
+   },
+   {
+    "LogNum": 662572,
+    "corrected": "2025-08-26",
+    "ActivityTime": "2025-08-26 23:59:00",
+    "createtime": "2025-08-27 16:40:10",
+    "usedCreatetimeFallback": false,
+    "code": "0",
+    "log": "투표 미참여 패널티",
+    "Info": "[4658] [25, 가을]가을 시즌 자율 휴식 신청 1회 안내_250827",
+    "Star": 0,
+    "Shield": 0
+   }
+  ],
+  "activities": {
+   "useractivities": {
+    "rows": 0,
+    "last": null
+   },
+   "manageractivities": {
+    "rows": 0,
+    "last": null
+   }
+  }
+ },
+ {
+  "target": "olympus 180 선우은교",
+  "usersinfo": {
+   "State": "운영진",
+   "UserRole": "운영진",
+   "TeamRole": "팀장",
+   "Team": "브랜딩",
+   "Part": "일반",
+   "Week": 0,
+   "Level": "일반",
+   "StartDate": "2024-10-08 00:00:00"
+  },
+  "pointlogSummary": {
+   "totalRows": 14,
+   "createtimeFallbackRows": 0,
+   "lastCorrected": "2026-05-17",
+   "lastCreatetime": "2026-05-28"
+  },
+  "recentPointlogs": [
+   {
+    "LogNum": 69396,
+    "corrected": "2026-05-17",
+    "ActivityTime": "2026-05-17 00:00:00",
+    "createtime": "2026-05-28 13:07:05",
+    "usedCreatetimeFallback": false,
+    "code": "11",
+    "log": "활동 독려 포인트 부여",
+    "Info": "봄 시즌 11주차 추가 포인트",
+    "Star": 10,
+    "Shield": 0
+   },
+   {
+    "LogNum": 65046,
+    "corrected": "2026-03-02",
+    "ActivityTime": "2026-03-02 00:00:00",
+    "createtime": "2026-03-11 07:18:37",
+    "usedCreatetimeFallback": false,
+    "code": "00",
+    "log": "방패 부여",
+    "Info": "봄 시즌 시작 활동 응원",
+    "Star": 0,
+    "Shield": 3
+   },
+   {
+    "LogNum": 63127,
+    "corrected": "2026-01-24",
+    "ActivityTime": "2026-01-24 00:00:00",
+    "createtime": "2026-01-29 05:03:03",
+    "usedCreatetimeFallback": false,
+    "code": "00",
+    "log": "포인트 부여",
+    "Info": "활동 응원",
+    "Star": 10,
+    "Shield": 0
+   },
+   {
+    "LogNum": 62822,
+    "corrected": "2026-01-17",
+    "ActivityTime": "2026-01-17 00:00:00",
+    "createtime": "2026-01-22 01:10:42",
+    "usedCreatetimeFallback": false,
+    "code": "00",
+    "log": "투구 부여",
+    "Info": "활동 응원",
+    "Star": 5,
+    "Shield": 0
+   },
+   {
+    "LogNum": 62793,
+    "corrected": "2026-01-17",
+    "ActivityTime": "2026-01-17 00:00:00",
+    "createtime": "2026-01-22 01:09:56",
+    "usedCreatetimeFallback": false,
+    "code": "00",
+    "log": "투구 부여",
+    "Info": "주차 후기 ",
+    "Star": 2,
+    "Shield": 0
+   },
+   {
+    "LogNum": 61882,
+    "corrected": "2025-12-29",
+    "ActivityTime": "2025-12-29 00:00:00",
+    "createtime": "2026-01-08 12:59:11",
+    "usedCreatetimeFallback": false,
+    "code": "00",
+    "log": "응원 ",
+    "Info": "겨울 시즌 활동 ",
+    "Star": 10,
+    "Shield": 3
+   },
+   {
+    "LogNum": 60673,
+    "corrected": "2025-11-30",
+    "ActivityTime": "2025-11-30 23:59:00",
+    "createtime": "2025-12-01 01:17:56",
+    "usedCreatetimeFallback": false,
+    "code": "25112811",
+    "log": "투표 미참여 패널티",
+    "Info": "[1022] [클럽캘린더 공표_25112811]",
+    "Star": 0,
+    "Shield": -1
+   },
+   {
+    "LogNum": 60397,
+    "corrected": "2025-11-23",
+    "ActivityTime": "2025-11-23 23:59:00",
+    "createtime": "2025-11-25 22:06:19",
+    "usedCreatetimeFallback": false,
+    "code": "25112111",
+    "log": "투표 미참여 패널티",
+    "Info": "[1002] [클럽캘린더 공표_25112111]",
+    "Star": 0,
+    "Shield": -1
+   }
+  ],
+  "activities": {
+   "useractivities": {
+    "rows": 0,
+    "last": null
+   },
+   "manageractivities": {
+    "rows": 0,
+    "last": null
+   }
+  }
+ }
+]

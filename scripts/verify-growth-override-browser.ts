@@ -73,10 +73,11 @@ type Case = {
 async function main() {
   const browser = await chromium.launch({ channel: "chromium" });
 
+  const slugPrefix = process.env.SHOT_PREFIX ?? "";
   const CASES: Case[] = [
     {
       label: "T조하은(override=paused)",
-      slug: "cho",
+      slug: `${slugPrefix}cho`,
       url: `${adminBase}/admin/crews/oranke/cc05522b-7a71-48fb-a291-3aaaefdf4865/cluster3`,
       expectFinal: "성장 유보",
       expectAuto: "성장 중",
@@ -85,7 +86,7 @@ async function main() {
     },
     {
       label: "T윤도현(override=graduated, auto=official_rest)",
-      slug: "yoon",
+      slug: `${slugPrefix}yoon`,
       url: `${adminBase}/admin/crews/encre/bf3b4305-751a-49e3-88ad-95a20e5c4dad/cluster3`,
       expectFinal: "성장 완료(졸업)",
       expectAuto: null, // 주차 경계에 따라 official_rest/active 변동 가능 — 경고 미노출만 확정 검사
@@ -94,7 +95,7 @@ async function main() {
     },
     {
       label: "T안건우(legacy graduating)",
-      slug: "ahn",
+      slug: `${slugPrefix}ahn`,
       url: `${adminBase}/admin/crews/oranke/ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee/cluster3`,
       expectFinal: "성장 중",
       expectAuto: "성장 중",
@@ -103,10 +104,12 @@ async function main() {
     },
   ];
 
+  const cookieDomain = new URL(adminBase).hostname; // localhost 또는 운영 도메인
+
   for (const c of CASES) {
     const cookies = await makeAdminCookies();
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1400 } });
-    await ctx.addCookies(cookies.map((k) => ({ ...k, domain: "localhost", path: "/" })));
+    await ctx.addCookies(cookies.map((k) => ({ ...k, domain: cookieDomain, path: "/" })));
     const page = await ctx.newPage();
     await page.goto(c.url, { waitUntil: "domcontentloaded", timeout: 90000 });
 

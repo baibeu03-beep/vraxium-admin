@@ -509,7 +509,7 @@ INSERT 9개 info 타입:
   id             | name           | line_code | cluster_id      | is_active
   wisdom         | 위즈덤         | wisdom    | practical_info  | true
   essay          | 에세이         | essay     | practical_info  | true
-  infodesk       | 인포데스크     | infodesk  | practical_info  | true
+  infodesk       | 씽크탱크     | infodesk  | practical_info  | true
   calendar       | 캘린더         | calendar  | practical_info  | true
   forum          | 포럼           | forum     | practical_info  | true
   session        | 세션           | session   | practical_info  | true

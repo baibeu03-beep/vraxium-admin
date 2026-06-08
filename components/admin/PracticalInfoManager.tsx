@@ -109,7 +109,7 @@ type UploadedImage = {
 // DB 조회 순서(activity-types API 는 id ASC)나 id 알파벳 순에 의존하지 않고, 아래 배열 순서를
 // UI 표시 순서로 강제한다. 여기 나열되지 않은(신규) 활동 유형은 API 순서로 뒤에 append 되므로
 // 아래 9개의 상대 순서는 항상 유지된다.
-//   위즈덤 → 에세이 → 인포데스크 → 캘린더 → 포럼 → 세션 → 실무특강 → 커뮤니티 → 기타A
+//   위즈덤 → 에세이 → 씽크탱크 → 캘린더 → 포럼 → 세션 → 아카데미 → 커뮤니티 → 기타A
 // /crews/encre/[userId]/cluster4 프론트 카드와 동일하게 activity_types(cluster_id='practical_info')
 // 를 단일 기준으로 사용한다 (lib/userActivityDetailsTypes.WORK_INFO_ACTIVITY_TYPE_IDS 참고).
 const PREFERRED_TAB_ORDER = [
@@ -701,6 +701,17 @@ export default function PracticalInfoManager() {
   const [caption2, setCaption2] = useState("");
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
   const [userSearch, setUserSearch] = useState("");
+
+  // Phase 2C — 라인 정보(/admin/lines/info)에서 넘어온 프리필 (additive, 개설 플로우 무변).
+  // 실무 정보는 마스터가 없어 브리지 대상이 아니므로 메인 타이틀 프리필만 지원한다.
+  // useSearchParams 대신 mount 1회 window 조회 — 기존 렌더/Suspense 경계 영향 없음.
+  useEffect(() => {
+    const prefill = new URLSearchParams(window.location.search).get("prefillMainTitle");
+    if (prefill && prefill.trim().length > 0) {
+      setMainTitle(prefill.trim());
+      setShowForm(true);
+    }
+  }, []);
 
   // Detail modal
   const [detailLineId, setDetailLineId] = useState<string | null>(null);

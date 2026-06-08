@@ -1,13 +1,8 @@
 import { NextRequest } from "next/server";
 import { requireAdmin, toAdminErrorResponse, ADMIN_READ_ROLES } from "@/lib/adminAuth";
-import {
-  COMPETENCY_LINE_WRITE_ROLES,
-  parseCompetencyLineMasterCreateBody,
-} from "@/lib/adminCompetencyLineTypes";
-import {
-  listCompetencyLineMasters,
-  createCompetencyLineMaster,
-} from "@/lib/adminCompetencyLineData";
+import { COMPETENCY_LINE_WRITE_ROLES } from "@/lib/adminCompetencyLineTypes";
+import { listCompetencyLineMasters } from "@/lib/adminCompetencyLineData";
+import { MASTER_CREATE_BLOCKED_MESSAGE } from "@/lib/lineMasterDriftGuard";
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,7 +27,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     await requireAdmin(COMPETENCY_LINE_WRITE_ROLES);
   } catch (error) {
@@ -41,27 +36,10 @@ export async function POST(request: NextRequest) {
     throw error;
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
-  }
-
-  const parsed = parseCompetencyLineMasterCreateBody(body);
-  if (!parsed.ok) {
-    return Response.json({ success: false, error: parsed.error }, { status: parsed.status });
-  }
-
-  try {
-    const master = await createCompetencyLineMaster(parsed.value);
-    return Response.json({ success: true, data: master }, { status: 201 });
-  } catch (error) {
-    const status = (error as { status?: number }).status ?? 500;
-    console.error("[competency-line-masters POST]", error);
-    return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed" },
-      { status },
-    );
-  }
+  // 2E-2 drift 가드: 마스터 직접 생성 차단 — 통합 라인 등록 → 개설 연결(브리지) 경로로 유도.
+  // (기존 생성 로직은 가드 해제 시 복원할 수 있도록 adminCompetencyLineData 에 보존.)
+  return Response.json(
+    { success: false, error: MASTER_CREATE_BLOCKED_MESSAGE },
+    { status: 409 },
+  );
 }

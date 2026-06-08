@@ -332,7 +332,7 @@ UI Validation:
 |---|---|
 | wisdom | 위즈덤 |
 | essay | 에세이 |
-| infodesk | 인포데스크 |
+| infodesk | 씽크탱크 |
 | calendar | 캘린더 |
 | forum | 포럼 |
 | session | 세션 |

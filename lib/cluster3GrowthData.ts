@@ -207,15 +207,25 @@ export async function resolveGrowthUserId(routeParam: string): Promise<string> {
     if (data) return (data as { user_id: string }).user_id;
   }
 
-  // integer legacy_user_id → users.id(UUID)
+  // integer legacy_user_id → users.id(UUID) — 레거시 호환 fallback.
+  // B안 복합키 (2026-06-07): legacy_user_id 는 (source_system, legacy_user_id) 복합
+  // 식별 체계라 단독으로는 모호할 수 있다. limit(2) 로 모호성을 감지해 fail-closed —
+  // 같은 숫자가 2명 이상이면 잘못된 사용자 해석 대신 명시적 409.
   if (/^\d+$/.test(id)) {
     const { data, error } = await supabaseAdmin
       .from("users")
       .select("id")
       .eq("legacy_user_id", Number(id))
-      .maybeSingle();
+      .limit(2);
     if (error) throw new GrowthError(500, error.message);
-    if (data) return (data as { id: string }).id;
+    const rows = (data ?? []) as { id: string }[];
+    if (rows.length > 1) {
+      throw new GrowthError(
+        409,
+        `legacy_user_id "${id}" is ambiguous under the composite (source_system, legacy_user_id) scheme — query by user_id (UUID) instead`,
+      );
+    }
+    if (rows.length === 1) return rows[0].id;
   }
 
   throw new GrowthError(404, `user not found for param "${id}"`);

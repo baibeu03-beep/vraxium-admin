@@ -4,6 +4,7 @@ import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { isUuid } from "@/lib/isUuid";
+import { getRegistrationByBridgedMasterId } from "@/lib/lineRegistrationLookup";
 import {
   getSeasonForDate,
   getCalendarWeekStatus,
@@ -295,19 +296,31 @@ export async function POST(request: NextRequest) {
       submissionClosesAt = week.submissionClosesAt;
     }
 
-    // 2. Lookup master for line_code + main_title
-    const { data: master, error: masterError } = await supabaseAdmin
-      .from("cluster4_competency_line_masters")
-      .select("id,line_code,line_name,main_title")
-      .eq("id", input.competency_line_master_id)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (masterError) return Response.json({ success: false, error: masterError.message }, { status: 500 });
-    if (!master) return Response.json({ success: false, error: "해당 라인을 찾을 수 없습니다" }, { status: 404 });
-
-    const lineCode = (master as { line_code: string }).line_code;
-    const mainTitle = (master as { main_title: string | null; line_name: string }).main_title
-      ?? (master as { line_name: string }).line_name;
+    // 2. Lookup line_code + main_title — (2E-3) line_registrations(bridged 역참조) 우선,
+    //    미연결이면 기존 마스터 fallback (운영 중단 방지). 필드 의미는 마스터와 등가
+    //    (2E-1 diff 0 + 2E-2 sync 가드). cluster4_lines 에는 기존대로 master FK 를 기록한다.
+    let lineCode: string;
+    let mainTitle: string;
+    const reg = await getRegistrationByBridgedMasterId(input.competency_line_master_id);
+    if (reg) {
+      if (!reg.isActive) {
+        return Response.json({ success: false, error: "해당 라인을 찾을 수 없습니다" }, { status: 404 });
+      }
+      lineCode = reg.lineCode;
+      mainTitle = reg.mainTitle ?? reg.lineName;
+    } else {
+      const { data: master, error: masterError } = await supabaseAdmin
+        .from("cluster4_competency_line_masters")
+        .select("id,line_code,line_name,main_title")
+        .eq("id", input.competency_line_master_id)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (masterError) return Response.json({ success: false, error: masterError.message }, { status: 500 });
+      if (!master) return Response.json({ success: false, error: "해당 라인을 찾을 수 없습니다" }, { status: 404 });
+      lineCode = (master as { line_code: string }).line_code;
+      mainTitle = (master as { main_title: string | null; line_name: string }).main_title
+        ?? (master as { line_name: string }).line_name;
+    }
 
     // 2.5 주차 단위 중복 체크: 같은 주차 + competency_line_master_id 의 active 라인이 있으면 차단.
     // (cluster4_lines 에는 week_id 가 없어 cluster4_line_targets.week_id 로 판정한다.)

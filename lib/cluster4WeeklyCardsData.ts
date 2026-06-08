@@ -1,4 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  getCompetencyMetaByMasterIdsRegFirst,
+  getExperienceMetaByMasterIdsRegFirst,
+} from "@/lib/lineRegistrationLookup";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import {
   getWeeklyGrowth,
@@ -1194,28 +1198,15 @@ async function fetchExperienceMasterMetaByIds(
 ): Promise<Map<string, ExperienceMasterMeta>> {
   const map = new Map<string, ExperienceMasterMeta>();
   if (ids.length === 0) return map;
-  const { data, error } = await supabaseAdmin
-    .from("cluster4_experience_line_masters")
-    .select("id,experience_category,experience_slot_order,line_name,organization_slug")
-    .in("id", ids);
-  if (error) {
-    console.warn("[cluster4/weekly-cards] experience masters lookup failed", {
-      message: error.message,
-    });
-    return map;
-  }
-  for (const row of (data ?? []) as {
-    id: string;
-    experience_category: Cluster4ExperienceCategory | null;
-    experience_slot_order: number | null;
-    line_name: string | null;
-    organization_slug: string | null;
-  }[]) {
-    map.set(row.id, {
-      category: row.experience_category ?? null,
-      slotOrder: row.experience_slot_order ?? null,
-      lineName: row.line_name ?? null,
-      organizationSlug: row.organization_slug ?? null,
+  // (2E-4) registrations-first — bridged_master_id 역참조. 미커버 id 는 헬퍼 내부에서
+  // 기존 마스터 fallback. 반환 shape/의미는 기존 마스터 쿼리와 등가 (2E-1 diff 0).
+  const meta = await getExperienceMetaByMasterIdsRegFirst(ids);
+  for (const [id, m] of meta) {
+    map.set(id, {
+      category: (m.category as Cluster4ExperienceCategory | null) ?? null,
+      slotOrder: m.slotOrder,
+      lineName: m.lineName,
+      organizationSlug: m.organizationSlug,
     });
   }
   return map;
@@ -1230,25 +1221,10 @@ async function fetchCompetencyMasterMetaByIds(
 ): Promise<Map<string, CompetencyMasterMeta>> {
   const map = new Map<string, CompetencyMasterMeta>();
   if (ids.length === 0) return map;
-  const { data, error } = await supabaseAdmin
-    .from("cluster4_competency_line_masters")
-    .select("id,line_name,organization_slug")
-    .in("id", ids);
-  if (error) {
-    console.warn("[cluster4/weekly-cards] competency masters lookup failed", {
-      message: error.message,
-    });
-    return map;
-  }
-  for (const row of (data ?? []) as {
-    id: string;
-    line_name: string | null;
-    organization_slug: string | null;
-  }[]) {
-    map.set(row.id, {
-      lineName: row.line_name ?? null,
-      organizationSlug: row.organization_slug ?? null,
-    });
+  // (2E-4) registrations-first + 마스터 fallback (헬퍼 내부) — shape 등가 유지.
+  const meta = await getCompetencyMetaByMasterIdsRegFirst(ids);
+  for (const [id, m] of meta) {
+    map.set(id, { lineName: m.lineName, organizationSlug: m.organizationSlug });
   }
   return map;
 }

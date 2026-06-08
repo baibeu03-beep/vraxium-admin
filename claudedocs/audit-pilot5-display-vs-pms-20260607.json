@@ -1,0 +1,312 @@
+[
+ {
+  "pilot": "P1 장승완",
+  "pms": {
+   "check": 925,
+   "netAdv": -54,
+   "pen": 193,
+   "week": 14,
+   "actRows": 55
+  },
+  "migration": {
+   "check": 925,
+   "pen": 192,
+   "netAdv": -54,
+   "uwsSuccess": 14,
+   "uwsFail": 14
+  },
+  "db": {
+   "check": 925,
+   "netAdv": -54,
+   "pen": 192,
+   "approved": 14,
+   "cumulative": 28,
+   "uwsSuccess": 14,
+   "uwsFail": 14
+  },
+  "direct": {
+   "check": 886,
+   "netAdv": -60,
+   "pen": 133,
+   "accumulated": 14,
+   "success": 14,
+   "fail": 14,
+   "tallying": 7,
+   "cards": 36
+  },
+  "http": {
+   "check": 886,
+   "netAdv": -60,
+   "pen": 133,
+   "accumulated": 14,
+   "success": 14,
+   "fail": 14,
+   "tallying": 7,
+   "cards": 36
+  },
+  "snapshot": {
+   "check": 886,
+   "netAdv": -60,
+   "pen": 133,
+   "accumulated": 14,
+   "success": 14,
+   "fail": 14,
+   "tallying": 7,
+   "cards": 36
+  },
+  "directEqHttp": true,
+  "snapshotEqDirect": true,
+  "snapshotMeta": {
+   "v": 18,
+   "stale": false
+  }
+ },
+ {
+  "pilot": "P2 안은비",
+  "pms": {
+   "check": 2014,
+   "netAdv": 14,
+   "pen": 107,
+   "week": 36,
+   "actRows": 58
+  },
+  "migration": {
+   "check": 2014,
+   "pen": 107,
+   "netAdv": 14,
+   "uwsSuccess": 37,
+   "uwsFail": 5
+  },
+  "db": {
+   "check": 2014,
+   "netAdv": 14,
+   "pen": 107,
+   "approved": 37,
+   "cumulative": 42,
+   "uwsSuccess": 37,
+   "uwsFail": 5
+  },
+  "direct": {
+   "check": 1991,
+   "netAdv": -12,
+   "pen": 106,
+   "accumulated": 37,
+   "success": 37,
+   "fail": 4,
+   "tallying": 7,
+   "cards": 49
+  },
+  "http": {
+   "check": 1991,
+   "netAdv": -12,
+   "pen": 106,
+   "accumulated": 37,
+   "success": 37,
+   "fail": 4,
+   "tallying": 7,
+   "cards": 49
+  },
+  "snapshot": {
+   "check": 1991,
+   "netAdv": -12,
+   "pen": 106,
+   "accumulated": 37,
+   "success": 37,
+   "fail": 4,
+   "tallying": 7,
+   "cards": 49
+  },
+  "directEqHttp": true,
+  "snapshotEqDirect": true,
+  "snapshotMeta": {
+   "v": 18,
+   "stale": false
+  }
+ },
+ {
+  "pilot": "P3 성채윤",
+  "pms": {
+   "check": 1085,
+   "netAdv": 44,
+   "pen": 40,
+   "week": 18,
+   "actRows": 19
+  },
+  "migration": {
+   "check": 1085,
+   "pen": 40,
+   "netAdv": 44,
+   "uwsSuccess": 18,
+   "uwsFail": 1
+  },
+  "db": {
+   "check": 1085,
+   "netAdv": 44,
+   "pen": 40,
+   "approved": 18,
+   "cumulative": 20,
+   "uwsSuccess": 18,
+   "uwsFail": 2
+  },
+  "direct": {
+   "check": 1023,
+   "netAdv": 21,
+   "pen": 25,
+   "accumulated": 18,
+   "success": 18,
+   "fail": 1,
+   "tallying": 1,
+   "cards": 21
+  },
+  "http": {
+   "check": 1023,
+   "netAdv": 21,
+   "pen": 25,
+   "accumulated": 18,
+   "success": 18,
+   "fail": 1,
+   "tallying": 1,
+   "cards": 21
+  },
+  "snapshot": {
+   "check": 1023,
+   "netAdv": 21,
+   "pen": 25,
+   "accumulated": 18,
+   "success": 18,
+   "fail": 1,
+   "tallying": 1,
+   "cards": 21
+  },
+  "directEqHttp": true,
+  "snapshotEqDirect": true,
+  "snapshotMeta": {
+   "v": 18,
+   "stale": false
+  }
+ },
+ {
+  "pilot": "P4 박시은",
+  "pms": {
+   "check": 966,
+   "netAdv": 30,
+   "pen": 42,
+   "week": 18,
+   "actRows": 21
+  },
+  "migration": {
+   "check": 966,
+   "pen": 42,
+   "netAdv": 30,
+   "uwsSuccess": 16,
+   "uwsFail": 3
+  },
+  "db": {
+   "check": 966,
+   "netAdv": 30,
+   "pen": 42,
+   "approved": 17,
+   "cumulative": 20,
+   "uwsSuccess": 17,
+   "uwsFail": 3
+  },
+  "direct": {
+   "check": 902,
+   "netAdv": 27,
+   "pen": 31,
+   "accumulated": 16,
+   "success": 16,
+   "fail": 3,
+   "tallying": 1,
+   "cards": 21
+  },
+  "http": {
+   "check": 902,
+   "netAdv": 27,
+   "pen": 31,
+   "accumulated": 16,
+   "success": 16,
+   "fail": 3,
+   "tallying": 1,
+   "cards": 21
+  },
+  "snapshot": {
+   "check": 902,
+   "netAdv": 27,
+   "pen": 31,
+   "accumulated": 16,
+   "success": 16,
+   "fail": 3,
+   "tallying": 1,
+   "cards": 21
+  },
+  "directEqHttp": true,
+  "snapshotEqDirect": true,
+  "snapshotMeta": {
+   "v": 18,
+   "stale": false
+  }
+ },
+ {
+  "pilot": "P5 정혜빈",
+  "pms": {
+   "check": 1668,
+   "netAdv": 120,
+   "pen": 49,
+   "week": 28,
+   "actRows": 31
+  },
+  "migration": {
+   "check": 1668,
+   "pen": 49,
+   "netAdv": 120,
+   "uwsSuccess": 26,
+   "uwsFail": 3
+  },
+  "db": {
+   "check": 1668,
+   "netAdv": 120,
+   "pen": 49,
+   "approved": 26,
+   "cumulative": 29,
+   "uwsSuccess": 26,
+   "uwsFail": 3
+  },
+  "direct": {
+   "check": 1526,
+   "netAdv": 85,
+   "pen": 39,
+   "accumulated": 26,
+   "success": 26,
+   "fail": 2,
+   "tallying": 1,
+   "cards": 30
+  },
+  "http": {
+   "check": 1526,
+   "netAdv": 85,
+   "pen": 39,
+   "accumulated": 26,
+   "success": 26,
+   "fail": 2,
+   "tallying": 1,
+   "cards": 30
+  },
+  "snapshot": {
+   "check": 1526,
+   "netAdv": 85,
+   "pen": 39,
+   "accumulated": 26,
+   "success": 26,
+   "fail": 2,
+   "tallying": 1,
+   "cards": 30
+  },
+  "directEqHttp": true,
+  "snapshotEqDirect": true,
+  "snapshotMeta": {
+   "v": 18,
+   "stale": false
+  }
+ }
+]

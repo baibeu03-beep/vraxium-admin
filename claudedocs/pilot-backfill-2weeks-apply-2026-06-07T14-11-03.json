@@ -1,0 +1,126 @@
+{
+ "mode": "apply",
+ "plan": [
+  {
+   "pilot": "P4",
+   "week": "2026-winter W1",
+   "start": "2025-12-29",
+   "status": "success",
+   "rating": 8,
+   "uws": "insert",
+   "target": "insert",
+   "submission": "insert",
+   "evaluation": "insert"
+  },
+  {
+   "pilot": "P4",
+   "week": "2026-spring W1",
+   "start": "2026-03-02",
+   "status": "success",
+   "rating": 8,
+   "uws": "insert",
+   "target": "insert",
+   "submission": "insert",
+   "evaluation": "insert"
+  },
+  {
+   "pilot": "P5",
+   "week": "2026-winter W1",
+   "start": "2025-12-29",
+   "status": "success",
+   "rating": 10,
+   "uws": "insert",
+   "target": "insert",
+   "submission": "insert",
+   "evaluation": "insert"
+  },
+  {
+   "pilot": "P5",
+   "week": "2026-spring W1",
+   "start": "2026-03-02",
+   "status": "success",
+   "rating": 10,
+   "uws": "insert",
+   "target": "insert",
+   "submission": "insert",
+   "evaluation": "insert"
+  }
+ ],
+ "inserted": [
+  {
+   "table": "user_week_statuses",
+   "id": "38f3d8de-3eb5-4e7a-af08-95f4a6b6ddce"
+  },
+  {
+   "table": "cluster4_line_targets",
+   "id": "41001495-46e4-42cd-9a37-b6f085af4a6a"
+  },
+  {
+   "table": "cluster4_line_submissions",
+   "id": "1943d0e1-3635-4f03-86ab-8b4e665d39b6"
+  },
+  {
+   "table": "cluster4_experience_line_evaluations",
+   "id": "6a41c8f1-cbe5-47b9-a47f-edfe9f8e45cd"
+  },
+  {
+   "table": "user_week_statuses",
+   "id": "78e44e04-c846-4b13-8418-548cc65c3c27"
+  },
+  {
+   "table": "cluster4_line_targets",
+   "id": "b1b8d8f9-ed4e-4ebb-8bf4-d91cc9cbceae"
+  },
+  {
+   "table": "cluster4_line_submissions",
+   "id": "9a0609fe-5cab-4107-8a1e-cf1fd0699fe4"
+  },
+  {
+   "table": "cluster4_experience_line_evaluations",
+   "id": "ce2c6262-10cf-4438-91d1-0b68e7016fc4"
+  },
+  {
+   "table": "user_week_statuses",
+   "id": "d7b98304-00b1-4c6f-92a1-b7f8f147b4a0"
+  },
+  {
+   "table": "cluster4_line_targets",
+   "id": "eb359b01-fe56-4f1e-a084-f280a1eb371b"
+  },
+  {
+   "table": "cluster4_line_submissions",
+   "id": "cda69f61-62f8-4293-a59d-af30ec8c089d"
+  },
+  {
+   "table": "cluster4_experience_line_evaluations",
+   "id": "125a104b-d385-4a10-84c6-14b9e15e2a3b"
+  },
+  {
+   "table": "user_week_statuses",
+   "id": "d5edd12e-27a8-4504-b8bb-dbf42cacd3db"
+  },
+  {
+   "table": "cluster4_line_targets",
+   "id": "da9ceaea-a757-49ba-9abc-c54bfd6517da"
+  },
+  {
+   "table": "cluster4_line_submissions",
+   "id": "5239a03b-11c3-441a-abbe-d67c2c8634cd"
+  },
+  {
+   "table": "cluster4_experience_line_evaluations",
+   "id": "54935871-52bb-420f-b342-0fd33bb75ba8"
+  }
+ ],
+ "users": [
+  {
+   "pilot": "P4",
+   "uuid": "56c46098-5c4c-4da8-8658-a6eb57fc1bad"
+  },
+  {
+   "pilot": "P5",
+   "uuid": "f3ac0827-793c-42a0-a83a-1c9070914b2e"
+  }
+ ],
+ "errors": []
+}

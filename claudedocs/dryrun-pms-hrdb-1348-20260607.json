@@ -1,0 +1,412 @@
+{
+ "generatedAt": "2026-06-07 §12 dry-run (B안 composite key — hrdb 1348)",
+ "mode": "DRY-RUN — DB writes 0 (pms SELECT-only · supabase select-only)",
+ "sourceSystem": {
+  "source": "hrdb",
+  "organizationSlug": "encre",
+  "legacyIdentity": {
+   "sourceSystem": "hrdb",
+   "legacyUserId": 1348
+  },
+  "offsetComparison": {
+   "deprecated_offsetPolicy": "10001348 (구 offset 가산값 — 폐기)",
+   "adopted_composite": "(hrdb, 1348) — 원본 보존"
+  },
+  "contract": "org=source system 매핑 단독 (usersinfo.Team 은 team_name 전용 — org 파생 금지) · 식별=(source_system, legacy_user_id) 복합키"
+ },
+ "step1_matching": {
+  "pms": {
+   "UserId": 1348,
+   "Name": "이유나",
+   "BirthDay": "22",
+   "Gender": "여",
+   "School": "ㅐㅐ",
+   "Major": "ㅐㅐ",
+   "Address": "ㅐㅐ",
+   "Contact": "01026931440",
+   "mail": "nana@dalgona.me",
+   "birthIso": null
+  },
+  "vraxiumCandidatesByName": 2,
+  "candidates": [
+   {
+    "user_id": "247021bc-374b-48f4-8d49-b181d149ee33",
+    "display_name": "이유나",
+    "birth_date": "2000-11-30",
+    "contact_phone": "01026931440",
+    "contact_email": "ynlee1130@kakao.com",
+    "organization_slug": "encre",
+    "status": "active",
+    "growth_status": "active",
+    "current_team_name": "A&R",
+    "current_part_name": "심화",
+    "school_name": "한양대학교",
+    "activity_started_at": "2026-05-11T00:00:00+00:00",
+    "role": "crew",
+    "birthMatch": false,
+    "phoneMatch": true,
+    "emailMatch": false
+   },
+   {
+    "user_id": "c28b2409-4118-49fc-a42e-68e18dbd194c",
+    "display_name": "이유나",
+    "birth_date": null,
+    "contact_phone": null,
+    "contact_email": "ynalee1130@gmail.com",
+    "organization_slug": null,
+    "status": "active",
+    "growth_status": "active",
+    "current_team_name": null,
+    "current_part_name": null,
+    "school_name": null,
+    "activity_started_at": "2026-05-18T00:00:00+00:00",
+    "role": "super_admin",
+    "birthMatch": false,
+    "phoneMatch": false,
+    "emailMatch": false
+   }
+  ],
+  "matched": {
+   "userId": "247021bc-374b-48f4-8d49-b181d149ee33",
+   "keys": {
+    "birth": false,
+    "phone": true,
+    "email": false
+   }
+  },
+  "matchedIsTester": false,
+  "matchedUsersRow": {
+   "source_system": null,
+   "legacy_user_id": 100000000
+  },
+  "compositePairOccupied": [],
+  "nullSourceSameNumber_info": [],
+  "plan": "기존 uuid 247021bc-374b-48f4-8d49-b181d149ee33 사용 + users.(source_system='hrdb', legacy_user_id=1348) 기록 — NULL-source 기존 행(legacy=100000000)에 source_system 최초 기록(불변 트리거 NULL→값 허용)"
+ },
+ "step2_profileMapping": {
+  "policy": "운영 중 사용자 — 기존 Vraxium 값 보존 + diff 리포트 (§12-1)",
+  "diff": {
+   "birth_date": {
+    "pms": null,
+    "vraxium": "2000-11-30"
+   },
+   "contact_email": {
+    "pms": "nana@dalgona.me",
+    "vraxium": "ynlee1130@kakao.com"
+   },
+   "school_name": {
+    "pms": "ㅐㅐ",
+    "vraxium": "한양대학교"
+   },
+   "team": {
+    "pms": "리포터",
+    "vraxium": "A&R"
+   },
+   "part": {
+    "pms": "신입",
+    "vraxium": "심화"
+   },
+   "level": {
+    "pms": "일반",
+    "vraxium": null
+   }
+  },
+  "membershipCurrent": [],
+  "pmsSnapshot": {
+   "Team": "리포터",
+   "Part": "신입",
+   "Week": 0,
+   "Level": "일반",
+   "StartDate": "2024-10-07 00:00:00",
+   "State": "운영진"
+  },
+  "writesPlanned": "users.legacy_user_id 기록 외 프로필 변경 없음 (diff 는 운영 검토용)"
+ },
+ "step3_ledgerPlan": {
+  "ddlPrereq": "legacy_point_ledger DDL 적용 완료 (2026-06-07 확인 — UNIQUE(source_table, source_pk) arbiter 실증)",
+  "rowsToInsert": 11,
+  "alive": 11,
+  "deleted_voidedAt": 0,
+  "code0000_included": 0,
+  "starRows": 5,
+  "shieldRows": 5,
+  "dateSubstituted": 0,
+  "idempotencyKey": "(source_table='hrdb.pointlogs', source_pk=LogNum) UNIQUE — 소스 프리픽스로 시스템 간 PK 충돌 차단",
+  "policy": "IsDeleted=1 포함 전 행 적재(voided_at 표시) — A3-⑤ alive 선별 금지"
+ },
+ "step4_uwpPlan": {
+  "formula": "§5-1: points=Σ Star(net_all, 14일 보호) / advantages=Σ max(Shield,0) alive / penalty=Σ max(−Shield,0) alive",
+  "newbieProtection": {
+   "startDate": "2024-10-07",
+   "until": "2024-10-21",
+   "zeroedRows": 0
+  },
+  "rowsPlanned": 8,
+  "inserts": 8,
+  "overwritesExisting_dummyPerOps": 0,
+  "zeroPointWeeksIncluded": 0,
+  "unattributedPointlogRows_holdQueue": 2
+ },
+ "step5_uwsPlan": {
+  "source": "useractivities.IsActive SoT (A3-⑧) + manageractivities 병기 — OR 인정",
+  "rowsPlanned": 0,
+  "inserts": 0,
+  "overwrites_existingDummyPerOps": 0,
+  "statusConflicts": [],
+  "actUnattributed_holdQueue": 0,
+  "postWriteContract": "uws 쓰기 → recalcUserGrowthStats(전환 제외) → snapshot 재계산 (파이프라인 순서 강제)"
+ },
+ "step6_checksMigratedPlan": {
+  "thresholdResolution": {
+   "contract": "org_week_thresholds('encre') → weeks.check_threshold → 30 (라이브 판정 경로와 동일)",
+   "fromOrgRow": 8,
+   "fromWeeksColumn": 0,
+   "fromDefault": 0
+  },
+  "base": "생성 uwp 전 행 checks_migrated=true (0건 주차 포함 — v18 행 기록 계약)",
+  "flipRows": [],
+  "flips": 0,
+  "agree": 0,
+  "reverse": 0,
+  "policyOptions": {
+   "pmsFirst_recommended": "flip 0행만 checks_migrated=false (행 단위 provenance — 화면 뒤집힘 0)",
+   "failAccept": "flip 0행 read-time fail 표시 (uws 는 success 유지 — 표시 누적만 감소)"
+  }
+ },
+ "step7_experiencePlan": {
+  "boundary": "start_date < 2026-06-29 (= 2026 봄 W16 까지 — 전 활동 주차 해당)",
+  "mapping": "subtitle=Activity 원문(cluster4_line_submissions) / rating=Star(cluster4_experience_line_evaluations) / week 귀속=타깃.week_id",
+  "lineRowsToCreate": 0,
+  "lineReuse": "기존 active [통합] 마스터/라인 재사용 — 신규 라인 생성 금지 (v17·B7 dry-run tempLineRestorability 계약)",
+  "targetsToCreate": 0,
+  "submissionsToCreate": 0,
+  "evaluationsToCreate": 0,
+  "subtitleMissing": 0,
+  "multiActivityWeeks": 0
+ },
+ "step8_adjustment": {
+  "balanceNow": {
+   "star": 52,
+   "shield": 20
+  },
+  "weeklySums": {
+   "points": 48,
+   "advantages": 9,
+   "penalty": 0,
+   "advMinusPen": 9
+  },
+  "unattributedNote": "미귀속 pointlogs 2행의 Star/Shield 는 주차 행에 없으므로 adjustment 가 흡수",
+  "sentinelRow": {
+   "key": "year=1900, week_number=0, week_start_date=1900-01-01, checks_migrated=false",
+   "points": 4,
+   "advantages": 11,
+   "penalty": 0
+  },
+  "ledgerRow": {
+   "entry_type": "MIGRATION_ADJUSTMENT",
+   "star_delta": 4,
+   "shield_delta": 11
+  },
+  "identity": "적용 후 Σuwp.points = userspoint.Star / Σ(adv−pen) = userspoint.Shield (항등식 자동 성립)",
+  "caution": "본 수치는 오늘 잔액 기준 — 실제 apply 시 컷오버 직전 재계산 필수 (§5-2)"
+ },
+ "step9_snapshot": {
+  "exists": true,
+  "dto_version": 18,
+  "is_stale": false,
+  "cardsNow": 4,
+  "cardsAfterMigration_expected": 0,
+  "recomputeRequired": "필수 — 원장 직접 수정은 자동 무효화 안 됨 (uws/uwp 대량 쓰기 후 명시 재계산, 파이프라인 7단계)",
+  "sentinelLeak": "1900-W0 는 weeks 부재 → 카드 미생성 (§5-2 소비처 검증 완료 계약)"
+ },
+ "verification_directVsHttp": {
+  "httpStatus": 200,
+  "directCards": 4,
+  "httpCards": 4,
+  "deepEqual": true,
+  "diffWeeks": [],
+  "currentAccumulated": 0,
+  "currentShieldLightning": "카드별 points.shield 표기 — 이관 후 주차별 adv−pen 반영 예상"
+ },
+ "step10_rollback": {
+  "order": [
+   "1) cluster4 evaluations/submissions/targets — source_pk 멱등키(ActivityId) 기준 신규 행 삭제",
+   "2) uws — 신규 insert 삭제 + 덮어쓴 행 prior 복원 (run log 의 before 값)",
+   "3) uwp — sentinel(1900-W0) 삭제 + 신규 insert 삭제 + 덮어쓴 행 prior 복원 + checks_migrated=false 복귀",
+   "4) legacy_point_ledger — source_pk 기준 삭제 (read-only 아카이브라 소비처 없음)",
+   "5) users 페어 기록 롤백 — 신규 채번 행은 삭제, 기존(matched) 행은 source_system NULL 복귀 (⚠ 불변 트리거가 set 후 변경을 막으므로 rollback 은 트리거 일시 해제 또는 관리 SQL 경유 — run log 에 prior 기록)",
+   "6) recalcUserGrowthStats + snapshot 재계산 → 이관 전 상태 diff=0 확인"
+  ],
+  "precondition": "apply 구현 시 모든 쓰기 전 prior 값을 run log 에 기록 (B7 apply 와 동일 패턴)"
+ },
+ "weekRows": [
+  {
+   "week": "2025-winter W1",
+   "start": "2024-12-30",
+   "threshold": 25,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 0,
+    "advantages": 3,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-spring W1",
+   "start": "2025-03-03",
+   "threshold": 23,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 0,
+    "advantages": 3,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-winter W2",
+   "start": "2026-01-05",
+   "threshold": 0,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 30,
+    "advantages": 0,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-winter W6",
+   "start": "2026-02-02",
+   "threshold": 0,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 10,
+    "advantages": 0,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W1",
+   "start": "2026-03-02",
+   "threshold": 23,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 0,
+    "advantages": 3,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W2",
+   "start": "2026-03-09",
+   "threshold": 26,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 3,
+    "advantages": 0,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W3",
+   "start": "2026-03-16",
+   "threshold": 38,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 3,
+    "advantages": 0,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W4",
+   "start": "2026-03-23",
+   "threshold": 35,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 2,
+    "advantages": 0,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  }
+ ]
+}

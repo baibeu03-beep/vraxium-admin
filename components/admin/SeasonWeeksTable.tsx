@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { RefreshCw, RotateCcw } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
+// ── 데이터 타입: /api/admin/season-weeks 응답 DTO 그대로 (수정 금지) ──────────
 type SeasonSummary = {
   season_key: string;
   season_label: string | null;
@@ -39,9 +41,10 @@ type SeasonWeekRow = SeasonSummary & {
   is_official_rest: boolean;
   official_rest_sources?: OfficialRestSource[];
   is_current_week: boolean;
-  // 전환 주차: 시즌 사이 gap 주차(주차 시작일 > 시즌 end_date). 직전 시즌에 귀속.
-  // 구형 캐시 응답 호환을 위해 optional.
+  // 전환 주차: 시즌 사이 gap 주차. 직전 시즌에 귀속. 구형 캐시 응답 호환 optional.
   is_transition?: boolean;
+  // 사용자 노출용 비고(휴식명/설명) — weeks.holiday_name. 구형 응답 호환 optional.
+  holiday_name?: string | null;
 };
 
 type SeasonWeekConflict = {
@@ -54,12 +57,6 @@ type SeasonWeekConflict = {
   reason: string;
 };
 
-const SOURCE_LABELS: Record<OfficialRestSource, string> = {
-  season_rule: "시험기간 규칙",
-  date_period: "날짜 등록",
-  legacy_iso_week: "legacy",
-};
-
 type ApiPayload = {
   seasons?: SeasonSummary[];
   rows?: SeasonWeekRow[];
@@ -67,296 +64,227 @@ type ApiPayload = {
   generatedAt?: string;
 };
 
-type SeasonGroup = SeasonSummary & {
-  rows: SeasonWeekRow[];
-  officialRestCount: number;
-  transitionCount: number;
-  conflictCount: number;
-  isCurrentSeason: boolean;
-};
+// ── 필터/정렬 상수 ───────────────────────────────────────────────────────────
+const ALL = "__all__";
+const PAGE_SIZE = 20;
 
-type FilterKey = "all" | "withWeeks" | "noWeeks" | "current";
+type SortKey = "latest" | "oldest";
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "all", label: "전체" },
-  { key: "withWeeks", label: "주차 있음" },
-  { key: "noWeeks", label: "주차 없음" },
-  { key: "current", label: "현재 시즌" },
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "latest", label: "최신 순" },
+  { key: "oldest", label: "오래된 순" },
 ];
 
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
+// 년도 옵션은 기획 고정값 (데이터 유무와 무관하게 노출). 보이드(-) 아래 최신 년도순.
+const YEAR_OPTIONS = ["2026", "2025", "2024", "2023", "2022"] as const;
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "-";
-  const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return value;
-  return `${value}(${WEEKDAYS[date.getUTCDay()]})`;
+type SeasonToken = "spring" | "summer" | "autumn" | "winter";
+
+const SEASON_OPTIONS: { key: SeasonToken; label: string }[] = [
+  { key: "spring", label: "봄" },
+  { key: "summer", label: "여름" },
+  { key: "autumn", label: "가을" },
+  { key: "winter", label: "겨울" },
+];
+
+const SEASON_TOKEN_LABEL: Record<SeasonToken, string> = {
+  spring: "봄",
+  summer: "여름",
+  autumn: "가을",
+  winter: "겨울",
+};
+
+type ActivityKey = "official" | "rest";
+
+const ACTIVITY_OPTIONS: { key: ActivityKey; label: string }[] = [
+  { key: "official", label: "공식 활동" },
+  { key: "rest", label: "공식 휴식" },
+];
+
+// base-ui Select 는 items 매핑이 있어야 닫힌 트리거에 라벨(값 아님)을 표시한다.
+const SORT_ITEMS = SORT_OPTIONS.map((o) => ({ value: o.key, label: o.label }));
+const YEAR_ITEMS = [
+  { value: ALL, label: "-" },
+  ...YEAR_OPTIONS.map((y) => ({ value: y, label: `${y}년` })),
+];
+const SEASON_ITEMS = [
+  { value: ALL, label: "-" },
+  ...SEASON_OPTIONS.map((o) => ({ value: o.key, label: o.label })),
+];
+const ACTIVITY_ITEMS = [
+  { value: ALL, label: "-" },
+  ...ACTIVITY_OPTIONS.map((o) => ({ value: o.key, label: o.label })),
+];
+
+// 주차 코드 표시(UI 계산 전용 — DB 저장 없음, weeks.id UUID 비노출).
+// 하이픈 통일 형식 — 일반: {YY}-{SP|SU|AU|WI}-{NN} / 전환: {YY}-{현재 시즌}-{다음 시즌}
+const SEASON_CODE: Record<SeasonToken, string> = {
+  spring: "SP",
+  summer: "SU",
+  autumn: "AU",
+  winter: "WI",
+};
+
+const NEXT_SEASON: Record<SeasonToken, SeasonToken> = {
+  spring: "summer",
+  summer: "autumn",
+  autumn: "winter",
+  winter: "spring",
+};
+
+// ── 표시 헬퍼 ────────────────────────────────────────────────────────────────
+function formatKoreanDate(value: string | null | undefined) {
+  if (!value) return null;
+  const [y, m, d] = value.split("-");
+  if (!y || !m || !d) return value;
+  return `${y}년 ${Number(m)}월 ${Number(d)}일`;
 }
 
-function formatRange(start: string | null, end: string | null) {
-  if (!start && !end) return "-";
-  if (start && end) return `${formatDate(start)} ~ ${formatDate(end)}`;
-  return formatDate(start ?? end);
+function formatPeriod(start: string | null, end: string | null) {
+  const s = formatKoreanDate(start);
+  const e = formatKoreanDate(end);
+  if (s && e) return `${s} → ${e}`;
+  return s ?? e ?? "-";
 }
 
-function isTodayInRange(start: string | null, end: string | null, today: string) {
-  if (!start || !end) return false;
-  return start <= today && today <= end;
+function rowYear(row: SeasonWeekRow): string | null {
+  return row.week_start_date ? row.week_start_date.slice(0, 4) : null;
 }
 
-function StatusBadge({
-  tone,
-  children,
-}: {
-  tone: "current" | "rest" | "warning" | "transition" | "muted";
-  children: ReactNode;
-}) {
+// 주차가 속한 시즌 종류: season_key 토큰 우선, 라벨/이름의 한글 시즌명 폴백.
+function rowSeasonToken(row: SeasonWeekRow): SeasonToken | null {
+  const key = row.season_key.toLowerCase();
+  for (const option of SEASON_OPTIONS) {
+    if (key.includes(option.key)) return option.key;
+  }
+  const name = `${row.season_label ?? ""}${row.season_name ?? ""}`;
+  if (name.includes("봄")) return "spring";
+  if (name.includes("여름")) return "summer";
+  if (name.includes("가을")) return "autumn";
+  if (name.includes("겨울")) return "winter";
+  return null;
+}
+
+// 시즌 컬럼 표기: 전환 주차는 "전환", 그 외는 봄/여름/가을/겨울.
+function rowSeasonLabel(row: SeasonWeekRow): string {
+  if (row.is_transition) return "전환";
+  const token = rowSeasonToken(row);
+  return token ? SEASON_TOKEN_LABEL[token] : "-";
+}
+
+// 주차 코드의 년도: 시즌 귀속 년도(season_key 의 4자리) 우선, 주차 시작일 폴백.
+function rowSeasonYear(row: SeasonWeekRow): string | null {
+  const m = row.season_key.match(/(20\d{2})/);
+  if (m) return m[1];
+  return rowYear(row);
+}
+
+function rowWeekCode(row: SeasonWeekRow): string {
+  const token = rowSeasonToken(row);
+  const year = rowSeasonYear(row);
+  if (!token || !year) return "-";
+  const yy = year.slice(2);
+  if (row.is_transition) {
+    return `${yy}-${SEASON_CODE[token]}-${SEASON_CODE[NEXT_SEASON[token]]}`;
+  }
+  if (row.week_number == null) return "-";
+  return `${yy}-${SEASON_CODE[token]}-${String(row.week_number).padStart(2, "0")}`;
+}
+
+// 비고: 사용자 노출용 설명. UI 파생 텍스트 전용(DB 저장/backfill 없음).
+// 우선순위 — 1) weeks.holiday_name 2) 전환 주차 자동 문구
+// 3) 공식 휴식 + 시험기간 규칙(봄/가을 6~8주=중간고사, 14~16주=기말고사) 파생 문구
+// 판별 불가는 빈칸. 내부 판정 출처(official_rest_sources) 원문은 노출하지 않는다.
+function rowRemark(row: SeasonWeekRow): string {
+  const holidayName = row.holiday_name?.trim();
+  if (holidayName) return holidayName;
+
+  const token = rowSeasonToken(row);
+  const year = rowSeasonYear(row);
+
+  if (row.is_transition) {
+    if (!token || !year) return "";
+    const next = NEXT_SEASON[token];
+    // 겨울 → 봄 전환은 해가 바뀐다.
+    const nextYear = token === "winter" ? String(Number(year) + 1) : year;
+    return `${year.slice(2)}년 ${SEASON_TOKEN_LABEL[token]} 시즌 → ${nextYear.slice(2)}년 ${SEASON_TOKEN_LABEL[next]} 시즌으로의 시즌 전환 휴식`;
+  }
+
+  if (!row.is_official_rest) return "";
+
+  // 시험기간 규칙 파생: 봄=1학기, 가을=2학기 (여름/겨울 시즌엔 시험기간 휴식 없음)
+  if (
+    (token === "spring" || token === "autumn") &&
+    row.week_number != null
+  ) {
+    const semester = token === "spring" ? "1학기" : "2학기";
+    if (row.week_number >= 6 && row.week_number <= 8) {
+      return `대한민국 2/4년제 대학 학사 일정 중 ${semester} 중간고사 휴식`;
+    }
+    if (row.week_number >= 14 && row.week_number <= 16) {
+      return `대한민국 2/4년제 대학 학사 일정 중 ${semester} 기말고사 휴식`;
+    }
+  }
+
+  // 명절(날짜 등록) 휴식인데 holiday_name 이 없으면 명절명 판별 불가 → 빈칸.
+  return "";
+}
+
+function ActivityBadge({ isRest }: { isRest: boolean }) {
   return (
     <span
       className={cn(
         "inline-flex h-6 items-center rounded-md px-2 text-xs font-medium",
-        tone === "current" && "bg-primary text-primary-foreground",
-        tone === "rest" && "bg-amber-100 text-amber-800 ring-1 ring-amber-200",
-        tone === "warning" && "bg-red-100 text-red-800 ring-1 ring-red-200",
-        tone === "transition" &&
-          "bg-sky-100 text-sky-800 ring-1 ring-sky-200",
-        tone === "muted" && "bg-muted text-muted-foreground",
+        isRest
+          ? "bg-amber-100 text-amber-800 ring-1 ring-amber-200"
+          : "bg-muted text-muted-foreground",
       )}
     >
-      {children}
+      {isRest ? "공식 휴식" : "공식 활동"}
     </span>
   );
 }
 
-function matchesFilter(group: SeasonGroup, filter: FilterKey) {
-  switch (filter) {
-    case "withWeeks":
-      return group.rows.length > 0;
-    case "noWeeks":
-      return group.rows.length === 0;
-    case "current":
-      return group.isCurrentSeason;
-    case "all":
-    default:
-      return true;
-  }
-}
-
-function SeasonCard({
-  group,
-  expanded,
-  onToggle,
-  conflictByWeekId,
+function FilterField({
+  label,
+  children,
 }: {
-  group: SeasonGroup;
-  expanded: boolean;
-  onToggle: () => void;
-  conflictByWeekId: Map<string, SeasonWeekConflict>;
+  label: string;
+  children: ReactNode;
 }) {
-  const hasWeeks = group.rows.length > 0;
-
   return (
-    <Card
-      className={cn(
-        "h-fit",
-        group.isCurrentSeason && "ring-2 ring-primary/40",
-      )}
-    >
-      <CardHeader className={cn(expanded && hasWeeks && "border-b")}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <CardTitle>
-                {group.season_label ?? group.season_name ?? "-"}
-              </CardTitle>
-              <span className="font-mono text-xs text-muted-foreground">
-                {group.season_key}
-              </span>
-              {group.isCurrentSeason && (
-                <StatusBadge tone="current">현재 시즌</StatusBadge>
-              )}
-            </div>
-            <CardDescription className="mt-1">
-              {formatRange(group.season_start_date, group.season_end_date)}
-            </CardDescription>
-            {/* [4] 시즌 통계 강조 */}
-            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-              <span
-                className={cn(
-                  "font-medium",
-                  hasWeeks ? "text-foreground" : "text-muted-foreground",
-                )}
-              >
-                주차 {group.rows.length}개
-              </span>
-              <span className="text-muted-foreground/40">|</span>
-              <span
-                className={cn(
-                  group.officialRestCount > 0
-                    ? "font-medium text-amber-700"
-                    : "text-muted-foreground",
-                )}
-              >
-                공식 휴식 {group.officialRestCount}개
-              </span>
-              {group.transitionCount > 0 && (
-                <>
-                  <span className="text-muted-foreground/40">|</span>
-                  <span className="font-medium text-sky-700">
-                    전환 주차 {group.transitionCount}개
-                  </span>
-                </>
-              )}
-              {group.conflictCount > 0 && (
-                <>
-                  <span className="text-muted-foreground/40">|</span>
-                  <span className="font-medium text-red-700">
-                    충돌 {group.conflictCount}건
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onToggle}
-            className="shrink-0"
-            disabled={!hasWeeks}
-          >
-            {expanded ? (
-              <ChevronDown className="h-3.5 w-3.5" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5" />
-            )}
-            {expanded ? "접기" : "주차 보기"}
-          </Button>
-        </div>
-      </CardHeader>
-
-      {/* [3][7] 펼친 경우에만 본문 렌더 — 접힌 카드는 최소 높이 유지 */}
-      {expanded && (
-        <CardContent className="pt-0">
-          {hasWeeks ? (
-            <div className="overflow-hidden rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>주차</TableHead>
-                    <TableHead>주차 기간</TableHead>
-                    <TableHead>공식 휴식 여부</TableHead>
-                    <TableHead>판정 출처</TableHead>
-                    <TableHead>현재 주차 여부</TableHead>
-                    <TableHead>규칙 충돌</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {group.rows.map((row) => {
-                    const conflict = conflictByWeekId.get(row.week_id);
-                    return (
-                      <TableRow
-                        key={row.week_id}
-                        className={cn(
-                          row.is_current_week && "bg-primary/5",
-                          row.is_transition && "bg-sky-50/60",
-                          conflict && "bg-red-50/60",
-                        )}
-                      >
-                        <TableCell className="font-medium">
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span>
-                              {row.week_label}
-                              {row.is_transition ? " · 전환" : ""}
-                            </span>
-                            {row.is_transition && (
-                              <StatusBadge tone="transition">
-                                전환 주차
-                              </StatusBadge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {formatRange(row.week_start_date, row.week_end_date)}
-                        </TableCell>
-                        <TableCell>
-                          {row.is_official_rest ? (
-                            <StatusBadge tone="rest">공식 휴식</StatusBadge>
-                          ) : (
-                            <StatusBadge tone="muted">운영</StatusBadge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {row.official_rest_sources &&
-                          row.official_rest_sources.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {row.official_rest_sources.map((source) => (
-                                <span
-                                  key={source}
-                                  className={cn(
-                                    "inline-flex h-6 items-center rounded-md px-2 text-xs font-medium",
-                                    source === "legacy_iso_week"
-                                      ? "bg-muted text-muted-foreground line-through"
-                                      : "bg-sky-100 text-sky-800 ring-1 ring-sky-200",
-                                  )}
-                                >
-                                  {SOURCE_LABELS[source]}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {row.is_current_week ? (
-                            <StatusBadge tone="current">현재 주차</StatusBadge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {conflict ? (
-                            <StatusBadge tone="warning">
-                              판정{" "}
-                              {conflict.resolved_is_official_rest
-                                ? "휴식"
-                                : "운영"}{" "}
-                              / legacy{" "}
-                              {conflict.legacy_is_official_rest ? "휴식" : "운영"}
-                            </StatusBadge>
-                          ) : (
-                            <span className="text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <div className="flex h-16 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
-              이 시즌에 연결된 주차 데이터가 없습니다.
-            </div>
-          )}
-        </CardContent>
-      )}
-    </Card>
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      {children}
+    </div>
   );
 }
 
+// 페이지 번호 목록(현재 페이지 주변 windowing, 최대 5개).
+function pageNumbers(current: number, total: number): number[] {
+  const window = 5;
+  let start = Math.max(1, current - Math.floor(window / 2));
+  const end = Math.min(total, start + window - 1);
+  start = Math.max(1, end - window + 1);
+  const pages: number[] = [];
+  for (let p = start; p <= end; p++) pages.push(p);
+  return pages;
+}
+
 export default function SeasonWeeksTable() {
-  const [seasons, setSeasons] = useState<SeasonSummary[]>([]);
   const [rows, setRows] = useState<SeasonWeekRow[]>([]);
   const [conflicts, setConflicts] = useState<SeasonWeekConflict[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
-  const [filter, setFilter] = useState<FilterKey>("withWeeks");
-  // 사용자가 직접 토글한 시즌만 기록. 미토글 시즌의 기본값은 "현재 시즌이면 펼침".
-  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
+
+  // 필터/정렬 상태
+  const [sort, setSort] = useState<SortKey>("latest");
+  const [yearFilter, setYearFilter] = useState<string>(ALL);
+  const [seasonFilter, setSeasonFilter] = useState<string>(ALL);
+  const [activityFilter, setActivityFilter] = useState<string>(ALL);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -375,34 +303,14 @@ export default function SeasonWeeksTable() {
         }
 
         const data = (json.data ?? {}) as ApiPayload;
-        const nextRows = data.rows ?? [];
-        const nextSeasons =
-          data.seasons ??
-          Array.from(
-            new Map(
-              nextRows.map((row) => [
-                row.season_key,
-                {
-                  season_key: row.season_key,
-                  season_label: row.season_label,
-                  season_name: row.season_name,
-                  season_start_date: row.season_start_date,
-                  season_end_date: row.season_end_date,
-                } satisfies SeasonSummary,
-              ]),
-            ).values(),
-          );
-
         if (!cancelled) {
-          setSeasons(nextSeasons);
-          setRows(nextRows);
+          setRows(data.rows ?? []);
           setConflicts(data.conflicts ?? []);
           setGeneratedAt(data.generatedAt ?? null);
         }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load.");
-          setSeasons([]);
           setRows([]);
           setConflicts([]);
           setGeneratedAt(null);
@@ -419,102 +327,60 @@ export default function SeasonWeeksTable() {
     };
   }, [refreshTick]);
 
-  const conflictByWeekId = useMemo(() => {
-    return new Map(conflicts.map((conflict) => [conflict.week_id, conflict]));
-  }, [conflicts]);
+  // 필터 변경 시 1페이지로 복귀.
+  useEffect(() => {
+    setPage(1);
+  }, [sort, yearFilter, seasonFilter, activityFilter]);
 
-  const conflictCountBySeason = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const conflict of conflicts) {
-      map.set(conflict.season_key, (map.get(conflict.season_key) ?? 0) + 1);
-    }
-    return map;
-  }, [conflicts]);
-
-  // [6] 최신 시즌 → 오래된 시즌 정렬(start_date desc, null 은 뒤로)
-  const groups = useMemo<SeasonGroup[]>(() => {
-    const rowsBySeason = new Map<string, SeasonWeekRow[]>();
-    for (const row of rows) {
-      const list = rowsBySeason.get(row.season_key) ?? [];
-      list.push(row);
-      rowsBySeason.set(row.season_key, list);
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
-    const built = seasons.map((season) => {
-      const seasonRows = rowsBySeason.get(season.season_key) ?? [];
-      return {
-        ...season,
-        rows: seasonRows,
-        officialRestCount: seasonRows.filter((row) => row.is_official_rest)
-          .length,
-        transitionCount: seasonRows.filter((row) => row.is_transition).length,
-        conflictCount: conflictCountBySeason.get(season.season_key) ?? 0,
-        isCurrentSeason:
-          seasonRows.some((row) => row.is_current_week) ||
-          isTodayInRange(
-            season.season_start_date,
-            season.season_end_date,
-            today,
-          ),
-      } satisfies SeasonGroup;
+  const filtered = useMemo(() => {
+    const list = rows.filter((row) => {
+      if (yearFilter !== ALL && rowYear(row) !== yearFilter) return false;
+      if (seasonFilter !== ALL && rowSeasonToken(row) !== seasonFilter)
+        return false;
+      if (activityFilter !== ALL) {
+        const isRest = row.is_official_rest;
+        if (activityFilter === "rest" && !isRest) return false;
+        if (activityFilter === "official" && isRest) return false;
+      }
+      return true;
     });
 
-    return built.sort((a, b) => {
-      const as = a.season_start_date ?? "";
-      const bs = b.season_start_date ?? "";
-      if (as === bs) return 0;
+    // 정렬: 주차 시작일(월요일) 기준. 최신 순=미래가 맨 위(desc). null 은 항상 뒤.
+    return list.sort((a, b) => {
+      const as = a.week_start_date;
+      const bs = b.week_start_date;
+      if (as === bs) return (a.week_number ?? 0) - (b.week_number ?? 0);
       if (!as) return 1;
       if (!bs) return -1;
-      return bs.localeCompare(as);
+      return sort === "latest" ? bs.localeCompare(as) : as.localeCompare(bs);
     });
-  }, [rows, seasons, conflictCountBySeason]);
+  }, [rows, sort, yearFilter, seasonFilter, activityFilter]);
 
-  // 기본 펼침: 현재 시즌만 펼치고 나머지는 접음. 사용자가 토글하면 override 가 우선.
-  const isExpanded = (group: SeasonGroup) =>
-    overrides[group.season_key] ?? group.isCurrentSeason;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = useMemo(
+    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage],
+  );
 
-  const toggle = (group: SeasonGroup) => {
-    setOverrides((prev) => ({
-      ...prev,
-      [group.season_key]: !isExpanded(group),
-    }));
+  const resetFilters = () => {
+    setSort("latest");
+    setYearFilter(ALL);
+    setSeasonFilter(ALL);
+    setActivityFilter(ALL);
+    setPage(1);
   };
-
-  const filterCounts = useMemo(() => {
-    return {
-      all: groups.length,
-      withWeeks: groups.filter((g) => g.rows.length > 0).length,
-      noWeeks: groups.filter((g) => g.rows.length === 0).length,
-      current: groups.filter((g) => g.isCurrentSeason).length,
-    } satisfies Record<FilterKey, number>;
-  }, [groups]);
-
-  // [2] 현재 시즌은 항상 최상단 별도 섹션 / [5] 전체 시즌은 필터 적용
-  const currentGroups = useMemo(
-    () => groups.filter((g) => g.isCurrentSeason),
-    [groups],
-  );
-  const filteredOthers = useMemo(
-    () =>
-      groups.filter(
-        (g) => !g.isCurrentSeason && matchesFilter(g, filter),
-      ),
-    [groups, filter],
-  );
-
-  const gridClass =
-    "grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(min(100%,500px),1fr))]";
 
   return (
     <div className="flex flex-col gap-4">
+      {/* 상단: 페이지 제목 */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-normal text-foreground">
-            시즌/주차 기준표
+            기간 정보
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            운영 기준이 되는 시즌과 주차 데이터를 조회합니다.
+            기간 등록에서 등록된 주차 정보를 조회합니다.
           </p>
         </div>
         <Button
@@ -528,124 +394,215 @@ export default function SeasonWeeksTable() {
         </Button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>시즌</CardDescription>
-            <CardTitle>{loading ? "-" : `${groups.length}개`}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>주차</CardDescription>
-            <CardTitle>{loading ? "-" : `${rows.length}개`}</CardTitle>
-          </CardHeader>
-        </Card>
-        <Card size="sm">
-          <CardHeader>
-            <CardDescription>규칙 충돌</CardDescription>
-            <CardTitle>{loading ? "-" : `${conflicts.length}건`}</CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
-
       {error && (
         <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
         </div>
       )}
 
-      {/* [5] 필터 */}
-      {!loading && groups.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {FILTERS.map((item) => (
-            <Button
-              key={item.key}
-              type="button"
-              size="sm"
-              variant={filter === item.key ? "default" : "outline"}
-              onClick={() => setFilter(item.key)}
-            >
-              {item.label}
-              <span
-                className={cn(
-                  "ml-1 tabular-nums",
-                  filter === item.key
-                    ? "text-primary-foreground/70"
-                    : "text-muted-foreground",
-                )}
-              >
-                {filterCounts[item.key]}
-              </span>
-            </Button>
-          ))}
+      {/* 규칙 충돌 안내(정합 점검용) — 데이터 자체는 그대로 노출 */}
+      {!loading && conflicts.length > 0 && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          공식 휴식 판정과 legacy 값이 어긋나는 주차 {conflicts.length}건이
+          감지되었습니다.
         </div>
       )}
 
+      {/* 필터/정렬 영역 */}
+      <Card size="sm">
+        <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+          <FilterField label="정렬">
+            <Select
+              items={SORT_ITEMS}
+              value={sort}
+              onValueChange={(v) => setSort((v as SortKey) ?? "latest")}
+            >
+              <SelectTrigger className="w-28" size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((option) => (
+                  <SelectItem key={option.key} value={option.key}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+
+          <FilterField label="년도">
+            <Select
+              items={YEAR_ITEMS}
+              value={yearFilter}
+              onValueChange={(v) => setYearFilter(v ?? ALL)}
+            >
+              <SelectTrigger className="w-28" size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>-</SelectItem>
+                {YEAR_OPTIONS.map((year) => (
+                  <SelectItem key={year} value={year}>
+                    {year}년
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+
+          <FilterField label="시즌">
+            <Select
+              items={SEASON_ITEMS}
+              value={seasonFilter}
+              onValueChange={(v) => setSeasonFilter(v ?? ALL)}
+            >
+              <SelectTrigger className="w-24" size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>-</SelectItem>
+                {SEASON_OPTIONS.map((option) => (
+                  <SelectItem key={option.key} value={option.key}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+
+          <FilterField label="활동">
+            <Select
+              items={ACTIVITY_ITEMS}
+              value={activityFilter}
+              onValueChange={(v) => setActivityFilter(v ?? ALL)}
+            >
+              <SelectTrigger className="w-28" size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>-</SelectItem>
+                {ACTIVITY_OPTIONS.map((option) => (
+                  <SelectItem key={option.key} value={option.key}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FilterField>
+
+          <div className="ml-auto flex items-center gap-2">
+            <span
+              className="text-sm text-muted-foreground tabular-nums"
+              data-testid="result-count"
+            >
+              결과 {loading ? "-" : filtered.length}건
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={resetFilters}
+              disabled={loading}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              초기화
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 테이블 */}
       {loading ? (
         <div className="flex h-36 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
           데이터를 불러오는 중입니다.
         </div>
-      ) : groups.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="flex h-36 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
-          표시할 시즌/주차 데이터가 없습니다.
+          조건에 맞는 주차 데이터가 없습니다.
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
-          {/* [2] 현재 운영 시즌 — 항상 최상단 고정 */}
-          {currentGroups.length > 0 && (
-            <section className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-foreground">
-                  현재 운영 시즌
-                </h2>
-                <span className="h-px flex-1 bg-border" />
-              </div>
-              <div className={gridClass}>
-                {currentGroups.map((group) => (
-                  <SeasonCard
-                    key={group.season_key}
-                    group={group}
-                    expanded={isExpanded(group)}
-                    onToggle={() => toggle(group)}
-                    conflictByWeekId={conflictByWeekId}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+        <div className="overflow-hidden rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>이름</TableHead>
+                <TableHead>기간</TableHead>
+                <TableHead>년도</TableHead>
+                <TableHead>시즌</TableHead>
+                <TableHead>주차</TableHead>
+                <TableHead>활동</TableHead>
+                <TableHead>비고</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pageRows.map((row) => {
+                const year = rowYear(row);
+                return (
+                  <TableRow
+                    key={row.week_id}
+                    className={cn(row.is_current_week && "bg-primary/5")}
+                  >
+                    <TableCell className="font-mono text-xs font-medium">
+                      {rowWeekCode(row)}
+                    </TableCell>
+                    <TableCell>
+                      {formatPeriod(row.week_start_date, row.week_end_date)}
+                    </TableCell>
+                    <TableCell>{year ? `${year}년` : "-"}</TableCell>
+                    <TableCell>{rowSeasonLabel(row)}</TableCell>
+                    <TableCell className="tabular-nums">
+                      {row.week_number ?? "-"}
+                    </TableCell>
+                    <TableCell>
+                      <ActivityBadge isRest={row.is_official_rest} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {rowRemark(row)}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
-          {/* 전체 시즌(현재 시즌 제외) — 필터 적용 */}
-          <section className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-foreground">
-                전체 시즌
-              </h2>
-              <span className="text-xs text-muted-foreground">
-                {filteredOthers.length}개
-              </span>
-              <span className="h-px flex-1 bg-border" />
-            </div>
-            {filteredOthers.length === 0 ? (
-              <div className="flex h-20 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
-                {filter === "current"
-                  ? "현재 시즌은 상단에 고정되어 있습니다."
-                  : "조건에 맞는 시즌이 없습니다."}
-              </div>
-            ) : (
-              <div className={gridClass}>
-                {filteredOthers.map((group) => (
-                  <SeasonCard
-                    key={group.season_key}
-                    group={group}
-                    expanded={isExpanded(group)}
-                    onToggle={() => toggle(group)}
-                    conflictByWeekId={conflictByWeekId}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
+      {/* 하단: 페이지네이션 */}
+      {!loading && filtered.length > PAGE_SIZE && (
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={safePage <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            이전
+          </Button>
+          {pageNumbers(safePage, totalPages).map((p) => (
+            <Button
+              key={p}
+              type="button"
+              size="sm"
+              variant={p === safePage ? "default" : "outline"}
+              onClick={() => setPage(p)}
+              className="tabular-nums"
+            >
+              {p}
+            </Button>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={safePage >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            다음
+          </Button>
+          <span className="ml-2 text-xs text-muted-foreground tabular-nums">
+            {safePage} / {totalPages} 페이지
+          </span>
         </div>
       )}
 

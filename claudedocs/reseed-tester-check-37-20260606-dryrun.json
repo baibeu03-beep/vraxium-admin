@@ -1,0 +1,3427 @@
+{
+ "mode": "dry-run",
+ "targetUsers": 83,
+ "targetRows": 380,
+ "targets": [
+  {
+   "uwpId": "b61a9e9d-b1c9-4ac0-ac71-637a4b161644",
+   "userId": "00b75923-2109-4214-806a-37667d64ac5e",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a29ed260-e86d-4d2f-aab6-897a74ab15a2",
+   "userId": "020ec835-1ead-4ef5-adce-d0d97585beaa",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "5c8bb61b-fa3a-4bb9-9247-14b7b4a5141a",
+   "userId": "020ec835-1ead-4ef5-adce-d0d97585beaa",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f0c17fe2-e52c-4ae0-8b59-e06e3631f7f7",
+   "userId": "020ec835-1ead-4ef5-adce-d0d97585beaa",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "cd6b476e-5359-4808-be8b-96fc5917f168",
+   "userId": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+   "week": "2026-winter W5",
+   "weekStart": "2026-01-26",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d6a56eec-1187-4bdf-bb8c-94a5f1af1428",
+   "userId": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a33417de-34b4-4729-8959-7d23f7eb4fdf",
+   "userId": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a1d359e1-6a40-42ff-8dfc-7191418ba53c",
+   "userId": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a5922f7b-6dda-4e81-84a0-a584135dee3e",
+   "userId": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b3733a9f-7e89-4cf8-9cd9-dd2ddd2b8109",
+   "userId": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+   "week": "2025-autumn W2",
+   "weekStart": "2025-09-08",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e2c5f20b-d1f1-4eaf-bbea-cadc3f22e030",
+   "userId": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "59a5c5a2-ab58-414e-b44e-0529fb8a84db",
+   "userId": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f705d7ba-0742-4e88-8293-42b6606fee89",
+   "userId": "0a113e53-b678-40d1-b51c-1278e1c3f0fa",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "7352c620-636a-41e9-9cb3-2d331f0740c0",
+   "userId": "0a113e53-b678-40d1-b51c-1278e1c3f0fa",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "bf613dc0-48e1-4a73-9a10-08a3bddacc37",
+   "userId": "0a113e53-b678-40d1-b51c-1278e1c3f0fa",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "6f8d2379-bc9e-43b8-8006-4abc8b6235d8",
+   "userId": "0d6ec2d3-ec7a-43cc-b1a9-8bb8b3f18df3",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4e59b400-df44-4ffd-8ea8-898eae307c16",
+   "userId": "0d6ec2d3-ec7a-43cc-b1a9-8bb8b3f18df3",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4b73281f-9414-491b-9009-6cfbd1b47a17",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f119994f-b1ae-46e6-809e-540e06f534e5",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2026-winter W2",
+   "weekStart": "2026-01-05",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ee075318-0de2-4a6b-b237-b70f6729bc76",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "efbd123a-f536-46d0-9f10-8f8febe8f0c9",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "48de4833-cd59-43e4-98aa-1b5ac2af066e",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d6664f34-70da-47e8-9b4a-9f8f44317fbf",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4a625178-4f63-4fc5-9b00-491ed85590bf",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ef46076d-46c4-47b1-b2af-30e5d24c9259",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f033f6a8-3776-4066-9dd1-7412bb8b22b2",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2025-autumn W9",
+   "weekStart": "2025-10-27",
+   "oldPoints": 33,
+   "newPoints": 38,
+   "newThr": 35
+  },
+  {
+   "uwpId": "e0c54002-e8bc-402e-8f46-ef1b2f51c856",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2025-autumn W4",
+   "weekStart": "2025-09-22",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4be0c335-9cf0-40b2-bf8b-82a1529daa03",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2025-autumn W5",
+   "weekStart": "2025-09-29",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "73d9f26a-e8ae-4343-b6bf-dca587f895aa",
+   "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e7114fe5-128b-4014-be82-5eb41604d2b9",
+   "userId": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "bec60f21-e72c-4647-b3bc-e1c4724a3c91",
+   "userId": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1f4de166-5baf-49c2-8fd5-0f8e1dd73e27",
+   "userId": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3a911567-35c1-4b14-b3f7-296a630ad348",
+   "userId": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ca0ad01c-6b09-4d2d-b8c3-1822ecdcd193",
+   "userId": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "fd26569f-3c3c-4a60-97e1-9f5e8f70b09a",
+   "userId": "28c60d60-aa17-4614-9127-fd65a8aebcaf",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "9de35cc7-21d4-4ba9-bdb8-0ece865d66a9",
+   "userId": "28c60d60-aa17-4614-9127-fd65a8aebcaf",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f0d275f4-3147-4f19-90b5-6306b1b73d67",
+   "userId": "3330f4c3-5331-4632-bbe6-01a19017a089",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "dc579019-5859-4de9-9b0b-fc2e121ea6f0",
+   "userId": "3330f4c3-5331-4632-bbe6-01a19017a089",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0cb5fe6c-5c14-4b41-b796-54be1dfa4b92",
+   "userId": "35c987bf-015f-482c-b966-63fe55af0256",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a7068324-78a0-4811-9a45-eb1f4995c7c9",
+   "userId": "35c987bf-015f-482c-b966-63fe55af0256",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "2559c194-bbc6-467f-8e28-6c6349b3b1e5",
+   "userId": "35c987bf-015f-482c-b966-63fe55af0256",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e911a269-614b-4d16-a324-57ecca926508",
+   "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+   "week": "2025-autumn W9",
+   "weekStart": "2025-10-27",
+   "oldPoints": 33,
+   "newPoints": 38,
+   "newThr": 35
+  },
+  {
+   "uwpId": "730cfc27-a469-4f55-96f4-fe31088160ba",
+   "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ddf74b2e-3f21-4128-acc4-28cc910c51a7",
+   "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a45baa16-1408-4f1b-be01-6409c658d735",
+   "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "9d6cd4c3-fec6-484d-ad86-286fe605a586",
+   "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e42dc298-be4a-4381-819f-1e8b4863a176",
+   "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "69bc3581-26da-432d-9f9b-fd0a6c95118a",
+   "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+   "week": "2025-autumn W10",
+   "weekStart": "2025-11-03",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "55e5fe23-d7bb-48eb-8799-5b8562f1211c",
+   "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ce10b6fa-343d-4a39-ba7a-def2e36f4b2d",
+   "userId": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+   "week": "2025-autumn W11",
+   "weekStart": "2025-11-10",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f1140f60-44ff-437c-bcee-b2a240c18424",
+   "userId": "37b7ddce-6146-4941-8c5f-c1dfa4e09f7e",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3893f3b1-aa58-4c87-bb0e-2087ebf5ca28",
+   "userId": "3ba642d8-d658-4e87-8e15-3afdab8415c2",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0c62fa75-ebf1-4a61-a095-71cfc43649b8",
+   "userId": "3ba642d8-d658-4e87-8e15-3afdab8415c2",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a930c766-4c8b-4978-8253-4fd579a93d74",
+   "userId": "3d968dba-77a4-4382-a5ad-ad5cad7c1c34",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d1cd1eb9-cf99-40f0-8120-b490ab440427",
+   "userId": "3fec1a7e-4a88-4bc7-8da8-9eb9daff6f8a",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "baf74f4e-4994-4ca3-8d22-cc4ed3f65c1c",
+   "userId": "4263f72d-60e8-4235-bae2-3ed0921e1508",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "77484ef2-36c3-44ed-a352-5afeda761ae7",
+   "userId": "4263f72d-60e8-4235-bae2-3ed0921e1508",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d1760743-4d53-4cc2-891a-305d59c72217",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2025-autumn W3",
+   "weekStart": "2025-09-15",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c95198de-1164-458c-b72e-be932766fe3d",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2025-autumn W4",
+   "weekStart": "2025-09-22",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4deacdf9-5237-40f4-b4bc-e650ee0f146d",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2025-autumn W10",
+   "weekStart": "2025-11-03",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "2a05cf5e-3128-4b70-960c-d2e89b036254",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2025-autumn W11",
+   "weekStart": "2025-11-10",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4610a66c-51d3-4360-9db4-5aaaffd9df1e",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2026-winter W5",
+   "weekStart": "2026-01-26",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "6dd30a24-1389-485e-9b84-21ff1548e4a1",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "062bdf7a-e916-4010-8c7e-6b2e1088ded3",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1a6c3b57-1c46-478c-93bf-c93a99e973df",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "490eac31-4175-43fa-be3e-54e6c3771f28",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "33b5c8f8-48ee-426b-a5fc-e5b23c767b89",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "6fa6bc1f-e243-4f1b-9fc5-18489670e6fc",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2025-autumn W1",
+   "weekStart": "2025-09-01",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f59b0319-5faa-4969-a5b3-66d2562b9dc6",
+   "userId": "42864260-e4ea-4150-a87f-cff545b02af1",
+   "week": "2026-winter W2",
+   "weekStart": "2026-01-05",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "6baae7aa-7c19-4baa-8378-dabede46ee07",
+   "userId": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "6068afd7-749a-4ae3-ab5c-104b252cfc6c",
+   "userId": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c00e366f-b5a1-460b-a104-afb4ccf857dd",
+   "userId": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "079b40d3-ac85-49aa-9a38-fa1ce3e719b9",
+   "userId": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "7a0ae961-ac9d-4893-a5d1-3c4fe0741692",
+   "userId": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0a72a5b8-52f9-4115-8392-9a398a365e21",
+   "userId": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d1f97cc3-bd2b-470b-b295-37b03f826f11",
+   "userId": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+   "week": "2025-autumn W2",
+   "weekStart": "2025-09-08",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d509f668-89a9-47ea-990b-ee0aed9ace6b",
+   "userId": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+   "week": "2025-autumn W4",
+   "weekStart": "2025-09-22",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4c2fc58a-16c8-49cc-ba8e-9b9112583fcc",
+   "userId": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+   "week": "2026-winter W3",
+   "weekStart": "2026-01-12",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e083382d-4a30-4f4e-af5a-385e966d31fb",
+   "userId": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "191a96e9-6c8c-4b3e-8f1f-d29a03b073f6",
+   "userId": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4954525d-bb4b-4208-bd26-2c96290ff1fb",
+   "userId": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "be506afa-0dbb-4dd7-843d-0fe07f76a5ad",
+   "userId": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f5097b50-a2dc-46d5-bb4d-3ef5f765eac7",
+   "userId": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0706713f-c29f-4147-b34a-a5681eb5f1e4",
+   "userId": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "33e76094-60ce-492b-b468-d04d76ae73e0",
+   "userId": "4bd185be-0c54-470e-a254-588e69064e37",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "31da67d9-d8e7-4526-bdbd-6d28feef9f46",
+   "userId": "4bd185be-0c54-470e-a254-588e69064e37",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "2ff653d7-f64a-4c17-99e6-063ddf0e998c",
+   "userId": "4bd185be-0c54-470e-a254-588e69064e37",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "238f3ad4-92a0-4132-b82c-335b7f0eabf1",
+   "userId": "50f6a693-45fd-4b24-b8ee-959ce3e7fc4c",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "accba677-0a70-447f-a8d4-d270586d6dfb",
+   "userId": "50f6a693-45fd-4b24-b8ee-959ce3e7fc4c",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "30acbaf5-35f0-49c1-8e4a-1dd1a9fbda32",
+   "userId": "50f6a693-45fd-4b24-b8ee-959ce3e7fc4c",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "00018d49-c283-4eb3-955d-67601092be78",
+   "userId": "58a4c844-6fd2-4108-8d2d-51c701018a7b",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "20a5f5c0-1665-4e83-92c6-7cc4d140ae88",
+   "userId": "58a4c844-6fd2-4108-8d2d-51c701018a7b",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "96684903-717f-42c1-8be8-bcbec6c92a83",
+   "userId": "58a4c844-6fd2-4108-8d2d-51c701018a7b",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f74ff3ec-ce6a-47c0-8a4e-824617559ec6",
+   "userId": "59c22d30-aece-4855-9958-bf34f8795d2a",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0f9e0e6a-8827-4c21-987f-fadaf5f1d1b2",
+   "userId": "59c22d30-aece-4855-9958-bf34f8795d2a",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "7c89b35f-3cc4-40f2-acc1-e462f1de6043",
+   "userId": "59c22d30-aece-4855-9958-bf34f8795d2a",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "5ac974eb-a925-4622-8dc2-9e64e06f6e39",
+   "userId": "5b3c0935-9bff-4e96-8efb-b7cbcb092bb2",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4498cc72-e5a8-4368-bed1-7453f0e8d829",
+   "userId": "5b3c0935-9bff-4e96-8efb-b7cbcb092bb2",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1dd9d57b-b596-42e5-821b-444418a40b5b",
+   "userId": "5b3c0935-9bff-4e96-8efb-b7cbcb092bb2",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "532b9ede-5bd2-4869-8216-cd1ac52a6d0c",
+   "userId": "5cd3cf48-0a62-41db-beb9-960987a485d2",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e1a2f6f3-8a6b-432f-92f5-7539e4128ce6",
+   "userId": "5ce78bd8-126f-4636-b6a9-a43031a21930",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "394e3534-1371-4fd7-ad24-0c01c11d7ad5",
+   "userId": "5fa52ea5-d2a4-45df-900c-e08b0effc2fb",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a5daf3d2-5676-449b-802f-f0a4c5157663",
+   "userId": "5fa52ea5-d2a4-45df-900c-e08b0effc2fb",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ea82cd30-81b5-4b0d-8f09-70fede7619ee",
+   "userId": "5fe0f152-3e4c-4313-8203-6fb6002c5393",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "8058bdd1-c841-40d5-a9c7-772f6bc76567",
+   "userId": "614f78f4-c372-4c11-a17f-46b9e7bd4523",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4183eb6d-89e9-467f-932e-7e4a70c7d2b9",
+   "userId": "6293191d-f862-468d-96c3-f1a09c8d36aa",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f9edad1e-8cea-4f62-b988-130b2b9fc0fa",
+   "userId": "6293191d-f862-468d-96c3-f1a09c8d36aa",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "807ade25-0e1a-4253-9f08-6aeedb86a022",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "5582580c-ba17-4ee0-b4cb-a4e553d1844e",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2025-autumn W4",
+   "weekStart": "2025-09-22",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "bc437d59-71c6-49cc-9bc7-c12f6fe0d7fe",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2025-autumn W3",
+   "weekStart": "2025-09-15",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ed849e32-3a88-49ca-936e-8eee8a5d79f4",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2025-autumn W2",
+   "weekStart": "2025-09-08",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "045b04b6-768e-4ab9-a706-59b6656da772",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2025-autumn W5",
+   "weekStart": "2025-09-29",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "acaedac6-b9e6-421d-b034-e7843e7dc189",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2025-autumn W1",
+   "weekStart": "2025-09-01",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a3275e93-d33b-4396-9691-e850dd7f6e4a",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "82f405f6-1678-45b0-b6c3-30a5a5ec13a0",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "5b2eb3c4-0d07-4592-99a6-582e00650bf1",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "74cb1a5b-ec81-457e-a986-4bb6dc1e3a9a",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2026-winter W5",
+   "weekStart": "2026-01-26",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "2778bd48-67b0-463b-a91c-0843fa0dc972",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0e0dc2d3-d818-4f8e-a09b-37645dc21c88",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2025-autumn W10",
+   "weekStart": "2025-11-03",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "7baef176-25f2-4348-8f6b-79c020037159",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3713e9a0-be8e-47c9-a8d2-e874e34ff28c",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e92558b0-3e32-479b-9060-b0b7990ecb48",
+   "userId": "63813dc4-9dec-4511-83be-1f54196d09cf",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d1ddce12-998d-46d1-8c17-6120feedde12",
+   "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0da5f141-d89b-4708-9e5f-cb6a60785b08",
+   "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "52c5cf8d-8eda-42ee-84f5-ea683593fcf9",
+   "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+   "week": "2026-winter W2",
+   "weekStart": "2026-01-05",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "40b12b54-3bae-47cd-b4ca-1d0a33ba2e77",
+   "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+   "week": "2025-autumn W9",
+   "weekStart": "2025-10-27",
+   "oldPoints": 33,
+   "newPoints": 38,
+   "newThr": 35
+  },
+  {
+   "uwpId": "6b11ea0b-c84b-4eb5-b789-bb5cd2a6f1e7",
+   "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3827ec69-58fd-4c20-887c-efa3fc717dbc",
+   "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+   "week": "2026-winter W5",
+   "weekStart": "2026-01-26",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0bfc8863-9a4b-405a-a273-ebcb2e69eb0f",
+   "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "6dd483a9-53bc-4333-8625-c52b1a67cc03",
+   "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "9fe1e17f-dd47-4958-907c-95d5aa07e22f",
+   "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "62a66ce7-f598-4567-b0e2-a04c72ae2166",
+   "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "9d337645-b2af-4b4f-86ef-7848c747e9e7",
+   "userId": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "85351c4c-257c-4e1e-b16b-3001b2c3c648",
+   "userId": "70abfec0-660b-4af3-a940-5d318f76bd4e",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "690745d6-0e7c-4fcc-a96e-536093956b45",
+   "userId": "70abfec0-660b-4af3-a940-5d318f76bd4e",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "31a6b91f-c76b-4963-a996-a611394d3129",
+   "userId": "70abfec0-660b-4af3-a940-5d318f76bd4e",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "33ceba27-d39c-4c64-8536-ee9633b58c16",
+   "userId": "70abfec0-660b-4af3-a940-5d318f76bd4e",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "38ee612a-f17e-4e1c-b396-489b74dcbde4",
+   "userId": "70abfec0-660b-4af3-a940-5d318f76bd4e",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "51a90803-89e5-4843-8ab9-a4514dff3001",
+   "userId": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1a33979b-3352-4a02-afef-6f07ddadcac7",
+   "userId": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "70f657c8-5713-4be2-a6c0-4b45a5f1d656",
+   "userId": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "dc13a773-b101-45db-884d-92a65e615006",
+   "userId": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "83447c3f-c751-4d77-b219-209c65c66808",
+   "userId": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "fcf52474-e54f-48ef-aa35-42a0bfc6c5ed",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2025-autumn W4",
+   "weekStart": "2025-09-22",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "948c0fe2-5991-42b1-b1b4-f57fb0edc3d0",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3b256692-a98b-435b-bd15-dbb42aa158a7",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "5c2b9096-13bf-4e3c-a1e5-49e67c515fec",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2025-autumn W5",
+   "weekStart": "2025-09-29",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b59b68b2-a108-49b6-8f3f-cde873097e6d",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2025-autumn W10",
+   "weekStart": "2025-11-03",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d28cab9d-287e-4ce8-acdf-9a517af7d112",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2025-autumn W11",
+   "weekStart": "2025-11-10",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d6b91406-064c-4d11-b5c9-da967c42c049",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3ae245f2-950c-4dce-9bad-36177b234801",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2026-winter W3",
+   "weekStart": "2026-01-12",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d4b8c836-8bfc-4050-8771-73e0e63b6cd1",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "6a58455d-607e-461f-84f3-fa959a2587d2",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d6e0feee-2906-4c64-bc1e-1af49a5eac15",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "349dd166-d9ef-4ede-8d15-89e9701e80f9",
+   "userId": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "5a02972f-0d06-47c1-84df-6b275b27218a",
+   "userId": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "36306937-3e84-4d62-aa2c-6f7d89a9ea91",
+   "userId": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4d02370f-5613-45b5-a973-3046f99d1cf8",
+   "userId": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b1403185-ce12-4794-825c-ce14bc96970d",
+   "userId": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "28c4acaf-28bc-40db-ad26-ea7efe3b5ec2",
+   "userId": "7e15f412-65be-481c-8525-460b161244ca",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "9001838d-356f-42f3-9ea8-986d1461fb56",
+   "userId": "829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4286e5cf-8ea6-4e15-a7fa-62168ea8633b",
+   "userId": "829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06",
+   "week": "2026-winter W2",
+   "weekStart": "2026-01-05",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1409e0c3-bbd7-49b3-bab0-910b39b3ebce",
+   "userId": "829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "139ff0d1-786d-4546-a48a-f0843be84a8b",
+   "userId": "829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06",
+   "week": "2026-winter W5",
+   "weekStart": "2026-01-26",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b2f320e9-f053-460d-90e2-26cf8d8fcc31",
+   "userId": "829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3fa3726a-0c97-4097-9099-4c7c4a9c3496",
+   "userId": "87fbff25-c77a-4cf3-9482-67212e55aa6d",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d1e59f74-8759-4750-a947-a14676e37d7f",
+   "userId": "8e38d52f-727e-429b-9db3-423cd031d2a5",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b26e8f83-3de6-4873-942e-4fc4d9f72e42",
+   "userId": "8e38d52f-727e-429b-9db3-423cd031d2a5",
+   "week": "2025-autumn W11",
+   "weekStart": "2025-11-10",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e708da70-62ec-4e18-8db2-502aa6777f42",
+   "userId": "8e38d52f-727e-429b-9db3-423cd031d2a5",
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f8ebc10c-0c13-46ce-ac57-cf1ed71eba2f",
+   "userId": "8e38d52f-727e-429b-9db3-423cd031d2a5",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3ff950f7-b3b0-4fdd-b398-fefca51bb5bd",
+   "userId": "8e38d52f-727e-429b-9db3-423cd031d2a5",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0fdef4ef-47ff-43e6-adac-832c88b96916",
+   "userId": "8e38d52f-727e-429b-9db3-423cd031d2a5",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "96bd42c1-99bf-478d-b523-3b18738ff711",
+   "userId": "8e38d52f-727e-429b-9db3-423cd031d2a5",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0ac84d44-63d9-485c-a7a3-5d2753c0a232",
+   "userId": "92de9b41-6c4f-4684-87d9-6f9db01e5601",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "cc8eaea8-34e7-489d-a36c-92a1c62524c8",
+   "userId": "92de9b41-6c4f-4684-87d9-6f9db01e5601",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ee4e1924-8b8e-45b8-b182-a59ff5e811f6",
+   "userId": "92de9b41-6c4f-4684-87d9-6f9db01e5601",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "aee4bfc9-beb9-4325-87ac-5bff68eb1aa5",
+   "userId": "92de9b41-6c4f-4684-87d9-6f9db01e5601",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "680b91db-770a-4d3e-af9b-32ff8b8b123a",
+   "userId": "92de9b41-6c4f-4684-87d9-6f9db01e5601",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "643e7c7b-1ce3-4e53-a64b-17ed493d8470",
+   "userId": "92de9b41-6c4f-4684-87d9-6f9db01e5601",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "50ad3457-32fd-41f0-817e-3132e85cee87",
+   "userId": "98807fea-2137-4160-ba5c-dedcbdced0e8",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c6f1d65b-9d63-4e58-a81e-f80eba73d478",
+   "userId": "98807fea-2137-4160-ba5c-dedcbdced0e8",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f690736d-150f-4361-82f8-6ed580fc0c78",
+   "userId": "98807fea-2137-4160-ba5c-dedcbdced0e8",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f59b4780-6952-4b6e-95b2-388493d71499",
+   "userId": "98807fea-2137-4160-ba5c-dedcbdced0e8",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a23d6989-9437-4224-ab09-1e9f93819ce2",
+   "userId": "9898f4a2-b873-4231-b2ac-321afa74555c",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "70ced2d4-c4bd-4fd5-b491-c4ad7e74b6fe",
+   "userId": "9898f4a2-b873-4231-b2ac-321afa74555c",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b49ae22c-ad65-4b8a-9155-4c86f2eca375",
+   "userId": "9898f4a2-b873-4231-b2ac-321afa74555c",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "7d23d094-28ab-4205-893c-9468ee669747",
+   "userId": "9e2f8097-b1ce-4920-9c67-af9989074cfd",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "eb71ed3c-00ba-4bd7-a102-d7bdd897b9aa",
+   "userId": "9e2f8097-b1ce-4920-9c67-af9989074cfd",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e17a6b6e-2b02-426a-a52d-d19c2310774d",
+   "userId": "9e2f8097-b1ce-4920-9c67-af9989074cfd",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "818546a8-3226-40eb-afbf-c3b09869c1ca",
+   "userId": "9e2f8097-b1ce-4920-9c67-af9989074cfd",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "582e9308-fdcb-4170-9374-13f050c29052",
+   "userId": "a26729db-1c3b-42c0-9bce-4316dd15b2a2",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "69b94a0e-a961-4579-8249-c2bdc37d7ecd",
+   "userId": "a3a91b4c-e3e7-45c8-9076-80eea01ad809",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "90aafad9-f657-4ee2-bf88-ed1e85e70610",
+   "userId": "a3a91b4c-e3e7-45c8-9076-80eea01ad809",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "507729b3-df10-4b8a-a582-c3a164e5c2cb",
+   "userId": "a4f686e1-867e-4a61-8323-c518c4288a14",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f308c3af-8938-4ba6-ad76-00e57752fe64",
+   "userId": "a4f686e1-867e-4a61-8323-c518c4288a14",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "858bd092-2b96-459f-8b43-ca7a86de635f",
+   "userId": "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "228f2bfe-445a-490a-a9d0-6e126aaa78b5",
+   "userId": "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "8b7a7aa8-6b38-426c-896c-40d11249da73",
+   "userId": "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ec381a4b-2851-4125-a3a1-5367e5804b10",
+   "userId": "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "72e0a8b9-364d-4f30-a8b0-b04a5e2cdd9c",
+   "userId": "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "da8e278c-8b5e-40f2-a8ee-960983997678",
+   "userId": "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "65dec4e3-4657-41a7-b43c-1914a207cce7",
+   "userId": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "37d9e124-119b-40e5-908d-cd850cf4def3",
+   "userId": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1278e986-8e42-4e8d-9324-2a01fbd77ee4",
+   "userId": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c2228e6e-0e7b-47d8-928b-0be9393c1315",
+   "userId": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+   "week": "2026-winter W5",
+   "weekStart": "2026-01-26",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "eedfcb65-e55c-4228-b79f-c43ffa4f4006",
+   "userId": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e9b525d2-960d-4f09-a442-569cd23a6116",
+   "userId": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+   "week": "2026-winter W3",
+   "weekStart": "2026-01-12",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "bd2b0431-72aa-4b3f-ab70-67cb64c27582",
+   "userId": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "cb9aa99d-02f8-4281-a54b-1316b5998cb3",
+   "userId": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1e15615b-ccfb-410c-ae38-055f275efc19",
+   "userId": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d6d9d77f-cd6e-4c01-a385-24c0a0265757",
+   "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "2460e5e5-f2e3-4c25-8b9c-0b14cff07be8",
+   "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d087ade3-6e6f-40a1-9541-416e58e8b0e6",
+   "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "bb4659f3-1cfa-45fd-8880-6ed842b0e7fd",
+   "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "474faea9-23cf-4fbe-ac6e-e44e001ea00b",
+   "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "85bb95cd-72a8-4ef3-9bf8-5e94ae01ceb6",
+   "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "8a7dc29d-4ca2-4dd7-8b73-18c86b373f4e",
+   "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "fabc357e-5bce-4ed9-9dff-358d0a70e1c6",
+   "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "65ba8287-200f-4b02-ac0c-44168ea2fbd9",
+   "userId": "b2e2d277-d40c-4cef-91cb-733b7d6e658a",
+   "week": "2026-winter W5",
+   "weekStart": "2026-01-26",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d85fd7e3-54dd-4c3c-9b4d-3f4f45830084",
+   "userId": "b2e2d277-d40c-4cef-91cb-733b7d6e658a",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c3e08db6-f12f-4b13-a192-7c2fdae35ccb",
+   "userId": "b2e2d277-d40c-4cef-91cb-733b7d6e658a",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "07b2283b-9719-4f3c-ba8f-3c060699725a",
+   "userId": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+   "week": "2026-winter W5",
+   "weekStart": "2026-01-26",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1ebf8b73-e378-40e4-8f69-046e59713584",
+   "userId": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c7040526-e7f1-467e-af2d-eef1bddb11f3",
+   "userId": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+   "week": "2026-winter W2",
+   "weekStart": "2026-01-05",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "370ad2d5-da23-4d85-ac4b-6453e9a6e454",
+   "userId": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+   "week": "2025-autumn W11",
+   "weekStart": "2025-11-10",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c090119f-1015-421a-94d9-48fec2e38409",
+   "userId": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+   "week": "2025-autumn W10",
+   "weekStart": "2025-11-03",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "dcd970ff-bee6-4c3a-8ad1-54b16f3bc474",
+   "userId": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "9c73a770-1afe-45dd-a5e2-9003dadb5289",
+   "userId": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d8b8a477-d462-425b-9bbb-0ea2f7f30939",
+   "userId": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f2c2f34f-340f-4c9f-b0cc-7944a5762522",
+   "userId": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+   "week": "2026-winter W3",
+   "weekStart": "2026-01-12",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3b66a9d9-d632-4372-955b-714beb346950",
+   "userId": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "21d577a9-0549-44cc-aec7-e4182f4fe358",
+   "userId": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+   "week": "2026-winter W5",
+   "weekStart": "2026-01-26",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "2a889ae8-8384-40d6-b4db-14f8836b10cc",
+   "userId": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e3befa7d-80a8-4284-859b-a6c63338ce91",
+   "userId": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "55a2e8fe-ef06-4256-9a9e-8f82e6d3b799",
+   "userId": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a89c7bed-f3e8-4892-aefc-b2c5a13d0edc",
+   "userId": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "62fa9dd6-8fde-4600-961d-89914352e270",
+   "userId": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "2f9d7077-6c38-4264-aba6-d7a585f02613",
+   "userId": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1f4af74d-7198-4d32-a116-077b4959fbd9",
+   "userId": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "dc72c8b8-5c8e-4c40-8f84-9f22b68d4dd8",
+   "userId": "bab78175-fd69-4ad3-b59d-6dead49ac3e3",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "7f4c7813-e992-4393-a66b-bf4627de77b9",
+   "userId": "bab78175-fd69-4ad3-b59d-6dead49ac3e3",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "089335af-3273-45fa-bf58-292bfd8f7dbc",
+   "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d8481bca-5b4a-41d8-a397-2e3dc95c6da0",
+   "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+   "week": "2026-winter W2",
+   "weekStart": "2026-01-05",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c2306c51-e50e-41c5-9f30-270e98a22b77",
+   "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+   "week": "2026-winter W3",
+   "weekStart": "2026-01-12",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "be3999cc-4f6d-47dd-b4a7-42f833512c5a",
+   "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0224bcca-cf6b-48ae-9eb3-ad12dce4bfa3",
+   "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "13fb52c9-ce2f-4a84-aca7-8e8184d0158d",
+   "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "6ca14c3a-501b-4541-b65b-0648ef9ba840",
+   "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "62bc1f9b-30ee-45a0-b983-0899b7ae020c",
+   "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d4437f3e-bf58-4e7b-b6b0-3ab593501495",
+   "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "80167f0b-2921-48d8-95e2-c64d04c5fe4b",
+   "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+   "week": "2025-autumn W3",
+   "weekStart": "2025-09-15",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c1617a7f-776d-4e2f-9a9f-f4020fbae846",
+   "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+   "week": "2025-autumn W9",
+   "weekStart": "2025-10-27",
+   "oldPoints": 31,
+   "newPoints": 36,
+   "newThr": 35
+  },
+  {
+   "uwpId": "7a686613-1744-45ef-965e-a9029e6d6e23",
+   "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3530461a-af3e-4975-8b74-a88ce61f793c",
+   "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+   "week": "2026-winter W5",
+   "weekStart": "2026-01-26",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "83a49291-67f2-4f1b-8460-7d6cf829a7c4",
+   "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a359abbb-2314-408c-8dbe-d40b4c3e88d3",
+   "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "19d6525e-fb2d-461b-86ea-657ffe3a37e2",
+   "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "7540deac-9d34-4273-b54b-3639534190d1",
+   "userId": "c17542ff-4eb2-4b4e-b584-1dfcb8ca39f5",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4287025f-d87f-4556-aa8d-4b60bb209345",
+   "userId": "c17542ff-4eb2-4b4e-b584-1dfcb8ca39f5",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "fe1e39d3-1de9-4b5d-b9fe-5279ae5d3957",
+   "userId": "cc05522b-7a71-48fb-a291-3aaaefdf4865",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b493929a-09f8-4a7c-9f84-48d21a7d427b",
+   "userId": "cc05522b-7a71-48fb-a291-3aaaefdf4865",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b794f91c-3641-4330-887d-2bba4d37385f",
+   "userId": "cc05522b-7a71-48fb-a291-3aaaefdf4865",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c438e70b-4d96-44d1-b45d-a58966b6a8b3",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2026-winter W3",
+   "weekStart": "2026-01-12",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "47137aa2-0988-4e1b-815c-f8781573c17a",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "19b387bc-3a6b-491a-94ab-6f8707899e9b",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "5428cc19-dae4-49db-b18e-bf00d9f048bd",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "54ea7c93-71a5-412b-ae54-20a78480cca7",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "2a6e57d9-1f5a-43ea-99ba-2780ce9a63c9",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ebe1aa70-144d-401a-afa5-496af979f961",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2025-autumn W1",
+   "weekStart": "2025-09-01",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "397fb2a4-de48-48fd-8341-6956c055f586",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2025-autumn W5",
+   "weekStart": "2025-09-29",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c10f5f0f-c194-44c2-8457-6efa60901d2e",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2025-autumn W9",
+   "weekStart": "2025-10-27",
+   "oldPoints": 34,
+   "newPoints": 39,
+   "newThr": 35
+  },
+  {
+   "uwpId": "a474972b-7209-4d25-b3c6-23ea2a676039",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "08962bf9-2f36-4e94-bf73-7e153007b598",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ff69dc5c-4c3f-4596-a5e4-d371c6fa9d08",
+   "userId": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "df3d2f97-92e8-4e1d-bbde-038946e1475f",
+   "userId": "ce4085e9-5dff-4f5d-a64a-5ca99c0bfb0e",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "cfce2093-5880-4467-bc26-a54cff958bfb",
+   "userId": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4fa54e18-5cc7-4b8b-bae5-d54a9f1a4bd3",
+   "userId": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "8703be15-cdd9-4394-9d42-e0f8af44dda8",
+   "userId": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "bd10b6cb-57c7-49a4-8e35-9625a1760af9",
+   "userId": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4b1c0d37-8b05-42a7-b935-140bb8406ea4",
+   "userId": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "77a8df7b-dca7-4009-8aa5-5e2e9efecbbe",
+   "userId": "db913eae-d0b2-4681-a257-723f84a4da9d",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "2a238bbe-b150-49e1-9284-38aaa0a7c580",
+   "userId": "db913eae-d0b2-4681-a257-723f84a4da9d",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "5b80c509-be06-4f92-b7af-297d1b1e56c1",
+   "userId": "ddce842a-23a4-49a1-b947-78b2a3f9ca64",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4f6d2bfd-449e-4a43-b31d-3d85fc6436f2",
+   "userId": "dff09eb2-6534-42de-99bd-8bf2ed315c01",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1d711550-ec62-4251-b4d2-e40c14c9b62a",
+   "userId": "dff09eb2-6534-42de-99bd-8bf2ed315c01",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f9b8f519-a94e-4ef9-944f-ebf79faca4df",
+   "userId": "dff09eb2-6534-42de-99bd-8bf2ed315c01",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1ac7ebd8-274f-4a7f-a865-becd0e2dd858",
+   "userId": "e0fc0a80-a4ae-4e39-b709-e09fabc174bd",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "dc9e2062-a188-49d3-98ff-cc3f5db078b1",
+   "userId": "e0fc0a80-a4ae-4e39-b709-e09fabc174bd",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d0e5e800-63ec-450b-8578-fa9295fc665e",
+   "userId": "e1a17a4a-05b5-443e-a95d-db20ec2ad9af",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "22302f12-c5c6-4e5f-9863-5647af6834d0",
+   "userId": "e1a17a4a-05b5-443e-a95d-db20ec2ad9af",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "fa1c3e27-156e-4935-b3ec-ffb44d7ad83f",
+   "userId": "e1a17a4a-05b5-443e-a95d-db20ec2ad9af",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "7b0d8857-8f18-47f2-8934-0fb1690c18a5",
+   "userId": "e1a17a4a-05b5-443e-a95d-db20ec2ad9af",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "11582e30-5b96-4ab6-8c1e-2297f4a0767d",
+   "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "839f9308-a00b-413b-9d5d-3c418594be80",
+   "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "8ed1b74a-fe01-4d5e-91fa-dc26bdb51899",
+   "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+   "week": "2025-autumn W10",
+   "weekStart": "2025-11-03",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "5e08fe53-370d-47ec-9975-f029183e4b8d",
+   "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+   "week": "2025-autumn W1",
+   "weekStart": "2025-09-01",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "1b9d8f1e-6533-455a-b704-447d8dacaa8d",
+   "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+   "week": "2025-autumn W2",
+   "weekStart": "2025-09-08",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "321d735c-ca8e-4e5c-8d33-576c4f6d9232",
+   "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+   "week": "2025-autumn W3",
+   "weekStart": "2025-09-15",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "67ca89eb-3ebd-4131-b8b2-9c0e9358593c",
+   "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+   "week": "2025-autumn W11",
+   "weekStart": "2025-11-10",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c92b88c6-423e-4dde-89f7-5b156eea8622",
+   "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "99e9cff3-a2cc-439b-b396-99cf6eb77713",
+   "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "33add619-cce2-4c96-8b30-6ccfc9b3d21a",
+   "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "269aa049-8533-491e-8ec8-9ffe9ec48da2",
+   "userId": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f78660a4-e1ce-4022-b102-4cc36aac60f8",
+   "userId": "e649370f-ba2c-4d2f-b642-6800cb078d54",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "19027ce2-1724-4237-a479-bcb836fb6432",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2025-autumn W4",
+   "weekStart": "2025-09-22",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4f733823-43d0-444b-9fd7-f925d3ad9cee",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2025-autumn W2",
+   "weekStart": "2025-09-08",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0fdd52e1-dca1-4454-a428-28de730ae8a9",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2025-autumn W5",
+   "weekStart": "2025-09-29",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e7334679-35b5-4e8e-9419-bc9aa0ef71da",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "af7d51fe-3300-47c7-82ce-2fb98a5b95af",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2025-autumn W3",
+   "weekStart": "2025-09-15",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d3778cf5-e01c-4537-b6ca-1320118770a9",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "31bad8f5-7a9d-4651-ae2b-8bd4844efb38",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "0ead8019-75cc-449a-8dab-8c0b81238762",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2025-autumn W1",
+   "weekStart": "2025-09-01",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d1973899-9d6a-4599-b71f-3f126ea118ce",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2026-winter W2",
+   "weekStart": "2026-01-05",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "07734ffd-96e7-4812-a482-b0916633b576",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "26b53e87-6cdb-40c5-83d1-f1fbb560bdfe",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e6f7b12f-7e09-4a10-ac6e-577b052cb060",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "5d751c0e-3680-4eb1-8791-4907111e5c7e",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "54190382-5343-46a8-9630-30d19ce1141a",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4f04ead6-cec5-4e16-a82c-1bad6b33cfa9",
+   "userId": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4db9ad4a-ea69-453c-90b6-6fc73774bba8",
+   "userId": "e81c8b30-20a2-4a10-bf2c-8c3ca474e4e7",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "911c63f7-bb38-4c6e-8163-8689224197ed",
+   "userId": "e81c8b30-20a2-4a10-bf2c-8c3ca474e4e7",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "28bafb2a-42ab-42da-a033-1830e909de33",
+   "userId": "e81c8b30-20a2-4a10-bf2c-8c3ca474e4e7",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "9d6d9fe9-9bde-474e-850e-7fa581fadd05",
+   "userId": "e81c8b30-20a2-4a10-bf2c-8c3ca474e4e7",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "731d57cd-782d-4b5e-8cb5-a5fbd203ed7e",
+   "userId": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "af45d07d-62f8-44e6-a99e-6542203207dd",
+   "userId": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
+   "week": "2025-autumn W9",
+   "weekStart": "2025-10-27",
+   "oldPoints": 30,
+   "newPoints": 35,
+   "newThr": 35
+  },
+  {
+   "uwpId": "f13a8e60-799b-48da-8161-14b4031a7f5f",
+   "userId": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
+   "week": "2025-autumn W10",
+   "weekStart": "2025-11-03",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f3c9192a-2eb9-41ac-b3e0-ee47f1788f89",
+   "userId": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
+   "week": "2025-autumn W11",
+   "weekStart": "2025-11-10",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "6adc5575-7e41-4d6d-8041-57cbd9a5323c",
+   "userId": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "cf843744-f00c-4684-8190-69052ae2da65",
+   "userId": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "00cb4a5a-5e9c-4602-b280-02bb9f3aaf1a",
+   "userId": "edfe7e58-4681-4d40-ba46-199fc9d99d82",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b820fdf7-42d3-4310-8bed-bdd90a724520",
+   "userId": "edfe7e58-4681-4d40-ba46-199fc9d99d82",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "63ffbeaa-9bba-458a-91b6-946d4bb15891",
+   "userId": "edfe7e58-4681-4d40-ba46-199fc9d99d82",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "75088d5b-85de-414a-b808-4ac632d0c606",
+   "userId": "edfe7e58-4681-4d40-ba46-199fc9d99d82",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3713a54c-0952-434b-95ca-0d464fbc4c98",
+   "userId": "edfe7e58-4681-4d40-ba46-199fc9d99d82",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "9ffd06f5-776f-4856-8f6d-25a8a077cd7a",
+   "userId": "ee9bf53b-b7cf-4a27-8aeb-fa4a7ec605eb",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "6144aa7c-7d2e-4d6e-a193-244b2ff8f34e",
+   "userId": "f26e0bab-e138-41e6-a28b-676036a6a5aa",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "99729801-c0a3-4b7d-ac5f-47f666c63e52",
+   "userId": "f26e0bab-e138-41e6-a28b-676036a6a5aa",
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "fdca4a7d-45bf-4b00-ab60-81c3104a7ba4",
+   "userId": "f26e0bab-e138-41e6-a28b-676036a6a5aa",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a78360ee-36db-49bf-9ea0-dcd84b8f0ceb",
+   "userId": "f26e0bab-e138-41e6-a28b-676036a6a5aa",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "8dd35415-7888-4a82-9b04-219b087bd89a",
+   "userId": "f26e0bab-e138-41e6-a28b-676036a6a5aa",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f466029b-c4a3-478e-b2dd-283de0dc01a0",
+   "userId": "f2d5c378-6a50-477f-b50d-2a21241e7640",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f9ca4190-3b9a-4774-8262-c205cc6435d2",
+   "userId": "f2d5c378-6a50-477f-b50d-2a21241e7640",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ef3170b8-dbb4-482b-adf9-f2772471045a",
+   "userId": "f2d5c378-6a50-477f-b50d-2a21241e7640",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "dfa2cfcc-c21c-4b1e-acfa-68e264ff614d",
+   "userId": "f3a9bd26-46c1-4bb7-9285-94692380145f",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "03df7269-b721-49ed-8380-6e3907c8522d",
+   "userId": "f3a9bd26-46c1-4bb7-9285-94692380145f",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d67fdb3a-2d96-4c53-97d2-138dde3e2493",
+   "userId": "f3a9bd26-46c1-4bb7-9285-94692380145f",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "f22a7007-0d0c-439f-8501-1c01078fd117",
+   "userId": "f3a9bd26-46c1-4bb7-9285-94692380145f",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "bbc0b426-feb0-464f-a2a1-63bffe18da51",
+   "userId": "f3a9bd26-46c1-4bb7-9285-94692380145f",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b6ac0786-4615-4976-ac27-6576a3fc96ea",
+   "userId": "f3a9bd26-46c1-4bb7-9285-94692380145f",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "11b23c13-8544-4afc-a2c4-2866c40b5010",
+   "userId": "f980b257-12b1-4f9c-ae71-307336071785",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "4ee26fb5-833a-4ac1-9a00-f7434f4c9499",
+   "userId": "f980b257-12b1-4f9c-ae71-307336071785",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "7bd1cf7f-7d90-41ec-8d70-8d26456152e4",
+   "userId": "f980b257-12b1-4f9c-ae71-307336071785",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c648e143-2604-482e-9316-e4abe4623523",
+   "userId": "f980b257-12b1-4f9c-ae71-307336071785",
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "73b4ec75-72ca-4b90-a574-e95d7e44069b",
+   "userId": "f980b257-12b1-4f9c-ae71-307336071785",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "fae7451e-ee7e-403a-a3d4-aa7dca4f8247",
+   "userId": "f980b257-12b1-4f9c-ae71-307336071785",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "68600618-eeb5-4e86-9f1b-e221cbeadbd5",
+   "userId": "f980b257-12b1-4f9c-ae71-307336071785",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a4bc8b13-8357-491b-9ad6-1c573eecf989",
+   "userId": "fcfbe22a-05d2-4260-bfa4-c716d11d38bd",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "67adfc04-bdcf-4033-8cfc-23dc5b049bd6",
+   "userId": "fcfbe22a-05d2-4260-bfa4-c716d11d38bd",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "3756d48d-38c5-4c4f-92af-28fd8520064d",
+   "userId": "fcfbe22a-05d2-4260-bfa4-c716d11d38bd",
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b0679d4f-5e57-427d-9c40-dd836937dc3a",
+   "userId": "fcfbe22a-05d2-4260-bfa4-c716d11d38bd",
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "73e9f808-3d0d-49f8-a67b-244626ed26a7",
+   "userId": "fcfbe22a-05d2-4260-bfa4-c716d11d38bd",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 34,
+   "newPoints": 41,
+   "newThr": 37
+  },
+  {
+   "uwpId": "ed2ce636-ac70-4e27-a840-2e9696c830e2",
+   "userId": "fd2afa0a-48c8-423c-b3a8-df417990002a",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a3aacf94-9695-41f3-8445-4d6ea520b66e",
+   "userId": "fd2afa0a-48c8-423c-b3a8-df417990002a",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "6acc1bd0-515a-4c4e-9539-359b46c9716c",
+   "userId": "fe17f587-b518-4b72-9646-5a590524355c",
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "af20a748-7c9c-449e-a6bc-25058fce3cd0",
+   "userId": "fe17f587-b518-4b72-9646-5a590524355c",
+   "week": "2026-winter W3",
+   "weekStart": "2026-01-12",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "dc874625-bf64-4cd5-bd5e-c54157bb1aaf",
+   "userId": "fe17f587-b518-4b72-9646-5a590524355c",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "8d2346fa-951d-48ef-aafa-f8aa57effdeb",
+   "userId": "fe17f587-b518-4b72-9646-5a590524355c",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "852ba30c-440d-46ae-a002-029dd1b7a38b",
+   "userId": "fe17f587-b518-4b72-9646-5a590524355c",
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c8ef30b1-8107-482a-ac61-5a62375cfe16",
+   "userId": "fe17f587-b518-4b72-9646-5a590524355c",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b7cc2c93-c2cc-4a50-bcb4-49ba87ac59fb",
+   "userId": "fecffe36-1e01-40d6-aa83-7e2b698b6b89",
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "fa445327-76e7-49a3-8b86-e60fda1ee27e",
+   "userId": "fecffe36-1e01-40d6-aa83-7e2b698b6b89",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "c477330e-6799-4797-8e99-cbe14b6a86f8",
+   "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+   "week": "2026-winter W2",
+   "weekStart": "2026-01-05",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "e2460ed5-67ec-4f45-8a98-87480146ae16",
+   "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+   "week": "2026-winter W3",
+   "weekStart": "2026-01-12",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "30829ca5-7972-47d9-90f5-9ea414b2ce2d",
+   "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  },
+  {
+   "uwpId": "b605aa96-ae38-4d10-97fd-e74ca3a86148",
+   "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "oldPoints": 36,
+   "newPoints": 43,
+   "newThr": 37
+  },
+  {
+   "uwpId": "d544d086-0465-41ab-8c92-020b2fb0cac4",
+   "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "oldPoints": 32,
+   "newPoints": 39,
+   "newThr": 37
+  },
+  {
+   "uwpId": "441649ae-a474-4d89-be7f-47ccfed6a8c4",
+   "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "oldPoints": 33,
+   "newPoints": 40,
+   "newThr": 37
+  },
+  {
+   "uwpId": "a30c6a49-2caa-485c-a90d-da07227f1a43",
+   "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "oldPoints": 35,
+   "newPoints": 42,
+   "newThr": 37
+  },
+  {
+   "uwpId": "5504e535-b89b-4a70-98c3-c4b500a64af8",
+   "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "oldPoints": 30,
+   "newPoints": 37,
+   "newThr": 37
+  },
+  {
+   "uwpId": "056a1d87-a368-4fd6-a8b8-579b6c964c3d",
+   "userId": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "oldPoints": 31,
+   "newPoints": 38,
+   "newThr": 37
+  }
+ ]
+}

@@ -4,6 +4,7 @@ import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { isUuid } from "@/lib/isUuid";
+import { getRegistrationByBridgedMasterId } from "@/lib/lineRegistrationLookup";
 import {
   type Cluster4OutputLink,
   outputLinksFromLegacy,
@@ -189,20 +190,33 @@ export async function POST(request: NextRequest) {
       return Response.json({ success: false, error: "week not found" }, { status: 404 });
     }
 
-    const { data: master, error: masterError } = await supabaseAdmin
-      .from("cluster4_experience_line_masters")
-      .select("id")
-      .eq("id", input.experience_line_master_id)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (masterError) {
-      return Response.json({ success: false, error: masterError.message }, { status: 500 });
-    }
-    if (!master) {
-      return Response.json(
-        { success: false, error: "해당 라인을 찾을 수 없습니다" },
-        { status: 404 },
-      );
+    // (2E-3) 개설 검증: line_registrations(bridged 역참조) 우선 — 연결 registration 이 있으면
+    // 그 is_active 로 판정하고, 미연결이면 기존 마스터 검증으로 fallback (운영 중단 방지).
+    // cluster4_lines 에는 기존대로 master FK(input.experience_line_master_id)를 기록한다.
+    const reg = await getRegistrationByBridgedMasterId(input.experience_line_master_id);
+    if (reg) {
+      if (!reg.isActive) {
+        return Response.json(
+          { success: false, error: "해당 라인을 찾을 수 없습니다" },
+          { status: 404 },
+        );
+      }
+    } else {
+      const { data: master, error: masterError } = await supabaseAdmin
+        .from("cluster4_experience_line_masters")
+        .select("id")
+        .eq("id", input.experience_line_master_id)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (masterError) {
+        return Response.json({ success: false, error: masterError.message }, { status: 500 });
+      }
+      if (!master) {
+        return Response.json(
+          { success: false, error: "해당 라인을 찾을 수 없습니다" },
+          { status: 404 },
+        );
+      }
     }
 
     const { data: lineRow, error: lineError } = await supabaseAdmin

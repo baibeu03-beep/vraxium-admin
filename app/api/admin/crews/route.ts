@@ -139,20 +139,27 @@ export async function POST(request: NextRequest) {
   // 있어야 한다. 매칭되지 않으면 경고만 띄우고 legacy row 는 유지한다.
   let warning: string | undefined;
 
+  // B안 복합키 (2026-06-07): legacy_user_id 는 단독 식별자가 아니다 —
+  // (source_system, legacy_user_id) 복합 체계에서 같은 숫자가 소스별로 공존 가능.
+  // limit(2) 조회로 모호성을 감지해 fail-closed (잘못된 사용자에게 org 동기화 금지).
   const legacyUserId = String(payload.legacy_user_id);
-  const { data: userRow, error: userErr } = await supabaseAdmin
+  const { data: userRows, error: userErr } = await supabaseAdmin
     .from("users")
-    .select("id")
+    .select("id,source_system")
     .eq("legacy_user_id", legacyUserId)
-    .maybeSingle();
+    .limit(2);
 
+  const userRow = userRows && userRows.length === 1 ? userRows[0] : null;
   if (userErr) {
     console.error("[admin/crews POST users lookup]", userErr);
     warning = `users 조회 실패: ${userErr.message}`;
-  } else if (!userRow?.id) {
+  } else if (!userRows || userRows.length === 0) {
     warning =
       "users 테이블에 legacy_user_id 매칭 row 가 없어 organization_slug 를 동기화하지 못했습니다. 사용자가 가입한 뒤 다시 시도하세요.";
-  } else {
+  } else if (userRows.length > 1) {
+    warning =
+      `legacy_user_id=${legacyUserId} 가 복합키 체계에서 모호합니다 (source_system 다른 사용자 ${userRows.length}명 공존) — organization_slug 동기화를 건너뜁니다. 회원 관리 화면(UUID 기준)에서 수동 처리하세요.`;
+  } else if (userRow?.id) {
     const { error: orgErr } = await supabaseAdmin
       .from("user_profiles")
       .update({ organization_slug: organizationSlug })

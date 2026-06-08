@@ -1,0 +1,237 @@
+{
+ "generatedAt": "2026-06-07 pilot-apply-5 apply",
+ "mode": "apply",
+ "blocked": true,
+ "drift": [
+  "usersInsert: 기대 3 ≠ 실측 1",
+  "usersUpdate: 기대 2 ≠ 실측 4",
+  "profilesInsert: 기대 3 ≠ 실측 1",
+  "uwsInsert: 기대 131 ≠ 실측 45",
+  "uwsOverwrite: 기대 6 ≠ 실측 92",
+  "uwpInsert: 기대 194 ≠ 실측 64",
+  "uwpOverwrite: 기대 8 ≠ 실측 138",
+  "snapshotNew: 기대 3 ≠ 실측 1",
+  "snapshotRecompute: 기대 2 ≠ 실측 4",
+  "ensureLinesDistinct: 기대 11 ≠ 실측 0"
+ ],
+ "totals": {
+  "usersInsert": 1,
+  "usersUpdate": 4,
+  "profilesInsert": 1,
+  "uwsInsert": 45,
+  "uwsOverwrite": 92,
+  "uwsConflicts": 1,
+  "uwpInsert": 64,
+  "uwpOverwrite": 138,
+  "sentinel": 5,
+  "checksMigratedFalse": 2,
+  "ledger": 3048,
+  "expEach": 137,
+  "snapshotNew": 1,
+  "snapshotRecompute": 4,
+  "ensureLinesUserWeeks": 0,
+  "ensureLinesDistinct": 0,
+  "unattributed": 21,
+  "negativeSentinels": 2
+ },
+ "expected": {
+  "usersInsert": 3,
+  "usersUpdate": 2,
+  "profilesInsert": 3,
+  "uwsInsert": 131,
+  "uwsOverwrite": 6,
+  "uwpInsert": 194,
+  "uwpOverwrite": 8,
+  "sentinel": 5,
+  "checksMigratedFalse": 2,
+  "ledger": 3043,
+  "expEach": 137,
+  "snapshotNew": 3,
+  "snapshotRecompute": 2,
+  "ensureLinesDistinct": 11
+ },
+ "perUser": [
+  {
+   "pilot": "P1",
+   "source": "oranke",
+   "pmsId": 1092,
+   "name": "장승완",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1092
+   },
+   "usersAction": "update",
+   "uuid": "14f5c826-b2cf-4a88-abda-7168f3be907d",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 511,
+    "uwp": {
+     "insert": 0,
+     "overwrite": 48,
+     "sentinel": 1,
+     "cmFalse": 2
+    },
+    "uws": {
+     "insert": 0,
+     "overwrite": 28,
+     "conflicts": 0
+    },
+    "experience": 28,
+    "snapshot": "recompute"
+   },
+   "sentinel": {
+    "points": 12,
+    "advantages": 20,
+    "penalty": 0
+   },
+   "unattributedHold": 6,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "P2",
+   "source": "hrdb",
+   "pmsId": 1463,
+   "name": "안은비",
+   "identity": {
+    "sourceSystem": "hrdb",
+    "legacyUserId": 1463
+   },
+   "usersAction": "update",
+   "uuid": "3c4fc830-a465-4a00-a26a-a0c37fa3052c",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 983,
+    "uwp": {
+     "insert": 0,
+     "overwrite": 51,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 0,
+     "overwrite": 42,
+     "conflicts": 0
+    },
+    "experience": 42,
+    "snapshot": "recompute"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 19,
+    "penalty": 0
+   },
+   "unattributedHold": 7,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "P3",
+   "source": "olympus",
+   "pmsId": 249,
+   "name": "성채윤",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 249
+   },
+   "usersAction": "update",
+   "uuid": "19cb4129-ba73-4685-9912-7d9d4ed3768b",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 449,
+    "uwp": {
+     "insert": 0,
+     "overwrite": 35,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 0,
+     "overwrite": 19,
+     "conflicts": 0
+    },
+    "experience": 19,
+    "snapshot": "recompute"
+   },
+   "sentinel": {
+    "points": 6,
+    "advantages": 14,
+    "penalty": 0
+   },
+   "unattributedHold": 4,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "P4",
+   "source": "olympus",
+   "pmsId": 248,
+   "name": "박시은",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 248
+   },
+   "usersAction": "update",
+   "uuid": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 409,
+    "uwp": {
+     "insert": 24,
+     "overwrite": 4,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 16,
+     "overwrite": 3,
+     "conflicts": 1
+    },
+    "experience": 19,
+    "snapshot": "recompute"
+   },
+   "sentinel": {
+    "points": -14,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "P5",
+   "source": "olympus",
+   "pmsId": 251,
+   "name": "정혜빈",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 251
+   },
+   "usersAction": "insert",
+   "uuid": "8ee11065-ef7e-4217-bd38-98301080796c",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 696,
+    "uwp": {
+     "insert": 40,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 29,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 29,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -4,
+    "advantages": 17,
+    "penalty": 0
+   },
+   "unattributedHold": 4,
+   "ensureWeeks": []
+  }
+ ],
+ "ensureLinesPlan": [],
+ "sentinelContract": "year=1900, week_number=1 (CHECK 1~53 보정), week_start_date=1900-01-01, checks_migrated=false — weeks 부재로 카드/판정 미소비·누적 포인트 합산 포함"
+}

@@ -578,6 +578,8 @@ async function computeWeeklyCards(
       userId,
       [...legacyWeekIdSet],
       Date.now(),
+      // 조직별 check 기준값(org_week_thresholds) 해석 — 파이프라인 보유 org 전달(재조회 0).
+      { organizationSlug: organization },
     );
     const [aggregates, experienceVerdict, opened] = await Promise.all([
       fetchWeeklyCardLineAggregates(userId, weekCardIds),
@@ -586,6 +588,7 @@ async function computeWeeklyCards(
       fetchExperienceRequiredSlotStatusByWeek(userId, weekCardIds, Date.now(), {
         alwaysOpenWeekIds: slotPolicyWeekIds,
         legacyUnifiedStates,
+        organizationSlug: organization,
       }),
       // 라인 개설 여부(part별) — synthetic fail 분모 A 가산용.
       fetchWeeksWithOpenLinesByPart(weekCardIds),

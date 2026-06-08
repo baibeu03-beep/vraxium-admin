@@ -1,0 +1,197 @@
+{
+ "mode": "apply",
+ "plan": [
+  {
+   "week_id": "3ba7ecc9-b4fd-4f2c-beaa-323eeba3ab3d",
+   "season_key": "2025-spring",
+   "week_number": 4,
+   "start_date": "2025-03-24",
+   "end_date": "2025-03-30",
+   "published_at": "2025-03-31T00:00:00+00:00"
+  },
+  {
+   "week_id": "07603abe-7e4d-439c-9ba3-ae620d08da8b",
+   "season_key": "2025-spring",
+   "week_number": 5,
+   "start_date": "2025-03-31",
+   "end_date": "2025-04-06",
+   "published_at": "2025-04-07T00:00:00+00:00"
+  },
+  {
+   "week_id": "99d1f7d5-6167-4b58-a302-5ff1dbe653af",
+   "season_key": "2025-spring",
+   "week_number": 9,
+   "start_date": "2025-04-28",
+   "end_date": "2025-05-04",
+   "published_at": "2025-05-05T00:00:00+00:00"
+  },
+  {
+   "week_id": "fad12740-0404-4b23-a0d8-2c5c6926b112",
+   "season_key": "2025-spring",
+   "week_number": 10,
+   "start_date": "2025-05-05",
+   "end_date": "2025-05-11",
+   "published_at": "2025-05-12T00:00:00+00:00"
+  },
+  {
+   "week_id": "1870e966-5f31-494b-ba61-2f00a19406fe",
+   "season_key": "2025-spring",
+   "week_number": 11,
+   "start_date": "2025-05-12",
+   "end_date": "2025-05-18",
+   "published_at": "2025-05-19T00:00:00+00:00"
+  },
+  {
+   "week_id": "10278bdc-2630-421f-ac5a-69ce86d8f3ed",
+   "season_key": "2025-spring",
+   "week_number": 12,
+   "start_date": "2025-05-19",
+   "end_date": "2025-05-25",
+   "published_at": "2025-05-26T00:00:00+00:00"
+  },
+  {
+   "week_id": "50082fa8-099a-415f-baef-c728114820e1",
+   "season_key": "2025-spring",
+   "week_number": 13,
+   "start_date": "2025-05-26",
+   "end_date": "2025-06-01",
+   "published_at": "2025-06-02T00:00:00+00:00"
+  },
+  {
+   "week_id": "d2a3eadf-cab9-46ac-9600-03fdb4985939",
+   "season_key": "2025-summer",
+   "week_number": 1,
+   "start_date": "2025-06-30",
+   "end_date": "2025-07-06",
+   "published_at": "2025-07-07T00:00:00+00:00"
+  },
+  {
+   "week_id": "fb0ca9b6-ca22-41fb-9c20-46c2635c9af9",
+   "season_key": "2025-summer",
+   "week_number": 2,
+   "start_date": "2025-07-07",
+   "end_date": "2025-07-13",
+   "published_at": "2025-07-14T00:00:00+00:00"
+  },
+  {
+   "week_id": "4f1733b6-408a-4173-9025-d61ca41ea5cd",
+   "season_key": "2025-summer",
+   "week_number": 3,
+   "start_date": "2025-07-14",
+   "end_date": "2025-07-20",
+   "published_at": "2025-07-21T00:00:00+00:00"
+  },
+  {
+   "week_id": "e794fd53-d5c7-4df4-a73f-9156a700c19a",
+   "season_key": "2025-summer",
+   "week_number": 4,
+   "start_date": "2025-07-21",
+   "end_date": "2025-07-27",
+   "published_at": "2025-07-28T00:00:00+00:00"
+  }
+ ],
+ "applied": [
+  {
+   "week_id": "3ba7ecc9-b4fd-4f2c-beaa-323eeba3ab3d",
+   "season_key": "2025-spring",
+   "week_number": 4,
+   "start_date": "2025-03-24",
+   "end_date": "2025-03-30",
+   "published_at": "2025-03-31T00:00:00+00:00"
+  },
+  {
+   "week_id": "07603abe-7e4d-439c-9ba3-ae620d08da8b",
+   "season_key": "2025-spring",
+   "week_number": 5,
+   "start_date": "2025-03-31",
+   "end_date": "2025-04-06",
+   "published_at": "2025-04-07T00:00:00+00:00"
+  },
+  {
+   "week_id": "99d1f7d5-6167-4b58-a302-5ff1dbe653af",
+   "season_key": "2025-spring",
+   "week_number": 9,
+   "start_date": "2025-04-28",
+   "end_date": "2025-05-04",
+   "published_at": "2025-05-05T00:00:00+00:00"
+  },
+  {
+   "week_id": "fad12740-0404-4b23-a0d8-2c5c6926b112",
+   "season_key": "2025-spring",
+   "week_number": 10,
+   "start_date": "2025-05-05",
+   "end_date": "2025-05-11",
+   "published_at": "2025-05-12T00:00:00+00:00"
+  },
+  {
+   "week_id": "1870e966-5f31-494b-ba61-2f00a19406fe",
+   "season_key": "2025-spring",
+   "week_number": 11,
+   "start_date": "2025-05-12",
+   "end_date": "2025-05-18",
+   "published_at": "2025-05-19T00:00:00+00:00"
+  },
+  {
+   "week_id": "10278bdc-2630-421f-ac5a-69ce86d8f3ed",
+   "season_key": "2025-spring",
+   "week_number": 12,
+   "start_date": "2025-05-19",
+   "end_date": "2025-05-25",
+   "published_at": "2025-05-26T00:00:00+00:00"
+  },
+  {
+   "week_id": "50082fa8-099a-415f-baef-c728114820e1",
+   "season_key": "2025-spring",
+   "week_number": 13,
+   "start_date": "2025-05-26",
+   "end_date": "2025-06-01",
+   "published_at": "2025-06-02T00:00:00+00:00"
+  },
+  {
+   "week_id": "d2a3eadf-cab9-46ac-9600-03fdb4985939",
+   "season_key": "2025-summer",
+   "week_number": 1,
+   "start_date": "2025-06-30",
+   "end_date": "2025-07-06",
+   "published_at": "2025-07-07T00:00:00+00:00"
+  },
+  {
+   "week_id": "fb0ca9b6-ca22-41fb-9c20-46c2635c9af9",
+   "season_key": "2025-summer",
+   "week_number": 2,
+   "start_date": "2025-07-07",
+   "end_date": "2025-07-13",
+   "published_at": "2025-07-14T00:00:00+00:00"
+  },
+  {
+   "week_id": "4f1733b6-408a-4173-9025-d61ca41ea5cd",
+   "season_key": "2025-summer",
+   "week_number": 3,
+   "start_date": "2025-07-14",
+   "end_date": "2025-07-20",
+   "published_at": "2025-07-21T00:00:00+00:00"
+  },
+  {
+   "week_id": "e794fd53-d5c7-4df4-a73f-9156a700c19a",
+   "season_key": "2025-summer",
+   "week_number": 4,
+   "start_date": "2025-07-21",
+   "end_date": "2025-07-27",
+   "published_at": "2025-07-28T00:00:00+00:00"
+  }
+ ],
+ "errors": [],
+ "skippedAlreadyPublished": [],
+ "nonPilotSnapshotFingerprint": {
+  "before": {
+   "rows": 120,
+   "hash": "7d3178b4a5022d90"
+  },
+  "after": {
+   "rows": 120,
+   "hash": "7d3178b4a5022d90"
+  },
+  "unchanged": true
+ },
+ "snapshotRecomputed": 5
+}

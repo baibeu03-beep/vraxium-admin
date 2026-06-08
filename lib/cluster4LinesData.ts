@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getExperienceCategorySlotByMasterIdRegFirst } from "@/lib/lineRegistrationLookup";
 import { isUuid } from "@/lib/isUuid";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import { refreshWeeklyCardsSnapshotSafe } from "@/lib/cluster4WeeklyCardsSnapshot";
@@ -320,24 +321,11 @@ async function getExperienceMasterMeta(
   experienceLineMasterId: string | null,
 ): Promise<{ category: Cluster4ExperienceCategory | null; slotOrder: number | null }> {
   if (!experienceLineMasterId) return { category: null, slotOrder: null };
-  const { data, error } = await supabaseAdmin
-    .from("cluster4_experience_line_masters")
-    .select("experience_category,experience_slot_order")
-    .eq("id", experienceLineMasterId)
-    .maybeSingle();
-  if (error) {
-    console.warn("[cluster4/lines/detail] experience master lookup failed", {
-      message: error.message,
-    });
-    return { category: null, slotOrder: null };
-  }
-  const row = data as {
-    experience_category: Cluster4ExperienceCategory | null;
-    experience_slot_order: number | null;
-  } | null;
+  // (2E-4) registrations-first + 마스터 fallback (헬퍼 내부) — shape/의미 등가 유지.
+  const meta = await getExperienceCategorySlotByMasterIdRegFirst(experienceLineMasterId);
   return {
-    category: row?.experience_category ?? null,
-    slotOrder: row?.experience_slot_order ?? null,
+    category: (meta.category as Cluster4ExperienceCategory | null) ?? null,
+    slotOrder: meta.slotOrder ?? null,
   };
 }
 

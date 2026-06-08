@@ -46,6 +46,9 @@ Supabase SQL Editor에서 **파일명 알파벳 순서대로** 실행한다.
 | 35 | `2026-06-01_weeks_result_published.sql` | `weeks.result_published_at` (집계/공표 완료 시점) append. NULL=미공표→고객 카드 "성장(집계 중)"(tallying, read-time only), 값 존재=공표 완료→success/fail 노출. 기존 종료 주차(`end_date < CURRENT_DATE`) 일괄 공표 백필(멱등). **`user_week_statuses.status` CHECK 미변경**, **weeks 의존, append-only** |
 | 36 | `2026-06-01_cluster4_lines_role_workflow.sql` | `cluster4_lines` 라인 개설 역할별 진행 상태/담당자 5개 컬럼 append: `input_completed_at`(파트장 입력완료) · `reviewed_at`/`reviewed_by`(에이전트 검수) · `opened_at`/`opened_by`(팀장 개설). 전부 nullable, CHECK/트리거 없음 — workflowStatus 는 timestamp 조합으로 read-time 파생. `LINE_SELECT`(4허브 공통 조회) 가 이 컬럼들을 참조하므로 **미적용 시 4허브 전체 `column ... does not exist`**. **admin_users 의존, append-only** |
 | 37 | `2026-06-02_user_profiles_profile_tagline.sql` | `user_profiles.profile_tagline` (한줄 소개 — 희망 기업/직무/진로 목표) text NULL append. 위클리 평판/연계동료 카드 프로필 영역 노출용. 평판 keyword(평가 태그)와 다른 축. 기존 데이터 NULL 유지(프론트 "-" fallback), 입력 UI 는 범위 외. **의존 없음, append-only** |
+| 38 | `2026-06-07_line_registrations.sql` | `/admin/lines/register` 라인 등록 레지스트리 신규 테이블 (`line_registrations`) — 기존 4허브 SoT(cluster4_lines·마스터·career_projects)와 완전 분리된 additive 테이블. 허브/종류/고정·변동 메인타이틀/유닛 링크·이미지/career 전용 6필드 + updated_at trigger. 기존 코드 참조 0건 — 전환/이관은 별도 Phase. **admin_users 의존만, append-only** |
+| 39 | `2026-06-07_line_registrations_unit_link.sql` | 유닛 링크 정정 — `line_registrations.unit_link` text NOT NULL DEFAULT `'-'` append (단일 텍스트, URL 강제 없음, 미입력=`'-'`). 기존 행은 DEFAULT 로 안전 백필. `output_links`/`output_images` 는 deprecated COMMENT 만(컬럼·값 보존, 신규 저장/조회 미사용). **#38 의존, append-only** |
+| 40 | `2026-06-07_line_registrations_org_bridge.sql` | Phase 2C 선행 — `line_registrations.organization_slug`(encre/oranke/phalanx/common CHECK, NULL=미지정·브리지 불가) + `bridged_master_id`/`bridged_at`(브리지 추적·rollback 식별) + partial UNIQUE(hub, org, line_code). 기존 마스터/cluster4_lines/snapshot 무접촉. 적용 전 검증 더미 13건 스크립트 정리 완료. **#38 의존, append-only** |
 
 ## 주의사항
 

@@ -1,0 +1,39 @@
+{
+ "generatedAt": "2026-06-07",
+ "criteria": "State IN (일반,운영진) − oranke 916/873 (활동일 기준 미사용)",
+ "totals": {
+  "targets": 284,
+  "over6m": 0,
+  "over12m": 0,
+  "noneSince2025": 0,
+  "within12m": 284,
+  "noActivityAtAll": 0
+ },
+ "perSource": {
+  "oranke": {
+   "targets": 97,
+   "over6m": 0,
+   "over12m": 0,
+   "noneSince2025": 0,
+   "within12m": 97,
+   "noActivityAtAll": 0
+  },
+  "hrdb": {
+   "targets": 146,
+   "over6m": 0,
+   "over12m": 0,
+   "noneSince2025": 0,
+   "within12m": 146,
+   "noActivityAtAll": 0
+  },
+  "olympus": {
+   "targets": 41,
+   "over6m": 0,
+   "over12m": 0,
+   "noneSince2025": 0,
+   "within12m": 41,
+   "noActivityAtAll": 0
+  }
+ },
+ "staleDetail": []
+}

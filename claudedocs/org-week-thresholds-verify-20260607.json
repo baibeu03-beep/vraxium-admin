@@ -1,0 +1,35 @@
+{
+  "pass": 5,
+  "fail": 0,
+  "results": [
+    {
+      "name": "[1] org_week_thresholds 테이블 존재",
+      "ok": true
+    },
+    {
+      "name": "[2] oranke seed = weeks.check_threshold 전수 일치",
+      "ok": true,
+      "detail": "weeks(thr)=100 orgRows=100 missing=0 mismatch=0 extra=0"
+    },
+    {
+      "name": "[3a] oranke org 사용자 flip 0건 (필수)",
+      "ok": true,
+      "detail": "oranke users=4 thresholdDiffs=0 flips=0"
+    },
+    {
+      "name": "[3b] encre/phalanx 변화량 (정보성)",
+      "ok": true,
+      "detail": "encre flips=0 phalanx flips=0 (백필 전 0 — org 행 적용 효과)"
+    },
+    {
+      "name": "[5] direct == HTTP(snapshot) checkGate 동일 (oranke org 한정 — encre/phalanx 는 stale 예상)",
+      "ok": true,
+      "detail": "orankeUsers=4"
+    },
+    {
+      "name": "[6] demoUserId == internal-key cards 완전 동일",
+      "ok": true,
+      "detail": "users=4"
+    }
+  ]
+}

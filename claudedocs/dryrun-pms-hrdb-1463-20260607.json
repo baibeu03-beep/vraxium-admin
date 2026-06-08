@@ -1,0 +1,1653 @@
+{
+ "generatedAt": "2026-06-07 §12 dry-run (B안 composite key — hrdb 1463)",
+ "mode": "DRY-RUN — DB writes 0 (pms SELECT-only · supabase select-only)",
+ "sourceSystem": {
+  "source": "hrdb",
+  "organizationSlug": "encre",
+  "legacyIdentity": {
+   "sourceSystem": "hrdb",
+   "legacyUserId": 1463
+  },
+  "offsetComparison": {
+   "deprecated_offsetPolicy": "10001463 (구 offset 가산값 — 폐기)",
+   "adopted_composite": "(hrdb, 1463) — 원본 보존"
+  },
+  "contract": "org=source system 매핑 단독 (usersinfo.Team 은 team_name 전용 — org 파생 금지) · 식별=(source_system, legacy_user_id) 복합키"
+ },
+ "step1_matching": {
+  "pms": {
+   "UserId": 1463,
+   "Name": "안은비",
+   "BirthDay": "020530",
+   "Gender": "여",
+   "School": "고려대",
+   "Major": "한국사학과",
+   "Address": "서울시 동작구",
+   "Contact": "01020738539",
+   "mail": "asas6goo@gmail.com",
+   "birthIso": "2002-05-30"
+  },
+  "vraxiumCandidatesByName": 0,
+  "candidates": [],
+  "matched": null,
+  "matchedIsTester": false,
+  "matchedUsersRow": null,
+  "compositePairOccupied": [],
+  "nullSourceSameNumber_info": [],
+  "plan": "Vraxium 부재 → 신규 채번 (users{uuid, source_system='hrdb', legacy_user_id=1463 원본} + user_profiles{organization_slug='encre'})"
+ },
+ "step2_profileMapping": {
+  "policy": "신규 채번 — organization_slug=source_system 매핑 (Team 으로 org 파생 금지)",
+  "organizationSlug": "encre",
+  "teamName": "비주얼",
+  "partName": "director",
+  "membershipLevel": "일반",
+  "pmsSnapshot": {
+   "Team": "비주얼",
+   "Part": "director",
+   "Week": 36,
+   "Level": "일반",
+   "StartDate": "2025-03-24 00:00:00",
+   "State": "일반"
+  },
+  "writesPlanned": "users(uuid 신규, source_system='hrdb', legacy_user_id=1463 원본) · user_profiles(organization_slug='encre') · user_memberships(team_name='비주얼', part_name='director') · user_educations"
+ },
+ "step3_ledgerPlan": {
+  "ddlPrereq": "legacy_point_ledger DDL 적용 완료 (2026-06-07 확인 — UNIQUE(source_table, source_pk) arbiter 실증)",
+  "rowsToInsert": 982,
+  "alive": 979,
+  "deleted_voidedAt": 3,
+  "code0000_included": 1,
+  "starRows": 781,
+  "shieldRows": 152,
+  "dateSubstituted": 0,
+  "idempotencyKey": "(source_table='hrdb.pointlogs', source_pk=LogNum) UNIQUE — 소스 프리픽스로 시스템 간 PK 충돌 차단",
+  "policy": "IsDeleted=1 포함 전 행 적재(voided_at 표시) — A3-⑤ alive 선별 금지"
+ },
+ "step4_uwpPlan": {
+  "formula": "§5-1: points=Σ Star(net_all, 14일 보호) / advantages=Σ max(Shield,0) alive / penalty=Σ max(−Shield,0) alive",
+  "newbieProtection": {
+   "startDate": "2025-03-24",
+   "until": "2025-04-07",
+   "zeroedRows": 0
+  },
+  "rowsPlanned": 51,
+  "inserts": 51,
+  "overwritesExisting_dummyPerOps": 0,
+  "zeroPointWeeksIncluded": 0,
+  "unattributedPointlogRows_holdQueue": 7
+ },
+ "step5_uwsPlan": {
+  "source": "useractivities.IsActive SoT (A3-⑧) + manageractivities 병기 — OR 인정",
+  "rowsPlanned": 42,
+  "inserts": 42,
+  "overwrites_existingDummyPerOps": 0,
+  "statusConflicts": [],
+  "actUnattributed_holdQueue": 0,
+  "postWriteContract": "uws 쓰기 → recalcUserGrowthStats(전환 제외) → snapshot 재계산 (파이프라인 순서 강제)"
+ },
+ "step6_checksMigratedPlan": {
+  "thresholdResolution": {
+   "contract": "org_week_thresholds('encre') → weeks.check_threshold → 30 (라이브 판정 경로와 동일)",
+   "fromOrgRow": 42,
+   "fromWeeksColumn": 0,
+   "fromDefault": 9
+  },
+  "base": "생성 uwp 전 행 checks_migrated=true (0건 주차 포함 — v18 행 기록 계약)",
+  "flipRows": [],
+  "flips": 0,
+  "agree": 41,
+  "reverse": 1,
+  "policyOptions": {
+   "pmsFirst_recommended": "flip 0행만 checks_migrated=false (행 단위 provenance — 화면 뒤집힘 0)",
+   "failAccept": "flip 0행 read-time fail 표시 (uws 는 success 유지 — 표시 누적만 감소)"
+  }
+ },
+ "step7_experiencePlan": {
+  "boundary": "start_date < 2026-06-29 (= 2026 봄 W16 까지 — 전 활동 주차 해당)",
+  "mapping": "subtitle=Activity 원문(cluster4_line_submissions) / rating=Star(cluster4_experience_line_evaluations) / week 귀속=타깃.week_id",
+  "lineRowsToCreate": 0,
+  "lineReuse": "기존 active [통합] 마스터/라인 재사용 — 신규 라인 생성 금지 (v17·B7 dry-run tempLineRestorability 계약)",
+  "targetsToCreate": 42,
+  "submissionsToCreate": 42,
+  "evaluationsToCreate": 42,
+  "subtitleMissing": 0,
+  "multiActivityWeeks": 16
+ },
+ "step8_adjustment": {
+  "balanceNow": {
+   "star": 2014,
+   "shield": 14
+  },
+  "weeklySums": {
+   "points": 2006,
+   "advantages": 102,
+   "penalty": 107,
+   "advMinusPen": -5
+  },
+  "unattributedNote": "미귀속 pointlogs 7행의 Star/Shield 는 주차 행에 없으므로 adjustment 가 흡수",
+  "sentinelRow": {
+   "key": "year=1900, week_number=0, week_start_date=1900-01-01, checks_migrated=false",
+   "points": 8,
+   "advantages": 19,
+   "penalty": 0
+  },
+  "ledgerRow": {
+   "entry_type": "MIGRATION_ADJUSTMENT",
+   "star_delta": 8,
+   "shield_delta": 19
+  },
+  "identity": "적용 후 Σuwp.points = userspoint.Star / Σ(adv−pen) = userspoint.Shield (항등식 자동 성립)",
+  "caution": "본 수치는 오늘 잔액 기준 — 실제 apply 시 컷오버 직전 재계산 필수 (§5-2)"
+ },
+ "step9_snapshot": {
+  "exists": false
+ },
+ "verification_directVsHttp": {
+  "skipped": "매칭 사용자 없음"
+ },
+ "step10_rollback": {
+  "order": [
+   "1) cluster4 evaluations/submissions/targets — source_pk 멱등키(ActivityId) 기준 신규 행 삭제",
+   "2) uws — 신규 insert 삭제 + 덮어쓴 행 prior 복원 (run log 의 before 값)",
+   "3) uwp — sentinel(1900-W0) 삭제 + 신규 insert 삭제 + 덮어쓴 행 prior 복원 + checks_migrated=false 복귀",
+   "4) legacy_point_ledger — source_pk 기준 삭제 (read-only 아카이브라 소비처 없음)",
+   "5) users 페어 기록 롤백 — 신규 채번 행은 삭제, 기존(matched) 행은 source_system NULL 복귀 (⚠ 불변 트리거가 set 후 변경을 막으므로 rollback 은 트리거 일시 해제 또는 관리 SQL 경유 — run log 에 prior 기록)",
+   "6) recalcUserGrowthStats + snapshot 재계산 → 이관 전 상태 diff=0 확인"
+  ],
+  "precondition": "apply 구현 시 모든 쓰기 전 prior 값을 run log 에 기록 (B7 apply 와 동일 패턴)"
+ },
+ "weekRows": [
+  {
+   "week": "2025-spring W4",
+   "start": "2025-03-24",
+   "threshold": 30,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 30,
+    "advantages": 0,
+    "penalty": 7,
+    "logRows": 10,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-spring W5",
+   "start": "2025-03-31",
+   "threshold": 30,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 33,
+    "advantages": 7,
+    "penalty": 4,
+    "logRows": 30,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "fail",
+    "rating": 2,
+    "actRows": 2,
+    "uaActive": 0,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": false,
+    "checkPass": true,
+    "success": false
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-spring W6",
+   "start": "2025-04-07",
+   "threshold": 30,
+   "published": false,
+   "isOfficialRest": true,
+   "uwp": {
+    "points": 0,
+    "advantages": 0,
+    "penalty": 1,
+    "logRows": 4,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-spring W9",
+   "start": "2025-04-28",
+   "threshold": 30,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 68,
+    "advantages": 3,
+    "penalty": 4,
+    "logRows": 47,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-spring W10",
+   "start": "2025-05-05",
+   "threshold": 30,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 52,
+    "advantages": 3,
+    "penalty": 1,
+    "logRows": 27,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-spring W11",
+   "start": "2025-05-12",
+   "threshold": 33,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 71,
+    "advantages": 1,
+    "penalty": 1,
+    "logRows": 46,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-spring W12",
+   "start": "2025-05-19",
+   "threshold": 27,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 58,
+    "advantages": 3,
+    "penalty": 1,
+    "logRows": 34,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-spring W13",
+   "start": "2025-05-26",
+   "threshold": 26,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 48,
+    "advantages": 2,
+    "penalty": 0,
+    "logRows": 21,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-spring W16",
+   "start": "2025-06-16",
+   "threshold": 30,
+   "published": false,
+   "isOfficialRest": true,
+   "uwp": {
+    "points": 3,
+    "advantages": 3,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-summer W1",
+   "start": "2025-06-30",
+   "threshold": 20,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 18,
+    "advantages": 1,
+    "penalty": 6,
+    "logRows": 17,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "fail",
+    "rating": 2,
+    "actRows": 1,
+    "uaActive": 0,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": false,
+    "checkPass": false,
+    "success": false
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-summer W2",
+   "start": "2025-07-07",
+   "threshold": 24,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 40,
+    "advantages": 0,
+    "penalty": 2,
+    "logRows": 19,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-summer W3",
+   "start": "2025-07-14",
+   "threshold": 25,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 55,
+    "advantages": 10,
+    "penalty": 5,
+    "logRows": 21,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 8,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-summer W4",
+   "start": "2025-07-21",
+   "threshold": 29,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 38,
+    "advantages": 0,
+    "penalty": 2,
+    "logRows": 18,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-summer W5",
+   "start": "2025-07-28",
+   "threshold": 28,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 29,
+    "advantages": 0,
+    "penalty": 4,
+    "logRows": 16,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 9,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-summer W6",
+   "start": "2025-08-04",
+   "threshold": 34,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 32,
+    "advantages": 0,
+    "penalty": 4,
+    "logRows": 16,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "fail",
+    "rating": 10,
+    "actRows": 2,
+    "uaActive": 0,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": false,
+    "success": false
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-summer W7",
+   "start": "2025-08-11",
+   "threshold": 35,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 58,
+    "advantages": 0,
+    "penalty": 4,
+    "logRows": 26,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 9,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-summer W8",
+   "start": "2025-08-18",
+   "threshold": 34,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 50,
+    "advantages": 0,
+    "penalty": 3,
+    "logRows": 25,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 9,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W1",
+   "start": "2025-09-01",
+   "threshold": 26,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 44,
+    "advantages": 0,
+    "penalty": 3,
+    "logRows": 21,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 8,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W2",
+   "start": "2025-09-08",
+   "threshold": 32,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 37,
+    "advantages": 1,
+    "penalty": 3,
+    "logRows": 19,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 8,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W3",
+   "start": "2025-09-15",
+   "threshold": 34,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 40,
+    "advantages": 0,
+    "penalty": 3,
+    "logRows": 19,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 9,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W4",
+   "start": "2025-09-22",
+   "threshold": 30,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 43,
+    "advantages": 0,
+    "penalty": 5,
+    "logRows": 17,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 9,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W5",
+   "start": "2025-09-29",
+   "threshold": 30,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 29,
+    "advantages": 0,
+    "penalty": 4,
+    "logRows": 15,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "fail",
+    "rating": 9,
+    "actRows": 1,
+    "uaActive": 0,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": false,
+    "success": false
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W8",
+   "start": "2025-10-20",
+   "threshold": 30,
+   "published": true,
+   "isOfficialRest": true,
+   "uwp": {
+    "points": 6,
+    "advantages": 0,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W9",
+   "start": "2025-10-27",
+   "threshold": 28,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 42,
+    "advantages": 0,
+    "penalty": 1,
+    "logRows": 17,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W10",
+   "start": "2025-11-03",
+   "threshold": 30,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 50,
+    "advantages": 2,
+    "penalty": 3,
+    "logRows": 24,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 9,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W11",
+   "start": "2025-11-10",
+   "threshold": 33,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 54,
+    "advantages": 1,
+    "penalty": 2,
+    "logRows": 23,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W12",
+   "start": "2025-11-17",
+   "threshold": 30,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 45,
+    "advantages": 0,
+    "penalty": 0,
+    "logRows": 19,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 8,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W13",
+   "start": "2025-11-24",
+   "threshold": 32,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 53,
+    "advantages": 22,
+    "penalty": 1,
+    "logRows": 25,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 8,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W14",
+   "start": "2025-12-01",
+   "threshold": 30,
+   "published": true,
+   "isOfficialRest": true,
+   "uwp": {
+    "points": 2,
+    "advantages": 0,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W15",
+   "start": "2025-12-08",
+   "threshold": 30,
+   "published": true,
+   "isOfficialRest": true,
+   "uwp": {
+    "points": 0,
+    "advantages": 6,
+    "penalty": 0,
+    "logRows": 2,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2025-autumn W17",
+   "start": "2025-12-22",
+   "threshold": 30,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 0,
+    "advantages": 1,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-winter W1",
+   "start": "2025-12-29",
+   "threshold": 0,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 30,
+    "advantages": 0,
+    "penalty": 4,
+    "logRows": 18,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 9,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-winter W2",
+   "start": "2026-01-05",
+   "threshold": 0,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 77,
+    "advantages": 2,
+    "penalty": 2,
+    "logRows": 23,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 9,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-winter W3",
+   "start": "2026-01-12",
+   "threshold": 0,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 42,
+    "advantages": 0,
+    "penalty": 2,
+    "logRows": 22,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 8,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-winter W4",
+   "start": "2026-01-19",
+   "threshold": 0,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 40,
+    "advantages": 3,
+    "penalty": 1,
+    "logRows": 20,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-winter W5",
+   "start": "2026-01-26",
+   "threshold": 0,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 36,
+    "advantages": 3,
+    "penalty": 4,
+    "logRows": 21,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 9,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-winter W6",
+   "start": "2026-02-02",
+   "threshold": 0,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 68,
+    "advantages": 0,
+    "penalty": 2,
+    "logRows": 29,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 9,
+    "actRows": 2,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-winter W7",
+   "start": "2026-02-09",
+   "threshold": 0,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 37,
+    "advantages": 3,
+    "penalty": 1,
+    "logRows": 18,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-winter W8",
+   "start": "2026-02-16",
+   "threshold": 30,
+   "published": true,
+   "isOfficialRest": true,
+   "uwp": {
+    "points": 0,
+    "advantages": 0,
+    "penalty": 1,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-winter W9",
+   "start": "2026-02-23",
+   "threshold": 30,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 5,
+    "advantages": 1,
+    "penalty": 0,
+    "logRows": 2,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W1",
+   "start": "2026-03-02",
+   "threshold": 23,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 38,
+    "advantages": 3,
+    "penalty": 1,
+    "logRows": 14,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 8,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W2",
+   "start": "2026-03-09",
+   "threshold": 26,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 48,
+    "advantages": 0,
+    "penalty": 3,
+    "logRows": 20,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 6,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W3",
+   "start": "2026-03-16",
+   "threshold": 38,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 68,
+    "advantages": 4,
+    "penalty": 2,
+    "logRows": 28,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 8,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W4",
+   "start": "2026-03-23",
+   "threshold": 35,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 80,
+    "advantages": 4,
+    "penalty": 0,
+    "logRows": 32,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 9,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W5",
+   "start": "2026-03-30",
+   "threshold": 34,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 59,
+    "advantages": 5,
+    "penalty": 1,
+    "logRows": 24,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W6",
+   "start": "2026-04-06",
+   "threshold": 30,
+   "published": true,
+   "isOfficialRest": true,
+   "uwp": {
+    "points": 2,
+    "advantages": 0,
+    "penalty": 0,
+    "logRows": 1,
+    "protectedZeroed": 0
+   },
+   "uws": null,
+   "v18": null,
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W9",
+   "start": "2026-04-27",
+   "threshold": 29,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 55,
+    "advantages": 2,
+    "penalty": 0,
+    "logRows": 25,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W10",
+   "start": "2026-05-04",
+   "threshold": 32,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 54,
+    "advantages": 0,
+    "penalty": 2,
+    "logRows": 23,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 10,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W11",
+   "start": "2026-05-11",
+   "threshold": 34,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 47,
+    "advantages": 2,
+    "penalty": 3,
+    "logRows": 22,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 8,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W12",
+   "start": "2026-05-18",
+   "threshold": 28,
+   "published": true,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 43,
+    "advantages": 2,
+    "penalty": 2,
+    "logRows": 22,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "success",
+    "rating": 8,
+    "actRows": 1,
+    "uaActive": 1,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": null,
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  },
+  {
+   "week": "2026-spring W13",
+   "start": "2026-05-25",
+   "threshold": 30,
+   "published": false,
+   "isOfficialRest": false,
+   "uwp": {
+    "points": 49,
+    "advantages": 2,
+    "penalty": 2,
+    "logRows": 24,
+    "protectedZeroed": 0
+   },
+   "uws": {
+    "status": "fail",
+    "rating": 9,
+    "actRows": 1,
+    "uaActive": 0,
+    "maActive": 0
+   },
+   "v18": {
+    "ratingOk": true,
+    "checkPass": true,
+    "success": true
+   },
+   "verdictDiff": "역방향(pms fail→v18 pass — 게이트는 승격 없음·표시 영향 없음)",
+   "existing": {
+    "uws": null,
+    "uwp": null
+   }
+  }
+ ]
+}

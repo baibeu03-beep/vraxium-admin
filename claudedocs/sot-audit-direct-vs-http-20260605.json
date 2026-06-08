@@ -1,0 +1,571 @@
+{
+  "users": {
+    "tester": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+    "real": "247021bc-374b-48f4-8d49-b181d149ee33"
+  },
+  "tester": {
+    "httpStatus": {
+      "frontCards": 200,
+      "adminCards": 200,
+      "demoCards": 401,
+      "frontGrowth": 200
+    },
+    "t1Diffs": [],
+    "t2": {
+      "directSummary": {
+        "currentWeekStatus": "official_rest",
+        "approvedWeeks": 26,
+        "availableWeeks": 26,
+        "cards": 42
+      },
+      "frontSummary": {
+        "currentWeekStatus": "official_rest",
+        "successWeeks": 27,
+        "availableWeeks": 42,
+        "failWeeks": 1,
+        "restWeeks": 0,
+        "cards": 40
+      },
+      "perWeekDiffs": [
+        {
+          "week": "2026-spring#16",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#15",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#14",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#13",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#12",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#11",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#10",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#9",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#8",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#7",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#6",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#5",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#4",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#3",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#2",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#1",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-winter#9",
+          "direct": {
+            "status": null,
+            "isTransition": true
+          }
+        },
+        {
+          "week": "2026-winter#8",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-winter#7",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-winter#6",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-winter#5",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-winter#4",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-winter#3",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-winter#2",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-winter#1",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#17",
+          "direct": {
+            "status": null,
+            "isTransition": true
+          }
+        },
+        {
+          "week": "2025-autumn#16",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#15",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#14",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#13",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#12",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#11",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#10",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#9",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#8",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#7",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#6",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#5",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#4",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#3",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#2",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2025-autumn#1",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "#14",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#13",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#12",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#11",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#10",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#9",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#8",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#7",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#6",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#5",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#4",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#3",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#2",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#1",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#17",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#16",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#15",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        }
+      ]
+    },
+    "t3": {
+      "demoStatus": 401
+    },
+    "t4Diffs": [],
+    "snapshotMeta": {
+      "status": "hit",
+      "reason": null,
+      "computedAt": "2026-06-05T07:36:58.474+00:00"
+    }
+  },
+  "real": {
+    "httpStatus": {
+      "frontCards": 200,
+      "adminCards": 200,
+      "demoCards": 401,
+      "frontGrowth": 200
+    },
+    "t1Diffs": [],
+    "t2": {
+      "directSummary": {
+        "currentWeekStatus": "official_rest",
+        "approvedWeeks": 0,
+        "availableWeeks": 2,
+        "cards": 4
+      },
+      "frontSummary": {
+        "currentWeekStatus": "official_rest",
+        "successWeeks": 1,
+        "availableWeeks": 3,
+        "failWeeks": 2,
+        "restWeeks": 0,
+        "cards": 4
+      },
+      "perWeekDiffs": [
+        {
+          "week": "2026-spring#14",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#13",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#12",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "2026-spring#11",
+          "direct": {
+            "status": null,
+            "isTransition": false
+          }
+        },
+        {
+          "week": "#14",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#13",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#12",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        },
+        {
+          "week": "#11",
+          "front": {
+            "status": null,
+            "isTransition": null
+          }
+        }
+      ]
+    },
+    "t3": {
+      "demoStatus": 401
+    },
+    "t4Diffs": [],
+    "snapshotMeta": {
+      "status": "hit",
+      "reason": null,
+      "computedAt": "2026-06-05T04:57:25.636+00:00"
+    }
+  },
+  "t5Mismatches": [
+    {
+      "weekId": "69723c73-725b-4dbb-a7af-29313c35fa80",
+      "seasonKey": "2025-autumn",
+      "weekNumber": 17,
+      "startDate": "2025-12-22",
+      "legacyColumn": false,
+      "resolver": true,
+      "sources": [
+        "season_rule"
+      ]
+    },
+    {
+      "weekId": "92ae6aef-131a-4fc5-beb0-68c7c2fb397a",
+      "seasonKey": "2026-winter",
+      "weekNumber": 9,
+      "startDate": "2026-02-23",
+      "legacyColumn": false,
+      "resolver": true,
+      "sources": [
+        "season_rule"
+      ]
+    }
+  ]
+}

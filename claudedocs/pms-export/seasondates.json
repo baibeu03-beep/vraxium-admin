@@ -1,0 +1,1502 @@
+[
+ {
+  "Id": 1,
+  "SeasonName": "테스트",
+  "Week": "테스트 1주차",
+  "StartDate": "2023-03-06",
+  "EndDate": "2023-03-12",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 4,
+  "SeasonName": "봄",
+  "Week": "봄시즌 1주차",
+  "StartDate": "2023-03-06",
+  "EndDate": "2023-03-12",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 5,
+  "SeasonName": "봄",
+  "Week": "봄시즌 2주차",
+  "StartDate": "2023-03-13",
+  "EndDate": "2023-03-19",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 6,
+  "SeasonName": "봄",
+  "Week": "봄시즌 3주차",
+  "StartDate": "2023-03-20",
+  "EndDate": "2023-03-26",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 7,
+  "SeasonName": "봄",
+  "Week": "봄시즌 4주차",
+  "StartDate": "2023-03-27",
+  "EndDate": "2023-04-02",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 8,
+  "SeasonName": "봄",
+  "Week": "봄시즌 5주차",
+  "StartDate": "2023-04-03",
+  "EndDate": "2023-04-09",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 9,
+  "SeasonName": "봄",
+  "Week": "봄시즌 6주차",
+  "StartDate": "2023-04-10",
+  "EndDate": "2023-04-16",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 10,
+  "SeasonName": "봄",
+  "Week": "봄시즌 7주차",
+  "StartDate": "2023-04-17",
+  "EndDate": "2023-04-23",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 11,
+  "SeasonName": "봄",
+  "Week": "봄시즌 8주차",
+  "StartDate": "2023-04-24",
+  "EndDate": "2023-04-30",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 12,
+  "SeasonName": "봄",
+  "Week": "봄시즌 9주차",
+  "StartDate": "2023-05-01",
+  "EndDate": "2023-05-07",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 13,
+  "SeasonName": "봄",
+  "Week": "봄시즌 10주차",
+  "StartDate": "2023-05-08",
+  "EndDate": "2023-05-14",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 14,
+  "SeasonName": "봄",
+  "Week": "봄시즌 11주차",
+  "StartDate": "2023-05-15",
+  "EndDate": "2023-05-21",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 15,
+  "SeasonName": "봄",
+  "Week": "봄시즌 12주차",
+  "StartDate": "2023-05-22",
+  "EndDate": "2023-05-28",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 30
+ },
+ {
+  "Id": 16,
+  "SeasonName": "봄",
+  "Week": "봄시즌 13주차",
+  "StartDate": "2023-05-29",
+  "EndDate": "2023-06-04",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 30
+ },
+ {
+  "Id": 19,
+  "SeasonName": "2023",
+  "Week": "여름 시즌 1주차",
+  "StartDate": "2023-07-03",
+  "EndDate": "2023-07-09",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 15
+ },
+ {
+  "Id": 20,
+  "SeasonName": "2023",
+  "Week": "여름 시즌 2주차",
+  "StartDate": "2023-07-10",
+  "EndDate": "2023-07-16",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 15
+ },
+ {
+  "Id": 21,
+  "SeasonName": "2023",
+  "Week": "여름 시즌 3주차",
+  "StartDate": "2023-07-17",
+  "EndDate": "2023-07-23",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 24
+ },
+ {
+  "Id": 22,
+  "SeasonName": "2023",
+  "Week": "여름 시즌 4주차",
+  "StartDate": "2023-07-24",
+  "EndDate": "2023-07-30",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 20
+ },
+ {
+  "Id": 23,
+  "SeasonName": "2023",
+  "Week": "여름 시즌 5주차",
+  "StartDate": "2023-07-31",
+  "EndDate": "2023-08-06",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 25
+ },
+ {
+  "Id": 24,
+  "SeasonName": "2023",
+  "Week": "여름 시즌 6주차",
+  "StartDate": "2023-08-07",
+  "EndDate": "2023-08-13",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 32
+ },
+ {
+  "Id": 25,
+  "SeasonName": "2023",
+  "Week": "여름 시즌 7주차",
+  "StartDate": "2023-08-14",
+  "EndDate": "2023-08-20",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 24
+ },
+ {
+  "Id": 26,
+  "SeasonName": "2023",
+  "Week": "여름 시즌 8주차",
+  "StartDate": "2023-08-21",
+  "EndDate": "2023-08-27",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 5
+ },
+ {
+  "Id": 43,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 1주차",
+  "StartDate": "2023-09-04",
+  "EndDate": "2023-09-10",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 26
+ },
+ {
+  "Id": 44,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 2주차",
+  "StartDate": "2023-09-11",
+  "EndDate": "2023-09-17",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 28
+ },
+ {
+  "Id": 45,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 3주차",
+  "StartDate": "2023-09-18",
+  "EndDate": "2023-09-24",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 25
+ },
+ {
+  "Id": 46,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 4주차",
+  "StartDate": "2023-09-25",
+  "EndDate": "2023-10-01",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 47,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 5주차",
+  "StartDate": "2023-10-02",
+  "EndDate": "2023-10-08",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 25
+ },
+ {
+  "Id": 51,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 9주차",
+  "StartDate": "2023-10-30",
+  "EndDate": "2023-11-05",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 24
+ },
+ {
+  "Id": 52,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 10주차",
+  "StartDate": "2023-11-06",
+  "EndDate": "2023-11-12",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 27
+ },
+ {
+  "Id": 53,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 11주차",
+  "StartDate": "2023-11-13",
+  "EndDate": "2023-11-19",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 29
+ },
+ {
+  "Id": 54,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 12주차",
+  "StartDate": "2023-11-20",
+  "EndDate": "2023-11-26",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 30
+ },
+ {
+  "Id": 55,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 13주차",
+  "StartDate": "2023-11-27",
+  "EndDate": "2023-12-03",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 5
+ },
+ {
+  "Id": 56,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 14주차",
+  "StartDate": "2023-12-04",
+  "EndDate": "2023-12-10",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 57,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 15주차",
+  "StartDate": "2023-12-11",
+  "EndDate": "2023-12-17",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 58,
+  "SeasonName": "가을",
+  "Week": "가을 시즌 16주차",
+  "StartDate": "2023-12-18",
+  "EndDate": "2023-12-24",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 157,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 1주차",
+  "StartDate": "2024-01-01",
+  "EndDate": "2024-01-07",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 20
+ },
+ {
+  "Id": 158,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 2주차",
+  "StartDate": "2024-01-08",
+  "EndDate": "2024-01-14",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 26
+ },
+ {
+  "Id": 159,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 3주차",
+  "StartDate": "2024-01-15",
+  "EndDate": "2024-01-21",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 27
+ },
+ {
+  "Id": 160,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 4주차",
+  "StartDate": "2024-01-22",
+  "EndDate": "2024-01-28",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 30
+ },
+ {
+  "Id": 161,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 5주차",
+  "StartDate": "2024-01-29",
+  "EndDate": "2024-02-04",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 30
+ },
+ {
+  "Id": 162,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 6주차",
+  "StartDate": "2024-02-05",
+  "EndDate": "2024-02-11",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 163,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 7주차",
+  "StartDate": "2024-02-12",
+  "EndDate": "2024-02-18",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 26
+ },
+ {
+  "Id": 193,
+  "SeasonName": "겨울",
+  "Week": "9주차",
+  "StartDate": "2024-02-19",
+  "EndDate": "2024-02-25",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 194,
+  "SeasonName": "겨울",
+  "Week": "8주차",
+  "StartDate": "2024-02-19",
+  "EndDate": "2024-02-25",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 24
+ },
+ {
+  "Id": 177,
+  "SeasonName": "봄",
+  "Week": "1주차",
+  "StartDate": "2024-03-04",
+  "EndDate": "2024-03-10",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 27
+ },
+ {
+  "Id": 178,
+  "SeasonName": "봄",
+  "Week": "2주차",
+  "StartDate": "2024-03-11",
+  "EndDate": "2024-03-17",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 32
+ },
+ {
+  "Id": 179,
+  "SeasonName": "봄",
+  "Week": "3주차",
+  "StartDate": "2024-03-18",
+  "EndDate": "2024-03-24",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 32
+ },
+ {
+  "Id": 180,
+  "SeasonName": "봄",
+  "Week": "4주차",
+  "StartDate": "2024-03-25",
+  "EndDate": "2024-03-31",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 31
+ },
+ {
+  "Id": 181,
+  "SeasonName": "봄",
+  "Week": "5주차",
+  "StartDate": "2024-04-01",
+  "EndDate": "2024-04-07",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 30
+ },
+ {
+  "Id": 185,
+  "SeasonName": "봄",
+  "Week": "9주차",
+  "StartDate": "2024-04-29",
+  "EndDate": "2024-05-05",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 30
+ },
+ {
+  "Id": 186,
+  "SeasonName": "봄",
+  "Week": "10주차",
+  "StartDate": "2024-05-06",
+  "EndDate": "2024-05-12",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 34
+ },
+ {
+  "Id": 187,
+  "SeasonName": "봄",
+  "Week": "11주차",
+  "StartDate": "2024-05-13",
+  "EndDate": "2024-05-19",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 32
+ },
+ {
+  "Id": 188,
+  "SeasonName": "봄",
+  "Week": "12주차",
+  "StartDate": "2024-05-20",
+  "EndDate": "2024-05-26",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 40
+ },
+ {
+  "Id": 189,
+  "SeasonName": "봄",
+  "Week": "13주차",
+  "StartDate": "2024-05-27",
+  "EndDate": "2024-06-02",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 35
+ },
+ {
+  "Id": 203,
+  "SeasonName": "여름",
+  "Week": "1주차",
+  "StartDate": "2024-07-01",
+  "EndDate": "2024-07-07",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 31
+ },
+ {
+  "Id": 204,
+  "SeasonName": "여름",
+  "Week": "2주차",
+  "StartDate": "2024-07-08",
+  "EndDate": "2024-07-14",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 35
+ },
+ {
+  "Id": 205,
+  "SeasonName": "여름",
+  "Week": "3주차",
+  "StartDate": "2024-07-15",
+  "EndDate": "2024-07-21",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 36
+ },
+ {
+  "Id": 206,
+  "SeasonName": "여름",
+  "Week": "4주차",
+  "StartDate": "2024-07-22",
+  "EndDate": "2024-07-28",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 30
+ },
+ {
+  "Id": 207,
+  "SeasonName": "여름",
+  "Week": "5주차",
+  "StartDate": "2024-07-29",
+  "EndDate": "2024-08-04",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 30
+ },
+ {
+  "Id": 208,
+  "SeasonName": "여름",
+  "Week": "6주차",
+  "StartDate": "2024-08-05",
+  "EndDate": "2024-08-11",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 35
+ },
+ {
+  "Id": 209,
+  "SeasonName": "여름",
+  "Week": "7주차",
+  "StartDate": "2024-08-12",
+  "EndDate": "2024-08-18",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 20
+ },
+ {
+  "Id": 210,
+  "SeasonName": "여름",
+  "Week": "8주차",
+  "StartDate": "2024-08-19",
+  "EndDate": "2024-08-25",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 25
+ },
+ {
+  "Id": 211,
+  "SeasonName": "가을시즌",
+  "Week": "1주차",
+  "StartDate": "2024-09-02",
+  "EndDate": "2024-09-08",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 28
+ },
+ {
+  "Id": 212,
+  "SeasonName": "가을시즌",
+  "Week": "2주차",
+  "StartDate": "2024-09-09",
+  "EndDate": "2024-09-15",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 28
+ },
+ {
+  "Id": 213,
+  "SeasonName": "가을시즌",
+  "Week": "3주차",
+  "StartDate": "2024-09-16",
+  "EndDate": "2024-09-22",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 214,
+  "SeasonName": "가을시즌",
+  "Week": "4주차",
+  "StartDate": "2024-09-23",
+  "EndDate": "2024-09-29",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 25
+ },
+ {
+  "Id": 215,
+  "SeasonName": "가을시즌",
+  "Week": "5주차",
+  "StartDate": "2024-09-30",
+  "EndDate": "2024-10-06",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 216,
+  "SeasonName": "가을시즌",
+  "Week": "6주차",
+  "StartDate": "2024-10-07",
+  "EndDate": "2024-10-13",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 217,
+  "SeasonName": "가을시즌",
+  "Week": "7주차",
+  "StartDate": "2024-10-14",
+  "EndDate": "2024-10-20",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 218,
+  "SeasonName": "가을시즌",
+  "Week": "8주차",
+  "StartDate": "2024-10-21",
+  "EndDate": "2024-10-27",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 219,
+  "SeasonName": "가을시즌",
+  "Week": "9주차",
+  "StartDate": "2024-10-28",
+  "EndDate": "2024-11-03",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 220,
+  "SeasonName": "가을시즌",
+  "Week": "10주차",
+  "StartDate": "2024-11-04",
+  "EndDate": "2024-11-10",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 221,
+  "SeasonName": "가을시즌",
+  "Week": "11주차",
+  "StartDate": "2024-11-11",
+  "EndDate": "2024-11-17",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 222,
+  "SeasonName": "가을시즌",
+  "Week": "12주차",
+  "StartDate": "2024-11-18",
+  "EndDate": "2024-11-24",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 223,
+  "SeasonName": "가을시즌",
+  "Week": "13주차",
+  "StartDate": "2024-11-25",
+  "EndDate": "2024-12-01",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 224,
+  "SeasonName": "가을시즌",
+  "Week": "14주차",
+  "StartDate": "2024-12-02",
+  "EndDate": "2024-12-08",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 225,
+  "SeasonName": "가을시즌",
+  "Week": "15주차",
+  "StartDate": "2024-12-09",
+  "EndDate": "2024-12-15",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 226,
+  "SeasonName": "가을시즌",
+  "Week": "16주차",
+  "StartDate": "2024-12-16",
+  "EndDate": "2024-12-22",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 227,
+  "SeasonName": "겨울",
+  "Week": "겨울시즌 1주차",
+  "StartDate": "2024-12-30",
+  "EndDate": "2025-01-05",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 228,
+  "SeasonName": "겨울",
+  "Week": "겨울시즌 2주차",
+  "StartDate": "2025-01-06",
+  "EndDate": "2025-01-12",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 229,
+  "SeasonName": "겨울",
+  "Week": "겨울시즌 3주차",
+  "StartDate": "2025-01-13",
+  "EndDate": "2025-01-19",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 230,
+  "SeasonName": "겨울",
+  "Week": "겨울시즌 4주차",
+  "StartDate": "2025-01-20",
+  "EndDate": "2025-01-26",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 231,
+  "SeasonName": "겨울",
+  "Week": "겨울시즌 5주차",
+  "StartDate": "2025-01-27",
+  "EndDate": "2025-02-02",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 232,
+  "SeasonName": "겨울",
+  "Week": "겨울시즌 6주차",
+  "StartDate": "2025-02-03",
+  "EndDate": "2025-02-09",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 233,
+  "SeasonName": "겨울",
+  "Week": "겨울시즌 7주차",
+  "StartDate": "2025-02-10",
+  "EndDate": "2025-02-16",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 234,
+  "SeasonName": "겨울",
+  "Week": "겨울시즌 8주차",
+  "StartDate": "2025-02-17",
+  "EndDate": "2025-02-23",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 236,
+  "SeasonName": "봄",
+  "Week": "봄시즌 1주차",
+  "StartDate": "2025-03-03",
+  "EndDate": "2025-03-09",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 237,
+  "SeasonName": "봄",
+  "Week": "봄시즌 2주차",
+  "StartDate": "2025-03-10",
+  "EndDate": "2025-03-16",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 238,
+  "SeasonName": "봄",
+  "Week": "봄시즌 3주차",
+  "StartDate": "2025-03-17",
+  "EndDate": "2025-03-23",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 239,
+  "SeasonName": "봄",
+  "Week": "봄시즌 4주차",
+  "StartDate": "2025-03-24",
+  "EndDate": "2025-03-30",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 240,
+  "SeasonName": "봄",
+  "Week": "봄시즌 5주차",
+  "StartDate": "2025-03-31",
+  "EndDate": "2025-04-06",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 241,
+  "SeasonName": "봄",
+  "Week": "봄시즌 6주차",
+  "StartDate": "2025-04-07",
+  "EndDate": "2025-04-13",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 242,
+  "SeasonName": "봄",
+  "Week": "봄시즌 7주차",
+  "StartDate": "2025-04-14",
+  "EndDate": "2025-04-20",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 243,
+  "SeasonName": "봄",
+  "Week": "봄시즌 8주차",
+  "StartDate": "2025-04-21",
+  "EndDate": "2025-04-27",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 244,
+  "SeasonName": "봄",
+  "Week": "봄시즌 9주차",
+  "StartDate": "2025-04-28",
+  "EndDate": "2025-05-04",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 245,
+  "SeasonName": "봄",
+  "Week": "봄시즌 10주차",
+  "StartDate": "2025-05-05",
+  "EndDate": "2025-05-11",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 246,
+  "SeasonName": "봄",
+  "Week": "봄시즌 11주차",
+  "StartDate": "2025-05-12",
+  "EndDate": "2025-05-18",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 247,
+  "SeasonName": "봄",
+  "Week": "봄시즌 12주차",
+  "StartDate": "2025-05-19",
+  "EndDate": "2025-05-25",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 248,
+  "SeasonName": "봄",
+  "Week": "봄시즌 13주차",
+  "StartDate": "2025-05-26",
+  "EndDate": "2025-06-01",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 249,
+  "SeasonName": "봄",
+  "Week": "봄시즌 14주차",
+  "StartDate": "2025-06-02",
+  "EndDate": "2025-06-08",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 250,
+  "SeasonName": "봄",
+  "Week": "봄시즌 15주차",
+  "StartDate": "2025-06-09",
+  "EndDate": "2025-06-15",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 251,
+  "SeasonName": "봄",
+  "Week": "봄시즌 16주차",
+  "StartDate": "2025-06-16",
+  "EndDate": "2025-06-22",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 254,
+  "SeasonName": "여름",
+  "Week": "여름시즌 1주차",
+  "StartDate": "2025-06-30",
+  "EndDate": "2025-07-06",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 255,
+  "SeasonName": "여름",
+  "Week": "여름시즌 2주차",
+  "StartDate": "2025-07-07",
+  "EndDate": "2025-07-13",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 256,
+  "SeasonName": "여름",
+  "Week": "여름시즌 3주차",
+  "StartDate": "2025-07-14",
+  "EndDate": "2025-07-20",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 257,
+  "SeasonName": "여름",
+  "Week": "여름시즌 4주차",
+  "StartDate": "2025-07-21",
+  "EndDate": "2025-07-27",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 258,
+  "SeasonName": "여름",
+  "Week": "여름시즌 5주차",
+  "StartDate": "2025-07-28",
+  "EndDate": "2025-08-03",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 259,
+  "SeasonName": "여름",
+  "Week": "여름시즌 6주차",
+  "StartDate": "2025-08-04",
+  "EndDate": "2025-08-10",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 260,
+  "SeasonName": "여름",
+  "Week": "여름시즌 7주차",
+  "StartDate": "2025-08-11",
+  "EndDate": "2025-08-17",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 261,
+  "SeasonName": "여름",
+  "Week": "여름시즌 8주차",
+  "StartDate": "2025-08-18",
+  "EndDate": "2025-08-24",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 262,
+  "SeasonName": "가을",
+  "Week": "가을시즌 1주차",
+  "StartDate": "2025-09-01",
+  "EndDate": "2025-09-07",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 263,
+  "SeasonName": "가을",
+  "Week": "가을시즌 2주차",
+  "StartDate": "2025-09-08",
+  "EndDate": "2025-09-14",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 264,
+  "SeasonName": "가을",
+  "Week": "가을시즌 3주차",
+  "StartDate": "2025-09-15",
+  "EndDate": "2025-09-21",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 265,
+  "SeasonName": "가을",
+  "Week": "가을시즌 4주차",
+  "StartDate": "2025-09-22",
+  "EndDate": "2025-09-28",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 266,
+  "SeasonName": "가을",
+  "Week": "가을시즌 5주차(중간고사로 인한 공식 휴식 주차)",
+  "StartDate": "2025-09-29",
+  "EndDate": "2025-10-05",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 267,
+  "SeasonName": "가을",
+  "Week": "가을시즌 6주차(중간고사로 인한 공식 휴식 주차)",
+  "StartDate": "2025-10-06",
+  "EndDate": "2025-10-12",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 268,
+  "SeasonName": "가을",
+  "Week": "가을시즌 7주차(중간고사로 인한 공식 휴식 주차)",
+  "StartDate": "2025-10-13",
+  "EndDate": "2025-10-19",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 269,
+  "SeasonName": "가을",
+  "Week": "가을시즌 8주차",
+  "StartDate": "2025-10-20",
+  "EndDate": "2025-10-26",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 270,
+  "SeasonName": "가을",
+  "Week": "가을시즌 9주차",
+  "StartDate": "2025-10-27",
+  "EndDate": "2025-11-02",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 271,
+  "SeasonName": "가을",
+  "Week": "가을시즌 10주차",
+  "StartDate": "2025-11-03",
+  "EndDate": "2025-11-09",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 272,
+  "SeasonName": "가을",
+  "Week": "가을시즌 11주차",
+  "StartDate": "2025-11-10",
+  "EndDate": "2025-11-16",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 273,
+  "SeasonName": "가을",
+  "Week": "가을시즌 12주차",
+  "StartDate": "2025-11-17",
+  "EndDate": "2025-11-23",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 274,
+  "SeasonName": "가을",
+  "Week": "가을시즌 13주차",
+  "StartDate": "2025-11-24",
+  "EndDate": "2025-11-30",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 275,
+  "SeasonName": "가을",
+  "Week": "가을시즌 14주차(기말고사로 인한 공식 휴식 주차)",
+  "StartDate": "2025-12-01",
+  "EndDate": "2025-12-07",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 276,
+  "SeasonName": "가을",
+  "Week": "가을시즌 15주차(기말고사로 인한 공식 휴식 주차)",
+  "StartDate": "2025-12-08",
+  "EndDate": "2025-12-14",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 277,
+  "SeasonName": "가을",
+  "Week": "가을시즌 16주차(기말고사로 인한 공식 휴식 주차)",
+  "StartDate": "2025-12-15",
+  "EndDate": "2025-12-21",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 286,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 1주차",
+  "StartDate": "2025-12-29",
+  "EndDate": "2026-01-04",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 287,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 2주차",
+  "StartDate": "2026-01-05",
+  "EndDate": "2026-01-11",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 288,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 3주차",
+  "StartDate": "2026-01-12",
+  "EndDate": "2026-01-18",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 289,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 4주차",
+  "StartDate": "2026-01-19",
+  "EndDate": "2026-01-25",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 290,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 5주차",
+  "StartDate": "2026-01-26",
+  "EndDate": "2026-02-01",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 291,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 6주차",
+  "StartDate": "2026-02-02",
+  "EndDate": "2026-02-08",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 292,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 7주차",
+  "StartDate": "2026-02-09",
+  "EndDate": "2026-02-15",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 293,
+  "SeasonName": "겨울",
+  "Week": "겨울 시즌 8주차",
+  "StartDate": "2026-02-16",
+  "EndDate": "2026-02-22",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 294,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 1주차 자율 휴식",
+  "StartDate": "2026-03-02",
+  "EndDate": "2026-03-08",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 295,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 2주차 자율 휴식",
+  "StartDate": "2026-03-09",
+  "EndDate": "2026-03-15",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 296,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 3주차 자율 휴식",
+  "StartDate": "2026-03-16",
+  "EndDate": "2026-03-22",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 297,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 4주차 자율 휴식",
+  "StartDate": "2026-03-23",
+  "EndDate": "2026-03-29",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 298,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 5주차 자율 휴식",
+  "StartDate": "2026-03-30",
+  "EndDate": "2026-04-05",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 299,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 6주차 자율 휴식",
+  "StartDate": "2026-04-06",
+  "EndDate": "2026-04-12",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 300,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 7주차 자율 휴식",
+  "StartDate": "2026-04-13",
+  "EndDate": "2026-04-19",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 301,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 8주차 자율 휴식",
+  "StartDate": "2026-04-20",
+  "EndDate": "2026-04-26",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 302,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 9주차 자율 휴식",
+  "StartDate": "2026-04-27",
+  "EndDate": "2026-05-03",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 303,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 10주차 자율 휴식",
+  "StartDate": "2026-05-04",
+  "EndDate": "2026-05-10",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 304,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 11주차 자율 휴식",
+  "StartDate": "2026-05-11",
+  "EndDate": "2026-05-17",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 305,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 12주차 자율 휴식",
+  "StartDate": "2026-05-18",
+  "EndDate": "2026-05-24",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 306,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 13주차 자율 휴식",
+  "StartDate": "2026-05-25",
+  "EndDate": "2026-05-31",
+  "Comment": null,
+  "IsRestWeek": 0,
+  "PassingScore": 0
+ },
+ {
+  "Id": 307,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 14주차 자율 휴식",
+  "StartDate": "2026-06-01",
+  "EndDate": "2026-06-07",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 308,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 15주차 자율 휴식",
+  "StartDate": "2026-06-08",
+  "EndDate": "2026-06-14",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ },
+ {
+  "Id": 309,
+  "SeasonName": "봄 시즌",
+  "Week": "봄 시즌 16주차 자율 휴식",
+  "StartDate": "2026-06-15",
+  "EndDate": "2026-06-21",
+  "Comment": null,
+  "IsRestWeek": 1,
+  "PassingScore": 0
+ }
+]

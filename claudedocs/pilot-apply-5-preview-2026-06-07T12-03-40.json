@@ -1,0 +1,357 @@
+{
+ "generatedAt": "2026-06-07 pilot-apply-5 preview",
+ "mode": "preview",
+ "blocked": false,
+ "drift": [],
+ "totals": {
+  "usersInsert": 3,
+  "usersUpdate": 2,
+  "profilesInsert": 3,
+  "uwsInsert": 131,
+  "uwsOverwrite": 6,
+  "uwsConflicts": 1,
+  "uwpInsert": 194,
+  "uwpOverwrite": 8,
+  "sentinel": 5,
+  "checksMigratedFalse": 2,
+  "ledger": 3048,
+  "expEach": 137,
+  "snapshotNew": 3,
+  "snapshotRecompute": 2,
+  "ensureLinesUserWeeks": 26,
+  "ensureLinesDistinct": 11,
+  "unattributed": 21,
+  "negativeSentinels": 2
+ },
+ "expected": {
+  "usersInsert": 3,
+  "usersUpdate": 2,
+  "profilesInsert": 3,
+  "uwsInsert": 131,
+  "uwsOverwrite": 6,
+  "uwpInsert": 194,
+  "uwpOverwrite": 8,
+  "sentinel": 5,
+  "checksMigratedFalse": 2,
+  "ledger": 3043,
+  "expEach": 137,
+  "snapshotNew": 3,
+  "snapshotRecompute": 2,
+  "ensureLinesDistinct": 11
+ },
+ "perUser": [
+  {
+   "pilot": "P1",
+   "source": "oranke",
+   "pmsId": 1092,
+   "name": "장승완",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1092
+   },
+   "usersAction": "insert",
+   "uuid": "bedc7432-940d-46b7-8548-dc615bf984ca",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 511,
+    "uwp": {
+     "insert": 48,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 2
+    },
+    "uws": {
+     "insert": 28,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 28,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 12,
+    "advantages": 20,
+    "penalty": 0
+   },
+   "unattributedHold": 6,
+   "ensureWeeks": [
+    "2025-spring W4 (2025-03-24)",
+    "2025-spring W5 (2025-03-31)",
+    "2025-spring W9 (2025-04-28)",
+    "2025-spring W10 (2025-05-05)",
+    "2025-spring W11 (2025-05-12)",
+    "2025-spring W12 (2025-05-19)",
+    "2025-spring W13 (2025-05-26)",
+    "2025-summer W1 (2025-06-30)",
+    "2025-summer W2 (2025-07-07)",
+    "2025-summer W4 (2025-07-21)"
+   ]
+  },
+  {
+   "pilot": "P2",
+   "source": "hrdb",
+   "pmsId": 1463,
+   "name": "안은비",
+   "identity": {
+    "sourceSystem": "hrdb",
+    "legacyUserId": 1463
+   },
+   "usersAction": "insert",
+   "uuid": "21025940-5893-4524-880e-5c825cdaef6c",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 983,
+    "uwp": {
+     "insert": 51,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 42,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 42,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 19,
+    "penalty": 0
+   },
+   "unattributedHold": 7,
+   "ensureWeeks": [
+    "2025-spring W4 (2025-03-24)",
+    "2025-spring W5 (2025-03-31)",
+    "2025-spring W9 (2025-04-28)",
+    "2025-spring W10 (2025-05-05)",
+    "2025-spring W11 (2025-05-12)",
+    "2025-spring W12 (2025-05-19)",
+    "2025-spring W13 (2025-05-26)",
+    "2025-summer W1 (2025-06-30)",
+    "2025-summer W2 (2025-07-07)",
+    "2025-summer W3 (2025-07-14)",
+    "2025-summer W4 (2025-07-21)"
+   ]
+  },
+  {
+   "pilot": "P3",
+   "source": "olympus",
+   "pmsId": 249,
+   "name": "성채윤",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 249
+   },
+   "usersAction": "update",
+   "uuid": "19cb4129-ba73-4685-9912-7d9d4ed3768b",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 449,
+    "uwp": {
+     "insert": 31,
+     "overwrite": 4,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 16,
+     "overwrite": 3,
+     "conflicts": 0
+    },
+    "experience": 19,
+    "snapshot": "recompute"
+   },
+   "sentinel": {
+    "points": 6,
+    "advantages": 14,
+    "penalty": 0
+   },
+   "unattributedHold": 4,
+   "ensureWeeks": [
+    "2025-summer W3 (2025-07-14)",
+    "2025-summer W4 (2025-07-21)"
+   ]
+  },
+  {
+   "pilot": "P4",
+   "source": "olympus",
+   "pmsId": 248,
+   "name": "박시은",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 248
+   },
+   "usersAction": "update",
+   "uuid": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 409,
+    "uwp": {
+     "insert": 24,
+     "overwrite": 4,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 16,
+     "overwrite": 3,
+     "conflicts": 1
+    },
+    "experience": 19,
+    "snapshot": "recompute"
+   },
+   "sentinel": {
+    "points": -14,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": [
+    "2025-summer W3 (2025-07-14)",
+    "2025-summer W4 (2025-07-21)"
+   ]
+  },
+  {
+   "pilot": "P5",
+   "source": "olympus",
+   "pmsId": 251,
+   "name": "정혜빈",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 251
+   },
+   "usersAction": "insert",
+   "uuid": "493be7aa-d95b-4dc5-a890-774389bbb194",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 696,
+    "uwp": {
+     "insert": 40,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 29,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 29,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -4,
+    "advantages": 17,
+    "penalty": 0
+   },
+   "unattributedHold": 4,
+   "ensureWeeks": [
+    "2025-summer W4 (2025-07-21)"
+   ]
+  }
+ ],
+ "ensureLinesPlan": [
+  {
+   "week_id": "3ba7ecc9-b4fd-4f2c-beaa-323eeba3ab3d",
+   "season_key": "2025-spring",
+   "week_number": 4,
+   "start_date": "2025-03-24",
+   "line_code": "EXBS-EN250324",
+   "opens": "2025-03-23T15:00:00.000Z",
+   "closes": "2025-03-30T14:59:59.000Z"
+  },
+  {
+   "week_id": "07603abe-7e4d-439c-9ba3-ae620d08da8b",
+   "season_key": "2025-spring",
+   "week_number": 5,
+   "start_date": "2025-03-31",
+   "line_code": "EXBS-EN250331",
+   "opens": "2025-03-30T15:00:00.000Z",
+   "closes": "2025-04-06T14:59:59.000Z"
+  },
+  {
+   "week_id": "99d1f7d5-6167-4b58-a302-5ff1dbe653af",
+   "season_key": "2025-spring",
+   "week_number": 9,
+   "start_date": "2025-04-28",
+   "line_code": "EXBS-EN250428",
+   "opens": "2025-04-27T15:00:00.000Z",
+   "closes": "2025-05-04T14:59:59.000Z"
+  },
+  {
+   "week_id": "fad12740-0404-4b23-a0d8-2c5c6926b112",
+   "season_key": "2025-spring",
+   "week_number": 10,
+   "start_date": "2025-05-05",
+   "line_code": "EXBS-EN250505",
+   "opens": "2025-05-04T15:00:00.000Z",
+   "closes": "2025-05-11T14:59:59.000Z"
+  },
+  {
+   "week_id": "1870e966-5f31-494b-ba61-2f00a19406fe",
+   "season_key": "2025-spring",
+   "week_number": 11,
+   "start_date": "2025-05-12",
+   "line_code": "EXBS-EN250512",
+   "opens": "2025-05-11T15:00:00.000Z",
+   "closes": "2025-05-18T14:59:59.000Z"
+  },
+  {
+   "week_id": "10278bdc-2630-421f-ac5a-69ce86d8f3ed",
+   "season_key": "2025-spring",
+   "week_number": 12,
+   "start_date": "2025-05-19",
+   "line_code": "EXBS-EN250519",
+   "opens": "2025-05-18T15:00:00.000Z",
+   "closes": "2025-05-25T14:59:59.000Z"
+  },
+  {
+   "week_id": "50082fa8-099a-415f-baef-c728114820e1",
+   "season_key": "2025-spring",
+   "week_number": 13,
+   "start_date": "2025-05-26",
+   "line_code": "EXBS-EN250526",
+   "opens": "2025-05-25T15:00:00.000Z",
+   "closes": "2025-06-01T14:59:59.000Z"
+  },
+  {
+   "week_id": "d2a3eadf-cab9-46ac-9600-03fdb4985939",
+   "season_key": "2025-summer",
+   "week_number": 1,
+   "start_date": "2025-06-30",
+   "line_code": "EXBS-EN250630",
+   "opens": "2025-06-29T15:00:00.000Z",
+   "closes": "2025-07-06T14:59:59.000Z"
+  },
+  {
+   "week_id": "fb0ca9b6-ca22-41fb-9c20-46c2635c9af9",
+   "season_key": "2025-summer",
+   "week_number": 2,
+   "start_date": "2025-07-07",
+   "line_code": "EXBS-EN250707",
+   "opens": "2025-07-06T15:00:00.000Z",
+   "closes": "2025-07-13T14:59:59.000Z"
+  },
+  {
+   "week_id": "4f1733b6-408a-4173-9025-d61ca41ea5cd",
+   "season_key": "2025-summer",
+   "week_number": 3,
+   "start_date": "2025-07-14",
+   "line_code": "EXBS-EN250714",
+   "opens": "2025-07-13T15:00:00.000Z",
+   "closes": "2025-07-20T14:59:59.000Z"
+  },
+  {
+   "week_id": "e794fd53-d5c7-4df4-a73f-9156a700c19a",
+   "season_key": "2025-summer",
+   "week_number": 4,
+   "start_date": "2025-07-21",
+   "line_code": "EXBS-EN250721",
+   "opens": "2025-07-20T15:00:00.000Z",
+   "closes": "2025-07-27T14:59:59.000Z"
+  }
+ ],
+ "sentinelContract": "year=1900, week_number=1 (CHECK 1~53 보정), week_start_date=1900-01-01, checks_migrated=false — weeks 부재로 카드/판정 미소비·누적 포인트 합산 포함"
+}

@@ -1,0 +1,16 @@
+{
+ "mode": "preview",
+ "plan": [],
+ "inserted": [],
+ "users": [
+  {
+   "pilot": "P4",
+   "uuid": "56c46098-5c4c-4da8-8658-a6eb57fc1bad"
+  },
+  {
+   "pilot": "P5",
+   "uuid": "f3ac0827-793c-42a0-a83a-1c9070914b2e"
+  }
+ ],
+ "errors": []
+}

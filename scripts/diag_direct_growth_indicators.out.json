@@ -1,0 +1,82 @@
+{
+  "T황하린(oranke,19w)": {
+    "process": {
+      "growthStatus": "graduating",
+      "growthStatusDisplay": "졸업 절차 중",
+      "growthDisplayKey": "graduating",
+      "activityStartedAt": "2025-11-10T00:00:00+00:00",
+      "activityStartedAtDisplay": "2025-11-10",
+      "activityEndedAt": null,
+      "activityEndedAtDisplay": "Be Cluving"
+    },
+    "period": {
+      "a": 18,
+      "b": 1,
+      "c": 0,
+      "d": 8,
+      "e": 19,
+      "h": 27,
+      "f": 0,
+      "g": 3
+    },
+    "_debug": {
+      "graduationThreshold": 25,
+      "graduationEligible": false,
+      "integrityOk": true,
+      "currentWeekStatus": null,
+      "officialRestOverrideCount": 0,
+      "weekRowCount": 29,
+      "seasonRowCount": 3
+    },
+    "statsCardsProcessDto": {
+      "growthStatus": "졸업 절차 중",
+      "growthStatusKey": "graduating",
+      "growthStatusRaw": "graduating",
+      "growthStartDate": "2025-11-10T00:00:00+00:00",
+      "growthStartDateDisplay": "2025-11-10",
+      "growthEndDate": null,
+      "growthEndDateDisplay": "Be Cluving",
+      "isBeCluving": true
+    }
+  },
+  "T조민재(encre,19w)": {
+    "process": {
+      "growthStatus": "graduating",
+      "growthStatusDisplay": "졸업 절차 중",
+      "growthDisplayKey": "graduating",
+      "activityStartedAt": "2025-10-06T00:00:00+00:00",
+      "activityStartedAtDisplay": "2025-10-06",
+      "activityEndedAt": null,
+      "activityEndedAtDisplay": "Be Cluving"
+    },
+    "period": {
+      "a": 18,
+      "b": 3,
+      "c": 0,
+      "d": 11,
+      "e": 21,
+      "h": 32,
+      "f": 0,
+      "g": 3
+    },
+    "_debug": {
+      "graduationThreshold": 30,
+      "graduationEligible": false,
+      "integrityOk": true,
+      "currentWeekStatus": null,
+      "officialRestOverrideCount": 0,
+      "weekRowCount": 34,
+      "seasonRowCount": 3
+    },
+    "statsCardsProcessDto": {
+      "growthStatus": "졸업 절차 중",
+      "growthStatusKey": "graduating",
+      "growthStatusRaw": "graduating",
+      "growthStartDate": "2025-10-06T00:00:00+00:00",
+      "growthStartDateDisplay": "2025-10-06",
+      "growthEndDate": null,
+      "growthEndDateDisplay": "Be Cluving",
+      "isBeCluving": true
+    }
+  }
+}

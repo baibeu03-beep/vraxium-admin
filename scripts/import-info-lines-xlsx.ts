@@ -87,7 +87,7 @@ const SHEETS: SheetSpec[] = [
   { sheetName: "위즈덤 (수정)", activityTypeId: "wisdom", mode: "weekly" },
   { sheetName: "에세이(수정)", activityTypeId: "essay", mode: "weekly" },
   { sheetName: "포럼 (수정)", activityTypeId: "forum", mode: "weekly" },
-  { sheetName: "인포데스크", activityTypeId: "infodesk", mode: "recurring_weekly" },
+  { sheetName: "씽크탱크", activityTypeId: "infodesk", mode: "recurring_weekly" },
   { sheetName: "캘린더", activityTypeId: "calendar", mode: "recurring_weekly" },
 ];
 

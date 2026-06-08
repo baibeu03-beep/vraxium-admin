@@ -574,11 +574,20 @@ export default function PracticalCompetencyManager() {
       {/* ══ 라인 등록 ══ */}
       {activeTab === "masters" && (
         <div className="space-y-4">
+          {/* 2E-2 drift 가드 안내 — 신규 생성/삭제는 API 에서 차단되며 통합 등록 경로로 유도된다. */}
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <span className="font-semibold">[Deprecated · read-mirror]</span> 이 목록은 통합 등록(line_registrations) 기준으로
+            제공되며 읽기 전용입니다. 신규 등록은{" "}
+            <a href="/admin/lines/register" className="font-semibold underline underline-offset-2">통합 라인 등록</a>
+            , 수정/비활성은{" "}
+            <a href="/admin/lines/info" className="font-semibold underline underline-offset-2">라인 정보</a>
+            의 &quot;수정&quot;을 사용하세요.
+          </div>
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div><CardTitle className="text-base">라인 등록</CardTitle><CardDescription>등록된 라인 {masters.length}개</CardDescription></div>
-                {!masterFormOpen && <Button size="sm" onClick={() => setMasterFormOpen(true)}><Plus className="mr-1 h-4 w-4" /> 새 라인</Button>}
+{/* (2E-6) 신규 생성 버튼 제거 — 통합 라인 등록 경로로 일원화 */}
               </div>
             </CardHeader>
             <CardContent>
@@ -594,10 +603,14 @@ export default function PracticalCompetencyManager() {
                         <TableCell className="max-w-xs truncate text-muted-foreground">{m.mainTitle ?? "-"}</TableCell>
                         <TableCell className="text-center">{m.isActive ? <Check className="mx-auto h-4 w-4 text-green-600" /> : <X className="mx-auto h-4 w-4 text-muted-foreground" />}</TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditMaster(m)}><Pencil className="h-3.5 w-3.5" /></Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteMaster(m.id)}><Trash2 className="h-3.5 w-3.5 text-red-500" /></Button>
-                          </div>
+                          {/* (2E-6) read-mirror — 편집/삭제는 라인 정보(/admin/lines/info)의 수정으로 일원화 */}
+                          <a
+                            href="/admin/lines/info"
+                            className="text-xs text-sky-700 underline underline-offset-2 hover:text-sky-900"
+                            title="라인 정보에서 수정"
+                          >
+                            라인 정보에서 수정
+                          </a>
                         </TableCell>
                       </TableRow>
                     ))}

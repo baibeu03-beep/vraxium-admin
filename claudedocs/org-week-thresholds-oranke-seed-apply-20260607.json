@@ -1,0 +1,944 @@
+{
+  "summary": {
+    "generatedAt": "2026-06-07 ORANKE seed (APPLY)",
+    "mode": "apply (org_week_thresholds upsert only)",
+    "weeksTotal": 153,
+    "weeksWithThreshold": 100,
+    "weeksNullThreshold": 53,
+    "inserts": 100,
+    "updates": 0,
+    "noops": 0,
+    "driftOrgRowsWithoutWeeksValue": [],
+    "valueDistribution": [
+      "5:2",
+      "6:1",
+      "15:2",
+      "18:1",
+      "20:1",
+      "21:1",
+      "22:2",
+      "23:2",
+      "24:8",
+      "25:11",
+      "26:3",
+      "27:4",
+      "28:4",
+      "29:1",
+      "30:11",
+      "31:2",
+      "32:4",
+      "33:1",
+      "34:4",
+      "35:5",
+      "36:2",
+      "37:27",
+      "40:1"
+    ]
+  },
+  "applied": {
+    "upserted": 100,
+    "failed": 0
+  },
+  "plan": [
+    {
+      "week_id": "00000000-0000-0000-0000-202605210002",
+      "season_key": "2026-spring",
+      "week_number": 12,
+      "start_date": "2026-05-18",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "0225a882-99b2-42b9-a02e-fabf02a035ea",
+      "season_key": "2024-spring",
+      "week_number": 12,
+      "start_date": "2024-05-20",
+      "check_threshold": 40,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "0325ce75-9f50-4b10-828e-819c82ae52ae",
+      "season_key": "2023-summer",
+      "week_number": 4,
+      "start_date": "2023-07-24",
+      "check_threshold": 20,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "0415d448-0996-413e-b543-62c551e68b56",
+      "season_key": "2024-spring",
+      "week_number": 5,
+      "start_date": "2024-04-01",
+      "check_threshold": 30,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "05fcc2fa-5a11-49a8-a282-4d21dbd5af4b",
+      "season_key": "2025-autumn",
+      "week_number": 9,
+      "start_date": "2025-10-27",
+      "check_threshold": 35,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "07603abe-7e4d-439c-9ba3-ae620d08da8b",
+      "season_key": "2025-spring",
+      "week_number": 5,
+      "start_date": "2025-03-31",
+      "check_threshold": 25,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "07d1c32b-29ff-4e06-848b-348288732c11",
+      "season_key": "2024-summer",
+      "week_number": 1,
+      "start_date": "2024-07-01",
+      "check_threshold": 31,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "07f4b6c6-4c58-4ad4-a826-7464fcc667de",
+      "season_key": "2024-spring",
+      "week_number": 9,
+      "start_date": "2024-04-29",
+      "check_threshold": 30,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "0dd751fa-3f14-4ea0-b83c-c6619b21c71f",
+      "season_key": "2024-autumn",
+      "week_number": 11,
+      "start_date": "2024-11-11",
+      "check_threshold": 36,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "10278bdc-2630-421f-ac5a-69ce86d8f3ed",
+      "season_key": "2025-spring",
+      "week_number": 12,
+      "start_date": "2025-05-19",
+      "check_threshold": 30,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "10c6bbf1-e22b-4cf1-a03f-de4d7d46981c",
+      "season_key": "2026-winter",
+      "week_number": 7,
+      "start_date": "2026-02-09",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "12793bb0-5424-4d47-8af7-796caa03b6aa",
+      "season_key": "2025-summer",
+      "week_number": 6,
+      "start_date": "2025-08-04",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "1577bb0b-773e-4ca6-be61-503619774711",
+      "season_key": "2025-winter",
+      "week_number": 6,
+      "start_date": "2025-02-03",
+      "check_threshold": 21,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "1870e966-5f31-494b-ba61-2f00a19406fe",
+      "season_key": "2025-spring",
+      "week_number": 11,
+      "start_date": "2025-05-12",
+      "check_threshold": 30,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "19be3447-7694-46ff-ac9d-7583ad7c0135",
+      "season_key": "2024-autumn",
+      "week_number": 4,
+      "start_date": "2024-09-23",
+      "check_threshold": 25,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "19e95d85-1c45-4d34-ab07-1a8daf171b04",
+      "season_key": "2024-spring",
+      "week_number": 11,
+      "start_date": "2024-05-13",
+      "check_threshold": 32,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "1c584832-7b40-41a6-82e4-3a2fa68ac346",
+      "season_key": "2024-summer",
+      "week_number": 4,
+      "start_date": "2024-07-22",
+      "check_threshold": 30,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "1cf03a7b-4c29-4494-8f24-cfadb94f2e61",
+      "season_key": "2023-summer",
+      "week_number": 7,
+      "start_date": "2023-08-14",
+      "check_threshold": 24,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "20a7ebcb-85ea-4a98-83fa-a920d010038a",
+      "season_key": "2026-spring",
+      "week_number": 5,
+      "start_date": "2026-03-30",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "246dc057-b83e-4d8b-a5fa-e9d635f9087e",
+      "season_key": "2025-winter",
+      "week_number": 3,
+      "start_date": "2025-01-13",
+      "check_threshold": 25,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "31672f8c-e58c-4d92-9939-197237d7fbcf",
+      "season_key": "2026-spring",
+      "week_number": 2,
+      "start_date": "2026-03-09",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "32ea862e-5ace-4364-b188-5f614c1c6058",
+      "season_key": "2024-winter",
+      "week_number": 3,
+      "start_date": "2024-01-15",
+      "check_threshold": 27,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "34a04b5a-7823-4883-89e3-eeedff5db8eb",
+      "season_key": "2024-winter",
+      "week_number": 5,
+      "start_date": "2024-01-29",
+      "check_threshold": 30,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "39bade12-8e78-466c-98da-3549dded2b47",
+      "season_key": "2025-summer",
+      "week_number": 7,
+      "start_date": "2025-08-11",
+      "check_threshold": 35,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "39bd9ca9-2fbd-4ffb-aa48-a2aa4429e0b6",
+      "season_key": "2024-autumn",
+      "week_number": 12,
+      "start_date": "2024-11-18",
+      "check_threshold": 34,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "3ba7ecc9-b4fd-4f2c-beaa-323eeba3ab3d",
+      "season_key": "2025-spring",
+      "week_number": 4,
+      "start_date": "2025-03-24",
+      "check_threshold": 26,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "3bda7e10-94a2-4f44-8698-9a11a72f1074",
+      "season_key": "2023-autumn",
+      "week_number": 1,
+      "start_date": "2023-09-04",
+      "check_threshold": 26,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "3cc6c2ae-49e4-4484-a7f0-1640f60a7464",
+      "season_key": "2026-winter",
+      "week_number": 6,
+      "start_date": "2026-02-02",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "3fa54899-c427-4299-a772-158e16663d18",
+      "season_key": "2026-winter",
+      "week_number": 2,
+      "start_date": "2026-01-05",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "3fcbb904-4807-409c-8bff-e4d6fade0bf2",
+      "season_key": "2024-autumn",
+      "week_number": 2,
+      "start_date": "2024-09-09",
+      "check_threshold": 28,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "42680298-a123-429f-83c8-a0f4285753b8",
+      "season_key": "2023-autumn",
+      "week_number": 3,
+      "start_date": "2023-09-18",
+      "check_threshold": 25,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "4290c2d1-9651-4b1a-b827-41be10f89a4d",
+      "season_key": "2024-summer",
+      "week_number": 8,
+      "start_date": "2024-08-19",
+      "check_threshold": 25,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "43421b06-aa72-4f60-bf44-aec2a980a15a",
+      "season_key": "2023-autumn",
+      "week_number": 9,
+      "start_date": "2023-10-30",
+      "check_threshold": 24,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "44e25cac-6340-4bdd-9c7e-ff35c7aeb7c6",
+      "season_key": "2026-winter",
+      "week_number": 3,
+      "start_date": "2026-01-12",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "469cf97e-ff20-41c0-9ed7-c56a62279822",
+      "season_key": "2026-winter",
+      "week_number": 4,
+      "start_date": "2026-01-19",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "477382a7-aec5-4b7b-9873-ac00c7bf64ad",
+      "season_key": "2023-autumn",
+      "week_number": 5,
+      "start_date": "2023-10-02",
+      "check_threshold": 25,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "496f234e-336b-4fba-8d9f-d60aa5157d5c",
+      "season_key": "2025-spring",
+      "week_number": 3,
+      "start_date": "2025-03-17",
+      "check_threshold": 22,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "4b3a8699-9e2b-4879-9c7f-de7e259a071d",
+      "season_key": "2025-autumn",
+      "week_number": 3,
+      "start_date": "2025-09-15",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "4c2985c9-9590-4903-9a69-fcf4bdafba29",
+      "season_key": "2023-autumn",
+      "week_number": 2,
+      "start_date": "2023-09-11",
+      "check_threshold": 28,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "4c79ab16-17d2-4aff-b29c-4564caf3b8fc",
+      "season_key": "2025-autumn",
+      "week_number": 5,
+      "start_date": "2025-09-29",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "4d95a87f-daad-41ce-8b2a-e248e2763c22",
+      "season_key": "2025-winter",
+      "week_number": 1,
+      "start_date": "2024-12-30",
+      "check_threshold": 25,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "4eca149d-76fe-41f5-a207-ba2193f7dc9a",
+      "season_key": "2024-summer",
+      "week_number": 7,
+      "start_date": "2024-08-12",
+      "check_threshold": 25,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "4f1733b6-408a-4173-9025-d61ca41ea5cd",
+      "season_key": "2025-summer",
+      "week_number": 3,
+      "start_date": "2025-07-14",
+      "check_threshold": 34,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "50082fa8-099a-415f-baef-c728114820e1",
+      "season_key": "2025-spring",
+      "week_number": 13,
+      "start_date": "2025-05-26",
+      "check_threshold": 28,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "5513969c-4e98-4222-9a2b-87f05bbc0e86",
+      "season_key": "2025-autumn",
+      "week_number": 1,
+      "start_date": "2025-09-01",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "5d345d48-aec8-48cc-8ec2-f85d38c23c99",
+      "season_key": "2024-winter",
+      "week_number": 1,
+      "start_date": "2024-01-01",
+      "check_threshold": 22,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "5df17e42-b8a5-4fca-b133-92b152eb3790",
+      "season_key": "2024-spring",
+      "week_number": 13,
+      "start_date": "2024-05-27",
+      "check_threshold": 35,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "5eca4fe4-77ff-46bc-9e53-8772a078b651",
+      "season_key": "2026-spring",
+      "week_number": 4,
+      "start_date": "2026-03-23",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "6224ecff-d7e6-41a0-aa6c-10b4fb75f096",
+      "season_key": "2024-spring",
+      "week_number": 3,
+      "start_date": "2024-03-18",
+      "check_threshold": 32,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "64b56d7c-ee11-44f0-83d8-abb57a52c975",
+      "season_key": "2024-winter",
+      "week_number": 7,
+      "start_date": "2024-02-12",
+      "check_threshold": 26,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "665b0da0-c03b-4f95-90cc-089b356a13dc",
+      "season_key": "2024-winter",
+      "week_number": 4,
+      "start_date": "2024-01-22",
+      "check_threshold": 30,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "67e07106-564e-4dab-b180-8f11c909973a",
+      "season_key": "2026-spring",
+      "week_number": 11,
+      "start_date": "2026-05-11",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "68ebdb2a-3c66-4add-b0d3-bfea2d003a64",
+      "season_key": "2023-summer",
+      "week_number": 2,
+      "start_date": "2023-07-10",
+      "check_threshold": 15,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+      "season_key": "2026-spring",
+      "week_number": 10,
+      "start_date": "2026-05-04",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "733141d1-fc02-406d-b6de-e60492cb6432",
+      "season_key": "2025-summer",
+      "week_number": 5,
+      "start_date": "2025-07-28",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "7456c301-17f2-4634-b17e-67f23381bb6f",
+      "season_key": "2023-autumn",
+      "week_number": 11,
+      "start_date": "2023-11-13",
+      "check_threshold": 29,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "74c2a8b3-f88c-44d9-9b1a-481e4bcfc13e",
+      "season_key": "2025-winter",
+      "week_number": 8,
+      "start_date": "2025-02-17",
+      "check_threshold": 18,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "75047a3a-b077-4543-8bd6-a0fd974dd40f",
+      "season_key": "2023-autumn",
+      "week_number": 12,
+      "start_date": "2023-11-20",
+      "check_threshold": 30,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "84c31d1d-0689-4b91-ac18-57870603896e",
+      "season_key": "2025-autumn",
+      "week_number": 4,
+      "start_date": "2025-09-22",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "84d7e7ee-9d15-4726-a400-579cf164e0da",
+      "season_key": "2024-summer",
+      "week_number": 3,
+      "start_date": "2024-07-15",
+      "check_threshold": 36,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "8b8ae57d-0c8d-458f-abd9-42a446dd6bd8",
+      "season_key": "2024-winter",
+      "week_number": 8,
+      "start_date": "2024-02-19",
+      "check_threshold": 24,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "8bd20da1-dca3-4618-879e-5008c6020bf5",
+      "season_key": "2026-winter",
+      "week_number": 5,
+      "start_date": "2026-01-26",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "8e1ac38b-5bc2-4f73-a25e-1d60329d0fd4",
+      "season_key": "2024-autumn",
+      "week_number": 10,
+      "start_date": "2024-11-04",
+      "check_threshold": 33,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "90a0f804-2e3a-4df7-9be7-d41fb78919a8",
+      "season_key": "2024-autumn",
+      "week_number": 9,
+      "start_date": "2024-10-28",
+      "check_threshold": 24,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "948cbf5a-e868-482d-a7ab-bea84bc62502",
+      "season_key": "2024-spring",
+      "week_number": 9,
+      "start_date": "2024-05-06",
+      "check_threshold": 34,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "99d1f7d5-6167-4b58-a302-5ff1dbe653af",
+      "season_key": "2025-spring",
+      "week_number": 9,
+      "start_date": "2025-04-28",
+      "check_threshold": 23,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "9b86a292-c6e2-4cd5-a579-4b80a24a2456",
+      "season_key": "2023-summer",
+      "week_number": 5,
+      "start_date": "2023-07-31",
+      "check_threshold": 25,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "9b98bdeb-25e5-4123-9549-8c0a06e78fd6",
+      "season_key": "2023-summer",
+      "week_number": 1,
+      "start_date": "2023-07-03",
+      "check_threshold": 15,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "9bbf4ddd-6faf-489a-b813-54d2c283f218",
+      "season_key": "2024-summer",
+      "week_number": 5,
+      "start_date": "2024-07-29",
+      "check_threshold": 30,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "a1f381ca-752a-4320-844a-f9192071854f",
+      "season_key": "2025-summer",
+      "week_number": 8,
+      "start_date": "2025-08-18",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "a2112b50-64d2-42d6-a243-faf9fcdc6ffc",
+      "season_key": "2026-spring",
+      "week_number": 13,
+      "start_date": "2026-05-25",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "aaab4914-a757-4b0a-bf88-f231e5ccb2ca",
+      "season_key": "2025-autumn",
+      "week_number": 11,
+      "start_date": "2025-11-10",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "ac50778a-4a4d-4b8d-a116-66ea34417127",
+      "season_key": "2024-summer",
+      "week_number": 6,
+      "start_date": "2024-08-05",
+      "check_threshold": 35,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "ad79b7c0-8bd1-491a-b91b-7551134453b7",
+      "season_key": "2024-summer",
+      "week_number": 2,
+      "start_date": "2024-07-08",
+      "check_threshold": 35,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "b38da239-28da-416c-975a-cd442ee0df4f",
+      "season_key": "2025-winter",
+      "week_number": 2,
+      "start_date": "2025-01-06",
+      "check_threshold": 30,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "b455c2c7-492c-478f-b983-a9e40832cbfb",
+      "season_key": "2024-spring",
+      "week_number": 4,
+      "start_date": "2024-03-25",
+      "check_threshold": 31,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "b4d7d16c-a377-45b0-ba1f-ef0b0bd7e3bc",
+      "season_key": "2025-winter",
+      "week_number": 7,
+      "start_date": "2025-02-10",
+      "check_threshold": 25,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "b531c234-e860-499a-992c-b74d2c1d5349",
+      "season_key": "2026-spring",
+      "week_number": 9,
+      "start_date": "2026-04-27",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "b8dbb904-5fde-43a5-a051-3b11c247bf57",
+      "season_key": "2023-autumn",
+      "week_number": 13,
+      "start_date": "2023-11-27",
+      "check_threshold": 5,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "c056a8ab-8312-4e3b-a298-764af7fd2bc6",
+      "season_key": "2025-spring",
+      "week_number": 2,
+      "start_date": "2025-03-10",
+      "check_threshold": 24,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "c536cf12-62f6-434c-9299-07bf64dd1db5",
+      "season_key": "2025-autumn",
+      "week_number": 10,
+      "start_date": "2025-11-03",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "c6800fe1-8200-4b10-9c97-7515b6a805ca",
+      "season_key": "2026-spring",
+      "week_number": 3,
+      "start_date": "2026-03-16",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "c897f7ca-5149-4ccf-94a9-4d373c68ac4a",
+      "season_key": "2025-spring",
+      "week_number": 1,
+      "start_date": "2025-03-03",
+      "check_threshold": 27,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "cd04a1f4-4457-4520-879a-ccc52e8c9ac5",
+      "season_key": "2023-summer",
+      "week_number": 6,
+      "start_date": "2023-08-07",
+      "check_threshold": 32,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "d0d60d76-3d91-49cd-ad88-c856f2ec4c15",
+      "season_key": "2025-autumn",
+      "week_number": 2,
+      "start_date": "2025-09-08",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "d2a3eadf-cab9-46ac-9600-03fdb4985939",
+      "season_key": "2025-summer",
+      "week_number": 1,
+      "start_date": "2025-06-30",
+      "check_threshold": 24,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "d3aa89d8-35f6-42b3-bb12-a1d65b6b0e91",
+      "season_key": "2026-spring",
+      "week_number": 1,
+      "start_date": "2026-03-02",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "d3fa5ad3-e835-4fbf-acd2-ec605530e205",
+      "season_key": "2026-winter",
+      "week_number": 1,
+      "start_date": "2025-12-29",
+      "check_threshold": 37,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "da1eada1-cdf5-46fc-bb12-d02521db0da8",
+      "season_key": "2024-autumn",
+      "week_number": 1,
+      "start_date": "2024-09-02",
+      "check_threshold": 28,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "da95b82b-3290-47b0-a70a-e7112cab5693",
+      "season_key": "2024-spring",
+      "week_number": 2,
+      "start_date": "2024-03-11",
+      "check_threshold": 32,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "dbaafc08-6605-4b11-a975-1a9227252a57",
+      "season_key": "2024-autumn",
+      "week_number": 13,
+      "start_date": "2024-11-25",
+      "check_threshold": 25,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "e0326f2e-024b-4e99-9cc8-690c38b48ebd",
+      "season_key": "2024-spring",
+      "week_number": 1,
+      "start_date": "2024-03-04",
+      "check_threshold": 27,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "e4712c05-a116-4ec9-9aee-952664561759",
+      "season_key": "2023-summer",
+      "week_number": 3,
+      "start_date": "2023-07-17",
+      "check_threshold": 24,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "e5f4d544-f4cc-4cc7-aca8-6d3b51254f85",
+      "season_key": "2023-summer",
+      "week_number": 8,
+      "start_date": "2023-08-21",
+      "check_threshold": 5,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "e794fd53-d5c7-4df4-a73f-9156a700c19a",
+      "season_key": "2025-summer",
+      "week_number": 4,
+      "start_date": "2025-07-21",
+      "check_threshold": 34,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "e93a7db0-f241-4e17-a114-760e63f71d8b",
+      "season_key": "2023-autumn",
+      "week_number": 10,
+      "start_date": "2023-11-06",
+      "check_threshold": 27,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "ee6c7779-7c35-43fe-b32b-963bfcbde274",
+      "season_key": "2024-autumn",
+      "week_number": 5,
+      "start_date": "2024-09-30",
+      "check_threshold": 6,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "f5e1d184-a721-4277-b709-ab0dc5c18e7b",
+      "season_key": "2025-winter",
+      "week_number": 4,
+      "start_date": "2025-01-20",
+      "check_threshold": 23,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "fad12740-0404-4b23-a0d8-2c5c6926b112",
+      "season_key": "2025-spring",
+      "week_number": 10,
+      "start_date": "2025-05-05",
+      "check_threshold": 30,
+      "action": "insert",
+      "existing_value": null
+    },
+    {
+      "week_id": "fb0ca9b6-ca22-41fb-9c20-46c2635c9af9",
+      "season_key": "2025-summer",
+      "week_number": 2,
+      "start_date": "2025-07-07",
+      "check_threshold": 24,
+      "action": "insert",
+      "existing_value": null
+    }
+  ]
+}

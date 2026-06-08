@@ -1,0 +1,61 @@
+{
+ "mode": "preview",
+ "plan": [
+  {
+   "pilot": "P4",
+   "week": "2026-winter W1",
+   "start": "2025-12-29",
+   "status": "success",
+   "rating": 8,
+   "uws": "insert",
+   "target": "insert",
+   "submission": "insert",
+   "evaluation": "insert"
+  },
+  {
+   "pilot": "P4",
+   "week": "2026-spring W1",
+   "start": "2026-03-02",
+   "status": "success",
+   "rating": 8,
+   "uws": "insert",
+   "target": "insert",
+   "submission": "insert",
+   "evaluation": "insert"
+  },
+  {
+   "pilot": "P5",
+   "week": "2026-winter W1",
+   "start": "2025-12-29",
+   "status": "success",
+   "rating": 10,
+   "uws": "insert",
+   "target": "insert",
+   "submission": "insert",
+   "evaluation": "insert"
+  },
+  {
+   "pilot": "P5",
+   "week": "2026-spring W1",
+   "start": "2026-03-02",
+   "status": "success",
+   "rating": 10,
+   "uws": "insert",
+   "target": "insert",
+   "submission": "insert",
+   "evaluation": "insert"
+  }
+ ],
+ "inserted": [],
+ "users": [
+  {
+   "pilot": "P4",
+   "uuid": "56c46098-5c4c-4da8-8658-a6eb57fc1bad"
+  },
+  {
+   "pilot": "P5",
+   "uuid": "f3ac0827-793c-42a0-a83a-1c9070914b2e"
+  }
+ ],
+ "errors": []
+}

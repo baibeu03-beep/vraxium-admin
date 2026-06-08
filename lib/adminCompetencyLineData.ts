@@ -31,9 +31,82 @@ function toDto(row: MasterRow): CompetencyLineMasterDto {
   };
 }
 
+// (2E-6) 개설 드롭다운 목록 — line_registrations 기준 전환.
+// 행 집합 = bridged registration (hub='competency'), id = bridged_master_id(기존 FK 체계 유지).
+// 필드 SoT = registration. 레거시 필드(sourceFileName/created/updated)는 read-mirror 마스터 보강.
+// fallback: registrations 조회 실패 시 기존 마스터 직조 (운영 중단 방지).
 export async function listCompetencyLineMasters(
   organizationSlug?: string | null,
 ): Promise<{ rows: CompetencyLineMasterDto[] }> {
+  let regQuery = supabaseAdmin
+    .from("line_registrations")
+    .select("line_code,line_name,main_title,main_title_mode,organization_slug,is_active,bridged_master_id")
+    .eq("hub", "competency")
+    .not("bridged_master_id", "is", null)
+    .order("line_code", { ascending: true });
+  if (organizationSlug) {
+    regQuery = regQuery.eq("organization_slug", organizationSlug);
+  }
+  const { data: regs, error: regError } = await regQuery;
+
+  if (!regError) {
+    type RegRow = {
+      line_code: string;
+      line_name: string;
+      main_title: string;
+      main_title_mode: string;
+      organization_slug: string | null;
+      is_active: boolean;
+      bridged_master_id: string;
+    };
+    const regRows = (regs ?? []) as RegRow[];
+    const masterIds = regRows.map((r) => r.bridged_master_id);
+    const legacyById = new Map<
+      string,
+      { source_file_name: string | null; created_at: string; updated_at: string }
+    >();
+    if (masterIds.length > 0) {
+      const { data: masters, error: masterError } = await supabaseAdmin
+        .from("cluster4_competency_line_masters")
+        .select("id,source_file_name,created_at,updated_at")
+        .in("id", masterIds);
+      if (masterError) {
+        console.warn("[2E-6 comp 목록] mirror 보강 조회 실패", { message: masterError.message });
+      } else {
+        for (const m of (masters ?? []) as Array<{
+          id: string;
+          source_file_name: string | null;
+          created_at: string;
+          updated_at: string;
+        }>) {
+          legacyById.set(m.id, {
+            source_file_name: m.source_file_name,
+            created_at: m.created_at,
+            updated_at: m.updated_at,
+          });
+        }
+      }
+    }
+    const rows: CompetencyLineMasterDto[] = regRows.map((r) => {
+      const legacy = legacyById.get(r.bridged_master_id) ?? null;
+      return {
+        id: r.bridged_master_id,
+        organizationSlug: r.organization_slug ?? "",
+        lineCode: r.line_code,
+        lineName: r.line_name,
+        mainTitle: r.main_title_mode === "fixed" && r.main_title.trim() ? r.main_title : null,
+        sourceFileName: legacy?.source_file_name ?? null,
+        isActive: r.is_active,
+        createdAt: legacy?.created_at ?? "",
+        updatedAt: legacy?.updated_at ?? "",
+      };
+    });
+    return { rows };
+  }
+
+  console.warn("[2E-6 comp 목록] registrations 조회 실패 — 마스터 fallback", {
+    message: regError.message,
+  });
   let query = supabaseAdmin
     .from("cluster4_competency_line_masters")
     .select("*")

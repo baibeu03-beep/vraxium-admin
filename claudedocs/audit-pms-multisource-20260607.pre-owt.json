@@ -1,0 +1,156 @@
+{
+ "generatedAt": "2026-06-07 멀티소스 감사 (자체 weekssettings 기준·read-only)",
+ "oranke": {
+  "users": 1369,
+  "stateDist": {
+   "활동정지": 860,
+   "졸업": 410,
+   "일반": 83,
+   "운영진": 16
+  },
+  "active": 99,
+  "weekssettingsRows": 86,
+  "weekssettingsRange": "2023-08-21~2026-05-31",
+  "oldestActiveWeek": "spring W5 (2024-04-01)",
+  "pointlogs": {
+   "total": 418930,
+   "unattributed": 71415
+  },
+  "weekRepro": {
+   "exact": 506,
+   "withDecl": 1369,
+   "rate": "37.0%"
+  },
+  "successRepro": {
+   "pms": 12327,
+   "v18": 11956,
+   "flips": 688,
+   "rate": "94.42%"
+  },
+  "actAttribution": {
+   "total": 28100,
+   "unattributed": 5422,
+   "unattrActive": 3649,
+   "users": 969
+  },
+  "adjustment": {
+   "0": 0,
+   "1~5": 28,
+   "6~20": 451,
+   "21~50": 236,
+   "51~100": 128,
+   "100+": 526
+  },
+  "legacyCollision": {
+   "userIdRange": "1~1374",
+   "vraxOverlap": 34
+  },
+  "expRestore": {
+   "weeks": 13930,
+   "subtitle": "99.9%",
+   "rating": "100.0%"
+  }
+ },
+ "hrdb": {
+  "users": 1670,
+  "stateDist": {
+   "활동정지": 1003,
+   "졸업": 521,
+   "일반": 133,
+   "운영진": 13
+  },
+  "active": 146,
+  "weekssettingsRows": 94,
+  "weekssettingsRange": "2023-02-06~2026-05-31",
+  "oldestActiveWeek": "winter W4 (2024-01-22)",
+  "pointlogs": {
+   "total": 734879,
+   "unattributed": 228779
+  },
+  "weekRepro": {
+   "exact": 585,
+   "withDecl": 1670,
+   "rate": "35.0%"
+  },
+  "successRepro": {
+   "pms": 13753,
+   "v18": 13537,
+   "flips": 551,
+   "rate": "95.99%"
+  },
+  "actAttribution": {
+   "total": 36019,
+   "unattributed": 13203,
+   "unattrActive": 9725,
+   "users": 1037
+  },
+  "adjustment": {
+   "0": 0,
+   "1~5": 108,
+   "6~20": 346,
+   "21~50": 190,
+   "51~100": 148,
+   "100+": 878
+  },
+  "legacyCollision": {
+   "userIdRange": "1~1712",
+   "vraxOverlap": 25
+  },
+  "expRestore": {
+   "weeks": 15548,
+   "subtitle": "99.9%",
+   "rating": "100.0%"
+  }
+ },
+ "olympus": {
+  "users": 303,
+  "stateDist": {
+   "활동정지": 236,
+   "일반": 31,
+   "졸업": 26,
+   "운영진": 10
+  },
+  "active": 41,
+  "weekssettingsRows": 76,
+  "weekssettingsRange": "2024-03-04~2026-05-31",
+  "oldestActiveWeek": "spring W2 (2024-03-11)",
+  "pointlogs": {
+   "total": 69442,
+   "unattributed": 4510
+  },
+  "weekRepro": {
+   "exact": 151,
+   "withDecl": 303,
+   "rate": "49.8%"
+  },
+  "successRepro": {
+   "pms": 2406,
+   "v18": 2374,
+   "flips": 140,
+   "rate": "94.18%"
+  },
+  "actAttribution": {
+   "total": 3240,
+   "unattributed": 343,
+   "unattrActive": 313,
+   "users": 158
+  },
+  "adjustment": {
+   "0": 0,
+   "1~5": 36,
+   "6~20": 158,
+   "21~50": 32,
+   "51~100": 29,
+   "100+": 48
+  },
+  "legacyCollision": {
+   "userIdRange": "1~303",
+   "vraxOverlap": 28
+  },
+  "expRestore": {
+   "weeks": 2824,
+   "subtitle": "100.0%",
+   "rating": "100.0%"
+  }
+ }
+}

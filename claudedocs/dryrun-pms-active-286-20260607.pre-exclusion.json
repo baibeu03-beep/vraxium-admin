@@ -1,0 +1,475 @@
+{
+ "generatedAt": "2026-06-07 3조직 활동자 전체 dry-run (B안 composite key — read-only)",
+ "policy": "PMS 인정 우선 (FLIP=checks_migrated:false) · (source_system,legacy_user_id) 복합키 · 3중 키 매칭 · org_week_thresholds 해석",
+ "totals": {
+  "targets": 286,
+  "newUsers": 256,
+  "matched": 30,
+  "ambiguous": 0,
+  "testerBlocked": 0,
+  "crossSourceBlocked": 0,
+  "pairConflicts": 0,
+  "flips": 45,
+  "holdQueue": 0,
+  "crossSourceSamePerson": 2
+ },
+ "perSource": {
+  "oranke": {
+   "org": "oranke",
+   "targets": 99,
+   "stateDist": {
+    "운영진": 16,
+    "일반": 83
+   },
+   "matching": {
+    "newUsers": 98,
+    "matchedUsers": 1,
+    "ambiguous": 0,
+    "testerBlocked": 0,
+    "crossSourceBlocked": 0
+   },
+   "pairConflicts": 0,
+   "uwpRowsPlanned": 2074,
+   "uwsRowsPlanned": 1108,
+   "weekReproduced": "78/99",
+   "pmsRecognizedWeeks": 1011,
+   "v18SuccessAmongRecognized": 983,
+   "successReproductionRate": "97.23%",
+   "flips_checksMigratedFalse": 28,
+   "thresholdSource": {
+    "orgRows": 100
+   },
+   "unattributed": {
+    "pointlogRows": 89,
+    "activityRows": 7,
+    "attributedLogRows": 27989
+   },
+   "experienceRestore": {
+    "subtitleRate": "100.0%",
+    "ratingRate": "100.0%"
+   },
+   "adjustmentDistribution": {
+    "0": 43,
+    "1~5": 20,
+    "6~20": 33,
+    "21~50": 1,
+    "51~100": 2,
+    "100+": 0
+   },
+   "snapshotPlan": {
+    "newSnapshots": 98,
+    "recomputeExisting": 1,
+    "matchedWithoutSnapshot": 0
+   },
+   "matchedPlans": [
+    {
+     "pmsId": 916,
+     "name": "이유나",
+     "uuid": "247021bc-374b-48f4-8d49-b181d149ee33",
+     "existingLegacy": 100000000,
+     "existingSource": null,
+     "existingUws": 3,
+     "plan": "source_system='oranke' 최초 기록 + legacy_user_id 100000000→916 재기록"
+    }
+   ]
+  },
+  "hrdb": {
+   "org": "encre",
+   "targets": 146,
+   "stateDist": {
+    "일반": 133,
+    "운영진": 13
+   },
+   "matching": {
+    "newUsers": 145,
+    "matchedUsers": 1,
+    "ambiguous": 0,
+    "testerBlocked": 0,
+    "crossSourceBlocked": 0
+   },
+   "pairConflicts": 0,
+   "uwpRowsPlanned": 3196,
+   "uwsRowsPlanned": 2191,
+   "weekReproduced": "120/146",
+   "pmsRecognizedWeeks": 1823,
+   "v18SuccessAmongRecognized": 1810,
+   "successReproductionRate": "99.29%",
+   "flips_checksMigratedFalse": 13,
+   "thresholdSource": {
+    "orgRows": 93
+   },
+   "unattributed": {
+    "pointlogRows": 195,
+    "activityRows": 40,
+    "attributedLogRows": 53936
+   },
+   "experienceRestore": {
+    "subtitleRate": "100.0%",
+    "ratingRate": "100.0%"
+   },
+   "adjustmentDistribution": {
+    "0": 80,
+    "1~5": 39,
+    "6~20": 17,
+    "21~50": 9,
+    "51~100": 0,
+    "100+": 1
+   },
+   "snapshotPlan": {
+    "newSnapshots": 145,
+    "recomputeExisting": 1,
+    "matchedWithoutSnapshot": 0
+   },
+   "matchedPlans": [
+    {
+     "pmsId": 1348,
+     "name": "이유나",
+     "uuid": "247021bc-374b-48f4-8d49-b181d149ee33",
+     "existingLegacy": 100000000,
+     "existingSource": null,
+     "existingUws": 3,
+     "plan": "source_system='hrdb' 최초 기록 + legacy_user_id 100000000→1348 재기록"
+    }
+   ]
+  },
+  "olympus": {
+   "org": "phalanx",
+   "targets": 41,
+   "stateDist": {
+    "운영진": 10,
+    "일반": 31
+   },
+   "matching": {
+    "newUsers": 13,
+    "matchedUsers": 28,
+    "ambiguous": 0,
+    "testerBlocked": 0,
+    "crossSourceBlocked": 0
+   },
+   "pairConflicts": 0,
+   "uwpRowsPlanned": 880,
+   "uwsRowsPlanned": 512,
+   "weekReproduced": "34/41",
+   "pmsRecognizedWeeks": 444,
+   "v18SuccessAmongRecognized": 440,
+   "successReproductionRate": "99.10%",
+   "flips_checksMigratedFalse": 4,
+   "thresholdSource": {
+    "orgRows": 76
+   },
+   "unattributed": {
+    "pointlogRows": 51,
+    "activityRows": 6,
+    "attributedLogRows": 11724
+   },
+   "experienceRestore": {
+    "subtitleRate": "100.0%",
+    "ratingRate": "100.0%"
+   },
+   "adjustmentDistribution": {
+    "0": 27,
+    "1~5": 7,
+    "6~20": 7,
+    "21~50": 0,
+    "51~100": 0,
+    "100+": 0
+   },
+   "snapshotPlan": {
+    "newSnapshots": 13,
+    "recomputeExisting": 28,
+    "matchedWithoutSnapshot": 0
+   },
+   "matchedPlans": [
+    {
+     "pmsId": 248,
+     "name": "박시은",
+     "uuid": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+     "existingLegacy": 248,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 249,
+     "name": "성채윤",
+     "uuid": "19cb4129-ba73-4685-9912-7d9d4ed3768b",
+     "existingLegacy": 249,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 261,
+     "name": "위다인",
+     "uuid": "33cd8f8a-a412-49dc-914c-01b1251871f9",
+     "existingLegacy": 261,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 263,
+     "name": "조창현",
+     "uuid": "1cde2e27-3069-4890-847c-83fd20a81f74",
+     "existingLegacy": 263,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 264,
+     "name": "김다빈",
+     "uuid": "6bd51d10-8f4d-48ba-82cf-9284fc75eff0",
+     "existingLegacy": 264,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 269,
+     "name": "이다윤",
+     "uuid": "c144d6fb-5a01-4453-aded-ae00dffdcf0b",
+     "existingLegacy": 269,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 273,
+     "name": "이선욱",
+     "uuid": "ff93b3dd-2bbd-44ad-9f2f-467a1dbe298f",
+     "existingLegacy": 273,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 274,
+     "name": "김성곤",
+     "uuid": "974ba08b-7411-4fc8-ab22-178977de73a8",
+     "existingLegacy": 274,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 277,
+     "name": "이윤아",
+     "uuid": "f5ea2501-1319-443a-9326-78f6bdce522d",
+     "existingLegacy": 277,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 278,
+     "name": "이채성",
+     "uuid": "35cd5770-98ec-49b4-95db-8ca6c92e53bf",
+     "existingLegacy": 278,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 279,
+     "name": "강민지",
+     "uuid": "a35a306b-6f53-4b0e-8b8b-afb6c34ec93a",
+     "existingLegacy": 279,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 281,
+     "name": "정수빈",
+     "uuid": "d151c37b-5195-4ae1-ba79-d3b229a49eff",
+     "existingLegacy": 281,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 284,
+     "name": "이현재",
+     "uuid": "42913661-f637-4282-bdc5-04406dcb1aca",
+     "existingLegacy": 284,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 286,
+     "name": "김시원",
+     "uuid": "566900f7-f4b2-4a95-bf11-d3dc4346453a",
+     "existingLegacy": 286,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 287,
+     "name": "양혁진",
+     "uuid": "7fc78617-7a56-4fe0-8cbd-a9d857f292bc",
+     "existingLegacy": 287,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 288,
+     "name": "조정인",
+     "uuid": "d7cb79cc-9ed4-4ae1-bac3-cf86a684dd3e",
+     "existingLegacy": 288,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 290,
+     "name": "유지민",
+     "uuid": "3c9d2dfe-629c-4d81-b847-80e42e656d4c",
+     "existingLegacy": 290,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 292,
+     "name": "옥지윤",
+     "uuid": "abef6e53-53c5-4277-bb70-e031153e533f",
+     "existingLegacy": 292,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 293,
+     "name": "송영권",
+     "uuid": "b9cb873d-1052-438f-825f-85af589fab82",
+     "existingLegacy": 293,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 294,
+     "name": "이다은",
+     "uuid": "ebd7cf95-4e48-4ec4-9cf9-4392be5e59ac",
+     "existingLegacy": 294,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 295,
+     "name": "범혜민",
+     "uuid": "a90bc300-6f64-450f-b107-ab112ab944ca",
+     "existingLegacy": 295,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 296,
+     "name": "정수아",
+     "uuid": "2dc7f9ac-3452-426f-a948-51e40dc953de",
+     "existingLegacy": 296,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 297,
+     "name": "신지현",
+     "uuid": "d43fff71-8f90-465a-a471-c65abfa3ce36",
+     "existingLegacy": 297,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 298,
+     "name": "박지민",
+     "uuid": "49453df4-6f6e-4480-b69f-be034ba97a46",
+     "existingLegacy": 298,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 299,
+     "name": "김연우",
+     "uuid": "7dfad8dc-b900-4e3c-a13b-e0b6b42342ca",
+     "existingLegacy": 299,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 300,
+     "name": "김민송",
+     "uuid": "24caea11-ae48-489f-83a9-52780cb9eb96",
+     "existingLegacy": 300,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 301,
+     "name": "강은비",
+     "uuid": "11867101-8086-43d6-9349-6307ee286966",
+     "existingLegacy": 301,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    },
+    {
+     "pmsId": 303,
+     "name": "조은재",
+     "uuid": "296de78e-2a24-450c-9af1-c93a66b9f982",
+     "existingLegacy": 303,
+     "existingSource": null,
+     "existingUws": 4,
+     "plan": "source_system='olympus' 최초 기록 (legacy 숫자 동일 유지)"
+    }
+   ]
+  }
+ },
+ "holdQueue": [
+  {
+   "source": "oranke+hrdb",
+   "pmsId": "916/1348",
+   "name": "이유나",
+   "issue": "cross-source 동일인 — primary source 결정 필요 (Vraxium org=encre→hrdb 정합 시사)"
+  },
+  {
+   "source": "oranke+olympus",
+   "pmsId": "873/180",
+   "name": "선우은교",
+   "issue": "cross-source 동일인(미가입) — 단일 채번 + primary source 결정 필요"
+  }
+ ],
+ "durationMs": 2942,
+ "crossSourceSamePerson": {
+  "method": "활동자 286명 간 이름+전화(뒤8자리) 교차 — 생일 필드 쓰레기값(1111/22 등) 보완",
+  "found": [
+   {
+    "person": "이유나",
+    "a": "oranke 916",
+    "b": "hrdb 1348",
+    "keys": "이름+전화+메일",
+    "vraxium": "기가입 247021bc (org=encre·active·uws 3·legacy 1억 synthetic)",
+    "risk": "users.source_system 단일값 — 양 소스 기록 불가. primary 지정 또는 hold 필요"
+   },
+   {
+    "person": "선우은교",
+    "a": "oranke 873",
+    "b": "olympus 180",
+    "keys": "이름+전화+메일",
+    "vraxium": "미가입",
+    "risk": "양쪽 각각 신규 채번 시 중복 계정 2개 생성 — 단일 채번+primary 지정 필요"
+   }
+  ],
+  "blockedCount": 2
+ }
+}

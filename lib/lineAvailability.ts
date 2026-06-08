@@ -1,5 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import type { OrganizationSlug } from "@/lib/organizations";
+import {
+  findExperienceMasterIdByLineNameRegFirst,
+  getExperienceSlotsByMasterIdsRegFirst,
+} from "@/lib/lineRegistrationLookup";
+import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import {
   computeCluster4Enhancement,
   EXPERIENCE_RATING_FAIL_THRESHOLD,
@@ -54,6 +58,13 @@ export const LEGACY_UNIFIED_LINE_NAME = "[통합] 주차 활동 내역";
 let legacyUnifiedMasterIdCache: string | null | undefined;
 export async function fetchLegacyUnifiedMasterId(): Promise<string | null> {
   if (legacyUnifiedMasterIdCache !== undefined) return legacyUnifiedMasterIdCache;
+  // (2E-4) registrations-first — 연결 행의 bridged_master_id(=마스터 id 체계 유지).
+  // 미연결이면 기존 마스터 line_name 검색으로 fallback.
+  const fromReg = await findExperienceMasterIdByLineNameRegFirst(LEGACY_UNIFIED_LINE_NAME);
+  if (fromReg) {
+    legacyUnifiedMasterIdCache = fromReg;
+    return legacyUnifiedMasterIdCache;
+  }
   const { data, error } = await supabaseAdmin
     .from("cluster4_experience_line_masters")
     .select("id")
@@ -822,21 +833,9 @@ export async function fetchWeeksWithOpenLinesByPart(
       masterIdByLineId.set(l.id, l.experience_line_master_id);
     }
   }
-  const slotByMasterId = new Map<string, number>();
+  // (2E-4) registrations-first slot 룩업 (미커버 id 는 헬퍼 내부 마스터 fallback) — 결과 등가.
   const masterIds = [...new Set(masterIdByLineId.values())];
-  if (masterIds.length > 0) {
-    const { data: masters } = await supabaseAdmin
-      .from("cluster4_experience_line_masters")
-      .select("id,experience_slot_order")
-      .in("id", masterIds);
-    for (const m of (masters ?? []) as {
-      id: string;
-      experience_slot_order: number | null;
-    }[]) {
-      if (m.experience_slot_order != null)
-        slotByMasterId.set(m.id, m.experience_slot_order);
-    }
-  }
+  const slotByMasterId = await getExperienceSlotsByMasterIdsRegFirst(masterIds);
 
   // ⚠ 전수 페이지네이션(안정 정렬 id asc) — PostgREST 기본 1000행 cap 절단 방지.
   //   절단되면 분모 A(개설 distinct 라인 수)가 재계산 시점마다 비결정적으로 흔들린다
@@ -1059,10 +1058,38 @@ export type LegacyUnifiedWeekState = {
   checkDataMigrated: boolean;
 };
 
+// 사용자 organization_slug 단건 조회 (org_week_thresholds 해석용).
+//   user_profiles.organization_slug — 이관 source_system 매핑(hrdb→encre·oranke→oranke·
+//   olympus→phalanx, lib/pmsMigration.ts)으로 기록된 값이 SoT. 과거 주차 조직 이력은
+//   추적하지 않는다(2026-06-07 정책 확정). 조회 실패/null = 공통 폴백(현행 동작).
+async function fetchUserOrganizationSlug(
+  userId: string,
+): Promise<OrganizationSlug | null> {
+  const { data, error } = await supabaseAdmin
+    .from("user_profiles")
+    .select("organization_slug")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    console.warn("[lineAvailability] organization_slug fetch failed — common fallback", {
+      message: error.message,
+    });
+    return null;
+  }
+  const slug = (data as { organization_slug: string | null } | null)
+    ?.organization_slug;
+  return isOrganizationSlug(slug) ? slug : null;
+}
+
 export async function fetchLegacyUnifiedExperienceByWeek(
   userId: string,
   weekIds: string[],
   now: number = Date.now(),
+  opts: {
+    // 호출부가 이미 보유한 organization_slug (weekly-cards 파이프라인 등) — 전달 시 재조회 생략.
+    // undefined = 내부 조회 / null = 무소속(공통 폴백 확정, 조회 생략).
+    organizationSlug?: OrganizationSlug | null;
+  } = {},
 ): Promise<Map<string, LegacyUnifiedWeekState>> {
   const result = new Map<string, LegacyUnifiedWeekState>();
   if (weekIds.length === 0) return result;
@@ -1204,6 +1231,40 @@ export async function fetchLegacyUnifiedExperienceByWeek(
       }
     }
 
+    // ── 조직별 기준값 오버라이드 (2026-06-07 B안 — org_week_thresholds) ──
+    //   해석 순서: org_week_thresholds(week_id, org) → weeks.check_threshold → 기본값(30).
+    //   org = user_profiles.organization_slug (source_system 매핑 SoT — Team 파생 금지).
+    //   org null/미등록 slug·테이블 미생성(마이그레이션 전)·조회 실패 = 오버라이드 없음
+    //   (fail-open — 위에서 채운 공통 폴백 체인 그대로). enforce 여부(checks_migrated)는
+    //   본 오버라이드와 무관 — 기준값만 바뀐다.
+    {
+      const orgSlug =
+        opts.organizationSlug !== undefined
+          ? opts.organizationSlug
+          : await fetchUserOrganizationSlug(userId);
+      if (orgSlug && isOrganizationSlug(orgSlug)) {
+        const { data: orgRows, error: orgErr } = await supabaseAdmin
+          .from("org_week_thresholds")
+          .select("week_id,check_threshold")
+          .eq("organization_slug", orgSlug)
+          .in("week_id", [...result.keys()]);
+        if (orgErr) {
+          console.warn(
+            "[lineAvailability] org_week_thresholds select failed — fallback to common threshold",
+            { message: orgErr.message },
+          );
+        } else {
+          for (const r of (orgRows ?? []) as {
+            week_id: string;
+            check_threshold: number;
+          }[]) {
+            const s = result.get(r.week_id);
+            if (s && r.check_threshold >= 0) s.checkThreshold = r.check_threshold;
+          }
+        }
+      }
+    }
+
     if (isoByWeekId.size > 0) {
       const years = [...new Set([...isoByWeekId.values()].map((v) => v.year))];
       type PointsRow = {
@@ -1340,6 +1401,9 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
     alwaysOpenWeekIds?: ReadonlySet<string>;
     // 레거시 주차의 통합 라인 상태를 호출부가 이미 갖고 있으면 재조회를 생략한다.
     legacyUnifiedStates?: Map<string, LegacyUnifiedWeekState>;
+    // 조직별 check 기준값 해석용 (org_week_thresholds) — fetchLegacyUnifiedExperienceByWeek
+    // 로 passthrough. undefined = 내부 조회 / null = 공통 폴백 확정.
+    organizationSlug?: OrganizationSlug | null;
   } = {},
 ): Promise<Map<string, ExperienceGrowthVerdict>> {
   const alwaysOpenWeekIds = opts.alwaysOpenWeekIds ?? new Set<string>();
@@ -1375,7 +1439,9 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
   if (legacyWeekIdSet.size > 0) {
     const states =
       opts.legacyUnifiedStates ??
-      (await fetchLegacyUnifiedExperienceByWeek(userId, [...legacyWeekIdSet], now));
+      (await fetchLegacyUnifiedExperienceByWeek(userId, [...legacyWeekIdSet], now, {
+        organizationSlug: opts.organizationSlug,
+      }));
     for (const w of legacyWeekIdSet) {
       result.set(w, reduceLegacyUnifiedVerdict(states.get(w)));
     }
@@ -1410,20 +1476,8 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
         .filter((v): v is string => Boolean(v)),
     ),
   ];
-  const slotByMaster = new Map<string, number>();
-  if (masterIds.length > 0) {
-    const { data: masters } = await supabaseAdmin
-      .from("cluster4_experience_line_masters")
-      .select("id,experience_slot_order")
-      .in("id", masterIds);
-    for (const m of (masters ?? []) as {
-      id: string;
-      experience_slot_order: number | null;
-    }[]) {
-      if (m.experience_slot_order != null)
-        slotByMaster.set(m.id, m.experience_slot_order);
-    }
-  }
+  // (2E-4) registrations-first slot 룩업 (미커버 id 는 헬퍼 내부 마스터 fallback) — 결과 등가.
+  const slotByMaster = await getExperienceSlotsByMasterIdsRegFirst(masterIds);
 
   // 3. line_id → 필수 슬롯(1/2/3) + 마감. 확장(4)/관리(5)/미분류 라인은 버린다.
   const lineSlot = new Map<

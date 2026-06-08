@@ -1,0 +1,103 @@
+{
+  "direct": [
+    {
+      "week_id": "831df762-ebb8-4b3f-8e6e-938f7818d01a",
+      "season_key": "2022-spring",
+      "week_number": 2,
+      "start_date": "2022-03-14",
+      "end_date": "2022-03-20",
+      "holiday_name": "브라우저 검증 휴식",
+      "resolved": false,
+      "legacy": true,
+      "weeks_is_official_rest": true,
+      "legacy_iso_hit": false,
+      "season_rule": false,
+      "date_period_matches": [],
+      "is_transition": false
+    },
+    {
+      "week_id": "6db619e3-22a7-4255-9668-ea5e693ccc51",
+      "season_key": "2023-autumn",
+      "week_number": 11,
+      "start_date": "2023-12-04",
+      "end_date": "2023-12-10",
+      "holiday_name": null,
+      "resolved": false,
+      "legacy": true,
+      "weeks_is_official_rest": true,
+      "legacy_iso_hit": false,
+      "season_rule": false,
+      "date_period_matches": [],
+      "is_transition": false
+    },
+    {
+      "week_id": "16dd6e8f-14cb-453c-b2de-1b61a52db53f",
+      "season_key": "2023-autumn",
+      "week_number": 12,
+      "start_date": "2023-12-11",
+      "end_date": "2023-12-17",
+      "holiday_name": null,
+      "resolved": false,
+      "legacy": true,
+      "weeks_is_official_rest": true,
+      "legacy_iso_hit": false,
+      "season_rule": false,
+      "date_period_matches": [],
+      "is_transition": false
+    },
+    {
+      "week_id": "e2d2aa00-5fe3-43d9-b15c-ae4b1d860c7d",
+      "season_key": "2023-autumn",
+      "week_number": 13,
+      "start_date": "2023-12-18",
+      "end_date": "2023-12-24",
+      "holiday_name": null,
+      "resolved": false,
+      "legacy": true,
+      "weeks_is_official_rest": true,
+      "legacy_iso_hit": false,
+      "season_rule": false,
+      "date_period_matches": [],
+      "is_transition": false
+    }
+  ],
+  "http": [
+    {
+      "season_key": "2022-spring",
+      "week_id": "831df762-ebb8-4b3f-8e6e-938f7818d01a",
+      "week_number": 2,
+      "week_start_date": "2022-03-14",
+      "resolved_is_official_rest": false,
+      "legacy_is_official_rest": true,
+      "reason": "신규 판정(season_rule ∨ date_period)이 legacy(official_rest_weeks/weeks.is_official_rest)와 다릅니다."
+    },
+    {
+      "season_key": "2023-autumn",
+      "week_id": "6db619e3-22a7-4255-9668-ea5e693ccc51",
+      "week_number": 11,
+      "week_start_date": "2023-12-04",
+      "resolved_is_official_rest": false,
+      "legacy_is_official_rest": true,
+      "reason": "신규 판정(season_rule ∨ date_period)이 legacy(official_rest_weeks/weeks.is_official_rest)와 다릅니다."
+    },
+    {
+      "season_key": "2023-autumn",
+      "week_id": "16dd6e8f-14cb-453c-b2de-1b61a52db53f",
+      "week_number": 12,
+      "week_start_date": "2023-12-11",
+      "resolved_is_official_rest": false,
+      "legacy_is_official_rest": true,
+      "reason": "신규 판정(season_rule ∨ date_period)이 legacy(official_rest_weeks/weeks.is_official_rest)와 다릅니다."
+    },
+    {
+      "season_key": "2023-autumn",
+      "week_id": "e2d2aa00-5fe3-43d9-b15c-ae4b1d860c7d",
+      "week_number": 13,
+      "week_start_date": "2023-12-18",
+      "resolved_is_official_rest": false,
+      "legacy_is_official_rest": true,
+      "reason": "신규 판정(season_rule ∨ date_period)이 legacy(official_rest_weeks/weeks.is_official_rest)와 다릅니다."
+    }
+  ],
+  "same": true
+}

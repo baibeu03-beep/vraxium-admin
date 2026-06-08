@@ -1,0 +1,5876 @@
+{
+  "generatedAt": "2026-06-05 (B7 dry-run)",
+  "mode": "dry-run (DB writes: 0 — guaranteed; --apply unimplemented)",
+  "inputs": {
+    "exportDir": "claudedocs/pms-export",
+    "loaded": {
+      "weekssettings": 86,
+      "seasondates": 150,
+      "reportlogs_weeks": 94,
+      "pointlogs_activity_dates": 1071,
+      "activities_weeks": 216
+    },
+    "missing": [],
+    "partialMode": false
+  },
+  "liveInventory": {
+    "seasons": [
+      {
+        "index": 1,
+        "name": "2026년도 봄시즌"
+      }
+    ],
+    "seasonsCount": 1,
+    "weeksCount": 42,
+    "distinctSeasonIdsReferencedByWeeks": 1,
+    "quirk_allWeeksPointToSameSeasonRow": true,
+    "seasonDefinitionsCount": 35
+  },
+  "winter2026": [
+    {
+      "week_number": 1,
+      "start_date": "2025-12-29",
+      "live_is_official_rest": false,
+      "expected": "threshold 37",
+      "restMatchesConfirmation": null
+    },
+    {
+      "week_number": 2,
+      "start_date": "2026-01-05",
+      "live_is_official_rest": false,
+      "expected": "threshold 37",
+      "restMatchesConfirmation": null
+    },
+    {
+      "week_number": 3,
+      "start_date": "2026-01-12",
+      "live_is_official_rest": false,
+      "expected": "threshold 37",
+      "restMatchesConfirmation": null
+    },
+    {
+      "week_number": 4,
+      "start_date": "2026-01-19",
+      "live_is_official_rest": false,
+      "expected": "threshold 37",
+      "restMatchesConfirmation": null
+    },
+    {
+      "week_number": 5,
+      "start_date": "2026-01-26",
+      "live_is_official_rest": false,
+      "expected": "threshold 37",
+      "restMatchesConfirmation": null
+    },
+    {
+      "week_number": 6,
+      "start_date": "2026-02-02",
+      "live_is_official_rest": false,
+      "expected": "threshold 37",
+      "restMatchesConfirmation": null
+    },
+    {
+      "week_number": 7,
+      "start_date": "2026-02-09",
+      "live_is_official_rest": false,
+      "expected": "threshold 37",
+      "restMatchesConfirmation": null
+    },
+    {
+      "week_number": 8,
+      "start_date": "2026-02-16",
+      "live_is_official_rest": true,
+      "expected": "휴식주 (확정 3)",
+      "restMatchesConfirmation": true
+    },
+    {
+      "week_number": 9,
+      "start_date": "2026-02-23",
+      "live_is_official_rest": false,
+      "expected": "확정 범위 밖 (전환/예비 — 수동 확인)",
+      "restMatchesConfirmation": null
+    }
+  ],
+  "seasonsPlan": {
+    "rows": [
+      {
+        "season_key": "2023-autumn",
+        "name": "2023년도 가을시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2023-09-04",
+        "ended_at": "2023-12-24"
+      },
+      {
+        "season_key": "2023-spring",
+        "name": "2023년도 봄시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2023-03-06",
+        "ended_at": "2023-06-25"
+      },
+      {
+        "season_key": "2023-summer",
+        "name": "2023년도 여름시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2023-07-03",
+        "ended_at": "2023-08-27"
+      },
+      {
+        "season_key": "2024-autumn",
+        "name": "2024년도 가을시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2024-09-02",
+        "ended_at": "2024-12-22"
+      },
+      {
+        "season_key": "2024-spring",
+        "name": "2024년도 봄시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2024-03-04",
+        "ended_at": "2024-06-23"
+      },
+      {
+        "season_key": "2024-summer",
+        "name": "2024년도 여름시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2024-07-01",
+        "ended_at": "2024-08-24"
+      },
+      {
+        "season_key": "2024-winter",
+        "name": "2024년도 겨울시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2024-01-01",
+        "ended_at": "2024-02-25"
+      },
+      {
+        "season_key": "2025-autumn",
+        "name": "2025년도 가을시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2025-09-01",
+        "ended_at": "2025-12-21"
+      },
+      {
+        "season_key": "2025-spring",
+        "name": "2025년도 봄시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2025-03-03",
+        "ended_at": "2025-06-22"
+      },
+      {
+        "season_key": "2025-summer",
+        "name": "2025년도 여름시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2025-06-30",
+        "ended_at": "2025-08-23"
+      },
+      {
+        "season_key": "2025-winter",
+        "name": "2025년도 겨울시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2024-12-31",
+        "ended_at": "2025-02-23"
+      },
+      {
+        "season_key": "2026-spring",
+        "name": "2026년도 봄시즌",
+        "exists": true,
+        "action": "noop",
+        "started_at": "2026-03-02",
+        "ended_at": "2026-06-21"
+      },
+      {
+        "season_key": "2026-winter",
+        "name": "2026년도 겨울시즌",
+        "exists": false,
+        "action": "insert",
+        "started_at": "2025-12-29",
+        "ended_at": "2026-02-22"
+      }
+    ],
+    "inserts": 12,
+    "note": "weeks.season_id NOT NULL — insert 주차는 신설 seasons.id 참조. 기존 42행의 season_id 재배선 여부는 별도 결정(현재 단일 행 참조 quirk)."
+  },
+  "weeksPlan": {
+    "totalCandidates": 152,
+    "actions": {
+      "insert": 111,
+      "update": 25,
+      "conflict": 7,
+      "noop": 9
+    },
+    "rowCount": {
+      "before": 42,
+      "afterExpected": 153
+    },
+    "rows": [
+      {
+        "start": "2023-03-06",
+        "end": "2023-03-12",
+        "season": "2023-spring",
+        "week": 1,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-03-13",
+        "end": "2023-03-19",
+        "season": "2023-spring",
+        "week": 2,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-03-20",
+        "end": "2023-03-26",
+        "season": "2023-spring",
+        "week": 3,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-03-27",
+        "end": "2023-04-02",
+        "season": "2023-spring",
+        "week": 4,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-04-03",
+        "end": "2023-04-09",
+        "season": "2023-spring",
+        "week": 5,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-04-10",
+        "end": "2023-04-16",
+        "season": "2023-spring",
+        "week": 6,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-04-17",
+        "end": "2023-04-23",
+        "season": "2023-spring",
+        "week": 7,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-04-24",
+        "end": "2023-04-30",
+        "season": "2023-spring",
+        "week": 8,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-05-01",
+        "end": "2023-05-07",
+        "season": "2023-spring",
+        "week": 9,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-05-08",
+        "end": "2023-05-14",
+        "season": "2023-spring",
+        "week": 10,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-05-15",
+        "end": "2023-05-21",
+        "season": "2023-spring",
+        "week": 11,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-05-22",
+        "end": "2023-05-28",
+        "season": "2023-spring",
+        "week": 12,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-05-29",
+        "end": "2023-06-04",
+        "season": "2023-spring",
+        "week": 13,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-07-03",
+        "end": "2023-07-09",
+        "season": "2023-summer",
+        "week": 1,
+        "threshold": 15,
+        "thresholdSource": "seasondates.PassingScore (확정 1: 2023-summer 한정)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-07-10",
+        "end": "2023-07-16",
+        "season": "2023-summer",
+        "week": 2,
+        "threshold": 15,
+        "thresholdSource": "seasondates.PassingScore (확정 1: 2023-summer 한정)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-07-17",
+        "end": "2023-07-23",
+        "season": "2023-summer",
+        "week": 3,
+        "threshold": 24,
+        "thresholdSource": "seasondates.PassingScore (확정 1: 2023-summer 한정)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-07-24",
+        "end": "2023-07-30",
+        "season": "2023-summer",
+        "week": 4,
+        "threshold": 20,
+        "thresholdSource": "seasondates.PassingScore (확정 1: 2023-summer 한정)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-07-31",
+        "end": "2023-08-06",
+        "season": "2023-summer",
+        "week": 5,
+        "threshold": 25,
+        "thresholdSource": "seasondates.PassingScore (확정 1: 2023-summer 한정)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-08-07",
+        "end": "2023-08-13",
+        "season": "2023-summer",
+        "week": 6,
+        "threshold": 32,
+        "thresholdSource": "seasondates.PassingScore (확정 1: 2023-summer 한정)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-08-14",
+        "end": "2023-08-20",
+        "season": "2023-summer",
+        "week": 7,
+        "threshold": 24,
+        "thresholdSource": "seasondates.PassingScore (확정 1: 2023-summer 한정)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-08-21",
+        "end": "2023-08-27",
+        "season": "2023-summer",
+        "week": 8,
+        "threshold": 5,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-09-04",
+        "end": "2023-09-10",
+        "season": "2023-autumn",
+        "week": 1,
+        "threshold": 26,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-09-11",
+        "end": "2023-09-17",
+        "season": "2023-autumn",
+        "week": 2,
+        "threshold": 28,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-09-18",
+        "end": "2023-09-24",
+        "season": "2023-autumn",
+        "week": 3,
+        "threshold": 25,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-09-25",
+        "end": "2023-10-01",
+        "season": "2023-autumn",
+        "week": 4,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-10-02",
+        "end": "2023-10-08",
+        "season": "2023-autumn",
+        "week": 5,
+        "threshold": 25,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-10-30",
+        "end": "2023-11-05",
+        "season": "2023-autumn",
+        "week": 9,
+        "threshold": 24,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-11-06",
+        "end": "2023-11-12",
+        "season": "2023-autumn",
+        "week": 10,
+        "threshold": 27,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-11-13",
+        "end": "2023-11-19",
+        "season": "2023-autumn",
+        "week": 11,
+        "threshold": 29,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-11-20",
+        "end": "2023-11-26",
+        "season": "2023-autumn",
+        "week": 12,
+        "threshold": 30,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-11-27",
+        "end": "2023-12-03",
+        "season": "2023-autumn",
+        "week": 13,
+        "threshold": 5,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-12-04",
+        "end": "2023-12-10",
+        "season": "2023-autumn",
+        "week": 11,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-12-11",
+        "end": "2023-12-17",
+        "season": "2023-autumn",
+        "week": 12,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2023-12-18",
+        "end": "2023-12-24",
+        "season": "2023-autumn",
+        "week": 13,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-01-01",
+        "end": "2024-01-07",
+        "season": "2024-winter",
+        "week": 1,
+        "threshold": 22,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-01-08",
+        "end": "2024-01-14",
+        "season": "2024-winter",
+        "week": 2,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-01-15",
+        "end": "2024-01-21",
+        "season": "2024-winter",
+        "week": 3,
+        "threshold": 27,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-01-22",
+        "end": "2024-01-28",
+        "season": "2024-winter",
+        "week": 4,
+        "threshold": 30,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-01-29",
+        "end": "2024-02-04",
+        "season": "2024-winter",
+        "week": 5,
+        "threshold": 30,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-02-05",
+        "end": "2024-02-11",
+        "season": "2024-winter",
+        "week": 6,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-02-12",
+        "end": "2024-02-18",
+        "season": "2024-winter",
+        "week": 7,
+        "threshold": 26,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-02-19",
+        "end": "2024-02-25",
+        "season": "2024-winter",
+        "week": 8,
+        "threshold": 24,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-02-26",
+        "end": "2024-03-03",
+        "season": "2024-spring",
+        "week": 0,
+        "threshold": null,
+        "thresholdSource": "none (inferred — B8 전 수동 확정 필요)",
+        "rest": false,
+        "restSource": "none(inferred)",
+        "holiday": null,
+        "sources": [
+          "reportlogs-inferred"
+        ],
+        "inferred": true,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-03-04",
+        "end": "2024-03-10",
+        "season": "2024-spring",
+        "week": 1,
+        "threshold": 27,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-03-11",
+        "end": "2024-03-17",
+        "season": "2024-spring",
+        "week": 2,
+        "threshold": 32,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-03-18",
+        "end": "2024-03-24",
+        "season": "2024-spring",
+        "week": 3,
+        "threshold": 32,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-03-25",
+        "end": "2024-03-31",
+        "season": "2024-spring",
+        "week": 4,
+        "threshold": 31,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-04-01",
+        "end": "2024-04-07",
+        "season": "2024-spring",
+        "week": 5,
+        "threshold": 30,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-04-29",
+        "end": "2024-05-05",
+        "season": "2024-spring",
+        "week": 9,
+        "threshold": 30,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-05-06",
+        "end": "2024-05-12",
+        "season": "2024-spring",
+        "week": 9,
+        "threshold": 34,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-05-13",
+        "end": "2024-05-19",
+        "season": "2024-spring",
+        "week": 11,
+        "threshold": 32,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-05-20",
+        "end": "2024-05-26",
+        "season": "2024-spring",
+        "week": 12,
+        "threshold": 40,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-05-27",
+        "end": "2024-06-02",
+        "season": "2024-spring",
+        "week": 13,
+        "threshold": 35,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-06-24",
+        "end": "2024-06-30",
+        "season": "2024-spring",
+        "week": 17,
+        "threshold": null,
+        "thresholdSource": "none (inferred — B8 전 수동 확정 필요)",
+        "rest": false,
+        "restSource": "none(inferred)",
+        "holiday": null,
+        "sources": [
+          "reportlogs-inferred"
+        ],
+        "inferred": true,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-07-01",
+        "end": "2024-07-07",
+        "season": "2024-summer",
+        "week": 1,
+        "threshold": 31,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-07-08",
+        "end": "2024-07-14",
+        "season": "2024-summer",
+        "week": 2,
+        "threshold": 35,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-07-15",
+        "end": "2024-07-21",
+        "season": "2024-summer",
+        "week": 3,
+        "threshold": 36,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-07-22",
+        "end": "2024-07-28",
+        "season": "2024-summer",
+        "week": 4,
+        "threshold": 30,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-07-29",
+        "end": "2024-08-04",
+        "season": "2024-summer",
+        "week": 5,
+        "threshold": 30,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-08-05",
+        "end": "2024-08-11",
+        "season": "2024-summer",
+        "week": 6,
+        "threshold": 35,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-08-12",
+        "end": "2024-08-18",
+        "season": "2024-summer",
+        "week": 7,
+        "threshold": 25,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-08-19",
+        "end": "2024-08-25",
+        "season": "2024-summer",
+        "week": 8,
+        "threshold": 25,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-08-26",
+        "end": "2024-09-01",
+        "season": "2024-autumn",
+        "week": 0,
+        "threshold": null,
+        "thresholdSource": "none (inferred — B8 전 수동 확정 필요)",
+        "rest": false,
+        "restSource": "none(inferred)",
+        "holiday": null,
+        "sources": [
+          "reportlogs-inferred"
+        ],
+        "inferred": true,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-09-02",
+        "end": "2024-09-08",
+        "season": "2024-autumn",
+        "week": 1,
+        "threshold": 28,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-09-09",
+        "end": "2024-09-15",
+        "season": "2024-autumn",
+        "week": 2,
+        "threshold": 28,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-09-16",
+        "end": "2024-09-22",
+        "season": "2024-autumn",
+        "week": 3,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-09-23",
+        "end": "2024-09-29",
+        "season": "2024-autumn",
+        "week": 4,
+        "threshold": 25,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-09-30",
+        "end": "2024-10-06",
+        "season": "2024-autumn",
+        "week": 5,
+        "threshold": 6,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-10-07",
+        "end": "2024-10-13",
+        "season": "2024-autumn",
+        "week": 6,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-10-14",
+        "end": "2024-10-20",
+        "season": "2024-autumn",
+        "week": 7,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-10-21",
+        "end": "2024-10-27",
+        "season": "2024-autumn",
+        "week": 8,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-10-28",
+        "end": "2024-11-03",
+        "season": "2024-autumn",
+        "week": 9,
+        "threshold": 24,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-11-04",
+        "end": "2024-11-10",
+        "season": "2024-autumn",
+        "week": 10,
+        "threshold": 33,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-11-11",
+        "end": "2024-11-17",
+        "season": "2024-autumn",
+        "week": 11,
+        "threshold": 36,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-11-18",
+        "end": "2024-11-24",
+        "season": "2024-autumn",
+        "week": 12,
+        "threshold": 34,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-11-25",
+        "end": "2024-12-01",
+        "season": "2024-autumn",
+        "week": 13,
+        "threshold": 25,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-12-02",
+        "end": "2024-12-08",
+        "season": "2024-autumn",
+        "week": 14,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-12-09",
+        "end": "2024-12-15",
+        "season": "2024-autumn",
+        "week": 15,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-12-16",
+        "end": "2024-12-22",
+        "season": "2024-autumn",
+        "week": 16,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2024-12-30",
+        "end": "2025-01-05",
+        "season": "2025-winter",
+        "week": 1,
+        "threshold": 25,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-01-06",
+        "end": "2025-01-12",
+        "season": "2025-winter",
+        "week": 2,
+        "threshold": 30,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-01-13",
+        "end": "2025-01-19",
+        "season": "2025-winter",
+        "week": 3,
+        "threshold": 25,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-01-20",
+        "end": "2025-01-26",
+        "season": "2025-winter",
+        "week": 4,
+        "threshold": 23,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-01-27",
+        "end": "2025-02-02",
+        "season": "2025-winter",
+        "week": 5,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-02-03",
+        "end": "2025-02-09",
+        "season": "2025-winter",
+        "week": 6,
+        "threshold": 21,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-02-10",
+        "end": "2025-02-16",
+        "season": "2025-winter",
+        "week": 7,
+        "threshold": 25,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-02-17",
+        "end": "2025-02-23",
+        "season": "2025-winter",
+        "week": 8,
+        "threshold": 18,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-03-03",
+        "end": "2025-03-09",
+        "season": "2025-spring",
+        "week": 1,
+        "threshold": 27,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-03-10",
+        "end": "2025-03-16",
+        "season": "2025-spring",
+        "week": 2,
+        "threshold": 24,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-03-17",
+        "end": "2025-03-23",
+        "season": "2025-spring",
+        "week": 3,
+        "threshold": 22,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-03-24",
+        "end": "2025-03-30",
+        "season": "2025-spring",
+        "week": 4,
+        "threshold": 26,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-03-31",
+        "end": "2025-04-06",
+        "season": "2025-spring",
+        "week": 5,
+        "threshold": 25,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-04-07",
+        "end": "2025-04-13",
+        "season": "2025-spring",
+        "week": 6,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-04-14",
+        "end": "2025-04-20",
+        "season": "2025-spring",
+        "week": 7,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-04-21",
+        "end": "2025-04-27",
+        "season": "2025-spring",
+        "week": 8,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-04-28",
+        "end": "2025-05-04",
+        "season": "2025-spring",
+        "week": 9,
+        "threshold": 23,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-05-05",
+        "end": "2025-05-11",
+        "season": "2025-spring",
+        "week": 10,
+        "threshold": 30,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-05-12",
+        "end": "2025-05-18",
+        "season": "2025-spring",
+        "week": 11,
+        "threshold": 30,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-05-19",
+        "end": "2025-05-25",
+        "season": "2025-spring",
+        "week": 12,
+        "threshold": 30,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-05-26",
+        "end": "2025-06-01",
+        "season": "2025-spring",
+        "week": 13,
+        "threshold": 28,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-06-02",
+        "end": "2025-06-08",
+        "season": "2025-spring",
+        "week": 14,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-06-09",
+        "end": "2025-06-15",
+        "season": "2025-spring",
+        "week": 15,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-06-16",
+        "end": "2025-06-22",
+        "season": "2025-spring",
+        "week": 16,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-06-30",
+        "end": "2025-07-06",
+        "season": "2025-summer",
+        "week": 1,
+        "threshold": 24,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-07-07",
+        "end": "2025-07-13",
+        "season": "2025-summer",
+        "week": 2,
+        "threshold": 24,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-07-14",
+        "end": "2025-07-20",
+        "season": "2025-summer",
+        "week": 3,
+        "threshold": 34,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-07-21",
+        "end": "2025-07-27",
+        "season": "2025-summer",
+        "week": 4,
+        "threshold": 34,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-07-28",
+        "end": "2025-08-03",
+        "season": "2025-summer",
+        "week": 5,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-08-04",
+        "end": "2025-08-10",
+        "season": "2025-summer",
+        "week": 6,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-08-11",
+        "end": "2025-08-17",
+        "season": "2025-summer",
+        "week": 7,
+        "threshold": 35,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-08-18",
+        "end": "2025-08-24",
+        "season": "2025-summer",
+        "week": 8,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "insert",
+        "diff": null
+      },
+      {
+        "start": "2025-09-01",
+        "end": "2025-09-07",
+        "season": "2025-autumn",
+        "week": 1,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": "2025-09-08T00:00:00+09:00",
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2025-09-08",
+        "end": "2025-09-14",
+        "season": "2025-autumn",
+        "week": 2,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2025-09-15",
+        "end": "2025-09-21",
+        "season": "2025-autumn",
+        "week": 3,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2025-09-22",
+        "end": "2025-09-28",
+        "season": "2025-autumn",
+        "week": 4,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2025-09-29",
+        "end": "2025-10-05",
+        "season": "2025-autumn",
+        "week": 5,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2025-10-06",
+        "end": "2025-10-12",
+        "season": "2025-autumn",
+        "week": 6,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": "추석 연휴",
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "conflict",
+        "diff": {
+          "is_official_rest": {
+            "live": true,
+            "plan": false
+          }
+        }
+      },
+      {
+        "start": "2025-10-13",
+        "end": "2025-10-19",
+        "season": "2025-autumn",
+        "week": 7,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": "가을시즌 7주차(중간고사로 인한 공식 휴식 주차)",
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "conflict",
+        "diff": {
+          "is_official_rest": {
+            "live": true,
+            "plan": false
+          },
+          "holiday_name": {
+            "live": null,
+            "plan": "가을시즌 7주차(중간고사로 인한 공식 휴식 주차)"
+          }
+        }
+      },
+      {
+        "start": "2025-10-20",
+        "end": "2025-10-26",
+        "season": "2025-autumn",
+        "week": 8,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "conflict",
+        "diff": {
+          "is_official_rest": {
+            "live": true,
+            "plan": false
+          }
+        }
+      },
+      {
+        "start": "2025-10-27",
+        "end": "2025-11-02",
+        "season": "2025-autumn",
+        "week": 9,
+        "threshold": 35,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 35
+          }
+        }
+      },
+      {
+        "start": "2025-11-03",
+        "end": "2025-11-09",
+        "season": "2025-autumn",
+        "week": 10,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2025-11-10",
+        "end": "2025-11-16",
+        "season": "2025-autumn",
+        "week": 11,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": false,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2025-11-17",
+        "end": "2025-11-23",
+        "season": "2025-autumn",
+        "week": 12,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "noop",
+        "diff": null
+      },
+      {
+        "start": "2025-11-24",
+        "end": "2025-11-30",
+        "season": "2025-autumn",
+        "week": 13,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "noop",
+        "diff": null
+      },
+      {
+        "start": "2025-12-01",
+        "end": "2025-12-07",
+        "season": "2025-autumn",
+        "week": 14,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": "가을시즌 14주차(기말고사로 인한 공식 휴식 주차)",
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "conflict",
+        "diff": {
+          "is_official_rest": {
+            "live": true,
+            "plan": false
+          },
+          "holiday_name": {
+            "live": null,
+            "plan": "가을시즌 14주차(기말고사로 인한 공식 휴식 주차)"
+          }
+        }
+      },
+      {
+        "start": "2025-12-08",
+        "end": "2025-12-14",
+        "season": "2025-autumn",
+        "week": 15,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": "가을시즌 15주차(기말고사로 인한 공식 휴식 주차)",
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "conflict",
+        "diff": {
+          "is_official_rest": {
+            "live": true,
+            "plan": false
+          },
+          "holiday_name": {
+            "live": null,
+            "plan": "가을시즌 15주차(기말고사로 인한 공식 휴식 주차)"
+          }
+        }
+      },
+      {
+        "start": "2025-12-15",
+        "end": "2025-12-21",
+        "season": "2025-autumn",
+        "week": 16,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": "가을시즌 16주차(기말고사로 인한 공식 휴식 주차)",
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "conflict",
+        "diff": {
+          "is_official_rest": {
+            "live": true,
+            "plan": false
+          },
+          "holiday_name": {
+            "live": null,
+            "plan": "가을시즌 16주차(기말고사로 인한 공식 휴식 주차)"
+          }
+        }
+      },
+      {
+        "start": "2025-12-22",
+        "end": "2025-12-28",
+        "season": "2026-winter",
+        "week": 0,
+        "threshold": null,
+        "thresholdSource": "none (inferred — B8 전 수동 확정 필요)",
+        "rest": false,
+        "restSource": "none(inferred)",
+        "holiday": null,
+        "sources": [
+          "reportlogs-inferred"
+        ],
+        "inferred": true,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "conflict",
+        "diff": {
+          "season_key": {
+            "live": "2025-autumn",
+            "plan": "2026-winter"
+          },
+          "week_number": {
+            "live": 17,
+            "plan": 0
+          }
+        }
+      },
+      {
+        "start": "2025-12-29",
+        "end": "2026-01-04",
+        "season": "2026-winter",
+        "week": 1,
+        "threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "confirmed-rule"
+        ],
+        "inferred": true,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-01-05",
+        "end": "2026-01-11",
+        "season": "2026-winter",
+        "week": 2,
+        "threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "confirmed-rule"
+        ],
+        "inferred": true,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-01-12",
+        "end": "2026-01-18",
+        "season": "2026-winter",
+        "week": 3,
+        "threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "confirmed-rule"
+        ],
+        "inferred": true,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-01-19",
+        "end": "2026-01-25",
+        "season": "2026-winter",
+        "week": 4,
+        "threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "confirmed-rule"
+        ],
+        "inferred": true,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-01-26",
+        "end": "2026-02-01",
+        "season": "2026-winter",
+        "week": 5,
+        "threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "confirmed-rule"
+        ],
+        "inferred": true,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-02-02",
+        "end": "2026-02-08",
+        "season": "2026-winter",
+        "week": 6,
+        "threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "confirmed-rule"
+        ],
+        "inferred": true,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-02-09",
+        "end": "2026-02-15",
+        "season": "2026-winter",
+        "week": 7,
+        "threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "confirmed-rule"
+        ],
+        "inferred": true,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-02-16",
+        "end": "2026-02-22",
+        "season": "2026-winter",
+        "week": 8,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": "설 연휴",
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "noop",
+        "diff": null
+      },
+      {
+        "start": "2026-03-02",
+        "end": "2026-03-08",
+        "season": "2026-spring",
+        "week": 1,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": "2026-03-09T00:00:00+09:00",
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-03-09",
+        "end": "2026-03-15",
+        "season": "2026-spring",
+        "week": 2,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": "2026-03-16T00:00:00+09:00",
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-03-16",
+        "end": "2026-03-22",
+        "season": "2026-spring",
+        "week": 3,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": "2026-03-23T00:00:00+09:00",
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-03-23",
+        "end": "2026-03-29",
+        "season": "2026-spring",
+        "week": 4,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": "2026-03-30T00:00:00+09:00",
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-03-30",
+        "end": "2026-04-05",
+        "season": "2026-spring",
+        "week": 5,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": "2026-04-06T00:00:00+09:00",
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-04-06",
+        "end": "2026-04-12",
+        "season": "2026-spring",
+        "week": 6,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "noop",
+        "diff": null
+      },
+      {
+        "start": "2026-04-13",
+        "end": "2026-04-19",
+        "season": "2026-spring",
+        "week": 7,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "noop",
+        "diff": null
+      },
+      {
+        "start": "2026-04-20",
+        "end": "2026-04-26",
+        "season": "2026-spring",
+        "week": 8,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "noop",
+        "diff": null
+      },
+      {
+        "start": "2026-04-27",
+        "end": "2026-05-03",
+        "season": "2026-spring",
+        "week": 9,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": "2026-05-04T00:00:00+09:00",
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-05-04",
+        "end": "2026-05-10",
+        "season": "2026-spring",
+        "week": 10,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": "2026-05-11T00:00:00+09:00",
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-05-11",
+        "end": "2026-05-17",
+        "season": "2026-spring",
+        "week": 11,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": "2026-05-18T00:00:00+09:00",
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-05-18",
+        "end": "2026-05-24",
+        "season": "2026-spring",
+        "week": 12,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": "2026-05-25T00:00:00+09:00",
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-05-25",
+        "end": "2026-05-31",
+        "season": "2026-spring",
+        "week": 13,
+        "threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "rest": false,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates",
+          "weekssettings"
+        ],
+        "inferred": false,
+        "pmsIsPublic": true,
+        "computedPublishedAt_REPORT_ONLY": "2026-06-01T00:00:00+09:00",
+        "action": "update",
+        "diff": {
+          "check_threshold": {
+            "live": null,
+            "plan": 37
+          }
+        }
+      },
+      {
+        "start": "2026-06-01",
+        "end": "2026-06-07",
+        "season": "2026-spring",
+        "week": 14,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "noop",
+        "diff": null
+      },
+      {
+        "start": "2026-06-08",
+        "end": "2026-06-14",
+        "season": "2026-spring",
+        "week": 15,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "noop",
+        "diff": null
+      },
+      {
+        "start": "2026-06-15",
+        "end": "2026-06-21",
+        "season": "2026-spring",
+        "week": 16,
+        "threshold": null,
+        "thresholdSource": "none",
+        "rest": true,
+        "restSource": "seasondates.IsRestWeek",
+        "holiday": null,
+        "sources": [
+          "seasondates"
+        ],
+        "inferred": false,
+        "pmsIsPublic": null,
+        "computedPublishedAt_REPORT_ONLY": null,
+        "action": "noop",
+        "diff": null
+      }
+    ]
+  },
+  "excludedRows": [
+    {
+      "table": "seasondates",
+      "Id": 193,
+      "reason": "확정 2: 중복 — Id 194 유효"
+    }
+  ],
+  "failClosedRows": [
+    {
+      "table": "seasondates",
+      "Id": 1,
+      "SeasonName": "테스트",
+      "reason": "시즌명 사전 미등재 (fail-closed)"
+    }
+  ],
+  "inferredFromReportlogs": [
+    {
+      "season_key": "2024-spring",
+      "week": 0,
+      "start": "2024-02-26",
+      "reportCnt": 19
+    },
+    {
+      "season_key": "2024-spring",
+      "week": 17,
+      "start": "2024-06-24",
+      "reportCnt": 15
+    },
+    {
+      "season_key": "2024-summer",
+      "week": 10,
+      "start": "2024-09-02",
+      "reportCnt": 1
+    },
+    {
+      "season_key": "2024-autumn",
+      "week": 0,
+      "start": "2024-08-26",
+      "reportCnt": 21
+    },
+    {
+      "season_key": "2026-winter",
+      "week": 0,
+      "start": "2025-12-22",
+      "reportCnt": 1
+    }
+  ],
+  "conflicts": [
+    {
+      "start": "2025-10-06",
+      "diff": {
+        "is_official_rest": {
+          "live": true,
+          "plan": false
+        }
+      },
+      "note": "키/판정 속성 충돌 — 수동 검토"
+    },
+    {
+      "start": "2025-10-13",
+      "diff": {
+        "is_official_rest": {
+          "live": true,
+          "plan": false
+        },
+        "holiday_name": {
+          "live": null,
+          "plan": "가을시즌 7주차(중간고사로 인한 공식 휴식 주차)"
+        }
+      },
+      "note": "키/판정 속성 충돌 — 수동 검토"
+    },
+    {
+      "start": "2025-10-20",
+      "diff": {
+        "is_official_rest": {
+          "live": true,
+          "plan": false
+        }
+      },
+      "note": "키/판정 속성 충돌 — 수동 검토"
+    },
+    {
+      "start": "2025-12-01",
+      "diff": {
+        "is_official_rest": {
+          "live": true,
+          "plan": false
+        },
+        "holiday_name": {
+          "live": null,
+          "plan": "가을시즌 14주차(기말고사로 인한 공식 휴식 주차)"
+        }
+      },
+      "note": "키/판정 속성 충돌 — 수동 검토"
+    },
+    {
+      "start": "2025-12-08",
+      "diff": {
+        "is_official_rest": {
+          "live": true,
+          "plan": false
+        },
+        "holiday_name": {
+          "live": null,
+          "plan": "가을시즌 15주차(기말고사로 인한 공식 휴식 주차)"
+        }
+      },
+      "note": "키/판정 속성 충돌 — 수동 검토"
+    },
+    {
+      "start": "2025-12-15",
+      "diff": {
+        "is_official_rest": {
+          "live": true,
+          "plan": false
+        },
+        "holiday_name": {
+          "live": null,
+          "plan": "가을시즌 16주차(기말고사로 인한 공식 휴식 주차)"
+        }
+      },
+      "note": "키/판정 속성 충돌 — 수동 검토"
+    },
+    {
+      "start": "2025-12-22",
+      "diff": {
+        "season_key": {
+          "live": "2025-autumn",
+          "plan": "2026-winter"
+        },
+        "week_number": {
+          "live": 17,
+          "plan": 0
+        }
+      },
+      "note": "키/판정 속성 충돌 — 수동 검토"
+    }
+  ],
+  "holidayNamePolicy": {
+    "rules": [
+      "1) live.holiday_name 비-NULL → 무조건 보존 (덮어쓰기 금지, diff 미생성)",
+      "2) 단순 주차 라벨(SIMPLE_LABEL_RE) → 채택 안 함",
+      "3) 사유성 라벨(설/추석/연휴/명절/중간고사/기말고사/시험) AND 공식 휴식 주차(live∨plan) AND live NULL → 신규 반영",
+      "4) 일반 휴식 라벨(휴식/휴강/방학)·미분류·휴식주 아님 → 보류 큐 (silent 채택 금지)"
+    ],
+    "invariant_liveOverwriteCandidates": 0,
+    "invariantHolds": true,
+    "diffsBeforeAfter": [
+      {
+        "start": "2025-10-13",
+        "season": "2025-autumn",
+        "week": 7,
+        "before": null,
+        "after": "가을시즌 7주차(중간고사로 인한 공식 휴식 주차)"
+      },
+      {
+        "start": "2025-12-01",
+        "season": "2025-autumn",
+        "week": 14,
+        "before": null,
+        "after": "가을시즌 14주차(기말고사로 인한 공식 휴식 주차)"
+      },
+      {
+        "start": "2025-12-08",
+        "season": "2025-autumn",
+        "week": 15,
+        "before": null,
+        "after": "가을시즌 15주차(기말고사로 인한 공식 휴식 주차)"
+      },
+      {
+        "start": "2025-12-15",
+        "season": "2025-autumn",
+        "week": 16,
+        "before": null,
+        "after": "가을시즌 16주차(기말고사로 인한 공식 휴식 주차)"
+      }
+    ],
+    "preservedLive": [
+      {
+        "start": "2025-10-06",
+        "season": "2025-autumn",
+        "week": 6,
+        "live": "추석 연휴",
+        "ignoredPlanLabel": "가을시즌 6주차(중간고사로 인한 공식 휴식 주차)",
+        "planLabelClass": "reason",
+        "wouldHaveAdopted": true,
+        "note": "live 보존 — pms 라벨 미반영"
+      },
+      {
+        "start": "2026-02-16",
+        "season": "2026-winter",
+        "week": 8,
+        "live": "설 연휴",
+        "ignoredPlanLabel": "겨울 시즌 8주차",
+        "planLabelClass": "simple",
+        "wouldHaveAdopted": false,
+        "note": "live 보존 — pms 라벨 미반영"
+      }
+    ],
+    "newlyAdopted": [
+      {
+        "start": "2025-10-13",
+        "season": "2025-autumn",
+        "week": 7,
+        "before": null,
+        "after": "가을시즌 7주차(중간고사로 인한 공식 휴식 주차)",
+        "weekIsRest": true,
+        "liveAction": "update"
+      },
+      {
+        "start": "2025-12-01",
+        "season": "2025-autumn",
+        "week": 14,
+        "before": null,
+        "after": "가을시즌 14주차(기말고사로 인한 공식 휴식 주차)",
+        "weekIsRest": true,
+        "liveAction": "update"
+      },
+      {
+        "start": "2025-12-08",
+        "season": "2025-autumn",
+        "week": 15,
+        "before": null,
+        "after": "가을시즌 15주차(기말고사로 인한 공식 휴식 주차)",
+        "weekIsRest": true,
+        "liveAction": "update"
+      },
+      {
+        "start": "2025-12-15",
+        "season": "2025-autumn",
+        "week": 16,
+        "before": null,
+        "after": "가을시즌 16주차(기말고사로 인한 공식 휴식 주차)",
+        "weekIsRest": true,
+        "liveAction": "update"
+      }
+    ],
+    "excludedSimpleLabels": {
+      "distinct": 87,
+      "totalRows": 126,
+      "labels": {
+        "10주차": 2,
+        "11주차": 2,
+        "12주차": 2,
+        "13주차": 2,
+        "14주차": 1,
+        "15주차": 1,
+        "16주차": 1,
+        "1주차": 3,
+        "2주차": 3,
+        "3주차": 3,
+        "4주차": 3,
+        "5주차": 3,
+        "6주차": 2,
+        "7주차": 2,
+        "8주차": 3,
+        "9주차": 2,
+        "가을 시즌 10주차": 1,
+        "가을 시즌 11주차": 1,
+        "가을 시즌 12주차": 1,
+        "가을 시즌 13주차": 1,
+        "가을 시즌 14주차": 1,
+        "가을 시즌 15주차": 1,
+        "가을 시즌 16주차": 1,
+        "가을 시즌 1주차": 1,
+        "가을 시즌 2주차": 1,
+        "가을 시즌 3주차": 1,
+        "가을 시즌 4주차": 1,
+        "가을 시즌 5주차": 1,
+        "가을 시즌 9주차": 1,
+        "가을시즌 10주차": 1,
+        "가을시즌 11주차": 1,
+        "가을시즌 12주차": 1,
+        "가을시즌 13주차": 1,
+        "가을시즌 1주차": 1,
+        "가을시즌 2주차": 1,
+        "가을시즌 3주차": 1,
+        "가을시즌 4주차": 1,
+        "가을시즌 8주차": 1,
+        "가을시즌 9주차": 1,
+        "겨울 시즌 1주차": 2,
+        "겨울 시즌 2주차": 2,
+        "겨울 시즌 3주차": 2,
+        "겨울 시즌 4주차": 2,
+        "겨울 시즌 5주차": 2,
+        "겨울 시즌 6주차": 2,
+        "겨울 시즌 7주차": 2,
+        "겨울 시즌 8주차": 1,
+        "겨울시즌 1주차": 1,
+        "겨울시즌 2주차": 1,
+        "겨울시즌 3주차": 1,
+        "겨울시즌 4주차": 1,
+        "겨울시즌 5주차": 1,
+        "겨울시즌 6주차": 1,
+        "겨울시즌 7주차": 1,
+        "겨울시즌 8주차": 1,
+        "봄시즌 10주차": 2,
+        "봄시즌 11주차": 2,
+        "봄시즌 12주차": 2,
+        "봄시즌 13주차": 2,
+        "봄시즌 14주차": 1,
+        "봄시즌 15주차": 1,
+        "봄시즌 16주차": 1,
+        "봄시즌 1주차": 2,
+        "봄시즌 2주차": 2,
+        "봄시즌 3주차": 2,
+        "봄시즌 4주차": 2,
+        "봄시즌 5주차": 2,
+        "봄시즌 6주차": 2,
+        "봄시즌 7주차": 2,
+        "봄시즌 8주차": 2,
+        "봄시즌 9주차": 2,
+        "여름 시즌 1주차": 1,
+        "여름 시즌 2주차": 1,
+        "여름 시즌 3주차": 1,
+        "여름 시즌 4주차": 1,
+        "여름 시즌 5주차": 1,
+        "여름 시즌 6주차": 1,
+        "여름 시즌 7주차": 1,
+        "여름 시즌 8주차": 1,
+        "여름시즌 1주차": 1,
+        "여름시즌 2주차": 1,
+        "여름시즌 3주차": 1,
+        "여름시즌 4주차": 1,
+        "여름시즌 5주차": 1,
+        "여름시즌 6주차": 1,
+        "여름시즌 7주차": 1,
+        "여름시즌 8주차": 1
+      }
+    },
+    "heldForReview": [
+      {
+        "start": "2025-09-29",
+        "season": "2025-autumn",
+        "week": 5,
+        "label": "가을시즌 5주차(중간고사로 인한 공식 휴식 주차)",
+        "class": "reason",
+        "weekIsRest": false,
+        "reason": "사유성 라벨이나 휴식주 아님"
+      },
+      {
+        "start": "2026-03-02",
+        "season": "2026-spring",
+        "week": 1,
+        "label": "봄 시즌 1주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": false,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-03-09",
+        "season": "2026-spring",
+        "week": 2,
+        "label": "봄 시즌 2주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": false,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-03-16",
+        "season": "2026-spring",
+        "week": 3,
+        "label": "봄 시즌 3주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": false,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-03-23",
+        "season": "2026-spring",
+        "week": 4,
+        "label": "봄 시즌 4주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": false,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-03-30",
+        "season": "2026-spring",
+        "week": 5,
+        "label": "봄 시즌 5주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": false,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-04-06",
+        "season": "2026-spring",
+        "week": 6,
+        "label": "봄 시즌 6주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": true,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-04-13",
+        "season": "2026-spring",
+        "week": 7,
+        "label": "봄 시즌 7주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": true,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-04-20",
+        "season": "2026-spring",
+        "week": 8,
+        "label": "봄 시즌 8주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": true,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-04-27",
+        "season": "2026-spring",
+        "week": 9,
+        "label": "봄 시즌 9주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": false,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-05-04",
+        "season": "2026-spring",
+        "week": 10,
+        "label": "봄 시즌 10주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": false,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-05-11",
+        "season": "2026-spring",
+        "week": 11,
+        "label": "봄 시즌 11주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": false,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-05-18",
+        "season": "2026-spring",
+        "week": 12,
+        "label": "봄 시즌 12주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": false,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-05-25",
+        "season": "2026-spring",
+        "week": 13,
+        "label": "봄 시즌 13주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": false,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-06-01",
+        "season": "2026-spring",
+        "week": 14,
+        "label": "봄 시즌 14주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": true,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-06-08",
+        "season": "2026-spring",
+        "week": 15,
+        "label": "봄 시즌 15주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": true,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      },
+      {
+        "start": "2026-06-15",
+        "season": "2026-spring",
+        "week": 16,
+        "label": "봄 시즌 16주차 자율 휴식",
+        "class": "generic-rest",
+        "weekIsRest": true,
+        "reason": "일반/미분류 라벨 — silent 채택 금지"
+      }
+    ]
+  },
+  "irreversibleGuard": {
+    "result_published_at": "dry-run 계산값만 리포트 (computedPublishedAt_REPORT_ONLY). apply 설계에서 위 컬럼은 쓰기 페이로드에서 구조적으로 제외 — publish 는 기존 PATCH publish-result 경로(409 비가역)만 사용."
+  },
+  "pointlogsCoverage": {
+    "coveredRows": 411856,
+    "uncoveredRows": 7054,
+    "coveragePct": 98.32,
+    "dateSubstitutedRows": 178,
+    "note": "date_substituted 행은 이관 시 ledger payload 에 원본 ActivityTime 보존 + 플래그 (확정 4)",
+    "uncoveredByMonth": {
+      "2023-02": 326,
+      "2023-03": 39,
+      "2023-06": 923,
+      "2023-08": 59,
+      "2023-09": 270,
+      "2023-10": 252,
+      "2023-12": 705,
+      "2024-04": 1542,
+      "2024-06": 1182,
+      "2024-12": 169,
+      "2025-02": 197,
+      "2025-03": 139,
+      "2025-06": 628,
+      "2025-08": 623
+    }
+  },
+  "b8AuditWeekSet": {
+    "count": 25,
+    "weeks": [
+      {
+        "season_key": "2025-autumn",
+        "week_number": 1,
+        "start_date": "2025-09-01",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2025-autumn",
+        "week_number": 2,
+        "start_date": "2025-09-08",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2025-autumn",
+        "week_number": 3,
+        "start_date": "2025-09-15",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2025-autumn",
+        "week_number": 4,
+        "start_date": "2025-09-22",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2025-autumn",
+        "week_number": 5,
+        "start_date": "2025-09-29",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2025-autumn",
+        "week_number": 9,
+        "start_date": "2025-10-27",
+        "check_threshold": 35,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2025-autumn",
+        "week_number": 10,
+        "start_date": "2025-11-03",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2025-autumn",
+        "week_number": 11,
+        "start_date": "2025-11-10",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2026-winter",
+        "week_number": 1,
+        "start_date": "2025-12-29",
+        "check_threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "inferred": true
+      },
+      {
+        "season_key": "2026-winter",
+        "week_number": 2,
+        "start_date": "2026-01-05",
+        "check_threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "inferred": true
+      },
+      {
+        "season_key": "2026-winter",
+        "week_number": 3,
+        "start_date": "2026-01-12",
+        "check_threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "inferred": true
+      },
+      {
+        "season_key": "2026-winter",
+        "week_number": 4,
+        "start_date": "2026-01-19",
+        "check_threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "inferred": true
+      },
+      {
+        "season_key": "2026-winter",
+        "week_number": 5,
+        "start_date": "2026-01-26",
+        "check_threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "inferred": true
+      },
+      {
+        "season_key": "2026-winter",
+        "week_number": 6,
+        "start_date": "2026-02-02",
+        "check_threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "inferred": true
+      },
+      {
+        "season_key": "2026-winter",
+        "week_number": 7,
+        "start_date": "2026-02-09",
+        "check_threshold": 37,
+        "thresholdSource": "확정 3: 2026-winter W1~7 confirmStar=37 (inferred=true)",
+        "inferred": true
+      },
+      {
+        "season_key": "2026-spring",
+        "week_number": 1,
+        "start_date": "2026-03-02",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2026-spring",
+        "week_number": 2,
+        "start_date": "2026-03-09",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2026-spring",
+        "week_number": 3,
+        "start_date": "2026-03-16",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2026-spring",
+        "week_number": 4,
+        "start_date": "2026-03-23",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2026-spring",
+        "week_number": 5,
+        "start_date": "2026-03-30",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2026-spring",
+        "week_number": 9,
+        "start_date": "2026-04-27",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2026-spring",
+        "week_number": 10,
+        "start_date": "2026-05-04",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2026-spring",
+        "week_number": 11,
+        "start_date": "2026-05-11",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2026-spring",
+        "week_number": 12,
+        "start_date": "2026-05-18",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      },
+      {
+        "season_key": "2026-spring",
+        "week_number": 13,
+        "start_date": "2026-05-25",
+        "check_threshold": 37,
+        "thresholdSource": "weekssettings.confirmStar",
+        "inferred": false
+      }
+    ],
+    "usage": "B8: 이 set 의 (week, threshold)로 checks_migrated=true 행 보유 사용자의 read-time 판정(NET points >= threshold)을 재감사"
+  },
+  "tempLineRestorability": {
+    "master": {
+      "found": true,
+      "line_code": "EXBS-UN0000",
+      "slot": 1,
+      "active": true
+    },
+    "liveLegacyLines": 27,
+    "liveLegacyTargets_sample": 1199,
+    "mappingRule": "Activity→cluster4_line_submissions.subtitle / Star→cluster4_experience_line_evaluations.rating / ActivityTime→week 귀속 (확정 5)",
+    "schemaReady": {
+      "submissions.subtitle": true,
+      "evaluations.rating(smallint)": true
+    },
+    "applyWindow": "~ 2026-spring W16 (end 2026-06-21) — 신규 라인 생성 금지, 기존 [통합] 라인 타깃에 적재",
+    "restorable": {
+      "bySource": [
+        {
+          "source": "manageractivities",
+          "season": "3",
+          "week": 0,
+          "rows": 13,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "S10",
+          "week": 1,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을",
+          "week": 0,
+          "rows": 11,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을",
+          "week": 1,
+          "rows": 270,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을",
+          "week": 2,
+          "rows": 222,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을",
+          "week": 3,
+          "rows": 150,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을",
+          "week": 4,
+          "rows": 230,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을",
+          "week": 5,
+          "rows": 320,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을",
+          "week": 9,
+          "rows": 300,
+          "subtitleRestorablePct": 99.7,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을",
+          "week": 10,
+          "rows": 351,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을",
+          "week": 11,
+          "rows": 232,
+          "subtitleRestorablePct": 99.6,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을",
+          "week": 12,
+          "rows": 221,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을",
+          "week": 13,
+          "rows": 185,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 ",
+          "week": 2,
+          "rows": 3,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 ",
+          "week": 4,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 ",
+          "week": 5,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 ",
+          "week": 10,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 ",
+          "week": 11,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 ",
+          "week": 12,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 시즌",
+          "week": 0,
+          "rows": 5,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 시즌",
+          "week": 1,
+          "rows": 15,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 시즌",
+          "week": 2,
+          "rows": 21,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 시즌",
+          "week": 3,
+          "rows": 10,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 시즌",
+          "week": 4,
+          "rows": 6,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 시즌",
+          "week": 5,
+          "rows": 16,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 시즌",
+          "week": 9,
+          "rows": 15,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 시즌",
+          "week": 10,
+          "rows": 14,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 시즌 ",
+          "week": 4,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을 시즌 ",
+          "week": 5,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을시즌",
+          "week": 2,
+          "rows": 5,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을시즌",
+          "week": 4,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을시즌",
+          "week": 5,
+          "rows": 9,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을시즌",
+          "week": 9,
+          "rows": 9,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을시즌",
+          "week": 10,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "가을시즌",
+          "week": 13,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울",
+          "week": 0,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울",
+          "week": 1,
+          "rows": 153,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울",
+          "week": 2,
+          "rows": 165,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울",
+          "week": 3,
+          "rows": 166,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울",
+          "week": 4,
+          "rows": 188,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울",
+          "week": 5,
+          "rows": 194,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울",
+          "week": 6,
+          "rows": 87,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울",
+          "week": 7,
+          "rows": 289,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울",
+          "week": 8,
+          "rows": 196,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울 ",
+          "week": 2,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울 ",
+          "week": 7,
+          "rows": 6,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울 ",
+          "week": 8,
+          "rows": 7,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울 시즌",
+          "week": 1,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울시즌",
+          "week": 1,
+          "rows": 13,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울시즌",
+          "week": 7,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "겨울시즌",
+          "week": 8,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄",
+          "week": 1,
+          "rows": 232,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄",
+          "week": 2,
+          "rows": 236,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄",
+          "week": 3,
+          "rows": 251,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄",
+          "week": 4,
+          "rows": 309,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄",
+          "week": 5,
+          "rows": 352,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄",
+          "week": 9,
+          "rows": 397,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄",
+          "week": 10,
+          "rows": 433,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄",
+          "week": 11,
+          "rows": 381,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄",
+          "week": 12,
+          "rows": 383,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄",
+          "week": 13,
+          "rows": 341,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄 ",
+          "week": 1,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄 ",
+          "week": 11,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄 ",
+          "week": 12,
+          "rows": 5,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄 ",
+          "week": 13,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄 시즌",
+          "week": 2,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "봄 시즌",
+          "week": 4,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름",
+          "week": 0,
+          "rows": 5,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름",
+          "week": 1,
+          "rows": 192,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름",
+          "week": 2,
+          "rows": 205,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름",
+          "week": 3,
+          "rows": 231,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름",
+          "week": 4,
+          "rows": 285,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름",
+          "week": 5,
+          "rows": 398,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름",
+          "week": 6,
+          "rows": 367,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름",
+          "week": 7,
+          "rows": 332,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름",
+          "week": 8,
+          "rows": 275,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름 ",
+          "week": 2,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름 ",
+          "week": 5,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름 ",
+          "week": 8,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름 시즌",
+          "week": 2,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름 시즌",
+          "week": 3,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름 시즌",
+          "week": 5,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름 시즌",
+          "week": 6,
+          "rows": 9,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름 시즌",
+          "week": 7,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름 시즌",
+          "week": 8,
+          "rows": 11,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "여름시즌",
+          "week": 3,
+          "rows": 3,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "테스트",
+          "week": 3,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "manageractivities",
+          "season": "테스트123",
+          "week": 2,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "4",
+          "week": 3,
+          "rows": 42,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "S10",
+          "week": 1,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 0,
+          "rows": 16,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 1,
+          "rows": 415,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 2,
+          "rows": 396,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 3,
+          "rows": 286,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 4,
+          "rows": 335,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 5,
+          "rows": 531,
+          "subtitleRestorablePct": 99.6,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 6,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 7,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 8,
+          "rows": 9,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 9,
+          "rows": 456,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 10,
+          "rows": 568,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 11,
+          "rows": 501,
+          "subtitleRestorablePct": 99.8,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 12,
+          "rows": 480,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 13,
+          "rows": 435,
+          "subtitleRestorablePct": 99.8,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 14,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 15,
+          "rows": 5,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을",
+          "week": 16,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을\r",
+          "week": 1,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을\r",
+          "week": 2,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을\r",
+          "week": 3,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을\r",
+          "week": 4,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을\r",
+          "week": 5,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을\r",
+          "week": 9,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을\r",
+          "week": 10,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을\r",
+          "week": 11,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을\r",
+          "week": 12,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을 시즌",
+          "week": 1,
+          "rows": 15,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을 시즌",
+          "week": 2,
+          "rows": 21,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을 시즌",
+          "week": 3,
+          "rows": 10,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을 시즌",
+          "week": 4,
+          "rows": 7,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을 시즌",
+          "week": 5,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을 시즌",
+          "week": 9,
+          "rows": 14,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을 시즌",
+          "week": 10,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을시즌",
+          "week": 2,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을시즌",
+          "week": 4,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을시즌",
+          "week": 5,
+          "rows": 9,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을시즌",
+          "week": 9,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을시즌",
+          "week": 10,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "가을시즌",
+          "week": 13,
+          "rows": 7,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "거울",
+          "week": 2,
+          "rows": 11,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울",
+          "week": 0,
+          "rows": 32,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울",
+          "week": 1,
+          "rows": 402,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울",
+          "week": 2,
+          "rows": 369,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울",
+          "week": 3,
+          "rows": 398,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울",
+          "week": 4,
+          "rows": 472,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울",
+          "week": 5,
+          "rows": 295,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울",
+          "week": 6,
+          "rows": 276,
+          "subtitleRestorablePct": 99.6,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울",
+          "week": 7,
+          "rows": 417,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울",
+          "week": 8,
+          "rows": 323,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울",
+          "week": 9,
+          "rows": 6,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울 ",
+          "week": 7,
+          "rows": 6,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울 시즌8주차",
+          "week": 0,
+          "rows": 15,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울->봄 시즌 전환",
+          "week": 0,
+          "rows": 3,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울`",
+          "week": 3,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울시즌",
+          "week": 1,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울시즌",
+          "week": 2,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울시즌",
+          "week": 3,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울시즌",
+          "week": 4,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울시즌",
+          "week": 5,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울시즌",
+          "week": 7,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "겨울시즌",
+          "week": 8,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 0,
+          "rows": 27,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 1,
+          "rows": 396,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 2,
+          "rows": 448,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 3,
+          "rows": 536,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 4,
+          "rows": 613,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 5,
+          "rows": 692,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 6,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 7,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 8,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 9,
+          "rows": 739,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 10,
+          "rows": 728,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 11,
+          "rows": 704,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 12,
+          "rows": 690,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 13,
+          "rows": 640,
+          "subtitleRestorablePct": 99.5,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 14,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 15,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 16,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄",
+          "week": 17,
+          "rows": 16,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄 시즌",
+          "week": 1,
+          "rows": 24,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄 시즌",
+          "week": 2,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄 시즌",
+          "week": 4,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄 시즌",
+          "week": 10,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄 시즌",
+          "week": 11,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄 시즌",
+          "week": 12,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄시즌",
+          "week": 1,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄시즌",
+          "week": 2,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄시즌",
+          "week": 3,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄시즌",
+          "week": 4,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄시즌",
+          "week": 5,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄시즌",
+          "week": 9,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "봄시즌",
+          "week": 13,
+          "rows": 7,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "시즌전환",
+          "week": 1,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "시즌전환",
+          "week": 2,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름",
+          "week": 0,
+          "rows": 12,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름",
+          "week": 1,
+          "rows": 436,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름",
+          "week": 2,
+          "rows": 516,
+          "subtitleRestorablePct": 99.8,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름",
+          "week": 3,
+          "rows": 519,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름",
+          "week": 4,
+          "rows": 578,
+          "subtitleRestorablePct": 99.8,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름",
+          "week": 5,
+          "rows": 555,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름",
+          "week": 6,
+          "rows": 532,
+          "subtitleRestorablePct": 99.6,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름",
+          "week": 7,
+          "rows": 518,
+          "subtitleRestorablePct": 99.8,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름",
+          "week": 8,
+          "rows": 460,
+          "subtitleRestorablePct": 99.8,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름",
+          "week": 9,
+          "rows": 2,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름",
+          "week": 10,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름\r",
+          "week": 1,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름\r",
+          "week": 2,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름\r",
+          "week": 3,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름\r",
+          "week": 4,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름\r",
+          "week": 5,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름\r",
+          "week": 6,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름\r",
+          "week": 7,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름\r",
+          "week": 8,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름 시즌",
+          "week": 1,
+          "rows": 3,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름 시즌",
+          "week": 3,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름 시즌",
+          "week": 4,
+          "rows": 4,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름 시즌",
+          "week": 5,
+          "rows": 5,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름 시즌",
+          "week": 6,
+          "rows": 14,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름 시즌",
+          "week": 7,
+          "rows": 8,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름 시즌",
+          "week": 8,
+          "rows": 16,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름시즌",
+          "week": 1,
+          "rows": 10,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름시즌",
+          "week": 2,
+          "rows": 3,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름시즌",
+          "week": 3,
+          "rows": 6,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "여름시즌",
+          "week": 8,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "중간",
+          "week": 0,
+          "rows": 46,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        },
+        {
+          "source": "useractivities",
+          "season": "테스트",
+          "week": 1,
+          "rows": 1,
+          "subtitleRestorablePct": 100,
+          "ratingRestorablePct": 100
+        }
+      ]
+    },
+    "v17ConflictCheck": {
+      "legacyBoundary": "start_date < 2026-06-29 (isLegacyUnifiedWeekStart 와 동일)",
+      "spring2026W16WithinLegacy": true,
+      "summerW1OrLaterExcluded": "확정 5 상한(2026-spring W16) < 컷오프(06-29) — 신구조 혼합 없음",
+      "newLineCreation": "없음 — 기존 마스터/라인 재사용, week 별 타깃·평점·제출만 추가 (v17 설계 그대로)",
+      "verdictPath": "reduceLegacyUnifiedVerdict (평점4↑ AND checks_migrated=true 시 check 게이트) — 본 백필로 코드 변경 없음"
+    }
+  },
+  "impactAnalysis": {
+    "writesInThisScript": 0,
+    "applyWouldTouch": [
+      "seasons(insert)",
+      "weeks(insert/update: check_threshold·holiday_name·is_official_rest)"
+    ],
+    "notTouched": [
+      "snapshot 생성/조회 로직",
+      "DTO/API contract",
+      "demoUserId 경로(조회대상 override only)",
+      "uws/uwp",
+      "cluster4 라인/타깃",
+      "result_published_at(비가역 — 제외)"
+    ],
+    "checkGateContract": "판정 전환 조건 = user_weekly_points.checks_migrated 플래그 단독 (크기/분포 추론 금지). 본 백필은 플래그를 건드리지 않음 — threshold 값만 공급.",
+    "snapshotRecomputePolicy": {
+      "affectedUsers_checksMigratedTrue": 90,
+      "currentSnapshots": 122,
+      "analysis": "weeks.check_threshold 변경(NULL→37 등)은 checks_migrated=true 주차 보유 사용자의 read-time 판정 입력을 바꿈 → 해당 사용자 snapshot 은 재계산 전까지 '내용 stale'(is_stale=false 인데 구판정). apply 후 cmUsers 전원 snapshot 재계산 필수 — 정책 변경 아님(기존 '원장 직접수정 시 명시 재계산' 룰 그대로).",
+      "checksMigratedFalseUsers": "게이트 미강제(fail-safe) — threshold 변경 무영향, 재계산 불필요."
+    }
+  }
+}

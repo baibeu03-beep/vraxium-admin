@@ -1,0 +1,147 @@
+{
+ "appliedAt": "2026-06-07T01:03:07.861Z",
+ "script": "apply-summer-pms-restore.ts",
+ "insertedWeekIds": [
+  "d2a3eadf-cab9-46ac-9600-03fdb4985939",
+  "fb0ca9b6-ca22-41fb-9c20-46c2635c9af9",
+  "4f1733b6-408a-4173-9025-d61ca41ea5cd",
+  "e794fd53-d5c7-4df4-a73f-9156a700c19a"
+ ],
+ "insertedRows": [
+  {
+   "id": "d2a3eadf-cab9-46ac-9600-03fdb4985939",
+   "season_id": "33333358-42e4-403b-a726-caa6459ae7e9",
+   "season_key": "2025-summer",
+   "week_number": 1,
+   "week_index": 27,
+   "start_date": "2025-06-30",
+   "end_date": "2025-07-06",
+   "started_at": "2025-06-30T00:00:00+00:00",
+   "ended_at": "2025-07-06T00:00:00+00:00",
+   "iso_year": 2025,
+   "iso_week": 27,
+   "is_official_rest": false,
+   "holiday_name": null,
+   "check_threshold": 24
+  },
+  {
+   "id": "fb0ca9b6-ca22-41fb-9c20-46c2635c9af9",
+   "season_id": "33333358-42e4-403b-a726-caa6459ae7e9",
+   "season_key": "2025-summer",
+   "week_number": 2,
+   "week_index": 28,
+   "start_date": "2025-07-07",
+   "end_date": "2025-07-13",
+   "started_at": "2025-07-07T00:00:00+00:00",
+   "ended_at": "2025-07-13T00:00:00+00:00",
+   "iso_year": 2025,
+   "iso_week": 28,
+   "is_official_rest": false,
+   "holiday_name": null,
+   "check_threshold": 24
+  },
+  {
+   "id": "4f1733b6-408a-4173-9025-d61ca41ea5cd",
+   "season_id": "33333358-42e4-403b-a726-caa6459ae7e9",
+   "season_key": "2025-summer",
+   "week_number": 3,
+   "week_index": 29,
+   "start_date": "2025-07-14",
+   "end_date": "2025-07-20",
+   "started_at": "2025-07-14T00:00:00+00:00",
+   "ended_at": "2025-07-20T00:00:00+00:00",
+   "iso_year": 2025,
+   "iso_week": 29,
+   "is_official_rest": false,
+   "holiday_name": null,
+   "check_threshold": 34
+  },
+  {
+   "id": "e794fd53-d5c7-4df4-a73f-9156a700c19a",
+   "season_id": "33333358-42e4-403b-a726-caa6459ae7e9",
+   "season_key": "2025-summer",
+   "week_number": 4,
+   "week_index": 30,
+   "start_date": "2025-07-21",
+   "end_date": "2025-07-27",
+   "started_at": "2025-07-21T00:00:00+00:00",
+   "ended_at": "2025-07-27T00:00:00+00:00",
+   "iso_year": 2025,
+   "iso_week": 30,
+   "is_official_rest": false,
+   "holiday_name": null,
+   "check_threshold": 34
+  }
+ ],
+ "updatedRows": [
+  {
+   "weekId": "733141d1-fc02-406d-b6de-e60492cb6432",
+   "start": "2025-07-28",
+   "col": "check_threshold",
+   "prior": 0,
+   "applied": 37
+  },
+  {
+   "weekId": "733141d1-fc02-406d-b6de-e60492cb6432",
+   "start": "2025-07-28",
+   "col": "result_published_at",
+   "prior": "2025-08-04T00:00:00+00:00",
+   "applied": null
+  },
+  {
+   "weekId": "12793bb0-5424-4d47-8af7-796caa03b6aa",
+   "start": "2025-08-04",
+   "col": "check_threshold",
+   "prior": 0,
+   "applied": 37
+  },
+  {
+   "weekId": "12793bb0-5424-4d47-8af7-796caa03b6aa",
+   "start": "2025-08-04",
+   "col": "result_published_at",
+   "prior": "2025-08-11T00:00:00+00:00",
+   "applied": null
+  },
+  {
+   "weekId": "39bade12-8e78-466c-98da-3549dded2b47",
+   "start": "2025-08-11",
+   "col": "check_threshold",
+   "prior": 0,
+   "applied": 35
+  },
+  {
+   "weekId": "39bade12-8e78-466c-98da-3549dded2b47",
+   "start": "2025-08-11",
+   "col": "result_published_at",
+   "prior": "2025-08-18T00:00:00+00:00",
+   "applied": null
+  },
+  {
+   "weekId": "a1f381ca-752a-4320-844a-f9192071854f",
+   "start": "2025-08-18",
+   "col": "check_threshold",
+   "prior": 0,
+   "applied": 37
+  },
+  {
+   "weekId": "a1f381ca-752a-4320-844a-f9192071854f",
+   "start": "2025-08-18",
+   "col": "result_published_at",
+   "prior": "2025-08-25T00:00:00+00:00",
+   "applied": null
+  }
+ ],
+ "testers": [
+  "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+  "42864260-e4ea-4150-a87f-cff545b02af1",
+  "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+  "05ff6b96-b3e7-4050-97f1-080633f183d3",
+  "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+  "cc1b58e6-b14d-45a0-b389-2df3c27a0b25"
+ ],
+ "snapshotRecompute": {
+  "users": 6,
+  "ok": 6,
+  "failed": []
+ }
+}

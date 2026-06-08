@@ -39,6 +39,7 @@ import {
   type LineOrgScope,
 } from "@/lib/cluster4LineOrg";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
+import { getRegistrationOrgByBridgedMasterId } from "@/lib/lineRegistrationLookup";
 
 export class Cluster4LineError extends Error {
   status: number;
@@ -339,7 +340,8 @@ function translatePostgrestError(message: string, code?: string) {
 //   - lineOrg=특정 조직        → 그 조직 사용자(+ org 미상 사용자: userOrg null 이면 항상 노출)
 //   - lineOrg=null(판정 불가)   → audience 없음(Step 2 숨김, fail-closed). 배정자(Step 1)는 호출부 union.
 //   - career part             → 미선발/미배정 = not_applicable(분모 무변) → org audience 없음(배정자만).
-async function collectLineOrgAudience(lineId: string): Promise<string[]> {
+// (2E-3) export — org 판정 등가성 검증 스크립트에서 직접 호출하기 위함. 동작 변경 없음.
+export async function collectLineOrgAudience(lineId: string): Promise<string[]> {
   const { data: line } = await supabaseAdmin
     .from("cluster4_lines")
     .select(
@@ -357,29 +359,42 @@ async function collectLineOrgAudience(lineId: string): Promise<string[]> {
   // career: 개설+미배정 = not_applicable → 비배정 분모 무변 → org audience 없음.
   if (row.part_type === "career") return [];
 
-  // org 판정: line_code 토큰(BS>EC>OK>PX) 우선, 그다음 part별 마스터 organization_slug, info 는 common.
+  // org 판정: line_code 토큰(BS>EC>OK>PX) 우선, 그다음 part별 정의 organization_slug, info 는 common.
+  // (2E-3) exp/comp 정의 org 는 line_registrations(bridged_master_id 역참조)를 우선 조회하고,
+  // 연결 registration 이 없거나 org 미지정이면 기존 마스터로 fallback 한다 — 운영 중단 방지.
+  // 2E-1 diff 0 + 2E-2 sync 가드로 두 값은 등가가 보장된다.
   let lineOrg: LineOrgScope | null = parseLineCodeOrg(row.line_code);
   if (lineOrg == null) {
     if (row.part_type === "info") {
       lineOrg = "common";
     } else if (row.part_type === "experience" && row.experience_line_master_id) {
-      const { data: m } = await supabaseAdmin
-        .from("cluster4_experience_line_masters")
-        .select("organization_slug")
-        .eq("id", row.experience_line_master_id)
-        .maybeSingle();
       lineOrg = normalizeLineOrg(
-        (m as { organization_slug: string | null } | null)?.organization_slug,
+        await getRegistrationOrgByBridgedMasterId(row.experience_line_master_id),
       );
+      if (lineOrg == null) {
+        const { data: m } = await supabaseAdmin
+          .from("cluster4_experience_line_masters")
+          .select("organization_slug")
+          .eq("id", row.experience_line_master_id)
+          .maybeSingle();
+        lineOrg = normalizeLineOrg(
+          (m as { organization_slug: string | null } | null)?.organization_slug,
+        );
+      }
     } else if (row.part_type === "competency" && row.competency_line_master_id) {
-      const { data: m } = await supabaseAdmin
-        .from("cluster4_competency_line_masters")
-        .select("organization_slug")
-        .eq("id", row.competency_line_master_id)
-        .maybeSingle();
       lineOrg = normalizeLineOrg(
-        (m as { organization_slug: string | null } | null)?.organization_slug,
+        await getRegistrationOrgByBridgedMasterId(row.competency_line_master_id),
       );
+      if (lineOrg == null) {
+        const { data: m } = await supabaseAdmin
+          .from("cluster4_competency_line_masters")
+          .select("organization_slug")
+          .eq("id", row.competency_line_master_id)
+          .maybeSingle();
+        lineOrg = normalizeLineOrg(
+          (m as { organization_slug: string | null } | null)?.organization_slug,
+        );
+      }
     }
   }
   // 판정 불가 → Step 2 숨김(fail-closed) → org audience 없음(배정자만 호출부에서 union).

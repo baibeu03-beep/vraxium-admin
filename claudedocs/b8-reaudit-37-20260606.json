@@ -1,0 +1,5288 @@
+{
+ "generatedAt": "2026-06-06 (B8 reaudit, read-only)",
+ "mode": "read-only audit (supabase select-only + mysql SELECT-only; DB writes: 0)",
+ "contract": {
+  "verdictMirror": "reduceLegacyUnifiedVerdict: 주차 성공 = (rating null|>=4) AND (!enforced OR points>=threshold). enforced=checks_migrated 행 단위 플래그 단독 — 크기/분포 추론 없음.",
+  "thresholdSource": "b8AuditWeekSet(weekssettings.confirmStar; 2026-winter W1~7 은 확정3 추론=37)",
+  "gateScope": "read-time 강등 전용 — uws/growth_stats 불변. 승격 없음(pms fail → v18 success 는 화면에 나타나지 않음)."
+ },
+ "auditWeeks": [
+  {
+   "season_key": "2025-autumn",
+   "week_number": 1,
+   "start": "2025-09-01",
+   "end": "2025-09-07",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2025-autumn",
+   "week_number": 2,
+   "start": "2025-09-08",
+   "end": "2025-09-14",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2025-autumn",
+   "week_number": 3,
+   "start": "2025-09-15",
+   "end": "2025-09-21",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2025-autumn",
+   "week_number": 4,
+   "start": "2025-09-22",
+   "end": "2025-09-28",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2025-autumn",
+   "week_number": 5,
+   "start": "2025-09-29",
+   "end": "2025-10-05",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2025-autumn",
+   "week_number": 9,
+   "start": "2025-10-27",
+   "end": "2025-11-02",
+   "newThreshold": 35,
+   "liveThreshold": 35,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2025-autumn",
+   "week_number": 10,
+   "start": "2025-11-03",
+   "end": "2025-11-09",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2025-autumn",
+   "week_number": 11,
+   "start": "2025-11-10",
+   "end": "2025-11-16",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-winter",
+   "week_number": 1,
+   "start": "2025-12-29",
+   "end": "2026-01-04",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-winter",
+   "week_number": 2,
+   "start": "2026-01-05",
+   "end": "2026-01-11",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-winter",
+   "week_number": 3,
+   "start": "2026-01-12",
+   "end": "2026-01-18",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-winter",
+   "week_number": 4,
+   "start": "2026-01-19",
+   "end": "2026-01-25",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-winter",
+   "week_number": 5,
+   "start": "2026-01-26",
+   "end": "2026-02-01",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-winter",
+   "week_number": 6,
+   "start": "2026-02-02",
+   "end": "2026-02-08",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-winter",
+   "week_number": 7,
+   "start": "2026-02-09",
+   "end": "2026-02-15",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-spring",
+   "week_number": 1,
+   "start": "2026-03-02",
+   "end": "2026-03-08",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-spring",
+   "week_number": 2,
+   "start": "2026-03-09",
+   "end": "2026-03-15",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-spring",
+   "week_number": 3,
+   "start": "2026-03-16",
+   "end": "2026-03-22",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-spring",
+   "week_number": 4,
+   "start": "2026-03-23",
+   "end": "2026-03-29",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-spring",
+   "week_number": 5,
+   "start": "2026-03-30",
+   "end": "2026-04-05",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-spring",
+   "week_number": 9,
+   "start": "2026-04-27",
+   "end": "2026-05-03",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-spring",
+   "week_number": 10,
+   "start": "2026-05-04",
+   "end": "2026-05-10",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-spring",
+   "week_number": 11,
+   "start": "2026-05-11",
+   "end": "2026-05-17",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-spring",
+   "week_number": 12,
+   "start": "2026-05-18",
+   "end": "2026-05-24",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": true,
+   "isOfficialRest": false
+  },
+  {
+   "season_key": "2026-spring",
+   "week_number": 13,
+   "start": "2026-05-25",
+   "end": "2026-05-31",
+   "newThreshold": 37,
+   "liveThreshold": 37,
+   "published": false,
+   "isOfficialRest": false
+  }
+ ],
+ "liveRatingCoverage": {
+  "unifiedLines": 35,
+  "targetsInAuditWeeks": 1167,
+  "evaluations": 1103
+ },
+ "partA_applyImmediate": {
+  "universe": 783,
+  "flips": [],
+  "alreadyDemoted": [],
+  "notes": [
+   "미공표 주차 enforced success: 05ff6b96 2026-05-25",
+   "미공표 주차 enforced success: 0a113e53 2026-05-25",
+   "미공표 주차 enforced success: 1a0b0f9e 2026-05-25",
+   "미공표 주차 enforced success: 28a39131 2026-05-25",
+   "미공표 주차 enforced success: 36138fb1 2026-05-25",
+   "미공표 주차 enforced success: 369d11e5 2026-05-25",
+   "미공표 주차 enforced success: 3ba642d8 2026-05-25",
+   "미공표 주차 enforced success: 3fec1a7e 2026-05-25",
+   "미공표 주차 enforced success: 42864260 2026-05-25",
+   "미공표 주차 enforced success: 4a81b6d1 2026-05-25",
+   "미공표 주차 enforced success: 58a4c844 2026-05-25",
+   "미공표 주차 enforced success: 59c22d30 2026-05-25",
+   "미공표 주차 enforced success: 5b3c0935 2026-05-25",
+   "미공표 주차 enforced success: 6293191d 2026-05-25",
+   "미공표 주차 enforced success: 63813dc4 2026-05-25",
+   "미공표 주차 enforced success: 6678e364 2026-05-25",
+   "미공표 주차 enforced success: 70abfec0 2026-05-25",
+   "미공표 주차 enforced success: 76a42307 2026-05-25",
+   "미공표 주차 enforced success: 7a119bfc 2026-05-25",
+   "미공표 주차 enforced success: 829f3ae6 2026-05-25",
+   "미공표 주차 enforced success: 8e38d52f 2026-05-25",
+   "미공표 주차 enforced success: 90de758a 2026-05-25",
+   "미공표 주차 enforced success: 98807fea 2026-05-25",
+   "미공표 주차 enforced success: 9d73cad4 2026-05-25",
+   "미공표 주차 enforced success: a80ea67a 2026-05-25",
+   "미공표 주차 enforced success: ae55adcf 2026-05-25",
+   "미공표 주차 enforced success: b2e2d277 2026-05-25",
+   "미공표 주차 enforced success: b303c17e 2026-05-25",
+   "미공표 주차 enforced success: b70636ec 2026-05-25",
+   "미공표 주차 enforced success: b817db7d 2026-05-25",
+   "미공표 주차 enforced success: bd57f30b 2026-05-25",
+   "미공표 주차 enforced success: bf3b4305 2026-05-25",
+   "미공표 주차 enforced success: cc1b58e6 2026-05-25",
+   "미공표 주차 enforced success: d4033172 2026-05-25",
+   "미공표 주차 enforced success: dff09eb2 2026-05-25",
+   "미공표 주차 enforced success: e4dcb97e 2026-05-25",
+   "미공표 주차 enforced success: e649370f 2026-05-25",
+   "미공표 주차 enforced success: e6574586 2026-05-25",
+   "미공표 주차 enforced success: e81c8b30 2026-05-25",
+   "미공표 주차 enforced success: ec11fe34 2026-05-25",
+   "미공표 주차 enforced success: edfe7e58 2026-05-25",
+   "미공표 주차 enforced success: f26e0bab 2026-05-25",
+   "미공표 주차 enforced success: f2d5c378 2026-05-25",
+   "미공표 주차 enforced success: f3a9bd26 2026-05-25",
+   "미공표 주차 enforced success: f980b257 2026-05-25",
+   "미공표 주차 enforced success: fd2afa0a 2026-05-25",
+   "미공표 주차 enforced success: fe17f587 2026-05-25",
+   "미공표 주차 enforced success: ff6adaf8 2026-05-25",
+   "미공표 주차 enforced success: fff3941f 2026-05-25"
+  ],
+  "causes": {
+   "ratingBelow4": 0,
+   "ratingMissing_treatedPass": 0,
+   "checkBelowThreshold": 0,
+   "checkRowMissing": 0,
+   "thresholdMissing": 0
+  },
+  "flipCount": 0,
+  "alreadyDemotedCount": 0,
+  "byUser": [],
+  "byWeek": []
+ },
+ "liveUwsSuccessDistribution": [
+  {
+   "key": "2025-autumn W1 | tester",
+   "n": 9
+  },
+  {
+   "key": "2025-autumn W10 | tester",
+   "n": 14
+  },
+  {
+   "key": "2025-autumn W11 | tester",
+   "n": 16
+  },
+  {
+   "key": "2025-autumn W2 | tester",
+   "n": 9
+  },
+  {
+   "key": "2025-autumn W3 | tester",
+   "n": 9
+  },
+  {
+   "key": "2025-autumn W4 | tester",
+   "n": 10
+  },
+  {
+   "key": "2025-autumn W5 | tester",
+   "n": 10
+  },
+  {
+   "key": "2025-autumn W9 | tester",
+   "n": 14
+  },
+  {
+   "key": "2026-spring W1 | tester",
+   "n": 52
+  },
+  {
+   "key": "2026-spring W10 | real",
+   "n": 25
+  },
+  {
+   "key": "2026-spring W10 | tester",
+   "n": 47
+  },
+  {
+   "key": "2026-spring W11 | real",
+   "n": 20
+  },
+  {
+   "key": "2026-spring W11 | tester",
+   "n": 57
+  },
+  {
+   "key": "2026-spring W12 | real",
+   "n": 18
+  },
+  {
+   "key": "2026-spring W12 | tester",
+   "n": 54
+  },
+  {
+   "key": "2026-spring W13 | real",
+   "n": 1
+  },
+  {
+   "key": "2026-spring W13 | tester",
+   "n": 49
+  },
+  {
+   "key": "2026-spring W2 | tester",
+   "n": 45
+  },
+  {
+   "key": "2026-spring W3 | tester",
+   "n": 49
+  },
+  {
+   "key": "2026-spring W4 | tester",
+   "n": 53
+  },
+  {
+   "key": "2026-spring W5 | tester",
+   "n": 44
+  },
+  {
+   "key": "2026-spring W9 | tester",
+   "n": 58
+  },
+  {
+   "key": "2026-winter W1 | tester",
+   "n": 20
+  },
+  {
+   "key": "2026-winter W2 | tester",
+   "n": 23
+  },
+  {
+   "key": "2026-winter W3 | tester",
+   "n": 25
+  },
+  {
+   "key": "2026-winter W4 | tester",
+   "n": 25
+  },
+  {
+   "key": "2026-winter W5 | tester",
+   "n": 27
+  },
+  {
+   "key": "2026-winter W6 | tester",
+   "n": 30
+  },
+  {
+   "key": "2026-winter W7 | tester",
+   "n": 34
+  }
+ ],
+ "partB_attribution": {
+  "pulled": {
+   "useractivities": 18100,
+   "manageractivities": 9783
+  },
+  "attributedPairs": 2644,
+  "misses": {
+   "season_dict_miss": 54,
+   "no_date": 0,
+   "date_out_of_window": 15005
+  },
+  "seasonDictMissSamples": [
+   {
+    "season": "4",
+    "n": 42
+   },
+   {
+    "season": "테스트",
+    "n": 2
+   },
+   {
+    "season": "시즌전환",
+    "n": 3
+   },
+   {
+    "season": "S10",
+    "n": 2
+   },
+   {
+    "season": "겨울`",
+    "n": 4
+   },
+   {
+    "season": "테스트123",
+    "n": 1
+   }
+  ],
+  "note": "miss 는 감사 25주 범위 밖(과거 시즌/사전 미등재) — silent drop 아님, 건수 보고"
+ },
+ "partB_postMigration": {
+  "universeRecognized": 2425,
+  "flips": [
+   {
+    "pmsUserId": 1145,
+    "userName": "이채은",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 34,
+    "netRaw": 34,
+    "logRows": 17,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1159,
+    "userName": "김가람",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 28,
+    "netRaw": 28,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 795,
+    "userName": "장하영",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 9,
+    "net": 19,
+    "netRaw": 19,
+    "logRows": 10,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 988,
+    "userName": "백유진",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 9,
+    "net": 27,
+    "netRaw": 27,
+    "logRows": 10,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1114,
+    "userName": "허지원",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 8,
+    "net": 28,
+    "netRaw": 28,
+    "logRows": 13,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1114,
+    "userName": "허지원",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 27,
+    "netRaw": 27,
+    "logRows": 13,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1114,
+    "userName": "허지원",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 9,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1071,
+    "userName": "김민서",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 7,
+    "net": 36,
+    "netRaw": 36,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1159,
+    "userName": "김가람",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 7,
+    "net": 36,
+    "netRaw": 36,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1261,
+    "userName": "권효은",
+    "state": "활동정지",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 8,
+    "net": 35,
+    "netRaw": 35,
+    "logRows": 29,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1114,
+    "userName": "허지원",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 9,
+    "net": 25,
+    "netRaw": 25,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1114,
+    "userName": "허지원",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 8,
+    "net": 26,
+    "netRaw": 26,
+    "logRows": 13,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1220,
+    "userName": "이채은",
+    "state": "일반",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 31,
+    "netRaw": 31,
+    "logRows": 19,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1096,
+    "userName": "조유진",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 9,
+    "net": 36,
+    "netRaw": 36,
+    "logRows": 19,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1114,
+    "userName": "허지원",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 7,
+    "net": 23,
+    "netRaw": 23,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1234,
+    "userName": "임서현",
+    "state": "일반",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 22,
+    "netRaw": 22,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1233,
+    "userName": "박정호",
+    "state": "일반",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1232,
+    "userName": "배강민",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1231,
+    "userName": "전아름",
+    "state": "활동정지",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 13,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1230,
+    "userName": "채수민",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 15,
+    "netRaw": 15,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1229,
+    "userName": "송다민",
+    "state": "활동정지",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 11,
+    "netRaw": 11,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1228,
+    "userName": "박채원",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1227,
+    "userName": "조현주",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 25,
+    "netRaw": 25,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1226,
+    "userName": "김채현",
+    "state": "일반",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1225,
+    "userName": "박소현",
+    "state": "활동정지",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1114,
+    "userName": "허지원",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 9,
+    "net": 25,
+    "netRaw": 25,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1062,
+    "userName": "박시우",
+    "state": "졸업",
+    "week": "2026-winter W1",
+    "weekStart": "2025-12-29",
+    "rating": 8,
+    "net": 23,
+    "netRaw": 23,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1095,
+    "userName": "권태희",
+    "state": "졸업",
+    "week": "2026-winter W1",
+    "weekStart": "2025-12-29",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1296,
+    "userName": "test",
+    "state": "졸업",
+    "week": "2026-spring W1",
+    "weekStart": "2026-03-02",
+    "rating": 10,
+    "net": 0,
+    "netRaw": 0,
+    "logRows": 0,
+    "threshold": 37,
+    "causes": [
+     "check행없음(net=0)"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1053,
+    "userName": "김가은",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 14,
+    "netRaw": 14,
+    "logRows": 3,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1053,
+    "userName": "김가은",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 14,
+    "netRaw": 14,
+    "logRows": 3,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1053,
+    "userName": "김가은",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 11,
+    "netRaw": 11,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1053,
+    "userName": "김가은",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 14,
+    "netRaw": 14,
+    "logRows": 3,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1053,
+    "userName": "김가은",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 12,
+    "netRaw": 12,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1053,
+    "userName": "김가은",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 14,
+    "netRaw": 14,
+    "logRows": 3,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1053,
+    "userName": "김가은",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1053,
+    "userName": "김가은",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1043,
+    "userName": "김영울",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1043,
+    "userName": "김영울",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1043,
+    "userName": "김영울",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1043,
+    "userName": "김영울",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1043,
+    "userName": "김영울",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1043,
+    "userName": "김영울",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1043,
+    "userName": "김영울",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1043,
+    "userName": "김영울",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 810,
+    "userName": "신민지",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 810,
+    "userName": "신민지",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 810,
+    "userName": "신민지",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 810,
+    "userName": "신민지",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 810,
+    "userName": "신민지",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 810,
+    "userName": "신민지",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 810,
+    "userName": "신민지",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 810,
+    "userName": "신민지",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1027,
+    "userName": "강서현",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1027,
+    "userName": "강서현",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 3,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1027,
+    "userName": "강서현",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 3,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1027,
+    "userName": "강서현",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 3,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1027,
+    "userName": "강서현",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 3,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1027,
+    "userName": "강서현",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1027,
+    "userName": "강서현",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1027,
+    "userName": "강서현",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 982,
+    "userName": "김다현",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 982,
+    "userName": "김다현",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 982,
+    "userName": "김다현",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 982,
+    "userName": "김다현",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 982,
+    "userName": "김다현",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 982,
+    "userName": "김다현",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 982,
+    "userName": "김다현",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 982,
+    "userName": "김다현",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 575,
+    "userName": "남현수",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 575,
+    "userName": "남현수",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 575,
+    "userName": "남현수",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 575,
+    "userName": "남현수",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 575,
+    "userName": "남현수",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 575,
+    "userName": "남현수",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 34,
+    "netRaw": 34,
+    "logRows": 4,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1034,
+    "userName": "박성은",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1034,
+    "userName": "박성은",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1034,
+    "userName": "박성은",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1034,
+    "userName": "박성은",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1034,
+    "userName": "박성은",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1034,
+    "userName": "박성은",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1034,
+    "userName": "박성은",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1034,
+    "userName": "박성은",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1031,
+    "userName": "박시현",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1031,
+    "userName": "박시현",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1031,
+    "userName": "박시현",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1031,
+    "userName": "박시현",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1031,
+    "userName": "박시현",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1031,
+    "userName": "박시현",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1031,
+    "userName": "박시현",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1031,
+    "userName": "박시현",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 902,
+    "userName": "임수영",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 902,
+    "userName": "임수영",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 902,
+    "userName": "임수영",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 902,
+    "userName": "임수영",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 902,
+    "userName": "임수영",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 902,
+    "userName": "임수영",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 902,
+    "userName": "임수영",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 902,
+    "userName": "임수영",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 668,
+    "userName": "윤진영",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 668,
+    "userName": "윤진영",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 668,
+    "userName": "윤진영",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 668,
+    "userName": "윤진영",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 668,
+    "userName": "윤진영",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 668,
+    "userName": "윤진영",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 668,
+    "userName": "윤진영",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 668,
+    "userName": "윤진영",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 953,
+    "userName": "한아름",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 953,
+    "userName": "한아름",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 953,
+    "userName": "한아름",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 953,
+    "userName": "한아름",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 953,
+    "userName": "한아름",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 953,
+    "userName": "한아름",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 953,
+    "userName": "한아름",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 953,
+    "userName": "한아름",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1097,
+    "userName": "한윤경",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1097,
+    "userName": "한윤경",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1097,
+    "userName": "한윤경",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1097,
+    "userName": "한윤경",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1097,
+    "userName": "한윤경",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1097,
+    "userName": "한윤경",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1097,
+    "userName": "한윤경",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1097,
+    "userName": "한윤경",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 571,
+    "userName": "한다송",
+    "state": "졸업",
+    "week": "2026-winter W3",
+    "weekStart": "2026-01-12",
+    "rating": 10,
+    "net": 28,
+    "netRaw": 28,
+    "logRows": 13,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 925,
+    "userName": "강현진",
+    "state": "졸업",
+    "week": "2026-winter W3",
+    "weekStart": "2026-01-12",
+    "rating": 6,
+    "net": 36,
+    "netRaw": 36,
+    "logRows": 16,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 555,
+    "userName": "김수정",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 555,
+    "userName": "김수정",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 555,
+    "userName": "김수정",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 555,
+    "userName": "김수정",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 555,
+    "userName": "김수정",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 555,
+    "userName": "김수정",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 555,
+    "userName": "김수정",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 555,
+    "userName": "김수정",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 1,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 777,
+    "userName": "김예람",
+    "state": "졸업",
+    "week": "2025-autumn W1",
+    "weekStart": "2025-09-01",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 777,
+    "userName": "김예람",
+    "state": "졸업",
+    "week": "2025-autumn W2",
+    "weekStart": "2025-09-08",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 777,
+    "userName": "김예람",
+    "state": "졸업",
+    "week": "2025-autumn W3",
+    "weekStart": "2025-09-15",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 777,
+    "userName": "김예람",
+    "state": "졸업",
+    "week": "2025-autumn W4",
+    "weekStart": "2025-09-22",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 777,
+    "userName": "김예람",
+    "state": "졸업",
+    "week": "2025-autumn W5",
+    "weekStart": "2025-09-29",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 777,
+    "userName": "김예람",
+    "state": "졸업",
+    "week": "2025-autumn W9",
+    "weekStart": "2025-10-27",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 35,
+    "causes": [
+     "check<35"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 777,
+    "userName": "김예람",
+    "state": "졸업",
+    "week": "2025-autumn W10",
+    "weekStart": "2025-11-03",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 777,
+    "userName": "김예람",
+    "state": "졸업",
+    "week": "2025-autumn W11",
+    "weekStart": "2025-11-10",
+    "rating": 10,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 2,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1017,
+    "userName": "연현우",
+    "state": "졸업",
+    "week": "2026-winter W3",
+    "weekStart": "2026-01-12",
+    "rating": 10,
+    "net": 26,
+    "netRaw": 26,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1124,
+    "userName": "이창민",
+    "state": "졸업",
+    "week": "2026-winter W4",
+    "weekStart": "2026-01-19",
+    "rating": 10,
+    "net": 20,
+    "netRaw": 20,
+    "logRows": 10,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1052,
+    "userName": "최솔아",
+    "state": "졸업",
+    "week": "2026-winter W4",
+    "weekStart": "2026-01-19",
+    "rating": 10,
+    "net": 22,
+    "netRaw": 22,
+    "logRows": 9,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1281,
+    "userName": "김주현",
+    "state": "활동정지",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 22,
+    "netRaw": 22,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1092,
+    "userName": "장승완",
+    "state": "일반",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 24,
+    "netRaw": 24,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 927,
+    "userName": "곽예원",
+    "state": "졸업",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 31,
+    "netRaw": 31,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1305,
+    "userName": "김나연",
+    "state": "일반",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 17,
+    "netRaw": 17,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1309,
+    "userName": "노현아",
+    "state": "활동정지",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 15,
+    "netRaw": 15,
+    "logRows": 17,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1308,
+    "userName": "박채원",
+    "state": "활동정지",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1310,
+    "userName": "석채원",
+    "state": "활동정지",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 12,
+    "netRaw": 12,
+    "logRows": 13,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1312,
+    "userName": "신재현",
+    "state": "일반",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 15,
+    "netRaw": 15,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1314,
+    "userName": "안은서",
+    "state": "일반",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1306,
+    "userName": "엄정은",
+    "state": "활동정지",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1315,
+    "userName": "이송미",
+    "state": "일반",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 12,
+    "netRaw": 12,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1311,
+    "userName": "이수빈",
+    "state": "활동정지",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 25,
+    "netRaw": 25,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1316,
+    "userName": "임정",
+    "state": "일반",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1313,
+    "userName": "지예림",
+    "state": "활동정지",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1307,
+    "userName": "김도현",
+    "state": "활동정지",
+    "week": "2026-winter W5",
+    "weekStart": "2026-01-26",
+    "rating": 10,
+    "net": 17,
+    "netRaw": 17,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1313,
+    "userName": "지예림",
+    "state": "활동정지",
+    "week": "2026-winter W6",
+    "weekStart": "2026-02-02",
+    "rating": 8,
+    "net": 31,
+    "netRaw": 31,
+    "logRows": 19,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 925,
+    "userName": "강현진",
+    "state": "졸업",
+    "week": "2026-winter W6",
+    "weekStart": "2026-02-02",
+    "rating": 6,
+    "net": 20,
+    "netRaw": 20,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1314,
+    "userName": "안은서",
+    "state": "일반",
+    "week": "2026-winter W6",
+    "weekStart": "2026-02-02",
+    "rating": 10,
+    "net": 24,
+    "netRaw": 24,
+    "logRows": 16,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1281,
+    "userName": "김주현",
+    "state": "활동정지",
+    "week": "2026-winter W6",
+    "weekStart": "2026-02-02",
+    "rating": 9,
+    "net": 33,
+    "netRaw": 33,
+    "logRows": 19,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1289,
+    "userName": "김수진",
+    "state": "일반",
+    "week": "2026-winter W6",
+    "weekStart": "2026-02-02",
+    "rating": 10,
+    "net": 32,
+    "netRaw": 32,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1281,
+    "userName": "김주현",
+    "state": "활동정지",
+    "week": "2026-winter W7",
+    "weekStart": "2026-02-09",
+    "rating": 10,
+    "net": 32,
+    "netRaw": 32,
+    "logRows": 19,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1016,
+    "userName": "전지연",
+    "state": "활동정지",
+    "week": "2026-winter W7",
+    "weekStart": "2026-02-09",
+    "rating": 8,
+    "net": 33,
+    "netRaw": 33,
+    "logRows": 19,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1004,
+    "userName": "권수아",
+    "state": "졸업",
+    "week": "2026-winter W7",
+    "weekStart": "2026-02-09",
+    "rating": 8,
+    "net": 26,
+    "netRaw": 26,
+    "logRows": 19,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1235,
+    "userName": "이종헌",
+    "state": "활동정지",
+    "week": "2026-winter W7",
+    "weekStart": "2026-02-09",
+    "rating": 10,
+    "net": 34,
+    "netRaw": 34,
+    "logRows": 16,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1313,
+    "userName": "지예림",
+    "state": "활동정지",
+    "week": "2026-winter W7",
+    "weekStart": "2026-02-09",
+    "rating": 8,
+    "net": 26,
+    "netRaw": 26,
+    "logRows": 17,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1314,
+    "userName": "안은서",
+    "state": "일반",
+    "week": "2026-winter W7",
+    "weekStart": "2026-02-09",
+    "rating": 8,
+    "net": 28,
+    "netRaw": 28,
+    "logRows": 19,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1320,
+    "userName": "송주연",
+    "state": "일반",
+    "week": "2026-spring W1",
+    "weekStart": "2026-03-02",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1324,
+    "userName": "김수현",
+    "state": "일반",
+    "week": "2026-spring W1",
+    "weekStart": "2026-03-02",
+    "rating": 10,
+    "net": 13,
+    "netRaw": 13,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1321,
+    "userName": "정재웅",
+    "state": "일반",
+    "week": "2026-spring W1",
+    "weekStart": "2026-03-02",
+    "rating": 10,
+    "net": 12,
+    "netRaw": 12,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1323,
+    "userName": "이규린",
+    "state": "일반",
+    "week": "2026-spring W1",
+    "weekStart": "2026-03-02",
+    "rating": 10,
+    "net": 15,
+    "netRaw": 15,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1319,
+    "userName": "김아현",
+    "state": "일반",
+    "week": "2026-spring W1",
+    "weekStart": "2026-03-02",
+    "rating": 10,
+    "net": 10,
+    "netRaw": 10,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1164,
+    "userName": "이시헌",
+    "state": "졸업",
+    "week": "2026-spring W1",
+    "weekStart": "2026-03-02",
+    "rating": 8,
+    "net": 24,
+    "netRaw": 24,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1132,
+    "userName": "곽자은",
+    "state": "졸업",
+    "week": "2026-spring W1",
+    "weekStart": "2026-03-02",
+    "rating": 9,
+    "net": 28,
+    "netRaw": 28,
+    "logRows": 13,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1191,
+    "userName": "최수빈",
+    "state": "졸업",
+    "week": "2026-spring W1",
+    "weekStart": "2026-03-02",
+    "rating": 9,
+    "net": 23,
+    "netRaw": 23,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1114,
+    "userName": "허지원",
+    "state": "졸업",
+    "week": "2026-spring W1",
+    "weekStart": "2026-03-02",
+    "rating": 8,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1159,
+    "userName": "김가람",
+    "state": "졸업",
+    "week": "2026-spring W1",
+    "weekStart": "2026-03-02",
+    "rating": 10,
+    "net": 34,
+    "netRaw": 34,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1198,
+    "userName": "박상열",
+    "state": "졸업",
+    "week": "2026-spring W2",
+    "weekStart": "2026-03-09",
+    "rating": 7,
+    "net": 30,
+    "netRaw": 30,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1209,
+    "userName": "이현수",
+    "state": "졸업",
+    "week": "2026-spring W2",
+    "weekStart": "2026-03-09",
+    "rating": 8,
+    "net": 26,
+    "netRaw": 26,
+    "logRows": 10,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1198,
+    "userName": "박상열",
+    "state": "졸업",
+    "week": "2026-spring W3",
+    "weekStart": "2026-03-16",
+    "rating": 8,
+    "net": 28,
+    "netRaw": 28,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 962,
+    "userName": "이지훈",
+    "state": "졸업",
+    "week": "2026-spring W3",
+    "weekStart": "2026-03-16",
+    "rating": 10,
+    "net": 28,
+    "netRaw": 28,
+    "logRows": 10,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1209,
+    "userName": "이현수",
+    "state": "졸업",
+    "week": "2026-spring W3",
+    "weekStart": "2026-03-16",
+    "rating": 9,
+    "net": 25,
+    "netRaw": 25,
+    "logRows": 9,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1004,
+    "userName": "권수아",
+    "state": "졸업",
+    "week": "2026-spring W3",
+    "weekStart": "2026-03-16",
+    "rating": 10,
+    "net": 28,
+    "netRaw": 28,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 979,
+    "userName": "이준혜",
+    "state": "졸업",
+    "week": "2026-spring W3",
+    "weekStart": "2026-03-16",
+    "rating": 10,
+    "net": 32,
+    "netRaw": 32,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1204,
+    "userName": "정수빈",
+    "state": "졸업",
+    "week": "2026-spring W4",
+    "weekStart": "2026-03-23",
+    "rating": 10,
+    "net": 22,
+    "netRaw": 22,
+    "logRows": 11,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1211,
+    "userName": "박예림",
+    "state": "졸업",
+    "week": "2026-spring W4",
+    "weekStart": "2026-03-23",
+    "rating": 8,
+    "net": 34,
+    "netRaw": 34,
+    "logRows": 17,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1348,
+    "userName": "한승재",
+    "state": "일반",
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": 7,
+    "net": 15,
+    "netRaw": 15,
+    "logRows": 13,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1278,
+    "userName": "이나영",
+    "state": "일반",
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": 7,
+    "net": 35,
+    "netRaw": 35,
+    "logRows": 17,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1316,
+    "userName": "임정",
+    "state": "일반",
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": 6,
+    "net": 34,
+    "netRaw": 34,
+    "logRows": 19,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1320,
+    "userName": "송주연",
+    "state": "일반",
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": 10,
+    "net": 23,
+    "netRaw": 23,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1340,
+    "userName": "박가은",
+    "state": "일반",
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": 10,
+    "net": 32,
+    "netRaw": 32,
+    "logRows": 14,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1359,
+    "userName": "오나연",
+    "state": "일반",
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": 9,
+    "net": 9,
+    "netRaw": 9,
+    "logRows": 13,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1336,
+    "userName": "김성일",
+    "state": "일반",
+    "week": "2026-spring W11",
+    "weekStart": "2026-05-11",
+    "rating": 10,
+    "net": 23,
+    "netRaw": 23,
+    "logRows": 13,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1340,
+    "userName": "박가은",
+    "state": "일반",
+    "week": "2026-spring W11",
+    "weekStart": "2026-05-11",
+    "rating": 10,
+    "net": 34,
+    "netRaw": 34,
+    "logRows": 15,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   },
+   {
+    "pmsUserId": 1157,
+    "userName": "김종원",
+    "state": "일반",
+    "week": "2026-spring W11",
+    "weekStart": "2026-05-11",
+    "rating": 9,
+    "net": 21,
+    "netRaw": 21,
+    "logRows": 12,
+    "threshold": 37,
+    "causes": [
+     "check<37"
+    ],
+    "sources": {
+     "uaActive": 1,
+     "maActive": 0
+    }
+   }
+  ],
+  "generationDivergence": 1532,
+  "multiRatingPairs": 1535,
+  "causes": {
+   "ratingBelow4": 0,
+   "ratingMissing_treatedPass": 0,
+   "checkBelowThreshold": 197,
+   "checkRowMissing": 1,
+   "thresholdMissing": 0
+  },
+  "flipCount": 198,
+  "flipUsers": 80,
+  "byUser": [
+   {
+    "key": "허지원 (pms 1114)",
+    "flips": 8
+   },
+   {
+    "key": "김가은 (pms 1053)",
+    "flips": 8
+   },
+   {
+    "key": "김영울 (pms 1043)",
+    "flips": 8
+   },
+   {
+    "key": "신민지 (pms 810)",
+    "flips": 8
+   },
+   {
+    "key": "강서현 (pms 1027)",
+    "flips": 8
+   },
+   {
+    "key": "김다현 (pms 982)",
+    "flips": 8
+   },
+   {
+    "key": "박성은 (pms 1034)",
+    "flips": 8
+   },
+   {
+    "key": "박시현 (pms 1031)",
+    "flips": 8
+   },
+   {
+    "key": "임수영 (pms 902)",
+    "flips": 8
+   },
+   {
+    "key": "윤진영 (pms 668)",
+    "flips": 8
+   },
+   {
+    "key": "한아름 (pms 953)",
+    "flips": 8
+   },
+   {
+    "key": "한윤경 (pms 1097)",
+    "flips": 8
+   },
+   {
+    "key": "김수정 (pms 555)",
+    "flips": 8
+   },
+   {
+    "key": "김예람 (pms 777)",
+    "flips": 8
+   },
+   {
+    "key": "남현수 (pms 575)",
+    "flips": 6
+   },
+   {
+    "key": "김가람 (pms 1159)",
+    "flips": 3
+   },
+   {
+    "key": "김주현 (pms 1281)",
+    "flips": 3
+   },
+   {
+    "key": "안은서 (pms 1314)",
+    "flips": 3
+   },
+   {
+    "key": "지예림 (pms 1313)",
+    "flips": 3
+   },
+   {
+    "key": "강현진 (pms 925)",
+    "flips": 2
+   },
+   {
+    "key": "임정 (pms 1316)",
+    "flips": 2
+   },
+   {
+    "key": "권수아 (pms 1004)",
+    "flips": 2
+   },
+   {
+    "key": "송주연 (pms 1320)",
+    "flips": 2
+   },
+   {
+    "key": "박상열 (pms 1198)",
+    "flips": 2
+   },
+   {
+    "key": "이현수 (pms 1209)",
+    "flips": 2
+   },
+   {
+    "key": "박가은 (pms 1340)",
+    "flips": 2
+   },
+   {
+    "key": "이채은 (pms 1145)",
+    "flips": 1
+   },
+   {
+    "key": "장하영 (pms 795)",
+    "flips": 1
+   },
+   {
+    "key": "백유진 (pms 988)",
+    "flips": 1
+   },
+   {
+    "key": "김민서 (pms 1071)",
+    "flips": 1
+   },
+   {
+    "key": "권효은 (pms 1261)",
+    "flips": 1
+   },
+   {
+    "key": "이채은 (pms 1220)",
+    "flips": 1
+   },
+   {
+    "key": "조유진 (pms 1096)",
+    "flips": 1
+   },
+   {
+    "key": "임서현 (pms 1234)",
+    "flips": 1
+   },
+   {
+    "key": "박정호 (pms 1233)",
+    "flips": 1
+   },
+   {
+    "key": "배강민 (pms 1232)",
+    "flips": 1
+   },
+   {
+    "key": "전아름 (pms 1231)",
+    "flips": 1
+   },
+   {
+    "key": "채수민 (pms 1230)",
+    "flips": 1
+   },
+   {
+    "key": "송다민 (pms 1229)",
+    "flips": 1
+   },
+   {
+    "key": "박채원 (pms 1228)",
+    "flips": 1
+   },
+   {
+    "key": "조현주 (pms 1227)",
+    "flips": 1
+   },
+   {
+    "key": "김채현 (pms 1226)",
+    "flips": 1
+   },
+   {
+    "key": "박소현 (pms 1225)",
+    "flips": 1
+   },
+   {
+    "key": "박시우 (pms 1062)",
+    "flips": 1
+   },
+   {
+    "key": "권태희 (pms 1095)",
+    "flips": 1
+   },
+   {
+    "key": "test (pms 1296)",
+    "flips": 1
+   },
+   {
+    "key": "한다송 (pms 571)",
+    "flips": 1
+   },
+   {
+    "key": "연현우 (pms 1017)",
+    "flips": 1
+   },
+   {
+    "key": "이창민 (pms 1124)",
+    "flips": 1
+   },
+   {
+    "key": "최솔아 (pms 1052)",
+    "flips": 1
+   },
+   {
+    "key": "장승완 (pms 1092)",
+    "flips": 1
+   },
+   {
+    "key": "곽예원 (pms 927)",
+    "flips": 1
+   },
+   {
+    "key": "김나연 (pms 1305)",
+    "flips": 1
+   },
+   {
+    "key": "노현아 (pms 1309)",
+    "flips": 1
+   },
+   {
+    "key": "박채원 (pms 1308)",
+    "flips": 1
+   },
+   {
+    "key": "석채원 (pms 1310)",
+    "flips": 1
+   },
+   {
+    "key": "신재현 (pms 1312)",
+    "flips": 1
+   },
+   {
+    "key": "엄정은 (pms 1306)",
+    "flips": 1
+   },
+   {
+    "key": "이송미 (pms 1315)",
+    "flips": 1
+   },
+   {
+    "key": "이수빈 (pms 1311)",
+    "flips": 1
+   }
+  ],
+  "byWeek": [
+   {
+    "key": "2025-autumn W2",
+    "flips": 25
+   },
+   {
+    "key": "2025-autumn W1",
+    "flips": 18
+   },
+   {
+    "key": "2025-autumn W5",
+    "flips": 17
+   },
+   {
+    "key": "2025-autumn W10",
+    "flips": 16
+   },
+   {
+    "key": "2025-autumn W3",
+    "flips": 15
+   },
+   {
+    "key": "2025-autumn W4",
+    "flips": 15
+   },
+   {
+    "key": "2025-autumn W9",
+    "flips": 15
+   },
+   {
+    "key": "2025-autumn W11",
+    "flips": 15
+   },
+   {
+    "key": "2026-winter W5",
+    "flips": 15
+   },
+   {
+    "key": "2026-spring W1",
+    "flips": 11
+   },
+   {
+    "key": "2026-winter W7",
+    "flips": 6
+   },
+   {
+    "key": "2026-spring W10",
+    "flips": 6
+   },
+   {
+    "key": "2026-winter W6",
+    "flips": 5
+   },
+   {
+    "key": "2026-spring W3",
+    "flips": 5
+   },
+   {
+    "key": "2026-winter W3",
+    "flips": 3
+   },
+   {
+    "key": "2026-spring W11",
+    "flips": 3
+   },
+   {
+    "key": "2026-winter W1",
+    "flips": 2
+   },
+   {
+    "key": "2026-winter W4",
+    "flips": 2
+   },
+   {
+    "key": "2026-spring W2",
+    "flips": 2
+   },
+   {
+    "key": "2026-spring W4",
+    "flips": 2
+   }
+  ],
+  "byState": [
+   {
+    "key": "졸업",
+    "flips": 153
+   },
+   {
+    "key": "일반",
+    "flips": 27
+   },
+   {
+    "key": "활동정지",
+    "flips": 18
+   }
+  ],
+  "flipRate": 8.16,
+  "flipsTruncatedFrom": 198
+ },
+ "thresholdAnalysis": [
+  {
+   "week": "2025-autumn W1",
+   "weekStart": "2025-09-01",
+   "confirmStar": 37,
+   "recognizedRatingOk": 117,
+   "netQuantiles": {
+    "min": 10,
+    "p10": 30,
+    "p25": 40,
+    "median": 54,
+    "p75": 71,
+    "max": 107,
+    "n": 117
+   },
+   "flipsAt30": 11,
+   "flipsAt35": 18,
+   "flipsAtConfirmStar": 18,
+   "zeroFlipThreshold": 10
+  },
+  {
+   "week": "2025-autumn W2",
+   "weekStart": "2025-09-08",
+   "confirmStar": 37,
+   "recognizedRatingOk": 132,
+   "netQuantiles": {
+    "min": 10,
+    "p10": 11,
+    "p25": 42,
+    "median": 58,
+    "p75": 73,
+    "max": 128,
+    "n": 132
+   },
+   "flipsAt30": 19,
+   "flipsAt35": 25,
+   "flipsAtConfirmStar": 25,
+   "zeroFlipThreshold": 10
+  },
+  {
+   "week": "2025-autumn W3",
+   "weekStart": "2025-09-15",
+   "confirmStar": 37,
+   "recognizedRatingOk": 130,
+   "netQuantiles": {
+    "min": 10,
+    "p10": 30,
+    "p25": 41,
+    "median": 56,
+    "p75": 73,
+    "max": 118,
+    "n": 130
+   },
+   "flipsAt30": 9,
+   "flipsAt35": 15,
+   "flipsAtConfirmStar": 15,
+   "zeroFlipThreshold": 10
+  },
+  {
+   "week": "2025-autumn W4",
+   "weekStart": "2025-09-22",
+   "confirmStar": 37,
+   "recognizedRatingOk": 139,
+   "netQuantiles": {
+    "min": 10,
+    "p10": 30,
+    "p25": 45,
+    "median": 61,
+    "p75": 75,
+    "max": 117,
+    "n": 139
+   },
+   "flipsAt30": 8,
+   "flipsAt35": 15,
+   "flipsAtConfirmStar": 15,
+   "zeroFlipThreshold": 10
+  },
+  {
+   "week": "2025-autumn W5",
+   "weekStart": "2025-09-29",
+   "confirmStar": 37,
+   "recognizedRatingOk": 156,
+   "netQuantiles": {
+    "min": 10,
+    "p10": 36,
+    "p25": 39,
+    "median": 55,
+    "p75": 67,
+    "max": 101,
+    "n": 156
+   },
+   "flipsAt30": 9,
+   "flipsAt35": 14,
+   "flipsAtConfirmStar": 17,
+   "zeroFlipThreshold": 10
+  },
+  {
+   "week": "2025-autumn W9",
+   "weekStart": "2025-10-27",
+   "confirmStar": 35,
+   "recognizedRatingOk": 145,
+   "netQuantiles": {
+    "min": 10,
+    "p10": 30,
+    "p25": 42,
+    "median": 54,
+    "p75": 63,
+    "max": 119,
+    "n": 145
+   },
+   "flipsAt30": 9,
+   "flipsAt35": 15,
+   "flipsAtConfirmStar": 15,
+   "zeroFlipThreshold": 10
+  },
+  {
+   "week": "2025-autumn W10",
+   "weekStart": "2025-11-03",
+   "confirmStar": 37,
+   "recognizedRatingOk": 136,
+   "netQuantiles": {
+    "min": 10,
+    "p10": 30,
+    "p25": 48,
+    "median": 58,
+    "p75": 70,
+    "max": 124,
+    "n": 136
+   },
+   "flipsAt30": 9,
+   "flipsAt35": 15,
+   "flipsAtConfirmStar": 16,
+   "zeroFlipThreshold": 10
+  },
+  {
+   "week": "2025-autumn W11",
+   "weekStart": "2025-11-10",
+   "confirmStar": 37,
+   "recognizedRatingOk": 144,
+   "netQuantiles": {
+    "min": 10,
+    "p10": 34,
+    "p25": 46,
+    "median": 58,
+    "p75": 68,
+    "max": 137,
+    "n": 144
+   },
+   "flipsAt30": 9,
+   "flipsAt35": 15,
+   "flipsAtConfirmStar": 15,
+   "zeroFlipThreshold": 10
+  },
+  {
+   "week": "2026-winter W1",
+   "weekStart": "2025-12-29",
+   "confirmStar": 37,
+   "recognizedRatingOk": 78,
+   "netQuantiles": {
+    "min": 23,
+    "p10": 39,
+    "p25": 52,
+    "median": 61,
+    "p75": 78,
+    "max": 106,
+    "n": 78
+   },
+   "flipsAt30": 1,
+   "flipsAt35": 2,
+   "flipsAtConfirmStar": 2,
+   "zeroFlipThreshold": 23
+  },
+  {
+   "week": "2026-winter W2",
+   "weekStart": "2026-01-05",
+   "confirmStar": 37,
+   "recognizedRatingOk": 84,
+   "netQuantiles": {
+    "min": 40,
+    "p10": 50,
+    "p25": 74,
+    "median": 88,
+    "p75": 100,
+    "max": 169,
+    "n": 84
+   },
+   "flipsAt30": 0,
+   "flipsAt35": 0,
+   "flipsAtConfirmStar": 0,
+   "zeroFlipThreshold": 40
+  },
+  {
+   "week": "2026-winter W3",
+   "weekStart": "2026-01-12",
+   "confirmStar": 37,
+   "recognizedRatingOk": 70,
+   "netQuantiles": {
+    "min": 26,
+    "p10": 54,
+    "p25": 64,
+    "median": 81,
+    "p75": 93,
+    "max": 164,
+    "n": 70
+   },
+   "flipsAt30": 2,
+   "flipsAt35": 2,
+   "flipsAtConfirmStar": 3,
+   "zeroFlipThreshold": 26
+  },
+  {
+   "week": "2026-winter W4",
+   "weekStart": "2026-01-19",
+   "confirmStar": 37,
+   "recognizedRatingOk": 83,
+   "netQuantiles": {
+    "min": 20,
+    "p10": 52,
+    "p25": 72,
+    "median": 87,
+    "p75": 98,
+    "max": 151,
+    "n": 83
+   },
+   "flipsAt30": 2,
+   "flipsAt35": 2,
+   "flipsAtConfirmStar": 2,
+   "zeroFlipThreshold": 20
+  },
+  {
+   "week": "2026-winter W5",
+   "weekStart": "2026-01-26",
+   "confirmStar": 37,
+   "recognizedRatingOk": 93,
+   "netQuantiles": {
+    "min": 10,
+    "p10": 17,
+    "p25": 40,
+    "median": 59,
+    "p75": 71,
+    "max": 143,
+    "n": 93
+   },
+   "flipsAt30": 14,
+   "flipsAt35": 15,
+   "flipsAtConfirmStar": 15,
+   "zeroFlipThreshold": 10
+  },
+  {
+   "week": "2026-winter W6",
+   "weekStart": "2026-02-02",
+   "confirmStar": 37,
+   "recognizedRatingOk": 90,
+   "netQuantiles": {
+    "min": 20,
+    "p10": 40,
+    "p25": 52,
+    "median": 74,
+    "p75": 83,
+    "max": 110,
+    "n": 90
+   },
+   "flipsAt30": 2,
+   "flipsAt35": 5,
+   "flipsAtConfirmStar": 5,
+   "zeroFlipThreshold": 20
+  },
+  {
+   "week": "2026-winter W7",
+   "weekStart": "2026-02-09",
+   "confirmStar": 37,
+   "recognizedRatingOk": 89,
+   "netQuantiles": {
+    "min": 26,
+    "p10": 44,
+    "p25": 63,
+    "median": 73,
+    "p75": 86,
+    "max": 127,
+    "n": 89
+   },
+   "flipsAt30": 3,
+   "flipsAt35": 6,
+   "flipsAtConfirmStar": 6,
+   "zeroFlipThreshold": 26
+  },
+  {
+   "week": "2026-spring W1",
+   "weekStart": "2026-03-02",
+   "confirmStar": 37,
+   "recognizedRatingOk": 73,
+   "netQuantiles": {
+    "min": 0,
+    "p10": 24,
+    "p25": 39,
+    "median": 48,
+    "p75": 65,
+    "max": 95,
+    "n": 73
+   },
+   "flipsAt30": 9,
+   "flipsAt35": 11,
+   "flipsAtConfirmStar": 11,
+   "zeroFlipThreshold": 0
+  },
+  {
+   "week": "2026-spring W2",
+   "weekStart": "2026-03-09",
+   "confirmStar": 37,
+   "recognizedRatingOk": 69,
+   "netQuantiles": {
+    "min": 26,
+    "p10": 37,
+    "p25": 48,
+    "median": 63,
+    "p75": 79,
+    "max": 181,
+    "n": 69
+   },
+   "flipsAt30": 1,
+   "flipsAt35": 2,
+   "flipsAtConfirmStar": 2,
+   "zeroFlipThreshold": 26
+  },
+  {
+   "week": "2026-spring W3",
+   "weekStart": "2026-03-16",
+   "confirmStar": 37,
+   "recognizedRatingOk": 83,
+   "netQuantiles": {
+    "min": 25,
+    "p10": 37,
+    "p25": 38,
+    "median": 63,
+    "p75": 81,
+    "max": 204,
+    "n": 83
+   },
+   "flipsAt30": 4,
+   "flipsAt35": 5,
+   "flipsAtConfirmStar": 5,
+   "zeroFlipThreshold": 25
+  },
+  {
+   "week": "2026-spring W4",
+   "weekStart": "2026-03-23",
+   "confirmStar": 37,
+   "recognizedRatingOk": 80,
+   "netQuantiles": {
+    "min": 22,
+    "p10": 37,
+    "p25": 45,
+    "median": 61,
+    "p75": 84,
+    "max": 168,
+    "n": 80
+   },
+   "flipsAt30": 1,
+   "flipsAt35": 2,
+   "flipsAtConfirmStar": 2,
+   "zeroFlipThreshold": 22
+  },
+  {
+   "week": "2026-spring W5",
+   "weekStart": "2026-03-30",
+   "confirmStar": 37,
+   "recognizedRatingOk": 91,
+   "netQuantiles": {
+    "min": 37,
+    "p10": 40,
+    "p25": 47,
+    "median": 65,
+    "p75": 95,
+    "max": 227,
+    "n": 91
+   },
+   "flipsAt30": 0,
+   "flipsAt35": 0,
+   "flipsAtConfirmStar": 0,
+   "zeroFlipThreshold": 37
+  },
+  {
+   "week": "2026-spring W9",
+   "weekStart": "2026-04-27",
+   "confirmStar": 37,
+   "recognizedRatingOk": 56,
+   "netQuantiles": {
+    "min": 37,
+    "p10": 39,
+    "p25": 44,
+    "median": 53,
+    "p75": 67,
+    "max": 96,
+    "n": 56
+   },
+   "flipsAt30": 0,
+   "flipsAt35": 0,
+   "flipsAtConfirmStar": 0,
+   "zeroFlipThreshold": 37
+  },
+  {
+   "week": "2026-spring W10",
+   "weekStart": "2026-05-04",
+   "confirmStar": 37,
+   "recognizedRatingOk": 82,
+   "netQuantiles": {
+    "min": 9,
+    "p10": 38,
+    "p25": 38,
+    "median": 47,
+    "p75": 59,
+    "max": 88,
+    "n": 82
+   },
+   "flipsAt30": 3,
+   "flipsAt35": 5,
+   "flipsAtConfirmStar": 6,
+   "zeroFlipThreshold": 9
+  },
+  {
+   "week": "2026-spring W11",
+   "weekStart": "2026-05-11",
+   "confirmStar": 37,
+   "recognizedRatingOk": 78,
+   "netQuantiles": {
+    "min": 21,
+    "p10": 38,
+    "p25": 40,
+    "median": 52,
+    "p75": 61,
+    "max": 87,
+    "n": 78
+   },
+   "flipsAt30": 2,
+   "flipsAt35": 3,
+   "flipsAtConfirmStar": 3,
+   "zeroFlipThreshold": 21
+  },
+  {
+   "week": "2026-spring W12",
+   "weekStart": "2026-05-18",
+   "confirmStar": 37,
+   "recognizedRatingOk": 66,
+   "netQuantiles": {
+    "min": 37,
+    "p10": 39,
+    "p25": 42,
+    "median": 48,
+    "p75": 60,
+    "max": 90,
+    "n": 66
+   },
+   "flipsAt30": 0,
+   "flipsAt35": 0,
+   "flipsAtConfirmStar": 0,
+   "zeroFlipThreshold": 37
+  },
+  {
+   "week": "2026-spring W13",
+   "weekStart": "2026-05-25",
+   "confirmStar": 37,
+   "recognizedRatingOk": 61,
+   "netQuantiles": {
+    "min": 37,
+    "p10": 44,
+    "p25": 47,
+    "median": 55,
+    "p75": 66,
+    "max": 96,
+    "n": 61
+   },
+   "flipsAt30": 0,
+   "flipsAt35": 0,
+   "flipsAtConfirmStar": 0,
+   "zeroFlipThreshold": 37
+  }
+ ],
+ "partC_liveRealCross": {
+  "matched": 6,
+  "ambiguous": 3,
+  "unmatched": 17,
+  "flips": [
+   {
+    "userId": "566900f7-f4b2-4a95-bf11-d3dc4346453a",
+    "name": "김시원",
+    "pmsUserId": 1110,
+    "week": "2026-spring W12",
+    "weekStart": "2026-05-18",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "566900f7-f4b2-4a95-bf11-d3dc4346453a",
+    "name": "김시원",
+    "pmsUserId": 1110,
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "566900f7-f4b2-4a95-bf11-d3dc4346453a",
+    "name": "김시원",
+    "pmsUserId": 1110,
+    "week": "2026-spring W11",
+    "weekStart": "2026-05-11",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+    "name": "박시은",
+    "pmsUserId": 130,
+    "week": "2026-spring W12",
+    "weekStart": "2026-05-18",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+    "name": "박시은",
+    "pmsUserId": 130,
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+    "name": "박시은",
+    "pmsUserId": 130,
+    "week": "2026-spring W11",
+    "weekStart": "2026-05-11",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "7dfad8dc-b900-4e3c-a13b-e0b6b42342ca",
+    "name": "김연우",
+    "pmsUserId": 775,
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "a35a306b-6f53-4b0e-8b8b-afb6c34ec93a",
+    "name": "강민지",
+    "pmsUserId": 419,
+    "week": "2026-spring W12",
+    "weekStart": "2026-05-18",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "a35a306b-6f53-4b0e-8b8b-afb6c34ec93a",
+    "name": "강민지",
+    "pmsUserId": 419,
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "a35a306b-6f53-4b0e-8b8b-afb6c34ec93a",
+    "name": "강민지",
+    "pmsUserId": 419,
+    "week": "2026-spring W11",
+    "weekStart": "2026-05-11",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "c144d6fb-5a01-4453-aded-ae00dffdcf0b",
+    "name": "이다윤",
+    "pmsUserId": 545,
+    "week": "2026-spring W12",
+    "weekStart": "2026-05-18",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "c144d6fb-5a01-4453-aded-ae00dffdcf0b",
+    "name": "이다윤",
+    "pmsUserId": 545,
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "c144d6fb-5a01-4453-aded-ae00dffdcf0b",
+    "name": "이다윤",
+    "pmsUserId": 545,
+    "week": "2026-spring W11",
+    "weekStart": "2026-05-11",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "d151c37b-5195-4ae1-ba79-d3b229a49eff",
+    "name": "정수빈",
+    "pmsUserId": 1204,
+    "week": "2026-spring W12",
+    "weekStart": "2026-05-18",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "d151c37b-5195-4ae1-ba79-d3b229a49eff",
+    "name": "정수빈",
+    "pmsUserId": 1204,
+    "week": "2026-spring W10",
+    "weekStart": "2026-05-04",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   },
+   {
+    "userId": "d151c37b-5195-4ae1-ba79-d3b229a49eff",
+    "name": "정수빈",
+    "pmsUserId": 1204,
+    "week": "2026-spring W11",
+    "weekStart": "2026-05-11",
+    "rating": null,
+    "pmsNet": 0,
+    "threshold": 37,
+    "cause": "check행없음(net=0)"
+   }
+  ],
+  "liveRealSuccessRows": 64,
+  "flipCount": 16,
+  "caveat": "이름 기반 잠정 매칭 — legacy_user_id 동일인 확정 리스트(§10 체크리스트) 전 참고용"
+ },
+ "partD_reportlogsFeasibility": {
+  "pulled": 14544,
+  "attributedToAuditWeeks": 2414,
+  "outsideAuditWindow": 12130,
+  "agreement": {
+   "both": 2235,
+   "reportlogOnly": 5,
+   "isActiveOnly": 190
+  },
+  "verdict": "대사 가능 — (user, week) 키로 IsActive ↔ reportlogs 존재 비교 산출. 단 reportlogs 는 '누적 주차 변경' 발생 시에만 기록(무변경 결산 미기록 가능) — 완전 동치 기대 금지, 방향성 지표로 사용"
+ },
+ "impactContract": {
+  "uwsWrites": "없음 — v18 게이트는 read-time 강등 전용. syncExperienceGrowthWeekStatuses 도 레거시 주차 update 금지(protectedWeekKeys 관찰만).",
+  "displayedAccumulated": "cluster4WeeklyGrowthData/cards 누적(accumulatedApprovedWeeks)은 verdict=fail 주차를 제외 — 뒤집힘 1건당 표시 누적 −1 (uws 기반 growth_stats.cumulative_weeks 는 불변 → 화면 간 분기 발생 지점)",
+  "snapshots": "weeks.check_threshold 변경은 자동 무효화 없음 — apply 후 checks_migrated=true 행 보유 사용자 snapshot 명시 재계산 필수 (현재 90명, 이관 후 전 사용자)",
+  "demoUserId": "weekly-cards 는 demoUserId=조회대상 override only(동일 snapshot DTO) — 경로 차이 없음. weekly-growth(front 정리 후 시즌 3필드)는 실시간 — 동일 입력이라 영향 동일."
+ }
+}

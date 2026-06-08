@@ -1,0 +1,209 @@
+{
+ "generatedAt": "2026-06-07 pilot 미공표 주차 소급 공표 preview (read-only)",
+ "excludedOperationalWeeks": [
+  "2026-spring W13 (2026-05-25) — 운영 공표 사이클 몫·소급 제외"
+ ],
+ "policy": "planned = end_date+1일 00:00Z (기존 05-25·06-01 백필과 동일 소급 규칙)",
+ "targetWeeks": 11,
+ "weekIds": [
+  "3ba7ecc9-b4fd-4f2c-beaa-323eeba3ab3d",
+  "07603abe-7e4d-439c-9ba3-ae620d08da8b",
+  "99d1f7d5-6167-4b58-a302-5ff1dbe653af",
+  "fad12740-0404-4b23-a0d8-2c5c6926b112",
+  "1870e966-5f31-494b-ba61-2f00a19406fe",
+  "10278bdc-2630-421f-ac5a-69ce86d8f3ed",
+  "50082fa8-099a-415f-baef-c728114820e1",
+  "d2a3eadf-cab9-46ac-9600-03fdb4985939",
+  "fb0ca9b6-ca22-41fb-9c20-46c2635c9af9",
+  "4f1733b6-408a-4173-9025-d61ca41ea5cd",
+  "e794fd53-d5c7-4df4-a73f-9156a700c19a"
+ ],
+ "rows": [
+  {
+   "week_id": "3ba7ecc9-b4fd-4f2c-beaa-323eeba3ab3d",
+   "season_key": "2025-spring",
+   "week_number": 4,
+   "start_date": "2025-03-24",
+   "end_date": "2025-03-30",
+   "current_result_published_at": null,
+   "planned_result_published_at": "2025-03-31T00:00:00Z",
+   "affected_users": [
+    "P1 장승완",
+    "P2 안은비"
+   ]
+  },
+  {
+   "week_id": "07603abe-7e4d-439c-9ba3-ae620d08da8b",
+   "season_key": "2025-spring",
+   "week_number": 5,
+   "start_date": "2025-03-31",
+   "end_date": "2025-04-06",
+   "current_result_published_at": null,
+   "planned_result_published_at": "2025-04-07T00:00:00Z",
+   "affected_users": [
+    "P1 장승완",
+    "P2 안은비"
+   ]
+  },
+  {
+   "week_id": "99d1f7d5-6167-4b58-a302-5ff1dbe653af",
+   "season_key": "2025-spring",
+   "week_number": 9,
+   "start_date": "2025-04-28",
+   "end_date": "2025-05-04",
+   "current_result_published_at": null,
+   "planned_result_published_at": "2025-05-05T00:00:00Z",
+   "affected_users": [
+    "P1 장승완",
+    "P2 안은비"
+   ]
+  },
+  {
+   "week_id": "fad12740-0404-4b23-a0d8-2c5c6926b112",
+   "season_key": "2025-spring",
+   "week_number": 10,
+   "start_date": "2025-05-05",
+   "end_date": "2025-05-11",
+   "current_result_published_at": null,
+   "planned_result_published_at": "2025-05-12T00:00:00Z",
+   "affected_users": [
+    "P1 장승완",
+    "P2 안은비"
+   ]
+  },
+  {
+   "week_id": "1870e966-5f31-494b-ba61-2f00a19406fe",
+   "season_key": "2025-spring",
+   "week_number": 11,
+   "start_date": "2025-05-12",
+   "end_date": "2025-05-18",
+   "current_result_published_at": null,
+   "planned_result_published_at": "2025-05-19T00:00:00Z",
+   "affected_users": [
+    "P2 안은비",
+    "P1 장승완"
+   ]
+  },
+  {
+   "week_id": "10278bdc-2630-421f-ac5a-69ce86d8f3ed",
+   "season_key": "2025-spring",
+   "week_number": 12,
+   "start_date": "2025-05-19",
+   "end_date": "2025-05-25",
+   "current_result_published_at": null,
+   "planned_result_published_at": "2025-05-26T00:00:00Z",
+   "affected_users": [
+    "P1 장승완",
+    "P2 안은비"
+   ]
+  },
+  {
+   "week_id": "50082fa8-099a-415f-baef-c728114820e1",
+   "season_key": "2025-spring",
+   "week_number": 13,
+   "start_date": "2025-05-26",
+   "end_date": "2025-06-01",
+   "current_result_published_at": null,
+   "planned_result_published_at": "2025-06-02T00:00:00Z",
+   "affected_users": [
+    "P2 안은비",
+    "P1 장승완"
+   ]
+  },
+  {
+   "week_id": "d2a3eadf-cab9-46ac-9600-03fdb4985939",
+   "season_key": "2025-summer",
+   "week_number": 1,
+   "start_date": "2025-06-30",
+   "end_date": "2025-07-06",
+   "current_result_published_at": null,
+   "planned_result_published_at": "2025-07-07T00:00:00Z",
+   "affected_users": [
+    "P1 장승완",
+    "P2 안은비"
+   ]
+  },
+  {
+   "week_id": "fb0ca9b6-ca22-41fb-9c20-46c2635c9af9",
+   "season_key": "2025-summer",
+   "week_number": 2,
+   "start_date": "2025-07-07",
+   "end_date": "2025-07-13",
+   "current_result_published_at": null,
+   "planned_result_published_at": "2025-07-14T00:00:00Z",
+   "affected_users": [
+    "P1 장승완",
+    "P2 안은비"
+   ]
+  },
+  {
+   "week_id": "4f1733b6-408a-4173-9025-d61ca41ea5cd",
+   "season_key": "2025-summer",
+   "week_number": 3,
+   "start_date": "2025-07-14",
+   "end_date": "2025-07-20",
+   "current_result_published_at": null,
+   "planned_result_published_at": "2025-07-21T00:00:00Z",
+   "affected_users": [
+    "P3 성채윤",
+    "P2 안은비",
+    "P4 박시은"
+   ]
+  },
+  {
+   "week_id": "e794fd53-d5c7-4df4-a73f-9156a700c19a",
+   "season_key": "2025-summer",
+   "week_number": 4,
+   "start_date": "2025-07-21",
+   "end_date": "2025-07-27",
+   "current_result_published_at": null,
+   "planned_result_published_at": "2025-07-28T00:00:00Z",
+   "affected_users": [
+    "P2 안은비",
+    "P3 성채윤",
+    "P1 장승완",
+    "P4 박시은",
+    "P5 정혜빈"
+   ]
+  }
+ ],
+ "affected": {
+  "total": 5,
+  "pilot": [
+   "P1 장승완",
+   "P2 안은비",
+   "P3 성채윤",
+   "P4 박시은",
+   "P5 정혜빈"
+  ],
+  "nonPilot": [],
+  "testers": 0
+ },
+ "p1Simulation": {
+  "successPublishedNow": 9,
+  "successPublishedAfter": 14
+ },
+ "perUser": [
+  {
+   "pilot": "P1 장승완",
+   "unpublishedWeeks": 10
+  },
+  {
+   "pilot": "P2 안은비",
+   "unpublishedWeeks": 11
+  },
+  {
+   "pilot": "P3 성채윤",
+   "unpublishedWeeks": 2
+  },
+  {
+   "pilot": "P4 박시은",
+   "unpublishedWeeks": 2
+  },
+  {
+   "pilot": "P5 정혜빈",
+   "unpublishedWeeks": 1
+  }
+ ],
+ "snapshotRecomputeTargets": 5
+}

@@ -1,0 +1,465 @@
+{
+ "appliedAt": "2026-06-06T01:23:18.815Z",
+ "applied": true,
+ "planPath": "claudedocs/backfill-seasons-weeks-dryrun-20260605.json",
+ "insertedSeasonIds": [
+  "2c6c466a-2d23-453d-8a2f-bbe06572c08d",
+  "eb249a15-5cd8-4c38-b709-adbe627ff04c",
+  "c99ef5b9-6e3b-4fc1-aea8-891d2b158b39",
+  "1ad4ba0b-3e14-4ce1-9b0e-8c0c8e5236be",
+  "fd5cc1de-b985-48c4-81f3-ebe7567831e2",
+  "2e27299c-c6dd-4699-b51e-3f6fdf210b91",
+  "27d233ff-b475-43f7-bd6a-c709d8780984",
+  "7655904d-b311-47c6-a8e6-7e68ef1fc5a1",
+  "f07914e0-892a-46d1-a551-89d7257936fd",
+  "1f3eb915-45eb-4f73-ac9a-8611b5eef024",
+  "5ac220e8-5695-450d-9c0e-e3cf32cf429e",
+  "79bef667-352c-456a-a6fe-1b5eb3a99bc2"
+ ],
+ "insertedWeekIds": [
+  "10c0ee0a-6954-433c-9d07-792386afbb85",
+  "e0c2c03b-ffa6-43ff-8e62-5904642693cf",
+  "b7b0b77b-0bd0-495c-a045-6e3138fbe469",
+  "87a5a0c3-a58e-4739-bace-827d97d31eb8",
+  "7860d94f-3710-48af-ab84-284e610ae96d",
+  "57fa8783-42dc-4a2f-87b0-0b302965e68f",
+  "8a600449-dc83-4b5a-8d18-902d26498c44",
+  "0ca04bfa-648b-416a-b4ef-2b7e25985175",
+  "18300d3f-c759-43ed-aa47-7d24bc841df1",
+  "0180d94f-b41b-49a1-90b0-89345a44a23a",
+  "33e9579c-35ed-49c1-a435-788cc4365ba9",
+  "f1c792e2-fdaf-4317-b549-e809eaeaa1e5",
+  "ad6ad3c6-c81c-4971-903b-6640d709479f",
+  "9b98bdeb-25e5-4123-9549-8c0a06e78fd6",
+  "68ebdb2a-3c66-4add-b0d3-bfea2d003a64",
+  "e4712c05-a116-4ec9-9aee-952664561759",
+  "0325ce75-9f50-4b10-828e-819c82ae52ae",
+  "9b86a292-c6e2-4cd5-a579-4b80a24a2456",
+  "cd04a1f4-4457-4520-879a-ccc52e8c9ac5",
+  "1cf03a7b-4c29-4494-8f24-cfadb94f2e61",
+  "e5f4d544-f4cc-4cc7-aca8-6d3b51254f85",
+  "3bda7e10-94a2-4f44-8698-9a11a72f1074",
+  "4c2985c9-9590-4903-9a69-fcf4bdafba29",
+  "42680298-a123-429f-83c8-a0f4285753b8",
+  "87492b4c-3dd9-460a-a713-f3fa587043f2",
+  "477382a7-aec5-4b7b-9873-ac00c7bf64ad",
+  "43421b06-aa72-4f60-bf44-aec2a980a15a",
+  "e93a7db0-f241-4e17-a114-760e63f71d8b",
+  "7456c301-17f2-4634-b17e-67f23381bb6f",
+  "75047a3a-b077-4543-8bd6-a0fd974dd40f",
+  "b8dbb904-5fde-43a5-a051-3b11c247bf57",
+  "6db619e3-22a7-4255-9668-ea5e693ccc51",
+  "16dd6e8f-14cb-453c-b2de-1b61a52db53f",
+  "e2d2aa00-5fe3-43d9-b15c-ae4b1d860c7d",
+  "5d345d48-aec8-48cc-8ec2-f85d38c23c99",
+  "681234d3-3b1c-44ac-b4ba-7055014849b6",
+  "32ea862e-5ace-4364-b188-5f614c1c6058",
+  "665b0da0-c03b-4f95-90cc-089b356a13dc",
+  "34a04b5a-7823-4883-89e3-eeedff5db8eb",
+  "a849b883-6982-4540-b9b3-ab390a67fb15",
+  "64b56d7c-ee11-44f0-83d8-abb57a52c975",
+  "8b8ae57d-0c8d-458f-abd9-42a446dd6bd8",
+  "9bf01d27-95d1-4b9f-8a93-8993f53714cf",
+  "e0326f2e-024b-4e99-9cc8-690c38b48ebd",
+  "da95b82b-3290-47b0-a70a-e7112cab5693",
+  "6224ecff-d7e6-41a0-aa6c-10b4fb75f096",
+  "b455c2c7-492c-478f-b983-a9e40832cbfb",
+  "0415d448-0996-413e-b543-62c551e68b56",
+  "07f4b6c6-4c58-4ad4-a826-7464fcc667de",
+  "948cbf5a-e868-482d-a7ab-bea84bc62502",
+  "19e95d85-1c45-4d34-ab07-1a8daf171b04",
+  "0225a882-99b2-42b9-a02e-fabf02a035ea",
+  "5df17e42-b8a5-4fca-b133-92b152eb3790",
+  "0e37c07a-2ec2-4eb2-959d-0e216c1cd114",
+  "07d1c32b-29ff-4e06-848b-348288732c11",
+  "ad79b7c0-8bd1-491a-b91b-7551134453b7",
+  "84d7e7ee-9d15-4726-a400-579cf164e0da",
+  "1c584832-7b40-41a6-82e4-3a2fa68ac346",
+  "9bbf4ddd-6faf-489a-b813-54d2c283f218",
+  "ac50778a-4a4d-4b8d-a116-66ea34417127",
+  "4eca149d-76fe-41f5-a207-ba2193f7dc9a",
+  "4290c2d1-9651-4b1a-b827-41be10f89a4d",
+  "bd9a6b97-95f3-4e10-88f1-b010a6919cc1",
+  "da1eada1-cdf5-46fc-bb12-d02521db0da8",
+  "3fcbb904-4807-409c-8bff-e4d6fade0bf2",
+  "d5924344-8b1b-463f-be8e-9e96bf17772d",
+  "19be3447-7694-46ff-ac9d-7583ad7c0135",
+  "ee6c7779-7c35-43fe-b32b-963bfcbde274",
+  "8d18584b-38f3-4a73-9f47-f7dcba21ac7e",
+  "67906ed8-b316-469e-b491-5dafe24b7cc5",
+  "7d41357b-8212-44b2-bad6-45090641e6b4",
+  "90a0f804-2e3a-4df7-9be7-d41fb78919a8",
+  "8e1ac38b-5bc2-4f73-a25e-1d60329d0fd4",
+  "0dd751fa-3f14-4ea0-b83c-c6619b21c71f",
+  "39bd9ca9-2fbd-4ffb-aa48-a2aa4429e0b6",
+  "dbaafc08-6605-4b11-a975-1a9227252a57",
+  "a74ecd68-7a0b-4e60-bc2d-5634c551bc33",
+  "6e355dc9-d662-4497-8378-25b9743808f1",
+  "9f11a6c6-902d-4d46-9f54-c03a371c62cf",
+  "4d95a87f-daad-41ce-8b2a-e248e2763c22",
+  "b38da239-28da-416c-975a-cd442ee0df4f",
+  "246dc057-b83e-4d8b-a5fa-e9d635f9087e",
+  "f5e1d184-a721-4277-b709-ab0dc5c18e7b",
+  "b39ebb3d-7d9f-444d-84b1-8e2ed858b2d5",
+  "1577bb0b-773e-4ca6-be61-503619774711",
+  "b4d7d16c-a377-45b0-ba1f-ef0b0bd7e3bc",
+  "74c2a8b3-f88c-44d9-9b1a-481e4bcfc13e",
+  "c897f7ca-5149-4ccf-94a9-4d373c68ac4a",
+  "c056a8ab-8312-4e3b-a298-764af7fd2bc6",
+  "496f234e-336b-4fba-8d9f-d60aa5157d5c",
+  "3ba7ecc9-b4fd-4f2c-beaa-323eeba3ab3d",
+  "07603abe-7e4d-439c-9ba3-ae620d08da8b",
+  "b92ed6d2-e261-43d8-aef7-325129d07c00",
+  "6035009a-8602-49f1-8c3f-7c35be1e3f4a",
+  "26ddb54a-ec52-4bef-b4f4-7814ee4d30fa",
+  "99d1f7d5-6167-4b58-a302-5ff1dbe653af",
+  "fad12740-0404-4b23-a0d8-2c5c6926b112",
+  "1870e966-5f31-494b-ba61-2f00a19406fe",
+  "10278bdc-2630-421f-ac5a-69ce86d8f3ed",
+  "50082fa8-099a-415f-baef-c728114820e1",
+  "575ad945-12bd-4fcd-95b3-92519aad3d86",
+  "09aa7593-9ff8-443d-b495-4ad73f9b03b3",
+  "c14efec7-d273-49eb-a4fa-bb058f0a7f78"
+ ],
+ "updatedRows": [
+  {
+   "weekId": "5513969c-4e98-4222-9a2b-87f05bbc0e86",
+   "start": "2025-09-01",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "d0d60d76-3d91-49cd-ad88-c856f2ec4c15",
+   "start": "2025-09-08",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "4b3a8699-9e2b-4879-9c7f-de7e259a071d",
+   "start": "2025-09-15",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "84c31d1d-0689-4b91-ac18-57870603896e",
+   "start": "2025-09-22",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "4c79ab16-17d2-4aff-b29c-4564caf3b8fc",
+   "start": "2025-09-29",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "05fcc2fa-5a11-49a8-a282-4d21dbd5af4b",
+   "start": "2025-10-27",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 35
+  },
+  {
+   "weekId": "c536cf12-62f6-434c-9299-07bf64dd1db5",
+   "start": "2025-11-03",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "aaab4914-a757-4b0a-bf88-f231e5ccb2ca",
+   "start": "2025-11-10",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "d3fa5ad3-e835-4fbf-acd2-ec605530e205",
+   "start": "2025-12-29",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "3fa54899-c427-4299-a772-158e16663d18",
+   "start": "2026-01-05",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "44e25cac-6340-4bdd-9c7e-ff35c7aeb7c6",
+   "start": "2026-01-12",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "469cf97e-ff20-41c0-9ed7-c56a62279822",
+   "start": "2026-01-19",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "8bd20da1-dca3-4618-879e-5008c6020bf5",
+   "start": "2026-01-26",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "3cc6c2ae-49e4-4484-a7f0-1640f60a7464",
+   "start": "2026-02-02",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "10c6bbf1-e22b-4cf1-a03f-de4d7d46981c",
+   "start": "2026-02-09",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "d3aa89d8-35f6-42b3-bb12-a1d65b6b0e91",
+   "start": "2026-03-02",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "31672f8c-e58c-4d92-9939-197237d7fbcf",
+   "start": "2026-03-09",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "c6800fe1-8200-4b10-9c97-7515b6a805ca",
+   "start": "2026-03-16",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "5eca4fe4-77ff-46bc-9e53-8772a078b651",
+   "start": "2026-03-23",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "20a7ebcb-85ea-4a98-83fa-a920d010038a",
+   "start": "2026-03-30",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "b531c234-e860-499a-992c-b74d2c1d5349",
+   "start": "2026-04-27",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+   "start": "2026-05-04",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "67e07106-564e-4dab-b180-8f11c909973a",
+   "start": "2026-05-11",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "00000000-0000-0000-0000-202605210002",
+   "start": "2026-05-18",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  },
+  {
+   "weekId": "a2112b50-64d2-42d6-a243-faf9fcdc6ffc",
+   "start": "2026-05-25",
+   "col": "check_threshold",
+   "prior": null,
+   "applied": 37
+  }
+ ],
+ "conflictsSkipped": [
+  {
+   "start": "2025-10-06",
+   "diff": {
+    "is_official_rest": {
+     "live": true,
+     "plan": false
+    }
+   }
+  },
+  {
+   "start": "2025-10-13",
+   "diff": {
+    "is_official_rest": {
+     "live": true,
+     "plan": false
+    },
+    "holiday_name": {
+     "live": null,
+     "plan": "가을시즌 7주차(중간고사로 인한 공식 휴식 주차)"
+    }
+   }
+  },
+  {
+   "start": "2025-10-20",
+   "diff": {
+    "is_official_rest": {
+     "live": true,
+     "plan": false
+    }
+   }
+  },
+  {
+   "start": "2025-12-01",
+   "diff": {
+    "is_official_rest": {
+     "live": true,
+     "plan": false
+    },
+    "holiday_name": {
+     "live": null,
+     "plan": "가을시즌 14주차(기말고사로 인한 공식 휴식 주차)"
+    }
+   }
+  },
+  {
+   "start": "2025-12-08",
+   "diff": {
+    "is_official_rest": {
+     "live": true,
+     "plan": false
+    },
+    "holiday_name": {
+     "live": null,
+     "plan": "가을시즌 15주차(기말고사로 인한 공식 휴식 주차)"
+    }
+   }
+  },
+  {
+   "start": "2025-12-15",
+   "diff": {
+    "is_official_rest": {
+     "live": true,
+     "plan": false
+    },
+    "holiday_name": {
+     "live": null,
+     "plan": "가을시즌 16주차(기말고사로 인한 공식 휴식 주차)"
+    }
+   }
+  },
+  {
+   "start": "2025-12-22",
+   "diff": {
+    "season_key": {
+     "live": "2025-autumn",
+     "plan": "2026-winter"
+    },
+    "week_number": {
+     "live": 17,
+     "plan": 0
+    }
+   }
+  }
+ ],
+ "concurrentSkipped": [
+  {
+   "start": "2025-06-30",
+   "pmsExpected": {
+    "threshold": 24,
+    "rest": false,
+    "pmsIsPublic": false
+   },
+   "liveKept": "tester-summer-weeks 합성 주차 (threshold 0·publish 유지) — 이관 단계 재결정"
+  },
+  {
+   "start": "2025-07-07",
+   "pmsExpected": {
+    "threshold": 24,
+    "rest": false,
+    "pmsIsPublic": false
+   },
+   "liveKept": "tester-summer-weeks 합성 주차 (threshold 0·publish 유지) — 이관 단계 재결정"
+  },
+  {
+   "start": "2025-07-14",
+   "pmsExpected": {
+    "threshold": 34,
+    "rest": false,
+    "pmsIsPublic": false
+   },
+   "liveKept": "tester-summer-weeks 합성 주차 (threshold 0·publish 유지) — 이관 단계 재결정"
+  },
+  {
+   "start": "2025-07-21",
+   "pmsExpected": {
+    "threshold": 34,
+    "rest": false,
+    "pmsIsPublic": false
+   },
+   "liveKept": "tester-summer-weeks 합성 주차 (threshold 0·publish 유지) — 이관 단계 재결정"
+  },
+  {
+   "start": "2025-07-28",
+   "pmsExpected": {
+    "threshold": 37,
+    "rest": false,
+    "pmsIsPublic": false
+   },
+   "liveKept": "tester-summer-weeks 합성 주차 (threshold 0·publish 유지) — 이관 단계 재결정"
+  },
+  {
+   "start": "2025-08-04",
+   "pmsExpected": {
+    "threshold": 37,
+    "rest": false,
+    "pmsIsPublic": false
+   },
+   "liveKept": "tester-summer-weeks 합성 주차 (threshold 0·publish 유지) — 이관 단계 재결정"
+  },
+  {
+   "start": "2025-08-11",
+   "pmsExpected": {
+    "threshold": 35,
+    "rest": false,
+    "pmsIsPublic": false
+   },
+   "liveKept": "tester-summer-weeks 합성 주차 (threshold 0·publish 유지) — 이관 단계 재결정"
+  },
+  {
+   "start": "2025-08-18",
+   "pmsExpected": {
+    "threshold": 37,
+    "rest": false,
+    "pmsIsPublic": false
+   },
+   "liveKept": "tester-summer-weeks 합성 주차 (threshold 0·publish 유지) — 이관 단계 재결정"
+  }
+ ],
+ "snapshotRecompute": {
+  "users": 90,
+  "ok": 90,
+  "failed": []
+ }
+}

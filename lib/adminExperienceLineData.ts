@@ -43,9 +43,113 @@ function toMasterDto(row: MasterRow): ExperienceLineMasterDto {
   };
 }
 
+// (2E-6) 개설 드롭다운 목록 — line_registrations 기준 전환.
+//   - 행 집합 = bridged registration (hub='experience'). id 는 bridged_master_id 를 그대로
+//     노출해 기존 개설 POST 의 master FK 기록 체계를 유지한다.
+//   - 필드 SoT = registration (name/code/title/org/active/종류→category·slot).
+//     registration 에 없는 레거시 필드(teamId/teamName/sourceFileName/created/updated)는
+//     read-mirror 마스터에서 보강 — DTO shape/값 등가 (양방향 sync 가 정합 보장).
+//   - fallback: registrations 조회 실패 시 기존 마스터 직조로 복귀 (운영 중단 방지).
 export async function listExperienceLineMasters(
   organizationSlug?: string | null,
 ): Promise<{ rows: ExperienceLineMasterDto[] }> {
+  const KO_PAIR: Record<string, { category: string; slot: number }> = {
+    도출: { category: "derivation", slot: 1 },
+    분석: { category: "analysis", slot: 2 },
+    평가: { category: "evaluation", slot: 3 },
+    확장: { category: "extension", slot: 4 },
+    관리: { category: "management", slot: 5 },
+  };
+
+  let regQuery = supabaseAdmin
+    .from("line_registrations")
+    .select(
+      "line_code,line_name,line_type,main_title,main_title_mode,organization_slug,is_active,bridged_master_id",
+    )
+    .eq("hub", "experience")
+    .not("bridged_master_id", "is", null)
+    .order("line_code", { ascending: true });
+  if (organizationSlug) {
+    regQuery = regQuery.eq("organization_slug", organizationSlug);
+  }
+  const { data: regs, error: regError } = await regQuery;
+
+  if (!regError) {
+    type RegRow = {
+      line_code: string;
+      line_name: string;
+      line_type: string;
+      main_title: string;
+      main_title_mode: string;
+      organization_slug: string | null;
+      is_active: boolean;
+      bridged_master_id: string;
+    };
+    const regRows = (regs ?? []) as RegRow[];
+    // 레거시 필드 보강 — read-mirror 마스터 batch 조회.
+    const masterIds = regRows.map((r) => r.bridged_master_id);
+    const legacyById = new Map<
+      string,
+      {
+        team_id: string | null;
+        team_name: string | null;
+        source_file_name: string | null;
+        created_at: string;
+        updated_at: string;
+      }
+    >();
+    if (masterIds.length > 0) {
+      const { data: masters, error: masterError } = await supabaseAdmin
+        .from("cluster4_experience_line_masters")
+        .select("id,team_id,source_file_name,created_at,updated_at,cluster4_teams(team_name)")
+        .in("id", masterIds);
+      if (masterError) {
+        console.warn("[2E-6 exp 목록] mirror 보강 조회 실패", { message: masterError.message });
+      } else {
+        for (const m of (masters ?? []) as unknown as Array<{
+          id: string;
+          team_id: string | null;
+          source_file_name: string | null;
+          created_at: string;
+          updated_at: string;
+          cluster4_teams: { team_name: string } | null;
+        }>) {
+          legacyById.set(m.id, {
+            team_id: m.team_id,
+            team_name: m.cluster4_teams?.team_name ?? null,
+            source_file_name: m.source_file_name,
+            created_at: m.created_at,
+            updated_at: m.updated_at,
+          });
+        }
+      }
+    }
+    const rows: ExperienceLineMasterDto[] = regRows.map((r) => {
+      const legacy = legacyById.get(r.bridged_master_id) ?? null;
+      const pair = KO_PAIR[r.line_type] ?? null;
+      return {
+        id: r.bridged_master_id,
+        organizationSlug: r.organization_slug ?? "",
+        lineCode: r.line_code,
+        lineName: r.line_name,
+        mainTitle: r.main_title_mode === "fixed" && r.main_title.trim() ? r.main_title : null,
+        teamId: legacy?.team_id ?? null,
+        teamName: legacy?.team_name ?? null,
+        sourceFileName: legacy?.source_file_name ?? null,
+        isActive: r.is_active,
+        experienceCategory:
+          (pair?.category as ExperienceLineMasterDto["experienceCategory"]) ?? null,
+        experienceSlotOrder: pair?.slot ?? null,
+        createdAt: legacy?.created_at ?? "",
+        updatedAt: legacy?.updated_at ?? "",
+      };
+    });
+    return { rows };
+  }
+
+  console.warn("[2E-6 exp 목록] registrations 조회 실패 — 마스터 fallback", {
+    message: regError.message,
+  });
   let query = supabaseAdmin
     .from("cluster4_experience_line_masters")
     .select("*,cluster4_teams(team_name)")

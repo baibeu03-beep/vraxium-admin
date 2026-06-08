@@ -1,0 +1,933 @@
+{
+  "summary": {
+    "generatedAt": "2026-06-07 false-bridge 34 전수 조사 (read-only)",
+    "total": 34,
+    "counts": {
+      "same-person": 0,
+      "same-person-weak": 0,
+      "rebaseline": 28,
+      "exclude": 6
+    },
+    "sameNumberFullMatches": 0
+  },
+  "rows": [
+    {
+      "legacy_user_id": 248,
+      "vraxium_user_id": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+      "vraxium": {
+        "name": "박시은",
+        "birth": "2004-01-15",
+        "phoneTail": "98176317",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "서정민",
+        "birth": "981119",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 1,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 249,
+      "vraxium_user_id": "19cb4129-ba73-4685-9912-7d9d4ed3768b",
+      "vraxium": {
+        "name": "성채윤",
+        "birth": "2004-02-17",
+        "phoneTail": "37758375",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "최유정",
+        "birth": "011219",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 261,
+      "vraxium_user_id": "33cd8f8a-a412-49dc-914c-01b1251871f9",
+      "vraxium": {
+        "name": "위다인",
+        "birth": "2004-11-17",
+        "phoneTail": "76850351",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "강유찬",
+        "birth": "040522",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 263,
+      "vraxium_user_id": "1cde2e27-3069-4890-847c-83fd20a81f74",
+      "vraxium": {
+        "name": "조창현",
+        "birth": "2000-03-02",
+        "phoneTail": "71899235",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "최지원",
+        "birth": "030105",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 264,
+      "vraxium_user_id": "6bd51d10-8f4d-48ba-82cf-9284fc75eff0",
+      "vraxium": {
+        "name": "김다빈",
+        "birth": "2002-08-01",
+        "phoneTail": "27826904",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "백지원",
+        "birth": "010711",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 269,
+      "vraxium_user_id": "c144d6fb-5a01-4453-aded-ae00dffdcf0b",
+      "vraxium": {
+        "name": "이다윤",
+        "birth": "2002-03-10",
+        "phoneTail": "58720591",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "권규리",
+        "birth": "031019",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 1,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 273,
+      "vraxium_user_id": "ff93b3dd-2bbd-44ad-9f2f-467a1dbe298f",
+      "vraxium": {
+        "name": "이선욱",
+        "birth": "2004-08-10",
+        "phoneTail": "94906510",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "남수인",
+        "birth": "011126",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 274,
+      "vraxium_user_id": "974ba08b-7411-4fc8-ab22-178977de73a8",
+      "vraxium": {
+        "name": "김성곤",
+        "birth": "1998-01-27",
+        "phoneTail": "80603604",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "강무현",
+        "birth": "030412",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 277,
+      "vraxium_user_id": "f5ea2501-1319-443a-9326-78f6bdce522d",
+      "vraxium": {
+        "name": "이윤아",
+        "birth": "2005-03-01",
+        "phoneTail": "26150971",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "김윤조",
+        "birth": "021113",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 2,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 278,
+      "vraxium_user_id": "35cd5770-98ec-49b4-95db-8ca6c92e53bf",
+      "vraxium": {
+        "name": "이채성",
+        "birth": "2005-01-03",
+        "phoneTail": "34762103",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "곽유민",
+        "birth": "001214",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 279,
+      "vraxium_user_id": "a35a306b-6f53-4b0e-8b8b-afb6c34ec93a",
+      "vraxium": {
+        "name": "강민지",
+        "birth": "2005-03-07",
+        "phoneTail": "23181702",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "이윤호",
+        "birth": "011116",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 1,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 281,
+      "vraxium_user_id": "d151c37b-5195-4ae1-ba79-d3b229a49eff",
+      "vraxium": {
+        "name": "정수빈",
+        "birth": "2001-11-10",
+        "phoneTail": "38641395",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "이예솔",
+        "birth": "030325",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 1,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 284,
+      "vraxium_user_id": "42913661-f637-4282-bdc5-04406dcb1aca",
+      "vraxium": {
+        "name": "이현재",
+        "birth": "2002-05-21",
+        "phoneTail": "65057292",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "손민수",
+        "birth": "020108",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 286,
+      "vraxium_user_id": "566900f7-f4b2-4a95-bf11-d3dc4346453a",
+      "vraxium": {
+        "name": "김시원",
+        "birth": "2004-10-06",
+        "phoneTail": "59551060",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "강승현",
+        "birth": "030328",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 1,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 287,
+      "vraxium_user_id": "7fc78617-7a56-4fe0-8cbd-a9d857f292bc",
+      "vraxium": {
+        "name": "양혁진",
+        "birth": "2001-10-29",
+        "phoneTail": "31789463",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "손하은",
+        "birth": "980609",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 288,
+      "vraxium_user_id": "d7cb79cc-9ed4-4ae1-bac3-cf86a684dd3e",
+      "vraxium": {
+        "name": "조정인",
+        "birth": "2005-11-06",
+        "phoneTail": "66373931",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "박한지",
+        "birth": "990602",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 290,
+      "vraxium_user_id": "3c9d2dfe-629c-4d81-b847-80e42e656d4c",
+      "vraxium": {
+        "name": "유지민",
+        "birth": "2004-03-24",
+        "phoneTail": "76887987",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "서다니엘",
+        "birth": "030127",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 292,
+      "vraxium_user_id": "abef6e53-53c5-4277-bb70-e031153e533f",
+      "vraxium": {
+        "name": "옥지윤",
+        "birth": "2004-02-21",
+        "phoneTail": "48421556",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "김범수",
+        "birth": "000615",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 293,
+      "vraxium_user_id": "b9cb873d-1052-438f-825f-85af589fab82",
+      "vraxium": {
+        "name": "송영권",
+        "birth": "2003-09-02",
+        "phoneTail": "87353898",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "임유진",
+        "birth": "031114",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 294,
+      "vraxium_user_id": "ebd7cf95-4e48-4ec4-9cf9-4392be5e59ac",
+      "vraxium": {
+        "name": "이다은",
+        "birth": "2004-12-13",
+        "phoneTail": "75674140",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "이주연",
+        "birth": "000924",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 2,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 295,
+      "vraxium_user_id": "a90bc300-6f64-450f-b107-ab112ab944ca",
+      "vraxium": {
+        "name": "범혜민",
+        "birth": "2003-08-08",
+        "phoneTail": "38465166",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "김윤주",
+        "birth": "011121",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 296,
+      "vraxium_user_id": "2dc7f9ac-3452-426f-a948-51e40dc953de",
+      "vraxium": {
+        "name": "정수아",
+        "birth": "2006-11-30",
+        "phoneTail": "44163233",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "신유지",
+        "birth": "011123",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 297,
+      "vraxium_user_id": "d43fff71-8f90-465a-a471-c65abfa3ce36",
+      "vraxium": {
+        "name": "신지현",
+        "birth": "2002-02-08",
+        "phoneTail": "41978404",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "김수안",
+        "birth": "040203",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 298,
+      "vraxium_user_id": "49453df4-6f6e-4480-b69f-be034ba97a46",
+      "vraxium": {
+        "name": "박지민",
+        "birth": "2002-06-21",
+        "phoneTail": "82809621",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "김의현",
+        "birth": "030830",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 299,
+      "vraxium_user_id": "7dfad8dc-b900-4e3c-a13b-e0b6b42342ca",
+      "vraxium": {
+        "name": "김연우",
+        "birth": "2004-07-19",
+        "phoneTail": "65241881",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "이하림",
+        "birth": "000204",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 1,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 300,
+      "vraxium_user_id": "24caea11-ae48-489f-83a9-52780cb9eb96",
+      "vraxium": {
+        "name": "김민송",
+        "birth": "2002-05-24",
+        "phoneTail": "30355859",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "민유경",
+        "birth": "990806",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 301,
+      "vraxium_user_id": "11867101-8086-43d6-9349-6307ee286966",
+      "vraxium": {
+        "name": "강은비",
+        "birth": "2004-10-26",
+        "phoneTail": "40747017",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "조세빈",
+        "birth": "020419",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 303,
+      "vraxium_user_id": "296de78e-2a24-450c-9af1-c93a66b9f982",
+      "vraxium": {
+        "name": "조은재",
+        "birth": "2005-02-03",
+        "phoneTail": "26646133",
+        "org": "phalanx",
+        "status": "active",
+        "growth": "active",
+        "uwsCount": 4,
+        "created_at": "2026-05-05T04:57:27.283938+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "김민정",
+        "birth": "030904",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "rebaseline"
+    },
+    {
+      "legacy_user_id": 304,
+      "vraxium_user_id": "8fe415fd-b8e2-452d-8f62-46149e22b42d",
+      "vraxium": {
+        "name": null,
+        "birth": null,
+        "phoneTail": null,
+        "org": null,
+        "status": null,
+        "growth": null,
+        "uwsCount": 0,
+        "created_at": "2026-05-05T07:04:29.507971+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "최윤서",
+        "birth": "040930",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "exclude"
+    },
+    {
+      "legacy_user_id": 305,
+      "vraxium_user_id": "5b650ea2-5595-441c-b6bf-b9cd60e7559e",
+      "vraxium": {
+        "name": null,
+        "birth": null,
+        "phoneTail": null,
+        "org": null,
+        "status": null,
+        "growth": null,
+        "uwsCount": 0,
+        "created_at": "2026-05-05T07:04:29.507971+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "김우경",
+        "birth": "010718",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "exclude"
+    },
+    {
+      "legacy_user_id": 306,
+      "vraxium_user_id": "0b20a9ed-dc9b-44fe-a3bc-f52560e852e6",
+      "vraxium": {
+        "name": null,
+        "birth": null,
+        "phoneTail": null,
+        "org": null,
+        "status": null,
+        "growth": null,
+        "uwsCount": 0,
+        "created_at": "2026-05-05T07:04:29.507971+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "권해슬",
+        "birth": "990619",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "exclude"
+    },
+    {
+      "legacy_user_id": 307,
+      "vraxium_user_id": "bedc30bb-20f2-427b-9a6c-96dfe3037b47",
+      "vraxium": {
+        "name": null,
+        "birth": null,
+        "phoneTail": null,
+        "org": null,
+        "status": null,
+        "growth": null,
+        "uwsCount": 0,
+        "created_at": "2026-05-05T07:04:36.46788+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "김소현",
+        "birth": "010904",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "exclude"
+    },
+    {
+      "legacy_user_id": 308,
+      "vraxium_user_id": "a94e73a8-58dd-4f0f-af51-cabb306c0472",
+      "vraxium": {
+        "name": null,
+        "birth": null,
+        "phoneTail": null,
+        "org": null,
+        "status": null,
+        "growth": null,
+        "uwsCount": 0,
+        "created_at": "2026-05-05T07:04:36.46788+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "최소희",
+        "birth": "031002",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "exclude"
+    },
+    {
+      "legacy_user_id": 309,
+      "vraxium_user_id": "a2e883f6-2f5b-4a89-902f-2184d3e2469d",
+      "vraxium": {
+        "name": null,
+        "birth": null,
+        "phoneTail": null,
+        "org": null,
+        "status": null,
+        "growth": null,
+        "uwsCount": 0,
+        "created_at": "2026-05-05T07:04:36.46788+00:00"
+      },
+      "pmsSameNumber": {
+        "name": "심민경",
+        "birth": "980421",
+        "match": {
+          "nameEq": false,
+          "birthEq": false,
+          "phoneEq": false
+        }
+      },
+      "pmsFullKeyMatches": [],
+      "pmsWeakMatches": [],
+      "nameOnlyCandidates": 0,
+      "classification": "exclude"
+    }
+  ]
+}

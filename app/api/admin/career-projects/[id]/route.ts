@@ -1,5 +1,9 @@
 import { NextRequest } from "next/server";
 import {
+  CAREER_DRIFT_NOTICE,
+  syncRegistrationFromCareerProject,
+} from "@/lib/lineMasterDriftGuard";
+import {
   ADMIN_READ_ROLES,
   requireAdmin,
   toAdminErrorResponse,
@@ -90,7 +94,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     // 회사/감독자 sponsor-card 메타가 바뀌면 선발 로스터(default_target_user_ids) 사용자들의
     // weekly-cards snapshot 을 stale 처리한다(다음 조회 lazy 재계산 / cron 보정). best-effort.
     await markWeeklyCardsSnapshotStaleMany(project.defaultTargetUserIds);
-    return Response.json({ success: true, data: { project } });
+    // (2E-5) bridged registration 이 있는 행만 통합 등록에 역방향 동기화 — mirror 정합 유지.
+    const sync = await syncRegistrationFromCareerProject(id);
+    return Response.json({
+      success: true,
+      data: { project },
+      driftNotice: CAREER_DRIFT_NOTICE,
+      driftSync: { synced: sync.synced, warning: sync.warning },
+    });
   } catch (error) {
     if (error instanceof CareerProjectError) {
       return Response.json(
@@ -123,7 +134,7 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
 
   try {
     await deleteCareerProject(id);
-    return Response.json({ success: true, data: { id } });
+    return Response.json({ success: true, data: { id }, driftNotice: CAREER_DRIFT_NOTICE });
   } catch (error) {
     if (error instanceof CareerProjectError) {
       return Response.json(

@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-06-07T12:43:43.962Z",
+  "openFlowListDiffs": [],
+  "careerKnownDiff": 0,
+  "orgDiffs": [],
+  "orgChecked": 238,
+  "metaDiffs": [],
+  "usedMasterIds": {
+    "experience": 12,
+    "competency": 3
+  },
+  "careerMetaUsed": 0,
+  "fingerprint": {
+    "before": {
+      "snapTotal": 125,
+      "snapStale": 0,
+      "lines": 374,
+      "targets": 1365
+    },
+    "after": {
+      "snapTotal": 125,
+      "snapStale": 0,
+      "lines": 374,
+      "targets": 1365
+    }
+  }
+}

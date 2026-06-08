@@ -44,8 +44,11 @@ for (const [name, uid, expectSpring, expectWinter] of [
 }
 
 console.log("\n=== B) front /api/cluster4/weekly-growth (시즌 상태 분리) ===");
+// (2026-06-05 후속 개정) "시즌 중 졸업" 5종째 추가 — graduated 의 마지막 활동 시즌은
+// "시즌 진행 중"이 아니라 "시즌 중 졸업"이 정답으로 변경됨.
+// 전용 검증은 scripts/verify-season-mid-graduation-http.mjs 참고.
 for (const [name, uid, springExpect] of [
-  ["T홍지환(graduated)", HONG, "시즌 진행 중"],
+  ["T홍지환(graduated)", HONG, "시즌 중 졸업"],
   ["T안건우(graduating)", AHN, "시즌 진행 중"],
   ["이유나(active)", REAL, "시즌 진행 중"],
 ]) {
@@ -55,7 +58,7 @@ for (const [name, uid, springExpect] of [
   const cur = j?.data?.seasonSummary;
   const spring = sums.find((s) => s.seasonKey === "2026-spring");
   check(`${name} 2026-spring(진행 중 시즌)=${springExpect}`, spring?.statusLabel === springExpect, `실제=${spring?.statusLabel}`);
-  if (cur) check(`${name} 현재 시즌 단일 요약=시즌 진행 중`, cur?.statusLabel === "시즌 진행 중", `실제=${cur?.statusLabel}`);
+  if (cur) check(`${name} 현재 시즌 단일 요약=${springExpect}`, cur?.statusLabel === springExpect, `실제=${cur?.statusLabel}`);
   for (const s of sums.filter((s) => s.seasonKey !== "2026-spring")) {
     console.log(`    (참고) ${name} ${s.seasonKey}: ${s.statusLabel} (seasonResult=${s.seasonResult})`);
   }

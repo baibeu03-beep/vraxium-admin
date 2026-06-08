@@ -1,0 +1,26 @@
+{
+ "label": "before",
+ "excludeCount": 2,
+ "fp": {
+  "users": {
+   "rows": 126,
+   "hash": "79d75176a66b39e3"
+  },
+  "user_profiles": {
+   "rows": 120,
+   "hash": "f6394545eadf56e6"
+  },
+  "user_week_statuses": {
+   "rows": 1742,
+   "hash": "7c34ffa245f7e3e3"
+  },
+  "user_weekly_points": {
+   "rows": 1681,
+   "hash": "6ab10363361c67fd"
+  },
+  "cluster4_weekly_card_snapshots": {
+   "rows": 120,
+   "hash": "7d3178b4a5022d90"
+  }
+ }
+}

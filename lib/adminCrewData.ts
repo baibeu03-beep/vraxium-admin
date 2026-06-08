@@ -38,7 +38,18 @@ type UserProfileRow = {
 type UsersRow = {
   id: string;
   legacy_user_id: number | string | null;
+  // B안 복합키 (2026-06-07): 이관 provenance. legacy_crew_import graft 가드에 사용.
+  source_system: string | null;
 };
+
+// legacy_crew_import 는 olympus(phalanx) 1회 임포트 산출물 (전 34행 = legacy 248~309 실측,
+// false-bridge-34-census-20260607). B안 복합키 체계에서 같은 legacy_user_id 숫자가
+// 소스별로 공존하므로, source_system 이 NULL(이관 전 기존 행) 또는 'olympus' 인 사용자에게만
+// legacy 메타를 graft 한다 — oranke/hrdb 이관 행이 숫자가 겹쳐도 오연결되지 않는다.
+const LEGACY_CREW_IMPORT_SOURCE = "olympus";
+export const canGraftLegacyCrewImport = (
+  sourceSystem: string | null | undefined,
+) => sourceSystem == null || sourceSystem === LEGACY_CREW_IMPORT_SOURCE;
 
 type LegacyCrewRow = {
   legacy_user_id: number | string;
@@ -143,7 +154,7 @@ const PROFILE_SELECT = [
   "updated_at",
 ].join(",");
 
-const USERS_SELECT = ["id", "legacy_user_id"].join(",");
+const USERS_SELECT = ["id", "legacy_user_id", "source_system"].join(",");
 
 const LEGACY_SELECT = [
   "legacy_user_id",
@@ -314,7 +325,9 @@ async function fetchCrewSourceRows(options: {
   }
 
   const users = (usersRes.data ?? []) as unknown as UsersRow[];
+  // graft 대상 후보만 수집 — olympus 외 소스 이관 행은 숫자가 겹쳐도 조회 자체를 배제.
   const legacyUserIds = users
+    .filter((row) => canGraftLegacyCrewImport(row.source_system))
     .map((row) => row.legacy_user_id)
     .filter((id): id is number | string => id !== null && id !== undefined)
     .map((id) => String(id));
@@ -367,9 +380,12 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
     const userRow = userById.get(profile.user_id);
     const usersLegacyUserId =
       userRow?.legacy_user_id != null ? String(userRow.legacy_user_id) : null;
-    const legacy = usersLegacyUserId
-      ? legacyByLegacyId.get(usersLegacyUserId) ?? null
-      : null;
+    // B안 복합키: legacy_crew_import(olympus 임포트) graft 는 source_system 이
+    // NULL/'olympus' 인 사용자에게만 — oranke/hrdb 이관 행 숫자 충돌 오연결 차단.
+    const legacy =
+      usersLegacyUserId && canGraftLegacyCrewImport(userRow?.source_system)
+        ? legacyByLegacyId.get(usersLegacyUserId) ?? null
+        : null;
 
     const membership = pickBestMembership(membershipsByUserId.get(profile.user_id) ?? []);
     const education = pickBestEducation(educationsByUserId.get(profile.user_id) ?? []);
@@ -506,12 +522,25 @@ export async function getMemberDisplayName(userId: string) {
 // users.legacy_user_id 를 user_profiles.user_id 로 변환 (없으면 null).
 // PATCH 경로에서 legacy_crew_import row 를 upsert 할 때 사용한다.
 export async function getUsersLegacyUserIdByUserId(userId: string) {
+  const identity = await getUsersLegacyIdentityByUserId(userId);
+  return identity?.legacyUserId ?? null;
+}
+
+// B안 복합키 (2026-06-07): legacy_user_id 와 이관 provenance(source_system) 를 함께 반환.
+// legacy_crew_import 접근 가드(canGraftLegacyCrewImport) 판단에 사용 — UUID 기준 단건 조회.
+export async function getUsersLegacyIdentityByUserId(
+  userId: string,
+): Promise<{ legacyUserId: string | null; sourceSystem: string | null } | null> {
   const { data, error } = await supabaseAdmin
     .from("users")
-    .select("legacy_user_id")
+    .select("legacy_user_id,source_system")
     .eq("id", userId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!data || data.legacy_user_id == null) return null;
-  return String(data.legacy_user_id);
+  if (!data) return null;
+  const row = data as { legacy_user_id: number | string | null; source_system: string | null };
+  return {
+    legacyUserId: row.legacy_user_id == null ? null : String(row.legacy_user_id),
+    sourceSystem: row.source_system ?? null,
+  };
 }

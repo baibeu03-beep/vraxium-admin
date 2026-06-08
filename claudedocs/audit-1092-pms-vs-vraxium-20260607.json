@@ -1,0 +1,93 @@
+{
+ "pms": {
+  "usersinfo": {
+   "Team": "F&B",
+   "Part": "일반",
+   "Week": 14,
+   "Level": "일반",
+   "State": "일반",
+   "StartDate": "2025-03-24 00:00:00"
+  },
+  "balance": {
+   "Star": 925,
+   "Shield": -54
+  },
+  "pointlogs": {
+   "rows": 510,
+   "sumStar": 917
+  },
+  "activityRows": 55,
+  "unattributedActivityRows": [],
+  "weeksAttributed": 28,
+  "weeksRecognized": 14
+ },
+ "plan": "claudedocs/dryrun-pms-1092-20260607.json (§12 weekRows)",
+ "vraxium": {
+  "uuid": "14f5c826-b2cf-4a88-abda-7168f3be907d",
+  "sourcePair": {
+   "id": "14f5c826-b2cf-4a88-abda-7168f3be907d",
+   "legacy_user_id": 1092,
+   "source_system": "oranke",
+   "created_at": "2026-06-07T12:31:51.941634+00:00"
+  },
+  "profile": {
+   "display_name": "장승완",
+   "organization_slug": "oranke",
+   "created_at": "2026-06-07T12:31:51.998682+00:00"
+  },
+  "uwsRows": 28,
+  "uwpRows": 49,
+  "ledger": 511,
+  "targets": 28,
+  "growthStats": {
+   "approved_weeks": 14,
+   "cumulative_weeks": 28
+  },
+  "uwsCreatedBeforeApply": 0
+ },
+ "sideBySide": [
+  "2025-spring W4         | PMS: 인정         | Vraxium: success",
+  "2025-spring W5         | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-spring W9         | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-spring W10        | PMS: 인정         | Vraxium: success",
+  "2025-spring W11        | PMS: 인정         | Vraxium: success",
+  "2025-spring W12        | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-spring W13        | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-summer W1         | PMS: 인정         | Vraxium: success",
+  "2025-summer W2         | PMS: 인정         | Vraxium: success",
+  "2025-summer W4         | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-summer W5         | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-autumn W1         | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-autumn W2         | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-autumn W3         | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-autumn W4         | PMS: 인정         | Vraxium: success",
+  "2025-autumn W5         | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-autumn W9         | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-autumn W10        | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-autumn W11        | PMS: 미인정(fail)  | Vraxium: fail",
+  "2025-autumn W12        | PMS: 인정         | Vraxium: success",
+  "2025-autumn W13        | PMS: 인정         | Vraxium: success",
+  "2026-winter W1         | PMS: 인정         | Vraxium: success",
+  "2026-winter W2         | PMS: 인정         | Vraxium: success",
+  "2026-winter W3         | PMS: 인정         | Vraxium: success",
+  "2026-winter W4         | PMS: 미인정(fail)  | Vraxium: fail",
+  "2026-winter W5         | PMS: 인정         | Vraxium: success",
+  "2026-winter W6         | PMS: 인정         | Vraxium: success",
+  "2026-winter W7         | PMS: 인정         | Vraxium: success"
+ ],
+ "onlyVraxium": [],
+ "onlyPms": [],
+ "statusMismatch": [],
+ "cumulative": {
+  "pms_formula": "usersinfo.Week(수동 필드) vs 인정 활동 주차 수(IsActive=1 귀속 distinct)",
+  "pms_week_field": 14,
+  "pms_recognized_weeks": 14,
+  "vraxium_formula": "user_growth_stats.approved_weeks = uws status='success' (전환 주차 제외)",
+  "vraxium_approved": 14,
+  "vraxium_cumulative": 28,
+  "vraxium_uws_success_raw": 14,
+  "points_pms_balance": 925,
+  "points_vraxium_sum_uwp": 925,
+  "points_sentinel": 12
+ }
+}

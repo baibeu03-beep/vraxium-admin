@@ -7,7 +7,8 @@ import {
 } from "@/lib/adminAuth";
 import {
   getAdminCrewDtoByLegacyUserId,
-  getUsersLegacyUserIdByUserId,
+  canGraftLegacyCrewImport,
+  getUsersLegacyIdentityByUserId,
 } from "@/lib/adminCrewData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isOrganizationSlug } from "@/lib/organizations";
@@ -145,10 +146,11 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 
   // 2) legacy_crew_import 메타데이터 (is_visible / admin_note 등)
   if (Object.keys(legacyPatch).length > 0) {
-    let legacyUserId = existing.usersLegacyUserId;
-    if (!legacyUserId) {
-      legacyUserId = await getUsersLegacyUserIdByUserId(existing.userId);
-    }
+    // B안 복합키 (2026-06-07): legacy_crew_import 는 olympus 임포트 전용 채널이다.
+    // source_system 이 NULL(이관 전 기존 행)/'olympus' 가 아닌 사용자는 같은 숫자의
+    // legacy_user_id 를 가져도 이 테이블의 행과 무관 — upsert 를 차단(오연결 방지).
+    const identity = await getUsersLegacyIdentityByUserId(existing.userId);
+    const legacyUserId = existing.usersLegacyUserId ?? identity?.legacyUserId ?? null;
 
     if (!legacyUserId) {
       return Response.json(
@@ -156,6 +158,15 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
           success: false,
           error:
             "users.legacy_user_id 가 없어 legacy_crew_import 메타데이터를 업데이트할 수 없습니다.",
+        },
+        { status: 409 },
+      );
+    }
+    if (!canGraftLegacyCrewImport(identity?.sourceSystem ?? null)) {
+      return Response.json(
+        {
+          success: false,
+          error: `legacy_crew_import 는 olympus 임포트 전용입니다 — source_system='${identity?.sourceSystem}' 사용자의 레거시 메타 채널이 아닙니다 (복합키 오연결 방지).`,
         },
         { status: 409 },
       );
@@ -240,9 +251,9 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
     );
   }
 
-  const legacyUserId =
-    existing.usersLegacyUserId ??
-    (await getUsersLegacyUserIdByUserId(existing.userId));
+  // B안 복합키 (2026-06-07): PATCH 와 동일한 olympus 전용 채널 가드 — 오연결 방지.
+  const identity = await getUsersLegacyIdentityByUserId(existing.userId);
+  const legacyUserId = existing.usersLegacyUserId ?? identity?.legacyUserId ?? null;
 
   if (!legacyUserId) {
     return Response.json(
@@ -250,6 +261,15 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
         success: false,
         error:
           "users.legacy_user_id 가 없어 visibility 를 변경할 수 없습니다.",
+      },
+      { status: 409 },
+    );
+  }
+  if (!canGraftLegacyCrewImport(identity?.sourceSystem ?? null)) {
+    return Response.json(
+      {
+        success: false,
+        error: `legacy_crew_import 는 olympus 임포트 전용입니다 — source_system='${identity?.sourceSystem}' 사용자의 visibility 채널이 아닙니다 (복합키 오연결 방지).`,
       },
       { status: 409 },
     );

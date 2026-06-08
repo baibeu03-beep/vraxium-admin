@@ -1,0 +1,155 @@
+{
+ "pass": 15,
+ "fail": 0,
+ "results": [
+  {
+   "name": "[0] 페어 기록 5/5 — (source_system, legacy_user_id) 전원 점유",
+   "ok": true
+  },
+  {
+   "name": "[A] ledger 3,048 (3,043+ADJ 5)",
+   "ok": true,
+   "detail": "actual=3048"
+  },
+  {
+   "name": "[B] ensure 라인 11 — 전부 EXBS-EN",
+   "ok": true,
+   "detail": "EXBS-EN250324,EXBS-EN250331,EXBS-EN250428,EXBS-EN250505,EXBS-EN250512,EXBS-EN250519,EXBS-EN250526,EXBS-EN250630,EXBS-EN250707,EXBS-EN250714,EXBS-EN250721"
+  },
+  {
+   "name": "[C] sentinel 5행 — 1900-W1·cm=false",
+   "ok": true,
+   "detail": "[12,6,8,-14,-4]"
+  },
+  {
+   "name": "[D] FLIP cm=false 2행 (sentinel 제외)",
+   "ok": true,
+   "detail": "actual=2"
+  },
+  {
+   "name": "[E] snapshot 5명 보유",
+   "ok": true
+  },
+  {
+   "name": "[1-3] P1 장승완 direct 37카드 · HTTP 37 · 일치 true · sentinel 미노출 true",
+   "ok": true,
+   "detail": "expected≥28"
+  },
+  {
+   "name": "[1-3] P2 안은비 direct 49카드 · HTTP 49 · 일치 true · sentinel 미노출 true",
+   "ok": true,
+   "detail": "expected≥42"
+  },
+  {
+   "name": "[1-3] P3 성채윤 direct 21카드 · HTTP 21 · 일치 true · sentinel 미노출 true",
+   "ok": true,
+   "detail": "expected≥19"
+  },
+  {
+   "name": "[1-3] P4 박시은 direct 21카드 · HTTP 21 · 일치 true · sentinel 미노출 true",
+   "ok": true,
+   "detail": "expected≥19"
+  },
+  {
+   "name": "[1-3] P5 정혜빈 direct 30카드 · HTTP 30 · 일치 true · sentinel 미노출 true",
+   "ok": true,
+   "detail": "expected≥29"
+  },
+  {
+   "name": "[3] direct == HTTP 5/5 (canonical)",
+   "ok": true
+  },
+  {
+   "name": "[4] 비대상 사용자 영향 0 — 5개 테이블 fingerprint 전후 동일",
+   "ok": true,
+   "detail": "5/5 동일"
+  },
+  {
+   "name": "[5] snapshot 5명 — v18 · is_stale=false · apply 시점 재계산",
+   "ok": true,
+   "detail": "[\"12:37:01\",\"12:37:31\",\"12:37:17\",\"12:37:47\",\"12:38:07\"]"
+  },
+  {
+   "name": "[demo] demoUserId == internal-key (테스터 회귀)",
+   "ok": true
+  }
+ ],
+ "tally": {
+  "ledger": 3048,
+  "ensureLines": 11,
+  "lineCodes": [
+   "EXBS-EN250324",
+   "EXBS-EN250331",
+   "EXBS-EN250428",
+   "EXBS-EN250505",
+   "EXBS-EN250512",
+   "EXBS-EN250519",
+   "EXBS-EN250526",
+   "EXBS-EN250630",
+   "EXBS-EN250707",
+   "EXBS-EN250714",
+   "EXBS-EN250721"
+  ],
+  "uwsRows": 139,
+  "uwpRows": 207,
+  "sentinels": 5,
+  "sentinelRows": [
+   {
+    "user_id": "14f5c826-b2cf-4a88-abda-7168f3be907d",
+    "year": 1900,
+    "week_number": 1,
+    "points": 12,
+    "advantages": 20,
+    "penalty": 0,
+    "checks_migrated": false
+   },
+   {
+    "user_id": "19cb4129-ba73-4685-9912-7d9d4ed3768b",
+    "year": 1900,
+    "week_number": 1,
+    "points": 6,
+    "advantages": 14,
+    "penalty": 0,
+    "checks_migrated": false
+   },
+   {
+    "user_id": "3c4fc830-a465-4a00-a26a-a0c37fa3052c",
+    "year": 1900,
+    "week_number": 1,
+    "points": 8,
+    "advantages": 19,
+    "penalty": 0,
+    "checks_migrated": false
+   },
+   {
+    "user_id": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+    "year": 1900,
+    "week_number": 1,
+    "points": -14,
+    "advantages": 5,
+    "penalty": 0,
+    "checks_migrated": false
+   },
+   {
+    "user_id": "f3ac0827-793c-42a0-a83a-1c9070914b2e",
+    "year": 1900,
+    "week_number": 1,
+    "points": -4,
+    "advantages": 17,
+    "penalty": 0,
+    "checks_migrated": false
+   }
+  ],
+  "cmFalse": 2,
+  "targets": 138,
+  "profiles": 5,
+  "snapshots": 5
+ },
+ "uuids": {
+  "P1": "14f5c826-b2cf-4a88-abda-7168f3be907d",
+  "P2": "3c4fc830-a465-4a00-a26a-a0c37fa3052c",
+  "P3": "19cb4129-ba73-4685-9912-7d9d4ed3768b",
+  "P4": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+  "P5": "f3ac0827-793c-42a0-a83a-1c9070914b2e"
+ }
+}

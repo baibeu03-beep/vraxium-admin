@@ -1,0 +1,54 @@
+{
+  "pass": 10,
+  "fail": 0,
+  "results": [
+    {
+      "name": "[1] encre org 행 93건",
+      "ok": true,
+      "detail": "actual=93"
+    },
+    {
+      "name": "[1b] encre 전행 provenance = hrdb.weekssettings",
+      "ok": true
+    },
+    {
+      "name": "[2] phalanx org 행 76건",
+      "ok": true,
+      "detail": "actual=76"
+    },
+    {
+      "name": "[2b] phalanx 전행 provenance = olympus.weekssettings",
+      "ok": true
+    },
+    {
+      "name": "[3] oranke org 행 100건 + 내용 불변 (apply 전 fingerprint 일치)",
+      "ok": true,
+      "detail": "count=100/100 hash=4d1f77eb4f849edf/4d1f77eb4f849edf"
+    },
+    {
+      "name": "[4-pre] 3조직 값이 전부 다른 주차 존재",
+      "ok": true,
+      "detail": "count=55"
+    },
+    {
+      "name": "[4a] encre → encre 값",
+      "ok": true,
+      "detail": "got=28 expected=28"
+    },
+    {
+      "name": "[4b] phalanx → phalanx 값",
+      "ok": true,
+      "detail": "got=39 expected=39"
+    },
+    {
+      "name": "[4c] oranke → oranke 값",
+      "ok": true,
+      "detail": "got=37 expected=37"
+    },
+    {
+      "name": "[4d] org null → weeks 공통 폴백(=oranke seed 원본)",
+      "ok": true,
+      "detail": "got=37"
+    }
+  ]
+}

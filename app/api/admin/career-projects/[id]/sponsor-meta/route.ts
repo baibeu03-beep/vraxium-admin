@@ -11,6 +11,7 @@ import {
   markWeeklyCardsSnapshotStaleMany,
   recomputeWeeklyCardsSnapshotsForUsers,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { syncRegistrationFromCareerProject } from "@/lib/lineMasterDriftGuard";
 
 // PATCH /api/admin/career-projects/[id]/sponsor-meta
 //   career_projects 의 sponsor-card 6필드만 부분 수정 (full upsert 아님 — 다른 컬럼/career_records 불변).
@@ -95,6 +96,8 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     //    snapshot-only(DISABLE_LAZY) 런타임/지연 조회 시 옛값이 계속 노출되는 race 가 있었다.
     //    저장 시점에 바로 재계산해 다음 weekly-cards 조회에서 변경이 즉시 반영되게 한다. best-effort.
     const recompute = await recomputeWeeklyCardsSnapshotsForUsers(targetUserIds);
+    // (2E-5) bridged registration 이 있는 행만 통합 등록에 역방향 동기화 — mirror 정합 유지.
+    const sync = await syncRegistrationFromCareerProject(id);
     return Response.json({
       success: true,
       data: {
@@ -103,6 +106,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
         recomputed: recompute.recomputed,
         recomputeFailed: recompute.failed,
       },
+      driftSync: { synced: sync.synced, warning: sync.warning },
     });
   } catch (error) {
     if (error instanceof CareerProjectError) {

@@ -1,0 +1,838 @@
+{
+ "generatedAt": "2026-06-07 PMS 전체 사용자 이관 감사 (read-only)",
+ "weeksLive": 153,
+ "1_사용자수": {
+  "pmsTotal": 1369,
+  "매칭분포": {
+   "신규채번": 1357,
+   "강매칭": 0,
+   "약매칭": 10,
+   "모호": 2,
+   "테스터충돌": 0
+  },
+  "이관가능": 1357,
+  "재검토필요": 12,
+  "usersinfo부재": 0,
+  "userspoint부재": 0
+ },
+ "2_Week재현율": {
+  "Week선언보유": 1369,
+  "완전일치": 913,
+  "일치율": "66.7%",
+  "diff분포_planned_minus_decl": {
+   "0": 913,
+   "1": 33,
+   "2": 1,
+   "3": 1,
+   "18": 1,
+   "-26": 1,
+   "-24": 1,
+   "-22": 1,
+   "-15": 1,
+   "-10": 1,
+   "-7": 1,
+   "-6": 2,
+   "-5": 2,
+   "-4": 5,
+   "-3": 21,
+   "-2": 61,
+   "-1": 323
+  },
+  "불일치사용자": [
+   {
+    "userId": 7,
+    "name": "김혜린",
+    "decl": 6,
+    "planned": 4,
+    "actUnattrActive": 2
+   },
+   {
+    "userId": 8,
+    "name": "김연재",
+    "decl": 29,
+    "planned": 27,
+    "actUnattrActive": 2
+   },
+   {
+    "userId": 9,
+    "name": "이혜인",
+    "decl": 23,
+    "planned": 21,
+    "actUnattrActive": 2
+   },
+   {
+    "userId": 10,
+    "name": "서종욱",
+    "decl": 22,
+    "planned": 20,
+    "actUnattrActive": 2
+   },
+   {
+    "userId": 11,
+    "name": "신채윤",
+    "decl": 7,
+    "planned": 5,
+    "actUnattrActive": 2
+   },
+   {
+    "userId": 12,
+    "name": "이주영",
+    "decl": 8,
+    "planned": 6,
+    "actUnattrActive": 2
+   },
+   {
+    "userId": 13,
+    "name": "박성빈",
+    "decl": 8,
+    "planned": 6,
+    "actUnattrActive": 2
+   },
+   {
+    "userId": 14,
+    "name": "서동연",
+    "decl": 10,
+    "planned": 8,
+    "actUnattrActive": 2
+   },
+   {
+    "userId": 15,
+    "name": "전아현",
+    "decl": 10,
+    "planned": 9,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 16,
+    "name": "함채윤",
+    "decl": 24,
+    "planned": 23,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 17,
+    "name": "황지호",
+    "decl": 10,
+    "planned": 9,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 18,
+    "name": "김정연",
+    "decl": 1,
+    "planned": 0,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 19,
+    "name": "차유빈",
+    "decl": 13,
+    "planned": 12,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 20,
+    "name": "최진영",
+    "decl": 8,
+    "planned": 7,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 21,
+    "name": "김범수",
+    "decl": 6,
+    "planned": 5,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 22,
+    "name": "조성용",
+    "decl": 6,
+    "planned": 5,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 23,
+    "name": "이승재",
+    "decl": 18,
+    "planned": 17,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 24,
+    "name": "지은수",
+    "decl": 21,
+    "planned": 20,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 25,
+    "name": "강유정",
+    "decl": 10,
+    "planned": 9,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 26,
+    "name": "김하은",
+    "decl": 8,
+    "planned": 7,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 27,
+    "name": "임지향",
+    "decl": 36,
+    "planned": 34,
+    "actUnattrActive": 2
+   },
+   {
+    "userId": 28,
+    "name": "김해랑",
+    "decl": 1,
+    "planned": 0,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 29,
+    "name": "김소영",
+    "decl": 4,
+    "planned": 3,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 30,
+    "name": "박주아",
+    "decl": 10,
+    "planned": 9,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 31,
+    "name": "전하나",
+    "decl": 28,
+    "planned": 27,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 32,
+    "name": "강혜령",
+    "decl": 7,
+    "planned": 6,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 33,
+    "name": "이다은",
+    "decl": 1,
+    "planned": 0,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 52,
+    "name": "방유찬",
+    "decl": 33,
+    "planned": 32,
+    "actUnattrActive": 1
+   },
+   {
+    "userId": 64,
+    "name": "송현수",
+    "decl": 45,
+    "planned": 42,
+    "actUnattrActive": 2
+   },
+   {
+    "userId": 71,
+    "name": "홍성재",
+    "decl": 45,
+    "planned": 42,
+    "actUnattrActive": 3
+   }
+  ]
+ },
+ "3_success재현율": {
+  "pms인정주차합": 15553,
+  "v18표시success합": 13872,
+  "agree": 15034,
+  "flips": 2053,
+  "reverse": 372,
+  "표시재현율": "86.80%",
+  "귀속실패로누락된인정활동행": 421
+ },
+ "4_FLIP": {
+  "flips": 2053,
+  "flipUsers": 516,
+  "reverse": 372,
+  "reverseUsers": 296,
+  "원인": {
+   "checkFail만": 2050,
+   "ratingFail만": 0,
+   "둘다": 3
+  }
+ },
+ "5_활동귀속실패": {
+  "행수": 897,
+  "인정행": 421,
+  "사용자수": 501,
+  "시즌별": {
+   "spring·2024": 541,
+   "미해석(중간)·2025": 44,
+   "미해석(4)·2023": 42,
+   "spring·0001": 41,
+   "winter·2024": 38,
+   "summer·0001": 33,
+   "winter·0001": 23,
+   "autumn·0001": 23,
+   "winter·2023": 18,
+   "summer·2025": 17,
+   "미해석(겨울 시즌8주차)·2023": 15,
+   "미해석(3)·2025": 13,
+   "autumn·2023": 10,
+   "autumn·2025": 10,
+   "spring·2025": 6,
+   "미해석(겨울`)·2026": 4,
+   "미해석(겨울->봄 시즌 전)·2023": 3,
+   "미해석(시즌전환)·2024": 3,
+   "summer·2023": 2,
+   "미해석(S10)·2025": 2,
+   "미해석(중간)·2024": 2,
+   "spring·2023": 1,
+   "autumn·2024": 1,
+   "미해석(테스트)·2024": 1,
+   "summer·2024": 1,
+   "미해석(테스트123)·2023": 1,
+   "미해석(테스트)·2023": 1,
+   "winter·2025": 1
+  },
+  "pointlogs미귀속행": 5010,
+  "pointlogs미귀속연도별": {
+   "2023": 1531,
+   "2024": 2289,
+   "2025": 1190
+  }
+ },
+ "6_adjustment": {
+  "zero사용자": 0,
+  "발생사용자": 1369,
+  "잔액부재": 0,
+  "절대값분포": {
+   "0": 0,
+   "1~5": 78,
+   "6~20": 1005,
+   "21~50": 159,
+   "51~100": 64,
+   "100+": 63
+  },
+  "top20": [
+   {
+    "userId": 472,
+    "name": "김주영",
+    "state": "졸업",
+    "starDelta": -843,
+    "shieldD": 2,
+    "logUnattr": 36,
+    "actUnattr": 2
+   },
+   {
+    "userId": 442,
+    "name": "신인선",
+    "state": "졸업",
+    "starDelta": -423,
+    "shieldD": 0,
+    "logUnattr": 19,
+    "actUnattr": 3
+   },
+   {
+    "userId": 557,
+    "name": "정혜정",
+    "state": "졸업",
+    "starDelta": -419,
+    "shieldD": 21,
+    "logUnattr": 53,
+    "actUnattr": 2
+   },
+   {
+    "userId": 608,
+    "name": "남예진",
+    "state": "졸업",
+    "starDelta": -299,
+    "shieldD": 8,
+    "logUnattr": 13,
+    "actUnattr": 2
+   },
+   {
+    "userId": 417,
+    "name": "허예빈",
+    "state": "졸업",
+    "starDelta": -287,
+    "shieldD": 23,
+    "logUnattr": 34,
+    "actUnattr": 2
+   },
+   {
+    "userId": 508,
+    "name": "안예빈",
+    "state": "졸업",
+    "starDelta": -278,
+    "shieldD": 21,
+    "logUnattr": 46,
+    "actUnattr": 1
+   },
+   {
+    "userId": 480,
+    "name": "김예나",
+    "state": "졸업",
+    "starDelta": -241,
+    "shieldD": 16,
+    "logUnattr": 5,
+    "actUnattr": 2
+   },
+   {
+    "userId": 495,
+    "name": "이윤성",
+    "state": "활동정지",
+    "starDelta": -233,
+    "shieldD": 4,
+    "logUnattr": 4,
+    "actUnattr": 2
+   },
+   {
+    "userId": 568,
+    "name": "허이령",
+    "state": "졸업",
+    "starDelta": -222,
+    "shieldD": 12,
+    "logUnattr": 8,
+    "actUnattr": 2
+   },
+   {
+    "userId": 705,
+    "name": "강슬기",
+    "state": "졸업",
+    "starDelta": -218,
+    "shieldD": 14,
+    "logUnattr": 16,
+    "actUnattr": 2
+   },
+   {
+    "userId": 282,
+    "name": "김효진",
+    "state": "졸업",
+    "starDelta": 208,
+    "shieldD": 19,
+    "logUnattr": 21,
+    "actUnattr": 1
+   },
+   {
+    "userId": 535,
+    "name": "조혜원",
+    "state": "졸업",
+    "starDelta": -202,
+    "shieldD": 11,
+    "logUnattr": 5,
+    "actUnattr": 2
+   },
+   {
+    "userId": 398,
+    "name": "오수빈",
+    "state": "졸업",
+    "starDelta": 196,
+    "shieldD": 9,
+    "logUnattr": 10,
+    "actUnattr": 2
+   },
+   {
+    "userId": 27,
+    "name": "임지향",
+    "state": "졸업",
+    "starDelta": 194,
+    "shieldD": 22,
+    "logUnattr": 32,
+    "actUnattr": 2
+   },
+   {
+    "userId": 64,
+    "name": "송현수",
+    "state": "졸업",
+    "starDelta": 194,
+    "shieldD": 11,
+    "logUnattr": 18,
+    "actUnattr": 2
+   },
+   {
+    "userId": 706,
+    "name": "전수빈",
+    "state": "졸업",
+    "starDelta": 186,
+    "shieldD": 15,
+    "logUnattr": 10,
+    "actUnattr": 2
+   },
+   {
+    "userId": 486,
+    "name": "최지애",
+    "state": "졸업",
+    "starDelta": -177,
+    "shieldD": 11,
+    "logUnattr": 6,
+    "actUnattr": 2
+   },
+   {
+    "userId": 254,
+    "name": "김나경",
+    "state": "졸업",
+    "starDelta": 174,
+    "shieldD": 13,
+    "logUnattr": 16,
+    "actUnattr": 2
+   },
+   {
+    "userId": 388,
+    "name": "정예슬",
+    "state": "졸업",
+    "starDelta": 170,
+    "shieldD": 4,
+    "logUnattr": 30,
+    "actUnattr": 1
+   },
+   {
+    "userId": 564,
+    "name": "이수연",
+    "state": "활동정지",
+    "starDelta": -169,
+    "shieldD": 16,
+    "logUnattr": 4,
+    "actUnattr": 2
+   }
+  ]
+ },
+ "7_checksMigrated": {
+  "true예정_uwp행": 23195,
+  "false예정": {
+   "flip행_PMS인정우선": 2053,
+   "sentinel행": 1369
+  },
+  "사유": "false = ① FLIP 행(PMS 인정 우선 — 게이트 비적용 보존) ② sentinel(1900-W0 — 주차 도메인 비오염)"
+ },
+ "8_실무경험": {
+  "대상주차": 17459,
+  "subtitle보유": 17445,
+  "subtitle복원율": "99.9%",
+  "rating보유": 17459,
+  "rating복원율": "100.0%",
+  "누락": {
+   "subtitle": 14,
+   "rating": 0
+  }
+ },
+ "9_legacy충돌": {
+  "충돌수": 34,
+  "대상": [
+   {
+    "userId": 248,
+    "name": "서정민",
+    "state": "활동정지"
+   },
+   {
+    "userId": 249,
+    "name": "최유정",
+    "state": "활동정지"
+   },
+   {
+    "userId": 261,
+    "name": "강유찬",
+    "state": "활동정지"
+   },
+   {
+    "userId": 263,
+    "name": "최지원",
+    "state": "졸업"
+   },
+   {
+    "userId": 264,
+    "name": "백지원",
+    "state": "활동정지"
+   },
+   {
+    "userId": 269,
+    "name": "권규리",
+    "state": "활동정지"
+   },
+   {
+    "userId": 273,
+    "name": "남수인",
+    "state": "활동정지"
+   },
+   {
+    "userId": 274,
+    "name": "강무현",
+    "state": "활동정지"
+   },
+   {
+    "userId": 277,
+    "name": "김윤조",
+    "state": "활동정지"
+   },
+   {
+    "userId": 278,
+    "name": "곽유민",
+    "state": "활동정지"
+   },
+   {
+    "userId": 279,
+    "name": "이윤호",
+    "state": "활동정지"
+   },
+   {
+    "userId": 281,
+    "name": "이예솔",
+    "state": "졸업"
+   },
+   {
+    "userId": 284,
+    "name": "손민수",
+    "state": "활동정지"
+   },
+   {
+    "userId": 286,
+    "name": "강승현",
+    "state": "활동정지"
+   },
+   {
+    "userId": 287,
+    "name": "손하은",
+    "state": "활동정지"
+   },
+   {
+    "userId": 288,
+    "name": "박한지",
+    "state": "활동정지"
+   },
+   {
+    "userId": 290,
+    "name": "서다니엘",
+    "state": "활동정지"
+   },
+   {
+    "userId": 292,
+    "name": "김범수",
+    "state": "활동정지"
+   },
+   {
+    "userId": 293,
+    "name": "임유진",
+    "state": "활동정지"
+   },
+   {
+    "userId": 294,
+    "name": "이주연",
+    "state": "활동정지"
+   },
+   {
+    "userId": 295,
+    "name": "김윤주",
+    "state": "졸업"
+   },
+   {
+    "userId": 296,
+    "name": "신유지",
+    "state": "졸업"
+   },
+   {
+    "userId": 297,
+    "name": "김수안",
+    "state": "졸업"
+   },
+   {
+    "userId": 298,
+    "name": "김의현",
+    "state": "활동정지"
+   },
+   {
+    "userId": 299,
+    "name": "이하림",
+    "state": "활동정지"
+   },
+   {
+    "userId": 300,
+    "name": "민유경",
+    "state": "활동정지"
+   },
+   {
+    "userId": 301,
+    "name": "조세빈",
+    "state": "활동정지"
+   },
+   {
+    "userId": 303,
+    "name": "김민정",
+    "state": "졸업"
+   },
+   {
+    "userId": 304,
+    "name": "최윤서",
+    "state": "졸업"
+   },
+   {
+    "userId": 305,
+    "name": "김우경",
+    "state": "졸업"
+   },
+   {
+    "userId": 306,
+    "name": "권해슬",
+    "state": "활동정지"
+   },
+   {
+    "userId": 307,
+    "name": "김소현",
+    "state": "졸업"
+   },
+   {
+    "userId": 308,
+    "name": "최소희",
+    "state": "활동정지"
+   },
+   {
+    "userId": 309,
+    "name": "심민경",
+    "state": "활동정지"
+   }
+  ],
+  "유형": "기존 Vraxium 구 sequence 합성값(248~309)과 수치 충돌 — 06-07 0/28 동일인 아님 실증(false-bridge)",
+  "영향": "이관 시 legacy_user_id 브리지 신뢰 금지(3중 키 매칭) + 34명 선처리(재채번/제외) 필요"
+ },
+ "10_시즌별": [
+  {
+   "season": "2023-autumn",
+   "users": 187,
+   "activityWeeks": 1274,
+   "pmsSuccess": 1157,
+   "v18Success": 1105,
+   "flips": 66,
+   "reverse": 14,
+   "v18Rate": "94.3%"
+  },
+  {
+   "season": "2023-spring",
+   "users": 291,
+   "activityWeeks": 1305,
+   "pmsSuccess": 1144,
+   "v18Success": 50,
+   "flips": 1095,
+   "reverse": 1,
+   "v18Rate": "4.3%"
+  },
+  {
+   "season": "2023-summer",
+   "users": 199,
+   "activityWeeks": 1195,
+   "pmsSuccess": 1083,
+   "v18Success": 1033,
+   "flips": 108,
+   "reverse": 58,
+   "v18Rate": "90.0%"
+  },
+  {
+   "season": "2024-autumn",
+   "users": 237,
+   "activityWeeks": 1666,
+   "pmsSuccess": 1530,
+   "v18Success": 1456,
+   "flips": 91,
+   "reverse": 17,
+   "v18Rate": "94.1%"
+  },
+  {
+   "season": "2024-spring",
+   "users": 369,
+   "activityWeeks": 2295,
+   "pmsSuccess": 1962,
+   "v18Success": 1889,
+   "flips": 136,
+   "reverse": 63,
+   "v18Rate": "93.1%"
+  },
+  {
+   "season": "2024-summer",
+   "users": 266,
+   "activityWeeks": 1676,
+   "pmsSuccess": 1445,
+   "v18Success": 1441,
+   "flips": 44,
+   "reverse": 40,
+   "v18Rate": "97.0%"
+  },
+  {
+   "season": "2024-winter",
+   "users": 269,
+   "activityWeeks": 1291,
+   "pmsSuccess": 1154,
+   "v18Success": 1069,
+   "flips": 120,
+   "reverse": 35,
+   "v18Rate": "89.6%"
+  },
+  {
+   "season": "2025-autumn",
+   "users": 203,
+   "activityWeeks": 1518,
+   "pmsSuccess": 1371,
+   "v18Success": 1234,
+   "flips": 165,
+   "reverse": 28,
+   "v18Rate": "88.0%"
+  },
+  {
+   "season": "2025-spring",
+   "users": 217,
+   "activityWeeks": 1524,
+   "pmsSuccess": 1328,
+   "v18Success": 1320,
+   "flips": 41,
+   "reverse": 33,
+   "v18Rate": "96.9%"
+  },
+  {
+   "season": "2025-summer",
+   "users": 214,
+   "activityWeeks": 1312,
+   "pmsSuccess": 1169,
+   "v18Success": 1086,
+   "flips": 105,
+   "reverse": 22,
+   "v18Rate": "91.0%"
+  },
+  {
+   "season": "2025-winter",
+   "users": 191,
+   "activityWeeks": 976,
+   "pmsSuccess": 884,
+   "v18Success": 894,
+   "flips": 20,
+   "reverse": 30,
+   "v18Rate": "97.7%"
+  },
+  {
+   "season": "2026-spring",
+   "users": 126,
+   "activityWeeks": 832,
+   "pmsSuccess": 739,
+   "v18Success": 740,
+   "flips": 29,
+   "reverse": 30,
+   "v18Rate": "96.1%"
+  },
+  {
+   "season": "2026-winter",
+   "users": 115,
+   "activityWeeks": 595,
+   "pmsSuccess": 587,
+   "v18Success": 555,
+   "flips": 33,
+   "reverse": 1,
+   "v18Rate": "94.4%"
+  }
+ ]
+}

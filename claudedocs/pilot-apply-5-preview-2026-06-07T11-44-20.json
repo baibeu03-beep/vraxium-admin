@@ -1,0 +1,224 @@
+{
+ "generatedAt": "2026-06-07 pilot-apply-5 preview",
+ "mode": "preview",
+ "blocked": true,
+ "drift": [
+  "missingLines: 26 — [통합] 라인 부재 주차 (자동 생성 금지, 운영 결정 필요)"
+ ],
+ "totals": {
+  "usersInsert": 3,
+  "usersUpdate": 2,
+  "profilesInsert": 3,
+  "uwsInsert": 131,
+  "uwsOverwrite": 6,
+  "uwsConflicts": 1,
+  "uwpInsert": 194,
+  "uwpOverwrite": 8,
+  "sentinel": 5,
+  "checksMigratedFalse": 2,
+  "ledger": 3048,
+  "expEach": 137,
+  "snapshotNew": 3,
+  "snapshotRecompute": 2,
+  "missingLines": 26,
+  "unattributed": 21,
+  "negativeSentinels": 2
+ },
+ "expected": {
+  "usersInsert": 3,
+  "usersUpdate": 2,
+  "profilesInsert": 3,
+  "uwsInsert": 131,
+  "uwsOverwrite": 6,
+  "uwpInsert": 194,
+  "uwpOverwrite": 8,
+  "sentinel": 5,
+  "checksMigratedFalse": 2,
+  "ledger": 3043,
+  "expEach": 137,
+  "snapshotNew": 3,
+  "snapshotRecompute": 2
+ },
+ "perUser": [
+  {
+   "pilot": "P1",
+   "source": "oranke",
+   "pmsId": 1092,
+   "name": "장승완",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1092
+   },
+   "usersAction": "insert",
+   "uuid": "7e4b4c15-d94d-4586-abee-3e8d471e1ae7",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 511,
+    "uwp": {
+     "insert": 48,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 2
+    },
+    "uws": {
+     "insert": 28,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 28,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 12,
+    "advantages": 20,
+    "penalty": 0
+   },
+   "unattributedHold": 6,
+   "missingLines": 10
+  },
+  {
+   "pilot": "P2",
+   "source": "hrdb",
+   "pmsId": 1463,
+   "name": "안은비",
+   "identity": {
+    "sourceSystem": "hrdb",
+    "legacyUserId": 1463
+   },
+   "usersAction": "insert",
+   "uuid": "ea177366-ff98-4d60-8277-19446665fb2d",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 983,
+    "uwp": {
+     "insert": 51,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 42,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 42,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 19,
+    "penalty": 0
+   },
+   "unattributedHold": 7,
+   "missingLines": 11
+  },
+  {
+   "pilot": "P3",
+   "source": "olympus",
+   "pmsId": 249,
+   "name": "성채윤",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 249
+   },
+   "usersAction": "update",
+   "uuid": "19cb4129-ba73-4685-9912-7d9d4ed3768b",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 449,
+    "uwp": {
+     "insert": 31,
+     "overwrite": 4,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 16,
+     "overwrite": 3,
+     "conflicts": 0
+    },
+    "experience": 19,
+    "snapshot": "recompute"
+   },
+   "sentinel": {
+    "points": 6,
+    "advantages": 14,
+    "penalty": 0
+   },
+   "unattributedHold": 4,
+   "missingLines": 2
+  },
+  {
+   "pilot": "P4",
+   "source": "olympus",
+   "pmsId": 248,
+   "name": "박시은",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 248
+   },
+   "usersAction": "update",
+   "uuid": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 409,
+    "uwp": {
+     "insert": 24,
+     "overwrite": 4,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 16,
+     "overwrite": 3,
+     "conflicts": 1
+    },
+    "experience": 19,
+    "snapshot": "recompute"
+   },
+   "sentinel": {
+    "points": -14,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "missingLines": 2
+  },
+  {
+   "pilot": "P5",
+   "source": "olympus",
+   "pmsId": 251,
+   "name": "정혜빈",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 251
+   },
+   "usersAction": "insert",
+   "uuid": "4f3be5ef-a6e3-4a26-b68a-820646515b7a",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 696,
+    "uwp": {
+     "insert": 40,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 29,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 29,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -4,
+    "advantages": 17,
+    "penalty": 0
+   },
+   "unattributedHold": 4,
+   "missingLines": 1
+  }
+ ]
+}

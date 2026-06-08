@@ -1,0 +1,68 @@
+[
+ {
+  "pilot": "P1 장승완",
+  "uuid": "14f5c826",
+  "uwsTotal": 28,
+  "pmsWeeks": 28,
+  "extraInVraxium": [],
+  "missingFromVraxium": [],
+  "springW13": false,
+  "springW14": false
+ },
+ {
+  "pilot": "P2 안은비",
+  "uuid": "3c4fc830",
+  "uwsTotal": 42,
+  "pmsWeeks": 42,
+  "extraInVraxium": [],
+  "missingFromVraxium": [],
+  "springW13": true,
+  "springW14": false
+ },
+ {
+  "pilot": "P3 성채윤",
+  "uuid": "19cb4129",
+  "uwsTotal": 20,
+  "pmsWeeks": 19,
+  "extraInVraxium": [
+   {
+    "week": "2026-spring W13",
+    "start": "2026-05-25",
+    "status": "fail",
+    "created_at": "2026-06-01T01:11:28.564235+00:00",
+    "origin": "이관 이전 기존 행(2026-06-01T01:11)"
+   }
+  ],
+  "missingFromVraxium": [],
+  "springW13": true,
+  "springW14": false
+ },
+ {
+  "pilot": "P4 박시은",
+  "uuid": "56c46098",
+  "uwsTotal": 20,
+  "pmsWeeks": 19,
+  "extraInVraxium": [
+   {
+    "week": "2026-spring W11",
+    "start": "2026-05-11",
+    "status": "success",
+    "created_at": "2026-05-25T00:44:30.695312+00:00",
+    "origin": "이관 이전 기존 행(2026-05-25T00:44)"
+   }
+  ],
+  "missingFromVraxium": [],
+  "springW13": true,
+  "springW14": false
+ },
+ {
+  "pilot": "P5 정혜빈",
+  "uuid": "f3ac0827",
+  "uwsTotal": 29,
+  "pmsWeeks": 29,
+  "extraInVraxium": [],
+  "missingFromVraxium": [],
+  "springW13": true,
+  "springW14": false
+ }
+]

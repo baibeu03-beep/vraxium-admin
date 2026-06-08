@@ -1,0 +1,891 @@
+{
+  "mode": "apply",
+  "targets": 60,
+  "plan": {
+    "aShift": 43,
+    "bFlipThr0": 10,
+    "anomalies": 0
+  },
+  "applied": {
+    "aShift": 43,
+    "bFlip": 10,
+    "recalc": 8,
+    "snapshots": 60,
+    "errors": []
+  },
+  "nonTargetUntouched": true,
+  "nonTargetFingerprint": {
+    "before": "e4193f043f84338f",
+    "after": "e4193f043f84338f"
+  },
+  "postMismatch": 0,
+  "targetsList": [
+    {
+      "user_id": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+      "org": "phalanx",
+      "name": "T임수빈"
+    },
+    {
+      "user_id": "9898f4a2-b873-4231-b2ac-321afa74555c",
+      "org": "phalanx",
+      "name": "T서승현"
+    },
+    {
+      "user_id": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "org": "phalanx",
+      "name": "T윤태현"
+    },
+    {
+      "user_id": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+      "org": "encre",
+      "name": "T윤서진"
+    },
+    {
+      "user_id": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+      "org": "encre",
+      "name": "T권태현"
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "org": "phalanx",
+      "name": "T장시현"
+    },
+    {
+      "user_id": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+      "org": "phalanx",
+      "name": "T조서현"
+    },
+    {
+      "user_id": "f3a9bd26-46c1-4bb7-9285-94692380145f",
+      "org": "encre",
+      "name": "T최예은"
+    },
+    {
+      "user_id": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+      "org": "encre",
+      "name": "T강지아"
+    },
+    {
+      "user_id": "42864260-e4ea-4150-a87f-cff545b02af1",
+      "org": "encre",
+      "name": "T임다인"
+    },
+    {
+      "user_id": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "org": "encre",
+      "name": "T장유준"
+    },
+    {
+      "user_id": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
+      "org": "phalanx",
+      "name": "T윤예린"
+    },
+    {
+      "user_id": "36138fb1-6fea-4b22-b6d2-9c46cba47314",
+      "org": "encre",
+      "name": "T최수빈"
+    },
+    {
+      "user_id": "59c22d30-aece-4855-9958-bf34f8795d2a",
+      "org": "phalanx",
+      "name": "T한유준"
+    },
+    {
+      "user_id": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+      "org": "phalanx",
+      "name": "T장준혁"
+    },
+    {
+      "user_id": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+      "org": "phalanx",
+      "name": "T강지환"
+    },
+    {
+      "user_id": "4263f72d-60e8-4235-bae2-3ed0921e1508",
+      "org": "phalanx",
+      "name": "T김예은"
+    },
+    {
+      "user_id": "9e2f8097-b1ce-4920-9c67-af9989074cfd",
+      "org": "encre",
+      "name": "T홍채원"
+    },
+    {
+      "user_id": "5cd3cf48-0a62-41db-beb9-960987a485d2",
+      "org": "phalanx",
+      "name": "T안태우"
+    },
+    {
+      "user_id": "e1a17a4a-05b5-443e-a95d-db20ec2ad9af",
+      "org": "encre",
+      "name": "T강현우"
+    },
+    {
+      "user_id": "db913eae-d0b2-4681-a257-723f84a4da9d",
+      "org": "phalanx",
+      "name": "T이정우"
+    },
+    {
+      "user_id": "35c987bf-015f-482c-b966-63fe55af0256",
+      "org": "phalanx",
+      "name": "T류서진"
+    },
+    {
+      "user_id": "37b7ddce-6146-4941-8c5f-c1dfa4e09f7e",
+      "org": "encre",
+      "name": "T안준혁"
+    },
+    {
+      "user_id": "ee9bf53b-b7cf-4a27-8aeb-fa4a7ec605eb",
+      "org": "encre",
+      "name": "T한지민"
+    },
+    {
+      "user_id": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "org": "encre",
+      "name": "T윤도현"
+    },
+    {
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "org": "phalanx",
+      "name": "T임건우"
+    },
+    {
+      "user_id": "f980b257-12b1-4f9c-ae71-307336071785",
+      "org": "encre",
+      "name": "T장소율"
+    },
+    {
+      "user_id": "e0fc0a80-a4ae-4e39-b709-e09fabc174bd",
+      "org": "encre",
+      "name": "T김건우"
+    },
+    {
+      "user_id": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+      "org": "encre",
+      "name": "T임시우"
+    },
+    {
+      "user_id": "5fe0f152-3e4c-4313-8203-6fb6002c5393",
+      "org": "encre",
+      "name": "T류지환"
+    },
+    {
+      "user_id": "b2e2d277-d40c-4cef-91cb-733b7d6e658a",
+      "org": "phalanx",
+      "name": "T강시은"
+    },
+    {
+      "user_id": "c17542ff-4eb2-4b4e-b584-1dfcb8ca39f5",
+      "org": "phalanx",
+      "name": "T황하은"
+    },
+    {
+      "user_id": "fcfbe22a-05d2-4260-bfa4-c716d11d38bd",
+      "org": "phalanx",
+      "name": "T조현우"
+    },
+    {
+      "user_id": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
+      "org": "phalanx",
+      "name": "T신소율"
+    },
+    {
+      "user_id": "fff3941f-071c-4cca-b99a-da8bd6d2fae2",
+      "org": "encre",
+      "name": "T정하은"
+    },
+    {
+      "user_id": "a4f686e1-867e-4a61-8323-c518c4288a14",
+      "org": "phalanx",
+      "name": "T오다은"
+    },
+    {
+      "user_id": "98807fea-2137-4160-ba5c-dedcbdced0e8",
+      "org": "encre",
+      "name": "T조예린"
+    },
+    {
+      "user_id": "ce4085e9-5dff-4f5d-a64a-5ca99c0bfb0e",
+      "org": "encre",
+      "name": "T이서연"
+    },
+    {
+      "user_id": "90de758a-3b0c-498d-af55-9b1324f36b88",
+      "org": "phalanx",
+      "name": "T정도윤"
+    },
+    {
+      "user_id": "6293191d-f862-468d-96c3-f1a09c8d36aa",
+      "org": "encre",
+      "name": "T서다은"
+    },
+    {
+      "user_id": "5fa52ea5-d2a4-45df-900c-e08b0effc2fb",
+      "org": "phalanx",
+      "name": "T송지아"
+    },
+    {
+      "user_id": "50f6a693-45fd-4b24-b8ee-959ce3e7fc4c",
+      "org": "phalanx",
+      "name": "T홍예린"
+    },
+    {
+      "user_id": "70abfec0-660b-4af3-a940-5d318f76bd4e",
+      "org": "encre",
+      "name": "T정시현"
+    },
+    {
+      "user_id": "e81c8b30-20a2-4a10-bf2c-8c3ca474e4e7",
+      "org": "encre",
+      "name": "T박정우"
+    },
+    {
+      "user_id": "7e15f412-65be-481c-8525-460b161244ca",
+      "org": "phalanx",
+      "name": "T이하준"
+    },
+    {
+      "user_id": "9d73cad4-12ec-4bd8-a118-58f8cf705122",
+      "org": "encre",
+      "name": "T신유진"
+    },
+    {
+      "user_id": "f26e0bab-e138-41e6-a28b-676036a6a5aa",
+      "org": "phalanx",
+      "name": "T권지민"
+    },
+    {
+      "user_id": "614f78f4-c372-4c11-a17f-46b9e7bd4523",
+      "org": "encre",
+      "name": "T황민서"
+    },
+    {
+      "user_id": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
+      "org": "encre",
+      "name": "T조민재"
+    },
+    {
+      "user_id": "28c60d60-aa17-4614-9127-fd65a8aebcaf",
+      "org": "encre",
+      "name": "T송하린"
+    },
+    {
+      "user_id": "e649370f-ba2c-4d2f-b642-6800cb078d54",
+      "org": "encre",
+      "name": "T김민준"
+    },
+    {
+      "user_id": "fecffe36-1e01-40d6-aa83-7e2b698b6b89",
+      "org": "phalanx",
+      "name": "T최민재"
+    },
+    {
+      "user_id": "0a113e53-b678-40d1-b51c-1278e1c3f0fa",
+      "org": "phalanx",
+      "name": "T박하린"
+    },
+    {
+      "user_id": "f2d5c378-6a50-477f-b50d-2a21241e7640",
+      "org": "encre",
+      "name": "T오승현"
+    },
+    {
+      "user_id": "a3a91b4c-e3e7-45c8-9076-80eea01ad809",
+      "org": "encre",
+      "name": "T이수아"
+    },
+    {
+      "user_id": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+      "org": "phalanx",
+      "name": "T정유진"
+    },
+    {
+      "user_id": "a3cdb8ca-f9c6-4122-b881-35c5f529f29f",
+      "org": "encre",
+      "name": "T박지훈"
+    },
+    {
+      "user_id": "3fec1a7e-4a88-4bc7-8da8-9eb9daff6f8a",
+      "org": "phalanx",
+      "name": "T최지후"
+    },
+    {
+      "user_id": "a26729db-1c3b-42c0-9bce-4316dd15b2a2",
+      "org": "phalanx",
+      "name": "T김서윤"
+    },
+    {
+      "user_id": "00b75923-2109-4214-806a-37667d64ac5e",
+      "org": "phalanx",
+      "name": "T박민서"
+    }
+  ],
+  "aShifts": [
+    {
+      "user_id": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+      "name": "T임수빈",
+      "org": "phalanx",
+      "week_label": "2026-spring W9 (2026-04-27)",
+      "uwp_id": "85639655-b910-4022-a1f8-10b3795bce14",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+      "name": "T임수빈",
+      "org": "phalanx",
+      "week_label": "2026-spring W11 (2026-05-11)",
+      "uwp_id": "d488ee1c-536d-46d9-9dc2-02a981afb3bc",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+      "name": "T임수빈",
+      "org": "phalanx",
+      "week_label": "2026-spring W10 (2026-05-04)",
+      "uwp_id": "d4437f3e-bf58-4e7b-b6b0-3ab593501495",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "name": "T윤태현",
+      "org": "phalanx",
+      "week_label": "2026-spring W9 (2026-04-27)",
+      "uwp_id": "a1d359e1-6a40-42ff-8dfc-7191418ba53c",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "name": "T윤태현",
+      "org": "phalanx",
+      "week_label": "2026-spring W11 (2026-05-11)",
+      "uwp_id": "cce181d7-609d-412d-8e9a-2ec4f4a64a56",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "name": "T윤태현",
+      "org": "phalanx",
+      "week_label": "2026-spring W12 (2026-05-18)",
+      "uwp_id": "af93e7a9-fd73-4d55-b380-8d55106d44dc",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "name": "T장시현",
+      "org": "phalanx",
+      "week_label": "2026-spring W11 (2026-05-11)",
+      "uwp_id": "424096c9-0cc4-4126-87d4-67f00572ec32",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "name": "T장시현",
+      "org": "phalanx",
+      "week_label": "2026-spring W2 (2026-03-09)",
+      "uwp_id": "08962bf9-2f36-4e94-bf73-7e153007b598",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "name": "T장시현",
+      "org": "phalanx",
+      "week_label": "2026-spring W5 (2026-03-30)",
+      "uwp_id": "f74f2243-0edd-4a64-ad8a-bca9172aed39",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "name": "T장시현",
+      "org": "phalanx",
+      "week_label": "2026-spring W3 (2026-03-16)",
+      "uwp_id": "5428cc19-dae4-49db-b18e-bf00d9f048bd",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "name": "T장시현",
+      "org": "phalanx",
+      "week_label": "2025-autumn W10 (2025-11-03)",
+      "uwp_id": "bb594600-53ce-4e46-82ed-b556868df169",
+      "old_points": 37,
+      "new_points": 38,
+      "t_old": 37,
+      "t_new": 38
+    },
+    {
+      "user_id": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+      "name": "T조서현",
+      "org": "phalanx",
+      "week_label": "2026-spring W12 (2026-05-18)",
+      "uwp_id": "9c73a770-1afe-45dd-a5e2-9003dadb5289",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+      "name": "T조서현",
+      "org": "phalanx",
+      "week_label": "2026-spring W3 (2026-03-16)",
+      "uwp_id": "99695a2f-2741-4db6-8083-64c0d3ed3738",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "name": "T장유준",
+      "org": "encre",
+      "week_label": "2025-autumn W13 (2025-11-24)",
+      "uwp_id": "390563be-9fbf-4d5f-952a-de439821aae4",
+      "old_points": 30,
+      "new_points": 32,
+      "t_old": 30,
+      "t_new": 32
+    },
+    {
+      "user_id": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
+      "name": "T윤예린",
+      "org": "phalanx",
+      "week_label": "2026-spring W3 (2026-03-16)",
+      "uwp_id": "09e63a65-946b-4535-bfc9-f8b48f98db8e",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "59c22d30-aece-4855-9958-bf34f8795d2a",
+      "name": "T한유준",
+      "org": "phalanx",
+      "week_label": "2026-spring W1 (2026-03-02)",
+      "uwp_id": "da5fb00d-d319-4765-9975-4c4d9ca3b9cb",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "59c22d30-aece-4855-9958-bf34f8795d2a",
+      "name": "T한유준",
+      "org": "phalanx",
+      "week_label": "2026-spring W10 (2026-05-04)",
+      "uwp_id": "09166372-d0d8-4c94-9215-7bbd8c8295cc",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+      "name": "T장준혁",
+      "org": "phalanx",
+      "week_label": "2026-spring W9 (2026-04-27)",
+      "uwp_id": "85bb95cd-72a8-4ef3-9bf8-5e94ae01ceb6",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+      "name": "T장준혁",
+      "org": "phalanx",
+      "week_label": "2026-spring W2 (2026-03-09)",
+      "uwp_id": "bb4659f3-1cfa-45fd-8880-6ed842b0e7fd",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+      "name": "T강지환",
+      "org": "phalanx",
+      "week_label": "2025-autumn W9 (2025-10-27)",
+      "uwp_id": "40b12b54-3bae-47cd-b4ca-1d0a33ba2e77",
+      "old_points": 38,
+      "new_points": 42,
+      "t_old": 35,
+      "t_new": 39
+    },
+    {
+      "user_id": "4263f72d-60e8-4235-bae2-3ed0921e1508",
+      "name": "T김예은",
+      "org": "phalanx",
+      "week_label": "2026-spring W3 (2026-03-16)",
+      "uwp_id": "baf74f4e-4994-4ca3-8d22-cc4ed3f65c1c",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "5cd3cf48-0a62-41db-beb9-960987a485d2",
+      "name": "T안태우",
+      "org": "phalanx",
+      "week_label": "2026-spring W11 (2026-05-11)",
+      "uwp_id": "532b9ede-5bd2-4869-8216-cd1ac52a6d0c",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "5cd3cf48-0a62-41db-beb9-960987a485d2",
+      "name": "T안태우",
+      "org": "phalanx",
+      "week_label": "2026-spring W10 (2026-05-04)",
+      "uwp_id": "bd31c730-466d-4d3d-8814-9020221148fe",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "35c987bf-015f-482c-b966-63fe55af0256",
+      "name": "T류서진",
+      "org": "phalanx",
+      "week_label": "2026-spring W2 (2026-03-09)",
+      "uwp_id": "0cb5fe6c-5c14-4b41-b796-54be1dfa4b92",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "35c987bf-015f-482c-b966-63fe55af0256",
+      "name": "T류서진",
+      "org": "phalanx",
+      "week_label": "2026-spring W3 (2026-03-16)",
+      "uwp_id": "a7068324-78a0-4811-9a45-eb1f4995c7c9",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "name": "T임건우",
+      "org": "phalanx",
+      "week_label": "2026-spring W1 (2026-03-02)",
+      "uwp_id": "3c3398b6-1c85-4caf-9c88-62fe1aa714e4",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "name": "T임건우",
+      "org": "phalanx",
+      "week_label": "2025-autumn W9 (2025-10-27)",
+      "uwp_id": "42ef73a5-c36f-462f-858e-c2c7db57c839",
+      "old_points": 35,
+      "new_points": 39,
+      "t_old": 35,
+      "t_new": 39
+    },
+    {
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "name": "T임건우",
+      "org": "phalanx",
+      "week_label": "2026-spring W2 (2026-03-09)",
+      "uwp_id": "e3fd81a0-1e7b-4695-8b1c-d263aa891af4",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "name": "T임건우",
+      "org": "phalanx",
+      "week_label": "2026-spring W5 (2026-03-30)",
+      "uwp_id": "33add619-cce2-4c96-8b30-6ccfc9b3d21a",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "b2e2d277-d40c-4cef-91cb-733b7d6e658a",
+      "name": "T강시은",
+      "org": "phalanx",
+      "week_label": "2026-spring W9 (2026-04-27)",
+      "uwp_id": "18942664-5d52-4424-bf40-67795977900a",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "b2e2d277-d40c-4cef-91cb-733b7d6e658a",
+      "name": "T강시은",
+      "org": "phalanx",
+      "week_label": "2026-spring W11 (2026-05-11)",
+      "uwp_id": "84c169e2-ef33-4fc9-858a-99d9d2fb653c",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "c17542ff-4eb2-4b4e-b584-1dfcb8ca39f5",
+      "name": "T황하은",
+      "org": "phalanx",
+      "week_label": "2026-spring W11 (2026-05-11)",
+      "uwp_id": "4fe521dd-7017-4c90-a04d-776d6704b8cd",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
+      "name": "T신소율",
+      "org": "phalanx",
+      "week_label": "2026-spring W11 (2026-05-11)",
+      "uwp_id": "4d02370f-5613-45b5-a973-3046f99d1cf8",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "a4f686e1-867e-4a61-8323-c518c4288a14",
+      "name": "T오다은",
+      "org": "phalanx",
+      "week_label": "2026-spring W10 (2026-05-04)",
+      "uwp_id": "8f3d5a0f-f167-4943-876c-44aba53f3126",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "a4f686e1-867e-4a61-8323-c518c4288a14",
+      "name": "T오다은",
+      "org": "phalanx",
+      "week_label": "2026-spring W2 (2026-03-09)",
+      "uwp_id": "507729b3-df10-4b8a-a582-c3a164e5c2cb",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "7e15f412-65be-481c-8525-460b161244ca",
+      "name": "T이하준",
+      "org": "phalanx",
+      "week_label": "2026-spring W10 (2026-05-04)",
+      "uwp_id": "28c4acaf-28bc-40db-ad26-ea7efe3b5ec2",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "7e15f412-65be-481c-8525-460b161244ca",
+      "name": "T이하준",
+      "org": "phalanx",
+      "week_label": "2026-spring W12 (2026-05-18)",
+      "uwp_id": "28bd808f-9fd2-4192-8e02-a563e3b43f32",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
+      "name": "T조민재",
+      "org": "encre",
+      "week_label": "2025-autumn W13 (2025-11-24)",
+      "uwp_id": "2e6d831d-eb80-45a4-8ccf-67fc68d1f2a3",
+      "old_points": 31,
+      "new_points": 33,
+      "t_old": 30,
+      "t_new": 32
+    },
+    {
+      "user_id": "fecffe36-1e01-40d6-aa83-7e2b698b6b89",
+      "name": "T최민재",
+      "org": "phalanx",
+      "week_label": "2026-spring W9 (2026-04-27)",
+      "uwp_id": "b7cc2c93-c2cc-4a50-bcb4-49ba87ac59fb",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "0a113e53-b678-40d1-b51c-1278e1c3f0fa",
+      "name": "T박하린",
+      "org": "phalanx",
+      "week_label": "2026-spring W1 (2026-03-02)",
+      "uwp_id": "b49c9d74-af6a-43a8-831f-82ae496d606a",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+      "name": "T정유진",
+      "org": "phalanx",
+      "week_label": "2026-spring W10 (2026-05-04)",
+      "uwp_id": "4b1c0d37-8b05-42a7-b935-140bb8406ea4",
+      "old_points": 37,
+      "new_points": 39,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+      "name": "T정유진",
+      "org": "phalanx",
+      "week_label": "2026-spring W2 (2026-03-09)",
+      "uwp_id": "8703be15-cdd9-4394-9d42-e0f8af44dda8",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    },
+    {
+      "user_id": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+      "name": "T정유진",
+      "org": "phalanx",
+      "week_label": "2026-spring W12 (2026-05-18)",
+      "uwp_id": "7dd047ab-7f8b-42a5-81a5-4e4a5bc738d4",
+      "old_points": 38,
+      "new_points": 40,
+      "t_old": 37,
+      "t_new": 39
+    }
+  ],
+  "bFlips": [
+    {
+      "user_id": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+      "name": "T임수빈",
+      "org": "phalanx",
+      "week_label": "2026-winter W5 (2026-01-26)",
+      "week_start_date": "2026-01-26",
+      "old_status": "fail",
+      "new_status": "success"
+    },
+    {
+      "user_id": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+      "name": "T권태현",
+      "org": "encre",
+      "week_label": "2026-winter W6 (2026-02-02)",
+      "week_start_date": "2026-02-02",
+      "old_status": "fail",
+      "new_status": "success"
+    },
+    {
+      "user_id": "fcfbe22a-05d2-4260-bfa4-c716d11d38bd",
+      "name": "T조현우",
+      "org": "phalanx",
+      "week_label": "2026-winter W6 (2026-02-02)",
+      "week_start_date": "2026-02-02",
+      "old_status": "fail",
+      "new_status": "success"
+    },
+    {
+      "user_id": "a4f686e1-867e-4a61-8323-c518c4288a14",
+      "name": "T오다은",
+      "org": "phalanx",
+      "week_label": "2026-spring W13 (2026-05-25)",
+      "week_start_date": "2026-05-25",
+      "old_status": "fail",
+      "new_status": "success"
+    },
+    {
+      "user_id": "98807fea-2137-4160-ba5c-dedcbdced0e8",
+      "name": "T조예린",
+      "org": "encre",
+      "week_label": "2026-winter W5 (2026-01-26)",
+      "week_start_date": "2026-01-26",
+      "old_status": "fail",
+      "new_status": "success"
+    },
+    {
+      "user_id": "98807fea-2137-4160-ba5c-dedcbdced0e8",
+      "name": "T조예린",
+      "org": "encre",
+      "week_label": "2026-winter W7 (2026-02-09)",
+      "week_start_date": "2026-02-09",
+      "old_status": "fail",
+      "new_status": "success"
+    },
+    {
+      "user_id": "98807fea-2137-4160-ba5c-dedcbdced0e8",
+      "name": "T조예린",
+      "org": "encre",
+      "week_label": "2026-winter W4 (2026-01-19)",
+      "week_start_date": "2026-01-19",
+      "old_status": "fail",
+      "new_status": "success"
+    },
+    {
+      "user_id": "7e15f412-65be-481c-8525-460b161244ca",
+      "name": "T이하준",
+      "org": "phalanx",
+      "week_label": "2026-spring W13 (2026-05-25)",
+      "week_start_date": "2026-05-25",
+      "old_status": "fail",
+      "new_status": "success"
+    },
+    {
+      "user_id": "9d73cad4-12ec-4bd8-a118-58f8cf705122",
+      "name": "T신유진",
+      "org": "encre",
+      "week_label": "2026-winter W7 (2026-02-09)",
+      "week_start_date": "2026-02-09",
+      "old_status": "fail",
+      "new_status": "success"
+    },
+    {
+      "user_id": "fecffe36-1e01-40d6-aa83-7e2b698b6b89",
+      "name": "T최민재",
+      "org": "phalanx",
+      "week_label": "2026-spring W13 (2026-05-25)",
+      "week_start_date": "2026-05-25",
+      "old_status": "fail",
+      "new_status": "success"
+    }
+  ]
+}

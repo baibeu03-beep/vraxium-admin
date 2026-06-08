@@ -40,11 +40,11 @@ INSERT INTO public.activity_types (id, name, line_code, cluster_id, is_active)
 VALUES
   ('wisdom',            '위즈덤',           'wisdom',            'practical_info', true),
   ('essay',             '에세이',           'essay',             'practical_info', true),
-  ('infodesk',          '인포데스크',       'infodesk',          'practical_info', true),
+  ('infodesk',          '씽크탱크',       'infodesk',          'practical_info', true),
   ('calendar',          '캘린더',           'calendar',          'practical_info', true),
   ('forum',             '포럼',             'forum',             'practical_info', true),
   ('session',           '세션',             'session',           'practical_info', true),
-  ('practical_lecture',  '실무특강',        'practical_lecture',  'practical_info', true),
+  ('practical_lecture',  '아카데미',        'practical_lecture',  'practical_info', true),
   ('community',         '커뮤니티',         'community',         'practical_info', true),
   ('etc_a',             '기타A',            'etc_a',             'practical_info', true)
 ON CONFLICT (id) DO NOTHING;

@@ -1159,6 +1159,12 @@ export default function PracticalCareerManager() {
       {/* ═══════════════════════════════════════════════════════════ */}
       {activeTab === "registration" && (
         <div className="space-y-4">
+          {/* 2E-2 soft 안내 — career 는 기존 경로 유지(차단 없음), 통합 등록 경로 권장만. */}
+          <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+            안내: 라인 정의 통합(2E) 진행 중입니다. 신규 경력 라인은{" "}
+            <a href="/admin/lines/register" className="font-semibold underline underline-offset-2">통합 라인 등록</a>
+            {" "}경로 사용을 권장합니다. 이 화면의 기존 등록/수정 기능은 그대로 사용할 수 있습니다.
+          </div>
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">

@@ -1,0 +1,21 @@
+{
+ "mode": "dry-run",
+ "planned": 0,
+ "applied": 0,
+ "errors": [],
+ "counts": {
+  "cluster4_lines": {
+   "un": 0,
+   "en": 31
+  },
+  "cluster4_experience_line_masters": {
+   "un": 0,
+   "en": 1
+  },
+  "line_registrations": {
+   "un": 0,
+   "en": 1
+  }
+ },
+ "plan": []
+}

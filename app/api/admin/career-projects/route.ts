@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { CAREER_DRIFT_NOTICE } from "@/lib/lineMasterDriftGuard";
 import {
   ADMIN_READ_ROLES,
   requireAdmin,
@@ -99,7 +100,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const project = await createCareerProject(parsed.value);
-    return Response.json({ success: true, data: { project } }, { status: 201 });
+    return Response.json(
+      { success: true, data: { project }, driftNotice: CAREER_DRIFT_NOTICE },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof CareerProjectError) {
       return Response.json(

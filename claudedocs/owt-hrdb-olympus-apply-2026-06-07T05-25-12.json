@@ -1,0 +1,1250 @@
+{
+  "summary": {
+    "generatedAt": "2026-06-07 HRDB/OLYMPUS org_week_thresholds apply",
+    "mode": "apply",
+    "planTotal": 169,
+    "perSource": {
+      "hrdb": 93,
+      "olympus": 76
+    },
+    "toInsert": 169,
+    "noop": 0,
+    "skips": 1,
+    "weeksMissingSkips": [
+      {
+        "source": "hrdb",
+        "id": 3,
+        "start": "2023-02-06",
+        "season": "겨울",
+        "week": "6",
+        "confirmStar": 20,
+        "reason": "weeks 행 부재 — skip (org 행 미생성 = 공통 폴백)"
+      }
+    ],
+    "drift": [],
+    "conflicts": [],
+    "blocked": false,
+    "invariants": {
+      "orankeBefore": {
+        "count": 100,
+        "hash": "4d1f77eb4f849edf"
+      },
+      "snapshotBefore": {
+        "count": 122,
+        "hash": "6bcf80c5a6dcda58"
+      }
+    },
+    "applied": {
+      "inserted": 169,
+      "writeErrors": []
+    },
+    "invariantsAfter": {
+      "orankeAfter": {
+        "count": 100,
+        "hash": "4d1f77eb4f849edf"
+      },
+      "snapshotAfter": {
+        "count": 122,
+        "hash": "6bcf80c5a6dcda58"
+      },
+      "invariantOk": true
+    },
+    "rollback": "npx tsx --env-file=.env.local scripts/apply-org-week-thresholds-hrdb-olympus.ts --rollback claudedocs/owt-hrdb-olympus-apply-2026-06-07T05-25-12.json"
+  },
+  "inserted": [
+    {
+      "week_id": "3bda7e10-94a2-4f44-8698-9a11a72f1074",
+      "organization_slug": "encre",
+      "check_threshold": 24,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "7"
+    },
+    {
+      "week_id": "4c2985c9-9590-4903-9a69-fcf4bdafba29",
+      "organization_slug": "encre",
+      "check_threshold": 15,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "8"
+    },
+    {
+      "week_id": "42680298-a123-429f-83c8-a0f4285753b8",
+      "organization_slug": "encre",
+      "check_threshold": 40,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "11"
+    },
+    {
+      "week_id": "477382a7-aec5-4b7b-9873-ac00c7bf64ad",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "12"
+    },
+    {
+      "week_id": "43421b06-aa72-4f60-bf44-aec2a980a15a",
+      "organization_slug": "encre",
+      "check_threshold": 26,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "13"
+    },
+    {
+      "week_id": "e93a7db0-f241-4e17-a114-760e63f71d8b",
+      "organization_slug": "encre",
+      "check_threshold": 27,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "19"
+    },
+    {
+      "week_id": "b8dbb904-5fde-43a5-a051-3b11c247bf57",
+      "organization_slug": "encre",
+      "check_threshold": 5,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "23"
+    },
+    {
+      "week_id": "5d345d48-aec8-48cc-8ec2-f85d38c23c99",
+      "organization_slug": "encre",
+      "check_threshold": 25,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "24"
+    },
+    {
+      "week_id": "681234d3-3b1c-44ac-b4ba-7055014849b6",
+      "organization_slug": "encre",
+      "check_threshold": 23,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "25"
+    },
+    {
+      "week_id": "32ea862e-5ace-4364-b188-5f614c1c6058",
+      "organization_slug": "encre",
+      "check_threshold": 28,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "27"
+    },
+    {
+      "week_id": "665b0da0-c03b-4f95-90cc-089b356a13dc",
+      "organization_slug": "encre",
+      "check_threshold": 29,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "29"
+    },
+    {
+      "week_id": "34a04b5a-7823-4883-89e3-eeedff5db8eb",
+      "organization_slug": "encre",
+      "check_threshold": 29,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "30"
+    },
+    {
+      "week_id": "64b56d7c-ee11-44f0-83d8-abb57a52c975",
+      "organization_slug": "encre",
+      "check_threshold": 28,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "35"
+    },
+    {
+      "week_id": "8b8ae57d-0c8d-458f-abd9-42a446dd6bd8",
+      "organization_slug": "encre",
+      "check_threshold": 20,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "37"
+    },
+    {
+      "week_id": "e0326f2e-024b-4e99-9cc8-690c38b48ebd",
+      "organization_slug": "encre",
+      "check_threshold": 25,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "38"
+    },
+    {
+      "week_id": "da95b82b-3290-47b0-a70a-e7112cab5693",
+      "organization_slug": "encre",
+      "check_threshold": 28,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "40"
+    },
+    {
+      "week_id": "6224ecff-d7e6-41a0-aa6c-10b4fb75f096",
+      "organization_slug": "encre",
+      "check_threshold": 29,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "41"
+    },
+    {
+      "week_id": "b455c2c7-492c-478f-b983-a9e40832cbfb",
+      "organization_slug": "encre",
+      "check_threshold": 28,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "42"
+    },
+    {
+      "week_id": "0415d448-0996-413e-b543-62c551e68b56",
+      "organization_slug": "encre",
+      "check_threshold": 27,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "43"
+    },
+    {
+      "week_id": "07f4b6c6-4c58-4ad4-a826-7464fcc667de",
+      "organization_slug": "encre",
+      "check_threshold": 26,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "45"
+    },
+    {
+      "week_id": "948cbf5a-e868-482d-a7ab-bea84bc62502",
+      "organization_slug": "encre",
+      "check_threshold": 27,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "47"
+    },
+    {
+      "week_id": "19e95d85-1c45-4d34-ab07-1a8daf171b04",
+      "organization_slug": "encre",
+      "check_threshold": 27,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "49"
+    },
+    {
+      "week_id": "0225a882-99b2-42b9-a02e-fabf02a035ea",
+      "organization_slug": "encre",
+      "check_threshold": 25,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "50"
+    },
+    {
+      "week_id": "5df17e42-b8a5-4fca-b133-92b152eb3790",
+      "organization_slug": "encre",
+      "check_threshold": 27,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "51"
+    },
+    {
+      "week_id": "07d1c32b-29ff-4e06-848b-348288732c11",
+      "organization_slug": "encre",
+      "check_threshold": 25,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "52"
+    },
+    {
+      "week_id": "ad79b7c0-8bd1-491a-b91b-7551134453b7",
+      "organization_slug": "encre",
+      "check_threshold": 31,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "54"
+    },
+    {
+      "week_id": "84d7e7ee-9d15-4726-a400-579cf164e0da",
+      "organization_slug": "encre",
+      "check_threshold": 35,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "55"
+    },
+    {
+      "week_id": "1c584832-7b40-41a6-82e4-3a2fa68ac346",
+      "organization_slug": "encre",
+      "check_threshold": 32,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "56"
+    },
+    {
+      "week_id": "9bbf4ddd-6faf-489a-b813-54d2c283f218",
+      "organization_slug": "encre",
+      "check_threshold": 33,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "57"
+    },
+    {
+      "week_id": "ac50778a-4a4d-4b8d-a116-66ea34417127",
+      "organization_slug": "encre",
+      "check_threshold": 33,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "58"
+    },
+    {
+      "week_id": "4eca149d-76fe-41f5-a207-ba2193f7dc9a",
+      "organization_slug": "encre",
+      "check_threshold": 17,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "59"
+    },
+    {
+      "week_id": "4290c2d1-9651-4b1a-b827-41be10f89a4d",
+      "organization_slug": "encre",
+      "check_threshold": 20,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "60"
+    },
+    {
+      "week_id": "da1eada1-cdf5-46fc-bb12-d02521db0da8",
+      "organization_slug": "encre",
+      "check_threshold": 20,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "61"
+    },
+    {
+      "week_id": "3fcbb904-4807-409c-8bff-e4d6fade0bf2",
+      "organization_slug": "encre",
+      "check_threshold": 18,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "62"
+    },
+    {
+      "week_id": "19be3447-7694-46ff-ac9d-7583ad7c0135",
+      "organization_slug": "encre",
+      "check_threshold": 18,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "63"
+    },
+    {
+      "week_id": "ee6c7779-7c35-43fe-b32b-963bfcbde274",
+      "organization_slug": "encre",
+      "check_threshold": 6,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "66"
+    },
+    {
+      "week_id": "90a0f804-2e3a-4df7-9be7-d41fb78919a8",
+      "organization_slug": "encre",
+      "check_threshold": 23,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "67"
+    },
+    {
+      "week_id": "8e1ac38b-5bc2-4f73-a25e-1d60329d0fd4",
+      "organization_slug": "encre",
+      "check_threshold": 20,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "68"
+    },
+    {
+      "week_id": "0dd751fa-3f14-4ea0-b83c-c6619b21c71f",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "69"
+    },
+    {
+      "week_id": "39bd9ca9-2fbd-4ffb-aa48-a2aa4429e0b6",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "70"
+    },
+    {
+      "week_id": "dbaafc08-6605-4b11-a975-1a9227252a57",
+      "organization_slug": "encre",
+      "check_threshold": 25,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "71"
+    },
+    {
+      "week_id": "4d95a87f-daad-41ce-8b2a-e248e2763c22",
+      "organization_slug": "encre",
+      "check_threshold": 25,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "72"
+    },
+    {
+      "week_id": "b38da239-28da-416c-975a-cd442ee0df4f",
+      "organization_slug": "encre",
+      "check_threshold": 25,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "73"
+    },
+    {
+      "week_id": "246dc057-b83e-4d8b-a5fa-e9d635f9087e",
+      "organization_slug": "encre",
+      "check_threshold": 25,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "74"
+    },
+    {
+      "week_id": "f5e1d184-a721-4277-b709-ab0dc5c18e7b",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "75"
+    },
+    {
+      "week_id": "1577bb0b-773e-4ca6-be61-503619774711",
+      "organization_slug": "encre",
+      "check_threshold": 32,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "76"
+    },
+    {
+      "week_id": "b4d7d16c-a377-45b0-ba1f-ef0b0bd7e3bc",
+      "organization_slug": "encre",
+      "check_threshold": 31,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "77"
+    },
+    {
+      "week_id": "74c2a8b3-f88c-44d9-9b1a-481e4bcfc13e",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "78"
+    },
+    {
+      "week_id": "c897f7ca-5149-4ccf-94a9-4d373c68ac4a",
+      "organization_slug": "encre",
+      "check_threshold": 23,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "79"
+    },
+    {
+      "week_id": "c056a8ab-8312-4e3b-a298-764af7fd2bc6",
+      "organization_slug": "encre",
+      "check_threshold": 24,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "80"
+    },
+    {
+      "week_id": "496f234e-336b-4fba-8d9f-d60aa5157d5c",
+      "organization_slug": "encre",
+      "check_threshold": 31,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "81"
+    },
+    {
+      "week_id": "3ba7ecc9-b4fd-4f2c-beaa-323eeba3ab3d",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "82"
+    },
+    {
+      "week_id": "07603abe-7e4d-439c-9ba3-ae620d08da8b",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "83"
+    },
+    {
+      "week_id": "99d1f7d5-6167-4b58-a302-5ff1dbe653af",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "84"
+    },
+    {
+      "week_id": "fad12740-0404-4b23-a0d8-2c5c6926b112",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "85"
+    },
+    {
+      "week_id": "1870e966-5f31-494b-ba61-2f00a19406fe",
+      "organization_slug": "encre",
+      "check_threshold": 33,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "86"
+    },
+    {
+      "week_id": "10278bdc-2630-421f-ac5a-69ce86d8f3ed",
+      "organization_slug": "encre",
+      "check_threshold": 27,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "87"
+    },
+    {
+      "week_id": "50082fa8-099a-415f-baef-c728114820e1",
+      "organization_slug": "encre",
+      "check_threshold": 26,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "89"
+    },
+    {
+      "week_id": "d2a3eadf-cab9-46ac-9600-03fdb4985939",
+      "organization_slug": "encre",
+      "check_threshold": 20,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "90"
+    },
+    {
+      "week_id": "fb0ca9b6-ca22-41fb-9c20-46c2635c9af9",
+      "organization_slug": "encre",
+      "check_threshold": 24,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "91"
+    },
+    {
+      "week_id": "4f1733b6-408a-4173-9025-d61ca41ea5cd",
+      "organization_slug": "encre",
+      "check_threshold": 25,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "92"
+    },
+    {
+      "week_id": "e794fd53-d5c7-4df4-a73f-9156a700c19a",
+      "organization_slug": "encre",
+      "check_threshold": 29,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "93"
+    },
+    {
+      "week_id": "733141d1-fc02-406d-b6de-e60492cb6432",
+      "organization_slug": "encre",
+      "check_threshold": 28,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "94"
+    },
+    {
+      "week_id": "12793bb0-5424-4d47-8af7-796caa03b6aa",
+      "organization_slug": "encre",
+      "check_threshold": 34,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "95"
+    },
+    {
+      "week_id": "39bade12-8e78-466c-98da-3549dded2b47",
+      "organization_slug": "encre",
+      "check_threshold": 35,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "96"
+    },
+    {
+      "week_id": "a1f381ca-752a-4320-844a-f9192071854f",
+      "organization_slug": "encre",
+      "check_threshold": 34,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "99"
+    },
+    {
+      "week_id": "5513969c-4e98-4222-9a2b-87f05bbc0e86",
+      "organization_slug": "encre",
+      "check_threshold": 26,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "101"
+    },
+    {
+      "week_id": "d0d60d76-3d91-49cd-ad88-c856f2ec4c15",
+      "organization_slug": "encre",
+      "check_threshold": 32,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "102"
+    },
+    {
+      "week_id": "4b3a8699-9e2b-4879-9c7f-de7e259a071d",
+      "organization_slug": "encre",
+      "check_threshold": 34,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "103"
+    },
+    {
+      "week_id": "84c31d1d-0689-4b91-ac18-57870603896e",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "105"
+    },
+    {
+      "week_id": "4c79ab16-17d2-4aff-b29c-4564caf3b8fc",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "107"
+    },
+    {
+      "week_id": "05fcc2fa-5a11-49a8-a282-4d21dbd5af4b",
+      "organization_slug": "encre",
+      "check_threshold": 28,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "110"
+    },
+    {
+      "week_id": "c536cf12-62f6-434c-9299-07bf64dd1db5",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "111"
+    },
+    {
+      "week_id": "aaab4914-a757-4b0a-bf88-f231e5ccb2ca",
+      "organization_slug": "encre",
+      "check_threshold": 33,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "112"
+    },
+    {
+      "week_id": "523c3bf1-39fd-4d2f-b561-869dc7bcc1a5",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "114"
+    },
+    {
+      "week_id": "4cc9eecb-32aa-40ea-9c7f-7aafac777542",
+      "organization_slug": "encre",
+      "check_threshold": 32,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "115"
+    },
+    {
+      "week_id": "d3fa5ad3-e835-4fbf-acd2-ec605530e205",
+      "organization_slug": "encre",
+      "check_threshold": 0,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "117"
+    },
+    {
+      "week_id": "3fa54899-c427-4299-a772-158e16663d18",
+      "organization_slug": "encre",
+      "check_threshold": 0,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "118"
+    },
+    {
+      "week_id": "44e25cac-6340-4bdd-9c7e-ff35c7aeb7c6",
+      "organization_slug": "encre",
+      "check_threshold": 0,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "119"
+    },
+    {
+      "week_id": "469cf97e-ff20-41c0-9ed7-c56a62279822",
+      "organization_slug": "encre",
+      "check_threshold": 0,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "120"
+    },
+    {
+      "week_id": "8bd20da1-dca3-4618-879e-5008c6020bf5",
+      "organization_slug": "encre",
+      "check_threshold": 0,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "121"
+    },
+    {
+      "week_id": "3cc6c2ae-49e4-4484-a7f0-1640f60a7464",
+      "organization_slug": "encre",
+      "check_threshold": 0,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "122"
+    },
+    {
+      "week_id": "10c6bbf1-e22b-4cf1-a03f-de4d7d46981c",
+      "organization_slug": "encre",
+      "check_threshold": 0,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "123"
+    },
+    {
+      "week_id": "d3aa89d8-35f6-42b3-bb12-a1d65b6b0e91",
+      "organization_slug": "encre",
+      "check_threshold": 23,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "125"
+    },
+    {
+      "week_id": "31672f8c-e58c-4d92-9939-197237d7fbcf",
+      "organization_slug": "encre",
+      "check_threshold": 26,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "126"
+    },
+    {
+      "week_id": "c6800fe1-8200-4b10-9c97-7515b6a805ca",
+      "organization_slug": "encre",
+      "check_threshold": 38,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "127"
+    },
+    {
+      "week_id": "5eca4fe4-77ff-46bc-9e53-8772a078b651",
+      "organization_slug": "encre",
+      "check_threshold": 35,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "129"
+    },
+    {
+      "week_id": "20a7ebcb-85ea-4a98-83fa-a920d010038a",
+      "organization_slug": "encre",
+      "check_threshold": 34,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "130"
+    },
+    {
+      "week_id": "b531c234-e860-499a-992c-b74d2c1d5349",
+      "organization_slug": "encre",
+      "check_threshold": 29,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "131"
+    },
+    {
+      "week_id": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+      "organization_slug": "encre",
+      "check_threshold": 32,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "132"
+    },
+    {
+      "week_id": "67e07106-564e-4dab-b180-8f11c909973a",
+      "organization_slug": "encre",
+      "check_threshold": 34,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "133"
+    },
+    {
+      "week_id": "00000000-0000-0000-0000-202605210002",
+      "organization_slug": "encre",
+      "check_threshold": 28,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "134"
+    },
+    {
+      "week_id": "a2112b50-64d2-42d6-a243-faf9fcdc6ffc",
+      "organization_slug": "encre",
+      "check_threshold": 30,
+      "source_table": "hrdb.weekssettings",
+      "source_pk": "135"
+    },
+    {
+      "week_id": "e0326f2e-024b-4e99-9cc8-690c38b48ebd",
+      "organization_slug": "phalanx",
+      "check_threshold": 28,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "1"
+    },
+    {
+      "week_id": "da95b82b-3290-47b0-a70a-e7112cab5693",
+      "organization_slug": "phalanx",
+      "check_threshold": 29,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "2"
+    },
+    {
+      "week_id": "6224ecff-d7e6-41a0-aa6c-10b4fb75f096",
+      "organization_slug": "phalanx",
+      "check_threshold": 29,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "3"
+    },
+    {
+      "week_id": "b455c2c7-492c-478f-b983-a9e40832cbfb",
+      "organization_slug": "phalanx",
+      "check_threshold": 33,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "4"
+    },
+    {
+      "week_id": "0415d448-0996-413e-b543-62c551e68b56",
+      "organization_slug": "phalanx",
+      "check_threshold": 45,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "5"
+    },
+    {
+      "week_id": "07f4b6c6-4c58-4ad4-a826-7464fcc667de",
+      "organization_slug": "phalanx",
+      "check_threshold": 35,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "7"
+    },
+    {
+      "week_id": "948cbf5a-e868-482d-a7ab-bea84bc62502",
+      "organization_slug": "phalanx",
+      "check_threshold": 35,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "10"
+    },
+    {
+      "week_id": "19e95d85-1c45-4d34-ab07-1a8daf171b04",
+      "organization_slug": "phalanx",
+      "check_threshold": 37,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "11"
+    },
+    {
+      "week_id": "0225a882-99b2-42b9-a02e-fabf02a035ea",
+      "organization_slug": "phalanx",
+      "check_threshold": 37,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "13"
+    },
+    {
+      "week_id": "5df17e42-b8a5-4fca-b133-92b152eb3790",
+      "organization_slug": "phalanx",
+      "check_threshold": 30,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "16"
+    },
+    {
+      "week_id": "07d1c32b-29ff-4e06-848b-348288732c11",
+      "organization_slug": "phalanx",
+      "check_threshold": 35,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "17"
+    },
+    {
+      "week_id": "ad79b7c0-8bd1-491a-b91b-7551134453b7",
+      "organization_slug": "phalanx",
+      "check_threshold": 41,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "18"
+    },
+    {
+      "week_id": "84d7e7ee-9d15-4726-a400-579cf164e0da",
+      "organization_slug": "phalanx",
+      "check_threshold": 41,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "19"
+    },
+    {
+      "week_id": "1c584832-7b40-41a6-82e4-3a2fa68ac346",
+      "organization_slug": "phalanx",
+      "check_threshold": 37,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "20"
+    },
+    {
+      "week_id": "9bbf4ddd-6faf-489a-b813-54d2c283f218",
+      "organization_slug": "phalanx",
+      "check_threshold": 41,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "21"
+    },
+    {
+      "week_id": "ac50778a-4a4d-4b8d-a116-66ea34417127",
+      "organization_slug": "phalanx",
+      "check_threshold": 29,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "22"
+    },
+    {
+      "week_id": "4eca149d-76fe-41f5-a207-ba2193f7dc9a",
+      "organization_slug": "phalanx",
+      "check_threshold": 30,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "26"
+    },
+    {
+      "week_id": "4290c2d1-9651-4b1a-b827-41be10f89a4d",
+      "organization_slug": "phalanx",
+      "check_threshold": 25,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "28"
+    },
+    {
+      "week_id": "da1eada1-cdf5-46fc-bb12-d02521db0da8",
+      "organization_slug": "phalanx",
+      "check_threshold": 41,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "30"
+    },
+    {
+      "week_id": "3fcbb904-4807-409c-8bff-e4d6fade0bf2",
+      "organization_slug": "phalanx",
+      "check_threshold": 40,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "32"
+    },
+    {
+      "week_id": "19be3447-7694-46ff-ac9d-7583ad7c0135",
+      "organization_slug": "phalanx",
+      "check_threshold": 30,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "35"
+    },
+    {
+      "week_id": "ee6c7779-7c35-43fe-b32b-963bfcbde274",
+      "organization_slug": "phalanx",
+      "check_threshold": 35,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "36"
+    },
+    {
+      "week_id": "90a0f804-2e3a-4df7-9be7-d41fb78919a8",
+      "organization_slug": "phalanx",
+      "check_threshold": 25,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "37"
+    },
+    {
+      "week_id": "8e1ac38b-5bc2-4f73-a25e-1d60329d0fd4",
+      "organization_slug": "phalanx",
+      "check_threshold": 30,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "39"
+    },
+    {
+      "week_id": "dbaafc08-6605-4b11-a975-1a9227252a57",
+      "organization_slug": "phalanx",
+      "check_threshold": 20,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "40"
+    },
+    {
+      "week_id": "4d95a87f-daad-41ce-8b2a-e248e2763c22",
+      "organization_slug": "phalanx",
+      "check_threshold": 25,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "43"
+    },
+    {
+      "week_id": "b38da239-28da-416c-975a-cd442ee0df4f",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "45"
+    },
+    {
+      "week_id": "246dc057-b83e-4d8b-a5fa-e9d635f9087e",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "47"
+    },
+    {
+      "week_id": "f5e1d184-a721-4277-b709-ab0dc5c18e7b",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "48"
+    },
+    {
+      "week_id": "1577bb0b-773e-4ca6-be61-503619774711",
+      "organization_slug": "phalanx",
+      "check_threshold": 33,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "49"
+    },
+    {
+      "week_id": "b4d7d16c-a377-45b0-ba1f-ef0b0bd7e3bc",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "50"
+    },
+    {
+      "week_id": "74c2a8b3-f88c-44d9-9b1a-481e4bcfc13e",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "51"
+    },
+    {
+      "week_id": "c897f7ca-5149-4ccf-94a9-4d373c68ac4a",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "52"
+    },
+    {
+      "week_id": "c056a8ab-8312-4e3b-a298-764af7fd2bc6",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "53"
+    },
+    {
+      "week_id": "496f234e-336b-4fba-8d9f-d60aa5157d5c",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "54"
+    },
+    {
+      "week_id": "3ba7ecc9-b4fd-4f2c-beaa-323eeba3ab3d",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "55"
+    },
+    {
+      "week_id": "07603abe-7e4d-439c-9ba3-ae620d08da8b",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "56"
+    },
+    {
+      "week_id": "99d1f7d5-6167-4b58-a302-5ff1dbe653af",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "57"
+    },
+    {
+      "week_id": "fad12740-0404-4b23-a0d8-2c5c6926b112",
+      "organization_slug": "phalanx",
+      "check_threshold": 35,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "58"
+    },
+    {
+      "week_id": "1870e966-5f31-494b-ba61-2f00a19406fe",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "59"
+    },
+    {
+      "week_id": "10278bdc-2630-421f-ac5a-69ce86d8f3ed",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "60"
+    },
+    {
+      "week_id": "50082fa8-099a-415f-baef-c728114820e1",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "62"
+    },
+    {
+      "week_id": "d2a3eadf-cab9-46ac-9600-03fdb4985939",
+      "organization_slug": "phalanx",
+      "check_threshold": 33,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "63"
+    },
+    {
+      "week_id": "fb0ca9b6-ca22-41fb-9c20-46c2635c9af9",
+      "organization_slug": "phalanx",
+      "check_threshold": 35,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "64"
+    },
+    {
+      "week_id": "4f1733b6-408a-4173-9025-d61ca41ea5cd",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "65"
+    },
+    {
+      "week_id": "e794fd53-d5c7-4df4-a73f-9156a700c19a",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "66"
+    },
+    {
+      "week_id": "733141d1-fc02-406d-b6de-e60492cb6432",
+      "organization_slug": "phalanx",
+      "check_threshold": 36,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "67"
+    },
+    {
+      "week_id": "12793bb0-5424-4d47-8af7-796caa03b6aa",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "68"
+    },
+    {
+      "week_id": "39bade12-8e78-466c-98da-3549dded2b47",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "69"
+    },
+    {
+      "week_id": "a1f381ca-752a-4320-844a-f9192071854f",
+      "organization_slug": "phalanx",
+      "check_threshold": 34,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "71"
+    },
+    {
+      "week_id": "5513969c-4e98-4222-9a2b-87f05bbc0e86",
+      "organization_slug": "phalanx",
+      "check_threshold": 30,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "72"
+    },
+    {
+      "week_id": "d0d60d76-3d91-49cd-ad88-c856f2ec4c15",
+      "organization_slug": "phalanx",
+      "check_threshold": 34,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "73"
+    },
+    {
+      "week_id": "4b3a8699-9e2b-4879-9c7f-de7e259a071d",
+      "organization_slug": "phalanx",
+      "check_threshold": 34,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "74"
+    },
+    {
+      "week_id": "84c31d1d-0689-4b91-ac18-57870603896e",
+      "organization_slug": "phalanx",
+      "check_threshold": 36,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "75"
+    },
+    {
+      "week_id": "4c79ab16-17d2-4aff-b29c-4564caf3b8fc",
+      "organization_slug": "phalanx",
+      "check_threshold": 36,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "76"
+    },
+    {
+      "week_id": "05fcc2fa-5a11-49a8-a282-4d21dbd5af4b",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "77"
+    },
+    {
+      "week_id": "c536cf12-62f6-434c-9299-07bf64dd1db5",
+      "organization_slug": "phalanx",
+      "check_threshold": 38,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "78"
+    },
+    {
+      "week_id": "aaab4914-a757-4b0a-bf88-f231e5ccb2ca",
+      "organization_slug": "phalanx",
+      "check_threshold": 32,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "79"
+    },
+    {
+      "week_id": "d3fa5ad3-e835-4fbf-acd2-ec605530e205",
+      "organization_slug": "phalanx",
+      "check_threshold": 0,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "80"
+    },
+    {
+      "week_id": "3fa54899-c427-4299-a772-158e16663d18",
+      "organization_slug": "phalanx",
+      "check_threshold": 0,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "81"
+    },
+    {
+      "week_id": "44e25cac-6340-4bdd-9c7e-ff35c7aeb7c6",
+      "organization_slug": "phalanx",
+      "check_threshold": 0,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "82"
+    },
+    {
+      "week_id": "469cf97e-ff20-41c0-9ed7-c56a62279822",
+      "organization_slug": "phalanx",
+      "check_threshold": 0,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "83"
+    },
+    {
+      "week_id": "8bd20da1-dca3-4618-879e-5008c6020bf5",
+      "organization_slug": "phalanx",
+      "check_threshold": 0,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "84"
+    },
+    {
+      "week_id": "3cc6c2ae-49e4-4484-a7f0-1640f60a7464",
+      "organization_slug": "phalanx",
+      "check_threshold": 0,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "85"
+    },
+    {
+      "week_id": "10c6bbf1-e22b-4cf1-a03f-de4d7d46981c",
+      "organization_slug": "phalanx",
+      "check_threshold": 0,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "86"
+    },
+    {
+      "week_id": "97a6523b-0e0e-4de7-93c5-bb8404ac9ac2",
+      "organization_slug": "phalanx",
+      "check_threshold": 0,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "87"
+    },
+    {
+      "week_id": "d3aa89d8-35f6-42b3-bb12-a1d65b6b0e91",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "88"
+    },
+    {
+      "week_id": "31672f8c-e58c-4d92-9939-197237d7fbcf",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "89"
+    },
+    {
+      "week_id": "c6800fe1-8200-4b10-9c97-7515b6a805ca",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "90"
+    },
+    {
+      "week_id": "5eca4fe4-77ff-46bc-9e53-8772a078b651",
+      "organization_slug": "phalanx",
+      "check_threshold": 37,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "91"
+    },
+    {
+      "week_id": "20a7ebcb-85ea-4a98-83fa-a920d010038a",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "92"
+    },
+    {
+      "week_id": "b531c234-e860-499a-992c-b74d2c1d5349",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "93"
+    },
+    {
+      "week_id": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "94"
+    },
+    {
+      "week_id": "67e07106-564e-4dab-b180-8f11c909973a",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "95"
+    },
+    {
+      "week_id": "00000000-0000-0000-0000-202605210002",
+      "organization_slug": "phalanx",
+      "check_threshold": 39,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "96"
+    },
+    {
+      "week_id": "a2112b50-64d2-42d6-a243-faf9fcdc6ffc",
+      "organization_slug": "phalanx",
+      "check_threshold": 0,
+      "source_table": "olympus.weekssettings",
+      "source_pk": "97"
+    }
+  ],
+  "skips": [
+    {
+      "source": "hrdb",
+      "id": 3,
+      "start": "2023-02-06",
+      "season": "겨울",
+      "week": "6",
+      "confirmStar": 20,
+      "reason": "weeks 행 부재 — skip (org 행 미생성 = 공통 폴백)"
+    }
+  ]
+}

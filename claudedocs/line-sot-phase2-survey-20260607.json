@@ -1,0 +1,83 @@
+{
+  "generatedAt": "2026-06-07T06:08:50.158Z",
+  "counts": {
+    "cluster4_experience_line_masters": 26,
+    "cluster4_experience_line_masters_active": 26,
+    "cluster4_experience_line_drafts": 4,
+    "cluster4_competency_line_masters": 30,
+    "cluster4_competency_line_masters_active": 30,
+    "career_projects": 1,
+    "activity_types": 9,
+    "cluster4_lines_total": 364,
+    "cluster4_lines_info": 135,
+    "cluster4_lines_experience": 225,
+    "cluster4_lines_competency": 3,
+    "cluster4_lines_career": 1,
+    "cluster4_line_targets": 1233,
+    "cluster4_line_submissions": 1161,
+    "line_registrations": 13,
+    "cluster4_weekly_card_snapshots": 122
+  },
+  "duplicates": {
+    "expMaster_code_dup": {
+      "EXBS-EL0002": 3,
+      "EXBS-EL0003": 3,
+      "EXBS-EL0004": 3,
+      "EXBS-EL0001": 3
+    },
+    "expMaster_codeOrg_dup": {},
+    "compMaster_code_dup": {},
+    "compMaster_codeOrg_dup": {},
+    "career_code_dup": {},
+    "lines_code_dup_top10": {
+      "EXEC-EN0002": 24,
+      "EXEC-EN0001": 24,
+      "EXPX-EN0001": 23,
+      "EXPX-EN0005": 23,
+      "EXEC-EN0003": 23,
+      "EXPX-EN0006": 23,
+      "EXOK-EN0001": 17,
+      "EXOK-EN0003": 17,
+      "EXOK-EN0002": 17,
+      "EXBS-EL0001": 2
+    },
+    "registrations_code_dup": {},
+    "reg_codes_in_expMasters": [],
+    "reg_codes_in_compMasters": [],
+    "reg_codes_in_careers": [],
+    "reg_codes_in_lines": [],
+    "expMaster_name_dup": {
+      "[매니징] 세부 팀/조직 관리_에이전트": 3,
+      "[실무 PT] 온라인 : 현황 취합과 제안 발표": 3,
+      "[실무 PT] 오프라인 : 경쟁력 어필과 계약 입찰": 3,
+      "[매니징] 세부 팀/조직 관리_파트장": 3
+    },
+    "compMaster_name_dup": {}
+  },
+  "fingerprintBefore": {
+    "snapTotal": 122,
+    "snapStale": 0,
+    "lines": 364,
+    "targets": 1233,
+    "registrations": 13
+  },
+  "directVsHttp_registrations": {
+    "directTotal": 13,
+    "httpTotal": 13,
+    "rowsIdentical": true
+  },
+  "directVsHttp_history": {
+    "limit": 5,
+    "directTotal": 364,
+    "httpTotal": 364,
+    "rowsIdentical": true
+  },
+  "historyContainsRegistrations": 0,
+  "fingerprintAfter": {
+    "snapTotal": 122,
+    "snapStale": 0,
+    "lines": 364,
+    "targets": 1233,
+    "registrations": 13
+  }
+}

@@ -1,0 +1,443 @@
+{
+ "totalRows": 67359,
+ "distinct": 47,
+ "polluted": [
+  {
+   "raw": "중간",
+   "rows": 96,
+   "users": 33,
+   "activeRows": 95,
+   "missUserWeeks": 33,
+   "targetUsers": [
+    "oranke|1213"
+   ],
+   "pilot": [],
+   "sources": [
+    "oranke",
+    "hrdb",
+    "olympus"
+   ]
+  },
+  {
+   "raw": "4",
+   "rows": 42,
+   "users": 42,
+   "activeRows": 30,
+   "missUserWeeks": 30,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "oranke"
+   ]
+  },
+  {
+   "raw": "26, 겨울",
+   "rows": 31,
+   "users": 13,
+   "activeRows": 0,
+   "missUserWeeks": 0,
+   "targetUsers": [
+    "hrdb|1576",
+    "hrdb|1494",
+    "hrdb|1389",
+    "hrdb|1592",
+    "hrdb|1597"
+   ],
+   "pilot": [],
+   "sources": [
+    "hrdb"
+   ]
+  },
+  {
+   "raw": "2026 겨울시즌",
+   "rows": 20,
+   "users": 20,
+   "activeRows": 0,
+   "missUserWeeks": 0,
+   "targetUsers": [
+    "hrdb|1583",
+    "hrdb|1536",
+    "hrdb|1567",
+    "hrdb|1552",
+    "hrdb|1541",
+    "hrdb|1364",
+    "hrdb|1520",
+    "hrdb|707"
+   ],
+   "pilot": [],
+   "sources": [
+    "hrdb"
+   ]
+  },
+  {
+   "raw": "2026 겨울",
+   "rows": 17,
+   "users": 17,
+   "activeRows": 0,
+   "missUserWeeks": 0,
+   "targetUsers": [
+    "hrdb|1583",
+    "hrdb|1541",
+    "hrdb|1536",
+    "hrdb|1567",
+    "hrdb|1364",
+    "hrdb|1520",
+    "hrdb|1552"
+   ],
+   "pilot": [],
+   "sources": [
+    "hrdb"
+   ]
+  },
+  {
+   "raw": "겨울 시즌8주차",
+   "rows": 15,
+   "users": 15,
+   "activeRows": 15,
+   "missUserWeeks": 15,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "oranke"
+   ]
+  },
+  {
+   "raw": "3",
+   "rows": 13,
+   "users": 13,
+   "activeRows": 0,
+   "missUserWeeks": 0,
+   "targetUsers": [
+    "oranke|1213"
+   ],
+   "pilot": [],
+   "sources": [
+    "oranke"
+   ]
+  },
+  {
+   "raw": "테스트",
+   "rows": 6,
+   "users": 3,
+   "activeRows": 4,
+   "missUserWeeks": 4,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "oranke",
+    "hrdb",
+    "olympus"
+   ]
+  },
+  {
+   "raw": "8월",
+   "rows": 6,
+   "users": 6,
+   "activeRows": 6,
+   "missUserWeeks": 6,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "hrdb"
+   ]
+  },
+  {
+   "raw": "겨울`",
+   "rows": 4,
+   "users": 4,
+   "activeRows": 4,
+   "missUserWeeks": 4,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "oranke"
+   ]
+  },
+  {
+   "raw": "겨울->봄 시즌 전환",
+   "rows": 3,
+   "users": 3,
+   "activeRows": 3,
+   "missUserWeeks": 3,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "oranke"
+   ]
+  },
+  {
+   "raw": "시즌전환",
+   "rows": 3,
+   "users": 1,
+   "activeRows": 3,
+   "missUserWeeks": 2,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "oranke"
+   ]
+  },
+  {
+   "raw": "test",
+   "rows": 3,
+   "users": 1,
+   "activeRows": 3,
+   "missUserWeeks": 3,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "olympus"
+   ]
+  },
+  {
+   "raw": "겨을",
+   "rows": 3,
+   "users": 3,
+   "activeRows": 2,
+   "missUserWeeks": 2,
+   "targetUsers": [
+    "olympus|251",
+    "olympus|248"
+   ],
+   "pilot": [
+    "P5 정혜빈",
+    "P4 박시은"
+   ],
+   "sources": [
+    "olympus"
+   ]
+  },
+  {
+   "raw": "봄`",
+   "rows": 3,
+   "users": 3,
+   "activeRows": 3,
+   "missUserWeeks": 3,
+   "targetUsers": [
+    "olympus|251",
+    "olympus|273",
+    "olympus|248"
+   ],
+   "pilot": [
+    "P5 정혜빈",
+    "P4 박시은"
+   ],
+   "sources": [
+    "olympus"
+   ]
+  },
+  {
+   "raw": "S10",
+   "rows": 2,
+   "users": 1,
+   "activeRows": 0,
+   "missUserWeeks": 0,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "oranke"
+   ]
+  },
+  {
+   "raw": "15",
+   "rows": 2,
+   "users": 1,
+   "activeRows": 1,
+   "missUserWeeks": 1,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "olympus"
+   ]
+  },
+  {
+   "raw": "테스트123",
+   "rows": 1,
+   "users": 1,
+   "activeRows": 0,
+   "missUserWeeks": 0,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "oranke"
+   ]
+  },
+  {
+   "raw": "테스트 시즌",
+   "rows": 1,
+   "users": 1,
+   "activeRows": 0,
+   "missUserWeeks": 0,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "hrdb"
+   ]
+  },
+  {
+   "raw": "00",
+   "rows": 1,
+   "users": 1,
+   "activeRows": 0,
+   "missUserWeeks": 0,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "hrdb"
+   ]
+  },
+  {
+   "raw": "경울",
+   "rows": 1,
+   "users": 1,
+   "activeRows": 1,
+   "missUserWeeks": 1,
+   "targetUsers": [
+    "hrdb|1598"
+   ],
+   "pilot": [],
+   "sources": [
+    "hrdb"
+   ]
+  },
+  {
+   "raw": "123",
+   "rows": 1,
+   "users": 1,
+   "activeRows": 1,
+   "missUserWeeks": 1,
+   "targetUsers": [],
+   "pilot": [],
+   "sources": [
+    "olympus"
+   ]
+  }
+ ],
+ "variants": [
+  {
+   "raw": "가을 시즌",
+   "norm": "autumn",
+   "rows": 185
+  },
+  {
+   "raw": "여름시즌",
+   "norm": "summer",
+   "rows": 155
+  },
+  {
+   "raw": "여름 시즌",
+   "norm": "summer",
+   "rows": 95
+  },
+  {
+   "raw": "가을\r",
+   "norm": "autumn",
+   "rows": 90
+  },
+  {
+   "raw": "가을시즌",
+   "norm": "autumn",
+   "rows": 83
+  },
+  {
+   "raw": "여름\r",
+   "norm": "summer",
+   "rows": 83
+  },
+  {
+   "raw": "봄 \r",
+   "norm": "spring",
+   "rows": 62
+  },
+  {
+   "raw": "겨울시즌",
+   "norm": "winter",
+   "rows": 50
+  },
+  {
+   "raw": "겨울 \r",
+   "norm": "winter",
+   "rows": 42
+  },
+  {
+   "raw": "가을 ",
+   "norm": "autumn",
+   "rows": 41
+  },
+  {
+   "raw": "봄시즌",
+   "norm": "spring",
+   "rows": 35
+  },
+  {
+   "raw": "여름 ",
+   "norm": "summer",
+   "rows": 35
+  },
+  {
+   "raw": "봄 시즌",
+   "norm": "spring",
+   "rows": 33
+  },
+  {
+   "raw": "겨울 ",
+   "norm": "winter",
+   "rows": 23
+  },
+  {
+   "raw": "봄 ",
+   "norm": "spring",
+   "rows": 23
+  },
+  {
+   "raw": "거울",
+   "norm": "winter",
+   "rows": 11
+  },
+  {
+   "raw": "봄\r",
+   "norm": "spring",
+   "rows": 10
+  },
+  {
+   "raw": "여름 \r",
+   "norm": "summer",
+   "rows": 8
+  },
+  {
+   "raw": "겨울\r",
+   "norm": "winter",
+   "rows": 7
+  },
+  {
+   "raw": "겨울 시즌",
+   "norm": "winter",
+   "rows": 4
+  },
+  {
+   "raw": "가을 시즌 ",
+   "norm": "autumn",
+   "rows": 3
+  }
+ ],
+ "pollutedTargetUsers": [
+  "oranke|1213",
+  "hrdb|1576",
+  "hrdb|1494",
+  "hrdb|1389",
+  "hrdb|1592",
+  "hrdb|1597",
+  "hrdb|1583",
+  "hrdb|1536",
+  "hrdb|1567",
+  "hrdb|1552",
+  "hrdb|1541",
+  "hrdb|1364",
+  "hrdb|1520",
+  "hrdb|707",
+  "olympus|251",
+  "olympus|248",
+  "olympus|273",
+  "hrdb|1598"
+ ]
+}
