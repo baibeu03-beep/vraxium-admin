@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { readOrgParam } from "@/lib/adminOrgContext";
 import {
   ORGANIZATIONS,
   ORGANIZATION_LABEL,
@@ -281,11 +282,16 @@ export default function PracticalCompetencyManager() {
       }
 
       const orgParam = org ? `?organization=${org}` : "";
+      // 개설된 라인 목록(linesRes)은 URL 조직 컨텍스트(?org)로 스코프 — (해당 조직 OR 공통).
+      // (org 변수는 admin-org 기반 별개 값이라 구분해서 사용한다.)
+      const linesQs = new URLSearchParams({ partType: "competency", limit: "100" });
+      const urlOrg = readOrgParam(new URLSearchParams(window.location.search));
+      if (urlOrg) linesQs.set("organization", urlOrg);
       const [teamsRes, mastersRes, linesRes, crewsRes] = await Promise.all([
         fetch(`/api/admin/cluster4/teams${orgParam}`),
         // 라인 등록 데이터는 조직별 권한 분리 전 단계라 전체 조직을 조회한다.
         fetch(`/api/admin/cluster4/competency-line-masters`),
-        fetch("/api/admin/cluster4/lines?partType=competency&limit=100"),
+        fetch(`/api/admin/cluster4/lines?${linesQs.toString()}`),
         fetch(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`),
       ]);
       const teamsJson = await teamsRes.json(); if (teamsJson.success) setTeams(teamsJson.data);

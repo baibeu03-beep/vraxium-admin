@@ -9,7 +9,11 @@ import {
   closeEditWindow,
   upsertEditWindow,
 } from "@/lib/adminEditWindowsData";
-import { isEditableResourceKey } from "@/lib/adminEditWindowsTypes";
+import {
+  affectsWeeklyCardsCanEdit,
+  isEditableResourceKey,
+} from "@/lib/adminEditWindowsTypes";
+import { markWeeklyCardsSnapshotStale } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 type Ctx = { params: Promise<{ user_id: string }> };
 
@@ -65,6 +69,11 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   if (input.action === "close") {
     try {
       const closed = await closeEditWindow(user_id, resourceKey, weekId);
+      // 허브 작성기간 변경은 weekly-cards snapshot 의 canEdit 버튼에 반영되어야 한다.
+      // best-effort — 실패해도 close 자체는 성공 응답(다음 lazy 재계산이 보정).
+      if (affectsWeeklyCardsCanEdit(resourceKey)) {
+        await markWeeklyCardsSnapshotStale(user_id);
+      }
       return Response.json({ success: true, data: { window: closed } });
     } catch (error) {
       if (error instanceof EditWindowError) {
@@ -125,6 +134,9 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       note,
       grantedBy: admin.userId ?? null,
     });
+    if (affectsWeeklyCardsCanEdit(resourceKey)) {
+      await markWeeklyCardsSnapshotStale(user_id);
+    }
     return Response.json({ success: true, data: { window } });
   } catch (error) {
     if (error instanceof EditWindowError) {

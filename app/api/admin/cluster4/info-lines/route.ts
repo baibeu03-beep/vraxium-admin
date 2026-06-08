@@ -26,6 +26,7 @@ import {
 } from "@/lib/cluster4OutputImages";
 import { describeOpenableWeek } from "@/lib/cluster4WeekPolicy";
 import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
+import { isOrganizationSlug } from "@/lib/organizations";
 
 // GET /api/admin/cluster4/info-lines?week_id=&activity_type_id=
 // 실무 정보(part_type='info') 라인을 활동 유형 탭별/주차별로 운영하기 위한
@@ -42,6 +43,9 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const weekId = params.get("week_id")?.trim() || null;
   const activityTypeId = params.get("activity_type_id")?.trim() || null;
+  // 조직 스코프(통합 ↔ 조직 진입). 내부 API 컨벤션은 organization. 미지정/무효 = 통합(전체).
+  const organizationRaw = params.get("organization")?.trim() || null;
+  const organization = isOrganizationSlug(organizationRaw) ? organizationRaw : null;
 
   if (weekId !== null && !isUuid(weekId)) {
     return Response.json(
@@ -51,7 +55,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await listCluster4InfoLinesDetailed({ weekId, activityTypeId });
+    const data = await listCluster4InfoLinesDetailed({
+      weekId,
+      activityTypeId,
+      organization,
+    });
     return Response.json({ success: true, data });
   } catch (error) {
     if (error instanceof Cluster4LineError) {

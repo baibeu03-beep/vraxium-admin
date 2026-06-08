@@ -16,22 +16,13 @@ const ADMIN_BASE = process.env.SMOKE_BASE_URL ?? "http://localhost:3000";
 const FRONT_BASE = process.env.FRONT_BASE_URL ?? "http://localhost:3001";
 const ORGS = ["encre", "oranke", "phalanx"] as const;
 
-// 고객앱 /crews 의 신규 라벨/그룹 로직 1:1 재현 (page.tsx CREW_STATUS_LABELS / isActiveGroup)
-const CREW_STATUS_LABELS: Record<string, string> = {
-  active: "활동 중",
-  onboarding: "클럽 온보딩 중",
-  weekly_rest: "휴식(개인) 중",
-  official_rest: "휴식(공식) 중",
-  seasonal_rest: "시즌 휴식 중",
-  graduating: "졸업 절차 중",
-  extra_growth: "추가 성장 중",
-  graduated: "활동 졸업",
-  suspended: "활동 중단",
-  paused: "활동 유보",
-};
-const cardLabel = (dgs: string) => CREW_STATUS_LABELS[dgs] ?? "활동 중";
-const filterGroup = (dgs: string) =>
-  dgs === "graduated" ? "활동 졸업" : dgs === "suspended" ? "활동 중단" : "활동 중";
+// 고객앱 /crews 의 2분류(Cluving / Elite) 라벨·그룹 로직 1:1 재현
+// (2026-06-08 개편 — page.tsx statusLabel / isActiveGroup).
+//   카드 라벨: graduated → "활동 졸업", 그 외 전부 → "활동 중".
+//   필터 그룹: graduated → "활동 졸업", 그 외 전부 → "활동 중".
+//   suspended 는 로드 단계에서 목록 제외되므로 화면에 안 나타나며 라벨/그룹 둘 다 미사용.
+const cardLabel = (dgs: string) => (dgs === "graduated" ? "활동 졸업" : "활동 중");
+const filterGroup = (dgs: string) => (dgs === "graduated" ? "활동 졸업" : "활동 중");
 
 let pass = 0,
   fail = 0;

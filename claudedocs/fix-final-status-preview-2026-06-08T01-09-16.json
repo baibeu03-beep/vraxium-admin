@@ -1,0 +1,23 @@
+{
+ "mode": "preview",
+ "total": 1,
+ "changes": [
+  {
+   "uuid": "14f5c826-b2cf-4a88-abda-7168f3be907d",
+   "name": "장승완",
+   "source": "oranke",
+   "legacy": 1092,
+   "pmsState": "활동정지",
+   "prior": {
+    "status": "active",
+    "growth_status": "active"
+   },
+   "next": {
+    "status": "active",
+    "growth_status": "suspended"
+   }
+  }
+ ],
+ "applied": 0,
+ "errors": []
+}

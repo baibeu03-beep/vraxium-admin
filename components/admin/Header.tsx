@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LogOut, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
+import { readOrgParam } from "@/lib/adminOrgContext";
 import {
   toggleDevQuery,
   useAdminDevMode,
@@ -15,34 +17,78 @@ import { cn } from "@/lib/utils";
 // 기능·로직·상태값은 모두 유지하고 렌더링만 끈다 — 다시 쓰려면 true 로 변경.
 const SHOW_DEV_TOGGLE = false;
 
-// 사이드바 IA 와 1:1 동기화. (사용자 관리/설정 같은 옛 라벨은 더 이상 노출하지 않는다.)
+// 실무 정보 라인 운영 페이지: 헤더 title 텍스트 대신 [라인 관리]/[라인 개설] 2탭을 노출한다.
+// 탭은 URL ?tab 으로 구동되어 본문(PracticalInfoManager)과 공유되고, 새로고침·?org 가 유지된다.
+const PRACTICAL_INFO_PATH = "/admin/line-opening/practical-info";
+const PRACTICAL_INFO_TABS = [
+  { key: "manage", label: "라인 관리" },
+  { key: "open", label: "라인 개설" },
+] as const;
+
+// 사이드바 IA(5개 대분류 + 전역) 와 1:1 동기화. 옛 라벨(멤버 관리/운영 관리 등)은 노출하지 않는다.
 const TITLES: Record<string, string> = {
   "/admin": "대시보드",
-  "/admin/periods/register": "주차와 시즌 · 기간 등록",
-  "/admin/season-weeks": "주차와 시즌 · 기간 정보",
-  "/admin/members": "멤버 관리 · 전체 멤버",
-  "/admin/crews": "멤버 관리 · 조직별",
-  "/admin/users/applicants": "멤버 관리 · 승인 대기",
-  "/admin/users/app-users": "멤버 관리 · 가입된 사용자",
-  "/admin/users/admin-users": "멤버 관리 · 관리자 계정",
-  "/admin/settings/edit-windows": "운영 관리 · 작성 기간",
-  "/admin/lines/register": "허브와 라인 · 라인 등록",
-  "/admin/lines/info": "허브와 라인 · 라인 정보",
-  "/admin/career-projects": "라인 개설 · 실무 경력",
-  "/admin/import": "데이터 관리 · 가져오기",
+
+  // 1) 라인 개설
+  "/admin/line-opening/practical-info": "라인 개설 · 실무 정보",
+  "/admin/line-opening/practical-experience": "라인 개설 · 실무 경험",
+  "/admin/line-opening/practical-competency": "라인 개설 · 실무 역량",
+  "/admin/lines/register": "라인 개설 · 라인 등록",
+  "/admin/line-opening/line-history": "라인 개설 · 개설 이력",
+  "/admin/line-opening/practical-career": "라인 개설 · 실무 경력",
+
+  // 2) 프로세스 체크
+  "/admin/processes/check/info": "프로세스 체크 · 실무 정보 급",
+  "/admin/processes/check/experience": "프로세스 체크 · 실무 경험 급",
+  "/admin/processes/check/competency": "프로세스 체크 · 실무 역량 급",
+  "/admin/processes/check/club": "프로세스 체크 · 클럽 급",
+
+  // 3) 클럽 진행
+  "/admin/club-progress/weekly": "클럽 진행 · 주차 내역",
+  "/admin/club-progress/seasons": "클럽 진행 · 시즌 내역",
+
+  // 4) 크루 활동
+  "/admin/members": "크루 활동 · 크루 관리",
+  "/admin/rest-management": "크루 활동 · 휴식 관리",
+  "/admin/communications": "크루 활동 · 커뮤니케이션",
+  "/admin/season-participations": "크루 활동 · 시즌 참여/휴식",
+  "/admin/official-rest-periods": "크루 활동 · 공식 휴식 관리",
+
+  // 5) 클럽 정보
+  "/admin/season-weeks": "클럽 정보 · 주차와 시즌",
+  "/admin/lines/info": "클럽 정보 · 허브와 라인",
+  "/admin/processes/info": "클럽 정보 · 허브별 프로세스 목록",
+  "/admin/team-parts/info": "클럽 정보 · 팀 & 파트",
+  "/admin/periods/register": "클럽 정보 · 기간 등록",
+  "/admin/week-recognitions": "클럽 정보 · 주차 인정 결과",
+  "/admin/processes/register": "클럽 정보 · 프로세스 등록",
+  "/admin/team-parts/register": "클럽 정보 · 팀 & 파트 등록",
+
+  // 전역(통합 모드)
+  "/admin/users/applicants": "크루 온보딩 · 크루 등록",
+  "/admin/settings/accounts": "어드민 관리 · 어드민 계정",
+  "/admin/settings/edit-windows": "어드민 관리 · 작성 기간 관리",
+  "/admin/settings/permissions": "어드민 관리 · 권한 설정",
+  "/admin/operation-health-check": "어드민 관리 · 운영 정합성 점검",
+  "/admin/test-users": "어드민 관리 · 테스트 모드",
+  "/admin/import": "어드민 관리 · 가져오기",
 };
 
-function resolveTitle(pathname: string): string {
-  const direct = TITLES[pathname];
-  if (direct) return direct;
+// orgSlug 가 주어지면(조직 진입) 타이틀 앞에 조직 라벨을 붙여 현재 조직 컨텍스트를 명시한다.
+function resolveTitle(
+  pathname: string,
+  orgSlug: ReturnType<typeof readOrgParam>,
+): string {
+  // 크루 목록은 path 기반 /admin/crews/{org} — 항상 해당 조직 컨텍스트.
   const orgMatch = pathname.match(/^\/admin\/crews\/([^/]+)/);
-  if (orgMatch) {
-    const slug = orgMatch[1];
-    if (isOrganizationSlug(slug)) {
-      return `멤버 관리 · ${ORGANIZATION_LABEL[slug]}`;
-    }
+  if (orgMatch && isOrganizationSlug(orgMatch[1])) {
+    return `크루 활동 · 크루 관리 (${ORGANIZATION_LABEL[orgMatch[1]]})`;
   }
-  return "Admin";
+  const base = TITLES[pathname] ?? "Admin";
+  if (orgSlug && base !== "Admin") {
+    return `${ORGANIZATION_LABEL[orgSlug]} · ${base}`;
+  }
+  return base;
 }
 
 type HeaderProps = {
@@ -60,7 +106,19 @@ export default function Header({
   const router = useRouter();
   const searchParams = useSearchParams();
   const devMode = useAdminDevMode();
-  const title = resolveTitle(pathname);
+  const title = resolveTitle(pathname, readOrgParam(searchParams));
+
+  // 실무 정보 페이지: title 영역에 2탭 노출. 탭 href 는 현재 query(?org 등)를 보존하고 ?tab 만 바꾼다.
+  const isPracticalInfo = pathname === PRACTICAL_INFO_PATH;
+  const currentInfoTab: "manage" | "open" =
+    searchParams?.get("tab") === "open" ? "open" : "manage";
+  const infoTabHref = (key: "manage" | "open") => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    if (key === "open") params.set("tab", "open");
+    else params.delete("tab"); // 기본(라인 관리) = tab 파라미터 제거(깔끔한 URL)
+    const qs = params.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  };
 
   // 사이드바 최하단에 있던 기존 로그아웃 로직을 그대로 이동 (auth/세션 로직 수정 없음).
   const handleLogout = async () => {
@@ -130,7 +188,36 @@ export default function Header({
     // px-4 sm:px-6 + 타이틀 flex-1: 좁은 폭(사이드바 펼침 + 모바일)에서도 우측 영역이 잘리지 않도록
     // 우측 세로 3행 배치 — 고정 h-14 대신 py 로 가변 높이
     <header className="flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-2 sm:gap-4 sm:px-6">
-      <h1 className="min-w-0 flex-1 truncate text-[13.5px] font-semibold tracking-tight text-foreground">{title}</h1>
+      {isPracticalInfo ? (
+        // 헤더 title 텍스트 대신 라인 관리/라인 개설 2탭. (org 보존, ?tab 구동, 새로고침 유지)
+        <nav
+          aria-label="실무 정보 탭"
+          className="flex min-w-0 flex-1 items-center gap-1"
+        >
+          {PRACTICAL_INFO_TABS.map((t) => {
+            const active = currentInfoTab === t.key;
+            return (
+              <Link
+                key={t.key}
+                href={infoTabHref(t.key)}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors",
+                  active
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                {t.label}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : (
+        <h1 className="min-w-0 flex-1 truncate text-[13.5px] font-semibold tracking-tight text-foreground">
+          {title}
+        </h1>
+      )}
       {/* min-w-0(shrink-0 제거): 좁은 폭에서 userArea 의 이메일 줄이 truncate 되며 함께 줄어든다 */}
       <div className="flex min-w-0 items-center gap-2">
         {/* 개발자 표시 토글 — SHOW_DEV_TOGGLE=false 로 화면에서만 숨김 (기능/로직 유지) */}

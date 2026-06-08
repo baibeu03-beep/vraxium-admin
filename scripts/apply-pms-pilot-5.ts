@@ -39,7 +39,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { randomUUID } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import mysql from "mysql2/promise";
-import { legacyIdentityFor, ledgerSourceTable, resolveOrganizationSlug, mapUsersinfoTeamPart, type PmsSourceSystem } from "@/lib/pmsMigration";
+import { legacyIdentityFor, ledgerSourceTable, resolveOrganizationSlug, mapUsersinfoTeamPart, resolveAccountStatusFromPmsState, type PmsSourceSystem } from "@/lib/pmsMigration";
 import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
 import { recomputeAndStoreWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { isExcludedPmsSeason, normalizePmsSeasonType } from "@/lib/pmsSeasonAttribution";
@@ -520,11 +520,13 @@ async function main() {
         const tp = mapUsersinfoTeamPart(x.info);
         const bd = String(x.pms.BirthDay ?? "");
         const birthIso = bd.length === 6 ? `${Number(bd.slice(0, 2)) <= 26 ? "20" : "19"}${bd.slice(0, 2)}-${bd.slice(2, 4)}-${bd.slice(4, 6)}` : null;
+        const acct = resolveAccountStatusFromPmsState(x.info.State); // PMS State → status/growth_status
         const { error: pe } = await sb.from("user_profiles").insert({
           user_id: x.uuid, display_name: x.name, birth_date: birthIso, gender: x.pms.Gender ?? null,
           contact_phone: x.pms.Contact ?? null, contact_email: x.pms.mail ?? null,
           organization_slug: x.org, school_name: x.pms.School ?? null,
           current_team_name: tp.teamName, current_part_name: tp.partName,
+          status: acct.status, growth_status: acct.growthStatus,
           activity_started_at: String(x.info.StartDate ?? "").slice(0, 10) || null,
         });
         if (pe) throw new Error(`profile insert: ${pe.message}`);
@@ -664,7 +666,7 @@ async function main() {
           const sid = randomUUID();
           const { error: se } = await sb.from("cluster4_line_submissions").insert({
             id: sid, line_target_id: tid, user_id: x.uuid, subtitle: r.subtitle ?? "주차 활동 내역(PMS 이관)",
-            submitted_at: `${r.week.end_date}T22:59:59Z`, output_links: [], output_images: [], growth_point: r.subtitle ?? null,
+            submitted_at: `${r.week.end_date}T22:59:59Z`, output_links: [], output_images: [], growth_point: null, // PMS 이관: growth_point 미저장 (subtitle=원문·rating=평점만)
           });
           if (se) throw new Error(`submission insert: ${se.message}`);
           u.inserted.submissionIds.push(sid);

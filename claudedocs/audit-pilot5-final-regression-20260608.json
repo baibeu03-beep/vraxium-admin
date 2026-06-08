@@ -1,0 +1,251 @@
+[
+ {
+  "pilot": "P1 장승완",
+  "uuid": "14f5c826",
+  "pms": {
+   "week": 14,
+   "state": "활동정지",
+   "star": 925,
+   "shield": -55,
+   "pen": 194
+  },
+  "db": {
+   "approved": 14,
+   "cumulative": 28,
+   "check": 925,
+   "net": -54,
+   "pen": 192,
+   "growth_status": "suspended",
+   "status": "active",
+   "gpNonNull": 0,
+   "subtitleNonNull": 28
+  },
+  "http": {
+   "cards": 49,
+   "acc": 14,
+   "check": 891,
+   "net": -45,
+   "pen": 139,
+   "success": 14,
+   "fail": 14,
+   "tallying": 1
+  },
+  "snapshotMeta": {
+   "v": 19,
+   "stale": false
+  },
+  "seasonRecords": [
+   "겨울 시즌:정상 완료(6/8)",
+   "가을 시즌:정상 완료(3/16)",
+   "여름 시즌:정상 완료(2/8)",
+   "봄 시즌:정상 완료(3/16)"
+  ],
+  "directEqHttp": true,
+  "snapshotEqHttp": true,
+  "demoEqHttp": "demo 비대상(실사용자)",
+  "checks": {
+   "accMatchesPmsWeek": true,
+   "netMatchesBalance": false,
+   "growthPointEmpty": true
+  }
+ },
+ {
+  "pilot": "P2 안은비",
+  "uuid": "3c4fc830",
+  "pms": {
+   "week": 37,
+   "state": "일반",
+   "star": 2014,
+   "shield": 13,
+   "pen": 108
+  },
+  "db": {
+   "approved": 37,
+   "cumulative": 42,
+   "check": 2014,
+   "net": 14,
+   "pen": 107,
+   "growth_status": "active",
+   "status": "active",
+   "gpNonNull": 0,
+   "subtitleNonNull": 42
+  },
+  "http": {
+   "cards": 62,
+   "acc": 37,
+   "check": 2006,
+   "net": -5,
+   "pen": 107,
+   "success": 37,
+   "fail": 4,
+   "tallying": 1
+  },
+  "snapshotMeta": {
+   "v": 19,
+   "stale": false
+  },
+  "seasonRecords": [
+   "봄 시즌:진행 중(9/16)",
+   "겨울 시즌:정상 완료(7/8)",
+   "가을 시즌:정상 완료(9/16)",
+   "여름 시즌:정상 완료(6/8)",
+   "봄 시즌:정상 완료(6/16)"
+  ],
+  "directEqHttp": true,
+  "snapshotEqHttp": true,
+  "demoEqHttp": "demo 비대상(실사용자)",
+  "checks": {
+   "accMatchesPmsWeek": true,
+   "netMatchesBalance": false,
+   "growthPointEmpty": true
+  }
+ },
+ {
+  "pilot": "P3 성채윤",
+  "uuid": "19cb4129",
+  "pms": {
+   "week": 18,
+   "state": "일반",
+   "star": 1085,
+   "shield": 44,
+   "pen": 40
+  },
+  "db": {
+   "approved": 18,
+   "cumulative": 20,
+   "check": 1085,
+   "net": 44,
+   "pen": 40,
+   "growth_status": "active",
+   "status": "active",
+   "gpNonNull": 0,
+   "subtitleNonNull": 19
+  },
+  "http": {
+   "cards": 34,
+   "acc": 18,
+   "check": 1031,
+   "net": 25,
+   "pen": 26,
+   "success": 18,
+   "fail": 1,
+   "tallying": 1
+  },
+  "snapshotMeta": {
+   "v": 19,
+   "stale": false
+  },
+  "seasonRecords": [
+   "봄 시즌:진행 중(5/16)",
+   "가을 시즌:정상 완료(8/16)",
+   "여름 시즌:정상 완료(5/8)"
+  ],
+  "directEqHttp": true,
+  "snapshotEqHttp": true,
+  "demoEqHttp": "demo 비대상(실사용자)",
+  "checks": {
+   "accMatchesPmsWeek": true,
+   "netMatchesBalance": true,
+   "growthPointEmpty": true
+  }
+ },
+ {
+  "pilot": "P4 박시은",
+  "uuid": "56c46098",
+  "pms": {
+   "week": 18,
+   "state": "일반",
+   "star": 966,
+   "shield": 30,
+   "pen": 42
+  },
+  "db": {
+   "approved": 19,
+   "cumulative": 22,
+   "check": 966,
+   "net": 30,
+   "pen": 42,
+   "growth_status": "active",
+   "status": "active",
+   "gpNonNull": 0,
+   "subtitleNonNull": 21
+  },
+  "http": {
+   "cards": 36,
+   "acc": 18,
+   "check": 978,
+   "net": 27,
+   "pen": 39,
+   "success": 18,
+   "fail": 3,
+   "tallying": 1
+  },
+  "snapshotMeta": {
+   "v": 19,
+   "stale": false
+  },
+  "seasonRecords": [
+   "봄 시즌:진행 중(7/16)",
+   "겨울 시즌:정상 완료(7/8)",
+   "여름 시즌:정상 완료(5/8)"
+  ],
+  "directEqHttp": true,
+  "snapshotEqHttp": true,
+  "demoEqHttp": "demo 비대상(실사용자)",
+  "checks": {
+   "accMatchesPmsWeek": true,
+   "netMatchesBalance": true,
+   "growthPointEmpty": true
+  }
+ },
+ {
+  "pilot": "P5 정혜빈",
+  "uuid": "f3ac0827",
+  "pms": {
+   "week": 28,
+   "state": "일반",
+   "star": 1668,
+   "shield": 120,
+   "pen": 49
+  },
+  "db": {
+   "approved": 28,
+   "cumulative": 31,
+   "check": 1668,
+   "net": 120,
+   "pen": 49,
+   "growth_status": "active",
+   "status": "active",
+   "gpNonNull": 0,
+   "subtitleNonNull": 31
+  },
+  "http": {
+   "cards": 45,
+   "acc": 28,
+   "check": 1647,
+   "net": 104,
+   "pen": 41,
+   "success": 28,
+   "fail": 2,
+   "tallying": 1
+  },
+  "snapshotMeta": {
+   "v": 19,
+   "stale": false
+  },
+  "seasonRecords": [
+   "봄 시즌:진행 중(7/16)",
+   "겨울 시즌:정상 완료(6/8)",
+   "가을 시즌:정상 완료(10/16)",
+   "여름 시즌:정상 완료(5/8)"
+  ],
+  "directEqHttp": true,
+  "snapshotEqHttp": true,
+  "demoEqHttp": "demo 비대상(실사용자)",
+  "checks": {
+   "accMatchesPmsWeek": true,
+   "netMatchesBalance": true,
+   "growthPointEmpty": true
+  }
+ }
+]

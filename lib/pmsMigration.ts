@@ -70,6 +70,32 @@ export function legacyIdentityFor(
 }
 
 /**
+ * PMS usersinfo.State → Vraxium 계정 상태 매핑 (2026-06-07 확정).
+ *   - 일반 / 운영진 → status=active · growth_status=active
+ *   - 활동정지     → status=active · growth_status='suspended' (계정 존속·성장만 중단)
+ *   - 졸업         → status=active · growth_status='graduated' (이관 대상 제외이나 매핑 정의)
+ *   미지의 State 는 fail-closed throw (이관 시 명시 추가 강제).
+ * 시즌별 progressStatus(이력) 와 분리 — 최종 상태만 결정한다 (cluster1ResumeData 의 시즌
+ *   인정 주차 기반 표시를 덮지 않는다, 2026-06-07 정책).
+ */
+export function resolveAccountStatusFromPmsState(
+  state: string | null | undefined,
+): { status: string; growthStatus: string } {
+  const s = String(state ?? "").trim();
+  switch (s) {
+    case "일반":
+    case "운영진":
+      return { status: "active", growthStatus: "active" };
+    case "활동정지":
+      return { status: "active", growthStatus: "suspended" };
+    case "졸업":
+      return { status: "active", growthStatus: "graduated" };
+    default:
+      throw new Error(`[pmsMigration] 미매핑 usersinfo.State '${s}' — resolveAccountStatusFromPmsState 에 추가 후 진행`);
+  }
+}
+
+/**
  * @deprecated (2026-06-07 B안 복합키 채택) offset 네임스페이스 방식 폐기 —
  * legacy_user_id 는 단독으로 식별자가 아니다. legacyIdentityFor 를 사용해
  * (source_system, legacy_user_id) 페어로 기록/조회할 것. 호출 시 즉시 throw.

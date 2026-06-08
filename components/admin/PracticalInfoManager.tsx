@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Loader2,
   Plus,
@@ -31,6 +32,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { readOrgParam } from "@/lib/adminOrgContext";
+import PracticalInfoOpeningSection0 from "@/components/admin/PracticalInfoOpeningSection0";
 import type { Cluster4InfoLineDetail } from "@/lib/adminCluster4LinesTypes";
 import {
   buildOutputLinksFromForm,
@@ -713,6 +716,12 @@ export default function PracticalInfoManager() {
     }
   }, []);
 
+  // 상위 2탭(라인 관리/라인 개설)은 상단 Header title 영역에 배치되며 URL ?tab 으로 구동된다.
+  // (헤더↔본문 공유 + 새로고침 유지 + ?org 보존). 본문에는 탭 UI 를 두지 않는다. 기본 = 라인 관리.
+  const searchParams = useSearchParams();
+  const mainTab: "manage" | "open" =
+    searchParams?.get("tab") === "open" ? "open" : "manage";
+
   // Detail modal
   const [detailLineId, setDetailLineId] = useState<string | null>(null);
   const [enhancementFilter, setEnhancementFilter] = useState<EnhancementFilter>("all");
@@ -824,6 +833,10 @@ export default function PracticalInfoManager() {
       const qs = new URLSearchParams({ activity_type_id: typeId });
       // 개설된 라인 목록은 선택한 주차(selectedWeekId) 기준으로만 표시한다.
       if (weekId) qs.set("week_id", weekId);
+      // 조직 컨텍스트(?org)를 내부 API 컨벤션(organization)으로 변환해 전달.
+      // 조직 모드면 (해당 조직 OR 공통) 라인만, 통합 모드(org 없음)면 전체.
+      const org = readOrgParam(new URLSearchParams(window.location.search));
+      if (org) qs.set("organization", org);
       const res = await fetch(`/api/admin/cluster4/info-lines?${qs.toString()}`);
       const json = await res.json();
       if (json.success) {
@@ -848,6 +861,8 @@ export default function PracticalInfoManager() {
     }
     try {
       const qs = new URLSearchParams({ week_id: weekId });
+      const org = readOrgParam(new URLSearchParams(window.location.search));
+      if (org) qs.set("organization", org);
       const res = await fetch(`/api/admin/cluster4/info-lines?${qs.toString()}`);
       const json = await res.json();
       setWeekLines(json.success ? (json.data.rows ?? []) : []);
@@ -1139,6 +1154,9 @@ export default function PracticalInfoManager() {
         )}
       </div>
 
+      {/* 2탭(라인 관리/라인 개설)은 상단 Header title 영역으로 이동 — 본문에는 두지 않는다. */}
+      {mainTab === "manage" && (
+        <>
       {/* Banner */}
       {banner && (
         <div
@@ -1585,6 +1603,38 @@ export default function PracticalInfoManager() {
             fetchMeta();
           }}
         />
+      )}
+        </>
+      )}
+
+      {mainTab === "open" && (
+        <div className="space-y-6">
+          {/* 활동 유형 탭 (라인 개설 탭 — 섹션0 대상 활동유형 선택, activeTypeId 공유) */}
+          <div className="flex flex-wrap gap-2 border-b pb-px">
+            {orderedTypes.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => switchTab(t.id)}
+                className={cn(
+                  "relative -mb-px rounded-t-md border border-b-0 px-4 py-2 text-sm font-medium transition-colors",
+                  activeTypeId === t.id
+                    ? "border-input bg-background text-foreground"
+                    : "border-transparent bg-muted/40 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+
+          {/* [섹션 0] 상태창 + 개설/검수 기록. 지난 주 = 개설 대상(N-1) isOpenTarget. */}
+          <PracticalInfoOpeningSection0
+            currentWeek={currentWeek}
+            openableWeek={weekOptions.find((o) => o.isOpenTarget) ?? null}
+            activeType={activeType}
+          />
+        </div>
       )}
     </div>
   );

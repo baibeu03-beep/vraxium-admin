@@ -41,6 +41,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { readOrgParam } from "@/lib/adminOrgContext";
 import {
   LINE_REGISTRATION_HUBS,
   LINE_REGISTRATION_HUB_LABEL,
@@ -607,7 +608,12 @@ export default function LineRegistrationInfoManager() {
       setError(null);
       try {
         // limit 상한 200 (API cap) — 초과분은 설명 영역에 표기해 silent truncation 을 막는다.
-        const res = await fetch("/api/admin/lines/registrations?limit=200", {
+        // 조직 컨텍스트(?org)를 organization 으로 변환 — 조직 모드면 (해당 조직 OR 공통)만 서버에서 스코프.
+        // (orgFilter 드롭다운은 그 위에서 추가로 좁히는 프론트 필터로 유지.)
+        const regQs = new URLSearchParams({ limit: "200" });
+        const urlOrg = readOrgParam(new URLSearchParams(window.location.search));
+        if (urlOrg) regQs.set("organization", urlOrg);
+        const res = await fetch(`/api/admin/lines/registrations?${regQs.toString()}`, {
           cache: "no-store",
         });
         const json = await res.json();

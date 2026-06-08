@@ -73,15 +73,16 @@ function appliesExperienceFail(
 /**
  * 주차 결과 6종 판정 (순수).
  *
- * 결정 순서 (cluster4WeeklyGrowthData 인라인 로직과 동일):
- *   1) 현재 주차 → 공식휴식이면 official_rest, uws=personal_rest 면 personal_rest, 그 외 running.
- *   2) uws 존재(비-현재주) → 기존 표시 로직 보존:
- *        - official_rest 기록 + 재판정상 활동주차(!weekIsOfficialRest)
- *            → published 면 fail, 아니면 tallying
- *        - personal_rest / official_rest → 그대로
+ * 결정 순서:
+ *   0) 공식 휴식 주차(weekIsOfficialRest=seasonCalendar rule ∨ official_rest_periods) →
+ *        현재/과거 무관하게 official_rest (개인 휴식보다 우선).
+ *   1) 현재 주차(비-공식휴식) → uws=personal_rest 면 personal_rest, 그 외 running.
+ *   2) uws 존재(비-현재주, 비-공식휴식) → 기존 표시 로직 보존:
+ *        - uws=official_rest(but !weekIsOfficialRest) → published 면 fail, 아니면 tallying
+ *        - personal_rest → 그대로
  *        - 성장주차(success/fail) + 미공표 → tallying
  *        - 그 외(공표완료) → uws.status 그대로
- *   3) uws 없음(비-현재주) → 미공표면 tallying, 공표완료면 no_data(null).
+ *   3) uws 없음(비-현재주, 비-공식휴식) → 미공표면 tallying, 공표완료면 no_data(null).
  *   4) verdict=fail 이면 (success/fail 한정) fail 로 override + flippedToFail 카운트.
  */
 export function resolveWeekResultStatus(
@@ -97,19 +98,22 @@ export function resolveWeekResultStatus(
 
   let resultStatus: WeekResultStatusKey;
 
-  if (isCurrentWeek) {
-    // 현재 주차는 결과 확정 전이므로 항상 진행 중 — 단, 휴식 주차는 휴식으로 표시.
-    resultStatus = weekIsOfficialRest
-      ? "official_rest"
-      : uwsStatus === "personal_rest"
-        ? "personal_rest"
-        : "running";
+  if (weekIsOfficialRest) {
+    // 공식 휴식 주차(seasonCalendar rule ∨ official_rest_periods overlap)는 현재/과거 무관하게
+    // 휴식(공식)이다. 이전에는 isCurrentWeek 분기에서만 이 플래그를 봤기 때문에, uws 행이
+    // official_rest 로 기록되지 않은 과거 공식 휴식 주차(예: uws 미생성·미공표)가
+    // tallying(집계 중)/fail 로 잘못 빠졌다. weekIsOfficialRest 를 모든 주차에 우선 적용한다.
+    //   (개인 휴식 신청이 같은 주에 있어도 공식 휴식이 우선 — 기존 현재주 분기와 동일 우선순위.)
+    resultStatus = "official_rest";
+  } else if (isCurrentWeek) {
+    // 현재 주차는 결과 확정 전이므로 항상 진행 중 — 단, 개인 휴식은 휴식으로 표시.
+    resultStatus = uwsStatus === "personal_rest" ? "personal_rest" : "running";
   } else if (uwsStatus !== null) {
-    // ── uws 존재: 기존 표시 로직 100% 보존 (과거/직전 카드 불변) ──
-    if (uwsStatus === "official_rest" && !weekIsOfficialRest) {
-      // 공식 휴식으로 기록됐으나 재판정상 활동 주차 → 성장 주차로 간주.
+    // ── uws 존재(비-현재주, 비-공식휴식): 기존 표시 로직 100% 보존 (과거/직전 카드 불변) ──
+    if (uwsStatus === "official_rest") {
+      // 공식 휴식으로 기록됐으나 재판정상 활동 주차(!weekIsOfficialRest) → 성장 주차로 간주.
       resultStatus = isPublished ? "fail" : "tallying";
-    } else if (uwsStatus === "personal_rest" || uwsStatus === "official_rest") {
+    } else if (uwsStatus === "personal_rest") {
       resultStatus = uwsStatus;
     } else if (!isPublished) {
       // 성장 주차(success/fail) + 미공표 → 집계 중.

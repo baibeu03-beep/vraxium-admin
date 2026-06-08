@@ -211,11 +211,32 @@ export function getEditableResource(key: string): EditableResource | undefined {
   return EDITABLE_RESOURCES.find((resource) => resource.key === key);
 }
 
-// 주간 자원(주간 회고/동료/평판)은 group === "weekly". 이 자원들의 권한은 반드시
-// 특정 week_id 를 가리켜야 한다 (정책: 주차 필수). 비주간 자원은 전역(week_id=NULL).
+// 4개 실무 허브(정보/역량/경험/경력) 작성기간 키. 주차 단위 추가 개방의 대상이다.
+// 신규 grant 는 주차별(week_id 필수)로만 생성하되, 판정/조회는 (week_id=카드주차 OR
+// week_id IS NULL 전역) 의 additive OR 로 본다 — 기존 전역 grant 하위호환 보존.
+const WEEK_SCOPED_ACTIVITY_HUB_KEYS: ReadonlySet<string> = new Set([
+  "cluster4.work_info",
+  "cluster4.work_ability",
+  "cluster4.work_exp",
+  "cluster4.work_career",
+]);
+
+// 주차 단위로 권한을 여는 자원:
+//   - group === "weekly" (주간 회고/동료/평판) — 원래부터 주차 필수.
+//   - 4개 실무 허브(work_*) — 2026-06-08 주차별 추가 개방 도입(신규 grant 는 week_id 필수).
+// 이 자원들은 admin write 시 week_id 가 필수이고, admin UI 가 주차 선택 드롭다운을 노출한다.
+// 비주간 자원은 전역(week_id=NULL).
 export function isWeekScopedResourceKey(key: string): boolean {
+  if (WEEK_SCOPED_ACTIVITY_HUB_KEYS.has(key)) return true;
   const resource = EDITABLE_RESOURCES.find((item) => item.key === key);
   return resource?.group === "weekly";
+}
+
+// 이 resource_key 의 grant 가 weekly-cards snapshot 의 canEdit(허브 수정 버튼)에 반영되는가.
+// 4개 실무 허브(work_*)만 cluster4 weekly-cards 의 evaluateCluster4HubEdit override 로 쓰이므로,
+// 이 키를 열거나/닫을 때 대상 사용자의 snapshot 을 stale 처리해 버튼이 즉시 반영되게 한다.
+export function affectsWeeklyCardsCanEdit(key: string): boolean {
+  return WEEK_SCOPED_ACTIVITY_HUB_KEYS.has(key);
 }
 
 // admin 주차 선택 드롭다운 / 권한 판정에서 공용으로 쓰는 주차 옵션.

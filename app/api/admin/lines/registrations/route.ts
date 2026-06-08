@@ -20,6 +20,7 @@ import {
   createLineRegistration,
   listLineRegistrations,
 } from "@/lib/adminLineRegistrationsData";
+import { isOrganizationSlug } from "@/lib/organizations";
 
 function parseIntParam(
   raw: string | null,
@@ -55,9 +56,12 @@ export async function GET(request: NextRequest) {
   }
   const limit = parseIntParam(params.get("limit"), 50, { min: 1, max: 200 });
   const offset = parseIntParam(params.get("offset"), 0, { min: 0, max: 100000 });
+  // 조직 스코프(통합 ↔ 조직 진입). 내부 API 컨벤션은 organization. 미지정/무효 = 통합(전체).
+  const organizationRaw = params.get("organization")?.trim() || null;
+  const organization = isOrganizationSlug(organizationRaw) ? organizationRaw : null;
 
   try {
-    const result = await listLineRegistrations({ hub, limit, offset });
+    const result = await listLineRegistrations({ hub, organization, limit, offset });
     return Response.json({ success: true, data: result });
   } catch (error) {
     const status = error instanceof LineRegistrationError ? error.status : 500;

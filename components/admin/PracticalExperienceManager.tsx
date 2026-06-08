@@ -34,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { readOrgParam } from "@/lib/adminOrgContext";
 import {
   ORGANIZATIONS,
   ORGANIZATION_LABEL,
@@ -585,9 +586,15 @@ export default function PracticalExperienceManager() {
     setExpLinesLoading(true);
     setExpLinesError(null);
     try {
-      const res = await fetch(
-        "/api/admin/cluster4/lines?partType=experience&detailed=1&limit=500",
-      );
+      // 조직 컨텍스트(?org)를 organization 으로 변환 — 조직 모드면 (해당 조직 OR 공통) 라인만.
+      const qs = new URLSearchParams({
+        partType: "experience",
+        detailed: "1",
+        limit: "500",
+      });
+      const org = readOrgParam(new URLSearchParams(window.location.search));
+      if (org) qs.set("organization", org);
+      const res = await fetch(`/api/admin/cluster4/lines?${qs.toString()}`);
       const json = await res.json();
       if (json.success) {
         setExpLines(json.data.rows ?? []);

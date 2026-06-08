@@ -23,6 +23,7 @@ import type {
 import { CLUSTER4_HUB_LABEL } from "@/lib/adminCluster4LinesTypes";
 import {
   evaluateCluster4HubEdit,
+  isEditWindowActive,
   PART_TYPE_TO_EDIT_WINDOW_KEY,
   type Cluster4EditWindowSnapshot,
 } from "@/lib/cluster4LinePermission";
@@ -327,6 +328,87 @@ function translatePostgrestError(message: string, code?: string) {
   return new Cluster4LineError(500, message);
 }
 
+// 라인 1건의 org 노출 범위(LineOrgScope)를 판정한다 — 고객 weekly-cards 와 동일 정책 단일 출처.
+//   line_code 토큰(BS>EC>OK>PX) 우선 → info 는 common → exp/comp 는 정의 organization_slug
+//   (line_registrations bridged 역참조 우선, 없으면 기존 마스터 fallback). career/판정불가 → null.
+// collectLineOrgAudience(고객 가시성) 와 어드민 라인 목록 org 필터가 이 함수를 공유하므로
+// 두 경로의 가시성 정책이 구조적으로 갈라질 수 없다.
+export async function resolveCluster4LineOrgScope(row: {
+  part_type: string;
+  line_code: string | null;
+  experience_line_master_id?: string | null;
+  competency_line_master_id?: string | null;
+}): Promise<LineOrgScope | null> {
+  let lineOrg: LineOrgScope | null = parseLineCodeOrg(row.line_code);
+  if (lineOrg != null) return lineOrg;
+  if (row.part_type === "info") return "common";
+  if (row.part_type === "experience" && row.experience_line_master_id) {
+    lineOrg = normalizeLineOrg(
+      await getRegistrationOrgByBridgedMasterId(row.experience_line_master_id),
+    );
+    if (lineOrg == null) {
+      const { data: m } = await supabaseAdmin
+        .from("cluster4_experience_line_masters")
+        .select("organization_slug")
+        .eq("id", row.experience_line_master_id)
+        .maybeSingle();
+      lineOrg = normalizeLineOrg(
+        (m as { organization_slug: string | null } | null)?.organization_slug,
+      );
+    }
+  } else if (row.part_type === "competency" && row.competency_line_master_id) {
+    lineOrg = normalizeLineOrg(
+      await getRegistrationOrgByBridgedMasterId(row.competency_line_master_id),
+    );
+    if (lineOrg == null) {
+      const { data: m } = await supabaseAdmin
+        .from("cluster4_competency_line_masters")
+        .select("organization_slug")
+        .eq("id", row.competency_line_master_id)
+        .maybeSingle();
+      lineOrg = normalizeLineOrg(
+        (m as { organization_slug: string | null } | null)?.organization_slug,
+      );
+    }
+  }
+  return lineOrg;
+}
+
+// 어드민 라인 목록(info/experience/competency)을 현재 조직으로 좁힌다.
+// 조직 X 화면 = (lineOrg == X) OR (common). lineOrg 판정 불가 = 숨김(allowUnknown=false, fail-closed)
+// — 고객 weekly-cards Step 2 노출 필터와 동일. 반환 = 노출 대상 line id 목록.
+// restrictTo 가 주어지면(주차 필터 등) 그 부분집합 안에서만 판정한다.
+async function filterLineIdsByOrg(opts: {
+  organization: OrganizationSlug;
+  partType: Cluster4LineDto["partType"] | null;
+  restrictTo: string[] | null;
+}): Promise<string[]> {
+  let q = supabaseAdmin
+    .from("cluster4_lines")
+    .select(
+      "id,part_type,line_code,experience_line_master_id,competency_line_master_id",
+    );
+  if (opts.partType) q = q.eq("part_type", opts.partType);
+  if (opts.restrictTo) q = q.in("id", opts.restrictTo);
+  const { data, error } = await q;
+  if (error) throw new Cluster4LineError(500, error.message);
+  const candidates = (data ?? []) as Array<{
+    id: string;
+    part_type: string;
+    line_code: string | null;
+    experience_line_master_id: string | null;
+    competency_line_master_id: string | null;
+  }>;
+  const visible: string[] = [];
+  for (const row of candidates) {
+    const lineOrg = await resolveCluster4LineOrgScope(row);
+    if (isLineVisibleForUserOrg(lineOrg, opts.organization, { allowUnknown: false })) {
+      visible.push(row.id);
+    }
+  }
+  return visible;
+}
+
 // 라인 org 노출 대상(=그 라인을 synthetic fail 로 보게 되는 사용자) 집합을 계산한다.
 //
 // 강화율 분모 A 정책(2026-06-02): info/experience/competency 라인은 "개설(=any target 존재)"만으로
@@ -359,44 +441,8 @@ export async function collectLineOrgAudience(lineId: string): Promise<string[]> 
   // career: 개설+미배정 = not_applicable → 비배정 분모 무변 → org audience 없음.
   if (row.part_type === "career") return [];
 
-  // org 판정: line_code 토큰(BS>EC>OK>PX) 우선, 그다음 part별 정의 organization_slug, info 는 common.
-  // (2E-3) exp/comp 정의 org 는 line_registrations(bridged_master_id 역참조)를 우선 조회하고,
-  // 연결 registration 이 없거나 org 미지정이면 기존 마스터로 fallback 한다 — 운영 중단 방지.
-  // 2E-1 diff 0 + 2E-2 sync 가드로 두 값은 등가가 보장된다.
-  let lineOrg: LineOrgScope | null = parseLineCodeOrg(row.line_code);
-  if (lineOrg == null) {
-    if (row.part_type === "info") {
-      lineOrg = "common";
-    } else if (row.part_type === "experience" && row.experience_line_master_id) {
-      lineOrg = normalizeLineOrg(
-        await getRegistrationOrgByBridgedMasterId(row.experience_line_master_id),
-      );
-      if (lineOrg == null) {
-        const { data: m } = await supabaseAdmin
-          .from("cluster4_experience_line_masters")
-          .select("organization_slug")
-          .eq("id", row.experience_line_master_id)
-          .maybeSingle();
-        lineOrg = normalizeLineOrg(
-          (m as { organization_slug: string | null } | null)?.organization_slug,
-        );
-      }
-    } else if (row.part_type === "competency" && row.competency_line_master_id) {
-      lineOrg = normalizeLineOrg(
-        await getRegistrationOrgByBridgedMasterId(row.competency_line_master_id),
-      );
-      if (lineOrg == null) {
-        const { data: m } = await supabaseAdmin
-          .from("cluster4_competency_line_masters")
-          .select("organization_slug")
-          .eq("id", row.competency_line_master_id)
-          .maybeSingle();
-        lineOrg = normalizeLineOrg(
-          (m as { organization_slug: string | null } | null)?.organization_slug,
-        );
-      }
-    }
-  }
+  // org 판정 = resolveCluster4LineOrgScope 단일 출처(어드민 라인 목록 org 필터와 공유).
+  const lineOrg = await resolveCluster4LineOrgScope(row);
   // 판정 불가 → Step 2 숨김(fail-closed) → org audience 없음(배정자만 호출부에서 union).
   if (lineOrg == null) return [];
 
@@ -519,6 +565,8 @@ export type ListCluster4LinesOptions = {
   weekId?: string | null;
   targetMode?: Cluster4LineTargetDto["targetMode"] | null;
   query?: string | null;
+  // 조직 스코프(통합 ↔ 조직). null/미지정 = 통합(전체). 지정 시 (lineOrg == organization) OR common.
+  organization?: OrganizationSlug | null;
   limit?: number;
   offset?: number;
 };
@@ -550,6 +598,19 @@ export async function listCluster4Lines(
         ),
       );
     }
+    if (lineIdsFilter.length === 0) {
+      return { rows: [], total: 0, limit, offset };
+    }
+  }
+
+  // 조직 스코프: org 지정 시 노출 대상 라인 id 로 좁힌다(기존 부분집합과 교집합).
+  // org 미지정(통합)이면 미적용 → 기존 쿼리/카운트와 동일.
+  if (options.organization) {
+    lineIdsFilter = await filterLineIdsByOrg({
+      organization: options.organization,
+      partType: options.partType ?? null,
+      restrictTo: lineIdsFilter,
+    });
     if (lineIdsFilter.length === 0) {
       return { rows: [], total: 0, limit, offset };
     }
@@ -687,6 +748,84 @@ export async function updateCluster4Line(
     targetCounts.get(id) ?? 0,
     submissionCounts.get(id) ?? 0,
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 라인 개설 [섹션 0] 개설/검수 기록(opening_review_note) — 어드민 전용 자유 텍스트.
+//
+// 고객 weekly-cards DTO·스냅샷 계산에 일절 참여하지 않는 순수 어드민 메타데이터다.
+// 따라서 updateCluster4Line(항상 snapshot 무효화) 을 경유하지 않고, 단일 컬럼만 갱신하며
+// invalidateSnapshotsForLineTargets / invalidateWeeklyCardsForUsers 를 **호출하지 않는다**.
+// (LINE_SELECT 에도 넣지 않는다 — 기존 목록/계산 경로 무접촉, 컬럼 미적용 상태에서도 안전.)
+// ─────────────────────────────────────────────────────────────────────────
+export type Cluster4LineOpeningNote = {
+  id: string;
+  isActive: boolean;
+  openingReviewNote: string | null;
+};
+
+export async function getCluster4LineOpeningNote(
+  id: string,
+): Promise<Cluster4LineOpeningNote> {
+  if (!isUuid(id)) {
+    throw new Cluster4LineError(400, "line id must be a UUID");
+  }
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id,is_active,opening_review_note")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    throw translatePostgrestError(error.message, error.code);
+  }
+  if (!data) {
+    throw new Cluster4LineError(404, "cluster4 line not found");
+  }
+  const row = data as {
+    id: string;
+    is_active: boolean;
+    opening_review_note: string | null;
+  };
+  return {
+    id: row.id,
+    isActive: Boolean(row.is_active),
+    openingReviewNote: row.opening_review_note ?? null,
+  };
+}
+
+export async function setCluster4LineOpeningNote(
+  id: string,
+  note: string | null,
+  actorAdminId: string,
+): Promise<Cluster4LineOpeningNote> {
+  if (!isUuid(id)) {
+    throw new Cluster4LineError(400, "line id must be a UUID");
+  }
+  // 빈 문자열은 null(기본 문구 표시)로 정규화한다.
+  const normalized = typeof note === "string" && note.trim().length > 0 ? note : null;
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_lines")
+    .update({ opening_review_note: normalized, updated_by: actorAdminId })
+    .eq("id", id)
+    .select("id,is_active,opening_review_note")
+    .maybeSingle();
+  if (error) {
+    throw translatePostgrestError(error.message, error.code);
+  }
+  if (!data) {
+    throw new Cluster4LineError(404, "cluster4 line not found");
+  }
+  // ⚠ snapshot 무효화/재계산 호출 없음 — note 는 고객 DTO 미참조(스냅샷 내용 불변).
+  const row = data as {
+    id: string;
+    is_active: boolean;
+    opening_review_note: string | null;
+  };
+  return {
+    id: row.id,
+    isActive: Boolean(row.is_active),
+    openingReviewNote: row.opening_review_note ?? null,
+  };
 }
 
 // 라인 개설 진행 상태 — 저장하지 않고 timestamp 조합으로 파생.
@@ -959,6 +1098,9 @@ export type ListCluster4LinesDetailedOptions = {
   partType?: Cluster4LineDto["partType"] | null;
   weekId?: string | null;
   activityTypeId?: string | null;
+  // 조직 스코프(통합 검수 시스템 ↔ 조직 진입). null/미지정 = 통합(전체 조직).
+  // 지정 시 (lineOrg == organization) OR common 만 노출(고객 가시성과 동일).
+  organization?: OrganizationSlug | null;
   limit?: number;
   offset?: number;
 };
@@ -982,6 +1124,17 @@ export async function listCluster4LinesDetailed(
       throw new Cluster4LineError(400, "week_id must be a UUID");
     }
     lineIdsFilter = await fetchLineIdsForWeekFilter(options.weekId);
+    if (lineIdsFilter.length === 0) return { rows: [], total: 0, limit, offset };
+  }
+
+  // 0b. 조직 스코프: org 지정 시 노출 대상 라인 id 로 좁힌다(weekId 부분집합과 교집합).
+  //     org 미지정(통합)이면 미적용 → 기존 쿼리와 동일.
+  if (options.organization) {
+    lineIdsFilter = await filterLineIdsByOrg({
+      organization: options.organization,
+      partType,
+      restrictTo: lineIdsFilter,
+    });
     if (lineIdsFilter.length === 0) return { rows: [], total: 0, limit, offset };
   }
 
@@ -1136,12 +1289,18 @@ export async function listCluster4LinesDetailed(
     }
   }
 
-  // 7. 운영자 편집권 override (cluster4.work_info). 테이블 부재 시 무시.
-  const overrideByUserId = new Map<string, Cluster4EditWindowSnapshot>();
+  // 7. 운영자 편집권 override (cluster4.work_*). 테이블 부재 시 무시.
+  //    2026-06-08 주차별 추가 개방: 사용자별로 주차 행(byWeek) + 전역(week_id=NULL) 행을
+  //    분리 보관하고, 라인 평가 시 (그 라인 주차 OR 전역) additive OR 로 active 한 것을 고른다.
+  type OverrideEntry = {
+    byWeek: Map<string, Cluster4EditWindowSnapshot>;
+    global: Cluster4EditWindowSnapshot;
+  };
+  const overrideByUserId = new Map<string, OverrideEntry>();
   if (userIds.length > 0) {
     const { data, error } = await supabaseAdmin
       .from("user_edit_windows")
-      .select("user_id,opened_at,expires_at")
+      .select("user_id,week_id,opened_at,expires_at")
       .eq("resource_key", editWindowKey)
       .in("user_id", userIds);
     if (error) {
@@ -1152,16 +1311,38 @@ export async function listCluster4LinesDetailed(
     } else {
       for (const row of (data ?? []) as Array<{
         user_id: string;
+        week_id: string | null;
         opened_at: string;
         expires_at: string;
       }>) {
-        overrideByUserId.set(row.user_id, {
+        let entry = overrideByUserId.get(row.user_id);
+        if (!entry) {
+          entry = { byWeek: new Map(), global: null };
+          overrideByUserId.set(row.user_id, entry);
+        }
+        const snap: Cluster4EditWindowSnapshot = {
           openedAt: row.opened_at,
           expiresAt: row.expires_at,
-        });
+        };
+        if (row.week_id) entry.byWeek.set(row.week_id, snap);
+        else entry.global = snap;
       }
     }
   }
+
+  // (userId, lineWeekId) 에 적용할 override 를 active 우선으로 고른다 (weekly-cards 와 동일 정책).
+  const resolveOverride = (
+    userId: string | null,
+    weekId: string | null,
+  ): Cluster4EditWindowSnapshot => {
+    if (!userId) return null;
+    const entry = overrideByUserId.get(userId);
+    if (!entry) return null;
+    const wk = weekId ? entry.byWeek.get(weekId) ?? null : null;
+    if (wk && isEditWindowActive(wk, now)) return wk;
+    if (entry.global && isEditWindowActive(entry.global, now)) return entry.global;
+    return null;
+  };
 
   // 7.5 career 라인 sponsor-card 메타 (career_project_id → career_projects 6필드) 일괄 룩업.
   // source = career_projects (companyName 은 company_name 기준, supervisor_company fallback 미사용 —
@@ -1289,9 +1470,7 @@ export async function listCluster4LinesDetailed(
             submission_closes_at: line.submission_closes_at,
           },
         },
-        editWindow: target.target_user_id
-          ? overrideByUserId.get(target.target_user_id) ?? null
-          : null,
+        editWindow: resolveOverride(target.target_user_id, target.week_id),
         profileUserId: target.target_user_id,
         now,
       });
@@ -1376,6 +1555,9 @@ export async function listCluster4LinesDetailed(
 export type ListCluster4InfoLinesDetailedOptions = {
   weekId?: string | null;
   activityTypeId?: string | null;
+  // 조직 스코프. null/미지정 = 통합(전체). 지정 시 (lineOrg == organization) OR common.
+  // info 라인은 코드 토큰이 없으면 common 으로 귀속되므로, 조직 화면에서도 공통 info 는 노출된다.
+  organization?: OrganizationSlug | null;
 };
 
 export async function listCluster4InfoLinesDetailed(
@@ -1385,6 +1567,7 @@ export async function listCluster4InfoLinesDetailed(
     partType: "info",
     weekId: options.weekId,
     activityTypeId: options.activityTypeId,
+    organization: options.organization,
   });
   return { rows };
 }

@@ -1,0 +1,3358 @@
+{
+ "generatedAt": "2026-06-08 olympus-batch-38 preview",
+ "mode": "preview",
+ "blocked": false,
+ "drift": [],
+ "migratedSkip": [],
+ "workCount": 92,
+ "totals": {
+  "usersInsert": 92,
+  "usersUpdate": 0,
+  "profilesInsert": 92,
+  "uwsInsert": 1080,
+  "uwsOverwrite": 0,
+  "uwsConflicts": 0,
+  "uwpInsert": 1870,
+  "uwpOverwrite": 0,
+  "sentinel": 92,
+  "checksMigratedFalse": 26,
+  "ledger": 27480,
+  "expEach": 1080,
+  "snapshotNew": 92,
+  "snapshotRecompute": 0,
+  "ensureLinesUserWeeks": 2,
+  "ensureLinesDistinct": 1,
+  "unattributed": 70,
+  "negativeSentinels": 22
+ },
+ "perUser": [
+  {
+   "pilot": "O1",
+   "source": "oranke",
+   "pmsId": 1141,
+   "name": "안지혜",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1141
+   },
+   "usersAction": "insert",
+   "uuid": "01579c12-6b2a-4989-916f-df9341c27de7",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 396,
+    "uwp": {
+     "insert": 48,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 18,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 18,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 20,
+    "advantages": 13,
+    "penalty": 0
+   },
+   "unattributedHold": 6,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O2",
+   "source": "oranke",
+   "pmsId": 1157,
+   "name": "김종원",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1157
+   },
+   "usersAction": "insert",
+   "uuid": "85a1f662-9ce1-450c-a318-e17fbfd37ba4",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 560,
+    "uwp": {
+     "insert": 36,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 23,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 23,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 12,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 3,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O3",
+   "source": "oranke",
+   "pmsId": 1169,
+   "name": "유현준",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1169
+   },
+   "usersAction": "insert",
+   "uuid": "6ba9dee3-6dfc-42f2-b269-4dd48cd251ba",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 411,
+    "uwp": {
+     "insert": 46,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 14,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 14,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 15,
+    "penalty": 0
+   },
+   "unattributedHold": 2,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O4",
+   "source": "oranke",
+   "pmsId": 1176,
+   "name": "유재희",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1176
+   },
+   "usersAction": "insert",
+   "uuid": "1a8fc8fd-82a7-4e78-82d4-f61f777d9aa1",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 510,
+    "uwp": {
+     "insert": 45,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 15,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 15,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 15,
+    "penalty": 0
+   },
+   "unattributedHold": 3,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O5",
+   "source": "oranke",
+   "pmsId": 1181,
+   "name": "김채은",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1181
+   },
+   "usersAction": "insert",
+   "uuid": "040ecb4a-871a-453e-989f-c749dbb98828",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 758,
+    "uwp": {
+     "insert": 46,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 16,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 16,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 52,
+    "advantages": 14,
+    "penalty": 0
+   },
+   "unattributedHold": 25,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O6",
+   "source": "oranke",
+   "pmsId": 1190,
+   "name": "송수진",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1190
+   },
+   "usersAction": "insert",
+   "uuid": "892bc604-170a-4c7d-aefb-0f754ba0ab58",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 814,
+    "uwp": {
+     "insert": 42,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 30,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 30,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 20,
+    "advantages": 12,
+    "penalty": 0
+   },
+   "unattributedHold": 5,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O7",
+   "source": "oranke",
+   "pmsId": 1197,
+   "name": "정은지",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1197
+   },
+   "usersAction": "insert",
+   "uuid": "279d17a0-df9d-4d76-ad2b-91e178035218",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 425,
+    "uwp": {
+     "insert": 29,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 14,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 14,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 23,
+    "advantages": 15,
+    "penalty": 0
+   },
+   "unattributedHold": 5,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O8",
+   "source": "oranke",
+   "pmsId": 1202,
+   "name": "전성은",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1202
+   },
+   "usersAction": "insert",
+   "uuid": "53779da4-4ea2-4a32-9407-9bd348781389",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 470,
+    "uwp": {
+     "insert": 36,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 15,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 15,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 10,
+    "advantages": 13,
+    "penalty": 0
+   },
+   "unattributedHold": 3,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O9",
+   "source": "oranke",
+   "pmsId": 1203,
+   "name": "박수진",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1203
+   },
+   "usersAction": "insert",
+   "uuid": "9f17f625-018b-49e3-b282-448f4bd26efe",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 788,
+    "uwp": {
+     "insert": 41,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 27,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 27,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -6,
+    "advantages": 15,
+    "penalty": 0
+   },
+   "unattributedHold": 5,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O10",
+   "source": "oranke",
+   "pmsId": 1207,
+   "name": "이창훈",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1207
+   },
+   "usersAction": "insert",
+   "uuid": "bff4285b-b0b4-45e1-80b1-15d086a164cf",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 448,
+    "uwp": {
+     "insert": 29,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 15,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 15,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 20,
+    "advantages": 13,
+    "penalty": 0
+   },
+   "unattributedHold": 5,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O11",
+   "source": "oranke",
+   "pmsId": 1212,
+   "name": "김하나",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1212
+   },
+   "usersAction": "insert",
+   "uuid": "739d40ed-df86-48c1-9d19-de5a7262cf6c",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 384,
+    "uwp": {
+     "insert": 31,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 14,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 14,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 15,
+    "advantages": 14,
+    "penalty": 0
+   },
+   "unattributedHold": 4,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O12",
+   "source": "oranke",
+   "pmsId": 1213,
+   "name": "이수현",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1213
+   },
+   "usersAction": "insert",
+   "uuid": "3449da89-a0f4-4d4e-a54c-f704022ef8aa",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 592,
+    "uwp": {
+     "insert": 31,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 21,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 21,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 18,
+    "advantages": 2,
+    "penalty": 0
+   },
+   "unattributedHold": 2,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O13",
+   "source": "oranke",
+   "pmsId": 1220,
+   "name": "이채은",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1220
+   },
+   "usersAction": "insert",
+   "uuid": "9084fc70-b43d-4f28-8d2c-8d73e78b822c",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 599,
+    "uwp": {
+     "insert": 35,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 24,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 24,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -11,
+    "advantages": 12,
+    "penalty": 0
+   },
+   "unattributedHold": 1,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O14",
+   "source": "oranke",
+   "pmsId": 1223,
+   "name": "문지윤",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1223
+   },
+   "usersAction": "insert",
+   "uuid": "6b820df5-30c9-4071-bdac-9c5bd68ff4ff",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 287,
+    "uwp": {
+     "insert": 22,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 10,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 10,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 11,
+    "penalty": 0
+   },
+   "unattributedHold": 1,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O15",
+   "source": "oranke",
+   "pmsId": 1226,
+   "name": "김채현",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1226
+   },
+   "usersAction": "insert",
+   "uuid": "f04cbd00-dc34-47cc-931f-ba5da736bee4",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 385,
+    "uwp": {
+     "insert": 26,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 17,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 17,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 6,
+    "advantages": 10,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O16",
+   "source": "oranke",
+   "pmsId": 1233,
+   "name": "박정호",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1233
+   },
+   "usersAction": "insert",
+   "uuid": "fe1e394a-6509-4ac8-8bca-5531e41f5daa",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 580,
+    "uwp": {
+     "insert": 34,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 25,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 25,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -10,
+    "advantages": 7,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O17",
+   "source": "oranke",
+   "pmsId": 1234,
+   "name": "임서현",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1234
+   },
+   "usersAction": "insert",
+   "uuid": "e78679f2-5a59-4c4e-8505-2b8fed05bf88",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 893,
+    "uwp": {
+     "insert": 36,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 24,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 24,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 2,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O18",
+   "source": "oranke",
+   "pmsId": 1249,
+   "name": "이윤희",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1249
+   },
+   "usersAction": "insert",
+   "uuid": "70f0d707-a406-43b9-87bf-594f73cad23b",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 509,
+    "uwp": {
+     "insert": 33,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 24,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 24,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 11,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O19",
+   "source": "oranke",
+   "pmsId": 1255,
+   "name": "최서윤",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1255
+   },
+   "usersAction": "insert",
+   "uuid": "edbfaa81-7603-4fef-8e7f-657fb65c012e",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 912,
+    "uwp": {
+     "insert": 36,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 25,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 25,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -19,
+    "advantages": 18,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": [
+    "2024-spring W5 (2024-04-01)"
+   ]
+  },
+  {
+   "pilot": "O20",
+   "source": "oranke",
+   "pmsId": 1257,
+   "name": "박유진",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1257
+   },
+   "usersAction": "insert",
+   "uuid": "53164a4f-b066-4187-b5b2-68082b4dc984",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 553,
+    "uwp": {
+     "insert": 32,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 24,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 24,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 2,
+    "advantages": 12,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O21",
+   "source": "oranke",
+   "pmsId": 1262,
+   "name": "서강민",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1262
+   },
+   "usersAction": "insert",
+   "uuid": "7cd49f30-940e-4d35-8da0-cf11a1ba6605",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 268,
+    "uwp": {
+     "insert": 20,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 6,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 6,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 8,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O22",
+   "source": "oranke",
+   "pmsId": 1270,
+   "name": "우강현",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1270
+   },
+   "usersAction": "insert",
+   "uuid": "7b3e0fa9-0232-42e8-b9be-aeb414194653",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 565,
+    "uwp": {
+     "insert": 33,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 23,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 23,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 5,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O23",
+   "source": "oranke",
+   "pmsId": 1272,
+   "name": "김지우",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1272
+   },
+   "usersAction": "insert",
+   "uuid": "09c69783-d9c1-40ed-af52-071adec26767",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 636,
+    "uwp": {
+     "insert": 33,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 23,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 23,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 7,
+    "advantages": 18,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O24",
+   "source": "oranke",
+   "pmsId": 1274,
+   "name": "박소윤",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1274
+   },
+   "usersAction": "insert",
+   "uuid": "40950137-785e-4315-842b-8abdc37b258d",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 477,
+    "uwp": {
+     "insert": 31,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 21,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 21,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O25",
+   "source": "oranke",
+   "pmsId": 1278,
+   "name": "이나영",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1278
+   },
+   "usersAction": "insert",
+   "uuid": "f95db378-4818-4cbc-8462-f5a03e819f7a",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 327,
+    "uwp": {
+     "insert": 23,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 14,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 14,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 0,
+    "penalty": 4
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O26",
+   "source": "oranke",
+   "pmsId": 1287,
+   "name": "김대혁",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1287
+   },
+   "usersAction": "insert",
+   "uuid": "5b7fdf77-2c88-4823-abc5-08d7560cb800",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 483,
+    "uwp": {
+     "insert": 23,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 15,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 15,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 2,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O27",
+   "source": "oranke",
+   "pmsId": 1288,
+   "name": "김민서",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1288
+   },
+   "usersAction": "insert",
+   "uuid": "64063bbb-f8a5-422e-8c64-9be189020409",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 279,
+    "uwp": {
+     "insert": 21,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 15,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 15,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 10,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O28",
+   "source": "oranke",
+   "pmsId": 1289,
+   "name": "김수진",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1289
+   },
+   "usersAction": "insert",
+   "uuid": "b5ac6326-58f8-4f11-8e04-bceb7bdbf048",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 316,
+    "uwp": {
+     "insert": 23,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 14,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 14,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 6,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O29",
+   "source": "oranke",
+   "pmsId": 1290,
+   "name": "이윤서",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1290
+   },
+   "usersAction": "insert",
+   "uuid": "ea9f1b12-16e3-4872-adb0-aec7991d67f0",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 322,
+    "uwp": {
+     "insert": 22,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 15,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 15,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 6,
+    "advantages": 10,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O30",
+   "source": "oranke",
+   "pmsId": 1291,
+   "name": "이지연",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1291
+   },
+   "usersAction": "insert",
+   "uuid": "5375a630-5c13-4a8d-aa6e-750d083e916f",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 365,
+    "uwp": {
+     "insert": 22,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 16,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 16,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 8,
+    "advantages": 11,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O31",
+   "source": "oranke",
+   "pmsId": 1293,
+   "name": "최지웅",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1293
+   },
+   "usersAction": "insert",
+   "uuid": "a53df4bc-01f8-4c28-acdc-b2d01a1599e6",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 396,
+    "uwp": {
+     "insert": 23,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 16,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 16,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 2,
+    "advantages": 12,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O32",
+   "source": "oranke",
+   "pmsId": 1294,
+   "name": "최희원",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1294
+   },
+   "usersAction": "insert",
+   "uuid": "86df5971-203a-408e-91db-9f9b808642a2",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 337,
+    "uwp": {
+     "insert": 23,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 16,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 16,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -3,
+    "advantages": 12,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O33",
+   "source": "oranke",
+   "pmsId": 1298,
+   "name": "고수림",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1298
+   },
+   "usersAction": "insert",
+   "uuid": "3833b2d4-e051-4fb8-9131-910f180dc2e1",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 495,
+    "uwp": {
+     "insert": 22,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 14,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 14,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -5,
+    "advantages": 7,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O34",
+   "source": "oranke",
+   "pmsId": 1299,
+   "name": "지서연",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1299
+   },
+   "usersAction": "insert",
+   "uuid": "5a898fb6-32f2-4507-87db-069cdcacef88",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 400,
+    "uwp": {
+     "insert": 21,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 14,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 14,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 12,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O35",
+   "source": "oranke",
+   "pmsId": 1301,
+   "name": "이승아",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1301
+   },
+   "usersAction": "insert",
+   "uuid": "ebd9f6ce-3950-4b1b-87ae-4594e8f85f5a",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 420,
+    "uwp": {
+     "insert": 20,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 14,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 14,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -9,
+    "advantages": 9,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O36",
+   "source": "oranke",
+   "pmsId": 1303,
+   "name": "최민제",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1303
+   },
+   "usersAction": "insert",
+   "uuid": "5c1e3cc4-8571-4405-bbc7-d8ae8b792e08",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 355,
+    "uwp": {
+     "insert": 20,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 14,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 14,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -7,
+    "advantages": 8,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O37",
+   "source": "oranke",
+   "pmsId": 1305,
+   "name": "김나연",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1305
+   },
+   "usersAction": "insert",
+   "uuid": "6649bb19-32d4-47c7-a78b-e0b7e1d01ee8",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 362,
+    "uwp": {
+     "insert": 20,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 12,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 12,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 7,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O38",
+   "source": "oranke",
+   "pmsId": 1312,
+   "name": "신재현",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1312
+   },
+   "usersAction": "insert",
+   "uuid": "977dc6e7-7a51-4e48-b8ab-2fb9a756e1c3",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 385,
+    "uwp": {
+     "insert": 20,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 13,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 13,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -7,
+    "advantages": 9,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O39",
+   "source": "oranke",
+   "pmsId": 1314,
+   "name": "안은서",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1314
+   },
+   "usersAction": "insert",
+   "uuid": "0feb0be6-8703-466b-8f98-180f8485c37f",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 295,
+    "uwp": {
+     "insert": 22,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 3
+    },
+    "uws": {
+     "insert": 13,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 13,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -4,
+    "advantages": 8,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O40",
+   "source": "oranke",
+   "pmsId": 1315,
+   "name": "이송미",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1315
+   },
+   "usersAction": "insert",
+   "uuid": "d420d086-b79a-409d-9158-cec6895a6926",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 223,
+    "uwp": {
+     "insert": 20,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 11,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 11,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 10,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O41",
+   "source": "oranke",
+   "pmsId": 1316,
+   "name": "임정",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1316
+   },
+   "usersAction": "insert",
+   "uuid": "c30abceb-6fc8-4dc8-8d33-156a5098d621",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 267,
+    "uwp": {
+     "insert": 19,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 2
+    },
+    "uws": {
+     "insert": 11,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 11,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 9,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O42",
+   "source": "oranke",
+   "pmsId": 1319,
+   "name": "김아현",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1319
+   },
+   "usersAction": "insert",
+   "uuid": "9f581c4f-4991-46d7-acb1-b84873a33505",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 281,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 10,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 10,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -5,
+    "advantages": 0,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O43",
+   "source": "oranke",
+   "pmsId": 1320,
+   "name": "송주연",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1320
+   },
+   "usersAction": "insert",
+   "uuid": "c68cb1da-f164-4fd8-95e6-409ad626199e",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 159,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 2
+    },
+    "uws": {
+     "insert": 9,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 9,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O44",
+   "source": "oranke",
+   "pmsId": 1321,
+   "name": "정재웅",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1321
+   },
+   "usersAction": "insert",
+   "uuid": "b7e190de-8904-486c-811c-ef266658a5e1",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 192,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 10,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 10,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -3,
+    "advantages": 2,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O45",
+   "source": "oranke",
+   "pmsId": 1323,
+   "name": "이규린",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1323
+   },
+   "usersAction": "insert",
+   "uuid": "f22ef982-3e87-45d6-ada9-3412c6b5f72a",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 248,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 9,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 9,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 3,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O46",
+   "source": "oranke",
+   "pmsId": 1324,
+   "name": "김수현",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1324
+   },
+   "usersAction": "insert",
+   "uuid": "bbc0d197-58d6-4347-a5d0-5367a86ff185",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 216,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 10,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 10,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O47",
+   "source": "oranke",
+   "pmsId": 1325,
+   "name": "김태이",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1325
+   },
+   "usersAction": "insert",
+   "uuid": "3418ea78-dbe9-4e24-b2aa-91b7cf2b3826",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 164,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 6,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O48",
+   "source": "oranke",
+   "pmsId": 1326,
+   "name": "최수연",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1326
+   },
+   "usersAction": "insert",
+   "uuid": "3c0be1e8-36cd-4486-9193-711cd164fdde",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 242,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 9,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 9,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O49",
+   "source": "oranke",
+   "pmsId": 1327,
+   "name": "나민경",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1327
+   },
+   "usersAction": "insert",
+   "uuid": "d451b09a-e79e-4e6f-a568-2ab0c15001f4",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 227,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 9,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 9,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -2,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O50",
+   "source": "oranke",
+   "pmsId": 1328,
+   "name": "여하은",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1328
+   },
+   "usersAction": "insert",
+   "uuid": "11630272-9b92-417b-8a62-268a6c22affd",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 187,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 6,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O51",
+   "source": "oranke",
+   "pmsId": 1329,
+   "name": "곽진아",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1329
+   },
+   "usersAction": "insert",
+   "uuid": "095d804d-96b5-4c1d-b59e-1b8aab0b67fd",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 214,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 9,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 9,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 3,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O52",
+   "source": "oranke",
+   "pmsId": 1331,
+   "name": "이민주",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1331
+   },
+   "usersAction": "insert",
+   "uuid": "42575851-36ac-460f-8afc-5dd95cda353a",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 188,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -2,
+    "advantages": 2,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O53",
+   "source": "oranke",
+   "pmsId": 1332,
+   "name": "유현종",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1332
+   },
+   "usersAction": "insert",
+   "uuid": "6185594c-14c9-4304-b5d2-a48649a62e32",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 312,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 9,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 9,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -5,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O54",
+   "source": "oranke",
+   "pmsId": 1333,
+   "name": "김나우",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1333
+   },
+   "usersAction": "insert",
+   "uuid": "ee764489-ff1b-4b40-aac7-b29a94fdb54f",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 181,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 9,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 9,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 9,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O55",
+   "source": "oranke",
+   "pmsId": 1334,
+   "name": "박유지",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1334
+   },
+   "usersAction": "insert",
+   "uuid": "a481e6cf-e211-4d81-bb87-57b94c7550b6",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 151,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O56",
+   "source": "oranke",
+   "pmsId": 1335,
+   "name": "김민수",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1335
+   },
+   "usersAction": "insert",
+   "uuid": "da736fd7-6eeb-4850-9fd9-431c630e38b4",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 111,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 5,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 5,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O57",
+   "source": "oranke",
+   "pmsId": 1336,
+   "name": "김성일",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1336
+   },
+   "usersAction": "insert",
+   "uuid": "1d55180b-e606-4752-943b-cb0951d42024",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 139,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O58",
+   "source": "oranke",
+   "pmsId": 1337,
+   "name": "김아진",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1337
+   },
+   "usersAction": "insert",
+   "uuid": "ce670ebc-fcee-48b1-a04c-50b5c65ca092",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 151,
+    "uwp": {
+     "insert": 15,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 2,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O59",
+   "source": "oranke",
+   "pmsId": 1338,
+   "name": "김하람",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1338
+   },
+   "usersAction": "insert",
+   "uuid": "4174c87b-1567-49c3-829e-99585b2cb539",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 182,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -2,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O60",
+   "source": "oranke",
+   "pmsId": 1339,
+   "name": "김혜윤",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1339
+   },
+   "usersAction": "insert",
+   "uuid": "5687e67d-4a9a-43d3-b24a-cf06fb2c61ab",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 161,
+    "uwp": {
+     "insert": 12,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 6,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O61",
+   "source": "oranke",
+   "pmsId": 1340,
+   "name": "박가은",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1340
+   },
+   "usersAction": "insert",
+   "uuid": "8b1f0b89-5717-4de6-a539-3898990b25f0",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 160,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 2
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 6,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O62",
+   "source": "oranke",
+   "pmsId": 1341,
+   "name": "박소연",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1341
+   },
+   "usersAction": "insert",
+   "uuid": "e4c3e242-a708-4c16-981b-7e0cb7df1ada",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 155,
+    "uwp": {
+     "insert": 12,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O63",
+   "source": "oranke",
+   "pmsId": 1342,
+   "name": "배서진",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1342
+   },
+   "usersAction": "insert",
+   "uuid": "7933a6ef-0661-44a7-adcb-a24abe050174",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 190,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O64",
+   "source": "oranke",
+   "pmsId": 1343,
+   "name": "이나겸",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1343
+   },
+   "usersAction": "insert",
+   "uuid": "0710ce94-cbcb-486e-a77f-ae261d0f5e83",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 191,
+    "uwp": {
+     "insert": 15,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -3,
+    "advantages": 3,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O65",
+   "source": "oranke",
+   "pmsId": 1344,
+   "name": "이서진",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1344
+   },
+   "usersAction": "insert",
+   "uuid": "1cc1a675-8820-4ca8-8cc9-2129d76e2760",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 166,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 6,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O66",
+   "source": "oranke",
+   "pmsId": 1345,
+   "name": "이용준",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1345
+   },
+   "usersAction": "insert",
+   "uuid": "62ca17af-f943-464a-b5cf-73a44a12e778",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 229,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -4,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O67",
+   "source": "oranke",
+   "pmsId": 1346,
+   "name": "정우현",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1346
+   },
+   "usersAction": "insert",
+   "uuid": "527bddd3-a03a-4467-b396-23ef357049dc",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 168,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O68",
+   "source": "oranke",
+   "pmsId": 1347,
+   "name": "이지송",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1347
+   },
+   "usersAction": "insert",
+   "uuid": "e484d950-25d2-4cb0-9101-c2f7145e4c8e",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 164,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 7,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 7,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O69",
+   "source": "oranke",
+   "pmsId": 1348,
+   "name": "한승재",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1348
+   },
+   "usersAction": "insert",
+   "uuid": "182616d7-a3d5-4736-853c-c44285e4d458",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 119,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 7,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 7,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O70",
+   "source": "oranke",
+   "pmsId": 1349,
+   "name": "정재은",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1349
+   },
+   "usersAction": "insert",
+   "uuid": "49dc6c3e-0b38-4ceb-a993-c745c9ce8702",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 127,
+    "uwp": {
+     "insert": 11,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 7,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 7,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -2,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O71",
+   "source": "oranke",
+   "pmsId": 1350,
+   "name": "에밀리아",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1350
+   },
+   "usersAction": "insert",
+   "uuid": "8ea67352-3598-4fce-82cf-30f38d0dcd21",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 156,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 6,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O72",
+   "source": "oranke",
+   "pmsId": 1351,
+   "name": "이해주",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1351
+   },
+   "usersAction": "insert",
+   "uuid": "7338f27c-58c6-432e-8170-3b7d3b68e9d9",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 144,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 7,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 7,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O73",
+   "source": "oranke",
+   "pmsId": 1352,
+   "name": "조상율",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1352
+   },
+   "usersAction": "insert",
+   "uuid": "77a1f82b-40cd-4a63-a1f1-877282c49996",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 118,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 7,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 7,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O74",
+   "source": "oranke",
+   "pmsId": 1353,
+   "name": "공지민",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1353
+   },
+   "usersAction": "insert",
+   "uuid": "9d5db881-991f-42ae-b6a5-2e767cd318c5",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 173,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 8,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 8,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 3,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": [
+    "2024-spring W5 (2024-04-01)"
+   ]
+  },
+  {
+   "pilot": "O75",
+   "source": "oranke",
+   "pmsId": 1354,
+   "name": "김동욱",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1354
+   },
+   "usersAction": "insert",
+   "uuid": "3d892076-2e3a-46ce-9c6e-67648d6a1f06",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 129,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 6,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 6,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O76",
+   "source": "oranke",
+   "pmsId": 1356,
+   "name": "선종민",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1356
+   },
+   "usersAction": "insert",
+   "uuid": "199aa261-b78d-48bb-9d86-332d6f781d5f",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 157,
+    "uwp": {
+     "insert": 12,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 7,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 7,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 3,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O77",
+   "source": "oranke",
+   "pmsId": 1358,
+   "name": "김현아",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1358
+   },
+   "usersAction": "insert",
+   "uuid": "302018f7-4475-4dbe-94bd-97df9f480ee5",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 135,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 7,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 7,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 3,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O78",
+   "source": "oranke",
+   "pmsId": 1359,
+   "name": "오나연",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1359
+   },
+   "usersAction": "insert",
+   "uuid": "eda6f722-9f59-4169-949d-87ff25dc350c",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 108,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 1
+    },
+    "uws": {
+     "insert": 7,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 7,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O79",
+   "source": "oranke",
+   "pmsId": 1360,
+   "name": "임혜진",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1360
+   },
+   "usersAction": "insert",
+   "uuid": "0931c905-851a-4954-b528-f10b016d70e5",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 102,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 6,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 6,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 4,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O80",
+   "source": "oranke",
+   "pmsId": 1361,
+   "name": "이혜교",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1361
+   },
+   "usersAction": "insert",
+   "uuid": "64c10a4d-8704-4bd3-84ce-ce7656b48e35",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 121,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 5,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 5,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O81",
+   "source": "oranke",
+   "pmsId": 1362,
+   "name": "권유민",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1362
+   },
+   "usersAction": "insert",
+   "uuid": "c4a894c5-516d-4f0e-a2fe-fd3a80b1b3e8",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 108,
+    "uwp": {
+     "insert": 12,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 5,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 5,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O82",
+   "source": "oranke",
+   "pmsId": 1363,
+   "name": "김나윤",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1363
+   },
+   "usersAction": "insert",
+   "uuid": "085ecf13-8c2f-41a2-887e-bbd704bde51b",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 137,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 5,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 5,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -4,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O83",
+   "source": "oranke",
+   "pmsId": 1365,
+   "name": "김예령",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1365
+   },
+   "usersAction": "insert",
+   "uuid": "32fed701-400d-409d-9b54-da7519d9dd09",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 134,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 6,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 6,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O84",
+   "source": "oranke",
+   "pmsId": 1366,
+   "name": "권진영",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1366
+   },
+   "usersAction": "insert",
+   "uuid": "5ddb5f43-7320-46d6-9eb3-255d2b516ce5",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 135,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 6,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 6,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O85",
+   "source": "oranke",
+   "pmsId": 1367,
+   "name": "김세진",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1367
+   },
+   "usersAction": "insert",
+   "uuid": "8f90950e-ddc5-4b41-8b8e-b8702f54a35b",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 128,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 6,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 6,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 3,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O86",
+   "source": "oranke",
+   "pmsId": 1368,
+   "name": "최예진",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1368
+   },
+   "usersAction": "insert",
+   "uuid": "a753307c-f585-4f65-b52c-561e55d978f3",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 104,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 5,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 5,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O87",
+   "source": "oranke",
+   "pmsId": 1369,
+   "name": "이유진",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1369
+   },
+   "usersAction": "insert",
+   "uuid": "310437b2-1ac7-4abb-af8c-d07bee9c222c",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 95,
+    "uwp": {
+     "insert": 12,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 5,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 5,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O88",
+   "source": "oranke",
+   "pmsId": 1370,
+   "name": "김시영",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1370
+   },
+   "usersAction": "insert",
+   "uuid": "95dbd29a-1624-435a-82f8-c3ae8f87a705",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 117,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 6,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 6,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O89",
+   "source": "oranke",
+   "pmsId": 1371,
+   "name": "박건희",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1371
+   },
+   "usersAction": "insert",
+   "uuid": "340e1368-f37b-4ca5-94c7-c0517821addb",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 170,
+    "uwp": {
+     "insert": 14,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 6,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 6,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -5,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O90",
+   "source": "oranke",
+   "pmsId": 1372,
+   "name": "이선호",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1372
+   },
+   "usersAction": "insert",
+   "uuid": "d353a816-4aba-4d8d-b6e5-546033728c53",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 150,
+    "uwp": {
+     "insert": 13,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 6,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 6,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 3,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O91",
+   "source": "oranke",
+   "pmsId": 1373,
+   "name": "조선규",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1373
+   },
+   "usersAction": "insert",
+   "uuid": "a9d7c0d1-8126-420b-8894-d1563c36cd02",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 146,
+    "uwp": {
+     "insert": 12,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 6,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 6,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -2,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O92",
+   "source": "oranke",
+   "pmsId": 1374,
+   "name": "송서영",
+   "identity": {
+    "sourceSystem": "oranke",
+    "legacyUserId": 1374
+   },
+   "usersAction": "insert",
+   "uuid": "0c3dbc1e-d492-4e89-bd89-2ea3165f9b8f",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 91,
+    "uwp": {
+     "insert": 12,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 6,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 6,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 5,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "ensureWeeks": []
+  }
+ ],
+ "ensureLinesPlan": [
+  {
+   "week_id": "0415d448-0996-413e-b543-62c551e68b56",
+   "season_key": "2024-spring",
+   "week_number": 5,
+   "start_date": "2024-04-01",
+   "line_code": "EXBS-EN240401",
+   "opens": "2024-03-31T15:00:00.000Z",
+   "closes": "2024-04-07T14:59:59.000Z"
+  }
+ ],
+ "sentinelContract": "year=1900, week_number=1 (CHECK 1~53 보정), week_start_date=1900-01-01, checks_migrated=false — weeks 부재로 카드/판정 미소비·누적 포인트 합산 포함"
+}

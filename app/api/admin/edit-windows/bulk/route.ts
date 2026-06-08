@@ -10,7 +10,11 @@ import {
   listMatchingEditWindowUserIds,
   upsertEditWindowsBulk,
 } from "@/lib/adminEditWindowsData";
-import { isEditableResourceKey } from "@/lib/adminEditWindowsTypes";
+import {
+  affectsWeeklyCardsCanEdit,
+  isEditableResourceKey,
+} from "@/lib/adminEditWindowsTypes";
+import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 function parseUserIds(input: unknown): string[] {
   if (!Array.isArray(input)) return [];
@@ -87,6 +91,10 @@ export async function POST(request: NextRequest) {
 
     if (input.action === "close") {
       const windows = await closeEditWindowsBulk(userIds, resourceKey, weekId);
+      // 허브 작성기간 일괄 닫기 → 대상자 snapshot 일괄 stale (canEdit 버튼 반영).
+      if (affectsWeeklyCardsCanEdit(resourceKey)) {
+        await markWeeklyCardsSnapshotStaleMany(userIds);
+      }
       return Response.json({
         success: true,
         data: { count: userIds.length, windows },
@@ -109,6 +117,10 @@ export async function POST(request: NextRequest) {
       note: parseNote(input.note),
       grantedBy: admin.userId ?? null,
     });
+
+    if (affectsWeeklyCardsCanEdit(resourceKey)) {
+      await markWeeklyCardsSnapshotStaleMany(userIds);
+    }
 
     return Response.json({
       success: true,

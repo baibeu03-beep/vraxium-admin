@@ -1,0 +1,54 @@
+[
+ {
+  "pilot": "P1 장승완",
+  "src": "oranke",
+  "uid": 1092,
+  "uuid": "14f5c826",
+  "pmsBalanceShield": -55,
+  "pmsNetFromLogs": -54,
+  "dbNet": -54,
+  "ledgerNetAlive_plus_adj": -33,
+  "drift": -1,
+  "postApplyLogs": [
+   {
+    "LogNum": 424849,
+    "Shield": -1,
+    "Star": 0,
+    "IsDeleted": 0,
+    "log": "투표 미참여 패널티",
+    "code": "26060412",
+    "activityTime": "2026-06-06 23:59",
+    "createtime": "2026-06-07 15:00"
+   }
+  ],
+  "postApplyInLedger": [],
+  "ledgerRows": 511,
+  "migBalanceShield": null
+ },
+ {
+  "pilot": "P2 안은비",
+  "src": "hrdb",
+  "uid": 1463,
+  "uuid": "3c4fc830",
+  "pmsBalanceShield": 13,
+  "pmsNetFromLogs": 3,
+  "dbNet": 14,
+  "ledgerNetAlive_plus_adj": 23,
+  "drift": -1,
+  "postApplyLogs": [
+   {
+    "LogNum": 738415,
+    "Shield": -1,
+    "Star": 0,
+    "IsDeleted": 0,
+    "log": "투표 미참여 패널티",
+    "code": "2605041401",
+    "activityTime": "2026-06-06 23:59",
+    "createtime": "2026-06-07 15:00"
+   }
+  ],
+  "postApplyInLedger": [],
+  "ledgerRows": 983,
+  "migBalanceShield": null
+ }
+]

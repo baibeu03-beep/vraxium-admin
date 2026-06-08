@@ -7,6 +7,7 @@
 // output_links / output_images 컬럼은 deprecated — SELECT/INSERT 모두 미사용 (값 보존만).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import type { OrganizationSlug } from "@/lib/organizations";
 import {
   LINE_REGISTRATION_HUB_LABEL,
   LINE_REGISTRATION_ORG_LABEL,
@@ -93,6 +94,9 @@ function toDto(row: RegistrationRow): LineRegistrationDto {
 
 export type ListLineRegistrationsOptions = {
   hub?: LineRegistrationHub | null;
+  // 조직 스코프(통합 ↔ 조직). null/미지정 = 통합(전체). 지정 시 organization_slug ∈ {org, "common"}.
+  // 고객 가시성 정책과 동일하게 공통(common)은 모든 조직 화면에 노출한다.
+  organization?: OrganizationSlug | null;
   limit?: number;
   offset?: number;
 };
@@ -108,6 +112,10 @@ export async function listLineRegistrations(
     .select(REGISTRATION_SELECT, { count: "exact" });
   if (options.hub) {
     query = query.eq("hub", options.hub);
+  }
+  if (options.organization) {
+    // 조직 화면 = 해당 조직 + 공통(common). count:"exact" 가 실제 필터 기준이라 페이지네이션 정확.
+    query = query.in("organization_slug", [options.organization, "common"]);
   }
   query = query
     .order("created_at", { ascending: false })

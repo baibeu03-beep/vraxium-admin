@@ -41,7 +41,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { randomUUID } from "crypto";
 import { createClient } from "@supabase/supabase-js";
 import mysql from "mysql2/promise";
-import { legacyIdentityFor, ledgerSourceTable, resolveOrganizationSlug, mapUsersinfoTeamPart, type PmsSourceSystem } from "@/lib/pmsMigration";
+import { legacyIdentityFor, ledgerSourceTable, resolveOrganizationSlug, mapUsersinfoTeamPart, resolveAccountStatusFromPmsState, type PmsSourceSystem } from "@/lib/pmsMigration";
 import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
 import { recomputeAndStoreWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { isExcludedPmsSeason, normalizePmsSeasonType } from "@/lib/pmsSeasonAttribution";
@@ -54,12 +54,16 @@ const rbIdx = process.argv.indexOf("--rollback");
 const ROLLBACK_FILE = rbIdx >= 0 ? process.argv[rbIdx + 1] : null;
 const MODE = ROLLBACK_FILE ? "rollback" : APPLY ? "apply" : "preview";
 const STAMP = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-const OUT = `claudedocs/olympus-batch-${MODE}-${STAMP}.json`;
-const CREATED_BY = "olympus-batch-38";
+// --source oranke|hrdb|olympus (기본 olympus). 출력/CREATED_BY 도 소스 단위.
+const srcIdx = process.argv.indexOf("--source");
+const BATCH_SOURCE: PmsSourceSystem = (srcIdx >= 0 ? process.argv[srcIdx + 1] : "olympus") as PmsSourceSystem;
+const OUT = `claudedocs/${BATCH_SOURCE}-batch-${MODE}-${STAMP}.json`;
+const CREATED_BY = `${BATCH_SOURCE}-batch`;
 const DEFAULT_THRESHOLD = 30;
 const RATING_FAIL_MAX = 3;
 const UNIFIED_MASTER_NAME = "[통합] 주차 활동 내역";
-const BATCH_SOURCE: PmsSourceSystem = "olympus";
+// ORANKE 916 이유나·873 선우은교 = cross-source 동일인의 ORANKE 측 — ORANKE 이관 제외(정책 1).
+const ORANKE_EXCLUDED = [916, 873];
 
 // PILOT 은 main() 에서 동적 구성 (olympus 활동행 보유 대상 − 기이관 페어).
 let PILOT: Array<{ p: string; src: PmsSourceSystem; uid: number; name: string }> = [];
@@ -217,9 +221,11 @@ async function main() {
       .map((u) => u.legacy_user_id as number),
   );
   // 정책: State 일반/운영진 · 운영진=활동행 보유자만 (dryrun-pms-active-286 동일 필터).
+  //   ORANKE 는 916/873 제외(정책 1 — cross-source 동일인의 ORANKE 측).
+  const exclusion = BATCH_SOURCE === "oranke" ? ` AND u.UserId NOT IN (${ORANKE_EXCLUDED.join(",")})` : "";
   const [batchRows] = (await conn.query(`
     SELECT u.UserId, u.Name FROM ${BATCH_SOURCE}.users u JOIN ${BATCH_SOURCE}.usersinfo i ON i.UserID=u.UserId
-    WHERE i.State IN ('일반','운영진')
+    WHERE i.State IN ('일반','운영진')${exclusion}
       AND (i.State='일반'
            OR EXISTS (SELECT 1 FROM ${BATCH_SOURCE}.useractivities a WHERE a.UserId=u.UserId)
            OR EXISTS (SELECT 1 FROM ${BATCH_SOURCE}.manageractivities m WHERE m.UserId=u.UserId))
@@ -230,9 +236,9 @@ async function main() {
   for (const r of batchRows) {
     const uid = Number(r.UserId);
     if (pairOccupied.has(uid)) { migratedSkip.push({ uid, name: String(r.Name) }); continue; }
-    PILOT.push({ p: `O${++seq}`, src: BATCH_SOURCE, uid, name: String(r.Name) });
+    PILOT.push({ p: `${BATCH_SOURCE[0].toUpperCase()}${++seq}`, src: BATCH_SOURCE, uid, name: String(r.Name) });
   }
-  console.log(`[olympus batch] 대상 ${batchRows.length} | 기이관 skip ${migratedSkip.length} | 작업 ${PILOT.length}`);
+  console.log(`[${BATCH_SOURCE} batch] 대상 ${batchRows.length} | 기이관 skip ${migratedSkip.length} | 작업 ${PILOT.length}`);
 
   // ── 사용자별 plan 산출 ──
   type UserPlan = Awaited<ReturnType<typeof computePlan>>;
@@ -511,11 +517,13 @@ async function main() {
         const tp = mapUsersinfoTeamPart(x.info);
         const bd = String(x.pms.BirthDay ?? "");
         const birthIso = bd.length === 6 ? `${Number(bd.slice(0, 2)) <= 26 ? "20" : "19"}${bd.slice(0, 2)}-${bd.slice(2, 4)}-${bd.slice(4, 6)}` : null;
+        const acct = resolveAccountStatusFromPmsState(x.info.State); // PMS State → status/growth_status
         const { error: pe } = await sb.from("user_profiles").insert({
           user_id: x.uuid, display_name: x.name, birth_date: birthIso, gender: x.pms.Gender ?? null,
           contact_phone: x.pms.Contact ?? null, contact_email: x.pms.mail ?? null,
           organization_slug: x.org, school_name: x.pms.School ?? null,
           current_team_name: tp.teamName, current_part_name: tp.partName,
+          status: acct.status, growth_status: acct.growthStatus,
           activity_started_at: String(x.info.StartDate ?? "").slice(0, 10) || null,
         });
         if (pe) throw new Error(`profile insert: ${pe.message}`);
@@ -655,7 +663,7 @@ async function main() {
           const sid = randomUUID();
           const { error: se } = await sb.from("cluster4_line_submissions").insert({
             id: sid, line_target_id: tid, user_id: x.uuid, subtitle: r.subtitle ?? "주차 활동 내역(PMS 이관)",
-            submitted_at: `${r.week.end_date}T22:59:59Z`, output_links: [], output_images: [], growth_point: r.subtitle ?? null,
+            submitted_at: `${r.week.end_date}T22:59:59Z`, output_links: [], output_images: [], growth_point: null, // PMS 이관: growth_point 미저장 (subtitle=원문·rating=평점만)
           });
           if (se) throw new Error(`submission insert: ${se.message}`);
           u.inserted.submissionIds.push(sid);

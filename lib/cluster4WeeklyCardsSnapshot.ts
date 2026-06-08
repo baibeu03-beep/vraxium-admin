@@ -113,7 +113,17 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 //   이관 파이프라인이 행을 true 로 기록하면 그 (사용자, 주차)만 자동 강제.
 //   advantage/penalty 는 게이트 미사용. uws 는 불변(레거시 sync 보호 유지) — read-time 판정.
 //   userWeekStatus/verdict 가 달라지므로 기존 v17 snapshot 을 stale 처리해 재계산하게 한다.
-export const WEEKLY_CARDS_DTO_VERSION = 18;
+// v19 (2026-06-08): 공식 휴식 주차 판정 정정 (growthCore.resolveWeekResultStatus).
+//   종전에는 weekIsOfficialRest 를 현재 주차 분기에서만 적용해, 과거 공식 휴식 주차 중
+//   user_week_statuses 행이 official_rest 로 기록되지 않은 주차(예: uws 미생성·미공표)가
+//   tallying(집계 중)/fail 로 잘못 빠졌다(예: 2026 봄 14주차). 이제 공식 휴식 주차는 현재/과거
+//   무관하게 official_rest 로 판정한다(개인 휴식보다 우선). 또한 growthResolve.buildResolvedWeeks
+//   에서 weekIsOfficialRest 가 전환 주차를 포함하지 않도록 명시 제외(isSeasonRuleRestForWeekStart
+//   가 describeWeekByStartMs.isOfficialRest=official_rest∨transition 를 재사용하던 누수 차단).
+//   카운트(approved/failed/rest·시즌 성장률)는 불변(tallying·official_rest·transition 모두 집계
+//   제외) — userWeekStatus/statusLabel(화면 표시)만 달라지므로 기존 v18 snapshot 을 stale 처리해
+//   재계산하게 한다.
+export const WEEKLY_CARDS_DTO_VERSION = 19;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

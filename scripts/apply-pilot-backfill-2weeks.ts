@@ -123,7 +123,7 @@ async function main() {
         const sid = randomUUID();
         const { error } = await sb.from("cluster4_line_submissions").insert({
           id: sid, line_target_id: tid, user_id: uuid, subtitle: String(r.Activity ?? "주차 활동 내역(PMS 이관 보강)").slice(0, 500),
-          submitted_at: `${w.end_date}T22:59:59Z`, output_links: [], output_images: [], growth_point: String(r.Activity ?? "").slice(0, 500) || null,
+          submitted_at: `${w.end_date}T22:59:59Z`, output_links: [], output_images: [], growth_point: null, // PMS 이관: growth_point 미저장
         });
         if (error) { errors.push(`${t.p} submission ${start}: ${error.message}`); continue; }
         inserted.push({ table: "cluster4_line_submissions", id: sid });

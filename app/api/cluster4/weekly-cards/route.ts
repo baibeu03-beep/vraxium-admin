@@ -56,12 +56,42 @@ const DEBUG_COMPARE = process.env.CLUSTER4_WEEKLY_CARDS_DEBUG === "1";
 //   파생값(append-only). 실패/빈 카드면 0 세트.
 // seasonAreaProgress 는 area-7-progress 용 실무 4허브(정보/경험/역량/경력) 시즌 누적 강화율 —
 //   동일 snapshot cards 파생값(append-only). 항상 4개 항목, 실패/빈 카드면 0 세트.
+// area-6-circles / area-7-progress 를 카드에 등장하는 모든 시즌 키별로 미리 계산한 맵.
+//   snapshot cards 가 이미 전 시즌을 포함하므로(재계산 불필요) computeAreaSixCircles/
+//   computeSeasonAreaProgress(순수 함수)를 시즌 키마다 1회 호출한다. 프론트는 화면에서
+//   선택된 시즌 key 로 이 맵을 조회해 렌더링한다(현재 시즌 고정값 재사용 금지).
+//   현재 시즌 단건(areaSixCircles/seasonAreaProgress)은 하위호환을 위해 그대로 유지한다.
+function seasonCircleMaps(cards: Cluster4WeeklyCardDto[]): {
+  areaSixCirclesBySeason: Record<string, Cluster4AreaSixCirclesDto>;
+  seasonAreaProgressBySeason: Record<string, Cluster4SeasonAreaProgressDto>;
+} {
+  const seasonKeys = Array.from(
+    new Set(cards.map((c) => c.seasonKey).filter((k): k is string => !!k)),
+  );
+  const areaSixCirclesBySeason: Record<string, Cluster4AreaSixCirclesDto> = {};
+  const seasonAreaProgressBySeason: Record<string, Cluster4SeasonAreaProgressDto> = {};
+  for (const sk of seasonKeys) {
+    areaSixCirclesBySeason[sk] = computeAreaSixCircles(cards, sk);
+    seasonAreaProgressBySeason[sk] = computeSeasonAreaProgress(cards, sk);
+  }
+  return { areaSixCirclesBySeason, seasonAreaProgressBySeason };
+}
+
 function ok(
   data: Cluster4WeeklyCardDto[],
   areaSixCircles: Cluster4AreaSixCirclesDto,
   seasonAreaProgress: Cluster4SeasonAreaProgressDto,
 ) {
-  return Response.json({ success: true, data, areaSixCircles, seasonAreaProgress, error: null });
+  const { areaSixCirclesBySeason, seasonAreaProgressBySeason } = seasonCircleMaps(data);
+  return Response.json({
+    success: true,
+    data,
+    areaSixCircles,
+    seasonAreaProgress,
+    areaSixCirclesBySeason,
+    seasonAreaProgressBySeason,
+    error: null,
+  });
 }
 function fail(status: number, message: string, code: string) {
   return Response.json(
@@ -70,6 +100,8 @@ function fail(status: number, message: string, code: string) {
       data: [] as Cluster4WeeklyCardDto[],
       areaSixCircles: emptyAreaSixCircles(),
       seasonAreaProgress: computeSeasonAreaProgress([], currentSeasonKey()),
+      areaSixCirclesBySeason: {} as Record<string, Cluster4AreaSixCirclesDto>,
+      seasonAreaProgressBySeason: {} as Record<string, Cluster4SeasonAreaProgressDto>,
       error: { message, code },
     },
     { status },
@@ -364,12 +396,15 @@ async function handleGet(request: NextRequest): Promise<Response> {
 
     // error outcome 은 200(빈 카드)으로 내리되 error 필드를 채워 프론트가 덮어쓰지 않게 한다.
     if (result.outcome === "error") {
+      const errMaps = seasonCircleMaps(result.cards);
       return done(
         Response.json({
           success: false,
           data: result.cards,
           areaSixCircles: circles,
           seasonAreaProgress: areaProgress,
+          areaSixCirclesBySeason: errMaps.areaSixCirclesBySeason,
+          seasonAreaProgressBySeason: errMaps.seasonAreaProgressBySeason,
           error: { message: result.detail || "snapshot read failed", code: "snapshot_read_error" },
         }),
         "ok",

@@ -57,6 +57,11 @@ export function buildResolvedWeeks<W extends ResolvableWeek>(
     // 종료일: weeks.end_date 우선, 없으면 start+6 (카드 루프와 동일 공식).
     const endDate = week.end_date ?? fmtDate(toMs(startDate) + 6 * DAY_MS);
     // 공식 휴식(신규 SoT): seasonCalendar rule ∨ official_rest_periods overlap.
+    //   ⚠ 전환 주차(seasonWeeks+1)도 isSeasonRuleRestForWeekStart 가 true 로 보고한다
+    //   (describeWeekByStartMs.isOfficialRest=official_rest∨transition 재사용). 의도적으로
+    //   걸러내지 않는다: 전환 주차의 resultStatus 는 isTransition 플래그로 집계·목록·상세에서
+    //   모두 별도 처리(전환 주차 라벨)되어 화면값이 마스킹되므로, 여기서 굳이 제외해 과거
+    //   uws=official_rest 전환 주차를 fail 로 뒤집는 부작용을 만들지 않는다.
     const weekIsOfficialRest =
       isSeasonRuleRestForWeekStart(startDate) ||
       matchOfficialRestPeriods({ startDate, endDate }, deps.activeRestPeriods)

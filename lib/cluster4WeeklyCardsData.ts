@@ -29,6 +29,7 @@ import {
   CLUSTER4_HUB_EDIT_WINDOW_KEYS,
   PART_TYPE_TO_EDIT_WINDOW_KEY,
   evaluateCluster4HubEdit,
+  isEditWindowActive,
   type Cluster4EditWindowSnapshot,
   type Cluster4HubEditDecisionReason,
 } from "@/lib/cluster4LinePermission";
@@ -162,9 +163,34 @@ type SubmissionRow = {
 
 type EditWindowDbRow = {
   resource_key: string;
+  week_id: string | null;
   opened_at: string;
   expires_at: string;
 };
+
+// 한 part_type 의 override 묶음: 주차별 행 + 전역(week_id=NULL) 행.
+// 판정은 (해당 카드 주차 행 OR 전역 행) 중 현재 active 한 것을 채택한다(additive OR).
+type HubEditWindowEntry = {
+  byWeek: Map<string, Cluster4EditWindowSnapshot>;
+  global: Cluster4EditWindowSnapshot;
+};
+
+// 카드(part_type, weekId) 에 적용할 override 를 고른다.
+//   - 주차별 행이 active 면 그것을, 아니면 전역 행이 active 면 그것을.
+//   - 둘 다 비활성/부재면 null (override 없음 → 기본 라인 창만으로 canEdit 판정).
+// evaluateCluster4HubEdit 는 받은 window 에 isEditWindowActive 를 다시 적용하므로
+// active 한 행을 넘기면 ok_override, null 이면 라인 창 결과가 그대로 유지된다.
+function resolveHubEditWindow(
+  entry: HubEditWindowEntry | undefined,
+  weekId: string,
+  now: number,
+): Cluster4EditWindowSnapshot {
+  if (!entry) return null;
+  const wk = entry.byWeek.get(weekId) ?? null;
+  if (wk && isEditWindowActive(wk, now)) return wk;
+  if (entry.global && isEditWindowActive(entry.global, now)) return entry.global;
+  return null;
+}
 
 // Cluster4HubEditDecisionReason 은 cluster4LinePermission.ts 의 union(8개) 과 1:1 동일.
 // Cluster4LineEditReason 은 같은 모양으로 contracts 에 재선언되어 있다 — 서버에서
@@ -1290,15 +1316,18 @@ function toPermissionTarget(target: TargetWithLineRow | null) {
   };
 }
 
-// user_edit_windows.cluster4.work_* override 스냅샷을 DB part_type 별로 인덱싱한다.
-// 누락된 키는 null (override 없음).
+// user_edit_windows.cluster4.work_* override 를 DB part_type 별로 인덱싱한다.
+// 각 part 마다 주차별 행(byWeek) + 전역(week_id=NULL) 행(global) 을 분리 보관한다.
+//   - 주차별 행: 2026-06-08 도입. 관리자가 (카드종류, 시즌, 주차) 단위로 추가 개방한 것.
+//   - 전역 행: legacy. week_id=NULL → 해당 허브 전 주차를 여는 기존 grant(하위호환).
+// 카드별 판정은 resolveHubEditWindow 가 (카드 주차 OR 전역) additive OR 로 고른다.
 async function fetchHubEditWindows(
   profileUserId: string,
-): Promise<Map<DbLinePartType, Cluster4EditWindowSnapshot>> {
-  const map = new Map<DbLinePartType, Cluster4EditWindowSnapshot>();
+): Promise<Map<DbLinePartType, HubEditWindowEntry>> {
+  const map = new Map<DbLinePartType, HubEditWindowEntry>();
   const { data, error } = await supabaseAdmin
     .from("user_edit_windows")
-    .select("resource_key,opened_at,expires_at")
+    .select("resource_key,week_id,opened_at,expires_at")
     .eq("user_id", profileUserId)
     .in("resource_key", CLUSTER4_HUB_EDIT_WINDOW_KEYS as readonly string[]);
 
@@ -1317,7 +1346,20 @@ async function fetchHubEditWindows(
     );
     if (!entry) continue;
     const dbPart = entry[0] as DbLinePartType;
-    map.set(dbPart, { openedAt: row.opened_at, expiresAt: row.expires_at });
+    let bucket = map.get(dbPart);
+    if (!bucket) {
+      bucket = { byWeek: new Map(), global: null };
+      map.set(dbPart, bucket);
+    }
+    const snap: Cluster4EditWindowSnapshot = {
+      openedAt: row.opened_at,
+      expiresAt: row.expires_at,
+    };
+    if (row.week_id) {
+      bucket.byWeek.set(row.week_id, snap);
+    } else {
+      bucket.global = snap;
+    }
   }
   return map;
 }
@@ -1746,9 +1788,12 @@ async function fetchLineDetailsByWeek(
       const dbPartType = target.cluster4_lines?.part_type;
       // evaluateCluster4HubEdit 는 단일 line target 단위로 ownership / window 를 평가.
       // editWindow override 가 OPEN 이면 마감된 line target 의 canEdit 만 ok_override 로 우회된다.
+      // override 는 (이 카드 주차 행 OR 전역 행) 중 active 한 것을 채택한다(additive OR).
       const decision = evaluateCluster4HubEdit({
         target: toPermissionTarget(target),
-        editWindow: dbPartType ? editWindowByPart.get(dbPartType) ?? null : null,
+        editWindow: dbPartType
+          ? resolveHubEditWindow(editWindowByPart.get(dbPartType), weekId, now)
+          : null,
         profileUserId,
         now,
       });

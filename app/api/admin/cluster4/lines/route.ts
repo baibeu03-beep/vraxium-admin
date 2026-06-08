@@ -15,6 +15,7 @@ import {
   parseCluster4LineCreateBody,
 } from "@/lib/adminCluster4LinesTypes";
 import { isUuid } from "@/lib/isUuid";
+import { isOrganizationSlug } from "@/lib/organizations";
 
 function parseIntParam(
   raw: string | null,
@@ -42,6 +43,9 @@ export async function GET(request: NextRequest) {
   const weekId = params.get("weekId")?.trim() || null;
   const targetMode = params.get("targetMode")?.trim() || null;
   const activityTypeId = params.get("activityTypeId")?.trim() || null;
+  // 조직 스코프(통합 ↔ 조직 진입). 내부 API 컨벤션은 organization. 미지정/무효 = 통합(전체).
+  const organizationRaw = params.get("organization")?.trim() || null;
+  const organization = isOrganizationSlug(organizationRaw) ? organizationRaw : null;
   // detailed=1 → 대상자 이름·조직, 제출 상태, lineTargetId 단위 canEdit 까지 append.
   // 미지정 시 기존 shape 그대로 (하위 호환).
   const detailed = ["1", "true", "yes"].includes(
@@ -86,6 +90,7 @@ export async function GET(request: NextRequest) {
           | null,
         weekId,
         activityTypeId,
+        organization,
         limit,
         offset,
       });
@@ -96,6 +101,7 @@ export async function GET(request: NextRequest) {
       partType,
       weekId,
       targetMode,
+      organization,
       limit,
       offset,
     });
