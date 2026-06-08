@@ -371,7 +371,11 @@ async function computeSeasonRecords(
       progressStatus = "진행 중";
     } else if (hasRest && !hasFail) {
       progressStatus = "통합 휴식";
-    } else if (hasFail && approvedWeeks < totalWeeks / 2) {
+    } else if (hasFail && approvedWeeks === 0) {
+      // 활동 중단 = 그 시즌에 인정(공표 success) 주차가 0인데 실패만 있는 경우로 한정한다
+      // (2026-06-07 정정). 인정 주차가 1개 이상이면 — 절반 미만이라도 — 과거 시즌의 완료
+      // 이력을 "활동 중단"으로 덮지 않는다. PMS 이관 사용자는 전 주차가 아니라 일부만
+      // 인정받는 패턴이 정상이므로 종전의 totalWeeks/2 기준은 과잉 강등이었다.
       progressStatus = "활동 중단";
     } else {
       progressStatus = "정상 완료";
