@@ -63,7 +63,7 @@ type CafeReviewItem = { order: number; nickname: string; reason: string };
 
 type UploadedImage = { url: string; name: string };
 
-type Banner = { kind: "success" | "error"; message: string } | null;
+type Banner = { kind: "success" | "error" | "info"; message: string } | null;
 
 function fmtDot(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
@@ -243,6 +243,14 @@ export default function PracticalInfoOpeningForm({
   const [manualSearching, setManualSearching] = useState(false);
 
   const [imageModalOpen, setImageModalOpen] = useState(false);
+  // 개설 확인 / 초기화 확인 / 개설 취소 확인 모달.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  // 현재 (선택 주차 + 선택 라인) 에 이미 개설된 활성 라인 — [개설 취소] 대상.
+  const [openedLine, setOpenedLine] = useState<{ id: string; mainTitle: string } | null>(null);
+  // 개설/취소 후 openedLine 재조회 트리거.
+  const [refreshTick, setRefreshTick] = useState(0);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 
@@ -258,6 +266,40 @@ export default function PracticalInfoOpeningForm({
     () => new Set(candidates.map((c) => c.userId)),
     [candidates],
   );
+
+  // 현재 (선택 주차 + 선택 라인) 에 이미 개설된 활성 라인 조회 — [개설 취소] 대상 판정.
+  //   라인 개설/취소 후 refreshTick 으로 재조회. setTimeout(0) 로 비동기 분리(effect 동기 setState 회피).
+  const effectiveWeekId = effectiveWeek?.id ?? null;
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      if (!effectiveWeekId || !lineId) {
+        if (!cancelled) setOpenedLine(null);
+        return;
+      }
+      try {
+        const org = new URLSearchParams(window.location.search).get("org");
+        const qs = new URLSearchParams({
+          week_id: effectiveWeekId,
+          activity_type_id: lineId,
+        });
+        if (org) qs.set("organization", org);
+        const res = await fetch(`/api/admin/cluster4/info-lines?${qs.toString()}`);
+        const json = await res.json();
+        if (cancelled) return;
+        const row = json?.success
+          ? (json.data?.rows ?? []).find((r: { isActive: boolean }) => r.isActive)
+          : null;
+        setOpenedLine(row ? { id: row.id, mainTitle: row.mainTitle } : null);
+      } catch {
+        if (!cancelled) setOpenedLine(null);
+      }
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [effectiveWeekId, lineId, refreshTick]);
 
   // 수동 추가 검색 — q 디바운스. (검색창이 비면 드롭다운이 숨겨지므로 별도 clear 불필요)
   useEffect(() => {
@@ -342,7 +384,11 @@ export default function PracticalInfoOpeningForm({
     }
   }, [cafeUrl]);
 
+  // 초기화 = 화면 입력값만 페이지 최초 상태로 되돌린다(DB 무관). 주차/라인은 기본값으로.
   const resetForm = useCallback(() => {
+    setLineId(defaultActivityTypeId ?? "");
+    setAdminUnlock(false);
+    setForcedWeekId("");
     setMainTitle("");
     setLinkUrl("");
     setLinkDesc("");
@@ -355,46 +401,94 @@ export default function PracticalInfoOpeningForm({
     setReview([]);
     setManualQ("");
     setManualResults([]);
-  }, []);
+  }, [defaultActivityTypeId]);
 
-  const validate = useCallback((): string | null => {
-    if (!effectiveWeek) return "개설할 주차를 확인할 수 없습니다";
+  // [개설] 활성 판정 — 필수값 누락 사유 목록(복수). 비어 있으면 개설 가능.
+  //   ⚠ 개설 크루는 0명도 유효 → 사유에 포함하지 않는다. (candidates 는 항상 배열 — null/undefined/로딩실패 아님)
+  const missingReasons = useMemo<string[]>(() => {
+    const r: string[] = [];
+    if (!effectiveWeek) {
+      r.push("개설할 주차 정보가 필요합니다.");
+      return r;
+    }
     if (!effectiveWeek.canOpen)
-      return "선택한 주차는 공식 휴식 주차로 라인 개설이 불가합니다";
-    if (!effectiveWeek.submissionOpensAt || !effectiveWeek.submissionClosesAt)
-      return "선택한 주차의 기입 기간을 확인할 수 없습니다";
-    if (!lineId) return "개설할 라인을 선택해주세요";
-    if (!mainTitle.trim()) return "메인 타이틀을 입력해주세요";
+      r.push("선택한 주차는 공식 휴식 주차로 개설할 수 없습니다.");
+    else if (!effectiveWeek.submissionOpensAt || !effectiveWeek.submissionClosesAt)
+      r.push("선택한 주차의 기입 기간을 확인할 수 없습니다.");
+    if (!lineId) r.push("개설할 라인이 필요합니다.");
+    if (!mainTitle.trim()) r.push("메인 타이틀이 필요합니다.");
+    if (!linkUrl.trim()) r.push("아웃풋 링크 주소가 필요합니다.");
+    if (!linkDesc.trim()) r.push("아웃풋 링크 설명이 필요합니다.");
+    if (!image) r.push("아웃풋 이미지가 필요합니다.");
+    if (!imageDesc.trim()) r.push("아웃풋 이미지 설명이 필요합니다.");
+    // 이미 개설된 라인이 있으면 재개설 불가(409 방지) — 개설 취소 후 가능.
+    if (openedLine) r.push("이미 개설된 라인이 있습니다. (개설 취소 후 재개설)");
+    return r;
+  }, [effectiveWeek, lineId, mainTitle, linkUrl, linkDesc, image, imageDesc, openedLine]);
 
-    const url = linkUrl.trim();
-    const ulabel = linkDesc.trim();
-    if (url && !ulabel) return "아웃풋 링크 설명을 입력해주세요";
-    if (!url && ulabel) return "아웃풋 링크 주소를 입력해주세요";
-    if (!url && !ulabel) return "아웃풋 링크 주소와 설명을 입력해주세요";
+  const canOpen = missingReasons.length === 0;
 
-    const icap = imageDesc.trim();
-    if (image && !icap) return "이미지 설명을 입력해주세요";
-    if (!image && icap) return "이미지를 업로드해주세요";
-    if (!image && !icap) return "아웃풋 이미지와 설명을 입력해주세요";
+  // 개설 확인 모달용 요약값.
+  const lineName = useMemo(
+    () => activityTypes.find((t) => t.id === lineId)?.name ?? "-",
+    [activityTypes, lineId],
+  );
 
-    // 개설 크루 0명도 허용(전체 강화 실패) — 별도 검증 없음.
-    return null;
-  }, [effectiveWeek, lineId, mainTitle, linkUrl, linkDesc, image, imageDesc]);
+  // [개설] 클릭 → 즉시 저장하지 않고 확인 모달을 띄운다. (버튼이 disabled 라 사실상 canOpen 일 때만)
+  const handleOpenClick = useCallback(() => {
+    if (!canOpen) return;
+    setBanner(null);
+    setConfirmOpen(true);
+  }, [canOpen]);
 
-  const handleOpen = useCallback(async () => {
-    const error = validate();
-    if (error) {
-      setBanner({ kind: "error", message: error });
-      return;
-    }
-    const week = effectiveWeek!;
-    const zeroCrew = candidates.length === 0;
-    if (zeroCrew) {
-      const okZero = window.confirm(
-        "개설 크루가 0명입니다. 이 라인은 개설되지만 성공 대상자 0명 — 해당 주차/라인은 전체 크루에게 '강화 실패'로 표시됩니다. 계속할까요?",
+  // [개설 취소] 클릭 → 취소 확인 모달. (openedLine 있을 때만 활성)
+  const handleCancelClick = useCallback(() => {
+    if (!openedLine) return;
+    setBanner(null);
+    setConfirmCancel(true);
+  }, [openedLine]);
+
+  // 취소 확인 모달 [개설 취소] → 실제 DELETE(개설 되돌리기).
+  const executeCancel = useCallback(async () => {
+    if (!openedLine || !effectiveWeek || !lineId) return;
+    setSaving(true);
+    setBanner(null);
+    try {
+      const qs = new URLSearchParams({
+        week_id: effectiveWeek.id,
+        activity_type_id: lineId,
+      });
+      const res = await fetch(
+        `/api/admin/cluster4/info-lines?${qs.toString()}`,
+        { method: "DELETE" },
       );
-      if (!okZero) return;
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setBanner({
+          kind: "error",
+          message: json?.error ?? `개설 취소에 실패했습니다 (HTTP ${res.status})`,
+        });
+        return;
+      }
+      setBanner({
+        kind: "success",
+        message: "라인 개설이 취소되었습니다. (해당 주차/라인이 전체 크루에게 '해당 없음'으로 복귀)",
+      });
+      setOpenedLine(null);
+      setRefreshTick((t) => t + 1);
+      onOpened();
+    } catch {
+      setBanner({ kind: "error", message: "개설 취소 중 오류가 발생했습니다" });
+    } finally {
+      setSaving(false);
+      setConfirmCancel(false);
     }
+  }, [openedLine, effectiveWeek, lineId, onOpened]);
+
+  // 확인 모달 [확인] → 실제 API 저장 실행.
+  const executeOpen = useCallback(async () => {
+    if (!canOpen || !effectiveWeek) return;
+    const week = effectiveWeek;
     setSaving(true);
     setBanner(null);
     try {
@@ -437,14 +531,17 @@ export default function PracticalInfoOpeningForm({
         message: `라인이 개설되었습니다 (개설 크루: ${json.data?.targetCount ?? candidates.length}명)`,
       });
       resetForm();
+      setRefreshTick((t) => t + 1);
       onOpened();
     } catch {
       setBanner({ kind: "error", message: "개설 중 오류가 발생했습니다" });
     } finally {
       setSaving(false);
+      // 성공·실패·오류 어느 경우든 확인 모달은 닫는다(결과는 상단 배너로 노출).
+      setConfirmOpen(false);
     }
   }, [
-    validate,
+    canOpen,
     effectiveWeek,
     candidates,
     lineId,
@@ -476,7 +573,9 @@ export default function PracticalInfoOpeningForm({
               "flex items-start justify-between gap-2 rounded-md border px-3 py-2 text-sm",
               banner.kind === "success"
                 ? "border-green-300 bg-green-50 text-green-800"
-                : "border-red-300 bg-red-50 text-red-800",
+                : banner.kind === "info"
+                  ? "border-sky-300 bg-sky-50 text-sky-800"
+                  : "border-red-300 bg-red-50 text-red-800",
             )}
           >
             <span>{banner.message}</span>
@@ -485,6 +584,50 @@ export default function PracticalInfoOpeningForm({
             </button>
           </div>
         )}
+
+        {/* 개설 액션 (폼 최상단 · 왼쪽 정렬) — [개설] [초기화] [개설 취소] */}
+        <div className="space-y-2 border-b pb-4">
+          <div className="flex flex-wrap justify-start gap-2">
+            <Button
+              type="button"
+              onClick={handleOpenClick}
+              disabled={saving || !canOpen}
+            >
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              개설
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmReset(true)}
+              disabled={saving}
+            >
+              초기화
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancelClick}
+              disabled={saving || !openedLine}
+              className="text-red-600 hover:text-red-700"
+              title={
+                openedLine
+                  ? "개설된 라인을 취소(되돌리기)합니다"
+                  : "이 주차·라인에 개설된 라인이 없습니다"
+              }
+            >
+              개설 취소
+            </Button>
+          </div>
+          {/* 개설 비활성 사유(복수). 개설 크루 0명은 사유 아님. */}
+          {!canOpen && (
+            <ul className="space-y-0.5 text-xs text-amber-700">
+              {missingReasons.map((r) => (
+                <li key={r}>· {r}</li>
+              ))}
+            </ul>
+          )}
+        </div>
 
         {/* 1. 개설할 주차 */}
         <section className="space-y-2">
@@ -854,21 +997,6 @@ export default function PracticalInfoOpeningForm({
             </div>
           )}
         </section>
-
-        {/* 6. 개설 */}
-        <div className="flex justify-end gap-2 border-t pt-4">
-          <Button type="button" variant="outline" onClick={resetForm} disabled={saving}>
-            전체 초기화
-          </Button>
-          <Button
-            type="button"
-            onClick={handleOpen}
-            disabled={saving || !effectiveWeek?.canOpen}
-          >
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            개설
-          </Button>
-        </div>
       </CardContent>
 
       {/* 이미지 확대 모달 */}
@@ -894,6 +1022,157 @@ export default function PracticalInfoOpeningForm({
             {imageDesc.trim() && (
               <p className="mt-2 text-center text-sm text-white">{imageDesc.trim()}</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 개설 확인 모달 — [확인] 클릭 시에만 실제 API 저장 */}
+      {confirmOpen && effectiveWeek && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !saving && setConfirmOpen(false)}
+        >
+          <div
+            className="w-full max-w-md space-y-4 rounded-lg bg-background p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold">라인 개설 확인</h3>
+            <p className="text-sm text-muted-foreground">아래 정보로 라인을 개설합니다.</p>
+            <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-muted-foreground">주차</dt>
+                <dd className="font-medium">{weekTitle(effectiveWeek)}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-muted-foreground">라인</dt>
+                <dd className="font-medium">{lineName}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-muted-foreground">메인 타이틀</dt>
+                <dd className="min-w-0 break-words font-medium">{mainTitle.trim()}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-muted-foreground">아웃풋 링크</dt>
+                <dd className="font-medium">{linkUrl.trim() ? 1 : 0}개</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-muted-foreground">아웃풋 이미지</dt>
+                <dd className="font-medium">{image ? 1 : 0}개</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-muted-foreground">개설 크루</dt>
+                <dd className="font-medium">{candidates.length}명</dd>
+              </div>
+            </dl>
+            <p className="text-xs text-amber-700">
+              주의: 개설 후에는 대상 크루의 라인 상태가 변경됩니다.
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmOpen(false)}
+                disabled={saving}
+              >
+                취소
+              </Button>
+              <Button type="button" onClick={executeOpen} disabled={saving}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                확인
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 초기화 확인 모달 — 화면 입력값만 초기화(DB 무관) */}
+      {confirmReset && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setConfirmReset(false)}
+        >
+          <div
+            className="w-full max-w-sm space-y-4 rounded-lg bg-background p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold">초기화</h3>
+            <p className="text-sm text-muted-foreground">
+              입력 중인 내용을 모두 초기화하시겠습니까? (DB 데이터에는 영향이 없습니다)
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmReset(false)}
+              >
+                취소
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setBanner(null);
+                  setConfirmReset(false);
+                }}
+              >
+                초기화
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 개설 취소 확인 모달 — 실제 개설 되돌리기(DB 삭제 + 전체 크루 '해당 없음' 복귀) */}
+      {confirmCancel && openedLine && effectiveWeek && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => !saving && setConfirmCancel(false)}
+        >
+          <div
+            className="w-full max-w-md space-y-4 rounded-lg bg-background p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold">라인 개설 취소 확인</h3>
+            <p className="text-sm text-muted-foreground">
+              아래 개설된 라인을 취소(되돌리기)합니다.
+            </p>
+            <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-muted-foreground">주차</dt>
+                <dd className="font-medium">{weekTitle(effectiveWeek)}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-muted-foreground">라인</dt>
+                <dd className="font-medium">{lineName}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-muted-foreground">메인 타이틀</dt>
+                <dd className="min-w-0 break-words font-medium">{openedLine.mainTitle}</dd>
+              </div>
+            </dl>
+            <p className="text-xs text-red-600">
+              주의: 개설 데이터·대상 크루가 삭제되고, 고객 앱에서 해당 라인이 사라집니다.
+              전체 크루의 해당 라인 상태가 &apos;해당 없음&apos;으로 복귀합니다. (되돌릴 수 없음)
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmCancel(false)}
+                disabled={saving}
+              >
+                취소
+              </Button>
+              <Button
+                type="button"
+                onClick={executeCancel}
+                disabled={saving}
+                className="bg-red-600 text-white hover:bg-red-700"
+              >
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                개설 취소
+              </Button>
+            </div>
           </div>
         </div>
       )}

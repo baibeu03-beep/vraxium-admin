@@ -10,6 +10,8 @@ import {
 import {
   Cluster4LineError,
   collectLineOrgAudience,
+  deleteCluster4Line,
+  findActiveInfoLineId,
   listCluster4InfoLinesDetailed,
 } from "@/lib/adminCluster4LinesData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -582,6 +584,83 @@ export async function POST(request: NextRequest) {
         success: false,
         error:
           error instanceof Error ? error.message : "Failed to create info line",
+      },
+      { status: 500 },
+    );
+  }
+}
+
+// DELETE /api/admin/cluster4/info-lines?week_id=&activity_type_id=
+// 개설 취소 — "개설 행위 자체를 되돌린다".
+//   1) 해당 주차+활동유형의 활성 라인 + 연결 target 삭제(FK cascade).
+//   2) 배정 크루 + org audience 의 weekly-cards snapshot 재계산 → 라인이 사라져 전체 크루가
+//      "해당 없음"(not_applicable)으로 복귀(미개설 상태와 동일). (deleteCluster4Line 가 수행)
+//   3) 개설 로그에 'cancel' 이벤트 append(append-only audit — open 로그는 보존). best-effort.
+// 결과: 고객 앱에서도 해당 라인이 존재하지 않는 상태가 된다.
+export async function DELETE(request: NextRequest) {
+  let admin;
+  try {
+    admin = await requireAdmin(CLUSTER4_LINE_WRITE_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
+  const params = request.nextUrl.searchParams;
+  const weekId = params.get("week_id")?.trim() || null;
+  const activityTypeId = params.get("activity_type_id")?.trim() || null;
+  if (!weekId || !isUuid(weekId)) {
+    return Response.json(
+      { success: false, error: "week_id is required and must be a UUID" },
+      { status: 400 },
+    );
+  }
+  if (!activityTypeId) {
+    return Response.json(
+      { success: false, error: "activity_type_id is required" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const lineId = await findActiveInfoLineId(weekId, activityTypeId);
+    if (!lineId) {
+      return Response.json(
+        { success: false, error: "취소할 개설 라인이 없습니다" },
+        { status: 404 },
+      );
+    }
+
+    // 라인 + 타깃 삭제 + 영향 크루(배정자 + org audience) snapshot 재계산.
+    await deleteCluster4Line(lineId);
+
+    // 개설 로그: 취소 = [개설 취소] 로그 append. best-effort(snapshot 무관, 본 동작과 분리).
+    await insertOpeningLogForLine({
+      action: "cancel",
+      lineId,
+      weekId,
+      activityTypeId,
+      changedBy: admin.userId,
+    });
+
+    return Response.json({
+      success: true,
+      data: { lineId, cancelled: true },
+    });
+  } catch (error) {
+    if (error instanceof Cluster4LineError) {
+      return Response.json(
+        { success: false, error: error.message },
+        { status: error.status },
+      );
+    }
+    console.error("[admin/cluster4/info-lines DELETE]", error);
+    return Response.json(
+      {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to cancel info line",
       },
       { status: 500 },
     );

@@ -905,6 +905,38 @@ export async function setCluster4LineWorkflowStage(
   );
 }
 
+// (week_id + activity_type_id) 로 활성 실무 정보 라인 id 를 찾는다(개설 취소용). 없으면 null.
+//   라인↔주차 연결: 타깃(week_id, 0명 sentinel 포함) ∪ 라인 자체 week_id. 둘 중 하나라도 매칭.
+//   개설 클래시 가드로 (주차+활동유형) 활성 라인은 최대 1개라 첫 매칭을 돌려준다.
+export async function findActiveInfoLineId(
+  weekId: string,
+  activityTypeId: string,
+): Promise<string | null> {
+  const { data: tRows, error: tErr } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("line_id,cluster4_lines!inner(activity_type_id,part_type,is_active)")
+    .eq("week_id", weekId)
+    .eq("cluster4_lines.is_active", true)
+    .eq("cluster4_lines.part_type", "info")
+    .eq("cluster4_lines.activity_type_id", activityTypeId)
+    .limit(1);
+  if (tErr) throw new Cluster4LineError(500, tErr.message);
+  const viaTarget = (tRows?.[0] as { line_id: string | null } | undefined)?.line_id;
+  if (viaTarget) return viaTarget;
+
+  // 타깃이 전혀 없는(레거시) 라인 대비 — 라인 자체 week_id 로도 조회.
+  const { data: lRows, error: lErr } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id")
+    .eq("part_type", "info")
+    .eq("activity_type_id", activityTypeId)
+    .eq("week_id", weekId)
+    .eq("is_active", true)
+    .limit(1);
+  if (lErr) throw new Cluster4LineError(500, lErr.message);
+  return (lRows?.[0] as { id: string } | undefined)?.id ?? null;
+}
+
 export async function deleteCluster4Line(id: string): Promise<void> {
   await ensureLineExists(id);
   // 삭제 전 대상자 + org audience 수집 — FK cascade 로 targets/라인 행이 사라지기 전에 확보.
