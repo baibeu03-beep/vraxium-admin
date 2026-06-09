@@ -9,6 +9,7 @@ import {
 } from "@/lib/adminCluster4LinesTypes";
 import {
   Cluster4LineError,
+  collectLineOrgAudience,
   listCluster4InfoLinesDetailed,
 } from "@/lib/adminCluster4LinesData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
@@ -27,6 +28,7 @@ import {
 import { describeOpenableWeek } from "@/lib/cluster4WeekPolicy";
 import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { insertOpeningLogForLine } from "@/lib/adminCluster4OpeningLogs";
 
 // GET /api/admin/cluster4/info-lines?week_id=&activity_type_id=
 // 실무 정보(part_type='info') 라인을 활동 유형 탭별/주차별로 운영하기 위한
@@ -87,10 +89,15 @@ type InfoLineCreateBody = {
   output_link_2: string | null;
   output_links: Cluster4OutputLink[];
   output_images: Cluster4OutputImage[];
+  // 라인 개설 크루(targetCrewIds). 0명 허용 — 0명 개설 = 전체 크루 강화 실패.
   target_user_ids: string[];
   week_id: string;
   submission_opens_at: string;
   submission_closes_at: string;
+  // 카페 검수 메타(선택, 감사용). 컬럼 미존재 시 저장 생략.
+  cafe_url: string | null;
+  matched_crew_count: number | null;
+  raw_comment_count: number | null;
 };
 
 function parseBody(
@@ -166,17 +173,36 @@ function parseBody(
     return { ok: false, status: 400, error: "Output은 최대 2개까지 입력 가능합니다 (Link + Image 합산)" };
   }
 
-  // target_user_ids — required, min 1
-  if (!Array.isArray(b.target_user_ids) || b.target_user_ids.length === 0) {
-    return { ok: false, status: 400, error: "개설 대상을 최소 1명 이상 선택해주세요" };
+  // 라인 개설 크루 — target_user_ids(= targetCrewIds). 0명 허용(2026-06-09 정책 개정).
+  //   0명 개설 = "라인은 개설됐지만 성공 대상자 0명" → 그 주차/라인은 전체 크루에게 강화 실패.
+  //   (라인 자체가 없으면 기존처럼 해당 없음.) 배열이기만 하면 되고, 항목은 유효 UUID 여야 한다.
+  const rawTargets = Array.isArray(b.target_user_ids)
+    ? b.target_user_ids
+    : Array.isArray(b.target_crew_ids)
+      ? b.target_crew_ids
+      : null;
+  if (rawTargets === null) {
+    return { ok: false, status: 400, error: "target_user_ids must be an array (0명 허용)" };
   }
   const targetUserIds: string[] = [];
-  for (const uid of b.target_user_ids) {
+  for (const uid of rawTargets) {
     if (typeof uid !== "string" || !isUuid(uid)) {
       return { ok: false, status: 400, error: "target_user_ids must contain valid UUIDs" };
     }
     targetUserIds.push(uid);
   }
+  // 중복 제거(같은 크루 중복 선택 방지).
+  const dedupedTargetIds = Array.from(new Set(targetUserIds));
+
+  // 카페 검수 메타(선택) — 문자열/숫자 또는 null.
+  let cafeUrl: string | null = null;
+  if (typeof b.cafe_url === "string" && b.cafe_url.trim().length > 0) {
+    cafeUrl = b.cafe_url.trim();
+  }
+  const toIntOrNull = (v: unknown): number | null =>
+    typeof v === "number" && Number.isFinite(v) ? Math.trunc(v) : null;
+  const matchedCrewCount = toIntOrNull(b.matched_crew_count);
+  const rawCommentCount = toIntOrNull(b.raw_comment_count);
 
   // week_id — required
   if (typeof b.week_id !== "string" || !isUuid(b.week_id)) {
@@ -200,10 +226,13 @@ function parseBody(
       output_link_2: outputLink2,
       output_links: outputLinks,
       output_images: outputImages,
-      target_user_ids: targetUserIds,
+      target_user_ids: dedupedTargetIds,
       week_id: b.week_id,
       submission_opens_at: b.submission_opens_at,
       submission_closes_at: b.submission_closes_at,
+      cafe_url: cafeUrl,
+      matched_crew_count: matchedCrewCount,
+      raw_comment_count: rawCommentCount,
     },
   };
 }
@@ -242,10 +271,12 @@ export async function POST(request: NextRequest) {
 
   const input = parsed.value;
 
-  // ── 주차 정책 강제 (N-1) ──────────────────────────────────────────────
-  // 운영 정책: 개설 가능 주차 = 현재 주차 N 의 직전 주차 N-1.
+  // ── 주차 정책 강제 (목요일 경계 규칙) ─────────────────────────────────
+  // 운영 정책: 개설 가능 주차 = describeOpenableWeek(목요일 경계). 월·화·수=N-1,
+  //   목·금·토·일=N(현재 주). weeks-options.isOpenTarget 과 동일 함수를 공유하므로
+  //   프론트 표시 주차 == 서버 저장 주차.
   // 일반(운영) 모드에서는 클라이언트가 보낸 week_id / 기입기간을 신뢰하지 않고
-  // 서버가 계산한 N-1 주차로 강제한다 → payload 를 조작해도 임의 주차 개설 불가.
+  // 서버가 계산한 개설 대상 주차로 강제한다 → payload 를 조작해도 임의 주차 개설 불가.
   // dev 모드(?dev=true)에서만 클라이언트가 지정한 과거 주차를 그대로 허용한다(테스트용).
   //   * dev 플래그는 표시 토글(useAdminDevMode)이며 보안 경계가 아니다. 목적은
   //     "일반 사용 경로에서의 임의 주차 개설 차단" 이다.
@@ -385,48 +416,114 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4. Create cluster4_lines row
-    const { data: lineRow, error: lineError } = await supabaseAdmin
-      .from("cluster4_lines")
-      .insert({
-        part_type: "info",
-        activity_type_id: input.activity_type_id,
-        main_title: input.main_title,
-        output_link_1: input.output_link_1,
-        output_link_2: input.output_link_2,
-        output_links: input.output_links,
-        // output_images = [{url, caption}] (캡션 포함). 레거시 string[] 입력도 파서가 변환.
-        output_images: input.output_images,
-        submission_opens_at: effectiveOpensAt,
-        submission_closes_at: effectiveClosesAt,
-        is_active: true,
-        created_by: admin.userId,
-        updated_by: admin.userId,
-      })
-      .select("id,part_type,activity_type_id,main_title,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_at")
-      .single();
+    // 4. Create cluster4_lines row.
+    //    week_id 를 라인 자체에도 기록(0명 개설 포함) — 어드민 주차/이력 정합. (기존엔 NULL)
+    //    cafe_* 메타는 선택 — 컬럼 미적용(42703)이면 메타 없이 재시도(graceful).
+    const LINE_RETURN =
+      "id,part_type,activity_type_id,week_id,main_title,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_at";
+    const baseLinePayload = {
+      part_type: "info",
+      activity_type_id: input.activity_type_id,
+      main_title: input.main_title,
+      output_link_1: input.output_link_1,
+      output_link_2: input.output_link_2,
+      output_links: input.output_links,
+      // output_images = [{url, caption}] (캡션 포함). 레거시 string[] 입력도 파서가 변환.
+      output_images: input.output_images,
+      submission_opens_at: effectiveOpensAt,
+      submission_closes_at: effectiveClosesAt,
+      week_id: effectiveWeekId,
+      is_active: true,
+      created_by: admin.userId,
+      updated_by: admin.userId,
+    };
+    const cafePayload = {
+      cafe_url: input.cafe_url,
+      matched_crew_count: input.matched_crew_count,
+      raw_comment_count: input.raw_comment_count,
+    };
+
+    type LineRow = { id: string; [key: string]: unknown };
+    let lineRow: LineRow | null = null;
+    let lineError: { message?: string; code?: string } | null = null;
+    {
+      const res = await supabaseAdmin
+        .from("cluster4_lines")
+        .insert({ ...baseLinePayload, ...cafePayload })
+        .select(LINE_RETURN)
+        .single();
+      lineRow = (res.data as LineRow | null) ?? null;
+      lineError = res.error;
+      // cafe_* 컬럼 미적용 감지 — undefined_column(42703) 또는 PostgREST 스키마 캐시 미존재(PGRST204)
+      // 또는 메시지에 cafe 컬럼/schema cache 언급. 어느 쪽이든 메타 없이 재시도한다.
+      const missingCafeCol =
+        !!lineError &&
+        (lineError.code === "42703" ||
+          lineError.code === "PGRST204" ||
+          /cafe_url|matched_crew_count|raw_comment_count|schema cache/i.test(
+            lineError.message ?? "",
+          ));
+      if (missingCafeCol) {
+        // cafe_* 컬럼 미적용 — 메타 없이 재시도.
+        const retry = await supabaseAdmin
+          .from("cluster4_lines")
+          .insert(baseLinePayload)
+          .select(LINE_RETURN)
+          .single();
+        lineRow = (retry.data as LineRow | null) ?? null;
+        lineError = retry.error;
+      }
+    }
 
     if (lineError || !lineRow) {
       const msg = lineError?.message ?? "Failed to create line";
       const status = lineError?.code === "23505" ? 409 : 500;
       return Response.json({ success: false, error: msg }, { status });
     }
+    const createdLine: LineRow = lineRow;
 
-    // 5. Bulk-create cluster4_line_targets
-    const targetRows = input.target_user_ids.map((userId) => ({
-      line_id: lineRow.id,
-      week_id: effectiveWeekId,
-      target_mode: "user" as const,
-      target_user_id: userId,
-      target_rule: {},
-      created_by: admin.userId,
-      updated_by: admin.userId,
-    }));
+    // 5. Create cluster4_line_targets.
+    //    - 크루 1명 이상: user-mode 타깃(기존). 그 크루만 강화 대기→성공 흐름, 미배정 크루는 강화 실패.
+    //    - 크루 0명: "라인은 개설, 성공 대상자 0명". 주차-라인 연결을 위해 sentinel(rule-mode,
+    //      user=null, target_rule.zeroTargetOpen=true) 1행만 넣는다. 스냅샷 openedByWeek 가 이 행으로
+    //      라인을 그 주차에 "개설됨"으로 인식 → 전체 크루가 강화 실패(누구도 user-target 아님).
+    //      이 sentinel 은 어드민 대상자 목록/카운트에서 제외된다(listCluster4LinesDetailed 필터).
+    type TargetInsert = {
+      line_id: string;
+      week_id: string;
+      target_mode: "user" | "rule";
+      target_user_id: string | null;
+      target_rule: Record<string, unknown>;
+      created_by: string;
+      updated_by: string;
+    };
+    const isZeroTarget = input.target_user_ids.length === 0;
+    const targetRows: TargetInsert[] = isZeroTarget
+      ? [
+          {
+            line_id: createdLine.id,
+            week_id: effectiveWeekId,
+            target_mode: "rule",
+            target_user_id: null,
+            target_rule: { zeroTargetOpen: true },
+            created_by: admin.userId,
+            updated_by: admin.userId,
+          },
+        ]
+      : input.target_user_ids.map((userId) => ({
+          line_id: createdLine.id,
+          week_id: effectiveWeekId,
+          target_mode: "user",
+          target_user_id: userId,
+          target_rule: {},
+          created_by: admin.userId,
+          updated_by: admin.userId,
+        }));
 
     const { data: targets, error: targetError } = await supabaseAdmin
       .from("cluster4_line_targets")
       .insert(targetRows)
-      .select("id,line_id,week_id,target_user_id");
+      .select("id,line_id,week_id,target_user_id,target_mode");
 
     if (targetError) {
       // Line was created but targets failed — still report partial success
@@ -435,23 +532,45 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: `라인은 생성되었으나 대상 등록에 실패했습니다: ${targetError.message}`,
-          data: { lineId: lineRow.id },
+          data: { lineId: createdLine.id },
         },
         { status: 500 },
       );
     }
 
-    // 대상자 weekly-cards snapshot 즉시 재계산 → 고객 앱에 실제 라인이 바로 내려오게 한다.
-    // (cron 축소로 stale-only 는 미반영) ≤10명 즉시 / >10명 백그라운드. best-effort.
-    await invalidateWeeklyCardsForUsers(input.target_user_ids);
+    // weekly-cards snapshot 무효화 → 고객 앱 반영.
+    //   - 크루 1명 이상: 배정 크루(기존 동작). (미배정 크루의 fail 은 lazy/배치로 수렴 — 기존과 동일)
+    //   - 크루 0명: 배정 크루가 없으므로, 라인 노출 org audience(전체 크루) 를 무효화해 "전체 강화 실패"가
+    //     반영되게 한다. ≤10명 즉시 / >10명 stale+백그라운드. best-effort.
+    if (isZeroTarget) {
+      const audience = await collectLineOrgAudience(createdLine.id);
+      await invalidateWeeklyCardsForUsers(audience);
+    } else {
+      await invalidateWeeklyCardsForUsers(input.target_user_ids);
+    }
+
+    // [섹션 0] 로그창: 개설 = [개설 완료] 로그. best-effort(snapshot 무관, 본 동작과 분리).
+    await insertOpeningLogForLine({
+      action: "open",
+      lineId: createdLine.id,
+      weekId: effectiveWeekId,
+      activityTypeId: input.activity_type_id,
+      changedBy: admin.userId,
+    });
 
     return Response.json(
       {
         success: true,
         data: {
-          line: lineRow,
-          targets: targets ?? [],
+          line: createdLine,
+          // sentinel(rule) 행은 노출하지 않는다 — 실제 user 타깃만.
+          targets: (targets ?? []).filter(
+            (t) => (t as { target_mode?: string }).target_mode === "user",
+          ),
           targetCount: input.target_user_ids.length,
+          matchedCrewCount: input.matched_crew_count,
+          rawCommentCount: input.raw_comment_count,
+          cafeUrl: input.cafe_url,
         },
       },
       { status: 201 },

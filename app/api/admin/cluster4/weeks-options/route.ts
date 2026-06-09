@@ -7,9 +7,9 @@ import {
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getSeasonForDate } from "@/lib/seasonCalendar";
 import {
-  OPENABLE_WEEK_OFFSET,
   describeWeekByStartMs,
   getCurrentWeekStartMs,
+  getOpenableWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
 import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import { matchOfficialRestPeriods } from "@/lib/officialRestPeriodsTypes";
@@ -17,8 +17,11 @@ import { matchOfficialRestPeriods } from "@/lib/officialRestPeriodsTypes";
 // 라인 개설 어드민 UI 에서 사용하는 "최근 주차 옵션" 엔드포인트.
 // 현재 주차 N 을 포함해 직전 몇 주(N-1, N-2 ...) 까지 weeks 테이블에서 매칭한 행만 돌려준다.
 //
-// 운영 정책: 라인 개설 가능 주차 = N-1 (isOpenTarget=true). N(현재주차)은 isCurrent=true.
-// 일반 모드 프론트는 weekSelect 를 렌더링하지 않고 isOpenTarget 주차를 자동 사용한다.
+// 운영 정책(목요일 경계 규칙): 라인 개설 가능 주차(isOpenTarget=true)는
+//   describeOpenableWeek 와 동일하게 getOpenableWeekStartMs 로 결정한다 —
+//   월·화·수면 N-1, 목·금·토·일이면 N(현재 주). N(현재주차)은 isCurrent=true.
+// 일반 모드 프론트는 weekSelect 를 렌더링하지 않고 isOpenTarget 주차를 자동 사용하며,
+// 서버 info-lines POST 도 같은 함수로 강제하므로 표시 주차 == 저장 주차.
 // dev 모드(?dev=true)에서만 weekSelect 로 과거 주차(N-1, N-2 ...)를 선택할 수 있다.
 
 const DAY_MS = 86_400_000;
@@ -81,6 +84,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // 개설 대상 주차(목요일 경계 규칙) — describeOpenableWeek 와 동일 계산.
+    // isOpenTarget 은 이 시작 ms 와 일치하는 주차에 표시한다(고정 오프셋 아님).
+    const openableWeekStartMs = getOpenableWeekStartMs(todayIso);
+
     const descriptors: Array<{
       isCurrent: boolean;
       isOpenTarget: boolean;
@@ -92,7 +99,8 @@ export async function GET(request: NextRequest) {
       if (!info) continue;
       descriptors.push({
         isCurrent: offset === 0,
-        isOpenTarget: offset === OPENABLE_WEEK_OFFSET,
+        isOpenTarget:
+          openableWeekStartMs != null && weekStartMs === openableWeekStartMs,
         info,
       });
     }

@@ -1,0 +1,106 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { readOrgParam } from "@/lib/adminOrgContext";
+import {
+  formatLogDateTime,
+  OPENING_LOG_ACTION_LABEL,
+  type OpeningLogAction,
+} from "@/lib/practicalInfoSection0Format";
+
+// 실무 정보 라인 개설 [섹션 0] 로그창 — 현재 활동유형의 개설/취소 이력(최신순).
+// 표시: [개설 여부] 라인명 - 시즌/주차 - 실행한 사람 님 - YY.MM.DD(요일), HH:mm
+
+type LogItem = {
+  id: string;
+  action: OpeningLogAction;
+  activityLabel: string;
+  periodLabel: string;
+  actorName: string;
+  createdAt: string;
+};
+
+type Props = {
+  activeType: { id: string; name: string } | null;
+  // 값이 바뀌면 로그를 재조회한다(개설 직후 새 [개설 완료] 항목 반영).
+  refreshKey?: number;
+};
+
+export default function PracticalInfoOpeningLogPanel({
+  activeType,
+  refreshKey,
+}: Props) {
+  const [logs, setLogs] = useState<LogItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const activeTypeId = activeType?.id ?? null;
+
+  const load = useCallback(async () => {
+    if (!activeTypeId) {
+      setLogs([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const qs = new URLSearchParams({ activity_type_id: activeTypeId });
+      // org 컨텍스트 전달(info=common 이라 결과 동일 — 규약 일관성).
+      const org = readOrgParam(new URLSearchParams(window.location.search));
+      if (org) qs.set("organization", org);
+      const res = await fetch(`/api/admin/cluster4/opening-logs?${qs.toString()}`);
+      const json = await res.json();
+      setLogs(json?.success ? (json.data?.logs ?? []) : []);
+    } catch {
+      setLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTypeId]);
+
+  useEffect(() => {
+    // load 는 activeTypeId 에 의존. refreshKey 변경 시에도 재조회한다(개설 직후 갱신).
+    load();
+  }, [load, refreshKey]);
+
+  return (
+    <Card className="flex h-full flex-col">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">로그창</CardTitle>
+      </CardHeader>
+      <CardContent className="flex-1 space-y-1.5 overflow-y-auto text-sm">
+        {loading ? (
+          <p className="flex items-center gap-1.5 text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
+          </p>
+        ) : logs.length === 0 ? (
+          <p className="text-muted-foreground">
+            {activeTypeId
+              ? "개설/취소 기록이 없습니다."
+              : "활동 유형을 선택해주세요."}
+          </p>
+        ) : (
+          logs.map((l) => (
+            <p key={l.id} className="text-[13px] leading-relaxed">
+              <span
+                className={cn(
+                  "font-semibold",
+                  l.action === "open" ? "text-green-700" : "text-red-700",
+                )}
+              >
+                [{OPENING_LOG_ACTION_LABEL[l.action]}]
+              </span>{" "}
+              {l.activityLabel} - {l.periodLabel} - {l.actorName} 님 -{" "}
+              {formatLogDateTime(l.createdAt)}
+            </p>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}

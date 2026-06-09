@@ -149,6 +149,8 @@ export function parseExperienceLineMasterPatchBody(
 export type CrewItemDto = {
   userId: string;
   displayName: string;
+  // 운영용 크루 번호(crew_no). 마이그레이션 미적용/미발급이면 null.
+  crewNo: number | null;
   profileImg: string | null;
   organization: string | null;
   teamName: string | null;

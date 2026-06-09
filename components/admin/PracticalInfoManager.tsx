@@ -81,7 +81,7 @@ type WeekOption = {
   isOfficialRest: boolean;
   canOpen: boolean;
   isCurrent: boolean;
-  // 운영 정책상 개설 가능 주차(N-1). 일반 모드 기본 선택 대상.
+  // 운영 정책상 개설 대상 주차(목요일 경계 규칙). 일반 모드 기본 선택 대상.
   isOpenTarget: boolean;
   submissionOpensAt: string | null;
   submissionClosesAt: string | null;
@@ -112,7 +112,7 @@ type UploadedImage = {
 // DB 조회 순서(activity-types API 는 id ASC)나 id 알파벳 순에 의존하지 않고, 아래 배열 순서를
 // UI 표시 순서로 강제한다. 여기 나열되지 않은(신규) 활동 유형은 API 순서로 뒤에 append 되므로
 // 아래 9개의 상대 순서는 항상 유지된다.
-//   위즈덤 → 에세이 → 씽크탱크 → 캘린더 → 포럼 → 세션 → 아카데미 → 커뮤니티 → 기타A
+//   위즈덤 → 에세이 → 인포데스크 → 캘린더 → 포럼 → 세션 → 아카데미 → 커뮤니티 → 기타A
 // /crews/encre/[userId]/cluster4 프론트 카드와 동일하게 activity_types(cluster_id='practical_info')
 // 를 단일 기준으로 사용한다 (lib/userActivityDetailsTypes.WORK_INFO_ACTIVITY_TYPE_IDS 참고).
 const PREFERRED_TAB_ORDER = [
@@ -716,11 +716,13 @@ export default function PracticalInfoManager() {
     }
   }, []);
 
-  // 상위 2탭(라인 관리/라인 개설)은 상단 Header title 영역에 배치되며 URL ?tab 으로 구동된다.
-  // (헤더↔본문 공유 + 새로고침 유지 + ?org 보존). 본문에는 탭 UI 를 두지 않는다. 기본 = 라인 관리.
+  // 2탭(라인 관리/라인 개설)·섹션0 은 **조직 분기 모드(?org 있음)** 에서만 적용한다.
+  // 통합 검수 시스템(원본, ?org 없음)에서는 기존 단일 화면 그대로 — 탭/섹션0 없음, 폭도 기존 그대로.
+  // 탭 UI 자체는 상단 Header title 영역에 있고 본문은 URL ?tab 으로 어느 콘텐츠를 보일지만 결정한다.
   const searchParams = useSearchParams();
+  const orgScoped = readOrgParam(searchParams) != null;
   const mainTab: "manage" | "open" =
-    searchParams?.get("tab") === "open" ? "open" : "manage";
+    orgScoped && searchParams?.get("tab") === "open" ? "open" : "manage";
 
   // Detail modal
   const [detailLineId, setDetailLineId] = useState<string | null>(null);
@@ -794,7 +796,7 @@ export default function PracticalInfoManager() {
       if (weeksJson.success) {
         const opts: WeekOption[] = weeksJson.data.weeks ?? [];
         setWeekOptions(opts);
-        // 운영 정책: 기본 개설 대상 = N-1(isOpenTarget). 없으면 현재(N) → 첫 항목 순으로 fallback.
+        // 운영 정책: 기본 개설 대상 = isOpenTarget(목요일 경계 규칙). 없으면 현재(N) → 첫 항목 순으로 fallback.
         const defaultWeek =
           opts.find((o) => o.isOpenTarget) ??
           opts.find((o) => o.isCurrent) ??
@@ -1115,8 +1117,17 @@ export default function PracticalInfoManager() {
   // 다른 주차의 active 라인은 현재 주차 신규 개설을 막지 않는다.
   const newLineDisabled = detailLines.some((l) => l.isActive);
 
+  // 본문 폭: 조직 분기 모드에서만 넓게 사용(max-width 제거 → 좌우 여백 = 레이아웃 main p-6).
+  // 통합 검수 시스템(원본)에서는 기존 폭(max-w-[1440px] 가운데 정렬) 그대로 유지.
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
+    <div
+      className={cn(
+        "space-y-6",
+        orgScoped
+          ? "w-full min-w-0"
+          : "mx-auto w-full max-w-[1440px] px-4 py-6",
+      )}
+    >
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">실무 정보 라인 운영</h1>
@@ -1628,11 +1639,21 @@ export default function PracticalInfoManager() {
             ))}
           </div>
 
-          {/* [섹션 0] 상태창 + 개설/검수 기록. 지난 주 = 개설 대상(N-1) isOpenTarget. */}
+          {/* [섹션 0] 상태창 + 개설/검수 기록 + 실제 개설 폼.
+              개설 대상 주차 = isOpenTarget(목요일 경계 규칙, 서버 강제와 동일 함수). */}
           <PracticalInfoOpeningSection0
             currentWeek={currentWeek}
             openableWeek={weekOptions.find((o) => o.isOpenTarget) ?? null}
+            weekOptions={weekOptions}
             activeType={activeType}
+            activityTypes={orderedTypes.map((t) => ({ id: t.id, name: t.name }))}
+            users={users}
+            onOpened={() => {
+              // 개설 직후 메타·라인 목록·탭 dot 데이터 재조회(manage 탭과 동기화).
+              void fetchMeta();
+              void fetchLines(activeTypeId, selectedWeekId);
+              void fetchWeekLines(selectedWeekId);
+            }}
           />
         </div>
       )}

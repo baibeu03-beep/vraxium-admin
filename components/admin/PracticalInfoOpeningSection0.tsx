@@ -11,6 +11,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import PracticalInfoOpeningLogPanel from "@/components/admin/PracticalInfoOpeningLogPanel";
+import PracticalInfoOpeningForm, {
+  type OpeningFormWeek,
+} from "@/components/admin/PracticalInfoOpeningForm";
 import {
   formatBannerPeriod,
   formatToday,
@@ -35,19 +39,37 @@ type WeekLike = {
 
 type ActivityTypeLike = { id: string; name: string };
 
+type UserLike = {
+  userId: string;
+  displayName: string;
+  organization?: string | null;
+};
+
 type Props = {
   // 이번 주(N) — currentWeek DTO.
   currentWeek: WeekLike | null;
-  // 지난 주(개설 대상 N-1) — weekOptions.find(isOpenTarget).
-  openableWeek: WeekLike | null;
-  // 현재 선택된 활동 유형(위즈덤/에세이/…).
+  // 개설 대상 주차(목요일 경계 규칙) — weekOptions.find(isOpenTarget).
+  openableWeek: OpeningFormWeek | null;
+  // 최근 주차 옵션 전체 — 개설 폼의 어드민 잠금 해제(dev)용.
+  weekOptions: OpeningFormWeek[];
+  // 현재 선택된 활동 유형(위즈덤/에세이/…) — 상태창/로그/개설 폼 기본 라인.
   activeType: ActivityTypeLike | null;
+  // 개설 폼 "개설할 라인" 드롭다운 — practical_info 활동 유형 9종(정렬됨).
+  activityTypes: ActivityTypeLike[];
+  // 개설 대상 크루 후보.
+  users: UserLike[];
+  // 개설 성공 시 상위(메타/라인 목록) 재조회 트리거.
+  onOpened: () => void;
 };
 
 export default function PracticalInfoOpeningSection0({
   currentWeek,
   openableWeek,
+  weekOptions,
   activeType,
+  activityTypes,
+  users,
+  onOpened,
 }: Props) {
   // 지난 주 + 활동유형에 대한 활성 info 라인(개설됨 판정 + note 대상).
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
@@ -57,6 +79,8 @@ export default function PracticalInfoOpeningSection0({
   const [draft, setDraft] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 개설 직후 로그창 재조회 트리거.
+  const [logRefreshTick, setLogRefreshTick] = useState(0);
 
   const openableWeekId = openableWeek?.id ?? null;
   const activeTypeId = activeType?.id ?? null;
@@ -160,8 +184,12 @@ export default function PracticalInfoOpeningSection0({
 
   return (
     <div className="space-y-4">
-      {/* ── 상태창 ── */}
-      <Card>
+      {/* 3분할 배치: 좌(상태창+개설/검수 기록) | 우(로그창). 모바일=단일 컬럼 stack(반응형). */}
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        {/* ── 좌열: 상태창 + 개설/검수 기록 ── */}
+        <div className="space-y-4">
+          {/* ── 상태창 ── */}
+          <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">상태창</CardTitle>
         </CardHeader>
@@ -251,13 +279,29 @@ export default function PracticalInfoOpeningSection0({
           {error && <p className="text-xs text-red-600">{error}</p>}
         </CardContent>
       </Card>
+        </div>
 
-      {/* ── 그 아래 영역(실제 개설 폼/로그/버튼)은 후속 — 준비 중 placeholder ── */}
-      <Card>
-        <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          이 아래 라인 개설 영역은 준비 중입니다.
-        </CardContent>
-      </Card>
+        {/* ── 우열: 로그창 (현재 활동유형의 개설/취소 이력, 최신순) ── */}
+        <PracticalInfoOpeningLogPanel
+          activeType={activeType}
+          refreshKey={logRefreshTick}
+        />
+      </div>
+
+      {/* ── 실제 라인 개설 폼 ── */}
+      <PracticalInfoOpeningForm
+        openableWeek={openableWeek}
+        weekOptions={weekOptions}
+        activityTypes={activityTypes}
+        defaultActivityTypeId={activeType?.id ?? null}
+        users={users}
+        onOpened={() => {
+          // 개설 직후 상태창(개설됨 판정)·로그창을 즉시 재조회 + 상위 메타/라인 목록 갱신.
+          loadLine();
+          setLogRefreshTick((t) => t + 1);
+          onOpened();
+        }}
+      />
     </div>
   );
 }

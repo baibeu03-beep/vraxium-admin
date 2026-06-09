@@ -1,0 +1,902 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Upload, Trash2, X, Search, Users, Lock, Unlock } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+
+// 실무 정보 라인 개설 폼 — [섹션 0] 하단 실제 개설 영역.
+//   (1) 개설할 주차: getOpenableWeekStartMs(목요일 경계 규칙)로 자동 고정 + disabled.
+//   (2) 개설할 라인: practical_info 활동 유형 9종(위즈덤 … 기타A).
+//   (3) 메인 타이틀: 직접 입력(textarea) + "일반" 버튼(고정 문구 삽입).
+//   (4) 아웃풋: 링크 1개(주소+설명) + 이미지 1개(파일+설명) — 둘 다 필수.
+//   (5) 라인 개설 크루: 네이버 카페 검수(매칭) + 수동 추가/삭제/초기화.
+//       0명 개설 허용 — 0명이면 그 주차/라인은 전체 크루 강화 실패, 1명↑이면 그 크루만 대기→성공.
+//   (6) 저장: POST /api/admin/cluster4/info-lines (target_user_ids=후보 목록, cafe 메타 포함).
+
+const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"] as const;
+
+// "일반" 버튼 고정 문구.
+const GENERAL_MAIN_TITLE =
+  "해당 주제에 대한 [실무 정보] 를 인지, 탐구, 분석하여, 관련 산업/커리어를 향상시켰습니다.";
+
+export type OpeningFormWeek = {
+  id: string;
+  seasonName: string;
+  year: number;
+  weekNumber: number;
+  startDate: string;
+  endDate: string;
+  isOfficialRest: boolean;
+  canOpen: boolean;
+  isOpenTarget?: boolean;
+  isCurrent?: boolean;
+  submissionOpensAt: string | null;
+  submissionClosesAt: string | null;
+};
+
+type ActivityTypeOption = { id: string; name: string };
+
+// 우리 클럽 크루 레코드(검수/후보/수동추가 공통 — cluster4CafeLineMatch.CrewRecord 미러).
+type CafeCrew = {
+  userId: string;
+  crewNo: number | null;
+  name: string;
+  teamName: string | null;
+  partName: string | null;
+  schoolName: string | null;
+  majorName: string | null;
+  organization: string | null;
+};
+
+type CafeReviewItem = { order: number; nickname: string; reason: string };
+
+type UploadedImage = { url: string; name: string };
+
+type Banner = { kind: "success" | "error"; message: string } | null;
+
+function fmtDot(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const dow = new Date(`${iso}T00:00:00Z`).getUTCDay();
+  return `${m[1].slice(2)}.${m[2]}.${m[3]}(${DAY_KO[dow]})`;
+}
+function weekTitle(w: OpeningFormWeek): string {
+  return `${w.year}년 ${w.seasonName} ${w.weekNumber}주차`;
+}
+function weekRange(w: OpeningFormWeek): string {
+  return `${fmtDot(w.startDate)} - ${fmtDot(w.endDate)}`;
+}
+
+// ── 이미지 업로드 슬롯 (사각형 미리보기 + 클릭 확대 모달) ──
+function OpeningImageSlot({
+  image,
+  caption,
+  onUpload,
+  onRemove,
+  onCaptionChange,
+  onExpand,
+  disabled,
+}: {
+  image: UploadedImage | null;
+  caption: string;
+  onUpload: (img: UploadedImage) => void;
+  onRemove: () => void;
+  onCaptionChange: (v: string) => void;
+  onExpand: () => void;
+  disabled: boolean;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch("/api/admin/cluster4/upload-image", {
+          method: "POST",
+          body: formData,
+        });
+        const json = await res.json();
+        if (!json.success) {
+          alert(json.error || "업로드에 실패했습니다");
+          return;
+        }
+        onUpload({ url: json.data.url, name: file.name });
+      } catch {
+        alert("업로드 중 오류가 발생했습니다");
+      } finally {
+        setUploading(false);
+        if (fileRef.current) fileRef.current.value = "";
+      }
+    },
+    [onUpload],
+  );
+
+  return (
+    <div className="space-y-2">
+      {image ? (
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={onExpand}
+            className="group relative block aspect-square w-40 overflow-hidden rounded-md border"
+            title="클릭하면 크게 보기"
+          >
+            <img
+              src={image.url}
+              alt={image.name}
+              className="h-full w-full object-cover transition-transform group-hover:scale-105"
+            />
+            <span className="absolute inset-x-0 bottom-0 bg-black/50 px-1 py-0.5 text-center text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
+              크게 보기
+            </span>
+          </button>
+          <div className="flex items-center gap-2">
+            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+              {image.name}
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0"
+              onClick={onRemove}
+              disabled={disabled}
+            >
+              <Trash2 className="h-4 w-4 text-red-500" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleFileChange}
+            disabled={disabled || uploading}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={disabled || uploading}
+            className="flex aspect-square w-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed text-sm text-muted-foreground hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {uploading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Upload className="h-5 w-5" />
+            )}
+            {uploading ? "업로드 중..." : "이미지 업로드"}
+          </button>
+        </div>
+      )}
+      <Input
+        value={caption}
+        onChange={(e) => onCaptionChange(e.target.value)}
+        placeholder="이미지 설명을 입력하세요"
+        aria-label="아웃풋 이미지 설명"
+        disabled={disabled}
+      />
+    </div>
+  );
+}
+
+export default function PracticalInfoOpeningForm({
+  openableWeek,
+  weekOptions,
+  activityTypes,
+  defaultActivityTypeId,
+  onOpened,
+}: {
+  openableWeek: OpeningFormWeek | null;
+  weekOptions: OpeningFormWeek[];
+  activityTypes: ActivityTypeOption[];
+  defaultActivityTypeId: string | null;
+  // users prop 은 더 이상 쓰지 않는다(크루는 카페 검수/수동추가 API 로 채운다).
+  users?: unknown;
+  onOpened: () => void;
+}) {
+  const devMode = useAdminDevMode();
+
+  const [adminUnlock, setAdminUnlock] = useState(false);
+  const [forcedWeekId, setForcedWeekId] = useState<string>("");
+
+  const [lineId, setLineId] = useState<string>(defaultActivityTypeId ?? "");
+  const [mainTitle, setMainTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkDesc, setLinkDesc] = useState("");
+  const [image, setImage] = useState<UploadedImage | null>(null);
+  const [imageDesc, setImageDesc] = useState("");
+
+  // ── 라인 개설 크루 ──
+  const [cafeUrl, setCafeUrl] = useState("");
+  const [cafeLoading, setCafeLoading] = useState(false);
+  const [cafeError, setCafeError] = useState<string | null>(null);
+  const [cafeMeta, setCafeMeta] = useState<{
+    cafeUrl: string;
+    rawCommentCount: number;
+    matchedCrewCount: number;
+  } | null>(null);
+  // 후보 목록(개설 크루) — 댓글 시간순(자동 매칭) 우선, 이후 수동 추가분 append. 저장 전 임시 상태.
+  const [candidates, setCandidates] = useState<CafeCrew[]>([]);
+  const [review, setReview] = useState<CafeReviewItem[]>([]);
+  // 수동 추가 검색.
+  const [manualQ, setManualQ] = useState("");
+  const [manualResults, setManualResults] = useState<CafeCrew[]>([]);
+  const [manualSearching, setManualSearching] = useState(false);
+
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [banner, setBanner] = useState<Banner>(null);
+
+  const unlocked = devMode && adminUnlock;
+  const effectiveWeek = useMemo<OpeningFormWeek | null>(() => {
+    if (unlocked) {
+      return weekOptions.find((w) => w.id === forcedWeekId) ?? openableWeek;
+    }
+    return openableWeek;
+  }, [unlocked, weekOptions, forcedWeekId, openableWeek]);
+
+  const candidateIds = useMemo(
+    () => new Set(candidates.map((c) => c.userId)),
+    [candidates],
+  );
+
+  // 수동 추가 검색 — q 디바운스. (검색창이 비면 드롭다운이 숨겨지므로 별도 clear 불필요)
+  useEffect(() => {
+    const q = manualQ.trim();
+    if (!q) return;
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setManualSearching(true);
+      try {
+        const res = await fetch(
+          `/api/admin/cluster4/cafe-line-crew?q=${encodeURIComponent(q)}`,
+        );
+        const json = await res.json();
+        if (cancelled) return;
+        setManualResults(json?.success ? (json.data?.crews ?? []) : []);
+      } catch {
+        if (!cancelled) setManualResults([]);
+      } finally {
+        if (!cancelled) setManualSearching(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [manualQ]);
+
+  const addCandidate = useCallback((crew: CafeCrew) => {
+    setCandidates((prev) =>
+      prev.some((c) => c.userId === crew.userId) ? prev : [...prev, crew],
+    );
+  }, []);
+  const removeCandidate = useCallback((userId: string) => {
+    setCandidates((prev) => prev.filter((c) => c.userId !== userId));
+  }, []);
+  const clearCandidates = useCallback(() => {
+    setCandidates([]);
+  }, []);
+
+  const handleVerifyCafe = useCallback(async () => {
+    if (!cafeUrl.trim()) {
+      setCafeError("네이버 카페 게시물 링크를 입력해주세요");
+      return;
+    }
+    setCafeLoading(true);
+    setCafeError(null);
+    try {
+      const res = await fetch("/api/admin/cluster4/cafe-line-crew", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: cafeUrl.trim() }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        setCafeError(json.message ?? json.error ?? "검수 실패");
+        return;
+      }
+      const d = json.data as {
+        cafeUrl: string;
+        rawCommentCount: number;
+        matchedCrewCount: number;
+        matched: Array<{ crew: CafeCrew }>;
+        review: CafeReviewItem[];
+      };
+      // 자동 매칭 크루를 댓글 시간순 그대로 후보 목록에 채운다(기존 후보와 dedupe).
+      const matchedCrews = d.matched.map((m) => m.crew);
+      setCandidates((prev) => {
+        const seen = new Set(prev.map((c) => c.userId));
+        const fresh = matchedCrews.filter((c) => !seen.has(c.userId));
+        return [...prev, ...fresh];
+      });
+      setReview(d.review ?? []);
+      setCafeMeta({
+        cafeUrl: d.cafeUrl,
+        rawCommentCount: d.rawCommentCount,
+        matchedCrewCount: d.matchedCrewCount,
+      });
+    } catch {
+      setCafeError("검수 요청 중 오류가 발생했습니다");
+    } finally {
+      setCafeLoading(false);
+    }
+  }, [cafeUrl]);
+
+  const resetForm = useCallback(() => {
+    setMainTitle("");
+    setLinkUrl("");
+    setLinkDesc("");
+    setImage(null);
+    setImageDesc("");
+    setCafeUrl("");
+    setCafeError(null);
+    setCafeMeta(null);
+    setCandidates([]);
+    setReview([]);
+    setManualQ("");
+    setManualResults([]);
+  }, []);
+
+  const validate = useCallback((): string | null => {
+    if (!effectiveWeek) return "개설할 주차를 확인할 수 없습니다";
+    if (!effectiveWeek.canOpen)
+      return "선택한 주차는 공식 휴식 주차로 라인 개설이 불가합니다";
+    if (!effectiveWeek.submissionOpensAt || !effectiveWeek.submissionClosesAt)
+      return "선택한 주차의 기입 기간을 확인할 수 없습니다";
+    if (!lineId) return "개설할 라인을 선택해주세요";
+    if (!mainTitle.trim()) return "메인 타이틀을 입력해주세요";
+
+    const url = linkUrl.trim();
+    const ulabel = linkDesc.trim();
+    if (url && !ulabel) return "아웃풋 링크 설명을 입력해주세요";
+    if (!url && ulabel) return "아웃풋 링크 주소를 입력해주세요";
+    if (!url && !ulabel) return "아웃풋 링크 주소와 설명을 입력해주세요";
+
+    const icap = imageDesc.trim();
+    if (image && !icap) return "이미지 설명을 입력해주세요";
+    if (!image && icap) return "이미지를 업로드해주세요";
+    if (!image && !icap) return "아웃풋 이미지와 설명을 입력해주세요";
+
+    // 개설 크루 0명도 허용(전체 강화 실패) — 별도 검증 없음.
+    return null;
+  }, [effectiveWeek, lineId, mainTitle, linkUrl, linkDesc, image, imageDesc]);
+
+  const handleOpen = useCallback(async () => {
+    const error = validate();
+    if (error) {
+      setBanner({ kind: "error", message: error });
+      return;
+    }
+    const week = effectiveWeek!;
+    const zeroCrew = candidates.length === 0;
+    if (zeroCrew) {
+      const okZero = window.confirm(
+        "개설 크루가 0명입니다. 이 라인은 개설되지만 성공 대상자 0명 — 해당 주차/라인은 전체 크루에게 '강화 실패'로 표시됩니다. 계속할까요?",
+      );
+      if (!okZero) return;
+    }
+    setSaving(true);
+    setBanner(null);
+    try {
+      const payload = {
+        activity_type_id: lineId,
+        main_title: mainTitle.trim(),
+        output_links: [{ url: linkUrl.trim(), label: linkDesc.trim() }],
+        output_link_1: linkUrl.trim(),
+        output_link_2: null,
+        output_images: [{ url: image!.url, caption: imageDesc.trim() }],
+        // 후보 목록에 남은 크루만 target 에 포함(0명 허용).
+        target_user_ids: candidates.map((c) => c.userId),
+        target_crew_ids: candidates.map((c) => c.userId),
+        targetCount: candidates.length,
+        week_id: week.id,
+        submission_opens_at: week.submissionOpensAt,
+        submission_closes_at: week.submissionClosesAt,
+        cafe_url: cafeMeta?.cafeUrl ?? (cafeUrl.trim() || null),
+        matched_crew_count: cafeMeta?.matchedCrewCount ?? null,
+        raw_comment_count: cafeMeta?.rawCommentCount ?? null,
+      };
+      const res = await fetch(
+        `/api/admin/cluster4/info-lines${unlocked ? "?dev=true" : ""}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setBanner({
+          kind: "error",
+          message: json?.error ?? `개설에 실패했습니다 (HTTP ${res.status})`,
+        });
+        return;
+      }
+      setBanner({
+        kind: "success",
+        message: `라인이 개설되었습니다 (개설 크루: ${json.data?.targetCount ?? candidates.length}명)`,
+      });
+      resetForm();
+      onOpened();
+    } catch {
+      setBanner({ kind: "error", message: "개설 중 오류가 발생했습니다" });
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    validate,
+    effectiveWeek,
+    candidates,
+    lineId,
+    mainTitle,
+    linkUrl,
+    linkDesc,
+    image,
+    imageDesc,
+    cafeMeta,
+    cafeUrl,
+    unlocked,
+    resetForm,
+    onOpened,
+  ]);
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">라인 개설</CardTitle>
+        <CardDescription>
+          개설할 주차는 자동 고정됩니다. 라인 · 메인 타이틀 · 아웃풋 · 라인 개설 크루를 입력하고
+          개설하세요. (개설 크루 0명도 가능 — 전체 크루 강화 실패)
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {banner && (
+          <div
+            className={cn(
+              "flex items-start justify-between gap-2 rounded-md border px-3 py-2 text-sm",
+              banner.kind === "success"
+                ? "border-green-300 bg-green-50 text-green-800"
+                : "border-red-300 bg-red-50 text-red-800",
+            )}
+          >
+            <span>{banner.message}</span>
+            <button type="button" onClick={() => setBanner(null)}>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* 1. 개설할 주차 */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-semibold">
+              개설할 주차 <span className="text-red-500">*</span>
+            </Label>
+            {devMode && (
+              <label className="flex cursor-pointer items-center gap-1.5 text-xs text-amber-700">
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300"
+                  checked={adminUnlock}
+                  onChange={(e) => {
+                    setAdminUnlock(e.target.checked);
+                    if (e.target.checked && openableWeek)
+                      setForcedWeekId((p) => p || openableWeek.id);
+                  }}
+                />
+                {adminUnlock ? (
+                  <Unlock className="h-3.5 w-3.5" />
+                ) : (
+                  <Lock className="h-3.5 w-3.5" />
+                )}
+                관리자 강제 선택(잠금 해제 · dev)
+              </label>
+            )}
+          </div>
+
+          <select
+            aria-label="개설할 주차"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-muted/50"
+            disabled={!unlocked}
+            value={effectiveWeek?.id ?? ""}
+            onChange={(e) => setForcedWeekId(e.target.value)}
+          >
+            {!openableWeek && weekOptions.length === 0 && (
+              <option value="">개설 대상 주차를 계산할 수 없습니다</option>
+            )}
+            {unlocked
+              ? weekOptions.map((w) => (
+                  <option key={w.id} value={w.id} disabled={!w.canOpen}>
+                    {weekTitle(w)} · {weekRange(w)}
+                    {w.isOpenTarget ? " · 개설대상" : ""}
+                    {w.isCurrent ? " · 현재" : ""}
+                    {!w.canOpen ? " · 휴식" : ""}
+                  </option>
+                ))
+              : openableWeek && (
+                  <option value={openableWeek.id}>
+                    {weekTitle(openableWeek)} · {weekRange(openableWeek)}
+                  </option>
+                )}
+          </select>
+
+          {effectiveWeek ? (
+            <div
+              className={cn(
+                "rounded-md border px-3 py-2",
+                effectiveWeek.canOpen
+                  ? "border-input bg-muted/30"
+                  : "border-orange-300 bg-orange-50",
+              )}
+            >
+              <p className="text-sm font-semibold text-foreground">
+                {weekTitle(effectiveWeek)}
+              </p>
+              <p className="text-xs text-muted-foreground">{weekRange(effectiveWeek)}</p>
+              {!effectiveWeek.canOpen && (
+                <p className="mt-1 text-xs font-medium text-orange-600">
+                  공식 휴식 주차 — 라인 개설 불가
+                </p>
+              )}
+              {!unlocked && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  오늘 날짜 기준 자동 고정 (목요일 경계 규칙) · 다른 주차 선택 불가
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              개설 대상 주차 정보를 확인할 수 없습니다.
+            </p>
+          )}
+        </section>
+
+        {/* 2. 개설할 라인 */}
+        <section className="space-y-2">
+          <Label className="text-sm font-semibold">
+            개설할 라인 <span className="text-red-500">*</span>
+          </Label>
+          <select
+            aria-label="개설할 라인"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={lineId}
+            onChange={(e) => setLineId(e.target.value)}
+          >
+            <option value="">라인을 선택해주세요</option>
+            {activityTypes.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </section>
+
+        {/* 3. 메인 타이틀 + "일반" */}
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label htmlFor="opening-main-title" className="text-sm font-semibold">
+              메인 타이틀 <span className="text-red-500">*</span>
+            </Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMainTitle(GENERAL_MAIN_TITLE)}
+              title="고정 문구를 입력란에 불러옵니다"
+            >
+              일반
+            </Button>
+          </div>
+          <textarea
+            id="opening-main-title"
+            value={mainTitle}
+            onChange={(e) => setMainTitle(e.target.value)}
+            rows={3}
+            placeholder="메인 타이틀을 입력하거나 우측 상단 '일반' 버튼으로 고정 문구를 불러오세요"
+            className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm"
+          />
+        </section>
+
+        {/* 4. 아웃풋 */}
+        <section className="space-y-4">
+          <Label className="text-sm font-semibold">
+            아웃풋 <span className="text-red-500">*</span>
+            <span className="ml-2 text-xs font-normal text-muted-foreground">
+              링크 1개 + 이미지 1개 모두 필수
+            </span>
+          </Label>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2 rounded-md border p-3">
+              <p className="text-xs font-medium text-muted-foreground">아웃풋 링크</p>
+              <Input
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                placeholder="아웃풋 링크 주소 (https://...)"
+                aria-label="아웃풋 링크 주소"
+              />
+              <Input
+                value={linkDesc}
+                onChange={(e) => setLinkDesc(e.target.value)}
+                placeholder="아웃풋 링크 설명"
+                aria-label="아웃풋 링크 설명"
+              />
+            </div>
+            <div className="space-y-2 rounded-md border p-3">
+              <p className="text-xs font-medium text-muted-foreground">아웃풋 이미지</p>
+              <OpeningImageSlot
+                image={image}
+                caption={imageDesc}
+                onUpload={setImage}
+                onRemove={() => {
+                  setImage(null);
+                  setImageDesc("");
+                }}
+                onCaptionChange={setImageDesc}
+                onExpand={() => setImageModalOpen(true)}
+                disabled={saving}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* 5. 라인 개설 크루 */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-semibold">
+              라인 개설 크루
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                0명 가능 (0명 = 전체 크루 강화 실패)
+              </span>
+            </Label>
+            <span className="text-xs text-muted-foreground">
+              <Users className="mr-1 inline h-3 w-3" />
+              {candidates.length}명
+            </span>
+          </div>
+
+          {/* 카페 링크 검수 */}
+          <div className="space-y-2 rounded-md border p-3">
+            <p className="text-xs font-medium text-muted-foreground">카페 링크 검수</p>
+            <div className="flex items-center gap-2">
+              <Input
+                value={cafeUrl}
+                onChange={(e) => setCafeUrl(e.target.value)}
+                placeholder="https://cafe.naver.com/... (게시물 링크)"
+                aria-label="카페 게시물 링크"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !cafeLoading) handleVerifyCafe();
+                }}
+                disabled={cafeLoading}
+              />
+              <Button
+                type="button"
+                onClick={handleVerifyCafe}
+                disabled={cafeLoading}
+                className="shrink-0"
+              >
+                {cafeLoading ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="mr-2 h-4 w-4" />
+                )}
+                {cafeLoading ? "검수 중..." : "검수"}
+              </Button>
+            </div>
+            {cafeLoading && (
+              <p className="text-xs text-muted-foreground">
+                댓글을 순회·매칭 중입니다. 댓글 수에 따라 수십 초가 걸릴 수 있습니다. (로컬 전용)
+              </p>
+            )}
+            {cafeError && <p className="text-sm text-red-600">{cafeError}</p>}
+            {cafeMeta && (
+              <p className="text-xs text-muted-foreground">
+                원본 댓글 {cafeMeta.rawCommentCount} · 자동 매칭 {cafeMeta.matchedCrewCount} · 수동
+                확인 {review.length}
+              </p>
+            )}
+          </div>
+
+          {/* 후보 목록 (개설 크루) — 댓글 시간순 */}
+          <div className="space-y-2 rounded-md border p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">
+                개설 크루 후보 ({candidates.length}명) · 댓글 시간순
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={clearCandidates}
+                disabled={candidates.length === 0}
+              >
+                초기화
+              </Button>
+            </div>
+            {candidates.length === 0 ? (
+              <p className="py-3 text-center text-sm text-muted-foreground">
+                후보가 없습니다. 카페 검수 또는 수동 추가로 채워주세요. (이 상태로 개설하면 전체 강화 실패)
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="px-2 py-1.5">크루 번호</th>
+                      <th className="px-2 py-1.5">이름</th>
+                      <th className="px-2 py-1.5">팀명</th>
+                      <th className="px-2 py-1.5">파트명</th>
+                      <th className="px-2 py-1.5">학교명</th>
+                      <th className="px-2 py-1.5">전공명</th>
+                      <th className="px-2 py-1.5 text-right">삭제</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {candidates.map((c) => (
+                      <tr key={c.userId} className="border-b last:border-0">
+                        <td className="px-2 py-1.5 font-mono text-xs">{c.crewNo ?? "-"}</td>
+                        <td className="px-2 py-1.5 font-medium">{c.name || "-"}</td>
+                        <td className="px-2 py-1.5 text-xs">{c.teamName ?? "-"}</td>
+                        <td className="px-2 py-1.5 text-xs">{c.partName ?? "-"}</td>
+                        <td className="px-2 py-1.5 text-xs">{c.schoolName ?? "-"}</td>
+                        <td className="px-2 py-1.5 text-xs">{c.majorName ?? "-"}</td>
+                        <td className="px-2 py-1.5 text-right">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => removeCandidate(c.userId)}
+                            aria-label={`${c.name} 제거`}
+                          >
+                            <X className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* 수동 추가 */}
+          <div className="space-y-2 rounded-md border p-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              수동 추가 (이름 · 학교 · 팀 · 전공 · 번호 검색)
+            </p>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                placeholder="크루 검색..."
+                value={manualQ}
+                onChange={(e) => setManualQ(e.target.value)}
+                aria-label="크루 수동 추가 검색"
+              />
+            </div>
+            {manualQ.trim() && (
+              <div className="max-h-52 overflow-y-auto rounded-md border">
+                {manualSearching ? (
+                  <p className="flex items-center gap-1.5 px-3 py-3 text-sm text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> 검색 중…
+                  </p>
+                ) : manualResults.length === 0 ? (
+                  <p className="px-3 py-3 text-sm text-muted-foreground">검색 결과가 없습니다</p>
+                ) : (
+                  manualResults.map((c) => {
+                    const already = candidateIds.has(c.userId);
+                    return (
+                      <div
+                        key={c.userId}
+                        className="flex items-center justify-between gap-2 border-b px-3 py-2 text-sm last:border-0"
+                      >
+                        <span className="min-w-0 truncate">
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {c.crewNo ?? "-"}
+                          </span>{" "}
+                          <span className="font-medium">{c.name || "-"}</span>{" "}
+                          <span className="text-xs text-muted-foreground">
+                            {c.teamName ?? "-"} · {c.schoolName ?? "-"} · {c.majorName ?? "-"}
+                          </span>
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={already}
+                          onClick={() => addCandidate(c)}
+                        >
+                          {already ? "추가됨" : "추가"}
+                        </Button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 수동 확인 필요 (자동 매칭 안 됨 — 직접 검색해 추가) */}
+          {review.length > 0 && (
+            <div className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3">
+              <p className="text-xs font-medium text-amber-800">
+                수동 확인 필요 {review.length}건 — 자동 매칭하지 않았습니다(오매칭 방지). 위
+                &quot;수동 추가&quot;로 직접 확인 후 넣어주세요.
+              </p>
+              <ul className="max-h-40 space-y-0.5 overflow-y-auto text-xs text-amber-900">
+                {review.map((r) => (
+                  <li key={`${r.order}-${r.nickname}`} className="truncate">
+                    · <span className="font-medium">{r.nickname}</span>{" "}
+                    <span className="text-amber-700">({r.reason})</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
+        {/* 6. 개설 */}
+        <div className="flex justify-end gap-2 border-t pt-4">
+          <Button type="button" variant="outline" onClick={resetForm} disabled={saving}>
+            전체 초기화
+          </Button>
+          <Button
+            type="button"
+            onClick={handleOpen}
+            disabled={saving || !effectiveWeek?.canOpen}
+          >
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            개설
+          </Button>
+        </div>
+      </CardContent>
+
+      {/* 이미지 확대 모달 */}
+      {imageModalOpen && image && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+          onClick={() => setImageModalOpen(false)}
+        >
+          <div className="relative max-h-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              className="absolute -right-3 -top-3 rounded-full bg-white p-1 shadow"
+              onClick={() => setImageModalOpen(false)}
+              aria-label="닫기"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <img
+              src={image.url}
+              alt={image.name}
+              className="max-h-[80vh] max-w-full rounded-md object-contain"
+            />
+            {imageDesc.trim() && (
+              <p className="mt-2 text-center text-sm text-white">{imageDesc.trim()}</p>
+            )}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}

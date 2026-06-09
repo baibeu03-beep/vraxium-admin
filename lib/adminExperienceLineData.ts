@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { fetchCrewNoMap } from "@/lib/adminCrewNo";
 import type {
   ExperienceLineMasterDto,
   ExperienceLineMasterCreateInput,
@@ -341,11 +342,15 @@ export async function listCrewsForTargetSelection(options: {
     }
   }
 
+  // 운영용 크루 번호 — best-effort(컬럼 미존재 시 빈 맵). 기존 select 무변경.
+  const crewNoMap = await fetchCrewNoMap(userIds);
+
   let result: CrewItemDto[] = (profiles as ProfileRow[]).map((p) => {
     const m = memMap.get(p.user_id);
     return {
       userId: p.user_id,
       displayName: p.display_name ?? "(이름 없음)",
+      crewNo: crewNoMap.get(p.user_id) ?? null,
       profileImg: p.profile_photo_url,
       organization: p.organization_slug,
       teamName: m?.team_name ?? null,

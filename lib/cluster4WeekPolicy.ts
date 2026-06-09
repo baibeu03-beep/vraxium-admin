@@ -1,16 +1,24 @@
 // Cluster4 라인 개설 "주차 정책" — browser-safe, DB 접근 없음.
 //
-// 운영 정책:
-//   현재 주차 N = 오늘 날짜가 속한 주차.
-//   개설 가능 주차 = N 의 직전 주차 (N-1).
+// 운영 정책 (2026-06-08 개정 — "목요일 경계 규칙"):
+//   현재 주차 N = 오늘 날짜가 속한 캘린더 주(월~일).
+//   개설 가능 주차 = "목요일 경계"로 결정한다. 주차 N 은
+//     [N주 목·금·토 ~ N+1주 일·월·화·수] 동안 개설 대상이다.
+//   - 오늘이 월·화·수 이면 → 직전 목요일이 속한 주차(= N-1) 가 개설 대상.
+//   - 오늘이 목·금·토·일 이면 → 그 목요일이 시작하는 주차(= N, 현재 주) 가 개설 대상.
 //
-//   예) 오늘이 봄 13주차(N)이면 라인 개설 대상은 12주차(N-1).
+//   (이전 정책은 항상 N-1 고정이었으나, 목~일에 한 주 어긋나는 문제를 없애기 위해
+//    목요일 경계로 통일했다. 서버 강제 주차·weeks-options.isOpenTarget·manage 탭·
+//    섹션0 상태창이 모두 이 단일 함수를 공유하므로 프론트 표시 주차 == 서버 저장 주차.)
 //
-// 일반(운영) 모드에서는 서버가 이 모듈로 N-1 을 직접 계산해 강제한다.
+// 일반(운영) 모드에서는 서버가 이 모듈로 개설 대상 주차를 직접 계산해 강제한다.
 // dev 모드(?dev=true)에서만 과거 주차 선택을 허용한다 (테스트 목적).
 //
 // 주의: seasonCalendar 만 의존하며 weeks 테이블 lookup 은 하지 않는다.
 //       (iso_year / iso_week 키만 산출 → 호출부에서 weeks 행을 조회)
+//
+// ⚠ getCurrentWeekStartMs(현재 캘린더 주) 는 고객 weekly-cards 스냅샷 경계 판정에
+//    쓰이므로 의미를 바꾸지 않는다. 본 개정은 "개설 대상 주차" 계산만 바꾼다.
 
 import {
   getSeasonForDate,
@@ -21,8 +29,10 @@ import {
 
 const DAY_MS = 86_400_000;
 
-// 운영 정책상 개설 가능 주차 오프셋 (현재 주차 N 기준 몇 주 전인지). N-1 → 1.
-export const OPENABLE_WEEK_OFFSET = 1;
+// 목요일 경계에서 개설 대상 주차로 넘어가는 요일 인덱스 (0=월 … 6=일). 목=3.
+//   dayIndex >= OPENABLE_THURSDAY_INDEX → 현재 주(N) 가 개설 대상,
+//   그 미만(월·화·수) → 직전 주(N-1) 가 개설 대상.
+export const OPENABLE_THURSDAY_INDEX = 3;
 
 function toMs(iso: string): number {
   return Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
@@ -162,10 +172,23 @@ export function describeCurrentWeek(
   return ms == null ? null : describeWeekByStartMs(ms);
 }
 
-// 개설 가능 주차(N-1) 서술자 — 운영 모드 강제 대상.
+// 개설 대상 주차 시작(월요일) ms — "목요일 경계 규칙".
+//   현재 캘린더 주 시작(월요일) 기준 오늘의 요일 인덱스(0=월 … 6=일)를 구해,
+//   목(3) 이상이면 현재 주, 그 미만(월·화·수)이면 직전 주로 결정한다.
+//   ⚠ todayIso 는 호출부가 넘기는 동일 값을 그대로 쓴다(현재 UTC date 컨벤션 유지) —
+//     프론트(weeks-options)와 서버(info-lines POST)가 같은 입력·같은 함수를 쓰므로
+//     표시 주차와 저장 주차가 항상 일치한다.
+export function getOpenableWeekStartMs(todayIso: string): number | null {
+  const cur = getCurrentWeekStartMs(todayIso);
+  if (cur == null) return null;
+  const dayIndex = Math.floor((toMs(todayIso) - cur) / DAY_MS); // 0=월 … 6=일
+  return dayIndex >= OPENABLE_THURSDAY_INDEX ? cur : cur - 7 * DAY_MS;
+}
+
+// 개설 대상 주차 서술자 — 운영 모드 강제 대상(목요일 경계 규칙).
 export function describeOpenableWeek(
   todayIso: string,
 ): Cluster4WeekDescriptor | null {
-  const ms = getWeekStartMsByOffset(todayIso, OPENABLE_WEEK_OFFSET);
+  const ms = getOpenableWeekStartMs(todayIso);
   return ms == null ? null : describeWeekByStartMs(ms);
 }

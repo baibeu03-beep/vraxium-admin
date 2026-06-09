@@ -1746,9 +1746,23 @@ async function fetchLineDetailsByWeek(
 
     // 1. 본인 배정 라인 (real DTO).
     for (const target of weekTargets) {
-      // 레거시 주차: 통합 라인 외 본인 배정 라인은 렌더하지 않는다 (허브 도입 전 데이터 —
-      // 실사용자의 기존 EC/OK/PX 배정 행은 보존하되 화면에서는 통합 라인만 노출).
-      if (isLegacyWeek && !isLegacyUnifiedLine(target.cluster4_lines)) continue;
+      // 레거시 주차(허브 도입 전) 정책 (2026-06-08 개정 — 추가 개설 라인 집계 반영):
+      //   - 실무 경험 허브: 통합 라인만 대표로 렌더/집계한다(기존 정책 불변). 비통합 experience
+      //     라인은 숨겨 "통합 라인이 그 주차 경험을 대표"하는 모델을 지킨다(통합 라인 대체 금지).
+      //   - 실무 정보/역량/경력 허브: 관리자가 추가 개설·배정한 비통합 라인을 정상 렌더하고,
+      //     그 라인의 "제출 성공/실패"를 강화율(breakdownFromLines 분모/분자)에 반영한다.
+      //     ⚠ 강화율 반영 기준은 제출(submission) 기반이다 — 레거시 추가 라인은 enhancementStatus 를
+      //     base.status(=제출 있으면 success, 마감 후 미제출이면 fail, 마감 전이면 pending)로 덮어
+      //     "미제출=강화 실패"가 분모에 들어가게 한다. (신규 주차의 공용 enhancement 규칙
+      //     [타깃+마감=success]은 건드리지 않는다 — 레거시 분기 한정.)
+      //   - 주차 최종 verdict(userWeekStatus=card.resultStatus)는 통합 라인 기준으로 별도 산정되어
+      //     lines 와 무관 → 추가 라인을 집계해도 주차 판정은 불변(강화율↔verdict 디커플).
+      const legacyAdditive =
+        isLegacyWeek && !isLegacyUnifiedLine(target.cluster4_lines);
+      if (legacyAdditive && target.cluster4_lines?.part_type === "experience") {
+        // 실무 경험은 통합 라인만 대표 — 비통합 experience 추가 라인은 렌더하지 않는다.
+        continue;
+      }
       // org 노출 필터: 다른 조직 라인이면 본인 배정이라도 제외(요구 6).
       //   미배정으로 강등되는 것이 아니라 아예 누락 → Step 3 가 not_applicable placeholder 로 채운다.
       //   allowUnknown=true: 본인에게 실제 배정된 라인은 org 판정 불가여도 노출 허용(Step 1 예외).
@@ -1799,6 +1813,18 @@ async function fetchLineDetailsByWeek(
       });
       lines.push({
         ...base,
+        // 레거시 추가 라인(info/competency/career)은 제출 기반으로 강화율에 반영한다:
+        //   enhancementStatus := base.status (success/fail/pending). status="void" 는 타깃 보유
+        //   라인에서는 발생하지 않으나 타입 안전상 not_applicable 로 폴백한다.
+        //   통합 라인·신규 주차(legacyAdditive=false)는 공용 enhancement 규칙을 그대로 유지(불변).
+        ...(legacyAdditive
+          ? {
+              enhancementStatus:
+                base.status === "void"
+                  ? ("not_applicable" as const)
+                  : base.status,
+            }
+          : null),
         canEdit: decision.canEdit,
         editReason: decisionReasonToDto(decision.reason),
       });
@@ -1821,10 +1847,18 @@ async function fetchLineDetailsByWeek(
       if (weekOpened) {
         for (const { dbPart, line } of weekOpened.values()) {
           if (userTargetedLineIds.has(line.id)) continue; // 본인 배정 → 1단계 real DTO 가 처리
-          // 레거시 주차: 통합 라인 외 개설 라인은 synthetic fail/content 노출 대상이 아니다.
-          //   통합 라인만 "개설 + 본인 미배정 = 강화 실패(content 노출)"로 내려간다 —
-          //   실사용자 실패 주차의 통합 라인 칸이 이 분기에서 생성된다.
-          if (isLegacyWeek && !isLegacyUnifiedLine(line)) continue;
+          // 레거시 주차: 통합(experience) 라인 외 개설 라인은 synthetic fail/content 노출 대상이 아니다.
+          //   통합 라인만 "개설 + 본인 미배정 = 강화 실패(content 노출)"로 내려간다.
+          //   ⚠ 예외(2026-06-09 정책): 실무 정보(information)는 per-activity 모델을 항상 따른다 —
+          //     라인 개설이 되면(0명 개설 포함) 레거시 주차에서도 미배정 크루 = 강화 실패로 노출한다.
+          //     (info 는 통합 라인이 아니므로 legacy unified 모델 대상이 아니다. 라인 개설 자체가
+          //      없으면 그대로 not_applicable(Step 3). 주차 verdict 는 통합 라인 기준 디커플 — 불변.)
+          if (
+            isLegacyWeek &&
+            !isLegacyUnifiedLine(line) &&
+            toPublicPart(dbPart) !== "information"
+          )
+            continue;
           // org 노출 필터(핵심 수정 — EC 라인이 PHALANX 에 누수되던 지점). 다른 조직 + org 판정
           //   불가 라인 모두 차단(fail-closed). allowUnknown 기본 false → 미배정 unknown 라인은 숨김.
           if (!isLineVisibleForUserOrg(lineOrgById.get(line.id) ?? null, userOrg)) {

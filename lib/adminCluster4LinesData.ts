@@ -1430,8 +1430,11 @@ export async function listCluster4LinesDetailed(
   }
 
   // 8. 라인별 조립.
+  //    0명 개설 sentinel(rule-mode, target_rule.zeroTargetOpen)은 실제 대상자가 아니므로
+  //    어드민 대상자 목록/카운트에서 제외한다(고객 스냅샷 openedByWeek 에는 그대로 쓰인다).
   const targetsByLineId = new Map<string, Cluster4LineTargetRow[]>();
   for (const target of targetRows) {
+    if (target.target_mode === "rule" && target.target_rule?.zeroTargetOpen === true) continue;
     const list = targetsByLineId.get(target.line_id) ?? [];
     list.push(target);
     targetsByLineId.set(target.line_id, list);
