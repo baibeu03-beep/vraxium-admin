@@ -1132,8 +1132,8 @@ export default function PracticalInfoManager() {
     >
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">실무 정보 라인 운영</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-3xl font-bold">실무 정보 라인 운영</h1>
+          <p className="text-base text-muted-foreground">
             활동 유형 탭별로 라인을 개설하고, 개설된 라인의 대상자·기입·편집권을 관리합니다.
           </p>
         </div>

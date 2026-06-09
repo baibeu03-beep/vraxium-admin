@@ -48,9 +48,9 @@ export default function PracticalInfoCurrentSituation() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">현재 상황</CardTitle>
+        <CardTitle className="text-lg">현재 상황</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2 text-sm">
+      <CardContent className="space-y-2 text-base">
         {error ? (
           <p className="text-red-600">{error}</p>
         ) : !computed ? (
@@ -60,19 +60,19 @@ export default function PracticalInfoCurrentSituation() {
         ) : (
           <>
             <div className="flex gap-2">
-              <span className="w-24 shrink-0 text-muted-foreground">오늘 날짜</span>
+              <span className="w-28 shrink-0 text-muted-foreground">오늘 날짜</span>
               <span className="font-semibold">{computed.todayLabel}</span>
             </div>
             <div className="flex gap-2">
-              <span className="w-24 shrink-0 text-muted-foreground">개설 필요 기간</span>
+              <span className="w-28 shrink-0 text-muted-foreground">개설 필요 기간</span>
               <span className="font-semibold">{weekFull(computed.need)}</span>
             </div>
             <div className="flex gap-2">
-              <span className="w-24 shrink-0 text-muted-foreground">개설 이행 기간</span>
+              <span className="w-28 shrink-0 text-muted-foreground">개설 이행 기간</span>
               <span className="font-semibold">{weekFull(computed.fulfil)}</span>
             </div>
             {!computed.current && (
-              <p className="text-xs text-amber-600">
+              <p className="text-sm text-amber-600">
                 오늘 날짜가 등록된 주차 범위에 속하지 않습니다. (/admin/season-weeks 확인)
               </p>
             )}

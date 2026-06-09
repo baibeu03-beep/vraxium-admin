@@ -154,14 +154,14 @@ export default function PracticalInfoWeekResults() {
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 pb-3">
         <div>
-          <CardTitle className="text-base">주차별 개설 결과</CardTitle>
+          <CardTitle className="text-lg">주차별 개설 결과</CardTitle>
           <CardDescription>
             선택 주차의 실무 정보 라인 개설 상황. (미래 주차 제외 · 기본값=개설 필요 기간)
           </CardDescription>
         </div>
         <select
           aria-label="개설 결과 주차 선택"
-          className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+          className="rounded-md border border-input bg-background px-3 py-2 text-base"
           value={selectedWeekId}
           onChange={(e) => setSelectedWeekId(e.target.value)}
           disabled={!weeks || options.length === 0}
@@ -176,33 +176,33 @@ export default function PracticalInfoWeekResults() {
       </CardHeader>
       <CardContent className="space-y-4">
         {weeksError ? (
-          <p className="text-sm text-red-600">{weeksError}</p>
+          <p className="text-base text-red-600">{weeksError}</p>
         ) : !weeks ? (
-          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-base text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
           </p>
         ) : (
           <>
             {/* 요약 카운트 */}
             <div className="flex flex-wrap gap-3">
-              <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
                 <span className="text-muted-foreground">오픈 라인</span>{" "}
                 <span className="font-semibold">{results?.openLineCount ?? "-"}</span>
               </div>
-              <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
                 <span className="text-muted-foreground">개설 라인</span>{" "}
                 <span className="font-semibold">{results?.openedLineCount ?? "-"}</span>
               </div>
             </div>
 
             {error ? (
-              <p className="text-sm text-red-600">{error}</p>
+              <p className="text-base text-red-600">{error}</p>
             ) : loading ? (
-              <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <p className="flex items-center gap-1.5 text-base text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> 개설 결과 불러오는 중…
               </p>
             ) : !results ? (
-              <p className="text-sm text-muted-foreground">표시할 주차를 선택해주세요.</p>
+              <p className="text-base text-muted-foreground">표시할 주차를 선택해주세요.</p>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {results.lines.map((l) => {
@@ -213,10 +213,10 @@ export default function PracticalInfoWeekResults() {
                       className="space-y-2 rounded-md border p-3"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold">{l.lineName}</span>
+                        <span className="text-base font-semibold">{l.lineName}</span>
                         <span
                           className={cn(
-                            "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+                            "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-sm font-medium",
                             meta.cls,
                           )}
                         >
@@ -224,7 +224,7 @@ export default function PracticalInfoWeekResults() {
                         </span>
                       </div>
                       {l.status === "opened" ? (
-                        <dl className="space-y-1 text-xs">
+                        <dl className="space-y-1 text-sm">
                           <Row label="개설 시점" value={fmtOpenedAt(l.openedAt)} />
                           <Row label="메인 타이틀" value={l.mainTitle ?? "-"} wrap />
                           <Row label="개설자" value={l.openedByName ?? "-"} />
@@ -232,7 +232,7 @@ export default function PracticalInfoWeekResults() {
                           <Row label="2차 기입자" value={`${l.secondInputCount ?? 0}명`} />
                         </dl>
                       ) : (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-sm text-muted-foreground">
                           {l.status === "needs_opening"
                             ? "아직 개설되지 않았습니다."
                             : "이번 주차 오픈 대상이 아닙니다."}
@@ -261,7 +261,7 @@ function Row({
 }) {
   return (
     <div className="flex gap-2">
-      <dt className="w-20 shrink-0 text-muted-foreground">{label}</dt>
+      <dt className="w-24 shrink-0 text-muted-foreground">{label}</dt>
       <dd className={cn("min-w-0 font-medium", wrap ? "break-words" : "truncate")}>
         {value}
       </dd>
