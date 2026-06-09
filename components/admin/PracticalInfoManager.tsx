@@ -34,6 +34,8 @@ import {
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import PracticalInfoOpeningSection0 from "@/components/admin/PracticalInfoOpeningSection0";
+import PracticalInfoCurrentSituation from "@/components/admin/PracticalInfoCurrentSituation";
+import PracticalInfoWeekResults from "@/components/admin/PracticalInfoWeekResults";
 import type { Cluster4InfoLineDetail } from "@/lib/adminCluster4LinesTypes";
 import {
   buildOutputLinksFromForm,
@@ -1164,6 +1166,12 @@ export default function PracticalInfoManager() {
           </div>
         )}
       </div>
+
+      {/* 상단 현재 상황(표시 전용) — 오늘 날짜 + 개설 필요/이행 기간(금요일 경계). 저장 정책 무관. */}
+      <PracticalInfoCurrentSituation />
+
+      {/* 주차별 개설 결과(표시 전용 · read-only) — 주차 선택 + 요약 + 라인별 개설 상황 카드. */}
+      <PracticalInfoWeekResults />
 
       {/* 2탭(라인 관리/라인 개설)은 상단 Header title 영역으로 이동 — 본문에는 두지 않는다. */}
       {mainTab === "manage" && (
