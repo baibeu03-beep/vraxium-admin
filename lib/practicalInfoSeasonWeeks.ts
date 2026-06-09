@@ -1,11 +1,12 @@
 // 실무 정보 라인 개설 — 상단 현재 상황 / 주차별 개설 결과 공용 주차 계산·포맷 (browser-safe).
 //
-// "금요일 경계" 규칙(표시용, 2026-06-09):
+// "금요일 경계" 규칙(2026-06-09 확정 — 표시·강제 단일 SoT):
 //   - 월·화·수·목 접속: 개설 필요 = 지난 주차(N-1), 개설 이행 = 이번 주차(N)
 //   - 금·토·일   접속: 개설 필요 = 이번 주차(N),   개설 이행 = 이번 주차(N) (동일)
 //   → 개설 이행 = 항상 현재 주차 N. 개설 필요만 요일로 갈린다.
 //
-// ⚠ 표시 전용 — 실제 저장 강제 주차 정책(describeOpenableWeek=목요일 경계)·snapshot·demoUserId 무관.
+// ⚠ 실제 저장 강제 주차 정책(describeOpenableWeek=getOpenableWeekStartMs, 금요일 경계)과
+//   동일 경계를 쓴다(2026-06-09 통일). 표시 전용이며 snapshot·demoUserId 와는 무관.
 // 주차/기간 SoT = /admin/season-weeks (GET /api/admin/season-weeks). 하드코딩 없음(오늘 날짜가
 // 어떤 week range 에 속하는지로 현재 주차를 찾는다).
 

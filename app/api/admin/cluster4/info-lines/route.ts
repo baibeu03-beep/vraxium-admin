@@ -27,10 +27,17 @@ import {
   type Cluster4OutputImage,
   parseOutputImagesInput,
 } from "@/lib/cluster4OutputImages";
-import { describeOpenableWeek } from "@/lib/cluster4WeekPolicy";
+import {
+  describeOpenableWeek,
+  submissionWindowForWeekStartIso,
+} from "@/lib/cluster4WeekPolicy";
 import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { insertOpeningLogForLine } from "@/lib/adminCluster4OpeningLogs";
+import {
+  LineOpeningWindowError,
+  findActiveLineOpeningException,
+} from "@/lib/lineOpeningWindowsData";
 
 // GET /api/admin/cluster4/info-lines?week_id=&activity_type_id=
 // 실무 정보(part_type='info') 라인을 활동 유형 탭별/주차별로 운영하기 위한
@@ -273,15 +280,15 @@ export async function POST(request: NextRequest) {
 
   const input = parsed.value;
 
-  // ── 주차 정책 강제 (목요일 경계 규칙) ─────────────────────────────────
-  // 운영 정책: 개설 가능 주차 = describeOpenableWeek(목요일 경계). 월·화·수=N-1,
-  //   목·금·토·일=N(현재 주). weeks-options.isOpenTarget 과 동일 함수를 공유하므로
-  //   프론트 표시 주차 == 서버 저장 주차.
-  // 일반(운영) 모드에서는 클라이언트가 보낸 week_id / 기입기간을 신뢰하지 않고
-  // 서버가 계산한 개설 대상 주차로 강제한다 → payload 를 조작해도 임의 주차 개설 불가.
-  // dev 모드(?dev=true)에서만 클라이언트가 지정한 과거 주차를 그대로 허용한다(테스트용).
-  //   * dev 플래그는 표시 토글(useAdminDevMode)이며 보안 경계가 아니다. 목적은
-  //     "일반 사용 경로에서의 임의 주차 개설 차단" 이다.
+  // ── 주차 정책 강제 (금요일 경계 규칙 + 라인 개설 예외) ────────────────────
+  // 판정 규칙: 라인 개설 가능 = 자동 정책(금요일 경계) 허용  OR  활성 예외 존재.
+  //   자동 정책: 개설 가능 주차 = describeOpenableWeek. 월·화·수·목=N-1, 금·토·일=N.
+  //   예외:      line_opening_windows 에서 (week_id, activity_type) 활성 예외가 있으면
+  //              그 주차도 개설 허용(설/추석/시험 등 휴식 자동 차단을 운영자가 덮어쓴 것).
+  // 일반(운영) 모드에서는 클라이언트가 보낸 week_id 를 그대로 신뢰하지 않고,
+  //   "자동 정책 주차" 또는 "활성 예외 주차" 둘 중 하나일 때만 허용한다(fail-closed).
+  //   어느 쪽도 아니면 거부(409) → payload 조작으로 임의 주차 개설 불가.
+  // dev 모드(?dev=true)에서만 클라이언트가 지정한 임의 주차를 그대로 허용한다(테스트용).
   const devMode = request.nextUrl.searchParams.get("dev") === "true";
   let effectiveWeekId = input.week_id;
   let effectiveOpensAt = input.submission_opens_at;
@@ -289,51 +296,107 @@ export async function POST(request: NextRequest) {
 
   if (!devMode) {
     const todayIso = new Date().toISOString().slice(0, 10);
+    const clientWeekId = input.week_id; // 이미 UUID 검증됨.
+
+    // 자동 정책(개설 대상) 주차 — 비휴식 + 기입기간 산출 가능 + weeks 행 존재 시 "사용 가능".
     const openable = describeOpenableWeek(todayIso);
-    if (!openable) {
-      return Response.json(
-        { success: false, error: "개설 가능 주차(N-1)를 계산할 수 없습니다" },
-        { status: 500 },
-      );
+    let openableRowId: string | null = null;
+    let openableUsable = false;
+    if (openable) {
+      // 공식 휴식 = seasonCalendar rule(시험) ∨ official_rest_periods overlap(설/추석/임시).
+      const openableRest = await resolveWeekOfficialRest({
+        startDate: openable.weekStart,
+        endDate: openable.weekEnd,
+      });
+      const { data: openableRow, error: openableErr } = await supabaseAdmin
+        .from("weeks")
+        .select("id")
+        .eq("iso_year", openable.isoYear)
+        .eq("iso_week", openable.isoWeek)
+        .maybeSingle();
+      if (openableErr) {
+        return Response.json(
+          { success: false, error: openableErr.message },
+          { status: 500 },
+        );
+      }
+      openableRowId = openableRow?.id ?? null;
+      openableUsable =
+        !openableRest.isOfficialRest &&
+        !!openable.submissionOpensAt &&
+        !!openable.submissionClosesAt &&
+        !!openableRowId;
     }
-    // 공식 휴식 = seasonCalendar rule(시험기간) ∨ official_rest_periods overlap(설/추석/임시).
-    // weeks.is_official_rest 는 참조하지 않는다.
-    const openableRest = await resolveWeekOfficialRest({
-      startDate: openable.weekStart,
-      endDate: openable.weekEnd,
-    });
-    if (
-      openableRest.isOfficialRest ||
-      !openable.submissionOpensAt ||
-      !openable.submissionClosesAt
-    ) {
-      return Response.json(
-        { success: false, error: "현재 개설 가능 주차(N-1)가 공식 휴식 주차입니다" },
-        { status: 409 },
-      );
+
+    // 1) 자동 정책 주차와 일치 + 사용 가능 → 서버 계산값으로 강제(기존 동작).
+    if (openable && openableUsable && clientWeekId === openableRowId) {
+      effectiveWeekId = openableRowId!;
+      effectiveOpensAt = openable.submissionOpensAt!;
+      effectiveClosesAt = openable.submissionClosesAt!;
+    } else {
+      // 2) 활성 예외 존재 → 클라이언트 주차 honor, 기입기간은 그 주차 기준으로 산출.
+      let hasException = false;
+      try {
+        hasException = await findActiveLineOpeningException(
+          clientWeekId,
+          input.activity_type_id,
+        );
+      } catch (error) {
+        if (error instanceof LineOpeningWindowError) {
+          return Response.json(
+            { success: false, error: error.message },
+            { status: error.status },
+          );
+        }
+        throw error;
+      }
+
+      if (hasException) {
+        const { data: exRow, error: exErr } = await supabaseAdmin
+          .from("weeks")
+          .select("id,start_date")
+          .eq("id", clientWeekId)
+          .maybeSingle();
+        if (exErr) {
+          return Response.json(
+            { success: false, error: exErr.message },
+            { status: 500 },
+          );
+        }
+        if (!exRow) {
+          return Response.json(
+            { success: false, error: "예외 주차에 해당하는 weeks 행이 없습니다" },
+            { status: 404 },
+          );
+        }
+        const win = submissionWindowForWeekStartIso(
+          (exRow as { start_date: string }).start_date,
+        );
+        effectiveWeekId = (exRow as { id: string }).id;
+        effectiveOpensAt = win.submissionOpensAt;
+        effectiveClosesAt = win.submissionClosesAt;
+      } else {
+        // 3) 자동도 예외도 아님 → 차단(fail-closed).
+        if (openable && !openableUsable && clientWeekId === openableRowId) {
+          return Response.json(
+            {
+              success: false,
+              error:
+                "현재 개설 가능 주차가 공식 휴식 주차입니다 (예외 등록 시 개설 가능)",
+            },
+            { status: 409 },
+          );
+        }
+        return Response.json(
+          {
+            success: false,
+            error:
+              "선택한 주차는 개설 가능 주차가 아닙니다 (자동 정책 주차 또는 활성 예외만 허용)",
+          },
+          { status: 409 },
+        );
+      }
     }
-    const { data: openableRow, error: openableErr } = await supabaseAdmin
-      .from("weeks")
-      .select("id")
-      .eq("iso_year", openable.isoYear)
-      .eq("iso_week", openable.isoWeek)
-      .maybeSingle();
-    if (openableErr) {
-      return Response.json(
-        { success: false, error: openableErr.message },
-        { status: 500 },
-      );
-    }
-    if (!openableRow) {
-      return Response.json(
-        { success: false, error: "개설 가능 주차(N-1)에 해당하는 weeks 행이 없습니다" },
-        { status: 409 },
-      );
-    }
-    // 서버 계산값으로 덮어쓴다 — 클라이언트 입력은 무시.
-    effectiveWeekId = openableRow.id;
-    effectiveOpensAt = openable.submissionOpensAt;
-    effectiveClosesAt = openable.submissionClosesAt;
   }
 
   try {

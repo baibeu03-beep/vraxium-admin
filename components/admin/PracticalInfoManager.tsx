@@ -89,6 +89,22 @@ type WeekOption = {
   submissionClosesAt: string | null;
 };
 
+// 라인 개설 예외(line_opening_windows /active) — 활성 예외 주차 + 허용 라인.
+type ExceptionWeekItem = {
+  id: string;
+  year: number;
+  seasonName: string;
+  weekNumber: number;
+  startDate: string;
+  endDate: string;
+  isOfficialRest: boolean;
+  canOpen: boolean;
+  submissionOpensAt: string | null;
+  submissionClosesAt: string | null;
+  // null = 해당 주차 전체 라인 허용, 배열 = 그 활동 유형들만 허용.
+  allowedActivityTypeIds: string[] | null;
+};
+
 type ActivityType = {
   id: string;
   name: string;
@@ -670,12 +686,15 @@ function LineDetailModal({
 
 export default function PracticalInfoManager() {
   // dev 모드(?dev=true): 주차 선택 UI 노출 + 과거 주차 개설 허용 (테스트용).
-  // 일반 모드: weekSelect 미렌더 + 서버가 N-1 강제.
+  // 일반 모드: weekSelect 미렌더 + 서버가 개설 대상 주차(금요일 경계) 강제.
   const devMode = useAdminDevMode();
 
   // ── State ──
   const [currentWeek, setCurrentWeek] = useState<CurrentWeekData | null>(null);
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
+  // 라인 개설 예외(line_opening_windows) — 활성 예외가 가리키는 주차 + 허용 라인.
+  // 자동 정책 외 주차를 개설 폼에서 함께 선택할 수 있게 한다(예외 허용 주차).
+  const [exceptionWeeks, setExceptionWeeks] = useState<ExceptionWeekItem[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
   const [users, setUsers] = useState<UserItem[]>([]);
@@ -784,21 +803,28 @@ export default function PracticalInfoManager() {
   // ── Meta fetch (weeks / types / users) ──
   const fetchMeta = useCallback(async () => {
     try {
-      const [weekRes, weeksRes, typesRes, usersRes] = await Promise.all([
+      const [weekRes, weeksRes, typesRes, usersRes, excRes] = await Promise.all([
         fetch("/api/admin/cluster4/current-week"),
         fetch("/api/admin/cluster4/weeks-options?limit=3"),
         fetch("/api/admin/cluster4/activity-types?cluster=practical_info"),
         fetch("/api/admin/cluster4/users"),
+        fetch("/api/admin/line-opening-windows/active"),
       ]);
 
       const weekJson = await weekRes.json();
       if (weekJson.success) setCurrentWeek(weekJson.data);
 
+      // 라인 개설 예외(활성) — 개설 폼에 "예외 허용 주차" 로 함께 노출.
+      const excJson = await excRes.json();
+      if (excJson.success) {
+        setExceptionWeeks((excJson.data.weeks ?? []) as ExceptionWeekItem[]);
+      }
+
       const weeksJson = await weeksRes.json();
       if (weeksJson.success) {
         const opts: WeekOption[] = weeksJson.data.weeks ?? [];
         setWeekOptions(opts);
-        // 운영 정책: 기본 개설 대상 = isOpenTarget(목요일 경계 규칙). 없으면 현재(N) → 첫 항목 순으로 fallback.
+        // 운영 정책: 기본 개설 대상 = isOpenTarget(금요일 경계 규칙). 없으면 현재(N) → 첫 항목 순으로 fallback.
         const defaultWeek =
           opts.find((o) => o.isOpenTarget) ??
           opts.find((o) => o.isCurrent) ??
@@ -1156,7 +1182,7 @@ export default function PracticalInfoManager() {
                 {weekOptions.map((w) => (
                   <option key={w.id} value={w.id} disabled={!w.canOpen}>
                     {w.label} ({w.startDate} ~ {w.endDate})
-                    {w.isOpenTarget ? " · 개설대상(N-1)" : ""}
+                    {w.isOpenTarget ? " · 개설대상" : ""}
                     {w.isCurrent ? " · 현재(N)" : ""}
                     {!w.canOpen ? " · 휴식" : ""}
                   </option>
@@ -1648,11 +1674,12 @@ export default function PracticalInfoManager() {
           </div>
 
           {/* [섹션 0] 상태창 + 개설/검수 기록 + 실제 개설 폼.
-              개설 대상 주차 = isOpenTarget(목요일 경계 규칙, 서버 강제와 동일 함수). */}
+              개설 대상 주차 = isOpenTarget(금요일 경계 규칙, 서버 강제와 동일 함수). */}
           <PracticalInfoOpeningSection0
             currentWeek={currentWeek}
             openableWeek={weekOptions.find((o) => o.isOpenTarget) ?? null}
             weekOptions={weekOptions}
+            exceptionWeeks={exceptionWeeks}
             activeType={activeType}
             activityTypes={orderedTypes.map((t) => ({ id: t.id, name: t.name }))}
             users={users}

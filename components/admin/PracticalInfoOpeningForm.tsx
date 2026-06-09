@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 // 실무 정보 라인 개설 폼 — [섹션 0] 하단 실제 개설 영역.
-//   (1) 개설할 주차: getOpenableWeekStartMs(목요일 경계 규칙)로 자동 고정 + disabled.
+//   (1) 개설할 주차: getOpenableWeekStartMs(금요일 경계 규칙)로 자동 고정 + disabled.
 //   (2) 개설할 라인: practical_info 활동 유형 9종(위즈덤 … 기타A).
 //   (3) 메인 타이틀: 직접 입력(textarea) + "일반" 버튼(고정 문구 삽입).
 //   (4) 아웃풋: 링크 1개(주소+설명) + 이미지 1개(파일+설명) — 둘 다 필수.
@@ -43,6 +43,13 @@ export type OpeningFormWeek = {
   isCurrent?: boolean;
   submissionOpensAt: string | null;
   submissionClosesAt: string | null;
+};
+
+// 라인 개설 예외(line_opening_windows /active) 주차 — OpeningFormWeek + 허용 라인.
+//   allowedActivityTypeIds: null = 해당 주차 전체 허용, 배열 = 그 라인들만 허용.
+//   canOpen 은 항상 true(예외는 자동 정책의 휴식 차단을 덮어쓴다).
+export type ExceptionFormWeek = OpeningFormWeek & {
+  allowedActivityTypeIds: string[] | null;
 };
 
 type ActivityTypeOption = { id: string; name: string };
@@ -201,12 +208,15 @@ function OpeningImageSlot({
 export default function PracticalInfoOpeningForm({
   openableWeek,
   weekOptions,
+  exceptionWeeks = [],
   activityTypes,
   defaultActivityTypeId,
   onOpened,
 }: {
   openableWeek: OpeningFormWeek | null;
   weekOptions: OpeningFormWeek[];
+  // 활성 라인 개설 예외 주차 — 일반 모드에서 자동 정책 주차와 함께 선택 가능.
+  exceptionWeeks?: ExceptionFormWeek[];
   activityTypes: ActivityTypeOption[];
   defaultActivityTypeId: string | null;
   // users prop 은 더 이상 쓰지 않는다(크루는 카페 검수/수동추가 API 로 채운다).
@@ -217,6 +227,8 @@ export default function PracticalInfoOpeningForm({
 
   const [adminUnlock, setAdminUnlock] = useState(false);
   const [forcedWeekId, setForcedWeekId] = useState<string>("");
+  // 일반 모드에서 선택한 주차(자동 정책 또는 예외 허용). 기본 = 자동 정책 주차.
+  const [normalWeekId, setNormalWeekId] = useState<string>("");
 
   const [lineId, setLineId] = useState<string>(defaultActivityTypeId ?? "");
   const [mainTitle, setMainTitle] = useState("");
@@ -255,12 +267,63 @@ export default function PracticalInfoOpeningForm({
   const [banner, setBanner] = useState<Banner>(null);
 
   const unlocked = devMode && adminUnlock;
+
+  // 일반 모드 선택지 = 자동 정책 주차 + 활성 예외 주차(중복 id 는 예외가 우선 — 휴식 덮어쓰기).
+  //   isException=false → 자동 정책, true → 예외 허용. allowed = 예외의 허용 라인(null=전체).
+  const normalOptions = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        week: OpeningFormWeek;
+        isException: boolean;
+        allowed: string[] | null;
+      }
+    >();
+    if (openableWeek) {
+      map.set(openableWeek.id, {
+        week: openableWeek,
+        isException: false,
+        allowed: null,
+      });
+    }
+    for (const e of exceptionWeeks) {
+      // 같은 id 면 예외가 자동 항목을 덮어쓴다(휴식 주차 예외 등).
+      map.set(e.id, {
+        week: e,
+        isException: true,
+        allowed: e.allowedActivityTypeIds,
+      });
+    }
+    // 자동 정책 주차 먼저.
+    return Array.from(map.values()).sort((a, b) =>
+      a.isException === b.isException ? 0 : a.isException ? 1 : -1,
+    );
+  }, [openableWeek, exceptionWeeks]);
+
+  // 일반 모드 유효 선택 id — 사용자가 고른 값이 유효하면 그대로, 아니면 자동 정책 주차 기본값.
+  //   (effect 로 setState 하지 않고 파생값으로 계산 — 불필요한 cascading render 방지)
+  const effectiveNormalId = normalOptions.some((o) => o.week.id === normalWeekId)
+    ? normalWeekId
+    : openableWeek?.id ?? normalOptions[0]?.week.id ?? "";
+
   const effectiveWeek = useMemo<OpeningFormWeek | null>(() => {
     if (unlocked) {
       return weekOptions.find((w) => w.id === forcedWeekId) ?? openableWeek;
     }
-    return openableWeek;
-  }, [unlocked, weekOptions, forcedWeekId, openableWeek]);
+    const found = normalOptions.find((o) => o.week.id === effectiveNormalId);
+    return found?.week ?? openableWeek;
+  }, [unlocked, weekOptions, forcedWeekId, openableWeek, normalOptions, effectiveNormalId]);
+
+  // 일반 모드에서 단일 자동 주차만 있는지(예외 없음) — 드롭다운 고정 여부.
+  const normalFixed = normalOptions.length <= 1;
+
+  // 선택한 주차가 라인-스코프 예외인데 현재 라인이 허용 목록에 없으면 개설 불가.
+  const lineNotAllowedForException = useMemo(() => {
+    if (unlocked) return false;
+    const opt = normalOptions.find((o) => o.week.id === effectiveWeek?.id);
+    if (!opt || !opt.isException || opt.allowed === null) return false;
+    return !!lineId && !opt.allowed.includes(lineId);
+  }, [unlocked, normalOptions, effectiveWeek, lineId]);
 
   const candidateIds = useMemo(
     () => new Set(candidates.map((c) => c.userId)),
@@ -416,6 +479,8 @@ export default function PracticalInfoOpeningForm({
     else if (!effectiveWeek.submissionOpensAt || !effectiveWeek.submissionClosesAt)
       r.push("선택한 주차의 기입 기간을 확인할 수 없습니다.");
     if (!lineId) r.push("개설할 라인이 필요합니다.");
+    if (lineNotAllowedForException)
+      r.push("이 예외 허용 주차는 선택한 라인의 개설을 허용하지 않습니다.");
     if (!mainTitle.trim()) r.push("메인 타이틀이 필요합니다.");
     if (!linkUrl.trim()) r.push("아웃풋 링크 주소가 필요합니다.");
     if (!linkDesc.trim()) r.push("아웃풋 링크 설명이 필요합니다.");
@@ -424,7 +489,17 @@ export default function PracticalInfoOpeningForm({
     // 이미 개설된 라인이 있으면 재개설 불가(409 방지) — 개설 취소 후 가능.
     if (openedLine) r.push("이미 개설된 라인이 있습니다. (개설 취소 후 재개설)");
     return r;
-  }, [effectiveWeek, lineId, mainTitle, linkUrl, linkDesc, image, imageDesc, openedLine]);
+  }, [
+    effectiveWeek,
+    lineId,
+    lineNotAllowedForException,
+    mainTitle,
+    linkUrl,
+    linkDesc,
+    image,
+    imageDesc,
+    openedLine,
+  ]);
 
   const canOpen = missingReasons.length === 0;
 
@@ -660,13 +735,19 @@ export default function PracticalInfoOpeningForm({
           <select
             aria-label="개설할 주차"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-muted/50"
-            disabled={!unlocked}
+            disabled={!unlocked && normalFixed}
             value={effectiveWeek?.id ?? ""}
-            onChange={(e) => setForcedWeekId(e.target.value)}
+            onChange={(e) =>
+              unlocked
+                ? setForcedWeekId(e.target.value)
+                : setNormalWeekId(e.target.value)
+            }
           >
-            {!openableWeek && weekOptions.length === 0 && (
-              <option value="">개설 대상 주차를 계산할 수 없습니다</option>
-            )}
+            {!openableWeek &&
+              weekOptions.length === 0 &&
+              normalOptions.length === 0 && (
+                <option value="">개설 대상 주차를 계산할 수 없습니다</option>
+              )}
             {unlocked
               ? weekOptions.map((w) => (
                   <option key={w.id} value={w.id} disabled={!w.canOpen}>
@@ -676,11 +757,17 @@ export default function PracticalInfoOpeningForm({
                     {!w.canOpen ? " · 휴식" : ""}
                   </option>
                 ))
-              : openableWeek && (
-                  <option value={openableWeek.id}>
-                    {weekTitle(openableWeek)} · {weekRange(openableWeek)}
+              : normalOptions.map((o) => (
+                  <option
+                    key={o.week.id}
+                    value={o.week.id}
+                    disabled={!o.week.canOpen}
+                  >
+                    {weekTitle(o.week)} · {weekRange(o.week)}
+                    {o.isException ? " · 예외 허용" : " · 자동 정책"}
+                    {!o.week.canOpen ? " · 휴식" : ""}
                   </option>
-                )}
+                ))}
           </select>
 
           {effectiveWeek ? (
@@ -701,11 +788,16 @@ export default function PracticalInfoOpeningForm({
                   공식 휴식 주차 — 라인 개설 불가
                 </p>
               )}
-              {!unlocked && (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  오늘 날짜 기준 자동 고정 (목요일 경계 규칙) · 다른 주차 선택 불가
-                </p>
-              )}
+              {!unlocked &&
+                (normalFixed ? (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    오늘 날짜 기준 자동 고정 (금요일 경계 규칙) · 다른 주차 선택 불가
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    자동 정책 주차 또는 예외 허용 주차를 선택할 수 있습니다.
+                  </p>
+                ))}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">

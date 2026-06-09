@@ -14,6 +14,7 @@ import { readOrgParam } from "@/lib/adminOrgContext";
 import PracticalInfoOpeningLogPanel from "@/components/admin/PracticalInfoOpeningLogPanel";
 import PracticalInfoOpeningForm, {
   type OpeningFormWeek,
+  type ExceptionFormWeek,
 } from "@/components/admin/PracticalInfoOpeningForm";
 import {
   formatBannerPeriod,
@@ -23,7 +24,7 @@ import {
 // 실무 정보 라인 개설 [섹션 0] — 상황 통제 영역.
 //   (1) 상태창: 오늘/이번 주 + 지난 주(개설 대상 N-1) 라인 개설 필요/완료 안내.
 //   (2) 개설/검수 기록: 라인별 어드민 메모(opening_review_note). 스냅샷 무관 전용 엔드포인트.
-// '지난 주' = 기존 개설 대상 주차(isOpenTarget / describeOpenableWeek) 재사용 — 별도 날짜 경계 없음.
+// '지난 주' = 개설 대상 주차(isOpenTarget / describeOpenableWeek, 금요일 경계) 재사용.
 
 const INITIAL_RECORD_TEXT = "아직 '라인' 을 개설하지 못했습니다.";
 const DEFAULT_RECORD_TEXT =
@@ -48,10 +49,12 @@ type UserLike = {
 type Props = {
   // 이번 주(N) — currentWeek DTO.
   currentWeek: WeekLike | null;
-  // 개설 대상 주차(목요일 경계 규칙) — weekOptions.find(isOpenTarget).
+  // 개설 대상 주차(금요일 경계 규칙) — weekOptions.find(isOpenTarget).
   openableWeek: OpeningFormWeek | null;
   // 최근 주차 옵션 전체 — 개설 폼의 어드민 잠금 해제(dev)용.
   weekOptions: OpeningFormWeek[];
+  // 활성 라인 개설 예외 주차(line_opening_windows) — 자동 정책 외 "예외 허용 주차".
+  exceptionWeeks: ExceptionFormWeek[];
   // 현재 선택된 활동 유형(위즈덤/에세이/…) — 상태창/로그/개설 폼 기본 라인.
   activeType: ActivityTypeLike | null;
   // 개설 폼 "개설할 라인" 드롭다운 — practical_info 활동 유형 9종(정렬됨).
@@ -66,6 +69,7 @@ export default function PracticalInfoOpeningSection0({
   currentWeek,
   openableWeek,
   weekOptions,
+  exceptionWeeks,
   activeType,
   activityTypes,
   users,
@@ -292,6 +296,7 @@ export default function PracticalInfoOpeningSection0({
       <PracticalInfoOpeningForm
         openableWeek={openableWeek}
         weekOptions={weekOptions}
+        exceptionWeeks={exceptionWeeks}
         activityTypes={activityTypes}
         defaultActivityTypeId={activeType?.id ?? null}
         users={users}
