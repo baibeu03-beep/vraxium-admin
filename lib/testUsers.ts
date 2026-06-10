@@ -125,6 +125,25 @@ export async function isTestUser(profileUserId: string): Promise<boolean> {
   return Boolean(data);
 }
 
+// 시드 테스트 유저 user_id 집합 (test_user_markers 전수). 집계/코호트에서 테스트 유저를
+// 일괄 제외할 때 쓰는 단일 SoT 접근자 — isTestUser(단건)와 같은 테이블을 본다(중복 기준 금지).
+//   ⚠ display_name ILIKE '%T%' 휴리스틱(레거시)이 아니라 test_user_markers 등재만 기준으로 한다.
+//   조회 실패 시 빈 집합(보수적: 아무도 제외하지 않음 — 실유저 누락보다 안전).
+export async function fetchTestUserMarkerIds(): Promise<Set<string>> {
+  const { data, error } = await supabaseAdmin
+    .from("test_user_markers")
+    .select("user_id");
+  if (error) {
+    console.error("[testUsers] fetchTestUserMarkerIds failed", { error: error.message });
+    return new Set();
+  }
+  return new Set(
+    ((data ?? []) as { user_id: string }[])
+      .map((r) => r.user_id)
+      .filter((id): id is string => Boolean(id)),
+  );
+}
+
 // 데모 대상 유저 목록 (test_user_markers ⨝ user_profiles ⨝ user_memberships).
 export async function listTestUsers(): Promise<TestUserDto[]> {
   const markerRes = await supabaseAdmin

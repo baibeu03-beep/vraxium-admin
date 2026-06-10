@@ -517,6 +517,42 @@ export class WeekResultPublishError extends Error {
   }
 }
 
+// 주차 코호트(= 해당 week_start_date 의 user_week_statuses 보유자) 전원의 weekly-cards
+// snapshot 을 재계산한다. 공표(tallying→success/fail)·check 기준 변경·집계 확정 등
+// "그 주차 참여자 카드가 달라지는" 모든 쓰기 경로의 공통 재계산 헬퍼.
+//   - best-effort: 사용자별 실패는 격리되고 throw 하지 않는다(본 쓰기 응답 보호).
+//   - start_date 가 없으면 no-op(zeros).
+// 반환 shape 은 publish-result/check-threshold 응답의 snapshot_recompute 와 동일.
+export async function recomputeCohortSnapshots(
+  weekStartDate: string | null,
+): Promise<{ requested: number; recomputed: number; failed: number }> {
+  if (!weekStartDate) return { requested: 0, recomputed: 0, failed: 0 };
+  const { data, error } = await supabaseAdmin
+    .from("user_week_statuses")
+    .select("user_id")
+    .eq("week_start_date", weekStartDate);
+  if (error) {
+    console.warn("[recomputeCohortSnapshots] cohort scan failed", {
+      weekStartDate,
+      message: error.message,
+    });
+    return { requested: 0, recomputed: 0, failed: 0 };
+  }
+  const userIds = Array.from(
+    new Set(((data ?? []) as { user_id: string }[]).map((p) => p.user_id)),
+  );
+  const r = await recomputeWeeklyCardsSnapshotsForUsers(userIds, {
+    concurrency: 3,
+  });
+  if (r.failed > 0) {
+    console.warn("[recomputeCohortSnapshots] partial fail", {
+      weekStartDate,
+      failedUserIds: r.failedUserIds,
+    });
+  }
+  return { requested: r.requested, recomputed: r.recomputed, failed: r.failed };
+}
+
 type PublishWeekRow = {
   id: string;
   week_number: number | null;
@@ -526,15 +562,18 @@ type PublishWeekRow = {
   result_published_at: string | null;
 };
 
-export async function publishWeekResult(
+// 공표 SoT 쓰기만 수행한다(스냅샷 재계산 없음) — weeks.result_published_at 세팅.
+//   publishWeekResult(= 공표 + 전체 코호트 재계산)와, weekly-card-finalization(= 공표 +
+//   테스트 제외 코호트 재계산)이 공통으로 쓰는 단일 공표 진입점. 가드/멱등은 여기 한 곳.
+//   - 없으면 404, 이미 공표돼 있으면 409(중복 방지), IS NULL 가드로 race 방어.
+export async function markWeekResultPublished(
   weekId: string,
-): Promise<WeekResultPublishResult> {
+): Promise<{ row: PublishWeekRow; label: string; nowIso: string }> {
   const id = String(weekId ?? "").trim();
   if (!id) {
     throw new WeekResultPublishError(400, "week_id is required.");
   }
 
-  // 1) 대상 주차 확인 — 없으면 404, 이미 공표돼 있으면 409(중복 방지).
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("weeks")
     .select("id,week_number,iso_week,start_date,end_date,result_published_at")
@@ -551,7 +590,6 @@ export async function publishWeekResult(
     throw new WeekResultPublishError(409, "이미 공표된 주차입니다.");
   }
 
-  // 2) result_published_at IS NULL 가드로 갱신 (동시 공표 race 방어 + 멱등).
   const nowIso = new Date().toISOString();
   const { data: updated, error: updateError } = await supabaseAdmin
     .from("weeks")
@@ -576,38 +614,21 @@ export async function publishWeekResult(
       : row.iso_week != null
         ? `${row.iso_week}주(ISO)`
         : "주차 미지정";
+  return { row, label, nowIso };
+}
+
+export async function publishWeekResult(
+  weekId: string,
+): Promise<WeekResultPublishResult> {
+  // 1~2) 공표 SoT 쓰기(가드/멱등)는 공통 진입점에 위임.
+  const { row, label, nowIso } = await markWeekResultPublished(weekId);
 
   // 쓰기 시점 snapshot 갱신: 공표로 해당 주차 카드가 tallying→success/fail 로 전환되므로,
   // 그 주차 참여자(user_week_statuses 보유) 전원의 snapshot 을 즉시 재계산한다.
   // best-effort — 실패해도 공표(weeks.result_published_at)는 롤백하지 않고 로그만 남긴다.
   let snapshotRecompute: WeekResultPublishResult["snapshot_recompute"];
   try {
-    const startDate = row.start_date;
-    if (startDate) {
-      const { data: parts } = await supabaseAdmin
-        .from("user_week_statuses")
-        .select("user_id")
-        .eq("week_start_date", startDate);
-      const userIds = Array.from(
-        new Set(
-          ((parts ?? []) as { user_id: string }[]).map((p) => p.user_id),
-        ),
-      );
-      const r = await recomputeWeeklyCardsSnapshotsForUsers(userIds, {
-        concurrency: 3,
-      });
-      snapshotRecompute = {
-        requested: r.requested,
-        recomputed: r.recomputed,
-        failed: r.failed,
-      };
-      if (r.failed > 0) {
-        console.warn("[publish-result] snapshot recompute partial fail", {
-          weekId: row.id,
-          failedUserIds: r.failedUserIds,
-        });
-      }
-    }
+    snapshotRecompute = await recomputeCohortSnapshots(row.start_date);
   } catch (e) {
     console.warn("[publish-result] snapshot recompute hook failed (publish kept)", {
       weekId: row.id,

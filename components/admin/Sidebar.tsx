@@ -178,6 +178,7 @@ const MENU: MenuItem[] = [
       "/admin/season-weeks",
       "/admin/periods",
       "/admin/week-recognitions",
+      "/admin/weekly-card-finalization",
       "/admin/lines/info",
       "/admin/processes/info",
       "/admin/processes/register",
@@ -194,6 +195,11 @@ const MENU: MenuItem[] = [
       {
         label: "주차 인정 결과",
         href: "/admin/week-recognitions",
+        integratedOnly: true,
+      },
+      {
+        label: "주차 카드 집계 확정",
+        href: "/admin/weekly-card-finalization",
         integratedOnly: true,
       },
       {
