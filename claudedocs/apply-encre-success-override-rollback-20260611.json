@@ -1,0 +1,3 @@
+{
+  "rollback": "DELETE FROM weekly_league_success_overrides WHERE organization_slug='encre' AND source='pms_screen_2026spring';"
+}

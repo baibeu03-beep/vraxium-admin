@@ -151,6 +151,18 @@ export async function computeWeeklyLeagueAggregation(
     for (const r of (rp ?? []) as { user_id: string; start_date: string; end_date: string }[]) restPeriods.push(r);
   }
 
+  // 1-2) 주차별 성공수 집계 보정(회원명부 모드 전용·front 미러) — weekly_league_success_overrides.
+  //   PMS 실측 성공수 주차별 override(사람별 verdict 아님). total/rest 무접촉, success/fail split 만.
+  const successOverrideByWeekStart = new Map<string, number>();
+  if (memberRosterMode) {
+    const { data: ov, error: ovErr } = await supabaseAdmin
+      .from("weekly_league_success_overrides")
+      .select("week_start_date, growth_success")
+      .eq("organization_slug", org);
+    if (ovErr) console.warn("[weekly-league-agg] success_overrides 조회 실패 — 미적용", ovErr.message);
+    else for (const o of (ov ?? []) as { week_start_date: string; growth_success: number }[]) successOverrideByWeekStart.set(o.week_start_date, Number(o.growth_success));
+  }
+
   // 3) uws / uwp (로스터 한정, READ only).
   const [uwsRes, uwpRes] = await Promise.all([
     fetchAllByUsers<{ user_id: string; week_start_date: string; status: string }>(
@@ -263,6 +275,13 @@ export async function computeWeeklyLeagueAggregation(
         const st = statusByUserWeek.get(`${p.user_id}|${week.startDate}`) ?? null;
         if (st === "success") growthSuccess++;
         else growthFail++;
+      }
+      // 주차별 성공수 집계 보정 — PMS 실측 override (total/rest 불변, success/fail split 만).
+      const ovSuccess = successOverrideByWeekStart.get(week.startDate);
+      if (ovSuccess != null) {
+        const nonRest = growthSuccess + growthFail;
+        growthSuccess = Math.min(ovSuccess, nonRest);
+        growthFail = nonRest - growthSuccess;
       }
     } else {
     effectiveConfirmStar =
