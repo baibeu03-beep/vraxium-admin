@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, RotateCcw, Send, X } from "lucide-react";
+import { Loader2, RotateCcw, Send, User, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -23,6 +23,10 @@ import {
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import ExperienceTeamOverallBoard from "@/components/admin/ExperienceTeamOverallBoard";
+import type {
+  ExperienceLineManageSummary,
+  LineManageTeamLeader,
+} from "@/lib/experienceLineManageTypes";
 import {
   EXPERIENCE_PART_LINE_TYPES,
   PART_CELL_DEFAULT,
@@ -90,6 +94,45 @@ export default function ExperiencePartLeadInput({
     () => teams.find((t) => t.id === selectedTeamId) ?? null,
     [teams, selectedTeamId],
   );
+
+  // 팀 활동 책임자(팀장) — 라인 관리 DTO(teamLeader)를 SoT 로 재사용. 팀명 → 팀장 맵(org 1회 조회).
+  //   teamLeader 는 현재 멤버십 기준(주차 무관) — 선택 팀이 바뀌면 맵 조회로 즉시 갱신(하드코딩 없음).
+  const [teamLeaders, setTeamLeaders] = useState<Map<string, LineManageTeamLeader>>(
+    new Map(),
+  );
+  useEffect(() => {
+    if (!org) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/admin/cluster4/experience/line-manage?organization=${encodeURIComponent(org)}`,
+        );
+        const json = await res.json();
+        if (cancelled || !json?.success) return;
+        const m = new Map<string, LineManageTeamLeader>();
+        for (const t of (json.data as ExperienceLineManageSummary).teams) {
+          if (t.teamLeader) m.set(t.teamName, t.teamLeader);
+        }
+        setTeamLeaders(m);
+      } catch {
+        /* 조회 실패 — 책임자 미표시(미지정). */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [org]);
+
+  // 현재 선택 팀의 팀장 표시 문구. 없으면 "미지정".
+  const selectedLeaderText = useMemo(() => {
+    const leader = selectedTeam ? teamLeaders.get(selectedTeam.teamName) : null;
+    if (!leader) return "미지정";
+    const academic = [leader.school, leader.department]
+      .filter((v): v is string => !!v && v.trim() !== "")
+      .join(" ");
+    return `${leader.name} 팀장${academic ? ` (${academic})` : ""}`;
+  }, [selectedTeam, teamLeaders]);
 
   // ── 부트스트랩: teams + weeks-options + actor(org만) ──
   useEffect(() => {
@@ -480,13 +523,27 @@ export default function ExperiencePartLeadInput({
                   value={part}
                   onChange={(e) => onSelectPart(e.target.value)}
                 >
-                  <option value={TEAM_OVERALL}>팀 총괄 (집계)</option>
+                  <option value={TEAM_OVERALL}>팀 총괄</option>
                   {parts.map((p) => (
                     <option key={p} value={p}>
                       {p}
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* 팀 활동 책임자(팀장) — 같은 행 우측 정렬(ml-auto). 모바일에선 아래 줄로 wrap.
+                  선택 팀 기준(direct DTO teamLeader), 팀 탭 변경 시 자동 갱신. */}
+              <div className="ml-auto self-center">
+                <div className="inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
+                  <User className="h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    팀 활동 책임 / 관리 :{" "}
+                    <span className="font-medium text-foreground">
+                      {selectedLeaderText}
+                    </span>
+                  </span>
+                </div>
               </div>
             </div>
 

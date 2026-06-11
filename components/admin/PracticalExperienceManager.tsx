@@ -59,6 +59,7 @@ import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import LineOpeningStatusBoard from "@/components/admin/LineOpeningStatusBoard";
 import ExperienceOpeningLogPanel from "@/components/admin/ExperienceOpeningLogPanel";
 import ExperiencePartLeadInput from "@/components/admin/ExperiencePartLeadInput";
+import ExperienceLineManageBoard from "@/components/admin/ExperienceLineManageBoard";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   ...ORGANIZATIONS.map((slug) => ({ value: slug, label: ORGANIZATION_LABEL[slug] })),
@@ -1448,7 +1449,7 @@ export default function PracticalExperienceManager() {
       )}
     >
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">실무 경험 워크플로우</h1>
+        <h1 className="text-2xl font-bold">[실무 경험] Hub</h1>
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -1496,6 +1497,12 @@ export default function PracticalExperienceManager() {
           [라인 관리] = 기존 실무 경험 워크플로우 화면(아래 내부 탭 4종) 그대로. */}
       {mainTab === "manage" && (
         <>
+      {/* 카드형 팀 요약 보드(표시 전용) — 팀별 개설 완료/필요·파트 신청 색칸·라인별 강화 결과.
+          조직 분기 모드(?org)에서만 노출. 개설 완료/취소 직후 openRefresh 로 갱신. */}
+      {orgScoped && (
+        <ExperienceLineManageBoard refreshKey={openRefresh} />
+      )}
+
       {/* Tabs */}
       <div className="flex gap-1 border-b">
         <TabButton
