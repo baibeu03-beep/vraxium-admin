@@ -6,6 +6,7 @@ import {
 } from "@/lib/adminAuth";
 import { isUuid } from "@/lib/isUuid";
 import { getInfoLineResultsForWeek } from "@/lib/adminCluster4InfoLineResults";
+import { isOrganizationSlug } from "@/lib/organizations";
 
 // GET /api/admin/cluster4/info-line-results?week_id=
 // 선택 주차의 "주차별 개설 결과" — 활동유형별 개설 상황(opened/needs_opening/not_open) + 카운트.
@@ -19,16 +20,21 @@ export async function GET(request: NextRequest) {
     throw error;
   }
 
-  const weekId = request.nextUrl.searchParams.get("week_id")?.trim() || null;
+  const params = request.nextUrl.searchParams;
+  const weekId = params.get("week_id")?.trim() || null;
   if (!weekId || !isUuid(weekId)) {
     return Response.json(
       { success: false, error: "week_id is required and must be a UUID" },
       { status: 400 },
     );
   }
+  // 조직 스코프(통합 ↔ 조직 진입). 내부 API 컨벤션은 organization. 미지정/무효 = 통합(전체).
+  // info-lines GET 과 동일 컨벤션 — 지정 시 (lineOrg == org) OR common 만 노출.
+  const organizationRaw = params.get("organization")?.trim() || null;
+  const organization = isOrganizationSlug(organizationRaw) ? organizationRaw : null;
 
   try {
-    const data = await getInfoLineResultsForWeek({ weekId });
+    const data = await getInfoLineResultsForWeek({ weekId, organization });
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[admin/cluster4/info-line-results GET]", error);

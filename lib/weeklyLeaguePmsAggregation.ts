@@ -163,6 +163,17 @@ export async function computeWeeklyLeagueAggregation(
     else for (const o of (ov ?? []) as { week_start_date: string; growth_success: number }[]) successOverrideByWeekStart.set(o.week_start_date, Number(o.growth_success));
   }
 
+  // 1-3) weekly-league 전용 StartDate(회원명부 모드·front 미러) — weekly_league_member_start.
+  //   공유 activity_started_at 무수정. effectiveStart = member_start_date ?? activity_started_at.
+  const memberStartByUser = new Map<string, string>();
+  if (memberRosterMode) {
+    const { data: msRows } = await supabaseAdmin
+      .from("weekly_league_member_start")
+      .select("user_id, member_start_date")
+      .eq("organization_slug", org);
+    for (const m of (msRows ?? []) as { user_id: string; member_start_date: string }[]) memberStartByUser.set(m.user_id, m.member_start_date);
+  }
+
   // 3) uws / uwp (로스터 한정, READ only).
   const [uwsRes, uwpRes] = await Promise.all([
     fetchAllByUsers<{ user_id: string; week_start_date: string; status: string }>(
@@ -268,7 +279,7 @@ export async function computeWeeklyLeagueAggregation(
         restPeriods.filter((r) => r.start_date <= week.endDate && r.end_date >= week.startDate).map((r) => r.user_id),
       );
       for (const p of orgProfiles) {
-        const started = p.activity_started_at;
+        const started = memberStartByUser.get(p.user_id) ?? p.activity_started_at;
         if (!started || started.slice(0, 10) > week.endDate) continue;
         cohortUserIds.push(p.user_id);
         if (restUserIds.has(p.user_id)) { personalRest++; continue; }

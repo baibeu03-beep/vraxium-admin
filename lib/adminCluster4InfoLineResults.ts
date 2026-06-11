@@ -15,6 +15,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import { fmtDate, seasonLabelOnly, yy2 } from "@/lib/practicalInfoSeasonWeeks";
+import { resolveCluster4LineOrgScope } from "@/lib/adminCluster4LinesData";
+import { isLineVisibleForUserOrg } from "@/lib/cluster4LineOrg";
+import type { OrganizationSlug } from "@/lib/organizations";
 
 export type InfoLineResultStatus = "opened" | "needs_opening" | "not_open";
 
@@ -59,6 +62,7 @@ type LineMeta = {
   opened_by: string | null;
   created_by: string | null;
   created_at: string | null;
+  line_code: string | null;
 };
 
 const neStr = (v: unknown): boolean =>
@@ -81,9 +85,26 @@ function hasSecondInput(sub: Record<string, unknown>): boolean {
 
 export async function getInfoLineResultsForWeek(opts: {
   weekId: string;
+  // 조직 스코프(통합 ↔ 조직 진입). null/미지정 = 통합(전체). 지정 시 (lineOrg == org) OR common 만 노출
+  // — 어드민 라인 목록(filterLineIdsByOrg) · 고객 weekly-cards(isLineVisibleForUserOrg) 와 동일 정책.
+  // info 라인 org SoT = line_code 토큰(OK/EC/PX/BS). 토큰 없는 info 는 'common' 으로 전체 노출.
+  organization?: OrganizationSlug | null;
 }): Promise<InfoLineResultsDto> {
-  const { weekId } = opts;
+  const { weekId, organization = null } = opts;
   if (!isUuid(weekId)) throw new Error("week_id must be a UUID");
+
+  // 조직 지정 시 라인 1건이 그 조직에 노출되는지 — resolveCluster4LineOrgScope(단일 SoT) 로 판정.
+  // 후보 라인은 전부 part_type='info' 이므로 line_code 만으로 동기 판정(추가 DB 조회 없음).
+  const isOrgVisible = async (line: LineMeta): Promise<boolean> => {
+    if (!organization) return true;
+    const lineOrg = await resolveCluster4LineOrgScope({
+      part_type: "info",
+      line_code: line.line_code,
+    });
+    return isLineVisibleForUserOrg(lineOrg, organization, {
+      allowUnknown: false,
+    });
+  };
 
   // 1. 주차 라벨/기간 — weeks + season_definitions(라벨).
   const { data: week, error: weekErr } = await supabaseAdmin
@@ -137,7 +158,7 @@ export async function getInfoLineResultsForWeek(opts: {
   const { data: tRows, error: tErr } = await supabaseAdmin
     .from("cluster4_line_targets")
     .select(
-      "id,target_mode,target_user_id,cluster4_lines!inner(id,activity_type_id,main_title,opened_at,opened_by,created_by,created_at,part_type,is_active)",
+      "id,target_mode,target_user_id,cluster4_lines!inner(id,activity_type_id,main_title,opened_at,opened_by,created_by,created_at,line_code,part_type,is_active)",
     )
     .eq("week_id", weekId)
     .eq("cluster4_lines.is_active", true)
@@ -151,6 +172,7 @@ export async function getInfoLineResultsForWeek(opts: {
   }>) {
     const line = row.cluster4_lines;
     if (!line || !line.activity_type_id) continue;
+    if (!(await isOrgVisible(line))) continue;
     if (!lineByActivity.has(line.activity_type_id))
       lineByActivity.set(line.activity_type_id, line);
     if (row.target_mode === "user" && row.target_user_id) {
@@ -163,13 +185,15 @@ export async function getInfoLineResultsForWeek(opts: {
   // 타깃이 전혀 없는 라인 대비 — 라인 자체 week_id 로도 union.
   const { data: lRows } = await supabaseAdmin
     .from("cluster4_lines")
-    .select("id,activity_type_id,main_title,opened_at,opened_by,created_by,created_at")
+    .select("id,activity_type_id,main_title,opened_at,opened_by,created_by,created_at,line_code")
     .eq("part_type", "info")
     .eq("week_id", weekId)
     .eq("is_active", true);
   for (const line of (lRows ?? []) as LineMeta[]) {
-    if (line.activity_type_id && !lineByActivity.has(line.activity_type_id))
-      lineByActivity.set(line.activity_type_id, line);
+    if (!line.activity_type_id || lineByActivity.has(line.activity_type_id))
+      continue;
+    if (!(await isOrgVisible(line))) continue;
+    lineByActivity.set(line.activity_type_id, line);
   }
 
   // 4. 개설자 이름 일괄 resolve (display_name ?? admin email ?? "관리자").
