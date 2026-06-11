@@ -293,8 +293,10 @@ export type Cluster4StatusIconKey = Cluster4UserWeekStatus;
 //   - name        = user_profiles.display_name
 //   - gender      = user_profiles.gender (원본 값 그대로, 매핑 없음)
 //   - age         = user_profiles.birth_date 로부터 파생(만 나이). 없으면 null.
-//   - school      = user_profiles.school_name
-//   - department  = user_profiles.department_name
+//   - school      = user_educations(대표 학력).school_name → user_profiles.school_name 폴백
+//   - department  = user_educations(대표 학력).major_name_1 → user_profiles.department_name 폴백
+//                   (학력의 canonical source 는 user_educations. PMS 이관 사용자는 department_name
+//                    이 NULL 이고 실제 학과는 user_educations 에만 있으므로 반드시 educations 우선.)
 //   - team/part   = user_memberships(is_current 우선).team_name / part_name
 //   - membershipLevel = user_memberships.membership_level (일반/심화 등급값).
 //                       ⚠ membership_state("active"/"weekly_rest" 등 상태값) 아님 — badge-status 는

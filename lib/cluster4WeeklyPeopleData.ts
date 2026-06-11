@@ -107,6 +107,18 @@ type MembershipRow = {
   updated_at: string | null;
 };
 
+// 학력 행. 학교/학과의 canonical source 는 user_educations 다(user_profiles.school_name/
+// department_name 은 legacy/secondary — PMS 이관 사용자는 department_name 이 NULL 이고 실제 학과는
+// user_educations.major_name_1 에만 있음). adminCrewData / cluster4CafeLineMatch 와 동일 규칙.
+type EducationRow = {
+  user_id: string;
+  school_name: string | null;
+  major_name_1: string | null;
+  is_primary: boolean | null;
+  sort_order: number | null;
+  updated_at: string | null;
+};
+
 // 첫 비어있지 않은(트림 후 길이>0) 문자열을 고른다. profileTagline fallback 체인 등에 사용.
 function preferString(...values: Array<string | null | undefined>): string | null {
   for (const value of values) {
@@ -164,6 +176,18 @@ function pickBestMembership(rows: MembershipRow[]): MembershipRow | undefined {
   })[0];
 }
 
+// 대표 학력 선택: is_primary 우선 → sort_order asc → updated_at 최신.
+// (adminResumeCardData.pickPrimaryEducation 과 동일 의도 — 단일 대표 학력 1건.)
+function pickPrimaryEducation(rows: EducationRow[]): EducationRow | undefined {
+  return [...rows].sort((a, b) => {
+    const primaryDelta = Number(Boolean(b.is_primary)) - Number(Boolean(a.is_primary));
+    if (primaryDelta !== 0) return primaryDelta;
+    const sortDelta = (a.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.sort_order ?? Number.MAX_SAFE_INTEGER);
+    if (sortDelta !== 0) return sortDelta;
+    return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
+  })[0];
+}
+
 // userId 집합 → 인적사항 맵. 실패해도 카드를 깨뜨리지 않고 빈 맵으로 폴백한다.
 async function buildPersonProfileMap(
   userIds: string[],
@@ -172,7 +196,7 @@ async function buildPersonProfileMap(
   const ids = Array.from(new Set(userIds.filter(Boolean)));
   if (ids.length === 0) return map;
 
-  const [profileRes, membershipRes] = await Promise.all([
+  const [profileRes, membershipRes, educationRes] = await Promise.all([
     supabaseAdmin
       .from("user_profiles")
       .select(
@@ -182,6 +206,12 @@ async function buildPersonProfileMap(
     supabaseAdmin
       .from("user_memberships")
       .select("user_id,team_name,part_name,membership_level,is_current,updated_at")
+      .in("user_id", ids),
+    // 학력(학교/학과)의 canonical source. PMS 이관 사용자는 user_profiles.department_name 이 NULL
+    // 이고 실제 학과는 여기에만 있어, department 가 "-" 로 비던 버그의 원인.
+    supabaseAdmin
+      .from("user_educations")
+      .select("user_id,school_name,major_name_1,is_primary,sort_order,updated_at")
       .in("user_id", ids),
   ]);
 
@@ -195,6 +225,12 @@ async function buildPersonProfileMap(
       message: membershipRes.error.message,
     });
   }
+  if (educationRes.error) {
+    // 학력 조회 실패는 카드를 깨뜨리지 않는다 — user_profiles 값으로 폴백.
+    console.warn("[cluster4/weekly-people] user_educations lookup failed", {
+      message: educationRes.error.message,
+    });
+  }
 
   // user_id → 최적 membership (is_current 우선).
   const membershipByUser = new Map<string, MembershipRow[]>();
@@ -204,15 +240,25 @@ async function buildPersonProfileMap(
     membershipByUser.set(row.user_id, list);
   }
 
+  // user_id → 학력 행들(대표 학력 선택용).
+  const educationByUser = new Map<string, EducationRow[]>();
+  for (const row of (educationRes.data ?? []) as EducationRow[]) {
+    const list = educationByUser.get(row.user_id) ?? [];
+    list.push(row);
+    educationByUser.set(row.user_id, list);
+  }
+
   for (const p of (profileRes.data ?? []) as ProfileRow[]) {
     const m = pickBestMembership(membershipByUser.get(p.user_id) ?? []);
+    const edu = pickPrimaryEducation(educationByUser.get(p.user_id) ?? []);
     map.set(p.user_id, {
       userId: p.user_id,
       name: p.display_name ?? null,
       gender: p.gender ?? null,
       age: computeAge(p.birth_date ?? null),
-      school: p.school_name ?? null,
-      department: p.department_name ?? null,
+      // 학교/학과: user_educations(canonical) 우선 → user_profiles 폴백.
+      school: preferString(edu?.school_name, p.school_name),
+      department: preferString(edu?.major_name_1, p.department_name),
       team: preferString(m?.team_name, p.current_team_name),
       part: preferString(m?.part_name, p.current_part_name),
       // badge-status 의 등급 source. membership_state("active" 등 상태값)가 아닌 등급(level).

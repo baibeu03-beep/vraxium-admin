@@ -123,7 +123,15 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 //   카운트(approved/failed/rest·시즌 성장률)는 불변(tallying·official_rest·transition 모두 집계
 //   제외) — userWeekStatus/statusLabel(화면 표시)만 달라지므로 기존 v18 snapshot 을 stale 처리해
 //   재계산하게 한다.
-export const WEEKLY_CARDS_DTO_VERSION = 19;
+// v20 (2026-06-10): 연계동료/평판 인적사항(Cluster4PersonProfileDto)의 학교/학과 source 정정 —
+//   user_profiles.school_name/department_name 단독에서 user_educations(대표 학력) 우선 →
+//   user_profiles 폴백으로 변경(buildPersonProfileMap). PMS 이관 사용자는 department_name 이 NULL
+//   이고 실제 학과는 user_educations.major_name_1 에만 있어, weeklyColleagues[].colleagueProfile.
+//   department(연계동료 모달 "학과")가 "-"로 비던 버그. weeklyReputations/weeklyColleagues 가
+//   snapshot.cards 에 직렬화되므로, 기존 v19 snapshot 의 colleagueProfile.department 는 여전히 NULL.
+//   v19→v20 stale(version_mismatch) 처리로 cron/lazy 가 재계산하며 educations 값으로 채운다.
+//   (DB 백필 아님 — 파생 캐시 재생성. user_educations 자체는 건드리지 않는다.)
+export const WEEKLY_CARDS_DTO_VERSION = 20;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 
