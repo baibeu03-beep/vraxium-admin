@@ -1,0 +1,8 @@
+{
+  "uids": [
+    "361f69d5-a718-4675-bbcb-15b8f69bf431",
+    "f7c159f8-ad78-46fd-b4c7-d39e6229f2e2"
+  ],
+  "note": "재계산 전 2명은 growth_stats/snapshot 0행이었음",
+  "rollback": "DELETE FROM user_growth_stats WHERE user_id IN ('361f69d5-a718-4675-bbcb-15b8f69bf431','f7c159f8-ad78-46fd-b4c7-d39e6229f2e2'); DELETE FROM cluster4_weekly_card_snapshots WHERE user_id IN ('361f69d5-a718-4675-bbcb-15b8f69bf431','f7c159f8-ad78-46fd-b4c7-d39e6229f2e2');"
+}

@@ -23,6 +23,7 @@ const SHOW_DEV_TOGGLE = false;
 const LINE_OPENING_TAB_PATHS = new Set<string>([
   "/admin/line-opening/practical-info",
   "/admin/line-opening/practical-experience",
+  "/admin/line-opening/practical-competency",
 ]);
 const LINE_OPENING_TABS = [
   { key: "manage", label: "라인 관리" },

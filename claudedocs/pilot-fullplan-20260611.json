@@ -1,0 +1,25 @@
+{
+  "권원중": {
+    "missUws": 21,
+    "missUwp": 28,
+    "cumulative": 31,
+    "target": 29,
+    "trans": 0,
+    "seasonMiss": {
+      "2025-summer": 4,
+      "2025-autumn": 10,
+      "2026-winter": 7
+    }
+  },
+  "권희윤": {
+    "missUws": 17,
+    "missUwp": 21,
+    "cumulative": 27,
+    "target": 26,
+    "trans": 0,
+    "seasonMiss": {
+      "2025-autumn": 10,
+      "2026-winter": 7
+    }
+  }
+}

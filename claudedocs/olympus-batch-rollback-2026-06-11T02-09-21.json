@@ -1,0 +1,9 @@
+{
+ "mode": "rollback",
+ "source": "claudedocs/olympus-batch-apply-2026-06-11T02-07-27.json",
+ "issues": [
+  "recalc/snapshot 24e3022f-d8c3-479a-914b-dcbe1a32607c: insert or update on table \"user_growth_stats\" violates foreign key constraint \"user_growth_stats_user_id_fkey\"",
+  "user_profiles delete: column user_profiles.id does not exist",
+  "recalc/snapshot da4d5170-7944-4761-b18f-8a9da9f5905e: insert or update on table \"user_growth_stats\" violates foreign key constraint \"user_growth_stats_user_id_fkey\""
+ ]
+}

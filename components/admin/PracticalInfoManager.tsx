@@ -1156,52 +1156,45 @@ export default function PracticalInfoManager() {
           : "mx-auto w-full max-w-[1440px] px-4 py-6",
       )}
     >
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">실무 정보 라인 운영</h1>
-          <p className="text-base text-muted-foreground">
-            활동 유형 탭별로 라인을 개설하고, 개설된 라인의 대상자·기입·편집권을 관리합니다.
-          </p>
-        </div>
-
-        {/* Week selector (신규 개설 대상 주차) — dev 모드에서만 노출.
-            일반 모드에서는 렌더링하지 않으며, 서버가 N-1 을 강제한다. */}
-        {devMode && weekOptions.length > 0 && (
-          <div className="flex items-end gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="weekSelect" className="text-xs text-muted-foreground">
-                신규 개설 대상 주차 <span className="text-amber-600">(dev)</span>
-              </Label>
-              <select
-                id="weekSelect"
-                className="w-72 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                value={selectedWeekId}
-                onChange={(e) => setSelectedWeekId(e.target.value)}
-              >
-                <option value="">주차를 선택해주세요</option>
-                {weekOptions.map((w) => (
-                  <option key={w.id} value={w.id} disabled={!w.canOpen}>
-                    {w.label} ({w.startDate} ~ {w.endDate})
-                    {w.isOpenTarget ? " · 개설대상" : ""}
-                    {w.isCurrent ? " · 현재(N)" : ""}
-                    {!w.canOpen ? " · 휴식" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* Week selector (신규 개설 대상 주차) — dev 모드에서만 노출.
+          일반 모드에서는 렌더링하지 않으며, 서버가 N-1 을 강제한다. */}
+      {devMode && weekOptions.length > 0 && (
+        <div className="flex items-end gap-2">
+          <div className="space-y-1">
+            <Label htmlFor="weekSelect" className="text-xs text-muted-foreground">
+              신규 개설 대상 주차 <span className="text-amber-600">(dev)</span>
+            </Label>
+            <select
+              id="weekSelect"
+              className="w-72 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={selectedWeekId}
+              onChange={(e) => setSelectedWeekId(e.target.value)}
+            >
+              <option value="">주차를 선택해주세요</option>
+              {weekOptions.map((w) => (
+                <option key={w.id} value={w.id} disabled={!w.canOpen}>
+                  {w.label} ({w.startDate} ~ {w.endDate})
+                  {w.isOpenTarget ? " · 개설대상" : ""}
+                  {w.isCurrent ? " · 현재(N)" : ""}
+                  {!w.canOpen ? " · 휴식" : ""}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
-      </div>
-
-      {/* 상단 현재 상황(표시 전용) — 오늘 날짜 + 개설 필요/이행 기간(금요일 경계). 저장 정책 무관. */}
-      <PracticalInfoCurrentSituation />
-
-      {/* 주차별 개설 결과(표시 전용 · read-only) — 주차 선택 + 요약 + 라인별 개설 상황 카드. */}
-      <PracticalInfoWeekResults />
+        </div>
+      )}
 
       {/* 2탭(라인 관리/라인 개설)은 상단 Header title 영역으로 이동 — 본문에는 두지 않는다. */}
       {mainTab === "manage" && (
         <>
+      {/* 상단 현재 상황(표시 전용) — 오늘 날짜 + 개설 필요/이행 기간(금요일 경계). 저장 정책 무관.
+          라인 관리 탭에만 노출(라인 개설 탭은 입력 집중 위해 제외). */}
+      <PracticalInfoCurrentSituation />
+
+      {/* 주차별 개설 결과(표시 전용 · read-only) — 주차 선택 + 요약 + 라인별 개설 상황 카드.
+          라인 관리 탭에만 노출(라인 개설 탭은 입력 집중 위해 제외). */}
+      <PracticalInfoWeekResults />
+
       {/* Banner */}
       {banner && (
         <div

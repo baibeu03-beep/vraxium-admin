@@ -6,7 +6,6 @@ import { Loader2, RotateCcw, Send, User, X } from "lucide-react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -459,13 +458,7 @@ export default function ExperiencePartLeadInput({
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">파트장 입력</CardTitle>
-        <CardDescription>
-          평가 대상 크루를 라인별로 체크·점수 입력 후 개설 신청합니다. (팀 총괄 = 집계 조회)
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-6">
         {bootLoading ? (
           <p className="flex items-center gap-1.5 text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…

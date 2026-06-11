@@ -394,8 +394,6 @@ export default function ExperienceTeamOverallBoard({
     );
   }
 
-  const partColCount = 3 + EXPERIENCE_OVERALL_CATEGORIES.length; // 이름/파트/상태 + 5열
-
   return (
     <div className="space-y-4">
       {/* 상태 헤더 */}
@@ -437,141 +435,114 @@ export default function ExperienceTeamOverallBoard({
           파트 선택(PartGrid) 화면의 우측 액션 영역과 동일 구조. */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1 space-y-4">
-      {/* 파트별 그리드 */}
-      {board.parts.length === 0 ? (
+      {/* 전 파트 통합 그리드 — 파트 구분은 [파트] 컬럼 값으로만 표시(파트별 그룹 헤더 제거). */}
+      {allCrews.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
           이 팀에 평가 대상 크루가 없습니다.
         </p>
       ) : (
-        board.parts.map((part) => (
-          <div key={part.partName} className="space-y-2">
-            <div className="flex items-center gap-2">
-              <h4 className="text-sm font-semibold">{part.partName}</h4>
-              {part.submitted ? (
-                <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700">
-                  신청 완료
-                </span>
-              ) : (
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
-                  미신청 (기본값)
-                </span>
-              )}
-            </div>
-            <div className="overflow-x-auto">
-              <Table className="min-w-[1000px] table-fixed">
-                <BoardColgroup />
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>이름</TableHead>
-                    <TableHead>파트</TableHead>
-                    <TableHead>크루 상태</TableHead>
-                    {EXPERIENCE_OVERALL_CATEGORIES.map((c) => (
-                      <TableHead key={c.key} className="text-center">
-                        {c.label}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {part.crews.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={partColCount}
-                        className="py-6 text-center text-sm text-muted-foreground"
-                      >
-                        크루가 없습니다.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    part.crews.map((crew) => (
-                      <TableRow key={crew.userId}>
-                        <TableCell className="font-medium whitespace-normal break-words">
-                          {crew.displayName}
-                          {crew.isPartLeader && (
-                            <span className="ml-1 text-[11px] text-sky-700">(파트장)</span>
+        <div className="overflow-x-auto">
+          <Table className="min-w-[1000px] table-fixed">
+            <BoardColgroup />
+            <TableHeader>
+              <TableRow>
+                <TableHead>이름</TableHead>
+                <TableHead>파트</TableHead>
+                <TableHead>크루 상태</TableHead>
+                {EXPERIENCE_OVERALL_CATEGORIES.map((c) => (
+                  <TableHead key={c.key} className="text-center">
+                    {c.label}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {allCrews.map((crew) => (
+                <TableRow key={crew.userId}>
+                  <TableCell className="font-medium whitespace-normal break-words">
+                    {crew.displayName}
+                    {crew.isPartLeader && (
+                      <span className="ml-1 text-[11px] text-sky-700">(파트장)</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="whitespace-normal break-words text-xs text-muted-foreground">
+                    {crew.partName ?? "-"}
+                  </TableCell>
+                  <TableCell className="whitespace-normal break-words text-xs">
+                    {crew.statusLabel}
+                  </TableCell>
+                  {EXPERIENCE_OVERALL_CATEGORIES.map((c) => {
+                    const isLeader = (OVERALL_LEADER_CATEGORIES as string[]).includes(
+                      c.key,
+                    );
+                    if (!isLeader) {
+                      // 도출/분석/견문 — 파트신청 라이브, 읽기 전용 표시.
+                      const cell = crew.cells[c.key];
+                      const fail = isOverallCellFail(cell);
+                      return (
+                        <TableCell key={c.key} className="text-center">
+                          <span
+                            className={cn(
+                              "inline-block rounded-md border px-2 py-1 text-xs",
+                              fail
+                                ? "border-red-400 bg-red-50 text-red-700"
+                                : "border-green-300 bg-green-50 text-green-800",
+                            )}
+                          >
+                            {cell.checked ? "✓" : "✕"} {cell.score}
+                          </span>
+                        </TableCell>
+                      );
+                    }
+                    // 관리/확장 — 팀장 직접 입력(편집).
+                    const cell = getLeaderCell(crew.userId, c.key);
+                    const fail = isOverallCellFail(cell);
+                    const disabled =
+                      opened || saving || (c.key === "extension" && !extensionActive);
+                    return (
+                      <TableCell key={c.key} className="text-center">
+                        <div
+                          className={cn(
+                            "inline-flex items-center gap-2 rounded-md border px-2 py-1.5",
+                            disabled && c.key === "extension" && !extensionActive
+                              ? "border-dashed border-input bg-muted/40 opacity-60"
+                              : fail
+                                ? "border-red-400 bg-red-50"
+                                : "border-input bg-background",
                           )}
-                        </TableCell>
-                        <TableCell className="whitespace-normal break-words text-xs text-muted-foreground">
-                          {crew.partName ?? "-"}
-                        </TableCell>
-                        <TableCell className="whitespace-normal break-words text-xs">
-                          {crew.statusLabel}
-                        </TableCell>
-                        {EXPERIENCE_OVERALL_CATEGORIES.map((c) => {
-                          const isLeader = (OVERALL_LEADER_CATEGORIES as string[]).includes(
-                            c.key,
-                          );
-                          if (!isLeader) {
-                            // 도출/분석/견문 — 파트신청 라이브, 읽기 전용 표시.
-                            const cell = crew.cells[c.key];
-                            const fail = isOverallCellFail(cell);
-                            return (
-                              <TableCell key={c.key} className="text-center">
-                                <span
-                                  className={cn(
-                                    "inline-block rounded-md border px-2 py-1 text-xs",
-                                    fail
-                                      ? "border-red-400 bg-red-50 text-red-700"
-                                      : "border-green-300 bg-green-50 text-green-800",
-                                  )}
-                                >
-                                  {cell.checked ? "✓" : "✕"} {cell.score}
-                                </span>
-                              </TableCell>
-                            );
-                          }
-                          // 관리/확장 — 팀장 직접 입력(편집).
-                          const cell = getLeaderCell(crew.userId, c.key);
-                          const fail = isOverallCellFail(cell);
-                          const disabled =
-                            opened || saving || (c.key === "extension" && !extensionActive);
-                          return (
-                            <TableCell key={c.key} className="text-center">
-                              <div
-                                className={cn(
-                                  "inline-flex items-center gap-2 rounded-md border px-2 py-1.5",
-                                  disabled && c.key === "extension" && !extensionActive
-                                    ? "border-dashed border-input bg-muted/40 opacity-60"
-                                    : fail
-                                      ? "border-red-400 bg-red-50"
-                                      : "border-input bg-background",
-                                )}
-                              >
-                                <input
-                                  type="checkbox"
-                                  className="rounded border-gray-300"
-                                  checked={cell.checked}
-                                  disabled={disabled}
-                                  onChange={() => toggleLeaderCheck(crew.userId, c.key)}
-                                  aria-label={`${crew.displayName} ${c.label} 체크`}
-                                />
-                                <select
-                                  className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
-                                  value={cell.score}
-                                  disabled={disabled}
-                                  onChange={(e) =>
-                                    setLeaderScore(crew.userId, c.key, Number(e.target.value))
-                                  }
-                                  aria-label={`${crew.displayName} ${c.label} 점수`}
-                                >
-                                  {Array.from({ length: 11 }, (_, i) => i).map((n) => (
-                                    <option key={n} value={n}>
-                                      {n}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        ))
+                        >
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300"
+                            checked={cell.checked}
+                            disabled={disabled}
+                            onChange={() => toggleLeaderCheck(crew.userId, c.key)}
+                            aria-label={`${crew.displayName} ${c.label} 체크`}
+                          />
+                          <select
+                            className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
+                            value={cell.score}
+                            disabled={disabled}
+                            onChange={(e) =>
+                              setLeaderScore(crew.userId, c.key, Number(e.target.value))
+                            }
+                            aria-label={`${crew.displayName} ${c.label} 점수`}
+                          >
+                            {Array.from({ length: 11 }, (_, i) => i).map((n) => (
+                              <option key={n} value={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </TableCell>
+                    );
+                  })}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {/* 아웃풋 링크 & 이미지 — 카테고리별 [○○ 류] 라인명 + (링크 6 : 설명 4) 한 줄 입력 */}

@@ -178,6 +178,43 @@ function buildBlock3(input: LineOpeningStatusInput): StatusLine[] {
   });
 }
 
+// 허브 전체 1문장 개설 상태 — 실무 역량(competency)처럼 팀별 분기가 없는 허브용.
+// 블록3(팀별)이 아니라 허브 산하 라인 전체의 개설 여부 1줄만 만든다. 빨강: 시즌·주차·개설/개설 완료.
+//   기본:  "지난 주 [{period}] 의 [{hub}] 허브 산하 라인들이 ‘개설’ 되어야 합니다."
+//   완료:  "지난 주 [{period}] 의 [{hub}] 허브 산하 라인들이 ‘개설 완료’ 되었습니다."
+export function buildHubOpenStatusLine(input: {
+  hubLabel: string;
+  targetWeek: StatusWeek | null;
+  opened: boolean;
+}): StatusLine {
+  const { hubLabel, targetWeek, opened } = input;
+  if (!targetWeek) {
+    return {
+      id: "hub-open",
+      tone: "neutral",
+      tokens: [t("지난 주(개설 대상) 주차 정보를 확인할 수 없습니다.")],
+    };
+  }
+  const period = periodLabel(targetWeek);
+  const head: StatusToken[] = [
+    t("지난 주 ["),
+    r(period),
+    t(`] 의 [${hubLabel}] 허브 산하 라인들이 `),
+  ];
+  if (opened) {
+    return {
+      id: "hub-open",
+      tone: "positive",
+      tokens: [...head, t("‘"), r("개설 완료"), t("’ 되었습니다.")],
+    };
+  }
+  return {
+    id: "hub-open",
+    tone: "warning",
+    tokens: [...head, t("‘"), r("개설"), t("’ 되어야 합니다.")],
+  };
+}
+
 // ──────────────────────────────────────────────────────────────
 // Public entry
 // ──────────────────────────────────────────────────────────────

@@ -1,0 +1,421 @@
+{
+ "generatedAt": "2026-06-08 olympus-batch-38 preview",
+ "mode": "preview",
+ "blocked": false,
+ "drift": [],
+ "migratedSkip": [
+  {
+   "uid": 248,
+   "name": "박시은"
+  },
+  {
+   "uid": 249,
+   "name": "성채윤"
+  },
+  {
+   "uid": 251,
+   "name": "정혜빈"
+  },
+  {
+   "uid": 253,
+   "name": "권원중"
+  },
+  {
+   "uid": 259,
+   "name": "권희윤"
+  },
+  {
+   "uid": 261,
+   "name": "위다인"
+  },
+  {
+   "uid": 263,
+   "name": "조창현"
+  },
+  {
+   "uid": 264,
+   "name": "김다빈"
+  },
+  {
+   "uid": 269,
+   "name": "이다윤"
+  },
+  {
+   "uid": 273,
+   "name": "이선욱"
+  },
+  {
+   "uid": 274,
+   "name": "김성곤"
+  },
+  {
+   "uid": 277,
+   "name": "이윤아"
+  },
+  {
+   "uid": 278,
+   "name": "이채성"
+  },
+  {
+   "uid": 279,
+   "name": "강민지"
+  },
+  {
+   "uid": 281,
+   "name": "정수빈"
+  },
+  {
+   "uid": 284,
+   "name": "이현재"
+  },
+  {
+   "uid": 286,
+   "name": "김시원"
+  },
+  {
+   "uid": 287,
+   "name": "양혁진"
+  },
+  {
+   "uid": 288,
+   "name": "조정인"
+  },
+  {
+   "uid": 290,
+   "name": "유지민"
+  },
+  {
+   "uid": 292,
+   "name": "옥지윤"
+  },
+  {
+   "uid": 293,
+   "name": "송영권"
+  },
+  {
+   "uid": 294,
+   "name": "이다은"
+  },
+  {
+   "uid": 295,
+   "name": "범혜민"
+  },
+  {
+   "uid": 296,
+   "name": "정수아"
+  },
+  {
+   "uid": 297,
+   "name": "신지현"
+  },
+  {
+   "uid": 298,
+   "name": "박지민"
+  },
+  {
+   "uid": 299,
+   "name": "김연우"
+  },
+  {
+   "uid": 300,
+   "name": "김민송"
+  },
+  {
+   "uid": 301,
+   "name": "강은비"
+  },
+  {
+   "uid": 303,
+   "name": "조은재"
+  }
+ ],
+ "workCount": 7,
+ "totals": {
+  "usersInsert": 7,
+  "usersUpdate": 0,
+  "profilesInsert": 7,
+  "uwsInsert": 105,
+  "uwsOverwrite": 0,
+  "uwsConflicts": 0,
+  "uwpInsert": 228,
+  "uwpOverwrite": 0,
+  "sentinel": 7,
+  "checksMigratedFalse": 0,
+  "ledger": 3033,
+  "expEach": 105,
+  "snapshotNew": 7,
+  "snapshotRecompute": 0,
+  "ensureLinesUserWeeks": 1,
+  "ensureLinesDistinct": 1,
+  "unattributed": 36,
+  "negativeSentinels": 1
+ },
+ "perUser": [
+  {
+   "pilot": "O1",
+   "source": "olympus",
+   "pmsId": 25,
+   "name": "이도겸",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 25
+   },
+   "usersAction": "insert",
+   "uuid": "1c227b5d-cb33-4fbb-8e32-7a824287db2c",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 752,
+    "uwp": {
+     "insert": 63,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 18,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 18,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 4,
+    "advantages": 14,
+    "penalty": 0
+   },
+   "unattributedHold": 10,
+   "ensureWeeks": [
+    "2024-spring W2 (2024-03-11)"
+   ]
+  },
+  {
+   "pilot": "O2",
+   "source": "olympus",
+   "pmsId": 181,
+   "name": "송지우",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 181
+   },
+   "usersAction": "insert",
+   "uuid": "b4d2459a-a883-433c-b182-b2228936f038",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 23,
+    "uwp": {
+     "insert": 16,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 1,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 1,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 0,
+    "advantages": 11,
+    "penalty": 0
+   },
+   "unattributedHold": 2,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O3",
+   "source": "olympus",
+   "pmsId": 212,
+   "name": "이유나",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 212
+   },
+   "usersAction": "insert",
+   "uuid": "c1ce0916-c9f6-459f-b91d-6f1d67afaeb3",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 502,
+    "uwp": {
+     "insert": 32,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 19,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 19,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 5,
+    "advantages": 11,
+    "penalty": 0
+   },
+   "unattributedHold": 7,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O4",
+   "source": "olympus",
+   "pmsId": 215,
+   "name": "한예진",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 215
+   },
+   "usersAction": "insert",
+   "uuid": "7b8e0ade-72f8-459a-985b-cbc803bb537d",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 372,
+    "uwp": {
+     "insert": 28,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 13,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 13,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 2,
+    "advantages": 13,
+    "penalty": 0
+   },
+   "unattributedHold": 5,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O5",
+   "source": "olympus",
+   "pmsId": 221,
+   "name": "남궁문",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 221
+   },
+   "usersAction": "insert",
+   "uuid": "9c62d067-b34c-41b5-85b5-29b716041cff",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 651,
+    "uwp": {
+     "insert": 39,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 24,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 24,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 5,
+    "advantages": 12,
+    "penalty": 0
+   },
+   "unattributedHold": 6,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O6",
+   "source": "olympus",
+   "pmsId": 230,
+   "name": "신서연",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 230
+   },
+   "usersAction": "insert",
+   "uuid": "6d6e963c-79c6-4512-9102-ae860c46d09f",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 358,
+    "uwp": {
+     "insert": 25,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 15,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 15,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": 3,
+    "advantages": 18,
+    "penalty": 0
+   },
+   "unattributedHold": 2,
+   "ensureWeeks": []
+  },
+  {
+   "pilot": "O7",
+   "source": "olympus",
+   "pmsId": 252,
+   "name": "김송지",
+   "identity": {
+    "sourceSystem": "olympus",
+    "legacyUserId": 252
+   },
+   "usersAction": "insert",
+   "uuid": "04d376a7-b1d9-4bfe-8824-5b0d9d269ab9",
+   "legacyRewrite": null,
+   "writes": {
+    "ledger": 375,
+    "uwp": {
+     "insert": 25,
+     "overwrite": 0,
+     "sentinel": 1,
+     "cmFalse": 0
+    },
+    "uws": {
+     "insert": 15,
+     "overwrite": 0,
+     "conflicts": 0
+    },
+    "experience": 15,
+    "snapshot": "new"
+   },
+   "sentinel": {
+    "points": -8,
+    "advantages": 15,
+    "penalty": 0
+   },
+   "unattributedHold": 4,
+   "ensureWeeks": []
+  }
+ ],
+ "ensureLinesPlan": [
+  {
+   "week_id": "da95b82b-3290-47b0-a70a-e7112cab5693",
+   "season_key": "2024-spring",
+   "week_number": 2,
+   "start_date": "2024-03-11",
+   "line_code": "EXBS-EN240311",
+   "opens": "2024-03-10T15:00:00.000Z",
+   "closes": "2024-03-17T14:59:59.000Z"
+  }
+ ],
+ "sentinelContract": "year=1900, week_number=1 (CHECK 1~53 보정), week_start_date=1900-01-01, checks_migrated=false — weeks 부재로 카드/판정 미소비·누적 포인트 합산 포함"
+}

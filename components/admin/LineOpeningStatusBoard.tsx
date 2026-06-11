@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import {
+  buildHubOpenStatusLine,
   buildLineOpeningStatus,
   type LineOpeningStatus,
   type StatusExtension,
@@ -23,28 +24,39 @@ import {
 } from "@/lib/lineOpeningStatusEngine";
 
 // 라인 개설 상태창(운영 대시보드) 공용 컴포넌트.
-//   - 서버 상태 API 를 조회해 공용 엔진(lib/lineOpeningStatusEngine)으로 3블록 문구를 만든 뒤,
+//   - 서버 상태 API 를 조회해 공용 엔진(lib/lineOpeningStatusEngine)으로 블록 문구를 만든 뒤,
 //     red 토큰만 빨강 강조로 렌더한다. 표시 전용 — write/snapshot/DTO 무관.
-//   - 허브명만 바꿔 실무 경험/정보/역량이 재사용한다(현재는 experience 만 엔드포인트 보유).
-
-// 현재 엔드포인트가 있는 허브. info/competency 는 후속(동일 엔진/컴포넌트 재사용).
-type LineOpeningHub = "experience";
+//   - 허브명만 바꿔 실무 경험/정보/역량이 재사용한다.
+//
+// variant:
+//   "team" = 실무 경험. 블록1(오늘/이번 주) + 블록2(확장 라인) + 블록3(팀별 개설 현황).
+//   "hub"  = 실무 역량. 블록1 + 허브 전체 1문장(팀별 분기 없음). 확장/팀 블록 미사용.
+type LineOpeningHub = "experience" | "competency";
 
 const HUB_CONFIG: Record<
   LineOpeningHub,
-  { label: string; endpoint: string }
+  { label: string; endpoint: string; variant: "team" | "hub" }
 > = {
   experience: {
     label: "실무 경험",
     endpoint: "/api/admin/cluster4/experience/opening-status",
+    variant: "team",
+  },
+  competency: {
+    label: "실무 역량",
+    endpoint: "/api/admin/cluster4/competency/opening-status",
+    variant: "hub",
   },
 };
 
 type StatusResponse = {
   currentWeek: StatusWeek | null;
   targetWeek: StatusWeek | null;
-  extension: StatusExtension;
-  teams: StatusTeam[];
+  // team variant 전용.
+  extension?: StatusExtension;
+  teams?: StatusTeam[];
+  // hub variant 전용.
+  opened?: boolean;
 };
 
 function renderTokens(tokens: StatusToken[]) {
@@ -78,7 +90,7 @@ export default function LineOpeningStatusBoard({
   // 값이 바뀌면 상태창 재조회(개설 완료/취소로 팀별 개설 현황이 바뀐 직후).
   refreshKey?: number;
 }) {
-  const { label: hubLabel, endpoint } = HUB_CONFIG[hub];
+  const { label: hubLabel, endpoint, variant } = HUB_CONFIG[hub];
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
 
@@ -113,6 +125,7 @@ export default function LineOpeningStatusBoard({
     };
   }, [endpoint, org, refreshKey]);
 
+  // team variant: 3블록 전부. hub variant: 블록1(엔진 재사용) + 허브 전체 1문장.
   const status: LineOpeningStatus | null = useMemo(() => {
     if (!data) return null;
     return buildLineOpeningStatus({
@@ -120,10 +133,19 @@ export default function LineOpeningStatusBoard({
       today: new Date(),
       currentWeek: data.currentWeek,
       targetWeek: data.targetWeek,
-      extension: data.extension,
-      teams: data.teams,
+      extension: data.extension ?? { kind: "none", index: null, total: null },
+      teams: data.teams ?? [],
     });
   }, [data, hubLabel]);
+
+  const hubLine: StatusLine | null = useMemo(() => {
+    if (!data || variant !== "hub") return null;
+    return buildHubOpenStatusLine({
+      hubLabel,
+      targetWeek: data.targetWeek,
+      opened: data.opened ?? false,
+    });
+  }, [data, hubLabel, variant]);
 
   return (
     <Card>
@@ -146,44 +168,60 @@ export default function LineOpeningStatusBoard({
           <p className="text-muted-foreground">표시할 데이터가 없습니다.</p>
         ) : (
           <>
-            {/* 블록1 — 오늘 / 이번 주 */}
+            {/* 블록1 — 오늘 / 이번 주 (공통) */}
             <p className="text-foreground">{renderTokens(status.block1.tokens)}</p>
 
-            {/* 블록2 — 확장 라인(대상 주차) */}
-            <p
-              className={cn(
-                "rounded-md border px-3 py-2",
-                toneClass(status.block2.tone),
-              )}
-            >
-              {renderTokens(status.block2.tokens)}
-            </p>
-
-            {/* 블록3 — 팀별 개설 현황 */}
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground">
-                팀별 개설 현황
-              </p>
-              {status.block3.length === 0 ? (
-                <p className="text-muted-foreground">
-                  {org
-                    ? "이 조직에 등록된 팀이 없습니다."
-                    : "조직(?org)이 지정되지 않았습니다."}
+            {variant === "hub" ? (
+              /* hub variant(실무 역량) — 허브 전체 개설 상태 1문장 */
+              hubLine && (
+                <p
+                  className={cn(
+                    "rounded-md border px-3 py-2",
+                    toneClass(hubLine.tone),
+                  )}
+                >
+                  {renderTokens(hubLine.tokens)}
                 </p>
-              ) : (
-                status.block3.map((line) => (
-                  <p
-                    key={line.id}
-                    className={cn(
-                      "rounded-md border px-3 py-2",
-                      toneClass(line.tone),
-                    )}
-                  >
-                    {renderTokens(line.tokens)}
+              )
+            ) : (
+              <>
+                {/* 블록2 — 확장 라인(대상 주차) */}
+                <p
+                  className={cn(
+                    "rounded-md border px-3 py-2",
+                    toneClass(status.block2.tone),
+                  )}
+                >
+                  {renderTokens(status.block2.tokens)}
+                </p>
+
+                {/* 블록3 — 팀별 개설 현황 */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    팀별 개설 현황
                   </p>
-                ))
-              )}
-            </div>
+                  {status.block3.length === 0 ? (
+                    <p className="text-muted-foreground">
+                      {org
+                        ? "이 조직에 등록된 팀이 없습니다."
+                        : "조직(?org)이 지정되지 않았습니다."}
+                    </p>
+                  ) : (
+                    status.block3.map((line) => (
+                      <p
+                        key={line.id}
+                        className={cn(
+                          "rounded-md border px-3 py-2",
+                          toneClass(line.tone),
+                        )}
+                      >
+                        {renderTokens(line.tokens)}
+                      </p>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
           </>
         )}
       </CardContent>

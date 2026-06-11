@@ -1,0 +1,20 @@
+{
+ "mode": "rollback",
+ "source": "claudedocs/rollback-new7-only.json",
+ "issues": [
+  "user_profiles delete: column user_profiles.id does not exist",
+  "recalc/snapshot b82971ba-a19b-46ff-9855-0ceeeca2403a: insert or update on table \"user_growth_stats\" violates foreign key constraint \"user_growth_stats_user_id_fkey\"",
+  "user_profiles delete: column user_profiles.id does not exist",
+  "recalc/snapshot a8476ff0-2c1d-4136-9c04-0e4b1500fe81: insert or update on table \"user_growth_stats\" violates foreign key constraint \"user_growth_stats_user_id_fkey\"",
+  "user_profiles delete: column user_profiles.id does not exist",
+  "recalc/snapshot 6a308b18-ea74-4416-b073-dc8bd890db8d: insert or update on table \"user_growth_stats\" violates foreign key constraint \"user_growth_stats_user_id_fkey\"",
+  "user_profiles delete: column user_profiles.id does not exist",
+  "recalc/snapshot 3108db5a-9ffe-4aa7-b920-226089e5073d: insert or update on table \"user_growth_stats\" violates foreign key constraint \"user_growth_stats_user_id_fkey\"",
+  "user_profiles delete: column user_profiles.id does not exist",
+  "recalc/snapshot 8181eea8-4a48-42f8-a98e-ce2bf3ca9a06: insert or update on table \"user_growth_stats\" violates foreign key constraint \"user_growth_stats_user_id_fkey\"",
+  "user_profiles delete: column user_profiles.id does not exist",
+  "recalc/snapshot cb5281f2-4b34-403a-8096-bcd25b408057: insert or update on table \"user_growth_stats\" violates foreign key constraint \"user_growth_stats_user_id_fkey\"",
+  "user_profiles delete: column user_profiles.id does not exist",
+  "recalc/snapshot b66d7703-457c-4b7a-bd26-3af3a0f75be2: insert or update on table \"user_growth_stats\" violates foreign key constraint \"user_growth_stats_user_id_fkey\""
+ ]
+}

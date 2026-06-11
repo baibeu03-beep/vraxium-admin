@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, Plus, Search, Check, X, Upload, Trash2, Pencil } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import {
   ORGANIZATION_COMMON_LABEL,
 } from "@/lib/organizations";
 import Cluster4LineTable from "@/components/admin/cluster4/Cluster4LineTable";
+import CompetencyOpeningDashboard from "@/components/admin/CompetencyOpeningDashboard";
 import {
   buildOutputLinksFromForm,
   OUTPUT_LINK_LABEL_PLACEHOLDER,
@@ -178,6 +180,14 @@ function TabButton({ label, active, onClick, disabled }: { label: string; active
 }
 
 export default function PracticalCompetencyManager() {
+  // 헤더 [라인 관리]/[라인 개설] 2탭 — **조직 분기 모드(?org 있음)** 에서만 적용(실무 정보/경험과 동일 UX).
+  // 탭 UI 자체는 상단 Header title 영역(components/admin/Header.tsx)에 있고, 본문은 URL ?tab 으로
+  // 어느 콘텐츠를 보일지만 결정한다. ?org 없는 통합 진입에서는 기존 단일 화면 그대로.
+  const searchParams = useSearchParams();
+  const orgScoped = readOrgParam(searchParams) != null;
+  const mainTab: "manage" | "open" =
+    orgScoped && searchParams?.get("tab") === "open" ? "open" : "manage";
+
   const [activeTab, setActiveTab] = useState<TabKey>("masters");
   const [adminOrg, setAdminOrg] = useState<string | null>(null);
   const [teams, setTeams] = useState<TeamItem[]>([]);
@@ -438,6 +448,10 @@ export default function PracticalCompetencyManager() {
         </div>
       )}
 
+      {/* 헤더 [라인 관리]/[라인 개설] 2탭은 상단 Header title 영역에서 구동(본문엔 두지 않음).
+          [라인 관리] = 기존 실무 역량 화면(아래 내부 탭 3종) 그대로 — 미수정. */}
+      {mainTab === "manage" && (
+        <>
       <div className="flex gap-1 border-b">
         <TabButton label="라인 등록" active={activeTab === "masters"} onClick={() => setActiveTab("masters")} />
         <TabButton label="라인 개설" active={activeTab === "opening"} onClick={() => setActiveTab("opening")} />
@@ -726,6 +740,12 @@ export default function PracticalCompetencyManager() {
           )}
         </div>
       )}
+        </>
+      )}
+
+      {/* [라인 개설] 탭 — 실무 역량 라인 개설 운영 대시보드(상태창+로그창+개설 완료/취소).
+          허브 전체 is_active 토글로 고객 반영. 파트장 신청/검수 없음. snapshot 생성/조회 무변경. */}
+      {mainTab === "open" && <CompetencyOpeningDashboard />}
     </div>
   );
 }
