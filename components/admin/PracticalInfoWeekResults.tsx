@@ -17,6 +17,7 @@ import {
   weekRange,
   type SeasonWeekRow,
 } from "@/lib/practicalInfoSeasonWeeks";
+import { readOrgParam } from "@/lib/adminOrgContext";
 
 // 실무 정보 — "주차별 개설 결과" (표시 전용 · read-only API).
 //   주차 드롭다운(미래 주차 제외, 기본값=개설 필요 기간) + 요약 카운트 + 라인별 개설 상황 카드.
@@ -125,8 +126,13 @@ export default function PracticalInfoWeekResults() {
       setLoading(true);
       setError(null);
       try {
+        // 조직 컨텍스트(?org)를 내부 API 컨벤션(organization)으로 전달 — PracticalInfoManager 와 동일.
+        // 조직 모드면 (해당 조직 OR 공통) 라인만, 통합 모드(org 없음)면 전체.
+        const org = readOrgParam(new URLSearchParams(window.location.search));
+        const qs = new URLSearchParams({ week_id: selectedWeekId });
+        if (org) qs.set("organization", org);
         const res = await fetch(
-          `/api/admin/cluster4/info-line-results?week_id=${encodeURIComponent(selectedWeekId)}`,
+          `/api/admin/cluster4/info-line-results?${qs.toString()}`,
         );
         const json = await res.json();
         if (cancelled) return;
