@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ChevronRight,
   LayoutDashboard,
+  Network,
   PanelLeft,
   PanelLeftClose,
   TrendingUp,
@@ -43,8 +44,6 @@ type LeafItem = ScopeFlags & {
 type ChildItem = ScopeFlags & {
   label: string;
   href: string;
-  // org 컬럼이 없는 전역 페이지(주차와 시즌 등) — 조직 모드에서도 ?org 를 부착하지 않는다.
-  globalScope?: boolean;
 };
 
 type BranchItem = ScopeFlags & {
@@ -59,51 +58,148 @@ type BranchItem = ScopeFlags & {
 
 type MenuItem = LeafItem | BranchItem;
 
-// 모든 href 는 현재 실재하는 admin route 만 사용한다. (route 가 없는 항목은 메뉴에 두지 않는다.)
-// 기능 미구현 메뉴는 "추후 구현 예정" placeholder route 로 연결한다.
+// 모든 href 는 현재 실재하는 admin route 만 사용한다.
 //
-// IA 개편 (통합 검수 시스템 ↔ 조직 진입 공통, 2026-06-08):
-//   조직 모드(orgFocus 있음)  = 아래 5개 대분류 + 각 대분류의 비-integratedOnly child 만.
-//   통합 모드(통합 검수 시스템) = 5개 대분류(관리성 integratedOnly child 포함) + 전역 대분류
-//                                (대시보드 / 크루 온보딩 / 어드민 관리, 모두 integratedOnly).
-//   → 기존 기능은 전부 통합 모드에서 도달 가능, 조직 모드는 요청된 5개 구조만 노출.
-const MENU: MenuItem[] = [
-  // 전역(통합 모드 전용)
-  {
-    kind: "leaf",
-    label: "대시보드",
-    href: "/admin",
-    icon: LayoutDashboard,
-    integratedOnly: true,
-  },
+// 사이드바는 모드에 따라 **다른 메뉴 트리**를 노출한다(2026-06-08 정정):
+//   - 통합 모드(통합 검수 시스템, orgFocus 없음)  = MENU_INTEGRATED (기존 8분류 — 원복).
+//   - 조직 분기 모드(엥크레/오랑캐/팔랑크스)        = MENU_ORG (신규 5대분류).
+// 통합 검수 시스템의 메뉴명/구조/라우팅/기능은 일절 바꾸지 않는다.
 
-  // 1) 라인 개설 — 기존 manager 그대로 유지(실무 정보/경험/역량).
+// ── 통합 검수 시스템(원본) — 기존 그대로 ──────────────────────────────────
+const MENU_INTEGRATED: MenuItem[] = [
+  { kind: "leaf", label: "대시보드", href: "/admin", icon: LayoutDashboard },
+  {
+    kind: "branch",
+    label: "주차와 시즌",
+    icon: CalendarDays,
+    basePath: "/admin/season-weeks",
+    matchPaths: [
+      "/admin/periods",
+      "/admin/season-weeks",
+      "/admin/week-recognitions",
+      "/admin/weekly-card-finalization",
+    ],
+    children: [
+      { label: "기간 등록", href: "/admin/periods/register" },
+      { label: "기간 정보", href: "/admin/season-weeks" },
+      { label: "주차 인정 결과", href: "/admin/week-recognitions" },
+      { label: "주차 카드 집계 확정", href: "/admin/weekly-card-finalization" },
+    ],
+  },
+  {
+    kind: "branch",
+    label: "허브와 라인",
+    icon: Briefcase,
+    basePath: "/admin/line-opening",
+    matchPaths: ["/admin/lines", "/admin/line-opening", "/admin/career-projects"],
+    children: [
+      { label: "라인 등록", href: "/admin/lines/register" },
+      { label: "라인 정보", href: "/admin/lines/info" },
+      { label: "개설 이력", href: "/admin/line-opening/line-history" },
+      { label: "라인 개설 [실무 경력]", href: "/admin/line-opening/practical-career" },
+    ],
+  },
+  {
+    kind: "branch",
+    label: "허브별 프로세스",
+    icon: Workflow,
+    basePath: "/admin/processes",
+    children: [
+      { label: "프로세스 등록", href: "/admin/processes/register" },
+      { label: "프로세스 정보", href: "/admin/processes/info" },
+      { label: "프로세스 체크 [실무 경력]", href: "/admin/processes/check" },
+    ],
+  },
+  {
+    kind: "branch",
+    label: "팀과 파트",
+    icon: Network,
+    basePath: "/admin/team-parts",
+    children: [
+      { label: "팀 & 파트 정보", href: "/admin/team-parts/info" },
+      { label: "팀 & 파트 등록", href: "/admin/team-parts/register" },
+    ],
+  },
+  {
+    kind: "branch",
+    label: "클럽 진행",
+    icon: TrendingUp,
+    basePath: "/admin/club-progress",
+    children: [
+      { label: "주차 내역", href: "/admin/club-progress/weekly" },
+      { label: "시즌 내역", href: "/admin/club-progress/seasons" },
+    ],
+  },
+  {
+    kind: "branch",
+    label: "크루 활동",
+    icon: Users,
+    basePath: "/admin/members",
+    matchPaths: [
+      "/admin/members",
+      "/admin/rest-management",
+      "/admin/season-participations",
+      "/admin/official-rest-periods",
+      "/admin/communications",
+    ],
+    children: [
+      { label: "크루 관리", href: "/admin/members" },
+      { label: "휴식 관리", href: "/admin/rest-management" },
+      { label: "시즌 참여/휴식", href: "/admin/season-participations" },
+      { label: "공식 휴식 관리", href: "/admin/official-rest-periods" },
+      { label: "커뮤니케이션", href: "/admin/communications" },
+    ],
+  },
+  {
+    kind: "branch",
+    label: "크루 온보딩",
+    icon: UserPlus,
+    basePath: "/admin/users",
+    children: [{ label: "크루 등록", href: "/admin/users/applicants" }],
+  },
+  {
+    kind: "branch",
+    label: "어드민 관리",
+    icon: Wrench,
+    basePath: "/admin/settings",
+    matchPaths: [
+      "/admin/settings/accounts",
+      "/admin/settings/edit-windows",
+      "/admin/settings/line-opening-windows",
+      "/admin/settings/permissions",
+      "/admin/operation-health-check",
+      "/admin/test-users",
+      "/admin/import",
+    ],
+    children: [
+      { label: "어드민 계정", href: "/admin/settings/accounts" },
+      { label: "작성 기간 관리", href: "/admin/settings/edit-windows" },
+      { label: "라인 개설 기간", href: "/admin/settings/line-opening-windows" },
+      { label: "권한 설정", href: "/admin/settings/permissions" },
+      { label: "운영 정합성 점검", href: "/admin/operation-health-check" },
+      { label: "테스트 모드", href: "/admin/test-users" },
+      { label: "가져오기", href: "/admin/import" },
+    ],
+  },
+];
+
+// ── 조직 분기(엥크레/오랑캐/팔랑크스) — 신규 5대분류 ────────────────────────
+// 조직 모드에서만 노출. 공유 페이지 링크는 ?org 가 부착되어 조직 컨텍스트가 유지된다.
+const MENU_ORG: MenuItem[] = [
+  // 1) 라인 개설
   {
     kind: "branch",
     label: "라인 개설",
     icon: Briefcase,
     basePath: "/admin/line-opening",
-    matchPaths: ["/admin/line-opening", "/admin/lines/register"],
+    matchPaths: ["/admin/line-opening"],
     children: [
       { label: "실무 정보", href: "/admin/line-opening/practical-info" },
       { label: "실무 경험", href: "/admin/line-opening/practical-experience" },
       { label: "실무 역량", href: "/admin/line-opening/practical-competency" },
-      // 통합 모드에서만 도달하는 기존 관리성 메뉴(기능 유지).
-      { label: "라인 등록", href: "/admin/lines/register", integratedOnly: true },
-      {
-        label: "개설 이력",
-        href: "/admin/line-opening/line-history",
-        integratedOnly: true,
-      },
-      {
-        label: "라인 개설 [실무 경력]",
-        href: "/admin/line-opening/practical-career",
-        integratedOnly: true,
-      },
     ],
   },
-
-  // 2) 프로세스 체크 — 기획 전 placeholder(라우트만). 데이터 API 없음.
+  // 2) 프로세스 체크 — 기획 전 placeholder(라우트만).
   {
     kind: "branch",
     label: "프로세스 체크",
@@ -116,8 +212,7 @@ const MENU: MenuItem[] = [
       { label: "클럽 급", href: "/admin/processes/check/club" },
     ],
   },
-
-  // 3) 클럽 진행 — 기존 placeholder.
+  // 3) 클럽 진행
   {
     kind: "branch",
     label: "클럽 진행",
@@ -128,8 +223,7 @@ const MENU: MenuItem[] = [
       { label: "시즌 내역", href: "/admin/club-progress/seasons" },
     ],
   },
-
-  // 4) 크루 활동 — 크루 관리(통합=전체 / 조직=해당 조직 목록), 휴식 관리·커뮤니케이션.
+  // 4) 크루 활동 — 크루 관리(해당 조직 목록), 휴식 관리, 커뮤니케이션.
   {
     kind: "branch",
     label: "크루 활동",
@@ -140,13 +234,9 @@ const MENU: MenuItem[] = [
       "/admin/crews",
       "/admin/rest-management",
       "/admin/communications",
-      "/admin/season-participations",
-      "/admin/official-rest-periods",
     ],
     children: [
-      // 통합 모드: 전체 멤버 목록(/admin/members, 서버 org 필터 없음).
-      { label: "크루 관리", href: "/admin/members", integratedOnly: true },
-      // 조직 모드: 해당 조직 크루 목록만(path 기반 /admin/crews/{org}, 이미 서버 org 필터).
+      // 현재 조직 크루 목록(path 기반 /admin/crews/{org}, 이미 서버 org 필터).
       ...ORGANIZATIONS.map((slug) => ({
         label: "크루 관리",
         href: `/admin/crews/${slug}`,
@@ -154,20 +244,8 @@ const MENU: MenuItem[] = [
       })),
       { label: "휴식 관리", href: "/admin/rest-management" },
       { label: "커뮤니케이션", href: "/admin/communications" },
-      // 통합 모드에서만 도달하는 기존 메뉴(기능 유지).
-      {
-        label: "시즌 참여/휴식",
-        href: "/admin/season-participations",
-        integratedOnly: true,
-      },
-      {
-        label: "공식 휴식 관리",
-        href: "/admin/official-rest-periods",
-        integratedOnly: true,
-      },
     ],
   },
-
   // 5) 클럽 정보 — 카탈로그/정보 묶음.
   {
     kind: "branch",
@@ -176,76 +254,16 @@ const MENU: MenuItem[] = [
     basePath: "/admin/season-weeks",
     matchPaths: [
       "/admin/season-weeks",
-      "/admin/periods",
-      "/admin/week-recognitions",
-      "/admin/weekly-card-finalization",
       "/admin/lines/info",
       "/admin/processes/info",
-      "/admin/processes/register",
       "/admin/team-parts",
     ],
     children: [
-      // 주차/시즌은 org 컬럼이 없는 전역 데이터 → 조직 모드에서도 ?org 미부착.
-      { label: "주차와 시즌", href: "/admin/season-weeks", globalScope: true },
+      // 주차와 시즌은 클럽 전역 데이터(org 컬럼 없음 → 데이터는 전체). ?org 는 사이드바 컨텍스트 유지용.
+      { label: "주차와 시즌", href: "/admin/season-weeks" },
       { label: "허브와 라인", href: "/admin/lines/info" },
       { label: "허브별 프로세스 목록", href: "/admin/processes/info" },
       { label: "팀 & 파트", href: "/admin/team-parts/info" },
-      // 통합 모드에서만 도달하는 기존 관리성 메뉴(기능 유지).
-      { label: "기간 등록", href: "/admin/periods/register", integratedOnly: true },
-      {
-        label: "주차 인정 결과",
-        href: "/admin/week-recognitions",
-        integratedOnly: true,
-      },
-      {
-        label: "주차 카드 집계 확정",
-        href: "/admin/weekly-card-finalization",
-        integratedOnly: true,
-      },
-      {
-        label: "프로세스 등록",
-        href: "/admin/processes/register",
-        integratedOnly: true,
-      },
-      {
-        label: "팀 & 파트 등록",
-        href: "/admin/team-parts/register",
-        integratedOnly: true,
-      },
-    ],
-  },
-
-  // 전역(통합 모드 전용)
-  {
-    kind: "branch",
-    label: "크루 온보딩",
-    icon: UserPlus,
-    basePath: "/admin/users",
-    integratedOnly: true,
-    children: [{ label: "크루 등록", href: "/admin/users/applicants" }],
-  },
-  {
-    kind: "branch",
-    label: "어드민 관리",
-    icon: Wrench,
-    basePath: "/admin/settings",
-    integratedOnly: true,
-    // "/admin/settings" 광역 매칭 대신 실제 children 경로만 매칭한다.
-    matchPaths: [
-      "/admin/settings/accounts",
-      "/admin/settings/edit-windows",
-      "/admin/settings/permissions",
-      "/admin/operation-health-check",
-      "/admin/test-users",
-      "/admin/import",
-    ],
-    children: [
-      { label: "어드민 계정", href: "/admin/settings/accounts" },
-      { label: "작성 기간 관리", href: "/admin/settings/edit-windows" },
-      { label: "권한 설정", href: "/admin/settings/permissions" },
-      { label: "운영 정합성 점검", href: "/admin/operation-health-check" },
-      { label: "테스트 모드", href: "/admin/test-users" },
-      { label: "가져오기", href: "/admin/import" },
     ],
   },
 ];
@@ -307,12 +325,13 @@ export default function Sidebar() {
       return true;
     });
 
-  // 조직 모드에서 공유 페이지 링크에 ?org 를 부착한다.
+  // 노출 메뉴 트리: 조직 분기 모드면 신규 5대분류, 통합 모드면 기존(원본) 메뉴.
+  const menu = orgFocus ? MENU_ORG : MENU_INTEGRATED;
+
+  // 조직 모드에서 공유 페이지 링크에 ?org 를 부착(조직 컨텍스트 유지).
   //   - /admin/crews/{org}: path 기반 → 그대로(부착 안 함)
-  //   - globalScope(주차와 시즌 등 org 컬럼 없는 전역 페이지): 그대로(부착 안 함)
-  //   - 그 외: orgHref 로 ?org 부착 (통합 모드면 orgFocus=null → 원본 그대로)
+  //   - 그 외: orgHref 로 ?org 부착 (통합 모드면 orgFocus=null → 원본 그대로 = ?org 없음)
   const childHref = (child: ChildItem) => {
-    if (child.globalScope) return child.href;
     if (/^\/admin\/crews\/[^/]+$/.test(child.href)) return child.href;
     return orgHref(child.href, orgFocus);
   };
@@ -320,7 +339,7 @@ export default function Sidebar() {
   const [openBranches, setOpenBranches] = useState<Record<string, boolean>>(
     () => {
       const init: Record<string, boolean> = {};
-      for (const item of MENU) {
+      for (const item of menu) {
         if (item.kind === "branch" && isUnderAnyBase(pathname, item)) {
           init[item.basePath] = true;
         }
@@ -392,7 +411,7 @@ export default function Sidebar() {
           sidebarOpen ? "gap-0.5 p-2.5" : "gap-1 p-2",
         )}
       >
-        {MENU.filter(isItemVisible).map((item) => {
+        {menu.filter(isItemVisible).map((item) => {
           if (item.kind === "leaf") {
             const Icon = item.icon;
             const active = isLeafActive(pathname, item.href);

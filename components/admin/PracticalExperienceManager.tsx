@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Loader2,
   Plus,
@@ -55,6 +56,9 @@ import {
   type EnhancementFilter,
 } from "@/components/admin/cluster4/enhancementBadges";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import LineOpeningStatusBoard from "@/components/admin/LineOpeningStatusBoard";
+import ExperienceOpeningLogPanel from "@/components/admin/ExperienceOpeningLogPanel";
+import ExperiencePartLeadInput from "@/components/admin/ExperiencePartLeadInput";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   ...ORGANIZATIONS.map((slug) => ({ value: slug, label: ORGANIZATION_LABEL[slug] })),
@@ -515,6 +519,15 @@ export default function PracticalExperienceManager() {
   // 일반 모드: 주차 선택 UI 미렌더 + 정책 주차(현재 주차) 강제. 실무 정보(info) 와 동일 정책.
   const devMode = useAdminDevMode();
 
+  // 헤더 [라인 관리]/[라인 개설] 2탭은 **조직 분기 모드(?org 있음)** 에서만 적용한다 (실무 정보와 동일 UX).
+  // 통합 검수 시스템(원본, ?org 없음)에서는 기존 단일 화면 그대로 — 헤더 탭/분기 없음.
+  // 탭 UI 자체는 상단 Header title 영역(components/admin/Header.tsx)에 있고,
+  // 본문은 URL ?tab 으로 어느 콘텐츠를 보일지만 결정한다 — 실무 정보(PracticalInfoManager)와 동일.
+  const searchParams = useSearchParams();
+  const orgScoped = readOrgParam(searchParams) != null;
+  const mainTab: "manage" | "open" =
+    orgScoped && searchParams?.get("tab") === "open" ? "open" : "manage";
+
   const [activeTab, setActiveTab] = useState<TabKey>("input");
   const [adminOrg, setAdminOrg] = useState<string | null>(null);
   const [teams, setTeams] = useState<TeamItem[]>([]);
@@ -574,6 +587,8 @@ export default function PracticalExperienceManager() {
 
   // ── Open tab state ──
   const [openSelectedIds, setOpenSelectedIds] = useState<Set<string>>(new Set());
+  // [라인 개설] 탭 상태창/로그창 갱신 신호 — 팀 총괄 검수/완료/취소·파트장 신청/취소 직후 증가.
+  const [openRefresh, setOpenRefresh] = useState(0);
   // 개설된 experience line target 목록 (target 기반, ?detailed=1). draft 워크플로우와 독립.
   const [expLines, setExpLines] = useState<Cluster4LineDetail[]>([]);
   const [expLinesLoading, setExpLinesLoading] = useState(false);
@@ -1422,7 +1437,16 @@ export default function PracticalExperienceManager() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
+    // 본문 폭: 조직 분기 모드(?org)에서는 전체 폭 사용(섹션0/섹션1 동일 기준 — practical-info 미러).
+    // 통합 모드(?org 없음)에서는 기존 폭(max-w-[1440px] 가운데 정렬) 유지.
+    <div
+      className={cn(
+        "space-y-6",
+        orgScoped
+          ? "w-full min-w-0"
+          : "mx-auto w-full max-w-[1440px] px-4 py-6",
+      )}
+    >
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">실무 경험 워크플로우</h1>
         <div className="flex items-center gap-2">
@@ -1468,6 +1492,10 @@ export default function PracticalExperienceManager() {
         </div>
       )}
 
+      {/* 헤더 2탭(라인 관리/라인 개설)은 상단 Header title 영역으로 이동 — 본문에는 두지 않는다.
+          [라인 관리] = 기존 실무 경험 워크플로우 화면(아래 내부 탭 4종) 그대로. */}
+      {mainTab === "manage" && (
+        <>
       {/* Tabs */}
       <div className="flex gap-1 border-b">
         <TabButton
@@ -2728,6 +2756,24 @@ export default function PracticalExperienceManager() {
               )}
             </CardContent>
           </Card>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* [라인 개설] 탭 — 실무 경험 라인 개설 운영 대시보드(상태창).
+          오늘/이번 주 + 지난 주(개설 대상) 확장 기간 + 팀별 개설 현황을 표시한다.
+          공용 엔진/컴포넌트(LineOpeningStatusBoard) 재사용 — 표시 전용(DB/snapshot/DTO 무관).
+          개설 워크플로우(입력→검수→최종 개설)는 [라인 관리] 내부 탭에서 진행한다. */}
+      {mainTab === "open" && (
+        <div className="space-y-4">
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+            <LineOpeningStatusBoard hub="experience" refreshKey={openRefresh} />
+            <ExperienceOpeningLogPanel refreshKey={openRefresh} />
+          </div>
+          {/* 파트장 입력 그리드 + 팀 총괄 보드 (additive — 신규 전용 저장, 기존 워크플로우/snapshot 무관).
+              검수/완료/취소·신청/취소 직후 상태창·로그창을 갱신한다. */}
+          <ExperiencePartLeadInput onActivity={() => setOpenRefresh((k) => k + 1)} />
         </div>
       )}
     </div>

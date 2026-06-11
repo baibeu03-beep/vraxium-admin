@@ -17,78 +17,47 @@ import { cn } from "@/lib/utils";
 // 기능·로직·상태값은 모두 유지하고 렌더링만 끈다 — 다시 쓰려면 true 로 변경.
 const SHOW_DEV_TOGGLE = false;
 
-// 실무 정보 라인 운영 페이지: 헤더 title 텍스트 대신 [라인 관리]/[라인 개설] 2탭을 노출한다.
-// 탭은 URL ?tab 으로 구동되어 본문(PracticalInfoManager)과 공유되고, 새로고침·?org 가 유지된다.
-const PRACTICAL_INFO_PATH = "/admin/line-opening/practical-info";
-const PRACTICAL_INFO_TABS = [
+// 라인 개설 분기 페이지(실무 정보/경험/…): 헤더 title 텍스트 대신 [라인 관리]/[라인 개설] 2탭을 노출한다.
+// 탭은 URL ?tab 으로 구동되어 본문 Manager 와 공유되고, 새로고침·?org 가 유지된다.
+// 특정 org 에 하드코딩하지 않고 path 집합으로만 판별한다 — 조직 분기는 ?org(orgScoped)로 처리.
+const LINE_OPENING_TAB_PATHS = new Set<string>([
+  "/admin/line-opening/practical-info",
+  "/admin/line-opening/practical-experience",
+]);
+const LINE_OPENING_TABS = [
   { key: "manage", label: "라인 관리" },
   { key: "open", label: "라인 개설" },
 ] as const;
 
-// 사이드바 IA(5개 대분류 + 전역) 와 1:1 동기화. 옛 라벨(멤버 관리/운영 관리 등)은 노출하지 않는다.
+// 통합 검수 시스템(원본) 헤더 타이틀 — 기존 그대로. (조직 분기 메뉴 개편과 무관하게 유지)
 const TITLES: Record<string, string> = {
   "/admin": "대시보드",
-
-  // 1) 라인 개설
-  "/admin/line-opening/practical-info": "라인 개설 · 실무 정보",
-  "/admin/line-opening/practical-experience": "라인 개설 · 실무 경험",
-  "/admin/line-opening/practical-competency": "라인 개설 · 실무 역량",
-  "/admin/lines/register": "라인 개설 · 라인 등록",
-  "/admin/line-opening/line-history": "라인 개설 · 개설 이력",
-  "/admin/line-opening/practical-career": "라인 개설 · 실무 경력",
-
-  // 2) 프로세스 체크
-  "/admin/processes/check/info": "프로세스 체크 · 실무 정보 급",
-  "/admin/processes/check/experience": "프로세스 체크 · 실무 경험 급",
-  "/admin/processes/check/competency": "프로세스 체크 · 실무 역량 급",
-  "/admin/processes/check/club": "프로세스 체크 · 클럽 급",
-
-  // 3) 클럽 진행
-  "/admin/club-progress/weekly": "클럽 진행 · 주차 내역",
-  "/admin/club-progress/seasons": "클럽 진행 · 시즌 내역",
-
-  // 4) 크루 활동
-  "/admin/members": "크루 활동 · 크루 관리",
-  "/admin/rest-management": "크루 활동 · 휴식 관리",
-  "/admin/communications": "크루 활동 · 커뮤니케이션",
-  "/admin/season-participations": "크루 활동 · 시즌 참여/휴식",
-  "/admin/official-rest-periods": "크루 활동 · 공식 휴식 관리",
-
-  // 5) 클럽 정보
-  "/admin/season-weeks": "클럽 정보 · 주차와 시즌",
-  "/admin/lines/info": "클럽 정보 · 허브와 라인",
-  "/admin/processes/info": "클럽 정보 · 허브별 프로세스 목록",
-  "/admin/team-parts/info": "클럽 정보 · 팀 & 파트",
-  "/admin/periods/register": "클럽 정보 · 기간 등록",
-  "/admin/week-recognitions": "클럽 정보 · 주차 인정 결과",
-  "/admin/processes/register": "클럽 정보 · 프로세스 등록",
-  "/admin/team-parts/register": "클럽 정보 · 팀 & 파트 등록",
-
-  // 전역(통합 모드)
-  "/admin/users/applicants": "크루 온보딩 · 크루 등록",
-  "/admin/settings/accounts": "어드민 관리 · 어드민 계정",
-  "/admin/settings/edit-windows": "어드민 관리 · 작성 기간 관리",
-  "/admin/settings/permissions": "어드민 관리 · 권한 설정",
-  "/admin/operation-health-check": "어드민 관리 · 운영 정합성 점검",
-  "/admin/test-users": "어드민 관리 · 테스트 모드",
-  "/admin/import": "어드민 관리 · 가져오기",
+  "/admin/periods/register": "주차와 시즌 · 기간 등록",
+  "/admin/season-weeks": "주차와 시즌 · 기간 정보",
+  "/admin/members": "멤버 관리 · 전체 멤버",
+  "/admin/crews": "멤버 관리 · 조직별",
+  "/admin/users/applicants": "멤버 관리 · 승인 대기",
+  "/admin/users/app-users": "멤버 관리 · 가입된 사용자",
+  "/admin/users/admin-users": "멤버 관리 · 관리자 계정",
+  "/admin/settings/edit-windows": "운영 관리 · 작성 기간",
+  "/admin/settings/line-opening-windows": "운영 관리 · 라인 개설 기간",
+  "/admin/lines/register": "허브와 라인 · 라인 등록",
+  "/admin/lines/info": "허브와 라인 · 라인 정보",
+  "/admin/career-projects": "라인 개설 · 실무 경력",
+  "/admin/import": "데이터 관리 · 가져오기",
 };
 
-// orgSlug 가 주어지면(조직 진입) 타이틀 앞에 조직 라벨을 붙여 현재 조직 컨텍스트를 명시한다.
-function resolveTitle(
-  pathname: string,
-  orgSlug: ReturnType<typeof readOrgParam>,
-): string {
-  // 크루 목록은 path 기반 /admin/crews/{org} — 항상 해당 조직 컨텍스트.
+function resolveTitle(pathname: string): string {
+  const direct = TITLES[pathname];
+  if (direct) return direct;
   const orgMatch = pathname.match(/^\/admin\/crews\/([^/]+)/);
-  if (orgMatch && isOrganizationSlug(orgMatch[1])) {
-    return `크루 활동 · 크루 관리 (${ORGANIZATION_LABEL[orgMatch[1]]})`;
+  if (orgMatch) {
+    const slug = orgMatch[1];
+    if (isOrganizationSlug(slug)) {
+      return `멤버 관리 · ${ORGANIZATION_LABEL[slug]}`;
+    }
   }
-  const base = TITLES[pathname] ?? "Admin";
-  if (orgSlug && base !== "Admin") {
-    return `${ORGANIZATION_LABEL[orgSlug]} · ${base}`;
-  }
-  return base;
+  return "Admin";
 }
 
 type HeaderProps = {
@@ -106,10 +75,12 @@ export default function Header({
   const router = useRouter();
   const searchParams = useSearchParams();
   const devMode = useAdminDevMode();
-  const title = resolveTitle(pathname, readOrgParam(searchParams));
+  const title = resolveTitle(pathname);
 
-  // 실무 정보 페이지: title 영역에 2탭 노출. 탭 href 는 현재 query(?org 등)를 보존하고 ?tab 만 바꾼다.
-  const isPracticalInfo = pathname === PRACTICAL_INFO_PATH;
+  // 라인 개설 2탭은 **조직 분기 모드(?org 있음)** 에서만 title 영역에 노출한다.
+  // 통합 검수 시스템(원본)에는 영향이 없어야 하므로 ?org 없는 경우는 기존 title 텍스트를 그대로 둔다.
+  const orgScoped = readOrgParam(searchParams) != null;
+  const isLineOpeningTabs = LINE_OPENING_TAB_PATHS.has(pathname) && orgScoped;
   const currentInfoTab: "manage" | "open" =
     searchParams?.get("tab") === "open" ? "open" : "manage";
   const infoTabHref = (key: "manage" | "open") => {
@@ -188,13 +159,13 @@ export default function Header({
     // px-4 sm:px-6 + 타이틀 flex-1: 좁은 폭(사이드바 펼침 + 모바일)에서도 우측 영역이 잘리지 않도록
     // 우측 세로 3행 배치 — 고정 h-14 대신 py 로 가변 높이
     <header className="flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-2 sm:gap-4 sm:px-6">
-      {isPracticalInfo ? (
+      {isLineOpeningTabs ? (
         // 헤더 title 텍스트 대신 라인 관리/라인 개설 2탭. (org 보존, ?tab 구동, 새로고침 유지)
         <nav
-          aria-label="실무 정보 탭"
+          aria-label="라인 개설 탭"
           className="flex min-w-0 flex-1 items-center gap-1"
         >
-          {PRACTICAL_INFO_TABS.map((t) => {
+          {LINE_OPENING_TABS.map((t) => {
             const active = currentInfoTab === t.key;
             return (
               <Link

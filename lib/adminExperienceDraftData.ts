@@ -13,6 +13,7 @@ import {
   outputImageUrls,
   outputImageCaptions as toOutputImageCaptions,
 } from "@/lib/cluster4OutputImages";
+import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
 
 // ── Row → DTO mapping ─────────────────────────────────────
 
@@ -151,7 +152,19 @@ export async function createExperienceDraft(
     throw new Error(error.message);
   }
 
-  return toDraftDto(data as unknown as ExperienceDraftRow);
+  const dto = toDraftDto(data as unknown as ExperienceDraftRow);
+  // 행동 이력: 신규 작성이 곧 제출(submitted)이면 [개설 신청] 로그(best-effort).
+  if (dto.inputStatus === "submitted") {
+    await insertExperienceOpeningLog({
+      action: "apply",
+      draftId: dto.id,
+      weekId: dto.weekId,
+      organizationSlug: dto.organizationSlug,
+      targetUserId: dto.targetUserId,
+      changedBy: adminId,
+    });
+  }
+  return dto;
 }
 
 // ── Update draft ───────────────────────────────────────────
@@ -253,7 +266,19 @@ export async function updateExperienceDraft(
     throw new Error(error.message);
   }
 
-  return toDraftDto(data as unknown as ExperienceDraftRow);
+  const dto = toDraftDto(data as unknown as ExperienceDraftRow);
+  // 행동 이력: 이 PATCH 가 제출(submitted)로 전이시킨 경우에만 [개설 신청] 로그(재신청도 행 추가).
+  if (input.inputStatus === "submitted") {
+    await insertExperienceOpeningLog({
+      action: "apply",
+      draftId: dto.id,
+      weekId: dto.weekId,
+      organizationSlug: dto.organizationSlug,
+      targetUserId: dto.targetUserId,
+      changedBy: adminId,
+    });
+  }
+  return dto;
 }
 
 async function getMergedDraftState(
@@ -320,7 +345,25 @@ export async function reviewExperienceDraft(
 
   if (error) throw new Error(error.message);
 
-  return toDraftDto(data as unknown as ExperienceDraftRow);
+  const dto = toDraftDto(data as unknown as ExperienceDraftRow);
+  // 행동 이력: 승인=[개설 검수], 반려=[검수 반려] (서로 다른 행동). best-effort.
+  const reviewAction =
+    input.reviewStatus === "approved"
+      ? "review"
+      : input.reviewStatus === "rejected"
+        ? "reject"
+        : null;
+  if (reviewAction) {
+    await insertExperienceOpeningLog({
+      action: reviewAction,
+      draftId: dto.id,
+      weekId: dto.weekId,
+      organizationSlug: dto.organizationSlug,
+      targetUserId: dto.targetUserId,
+      changedBy: adminId,
+    });
+  }
+  return dto;
 }
 
 // ── Open drafts (최종 개설) ────────────────────────────────
@@ -600,6 +643,21 @@ export async function openExperienceDrafts(
   // 개설로 라인/타깃/평가가 생성되어 대상자들의 주차 카드(가용 라인·평점)가 바뀐다 → 다건 stale 표시.
   // 구조 변경이며 대상자가 N명이므로 즉시 재계산이 아니라 markStaleMany(저렴) + cron 재생성. best-effort.
   await markWeeklyCardsSnapshotStaleMany(drafts.map((d) => d.target_user_id));
+
+  // 행동 이력: 개설된 draft 마다 [개설 완료] 로그(재완료 시 행 추가 = 덮어쓰기 금지). best-effort.
+  const draftById = new Map(drafts.map((d) => [d.id, d]));
+  for (const r of results) {
+    const d = draftById.get(r.draftId);
+    if (!d) continue;
+    await insertExperienceOpeningLog({
+      action: "open",
+      draftId: d.id,
+      weekId: d.week_id,
+      organizationSlug: d.organization_slug,
+      targetUserId: d.target_user_id,
+      changedBy: adminId,
+    });
+  }
 
   return {
     openedCount: results.length,
