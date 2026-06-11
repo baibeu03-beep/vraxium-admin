@@ -21,6 +21,20 @@ export function formatBannerPeriod(input: {
   return `${yy}년, ${input.seasonName}, ${input.weekNumber}주차`;
 }
 
+// "2026년 6월 29일(월)" — 주차 시작/종료일 풀 표기(요일 포함). 날짜는 plain YYYY-MM-DD 라
+// UTC 기준 요일을 계산해 TZ 시프트를 피한다. (라인 개설 주차 드롭다운 도움말 공통 포맷)
+export function formatFullDateKo(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  const dow = new Date(`${iso}T00:00:00Z`).getUTCDay();
+  return `${+m[1]}년 ${+m[2]}월 ${+m[3]}일(${DAY_NAMES[dow]})`;
+}
+
+// "2026년 6월 29일(월) ~ 2026년 7월 5일(일)" — week start/end 범위(요일 포함).
+export function formatFullDateRangeKo(startIso: string, endIso: string): string {
+  return `${formatFullDateKo(startIso)} ~ ${formatFullDateKo(endIso)}`;
+}
+
 // ── 로그창 표기 포맷 ───────────────────────────────────────────────────────
 
 // season_key suffix → 한글 시즌명. (lib/cluster4PeriodLabel 의 매핑과 동일 — 작은 안정 상수.)

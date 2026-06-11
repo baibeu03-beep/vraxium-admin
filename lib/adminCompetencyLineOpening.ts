@@ -73,7 +73,13 @@ async function resolveWeeks(): Promise<{
   };
 }
 
-type CompetencyLineRow = { id: string; isActive: boolean };
+type CompetencyLineRow = {
+  id: string;
+  isActive: boolean;
+  outputLink1: string | null;
+  outputLinks: unknown;
+  outputLink2: string | null;
+};
 
 // 대상 주차(targetWeekId)에 타깃이 걸린 part_type=competency 라인 중 lineOrg === org(그 조직 소유)만.
 // common(전 조직 공통)/판정불가는 제외 — 한 조직의 토글이 타 조직 고객 반영을 건드리지 않게 한다.
@@ -98,7 +104,7 @@ async function loadOrgCompetencyLines(
   const { data: lineRows, error: lineErr } = await supabaseAdmin
     .from("cluster4_lines")
     .select(
-      "id,part_type,line_code,experience_line_master_id,competency_line_master_id,is_active",
+      "id,part_type,line_code,experience_line_master_id,competency_line_master_id,is_active,output_link_1,output_link_2,output_links",
     )
     .eq("part_type", "competency")
     .in("id", lineIds);
@@ -112,11 +118,107 @@ async function loadOrgCompetencyLines(
     experience_line_master_id: string | null;
     competency_line_master_id: string | null;
     is_active: boolean;
+    output_link_1: string | null;
+    output_link_2: string | null;
+    output_links: unknown;
   }>) {
     const lineOrg = await resolveCluster4LineOrgScope(row);
-    if (lineOrg === org) out.push({ id: row.id, isActive: row.is_active });
+    if (lineOrg === org) {
+      out.push({
+        id: row.id,
+        isActive: row.is_active,
+        outputLink1: row.output_link_1,
+        outputLinks: row.output_links,
+        outputLink2: row.output_link_2,
+      });
+    }
   }
   return out;
+}
+
+// ── 주차 공통 아웃풋 저장(cluster4_competency_week_output) — best-effort ──
+// 폼 prefill 용 현재 적용값 + 개설 취소 원복용 라인별 직전 스냅샷. 테이블 미적용 시 graceful 무시.
+
+type WeekOutputRow = {
+  outputLink1: string | null;
+  description: string | null;
+  priorOutputs: Array<{
+    line_id: string;
+    output_link_1: string | null;
+    output_links: unknown;
+    output_link_2: string | null;
+  }>;
+  applied: boolean;
+};
+
+async function loadWeekOutput(
+  org: OrganizationSlug,
+  weekId: string,
+): Promise<WeekOutputRow | null> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from("cluster4_competency_week_output")
+      .select("output_link_1,output_description,prior_outputs,applied")
+      .eq("organization_slug", org)
+      .eq("week_id", weekId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    const d = data as {
+      output_link_1: string | null;
+      output_description: string | null;
+      prior_outputs: unknown;
+      applied: boolean;
+    };
+    return {
+      outputLink1: d.output_link_1,
+      description: d.output_description,
+      priorOutputs: Array.isArray(d.prior_outputs)
+        ? (d.prior_outputs as WeekOutputRow["priorOutputs"])
+        : [],
+      applied: Boolean(d.applied),
+    };
+  } catch (e) {
+    console.warn(
+      "[competency week-output] load skipped (table missing?):",
+      e instanceof Error ? e.message : e,
+    );
+    return null;
+  }
+}
+
+async function upsertWeekOutput(input: {
+  org: OrganizationSlug;
+  weekId: string;
+  outputLink1: string | null;
+  description: string | null;
+  priorOutputs: WeekOutputRow["priorOutputs"];
+  applied: boolean;
+  adminId: string | null;
+}): Promise<void> {
+  try {
+    const { error } = await supabaseAdmin
+      .from("cluster4_competency_week_output")
+      .upsert(
+        {
+          organization_slug: input.org,
+          week_id: input.weekId,
+          output_link_1: input.outputLink1,
+          output_description: input.description,
+          prior_outputs: input.priorOutputs,
+          applied: input.applied,
+          updated_by: input.adminId,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "organization_slug,week_id" },
+      );
+    if (error) throw error;
+  } catch (e) {
+    console.warn(
+      "[competency week-output] upsert skipped (table missing?):",
+      e instanceof Error ? e.message : e,
+    );
+  }
 }
 
 // 토글 대상 라인들의 영향 사용자(직접 타깃 ∪ org audience) — snapshot stale 표시 범위.
@@ -145,6 +247,9 @@ export type CompetencyOpeningStatus = {
   currentWeek: StatusWeek | null;
   targetWeek: StatusWeek | null;
   opened: boolean;
+  // 폼 prefill — 현재 적용된 주차 공통 아웃풋(링크/설명). 미적용/미저장 시 빈 문자열.
+  outputLink1: string;
+  outputDescription: string;
 };
 
 // 상태창용 — 대상 주차에 활성(그 조직 소유) 역량 라인이 ≥1 이면 opened.
@@ -153,11 +258,18 @@ export async function getCompetencyOpeningStatus(
 ): Promise<CompetencyOpeningStatus> {
   const { currentWeek, targetWeek, targetWeekId } = await resolveWeeks();
   let opened = false;
+  let outputLink1 = "";
+  let outputDescription = "";
   if (org && targetWeekId) {
     const lines = await loadOrgCompetencyLines(org, targetWeekId);
     opened = lines.some((l) => l.isActive);
+    const wo = await loadWeekOutput(org, targetWeekId);
+    if (wo) {
+      outputLink1 = wo.outputLink1 ?? "";
+      outputDescription = wo.description ?? "";
+    }
   }
-  return { currentWeek, targetWeek, opened };
+  return { currentWeek, targetWeek, opened, outputLink1, outputDescription };
 }
 
 export type CompetencyOpeningActionResult = {
@@ -166,24 +278,98 @@ export type CompetencyOpeningActionResult = {
   linesTotal: number;
 };
 
-// ── [개설 완료] 허브 전체 역량 라인 is_active=true + markStale + 로그 ──
+// ── [개설 완료] 허브 전체 역량 라인 is_active=true + 주차 공통 아웃풋(링크/설명) 반영 + markStale + 로그 ──
+//   outputLink1 이 비어 있으면 라인 아웃풋은 건드리지 않고 활성화만 한다(설명만 있으면 무시).
 export async function openCompetencyHub(input: {
   organization: OrganizationSlug;
+  outputLink1?: string | null;
+  description?: string | null;
   adminId: string | null;
 }): Promise<CompetencyOpeningActionResult> {
   const { targetWeekId } = await resolveWeeks();
   if (!targetWeekId) {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });
   }
-  return toggleCompetencyHub({
-    organization: input.organization,
-    targetWeekId,
-    activate: true,
-    adminId: input.adminId,
+  const org = input.organization;
+  const link = (input.outputLink1 ?? "").trim() || null;
+  const desc = (input.description ?? "").trim() || null;
+
+  const lines = await loadOrgCompetencyLines(org, targetWeekId);
+  const lineIds = lines.map((l) => l.id);
+
+  // 1) is_active=true (전체 — 멱등).
+  if (lineIds.length > 0) {
+    const { error } = await supabaseAdmin
+      .from("cluster4_lines")
+      .update({ is_active: true, updated_by: input.adminId })
+      .in("id", lineIds);
+    if (error) throw Object.assign(new Error(error.message), { status: 500 });
+  }
+
+  // 2) 링크가 있으면 주차 공통 아웃풋을 모든 라인칸에 반영(output_link_1 + output_links[0]).
+  //    덮어쓰기 전 직전값을 prior 로 스냅샷(개설 취소 원복용 — 최초 적용 시점만 캡처).
+  if (link && lineIds.length > 0) {
+    const existing = await loadWeekOutput(org, targetWeekId);
+    const priorOutputs =
+      existing?.applied && existing.priorOutputs.length > 0
+        ? existing.priorOutputs
+        : lines.map((l) => ({
+            line_id: l.id,
+            output_link_1: l.outputLink1,
+            output_links: l.outputLinks,
+            output_link_2: l.outputLink2,
+          }));
+
+    const { error: outErr } = await supabaseAdmin
+      .from("cluster4_lines")
+      .update({
+        output_link_1: link,
+        output_link_2: null,
+        output_links: [{ url: link, label: desc ?? "" }],
+        updated_by: input.adminId,
+      })
+      .in("id", lineIds);
+    if (outErr) throw Object.assign(new Error(outErr.message), { status: 500 });
+
+    await upsertWeekOutput({
+      org,
+      weekId: targetWeekId,
+      outputLink1: link,
+      description: desc,
+      priorOutputs,
+      applied: true,
+      adminId: input.adminId,
+    });
+  } else {
+    // 링크 미입력 — 라인 아웃풋 무변경. 적용값만 기록(있다면)해 prefill 유지.
+    await upsertWeekOutput({
+      org,
+      weekId: targetWeekId,
+      outputLink1: null,
+      description: desc,
+      priorOutputs: (await loadWeekOutput(org, targetWeekId))?.priorOutputs ?? [],
+      applied: true,
+      adminId: input.adminId,
+    });
+  }
+
+  if (lineIds.length > 0) {
+    const affected = await collectAffectedUsers(lineIds);
+    if (affected.length > 0) await markWeeklyCardsSnapshotStaleMany(affected);
+  }
+
+  await insertCompetencyOpeningLog({
+    action: "open",
+    weekId: targetWeekId,
+    organizationSlug: org,
+    changedBy: input.adminId,
   });
+
+  return { status: "opened", linesChanged: lineIds.length, linesTotal: lines.length };
 }
 
-// ── [개설 취소] 허브 전체 역량 라인 is_active=false + markStale + 로그 ──
+// ── [개설 취소] 허브 전체 역량 라인 is_active=false + 아웃풋 원복 + markStale + 로그 ──
+//   prior 스냅샷이 있으면 라인별 직전 아웃풋으로 복원, 없으면 적용했던 공통 아웃풋을 제거(원복).
 export async function cancelCompetencyHub(input: {
   organization: OrganizationSlug;
   adminId: string | null;
@@ -192,50 +378,72 @@ export async function cancelCompetencyHub(input: {
   if (!targetWeekId) {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });
   }
-  return toggleCompetencyHub({
-    organization: input.organization,
-    targetWeekId,
-    activate: false,
-    adminId: input.adminId,
-  });
-}
+  const org = input.organization;
+  const lines = await loadOrgCompetencyLines(org, targetWeekId);
+  const lineIds = lines.map((l) => l.id);
 
-async function toggleCompetencyHub(input: {
-  organization: OrganizationSlug;
-  targetWeekId: string;
-  activate: boolean;
-  adminId: string | null;
-}): Promise<CompetencyOpeningActionResult> {
-  const lines = await loadOrgCompetencyLines(input.organization, input.targetWeekId);
-  // 실제 변경 대상 = 현재 상태와 다른 라인만(불필요한 write·stale 방지).
-  const toChange = lines.filter((l) => l.isActive !== input.activate).map((l) => l.id);
-
-  if (toChange.length > 0) {
+  // 1) is_active=false (전체).
+  if (lineIds.length > 0) {
     const { error } = await supabaseAdmin
       .from("cluster4_lines")
-      .update({ is_active: input.activate, updated_by: input.adminId })
-      .in("id", toChange);
-    if (error) {
-      throw Object.assign(new Error(error.message), { status: 500 });
-    }
-
-    const affected = await collectAffectedUsers(toChange);
-    if (affected.length > 0) {
-      await markWeeklyCardsSnapshotStaleMany(affected);
-    }
+      .update({ is_active: false, updated_by: input.adminId })
+      .in("id", lineIds);
+    if (error) throw Object.assign(new Error(error.message), { status: 500 });
   }
 
-  // 로그는 행동 이력 — 변경 0건이어도 실행 사실을 남긴다(append-only).
+  // 2) 아웃풋 원복 — prior 스냅샷이 있으면 라인별 복원, 없으면 적용 라인의 공통 아웃풋 제거.
+  const existing = await loadWeekOutput(org, targetWeekId);
+  const priorById = new Map(
+    (existing?.priorOutputs ?? []).map((p) => [p.line_id, p]),
+  );
+  if (priorById.size > 0) {
+    for (const l of lines) {
+      const prior = priorById.get(l.id);
+      if (!prior) continue;
+      const { error } = await supabaseAdmin
+        .from("cluster4_lines")
+        .update({
+          output_link_1: prior.output_link_1,
+          output_link_2: prior.output_link_2,
+          output_links: prior.output_links ?? [],
+          updated_by: input.adminId,
+        })
+        .eq("id", l.id);
+      if (error) {
+        console.warn("[competency cancel] output restore failed:", l.id, error.message);
+      }
+    }
+  } else if (existing?.outputLink1 && lineIds.length > 0) {
+    // prior 없음(테이블 미적용 등) — 적용했던 공통 링크만 제거(원복).
+    await supabaseAdmin
+      .from("cluster4_lines")
+      .update({ output_link_1: null, output_links: [], updated_by: input.adminId })
+      .in("id", lineIds)
+      .eq("output_link_1", existing.outputLink1);
+  }
+
+  // 3) 적용 상태/적용값/스냅샷 비우기(원복 완료).
+  await upsertWeekOutput({
+    org,
+    weekId: targetWeekId,
+    outputLink1: null,
+    description: null,
+    priorOutputs: [],
+    applied: false,
+    adminId: input.adminId,
+  });
+
+  if (lineIds.length > 0) {
+    const affected = await collectAffectedUsers(lineIds);
+    if (affected.length > 0) await markWeeklyCardsSnapshotStaleMany(affected);
+  }
+
   await insertCompetencyOpeningLog({
-    action: input.activate ? "open" : "cancel",
-    weekId: input.targetWeekId,
-    organizationSlug: input.organization,
+    action: "cancel",
+    weekId: targetWeekId,
+    organizationSlug: org,
     changedBy: input.adminId,
   });
 
-  return {
-    status: input.activate ? "opened" : "closed",
-    linesChanged: toChange.length,
-    linesTotal: lines.length,
-  };
+  return { status: "closed", linesChanged: lineIds.length, linesTotal: lines.length };
 }

@@ -11,12 +11,14 @@ import {
 } from "@/lib/adminCompetencyLineOpening";
 
 // 실무 역량 [라인 개설] — 허브 전체 개설 완료/취소.
-//   POST { action: 'open'|'cancel', organization }
+//   POST { action: 'open'|'cancel', organization, output_link_1?, output_description? }
 //
-//   open   = 대상 주차 + org + part_type=competency 라인 is_active=true + snapshot markStale
-//   cancel = 동일 조건 라인 is_active=false + snapshot markStale
+//   open   = 대상 주차 + org + part_type=competency 라인 is_active=true
+//            + (링크 입력 시) 주차 공통 아웃풋(output_link_1/output_links[0])을 모든 라인칸에 반영
+//            + snapshot markStale
+//   cancel = 동일 조건 라인 is_active=false + 아웃풋 원복(직전값 복원) + snapshot markStale
 //
-// 기존 라인 생성 흐름(competency-lines POST)·snapshot 생성/조회 로직 무변경. 토글만 수행한다.
+// 기존 라인 생성 흐름(competency-lines POST)·snapshot 생성/조회 로직 무변경.
 
 export async function POST(request: NextRequest) {
   let admin;
@@ -52,10 +54,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const outputLink1 =
+    typeof b.output_link_1 === "string" ? b.output_link_1 : null;
+  const outputDescription =
+    typeof b.output_description === "string" ? b.output_description : null;
+
   try {
     const data =
       action === "open"
-        ? await openCompetencyHub({ organization: orgRaw, adminId: admin.userId })
+        ? await openCompetencyHub({
+            organization: orgRaw,
+            outputLink1,
+            description: outputDescription,
+            adminId: admin.userId,
+          })
         : await cancelCompetencyHub({ organization: orgRaw, adminId: admin.userId });
     return Response.json({ success: true, data }, { status: 201 });
   } catch (error) {
