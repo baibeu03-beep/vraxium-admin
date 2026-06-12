@@ -13,6 +13,10 @@
 // (저렴) + 기존 lazy recompute 경로에 위임 — 생성/조회 로직 변경 없음.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  assertCrewIdsInScope,
+  isUserInTeamScope,
+} from "@/lib/cluster4ExperienceTestScope";
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
@@ -84,7 +88,8 @@ async function loadTeamMembersWithLeaders(
     .in("user_id", userIds);
   if (memError) throw new Error(memError.message);
 
-  // 테스트 사용자 제외(운영 목록에 테스트 데이터가 섞이지 않도록).
+  // 테스트 스코프 필터(운영 팀=테스트 계정 제외 / 테스트 팀=테스트 계정만).
+  // (org, teamName) 기준 단일 SoT: lib/cluster4ExperienceTestScope.
   const { data: markers } = await supabaseAdmin
     .from("test_user_markers")
     .select("user_id");
@@ -108,7 +113,8 @@ async function loadTeamMembersWithLeaders(
 
   const rows: OverallMemberRow[] = [];
   for (const p of profs) {
-    if (testSet.has(p.user_id)) continue;
+    // 스코프 필터: 운영 팀=테스트 계정 제외 / 테스트 팀=테스트 계정만(실사용자 제외).
+    if (!isUserInTeamScope(organization, teamName, p.user_id, testSet)) continue;
     const m = memMap.get(p.user_id);
     if (!m || m.team_name !== teamName) continue;
     if (m.membership_state === "rest") continue; // 휴식 제외(active 만).
@@ -664,6 +670,16 @@ export async function openTeamOverall(input: {
       }
     }
   }
+
+  // 안전장치 — cluster4_line_targets 생성 직전, 전 카테고리 대상 userId 전원이
+  // (org, 팀) 테스트 스코프에 부합하는지 검증. 테스트 팀에 실사용자가 하나라도 섞이면
+  // (또는 운영 팀에 테스트 계정이 섞이면) 고객 반영(라인/타깃/평가) write 전에 중단한다.
+  // board.crews 는 이미 스코프 필터를 거치므로 정상 경로에선 통과하나, 입력/머지 변조에
+  // 대한 방어선(defense-in-depth)으로 독립 검증한다.
+  const allTargetUserIds = Array.from(crewsByCat.values()).flatMap((list) =>
+    list.map((t) => t.userId),
+  );
+  await assertCrewIdsInScope(input.organization, input.teamName, allTargetUserIds);
 
   const warnings: string[] = [];
   const createdLineIds: string[] = [];

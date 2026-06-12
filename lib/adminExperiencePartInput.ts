@@ -9,6 +9,11 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import {
+  assertCrewIdsInScope,
+  isUserInTeamScope,
+  resolveTeamName,
+} from "@/lib/cluster4ExperienceTestScope";
+import {
   EXPERIENCE_PART_LINE_KEYS,
   type ExperiencePartLineType,
   type PartInputCellDto,
@@ -70,7 +75,8 @@ async function loadTeamCrewRows(
     .in("user_id", userIds);
   if (memError) throw new Error(memError.message);
 
-  // 테스트 사용자 제외 — 운영 파트/크루 목록에 테스트 데이터(임의 팀/파트 배정)가 섞이지 않도록.
+  // 테스트 스코프 필터 — 운영 팀은 테스트 계정 제외, 테스트 팀(과일(T) 등)은 테스트 계정만.
+  // (org, teamName) 기준 단일 SoT: lib/cluster4ExperienceTestScope.
   const { data: markers } = await supabaseAdmin
     .from("test_user_markers")
     .select("user_id");
@@ -94,7 +100,8 @@ async function loadTeamCrewRows(
 
   const rows: TeamCrewRow[] = [];
   for (const p of profs) {
-    if (testSet.has(p.user_id)) continue; // 테스트 사용자 제외
+    // 스코프 필터: 운영 팀=테스트 계정 제외 / 테스트 팀=테스트 계정만(실사용자 제외).
+    if (!isUserInTeamScope(organization, teamName, p.user_id, testSet)) continue;
     const m = memMap.get(p.user_id);
     if (!m || m.team_name !== teamName) continue;
     // 휴식 크루는 평가 대상에서 제외(active 만).
@@ -302,6 +309,21 @@ export async function savePartSubmission(input: {
   submittedBy: string | null;
   cells: PartInputCellDto[];
 }): Promise<{ submitted: true }> {
+  // 0. 안전장치 — 셀의 crew userId 가 (org, 팀) 테스트 스코프에 전원 부합하는지 검증.
+  //    테스트 팀에 실사용자 / 운영 팀에 테스트 계정이 하나라도 섞이면 헤더 upsert 전에 중단.
+  //    teamName 은 teamId(cluster4_teams) 에서 해석. 해석 실패 시 fail-closed.
+  const cellUserIds = input.cells.map((c) => c.crewUserId).filter(Boolean);
+  if (cellUserIds.length > 0) {
+    const teamName = await resolveTeamName(input.teamId);
+    if (!teamName) {
+      throw Object.assign(
+        new Error("팀 정보를 확인할 수 없어 저장을 중단했습니다(team_id 미해석)."),
+        { status: 422 },
+      );
+    }
+    await assertCrewIdsInScope(input.organization, teamName, cellUserIds);
+  }
+
   // 1. 헤더 upsert(파트당 1행/주차) → id.
   const { data: header, error: headerError } = await supabaseAdmin
     .from("cluster4_experience_part_submissions")

@@ -189,13 +189,15 @@ export async function POST(request: NextRequest) {
     });
     return Response.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
+    // 안전장치(테스트 스코프 위반 등)는 error.status(422 등) 를 그대로 응답.
+    const status = (error as { status?: number }).status ?? 500;
     console.error("[admin/cluster4/experience/part-input POST]", error);
     return Response.json(
       {
         success: false,
         error: error instanceof Error ? error.message : "신청 저장에 실패했습니다",
       },
-      { status: 500 },
+      { status },
     );
   }
 }
