@@ -7,6 +7,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   PROCESS_HUB_LABEL,
   PROCESS_LINE_GROUP_MAX,
+  computeProcessActSummary,
   isProcessHub,
   isProcessWeekRef,
   type ProcessActCreateInput,
@@ -15,6 +16,7 @@ import {
   type ProcessCheckTarget,
   type ProcessActType,
   type ProcessHub,
+  type ProcessInfoResult,
   type ProcessLineGroupCreateInput,
   type ProcessLineGroupDto,
   type ProcessWeekRef,
@@ -315,4 +317,28 @@ export async function createProcessAct(
     throw migrationHint(error) ?? new ProcessMasterError(500, error?.message ?? "Failed to create act");
   }
   return actToDto(data as unknown as ActRow, (group as { name: string }).name);
+}
+
+export async function deleteProcessAct(id: string): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from("process_acts")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) {
+    throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
+  }
+  if (!data || data.length === 0) {
+    throw new ProcessMasterError(404, "act not found");
+  }
+}
+
+// ── 프로세스 정보(/admin/processes/info) — 허브별 액트 목록 + 요약 ──────────
+export async function getProcessInfo(hub: ProcessHub): Promise<ProcessInfoResult> {
+  const [acts, groups] = await Promise.all([
+    listProcessActs(hub),
+    listProcessLineGroups(hub),
+  ]);
+  const summary = computeProcessActSummary(acts, groups.length);
+  return { hub, hubLabel: PROCESS_HUB_LABEL[hub], acts, summary };
 }

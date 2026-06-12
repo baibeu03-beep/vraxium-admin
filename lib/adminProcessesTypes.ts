@@ -136,6 +136,78 @@ export type ProcessLineGroupDto = {
   updatedAt: string;
 };
 
+// ── 발생/체크 시점 표시 포맷 ("N주 월 06:30") ──────────────────────────────
+export function formatProcessWhen(
+  week: ProcessWeekRef,
+  dow: number,
+  time: string,
+): string {
+  const d = dow >= 0 && dow <= 6 ? PROCESS_DOW_LABELS[dow] : "?";
+  return `${PROCESS_WEEK_REF_LABEL[week]}주 ${d} ${time}`;
+}
+
+// ── 프로세스 정보(/admin/processes/info) 요약 ──────────────────────────────
+export type ProcessPointTriplet = { check: number; advantage: number; penalty: number };
+
+export type ProcessActSummary = {
+  actCount: number;            // 산하 액트 수 (basic 포함 전체)
+  lineGroupCount: number;      // 산하 라인급 수
+  totalDurationMinutes: number; // 총합 소요 시간 (전체 액트)
+  // 누적 계층: 필수 ⊂ 우수(=필수+자율) ⊂ 최대(=필수+자율+선발). 기본(basic)은 어느 합계에도 미포함.
+  required: ProcessPointTriplet;
+  excellent: ProcessPointTriplet;
+  max: ProcessPointTriplet;
+};
+
+export type ProcessInfoResult = {
+  hub: ProcessHub;
+  hubLabel: string;
+  acts: ProcessActDto[];
+  summary: ProcessActSummary;
+};
+
+function emptyTriplet(): ProcessPointTriplet {
+  return { check: 0, advantage: 0, penalty: 0 };
+}
+
+// 액트 목록 → 요약 (순수 계산 — 서버/클라 공용, direct==HTTP SoT).
+export function computeProcessActSummary(
+  acts: readonly Pick<
+    ProcessActDto,
+    "actType" | "durationMinutes" | "pointCheck" | "pointAdvantage" | "pointPenalty"
+  >[],
+  lineGroupCount: number,
+): ProcessActSummary {
+  const required = emptyTriplet();
+  const excellent = emptyTriplet();
+  const max = emptyTriplet();
+  let totalDuration = 0;
+  const add = (t: ProcessPointTriplet, a: { pointCheck: number; pointAdvantage: number; pointPenalty: number }) => {
+    t.check += a.pointCheck;
+    t.advantage += a.pointAdvantage;
+    t.penalty += a.pointPenalty;
+  };
+  for (const a of acts) {
+    totalDuration += a.durationMinutes;
+    if (a.actType === "required") {
+      add(required, a); add(excellent, a); add(max, a);
+    } else if (a.actType === "optional") {
+      add(excellent, a); add(max, a);
+    } else if (a.actType === "selection") {
+      add(max, a);
+    }
+    // basic → 포인트 합계 제외 (소요시간·액트수에는 포함)
+  }
+  return {
+    actCount: acts.length,
+    lineGroupCount,
+    totalDurationMinutes: totalDuration,
+    required,
+    excellent,
+    max,
+  };
+}
+
 export type ProcessActDto = {
   id: string;
   lineGroupId: string;
