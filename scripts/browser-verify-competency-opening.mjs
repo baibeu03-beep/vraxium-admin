@@ -117,13 +117,17 @@ try {
   for (const org of ORGS) {
     // [라인 관리] — 기존 실무 역량 화면 공존(내부 탭 + 제목).
     await page.goto(`${BASE}/admin/line-opening/practical-competency?org=${org}`, { waitUntil: "domcontentloaded" });
-    // 매니저 로딩(텍스트 없는 스피너) 종료 = 내부 탭 라벨이 나타날 때까지 대기.
-    await page.waitForFunction("document.body.innerText.includes('카페 링크 집계')", undefined, { timeout: 30000 }).catch(() => {});
+    // 보드 로딩(크루별 결과표 + 집계 카드) 완료까지 대기. (2026-06-12: 레거시 3섹션 숨김으로 마커 변경)
+    await page.waitForFunction("document.body.innerText.includes('크루별 라인 개설 결과') && document.body.innerText.includes('활동 크루')", undefined, { timeout: 30000 }).catch(() => {});
     const manageBody = await page.evaluate("document.body.innerText");
     check(`[${org}/manage] 헤더 2탭(라인 관리/라인 개설)`,
       manageBody.includes("라인 관리") && manageBody.includes("라인 개설"));
-    check(`[${org}/manage] 기존 화면 공존(라인 등록/카페 링크 집계)`,
-      manageBody.includes("라인 등록") && manageBody.includes("카페 링크 집계"));
+    // 2026-06-12: 레거시 3섹션(라인 등록/라인 개설/카페 링크 집계) 숨김 + 보드(주차/집계/결과표) 유지.
+    check(`[${org}/manage] 레거시 3섹션 숨김 + 보드(집계/결과표) 표시`,
+      !manageBody.includes("카페 댓글 닉네임 수집") &&
+      !manageBody.includes("라인 개설 대상 주차") &&
+      manageBody.includes("크루별 라인 개설 결과") &&
+      manageBody.includes("활동 크루"));
 
     // [라인 개설] — 대시보드(상태창/로그창/개설완료/취소).
     await page.goto(`${BASE}/admin/line-opening/practical-competency?org=${org}&tab=open`, { waitUntil: "domcontentloaded" });
@@ -163,6 +167,14 @@ try {
     check(`[${org}/open] 버튼 영역이 개설 주차 행 위`, btnRow.aboveWeekRow);
 
     // 개설 주차 — 커스텀 드롭다운. 선택값=메인 표기("NN년, ○○ 시즌, N주차")만.
+    // (2026-06-12: manager loading 즉시 렌더로 상태 fetch 전 캡처 방지 — 주차 버튼 populate 대기)
+    await page
+      .waitForFunction(
+        () => /\d{2}년,\s*.+시즌,\s*\d+주차/.test(document.querySelector('button[aria-label="개설 주차"]')?.textContent ?? ""),
+        undefined,
+        { timeout: 15000 },
+      )
+      .catch(() => {});
     const weekBtnText = await page.evaluate(
       () => document.querySelector('button[aria-label="개설 주차"]')?.textContent?.trim() ?? "",
     );

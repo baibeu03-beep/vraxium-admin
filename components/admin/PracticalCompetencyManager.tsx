@@ -29,6 +29,11 @@ const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "common", label: ORGANIZATION_COMMON_LABEL },
 ];
 
+// [라인 관리] 탭 레거시 3섹션(라인 등록·라인 개설·카페 링크 집계) 표시 토글.
+//   이번 phase: false — UI 렌더·관련 데이터 호출(fetchInitialData) 전부 중단(코드는 보존).
+//   향후 재사용 시 true 로만 바꾸면 원복(주차 드롭다운/집계 카드/크루별 결과표는 토글 무관·항상 유지).
+const SHOW_LEGACY_SECTIONS: boolean = false;
+
 function formatOrgLabel(slug: string | null | undefined): string {
   if (!slug) return "-";
   if (slug === "common") return ORGANIZATION_COMMON_LABEL;
@@ -199,7 +204,8 @@ export default function PracticalCompetencyManager() {
   const [existingLines, setExistingLines] = useState<ExistingLineDto[]>([]);
   const [lineRefreshKey, setLineRefreshKey] = useState(0);
   const [crews, setCrews] = useState<CrewItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  // 레거시 섹션 숨김 시 manager 레벨 초기 로딩 불필요(보드는 자체 로딩) → 즉시 렌더.
+  const [loading, setLoading] = useState(SHOW_LEGACY_SECTIONS);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 
@@ -312,7 +318,8 @@ export default function PracticalCompetencyManager() {
     } catch { setBanner({ kind: "error", message: "데이터를 불러오는데 실패했습니다" }); } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchInitialData(); }, [fetchInitialData]);
+  // 레거시 3섹션 전용 초기 데이터(admin-org·teams·masters·lines·crews 등) — 숨김 phase 에선 호출 중단.
+  useEffect(() => { if (SHOW_LEGACY_SECTIONS) fetchInitialData(); }, [fetchInitialData]);
 
   const refetchCrews = useCallback(async () => {
     if (!adminOrg) return;
@@ -321,7 +328,7 @@ export default function PracticalCompetencyManager() {
     try { const res = await fetch(`/api/admin/cluster4/crews?${params}`); const json = await res.json(); if (json.success) setCrews(json.data); } catch { /* silent */ }
   }, [adminOrg, crewFilterStatus]);
 
-  useEffect(() => { if (!loading) refetchCrews(); }, [crewFilterStatus]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (SHOW_LEGACY_SECTIONS && !loading) refetchCrews(); }, [crewFilterStatus]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Master form
   const resetMasterForm = useCallback(() => { setMfOrgSlug(""); setMfLineCode(""); setMfLineName(""); setMfMainTitle(""); setMfSourceFile(""); setEditingMasterId(null); setMasterFormOpen(false); }, []);
@@ -461,14 +468,17 @@ export default function PracticalCompetencyManager() {
           조직 분기 모드(?org)에서만. 집계는 라인 개설 탭과 동일 DTO(주차만 선택). 아래 기존 화면은 무수정. */}
       {orgScoped && <CompetencyLineManageBoard />}
 
+      {/* 레거시 내부 탭바(라인 등록/라인 개설/카페 링크 집계) — 이번 phase 숨김(코드 보존). */}
+      {SHOW_LEGACY_SECTIONS && (
       <div className="flex gap-1 border-b">
         <TabButton label="라인 등록" active={activeTab === "masters"} onClick={() => setActiveTab("masters")} />
         <TabButton label="라인 개설" active={activeTab === "opening"} onClick={() => setActiveTab("opening")} />
         <TabButton label="카페 링크 집계" active={activeTab === "cafe"} onClick={() => setActiveTab("cafe")} />
       </div>
+      )}
 
       {/* ══ 라인 개설 ══ */}
-      {activeTab === "opening" && (
+      {SHOW_LEGACY_SECTIONS && activeTab === "opening" && (
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-3">
@@ -601,7 +611,7 @@ export default function PracticalCompetencyManager() {
       )}
 
       {/* ══ 라인 등록 ══ */}
-      {activeTab === "masters" && (
+      {SHOW_LEGACY_SECTIONS && activeTab === "masters" && (
         <div className="space-y-4">
           {/* 2E-2 drift 가드 안내 — 신규 생성/삭제는 API 에서 차단되며 통합 등록 경로로 유도된다. */}
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
@@ -677,7 +687,7 @@ export default function PracticalCompetencyManager() {
       )}
 
       {/* ══ 카페 링크 집계 — Phase 1: 댓글 작성자 닉네임 수집 (포인트/매칭/snapshot 미관여) ══ */}
-      {activeTab === "cafe" && (
+      {SHOW_LEGACY_SECTIONS && activeTab === "cafe" && (
         <div className="space-y-4">
           <Card>
             <CardHeader className="pb-3">

@@ -15,6 +15,7 @@ import {
 import {
   addManualCompetencyApplication,
   getCompetencyApplicationSummary,
+  getCompetencyLineResults,
   listCompetencyApplications,
 } from "@/lib/adminCompetencyApplications";
 
@@ -70,15 +71,17 @@ export async function GET(request: NextRequest) {
             appliedLines: 0,
             openedLines: 0,
           },
+          results: [],
           weekId,
         },
       });
     }
-    const [applications, summary] = await Promise.all([
+    const [applications, summary, results] = await Promise.all([
       listCompetencyApplications(org, weekId),
       getCompetencyApplicationSummary(org, weekId),
+      getCompetencyLineResults(org, weekId),
     ]);
-    return Response.json({ success: true, data: { applications, summary, weekId } });
+    return Response.json({ success: true, data: { applications, summary, results, weekId } });
   } catch (error) {
     console.error("[admin/cluster4/competency/applications GET]", error);
     return Response.json(

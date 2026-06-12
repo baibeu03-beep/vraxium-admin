@@ -46,6 +46,34 @@ const EMPTY: Summary = {
   openedLines: 0,
 };
 
+// 크루별 라인 개설 결과 행 (competency/applications DTO 의 results).
+type CrewResult = {
+  userId: string;
+  crewNo: number | null;
+  displayName: string;
+  teamName: string | null;
+  schoolName: string | null;
+  progressLine: string | null;
+  result: "success" | "fail";
+  appliedAt: string | null;
+  applied: boolean;
+};
+
+// 신청 시간 표기 — KST 기준 "26.07.06(월), 21:52". 미신청('-').
+function formatAppliedAt(iso: string | null): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  const kst = new Date(d.getTime() + 9 * 3600 * 1000); // UTC+9 시프트 후 getUTC* 로 KST 성분 추출
+  const yy = String(kst.getUTCFullYear()).slice(2);
+  const mm = String(kst.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(kst.getUTCDate()).padStart(2, "0");
+  const dow = "일월화수목금토"[kst.getUTCDay()];
+  const hh = String(kst.getUTCHours()).padStart(2, "0");
+  const mi = String(kst.getUTCMinutes()).padStart(2, "0");
+  return `${yy}.${mm}.${dd}(${dow}), ${hh}:${mi}`;
+}
+
 function StatCard({
   label,
   value,
@@ -83,6 +111,7 @@ export default function CompetencyLineManageBoard({
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
   const [weeksReady, setWeeksReady] = useState(false);
   const [summary, setSummary] = useState<Summary>(EMPTY);
+  const [results, setResults] = useState<CrewResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -141,8 +170,12 @@ export default function CompetencyLineManageBoard({
         const json = await res.json();
         if (cancelled) return;
         setSummary(json?.success ? (json.data?.summary ?? EMPTY) : EMPTY);
+        setResults(json?.success ? ((json.data?.results ?? []) as CrewResult[]) : []);
       } catch {
-        if (!cancelled) setSummary(EMPTY);
+        if (!cancelled) {
+          setSummary(EMPTY);
+          setResults([]);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -230,6 +263,77 @@ export default function CompetencyLineManageBoard({
             </>
           )}
         </div>
+      </div>
+
+      {/* 선택 주차의 [실무 역량] 크루별 라인 개설 결과 표 (집계 카드와 동일 DTO 의 results) */}
+      <div className="rounded-lg border">
+        <div className="border-b bg-muted/30 px-4 py-2 text-sm font-semibold">
+          크루별 라인 개설 결과
+          {selectedWeek
+            ? ` — ${formatBannerPeriod({
+                year: selectedWeek.year,
+                seasonName: selectedWeek.seasonName,
+                weekNumber: selectedWeek.weekNumber,
+              })}`
+            : ""}
+        </div>
+        {loading ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+            <Loader2 className="mr-1.5 inline h-3.5 w-3.5 animate-spin" /> 불러오는 중…
+          </p>
+        ) : results.length === 0 ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
+            해당 주차의 활동 대상 크루가 없습니다.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs text-muted-foreground">
+                  <th className="px-3 py-2 font-medium">크루 번호</th>
+                  <th className="px-3 py-2 font-medium">크루명</th>
+                  <th className="px-3 py-2 font-medium">소속 팀</th>
+                  <th className="px-3 py-2 font-medium">학교</th>
+                  <th className="px-3 py-2 font-medium">진행 라인</th>
+                  <th className="px-3 py-2 font-medium">라인 결과</th>
+                  <th className="px-3 py-2 font-medium">신청 시간</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r) => (
+                  <tr key={r.userId} className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-muted-foreground">
+                      {r.crewNo != null ? String(r.crewNo).padStart(4, "0") : "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 font-medium">{r.displayName}</td>
+                    <td className="whitespace-nowrap px-3 py-2">{r.teamName ?? "-"}</td>
+                    <td className="whitespace-nowrap px-3 py-2">{r.schoolName ?? "-"}</td>
+                    <td className="px-3 py-2">
+                      {r.progressLine ?? (
+                        <span className="text-muted-foreground">미신청</span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2">
+                      <span
+                        className={cn(
+                          "inline-block rounded-full px-2 py-0.5 text-xs font-medium",
+                          r.result === "success"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700",
+                        )}
+                      >
+                        {r.result === "success" ? "강화 성공" : "강화 실패"}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 tabular-nums text-muted-foreground">
+                      {formatAppliedAt(r.appliedAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

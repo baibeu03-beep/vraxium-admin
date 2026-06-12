@@ -213,6 +213,86 @@ export async function getCompetencyApplicationSummary(
   };
 }
 
+// ── [라인 관리] 크루별 라인 개설 결과 표 ─────────────────────────────────────
+// 집계 카드와 동일 source(loadApplicationRows + listCrewsForTargetSelection + test 제외 + loadCrewRecords).
+// 활동 대상 크루 전원(미신청 포함)을 행으로 만든다.
+//   라인 결과 정책: 승인(opened)·강화 대기(pending) = 강화 성공 / 반려(rejected)·미신청 = 강화 실패.
+//   ⚠ 집계 카드의 enhanceSuccess(=opened 만)와 달리, 이 표는 강화 대기(pending)도 강화 성공으로 표시한다
+//     (운영 화면 정책 — 신청·승인 진행 중 크루를 성공으로 미리 노출). 분모/source 는 동일.
+export type CompetencyLineResultDto = {
+  userId: string;
+  crewNo: number | null;
+  displayName: string;
+  teamName: string | null;
+  schoolName: string | null;
+  // 신청·개설 대상 라인명. 미신청이면 null.
+  progressLine: string | null;
+  result: "success" | "fail"; // 강화 성공 / 강화 실패
+  appliedAt: string | null; // 신청 시간(고객 신청 또는 수동 추가 시각). 미신청이면 null.
+  applied: boolean; // 신청 데이터 보유(정렬: 신청 크루 먼저)
+};
+
+export async function getCompetencyLineResults(
+  org: OrganizationSlug,
+  weekId: string,
+): Promise<CompetencyLineResultDto[]> {
+  const [rows, activeList, testSet, records] = await Promise.all([
+    loadApplicationRows(org, weekId),
+    listCrewsForTargetSelection({ organization: org, status: "active" }).catch(() => []),
+    loadTestUserSet(),
+    loadCrewRecords().catch(() => []),
+  ]);
+  const byUser = new Map(records.map((r) => [r.userId, r]));
+  // 활동 대상 크루 = 휴식 제외 + 테스트 제외 (집계 카드 분모와 동일).
+  const activeCrew = activeList.filter((c) => !testSet.has(c.userId));
+
+  const appsByUser = new Map<string, AppRow[]>();
+  for (const r of rows) {
+    const arr = appsByUser.get(r.target_user_id);
+    if (arr) arr.push(r);
+    else appsByUser.set(r.target_user_id, [r]);
+  }
+
+  const results: CompetencyLineResultDto[] = activeCrew.map((c) => {
+    const rec = byUser.get(c.userId) ?? null;
+    const apps = appsByUser.get(c.userId) ?? [];
+    let progressLine: string | null = null;
+    let result: "success" | "fail" = "fail";
+    let appliedAt: string | null = null;
+    if (apps.length > 0) {
+      // 성공 = opened 또는 pending(강화 대기). 둘 다 없으면(전부 rejected) 실패.
+      const successApp =
+        apps.find((a) => a.resolution === "opened") ??
+        apps.find((a) => a.resolution === "pending");
+      const rep = successApp ?? apps[0];
+      progressLine = rep.line_name;
+      appliedAt = rep.created_at;
+      result = successApp ? "success" : "fail";
+    }
+    return {
+      userId: c.userId,
+      crewNo: rec?.crewNo ?? c.crewNo ?? null,
+      displayName: rec?.name ?? c.displayName ?? "(이름 없음)",
+      teamName: rec?.teamName ?? c.teamName ?? null,
+      schoolName: rec?.schoolName ?? null,
+      progressLine,
+      result,
+      appliedAt,
+      applied: apps.length > 0,
+    };
+  });
+
+  // 정렬: 신청 데이터 있는 크루 먼저 → 미신청 뒤. 같은 그룹 내 crewNo(없으면 뒤)·이름순.
+  results.sort((a, b) => {
+    if (a.applied !== b.applied) return a.applied ? -1 : 1;
+    const an = a.crewNo ?? Number.POSITIVE_INFINITY;
+    const bn = b.crewNo ?? Number.POSITIVE_INFINITY;
+    if (an !== bn) return an - bn;
+    return a.displayName.localeCompare(b.displayName, "ko");
+  });
+  return results;
+}
+
 // 운영자 수동 추가(고객 신청 누락 보완) — source='manual', 라인명/제출 링크 직접 입력.
 export async function addManualCompetencyApplication(input: {
   org: OrganizationSlug;
