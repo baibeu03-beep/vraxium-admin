@@ -50,6 +50,8 @@ type Summary = {
   rejectedCrews: number;
   appliedLines: number;
   openedLines: number;
+  enhanceSuccess: number;
+  enhanceFail: number;
 };
 
 type CrewSearchItem = {
@@ -78,6 +80,8 @@ const EMPTY_SUMMARY: Summary = {
   rejectedCrews: 0,
   appliedLines: 0,
   openedLines: 0,
+  enhanceSuccess: 0,
+  enhanceFail: 0,
 };
 
 function SummaryChip({ label, value, tone }: { label: string; value: number; tone?: "default" | "success" | "error" | "info" }) {
@@ -348,6 +352,10 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
             <SummaryChip label="반려 크루" value={summary.rejectedCrews} tone="error" />
             <SummaryChip label="신청 라인" value={summary.appliedLines} tone="info" />
             <SummaryChip label="개설 라인" value={summary.openedLines} tone="success" />
+            {/* 강화 결과(분모=활동 크루, 미신청 포함). 성공=개설 대상, 실패=활동−성공(반려+미신청). */}
+            <span className="mx-1 h-8 w-px bg-border" aria-hidden />
+            <SummaryChip label="강화 성공" value={summary.enhanceSuccess} tone="success" />
+            <SummaryChip label="강화 실패" value={summary.enhanceFail} tone="error" />
           </div>
         </div>
       </CardHeader>

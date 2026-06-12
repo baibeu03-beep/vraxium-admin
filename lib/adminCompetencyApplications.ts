@@ -40,6 +40,8 @@ export type CompetencyApplicationSummary = {
   rejectedCrews: number; // 반려 크루(resolution=rejected, 초기 0)
   appliedLines: number; // 신청 라인(distinct)
   openedLines: number; // 개설 라인(resolution=opened distinct, 초기 0)
+  enhanceSuccess: number; // 강화 성공 = 활동 크루 중 개설(opened) 대상
+  enhanceFail: number; // 강화 실패 = 활동 크루 − 강화 성공 (반려 + 미신청)
 };
 
 const SELECT =
@@ -174,8 +176,11 @@ export async function getCompetencyApplicationSummary(
     listCrewsForTargetSelection({ organization: org, status: "active" }).catch(() => []),
     loadTestUserSet(),
   ]);
-  // 활동 크루 = 휴식 제외 + 테스트 계정 제외(운영 계정 기준).
-  const activeCrews = activeList.filter((c) => !testSet.has(c.userId)).length;
+  // 활동 크루 = 휴식 제외 + 테스트 계정 제외(운영 계정 기준). 강화 결과 분모 = 활동 크루(미신청 포함).
+  const activeIds = new Set(
+    activeList.filter((c) => !testSet.has(c.userId)).map((c) => c.userId),
+  );
+  const activeCrews = activeIds.size;
   const applied = new Set<string>();
   const opened = new Set<string>();
   const rejected = new Set<string>();
@@ -191,6 +196,11 @@ export async function getCompetencyApplicationSummary(
       rejected.add(r.target_user_id);
     }
   }
+  // 강화 성공 = 활동 크루 중 개설(opened) 대상. 강화 실패 = 활동 크루 − 성공 (반려 + 미신청 포함).
+  //   ⚠ 미신청 크루도 분모(활동 크루)에 포함 → 강화 실패로 계산(실무 역량 허브 정책).
+  let enhanceSuccess = 0;
+  for (const uid of opened) if (activeIds.has(uid)) enhanceSuccess++;
+  const enhanceFail = Math.max(0, activeCrews - enhanceSuccess);
   return {
     activeCrews,
     appliedCrews: applied.size,
@@ -198,6 +208,8 @@ export async function getCompetencyApplicationSummary(
     rejectedCrews: rejected.size,
     appliedLines: appliedLines.size,
     openedLines: openedLines.size,
+    enhanceSuccess,
+    enhanceFail,
   };
 }
 

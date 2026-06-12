@@ -17,6 +17,7 @@ import {
 } from "@/lib/organizations";
 import Cluster4LineTable from "@/components/admin/cluster4/Cluster4LineTable";
 import CompetencyOpeningDashboard from "@/components/admin/CompetencyOpeningDashboard";
+import CompetencyLineManageBoard from "@/components/admin/CompetencyLineManageBoard";
 import {
   buildOutputLinksFromForm,
   OUTPUT_LINK_LABEL_PLACEHOLDER,
@@ -439,7 +440,11 @@ export default function PracticalCompetencyManager() {
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
-      <h1 className="text-2xl font-bold">실무 역량 라인 관리</h1>
+      {/* 조직 분기 모드(?org)의 [라인 관리] 탭은 보드가 "[실무 역량] Hub" 제목을 제공하므로
+          중복 방지를 위해 공용 h1 을 숨긴다. 그 외(개설 탭·통합 모드)는 기존 제목 유지. */}
+      {!(orgScoped && mainTab === "manage") && (
+        <h1 className="text-2xl font-bold">실무 역량 라인 관리</h1>
+      )}
 
       {banner && (
         <div className={cn("rounded-md border px-4 py-3 text-sm", banner.kind === "success" ? "border-green-300 bg-green-50 text-green-800" : "border-red-300 bg-red-50 text-red-800")}>
@@ -452,6 +457,10 @@ export default function PracticalCompetencyManager() {
           [라인 관리] = 기존 실무 역량 화면(아래 내부 탭 3종) 그대로 — 미수정. */}
       {mainTab === "manage" && (
         <>
+      {/* [라인 관리] 상단 보드 — [실무 역량] Hub 제목 + 현재 상황(기간) + 주차 드롭다운 + 6 집계 카드.
+          조직 분기 모드(?org)에서만. 집계는 라인 개설 탭과 동일 DTO(주차만 선택). 아래 기존 화면은 무수정. */}
+      {orgScoped && <CompetencyLineManageBoard />}
+
       <div className="flex gap-1 border-b">
         <TabButton label="라인 등록" active={activeTab === "masters"} onClick={() => setActiveTab("masters")} />
         <TabButton label="라인 개설" active={activeTab === "opening"} onClick={() => setActiveTab("opening")} />

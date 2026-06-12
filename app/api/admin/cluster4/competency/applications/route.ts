@@ -19,11 +19,12 @@ import {
 } from "@/lib/adminCompetencyApplications";
 
 // 실무 역량 [라인 개설] 신청/승인 명단.
-//   GET  ?organization=  → { applications, summary } (개설 대상 주차 기준)
+//   GET  ?organization=&week_id?=  → { applications, summary, weekId } (week_id 미지정 시 개설 대상 주차)
 //   POST { organization, target_user_id, line_name, competency_line_master_id?, submission_link? }
 //        → 운영자 수동 추가(source='manual')
 //
-// 대상 주차 = 개설 대상(금요일 경계 = openable week). 상태창/로그 API 와 동일 SoT 헬퍼.
+// 기본 대상 주차 = 개설 대상(금요일 경계 = openable week). 상태창/로그 API 와 동일 SoT 헬퍼.
+// week_id 지정 시(라인 관리 탭 주차 드롭다운) 그 주차 기준 집계 — 같은 DTO 로 주차만 바꿔 조회한다.
 
 async function resolveTargetWeekId(): Promise<string | null> {
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -52,7 +53,10 @@ export async function GET(request: NextRequest) {
   const org = isOrganizationSlug(orgRaw) ? orgRaw : null;
 
   try {
-    const weekId = await resolveTargetWeekId();
+    // week_id 지정 시 그 주차(라인 관리 탭 드롭다운), 미지정/무효 시 개설 대상 주차.
+    const weekParam = request.nextUrl.searchParams.get("week_id")?.trim() || null;
+    const weekId =
+      weekParam && isUuid(weekParam) ? weekParam : await resolveTargetWeekId();
     if (!org || !weekId) {
       return Response.json({
         success: true,

@@ -266,7 +266,7 @@ try {
       const xButtons = [...document.querySelectorAll("button")].filter((b) => (b.getAttribute("aria-label") || "").includes("수동 추가 삭제")).length;
       return {
         hasTitle: body.includes("해당 크루"),
-        chips: ["활동 크루", "신청 크루", "개설 크루", "반려 크루", "신청 라인", "개설 라인"].every((t) => body.includes(t)),
+        chips: ["활동 크루", "신청 크루", "개설 크루", "반려 크루", "신청 라인", "개설 라인", "강화 성공", "강화 실패"].every((t) => body.includes(t)),
         hasSearch: !!document.querySelector('input[aria-label="수동 추가 크루 검색"]'),
         hasAddBtn: [...document.querySelectorAll("button")].some((b) => (b.textContent || "").trim().startsWith("추가")),
         loaded: body.includes("신청 데이터가 없습니다") || !!table,
