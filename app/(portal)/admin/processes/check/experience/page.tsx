@@ -1,20 +1,11 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { requireAdminPage } from "@/lib/adminAuth";
+import ProcessCheckManager from "@/components/admin/ProcessCheckManager";
 
-// IA 개편 placeholder — 메뉴/라우트 연결 확인용. 기획 전이라 데이터 API 없이 준비 중 화면만 노출.
-export default function ProcessCheckExperiencePage() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>프로세스 체크 · 실무 경험 급</CardTitle>
-      </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">
-        실무 경험 급 프로세스 체크 기능은 추후 구현 예정입니다.
-      </CardContent>
-    </Card>
-  );
+// 개별 > 프로세스 체크 · [실무 경험 급] (/admin/processes/check/experience?org=...).
+//   info 의 UX 재사용 + 팀 구분: 상태창1=팀별 문장(org 팀 동적), 로그창=팀명 포함.
+//   이번 Phase = [섹션.0] 액트 관리(상태/로그/진행현황)만 — [섹션.1] 액트 체크 테이블은 후속(showActTable=false).
+//   ⚠ user_weekly_points/주차 성장 계산/snapshot 무접촉.
+export default async function ProcessCheckExperiencePage() {
+  await requireAdminPage();
+  return <ProcessCheckManager hub="experience" showActTable={false} />;
 }

@@ -1,20 +1,10 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { requireAdminPage } from "@/lib/adminAuth";
+import ProcessCheckManager from "@/components/admin/ProcessCheckManager";
 
-// IA 개편 placeholder — 메뉴/라우트 연결 확인용. 기획 전이라 데이터 API 없이 준비 중 화면만 노출.
-export default function ProcessCheckInfoPage() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>프로세스 체크 · 실무 정보 급</CardTitle>
-      </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">
-        실무 정보 급 프로세스 체크 기능은 추후 구현 예정입니다.
-      </CardContent>
-    </Card>
-  );
+// 통합 > 허브별 프로세스 > 프로세스 체크 · [실무 정보 급] (/admin/processes/check/info?org=...).
+//   이번 주 N(월~일) 고정 화면 — 액트별 체크 신청/취소/완료(상태 저장 + 로그). ?org 기준 데이터 분기.
+//   ⚠ user_weekly_points.points/주차 성장 계산/snapshot 무접촉(후속 Phase).
+export default async function ProcessCheckInfoPage() {
+  await requireAdminPage();
+  return <ProcessCheckManager hub="info" />;
 }

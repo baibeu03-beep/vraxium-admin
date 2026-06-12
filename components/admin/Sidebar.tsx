@@ -206,10 +206,10 @@ const MENU_ORG: MenuItem[] = [
     icon: Workflow,
     basePath: "/admin/processes/check",
     children: [
+      { label: "클럽 총괄 급", href: "/admin/processes/check/club" },
       { label: "실무 정보 급", href: "/admin/processes/check/info" },
       { label: "실무 경험 급", href: "/admin/processes/check/experience" },
       { label: "실무 역량 급", href: "/admin/processes/check/competency" },
-      { label: "클럽 급", href: "/admin/processes/check/club" },
     ],
   },
   // 3) 클럽 진행
