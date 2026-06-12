@@ -1,20 +1,9 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { requireAdminPage } from "@/lib/adminAuth";
+import ProcessRegisterManager from "@/components/admin/ProcessRegisterManager";
 
-// IA 개편 Phase 1 placeholder — 메뉴 연결 확인용. 실제 기능은 추후 구현.
-export default function ProcessRegisterPage() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>프로세스 등록</CardTitle>
-      </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">
-        프로세스 등록 기능은 추후 구현 예정입니다.
-      </CardContent>
-    </Card>
-  );
+// 통합 > 허브별 프로세스 > 프로세스 등록 — 액트/라인급 마스터 카탈로그 (additive Phase).
+// point.check(A)/advantage(B)/penalty(C)를 "정의"하는 마스터이며, 주차 성장 계산/snapshot 무접촉.
+export default async function ProcessRegisterPage() {
+  await requireAdminPage();
+  return <ProcessRegisterManager />;
 }
