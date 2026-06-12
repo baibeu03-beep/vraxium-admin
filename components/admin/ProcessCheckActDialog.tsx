@@ -56,12 +56,14 @@ export default function ProcessCheckActDialog({
   act,
   hub,
   organization,
+  teamId = null,
   onClose,
   onDone,
 }: {
   act: ProcessCheckActRowDto;
   hub: ProcessHub;
   organization: string;
+  teamId?: string | null; // experience 섹션.1 선택 팀 스코프(POST team_id). info=null.
   onClose: () => void;
   onDone: () => void; // 성공 후 보드/로그/상태창 재조회
 }) {
@@ -115,6 +117,7 @@ export default function ProcessCheckActDialog({
           hub,
           organization,
           act_id: act.actId,
+          ...(teamId ? { team_id: teamId } : {}),
           action,
           ...(action === "request" ? { review_link: reviewLink.trim(), scheduled_check_at: scheduledIso } : {}),
         }),

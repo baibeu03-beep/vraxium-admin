@@ -22,6 +22,8 @@ import {
   getProcessCheckBoard,
 } from "@/lib/adminProcessCheckData";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(request: NextRequest) {
   try {
     await requireAdmin(ADMIN_READ_ROLES);
@@ -45,9 +47,14 @@ export async function GET(request: NextRequest) {
       { status: 400 },
     );
   }
+  // team(선택) — experience 섹션.1 팀 스코프. uuid 형식만 검증(소속 검증은 데이터레이어).
+  const teamRaw = request.nextUrl.searchParams.get("team")?.trim() || null;
+  if (teamRaw && !UUID_RE.test(teamRaw)) {
+    return Response.json({ success: false, error: "team 형식이 올바르지 않습니다" }, { status: 400 });
+  }
 
   try {
-    const data = await getProcessCheckBoard(hubRaw, orgRaw);
+    const data = await getProcessCheckBoard(hubRaw, orgRaw, teamRaw);
     return Response.json({ success: true, data });
   } catch (error) {
     const status = error instanceof ProcessMasterError ? error.status : 500;
@@ -80,6 +87,7 @@ export async function POST(request: NextRequest) {
   const hub = b.hub;
   const orgRaw = typeof b.organization === "string" ? b.organization.trim() : "";
   const actId = typeof b.act_id === "string" ? b.act_id.trim() : "";
+  const teamId = typeof b.team_id === "string" && b.team_id.trim() ? b.team_id.trim() : null;
   const action = b.action;
 
   if (!isProcessHub(hub)) {
@@ -95,8 +103,11 @@ export async function POST(request: NextRequest) {
     return Response.json({ success: false, error: "act_id is required" }, { status: 400 });
   }
   // uuid 형식 검증 — 잘못된 형식이 uuid 컬럼 쿼리로 가 500 나는 것을 막는다(→ 400).
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(actId)) {
+  if (!UUID_RE.test(actId)) {
     return Response.json({ success: false, error: "act_id 형식이 올바르지 않습니다" }, { status: 400 });
+  }
+  if (teamId && !UUID_RE.test(teamId)) {
+    return Response.json({ success: false, error: "team_id 형식이 올바르지 않습니다" }, { status: 400 });
   }
   if (!isProcessCheckAction(action)) {
     return Response.json({ success: false, error: "action 은 request|cancel 이어야 합니다" }, { status: 400 });
@@ -108,6 +119,7 @@ export async function POST(request: NextRequest) {
       organization: orgRaw,
       actId,
       action,
+      teamId,
       reviewLink: b.review_link,
       scheduledCheckAt: b.scheduled_check_at,
       adminId: admin.userId,

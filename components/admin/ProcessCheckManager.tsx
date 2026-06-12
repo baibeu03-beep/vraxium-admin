@@ -2,70 +2,61 @@
 
 // /admin/processes/check/{hub} — 프로세스 체크 화면(이번 주 고정).
 //
-//   주차명 드롭다운(이번 주 N · read-only) + 상태창1(오늘/이번 주 + 체크 중/완료) |
-//   로그창(행동 이력, 위=과거/아래=최신) +
-//   [섹션.1] 액트 목록 테이블(발생 시점(필요) 순 · 상태 버튼 클릭 → 팝업, 선택 표시).
+//   [섹션.0] 액트 관리(전체 팀 고정): 주차 드롭다운 + 상태창1(팀별/허브) + 로그창 + 상태창2(전체 팀).
+//   [섹션.1] 액트 체크: info=단일 테이블 / experience=팀 탭 + 팀별 상태창2 + 팀별 액트 테이블.
+//     팀 탭을 바꿔도 섹션.0은 고정 — 섹션.1(상태창2·액트 상태값)만 선택 팀 기준으로 갱신.
 //
-// ?org 기준 데이터 분기(UI 동일). 상태 저장 + 로그 기록까지 — point.check/user_weekly_points/
-// snapshot/크롤링 무접촉(완료 트리거는 후속 Phase).
+// ?org 기준 데이터 분기. 상태 저장 + 로그 기록까지 — point.check/user_weekly_points/snapshot/크롤링 무접촉.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronDown, Loader2, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatLogDateTime } from "@/lib/practicalInfoSection0Format";
 import { PROCESS_HUB_LABEL, type ProcessHub } from "@/lib/adminProcessesTypes";
 import ProcessCheckActDialog from "@/components/admin/ProcessCheckActDialog";
+import ProcessCheckActTable from "@/components/admin/ProcessCheckActTable";
+import ProcessCheckProgress from "@/components/admin/ProcessCheckProgress";
 import {
   PROCESS_CHECK_LOG_ACTION_LABEL,
   emptyProcessCheckBoard,
-  formatCheckDateTimeKo,
   formatCheckTodayCompact,
   isTeamBasedProcessHub,
-  processCheckButtonClass,
-  processCheckButtonLabel,
   processCheckLogActionClass,
   type ProcessCheckActRowDto,
   type ProcessCheckBoardDto,
 } from "@/lib/adminProcessCheckTypes";
 
-// 강조(빨강) span — 날짜/주차/체크 중/체크 완료.
 function Red({ children }: { children: React.ReactNode }) {
   return <span className="font-semibold text-red-600">{children}</span>;
 }
 
-export default function ProcessCheckManager({
-  hub,
-  // [섹션.1] 액트 목록 테이블 표시 여부. experience 는 이번 Phase 에서 섹션.0(상태/로그/진행현황)만.
-  showActTable = true,
-}: {
-  hub: ProcessHub;
-  showActTable?: boolean;
-}) {
+export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   const hubLabel = PROCESS_HUB_LABEL[hub];
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  const teamMode = isTeamBasedProcessHub(hub);
 
+  // 섹션.0 보드(전체 팀·teamless). info 는 섹션.1 도 이 보드 사용.
   const [board, setBoard] = useState<ProcessCheckBoardDto>(() =>
     emptyProcessCheckBoard(hub, org ?? ""),
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [today] = useState(() => new Date());
-  // 열린 팝업 대상 액트(없으면 닫힘).
   const [dialogAct, setDialogAct] = useState<ProcessCheckActRowDto | null>(null);
 
+  // 섹션.1(experience) 팀 스코프 보드.
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [teamBoard, setTeamBoard] = useState<ProcessCheckBoardDto>(() =>
+    emptyProcessCheckBoard(hub, org ?? ""),
+  );
+  const [teamLoading, setTeamLoading] = useState(false);
+
   const reqRef = useRef(0);
+  const teamReqRef = useRef(0);
   const logScrollRef = useRef<HTMLDivElement>(null);
 
   const loadBoard = useCallback(async () => {
@@ -91,13 +82,35 @@ export default function ProcessCheckManager({
     }
   }, [hub, org]);
 
+  const loadTeamBoard = useCallback(
+    async (teamId: string) => {
+      if (!org) return;
+      const myReq = ++teamReqRef.current;
+      setTeamLoading(true);
+      try {
+        const res = await fetch(
+          `/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}&team=${encodeURIComponent(teamId)}`,
+        );
+        const json = await res.json().catch(() => ({}));
+        if (myReq !== teamReqRef.current) return;
+        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+        setTeamBoard(json.data as ProcessCheckBoardDto);
+      } catch {
+        if (myReq !== teamReqRef.current) return;
+        setTeamBoard(emptyProcessCheckBoard(hub, org));
+      } finally {
+        if (myReq === teamReqRef.current) setTeamLoading(false);
+      }
+    },
+    [hub, org],
+  );
+
   useEffect(() => {
     void (async () => {
       await loadBoard();
     })();
   }, [loadBoard]);
 
-  // 로그 갱신 시 스크롤 하단(최신).
   useEffect(() => {
     const el = logScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -106,7 +119,28 @@ export default function ProcessCheckManager({
   const { week, summary, acts, logs, teams } = board;
   const periodLabel = week?.periodLabel ?? "주차 정보 없음";
   const weekDisabled = !week?.weekId;
-  const teamMode = isTeamBasedProcessHub(hub); // experience = 팀별 문장 / info = 허브 전체 1문장
+
+  // 선택 팀 — 명시 선택이 유효하면 그것, 아니면 첫 팀(설계상 첫 팀 기본 선택). setState-in-effect 회피.
+  const effectiveTeamId = useMemo(() => {
+    if (!teamMode) return null;
+    if (selectedTeamId && teams.some((t) => t.teamId === selectedTeamId)) return selectedTeamId;
+    return teams[0]?.teamId ?? null;
+  }, [teamMode, selectedTeamId, teams]);
+  const effectiveTeamName = teams.find((t) => t.teamId === effectiveTeamId)?.teamName ?? null;
+
+  // 선택 팀 변경/로드 시 섹션.1 팀 보드 조회.
+  useEffect(() => {
+    if (!teamMode || !effectiveTeamId) return;
+    void (async () => {
+      await loadTeamBoard(effectiveTeamId);
+    })();
+  }, [teamMode, effectiveTeamId, loadTeamBoard]);
+
+  // 액션 성공 후 — 섹션.0(로그/상태창) + 섹션.1(선택 팀 상태) 갱신.
+  const refreshAfterAction = useCallback(() => {
+    void loadBoard();
+    if (teamMode && effectiveTeamId) void loadTeamBoard(effectiveTeamId);
+  }, [loadBoard, loadTeamBoard, teamMode, effectiveTeamId]);
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
@@ -119,7 +153,7 @@ export default function ProcessCheckManager({
 
       {!org && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          조직(?org)이 지정되어야 합니다. 예: <code>/admin/processes/check/info?org=oranke</code>
+          조직(?org)이 지정되어야 합니다. 예: <code>/admin/processes/check/experience?org=oranke</code>
         </div>
       )}
 
@@ -132,6 +166,7 @@ export default function ProcessCheckManager({
         </div>
       )}
 
+      {/* ════ [섹션.0] 액트 관리 — 전체 팀 고정 ════ */}
       {/* 주차명 드롭다운 — 이번 주 N 고정(read-only). */}
       <div className="max-w-xs space-y-1">
         <label className="text-xs text-muted-foreground">주차명 (이번 주 · 변경 불가)</label>
@@ -157,7 +192,6 @@ export default function ProcessCheckManager({
               이며, 이번 주는 [<Red>{periodLabel}</Red>] 입니다. (월 ~ 일)
             </p>
             {teamMode ? (
-              /* 팀 구분 허브(experience) — 팀마다 1문장. */
               teams.length === 0 ? (
                 <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-muted-foreground">
                   이 조직에 등록된 팀이 없습니다.
@@ -188,7 +222,6 @@ export default function ProcessCheckManager({
                 ))
               )
             ) : (
-              /* 허브 전체 1문장(info 등) — 회귀 금지. */
               <p
                 className={cn(
                   "rounded-md border px-3 py-2",
@@ -239,87 +272,65 @@ export default function ProcessCheckManager({
         </Card>
       </div>
 
-      {/* [섹션.1] 액트 목록 테이블 — experience 는 이번 Phase 에서 미표시(섹션.0만). */}
-      {showActTable && (
-      <Card>
-        <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-base">[섹션.1] 액트 목록 ({acts.length})</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            발생 시점(필요) 순 · 상태 버튼 클릭 시 체크 신청/취소 팝업
-          </p>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">불러오는 중…</p>
-          ) : acts.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              등록된 액트가 없습니다. 프로세스 등록 페이지에서 먼저 등록해주세요.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>액트명</TableHead>
-                    <TableHead>소속 라인 급</TableHead>
-                    <TableHead className="text-right">소요(m)</TableHead>
-                    <TableHead>발생 시점(필요)</TableHead>
-                    <TableHead>체크 시점(필요)</TableHead>
-                    <TableHead className="text-right">Po.A</TableHead>
-                    <TableHead className="text-right">Po.B</TableHead>
-                    <TableHead className="text-right">Po.C</TableHead>
-                    <TableHead>크루 반응</TableHead>
-                    <TableHead>카페</TableHead>
-                    <TableHead>발생 시점(실제)</TableHead>
-                    <TableHead>체크 시점(실제)</TableHead>
-                    <TableHead className="text-right">상태</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {acts.map((a) => (
-                    <TableRow key={a.actId}>
-                      <TableCell className="font-medium">{a.actName}</TableCell>
-                      <TableCell>{a.lineGroupName}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.durationMinutes}</TableCell>
-                      <TableCell className="whitespace-nowrap">{a.occurWhen}</TableCell>
-                      <TableCell className="whitespace-nowrap">{a.checkWhen}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.pointCheck}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.pointAdvantage}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.pointPenalty}</TableCell>
-                      <TableCell>{a.crewReactionLabel}</TableCell>
-                      <TableCell>{a.cafeLabel}</TableCell>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">
-                        {a.requestedAt ? formatCheckDateTimeKo(a.requestedAt) : "—"}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">
-                        {a.scheduledCheckAt ? formatCheckDateTimeKo(a.scheduledCheckAt) : "—"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {a.isCheckTarget ? (
-                          <button
-                            type="button"
-                            disabled={weekDisabled}
-                            title={weekDisabled ? "현재 주차 weeks 행 없음" : "클릭하여 체크 신청/취소"}
-                            onClick={() => setDialogAct(a)}
-                            className={cn(
-                              "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                              processCheckButtonClass(a.status),
-                            )}
-                          >
-                            {processCheckButtonLabel(a.status)}
-                          </button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">체크 대상 아님</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+      {/* 상태창2 — 전체 팀(섹션.0 고정). */}
+      <ProcessCheckProgress
+        title={teamMode ? "상태창 2 · 이번 주 체크 진행 현황 (전체 팀)" : "상태창 2 · 이번 주 체크 진행 현황"}
+        summary={summary}
+        lineGroups={board.lineGroups}
+      />
+
+      {/* ════ [섹션.1] 액트 체크 ════ */}
+      {teamMode ? (
+        <div className="flex flex-col gap-4">
+          {/* 팀 탭 — org 동적, 첫 팀 기본 선택. */}
+          <div className="flex flex-wrap gap-1 border-b">
+            {teams.length === 0 ? (
+              <p className="px-1 py-2 text-sm text-muted-foreground">등록된 팀이 없습니다.</p>
+            ) : (
+              teams.map((tm) => (
+                <button
+                  key={tm.teamId}
+                  type="button"
+                  onClick={() => setSelectedTeamId(tm.teamId)}
+                  className={cn(
+                    "rounded-t-md px-4 py-2 text-sm font-medium transition-colors",
+                    effectiveTeamId === tm.teamId
+                      ? "border-b-2 border-primary text-primary"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {tm.teamName} 팀
+                </button>
+              ))
+            )}
+          </div>
+
+          {effectiveTeamId && (
+            <>
+              {/* 섹션.1 상태창2 — 선택 팀 기준. */}
+              <ProcessCheckProgress
+                title={`상태창 2 · ${effectiveTeamName ?? "선택 팀"} (선택 팀)`}
+                summary={teamBoard.summary}
+                lineGroups={teamBoard.lineGroups}
+              />
+              {/* 섹션.1 액트 목록 — 선택 팀 상태값. */}
+              <ProcessCheckActTable
+                acts={teamBoard.acts}
+                loading={teamLoading}
+                weekDisabled={weekDisabled}
+                onOpenAct={(a) => setDialogAct(a)}
+                title={`[섹션.1] 액트 목록 · ${effectiveTeamName ?? "선택 팀"}`}
+              />
+            </>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      ) : (
+        <ProcessCheckActTable
+          acts={acts}
+          loading={loading}
+          weekDisabled={weekDisabled}
+          onOpenAct={(a) => setDialogAct(a)}
+        />
       )}
 
       {dialogAct && org && (
@@ -327,8 +338,9 @@ export default function ProcessCheckManager({
           act={dialogAct}
           hub={hub}
           organization={org}
+          teamId={teamMode ? effectiveTeamId : null}
           onClose={() => setDialogAct(null)}
-          onDone={() => void loadBoard()}
+          onDone={refreshAfterAction}
         />
       )}
     </div>

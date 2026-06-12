@@ -166,14 +166,21 @@ async function loadStatuses(
   organization: string,
   hub: ProcessHub,
   weekId: string,
+  teamId: string | null,
 ): Promise<Map<string, StatusState>> {
   const map = new Map<string, StatusState>();
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from("process_check_statuses")
     .select(STATUS_SELECT)
     .eq("organization_slug", organization)
     .eq("hub", hub)
     .eq("week_id", weekId);
+  // 팀 스코프 — 팀 구분 허브(experience)만 team_id 필터(일치 / IS NULL). info 등은 team_id 미참조
+  //   (v3 미적용 환경에서도 info 가 깨지지 않도록 — 회귀 금지).
+  if (isTeamBasedProcessHub(hub)) {
+    query = teamId ? query.eq("team_id", teamId) : query.is("team_id", null);
+  }
+  const { data, error } = await query;
   if (error) {
     console.warn("[process-check-statuses] read unavailable:", error.message);
     return map;
@@ -206,13 +213,15 @@ const NEEDED: StatusState = {
 export async function getProcessCheckBoard(
   hub: ProcessHub,
   organization: string,
+  // teamId: experience 섹션.1 선택 팀(team_id 스코프). null = 섹션.0/info(team_id IS NULL).
+  teamId: string | null = null,
 ): Promise<ProcessCheckBoardDto> {
   const week = await resolveCurrentWeek();
   const { groups, acts } = await loadActiveMaster(hub);
   const statusByAct = week?.weekId
-    ? await loadStatuses(organization, hub, week.weekId)
+    ? await loadStatuses(organization, hub, week.weekId, teamId)
     : new Map<string, StatusState>();
-  // 팀 구분 허브면 org 팀 동적 조회(상태창1 팀별 문장). 그 외는 빈 배열(허브 전체 1문장).
+  // 팀 구분 허브면 org 팀 동적 조회(상태창1 팀별 문장 + 섹션.1 탭). 그 외는 빈 배열(허브 전체 1문장).
   const teams = isTeamBasedProcessHub(hub) ? await loadProcessCheckTeams(organization) : [];
 
   const groupNameById = new Map<string, string>();
@@ -307,12 +316,14 @@ type LogRow = {
   id: string;
   action: string;
   period_label: string;
+  team_name?: string | null; // v3 미적용 fallback select 시 미포함
   line_group_name: string;
   act_name: string;
   actor_name: string;
   created_at: string;
 };
 
+// 로그창은 섹션.0(전체 팀) — 팀 필터 없이 org×hub×week 전체. 각 행은 team_name(있으면) 표시.
 export async function listProcessCheckLogs(
   hub: ProcessHub,
   organization: string,
@@ -320,25 +331,35 @@ export async function listProcessCheckLogs(
   limit = 200,
 ): Promise<ProcessCheckLogDto[]> {
   const cap = Math.min(Math.max(limit, 1), 500);
-  let query = supabaseAdmin
-    .from("process_check_logs")
-    .select("id,action,period_label,line_group_name,act_name,actor_name,created_at")
-    .eq("organization_slug", organization)
-    .eq("hub", hub)
-    .order("created_at", { ascending: false })
-    .limit(cap);
-  if (weekId) query = query.eq("week_id", weekId);
-  const { data, error } = await query;
+  const run = (withTeam: boolean) => {
+    let q = supabaseAdmin
+      .from("process_check_logs")
+      .select(
+        withTeam
+          ? "id,action,period_label,team_name,line_group_name,act_name,actor_name,created_at"
+          : "id,action,period_label,line_group_name,act_name,actor_name,created_at",
+      )
+      .eq("organization_slug", organization)
+      .eq("hub", hub)
+      .order("created_at", { ascending: false })
+      .limit(cap);
+    if (weekId) q = q.eq("week_id", weekId);
+    return q;
+  };
+  let { data, error } = await run(true);
+  // team_name 컬럼(v3) 미적용 환경이면 team_name 없이 재시도(info 로그 회귀 방지).
+  if (error && (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205")) {
+    ({ data, error } = await run(false));
+  }
   if (error) {
     console.warn("[process-check-logs] list unavailable:", error.message);
     return [];
   }
-  const rows = ((data ?? []) as LogRow[]).map((r) => ({
+  const rows = ((data ?? []) as unknown as LogRow[]).map((r) => ({
     id: r.id,
     action: r.action as ProcessCheckLogAction,
     periodLabel: r.period_label,
-    // 팀명은 experience 체크(섹션.1·team_name 컬럼) 도입 시 채운다. 현재는 null(experience 로그 없음).
-    teamName: null,
+    teamName: r.team_name ?? null, // 팀 구분 허브(experience)만 채워짐 — info 등은 null
     lineGroupName: r.line_group_name,
     actName: r.act_name,
     actorName: r.actor_name,
@@ -356,6 +377,7 @@ export async function applyProcessCheckAction(input: {
   organization: string;
   actId: string;
   action: ProcessCheckAction;
+  teamId?: string | null;
   reviewLink?: unknown;
   scheduledCheckAt?: unknown;
   adminId: string;
@@ -367,6 +389,26 @@ export async function applyProcessCheckAction(input: {
     throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 체크를 저장할 수 없습니다");
   }
   const weekId = week.weekId;
+
+  // 팀 스코프 — experience 는 team_id 필수(org 소속 검증), 그 외 허브는 team_id 금지(NULL).
+  const teamBased = isTeamBasedProcessHub(hub);
+  const teamId = typeof input.teamId === "string" && input.teamId.trim() ? input.teamId.trim() : null;
+  let teamName: string | null = null;
+  if (teamBased) {
+    if (!teamId) throw new ProcessMasterError(400, "팀(team_id)이 필요합니다");
+    const { data: teamRow, error: teamErr } = await supabaseAdmin
+      .from("cluster4_teams")
+      .select("team_name")
+      .eq("id", teamId)
+      .eq("organization_slug", organization)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (teamErr) throw new ProcessMasterError(500, teamErr.message);
+    if (!teamRow) throw new ProcessMasterError(400, "조직에 속한 활성 팀이 아닙니다");
+    teamName = (teamRow as { team_name: string }).team_name;
+  } else if (teamId) {
+    throw new ProcessMasterError(400, "이 허브는 팀 구분이 없습니다");
+  }
 
   // 액트 검증 — 존재 · hub 일치 · 활성 · 체크 대상.
   const { data: actData, error: actErr } = await supabaseAdmin
@@ -392,15 +434,18 @@ export async function applyProcessCheckAction(input: {
     .maybeSingle();
   const lineGroupName = (groupData as { name: string } | null)?.name ?? "-";
 
-  // 현재 상태 행.
-  const { data: cur, error: curErr } = await supabaseAdmin
+  // 현재 상태 행 — 팀 구분 허브(experience)만 team_id 필터. info 는 미참조(v3 무관·회귀 금지).
+  let curQuery = supabaseAdmin
     .from("process_check_statuses")
     .select("id,status,scheduled_check_at")
     .eq("organization_slug", organization)
     .eq("hub", hub)
     .eq("week_id", weekId)
-    .eq("act_id", actId)
-    .maybeSingle();
+    .eq("act_id", actId);
+  if (teamBased) {
+    curQuery = teamId ? curQuery.eq("team_id", teamId) : curQuery.is("team_id", null);
+  }
+  const { data: cur, error: curErr } = await curQuery.maybeSingle();
   if (curErr) throw migrationHint(curErr) ?? new ProcessMasterError(500, curErr.message);
   const current = cur as
     | { id: string; status: ProcessCheckStatus; scheduled_check_at: string | null }
@@ -473,6 +518,8 @@ export async function applyProcessCheckAction(input: {
       organization_slug: organization,
       hub,
       week_id: weekId,
+      // 팀 구분 허브만 team_id 기입(info 등은 컬럼 미참조 — v3 무관).
+      ...(teamBased ? { team_id: teamId } : {}),
       line_group_id: act.line_group_id,
       act_id: actId,
       ...stamp,
@@ -484,6 +531,8 @@ export async function applyProcessCheckAction(input: {
     organization,
     hub,
     weekId,
+    teamId,
+    teamName,
     actId,
     lineGroupId: act.line_group_id,
     action: logAction,
@@ -529,6 +578,8 @@ async function insertProcessCheckLog(input: {
   organization: string;
   hub: ProcessHub;
   weekId: string;
+  teamId: string | null;
+  teamName: string | null;
   actId: string;
   lineGroupId: string;
   action: ProcessCheckLogAction;
@@ -551,6 +602,8 @@ async function insertProcessCheckLog(input: {
       organization_slug: input.organization,
       hub: input.hub,
       week_id: input.weekId,
+      // 팀 구분 허브만 team 필드 기입(info 등은 컬럼 미참조 — v3 무관·로그 회귀 방지).
+      ...(input.teamId || input.teamName ? { team_id: input.teamId, team_name: input.teamName } : {}),
       act_id: input.actId,
       line_group_id: input.lineGroupId,
       action: input.action,
