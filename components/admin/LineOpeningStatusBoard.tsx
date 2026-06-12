@@ -149,11 +149,14 @@ export default function LineOpeningStatusBoard({
 
   return (
     <Card>
-      <CardHeader className="pb-3">
+      {/* hub variant(실무 역량)는 설명 문구 제거 + 헤더 컴팩트. team variant(실무 경험)는 기존 유지(회귀 방지). */}
+      <CardHeader className={variant === "hub" ? "pb-2" : "pb-3"}>
         <CardTitle className="text-base">상태창</CardTitle>
-        <CardDescription>
-          이번 주 {hubLabel} 라인 개설 운영 현황 (표시 전용)
-        </CardDescription>
+        {variant !== "hub" && (
+          <CardDescription>
+            이번 주 {hubLabel} 라인 개설 운영 현황 (표시 전용)
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         {loading ? (

@@ -27,6 +27,11 @@ import {
 } from "@/lib/adminCluster4LinesData";
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { insertCompetencyOpeningLog } from "@/lib/adminCompetencyOpeningLogs";
+import {
+  cancelOpenedApplications,
+  hasOpenedApplications,
+  openApprovedApplications,
+} from "@/lib/adminCompetencyApplications";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { StatusWeek } from "@/lib/lineOpeningStatusEngine";
 
@@ -262,7 +267,8 @@ export async function getCompetencyOpeningStatus(
   let outputDescription = "";
   if (org && targetWeekId) {
     const lines = await loadOrgCompetencyLines(org, targetWeekId);
-    opened = lines.some((l) => l.isActive);
+    // opened = 활성 org 라인 ≥1 OR 신청 명단 기반 개설(resolution='opened') ≥1.
+    opened = lines.some((l) => l.isActive) || (await hasOpenedApplications(org, targetWeekId));
     const wo = await loadWeekOutput(org, targetWeekId);
     if (wo) {
       outputLink1 = wo.outputLink1 ?? "";
@@ -276,6 +282,10 @@ export type CompetencyOpeningActionResult = {
   status: "opened" | "closed";
   linesChanged: number;
   linesTotal: number;
+  // 신청/승인 명단 반영 결과(개설 완료/취소).
+  openedCrews: number;
+  openedLines: number;
+  rejectedCrews: number;
 };
 
 // ── [개설 완료] 허브 전체 역량 라인 is_active=true + 주차 공통 아웃풋(링크/설명) 반영 + markStale + 로그 ──
@@ -353,10 +363,33 @@ export async function openCompetencyHub(input: {
     });
   }
 
-  if (lineIds.length > 0) {
-    const affected = await collectAffectedUsers(lineIds);
-    if (affected.length > 0) await markWeeklyCardsSnapshotStaleMany(affected);
+  // 신청/승인 명단 반영 — approval_checked 신청 → 크루별 라인(link1=공통·link2=제출), 미승인 → 반려.
+  let appResult = {
+    openedCrews: 0,
+    openedLines: 0,
+    rejectedCrews: 0,
+    affectedUserIds: [] as string[],
+  };
+  try {
+    appResult = await openApprovedApplications({
+      org,
+      weekId: targetWeekId,
+      outputLink1: link,
+      description: desc,
+      adminId: input.adminId,
+    });
+  } catch (e) {
+    console.warn(
+      "[competency open] application reflection skipped:",
+      e instanceof Error ? e.message : e,
+    );
   }
+
+  const affected = new Set<string>(appResult.affectedUserIds);
+  if (lineIds.length > 0) {
+    for (const u of await collectAffectedUsers(lineIds)) affected.add(u);
+  }
+  if (affected.size > 0) await markWeeklyCardsSnapshotStaleMany(Array.from(affected));
 
   await insertCompetencyOpeningLog({
     action: "open",
@@ -365,7 +398,14 @@ export async function openCompetencyHub(input: {
     changedBy: input.adminId,
   });
 
-  return { status: "opened", linesChanged: lineIds.length, linesTotal: lines.length };
+  return {
+    status: "opened",
+    linesChanged: lineIds.length,
+    linesTotal: lines.length,
+    openedCrews: appResult.openedCrews,
+    openedLines: appResult.openedLines,
+    rejectedCrews: appResult.rejectedCrews,
+  };
 }
 
 // ── [개설 취소] 허브 전체 역량 라인 is_active=false + 아웃풋 원복 + markStale + 로그 ──
@@ -433,10 +473,22 @@ export async function cancelCompetencyHub(input: {
     adminId: input.adminId,
   });
 
-  if (lineIds.length > 0) {
-    const affected = await collectAffectedUsers(lineIds);
-    if (affected.length > 0) await markWeeklyCardsSnapshotStaleMany(affected);
+  // 신청/승인 명단 반영 원복 — opened 라인/타깃 삭제 + resolution='pending'.
+  let appCancel = { affectedUserIds: [] as string[], removedLines: 0 };
+  try {
+    appCancel = await cancelOpenedApplications({ org, weekId: targetWeekId });
+  } catch (e) {
+    console.warn(
+      "[competency cancel] application revert skipped:",
+      e instanceof Error ? e.message : e,
+    );
   }
+
+  const affected = new Set<string>(appCancel.affectedUserIds);
+  if (lineIds.length > 0) {
+    for (const u of await collectAffectedUsers(lineIds)) affected.add(u);
+  }
+  if (affected.size > 0) await markWeeklyCardsSnapshotStaleMany(Array.from(affected));
 
   await insertCompetencyOpeningLog({
     action: "cancel",
@@ -445,5 +497,12 @@ export async function cancelCompetencyHub(input: {
     changedBy: input.adminId,
   });
 
-  return { status: "closed", linesChanged: lineIds.length, linesTotal: lines.length };
+  return {
+    status: "closed",
+    linesChanged: lineIds.length,
+    linesTotal: lines.length,
+    openedCrews: 0,
+    openedLines: 0,
+    rejectedCrews: 0,
+  };
 }

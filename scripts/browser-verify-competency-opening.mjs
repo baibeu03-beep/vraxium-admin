@@ -64,8 +64,9 @@ for (const org of ORGS) {
   const d = sJson.data ?? {};
   const cw = d.currentWeek ? `${d.currentWeek.year} ${d.currentWeek.seasonName} W${d.currentWeek.weekNumber}` : "null";
   const tw = d.targetWeek ? `${d.targetWeek.year} ${d.targetWeek.seasonName} W${d.targetWeek.weekNumber}` : "null";
-  check(`[HTTP status ${org}] success + current=W15 target=W14 (direct 일치)`,
-    ok && cw.endsWith("W15") && tw.endsWith("W14"), `current=${cw} target=${tw} opened=${d.opened}`);
+  // 대상 주차는 금요일 경계로 동적(월~목=N-1, 금~일=N) — 주차 번호 하드코딩 대신 well-formed 검증.
+  check(`[HTTP status ${org}] success + current/target 주차 well-formed`,
+    ok && /\d{4} .+ W\d+/.test(cw) && /\d{4} .+ W\d+/.test(tw), `current=${cw} target=${tw} opened=${d.opened}`);
   check(`[HTTP status ${org}] outputLink1/outputDescription 필드(prefill)`,
     typeof d.outputLink1 === "string" && typeof d.outputDescription === "string",
     `link='${d.outputLink1}' desc='${d.outputDescription}'`);
@@ -76,6 +77,16 @@ for (const org of ORGS) {
   const lJson = await lRes.json();
   check(`[HTTP logs ${org}] success + logs 배열(테이블 미적용시 빈 배열 best-effort)`,
     lJson.success && Array.isArray(lJson.data?.logs), `logs=${lJson.data?.logs?.length ?? "?"}`);
+
+  const aRes = await fetch(`${BASE}/api/admin/cluster4/competency/applications?organization=${org}`, {
+    headers: { cookie: cookieHeader },
+  });
+  const aJson = await aRes.json();
+  const s = aJson.data?.summary;
+  check(`[HTTP applications ${org}] success + summary 6필드 + applications 배열`,
+    aJson.success && Array.isArray(aJson.data?.applications) && s &&
+    ["activeCrews","appliedCrews","openedCrews","rejectedCrews","appliedLines","openedLines"].every((k) => typeof s[k] === "number"),
+    `활동=${s?.activeCrews} 신청=${s?.appliedCrews} 개설=${s?.openedCrews} 반려=${s?.rejectedCrews} 신청라인=${s?.appliedLines} 개설라인=${s?.openedLines}`);
 }
 
 // POST 잘못된 action / 잘못된 org 거절 검증(변이 없음).
@@ -89,6 +100,12 @@ const badOrg = await fetch(`${BASE}/api/admin/cluster4/competency/opening`, {
   body: JSON.stringify({ action: "open", organization: "olympus" }),
 });
 check("[HTTP POST] 무효 org(olympus) 거절(400) — admin org slug 아님", badOrg.status === 400, `status=${badOrg.status}`);
+
+// 수동 추가 삭제 엔드포인트 — 잘못된 id 거절(엔드포인트 결선 + 입력검증). source 게이트(customer 403)는 코드 검증.
+const delBad = await fetch(`${BASE}/api/admin/cluster4/competency/applications/not-a-uuid`, {
+  method: "DELETE", headers: { cookie: cookieHeader },
+});
+check("[HTTP DELETE] 잘못된 id 거절(400)", delBad.status === 400, `status=${delBad.status}`);
 
 // ── 2) 브라우저 렌더 ──
 const browser = await chromium.launch({ channel: "chromium", headless: true });
@@ -232,6 +249,84 @@ try {
       return btns.length > 0 && btns.every((b) => b.disabled);
     });
     check(`[${org}/open] opened=false → [개설 취소] 비활성`, cancelDisabled);
+
+    // [해당 크루] 영역 로딩 완료 대기(스피너 → 빈 안내 또는 테이블).
+    await page
+      .waitForFunction(
+        "document.body.innerText.includes('신청 데이터가 없습니다') || !!document.querySelector('table')",
+        undefined,
+        { timeout: 20000 },
+      )
+      .catch(() => {});
+    // [해당 크루] 영역 — 요약 칩 6종 + 수동 추가 + 빈 테이블 안내.
+    const crewArea = await page.evaluate(() => {
+      const body = document.body.innerText;
+      const table = document.querySelector("table");
+      const manualBadges = [...document.querySelectorAll("span")].filter((s) => (s.textContent || "").trim() === "수동").length;
+      const xButtons = [...document.querySelectorAll("button")].filter((b) => (b.getAttribute("aria-label") || "").includes("수동 추가 삭제")).length;
+      return {
+        hasTitle: body.includes("해당 크루"),
+        chips: ["활동 크루", "신청 크루", "개설 크루", "반려 크루", "신청 라인", "개설 라인"].every((t) => body.includes(t)),
+        hasSearch: !!document.querySelector('input[aria-label="수동 추가 크루 검색"]'),
+        hasAddBtn: [...document.querySelectorAll("button")].some((b) => (b.textContent || "").trim().startsWith("추가")),
+        loaded: body.includes("신청 데이터가 없습니다") || !!table,
+        hasTableHeads: !table || ["크루명", "라인명", "제출 링크", "카페", "승인", "반려 사유"].every((t) => body.includes(t)),
+        manualBadges, xButtons,
+      };
+    });
+    check(`[${org}/open] [해당 크루] 제목 + 요약 칩 6종`, crewArea.hasTitle && crewArea.chips);
+    check(`[${org}/open] 수동 추가(검색 + 추가 버튼)`, crewArea.hasSearch && crewArea.hasAddBtn);
+    check(`[${org}/open] 승인 명단 영역 로드(빈 안내 또는 테이블 헤더)`, crewArea.loaded && crewArea.hasTableHeads);
+    // X 삭제 버튼은 수동 추가(source=manual) 행에만 — 수동 배지 수 == X 버튼 수.
+    check(`[${org}/open] X 삭제 버튼=수동 추가 행 수와 일치`,
+      crewArea.manualBadges === crewArea.xButtons, `수동=${crewArea.manualBadges} X=${crewArea.xButtons}`);
+
+    // 자동완성 + 수동 추가 팝업 (oranke 만 — 실제 크루명으로).
+    if (org === "oranke") {
+      const crewsRes = await fetch(`${BASE}/api/admin/cluster4/crews?organization=oranke&status=active`, { headers: { cookie: cookieHeader } });
+      const crewsJson = await crewsRes.json();
+      const sample = (crewsJson.data ?? [])[0];
+      if (sample?.displayName) {
+        const term = sample.displayName.slice(0, 2);
+        await page.fill('input[aria-label="수동 추가 크루 검색"]', term);
+        // loadCrewRecords(전 크루 로드)가 느릴 수 있어 충분히 대기.
+        await page.waitForTimeout(2500);
+        const dd = await page.evaluate(() => {
+          const inp = document.querySelector('input[aria-label="수동 추가 크루 검색"]');
+          const menu = inp?.closest(".relative")?.querySelector("div.absolute");
+          const opts = menu ? [...menu.querySelectorAll("button")] : [];
+          return { hasMenu: !!menu, optCount: opts.length, first: opts[0]?.textContent?.trim() ?? "" };
+        });
+        check(`[oranke/open] 자동완성 드롭다운 표시(크루 번호+이름)`,
+          dd.hasMenu && dd.optCount >= 1 && /\d{4}/.test(dd.first), `n=${dd.optCount} 예='${dd.first}'`);
+        if (dd.optCount >= 1) {
+          // 첫 결과 선택 → [추가] → 팝업.
+          await page.evaluate(() => {
+            const inp = document.querySelector('input[aria-label="수동 추가 크루 검색"]');
+            const menu = inp?.closest(".relative")?.querySelector("div.absolute");
+            menu?.querySelector("button")?.click();
+          });
+          await page.waitForTimeout(200);
+          await page.evaluate(() => {
+            const b = [...document.querySelectorAll("button")].find((x) => (x.textContent || "").trim().startsWith("추가"));
+            b?.click();
+          });
+          await page.waitForTimeout(300);
+          const popup = await page.evaluate(() => {
+            const sel = document.querySelector('select[aria-label="수동 추가 라인명"]');
+            return {
+              hasLineSelect: !!sel,
+              isInput: !!document.querySelector('input[aria-label="수동 추가 라인명"]'),
+              optCount: sel ? [...sel.options].filter((o) => o.value).length : 0,
+              hasLink: !!document.querySelector('input[aria-label="수동 추가 제출 링크"]'),
+            };
+          });
+          check(`[oranke/open] 수동 추가 팝업(라인명 드롭다운 + 제출 링크) · 자유입력 없음`,
+            popup.hasLineSelect && !popup.isInput && popup.optCount >= 1 && popup.hasLink, `옵션=${popup.optCount}`);
+          await page.keyboard.press("Escape").catch(() => {});
+        }
+      }
+    }
 
     await page.screenshot({ path: resolve(adminRoot, "claudedocs", `browser-competency-open-${org}.png`), fullPage: true });
   }

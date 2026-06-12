@@ -3,13 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, X, ChevronDown } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -21,6 +15,7 @@ import {
 } from "@/lib/practicalInfoSection0Format";
 import LineOpeningStatusBoard from "@/components/admin/LineOpeningStatusBoard";
 import CompetencyOpeningLogPanel from "@/components/admin/CompetencyOpeningLogPanel";
+import CompetencyApplicantSection from "@/components/admin/CompetencyApplicantSection";
 
 // 실무 역량 [라인 개설] 탭 — 운영 대시보드.
 //   상태창(허브 전체 1문장) + 로그창 + [개설 주차 | 아웃풋 링크 1 | 설명 1] 입력행 + [개설 완료]/[개설 취소].
@@ -231,11 +226,6 @@ export default function CompetencyOpeningDashboard() {
       <Card className="overflow-visible">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">라인 개설</CardTitle>
-          <CardDescription>
-            아웃풋 링크 1 / 설명 1 은 해당 주차의 모든 실무 역량 라인칸(각 크루 output link 1)에 공통
-            적용됩니다. [개설 완료] 시 고객 페이지에 반영되고, [개설 취소] 시 원복됩니다. (아웃풋 이미지는
-            여기서 입력하지 않습니다.)
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* 버튼 — 글자 길이에 맞춘 content width(좌우 padding만), 한 줄에 [개설] [초기화] [개설 취소]. */}
@@ -323,7 +313,7 @@ export default function CompetencyOpeningDashboard() {
                 )}
               </div>
               <p className="text-[11px] text-muted-foreground">
-                오늘 기준 개설 대상 주차로 자동 고정(금요일 경계) · 다른 주차 선택 불가
+                오늘 기준 개설 대상 주차로 자동 고정 · 다른 주차 선택 불가
               </p>
             </div>
 
@@ -351,6 +341,9 @@ export default function CompetencyOpeningDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      {/* [해당 크루] — 신청/승인 명단(요약 + 수동 추가 + 테이블 + 반려 사유). 개설 완료/취소 시 refreshKey 로 갱신. */}
+      <CompetencyApplicantSection refreshKey={refreshKey} />
     </div>
   );
 }
