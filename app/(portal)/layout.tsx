@@ -1,6 +1,7 @@
 import Sidebar from "@/components/admin/Sidebar";
 import Header from "@/components/admin/Header";
 import { SidebarProvider } from "@/components/admin/sidebarContext";
+import TestModeToggle from "@/components/admin/TestModeToggle";
 import { requireAdminPage } from "@/lib/adminAuth";
 import { loadAdminDisplayName } from "@/lib/adminMe";
 
@@ -28,6 +29,8 @@ export default async function PortalLayout({
           <main className="flex-1 min-w-0 p-6">{children}</main>
         </div>
       </div>
+      {/* 운영/테스트 모드 토글(표시 전용·admin 경로 한정, 자체 Suspense). */}
+      <TestModeToggle />
     </SidebarProvider>
   );
 }
