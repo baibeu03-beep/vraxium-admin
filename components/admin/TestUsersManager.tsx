@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink, RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ExternalLink, RefreshCw, ShieldCheck } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -35,7 +36,11 @@ type TestUser = {
   organizationName: string | null;
   userType: string | null;
   legacyUserId: string | null;
+  memberRole: "team_leader" | "part_leader" | "agent" | "member";
 };
+
+// 어드민 임퍼소네이션 버튼 노출 대상 역할(team_leader/part_leader/agent). crew/member 제외.
+const IMPERSONATABLE_ROLES = new Set(["team_leader", "part_leader", "agent"]);
 
 // 조직(organization_slug) → 고객 페이지 라우트 분기.
 // API 경로(/api/cluster4/...)는 그대로, 페이지 라우트만 조직별로 나눈다.
@@ -60,6 +65,7 @@ function growthSummary(user: TestUser) {
 }
 
 export default function TestUsersManager() {
+  const router = useRouter();
   const [users, setUsers] = useState<TestUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +122,20 @@ export default function TestUsersManager() {
     }
     window.open(url.toString(), "_blank", "noopener,noreferrer");
   }, []);
+
+  // 어드민 페이지로 보기 — 해당 테스트 유저의 역할로 임퍼소네이션(mode=test + actAsTestUserId).
+  //   같은 origin(admin) 이므로 새 탭으로 이동(test-users 목록 유지). org/mode/tab/actAs query 부착.
+  const openAdminPage = useCallback((user: TestUser) => {
+    const org = user.organizationSlug ?? "";
+    const params = new URLSearchParams();
+    if (org) params.set("org", org);
+    params.set("mode", "test");
+    params.set("tab", "open");
+    params.set("actAsTestUserId", user.userId);
+    const url = `/admin/line-opening/practical-experience?${params.toString()}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    void router; // 동일 origin — 새 탭 유지(라우터 미사용, 목록 보존)
+  }, [router]);
 
   return (
     <Card>
@@ -186,14 +206,29 @@ export default function TestUsersManager() {
                     <TableCell>{dash(user.roleLabel)}</TableCell>
                     <TableCell>{growthSummary(user)}</TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openCustomerPage(user)}
-                      >
-                        <ExternalLink />
-                        고객 페이지로 보기
-                      </Button>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openCustomerPage(user)}
+                        >
+                          <ExternalLink />
+                          고객 페이지로 보기
+                        </Button>
+                        {/* 어드민 페이지로 보기 — team_leader/part_leader/agent 테스트 유저만 노출.
+                            crew/member · 실사용자(목록 자체가 test_user_markers 한정)에는 미노출. */}
+                        {IMPERSONATABLE_ROLES.has(user.memberRole) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openAdminPage(user)}
+                            title={`${user.memberRole} 역할로 어드민 페이지 임퍼소네이션(mode=test)`}
+                          >
+                            <ShieldCheck />
+                            어드민 페이지로 보기
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

@@ -7,7 +7,7 @@
 // 에서 resolve 한다. 상태 라벨은 memberStatusLabel 재사용. 평가 대상 = 일반/에이전트(파트장·팀장 제외).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { memberStatusLabel } from "@/lib/adminMembersTypes";
+import { memberStatusLabel, normalizeMemberRole } from "@/lib/adminMembersTypes";
 import {
   assertUserIdsInScope,
   resolveUserScope,
@@ -122,7 +122,12 @@ async function loadTeamCrewRows(
 
 export async function resolveActorContext(
   userId: string,
-): Promise<{ role: string | null; teamName: string | null; partName: string | null }> {
+): Promise<{
+  role: string | null;
+  teamName: string | null;
+  partName: string | null;
+  memberRole: "team_leader" | "part_leader" | "agent" | "member";
+}> {
   const { data: prof } = await supabaseAdmin
     .from("user_profiles")
     .select("role")
@@ -130,18 +135,21 @@ export async function resolveActorContext(
     .maybeSingle();
   const { data: mems } = await supabaseAdmin
     .from("user_memberships")
-    .select("team_name,part_name,is_current")
+    .select("team_name,part_name,membership_level,is_current")
     .eq("user_id", userId);
   const rows = (mems ?? []) as Array<{
     team_name: string | null;
     part_name: string | null;
+    membership_level: string | null;
     is_current: boolean | null;
   }>;
   const chosen = rows.find((r) => r.is_current) ?? rows[0] ?? null;
+  const role = (prof as { role: string | null } | null)?.role ?? null;
   return {
-    role: (prof as { role: string | null } | null)?.role ?? null,
+    role,
     teamName: chosen?.team_name ?? null,
     partName: chosen?.part_name ?? null,
+    memberRole: normalizeMemberRole(role, chosen?.membership_level ?? null),
   };
 }
 

@@ -62,6 +62,8 @@ export default function ExperienceTeamOverallBoard({
   teamName,
   weekId,
   mode = "operating",
+  actAsTestUserId = null,
+  actorMemberRole = null,
   onActivity,
 }: {
   organization: string;
@@ -70,6 +72,10 @@ export default function ExperienceTeamOverallBoard({
   weekId: string;
   // 모집단 모드(operating=실사용자만 / test=테스트 유저만). GET/POST(open) 에 전파.
   mode?: ScopeMode;
+  // 임퍼소네이션 대상(write POST 에 전파 → 서버 가드 활성). null=비임퍼.
+  actAsTestUserId?: string | null;
+  // 임퍼 액터 역할(버튼 노출 UX 게이팅). agent=검수만, team_leader=검수+개설.
+  actorMemberRole?: "team_leader" | "part_leader" | "agent" | "member" | null;
   // 검수/완료/취소 직후 상위(상태창·로그창)를 갱신하라는 신호.
   onActivity?: () => void;
 }) {
@@ -290,11 +296,13 @@ export default function ExperienceTeamOverallBoard({
           leaderCells: action === "cancel" ? [] : cells,
           outputs: action === "cancel" ? [] : outs,
           mode,
+          // 임퍼소네이션 write 가드 활성용(서버가 mode=test+test_user_markers 검증).
+          ...(actAsTestUserId ? { actAsTestUserId } : {}),
         }),
       });
       return res.json();
     },
-    [buildPayload, organization, weekId, teamId, teamName, mode],
+    [buildPayload, organization, weekId, teamId, teamName, mode, actAsTestUserId],
   );
 
   // ── 버튼 핸들러 ──
@@ -602,19 +610,23 @@ export default function ExperienceTeamOverallBoard({
         {/* 우측 고정 액션 컬럼(lg+) — 1열 4행 세로 버튼 그룹. 모바일: 콘텐츠 하단 stack.
             파트 선택 화면의 우측 액션 영역과 동일 구조. 동작/색상/disabled 조건 무변경. */}
         <div className="flex flex-col gap-2 lg:w-36 lg:shrink-0 lg:self-start lg:border-l lg:pl-3">
-          <Button
-            variant="outline"
-            className="w-full justify-center"
-            onClick={onReview}
-            disabled={saving || opened}
-          >
-            {saving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Eye className="mr-1.5 h-4 w-4" />
-            )}
-            개설 검수
-          </Button>
+          {/* 임퍼소네이션 버튼 게이팅(UX) — 비임퍼(actorMemberRole=null)=전체 노출(기존 동작).
+              검수=agent/team_leader · 개설/취소=team_leader 만. 서버 가드(403)가 실제 경계. */}
+          {(!actorMemberRole || actorMemberRole === "agent" || actorMemberRole === "team_leader") && (
+            <Button
+              variant="outline"
+              className="w-full justify-center"
+              onClick={onReview}
+              disabled={saving || opened}
+            >
+              {saving ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Eye className="mr-1.5 h-4 w-4" />
+              )}
+              개설 검수
+            </Button>
+          )}
           <Button
             variant="outline"
             className="w-full justify-center"
@@ -623,22 +635,26 @@ export default function ExperienceTeamOverallBoard({
           >
             <RotateCcw className="mr-1.5 h-4 w-4" /> 초기화
           </Button>
-          <Button
-            className="w-full justify-center"
-            onClick={onOpen}
-            disabled={saving || opened}
-          >
-            <CheckCircle2 className="mr-1.5 h-4 w-4" /> 개설 완료
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full justify-center border-red-300 text-red-700 hover:bg-red-50"
-            onClick={onCancel}
-            disabled={saving || !opened}
-            title={!opened ? "개설 완료 후에만 취소할 수 있습니다" : undefined}
-          >
-            <XCircle className="mr-1.5 h-4 w-4" /> 개설 취소
-          </Button>
+          {(!actorMemberRole || actorMemberRole === "team_leader") && (
+            <Button
+              className="w-full justify-center"
+              onClick={onOpen}
+              disabled={saving || opened}
+            >
+              <CheckCircle2 className="mr-1.5 h-4 w-4" /> 개설 완료
+            </Button>
+          )}
+          {(!actorMemberRole || actorMemberRole === "team_leader") && (
+            <Button
+              variant="outline"
+              className="w-full justify-center border-red-300 text-red-700 hover:bg-red-50"
+              onClick={onCancel}
+              disabled={saving || !opened}
+              title={!opened ? "개설 완료 후에만 취소할 수 있습니다" : undefined}
+            >
+              <XCircle className="mr-1.5 h-4 w-4" /> 개설 취소
+            </Button>
+          )}
         </div>
       </div>
     </div>

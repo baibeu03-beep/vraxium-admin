@@ -23,6 +23,12 @@ import {
 } from "@/lib/adminExperiencePartInput";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
 import { parseScopeMode } from "@/lib/userScope";
+import {
+  assertImpersonationCapability,
+  resolveEffectiveActorUserId,
+  resolveImpersonation,
+  resolveTeamNameById,
+} from "@/lib/experienceImpersonation";
 
 // 실무 경험 파트장 입력 그리드 — 신청 데이터(신규 전용 저장) API.
 //   GET    ?organization=&week_id=&team_id=&team_name=&part=  → 파트/크루/셀/신청상태 (+actor 기본값)
@@ -48,14 +54,26 @@ export async function GET(request: NextRequest) {
   const teamName = sp.get("team_name")?.trim() || "";
   const part = sp.get("part")?.trim() || "";
   const mode = parseScopeMode(sp.get("mode"));
+  const actAsTestUserId = sp.get("actAsTestUserId")?.trim() || null;
 
   try {
-    const actorRaw = await resolveActorContext(admin.userId);
+    // 임퍼소네이션: mode=test + test_user_markers 유저일 때만 actor 를 그 유저로 치환.
+    //   operating·실유저·빈값 → 비활성(실제 admin 컨텍스트 유지). requireAdmin 은 위에서 통과.
+    const { effectiveUserId, impersonation } = await resolveEffectiveActorUserId(
+      admin.userId,
+      { mode, actAsTestUserId },
+    );
+    const actorRaw = await resolveActorContext(effectiveUserId);
     const defaultPart =
       actorRaw.role === "part_leader" && actorRaw.partName
         ? actorRaw.partName
         : TEAM_OVERALL;
-    const actor = { ...actorRaw, defaultPart };
+    const actor = {
+      ...actorRaw,
+      defaultPart,
+      impersonating: impersonation.active,
+      impersonatedUserId: impersonation.active ? impersonation.userId : null,
+    };
 
     // 팀 미선택이면 파트/크루 없이 actor 기본값만(클라가 팀 선택 후 재조회).
     if (!organization || !teamName) {
@@ -142,6 +160,7 @@ export async function POST(request: NextRequest) {
   const teamId = typeof b.team_id === "string" ? b.team_id.trim() : "";
   const part = typeof b.part === "string" ? b.part.trim() : "";
   const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
+  const actAsTestUserId = typeof b.actAsTestUserId === "string" ? b.actAsTestUserId.trim() || null : null;
 
   if (!organization || !weekId || !teamId || !part) {
     return Response.json(
@@ -173,6 +192,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // 임퍼소네이션 write 가드(Phase C) — mode=test + 유효 테스트 유저일 때만.
+    //   part_save: part_leader=자기 팀+파트 / team_leader=자기 팀 / agent·member=불가.
+    //   targetTeamName 은 team_id 에서 권위 있게 해석(클라 team_name 신뢰 안 함). write 전 403 차단.
+    const impersonation = await resolveImpersonation({ mode, actAsTestUserId });
+    if (impersonation.active && impersonation.userId) {
+      const actor = await resolveActorContext(impersonation.userId);
+      const targetTeamName = await resolveTeamNameById(teamId);
+      assertImpersonationCapability({
+        active: true,
+        actor: { memberRole: actor.memberRole, teamName: actor.teamName, partName: actor.partName },
+        action: "part_save",
+        targetTeamName,
+        targetPart: part,
+      });
+    }
+
     const result = await savePartSubmission({
       organization,
       weekId,

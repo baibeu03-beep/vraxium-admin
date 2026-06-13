@@ -71,6 +71,10 @@ export default function ExperiencePartLeadInput({
   const org = readOrgParam(searchParams);
   // 모집단 모드(operating 기본 / ?mode=test). 운영 화면은 mode 미부착이라 기존 동작 불변.
   const mode = readScopeMode(searchParams);
+  // 임퍼소네이션 대상(mode=test 동반 시에만 서버가 인정). actor 가 이 유저 기준으로 내려온다.
+  const actAsTestUserId =
+    mode === "test" ? searchParams?.get("actAsTestUserId")?.trim() || null : null;
+  // line-manage(팀장 표시) 등 mode 전파용 suffix. teams 목록엔 actAs 불필요(모드 스코프).
   const modeQs = mode === "test" ? "&mode=test" : "";
 
   const [teams, setTeams] = useState<Team[]>([]);
@@ -96,6 +100,21 @@ export default function ExperiencePartLeadInput({
   const selectedTeam = useMemo(
     () => teams.find((t) => t.id === selectedTeamId) ?? null,
     [teams, selectedTeamId],
+  );
+
+  // ── 임퍼소네이션 게이팅(프론트 UX) ──
+  //   actor.impersonating=true 면 actor 의 memberRole/team/part 로 접근을 좁힌다.
+  //   owner/admin(임퍼 없음)은 impersonating=false → 게이팅 미적용(전체 접근 유지).
+  //   ⚠ UX 차단일 뿐 — 실제 보안 경계(write 가드)는 Phase C 서버에서.
+  const impersonating = actor?.impersonating === true;
+  const lockedTeamName = impersonating ? actor?.teamName ?? null : null;
+  const actorMemberRole = impersonating ? actor?.memberRole ?? null : null;
+  // part_leader 만 자기 파트로 고정. team_leader/agent 는 팀 범위(파트 자유).
+  const lockedPartName =
+    impersonating && actorMemberRole === "part_leader" ? actor?.partName ?? null : null;
+  const teamAllowed = useCallback(
+    (teamName: string) => !lockedTeamName || teamName === lockedTeamName,
+    [lockedTeamName],
   );
 
   // 팀 활동 책임자(팀장) — 라인 관리 DTO(teamLeader)를 SoT 로 재사용. 팀명 → 팀장 맵(org 1회 조회).
@@ -146,10 +165,13 @@ export default function ExperiencePartLeadInput({
         const qsOrg = org ? `?organization=${encodeURIComponent(org)}` : "";
         // 팀 목록·part-input 모두 mode 전파(operating=운영 팀/실사용자, test=(T) 팀/테스트 유저).
         const modeParam = mode === "test" ? (qsOrg ? "&mode=test" : "?mode=test") : "";
+        // actor 조회엔 actAsTestUserId 까지 부착 → 임퍼소네이션 액터(role/team/part) 수신.
+        //   actAsParam('&...')는 항상 qsOrg('?...') 또는 modeParam('?mode=test') 의 '?' 뒤에 온다.
+        const actAsParam = actAsTestUserId ? `&actAsTestUserId=${actAsTestUserId}` : "";
         const [teamsRes, weeksRes, actorRes] = await Promise.all([
           fetch(`/api/admin/cluster4/teams${qsOrg}${modeParam}`),
           fetch(`/api/admin/cluster4/weeks-options?limit=3`),
-          fetch(`/api/admin/cluster4/experience/part-input${qsOrg}${modeParam}`),
+          fetch(`/api/admin/cluster4/experience/part-input${qsOrg}${modeParam}${actAsParam}`),
         ]);
         const teamsJson = await teamsRes.json();
         const weeksJson = await weeksRes.json();
@@ -254,6 +276,11 @@ export default function ExperiencePartLeadInput({
     };
   }, [bootLoading, org, mode, selectedTeamId, teams, actor]);
 
+  // part_leader 임퍼소네이션: 파트를 자기 파트로 강제(드롭다운 비활성 + 다른 값 방지).
+  useEffect(() => {
+    if (lockedPartName && part !== lockedPartName) setPart(lockedPartName);
+  }, [lockedPartName, part]);
+
   // ── 그리드 데이터: (team, week, part) 조회 ──
   const fetchGrid = useCallback(async () => {
     // part 가 아직 정해지지 않은(부트 직후) 동안은 조회하지 않는다.
@@ -313,10 +340,21 @@ export default function ExperiencePartLeadInput({
   }, [bootLoading, fetchGrid]);
 
   // 팀 변경 — parts 효과가 그 팀의 기본 파트(실제 파트 우선)를 다시 정한다.
-  const onSelectTeam = useCallback((teamId: string) => {
-    setSelectedTeamId(teamId);
-    setBanner(null);
-  }, []);
+  //   임퍼소네이션 중에는 자기 팀 외 탭 클릭 시 팝업 후 차단(이동 안 함).
+  const onSelectTeam = useCallback(
+    (teamId: string) => {
+      const target = teams.find((t) => t.id === teamId);
+      if (target && !teamAllowed(target.teamName)) {
+        if (typeof window !== "undefined") {
+          window.alert("해당 팀 입장 권한이 없습니다.");
+        }
+        return; // 차단 — 팀 전환하지 않음.
+      }
+      setSelectedTeamId(teamId);
+      setBanner(null);
+    },
+    [teams, teamAllowed],
+  );
 
   const onSelectPart = useCallback((p: string) => {
     setPart(p);
@@ -400,6 +438,8 @@ export default function ExperiencePartLeadInput({
           part,
           cells,
           mode,
+          // 임퍼소네이션 write 가드 활성용(서버가 mode=test+test_user_markers 검증).
+          ...(actAsTestUserId ? { actAsTestUserId } : {}),
         }),
       });
       const json = await res.json();
@@ -415,7 +455,7 @@ export default function ExperiencePartLeadInput({
     } finally {
       setSaving(false);
     }
-  }, [selectedTeam, selectedWeekId, part, data, getCell, org, mode, fetchGrid, onActivity]);
+  }, [selectedTeam, selectedWeekId, part, data, getCell, org, mode, actAsTestUserId, fetchGrid, onActivity]);
 
   const cancelSubmission = useCallback(async () => {
     if (!selectedTeam || !selectedWeekId || part === TEAM_OVERALL) return;
@@ -481,21 +521,29 @@ export default function ExperiencePartLeadInput({
                   등록된 팀이 없습니다.
                 </span>
               ) : (
-                teams.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => onSelectTeam(t.id)}
-                    className={cn(
-                      "relative -mb-px rounded-t-md border border-b-0 px-4 py-2 text-sm font-medium transition-colors",
-                      selectedTeamId === t.id
-                        ? "border-input bg-background text-foreground"
-                        : "border-transparent bg-muted/40 text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {t.teamName}
-                  </button>
-                ))
+                teams.map((t) => {
+                  // 임퍼소네이션 중 자기 팀 외 탭은 잠금 표시(클릭 시 팝업 후 차단).
+                  const locked = !teamAllowed(t.teamName);
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => onSelectTeam(t.id)}
+                      aria-disabled={locked}
+                      title={locked ? "해당 팀 입장 권한이 없습니다." : undefined}
+                      className={cn(
+                        "relative -mb-px rounded-t-md border border-b-0 px-4 py-2 text-sm font-medium transition-colors",
+                        selectedTeamId === t.id
+                          ? "border-input bg-background text-foreground"
+                          : "border-transparent bg-muted/40 text-muted-foreground hover:text-foreground",
+                        locked && "cursor-not-allowed opacity-40",
+                      )}
+                    >
+                      {t.teamName}
+                      {locked && " 🔒"}
+                    </button>
+                  );
+                })
               )}
             </div>
 
@@ -524,13 +572,18 @@ export default function ExperiencePartLeadInput({
                   className="w-56 rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={part}
                   onChange={(e) => onSelectPart(e.target.value)}
+                  // part_leader 임퍼소네이션은 자기 파트로 고정(드롭다운 disable).
+                  disabled={Boolean(lockedPartName)}
                 >
-                  <option value={TEAM_OVERALL}>팀 총괄</option>
-                  {parts.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
+                  {/* part_leader 고정 시 팀 총괄 옵션 숨김(자기 파트만). */}
+                  {!lockedPartName && <option value={TEAM_OVERALL}>팀 총괄</option>}
+                  {(lockedPartName ? parts.filter((p) => p === lockedPartName) : parts).map(
+                    (p) => (
+                      <option key={p} value={p}>
+                        {p}
+                      </option>
+                    ),
+                  )}
                 </select>
               </div>
 
@@ -577,6 +630,8 @@ export default function ExperiencePartLeadInput({
                   teamName={selectedTeam.teamName}
                   weekId={selectedWeekId}
                   mode={mode}
+                  actAsTestUserId={actAsTestUserId}
+                  actorMemberRole={actorMemberRole}
                   onActivity={onActivity}
                 />
               ) : (

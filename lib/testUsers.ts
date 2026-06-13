@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 import { SUPER_ADMIN_ROLE } from "@/lib/superAdmins";
+import { normalizeMemberRole } from "@/lib/adminMembersTypes";
 
 // 데모/테스트 대상 유저 source of truth = public.test_user_markers.
 // ─────────────────────────────────────────────────────────────────────
@@ -27,6 +28,9 @@ export type TestUserDto = {
   organizationName: string | null;
   userType: string | null;
   legacyUserId: string | null;
+  // 임퍼소네이션 버튼 게이팅용(additive) — user_profiles.role + membership_level 정규화.
+  //   roleLabel(raw level)만으로는 team_leader/crew·part_leader/agent 구분 불가 → 별도 제공.
+  memberRole: "team_leader" | "part_leader" | "agent" | "member";
 };
 
 // organization_slug → 표시 라벨. 알려진 slug 면 ORGANIZATION_LABEL, 아니면 slug 원문, 없으면 null.
@@ -212,6 +216,10 @@ export async function listTestUsers(): Promise<TestUserDto[]> {
       userType: marker.user_type ?? null,
       legacyUserId:
         marker.legacy_user_id == null ? null : String(marker.legacy_user_id),
+      memberRole: normalizeMemberRole(
+        profile?.role ?? null,
+        membership?.membership_level ?? null,
+      ),
     } satisfies TestUserDto;
   });
 }

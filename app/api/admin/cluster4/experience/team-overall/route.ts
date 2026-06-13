@@ -18,6 +18,12 @@ import {
   saveTeamOverallReview,
 } from "@/lib/adminExperienceTeamOverall";
 import { parseScopeMode } from "@/lib/userScope";
+import {
+  assertImpersonationCapability,
+  resolveImpersonation,
+  resolveTeamNameById,
+} from "@/lib/experienceImpersonation";
+import { resolveActorContext } from "@/lib/adminExperiencePartInput";
 
 // 실무 경험 [팀 총괄] — 개설 검수/완료/취소 API.
 //   GET  ?organization=&week_id=&team_id=&team_name=  → 보드(파트별 크루×5열 + 아웃풋 + status + 확장)
@@ -36,7 +42,6 @@ export async function GET(request: NextRequest) {
     if (response) return response;
     throw error;
   }
-  void admin;
 
   const sp = request.nextUrl.searchParams;
   const organization = sp.get("organization")?.trim() || "";
@@ -44,6 +49,7 @@ export async function GET(request: NextRequest) {
   const teamId = sp.get("team_id")?.trim() || "";
   const teamName = sp.get("team_name")?.trim() || "";
   const mode = parseScopeMode(sp.get("mode"));
+  const actAsTestUserId = sp.get("actAsTestUserId")?.trim() || null;
 
   if (!organization || !weekId || !teamId || !teamName) {
     return Response.json(
@@ -53,6 +59,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Phase A: actAsTestUserId 검증만(board DTO 무변경·동작 무변경). 유효 시 감사 로그.
+    //   board 구성/버튼 게이팅(actor 기반)은 Phase B/C 에서 진행. write 가드 미적용.
+    const impersonation = await resolveImpersonation({ mode, actAsTestUserId });
+    if (impersonation.active) {
+      console.info("[team-overall GET] impersonation active", {
+        adminId: admin.userId,
+        actAsTestUserId: impersonation.userId,
+        organization,
+        teamId,
+      });
+    }
+
     const data = await getTeamOverallBoard(organization, weekId, teamId, teamName, mode);
     return Response.json({ success: true, data });
   } catch (error) {
@@ -130,6 +148,7 @@ export async function POST(request: NextRequest) {
   const teamId = typeof b.team_id === "string" ? b.team_id.trim() : "";
   const teamName = typeof b.team_name === "string" ? b.team_name.trim() : "";
   const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
+  const actAsTestUserId = typeof b.actAsTestUserId === "string" ? b.actAsTestUserId.trim() || null : null;
 
   if (!organization || !weekId || !teamId || !teamName) {
     return Response.json(
@@ -145,6 +164,22 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // 임퍼소네이션 write 가드(Phase C) — mode=test + 유효 테스트 유저일 때만.
+    //   open/cancel: team_leader=자기 팀 / part_leader·agent=불가.
+    //   review: agent·team_leader=자기 팀 / part_leader=불가. targetTeamName=team_id 권위 해석.
+    const impersonation = await resolveImpersonation({ mode, actAsTestUserId });
+    if (impersonation.active && impersonation.userId) {
+      const actor = await resolveActorContext(impersonation.userId);
+      const targetTeamName = await resolveTeamNameById(teamId);
+      const gateAction = action === "open" ? "open" : action === "cancel" ? "cancel" : "review";
+      assertImpersonationCapability({
+        active: true,
+        actor: { memberRole: actor.memberRole, teamName: actor.teamName, partName: actor.partName },
+        action: gateAction,
+        targetTeamName,
+      });
+    }
+
     if (action === "cancel") {
       const data = await cancelTeamOverall({
         organization,

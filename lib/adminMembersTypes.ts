@@ -61,6 +61,20 @@ export function memberStatusLabel(
   return "크루"; // 멤버십 등급 정보 없음 → 등급 미부여 기본 표기
 }
 
+// 게이팅/임퍼소네이션용 정규화 역할. memberStatusLabel 단일 SoT 기반(라벨→역할 키).
+//   team_leader(role=team_leader) · part_leader/agent(심화 등급) · 그 외=member.
+export type NormalizedMemberRole = "team_leader" | "part_leader" | "agent" | "member";
+export function normalizeMemberRole(
+  role: string | null,
+  membershipLevel: string | null,
+): NormalizedMemberRole {
+  const label = memberStatusLabel(role, membershipLevel);
+  if (label === "팀장") return "team_leader";
+  if (label === "심화(파트장)") return "part_leader";
+  if (label === "심화(에이전트)") return "agent";
+  return "member";
+}
+
 // 멤버 관리 UI/API 에서 지정 가능한 역할 4종.
 // user_profiles.role CHECK(7종) 의 부분집합이며, ambassador/admin/super_admin 은
 // 기존 시스템 보존용이라 이 화면에서는 다루지 않는다(노출/지정 모두 불가).

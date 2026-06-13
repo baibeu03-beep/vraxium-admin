@@ -57,6 +57,11 @@ export type PartInputActor = {
   teamName: string | null;
   partName: string | null;
   defaultPart: string; // partName(파트장) 또는 TEAM_OVERALL
+  // 임퍼소네이션/게이팅용(Phase A 추가 — additive·선택적, 기존 소비처 무영향).
+  //   memberRole = 게이팅 정규화 역할. impersonating = actAsTestUserId 유효 여부.
+  memberRole?: "team_leader" | "part_leader" | "agent" | "member" | null;
+  impersonating?: boolean;
+  impersonatedUserId?: string | null;
 };
 
 export type PartOverallAggregate = {
