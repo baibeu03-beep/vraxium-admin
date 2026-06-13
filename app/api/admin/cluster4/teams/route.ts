@@ -5,6 +5,8 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { isTestTeam } from "@/lib/cluster4ExperienceTestScope";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 type TeamRow = {
   id: string;
@@ -24,6 +26,8 @@ export async function GET(request: NextRequest) {
 
   const org =
     request.nextUrl.searchParams.get("organization")?.trim() || null;
+  // 모집단 모드(operating 기본 / test). 팀 목록도 분기: operating=운영 팀만, test=(T) 테스트 팀만.
+  const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
 
   try {
     let query = supabaseAdmin
@@ -46,12 +50,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const teams = ((data ?? []) as TeamRow[]).map((t) => ({
-      id: t.id,
-      teamName: t.team_name,
-      organizationSlug: t.organization_slug,
-      isActive: t.is_active,
-    }));
+    const teams = ((data ?? []) as TeamRow[])
+      // 테스트 팀 레지스트리(isTestTeam) 기준 mode 필터: operating=운영 팀만 / test=(T) 팀만.
+      .filter((t) =>
+        mode === "test"
+          ? isTestTeam(t.organization_slug, t.team_name)
+          : !isTestTeam(t.organization_slug, t.team_name),
+      )
+      .map((t) => ({
+        id: t.id,
+        teamName: t.team_name,
+        organizationSlug: t.organization_slug,
+        isActive: t.is_active,
+      }));
 
     return Response.json({ success: true, data: teams });
   } catch (error) {

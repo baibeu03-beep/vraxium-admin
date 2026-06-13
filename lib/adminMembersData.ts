@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
+import { resolveUserScope, type UserScope } from "@/lib/userScope";
 import {
   isManualOverrideStatus,
   MANUAL_OVERRIDE_STATUSES,
@@ -214,6 +215,7 @@ async function fetchMembershipLevels(
 // 가벼우며, 카운트/필터 의미는 기존 목록 쿼리와 동일하게 applyFilters 로 맞춘다.
 async function fetchAllMatchingUserIds(
   options: ListMembersOptions,
+  scope?: UserScope,
 ): Promise<string[]> {
   const ids: string[] = [];
   const ROW_PAGE = 1000;
@@ -225,7 +227,7 @@ async function fetchAllMatchingUserIds(
       applyOrganization: true,
       applyAuthEmailPresence: true,
       applyContactEmailPresence: true,
-    });
+    }, scope);
     const { data, error } = await builder
       .order("user_id", { ascending: true })
       .range(from, from + ROW_PAGE - 1);
@@ -250,20 +252,36 @@ type FilterFlags = {
   applyContactEmailPresence?: boolean;
 };
 
+// 결과 0건 보장용 불가능 UUID(테스트 모드 화이트리스트가 비었을 때).
+const IMPOSSIBLE_UUID = "00000000-0000-0000-0000-000000000000";
+
 function applyFilters<T extends { eq: unknown; is: unknown; or: unknown }>(
   builder: T,
   options: ListMembersOptions,
   flags: FilterFlags,
+  scope?: UserScope,
 ): T {
   let q = builder as unknown as {
     eq: (col: string, value: string) => typeof q;
     is: (col: string, value: null) => typeof q;
-    not: (col: string, op: string, value: null) => typeof q;
+    not: (col: string, op: string, value: string | null) => typeof q;
+    in: (col: string, values: string[]) => typeof q;
     or: (filters: string) => typeof q;
   };
 
   // super admin 은 멤버 목록/카운트 전부에서 제외 (목록 노출에서만 숨김, 인가와 무관).
   q = q.or(SUPER_ADMIN_EXCLUDE_OR);
+
+  // 모집단 스코프(operating=테스트 제외 / test=테스트만). SoT=test_user_markers(userScope).
+  // 모든 멤버 쿼리 빌더가 이 함수를 거치므로 목록·카운트·정렬 경로 전부 동일 스코프 보장.
+  if (scope) {
+    if (scope.mode === "test") {
+      const ids = [...(scope.includeUserIds ?? [])];
+      q = q.in("user_id", ids.length > 0 ? ids : [IMPOSSIBLE_UUID]);
+    } else if (scope.excludeUserIds.length > 0) {
+      q = q.not("user_id", "in", `(${scope.excludeUserIds.join(",")})`);
+    }
+  }
 
   if (flags.applyOrganization && options.organization) {
     if (options.organization === ORG_NONE_SENTINEL) {
@@ -327,6 +345,9 @@ export async function listMembers(
   const sortBy: MemberSortColumn = options.sortBy ?? "created_at";
   const sortDir: MemberSortDir = options.sortDir ?? "desc";
 
+  // 모집단 스코프(operating 기본=실사용자만·테스트 제외 / test=테스트만) — 한 번 해소해 전 빌더에 적용.
+  const scope = await resolveUserScope(options.mode ?? "operating", null);
+
   let members: AdminMemberDto[];
   let total: number;
 
@@ -335,7 +356,7 @@ export async function listMembers(
   if (pointsSortField) {
     // 포인트 집계 정렬: user_weekly_points 집계라 DB order 불가.
     // 전체 대상 id → 포인트 합 → 메모리 정렬 → 페이지 슬라이스 순으로 처리한다.
-    const allIds = await fetchAllMatchingUserIds(options);
+    const allIds = await fetchAllMatchingUserIds(options, scope);
     total = allIds.length;
     const sums = await sumPointsForUsers(allIds);
     const sorted = [...allIds].sort((a, b) => {
@@ -380,7 +401,7 @@ export async function listMembers(
       applyOrganization: true,
       applyAuthEmailPresence: true,
       applyContactEmailPresence: true,
-    });
+    }, scope);
 
     queryBuilder = queryBuilder
       .order(sortBy, { ascending: sortDir === "asc", nullsFirst: false })
@@ -411,7 +432,7 @@ export async function listMembers(
     applyOrganization: false,
     applyAuthEmailPresence: true,
     applyContactEmailPresence: true,
-  });
+  }, scope);
   withoutOrgBuilder = withoutOrgBuilder.is("organization_slug", null);
 
   let withoutAuthBuilder = supabaseAdmin
@@ -421,7 +442,7 @@ export async function listMembers(
     applyOrganization: true,
     applyAuthEmailPresence: false,
     applyContactEmailPresence: true,
-  });
+  }, scope);
   withoutAuthBuilder = withoutAuthBuilder.is("auth_email", null);
 
   const [withoutOrgResult, withoutAuthResult] = await Promise.all([

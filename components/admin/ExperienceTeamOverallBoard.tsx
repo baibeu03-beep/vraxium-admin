@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   EXPERIENCE_OVERALL_CATEGORIES,
   OVERALL_CELL_DEFAULT,
@@ -60,12 +61,15 @@ export default function ExperienceTeamOverallBoard({
   teamId,
   teamName,
   weekId,
+  mode = "operating",
   onActivity,
 }: {
   organization: string;
   teamId: string;
   teamName: string;
   weekId: string;
+  // 모집단 모드(operating=실사용자만 / test=테스트 유저만). GET/POST(open) 에 전파.
+  mode?: ScopeMode;
   // 검수/완료/취소 직후 상위(상태창·로그창)를 갱신하라는 신호.
   onActivity?: () => void;
 }) {
@@ -144,6 +148,7 @@ export default function ExperienceTeamOverallBoard({
         team_id: teamId,
         team_name: teamName,
       });
+      if (mode === "test") qs.set("mode", "test");
       const res = await fetch(
         `/api/admin/cluster4/experience/team-overall?${qs.toString()}`,
       );
@@ -162,7 +167,7 @@ export default function ExperienceTeamOverallBoard({
     } finally {
       setLoading(false);
     }
-  }, [organization, teamId, teamName, weekId, hydrate]);
+  }, [organization, teamId, teamName, weekId, mode, hydrate]);
 
   useEffect(() => {
     // setState 는 effect 본문이 아닌 async 콜백 안에서 호출(동기 cascading 렌더 방지 — 프로젝트 표준 패턴).
@@ -284,11 +289,12 @@ export default function ExperienceTeamOverallBoard({
           team_name: teamName,
           leaderCells: action === "cancel" ? [] : cells,
           outputs: action === "cancel" ? [] : outs,
+          mode,
         }),
       });
       return res.json();
     },
-    [buildPayload, organization, weekId, teamId, teamName],
+    [buildPayload, organization, weekId, teamId, teamName, mode],
   );
 
   // ── 버튼 핸들러 ──

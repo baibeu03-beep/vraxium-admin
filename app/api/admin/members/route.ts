@@ -8,6 +8,7 @@ import {
   type PresenceFilter,
 } from "@/lib/adminMembersTypes";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 function parseIntParam(
   raw: string | null,
@@ -95,6 +96,7 @@ export async function GET(request: NextRequest) {
       sortDir: sort.sortDir,
       limit,
       offset,
+      mode: parseScopeMode(params.get("mode")),
     });
     return Response.json({ success: true, data });
   } catch (error) {

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { readScopeMode } from "@/lib/userScopeShared";
 import ExperienceTeamOverallBoard from "@/components/admin/ExperienceTeamOverallBoard";
 import type {
   ExperienceLineManageSummary,
@@ -68,6 +69,9 @@ export default function ExperiencePartLeadInput({
 } = {}) {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  // 모집단 모드(operating 기본 / ?mode=test). 운영 화면은 mode 미부착이라 기존 동작 불변.
+  const mode = readScopeMode(searchParams);
+  const modeQs = mode === "test" ? "&mode=test" : "";
 
   const [teams, setTeams] = useState<Team[]>([]);
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
@@ -105,7 +109,7 @@ export default function ExperiencePartLeadInput({
     void (async () => {
       try {
         const res = await fetch(
-          `/api/admin/cluster4/experience/line-manage?organization=${encodeURIComponent(org)}`,
+          `/api/admin/cluster4/experience/line-manage?organization=${encodeURIComponent(org)}${modeQs}`,
         );
         const json = await res.json();
         if (cancelled || !json?.success) return;
@@ -121,7 +125,7 @@ export default function ExperiencePartLeadInput({
     return () => {
       cancelled = true;
     };
-  }, [org]);
+  }, [org, modeQs]);
 
   // 현재 선택 팀의 팀장 표시 문구. 없으면 "미지정".
   const selectedLeaderText = useMemo(() => {
@@ -140,10 +144,12 @@ export default function ExperiencePartLeadInput({
       if (!cancelled) setBootLoading(true);
       try {
         const qsOrg = org ? `?organization=${encodeURIComponent(org)}` : "";
+        // 팀 목록·part-input 모두 mode 전파(operating=운영 팀/실사용자, test=(T) 팀/테스트 유저).
+        const modeParam = mode === "test" ? (qsOrg ? "&mode=test" : "?mode=test") : "";
         const [teamsRes, weeksRes, actorRes] = await Promise.all([
-          fetch(`/api/admin/cluster4/teams${qsOrg}`),
+          fetch(`/api/admin/cluster4/teams${qsOrg}${modeParam}`),
           fetch(`/api/admin/cluster4/weeks-options?limit=3`),
-          fetch(`/api/admin/cluster4/experience/part-input${qsOrg}`),
+          fetch(`/api/admin/cluster4/experience/part-input${qsOrg}${modeParam}`),
         ]);
         const teamsJson = await teamsRes.json();
         const weeksJson = await weeksRes.json();
@@ -185,8 +191,8 @@ export default function ExperiencePartLeadInput({
     return () => {
       cancelled = true;
     };
-    // org 변경 시에만 재부트.
-  }, [org]);
+    // org/mode 변경 시 재부트.
+  }, [org, mode]);
 
   // ── 파트 목록 + 기본 파트(실제 파트 우선) — 팀 변경 시마다 ──
   // 기본 파트 = (actor 팀 & 파트장 & 본인 파트 존재) ? 본인 파트 : 첫 번째 실제 파트.
@@ -207,6 +213,7 @@ export default function ExperiencePartLeadInput({
         if (org) qs.set("organization", org);
         qs.set("team_id", team.id);
         qs.set("team_name", team.teamName);
+        if (mode === "test") qs.set("mode", "test");
         const res = await fetch(
           `/api/admin/cluster4/experience/part-input?${qs.toString()}`,
         );
@@ -245,7 +252,7 @@ export default function ExperiencePartLeadInput({
     return () => {
       cancelled = true;
     };
-  }, [bootLoading, org, selectedTeamId, teams, actor]);
+  }, [bootLoading, org, mode, selectedTeamId, teams, actor]);
 
   // ── 그리드 데이터: (team, week, part) 조회 ──
   const fetchGrid = useCallback(async () => {
@@ -262,6 +269,7 @@ export default function ExperiencePartLeadInput({
       qs.set("team_id", selectedTeam.id);
       qs.set("team_name", selectedTeam.teamName);
       qs.set("part", part);
+      if (mode === "test") qs.set("mode", "test");
       const res = await fetch(
         `/api/admin/cluster4/experience/part-input?${qs.toString()}`,
       );
@@ -294,7 +302,7 @@ export default function ExperiencePartLeadInput({
     } finally {
       setGridLoading(false);
     }
-  }, [org, selectedTeam, selectedWeekId, part]);
+  }, [org, mode, selectedTeam, selectedWeekId, part]);
 
   useEffect(() => {
     if (bootLoading) return;
@@ -391,6 +399,7 @@ export default function ExperiencePartLeadInput({
           team_name: selectedTeam.teamName,
           part,
           cells,
+          mode,
         }),
       });
       const json = await res.json();
@@ -406,7 +415,7 @@ export default function ExperiencePartLeadInput({
     } finally {
       setSaving(false);
     }
-  }, [selectedTeam, selectedWeekId, part, data, getCell, org, fetchGrid, onActivity]);
+  }, [selectedTeam, selectedWeekId, part, data, getCell, org, mode, fetchGrid, onActivity]);
 
   const cancelSubmission = useCallback(async () => {
     if (!selectedTeam || !selectedWeekId || part === TEAM_OVERALL) return;
@@ -567,6 +576,7 @@ export default function ExperiencePartLeadInput({
                   teamId={selectedTeam.id}
                   teamName={selectedTeam.teamName}
                   weekId={selectedWeekId}
+                  mode={mode}
                   onActivity={onActivity}
                 />
               ) : (

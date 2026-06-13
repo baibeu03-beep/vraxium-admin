@@ -17,6 +17,7 @@ import {
   openTeamOverall,
   saveTeamOverallReview,
 } from "@/lib/adminExperienceTeamOverall";
+import { parseScopeMode } from "@/lib/userScope";
 
 // 실무 경험 [팀 총괄] — 개설 검수/완료/취소 API.
 //   GET  ?organization=&week_id=&team_id=&team_name=  → 보드(파트별 크루×5열 + 아웃풋 + status + 확장)
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
   const weekId = sp.get("week_id")?.trim() || "";
   const teamId = sp.get("team_id")?.trim() || "";
   const teamName = sp.get("team_name")?.trim() || "";
+  const mode = parseScopeMode(sp.get("mode"));
 
   if (!organization || !weekId || !teamId || !teamName) {
     return Response.json(
@@ -51,7 +53,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await getTeamOverallBoard(organization, weekId, teamId, teamName);
+    const data = await getTeamOverallBoard(organization, weekId, teamId, teamName, mode);
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[admin/cluster4/experience/team-overall GET]", error);
@@ -127,6 +129,7 @@ export async function POST(request: NextRequest) {
   const weekId = typeof b.week_id === "string" ? b.week_id.trim() : "";
   const teamId = typeof b.team_id === "string" ? b.team_id.trim() : "";
   const teamName = typeof b.team_name === "string" ? b.team_name.trim() : "";
+  const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
 
   if (!organization || !weekId || !teamId || !teamName) {
     return Response.json(
@@ -178,6 +181,7 @@ export async function POST(request: NextRequest) {
       leaderCells,
       outputs,
       adminId: admin.userId,
+      mode,
     });
     return Response.json(
       {

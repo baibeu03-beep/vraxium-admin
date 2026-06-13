@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchCrewNoMap } from "@/lib/adminCrewNo";
+import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import type {
   ExperienceLineMasterDto,
   ExperienceLineMasterCreateInput,
@@ -307,6 +308,7 @@ export async function listCrewsForTargetSelection(options: {
   membershipLevel?: string | null;
   status?: string | null;
   search?: string | null;
+  mode?: ScopeMode;
 }): Promise<CrewItemDto[]> {
   let profileQuery = supabaseAdmin
     .from("user_profiles")
@@ -325,7 +327,12 @@ export async function listCrewsForTargetSelection(options: {
   if (profileError) throw new Error(profileError.message);
   if (!profiles || profiles.length === 0) return [];
 
-  const userIds = (profiles as ProfileRow[]).map((p) => p.user_id);
+  // 모집단 스코프(operating=실사용자만 / test=test_user_markers 만) — userScope resolver(SoT).
+  const scope = await resolveUserScope(options.mode ?? "operating", null);
+  const scopedProfiles = (profiles as ProfileRow[]).filter((p) => scope.includes(p.user_id));
+  if (scopedProfiles.length === 0) return [];
+
+  const userIds = scopedProfiles.map((p) => p.user_id);
 
   const { data: memberships, error: memError } = await supabaseAdmin
     .from("user_memberships")
@@ -345,7 +352,7 @@ export async function listCrewsForTargetSelection(options: {
   // 운영용 크루 번호 — best-effort(컬럼 미존재 시 빈 맵). 기존 select 무변경.
   const crewNoMap = await fetchCrewNoMap(userIds);
 
-  let result: CrewItemDto[] = (profiles as ProfileRow[]).map((p) => {
+  let result: CrewItemDto[] = scopedProfiles.map((p) => {
     const m = memMap.get(p.user_id);
     return {
       userId: p.user_id,

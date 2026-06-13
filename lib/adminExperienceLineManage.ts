@@ -16,6 +16,8 @@ import {
 } from "@/lib/cluster4WeekPolicy";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { getTeamOverallBoard } from "@/lib/adminExperienceTeamOverall";
+import { isTestTeam } from "@/lib/cluster4ExperienceTestScope";
+import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import { EXPERIENCE_OVERALL_CATEGORIES } from "@/lib/experienceTeamOverallTypes";
 import type {
@@ -58,7 +60,10 @@ function preferString(...values: Array<string | null | undefined>): string | nul
 // org 전체 팀의 인원 요약 + 팀장 정보를 1회 스캔으로 산출 — 팀명 → {headcount, leader}.
 //   팀장(label="팀장")은 명부(crew) 집계에서 제외하되, 카드 표시용으로 팀별 1명을 잡아둔다.
 //   학교/학과는 user_educations(canonical)→user_profiles 폴백(cluster4WeeklyPeopleData 와 동일 규칙).
-async function loadOrgTeamRoster(organization: string): Promise<{
+async function loadOrgTeamRoster(
+  organization: string,
+  mode: ScopeMode = "operating",
+): Promise<{
   headcounts: Map<string, LineManageHeadcount>;
   leaders: Map<string, LineManageTeamLeader>;
 }> {
@@ -80,16 +85,15 @@ async function loadOrgTeamRoster(organization: string): Promise<{
   const ids = profs.map((p) => p.user_id);
   const profById = new Map(profs.map((p) => [p.user_id, p]));
 
-  const [memRes, markerRes] = await Promise.all([
+  const [memRes, scope] = await Promise.all([
     supabaseAdmin
       .from("user_memberships")
       .select("user_id,team_name,part_name,membership_level,membership_state,is_current")
       .in("user_id", ids),
-    supabaseAdmin.from("test_user_markers").select("user_id"),
+    // 모집단 스코프(operating=실사용자만 / test=테스트 유저만) — userScope resolver(SoT=test_user_markers).
+    // org 필터는 위 profiles 조회가 적용하므로 scope.org=null(includes 판정은 org 무관).
+    resolveUserScope(mode, null),
   ]);
-  const testSet = new Set(
-    ((markerRes.data ?? []) as Array<{ user_id: string }>).map((m) => m.user_id),
-  );
 
   type Mem = {
     user_id: string;
@@ -110,7 +114,8 @@ async function loadOrgTeamRoster(organization: string): Promise<{
   const leaderUserByTeam = new Map<string, string>();
 
   for (const p of profs) {
-    if (testSet.has(p.user_id)) continue;
+    // 모집단 스코프: operating=실사용자만 / test=테스트 유저만 (구 무조건 제외 버그 해소).
+    if (!scope.includes(p.user_id)) continue;
     const m = memMap.get(p.user_id);
     if (!m || !m.team_name) continue;
     const label = memberStatusLabel(roleById(profById, p.user_id), m.membership_level);
@@ -208,6 +213,7 @@ function startDateToMs(iso: string): number {
 export async function getExperienceLineManageSummary(
   organization: string,
   weekIdParam?: string | null,
+  mode: ScopeMode = "operating",
 ): Promise<ExperienceLineManageSummary> {
   let weekId: string | null = null;
   let targetWeek: ExperienceLineManageSummary["targetWeek"] = null;
@@ -268,15 +274,19 @@ export async function getExperienceLineManageSummary(
     };
   }
 
-  // org 의 활성 팀(동적, 하드코딩 없음).
-  const teamList = await listTeams(organization);
+  // org 의 활성 팀(동적, 하드코딩 없음). 팀 목록도 mode 로 분기:
+  //   operating → 운영 팀만(테스트 팀 숨김) / test → 테스트 팀만.
+  const allTeams = await listTeams(organization);
+  const teamList = allTeams.filter((t) =>
+    mode === "test" ? isTestTeam(organization, t.teamName) : !isTestTeam(organization, t.teamName),
+  );
   const [boards, roster] = await Promise.all([
     Promise.all(
       teamList.map((t) =>
-        getTeamOverallBoard(organization, weekId, t.id, t.teamName),
+        getTeamOverallBoard(organization, weekId, t.id, t.teamName, mode),
       ),
     ),
-    loadOrgTeamRoster(organization),
+    loadOrgTeamRoster(organization, mode),
   ]);
   const { headcounts, leaders } = roster;
 

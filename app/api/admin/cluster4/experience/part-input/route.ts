@@ -22,6 +22,7 @@ import {
   savePartSubmission,
 } from "@/lib/adminExperiencePartInput";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
+import { parseScopeMode } from "@/lib/userScope";
 
 // 실무 경험 파트장 입력 그리드 — 신청 데이터(신규 전용 저장) API.
 //   GET    ?organization=&week_id=&team_id=&team_name=&part=  → 파트/크루/셀/신청상태 (+actor 기본값)
@@ -46,6 +47,7 @@ export async function GET(request: NextRequest) {
   const teamId = sp.get("team_id")?.trim() || "";
   const teamName = sp.get("team_name")?.trim() || "";
   const part = sp.get("part")?.trim() || "";
+  const mode = parseScopeMode(sp.get("mode"));
 
   try {
     const actorRaw = await resolveActorContext(admin.userId);
@@ -69,13 +71,13 @@ export async function GET(request: NextRequest) {
       return Response.json({ success: true, data });
     }
 
-    const parts = await listTeamParts(organization, teamName);
+    const parts = await listTeamParts(organization, teamName, mode);
 
     // 팀 총괄(집계, 읽기 전용).
     if (part === TEAM_OVERALL) {
       const aggregate =
         weekId && teamId
-          ? await getTeamOverall(organization, weekId, teamId, teamName)
+          ? await getTeamOverall(organization, weekId, teamId, teamName, mode)
           : { parts: [] };
       const data: PartInputGetData = {
         actor,
@@ -90,7 +92,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 특정 파트 — 평가 대상 크루 + 저장된 셀 + 신청 상태.
-    const crews = part ? await listPartCrews(organization, teamName, part) : [];
+    const crews = part ? await listPartCrews(organization, teamName, part, mode) : [];
     const sub =
       part && weekId && teamId
         ? await getPartSubmission(organization, weekId, teamId, part)
@@ -139,6 +141,7 @@ export async function POST(request: NextRequest) {
   const weekId = typeof b.week_id === "string" ? b.week_id.trim() : "";
   const teamId = typeof b.team_id === "string" ? b.team_id.trim() : "";
   const part = typeof b.part === "string" ? b.part.trim() : "";
+  const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
 
   if (!organization || !weekId || !teamId || !part) {
     return Response.json(
@@ -177,6 +180,7 @@ export async function POST(request: NextRequest) {
       part,
       submittedBy: admin.userId,
       cells,
+      mode,
     });
     // 행동 이력: [개설 신청] 로그(best-effort, 실행자 소속 기준). 실패해도 신청 저장 무영향.
     await insertExperienceOpeningLog({

@@ -14,9 +14,10 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
-  assertCrewIdsInScope,
-  isUserInTeamScope,
-} from "@/lib/cluster4ExperienceTestScope";
+  assertUserIdsInScope,
+  resolveUserScope,
+  type ScopeMode,
+} from "@/lib/userScope";
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
@@ -66,6 +67,7 @@ type OverallMemberRow = {
 async function loadTeamMembersWithLeaders(
   organization: string,
   teamName: string,
+  mode: ScopeMode = "operating",
 ): Promise<OverallMemberRow[]> {
   let profileQuery = supabaseAdmin
     .from("user_profiles")
@@ -88,14 +90,9 @@ async function loadTeamMembersWithLeaders(
     .in("user_id", userIds);
   if (memError) throw new Error(memError.message);
 
-  // 테스트 스코프 필터(운영 팀=테스트 계정 제외 / 테스트 팀=테스트 계정만).
-  // (org, teamName) 기준 단일 SoT: lib/cluster4ExperienceTestScope.
-  const { data: markers } = await supabaseAdmin
-    .from("test_user_markers")
-    .select("user_id");
-  const testSet = new Set(
-    ((markers ?? []) as Array<{ user_id: string }>).map((m) => m.user_id),
-  );
+  // 모집단 스코프(operating=실사용자만 / test=테스트 유저만) — userScope resolver(SoT=test_user_markers).
+  // org 필터는 위 profileQuery 가 적용하므로 scope.org=null(includes 판정은 org 무관).
+  const scope = await resolveUserScope(mode, null);
 
   type MemRow = {
     user_id: string;
@@ -113,8 +110,8 @@ async function loadTeamMembersWithLeaders(
 
   const rows: OverallMemberRow[] = [];
   for (const p of profs) {
-    // 스코프 필터: 운영 팀=테스트 계정 제외 / 테스트 팀=테스트 계정만(실사용자 제외).
-    if (!isUserInTeamScope(organization, teamName, p.user_id, testSet)) continue;
+    // 모집단 스코프: operating=실사용자만 / test=테스트 유저만.
+    if (!scope.includes(p.user_id)) continue;
     const m = memMap.get(p.user_id);
     if (!m || m.team_name !== teamName) continue;
     if (m.membership_state === "rest") continue; // 휴식 제외(active 만).
@@ -307,9 +304,10 @@ export async function getTeamOverallBoard(
   weekId: string,
   teamId: string,
   teamName: string,
+  mode: ScopeMode = "operating",
 ): Promise<ExperienceTeamOverallBoard> {
   const [members, partCellsData, stored, weekDates] = await Promise.all([
-    loadTeamMembersWithLeaders(organization, teamName),
+    loadTeamMembersWithLeaders(organization, teamName, mode),
     loadPartSubmissionCells(organization, weekId, teamId),
     loadOverallStored(organization, weekId, teamId),
     loadWeekDates(weekId),
@@ -619,7 +617,9 @@ export async function openTeamOverall(input: {
   leaderCells: OverallLeaderCellDto[];
   outputs: OverallOutput[];
   adminId: string | null;
+  mode?: ScopeMode;
 }): Promise<OpenOverallResult> {
+  const mode: ScopeMode = input.mode ?? "operating";
   const existing = await loadOverallStored(input.organization, input.weekId, input.teamId);
   if (existing.status === "opened") {
     throw Object.assign(
@@ -634,12 +634,13 @@ export async function openTeamOverall(input: {
     status: "reviewed",
   });
 
-  // 2) 머지된 보드(part-derived 라이브 + 방금 저장한 leader 셀) 재조립.
+  // 2) 머지된 보드(part-derived 라이브 + 방금 저장한 leader 셀) 재조립. (모집단 = 동일 mode 스코프)
   const board = await getTeamOverallBoard(
     input.organization,
     input.weekId,
     input.teamId,
     input.teamName,
+    mode,
   );
   const weekDates = await loadWeekDates(input.weekId);
   if (!weekDates) {
@@ -671,15 +672,15 @@ export async function openTeamOverall(input: {
     }
   }
 
-  // 안전장치 — cluster4_line_targets 생성 직전, 전 카테고리 대상 userId 전원이
-  // (org, 팀) 테스트 스코프에 부합하는지 검증. 테스트 팀에 실사용자가 하나라도 섞이면
-  // (또는 운영 팀에 테스트 계정이 섞이면) 고객 반영(라인/타깃/평가) write 전에 중단한다.
-  // board.crews 는 이미 스코프 필터를 거치므로 정상 경로에선 통과하나, 입력/머지 변조에
-  // 대한 방어선(defense-in-depth)으로 독립 검증한다.
+  // 안전장치 — cluster4_line_targets 생성 직전, 전 카테고리 대상 userId 전원이 현재 모드
+  // 스코프에 부합하는지 검증. operating 에 테스트 계정 / test 에 실사용자가 하나라도 섞이면
+  // 고객 반영(라인/타깃/평가) write 전에 중단한다. board.crews 는 이미 스코프 필터를 거치므로
+  // 정상 경로에선 통과하나, 입력/머지 변조에 대한 방어선(defense-in-depth)으로 독립 검증한다.
   const allTargetUserIds = Array.from(crewsByCat.values()).flatMap((list) =>
     list.map((t) => t.userId),
   );
-  await assertCrewIdsInScope(input.organization, input.teamName, allTargetUserIds);
+  const openScope = await resolveUserScope(mode, null);
+  assertUserIdsInScope(openScope, allTargetUserIds);
 
   const warnings: string[] = [];
   const createdLineIds: string[] = [];

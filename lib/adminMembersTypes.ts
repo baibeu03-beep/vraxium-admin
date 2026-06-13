@@ -2,6 +2,8 @@
 // Must not import any server-only modules (supabaseAdmin, next/headers, ...),
 // because client components import from here.
 
+import type { ScopeMode } from "@/lib/userScopeShared";
+
 export type AdminMemberDto = {
   userId: string;
   displayName: string | null;
@@ -132,6 +134,8 @@ export type ListMembersOptions = {
   sortDir?: MemberSortDir | null;
   limit?: number;
   offset?: number;
+  // 모집단 모드(operating 기본=실사용자만·테스트 제외 / test=test_user_markers 만). 입력 옵션(응답 DTO 무변경).
+  mode?: ScopeMode;
 };
 
 export type ListMembersResult = {

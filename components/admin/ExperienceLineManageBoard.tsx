@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { readScopeMode } from "@/lib/userScopeShared";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import {
   formatTeamLeader,
@@ -185,6 +186,8 @@ export default function ExperienceLineManageBoard({
 }) {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  // 모집단 모드(operating 기본 / ?mode=test). 운영 화면은 mode 미부착이라 기존 동작 불변.
+  const mode = readScopeMode(searchParams);
 
   const [data, setData] = useState<ExperienceLineManageSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -240,6 +243,7 @@ export default function ExperienceLineManageBoard({
       try {
         const qs = new URLSearchParams({ organization: org });
         if (selectedWeekId) qs.set("week_id", selectedWeekId);
+        if (mode === "test") qs.set("mode", "test");
         const res = await fetch(
           `/api/admin/cluster4/experience/line-manage?${qs.toString()}`,
         );
@@ -256,7 +260,7 @@ export default function ExperienceLineManageBoard({
     return () => {
       cancelled = true;
     };
-  }, [org, selectedWeekId, weeksReady, refreshKey]);
+  }, [org, mode, selectedWeekId, weeksReady, refreshKey]);
 
   if (!org) {
     return (

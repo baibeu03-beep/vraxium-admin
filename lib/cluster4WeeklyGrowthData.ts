@@ -1,4 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  isTestUser as isMarkedTestUser,
+  fetchTestUserMarkerIds,
+} from "@/lib/testUsers";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import {
@@ -1549,24 +1553,12 @@ export type ExperienceGrowthSyncResult = {
   dryRun: boolean; // true 면 DB write 없이 변경 예정만 계산
 };
 
-// display_name 에 t/T 포함 → 테스트 사용자 (DB 의 ILIKE '%T%' 와 동일 의미).
-// 개발자 모드에서 실사용자 보호 판단에 쓰는 단일 기준 (fetchTestUserIds 와 의미 일치).
-export function isTestDisplayName(name: string | null | undefined): boolean {
-  return !!name && /t/i.test(name);
-}
-
-// 사용자 테스트 여부 단건 조회 (isTestDisplayName 단일 기준).
-// v11 슬롯 정책 적용 시점 분리(테스트=과거 전 주차 적용, 실사용자=EFFECTIVE_FROM 이후만)에 사용.
-// 조회 실패 시 false(실사용자, 보수적) — 과거 데이터 보호가 기본.
+// 사용자 테스트 여부 단건 조회 — SoT = public.test_user_markers (lib/testUsers.isTestUser).
+//   (2026-06 정책: display_name '%T%' 휴리스틱 제거. 이름 기반 판정 금지 — marker 등재만 기준.)
+//   개인 sync 의 write-gate(테스트 유저는 항상 write 허용)와 v11 결과 보고용 isTestUser 필드에 사용.
+//   조회 실패 시 false(실사용자, 보수적) — 과거 데이터 보호가 기본(isMarkedTestUser 내부에서도 동일).
 export async function fetchIsTestUser(userId: string): Promise<boolean> {
-  const { data } = await supabaseAdmin
-    .from("user_profiles")
-    .select("display_name")
-    .eq("user_id", userId)
-    .maybeSingle();
-  return isTestDisplayName(
-    (data as { display_name: string | null } | null)?.display_name,
-  );
+  return isMarkedTestUser(userId);
 }
 
 export async function syncExperienceGrowthWeekStatuses(
@@ -1726,7 +1718,7 @@ export async function syncExperienceGrowthWeekStatuses(
 
 // ─────────────────────────────────────────────────────────────────────
 // 개인(크루 단위) sync 정책 — 개발자 모드 기준.
-//   - 테스트 사용자(display_name ILIKE '%T%')       → 항상 write 허용.
+//   - 테스트 사용자(test_user_markers 등재)          → 항상 write 허용.
 //   - 실사용자 + devMode=true                        → dry-run 만 (DB 미반영, 실사용자 보호).
 //   - 실사용자 + devMode=false + confirm=true        → write 허용 (운영 반영).
 //   - 실사용자 + devMode=false + confirm=false       → dry-run 만.
@@ -1755,13 +1747,14 @@ export async function syncExperienceGrowthForCrew(
     .maybeSingle();
   const displayName =
     (prof as { display_name: string | null } | null)?.display_name ?? null;
-  const isTestUser = isTestDisplayName(displayName);
+  // 테스트 유저 판정 = test_user_markers(SoT). 이름('%T%') 기반 판정 폐기.
+  const isTestUser = await fetchIsTestUser(crew.userId);
 
   let mode: "write" | "dry_run";
   let reason: string;
   if (isTestUser) {
     mode = "write";
-    reason = "테스트 사용자(%T%) — 항상 반영 허용";
+    reason = "테스트 사용자(test_user_markers) — 항상 반영 허용";
   } else if (opts.devMode) {
     mode = "dry_run";
     reason = "개발자 모드: 실사용자는 dry-run 만 (DB 미반영)";
@@ -1782,7 +1775,7 @@ export async function syncExperienceGrowthForCrew(
 }
 
 export type ExperienceGrowthSyncAllResult = {
-  scope: "all" | "test"; // 운영 전체 vs 테스트 사용자(display_name ILIKE '%T%')만
+  scope: "all" | "test"; // 운영 전체 vs 테스트 사용자(test_user_markers 등재)만
   dryRun: boolean; // true 면 DB write 없이 변경 예정만 계산
   usersScanned: number; // 이 scope 에서 success 보유 대상 사용자 수
   usersFlipped: number; // 1건 이상 fail 전환(예정)된 사용자 수
@@ -1800,16 +1793,6 @@ async function fetchUsersWithSuccessWeeks(): Promise<string[]> {
     .eq("status", "success");
   if (error || !data) return [];
   return [...new Set((data as { user_id: string }[]).map((r) => r.user_id))];
-}
-
-// 테스트 사용자 user_id 집합 (display_name 에 'T' 포함, 대소문자 무시).
-async function fetchTestUserIds(): Promise<Set<string>> {
-  const { data, error } = await supabaseAdmin
-    .from("user_profiles")
-    .select("user_id")
-    .ilike("display_name", "%T%");
-  if (error || !data) return new Set();
-  return new Set((data as { user_id: string }[]).map((r) => r.user_id));
 }
 
 async function syncExperienceGrowthForUserIds(
@@ -1851,13 +1834,13 @@ export async function syncAllExperienceGrowthWeekStatuses(
   return syncExperienceGrowthForUserIds("all", userIds, opts);
 }
 
-// 테스트용: display_name 에 'T' 포함된 테스트 사용자만 대상 (실사용자 오적용 방지).
+// 테스트용: test_user_markers 등재 테스트 사용자만 대상 (실사용자 오적용 방지·SoT 일치).
 export async function syncTestExperienceGrowthWeekStatuses(
   opts: { now?: number; dryRun?: boolean } = {},
 ): Promise<ExperienceGrowthSyncAllResult> {
   const [successIds, testIds] = await Promise.all([
     fetchUsersWithSuccessWeeks(),
-    fetchTestUserIds(),
+    fetchTestUserMarkerIds(),
   ]);
   const userIds = successIds.filter((id) => testIds.has(id));
   return syncExperienceGrowthForUserIds("test", userIds, opts);

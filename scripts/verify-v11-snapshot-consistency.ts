@@ -14,7 +14,7 @@ import {
   readWeeklyCardsSnapshot,
   WEEKLY_CARDS_DTO_VERSION,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
-import { isTestDisplayName } from "@/lib/cluster4WeeklyGrowthData";
+import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 
@@ -103,15 +103,18 @@ async function pickUsers(): Promise<{ real: { id: string; name: string }[]; test
     targetCnt.set(t.target_user_id, (targetCnt.get(t.target_user_id) ?? 0) + 1);
   }
 
-  const { data: profs } = await supabaseAdmin
-    .from("user_profiles")
-    .select("user_id,display_name")
-    .in("user_id", snapIds);
+  const [{ data: profs }, testSet] = await Promise.all([
+    supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,display_name")
+      .in("user_id", snapIds),
+    fetchTestUserMarkerIds(), // 테스트 유저 판정 SoT = test_user_markers (이름 휴리스틱 폐기).
+  ]);
   const rows = ((profs ?? []) as { user_id: string; display_name: string | null }[])
     .map((p) => ({
       id: p.user_id,
       name: p.display_name ?? "(이름 없음)",
-      isTest: isTestDisplayName(p.display_name),
+      isTest: testSet.has(p.user_id),
       targets: targetCnt.get(p.user_id) ?? 0,
     }))
     .sort((x, y) => y.targets - x.targets);

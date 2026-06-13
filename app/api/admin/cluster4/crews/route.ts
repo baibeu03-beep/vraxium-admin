@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireAdmin, toAdminErrorResponse, ADMIN_READ_ROLES } from "@/lib/adminAuth";
 import { listCrewsForTargetSelection } from "@/lib/adminExperienceLineData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
       membershipLevel: params.get("membershipLevel")?.trim() || null,
       status: params.get("status")?.trim() || null,
       search: params.get("q")?.trim() || null,
+      mode: parseScopeMode(params.get("mode")),
     });
     return Response.json({ success: true, data: crews });
   } catch (error) {

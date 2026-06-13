@@ -5,6 +5,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { getExperienceLineManageSummary } from "@/lib/adminExperienceLineManage";
+import { parseScopeMode } from "@/lib/userScope";
 
 // 실무 경험 [라인 관리] 탭 — 팀 요약 보드 데이터(read-only).
 //
@@ -31,9 +32,10 @@ export async function GET(request: NextRequest) {
     );
   }
   const weekId = request.nextUrl.searchParams.get("week_id")?.trim() || null;
+  const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
 
   try {
-    const data = await getExperienceLineManageSummary(org, weekId);
+    const data = await getExperienceLineManageSummary(org, weekId, mode);
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[admin/cluster4/experience/line-manage GET]", error);

@@ -9,10 +9,10 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import {
-  assertCrewIdsInScope,
-  isUserInTeamScope,
-  resolveTeamName,
-} from "@/lib/cluster4ExperienceTestScope";
+  assertUserIdsInScope,
+  resolveUserScope,
+  type ScopeMode,
+} from "@/lib/userScope";
 import {
   EXPERIENCE_PART_LINE_KEYS,
   type ExperiencePartLineType,
@@ -48,9 +48,11 @@ function crewDisplayStatus(
 }
 
 // (org, teamName) 의 활동 크루 행 — user_profiles(role) + user_memberships(현재행) join.
+//   모집단 = mode 스코프(operating=실사용자만 / test=test_user_markers 만). 단일 SoT: lib/userScope.
 async function loadTeamCrewRows(
   organization: string,
   teamName: string,
+  mode: ScopeMode = "operating",
 ): Promise<TeamCrewRow[]> {
   let profileQuery = supabaseAdmin
     .from("user_profiles")
@@ -75,14 +77,9 @@ async function loadTeamCrewRows(
     .in("user_id", userIds);
   if (memError) throw new Error(memError.message);
 
-  // 테스트 스코프 필터 — 운영 팀은 테스트 계정 제외, 테스트 팀(과일(T) 등)은 테스트 계정만.
-  // (org, teamName) 기준 단일 SoT: lib/cluster4ExperienceTestScope.
-  const { data: markers } = await supabaseAdmin
-    .from("test_user_markers")
-    .select("user_id");
-  const testSet = new Set(
-    ((markers ?? []) as Array<{ user_id: string }>).map((m) => m.user_id),
-  );
+  // 모집단 스코프(operating=실사용자만 / test=테스트 유저만) — userScope resolver(SoT=test_user_markers).
+  // org 필터는 위 profileQuery 가 이미 적용하므로 scope.org 는 null(includes 판정은 org 무관).
+  const scope = await resolveUserScope(mode, null);
 
   type MemRow = {
     user_id: string;
@@ -100,8 +97,8 @@ async function loadTeamCrewRows(
 
   const rows: TeamCrewRow[] = [];
   for (const p of profs) {
-    // 스코프 필터: 운영 팀=테스트 계정 제외 / 테스트 팀=테스트 계정만(실사용자 제외).
-    if (!isUserInTeamScope(organization, teamName, p.user_id, testSet)) continue;
+    // 모집단 스코프: operating=실사용자만 / test=테스트 유저만.
+    if (!scope.includes(p.user_id)) continue;
     const m = memMap.get(p.user_id);
     if (!m || m.team_name !== teamName) continue;
     // 휴식 크루는 평가 대상에서 제외(active 만).
@@ -153,8 +150,9 @@ export async function resolveActorContext(
 export async function listTeamParts(
   organization: string,
   teamName: string,
+  mode: ScopeMode = "operating",
 ): Promise<string[]> {
-  const rows = await loadTeamCrewRows(organization, teamName);
+  const rows = await loadTeamCrewRows(organization, teamName, mode);
   const set = new Set<string>();
   for (const r of rows) if (r.partName) set.add(r.partName);
   return Array.from(set).sort();
@@ -164,8 +162,9 @@ export async function listPartCrews(
   organization: string,
   teamName: string,
   part: string,
+  mode: ScopeMode = "operating",
 ): Promise<PartInputCrew[]> {
-  const rows = await loadTeamCrewRows(organization, teamName);
+  const rows = await loadTeamCrewRows(organization, teamName, mode);
   const out: PartInputCrew[] = [];
   for (const r of rows) {
     if (r.partName !== part) continue;
@@ -236,6 +235,7 @@ export async function getTeamOverall(
   weekId: string,
   teamId: string,
   teamName: string,
+  mode: ScopeMode = "operating",
 ): Promise<PartOverallAggregate> {
   const { data: headers } = await supabaseAdmin
     .from("cluster4_experience_part_submissions")
@@ -260,7 +260,7 @@ export async function getTeamOverall(
   }>;
 
   // 크루 표시 정보(이름/상태) — 팀 단위 1회 조회 후 맵.
-  const crewRows = await loadTeamCrewRows(organization, teamName);
+  const crewRows = await loadTeamCrewRows(organization, teamName, mode);
   const crewMap = new Map(
     crewRows.map((r) => [
       r.userId,
@@ -308,20 +308,14 @@ export async function savePartSubmission(input: {
   part: string;
   submittedBy: string | null;
   cells: PartInputCellDto[];
+  mode?: ScopeMode;
 }): Promise<{ submitted: true }> {
-  // 0. 안전장치 — 셀의 crew userId 가 (org, 팀) 테스트 스코프에 전원 부합하는지 검증.
-  //    테스트 팀에 실사용자 / 운영 팀에 테스트 계정이 하나라도 섞이면 헤더 upsert 전에 중단.
-  //    teamName 은 teamId(cluster4_teams) 에서 해석. 해석 실패 시 fail-closed.
+  // 0. 안전장치 — 셀의 crew userId 가 현재 모드 스코프에 전원 부합하는지 검증(헤더 upsert 전).
+  //    operating: 테스트 계정이 / test: 실사용자가 하나라도 섞이면 422 로 중단.
   const cellUserIds = input.cells.map((c) => c.crewUserId).filter(Boolean);
   if (cellUserIds.length > 0) {
-    const teamName = await resolveTeamName(input.teamId);
-    if (!teamName) {
-      throw Object.assign(
-        new Error("팀 정보를 확인할 수 없어 저장을 중단했습니다(team_id 미해석)."),
-        { status: 422 },
-      );
-    }
-    await assertCrewIdsInScope(input.organization, teamName, cellUserIds);
+    const scope = await resolveUserScope(input.mode ?? "operating", null);
+    assertUserIdsInScope(scope, cellUserIds);
   }
 
   // 1. 헤더 upsert(파트당 1행/주차) → id.
