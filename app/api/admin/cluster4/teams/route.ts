@@ -4,16 +4,8 @@ import {
   requireAdmin,
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isTestTeam } from "@/lib/cluster4ExperienceTestScope";
+import { listTeams } from "@/lib/adminExperienceLineData";
 import { parseScopeMode } from "@/lib/userScopeShared";
-
-type TeamRow = {
-  id: string;
-  team_name: string;
-  organization_slug: string;
-  is_active: boolean;
-};
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,44 +18,12 @@ export async function GET(request: NextRequest) {
 
   const org =
     request.nextUrl.searchParams.get("organization")?.trim() || null;
-  // 모집단 모드(operating 기본 / test). 팀 목록도 분기: operating=운영 팀만, test=(T) 테스트 팀만.
+  // 모집단 모드(operating 기본 / test). 팀 목록 스코프는 listTeams 가 filterTeamsByScope
+  // 단일 helper 로 적용한다(operating=운영 팀만 / test=(T) 테스트 팀만, 인라인 쿼리·필터 제거).
   const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
 
   try {
-    let query = supabaseAdmin
-      .from("cluster4_teams")
-      .select("id,team_name,organization_slug,is_active")
-      .eq("is_active", true)
-      .order("team_name", { ascending: true });
-
-    if (org) {
-      query = query.eq("organization_slug", org);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      console.error("[admin/cluster4/teams GET] query error", error);
-      return Response.json(
-        { success: false, error: error.message },
-        { status: 500 },
-      );
-    }
-
-    const teams = ((data ?? []) as TeamRow[])
-      // 테스트 팀 레지스트리(isTestTeam) 기준 mode 필터: operating=운영 팀만 / test=(T) 팀만.
-      .filter((t) =>
-        mode === "test"
-          ? isTestTeam(t.organization_slug, t.team_name)
-          : !isTestTeam(t.organization_slug, t.team_name),
-      )
-      .map((t) => ({
-        id: t.id,
-        teamName: t.team_name,
-        organizationSlug: t.organization_slug,
-        isActive: t.is_active,
-      }));
-
+    const teams = await listTeams(org, mode);
     return Response.json({ success: true, data: teams });
   } catch (error) {
     console.error("[admin/cluster4/teams GET]", error);

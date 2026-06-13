@@ -16,7 +16,6 @@ import {
 } from "@/lib/cluster4WeekPolicy";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { getTeamOverallBoard } from "@/lib/adminExperienceTeamOverall";
-import { isTestTeam } from "@/lib/cluster4ExperienceTestScope";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import { EXPERIENCE_OVERALL_CATEGORIES } from "@/lib/experienceTeamOverallTypes";
@@ -274,12 +273,9 @@ export async function getExperienceLineManageSummary(
     };
   }
 
-  // org 의 활성 팀(동적, 하드코딩 없음). 팀 목록도 mode 로 분기:
-  //   operating → 운영 팀만(테스트 팀 숨김) / test → 테스트 팀만.
-  const allTeams = await listTeams(organization);
-  const teamList = allTeams.filter((t) =>
-    mode === "test" ? isTestTeam(organization, t.teamName) : !isTestTeam(organization, t.teamName),
-  );
+  // org 의 활성 팀(동적, 하드코딩 없음). 팀 스코프(operating=운영 팀만 / test=(T) 팀만)는
+  // listTeams 가 filterTeamsByScope 단일 helper 로 적용한다(화면별 임시 필터 제거).
+  const teamList = await listTeams(organization, mode);
   const [boards, roster] = await Promise.all([
     Promise.all(
       teamList.map((t) =>

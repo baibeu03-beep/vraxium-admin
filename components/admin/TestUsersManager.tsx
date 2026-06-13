@@ -42,6 +42,14 @@ type TestUser = {
 // 어드민 임퍼소네이션 버튼 노출 대상 역할(team_leader/part_leader/agent). crew/member 제외.
 const IMPERSONATABLE_ROLES = new Set(["team_leader", "part_leader", "agent"]);
 
+// memberRole(normalizeMemberRole 출력) → 한글 역할 라벨.
+const MEMBER_ROLE_LABEL: Record<TestUser["memberRole"], string> = {
+  team_leader: "팀장",
+  part_leader: "파트장",
+  agent: "에이전트",
+  member: "일반",
+};
+
 // 조직(organization_slug) → 고객 페이지 라우트 분기.
 // API 경로(/api/cluster4/...)는 그대로, 페이지 라우트만 조직별로 나눈다.
 // cluster number(4)는 내부 식별자라 그대로 두고, URL suffix(marketing/
@@ -169,6 +177,7 @@ export default function TestUsersManager() {
                 <TableHead>팀</TableHead>
                 <TableHead>파트</TableHead>
                 <TableHead>역할</TableHead>
+                <TableHead>등급</TableHead>
                 <TableHead>성장 상태</TableHead>
                 <TableHead className="text-right">동작</TableHead>
               </TableRow>
@@ -177,7 +186,7 @@ export default function TestUsersManager() {
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={9}
+                    colSpan={10}
                     className="py-8 text-center text-sm text-muted-foreground"
                   >
                     불러오는 중…
@@ -186,7 +195,7 @@ export default function TestUsersManager() {
               ) : users.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={9}
+                    colSpan={10}
                     className="py-8 text-center text-sm text-muted-foreground"
                   >
                     {error ? "목록을 불러오지 못했습니다." : "테스트 유저가 없습니다."}
@@ -203,20 +212,14 @@ export default function TestUsersManager() {
                     <TableCell>{dash(user.seasonName)}</TableCell>
                     <TableCell>{dash(user.teamName)}</TableCell>
                     <TableCell>{dash(user.partName)}</TableCell>
+                    {/* 역할 — memberRole(팀장/파트장/에이전트/일반). 등급(아래)=membership_level raw. */}
+                    <TableCell>{MEMBER_ROLE_LABEL[user.memberRole] ?? "일반"}</TableCell>
                     <TableCell>{dash(user.roleLabel)}</TableCell>
                     <TableCell>{growthSummary(user)}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex flex-col items-end gap-1.5">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openCustomerPage(user)}
-                        >
-                          <ExternalLink />
-                          고객 페이지로 보기
-                        </Button>
-                        {/* 어드민 페이지로 보기 — team_leader/part_leader/agent 테스트 유저만 노출.
-                            crew/member · 실사용자(목록 자체가 test_user_markers 한정)에는 미노출. */}
+                      {/* 1행 2열 가로 배치 — 왼쪽: 어드민 페이지로 보기 / 오른쪽: 고객 페이지로 보기.
+                          어드민 버튼은 team_leader/part_leader/agent 만 노출(crew/member 미노출 — 동작/조건 불변). */}
+                      <div className="flex items-center justify-end gap-2">
                         {IMPERSONATABLE_ROLES.has(user.memberRole) && (
                           <Button
                             variant="outline"
@@ -228,6 +231,14 @@ export default function TestUsersManager() {
                             어드민 페이지로 보기
                           </Button>
                         )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openCustomerPage(user)}
+                        >
+                          <ExternalLink />
+                          고객 페이지로 보기
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

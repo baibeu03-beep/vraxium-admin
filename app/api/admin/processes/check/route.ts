@@ -14,6 +14,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { parseScopeMode } from "@/lib/userScopeShared";
 import { isProcessHub } from "@/lib/adminProcessesTypes";
 import { isProcessCheckAction } from "@/lib/adminProcessCheckTypes";
 import { ProcessMasterError } from "@/lib/adminProcessesData";
@@ -53,8 +54,11 @@ export async function GET(request: NextRequest) {
     return Response.json({ success: false, error: "team 형식이 올바르지 않습니다" }, { status: 400 });
   }
 
+  // 팀 목록 스코프(operating=운영 팀만 / test=(T) 팀만). 기본 operating.
+  const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
+
   try {
-    const data = await getProcessCheckBoard(hubRaw, orgRaw, teamRaw);
+    const data = await getProcessCheckBoard(hubRaw, orgRaw, teamRaw, mode);
     return Response.json({ success: true, data });
   } catch (error) {
     const status = error instanceof ProcessMasterError ? error.status : 500;

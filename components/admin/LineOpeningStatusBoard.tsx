@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   buildHubOpenStatusLine,
   buildLineOpeningStatus,
@@ -93,6 +94,8 @@ export default function LineOpeningStatusBoard({
   const { label: hubLabel, endpoint, variant } = HUB_CONFIG[hub];
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  // 팀별 개설 현황(블록3) 팀 목록 스코프 — operating/test 토글 보존(appendModeQuery).
+  const mode = readScopeMode(searchParams);
 
   const [data, setData] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -109,7 +112,7 @@ export default function LineOpeningStatusBoard({
       }
       try {
         const qs = org ? `?organization=${encodeURIComponent(org)}` : "";
-        const res = await fetch(`${endpoint}${qs}`);
+        const res = await fetch(appendModeQuery(`${endpoint}${qs}`, mode));
         const json = await res.json();
         if (cancelled) return;
         if (json?.success) setData(json.data as StatusResponse);
@@ -123,7 +126,7 @@ export default function LineOpeningStatusBoard({
     return () => {
       cancelled = true;
     };
-  }, [endpoint, org, refreshKey]);
+  }, [endpoint, org, mode, refreshKey]);
 
   // team variant: 3블록 전부. hub variant: 블록1(엔진 재사용) + 허브 전체 1문장.
   const status: LineOpeningStatus | null = useMemo(() => {

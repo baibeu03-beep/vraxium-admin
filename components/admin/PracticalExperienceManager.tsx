@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   ORGANIZATIONS,
   ORGANIZATION_LABEL,
@@ -826,8 +827,10 @@ export default function PracticalExperienceManager() {
       if (initialWeekId && !selectedWeekId) setSelectedWeekId(initialWeekId);
 
       const orgParam = org ? `?organization=${org}` : "";
+      // 팀 목록 스코프(operating=운영 팀만 / test=(T) 팀만) — URL ?mode 보존(서버 listTeams 가 filterTeamsByScope 적용).
+      const scopeMode = readScopeMode(new URLSearchParams(window.location.search));
       const [teamsRes, mastersRes, crewsRes] = await Promise.all([
-        fetch(`/api/admin/cluster4/teams${orgParam}`),
+        fetch(appendModeQuery(`/api/admin/cluster4/teams${orgParam}`, scopeMode)),
         // 라인 등록 데이터는 조직별 권한 분리 전 단계라 전체 조직을 조회한다.
         fetch(`/api/admin/cluster4/experience-line-masters`),
         fetch(

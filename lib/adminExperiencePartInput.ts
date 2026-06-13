@@ -13,6 +13,7 @@ import {
   resolveUserScope,
   type ScopeMode,
 } from "@/lib/userScope";
+import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
 import {
   EXPERIENCE_PART_LINE_KEYS,
   type ExperiencePartLineType,
@@ -318,7 +319,10 @@ export async function savePartSubmission(input: {
   cells: PartInputCellDto[];
   mode?: ScopeMode;
 }): Promise<{ submitted: true }> {
-  // 0. 안전장치 — 셀의 crew userId 가 현재 모드 스코프에 전원 부합하는지 검증(헤더 upsert 전).
+  // 0a. 공식 휴식 주차 차단(UI canOpen 과 동일 판정) — operating/test 무관, write 전 422.
+  await assertWeekOpenable(input.weekId);
+
+  // 0b. 안전장치 — 셀의 crew userId 가 현재 모드 스코프에 전원 부합하는지 검증(헤더 upsert 전).
   //    operating: 테스트 계정이 / test: 실사용자가 하나라도 섞이면 422 로 중단.
   const cellUserIds = input.cells.map((c) => c.crewUserId).filter(Boolean);
   if (cellUserIds.length > 0) {

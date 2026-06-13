@@ -12,6 +12,7 @@ import {
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 const LEGACY_TABLE = "legacy_crew_import";
 
@@ -61,8 +62,10 @@ export async function GET(request: NextRequest) {
   }
   if (org) organization = org as OrganizationSlug;
 
+  const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
+
   try {
-    const data = await listAdminCrewDtos(organization);
+    const data = await listAdminCrewDtos(organization, mode);
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[admin/crews GET]", error);

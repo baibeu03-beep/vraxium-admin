@@ -18,6 +18,8 @@ import {
   type ProcessWeekRef,
 } from "@/lib/adminProcessesTypes";
 import { describeCurrentWeek } from "@/lib/cluster4WeekPolicy";
+import { filterTeamsByScope } from "@/lib/cluster4ExperienceTestScope";
+import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   processCheckLogPeriodLabel,
   processCheckPeriodLabel,
@@ -37,7 +39,11 @@ import {
 } from "@/lib/adminProcessCheckTypes";
 
 // org 팀 동적 조회(cluster4_teams) — 팀명 하드코딩 금지. listTeams(adminExperienceLineData)와 동일 원천.
-async function loadProcessCheckTeams(organization: string): Promise<ProcessCheckTeamDto[]> {
+// 팀 스코프(operating=운영 팀만 / test=(T) 테스트 팀만)는 filterTeamsByScope 단일 helper 로 적용.
+async function loadProcessCheckTeams(
+  organization: string,
+  mode: ScopeMode = "operating",
+): Promise<ProcessCheckTeamDto[]> {
   const { data, error } = await supabaseAdmin
     .from("cluster4_teams")
     .select("id,team_name")
@@ -48,12 +54,13 @@ async function loadProcessCheckTeams(organization: string): Promise<ProcessCheck
     console.warn("[process-check-teams] read unavailable:", error.message);
     return [];
   }
-  return ((data ?? []) as Array<{ id: string; team_name: string }>).map((t) => ({
+  const teams = ((data ?? []) as Array<{ id: string; team_name: string }>).map((t) => ({
     teamId: t.id,
     teamName: t.team_name,
     // 팀 산하 체크대상 전부 completed → 완료. 본 Phase(섹션.0·팀 스코프 상태 미저장)는 항상 체크 중.
     isAllCompleted: false,
   }));
+  return filterTeamsByScope(teams, organization, mode);
 }
 
 function migrationHint(error: { code?: string } | null): ProcessMasterError | null {
@@ -215,6 +222,8 @@ export async function getProcessCheckBoard(
   organization: string,
   // teamId: experience 섹션.1 선택 팀(team_id 스코프). null = 섹션.0/info(team_id IS NULL).
   teamId: string | null = null,
+  // 팀 목록 스코프(operating=운영 팀만 / test=(T) 팀만). 기본 operating.
+  mode: ScopeMode = "operating",
 ): Promise<ProcessCheckBoardDto> {
   const week = await resolveCurrentWeek();
   const { groups, acts } = await loadActiveMaster(hub);
@@ -222,7 +231,9 @@ export async function getProcessCheckBoard(
     ? await loadStatuses(organization, hub, week.weekId, teamId)
     : new Map<string, StatusState>();
   // 팀 구분 허브면 org 팀 동적 조회(상태창1 팀별 문장 + 섹션.1 탭). 그 외는 빈 배열(허브 전체 1문장).
-  const teams = isTeamBasedProcessHub(hub) ? await loadProcessCheckTeams(organization) : [];
+  const teams = isTeamBasedProcessHub(hub)
+    ? await loadProcessCheckTeams(organization, mode)
+    : [];
 
   const groupNameById = new Map<string, string>();
   const groupSort = new Map<string, number>();

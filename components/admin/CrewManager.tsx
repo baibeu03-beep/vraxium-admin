@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Eye, EyeOff, Plus, Search, X } from "lucide-react";
 import {
   Card,
@@ -34,6 +35,7 @@ import {
   type OrganizationSlug,
 } from "@/lib/organizations";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { formatDepartmentName } from "@/components/admin/fieldKit";
 import MemberEditDrawer, {
   type EditableMember,
@@ -129,6 +131,9 @@ export default function CrewManager({
   organization: OrganizationSlug;
 }) {
   const devMode = useAdminDevMode();
+  // 운영/테스트 모드 — URL ?mode=test 면 test, 그 외 operating(기본). TestModeToggle 가 URL 조작.
+  const searchParams = useSearchParams();
+  const mode = readScopeMode(searchParams);
   const [data, setData] = useState<Crew[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -146,7 +151,10 @@ export default function CrewManager({
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/admin/crews?organization=${encodeURIComponent(org)}`,
+        appendModeQuery(
+          `/api/admin/crews?organization=${encodeURIComponent(org)}`,
+          mode,
+        ),
         { cache: "no-store" },
       );
       const json = await res.json();
@@ -162,7 +170,7 @@ export default function CrewManager({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {

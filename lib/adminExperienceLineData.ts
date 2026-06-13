@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchCrewNoMap } from "@/lib/adminCrewNo";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
+import { filterTeamsByScope } from "@/lib/cluster4ExperienceTestScope";
 import type {
   ExperienceLineMasterDto,
   ExperienceLineMasterCreateInput,
@@ -254,8 +255,11 @@ export type TeamDto = {
   isActive: boolean;
 };
 
+// 팀 목록 canonical 산출 경로. 팀 스코프(operating=운영 팀만 / test=(T) 테스트 팀만)는
+// filterTeamsByScope 단일 helper 로 적용한다(화면별 임시 필터 금지). mode 기본=operating.
 export async function listTeams(
   organizationSlug?: string | null,
+  mode: ScopeMode = "operating",
 ): Promise<TeamDto[]> {
   let query = supabaseAdmin
     .from("cluster4_teams")
@@ -270,7 +274,7 @@ export async function listTeams(
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as Array<{
+  const teams = ((data ?? []) as Array<{
     id: string;
     team_name: string;
     organization_slug: string;
@@ -281,6 +285,8 @@ export async function listTeams(
     organizationSlug: r.organization_slug,
     isActive: r.is_active,
   }));
+
+  return filterTeamsByScope(teams, organizationSlug ?? null, mode);
 }
 
 // ── Crews (enriched for target selection) ───────────────────

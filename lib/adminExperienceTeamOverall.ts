@@ -19,6 +19,7 @@ import {
   type ScopeMode,
 } from "@/lib/userScope";
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
@@ -620,6 +621,9 @@ export async function openTeamOverall(input: {
   mode?: ScopeMode;
 }): Promise<OpenOverallResult> {
   const mode: ScopeMode = input.mode ?? "operating";
+  // 공식 휴식 주차 차단(UI canOpen 과 동일 판정) — operating/test 무관, 모든 write 전 422.
+  await assertWeekOpenable(input.weekId);
+
   const existing = await loadOverallStored(input.organization, input.weekId, input.teamId);
   if (existing.status === "opened") {
     throw Object.assign(

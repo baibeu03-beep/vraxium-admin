@@ -30,6 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import Cluster4LineTable from "@/components/admin/cluster4/Cluster4LineTable";
 import CareerEvaluationTab from "@/components/admin/cluster4/CareerEvaluationTab";
 import {
@@ -592,8 +593,10 @@ export default function PracticalCareerManager() {
       setAdminOrg(org);
 
       const orgParam = org ? `?organization=${org}` : "";
+      // 팀 목록 스코프(operating=운영 팀만 / test=(T) 팀만) — URL ?mode 보존(서버 listTeams 가 filterTeamsByScope 적용).
+      const scopeMode = readScopeMode(new URLSearchParams(window.location.search));
       const [teamsRes, projectsRes, optionsRes, linesRes, crewsRes, weeksRes] = await Promise.all([
-        fetch(`/api/admin/cluster4/teams${orgParam}`),
+        fetch(appendModeQuery(`/api/admin/cluster4/teams${orgParam}`, scopeMode)),
         fetch(`/api/admin/career-projects?limit=200`),
         fetch(`/api/admin/cluster4/career-line-options${orgParam}`),
         fetch("/api/admin/cluster4/lines?partType=career&limit=100"),

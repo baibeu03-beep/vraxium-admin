@@ -11,6 +11,7 @@ import {
   getOpenableWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
 import { listTeams } from "@/lib/adminExperienceLineData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 import type {
   StatusExtension,
   StatusTeam,
@@ -84,6 +85,8 @@ export async function GET(request: NextRequest) {
   }
 
   const org = request.nextUrl.searchParams.get("organization")?.trim() || null;
+  // 팀별 개설 현황(블록3) 팀 목록도 모집단 모드 분기: operating=운영 팀만 / test=(T) 팀만.
+  const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
 
   try {
     const todayIso = new Date().toISOString().slice(0, 10);
@@ -116,7 +119,7 @@ export async function GET(request: NextRequest) {
 
     // ── 팀별 개설 현황 ──
     // 팀 목록 = 현재 org 의 cluster4_teams(동적, 하드코딩 없음). org 없으면 빈 목록.
-    const teamList = org ? await listTeams(org) : [];
+    const teamList = org ? await listTeams(org, mode) : [];
     const openedTeamIds = new Set<string>();
     if (targetWeekId && teamList.length > 0) {
       // 대상 주차에 target 이 걸린 라인 id 집합(cluster4_line_targets.week_id).

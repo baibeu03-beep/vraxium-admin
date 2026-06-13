@@ -14,6 +14,7 @@ import { ChevronDown, Loader2, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { formatLogDateTime } from "@/lib/practicalInfoSection0Format";
 import { PROCESS_HUB_LABEL, type ProcessHub } from "@/lib/adminProcessesTypes";
 import ProcessCheckActDialog from "@/components/admin/ProcessCheckActDialog";
@@ -37,6 +38,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   const hubLabel = PROCESS_HUB_LABEL[hub];
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  // 팀 목록(섹션.1 팀 탭) 스코프 — operating=운영 팀만 / test=(T) 팀만. 토글 보존(appendModeQuery).
+  const mode = readScopeMode(searchParams);
   const teamMode = isTeamBasedProcessHub(hub);
 
   // 섹션.0 보드(전체 팀·teamless). info 는 섹션.1 도 이 보드 사용.
@@ -67,7 +70,9 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     const myReq = ++reqRef.current;
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}`);
+      const res = await fetch(
+        appendModeQuery(`/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}`, mode),
+      );
       const json = await res.json().catch(() => ({}));
       if (myReq !== reqRef.current) return;
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
@@ -80,7 +85,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     } finally {
       if (myReq === reqRef.current) setLoading(false);
     }
-  }, [hub, org]);
+  }, [hub, org, mode]);
 
   const loadTeamBoard = useCallback(
     async (teamId: string) => {
@@ -89,7 +94,10 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
       setTeamLoading(true);
       try {
         const res = await fetch(
-          `/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}&team=${encodeURIComponent(teamId)}`,
+          appendModeQuery(
+            `/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}&team=${encodeURIComponent(teamId)}`,
+            mode,
+          ),
         );
         const json = await res.json().catch(() => ({}));
         if (myReq !== teamReqRef.current) return;
@@ -102,7 +110,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         if (myReq === teamReqRef.current) setTeamLoading(false);
       }
     },
-    [hub, org],
+    [hub, org, mode],
   );
 
   useEffect(() => {

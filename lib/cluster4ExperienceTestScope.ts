@@ -10,6 +10,8 @@
 //     필터(operating=운영 팀만, test=테스트 팀만)할 때 사용.
 // ─────────────────────────────────────────────────────────────────────
 
+import type { ScopeMode } from "@/lib/userScopeShared";
+
 // org → 테스트 팀명 집합. 단일 출처(이 상수 외에서 팀명 하드코딩 금지).
 export const TEST_TEAM_SCOPE: Readonly<Record<string, ReadonlySet<string>>> = {
   oranke: new Set(["과일(T)", "음료(T)", "콘텐츠실험(T)"]),
@@ -21,4 +23,24 @@ export const TEST_TEAM_SCOPE: Readonly<Record<string, ReadonlySet<string>>> = {
 export function isTestTeam(organization: string, teamName: string): boolean {
   const set = TEST_TEAM_SCOPE[(organization ?? "").trim()];
   return set ? set.has((teamName ?? "").trim()) : false;
+}
+
+// 팀 목록 스코프 단일 helper — userScope(사용자 포함/제외)의 팀 버전.
+// ─────────────────────────────────────────────────────────────────────
+// 정책(userScope 와 동일 축):
+//   · operating(기본, mode 미지정) : (T) 테스트 팀 제외 → 운영 팀만.
+//   · test(mode=test)              : (T) 테스트 팀만 → 운영 팀 제외.
+// admin 의 모든 팀 목록 산출 경로(listTeams·cluster4/teams·opening-status·process-check)는
+// 화면별 임시 필터 대신 이 함수 하나만 거친다(팀명 하드코딩·중복 분기 금지).
+//
+// organization 은 단일 org 컨텍스트(모든 admin 팀 목록이 org 스코프). org 미지정(전 org)일 때는
+// 각 팀의 organizationSlug 로 판정한다. teamName 만 있으면 충분(ProcessCheckTeamDto 호환).
+export function filterTeamsByScope<
+  T extends { teamName: string; organizationSlug?: string | null },
+>(teams: readonly T[], organization: string | null, mode: ScopeMode): T[] {
+  return teams.filter((team) => {
+    const org = (organization ?? team.organizationSlug ?? "").trim();
+    const isTest = isTestTeam(org, team.teamName);
+    return mode === "test" ? isTest : !isTest;
+  });
 }

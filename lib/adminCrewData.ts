@@ -1,6 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { excludeSuperAdmins } from "@/lib/superAdmins";
+import { resolveUserScope, type UserScope } from "@/lib/userScope";
+import type { ScopeMode } from "@/lib/userScopeShared";
 
 // Crews source of truth
 // ─────────────────────────────────────────────────────────────────────
@@ -280,6 +282,9 @@ type CrewSourceRows = {
 async function fetchCrewSourceRows(options: {
   organization?: OrganizationSlug;
   userId?: string;
+  // 모집단 스코프(operating=테스트 제외 / test=테스트만). SoT=test_user_markers(userScope).
+  // 목록 조회에만 적용 — 단건 user_id 조회(POST 후 정규화 등)는 노출 목록이 아니라 무관.
+  scope?: UserScope;
 }): Promise<CrewSourceRows> {
   let profileQuery = supabaseAdmin
     .from("user_profiles")
@@ -299,7 +304,14 @@ async function fetchCrewSourceRows(options: {
   const profileRes = await profileQuery;
   if (profileRes.error) throw new Error(profileRes.error.message);
 
-  const profiles = (profileRes.data ?? []) as unknown as UserProfileRow[];
+  const fetchedProfiles = (profileRes.data ?? []) as unknown as UserProfileRow[];
+  // 목록 경로에서만 스코프 필터(test_user_markers). 단건 userId 조회는 그대로.
+  // 여기서 좁혀두면 이후 users/membership/education/growth 보강 쿼리가 실사용자(또는
+  // 테스트 유저)만 대상으로 돌아 불필요한 행을 끌어오지 않는다.
+  const profiles =
+    options.scope && !options.userId
+      ? options.scope.filter(fetchedProfiles, (p) => p.user_id)
+      : fetchedProfiles;
   if (profiles.length === 0) {
     return {
       profiles: [],
@@ -478,8 +490,13 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
   });
 }
 
-export async function listAdminCrewDtos(organization?: OrganizationSlug) {
-  const rows = await fetchCrewSourceRows({ organization });
+export async function listAdminCrewDtos(
+  organization?: OrganizationSlug,
+  mode: ScopeMode = "operating",
+) {
+  // operating(기본)=실사용자만(테스트 제외) / test=test_user_markers 만. team 컨텍스트 불필요.
+  const scope = await resolveUserScope(mode, organization ?? null);
+  const rows = await fetchCrewSourceRows({ organization, scope });
   return buildAdminCrewDtos(rows).sort((a, b) => {
     if (a.isVisible !== b.isVisible) return Number(b.isVisible) - Number(a.isVisible);
     const teamCompare = (a.teamName ?? "").localeCompare(b.teamName ?? "", "ko");
