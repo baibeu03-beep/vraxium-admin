@@ -145,6 +145,42 @@ export function isLineRegistrationOrg(value: unknown): value is LineRegistration
   );
 }
 
+// ── 적용 클럽 표시 정책 (2026-06-14) — 화면 표시 전용. DB organization_slug 저장값은 무수정 ──
+//   - 실무 정보(info) 전체 → 공통
+//   - 실무 경험(experience) 의 관리·확장 라인 → 공통
+//   - 실무 역량(competency) 전체 → 공통
+//   - organization_slug === "common" → 공통
+//   - 미지정(null) → "-"
+//   - 그 외(encre·oranke·phalanx) → organization_slug 원문 보존(표시 무변경)
+export const COMMON_CLUB_LABEL = "공통";
+
+// 실무 경험에서 적용 클럽을 "공통"으로 표시하는 라인 종류.
+export const EXPERIENCE_COMMON_LINE_TYPES: readonly string[] = ["관리", "확장"];
+
+export function lineRegistrationDisplayClub(
+  hub: LineRegistrationHub,
+  lineType: string,
+  organizationSlug: LineRegistrationOrg | null,
+): string {
+  if (hub === "info" || hub === "competency") return COMMON_CLUB_LABEL;
+  if (hub === "experience" && EXPERIENCE_COMMON_LINE_TYPES.includes(lineType)) {
+    return COMMON_CLUB_LABEL;
+  }
+  if (organizationSlug === "common") return COMMON_CLUB_LABEL;
+  if (organizationSlug === null) return "-";
+  return organizationSlug;
+}
+
+// 적용 클럽 필터 옵션 — 화면 표시값(lineRegistrationDisplayClub) 기준.
+//   "공통"(common·info·competency·경험 관리/확장) + 조직 원문(encre/oranke/phalanx).
+//   미지정('-') 행은 옵션 없이 "전체"에서만 노출(기존 필터와 동일 — 별도 옵션 미제공).
+export const LINE_REGISTRATION_CLUB_DISPLAY_OPTIONS: readonly string[] = [
+  COMMON_CLUB_LABEL,
+  "encre",
+  "oranke",
+  "phalanx",
+];
+
 export type LineRegistrationMainTitleMode = "fixed" | "variable";
 
 // 변동(variable) 모드일 때 DB 에 저장하는 메인 타이틀 sentinel.

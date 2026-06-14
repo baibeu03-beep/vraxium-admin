@@ -43,6 +43,7 @@ import {
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import {
+  LINE_REGISTRATION_CLUB_DISPLAY_OPTIONS,
   LINE_REGISTRATION_HUBS,
   LINE_REGISTRATION_HUB_LABEL,
   LINE_REGISTRATION_LINE_TYPES,
@@ -50,10 +51,10 @@ import {
   LINE_REGISTRATION_ORG_LABEL,
   LINE_REGISTRATION_PROFILE_KEYS,
   VARIABLE_MAIN_TITLE_NOTICE,
+  lineRegistrationDisplayClub,
   lineRegistrationDisplayMainTitle,
   type LineRegistrationDto,
   type LineRegistrationHub,
-  type LineRegistrationOrg,
   type ListLineRegistrationsResult,
 } from "@/lib/adminLineRegistrationsTypes";
 
@@ -588,7 +589,8 @@ export default function LineRegistrationInfoManager() {
 
   // 필터/정렬 상태 — 기간 정보 페이지 패턴 (클라이언트 사이드).
   const [sort, setSort] = useState<SortKey>("default");
-  const [orgFilter, setOrgFilter] = useState<LineRegistrationOrg | typeof ALL>(ALL);
+  // 적용 클럽 필터 — 화면 표시값(lineRegistrationDisplayClub) 기준. "공통"·encre·oranke·phalanx.
+  const [orgFilter, setOrgFilter] = useState<string>(ALL);
   const [hubFilter, setHubFilter] = useState<LineRegistrationHub | typeof ALL>(ALL);
   const [typeFilter, setTypeFilter] = useState<string | typeof ALL>(ALL);
   const [modeFilter, setModeFilter] = useState<ModeFilter>(ALL);
@@ -641,7 +643,12 @@ export default function LineRegistrationInfoManager() {
     const rows = data?.rows ?? [];
     const q = search.trim().toLowerCase();
     const list = rows.filter((r) => {
-      if (orgFilter !== ALL && r.organizationSlug !== orgFilter) return false;
+      // 적용 클럽 — 화면 표시값 기준 매칭 (셀 표시와 동일. DB organizationSlug 직접 비교 아님).
+      if (
+        orgFilter !== ALL &&
+        lineRegistrationDisplayClub(r.hub, r.lineType, r.organizationSlug) !== orgFilter
+      )
+        return false;
       if (hubFilter !== ALL && r.hub !== hubFilter) return false;
       if (typeFilter !== ALL && r.lineType !== typeFilter) return false;
       // 메인 타이틀 종류 — 표시 정책(허브 SoT) 기준으로 매칭 (저장 mode 아님).
@@ -681,11 +688,6 @@ export default function LineRegistrationInfoManager() {
     <div className="flex w-full flex-col gap-4">
       <div>
         <h1 className="text-xl font-semibold tracking-normal text-foreground">라인 정보</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          등록 대장(line_registrations)에 등록된 라인을 조회합니다. 신규 등록은 라인 등록
-          페이지에서, 개설 연결은 이 화면의 &quot;개설 연결&quot;로 기존 개설 플로우에
-          연결할 수 있습니다.
-        </p>
       </div>
 
       {banner && (
@@ -727,10 +729,10 @@ export default function LineRegistrationInfoManager() {
               aria-label="적용 클럽 필터"
               className="h-8 rounded-md border border-input bg-background px-2 text-sm"
               value={orgFilter}
-              onChange={(e) => setOrgFilter(e.target.value as LineRegistrationOrg | typeof ALL)}
+              onChange={(e) => setOrgFilter(e.target.value)}
             >
               <option value={ALL}>전체</option>
-              {LINE_REGISTRATION_ORGS.map((o) => (
+              {LINE_REGISTRATION_CLUB_DISPLAY_OPTIONS.map((o) => (
                 <option key={o} value={o}>
                   {o}
                 </option>
@@ -887,9 +889,14 @@ export default function LineRegistrationInfoManager() {
                               {row.lineName}
                             </span>
                           </TableCell>
-                          {/* 적용 클럽 — organization_slug 원문 표시 (미지정 = '-') */}
+                          {/* 적용 클럽 — 표시 정책(허브/라인종류 기준) 적용. DB organization_slug 무수정.
+                              info·competency·경험(관리/확장)·common = "공통" · 그 외 org 원문 · 미지정 '-'. */}
                           <TableCell className="font-mono text-xs">
-                            {row.organizationSlug ?? "-"}
+                            {lineRegistrationDisplayClub(
+                              row.hub,
+                              row.lineType,
+                              row.organizationSlug,
+                            )}
                           </TableCell>
                           <TableCell>{row.hubLabel}</TableCell>
                           <TableCell>{row.lineType}</TableCell>
