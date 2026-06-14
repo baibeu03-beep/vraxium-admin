@@ -13,7 +13,6 @@ import {
   Card,
   CardContent,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -268,11 +267,8 @@ export default function ProcessInfoManager() {
 
       {/* 액트 목록 */}
       <Card>
+        {/* 좌측: 정렬/필터 컨트롤 · 우측: 현재 필터/탭 조건 반영 결과 수(페이지 무관 전체). */}
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="text-base">
-            액트 목록 ({visibleActs.length}
-            {visibleActs.length !== summary.actCount ? ` / ${summary.actCount}` : ""})
-          </CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
               정렬
@@ -305,6 +301,9 @@ export default function ProcessInfoManager() {
               </select>
             </label>
           </div>
+          <span className="text-sm font-medium text-muted-foreground">
+            결과 수 {visibleActs.length}개
+          </span>
         </CardHeader>
         <CardContent className="space-y-3">
           {loading ? (

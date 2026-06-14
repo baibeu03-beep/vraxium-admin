@@ -13,7 +13,6 @@ import { Loader2, X } from "lucide-react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -415,10 +414,6 @@ export default function ProcessRegisterManager() {
       <Card>
         <CardHeader>
           <CardTitle>프로세스 등록 — {PROCESS_HUB_LABEL[activeHub]} 급</CardTitle>
-          <CardDescription>
-            허브급({PROCESS_HUB_LABEL[activeHub]}) 산하 라인급·액트를 등록합니다. 액트의
-            point.check(A)를 정의하는 마스터이며, 주차 성장 계산/스냅샷에는 영향을 주지 않습니다.
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* [1] 소속 허브급 — 탭 자체가 값 (표시만) */}
