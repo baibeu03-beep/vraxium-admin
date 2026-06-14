@@ -218,6 +218,11 @@ type UploadedImage = { url: string; name: string };
 
 type TabKey = "masters" | "input" | "review" | "open";
 
+// [임시] 실무 경험 라인 관리 4탭(라인 등록/입력 관리/검수 관리/최종 개설)의 본문 콘텐츠를
+// 전부 숨긴다. 탭 버튼 UI 와 클릭 동작은 유지되며, 탭 아래 렌더만 비활성화된다.
+// mode(test/operating)·org 무관, 분기 없이 동일 적용. 복구 시 false 로 변경.
+const TEMP_HIDE_EXPERIENCE_TAB_CONTENT = true;
+
 // ──────────────────────────────────────────────────────────────
 // Date formatting (KST locale, 12-hour clock with day-of-week)
 // ──────────────────────────────────────────────────────────────
@@ -1506,6 +1511,9 @@ export default function PracticalExperienceManager() {
         <ExperienceLineManageBoard refreshKey={openRefresh} />
       )}
 
+      {/* [임시] 탭 strip + 탭 아래 본문 콘텐츠 전부 숨김 — TEMP_HIDE_EXPERIENCE_TAB_CONTENT 가드. */}
+      {!TEMP_HIDE_EXPERIENCE_TAB_CONTENT && (
+        <>
       {/* Tabs */}
       <div className="flex gap-1 border-b">
         <TabButton
@@ -2767,6 +2775,8 @@ export default function PracticalExperienceManager() {
             </CardContent>
           </Card>
         </div>
+      )}
+        </>
       )}
         </>
       )}
