@@ -6,7 +6,12 @@ import {
 } from "@/lib/adminAuth";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
-import { Cluster4WeeklyCardsError } from "@/lib/cluster4WeeklyCardsData";
+import {
+  Cluster4WeeklyCardsError,
+  getCluster4WeeklyCardsForProfileUser,
+} from "@/lib/cluster4WeeklyCardsData";
+import { isTestUser } from "@/lib/testUsers";
+import { TEST_SUMMER_SIM_EFFECTIVE_FROM } from "@/lib/lineAvailability";
 import { getWeeklyGrowth } from "@/lib/cluster4WeeklyGrowthData";
 import {
   readWeeklyCardsSnapshot,
@@ -292,6 +297,37 @@ async function handleGet(request: NextRequest): Promise<Response> {
       const requestedUserId =
         request.nextUrl.searchParams.get("userId")?.trim() || null;
       const cardTargetUserId = requestedUserId || demoProfileUserId;
+
+      // ── 테스트 시즌 시뮬레이션(mode=test) ──
+      //   레거시 주차(W13 등)를 여름 정책으로 시뮬레이션해 신규 라인/강화율/verdict 를 개별 표시.
+      //   조건(엄격): 데모 모드 + demoUserId 가 검증된 test_user_markers 유저(resolveDemoProfileUserId 통과)
+      //               + 조회 대상(cardTargetUserId)도 테스트 유저 + mode=test.
+      //   ⚠ snapshot read/write 없이 live compute 만 반환 → 운영 snapshot 무접촉(절대 미저장).
+      //   실유저/운영 모드는 이 분기에 진입 불가(demoUserId 없음 → 위 데모 게이트 자체 미통과).
+      const mode = request.nextUrl.searchParams.get("mode")?.trim();
+      if (mode === "test") {
+        const targetIsTest =
+          cardTargetUserId === demoProfileUserId
+            ? true
+            : await isTestUser(cardTargetUserId);
+        if (targetIsTest) {
+          const cards = await getCluster4WeeklyCardsForProfileUser(
+            cardTargetUserId,
+            { effectiveFromOverride: TEST_SUMMER_SIM_EFFECTIVE_FROM },
+          );
+          const seasonKeyT = currentSeasonKey();
+          const circlesT = computeAreaSixCircles(cards, seasonKeyT);
+          const areaProgressT = computeSeasonAreaProgress(cards, seasonKeyT);
+          return done(ok(cards, circlesT, areaProgressT), "demo-test-sim", {
+            userId: cardTargetUserId,
+            cards,
+            outcome: "stale",
+            detail: "test-summer-sim(live, no-snapshot)",
+            lazyRan: true,
+          });
+        }
+      }
+
       const result = await loadWeeklyCards(cardTargetUserId);
       if (DEBUG_COMPARE) await logWeekComparison(cardTargetUserId, result.cards);
       // area-6-circles / area-7-progress: 로드된 스냅샷 cards 에서 현재 시즌 집계(snapshot-only 파생).
@@ -380,6 +416,30 @@ async function handleGet(request: NextRequest): Promise<Response> {
         return done(fail(404, "User profile not found.", "profile_not_found"), "no-profile");
       }
       profileUserId = ownProfileUserId;
+    }
+
+    // ── 테스트 시즌 시뮬레이션(mode=test) — internal/세션 경로 ──
+    //   고객 앱은 weekly-cards?userId=<testUser>&mode=test 를 x-internal-api-key 로 보내므로
+    //   위 demoUserId(데모) 분기에 진입하지 못한다. 동일 시뮬레이션을 여기서도 제공하되,
+    //   조건(엄격): mode=test + profileUserId 가 검증된 test_user_markers 유저인 경우에만.
+    //   ⚠ snapshot read/write 없이 live compute 만 반환 → 운영 snapshot 무접촉(절대 미저장).
+    //   실유저/운영 모드/mode 없음은 이 분기에 진입 불가(isTestUser=false 또는 mode!=test)
+    //   → 아래 loadWeeklyCards(snapshot) 경로 그대로(회귀 없음).
+    const mode = request.nextUrl.searchParams.get("mode")?.trim();
+    if (mode === "test" && (await isTestUser(profileUserId))) {
+      const cards = await getCluster4WeeklyCardsForProfileUser(profileUserId, {
+        effectiveFromOverride: TEST_SUMMER_SIM_EFFECTIVE_FROM,
+      });
+      const seasonKeyT = currentSeasonKey();
+      const circlesT = computeAreaSixCircles(cards, seasonKeyT);
+      const areaProgressT = computeSeasonAreaProgress(cards, seasonKeyT);
+      return done(ok(cards, circlesT, areaProgressT), "internal-test-sim", {
+        userId: profileUserId,
+        cards,
+        outcome: "stale",
+        detail: "test-summer-sim(live, no-snapshot)",
+        lazyRan: true,
+      });
     }
 
     const result = await loadWeeklyCards(profileUserId);

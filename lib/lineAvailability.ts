@@ -44,9 +44,17 @@ export const EXPERIENCE_ALWAYS_OPEN_SLOT_ORDERS = [1, 2, 3, 5] as const;
 // ─────────────────────────────────────────────────────────────────────
 export const CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM = "2026-06-29";
 
-// 레거시(허브 도입 전) 주차 판별 — start_date < 2026 여름 W1.
-export function isLegacyUnifiedWeekStart(startDate: string): boolean {
-  return startDate < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM;
+// 테스트 시즌 시뮬레이션 override — 레거시 경계를 과거로 밀어 전 주차를 여름 정책으로 처리한다.
+//   mode=test + 검증된 test_user_markers 유저 한정, live compute 전용(운영/snapshot 저장 경로 무관).
+export const TEST_SUMMER_SIM_EFFECTIVE_FROM = "1970-01-01";
+
+// 레거시(허브 도입 전) 주차 판별 — start_date < effectiveFrom(기본 2026 여름 W1).
+//   effectiveFrom 을 과거로 오버라이드하면 전 주차가 비레거시(여름)로 전환(테스트 시뮬레이션).
+export function isLegacyUnifiedWeekStart(
+  startDate: string,
+  effectiveFrom: string = CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM,
+): boolean {
+  return startDate < effectiveFrom;
 }
 
 // 레거시 통합 라인 식별자 (마스터 line_name 고정 매칭).
@@ -1404,9 +1412,13 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
     // 조직별 check 기준값 해석용 (org_week_thresholds) — fetchLegacyUnifiedExperienceByWeek
     // 로 passthrough. undefined = 내부 조회 / null = 공통 폴백 확정.
     organizationSlug?: OrganizationSlug | null;
+    // 레거시 경계 오버라이드(테스트 시즌 시뮬레이션). 기본=CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM.
+    //   과거 날짜를 주면 전 주차가 비레거시(여름)로 판정 → 5슬롯 verdict 로 계산.
+    effectiveFrom?: string;
   } = {},
 ): Promise<Map<string, ExperienceGrowthVerdict>> {
   const alwaysOpenWeekIds = opts.alwaysOpenWeekIds ?? new Set<string>();
+  const effectiveFrom = opts.effectiveFrom ?? CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM;
   const result = new Map<string, ExperienceGrowthVerdict>();
   if (weekIds.length === 0) return result;
 
@@ -1430,7 +1442,7 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
       .in("id", weekIds);
     if (!weeksErr) {
       for (const w of (weekRows ?? []) as { id: string; start_date: string | null }[]) {
-        if (w.start_date && isLegacyUnifiedWeekStart(w.start_date)) {
+        if (w.start_date && isLegacyUnifiedWeekStart(w.start_date, effectiveFrom)) {
           legacyWeekIdSet.add(w.id);
         }
       }

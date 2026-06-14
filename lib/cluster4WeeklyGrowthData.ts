@@ -347,8 +347,12 @@ async function computeWeeklyCards(
   userId: string,
   organization: OrganizationSlug | null,
   crewMeta: CrewMetadata,
+  opts: { effectiveFrom?: string } = {},
 ): Promise<{ cards: WeeklyCardDto[] }> {
   const { teamLabel, partLabel, activityStatus } = crewMeta;
+  // 레거시 경계 오버라이드(테스트 시즌 시뮬레이션) — 기본=CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM.
+  //   과거 날짜면 legacyWeekIdSet 비고 slotPolicyWeekIds 가 전 주차 포함 → 여름 정책 집계/verdict.
+  const effectiveFrom = opts.effectiveFrom ?? CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM;
   // 1. 사용자 주차 상태 조회 (보조 데이터). 카드 루프의 기준은 weeks 이며, uws 는 있으면 붙인다.
   const { data: uwsData, error: uwsErr } = await supabaseAdmin
     .from("user_week_statuses")
@@ -552,7 +556,7 @@ async function computeWeeklyCards(
   // 레거시(허브 도입 전) 주차 집합 — weekId 기준 (id 있는 카드 주차만).
   const legacyWeekIdSet = new Set<string>();
   for (const w of cardWeeksDesc) {
-    if (w.id && w.start_date < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) {
+    if (w.id && w.start_date < effectiveFrom) {
       legacyWeekIdSet.add(w.id);
     }
   }
@@ -571,7 +575,7 @@ async function computeWeeklyCards(
       if (!w.id) continue;
       if (!isWeekPublished(w) || isCurrentWeekStart(w.start_date)) continue;
       if (isTransitionWeekStart(w.start_date)) continue;
-      if (w.start_date < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) continue;
+      if (w.start_date < effectiveFrom) continue;
       slotPolicyWeekIds.add(w.id);
     }
 
@@ -593,6 +597,7 @@ async function computeWeeklyCards(
         alwaysOpenWeekIds: slotPolicyWeekIds,
         legacyUnifiedStates,
         organizationSlug: organization,
+        effectiveFrom,
       }),
       // 라인 개설 여부(part별) — synthetic fail 분모 A 가산용.
       fetchWeeksWithOpenLinesByPart(weekCardIds),
@@ -1423,6 +1428,7 @@ async function computeSeasonActivityStatuses(
 // ─────────────────────────────────────────────────────────────────────
 export async function getWeeklyGrowth(
   legacyUserId: string,
+  opts: { effectiveFromOverride?: string } = {},
 ): Promise<WeeklyGrowthDto | null> {
   const t0 = Date.now();
   const crew = await getAdminCrewDtoByLegacyUserId(legacyUserId);
@@ -1467,6 +1473,7 @@ export async function getWeeklyGrowth(
       membershipStatusLabelRaw: crew.membershipState ?? null,
       organizationSlug: crew.organizationSlug ?? null,
     },
+    { effectiveFrom: opts.effectiveFromOverride },
   );
   const weeklyCards = weeklyResult.cards;
   const growthSummary = await computeGrowthSummary(crew.userId, weeklyCards);

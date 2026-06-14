@@ -928,12 +928,15 @@ function isRestWeek(status: WeekResultStatus): boolean {
 //   제외 → 필수 슬롯 placeholder 가 해당 없음(not_opened)으로 내려간다.
 //   weekly-growth 경로의 slotPolicyWeekIds(공표·현재주 기준)와 동일 의미 — resolver 의
 //   resultStatus 가 공표/현재주 판정을 이미 반영하므로 여기선 상태값으로 가른다.
-function buildSlotFailWeekIds(cards: WeeklyCardDto[]): Set<string> {
+function buildSlotFailWeekIds(
+  cards: WeeklyCardDto[],
+  effectiveFrom: string = CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM,
+): Set<string> {
   const out = new Set<string>();
   for (const c of cards) {
     if (!c.weekId || c.isTransition) continue;
     if (c.resultStatus !== "success" && c.resultStatus !== "fail") continue;
-    if (c.startDate < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) continue;
+    if (c.startDate < effectiveFrom) continue;
     out.add(c.weekId);
   }
   return out;
@@ -941,11 +944,14 @@ function buildSlotFailWeekIds(cards: WeeklyCardDto[]): Set<string> {
 
 // 레거시(허브 도입 전) 주차 집합 — 통합 라인 단일 렌더 게이트용 (2026-06-05 정책).
 //   start_date < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM (= 2026 여름 W1) 인 모든 카드 주차.
-function buildLegacyWeekIds(cards: WeeklyCardDto[]): Set<string> {
+function buildLegacyWeekIds(
+  cards: WeeklyCardDto[],
+  effectiveFrom: string = CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM,
+): Set<string> {
   const out = new Set<string>();
   for (const c of cards) {
     if (!c.weekId) continue;
-    if (c.startDate < CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) out.add(c.weekId);
+    if (c.startDate < effectiveFrom) out.add(c.weekId);
   }
   return out;
 }
@@ -2210,9 +2216,16 @@ export async function getCluster4WeeklyCardsForAuthUser(
 
 export async function getCluster4WeeklyCardsForProfileUser(
   profileUserId: string,
+  opts: { effectiveFromOverride?: string } = {},
 ): Promise<Cluster4WeeklyCardDto[]> {
+  // 레거시 경계 오버라이드(테스트 시즌 시뮬레이션) — 기본=CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM.
+  //   과거 날짜를 주면 카드 렌더/슬롯 fail/강화율/verdict 전 경로가 여름 정책으로 일관 전환.
+  const effectiveFrom =
+    opts.effectiveFromOverride ?? CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM;
   const tGrowthStart = Date.now();
-  const weeklyGrowth = await getWeeklyGrowth(profileUserId);
+  const weeklyGrowth = await getWeeklyGrowth(profileUserId, {
+    effectiveFromOverride: opts.effectiveFromOverride,
+  });
   console.log(
     "[weekly-cards][timing] getWeeklyGrowth(profileUser)",
     `${Date.now() - tGrowthStart}ms`,
@@ -2233,9 +2246,9 @@ export async function getCluster4WeeklyCardsForProfileUser(
   // 허브/라인 체계 적용 주차: 필수 슬롯 fail 적용(판정 완료 + EFFECTIVE_FROM 이후 — 사용자 유형 무관).
   // 관리(5) 슬롯 게이트: membership_level 심화/운영진만 개방 — 잠금 사용자는 분모 제외(해당 없음).
   const managementSlotOpen = await fetchManagementSlotOpen(profileUserId);
-  const slotFailWeekIds = buildSlotFailWeekIds(weeklyGrowth.weeklyCards);
-  // 레거시(허브 도입 전) 주차 — 통합 라인 단일 렌더 게이트.
-  const legacyWeekIds = buildLegacyWeekIds(weeklyGrowth.weeklyCards);
+  const slotFailWeekIds = buildSlotFailWeekIds(weeklyGrowth.weeklyCards, effectiveFrom);
+  // 레거시(허브 도입 전) 주차 — 통합 라인 단일 렌더 게이트. override 시 빈 집합(여름 렌더).
+  const legacyWeekIds = buildLegacyWeekIds(weeklyGrowth.weeklyCards, effectiveFrom);
   // 확정(공표) 주차 — resultStatus 가 success/fail (resolver 가 result_published_at 반영).
   // v14.1 competency placeholder 분기(확정=강화 실패 / 미확정=강화 대기)용.
   const confirmedWeekIds = new Set(

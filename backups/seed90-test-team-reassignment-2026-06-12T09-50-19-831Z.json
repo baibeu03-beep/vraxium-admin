@@ -1,0 +1,2464 @@
+{
+  "type": "test_user_seed90_team_part_reassignment_backup",
+  "seedBatchId": "2026-05-26_seed_90users_v2",
+  "startedAt": "2026-06-12T09:50:19.831Z",
+  "plan": [
+    {
+      "user_id": "92de9b41-6c4f-4684-87d9-6f9db01e5601",
+      "legacy_user_id": 900075,
+      "display_name": "T정채원",
+      "organization_slug": "oranke",
+      "new_team_name": "과일(T)",
+      "new_part_name": "오렌지"
+    },
+    {
+      "user_id": "3ba642d8-d658-4e87-8e15-3afdab8415c2",
+      "legacy_user_id": 900083,
+      "display_name": "T서유진",
+      "organization_slug": "oranke",
+      "new_team_name": "과일(T)",
+      "new_part_name": "오렌지"
+    },
+    {
+      "user_id": "829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06",
+      "legacy_user_id": 900068,
+      "display_name": "T송윤서",
+      "organization_slug": "oranke",
+      "new_team_name": "과일(T)",
+      "new_part_name": "오렌지"
+    },
+    {
+      "user_id": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+      "legacy_user_id": 900087,
+      "display_name": "T안건우",
+      "organization_slug": "oranke",
+      "new_team_name": "과일(T)",
+      "new_part_name": "오렌지"
+    },
+    {
+      "user_id": "020ec835-1ead-4ef5-adce-d0d97585beaa",
+      "legacy_user_id": 900079,
+      "display_name": "T장승우",
+      "organization_slug": "oranke",
+      "new_team_name": "과일(T)",
+      "new_part_name": "수박"
+    },
+    {
+      "user_id": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+      "legacy_user_id": 900069,
+      "display_name": "T류하준",
+      "organization_slug": "oranke",
+      "new_team_name": "과일(T)",
+      "new_part_name": "수박"
+    },
+    {
+      "user_id": "13b8e55e-ff49-43f3-a01f-cb68bfb74581",
+      "legacy_user_id": 900081,
+      "display_name": "T한지윤",
+      "organization_slug": "oranke",
+      "new_team_name": "과일(T)",
+      "new_part_name": "수박"
+    },
+    {
+      "user_id": "3330f4c3-5331-4632-bbe6-01a19017a089",
+      "legacy_user_id": 900076,
+      "display_name": "T강서현",
+      "organization_slug": "oranke",
+      "new_team_name": "과일(T)",
+      "new_part_name": "참외"
+    },
+    {
+      "user_id": "cc05522b-7a71-48fb-a291-3aaaefdf4865",
+      "legacy_user_id": 900077,
+      "display_name": "T조하은",
+      "organization_slug": "oranke",
+      "new_team_name": "과일(T)",
+      "new_part_name": "참외"
+    },
+    {
+      "user_id": "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
+      "legacy_user_id": 900066,
+      "display_name": "T황지유",
+      "organization_slug": "oranke",
+      "new_team_name": "과일(T)",
+      "new_part_name": "참외"
+    },
+    {
+      "user_id": "edfe7e58-4681-4d40-ba46-199fc9d99d82",
+      "legacy_user_id": 900071,
+      "display_name": "T김주원",
+      "organization_slug": "oranke",
+      "new_team_name": "음료(T)",
+      "new_part_name": "커피"
+    },
+    {
+      "user_id": "58a4c844-6fd2-4108-8d2d-51c701018a7b",
+      "legacy_user_id": 900084,
+      "display_name": "T신현준",
+      "organization_slug": "oranke",
+      "new_team_name": "음료(T)",
+      "new_part_name": "커피"
+    },
+    {
+      "user_id": "dff09eb2-6534-42de-99bd-8bf2ed315c01",
+      "legacy_user_id": 900074,
+      "display_name": "T최선우",
+      "organization_slug": "oranke",
+      "new_team_name": "음료(T)",
+      "new_part_name": "커피"
+    },
+    {
+      "user_id": "fd2afa0a-48c8-423c-b3a8-df417990002a",
+      "legacy_user_id": 900063,
+      "display_name": "T서도윤",
+      "organization_slug": "oranke",
+      "new_team_name": "음료(T)",
+      "new_part_name": "커피"
+    },
+    {
+      "user_id": "bab78175-fd69-4ad3-b59d-6dead49ac3e3",
+      "legacy_user_id": 900061,
+      "display_name": "T한서준",
+      "organization_slug": "oranke",
+      "new_team_name": "음료(T)",
+      "new_part_name": "주스"
+    },
+    {
+      "user_id": "fe17f587-b518-4b72-9646-5a590524355c",
+      "legacy_user_id": 900070,
+      "display_name": "T홍지후",
+      "organization_slug": "oranke",
+      "new_team_name": "음료(T)",
+      "new_part_name": "주스"
+    },
+    {
+      "user_id": "0d6ec2d3-ec7a-43cc-b1a9-8bb8b3f18df3",
+      "legacy_user_id": 900080,
+      "display_name": "T임시은",
+      "organization_slug": "oranke",
+      "new_team_name": "음료(T)",
+      "new_part_name": "주스"
+    },
+    {
+      "user_id": "5b3c0935-9bff-4e96-8efb-b7cbcb092bb2",
+      "legacy_user_id": 900072,
+      "display_name": "T이지호",
+      "organization_slug": "oranke",
+      "new_team_name": "음료(T)",
+      "new_part_name": "주스"
+    },
+    {
+      "user_id": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
+      "legacy_user_id": 900067,
+      "display_name": "T안시우",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "케이크"
+    },
+    {
+      "user_id": "ddce842a-23a4-49a1-b947-78b2a3f9ca64",
+      "legacy_user_id": 900065,
+      "display_name": "T권예준",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "케이크"
+    },
+    {
+      "user_id": "87fbff25-c77a-4cf3-9482-67212e55aa6d",
+      "legacy_user_id": 900082,
+      "display_name": "T오준서",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "케이크"
+    },
+    {
+      "user_id": "5ce78bd8-126f-4636-b6a9-a43031a21930",
+      "legacy_user_id": 900062,
+      "display_name": "T오지우",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "케이크"
+    },
+    {
+      "user_id": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+      "legacy_user_id": 900090,
+      "display_name": "T홍지환",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "젤리"
+    },
+    {
+      "user_id": "3d968dba-77a4-4382-a5ad-ad5cad7c1c34",
+      "legacy_user_id": 900064,
+      "display_name": "T신하윤",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "젤리"
+    },
+    {
+      "user_id": "ea286f9d-fb5b-492e-a081-cd5c200a4455",
+      "legacy_user_id": 900078,
+      "display_name": "T윤민지",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "젤리"
+    },
+    {
+      "user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "legacy_user_id": 900085,
+      "display_name": "T권소율",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "젤리"
+    },
+    {
+      "user_id": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+      "legacy_user_id": 900088,
+      "display_name": "T송태현",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "쿠키"
+    },
+    {
+      "user_id": "63813dc4-9dec-4511-83be-1f54196d09cf",
+      "legacy_user_id": 900089,
+      "display_name": "T류민서",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "쿠키"
+    },
+    {
+      "user_id": "8e38d52f-727e-429b-9db3-423cd031d2a5",
+      "legacy_user_id": 900086,
+      "display_name": "T황하린",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "쿠키"
+    },
+    {
+      "user_id": "4bd185be-0c54-470e-a254-588e69064e37",
+      "legacy_user_id": 900073,
+      "display_name": "T박수아",
+      "organization_slug": "oranke",
+      "new_team_name": "콘텐츠실험(T)",
+      "new_part_name": "쿠키"
+    },
+    {
+      "user_id": "f980b257-12b1-4f9c-ae71-307336071785",
+      "legacy_user_id": 900039,
+      "display_name": "T장소율",
+      "organization_slug": "encre",
+      "new_team_name": "사운드(T)",
+      "new_part_name": "보컬"
+    },
+    {
+      "user_id": "e649370f-ba2c-4d2f-b642-6800cb078d54",
+      "legacy_user_id": 900031,
+      "display_name": "T김민준",
+      "organization_slug": "encre",
+      "new_team_name": "사운드(T)",
+      "new_part_name": "보컬"
+    },
+    {
+      "user_id": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+      "legacy_user_id": 900056,
+      "display_name": "T강지아",
+      "organization_slug": "encre",
+      "new_team_name": "사운드(T)",
+      "new_part_name": "보컬"
+    },
+    {
+      "user_id": "e0fc0a80-a4ae-4e39-b709-e09fabc174bd",
+      "legacy_user_id": 900051,
+      "display_name": "T김건우",
+      "organization_slug": "encre",
+      "new_team_name": "사운드(T)",
+      "new_part_name": "보컬"
+    },
+    {
+      "user_id": "42864260-e4ea-4150-a87f-cff545b02af1",
+      "legacy_user_id": 900060,
+      "display_name": "T임다인",
+      "organization_slug": "encre",
+      "new_team_name": "사운드(T)",
+      "new_part_name": "비트"
+    },
+    {
+      "user_id": "5fe0f152-3e4c-4313-8203-6fb6002c5393",
+      "legacy_user_id": 900049,
+      "display_name": "T류지환",
+      "organization_slug": "encre",
+      "new_team_name": "사운드(T)",
+      "new_part_name": "비트"
+    },
+    {
+      "user_id": "6293191d-f862-468d-96c3-f1a09c8d36aa",
+      "legacy_user_id": 900043,
+      "display_name": "T서다은",
+      "organization_slug": "encre",
+      "new_team_name": "사운드(T)",
+      "new_part_name": "비트"
+    },
+    {
+      "user_id": "e1a17a4a-05b5-443e-a95d-db20ec2ad9af",
+      "legacy_user_id": 900036,
+      "display_name": "T강현우",
+      "organization_slug": "encre",
+      "new_team_name": "사운드(T)",
+      "new_part_name": "비트"
+    },
+    {
+      "user_id": "9e2f8097-b1ce-4920-9c67-af9989074cfd",
+      "legacy_user_id": 900050,
+      "display_name": "T홍채원",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "포토"
+    },
+    {
+      "user_id": "70abfec0-660b-4af3-a940-5d318f76bd4e",
+      "legacy_user_id": 900055,
+      "display_name": "T정시현",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "포토"
+    },
+    {
+      "user_id": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+      "legacy_user_id": 900040,
+      "display_name": "T임시우",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "포토"
+    },
+    {
+      "user_id": "a3cdb8ca-f9c6-4122-b881-35c5f529f29f",
+      "legacy_user_id": 900033,
+      "display_name": "T박지훈",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "포토"
+    },
+    {
+      "user_id": "98807fea-2137-4160-ba5c-dedcbdced0e8",
+      "legacy_user_id": 900037,
+      "display_name": "T조예린",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "무드"
+    },
+    {
+      "user_id": "ee9bf53b-b7cf-4a27-8aeb-fa4a7ec605eb",
+      "legacy_user_id": 900041,
+      "display_name": "T한지민",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "무드"
+    },
+    {
+      "user_id": "28c60d60-aa17-4614-9127-fd65a8aebcaf",
+      "legacy_user_id": 900048,
+      "display_name": "T송하린",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "무드"
+    },
+    {
+      "user_id": "f2d5c378-6a50-477f-b50d-2a21241e7640",
+      "legacy_user_id": 900042,
+      "display_name": "T오승현",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "무드"
+    },
+    {
+      "user_id": "e81c8b30-20a2-4a10-bf2c-8c3ca474e4e7",
+      "legacy_user_id": 900053,
+      "display_name": "T박정우",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "아트"
+    },
+    {
+      "user_id": "9d73cad4-12ec-4bd8-a118-58f8cf705122",
+      "legacy_user_id": 900044,
+      "display_name": "T신유진",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "아트"
+    },
+    {
+      "user_id": "f3a9bd26-46c1-4bb7-9285-94692380145f",
+      "legacy_user_id": 900054,
+      "display_name": "T최예은",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "아트"
+    },
+    {
+      "user_id": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+      "legacy_user_id": 900058,
+      "display_name": "T윤서진",
+      "organization_slug": "encre",
+      "new_team_name": "비주얼랩(T)",
+      "new_part_name": "아트"
+    },
+    {
+      "user_id": "614f78f4-c372-4c11-a17f-46b9e7bd4523",
+      "legacy_user_id": 900046,
+      "display_name": "T황민서",
+      "organization_slug": "encre",
+      "new_team_name": "팬덤실험(T)",
+      "new_part_name": "응원"
+    },
+    {
+      "user_id": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "legacy_user_id": 900038,
+      "display_name": "T윤도현",
+      "organization_slug": "encre",
+      "new_team_name": "팬덤실험(T)",
+      "new_part_name": "응원"
+    },
+    {
+      "user_id": "fff3941f-071c-4cca-b99a-da8bd6d2fae2",
+      "legacy_user_id": 900035,
+      "display_name": "T정하은",
+      "organization_slug": "encre",
+      "new_team_name": "팬덤실험(T)",
+      "new_part_name": "응원"
+    },
+    {
+      "user_id": "a3a91b4c-e3e7-45c8-9076-80eea01ad809",
+      "legacy_user_id": 900052,
+      "display_name": "T이수아",
+      "organization_slug": "encre",
+      "new_team_name": "팬덤실험(T)",
+      "new_part_name": "응원"
+    },
+    {
+      "user_id": "ce4085e9-5dff-4f5d-a64a-5ca99c0bfb0e",
+      "legacy_user_id": 900032,
+      "display_name": "T이서연",
+      "organization_slug": "encre",
+      "new_team_name": "팬덤실험(T)",
+      "new_part_name": "응원"
+    },
+    {
+      "user_id": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "legacy_user_id": 900059,
+      "display_name": "T장유준",
+      "organization_slug": "encre",
+      "new_team_name": "팬덤실험(T)",
+      "new_part_name": "이벤트"
+    },
+    {
+      "user_id": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
+      "legacy_user_id": 900057,
+      "display_name": "T조민재",
+      "organization_slug": "encre",
+      "new_team_name": "팬덤실험(T)",
+      "new_part_name": "이벤트"
+    },
+    {
+      "user_id": "37b7ddce-6146-4941-8c5f-c1dfa4e09f7e",
+      "legacy_user_id": 900047,
+      "display_name": "T안준혁",
+      "organization_slug": "encre",
+      "new_team_name": "팬덤실험(T)",
+      "new_part_name": "이벤트"
+    },
+    {
+      "user_id": "36138fb1-6fea-4b22-b6d2-9c46cba47314",
+      "legacy_user_id": 900034,
+      "display_name": "T최수빈",
+      "organization_slug": "encre",
+      "new_team_name": "팬덤실험(T)",
+      "new_part_name": "이벤트"
+    },
+    {
+      "user_id": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+      "legacy_user_id": 900045,
+      "display_name": "T권태현",
+      "organization_slug": "encre",
+      "new_team_name": "팬덤실험(T)",
+      "new_part_name": "이벤트"
+    },
+    {
+      "user_id": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+      "legacy_user_id": 900117,
+      "display_name": "T조서현",
+      "organization_slug": "phalanx",
+      "new_team_name": "전략(T)",
+      "new_part_name": "리서치"
+    },
+    {
+      "user_id": "fcfbe22a-05d2-4260-bfa4-c716d11d38bd",
+      "legacy_user_id": 900097,
+      "display_name": "T조현우",
+      "organization_slug": "phalanx",
+      "new_team_name": "전략(T)",
+      "new_part_name": "리서치"
+    },
+    {
+      "user_id": "db913eae-d0b2-4681-a257-723f84a4da9d",
+      "legacy_user_id": 900112,
+      "display_name": "T이정우",
+      "organization_slug": "phalanx",
+      "new_team_name": "전략(T)",
+      "new_part_name": "리서치"
+    },
+    {
+      "user_id": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+      "legacy_user_id": 900115,
+      "display_name": "T정유진",
+      "organization_slug": "phalanx",
+      "new_team_name": "전략(T)",
+      "new_part_name": "리서치"
+    },
+    {
+      "user_id": "35c987bf-015f-482c-b966-63fe55af0256",
+      "legacy_user_id": 900109,
+      "display_name": "T류서진",
+      "organization_slug": "phalanx",
+      "new_team_name": "전략(T)",
+      "new_part_name": "기획"
+    },
+    {
+      "user_id": "b2e2d277-d40c-4cef-91cb-733b7d6e658a",
+      "legacy_user_id": 900096,
+      "display_name": "T강시은",
+      "organization_slug": "phalanx",
+      "new_team_name": "전략(T)",
+      "new_part_name": "기획"
+    },
+    {
+      "user_id": "a4f686e1-867e-4a61-8323-c518c4288a14",
+      "legacy_user_id": 900102,
+      "display_name": "T오다은",
+      "organization_slug": "phalanx",
+      "new_team_name": "전략(T)",
+      "new_part_name": "기획"
+    },
+    {
+      "user_id": "59c22d30-aece-4855-9958-bf34f8795d2a",
+      "legacy_user_id": 900101,
+      "display_name": "T한유준",
+      "organization_slug": "phalanx",
+      "new_team_name": "전략(T)",
+      "new_part_name": "기획"
+    },
+    {
+      "user_id": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
+      "legacy_user_id": 900098,
+      "display_name": "T윤예린",
+      "organization_slug": "phalanx",
+      "new_team_name": "전략(T)",
+      "new_part_name": "기획"
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "legacy_user_id": 900119,
+      "display_name": "T장시현",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "앱"
+    },
+    {
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "legacy_user_id": 900120,
+      "display_name": "T임건우",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "앱"
+    },
+    {
+      "user_id": "7e15f412-65be-481c-8525-460b161244ca",
+      "legacy_user_id": 900092,
+      "display_name": "T이하준",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "앱"
+    },
+    {
+      "user_id": "50f6a693-45fd-4b24-b8ee-959ce3e7fc4c",
+      "legacy_user_id": 900110,
+      "display_name": "T홍예린",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "앱"
+    },
+    {
+      "user_id": "c17542ff-4eb2-4b4e-b584-1dfcb8ca39f5",
+      "legacy_user_id": 900106,
+      "display_name": "T황하은",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "데이터"
+    },
+    {
+      "user_id": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+      "legacy_user_id": 900100,
+      "display_name": "T임수빈",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "데이터"
+    },
+    {
+      "user_id": "9898f4a2-b873-4231-b2ac-321afa74555c",
+      "legacy_user_id": 900103,
+      "display_name": "T서승현",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "데이터"
+    },
+    {
+      "user_id": "00b75923-2109-4214-806a-37667d64ac5e",
+      "legacy_user_id": 900093,
+      "display_name": "T박민서",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "데이터"
+    },
+    {
+      "user_id": "fecffe36-1e01-40d6-aa83-7e2b698b6b89",
+      "legacy_user_id": 900114,
+      "display_name": "T최민재",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "데이터"
+    },
+    {
+      "user_id": "4263f72d-60e8-4235-bae2-3ed0921e1508",
+      "legacy_user_id": 900111,
+      "display_name": "T김예은",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "검수"
+    },
+    {
+      "user_id": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "legacy_user_id": 900118,
+      "display_name": "T윤태현",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "검수"
+    },
+    {
+      "user_id": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
+      "legacy_user_id": 900104,
+      "display_name": "T신소율",
+      "organization_slug": "phalanx",
+      "new_team_name": "제품실험(T)",
+      "new_part_name": "검수"
+    },
+    {
+      "user_id": "90de758a-3b0c-498d-af55-9b1324f36b88",
+      "legacy_user_id": 900095,
+      "display_name": "T정도윤",
+      "organization_slug": "phalanx",
+      "new_team_name": "운영(T)",
+      "new_part_name": "응대"
+    },
+    {
+      "user_id": "f26e0bab-e138-41e6-a28b-676036a6a5aa",
+      "legacy_user_id": 900105,
+      "display_name": "T권지민",
+      "organization_slug": "phalanx",
+      "new_team_name": "운영(T)",
+      "new_part_name": "응대"
+    },
+    {
+      "user_id": "5fa52ea5-d2a4-45df-900c-e08b0effc2fb",
+      "legacy_user_id": 900108,
+      "display_name": "T송지아",
+      "organization_slug": "phalanx",
+      "new_team_name": "운영(T)",
+      "new_part_name": "응대"
+    },
+    {
+      "user_id": "5cd3cf48-0a62-41db-beb9-960987a485d2",
+      "legacy_user_id": 900107,
+      "display_name": "T안태우",
+      "organization_slug": "phalanx",
+      "new_team_name": "운영(T)",
+      "new_part_name": "응대"
+    },
+    {
+      "user_id": "0a113e53-b678-40d1-b51c-1278e1c3f0fa",
+      "legacy_user_id": 900113,
+      "display_name": "T박하린",
+      "organization_slug": "phalanx",
+      "new_team_name": "운영(T)",
+      "new_part_name": "정책"
+    },
+    {
+      "user_id": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+      "legacy_user_id": 900099,
+      "display_name": "T장준혁",
+      "organization_slug": "phalanx",
+      "new_team_name": "운영(T)",
+      "new_part_name": "정책"
+    },
+    {
+      "user_id": "a26729db-1c3b-42c0-9bce-4316dd15b2a2",
+      "legacy_user_id": 900091,
+      "display_name": "T김서윤",
+      "organization_slug": "phalanx",
+      "new_team_name": "운영(T)",
+      "new_part_name": "정책"
+    },
+    {
+      "user_id": "3fec1a7e-4a88-4bc7-8da8-9eb9daff6f8a",
+      "legacy_user_id": 900094,
+      "display_name": "T최지후",
+      "organization_slug": "phalanx",
+      "new_team_name": "운영(T)",
+      "new_part_name": "정책"
+    },
+    {
+      "user_id": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+      "legacy_user_id": 900116,
+      "display_name": "T강지환",
+      "organization_slug": "phalanx",
+      "new_team_name": "운영(T)",
+      "new_part_name": "정책"
+    }
+  ],
+  "profilesBefore": [
+    {
+      "user_id": "28c60d60-aa17-4614-9127-fd65a8aebcaf",
+      "display_name": "T송하린",
+      "organization_slug": "encre",
+      "current_team_name": "팬마케팅",
+      "current_part_name": "FanFlow",
+      "legacy_user_id": 900048
+    },
+    {
+      "user_id": "13b8e55e-ff49-43f3-a01f-cb68bfb74581",
+      "display_name": "T한지윤",
+      "organization_slug": "oranke",
+      "current_team_name": "스타일",
+      "current_part_name": "뷰티",
+      "legacy_user_id": 900081
+    },
+    {
+      "user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "display_name": "T권소율",
+      "organization_slug": "oranke",
+      "current_team_name": "F&B",
+      "current_part_name": "쇼츠",
+      "legacy_user_id": 900085
+    },
+    {
+      "user_id": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+      "display_name": "T강지아",
+      "organization_slug": "encre",
+      "current_team_name": "갤러리",
+      "current_part_name": "코믹스",
+      "legacy_user_id": 900056
+    },
+    {
+      "user_id": "37b7ddce-6146-4941-8c5f-c1dfa4e09f7e",
+      "display_name": "T안준혁",
+      "organization_slug": "encre",
+      "current_team_name": "비주얼",
+      "current_part_name": "일반",
+      "legacy_user_id": 900047
+    },
+    {
+      "user_id": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+      "display_name": "T송태현",
+      "organization_slug": "oranke",
+      "current_team_name": "커머스",
+      "current_part_name": "베네핏",
+      "legacy_user_id": 900088
+    },
+    {
+      "user_id": "edfe7e58-4681-4d40-ba46-199fc9d99d82",
+      "display_name": "T김주원",
+      "organization_slug": "oranke",
+      "current_team_name": "스타일",
+      "current_part_name": "패션",
+      "legacy_user_id": 900071
+    },
+    {
+      "user_id": "36138fb1-6fea-4b22-b6d2-9c46cba47314",
+      "display_name": "T최수빈",
+      "organization_slug": "encre",
+      "current_team_name": "프로듀싱",
+      "current_part_name": "이야기",
+      "legacy_user_id": 900034
+    },
+    {
+      "user_id": "ddce842a-23a4-49a1-b947-78b2a3f9ca64",
+      "display_name": "T권예준",
+      "organization_slug": "oranke",
+      "current_team_name": "F&B",
+      "current_part_name": "릴스",
+      "legacy_user_id": 900065
+    },
+    {
+      "user_id": "3ba642d8-d658-4e87-8e15-3afdab8415c2",
+      "display_name": "T서유진",
+      "organization_slug": "oranke",
+      "current_team_name": "커머스",
+      "current_part_name": "베네핏",
+      "legacy_user_id": 900083
+    },
+    {
+      "user_id": "3d968dba-77a4-4382-a5ad-ad5cad7c1c34",
+      "display_name": "T신하윤",
+      "organization_slug": "oranke",
+      "current_team_name": "콘텐츠",
+      "current_part_name": "코믹스",
+      "legacy_user_id": 900064
+    },
+    {
+      "user_id": "3fec1a7e-4a88-4bc7-8da8-9eb9daff6f8a",
+      "display_name": "T최지후",
+      "organization_slug": "phalanx",
+      "current_team_name": "브랜딩",
+      "current_part_name": "일반",
+      "legacy_user_id": 900094
+    },
+    {
+      "user_id": "42864260-e4ea-4150-a87f-cff545b02af1",
+      "display_name": "T임다인",
+      "organization_slug": "encre",
+      "current_team_name": "A&R",
+      "current_part_name": "일반",
+      "legacy_user_id": 900060
+    },
+    {
+      "user_id": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
+      "display_name": "T안시우",
+      "organization_slug": "oranke",
+      "current_team_name": "엔터테인먼트",
+      "current_part_name": "플랫폼",
+      "legacy_user_id": 900067
+    },
+    {
+      "user_id": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "display_name": "T장유준",
+      "organization_slug": "encre",
+      "current_team_name": "프로듀싱",
+      "current_part_name": "결",
+      "legacy_user_id": 900059
+    },
+    {
+      "user_id": "4bd185be-0c54-470e-a254-588e69064e37",
+      "display_name": "T박수아",
+      "organization_slug": "oranke",
+      "current_team_name": "커머스",
+      "current_part_name": "솔루션",
+      "legacy_user_id": 900073
+    },
+    {
+      "user_id": "59c22d30-aece-4855-9958-bf34f8795d2a",
+      "display_name": "T한유준",
+      "organization_slug": "phalanx",
+      "current_team_name": "서비스",
+      "current_part_name": "일반",
+      "legacy_user_id": 900101
+    },
+    {
+      "user_id": "5b3c0935-9bff-4e96-8efb-b7cbcb092bb2",
+      "display_name": "T이지호",
+      "organization_slug": "oranke",
+      "current_team_name": "엔터테인먼트",
+      "current_part_name": "팬마케팅",
+      "legacy_user_id": 900072
+    },
+    {
+      "user_id": "ea286f9d-fb5b-492e-a081-cd5c200a4455",
+      "display_name": "T윤민지",
+      "organization_slug": "oranke",
+      "current_team_name": "커머스",
+      "current_part_name": "솔루션",
+      "legacy_user_id": 900078
+    },
+    {
+      "user_id": "58a4c844-6fd2-4108-8d2d-51c701018a7b",
+      "display_name": "T신현준",
+      "organization_slug": "oranke",
+      "current_team_name": "콘텐츠",
+      "current_part_name": "코믹스",
+      "legacy_user_id": 900084
+    },
+    {
+      "user_id": "3330f4c3-5331-4632-bbe6-01a19017a089",
+      "display_name": "T강서현",
+      "organization_slug": "oranke",
+      "current_team_name": "스타일",
+      "current_part_name": "패션",
+      "legacy_user_id": 900076
+    },
+    {
+      "user_id": "5cd3cf48-0a62-41db-beb9-960987a485d2",
+      "display_name": "T안태우",
+      "organization_slug": "phalanx",
+      "current_team_name": "서비스",
+      "current_part_name": "일반",
+      "legacy_user_id": 900107
+    },
+    {
+      "user_id": "5ce78bd8-126f-4636-b6a9-a43031a21930",
+      "display_name": "T오지우",
+      "organization_slug": "oranke",
+      "current_team_name": "엔터테인먼트",
+      "current_part_name": "플랫폼",
+      "legacy_user_id": 900062
+    },
+    {
+      "user_id": "5fa52ea5-d2a4-45df-900c-e08b0effc2fb",
+      "display_name": "T송지아",
+      "organization_slug": "phalanx",
+      "current_team_name": "IT",
+      "current_part_name": "일반",
+      "legacy_user_id": 900108
+    },
+    {
+      "user_id": "5fe0f152-3e4c-4313-8203-6fb6002c5393",
+      "display_name": "T류지환",
+      "organization_slug": "encre",
+      "current_team_name": "프로듀싱",
+      "current_part_name": "소리",
+      "legacy_user_id": 900049
+    },
+    {
+      "user_id": "63813dc4-9dec-4511-83be-1f54196d09cf",
+      "display_name": "T류민서",
+      "organization_slug": "oranke",
+      "current_team_name": "콘텐츠",
+      "current_part_name": "코믹스",
+      "legacy_user_id": 900089
+    },
+    {
+      "user_id": "70abfec0-660b-4af3-a940-5d318f76bd4e",
+      "display_name": "T정시현",
+      "organization_slug": "encre",
+      "current_team_name": "A&R",
+      "current_part_name": "일반",
+      "legacy_user_id": 900055
+    },
+    {
+      "user_id": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+      "display_name": "T윤서진",
+      "organization_slug": "encre",
+      "current_team_name": "팬마케팅",
+      "current_part_name": "FanLog",
+      "legacy_user_id": 900058
+    },
+    {
+      "user_id": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
+      "display_name": "T신소율",
+      "organization_slug": "phalanx",
+      "current_team_name": "서비스",
+      "current_part_name": "일반",
+      "legacy_user_id": 900104
+    },
+    {
+      "user_id": "7e15f412-65be-481c-8525-460b161244ca",
+      "display_name": "T이하준",
+      "organization_slug": "phalanx",
+      "current_team_name": "서비스",
+      "current_part_name": "일반",
+      "legacy_user_id": 900092
+    },
+    {
+      "user_id": "87fbff25-c77a-4cf3-9482-67212e55aa6d",
+      "display_name": "T오준서",
+      "organization_slug": "oranke",
+      "current_team_name": "엔터테인먼트",
+      "current_part_name": "컬쳐",
+      "legacy_user_id": 900082
+    },
+    {
+      "user_id": "8e38d52f-727e-429b-9db3-423cd031d2a5",
+      "display_name": "T황하린",
+      "organization_slug": "oranke",
+      "current_team_name": "스타일",
+      "current_part_name": "뷰티",
+      "legacy_user_id": 900086
+    },
+    {
+      "user_id": "9e2f8097-b1ce-4920-9c67-af9989074cfd",
+      "display_name": "T홍채원",
+      "organization_slug": "encre",
+      "current_team_name": "A&R",
+      "current_part_name": "일반",
+      "legacy_user_id": 900050
+    },
+    {
+      "user_id": "90de758a-3b0c-498d-af55-9b1324f36b88",
+      "display_name": "T정도윤",
+      "organization_slug": "phalanx",
+      "current_team_name": "서비스",
+      "current_part_name": "일반",
+      "legacy_user_id": 900095
+    },
+    {
+      "user_id": "92de9b41-6c4f-4684-87d9-6f9db01e5601",
+      "display_name": "T정채원",
+      "organization_slug": "oranke",
+      "current_team_name": "F&B",
+      "current_part_name": "카드뉴스",
+      "legacy_user_id": 900075
+    },
+    {
+      "user_id": "98807fea-2137-4160-ba5c-dedcbdced0e8",
+      "display_name": "T조예린",
+      "organization_slug": "encre",
+      "current_team_name": "비주얼",
+      "current_part_name": "일반",
+      "legacy_user_id": 900037
+    },
+    {
+      "user_id": "9898f4a2-b873-4231-b2ac-321afa74555c",
+      "display_name": "T서승현",
+      "organization_slug": "phalanx",
+      "current_team_name": "브랜딩",
+      "current_part_name": "일반",
+      "legacy_user_id": 900103
+    },
+    {
+      "user_id": "a26729db-1c3b-42c0-9bce-4316dd15b2a2",
+      "display_name": "T김서윤",
+      "organization_slug": "phalanx",
+      "current_team_name": "브랜딩",
+      "current_part_name": "일반",
+      "legacy_user_id": 900091
+    },
+    {
+      "user_id": "a3a91b4c-e3e7-45c8-9076-80eea01ad809",
+      "display_name": "T이수아",
+      "organization_slug": "encre",
+      "current_team_name": "비주얼",
+      "current_part_name": "일반",
+      "legacy_user_id": 900052
+    },
+    {
+      "user_id": "a3cdb8ca-f9c6-4122-b881-35c5f529f29f",
+      "display_name": "T박지훈",
+      "organization_slug": "encre",
+      "current_team_name": "팬마케팅",
+      "current_part_name": "FanFlow",
+      "legacy_user_id": 900033
+    },
+    {
+      "user_id": "a4f686e1-867e-4a61-8323-c518c4288a14",
+      "display_name": "T오다은",
+      "organization_slug": "phalanx",
+      "current_team_name": "IT",
+      "current_part_name": "일반",
+      "legacy_user_id": 900102
+    },
+    {
+      "user_id": "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
+      "display_name": "T황지유",
+      "organization_slug": "oranke",
+      "current_team_name": "스타일",
+      "current_part_name": "패션",
+      "legacy_user_id": 900066
+    },
+    {
+      "user_id": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+      "display_name": "T임시우",
+      "organization_slug": "encre",
+      "current_team_name": "A&R",
+      "current_part_name": "일반",
+      "legacy_user_id": 900040
+    },
+    {
+      "user_id": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+      "display_name": "T장준혁",
+      "organization_slug": "phalanx",
+      "current_team_name": "IT",
+      "current_part_name": "일반",
+      "legacy_user_id": 900099
+    },
+    {
+      "user_id": "b2e2d277-d40c-4cef-91cb-733b7d6e658a",
+      "display_name": "T강시은",
+      "organization_slug": "phalanx",
+      "current_team_name": "IT",
+      "current_part_name": "일반",
+      "legacy_user_id": 900096
+    },
+    {
+      "user_id": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+      "display_name": "T조서현",
+      "organization_slug": "phalanx",
+      "current_team_name": "IT",
+      "current_part_name": "일반",
+      "legacy_user_id": 900117
+    },
+    {
+      "user_id": "0a113e53-b678-40d1-b51c-1278e1c3f0fa",
+      "display_name": "T박하린",
+      "organization_slug": "phalanx",
+      "current_team_name": "서비스",
+      "current_part_name": "일반",
+      "legacy_user_id": 900113
+    },
+    {
+      "user_id": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+      "display_name": "T강지환",
+      "organization_slug": "phalanx",
+      "current_team_name": "서비스",
+      "current_part_name": "일반",
+      "legacy_user_id": 900116
+    },
+    {
+      "user_id": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "display_name": "T윤태현",
+      "organization_slug": "phalanx",
+      "current_team_name": "브랜딩",
+      "current_part_name": "일반",
+      "legacy_user_id": 900118
+    },
+    {
+      "user_id": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+      "display_name": "T류하준",
+      "organization_slug": "oranke",
+      "current_team_name": "콘텐츠",
+      "current_part_name": "코믹스",
+      "legacy_user_id": 900069
+    },
+    {
+      "user_id": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
+      "display_name": "T윤예린",
+      "organization_slug": "phalanx",
+      "current_team_name": "서비스",
+      "current_part_name": "일반",
+      "legacy_user_id": 900098
+    },
+    {
+      "user_id": "bab78175-fd69-4ad3-b59d-6dead49ac3e3",
+      "display_name": "T한서준",
+      "organization_slug": "oranke",
+      "current_team_name": "스타일",
+      "current_part_name": "패션",
+      "legacy_user_id": 900061
+    },
+    {
+      "user_id": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+      "display_name": "T임수빈",
+      "organization_slug": "phalanx",
+      "current_team_name": "브랜딩",
+      "current_part_name": "일반",
+      "legacy_user_id": 900100
+    },
+    {
+      "user_id": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "display_name": "T윤도현",
+      "organization_slug": "encre",
+      "current_team_name": "팬마케팅",
+      "current_part_name": "FanFlow",
+      "legacy_user_id": 900038
+    },
+    {
+      "user_id": "c17542ff-4eb2-4b4e-b584-1dfcb8ca39f5",
+      "display_name": "T황하은",
+      "organization_slug": "phalanx",
+      "current_team_name": "브랜딩",
+      "current_part_name": "일반",
+      "legacy_user_id": 900106
+    },
+    {
+      "user_id": "cc05522b-7a71-48fb-a291-3aaaefdf4865",
+      "display_name": "T조하은",
+      "organization_slug": "oranke",
+      "current_team_name": "엔터테인먼트",
+      "current_part_name": "팬마케팅",
+      "legacy_user_id": 900077
+    },
+    {
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "display_name": "T장시현",
+      "organization_slug": "phalanx",
+      "current_team_name": "서비스",
+      "current_part_name": "일반",
+      "legacy_user_id": 900119
+    },
+    {
+      "user_id": "ce4085e9-5dff-4f5d-a64a-5ca99c0bfb0e",
+      "display_name": "T이서연",
+      "organization_slug": "encre",
+      "current_team_name": "비주얼",
+      "current_part_name": "일반",
+      "legacy_user_id": 900032
+    },
+    {
+      "user_id": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+      "display_name": "T정유진",
+      "organization_slug": "phalanx",
+      "current_team_name": "브랜딩",
+      "current_part_name": "일반",
+      "legacy_user_id": 900115
+    },
+    {
+      "user_id": "db913eae-d0b2-4681-a257-723f84a4da9d",
+      "display_name": "T이정우",
+      "organization_slug": "phalanx",
+      "current_team_name": "브랜딩",
+      "current_part_name": "일반",
+      "legacy_user_id": 900112
+    },
+    {
+      "user_id": "dff09eb2-6534-42de-99bd-8bf2ed315c01",
+      "display_name": "T최선우",
+      "organization_slug": "oranke",
+      "current_team_name": "콘텐츠",
+      "current_part_name": "코믹스",
+      "legacy_user_id": 900074
+    },
+    {
+      "user_id": "e0fc0a80-a4ae-4e39-b709-e09fabc174bd",
+      "display_name": "T김건우",
+      "organization_slug": "encre",
+      "current_team_name": "갤러리",
+      "current_part_name": "매거진",
+      "legacy_user_id": 900051
+    },
+    {
+      "user_id": "6293191d-f862-468d-96c3-f1a09c8d36aa",
+      "display_name": "T서다은",
+      "organization_slug": "encre",
+      "current_team_name": "팬마케팅",
+      "current_part_name": "FanFlow",
+      "legacy_user_id": 900043
+    },
+    {
+      "user_id": "614f78f4-c372-4c11-a17f-46b9e7bd4523",
+      "display_name": "T황민서",
+      "organization_slug": "encre",
+      "current_team_name": "갤러리",
+      "current_part_name": "매거진",
+      "legacy_user_id": 900046
+    },
+    {
+      "user_id": "829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06",
+      "display_name": "T송윤서",
+      "organization_slug": "oranke",
+      "current_team_name": "커머스",
+      "current_part_name": "솔루션",
+      "legacy_user_id": 900068
+    },
+    {
+      "user_id": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+      "display_name": "T권태현",
+      "organization_slug": "encre",
+      "current_team_name": "A&R",
+      "current_part_name": "일반",
+      "legacy_user_id": 900045
+    },
+    {
+      "user_id": "9d73cad4-12ec-4bd8-a118-58f8cf705122",
+      "display_name": "T신유진",
+      "organization_slug": "encre",
+      "current_team_name": "프로듀싱",
+      "current_part_name": "이야기",
+      "legacy_user_id": 900044
+    },
+    {
+      "user_id": "00b75923-2109-4214-806a-37667d64ac5e",
+      "display_name": "T박민서",
+      "organization_slug": "phalanx",
+      "current_team_name": "IT",
+      "current_part_name": "일반",
+      "legacy_user_id": 900093
+    },
+    {
+      "user_id": "35c987bf-015f-482c-b966-63fe55af0256",
+      "display_name": "T류서진",
+      "organization_slug": "phalanx",
+      "current_team_name": "브랜딩",
+      "current_part_name": "일반",
+      "legacy_user_id": 900109
+    },
+    {
+      "user_id": "50f6a693-45fd-4b24-b8ee-959ce3e7fc4c",
+      "display_name": "T홍예린",
+      "organization_slug": "phalanx",
+      "current_team_name": "서비스",
+      "current_part_name": "일반",
+      "legacy_user_id": 900110
+    },
+    {
+      "user_id": "4263f72d-60e8-4235-bae2-3ed0921e1508",
+      "display_name": "T김예은",
+      "organization_slug": "phalanx",
+      "current_team_name": "IT",
+      "current_part_name": "일반",
+      "legacy_user_id": 900111
+    },
+    {
+      "user_id": "020ec835-1ead-4ef5-adce-d0d97585beaa",
+      "display_name": "T장승우",
+      "organization_slug": "oranke",
+      "current_team_name": "콘텐츠",
+      "current_part_name": "코믹스",
+      "legacy_user_id": 900079
+    },
+    {
+      "user_id": "0d6ec2d3-ec7a-43cc-b1a9-8bb8b3f18df3",
+      "display_name": "T임시은",
+      "organization_slug": "oranke",
+      "current_team_name": "F&B",
+      "current_part_name": "카드뉴스",
+      "legacy_user_id": 900080
+    },
+    {
+      "user_id": "e1a17a4a-05b5-443e-a95d-db20ec2ad9af",
+      "display_name": "T강현우",
+      "organization_slug": "encre",
+      "current_team_name": "갤러리",
+      "current_part_name": "컬쳐",
+      "legacy_user_id": 900036
+    },
+    {
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "display_name": "T임건우",
+      "organization_slug": "phalanx",
+      "current_team_name": "IT",
+      "current_part_name": "일반",
+      "legacy_user_id": 900120
+    },
+    {
+      "user_id": "e649370f-ba2c-4d2f-b642-6800cb078d54",
+      "display_name": "T김민준",
+      "organization_slug": "encre",
+      "current_team_name": "갤러리",
+      "current_part_name": "컬쳐",
+      "legacy_user_id": 900031
+    },
+    {
+      "user_id": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+      "display_name": "T홍지환",
+      "organization_slug": "oranke",
+      "current_team_name": "F&B",
+      "current_part_name": "쇼츠",
+      "legacy_user_id": 900090
+    },
+    {
+      "user_id": "e81c8b30-20a2-4a10-bf2c-8c3ca474e4e7",
+      "display_name": "T박정우",
+      "organization_slug": "encre",
+      "current_team_name": "팬마케팅",
+      "current_part_name": "FanLog",
+      "legacy_user_id": 900053
+    },
+    {
+      "user_id": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
+      "display_name": "T조민재",
+      "organization_slug": "encre",
+      "current_team_name": "비주얼",
+      "current_part_name": "일반",
+      "legacy_user_id": 900057
+    },
+    {
+      "user_id": "ee9bf53b-b7cf-4a27-8aeb-fa4a7ec605eb",
+      "display_name": "T한지민",
+      "organization_slug": "encre",
+      "current_team_name": "갤러리",
+      "current_part_name": "컬쳐",
+      "legacy_user_id": 900041
+    },
+    {
+      "user_id": "f26e0bab-e138-41e6-a28b-676036a6a5aa",
+      "display_name": "T권지민",
+      "organization_slug": "phalanx",
+      "current_team_name": "IT",
+      "current_part_name": "일반",
+      "legacy_user_id": 900105
+    },
+    {
+      "user_id": "f2d5c378-6a50-477f-b50d-2a21241e7640",
+      "display_name": "T오승현",
+      "organization_slug": "encre",
+      "current_team_name": "비주얼",
+      "current_part_name": "일반",
+      "legacy_user_id": 900042
+    },
+    {
+      "user_id": "f3a9bd26-46c1-4bb7-9285-94692380145f",
+      "display_name": "T최예은",
+      "organization_slug": "encre",
+      "current_team_name": "프로듀싱",
+      "current_part_name": "소리",
+      "legacy_user_id": 900054
+    },
+    {
+      "user_id": "f980b257-12b1-4f9c-ae71-307336071785",
+      "display_name": "T장소율",
+      "organization_slug": "encre",
+      "current_team_name": "프로듀싱",
+      "current_part_name": "이야기",
+      "legacy_user_id": 900039
+    },
+    {
+      "user_id": "fcfbe22a-05d2-4260-bfa4-c716d11d38bd",
+      "display_name": "T조현우",
+      "organization_slug": "phalanx",
+      "current_team_name": "브랜딩",
+      "current_part_name": "일반",
+      "legacy_user_id": 900097
+    },
+    {
+      "user_id": "fd2afa0a-48c8-423c-b3a8-df417990002a",
+      "display_name": "T서도윤",
+      "organization_slug": "oranke",
+      "current_team_name": "커머스",
+      "current_part_name": "솔루션",
+      "legacy_user_id": 900063
+    },
+    {
+      "user_id": "fe17f587-b518-4b72-9646-5a590524355c",
+      "display_name": "T홍지후",
+      "organization_slug": "oranke",
+      "current_team_name": "F&B",
+      "current_part_name": "릴스",
+      "legacy_user_id": 900070
+    },
+    {
+      "user_id": "fecffe36-1e01-40d6-aa83-7e2b698b6b89",
+      "display_name": "T최민재",
+      "organization_slug": "phalanx",
+      "current_team_name": "IT",
+      "current_part_name": "일반",
+      "legacy_user_id": 900114
+    },
+    {
+      "user_id": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+      "display_name": "T안건우",
+      "organization_slug": "oranke",
+      "current_team_name": "엔터테인먼트",
+      "current_part_name": "컬쳐",
+      "legacy_user_id": 900087
+    },
+    {
+      "user_id": "fff3941f-071c-4cca-b99a-da8bd6d2fae2",
+      "display_name": "T정하은",
+      "organization_slug": "encre",
+      "current_team_name": "A&R",
+      "current_part_name": "일반",
+      "legacy_user_id": 900035
+    }
+  ],
+  "membershipsBefore": [
+    {
+      "id": "eee8dbec-b85f-4f85-a029-b254e379e154",
+      "user_id": "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+      "team_name": "IT",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "cecc6116-f15f-4842-8f66-4725f8d98b50",
+      "user_id": "a26729db-1c3b-42c0-9bce-4316dd15b2a2",
+      "team_name": "브랜딩",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "43a4c262-8eef-4b77-a131-80cb4e513a15",
+      "user_id": "00b75923-2109-4214-806a-37667d64ac5e",
+      "team_name": "IT",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "5020452b-cdbc-49bd-a518-b8f83fdd6a5d",
+      "user_id": "90de758a-3b0c-498d-af55-9b1324f36b88",
+      "team_name": "서비스",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "6eed1491-c98c-4b74-8629-d6be86821067",
+      "user_id": "fcfbe22a-05d2-4260-bfa4-c716d11d38bd",
+      "team_name": "브랜딩",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "22f7209d-f5df-4da5-ad01-a4806e2654c4",
+      "user_id": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+      "team_name": "IT",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "6dc525d4-c5d5-4c2a-8b76-7d6b2bede582",
+      "user_id": "59c22d30-aece-4855-9958-bf34f8795d2a",
+      "team_name": "서비스",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "2a800207-69c7-4088-993b-42d5608a4175",
+      "user_id": "a4f686e1-867e-4a61-8323-c518c4288a14",
+      "team_name": "IT",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "14145774-e97a-4567-b201-99bf5e1dead7",
+      "user_id": "9898f4a2-b873-4231-b2ac-321afa74555c",
+      "team_name": "브랜딩",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "6fa09302-dd7d-494f-8252-be70ac1517d6",
+      "user_id": "f26e0bab-e138-41e6-a28b-676036a6a5aa",
+      "team_name": "IT",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "f64db985-11d2-4b2c-b259-9938b6f885cc",
+      "user_id": "c17542ff-4eb2-4b4e-b584-1dfcb8ca39f5",
+      "team_name": "브랜딩",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "ff3a1ac1-1472-47e9-8e3e-2a3c96e79ea1",
+      "user_id": "5cd3cf48-0a62-41db-beb9-960987a485d2",
+      "team_name": "서비스",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "05e07590-4cc0-41a5-912b-da3466155eab",
+      "user_id": "5fa52ea5-d2a4-45df-900c-e08b0effc2fb",
+      "team_name": "IT",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "746064ba-4cfd-415b-ab9a-c5af9ad9dad1",
+      "user_id": "35c987bf-015f-482c-b966-63fe55af0256",
+      "team_name": "브랜딩",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "c1392f4a-8bad-41ca-b42e-06890402898f",
+      "user_id": "ff6adaf8-8993-4b5b-b5ea-a4fa1036cdee",
+      "team_name": "엔터테인먼트",
+      "part_name": "컬쳐",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "f0e3d037-ad98-472e-8276-d95632a4c751",
+      "user_id": "7e15f412-65be-481c-8525-460b161244ca",
+      "team_name": "서비스",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "c2df098b-18fb-47ae-9815-27232c544d55",
+      "user_id": "3fec1a7e-4a88-4bc7-8da8-9eb9daff6f8a",
+      "team_name": "브랜딩",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "5ab43bcc-c704-46fe-9567-20366a798751",
+      "user_id": "b2e2d277-d40c-4cef-91cb-733b7d6e658a",
+      "team_name": "IT",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "97d630c9-c240-4ebe-95ec-b2300200b946",
+      "user_id": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
+      "team_name": "서비스",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "687ba125-e4b4-4e94-93a8-16528e89413e",
+      "user_id": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+      "team_name": "브랜딩",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "fb8cfcf5-9e73-4089-a699-dcfe9991f4e9",
+      "user_id": "7a119bfc-32ef-4615-9ad0-22410785ac4e",
+      "team_name": "서비스",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "ca49ef26-a1db-44eb-8a8a-3eefeaea6787",
+      "user_id": "4263f72d-60e8-4235-bae2-3ed0921e1508",
+      "team_name": "IT",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "98864194-f06f-4924-9daa-34c468419cef",
+      "user_id": "0a113e53-b678-40d1-b51c-1278e1c3f0fa",
+      "team_name": "서비스",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "7e1e19fc-e563-4510-b8f6-27646fcb36ab",
+      "user_id": "d4033172-918e-4e76-9857-b5b2bb4601cf",
+      "team_name": "브랜딩",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "f2443f3b-6885-4a30-ab01-8211bc16416d",
+      "user_id": "e1a17a4a-05b5-443e-a95d-db20ec2ad9af",
+      "team_name": "갤러리",
+      "part_name": "컬쳐",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "02efe316-d599-49c5-aa5a-31c502198b0b",
+      "user_id": "50f6a693-45fd-4b24-b8ee-959ce3e7fc4c",
+      "team_name": "서비스",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "4336ee84-cf6e-4ffe-9419-8d8e400e57c8",
+      "user_id": "db913eae-d0b2-4681-a257-723f84a4da9d",
+      "team_name": "브랜딩",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "cc6e1e74-936e-4813-9245-bc01a55b1eab",
+      "user_id": "fecffe36-1e01-40d6-aa83-7e2b698b6b89",
+      "team_name": "IT",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "2fd350a2-91d3-4467-8018-1dd11499d9b0",
+      "user_id": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+      "team_name": "서비스",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "00993f33-24e8-4eeb-96bb-700da74a422f",
+      "user_id": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+      "team_name": "IT",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "06fd4780-8505-4302-8fbd-e0c211542e8a",
+      "user_id": "05ff6b96-b3e7-4050-97f1-080633f183d3",
+      "team_name": "브랜딩",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "6d1918bb-0514-4ce1-8775-f315b51394fe",
+      "user_id": "cc1b58e6-b14d-45a0-b389-2df3c27a0b25",
+      "team_name": "서비스",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "60fd11fa-1e8e-4bac-bbe5-79ec8d8ccded",
+      "user_id": "e649370f-ba2c-4d2f-b642-6800cb078d54",
+      "team_name": "갤러리",
+      "part_name": "컬쳐",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "759fbfd9-aa50-4dfb-ab3f-28e907d91ffb",
+      "user_id": "ee9bf53b-b7cf-4a27-8aeb-fa4a7ec605eb",
+      "team_name": "갤러리",
+      "part_name": "컬쳐",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "272eaee9-1aa2-4e0a-9525-b9fd44fe5b77",
+      "user_id": "614f78f4-c372-4c11-a17f-46b9e7bd4523",
+      "team_name": "갤러리",
+      "part_name": "매거진",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "9e49c38c-2477-44ff-ac93-fc6f54fb723f",
+      "user_id": "e0fc0a80-a4ae-4e39-b709-e09fabc174bd",
+      "team_name": "갤러리",
+      "part_name": "매거진",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "89bc48ef-744a-4fdd-a557-bfe12e54d4ac",
+      "user_id": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+      "team_name": "갤러리",
+      "part_name": "코믹스",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "1b576199-bbdf-4152-9258-05cd122ffb37",
+      "user_id": "ce4085e9-5dff-4f5d-a64a-5ca99c0bfb0e",
+      "team_name": "비주얼",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "0244530e-7edc-4255-ae1a-69805beecba3",
+      "user_id": "98807fea-2137-4160-ba5c-dedcbdced0e8",
+      "team_name": "비주얼",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "866cd893-6e99-44d6-a8f8-132e716400d6",
+      "user_id": "f2d5c378-6a50-477f-b50d-2a21241e7640",
+      "team_name": "비주얼",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "0757f4e7-9bc9-42b8-bc2d-020b27ee727d",
+      "user_id": "37b7ddce-6146-4941-8c5f-c1dfa4e09f7e",
+      "team_name": "비주얼",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "a00cd8c1-1b93-4b9e-a841-f1633cfb9707",
+      "user_id": "a3a91b4c-e3e7-45c8-9076-80eea01ad809",
+      "team_name": "비주얼",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "2d0cd769-186b-405e-ad84-f411e51c5a4d",
+      "user_id": "ec11fe34-0cba-4bbc-afae-6d7514fdf57e",
+      "team_name": "비주얼",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "ae4cb536-8e44-4ff5-b1cc-a7d6b36017f4",
+      "user_id": "a3cdb8ca-f9c6-4122-b881-35c5f529f29f",
+      "team_name": "팬마케팅",
+      "part_name": "FanFlow",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "ebeef588-2900-4e83-a1f8-01ef9004bce2",
+      "user_id": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "team_name": "팬마케팅",
+      "part_name": "FanFlow",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "03eb98e2-9004-4c44-8a1e-a6db446a7d69",
+      "user_id": "6293191d-f862-468d-96c3-f1a09c8d36aa",
+      "team_name": "팬마케팅",
+      "part_name": "FanFlow",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "92934bf6-d807-4b7e-b21f-34e20895fa44",
+      "user_id": "28c60d60-aa17-4614-9127-fd65a8aebcaf",
+      "team_name": "팬마케팅",
+      "part_name": "FanFlow",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "baa5d677-9587-4799-ac29-34ec131cbd4e",
+      "user_id": "e81c8b30-20a2-4a10-bf2c-8c3ca474e4e7",
+      "team_name": "팬마케팅",
+      "part_name": "FanLog",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "9c87804f-6cb7-4d46-8a77-6dd49748fa19",
+      "user_id": "76a42307-f3b2-4c08-92ab-f339a20b7d38",
+      "team_name": "팬마케팅",
+      "part_name": "FanLog",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "06217169-568a-4b6c-9f1a-a19aa781e2f1",
+      "user_id": "36138fb1-6fea-4b22-b6d2-9c46cba47314",
+      "team_name": "프로듀싱",
+      "part_name": "이야기",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "3dacec0f-45d2-4fe2-8069-15dd92236722",
+      "user_id": "f980b257-12b1-4f9c-ae71-307336071785",
+      "team_name": "프로듀싱",
+      "part_name": "이야기",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "2cddf920-d8d9-4658-a7b0-110d0b2ce34f",
+      "user_id": "9d73cad4-12ec-4bd8-a118-58f8cf705122",
+      "team_name": "프로듀싱",
+      "part_name": "이야기",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "a3b39f1d-0e77-478d-a20c-7499056b328e",
+      "user_id": "5fe0f152-3e4c-4313-8203-6fb6002c5393",
+      "team_name": "프로듀싱",
+      "part_name": "소리",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "a2904e47-279a-41b1-8406-843ff11f85ad",
+      "user_id": "f3a9bd26-46c1-4bb7-9285-94692380145f",
+      "team_name": "프로듀싱",
+      "part_name": "소리",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "079bf28d-59f1-4319-b98d-a77abdeef89b",
+      "user_id": "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+      "team_name": "프로듀싱",
+      "part_name": "결",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "a9d4fbcb-2a4e-4522-ab15-b1840daffe70",
+      "user_id": "fff3941f-071c-4cca-b99a-da8bd6d2fae2",
+      "team_name": "A&R",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "90c09d22-3fa6-49c1-bdf1-1f7a4b85069d",
+      "user_id": "a80ea67a-8836-4c13-8568-66dff79d7a66",
+      "team_name": "A&R",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "e93a93c4-b569-43cb-8ba6-1f45a2b6b410",
+      "user_id": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+      "team_name": "A&R",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "ac999959-22e3-44f3-b04d-0a3055a76729",
+      "user_id": "9e2f8097-b1ce-4920-9c67-af9989074cfd",
+      "team_name": "A&R",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "6836cc89-acc4-43ce-975a-5631f2a8aeeb",
+      "user_id": "70abfec0-660b-4af3-a940-5d318f76bd4e",
+      "team_name": "A&R",
+      "part_name": "일반",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "425417da-6864-472b-b823-c846a43b6507",
+      "user_id": "42864260-e4ea-4150-a87f-cff545b02af1",
+      "team_name": "A&R",
+      "part_name": "일반",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "98c8ca25-ca26-4561-9950-948f860051a7",
+      "user_id": "bab78175-fd69-4ad3-b59d-6dead49ac3e3",
+      "team_name": "스타일",
+      "part_name": "패션",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "5d7a4144-932e-4c11-a7d2-97ebc0524ee5",
+      "user_id": "a714b4c6-84f8-4773-b83d-e5d484a1d30c",
+      "team_name": "스타일",
+      "part_name": "패션",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "1cac27ed-5a2d-4b48-9344-f24b29235c17",
+      "user_id": "edfe7e58-4681-4d40-ba46-199fc9d99d82",
+      "team_name": "스타일",
+      "part_name": "패션",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "7e978d63-dac9-4a0f-8d2f-b5e99ce4e48b",
+      "user_id": "3330f4c3-5331-4632-bbe6-01a19017a089",
+      "team_name": "스타일",
+      "part_name": "패션",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "1a5a6682-a258-4719-aaf6-d2d3e9f26b5f",
+      "user_id": "13b8e55e-ff49-43f3-a01f-cb68bfb74581",
+      "team_name": "스타일",
+      "part_name": "뷰티",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "e71d74cf-23ed-4c24-8a54-25d7d422c154",
+      "user_id": "8e38d52f-727e-429b-9db3-423cd031d2a5",
+      "team_name": "스타일",
+      "part_name": "뷰티",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "c56ec70c-7fad-458a-b2bd-2d680f413bb4",
+      "user_id": "5ce78bd8-126f-4636-b6a9-a43031a21930",
+      "team_name": "엔터테인먼트",
+      "part_name": "플랫폼",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "a3984126-647d-427a-a02e-bf4922ce8c1a",
+      "user_id": "43503c70-8518-4cdf-a05b-e78b5c721ff9",
+      "team_name": "엔터테인먼트",
+      "part_name": "플랫폼",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "b2e6dc28-eb86-4555-b6cc-0534692e1994",
+      "user_id": "5b3c0935-9bff-4e96-8efb-b7cbcb092bb2",
+      "team_name": "엔터테인먼트",
+      "part_name": "팬마케팅",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "c3d68c3d-d96b-43e7-b137-d0fb28ed3c51",
+      "user_id": "cc05522b-7a71-48fb-a291-3aaaefdf4865",
+      "team_name": "엔터테인먼트",
+      "part_name": "팬마케팅",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "547e46f9-b337-42d2-b64b-df4373c279cb",
+      "user_id": "87fbff25-c77a-4cf3-9482-67212e55aa6d",
+      "team_name": "엔터테인먼트",
+      "part_name": "컬쳐",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "aeea8a3f-ac05-4e9c-a703-cd4a45c0a077",
+      "user_id": "fd2afa0a-48c8-423c-b3a8-df417990002a",
+      "team_name": "커머스",
+      "part_name": "솔루션",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "4bdeea01-a0b3-4632-a744-9981c6bf038c",
+      "user_id": "829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06",
+      "team_name": "커머스",
+      "part_name": "솔루션",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "758f6045-6ad4-4632-96d4-f1caf1f94499",
+      "user_id": "4bd185be-0c54-470e-a254-588e69064e37",
+      "team_name": "커머스",
+      "part_name": "솔루션",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "483e2f22-40dc-4aff-aca3-94bce8fdd5ac",
+      "user_id": "ea286f9d-fb5b-492e-a081-cd5c200a4455",
+      "team_name": "커머스",
+      "part_name": "솔루션",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "a3ff1c4e-2b4f-411b-b044-a2e8740636e9",
+      "user_id": "3ba642d8-d658-4e87-8e15-3afdab8415c2",
+      "team_name": "커머스",
+      "part_name": "베네핏",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "12078bbb-a38d-4ca7-8138-76b81cacedb7",
+      "user_id": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+      "team_name": "커머스",
+      "part_name": "베네핏",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "d49ed0e3-ab0e-4fe9-88c8-90f2641ecbca",
+      "user_id": "3d968dba-77a4-4382-a5ad-ad5cad7c1c34",
+      "team_name": "콘텐츠",
+      "part_name": "코믹스",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "6650a290-aef4-4936-86a0-8d87a422531b",
+      "user_id": "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+      "team_name": "콘텐츠",
+      "part_name": "코믹스",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "895750b5-4b5c-43c8-9578-283aedcdd3ea",
+      "user_id": "dff09eb2-6534-42de-99bd-8bf2ed315c01",
+      "team_name": "콘텐츠",
+      "part_name": "코믹스",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "9aebd863-83e4-4692-9256-e76a704f20d0",
+      "user_id": "020ec835-1ead-4ef5-adce-d0d97585beaa",
+      "team_name": "콘텐츠",
+      "part_name": "코믹스",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "d5b67fce-87b7-43fd-9dc4-19919c66dc14",
+      "user_id": "58a4c844-6fd2-4108-8d2d-51c701018a7b",
+      "team_name": "콘텐츠",
+      "part_name": "코믹스",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "6e77a12b-78ed-477d-b257-76939bba9faf",
+      "user_id": "63813dc4-9dec-4511-83be-1f54196d09cf",
+      "team_name": "콘텐츠",
+      "part_name": "코믹스",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "217287c3-2309-4d75-87c1-dd7ee62d10f1",
+      "user_id": "ddce842a-23a4-49a1-b947-78b2a3f9ca64",
+      "team_name": "F&B",
+      "part_name": "릴스",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "30f0f4cd-a4b2-49ba-a9c6-7c06ec6f91ee",
+      "user_id": "fe17f587-b518-4b72-9646-5a590524355c",
+      "team_name": "F&B",
+      "part_name": "릴스",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "3a06cd4a-bfbb-4291-b7da-34e48f4f1400",
+      "user_id": "92de9b41-6c4f-4684-87d9-6f9db01e5601",
+      "team_name": "F&B",
+      "part_name": "카드뉴스",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "ed076ac4-8194-4c55-9326-d10c8ba8e824",
+      "user_id": "0d6ec2d3-ec7a-43cc-b1a9-8bb8b3f18df3",
+      "team_name": "F&B",
+      "part_name": "카드뉴스",
+      "membership_level": "일반",
+      "membership_state": "weekly_rest",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "1c8348df-3360-4342-9b90-6103bbab529c",
+      "user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "team_name": "F&B",
+      "part_name": "쇼츠",
+      "membership_level": "일반",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    },
+    {
+      "id": "c65a0c65-7457-482f-9000-d6d9ee218955",
+      "user_id": "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+      "team_name": "F&B",
+      "part_name": "쇼츠",
+      "membership_level": "심화",
+      "membership_state": "active",
+      "is_current": true,
+      "updated_at": "2026-05-27T07:50:24.590642+00:00"
+    }
+  ],
+  "cluster4TeamsBefore": [
+    {
+      "id": "348f6e7e-6866-42c7-86ee-11264d09467d",
+      "organization_slug": "phalanx",
+      "team_name": "IT",
+      "is_active": true,
+      "created_at": "2026-05-27T07:03:14.143314+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "c051ff9e-50fa-4c4d-bb29-1f3ac30ab08d",
+      "organization_slug": "phalanx",
+      "team_name": "브랜딩",
+      "is_active": true,
+      "created_at": "2026-05-27T07:03:14.143314+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "52995e07-0a31-4186-b387-1b26d84426b9",
+      "organization_slug": "phalanx",
+      "team_name": "서비스",
+      "is_active": true,
+      "created_at": "2026-05-27T07:03:14.143314+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "ff0b9e82-9a2b-4293-b997-1c162eefa11e",
+      "organization_slug": "encre",
+      "team_name": "비주얼",
+      "is_active": true,
+      "created_at": "2026-05-27T07:35:22.213487+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "bd6d179f-7e26-415d-95a0-f688887656ee",
+      "organization_slug": "encre",
+      "team_name": "갤러리",
+      "is_active": true,
+      "created_at": "2026-05-27T07:35:22.213487+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "b29f9050-3021-4124-83a9-9b68cf75667d",
+      "organization_slug": "encre",
+      "team_name": "A&R",
+      "is_active": true,
+      "created_at": "2026-05-27T07:35:22.213487+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "6c46fdcc-7e8f-475e-9186-e0218cbab8e7",
+      "organization_slug": "encre",
+      "team_name": "프로듀싱",
+      "is_active": true,
+      "created_at": "2026-05-27T07:35:22.213487+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "fc3eab64-f75e-4df0-95d8-f9521aa2c5a8",
+      "organization_slug": "encre",
+      "team_name": "팬마케팅",
+      "is_active": true,
+      "created_at": "2026-05-27T07:35:22.213487+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "025b8581-cb49-4944-b9ef-2a1a9eb03b5f",
+      "organization_slug": "oranke",
+      "team_name": "F&B",
+      "is_active": true,
+      "created_at": "2026-05-27T07:35:22.213487+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "f5c4fad2-0719-4d0d-958c-1988883a674a",
+      "organization_slug": "oranke",
+      "team_name": "콘텐츠",
+      "is_active": true,
+      "created_at": "2026-05-27T07:35:22.213487+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "2d42c4f2-7d31-4c68-bcde-dda2acb380f5",
+      "organization_slug": "oranke",
+      "team_name": "엔터테인먼트",
+      "is_active": true,
+      "created_at": "2026-05-27T07:35:22.213487+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "43818018-d54e-4719-81c2-41b541f5490f",
+      "organization_slug": "oranke",
+      "team_name": "커머스",
+      "is_active": true,
+      "created_at": "2026-05-27T07:35:22.213487+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    },
+    {
+      "id": "3dc7e3aa-43f4-485b-88aa-9eaf171c6251",
+      "organization_slug": "oranke",
+      "team_name": "스타일",
+      "is_active": true,
+      "created_at": "2026-05-27T07:35:22.213487+00:00",
+      "updated_at": "2026-05-27T07:35:22.213487+00:00"
+    }
+  ],
+  "protectedBefore": {
+    "user_week_statuses_seed90": 1631,
+    "user_weekly_points_seed90": 1570,
+    "user_growth_stats_seed90": 90,
+    "snapshots_seed90": 90
+  },
+  "rollbackSqlTemplate": "UPDATE public.user_memberships SET team_name = <old_team_name>, part_name = <old_part_name> WHERE id = <membership_id>; DELETE FROM public.cluster4_teams WHERE (organization_slug, team_name) IN (<inserted test teams>) AND NOT EXISTS (... references ...);"
+}

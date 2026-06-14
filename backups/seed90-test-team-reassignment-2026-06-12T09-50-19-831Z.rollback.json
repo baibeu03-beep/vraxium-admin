@@ -1,0 +1,8 @@
+{
+  "backupPath": "C:\\Users\\vanua\\OneDrive\\Desktop\\vraxium-admin\\backups\\seed90-test-team-reassignment-2026-06-12T09-50-19-831Z.json",
+  "restored": 90,
+  "deletedTeams": 9,
+  "membershipMismatchesAfterRollback": [],
+  "remainingInsertedTeams": [],
+  "completedAt": "2026-06-12T09:50:56.265Z"
+}

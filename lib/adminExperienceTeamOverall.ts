@@ -495,9 +495,10 @@ export async function saveTeamOverallReview(input: {
 }
 
 // ── 카테고리 → 등록 라인(고객 반영용) 매핑 ──
-type RegLine = {
+export type RegLine = {
   bridgedMasterId: string;
   lineCode: string;
+  lineName: string; // 조건부 라우팅 매칭용 raw line_name(mainTitle 은 가공값이라 부적합).
   mainTitle: string;
   outputImages: unknown;
   outputLinks: unknown;
@@ -545,6 +546,7 @@ async function loadRegLinesByCategory(
     list.push({
       bridgedMasterId: r.bridged_master_id,
       lineCode: r.line_code,
+      lineName: r.line_name,
       mainTitle,
       outputImages: r.output_images,
       outputLinks: r.output_links,
@@ -580,6 +582,127 @@ function pickRegLine(
     );
   }
   return candidates[0];
+}
+
+// ── [신규 2026-06-13] 견문/관리 크루별 조건부 라인 라우팅 ──
+// 정책:
+//   견문(evaluation): user_growth_stats.cumulative_weeks <=1(0주차 신규 포함) → 마케터 Launch,
+//                     >=2 → 상호 피드백. (oranke 만 2후보 — encre/phalanx 단일후보는 폴백=단일라인)
+//   관리(management): membership_level 파트장 → _파트장, 에이전트 → _에이전트.
+//                     일반(비관리직)은 관리 라인 대상 아님 → 스킵(경고).
+//   그 외(도출/분석/확장): 기존 단일 라인(pickRegLine) 유지.
+// 신규 개설부터만 적용(openTeamOverall 만 호출 — 이미 opened 라인 소급 변경 없음).
+export type RoutingTarget = {
+  userId: string;
+  score: number;
+  isPartLeader: boolean;
+  statusLabel: string; // "일반" | "에이전트" | "파트장"
+  cumulativeWeeks: number;
+};
+
+// 매칭은 raw line_name 토큰 + line_code 보강. encre "[다면 피드백] 실무 생산성 강화"는
+// "상호" 미포함 → 상호 피드백과 오매칭 없음. 관리 EL0001/EL0002 코드는 전 org 일관.
+function isMarketerLaunchLine(r: RegLine): boolean {
+  return r.lineName.includes("마케터") && /launch/i.test(r.lineName);
+}
+function isMutualFeedbackLine(r: RegLine): boolean {
+  return r.lineName.includes("상호") && r.lineName.includes("피드백");
+}
+function isPartLeaderLine(r: RegLine): boolean {
+  return r.lineName.includes("파트장") || r.lineCode.endsWith("EL0001");
+}
+function isAgentLine(r: RegLine): boolean {
+  return r.lineName.includes("에이전트") || r.lineCode.endsWith("EL0002");
+}
+
+// user_growth_stats.cumulative_weeks 배치 조회(견문 라우팅용, read-only).
+//   누락/조회실패 = 0 취급(=마케터 Launch). 팀 단위 소규모이므로 PostgREST cap 무관.
+async function loadCumulativeWeeks(
+  userIds: string[],
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const ids = Array.from(new Set(userIds.filter(Boolean)));
+  if (ids.length === 0) return map;
+  const { data, error } = await supabaseAdmin
+    .from("user_growth_stats")
+    .select("user_id,cumulative_weeks")
+    .in("user_id", ids);
+  if (error) {
+    console.warn("[team-overall] cumulative_weeks 조회 실패:", error.message);
+    return map;
+  }
+  for (const r of (data ?? []) as Array<{
+    user_id: string;
+    cumulative_weeks: number | null;
+  }>) {
+    map.set(r.user_id, r.cumulative_weeks ?? 0);
+  }
+  return map;
+}
+
+// 카테고리 → [{선택 라인, 그 라인의 대상 크루들}] 그룹. 분기 라인 미식별 시 단일 라인 폴백.
+export function resolveCategoryLineGroups(
+  category: ExperienceOverallCategory,
+  candidates: RegLine[] | undefined,
+  targets: RoutingTarget[],
+  extensionKind: "online" | "offline" | null,
+  warnings: string[],
+): Array<{ reg: RegLine; targets: RoutingTarget[] }> {
+  const label =
+    EXPERIENCE_OVERALL_CATEGORIES.find((c) => c.key === category)?.label ?? category;
+
+  // 견문 — 누적주차 분기(마케터 Launch / 상호 피드백 둘 다 등록된 경우에만).
+  if (category === "evaluation" && candidates && candidates.length > 1) {
+    const launch = candidates.find(isMarketerLaunchLine);
+    const mutual = candidates.find(isMutualFeedbackLine);
+    if (launch && mutual) {
+      const launchTargets = targets.filter((t) => t.cumulativeWeeks <= 1);
+      const mutualTargets = targets.filter((t) => t.cumulativeWeeks >= 2);
+      const groups: Array<{ reg: RegLine; targets: RoutingTarget[] }> = [];
+      if (launchTargets.length > 0) groups.push({ reg: launch, targets: launchTargets });
+      if (mutualTargets.length > 0) groups.push({ reg: mutual, targets: mutualTargets });
+      return groups;
+    }
+    // 둘 중 하나라도 식별 실패 → 단일 라인 폴백(아래).
+  }
+
+  // 관리 — 역할 분기(_파트장 / _에이전트). 일반(비관리직)은 대상 아님.
+  if (category === "management") {
+    const leaderLine = candidates?.find(isPartLeaderLine);
+    const agentLine = candidates?.find(isAgentLine);
+    const leaderTargets: RoutingTarget[] = [];
+    const agentTargets: RoutingTarget[] = [];
+    for (const t of targets) {
+      if (t.isPartLeader) {
+        if (leaderLine) leaderTargets.push(t);
+        else
+          warnings.push(
+            `'${label}' 파트장 라인(_파트장) 등록이 없어 ${t.userId} 를 개설하지 못했습니다.`,
+          );
+      } else if (t.statusLabel === "에이전트") {
+        if (agentLine) agentTargets.push(t);
+        else
+          warnings.push(
+            `'${label}' 에이전트 라인(_에이전트) 등록이 없어 ${t.userId} 를 개설하지 못했습니다.`,
+          );
+      } else {
+        // 일반(비관리직) — 관리 라인은 파트장/에이전트 전용(정책).
+        warnings.push(
+          `'${label}' 라인은 파트장/에이전트 전용 — ${t.userId}(${t.statusLabel}) 제외.`,
+        );
+      }
+    }
+    const groups: Array<{ reg: RegLine; targets: RoutingTarget[] }> = [];
+    if (leaderLine && leaderTargets.length > 0)
+      groups.push({ reg: leaderLine, targets: leaderTargets });
+    if (agentLine && agentTargets.length > 0)
+      groups.push({ reg: agentLine, targets: agentTargets });
+    return groups;
+  }
+
+  // 그 외(도출/분석/확장) 또는 견문 단일후보 — 기존 단일 라인.
+  const reg = pickRegLine(category, candidates, extensionKind, warnings);
+  return reg ? [{ reg, targets }] : [];
 }
 
 // KST 기준 submission window(기존 openExperienceDrafts 와 동일 규칙).
@@ -657,20 +780,28 @@ export async function openTeamOverall(input: {
   const outputByCat = new Map(input.outputs.map((o) => [o.category, o]));
   const { byCategory } = await loadRegLinesByCategory(input.organization);
 
-  // 카테고리별 대상 크루(해당 카테고리 checked=true) 수집.
-  const crewsByCat = new Map<
-    ExperienceOverallCategory,
-    Array<{ userId: string; score: number }>
-  >();
+  // 크루별 누적주차 로드(견문 라우팅용) — board.crews 전체 userId 1회 배치 조회.
+  const allCrewUserIds = board.parts.flatMap((p) => p.crews.map((c) => c.userId));
+  const cumulativeWeeksMap = await loadCumulativeWeeks(allCrewUserIds);
+
+  // 카테고리별 대상 크루(해당 카테고리 checked=true) 수집(라우팅 속성 포함).
+  const crewsByCat = new Map<ExperienceOverallCategory, RoutingTarget[]>();
   for (const part of board.parts) {
     for (const crew of part.crews) {
+      const cumulativeWeeks = cumulativeWeeksMap.get(crew.userId) ?? 0;
       for (const cat of EXPERIENCE_OVERALL_CATEGORIES) {
         // 확장은 확장 주간에만 반영.
         if (cat.key === "extension" && !board.extensionActive) continue;
         const cell = crew.cells[cat.key];
         if (!cell.checked) continue; // 미체크 = 해당 라인 비대상.
         const list = crewsByCat.get(cat.key) ?? [];
-        list.push({ userId: crew.userId, score: cell.score });
+        list.push({
+          userId: crew.userId,
+          score: cell.score,
+          isPartLeader: crew.isPartLeader,
+          statusLabel: crew.statusLabel,
+          cumulativeWeeks,
+        });
         crewsByCat.set(cat.key, list);
       }
     }
@@ -698,81 +829,91 @@ export async function openTeamOverall(input: {
     for (const cat of EXPERIENCE_OVERALL_CATEGORIES) {
       const targets = crewsByCat.get(cat.key) ?? [];
       if (targets.length === 0) continue;
-      const reg = pickRegLine(cat.key, byCategory.get(cat.key), board.extensionKind, warnings);
-      if (!reg) continue;
+      // 견문/관리 = 크루별 조건부 라우팅(라인 1+개), 그 외 = 단일 라인.
+      const groups = resolveCategoryLineGroups(
+        cat.key,
+        byCategory.get(cat.key),
+        targets,
+        board.extensionKind,
+        warnings,
+      );
 
-      const screenOut = outputByCat.get(cat.key);
-      const screenLink = screenOut?.link.trim() || null;
-      const screenDesc = screenOut?.description.trim() || "";
-      const outputLinks = screenLink
-        ? [{ url: screenLink, label: screenDesc }]
-        : resolveOutputLinks(reg.outputLinks, [null, null]);
+      for (const { reg, targets: groupTargets } of groups) {
+        if (groupTargets.length === 0) continue;
 
-      const { data: lineRow, error: lineError } = await supabaseAdmin
-        .from("cluster4_lines")
-        .insert({
-          part_type: "experience",
-          experience_line_master_id: reg.bridgedMasterId,
-          line_code: reg.lineCode,
-          main_title: reg.mainTitle,
-          team_id: input.teamId,
-          output_link_1: screenLink,
-          output_link_2: null,
-          output_links: outputLinks,
-          // 아웃풋 이미지 = 라인 등록값 자동 반영(입력 UI 없음).
-          output_images: reg.outputImages,
-          submission_opens_at: submissionOpensAt,
-          submission_closes_at: submissionClosesAt,
-          is_active: true,
-          created_by: input.adminId,
-          updated_by: input.adminId,
-        })
-        .select("id")
-        .single();
-      if (lineError || !lineRow) {
-        throw new Error(lineError?.message ?? `'${cat.label}' 라인 생성 실패`);
-      }
-      const lineId = (lineRow as { id: string }).id;
-      createdLineIds.push(lineId);
-      openedLineRows.push({ category: cat.key, lineId });
+        const screenOut = outputByCat.get(cat.key);
+        const screenLink = screenOut?.link.trim() || null;
+        const screenDesc = screenOut?.description.trim() || "";
+        const outputLinks = screenLink
+          ? [{ url: screenLink, label: screenDesc }]
+          : resolveOutputLinks(reg.outputLinks, [null, null]);
 
-      for (const tgt of targets) {
-        affectedUserIds.add(tgt.userId);
-        const { data: targetRow, error: targetError } = await supabaseAdmin
-          .from("cluster4_line_targets")
+        const { data: lineRow, error: lineError } = await supabaseAdmin
+          .from("cluster4_lines")
           .insert({
-            line_id: lineId,
-            week_id: input.weekId,
-            target_mode: "user",
-            target_user_id: tgt.userId,
-            target_rule: {},
+            part_type: "experience",
+            experience_line_master_id: reg.bridgedMasterId,
+            line_code: reg.lineCode,
+            main_title: reg.mainTitle,
+            team_id: input.teamId,
+            output_link_1: screenLink,
+            output_link_2: null,
+            output_links: outputLinks,
+            // 아웃풋 이미지 = 라인 등록값 자동 반영(입력 UI 없음).
+            output_images: reg.outputImages,
+            submission_opens_at: submissionOpensAt,
+            submission_closes_at: submissionClosesAt,
+            is_active: true,
             created_by: input.adminId,
             updated_by: input.adminId,
           })
           .select("id")
           .single();
-        if (targetError || !targetRow) {
-          throw new Error(targetError?.message ?? "라인 대상 생성 실패");
+        if (lineError || !lineRow) {
+          throw new Error(lineError?.message ?? `'${cat.label}' 라인 생성 실패`);
         }
-        const targetId = (targetRow as { id: string }).id;
-        createdTargetIds.push(targetId);
-        targetsCreated++;
+        const lineId = (lineRow as { id: string }).id;
+        createdLineIds.push(lineId);
+        openedLineRows.push({ category: cat.key, lineId });
 
-        const { error: evalError } = await supabaseAdmin
-          .from("cluster4_experience_line_evaluations")
-          .insert({
-            line_target_id: targetId,
-            user_id: tgt.userId,
-            rating: tgt.score,
-            evaluated_by: input.adminId,
-            evaluated_at: new Date().toISOString(),
-          });
-        if (evalError) {
-          warnings.push(
-            `'${cat.label}' ${tgt.userId} 평가 생성 실패 — ${evalError.message}. 라인/대상은 생성됨.`,
-          );
-        } else {
-          evaluationsCreated++;
+        for (const tgt of groupTargets) {
+          affectedUserIds.add(tgt.userId);
+          const { data: targetRow, error: targetError } = await supabaseAdmin
+            .from("cluster4_line_targets")
+            .insert({
+              line_id: lineId,
+              week_id: input.weekId,
+              target_mode: "user",
+              target_user_id: tgt.userId,
+              target_rule: {},
+              created_by: input.adminId,
+              updated_by: input.adminId,
+            })
+            .select("id")
+            .single();
+          if (targetError || !targetRow) {
+            throw new Error(targetError?.message ?? "라인 대상 생성 실패");
+          }
+          const targetId = (targetRow as { id: string }).id;
+          createdTargetIds.push(targetId);
+          targetsCreated++;
+
+          const { error: evalError } = await supabaseAdmin
+            .from("cluster4_experience_line_evaluations")
+            .insert({
+              line_target_id: targetId,
+              user_id: tgt.userId,
+              rating: tgt.score,
+              evaluated_by: input.adminId,
+              evaluated_at: new Date().toISOString(),
+            });
+          if (evalError) {
+            warnings.push(
+              `'${cat.label}' ${tgt.userId} 평가 생성 실패 — ${evalError.message}. 라인/대상은 생성됨.`,
+            );
+          } else {
+            evaluationsCreated++;
+          }
         }
       }
     }
