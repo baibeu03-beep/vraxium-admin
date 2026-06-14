@@ -1,0 +1,32 @@
+{
+  "appliedAt": "2026-06-14T07:49:08.548Z",
+  "deleted": {
+    "cluster4_lines": 81,
+    "cluster4_line_targets": 38,
+    "cluster4_line_submissions": 4,
+    "cluster4_experience_line_evaluations": 28
+  },
+  "snapshotRecomputed": {
+    "requested": 12,
+    "recomputed": 12,
+    "failed": 0,
+    "failedUserIds": []
+  },
+  "mixedPreserved": 10,
+  "realUserImpact": 0,
+  "backupPath": "claudedocs/rollback-test-line-cleanup-2026spring-2026-06-14T07-48-23-011Z.json",
+  "affectedUserIds": [
+    "829f3ae6-68f7-4eb5-8bc4-3dcf7044ca06",
+    "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+    "13b8e55e-ff49-43f3-a01f-cb68bfb74581",
+    "87fbff25-c77a-4cf3-9482-67212e55aa6d",
+    "ddce842a-23a4-49a1-b947-78b2a3f9ca64",
+    "5b3c0935-9bff-4e96-8efb-b7cbcb092bb2",
+    "b70636ec-ad98-43fd-aaf9-4209b9bd1dd4",
+    "247021bc-374b-48f4-8d49-b181d149ee33",
+    "e649370f-ba2c-4d2f-b642-6800cb078d54",
+    "92de9b41-6c4f-4684-87d9-6f9db01e5601",
+    "edfe7e58-4681-4d40-ba46-199fc9d99d82",
+    "3ba642d8-d658-4e87-8e15-3afdab8415c2"
+  ]
+}

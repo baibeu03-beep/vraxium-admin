@@ -1,0 +1,180 @@
+[0] test_user_markers: 91명
+
+[1] 전체 season_key 목록:
+   · 2023-autumn  weeks=13  week#=1..13  start=2023-09-04
+   · 2023-spring  weeks=13  week#=1..13  start=2023-03-06
+   · 2023-summer  weeks=8  week#=1..8  start=2023-07-03
+   · 2024-autumn  weeks=17  week#=0..16  start=2024-08-26
+   · 2024-spring  weeks=12  week#=0..17  start=2024-02-26
+   · 2024-summer  weeks=8  week#=1..8  start=2024-07-01
+   · 2024-winter  weeks=8  week#=1..8  start=2024-01-01
+   · 2025-autumn  weeks=17  week#=1..17  start=2025-09-01
+   · 2025-spring  weeks=16  week#=1..16  start=2025-03-03
+   · 2025-summer  weeks=8  week#=1..8  start=2025-06-30
+   · 2025-winter  weeks=8  week#=1..8  start=2024-12-30
+   · 2026-spring  weeks=16  week#=1..16  start=2026-03-02
+   · 2026-winter  weeks=9  week#=1..9  start=2025-12-29
+
+[1] 대상 season_key (--season=2026-spring): 2026-spring
+[1] 봄 1~13주차: 13주 → W1(2026-03-02), W2(2026-03-09), W3(2026-03-16), W4(2026-03-23), W5(2026-03-30), W6(2026-04-06,휴식), W7(2026-04-13,휴식), W8(2026-04-20,휴식), W9(2026-04-27), W10(2026-05-04), W11(2026-05-11), W12(2026-05-18), W13(2026-05-25)
+   (teams 조회 실패 — team 이름 생략): teams.id chunk failed: Could not find the table 'public.teams' in the schema cache
+
+[2] 봄 1~13주차 관련 라인 총 120건
+    TEST-only=18  MIXED=10  OPERATING=0  NO-TARGET=92
+
+── info (44건) ──
+  [NO-TARGET] W1 oranke act=Y tgt=0(T0/R0) sub=0 "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자" line=034cbbe4 
+  [NO-TARGET] W1 oranke act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트/신개념] ‘밤티크림’ 체험단 수천 명이 몰렸다고? 올리브영" line=57e33d3c 
+  [NO-TARGET] W1 (unknown) act=Y tgt=0(T0/R0) sub=0 "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?" line=72339199 source=tester-backfill-20260604; created_by=backfill-admin
+  [NO-TARGET] W1 oranke act=Y tgt=0(T0/R0) sub=0 "[식문화/소비재] 흔한 제철 채소에서 품절 대란템이 된 '봄동' 근황" line=b648d2a7 
+  [NO-TARGET] W10 oranke act=Y tgt=0(T0/R0) sub=0 "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자" line=1c7c6afa 
+  [NO-TARGET] W10 oranke act=Y tgt=0(T0/R0) sub=0 "다시 돌아온 브랜드별 컵빙수 대전" line=2cfed36d 
+  [NO-TARGET] W10 oranke act=Y tgt=0(T0/R0) sub=0 "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?" line=5a6e9d6a 
+  [NO-TARGET] W10 oranke act=Y tgt=0(T0/R0) sub=0 "초여름·장마·환경의 날… 6월 시즈널 키워드를 제대로 활용한 마케팅 레퍼" line=af2b0d15 
+  [NO-TARGET] W11 oranke act=Y tgt=0(T0/R0) sub=0 "누르기만 해도 힐링? 말랑이 열풍의 이유" line=66693805 
+  [NO-TARGET] W11 oranke act=Y tgt=0(T0/R0) sub=0 "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?" line=862c2d40 
+  [NO-TARGET] W11 oranke act=Y tgt=0(T0/R0) sub=0 "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자" line=e51a83f5 
+  [NO-TARGET] W11 oranke act=Y tgt=0(T0/R0) sub=0 "살목지에 가면 듀오 귀신이 나온다? 바이럴을 부른 최신 브랜드 숏폼 5가" line=e5e603bb 
+  [TEST-only] W12 (unknown) act=Y tgt=1(T1/R0) sub=0 "위즈덤을 작성해보자!" line=6cb8208f created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W12 (unknown) act=Y tgt=1(T1/R0) sub=0 "테스트 테스트" line=454c0728 created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W12 (unknown) act=Y tgt=1(T1/R0) sub=0 "테스트 테스트" line=af261d33 created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W13 (unknown) act=Y tgt=3(T3/R0) sub=1 "일본인들이 '요아정'에 줄 서는 이유" line=6131fdd6 created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W13 (unknown) act=Y tgt=1(T1/R0) sub=1 "동해물과 백두산이 마르고 닳도록" line=a8938c5f created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W13 (unknown) act=Y tgt=1(T1/R0) sub=0 "테스트 테스트" line=5742015a created_by=backfill-admin; 타깃 전원 테스트유저
+  [NO-TARGET] W2 (unknown) act=Y tgt=0(T0/R0) sub=0 "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?" line=104f87e6 source=tester-backfill-20260604; created_by=backfill-admin
+  [NO-TARGET] W2 oranke act=Y tgt=0(T0/R0) sub=0 "[소비자/브랜딩] 벚꽃·만우절·지구의 날… 4월 시즈널 마케팅 대비를 위" line=b1e4663c 
+  [NO-TARGET] W2 oranke act=Y tgt=0(T0/R0) sub=0 "[문화/유통] 쑥뜸, 2030 세대의 새로운 이색 힐링 요법이 되다" line=c35b9f0f 
+  [NO-TARGET] W2 oranke act=Y tgt=0(T0/R0) sub=0 "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자" line=fd884fdf 
+  [NO-TARGET] W3 (unknown) act=Y tgt=0(T0/R0) sub=0 "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?" line=3f55c4bc source=tester-backfill-20260604; created_by=backfill-admin
+  [NO-TARGET] W3 oranke act=Y tgt=0(T0/R0) sub=0 "[문화/미디어] 한강공원 속 특별한 편의점, 러닝 스테이션을 만나다" line=4ce25887 
+  [NO-TARGET] W3 oranke act=Y tgt=0(T0/R0) sub=0 "[AI/기술] AI 기본법, 마케터도 적용 대상일까? AI 생성 콘텐츠 " line=aabe9534 
+  [NO-TARGET] W3 oranke act=Y tgt=0(T0/R0) sub=0 "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자" line=c3106a33 
+  [NO-TARGET] W4 oranke act=Y tgt=0(T0/R0) sub=0 "[문화/수출입] 중국 밀크티 차지의 한국 상륙, 성공할까?" line=92e7ae24 
+  [NO-TARGET] W4 (unknown) act=Y tgt=0(T0/R0) sub=0 "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?" line=9e73d45a source=tester-backfill-20260604; created_by=backfill-admin
+  [NO-TARGET] W4 oranke act=Y tgt=0(T0/R0) sub=0 "[문화/미디어] 이색 상영회부터 브랜드 편승까지! <왕과 사는 남자> 마" line=a1d642e6 
+  [NO-TARGET] W4 oranke act=Y tgt=0(T0/R0) sub=0 "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자" line=b70f075b 
+  [NO-TARGET] W5 oranke act=Y tgt=0(T0/R0) sub=0 "[문화/브랜딩] 힙한 브랜드 피드는 이렇게 만든다! 디지털 코어 콘텐츠 " line=1e514a55 
+  [NO-TARGET] W5 oranke act=Y tgt=0(T0/R0) sub=0 "[문화/해외] 콜롬비아·아르헨티나도 반한 K-치킨 로드" line=23f89e80 
+  [NO-TARGET] W5 (unknown) act=Y tgt=0(T0/R0) sub=0 "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?" line=acdd2723 source=tester-backfill-20260604; created_by=backfill-admin
+  [NO-TARGET] W5 oranke act=Y tgt=0(T0/R0) sub=0 "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자" line=e48dd902 
+  [NO-TARGET] W6 (unknown) act=Y tgt=0(T0/R0) sub=0 "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?" line=4d9ce368 source=tester-backfill-20260604; created_by=backfill-admin
+  [NO-TARGET] W6 oranke act=Y tgt=0(T0/R0) sub=0 "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자" line=75e72ba3 
+  [NO-TARGET] W7 oranke act=Y tgt=0(T0/R0) sub=0 "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자" line=229ff69f 
+  [NO-TARGET] W7 (unknown) act=Y tgt=0(T0/R0) sub=0 "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?" line=9042a2a1 source=tester-backfill-20260604; created_by=backfill-admin
+  [NO-TARGET] W8 oranke act=Y tgt=0(T0/R0) sub=0 "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자" line=53fb7493 
+  [NO-TARGET] W8 (unknown) act=Y tgt=0(T0/R0) sub=0 "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?" line=5a7922d7 source=tester-backfill-20260604; created_by=backfill-admin
+  [NO-TARGET] W9 oranke act=Y tgt=0(T0/R0) sub=0 "유미의 미니홈피부터 살목지 공포 금기집까지! 과몰입 유발하는 요즘 IP " line=096bcb50 
+  [NO-TARGET] W9 oranke act=Y tgt=0(T0/R0) sub=0 "영화관 속 특별한 굿즈, 요시 팝콘통을 만나다" line=2a970769 
+  [NO-TARGET] W9 oranke act=Y tgt=0(T0/R0) sub=0 "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자" line=79d0feb8 
+  [NO-TARGET] W9 (unknown) act=Y tgt=0(T0/R0) sub=0 "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?" line=af03c096 source=tester-backfill-20260604; created_by=backfill-admin
+
+── experience (74건) ──
+  [MIXED] W1 common act=Y tgt=198(T69/R129) sub=198 "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" line=0a2e88c2 created_by=backfill-admin; 실유저타깃 129명
+  [NO-TARGET] W1 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 레퍼런스 분석 : 우리 눈에 보이는 이 세상 모든 것은 결" line=2fe755f0 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W1 oranke act=Y tgt=0(T0/R0) sub=0 "[콘텐츠 마케팅] “어떤 제품/서비스더라도, 마케터가 제대로 ‘표현’ 하" line=34bb80dd source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W1 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 사례 강화 : 내 기획은 타인에게 어떻게 보일까? 내가 의" line=3b951a7a source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W1 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 니즈의 파악 : ‘누구’ 에게, ‘언제’, ‘어떤’ 기획이" line=74989e8d source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W1 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 표현되고 업로드된 모든 기획의 결과는 대중의 반응!" line=a4595fb7 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W1 oranke act=Y tgt=0(T0/R0) sub=0 "[퍼포먼스 마케팅] “마케팅 효과가 좋더라도, 결과를 제대로 ‘인지’ 하" line=bd4dae11 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W1 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 미디어 업계의 모든 업무는 결국 ‘대중’ 을 향한 " line=cefc3a4c source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W1 oranke act=Y tgt=0(T0/R0) sub=0 "[역량 파악 & 성장점 분석] “백날 말로만 떠드는 마케팅 커리어가 아니" line=d14ccbfc source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W1 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 엔터테인먼트 분야도 취미가 아닌 전문 커리어로 간다" line=f8b7e46d source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [MIXED] W10 common act=Y tgt=324(T90/R234) sub=324 "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" line=8380d90f created_by=backfill-admin; 실유저타깃 234명
+  [MIXED] W11 common act=Y tgt=318(T90/R228) sub=316 "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" line=16c72285 created_by=backfill-admin; 실유저타깃 228명
+  [MIXED] W12 common act=Y tgt=317(T90/R227) sub=316 "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" line=d84d9392 created_by=backfill-admin; 실유저타깃 227명
+  [TEST-only] W12 common act=Y tgt=1(T1/R0) sub=0 "[관리/매니징 실무] 다수의 팀원을 리딩하는 ‘파트’ 의 장(將)은 무엇" line=9b5c680c created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W12 encre act=Y tgt=1(T1/R0) sub=0 "[엔터테인먼트 실무] 미디어 업계의 모든 업무는 결국 ‘대중’ 을 향한 " line=f4f373ec created_by=backfill-admin; 타깃 전원 테스트유저
+  [MIXED] W13 common act=Y tgt=292(T76/R216) sub=292 "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" line=a13d6ddc created_by=backfill-admin; 실유저타깃 216명
+  [TEST-only] W13 oranke act=Y tgt=7(T7/R0) sub=0 "[상호 피드백] “100명의 사람이 있으면, 100개의 시각과 관점이 있" line=6609dab4 created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W13 (unknown) act=Y tgt=1(T1/R0) sub=0 "[역량 파악 & 성장점 분석] 백날 말로만 떠드는 마케팅 커리어가 아니라" line=cc802135 created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W13 oranke act=Y tgt=7(T7/R0) sub=1 "[퍼포먼스 마케팅] “마케팅 효과가 좋더라도, 결과를 제대로 ‘인지’ 하" line=2e20ecce created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W13 common act=Y tgt=2(T2/R0) sub=0 "[관리/매니징 실무] 다수의 팀원들이 따라올 수 있는 가이드라인과 자료 " line=b12aa27b created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W13 oranke act=Y tgt=5(T5/R0) sub=0 "[콘텐츠 마케팅] “어떤 제품/서비스더라도, 마케터가 제대로 ‘표현’ 하" line=8a5c6404 created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W13 common act=Y tgt=1(T1/R0) sub=0 "[관리/매니징 실무] 다수의 팀원을 리딩하는 ‘파트’ 의 장(將)은 무엇" line=7adcd26f created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W13 common act=Y tgt=2(T2/R0) sub=0 "[관리/매니징 실무] 다수의 팀원을 리딩하는 ‘파트’ 의 장(將)은 무엇" line=26e3589a created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W13 encre act=Y tgt=1(T1/R0) sub=0 "[엔터테인먼트 실무] 표현되고 업로드된 모든 기획의 결과는 대중의 반응!" line=3e5ced15 created_by=backfill-admin; 타깃 전원 테스트유저
+  [NO-TARGET] W2 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 니즈의 파악 : ‘누구’ 에게, ‘언제’, ‘어떤’ 기획이" line=13ebffde source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W2 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 사례 강화 : 내 기획은 타인에게 어떻게 보일까? 내가 의" line=3d721370 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W2 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 엔터테인먼트 분야도 취미가 아닌 전문 커리어로 간다" line=6f1370dc source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W2 oranke act=Y tgt=0(T0/R0) sub=0 "[역량 파악 & 성장점 분석] “백날 말로만 떠드는 마케팅 커리어가 아니" line=8301aad3 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W2 oranke act=Y tgt=0(T0/R0) sub=0 "[퍼포먼스 마케팅] “마케팅 효과가 좋더라도, 결과를 제대로 ‘인지’ 하" line=844ca25f source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W2 oranke act=Y tgt=0(T0/R0) sub=0 "[콘텐츠 마케팅] “어떤 제품/서비스더라도, 마케터가 제대로 ‘표현’ 하" line=b332b5dd source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W2 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 레퍼런스 분석 : 우리 눈에 보이는 이 세상 모든 것은 결" line=bce95681 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W2 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 표현되고 업로드된 모든 기획의 결과는 대중의 반응!" line=e8508430 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [MIXED] W2 common act=Y tgt=223(T72/R151) sub=223 "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" line=eb3aa90f created_by=backfill-admin; 실유저타깃 151명
+  [NO-TARGET] W2 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 미디어 업계의 모든 업무는 결국 ‘대중’ 을 향한 " line=f38fe6aa source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W3 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 미디어 업계의 모든 업무는 결국 ‘대중’ 을 향한 " line=10b1e2ff source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W3 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 레퍼런스 분석 : 우리 눈에 보이는 이 세상 모든 것은 결" line=3f024909 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W3 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 엔터테인먼트 분야도 취미가 아닌 전문 커리어로 간다" line=73073650 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [MIXED] W3 common act=Y tgt=249(T75/R174) sub=249 "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" line=7ebc0c2c created_by=backfill-admin; 실유저타깃 174명
+  [NO-TARGET] W3 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 니즈의 파악 : ‘누구’ 에게, ‘언제’, ‘어떤’ 기획이" line=9014ee4e source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W3 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 표현되고 업로드된 모든 기획의 결과는 대중의 반응!" line=a91a77f2 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W3 oranke act=Y tgt=0(T0/R0) sub=0 "[역량 파악 & 성장점 분석] “백날 말로만 떠드는 마케팅 커리어가 아니" line=c01ffc09 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W3 oranke act=Y tgt=0(T0/R0) sub=0 "[퍼포먼스 마케팅] “마케팅 효과가 좋더라도, 결과를 제대로 ‘인지’ 하" line=cc99bd12 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W3 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 사례 강화 : 내 기획은 타인에게 어떻게 보일까? 내가 의" line=ce61176f source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W3 oranke act=Y tgt=0(T0/R0) sub=0 "[콘텐츠 마케팅] “어떤 제품/서비스더라도, 마케터가 제대로 ‘표현’ 하" line=ff4e4bd3 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W4 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 니즈의 파악 : ‘누구’ 에게, ‘언제’, ‘어떤’ 기획이" line=02c080a3 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W4 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 표현되고 업로드된 모든 기획의 결과는 대중의 반응!" line=28cb4d3d source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W4 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 엔터테인먼트 분야도 취미가 아닌 전문 커리어로 간다" line=51539c71 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W4 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 레퍼런스 분석 : 우리 눈에 보이는 이 세상 모든 것은 결" line=7beae7f0 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W4 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 사례 강화 : 내 기획은 타인에게 어떻게 보일까? 내가 의" line=80a596af source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W4 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 미디어 업계의 모든 업무는 결국 ‘대중’ 을 향한 " line=c14940b7 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W4 oranke act=Y tgt=0(T0/R0) sub=0 "[퍼포먼스 마케팅] “마케팅 효과가 좋더라도, 결과를 제대로 ‘인지’ 하" line=d59c19c3 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [MIXED] W4 common act=Y tgt=270(T75/R195) sub=270 "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" line=da19d227 created_by=backfill-admin; 실유저타깃 195명
+  [NO-TARGET] W4 oranke act=Y tgt=0(T0/R0) sub=0 "[역량 파악 & 성장점 분석] “백날 말로만 떠드는 마케팅 커리어가 아니" line=f28a00df source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W4 oranke act=Y tgt=0(T0/R0) sub=0 "[콘텐츠 마케팅] “어떤 제품/서비스더라도, 마케터가 제대로 ‘표현’ 하" line=feab68c9 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W5 oranke act=Y tgt=0(T0/R0) sub=0 "[역량 파악 & 성장점 분석] “백날 말로만 떠드는 마케팅 커리어가 아니" line=04d70253 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W5 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 레퍼런스 분석 : 우리 눈에 보이는 이 세상 모든 것은 결" line=13399f8f source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W5 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 표현되고 업로드된 모든 기획의 결과는 대중의 반응!" line=21c757eb source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W5 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 엔터테인먼트 분야도 취미가 아닌 전문 커리어로 간다" line=3cb42db3 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W5 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 미디어 업계의 모든 업무는 결국 ‘대중’ 을 향한 " line=4b574f70 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W5 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 사례 강화 : 내 기획은 타인에게 어떻게 보일까? 내가 의" line=4d0895ae source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [MIXED] W5 common act=Y tgt=310(T75/R235) sub=310 "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" line=62f3682b created_by=backfill-admin; 실유저타깃 235명
+  [NO-TARGET] W5 oranke act=Y tgt=0(T0/R0) sub=0 "[콘텐츠 마케팅] “어떤 제품/서비스더라도, 마케터가 제대로 ‘표현’ 하" line=632a7a91 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W5 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 니즈의 파악 : ‘누구’ 에게, ‘언제’, ‘어떤’ 기획이" line=8a9bfd8e source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W5 oranke act=Y tgt=0(T0/R0) sub=0 "[퍼포먼스 마케팅] “마케팅 효과가 좋더라도, 결과를 제대로 ‘인지’ 하" line=a902e750 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W9 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 니즈의 파악 : ‘누구’ 에게, ‘언제’, ‘어떤’ 기획이" line=0200ce77 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W9 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 레퍼런스 분석 : 우리 눈에 보이는 이 세상 모든 것은 결" line=05aa4242 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W9 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 표현되고 업로드된 모든 기획의 결과는 대중의 반응!" line=0778968c source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W9 oranke act=Y tgt=0(T0/R0) sub=0 "[역량 파악 & 성장점 분석] “백날 말로만 떠드는 마케팅 커리어가 아니" line=5cccf900 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W9 oranke act=Y tgt=0(T0/R0) sub=0 "[퍼포먼스 마케팅] “마케팅 효과가 좋더라도, 결과를 제대로 ‘인지’ 하" line=5f90a136 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W9 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 엔터테인먼트 분야도 취미가 아닌 전문 커리어로 간다" line=626645d6 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W9 phalanx act=Y tgt=0(T0/R0) sub=0 "[실무 기획] 사례 강화 : 내 기획은 타인에게 어떻게 보일까? 내가 의" line=81276f71 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [MIXED] W9 common act=Y tgt=318(T90/R228) sub=318 "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" line=ea1eb90d created_by=backfill-admin; 실유저타깃 228명
+  [NO-TARGET] W9 encre act=Y tgt=0(T0/R0) sub=0 "[엔터테인먼트 실무] 미디어 업계의 모든 업무는 결국 ‘대중’ 을 향한 " line=ea9a9bae source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+  [NO-TARGET] W9 oranke act=Y tgt=0(T0/R0) sub=0 "[콘텐츠 마케팅] “어떤 제품/서비스더라도, 마케터가 제대로 ‘표현’ 하" line=f38178c9 source=tester-experience-success-backfill-v13-20260604; created_by=backfill-admin
+
+── competency (2건) ──
+  [TEST-only] W13 common act=Y tgt=1(T1/R0) sub=1 "단 한 장의 인포그래픽(도식화)이 백 마디 생각을, 가볍게 압도한다구!" line=adadd283 created_by=backfill-admin; 타깃 전원 테스트유저
+  [TEST-only] W13 common act=Y tgt=1(T1/R0) sub=0 "모든 업무는 ‘출발점’ 과 ‘목표점’, 그리고 상황 조건들을 가진다. (" line=611900bd created_by=backfill-admin; 타깃 전원 테스트유저
+
+[2b] source 마커(test/seed/backfill) 라인=63건 (그중 타깃0=63건=다운스트림 무영향 더미)
+
+[3] 삭제 대상 후보(TEST-only) = 81건
+{
+  "삭제대상_TEST_only_및_더미_라인수": 81,
+  "삭제될_cluster4_lines": 81,
+  "삭제될_cluster4_line_targets": 38,
+  "삭제될_cluster4_line_submissions": 4,
+  "child_cluster4_experience_line_evaluations": 28,
+  "child_cluster4_career_line_evaluations": 0,
+  "child_cluster4_experience_line_drafts": "ERR:",
+  "영향받는_대상자수": 12,
+  "영향받는_실유저수_경고": 0,
+  "snapshot_보유_영향유저": 12,
+  "snapshot_재계산_필요_유저": 12
+}
+
+[4] ⚠ MIXED 라인 10건 — 운영+테스트 타깃 혼재(라인 통삭제 금지, 타깃 단위 검토):
+   W1 experience "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" T69/R129 line=0a2e88c2
+   W11 experience "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" T90/R228 line=16c72285
+   W5 experience "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" T75/R235 line=62f3682b
+   W3 experience "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" T75/R174 line=7ebc0c2c
+   W10 experience "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" T90/R234 line=8380d90f
+   W13 experience "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" T76/R216 line=a13d6ddc
+   W12 experience "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" T90/R227 line=d84d9392
+   W4 experience "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" T75/R195 line=da19d227
+   W9 experience "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" T90/R228 line=ea1eb90d
+   W2 experience "한 주 동안 클럽에서 진행한 중앙, 팀 활동 내역을 아우르는 통합 기록입" T72/R151 line=eb3aa90f
+
+완료 (read-only, DB 변경 없음).
