@@ -61,8 +61,10 @@ async function main() {
   check("[1] direct operating: W13 = [통합] 1라인", opOnlyUnified, `lines=${dOpW.lines.length}`);
   // 신규 라인이 개별 렌더되면 통과. ([통합] 라인은 W13 에 실제 타깃 행이 있어 여름 렌더에서도
   //  슬롯1 라인으로 공존 — 데이터 사실이며 정책상 정상.)
-  const newShown = newCodes.size > 0 && Array.from(newCodes).every((c) => dTestW.lines.some((l: any) => l.code === c));
-  check("[2] direct test: W13 = 신규 5개 라인 전부 개별 표시", newShown, `표시=${dTestW.lines.map((l: any) => l.code).filter(Boolean).join(",")}`);
+  // (2026-06-14 역할 스코프) 대상 유저(agent)는 _파트장(EXBS-EL0001) 제외 — 본인 역할/배정 라인만.
+  const expectCodes = Array.from(newCodes).filter((c) => c !== "EXBS-EL0001");
+  const newShown = expectCodes.length > 0 && expectCodes.every((c) => dTestW.lines.some((l: any) => l.code === c));
+  check("[2] direct test: W13 = 신규 라인 개별 표시(본인 역할/배정, _파트장 제외)", newShown, `표시=${dTestW.lines.map((l: any) => l.code).filter(Boolean).join(",")}`);
   check("[2] direct test: 강화율 분모(den)이 operating과 달라짐(여름 5슬롯)", dTestW.den !== dOpW.den || dTestW.lines.length > 1, `op den=${dOpW.den} test den=${dTestW.den}`);
   check("[10] direct test: verdict/userWeekStatus 산출됨(여름 기준)", dTestW.status != null, `status=${dTestW.status} verdict=${dTestW.verdict}`);
 
@@ -80,7 +82,7 @@ async function main() {
   console.log(`\n[HTTP operating] status=${hOp.status} W13:`, JSON.stringify(hOpW));
   console.log(`[HTTP test]      status=${hTest.status} W13:`, JSON.stringify(hTestW));
   check("[3] HTTP operating: W13 = [통합] 1라인", hOpW.lines.length === 1 && hOpW.lines[0]?.name?.includes("통합"));
-  check("[4] HTTP test: W13 = 신규 5개 라인 전부 개별 표시", newCodes.size > 0 && Array.from(newCodes).every((c) => hTestW.lines.some((l: any) => l.code === c)));
+  check("[4] HTTP test: W13 = 신규 라인 개별 표시(본인 역할/배정, _파트장 제외)", expectCodes.length > 0 && expectCodes.every((c) => hTestW.lines.some((l: any) => l.code === c)));
 
   // ── 5. direct(test) == HTTP(test) ──
   check("[5] direct(test) == HTTP(test) (W13 experience view)", JSON.stringify(dTestW) === JSON.stringify(hTestW));

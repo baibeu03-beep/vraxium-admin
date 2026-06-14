@@ -25,6 +25,7 @@ import {
   roundGrowthRate,
 } from "@/lib/lineAvailability";
 import { normalizeOutputImages } from "@/lib/cluster4OutputImages";
+import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import {
   CLUSTER4_HUB_EDIT_WINDOW_KEYS,
   PART_TYPE_TO_EDIT_WINDOW_KEY,
@@ -95,6 +96,7 @@ type TargetWithLineRow = {
     // canEdit 매칭이 part_type 단위가 아니라 sub-line 단위로 이루어지도록 노출.
     activity_type_id: string | null;
     line_code: string | null;
+    team_id: string | null;
     competency_line_master_id: string | null;
     experience_line_master_id: string | null;
     career_project_id: string | null;
@@ -227,6 +229,7 @@ const TARGET_WITH_LINE_SELECT = `
     is_active,
     activity_type_id,
     line_code,
+    team_id,
     competency_line_master_id,
     experience_line_master_id,
     career_project_id
@@ -1392,6 +1395,46 @@ async function fetchUserOrganizationSlug(
   return isOrganizationSlug(slug) ? slug : null;
 }
 
+// 사용자 현재 팀 id + 역할(파트장/에이전트) — 여름 주차 synthetic fail 팀/역할 스코프용.
+//   역할 판정은 개설 단계(overallMemberStatus=memberStatusLabel)와 동일 함수로 정합 보장.
+//   teamId 미해석(null)이면 팀 필터를 적용하지 않는다(fail-open — 기존 동작 보존).
+async function fetchUserTeamAndRole(
+  profileUserId: string,
+): Promise<{ teamId: string | null; isPartLeader: boolean; isAgent: boolean }> {
+  const { data: prof } = await supabaseAdmin
+    .from("user_profiles")
+    .select("role,organization_slug")
+    .eq("user_id", profileUserId)
+    .maybeSingle();
+  const { data: mems } = await supabaseAdmin
+    .from("user_memberships")
+    .select("team_name,membership_level,is_current")
+    .eq("user_id", profileUserId);
+  const memRows = (mems ?? []) as Array<{
+    team_name: string | null;
+    membership_level: string | null;
+    is_current: boolean | null;
+  }>;
+  const cur = memRows.find((m) => m.is_current) ?? memRows[0] ?? null;
+  const p = prof as { role: string | null; organization_slug: string | null } | null;
+  const label = memberStatusLabel(p?.role ?? null, cur?.membership_level ?? null);
+  let teamId: string | null = null;
+  if (cur?.team_name && p?.organization_slug) {
+    const { data: team } = await supabaseAdmin
+      .from("cluster4_teams")
+      .select("id")
+      .eq("team_name", cur.team_name)
+      .eq("organization_slug", p.organization_slug)
+      .maybeSingle();
+    teamId = (team as { id: string } | null)?.id ?? null;
+  }
+  return {
+    teamId,
+    isPartLeader: label === "심화(파트장)",
+    isAgent: label === "심화(에이전트)",
+  };
+}
+
 // 라인 마스터 organization_slug(폴백용)을 판정한다 — line_code 로 판정 불가일 때만 쓴다.
 //   info        → org 컬럼 없음 → 'common'(전체 공통).
 //   experience  → cluster4_experience_line_masters.organization_slug
@@ -1525,8 +1568,9 @@ async function fetchLineDetailsByWeek(
 
   // 레거시 통합 마스터 id — 레거시 주차 렌더 필터 기준. 미생성(null)이면 레거시 주차는
   // 통합 라인 없이 빈 허브로 렌더된다(fail-closed).
-  const unifiedMasterId =
-    legacyWeekIds.size > 0 ? await fetchLegacyUnifiedMasterId() : null;
+  // 통합 마스터 id — 레거시 주차 렌더 필터(legacyWeekIds) + 여름(비레거시) 주차 통합 제외
+  //   양쪽에서 쓰므로 항상 조회한다(여름 시뮬은 legacyWeekIds 가 비어도 통합 라인을 식별해야 함).
+  const unifiedMasterId = await fetchLegacyUnifiedMasterId();
   const isLegacyUnifiedLine = (
     line: NonNullable<TargetWithLineRow["cluster4_lines"]> | null | undefined,
   ): boolean =>
@@ -1541,10 +1585,11 @@ async function fetchLineDetailsByWeek(
   // 걸리면 openedByWeek(개설 신호)·본인 real DTO·canEdit 가 누락되고, 헤더 분모 A
   // (growth 경로 fetchWeeksWithOpenLinesByPart)와 어긋나 "총 N개 중 …인데 칸은 N-1개"가 발생한다.
   // 완전 집합 위에서 계산하면 두 경로가 동일 opened-line 집합을 공유해 정합이 보장된다(요구 2·3).
-  const [targetRows, editWindowByPart, userOrg] = await Promise.all([
+  const [targetRows, editWindowByPart, userOrg, userTeamRole] = await Promise.all([
     fetchAllLineTargetsByWeek(weekIds),
     fetchHubEditWindows(profileUserId),
     fetchUserOrganizationSlug(profileUserId),
+    fetchUserTeamAndRole(profileUserId),
   ]);
   const relevantTargets = targetRows.filter(
     (row) => row.target_mode === "user" && row.target_user_id === profileUserId,
@@ -1769,6 +1814,12 @@ async function fetchLineDetailsByWeek(
         // 실무 경험은 통합 라인만 대표 — 비통합 experience 추가 라인은 렌더하지 않는다.
         continue;
       }
+      // 여름(비레거시) 주차: 레거시 [통합] 라인은 신규 도출 라인으로 대체 — 분모/표시에서 제외.
+      //   operating 레거시 주차(isLegacyWeek=true)는 통합이 정당한 단일 대표 라인이라 유지(불변).
+      //   mode=test 여름 시뮬·실여름(통합 미생성) 모두 일관 — 통합이 신규 도출을 대체하지 않게 한다.
+      if (!isLegacyWeek && isLegacyUnifiedLine(target.cluster4_lines)) {
+        continue;
+      }
       // org 노출 필터: 다른 조직 라인이면 본인 배정이라도 제외(요구 6).
       //   미배정으로 강등되는 것이 아니라 아예 누락 → Step 3 가 not_applicable placeholder 로 채운다.
       //   allowUnknown=true: 본인에게 실제 배정된 라인은 org 판정 불가여도 노출 허용(Step 1 예외).
@@ -1898,6 +1949,22 @@ async function fetchLineDetailsByWeek(
               }
               if (!managementSlotOpen && slotOrder === EXPERIENCE_MANAGEMENT_SLOT_ORDER) {
                 continue;
+              }
+              // ── 여름(비레거시) 주차 한정: synthetic fail 팀/역할 스코프 ──
+              //   operating 레거시 주차(isLegacyWeek=true)는 기존 정책 불변(여기 진입 전 차단).
+              //   실여름 운영·mode=test 여름 시뮬 모두 동일 적용.
+              if (!isLegacyWeek) {
+                // 타팀 라인 제외: 본인 팀에 개설된 experience 라인만 분모 대상(타팀/공용 누수 차단).
+                //   teamId 미해석 시 필터 미적용(fail-open).
+                if (userTeamRole.teamId && line.team_id !== userTeamRole.teamId) {
+                  continue;
+                }
+                // 타역할 관리(5) 라인 제외: 본인 역할 라인만(_파트장→파트장 / _에이전트→에이전트).
+                if (slotOrder === EXPERIENCE_MANAGEMENT_SLOT_ORDER) {
+                  const code = line.line_code ?? "";
+                  if (code.endsWith("EL0001") && !userTeamRole.isPartLeader) continue;
+                  if (code.endsWith("EL0002") && !userTeamRole.isAgent) continue;
+                }
               }
             }
             lines.push(

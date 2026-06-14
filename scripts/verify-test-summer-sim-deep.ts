@@ -87,8 +87,15 @@ async function main() {
   const cOp = dOp.find((c: any) => c.weekId === weekId);
   const cTest = dTest.find((c: any) => c.weekId === weekId);
   console.log(`\n[6] 강화율 denominator: operating den=${cOp.growthDenominator}(num=${cOp.growthNumerator}) | test den=${cTest.growthDenominator}(num=${cTest.growthNumerator})`);
-  check("[6] operating den=3(레거시) / test den=10(여름)", cOp.growthDenominator === 3 && cTest.growthDenominator === 10, `op=${cOp.growthDenominator} test=${cTest.growthDenominator}`);
-  check("[5] test W13 experience 라인에 신규 5코드 전부 포함", Array.from(newCodes).every((c) => (cTest.lines ?? []).some((l: any) => l.lineCode === c)), expLines(cTest).join(" "));
+  // (2026-06-14 분모 팀/역할 스코프 + 통합 제외 적용 후) test den=7: experience 4(도출/분석/견문/관리에이전트) + info/competency 3.
+  check("[6] operating den=3(레거시) / test den=7(여름·스코프 적용)", cOp.growthDenominator === 3 && cTest.growthDenominator === 7, `op=${cOp.growthDenominator} test=${cTest.growthDenominator}`);
+  // (2026-06-14 역할 스코프 후) agent 인 권예준은 _파트장(EXBS-EL0001) 제외 — 본인 역할/배정 라인만.
+  //   포함되어야 할 신규 코드 = 전체 신규 - 타역할(_파트장 EXBS-EL0001).
+  const expectedCodes = Array.from(newCodes).filter((c) => c !== "EXBS-EL0001");
+  check("[5] test W13 experience = 본인 역할/배정 라인만 포함(_파트장 제외)",
+    expectedCodes.every((c) => (cTest.lines ?? []).some((l: any) => l.lineCode === c)) &&
+    !(cTest.lines ?? []).some((l: any) => l.lineCode === "EXBS-EL0001" && l.enhancementStatus !== "not_applicable"),
+    expLines(cTest).join(" "));
   check("[10] operating W13 = [통합] 라인 1개 유지(레거시 정책 불변)", expLines(cOp).length === 1 && (cOp.lines ?? []).some((l: any) => l.lineName?.includes("통합")));
   check("[7] test W13 verdict(userWeekStatus) 개별 라인 기준 산출", cTest.userWeekStatus != null && (cTest.experienceGrowth?.requiredSlots?.length ?? 0) >= 1);
 

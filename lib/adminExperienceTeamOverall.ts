@@ -600,13 +600,21 @@ export type RoutingTarget = {
   cumulativeWeeks: number;
 };
 
-// 매칭은 raw line_name 토큰 + line_code 보강. encre "[다면 피드백] 실무 생산성 강화"는
-// "상호" 미포함 → 상호 피드백과 오매칭 없음. 관리 EL0001/EL0002 코드는 전 org 일관.
+// 매칭은 line_code 우선 + raw line_name 토큰 fallback. line_code 앵커(EN0001/EN0004)를
+// 우선 사용해 라인명 변경(예: "상호 피드백"→"상호 다면 피드백")에 라우팅이 의존하지 않게 한다.
+// encre "[다면 피드백] 실무 생산성 강화"는 "상호" 미포함 → 상호 피드백과 오매칭 없음.
+// 관리 EL0001/EL0002 코드는 전 org 일관.
 function isMarketerLaunchLine(r: RegLine): boolean {
-  return r.lineName.includes("마케터") && /launch/i.test(r.lineName);
+  return (
+    r.lineCode.endsWith("EN0001") ||
+    (r.lineName.includes("마케터") && /launch/i.test(r.lineName))
+  );
 }
 function isMutualFeedbackLine(r: RegLine): boolean {
-  return r.lineName.includes("상호") && r.lineName.includes("피드백");
+  return (
+    r.lineCode.endsWith("EN0004") ||
+    (r.lineName.includes("상호") && r.lineName.includes("피드백"))
+  );
 }
 function isPartLeaderLine(r: RegLine): boolean {
   return r.lineName.includes("파트장") || r.lineCode.endsWith("EL0001");
