@@ -10,6 +10,28 @@ import {
   matchCafeComments,
   filterCrewRecords,
 } from "@/lib/cluster4CafeLineMatch";
+import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
+import { resolveUserScope, readScopeMode } from "@/lib/userScope";
+
+// 현재 URL org 컨텍스트 → organization_slug. 라인 개설 크루는 해당 조직 소속만 매칭한다(org 격리).
+//   미지정/무효 = null(통합 모드, 전체 크루). 실무 정보 개설 폼은 항상 org-scoped 로 진입한다.
+function readOrganization(request: NextRequest): OrganizationSlug | null {
+  const raw = request.nextUrl.searchParams.get("organization")?.trim() || null;
+  return isOrganizationSlug(raw) ? raw : null;
+}
+
+// org(조직) + mode(운영/테스트) 를 모두 적용해 라인 개설 크루 후보를 조회한다.
+//   operating: test_user_markers 전원 제외(실사용자만). test: test_user_markers 만(실사용자 제외).
+// 이름만으로 조직/모드를 무시하고 매칭하지 않도록, 매칭 입력 자체를 이 모집단으로 좁힌다.
+async function loadScopedCrews(request: NextRequest) {
+  const organization = readOrganization(request);
+  const scope = await resolveUserScope(
+    readScopeMode(request.nextUrl.searchParams),
+    organization,
+  );
+  const crews = await loadCrewRecords(organization);
+  return scope.filter(crews, (c) => c.userId);
+}
 
 // 라인 개설 크루 — 카페 링크 검수(POST) + 수동추가 검색(GET).
 //   POST 는 practical-competency 의 "카페 링크 집계"와 동일하게 collectCafeCommentNicknames
@@ -64,8 +86,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 2) 우리 크루 DB 와 엄격 매칭.
-    const crews = await loadCrewRecords();
+    // 2) 우리 크루 DB(현재 org + mode 모집단) 와 엄격 매칭.
+    //    org 외 동명이인·모드 외 사용자(운영↔테스트)는 매칭 입력에서 제외된다.
+    const crews = await loadScopedCrews(request);
     const result = matchCafeComments(collected.data.nicknames, crews);
 
     return Response.json({
@@ -109,7 +132,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const crews = await loadCrewRecords();
+    // 수동 추가 검색도 현재 org + mode 모집단으로 한정 — 조직/운영·테스트 경계를 벗어난
+    // 동명이인이 섞이지 않게 한다.
+    const crews = await loadScopedCrews(request);
     const matches = filterCrewRecords(crews, q).slice(0, 30);
     return Response.json({ success: true, data: { crews: matches } });
   } catch (error) {

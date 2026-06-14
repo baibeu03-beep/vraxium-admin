@@ -5,7 +5,6 @@ import { Loader2, Upload, Trash2, X, Search, Users, Lock, Unlock } from "lucide-
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -134,73 +133,91 @@ function OpeningImageSlot({
     [onUpload],
   );
 
+  // 파일 입력은 항상 렌더(미리보기 유무와 무관) — 업로드 아이콘이 트리거.
   return (
     <div className="space-y-2">
-      {image ? (
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={onExpand}
-            className="group relative block aspect-square w-40 overflow-hidden rounded-md border"
-            title="클릭하면 크게 보기"
-          >
-            <img
-              src={image.url}
-              alt={image.name}
-              className="h-full w-full object-cover transition-transform group-hover:scale-105"
-            />
-            <span className="absolute inset-x-0 bottom-0 bg-black/50 px-1 py-0.5 text-center text-[10px] text-white opacity-0 transition-opacity group-hover:opacity-100">
-              크게 보기
-            </span>
-          </button>
-          <div className="flex items-center gap-2">
-            <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
-              {image.name}
-            </span>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif"
+        className="hidden"
+        onChange={handleFileChange}
+        disabled={disabled || uploading}
+      />
+
+      {/* 1행: "이미지 1" 라벨 + 미리보기 공간(우측 상단 업로드/삭제 2행 1열) */}
+      <div className="flex items-start gap-2">
+        <Label className="w-12 shrink-0 pt-1 text-xs text-muted-foreground">
+          이미지 1
+        </Label>
+        <div className="relative">
+          {image ? (
+            <button
+              type="button"
+              onClick={onExpand}
+              className="group block aspect-square w-40 overflow-hidden rounded-md border"
+              title="클릭하면 크게 보기"
+            >
+              <img
+                src={image.url}
+                alt={image.name}
+                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+              />
+            </button>
+          ) : (
+            <div className="flex aspect-square w-40 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
+              {uploading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                "미리보기"
+              )}
+            </div>
+          )}
+          {/* 우측 상단: 업로드 / 삭제 (2행 1열) */}
+          <div className="absolute right-1 top-1 flex flex-col gap-1">
             <Button
               type="button"
-              variant="ghost"
+              variant="secondary"
               size="icon"
-              className="h-7 w-7 shrink-0"
+              className="h-7 w-7 shadow"
+              onClick={() => fileRef.current?.click()}
+              disabled={disabled || uploading}
+              aria-label="이미지 업로드"
+              title="업로드"
+            >
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className="h-7 w-7 shadow"
               onClick={onRemove}
-              disabled={disabled}
+              disabled={disabled || !image}
+              aria-label="이미지 삭제"
+              title="삭제"
             >
               <Trash2 className="h-4 w-4 text-red-500" />
             </Button>
           </div>
         </div>
-      ) : (
-        <div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="hidden"
-            onChange={handleFileChange}
-            disabled={disabled || uploading}
-          />
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={disabled || uploading}
-            className="flex aspect-square w-40 flex-col items-center justify-center gap-2 rounded-md border border-dashed text-sm text-muted-foreground hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {uploading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Upload className="h-5 w-5" />
-            )}
-            {uploading ? "업로드 중..." : "이미지 업로드"}
-          </button>
-        </div>
-      )}
-      <Input
-        value={caption}
-        onChange={(e) => onCaptionChange(e.target.value)}
-        placeholder="이미지 설명을 입력하세요"
-        aria-label="아웃풋 이미지 설명"
-        disabled={disabled}
-      />
+      </div>
+
+      {/* 2행: "설명 1" 라벨 + 이미지 설명 입력 */}
+      <div className="flex items-center gap-2">
+        <Label className="w-12 shrink-0 text-xs text-muted-foreground">설명 1</Label>
+        <Input
+          value={caption}
+          onChange={(e) => onCaptionChange(e.target.value)}
+          placeholder="아웃풋 이미지 설명"
+          aria-label="아웃풋 이미지 설명"
+          disabled={disabled}
+        />
+      </div>
     </div>
   );
 }
@@ -267,6 +284,14 @@ export default function PracticalInfoOpeningForm({
   const [banner, setBanner] = useState<Banner>(null);
 
   const unlocked = devMode && adminUnlock;
+
+  // 상단 활동유형 탭이 바뀌면(=defaultActivityTypeId 변경) "라인명" 선택값을 현재 탭으로 맞춘다.
+  // 기존 선택이 새 탭과 맞지 않으면 초기화되는 효과(라인명 드롭다운은 현재 탭 활동유형만 노출).
+  useEffect(() => {
+    setLineId((prev) =>
+      prev === (defaultActivityTypeId ?? "") ? prev : defaultActivityTypeId ?? "",
+    );
+  }, [defaultActivityTypeId]);
 
   // 일반 모드 선택지 = 자동 정책 주차 + 활성 예외 주차(중복 id 는 예외가 우선 — 휴식 덮어쓰기).
   //   isException=false → 자동 정책, true → 예외 허용. allowed = 예외의 허용 라인(null=전체).
@@ -372,8 +397,14 @@ export default function PracticalInfoOpeningForm({
     const t = setTimeout(async () => {
       setManualSearching(true);
       try {
+        // 현재 org + mode 모집단으로만 검색 — 조직/모드 경계 밖 동명이인 제외.
+        const loc = new URLSearchParams(window.location.search);
+        const org = loc.get("org");
+        const sp = new URLSearchParams({ q });
+        if (org) sp.set("organization", org);
+        if (loc.get("mode") === "test") sp.set("mode", "test");
         const res = await fetch(
-          `/api/admin/cluster4/cafe-line-crew?q=${encodeURIComponent(q)}`,
+          `/api/admin/cluster4/cafe-line-crew?${sp.toString()}`,
         );
         const json = await res.json();
         if (cancelled) return;
@@ -410,11 +441,20 @@ export default function PracticalInfoOpeningForm({
     setCafeLoading(true);
     setCafeError(null);
     try {
-      const res = await fetch("/api/admin/cluster4/cafe-line-crew", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: cafeUrl.trim() }),
-      });
+      // 현재 org + mode(운영/테스트) 모집단으로만 매칭 — 조직/모드 경계 밖 동명이인 제외.
+      const loc = new URLSearchParams(window.location.search);
+      const org = loc.get("org");
+      const sp = new URLSearchParams();
+      if (org) sp.set("organization", org);
+      if (loc.get("mode") === "test") sp.set("mode", "test");
+      const res = await fetch(
+        `/api/admin/cluster4/cafe-line-crew${sp.toString() ? `?${sp.toString()}` : ""}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: cafeUrl.trim() }),
+        },
+      );
       const json = await res.json();
       if (!json.success) {
         setCafeError(json.message ?? json.error ?? "검수 실패");
@@ -471,14 +511,14 @@ export default function PracticalInfoOpeningForm({
   const missingReasons = useMemo<string[]>(() => {
     const r: string[] = [];
     if (!effectiveWeek) {
-      r.push("개설할 주차 정보가 필요합니다.");
+      r.push("개설 주차 정보가 필요합니다.");
       return r;
     }
     if (!effectiveWeek.canOpen)
       r.push("선택한 주차는 공식 휴식 주차로 개설할 수 없습니다.");
     else if (!effectiveWeek.submissionOpensAt || !effectiveWeek.submissionClosesAt)
       r.push("선택한 주차의 기입 기간을 확인할 수 없습니다.");
-    if (!lineId) r.push("개설할 라인이 필요합니다.");
+    if (!lineId) r.push("라인명을 선택해주세요.");
     if (lineNotAllowedForException)
       r.push("이 예외 허용 주차는 선택한 라인의 개설을 허용하지 않습니다.");
     if (!mainTitle.trim()) r.push("메인 타이틀이 필요합니다.");
@@ -585,8 +625,15 @@ export default function PracticalInfoOpeningForm({
         matched_crew_count: cafeMeta?.matchedCrewCount ?? null,
         raw_comment_count: cafeMeta?.rawCommentCount ?? null,
       };
+      // dev(과거 주차) + organization + mode(운영/테스트) 를 함께 전달 — 서버 org+mode 가드와 정합.
+      const openLoc = new URLSearchParams(window.location.search);
+      const openSp = new URLSearchParams();
+      if (unlocked) openSp.set("dev", "true");
+      const openOrg = openLoc.get("org");
+      if (openOrg) openSp.set("organization", openOrg);
+      if (openLoc.get("mode") === "test") openSp.set("mode", "test");
       const res = await fetch(
-        `/api/admin/cluster4/info-lines${unlocked ? "?dev=true" : ""}`,
+        `/api/admin/cluster4/info-lines${openSp.toString() ? `?${openSp.toString()}` : ""}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -636,10 +683,6 @@ export default function PracticalInfoOpeningForm({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-base">라인 개설</CardTitle>
-        <CardDescription>
-          개설할 주차는 자동 고정됩니다. 라인 · 메인 타이틀 · 아웃풋 · 라인 개설 크루를 입력하고
-          개설하세요. (개설 크루 0명도 가능 — 전체 크루 강화 실패)
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {banner && (
@@ -708,7 +751,7 @@ export default function PracticalInfoOpeningForm({
         <section className="space-y-2">
           <div className="flex items-center justify-between">
             <Label className="text-sm font-semibold">
-              개설할 주차 <span className="text-red-500">*</span>
+              개설 주차 <span className="text-red-500">*</span>
             </Label>
             {devMode && (
               <label className="flex cursor-pointer items-center gap-1.5 text-xs text-amber-700">
@@ -733,7 +776,7 @@ export default function PracticalInfoOpeningForm({
           </div>
 
           <select
-            aria-label="개설할 주차"
+            aria-label="개설 주차"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-muted/50"
             disabled={!unlocked && normalFixed}
             value={effectiveWeek?.id ?? ""}
@@ -788,16 +831,6 @@ export default function PracticalInfoOpeningForm({
                   공식 휴식 주차 — 라인 개설 불가
                 </p>
               )}
-              {!unlocked &&
-                (normalFixed ? (
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    오늘 날짜 기준 자동 고정 (금요일 경계 규칙) · 다른 주차 선택 불가
-                  </p>
-                ) : (
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    자동 정책 주차 또는 예외 허용 주차를 선택할 수 있습니다.
-                  </p>
-                ))}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">
@@ -806,13 +839,13 @@ export default function PracticalInfoOpeningForm({
           )}
         </section>
 
-        {/* 2. 개설할 라인 */}
+        {/* 2. 라인명 — 상단 활동유형 탭에서 선택된 유형의 라인만 후보로 노출(Manager 가 필터). */}
         <section className="space-y-2">
           <Label className="text-sm font-semibold">
-            개설할 라인 <span className="text-red-500">*</span>
+            라인명 <span className="text-red-500">*</span>
           </Label>
           <select
-            aria-label="개설할 라인"
+            aria-label="라인명"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             value={lineId}
             onChange={(e) => setLineId(e.target.value)}
@@ -852,30 +885,39 @@ export default function PracticalInfoOpeningForm({
           />
         </section>
 
-        {/* 4. 아웃풋 */}
+        {/* 4. 아웃풋 — 2행 1열(링크 행 / 이미지 행) */}
         <section className="space-y-4">
           <Label className="text-sm font-semibold">
             아웃풋 <span className="text-red-500">*</span>
-            <span className="ml-2 text-xs font-normal text-muted-foreground">
-              링크 1개 + 이미지 1개 모두 필수
-            </span>
           </Label>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4">
+            {/* 아웃풋 링크 — "링크 1" / "설명 1" 각각 한 줄 */}
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-xs font-medium text-muted-foreground">아웃풋 링크</p>
-              <Input
-                value={linkUrl}
-                onChange={(e) => setLinkUrl(e.target.value)}
-                placeholder="아웃풋 링크 주소 (https://...)"
-                aria-label="아웃풋 링크 주소"
-              />
-              <Input
-                value={linkDesc}
-                onChange={(e) => setLinkDesc(e.target.value)}
-                placeholder="아웃풋 링크 설명"
-                aria-label="아웃풋 링크 설명"
-              />
+              <div className="flex items-center gap-2">
+                <Label className="w-12 shrink-0 text-xs text-muted-foreground">
+                  링크 1
+                </Label>
+                <Input
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  placeholder="아웃풋 링크 주소 (https://...)"
+                  aria-label="아웃풋 링크 주소"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="w-12 shrink-0 text-xs text-muted-foreground">
+                  설명 1
+                </Label>
+                <Input
+                  value={linkDesc}
+                  onChange={(e) => setLinkDesc(e.target.value)}
+                  placeholder="아웃풋 링크 설명"
+                  aria-label="아웃풋 링크 설명"
+                />
+              </div>
             </div>
+            {/* 아웃풋 이미지 — "이미지 1"(미리보기+업로드/삭제) / "설명 1" 각각 한 줄 */}
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-xs font-medium text-muted-foreground">아웃풋 이미지</p>
               <OpeningImageSlot
@@ -897,12 +939,7 @@ export default function PracticalInfoOpeningForm({
         {/* 5. 라인 개설 크루 */}
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-semibold">
-              라인 개설 크루
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                0명 가능 (0명 = 전체 크루 강화 실패)
-              </span>
-            </Label>
+            <Label className="text-sm font-semibold">라인 개설 크루</Label>
             <span className="text-xs text-muted-foreground">
               <Users className="mr-1 inline h-3 w-3" />
               {candidates.length}명
@@ -937,11 +974,6 @@ export default function PracticalInfoOpeningForm({
                 {cafeLoading ? "검수 중..." : "검수"}
               </Button>
             </div>
-            {cafeLoading && (
-              <p className="text-xs text-muted-foreground">
-                댓글을 순회·매칭 중입니다. 댓글 수에 따라 수십 초가 걸릴 수 있습니다. (로컬 전용)
-              </p>
-            )}
             {cafeError && <p className="text-sm text-red-600">{cafeError}</p>}
             {cafeMeta && (
               <p className="text-xs text-muted-foreground">
@@ -951,12 +983,13 @@ export default function PracticalInfoOpeningForm({
             )}
           </div>
 
-          {/* 후보 목록 (개설 크루) — 댓글 시간순 */}
+          {/* 인원 수 + 초기화 + 수동 추가 (한 줄, 목록 위) */}
           <div className="space-y-2 rounded-md border p-3">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">
-                개설 크루 후보 ({candidates.length}명) · 댓글 시간순
-              </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                <Users className="mr-1 inline h-3 w-3" />
+                개설 크루 {candidates.length}명
+              </span>
               <Button
                 type="button"
                 variant="outline"
@@ -966,68 +999,16 @@ export default function PracticalInfoOpeningForm({
               >
                 초기화
               </Button>
-            </div>
-            {candidates.length === 0 ? (
-              <p className="py-3 text-center text-sm text-muted-foreground">
-                후보가 없습니다. 카페 검수 또는 수동 추가로 채워주세요. (이 상태로 개설하면 전체 강화 실패)
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="px-2 py-1.5">크루 번호</th>
-                      <th className="px-2 py-1.5">이름</th>
-                      <th className="px-2 py-1.5">팀명</th>
-                      <th className="px-2 py-1.5">파트명</th>
-                      <th className="px-2 py-1.5">학교명</th>
-                      <th className="px-2 py-1.5">전공명</th>
-                      <th className="px-2 py-1.5 text-right">삭제</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {candidates.map((c) => (
-                      <tr key={c.userId} className="border-b last:border-0">
-                        <td className="px-2 py-1.5 font-mono text-xs">{c.crewNo ?? "-"}</td>
-                        <td className="px-2 py-1.5 font-medium">{c.name || "-"}</td>
-                        <td className="px-2 py-1.5 text-xs">{c.teamName ?? "-"}</td>
-                        <td className="px-2 py-1.5 text-xs">{c.partName ?? "-"}</td>
-                        <td className="px-2 py-1.5 text-xs">{c.schoolName ?? "-"}</td>
-                        <td className="px-2 py-1.5 text-xs">{c.majorName ?? "-"}</td>
-                        <td className="px-2 py-1.5 text-right">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => removeCandidate(c.userId)}
-                            aria-label={`${c.name} 제거`}
-                          >
-                            <X className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="relative min-w-[200px] flex-1">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  className="pl-9"
+                  placeholder="크루 수동 추가 검색..."
+                  value={manualQ}
+                  onChange={(e) => setManualQ(e.target.value)}
+                  aria-label="크루 수동 추가 검색"
+                />
               </div>
-            )}
-          </div>
-
-          {/* 수동 추가 */}
-          <div className="space-y-2 rounded-md border p-3">
-            <p className="text-xs font-medium text-muted-foreground">
-              수동 추가 (이름 · 학교 · 팀 · 전공 · 번호 검색)
-            </p>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="pl-9"
-                placeholder="크루 검색..."
-                value={manualQ}
-                onChange={(e) => setManualQ(e.target.value)}
-                aria-label="크루 수동 추가 검색"
-              />
             </div>
             {manualQ.trim() && (
               <div className="max-h-52 overflow-y-auto rounded-md border">
@@ -1071,7 +1052,8 @@ export default function PracticalInfoOpeningForm({
             )}
           </div>
 
-          {/* 수동 확인 필요 (자동 매칭 안 됨 — 직접 검색해 추가) */}
+          {/* 수동 확인 필요 (자동 매칭 안 됨 — 직접 검색해 추가).
+              운영자가 자동 매칭 실패 건을 먼저 확인·처리하도록 목록 위로 배치(문구/색상/동작 동일). */}
           {review.length > 0 && (
             <div className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3">
               <p className="text-xs font-medium text-amber-800">
@@ -1088,6 +1070,58 @@ export default function PracticalInfoOpeningForm({
               </ul>
             </div>
           )}
+
+          {/* 검수 크루 목록 — 댓글 시간순 */}
+          <div className="space-y-2 rounded-md border p-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              검수 크루 목록 · 댓글 시간순
+            </p>
+            {candidates.length === 0 ? (
+              <p className="py-3 text-center text-sm text-muted-foreground">
+                후보가 없습니다.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="px-2 py-1.5">크루 번호</th>
+                      <th className="px-2 py-1.5">이름</th>
+                      <th className="px-2 py-1.5">팀명</th>
+                      <th className="px-2 py-1.5">파트명</th>
+                      <th className="px-2 py-1.5">학교명</th>
+                      <th className="px-2 py-1.5">전공명</th>
+                      <th className="px-2 py-1.5 text-right">삭제</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {candidates.map((c) => (
+                      <tr key={c.userId} className="border-b last:border-0">
+                        <td className="px-2 py-1.5 font-mono text-xs">{c.crewNo ?? "-"}</td>
+                        <td className="px-2 py-1.5 font-medium">{c.name || "-"}</td>
+                        <td className="px-2 py-1.5 text-xs">{c.teamName ?? "-"}</td>
+                        <td className="px-2 py-1.5 text-xs">{c.partName ?? "-"}</td>
+                        <td className="px-2 py-1.5 text-xs">{c.schoolName ?? "-"}</td>
+                        <td className="px-2 py-1.5 text-xs">{c.majorName ?? "-"}</td>
+                        <td className="px-2 py-1.5 text-right">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => removeCandidate(c.userId)}
+                            aria-label={`${c.name} 제거`}
+                          >
+                            <X className="h-4 w-4 text-red-500" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </section>
       </CardContent>
 
@@ -1132,11 +1166,11 @@ export default function PracticalInfoOpeningForm({
             <p className="text-sm text-muted-foreground">아래 정보로 라인을 개설합니다.</p>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">주차</dt>
+                <dt className="w-20 shrink-0 text-muted-foreground">개설 주차</dt>
                 <dd className="font-medium">{weekTitle(effectiveWeek)}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">라인</dt>
+                <dt className="w-20 shrink-0 text-muted-foreground">라인명</dt>
                 <dd className="font-medium">{lineName}</dd>
               </div>
               <div className="flex gap-2">
@@ -1230,11 +1264,11 @@ export default function PracticalInfoOpeningForm({
             </p>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">주차</dt>
+                <dt className="w-20 shrink-0 text-muted-foreground">개설 주차</dt>
                 <dd className="font-medium">{weekTitle(effectiveWeek)}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">라인</dt>
+                <dt className="w-20 shrink-0 text-muted-foreground">라인명</dt>
                 <dd className="font-medium">{lineName}</dd>
               </div>
               <div className="flex gap-2">

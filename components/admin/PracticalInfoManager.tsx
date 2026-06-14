@@ -1060,8 +1060,13 @@ export default function PracticalInfoManager() {
       };
       // dev 모드에서만 ?dev=true 를 전달 → 서버가 과거 주차 개설을 허용.
       // 일반 모드에서는 서버가 N-1 을 강제하므로 week_id 조작이 무력화된다.
+      // mode(운영/테스트) 도 함께 전달 → 서버 스코프 가드(target 혼입 방지)와 정합.
+      const saveSp = new URLSearchParams();
+      if (devMode) saveSp.set("dev", "true");
+      if (new URLSearchParams(window.location.search).get("mode") === "test")
+        saveSp.set("mode", "test");
       const res = await fetch(
-        `/api/admin/cluster4/info-lines${devMode ? "?dev=true" : ""}`,
+        `/api/admin/cluster4/info-lines${saveSp.toString() ? `?${saveSp.toString()}` : ""}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1674,7 +1679,8 @@ export default function PracticalInfoManager() {
             weekOptions={weekOptions}
             exceptionWeeks={exceptionWeeks}
             activeType={activeType}
-            activityTypes={orderedTypes.map((t) => ({ id: t.id, name: t.name }))}
+            // 라인명 드롭다운 후보 = 현재 상단 활동유형 탭의 유형만(탭별 필터링).
+            activityTypes={activeType ? [{ id: activeType.id, name: activeType.name }] : []}
             users={users}
             onOpened={() => {
               // 개설 직후 메타·라인 목록·탭 dot 데이터 재조회(manage 탭과 동기화).

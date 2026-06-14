@@ -186,14 +186,24 @@ export function matchCafeComments(
 }
 
 // ── 크루 레코드 로더 ──
-// 매칭은 클럽 전체 크루 기준(실무 정보=common, 조직 무관). user_profiles 1행 = 1크루.
-// school/major 는 user_educations(우선) → user_profiles(school_name/department_name) 폴백.
-export async function loadCrewRecords(): Promise<CrewRecord[]> {
-  const { data: profiles, error: pErr } = await supabaseAdmin
+// user_profiles 1행 = 1크루. school/major 는 user_educations(우선) → user_profiles 폴백.
+//
+// organization 이 주어지면 그 조직(organization_slug) 소속 크루만 로드한다(라인 개설 크루 매칭의
+// org 격리 — 2026-06-14). 동명이인이 다른 조직에 있어도 현재 org 가 아니면 후보에서 제외된다.
+// organization 미지정(통합 모드) 시 전체 크루.
+export async function loadCrewRecords(
+  organization?: string | null,
+): Promise<CrewRecord[]> {
+  let profilesQuery = supabaseAdmin
     .from("user_profiles")
     .select(
       "user_id,display_name,school_name,department_name,organization_slug,current_team_name,current_part_name",
     );
+  const orgScope = organization?.trim() || null;
+  if (orgScope) {
+    profilesQuery = profilesQuery.eq("organization_slug", orgScope);
+  }
+  const { data: profiles, error: pErr } = await profilesQuery;
   if (pErr) throw new Error(pErr.message);
   const profileRows = (profiles ?? []) as Array<{
     user_id: string;
