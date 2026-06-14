@@ -95,7 +95,9 @@ const MENU_INTEGRATED: MenuItem[] = [
     children: [
       { label: "라인 등록", href: "/admin/lines/register" },
       { label: "라인 정보", href: "/admin/lines/info" },
-      { label: "개설 이력", href: "/admin/line-opening/line-history" },
+      // [비활성화 2026-06-14] 개설 이력 페이지 임시 비활성화(복구 시 주석 해제).
+      //   라우트도 page.tsx 에서 notFound() 처리됨.
+      // { label: "개설 이력", href: "/admin/line-opening/line-history" },
       { label: "라인 개설 [실무 경력]", href: "/admin/line-opening/practical-career" },
     ],
   },
