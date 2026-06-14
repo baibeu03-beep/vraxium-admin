@@ -19,7 +19,6 @@ import { Loader2, Trash2, Upload, X } from "lucide-react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -324,9 +323,9 @@ export default function LineRegistrationManager() {
   ]);
 
   return (
-    // /admin/periods/register 와 동일하게 페이지 width 를 그대로 사용한다
-    // (중앙 max-w 카드 제한 없음 — 좌우 여백은 (portal) layout 의 p-6 가 담당).
-    <div className="flex w-full flex-col gap-4">
+    // 폼이 너무 넓게 퍼지지 않도록 적정 너비로 제한하고, 다른 관리 페이지처럼
+    // mx-auto 로 가운데 정렬한다 (좌우 여백은 (portal) layout 의 p-6 가 담당).
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
       {banner && (
         <div
           className={cn(
@@ -346,10 +345,6 @@ export default function LineRegistrationManager() {
       <Card>
         <CardHeader>
           <CardTitle>라인 등록</CardTitle>
-          <CardDescription>
-            신규 라인을 등록 대장(line_registrations)에 저장합니다. 기존 허브별 개설
-            기능과는 분리되어 있습니다.
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* ── 기본 정보 — 1행 라인명 / 2행 허브·종류 / 3행 코드·유닛 링크 / 4행 메인 타이틀 ── */}

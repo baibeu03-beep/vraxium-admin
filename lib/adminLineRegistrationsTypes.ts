@@ -186,7 +186,7 @@ export function lineRegistrationDisplayMainTitle(
 
 // 변동 선택 시 입력칸 대신 노출하는 안내 문구.
 export const VARIABLE_MAIN_TITLE_NOTICE =
-  "고정된 메인 타이틀이 없으며, 개설 때 마다 입력하는 1차 정보가 됩니다.";
+  "고정된 메인 타이틀이 없으며, 개설 때 마다 입력하는 1차 정보가 됩니다. DB에는 ‘-’ 보이드 값으로 저장됩니다.";
 
 // 유닛 링크 미입력 시 DB 저장값.
 export const EMPTY_UNIT_LINK_SENTINEL = "-";
