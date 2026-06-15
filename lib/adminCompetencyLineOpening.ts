@@ -27,6 +27,8 @@ import {
 } from "@/lib/adminCluster4LinesData";
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { insertCompetencyOpeningLog } from "@/lib/adminCompetencyOpeningLogs";
+import { resolveCompetencyTestWeekOverrideMs } from "@/lib/cluster4CompetencyTestWeekException";
+import { resolveUserScope } from "@/lib/userScope";
 import {
   assertApprovedApplicationsInScope,
   cancelOpenedApplications,
@@ -51,14 +53,20 @@ function toStatusWeek(info: WeekInfo): StatusWeek {
 }
 
 // 이번 주(N) / 지난 주(개설 대상) StatusWeek + 대상 주차 weeks.id(UUID).
-async function resolveWeeks(): Promise<{
+//   mode=test 한정 — 2026 봄 휴식 꼬리에서는 개설 대상을 마지막 활동 주차 W13 으로 고정한다
+//   (실무 역량 허브 예외, resolveCompetencyTestWeekOverrideMs). 운영 모드는 정규 금요일경계 그대로.
+async function resolveWeeks(mode: ScopeMode = "operating"): Promise<{
   currentWeek: StatusWeek | null;
   targetWeek: StatusWeek | null;
   targetWeekId: string | null;
 }> {
   const todayIso = new Date().toISOString().slice(0, 10);
   const currentStartMs = getCurrentWeekStartMs(todayIso);
-  const openableStartMs = getOpenableWeekStartMs(todayIso);
+  const regularOpenableStartMs = getOpenableWeekStartMs(todayIso);
+  // 테스트 모드 예외(역량 한정): 적용되면 W13 시작 ms, 아니면 정규 대상 그대로.
+  const openableStartMs =
+    resolveCompetencyTestWeekOverrideMs(mode, regularOpenableStartMs) ??
+    regularOpenableStartMs;
   const currentInfo = currentStartMs != null ? describeWeekByStartMs(currentStartMs) : null;
   const targetInfo = openableStartMs != null ? describeWeekByStartMs(openableStartMs) : null;
 
@@ -250,6 +258,20 @@ async function collectAffectedUsers(lineIds: string[]): Promise<string[]> {
   return Array.from(affected);
 }
 
+// snapshot 무효화 대상 스코프 적용 — 운영 모드는 그대로, 테스트 모드는 테스트 모집단만 남긴다
+// (org audience 경로로 실사용자가 stale 처리되는 것을 차단 · 혼입 0). 마커 조회 실패 시 보수적
+// fail-safe: test 는 빈 결과(실사용자 절대 유입 안 됨)·operating 은 전체 유지.
+async function scopeAffectedUsers(
+  mode: ScopeMode,
+  org: OrganizationSlug,
+  affected: ReadonlySet<string>,
+): Promise<string[]> {
+  const ids = Array.from(affected);
+  if (mode !== "test" || ids.length === 0) return ids;
+  const scope = await resolveUserScope("test", org);
+  return scope.filter(ids);
+}
+
 export type CompetencyOpeningStatus = {
   currentWeek: StatusWeek | null;
   targetWeek: StatusWeek | null;
@@ -260,10 +282,12 @@ export type CompetencyOpeningStatus = {
 };
 
 // 상태창용 — 대상 주차에 활성(그 조직 소유) 역량 라인이 ≥1 이면 opened.
+//   mode 는 개설 대상 주차 판정에 사용(테스트 모드 W13 예외와 동일 SoT 라 상태창·개설이 같은 주차를 본다).
 export async function getCompetencyOpeningStatus(
   org: OrganizationSlug | null,
+  mode: ScopeMode = "operating",
 ): Promise<CompetencyOpeningStatus> {
-  const { currentWeek, targetWeek, targetWeekId } = await resolveWeeks();
+  const { currentWeek, targetWeek, targetWeekId } = await resolveWeeks(mode);
   let opened = false;
   let outputLink1 = "";
   let outputDescription = "";
@@ -300,7 +324,8 @@ export async function openCompetencyHub(input: {
   // 운영/테스트 모집단 — 신청/승인 명단 기반 라인 타깃 생성 시 fail-closed 가드로 전달.
   mode?: ScopeMode;
 }): Promise<CompetencyOpeningActionResult> {
-  const { targetWeekId } = await resolveWeeks();
+  const mode = input.mode ?? "operating";
+  const { targetWeekId } = await resolveWeeks(mode);
   if (!targetWeekId) {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });
   }
@@ -309,7 +334,7 @@ export async function openCompetencyHub(input: {
   const desc = (input.description ?? "").trim() || null;
 
   // 모드 스코프 사전 가드(write 0) — 승인 신청 대상에 운영↔테스트 혼입이 있으면 어떤 토글보다 먼저 422.
-  await assertApprovedApplicationsInScope(org, targetWeekId, input.mode ?? "operating");
+  await assertApprovedApplicationsInScope(org, targetWeekId, mode);
 
   const lines = await loadOrgCompetencyLines(org, targetWeekId);
   const lineIds = lines.map((l) => l.id);
@@ -399,7 +424,10 @@ export async function openCompetencyHub(input: {
   if (lineIds.length > 0) {
     for (const u of await collectAffectedUsers(lineIds)) affected.add(u);
   }
-  if (affected.size > 0) await markWeeklyCardsSnapshotStaleMany(Array.from(affected));
+  // 테스트 모드에서는 snapshot 무효화 대상을 테스트 모집단으로 좁힌다 — org audience(synthetic-fail)
+  // 경로로 실사용자가 섞이지 않도록(혼입 0). 운영 모드는 기존대로 전체 영향 유저 반영.
+  const affectedUsers = await scopeAffectedUsers(mode, org, affected);
+  if (affectedUsers.length > 0) await markWeeklyCardsSnapshotStaleMany(affectedUsers);
 
   await insertCompetencyOpeningLog({
     action: "open",
@@ -423,8 +451,11 @@ export async function openCompetencyHub(input: {
 export async function cancelCompetencyHub(input: {
   organization: OrganizationSlug;
   adminId: string | null;
+  // 운영/테스트 모드 — 개설(open)과 동일 주차를 대상으로 취소하도록 전달(테스트 모드 W13 예외 정합).
+  mode?: ScopeMode;
 }): Promise<CompetencyOpeningActionResult> {
-  const { targetWeekId } = await resolveWeeks();
+  const mode = input.mode ?? "operating";
+  const { targetWeekId } = await resolveWeeks(mode);
   if (!targetWeekId) {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });
   }
@@ -498,7 +529,8 @@ export async function cancelCompetencyHub(input: {
   if (lineIds.length > 0) {
     for (const u of await collectAffectedUsers(lineIds)) affected.add(u);
   }
-  if (affected.size > 0) await markWeeklyCardsSnapshotStaleMany(Array.from(affected));
+  const affectedUsers = await scopeAffectedUsers(mode, org, affected);
+  if (affectedUsers.length > 0) await markWeeklyCardsSnapshotStaleMany(affectedUsers);
 
   await insertCompetencyOpeningLog({
     action: "cancel",

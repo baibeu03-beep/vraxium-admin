@@ -5,6 +5,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { readScopeMode } from "@/lib/userScope";
 import { getCompetencyOpeningStatus } from "@/lib/adminCompetencyLineOpening";
 
 // 실무 역량 라인 개설 상태창(운영 대시보드) 데이터 — read-only.
@@ -29,9 +30,11 @@ export async function GET(request: NextRequest) {
 
   const orgRaw = request.nextUrl.searchParams.get("organization")?.trim() || null;
   const org = isOrganizationSlug(orgRaw) ? orgRaw : null;
+  // 운영/테스트 모드 — 개설 대상 주차 판정에 사용(테스트 모드 W13 예외와 동일 SoT).
+  const mode = readScopeMode(request.nextUrl.searchParams);
 
   try {
-    const data = await getCompetencyOpeningStatus(org);
+    const data = await getCompetencyOpeningStatus(org, mode);
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[admin/cluster4/competency/opening-status GET]", error);

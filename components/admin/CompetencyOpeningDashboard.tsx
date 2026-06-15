@@ -69,23 +69,36 @@ export default function CompetencyOpeningDashboard() {
   // 초기화 기준값(폼 로드 시점의 prefill). [초기화] = DB 통신 없이 이 값으로 복원.
   const [initialLink, setInitialLink] = useState("");
   const [initialDesc, setInitialDesc] = useState("");
+  // 서버가 판정한 개설 대상 주차 시작일(YYYY-MM-DD). 테스트 모드 W13 예외가 반영된 권위값 —
+  // 드롭다운 표기를 이 주차로 맞춰 "상태창/실제 개설 대상"과 일치시킨다(운영 모드는 정규 주차).
+  const [targetStartDate, setTargetStartDate] = useState<string | null>(null);
 
   // 개설 주차 커스텀 드롭다운 열림 상태(메인 표기 + 날짜 도움말 2줄 옵션을 위해 native select 대신 사용).
   const [weekMenuOpen, setWeekMenuOpen] = useState(false);
   const weekMenuRef = useRef<HTMLDivElement>(null);
 
-  // 개설 대상 주차(금요일 경계 = isOpenTarget). practical-info 의 개설할 주차 로직과 동일 SoT.
+  // 개설 대상 주차 — 서버 판정값(targetStartDate, 테스트 모드 W13 예외 반영) 우선,
+  // 없으면 정규 금요일 경계(isOpenTarget). practical-info 의 개설할 주차 로직과 동일 SoT.
   const openTargetWeek =
-    weekOptions.find((w) => w.isOpenTarget) ?? weekOptions.find((w) => w.isCurrent) ?? null;
+    (targetStartDate
+      ? weekOptions.find((w) => w.startDate === targetStartDate)
+      : undefined) ??
+    weekOptions.find((w) => w.isOpenTarget) ??
+    weekOptions.find((w) => w.isCurrent) ??
+    null;
 
   const fetchStatus = useCallback(async () => {
     setLoadingStatus(true);
     try {
       const qs = org ? `?organization=${encodeURIComponent(org)}` : "";
-      const res = await fetch(`/api/admin/cluster4/competency/opening-status${qs}`);
+      // mode 보존 — 상태창/개설과 동일 모드로 개설 대상 주차(테스트 W13 예외)를 판정.
+      const res = await fetch(
+        appendModeQuery(`/api/admin/cluster4/competency/opening-status${qs}`, mode),
+      );
       const json = await res.json();
       if (json?.success) {
         setOpened(Boolean(json.data?.opened));
+        setTargetStartDate(json.data?.targetWeek?.startDate ?? null);
         // 현재 적용된 공통 아웃풋으로 입력칸 prefill(개설 완료/취소 직후 동기화).
         const link = json.data?.outputLink1 ?? "";
         const desc = json.data?.outputDescription ?? "";
@@ -102,7 +115,7 @@ export default function CompetencyOpeningDashboard() {
     } finally {
       setLoadingStatus(false);
     }
-  }, [org]);
+  }, [org, mode]);
 
   useEffect(() => {
     void fetchStatus();

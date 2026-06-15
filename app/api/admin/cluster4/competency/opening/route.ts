@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
             adminId: admin.userId,
             mode,
           })
-        : await cancelCompetencyHub({ organization: orgRaw, adminId: admin.userId });
+        : await cancelCompetencyHub({ organization: orgRaw, adminId: admin.userId, mode });
     return Response.json({ success: true, data }, { status: 201 });
   } catch (error) {
     const status = (error as { status?: number }).status ?? 500;
