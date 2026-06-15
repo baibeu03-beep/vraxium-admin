@@ -22,12 +22,15 @@ import {
   getCurrentWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
+import { listTeamParts, listPartCrews } from "@/lib/adminExperiencePartInput";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   processCheckLogPeriodLabel,
   processCheckPeriodLabel,
   validateReviewLink,
   validateScheduledCheckAt,
+  isPartLineGroupName,
+  TEAM_OVERALL_LABEL,
   type ProcessCheckAction,
   type ProcessCheckActRowDto,
   type ProcessCheckBoardDto,
@@ -35,6 +38,9 @@ import {
   type ProcessCheckLogAction,
   type ProcessCheckLogDto,
   isTeamBasedProcessHub,
+  type ProcessCheckScopeKind,
+  isProcessCheckScopeKind,
+  isCheckableScope,
   type ProcessCheckStatus,
   type ProcessCheckSummary,
   type ProcessCheckTeamDto,
@@ -75,6 +81,43 @@ function migrationHint(error: { code?: string } | null): ProcessMasterError | nu
     );
   }
   return null;
+}
+
+// part_name 컬럼 없음(v4 미적용) 식별 — 컬럼 미정의/스키마 캐시 미반영 코드.
+function isPartColumnMissing(error: { code?: string } | null): boolean {
+  const code = error?.code;
+  return code === "42703" || code === "PGRST204" || code === "PGRST205";
+}
+
+// v4(part_name) 적용 여부 — true 만 캐시(적용 후 영구). 미적용이면 매번 재탐(저렴·degraded 일시).
+//   미적용 시: 파트별 독립 불가 → 파트 write 는 fail-closed, read 는 파트 미구분(공유)로 degrade.
+let _partColAvailable = false;
+async function partNameColumnAvailable(): Promise<boolean> {
+  if (_partColAvailable) return true;
+  const { error } = await supabaseAdmin.from("process_check_statuses").select("part_name").limit(1);
+  if (!error) {
+    _partColAvailable = true;
+    return true;
+  }
+  if (isPartColumnMissing(error)) return false;
+  // 다른 에러(권한 등)면 일단 있다고 보고 진행(실제 쿼리에서 표면화).
+  return true;
+}
+
+const PART_MIGRATION_HINT =
+  "파트별 체크는 part_name 컬럼(v4)이 필요합니다. db/migrations/2026-06-15_process_check_v4_part_scope.sql 을 SQL Editor 에서 적용해주세요.";
+
+// 선택 팀의 팀명 조회(org·active 검증). 없으면 null.
+async function resolveTeamName(teamId: string, organization: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_teams")
+    .select("team_name")
+    .eq("id", teamId)
+    .eq("organization_slug", organization)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (error) return null;
+  return (data as { team_name: string } | null)?.team_name ?? null;
 }
 
 // ── 현재 주차 (이번 주 N — 월~일) + weeks.id ─────────────────────────────────
@@ -211,42 +254,50 @@ type StatusState = {
 const STATUS_SELECT =
   "act_id,status,review_link,scheduled_check_at,requested_at,completed_at,checked_crew_count";
 
-async function loadStatuses(
+function toStatusState(r: StatusRow): StatusState {
+  const status: ProcessCheckStatus =
+    r.status === "pending" || r.status === "completed" ? r.status : "needed";
+  return {
+    status,
+    reviewLink: r.review_link,
+    scheduledCheckAt: r.scheduled_check_at,
+    requestedAt: r.requested_at,
+    completedAt: r.completed_at,
+    checkedCrewCount: r.checked_crew_count,
+  };
+}
+
+type StatusRowFull = { actId: string; partName: string | null; state: StatusState };
+
+// (org, hub, week, team) 상태 행 전체 — part_name 포함(v4). 스코프 필터는 호출부(JS)에서.
+//   info 등 비팀 허브는 team_id IS NULL(기존). v4 미적용이면 part_name 없이 조회(전부 partName=null).
+async function loadStatusRows(
   organization: string,
   hub: ProcessHub,
   weekId: string,
   teamId: string | null,
-): Promise<Map<string, StatusState>> {
-  const map = new Map<string, StatusState>();
+  partAvail: boolean,
+): Promise<StatusRowFull[]> {
+  const sel = partAvail ? `${STATUS_SELECT},part_name` : STATUS_SELECT;
   let query = supabaseAdmin
     .from("process_check_statuses")
-    .select(STATUS_SELECT)
+    .select(sel)
     .eq("organization_slug", organization)
     .eq("hub", hub)
     .eq("week_id", weekId);
-  // 팀 스코프 — 팀 구분 허브(experience)만 team_id 필터(일치 / IS NULL). info 등은 team_id 미참조
-  //   (v3 미적용 환경에서도 info 가 깨지지 않도록 — 회귀 금지).
   if (isTeamBasedProcessHub(hub)) {
     query = teamId ? query.eq("team_id", teamId) : query.is("team_id", null);
   }
   const { data, error } = await query;
   if (error) {
     console.warn("[process-check-statuses] read unavailable:", error.message);
-    return map;
+    return [];
   }
-  for (const r of (data ?? []) as StatusRow[]) {
-    const status: ProcessCheckStatus =
-      r.status === "pending" || r.status === "completed" ? r.status : "needed";
-    map.set(r.act_id, {
-      status,
-      reviewLink: r.review_link,
-      scheduledCheckAt: r.scheduled_check_at,
-      requestedAt: r.requested_at,
-      completedAt: r.completed_at,
-      checkedCrewCount: r.checked_crew_count,
-    });
-  }
-  return map;
+  return ((data ?? []) as unknown as Array<StatusRow & { part_name?: string | null }>).map((r) => ({
+    actId: r.act_id,
+    partName: partAvail ? (r.part_name ?? null) : null,
+    state: toStatusState(r),
+  }));
 }
 
 const NEEDED: StatusState = {
@@ -266,16 +317,53 @@ export async function getProcessCheckBoard(
   teamId: string | null = null,
   // 팀 목록 스코프(operating=운영 팀만 / test=(T) 팀만). 기본 operating.
   mode: ScopeMode = "operating",
+  // 팀·파트 스코프(experience 섹션.1). null = 비팀/섹션.0. team_all=읽기전용 전체.
+  scope: ProcessCheckScopeKind | null = null,
+  // 선택 파트명(scope=part). user_memberships 의 실제 파트.
+  partName: string | null = null,
 ): Promise<ProcessCheckBoardDto> {
   const week = await resolveCurrentWeek(hub, mode);
   const { groups, acts } = await loadActiveMaster(hub);
-  const statusByAct = week?.weekId
-    ? await loadStatuses(organization, hub, week.weekId, teamId)
-    : new Map<string, StatusState>();
+  const teamBased = isTeamBasedProcessHub(hub);
+
   // 팀 구분 허브면 org 팀 동적 조회(상태창1 팀별 문장 + 섹션.1 탭). 그 외는 빈 배열(허브 전체 1문장).
-  const teams = isTeamBasedProcessHub(hub)
-    ? await loadProcessCheckTeams(organization, mode)
-    : [];
+  const teams = teamBased ? await loadProcessCheckTeams(organization, mode) : [];
+
+  // 실제 팀 파트 목록(드롭다운) — user_memberships(part_name) · org+mode 스코프. 팀 선택 시에만.
+  const teamName = teamBased && teamId ? await resolveTeamName(teamId, organization) : null;
+  const teamParts = teamName ? await listTeamParts(organization, teamName, mode) : [];
+
+  // 유효 스코프 — 팀 선택(experience)일 때만. 기본 team_all. part 인데 partName 이 팀 파트가 아니면 team_all 폴백.
+  const partAvail = teamBased && teamId ? await partNameColumnAvailable() : false;
+  let effScope: ProcessCheckScopeKind | null = null;
+  let effPart: string | null = null;
+  if (teamBased && teamId) {
+    effScope = scope ?? "team_all";
+    if (effScope === "part") {
+      effPart = partName && teamParts.includes(partName) ? partName : null;
+      if (!effPart) effScope = "team_all"; // 알 수 없는 파트 → 읽기전용 폴백
+    }
+  }
+
+  // 상태 행 로드 + 스코프별 액트→상태 맵 구성.
+  const rows = week?.weekId ? await loadStatusRows(organization, hub, week.weekId, teamId, partAvail) : [];
+  const nullMap = new Map<string, StatusState>(); // part_name IS NULL(팀 총괄/info)
+  const perActPerPart = new Map<string, Map<string, StatusState>>(); // 파트 액트(act→part→state)
+  for (const r of rows) {
+    if (r.partName == null) {
+      nullMap.set(r.actId, r.state);
+    } else {
+      let m = perActPerPart.get(r.actId);
+      if (!m) perActPerPart.set(r.actId, (m = new Map()));
+      m.set(r.partName, r.state);
+    }
+  }
+  // 스코프별 액트 필터(표시 대상).
+  const inScope = (lineGroupName: string): boolean => {
+    if (effScope === "team_overall") return !isPartLineGroupName(lineGroupName);
+    if (effScope === "part") return isPartLineGroupName(lineGroupName);
+    return true; // team_all · 비팀(info)/섹션.0 → 전체
+  };
 
   const groupNameById = new Map<string, string>();
   const groupSort = new Map<string, number>();
@@ -295,30 +383,57 @@ export async function getProcessCheckBoard(
       (groupSort.get(a.line_group_id) ?? 0) - (groupSort.get(b.line_group_id) ?? 0) ||
       a.created_at.localeCompare(b.created_at),
   );
-  const flatActs: ProcessCheckActRowDto[] = sortedActs.map((a) => {
-    const st = statusByAct.get(a.id) ?? NEEDED;
-    return {
-      actId: a.id,
-      lineGroupId: a.line_group_id,
-      lineGroupName: groupNameById.get(a.line_group_id) ?? "-",
-      actName: a.act_name,
-      durationMinutes: a.duration_minutes,
-      occurWhen: formatProcessWhen(a.occur_week as ProcessWeekRef, a.occur_dow, a.occur_time),
-      checkWhen: formatProcessWhen(a.check_week as ProcessWeekRef, a.check_dow, a.check_time),
-      pointCheck: a.point_check,
-      pointAdvantage: a.point_advantage,
-      pointPenalty: a.point_penalty,
-      crewReactionLabel: PROCESS_ACT_TYPE_LABEL[a.act_type as ProcessActType] ?? a.act_type,
-      cafeLabel: PROCESS_CAFE_LABEL[a.cafe as ProcessCafe] ?? a.cafe,
-      isCheckTarget: a.check_target === "check",
-      status: st.status,
-      reviewLink: st.reviewLink,
-      scheduledCheckAt: st.scheduledCheckAt,
-      requestedAt: st.requestedAt,
-      completedAt: st.completedAt,
-      checkedCrewCount: st.checkedCrewCount,
-    };
+  // 한 액트 + 상태 + 파트라벨 → 행 DTO. (정적 필드 공통)
+  const buildRow = (a: ActRow, lineGroupName: string, st: StatusState, partLabel: string): ProcessCheckActRowDto => ({
+    actId: a.id,
+    lineGroupId: a.line_group_id,
+    lineGroupName,
+    partLabel,
+    actName: a.act_name,
+    durationMinutes: a.duration_minutes,
+    occurWhen: formatProcessWhen(a.occur_week as ProcessWeekRef, a.occur_dow, a.occur_time),
+    checkWhen: formatProcessWhen(a.check_week as ProcessWeekRef, a.check_dow, a.check_time),
+    pointCheck: a.point_check,
+    pointAdvantage: a.point_advantage,
+    pointPenalty: a.point_penalty,
+    crewReactionLabel: PROCESS_ACT_TYPE_LABEL[a.act_type as ProcessActType] ?? a.act_type,
+    cafeLabel: PROCESS_CAFE_LABEL[a.cafe as ProcessCafe] ?? a.cafe,
+    isCheckTarget: a.check_target === "check",
+    status: st.status,
+    reviewLink: st.reviewLink,
+    scheduledCheckAt: st.scheduledCheckAt,
+    requestedAt: st.requestedAt,
+    completedAt: st.completedAt,
+    checkedCrewCount: st.checkedCrewCount,
   });
+
+  // 행 생성 — partLabel("팀 총괄"/파트명) 부여. 팀 전체(team_all)의 파트 액트는 팀 파트마다 1행으로 펼친다
+  //   (액트가 특정 파트에 묶이지 않으므로, 각 파트의 독립 상태를 그대로 노출 — "팀 전체"는 값으로 안 씀).
+  const flatActs: ProcessCheckActRowDto[] = [];
+  for (const a of sortedActs) {
+    const lineGroupName = groupNameById.get(a.line_group_id) ?? "-";
+    if (!inScope(lineGroupName)) continue;
+    const isPart = isPartLineGroupName(lineGroupName);
+
+    if (effScope === "part") {
+      // 선택 파트만 — partLabel = 선택 파트명, 상태 = 그 파트 행.
+      flatActs.push(buildRow(a, lineGroupName, perActPerPart.get(a.id)?.get(effPart!) ?? NEEDED, effPart!));
+    } else if (effScope === "team_overall") {
+      flatActs.push(buildRow(a, lineGroupName, nullMap.get(a.id) ?? NEEDED, TEAM_OVERALL_LABEL));
+    } else if (effScope === "team_all" && isPart) {
+      // 팀 전체 — 파트 액트는 팀 파트마다 펼침(각 파트 독립 상태). 파트 없으면 1행(미배정).
+      if (teamParts.length === 0) {
+        flatActs.push(buildRow(a, lineGroupName, NEEDED, "파트(미배정)"));
+      } else {
+        for (const part of teamParts) {
+          flatActs.push(buildRow(a, lineGroupName, perActPerPart.get(a.id)?.get(part) ?? NEEDED, part));
+        }
+      }
+    } else {
+      // team_all 의 총괄 액트 · 비팀(info)/섹션.0 → part_name NULL 행. (info 는 컬럼 미표시)
+      flatActs.push(buildRow(a, lineGroupName, nullMap.get(a.id) ?? NEEDED, isPart ? "파트" : TEAM_OVERALL_LABEL));
+    }
+  }
 
   // 라인급 칩 — 체크 대상 ≥1 라인급. 신청완료 = pending|completed.
   const applied = (s: ProcessCheckStatus) => s === "pending" || s === "completed";
@@ -351,12 +466,21 @@ export async function getProcessCheckBoard(
 
   const logs = await listProcessCheckLogs(hub, organization, week?.weekId ?? null);
 
+  // 선택 파트의 체크 대상 크루 수(표시·가드 참고) — scope=part 일 때만.
+  let selectedPart: { name: string; crewCount: number } | null = null;
+  if (effScope === "part" && effPart && teamName) {
+    const crews = await listPartCrews(organization, teamName, effPart, mode);
+    selectedPart = { name: effPart, crewCount: crews.length };
+  }
+
   return {
     hub,
     hubLabel: PROCESS_HUB_LABEL[hub],
     organization,
     week,
     teams,
+    teamParts,
+    selectedPart,
     lineGroups,
     acts: flatActs,
     summary,
@@ -370,13 +494,14 @@ type LogRow = {
   action: string;
   period_label: string;
   team_name?: string | null; // v3 미적용 fallback select 시 미포함
+  part_name?: string | null; // v4 미적용 fallback select 시 미포함
   line_group_name: string;
   act_name: string;
   actor_name: string;
   created_at: string;
 };
 
-// 로그창은 섹션.0(전체 팀) — 팀 필터 없이 org×hub×week 전체. 각 행은 team_name(있으면) 표시.
+// 로그창은 섹션.0(전체 팀) — 팀 필터 없이 org×hub×week 전체. 각 행은 team_name/part_name(있으면) 표시.
 export async function listProcessCheckLogs(
   hub: ProcessHub,
   organization: string,
@@ -384,14 +509,18 @@ export async function listProcessCheckLogs(
   limit = 200,
 ): Promise<ProcessCheckLogDto[]> {
   const cap = Math.min(Math.max(limit, 1), 500);
-  const run = (withTeam: boolean) => {
+  const BASE = "id,action,period_label,line_group_name,act_name,actor_name,created_at";
+  // tier: 2=team_name+part_name(v4) · 1=team_name(v3) · 0=none(v2). 상위 실패(42703)면 하위로.
+  const run = (tier: number) => {
+    const sel =
+      tier >= 2
+        ? `id,action,period_label,team_name,part_name,${BASE.slice(BASE.indexOf("line_group_name"))}`
+        : tier === 1
+          ? `id,action,period_label,team_name,${BASE.slice(BASE.indexOf("line_group_name"))}`
+          : BASE;
     let q = supabaseAdmin
       .from("process_check_logs")
-      .select(
-        withTeam
-          ? "id,action,period_label,team_name,line_group_name,act_name,actor_name,created_at"
-          : "id,action,period_label,line_group_name,act_name,actor_name,created_at",
-      )
+      .select(sel)
       .eq("organization_slug", organization)
       .eq("hub", hub)
       .order("created_at", { ascending: false })
@@ -399,11 +528,9 @@ export async function listProcessCheckLogs(
     if (weekId) q = q.eq("week_id", weekId);
     return q;
   };
-  let { data, error } = await run(true);
-  // team_name 컬럼(v3) 미적용 환경이면 team_name 없이 재시도(info 로그 회귀 방지).
-  if (error && (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205")) {
-    ({ data, error } = await run(false));
-  }
+  let { data, error } = await run(2);
+  if (error && isPartColumnMissing(error)) ({ data, error } = await run(1)); // v4 미적용
+  if (error && isPartColumnMissing(error)) ({ data, error } = await run(0)); // v3 미적용
   if (error) {
     console.warn("[process-check-logs] list unavailable:", error.message);
     return [];
@@ -413,6 +540,7 @@ export async function listProcessCheckLogs(
     action: r.action as ProcessCheckLogAction,
     periodLabel: r.period_label,
     teamName: r.team_name ?? null, // 팀 구분 허브(experience)만 채워짐 — info 등은 null
+    partName: r.part_name ?? null, // 파트 스코프 체크만 채워짐 — 팀 총괄/info 등은 null
     lineGroupName: r.line_group_name,
     actName: r.act_name,
     actorName: r.actor_name,
@@ -431,6 +559,10 @@ export async function applyProcessCheckAction(input: {
   actId: string;
   action: ProcessCheckAction;
   teamId?: string | null;
+  // 팀·파트 스코프(experience 필수). team_all=읽기전용(거부) / team_overall / part.
+  //   part 일 때 partName 이 그 팀(org+mode)의 실제 파트여야 한다(타 파트/타 org/타 mode 강제 차단).
+  scope?: ProcessCheckScopeKind | null;
+  partName?: string | null;
   reviewLink?: unknown;
   scheduledCheckAt?: unknown;
   adminId: string;
@@ -501,7 +633,50 @@ export async function applyProcessCheckAction(input: {
     .maybeSingle();
   const lineGroupName = (groupData as { name: string } | null)?.name ?? "-";
 
-  // 현재 상태 행 — 팀 구분 허브(experience)만 team_id 필터. info 는 미참조(v3 무관·회귀 금지).
+  // 팀·파트 스코프 검증 — 팀 구분 허브(experience)만. 프론트 숨김에 의존하지 않고 서버에서
+  //   강제 POST(다른 팀/파트/org/mode 범위)를 fail-closed(422)로 차단한다.
+  //   액트 파트 여부 = 라인급명("파트" 포함). 파트 식별 = user_memberships 실제 파트(listTeamParts).
+  //   info 등 비팀 허브는 scope 미참조(회귀 금지).
+  let partNameToStore: string | null = null;
+  if (teamBased) {
+    const scope = isProcessCheckScopeKind(input.scope) ? input.scope : null;
+    if (!scope) {
+      throw new ProcessMasterError(422, "체크 범위(scope: team_overall|part)가 필요합니다");
+    }
+    if (!isCheckableScope(scope)) {
+      // team_all = 팀 전체 = 읽기 전용.
+      throw new ProcessMasterError(422, "‘팀 전체’ 범위에서는 체크 신청/취소를 할 수 없습니다");
+    }
+    const actIsPart = isPartLineGroupName(lineGroupName);
+    if (scope === "team_overall") {
+      if (actIsPart) {
+        throw new ProcessMasterError(422, "팀 총괄 범위에서는 파트 액트를 체크할 수 없습니다");
+      }
+      partNameToStore = null;
+    } else {
+      // scope === "part"
+      if (!actIsPart) {
+        throw new ProcessMasterError(422, "파트 범위에서는 파트 액트만 체크할 수 있습니다");
+      }
+      const claimedPart =
+        typeof input.partName === "string" && input.partName.trim() ? input.partName.trim() : null;
+      if (!claimedPart) throw new ProcessMasterError(422, "파트(part_name)가 필요합니다");
+      // 선택 파트가 그 팀(org+mode)의 실제 파트인지 — 타 파트/타 org/타 mode 차단(fail-closed).
+      const parts = teamName
+        ? await listTeamParts(organization, teamName, input.mode ?? "operating")
+        : [];
+      if (!parts.includes(claimedPart)) {
+        throw new ProcessMasterError(422, "선택한 파트가 이 팀(현재 모드/조직)의 파트가 아닙니다");
+      }
+      // 파트별 독립 체크는 part_name 컬럼(v4) 필요 — 미적용이면 fail-closed.
+      if (!(await partNameColumnAvailable())) {
+        throw new ProcessMasterError(500, PART_MIGRATION_HINT);
+      }
+      partNameToStore = claimedPart;
+    }
+  }
+
+  // 현재 상태 행 — 팀 구분 허브(experience)만 team_id + part_name 필터. info 는 미참조(v3/v4 무관·회귀 금지).
   let curQuery = supabaseAdmin
     .from("process_check_statuses")
     .select("id,status,scheduled_check_at")
@@ -511,6 +686,10 @@ export async function applyProcessCheckAction(input: {
     .eq("act_id", actId);
   if (teamBased) {
     curQuery = teamId ? curQuery.eq("team_id", teamId) : curQuery.is("team_id", null);
+    // part_name 스코프 — v4 적용 시에만 필터(team_overall=IS NULL · part=eq). 미적용이면 미참조.
+    if (await partNameColumnAvailable()) {
+      curQuery = partNameToStore ? curQuery.eq("part_name", partNameToStore) : curQuery.is("part_name", null);
+    }
   }
   const { data: cur, error: curErr } = await curQuery.maybeSingle();
   if (curErr) throw migrationHint(curErr) ?? new ProcessMasterError(500, curErr.message);
@@ -587,6 +766,8 @@ export async function applyProcessCheckAction(input: {
       week_id: weekId,
       // 팀 구분 허브만 team_id 기입(info 등은 컬럼 미참조 — v3 무관).
       ...(teamBased ? { team_id: teamId } : {}),
+      // 팀 구분 허브 + v4 적용 시 part_name(part=파트명·team_overall=NULL). info/미적용은 미기입.
+      ...(teamBased && (await partNameColumnAvailable()) ? { part_name: partNameToStore } : {}),
       line_group_id: act.line_group_id,
       act_id: actId,
       ...stamp,
@@ -600,6 +781,7 @@ export async function applyProcessCheckAction(input: {
     weekId,
     teamId,
     teamName,
+    partName: teamBased ? partNameToStore : null,
     actId,
     lineGroupId: act.line_group_id,
     action: logAction,
@@ -622,6 +804,7 @@ export async function applyProcessCheckAction(input: {
     actId,
     lineGroupId: act.line_group_id,
     lineGroupName,
+    partLabel: teamBased ? (partNameToStore ?? TEAM_OVERALL_LABEL) : TEAM_OVERALL_LABEL,
     actName: act.act_name,
     durationMinutes: act.duration_minutes,
     occurWhen: formatProcessWhen(act.occur_week as ProcessWeekRef, act.occur_dow, act.occur_time),
@@ -647,6 +830,7 @@ async function insertProcessCheckLog(input: {
   weekId: string;
   teamId: string | null;
   teamName: string | null;
+  partName: string | null;
   actId: string;
   lineGroupId: string;
   action: ProcessCheckLogAction;
@@ -665,7 +849,7 @@ async function insertProcessCheckLog(input: {
     const dn = (prof as { display_name: string | null } | null)?.display_name?.trim();
     if (dn) actorName = dn;
 
-    const { error } = await supabaseAdmin.from("process_check_logs").insert({
+    const base = {
       organization_slug: input.organization,
       hub: input.hub,
       week_id: input.weekId,
@@ -678,7 +862,13 @@ async function insertProcessCheckLog(input: {
       line_group_name: input.lineGroupName,
       act_name: input.actName,
       actor_name: actorName,
-    });
+    };
+    // v4 적용 시 part_name(denorm) 포함. 미적용(42703)이면 part_name 없이 재시도(로그 회귀 방지).
+    const withPart = input.teamId ? { ...base, part_name: input.partName } : base;
+    let { error } = await supabaseAdmin.from("process_check_logs").insert(withPart);
+    if (error && isPartColumnMissing(error) && withPart !== base) {
+      ({ error } = await supabaseAdmin.from("process_check_logs").insert(base));
+    }
     if (error) console.warn("[process-check-logs] insert skipped:", error.message);
   } catch (e) {
     console.warn("[process-check-logs] insert failed:", e instanceof Error ? e.message : e);

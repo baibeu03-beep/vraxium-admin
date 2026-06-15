@@ -38,9 +38,9 @@ try {
   await page.goto(`${BASE}/admin/processes/check/experience?org=oranke`, { waitUntil: "networkidle" });
   await page.waitForTimeout(1200);
   const expBody = (await page.locator("body").textContent()) ?? "";
-  ck("[experience] '(전체 팀)' 카드 제거됨", !/전체 팀/.test(expBody));
-  ck("[experience] '선택 팀' 상태창2 유지", /선택 팀/.test(expBody), "선택 팀 상태창2/탭");
-  ck("[experience] 액트 목록 테이블 유지", /\[섹션\.1\] 액트 목록/.test(expBody));
+  ck("[experience] '(전체 팀)' 카드 제거됨", !/\(전체 팀\)/.test(expBody));
+  ck("[experience] 선택 팀 상태창2(상태창 2 ·) 유지", /상태창 2 ·/.test(expBody), "선택 팀 상태창2");
+  ck("[experience] 액트 목록 테이블 유지(헤더 '소속 라인 급')", /소속 라인 급/.test(expBody));
   ck("[experience] 로그창/상태창 헤더 유지", /로그창/.test(expBody) && /상태창/.test(expBody));
 
   // info — (비팀) 상태창2 카드 그대로(회귀 없음).

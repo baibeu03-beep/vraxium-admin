@@ -19,6 +19,7 @@ import {
   validateReviewLink,
   validateScheduledCheckAt,
   type ProcessCheckActRowDto,
+  type ProcessCheckScopeKind,
 } from "@/lib/adminProcessCheckTypes";
 
 // 30분 단위 시간 슬롯(00:00 ~ 23:30).
@@ -59,6 +60,8 @@ export default function ProcessCheckActDialog({
   organization,
   teamId = null,
   mode = "operating",
+  scope = null,
+  partName = null,
   onClose,
   onDone,
 }: {
@@ -67,6 +70,9 @@ export default function ProcessCheckActDialog({
   organization: string;
   teamId?: string | null; // experience 섹션.1 선택 팀 스코프(POST team_id). info=null.
   mode?: ScopeMode; // operating=현재 주차 / test=info 13주차 예외. 저장 주차를 보드와 일치시킨다.
+  // experience 팀·파트 스코프 — team_overall|part(team_all 은 읽기전용이라 팝업이 열리지 않음).
+  scope?: ProcessCheckScopeKind | null;
+  partName?: string | null; // part 스코프일 때 선택 파트명(user_memberships 실제 파트).
   onClose: () => void;
   onDone: () => void; // 성공 후 보드/로그/상태창 재조회
 }) {
@@ -121,6 +127,9 @@ export default function ProcessCheckActDialog({
           organization,
           act_id: act.actId,
           ...(teamId ? { team_id: teamId } : {}),
+          // experience 팀·파트 스코프(서버 fail-closed 가드와 동일 축). info=미부착.
+          ...(scope ? { scope } : {}),
+          ...(scope === "part" && partName ? { part_name: partName } : {}),
           // 운영 모드면 미부착(기존 페이로드 불변) — 서버 기본 operating.
           ...(mode === "test" ? { mode: "test" } : {}),
           action,

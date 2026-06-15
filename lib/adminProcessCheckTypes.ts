@@ -48,6 +48,27 @@ export function isProcessCheckAction(v: unknown): v is ProcessCheckAction {
   return v === "request" || v === "cancel";
 }
 
+// ── 팀·파트 스코프 (experience 섹션.1) ─────────────────────────────────────────
+//   team_all     = 팀 전체(팀 총괄 + 모든 파트 액트) — 읽기 전용(체크 신청/취소 불가).
+//   team_overall = 팀 총괄(특정 파트에 속하지 않은 액트) — 체크 가능.
+//   part         = 특정 파트(소속 라인급명에 "파트" 포함) — 체크 가능(대상=그 파트 크루).
+// 정책(2026-06-15): "파트 액트" = 소속 라인급(process_line_groups.name)에 "파트" 문자 포함.
+//   팀 총괄 액트 = 파트가 아닌 액트. 스코프는 act 의 line_group 으로 서버가 독립 재검증한다
+//   (part 식별자 = line_group_id — 상태행에 이미 저장되어 별도 컬럼 불필요).
+export type ProcessCheckScopeKind = "team_all" | "team_overall" | "part";
+export function isProcessCheckScopeKind(v: unknown): v is ProcessCheckScopeKind {
+  return v === "team_all" || v === "team_overall" || v === "part";
+}
+// team_all 은 읽기 전용 — 체크 신청/취소가 가능한 스코프인지.
+export function isCheckableScope(kind: ProcessCheckScopeKind): boolean {
+  return kind === "team_overall" || kind === "part";
+}
+
+// 소속 라인급명에 "파트" 문자가 포함되면 파트 액트(서버/클라 공용 단일 판정).
+export function isPartLineGroupName(name: string | null | undefined): boolean {
+  return (name ?? "").includes("파트");
+}
+
 // ── 검수 시점 검증 (now < scheduled ≤ now+7d) — 서버/클라 공용 SoT ──────────────
 export const CHECK_SCHEDULE_MAX_DAYS = 7;
 const DAY_MS = 86_400_000;
@@ -77,10 +98,15 @@ export function validateReviewLink(raw: unknown): { ok: true; value: string } | 
 
 // ── DTO ──────────────────────────────────────────────────────────────────────
 // [섹션.1] 액트 목록 테이블 한 행 — 마스터(process_acts) + 체크 상태(현재값).
+// "팀 & 파트" 컬럼 값 — 팀 총괄 액트 = "팀 총괄" / 파트 액트 = 파트명. ("팀 전체"는 값이 아님)
+export const TEAM_OVERALL_LABEL = "팀 총괄";
+
 export type ProcessCheckActRowDto = {
   actId: string;
   lineGroupId: string;
   lineGroupName: string;
+  // 이 행의 실제 소속 인덱스(컬럼 "팀 & 파트") — "팀 총괄" 또는 파트명. 팀 전체 보기는 행마다 실제 값.
+  partLabel: string;
   actName: string;
   durationMinutes: number;
   occurWhen: string; // 신청 시점(필요) — "N주 화 06:30"
@@ -133,6 +159,7 @@ export type ProcessCheckLogDto = {
   action: ProcessCheckLogAction;
   periodLabel: string;
   teamName: string | null; // 팀 구분 허브(experience)만 채움 — 그 외 null(팀 세그먼트 생략)
+  partName: string | null; // 파트 스코프 체크(experience)만 채움 — 그 외 null(파트 세그먼트 생략)
   lineGroupName: string;
   actName: string;
   actorName: string;
@@ -159,8 +186,13 @@ export type ProcessCheckBoardDto = {
   week: ProcessCheckWeekDto | null;
   // 팀 구분 허브(experience)면 org 팀 목록(상태창1 팀별 문장용). 그 외(info 등)는 빈 배열(허브 전체 1문장).
   teams: ProcessCheckTeamDto[];
+  // 선택 팀의 실제 파트 목록(user_memberships.part_name · org+mode 스코프 · "일반" 제외). 드롭다운 파트 옵션.
+  //   팀 미선택/비팀 허브는 빈 배열. process_line_groups 가 아니라 실제 팀 구조가 출처.
+  teamParts: string[];
+  // 현재 스코프가 특정 파트일 때 그 파트의 체크 대상 크루 정보(표시·가드 참고). 그 외 null.
+  selectedPart: { name: string; crewCount: number } | null;
   lineGroups: ProcessCheckLineGroupDto[]; // 체크 대상 ≥1 라인급(칩), ≤12
-  acts: ProcessCheckActRowDto[]; // [섹션.1] 신청 시점(필요) 순
+  acts: ProcessCheckActRowDto[]; // [섹션.1] 신청 시점(필요) 순 — 서버가 스코프로 필터한 결과
   summary: ProcessCheckSummary;
   logs: ProcessCheckLogDto[];
 };
@@ -172,6 +204,8 @@ export function emptyProcessCheckBoard(hub: ProcessHub, organization: string): P
     organization,
     week: null,
     teams: [],
+    teamParts: [],
+    selectedPart: null,
     lineGroups: [],
     acts: [],
     summary: {

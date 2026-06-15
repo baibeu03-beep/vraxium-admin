@@ -24,11 +24,17 @@ export default function ProcessCheckActTable({
   acts,
   loading,
   weekDisabled,
+  readOnly = false,
+  showScopeColumn = false,
   onOpenAct,
 }: {
   acts: ProcessCheckActRowDto[];
   loading: boolean;
   weekDisabled: boolean;
+  // 읽기 전용(팀 전체 스코프) — 상태를 버튼이 아닌 비클릭 배지로 표시(체크 신청/취소 불가).
+  readOnly?: boolean;
+  // "팀 & 파트" 컬럼 표시(experience 만) — 행의 partLabel("팀 총괄"/파트명) 노출.
+  showScopeColumn?: boolean;
   onOpenAct: (act: ProcessCheckActRowDto) => void;
 }) {
   // 카드 제목/설명(CardHeader) 제거 — 액트 목록(CardContent)만 렌더(info/experience 공용).
@@ -66,6 +72,7 @@ export default function ProcessCheckActTable({
             <Table>
               <TableHeader>
                 <TableRow>
+                  {showScopeColumn && <TableHead>팀 &amp; 파트</TableHead>}
                   <TableHead>액트명</TableHead>
                   <TableHead>소속 라인 급</TableHead>
                   <TableHead className="text-right">소요(m)</TableHead>
@@ -83,7 +90,12 @@ export default function ProcessCheckActTable({
               </TableHeader>
               <TableBody>
                 {acts.map((a) => (
-                  <TableRow key={a.actId}>
+                  <TableRow key={`${a.actId}|${a.partLabel}`}>
+                    {showScopeColumn && (
+                      <TableCell className="whitespace-nowrap font-medium text-muted-foreground">
+                        {a.partLabel}
+                      </TableCell>
+                    )}
                     <TableCell className="font-medium">{a.actName}</TableCell>
                     <TableCell>{a.lineGroupName}</TableCell>
                     <TableCell className="text-right tabular-nums">{a.durationMinutes}</TableCell>
@@ -102,18 +114,31 @@ export default function ProcessCheckActTable({
                     </TableCell>
                     <TableCell className="text-right">
                       {a.isCheckTarget ? (
-                        <button
-                          type="button"
-                          disabled={weekDisabled}
-                          title={weekDisabled ? "현재 주차 weeks 행 없음" : "클릭하여 체크 신청/취소"}
-                          onClick={() => onOpenAct(a)}
-                          className={cn(
-                            "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                            processCheckButtonClass(a.status),
-                          )}
-                        >
-                          {processCheckButtonLabel(a.status)}
-                        </button>
+                        readOnly ? (
+                          // 팀 전체 스코프 — 읽기 전용 배지(클릭 불가).
+                          <span
+                            title="‘팀 전체’ 범위는 읽기 전용입니다. 팀 총괄/파트를 선택하면 체크할 수 있습니다."
+                            className={cn(
+                              "inline-block rounded-md border px-2.5 py-1 text-xs font-medium opacity-70",
+                              processCheckButtonClass(a.status),
+                            )}
+                          >
+                            {processCheckButtonLabel(a.status)}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={weekDisabled}
+                            title={weekDisabled ? "현재 주차 weeks 행 없음" : "클릭하여 체크 신청/취소"}
+                            onClick={() => onOpenAct(a)}
+                            className={cn(
+                              "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                              processCheckButtonClass(a.status),
+                            )}
+                          >
+                            {processCheckButtonLabel(a.status)}
+                          </button>
+                        )
                       ) : (
                         <span className="text-xs text-muted-foreground">체크 대상 아님</span>
                       )}

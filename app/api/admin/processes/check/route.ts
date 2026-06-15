@@ -16,7 +16,11 @@ import {
 import { isOrganizationSlug } from "@/lib/organizations";
 import { parseScopeMode } from "@/lib/userScopeShared";
 import { isProcessHub } from "@/lib/adminProcessesTypes";
-import { isProcessCheckAction } from "@/lib/adminProcessCheckTypes";
+import {
+  isProcessCheckAction,
+  isProcessCheckScopeKind,
+  type ProcessCheckScopeKind,
+} from "@/lib/adminProcessCheckTypes";
 import { ProcessMasterError } from "@/lib/adminProcessesData";
 import {
   applyProcessCheckAction,
@@ -53,12 +57,17 @@ export async function GET(request: NextRequest) {
   if (teamRaw && !UUID_RE.test(teamRaw)) {
     return Response.json({ success: false, error: "team 형식이 올바르지 않습니다" }, { status: 400 });
   }
+  // scope/part(선택) — experience 섹션.1 팀·파트 스코프. 형식만 통과(소속/유효성은 데이터레이어).
+  const scope = isProcessCheckScopeKind(request.nextUrl.searchParams.get("scope"))
+    ? (request.nextUrl.searchParams.get("scope") as ProcessCheckScopeKind)
+    : null;
+  const partRaw = request.nextUrl.searchParams.get("part")?.trim() || null;
 
   // 팀 목록 스코프(operating=운영 팀만 / test=(T) 팀만). 기본 operating.
   const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
 
   try {
-    const data = await getProcessCheckBoard(hubRaw, orgRaw, teamRaw, mode);
+    const data = await getProcessCheckBoard(hubRaw, orgRaw, teamRaw, mode, scope, partRaw);
     return Response.json({ success: true, data });
   } catch (error) {
     const status = error instanceof ProcessMasterError ? error.status : 500;
@@ -93,6 +102,11 @@ export async function POST(request: NextRequest) {
   const actId = typeof b.act_id === "string" ? b.act_id.trim() : "";
   const teamId = typeof b.team_id === "string" && b.team_id.trim() ? b.team_id.trim() : null;
   const action = b.action;
+  // 팀·파트 스코프(experience) — team_all|team_overall|part + part_name(part 일 때, 실제 팀 파트).
+  //   형식만 통과시키고 소속/유효성 검증은 데이터레이어(applyProcessCheckAction)에서 fail-closed.
+  const scope = isProcessCheckScopeKind(b.scope) ? b.scope : null;
+  const partName =
+    typeof b.part_name === "string" && b.part_name.trim() ? b.part_name.trim() : null;
   // 스코프 모드(operating=현재 주차 / test=info 13주차 예외). GET 과 동일 SoT(parseScopeMode).
   //   ⚠ 저장 주차가 보드 조회 주차와 일치하도록 write 경로도 mode 를 받아 전달한다.
   const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
@@ -127,6 +141,8 @@ export async function POST(request: NextRequest) {
       actId,
       action,
       teamId,
+      scope,
+      partName,
       reviewLink: b.review_link,
       scheduledCheckAt: b.scheduled_check_at,
       adminId: admin.userId,

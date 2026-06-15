@@ -28,6 +28,7 @@ import {
   processCheckLogActionClass,
   type ProcessCheckActRowDto,
   type ProcessCheckBoardDto,
+  type ProcessCheckScopeKind,
 } from "@/lib/adminProcessCheckTypes";
 
 function Red({ children }: { children: React.ReactNode }) {
@@ -57,6 +58,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     emptyProcessCheckBoard(hub, org ?? ""),
   );
   const [teamLoading, setTeamLoading] = useState(false);
+  // 팀 & 파트 스코프 — "all"(팀 전체·읽기전용) / "overall"(팀 총괄) / <partLineGroupId>(파트).
+  const [scopeValue, setScopeValue] = useState<string>("all");
 
   const reqRef = useRef(0);
   const teamReqRef = useRef(0);
@@ -87,18 +90,17 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     }
   }, [hub, org, mode]);
 
+  // 섹션.1 팀 보드 — 서버가 스코프(team_all|team_overall|part)로 액트/요약/상태를 필터해 반환.
+  //   teamParts(드롭다운)·selectedPart(크루 수)도 함께. 파트별 상태는 서버에서 part_name 으로 독립.
   const loadTeamBoard = useCallback(
-    async (teamId: string) => {
+    async (teamId: string, scopeKind: ProcessCheckScopeKind, partName: string | null) => {
       if (!org) return;
       const myReq = ++teamReqRef.current;
       setTeamLoading(true);
       try {
-        const res = await fetch(
-          appendModeQuery(
-            `/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}&team=${encodeURIComponent(teamId)}`,
-            mode,
-          ),
-        );
+        let url = `/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}&team=${encodeURIComponent(teamId)}&scope=${scopeKind}`;
+        if (scopeKind === "part" && partName) url += `&part=${encodeURIComponent(partName)}`;
+        const res = await fetch(appendModeQuery(url, mode));
         const json = await res.json().catch(() => ({}));
         if (myReq !== teamReqRef.current) return;
         if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
@@ -136,19 +138,38 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   }, [teamMode, selectedTeamId, teams]);
   const effectiveTeamName = teams.find((t) => t.teamId === effectiveTeamId)?.teamName ?? null;
 
-  // 선택 팀 변경/로드 시 섹션.1 팀 보드 조회.
+  // 팀 & 파트 드롭다운 옵션 — 선택 팀의 실제 파트(user_memberships) · 서버 제공(teamParts).
+  //   process_line_groups 가 아니라 실제 팀 구조가 출처 — 파트 라인급 미등록이어도 노출.
+  const teamParts = teamBoard.teamParts;
+  // 유효 스코프값 — 팀 전환/모드 변경으로 더 이상 없는 파트면 "all"(팀 전체)로 폴백(setState-in-effect 회피).
+  const effectiveScopeValue = useMemo(() => {
+    if (scopeValue === "all" || scopeValue === "overall") return scopeValue;
+    return teamParts.includes(scopeValue) ? scopeValue : "all";
+  }, [scopeValue, teamParts]);
+  const scopeKind: ProcessCheckScopeKind =
+    effectiveScopeValue === "all"
+      ? "team_all"
+      : effectiveScopeValue === "overall"
+        ? "team_overall"
+        : "part";
+  const scopePartName = scopeKind === "part" ? effectiveScopeValue : null;
+  const scopeLabel =
+    scopeKind === "team_all" ? "팀 전체" : scopeKind === "team_overall" ? "팀 총괄" : effectiveScopeValue;
+  const scopeReadOnly = scopeKind === "team_all";
+
+  // 선택 팀/스코프/파트 변경 시 섹션.1 팀 보드 재조회(서버가 스코프 필터·파트별 독립 상태 반환).
   useEffect(() => {
     if (!teamMode || !effectiveTeamId) return;
     void (async () => {
-      await loadTeamBoard(effectiveTeamId);
+      await loadTeamBoard(effectiveTeamId, scopeKind, scopePartName);
     })();
-  }, [teamMode, effectiveTeamId, loadTeamBoard]);
+  }, [teamMode, effectiveTeamId, scopeKind, scopePartName, loadTeamBoard]);
 
-  // 액션 성공 후 — 섹션.0(로그/상태창) + 섹션.1(선택 팀 상태) 갱신.
+  // 액션 성공 후 — 섹션.0(로그/상태창) + 섹션.1(선택 팀·스코프 상태) 갱신.
   const refreshAfterAction = useCallback(() => {
     void loadBoard();
-    if (teamMode && effectiveTeamId) void loadTeamBoard(effectiveTeamId);
-  }, [loadBoard, loadTeamBoard, teamMode, effectiveTeamId]);
+    if (teamMode && effectiveTeamId) void loadTeamBoard(effectiveTeamId, scopeKind, scopePartName);
+  }, [loadBoard, loadTeamBoard, teamMode, effectiveTeamId, scopeKind, scopePartName]);
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
@@ -271,8 +292,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                     [{PROCESS_CHECK_LOG_ACTION_LABEL[l.action]}]
                   </span>{" "}
                   [{l.periodLabel}]
-                  {l.teamName ? ` - ${l.teamName} 팀 -` : ""} [{l.lineGroupName}] {l.actName} -{" "}
-                  {l.actorName} 님 - {formatLogDateTime(l.createdAt)}
+                  {l.teamName ? ` - ${l.teamName} 팀${l.partName ? ` · ${l.partName}` : ""} -` : ""}{" "}
+                  [{l.lineGroupName}] {l.actName} - {l.actorName} 님 - {formatLogDateTime(l.createdAt)}
                 </p>
               ))
             )}
@@ -302,7 +323,10 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 <button
                   key={tm.teamId}
                   type="button"
-                  onClick={() => setSelectedTeamId(tm.teamId)}
+                  onClick={() => {
+                    setSelectedTeamId(tm.teamId);
+                    setScopeValue("all"); // 팀 전환 시 팀 전체(읽기전용)로 초기화
+                  }}
                   className={cn(
                     "rounded-t-md px-4 py-2 text-sm font-medium transition-colors",
                     effectiveTeamId === tm.teamId
@@ -318,17 +342,64 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
 
           {effectiveTeamId && (
             <>
-              {/* 섹션.1 상태창2 — 선택 팀 기준. */}
-              <ProcessCheckProgress
-                title={`상태창 2 · ${effectiveTeamName ?? "선택 팀"} (선택 팀)`}
-                summary={teamBoard.summary}
-                lineGroups={teamBoard.lineGroups}
-              />
-              {/* 섹션.1 액트 목록 — 선택 팀 상태값. */}
+              {/* 상태창2(선택 팀 + 선택 스코프) — 좌: 상태창 / 우: 팀 & 파트 드롭다운. */}
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch">
+                <div className="min-w-0 flex-1">
+                  <ProcessCheckProgress
+                    title={`상태창 2 · ${effectiveTeamName ?? "선택 팀"} 팀 · ${scopeLabel}`}
+                    summary={teamBoard.summary}
+                    lineGroups={teamBoard.lineGroups}
+                  />
+                </div>
+                <div className="lg:w-72 lg:shrink-0">
+                  <Card className="h-full">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">팀 &amp; 파트</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <label className="text-xs text-muted-foreground">체크 범위 선택</label>
+                      <div className="relative">
+                        <select
+                          aria-label="팀 & 파트 범위"
+                          value={effectiveScopeValue}
+                          onChange={(e) => setScopeValue(e.target.value)}
+                          className="h-9 w-full appearance-none rounded-md border border-input bg-background px-3 pr-8 text-sm"
+                        >
+                          <option value="all">팀 전체 (읽기 전용)</option>
+                          <option value="overall">팀 총괄</option>
+                          {teamParts.map((p) => (
+                            <option key={p} value={p}>
+                              {p}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-muted-foreground">
+                        {scopeReadOnly
+                          ? "‘팀 전체’는 팀 총괄 + 모든 파트 액트를 보여주는 읽기 전용 목록입니다."
+                          : scopeKind === "team_overall"
+                            ? "‘팀 총괄’ 범위 액트만 표시 — 팀 총괄 대상 크루로 체크할 수 있습니다."
+                            : `이 파트 액트만 표시 — 해당 파트 소속 크루${
+                                teamBoard.selectedPart ? ` ${teamBoard.selectedPart.crewCount}명` : ""
+                              }로만 체크할 수 있습니다.`}
+                      </p>
+                      {teamParts.length === 0 && (
+                        <p className="text-[11px] text-amber-600">
+                          이 팀(현재 모드)에 등록된 파트가 없습니다. (팀 총괄만 사용)
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+              {/* 섹션.1 액트 목록 — 서버가 스코프 필터한 결과. 팀 전체는 읽기 전용. "팀 & 파트" 컬럼 표시. */}
               <ProcessCheckActTable
                 acts={teamBoard.acts}
                 loading={teamLoading}
                 weekDisabled={weekDisabled}
+                readOnly={scopeReadOnly}
+                showScopeColumn
                 onOpenAct={(a) => setDialogAct(a)}
               />
             </>
@@ -350,6 +421,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           organization={org}
           teamId={teamMode ? effectiveTeamId : null}
           mode={mode}
+          scope={teamMode ? scopeKind : null}
+          partName={teamMode ? scopePartName : null}
           onClose={() => setDialogAct(null)}
           onDone={refreshAfterAction}
         />

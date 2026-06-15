@@ -79,7 +79,8 @@ try {
   actId = a1?.id ?? null;
   ck("[시드] 라인급 + experience 체크 액트", !!groupId && !!actId);
 
-  const reqBody = (mode, teamId) => J({ hub: HUB, organization: ORG, act_id: actId, action: "request", team_id: teamId, mode, review_link: "https://cafe.naver.com/x/1", scheduled_check_at: schedIso });
+  // 시드 라인급은 "파트" 미포함 → team_overall 스코프(experience POST scope 필수).
+  const reqBody = (mode, teamId) => J({ hub: HUB, organization: ORG, act_id: actId, action: "request", team_id: teamId, scope: "team_overall", mode, review_link: "https://cafe.naver.com/x/1", scheduled_check_at: schedIso });
 
   // ── 1. mode=test + 운영 팀 → 422 · write 0 ──
   const a = await api("/api/admin/processes/check", { method: "POST", body: reqBody("test", opTeam.id) });

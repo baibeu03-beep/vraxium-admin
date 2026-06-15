@@ -57,9 +57,11 @@ try {
   }
   await cleanup();
 
-  // 팀 2개.
-  const teams = (await sb.from("cluster4_teams").select("id,team_name").eq("organization_slug", ORG).eq("is_active", true).order("team_name", { ascending: true })).data ?? [];
-  ck("[전제] oranke 팀 ≥2", teams.length >= 2, `teams=${teams.length}`);
+  // 팀 2개 — 운영(비T) 팀만(기본 operating 모드와 일치). (T) 테스트 팀을 고르면 mode 가드(422)에 막힌다.
+  const TSET = new Set(["과일(T)", "음료(T)", "콘텐츠실험(T)"]);
+  const allTeams = (await sb.from("cluster4_teams").select("id,team_name").eq("organization_slug", ORG).eq("is_active", true).order("team_name", { ascending: true })).data ?? [];
+  const teams = allTeams.filter((t) => !TSET.has(t.team_name));
+  ck("[전제] oranke 운영 팀 ≥2", teams.length >= 2, `teams=${teams.length}`);
   const T1 = teams[0], T2 = teams[1];
 
   // 시드 — experience 라인급 + 체크대상 액트.
@@ -74,7 +76,8 @@ try {
   ck("시드 — experience 체크대상 액트", !!groupId && !!a1?.id);
 
   const board = (t) => api(`/api/admin/processes/check?hub=${HUB}&org=${ORG}${t ? `&team=${t}` : ""}`);
-  const act = (teamId, action, extra = {}) => api("/api/admin/processes/check", { method: "POST", body: J({ hub: HUB, organization: ORG, act_id: a1.id, team_id: teamId, action, ...extra }) });
+  // 시드 라인급은 "파트" 미포함 → 팀 총괄(team_overall) 스코프. experience POST 는 scope 필수(fail-closed).
+  const act = (teamId, action, extra = {}) => api("/api/admin/processes/check", { method: "POST", body: J({ hub: HUB, organization: ORG, act_id: a1.id, team_id: teamId, scope: "team_overall", action, ...extra }) });
   const iso = (ms) => new Date(ms).toISOString();
 
   // 초기 — team1/team2 모두 needed.
