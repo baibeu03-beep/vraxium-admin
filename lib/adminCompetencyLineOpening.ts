@@ -28,11 +28,13 @@ import {
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { insertCompetencyOpeningLog } from "@/lib/adminCompetencyOpeningLogs";
 import {
+  assertApprovedApplicationsInScope,
   cancelOpenedApplications,
   hasOpenedApplications,
   openApprovedApplications,
 } from "@/lib/adminCompetencyApplications";
 import type { OrganizationSlug } from "@/lib/organizations";
+import type { ScopeMode } from "@/lib/userScopeShared";
 import type { StatusWeek } from "@/lib/lineOpeningStatusEngine";
 
 type WeekInfo = NonNullable<ReturnType<typeof describeWeekByStartMs>>;
@@ -295,6 +297,8 @@ export async function openCompetencyHub(input: {
   outputLink1?: string | null;
   description?: string | null;
   adminId: string | null;
+  // 운영/테스트 모집단 — 신청/승인 명단 기반 라인 타깃 생성 시 fail-closed 가드로 전달.
+  mode?: ScopeMode;
 }): Promise<CompetencyOpeningActionResult> {
   const { targetWeekId } = await resolveWeeks();
   if (!targetWeekId) {
@@ -303,6 +307,9 @@ export async function openCompetencyHub(input: {
   const org = input.organization;
   const link = (input.outputLink1 ?? "").trim() || null;
   const desc = (input.description ?? "").trim() || null;
+
+  // 모드 스코프 사전 가드(write 0) — 승인 신청 대상에 운영↔테스트 혼입이 있으면 어떤 토글보다 먼저 422.
+  await assertApprovedApplicationsInScope(org, targetWeekId, input.mode ?? "operating");
 
   const lines = await loadOrgCompetencyLines(org, targetWeekId);
   const lineIds = lines.map((l) => l.id);
@@ -377,8 +384,11 @@ export async function openCompetencyHub(input: {
       outputLink1: link,
       description: desc,
       adminId: input.adminId,
+      mode: input.mode,
     });
   } catch (e) {
+    // 모드 스코프 위반(422)은 fail-closed — 운영자에게 그대로 노출(라인 타깃 혼입 차단).
+    if ((e as { status?: number })?.status === 422) throw e;
     console.warn(
       "[competency open] application reflection skipped:",
       e instanceof Error ? e.message : e,

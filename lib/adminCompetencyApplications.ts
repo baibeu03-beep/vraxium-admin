@@ -10,6 +10,8 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadCrewRecords } from "@/lib/cluster4CafeLineMatch";
 import { listCrewsForTargetSelection } from "@/lib/adminExperienceLineData";
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { assertUserIdsInScope, resolveUserScope } from "@/lib/userScope";
+import type { ScopeMode } from "@/lib/userScopeShared";
 import type { OrganizationSlug } from "@/lib/organizations";
 
 export type CompetencyApplicationDto = {
@@ -157,29 +159,18 @@ export async function hasOpenedApplications(
   }
 }
 
-// 테스트 계정(test_user_markers) 제외 — 활동 크루 집계는 운영 계정 기준(전면 제외 정책).
-async function loadTestUserSet(): Promise<Set<string>> {
-  try {
-    const { data } = await supabaseAdmin.from("test_user_markers").select("user_id");
-    return new Set(((data ?? []) as Array<{ user_id: string }>).map((m) => m.user_id));
-  } catch {
-    return new Set();
-  }
-}
-
 export async function getCompetencyApplicationSummary(
   org: OrganizationSlug,
   weekId: string,
+  mode: ScopeMode = "operating",
 ): Promise<CompetencyApplicationSummary> {
-  const [rows, activeList, testSet] = await Promise.all([
+  const [rows, activeList] = await Promise.all([
     loadApplicationRows(org, weekId),
-    listCrewsForTargetSelection({ organization: org, status: "active" }).catch(() => []),
-    loadTestUserSet(),
+    // 활동 크루 모집단 = 현재 모드(operating=실사용자 / test=test_user_markers) — listCrews 가 mode 스코프 적용.
+    listCrewsForTargetSelection({ organization: org, status: "active", mode }).catch(() => []),
   ]);
-  // 활동 크루 = 휴식 제외 + 테스트 계정 제외(운영 계정 기준). 강화 결과 분모 = 활동 크루(미신청 포함).
-  const activeIds = new Set(
-    activeList.filter((c) => !testSet.has(c.userId)).map((c) => c.userId),
-  );
+  // 활동 크루 = 휴식 제외 + 현재 모드 모집단. 강화 결과 분모 = 활동 크루(미신청 포함).
+  const activeIds = new Set(activeList.map((c) => c.userId));
   const activeCrews = activeIds.size;
   const applied = new Set<string>();
   const opened = new Set<string>();
@@ -235,16 +226,17 @@ export type CompetencyLineResultDto = {
 export async function getCompetencyLineResults(
   org: OrganizationSlug,
   weekId: string,
+  mode: ScopeMode = "operating",
 ): Promise<CompetencyLineResultDto[]> {
-  const [rows, activeList, testSet, records] = await Promise.all([
+  const [rows, activeList, records] = await Promise.all([
     loadApplicationRows(org, weekId),
-    listCrewsForTargetSelection({ organization: org, status: "active" }).catch(() => []),
-    loadTestUserSet(),
+    // 활동 대상 크루 모집단 = 현재 모드 스코프(집계 카드 분모와 동일 source).
+    listCrewsForTargetSelection({ organization: org, status: "active", mode }).catch(() => []),
     loadCrewRecords().catch(() => []),
   ]);
   const byUser = new Map(records.map((r) => [r.userId, r]));
-  // 활동 대상 크루 = 휴식 제외 + 테스트 제외 (집계 카드 분모와 동일).
-  const activeCrew = activeList.filter((c) => !testSet.has(c.userId));
+  // 활동 대상 크루 = 휴식 제외 + 현재 모드 모집단 (집계 카드 분모와 동일).
+  const activeCrew = activeList;
 
   const appsByUser = new Map<string, AppRow[]>();
   for (const r of rows) {
@@ -372,12 +364,30 @@ export type ApprovalReflectResult = {
   affectedUserIds: string[];
 };
 
+// 라인 타깃 생성 전 사전 가드(write 0) — 승인 신청 대상 전원이 현재 모드 모집단에 부합하는지 검증.
+//   openCompetencyHub 가 is_active 토글 등 어떤 write 보다 먼저 호출해 부분 반영을 막는다(422 on mix).
+export async function assertApprovedApplicationsInScope(
+  org: OrganizationSlug,
+  weekId: string,
+  mode: ScopeMode = "operating",
+): Promise<void> {
+  const rows = await loadApplicationRows(org, weekId);
+  const approvedTargetIds = rows
+    .filter((r) => r.resolution !== "opened" && r.approval_checked)
+    .map((r) => r.target_user_id);
+  if (approvedTargetIds.length === 0) return;
+  const scope = await resolveUserScope(mode, org);
+  assertUserIdsInScope(scope, approvedTargetIds);
+}
+
 export async function openApprovedApplications(input: {
   org: OrganizationSlug;
   weekId: string;
   outputLink1: string | null;
   description: string | null;
   adminId: string | null;
+  // 운영/테스트 모집단 — 라인 타깃(cluster4_line_targets) 생성 직전 fail-closed 가드.
+  mode?: ScopeMode;
 }): Promise<ApprovalReflectResult> {
   const rows = await loadApplicationRows(input.org, input.weekId);
   // 아직 개설 안 된 신청만 처리(opened 재처리 방지 — 멱등).
@@ -385,6 +395,16 @@ export async function openApprovedApplications(input: {
   if (pending.length === 0) {
     return { openedCrews: 0, openedLines: 0, rejectedCrews: 0, affectedUserIds: [] };
   }
+
+  // ── 모드 스코프 가드(fail-closed) ─────────────────────────────────────────
+  //   라인 타깃을 만드는 건 승인(approval_checked) 신청뿐 — 그 대상 전원이 현재 모드 모집단에
+  //   부합해야 한다(operating=실사용자만 / test=test_user_markers 만). 하나라도 어긋나면 타깃
+  //   생성 전 422 로 중단(운영↔테스트 cluster4_line_targets 혼입 차단). 반려(미승인)는 타깃 무생성.
+  const scope = await resolveUserScope(input.mode ?? "operating", input.org);
+  const approvedTargetIds = pending
+    .filter((r) => r.approval_checked)
+    .map((r) => r.target_user_id);
+  assertUserIdsInScope(scope, approvedTargetIds);
 
   const weekStart = await loadWeekStart(input.weekId);
   const win = weekStart ? deriveWindow(weekStart) : null;

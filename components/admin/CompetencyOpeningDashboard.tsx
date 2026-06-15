@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   formatBannerPeriod,
   formatFullDateRangeKo,
@@ -50,6 +51,8 @@ function weekMainLabel(w: WeekOption): string {
 export default function CompetencyOpeningDashboard() {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  // 운영/테스트 모드 — 개설 완료 시 라인 타깃 생성 가드(서버)와 같은 모드로 판정되도록 보존.
+  const mode = readScopeMode(searchParams);
 
   const [opened, setOpened] = useState<boolean | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
@@ -168,11 +171,14 @@ export default function CompetencyOpeningDashboard() {
           body.output_link_1 = linkUrl.trim();
           body.output_description = linkDesc.trim();
         }
-        const res = await fetch("/api/admin/cluster4/competency/opening", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+        const res = await fetch(
+          appendModeQuery("/api/admin/cluster4/competency/opening", mode),
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          },
+        );
         const json = await res.json();
         if (!json.success) {
           setBanner({ kind: "error", message: json.error ?? "처리에 실패했습니다" });
@@ -194,7 +200,7 @@ export default function CompetencyOpeningDashboard() {
         setActing(false);
       }
     },
-    [org, linkUrl, linkDesc, fetchStatus],
+    [org, mode, linkUrl, linkDesc, fetchStatus],
   );
 
   return (

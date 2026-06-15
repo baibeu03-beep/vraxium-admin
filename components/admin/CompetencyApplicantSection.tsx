@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 
 // 실무 역량 [라인 개설] — [해당 크루] 영역.
 //   상단: 요약(활동/신청/개설/반려/신청 라인/개설 라인) + 수동 추가(자동완성 + 추가).
@@ -104,6 +105,8 @@ function SummaryChip({ label, value, tone }: { label: string; value: number; ton
 export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?: number }) {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  // 운영/테스트 모드 — 크루 검색·집계·수동 추가 모집단을 현재 모드로 한정(URL ?mode SoT).
+  const mode = readScopeMode(searchParams);
 
   const [apps, setApps] = useState<ApplicationDto[]>([]);
   const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
@@ -138,7 +141,10 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
     setLoading(true);
     try {
       const qs = org ? `?organization=${encodeURIComponent(org)}` : "";
-      const res = await fetch(`/api/admin/cluster4/competency/applications${qs}`);
+      // 집계/결과 모집단도 현재 모드로 한정(operating=실사용자 / test=테스트 계정).
+      const res = await fetch(
+        appendModeQuery(`/api/admin/cluster4/competency/applications${qs}`, mode),
+      );
       const json = await res.json();
       if (json?.success) {
         setApps(json.data?.applications ?? []);
@@ -153,7 +159,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
     } finally {
       setLoading(false);
     }
-  }, [org]);
+  }, [org, mode]);
 
   useEffect(() => {
     void fetchData();
@@ -194,7 +200,11 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
     const t = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(`/api/admin/cluster4/cafe-line-crew?q=${encodeURIComponent(term)}`);
+        // 현재 org + mode 모집단으로만 검색 — 조직/모드 경계 밖 동명이인(실사용자/타org) 제외.
+        const sp = new URLSearchParams({ q: term });
+        if (org) sp.set("organization", org);
+        if (mode === "test") sp.set("mode", "test");
+        const res = await fetch(`/api/admin/cluster4/cafe-line-crew?${sp.toString()}`);
         const json = await res.json();
         if (cancelled) return;
         setResults(json?.success ? (json.data?.crews ?? []) : []);
@@ -209,7 +219,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
       cancelled = true;
       clearTimeout(t);
     };
-  }, [q, selectedCrew]);
+  }, [q, selectedCrew, org, mode]);
 
   // 검색 드롭다운 바깥 클릭 닫기.
   useEffect(() => {
@@ -248,7 +258,8 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
     setSaving(true);
     setBanner(null);
     try {
-      const res = await fetch("/api/admin/cluster4/competency/applications", {
+      // mode 를 URL 에 보존 — 서버 스코프 가드(operating↔test 혼입 422)가 같은 모드로 판정.
+      const res = await fetch(appendModeQuery("/api/admin/cluster4/competency/applications", mode), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -276,7 +287,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
     } finally {
       setSaving(false);
     }
-  }, [org, selectedCrew, masters, addMasterId, addLink, fetchData]);
+  }, [org, mode, selectedCrew, masters, addMasterId, addLink, fetchData]);
 
   const patchApp = useCallback(
     async (id: string, patch: Record<string, unknown>) => {

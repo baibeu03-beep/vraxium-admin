@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Loader2, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { readScopeMode } from "@/lib/userScopeShared";
 import {
   formatBannerPeriod,
   formatFullDateRangeKo,
@@ -106,6 +107,8 @@ export default function CompetencyLineManageBoard({
 }) {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  // 운영/테스트 모드 — 집계/결과 모집단을 현재 모드로 한정.
+  const mode = readScopeMode(searchParams);
 
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
@@ -164,6 +167,7 @@ export default function CompetencyLineManageBoard({
       try {
         const qs = new URLSearchParams({ organization: org });
         if (selectedWeekId) qs.set("week_id", selectedWeekId);
+        if (mode === "test") qs.set("mode", "test");
         const res = await fetch(
           `/api/admin/cluster4/competency/applications?${qs.toString()}`,
         );
@@ -183,7 +187,7 @@ export default function CompetencyLineManageBoard({
     return () => {
       cancelled = true;
     };
-  }, [org, selectedWeekId, weeksReady, refreshKey]);
+  }, [org, mode, selectedWeekId, weeksReady, refreshKey]);
 
   const selectedWeek = weekOptions.find((w) => w.id === selectedWeekId) ?? null;
 

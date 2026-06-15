@@ -9,6 +9,11 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { isUuid } from "@/lib/isUuid";
 import {
+  assertUserIdsInScope,
+  readScopeMode,
+  resolveUserScope,
+} from "@/lib/userScope";
+import {
   describeWeekByStartMs,
   getOpenableWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
@@ -52,6 +57,8 @@ export async function GET(request: NextRequest) {
 
   const orgRaw = request.nextUrl.searchParams.get("organization")?.trim() || null;
   const org = isOrganizationSlug(orgRaw) ? orgRaw : null;
+  // 운영/테스트 모드 — 활동 크루 집계/결과 모집단을 결정(operating=실사용자 / test=test_user_markers).
+  const mode = readScopeMode(request.nextUrl.searchParams);
 
   try {
     // week_id 지정 시 그 주차(라인 관리 탭 드롭다운), 미지정/무효 시 개설 대상 주차.
@@ -78,8 +85,8 @@ export async function GET(request: NextRequest) {
     }
     const [applications, summary, results] = await Promise.all([
       listCompetencyApplications(org, weekId),
-      getCompetencyApplicationSummary(org, weekId),
-      getCompetencyLineResults(org, weekId),
+      getCompetencyApplicationSummary(org, weekId, mode),
+      getCompetencyLineResults(org, weekId, mode),
     ]);
     return Response.json({ success: true, data: { applications, summary, results, weekId } });
   } catch (error) {
@@ -141,6 +148,45 @@ export async function POST(request: NextRequest) {
   }
   const lineCode = typeof b.line_code === "string" ? b.line_code.trim() || null : null;
   const submissionLink = typeof b.submission_link === "string" ? b.submission_link : null;
+
+  // ── 조직 + 운영/테스트 스코프 강제 (cluster4_competency_applications/line_targets 혼입 방지) ──
+  //   수동 추가 대상(target_user_id)은 (현재 org 소속) AND (현재 mode 모집단) 둘 다여야 한다.
+  //     mode : operating=실사용자만 / test=test_user_markers 만 (422 on mismatch).
+  //     org  : target 이 그 organization_slug 소속이어야(동명이인 타org 차단, 422).
+  //   하나라도 어긋나면 insert 전 중단(DB write 0). info-lines POST 가드와 동일 패턴.
+  const scopeMode = readScopeMode(request.nextUrl.searchParams);
+  try {
+    const scope = await resolveUserScope(scopeMode, orgRaw);
+    assertUserIdsInScope(scope, [targetUserId]);
+  } catch (error) {
+    if ((error as { status?: number })?.status === 422) {
+      return Response.json(
+        { success: false, error: (error as Error).message },
+        { status: 422 },
+      );
+    }
+    throw error;
+  }
+  {
+    const { data: profileRow, error: profileErr } = await supabaseAdmin
+      .from("user_profiles")
+      .select("organization_slug")
+      .eq("user_id", targetUserId)
+      .maybeSingle();
+    if (profileErr) {
+      return Response.json({ success: false, error: profileErr.message }, { status: 500 });
+    }
+    const targetOrg = (profileRow as { organization_slug: string | null } | null)?.organization_slug ?? null;
+    if (targetOrg !== orgRaw) {
+      return Response.json(
+        {
+          success: false,
+          error: `현재 조직(${orgRaw}) 소속이 아닌 사용자는 추가할 수 없습니다.`,
+        },
+        { status: 422 },
+      );
+    }
+  }
 
   try {
     const weekId = await resolveTargetWeekId();

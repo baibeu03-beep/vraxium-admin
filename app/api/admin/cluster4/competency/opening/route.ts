@@ -5,6 +5,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { readScopeMode } from "@/lib/userScope";
 import {
   cancelCompetencyHub,
   openCompetencyHub,
@@ -58,6 +59,8 @@ export async function POST(request: NextRequest) {
     typeof b.output_link_1 === "string" ? b.output_link_1 : null;
   const outputDescription =
     typeof b.output_description === "string" ? b.output_description : null;
+  // 운영/테스트 모드 — 개설 완료 시 신청/승인 명단 기반 라인 타깃 생성 가드로 전달.
+  const mode = readScopeMode(request.nextUrl.searchParams);
 
   try {
     const data =
@@ -67,6 +70,7 @@ export async function POST(request: NextRequest) {
             outputLink1,
             description: outputDescription,
             adminId: admin.userId,
+            mode,
           })
         : await cancelCompetencyHub({ organization: orgRaw, adminId: admin.userId });
     return Response.json({ success: true, data }, { status: 201 });
