@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { DAY_NAMES } from "@/lib/practicalInfoSection0Format";
 import { type ScopeMode, appendModeQuery } from "@/lib/userScopeShared";
+import { reactionAllowsPointC } from "@/lib/adminProcessesTypes";
 import {
   IRREGULAR_CREW_REACTIONS,
   IRREGULAR_CREW_REACTION_LABEL,
@@ -318,7 +319,11 @@ export default function ProcessIrregularDialog({
               <select
                 aria-label="크루 반응"
                 value={crewReaction}
-                onChange={(e) => setCrewReaction(e.target.value as IrregularCrewReaction)}
+                onChange={(e) => {
+                  const v = e.target.value as IrregularCrewReaction;
+                  setCrewReaction(v);
+                  if (!reactionAllowsPointC(v)) setPointC(0); // '필수' 아니면 즉시 C=0
+                }}
                 disabled={submitting}
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               >
@@ -347,21 +352,22 @@ export default function ProcessIrregularDialog({
             />
           </div>
 
-          {/* 포인트 A/B/C */}
+          {/* 포인트 A/B/C — 크루 반응이 '필수'가 아니면 C=0 고정·비활성 */}
           <div className="grid grid-cols-3 gap-3">
             {([
-              ["포인트 A", pointA, setPointA],
-              ["포인트 B", pointB, setPointB],
-              ["포인트 C", pointC, setPointC],
-            ] as const).map(([label, val, set]) => (
+              ["포인트 A", pointA, setPointA, false],
+              ["포인트 B", pointB, setPointB, false],
+              ["포인트 C", pointC, setPointC, !reactionAllowsPointC(crewReaction)],
+            ] as const).map(([label, val, set, locked]) => (
               <div key={label} className="space-y-1">
                 <label className="text-xs text-muted-foreground">{label}</label>
                 <select
                   aria-label={label}
                   value={val}
                   onChange={(e) => set(Number(e.target.value))}
-                  disabled={submitting}
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  disabled={submitting || locked}
+                  title={locked ? "‘필수’ 크루 반응만 포인트 C를 부여할 수 있습니다" : undefined}
+                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {POINTS.map((p) => (
                     <option key={p} value={p}>

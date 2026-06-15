@@ -10,6 +10,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { ProcessMasterError } from "@/lib/adminProcessesData";
 import { resolveProcessWeek } from "@/lib/adminProcessCheckData";
+import { enforcePointC } from "@/lib/adminProcessesTypes";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
@@ -267,7 +268,8 @@ function parseCommonFields(input: {
   const crewReaction: IrregularCrewReaction = isIrregularCrewReaction(input.crewReaction)
     ? input.crewReaction
     : "none";
-  return { actName, durationMinutes, reason, pointA, pointB, pointC, crewReaction };
+  // 크루 반응이 '필수'가 아니면 포인트 C=0 강제(서버 보정 — 프론트 우회 방지).
+  return { actName, durationMinutes, reason, pointA, pointB, pointC: enforcePointC(crewReaction, pointC), crewReaction };
 }
 
 // ── 검수 신청(review_request) 생성 — 대상자 미선택·pending(worker 가 사후 식별/완료) ──────
@@ -472,10 +474,12 @@ export async function setIrregularCrewReaction(
   if (!isIrregularCrewReaction(crewReaction)) {
     throw new ProcessMasterError(400, "crew_reaction 은 required|optional|selection|none 이어야 합니다");
   }
-  await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
+  const row = await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
+  // 크루 반응이 '필수'가 아니면 포인트 C=0 강제(required 로 바꾸면 기존 C 유지).
+  const nextPointC = enforcePointC(crewReaction, row.point_c);
   const { data, error } = await supabaseAdmin
     .from("process_irregular_acts")
-    .update({ crew_reaction: crewReaction })
+    .update({ crew_reaction: crewReaction, point_c: nextPointC })
     .eq("id", id)
     .select(ROW_SELECT)
     .single();

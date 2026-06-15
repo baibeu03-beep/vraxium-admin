@@ -124,6 +124,23 @@ try {
   // 포인트 드롭다운 0~20 — 0 옵션 존재.
   ck("[모달] 포인트 A 드롭다운 0 선택 가능", (await page.locator('select[aria-label="포인트 A"] option[value="0"]').count()) > 0 && (await page.locator('select[aria-label="포인트 A"] option[value="20"]').count()) > 0);
 
+  // 크루 반응 ↔ 포인트 C 규칙: 필수만 C 활성, 그 외 C=0 고정·비활성.
+  //   ⚠ 목록 행에도 '크루 반응' select 가 있으므로 모달 컨테이너로 스코프(strict 모드 회피).
+  const modal = page.locator(".fixed.inset-0.z-50");
+  const crewSel = modal.locator('select[aria-label="크루 반응"]');
+  const cSel = modal.locator('select[aria-label="포인트 C"]');
+  await crewSel.selectOption("required");
+  ck("[규칙] 크루반응=필수 → 포인트 C 활성", !(await cSel.isDisabled()));
+  // C 값을 5로 올린 뒤 선택으로 바꾸면 0으로 강제·비활성.
+  await cSel.selectOption("5");
+  await crewSel.selectOption("optional");
+  ck("[규칙] 크루반응=선택 → 포인트 C 비활성", await cSel.isDisabled());
+  ck("[규칙] 크루반응=선택 → 포인트 C 값 0으로 강제", (await cSel.inputValue()) === "0");
+  await crewSel.selectOption("selection");
+  ck("[규칙] 크루반응=선발 → 포인트 C 비활성·0", (await cSel.isDisabled()) && (await cSel.inputValue()) === "0");
+  await crewSel.selectOption("none");
+  ck("[규칙] 크루반응=없음 → 포인트 C 비활성·0", (await cSel.isDisabled()) && (await cSel.inputValue()) === "0");
+
   const term = (opTarget.display_name ?? "").trim();
   await page.getByPlaceholder("이름으로 검색").fill(term);
   // 디바운스 + 크루 로딩(org 전체 user_profiles·멤버십·학력)은 수 초 걸릴 수 있어 충분히 대기.

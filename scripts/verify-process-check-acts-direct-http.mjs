@@ -87,9 +87,11 @@ try {
 
   // 컬럼 채움 + 실제 시점 빈칸 + 상태 needed.
   const C = mine.find((a) => a.actName.endsWith("C"));
-  ck("[컬럼] 라인급/소요/Po.A·B·C/크루반응/카페 채움", C && C.lineGroupName === `${TAG} 라인급` && C.durationMinutes === 10 && C.pointCheck === 3 && C.pointAdvantage === 2 && C.pointPenalty === 1 && C.crewReactionLabel === "자율" && C.cafeLabel === "미발생", J(C && { g: C.lineGroupName, d: C.durationMinutes, cr: C.crewReactionLabel, cafe: C.cafeLabel }));
+  // C = act_type 자율(optional) → 크루반응 규칙으로 Po.C(penalty)=0 강제(seed 는 1로 보냈으나 0 저장).
+  ck("[컬럼] 라인급/소요/Po.A·B/크루반응/카페 채움 · Po.C=0(자율)", C && C.lineGroupName === `${TAG} 라인급` && C.durationMinutes === 10 && C.pointCheck === 3 && C.pointAdvantage === 2 && C.pointPenalty === 0 && C.crewReactionLabel === "자율" && C.cafeLabel === "미발생", J(C && { g: C.lineGroupName, d: C.durationMinutes, c: C.pointPenalty, cr: C.crewReactionLabel, cafe: C.cafeLabel }));
   const A = mine.find((a) => a.actName.endsWith("A"));
-  ck("[컬럼] A: 크루반응=필수 · 카페=발생", A && A.crewReactionLabel === "필수" && A.cafeLabel === "발생");
+  // A = 필수(required) → Po.C(penalty)=1 유지(규칙 허용).
+  ck("[컬럼] A: 크루반응=필수 · 카페=발생 · Po.C=1 유지", A && A.crewReactionLabel === "필수" && A.cafeLabel === "발생" && A.pointPenalty === 1);
   ck("[실제시점] 발생/검수 시점(실제) 빈칸(null)", mine.every((a) => a.requestedAt === null && a.scheduledCheckAt === null));
   ck("[상태] 표시 전용 — 전부 needed(버튼 '체크 필요')", mine.every((a) => a.status === "needed"));
 

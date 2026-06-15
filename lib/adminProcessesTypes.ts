@@ -116,6 +116,17 @@ export const PROCESS_ACT_TYPE_LABEL: Record<ProcessActType, string> = {
   basic: "기본",
 };
 
+// ── 크루 반응(act_type / crew_reaction) ↔ 포인트 C 규칙 (서버/클라 공용 SoT) ─────
+//   '필수(required)' 일 때만 포인트 C(미이행 페널티) 입력 가능.
+//   그 외(자율·선택·선발·기본·없음)는 포인트 C = 0 고정. 정규 액트(act_type)·비정규(crew_reaction) 공용.
+export function reactionAllowsPointC(reactionKey: string): boolean {
+  return reactionKey === "required";
+}
+// 저장/표시 강제 보정 — required 가 아니면 무조건 0.
+export function enforcePointC(reactionKey: string, pointC: number): number {
+  return reactionAllowsPointC(reactionKey) ? pointC : 0;
+}
+
 // 허브당 라인급 최대 개수.
 export const PROCESS_LINE_GROUP_MAX = 12;
 // 라인급명 / 액트명 최대 글자수.

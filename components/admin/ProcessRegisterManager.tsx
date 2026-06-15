@@ -37,6 +37,7 @@ import {
   PROCESS_TIME_OPTIONS,
   PROCESS_WEEK_REFS,
   PROCESS_WEEK_REF_LABEL,
+  reactionAllowsPointC,
   type ProcessActDto,
   type ProcessActType,
   type ProcessCafe,
@@ -551,14 +552,15 @@ export default function ProcessRegisterManager() {
             />
           </FormRow>
 
-          {/* [7] 포인트 — A check / B advantage / C penalty (0~20) */}
+          {/* [7] 포인트 — A check / B advantage / C penalty (0~20).
+              크루 반응(액트 종류)이 '필수'가 아니면 C(penalty)=0 고정·비활성. */}
           <FormRow label="포인트" required alignTop>
             <div className="grid grid-cols-3 gap-2">
               {(
                 [
-                  { label: "A · point.check", value: pointCheck, set: setPointCheck },
-                  { label: "B · point.advantage", value: pointAdvantage, set: setPointAdvantage },
-                  { label: "C · point.penalty", value: pointPenalty, set: setPointPenalty },
+                  { label: "A · point.check", value: pointCheck, set: setPointCheck, disabled: false },
+                  { label: "B · point.advantage", value: pointAdvantage, set: setPointAdvantage, disabled: false },
+                  { label: "C · point.penalty", value: pointPenalty, set: setPointPenalty, disabled: !reactionAllowsPointC(actType) },
                 ] as const
               ).map((p) => (
                 <div key={p.label} className="space-y-1">
@@ -567,6 +569,8 @@ export default function ProcessRegisterManager() {
                     aria-label={p.label}
                     className={SELECT_CLS}
                     value={p.value}
+                    disabled={p.disabled}
+                    title={p.disabled ? "‘필수’ 액트만 포인트 C(미이행 페널티)를 부여할 수 있습니다" : undefined}
                     onChange={(e) => p.set(Number(e.target.value))}
                   >
                     {PROCESS_POINT_OPTIONS.map((n) => (
@@ -615,7 +619,11 @@ export default function ProcessRegisterManager() {
                 aria-label="액트 종류"
                 className={SELECT_CLS}
                 value={actType}
-                onChange={(e) => setActType(e.target.value as ProcessActType)}
+                onChange={(e) => {
+                  const v = e.target.value as ProcessActType;
+                  setActType(v);
+                  if (!reactionAllowsPointC(v)) setPointPenalty(0); // '필수' 아니면 즉시 C=0
+                }}
               >
                 {PROCESS_ACT_TYPE_OPTIONS.map((t) => (
                   <option key={t} value={t}>
