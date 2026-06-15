@@ -1,0 +1,73 @@
+{
+  "info": {
+    "keys": [
+      "acts",
+      "hub",
+      "hubLabel",
+      "lineGroups",
+      "logs",
+      "organization",
+      "summary",
+      "teams",
+      "week"
+    ],
+    "operating": {
+      "weekNumber": 16,
+      "actIds": [
+        "001668b3-be2d-4b5b-9f52-32803b3164e3"
+      ]
+    },
+    "test": {
+      "weekNumber": 13,
+      "actIds": [
+        "001668b3-be2d-4b5b-9f52-32803b3164e3"
+      ]
+    }
+  },
+  "competency": {
+    "keys": [
+      "acts",
+      "hub",
+      "hubLabel",
+      "lineGroups",
+      "logs",
+      "organization",
+      "summary",
+      "teams",
+      "week"
+    ],
+    "operating": {
+      "weekNumber": 16,
+      "actIds": []
+    },
+    "test": {
+      "weekNumber": 16,
+      "actIds": []
+    }
+  },
+  "club": {
+    "keys": [
+      "acts",
+      "hub",
+      "hubLabel",
+      "lineGroups",
+      "logs",
+      "organization",
+      "summary",
+      "teams",
+      "week"
+    ],
+    "operating": {
+      "weekNumber": 16,
+      "actIds": [
+        "35607f30-c6f1-4af9-b038-8e20654e7f7b"
+      ]
+    },
+    "test": {
+      "weekNumber": 16,
+      "actIds": [
+        "35607f30-c6f1-4af9-b038-8e20654e7f7b"
+      ]
+    }
+  }
+}

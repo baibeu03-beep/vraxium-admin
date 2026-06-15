@@ -1,20 +1,11 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { requireAdminPage } from "@/lib/adminAuth";
+import ProcessCheckManager from "@/components/admin/ProcessCheckManager";
 
-// IA 개편 placeholder — 메뉴/라우트 연결 확인용. 기획 전이라 데이터 API 없이 준비 중 화면만 노출.
-export default function ProcessCheckClubPage() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>프로세스 체크 · 클럽 급</CardTitle>
-      </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">
-        클럽 급 프로세스 체크 기능은 추후 구현 예정입니다.
-      </CardContent>
-    </Card>
-  );
+// 통합 > 허브별 프로세스 > 프로세스 체크 · [클럽 총괄 급] (/admin/processes/check/club?org=...).
+//   info 와 동일 화면(공용 ProcessCheckManager) — 차이는 액트 목록이 hub=club 으로만 필터된다는 점뿐.
+//   info 의 테스트 모드 주차 예외(13주차)는 비적용(데이터레이어 hubAllowsTestWeekException=info 한정).
+//   ⚠ user_weekly_points.points/주차 성장 계산/snapshot 무접촉.
+export default async function ProcessCheckClubPage() {
+  await requireAdminPage();
+  return <ProcessCheckManager hub="club" />;
 }
