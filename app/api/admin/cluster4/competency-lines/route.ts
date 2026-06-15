@@ -4,6 +4,12 @@ import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { isUuid } from "@/lib/isUuid";
+import { isOrganizationSlug } from "@/lib/organizations";
+import {
+  assertUserIdsInScope,
+  readScopeMode,
+  resolveUserScope,
+} from "@/lib/userScope";
 import { getRegistrationByBridgedMasterId } from "@/lib/lineRegistrationLookup";
 import {
   getSeasonForDate,
@@ -231,6 +237,56 @@ export async function POST(request: NextRequest) {
   }
 
   const input = parsed.value;
+
+  // ── 조직 + 운영/테스트 스코프 강제 (cluster4_line_targets 혼입 방지) ─────────
+  //   info-lines POST 와 동일 가드. 개설 대상(target_user_ids)은 (현재 org 소속) AND
+  //   (현재 mode 모집단) 둘 다여야 한다. operating=실사용자만 / test=test_user_markers 만.
+  //   org 지정(?organization) 시 전원 그 org 소속이어야(동명이인 타org 차단). 위반 시 DB write 0.
+  const scopeMode = readScopeMode(request.nextUrl.searchParams);
+  const scopeOrgRaw = request.nextUrl.searchParams.get("organization")?.trim() || null;
+  const scopeOrg = isOrganizationSlug(scopeOrgRaw) ? scopeOrgRaw : null;
+
+  // 1) mode 가드 — test_user_markers 등재 여부 축(operating↔test 혼입 422).
+  try {
+    const scope = await resolveUserScope(scopeMode, scopeOrg);
+    assertUserIdsInScope(scope, input.target_user_ids);
+  } catch (error) {
+    if ((error as { status?: number })?.status === 422) {
+      return Response.json(
+        { success: false, error: (error as Error).message },
+        { status: 422 },
+      );
+    }
+    throw error;
+  }
+
+  // 2) org 가드 — org-scoped 개설은 target 전원이 그 org 소속이어야 한다(동명이인 타org 저장 차단).
+  if (scopeOrg && input.target_user_ids.length > 0) {
+    const { data: orgRows, error: orgErr } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,organization_slug")
+      .in("user_id", input.target_user_ids);
+    if (orgErr) {
+      return Response.json({ success: false, error: orgErr.message }, { status: 500 });
+    }
+    const orgById = new Map(
+      ((orgRows ?? []) as Array<{ user_id: string; organization_slug: string | null }>).map(
+        (r) => [r.user_id, r.organization_slug],
+      ),
+    );
+    const orgOffenders = input.target_user_ids.filter(
+      (id) => orgById.get(id) !== scopeOrg,
+    );
+    if (orgOffenders.length > 0) {
+      return Response.json(
+        {
+          success: false,
+          error: `현재 조직(${scopeOrg}) 소속이 아닌 사용자 ${orgOffenders.length}명이 포함되어 처리를 중단했습니다.`,
+        },
+        { status: 422 },
+      );
+    }
+  }
 
   try {
     // 1. Resolve target week — override 우선, 미지정 시 current week.

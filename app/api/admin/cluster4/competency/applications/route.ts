@@ -12,11 +12,13 @@ import {
   assertUserIdsInScope,
   readScopeMode,
   resolveUserScope,
+  type ScopeMode,
 } from "@/lib/userScope";
 import {
   describeWeekByStartMs,
   getOpenableWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
+import { resolveCompetencyTestWeekOverrideMs } from "@/lib/cluster4CompetencyTestWeekException";
 import {
   addManualCompetencyApplication,
   getCompetencyApplicationSummary,
@@ -32,9 +34,18 @@ import {
 // 기본 대상 주차 = 개설 대상(금요일 경계 = openable week). 상태창/로그 API 와 동일 SoT 헬퍼.
 // week_id 지정 시(라인 관리 탭 주차 드롭다운) 그 주차 기준 집계 — 같은 DTO 로 주차만 바꿔 조회한다.
 
-async function resolveTargetWeekId(): Promise<string | null> {
+// 개설 대상 주차 = 금요일 경계 openable week. 단, test 모드는 역량 허브 W13 예외를 적용해
+//   상태창/개설 플로우(adminCompetencyLineOpening.resolveWeeks)와 동일한 주차로 정렬한다.
+//   (예외 미적용 시 test 모드에서 개설은 W13, 신청자 집계는 정규주차로 어긋남 — read/write 주차 불일치)
+//   resolveCompetencyTestWeekOverrideMs 는 operating·비역량시즌에서 null → 정규주차 그대로(운영 정책 무변).
+async function resolveTargetWeekId(mode: ScopeMode): Promise<string | null> {
   const todayIso = new Date().toISOString().slice(0, 10);
-  const openableStartMs = getOpenableWeekStartMs(todayIso);
+  const regularOpenableStartMs = getOpenableWeekStartMs(todayIso);
+  const openableStartMs =
+    regularOpenableStartMs == null
+      ? null
+      : resolveCompetencyTestWeekOverrideMs(mode, regularOpenableStartMs) ??
+        regularOpenableStartMs;
   const info = openableStartMs != null ? describeWeekByStartMs(openableStartMs) : null;
   if (!info) return null;
   const { data } = await supabaseAdmin
@@ -64,7 +75,7 @@ export async function GET(request: NextRequest) {
     // week_id 지정 시 그 주차(라인 관리 탭 드롭다운), 미지정/무효 시 개설 대상 주차.
     const weekParam = request.nextUrl.searchParams.get("week_id")?.trim() || null;
     const weekId =
-      weekParam && isUuid(weekParam) ? weekParam : await resolveTargetWeekId();
+      weekParam && isUuid(weekParam) ? weekParam : await resolveTargetWeekId(mode);
     if (!org || !weekId) {
       return Response.json({
         success: true,
@@ -189,7 +200,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const weekId = await resolveTargetWeekId();
+    const weekId = await resolveTargetWeekId(scopeMode);
     if (!weekId) {
       return Response.json(
         { success: false, error: "개설 대상 주차 정보를 확인할 수 없습니다" },

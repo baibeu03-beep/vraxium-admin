@@ -21,7 +21,7 @@ import {
   describeWeekByStartMs,
   getCurrentWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
-import { filterTeamsByScope } from "@/lib/cluster4ExperienceTestScope";
+import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   processCheckLogPeriodLabel,
@@ -461,6 +461,18 @@ export async function applyProcessCheckAction(input: {
     if (teamErr) throw new ProcessMasterError(500, teamErr.message);
     if (!teamRow) throw new ProcessMasterError(400, "조직에 속한 활성 팀이 아닙니다");
     teamName = (teamRow as { team_name: string }).team_name;
+    // 모드 일치 재검증 — read 목록(filterTeamsByScope)과 동일 축으로 write 도 가드한다.
+    //   test=(T)테스트 팀만 / operating=운영 팀만. 클라이언트가 mode 와 어긋나는 team_id 를
+    //   보내도 DB write 0 으로 중단(fail-closed 422). org 는 위 쿼리에서 이미 강제됨.
+    const writeMode = input.mode ?? "operating";
+    if ((writeMode === "test") !== isTestTeam(organization, teamName)) {
+      throw new ProcessMasterError(
+        422,
+        writeMode === "test"
+          ? "테스트 모드에서는 테스트 팀만 체크할 수 있습니다"
+          : "운영 모드에서는 운영(비테스트) 팀만 체크할 수 있습니다",
+      );
+    }
   } else if (teamId) {
     throw new ProcessMasterError(400, "이 허브는 팀 구분이 없습니다");
   }

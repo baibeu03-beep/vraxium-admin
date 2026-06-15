@@ -665,8 +665,14 @@ export async function POST(request: NextRequest) {
     //     반영되게 한다. ≤10명 즉시 / >10명 stale+백그라운드. best-effort.
     if (isZeroTarget) {
       const audience = await collectLineOrgAudience(createdLine.id);
-      await invalidateWeeklyCardsForUsers(audience);
+      // ⚠ snapshot 재계산 대상도 현재 mode 모집단만 — collectLineOrgAudience 는 org 만으로
+      //   audience 를 잡으므로(test_user_markers 미적용), 여기서 mode 스코프를 적용하지 않으면
+      //   test 모드 0명 개설이 실유저 snapshot 을, operating 0명 개설이 테스트 유저 snapshot 을
+      //   재계산하게 된다. resolveUserScope(mode) 로 좁혀 교차 모드 영향 0 을 보장한다.
+      const audienceScope = await resolveUserScope(scopeMode, scopeOrg);
+      await invalidateWeeklyCardsForUsers(audienceScope.filter(audience));
     } else {
+      // target 전원은 위 스코프 가드를 통과(현재 mode 모집단)했으므로 그대로 재계산.
       await invalidateWeeklyCardsForUsers(input.target_user_ids);
     }
 

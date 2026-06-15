@@ -99,6 +99,11 @@ export async function runOnce({ sb, now = Date.now(), orgs = null, modes = null,
   const nowIso = new Date(now).toISOString();
   const due = await findDueItems(sb, nowIso);
 
+  // 쓰기 직전 스코프 재검증용 테스트 유저 집합(틱당 1회). 조회 실패 → 빈 집합(fail-safe:
+  //   operating 은 전원 통과, test 는 전원 차단 → 실유저 절대 유입 안 됨, lib/userScope 와 동일 축).
+  const { data: markerRows } = await sb.from("test_user_markers").select("user_id");
+  const testIds = new Set(((markerRows ?? []).map((r) => r.user_id)).filter(Boolean));
+
   // org/mode 한정 + (옵션)id 화이트리스트 + 재시도 소진/쿨다운 필터.
   const eligible = due.filter(
     (d) =>
@@ -114,6 +119,26 @@ export async function runOnce({ sb, now = Date.now(), orgs = null, modes = null,
     const mode = item.scope_mode ?? "operating";
     try {
       const { matched, review } = await crawlAndMatch(item.organization_slug, mode, item.review_link);
+
+      // ── 쓰기 직전 스코프 재검증(defense-in-depth) — cafe-line-crew 가 이미 org+mode 풀로
+      //   좁히지만, 다른 write 경로(createManualGrant·info-lines·competency)와 동일하게 worker 도
+      //   2차 가드를 둔다. matched user_id 전원이 (item.scope_mode 모집단) AND (item.organization_slug
+      //   소속)이어야 한다. 하나라도 어긋나면 throw → recipients 미기록 · attempt_count++ (fail-closed).
+      const matchedIds = matched.map((m) => m.userId).filter(Boolean);
+      if (matchedIds.length) {
+        const modeOffenders = matchedIds.filter((id) => (mode === "test") !== testIds.has(id));
+        if (modeOffenders.length) {
+          throw new Error(`scope violation(mode=${mode}): ${modeOffenders.length} user(s) out of test/operating scope`);
+        }
+        const { data: profRows, error: profErr } = await sb
+          .from("user_profiles").select("user_id,organization_slug").in("user_id", matchedIds);
+        if (profErr) throw new Error(`org check: ${profErr.message}`);
+        const orgById = new Map((profRows ?? []).map((r) => [r.user_id, r.organization_slug]));
+        const orgOffenders = matchedIds.filter((id) => orgById.get(id) !== item.organization_slug);
+        if (orgOffenders.length) {
+          throw new Error(`scope violation(org=${item.organization_slug}): ${orgOffenders.length} cross-org user(s)`);
+        }
+      }
 
       // 결과 저장(멱등: source+ref_id delete 후 재삽입).
       await sb.from("process_check_review_recipients").delete().eq("source", item.source).eq("ref_id", item.id);
