@@ -32,6 +32,10 @@ export default function ProcessCheckActTable({
   onOpenAct: (act: ProcessCheckActRowDto) => void;
 }) {
   // 카드 제목/설명(CardHeader) 제거 — 액트 목록(CardContent)만 렌더(info/experience 공용).
+  // 요약 — 현재 표시되는 acts(필터/팀/탭 적용 후) 기준 프론트 집계. DB/DTO 무변경.
+  //   체크 완료 = status==="completed" · 체크 필요 = 그 외(needed|pending) · 항목 수 = 전체 row.
+  const completedCount = acts.filter((a) => a.status === "completed").length;
+  const neededCount = acts.length - completedCount;
   return (
     <Card>
       <CardContent>
@@ -43,6 +47,22 @@ export default function ProcessCheckActTable({
           </p>
         ) : (
           <div className="overflow-x-auto">
+            {/* 액트 목록 요약 — 테이블 바로 위 한 줄(1행 3열). */}
+            <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+              <span>
+                체크 필요{" "}
+                <span className="font-semibold tabular-nums text-amber-700">{neededCount}</span>
+              </span>
+              <span className="text-muted-foreground">|</span>
+              <span>
+                체크 완료{" "}
+                <span className="font-semibold tabular-nums text-green-700">{completedCount}</span>
+              </span>
+              <span className="text-muted-foreground">|</span>
+              <span>
+                항목 수 <span className="font-semibold tabular-nums">{acts.length}</span>
+              </span>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
