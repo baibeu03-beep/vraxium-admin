@@ -51,10 +51,10 @@ const EMPTY_SUMMARY: ProcessActSummary = {
   max: { check: 0, advantage: 0, penalty: 0 },
 };
 
-// 정렬 — 발생 시점 순(기본) / 소요 시간 순.
+// 정렬 — 신청 시점 순(기본) / 소요 시간 순.
 type SortKey = "occur" | "duration";
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "occur", label: "발생 시점 순" },
+  { key: "occur", label: "신청 시점 순" },
   { key: "duration", label: "소요 시간 순" },
 ];
 
@@ -175,7 +175,7 @@ export default function ProcessInfoManager() {
     if (sortKey === "duration") {
       sorted.sort((a, b) => a.durationMinutes - b.durationMinutes);
     } else {
-      // 발생 시점 순: occur_week(N→N+1) → occur_dow(일~토) → occur_time(오름차순)
+      // 신청 시점 순: occur_week(N→N+1) → occur_dow(일~토) → occur_time(오름차순)
       sorted.sort(
         (a, b) =>
           weekRank(a.occurWeek) - weekRank(b.occurWeek) ||
@@ -323,8 +323,8 @@ export default function ProcessInfoManager() {
                     <TableHead>액트명</TableHead>
                     <TableHead>소속 라인 급</TableHead>
                     <TableHead className="text-right">소요(m)</TableHead>
-                    <TableHead>발생 시점</TableHead>
-                    <TableHead>체크 시점</TableHead>
+                    <TableHead>신청 시점</TableHead>
+                    <TableHead>검수 시점</TableHead>
                     <TableHead className="text-right">Po.A</TableHead>
                     <TableHead className="text-right">Po.B</TableHead>
                     <TableHead className="text-right">Po.C</TableHead>

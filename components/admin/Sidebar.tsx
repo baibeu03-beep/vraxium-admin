@@ -212,6 +212,7 @@ const MENU_ORG: MenuItem[] = [
       { label: "실무 정보 급", href: "/admin/processes/check/info" },
       { label: "실무 경험 급", href: "/admin/processes/check/experience" },
       { label: "실무 역량 급", href: "/admin/processes/check/competency" },
+      { label: "비정규 액트", href: "/admin/processes/check/irregular" },
     ],
   },
   // 3) 클럽 진행

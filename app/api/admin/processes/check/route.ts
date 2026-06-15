@@ -93,6 +93,9 @@ export async function POST(request: NextRequest) {
   const actId = typeof b.act_id === "string" ? b.act_id.trim() : "";
   const teamId = typeof b.team_id === "string" && b.team_id.trim() ? b.team_id.trim() : null;
   const action = b.action;
+  // 스코프 모드(operating=현재 주차 / test=info 13주차 예외). GET 과 동일 SoT(parseScopeMode).
+  //   ⚠ 저장 주차가 보드 조회 주차와 일치하도록 write 경로도 mode 를 받아 전달한다.
+  const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
 
   if (!isProcessHub(hub)) {
     return Response.json(
@@ -127,6 +130,7 @@ export async function POST(request: NextRequest) {
       reviewLink: b.review_link,
       scheduledCheckAt: b.scheduled_check_at,
       adminId: admin.userId,
+      mode,
     });
     return Response.json({ success: true, data }, { status: 201 });
   } catch (error) {

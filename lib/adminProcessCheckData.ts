@@ -17,7 +17,10 @@ import {
   type ProcessHub,
   type ProcessWeekRef,
 } from "@/lib/adminProcessesTypes";
-import { describeCurrentWeek } from "@/lib/cluster4WeekPolicy";
+import {
+  describeWeekByStartMs,
+  getCurrentWeekStartMs,
+} from "@/lib/cluster4WeekPolicy";
 import { filterTeamsByScope } from "@/lib/cluster4ExperienceTestScope";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
@@ -75,9 +78,43 @@ function migrationHint(error: { code?: string } | null): ProcessMasterError | nu
 }
 
 // ── 현재 주차 (이번 주 N — 월~일) + weeks.id ─────────────────────────────────
-async function resolveCurrentWeek(): Promise<ProcessCheckWeekDto | null> {
+const WEEK_MS = 7 * 86_400_000;
+
+// 13주차(테스트) 예외를 받는 허브 — info 만(운영 정책/다른 check 화면·line-opening 무영향).
+//   ⚠ 이 술어를 좁게 유지해야 "info 에만 적용" 보장. 다른 허브로 확장 시 여기만 수정.
+function hubAllowsTestWeekException(hub: ProcessHub): boolean {
+  return hub === "info";
+}
+
+// 보드 기준 주차(시작 ms) 결정 — mode + 예외 허용 여부만으로 결정(허브 무관 공용 SoT).
+//   운영 모드 / 예외 미허용 → 실제 현재 주차 N(기존 정책 유지).
+//   테스트 모드 + 예외 허용(info·비정규 액트) → 현재 주차가 휴식 주차여도 "마지막 운영(running)
+//     주차"로 walk-back(현 2026-봄 = 13주차). 활동 주차면 walk-back 결과 = 현재 주차(불변).
+//   ⚠ "13"을 하드코딩하지 않고 시즌 캘린더(isOfficialRest)에서 동적 산출 — 시즌 바뀌어도 안전.
+export function resolveProcessWeekStartMs(mode: ScopeMode, allowTestException: boolean): number | null {
   const todayIso = new Date().toISOString().slice(0, 10);
-  const d = describeCurrentWeek(todayIso);
+  const curMs = getCurrentWeekStartMs(todayIso);
+  if (curMs == null) return null;
+  if (mode !== "test" || !allowTestException) return curMs;
+  // 테스트 모드(예외 허용) — 휴식 아닌(운영) 주차를 만날 때까지 1주씩 뒤로(시즌 시작 이전이면 중단).
+  let ms = curMs;
+  for (let i = 0; i < 24; i++) {
+    const d = describeWeekByStartMs(ms);
+    if (!d) break; // 시즌 시작 이전 → 더 못 감
+    if (!d.isOfficialRest) return ms; // 운영 주차 발견(= 마지막 활동 주차)
+    ms -= WEEK_MS;
+  }
+  return curMs; // 운영 주차 못 찾음 → 현재 주차(fail-safe = 운영 동작)
+}
+
+// 주차 DTO 빌더(weeks.id lookup + 라벨) — 허브 무관 공용. 비정규 액트도 이 SoT 를 재사용.
+export async function resolveProcessWeek(
+  mode: ScopeMode,
+  allowTestException: boolean,
+): Promise<ProcessCheckWeekDto | null> {
+  const ms = resolveProcessWeekStartMs(mode, allowTestException);
+  if (ms == null) return null;
+  const d = describeWeekByStartMs(ms);
   if (!d) return null;
 
   const { data: weekRow } = await supabaseAdmin
@@ -98,6 +135,11 @@ async function resolveCurrentWeek(): Promise<ProcessCheckWeekDto | null> {
     periodLabel: processCheckPeriodLabel(base),
     logPeriodLabel: processCheckLogPeriodLabel(base),
   };
+}
+
+// 허브 기준 현재 주차(기존 호출부 유지) — 예외 허용 여부를 허브 술어로 결정해 공용 빌더에 위임.
+function resolveCurrentWeek(hub: ProcessHub, mode: ScopeMode): Promise<ProcessCheckWeekDto | null> {
+  return resolveProcessWeek(mode, hubAllowsTestWeekException(hub));
 }
 
 // ── 마스터(활성) 읽기 ─────────────────────────────────────────────────────────
@@ -225,7 +267,7 @@ export async function getProcessCheckBoard(
   // 팀 목록 스코프(operating=운영 팀만 / test=(T) 팀만). 기본 operating.
   mode: ScopeMode = "operating",
 ): Promise<ProcessCheckBoardDto> {
-  const week = await resolveCurrentWeek();
+  const week = await resolveCurrentWeek(hub, mode);
   const { groups, acts } = await loadActiveMaster(hub);
   const statusByAct = week?.weekId
     ? await loadStatuses(organization, hub, week.weekId, teamId)
@@ -242,7 +284,7 @@ export async function getProcessCheckBoard(
     groupSort.set(g.id, g.sort_order);
   }
 
-  // [섹션.1] 액트 목록 — 발생 시점(필요) 순: occur_week(N→N+1) → occur_dow(일~토) →
+  // [섹션.1] 액트 목록 — 신청 시점(필요) 순: occur_week(N→N+1) → occur_dow(일~토) →
   //   occur_time(빠른 시간) → 라인급 sort_order → act created_at.
   const weekRank = (w: string) => (w === "N" ? 0 : 1);
   const sortedActs = [...acts].sort(
@@ -392,10 +434,12 @@ export async function applyProcessCheckAction(input: {
   reviewLink?: unknown;
   scheduledCheckAt?: unknown;
   adminId: string;
+  // 보드 조회와 동일한 주차로 저장하기 위한 스코프 모드(테스트=13주차 예외·info). 기본 operating.
+  mode?: ScopeMode;
 }): Promise<ProcessCheckActRowDto> {
   const { hub, organization, actId, action, adminId } = input;
 
-  const week = await resolveCurrentWeek();
+  const week = await resolveCurrentWeek(hub, input.mode ?? "operating");
   if (!week?.weekId) {
     throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 체크를 저장할 수 없습니다");
   }

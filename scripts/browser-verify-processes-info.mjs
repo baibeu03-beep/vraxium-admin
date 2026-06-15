@@ -130,11 +130,11 @@ try {
   const rows2 = await readRows();
   check("[페이지] page2 = 나머지 2행", rows2.length === SEED_N - 40, `rows=${rows2.length}`);
 
-  // 4) 정렬 — 기본(발생 시점 순) page1 단조 증가
+  // 4) 정렬 — 기본(신청 시점 순) page1 단조 증가
   await page.click('button[aria-label="1 페이지"]').catch(() => {});
   await page.waitForFunction("[...document.querySelectorAll('tbody tr')].length === 40", undefined, { timeout: 10000 }).catch(() => {});
   const occurRows = await readRows();
-  check("[정렬] 발생 시점 순(기본) — page1 발생시점 오름차순(N→N+1·요일·시간)",
+  check("[정렬] 신청 시점 순(기본) — page1 발생시점 오름차순(N→N+1·요일·시간)",
     isAsc(occurRows.map((r) => whenRank(r[4]))));
   // 소요 시간 순
   await page.selectOption('select[aria-label="정렬"]', "duration");

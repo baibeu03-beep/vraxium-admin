@@ -1,7 +1,7 @@
 // 검증 — /admin/processes/register 브라우저 반영.
 //   1) 5탭(클럽 총괄/실무 정보/경험/역량/경력 급) + 시안 12개 섹션 렌더.
 //   2) UI 라운드트립: 라인급명 입력→Enter→칩 표시(액트 0)→X 삭제(빈 그룹)→제거 (browser→API→DB→render).
-//   3) 액트 폼 요소(소요시간/발생·체크 시점/포인트 A·B·C/카페/체크대상/액트종류/개요/비고) 렌더.
+//   3) 액트 폼 요소(소요시간/발생·검수 시점/포인트 A·B·C/카페/체크대상/액트종류/개요/비고) 렌더.
 // net-zero: TAG 행은 service-role 로 정리.
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
@@ -80,7 +80,7 @@ try {
     ["클럽 총괄 급", "실무 정보 급", "실무 경험 급", "실무 역량 급", "실무 경력 급"].every((t) => body.includes(t)));
 
   // 2) 시안 12개 섹션 라벨 렌더
-  const labels = ["소속 허브급", "액트명", "소속 라인급", "소요 시간", "발생 시점", "체크 시점", "포인트", "카페", "체크 대상", "액트 종류", "개요", "비고"];
+  const labels = ["소속 허브급", "액트명", "소속 라인급", "소요 시간", "신청 시점", "검수 시점", "포인트", "카페", "체크 대상", "액트 종류", "개요", "비고"];
   const missing = labels.filter((l) => !body.includes(l));
   check("[폼] 시안 12개 섹션 라벨 전부 렌더", missing.length === 0, missing.length ? `누락=${missing.join(",")}` : "");
 
@@ -103,8 +103,8 @@ try {
     };
   });
   check("[폼] 소요시간 드롭다운", formEls.duration);
-  check("[폼] 발생 시점 3종(주/요일/시간)", formEls.occur);
-  check("[폼] 체크 시점 3종(주/요일/시간)", formEls.checkWhen);
+  check("[폼] 신청 시점 3종(주/요일/시간)", formEls.occur);
+  check("[폼] 검수 시점 3종(주/요일/시간)", formEls.checkWhen);
   check("[폼] 포인트 A·B·C 드롭다운(0~20)", formEls.points);
   check("[폼] 카페/체크대상/액트종류 드롭다운", formEls.cafe && formEls.checkTarget && formEls.actType);
   check("[폼] 개요/비고 textarea", formEls.overview && formEls.remarks);

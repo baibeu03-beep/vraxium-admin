@@ -50,12 +50,12 @@ CREATE TABLE IF NOT EXISTS public.process_acts (
   duration_minutes integer NOT NULL
     CHECK (duration_minutes BETWEEN 5 AND 90 AND duration_minutes % 5 = 0),
 
-  -- 발생 시점 — 주(N|N1=N+1) · 요일(0=일 ~ 6=토) · 시간('HH:MM', 30분 단위 06:00~24:00).
+  -- 신청 시점 — 주(N|N1=N+1) · 요일(0=일 ~ 6=토) · 시간('HH:MM', 30분 단위 06:00~24:00).
   occur_week       text NOT NULL CHECK (occur_week IN ('N', 'N1')),
   occur_dow        smallint NOT NULL CHECK (occur_dow BETWEEN 0 AND 6),
   occur_time       text NOT NULL,
 
-  -- 체크 시점 — 발생 시점과 동일 구조.
+  -- 검수 시점 — 신청 시점과 동일 구조.
   check_week       text NOT NULL CHECK (check_week IN ('N', 'N1')),
   check_dow        smallint NOT NULL CHECK (check_dow BETWEEN 0 AND 6),
   check_time       text NOT NULL,

@@ -83,8 +83,8 @@ export type ProcessCheckActRowDto = {
   lineGroupName: string;
   actName: string;
   durationMinutes: number;
-  occurWhen: string; // 발생 시점(필요) — "N주 화 06:30"
-  checkWhen: string; // 체크 시점(필요)
+  occurWhen: string; // 신청 시점(필요) — "N주 화 06:30"
+  checkWhen: string; // 검수 시점(필요)
   pointCheck: number; // Po.A
   pointAdvantage: number; // Po.B
   pointPenalty: number; // Po.C
@@ -94,8 +94,8 @@ export type ProcessCheckActRowDto = {
   // 체크 상태(현재값).
   status: ProcessCheckStatus;
   reviewLink: string | null;
-  scheduledCheckAt: string | null; // 체크 시점(실제)
-  requestedAt: string | null; // 발생 시점(실제)
+  scheduledCheckAt: string | null; // 검수 시점(실제)
+  requestedAt: string | null; // 신청 시점(실제)
   completedAt: string | null;
   checkedCrewCount: number | null;
 };
@@ -160,7 +160,7 @@ export type ProcessCheckBoardDto = {
   // 팀 구분 허브(experience)면 org 팀 목록(상태창1 팀별 문장용). 그 외(info 등)는 빈 배열(허브 전체 1문장).
   teams: ProcessCheckTeamDto[];
   lineGroups: ProcessCheckLineGroupDto[]; // 체크 대상 ≥1 라인급(칩), ≤12
-  acts: ProcessCheckActRowDto[]; // [섹션.1] 발생 시점(필요) 순
+  acts: ProcessCheckActRowDto[]; // [섹션.1] 신청 시점(필요) 순
   summary: ProcessCheckSummary;
   logs: ProcessCheckLogDto[];
 };

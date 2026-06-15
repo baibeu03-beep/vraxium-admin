@@ -136,7 +136,7 @@ export type ProcessLineGroupDto = {
   updatedAt: string;
 };
 
-// ── 발생/체크 시점 표시 포맷 ("N주 월 06:30") ──────────────────────────────
+// ── 발생/검수 시점 표시 포맷 ("N주 월 06:30") ──────────────────────────────
 export function formatProcessWhen(
   week: ProcessWeekRef,
   dow: number,

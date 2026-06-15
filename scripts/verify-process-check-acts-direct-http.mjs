@@ -1,6 +1,6 @@
 // 프로세스 체크 [섹션.1] 액트 목록(표시 전용) direct==HTTP 검증.
 //   - GET /api/admin/processes/check?hub=info&org=oranke : board.acts (마스터 기준)
-//   - 발생 시점(필요) 순 정렬(N→N+1 · 일→토 · 빠른 시간 · sort_order/created_at)
+//   - 신청 시점(필요) 순 정렬(N→N+1 · 일→토 · 빠른 시간 · sort_order/created_at)
 //   - 컬럼 채움(라인급/소요/Po.A·B·C/크루반응/카페) · 실제 시점 빈칸 · 상태=needed(체크 필요)
 //   - direct(process_acts 동일 정렬) == HTTP acts 순서
 //   - org 분기(encre 도 동일 목록·동일 순서, 상태 needed)
@@ -79,7 +79,7 @@ try {
 
   const mine = (board.acts ?? []).filter((a) => a.actName?.startsWith(TAG));
   const order = mine.map((a) => a.actName.replace(`${TAG} `, ""));
-  ck("[정렬] 발생 시점(필요) 순 = C,B,A,D (화06:30→화08:00→수09:00→N+1 월)", J(order) === J(["C", "B", "A", "D"]), J(order));
+  ck("[정렬] 신청 시점(필요) 순 = C,B,A,D (화06:30→화08:00→수09:00→N+1 월)", J(order) === J(["C", "B", "A", "D"]), J(order));
 
   // 같은 주 안에서 화요일 액트가 수요일 액트보다 위(아래 아님).
   const idxB = order.indexOf("B"), idxA = order.indexOf("A");
@@ -90,7 +90,7 @@ try {
   ck("[컬럼] 라인급/소요/Po.A·B·C/크루반응/카페 채움", C && C.lineGroupName === `${TAG} 라인급` && C.durationMinutes === 10 && C.pointCheck === 3 && C.pointAdvantage === 2 && C.pointPenalty === 1 && C.crewReactionLabel === "자율" && C.cafeLabel === "미발생", J(C && { g: C.lineGroupName, d: C.durationMinutes, cr: C.crewReactionLabel, cafe: C.cafeLabel }));
   const A = mine.find((a) => a.actName.endsWith("A"));
   ck("[컬럼] A: 크루반응=필수 · 카페=발생", A && A.crewReactionLabel === "필수" && A.cafeLabel === "발생");
-  ck("[실제시점] 발생/체크 시점(실제) 빈칸(null)", mine.every((a) => a.requestedAt === null && a.scheduledCheckAt === null));
+  ck("[실제시점] 발생/검수 시점(실제) 빈칸(null)", mine.every((a) => a.requestedAt === null && a.scheduledCheckAt === null));
   ck("[상태] 표시 전용 — 전부 needed(버튼 '체크 필요')", mine.every((a) => a.status === "needed"));
 
   // direct(process_acts) == HTTP acts 순서.

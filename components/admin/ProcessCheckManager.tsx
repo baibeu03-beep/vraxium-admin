@@ -280,12 +280,15 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         </Card>
       </div>
 
-      {/* 상태창2 — 전체 팀(섹션.0 고정). */}
-      <ProcessCheckProgress
-        title={teamMode ? "상태창 2 · 이번 주 체크 진행 현황 (전체 팀)" : "상태창 2 · 이번 주 체크 진행 현황"}
-        summary={summary}
-        lineGroups={board.lineGroups}
-      />
+      {/* 상태창2 — 허브 전체(섹션.0). 팀 구분 허브(experience)는 "(전체 팀)" 카드 미표시
+          (섹션.1 선택 팀 상태창2만 노출). info 등 비팀 허브는 그대로 유지. UI 전용 — summary 계산 무변. */}
+      {!teamMode && (
+        <ProcessCheckProgress
+          title="상태창 2 · 이번 주 체크 진행 현황"
+          summary={summary}
+          lineGroups={board.lineGroups}
+        />
+      )}
 
       {/* ════ [섹션.1] 액트 체크 ════ */}
       {teamMode ? (
@@ -327,7 +330,6 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 loading={teamLoading}
                 weekDisabled={weekDisabled}
                 onOpenAct={(a) => setDialogAct(a)}
-                title={`[섹션.1] 액트 목록 · ${effectiveTeamName ?? "선택 팀"}`}
               />
             </>
           )}
@@ -347,6 +349,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           hub={hub}
           organization={org}
           teamId={teamMode ? effectiveTeamId : null}
+          mode={mode}
           onClose={() => setDialogAct(null)}
           onDone={refreshAfterAction}
         />

@@ -1,14 +1,9 @@
 "use client";
 
-// [섹션.1] 액트 목록 테이블 — info/experience 공용. 발생 시점(필요) 순(서버 정렬) · 13컬럼.
+// [섹션.1] 액트 목록 테이블 — info/experience 공용. 신청 시점(필요) 순(서버 정렬) · 13컬럼.
 //   상태 버튼 클릭 → onOpenAct(act)로 팝업 위임. 실제 시점 = requested_at / scheduled_check_at.
 
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -30,24 +25,15 @@ export default function ProcessCheckActTable({
   loading,
   weekDisabled,
   onOpenAct,
-  title = "[섹션.1] 액트 목록",
 }: {
   acts: ProcessCheckActRowDto[];
   loading: boolean;
   weekDisabled: boolean;
   onOpenAct: (act: ProcessCheckActRowDto) => void;
-  title?: string;
 }) {
+  // 카드 제목/설명(CardHeader) 제거 — 액트 목록(CardContent)만 렌더(info/experience 공용).
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle className="text-base">
-          {title} ({acts.length})
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          발생 시점(필요) 순 · 상태 버튼 클릭 시 체크 신청/취소 팝업
-        </p>
-      </CardHeader>
       <CardContent>
         {loading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">불러오는 중…</p>
@@ -63,15 +49,15 @@ export default function ProcessCheckActTable({
                   <TableHead>액트명</TableHead>
                   <TableHead>소속 라인 급</TableHead>
                   <TableHead className="text-right">소요(m)</TableHead>
-                  <TableHead>발생 시점(필요)</TableHead>
-                  <TableHead>체크 시점(필요)</TableHead>
+                  <TableHead>신청 시점(필요)</TableHead>
+                  <TableHead>검수 시점(필요)</TableHead>
                   <TableHead className="text-right">Po.A</TableHead>
                   <TableHead className="text-right">Po.B</TableHead>
                   <TableHead className="text-right">Po.C</TableHead>
                   <TableHead>크루 반응</TableHead>
                   <TableHead>카페</TableHead>
-                  <TableHead>발생 시점(실제)</TableHead>
-                  <TableHead>체크 시점(실제)</TableHead>
+                  <TableHead>신청 시점(실제)</TableHead>
+                  <TableHead>검수 시점(실제)</TableHead>
                   <TableHead className="text-right">상태</TableHead>
                 </TableRow>
               </TableHeader>

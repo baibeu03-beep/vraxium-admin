@@ -78,7 +78,7 @@ function FormRow({
   );
 }
 
-// 주/요일/시간 3종 묶음 입력 (발생 시점 · 체크 시점 공용).
+// 주/요일/시간 3종 묶음 입력 (신청 시점 · 검수 시점 공용).
 function WhenInput({
   week,
   dow,
@@ -525,8 +525,8 @@ export default function ProcessRegisterManager() {
             </select>
           </FormRow>
 
-          {/* [5] 발생 시점 */}
-          <FormRow label="발생 시점" required>
+          {/* [5] 신청 시점 */}
+          <FormRow label="신청 시점" required>
             <WhenInput
               week={occurWeek}
               dow={occurDow}
@@ -538,8 +538,8 @@ export default function ProcessRegisterManager() {
             />
           </FormRow>
 
-          {/* [6] 체크 시점 */}
-          <FormRow label="체크 시점" required>
+          {/* [6] 검수 시점 */}
+          <FormRow label="검수 시점" required>
             <WhenInput
               week={checkWeek}
               dow={checkDow}
