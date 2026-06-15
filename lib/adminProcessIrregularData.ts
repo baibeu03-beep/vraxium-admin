@@ -12,6 +12,7 @@ import { ProcessMasterError } from "@/lib/adminProcessesData";
 import { resolveProcessWeek } from "@/lib/adminProcessCheckData";
 import { enforcePointC } from "@/lib/adminProcessesTypes";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
+import { accrueForCompletedIrregular, revokeForAct } from "@/lib/processPointAccrual";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
@@ -440,6 +441,17 @@ export async function createManualGrant(input: {
   const { error: recErr } = await supabaseAdmin.from("process_check_review_recipients").insert(recRows);
   if (recErr) throw migrationHint(recErr) ?? new ProcessMasterError(500, recErr.message);
 
+  // 포인트 적립(완료 즉시) — era 경계(operating=summer+/test=+W13)·스코프 가드는 helper 내부.
+  //   best-effort: 적립 실패(마이그레이션 미적용 PGRST205 등)가 수동부여 생성을 깨뜨리지 않게 격리.
+  try {
+    const acc = await accrueForCompletedIrregular(act.id);
+    if ("skipped" in acc && acc.skipped) {
+      console.log("[accrual] manual_grant 적립 스킵", { actId: act.id, reason: acc.reason });
+    }
+  } catch (e) {
+    console.warn("[accrual] manual_grant 적립 실패(격리·재시도 가능)", { actId: act.id, message: e instanceof Error ? e.message : String(e) });
+  }
+
   const recipients = await loadRecipientsByRef([act.id]);
   return toRowDto(act, recipients);
 }
@@ -494,6 +506,12 @@ export async function deleteIrregularAct(
   mode: ScopeMode,
 ): Promise<void> {
   await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
+  // 적립 회수 — 원장 행 제거 후 영향 사용자 user_weekly_points 재계산 + snapshot 무효화(best-effort).
+  try {
+    await revokeForAct("irregular", id);
+  } catch (e) {
+    console.warn("[accrual] 삭제 시 적립 회수 실패(격리)", { actId: id, message: e instanceof Error ? e.message : String(e) });
+  }
   const { error } = await supabaseAdmin.from("process_irregular_acts").delete().eq("id", id);
   if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
 }

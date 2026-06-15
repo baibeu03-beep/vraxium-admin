@@ -131,7 +131,14 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 //   snapshot.cards 에 직렬화되므로, 기존 v19 snapshot 의 colleagueProfile.department 는 여전히 NULL.
 //   v19→v20 stale(version_mismatch) 처리로 cron/lazy 가 재계산하며 educations 값으로 채운다.
 //   (DB 백필 아님 — 파생 캐시 재생성. user_educations 자체는 건드리지 않는다.)
-export const WEEKLY_CARDS_DTO_VERSION = 20;
+// v21 (2026-06-15): 신정책(2026-summer W1+) 주차에도 check 게이트 적용 — 주차 성공 = 필수 슬롯
+//   pass AND user_weekly_points.points >= 기준값(org_week_thresholds → weeks.check_threshold → 30).
+//   레거시(< 2026-summer W1)는 무변경(enforced=checks_migrated 유지). 신정책은 enforced=true 고정
+//   (그 주 프로세스 체크 포인트 미달 = 주차 인정 실패). DTO 모양 동일(experienceGrowth.checkGate
+//   는 기존 필드 — 종전 신정책 주차에서 null 이던 값이 채워짐)이나 신정책 주차의 verdict/주차상태
+//   (success↔fail)·checkGate 값이 달라지므로 기존 v20 snapshot 을 stale(version_mismatch) 처리해
+//   재계산하게 한다. (DB 백필 아님 — 파생 캐시 재생성. 레거시 주차 값은 불변.)
+export const WEEKLY_CARDS_DTO_VERSION = 21;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

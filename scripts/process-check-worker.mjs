@@ -78,6 +78,20 @@ export async function defaultCrawlAndMatch(baseUrl, cookie, org, mode, url) {
   };
 }
 
+// 기본 적립 트리거 — admin 엔드포인트(/api/admin/processes/accrue) 경유로 TS 적립 로직 재사용.
+//   ledger 멱등·user_weekly_points 재계산·snapshot 무효화·era 경계·org/mode 스코프 전부 lib 단일 SoT.
+//   반환: { ok, accruedUserIds?, skipped?, reason? }. 검증 스크립트가 주입 가능(crawlAndMatch 패턴).
+export async function defaultAccrue(baseUrl, cookie, source, refId) {
+  const res = await fetch(`${baseUrl}/api/admin/processes/accrue`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", cookie },
+    body: JSON.stringify({ source, ref_id: refId }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+  return json.data;
+}
+
 // ── 만기 항목 조회(정규+비정규) ─────────────────────────────────────────────────
 export async function findDueItems(sb, nowIso) {
   const sel = "id,organization_slug,scope_mode,review_link,attempt_count,last_attempt_at";
@@ -95,7 +109,7 @@ export async function findDueItems(sb, nowIso) {
 
 // ── 1회 처리 — 만기 항목 크롤링→식별→결과 저장→완료. (crawlAndMatch 주입) ──────────
 //   onlyIds: 지정 시 해당 id 만 처리(검증 스크립트가 자기 시드만 건드리도록 — 운영은 미지정).
-export async function runOnce({ sb, now = Date.now(), orgs = null, modes = null, onlyIds = null, crawlAndMatch, log = () => {} }) {
+export async function runOnce({ sb, now = Date.now(), orgs = null, modes = null, onlyIds = null, crawlAndMatch, accrue = null, log = () => {} }) {
   const nowIso = new Date(now).toISOString();
   const due = await findDueItems(sb, nowIso);
 
@@ -163,6 +177,19 @@ export async function runOnce({ sb, now = Date.now(), orgs = null, modes = null,
       const { error: uErr } = await sb.from(item.table).update(upd).eq("id", item.id);
       if (uErr) throw new Error(`complete update: ${uErr.message}`);
 
+      // ── 포인트 적립(완료 즉시) — ledger 멱등·user_weekly_points 재계산·snapshot 무효화(lib SoT).
+      //   best-effort: 적립 실패가 완료 처리를 되돌리지 않는다(완료는 멱등 재실행으로 적립 재시도 가능).
+      //   era 경계(operating=summer+/test=+W13)·org/mode 스코프는 적립 lib 내부에서 강제.
+      if (accrue) {
+        try {
+          const acc = await accrue(item.source, item.id);
+          const tail = acc?.skipped ? `skip(${acc.reason})` : `accrued ${acc?.accruedUserIds?.length ?? 0}`;
+          log(`  ↳ 적립 ${item.source} ${item.id}: ${tail}`);
+        } catch (accErr) {
+          log(`  ↳ 적립 실패(격리) ${item.id}: ${String(accErr?.message ?? accErr).slice(0, 200)}`);
+        }
+      }
+
       succeeded++;
       log(`✓ ${item.source} ${item.id} (${item.organization_slug}/${mode}) → matched ${matched.length} · review ${review.length}`);
     } catch (e) {
@@ -192,7 +219,8 @@ async function main() {
     try {
       if (Date.now() - cookieAt > 30 * 60_000) { cookie = await ensureAdminCookie(); cookieAt = Date.now(); }
       const crawl = (org, mode, url) => defaultCrawlAndMatch(BASE, cookie, org, mode, url);
-      const r = await runOnce({ sb, orgs: ORGS, modes: MODES, crawlAndMatch: crawl, log: (m) => console.log(`  ${m}`) });
+      const accrue = (source, refId) => defaultAccrue(BASE, cookie, source, refId);
+      const r = await runOnce({ sb, orgs: ORGS, modes: MODES, crawlAndMatch: crawl, accrue, log: (m) => console.log(`  ${m}`) });
       console.log(`[${new Date().toISOString()}] due=${r.due} eligible=${r.eligible} ok=${r.succeeded} fail=${r.failed}`);
     } catch (e) {
       console.error(`[worker] tick error: ${e?.message ?? e}`);

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import type {
   ExperienceDraftDto,
   ExperienceDraftRow,
@@ -640,9 +640,9 @@ export async function openExperienceDrafts(
     }
   }
 
-  // 개설로 라인/타깃/평가가 생성되어 대상자들의 주차 카드(가용 라인·평점)가 바뀐다 → 다건 stale 표시.
-  // 구조 변경이며 대상자가 N명이므로 즉시 재계산이 아니라 markStaleMany(저렴) + cron 재생성. best-effort.
-  await markWeeklyCardsSnapshotStaleMany(drafts.map((d) => d.target_user_id));
+  // 개설로 라인/타깃/평가가 생성되어 대상자들의 주차 카드(가용 라인·평점)가 바뀐다 → 즉시 재계산.
+  // ≤10 즉시 / >10 background(after) — 저장 직후 고객 반영(평점→강화/주차인정). best-effort.
+  await invalidateWeeklyCardsForUsers(drafts.map((d) => d.target_user_id));
 
   // 행동 이력: 개설된 draft 마다 [개설 완료] 로그(재완료 시 행 추가 = 덮어쓰기 금지). best-effort.
   const draftById = new Map(drafts.map((d) => [d.id, d]));

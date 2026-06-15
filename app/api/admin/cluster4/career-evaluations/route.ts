@@ -6,7 +6,7 @@ import {
   listCareerEvaluationTargetsForLine,
   upsertCareerEvaluation,
 } from "@/lib/adminCareerEvaluationsData";
-import { markWeeklyCardsSnapshotStale } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 // GET /api/admin/cluster4/career-evaluations?line_id=<uuid>
 // 평가 탭 로드용 — career 라인의 user-mode 대상자별 현재 평점.
@@ -80,8 +80,9 @@ export async function POST(request: NextRequest) {
       new Date().toISOString(),
     );
     // 평가 저장/수정으로 careerGrade/careerGradePoints/enhancementStatus 가 바뀌므로
-    // 해당 대상자의 weekly-cards snapshot 을 stale 처리한다. best-effort(throw 안 함).
-    await markWeeklyCardsSnapshotStale(b.user_id);
+    // 해당 대상자의 weekly-cards snapshot 을 즉시 재계산(저장 직후 고객 반영). best-effort(throw 안 함).
+    //   ⚠ career 평점은 라인 강화상태/강화율에만 반영 — 주차 인정 게이트는 실무 경험 전용(미연결).
+    await invalidateWeeklyCardsForUsers([b.user_id]);
     return Response.json({ success: true, data: { evaluation } }, { status: 200 });
   } catch (error) {
     if (error instanceof CareerEvaluationError) {

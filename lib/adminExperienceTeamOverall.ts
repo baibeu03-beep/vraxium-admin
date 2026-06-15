@@ -18,7 +18,7 @@ import {
   resolveUserScope,
   type ScopeMode,
 } from "@/lib/userScope";
-import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
@@ -959,9 +959,9 @@ export async function openTeamOverall(input: {
     warnings.push(`상태 갱신 실패 — ${statusErr.message}`);
   }
 
-  // 대상자 주차 카드 stale 표시(저렴) — 재계산은 기존 lazy 경로 위임.
+  // 대상자 주차 카드 즉시 재계산(저장 직후 고객 반영) — ≤10 즉시 / >10 background. 평점→강화/주차인정 반영.
   if (affectedUserIds.size > 0) {
-    await markWeeklyCardsSnapshotStaleMany(Array.from(affectedUserIds));
+    await invalidateWeeklyCardsForUsers(Array.from(affectedUserIds));
   }
 
   await insertExperienceOpeningLog({
@@ -1035,7 +1035,7 @@ export async function cancelTeamOverall(input: {
     .eq("id", h.id);
 
   if (affected.size > 0) {
-    await markWeeklyCardsSnapshotStaleMany(Array.from(affected));
+    await invalidateWeeklyCardsForUsers(Array.from(affected));
   }
 
   await insertExperienceOpeningLog({
