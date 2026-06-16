@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { after } from "next/server";
 import {
   ADMIN_READ_ROLES,
   AdminAuthError,
@@ -44,14 +45,18 @@ export const dynamic = "force-dynamic";
 const DEBUG_COMPARE = process.env.CLUSTER4_WEEKLY_CARDS_DEBUG === "1";
 
 // ⚠ 504 방지 핵심(2026-06-04 lazy 전환 후에도 유지): 조회의 SoT 는 snapshot 저장본이며,
-// "전원 일괄" 재계산은 조회 경로에서 절대 일어나지 않는다. 단건 lazy 재계산만 허용:
-//   - boundary-stale (computed_at < 현재 주차 시작 — 주차 경계 통과)
-//   - is_stale=true  (관리자 훅 무효화 표시)
-//   - miss           (snapshot 행 없음 — 신규 유저)
+// "전원 일괄" 재계산은 조회 경로에서 절대 일어나지 않는다. 단건(사용자 1명) 재계산만 허용:
+//   - boundary-stale (computed_at < 현재 주차 시작 — 주차 경계 통과)  → 블로킹 lazy
+//   - is_stale=true  (관리자 훅 무효화 표시)                          → 블로킹 lazy
+//   - miss           (snapshot 행 없음 — 신규 유저)                   → 블로킹 lazy
 //   → 그 자리에서 해당 1명만 재계산·저장 후 최신 저장본을 반환 (~1.5–3s, 실측 2026-06-04).
-// version_mismatch(DTO 버전 bump)는 재계산하지 않는다 — 과거 504 의 원인이던 전원 동시
-// 재계산 시나리오이므로, 구 카드 graceful 노출 + 수동 ops(GET /api/admin/cluster4/
-// recompute-snapshots, x-internal-api-key)로만 일괄 수렴한다. Vercel cron 의존성 제거됨.
+// version_mismatch(DTO 버전 bump)는 위 3건과 달리 deploy 직후 전원(=100%)이 동시에 해당되므로,
+//   블로킹 lazy 로 처리하면 과거 504(전원 동시 재계산)의 herd 가 재현될 수 있다. 그래서:
+//   ① 구 카드를 즉시 graceful 노출(블로킹 0 — 이번 응답은 절대 무거운 계산을 기다리지 않음).
+//   ② 응답 후 after() 백그라운드로 "그 사용자 1명만" 재계산·저장(scheduleVersionMismatchRecompute).
+//   → 다음 조회부터 신버전으로 수렴한다(사용자 단위 자동 수렴). 실패 시 기존 snapshot 보존(폴백).
+//   수동 ops(GET /api/admin/cluster4/recompute-snapshots, x-internal-api-key)는 즉시 전원 수렴이
+//   필요할 때 보조로 유지(백그라운드 미도달 인스턴스 보정). Vercel cron 의존성은 여전히 제거됨.
 
 // 응답 형식 고정:
 //   성공: { success: true,  data: [...], areaSixCircles: {...}, seasonAreaProgress: [...], error: null }
@@ -132,11 +137,54 @@ type LoadResult = {
   lazyRan: boolean; // 조회 경로에서 무거운 계산이 실제 실행됐는지
 };
 
+// version_mismatch 백그라운드 재계산 중복 방지(동일 인스턴스 내). after() 콜백이 끝나면 해제.
+//   - 같은 인스턴스에서 동일 사용자가 여러 탭/연속 요청으로 들어와도 재계산은 1회만 예약된다.
+//   - 인스턴스 간(Fluid Compute 다중 인스턴스) 전역 dedupe 는 아니지만, 재계산 대상은 "그 사용자
+//     1명"이고 upsert 는 멱등이므로 인스턴스 수만큼만 중복될 뿐(사용자 수 herd 아님) 안전.
+const versionMismatchRecomputeInFlight = new Set<string>();
+
+// 응답을 블로킹하지 않고(after) 해당 사용자 1명의 snapshot 을 백그라운드 재계산·저장한다.
+//   version_mismatch(DTO 버전 bump) 자동 수렴 전용 — deploy 직후 전원 동시 블로킹 재계산(과거 504)
+//   을 피하면서도 "사용자 단위"로 신버전에 수렴시킨다. 실패는 격리(로그+계속)하며 upsert 가 일어나지
+//   않아 기존 snapshot 이 그대로 보존된다(폴백). after() 불가 컨텍스트면 조용히 생략(구값 유지·
+//   수동 ops/다음 인스턴스가 보정).
+function scheduleVersionMismatchRecompute(profileUserId: string): void {
+  if (versionMismatchRecomputeInFlight.has(profileUserId)) return;
+  versionMismatchRecomputeInFlight.add(profileUserId);
+  try {
+    after(async () => {
+      try {
+        await recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
+        console.log(
+          "[weekly-cards] version-mismatch bg recompute ok",
+          `user=${profileUserId}`,
+        );
+      } catch (e) {
+        // 실패 격리: upsert 미수행 → 기존(구버전) snapshot 보존. 다음 조회/ops 가 재시도.
+        console.warn(
+          "[weekly-cards] version-mismatch bg recompute failed (구 snapshot 보존)",
+          { profileUserId, message: e instanceof Error ? e.message : String(e) },
+        );
+      } finally {
+        versionMismatchRecomputeInFlight.delete(profileUserId);
+      }
+    });
+  } catch (e) {
+    // after() 불가(요청 컨텍스트 밖 등) → 백그라운드 생략. in-flight 정리하고 구값 유지.
+    versionMismatchRecomputeInFlight.delete(profileUserId);
+    console.warn("[weekly-cards] after() unavailable → version-mismatch bg skip", {
+      profileUserId,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
 // 카드 로딩의 단일 진입점 (demo/일반/internal 모든 경로 공용 — DTO·로직 단일).
 //   - hit + 신선(computed_at ≥ 현재 주차 시작) → 저장 카드 그대로 (쿼리 1, 계산 0). 대다수 요청.
 //   - hit + boundary-stale(주차 경계 통과)     → 단건 재계산·저장 → 최신 반환. 실패 시 구 카드 폴백.
 //   - stale(is_stale=true)                    → 단건 재계산·저장 → 최신 반환. 실패 시 구 카드 폴백.
-//   - stale(version_mismatch)                 → 구 카드 graceful 노출 (재계산 금지 — 수동 ops 전용).
+//   - stale(version_mismatch)                 → 구 카드 즉시 노출(블로킹 0) + after() 백그라운드로
+//                                                그 1명만 재계산 → 다음 조회부터 신버전 수렴. 실패 시 구값 보존.
 //   - miss(행 없음, 신규 유저)                 → 단건 재계산·저장 → 최신 반환. 실패 시 빈 배열.
 //   - error(조회 실패)                         → 빈 배열. 일시 오류에 계산 폭증 방지 — 절대 계산 안 함.
 async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
@@ -175,8 +223,11 @@ async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
 
   if (snap.status === "stale") {
     if (snap.reason === "version_mismatch") {
-      // DTO 버전 bump 일괄 수렴은 수동 ops 전용(전원 동시 lazy = 과거 504 시나리오 금지).
-      return { cards: snap.cards, outcome: "stale", detail: snap.reason, lazyRan: false };
+      // 구 카드를 즉시 노출(블로킹 0)하되, 응답 후 백그라운드로 이 사용자 1명만 재계산해
+      // 다음 조회부터 신버전으로 수렴시킨다. 블로킹 lazy 가 아니므로 deploy 직후 전원 mismatch
+      // 여도 조회 경로 504 위험이 없다(과거 가드의 의도 보존). 실패 시 기존 snapshot 폴백.
+      scheduleVersionMismatchRecompute(profileUserId);
+      return { cards: snap.cards, outcome: "stale", detail: "version_mismatch+bg", lazyRan: false };
     }
     const cards = await lazyRecompute();
     return cards
