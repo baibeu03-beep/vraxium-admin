@@ -7,12 +7,7 @@ import {
 } from "@/lib/adminAuth";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
-import {
-  Cluster4WeeklyCardsError,
-  getCluster4WeeklyCardsForProfileUser,
-} from "@/lib/cluster4WeeklyCardsData";
-import { isTestUser } from "@/lib/testUsers";
-import { TEST_SUMMER_SIM_EFFECTIVE_FROM } from "@/lib/lineAvailability";
+import { Cluster4WeeklyCardsError } from "@/lib/cluster4WeeklyCardsData";
 import { getWeeklyGrowth } from "@/lib/cluster4WeeklyGrowthData";
 import {
   readWeeklyCardsSnapshot,
@@ -389,33 +384,13 @@ async function handleGet(request: NextRequest): Promise<Response> {
         request.nextUrl.searchParams.get("userId")?.trim() || null;
       const cardTargetUserId = requestedUserId || demoProfileUserId;
 
-      // ── 테스트 시즌 시뮬레이션(mode=test) ──
-      //   레거시 주차(W13 등)를 여름 정책으로 시뮬레이션해 신규 라인/강화율/verdict 를 개별 표시.
-      //   조건(엄격): 데모 모드 + demoUserId 가 검증된 test_user_markers 유저(resolveDemoProfileUserId 통과)
-      //               + 조회 대상(cardTargetUserId)도 테스트 유저 + mode=test.
-      //   ⚠ snapshot read/write 없이 live compute 만 반환 → 운영 snapshot 무접촉(절대 미저장).
-      //   실유저/운영 모드는 이 분기에 진입 불가(demoUserId 없음 → 위 데모 게이트 자체 미통과).
-      const mode = request.nextUrl.searchParams.get("mode")?.trim();
-      if (mode === "test") {
-        const targetIsTest =
-          cardTargetUserId === demoProfileUserId
-            ? true
-            : await isTestUser(cardTargetUserId);
-        if (targetIsTest) {
-          const cards = await getCluster4WeeklyCardsForProfileUser(
-            cardTargetUserId,
-            { effectiveFromOverride: TEST_SUMMER_SIM_EFFECTIVE_FROM },
-          );
-          return finalizeOk(done, cardTargetUserId, cards, "demo-test-sim", {
-            userId: cardTargetUserId,
-            cards,
-            outcome: "stale",
-            detail: "test-summer-sim(live, no-snapshot)",
-            lazyRan: true,
-          });
-        }
-      }
-
+      // 진입경로 일관성(2026-06-16): demoUserId(테스트 유저) 경로도 일반 로그인 경로와 100% 동일하게
+      //   snapshot-only 로더(loadWeeklyCards)만 사용한다. demoUserId 는 "조회 대상 userId"만 바꾸며
+      //   DTO 생성/계산 로직은 분기하지 않는다. mode 파라미터는 weekly-cards DTO 에 영향을 주지 않는다
+      //   (테스트 유저 선택/스코프 용도일 뿐 — snapshot key/season/week/org/userId 선택 불변).
+      //   → /admin/test-users(데모, mode=test) 경유와 실제 직접 로그인(세션, mode 없음) 경로가
+      //     동일 snapshot row 를 읽어 같은 카드 값을 반환한다. ENABLE_DEMO_MODE 게이트는 데모 경로의
+      //     "진입 가능 여부"만 가르며, 진입한 뒤 반환하는 DTO 는 일반 경로와 동일하다.
       const result = await loadWeeklyCards(cardTargetUserId);
       if (DEBUG_COMPARE) await logWeekComparison(cardTargetUserId, result.cards);
       // area-6/area-7 + 성장 중단 정책(배지·미확정 카드 truncation)을 finalizeOk 에서 일관 적용.
@@ -506,27 +481,9 @@ async function handleGet(request: NextRequest): Promise<Response> {
       profileUserId = ownProfileUserId;
     }
 
-    // ── 테스트 시즌 시뮬레이션(mode=test) — internal/세션 경로 ──
-    //   고객 앱은 weekly-cards?userId=<testUser>&mode=test 를 x-internal-api-key 로 보내므로
-    //   위 demoUserId(데모) 분기에 진입하지 못한다. 동일 시뮬레이션을 여기서도 제공하되,
-    //   조건(엄격): mode=test + profileUserId 가 검증된 test_user_markers 유저인 경우에만.
-    //   ⚠ snapshot read/write 없이 live compute 만 반환 → 운영 snapshot 무접촉(절대 미저장).
-    //   실유저/운영 모드/mode 없음은 이 분기에 진입 불가(isTestUser=false 또는 mode!=test)
-    //   → 아래 loadWeeklyCards(snapshot) 경로 그대로(회귀 없음).
-    const mode = request.nextUrl.searchParams.get("mode")?.trim();
-    if (mode === "test" && (await isTestUser(profileUserId))) {
-      const cards = await getCluster4WeeklyCardsForProfileUser(profileUserId, {
-        effectiveFromOverride: TEST_SUMMER_SIM_EFFECTIVE_FROM,
-      });
-      return finalizeOk(done, profileUserId, cards, "internal-test-sim", {
-        userId: profileUserId,
-        cards,
-        outcome: "stale",
-        detail: "test-summer-sim(live, no-snapshot)",
-        lazyRan: true,
-      });
-    }
-
+    // 진입경로 일관성(2026-06-16): mode 파라미터는 weekly-cards DTO 계산에 영향을 주지 않는다.
+    //   세션/internal 경로도 snapshot-only 로더만 사용 — 테스트 유저든 실유저든 동일 userId 면
+    //   동일 snapshot row 를 반환한다(데모 경로와 정합).
     const result = await loadWeeklyCards(profileUserId);
 
     // 디버그 비교 로그는 getWeeklyGrowth 를 2차로 다시 호출(요청 비용 약 2배) → 기본 OFF.
