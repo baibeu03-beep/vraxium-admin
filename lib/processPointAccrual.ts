@@ -26,6 +26,7 @@ import {
   type ScopeMode,
 } from "@/lib/userScope";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { isCluster4TestExceptionWeek } from "@/lib/cluster4TestWeekPolicy";
 import { syncGradeStats } from "@/lib/cluster3ClubRankData";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { isOrganizationSlug } from "@/lib/organizations";
@@ -59,14 +60,15 @@ export type AccrualResult =
   | { ok: true; accruedUserIds: string[]; skipped?: false }
   | { ok: true; skipped: true; reason: string; accruedUserIds: [] };
 
-// era 경계(순수) — operating=summer 이후 / test=+2026-spring W13.
+// era 경계(순수) — operating=summer 이후 / test=+휴식꼬리 예외 주차(공통 SoT, 현재 2026-spring W13).
 export function isAccrualAllowedWeek(mode: ScopeMode, week: {
   start_date: string;
   season_key: string | null;
   week_number: number | null;
 }): boolean {
   if (week.start_date >= CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) return true; // operating+test
-  if (mode === "test" && week.season_key === "2026-spring" && week.week_number === 13) return true;
+  // 테스트 예외 주차(2026-spring W13 등)는 공통 정책 단일 출처로 판정 — 하드코딩 제거.
+  if (isCluster4TestExceptionWeek(mode, week.season_key, week.week_number)) return true;
   return false;
 }
 

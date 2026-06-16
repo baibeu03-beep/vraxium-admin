@@ -108,6 +108,7 @@ type WeekOption = {
   isOfficialRest: boolean;
   canOpen: boolean;
   isCurrent: boolean;
+  isOpenTarget?: boolean; // 개설 대상 주차(금요일 경계; 테스트 휴식꼬리=W13).
   submissionOpensAt: string | null;
   submissionClosesAt: string | null;
 };
@@ -604,7 +605,8 @@ export default function PracticalCareerManager() {
         fetch(`/api/admin/cluster4/career-line-options${orgParam}`),
         fetch("/api/admin/cluster4/lines?partType=career&limit=100"),
         fetch(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`),
-        fetch("/api/admin/cluster4/weeks-options?limit=3"),
+        // 테스트 모드는 ?mode=test 전달 → 휴식꼬리에서 W13 을 드롭다운에 포함(operating 미부착=불변).
+        fetch(appendModeQuery("/api/admin/cluster4/weeks-options?limit=3", scopeMode)),
       ]);
 
       const teamsJson = await teamsRes.json();
@@ -628,7 +630,11 @@ export default function PracticalCareerManager() {
       if (weeksJson.success) {
         const opts: WeekOption[] = weeksJson.data.weeks ?? [];
         setWeekOptions(opts);
-        const current = opts.find((o) => o.isCurrent) ?? opts[0];
+        // 기본 선택 = 개설 대상(isOpenTarget; 테스트 휴식꼬리=W13) → 현재(N) → 첫 항목.
+        const current =
+          opts.find((o) => o.isOpenTarget) ??
+          opts.find((o) => o.isCurrent) ??
+          opts[0];
         if (current) setSelectedWeekId((prev) => prev || current.id);
       }
 

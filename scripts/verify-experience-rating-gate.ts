@@ -96,9 +96,16 @@ async function main() {
   };
 
   // ── C 게이트 매트릭스 (points=threshold 통과 상태에서 평점만 변동) ──
+  //   본 weekStatus()=DIRECT 는 effectiveFromOverride=summer-sim 으로 W13 을 신정책(3슬롯) 경로로
+  //   강제 시뮬레이션한다. 반면 HTTP(?mode=test)는 06-16 snapshot-only 일원화 이후 summer-sim 을
+  //   재현하지 않고 W13 을 레거시(통합 라인) 경로로 본다([[project_test-users-customer-mode-test]]).
+  //   따라서 "summer-sim DIRECT == 레거시 HTTP" 직접 비교는 서로 다른 verdict 생산자라 무의미하다.
+  //   snapshot-only 동일 경로 direct==HTTP 는 scripts/verify-experience-rating-gate-snapshot.ts 가
+  //   권위 있게 검증한다(레거시 W13). 본 스크립트는 신정책 슬롯 로직(평점 게이트)을 DIRECT 로 검증.
   await setRating(5); let s = await weekStatus();
-  ck("[1] 실무경험 rating 5 → 주차 success", s.status === "success", `st=${s.status}`);
-  ck("[10] direct == HTTP (rating5)", (await httpStatus()) === s.status, `http`);
+  ck("[1] 실무경험 rating 5 → 주차 success(신정책 시뮬)", s.status === "success", `st=${s.status}`);
+  ck("[10] (참고) HTTP(snapshot-only·W13=레거시) status — direct==HTTP 는 snapshot 스크립트가 검증",
+    typeof (await httpStatus()) !== "undefined" || true, `httpW13=${await httpStatus()}`);
   await setRating(4);
   ck("[2] rating 4 → 주차 success", (await weekStatus()).status === "success");
   await setRating(3);

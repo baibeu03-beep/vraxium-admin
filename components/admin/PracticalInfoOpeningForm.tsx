@@ -569,10 +569,13 @@ export default function PracticalInfoOpeningForm({
     setSaving(true);
     setBanner(null);
     try {
+      const org = new URLSearchParams(window.location.search).get("org");
       const qs = new URLSearchParams({
         week_id: effectiveWeek.id,
         activity_type_id: lineId,
       });
+      // org 분기 진입이면 organization 전달 → 서버가 그 org 라인만 취소(타org 오삭제 방지).
+      if (org) qs.set("organization", org);
       const res = await fetch(
         `/api/admin/cluster4/info-lines?${qs.toString()}`,
         { method: "DELETE" },

@@ -9,7 +9,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadCrewRecords } from "@/lib/cluster4CafeLineMatch";
 import { listCrewsForTargetSelection } from "@/lib/adminExperienceLineData";
-import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { assertUserIdsInScope, resolveUserScope } from "@/lib/userScope";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import type { OrganizationSlug } from "@/lib/organizations";
@@ -605,7 +605,8 @@ export async function deleteManualCompetencyApplication(
   if (delErr) throw Object.assign(new Error(delErr.message), { status: 500 });
 
   if (row.opened_line_id) {
-    await markWeeklyCardsSnapshotStaleMany([row.target_user_id]);
+    // 마크-스테일만이 아니라 즉시 recompute — 개설 라인 삭제가 고객 weekly-cards 에 바로 반영되게.
+    await invalidateWeeklyCardsForUsers([row.target_user_id]);
   }
   return { deleted: true };
 }

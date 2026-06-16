@@ -29,10 +29,18 @@ import {
 } from "@/lib/cluster4OutputImages";
 import {
   describeOpenableWeek,
+  describeWeekByStartMs,
+  getOpenableWeekStartMs,
   submissionWindowForWeekStartIso,
 } from "@/lib/cluster4WeekPolicy";
+import { resolveCluster4TestOpenableWeekStartMs } from "@/lib/cluster4TestWeekPolicy";
 import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
 import { isOrganizationSlug } from "@/lib/organizations";
+import {
+  lineCodeTokenForOrg,
+  parseLineCodeOrg,
+  isLineVisibleForUserOrg,
+} from "@/lib/cluster4LineOrg";
 import { insertOpeningLogForLine } from "@/lib/adminCluster4OpeningLogs";
 import {
   LineOpeningWindowError,
@@ -355,7 +363,18 @@ export async function POST(request: NextRequest) {
     const clientWeekId = input.week_id; // 이미 UUID 검증됨.
 
     // 자동 정책(개설 대상) 주차 — 비휴식 + 기입기간 산출 가능 + weeks 행 존재 시 "사용 가능".
-    const openable = describeOpenableWeek(todayIso);
+    //   테스트 모드(scopeMode=test) 휴식꼬리에서는 공통 SoT 가 마지막 활동 주차(2026 봄 W13)로
+    //   폴드 → 클라이언트가 보낸 W13 week_id 가 openableRowId 와 일치해 fail-closed 게이트를 통과한다.
+    //   운영 모드는 base 그대로(describeOpenableWeek 와 동일) → 회귀 0.
+    const effectiveOpenableStartMs = resolveCluster4TestOpenableWeekStartMs(
+      scopeMode,
+      getOpenableWeekStartMs(todayIso),
+      { hub: "info-line", organization: scopeOrg },
+    );
+    const openable =
+      effectiveOpenableStartMs != null
+        ? describeWeekByStartMs(effectiveOpenableStartMs)
+        : describeOpenableWeek(todayIso);
     let openableRowId: string | null = null;
     let openableUsable = false;
     if (openable) {
@@ -500,9 +519,12 @@ export async function POST(request: NextRequest) {
     //    중복 기준: activity_type_id + week_id + is_active.
     //    cluster4_lines 에는 week_id 가 없고 cluster4_line_targets 에 있으므로,
     //    같은 활동 유형의 active 라인 중 "선택 주차에 target 이 있는" 라인이 있으면 중복.
+    //    org 인지(2026-06-16): 다른 조직이 같은 주차+활동유형에 개설한 라인은 충돌이 아니다.
+    //    org 노출 범위(line_code 토큰)가 현재 org 에 보이는 라인(== scopeOrg OR common)만 후보로 둔다.
+    //    scopeOrg 미지정(통합) 이면 종전대로 전부 후보(통합 개설은 전체와 충돌).
     const { data: activeLines, error: activeLinesError } = await supabaseAdmin
       .from("cluster4_lines")
-      .select("id")
+      .select("id,line_code")
       .eq("part_type", "info")
       .eq("activity_type_id", input.activity_type_id)
       .eq("is_active", true);
@@ -512,7 +534,17 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
-    const activeLineIds = (activeLines ?? []).map((l) => l.id);
+    const activeLineIds = ((activeLines ?? []) as Array<{
+      id: string;
+      line_code: string | null;
+    }>)
+      .filter((l) => {
+        if (!scopeOrg) return true;
+        // info 라인 org = line_code 토큰, 없으면 'common'(resolveCluster4LineOrgScope 와 동일).
+        const lineOrg = parseLineCodeOrg(l.line_code) ?? "common";
+        return isLineVisibleForUserOrg(lineOrg, scopeOrg, { allowUnknown: false });
+      })
+      .map((l) => l.id);
     if (activeLineIds.length > 0) {
       const { data: clashTargets, error: clashError } = await supabaseAdmin
         .from("cluster4_line_targets")
@@ -541,10 +573,18 @@ export async function POST(request: NextRequest) {
     //    week_id 를 라인 자체에도 기록(0명 개설 포함) — 어드민 주차/이력 정합. (기존엔 NULL)
     //    cafe_* 메타는 선택 — 컬럼 미적용(42703)이면 메타 없이 재시도(graceful).
     const LINE_RETURN =
-      "id,part_type,activity_type_id,week_id,main_title,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_at";
+      "id,part_type,activity_type_id,line_code,week_id,main_title,output_link_1,output_link_2,output_links,output_images,submission_opens_at,submission_closes_at,is_active,created_at";
+    // info 라인 org SoT = line_code 토큰(BS/EC/OK/PX). 개설 ?organization 의 org 토큰을 line_code 에
+    //   심어 resolveLineOrg 가 'common'(전체 노출)으로 폴백하지 않게 한다 — org 누수 방지(2026-06-16).
+    //   org 미지정(통합) 개설만 line_code=null → 'common'(명시적 전체 공통). 토큰은 항상 대문자라
+    //   숫자 suffix 가 EC/OK/PX/BS 를 오염시키지 않는다. 비유니크 컬럼이라 suffix 충돌 무해.
+    const lineCode = scopeOrg
+      ? `IF${lineCodeTokenForOrg(scopeOrg)}-OPEN${Date.now()}`
+      : null;
     const baseLinePayload = {
       part_type: "info",
       activity_type_id: input.activity_type_id,
+      line_code: lineCode,
       main_title: input.main_title,
       output_link_1: input.output_link_1,
       output_link_2: input.output_link_2,
@@ -735,6 +775,9 @@ export async function DELETE(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const weekId = params.get("week_id")?.trim() || null;
   const activityTypeId = params.get("activity_type_id")?.trim() || null;
+  // org 분기 진입(?organization)이면 그 org 라인만 취소 대상 — 타org 라인 오삭제 방지.
+  const cancelOrgRaw = params.get("organization")?.trim() || null;
+  const cancelOrg = isOrganizationSlug(cancelOrgRaw) ? cancelOrgRaw : null;
   if (!weekId || !isUuid(weekId)) {
     return Response.json(
       { success: false, error: "week_id is required and must be a UUID" },
@@ -749,7 +792,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   try {
-    const lineId = await findActiveInfoLineId(weekId, activityTypeId);
+    const lineId = await findActiveInfoLineId(weekId, activityTypeId, cancelOrg);
     if (!lineId) {
       return Response.json(
         { success: false, error: "취소할 개설 라인이 없습니다" },

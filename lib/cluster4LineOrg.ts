@@ -47,6 +47,19 @@ export function parseLineCodeOrg(
   return null;
 }
 
+// org → line_code 의 org 토큰(parseLineCodeOrg 의 역). 'common' → 'BS'.
+//   info 라인 개설 시 line_code 에 이 토큰을 심어 org 노출 범위를 고정한다(토큰 없으면 'common' 폴백 → 전체 누수).
+//   parseLineCodeOrg 가 case-sensitive contains 이므로 토큰은 항상 대문자다.
+const LINE_ORG_TO_TOKEN: Record<LineOrgScope, string> = {
+  common: "BS",
+  encre: "EC",
+  oranke: "OK",
+  phalanx: "PX",
+};
+export function lineCodeTokenForOrg(org: LineOrgScope): string {
+  return LINE_ORG_TO_TOKEN[org];
+}
+
 // 마스터 organization_slug 문자열을 LineOrgScope 로 정규화한다.
 //   'common' → 'common', 유효 org slug → 그대로, 그 외/빈값 → null(판정 불가 = fail-open).
 export function normalizeLineOrg(

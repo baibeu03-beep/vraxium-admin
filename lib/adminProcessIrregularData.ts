@@ -35,8 +35,9 @@ import {
   type ProcessIrregularSummary,
 } from "@/lib/adminProcessIrregularTypes";
 
-// 비정규 액트는 info 와 동일한 주차 정책(테스트=마지막 활동주차 walk-back) 적용.
-const ALLOW_TEST_WEEK_EXCEPTION = true;
+// 비정규 액트는 info 와 동일한 주차 정책(테스트=휴식꼬리→마지막 활동주차) 적용.
+//   공통 SoT 의 "process-irregular" hub 키로 위임(허용 정책은 cluster4TestWeekPolicy 단일 출처).
+const IRREGULAR_TEST_WEEK_HUB = "process-irregular" as const;
 
 function migrationHint(error: { code?: string } | null): ProcessMasterError | null {
   const code = error?.code;
@@ -161,7 +162,7 @@ export async function getIrregularBoard(
   organization: string,
   mode: ScopeMode = "operating",
 ): Promise<ProcessIrregularBoardDto> {
-  const week = await resolveProcessWeek(mode, ALLOW_TEST_WEEK_EXCEPTION);
+  const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
   if (!week?.weekId) {
     return { organization, week, summary: summarize([]), acts: [] };
   }
@@ -305,7 +306,7 @@ export async function createIrregularAct(input: {
   }
   if (!reviewLink) throw new ProcessMasterError(400, "검수 신청은 검수 링크가 필수입니다");
 
-  const week = await resolveProcessWeek(mode, ALLOW_TEST_WEEK_EXCEPTION);
+  const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
   if (!week?.weekId) {
     throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 비정규 액트를 저장할 수 없습니다");
   }
@@ -391,7 +392,7 @@ export async function createManualGrant(input: {
     }
   }
 
-  const week = await resolveProcessWeek(mode, ALLOW_TEST_WEEK_EXCEPTION);
+  const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
   if (!week?.weekId) {
     throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 비정규 액트를 저장할 수 없습니다");
   }

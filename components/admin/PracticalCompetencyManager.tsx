@@ -286,7 +286,12 @@ export default function PracticalCompetencyManager() {
       const [orgRes, weekRes, weeksRes] = await Promise.all([
         fetch("/api/admin/cluster4/admin-org"),
         fetch("/api/admin/cluster4/current-week"),
-        fetch("/api/admin/cluster4/weeks-options?limit=3"),
+        fetch(
+          appendModeQuery(
+            "/api/admin/cluster4/weeks-options?limit=3",
+            readScopeMode(new URLSearchParams(window.location.search)),
+          ),
+        ),
       ]);
       const orgJson = await orgRes.json();
       const org = orgJson.success ? orgJson.data.organization : null;

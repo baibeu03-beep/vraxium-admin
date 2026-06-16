@@ -908,33 +908,60 @@ export async function setCluster4LineWorkflowStage(
 // (week_id + activity_type_id) 로 활성 실무 정보 라인 id 를 찾는다(개설 취소용). 없으면 null.
 //   라인↔주차 연결: 타깃(week_id, 0명 sentinel 포함) ∪ 라인 자체 week_id. 둘 중 하나라도 매칭.
 //   개설 클래시 가드로 (주차+활동유형) 활성 라인은 최대 1개라 첫 매칭을 돌려준다.
+// organization 지정 시(org 분기 진입) 그 org 에 노출되는 라인(== org OR common)만 대상으로 한다.
+//   다른 조직이 같은 주차+활동유형에 개설한 라인을 잘못 삭제하지 않도록 org 격리(2026-06-16).
+//   org 미지정(통합) 이면 종전대로 첫 활성 라인을 반환한다.
 export async function findActiveInfoLineId(
   weekId: string,
   activityTypeId: string,
+  organization: OrganizationSlug | null = null,
 ): Promise<string | null> {
+  const visibleToOrg = (lineCode: string | null): boolean => {
+    if (!organization) return true;
+    // info 라인 org = line_code 토큰, 없으면 'common'(resolveCluster4LineOrgScope 와 동일).
+    const lineOrg = parseLineCodeOrg(lineCode) ?? "common";
+    return isLineVisibleForUserOrg(lineOrg, organization, { allowUnknown: false });
+  };
+
   const { data: tRows, error: tErr } = await supabaseAdmin
     .from("cluster4_line_targets")
-    .select("line_id,cluster4_lines!inner(activity_type_id,part_type,is_active)")
+    .select(
+      "line_id,cluster4_lines!inner(activity_type_id,part_type,is_active,line_code)",
+    )
     .eq("week_id", weekId)
     .eq("cluster4_lines.is_active", true)
     .eq("cluster4_lines.part_type", "info")
-    .eq("cluster4_lines.activity_type_id", activityTypeId)
-    .limit(1);
+    .eq("cluster4_lines.activity_type_id", activityTypeId);
   if (tErr) throw new Cluster4LineError(500, tErr.message);
-  const viaTarget = (tRows?.[0] as { line_id: string | null } | undefined)?.line_id;
-  if (viaTarget) return viaTarget;
+  for (const r of (tRows ?? []) as unknown as Array<{
+    line_id: string | null;
+    // PostgREST 는 임베드 관계를 객체 또는 배열로 표현할 수 있어 둘 다 수용.
+    cluster4_lines:
+      | { line_code: string | null }
+      | Array<{ line_code: string | null }>
+      | null;
+  }>) {
+    const joined = Array.isArray(r.cluster4_lines)
+      ? r.cluster4_lines[0]
+      : r.cluster4_lines;
+    if (r.line_id && visibleToOrg(joined?.line_code ?? null)) {
+      return r.line_id;
+    }
+  }
 
   // 타깃이 전혀 없는(레거시) 라인 대비 — 라인 자체 week_id 로도 조회.
   const { data: lRows, error: lErr } = await supabaseAdmin
     .from("cluster4_lines")
-    .select("id")
+    .select("id,line_code")
     .eq("part_type", "info")
     .eq("activity_type_id", activityTypeId)
     .eq("week_id", weekId)
-    .eq("is_active", true)
-    .limit(1);
+    .eq("is_active", true);
   if (lErr) throw new Cluster4LineError(500, lErr.message);
-  return (lRows?.[0] as { id: string } | undefined)?.id ?? null;
+  for (const r of (lRows ?? []) as Array<{ id: string; line_code: string | null }>) {
+    if (visibleToOrg(r.line_code)) return r.id;
+  }
+  return null;
 }
 
 export async function deleteCluster4Line(id: string): Promise<void> {

@@ -12,8 +12,10 @@
 // org 스코프 = 라인 org 노출 정책(resolveCluster4LineOrgScope)에서 lineOrg === org 인 "그 조직 소유"
 // 라인만(common/판정불가 제외) — 한 조직의 개설/취소가 타 조직(공통 라인) 고객 반영을 건드리지 않도록.
 //
-// ⚠ snapshot 생성/조회 로직·weekly-card DTO 무변경. markWeeklyCardsSnapshotStaleMany(저렴) + 기존
-//    lazy recompute 경로 위임. 로그 기록은 best-effort(본 토글과 분리).
+// ⚠ snapshot 생성/조회 로직·weekly-card DTO 무변경. 영향 사용자는 invalidateWeeklyCardsForUsers 로
+//    개설 직후 recompute(≤10 즉시 / >10 백그라운드) — info/experience 개설과 동일 경로. 마크-스테일만
+//    하면 snapshot-only 조회 런타임에서 고객이 옛 snapshot 을 계속 본다(역량만 미반영 버그 방지).
+//    로그 기록은 best-effort(본 토글과 분리).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
@@ -25,9 +27,9 @@ import {
   collectLineOrgAudience,
   resolveCluster4LineOrgScope,
 } from "@/lib/adminCluster4LinesData";
-import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { insertCompetencyOpeningLog } from "@/lib/adminCompetencyOpeningLogs";
-import { resolveCompetencyTestWeekOverrideMs } from "@/lib/cluster4CompetencyTestWeekException";
+import { resolveCluster4TestOpenableWeekStartMs } from "@/lib/cluster4TestWeekPolicy";
 import { resolveUserScope } from "@/lib/userScope";
 import {
   assertApprovedApplicationsInScope,
@@ -54,7 +56,7 @@ function toStatusWeek(info: WeekInfo): StatusWeek {
 
 // 이번 주(N) / 지난 주(개설 대상) StatusWeek + 대상 주차 weeks.id(UUID).
 //   mode=test 한정 — 2026 봄 휴식 꼬리에서는 개설 대상을 마지막 활동 주차 W13 으로 고정한다
-//   (실무 역량 허브 예외, resolveCompetencyTestWeekOverrideMs). 운영 모드는 정규 금요일경계 그대로.
+//   (공통 SoT resolveCluster4TestOpenableWeekStartMs · hub="competency-line"). 운영 모드는 정규 금요일경계 그대로.
 async function resolveWeeks(mode: ScopeMode = "operating"): Promise<{
   currentWeek: StatusWeek | null;
   targetWeek: StatusWeek | null;
@@ -63,10 +65,12 @@ async function resolveWeeks(mode: ScopeMode = "operating"): Promise<{
   const todayIso = new Date().toISOString().slice(0, 10);
   const currentStartMs = getCurrentWeekStartMs(todayIso);
   const regularOpenableStartMs = getOpenableWeekStartMs(todayIso);
-  // 테스트 모드 예외(역량 한정): 적용되면 W13 시작 ms, 아니면 정규 대상 그대로.
-  const openableStartMs =
-    resolveCompetencyTestWeekOverrideMs(mode, regularOpenableStartMs) ??
-    regularOpenableStartMs;
+  // 테스트 모드 예외(전 조직, 공통 SoT): 휴식 꼬리면 W13 시작 ms, 아니면 정규 대상 그대로.
+  const openableStartMs = resolveCluster4TestOpenableWeekStartMs(
+    mode,
+    regularOpenableStartMs,
+    { hub: "competency-line", organization: null },
+  );
   const currentInfo = currentStartMs != null ? describeWeekByStartMs(currentStartMs) : null;
   const targetInfo = openableStartMs != null ? describeWeekByStartMs(openableStartMs) : null;
 
@@ -427,7 +431,10 @@ export async function openCompetencyHub(input: {
   // 테스트 모드에서는 snapshot 무효화 대상을 테스트 모집단으로 좁힌다 — org audience(synthetic-fail)
   // 경로로 실사용자가 섞이지 않도록(혼입 0). 운영 모드는 기존대로 전체 영향 유저 반영.
   const affectedUsers = await scopeAffectedUsers(mode, org, affected);
-  if (affectedUsers.length > 0) await markWeeklyCardsSnapshotStaleMany(affectedUsers);
+  // 마크-스테일만으로는 snapshot-only 조회 런타임에서 고객이 옛 snapshot 을 계속 본다(역량만 미반영
+  //   버그의 근본 원인). info/experience 개설과 동일하게 invalidate(≤10 즉시 / >10 백그라운드 recompute)로
+  //   개설 직후 고객 weekly-cards 에 반영되게 한다(읽기 경로·DTO·demoUserId 무변경).
+  if (affectedUsers.length > 0) await invalidateWeeklyCardsForUsers(affectedUsers);
 
   await insertCompetencyOpeningLog({
     action: "open",
@@ -530,7 +537,10 @@ export async function cancelCompetencyHub(input: {
     for (const u of await collectAffectedUsers(lineIds)) affected.add(u);
   }
   const affectedUsers = await scopeAffectedUsers(mode, org, affected);
-  if (affectedUsers.length > 0) await markWeeklyCardsSnapshotStaleMany(affectedUsers);
+  // 마크-스테일만으로는 snapshot-only 조회 런타임에서 고객이 옛 snapshot 을 계속 본다(역량만 미반영
+  //   버그의 근본 원인). info/experience 개설과 동일하게 invalidate(≤10 즉시 / >10 백그라운드 recompute)로
+  //   개설 직후 고객 weekly-cards 에 반영되게 한다(읽기 경로·DTO·demoUserId 무변경).
+  if (affectedUsers.length > 0) await invalidateWeeklyCardsForUsers(affectedUsers);
 
   await insertCompetencyOpeningLog({
     action: "cancel",

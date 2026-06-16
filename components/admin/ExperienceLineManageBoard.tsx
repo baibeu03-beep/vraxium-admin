@@ -204,7 +204,9 @@ export default function ExperienceLineManageBoard({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch("/api/admin/cluster4/weeks-options?limit=3");
+        const res = await fetch(
+          `/api/admin/cluster4/weeks-options?limit=3${mode === "test" ? "&mode=test" : ""}`,
+        );
         const json = await res.json();
         if (cancelled) return;
         const opts: WeekOption[] = json?.success ? json.data?.weeks ?? [] : [];

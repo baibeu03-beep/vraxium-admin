@@ -18,7 +18,7 @@ import {
   describeWeekByStartMs,
   getOpenableWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
-import { resolveCompetencyTestWeekOverrideMs } from "@/lib/cluster4CompetencyTestWeekException";
+import { resolveCluster4TestOpenableWeekStartMs } from "@/lib/cluster4TestWeekPolicy";
 import {
   addManualCompetencyApplication,
   getCompetencyApplicationSummary,
@@ -37,15 +37,15 @@ import {
 // 개설 대상 주차 = 금요일 경계 openable week. 단, test 모드는 역량 허브 W13 예외를 적용해
 //   상태창/개설 플로우(adminCompetencyLineOpening.resolveWeeks)와 동일한 주차로 정렬한다.
 //   (예외 미적용 시 test 모드에서 개설은 W13, 신청자 집계는 정규주차로 어긋남 — read/write 주차 불일치)
-//   resolveCompetencyTestWeekOverrideMs 는 operating·비역량시즌에서 null → 정규주차 그대로(운영 정책 무변).
+//   공통 SoT(resolveCluster4TestOpenableWeekStartMs)는 operating·비휴식꼬리에서 base 그대로(운영 정책 무변).
 async function resolveTargetWeekId(mode: ScopeMode): Promise<string | null> {
   const todayIso = new Date().toISOString().slice(0, 10);
   const regularOpenableStartMs = getOpenableWeekStartMs(todayIso);
-  const openableStartMs =
-    regularOpenableStartMs == null
-      ? null
-      : resolveCompetencyTestWeekOverrideMs(mode, regularOpenableStartMs) ??
-        regularOpenableStartMs;
+  const openableStartMs = resolveCluster4TestOpenableWeekStartMs(
+    mode,
+    regularOpenableStartMs,
+    { hub: "competency-line", organization: null },
+  );
   const info = openableStartMs != null ? describeWeekByStartMs(openableStartMs) : null;
   if (!info) return null;
   const { data } = await supabaseAdmin

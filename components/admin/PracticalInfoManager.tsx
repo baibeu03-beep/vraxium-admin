@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   Loader2,
   Plus,
@@ -810,7 +811,12 @@ export default function PracticalInfoManager() {
     try {
       const [weekRes, weeksRes, typesRes, usersRes, excRes] = await Promise.all([
         fetch("/api/admin/cluster4/current-week"),
-        fetch("/api/admin/cluster4/weeks-options?limit=3"),
+        fetch(
+          appendModeQuery(
+            "/api/admin/cluster4/weeks-options?limit=3",
+            readScopeMode(new URLSearchParams(window.location.search)),
+          ),
+        ),
         fetch("/api/admin/cluster4/activity-types?cluster=practical_info"),
         fetch("/api/admin/cluster4/users"),
         fetch("/api/admin/line-opening-windows/active"),

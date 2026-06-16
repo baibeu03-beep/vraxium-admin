@@ -13,6 +13,8 @@ import {
 } from "@/lib/cluster4WeekPolicy";
 import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import { matchOfficialRestPeriods } from "@/lib/officialRestPeriodsTypes";
+import { readScopeMode } from "@/lib/userScopeShared";
+import { resolveCluster4TestOpenableWeekStartMs } from "@/lib/cluster4TestWeekPolicy";
 
 // 라인 개설 어드민 UI 에서 사용하는 "최근 주차 옵션" 엔드포인트.
 // 현재 주차 N 을 포함해 직전 몇 주(N-1, N-2 ...) 까지 weeks 테이블에서 매칭한 행만 돌려준다.
@@ -85,20 +87,43 @@ export async function GET(request: NextRequest) {
     }
 
     // 개설 대상 주차(금요일 경계 규칙) — describeOpenableWeek 와 동일 계산.
-    // isOpenTarget 은 이 시작 ms 와 일치하는 주차에 표시한다(고정 오프셋 아님).
-    const openableWeekStartMs = getOpenableWeekStartMs(todayIso);
+    //   테스트 모드(?mode=test) 휴식꼬리에서는 공통 SoT 가 마지막 활동 주차(2026 봄 W13)로 폴드한다.
+    //   운영 모드는 base 그대로 → 응답 byte-identical(회귀 0). isOpenTarget 은 이 폴드된 ms 기준.
+    const mode = readScopeMode(searchParams);
+    const regularOpenableWeekStartMs = getOpenableWeekStartMs(todayIso);
+    const openableWeekStartMs = resolveCluster4TestOpenableWeekStartMs(
+      mode,
+      regularOpenableWeekStartMs,
+      { hub: "dropdown", organization: null },
+    );
+
+    // 후보 주차 시작 ms — 현재 주차 N 기준 limit 개 + (테스트 폴드된) 개설 대상 주차.
+    //   테스트 휴식꼬리에서는 개설 대상(W13)이 현재 주차보다 과거라 limit 창 밖일 수 있어,
+    //   명시적으로 포함해 드롭다운에서 선택 가능하게 한다(운영 모드는 항상 창 안 → 변화 없음).
+    const candidateStartMsList: number[] = [];
+    for (let offset = 0; offset < limit; offset++) {
+      candidateStartMsList.push(currentWeekStartMs - offset * 7 * DAY_MS);
+    }
+    if (
+      openableWeekStartMs != null &&
+      !candidateStartMsList.includes(openableWeekStartMs)
+    ) {
+      candidateStartMsList.push(openableWeekStartMs);
+    }
+    const orderedStartMs = Array.from(new Set(candidateStartMsList)).sort(
+      (a, b) => b - a,
+    ); // 최신순(내림차순).
 
     const descriptors: Array<{
       isCurrent: boolean;
       isOpenTarget: boolean;
       info: NonNullable<ReturnType<typeof describeWeekByStartMs>>;
     }> = [];
-    for (let offset = 0; offset < limit; offset++) {
-      const weekStartMs = currentWeekStartMs - offset * 7 * DAY_MS;
+    for (const weekStartMs of orderedStartMs) {
       const info = describeWeekByStartMs(weekStartMs);
       if (!info) continue;
       descriptors.push({
-        isCurrent: offset === 0,
+        isCurrent: weekStartMs === currentWeekStartMs,
         isOpenTarget:
           openableWeekStartMs != null && weekStartMs === openableWeekStartMs,
         info,

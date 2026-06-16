@@ -170,9 +170,9 @@ export default function ExperiencePartLeadInput({
         const actAsParam = actAsTestUserId ? `&actAsTestUserId=${actAsTestUserId}` : "";
         const [teamsRes, weeksRes, statusRes, actorRes] = await Promise.all([
           fetch(`/api/admin/cluster4/teams${qsOrg}${modeParam}`),
-          // weeks-options 는 공용 SoT — mode/org/hub 무전달(다른 허브 회귀 0). 개설 대상 주차는
-          // 아래 opening-status(서버 권위·테스트 W13 예외 반영)로 별도 판정·병합한다.
-          fetch(`/api/admin/cluster4/weeks-options?limit=3`),
+          // weeks-options 는 공용 SoT — ?mode 전달로 테스트 휴식꼬리에서 W13 을 드롭다운 목록에
+          // 포함시킨다(operating 은 미부착=byte-identical). 개설 대상 주차 권위는 아래 opening-status.
+          fetch(`/api/admin/cluster4/weeks-options?limit=3${modeQs}`),
           fetch(`/api/admin/cluster4/experience/opening-status${qsOrg}${modeParam}`),
           fetch(`/api/admin/cluster4/experience/part-input${qsOrg}${modeParam}${actAsParam}`),
         ]);

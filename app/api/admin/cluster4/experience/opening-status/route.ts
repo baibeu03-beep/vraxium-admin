@@ -12,7 +12,7 @@ import {
 } from "@/lib/cluster4WeekPolicy";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { parseScopeMode } from "@/lib/userScopeShared";
-import { resolveExperienceTestWeekOverrideMs } from "@/lib/cluster4ExperienceTestWeekException";
+import { resolveCluster4TestOpenableWeekStartMs } from "@/lib/cluster4TestWeekPolicy";
 import type {
   StatusExtension,
   StatusTeam,
@@ -93,11 +93,13 @@ export async function GET(request: NextRequest) {
     const todayIso = new Date().toISOString().slice(0, 10);
     const currentStartMs = getCurrentWeekStartMs(todayIso);
     const regularOpenableStartMs = getOpenableWeekStartMs(todayIso);
-    // 테스트 모드 + encre 예외(경험 한정): 적용되면 2026 봄 W13 시작 ms, 아니면 정규 대상 그대로.
-    //   운영 모드·타 조직은 override=null → 정규 금요일경계 주차(회귀 0). 현재 주차 N(block1)은 불변.
-    const openableStartMs =
-      resolveExperienceTestWeekOverrideMs(mode, org, regularOpenableStartMs) ??
-      regularOpenableStartMs;
+    // 테스트 모드 예외(전 조직, 공통 SoT): 휴식 꼬리면 2026 봄 W13 시작 ms, 아니면 정규 대상 그대로.
+    //   운영 모드는 base 그대로(회귀 0). 현재 주차 N(block1)은 불변.
+    const openableStartMs = resolveCluster4TestOpenableWeekStartMs(
+      mode,
+      regularOpenableStartMs,
+      { hub: "experience-line", organization: org },
+    );
 
     const currentInfo =
       currentStartMs != null ? describeWeekByStartMs(currentStartMs) : null;

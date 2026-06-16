@@ -21,6 +21,10 @@ import {
   describeWeekByStartMs,
   getCurrentWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
+import {
+  resolveCluster4TestOpenableWeekStartMs,
+  type Cluster4TestWeekHub,
+} from "@/lib/cluster4TestWeekPolicy";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
 import { listTeamParts, listPartCrews } from "@/lib/adminExperiencePartInput";
 import type { ScopeMode } from "@/lib/userScopeShared";
@@ -121,41 +125,41 @@ async function resolveTeamName(teamId: string, organization: string): Promise<st
 }
 
 // ── 현재 주차 (이번 주 N — 월~일) + weeks.id ─────────────────────────────────
-const WEEK_MS = 7 * 86_400_000;
 
-// 13주차(테스트) 예외를 받는 허브 — info 만(운영 정책/다른 check 화면·line-opening 무영향).
-//   ⚠ 이 술어를 좁게 유지해야 "info 에만 적용" 보장. 다른 허브로 확장 시 여기만 수정.
-function hubAllowsTestWeekException(hub: ProcessHub): boolean {
-  return hub === "info";
-}
+// 프로세스 체크 허브 → 공통 테스트 예외 hub 키 매핑(허용되는 허브만 등재).
+//   info·experience 만 매핑 → 나머지(club/competency/career)는 null = 예외 미허용(현재 주차).
+//   비정규 액트는 별도로 "process-irregular" 를 직접 전달한다(resolveProcessWeek).
+//   ⚠ 허용 정책 자체(전 조직 등)는 cluster4TestWeekPolicy.TEST_WEEK_HUB_POLICY 단일 출처.
+const PROCESS_HUB_TO_TEST_WEEK_HUB: Partial<
+  Record<ProcessHub, Cluster4TestWeekHub>
+> = {
+  info: "process-info",
+  experience: "process-experience",
+};
 
-// 보드 기준 주차(시작 ms) 결정 — mode + 예외 허용 여부만으로 결정(허브 무관 공용 SoT).
-//   운영 모드 / 예외 미허용 → 실제 현재 주차 N(기존 정책 유지).
-//   테스트 모드 + 예외 허용(info·비정규 액트) → 현재 주차가 휴식 주차여도 "마지막 운영(running)
-//     주차"로 walk-back(현 2026-봄 = 13주차). 활동 주차면 walk-back 결과 = 현재 주차(불변).
-//   ⚠ "13"을 하드코딩하지 않고 시즌 캘린더(isOfficialRest)에서 동적 산출 — 시즌 바뀌어도 안전.
-export function resolveProcessWeekStartMs(mode: ScopeMode, allowTestException: boolean): number | null {
+// 보드 기준 주차(시작 ms) 결정 — 공통 SoT(resolveCluster4TestOpenableWeekStartMs)에 위임.
+//   운영 모드 / 예외 미허용 hub → 실제 현재 주차 N(기존 정책 유지).
+//   테스트 모드 + 허용 hub → 현재 주차가 휴식 주차여도 마지막 활동 주차(2026-봄 W13)로 폴드.
+export function resolveProcessWeekStartMs(
+  mode: ScopeMode,
+  hub: Cluster4TestWeekHub | null,
+): number | null {
   const todayIso = new Date().toISOString().slice(0, 10);
   const curMs = getCurrentWeekStartMs(todayIso);
   if (curMs == null) return null;
-  if (mode !== "test" || !allowTestException) return curMs;
-  // 테스트 모드(예외 허용) — 휴식 아닌(운영) 주차를 만날 때까지 1주씩 뒤로(시즌 시작 이전이면 중단).
-  let ms = curMs;
-  for (let i = 0; i < 24; i++) {
-    const d = describeWeekByStartMs(ms);
-    if (!d) break; // 시즌 시작 이전 → 더 못 감
-    if (!d.isOfficialRest) return ms; // 운영 주차 발견(= 마지막 활동 주차)
-    ms -= WEEK_MS;
-  }
-  return curMs; // 운영 주차 못 찾음 → 현재 주차(fail-safe = 운영 동작)
+  if (hub == null) return curMs; // 예외 미허용 허브 → 현재 주차.
+  return resolveCluster4TestOpenableWeekStartMs(mode, curMs, {
+    hub,
+    organization: null,
+  });
 }
 
 // 주차 DTO 빌더(weeks.id lookup + 라벨) — 허브 무관 공용. 비정규 액트도 이 SoT 를 재사용.
 export async function resolveProcessWeek(
   mode: ScopeMode,
-  allowTestException: boolean,
+  hub: Cluster4TestWeekHub | null,
 ): Promise<ProcessCheckWeekDto | null> {
-  const ms = resolveProcessWeekStartMs(mode, allowTestException);
+  const ms = resolveProcessWeekStartMs(mode, hub);
   if (ms == null) return null;
   const d = describeWeekByStartMs(ms);
   if (!d) return null;
@@ -180,9 +184,9 @@ export async function resolveProcessWeek(
   };
 }
 
-// 허브 기준 현재 주차(기존 호출부 유지) — 예외 허용 여부를 허브 술어로 결정해 공용 빌더에 위임.
+// 허브 기준 현재 주차(기존 호출부 유지) — ProcessHub → 공통 테스트 예외 hub 키로 매핑해 위임.
 function resolveCurrentWeek(hub: ProcessHub, mode: ScopeMode): Promise<ProcessCheckWeekDto | null> {
-  return resolveProcessWeek(mode, hubAllowsTestWeekException(hub));
+  return resolveProcessWeek(mode, PROCESS_HUB_TO_TEST_WEEK_HUB[hub] ?? null);
 }
 
 // ── 마스터(활성) 읽기 ─────────────────────────────────────────────────────────
