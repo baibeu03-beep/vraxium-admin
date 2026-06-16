@@ -174,6 +174,8 @@ export async function resolveProcessWeek(
   const base = { year: d.year, seasonName: d.seasonName, weekNumber: d.weekNumber };
   return {
     weekId: (weekRow as { id: string } | null)?.id ?? null,
+    weekName: `${d.weekNumber}주차`,
+    editable: Boolean((weekRow as { id: string } | null)?.id),
     year: d.year,
     seasonName: d.seasonName,
     weekNumber: d.weekNumber,
@@ -481,7 +483,9 @@ export async function getProcessCheckBoard(
     hub,
     hubLabel: PROCESS_HUB_LABEL[hub],
     organization,
+    mode,
     week,
+    selectedWeek: week,
     teams,
     teamParts,
     selectedPart,

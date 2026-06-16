@@ -126,9 +126,13 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [board.logs]);
 
-  const { week, summary, acts, logs, teams } = board;
-  const periodLabel = week?.periodLabel ?? "주차 정보 없음";
-  const weekDisabled = !week?.weekId;
+  const { week, selectedWeek, summary, acts, logs, teams } = board;
+  const displayWeek = selectedWeek ?? week;
+  const weekName = displayWeek?.weekName ?? displayWeek?.periodLabel ?? "주차 정보 없음";
+  const periodLabel = displayWeek?.periodLabel ?? weekName;
+  const weekDisabled = !(displayWeek?.editable ?? Boolean(displayWeek?.weekId));
+  const teamDisplayWeek = teamBoard.selectedWeek ?? teamBoard.week ?? displayWeek;
+  const teamWeekDisabled = !(teamDisplayWeek?.editable ?? Boolean(teamDisplayWeek?.weekId));
 
   // 선택 팀 — 명시 선택이 유효하면 그것, 아니면 첫 팀(설계상 첫 팀 기본 선택). setState-in-effect 회피.
   const effectiveTeamId = useMemo(() => {
@@ -204,7 +208,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           aria-label="주차명"
           className="flex cursor-not-allowed items-center justify-between rounded-md border border-input bg-muted/50 px-3 py-2 text-sm"
         >
-          <span className={cn(weekDisabled && "text-muted-foreground")}>{periodLabel}</span>
+          <span className={cn(weekDisabled && "text-muted-foreground")}>{weekName}</span>
           <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
         </div>
       </div>
@@ -397,7 +401,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
               <ProcessCheckActTable
                 acts={teamBoard.acts}
                 loading={teamLoading}
-                weekDisabled={weekDisabled}
+                weekDisabled={teamWeekDisabled}
                 readOnly={scopeReadOnly}
                 showScopeColumn
                 onOpenAct={(a) => setDialogAct(a)}

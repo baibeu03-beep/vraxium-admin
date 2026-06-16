@@ -9,6 +9,7 @@
 
 import { PROCESS_HUB_LABEL, type ProcessHub } from "@/lib/adminProcessesTypes";
 import { DAY_NAMES, formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
+import type { ScopeMode } from "@/lib/userScopeShared";
 
 // ── 체크 상태 ────────────────────────────────────────────────────────────────
 //   needed = 체크 필요(기본) · pending = 체크 대기(신청 후) · completed = 체크 완료.
@@ -145,6 +146,8 @@ export type ProcessCheckSummary = {
 
 export type ProcessCheckWeekDto = {
   weekId: string | null;
+  weekName: string;
+  editable: boolean;
   year: number;
   seasonName: string; // "여름 시즌"
   weekNumber: number;
@@ -183,7 +186,9 @@ export type ProcessCheckBoardDto = {
   hub: ProcessHub;
   hubLabel: string;
   organization: string;
+  mode: ScopeMode;
   week: ProcessCheckWeekDto | null;
+  selectedWeek: ProcessCheckWeekDto | null;
   // 팀 구분 허브(experience)면 org 팀 목록(상태창1 팀별 문장용). 그 외(info 등)는 빈 배열(허브 전체 1문장).
   teams: ProcessCheckTeamDto[];
   // 선택 팀의 실제 파트 목록(user_memberships.part_name · org+mode 스코프 · "일반" 제외). 드롭다운 파트 옵션.
@@ -202,7 +207,9 @@ export function emptyProcessCheckBoard(hub: ProcessHub, organization: string): P
     hub,
     hubLabel: PROCESS_HUB_LABEL[hub],
     organization,
+    mode: "operating",
     week: null,
+    selectedWeek: null,
     teams: [],
     teamParts: [],
     selectedPart: null,
