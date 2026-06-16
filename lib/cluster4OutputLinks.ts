@@ -11,6 +11,9 @@ export type Cluster4OutputLink = {
   label: string | null;
 };
 
+// 정책: 아웃풋 링크 설명(label) 최대 글자수. 프론트 maxLength / 백엔드 검증 공용 SoT.
+export const OUTPUT_LINK_LABEL_MAX_LENGTH = 30;
+
 function normalizeLabel(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const trimmed = raw.trim();
@@ -98,6 +101,12 @@ export function buildOutputLinksFromForm(
       }
       continue;
     }
+    if (label.length > OUTPUT_LINK_LABEL_MAX_LENGTH) {
+      return {
+        ok: false,
+        error: `Link ${i + 1}: 설명은 최대 ${OUTPUT_LINK_LABEL_MAX_LENGTH}자까지 입력 가능합니다 (현재 ${label.length}자).`,
+      };
+    }
     out.push({ url, label: label || null });
   }
   return { ok: true, value: out };
@@ -131,7 +140,14 @@ export function parseOutputLinksInput(
     }
     const url = typeof rec.url === "string" ? rec.url.trim() : "";
     if (!url) continue; // url 없는 항목은 무시
-    out.push({ url, label: normalizeLabel(rec.label) });
+    const label = normalizeLabel(rec.label);
+    if (label && label.length > OUTPUT_LINK_LABEL_MAX_LENGTH) {
+      return {
+        ok: false,
+        error: `링크 설명은 최대 ${OUTPUT_LINK_LABEL_MAX_LENGTH}자까지 입력 가능합니다 (현재 ${label.length}자)`,
+      };
+    }
+    out.push({ url, label });
   }
   if (out.length > maxLinks) {
     return { ok: false, error: `output_links 는 최대 ${maxLinks}개까지 입력 가능합니다` };

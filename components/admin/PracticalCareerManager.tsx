@@ -37,7 +37,9 @@ import {
   buildOutputLinksFromForm,
   OUTPUT_LINK_LABEL_PLACEHOLDER,
   OUTPUT_LINK_URL_PLACEHOLDER,
+  OUTPUT_LINK_LABEL_MAX_LENGTH,
 } from "@/lib/cluster4OutputLinks";
+import { OUTPUT_IMAGE_CAPTION_MAX_LENGTH } from "@/lib/cluster4OutputImages";
 
 // ──────────────────────────────────────────────────────────────
 // Types
@@ -288,6 +290,7 @@ function ImageUploadSlot({
           onChange={(e) => onCaptionChange(e.target.value)}
           placeholder="이미지 캡션을 입력하세요"
           aria-label={`${label} 캡션`}
+          maxLength={OUTPUT_IMAGE_CAPTION_MAX_LENGTH}
           disabled={disabled}
         />
       )}
@@ -1597,12 +1600,12 @@ export default function PracticalCareerManager() {
                     <div className="space-y-1">
                       <Label htmlFor="careerLink1" className="text-xs text-muted-foreground">Link 1 URL</Label>
                       <Input id="careerLink1" value={lineLink1} onChange={(e) => setLineLink1(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink1.trim() && lineAssetCount >= 2} />
-                      <Input id="careerLabel1" value={lineLabel1} onChange={(e) => setLineLabel1(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 1 설명" />
+                      <Input id="careerLabel1" value={lineLabel1} onChange={(e) => setLineLabel1(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 1 설명" maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH} />
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="careerLink2" className="text-xs text-muted-foreground">Link 2 URL</Label>
                       <Input id="careerLink2" value={lineLink2} onChange={(e) => setLineLink2(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink2.trim() && lineAssetCount >= 2} />
-                      <Input id="careerLabel2" value={lineLabel2} onChange={(e) => setLineLabel2(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 2 설명" />
+                      <Input id="careerLabel2" value={lineLabel2} onChange={(e) => setLineLabel2(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 2 설명" maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH} />
                     </div>
                     <ImageUploadSlot
                       label="Image 1"

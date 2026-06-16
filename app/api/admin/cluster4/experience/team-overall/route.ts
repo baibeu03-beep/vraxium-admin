@@ -203,6 +203,7 @@ export async function POST(request: NextRequest) {
         leaderCells,
         outputs,
         adminId: admin.userId,
+        mode,
       });
       return Response.json({ success: true, data }, { status: 201 });
     }

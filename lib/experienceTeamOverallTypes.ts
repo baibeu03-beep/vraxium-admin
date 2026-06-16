@@ -59,6 +59,17 @@ export function isLeaderCategory(v: ExperienceOverallCategory): boolean {
   return (OVERALL_LEADER_CATEGORIES as string[]).includes(v);
 }
 
+// '관리'(management) 류 편집/저장 자격 — 파트장/에이전트 전용. 일반 크루는 불가.
+//   (개설 완료 시 resolveCategoryLineGroups 가 일반을 라우팅 제외하는 정책과 동일 기준.
+//    프론트 disable + 저장 payload 제외 + 백엔드 검수 가드 공용 SoT.)
+//   확장(extension)은 자격 무관(주간 활성 여부로만 게이팅).
+export function canEditOverallManagement(crew: {
+  statusLabel: string;
+  isPartLeader: boolean;
+}): boolean {
+  return crew.isPartLeader || crew.statusLabel === "에이전트";
+}
+
 // 기본값: 최초 진입/초기화 시 모든 체크=true, 점수=7.
 export const OVERALL_CELL_DEFAULT = { checked: true, score: 7 } as const;
 

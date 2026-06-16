@@ -19,6 +19,7 @@ import {
   EXPERIENCE_OVERALL_CATEGORIES,
   OVERALL_CELL_DEFAULT,
   OVERALL_LEADER_CATEGORIES,
+  canEditOverallManagement,
   isOverallCellFail,
   type ExperienceOverallCategory,
   type ExperienceTeamOverallBoard as BoardDto,
@@ -263,6 +264,8 @@ export default function ExperienceTeamOverallBoard({
       for (const cat of OVERALL_LEADER_CATEGORIES) {
         // 확장은 확장 주간에만 저장.
         if (cat === "extension" && !extensionActive) continue;
+        // 관리(management) 류는 파트장/에이전트 전용 — 일반 크루 셀은 payload 에서 제외(백엔드 가드와 정합).
+        if (cat === "management" && !canEditOverallManagement(crew)) continue;
         const c = getLeaderCell(crew.userId, cat);
         cells.push({
           crewUserId: crew.userId,
@@ -509,6 +512,21 @@ export default function ExperienceTeamOverallBoard({
                       );
                     }
                     // 관리/확장 — 팀장 직접 입력(편집).
+                    // 관리(management)는 파트장/에이전트 전용 — 일반 크루는 비활성(자격 부재).
+                    const mgmtLocked =
+                      c.key === "management" && !canEditOverallManagement(crew);
+                    if (mgmtLocked) {
+                      return (
+                        <TableCell key={c.key} className="text-center">
+                          <span
+                            className="inline-block rounded-md border border-dashed border-input bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground opacity-70"
+                            title="관리 류는 파트장/에이전트 전용입니다 (일반 크루 비활성)"
+                          >
+                            파트장/에이전트 전용
+                          </span>
+                        </TableCell>
+                      );
+                    }
                     const cell = getLeaderCell(crew.userId, c.key);
                     const fail = isOverallCellFail(cell);
                     const disabled =

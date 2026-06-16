@@ -41,7 +41,9 @@ import {
   buildOutputLinksFromForm,
   OUTPUT_LINK_LABEL_PLACEHOLDER,
   OUTPUT_LINK_URL_PLACEHOLDER,
+  OUTPUT_LINK_LABEL_MAX_LENGTH,
 } from "@/lib/cluster4OutputLinks";
+import { OUTPUT_IMAGE_CAPTION_MAX_LENGTH } from "@/lib/cluster4OutputImages";
 import {
   EnhancementStatusBadge,
   SubmissionStatusBadge,
@@ -324,6 +326,7 @@ function ImageUploadSlot({
         onChange={(e) => onCaptionChange(e.target.value)}
         placeholder="이미지 캡션을 입력하세요"
         aria-label={`${label} 캡션`}
+        maxLength={OUTPUT_IMAGE_CAPTION_MAX_LENGTH}
         disabled={disabled}
       />
     </div>
@@ -514,6 +517,7 @@ function LineDetailModal({
                   value={outputLabel1}
                   onChange={(e) => setOutputLabel1(e.target.value)}
                   placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
+                  maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH}
                 />
               </div>
             </div>
@@ -538,6 +542,7 @@ function LineDetailModal({
                   value={outputLabel2}
                   onChange={(e) => setOutputLabel2(e.target.value)}
                   placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
+                  maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH}
                 />
               </div>
             </div>
@@ -1506,6 +1511,7 @@ export default function PracticalInfoManager() {
                       onChange={(e) => setOutputLabel1(e.target.value)}
                       placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
                       aria-label="Link 1 설명"
+                      maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH}
                     />
                   </div>
                   <div className="space-y-1">
@@ -1525,6 +1531,7 @@ export default function PracticalInfoManager() {
                       onChange={(e) => setOutputLabel2(e.target.value)}
                       placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
                       aria-label="Link 2 설명"
+                      maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH}
                     />
                   </div>
 

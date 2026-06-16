@@ -32,8 +32,14 @@ import type {
   Cluster4PatchBody,
 } from "@/lib/adminCluster4Types";
 import type { Cluster4LinePartType } from "@/lib/cluster4LinesTypes";
-import type { Cluster4OutputLink } from "@/lib/cluster4OutputLinks";
-import type { Cluster4OutputImage } from "@/lib/cluster4OutputImages";
+import {
+  type Cluster4OutputLink,
+  OUTPUT_LINK_LABEL_MAX_LENGTH,
+} from "@/lib/cluster4OutputLinks";
+import {
+  type Cluster4OutputImage,
+  OUTPUT_IMAGE_CAPTION_MAX_LENGTH,
+} from "@/lib/cluster4OutputImages";
 
 // Cluster4 4허브(Work Info / Ability / Exp / Career)의 운영 편집 영역.
 //
@@ -1041,9 +1047,20 @@ function OutputLinksEditor({
               </div>
               <div className="flex flex-col gap-1.5">
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                    설명 (label)
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      설명 (label)
+                    </span>
+                    <span
+                      className={`text-[10px] tabular-nums ${
+                        (link.label ?? "").length > OUTPUT_LINK_LABEL_MAX_LENGTH
+                          ? "text-destructive"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {(link.label ?? "").length}/{OUTPUT_LINK_LABEL_MAX_LENGTH}
+                    </span>
+                  </div>
                   <Input
                     value={link.label ?? ""}
                     onChange={(event) =>
@@ -1053,7 +1070,7 @@ function OutputLinksEditor({
                       })
                     }
                     disabled={disabled}
-                    maxLength={200}
+                    maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH}
                     placeholder="예) GitHub 저장소, 발표 자료"
                     className="h-8 text-sm"
                   />
@@ -1169,9 +1186,22 @@ function OutputImagesEditor({
                 </div>
                 <div className="flex flex-1 flex-col gap-1.5">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                      설명 (caption)
-                    </span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        설명 (caption)
+                      </span>
+                      <span
+                        className={`text-[10px] tabular-nums ${
+                          (image.caption ?? "").length >
+                          OUTPUT_IMAGE_CAPTION_MAX_LENGTH
+                            ? "text-destructive"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        {(image.caption ?? "").length}/
+                        {OUTPUT_IMAGE_CAPTION_MAX_LENGTH}
+                      </span>
+                    </div>
                     <Input
                       value={image.caption ?? ""}
                       onChange={(event) =>
@@ -1183,7 +1213,7 @@ function OutputImagesEditor({
                         })
                       }
                       disabled={disabled}
-                      maxLength={200}
+                      maxLength={OUTPUT_IMAGE_CAPTION_MAX_LENGTH}
                       placeholder="예) 아키텍처 도면"
                       className="h-8 text-sm"
                     />

@@ -47,7 +47,9 @@ import {
   buildOutputLinksFromForm,
   OUTPUT_LINK_LABEL_PLACEHOLDER,
   OUTPUT_LINK_URL_PLACEHOLDER,
+  OUTPUT_LINK_LABEL_MAX_LENGTH,
 } from "@/lib/cluster4OutputLinks";
+import { OUTPUT_IMAGE_CAPTION_MAX_LENGTH } from "@/lib/cluster4OutputImages";
 import type { Cluster4LineDetail } from "@/lib/adminCluster4LinesTypes";
 import {
   EnhancementStatusBadge,
@@ -358,6 +360,7 @@ function ImageUploadSlot({
           onChange={(e) => onCaptionChange(e.target.value)}
           placeholder="이미지 캡션을 입력하세요"
           aria-label={`${label} 캡션`}
+          maxLength={OUTPUT_IMAGE_CAPTION_MAX_LENGTH}
           disabled={disabled}
         />
       )}
@@ -2082,6 +2085,7 @@ export default function PracticalExperienceManager() {
                         onChange={(e) => setDfLabel1(e.target.value)}
                         placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
                         aria-label="Link 1 설명"
+                        maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH}
                         disabled={saving || draftReadonly}
                       />
                     </div>
@@ -2102,6 +2106,7 @@ export default function PracticalExperienceManager() {
                         onChange={(e) => setDfLabel2(e.target.value)}
                         placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER}
                         aria-label="Link 2 설명"
+                        maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH}
                         disabled={saving || draftReadonly}
                       />
                     </div>

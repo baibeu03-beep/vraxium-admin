@@ -15,6 +15,9 @@ export type Cluster4OutputImage = {
   caption: string | null;
 };
 
+// 정책: 아웃풋 이미지 설명(caption) 최대 글자수. 프론트 maxLength / 백엔드 검증 공용 SoT.
+export const OUTPUT_IMAGE_CAPTION_MAX_LENGTH = 20;
+
 function normalizeCaption(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
   const trimmed = raw.trim();
@@ -59,7 +62,13 @@ export function buildOutputImages(
   for (const it of items) {
     const url = (it.url ?? "").trim();
     if (!url) continue;
-    out.push({ url, caption: normalizeCaption(it.caption) });
+    const caption = normalizeCaption(it.caption);
+    if (caption && caption.length > OUTPUT_IMAGE_CAPTION_MAX_LENGTH) {
+      throw new Error(
+        `이미지 설명은 최대 ${OUTPUT_IMAGE_CAPTION_MAX_LENGTH}자까지 입력 가능합니다 (현재 ${caption.length}자)`,
+      );
+    }
+    out.push({ url, caption });
   }
   return out;
 }
@@ -96,7 +105,14 @@ export function parseOutputImagesInput(raw: unknown): ParseOutputImagesResult {
       }
       const url = typeof rec.url === "string" ? rec.url.trim() : "";
       if (!url) continue;
-      out.push({ url, caption: normalizeCaption(rec.caption) });
+      const caption = normalizeCaption(rec.caption);
+      if (caption && caption.length > OUTPUT_IMAGE_CAPTION_MAX_LENGTH) {
+        return {
+          ok: false,
+          error: `이미지 설명은 최대 ${OUTPUT_IMAGE_CAPTION_MAX_LENGTH}자까지 입력 가능합니다 (현재 ${caption.length}자)`,
+        };
+      }
+      out.push({ url, caption });
       continue;
     }
     return {

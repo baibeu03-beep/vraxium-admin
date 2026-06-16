@@ -27,8 +27,12 @@ import type { Cluster4LinePartType } from "@/lib/cluster4LinesTypes";
 import {
   normalizeOutputLinks,
   outputLinksToLegacySlots,
+  OUTPUT_LINK_LABEL_MAX_LENGTH,
 } from "@/lib/cluster4OutputLinks";
-import { normalizeOutputImages } from "@/lib/cluster4OutputImages";
+import {
+  normalizeOutputImages,
+  OUTPUT_IMAGE_CAPTION_MAX_LENGTH,
+} from "@/lib/cluster4OutputImages";
 
 export class AdminCluster4SubmissionError extends Error {
   status: number;
@@ -161,6 +165,23 @@ function toAdminSubmissionRow(
 function buildAdminSubmissionPayload(input: Cluster4AdminSubmissionUpsertInput) {
   const outputLinks = normalizeOutputLinks(input.outputLinks);
   const outputImages = normalizeOutputImages(input.outputImages);
+  // 정책: 아웃풋 링크 설명(label)≤30자 / 이미지 설명(caption)≤20자. 위반 시 400 — DB write 금지.
+  for (const link of outputLinks) {
+    if (link.label && link.label.length > OUTPUT_LINK_LABEL_MAX_LENGTH) {
+      throw new AdminCluster4SubmissionError(
+        400,
+        `링크 설명은 최대 ${OUTPUT_LINK_LABEL_MAX_LENGTH}자까지 입력 가능합니다 (현재 ${link.label.length}자).`,
+      );
+    }
+  }
+  for (const image of outputImages) {
+    if (image.caption && image.caption.length > OUTPUT_IMAGE_CAPTION_MAX_LENGTH) {
+      throw new AdminCluster4SubmissionError(
+        400,
+        `이미지 설명은 최대 ${OUTPUT_IMAGE_CAPTION_MAX_LENGTH}자까지 입력 가능합니다 (현재 ${image.caption.length}자).`,
+      );
+    }
+  }
   const [link2, link3, link4, link5] = outputLinksToLegacySlots(outputLinks, 4);
   return {
     subtitle: normalizeNullableText(input.subtitle),

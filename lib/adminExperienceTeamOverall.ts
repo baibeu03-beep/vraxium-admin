@@ -28,6 +28,7 @@ import {
   OVERALL_CELL_DEFAULT,
   OVERALL_LEADER_CATEGORIES,
   OVERALL_PART_CATEGORIES,
+  canEditOverallManagement,
   type ExperienceOverallCategory,
   type ExperienceTeamOverallBoard,
   type OverallBoardCrew,
@@ -459,6 +460,39 @@ async function persistReviewState(input: {
   return overallId;
 }
 
+// 관리(management) 류는 파트장/에이전트 전용 — 일반 크루 관리 셀이 섞이면 fail-closed(422).
+//   프론트 disable + payload 제외와 정합. 직접 호출/우회 요청도 여기서 차단(저장 전 검증 → DB write 금지).
+//   확장(extension) 셀은 자격 무관 — 검사 대상 아님.
+async function assertNoIneligibleManagementCells(
+  organization: string,
+  teamName: string,
+  mode: ScopeMode,
+  leaderCells: OverallLeaderCellDto[],
+): Promise<void> {
+  const mgmtCells = leaderCells.filter((c) => c.category === "management");
+  if (mgmtCells.length === 0) return;
+  const members = await loadTeamMembersWithLeaders(organization, teamName, mode);
+  const byId = new Map(members.map((m) => [m.userId, m]));
+  for (const cell of mgmtCells) {
+    const m = byId.get(cell.crewUserId);
+    // 보드에 없거나(평가 대상 아님) 일반 크루면 자격 부재 — 차단.
+    const eligible = m
+      ? canEditOverallManagement({
+          statusLabel: m.statusLabel,
+          isPartLeader: m.isPartLeader,
+        })
+      : false;
+    if (!eligible) {
+      throw Object.assign(
+        new Error(
+          "'관리' 류는 파트장/에이전트 전용입니다. 일반 크루의 관리 항목은 처리할 수 없습니다.",
+        ),
+        { status: 422 },
+      );
+    }
+  }
+}
+
 // ── [개설 검수] 임시저장(고객 미반영) ──
 export async function saveTeamOverallReview(input: {
   organization: string;
@@ -468,6 +502,7 @@ export async function saveTeamOverallReview(input: {
   leaderCells: OverallLeaderCellDto[];
   outputs: OverallOutput[];
   adminId: string | null;
+  mode?: ScopeMode;
 }): Promise<{ status: "reviewed" }> {
   // 이미 개설 완료된 팀은 [개설 취소] 후에만 재검수/수정 가능(고객 라인과 불일치 방지).
   const existing = await loadOverallStored(
@@ -481,6 +516,14 @@ export async function saveTeamOverallReview(input: {
       { status: 409 },
     );
   }
+
+  // 관리 류 자격 가드(일반 크루 차단) — persist 이전(DB write 금지).
+  await assertNoIneligibleManagementCells(
+    input.organization,
+    input.teamName,
+    input.mode ?? "operating",
+    input.leaderCells,
+  );
 
   await persistReviewState({ ...input, status: "reviewed" });
   await insertExperienceOpeningLog({

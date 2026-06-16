@@ -23,7 +23,9 @@ import {
   buildOutputLinksFromForm,
   OUTPUT_LINK_LABEL_PLACEHOLDER,
   OUTPUT_LINK_URL_PLACEHOLDER,
+  OUTPUT_LINK_LABEL_MAX_LENGTH,
 } from "@/lib/cluster4OutputLinks";
+import { OUTPUT_IMAGE_CAPTION_MAX_LENGTH } from "@/lib/cluster4OutputImages";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   ...ORGANIZATIONS.map((slug) => ({ value: slug, label: ORGANIZATION_LABEL[slug] })),
@@ -172,7 +174,7 @@ function ImageUploadSlot({ label, image, caption, onUpload, onRemove, onCaptionC
       )}
       {/* 이미지 캡션 — 업로드 전/후 항상 노출. 이미지 없으면 payload 미포함. 비우면 null 저장. */}
       {onCaptionChange && (
-        <Input value={caption ?? ""} onChange={(e) => onCaptionChange(e.target.value)} placeholder="이미지 캡션을 입력하세요" aria-label={`${label} 캡션`} disabled={disabled} />
+        <Input value={caption ?? ""} onChange={(e) => onCaptionChange(e.target.value)} placeholder="이미지 캡션을 입력하세요" aria-label={`${label} 캡션`} maxLength={OUTPUT_IMAGE_CAPTION_MAX_LENGTH} disabled={disabled} />
       )}
     </div>
   );
@@ -560,8 +562,8 @@ export default function PracticalCompetencyManager() {
                     <span className={cn("text-xs", lineAssetCount === 0 ? "text-red-500" : lineAssetCount <= 2 ? "text-green-600" : "text-red-500")}>{lineAssetCount}/2 (최소 1, 최대 2)</span>
                   </div>
                   <div className="grid gap-3">
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Link 1 URL</Label><Input value={lineLink1} onChange={(e) => setLineLink1(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink1.trim() && lineAssetCount >= 2} /><Input value={lineLabel1} onChange={(e) => setLineLabel1(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 1 설명" /></div>
-                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Link 2 URL</Label><Input value={lineLink2} onChange={(e) => setLineLink2(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink2.trim() && lineAssetCount >= 2} /><Input value={lineLabel2} onChange={(e) => setLineLabel2(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 2 설명" /></div>
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Link 1 URL</Label><Input value={lineLink1} onChange={(e) => setLineLink1(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink1.trim() && lineAssetCount >= 2} /><Input value={lineLabel1} onChange={(e) => setLineLabel1(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 1 설명" maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH} /></div>
+                    <div className="space-y-1"><Label className="text-xs text-muted-foreground">Link 2 URL</Label><Input value={lineLink2} onChange={(e) => setLineLink2(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink2.trim() && lineAssetCount >= 2} /><Input value={lineLabel2} onChange={(e) => setLineLabel2(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 2 설명" maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH} /></div>
                     <ImageUploadSlot label="Image 1" image={lineImage1} caption={lineCaption1} onUpload={setLineImage1} onRemove={() => { setLineImage1(null); setLineCaption1(""); }} onCaptionChange={setLineCaption1} disabled={!lineImage1 && lineAssetCount >= 2} />
                     <ImageUploadSlot label="Image 2" image={lineImage2} caption={lineCaption2} onUpload={setLineImage2} onRemove={() => { setLineImage2(null); setLineCaption2(""); }} onCaptionChange={setLineCaption2} disabled={!lineImage2 && lineAssetCount >= 2} />
                   </div>

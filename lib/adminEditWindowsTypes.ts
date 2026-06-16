@@ -152,7 +152,7 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     key: "cluster4.work_ability",
     section: "cluster4",
     group: "activity",
-    order: 37,
+    order: 38,
     label: "\uC2E4\uBB34 \uC5ED\uB7C9 (Work Ability)",
     description:
       "Cluster4-card \uC2E4\uBB34 \uC5ED\uB7C9 \uBAA8\uB2EC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
@@ -164,7 +164,7 @@ export const EDITABLE_RESOURCES: readonly EditableResource[] = [
     key: "cluster4.work_exp",
     section: "cluster4",
     group: "activity",
-    order: 38,
+    order: 37,
     label: "\uC2E4\uBB34 \uACBD\uD5D8 (Work Exp)",
     description:
       "Cluster4-card \uC2E4\uBB34 \uACBD\uD5D8 \uBAA8\uB2EC \uC791\uC131 \uAD8C\uD55C\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4. rating(0~10) \uC800\uC7A5 \uACBD\uB85C\uB294 \uC774 \uD0A4\uB85C \uAC8C\uC774\uD2B8\uB429\uB2C8\uB2E4.",

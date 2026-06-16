@@ -326,6 +326,24 @@ function requiredText(
   return { ok: true, value: raw.trim() };
 }
 
+// line_code 형식 가드 — 표준형 {허브2}{조직2}-{유형2}{시퀀스4}(예: IFBS-NN0007, EXOK-EN0001).
+//   레거시/테스트 코드(EXUL-1781413747360 등)까지 보존하기 위해 토큰 구조는 강제하지 않고,
+//   영숫자 + 하이픈만 허용(공백·기타 문자 금지) → "IF99A - NR0007" 류 오입력을 차단한다.
+const LINE_CODE_PATTERN = /^[A-Za-z0-9-]+$/;
+function lineCodeText(raw: unknown): ParseBodyResult<string> {
+  const r = requiredText(raw, "line_code");
+  if (!r.ok) return r;
+  if (!LINE_CODE_PATTERN.test(r.value)) {
+    return {
+      ok: false,
+      status: 400,
+      error:
+        "line_code 는 영문/숫자/하이픈(-)만 허용합니다 (공백·특수문자 불가). 예: IFBS-NN0007",
+    };
+  }
+  return { ok: true, value: r.value };
+}
+
 function optionalText(raw: unknown, field: string): ParseBodyResult<string | null> {
   if (raw === undefined || raw === null) return { ok: true, value: null };
   if (typeof raw !== "string") {
@@ -370,7 +388,7 @@ export function parseLineRegistrationCreateBody(
     };
   }
 
-  const lineCode = requiredText(body.line_code, "line_code");
+  const lineCode = lineCodeText(body.line_code);
   if (!lineCode.ok) return lineCode;
 
   if (body.main_title_mode !== "fixed" && body.main_title_mode !== "variable") {
@@ -487,7 +505,7 @@ export function parseLineRegistrationPatchBody(
     patch.lineName = r.value;
   }
   if (body.line_code !== undefined) {
-    const r = requiredText(body.line_code, "line_code");
+    const r = lineCodeText(body.line_code);
     if (!r.ok) return r;
     patch.lineCode = r.value;
   }
