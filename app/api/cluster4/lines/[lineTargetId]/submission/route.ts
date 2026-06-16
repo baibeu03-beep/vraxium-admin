@@ -8,7 +8,8 @@ import {
   updateCluster4LineSubmissionForProfileUser,
 } from "@/lib/cluster4LinesData";
 import { parseCluster4LineSubmissionBody } from "@/lib/cluster4LinesTypes";
-import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
+import { DemoModeError } from "@/lib/demoMode";
+import { resolveRequestScope } from "@/lib/requestScope";
 
 type Ctx = { params: Promise<{ lineTargetId: string }> };
 
@@ -32,9 +33,9 @@ async function requireAuthenticatedUser() {
 
 export async function POST(request: NextRequest, { params }: Ctx) {
   // 데모 쓰기 주체 해소 (test_user_markers 검증 + 운영 게이트는 resolveDemoProfileUserId 내부).
-  let demoProfileUserId: string | null = null;
+  let requestScope: Awaited<ReturnType<typeof resolveRequestScope>> | null = null;
   try {
-    demoProfileUserId = await resolveDemoProfileUserId(request);
+    requestScope = await resolveRequestScope(request);
   } catch (error) {
     if (error instanceof DemoModeError) {
       return Response.json(
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   }
 
   let user;
-  if (!demoProfileUserId) {
+  if (!requestScope?.demoUserId) {
     try {
       user = await requireAuthenticatedUser();
     } catch (error) {
@@ -81,9 +82,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   }
 
   try {
-    const submission = demoProfileUserId
+    const submission = requestScope?.demoUserId
       ? await createCluster4LineSubmissionForProfileUser(
-          demoProfileUserId,
+          requestScope.demoUserId,
           lineTargetId,
           parsed.value,
         )
@@ -114,9 +115,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 
 export async function PATCH(request: NextRequest, { params }: Ctx) {
   // 데모 쓰기 주체 해소 (test_user_markers 검증 + 운영 게이트는 resolveDemoProfileUserId 내부).
-  let demoProfileUserId: string | null = null;
+  let requestScope: Awaited<ReturnType<typeof resolveRequestScope>> | null = null;
   try {
-    demoProfileUserId = await resolveDemoProfileUserId(request);
+    requestScope = await resolveRequestScope(request);
   } catch (error) {
     if (error instanceof DemoModeError) {
       return Response.json(
@@ -128,7 +129,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   }
 
   let user;
-  if (!demoProfileUserId) {
+  if (!requestScope?.demoUserId) {
     try {
       user = await requireAuthenticatedUser();
     } catch (error) {
@@ -163,9 +164,9 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   }
 
   try {
-    const submission = demoProfileUserId
+    const submission = requestScope?.demoUserId
       ? await updateCluster4LineSubmissionForProfileUser(
-          demoProfileUserId,
+          requestScope.demoUserId,
           lineTargetId,
           parsed.value,
         )

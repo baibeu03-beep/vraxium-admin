@@ -38,9 +38,11 @@ import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
 import { isOrganizationSlug } from "@/lib/organizations";
 import {
   lineCodeTokenForOrg,
-  parseLineCodeOrg,
-  isLineVisibleForUserOrg,
 } from "@/lib/cluster4LineOrg";
+import {
+  isLineScopeVisibleForOrg,
+  resolveLineScopeFromValues,
+} from "@/lib/lineScope";
 import { insertOpeningLogForLine } from "@/lib/adminCluster4OpeningLogs";
 import {
   LineOpeningWindowError,
@@ -541,8 +543,11 @@ export async function POST(request: NextRequest) {
       .filter((l) => {
         if (!scopeOrg) return true;
         // info 라인 org = line_code 토큰, 없으면 'common'(resolveCluster4LineOrgScope 와 동일).
-        const lineOrg = parseLineCodeOrg(l.line_code) ?? "common";
-        return isLineVisibleForUserOrg(lineOrg, scopeOrg, { allowUnknown: false });
+        const lineScope = resolveLineScopeFromValues({
+          partType: "info",
+          lineCode: l.line_code,
+        });
+        return isLineScopeVisibleForOrg(lineScope, scopeOrg, { allowUnknown: false });
       })
       .map((l) => l.id);
     if (activeLineIds.length > 0) {

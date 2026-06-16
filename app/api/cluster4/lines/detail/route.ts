@@ -5,7 +5,8 @@ import {
   getCluster4LineDetailForAuthUser,
   getCluster4LineDetailForProfileUser,
 } from "@/lib/cluster4LinesData";
-import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
+import { DemoModeError } from "@/lib/demoMode";
+import { resolveRequestScope } from "@/lib/requestScope";
 
 function isPartType(value: string | null): value is "info" | "experience" | "competency" | "career" {
   return (
@@ -18,9 +19,9 @@ function isPartType(value: string | null): value is "info" | "experience" | "com
 
 export async function GET(request: NextRequest) {
   // 데모 모드: demoUserId 가 유효한 테스트 유저면 세션 인증을 건너뛴다.
-  let demoProfileUserId: string | null = null;
+  let requestScope: Awaited<ReturnType<typeof resolveRequestScope>> | null = null;
   try {
-    demoProfileUserId = await resolveDemoProfileUserId(request);
+    requestScope = await resolveRequestScope(request);
   } catch (error) {
     if (error instanceof DemoModeError) {
       return Response.json(
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
 
   let sessionUser: { id: string; email: string | null | undefined } | null =
     null;
-  if (!demoProfileUserId) {
+  if (!requestScope?.demoUserId) {
     const supabase = await getSupabaseServerClient();
     const {
       data: { user },
@@ -67,12 +68,10 @@ export async function GET(request: NextRequest) {
 
   // 데모 인증은 demoUserId(viewer)로 통과하되, 조회 대상은 userId(pageOwner)가 있으면 우선한다.
   // foreign viewer(테스트유저가 타 유저 페이지 조회) 시 라인 상세는 페이지 주인 기준이어야 함.
-  const requestedUserId = request.nextUrl.searchParams.get("userId")?.trim() || null;
-
   try {
-    const data = demoProfileUserId
+    const data = requestScope?.demoUserId
       ? await getCluster4LineDetailForProfileUser(
-          requestedUserId || demoProfileUserId,
+          requestScope.targetUserId || requestScope.demoUserId,
           weekId,
           partType,
         )

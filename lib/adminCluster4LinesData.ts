@@ -35,12 +35,15 @@ import {
 import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
 import {
   isLineVisibleForUserOrg,
-  normalizeLineOrg,
   parseLineCodeOrg,
   type LineOrgScope,
 } from "@/lib/cluster4LineOrg";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
-import { getRegistrationOrgByBridgedMasterId } from "@/lib/lineRegistrationLookup";
+import {
+  isLineScopeVisibleForOrg,
+  resolveLineScopeFromValues,
+  resolveLineScope,
+} from "@/lib/lineScope";
 
 export class Cluster4LineError extends Error {
   status: number;
@@ -338,40 +341,9 @@ export async function resolveCluster4LineOrgScope(row: {
   line_code: string | null;
   experience_line_master_id?: string | null;
   competency_line_master_id?: string | null;
+  career_project_id?: string | null;
 }): Promise<LineOrgScope | null> {
-  let lineOrg: LineOrgScope | null = parseLineCodeOrg(row.line_code);
-  if (lineOrg != null) return lineOrg;
-  if (row.part_type === "info") return "common";
-  if (row.part_type === "experience" && row.experience_line_master_id) {
-    lineOrg = normalizeLineOrg(
-      await getRegistrationOrgByBridgedMasterId(row.experience_line_master_id),
-    );
-    if (lineOrg == null) {
-      const { data: m } = await supabaseAdmin
-        .from("cluster4_experience_line_masters")
-        .select("organization_slug")
-        .eq("id", row.experience_line_master_id)
-        .maybeSingle();
-      lineOrg = normalizeLineOrg(
-        (m as { organization_slug: string | null } | null)?.organization_slug,
-      );
-    }
-  } else if (row.part_type === "competency" && row.competency_line_master_id) {
-    lineOrg = normalizeLineOrg(
-      await getRegistrationOrgByBridgedMasterId(row.competency_line_master_id),
-    );
-    if (lineOrg == null) {
-      const { data: m } = await supabaseAdmin
-        .from("cluster4_competency_line_masters")
-        .select("organization_slug")
-        .eq("id", row.competency_line_master_id)
-        .maybeSingle();
-      lineOrg = normalizeLineOrg(
-        (m as { organization_slug: string | null } | null)?.organization_slug,
-      );
-    }
-  }
-  return lineOrg;
+  return (await resolveLineScope(row)).org;
 }
 
 // 어드민 라인 목록(info/experience/competency)을 현재 조직으로 좁힌다.
@@ -386,7 +358,7 @@ async function filterLineIdsByOrg(opts: {
   let q = supabaseAdmin
     .from("cluster4_lines")
     .select(
-      "id,part_type,line_code,experience_line_master_id,competency_line_master_id",
+      "id,part_type,line_code,experience_line_master_id,competency_line_master_id,career_project_id",
     );
   if (opts.partType) q = q.eq("part_type", opts.partType);
   if (opts.restrictTo) q = q.in("id", opts.restrictTo);
@@ -398,11 +370,12 @@ async function filterLineIdsByOrg(opts: {
     line_code: string | null;
     experience_line_master_id: string | null;
     competency_line_master_id: string | null;
+    career_project_id: string | null;
   }>;
   const visible: string[] = [];
   for (const row of candidates) {
-    const lineOrg = await resolveCluster4LineOrgScope(row);
-    if (isLineVisibleForUserOrg(lineOrg, opts.organization, { allowUnknown: false })) {
+    const lineScope = await resolveLineScope(row);
+    if (isLineScopeVisibleForOrg(lineScope, opts.organization, { allowUnknown: false })) {
       visible.push(row.id);
     }
   }
@@ -427,7 +400,7 @@ export async function collectLineOrgAudience(lineId: string): Promise<string[]> 
   const { data: line } = await supabaseAdmin
     .from("cluster4_lines")
     .select(
-      "part_type,line_code,competency_line_master_id,experience_line_master_id",
+      "part_type,line_code,competency_line_master_id,experience_line_master_id,career_project_id",
     )
     .eq("id", lineId)
     .maybeSingle();
@@ -437,14 +410,15 @@ export async function collectLineOrgAudience(lineId: string): Promise<string[]> 
     line_code: string | null;
     competency_line_master_id: string | null;
     experience_line_master_id: string | null;
+    career_project_id: string | null;
   };
   // career: 개설+미배정 = not_applicable → 비배정 분모 무변 → org audience 없음.
   if (row.part_type === "career") return [];
 
   // org 판정 = resolveCluster4LineOrgScope 단일 출처(어드민 라인 목록 org 필터와 공유).
-  const lineOrg = await resolveCluster4LineOrgScope(row);
+  const lineScope = await resolveLineScope(row);
   // 판정 불가 → Step 2 숨김(fail-closed) → org audience 없음(배정자만 호출부에서 union).
-  if (lineOrg == null) return [];
+  if (lineScope.unknown) return [];
 
   // 스냅샷 보유 사용자 + org → Step 2 노출 필터(allowUnknown=false)로 audience 산정.
   const { data: snaps } = await supabaseAdmin
@@ -469,7 +443,7 @@ export async function collectLineOrgAudience(lineId: string): Promise<string[]> 
   }
 
   return userIds.filter((uid) =>
-    isLineVisibleForUserOrg(lineOrg, orgByUser.get(uid) ?? null),
+    isLineScopeVisibleForOrg(lineScope, orgByUser.get(uid) ?? null),
   );
 }
 
@@ -919,8 +893,11 @@ export async function findActiveInfoLineId(
   const visibleToOrg = (lineCode: string | null): boolean => {
     if (!organization) return true;
     // info 라인 org = line_code 토큰, 없으면 'common'(resolveCluster4LineOrgScope 와 동일).
-    const lineOrg = parseLineCodeOrg(lineCode) ?? "common";
-    return isLineVisibleForUserOrg(lineOrg, organization, { allowUnknown: false });
+    const lineScope = resolveLineScopeFromValues({
+      partType: "info",
+      lineCode,
+    });
+    return isLineScopeVisibleForOrg(lineScope, organization, { allowUnknown: false });
   };
 
   const { data: tRows, error: tErr } = await supabaseAdmin

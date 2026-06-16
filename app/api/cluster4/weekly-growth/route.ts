@@ -13,7 +13,8 @@ import {
   getWeeklyGrowth,
   getWeeklyGrowthByUserId,
 } from "@/lib/cluster4WeeklyGrowthData";
-import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
+import { DemoModeError } from "@/lib/demoMode";
+import { resolveRequestScope } from "@/lib/requestScope";
 import {
   currentQueryCount,
   runWithQueryMeter,
@@ -38,13 +39,11 @@ async function handleGet(request: NextRequest) {
     );
   // 데모 모드: demoUserId 가 유효한 테스트 유저면 세션 인증 대신 그 유저 데이터를 반환.
   try {
-    const demoProfileUserId = await resolveDemoProfileUserId(request);
-    if (demoProfileUserId) {
+    const requestScope = await resolveRequestScope(request);
+    if (requestScope.demoUserId) {
       // 데모 인증은 demoUserId(viewer)로 통과하되, 조회 대상은 userId(pageOwner)가 있으면 우선한다.
       // foreign viewer(테스트유저가 타 유저 페이지 조회) 시 성장 데이터는 페이지 주인 기준이어야 함.
-      const requestedUserId =
-        request.nextUrl.searchParams.get("userId")?.trim() || null;
-      const dto = await getWeeklyGrowth(requestedUserId || demoProfileUserId);
+      const dto = await getWeeklyGrowth(requestScope.targetUserId || requestScope.demoUserId);
       if (!dto) {
         logDone("demo-404");
         return Response.json(

@@ -16,7 +16,10 @@
     "crawler:seed": "node scripts/naver-session-seed.mjs",
     "verify:cafe-crawler-contract": "tsx scripts/verify-cafe-crawler-contract.ts",
     "verify:cafe-crawler-client": "tsx scripts/verify-cafe-crawler-client.ts",
-    "verify:cafe-match-scope": "tsx --env-file=.env.local scripts/verify-cafe-match-scope-unit.ts"
+    "verify:cafe-match-scope": "tsx --env-file=.env.local scripts/verify-cafe-match-scope-unit.ts",
+    "verify:scope-helper-usage": "tsx scripts/verify-scope-helper-usage.ts",
+    "verify:scope-centralization": "tsx --env-file=.env.local scripts/verify-scope-centralization-phase1.ts",
+    "verify:scope": "npm run verify:scope-helper-usage && npm run verify:scope-centralization"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

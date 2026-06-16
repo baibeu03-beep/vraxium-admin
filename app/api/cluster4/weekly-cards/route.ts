@@ -19,7 +19,8 @@ import {
   truncateCardsForGrowthStop,
   type GrowthStopInfo,
 } from "@/lib/cluster4GrowthStopPolicy";
-import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
+import { DemoModeError } from "@/lib/demoMode";
+import { resolveRequestScope } from "@/lib/requestScope";
 import {
   currentQueryCount,
   runWithQueryMeter,
@@ -374,15 +375,13 @@ async function handleGet(request: NextRequest): Promise<Response> {
   // 데모 모드: demoUserId 가 유효한 테스트 유저면 세션 인증 대신 그 유저 데이터를 반환.
   // (DTO shape 은 일반 경로와 동일 — 프론트 컴포넌트 재사용 가능)
   try {
-    const demoProfileUserId = await resolveDemoProfileUserId(request);
-    if (demoProfileUserId) {
+    const requestScope = await resolveRequestScope(request);
+    if (requestScope.demoUserId) {
       // 데모(테스트유저) 인증은 demoUserId 로 통과하되, 카드 조회 대상은 userId(페이지 주인)가
       // 있으면 그것을 우선한다. foreign viewer(테스트유저 demoUserId 가 다른 유저 userId 페이지를
       // 조회) 시 4허브 카드는 반드시 페이지 주인(userId) 기준이어야 하며 viewer(demoUserId)
       // 데이터가 섞이면 안 된다. userId 가 없으면(본인 페이지) 기존대로 demoUserId 기준.
-      const requestedUserId =
-        request.nextUrl.searchParams.get("userId")?.trim() || null;
-      const cardTargetUserId = requestedUserId || demoProfileUserId;
+      const cardTargetUserId = requestScope.targetUserId || requestScope.demoUserId;
 
       // 진입경로 일관성(2026-06-16): demoUserId(테스트 유저) 경로도 일반 로그인 경로와 100% 동일하게
       //   snapshot-only 로더(loadWeeklyCards)만 사용한다. demoUserId 는 "조회 대상 userId"만 바꾸며

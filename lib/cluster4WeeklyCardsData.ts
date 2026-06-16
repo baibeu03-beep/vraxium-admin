@@ -45,10 +45,10 @@ import {
 } from "@/lib/careerGrade";
 import {
   isLineVisibleForUserOrg,
-  normalizeLineOrg,
   parseLineCodeOrg,
   type LineOrgScope,
 } from "@/lib/cluster4LineOrg";
+import { resolveLineScopeFromValues } from "@/lib/lineScope";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import {
   emptyWeeklyPeople,
@@ -1435,8 +1435,8 @@ async function fetchUserTeamAndRole(
   };
 }
 
-// 라인 마스터 organization_slug(폴백용)을 판정한다 — line_code 로 판정 불가일 때만 쓴다.
-//   info        → org 컬럼 없음 → 'common'(전체 공통).
+// 라인 마스터 organization_slug(폴백용)을 판정한다 — line_code/registration 으로 판정 불가일 때만 쓴다.
+//   info        → org 컬럼 없음 → null(판정 불가).
 //   experience  → cluster4_experience_line_masters.organization_slug
 //   competency  → cluster4_competency_line_masters.organization_slug
 //   career      → career_projects.organization_slug
@@ -1449,27 +1449,31 @@ function resolveMasterOrg(
 ): LineOrgScope | null {
   switch (line.part_type) {
     case "info":
-      return "common";
+      return null;
     case "experience":
-      return normalizeLineOrg(
-        line.experience_line_master_id
-          ? experienceMasterMetaById.get(line.experience_line_master_id)
-              ?.organizationSlug
+      return resolveLineScopeFromValues({
+        partType: "experience",
+        lineCode: null,
+        masterOrg: line.experience_line_master_id
+          ? experienceMasterMetaById.get(line.experience_line_master_id)?.organizationSlug
           : null,
-      );
+      }).org;
     case "competency":
-      return normalizeLineOrg(
-        line.competency_line_master_id
-          ? competencyMasterMetaById.get(line.competency_line_master_id)
-              ?.organizationSlug
+      return resolveLineScopeFromValues({
+        partType: "competency",
+        lineCode: null,
+        masterOrg: line.competency_line_master_id
+          ? competencyMasterMetaById.get(line.competency_line_master_id)?.organizationSlug
           : null,
-      );
+      }).org;
     case "career":
-      return normalizeLineOrg(
-        line.career_project_id
+      return resolveLineScopeFromValues({
+        partType: "career",
+        lineCode: null,
+        masterOrg: line.career_project_id
           ? careerProjectMetaById.get(line.career_project_id)?.organizationSlug
           : null,
-      );
+      }).org;
   }
 }
 
@@ -1483,15 +1487,16 @@ function resolveLineOrg(
   competencyMasterMetaById: Map<string, CompetencyMasterMeta>,
   careerProjectMetaById: Map<string, CareerProjectMeta>,
 ): LineOrgScope | null {
-  return (
-    parseLineCodeOrg(line.line_code) ??
-    resolveMasterOrg(
+  return resolveLineScopeFromValues({
+    partType: line.part_type,
+    lineCode: line.line_code,
+    masterOrg: resolveMasterOrg(
       line,
       experienceMasterMetaById,
       competencyMasterMetaById,
       careerProjectMetaById,
-    )
-  );
+    ),
+  }).org;
 }
 
 // PostgREST 기본 1000행 cap 회피용 순수 페이지네이션 루프.
