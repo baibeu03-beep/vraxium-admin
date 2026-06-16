@@ -49,6 +49,7 @@ const MEMBER_SELECT = [
   "organization_slug",
   "status",
   "growth_status",
+  "suspended_week_id",
   "role",
   "current_team_name",
   "current_part_name",
@@ -65,6 +66,7 @@ type MemberRow = {
   organization_slug: string | null;
   status: string | null;
   growth_status: string | null;
+  suspended_week_id: string | null;
   role: string | null;
   current_team_name: string | null;
   current_part_name: string | null;
@@ -102,6 +104,7 @@ function toDto(
     organizationSlug: row.organization_slug,
     status: row.status,
     growthStatus: row.growth_status,
+    suspendedWeekId: row.suspended_week_id,
     role: row.role,
     membershipLevel,
     // 상태 칩 표기. 등급 SoT=membership_level — role 단독으로 "파트장"을 만들지 않는다.
@@ -485,6 +488,8 @@ export type MemberPatchInput = Partial<{
   growth_status: string | null;
   // 오버라이드 변경 사유 (user_profiles 컬럼 아님 — user_growth_status_audit 기록용).
   growth_status_reason: string | null;
+  // 성장 중단 적용 주차(weeks.id) 또는 null(해제). UUID 검증 필수.
+  suspended_week_id: string | null;
   contact_email: string | null;
   contact_phone: string | null;
   // role 은 enum(4종) 검증을 거치므로 nullable-string 화이트리스트와 별도로 다룬다.
@@ -522,6 +527,12 @@ export function pickMemberPatch(body: unknown): MemberPatchInput {
         400,
         `growth_status must be one of: ${MANUAL_OVERRIDE_STATUSES.join(", ")} (or null to clear) — 그 외 상태는 자동 계산됩니다`,
       );
+    }
+  }
+  // suspended_week_id 는 UUID 또는 null(해제)만 허용. (위 루프에서 nullable-string 으로 1차 coerce됨)
+  if (patch.suspended_week_id !== undefined && patch.suspended_week_id !== null) {
+    if (!isUuid(patch.suspended_week_id)) {
+      throw new MemberPatchError(400, "suspended_week_id must be a weeks UUID or null");
     }
   }
   // 오버라이드 변경 사유 (audit 전용 — growth_status 와 함께 올 때만 의미).

@@ -38,6 +38,7 @@ export type EditableMember = {
   organizationSlug: string | null;
   status: string | null;
   growthStatus: string | null;
+  suspendedWeekId: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
   role: string | null;
@@ -50,6 +51,7 @@ type Form = {
   status: string;
   growth_status: string;
   growth_status_reason: string;
+  suspended_week_id: string;
   contact_email: string;
   contact_phone: string;
   role: string;
@@ -57,6 +59,11 @@ type Form = {
 
 const ORG_NONE = "__none__";
 const STATUS_NONE = "__none__";
+const WEEK_NONE = "__none__";
+// 성장 중단 적용 주차를 고를 수 있는 growth_status 값.
+const SUSPENDED_STATUS = "suspended";
+
+type WeekOption = { weekId: string; label: string };
 // 4종 외(ambassador/admin/super_admin 등)의 역할은 이 화면에서 변경 불가 — 잠금 표시.
 const ROLE_LOCKED = "__locked__";
 
@@ -71,6 +78,7 @@ function toForm(member: EditableMember): Form {
     status: member.status ?? STATUS_NONE,
     growth_status: member.growthStatus ?? STATUS_NONE,
     growth_status_reason: "",
+    suspended_week_id: member.suspendedWeekId ?? WEEK_NONE,
     contact_email: member.contactEmail ?? "",
     contact_phone: member.contactPhone ?? "",
     // 4종 역할이면 편집 가능, 그 외(보존 역할)는 잠금.
@@ -101,6 +109,18 @@ function diffPatch(initial: Form, next: Form) {
     // 오버라이드 변경 시에만 사유 동봉 (audit 기록용 — 빈 값은 null).
     patch.growth_status_reason = emptyToNull(next.growth_status_reason);
   }
+
+  // 성장 중단 적용 주차(suspended_week_id):
+  //   - growth_status 가 suspended 가 아니면 주차는 무의미 → 기존 값이 있으면 null 로 해제.
+  //   - suspended 면 선택된 주차(WEEK_NONE → null)를 반영.
+  const initialWeek = initial.suspended_week_id === WEEK_NONE ? null : initial.suspended_week_id;
+  const nextWeek =
+    nextGrowth === SUSPENDED_STATUS
+      ? next.suspended_week_id === WEEK_NONE
+        ? null
+        : next.suspended_week_id
+      : null; // 중단이 아니면 항상 해제
+  if (initialWeek !== nextWeek) patch.suspended_week_id = nextWeek;
 
   if (initial.contact_email !== next.contact_email) {
     patch.contact_email = emptyToNull(next.contact_email);
@@ -156,6 +176,12 @@ function MemberEditDrawerInner({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 성장 중단 적용 주차 후보 — 이 멤버의 주차 카드(weekly-cards)에서 가져온다.
+  //   growth_status=suspended 를 선택했을 때만 1회 지연 로드(불필요 호출 방지).
+  const [weekOptions, setWeekOptions] = useState<WeekOption[] | null>(null);
+  const [weeksLoading, setWeeksLoading] = useState(false);
+  const [weeksError, setWeeksError] = useState<string | null>(null);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !saving) onClose();
@@ -163,6 +189,47 @@ function MemberEditDrawerInner({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [saving, onClose]);
+
+  // 성장 중단 선택 시 주차 후보를 로드(이미 로드했으면 재사용). 다른 화면 데이터/계산 무변경 —
+  // 고객과 동일한 weekly-cards 응답에서 (weekId, 표시 제목)만 추출해 드롭다운 옵션으로 쓴다.
+  useEffect(() => {
+    if (form.growth_status !== SUSPENDED_STATUS) return;
+    if (weekOptions !== null || weeksLoading) return;
+    let aborted = false;
+    setWeeksLoading(true);
+    setWeeksError(null);
+    fetch(`/api/cluster4/weekly-cards?userId=${encodeURIComponent(member.userId)}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (aborted) return;
+        if (!json?.success || !Array.isArray(json.data)) {
+          setWeeksError(json?.error?.message ?? "주차 목록을 불러오지 못했습니다.");
+          setWeekOptions([]);
+          return;
+        }
+        const opts: WeekOption[] = (json.data as Array<Record<string, unknown>>)
+          .filter((c) => typeof c.weekId === "string" && (c.weekId as string).length > 0)
+          .map((c) => ({
+            weekId: c.weekId as string,
+            label:
+              (typeof c.displayTitle === "string" && c.displayTitle) ||
+              (typeof c.weekLabel === "string" && c.weekLabel) ||
+              `${c.weekNumber ?? "?"}주차`,
+          }));
+        setWeekOptions(opts);
+      })
+      .catch((e) => {
+        if (aborted) return;
+        setWeeksError(e instanceof Error ? e.message : "주차 목록을 불러오지 못했습니다.");
+        setWeekOptions([]);
+      })
+      .finally(() => {
+        if (!aborted) setWeeksLoading(false);
+      });
+    return () => {
+      aborted = true;
+    };
+  }, [form.growth_status, weekOptions, weeksLoading, member.userId]);
 
   const dirty = useMemo(
     () => Object.keys(diffPatch(initial, form)).length > 0,
@@ -199,6 +266,7 @@ function MemberEditDrawerInner({
         organizationSlug: string | null;
         status: string | null;
         growthStatus: string | null;
+        suspendedWeekId: string | null;
         contactEmail: string | null;
         contactPhone: string | null;
         role: string | null;
@@ -212,6 +280,7 @@ function MemberEditDrawerInner({
         organizationSlug: updated.organizationSlug,
         status: updated.status,
         growthStatus: updated.growthStatus,
+        suspendedWeekId: updated.suspendedWeekId,
         contactEmail: updated.contactEmail,
         contactPhone: updated.contactPhone,
         role: updated.role,
@@ -425,6 +494,50 @@ function MemberEditDrawerInner({
                     }
                     placeholder="감사 로그에 기록됩니다 (선택)"
                   />
+                </div>
+              )}
+
+              {/* 성장 중단(suspended) 선택 시에만 — 어느 주차에서 중단됐는지 지정.
+                  고객 카드 목록은 이 주차 카드 1장에만 "성장 중단" 배지를 표시한다(이전 확정 주차는 원 상태 유지).
+                  미지정이면 카드에는 표시되지 않고 상단/프로필 배지만 성장 중단으로 남는다. */}
+              {form.growth_status === SUSPENDED_STATUS && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="member-suspended-week">
+                    {devMode ? "성장 중단 적용 주차 (suspended_week_id)" : "성장 중단 적용 주차"}
+                  </Label>
+                  <Select
+                    value={form.suspended_week_id}
+                    onValueChange={(v: string | null) =>
+                      setForm((prev) => ({ ...prev, suspended_week_id: v ?? WEEK_NONE }))
+                    }
+                    disabled={weeksLoading}
+                  >
+                    <SelectTrigger id="member-suspended-week">
+                      <SelectValue placeholder={weeksLoading ? "주차 불러오는 중…" : "주차 선택"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={WEEK_NONE}>미지정 (카드 미표시)</SelectItem>
+                      {(weekOptions ?? []).map((w) => (
+                        <SelectItem key={w.weekId} value={w.weekId}>
+                          {w.label}
+                        </SelectItem>
+                      ))}
+                      {/* 현재 저장된 주차가 목록(확정 카드)에 없을 때도 현재값을 보존·표시 */}
+                      {form.suspended_week_id !== WEEK_NONE &&
+                        !(weekOptions ?? []).some((w) => w.weekId === form.suspended_week_id) && (
+                          <SelectItem value={form.suspended_week_id} disabled>
+                            {devMode ? form.suspended_week_id : "현재 지정된 주차"}
+                          </SelectItem>
+                        )}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">
+                    이 멤버의 확정 주차 카드 목록입니다. 중단이 적용된 주차를 고르면 그 카드만 "성장 중단"으로
+                    표시되고, 이전 성공/실패/휴식 주차는 그대로 유지됩니다.
+                  </p>
+                  {weeksError && (
+                    <p className="text-[11px] text-red-600">{weeksError}</p>
+                  )}
                 </div>
               )}
             </div>

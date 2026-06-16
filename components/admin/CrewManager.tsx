@@ -55,6 +55,7 @@ type Crew = {
   authEmail?: string | null;
   status?: string | null;
   growthStatus?: string | null;
+  suspendedWeekId?: string | null;
   schoolName?: string | null;
   departmentName?: string | null;
   majorName?: string | null;
@@ -649,6 +650,9 @@ export default function CrewManager({
                               organizationSlug: crew.organizationSlug,
                               status: crew.status ?? null,
                               growthStatus: crew.growthStatus ?? null,
+                              // crew 목록은 suspended_week_id 를 싣지 않을 수 있다(undefined→null).
+                              //   드로어가 주차 후보를 별도 로드하므로 미리보기만 비어 있을 뿐 기능엔 영향 없다.
+                              suspendedWeekId: crew.suspendedWeekId ?? null,
                               contactEmail: crew.contactEmail ?? null,
                               contactPhone: crew.contactPhone ?? null,
                               role: crew.role ?? null,

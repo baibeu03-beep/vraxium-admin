@@ -13,6 +13,9 @@ export type AdminMemberDto = {
   organizationSlug: string | null;
   status: string | null;
   growthStatus: string | null;
+  // 성장 중단(suspended)이 적용된 주차(weeks.id). growth_status=suspended 일 때만 의미.
+  //   고객 카드 목록의 "성장 중단" 배지를 이 주차 카드 1장에만 표시하기 위한 SoT. 없으면 null.
+  suspendedWeekId: string | null;
   role: string | null;
   // user_memberships(is_current=true).membership_level 원본 ("일반"/"심화", 없으면 null).
   membershipLevel: string | null;
@@ -132,6 +135,8 @@ export const MEMBER_PATCH_FIELDS = [
   "organization_slug",
   "status",
   "growth_status",
+  // 성장 중단 적용 주차(weeks.id) 또는 null(해제). UUID 검증은 pickMemberPatch 에서.
+  "suspended_week_id",
   "contact_email",
   "contact_phone",
 ] as const;

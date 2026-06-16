@@ -66,6 +66,7 @@ type Member = {
   organizationSlug: string | null;
   status: string | null;
   growthStatus: string | null;
+  suspendedWeekId: string | null;
   role: string | null;
   membershipLevel: string | null;
   statusLabel: string;
@@ -336,6 +337,7 @@ export default function MembersList() {
               organizationSlug: updated.organizationSlug,
               status: updated.status,
               growthStatus: updated.growthStatus,
+              suspendedWeekId: updated.suspendedWeekId,
               contactEmail: updated.contactEmail,
               contactPhone: updated.contactPhone,
               role: updated.role,
@@ -738,6 +740,7 @@ export default function MembersList() {
                                 organizationSlug: member.organizationSlug,
                                 status: member.status,
                                 growthStatus: member.growthStatus,
+                                suspendedWeekId: member.suspendedWeekId,
                                 contactEmail: member.contactEmail,
                                 contactPhone: member.contactPhone,
                                 role: member.role,

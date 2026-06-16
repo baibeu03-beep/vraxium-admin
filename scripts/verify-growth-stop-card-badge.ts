@@ -105,29 +105,45 @@ async function loadCards(userId: string): Promise<Cluster4WeeklyCardDto[]> {
 
 async function main() {
   const testIds = await fetchTestUserMarkerIds();
-  // ⚠ user_profiles 에는 suspended_week_id 컬럼이 없다(실측). 프론트 /api/profile 의
-  //   endWeekInfo 충전 조건은 (profile.status==='suspended' && profile.suspended_week_id) 인데,
-  //   ① suspended_week_id 컬럼 부재 ② status 전원 'active' → 두 조건 모두 거짓 = endWeekInfo 항상 null.
-  //   따라서 실데이터에서는 카드별 stop 배지가 결코 켜지지 않는다(아래 단언으로 가시화).
+  // 마이그레이션 게이트: suspended_week_id 컬럼이 적용됐는지 먼저 확인한다.
+  //   미적용이면(2026-06-16_user_profiles_suspended_week_id.sql) endWeekInfo SoT 가 없어
+  //   카드별 stop 배지가 켜질 수 없다 → "migration pending" 안내 후 종료(검증 skip).
+  const probe = await supabaseAdmin
+    .from("user_profiles")
+    .select("user_id, suspended_week_id")
+    .limit(1);
+  const migrationApplied = !(probe.error && /suspended_week_id/.test(probe.error.message));
+  console.log(
+    migrationApplied
+      ? "▶ suspended_week_id 컬럼 적용됨 — 풀 파이프라인 검증\n"
+      : "▶ suspended_week_id 컬럼 미적용 — front /api/profile endWeekInfo 가 항상 null (카드 stop 배지 0).\n" +
+          "  db/migrations/2026-06-16_user_profiles_suspended_week_id.sql 적용 후 재실행하면 풀 검증됩니다.\n",
+  );
+
+  const selectCols = migrationApplied
+    ? "user_id, display_name, status, growth_status, suspended_week_id, activity_ended_at, organization_slug"
+    : "user_id, display_name, status, growth_status, activity_ended_at, organization_slug";
   const { data, error } = await supabaseAdmin
     .from("user_profiles")
-    .select("user_id, display_name, status, growth_status, activity_ended_at, organization_slug")
+    .select(selectCols)
     .in("growth_status", ["suspended", "paused"]);
   if (error) {
     console.error("query failed:", error.message);
     process.exit(1);
   }
-  const rows = (data ?? []).filter((r) => !testIds.has(r.user_id as string));
+  const rows = (data ?? []).filter((r) => !testIds.has((r as Record<string, unknown>).user_id as string));
   console.log(`운영(non-test) 성장중단/일시중지 후보 ${rows.length}명\n`);
 
   let pass = true;
   let detailed = 0;
 
-  for (const r of rows) {
+  for (const rRaw of rows) {
+    const r = rRaw as Record<string, unknown>;
     const userId = r.user_id as string;
     const status = (r.status as string | null) ?? null;
     const growthStatus = (r.growth_status as string | null) ?? null;
     const activityEndedAt = (r.activity_ended_at as string | null) ?? null;
+    const suspendedWeekId = (r.suspended_week_id as string | null) ?? null;
     const info = await loadGrowthStopInfo(userId);
     const isStoppedUser = growthStatus === "suspended" || growthStatus === "paused"; // getGrowthBadgeText==="성장 중단" 근사
 
@@ -135,18 +151,21 @@ async function main() {
     // 백엔드와 동일하게 미확정(running/tallying) 제거.
     const cards = truncateCardsForGrowthStop(rawCards, info.isStopped);
 
-    // 프론트 endWeekInfo 재현: status==='suspended' && suspended_week_id 일 때만 채워진다.
-    //   컬럼 부재 + status='active' → 실데이터는 전부 null. (suspended_week_id 는 존재하지 않으므로 조회 불가)
-    const endWeekInfo: EndWeekInfo | null = null;
-    const truth: { seasonKey: string | null; weekNumber: number | null } | null = null;
-    void resolveEndWeekInfo; // 컬럼이 생기면 사용할 헬퍼(현재 미사용).
+    // 프론트 endWeekInfo 재현: growth_status==='suspended' && suspended_week_id 일 때만 채워진다(paused 제외).
+    let endWeekInfo: EndWeekInfo | null = null;
+    let truth: { seasonKey: string | null; weekNumber: number | null } | null = null;
+    if (growthStatus === "suspended" && suspendedWeekId) {
+      const resolved = await resolveEndWeekInfo(suspendedWeekId);
+      if (resolved) {
+        endWeekInfo = resolved.endWeekInfo;
+        truth = resolved.truth;
+      }
+    }
 
     const stopCards = cards.filter((c) => isStopWeekCard(c, isStoppedUser, endWeekInfo));
     const leftoverPending = cards.filter(
       (c) => c.userWeekStatus === "running" || c.userWeekStatus === "tallying",
     );
-
-    void truth;
 
     // ── 단언 ──
     const checks: string[] = [];
@@ -155,13 +174,40 @@ async function main() {
       checks.push(`✗ running/tallying 잔존 ${leftoverPending.length}`);
       pass = false;
     }
-    // ②④ 실데이터: endWeekInfo 가 null 이므로(컬럼 부재+status active) stop 주차 카드는 0이어야 하고
-    //    모든 카드는 원래 주차 상태를 그대로 표시(덮어쓰기 0)해야 한다 — 블랭킷 override 회귀 방지.
-    if (stopCards.length !== 0) {
-      checks.push(`✗ endWeekInfo=null 인데 stop 카드 ${stopCards.length} (기대 0 — 블랭킷 override 회귀?)`);
-      pass = false;
+    if (!endWeekInfo) {
+      // ②④ endWeekInfo 미충전(주차 미지정 또는 paused) → stop 카드 0, 모든 카드 원 상태 유지(블랭킷 override 회귀 방지).
+      if (stopCards.length !== 0) {
+        checks.push(`✗ endWeekInfo=null 인데 stop 카드 ${stopCards.length} (기대 0 — override 회귀?)`);
+        pass = false;
+      } else {
+        checks.push(
+          growthStatus === "paused"
+            ? "✓ paused: stop 카드 0 (상단/프로필 배지만)"
+            : "✓ 주차 미지정: stop 카드 0 — 모든 카드 원 상태 유지, 상단/프로필 배지만 성장 중단",
+        );
+      }
     } else {
-      checks.push("✓ stop 주차 카드 0 — 모든 카드 원 상태 유지, 상단/프로필 배지만 성장 중단");
+      // ①② suspended + 주차 지정: 정확히 ≤1 stop 카드, 매칭 카드는 ground-truth(seasonKey+weekNumber)와 동일.
+      if (stopCards.length > 1) {
+        checks.push(`✗ stop 카드 ${stopCards.length} (기대 ≤1)`);
+        pass = false;
+      }
+      for (const c of stopCards) {
+        const okTruth =
+          (c.seasonKey ?? null) === truth?.seasonKey && c.weekNumber === truth?.weekNumber;
+        if (!okTruth) {
+          checks.push(
+            `✗ stop 카드 mismatch: card(${c.seasonKey},W${c.weekNumber}) vs truth(${truth?.seasonKey},W${truth?.weekNumber})`,
+          );
+          pass = false;
+        } else {
+          checks.push(`✓ stop 주차 카드 = ground-truth(${c.seasonKey} W${c.weekNumber}), 1장만`);
+        }
+      }
+      if (stopCards.length === 0) {
+        checks.push("△ 지정 주차 카드가 목록에 없음(전환주차/미확정) — 상단 배지만");
+      }
+      // ② 나머지 카드 보존: 술어가 stop 카드만 true 이므로 구조적 보장(가시화는 아래 목록).
     }
 
     // 상세 출력(최대 6명).
@@ -169,8 +215,8 @@ async function main() {
       detailed++;
       console.log(`● ${r.display_name} [${r.organization_slug}] status=${status} growth=${growthStatus}`);
       console.log(
-        `  isStopped=${info.isStopped} activity_ended_at=${activityEndedAt ?? "—"} ` +
-          `endWeekInfo=${endWeekInfo ? `${(endWeekInfo as EndWeekInfo).year}` : "null (suspended_week_id 부재·status active)"}`,
+        `  isStopped=${info.isStopped} activity_ended_at=${activityEndedAt ?? "—"} suspended_week_id=${suspendedWeekId ?? "—"} ` +
+          `endWeekInfo=${endWeekInfo ? `${endWeekInfo.year}/${endWeekInfo.seasonName}/W${endWeekInfo.weekNumber}${endWeekInfo.isBreak ? "(break)" : ""}` : "null"}`,
       );
       const counts: Record<string, number> = {};
       for (const c of cards) counts[c.userWeekStatus] = (counts[c.userWeekStatus] ?? 0) + 1;
