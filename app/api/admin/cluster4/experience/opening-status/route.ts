@@ -12,6 +12,7 @@ import {
 } from "@/lib/cluster4WeekPolicy";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { parseScopeMode } from "@/lib/userScopeShared";
+import { resolveExperienceTestWeekOverrideMs } from "@/lib/cluster4ExperienceTestWeekException";
 import type {
   StatusExtension,
   StatusTeam,
@@ -91,7 +92,12 @@ export async function GET(request: NextRequest) {
   try {
     const todayIso = new Date().toISOString().slice(0, 10);
     const currentStartMs = getCurrentWeekStartMs(todayIso);
-    const openableStartMs = getOpenableWeekStartMs(todayIso);
+    const regularOpenableStartMs = getOpenableWeekStartMs(todayIso);
+    // 테스트 모드 + encre 예외(경험 한정): 적용되면 2026 봄 W13 시작 ms, 아니면 정규 대상 그대로.
+    //   운영 모드·타 조직은 override=null → 정규 금요일경계 주차(회귀 0). 현재 주차 N(block1)은 불변.
+    const openableStartMs =
+      resolveExperienceTestWeekOverrideMs(mode, org, regularOpenableStartMs) ??
+      regularOpenableStartMs;
 
     const currentInfo =
       currentStartMs != null ? describeWeekByStartMs(currentStartMs) : null;
@@ -201,7 +207,9 @@ export async function GET(request: NextRequest) {
 
     return Response.json({
       success: true,
-      data: { currentWeek, targetWeek, extension, teams },
+      // targetWeekId = 개설 대상 주차 weeks.id(테스트 W13 예외 반영). 프론트가 개설 주차 기본값으로
+      // 직접 사용한다(파트장 입력 그리드 selectedWeekId·드롭다운 표기). null=weeks 행 미존재.
+      data: { currentWeek, targetWeek, targetWeekId, extension, teams },
     });
   } catch (error) {
     console.error("[admin/cluster4/experience/opening-status GET]", error);

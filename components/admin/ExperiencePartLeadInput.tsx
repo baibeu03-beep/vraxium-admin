@@ -168,13 +168,17 @@ export default function ExperiencePartLeadInput({
         // actor 조회엔 actAsTestUserId 까지 부착 → 임퍼소네이션 액터(role/team/part) 수신.
         //   actAsParam('&...')는 항상 qsOrg('?...') 또는 modeParam('?mode=test') 의 '?' 뒤에 온다.
         const actAsParam = actAsTestUserId ? `&actAsTestUserId=${actAsTestUserId}` : "";
-        const [teamsRes, weeksRes, actorRes] = await Promise.all([
+        const [teamsRes, weeksRes, statusRes, actorRes] = await Promise.all([
           fetch(`/api/admin/cluster4/teams${qsOrg}${modeParam}`),
+          // weeks-options 는 공용 SoT — mode/org/hub 무전달(다른 허브 회귀 0). 개설 대상 주차는
+          // 아래 opening-status(서버 권위·테스트 W13 예외 반영)로 별도 판정·병합한다.
           fetch(`/api/admin/cluster4/weeks-options?limit=3`),
+          fetch(`/api/admin/cluster4/experience/opening-status${qsOrg}${modeParam}`),
           fetch(`/api/admin/cluster4/experience/part-input${qsOrg}${modeParam}${actAsParam}`),
         ]);
         const teamsJson = await teamsRes.json();
         const weeksJson = await weeksRes.json();
+        const statusJson = await statusRes.json();
         const actorJson = await actorRes.json();
         if (cancelled) return;
 
@@ -189,12 +193,47 @@ export default function ExperiencePartLeadInput({
         const opts: WeekOption[] = weeksJson?.success
           ? weeksJson.data?.weeks ?? []
           : [];
-        setWeekOptions(opts);
-        const defaultWeek =
+
+        // 서버 권위 개설 대상 주차(테스트 모드+encre W13 예외 반영). targetWeekId 가 정규 limit=3
+        // 윈도우 밖(예: 휴식 꼬리에서 W13)이면 드롭다운에 합성 옵션으로 추가하고 그 주차만 "개설대상"으로
+        // 표기한다. 운영·타 조직은 target=정규 금요일경계 주차라 이미 opts 에 있으므로 회귀 0.
+        const tw = statusJson?.success ? statusJson.data?.targetWeek ?? null : null;
+        const targetWeekId: string | null = statusJson?.success
+          ? statusJson.data?.targetWeekId ?? null
+          : null;
+        const targetOption: WeekOption | null =
+          tw && targetWeekId
+            ? {
+                id: targetWeekId,
+                label: `${tw.year} ${tw.seasonName} W${tw.weekNumber}`,
+                weekNumber: tw.weekNumber,
+                seasonName: tw.seasonName,
+                year: tw.year,
+                startDate: tw.startDate,
+                endDate: tw.endDate,
+                canOpen: !tw.isOfficialRest,
+                isCurrent: false,
+                isOpenTarget: true,
+              }
+            : null;
+
+        let mergedOpts = opts;
+        if (targetOption && !opts.some((o) => o.id === targetOption.id)) {
+          // 예외 대상이 정규 윈도우 밖 → 정규 isOpenTarget 라벨은 지우고 예외 주차만 개설대상 표기.
+          mergedOpts = [
+            ...opts.map((o) => ({ ...o, isOpenTarget: false })),
+            targetOption,
+          ].sort((a, b) => b.startDate.localeCompare(a.startDate));
+        }
+        setWeekOptions(mergedOpts);
+
+        // 기본 개설 주차 = 서버 권위 target(예외 반영) 우선, 실패 시 정규 isOpenTarget/현재/첫 주차.
+        const fallbackWeek =
           opts.find((o) => o.isOpenTarget) ??
           opts.find((o) => o.isCurrent) ??
           opts[0];
-        setSelectedWeekId((prev) => prev || (defaultWeek?.id ?? ""));
+        const defaultWeekId = targetOption?.id ?? fallbackWeek?.id ?? "";
+        setSelectedWeekId((prev) => prev || defaultWeekId);
 
         const actorData: PartInputActor | null = actorJson?.success
           ? actorJson.data?.actor ?? null
