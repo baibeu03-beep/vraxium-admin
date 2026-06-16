@@ -19,6 +19,11 @@ import {
   recomputeAndStoreWeeklyCardsSnapshot,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
+import {
+  loadGrowthStopInfo,
+  truncateCardsForGrowthStop,
+  type GrowthStopInfo,
+} from "@/lib/cluster4GrowthStopPolicy";
 import { DemoModeError, resolveDemoProfileUserId } from "@/lib/demoMode";
 import {
   currentQueryCount,
@@ -87,10 +92,13 @@ function seasonCircleMaps(cards: Cluster4WeeklyCardDto[]): {
   return { areaSixCirclesBySeason, seasonAreaProgressBySeason };
 }
 
+// growthInfo: 성장 배지(성장 중단/완료/휴식/진행) 단일 출처 — 데모·일반 동일 응답 필드.
+//   프론트는 이 값으로 허브/이력서 배지를 렌더(/api/profile 의존·재계산 제거). 실패/빈 응답 시 null.
 function ok(
   data: Cluster4WeeklyCardDto[],
   areaSixCircles: Cluster4AreaSixCirclesDto,
   seasonAreaProgress: Cluster4SeasonAreaProgressDto,
+  growthInfo: GrowthStopInfo | null = null,
 ) {
   const { areaSixCirclesBySeason, seasonAreaProgressBySeason } = seasonCircleMaps(data);
   return Response.json({
@@ -100,6 +108,7 @@ function ok(
     seasonAreaProgress,
     areaSixCirclesBySeason,
     seasonAreaProgressBySeason,
+    growthInfo,
     error: null,
   });
 }
@@ -112,9 +121,40 @@ function fail(status: number, message: string, code: string) {
       seasonAreaProgress: computeSeasonAreaProgress([], currentSeasonKey()),
       areaSixCirclesBySeason: {} as Record<string, Cluster4AreaSixCirclesDto>,
       seasonAreaProgressBySeason: {} as Record<string, Cluster4SeasonAreaProgressDto>,
+      growthInfo: null as GrowthStopInfo | null,
       error: { message, code },
     },
     { status },
+  );
+}
+
+// 성공 응답 단일 진입점: 성장 중단 정책(배지 + 미확정 카드 truncation)을 모든 경로에 일관 적용.
+//   ① 사용자 성장 배지/중단 신호를 1 SELECT 로 읽고(snapshot 무접촉),
+//   ② 중단 사용자면 running/tallying(미확정) 카드를 제거한 뒤,
+//   ③ truncate 된 카드로 area-6/area-7 을 다시 집계해 envelope 와 정합을 맞춘다.
+//   중단이 아니면 입력 카드를 그대로 사용(기존 동작 불변).
+type DoneFn = (
+  res: Response,
+  label: string,
+  meta?: { userId: string } & LoadResult,
+) => Response;
+
+async function finalizeOk(
+  done: DoneFn,
+  userId: string,
+  rawCards: Cluster4WeeklyCardDto[],
+  label: string,
+  meta: ({ userId: string } & LoadResult) | null,
+): Promise<Response> {
+  const growthInfo = await loadGrowthStopInfo(userId);
+  const cards = truncateCardsForGrowthStop(rawCards, growthInfo.isStopped);
+  const seasonKey = currentSeasonKey();
+  const circles = computeAreaSixCircles(cards, seasonKey);
+  const areaProgress = computeSeasonAreaProgress(cards, seasonKey);
+  return done(
+    ok(cards, circles, areaProgress, growthInfo),
+    label,
+    meta ? { ...meta, cards } : undefined,
   );
 }
 
@@ -366,10 +406,7 @@ async function handleGet(request: NextRequest): Promise<Response> {
             cardTargetUserId,
             { effectiveFromOverride: TEST_SUMMER_SIM_EFFECTIVE_FROM },
           );
-          const seasonKeyT = currentSeasonKey();
-          const circlesT = computeAreaSixCircles(cards, seasonKeyT);
-          const areaProgressT = computeSeasonAreaProgress(cards, seasonKeyT);
-          return done(ok(cards, circlesT, areaProgressT), "demo-test-sim", {
+          return finalizeOk(done, cardTargetUserId, cards, "demo-test-sim", {
             userId: cardTargetUserId,
             cards,
             outcome: "stale",
@@ -381,11 +418,11 @@ async function handleGet(request: NextRequest): Promise<Response> {
 
       const result = await loadWeeklyCards(cardTargetUserId);
       if (DEBUG_COMPARE) await logWeekComparison(cardTargetUserId, result.cards);
-      // area-6-circles / area-7-progress: 로드된 스냅샷 cards 에서 현재 시즌 집계(snapshot-only 파생).
-      const seasonKey = currentSeasonKey();
-      const circles = computeAreaSixCircles(result.cards, seasonKey);
-      const areaProgress = computeSeasonAreaProgress(result.cards, seasonKey);
-      return done(ok(result.cards, circles, areaProgress), "demo", { userId: cardTargetUserId, ...result });
+      // area-6/area-7 + 성장 중단 정책(배지·미확정 카드 truncation)을 finalizeOk 에서 일관 적용.
+      return finalizeOk(done, cardTargetUserId, result.cards, "demo", {
+        userId: cardTargetUserId,
+        ...result,
+      });
     }
   } catch (error) {
     if (error instanceof DemoModeError) {
@@ -481,10 +518,7 @@ async function handleGet(request: NextRequest): Promise<Response> {
       const cards = await getCluster4WeeklyCardsForProfileUser(profileUserId, {
         effectiveFromOverride: TEST_SUMMER_SIM_EFFECTIVE_FROM,
       });
-      const seasonKeyT = currentSeasonKey();
-      const circlesT = computeAreaSixCircles(cards, seasonKeyT);
-      const areaProgressT = computeSeasonAreaProgress(cards, seasonKeyT);
-      return done(ok(cards, circlesT, areaProgressT), "internal-test-sim", {
+      return finalizeOk(done, profileUserId, cards, "internal-test-sim", {
         userId: profileUserId,
         cards,
         outcome: "stale",
@@ -500,13 +534,12 @@ async function handleGet(request: NextRequest): Promise<Response> {
       await logWeekComparison(profileUserId, result.cards);
     }
 
-    // area-6-circles / area-7-progress: 로드된 스냅샷 cards 에서 현재 시즌 집계(snapshot-only 파생).
-    const seasonKey = currentSeasonKey();
-    const circles = computeAreaSixCircles(result.cards, seasonKey);
-    const areaProgress = computeSeasonAreaProgress(result.cards, seasonKey);
-
     // error outcome 은 200(빈 카드)으로 내리되 error 필드를 채워 프론트가 덮어쓰지 않게 한다.
+    //   (조회 실패 경로 — 성장 중단 정책 미적용, growthInfo=null. 빈/구 카드 그대로 노출.)
     if (result.outcome === "error") {
+      const seasonKey = currentSeasonKey();
+      const circles = computeAreaSixCircles(result.cards, seasonKey);
+      const areaProgress = computeSeasonAreaProgress(result.cards, seasonKey);
       const errMaps = seasonCircleMaps(result.cards);
       return done(
         Response.json({
@@ -516,6 +549,7 @@ async function handleGet(request: NextRequest): Promise<Response> {
           seasonAreaProgress: areaProgress,
           areaSixCirclesBySeason: errMaps.areaSixCirclesBySeason,
           seasonAreaProgressBySeason: errMaps.seasonAreaProgressBySeason,
+          growthInfo: null,
           error: { message: result.detail || "snapshot read failed", code: "snapshot_read_error" },
         }),
         "ok",
@@ -523,7 +557,11 @@ async function handleGet(request: NextRequest): Promise<Response> {
       );
     }
 
-    return done(ok(result.cards, circles, areaProgress), "ok", { userId: profileUserId, ...result });
+    // area-6/area-7 + 성장 중단 정책(배지·미확정 카드 truncation)을 finalizeOk 에서 일관 적용.
+    return finalizeOk(done, profileUserId, result.cards, "ok", {
+      userId: profileUserId,
+      ...result,
+    });
   } catch (error) {
     if (error instanceof AdminAuthError) {
       return done(fail(error.status, error.message, "forbidden"), "admin-error");
