@@ -124,6 +124,13 @@ export default function TestUsersManager() {
     const url = new URL(`${customerAppUrl}${path}`);
     url.searchParams.set("admin", "true");
     url.searchParams.set("demoUserId", user.userId);
+    // mode=test — 테스트 유저가 실제로 보는 신정책(여름 시뮬레이션) 뷰와 미리보기를 일치시킨다.
+    //   이 값이 없으면 고객 앱이 mode 미지정(operating)으로 snapshot(레거시 fold)을 조회해
+    //   "Vercel 직접 접속(mode=test)" 과 표시값이 갈라졌다(주차카드 전 주차 divergence).
+    //   형제 버튼 "어드민 페이지로 보기"(mode=test)와 동일하게 테스트 스코프를 유지한다.
+    //   snapshot 생성/조회 로직은 불변 — admin weekly-cards 라우트가 mode=test 면 live summer-sim
+    //   (effectiveFromOverride)으로 응답하고 snapshot 은 읽지도 쓰지도 않는다.
+    url.searchParams.set("mode", "test");
     // 배너 이름 표시용 — sessionStorage 대체 (cross-origin 미공유).
     if (user.name && user.name.trim()) {
       url.searchParams.set("demoUserName", user.name.trim());
