@@ -1,0 +1,7 @@
+@echo off
+chcp 65001 >nul
+REM Cafe crawler setup/check launcher (double-click). Secrets are never printed by the ps1.
+echo [launcher] setup-windows.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0setup-windows.ps1" %*
+echo.
+pause

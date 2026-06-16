@@ -314,7 +314,7 @@ async function crawlArticleComments(url: string): Promise<CafeCommentsResult> {
 
       // 페이지네이션 순회 (보이는 번호 → 다음 청크 반복)
       let guard = 0;
-      let visited = new Set<number>([1]);
+      const visited = new Set<number>([1]);
       while (guard < MAX_COMMENT_PAGES) {
         const state = await readPaginationState(frame);
         const remaining = state.pages.filter((p) => !visited.has(p)).sort((a, b) => a - b);
@@ -356,6 +356,13 @@ async function crawlArticleComments(url: string): Promise<CafeCommentsResult> {
   }
 }
 
+/** persistent profile 단일 사용 제약 — 모든 브라우저 작업(수집·세션확인)을 직렬화한다. */
+function runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+  const run = crawlChain.then(fn, fn);
+  crawlChain = run.catch(() => undefined);
+  return run;
+}
+
 /**
  * 네이버 카페 게시글 URL에서 댓글 작성자 닉네임 목록을 수집한다. (direct function)
  * 동시 호출은 직렬화된다 — persistent profile 단일 사용 제약.
@@ -365,7 +372,30 @@ export async function collectCafeCommentNicknames(rawUrl: string): Promise<CafeC
   if (!url) {
     return { ok: false, error: "invalid_url", message: "네이버 카페 게시글 URL이 아닙니다. (cafe.naver.com / m.cafe.naver.com)" };
   }
-  const run = crawlChain.then(() => crawlArticleComments(url), () => crawlArticleComments(url));
-  crawlChain = run.catch(() => undefined);
-  return run;
+  return runExclusive(() => crawlArticleComments(url));
+}
+
+/**
+ * 네이버 로그인 세션 유효성 확인 — 크롤러 서비스 deep health 전용.
+ * persistent profile 에 NID_AUT 가 있으면 true(=valid). 수집과 동일하게 직렬화된다.
+ * 계정 정보·세션값은 어떤 로그에도 남기지 않는다(반환은 boolean 만).
+ */
+export async function checkNaverSession(): Promise<boolean> {
+  return runExclusive(async () => {
+    const { chromium } = await import("playwright-core");
+    let context: BrowserContext;
+    try {
+      context = await chromium.launchPersistentContext(PROFILE_DIR, { headless: true });
+    } catch {
+      context = await chromium.launchPersistentContext(PROFILE_DIR, {
+        headless: true,
+        channel: "chromium",
+      });
+    }
+    try {
+      return await hasNaverSession(context);
+    } finally {
+      await context.close().catch(() => undefined);
+    }
+  });
 }

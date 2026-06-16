@@ -1,0 +1,18 @@
+# Cloudflare Tunnel ingress 예시 (~/.cloudflared/config.yml 로 복사해 사용).
+#   인바운드 포트포워딩 0 — 아웃바운드 터널로 고정 호스트네임을 크롤러 로컬 포트에 연결한다.
+#
+# 사전:
+#   cloudflared tunnel login
+#   cloudflared tunnel create cafe-crawler          # → <TUNNEL_ID> + credentials json
+#   cloudflared tunnel route dns cafe-crawler cafe-crawler.<도메인>
+# 실행(상시):
+#   cloudflared service install                      # 부팅 자동
+#   # 또는: cloudflared tunnel run cafe-crawler
+
+tunnel: <TUNNEL_ID>
+credentials-file: /path/to/<TUNNEL_ID>.json
+
+ingress:
+  - hostname: cafe-crawler.<도메인>
+    service: http://localhost:8787
+  - service: http_status:404

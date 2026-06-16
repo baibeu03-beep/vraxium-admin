@@ -4,7 +4,7 @@ import {
   requireAdmin,
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
-import { collectCafeCommentNicknames } from "@/lib/naverCafeComments";
+import { fetchCafeNicknames } from "@/lib/cafeCrawlerClient";
 import {
   loadCrewRecords,
   matchCafeComments,
@@ -34,10 +34,9 @@ async function loadScopedCrews(request: NextRequest) {
 }
 
 // 라인 개설 크루 — 카페 링크 검수(POST) + 수동추가 검색(GET).
-//   POST 는 practical-competency 의 "카페 링크 집계"와 동일하게 collectCafeCommentNicknames
-//   (lib/naverCafeComments)를 재사용해 댓글 닉네임을 시간순으로 수집한 뒤, 우리 크루 DB 와
-//   엄격 매칭(오매칭 방지 우선)해 자동 매칭 후보 + 수동 확인 목록으로 분리한다.
-// Playwright 로컬 실행 전용 — Vercel 배포에서는 크롤링 차단(안내만).
+//   POST 는 fetchCafeNicknames(lib/cafeCrawlerClient)로 댓글 닉네임을 시간순 수집한 뒤,
+//   우리 크루 DB 와 엄격 매칭(오매칭 방지 우선)해 자동 매칭 후보 + 수동 확인 목록으로 분리한다.
+//   닉네임 수집: 운영(Vercel)=외부 크롤러 서비스 / 로컬=기존 Playwright 경로(보존). 매칭은 항상 여기서.
 export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
@@ -47,18 +46,6 @@ export async function POST(request: NextRequest) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
     throw error;
-  }
-
-  if (process.env.VERCEL) {
-    return Response.json(
-      {
-        success: false,
-        error: "not_supported_in_production",
-        message:
-          "카페 댓글 검수는 로컬 관리자 환경에서만 동작합니다. 로컬에서 admin을 실행한 뒤 다시 시도해주세요.",
-      },
-      { status: 501 },
-    );
   }
 
   let url: string;
@@ -76,8 +63,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // 1) 댓글 닉네임 수집 (competency 와 동일 로직 재사용 — 시간순 보존).
-    const collected = await collectCafeCommentNicknames(url);
+    // 1) 댓글 닉네임 수집 (운영=크롤러 서비스 / 로컬=Playwright — 시간순 보존).
+    const collected = await fetchCafeNicknames(url);
     if (!collected.ok) {
       const status = collected.error === "invalid_url" ? 400 : 502;
       return Response.json(

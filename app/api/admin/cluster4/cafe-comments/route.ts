@@ -4,18 +4,17 @@ import {
   requireAdmin,
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
-import { collectCafeCommentNicknames } from "@/lib/naverCafeComments";
+import { fetchCafeNicknames } from "@/lib/cafeCrawlerClient";
 
-// 댓글 수집은 페이지네이션 순회로 수십 초가 걸릴 수 있다 (로컬 실행 전용).
+// 댓글 수집은 페이지네이션 순회로 수십 초가 걸릴 수 있다.
 export const maxDuration = 300;
 
 /**
  * POST /api/admin/cluster4/cafe-comments
  * body: { url: string } — 네이버 카페 게시글 URL
  *
- * 댓글 작성자 닉네임 목록 수집 (Phase 1 — 포인트/패널티/회원매칭/snapshot 미관여, DB 쓰기 없음).
- * Playwright 로컬 실행 전용: Vercel 배포 환경에서는 크롤링을 시도하지 않고 안내만 반환한다.
- * 추후 별도 크롤링 워커로 확장 시 이 응답 계약을 그대로 유지한다.
+ * 댓글 작성자 닉네임 목록 수집 (포인트/패널티/회원매칭/snapshot 미관여, DB 쓰기 없음).
+ * 닉네임 수집: 운영(Vercel)=외부 크롤러 서비스 / 로컬=기존 Playwright 경로(보존). 응답 계약 동일.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -24,18 +23,6 @@ export async function POST(request: NextRequest) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
     throw error;
-  }
-
-  if (process.env.VERCEL) {
-    return Response.json(
-      {
-        success: false,
-        error: "not_supported_in_production",
-        message:
-          "카페 댓글 수집은 로컬 관리자 환경에서만 동작합니다. 로컬에서 admin을 실행한 뒤 다시 시도해주세요.",
-      },
-      { status: 501 },
-    );
   }
 
   let url: string;
@@ -53,7 +40,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await collectCafeCommentNicknames(url);
+    const result = await fetchCafeNicknames(url);
     if (!result.ok) {
       const status = result.error === "invalid_url" ? 400 : 502;
       return Response.json(
