@@ -65,6 +65,12 @@ export async function POST(request: NextRequest) {
   try {
     // 1) 댓글 닉네임 수집 (운영=크롤러 서비스 / 로컬=Playwright — 시간순 보존).
     const collected = await fetchCafeNicknames(url);
+    console.log(
+      `[cafe-line-crew] fetchCafeNicknames ok=${collected.ok}` +
+        (collected.ok
+          ? ` nicknames=${collected.data.uniqueNicknames}`
+          : ` error=${collected.error} message=${collected.message}`),
+    );
     if (!collected.ok) {
       const status = collected.error === "invalid_url" ? 400 : 502;
       return Response.json(

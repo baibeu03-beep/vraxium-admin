@@ -124,13 +124,19 @@ export function buildServer({
 
       // ── POST /crawl ──
       if (req.method === "POST" && url.pathname === "/crawl") {
-        if (!bearerOk(req, secret)) {
+        // 진단 로그 — Authorization "값"은 절대 출력하지 않고 존재/통과 여부만 남긴다.
+        const hasAuth = Boolean(req.headers["authorization"]);
+        const authPassed = bearerOk(req, secret);
+        console.log(`[cafe-crawler] /crawl 수신 hasAuth=${hasAuth} authPassed=${authPassed}`);
+        if (!authPassed) {
           return send(res, 401, { ok: false, error: "unauthorized", message: "인증이 필요합니다." });
         }
         const body = await readJson(req);
         const rawUrl = typeof body?.url === "string" ? body.url : "";
+        const normalized = normalizeCafeArticleUrl(rawUrl);
+        console.log(`[cafe-crawler] /crawl url=${rawUrl || "(none)"} normalized=${normalized ? "ok" : "null"}`);
         // 엣지 검증(SSRF/오픈프록시 차단): 카페 URL 이 아니면 브라우저를 띄우지 않는다.
-        if (!rawUrl.trim() || !normalizeCafeArticleUrl(rawUrl)) {
+        if (!rawUrl.trim() || !normalized) {
           return send(res, 400, {
             ok: false,
             error: "invalid_url",
@@ -140,6 +146,12 @@ export function buildServer({
 
         const result = await crawl(rawUrl);
         state.lastCrawlAt = new Date().toISOString();
+        console.log(
+          `[cafe-crawler] /crawl 결과 ok=${result.ok}` +
+            (result.ok
+              ? ` nicknames=${result.data.uniqueNicknames}`
+              : ` error=${result.error}`),
+        );
         if (result.ok) {
           state.lastError = null;
           // 닉네임 목록만 — 크루/org/user/DB 필드 없음.
