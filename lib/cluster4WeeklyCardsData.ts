@@ -1868,13 +1868,16 @@ async function fetchLineDetailsByWeek(
         profileUserId,
         now,
       });
+      const legacySubmissionBasedEnhancement =
+        legacyAdditive && dbPartType !== "competency";
       lines.push({
         ...base,
         // 레거시 추가 라인(info/competency/career)은 제출 기반으로 강화율에 반영한다:
         //   enhancementStatus := base.status (success/fail/pending). status="void" 는 타깃 보유
         //   라인에서는 발생하지 않으나 타입 안전상 not_applicable 로 폴백한다.
         //   통합 라인·신규 주차(legacyAdditive=false)는 공용 enhancement 규칙을 그대로 유지(불변).
-        ...(legacyAdditive
+        //   competency 는 관리자 개설 target 자체가 성공 SoT 이므로 submission 기반 override 에서 제외한다.
+        ...(legacySubmissionBasedEnhancement
           ? {
               enhancementStatus:
                 base.status === "void"
