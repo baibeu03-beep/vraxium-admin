@@ -6,6 +6,12 @@ import {
   isManualOverrideStatus,
   MANUAL_OVERRIDE_STATUSES,
 } from "@/shared/growth.contracts";
+import type { ScopeMode } from "@/lib/userScopeShared";
+import type { OrganizationSlug } from "@/lib/organizations";
+import { getGrowthRosterBatchFast } from "@/lib/cluster3GrowthData";
+import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
+import { getScheduleReliabilityRateBatch } from "@/lib/cluster1ResumeData";
+import { listAdminCrewDtos } from "@/lib/adminCrewData";
 import {
   isMemberAssignableRole,
   MEMBER_ASSIGNABLE_ROLES,
@@ -135,7 +141,7 @@ const POINTS_SORT_FIELDS: Partial<
 // 단일 SoT 직접합산(시즌/주차/point_type 무필터) — 이력서 카드와 동일 기준.
 // PostgREST 기본 1000행 제한이 있어 .range() 로 페이지네이션하고, 거대한 IN()
 // URL 을 피하려고 user_id 리스트도 청크로 나눠 조회한다. 누락분은 0(미참여) 처리.
-async function sumPointsForUsers(
+export async function sumPointsForUsers(
   userIds: string[],
 ): Promise<Map<string, PointAggregate>> {
   const sums = new Map<string, PointAggregate>();
@@ -464,6 +470,140 @@ export async function listMembers(
     limit,
     offset,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 크루 목록(roster) — /admin/members 의 "크루 목록" 탭 전용.
+//
+// listMembers 와 달리 페이지네이션 없이 (조직 + 모집단 스코프) 에 해당하는 전원을
+// 한 번에 반환하고, 각 멤버에 계산 성장상태(displayGrowthStatus)를 그래프트한다.
+//   - 검색·성장필터는 클라이언트에서 표시값/상태 그룹으로 적용한다("결과 값" = 렌더 row 수).
+//   - displayGrowthStatus 는 raw growth_status 가 아니라 lib/growthCore 가 계산하는
+//     표시 상태(onboarding/graduating/extra_growth/official_rest 포함)다. 온보딩/바사노스
+//     같은 필터는 raw 컬럼으로 판정 불가하므로 cluster3 SoT(getGrowthStatusResolutionBatch)를
+//     재사용한다(고객앱 /crews graft 와 동일 경로 → drift 없음).
+// ─────────────────────────────────────────────────────────────────────────
+
+// 크루 목록 표 A 한 행. 프로필(crew DTO) + 표시 성장상태 + 성장 주차 + 품계 + 포인트
+// + 일정 신뢰도 + 활동 완료율을 한 행에 모은다. 검색/필터/정렬은 클라이언트에서 적용한다.
+export type MemberRosterRow = {
+  userId: string;
+  displayName: string | null;
+  organizationSlug: string | null;
+  role: string | null;
+  membershipLevel: string | null;
+  // lib/growthCore.resolveGrowthStatusDetail 의 표시 키(GrowthStatusKey 10종) 또는 null.
+  displayGrowthStatus: string | null;
+  gender: string | null;
+  birthDate: string | null;
+  schoolName: string | null;
+  departmentName: string | null;
+  teamName: string | null;
+  partName: string | null;
+  // 품계 = user_grade_stats.grade(1=정승 최상위 … 10=정9품) + grade_label. 없으면 null.
+  rankGradeNumber: number | null;
+  rankGradeLabel: string | null;
+  successWeeks: number | null; // 성장(성공) 주차 = period.a
+  growableWeeks: number | null; // 성장 가능 주차 = period.e(a+b+c)
+  // Po.A/B/C = 누적 총합 포인트(SUM). check(A)/advantage(B)/penalty(C) — 프로세스 적립 합산 SoT.
+  poA: number;
+  poB: number;
+  poC: number;
+  scheduleReliability: number | null; // 일정 신뢰도(%) — 고객 cluster.1 동일 산식. 산정 불가=null.
+  activityCompletion: number | null; // 활동 완료율(%) — 고객 cluster.1 동일 산식. 데이터 없음=null.
+};
+
+export async function listMembersRoster(options: {
+  organization?: OrganizationSlug | null; // slug | null/undefined(전체)
+  mode?: ScopeMode;
+  // 단계별 소요 시간을 콘솔에 출력(진단 전용 — 라우트는 미사용, prod 로그 무영향).
+  profile?: boolean;
+}): Promise<{ members: MemberRosterRow[] }> {
+  const mode = options.mode ?? "operating";
+  const t = (label: string, ms: number) => {
+    if (options.profile) console.log(`[roster][profile] ${label}=${ms}ms`);
+  };
+
+  // 1) 프로필/소속/팀·파트/학교·전공/등급/성별·생년월일 = crew DTO 배치(단일 SoT).
+  //    org 미지정 = 전 조직(+소속 없음). scope·super admin 제외는 내부에서 처리.
+  let s = Date.now();
+  const crews = await listAdminCrewDtos(options.organization ?? undefined, mode);
+  t("listAdminCrewDtos", Date.now() - s);
+  const userIds = crews.map((c) => c.userId);
+  if (userIds.length === 0) return { members: [] };
+
+  const ID_CHUNK = 200;
+
+  // 2~5) 무거운 배치들을 동시에 실행(서로 독립). 성장상태/주차/활동완료율(snapshot)·품계(live
+  //   getClubRank 동일 산식, 전체 포인트 1회)·누적 포인트·일정 신뢰도. user_grade_stats 캐시는
+  //   고객 화면이 참조하지 않아(club-rank=live) parity 가 깨지므로 사용하지 않는다.
+  s = Date.now();
+
+  // 표시 성장상태 + 성장 성공/가능 + 활동 완료율 — 청크 단위 snapshot 배치.
+  const buildGrowthMap = async () => {
+    const map = new Map<
+      string,
+      { displayGrowthStatus: string; successWeeks: number; growableWeeks: number; activityRate: number }
+    >();
+    for (let i = 0; i < userIds.length; i += ID_CHUNK) {
+      const rows = await getGrowthRosterBatchFast(userIds.slice(i, i + ID_CHUNK));
+      for (const r of rows) {
+        map.set(r.userId, {
+          displayGrowthStatus: r.displayGrowthStatus,
+          successWeeks: r.successWeeks,
+          growableWeeks: r.growableWeeks,
+          activityRate: r.activityRate,
+        });
+      }
+    }
+    return map;
+  };
+
+  const [growthByUser, clubRankByUser, points, scheduleRate] = await Promise.all([
+    buildGrowthMap(),
+    getClubRankGradeBatch(userIds),
+    sumPointsForUsers(userIds),
+    getScheduleReliabilityRateBatch(userIds),
+  ]);
+  t("batches(growth+clubRank+points+schedule)", Date.now() - s);
+
+  const members: MemberRosterRow[] = crews.map((c) => {
+    const g = growthByUser.get(c.userId);
+    const rank = clubRankByUser.get(c.userId) ?? null;
+    const pts = points.get(c.userId) ?? ZERO_POINTS;
+    return {
+      userId: c.userId,
+      displayName: c.displayName,
+      organizationSlug: c.organizationSlug,
+      role: c.role,
+      membershipLevel: c.membershipLevel,
+      displayGrowthStatus: g?.displayGrowthStatus ?? null,
+      gender: c.gender,
+      birthDate: c.birthDate,
+      schoolName: c.schoolName,
+      departmentName: c.departmentName,
+      teamName: c.teamName,
+      partName: c.partName,
+      rankGradeNumber: rank?.grade ?? null,
+      rankGradeLabel: rank?.label ?? null,
+      successWeeks: g?.successWeeks ?? null,
+      growableWeeks: g?.growableWeeks ?? null,
+      poA: pts.checkPoints,
+      poB: pts.advantagePoints,
+      poC: pts.penaltyPoints,
+      scheduleReliability: scheduleRate.get(c.userId) ?? null,
+      activityCompletion: g?.activityRate ?? null,
+    };
+  });
+
+  // 이름(한글) → user_id 안정 정렬(클라이언트가 다시 정렬하므로 기본값).
+  members.sort(
+    (a, b) =>
+      (a.displayName ?? "").localeCompare(b.displayName ?? "", "ko") ||
+      a.userId.localeCompare(b.userId),
+  );
+
+  return { members };
 }
 
 // ─────────────────────────────────────────────────────────────────────────

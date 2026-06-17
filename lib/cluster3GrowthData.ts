@@ -18,9 +18,14 @@ import {
 // 6-A: ResolvedWeek 소스를 snapshot-first 로 — cluster4_weekly_card_snapshots.cards 를 먼저 읽고,
 //   없거나 invalid 하면 getWeeklyGrowth 로 fallback 한다(고객 stats-cards 핫패스 무거운 계산 회피).
 import { getWeeklyGrowth } from "@/lib/cluster4WeeklyGrowthData";
-import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
+import {
+  readWeeklyCardsSnapshot,
+  readWeeklyCardsSnapshotBatch,
+  WEEKLY_CARDS_DTO_VERSION,
+} from "@/lib/cluster4WeeklyCardsSnapshot";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { foldGrowthMetrics, resolveGrowthStatusDetail } from "@/lib/growthCore";
+import { rosterActivityRate } from "@/lib/rosterCardStats";
 import type { WeekResultStatusKey } from "@/shared/growth.contracts";
 
 // Cluster3 성장 지표 계산 — server-only.
@@ -754,4 +759,264 @@ export async function getGrowthStatusResolutionBatch(
       overrideMismatch: p.overrideMismatch,
     };
   });
+}
+
+// ─── 어드민 멤버 로스터 배치 (/admin/members 크루 목록) ──────────────────
+// getGrowthStatusResolutionBatch 와 동일한 판정 경로(buildIndicators)지만,
+// 표시 성장상태 + 성장 성공/가능 주차(period.a/e) + 활동 완료율(카드 numerator/denominator)을
+// 함께 반환한다. 카드를 사용자당 1회만 읽어(snapshot-first, getResolvedCardsForUser 와 동일
+// 폴백 규칙) 성장지표·활동완료율을 동시에 산출한다.
+//   - successWeeks = period.a (성장(성공) 주차)
+//   - growableWeeks = period.e = a+b+c (성장 가능 주차)
+//   - activityRate = round(완료 라인/개설 라인 ×100) — cluster1ResumeData.computeActivityCompletion
+//     정의와 동일(전환 제외·card.growthNumerator/Denominator 합, available 0 → 0). 카드 미가용=0/0/0.
+export type GrowthRosterRow = {
+  userId: string;
+  displayGrowthStatus: GrowthProcess["growthDisplayKey"];
+  successWeeks: number;
+  growableWeeks: number;
+  activityAvailable: number;
+  activityCompleted: number;
+  activityRate: number;
+};
+
+export async function getGrowthRosterBatch(
+  userIds: string[],
+): Promise<GrowthRosterRow[]> {
+  if (userIds.length === 0) return [];
+
+  const [profileRes, seasonRes, currentWeekMap] = await Promise.all([
+    supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
+      .in("user_id", userIds),
+    supabaseAdmin
+      .from("user_season_statuses")
+      .select("user_id,status,season_key")
+      .in("user_id", userIds),
+    fetchCurrentWeekStatusBatch(userIds),
+  ]);
+
+  if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
+  if (seasonRes.error) throw new GrowthError(500, seasonRes.error.message);
+
+  const profiles = (profileRes.data ?? []) as ProfileRow[];
+  const allSeasons = (seasonRes.data ?? []) as (SeasonStatusRow & { user_id: string })[];
+
+  const seasonsByUser = new Map<string, SeasonStatusRow[]>();
+  for (const row of allSeasons) {
+    const list = seasonsByUser.get(row.user_id!) ?? [];
+    list.push(row);
+    seasonsByUser.set(row.user_id!, list);
+  }
+
+  // 카드 = snapshot 배치 읽기(.in() 단일 SELECT, N→1). hit/stale(비어있지 않음)은 그 카드를 쓰고,
+  // miss/error/손상만 개별 fallback(실시간 계산 — snapshot 정상화 시 거의 없음). SoT 동일(같은 테이블/카드).
+  const snapByUser = await readWeeklyCardsSnapshotBatch(profiles.map((p) => p.user_id));
+  const liteByUser = new Map<string, ResolvedCardLite[]>();
+  const activityByUser = new Map<string, { available: number; completed: number }>();
+  await Promise.all(
+    profiles.map(async (profile) => {
+      const snap = snapByUser.get(profile.user_id) ?? { status: "miss" as const };
+      let lite: ResolvedCardLite[] | null = null;
+      let available = 0;
+      let completed = 0;
+      if (snap.status === "hit" || (snap.status === "stale" && snap.cards.length > 0)) {
+        lite = snapshotCardsToLite(snap.cards);
+        for (const card of snap.cards) {
+          if (card.isTransition) continue;
+          available += card.growthDenominator;
+          completed += card.growthNumerator;
+        }
+      }
+      if (!lite) {
+        // fallback: 실시간 계산(무겁다). snapshot 정상화 시 거의 타지 않는다. 활동완료율은 0/0.
+        const g = await getWeeklyGrowth(profile.user_id);
+        lite = (g?.weeklyCards ?? []).map((c) => ({
+          resultStatus: c.resultStatus,
+          startDate: c.startDate,
+          endDate: c.endDate,
+          isTransition: c.isTransition,
+        }));
+      }
+      liteByUser.set(profile.user_id, lite);
+      activityByUser.set(profile.user_id, { available, completed });
+    }),
+  );
+
+  const seasonKey = currentSeasonDbKey();
+  return profiles.map((profile) => {
+    const internal = buildIndicators(
+      profile,
+      [],
+      liteByUser.get(profile.user_id) ?? [],
+      null,
+      currentWeekMap.get(profile.user_id) ?? null,
+      seasonsByUser.get(profile.user_id) ?? [],
+      seasonKey,
+      null,
+    );
+    const act = activityByUser.get(profile.user_id) ?? { available: 0, completed: 0 };
+    const activityRate =
+      act.available > 0 ? Math.round((act.completed / act.available) * 100) : 0;
+    return {
+      userId: profile.user_id,
+      displayGrowthStatus: internal.process.growthDisplayKey,
+      successWeeks: internal.period.a,
+      growableWeeks: internal.period.e,
+      activityAvailable: act.available,
+      activityCompleted: act.completed,
+      activityRate,
+    };
+  });
+}
+
+// ─── roster slim 캐시 우선 경로 (/admin/members 크루 목록) ───────────────
+// getGrowthRosterBatch(=fat: 사용자별 snapshot fat cards 읽기)의 빠른 변형.
+// cluster4_roster_card_stats(slim) 에서 a/e/h/activity 를 읽어 fat cards 전송을 회피하고,
+// 표시 성장상태만 resolveGrowthStatusDetail(고객 동일 resolver)로 read-time 재계산한다(시즌휴식/
+// 현재주/오버라이드 최신 반영). slim 은 writer 가 같은 snapshot 카드에서 파생·저장한 값이라
+// fat 결과와 동일(a/e/activity)하며, snapshot_computed_at 일치 가드로 drift 를 차단한다.
+//   - slim 무효(누락/버전불일치/computed_at 불일치/표 부재) 사용자 = getGrowthRosterBatch(fat)로 폴백.
+//   → slim 이 비어 있거나 마이그레이션 미적용이어도 결과는 fat 와 동일(무중단·정합).
+const ROSTER_STATS_TABLE = "cluster4_roster_card_stats";
+
+type RosterSlimRow = {
+  user_id: string;
+  dto_version: number;
+  snapshot_computed_at: string;
+  success_weeks: number;
+  growable_weeks: number;
+  elapsed_weeks: number;
+  activity_available: number;
+  activity_completed: number;
+};
+
+export async function getGrowthRosterBatchFast(
+  userIds: string[],
+): Promise<GrowthRosterRow[]> {
+  if (userIds.length === 0) return [];
+  const ID_CHUNK = 200;
+
+  // 1) slim 읽기(경량, cards 미포함). 표 부재(마이그레이션 미적용) 등 실패 시 전체 fat 폴백.
+  const slimByUser = new Map<string, RosterSlimRow>();
+  let slimAvailable = true;
+  try {
+    for (let i = 0; i < userIds.length; i += ID_CHUNK) {
+      const chunk = userIds.slice(i, i + ID_CHUNK);
+      const { data, error } = await supabaseAdmin
+        .from(ROSTER_STATS_TABLE)
+        .select(
+          "user_id,dto_version,snapshot_computed_at,success_weeks,growable_weeks,elapsed_weeks,activity_available,activity_completed",
+        )
+        .in("user_id", chunk);
+      if (error) throw new Error(error.message);
+      for (const r of (data ?? []) as RosterSlimRow[]) slimByUser.set(r.user_id, r);
+    }
+  } catch (e) {
+    slimAvailable = false;
+    console.warn("[roster-stats] slim read unavailable → fat fallback", {
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  // drift 가드: slim.snapshot_computed_at == 현재 snapshot.computed_at 인 행만 신뢰.
+  const snapComputedAt = new Map<string, string>();
+  if (slimAvailable && slimByUser.size > 0) {
+    const slimIds = [...slimByUser.keys()];
+    for (let i = 0; i < slimIds.length; i += ID_CHUNK) {
+      const chunk = slimIds.slice(i, i + ID_CHUNK);
+      const { data, error } = await supabaseAdmin
+        .from("cluster4_weekly_card_snapshots")
+        .select("user_id,computed_at")
+        .in("user_id", chunk);
+      if (error) throw new GrowthError(500, error.message);
+      for (const r of (data ?? []) as { user_id: string; computed_at: string }[]) {
+        snapComputedAt.set(r.user_id, r.computed_at);
+      }
+    }
+  }
+
+  const slimValidIds: string[] = [];
+  const needFatIds: string[] = [];
+  for (const uid of userIds) {
+    const s = slimByUser.get(uid);
+    if (
+      s &&
+      s.dto_version === WEEKLY_CARDS_DTO_VERSION &&
+      snapComputedAt.get(uid) === s.snapshot_computed_at
+    ) {
+      slimValidIds.push(uid);
+    } else {
+      needFatIds.push(uid);
+    }
+  }
+
+  const out: GrowthRosterRow[] = [];
+
+  // 2) fat 폴백(미백필/불일치/누락) — 기존 검증된 경로 그대로.
+  if (needFatIds.length > 0) {
+    out.push(...(await getGrowthRosterBatch(needFatIds)));
+  }
+
+  // 3) slim 경로 — a/e/h/activity=slim, 상태=resolveGrowthStatusDetail(buildIndicators 동일 입력).
+  if (slimValidIds.length > 0) {
+    const [profileRes, seasonRes, currentWeekMap] = await Promise.all([
+      supabaseAdmin
+        .from("user_profiles")
+        .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
+        .in("user_id", slimValidIds),
+      supabaseAdmin
+        .from("user_season_statuses")
+        .select("user_id,status,season_key")
+        .in("user_id", slimValidIds),
+      fetchCurrentWeekStatusBatch(slimValidIds),
+    ]);
+    if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
+    if (seasonRes.error) throw new GrowthError(500, seasonRes.error.message);
+
+    const profiles = (profileRes.data ?? []) as ProfileRow[];
+    const seasonsByUser = new Map<string, SeasonStatusRow[]>();
+    for (const row of (seasonRes.data ?? []) as (SeasonStatusRow & { user_id: string })[]) {
+      const list = seasonsByUser.get(row.user_id!) ?? [];
+      list.push(row);
+      seasonsByUser.set(row.user_id!, list);
+    }
+    const seasonKey = currentSeasonDbKey();
+
+    for (const profile of profiles) {
+      const s = slimByUser.get(profile.user_id)!;
+      const org = profile.organization_slug;
+      const orgValid = org && isOrganizationSlug(org) ? (org as OrganizationSlug) : null;
+      const threshold = orgValid ? getGraduationThreshold(orgValid) : null;
+      const seasonRows = seasonsByUser.get(profile.user_id) ?? [];
+      const seasonRestActive =
+        seasonKey !== null &&
+        seasonRows.some((sr) => sr.status === "rest" && sr.season_key === seasonKey);
+      const display = resolveGrowthStatusDetail({
+        growthStatus: profile.growth_status,
+        seasonRestActive,
+        currentWeekStatus: currentWeekMap.get(profile.user_id) ?? null,
+        approvedWeeks: s.success_weeks,
+        elapsedWeeks: s.elapsed_weeks,
+        graduationThreshold: threshold,
+      }).display;
+      out.push({
+        userId: profile.user_id,
+        displayGrowthStatus: display,
+        successWeeks: s.success_weeks,
+        growableWeeks: s.growable_weeks,
+        activityAvailable: s.activity_available,
+        activityCompleted: s.activity_completed,
+        activityRate: rosterActivityRate(s.activity_available, s.activity_completed),
+      });
+    }
+
+    // 프로필 행이 없는 slim 사용자(이론상 드묾) — fat 폴백으로 보강.
+    const gotProfiles = new Set(profiles.map((p) => p.user_id));
+    const missing = slimValidIds.filter((id) => !gotProfiles.has(id));
+    if (missing.length > 0) out.push(...(await getGrowthRosterBatch(missing)));
+  }
+
+  return out;
 }

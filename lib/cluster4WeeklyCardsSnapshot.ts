@@ -1,6 +1,42 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getCluster4WeeklyCardsForProfileUser } from "@/lib/cluster4WeeklyCardsData";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
+import { deriveRosterCardStats } from "@/lib/rosterCardStats";
+
+const ROSTER_STATS_TABLE = "cluster4_roster_card_stats";
+
+// /admin/members 크루 목록 slim 캐시 동기 — snapshot 카드에서 파생된 스칼라를 같은 computed_at 으로
+// 함께 저장한다(고객 SoT 동기). best-effort: 실패해도 snapshot 쓰기/본 요청을 깨뜨리지 않는다
+// (읽기 측 getGrowthRosterBatchFast 가 computed_at 불일치/누락 시 fat 경로로 폴백하므로 정합 유지).
+// 표가 아직 없으면(마이그레이션 미적용) 조용히 무시한다.
+async function writeRosterCardStats(
+  profileUserId: string,
+  cards: Cluster4WeeklyCardDto[],
+  computedAtIso: string,
+): Promise<void> {
+  const stats = deriveRosterCardStats(cards, computedAtIso.slice(0, 10));
+  if (!stats) return; // 카드 비정상 → slim 미기록(읽기에서 fat 폴백)
+  const { error } = await supabaseAdmin.from(ROSTER_STATS_TABLE).upsert(
+    {
+      user_id: profileUserId,
+      dto_version: WEEKLY_CARDS_DTO_VERSION,
+      snapshot_computed_at: computedAtIso,
+      success_weeks: stats.successWeeks,
+      growable_weeks: stats.growableWeeks,
+      elapsed_weeks: stats.elapsedWeeks,
+      activity_available: stats.activityAvailable,
+      activity_completed: stats.activityCompleted,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
+  if (error) {
+    console.warn("[weekly-cards][roster-stats] upsert skipped", {
+      profileUserId,
+      message: error.message,
+    });
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // 주차 카드 사전 계산 결과(snapshot) 데이터 레이어.
@@ -200,6 +236,67 @@ export async function readWeeklyCardsSnapshot(
   return { status: "hit", cards, computedAt: row.computed_at };
 }
 
+// 다건 배치 읽기 — 사용자별 1쿼리(.eq().maybeSingle()) 대신 .in() 단일 SELECT 로 N→1 축소.
+//   readWeeklyCardsSnapshot 과 동일한 판정 로직(version_mismatch/is_stale/손상→miss)을 적용한다.
+//   결과 Map 에 없는 user_id = 행 없음 → 호출부가 miss 로 간주한다(여기서는 키를 넣지 않음).
+//   IN() URL 길이 방어를 위해 청크로 끊는다. 무거운 계산은 절대 하지 않는다(조회 전용).
+export async function readWeeklyCardsSnapshotBatch(
+  profileUserIds: string[],
+): Promise<Map<string, WeeklyCardsSnapshotOutcome>> {
+  const out = new Map<string, WeeklyCardsSnapshotOutcome>();
+  const ids = Array.from(new Set(profileUserIds.filter((id): id is string => Boolean(id))));
+  if (ids.length === 0) return out;
+
+  const ID_CHUNK = 200;
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const chunk = ids.slice(i, i + ID_CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from(TABLE)
+      .select("user_id,cards,dto_version,is_stale,computed_at")
+      .in("user_id", chunk);
+    if (error) {
+      // 조회 실패한 청크는 전원 error 로 표기(miss 로 강등하지 않음 — 조회 전용 정책 유지).
+      console.warn("[weekly-cards][snapshot] batch read error", {
+        count: chunk.length,
+        message: error.message,
+      });
+      for (const id of chunk) out.set(id, { status: "error", message: error.message });
+      continue;
+    }
+    for (const row of (data ?? []) as Array<{
+      user_id: string;
+      cards: unknown;
+      dto_version: number;
+      is_stale: boolean;
+      computed_at: string;
+    }>) {
+      if (!Array.isArray(row.cards)) {
+        out.set(row.user_id, { status: "miss" });
+        continue;
+      }
+      const cards = row.cards as Cluster4WeeklyCardDto[];
+      if (row.dto_version !== WEEKLY_CARDS_DTO_VERSION) {
+        out.set(row.user_id, {
+          status: "stale",
+          cards,
+          computedAt: row.computed_at,
+          reason: "version_mismatch",
+        });
+      } else if (row.is_stale) {
+        out.set(row.user_id, {
+          status: "stale",
+          cards,
+          computedAt: row.computed_at,
+          reason: "is_stale",
+        });
+      } else {
+        out.set(row.user_id, { status: "hit", cards, computedAt: row.computed_at });
+      }
+    }
+  }
+  return out;
+}
+
 // 실시간 계산(기존 함수) → snapshot upsert. 계산 결과 배열을 그대로 반환한다.
 // 관리자 저장/sync 훅, cron, 그리고 읽기 경로의 lazy-fallback(미존재 시 1회)에서 호출한다.
 // 계산이 실패하면 throw — 호출부(라우트)가 기존 에러 형식으로 변환한다.
@@ -208,6 +305,7 @@ export async function recomputeAndStoreWeeklyCardsSnapshot(
 ): Promise<Cluster4WeeklyCardDto[]> {
   const cards = await getCluster4WeeklyCardsForProfileUser(profileUserId);
 
+  const computedAt = new Date().toISOString();
   const { error } = await supabaseAdmin.from(TABLE).upsert(
     {
       user_id: profileUserId,
@@ -215,7 +313,7 @@ export async function recomputeAndStoreWeeklyCardsSnapshot(
       card_count: cards.length,
       dto_version: WEEKLY_CARDS_DTO_VERSION,
       is_stale: false,
-      computed_at: new Date().toISOString(),
+      computed_at: computedAt,
     },
     { onConflict: "user_id" },
   );
@@ -226,6 +324,9 @@ export async function recomputeAndStoreWeeklyCardsSnapshot(
       profileUserId,
       message: error.message,
     });
+  } else {
+    // roster slim 캐시 동기(같은 computed_at). best-effort — 실패해도 본 쓰기 영향 없음.
+    await writeRosterCardStats(profileUserId, cards, computedAt);
   }
 
   return cards;

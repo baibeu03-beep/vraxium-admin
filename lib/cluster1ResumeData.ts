@@ -141,6 +141,117 @@ function dummyScheduleReliability(): ScheduleReliability {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// 일정 신뢰도 배치 (/admin/members 크루 목록) — computeScheduleReliability 와 동일 산식.
+//   사용자별 2쿼리(uws + profile) 대신, 대상 전원의 user_week_statuses·activity_started_at 을
+//   각각 1배치로 모아 메모리에서 동일 로직으로 계산한다(N+1 회피).
+//   activity_started_at 이 없는 사용자는 산정 불가 → null(어드민 표는 "—" 표시).
+//   (고객 resume 의 dummy(rate 94) 폴백은 데이터 부재용 placeholder 라 어드민 합산에는 쓰지 않는다.)
+// ─────────────────────────────────────────────────────────────────────
+export async function getScheduleReliabilityRateBatch(
+  userIds: string[],
+): Promise<Map<string, number | null>> {
+  const map = new Map<string, number | null>();
+  if (userIds.length === 0) return map;
+
+  const ID_CHUNK = 200;
+
+  // 1) activity_started_at 배치
+  const startById = new Map<string, string | null>();
+  for (let i = 0; i < userIds.length; i += ID_CHUNK) {
+    const chunk = userIds.slice(i, i + ID_CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,activity_started_at")
+      .in("user_id", chunk);
+    if (error) throw new Error(error.message);
+    for (const row of (data ?? []) as Array<{
+      user_id: string;
+      activity_started_at: string | null;
+    }>) {
+      startById.set(row.user_id, row.activity_started_at);
+    }
+  }
+
+  // 2) user_week_statuses 배치 (PostgREST 1000행 cap → 청크당 페이지네이션)
+  const rowsByUser = new Map<string, Array<{ week_start_date: string | null; status: string }>>();
+  const ROW_PAGE = 1000;
+  for (let i = 0; i < userIds.length; i += ID_CHUNK) {
+    const chunk = userIds.slice(i, i + ID_CHUNK);
+    let from = 0;
+    for (;;) {
+      const { data, error } = await supabaseAdmin
+        .from("user_week_statuses")
+        .select("user_id,week_start_date,status")
+        .in("user_id", chunk)
+        .order("user_id", { ascending: true })
+        .range(from, from + ROW_PAGE - 1);
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []) as Array<{
+        user_id: string;
+        week_start_date: string | null;
+        status: string;
+      }>;
+      for (const r of rows) {
+        const list = rowsByUser.get(r.user_id) ?? [];
+        list.push({ week_start_date: r.week_start_date, status: r.status });
+        rowsByUser.set(r.user_id, list);
+      }
+      if (rows.length < ROW_PAGE) break;
+      from += ROW_PAGE;
+    }
+  }
+
+  // 3) 사용자별 rate (computeScheduleReliability 와 동일 산식)
+  const now = new Date();
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  for (const userId of userIds) {
+    const start = startById.get(userId);
+    if (!start) {
+      map.set(userId, null);
+      continue;
+    }
+    const startDate = new Date(start);
+    if (Number.isNaN(startDate.getTime())) {
+      map.set(userId, null);
+      continue;
+    }
+    const physicalWeeks = Math.max(
+      1,
+      Math.floor((now.getTime() - startDate.getTime()) / msPerWeek),
+    );
+    let preRestWeeks = 0;
+    let approvedActiveWeeks = 0;
+    let officialRestWeeks = 0;
+    let transitionWeeks = 0;
+    for (const row of rowsByUser.get(userId) ?? []) {
+      if (row.week_start_date && isTransitionWeekStart(row.week_start_date)) {
+        transitionWeeks++;
+        continue;
+      }
+      switch (row.status) {
+        case "success":
+          approvedActiveWeeks++;
+          break;
+        case "personal_rest":
+          preRestWeeks++;
+          break;
+        case "official_rest":
+          officialRestWeeks++;
+          break;
+      }
+    }
+    const denominator = physicalWeeks - officialRestWeeks - transitionWeeks;
+    const rate =
+      denominator > 0
+        ? Math.round(((approvedActiveWeeks + preRestWeeks) / denominator) * 100)
+        : 0;
+    map.set(userId, rate);
+  }
+
+  return map;
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Activity Completion — 단일 SoT = 허브 weekly-cards 카드(area-6/area-7 과 동일).
 //
 //   활동 완료율 = (전체 기간 이행 라인 수) / (전체 기간 개설된 모든 라인 수) × 100

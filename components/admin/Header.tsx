@@ -30,6 +30,13 @@ const LINE_OPENING_TABS = [
   { key: "open", label: "라인 개설" },
 ] as const;
 
+// 멤버 관리(/admin/members): 헤더 title 텍스트 대신 [크루 목록]/[크루 정보] 2탭을 노출한다.
+// 라인 개설 탭과 동일한 UX — URL ?tab 으로 구동되어 본문(MembersList)과 공유된다.
+const MEMBERS_TABS = [
+  { key: "list", label: "크루 목록" },
+  { key: "info", label: "크루 정보" },
+] as const;
+
 // 통합 검수 시스템(원본) 헤더 타이틀 — 기존 그대로. (조직 분기 메뉴 개편과 무관하게 유지)
 const TITLES: Record<string, string> = {
   "/admin": "대시보드",
@@ -88,6 +95,18 @@ export default function Header({
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     if (key === "open") params.set("tab", "open");
     else params.delete("tab"); // 기본(라인 관리) = tab 파라미터 제거(깔끔한 URL)
+    const qs = params.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  };
+
+  // 멤버 관리 2탭(크루 목록/크루 정보) — /admin/members 에서 title 영역에 노출.
+  const isMembersTabs = pathname === "/admin/members";
+  const currentMembersTab: "list" | "info" =
+    searchParams?.get("tab") === "info" ? "info" : "list";
+  const membersTabHref = (key: "list" | "info") => {
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    if (key === "info") params.set("tab", "info");
+    else params.delete("tab"); // 기본(크루 목록) = tab 파라미터 제거(깔끔한 URL)
     const qs = params.toString();
     return qs ? `${pathname}?${qs}` : pathname;
   };
@@ -172,6 +191,31 @@ export default function Header({
               <Link
                 key={t.key}
                 href={infoTabHref(t.key)}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors",
+                  active
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                )}
+              >
+                {t.label}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : isMembersTabs ? (
+        // 헤더 title 텍스트 대신 크루 목록/크루 정보 2탭. (?tab 구동, 새로고침 유지)
+        <nav
+          aria-label="멤버 관리 탭"
+          className="flex min-w-0 flex-1 items-center gap-1"
+        >
+          {MEMBERS_TABS.map((t) => {
+            const active = currentMembersTab === t.key;
+            return (
+              <Link
+                key={t.key}
+                href={membersTabHref(t.key)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors",

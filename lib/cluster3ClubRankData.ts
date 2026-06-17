@@ -8,6 +8,7 @@ import {
   formatAvgPercentile,
   toGradeNumber,
   toGradeLabel,
+  GRADE_NUMBER_MAP,
 } from "@/lib/cluster3GrowthTypes";
 
 // Cluster3 클럽 강화 품계 계산 — server-only.
@@ -213,6 +214,130 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
     isFrozen: false,
     weeklyDetails,
   };
+}
+
+// ─── 품계 배치(어드민 크루 목록 /admin/members) ──────────────────────
+// getClubRank()(고객 SoT)와 동일한 산식(weekly_score·주차 RANK·백분위·온보딩 1주차 제외·
+// 평균 백분위→품계)을 사용자별 반복 호출(매번 전체 user_weekly_points 재조회) 대신
+// 전체 포인트를 1회만 읽어 모든 대상자의 품계를 동시에 계산한다. user_grade_stats 캐시는
+// 고객 화면이 참조하지 않아(club-rank 라우트=live) parity 가 깨지므로 사용하지 않는다.
+//   graduated/suspended = user_club_rank_frozen 고정값(getClubRank 과 동일).
+export type ClubRankGrade = { grade: number; label: string };
+
+export async function getClubRankGradeBatch(
+  userIds: string[],
+): Promise<Map<string, ClubRankGrade | null>> {
+  const result = new Map<string, ClubRankGrade | null>();
+  if (userIds.length === 0) return result;
+
+  const ID_CHUNK = 200;
+
+  // 1) 대상자 growth_status(frozen 판정) + frozen 값 + 첫 주차(온보딩 제외) — 배치.
+  const growthStatusById = new Map<string, string | null>();
+  const frozenById = new Map<string, FrozenRow>();
+  const firstWeekById = new Map<string, { year: number; week: number }>();
+  for (let i = 0; i < userIds.length; i += ID_CHUNK) {
+    const chunk = userIds.slice(i, i + ID_CHUNK);
+    const [profRes, frozenRes, uwsRes] = await Promise.all([
+      supabaseAdmin.from("user_profiles").select("user_id,growth_status").in("user_id", chunk),
+      supabaseAdmin
+        .from("user_club_rank_frozen")
+        .select("user_id,avg_percentile,rank_grade")
+        .in("user_id", chunk),
+      supabaseAdmin
+        .from("user_week_statuses")
+        .select("user_id,year,week_number")
+        .in("user_id", chunk),
+    ]);
+    if (profRes.error) throw new GrowthError(500, profRes.error.message);
+    if (frozenRes.error) throw new GrowthError(500, frozenRes.error.message);
+    if (uwsRes.error) throw new GrowthError(500, uwsRes.error.message);
+    for (const r of (profRes.data ?? []) as Array<{ user_id: string; growth_status: string | null }>) {
+      growthStatusById.set(r.user_id, r.growth_status);
+    }
+    for (const r of (frozenRes.data ?? []) as Array<{ user_id: string } & FrozenRow>) {
+      frozenById.set(r.user_id, { avg_percentile: r.avg_percentile, rank_grade: r.rank_grade });
+    }
+    for (const r of (uwsRes.data ?? []) as Array<{ user_id: string; year: number; week_number: number }>) {
+      const cur = firstWeekById.get(r.user_id);
+      if (!cur || r.year < cur.year || (r.year === cur.year && r.week_number < cur.week)) {
+        firstWeekById.set(r.user_id, { year: r.year, week: r.week_number });
+      }
+    }
+  }
+
+  // 2) 전체 user_weekly_points 1회 읽기(순위 모집단 = 전 사용자, getClubRank 과 동일).
+  const allPoints: WeeklyPointRow[] = [];
+  const pageSize = 1000;
+  let from = 0;
+  for (;;) {
+    const pageRes = await supabaseAdmin
+      .from("user_weekly_points")
+      .select("user_id,year,week_number,points,advantages,penalty")
+      .order("year", { ascending: true })
+      .order("week_number", { ascending: true })
+      .order("user_id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (pageRes.error) throw new GrowthError(500, pageRes.error.message);
+    const rows = (pageRes.data ?? []) as WeeklyPointRow[];
+    allPoints.push(...rows);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+
+  // 3) 주차별 RANK → 백분위. 대상자(roster)만 백분위 기록.
+  const rosterSet = new Set(userIds);
+  const pctByUser = new Map<string, Array<{ year: number; week: number; pct: number }>>();
+  const byWeek = new Map<string, WeeklyPointRow[]>();
+  for (const row of allPoints) {
+    const key = `${row.year}-${row.week_number}`;
+    const list = byWeek.get(key) ?? [];
+    list.push(row);
+    byWeek.set(key, list);
+  }
+  for (const [, rows] of byWeek) {
+    const scored = rows.map((r) => ({ userId: r.user_id, score: computeWeeklyScore(r), year: r.year, week: r.week_number }));
+    scored.sort((a, b) => b.score - a.score);
+    const total = scored.length;
+    let currentRank = 1;
+    for (let i = 0; i < scored.length; i++) {
+      if (i > 0 && scored[i].score < scored[i - 1].score) currentRank = i + 1;
+      const s = scored[i];
+      if (!rosterSet.has(s.userId)) continue;
+      const pct = total <= 1 ? 1 : Math.ceil(((currentRank - 1) / (total - 1)) * 99) + 1;
+      const list = pctByUser.get(s.userId) ?? [];
+      list.push({ year: s.year, week: s.week, pct });
+      pctByUser.set(s.userId, list);
+    }
+  }
+
+  // 4) 사용자별 평균 백분위(온보딩 1주차 제외) → 품계. frozen 우선.
+  for (const userId of userIds) {
+    const gs = growthStatusById.get(userId);
+    const frozen = frozenById.get(userId);
+    if ((gs === "graduated" || gs === "suspended") && frozen) {
+      const label = frozen.rank_grade;
+      const grade =
+        label in GRADE_NUMBER_MAP ? GRADE_NUMBER_MAP[label as RankGradeLabel] : null;
+      result.set(userId, grade != null ? { grade, label } : null);
+      continue;
+    }
+    const details = pctByUser.get(userId) ?? [];
+    const first = firstWeekById.get(userId);
+    const eligible = details.filter(
+      (d) => !(first && d.year === first.year && d.week === first.week),
+    );
+    if (eligible.length === 0) {
+      result.set(userId, null);
+      continue;
+    }
+    const rawAvg = eligible.reduce((acc, d) => acc + d.pct, 0) / eligible.length;
+    const avgPercentile = Math.ceil(rawAvg * 100) / 100;
+    const label = resolveRankGrade(avgPercentile);
+    result.set(userId, { grade: toGradeNumber(label), label });
+  }
+
+  return result;
 }
 
 // ─── user_grade_stats 동기화 ────────────────────────────────────────
