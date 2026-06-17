@@ -41,6 +41,7 @@ export type Cluster4TestWeekHub =
   | "experience-line"
   | "competency-line"
   | "career-line"
+  | "process-club"
   | "process-info"
   | "process-experience"
   | "process-competency"
@@ -59,6 +60,7 @@ const TEST_WEEK_HUB_POLICY: Record<
   "experience-line": { allowed: true, orgs: null }, // 과거 encre 한정 → 전 조직 통일.
   "competency-line": { allowed: true, orgs: null },
   "career-line": { allowed: true, orgs: null },
+  "process-club": { allowed: true, orgs: null }, // 2026-06-17 신규 허용(irregular 와 동일 정책).
   "process-info": { allowed: true, orgs: null },
   "process-experience": { allowed: true, orgs: null }, // 신규 허용(기존 미허용).
   "process-competency": { allowed: true, orgs: null }, // 2026-06-17 신규 허용(experience 와 동일 정책).

@@ -127,13 +127,14 @@ async function resolveTeamName(teamId: string, organization: string): Promise<st
 // ── 현재 주차 (이번 주 N — 월~일) + weeks.id ─────────────────────────────────
 
 // 프로세스 체크 허브 → 공통 테스트 예외 hub 키 매핑(허용되는 허브만 등재).
-//   info·experience·competency·career 매핑 → club 만 null = 예외 미허용(현재 주차 유지).
-//   (2026-06-17: competency·career 도 experience 와 동일하게 테스트 W13 예외 허용.)
+//   club·info·experience·competency·career 5종 전부 매핑 = 테스트 W13 예외 허용(운영은 불변).
+//   (2026-06-17: competency·career 에 이어 club(클럽 총괄)도 experience/irregular 와 동일 정책으로 허용.)
 //   비정규 액트는 별도로 "process-irregular" 를 직접 전달한다(resolveProcessWeek).
 //   ⚠ 허용 정책 자체(전 조직 등)는 cluster4TestWeekPolicy.TEST_WEEK_HUB_POLICY 단일 출처.
 const PROCESS_HUB_TO_TEST_WEEK_HUB: Partial<
   Record<ProcessHub, Cluster4TestWeekHub>
 > = {
+  club: "process-club",
   info: "process-info",
   experience: "process-experience",
   competency: "process-competency",
