@@ -7,6 +7,7 @@ import { classLabel } from "@/lib/adminMembersTypes";
 import { isTestUser as isMarkedTestUser } from "@/lib/testUsers";
 import { sumPointsForUsers } from "@/lib/adminMembersData";
 import { getCluster1Resume } from "@/lib/cluster1ResumeData";
+import { getCrewSeasonResults, type CrewSeasonResultRow } from "@/lib/adminCrewSeasonResults";
 
 // 크루 상세 페이지(/admin/members/[userId]) 단건 DTO — 인적사항 + 클럽 소속.
 // ──────────────────────────────────────────────────────────────────────────
@@ -98,6 +99,8 @@ export type CrewDetailData = {
   clubSummary: CrewClubSummary;
   // 클럽 결과(시즌) 상단부 — 고객 시즌 그로스 Details 동일 SoT 값.
   seasonSummary: CrewSeasonSummary;
+  // 클럽 결과(시즌) 하단부 — 시즌별 결과 표(최신순·진행 중 맨 위). 고객 시즌 그로스 동일 SoT.
+  seasonResults: CrewSeasonResultRow[];
 };
 
 // 클럽 결과(종합) 한 묶음. 모두 백엔드 SoT 직결값(프론트 재계산 금지).
@@ -306,6 +309,7 @@ export async function getCrewDetailDto(
   if (!crew) return null;
 
   const id = crew.userId;
+  const todayIso = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10); // KST 달력일
 
   const [
     profileRes,
@@ -317,6 +321,7 @@ export async function getCrewDetailDto(
     points,
     resume,
     seasonStatusRes,
+    seasonResults,
   ] = await Promise.all([
     supabaseAdmin
       .from("user_profiles")
@@ -348,6 +353,8 @@ export async function getCrewDetailDto(
       .from("user_season_statuses")
       .select("status,season_key")
       .eq("user_id", id),
+    // 시즌별 결과 표 — 고객 시즌 그로스 동일 SoT(결과/포인트/허브강화율/소속·클래스).
+    getCrewSeasonResults(id, todayIso),
   ]);
 
   if (profileRes.error) throw new Error(`user_profiles load failed: ${profileRes.error.message}`);
@@ -388,8 +395,7 @@ export async function getCrewDetailDto(
     careerProjectCount: resume?.practicalStats.careerProjectCount ?? 0,
   };
 
-  // 클럽 결과(시즌) 상단부 — 고객 시즌 그로스 Details 동일 SoT.
-  const todayIso = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10); // KST 달력일
+  // 클럽 결과(시즌) 상단부 — 고객 시즌 그로스 Details 동일 SoT. (todayIso 는 위에서 1회 산정)
   const seasonRows = (seasonStatusRes.data ?? []) as unknown as SeasonStatusRow[];
   const seasonSummary: CrewSeasonSummary = profile
     ? await buildCrewSeasonSummary({
@@ -466,5 +472,6 @@ export async function getCrewDetailDto(
     partName: crew.partName,
     clubSummary,
     seasonSummary,
+    seasonResults,
   };
 }

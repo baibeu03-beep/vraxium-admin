@@ -43,7 +43,24 @@ type CrewDetailDto = {
   partName: string | null;
   clubSummary: CrewClubSummary;
   seasonSummary: CrewSeasonSummary;
+  seasonResults: CrewSeasonResultRow[];
   note: CrewNote;
+};
+
+type CrewSeasonResultRow = {
+  seasonKey: string;
+  seasonNameShort: string;
+  seasonResultLabel: "진행 중" | "시즌 성공" | "시즌 휴식" | "시즌 중단";
+  poA: number;
+  poB: number;
+  poC: number;
+  hubRates: {
+    info: number | null;
+    experience: number | null;
+    ability: number | null;
+    career: number | null;
+  };
+  memberships: Array<{ teamName: string | null; partName: string | null; classLabel: string }>;
 };
 
 type CrewClubSummary = {
@@ -87,6 +104,14 @@ function dashNum(value: number | null | undefined): string {
 function dashPct(value: number | null | undefined): string {
   return value == null ? "-" : `${value}%`;
 }
+
+// 시즌 결과 라벨별 배지 색(어드민 4종).
+const SEASON_RESULT_BADGE: Record<string, string> = {
+  "진행 중": "bg-blue-50 text-blue-700 ring-blue-200",
+  "시즌 성공": "bg-green-50 text-green-700 ring-green-200",
+  "시즌 휴식": "bg-amber-50 text-amber-700 ring-amber-200",
+  "시즌 중단": "bg-red-50 text-red-700 ring-red-200",
+};
 
 export default function CrewDetail({
   userId,
@@ -324,6 +349,9 @@ export default function CrewDetail({
               <Field label="현재 시즌">{detail.seasonSummary.currentSeason}</Field>
               <Field label="성장 휴식 시즌">{`${detail.seasonSummary.restSeasons}개 시즌`}</Field>
             </div>
+
+            {/* 하단부: 시즌별 결과 표 — 최신순(진행 중 맨 위), 페이지네이션 없음. */}
+            <SeasonResultsTable rows={detail.seasonResults} />
           </CardContent>
         </Card>
         </>
@@ -347,6 +375,98 @@ export default function CrewDetail({
           }
         />
       )}
+    </div>
+  );
+}
+
+// 시즌별 결과 표 — 시즌명/결과/Po.A·B·C/허브 강화율 4종/소속&클래스. 페이지네이션 없음.
+function SeasonResultsTable({ rows }: { rows: CrewSeasonResultRow[] }) {
+  if (rows.length === 0) {
+    return (
+      <p className="mt-4 rounded-md border bg-muted/20 px-3 py-4 text-center text-sm text-muted-foreground">
+        활동한 시즌 기록이 없습니다.
+      </p>
+    );
+  }
+  const pct = (v: number | null) => (v == null ? "-" : `${v}%`);
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="border-b text-xs text-muted-foreground">
+            <th className="whitespace-nowrap px-2 py-2 text-left font-medium">시즌명</th>
+            <th className="whitespace-nowrap px-2 py-2 text-left font-medium">시즌 결과</th>
+            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.A</th>
+            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.B</th>
+            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.C</th>
+            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 정보</th>
+            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 경험</th>
+            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 역량</th>
+            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 경력</th>
+            <th className="whitespace-nowrap px-2 py-2 text-left font-medium">소속 &amp; 클래스</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.seasonKey} className="border-b align-top last:border-0">
+              <td className="whitespace-nowrap px-2 py-2 font-medium">{r.seasonNameShort}</td>
+              <td className="whitespace-nowrap px-2 py-2">
+                <span
+                  className={cn(
+                    "inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
+                    SEASON_RESULT_BADGE[r.seasonResultLabel] ?? "bg-muted text-muted-foreground ring-border",
+                  )}
+                >
+                  {r.seasonResultLabel}
+                </span>
+              </td>
+              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.poA}</td>
+              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.poB}</td>
+              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.poC}</td>
+              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.info)}</td>
+              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.experience)}</td>
+              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.ability)}</td>
+              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.career)}</td>
+              <td className="px-2 py-2">
+                <SeasonMembershipCell memberships={r.memberships} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// 소속 & 클래스 — 한 셀 안에 복수 줄(팀명 | 파트명 | 클래스). 너비 정렬 + truncate + hover title.
+function SeasonMembershipCell({
+  memberships,
+}: {
+  memberships: CrewSeasonResultRow["memberships"];
+}) {
+  if (memberships.length === 0) {
+    return <span className="text-muted-foreground">- | - | -</span>;
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      {memberships.map((m, i) => {
+        const team = m.teamName ?? "-";
+        const part = m.partName ?? "-";
+        const cls = m.classLabel || "-";
+        return (
+          <div
+            key={`${team}/${part}/${cls}/${i}`}
+            className="flex items-center gap-1 text-xs"
+            title={`${team} | ${part} | ${cls}`}
+          >
+            <span className="w-20 truncate rounded bg-muted/50 px-1.5 py-0.5">{team}</span>
+            <span className="text-muted-foreground">|</span>
+            <span className="w-20 truncate rounded bg-muted/50 px-1.5 py-0.5">{part}</span>
+            <span className="text-muted-foreground">|</span>
+            <span className="w-28 truncate rounded bg-muted/50 px-1.5 py-0.5">{cls}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

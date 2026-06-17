@@ -134,6 +134,30 @@ async function expectedSeasonSummary(userId: string) {
   };
 }
 
+// 시즌별 Po.A/B/C 독립 재합산(getCrewSeasonResults 미사용) — user_weekly_points → 정규 season_key.
+const CANON = /^(\d{4})-(winter|spring|summer|autumn)$/;
+async function expectedSeasonPoints(userId: string) {
+  const { data: wp } = await supabaseAdmin
+    .from("user_weekly_points").select("week_start_date,points,advantages,penalty").eq("user_id", userId);
+  const rows = (wp ?? []) as Array<{ week_start_date: string | null; points: number | null; advantages: number | null; penalty: number | null }>;
+  const dates = [...new Set(rows.map((r) => r.week_start_date).filter(Boolean) as string[])];
+  const map = new Map<string, { poA: number; poB: number; poC: number }>();
+  if (dates.length === 0) return map;
+  const { data: dw } = await supabaseAdmin.from("weeks").select("start_date,season_key").in("start_date", dates);
+  const keyByStart = new Map<string, string>();
+  for (const w of (dw ?? []) as Array<{ start_date: string | null; season_key: string | null }>) {
+    if (w.start_date && w.season_key && CANON.test(w.season_key)) keyByStart.set(w.start_date, w.season_key);
+  }
+  for (const r of rows) {
+    const key = r.week_start_date ? keyByStart.get(r.week_start_date) : undefined;
+    if (!key) continue;
+    const a = map.get(key) ?? { poA: 0, poB: 0, poC: 0 };
+    a.poA += r.points ?? 0; a.poB += r.advantages ?? 0; a.poC += r.penalty ?? 0;
+    map.set(key, a);
+  }
+  return map;
+}
+
 async function snapCount(): Promise<number> {
   const { count, error } = await supabaseAdmin
     .from("cluster4_weekly_card_snapshots")
@@ -293,6 +317,50 @@ async function main() {
     ck("현재 시즌 형식",
       dss.currentSeason === "-" || /^\d{4}년, (겨울|봄|여름|가을) 시즌 - (진행 중|휴식 중)$/.test(dss.currentSeason),
       dss.currentSeason);
+
+    // ── 클럽 결과(시즌) 하단부 — 시즌별 결과 표 ──
+    const dRows = (direct as any)?.seasonResults ?? [];
+    const hRows = http.seasonResults ?? [];
+    ck("seasonResults direct == HTTP", JSON.stringify(dRows) === JSON.stringify(hRows),
+      `direct ${dRows.length}행 / http ${hRows.length}행`);
+
+    // 결과 라벨 4종만.
+    const LABELS = new Set(["진행 중", "시즌 성공", "시즌 휴식", "시즌 중단"]);
+    ck("시즌 결과 라벨 4종만", dRows.every((r: any) => LABELS.has(r.seasonResultLabel)),
+      dRows.map((r: any) => r.seasonResultLabel).join(","));
+
+    // 현재 시즌(진행 중) 있으면 맨 위.
+    const firstInProgress = dRows.findIndex((r: any) => r.seasonResultLabel === "진행 중");
+    ck("진행 중 행은 맨 위(있으면)", firstInProgress === -1 || firstInProgress === 0,
+      `진행중 index=${firstInProgress}`);
+
+    // 시즌명 형식 "YY-계절".
+    ck("시즌명 형식 'YY-계절'", dRows.every((r: any) => /^\d{2}-(겨울|봄|여름|가을)$/.test(r.seasonNameShort)),
+      dRows.map((r: any) => r.seasonNameShort).join(","));
+
+    // 허브 강화율 4종: null 또는 0~100 정수.
+    const rateOk = (v: any) => v === null || (Number.isInteger(v) && v >= 0 && v <= 100);
+    ck("허브 강화율 4종 형식(null|0~100)",
+      dRows.every((r: any) => rateOk(r.hubRates.info) && rateOk(r.hubRates.experience) && rateOk(r.hubRates.ability) && rateOk(r.hubRates.career)),
+      "");
+
+    // 5) 포인트가 시즌 단위(비누적) — user_weekly_points 를 시즌별로 독립 재합산해 대조.
+    const expPts = await expectedSeasonPoints(userId);
+    let ptsSame = true; const ptsDiffs: string[] = [];
+    for (const r of dRows as any[]) {
+      const e = expPts.get(r.seasonKey) ?? { poA: 0, poB: 0, poC: 0 };
+      if (r.poA !== e.poA || r.poB !== e.poB || r.poC !== e.poC) {
+        ptsSame = false;
+        ptsDiffs.push(`${r.seasonNameShort}: dto(${r.poA}/${r.poB}/${r.poC}) vs raw(${e.poA}/${e.poB}/${e.poC})`);
+      }
+    }
+    ck("시즌 Po.A/B/C == 시즌 단위 raw 합(비누적)", ptsSame, ptsDiffs.join(" | "));
+
+    // 소속&클래스: 배열(복수 가능). 각 항목 classLabel 문자열.
+    ck("소속&클래스 구조(teamName/partName/classLabel)",
+      dRows.every((r: any) => Array.isArray(r.memberships) &&
+        r.memberships.every((m: any) => "teamName" in m && "partName" in m && typeof m.classLabel === "string")),
+      "");
   }
 
   // 5/6) snapshot 무영향(읽기 전용 — 재계산/write 없음).

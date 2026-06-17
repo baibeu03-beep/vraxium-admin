@@ -128,6 +128,35 @@ for (const s of samples) {
   ck("성장 가능 시즌 값 노출", body.includes(`${ss.availableSeasons}개 시즌`));
   ck("성장 성공 시즌 값 노출", body.includes(`${ss.successSeasons}개 시즌`));
   ck("성장 휴식 시즌 값 노출", body.includes(`${ss.restSeasons}개 시즌`));
+
+  // ── 클럽 결과(시즌) 하단부: 시즌별 결과 표 ──
+  const sr = d.seasonResults ?? [];
+  // 표 헤더 10컬럼 노출.
+  for (const h of ["시즌명", "시즌 결과", "Po.A", "Po.B", "Po.C", "실무 정보", "실무 경험", "실무 역량", "실무 경력", "소속 & 클래스"]) {
+    ck(`표 헤더 '${h}'`, body.includes(h));
+  }
+  // 전체 시즌 행이 페이지네이션 없이 모두 렌더(시즌명 전부 + 결과 라벨 전부 화면에 존재).
+  ck("전체 시즌 행 렌더(페이지네이션 없음)",
+    sr.length === 0 || sr.every((r) => body.includes(r.seasonNameShort)),
+    `${sr.length}개 시즌 / 표시 ${sr.filter((r) => body.includes(r.seasonNameShort)).length}`);
+  // 시즌별 결과 라벨 노출.
+  ck("시즌 결과 라벨 노출", sr.length === 0 || sr.every((r) => body.includes(r.seasonResultLabel)), "");
+  // 현재 시즌(진행 중)이 있으면 표에서 첫 시즌 행 = sr[0](백엔드 정렬: 진행 중 맨 위).
+  const hasInProgress = sr.some((r) => r.seasonResultLabel === "진행 중");
+  ck("진행 중 시즌이 표 맨 위(있으면)",
+    !hasInProgress || sr[0].seasonResultLabel === "진행 중",
+    hasInProgress ? `top=${sr[0].seasonNameShort}/${sr[0].seasonResultLabel}` : "진행 중 없음");
+  // DOM 행 수 == 시즌 수(페이지네이션 없이 전부) — 표 tbody tr 개수로 교차 확인.
+  if (sr.length > 0) {
+    const rowCount = await page.evaluate(() => {
+      const ths = Array.from(document.querySelectorAll("th")).map((t) => t.textContent || "");
+      const table = Array.from(document.querySelectorAll("table")).find((tb) =>
+        Array.from(tb.querySelectorAll("th")).some((t) => (t.textContent || "").includes("소속")),
+      );
+      return table ? table.querySelectorAll("tbody tr").length : -1;
+    });
+    ck("표 tbody 행 수 == 시즌 수", rowCount === sr.length, `dom=${rowCount} dto=${sr.length}`);
+  }
 }
 
 await browser.close();

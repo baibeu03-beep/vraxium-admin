@@ -1180,7 +1180,10 @@ type ActivitySource = {
   endedAt: string | null;
 };
 
-async function computeSeasonActivityStatuses(
+// export — 시즌별 결과 표(/admin/members 상세)가 시즌별 소속&클래스 SoT 로 재사용한다.
+//   season 인자를 과거 시즌으로 넘기면 그 시즌 범위(joined_at/left_at 오버랩)의 팀/파트/클래스를
+//   area-8 과 동일 산식으로 돌려준다(현재 시즌 전용 아님 — 시즌 객체만 바꾸면 됨).
+export async function computeSeasonActivityStatuses(
   userId: string,
   season: Season | null,
 ): Promise<SeasonActivityStatus[]> {
