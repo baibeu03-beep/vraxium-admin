@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import {
+  ADMIN_READ_ROLES,
   ADMIN_WRITE_ROLES,
   requireAdmin,
   toAdminErrorResponse,
@@ -9,9 +10,50 @@ import {
   pickMemberPatch,
   updateMember,
 } from "@/lib/adminMembersData";
+import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
+import { getCrewNote } from "@/lib/adminCrewManagementNotes";
 import { isOrganizationSlug } from "@/lib/organizations";
 
 type Ctx = { params: Promise<{ user_id: string }> };
+
+// GET /api/admin/members/[user_id]
+//   크루 상세 페이지(/admin/members/[userId]) 단건 DTO.
+//   프로필 + 크루 코드 + 클럽 관리 기록(관리자 메모). 코드 없으면 lazy 생성(freeze). snapshot 무접촉.
+export async function GET(_request: NextRequest, { params }: Ctx) {
+  let admin;
+  try {
+    admin = await requireAdmin(ADMIN_READ_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
+  const { user_id } = await params;
+
+  try {
+    const detail = await getCrewDetailDto(user_id, { generatedBy: admin.userId });
+    if (!detail) {
+      return Response.json({ success: false, error: "Crew not found" }, { status: 404 });
+    }
+
+    const note = await getCrewNote(detail.userId);
+
+    return Response.json({
+      success: true,
+      data: { ...detail, note },
+    });
+  } catch (error) {
+    console.error("[admin/members/:user_id GET]", error);
+    return Response.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to load crew detail",
+      },
+      { status: 500 },
+    );
+  }
+}
 
 export async function PATCH(request: NextRequest, { params }: Ctx) {
   let actorId: string | null = null;

@@ -64,6 +64,26 @@ export function memberStatusLabel(
   return "크루"; // 멤버십 등급 정보 없음 → 등급 미부여 기본 표기
 }
 
+// 클래스 라벨 — memberStatusLabel(등급 SoT) → 정규/심화(파트장)/심화(에이전트)/운영진(앰배서더)/운영진(팀장).
+// /admin/members 크루 목록 표(클래스 컬럼)와 크루 상세 페이지(클럽 소속 클래스)가 공유.
+export function classLabel(role: string | null, level: string | null): string {
+  const base = memberStatusLabel(role, level);
+  switch (base) {
+    case "팀장":
+      return "운영진(팀장)";
+    case "앰배서더":
+      return "운영진(앰배서더)";
+    case "심화(파트장)":
+    case "심화(에이전트)":
+      return base;
+    case "일반":
+    case "크루":
+      return "정규";
+    default:
+      return base; // 관리자/최고 관리자 등(드묾)
+  }
+}
+
 // 게이팅/임퍼소네이션용 정규화 역할. memberStatusLabel 단일 SoT 기반(라벨→역할 키).
 //   team_leader(role=team_leader) · part_leader/agent(심화 등급) · 그 외=member.
 export type NormalizedMemberRole = "team_leader" | "part_leader" | "agent" | "member";

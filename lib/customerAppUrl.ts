@@ -12,17 +12,17 @@
 //   2) NEXT_PUBLIC_APP_URL           ← 범용 별칭(있으면 사용)
 //   3) APP_BASE_URL                  ← server 전용 폴백(클라이언트에는 인라인 안 됨)
 //
-// 폴백 정책:
-//   - development 에서만 http://localhost:3001 허용.
-//   - production / Vercel(preview 포함) 에서 env 미설정 → 운영 고객 도메인 기본값.
-//     (env 를 깜빡해도 절대 localhost 로 가지 않게 하는 안전망. preview/스테이징은
-//      위 env 로 override)
+// 폴백 정책(코드에 localhost 를 하드코딩하지 않는다 — 환경 분기는 전적으로 env 가 담당):
+//   - 로컬에서 localhost 고객앱을 열려면 .env.local 의 NEXT_PUBLIC_CUSTOMER_APP_URL
+//     (예: http://localhost:3001) 로 주입한다. (env = config, code 아님)
+//   - Vercel(운영/preview) 은 프로젝트 env 의 고객 도메인을 사용한다.
+//   - env 가 어디에도 없으면 운영 고객 도메인으로 폴백한다 — 절대 localhost 로 가지 않는다.
 // ──────────────────────────────────────────────────────────────────────────
 
-// 개발 환경 고객 앱 기본 포트(admin=3000, customer=3001).
-const DEV_CUSTOMER_APP_URL = "http://localhost:3001";
+import { organizationRouteSuffix } from "@/lib/organizations";
 
-// 운영 고객(front) 앱 기본 도메인. env 미설정 시 안전망으로 사용한다.
+// 운영 고객(front) 앱 기본 도메인. env 미설정 시 안전망(절대 localhost 아님).
+//   로컬에서 localhost 로 열려면 NEXT_PUBLIC_CUSTOMER_APP_URL 을 .env.local 에 설정한다.
 const PROD_CUSTOMER_APP_URL = "https://vraxium.vercel.app";
 
 function normalizeBaseUrl(raw: string | undefined | null): string | null {
@@ -42,8 +42,42 @@ export function resolveCustomerAppUrl(): string | null {
 
   if (fromEnv) return fromEnv;
 
-  // env 가 없을 때: 개발 환경만 localhost 폴백, 운영은 고객 도메인 기본값(localhost 금지).
-  return process.env.NODE_ENV !== "production"
-    ? DEV_CUSTOMER_APP_URL
-    : PROD_CUSTOMER_APP_URL;
+  // env 가 어디에도 없을 때: 로컬/운영 구분 없이 운영 고객 도메인(절대 localhost 아님).
+  //   로컬에서 localhost 를 열려면 NEXT_PUBLIC_CUSTOMER_APP_URL 을 .env.local 에 설정한다.
+  return PROD_CUSTOMER_APP_URL;
+}
+
+// 고객 앱 cluster-4 페이지 절대 URL(단일 출처). 어드민→고객 SoT 진입 경로.
+//   - 라우트: /cluster-4-<suffix> (조직별 분기, lib/organizations 매핑).
+//   - test 여부로 쿼리/대상 사용자 식별 파라미터가 갈린다(고객앱 해석 규칙에 정합):
+//     · test=true  → demoUserId + mode=test (+demoUserName) : 고객앱이 demoUserId 존재 시
+//       "테스트 유저 모드" 배너 표시 + test_user_markers 백엔드 검증 + 여름 시뮬레이션.
+//       (test_user_markers 등재 유저만 demoUserId 가 유효 — 일반 유저에 쓰면 안 됨)
+//     · test=false → userId 만 : 해당 "실제(운영)" 유저의 cluster-4 카드. demoUserId/mode=test
+//       을 절대 붙이지 않으므로 배너가 뜨지 않는다. 고객앱은 userId(=session admin 시 targetUserId)
+//       로 해당 유저의 실제 데이터를 조회한다.
+//   - admin=true 는 공통(배너 트리거 아님 — 배너는 demoUserId 존재 여부로만 결정).
+//   - base URL 해석 실패(운영 env 미설정) 시 null — 호출자가 안내/차단.
+export function buildCustomerClusterUrl(
+  orgSlug: string | null,
+  userId: string,
+  options: { test?: boolean; name?: string | null } = {},
+): string | null {
+  const base = resolveCustomerAppUrl();
+  if (!base) return null;
+  const path = `/cluster-4-${organizationRouteSuffix(orgSlug)}`;
+  const url = new URL(`${base}${path}`);
+  url.searchParams.set("admin", "true");
+  if (options.test) {
+    // 테스트 유저(test_user_markers): demoUserId → 배너 + 데모 게이트, mode=test → 여름 시뮬.
+    url.searchParams.set("demoUserId", userId);
+    url.searchParams.set("mode", "test");
+    if (options.name && options.name.trim()) {
+      url.searchParams.set("demoUserName", options.name.trim());
+    }
+  } else {
+    // 일반(운영) 크루: userId 만 → 실제 사용자 카드(배너 없음·demoUserId/mode 없음).
+    url.searchParams.set("userId", userId);
+  }
+  return url.toString();
 }

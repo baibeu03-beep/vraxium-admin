@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw, RotateCcw, Search } from "lucide-react";
 import {
   Card,
@@ -21,7 +21,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { memberStatusLabel } from "@/lib/adminMembersTypes";
+import { classLabel } from "@/lib/adminMembersTypes";
+import {
+  BUCKET_LABEL,
+  statusBucket,
+  type MemberStatusBucket,
+} from "@/lib/memberStatusBucket";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 
 type Member = {
@@ -73,54 +78,8 @@ function clubLabelKo(slug: string | null): string {
 }
 
 // ── 상태 버킷 — 표시 성장상태(GrowthStatusKey) → 상태 컬럼/필터 공용 버킷 ──
-// 단일 함수가 상태 컬럼 라벨과 필터 그룹을 함께 구동(정합 보장).
-//   활동 중 = active+extra_growth · 시즌 휴식 = seasonal_rest+official_rest(공식 휴식 포함)
-//   주차 휴식 = weekly_rest · 활동 중단 = suspended+paused · 바사노스 = graduating(졸업 절차)
-//   엘리트 = graduated · 온보딩 = onboarding · 그 외/미상 = -
-type Bucket =
-  | "active"
-  | "elite"
-  | "seasonal_rest"
-  | "weekly_rest"
-  | "suspended"
-  | "onboarding"
-  | "basanos"
-  | "none";
-
-function statusBucket(key: string | null): Bucket {
-  switch (key) {
-    case "active":
-    case "extra_growth":
-      return "active";
-    case "graduated":
-      return "elite";
-    case "seasonal_rest":
-    case "official_rest":
-      return "seasonal_rest";
-    case "weekly_rest":
-      return "weekly_rest";
-    case "suspended":
-    case "paused":
-      return "suspended";
-    case "onboarding":
-      return "onboarding";
-    case "graduating":
-      return "basanos";
-    default:
-      return "none";
-  }
-}
-
-const BUCKET_LABEL: Record<Bucket, string> = {
-  active: "활동 중",
-  elite: "엘리트",
-  seasonal_rest: "시즌 휴식",
-  weekly_rest: "주차 휴식",
-  suspended: "활동 중단",
-  onboarding: "온보딩",
-  basanos: "바사노스",
-  none: "-",
-};
+//   statusBucket/BUCKET_LABEL 은 lib/memberStatusBucket(단일 SoT, 크루 상세 페이지와 공유)에서 import.
+type Bucket = MemberStatusBucket;
 
 // ── 조건: 필터 ──────────────────────────────────────────────────────
 type FilterValue =
@@ -164,25 +123,7 @@ const FILTER_BUCKETS: Record<FilterValue, Bucket[] | null> = {
 const DEFAULT_CLUB: ClubValue = "all";
 const DEFAULT_FILTER: FilterValue = "clubbing_expand";
 
-// ── 클래스 라벨 ─────────────────────────────────────────────────────
-// memberStatusLabel(등급 SoT) → 정규/심화(파트장)/심화(에이전트)/운영진(앰배서더)/운영진(팀장).
-function classLabel(role: string | null, level: string | null): string {
-  const base = memberStatusLabel(role, level);
-  switch (base) {
-    case "팀장":
-      return "운영진(팀장)";
-    case "앰배서더":
-      return "운영진(앰배서더)";
-    case "심화(파트장)":
-    case "심화(에이전트)":
-      return base;
-    case "일반":
-    case "크루":
-      return "정규";
-    default:
-      return base; // 관리자/최고 관리자 등(드묾)
-  }
-}
+// 클래스 라벨(classLabel)은 lib/adminMembersTypes(단일 SoT, 크루 상세 페이지와 공유)에서 import.
 
 // ── 표시 헬퍼 ───────────────────────────────────────────────────────
 function fmtStr(value: string | null | undefined): string {
@@ -351,7 +292,20 @@ function clubFetchOrg(club: ClubValue): string | null {
   return null; // all | none → 전체
 }
 
+// sessionStorage 영속 스냅샷 — 상세 페이지 왕복 시 조건/정렬 복원용.
+type PersistedState = {
+  pendingClub: ClubValue;
+  pendingFilter: FilterValue;
+  pendingSearch: string;
+  appliedClub: ClubValue;
+  appliedFilter: FilterValue;
+  appliedSearch: string;
+  lastEdited: "search" | "condition";
+  sortStack: SortEntry[];
+};
+
 export default function MembersList() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const mode = readScopeMode(searchParams);
 
@@ -375,6 +329,67 @@ export default function MembersList() {
 
   // 정렬 스택 — 맨 앞이 1순위. 새 클릭이 항상 1순위가 되고 직전 조건은 후순위로 밀린다.
   const [sortStack, setSortStack] = useState<SortEntry[]>([]);
+
+  // ── 조건/정렬 유지(상세 페이지 왕복) ──────────────────────────────────
+  // [이동] → /admin/members/[userId] → [목록으로 돌아가기] 시 클럽/필터/검색/정렬을
+  // sessionStorage 로 복원한다(모집단 모드별 분리 키). URL 마이그레이션 없이 "최대한 유지".
+  const storageKey = `members-list-state:${mode}`;
+  const persistSkip = useRef(false);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(storageKey);
+      if (!raw) return;
+      const s = JSON.parse(raw) as Partial<PersistedState>;
+      // 복원이 유발하는 첫 persist 1회 스킵 — 기본값이 저장값을 덮어쓰지 않게.
+      persistSkip.current = true;
+      // 마운트 시 1회 sessionStorage → state 동기화(상세 페이지 왕복 복원). 외부 저장소
+      // 복원은 effect 가 정석이며 cascading 의도된 동작이라 규칙을 좁게 끈다.
+      /* eslint-disable react-hooks/set-state-in-effect */
+      if (s.pendingClub) setPendingClub(s.pendingClub);
+      if (s.pendingFilter) setPendingFilter(s.pendingFilter);
+      if (typeof s.pendingSearch === "string") setPendingSearch(s.pendingSearch);
+      if (s.appliedClub) setAppliedClub(s.appliedClub);
+      if (s.appliedFilter) setAppliedFilter(s.appliedFilter);
+      if (typeof s.appliedSearch === "string") setAppliedSearch(s.appliedSearch);
+      if (s.lastEdited) lastEditedRef.current = s.lastEdited;
+      if (Array.isArray(s.sortStack)) setSortStack(s.sortStack);
+      /* eslint-enable react-hooks/set-state-in-effect */
+    } catch {
+      // 손상된 스냅샷은 무시(기본값 유지).
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (persistSkip.current) {
+      persistSkip.current = false;
+      return;
+    }
+    try {
+      const snapshot: PersistedState = {
+        pendingClub,
+        pendingFilter,
+        pendingSearch,
+        appliedClub,
+        appliedFilter,
+        appliedSearch,
+        lastEdited: lastEditedRef.current,
+        sortStack,
+      };
+      sessionStorage.setItem(storageKey, JSON.stringify(snapshot));
+    } catch {
+      // 저장 실패(quota 등)는 무시.
+    }
+  }, [
+    storageKey,
+    pendingClub,
+    pendingFilter,
+    pendingSearch,
+    appliedClub,
+    appliedFilter,
+    appliedSearch,
+    sortStack,
+  ]);
 
   const fetchOrg = clubFetchOrg(appliedClub);
   const cacheKey = `${mode}:${fetchOrg ?? "__ALL__"}`;
@@ -490,7 +505,7 @@ export default function MembersList() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6">
       {tab === "info" ? (
         <Card>
           <CardHeader>
@@ -621,6 +636,10 @@ export default function MembersList() {
                         />
                       );
                     })}
+                    {/* 이동 — 정렬/검색 비대상. 행별 상세 페이지 진입 버튼 컬럼. */}
+                    <TableHead className="text-center align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      이동
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -647,12 +666,24 @@ export default function MembersList() {
                           </TableCell>
                         );
                       })}
+                      {/* 행 우측 [이동] — 행 전체 클릭 아님(버튼만). 현재 모집단 모드 유지. */}
+                      <TableCell className="whitespace-nowrap text-center align-middle">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            router.push(appendModeQuery(`/admin/members/${m.userId}`, mode))
+                          }
+                        >
+                          이동
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {!loading && rows.length === 0 && !error && (
                     <TableRow>
                       <TableCell
-                        colSpan={COLUMNS.length}
+                        colSpan={COLUMNS.length + 1}
                         className="py-10 text-center text-muted-foreground"
                       >
                         조회된 크루가 없습니다.
@@ -662,7 +693,7 @@ export default function MembersList() {
                   {loading && (
                     <TableRow>
                       <TableCell
-                        colSpan={COLUMNS.length}
+                        colSpan={COLUMNS.length + 1}
                         className="py-10 text-center text-muted-foreground"
                       >
                         불러오는 중...
