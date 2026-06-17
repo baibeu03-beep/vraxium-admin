@@ -113,7 +113,8 @@ export const PROCESS_ACT_TYPE_LABEL: Record<ProcessActType, string> = {
   required: "필수",
   optional: "자율",
   selection: "선발",
-  basic: "기본",
+  // UI 표시 라벨만 '기타'로 변경 — 저장값(enum)은 기존과 동일하게 "basic" 유지.
+  basic: "기타",
 };
 
 // ── 크루 반응(act_type / crew_reaction) ↔ 포인트 C 규칙 (서버/클라 공용 SoT) ─────
