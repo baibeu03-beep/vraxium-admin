@@ -49,6 +49,8 @@ const ALL_HUBS: Cluster4TestWeekHub[] = [
   "career-line",
   "process-info",
   "process-experience",
+  "process-competency",
+  "process-career",
   "process-irregular",
   "accrual",
   "dropdown",

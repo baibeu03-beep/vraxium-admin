@@ -98,7 +98,9 @@ try {
   for (const [label, base, allowed] of [
     ["info", `/api/admin/processes/check?hub=info&org=${ORG}`, true],
     ["experience", `/api/admin/processes/check?hub=experience&org=${ORG}`, true],
-    ["competency(미허용)", `/api/admin/processes/check?hub=competency&org=${ORG}`, false],
+    ["competency", `/api/admin/processes/check?hub=competency&org=${ORG}`, true], // 2026-06-17 허용
+    ["career", `/api/admin/processes/check?hub=career&org=${ORG}`, true], // 2026-06-17 허용
+    ["club(미허용)", `/api/admin/processes/check?hub=club&org=${ORG}`, false], // 격리: 예외 미적용 유지
     ["irregular", `/api/admin/processes/check/irregular?org=${ORG}`, true],
   ]) {
     const { op, te } = await compare(label, base);

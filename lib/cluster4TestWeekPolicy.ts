@@ -43,6 +43,8 @@ export type Cluster4TestWeekHub =
   | "career-line"
   | "process-info"
   | "process-experience"
+  | "process-competency"
+  | "process-career"
   | "process-irregular"
   | "accrual"
   | "dropdown";
@@ -59,6 +61,8 @@ const TEST_WEEK_HUB_POLICY: Record<
   "career-line": { allowed: true, orgs: null },
   "process-info": { allowed: true, orgs: null },
   "process-experience": { allowed: true, orgs: null }, // 신규 허용(기존 미허용).
+  "process-competency": { allowed: true, orgs: null }, // 2026-06-17 신규 허용(experience 와 동일 정책).
+  "process-career": { allowed: true, orgs: null }, // 2026-06-17 신규 허용(experience 와 동일 정책).
   "process-irregular": { allowed: true, orgs: null },
   accrual: { allowed: true, orgs: null },
   dropdown: { allowed: true, orgs: null },

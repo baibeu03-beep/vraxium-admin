@@ -5,7 +5,7 @@
  * 검증:
  *   1) 세 허브 보드 DTO 구조 동일(같은 키·teams 비팀=빈배열·hub/hubLabel만 차이).
  *   2) 액트 목록이 허브별로만 필터(board.acts 의 act_id 전부 process_acts.hub == 그 허브, 교차 0).
- *   3) info 테스트 모드 주차 예외(13주차)만 적용 — competency/club 은 test==operating 주차(예외 비적용).
+ *   3) 테스트 모드 주차 예외(2026 봄 W13): info·competency 적용 — club 만 test==operating(예외 비적용).
  *   4) org 분리(oranke/encre/phalanx) — board.organization 일치, 데이터 누설 0.
  */
 import { writeFileSync } from "fs";
@@ -22,7 +22,7 @@ const ORGS = ["oranke", "encre", "phalanx"] as const;
 let pass = 0, fail = 0;
 const ok = (c: boolean, label: string) => { console.log(`  ${c ? "✓" : "✗"} ${label} ${c ? "" : "❌"}`); c ? pass++ : fail++; };
 
-const BOARD_KEYS = ["hub", "hubLabel", "organization", "week", "teams", "lineGroups", "acts", "summary", "logs"].sort();
+const BOARD_KEYS = ["hub", "hubLabel", "organization", "mode", "week", "selectedWeek", "teams", "teamParts", "selectedPart", "lineGroups", "acts", "summary", "logs"].sort();
 
 async function actHubMap(): Promise<Map<string, string>> {
   const { data } = await sb.from("process_acts").select("id,hub");
@@ -51,16 +51,19 @@ async function main() {
   const inter = [...si].filter((x) => sc.has(x) || sk.has(x)).length + [...sc].filter((x) => sk.has(x)).length;
   ok(inter === 0, `세 허브 액트 교차 0 (info∩competency∩club)`);
 
-  // ── 3) info 만 테스트 주차 예외 ─────────────────────────────────
-  console.log("\n=== 3) 테스트 모드 주차 예외 — info 만 적용 ===");
+  // ── 3) 테스트 주차 예외 — info·competency 적용 / club 비적용 ──────
+  console.log("\n=== 3) 테스트 모드 주차 예외 — info·competency 적용, club 비적용 ===");
+  // 봄 휴식 꼬리에서만 test 주차가 13 으로 walk-back 됨(operating 은 현재 16). 휴식 꼬리가 아니면
+  // operating==test 라 예외 분기 자체가 검증 불가 → 전제 가드(휴식 꼬리)에서만 분리 단언.
+  const TEST_EXCEPTION_HUBS = new Set(["info", "competency"]);
   for (const hub of HUBS) {
     const op = await getProcessCheckBoard(hub, "oranke", null, "operating");
     const ts = await getProcessCheckBoard(hub, "oranke", null, "test");
     const opW = op.week?.weekNumber, tsW = ts.week?.weekNumber;
-    if (hub === "info") {
-      // 현재(2026-06-15)는 봄 휴식 꼬리 → info 는 test 에서 마지막 운영주차(13)로 walk-back, operating 은 현재(16).
-      ok(tsW !== opW, `[info] test 주차(${tsW}) ≠ operating 주차(${opW}) — 13주차 예외 적용`);
-      ok(tsW === 13, `[info] test 주차=13 (마지막 운영주차)`);
+    if (TEST_EXCEPTION_HUBS.has(hub)) {
+      // 현재가 봄 휴식 꼬리(W14~16)면 test 는 마지막 운영주차(13)로 walk-back, operating 은 현재(16).
+      ok(tsW !== opW, `[${hub}] test 주차(${tsW}) ≠ operating 주차(${opW}) — 13주차 예외 적용`);
+      ok(tsW === 13, `[${hub}] test 주차=13 (마지막 운영주차)`);
     } else {
       ok(tsW === opW, `[${hub}] test 주차(${tsW}) == operating 주차(${opW}) — 예외 비적용(의도)`);
     }
