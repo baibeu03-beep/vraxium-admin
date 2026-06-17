@@ -2,8 +2,58 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getCluster4WeeklyCardsForProfileUser } from "@/lib/cluster4WeeklyCardsData";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { deriveRosterCardStats } from "@/lib/rosterCardStats";
+import { computeScheduleReliabilityFromRows } from "@/lib/scheduleReliabilityCore";
 
 const ROSTER_STATS_TABLE = "cluster4_roster_card_stats";
+
+// roster slim: 일정 신뢰도(%) — getScheduleReliabilityRateBatch 와 동일 코어/SoT(user_week_statuses
+// + activity_started_at). nowMs = snapshot computed_at(읽기 시점이 아닌 snapshot 시점 기준 — slim 의
+// 다른 시간기반 지표 elapsed_weeks 와 동일 시점). 산정 불가 = null. 실패는 조용히 null(슬림 미기록).
+async function deriveScheduleRate(
+  profileUserId: string,
+  nowMs: number,
+): Promise<number | null> {
+  const [weekRes, profileRes] = await Promise.all([
+    supabaseAdmin
+      .from("user_week_statuses")
+      .select("week_start_date,status")
+      .eq("user_id", profileUserId),
+    supabaseAdmin
+      .from("user_profiles")
+      .select("activity_started_at")
+      .eq("user_id", profileUserId)
+      .maybeSingle(),
+  ]);
+  if (weekRes.error || profileRes.error) return null;
+  const result = computeScheduleReliabilityFromRows(
+    (profileRes.data?.activity_started_at as string | null) ?? null,
+    (weekRes.data ?? []) as Array<{ week_start_date: string | null; status: string }>,
+    nowMs,
+  );
+  return result ? result.rate : null;
+}
+
+// roster slim: 전체기간 누적 Po.A/B/C = SUM(points/advantages/penalty)
+// (adminMembersData.sumPointsForUsers 동일 기준). 단일 사용자라 페이지네이션 불필요(주차 수 << 1000).
+// 실패 시 0/0/0(슬림은 best-effort — 읽기에서 drift 가드로 보정).
+async function derivePointSums(
+  profileUserId: string,
+): Promise<{ poA: number; poB: number; poC: number }> {
+  const { data, error } = await supabaseAdmin
+    .from("user_weekly_points")
+    .select("points,advantages,penalty")
+    .eq("user_id", profileUserId);
+  if (error || !data) return { poA: 0, poB: 0, poC: 0 };
+  let poA = 0;
+  let poB = 0;
+  let poC = 0;
+  for (const r of data as Array<{ points: number | null; advantages: number | null; penalty: number | null }>) {
+    poA += r.points ?? 0;
+    poB += r.advantages ?? 0;
+    poC += r.penalty ?? 0;
+  }
+  return { poA, poB, poC };
+}
 
 // /admin/members 크루 목록 slim 캐시 동기 — snapshot 카드에서 파생된 스칼라를 같은 computed_at 으로
 // 함께 저장한다(고객 SoT 동기). best-effort: 실패해도 snapshot 쓰기/본 요청을 깨뜨리지 않는다
@@ -16,22 +66,53 @@ async function writeRosterCardStats(
 ): Promise<void> {
   const stats = deriveRosterCardStats(cards, computedAtIso.slice(0, 10));
   if (!stats) return; // 카드 비정상 → slim 미기록(읽기에서 fat 폴백)
-  const { error } = await supabaseAdmin.from(ROSTER_STATS_TABLE).upsert(
-    {
-      user_id: profileUserId,
-      dto_version: WEEKLY_CARDS_DTO_VERSION,
-      snapshot_computed_at: computedAtIso,
-      success_weeks: stats.successWeeks,
-      growable_weeks: stats.growableWeeks,
-      elapsed_weeks: stats.elapsedWeeks,
-      activity_available: stats.activityAvailable,
-      activity_completed: stats.activityCompleted,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" },
-  );
-  if (error) {
+
+  // 일정 신뢰도 + Po.A/B/C 는 카드(jsonb)가 아닌 별도 SoT(user_week_statuses·user_weekly_points)에서
+  // 같은 snapshot 시점에 파생한다. 실패해도 본 upsert 를 막지 않는다(해당 컬럼만 null/0).
+  const [scheduleRate, points] = await Promise.all([
+    deriveScheduleRate(profileUserId, new Date(computedAtIso).getTime()),
+    derivePointSums(profileUserId),
+  ]);
+
+  // 기존(성장/활동) 컬럼 — 이 확장 마이그레이션이 미적용이어도 항상 쓸 수 있어야 한다.
+  const basePayload = {
+    user_id: profileUserId,
+    dto_version: WEEKLY_CARDS_DTO_VERSION,
+    snapshot_computed_at: computedAtIso,
+    success_weeks: stats.successWeeks,
+    growable_weeks: stats.growableWeeks,
+    elapsed_weeks: stats.elapsedWeeks,
+    activity_available: stats.activityAvailable,
+    activity_completed: stats.activityCompleted,
+    updated_at: new Date().toISOString(),
+  };
+  // 확장(일정/포인트) 컬럼 포함 — 마이그레이션 적용 후 동작.
+  const extendedPayload = {
+    ...basePayload,
+    schedule_rate: scheduleRate,
+    po_a: points.poA,
+    po_b: points.poB,
+    po_c: points.poC,
+  };
+
+  const { error } = await supabaseAdmin
+    .from(ROSTER_STATS_TABLE)
+    .upsert(extendedPayload, { onConflict: "user_id" });
+  if (!error) return;
+
+  // 신규 컬럼 미존재(마이그레이션 미적용) 등으로 확장 upsert 가 실패하면, 기존 컬럼만이라도
+  // 기록해 성장 slim(getGrowthRosterBatchFast)이 회귀 없이 동작하게 한다. 일정/포인트는 읽기에서
+  // live 폴백되므로 정합은 유지된다.
+  const { error: baseError } = await supabaseAdmin
+    .from(ROSTER_STATS_TABLE)
+    .upsert(basePayload, { onConflict: "user_id" });
+  if (baseError) {
     console.warn("[weekly-cards][roster-stats] upsert skipped", {
+      profileUserId,
+      message: baseError.message,
+    });
+  } else {
+    console.warn("[weekly-cards][roster-stats] extended columns missing → base-only written", {
       profileUserId,
       message: error.message,
     });
@@ -247,7 +328,10 @@ export async function readWeeklyCardsSnapshotBatch(
   const ids = Array.from(new Set(profileUserIds.filter((id): id is string => Boolean(id))));
   if (ids.length === 0) return out;
 
-  const ID_CHUNK = 200;
+  // fat cards jsonb(사용자당 수십 KB)를 함께 SELECT 하므로 청크가 크면 Postgres statement timeout
+  // 에 걸린다(전체 로스터 200×수십KB = 수 MB/쿼리). 50 으로 낮춰 timeout 위험을 줄인다. 실패 청크는
+  // 아래에서 status:"error" 로 표기되어 호출부가 fail-soft 처리한다(무거운 실시간 폴백으로 빠지지 않음).
+  const ID_CHUNK = 50;
   for (let i = 0; i < ids.length; i += ID_CHUNK) {
     const chunk = ids.slice(i, i + ID_CHUNK);
     const { data, error } = await supabaseAdmin

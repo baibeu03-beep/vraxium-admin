@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isTransitionWeekStart } from "@/lib/seasonCalendar";
+import { computeScheduleReliabilityFromRows } from "@/lib/scheduleReliabilityCore";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import { EXPERIENCE_RATING_FAIL_THRESHOLD } from "@/lib/cluster4Enhancement";
 import { isCareerGradeFail, type CareerGrade } from "@/lib/careerGrade";
@@ -70,63 +71,16 @@ async function computeScheduleReliability(
   const activityStart = profileRes.data?.activity_started_at as
     | string
     | null;
-  if (!activityStart) return dummyScheduleReliability();
-
-  const startDate = new Date(activityStart);
-  const now = new Date();
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-  const physicalWeeks = Math.max(
-    1,
-    Math.floor((now.getTime() - startDate.getTime()) / msPerWeek),
-  );
 
   const rows = weekRes.data as Array<{
     week_start_date: string | null;
     status: string;
   }>;
-  let preRestWeeks = 0;
-  let unapprovedActiveWeeks = 0;
-  let approvedActiveWeeks = 0;
-  let officialRestWeeks = 0;
-  let transitionWeeks = 0;
 
-  for (const row of rows) {
-    // 전환 주차는 신뢰율 분자·분모 모두에서 제외(공식 휴식 아님). 분모 보정용으로만 카운트.
-    if (row.week_start_date && isTransitionWeekStart(row.week_start_date)) {
-      transitionWeeks++;
-      continue;
-    }
-    switch (row.status) {
-      case "success":
-        approvedActiveWeeks++;
-        break;
-      case "fail":
-        unapprovedActiveWeeks++;
-        break;
-      case "personal_rest":
-        preRestWeeks++;
-        break;
-      case "official_rest":
-        officialRestWeeks++;
-        break;
-    }
-  }
-
-  // physicalWeeks(시간기반 분모)에서 공식 휴식 + 전환 주차를 제외.
-  const denominator = physicalWeeks - officialRestWeeks - transitionWeeks;
-  const rate =
-    denominator > 0
-      ? Math.round(((approvedActiveWeeks + preRestWeeks) / denominator) * 100)
-      : 0;
-
-  return {
-    physicalWeeks,
-    preRestWeeks,
-    unapprovedActiveWeeks,
-    approvedActiveWeeks,
-    officialRestWeeks,
-    rate,
-  };
+  // 단일 산식은 lib/scheduleReliabilityCore 로 통일(배치/slim writer 와 drift 차단).
+  //   산정 불가(activity_started_at 부재/무효) → resume 화면은 dummy 폴백(rate 94) 유지.
+  const result = computeScheduleReliabilityFromRows(activityStart, rows, Date.now());
+  return result ?? dummyScheduleReliability();
 }
 
 function dummyScheduleReliability(): ScheduleReliability {
@@ -201,51 +155,16 @@ export async function getScheduleReliabilityRateBatch(
     }
   }
 
-  // 3) 사용자별 rate (computeScheduleReliability 와 동일 산식)
-  const now = new Date();
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000;
+  // 3) 사용자별 rate — computeScheduleReliability 와 동일 코어(lib/scheduleReliabilityCore).
+  //    산정 불가(activity_started_at 부재/무효) → null(어드민 표 "—"). resume dummy 는 미사용.
+  const nowMs = Date.now();
   for (const userId of userIds) {
-    const start = startById.get(userId);
-    if (!start) {
-      map.set(userId, null);
-      continue;
-    }
-    const startDate = new Date(start);
-    if (Number.isNaN(startDate.getTime())) {
-      map.set(userId, null);
-      continue;
-    }
-    const physicalWeeks = Math.max(
-      1,
-      Math.floor((now.getTime() - startDate.getTime()) / msPerWeek),
+    const result = computeScheduleReliabilityFromRows(
+      startById.get(userId) ?? null,
+      rowsByUser.get(userId) ?? [],
+      nowMs,
     );
-    let preRestWeeks = 0;
-    let approvedActiveWeeks = 0;
-    let officialRestWeeks = 0;
-    let transitionWeeks = 0;
-    for (const row of rowsByUser.get(userId) ?? []) {
-      if (row.week_start_date && isTransitionWeekStart(row.week_start_date)) {
-        transitionWeeks++;
-        continue;
-      }
-      switch (row.status) {
-        case "success":
-          approvedActiveWeeks++;
-          break;
-        case "personal_rest":
-          preRestWeeks++;
-          break;
-        case "official_rest":
-          officialRestWeeks++;
-          break;
-      }
-    }
-    const denominator = physicalWeeks - officialRestWeeks - transitionWeeks;
-    const rate =
-      denominator > 0
-        ? Math.round(((approvedActiveWeeks + preRestWeeks) / denominator) * 100)
-        : 0;
-    map.set(userId, rate);
+    map.set(userId, result ? result.rate : null);
   }
 
   return map;

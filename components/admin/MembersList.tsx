@@ -53,6 +53,19 @@ type Member = {
   activityCompletion: number | null;
 };
 
+// 로스터 전체 조회 중 일부 사용자의 성장 지표(snapshot)를 못 읽었을 때의 부분 실패 신호.
+//   (lib/adminMembersData.RosterPartialFailure 와 동일 모양 — 화면 안내 전용)
+type RosterPartialFailureClient = {
+  growthUnavailable: number;
+  failedChunks: number;
+};
+
+// 조직/모드별 로스터 캐시 1건 — 멤버 + 부분 실패 안내를 함께 보관(왕복 시 안내 유지).
+type RosterCacheEntry = {
+  members: Member[];
+  partialFailure: RosterPartialFailureClient | null;
+};
+
 // ── 탭 ──────────────────────────────────────────────────────────────
 type MemberTab = "list" | "info";
 
@@ -324,8 +337,10 @@ export default function MembersList() {
   const [roster, setRoster] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 일부 사용자의 성장 지표(snapshot)를 못 읽은 부분 실패 — 전체는 정상 표시하되 안내만.
+  const [partialFailure, setPartialFailure] = useState<RosterPartialFailureClient | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
-  const rosterCache = useRef<Map<string, Member[]>>(new Map());
+  const rosterCache = useRef<Map<string, RosterCacheEntry>>(new Map());
 
   // 정렬 스택 — 맨 앞이 1순위. 새 클릭이 항상 1순위가 되고 직전 조건은 후순위로 밀린다.
   const [sortStack, setSortStack] = useState<SortEntry[]>([]);
@@ -398,7 +413,8 @@ export default function MembersList() {
     let cancelled = false;
     const cached = rosterCache.current.get(cacheKey);
     if (cached) {
-      setRoster(cached);
+      setRoster(cached.members);
+      setPartialFailure(cached.partialFailure);
       setLoading(false);
       setError(null);
       return;
@@ -406,6 +422,7 @@ export default function MembersList() {
     const load = async () => {
       setLoading(true);
       setError(null);
+      setPartialFailure(null);
       try {
         const params = new URLSearchParams();
         if (fetchOrg) params.set("organization", fetchOrg);
@@ -420,12 +437,15 @@ export default function MembersList() {
         }
         if (cancelled) return;
         const members = (json.data?.members ?? []) as Member[];
-        rosterCache.current.set(cacheKey, members);
+        const partial = (json.data?.partialFailure ?? null) as RosterPartialFailureClient | null;
+        rosterCache.current.set(cacheKey, { members, partialFailure: partial });
         setRoster(members);
+        setPartialFailure(partial);
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "Failed to load roster.");
         setRoster([]);
+        setPartialFailure(null);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -505,7 +525,9 @@ export default function MembersList() {
   }, []);
 
   return (
-    <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6">
+    // 목록 페이지는 전체 너비 사용(18컬럼 표 A 가로 스크롤 방지) — 상세 페이지(CrewDetail)의
+    // max-w 와 분리. 좁은 max-w 를 강제하지 않는다(공통 wrapper 미공유).
+    <div className="flex w-full flex-col gap-6 px-4 py-6">
       {tab === "info" ? (
         <Card>
           <CardHeader>
@@ -612,6 +634,14 @@ export default function MembersList() {
             {error && (
               <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
+              </div>
+            )}
+
+            {!error && partialFailure && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                일부 snapshot 조회 실패 — {partialFailure.growthUnavailable.toLocaleString()}명의 성장
+                성공/성장 가능/활동 완료율을 불러오지 못해 “-”로 표시합니다. 잠시 후 새로고침하면
+                복구될 수 있습니다.
               </div>
             )}
 

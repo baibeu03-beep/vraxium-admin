@@ -11,6 +11,7 @@ import type { OrganizationSlug } from "@/lib/organizations";
 import { getGrowthRosterBatchFast } from "@/lib/cluster3GrowthData";
 import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
 import { getScheduleReliabilityRateBatch } from "@/lib/cluster1ResumeData";
+import { WEEKLY_CARDS_DTO_VERSION } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { listAdminCrewDtos } from "@/lib/adminCrewData";
 import {
   isMemberAssignableRole,
@@ -513,12 +514,131 @@ export type MemberRosterRow = {
   activityCompletion: number | null; // 활동 완료율(%) — 고객 cluster.1 동일 산식. 데이터 없음=null.
 };
 
+// 로스터 전체 조회 중 일부 사용자의 성장 지표(snapshot)를 못 읽었을 때의 부분 실패 신호.
+//   전체 API 를 깨지 않고(fail-soft) 화면에 "일부 snapshot 조회 실패" 안내를 띄우기 위함.
+export type RosterPartialFailure = {
+  growthUnavailable: number; // 성장상태/성공·가능주차/활동완료율이 비어 "-"로 렌더되는 사용자 수
+  failedChunks: number; // 통째로 실패한 snapshot 배치(청크) 수
+};
+
+// ─── roster slim 캐시 우선: 일정 신뢰도 + Po.A/B/C ──────────────────────────
+// listMembersRoster 의 두 무거운 live 배치(getScheduleReliabilityRateBatch 전원 · sumPointsForUsers
+// 전원)를 대체한다. cluster4_roster_card_stats(slim) 의 schedule_rate/po_a/po_b/po_c 를 읽어
+// 읽기 경로에서 user_week_statuses·user_weekly_points 전수 스캔을 회피한다.
+//   - slim 신뢰 조건 = (dto_version 일치 AND snapshot_computed_at == 현재 snapshot.computed_at).
+//     getGrowthRosterBatchFast 와 동일한 drift 가드(같은 snapshot 시점에 writer 가 파생·저장).
+//   - 신뢰 불가(누락/버전불일치/computed_at 불일치/표·컬럼 부재) 사용자 = 그 사용자만 live 폴백.
+//   → 마이그레이션 미적용/미백필이어도 결과는 live 와 동일(무중단·정합). 컬럼 부재 시 전체 live.
+// 품계(클럽 랭크)는 이 Phase 범위 밖 — listMembersRoster 가 별도 live 유지.
+const ROSTER_STATS_TABLE = "cluster4_roster_card_stats";
+
+type RosterPointsSchedule = {
+  scheduleReliability: number | null;
+  poA: number;
+  poB: number;
+  poC: number;
+};
+
+type RosterSlimPointsRow = {
+  user_id: string;
+  dto_version: number;
+  snapshot_computed_at: string;
+  schedule_rate: number | null;
+  po_a: number;
+  po_b: number;
+  po_c: number;
+};
+
+export async function getRosterPointsScheduleFast(
+  userIds: string[],
+): Promise<Map<string, RosterPointsSchedule>> {
+  const out = new Map<string, RosterPointsSchedule>();
+  if (userIds.length === 0) return out;
+  const ID_CHUNK = 200;
+
+  // 1) slim 읽기(경량). 표/컬럼 부재(마이그레이션 미적용) 등 실패 시 전체 live 폴백.
+  const slimByUser = new Map<string, RosterSlimPointsRow>();
+  let slimAvailable = true;
+  try {
+    for (let i = 0; i < userIds.length; i += ID_CHUNK) {
+      const chunk = userIds.slice(i, i + ID_CHUNK);
+      const { data, error } = await supabaseAdmin
+        .from(ROSTER_STATS_TABLE)
+        .select("user_id,dto_version,snapshot_computed_at,schedule_rate,po_a,po_b,po_c")
+        .in("user_id", chunk);
+      if (error) throw new Error(error.message);
+      for (const r of (data ?? []) as RosterSlimPointsRow[]) slimByUser.set(r.user_id, r);
+    }
+  } catch (e) {
+    slimAvailable = false;
+    console.warn("[roster-stats] slim(points/schedule) unavailable → live fallback", {
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  // 2) drift 가드: slim.snapshot_computed_at == 현재 snapshot.computed_at 인 행만 신뢰.
+  const snapComputedAt = new Map<string, string>();
+  if (slimAvailable && slimByUser.size > 0) {
+    const slimIds = [...slimByUser.keys()];
+    for (let i = 0; i < slimIds.length; i += ID_CHUNK) {
+      const chunk = slimIds.slice(i, i + ID_CHUNK);
+      const { data, error } = await supabaseAdmin
+        .from("cluster4_weekly_card_snapshots")
+        .select("user_id,computed_at")
+        .in("user_id", chunk);
+      if (error) throw new Error(error.message);
+      for (const r of (data ?? []) as { user_id: string; computed_at: string }[]) {
+        snapComputedAt.set(r.user_id, r.computed_at);
+      }
+    }
+  }
+
+  // 3) 신뢰 가능 = slim · 그 외 = live 폴백 대상.
+  const needLiveIds: string[] = [];
+  for (const uid of userIds) {
+    const s = slimByUser.get(uid);
+    if (
+      s &&
+      s.dto_version === WEEKLY_CARDS_DTO_VERSION &&
+      snapComputedAt.get(uid) === s.snapshot_computed_at
+    ) {
+      out.set(uid, {
+        scheduleReliability: s.schedule_rate,
+        poA: s.po_a,
+        poB: s.po_b,
+        poC: s.po_c,
+      });
+    } else {
+      needLiveIds.push(uid);
+    }
+  }
+
+  // 4) live 폴백(미백필/불일치/컬럼부재) — 그 사용자만. 검증된 기존 경로 그대로.
+  if (needLiveIds.length > 0) {
+    const [scheduleRate, points] = await Promise.all([
+      getScheduleReliabilityRateBatch(needLiveIds),
+      sumPointsForUsers(needLiveIds),
+    ]);
+    for (const uid of needLiveIds) {
+      const pts = points.get(uid) ?? ZERO_POINTS;
+      out.set(uid, {
+        scheduleReliability: scheduleRate.get(uid) ?? null,
+        poA: pts.checkPoints,
+        poB: pts.advantagePoints,
+        poC: pts.penaltyPoints,
+      });
+    }
+  }
+
+  return out;
+}
+
 export async function listMembersRoster(options: {
   organization?: OrganizationSlug | null; // slug | null/undefined(전체)
   mode?: ScopeMode;
   // 단계별 소요 시간을 콘솔에 출력(진단 전용 — 라우트는 미사용, prod 로그 무영향).
   profile?: boolean;
-}): Promise<{ members: MemberRosterRow[] }> {
+}): Promise<{ members: MemberRosterRow[]; partialFailure: RosterPartialFailure | null }> {
   const mode = options.mode ?? "operating";
   const t = (label: string, ms: number) => {
     if (options.profile) console.log(`[roster][profile] ${label}=${ms}ms`);
@@ -530,7 +650,7 @@ export async function listMembersRoster(options: {
   const crews = await listAdminCrewDtos(options.organization ?? undefined, mode);
   t("listAdminCrewDtos", Date.now() - s);
   const userIds = crews.map((c) => c.userId);
-  if (userIds.length === 0) return { members: [] };
+  if (userIds.length === 0) return { members: [], partialFailure: null };
 
   const ID_CHUNK = 200;
 
@@ -540,37 +660,53 @@ export async function listMembersRoster(options: {
   s = Date.now();
 
   // 표시 성장상태 + 성장 성공/가능 + 활동 완료율 — 청크 단위 snapshot 배치.
+  //   청크가 통째로 실패(예: snapshot statement timeout)해도 전체 로스터를 깨지 않는다(fail-soft):
+  //   실패 청크는 건너뛰고 failedChunks 로 집계 → 해당 사용자는 아래에서 "-"(null)로 렌더되고,
+  //   화면에 "일부 snapshot 조회 실패" 안내가 뜬다. (loading 무한 회전·전체 500 방지)
   const buildGrowthMap = async () => {
     const map = new Map<
       string,
       { displayGrowthStatus: string; successWeeks: number; growableWeeks: number; activityRate: number }
     >();
+    let failedChunks = 0;
     for (let i = 0; i < userIds.length; i += ID_CHUNK) {
-      const rows = await getGrowthRosterBatchFast(userIds.slice(i, i + ID_CHUNK));
-      for (const r of rows) {
-        map.set(r.userId, {
-          displayGrowthStatus: r.displayGrowthStatus,
-          successWeeks: r.successWeeks,
-          growableWeeks: r.growableWeeks,
-          activityRate: r.activityRate,
+      const chunk = userIds.slice(i, i + ID_CHUNK);
+      try {
+        const rows = await getGrowthRosterBatchFast(chunk);
+        for (const r of rows) {
+          map.set(r.userId, {
+            displayGrowthStatus: r.displayGrowthStatus,
+            successWeeks: r.successWeeks,
+            growableWeeks: r.growableWeeks,
+            activityRate: r.activityRate,
+          });
+        }
+      } catch (err) {
+        failedChunks += 1;
+        console.warn("[roster] growth batch chunk failed → fail-soft", {
+          chunkStart: i,
+          chunkSize: chunk.length,
+          message: err instanceof Error ? err.message : String(err),
         });
       }
     }
-    return map;
+    return { map, failedChunks };
   };
 
-  const [growthByUser, clubRankByUser, points, scheduleRate] = await Promise.all([
+  // 일정 신뢰도 + Po.A/B/C 는 slim 우선(getRosterPointsScheduleFast) — 읽기 경로에서 전수 스캔 회피.
+  //   품계(클럽 랭크)는 이 Phase 범위 밖 — 전체 코호트 백분위라 live 유지(후속 Phase 분리).
+  const [growthResult, clubRankByUser, statsByUser] = await Promise.all([
     buildGrowthMap(),
     getClubRankGradeBatch(userIds),
-    sumPointsForUsers(userIds),
-    getScheduleReliabilityRateBatch(userIds),
+    getRosterPointsScheduleFast(userIds),
   ]);
-  t("batches(growth+clubRank+points+schedule)", Date.now() - s);
+  const growthByUser = growthResult.map;
+  t("batches(growth+clubRank+points·schedule-slim)", Date.now() - s);
 
   const members: MemberRosterRow[] = crews.map((c) => {
     const g = growthByUser.get(c.userId);
     const rank = clubRankByUser.get(c.userId) ?? null;
-    const pts = points.get(c.userId) ?? ZERO_POINTS;
+    const st = statsByUser.get(c.userId);
     return {
       userId: c.userId,
       displayName: c.displayName,
@@ -588,10 +724,10 @@ export async function listMembersRoster(options: {
       rankGradeLabel: rank?.label ?? null,
       successWeeks: g?.successWeeks ?? null,
       growableWeeks: g?.growableWeeks ?? null,
-      poA: pts.checkPoints,
-      poB: pts.advantagePoints,
-      poC: pts.penaltyPoints,
-      scheduleReliability: scheduleRate.get(c.userId) ?? null,
+      poA: st?.poA ?? 0,
+      poB: st?.poB ?? 0,
+      poC: st?.poC ?? 0,
+      scheduleReliability: st?.scheduleReliability ?? null,
       activityCompletion: g?.activityRate ?? null,
     };
   });
@@ -603,7 +739,19 @@ export async function listMembersRoster(options: {
       a.userId.localeCompare(b.userId),
   );
 
-  return { members };
+  // 일부 사용자의 성장 지표(snapshot)를 못 읽었으면 부분 실패로 표기 → 화면 안내.
+  //   - growthUnavailable = 성장상태/성공·가능주차/활동완료율이 비어 "-"로 렌더되는 사용자 수.
+  //   - failedChunks      = 통째로 실패한 snapshot 배치(청크) 수(로그 상관용).
+  const growthUnavailable = userIds.filter((id) => !growthByUser.has(id)).length;
+  const partialFailure: RosterPartialFailure | null =
+    growthUnavailable > 0 || growthResult.failedChunks > 0
+      ? { growthUnavailable, failedChunks: growthResult.failedChunks }
+      : null;
+  if (partialFailure) {
+    console.warn("[roster] partial failure", { ...partialFailure, total: userIds.length });
+  }
+
+  return { members, partialFailure };
 }
 
 // ─────────────────────────────────────────────────────────────────────────

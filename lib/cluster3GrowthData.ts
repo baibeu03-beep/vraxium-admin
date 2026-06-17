@@ -815,6 +815,9 @@ export async function getGrowthRosterBatch(
   const snapByUser = await readWeeklyCardsSnapshotBatch(profiles.map((p) => p.user_id));
   const liteByUser = new Map<string, ResolvedCardLite[]>();
   const activityByUser = new Map<string, { available: number; completed: number }>();
+  // snapshot 조회가 실패한(status:"error" — 예: statement timeout) 사용자. 이들은 무거운 실시간
+  // 폴백으로 빠지지 않고(전체 요청 timeout/hang 유발) 결과에서 제외한다 → 호출부가 "-"로 fail-soft.
+  const failedUserIds = new Set<string>();
   await Promise.all(
     profiles.map(async (profile) => {
       const snap = snapByUser.get(profile.user_id) ?? { status: "miss" as const };
@@ -828,16 +831,30 @@ export async function getGrowthRosterBatch(
           available += card.growthDenominator;
           completed += card.growthNumerator;
         }
+      } else if (snap.status === "error") {
+        // DB 조회 실패(timeout 등) — 실시간 폴백 금지(무겁다). fail-soft 로 이 사용자 제외.
+        failedUserIds.add(profile.user_id);
+        return;
       }
       if (!lite) {
-        // fallback: 실시간 계산(무겁다). snapshot 정상화 시 거의 타지 않는다. 활동완료율은 0/0.
-        const g = await getWeeklyGrowth(profile.user_id);
-        lite = (g?.weeklyCards ?? []).map((c) => ({
-          resultStatus: c.resultStatus,
-          startDate: c.startDate,
-          endDate: c.endDate,
-          isTransition: c.isTransition,
-        }));
+        // fallback: 실시간 계산(무겁다). miss(snapshot 없음 — 신규 유저)에만 탄다. 활동완료율은 0/0.
+        // 폴백 자체가 실패해도 전체 배치를 깨지 않고 이 사용자만 제외(fail-soft).
+        try {
+          const g = await getWeeklyGrowth(profile.user_id);
+          lite = (g?.weeklyCards ?? []).map((c) => ({
+            resultStatus: c.resultStatus,
+            startDate: c.startDate,
+            endDate: c.endDate,
+            isTransition: c.isTransition,
+          }));
+        } catch (e) {
+          console.warn("[roster] realtime growth fallback failed → omit user", {
+            userId: profile.user_id,
+            message: e instanceof Error ? e.message : String(e),
+          });
+          failedUserIds.add(profile.user_id);
+          return;
+        }
       }
       liteByUser.set(profile.user_id, lite);
       activityByUser.set(profile.user_id, { available, completed });
@@ -845,7 +862,9 @@ export async function getGrowthRosterBatch(
   );
 
   const seasonKey = currentSeasonDbKey();
-  return profiles.map((profile) => {
+  return profiles
+    .filter((profile) => !failedUserIds.has(profile.user_id))
+    .map((profile) => {
     const internal = buildIndicators(
       profile,
       [],
@@ -924,16 +943,26 @@ export async function getGrowthRosterBatchFast(
   const snapComputedAt = new Map<string, string>();
   if (slimAvailable && slimByUser.size > 0) {
     const slimIds = [...slimByUser.keys()];
-    for (let i = 0; i < slimIds.length; i += ID_CHUNK) {
-      const chunk = slimIds.slice(i, i + ID_CHUNK);
-      const { data, error } = await supabaseAdmin
-        .from("cluster4_weekly_card_snapshots")
-        .select("user_id,computed_at")
-        .in("user_id", chunk);
-      if (error) throw new GrowthError(500, error.message);
-      for (const r of (data ?? []) as { user_id: string; computed_at: string }[]) {
-        snapComputedAt.set(r.user_id, r.computed_at);
+    try {
+      for (let i = 0; i < slimIds.length; i += ID_CHUNK) {
+        const chunk = slimIds.slice(i, i + ID_CHUNK);
+        // computed_at 만 SELECT(fat cards 미포함) — 경량. 단 실패 시 throw 하지 않고 slim 전체를
+        // 무효화(→ fat 폴백)해 로스터 경로가 500 으로 깨지지 않게 한다(fail-soft).
+        const { data, error } = await supabaseAdmin
+          .from("cluster4_weekly_card_snapshots")
+          .select("user_id,computed_at")
+          .in("user_id", chunk);
+        if (error) throw new Error(error.message);
+        for (const r of (data ?? []) as { user_id: string; computed_at: string }[]) {
+          snapComputedAt.set(r.user_id, r.computed_at);
+        }
       }
+    } catch (e) {
+      slimAvailable = false;
+      snapComputedAt.clear();
+      console.warn("[roster-stats] snapshot computed_at drift-guard read failed → fat fallback", {
+        message: e instanceof Error ? e.message : String(e),
+      });
     }
   }
 
