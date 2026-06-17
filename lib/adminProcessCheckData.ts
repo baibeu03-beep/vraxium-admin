@@ -34,6 +34,8 @@ import {
   validateReviewLink,
   validateScheduledCheckAt,
   isPartLineGroupName,
+  deriveReviewerResolutionStatus,
+  type ProcessCheckReviewerDebug,
   TEAM_OVERALL_LABEL,
   type ProcessCheckAction,
   type ProcessCheckActRowDto,
@@ -245,6 +247,7 @@ async function loadActiveMaster(hub: ProcessHub): Promise<{ groups: LineGroupRow
 
 // ── 체크 상태 읽기 (org × hub × week) — best-effort(테이블 미적용 시 빈 맵 = 전부 needed) ──
 type StatusRow = {
+  id: string;
   act_id: string;
   status: string;
   review_link: string | null;
@@ -252,28 +255,88 @@ type StatusRow = {
   requested_at: string | null;
   completed_at: string | null;
   checked_crew_count: number | null;
+  attempt_count: number | null;
+  last_error: string | null;
 };
 type StatusState = {
+  statusRowId: string | null; // recipients(ref_id) 조인 키. needed(행 없음)면 null.
   status: ProcessCheckStatus;
   reviewLink: string | null;
   scheduledCheckAt: string | null;
   requestedAt: string | null;
   completedAt: string | null;
   checkedCrewCount: number | null;
+  attemptCount: number;
+  lastError: string | null;
 };
 const STATUS_SELECT =
-  "act_id,status,review_link,scheduled_check_at,requested_at,completed_at,checked_crew_count";
+  "id,act_id,status,review_link,scheduled_check_at,requested_at,completed_at,checked_crew_count,attempt_count,last_error";
 
 function toStatusState(r: StatusRow): StatusState {
   const status: ProcessCheckStatus =
     r.status === "pending" || r.status === "completed" ? r.status : "needed";
   return {
+    statusRowId: r.id,
     status,
     reviewLink: r.review_link,
     scheduledCheckAt: r.scheduled_check_at,
     requestedAt: r.requested_at,
     completedAt: r.completed_at,
     checkedCrewCount: r.checked_crew_count,
+    attemptCount: r.attempt_count ?? 0,
+    lastError: r.last_error ?? null,
+  };
+}
+
+// ── 검수 크루 식별 결과(recipients) 조인 — 진단(reviewerDebug) 산출용 ──────────────
+//   process_check_review_recipients(source='regular', ref_id=status row id). best-effort
+//   (테이블/컬럼 미적용이면 빈 맵 → reviewerDebug 는 status 기반 파생만으로 동작).
+type RecipientAgg = { matched: number; unmatchedAuthors: string[] };
+async function loadReviewerRecipients(
+  statusRowIds: string[],
+): Promise<Map<string, RecipientAgg>> {
+  const map = new Map<string, RecipientAgg>();
+  if (statusRowIds.length === 0) return map;
+  const { data, error } = await supabaseAdmin
+    .from("process_check_review_recipients")
+    .select("ref_id,match_type,nickname")
+    .eq("source", "regular")
+    .in("ref_id", statusRowIds);
+  if (error) {
+    console.warn("[process-check-recipients] read unavailable:", error.message);
+    return map;
+  }
+  for (const r of (data ?? []) as Array<{ ref_id: string; match_type: string; nickname: string | null }>) {
+    let agg = map.get(r.ref_id);
+    if (!agg) map.set(r.ref_id, (agg = { matched: 0, unmatchedAuthors: [] }));
+    if (r.match_type === "matched") agg.matched += 1;
+    else agg.unmatchedAuthors.push(r.nickname ?? "");
+  }
+  return map;
+}
+
+// 액트 행 1건의 검수 크루 진단 산출 — recipients(있으면 우선) + status/last_error 파생.
+function buildReviewerDebug(
+  st: StatusState,
+  recipients: Map<string, RecipientAgg>,
+): ProcessCheckReviewerDebug {
+  const rec = st.statusRowId ? recipients.get(st.statusRowId) : undefined;
+  // 매칭 수 — recipients 가 있으면 그 matched, 없으면 checked_crew_count 폴백(completed 시).
+  const matchedCount = rec ? rec.matched : st.checkedCrewCount ?? 0;
+  const unmatchedCommentAuthors = rec ? rec.unmatchedAuthors : [];
+  const reviewCount = unmatchedCommentAuthors.length;
+  return {
+    resolutionStatus: deriveReviewerResolutionStatus({
+      status: st.status,
+      lastError: st.lastError,
+      matchedCount,
+      reviewCount,
+    }),
+    crawledCommentCount: matchedCount + reviewCount,
+    matchedCrewCount: matchedCount,
+    unmatchedCommentAuthors,
+    attemptCount: st.attemptCount,
+    lastError: st.lastError,
   };
 }
 
@@ -311,12 +374,15 @@ async function loadStatusRows(
 }
 
 const NEEDED: StatusState = {
+  statusRowId: null,
   status: "needed",
   reviewLink: null,
   scheduledCheckAt: null,
   requestedAt: null,
   completedAt: null,
   checkedCrewCount: null,
+  attemptCount: 0,
+  lastError: null,
 };
 
 // ── 보드 조회 ─────────────────────────────────────────────────────────────────
@@ -357,6 +423,10 @@ export async function getProcessCheckBoard(
 
   // 상태 행 로드 + 스코프별 액트→상태 맵 구성.
   const rows = week?.weekId ? await loadStatusRows(organization, hub, week.weekId, teamId, partAvail) : [];
+  // 검수 크루 식별 결과(recipients) 조인 — reviewerDebug 산출(read-only·best-effort).
+  const recipients = await loadReviewerRecipients(
+    rows.map((r) => r.state.statusRowId).filter((x): x is string => Boolean(x)),
+  );
   const nullMap = new Map<string, StatusState>(); // part_name IS NULL(팀 총괄/info)
   const perActPerPart = new Map<string, Map<string, StatusState>>(); // 파트 액트(act→part→state)
   for (const r of rows) {
@@ -415,6 +485,7 @@ export async function getProcessCheckBoard(
     requestedAt: st.requestedAt,
     completedAt: st.completedAt,
     checkedCrewCount: st.checkedCrewCount,
+    reviewerDebug: buildReviewerDebug(st, recipients),
   });
 
   // 행 생성 — partLabel("팀 총괄"/파트명) 부여. 팀 전체(team_all)의 파트 액트는 팀 파트마다 1행으로 펼친다
@@ -733,6 +804,10 @@ export async function applyProcessCheckAction(input: {
     logAction = "check_requested";
     stamp = {
       status: "pending",
+      // 보드 모드(operating/test)를 행에 각인 — worker 크루 매칭 스코프(WORKER_MODES)와 정합.
+      //   미기입 시 DB 기본값 'operating' 으로 저장되어, 테스트 보드(W13)에서 만든 신청도
+      //   scope_mode='operating' 이 되어 WORKER_MODES=test worker 가 영원히 못 잡는다(체크 대기 고착).
+      scope_mode: input.mode ?? "operating",
       review_link: link.value,
       scheduled_check_at: new Date(input.scheduledCheckAt).toISOString(),
       requested_at: nowIso,
@@ -833,6 +908,20 @@ export async function applyProcessCheckAction(input: {
     requestedAt: st.requested_at,
     completedAt: st.completed_at,
     checkedCrewCount: st.checked_crew_count,
+    // 신청/취소 직후 — 검수는 아직 미실행(worker 미처리). 디버그는 not_started 기본값.
+    reviewerDebug: {
+      resolutionStatus: deriveReviewerResolutionStatus({
+        status: st.status,
+        lastError: null,
+        matchedCount: st.checked_crew_count ?? 0,
+        reviewCount: 0,
+      }),
+      crawledCommentCount: st.checked_crew_count ?? 0,
+      matchedCrewCount: st.checked_crew_count ?? 0,
+      unmatchedCommentAuthors: [],
+      attemptCount: 0,
+      lastError: null,
+    },
   };
 }
 

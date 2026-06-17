@@ -18,6 +18,7 @@ import {
   formatCheckDateTimeKo,
   validateReviewLink,
   validateScheduledCheckAt,
+  REVIEWER_RESOLUTION_LABEL,
   type ProcessCheckActRowDto,
   type ProcessCheckScopeKind,
 } from "@/lib/adminProcessCheckTypes";
@@ -270,6 +271,20 @@ export default function ProcessCheckActDialog({
             </>
           )}
         </div>
+
+        {/* 검수 크루 식별 진단(테스트/관리자용) — "검수 크루 0명"의 원인 분리. needed 는 의미 없음(생략). */}
+        {status !== "needed" && act.reviewerDebug && (
+          <div className="mt-3 rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+            <p className="font-semibold">검수 진단</p>
+            <p>
+              원인: <span className="font-medium text-foreground">{REVIEWER_RESOLUTION_LABEL[act.reviewerDebug.resolutionStatus]}</span>
+              {" · "}식별 닉네임 {act.reviewerDebug.crawledCommentCount} · 매칭 {act.reviewerDebug.matchedCrewCount} · 미매칭 {act.reviewerDebug.unmatchedCommentAuthors.length}
+            </p>
+            {act.reviewerDebug.attemptCount > 0 && (
+              <p>worker 시도 {act.reviewerDebug.attemptCount}회{act.reviewerDebug.lastError ? ` · 오류: ${act.reviewerDebug.lastError}` : ""}</p>
+            )}
+          </div>
+        )}
 
         {banner && (
           <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">

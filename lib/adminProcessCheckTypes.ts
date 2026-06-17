@@ -97,6 +97,53 @@ export function validateReviewLink(raw: unknown): { ok: true; value: string } | 
   return { ok: true, value: v };
 }
 
+// ── 검수자(크루) 해소 상태 — "검수 크루 0명"의 원인 분리(테스트/관리자 진단용) ──────
+//   not_started            = 검수 로직 미실행. status≠completed(신청 전/검수 시점 전·worker 미처리).
+//   no_comments            = 완료됐으나 식별된 닉네임 0(카페 댓글 없음/수집 0).
+//   comments_found_no_match = 댓글(닉네임)은 있으나 현재 스코프(org+mode) 내 매칭 0. (기능 실패 아님)
+//   matched                = 스코프 내 매칭 ≥1.
+//   error                  = worker 처리 중 오류(last_error 존재).
+export type ReviewerResolutionStatus =
+  | "not_started"
+  | "no_comments"
+  | "comments_found_no_match"
+  | "matched"
+  | "error";
+
+export const REVIEWER_RESOLUTION_LABEL: Record<ReviewerResolutionStatus, string> = {
+  not_started: "검수 미실행(신청 전·검수 시점 전·worker 미처리)",
+  no_comments: "댓글 없음(수집 0)",
+  comments_found_no_match: "댓글 있으나 스코프 내 매칭 0",
+  matched: "매칭 완료",
+  error: "검수 오류",
+};
+
+// 검수자 해소 상태 파생(서버/클라/검증 공용 단일 SoT) — 순수 함수.
+export function deriveReviewerResolutionStatus(input: {
+  status: ProcessCheckStatus;
+  lastError: string | null;
+  matchedCount: number;
+  reviewCount: number;
+}): ReviewerResolutionStatus {
+  if (input.lastError) return "error";
+  if (input.status !== "completed") return "not_started";
+  if (input.matchedCount > 0) return "matched";
+  if (input.reviewCount > 0) return "comments_found_no_match";
+  return "no_comments";
+}
+
+// 검수 크루 식별 디버그(액트 행에 부착) — "- (0명)"의 원인을 구분하기 위한 read-only 진단 필드.
+//   ⚠ crawledCommentCount 는 "식별된 닉네임 수(매칭+수동확인)"다 — 카페 원문 댓글 총수는
+//      저장하지 않으므로(worker 가 폐기) 식별 닉네임 기준의 근사치다.
+export type ProcessCheckReviewerDebug = {
+  resolutionStatus: ReviewerResolutionStatus;
+  crawledCommentCount: number; // 식별 닉네임 수(matched + review). 원문 댓글 총수 아님.
+  matchedCrewCount: number; // 스코프 내 매칭(우리 크루) 수.
+  unmatchedCommentAuthors: string[]; // 매칭 실패(수동확인) 닉네임 목록.
+  attemptCount: number; // worker 시도 횟수(진단 보조).
+  lastError: string | null; // worker 마지막 오류(진단 보조).
+};
+
 // ── DTO ──────────────────────────────────────────────────────────────────────
 // [섹션.1] 액트 목록 테이블 한 행 — 마스터(process_acts) + 체크 상태(현재값).
 // "팀 & 파트" 컬럼 값 — 팀 총괄 액트 = "팀 총괄" / 파트 액트 = 파트명. ("팀 전체"는 값이 아님)
@@ -125,6 +172,8 @@ export type ProcessCheckActRowDto = {
   requestedAt: string | null; // 신청 시점(실제)
   completedAt: string | null;
   checkedCrewCount: number | null;
+  // 검수 크루 식별 진단(read-only) — "검수 크루 0명" 원인 분리. 운영 화면 노출 선택.
+  reviewerDebug: ProcessCheckReviewerDebug;
 };
 
 export type ProcessCheckLineGroupDto = {

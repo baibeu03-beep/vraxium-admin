@@ -172,7 +172,15 @@ export async function runOnce({ sb, now = Date.now(), orgs = null, modes = null,
       }
 
       // 완료 처리 (user_weekly_points/snapshot 무접촉).
-      const upd = { status: "completed", completed_at: new Date(now).toISOString(), last_error: null };
+      //   성공도 처리 기록을 남긴다 — last_attempt_at(언제 처리) + attempt_count(몇 번째 시도에 성공).
+      //   완료 행은 findDueItems(status='pending')에서 재폴링되지 않으므로 retry 게이트에 무해.
+      const upd = {
+        status: "completed",
+        completed_at: new Date(now).toISOString(),
+        last_error: null,
+        attempt_count: (item.attempt_count ?? 0) + 1,
+        last_attempt_at: new Date(now).toISOString(),
+      };
       if (item.source === "regular") upd.checked_crew_count = matched.length;
       const { error: uErr } = await sb.from(item.table).update(upd).eq("id", item.id);
       if (uErr) throw new Error(`complete update: ${uErr.message}`);
