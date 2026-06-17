@@ -8,6 +8,11 @@ import { isTestUser as isMarkedTestUser } from "@/lib/testUsers";
 import { sumPointsForUsers } from "@/lib/adminMembersData";
 import { getCluster1Resume } from "@/lib/cluster1ResumeData";
 import { getCrewSeasonResults, type CrewSeasonResultRow } from "@/lib/adminCrewSeasonResults";
+import { getCrewWeeklyResults, type CrewWeeklyResultRow } from "@/lib/adminCrewWeeklyResults";
+import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { foldGrowthMetrics } from "@/lib/growthCore";
+import { isTransitionWeekStart } from "@/lib/seasonCalendar";
+import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 
 // 크루 상세 페이지(/admin/members/[userId]) 단건 DTO — 인적사항 + 클럽 소속.
 // ──────────────────────────────────────────────────────────────────────────
@@ -101,6 +106,10 @@ export type CrewDetailData = {
   seasonSummary: CrewSeasonSummary;
   // 클럽 결과(시즌) 하단부 — 시즌별 결과 표(최신순·진행 중 맨 위). 고객 시즌 그로스 동일 SoT.
   seasonResults: CrewSeasonResultRow[];
+  // 클럽 결과(주차) 상단부 — 고객 위클리 그로스 Details 동일 SoT 값.
+  weekSummary: CrewWeekSummary;
+  // 클럽 결과(주차) 하단부 — 주차 결과 표(오래된→최신). 고객 weekly-card 동일 SoT.
+  weeklyResults: CrewWeeklyResultRow[];
 };
 
 // 클럽 결과(종합) 한 묶음. 모두 백엔드 SoT 직결값(프론트 재계산 금지).
@@ -129,6 +138,21 @@ export type CrewSeasonSummary = {
   availableSeasons: number; // 성장 가능 시즌 = 휴식+성공(f+g) — 현재 시즌 제외(uss 미생성)
   successSeasons: number; // 성장 성공 시즌 = g(rest 아닌 시즌)
   restSeasons: number; // 성장 휴식 시즌 = f(rest 시즌)
+};
+
+// 클럽 결과(주차) 상단부 — 고객 위클리 그로스(cluster-4-1) Details 동일 SoT(프론트 재계산 금지).
+//   주차 카운트 = foldGrowthMetrics(snapshot 카드) = 고객 statsCards.period(cluster3 period a/b/c/e).
+//     성공=a·실패=b·휴식=c·가능=e(=a+b+c, 현재 진행 중 주차는 running 이라 자연 제외).
+//   시작/종료 주차 = 고객 growthInfo.startWeekInfo/endWeekInfo(시즌상대 week_number 포함).
+//   현재 주차만 어드민 표시 규칙(성장 진행 중/개인 휴식 중/공식 휴식 중/-).
+export type CrewWeekSummary = {
+  startWeek: string; // "2025년, 여름 시즌, 6주차" | "-"
+  endWeek: string; // "2025년, 여름 시즌, 8주차" | "~ing (성장 진행 중)"
+  currentWeek: string; // "2026년, 여름 시즌, 8주차 - 성장 진행 중" | "... - 개인/공식 휴식 중" | "-"
+  availableWeeks: number; // 성장 가능 주차 = e(a+b+c)
+  successWeeks: number; // 성장 성공 주차 = a
+  failWeeks: number; // 성장 실패 주차 = b
+  restWeeks: number; // 성장 휴식 주차 = c
 };
 
 // timestamptz/date → "YYYY-MM-DD"(KST 기준, 앞 10자리). 파싱 불가 시 null.
@@ -299,6 +323,90 @@ async function buildCrewSeasonSummary(args: {
   return { startSeason, endSeason, currentSeason, availableSeasons, successSeasons, restSeasons };
 }
 
+// season_key + 시즌상대 week_number → "2025년, 여름 시즌, 6주차". 파싱 불가 null.
+function formatWeekFull(seasonKey: string | null, weekNumber: number | null): string | null {
+  if (!seasonKey || weekNumber == null) return null;
+  const m = seasonKey.toLowerCase().match(/^(\d{4})-(winter|spring|summer|autumn|fall)$/);
+  if (!m) return null;
+  const ko = SEASON_TYPE_KO[m[2]];
+  if (!ko) return null;
+  return `${m[1]}년, ${ko} 시즌, ${weekNumber}주차`;
+}
+
+// 현재 주차 카드 상태 → 표시 라벨(어드민 규칙).
+function weekStatusLabel(userWeekStatus: string | null): string {
+  if (userWeekStatus === "personal_rest") return "개인 휴식 중";
+  if (userWeekStatus === "official_rest") return "공식 휴식 중";
+  return "성장 진행 중"; // running/tallying/success/fail
+}
+
+// 클럽 결과(주차) 상단부 — 고객 위클리 그로스 Details 동일 SoT.
+//   카운트(가능/성공/실패/휴식) = foldGrowthMetrics(snapshot 카드) — deriveRosterCardStats/cluster3 period 동일 fold.
+//   시작 주차 = activity_started_at 포함 주차(시즌상대 week_number 포함).
+//   종료 주차 = (raw) 활동중단=suspended_week_id 주차 · 졸업=ush 최신 시즌(주차 없음) · 그 외 ~ing.
+//   현재 주차 = 어드민 표시 규칙(엘리트/활동중단=- · 오늘 포함 주차 + 카드 상태별 진행/개인휴식/공식휴식).
+async function buildCrewWeekSummary(args: {
+  userId: string;
+  profile: ProfileExtraRow;
+  weeks: WeekRow[];
+  displayGrowthStatus: string | null;
+  todayIso: string;
+  cards: Cluster4WeeklyCardDto[];
+}): Promise<CrewWeekSummary> {
+  const { userId, profile, weeks, displayGrowthStatus, todayIso, cards } = args;
+
+  // 주차 카운트 — deriveRosterCardStats 와 동일 fold(전환 주차 제외·restSeasonCount 무관).
+  //   running/tallying(현재 진행 중·미확정)은 success/fail/personal_rest 가 아니므로 자연 제외 → 가능(e)=현재 직전까지.
+  const { approvedWeeks, failedWeeks, restWeeks, availableWeeks } = foldGrowthMetrics({
+    weeks: cards.map((c) => ({
+      status: c.userWeekStatus,
+      isTransition: isTransitionWeekStart(c.startDate),
+    })),
+    restSeasonCount: 0,
+  });
+
+  // 성장 시작 주차 — activity_started_at 포함 주차(고객 startWeekInfo 동일·시즌상대 주차).
+  const startDateOnly = toDateOnly(profile.activity_started_at);
+  const startWeekRow = startDateOnly ? matchWeekByDate(weeks, startDateOnly) : null;
+  const startWeek = formatWeekFull(startWeekRow?.season_key ?? null, startWeekRow?.week_number ?? null) ?? "-";
+
+  // 성장 종료 주차 — raw 분기(활동중단=주차 포함·졸업=시즌만·그 외 ~ing).
+  const isGraduated = profile.status === "graduated" || profile.growth_status === "graduated";
+  const isSuspended = profile.growth_status === "suspended";
+  const IN_PROGRESS = "~ing (성장 진행 중)";
+  let endWeek = IN_PROGRESS;
+  if (isSuspended && profile.suspended_week_id) {
+    const w = weeks.find((x) => x.id === profile.suspended_week_id) ?? null;
+    endWeek = formatWeekFull(w?.season_key ?? null, w?.week_number ?? null) ?? IN_PROGRESS;
+  } else if (isGraduated) {
+    // 졸업 종료 주차 = ush 최신 시즌(고객 endWeekInfo.weekNumber=null → 주차 미표기). 시즌 라벨 그대로.
+    endWeek = (await fetchGraduatedSeasonLabel(userId)) ?? IN_PROGRESS;
+  }
+
+  // 현재 주차 — 어드민 표시 규칙. 엘리트/활동 중단(버킷)=- , 그 외 오늘 포함 주차 + 카드 상태.
+  const bucket = statusBucket(displayGrowthStatus);
+  let currentWeek = "-";
+  if (bucket !== "elite" && bucket !== "suspended") {
+    const currentWeekRow = matchWeekByDate(weeks, todayIso);
+    const label = formatWeekFull(currentWeekRow?.season_key ?? null, currentWeekRow?.week_number ?? null);
+    if (label) {
+      // 오늘 포함 주차 카드의 userWeekStatus(개인/공식 휴식 구분). 카드 없으면 진행 중.
+      const todayCard = cards.find((c) => c.startDate <= todayIso && todayIso <= c.endDate) ?? null;
+      currentWeek = `${label} - ${weekStatusLabel(todayCard?.userWeekStatus ?? null)}`;
+    }
+  }
+
+  return {
+    startWeek,
+    endWeek,
+    currentWeek,
+    availableWeeks,
+    successWeeks: approvedWeeks,
+    failWeeks: failedWeeks,
+    restWeeks,
+  };
+}
+
 // 단건 크루 상세 DTO. 매칭 행 없으면 null(라우트가 404 처리).
 //   generatedBy = 크루 코드 lazy 생성 로그의 작성자(관리자 userId).
 export async function getCrewDetailDto(
@@ -322,6 +430,8 @@ export async function getCrewDetailDto(
     resume,
     seasonStatusRes,
     seasonResults,
+    weekSnapshot,
+    weeklyResults,
   ] = await Promise.all([
     supabaseAdmin
       .from("user_profiles")
@@ -355,6 +465,10 @@ export async function getCrewDetailDto(
       .eq("user_id", id),
     // 시즌별 결과 표 — 고객 시즌 그로스 동일 SoT(결과/포인트/허브강화율/소속·클래스).
     getCrewSeasonResults(id, todayIso),
+    // 주차 카운트/현재 주차 상태 SoT — weekly-cards snapshot(읽기 전용). 고객 위클리 그로스 Details 동일.
+    readWeeklyCardsSnapshot(id),
+    // 주차 결과 표 — 고객 weekly-card 동일 SoT(주차별 결과/누적성공/소속/포인트/허브강화율).
+    getCrewWeeklyResults(id),
   ]);
 
   if (profileRes.error) throw new Error(`user_profiles load failed: ${profileRes.error.message}`);
@@ -415,6 +529,28 @@ export async function getCrewDetailDto(
         restSeasons: 0,
       };
 
+  // 클럽 결과(주차) 상단부 — 고객 위클리 그로스 Details 동일 SoT(snapshot 카드 기반).
+  const weekCards =
+    weekSnapshot.status === "hit" || weekSnapshot.status === "stale" ? weekSnapshot.cards : [];
+  const weekSummary: CrewWeekSummary = profile
+    ? await buildCrewWeekSummary({
+        userId: id,
+        profile,
+        weeks,
+        displayGrowthStatus: displayStatus,
+        todayIso,
+        cards: weekCards,
+      })
+    : {
+        startWeek: "-",
+        endWeek: "~ing (성장 진행 중)",
+        currentWeek: "-",
+        availableWeeks: 0,
+        successWeeks: 0,
+        failWeeks: 0,
+        restWeeks: 0,
+      };
+
   // 활동 시작 — 시작일 포함 주차의 월요일(start_date) + 주차 라벨.
   const startDateOnly = toDateOnly(profile?.activity_started_at ?? null);
   const startWeek = startDateOnly ? matchWeekByDate(weeks, startDateOnly) : null;
@@ -473,5 +609,7 @@ export async function getCrewDetailDto(
     clubSummary,
     seasonSummary,
     seasonResults,
+    weekSummary,
+    weeklyResults,
   };
 }

@@ -11,8 +11,13 @@ import { createServerClient } from "@supabase/ssr";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
 import { getCluster1Resume } from "@/lib/cluster1ResumeData";
-import { getGrowthRosterBatchFast } from "@/lib/cluster3GrowthData";
+import { getGrowthRosterBatchFast, getGrowthIndicators } from "@/lib/cluster3GrowthData";
 import { sumPointsForUsers } from "@/lib/adminMembersData";
+import { classLabel } from "@/lib/adminMembersTypes";
+import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { truncateCardsForGrowthStop } from "@/lib/cluster4GrowthStopPolicy";
+import { deriveEndStatus } from "@/lib/growthCore";
+import { computeSeasonAreaProgress } from "@/lib/cluster4SeasonCircles";
 
 const BASE = "http://localhost:3000";
 const EMAIL = "vanuatu.golden@gmail.com";
@@ -361,6 +366,118 @@ async function main() {
       dRows.every((r: any) => Array.isArray(r.memberships) &&
         r.memberships.every((m: any) => "teamName" in m && "partName" in m && typeof m.classLabel === "string")),
       "");
+
+    // ── 클럽 결과(주차) 상단부 — direct == HTTP + 고객 위클리 그로스 Details 공식 동일 ──
+    const WEEK_KEYS = [
+      "startWeek", "endWeek", "currentWeek",
+      "availableWeeks", "successWeeks", "failWeeks", "restWeeks",
+    ] as const;
+    const dws = (direct as any)?.weekSummary ?? {};
+    const hws = http.weekSummary ?? {};
+    const weekDiffs: string[] = [];
+    let weekSame = true;
+    for (const k of WEEK_KEYS) {
+      if (dws[k] !== hws[k]) { weekSame = false; weekDiffs.push(`${k}: ${JSON.stringify(dws[k])} vs ${JSON.stringify(hws[k])}`); }
+    }
+    ck("weekSummary direct == HTTP", weekSame, weekDiffs.join(" | "));
+
+    // 4) 주차 카운트 == 고객 statsCards.period(= getGrowthIndicators period a/b/c/e).
+    const ind = await getGrowthIndicators(userId);
+    const pd = ind?.period;
+    ck("주차 카운트(가능/성공/실패/휴식) == 고객 statsCards.period",
+      dws.availableWeeks === pd?.e && dws.successWeeks === pd?.a && dws.failWeeks === pd?.b && dws.restWeeks === pd?.c,
+      `가능=${dws.availableWeeks}/${pd?.e} 성공=${dws.successWeeks}/${pd?.a} 실패=${dws.failWeeks}/${pd?.b} 휴식=${dws.restWeeks}/${pd?.c}`);
+    // 가능 = 성공 + 실패 + 휴식 invariant.
+    ck("가능 == 성공 + 실패 + 휴식",
+      dws.availableWeeks === dws.successWeeks + dws.failWeeks + dws.restWeeks,
+      `${dws.availableWeeks} == ${dws.successWeeks}+${dws.failWeeks}+${dws.restWeeks}`);
+    // 일관성: 주차 성공(a) == 클럽 결과(종합) 성장 성공 주차.
+    ck("주차 성공 == 종합 성장 성공 주차", dws.successWeeks === ds.successWeeks,
+      `${dws.successWeeks}/${ds.successWeeks}`);
+    // 엘리트/활동 중단 → 현재 주차 "-".
+    if (exp.isGraduated || direct?.statusLabel === "엘리트") ck("엘리트/졸업 → 현재 주차 '-'", dws.currentWeek === "-", dws.currentWeek);
+    if (exp.isSuspended || direct?.statusLabel === "활동 중단") ck("활동 중단 → 현재 주차 '-'", dws.currentWeek === "-", dws.currentWeek);
+    // 시작 주차 형식 "YYYY년, X 시즌, n주차" 또는 "-".
+    ck("성장 시작 주차 형식",
+      dws.startWeek === "-" || /^\d{4}년, (겨울|봄|여름|가을) 시즌, \d+주차$/.test(dws.startWeek), dws.startWeek);
+    // 종료 주차 형식: ~ing / "…시즌, n주차"(활동중단) / "…시즌"(졸업).
+    ck("성장 종료 주차 형식",
+      dws.endWeek === "~ing (성장 진행 중)" || /^\d{4}년, (겨울|봄|여름|가을) 시즌(, \d+주차)?$/.test(dws.endWeek), dws.endWeek);
+    // 현재 주차 형식: "-" 또는 "…주차 - 성장 진행 중/개인 휴식 중/공식 휴식 중".
+    ck("현재 주차 형식",
+      dws.currentWeek === "-" || /^\d{4}년, (겨울|봄|여름|가을) 시즌, \d+주차 - (성장 진행 중|개인 휴식 중|공식 휴식 중)$/.test(dws.currentWeek), dws.currentWeek);
+
+    // ── 클럽 결과(주차) 하단부 — 주차 결과 표 ──
+    const dwr = (direct as any)?.weeklyResults ?? [];
+    const hwr = http.weeklyResults ?? [];
+    ck("weeklyResults direct == HTTP", JSON.stringify(dwr) === JSON.stringify(hwr), `direct ${dwr.length}행 / http ${hwr.length}행`);
+
+    // 성장 결과 라벨 7종만.
+    const WLABELS = new Set(["성장 성공", "성장 실패", "개인 휴식", "공식 휴식", "진행 중", "집계 중", "활동 중단"]);
+    ck("성장 결과 라벨 7종만", dwr.every((r: any) => WLABELS.has(r.growthResultLabel)), "");
+
+    // 9) 누적 성장 성공 주차 규칙 — 성공+1·진행/집계 중 null·그 외 유지.
+    let cum = 0, cumOk = true;
+    for (const r of dwr as any[]) {
+      if (r.growthResultLabel === "진행 중" || r.growthResultLabel === "집계 중") {
+        if (r.cumulativeSuccessWeeks !== null) { cumOk = false; break; }
+      } else {
+        if (r.growthResultLabel === "성장 성공") cum += 1;
+        if (r.cumulativeSuccessWeeks !== cum) { cumOk = false; break; }
+      }
+    }
+    ck("누적 성장 성공 주차 규칙(성공+1·진행/집계 null·그 외 유지)", cumOk, `최종 누적=${cum}`);
+
+    // 10) 활동 중단 행은 마지막(이후 주차 없음).
+    const susIdx = dwr.findIndex((r: any) => r.growthResultLabel === "활동 중단");
+    ck("활동 중단 행 이후 주차 없음", susIdx === -1 || susIdx === dwr.length - 1, `활동중단 index=${susIdx}/${dwr.length}`);
+
+    // 정렬: 오래된→최신(weekName 연도/주차 비교는 생략, 스냅샷 카드 순서 대조로 갈음).
+    // 4~7) 고객 weekly-card 동일 — 스냅샷 카드 재현(truncate+suspension) 후 행별 SoT 대조.
+    const snap = await readWeeklyCardsSnapshot(userId);
+    let scards: any[] = snap.status === "hit" || snap.status === "stale" ? (snap as any).cards : [];
+    const { data: prof } = await supabaseAdmin.from("user_profiles").select("growth_status,suspended_week_id,role").eq("user_id", userId).maybeSingle();
+    const profRole = (prof as any)?.role ?? null;
+    const isStopped = deriveEndStatus((prof as any)?.growth_status ?? null) === "stopped";
+    scards = truncateCardsForGrowthStop(scards, isStopped);
+    scards = [...scards].sort((a, b) => (a.startDate < b.startDate ? -1 : a.startDate > b.startDate ? 1 : 0));
+    const susWeekId = (prof as any)?.growth_status === "suspended" ? (prof as any)?.suspended_week_id ?? null : null;
+    if (susWeekId) { const i = scards.findIndex((c) => c.weekId === susWeekId); if (i >= 0) scards = scards.slice(0, i + 1); }
+    const { data: wp } = await supabaseAdmin.from("user_weekly_points").select("week_start_date,points,advantages,penalty").eq("user_id", userId);
+    const ptByStart = new Map<string, any>(((wp ?? []) as any[]).filter((x) => x.week_start_date).map((x) => [x.week_start_date, x]));
+    const SLABEL: Record<string, string> = { success: "성장 성공", fail: "성장 실패", personal_rest: "개인 휴식", official_rest: "공식 휴식", running: "진행 중", tallying: "집계 중" };
+
+    ck("행 수 == 스냅샷 truncate 카드 수", dwr.length === scards.length, `dto=${dwr.length} cards=${scards.length}`);
+    let rowSoTOk = true; const rowDiffs: string[] = [];
+    for (let i = 0; i < Math.min(dwr.length, scards.length); i++) {
+      const r = dwr[i], c = scards[i];
+      const expLabel = susWeekId && c.weekId === susWeekId ? "활동 중단" : (SLABEL[c.userWeekStatus] ?? c.userWeekStatus);
+      const ap = computeSeasonAreaProgress([c], c.seasonKey);
+      const bk = new Map(ap.map((x: any) => [x.key, x]));
+      const hr = (k: string) => { const x: any = bk.get(k); return x && x.total > 0 ? x.rate : null; };
+      const pt = ptByStart.get(c.startDate);
+      const okWeekId = r.weekId === c.weekId;
+      const okLabel = r.growthResultLabel === expLabel;
+      // 클래스 = 어드민 SoT classLabel(role, card.roleLabel) — raw "일반"/"심화" 아님.
+      const okTeam = r.teamName === c.teamName && r.partName === c.partName && r.classLabel === classLabel(profRole, c.roleLabel);
+      const okPts = r.points.poA === (pt?.points ?? 0) && r.points.poB === (pt?.advantages ?? 0) && r.points.poC === (pt?.penalty ?? 0);
+      const okHub = r.hubRates.info === hr("practical_info") && r.hubRates.experience === hr("practical_experience") && r.hubRates.ability === hr("practical_competency") && r.hubRates.career === hr("practical_career");
+      if (!(okWeekId && okLabel && okTeam && okPts && okHub)) {
+        rowSoTOk = false;
+        if (rowDiffs.length < 3) rowDiffs.push(`[${i}] id=${okWeekId} label=${okLabel}(${r.growthResultLabel}/${expLabel}) team=${okTeam} pts=${okPts} hub=${okHub}`);
+      }
+    }
+    ck("행별 SoT == 스냅샷 카드(라벨/팀파트클래스/포인트/허브)", rowSoTOk, rowDiffs.join(" | "));
+
+    // 클래스 표기 SoT 통일 — 클럽소속/시즌/주차 모든 클래스가 어드민 5종만("일반" 금지).
+    const CLS5 = new Set(["정규", "심화(파트장)", "심화(에이전트)", "운영진(앰배서더)", "운영진(팀장)"]);
+    const allCls = [
+      direct?.classLabel,
+      ...dRows.flatMap((r: any) => r.memberships.map((m: any) => m.classLabel)),
+      ...dwr.map((r: any) => r.classLabel),
+    ].filter((x: any) => typeof x === "string");
+    const badCls = [...new Set(allCls.filter((c: string) => !CLS5.has(c)))];
+    ck("클래스 5종만(클럽소속/시즌/주차·'일반' 없음)", badCls.length === 0, badCls.join(",") || `샘플=${[...new Set(allCls)].join(",")}`);
   }
 
   // 5/6) snapshot 무영향(읽기 전용 — 재계산/write 없음).

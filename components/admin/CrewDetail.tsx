@@ -44,7 +44,26 @@ type CrewDetailDto = {
   clubSummary: CrewClubSummary;
   seasonSummary: CrewSeasonSummary;
   seasonResults: CrewSeasonResultRow[];
+  weekSummary: CrewWeekSummary;
+  weeklyResults: CrewWeeklyResultRow[];
   note: CrewNote;
+};
+
+type CrewWeeklyResultRow = {
+  weekId: string | null;
+  weekName: string;
+  growthResultLabel: string;
+  cumulativeSuccessWeeks: number | null;
+  teamName: string | null;
+  partName: string | null;
+  classLabel: string;
+  points: { poA: number; poB: number; poC: number };
+  hubRates: {
+    info: number | null;
+    experience: number | null;
+    ability: number | null;
+    career: number | null;
+  };
 };
 
 type CrewSeasonResultRow = {
@@ -85,6 +104,16 @@ type CrewSeasonSummary = {
   restSeasons: number;
 };
 
+type CrewWeekSummary = {
+  startWeek: string;
+  endWeek: string;
+  currentWeek: string;
+  availableWeeks: number;
+  successWeeks: number;
+  failWeeks: number;
+  restWeeks: number;
+};
+
 const CLUB_LABEL_KO: Record<string, string> = {
   encre: "엥크레",
   oranke: "오랑캐",
@@ -112,6 +141,19 @@ const SEASON_RESULT_BADGE: Record<string, string> = {
   "시즌 휴식": "bg-amber-50 text-amber-700 ring-amber-200",
   "시즌 중단": "bg-red-50 text-red-700 ring-red-200",
 };
+
+// 주차 성장 결과 라벨별 배지 색(어드민 7종).
+const WEEK_RESULT_BADGE: Record<string, string> = {
+  "성장 성공": "bg-green-50 text-green-700 ring-green-200",
+  "성장 실패": "bg-red-50 text-red-700 ring-red-200",
+  "개인 휴식": "bg-amber-50 text-amber-700 ring-amber-200",
+  "공식 휴식": "bg-slate-100 text-slate-600 ring-slate-200",
+  "진행 중": "bg-blue-50 text-blue-700 ring-blue-200",
+  "집계 중": "bg-indigo-50 text-indigo-700 ring-indigo-200",
+  "활동 중단": "bg-zinc-200 text-zinc-700 ring-zinc-300",
+};
+
+const WEEKLY_PAGE_SIZE = 15;
 
 export default function CrewDetail({
   userId,
@@ -354,6 +396,33 @@ export default function CrewDetail({
             <SeasonResultsTable rows={detail.seasonResults} />
           </CardContent>
         </Card>
+
+        {/* 클럽 결과(주차) — 클럽 결과(시즌) 아래. 상단부=주차 요약(2열: 좌 시작/종료/현재·우 가능/성공/휴식/실패). */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">클럽 결과(주차)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+              {/* 좌: 시작/종료/현재 주차 */}
+              <div className="flex flex-col gap-3">
+                <Field label="성장 시작 주차">{detail.weekSummary.startWeek}</Field>
+                <Field label="성장 종료 주차">{detail.weekSummary.endWeek}</Field>
+                <Field label="현재 주차">{detail.weekSummary.currentWeek}</Field>
+              </div>
+              {/* 우: 가능/성공/휴식/실패 주차 */}
+              <div className="flex flex-col gap-3">
+                <Field label="성장 가능 주차">{`${detail.weekSummary.availableWeeks}개 주차`}</Field>
+                <Field label="성장 성공 주차">{`${detail.weekSummary.successWeeks}개 주차`}</Field>
+                <Field label="성장 휴식 주차">{`${detail.weekSummary.restWeeks}개 주차`}</Field>
+                <Field label="성장 실패 주차">{`${detail.weekSummary.failWeeks}개 주차`}</Field>
+              </div>
+            </div>
+
+            {/* 하단부: 주차 결과 표 — 최신→오래된, 15개/페이지·기본 1페이지(최신). */}
+            <WeeklyResultsTable rows={detail.weeklyResults} />
+          </CardContent>
+        </Card>
         </>
       ) : (
         <Card>
@@ -467,6 +536,103 @@ function SeasonMembershipCell({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// 주차 결과 표 — 13컬럼. 최신→오래된 표시(맨 위=가장 최신), 15개/페이지·기본 1페이지.
+function WeeklyResultsTable({ rows }: { rows: CrewWeeklyResultRow[] }) {
+  const totalPages = Math.max(1, Math.ceil(rows.length / WEEKLY_PAGE_SIZE));
+  // 기본 = 1페이지(최신 주차). rows.length 변화 시 1페이지로 리셋.
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1);
+  }, [totalPages]);
+
+  if (rows.length === 0) {
+    return (
+      <p className="mt-4 rounded-md border bg-muted/20 px-3 py-4 text-center text-sm text-muted-foreground">
+        활동한 주차 기록이 없습니다.
+      </p>
+    );
+  }
+
+  // 백엔드 배열은 오래된→최신(누적 계산순). 표시는 최신→오래된 — reverse 후 15개씩.
+  //   1페이지 = 최신 15(맨 위 = 가장 최신 주차). 진행/집계 중 주차는 최신이라 1페이지 맨 위.
+  const displayRows = [...rows].reverse();
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const start = (safePage - 1) * WEEKLY_PAGE_SIZE;
+  const pageRows = displayRows.slice(start, start + WEEKLY_PAGE_SIZE);
+  const pct = (v: number | null) => (v == null ? "-" : `${v}%`);
+  const num = (v: number | null) => (v == null ? "-" : String(v));
+
+  return (
+    <div className="mt-4">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="border-b text-xs text-muted-foreground">
+              <th className="whitespace-nowrap px-2 py-2 text-left font-medium">주차명</th>
+              <th className="whitespace-nowrap px-2 py-2 text-left font-medium">성장 결과</th>
+              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">성장 성공 주차</th>
+              <th className="whitespace-nowrap px-2 py-2 text-left font-medium">팀</th>
+              <th className="whitespace-nowrap px-2 py-2 text-left font-medium">파트</th>
+              <th className="whitespace-nowrap px-2 py-2 text-left font-medium">클래스</th>
+              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.A</th>
+              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.B</th>
+              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.C</th>
+              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 정보</th>
+              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 경험</th>
+              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 역량</th>
+              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 경력</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageRows.map((r, i) => (
+              <tr key={r.weekId ?? `${r.weekName}-${start + i}`} className="border-b last:border-0">
+                <td className="whitespace-nowrap px-2 py-2 font-medium">{r.weekName}</td>
+                <td className="whitespace-nowrap px-2 py-2">
+                  <span
+                    className={cn(
+                      "inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
+                      WEEK_RESULT_BADGE[r.growthResultLabel] ?? "bg-muted text-muted-foreground ring-border",
+                    )}
+                  >
+                    {r.growthResultLabel}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{num(r.cumulativeSuccessWeeks)}</td>
+                <td className="max-w-[120px] truncate px-2 py-2" title={r.teamName ?? "-"}>{r.teamName ?? "-"}</td>
+                <td className="max-w-[120px] truncate px-2 py-2" title={r.partName ?? "-"}>{r.partName ?? "-"}</td>
+                <td className="max-w-[120px] truncate px-2 py-2" title={r.classLabel}>{r.classLabel || "-"}</td>
+                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.points.poA}</td>
+                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.points.poB}</td>
+                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.points.poC}</td>
+                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.info)}</td>
+                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.experience)}</td>
+                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.ability)}</td>
+                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.career)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 페이지네이션 — 1페이지가 최신 주차. */}
+      {totalPages > 1 && (
+        <div className="mt-3 flex items-center justify-center gap-1.5 text-sm">
+          <Button variant="outline" size="sm" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>
+            이전
+          </Button>
+          <span className="px-2 text-muted-foreground">
+            {safePage} / {totalPages} 페이지 ({rows.length}주차)
+          </span>
+          <Button variant="outline" size="sm" disabled={safePage >= totalPages} onClick={() => setPage(safePage + 1)}>
+            다음
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

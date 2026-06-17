@@ -157,6 +157,50 @@ for (const s of samples) {
     });
     ck("표 tbody 행 수 == 시즌 수", rowCount === sr.length, `dom=${rowCount} dto=${sr.length}`);
   }
+
+  // ── 클럽 결과(주차) 섹션 — 제목 + 7라벨 + 주차 요약 값 노출 ──
+  const w = d.weekSummary;
+  ck("섹션 제목 '클럽 결과(주차)'", body.includes("클럽 결과(주차)"));
+  for (const lbl of [
+    "성장 시작 주차", "성장 종료 주차", "현재 주차",
+    "성장 가능 주차", "성장 성공 주차", "성장 휴식 주차", "성장 실패 주차",
+  ]) {
+    ck(`라벨 '${lbl}'`, body.includes(lbl));
+  }
+  ck("성장 시작 주차 값 노출", body.includes(w.startWeek));
+  ck("성장 종료 주차 값 노출", body.includes(w.endWeek));
+  ck("현재 주차 값 노출", body.includes(w.currentWeek));
+  ck("성장 가능 주차 값 노출", body.includes(`${w.availableWeeks}개 주차`));
+  ck("성장 성공 주차 값 노출", body.includes(`${w.successWeeks}개 주차`));
+  ck("성장 휴식 주차 값 노출", body.includes(`${w.restWeeks}개 주차`));
+  ck("성장 실패 주차 값 노출", body.includes(`${w.failWeeks}개 주차`));
+
+  // ── 클럽 결과(주차) 하단부: 주차 결과 표 + 페이지네이션 ──
+  const wr = d.weeklyResults ?? [];
+  // 표 헤더 13컬럼.
+  for (const h of ["주차명", "성장 결과", "성장 성공 주차", "팀", "파트", "클래스", "Po.A", "Po.B", "Po.C", "실무 정보", "실무 경험", "실무 역량", "실무 경력"]) {
+    ck(`주차표 헤더 '${h}'`, body.includes(h));
+  }
+  const totalPages = Math.max(1, Math.ceil(wr.length / 15));
+  // DOM 측정 — 주차 결과 표(헤더 '성장 결과' 보유) tbody 행 수 + 첫 행 + 페이지 표시.
+  const m = await page.evaluate(() => {
+    const table = Array.from(document.querySelectorAll("table")).find((tb) =>
+      Array.from(tb.querySelectorAll("th")).some((t) => (t.textContent || "").includes("성장 결과")),
+    );
+    const rows = table ? table.querySelectorAll("tbody tr").length : -1;
+    const firstWeek = table ? (table.querySelector("tbody tr td")?.textContent || "") : "";
+    const pageText = (document.body.innerText.match(/\d+ \/ \d+ 페이지/) || [""])[0];
+    return { rows, firstWeek, pageText };
+  });
+  // 12) 기본 진입 = 1페이지.
+  ck("기본 진입 = 1페이지", wr.length === 0 || m.pageText === "" || m.pageText.startsWith(`1 / ${totalPages}`),
+    `pageText="${m.pageText}" totalPages=${totalPages}`);
+  // 11) 1페이지 행 수 = min(15, 전체).
+  if (wr.length > 0) {
+    ck("페이지네이션 15단위(1페이지 행수)", m.rows === Math.min(15, wr.length), `dom=${m.rows} expect=${Math.min(15, wr.length)} (전체${wr.length})`);
+    // 1페이지 맨 위 = 전체 최신 주차(weeklyResults 마지막 행 = 최신).
+    ck("1페이지 맨 위 = 최신 주차", m.firstWeek === wr[wr.length - 1].weekName, `dom="${m.firstWeek}" dto="${wr[wr.length - 1].weekName}"`);
+  }
 }
 
 await browser.close();
