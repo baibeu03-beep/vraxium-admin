@@ -41,7 +41,31 @@ type CrewDetailDto = {
   classLabel: string;
   teamName: string | null;
   partName: string | null;
+  clubSummary: CrewClubSummary;
+  seasonSummary: CrewSeasonSummary;
   note: CrewNote;
+};
+
+type CrewClubSummary = {
+  successWeeks: number | null;
+  poA: number;
+  poB: number;
+  poC: number;
+  scheduleReliability: number | null;
+  activityCompletion: number | null;
+  infoCount: number;
+  experienceCount: number;
+  abilityUnitCount: number;
+  careerProjectCount: number;
+};
+
+type CrewSeasonSummary = {
+  startSeason: string;
+  endSeason: string;
+  currentSeason: string;
+  availableSeasons: number;
+  successSeasons: number;
+  restSeasons: number;
 };
 
 const CLUB_LABEL_KO: Record<string, string> = {
@@ -52,6 +76,16 @@ const CLUB_LABEL_KO: Record<string, string> = {
 
 function dash(value: string | null | undefined): string {
   return value && value.trim() ? value : "-";
+}
+
+// 숫자 — null/undefined 만 "-"(0 은 실값으로 표기). 이력서 카드 skill-num/포인트는 0 도 의미값.
+function dashNum(value: number | null | undefined): string {
+  return value == null ? "-" : String(value);
+}
+
+// 퍼센트 — null/undefined "-", 그 외 "NN%".
+function dashPct(value: number | null | undefined): string {
+  return value == null ? "-" : `${value}%`;
 }
 
 export default function CrewDetail({
@@ -117,8 +151,10 @@ export default function CrewDetail({
     window.open(url, "_blank", "noopener,noreferrer");
   }, [detail]);
 
+  // 내용 폭: 좁은 화면은 full(px-4) 유지, 넓은 화면은 1600px 캡으로 가로 공간 적극 활용.
+  //   1920 에선 꽉 차게·2560 에선 좌우 여백 확보(100% 확장 금지). 모바일은 기존 방식.
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 sm:px-6">
       {/* 상단 3버튼 헤더 — 1행 3열 그리드 */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Button variant="outline" onClick={goBack} className="justify-center">
@@ -161,9 +197,10 @@ export default function CrewDetail({
           </CardContent>
         </Card>
       ) : detail ? (
-        // 1행 2열 그리드 — 왼쪽: 인적사항 / 오른쪽: 클럽 소속.
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* 인적사항 */}
+        <>
+        {/* 1행 2열 그리드 — 왼쪽: 인적사항(넓음) / 오른쪽: 클럽 소속(보조 패널). 좁은 화면 1열. */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
+          {/* 인적사항 — [사진][이름·성별·생년월일 / 거주지 / 연락처·메일 / 학교·전공·입학시기] */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">인적사항</CardTitle>
@@ -177,25 +214,30 @@ export default function CrewDetail({
                     <img
                       src={detail.profilePhotoUrl}
                       alt={`${dash(detail.displayName)} 프로필 사진`}
-                      className="h-28 w-28 rounded-lg object-cover ring-1 ring-foreground/10"
+                      className="h-36 w-28 rounded-lg object-cover ring-1 ring-foreground/10"
                     />
                   ) : (
-                    <div className="flex h-28 w-28 items-center justify-center rounded-lg bg-muted ring-1 ring-foreground/10">
+                    <div className="flex h-36 w-28 items-center justify-center rounded-lg bg-muted ring-1 ring-foreground/10">
                       <User className="h-10 w-10 text-muted-foreground" />
                     </div>
                   )}
                 </div>
-                {/* 인적 정보 */}
-                <dl className="grid flex-1 grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2">
+                {/* 인적 정보 — 와이어프레임 행/열 그리드(3열 기준, 좁으면 1열). */}
+                <dl className="grid min-w-0 flex-1 grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-3">
                   <Field label="이름">{dash(detail.displayName)}</Field>
                   <Field label="성별">{dash(detail.gender)}</Field>
                   <Field label="생년월일">
-                    {dash(detail.birthDate)}
-                    {detail.age != null ? ` (만 ${detail.age})` : ""}
+                    {detail.birthDate
+                      ? `${detail.birthDate}${detail.age != null ? ` (만 ${detail.age})` : ""}`
+                      : "-"}
                   </Field>
-                  <Field label="거주지">{dash(detail.address)}</Field>
+                  <Field label="거주지" className="sm:col-span-3">
+                    {dash(detail.address)}
+                  </Field>
                   <Field label="연락처">{dash(detail.contactPhone)}</Field>
-                  <Field label="메일">{dash(detail.contactEmail)}</Field>
+                  <Field label="메일" className="sm:col-span-2">
+                    {dash(detail.contactEmail)}
+                  </Field>
                   <Field label="학교">{dash(detail.schoolName)}</Field>
                   <Field label="전공">{dash(detail.departmentName)}</Field>
                   <Field label="입학 시기">{dash(detail.admissionPeriod)}</Field>
@@ -204,17 +246,17 @@ export default function CrewDetail({
             </CardContent>
           </Card>
 
-          {/* 클럽 소속 */}
+          {/* 클럽 소속 — [크루코드·클럽명·상태 / 활동시작일·시작주차 / 활동종료일·종료주차 / 클래스·소속팀·파트] */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">클럽 소속</CardTitle>
             </CardHeader>
             <CardContent>
-              <dl className="grid grid-cols-1 gap-x-6 gap-y-2.5 sm:grid-cols-2">
-                <Field label="크루 코드">
-                  <span className="font-mono">
-                    {detail.crewCode ?? <span className="text-muted-foreground">미생성</span>}
-                  </span>
+              <dl className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-3">
+                <Field label="크루 코드" mono>
+                  {detail.crewCode ?? (
+                    <span className="font-sans text-muted-foreground">미생성</span>
+                  )}
                 </Field>
                 <Field label="클럽명">
                   {detail.organizationSlug
@@ -222,17 +264,69 @@ export default function CrewDetail({
                     : "공통"}
                 </Field>
                 <Field label="상태">{dash(detail.statusLabel)}</Field>
+                <Field label="활동 시작일">{detail.activityStartDate}</Field>
+                <Field label="활동 시작 주차" className="sm:col-span-2">
+                  {detail.activityStartWeek}
+                </Field>
+                <Field label="활동 종료일">{detail.activityEndDate}</Field>
+                <Field label="활동 종료 주차" className="sm:col-span-2">
+                  {detail.activityEndWeek}
+                </Field>
                 <Field label="클래스">{dash(detail.classLabel)}</Field>
-                <Field label="활동 시작일">{dash(detail.activityStartDate)}</Field>
-                <Field label="활동 시작 주차">{dash(detail.activityStartWeek)}</Field>
-                <Field label="활동 종료일">{dash(detail.activityEndDate)}</Field>
-                <Field label="활동 종료 주차">{dash(detail.activityEndWeek)}</Field>
                 <Field label="소속 팀">{dash(detail.teamName)}</Field>
                 <Field label="파트">{dash(detail.partName)}</Field>
               </dl>
             </CardContent>
           </Card>
         </div>
+
+        {/* 클럽 결과(종합) — 인적사항/클럽 소속 바로 아래. 라벨/값 칸 그리드(2행×6열). */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">클럽 결과(종합)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+              {/* 1행 */}
+              <SummaryCell label="이름" value={dash(detail.displayName)} />
+              <SummaryCell
+                label="크루 코드"
+                value={detail.crewCode ?? "-"}
+                mono
+              />
+              <SummaryCell label="성장 성공 주차" value={dashNum(detail.clubSummary.successWeeks)} />
+              <SummaryCell label="포인트 A" value={dashNum(detail.clubSummary.poA)} />
+              <SummaryCell label="포인트 B" value={dashNum(detail.clubSummary.poB)} />
+              <SummaryCell label="포인트 C" value={dashNum(detail.clubSummary.poC)} />
+              {/* 2행 */}
+              <SummaryCell label="일정 신뢰도" value={dashPct(detail.clubSummary.scheduleReliability)} />
+              <SummaryCell label="활동 완료율" value={dashPct(detail.clubSummary.activityCompletion)} />
+              <SummaryCell label="실무 정보" value={dashNum(detail.clubSummary.infoCount)} />
+              <SummaryCell label="실무 경험" value={dashNum(detail.clubSummary.experienceCount)} />
+              <SummaryCell label="실무 역량" value={dashNum(detail.clubSummary.abilityUnitCount)} />
+              <SummaryCell label="실무 경력" value={dashNum(detail.clubSummary.careerProjectCount)} />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 클럽 결과(시즌) — 클럽 결과(종합) 아래. 상단부=시즌 요약(2열 그리드). */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">클럽 결과(시즌)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* 상단부: 시즌 요약 — 좌(시작/종료/현재) · 우(가능/성공/휴식). */}
+            <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+              <Field label="성장 시작 시즌">{detail.seasonSummary.startSeason}</Field>
+              <Field label="성장 가능 시즌">{`${detail.seasonSummary.availableSeasons}개 시즌`}</Field>
+              <Field label="성장 종료 시즌">{detail.seasonSummary.endSeason}</Field>
+              <Field label="성장 성공 시즌">{`${detail.seasonSummary.successSeasons}개 시즌`}</Field>
+              <Field label="현재 시즌">{detail.seasonSummary.currentSeason}</Field>
+              <Field label="성장 휴식 시즌">{`${detail.seasonSummary.restSeasons}개 시즌`}</Field>
+            </div>
+          </CardContent>
+        </Card>
+        </>
       ) : (
         <Card>
           <CardContent>
@@ -257,11 +351,54 @@ export default function CrewDetail({
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+// 와이어프레임 필드 — 라벨 + bordered 값 박스(input 느낌). col-span 등은 className 으로.
+function Field({
+  label,
+  children,
+  className,
+  mono,
+}: {
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+  mono?: boolean;
+}) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="text-sm text-foreground">{children}</dd>
+    <div className={cn("flex min-w-0 flex-col gap-1", className)}>
+      <dt className="text-[11px] font-medium text-muted-foreground">{label}</dt>
+      <dd
+        className={cn(
+          "flex min-h-[2.25rem] items-center break-words rounded-md border bg-muted/40 px-2.5 py-1.5 text-sm text-foreground",
+          mono && "font-mono",
+        )}
+      >
+        {children}
+      </dd>
+    </div>
+  );
+}
+
+// 클럽 결과(종합) 한 칸 — 라벨 위, 값은 작은 박스(field) 형태로 정렬.
+function SummaryCell({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          "flex h-9 items-center justify-center rounded-md border bg-muted/30 px-2 text-sm font-medium text-foreground",
+          mono && "font-mono",
+        )}
+      >
+        {value}
+      </span>
     </div>
   );
 }

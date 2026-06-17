@@ -353,7 +353,10 @@ function addCalendarDays(dateStr: string, days: number): string {
   return new Date(ms + days * 86_400_000).toISOString().slice(0, 10);
 }
 
-async function computeSeasonRecords(
+// export — 시즌별 결과 표(/admin/members 상세)가 시즌 결과 라벨 SoT 로 재사용한다.
+//   고객 시즌 그로스의 deriveSeasonStatus 가 이 progressStatus 를 graft 하는 단일 출처이므로,
+//   admin 표도 동일 함수를 직접 써서 화면 간 결과 라벨을 일치시킨다.
+export async function computeSeasonRecords(
   userId: string,
 ): Promise<SeasonRecord[]> {
   const [seasonRes, weekRes, weeksPubRes] = await Promise.all([

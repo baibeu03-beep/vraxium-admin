@@ -52,13 +52,15 @@ const cookies = cap.map((i) => ({
   httpOnly: false, secure: false, sameSite: "Lax",
 }));
 
-// 표본: 활동 중단(종료일 존재) 1명 + 활동 중 1명.
+// 표본: 활동 중단(종료 시즌 존재) 1명 + 졸업(종료 시즌·현재 "-") 1명 + 활동 중 1명.
 const { data: suspended } = await sb
   .from("user_profiles").select("user_id,display_name").eq("growth_status", "suspended").limit(1);
+const { data: graduated } = await sb
+  .from("user_profiles").select("user_id,display_name").eq("growth_status", "graduated").limit(1);
 const { data: active } = await sb
   .from("user_profiles").select("user_id,display_name")
   .eq("organization_slug", "encre").not("activity_started_at", "is", null).limit(1);
-const samples = [...(suspended ?? []), ...(active ?? [])];
+const samples = [...(suspended ?? []), ...(graduated ?? []), ...(active ?? [])];
 
 const browser = await chromium.launch({ channel: "chromium", headless: true });
 const context = await browser.newContext({ viewport: { width: 1500, height: 1100 } });
@@ -72,7 +74,11 @@ for (const s of samples) {
   const d = json.data;
 
   await page.goto(`${BASE}/admin/members/${s.user_id}`, { waitUntil: "domcontentloaded" });
-  await page.waitForTimeout(2500);
+  // 첫 진입은 라우트 콜드 컴파일이 있을 수 있어 섹션 텍스트가 보일 때까지 대기(최대 20s).
+  await page
+    .waitForFunction(() => document.body.innerText.includes("클럽 결과(시즌)"), { timeout: 20000 })
+    .catch(() => {});
+  await page.waitForTimeout(500);
   const body = await page.evaluate(() => document.body.innerText);
   const imgCount = await page.evaluate(() => document.querySelectorAll("img").length);
 
@@ -88,6 +94,40 @@ for (const s of samples) {
   ck("클래스 노출", body.includes(d.classLabel));
   ck("팀 노출", d.teamName == null || body.includes(d.teamName));
   ck("사진 img 또는 placeholder", imgCount >= 1 || body.length > 0);
+
+  // ── 클럽 결과(종합) 섹션 — 제목 + 12개 라벨 + SoT 값 노출 ──
+  const cs = d.clubSummary;
+  ck("섹션 제목 '클럽 결과(종합)'", body.includes("클럽 결과(종합)"));
+  for (const lbl of [
+    "성장 성공 주차", "포인트 A", "포인트 B", "포인트 C",
+    "일정 신뢰도", "활동 완료율", "실무 정보", "실무 경험", "실무 역량", "실무 경력",
+  ]) {
+    ck(`라벨 '${lbl}'`, body.includes(lbl));
+  }
+  // 실무 4종(이력서 카드 skill-num) 값이 화면 텍스트에 반영.
+  ck("실무 정보 값 노출", body.includes(String(cs.infoCount)));
+  ck("실무 경험 값 노출", body.includes(String(cs.experienceCount)));
+  ck("실무 역량 값 노출", body.includes(String(cs.abilityUnitCount)));
+  ck("실무 경력 값 노출", body.includes(String(cs.careerProjectCount)));
+  ck("성장 성공 주차 값 노출", cs.successWeeks == null || body.includes(String(cs.successWeeks)));
+  ck("일정 신뢰도 값 노출", cs.scheduleReliability == null || body.includes(`${cs.scheduleReliability}%`));
+  ck("활동 완료율 값 노출", cs.activityCompletion == null || body.includes(`${cs.activityCompletion}%`));
+
+  // ── 클럽 결과(시즌) 섹션 — 제목 + 6라벨 + 시즌 요약 값 노출 ──
+  const ss = d.seasonSummary;
+  ck("섹션 제목 '클럽 결과(시즌)'", body.includes("클럽 결과(시즌)"));
+  for (const lbl of [
+    "성장 시작 시즌", "성장 종료 시즌", "현재 시즌",
+    "성장 가능 시즌", "성장 성공 시즌", "성장 휴식 시즌",
+  ]) {
+    ck(`라벨 '${lbl}'`, body.includes(lbl));
+  }
+  ck("성장 시작 시즌 값 노출", body.includes(ss.startSeason));
+  ck("성장 종료 시즌 값 노출", body.includes(ss.endSeason));
+  ck("현재 시즌 값 노출", body.includes(ss.currentSeason));
+  ck("성장 가능 시즌 값 노출", body.includes(`${ss.availableSeasons}개 시즌`));
+  ck("성장 성공 시즌 값 노출", body.includes(`${ss.successSeasons}개 시즌`));
+  ck("성장 휴식 시즌 값 노출", body.includes(`${ss.restSeasons}개 시즌`));
 }
 
 await browser.close();
