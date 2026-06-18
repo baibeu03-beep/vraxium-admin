@@ -1,0 +1,8 @@
+
+> vraxium-admin@0.1.0 sync:grade-stats
+> tsx --env-file=.env.local scripts/sync-grade-stats.ts
+
+[sync-grade-stats] 시작
+  cumulative 는 DB 트리거가 동기화 — grade stats 전체 재계산만 수행
+
+[완료] cumulative 재계산 0명, grade stats synced 351명 / skipped 366명

@@ -1,0 +1,121 @@
+{
+ "generatedAt": "2026-06-18T01-57-07 promote-restusers preview",
+ "mode": "preview",
+ "restSeasonKey": "2026-spring",
+ "totals": {
+  "targets": 3,
+  "planned": 3,
+  "failedPlan": 0,
+  "usersInsert": 3,
+  "uwsInsert": 41,
+  "uwpInsert": 61,
+  "sentinel": 3,
+  "checksMigratedFalse": 7,
+  "ledger": 945,
+  "expEach": 41,
+  "seasonStatusRest": 3,
+  "ensureLinesDistinct": 1,
+  "unattributed": 69,
+  "restSeasonConflicts": 0,
+  "negativeSentinels": 0,
+  "pmsStateNon활동정지": []
+ },
+ "failedPlan": [],
+ "perUser": [
+  {
+   "archiveId": "229d4440-62c9-419e-acfe-eddc761fd3b0",
+   "source": "olympus",
+   "pmsId": 89,
+   "name": "강민서",
+   "org": "phalanx",
+   "uuid": "d29d361c-75c0-4ff7-a9cb-1b5342a8f142",
+   "pmsState": "활동정지",
+   "identityStatus": "name_dup",
+   "needsReview": true,
+   "team": "시즌전체휴식",
+   "part": "일반",
+   "birthIso": "2002-02-20",
+   "writes": {
+    "ledger": 422,
+    "uwp": 29,
+    "uws": 16,
+    "experience": 16,
+    "seasonRest": 1
+   },
+   "flips": 0,
+   "sentinel": {
+    "points": 6,
+    "advantages": 12,
+    "penalty": 0
+   },
+   "unattributedHold": 5,
+   "restSeasonConflict": 0
+  },
+  {
+   "archiveId": "6dfa3d0a-c0ac-4ee7-a192-097e19ce829c",
+   "source": "hrdb",
+   "pmsId": 1553,
+   "name": "강민주",
+   "org": "encre",
+   "uuid": "8a0adf4d-f93f-444e-b579-35208ae58ffc",
+   "pmsState": "활동정지",
+   "identityStatus": "clean",
+   "needsReview": false,
+   "team": "시즌전체휴식",
+   "part": "FanFlow",
+   "birthIso": "2003-12-16",
+   "writes": {
+    "ledger": 230,
+    "uwp": 23,
+    "uws": 15,
+    "experience": 15,
+    "seasonRest": 1
+   },
+   "flips": 0,
+   "sentinel": {
+    "points": 4,
+    "advantages": 11,
+    "penalty": 0
+   },
+   "unattributedHold": 0,
+   "restSeasonConflict": 0
+  },
+  {
+   "archiveId": "d4201dbc-f45e-4c0a-b1d1-ecbd38ddd4ba",
+   "source": "hrdb",
+   "pmsId": 622,
+   "name": "강민진",
+   "org": "encre",
+   "uuid": "3be85ed3-9725-4b97-9fda-777614e17263",
+   "pmsState": "활동정지",
+   "identityStatus": "clean",
+   "needsReview": false,
+   "team": "시즌전체휴식",
+   "part": "director",
+   "birthIso": "2001-11-09",
+   "writes": {
+    "ledger": 293,
+    "uwp": 12,
+    "uws": 10,
+    "experience": 10,
+    "seasonRest": 1
+   },
+   "flips": 7,
+   "sentinel": {
+    "points": 98,
+    "advantages": 21,
+    "penalty": 0
+   },
+   "unattributedHold": 64,
+   "restSeasonConflict": 0
+  }
+ ],
+ "ensureLinesPlan": [
+  {
+   "week_id": "10c0ee0a-6954-433c-9d07-792386afbb85",
+   "season_key": "2023-spring",
+   "week_number": 1,
+   "start_date": "2023-03-06"
+  }
+ ]
+}

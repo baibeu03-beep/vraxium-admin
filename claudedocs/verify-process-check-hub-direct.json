@@ -46,11 +46,17 @@
     ],
     "operating": {
       "weekNumber": 16,
-      "actIds": []
+      "actIds": [
+        "b03307c8-51a3-44d6-830c-b6b0f9e0d1a5",
+        "e022b9e6-f291-413b-a240-c9c04ff74a0d"
+      ]
     },
     "test": {
       "weekNumber": 13,
-      "actIds": []
+      "actIds": [
+        "b03307c8-51a3-44d6-830c-b6b0f9e0d1a5",
+        "e022b9e6-f291-413b-a240-c9c04ff74a0d"
+      ]
     }
   },
   "club": {
@@ -77,7 +83,7 @@
       ]
     },
     "test": {
-      "weekNumber": 16,
+      "weekNumber": 13,
       "actIds": [
         "35607f30-c6f1-4af9-b038-8e20654e7f7b",
         "4421fd59-1ec8-4380-afb0-2650c9bfbcd3"

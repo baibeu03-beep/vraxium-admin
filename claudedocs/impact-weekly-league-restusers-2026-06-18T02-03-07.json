@@ -1,0 +1,438 @@
+{
+ "stamp": "2026-06-18T02-03-07",
+ "season": "2026-spring",
+ "results": [
+  {
+   "org": "encre",
+   "memberRosterMode": true,
+   "rosterSize": 176,
+   "archiveTargets": 154,
+   "archiveWithSpringUws": 0,
+   "weeks": [
+    {
+     "weekNumber": 1,
+     "totalCrew": 79,
+     "growthChallenge": 76,
+     "growthSuccess": 51,
+     "growthFail": 25,
+     "personalRest": 3,
+     "cohort": 79
+    },
+    {
+     "weekNumber": 2,
+     "totalCrew": 90,
+     "growthChallenge": 86,
+     "growthSuccess": 84,
+     "growthFail": 2,
+     "personalRest": 4,
+     "cohort": 90
+    },
+    {
+     "weekNumber": 3,
+     "totalCrew": 96,
+     "growthChallenge": 90,
+     "growthSuccess": 82,
+     "growthFail": 8,
+     "personalRest": 6,
+     "cohort": 96
+    },
+    {
+     "weekNumber": 4,
+     "totalCrew": 108,
+     "growthChallenge": 103,
+     "growthSuccess": 93,
+     "growthFail": 10,
+     "personalRest": 5,
+     "cohort": 108
+    },
+    {
+     "weekNumber": 5,
+     "totalCrew": 133,
+     "growthChallenge": 126,
+     "growthSuccess": 108,
+     "growthFail": 18,
+     "personalRest": 7,
+     "cohort": 133
+    },
+    {
+     "weekNumber": 6,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 7,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 8,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 9,
+     "totalCrew": 133,
+     "growthChallenge": 120,
+     "growthSuccess": 105,
+     "growthFail": 15,
+     "personalRest": 13,
+     "cohort": 133
+    },
+    {
+     "weekNumber": 10,
+     "totalCrew": 133,
+     "growthChallenge": 124,
+     "growthSuccess": 113,
+     "growthFail": 11,
+     "personalRest": 9,
+     "cohort": 133
+    },
+    {
+     "weekNumber": 11,
+     "totalCrew": 133,
+     "growthChallenge": 124,
+     "growthSuccess": 108,
+     "growthFail": 16,
+     "personalRest": 9,
+     "cohort": 133
+    },
+    {
+     "weekNumber": 12,
+     "totalCrew": 133,
+     "growthChallenge": 121,
+     "growthSuccess": 106,
+     "growthFail": 15,
+     "personalRest": 12,
+     "cohort": 133
+    },
+    {
+     "weekNumber": 13,
+     "totalCrew": 133,
+     "growthChallenge": 115,
+     "growthSuccess": 99,
+     "growthFail": 16,
+     "personalRest": 18,
+     "cohort": 133
+    },
+    {
+     "weekNumber": 14,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 15,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    }
+   ]
+  },
+  {
+   "org": "oranke",
+   "memberRosterMode": false,
+   "rosterSize": 124,
+   "archiveTargets": 146,
+   "archiveWithSpringUws": 0,
+   "weeks": [
+    {
+     "weekNumber": 1,
+     "totalCrew": 36,
+     "growthChallenge": 35,
+     "growthSuccess": 17,
+     "growthFail": 18,
+     "personalRest": 1,
+     "cohort": 36
+    },
+    {
+     "weekNumber": 2,
+     "totalCrew": 45,
+     "growthChallenge": 44,
+     "growthSuccess": 44,
+     "growthFail": 0,
+     "personalRest": 1,
+     "cohort": 45
+    },
+    {
+     "weekNumber": 3,
+     "totalCrew": 61,
+     "growthChallenge": 60,
+     "growthSuccess": 60,
+     "growthFail": 0,
+     "personalRest": 1,
+     "cohort": 61
+    },
+    {
+     "weekNumber": 4,
+     "totalCrew": 68,
+     "growthChallenge": 67,
+     "growthSuccess": 61,
+     "growthFail": 6,
+     "personalRest": 1,
+     "cohort": 68
+    },
+    {
+     "weekNumber": 5,
+     "totalCrew": 82,
+     "growthChallenge": 80,
+     "growthSuccess": 77,
+     "growthFail": 3,
+     "personalRest": 2,
+     "cohort": 82
+    },
+    {
+     "weekNumber": 6,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 7,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 8,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 9,
+     "totalCrew": 82,
+     "growthChallenge": 77,
+     "growthSuccess": 66,
+     "growthFail": 11,
+     "personalRest": 5,
+     "cohort": 82
+    },
+    {
+     "weekNumber": 10,
+     "totalCrew": 82,
+     "growthChallenge": 79,
+     "growthSuccess": 69,
+     "growthFail": 10,
+     "personalRest": 3,
+     "cohort": 82
+    },
+    {
+     "weekNumber": 11,
+     "totalCrew": 82,
+     "growthChallenge": 75,
+     "growthSuccess": 66,
+     "growthFail": 9,
+     "personalRest": 7,
+     "cohort": 82
+    },
+    {
+     "weekNumber": 12,
+     "totalCrew": 82,
+     "growthChallenge": 77,
+     "growthSuccess": 67,
+     "growthFail": 10,
+     "personalRest": 5,
+     "cohort": 82
+    },
+    {
+     "weekNumber": 13,
+     "totalCrew": 82,
+     "growthChallenge": 75,
+     "growthSuccess": 66,
+     "growthFail": 9,
+     "personalRest": 7,
+     "cohort": 82
+    },
+    {
+     "weekNumber": 14,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 15,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    }
+   ]
+  },
+  {
+   "org": "phalanx",
+   "memberRosterMode": true,
+   "rosterSize": 61,
+   "archiveTargets": 61,
+   "archiveWithSpringUws": 0,
+   "weeks": [
+    {
+     "weekNumber": 1,
+     "totalCrew": 19,
+     "growthChallenge": 18,
+     "growthSuccess": 8,
+     "growthFail": 10,
+     "personalRest": 1,
+     "cohort": 19
+    },
+    {
+     "weekNumber": 2,
+     "totalCrew": 22,
+     "growthChallenge": 21,
+     "growthSuccess": 17,
+     "growthFail": 4,
+     "personalRest": 1,
+     "cohort": 22
+    },
+    {
+     "weekNumber": 3,
+     "totalCrew": 25,
+     "growthChallenge": 24,
+     "growthSuccess": 24,
+     "growthFail": 0,
+     "personalRest": 1,
+     "cohort": 25
+    },
+    {
+     "weekNumber": 4,
+     "totalCrew": 28,
+     "growthChallenge": 25,
+     "growthSuccess": 24,
+     "growthFail": 1,
+     "personalRest": 3,
+     "cohort": 28
+    },
+    {
+     "weekNumber": 5,
+     "totalCrew": 31,
+     "growthChallenge": 30,
+     "growthSuccess": 20,
+     "growthFail": 10,
+     "personalRest": 1,
+     "cohort": 31
+    },
+    {
+     "weekNumber": 6,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 7,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 8,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 9,
+     "totalCrew": 31,
+     "growthChallenge": 29,
+     "growthSuccess": 28,
+     "growthFail": 1,
+     "personalRest": 2,
+     "cohort": 31
+    },
+    {
+     "weekNumber": 10,
+     "totalCrew": 31,
+     "growthChallenge": 31,
+     "growthSuccess": 29,
+     "growthFail": 2,
+     "personalRest": 0,
+     "cohort": 31
+    },
+    {
+     "weekNumber": 11,
+     "totalCrew": 31,
+     "growthChallenge": 30,
+     "growthSuccess": 27,
+     "growthFail": 3,
+     "personalRest": 1,
+     "cohort": 31
+    },
+    {
+     "weekNumber": 12,
+     "totalCrew": 31,
+     "growthChallenge": 30,
+     "growthSuccess": 29,
+     "growthFail": 1,
+     "personalRest": 1,
+     "cohort": 31
+    },
+    {
+     "weekNumber": 13,
+     "totalCrew": 31,
+     "growthChallenge": 30,
+     "growthSuccess": 28,
+     "growthFail": 2,
+     "personalRest": 1,
+     "cohort": 31
+    },
+    {
+     "weekNumber": 14,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    },
+    {
+     "weekNumber": 15,
+     "totalCrew": 0,
+     "growthChallenge": 0,
+     "growthSuccess": 0,
+     "growthFail": 0,
+     "personalRest": 0,
+     "cohort": 0
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,2306 @@
+﻿[promote-restusers] 타깃 145 (mode=apply org=oranke)
+node.exe :   ⚠ skip-plan oranke/593 고현우: oranke/593 고현우: 기존 프로필 강매칭 1건(1777b351-8996-4573-a91b-d3bf94fb0f1a) — insert-only fail-closed (수동 검수 필요)
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (  ⚠ skip-plan o...osed (수동 검수 필요):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+{
+  "mode": "apply",
+  "totals": {
+    "targets": 145,
+    "planned": 144,
+    "failedPlan": 1,
+    "usersInsert": 144,
+    "uwsInsert": 1495,
+    "uwpInsert": 2164,
+    "sentinel": 144,
+    "checksMigratedFalse": 126,
+    "ledger": 35229,
+    "expEach": 1495,
+    "seasonStatusRest": 144,
+    "ensureLinesDistinct": 1,
+    "unattributed": 369,
+    "restSeasonConflicts": 11,
+    "negativeSentinels": 26,
+    "pmsStateNon활동정지": []
+  }
+}
+→ claudedocs/promote-restusers-apply-2026-06-18T03-47-05.json
+[통합] 라인 ensure: 1개 생성
+⚠ restSeasonConflict 제외 2명: oranke/1330 김승민 (봄 5주), oranke/1306 엄정은 (봄 6주)
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9801ms | weeks=71
+[weekly-cards][timing] getWeeklyGrowth crew=149ms currentWeek=1ms summary+cards=10384ms total=10534ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10617ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 411ms | weeks=29
+✔ oranke/1013 강병준 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8869ms | weeks=47
+[weekly-cards][timing] getWeeklyGrowth crew=428ms currentWeek=0ms summary+cards=9426ms total=9854ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9941ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 397ms | weeks=20
+✔ oranke/1195 강예림 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9604ms | weeks=107
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=127ms currentWeek=0ms summary+cards=10201ms total=10328ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10408ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 616ms | weeks=65
+✔ oranke/692 강온유 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8985ms | weeks=38
+[weekly-cards][timing] getWeeklyGrowth crew=124ms currentWeek=0ms summary+cards=9718ms total=9842ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10195ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 420ms | weeks=21
+✔ oranke/1279 강정아 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1595ms | weeks=139
+[weekly-cards][timing] getWeeklyGrowth crew=129ms currentWeek=0ms summary+cards=2133ms total=2262ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2320ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 714ms | weeks=97
+✔ oranke/336 계승현 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9484ms | weeks=116
+[weekly-cards][timing] getWeeklyGrowth crew=158ms currentWeek=0ms summary+cards=10042ms total=10200ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10284ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 604ms | weeks=74
+✔ oranke/538 고경진 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8846ms | weeks=38
+[weekly-cards][timing] getWeeklyGrowth crew=127ms currentWeek=1ms summary+cards=9451ms total=9579ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9688ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 430ms | weeks=21
+✔ oranke/1285 고다은 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1678ms | weeks=139
+[weekly-cards][timing] getWeeklyGrowth crew=131ms currentWeek=0ms summary+cards=2310ms total=2441ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2513ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 839ms | weeks=97
+✔ oranke/322 고영인 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1739ms | weeks=150
+[weekly-cards][timing] getWeeklyGrowth crew=152ms currentWeek=0ms summary+cards=2442ms total=2594ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2650ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 755ms | weeks=108
+✔ oranke/144 고준희 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 3605ms | weeks=137
+[weekly-cards][timing] getWeeklyGrowth crew=132ms currentWeek=0ms summary+cards=5251ms total=5383ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5689ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1224ms | weeks=95
+✔ oranke/359 고채현 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9067ms | weeks=38
+[weekly-cards][timing] getWeeklyGrowth crew=164ms currentWeek=0ms summary+cards=9648ms total=9812ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9944ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 680ms | weeks=26
+✔ oranke/1267 공나윤 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9612ms | weeks=107
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=121ms currentWeek=0ms summary+cards=10169ms total=10290ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10369ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 514ms | weeks=65
+✔ oranke/698 구수현 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 2086ms | weeks=143
+[weekly-cards][timing] getWeeklyGrowth crew=245ms currentWeek=0ms summary+cards=2651ms total=2896ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2959ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 711ms | weeks=101
+✔ oranke/269 권규리 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1630ms | weeks=150
+[weekly-cards][timing] getWeeklyGrowth crew=159ms currentWeek=0ms summary+cards=2208ms total=2367ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2429ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 644ms | weeks=108
+✔ oranke/113 권소영 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 3041ms | weeks=137
+[weekly-cards][timing] getWeeklyGrowth crew=130ms currentWeek=1ms summary+cards=3578ms total=3709ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3770ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 690ms | weeks=95
+✔ oranke/385 권유진 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1577ms | weeks=139
+[weekly-cards][timing] getWeeklyGrowth crew=162ms currentWeek=0ms summary+cards=2107ms total=2269ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2338ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 584ms | weeks=97
+✔ oranke/335 권혁준 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9286ms | weeks=119
+[weekly-cards][timing] getWeeklyGrowth crew=122ms currentWeek=0ms summary+cards=9879ms total=10001ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10087ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 588ms | weeks=77
+✔ oranke/459 김가은 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1541ms | weeks=145
+[weekly-cards][timing] getWeeklyGrowth crew=158ms currentWeek=0ms summary+cards=2095ms total=2253ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2311ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 747ms | weeks=103
+✔ oranke/202 김건표 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9306ms | weeks=72
+[weekly-cards][timing] getWeeklyGrowth crew=126ms currentWeek=0ms summary+cards=9896ms total=10022ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10100ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 614ms | weeks=30
+✔ oranke/980 김건희 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9019ms | weeks=48
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=201ms currentWeek=0ms summary+cards=9823ms total=10024ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10256ms
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 424ms | weeks=21
+✔ oranke/1171 김규태 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9379ms | weeks=116
+[weekly-cards][timing] getWeeklyGrowth crew=141ms currentWeek=0ms summary+cards=10152ms total=10293ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10381ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 661ms | weeks=74
+✔ oranke/549 김나경 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9228ms | weeks=116
+[weekly-cards][timing] getWeeklyGrowth crew=117ms currentWeek=0ms summary+cards=9784ms total=9901ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9992ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 644ms | weeks=74
+✔ oranke/572 김나연 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9010ms | weeks=47
+[weekly-cards][timing] getWeeklyGrowth crew=157ms currentWeek=0ms summary+cards=9555ms total=9712ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9790ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 447ms | weeks=24
+✔ oranke/1208 김민결 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9175ms | weeks=71
+[weekly-cards][timing] getWeeklyGrowth crew=129ms currentWeek=0ms summary+cards=9771ms total=9900ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9974ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 442ms | weeks=29
+✔ oranke/1015 김민재 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9443ms | weeks=106
+[weekly-cards][timing] getWeeklyGrowth crew=179ms currentWeek=0ms summary+cards=10069ms total=10248ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10336ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 606ms | weeks=64
+✔ oranke/717 김민지 apply 완료
+[weekly-cards][timing] line aggregates+verdict 1535ms | weeks=141
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] getWeeklyGrowth crew=116ms currentWeek=0ms summary+cards=2408ms total=2524ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2585ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 677ms | weeks=99
+✔ oranke/292 김범수 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8700ms | weeks=38
+[weekly-cards][timing] getWeeklyGrowth crew=118ms currentWeek=0ms summary+cards=9250ms total=9368ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9449ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 372ms | weeks=21
+✔ oranke/1264 김보미 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9586ms | weeks=108
+[weekly-cards][timing] getWeeklyGrowth crew=153ms currentWeek=0ms summary+cards=10148ms total=10301ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10383ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 921ms | weeks=66
+✔ oranke/659 김보민 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9311ms | weeks=96
+[weekly-cards][timing] getWeeklyGrowth crew=128ms currentWeek=0ms summary+cards=9929ms total=10057ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10136ms
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 447ms | weeks=54
+✔ oranke/833 김성준 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9496ms | weeks=108
+[weekly-cards][timing] getWeeklyGrowth crew=122ms currentWeek=1ms summary+cards=10050ms total=10173ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10258ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 573ms | weeks=66
+✔ oranke/667 김송 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9360ms | weeks=111
+[weekly-cards][timing] getWeeklyGrowth crew=118ms currentWeek=0ms summary+cards=9902ms total=10020ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10104ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 659ms | weeks=69
+✔ oranke/675 김수아 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9470ms | weeks=117
+[weekly-cards][timing] getWeeklyGrowth crew=166ms currentWeek=0ms summary+cards=10201ms total=10367ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10552ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 595ms | weeks=75
+✔ oranke/519 김시연 apply 완료
+[weekly-cards][timing] line aggregates+verdict 8894ms | weeks=62
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=120ms currentWeek=1ms summary+cards=9472ms total=9593ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9678ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 377ms | weeks=27
+✔ oranke/1110 김시원 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9396ms | weeks=116
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=144ms currentWeek=0ms summary+cards=9958ms total=10102ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10182ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 841ms | weeks=74
+✔ oranke/539 김시은 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 10707ms | weeks=64
+[weekly-cards][timing] getWeeklyGrowth crew=194ms currentWeek=0ms summary+cards=11439ms total=11633ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 11719ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 526ms | weeks=35
+✔ oranke/1060 김시호 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9506ms | weeks=39
+[weekly-cards][timing] getWeeklyGrowth crew=129ms currentWeek=0ms summary+cards=10315ms total=10444ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10661ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 393ms | weeks=20
+✔ oranke/1259 김어진 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9204ms | weeks=87
+[weekly-cards][timing] getWeeklyGrowth crew=165ms currentWeek=0ms summary+cards=9781ms total=9946ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10024ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 380ms | weeks=45
+✔ oranke/905 김은서 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1679ms | weeks=150
+[weekly-cards][timing] getWeeklyGrowth crew=156ms currentWeek=0ms summary+cards=2233ms total=2389ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2453ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 738ms | weeks=108
+✔ oranke/116 김의연 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9439ms | weeks=118
+[weekly-cards][timing] getWeeklyGrowth crew=176ms currentWeek=0ms summary+cards=10009ms total=10185ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10276ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 692ms | weeks=76
+✔ oranke/498 김재환 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9625ms | weeks=106
+[weekly-cards][timing] getWeeklyGrowth crew=128ms currentWeek=1ms summary+cards=10366ms total=10495ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10645ms
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 604ms | weeks=64
+✔ oranke/746 김정원 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9319ms | weeks=128
+[weekly-cards][timing] getWeeklyGrowth crew=177ms currentWeek=0ms summary+cards=9936ms total=10113ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10226ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 636ms | weeks=86
+✔ oranke/433 김주은 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9533ms | weeks=108
+[weekly-cards][timing] getWeeklyGrowth crew=161ms currentWeek=0ms summary+cards=10166ms total=10327ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10415ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 703ms | weeks=66
+✔ oranke/634 김주한 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9551ms | weeks=106
+[weekly-cards][timing] getWeeklyGrowth crew=124ms currentWeek=1ms summary+cards=10186ms total=10311ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10394ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 600ms | weeks=64
+✔ oranke/725 김지민 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9703ms | weeks=117
+[weekly-cards][timing] getWeeklyGrowth crew=161ms currentWeek=0ms summary+cards=10334ms total=10495ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10588ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 673ms | weeks=75
+✔ oranke/514 김지혜 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1689ms | weeks=138
+[weekly-cards][timing] getWeeklyGrowth crew=175ms currentWeek=0ms summary+cards=2253ms total=2428ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2484ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 784ms | weeks=96
+✔ oranke/344 김채원 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1648ms | weeks=150
+[weekly-cards][timing] getWeeklyGrowth crew=158ms currentWeek=0ms summary+cards=2204ms total=2362ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2427ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 649ms | weeks=108
+✔ oranke/136 김태형 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9097ms | weeks=62
+[weekly-cards][timing] getWeeklyGrowth crew=169ms currentWeek=0ms summary+cards=9835ms total=10004ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10080ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 459ms | weeks=35
+✔ oranke/1102 김현진 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 2992ms | weeks=137
+[weekly-cards][timing] getWeeklyGrowth crew=122ms currentWeek=0ms summary+cards=3611ms total=3733ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3799ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 949ms | weeks=95
+✔ oranke/372 김혜은 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9508ms | weeks=111
+[weekly-cards][timing] getWeeklyGrowth crew=182ms currentWeek=0ms summary+cards=10111ms total=10293ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10382ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 714ms | weeks=69
+✔ oranke/595 나도영 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9339ms | weeks=106
+[weekly-cards][timing] getWeeklyGrowth crew=155ms currentWeek=0ms summary+cards=9927ms total=10082ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10168ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 661ms | weeks=64
+✔ oranke/744 남선우 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9562ms | weeks=108
+[weekly-cards][timing] getWeeklyGrowth crew=149ms currentWeek=0ms summary+cards=10185ms total=10334ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10414ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 694ms | weeks=66
+✔ oranke/636 노준영 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9663ms | weeks=107
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=171ms currentWeek=0ms summary+cards=10457ms total=10628ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10868ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 600ms | weeks=65
+✔ oranke/710 류지민 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9590ms | weeks=119
+[weekly-cards][timing] getWeeklyGrowth crew=133ms currentWeek=0ms summary+cards=10203ms total=10336ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10417ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 773ms | weeks=77
+✔ oranke/482 마경연 apply 완료
+[weekly-cards][timing] line aggregates+verdict 8725ms | weeks=40
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=200ms currentWeek=0ms summary+cards=9334ms total=9534ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9610ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 520ms | weeks=28
+✔ oranke/1247 문지원 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9486ms | weeks=62
+[weekly-cards][timing] getWeeklyGrowth crew=164ms currentWeek=0ms summary+cards=10137ms total=10301ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10384ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 428ms | weeks=34
+✔ oranke/1109 문채정 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1823ms | weeks=141
+[weekly-cards][timing] getWeeklyGrowth crew=134ms currentWeek=0ms summary+cards=2399ms total=2533ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2591ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 874ms | weeks=99
+✔ oranke/300 민유경 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9898ms | weeks=91
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=161ms currentWeek=0ms summary+cards=10584ms total=10745ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10832ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 487ms | weeks=55
+✔ oranke/900 박솔이 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8987ms | weeks=62
+[weekly-cards][timing] getWeeklyGrowth crew=167ms currentWeek=0ms summary+cards=9576ms total=9743ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9827ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 436ms | weeks=34
+✔ oranke/1126 박시윤 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9700ms | weeks=128
+[weekly-cards][timing] getWeeklyGrowth crew=188ms currentWeek=0ms summary+cards=10277ms total=10465ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10547ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 709ms | weeks=86
+✔ oranke/435 박신솔 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 10952ms | weeks=119
+[weekly-cards][timing] getWeeklyGrowth crew=138ms currentWeek=0ms summary+cards=11594ms total=11732ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 11829ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 857ms | weeks=77
+✔ oranke/466 박신영 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9491ms | weeks=128
+[weekly-cards][timing] getWeeklyGrowth crew=203ms currentWeek=0ms summary+cards=10075ms total=10278ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10358ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 852ms | weeks=86
+✔ oranke/413 박인규 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9231ms | weeks=86
+[weekly-cards][timing] getWeeklyGrowth crew=123ms currentWeek=0ms summary+cards=9832ms total=9955ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10038ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 360ms | weeks=44
+✔ oranke/938 박제우 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9130ms | weeks=48
+[weekly-cards][timing] getWeeklyGrowth crew=123ms currentWeek=0ms summary+cards=9687ms total=9810ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9893ms
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 373ms | weeks=19
+✔ oranke/1173 박지윤 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9421ms | weeks=118
+[weekly-cards][timing] getWeeklyGrowth crew=132ms currentWeek=0ms summary+cards=10025ms total=10157ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10242ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 731ms | weeks=76
+✔ oranke/493 박지현 apply 완료
+[weekly-cards][timing] line aggregates+verdict 8865ms | weeks=39
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=131ms currentWeek=0ms summary+cards=9502ms total=9633ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9720ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 410ms | weeks=22
+✔ oranke/1258 박진우 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8602ms | weeks=21
+[weekly-cards][timing] getWeeklyGrowth crew=142ms currentWeek=0ms summary+cards=9200ms total=9342ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9423ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 379ms | weeks=11
+✔ oranke/1308 박채원 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9567ms | weeks=111
+[weekly-cards][timing] getWeeklyGrowth crew=154ms currentWeek=1ms summary+cards=10176ms total=10331ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10415ms
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 760ms | weeks=69
+✔ oranke/599 박희수 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 10008ms | weeks=116
+[weekly-cards][timing] getWeeklyGrowth crew=126ms currentWeek=0ms summary+cards=10856ms total=10982ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 11198ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 835ms | weeks=74
+✔ oranke/570 박희철 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9616ms | weeks=91
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=148ms currentWeek=0ms summary+cards=10163ms total=10311ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10394ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 389ms | weeks=49
+✔ oranke/856 배지효 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1762ms | weeks=144
+[weekly-cards][timing] getWeeklyGrowth crew=178ms currentWeek=0ms summary+cards=2306ms total=2484ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2543ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 841ms | weeks=102
+✔ oranke/264 백지원 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9287ms | weeks=63
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=9906ms total=10078ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10271ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 464ms | weeks=33
+✔ oranke/1086 서유진 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9629ms | weeks=111
+[weekly-cards][timing] getWeeklyGrowth crew=177ms currentWeek=1ms summary+cards=10324ms total=10502ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10693ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 784ms | weeks=69
+✔ oranke/603 석희담 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9170ms | weeks=63
+[weekly-cards][timing] getWeeklyGrowth crew=158ms currentWeek=0ms summary+cards=9747ms total=9905ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9989ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 565ms | weeks=37
+✔ oranke/1076 설경민 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 10918ms | weeks=66
+[weekly-cards][timing] getWeeklyGrowth crew=179ms currentWeek=1ms summary+cards=12133ms total=12313ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 12749ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1027ms | weeks=32
+✔ oranke/1026 설유정 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 2183ms | weeks=145
+[weekly-cards][timing] getWeeklyGrowth crew=179ms currentWeek=0ms summary+cards=2807ms total=2986ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3059ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1132ms | weeks=103
+✔ oranke/253 성민지 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1845ms | weeks=145
+[weekly-cards][timing] getWeeklyGrowth crew=182ms currentWeek=1ms summary+cards=2478ms total=2661ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2738ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1106ms | weeks=103
+✔ oranke/220 손보연 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8992ms | weeks=50
+[weekly-cards][timing] getWeeklyGrowth crew=181ms currentWeek=0ms summary+cards=9583ms total=9764ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9848ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 578ms | weeks=33
+✔ oranke/1131 손정현 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 2960ms | weeks=137
+[weekly-cards][timing] getWeeklyGrowth crew=137ms currentWeek=0ms summary+cards=3562ms total=3699ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3760ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 878ms | weeks=95
+✔ oranke/361 손지영 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9931ms | weeks=90
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=163ms currentWeek=0ms summary+cards=10506ms total=10669ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10765ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 447ms | weeks=48
+✔ oranke/864 송민서 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9079ms | weeks=47
+[weekly-cards][timing] getWeeklyGrowth crew=159ms currentWeek=0ms summary+cards=9658ms total=9817ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9905ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 389ms | weeks=19
+✔ oranke/1193 송영조 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9401ms | weeks=50
+[weekly-cards][timing] getWeeklyGrowth crew=174ms currentWeek=1ms summary+cards=10032ms total=10207ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10290ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 773ms | weeks=36
+✔ oranke/1151 송혜린 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 10329ms | weeks=86
+[weekly-cards][timing] getWeeklyGrowth crew=138ms currentWeek=0ms summary+cards=10926ms total=11064ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 11148ms
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 460ms | weeks=44
+✔ oranke/935 신윤재 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9862ms | weeks=108
+[weekly-cards][timing] getWeeklyGrowth crew=132ms currentWeek=0ms summary+cards=10558ms total=10690ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10771ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 667ms | weeks=66
+✔ oranke/658 신지윤 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1787ms | weeks=140
+[weekly-cards][timing] getWeeklyGrowth crew=130ms currentWeek=0ms summary+cards=2351ms total=2481ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2550ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 754ms | weeks=98
+✔ oranke/309 심민경 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9333ms | weeks=96
+[weekly-cards][timing] getWeeklyGrowth crew=177ms currentWeek=0ms summary+cards=9879ms total=10056ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10145ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 417ms | weeks=54
+✔ oranke/834 안동주 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8977ms | weeks=71
+[weekly-cards][timing] getWeeklyGrowth crew=113ms currentWeek=0ms summary+cards=9536ms total=9649ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9731ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 360ms | weeks=29
+✔ oranke/1018 안선하 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1712ms | weeks=138
+[weekly-cards][timing] getWeeklyGrowth crew=169ms currentWeek=1ms summary+cards=2250ms total=2420ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2482ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 775ms | weeks=96
+✔ oranke/341 안지윤 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9379ms | weeks=108
+[weekly-cards][timing] getWeeklyGrowth crew=130ms currentWeek=0ms summary+cards=9941ms total=10071ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10166ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 572ms | weeks=66
+✔ oranke/657 안호연 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9770ms | weeks=131
+[weekly-cards][timing] getWeeklyGrowth crew=148ms currentWeek=0ms summary+cards=11383ms total=11531ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 11881ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 581ms | weeks=89
+✔ oranke/395 양서윤 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1697ms | weeks=145
+[weekly-cards][timing] getWeeklyGrowth crew=180ms currentWeek=0ms summary+cards=2250ms total=2430ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2495ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 801ms | weeks=103
+✔ oranke/203 양예빈 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9069ms | weeks=62
+[weekly-cards][timing] getWeeklyGrowth crew=115ms currentWeek=0ms summary+cards=9616ms total=9731ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9817ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 374ms | weeks=25
+✔ oranke/1104 양찬영 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9578ms | weeks=128
+[weekly-cards][timing] getWeeklyGrowth crew=146ms currentWeek=0ms summary+cards=10156ms total=10302ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10384ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 714ms | weeks=86
+✔ oranke/420 양초현 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8839ms | weeks=47
+[weekly-cards][timing] getWeeklyGrowth crew=151ms currentWeek=0ms summary+cards=9420ms total=9571ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9652ms
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 495ms | weeks=28
+✔ oranke/1188 오주연 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9574ms | weeks=111
+[weekly-cards][timing] getWeeklyGrowth crew=165ms currentWeek=0ms summary+cards=10191ms total=10356ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10440ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 650ms | weeks=69
+✔ oranke/605 옥수현 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9571ms | weeks=100
+[weekly-cards][timing] getWeeklyGrowth crew=154ms currentWeek=0ms summary+cards=10142ms total=10296ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10381ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 573ms | weeks=58
+✔ oranke/783 왕현정 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9528ms | weeks=106
+[weekly-cards][timing] getWeeklyGrowth crew=114ms currentWeek=1ms summary+cards=10194ms total=10309ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10468ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 637ms | weeks=64
+✔ oranke/754 유예진 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9661ms | weeks=128
+[weekly-cards][timing] getWeeklyGrowth crew=172ms currentWeek=0ms summary+cards=10260ms total=10432ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10520ms
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 656ms | weeks=86
+✔ oranke/424 윤시현 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8925ms | weeks=74
+[weekly-cards][timing] getWeeklyGrowth crew=118ms currentWeek=1ms summary+cards=9477ms total=9596ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9682ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 361ms | weeks=32
+✔ oranke/957 윤인환 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9020ms | weeks=63
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=110ms currentWeek=0ms summary+cards=9534ms total=9644ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9723ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 361ms | weeks=22
+✔ oranke/1099 윤한울 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9152ms | weeks=73
+[weekly-cards][timing] getWeeklyGrowth crew=154ms currentWeek=0ms summary+cards=9797ms total=9951ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10025ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 485ms | weeks=37
+✔ oranke/965 이건희 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9057ms | weeks=38
+[weekly-cards][timing] getWeeklyGrowth crew=134ms currentWeek=0ms summary+cards=9660ms total=9794ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9880ms
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 530ms | weeks=20
+✔ oranke/1277 이경민 apply 완료
+[weekly-cards][timing] line aggregates+verdict 10045ms | weeks=75
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=196ms currentWeek=1ms summary+cards=10710ms total=10907ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10996ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 406ms | weeks=33
+✔ oranke/943 이대현 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9473ms | weeks=128
+[weekly-cards][timing] getWeeklyGrowth crew=127ms currentWeek=0ms summary+cards=10067ms total=10194ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10286ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 748ms | weeks=86
+✔ oranke/412 이민혁 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9057ms | weeks=75
+[weekly-cards][timing] getWeeklyGrowth crew=160ms currentWeek=0ms summary+cards=9685ms total=9845ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9955ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 457ms | weeks=40
+✔ oranke/947 이서연 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9602ms | weeks=116
+[weekly-cards][timing] getWeeklyGrowth crew=180ms currentWeek=0ms summary+cards=10219ms total=10399ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10489ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 813ms | weeks=74
+✔ oranke/564 이수연 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9397ms | weeks=111
+[weekly-cards][timing] getWeeklyGrowth crew=127ms currentWeek=1ms summary+cards=9953ms total=10081ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10176ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 573ms | weeks=69
+✔ oranke/602 이승표 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9369ms | weeks=98
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=114ms currentWeek=0ms summary+cards=9923ms total=10037ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10128ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 510ms | weeks=56
+✔ oranke/802 이유나 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8987ms | weeks=39
+[weekly-cards][timing] getWeeklyGrowth crew=157ms currentWeek=0ms summary+cards=9994ms total=10151ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10278ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 503ms | weeks=27
+✔ oranke/1260 이윤재 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9371ms | weeks=87
+[weekly-cards][timing] getWeeklyGrowth crew=161ms currentWeek=0ms summary+cards=9904ms total=10065ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10162ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 482ms | weeks=52
+✔ oranke/912 이윤채 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9304ms | weeks=97
+[weekly-cards][timing] getWeeklyGrowth crew=150ms currentWeek=0ms summary+cards=9873ms total=10023ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10110ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 508ms | weeks=55
+✔ oranke/817 이은서 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9411ms | weeks=118
+[weekly-cards][timing] getWeeklyGrowth crew=134ms currentWeek=0ms summary+cards=10024ms total=10158ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10239ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 815ms | weeks=76
+✔ oranke/492 이장호 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9742ms | weeks=65
+[weekly-cards][timing] getWeeklyGrowth crew=131ms currentWeek=0ms summary+cards=10362ms total=10493ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10581ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 358ms | weeks=29
+✔ oranke/1039 이정민 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8824ms | weeks=40
+[weekly-cards][timing] getWeeklyGrowth crew=157ms currentWeek=0ms summary+cards=9396ms total=9553ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9677ms
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 572ms | weeks=29
+✔ oranke/1235 이종헌 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1777ms | weeks=141
+[weekly-cards][timing] getWeeklyGrowth crew=116ms currentWeek=0ms summary+cards=2299ms total=2415ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2473ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 989ms | weeks=99
+✔ oranke/294 이주연 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1765ms | weeks=141
+[weekly-cards][timing] getWeeklyGrowth crew=125ms currentWeek=0ms summary+cards=2308ms total=2433ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2515ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 949ms | weeks=99
+✔ oranke/293 임유진 apply 완료
+[weekly-cards][timing] line aggregates+verdict 8895ms | weeks=49
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=148ms currentWeek=0ms summary+cards=9459ms total=9607ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9688ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 399ms | weeks=26
+✔ oranke/1142 장유림 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1793ms | weeks=144
+[weekly-cards][timing] getWeeklyGrowth crew=162ms currentWeek=0ms summary+cards=2361ms total=2523ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2581ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 895ms | weeks=102
+✔ oranke/260 장한슬 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8927ms | weeks=50
+[weekly-cards][timing] getWeeklyGrowth crew=158ms currentWeek=0ms summary+cards=9487ms total=9645ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9737ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 601ms | weeks=29
+✔ oranke/1135 전다은 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9462ms | weeks=109
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=159ms currentWeek=0ms summary+cards=10249ms total=10408ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10484ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 584ms | weeks=67
+✔ oranke/703 전도영 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 2907ms | weeks=137
+[weekly-cards][timing] getWeeklyGrowth crew=125ms currentWeek=0ms summary+cards=3497ms total=3622ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3684ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 810ms | weeks=95
+✔ oranke/362 전보원 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8798ms | weeks=38
+[weekly-cards][timing] getWeeklyGrowth crew=133ms currentWeek=0ms summary+cards=9372ms total=9505ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9767ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 369ms | weeks=21
+✔ oranke/1271 전수연 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9224ms | weeks=71
+[weekly-cards][timing] getWeeklyGrowth crew=163ms currentWeek=0ms summary+cards=9810ms total=9973ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10046ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 614ms | weeks=49
+✔ oranke/1016 전지연 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9427ms | weeks=116
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=155ms currentWeek=1ms summary+cards=10028ms total=10184ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10278ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 622ms | weeks=74
+✔ oranke/532 전혜린 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9449ms | weeks=100
+[weekly-cards][timing] getWeeklyGrowth crew=124ms currentWeek=0ms summary+cards=10053ms total=10177ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10282ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 615ms | weeks=58
+✔ oranke/774 정다희 apply 완료
+[weekly-cards][timing] line aggregates+verdict 8951ms | weeks=50
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=141ms currentWeek=0ms summary+cards=9520ms total=9661ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9743ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 359ms | weeks=27
+✔ oranke/1133 정두영 apply 완료
+[weekly-cards][timing] line aggregates+verdict 8961ms | weeks=71
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=165ms currentWeek=0ms summary+cards=9487ms total=9652ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9736ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 458ms | weeks=43
+✔ oranke/992 정예진 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8653ms | weeks=40
+[weekly-cards][timing] getWeeklyGrowth crew=116ms currentWeek=0ms summary+cards=9176ms total=9292ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9371ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 377ms | weeks=22
+✔ oranke/1237 정은지 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9599ms | weeks=116
+[weekly-cards][timing] getWeeklyGrowth crew=107ms currentWeek=0ms summary+cards=10169ms total=10276ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10365ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 678ms | weeks=74
+✔ oranke/553 정지우 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9404ms | weeks=109
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=112ms currentWeek=0ms summary+cards=9958ms total=10070ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10152ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 638ms | weeks=67
+✔ oranke/617 정희수 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9917ms | weeks=64
+[weekly-cards][timing] getWeeklyGrowth crew=180ms currentWeek=0ms summary+cards=10585ms total=10765ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10850ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 448ms | weeks=35
+✔ oranke/1068 조은서 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8547ms | weeks=21
+[weekly-cards][timing] getWeeklyGrowth crew=122ms currentWeek=0ms summary+cards=9094ms total=9216ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9293ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 350ms | weeks=11
+✔ oranke/1313 지예림 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9492ms | weeks=97
+[weekly-cards][timing] getWeeklyGrowth crew=157ms currentWeek=0ms summary+cards=10039ms total=10196ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10274ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 599ms | weeks=55
+✔ oranke/811 진민주 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9521ms | weeks=130
+[weekly-cards][timing] getWeeklyGrowth crew=112ms currentWeek=0ms summary+cards=10085ms total=10197ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10286ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 863ms | weeks=88
+✔ oranke/402 차상훈 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1775ms | weeks=151
+[weekly-cards][timing] getWeeklyGrowth crew=159ms currentWeek=1ms summary+cards=2291ms total=2451ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2507ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 865ms | weeks=109
+✔ oranke/94 최도은 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9037ms | weeks=73
+[weekly-cards][timing] getWeeklyGrowth crew=115ms currentWeek=0ms summary+cards=9568ms total=9683ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9773ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 391ms | weeks=31
+✔ oranke/968 최민서 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9490ms | weeks=119
+[weekly-cards][timing] getWeeklyGrowth crew=190ms currentWeek=0ms summary+cards=10039ms total=10229ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10311ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 710ms | weeks=77
+✔ oranke/488 최유진 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 2225ms | weeks=150
+[weekly-cards][timing] getWeeklyGrowth crew=115ms currentWeek=0ms summary+cards=2780ms total=2895ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2951ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 947ms | weeks=108
+✔ oranke/109 최윤호 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 8744ms | weeks=42
+[weekly-cards][timing] getWeeklyGrowth crew=117ms currentWeek=0ms summary+cards=9263ms total=9380ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 9464ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 399ms | weeks=24
+✔ oranke/1218 한다영 apply 완료
+[weekly-cards][timing] line aggregates+verdict 9683ms | weeks=106
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] getWeeklyGrowth crew=137ms currentWeek=0ms summary+cards=10270ms total=10407ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10490ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 577ms | weeks=64
+✔ oranke/724 한연우 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1798ms | weeks=149
+[weekly-cards][timing] getWeeklyGrowth crew=216ms currentWeek=1ms summary+cards=2311ms total=2528ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2615ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 825ms | weeks=107
+✔ oranke/174 형성인 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'TypeError: fetch failed' }
+[weekly-cards][timing] line aggregates+verdict 9418ms | weeks=108
+[weekly-cards][timing] getWeeklyGrowth crew=136ms currentWeek=0ms summary+cards=9946ms total=10082ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 10167ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 561ms | weeks=66
+✔ oranke/650 홍예진 apply 완료
+[lineAvailability] open-lines targets page fetch failed { from: 0, message: 'Bad Request' }
+[weekly-cards][timing] line aggregates+verdict 1795ms | weeks=150
+[weekly-cards][timing] getWeeklyGrowth crew=115ms currentWeek=0ms summary+cards=2334ms total=2449ms
+[weekly-growth][area-8] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[weekly-growth][area-8] user_role_history lookup failed {
+  message: "Could not find the table 'public.user_role_history' in the schema cache"
+}
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2505ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 819ms | weeks=108
+✔ oranke/102 황채영 apply 완료
+snapshot 점검: 142명 중 누락/stale 0명 보정
+apply 완료 142명 — rollback: npx tsx --env-file=.env.local scripts/promote-restusers.ts --rollback claudedocs/promote-restusers-apply-2026-06-18T03-47-05.json
