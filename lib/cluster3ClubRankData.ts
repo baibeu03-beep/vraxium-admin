@@ -51,8 +51,37 @@ function computeWeeklyScore(row: { points: number; advantages: number; penalty: 
   return (row.points * 1) + (row.advantages * 3) - (row.penalty * 5);
 }
 
+// ─── 품계 모집단 제외 정책 (단일 SoT) ──────────────────────────────────
+//
+// growth_status='seasonal_rest'(시즌 전체 휴식자)는 "현재 활동 인원"이 아니므로
+// 상대 백분위 모집단에서 제외한다. 과거 활동 이력(user_weekly_points·
+// user_week_statuses)·snapshot·admin/members 표시는 전혀 건드리지 않는다 —
+// 오직 품계 RANK 계산의 분모/순위에서만 빠진다.
+//   본인 품계도 모집단에서 빠지므로(주차별 scored 에서 제거) targetEntry 부재 →
+//   weeklyDetails 가 비어 avgPercentile=null(—) 이 된다(= 품계 계산에 미참여).
+// getClubRank()·getClubRankGradeBatch() 두 모집단 빌더가 공통으로 호출한다.
+export async function getRankPopulationExcludedUserIds(): Promise<Set<string>> {
+  const excluded = new Set<string>();
+  const pageSize = 1000;
+  let from = 0;
+  for (;;) {
+    const res = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id")
+      .eq("growth_status", "seasonal_rest")
+      .order("user_id", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (res.error) throw new GrowthError(500, res.error.message);
+    const rows = (res.data ?? []) as Array<{ user_id: string }>;
+    for (const r of rows) excluded.add(r.user_id);
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+  return excluded;
+}
+
 export async function getClubRank(userId: string): Promise<ClubRankDto> {
-  const [profileRes, frozenRes] = await Promise.all([
+  const [profileRes, frozenRes, excludedIds] = await Promise.all([
     supabaseAdmin
       .from("user_profiles")
       .select("growth_status")
@@ -63,6 +92,7 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
       .select("avg_percentile,rank_grade")
       .eq("user_id", userId)
       .maybeSingle(),
+    getRankPopulationExcludedUserIds(),
   ]);
 
   if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
@@ -120,7 +150,14 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
     from += pageSize;
   }
 
-  if (allPoints.length === 0) {
+  // 모집단 제외 정책: seasonal_rest 사용자의 행을 RANK 계산 전에 제거한다.
+  // (대상 본인이 seasonal_rest 면 본인 행도 빠져 weeklyDetails 가 비고 avgPercentile=null.)
+  const populationPoints =
+    excludedIds.size === 0
+      ? allPoints
+      : allPoints.filter((r) => !excludedIds.has(r.user_id));
+
+  if (populationPoints.length === 0) {
     return {
       avgPercentile: null,
       avgPercentileDisplay: "—",
@@ -131,7 +168,7 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
   }
 
   const byWeek = new Map<string, WeeklyPointRow[]>();
-  for (const row of allPoints) {
+  for (const row of populationPoints) {
     const key = `${row.year}-${row.week_number}`;
     const list = byWeek.get(key) ?? [];
     list.push(row);
@@ -238,27 +275,46 @@ export async function getClubRankGradeBatch(
   const firstWeekById = new Map<string, { year: number; week: number }>();
   for (let i = 0; i < userIds.length; i += ID_CHUNK) {
     const chunk = userIds.slice(i, i + ID_CHUNK);
-    const [profRes, frozenRes, uwsRes] = await Promise.all([
+    // user_week_statuses 는 사용자당 다수 주차 행이라 200명 청크의 .in() 결과가 기본
+    // 1000행 cap 을 넘기면 조용히 잘려 firstWeek(온보딩 첫 주차)가 틀어진다 → 온보딩
+    // 제외 주차가 어긋나 getClubRank(개인) 과 batch(관리자) 의 품계가 갈린다.
+    // .range() 페이지네이션으로 전 행을 읽어 정확한 min(year,week)을 보장한다.
+    const uwsRows: Array<{ user_id: string; year: number; week_number: number }> = [];
+    {
+      const UWS_PAGE = 1000;
+      let uwsFrom = 0;
+      for (;;) {
+        const r = await supabaseAdmin
+          .from("user_week_statuses")
+          .select("user_id,year,week_number")
+          .in("user_id", chunk)
+          .order("user_id", { ascending: true })
+          .order("year", { ascending: true })
+          .order("week_number", { ascending: true })
+          .range(uwsFrom, uwsFrom + UWS_PAGE - 1);
+        if (r.error) throw new GrowthError(500, r.error.message);
+        const rows = (r.data ?? []) as Array<{ user_id: string; year: number; week_number: number }>;
+        uwsRows.push(...rows);
+        if (rows.length < UWS_PAGE) break;
+        uwsFrom += UWS_PAGE;
+      }
+    }
+    const [profRes, frozenRes] = await Promise.all([
       supabaseAdmin.from("user_profiles").select("user_id,growth_status").in("user_id", chunk),
       supabaseAdmin
         .from("user_club_rank_frozen")
         .select("user_id,avg_percentile,rank_grade")
         .in("user_id", chunk),
-      supabaseAdmin
-        .from("user_week_statuses")
-        .select("user_id,year,week_number")
-        .in("user_id", chunk),
     ]);
     if (profRes.error) throw new GrowthError(500, profRes.error.message);
     if (frozenRes.error) throw new GrowthError(500, frozenRes.error.message);
-    if (uwsRes.error) throw new GrowthError(500, uwsRes.error.message);
     for (const r of (profRes.data ?? []) as Array<{ user_id: string; growth_status: string | null }>) {
       growthStatusById.set(r.user_id, r.growth_status);
     }
     for (const r of (frozenRes.data ?? []) as Array<{ user_id: string } & FrozenRow>) {
       frozenById.set(r.user_id, { avg_percentile: r.avg_percentile, rank_grade: r.rank_grade });
     }
-    for (const r of (uwsRes.data ?? []) as Array<{ user_id: string; year: number; week_number: number }>) {
+    for (const r of uwsRows) {
       const cur = firstWeekById.get(r.user_id);
       if (!cur || r.year < cur.year || (r.year === cur.year && r.week_number < cur.week)) {
         firstWeekById.set(r.user_id, { year: r.year, week: r.week_number });
@@ -267,6 +323,8 @@ export async function getClubRankGradeBatch(
   }
 
   // 2) 전체 user_weekly_points 1회 읽기(순위 모집단 = 전 사용자, getClubRank 과 동일).
+  //    seasonal_rest 사용자는 모집단에서 제외(getClubRank 과 동일 정책·단일 SoT).
+  const excludedIds = await getRankPopulationExcludedUserIds();
   const allPoints: WeeklyPointRow[] = [];
   const pageSize = 1000;
   let from = 0;
@@ -285,11 +343,17 @@ export async function getClubRankGradeBatch(
     from += pageSize;
   }
 
+  const populationPoints =
+    excludedIds.size === 0
+      ? allPoints
+      : allPoints.filter((r) => !excludedIds.has(r.user_id));
+
   // 3) 주차별 RANK → 백분위. 대상자(roster)만 백분위 기록.
+  //    roster 에 seasonal_rest 가 섞여 있어도 모집단에서 빠져 자연히 grade=null(—).
   const rosterSet = new Set(userIds);
   const pctByUser = new Map<string, Array<{ year: number; week: number; pct: number }>>();
   const byWeek = new Map<string, WeeklyPointRow[]>();
-  for (const row of allPoints) {
+  for (const row of populationPoints) {
     const key = `${row.year}-${row.week_number}`;
     const list = byWeek.get(key) ?? [];
     list.push(row);
