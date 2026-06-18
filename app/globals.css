@@ -158,3 +158,38 @@
     @apply font-sans;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Disabled-state baseline (project-wide, single source).
+   Intentionally UNLAYERED: unlayered declarations win over every Tailwind
+   utility layer, so native form controls that unconditionally set
+   `bg-background`/`border-input` still read as clearly inactive when disabled —
+   without adding per-page classes.
+
+   - Text fields (input/select/textarea): muted surface + faded text/border.
+   - Buttons / checkbox / radio / [aria-disabled] / [data-disabled]: keep their
+     own surface (so variant intent like primary/destructive survives, just
+     faded) + not-allowed cursor.
+
+   Tokens (--muted, --muted-foreground, --border) are theme-aware, so light/dark
+   both resolve correctly. Components with bespoke `disabled:` styles still get a
+   consistent floor here; this never makes a disabled control look enabled.
+   ─────────────────────────────────────────────────────────────────────────── */
+input:disabled:not([type="checkbox"]):not([type="radio"]),
+select:disabled,
+textarea:disabled {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+  border-color: var(--border);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+button:disabled,
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled,
+[aria-disabled="true"],
+[data-disabled]:not([data-disabled="false"]) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

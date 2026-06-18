@@ -101,23 +101,24 @@ export const PROCESS_CHECK_TARGET_LABEL: Record<ProcessCheckTarget, string> = {
   none: "미체크",
 };
 
-// 시안 4종 사용 (문서 3종 표기는 무시 — 4개 사용 확정).
+// enum(저장값)은 기존 4종(required|optional|selection|basic)을 그대로 유지 — 과거 데이터 표시 호환.
+// 단, 신규 등록 드롭다운/POST 검증은 2종(필수·선별)만 허용한다(PROCESS_ACT_TYPE_OPTIONS).
 export type ProcessActType = "required" | "optional" | "selection" | "basic";
+// 신규 등록에서 선택 가능한 액트 종류 — '필수'·'선별' 2종만 (POST 검증·드롭다운 공용 SoT).
 export const PROCESS_ACT_TYPE_OPTIONS = [
   "required",
-  "optional",
   "selection",
-  "basic",
 ] as const;
 export const PROCESS_ACT_TYPE_LABEL: Record<ProcessActType, string> = {
   required: "필수",
   optional: "자율",
-  selection: "선발",
+  // 'selection' 표시 라벨을 '선발' → '선별'로 변경 (저장값 enum 은 "selection" 유지).
+  selection: "선별",
   // UI 표시 라벨만 '기타'로 변경 — 저장값(enum)은 기존과 동일하게 "basic" 유지.
   basic: "기타",
 };
 
-// ── 크루 반응(act_type / crew_reaction) ↔ 포인트 C 규칙 (서버/클라 공용 SoT) ─────
+// ── 액트 종류(act_type / crew_reaction) ↔ 포인트 C 규칙 (서버/클라 공용 SoT) ─────
 //   '필수(required)' 일 때만 포인트 C(미이행 페널티) 입력 가능.
 //   그 외(자율·선택·선발·기본·없음)는 포인트 C = 0 고정. 정규 액트(act_type)·비정규(crew_reaction) 공용.
 export function reactionAllowsPointC(reactionKey: string): boolean {
@@ -395,7 +396,7 @@ export function parseProcessActCreateBody(
     return {
       ok: false,
       status: 400,
-      error: "act_type must be one of required|optional|selection|basic",
+      error: "act_type must be one of required|selection",
     };
   }
 

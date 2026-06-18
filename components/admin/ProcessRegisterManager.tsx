@@ -37,6 +37,7 @@ import {
   PROCESS_TIME_OPTIONS,
   PROCESS_WEEK_REFS,
   PROCESS_WEEK_REF_LABEL,
+  enforcePointC,
   reactionAllowsPointC,
   type ProcessActDto,
   type ProcessActType,
@@ -172,7 +173,8 @@ export default function ProcessRegisterManager() {
   const [pointPenalty, setPointPenalty] = useState(0);
   const [cafe, setCafe] = useState<ProcessCafe>("occur");
   const [checkTarget, setCheckTarget] = useState<ProcessCheckTarget>("check");
-  const [actType, setActType] = useState<ProcessActType>("required");
+  // 액트 종류는 미선택("")으로 시작 — 선택 전에는 포인트 입력을 막는다.
+  const [actType, setActType] = useState<ProcessActType | "">("");
   const [overview, setOverview] = useState("");
   const [remarks, setRemarks] = useState("");
   const [saving, setSaving] = useState(false);
@@ -193,7 +195,7 @@ export default function ProcessRegisterManager() {
     setPointPenalty(0);
     setCafe("occur");
     setCheckTarget("check");
-    setActType("required");
+    setActType("");
     setOverview("");
     setRemarks("");
   }, []);
@@ -321,6 +323,10 @@ export default function ProcessRegisterManager() {
       setBanner({ kind: "error", message: "소속 라인급을 선택해주세요" });
       return;
     }
+    if (!actType) {
+      setBanner({ kind: "error", message: "액트 종류를 먼저 선택해야 합니다" });
+      return;
+    }
     setSaving(true);
     setBanner(null);
     try {
@@ -340,7 +346,8 @@ export default function ProcessRegisterManager() {
           check_time: checkTime,
           point_check: pointCheck,
           point_advantage: pointAdvantage,
-          point_penalty: pointPenalty,
+          // 선별(=required 아님)일 때 C 는 항상 0으로 강제 전송.
+          point_penalty: enforcePointC(actType, pointPenalty),
           cafe,
           check_target: checkTarget,
           act_type: actType,
@@ -552,40 +559,32 @@ export default function ProcessRegisterManager() {
             />
           </FormRow>
 
-          {/* [7] 포인트 — A check / B advantage / C penalty (0~20).
-              크루 반응(액트 종류)이 '필수'가 아니면 C(penalty)=0 고정·비활성. */}
-          <FormRow label="포인트" required alignTop>
-            <div className="grid grid-cols-3 gap-2">
-              {(
-                [
-                  { label: "A · point.check", value: pointCheck, set: setPointCheck, disabled: false },
-                  { label: "B · point.advantage", value: pointAdvantage, set: setPointAdvantage, disabled: false },
-                  { label: "C · point.penalty", value: pointPenalty, set: setPointPenalty, disabled: !reactionAllowsPointC(actType) },
-                ] as const
-              ).map((p) => (
-                <div key={p.label} className="space-y-1">
-                  <span className="text-xs text-muted-foreground">{p.label}</span>
-                  <select
-                    aria-label={p.label}
-                    className={SELECT_CLS}
-                    value={p.value}
-                    disabled={p.disabled}
-                    title={p.disabled ? "‘필수’ 액트만 포인트 C(미이행 페널티)를 부여할 수 있습니다" : undefined}
-                    onChange={(e) => p.set(Number(e.target.value))}
-                  >
-                    {PROCESS_POINT_OPTIONS.map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-          </FormRow>
-
-          {/* [8] 카페 | [9] 체크 대상 | [10] 액트 종류 */}
+          {/* [7] 액트 종류 | 카페 | 체크 대상 — 한 행 유지(요구). 포인트보다 위.
+              액트 종류는 미선택("")으로 시작하며, 선택 전에는 포인트 입력을 막는다.
+              '필수'=A/B/C 모두 입력, '선별'=A/B 만 입력·C 는 0 고정·비활성. */}
           <div className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-3">
+            <FormRow label="액트 종류" required>
+              <select
+                aria-label="액트 종류"
+                className={SELECT_CLS}
+                value={actType}
+                onChange={(e) => {
+                  const v = e.target.value as ProcessActType | "";
+                  setActType(v);
+                  // '필수' 가 아니면(선별·미선택) 즉시 C=0. A/B 값은 유지.
+                  if (!v || !reactionAllowsPointC(v)) setPointPenalty(0);
+                }}
+              >
+                <option value="" disabled>
+                  선택
+                </option>
+                {PROCESS_ACT_TYPE_OPTIONS.map((t) => (
+                  <option key={t} value={t}>
+                    {PROCESS_ACT_TYPE_LABEL[t]}
+                  </option>
+                ))}
+              </select>
+            </FormRow>
             <FormRow label="카페" required>
               <select
                 aria-label="카페"
@@ -614,25 +613,81 @@ export default function ProcessRegisterManager() {
                 ))}
               </select>
             </FormRow>
-            <FormRow label="액트 종류" required>
-              <select
-                aria-label="액트 종류"
-                className={SELECT_CLS}
-                value={actType}
-                onChange={(e) => {
-                  const v = e.target.value as ProcessActType;
-                  setActType(v);
-                  if (!reactionAllowsPointC(v)) setPointPenalty(0); // '필수' 아니면 즉시 C=0
-                }}
-              >
-                {PROCESS_ACT_TYPE_OPTIONS.map((t) => (
-                  <option key={t} value={t}>
-                    {PROCESS_ACT_TYPE_LABEL[t]}
-                  </option>
-                ))}
-              </select>
-            </FormRow>
           </div>
+
+          {/* [8] 포인트 — A check / B advantage / C penalty (0~20).
+              액트 종류 미선택 시 전체 잠금(클릭 시 안내), '선별'이면 C(penalty)=0 고정·비활성. */}
+          <FormRow label="포인트" required alignTop>
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-3 gap-2">
+                {(
+                  [
+                    { label: "A · point.check", value: pointCheck, set: setPointCheck },
+                    { label: "B · point.advantage", value: pointAdvantage, set: setPointAdvantage },
+                    {
+                      label: "C · point.penalty",
+                      value: pointPenalty,
+                      set: setPointPenalty,
+                      // 액트 종류 선택됐고 '필수'가 아닐 때만 네이티브 비활성(선별 → C 비활성).
+                      hardDisabled: actType !== "" && !reactionAllowsPointC(actType),
+                    },
+                  ] as const
+                ).map((p) => {
+                  const locked = actType === ""; // 액트 종류 미선택 → 잠금
+                  const hardDisabled = "hardDisabled" in p && p.hardDisabled;
+                  return (
+                    <div key={p.label} className="space-y-1">
+                      <span className="text-xs text-muted-foreground">{p.label}</span>
+                      <select
+                        aria-label={p.label}
+                        className={cn(
+                          SELECT_CLS,
+                          // 미선택 잠금은 네이티브 disabled 가 아니므로(클릭 인터셉트) 여기서만 흐리게.
+                          // 선별→C 의 disabled 시각화는 globals.css 의 공통 disabled 규칙이 담당.
+                          locked && "cursor-not-allowed opacity-60",
+                        )}
+                        value={p.value}
+                        disabled={hardDisabled}
+                        title={
+                          locked
+                            ? "액트 종류를 먼저 선택해야 합니다"
+                            : hardDisabled
+                              ? "‘필수’ 액트만 포인트 C(미이행 페널티)를 부여할 수 있습니다"
+                              : undefined
+                        }
+                        // 미선택 상태에서 클릭/키 입력 시도 → 드롭다운 차단 + 안내 배너.
+                        onMouseDown={(e) => {
+                          if (locked) {
+                            e.preventDefault();
+                            setBanner({ kind: "error", message: "액트 종류를 먼저 선택해야 합니다" });
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (locked) {
+                            e.preventDefault();
+                            setBanner({ kind: "error", message: "액트 종류를 먼저 선택해야 합니다" });
+                          }
+                        }}
+                        onChange={(e) => {
+                          if (locked) return;
+                          p.set(Number(e.target.value));
+                        }}
+                      >
+                        {PROCESS_POINT_OPTIONS.map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+              {actType === "" && (
+                <p className="text-xs text-amber-600">액트 종류를 먼저 선택해야 합니다</p>
+              )}
+            </div>
+          </FormRow>
 
           {/* [11] 개요 */}
           <FormRow label="개요" alignTop>

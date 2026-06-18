@@ -44,7 +44,7 @@ try {
   const mod = await import(resolve(dirname(fileURLToPath(import.meta.url)), "..", "lib", "adminProcessesTypes.ts")).catch(() => null);
   if (mod?.PROCESS_ACT_TYPE_LABEL) {
     ck("[direct] PROCESS_ACT_TYPE_LABEL.basic === '기타'", mod.PROCESS_ACT_TYPE_LABEL.basic === "기타", mod.PROCESS_ACT_TYPE_LABEL.basic);
-    ck("[direct] 다른 라벨 불변(필수/자율/선발)", mod.PROCESS_ACT_TYPE_LABEL.required === "필수" && mod.PROCESS_ACT_TYPE_LABEL.optional === "자율" && mod.PROCESS_ACT_TYPE_LABEL.selection === "선발");
+    ck("[direct] 라벨(필수/자율/선별)", mod.PROCESS_ACT_TYPE_LABEL.required === "필수" && mod.PROCESS_ACT_TYPE_LABEL.optional === "자율" && mod.PROCESS_ACT_TYPE_LABEL.selection === "선별");
   } else {
     console.log("  (direct: tsx 미경유 import 불가 — HTTP/DB로 대체 검증)");
   }
