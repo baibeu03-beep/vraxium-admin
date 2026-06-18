@@ -764,7 +764,7 @@ export default function ResumeCardEditor({
                             ? "bg-amber-100 text-amber-800 ring-1 ring-amber-300"
                             : resume.resumeStatus.status === "recharging"
                               ? "bg-purple-100 text-purple-800 ring-1 ring-purple-300"
-                              : "bg-gray-100 text-gray-600 ring-1 ring-gray-300",
+                              : "bg-muted text-muted-foreground ring-1 ring-border",
                       resume.resumeStatus.isBadgeDimmed && "opacity-60",
                     )}
                   >

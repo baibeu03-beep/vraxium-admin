@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LogOut, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import ThemeToggle from "@/components/theme/ThemeToggle";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -127,42 +126,37 @@ export default function Header({
     router.replace(next);
   };
 
-  // 관리자 정보 + 로그아웃: 항상 헤더 우측에 세로 배치로 노출.
-  // (사이드바 footer 제거로 헤더가 유일한 로그아웃 진입점 — HOME 에서도 노출)
-  // 1행: [로그아웃] 버튼 / 2행: 환영 문구 / 3행: 이름 | 이메일
+  // 관리자 정보 + 로그아웃: 헤더 우측에 가로 1행으로 컴팩트하게 노출.
+  // (테마 전환은 사이드바 하단으로 이동 — 헤더는 사용자 정보/로그아웃 전용)
+  // 고정 높이 h-14(=사이드바 HOME 영역) 안에 들어가도록 2줄 텍스트 + 버튼을 가로로 배치.
   const userArea = (
-    // min-w-0(shrink-0 제거): 좁은 폭에서 고정폭 대신 이름/이메일 줄만 truncate 되도록
-    <div className="flex min-w-0 flex-col items-end gap-0.5">
-      {/* size sm→default(1단계 업: h-7/text-[0.8rem] → h-8/text-sm) + font-semibold —
-          우측 영역에서 가장 눈에 띄는 요소. mb-2 로 아래 사용자 정보와 세로 여백 분리. */}
-      <Button
-        type="button"
-        variant="ghost"
-        size="default"
-        onClick={handleLogout}
-        aria-label="로그아웃"
-        title="로그아웃"
-        className="mb-2 shrink-0 font-semibold text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
-      >
-        <LogOut className="h-4 w-4" />
-        로그아웃
-      </Button>
-      {/* 환영 문구 + 이름/이메일 두 줄은 같은 컨테이너에서 left-aligned —
-          줄 길이가 달라도 왼쪽 시작 x좌표가 항상 일치한다. */}
-      {/* w-full+min-w-0: items-end 컬럼에서 stretch 가 풀려도 부모 폭을 따라가
-          이름/이메일 span 의 truncate 가 좁은 폭에서 실제로 동작하게 한다 */}
-      <div className="flex w-full min-w-0 flex-col items-start gap-0.5 text-left">
-        <span className="text-sm font-medium text-foreground">
+    // min-w-0: 좁은 폭에서 이름/이메일 줄만 truncate 되도록(고정폭 대신).
+    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+      {/* 환영 문구 + 이름/이메일 — 우측 정렬 2줄(leading-tight 로 h-14 안에 수납). */}
+      <div className="flex min-w-0 flex-col items-end gap-0.5 text-right leading-tight">
+        <span className="text-xs font-medium text-foreground">
           반갑습니다! 😊
         </span>
         <span
           title={adminEmail ?? undefined}
-          className="w-full max-w-52 truncate text-xs text-muted-foreground sm:max-w-80"
+          className="max-w-44 truncate text-xs text-muted-foreground sm:max-w-80"
         >
           {(adminDisplayName ?? "관리자") + " 님"}
           {adminEmail ? ` | ${adminEmail}` : ""}
         </span>
       </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={handleLogout}
+        aria-label="로그아웃"
+        title="로그아웃"
+        className="shrink-0 font-semibold text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
+      >
+        <LogOut className="h-4 w-4" />
+        로그아웃
+      </Button>
     </div>
   );
 
@@ -170,8 +164,7 @@ export default function Header({
   // (우측 세로 3행 배치 — 고정 h-14 대신 py 로 가변 높이)
   if (pathname === "/admin") {
     return (
-      <header className="flex items-center justify-end gap-4 border-b border-border bg-background px-4 py-2 sm:px-6">
-        <ThemeToggle />
+      <header className="flex h-14 items-center justify-end gap-4 border-b border-border bg-background px-4 sm:px-6">
         {userArea}
       </header>
     );
@@ -179,8 +172,8 @@ export default function Header({
 
   return (
     // px-4 sm:px-6 + 타이틀 flex-1: 좁은 폭(사이드바 펼침 + 모바일)에서도 우측 영역이 잘리지 않도록
-    // 우측 세로 3행 배치 — 고정 h-14 대신 py 로 가변 높이
-    <header className="flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-2 sm:gap-4 sm:px-6">
+    // 고정 h-14 — 사이드바 상단 HOME 영역과 동일 높이(상단 바가 하나로 정렬되도록)
+    <header className="flex h-14 items-center justify-between gap-3 border-b border-border bg-background px-4 sm:gap-4 sm:px-6">
       {isLineOpeningTabs ? (
         // 헤더 title 텍스트 대신 라인 관리/라인 개설 2탭. (org 보존, ?tab 구동, 새로고침 유지)
         <nav
@@ -238,7 +231,6 @@ export default function Header({
       )}
       {/* min-w-0(shrink-0 제거): 좁은 폭에서 userArea 의 이메일 줄이 truncate 되며 함께 줄어든다 */}
       <div className="flex min-w-0 items-center gap-2">
-        <ThemeToggle className="shrink-0" />
         {/* 개발자 표시 토글 — SHOW_DEV_TOGGLE=false 로 화면에서만 숨김 (기능/로직 유지) */}
         {SHOW_DEV_TOGGLE && (
           <Button

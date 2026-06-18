@@ -1,12 +1,12 @@
 -- 프로세스 체크 포인트 적립 원장(ledger) — 멱등 적립의 SoT.
 -- ─────────────────────────────────────────────────────────────────────
--- 정규/비정규 프로세스 체크가 completed 되면, 대상자(process_check_review_recipients)별로
+-- 정규/변동 프로세스 체크가 completed 되면, 대상자(process_check_review_recipients)별로
 -- 한 행씩 적립을 기록한다. user_weekly_points 는 이 원장의 (user, year, week) 합으로 재계산한다
 -- (증분 금지 — 재계산만 → worker 재실행/재완료/재검수 멱등). 취소/삭제 = 원장 행 제거 후 재계산.
 --
 -- 매핑:
 --   정규  ref_id = process_check_statuses.id, 포인트 = process_acts(point_check/advantage/penalty)
---   비정규 ref_id = process_irregular_acts.id,  포인트 = point_a/b/c
+--   변동 ref_id = process_irregular_acts.id,  포인트 = point_a/b/c
 --   point_check→user_weekly_points.points / point_advantage→advantages / point_penalty→penalty
 --   year/week_number = weeks.iso_year/iso_week (user_weekly_points 키와 동일 축)
 --

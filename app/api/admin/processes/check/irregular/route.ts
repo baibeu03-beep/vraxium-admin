@@ -1,4 +1,4 @@
-// /api/admin/processes/check/irregular — 비정규 액트 보드 + 액션(검수신청/수동부여/완료/삭제).
+// /api/admin/processes/check/irregular — 변동 액트 보드 + 액션(검수신청/수동부여/완료/삭제).
 //
 //   GET    ?org=oranke[&mode=test]          → 보드 DTO(현재/마지막활동 주차 + 요약 5칸 + 액트 목록)
 //   POST   { organization, mode?, kind, act_name, target_user_id, ... }
@@ -115,6 +115,7 @@ export async function POST(request: NextRequest) {
             pointB: b.point_b,
             pointC: b.point_c,
             crewReaction: b.crew_reaction,
+            pointMode: b.point_mode,
           })
         : await createIrregularAct({
             organization: orgRaw,
@@ -128,6 +129,7 @@ export async function POST(request: NextRequest) {
             pointB: b.point_b,
             pointC: b.point_c,
             crewReaction: b.crew_reaction,
+            pointMode: b.point_mode,
             reviewLink: b.review_link,
             scheduledCheckAt: b.scheduled_check_at,
           });
@@ -177,7 +179,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const data =
       b.action === "set_crew_reaction"
-        ? await setIrregularCrewReaction(id, orgRaw, mode, b.crew_reaction)
+        ? await setIrregularCrewReaction(id, orgRaw, mode, b.crew_reaction, b.point_mode)
         : await completeIrregularAct(id, orgRaw, mode);
     return Response.json({ success: true, data });
   } catch (error) {

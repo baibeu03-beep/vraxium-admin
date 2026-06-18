@@ -58,7 +58,7 @@ const STATUS_META: Record<
 > = {
   opened: { label: "개설 완료", cls: "border-green-300 bg-green-50 text-green-800" },
   needs_opening: { label: "개설 필요", cls: "border-amber-300 bg-amber-50 text-amber-800" },
-  not_open: { label: "오픈 없음", cls: "border-slate-200 bg-slate-50 text-slate-500" },
+  not_open: { label: "오픈 없음", cls: "border-border bg-muted text-muted-foreground" },
 };
 
 export default function PracticalInfoWeekResults() {

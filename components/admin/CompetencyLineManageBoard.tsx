@@ -91,7 +91,7 @@ function StatCard({
         tone === "info" && "border-blue-200 bg-blue-50",
         tone === "success" && "border-green-200 bg-green-50",
         tone === "error" && "border-red-200 bg-red-50",
-        (!tone || tone === "default") && "border-gray-200 bg-gray-50",
+        (!tone || tone === "default") && "border-border bg-muted",
       )}
     >
       <p className="text-xl font-bold leading-none">{value}</p>

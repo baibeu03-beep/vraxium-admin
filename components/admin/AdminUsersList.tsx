@@ -76,7 +76,7 @@ function roleBadgeClass(role: string | null) {
     case "admin":
       return "bg-blue-100 text-blue-800 ring-blue-200";
     case "viewer":
-      return "bg-slate-100 text-slate-700 ring-slate-200";
+      return "bg-muted text-muted-foreground ring-border";
     default:
       return "bg-muted text-muted-foreground ring-border";
   }

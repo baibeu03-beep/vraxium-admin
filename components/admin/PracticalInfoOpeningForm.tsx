@@ -760,7 +760,7 @@ export default function PracticalInfoOpeningForm({
               <label className="flex cursor-pointer items-center gap-1.5 text-xs text-amber-700">
                 <input
                   type="checkbox"
-                  className="rounded border-gray-300"
+                  className="rounded border-input"
                   checked={adminUnlock}
                   onChange={(e) => {
                     setAdminUnlock(e.target.checked);

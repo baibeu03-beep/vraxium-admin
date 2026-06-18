@@ -648,7 +648,7 @@ function weeklyReviewWindowBadgeClass(status: EditWindowStatus): string {
     case "open":
       return "border-emerald-200 bg-emerald-50 text-emerald-700";
     case "closed":
-      return "border-slate-200 bg-slate-50 text-slate-600";
+      return "border-border bg-muted text-muted-foreground";
     case "expired":
       return "border-amber-200 bg-amber-50 text-amber-800";
     case "none":

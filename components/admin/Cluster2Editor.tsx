@@ -388,7 +388,7 @@ function ReviewLinkWindowNotice({
   }
 
   return (
-    <div className="rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-800">
+    <div className="rounded-md border border-input bg-muted px-3 py-2 text-sm text-foreground">
       <div className="font-medium">작성 기간 만료</div>
       <div className="mt-0.5">만료: {formatWindowDate(window.expiresAt)}</div>
     </div>
@@ -432,7 +432,7 @@ function ReviewLinkSlots({
                     "rounded-full border px-2 py-0.5 text-[10px]",
                     slot.isVisible
                       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : "border-zinc-200 bg-zinc-50 text-zinc-600",
+                      : "border-border bg-muted text-muted-foreground",
                   )}
                 >
                   {slot.isVisible ? (devMode ? "DB 저장" : "저장됨") : "숨김"}

@@ -1,8 +1,8 @@
 -- 2026-06-15_process_irregular_acts.sql
--- 통합 > 허브별 프로세스 > 프로세스 체크 · 비정규 액트 (/admin/processes/check/irregular?org=...).
+-- 통합 > 허브별 프로세스 > 프로세스 체크 · 변동 액트 (/admin/processes/check/irregular?org=...).
 --
--- 정책 (2026-06-15 — 비정규 액트 Phase):
---   - 정규 액트 기준표(process_acts)에 없는 "비정규 액트"의 검수 신청 / 수동 부여 내역을 저장.
+-- 정책 (2026-06-15 — 변동 액트 Phase):
+--   - 정규 액트 기준표(process_acts)에 없는 "변동 액트"의 검수 신청 / 수동 부여 내역을 저장.
 --   - 정규 액트와 분리 — process_acts 마스터는 SoT 그대로(FK·집계 오염 금지). 본 테이블은
 --     주차·org·대상자 단위의 개별 인스턴스(신청자·사유·소요시간을 가진 ad-hoc 행)이다.
 --   - 신청자(applicant) = 운영진(어드민 로그인 계정). 대상자(target) = 고객앱 사용자.
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS public.process_irregular_acts (
   -- 종류 — 검수 신청 / 수동 부여.
   kind                 text NOT NULL CHECK (kind IN ('review_request', 'manual_grant')),
 
-  -- 비정규 액트명(정규 기준표 외 자유 입력).
+  -- 변동 액트명(정규 기준표 외 자유 입력).
   act_name             text NOT NULL CHECK (char_length(act_name) BETWEEN 1 AND 60),
 
   -- 신청자 = 운영진(어드민 계정). 표시명 denorm(이력 보존). 스코프 판정 제외.
@@ -84,7 +84,7 @@ CREATE TRIGGER trg_process_irregular_acts_touch
   FOR EACH ROW EXECUTE FUNCTION public.touch_process_master_updated_at();
 
 COMMENT ON TABLE public.process_irregular_acts IS
-  '비정규 액트(/admin/processes/check/irregular) — 정규 기준표(process_acts) 외 검수신청/수동부여 인스턴스. 신청자=admin_users(운영진)·대상자=user_profiles(고객). org+mode 분리는 target_user_id 기준. user_weekly_points/snapshot/checkGate/demoUserId 무접촉(2026-06-15 비정규 Phase). point_a/b/c=표시/관리용 정의값.';
+  '변동 액트(/admin/processes/check/irregular) — 정규 기준표(process_acts) 외 검수신청/수동부여 인스턴스. 신청자=admin_users(운영진)·대상자=user_profiles(고객). org+mode 분리는 target_user_id 기준. user_weekly_points/snapshot/checkGate/demoUserId 무접촉(2026-06-15 변동 Phase). point_a/b/c=표시/관리용 정의값.';
 COMMENT ON COLUMN public.process_irregular_acts.target_user_id IS
   '대상 고객앱 사용자(user_profiles.user_id). org/mode(test_user_markers) 스코프 판정 기준. FK 미설정 — 존재/소속/스코프 검증은 앱 레이어(422).';
 COMMENT ON COLUMN public.process_irregular_acts.applicant_admin_id IS

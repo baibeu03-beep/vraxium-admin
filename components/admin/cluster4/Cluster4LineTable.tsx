@@ -168,7 +168,7 @@ function CanEditBadge({ canEdit, reason }: { canEdit: boolean; reason: string })
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-        canEdit ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600",
+        canEdit ? "bg-green-100 text-green-800" : "bg-muted text-muted-foreground",
       )}
     >
       {EDIT_REASON_LABEL[reason] ?? reason}
@@ -704,7 +704,7 @@ function LineDetailModal({
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
-              className="rounded border-gray-300"
+              className="rounded border-input"
               checked={isActive}
               onChange={(e) => setIsActive(e.target.checked)}
               disabled={!editable}

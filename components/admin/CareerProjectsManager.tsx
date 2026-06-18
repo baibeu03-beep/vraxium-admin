@@ -1064,7 +1064,7 @@ function WeekScheduler({
                     state.attached
                       ? state.isActive
                         ? "border-emerald-200 bg-emerald-50/60"
-                        : "border-slate-200 bg-slate-50/60"
+                        : "border-border bg-muted/60"
                       : "border-border bg-background",
                   )}
                 >

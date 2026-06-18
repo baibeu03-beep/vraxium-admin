@@ -772,7 +772,7 @@ function PartGrid({
                         >
                           <input
                             type="checkbox"
-                            className="rounded border-gray-300"
+                            className="rounded border-input"
                             checked={cell.checked}
                             onChange={() => toggleCheck(crew.userId, line.key, cell)}
                             aria-label={`${crew.displayName} ${line.label} 체크`}

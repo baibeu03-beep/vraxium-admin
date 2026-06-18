@@ -1,7 +1,7 @@
-// Browser-safe constants/types/parsers for 비정규 액트 (/admin/processes/check/irregular).
+// Browser-safe constants/types/parsers for 변동 액트 (/admin/processes/check/irregular).
 // Must not import server-only modules here.
 //
-// 정책 (2026-06-15 — 비정규 액트 Phase):
+// 정책 (2026-06-15 — 변동 액트 Phase):
 //   - 정규 기준표(process_acts) 외 검수신청/수동부여 인스턴스. 신규 테이블 process_irregular_acts.
 //   - 신청자 = 운영진(admin_users) · 대상자 = 고객앱 사용자(user_profiles).
 //   - org + test/operating 모드 분리는 target_user_id 기준.
@@ -70,9 +70,55 @@ export function coerceIrregularCrewReaction(v: unknown): IrregularCrewReaction {
   return "partial";
 }
 
+// ── 포인트 방식 (부분 액트 전용 — A+B 부여 / C 부여 택1) ────────────────────────
+//   (2026-06-18 정책) 전원(all)  = A/B/C 모두 사용(해당자 A+B / 미해당자 C).
+//                     부분(partial)= 포인트 방식 택1 — ab(A+B만) 또는 c(C만).
+//   포인트 방식은 "입력 시점" 개념(사용자가 명시 선택) — DB 별도 컬럼 없이 A/B/C 값으로 결과를 담는다.
+//   (ab → C=0 / c → A=B=0). 서버 normalizeIrregularPoints 가 단일 SoT 로 강제(프론트 우회 차단).
+export type IrregularPointMode = "ab" | "c";
+export const IRREGULAR_POINT_MODES = ["ab", "c"] as const;
+export const IRREGULAR_POINT_MODE_DEFAULT: IrregularPointMode = "ab";
+export const IRREGULAR_POINT_MODE_LABEL: Record<IrregularPointMode, string> = {
+  ab: "A+B 부여",
+  c: "C 부여",
+};
+export function isIrregularPointMode(v: unknown): v is IrregularPointMode {
+  return v === "ab" || v === "c";
+}
+
 // ── 포인트 / 소요시간 검증 (서버·클라 공용 SoT) ────────────────────────────────
 export function isIrregularPoint(v: unknown): v is number {
   return typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 20;
+}
+
+// 포인트 정규화(서버/클라 공용 SoT) — 액트 종류 + 포인트 방식 기준으로 A/B/C 를 강제한다.
+//   전원(all)    : A/B/C 모두 0~20 허용(포인트 방식 무관).
+//   부분(partial): pointMode 필수.
+//        ab → { A, B, C:0 }   (포인트 C 저장 불가)
+//        c  → { A:0, B:0, C } (포인트 A/B 저장 불가)
+//   ⚠ 부분인데 pointMode 가 없거나 잘못된 경우 → ok:false (저장 거부). 프론트 우회/API 직접호출도 차단.
+export function normalizeIrregularPoints(
+  crewReaction: IrregularCrewReaction,
+  pointMode: IrregularPointMode | null | undefined,
+  a: number,
+  b: number,
+  c: number,
+):
+  | { ok: true; pointA: number; pointB: number; pointC: number }
+  | { ok: false; error: string } {
+  if (!isIrregularPoint(a) || !isIrregularPoint(b) || !isIrregularPoint(c)) {
+    return { ok: false, error: "포인트 A/B/C 는 0~20 정수여야 합니다" };
+  }
+  if (crewReaction === "all") {
+    return { ok: true, pointA: a, pointB: b, pointC: c };
+  }
+  // 부분(partial) — 포인트 방식 필수.
+  if (!isIrregularPointMode(pointMode)) {
+    return { ok: false, error: "부분 액트는 포인트 방식(A+B 부여 / C 부여)을 선택해야 합니다" };
+  }
+  return pointMode === "ab"
+    ? { ok: true, pointA: a, pointB: b, pointC: 0 }
+    : { ok: true, pointA: 0, pointB: 0, pointC: c };
 }
 // 소요 시간(분) — nullable. 입력 시 1~600 정수.
 export function isIrregularDuration(v: unknown): v is number {

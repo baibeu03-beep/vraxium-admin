@@ -8,9 +8,11 @@ import {
   CalendarDays,
   ChevronRight,
   LayoutDashboard,
+  Moon,
   Network,
   PanelLeft,
   PanelLeftClose,
+  Sun,
   TrendingUp,
   UserPlus,
   Users,
@@ -19,6 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import {
   ORGANIZATIONS,
   isOrganizationSlug,
@@ -212,7 +215,7 @@ const MENU_ORG: MenuItem[] = [
       { label: "실무 정보 급", href: "/admin/processes/check/info" },
       { label: "실무 경험 급", href: "/admin/processes/check/experience" },
       { label: "실무 역량 급", href: "/admin/processes/check/competency" },
-      { label: "비정규 액트", href: "/admin/processes/check/irregular" },
+      { label: "변동 액트", href: "/admin/processes/check/irregular" },
     ],
   },
   // 3) 클럽 진행
@@ -283,6 +286,71 @@ function isUnderBase(pathname: string, basePath: string) {
 function isUnderAnyBase(pathname: string, item: BranchItem) {
   const paths = item.matchPaths ?? [item.basePath];
   return paths.some((p) => isUnderBase(pathname, p));
+}
+
+// 사이드바 최하단 설정 영역 — 라이트/다크 테마 전환. 네비게이션과 분리(상단 border-t).
+//   · 펼침: "테마" 라벨 + 라이트/다크 세그먼트 토글(설정처럼 보이게).
+//   · 접힘: 아이콘 1개만 — 클릭 시 토글.
+// mounted 전(서버/하이드레이션)에는 서버 출력(light)과 동일하게 그려 mismatch 를 피한다.
+function ThemeSettings({ collapsed }: { collapsed: boolean }) {
+  const { theme, mounted, setTheme, toggleTheme } = useTheme();
+  const isDark = mounted && theme === "dark";
+
+  if (collapsed) {
+    return (
+      <div className="flex shrink-0 justify-center border-t border-sidebar-border p-2">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}
+          title={isDark ? "라이트 모드로 전환" : "다크 모드로 전환"}
+          className="flex h-9 w-9 items-center justify-center rounded-md text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        >
+          {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        </button>
+      </div>
+    );
+  }
+
+  const optionClass = (active: boolean) =>
+    cn(
+      "flex flex-1 items-center justify-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors",
+      active
+        ? "bg-sidebar text-sidebar-foreground shadow-sm"
+        : "text-sidebar-foreground/55 hover:text-sidebar-foreground",
+    );
+
+  return (
+    <div className="shrink-0 border-t border-sidebar-border p-2.5">
+      <p className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-sidebar-foreground/45">
+        테마
+      </p>
+      <div
+        role="group"
+        aria-label="테마 전환"
+        className="flex gap-1 rounded-md bg-sidebar-accent/40 p-0.5"
+      >
+        <button
+          type="button"
+          onClick={() => setTheme("light")}
+          aria-pressed={!isDark}
+          className={optionClass(!isDark)}
+        >
+          <Sun className="h-3.5 w-3.5" />
+          라이트
+        </button>
+        <button
+          type="button"
+          onClick={() => setTheme("dark")}
+          aria-pressed={isDark}
+          className={optionClass(isDark)}
+        >
+          <Moon className="h-3.5 w-3.5" />
+          다크
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function Sidebar() {
@@ -540,6 +608,9 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* 설정 영역 — 네비게이션과 분리된 사이드바 최하단(테마 전환). */}
+      <ThemeSettings collapsed={!sidebarOpen} />
     </aside>
   );
 }

@@ -1,6 +1,6 @@
-// Server-only data layer for 비정규 액트 (/admin/processes/check/irregular).
+// Server-only data layer for 변동 액트 (/admin/processes/check/irregular).
 //
-// process_irregular_acts (org × week × 대상고객 단위 비정규 액트 인스턴스) 읽기·쓰기.
+// process_irregular_acts (org × week × 대상고객 단위 변동 액트 인스턴스) 읽기·쓰기.
 //   - 신청자 = 운영진(admin_users) / 대상자 = 고객앱 사용자(user_profiles).
 //   - org + test/operating 모드 분리는 target_user_id 기준(resolveUserScope · test_user_markers SoT).
 //   - 주차 = 프로세스 체크 공용 SoT(resolveProcessWeek) 재사용(운영=현재 / 테스트=마지막 활동주차 walk-back).
@@ -25,10 +25,13 @@ import {
   isIrregularDuration,
   isIrregularKind,
   isIrregularPoint,
+  isIrregularPointMode,
+  normalizeIrregularPoints,
   validateReviewLink,
   validateScheduledCheckAt,
   type IrregularCrewReaction,
   type IrregularKind,
+  type IrregularPointMode,
   type IrregularStatus,
   type IrregularTargetUserDto,
   type ProcessIrregularActRowDto,
@@ -36,7 +39,7 @@ import {
   type ProcessIrregularSummary,
 } from "@/lib/adminProcessIrregularTypes";
 
-// 비정규 액트는 info 와 동일한 주차 정책(테스트=휴식꼬리→마지막 활동주차) 적용.
+// 변동 액트는 info 와 동일한 주차 정책(테스트=휴식꼬리→마지막 활동주차) 적용.
 //   공통 SoT 의 "process-irregular" hub 키로 위임(허용 정책은 cluster4TestWeekPolicy 단일 출처).
 const IRREGULAR_TEST_WEEK_HUB = "process-irregular" as const;
 
@@ -246,6 +249,7 @@ function parseCommonFields(input: {
   pointB?: unknown;
   pointC?: unknown;
   crewReaction?: unknown;
+  pointMode?: unknown;
 }) {
   if (typeof input.actName !== "string" || !input.actName.trim()) {
     throw new ProcessMasterError(400, "액트명(act_name)은 필수입니다");
@@ -264,14 +268,23 @@ function parseCommonFields(input: {
   const pointA = Number(input.pointA ?? 0);
   const pointB = Number(input.pointB ?? 0);
   const pointC = Number(input.pointC ?? 0);
-  if (!isIrregularPoint(pointA) || !isIrregularPoint(pointB) || !isIrregularPoint(pointC)) {
-    throw new ProcessMasterError(400, "포인트 A/B/C 는 0~20 이어야 합니다");
-  }
   const crewReaction: IrregularCrewReaction = isIrregularCrewReaction(input.crewReaction)
     ? input.crewReaction
     : IRREGULAR_CREW_REACTION_DEFAULT;
-  // 액트 종류(전원/부분)는 적용 범위 구분일 뿐 — 포인트 C(0~20)와 무관(decoupled).
-  return { actName, durationMinutes, reason, pointA, pointB, pointC, crewReaction };
+  const pointMode: IrregularPointMode | null = isIrregularPointMode(input.pointMode) ? input.pointMode : null;
+  // 포인트 정규화(단일 SoT) — 전원=A/B/C 자유 / 부분=ab(C강제0) | c(A·B강제0). 부분+방식없음=거부.
+  //   ⚠ 프론트 우회·API 직접호출도 이 지점에서 차단(UI 검증과 별개로 백엔드 강제).
+  const norm = normalizeIrregularPoints(crewReaction, pointMode, pointA, pointB, pointC);
+  if (!norm.ok) throw new ProcessMasterError(400, norm.error);
+  return {
+    actName,
+    durationMinutes,
+    reason,
+    pointA: norm.pointA,
+    pointB: norm.pointB,
+    pointC: norm.pointC,
+    crewReaction,
+  };
 }
 
 // ── 검수 신청(review_request) 생성 — 대상자 미선택·pending(worker 가 사후 식별/완료) ──────
@@ -288,6 +301,7 @@ export async function createIrregularAct(input: {
   pointB?: unknown;
   pointC?: unknown;
   crewReaction?: unknown;
+  pointMode?: unknown;
   reviewLink?: unknown;
   scheduledCheckAt?: unknown;
 }): Promise<ProcessIrregularActRowDto> {
@@ -308,7 +322,7 @@ export async function createIrregularAct(input: {
 
   const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
   if (!week?.weekId) {
-    throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 비정규 액트를 저장할 수 없습니다");
+    throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 변동 액트를 저장할 수 없습니다");
   }
 
   const nowMs = Date.now();
@@ -364,9 +378,14 @@ export async function createManualGrant(input: {
   pointB?: unknown;
   pointC?: unknown;
   crewReaction?: unknown;
+  pointMode?: unknown;
 }): Promise<ProcessIrregularActRowDto> {
   const { organization, mode, adminId } = input;
-  const common = parseCommonFields(input);
+  // 수동 부여는 '전원' 선택 불가 — 항상 '부분'(포인트 방식 ab|c 택1)만 가능.
+  if (input.crewReaction === "all") {
+    throw new ProcessMasterError(400, "수동 부여는 '전원'을 선택할 수 없습니다(부분만 가능)");
+  }
+  const common = parseCommonFields({ ...input, crewReaction: "partial" });
 
   // 대상 크루 명단 — 비어 있으면 거부.
   const ids = Array.isArray(input.targetUserIds)
@@ -394,7 +413,7 @@ export async function createManualGrant(input: {
 
   const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
   if (!week?.weekId) {
-    throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 비정규 액트를 저장할 수 없습니다");
+    throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 변동 액트를 저장할 수 없습니다");
   }
 
   // created == completed (사람이 이미 검수 완료) — 검수 링크/시점 없음.
@@ -465,7 +484,7 @@ export async function completeIrregularAct(
 ): Promise<ProcessIrregularActRowDto> {
   const row = await loadScopedRow(id, organization, mode);
   if (row.status === "completed") {
-    throw new ProcessMasterError(409, "이미 체크 완료된 비정규 액트입니다");
+    throw new ProcessMasterError(409, "이미 체크 완료된 변동 액트입니다");
   }
   const { data, error } = await supabaseAdmin
     .from("process_irregular_acts")
@@ -483,15 +502,31 @@ export async function setIrregularCrewReaction(
   organization: string,
   mode: ScopeMode,
   crewReaction: unknown,
+  pointMode?: unknown,
 ): Promise<ProcessIrregularActRowDto> {
   if (!isIrregularCrewReaction(crewReaction)) {
     throw new ProcessMasterError(400, "crew_reaction 은 all|partial 이어야 합니다");
   }
-  await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
-  // 액트 종류(전원/부분)는 적용 범위 구분 — 포인트 C 와 무관(decoupled). crew_reaction 만 변경.
+  const row = await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
+  // 수동 부여는 '전원'으로 변경 불가(부분만 가능).
+  if (crewReaction === "all" && row.kind === "manual_grant") {
+    throw new ProcessMasterError(400, "수동 부여는 '전원'으로 변경할 수 없습니다(부분만 가능)");
+  }
+  // 포인트 정규화 — 변경 결과가 정책(전원=A/B/C·부분=ab|c)을 항상 만족하도록 보정.
+  //   인라인은 포인트 방식 선택 UI 가 없어 pointMode 미지정 시 기존 값으로 추론(C만 있으면 c, 그 외 ab).
+  const effMode: IrregularPointMode | null =
+    crewReaction === "partial"
+      ? isIrregularPointMode(pointMode)
+        ? pointMode
+        : row.point_c > 0 && row.point_a === 0 && row.point_b === 0
+          ? "c"
+          : "ab"
+      : null;
+  const norm = normalizeIrregularPoints(crewReaction, effMode, row.point_a, row.point_b, row.point_c);
+  if (!norm.ok) throw new ProcessMasterError(400, norm.error);
   const { data, error } = await supabaseAdmin
     .from("process_irregular_acts")
-    .update({ crew_reaction: crewReaction })
+    .update({ crew_reaction: crewReaction, point_a: norm.pointA, point_b: norm.pointB, point_c: norm.pointC })
     .eq("id", id)
     .select(ROW_SELECT)
     .single();
@@ -530,9 +565,9 @@ async function loadScopedRow(
     .maybeSingle();
   if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
   const row = data as (IrregularRow & { organization_slug: string; scope_mode: string }) | null;
-  if (!row) throw new ProcessMasterError(404, "비정규 액트를 찾을 수 없습니다");
+  if (!row) throw new ProcessMasterError(404, "변동 액트를 찾을 수 없습니다");
   if (row.organization_slug !== organization || row.scope_mode !== mode) {
-    throw new ProcessMasterError(404, "비정규 액트를 찾을 수 없습니다");
+    throw new ProcessMasterError(404, "변동 액트를 찾을 수 없습니다");
   }
   return row;
 }

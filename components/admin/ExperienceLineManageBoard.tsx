@@ -41,7 +41,7 @@ function CountBadge({
         "inline-flex items-center gap-1.5 rounded-md border px-3 py-1 text-sm",
         tone === "success" && "border-green-200 bg-green-50 text-green-800",
         tone === "warning" && "border-amber-200 bg-amber-50 text-amber-800",
-        tone === "default" && "border-gray-200 bg-gray-50 text-gray-800",
+        tone === "default" && "border-border bg-muted text-foreground",
       )}
     >
       <span className="text-muted-foreground">{label}</span>

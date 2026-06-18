@@ -1,4 +1,4 @@
-// /api/admin/processes/check/irregular/targets — 비정규 액트 대상 고객 검색(스코프 적용).
+// /api/admin/processes/check/irregular/targets — 변동 액트 대상 고객 검색(스코프 적용).
 //
 //   GET ?org=oranke&q=홍길동[&mode=test]  → 스코프(org + operating/test) 부합 user_profiles ≤20
 //

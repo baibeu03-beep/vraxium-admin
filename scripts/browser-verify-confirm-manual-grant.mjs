@@ -68,7 +68,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     ck("팝업(수동 부여) 열림", await submitMg.isVisible());
 
     // 액트명 + 대상 크루(검색→선택→확인) 채우기
-    await page.getByPlaceholder("비정규 액트명").fill("ZZ-검증-수동부여");
+    await page.getByPlaceholder("변동 액트명").fill("ZZ-검증-수동부여");
     await page.getByPlaceholder("이름으로 검색").fill("검증");
     await page.getByRole("button", { name: /검증크루/ }).click();
     await page.getByRole("button", { name: "확인", exact: true }).click();
@@ -86,7 +86,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await dialog.waitFor({ state: "hidden", timeout: 5000 }).catch(() => {});
     ck("C2) 취소 시 API 호출 0", postCount === 0, `count=${postCount}`);
     ck("C2) 취소 시 팝업 유지", await submitMg.isVisible());
-    ck("C2) 취소 시 입력값 유지", (await page.getByPlaceholder("비정규 액트명").inputValue()) === "ZZ-검증-수동부여");
+    ck("C2) 취소 시 입력값 유지", (await page.getByPlaceholder("변동 액트명").inputValue()) === "ZZ-검증-수동부여");
 
     // C3) 확인 → 성공 → 팝업 닫힘
     postBehavior = "success"; postCount = 0;

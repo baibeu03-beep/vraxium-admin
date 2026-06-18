@@ -3,7 +3,7 @@
 // 적립 SoT = process_point_awards(원장). user_weekly_points 는 원장 (user, year, week) 합으로
 // 재계산한다(증분 금지 → 멱등). 적립 후 cluster4_weekly_card_snapshots 무효화로 고객앱 반영.
 //   정규  : ref_id=process_check_statuses.id, 포인트=process_acts(point_check/advantage/penalty)
-//   비정규: ref_id=process_irregular_acts.id,  포인트=point_a/b/c
+//   변동: ref_id=process_irregular_acts.id,  포인트=point_a/b/c
 //   매핑   : point_check→points / point_advantage→advantages / point_penalty→penalty
 //   주차   : weeks.iso_year/iso_week (user_weekly_points 키)
 //   대상자 : process_check_review_recipients(source,ref_id,match_type='matched',user_id)
@@ -264,7 +264,7 @@ export async function accrueForCompletedRegular(statusId: string): Promise<Accru
   });
 }
 
-// 비정규 액트 완료 적립 (ref_id = process_irregular_acts.id).
+// 변동 액트 완료 적립 (ref_id = process_irregular_acts.id).
 export async function accrueForCompletedIrregular(actId: string): Promise<AccrualResult> {
   const { data: act } = await supabaseAdmin
     .from("process_irregular_acts")

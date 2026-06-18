@@ -1,4 +1,4 @@
-// 액트 종류 ↔ 포인트 C 규칙 검증 — 정규(act_type/point_penalty) + 비정규(crew_reaction/point_c).
+// 액트 종류 ↔ 포인트 C 규칙 검증 — 정규(act_type/point_penalty) + 변동(crew_reaction/point_c).
 //   required 만 C 허용 · 그 외(optional/selection/basic/none)는 C=0 강제(백엔드 보정). DB==HTTP.
 // 전제: dev 서버(:3000) + process_acts / process_irregular_acts 마이그레이션 적용.
 import { createRequire } from "node:module";
@@ -53,28 +53,28 @@ try {
   const aReqDb = (await sb.from("process_acts").select("point_penalty").eq("id", aReq.json.data?.id).maybeSingle()).data;
   ck("[정규][DB==HTTP] required penalty=10", aReqDb?.point_penalty === 10);
 
-  // ══ 비정규 — 수동 부여(crew_reaction / point_c=C) ══
+  // ══ 변동 — 수동 부여(crew_reaction / point_c=C) ══
   const mgOpt = await api("/api/admin/processes/check/irregular", { method: "POST", body: J({ organization: ORG, kind: "manual_grant", act_name: `${TAG} 수동선택`, target_user_ids: [opTarget.user_id], crew_reaction: "optional", point_a: 4, point_b: 2, point_c: 15 }) });
-  ck("[비정규] manual_grant crew=optional + c=15 → DTO pointC=0", mgOpt.status === 201 && mgOpt.json.data?.pointC === 0, `status=${mgOpt.status} c=${mgOpt.json.data?.pointC}`);
+  ck("[변동] manual_grant crew=optional + c=15 → DTO pointC=0", mgOpt.status === 201 && mgOpt.json.data?.pointC === 0, `status=${mgOpt.status} c=${mgOpt.json.data?.pointC}`);
   const mgOptDb = (await sb.from("process_irregular_acts").select("point_c").eq("id", mgOpt.json.data?.id).maybeSingle()).data;
-  ck("[비정규][DB==HTTP] manual optional point_c=0", mgOptDb?.point_c === 0, `db=${mgOptDb?.point_c}`);
+  ck("[변동][DB==HTTP] manual optional point_c=0", mgOptDb?.point_c === 0, `db=${mgOptDb?.point_c}`);
 
   // 검수 신청 crew=none + c=12 → 0
   const rrNone = await api("/api/admin/processes/check/irregular", { method: "POST", body: J({ organization: ORG, kind: "review_request", act_name: `${TAG} 검수없음`, crew_reaction: "none", point_a: 2, point_b: 1, point_c: 12, review_link: "https://cafe.naver.com/x/c", scheduled_check_at: new Date(Date.now() + DAY).toISOString() }) });
-  ck("[비정규] review_request crew=none + c=12 → DTO pointC=0", rrNone.status === 201 && rrNone.json.data?.pointC === 0, `c=${rrNone.json.data?.pointC}`);
+  ck("[변동] review_request crew=none + c=12 → DTO pointC=0", rrNone.status === 201 && rrNone.json.data?.pointC === 0, `c=${rrNone.json.data?.pointC}`);
 
   // required + c=8 → 유지
   const mgReq = await api("/api/admin/processes/check/irregular", { method: "POST", body: J({ organization: ORG, kind: "manual_grant", act_name: `${TAG} 수동필수`, target_user_ids: [opTarget.user_id], crew_reaction: "required", point_a: 4, point_b: 2, point_c: 8 }) });
-  ck("[비정규] manual_grant crew=required + c=8 → DTO pointC=8(유지)", mgReq.status === 201 && mgReq.json.data?.pointC === 8, `c=${mgReq.json.data?.pointC}`);
+  ck("[변동] manual_grant crew=required + c=8 → DTO pointC=8(유지)", mgReq.status === 201 && mgReq.json.data?.pointC === 8, `c=${mgReq.json.data?.pointC}`);
 
   // 인라인 PATCH set_crew_reaction: required(c=8) → optional → c=0 강제
   const patch = await api("/api/admin/processes/check/irregular", { method: "PATCH", body: J({ id: mgReq.json.data?.id, organization: ORG, action: "set_crew_reaction", crew_reaction: "optional" }) });
-  ck("[비정규] PATCH 크루반응 required→optional → DTO pointC=0", patch.status === 200 && patch.json.data?.pointC === 0, `status=${patch.status} c=${patch.json.data?.pointC}`);
+  ck("[변동] PATCH 크루반응 required→optional → DTO pointC=0", patch.status === 200 && patch.json.data?.pointC === 0, `status=${patch.status} c=${patch.json.data?.pointC}`);
   const patchDb = (await sb.from("process_irregular_acts").select("crew_reaction,point_c").eq("id", mgReq.json.data?.id).maybeSingle()).data;
-  ck("[비정규][DB==HTTP] PATCH 후 crew=optional·point_c=0", patchDb?.crew_reaction === "optional" && patchDb?.point_c === 0, J(patchDb));
+  ck("[변동][DB==HTTP] PATCH 후 crew=optional·point_c=0", patchDb?.crew_reaction === "optional" && patchDb?.point_c === 0, J(patchDb));
 
   // 고객앱 무영향 — uwp 불변(구조 보증).
   const uwp = await sb.from("user_weekly_points").select("user_id", { count: "exact", head: true }).eq("user_id", opTarget.user_id);
-  ck("[고객앱 무영향] user_weekly_points 접근 가능·비정규/정규 액트와 무관", !uwp.error || uwp.error.code !== "PGRST205");
+  ck("[고객앱 무영향] user_weekly_points 접근 가능·변동/정규 액트와 무관", !uwp.error || uwp.error.code !== "PGRST205");
 } catch (e) { console.error("ERROR:", e?.stack ?? e?.message ?? e); fail++; }
 finally { await cleanup(); console.log("(cleanup — net-zero)"); console.log(`\n결과: ${pass} pass / ${fail} fail`); process.exit(fail > 0 ? 1 : 0); }

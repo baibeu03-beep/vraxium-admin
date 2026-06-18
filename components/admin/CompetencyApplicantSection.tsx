@@ -93,7 +93,7 @@ function SummaryChip({ label, value, tone }: { label: string; value: number; ton
         tone === "success" && "border-green-200 bg-green-50",
         tone === "error" && "border-red-200 bg-red-50",
         tone === "info" && "border-blue-200 bg-blue-50",
-        (!tone || tone === "default") && "border-gray-200 bg-gray-50",
+        (!tone || tone === "default") && "border-border bg-muted",
       )}
     >
       <p className="text-lg font-bold leading-none">{value}</p>
@@ -497,7 +497,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
                     <TableCell className="text-center">
                       <input
                         type="checkbox"
-                        className="rounded border-gray-300"
+                        className="rounded border-input"
                         checked={a.cafeChecked}
                         onChange={(e) => patchApp(a.id, { cafe_checked: e.target.checked })}
                         aria-label={`${a.displayName} 카페 체크`}
@@ -506,7 +506,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
                     <TableCell className="text-center">
                       <input
                         type="checkbox"
-                        className="rounded border-gray-300"
+                        className="rounded border-input"
                         checked={a.approvalChecked}
                         onChange={(e) => patchApp(a.id, { approval_checked: e.target.checked })}
                         aria-label={`${a.displayName} 승인 체크`}

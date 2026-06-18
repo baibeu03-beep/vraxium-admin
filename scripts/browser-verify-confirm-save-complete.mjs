@@ -99,7 +99,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // 유효 입력 채우기
     const tomorrow = new Date(Date.now() + 86_400_000);
     const dstr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`;
-    await page.getByPlaceholder("비정규 액트명").fill("ZZ-검증-검수신청");
+    await page.getByPlaceholder("변동 액트명").fill("ZZ-검증-검수신청");
     await page.getByPlaceholder("https://cafe.naver.com/...").fill("https://cafe.naver.com/oranke/12345");
     await page.locator('input[type="date"]').fill(dstr);
     await page.getByLabel("검수 시각").selectOption("12:00");
@@ -114,7 +114,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await dialog.waitFor({ state: "hidden", timeout: 5000 }).catch(() => {});
     ck("A2) 취소 시 API 호출 0", postCount === 0, `count=${postCount}`);
     ck("A2) 취소 시 팝업 유지", await submitReview.isVisible());
-    ck("A2) 취소 시 입력값 유지", (await page.getByPlaceholder("비정규 액트명").inputValue()) === "ZZ-검증-검수신청");
+    ck("A2) 취소 시 입력값 유지", (await page.getByPlaceholder("변동 액트명").inputValue()) === "ZZ-검증-검수신청");
 
     // A3) 확인 → API 실패(500) → 팝업 유지 + 에러
     postBehavior = "fail"; postCount = 0;

@@ -120,7 +120,7 @@ export const PROCESS_ACT_TYPE_LABEL: Record<ProcessActType, string> = {
 
 // ── 액트 종류(act_type / crew_reaction) ↔ 포인트 C 규칙 (서버/클라 공용 SoT) ─────
 //   '필수(required)' 일 때만 포인트 C(미이행 페널티) 입력 가능.
-//   그 외(자율·선택·선발·기본·없음)는 포인트 C = 0 고정. 정규 액트(act_type)·비정규(crew_reaction) 공용.
+//   그 외(자율·선택·선발·기본·없음)는 포인트 C = 0 고정. 정규 액트(act_type)·변동(crew_reaction) 공용.
 export function reactionAllowsPointC(reactionKey: string): boolean {
   return reactionKey === "required";
 }

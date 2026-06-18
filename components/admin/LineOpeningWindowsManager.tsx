@@ -455,7 +455,7 @@ export default function LineOpeningWindowsManager() {
                         "rounded-full border px-2 py-0.5 text-[11px] font-medium",
                         w.isActive
                           ? "border-green-300 bg-green-50 text-green-700"
-                          : "border-gray-300 bg-gray-100 text-gray-500",
+                          : "border-input bg-muted text-muted-foreground",
                       )}
                     >
                       {w.isActive ? "활성" : "비활성"}

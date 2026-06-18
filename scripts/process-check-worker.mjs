@@ -1,4 +1,4 @@
-// 프로세스 체크 자동 검수 worker — 정규/비정규 공용 (로컬 어드민 PC 전용).
+// 프로세스 체크 자동 검수 worker — 정규/변동 공용 (로컬 어드민 PC 전용).
 //
 //   검수 시점(scheduled_check_at)이 도래한 [체크 신청] 항목을 주기 폴링 →
 //   검수 링크 댓글 크롤링(기존 cafe-line-crew 로직 재사용) → 크루 식별(org+mode 스코프) →
@@ -6,7 +6,7 @@
 //
 //   대상:
 //     · 정규  : process_check_statuses (status='pending' · scheduled_check_at<=now · review_link)
-//     · 비정규: process_irregular_acts (kind='review_request' · status='pending' · scheduled<=now · review_link)
+//     · 변동: process_irregular_acts (kind='review_request' · status='pending' · scheduled<=now · review_link)
 //
 //   · 서버/Vercel 크롤링 불가 → 운영진 PC 에서 admin(localhost:3000)과 함께 실행.
 //   · 밀린 작업: 폴링 조건이 "scheduled<=now AND pending" 이라 PC 재가동 시 자동 소급.
@@ -92,7 +92,7 @@ export async function defaultAccrue(baseUrl, cookie, source, refId) {
   return json.data;
 }
 
-// ── 만기 항목 조회(정규+비정규) ─────────────────────────────────────────────────
+// ── 만기 항목 조회(정규+변동) ─────────────────────────────────────────────────
 export async function findDueItems(sb, nowIso) {
   const sel = "id,organization_slug,scope_mode,review_link,attempt_count,last_attempt_at";
   const [{ data: reg }, { data: irr }] = await Promise.all([

@@ -444,7 +444,7 @@ function TopCardSlotEditor({
           className={cn(
             "rounded-full border px-1.5 py-0.5 text-[10px]",
             cardIsEmpty
-              ? "border-zinc-200 bg-zinc-50 text-zinc-500"
+              ? "border-border bg-muted text-muted-foreground"
               : row
                 ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                 : "border-sky-200 bg-sky-50 text-sky-700",

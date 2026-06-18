@@ -1,6 +1,6 @@
 "use client";
 
-// /admin/processes/check/irregular — 비정규 액트 관리(현재/마지막 활동 주차 고정).
+// /admin/processes/check/irregular — 변동 액트 관리(현재/마지막 활동 주차 고정).
 //
 //   우측 상단: [수동 부여] [검수 신청] (1행 2열).
 //   요약 5칸(1행 5열·칸막이): 전체 / 검수 신청 / 수동 부여 / 체크 완료 / 체크 대기.
@@ -139,9 +139,9 @@ export default function ProcessIrregularManager() {
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold">비정규 액트</h1>
+          <h1 className="text-lg font-semibold">변동 액트</h1>
           <p className="text-sm text-muted-foreground">
-            정규 기준표 외 비정규 액트의 검수 신청 / 수동 부여 관리 (조직: {org ?? "미지정"})
+            정규 기준표 외 변동 액트의 검수 신청 / 수동 부여 관리 (조직: {org ?? "미지정"})
           </p>
         </div>
         {/* 우측 상단 버튼 — 1행 2열 */}
@@ -206,7 +206,7 @@ export default function ProcessIrregularManager() {
           {loading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">불러오는 중…</p>
           ) : acts.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">비정규 액트가 없습니다.</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">변동 액트가 없습니다.</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -214,7 +214,7 @@ export default function ProcessIrregularManager() {
                   <TableRow>
                     <TableHead>종류</TableHead>
                     <TableHead>카페</TableHead>
-                    <TableHead>액트명(비정규)</TableHead>
+                    <TableHead>액트명(변동)</TableHead>
                     <TableHead>신청자</TableHead>
                     <TableHead className="text-right">소요(m)</TableHead>
                     <TableHead>액트 신청 사유</TableHead>
@@ -318,7 +318,8 @@ function IrregularRow({
           className="h-8 rounded-md border border-input bg-background px-1.5 text-xs disabled:opacity-60"
         >
           {IRREGULAR_CREW_REACTIONS.map((c) => (
-            <option key={c} value={c}>
+            // 수동 부여는 '전원' 불가(부분 고정) — 해당 옵션 비활성.
+            <option key={c} value={c} disabled={c === "all" && act.kind === "manual_grant"}>
               {IRREGULAR_CREW_REACTION_LABEL[c]}
             </option>
           ))}

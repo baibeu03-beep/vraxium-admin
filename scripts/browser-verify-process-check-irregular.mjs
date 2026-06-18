@@ -1,4 +1,4 @@
-// 브라우저 검증 — /admin/processes/check/irregular 비정규 액트.
+// 브라우저 검증 — /admin/processes/check/irregular 변동 액트.
 //   버튼(수동 부여/검수 신청·1행2열) · 요약 5칸 · 표 헤더 종류→카페→… 순 · 시드 행 표시(카페 파생).
 //   서비스롤로 시드 1행 생성 → 표시 확인 → cleanup(net-zero). 전제: dev 서버 + 마이그레이션 적용.
 import { createRequire } from "node:module";
@@ -51,7 +51,7 @@ try {
   const cookieHdr = cks.map((c) => `${c.name}=${c.value}`).join("; ");
   const seed = await fetch(`${BASE}/api/admin/processes/check/irregular`, {
     method: "POST", headers: { "Content-Type": "application/json", cookie: cookieHdr },
-    body: JSON.stringify({ organization: ORG, kind: "manual_grant", act_name: `${TAG} 표시행`, target_user_ids: [opTarget.user_id], point_a: 7, point_b: 1, point_c: 1, crew_reaction: "all" }),
+    body: JSON.stringify({ organization: ORG, kind: "manual_grant", act_name: `${TAG} 표시행`, target_user_ids: [opTarget.user_id], point_a: 7, point_b: 1, point_c: 0, crew_reaction: "partial", point_mode: "ab" }),
   });
   ck("[시드] 수동부여 생성 201", seed.status === 201);
   // 검수 신청(체크 대기) 시드 — 상태 버튼→상세→체크 취소 동작 확인용.
@@ -77,7 +77,7 @@ try {
     ck(`[요약] ${lbl} 표시`, body.includes(lbl));
   }
 
-  // 표 헤더 순서: 종류 → 카페 → 액트명(비정규).
+  // 표 헤더 순서: 종류 → 카페 → 액트명(변동).
   const headers = await page.locator("thead th").allTextContents();
   const h = headers.map((t) => t.trim());
   const iKind = h.indexOf("종류"), iCafe = h.indexOf("카페"), iAct = h.findIndex((t) => t.includes("액트명"));
@@ -99,7 +99,10 @@ try {
   await waitRow.getByRole("button", { name: "체크 대기" }).click();
   await page.waitForTimeout(400);
   ck("[체크대기] 상태 버튼 클릭 → 상세 모달 + 체크 취소 버튼", (await page.getByRole("button", { name: "체크 취소" }).count()) > 0);
-  await page.getByRole("button", { name: "체크 취소" }).click();
+  await page.locator(".fixed.inset-0.z-50").getByRole("button", { name: "체크 취소" }).first().click(); // 상세 모달의 체크 취소
+  await page.waitForTimeout(300);
+  // 확인 다이얼로그(z-[60]) 수락 — 동일 라벨 '체크 취소'.
+  await page.locator(".fixed.inset-0.z-\\[60\\]").getByRole("button", { name: "체크 취소" }).click();
   await page.waitForTimeout(600);
   ck("[체크대기] 체크 취소 → 행 제거", (await page.locator("tbody tr", { hasText: `${TAG} 대기행` }).count()) === 0);
 
@@ -124,19 +127,20 @@ try {
   // 포인트 드롭다운 0~20 — 0 옵션 존재.
   ck("[모달] 포인트 A 드롭다운 0 선택 가능", (await page.locator('select[aria-label="포인트 A"] option[value="0"]').count()) > 0 && (await page.locator('select[aria-label="포인트 A"] option[value="20"]').count()) > 0);
 
-  // 액트 종류 = 전원/부분 2종만 노출(구 필수/선택/선발/없음 비노출). 포인트 C 는 종류와 무관(항상 활성).
+  // 수동 부여는 '부분' 고정(전원 선택 불가) + 포인트 방식(A+B|C) 라디오. 구 필수/선택/선발/없음 비노출.
   //   ⚠ 목록 행에도 '액트 종류' select 가 있으므로 모달 컨테이너로 스코프(strict 모드 회피).
-  const modal = page.locator(".fixed.inset-0.z-50");
-  const crewSel = modal.locator('select[aria-label="액트 종류"]');
+  const modal = page.locator(".fixed.inset-0.z-50").last();
   const cSel = modal.locator('select[aria-label="포인트 C"]');
-  const crewOpts = await crewSel.locator("option").allTextContents();
-  ck("[액트종류] 옵션 = 전원/부분 2종만", crewOpts.length === 2 && crewOpts.includes("전원") && crewOpts.includes("부분"), `opts=${JSON.stringify(crewOpts)}`);
-  ck("[액트종류] 구 옵션(필수/선택/선발/없음) 비노출", !crewOpts.some((o) => ["필수", "선택", "선발", "없음"].includes(o)));
-  await crewSel.selectOption("all");
-  ck("[규칙] 액트종류=전원 → 포인트 C 활성(decoupled)", !(await cSel.isDisabled()));
-  await cSel.selectOption("5");
-  await crewSel.selectOption("partial");
-  ck("[규칙] 액트종류=부분 → 포인트 C 여전히 활성·값 유지(5)", !(await cSel.isDisabled()) && (await cSel.inputValue()) === "5");
+  ck("[수동] 액트 종류 '부분 (수동 부여 고정)' 표시", (await modal.getByText("부분 (수동 부여 고정)").count()) > 0);
+  ck("[수동] 액트 종류 select(전원 선택) 없음", (await modal.locator('select[aria-label="액트 종류"]').count()) === 0);
+  ck("[수동] 포인트 방식 라디오 2개(A+B 부여/C 부여)", (await modal.getByRole("radio").count()) === 2);
+  const bodyTxt = await modal.innerText();
+  ck("[수동] 구 옵션(필수/선택/선발/없음) 비노출", !["필수", "선발"].some((w) => bodyTxt.includes(w)));
+  // 기본 A+B 부여 → 포인트 C 비활성. C 부여 라디오 → A/B 비활성.
+  ck("[규칙] 기본 A+B 부여 → 포인트 C 비활성", await cSel.isDisabled());
+  await modal.getByRole("radio", { name: "C 부여" }).click();
+  await page.waitForTimeout(200);
+  ck("[규칙] C 부여 → 포인트 C 활성·포인트 A 비활성", !(await cSel.isDisabled()) && (await modal.locator('select[aria-label="포인트 A"]').isDisabled()));
 
   const term = (opTarget.display_name ?? "").trim();
   await page.getByPlaceholder("이름으로 검색").fill(term);

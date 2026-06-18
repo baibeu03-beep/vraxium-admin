@@ -78,7 +78,7 @@ const ORG_NONE = "__none__"; // organization_slug=null sentinel (CreateDrawer + 
 const ROLE_BADGE_CLASS: Record<AdminUsersRole, string> = {
   owner: "bg-violet-100 text-violet-800 ring-violet-200",
   admin: "bg-blue-100 text-blue-800 ring-blue-200",
-  viewer: "bg-slate-100 text-slate-700 ring-slate-200",
+  viewer: "bg-muted text-muted-foreground ring-border",
 };
 
 type Banner = { kind: "success" | "error"; message: string } | null;

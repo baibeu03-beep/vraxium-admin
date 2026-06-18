@@ -1,5 +1,5 @@
 -- 2026-06-15_process_check_worker.sql
--- 프로세스 체크 자동 검수(로컬 PC worker) — 정규/비정규 공용. ADDITIVE — 기존 스키마 보존.
+-- 프로세스 체크 자동 검수(로컬 PC worker) — 정규/변동 공용. ADDITIVE — 기존 스키마 보존.
 --
 -- 배경:
 --   scheduled_check_at(검수 시점)이 도래한 [체크 신청] 항목을 로컬 어드민 PC 의 worker 가
@@ -8,13 +8,13 @@
 --
 --   대상:
 --     · 정규  : process_check_statuses (status='pending' · scheduled_check_at<=now · review_link 존재)
---     · 비정규: process_irregular_acts (kind='review_request' · status='pending' · scheduled_check_at<=now)
+--     · 변동: process_irregular_acts (kind='review_request' · status='pending' · scheduled_check_at<=now)
 --
 --   ⚠ user_weekly_points · 주차 성장 계산 · snapshot · checkGate · demoUserId 무접촉.
 --     크루 식별 결과 + point_a/b/c 는 "관리용 기록"일 뿐 고객앱 점수 미연동(본 Phase).
 -- Idempotent — 재실행 안전. Supabase SQL Editor 에서 수동 실행.
 
--- ── 1) 비정규: review_request 는 대상자 미선택 → target nullable ────────────────
+-- ── 1) 변동: review_request 는 대상자 미선택 → target nullable ────────────────
 ALTER TABLE public.process_irregular_acts ALTER COLUMN target_user_id   DROP NOT NULL;
 ALTER TABLE public.process_irregular_acts ALTER COLUMN target_user_name DROP NOT NULL;
 
@@ -33,7 +33,7 @@ ALTER TABLE public.process_check_statuses
   ADD COLUMN IF NOT EXISTS last_attempt_at timestamptz NULL,
   ADD COLUMN IF NOT EXISTS last_error      text NULL;
 
--- ── 2) 크루 식별 결과 (정규/비정규 공용) ───────────────────────────────────────
+-- ── 2) 크루 식별 결과 (정규/변동 공용) ───────────────────────────────────────
 --   worker 가 크롤링 후 매칭된 크루(matched=우리 user_id) + 수동확인(review) 를 저장.
 --   멱등: worker 재실행 시 (source, ref_id) 단위로 delete 후 재삽입.
 CREATE TABLE IF NOT EXISTS public.process_check_review_recipients (
@@ -60,7 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_pcrr_ref ON public.process_check_review_recipient
 CREATE INDEX IF NOT EXISTS idx_pcrr_user ON public.process_check_review_recipients (user_id);
 
 COMMENT ON TABLE public.process_check_review_recipients IS
-  '프로세스 체크 자동 검수 크루 식별 결과(정규/비정규 공용). worker 크롤링 매칭 산출 — 관리용 기록(user_weekly_points/snapshot 무접촉, 2026-06-15 worker Phase). 멱등=(source,ref_id) delete 후 재삽입.';
+  '프로세스 체크 자동 검수 크루 식별 결과(정규/변동 공용). worker 크롤링 매칭 산출 — 관리용 기록(user_weekly_points/snapshot 무접촉, 2026-06-15 worker Phase). 멱등=(source,ref_id) delete 후 재삽입.';
 COMMENT ON COLUMN public.process_irregular_acts.scope_mode IS
   'worker 크루 매칭 스코프(operating/test). 행 생성 시 보드 조회 모드를 그대로 기록.';
 

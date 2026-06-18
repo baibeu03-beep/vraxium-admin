@@ -1,4 +1,4 @@
-// 프로세스 체크 자동 검수 worker 검증 — runOnce(주입 crawl)로 정규/비정규 처리.
+// 프로세스 체크 자동 검수 worker 검증 — runOnce(주입 crawl)로 정규/변동 처리.
 //   due 선택 · 크루 식별 저장 · 완료 전이 · 재시도/쿨다운 · 밀린작업(catch-up) · org/mode 스코프 ·
 //   고객앱/snapshot 무영향(user_weekly_points 불변). 실제 네이버 크롤링 없이 결정적 검증.
 // 전제: 2026-06-15_process_irregular_acts.sql + _process_check_worker.sql 적용.
@@ -51,15 +51,15 @@ try {
   const pastIso = new Date(Date.now() - 3600_000).toISOString();
   const futureIso = new Date(Date.now() + 3600_000).toISOString();
 
-  // ── 시드: 비정규 review_request (만기 pending) ──
+  // ── 시드: 변동 review_request (만기 pending) ──
   const irr = (await sb.from("process_irregular_acts").insert({
-    organization_slug: ORG, week_id: week.id, kind: "review_request", act_name: `${TAG} 비정규만기`,
+    organization_slug: ORG, week_id: week.id, kind: "review_request", act_name: `${TAG} 변동만기`,
     applicant_admin_name: "검증", scope_mode: "operating", point_a: 3, point_b: 1, point_c: 0,
     crew_reaction: "partial", review_link: "https://cafe.naver.com/x/1", scheduled_check_at: pastIso, status: "pending",
   }).select("id").single()).data;
-  // 미만기(future) 비정규 — due 아님.
+  // 미만기(future) 변동 — due 아님.
   const irrFuture = (await sb.from("process_irregular_acts").insert({
-    organization_slug: ORG, week_id: week.id, kind: "review_request", act_name: `${TAG} 비정규미만기`,
+    organization_slug: ORG, week_id: week.id, kind: "review_request", act_name: `${TAG} 변동미만기`,
     applicant_admin_name: "검증", scope_mode: "operating", review_link: "https://cafe.naver.com/x/2",
     scheduled_check_at: futureIso, status: "pending",
   }).select("id").single()).data;
@@ -75,7 +75,7 @@ try {
     organization_slug: ORG, hub: "info", week_id: week.id, line_group_id: grp.id, act_id: act.id,
     status: "pending", review_link: "https://cafe.naver.com/x/3", scheduled_check_at: pastIso, scope_mode: "operating",
   }).select("id").single()).data;
-  ck("[시드] 비정규(만기/미만기) + 정규 만기 행 생성", !!irr?.id && !!irrFuture?.id && !!reg?.id);
+  ck("[시드] 변동(만기/미만기) + 정규 만기 행 생성", !!irr?.id && !!irrFuture?.id && !!reg?.id);
   // ⚠ 실데이터 보호 — 이 검증은 자기 시드 행만 처리하도록 onlyIds 화이트리스트로 한정한다.
   const myIds = [irr.id, irrFuture.id, reg.id, /* 실패행은 아래서 추가 */];
 
@@ -88,15 +88,15 @@ try {
   // 고객앱 무영향 — 처리 전 user_weekly_points 카운트.
   const uwpBefore = (await sb.from("user_weekly_points").select("user_id", { count: "exact", head: true }).eq("user_id", opUser.user_id)).count ?? 0;
 
-  // ── 1. runOnce — 내 시드 만기 2건(비정규+정규) 처리, 미만기 제외 ──
+  // ── 1. runOnce — 내 시드 만기 2건(변동+정규) 처리, 미만기 제외 ──
   const r1 = await runOnce({ sb, onlyIds: myIds, crawlAndMatch: fakeCrawl, log: () => {} });
   ck("[처리] 내 시드 만기 2건 성공(미만기 제외)", r1.succeeded === 2 && r1.failed === 0, J(r1));
 
-  // ── 2. 비정규 완료 + recipients ──
+  // ── 2. 변동 완료 + recipients ──
   const irrAfter = (await sb.from("process_irregular_acts").select("status,completed_at,last_error").eq("id", irr.id).maybeSingle()).data;
-  ck("[비정규] status=completed · completed_at 채움 · last_error null", irrAfter?.status === "completed" && !!irrAfter?.completed_at && !irrAfter?.last_error);
+  ck("[변동] status=completed · completed_at 채움 · last_error null", irrAfter?.status === "completed" && !!irrAfter?.completed_at && !irrAfter?.last_error);
   const irrRec = (await sb.from("process_check_review_recipients").select("user_id,match_type,nickname").eq("source", "irregular").eq("ref_id", irr.id)).data ?? [];
-  ck("[비정규] recipients matched(opUser)+review 저장", irrRec.some((x) => x.match_type === "matched" && x.user_id === opUser.user_id) && irrRec.some((x) => x.match_type === "review" && x.user_id === null), J(irrRec.map((x) => x.match_type)));
+  ck("[변동] recipients matched(opUser)+review 저장", irrRec.some((x) => x.match_type === "matched" && x.user_id === opUser.user_id) && irrRec.some((x) => x.match_type === "review" && x.user_id === null), J(irrRec.map((x) => x.match_type)));
 
   // ── 3. 정규 완료 + checked_crew_count + recipients ──
   const regAfter = (await sb.from("process_check_statuses").select("status,completed_at,checked_crew_count").eq("id", reg.id).maybeSingle()).data;

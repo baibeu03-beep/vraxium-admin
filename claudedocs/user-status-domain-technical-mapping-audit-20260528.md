@@ -248,11 +248,11 @@ if (graduationThreshold !== null && a >= graduationThreshold) return "extra_grow
 **계층적 (의도) + 중복 저장 (구현)**:
 - 시즌 전체 휴식 (정규화): `user_season_statuses.status='rest'` (시즌 단위 카운터)
   - → 효과: 해당 시즌 1주차를 `user_week_statuses.status='personal_rest'`로 자동 전환 (`seasonRestValidation.ts:80-86`)
-- 시즌 전체 휴식 (비정규): `user_profiles.growth_status='seasonal_rest'` — **별도로 저장되지만 운영 코드에서 자동 갱신하지 않음**
+- 시즌 전체 휴식 (변동): `user_profiles.growth_status='seasonal_rest'` — **별도로 저장되지만 운영 코드에서 자동 갱신하지 않음**
 
 마찬가지로:
 - 개인 1주 휴식 (정규): `user_week_statuses.status='personal_rest'`
-- 개인 1주 휴식 (비정규): `user_profiles.growth_status='weekly_rest'` — **별도로 저장되지만 운영 코드에서 자동 갱신하지 않음**
+- 개인 1주 휴식 (변동): `user_profiles.growth_status='weekly_rest'` — **별도로 저장되지만 운영 코드에서 자동 갱신하지 않음**
 - 공식 휴식 (정규): `user_week_statuses.status='official_rest'`
 - 공식 휴식 (파생 라벨): `displayKey='official_rest'` (`cluster3GrowthData.ts:126`) — 현재 주차 한정
 

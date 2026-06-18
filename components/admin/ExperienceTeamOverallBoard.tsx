@@ -421,7 +421,7 @@ export default function ExperienceTeamOverallBoard({
             확장 주간 · {board.extensionKind === "online" ? "온라인" : "오프라인"}
           </span>
         ) : (
-          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+          <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             확장 비활성 (확장 라인 입력 잠금)
           </span>
         )}
@@ -545,7 +545,7 @@ export default function ExperienceTeamOverallBoard({
                         >
                           <input
                             type="checkbox"
-                            className="rounded border-gray-300"
+                            className="rounded border-input"
                             checked={cell.checked}
                             disabled={disabled}
                             onChange={() => toggleLeaderCheck(crew.userId, c.key)}
@@ -695,7 +695,7 @@ function StatusBadge({ status }: { status: BoardDto["status"] }) {
     );
   }
   return (
-    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">
+    <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
       미진행
     </span>
   );

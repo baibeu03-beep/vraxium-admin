@@ -4,8 +4,8 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useState,
+  useSyncExternalStore,
 } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -38,15 +38,17 @@ function applyTheme(theme: Theme) {
   else root.classList.remove("dark");
 }
 
-function readStoredTheme(): Theme {
-  if (typeof window === "undefined") return "light";
-  try {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return stored === "dark" ? "dark" : "light";
-  } catch {
-    return "light";
-  }
+// 초기 테마는 DOM 의 html.dark class 에서 읽는다 — blocking 스크립트(themeInitScript)가
+// 하이드레이션 전에 localStorage 를 반영해 class 를 이미 맞춰뒀으므로 이것이 진실값이다.
+// (SSR 에서는 document 가 없어 "light" — 안전 기본값.)
+function readInitialTheme(): Theme {
+  if (typeof document === "undefined") return "light";
+  return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
+
+// effect 없이 클라이언트 마운트 여부만 판별(SSR=false · client=true).
+// react-hooks/set-state-in-effect 규칙을 피하면서 토글 아이콘 hydration mismatch 를 막는다.
+const subscribeNoop = () => () => {};
 
 type ThemeContextValue = {
   theme: Theme;
@@ -59,17 +61,13 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // SSR/초기 렌더는 항상 라이트로 가정(blocking 스크립트가 실제 DOM class 는 이미 맞춰둠).
-  const [theme, setThemeState] = useState<Theme>("light");
-  const [mounted, setMounted] = useState(false);
-
-  // 마운트 시 저장값과 동기화(blocking 스크립트가 적용한 값을 React state 로 끌어온다).
-  useEffect(() => {
-    const stored = readStoredTheme();
-    setThemeState(stored);
-    applyTheme(stored);
-    setMounted(true);
-  }, []);
+  // 초기값은 DOM class 에서 lazily 읽는다(client=실제 테마 · server=light). effect 불필요.
+  const [theme, setThemeState] = useState<Theme>(readInitialTheme);
+  const mounted = useSyncExternalStore(
+    subscribeNoop,
+    () => true,
+    () => false,
+  );
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);
@@ -82,17 +80,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setThemeState((prev) => {
-      const next: Theme = prev === "dark" ? "light" : "dark";
-      applyTheme(next);
-      try {
-        window.localStorage.setItem(THEME_STORAGE_KEY, next);
-      } catch {
-        /* noop */
-      }
-      return next;
-    });
-  }, []);
+    // 현재값은 DOM(진실값)에서 읽어 setTheme 에 위임 — updater 내부 side effect 없이 순수.
+    const isDark = document.documentElement.classList.contains("dark");
+    setTheme(isDark ? "light" : "dark");
+  }, [setTheme]);
 
   return (
     <ThemeContext.Provider value={{ theme, mounted, setTheme, toggleTheme }}>

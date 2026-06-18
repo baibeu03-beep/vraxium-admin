@@ -52,7 +52,7 @@ export function isProcessCheckAction(v: unknown): v is ProcessCheckAction {
 // ── 선별(selection) 액트 수동 부여 (2026-06-18) ────────────────────────────────
 //   액트 종류(act_type)가 '선별' 인 액트는 "체크 필요" 클릭 시 [검수 신청]/[수동 부여] 선택.
 //   수동 부여 = 관리자가 대상 크루 + 포인트를 직접 입력 → 즉시 완료(completion_type='manual_grant').
-//   '선별' 규칙상 포인트 C = 0 강제(reactionAllowsPointC). 사유 최대 글자수는 비정규와 동일.
+//   '선별' 규칙상 포인트 C = 0 강제(reactionAllowsPointC). 사유 최대 글자수는 변동와 동일.
 export const MANUAL_GRANT_REASON_MAX = 50;
 
 // 액트 종류가 '선별' 인가 — 수동 부여 선택 UI 노출 여부의 단일 판정(서버/클라 공용).

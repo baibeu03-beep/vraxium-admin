@@ -411,7 +411,7 @@ function ToggleSwitch({
       onClick={onClick}
       className={cn(
         "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-        checked ? "bg-emerald-500" : "bg-slate-300",
+        checked ? "bg-emerald-500" : "bg-muted",
         (disabled || pending) && "cursor-not-allowed opacity-50",
         !disabled && !pending && "hover:opacity-90",
         pending && "animate-pulse",

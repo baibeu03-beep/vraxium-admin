@@ -2607,7 +2607,7 @@ export default function PracticalExperienceManager() {
                           <TableCell>
                             <input
                               type="checkbox"
-                              className="rounded border-gray-300"
+                              className="rounded border-input"
                               checked={openSelectedIds.has(d.id)}
                               disabled={opened || saving}
                               onChange={() => toggleOpenSelect(d.id)}

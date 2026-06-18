@@ -600,7 +600,7 @@ export default function PracticalCompetencyManager() {
                       <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                         {filteredCrews.map((c) => (
                           <label key={c.userId} className={cn("flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted", selectedUserIds.has(c.userId) && "bg-muted")}>
-                            <input type="checkbox" className="rounded border-gray-300" checked={selectedUserIds.has(c.userId)} onChange={() => toggleUser(c.userId)} />
+                            <input type="checkbox" className="rounded border-input" checked={selectedUserIds.has(c.userId)} onChange={() => toggleUser(c.userId)} />
                             <span className="truncate">{c.displayName}</span>
                             <span className="ml-auto text-xs text-muted-foreground">{[c.teamName, c.partName].filter(Boolean).join(" / ")}</span>
                           </label>

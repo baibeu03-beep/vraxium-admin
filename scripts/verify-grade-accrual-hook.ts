@@ -1,4 +1,4 @@
-// 등급(user_grade_stats) 당사자 즉시 갱신 hook 검증 — 비정규 수동부여 적립 경로.
+// 등급(user_grade_stats) 당사자 즉시 갱신 hook 검증 — 변동 수동부여 적립 경로.
 //   run: npx tsx --env-file=.env.local scripts/verify-grade-accrual-hook.ts
 //   확인: ① 적립 후 당사자 user_grade_stats 갱신(hook) ② 타 사용자 미갱신(전체 재계산 X)
 //        ③ 고객앱 profile 등급 = live getClubRank(=admin /api/cluster3/club-rank) 즉시 반영
@@ -67,7 +67,7 @@ async function main() {
   };
   await cleanIrr();
 
-  // ── 적립: 비정규 수동부여 2회(test, W13, point_a=20) → 40 (>base 34, 등급 상향) ──
+  // ── 적립: 변동 수동부여 2회(test, W13, point_a=20) → 40 (>base 34, 등급 상향) ──
   const grants: string[] = [];
   for (const n of [1, 2]) {
     const g = await api("/api/admin/processes/check/irregular", { method: "POST", body: J({ organization: "oranke", mode: "test", kind: "manual_grant", act_name: `${TAG} ${n}`, target_user_ids: [target], point_a: 20, point_b: 0, point_c: 0 }) });

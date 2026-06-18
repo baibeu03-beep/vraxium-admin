@@ -1,7 +1,7 @@
 -- 2026-06-18_irregular_crew_reaction_all_partial.sql
--- 통합 > 허브별 프로세스 > 프로세스 체크 · 비정규 액트 (/admin/processes/check/irregular).
+-- 통합 > 허브별 프로세스 > 프로세스 체크 · 변동 액트 (/admin/processes/check/irregular).
 --
--- 정책 (2026-06-18 — 비정규 액트 '액트 종류' 전환):
+-- 정책 (2026-06-18 — 변동 액트 '액트 종류' 전환):
 --   - process_irregular_acts.crew_reaction 의 의미를 "의무 수준"(필수/선택/선발/없음)에서
 --     "적용 범위"(전원/부분)로 전환한다.
 --       · 구 enum: required | optional | selection | none  (필수/선택/선발/없음)

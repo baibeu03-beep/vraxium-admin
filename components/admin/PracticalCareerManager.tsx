@@ -1101,7 +1101,7 @@ export default function PracticalCareerManager() {
                 >
                   <input
                     type="checkbox"
-                    className="rounded border-gray-300"
+                    className="rounded border-input"
                     checked={selectedIds.has(crew.userId)}
                     onChange={() => onToggle(crew.userId)}
                   />

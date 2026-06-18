@@ -35,7 +35,7 @@ const ENHANCEMENT_TONE: Record<Cluster4EnhancementStatus, string> = {
   success: "bg-emerald-100 text-emerald-800",
   pending: "bg-amber-100 text-amber-800",
   fail: "bg-red-100 text-red-800",
-  not_applicable: "bg-gray-100 text-gray-600",
+  not_applicable: "bg-muted text-muted-foreground",
 };
 
 export function EnhancementStatusBadge({

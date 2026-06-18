@@ -1,6 +1,6 @@
 "use client";
 
-// 비정규 액트 생성 팝업 — 검수 신청 / 수동 부여 공용.
+// 변동 액트 생성 팝업 — 검수 신청 / 수동 부여 공용.
 //   대상자(고객) 검색·선택 + 액트명 + 소요시간 + 사유 + 포인트 A/B/C + 액트 종류 + 검수 링크/시점.
 //   검수 신청 → 검수 링크·시점 필수(pending). 수동 부여 → 검수 링크·시점 선택(즉시 completed).
 //   ⚠ 카페는 입력하지 않는다(kind 파생 표시값). org+mode 분리는 대상자(target) 기준(서버 재검증).
@@ -13,17 +13,20 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { DAY_NAMES } from "@/lib/practicalInfoSection0Format";
 import { type ScopeMode, appendModeQuery } from "@/lib/userScopeShared";
+import { IrregularPointFields } from "@/components/admin/IrregularPointFields";
 import {
   IRREGULAR_CREW_REACTIONS,
   IRREGULAR_CREW_REACTION_DEFAULT,
   IRREGULAR_CREW_REACTION_LABEL,
   IRREGULAR_KIND_LABEL,
+  IRREGULAR_POINT_MODE_DEFAULT,
   formatCheckDateTimeKo,
   irregularCafeLabel,
   validateReviewLink,
   validateScheduledCheckAt,
   type IrregularCrewReaction,
   type IrregularKind,
+  type IrregularPointMode,
   type IrregularTargetUserDto,
 } from "@/lib/adminProcessIrregularTypes";
 
@@ -34,7 +37,6 @@ const TIME_SLOTS: string[] = (() => {
   }
   return out;
 })();
-const POINTS = Array.from({ length: 21 }, (_, i) => i); // 0~20
 const DURATIONS = Array.from({ length: 18 }, (_, i) => (i + 1) * 5); // 5~90, 5분 단위
 const REASON_MAX = 50;
 
@@ -74,6 +76,7 @@ export default function ProcessIrregularDialog({
   const [pointB, setPointB] = useState(0);
   const [pointC, setPointC] = useState(0);
   const [crewReaction, setCrewReaction] = useState<IrregularCrewReaction>(IRREGULAR_CREW_REACTION_DEFAULT);
+  const [pointMode, setPointMode] = useState<IrregularPointMode>(IRREGULAR_POINT_MODE_DEFAULT);
   const [reviewLink, setReviewLink] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -93,6 +96,7 @@ export default function ProcessIrregularDialog({
     pointB !== 0 ||
     pointC !== 0 ||
     crewReaction !== IRREGULAR_CREW_REACTION_DEFAULT ||
+    pointMode !== IRREGULAR_POINT_MODE_DEFAULT ||
     reviewLink.trim() !== "" ||
     date !== "" ||
     time !== "";
@@ -153,6 +157,7 @@ export default function ProcessIrregularDialog({
     setPointB(0);
     setPointC(0);
     setCrewReaction(IRREGULAR_CREW_REACTION_DEFAULT);
+    setPointMode(IRREGULAR_POINT_MODE_DEFAULT);
     setReviewLink("");
     setDate("");
     setTime("");
@@ -197,6 +202,7 @@ export default function ProcessIrregularDialog({
           point_b: pointB,
           point_c: pointC,
           crew_reaction: crewReaction,
+          point_mode: pointMode,
           ...(reviewLink.trim() ? { review_link: reviewLink.trim() } : {}),
           ...(scheduledIso ? { scheduled_check_at: scheduledIso } : {}),
         }),
@@ -222,7 +228,7 @@ export default function ProcessIrregularDialog({
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
-            비정규 액트 ·{" "}
+            변동 액트 ·{" "}
             <span className={cn(isReview ? "text-purple-700" : "text-green-700")}>
               {IRREGULAR_KIND_LABEL[kind]}
             </span>
@@ -311,12 +317,12 @@ export default function ProcessIrregularDialog({
           {/* 액트명 */}
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
-              액트명(비정규) <span className="text-red-500">*</span>
+              액트명(변동) <span className="text-red-500">*</span>
             </label>
             <Input
               value={actName}
               onChange={(e) => setActName(e.target.value)}
-              placeholder="비정규 액트명"
+              placeholder="변동 액트명"
               maxLength={60}
               disabled={submitting}
             />
@@ -375,31 +381,19 @@ export default function ProcessIrregularDialog({
             />
           </div>
 
-          {/* 포인트 A/B/C — 액트 종류(전원/부분)와 무관하게 각 0~20 자유 입력 */}
-          <div className="grid grid-cols-3 gap-3">
-            {([
-              ["포인트 A", pointA, setPointA],
-              ["포인트 B", pointB, setPointB],
-              ["포인트 C", pointC, setPointC],
-            ] as const).map(([label, val, set]) => (
-              <div key={label} className="space-y-1">
-                <label className="text-xs text-muted-foreground">{label}</label>
-                <select
-                  aria-label={label}
-                  value={val}
-                  onChange={(e) => set(Number(e.target.value))}
-                  disabled={submitting}
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {POINTS.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ))}
-          </div>
+          {/* 포인트 — 전원=A/B/C 자유 / 부분=포인트 방식(A+B|C) 택1 + 비활성·안내문 */}
+          <IrregularPointFields
+            crewReaction={crewReaction}
+            pointMode={pointMode}
+            setPointMode={setPointMode}
+            pointA={pointA}
+            setPointA={setPointA}
+            pointB={pointB}
+            setPointB={setPointB}
+            pointC={pointC}
+            setPointC={setPointC}
+            disabled={submitting}
+          />
 
           {/* 검수 링크 */}
           <div className="space-y-1">

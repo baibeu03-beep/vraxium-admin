@@ -1,7 +1,7 @@
 "use client";
 
 // 선별(selection) 액트 수동 부여 모달 (2026-06-18) — 관리자가 대상 크루 + 포인트를 직접 입력해 즉시 완료.
-//   비정규 수동 부여(ProcessIrregularManualGrantDialog)와 동일 UX이되 정규 액트(act_id)에 귀속된다.
+//   변동 수동 부여(ProcessIrregularManualGrantDialog)와 동일 UX이되 정규 액트(act_id)에 귀속된다.
 //   - 필드: 액트명(기본=마스터 액트명·편집 가능)·소요시간·사유·포인트 A/B/C·대상 크루(복수).
 //   - '선별' 규칙상 포인트 C = 0 고정·disabled(시각적 비활성).
 //   - 대상 크루 = org+mode 스코프 자동완성(cafe-line-crew GET 재사용). 저장 시 서버 fail-closed 재검증.

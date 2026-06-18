@@ -929,7 +929,7 @@ export default function LineRegistrationInfoManager() {
                                 "inline-flex items-center rounded-md border px-2 py-0.5 text-xs",
                                 row.isActive
                                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                  : "border-slate-200 bg-slate-50 text-slate-600",
+                                  : "border-border bg-muted text-muted-foreground",
                               )}
                             >
                               {row.isActive ? "활성" : "비활성"}

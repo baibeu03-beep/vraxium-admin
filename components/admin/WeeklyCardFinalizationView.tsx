@@ -97,7 +97,7 @@ function StatusBadges({ target }: { target: FinalizationWeekStatus }) {
         {target.isFinalized ? "확정 완료" : "집계 중"}
       </span>
       {target.isCurrentWeek && (
-        <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+        <span className="inline-flex items-center rounded-full border border-border bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
           현재 주차(진행 중)
         </span>
       )}
@@ -603,7 +603,7 @@ export default function WeeklyCardFinalizationView() {
                 className={cn(
                   "rounded-md border px-3 py-2 text-sm",
                   !verifyResult.found
-                    ? "border-slate-200 bg-slate-50 text-slate-600"
+                    ? "border-border bg-muted text-muted-foreground"
                     : verifyResult.stillTallying
                       ? "border-red-200 bg-red-50 text-red-700"
                       : "border-emerald-200 bg-emerald-50 text-emerald-700",

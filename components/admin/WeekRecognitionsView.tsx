@@ -156,7 +156,7 @@ function ConfirmStatusBadge({
       ? "border-emerald-200 bg-emerald-50 text-emerald-700"
       : status === "집계 중"
         ? "border-amber-200 bg-amber-50 text-amber-700"
-        : "border-slate-200 bg-slate-100 text-slate-600";
+        : "border-border bg-muted text-muted-foreground";
   const title =
     status === "확정 완료" && at
       ? `확정 완료 · ${formatDateTime(at)}`
@@ -932,7 +932,7 @@ function CheckThresholdRow({
           {week.effective_check_threshold}개
         </span>
         {week.check_threshold_is_default && (
-          <span className="ml-2 inline-flex items-center rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+          <span className="ml-2 inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
             기본값
           </span>
         )}
