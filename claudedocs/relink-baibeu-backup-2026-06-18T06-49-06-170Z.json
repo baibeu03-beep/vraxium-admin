@@ -1,0 +1,152 @@
+{
+  "ive_profile": [
+    {
+      "user_id": "e2e65fb6-6b56-4ae3-a1d7-16d6e894c308",
+      "display_name": "김이브",
+      "birth_date": null,
+      "gender": null,
+      "contact_phone": null,
+      "contact_email": "baibeu03@gmail.com",
+      "created_at": "2026-06-04T06:34:13.217885+00:00",
+      "updated_at": "2026-06-04T06:34:13.217885+00:00",
+      "profile_photo_url": null,
+      "vision": null,
+      "status": "active",
+      "growth_status": "active",
+      "organization_slug": "oranke",
+      "school_name": null,
+      "department_name": null,
+      "address": null,
+      "auth_email": "baibeu03@gmail.com",
+      "contact_available": null,
+      "role": null,
+      "activity_started_at": "2026-05-31T15:00:00+00:00",
+      "activity_ended_at": null,
+      "english_name": null,
+      "current_team_name": null,
+      "current_part_name": null,
+      "profile_keyword": null,
+      "profile_tagline": null,
+      "crew_no": 1122,
+      "suspended_week_id": null,
+      "crew_code": null,
+      "crew_code_generated_at": null,
+      "application_grade": null
+    }
+  ],
+  "ive_users": [
+    {
+      "id": "e2e65fb6-6b56-4ae3-a1d7-16d6e894c308",
+      "legacy_user_id": 100000004,
+      "created_at": "2026-06-04T06:34:13.098062+00:00",
+      "updated_at": "2026-06-04T06:34:13.098062+00:00",
+      "source_system": null
+    }
+  ],
+  "ive_snapshot": [
+    {
+      "user_id": "e2e65fb6-6b56-4ae3-a1d7-16d6e894c308",
+      "cards": [],
+      "card_count": 0,
+      "dto_version": 21,
+      "is_stale": false,
+      "computed_at": "2026-06-16T08:13:34.033+00:00",
+      "created_at": "2026-06-04T06:34:14.043414+00:00",
+      "updated_at": "2026-06-16T08:13:35.149014+00:00"
+    }
+  ],
+  "ive_season": [
+    {
+      "id": "839469e1-6e3f-4e78-abd7-3fe67df38d35",
+      "user_id": "e2e65fb6-6b56-4ae3-a1d7-16d6e894c308",
+      "season_id": "33333358-42e4-403b-a726-caa6459ae7e9",
+      "rating": null,
+      "review": null,
+      "created_at": "2026-06-04T06:38:47.015586+00:00",
+      "updated_at": "2026-06-04T06:38:47.015586+00:00"
+    }
+  ],
+  "ive_roster": [
+    {
+      "user_id": "e2e65fb6-6b56-4ae3-a1d7-16d6e894c308",
+      "dto_version": 21,
+      "snapshot_computed_at": "2026-06-16T08:13:34.033+00:00",
+      "success_weeks": 0,
+      "growable_weeks": 0,
+      "elapsed_weeks": 0,
+      "activity_available": 0,
+      "activity_completed": 0,
+      "updated_at": "2026-06-17T07:03:23.996+00:00",
+      "schedule_rate": 0,
+      "po_a": 0,
+      "po_b": 0,
+      "po_c": 0
+    }
+  ],
+  "kang_profile_before": [
+    {
+      "user_id": "3330f4c3-5331-4632-bbe6-01a19017a089",
+      "display_name": "T강서현",
+      "birth_date": "2002-04-13",
+      "gender": "여",
+      "contact_phone": "010-9901-0076",
+      "contact_email": "kang.seohyun@vraxium.test",
+      "created_at": "2026-02-25T05:34:31.528622+00:00",
+      "updated_at": "2026-05-29T22:04:23.087025+00:00",
+      "profile_photo_url": "/images/0/cluster4/아호 캐릭터.png",
+      "vision": null,
+      "status": "active",
+      "growth_status": "seasonal_rest",
+      "organization_slug": "oranke",
+      "school_name": "한양대학교",
+      "department_name": "미디어학과",
+      "address": "서울특별시 마포구",
+      "auth_email": "kang.seohyun@vraxium.test",
+      "contact_available": null,
+      "role": "team_leader",
+      "activity_started_at": "2026-03-02T00:00:00+00:00",
+      "activity_ended_at": null,
+      "english_name": "Kang Seohyun",
+      "current_team_name": "음료(T)",
+      "current_part_name": "커피",
+      "profile_keyword": "개발자",
+      "profile_tagline": "개발자",
+      "crew_no": 1010,
+      "suspended_week_id": null,
+      "crew_code": null,
+      "crew_code_generated_at": null,
+      "application_grade": null
+    }
+  ],
+  "auth_account_before": [
+    {
+      "id": "f5c8e09b-be8a-4fe2-8cd3-ace07c02fbf7",
+      "provider": "google",
+      "provider_user_id": "100794291990196871797",
+      "email": "baibeu03@gmail.com",
+      "display_name": "바이브",
+      "picture_url": null,
+      "user_id": "e2e65fb6-6b56-4ae3-a1d7-16d6e894c308",
+      "created_at": "2026-06-04T06:20:09.874676+00:00",
+      "updated_at": "2026-06-04T07:32:13.212+00:00"
+    }
+  ],
+  "applicant_before": [
+    {
+      "id": "fc76976e-0bcb-47bc-991e-29984a66b35a",
+      "email": "baibeu03@gmail.com",
+      "name": "바이브",
+      "provider": "google",
+      "status": "approved",
+      "linked_user_id": "e2e65fb6-6b56-4ae3-a1d7-16d6e894c308",
+      "raw_profile": null,
+      "created_at": "2026-06-04T06:20:10.148327+00:00",
+      "updated_at": "2026-06-04T06:34:13.30515+00:00",
+      "approved_at": "2026-06-04T06:34:10.967+00:00",
+      "approved_by": null,
+      "rejected_at": null,
+      "admin_note": null,
+      "provider_user_id": "100794291990196871797"
+    }
+  ]
+}
