@@ -126,45 +126,46 @@ export default function Header({
     router.replace(next);
   };
 
-  // 관리자 정보 + 로그아웃: 헤더 우측에 가로 1행으로 컴팩트하게 노출.
-  // (테마 전환은 사이드바 하단으로 이동 — 헤더는 사용자 정보/로그아웃 전용)
-  // 고정 높이 h-14(=사이드바 HOME 영역) 안에 들어가도록 2줄 텍스트 + 버튼을 가로로 배치.
+  // 관리자 정보 + 로그아웃: 헤더 우측에 세로 배치로 노출(테마 전환은 사이드바 하단으로 이동).
+  // 1행: [로그아웃] 버튼 / 2행: 환영 문구 / 3행: 이름 | 이메일.
+  // 이 3행 콘텐츠가 상단 바 높이(h-24)의 기준 — HOME 영역이 이 높이에 맞춰 늘어난다.
   const userArea = (
-    // min-w-0: 좁은 폭에서 이름/이메일 줄만 truncate 되도록(고정폭 대신).
-    <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-      {/* 환영 문구 + 이름/이메일 — 우측 정렬 2줄(leading-tight 로 h-14 안에 수납). */}
-      <div className="flex min-w-0 flex-col items-end gap-0.5 text-right leading-tight">
-        <span className="text-xs font-medium text-foreground">
+    // min-w-0(shrink-0 제거): 좁은 폭에서 고정폭 대신 이름/이메일 줄만 truncate 되도록
+    <div className="flex min-w-0 flex-col items-end gap-0.5">
+      <Button
+        type="button"
+        variant="ghost"
+        size="default"
+        onClick={handleLogout}
+        aria-label="로그아웃"
+        title="로그아웃"
+        className="mb-2 shrink-0 font-semibold text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
+      >
+        <LogOut className="h-4 w-4" />
+        로그아웃
+      </Button>
+      {/* 환영 문구 + 이름/이메일 두 줄은 같은 컨테이너에서 left-aligned —
+          줄 길이가 달라도 왼쪽 시작 x좌표가 항상 일치한다. */}
+      <div className="flex w-full min-w-0 flex-col items-start gap-0.5 text-left">
+        <span className="text-sm font-medium text-foreground">
           반갑습니다! 😊
         </span>
         <span
           title={adminEmail ?? undefined}
-          className="max-w-44 truncate text-xs text-muted-foreground sm:max-w-80"
+          className="w-full max-w-52 truncate text-xs text-muted-foreground sm:max-w-80"
         >
           {(adminDisplayName ?? "관리자") + " 님"}
           {adminEmail ? ` | ${adminEmail}` : ""}
         </span>
       </div>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        onClick={handleLogout}
-        aria-label="로그아웃"
-        title="로그아웃"
-        className="shrink-0 font-semibold text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
-      >
-        <LogOut className="h-4 w-4" />
-        로그아웃
-      </Button>
     </div>
   );
 
   // /admin HOME 화면에서는 타이틀/버튼은 숨기되 관리자 정보+로그아웃은 유지한다.
-  // (우측 세로 3행 배치 — 고정 h-14 대신 py 로 가변 높이)
+  // 고정 h-24 — 사이드바 상단 HOME 영역과 동일 높이(기준=Header, HOME 이 여기에 맞춰 늘어남).
   if (pathname === "/admin") {
     return (
-      <header className="flex h-14 items-center justify-end gap-4 border-b border-border bg-background px-4 sm:px-6">
+      <header className="flex h-24 items-center justify-end gap-4 border-b border-border bg-background px-4 sm:px-6">
         {userArea}
       </header>
     );
@@ -172,8 +173,8 @@ export default function Header({
 
   return (
     // px-4 sm:px-6 + 타이틀 flex-1: 좁은 폭(사이드바 펼침 + 모바일)에서도 우측 영역이 잘리지 않도록
-    // 고정 h-14 — 사이드바 상단 HOME 영역과 동일 높이(상단 바가 하나로 정렬되도록)
-    <header className="flex h-14 items-center justify-between gap-3 border-b border-border bg-background px-4 sm:gap-4 sm:px-6">
+    // 고정 h-24 — 사이드바 상단 HOME 영역과 동일 높이(상단 바가 하나로 정렬되도록·기준=Header)
+    <header className="flex h-24 items-center justify-between gap-3 border-b border-border bg-background px-4 sm:gap-4 sm:px-6">
       {isLineOpeningTabs ? (
         // 헤더 title 텍스트 대신 라인 관리/라인 개설 2탭. (org 보존, ?tab 구동, 새로고침 유지)
         <nav

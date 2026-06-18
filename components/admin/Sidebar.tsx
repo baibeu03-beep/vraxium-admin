@@ -291,10 +291,11 @@ function isUnderAnyBase(pathname: string, item: BranchItem) {
 // 사이드바 최하단 설정 영역 — 라이트/다크 테마 전환. 네비게이션과 분리(상단 border-t).
 //   · 펼침: "테마" 라벨 + 라이트/다크 세그먼트 토글(설정처럼 보이게).
 //   · 접힘: 아이콘 1개만 — 클릭 시 토글.
-// mounted 전(서버/하이드레이션)에는 서버 출력(light)과 동일하게 그려 mismatch 를 피한다.
+// theme 은 useSyncExternalStore 기반이라 하이드레이션 중엔 서버값(light)으로 그려져 mismatch 가 없고,
+// 하이드레이션 직후 실제 값으로 자동 전환된다.
 function ThemeSettings({ collapsed }: { collapsed: boolean }) {
-  const { theme, mounted, setTheme, toggleTheme } = useTheme();
-  const isDark = mounted && theme === "dark";
+  const { theme, setTheme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
 
   if (collapsed) {
     return (
@@ -439,7 +440,9 @@ export default function Sidebar() {
     >
       <div
         className={cn(
-          "flex h-14 shrink-0 items-center border-b border-sidebar-border",
+          // h-24: 우측 Header 와 동일 높이(기준=Header). HOME 영역이 Header 높이에 맞춰 늘어나
+          // 상단 바가 좌우 하나로 정렬된다.
+          "flex h-24 shrink-0 items-center border-b border-sidebar-border",
           sidebarOpen ? "justify-between px-4" : "justify-center px-0",
         )}
       >
