@@ -32,9 +32,15 @@ import {
   type ProcessCheckBoardDto,
   type ProcessCheckScopeKind,
 } from "@/lib/adminProcessCheckTypes";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
 
 function Red({ children }: { children: React.ReactNode }) {
   return <span className="font-semibold text-red-600">{children}</span>;
+}
+
+// 어드민 공통 섹션 타이틀 — 모든 허브(info/experience/competency/club)가 공유.
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="mb-2 text-base font-semibold tracking-tight text-foreground">{children}</h2>;
 }
 
 export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
@@ -191,12 +197,10 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold">프로세스 체크 · {hubLabel} 급</h1>
-        <p className="text-sm text-muted-foreground">
-          이번 주 [{hubLabel} 급] 프로세스 액트 체크 (조직: {org ?? "미지정"})
-        </p>
-      </div>
+      <AdminPageHeader
+        title={`프로세스 체크 · ${hubLabel} 급`}
+        description={`이번 주 [${hubLabel} 급] 프로세스 액트 체크 (조직: ${org ?? "미지정"})`}
+      />
 
       {!org && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -214,6 +218,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
       )}
 
       {/* ════ [섹션.0] 액트 관리 — 전체 팀 고정 ════ */}
+      <SectionTitle>[액트 관리]</SectionTitle>
       {/* 주차명 드롭다운 — 이번 주 N 고정(read-only). */}
       <div className="max-w-xs space-y-1">
         <label className="text-xs text-muted-foreground">주차명 (이번 주 · 변경 불가)</label>
@@ -330,6 +335,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
       )}
 
       {/* ════ [섹션.1] 액트 체크 ════ */}
+      <SectionTitle>[액트 체크]</SectionTitle>
       {teamMode ? (
         <div className="flex flex-col gap-4">
           {/* 팀 탭 — org 동적, 첫 팀 기본 선택. */}

@@ -1,12 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LogOut, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
-import { readOrgParam } from "@/lib/adminOrgContext";
 import {
   toggleDevQuery,
   useAdminDevMode,
@@ -17,25 +15,19 @@ import { cn } from "@/lib/utils";
 // 기능·로직·상태값은 모두 유지하고 렌더링만 끈다 — 다시 쓰려면 true 로 변경.
 const SHOW_DEV_TOGGLE = false;
 
-// 라인 개설 분기 페이지(실무 정보/경험/…): 헤더 title 텍스트 대신 [라인 관리]/[라인 개설] 2탭을 노출한다.
-// 탭은 URL ?tab 으로 구동되어 본문 Manager 와 공유되고, 새로고침·?org 가 유지된다.
-// 특정 org 에 하드코딩하지 않고 path 집합으로만 판별한다 — 조직 분기는 ?org(orgScoped)로 처리.
-const LINE_OPENING_TAB_PATHS = new Set<string>([
+// 공통 상단 헤더(AdminPageHeader)를 본문에서 직접 렌더하는 페이지들 — 글로벌 상단 바는
+// title/탭을 비우고(우측 사용자 영역만), 제목·설명·탭은 본문 AdminPageHeader 가 단일 소스로 담당한다.
+// (라인 개설 실무 정보/경험/역량 + 멤버 관리 + 프로세스 체크 정보/경험.) 중복 노출 방지.
+const IN_PAGE_HEADER_PATHS = new Set<string>([
   "/admin/line-opening/practical-info",
   "/admin/line-opening/practical-experience",
   "/admin/line-opening/practical-competency",
+  "/admin/members",
+  "/admin/processes/check/info",
+  "/admin/processes/check/experience",
+  "/admin/processes/check/competency",
+  "/admin/processes/check/club",
 ]);
-const LINE_OPENING_TABS = [
-  { key: "manage", label: "라인 관리" },
-  { key: "open", label: "라인 개설" },
-] as const;
-
-// 멤버 관리(/admin/members): 헤더 title 텍스트 대신 [크루 목록]/[크루 정보] 2탭을 노출한다.
-// 라인 개설 탭과 동일한 UX — URL ?tab 으로 구동되어 본문(MembersList)과 공유된다.
-const MEMBERS_TABS = [
-  { key: "list", label: "크루 목록" },
-  { key: "info", label: "크루 정보" },
-] as const;
 
 // 통합 검수 시스템(원본) 헤더 타이틀 — 기존 그대로. (조직 분기 메뉴 개편과 무관하게 유지)
 const TITLES: Record<string, string> = {
@@ -85,31 +77,9 @@ export default function Header({
   const devMode = useAdminDevMode();
   const title = resolveTitle(pathname);
 
-  // 라인 개설 2탭은 **조직 분기 모드(?org 있음)** 에서만 title 영역에 노출한다.
-  // 통합 검수 시스템(원본)에는 영향이 없어야 하므로 ?org 없는 경우는 기존 title 텍스트를 그대로 둔다.
-  const orgScoped = readOrgParam(searchParams) != null;
-  const isLineOpeningTabs = LINE_OPENING_TAB_PATHS.has(pathname) && orgScoped;
-  const currentInfoTab: "manage" | "open" =
-    searchParams?.get("tab") === "open" ? "open" : "manage";
-  const infoTabHref = (key: "manage" | "open") => {
-    const params = new URLSearchParams(searchParams?.toString() ?? "");
-    if (key === "open") params.set("tab", "open");
-    else params.delete("tab"); // 기본(라인 관리) = tab 파라미터 제거(깔끔한 URL)
-    const qs = params.toString();
-    return qs ? `${pathname}?${qs}` : pathname;
-  };
-
-  // 멤버 관리 2탭(크루 목록/크루 정보) — /admin/members 에서 title 영역에 노출.
-  const isMembersTabs = pathname === "/admin/members";
-  const currentMembersTab: "list" | "info" =
-    searchParams?.get("tab") === "info" ? "info" : "list";
-  const membersTabHref = (key: "list" | "info") => {
-    const params = new URLSearchParams(searchParams?.toString() ?? "");
-    if (key === "info") params.set("tab", "info");
-    else params.delete("tab"); // 기본(크루 목록) = tab 파라미터 제거(깔끔한 URL)
-    const qs = params.toString();
-    return qs ? `${pathname}?${qs}` : pathname;
-  };
+  // 제목·설명·탭을 본문 AdminPageHeader 가 담당하는 페이지에서는 글로벌 상단 바 좌측을 비운다.
+  // (라인 개설/멤버/프로세스 체크 — 본문 단일 소스. org/탭 보존 로직도 본문으로 이동.)
+  const usesInPageHeader = IN_PAGE_HEADER_PATHS.has(pathname);
 
   // 사이드바 최하단에 있던 기존 로그아웃 로직을 그대로 이동 (auth/세션 로직 수정 없음).
   const handleLogout = async () => {
@@ -175,56 +145,9 @@ export default function Header({
     // px-4 sm:px-6 + 타이틀 flex-1: 좁은 폭(사이드바 펼침 + 모바일)에서도 우측 영역이 잘리지 않도록
     // 고정 h-24 — 사이드바 상단 HOME 영역과 동일 높이(상단 바가 하나로 정렬되도록·기준=Header)
     <header className="flex h-24 items-center justify-between gap-3 border-b border-border bg-background px-4 sm:gap-4 sm:px-6">
-      {isLineOpeningTabs ? (
-        // 헤더 title 텍스트 대신 라인 관리/라인 개설 2탭. (org 보존, ?tab 구동, 새로고침 유지)
-        <nav
-          aria-label="라인 개설 탭"
-          className="flex min-w-0 flex-1 items-center gap-1"
-        >
-          {LINE_OPENING_TABS.map((t) => {
-            const active = currentInfoTab === t.key;
-            return (
-              <Link
-                key={t.key}
-                href={infoTabHref(t.key)}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                  active
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                {t.label}
-              </Link>
-            );
-          })}
-        </nav>
-      ) : isMembersTabs ? (
-        // 헤더 title 텍스트 대신 크루 목록/크루 정보 2탭. (?tab 구동, 새로고침 유지)
-        <nav
-          aria-label="멤버 관리 탭"
-          className="flex min-w-0 flex-1 items-center gap-1"
-        >
-          {MEMBERS_TABS.map((t) => {
-            const active = currentMembersTab === t.key;
-            return (
-              <Link
-                key={t.key}
-                href={membersTabHref(t.key)}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "rounded-md px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                  active
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                {t.label}
-              </Link>
-            );
-          })}
-        </nav>
+      {usesInPageHeader ? (
+        // 본문 AdminPageHeader 가 제목/설명/탭을 단일 소스로 담당 — 글로벌 바 좌측은 비운다.
+        <div className="min-w-0 flex-1" aria-hidden />
       ) : (
         <h1 className="min-w-0 flex-1 truncate text-[13.5px] font-semibold tracking-tight text-foreground">
           {title}

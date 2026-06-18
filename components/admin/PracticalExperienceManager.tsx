@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Loader2,
   Plus,
@@ -37,6 +37,8 @@ import {
 import { cn } from "@/lib/utils";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   ORGANIZATIONS,
@@ -536,6 +538,7 @@ export default function PracticalExperienceManager() {
   // 탭 UI 자체는 상단 Header title 영역(components/admin/Header.tsx)에 있고,
   // 본문은 URL ?tab 으로 어느 콘텐츠를 보일지만 결정한다 — 실무 정보(PracticalInfoManager)와 동일.
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const orgScoped = readOrgParam(searchParams) != null;
   const mainTab: "manage" | "open" =
     orgScoped && searchParams?.get("tab") === "open" ? "open" : "manage";
@@ -1467,8 +1470,17 @@ export default function PracticalExperienceManager() {
           : "mx-auto w-full max-w-[1440px] px-4 py-6",
       )}
     >
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">[실무 경험] Hub</h1>
+      <AdminPageHeader
+        title="실무 경험 라인"
+        description="허브와 라인 · 라인 관리 / 라인 개설"
+        tabs={
+          orgScoped
+            ? buildLineOpeningTabs(pathname, searchParams, mainTab)
+            : undefined
+        }
+      />
+
+      <div className="flex items-center justify-end gap-3">
         <div className="flex items-center gap-2">
           <Button
             variant="outline"

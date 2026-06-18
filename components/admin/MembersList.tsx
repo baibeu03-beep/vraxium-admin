@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw, RotateCcw, Search } from "lucide-react";
 import {
   Card,
@@ -23,6 +23,8 @@ import {
 import { StatusBadge } from "@/components/ui/status-badge";
 import { classTone, rankTone } from "@/lib/statusBadge";
 import { cn } from "@/lib/utils";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { buildMembersTabs } from "@/lib/adminHeaderTabs";
 import { classLabel } from "@/lib/adminMembersTypes";
 import {
   BUCKET_LABEL,
@@ -322,6 +324,7 @@ type PersistedState = {
 export default function MembersList() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const mode = readScopeMode(searchParams);
 
   // 탭은 글로벌 헤더(Header.tsx)의 ?tab 으로 구동된다 — 본문은 URL 만 읽는다.
@@ -530,6 +533,12 @@ export default function MembersList() {
     // 목록 페이지는 전체 너비 사용(18컬럼 표 A 가로 스크롤 방지) — 상세 페이지(CrewDetail)의
     // max-w 와 분리. 좁은 max-w 를 강제하지 않는다(공통 wrapper 미공유).
     <div className="flex w-full flex-col gap-6 px-4 py-6">
+      <AdminPageHeader
+        title="멤버 관리"
+        description="크루 목록 · 크루 정보"
+        tabs={buildMembersTabs(pathname, searchParams, tab)}
+      />
+
       {tab === "info" ? (
         <Card>
           <CardHeader>

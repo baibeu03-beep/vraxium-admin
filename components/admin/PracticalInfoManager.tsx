@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   Loader2,
@@ -34,6 +34,8 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
 import PracticalInfoOpeningSection0 from "@/components/admin/PracticalInfoOpeningSection0";
 import PracticalInfoCurrentSituation from "@/components/admin/PracticalInfoCurrentSituation";
 import PracticalInfoWeekResults from "@/components/admin/PracticalInfoWeekResults";
@@ -747,6 +749,7 @@ export default function PracticalInfoManager() {
   // 통합 검수 시스템(원본, ?org 없음)에서는 기존 단일 화면 그대로 — 탭/섹션0 없음, 폭도 기존 그대로.
   // 탭 UI 자체는 상단 Header title 영역에 있고 본문은 URL ?tab 으로 어느 콘텐츠를 보일지만 결정한다.
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const orgScoped = readOrgParam(searchParams) != null;
   const mainTab: "manage" | "open" =
     orgScoped && searchParams?.get("tab") === "open" ? "open" : "manage";
@@ -1172,6 +1175,16 @@ export default function PracticalInfoManager() {
           : "mx-auto w-full max-w-[1440px] px-4 py-6",
       )}
     >
+      <AdminPageHeader
+        title="실무 정보 라인"
+        description="허브와 라인 · 라인 관리 / 라인 개설"
+        tabs={
+          orgScoped
+            ? buildLineOpeningTabs(pathname, searchParams, mainTab)
+            : undefined
+        }
+      />
+
       {/* Week selector (신규 개설 대상 주차) — dev 모드에서만 노출.
           일반 모드에서는 렌더링하지 않으며, 서버가 N-1 을 강제한다. */}
       {devMode && weekOptions.length > 0 && (
