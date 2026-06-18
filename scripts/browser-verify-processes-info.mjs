@@ -145,11 +145,11 @@ try {
   const onPage1 = await page.evaluate(() => document.querySelector('button[aria-current="page"]')?.textContent?.trim() === "1");
   check("[정렬] 정렬 변경 시 1페이지로 리셋", onPage1);
 
-  // 5) 필터 — 필수 → 모든 행 크루 반응=필수 / 체크 → 체크대상=체크 / 포스팅 → 카페=발생
+  // 5) 필터 — 필수 → 모든 행 액트 종류=필수 / 체크 → 체크대상=체크 / 포스팅 → 카페=발생
   await page.selectOption('select[aria-label="필터"]', "required");
   await page.waitForTimeout(200);
   const reqRows = await readRows();
-  check("[필터] 필수 → 모든 행 크루 반응=필수", reqRows.length > 0 && reqRows.every((r) => r[9] === "필수"), `n=${reqRows.length}`);
+  check("[필터] 필수 → 모든 행 액트 종류=필수", reqRows.length > 0 && reqRows.every((r) => r[9] === "필수"), `n=${reqRows.length}`);
   await page.selectOption('select[aria-label="필터"]', "check");
   await page.waitForTimeout(200);
   const chkRows = await readRows();

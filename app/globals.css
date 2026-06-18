@@ -28,6 +28,30 @@
   --color-tone-accent: var(--tone-accent);
   --color-tone-accent-bg: var(--tone-accent-bg);
   --color-surface-subtle: var(--surface-subtle);
+  /* Badge palette — single source for status/select color grouping.
+     Each tone has fg(text) / bg(surface) / border. Theme-aware via vars below.
+     Drives <Badge tone="…"> and the label→tone registry (lib/statusBadge). */
+  --color-badge-success-fg: var(--badge-success-fg);
+  --color-badge-success-bg: var(--badge-success-bg);
+  --color-badge-success-border: var(--badge-success-border);
+  --color-badge-danger-fg: var(--badge-danger-fg);
+  --color-badge-danger-bg: var(--badge-danger-bg);
+  --color-badge-danger-border: var(--badge-danger-border);
+  --color-badge-warning-fg: var(--badge-warning-fg);
+  --color-badge-warning-bg: var(--badge-warning-bg);
+  --color-badge-warning-border: var(--badge-warning-border);
+  --color-badge-info-fg: var(--badge-info-fg);
+  --color-badge-info-bg: var(--badge-info-bg);
+  --color-badge-info-border: var(--badge-info-border);
+  --color-badge-neutral-fg: var(--badge-neutral-fg);
+  --color-badge-neutral-bg: var(--badge-neutral-bg);
+  --color-badge-neutral-border: var(--badge-neutral-border);
+  --color-badge-violet-fg: var(--badge-violet-fg);
+  --color-badge-violet-bg: var(--badge-violet-bg);
+  --color-badge-violet-border: var(--badge-violet-border);
+  --color-badge-orange-fg: var(--badge-orange-fg);
+  --color-badge-orange-bg: var(--badge-orange-bg);
+  --color-badge-orange-border: var(--badge-orange-border);
   --color-chart-5: var(--chart-5);
   --color-chart-4: var(--chart-4);
   --color-chart-3: var(--chart-3);
@@ -101,6 +125,28 @@
   --tone-accent: oklch(0.55 0.05 75);
   --tone-accent-bg: oklch(0.96 0.02 75);
   --surface-subtle: oklch(0.975 0 0);
+  /* Badge palette (light) — tinted surface + saturated text, distinct hues. */
+  --badge-success-fg: oklch(0.45 0.12 150);
+  --badge-success-bg: oklch(0.95 0.05 150);
+  --badge-success-border: oklch(0.84 0.08 150);
+  --badge-danger-fg: oklch(0.5 0.2 27);
+  --badge-danger-bg: oklch(0.95 0.04 27);
+  --badge-danger-border: oklch(0.86 0.08 27);
+  --badge-warning-fg: oklch(0.5 0.12 75);
+  --badge-warning-bg: oklch(0.96 0.07 85);
+  --badge-warning-border: oklch(0.86 0.1 85);
+  --badge-info-fg: oklch(0.5 0.16 255);
+  --badge-info-bg: oklch(0.95 0.04 250);
+  --badge-info-border: oklch(0.85 0.08 250);
+  --badge-neutral-fg: oklch(0.44 0 0);
+  --badge-neutral-bg: oklch(0.96 0 0);
+  --badge-neutral-border: oklch(0.87 0 0);
+  --badge-violet-fg: oklch(0.5 0.18 300);
+  --badge-violet-bg: oklch(0.95 0.04 300);
+  --badge-violet-border: oklch(0.86 0.08 300);
+  --badge-orange-fg: oklch(0.55 0.16 50);
+  --badge-orange-bg: oklch(0.96 0.06 55);
+  --badge-orange-border: oklch(0.87 0.1 55);
 }
 
 .dark {
@@ -145,6 +191,28 @@
   --tone-accent: oklch(0.78 0.05 75);
   --tone-accent-bg: oklch(0.27 0.02 75);
   --surface-subtle: oklch(0.22 0 0);
+  /* Badge palette (dark) — dark tinted surface + bright text, same hues. */
+  --badge-success-fg: oklch(0.85 0.13 150);
+  --badge-success-bg: oklch(0.32 0.06 150);
+  --badge-success-border: oklch(0.45 0.08 150);
+  --badge-danger-fg: oklch(0.82 0.16 27);
+  --badge-danger-bg: oklch(0.33 0.08 27);
+  --badge-danger-border: oklch(0.47 0.1 27);
+  --badge-warning-fg: oklch(0.87 0.13 85);
+  --badge-warning-bg: oklch(0.34 0.07 80);
+  --badge-warning-border: oklch(0.48 0.09 80);
+  --badge-info-fg: oklch(0.83 0.13 255);
+  --badge-info-bg: oklch(0.32 0.07 255);
+  --badge-info-border: oklch(0.47 0.09 255);
+  --badge-neutral-fg: oklch(0.8 0 0);
+  --badge-neutral-bg: oklch(0.32 0 0);
+  --badge-neutral-border: oklch(0.45 0 0);
+  --badge-violet-fg: oklch(0.85 0.14 300);
+  --badge-violet-bg: oklch(0.33 0.08 300);
+  --badge-violet-border: oklch(0.48 0.1 300);
+  --badge-orange-fg: oklch(0.86 0.13 55);
+  --badge-orange-bg: oklch(0.34 0.08 55);
+  --badge-orange-border: oklch(0.48 0.1 55);
 }
 
 @layer base {

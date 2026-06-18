@@ -48,9 +48,10 @@ CREATE TABLE IF NOT EXISTS public.process_irregular_acts (
   point_b              smallint NOT NULL DEFAULT 0 CHECK (point_b BETWEEN 0 AND 20),
   point_c              smallint NOT NULL DEFAULT 0 CHECK (point_c BETWEEN 0 AND 20),
 
-  -- 크루 반응 — 필수/선택/선발/없음.
-  crew_reaction        text NOT NULL DEFAULT 'none'
-    CHECK (crew_reaction IN ('required', 'optional', 'selection', 'none')),
+  -- 액트 종류 — 전원/부분 (2026-06-18 전환: 구 required/optional/selection/none → all/partial).
+  --   전원(all)=전체 대상 적용 · 부분(partial)=일부 대상 적용. 적용 범위 구분(포인트 C 와 무관).
+  crew_reaction        text NOT NULL DEFAULT 'all'
+    CHECK (crew_reaction IN ('all', 'partial')),
 
   -- 검수 링크 / 검수 시점.
   review_link          text NULL,

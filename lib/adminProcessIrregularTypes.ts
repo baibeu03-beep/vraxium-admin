@@ -47,17 +47,27 @@ export function irregularStatusClass(s: IrregularStatus): string {
     : "border-amber-300 bg-amber-100 text-amber-800";
 }
 
-// ── 크루 반응 (필수 / 선택 / 선발 / 없음) ──────────────────────────────────────
-export type IrregularCrewReaction = "required" | "optional" | "selection" | "none";
-export const IRREGULAR_CREW_REACTIONS = ["required", "optional", "selection", "none"] as const;
+// ── 액트 종류 (전원 / 부분) ───────────────────────────────────────────────────
+//   전원(all)     = 해당 액트를 전체 대상에게 적용.
+//   부분(partial) = 일부 대상에게만 적용.
+//   (2026-06-18 — 구 enum required|optional|selection|none → 2종(전원/부분)으로 전환.
+//    레거시 값은 coerceIrregularCrewReaction 으로 신규 값에 매핑해 화면에 다시 노출되지 않도록 한다.)
+export type IrregularCrewReaction = "all" | "partial";
+export const IRREGULAR_CREW_REACTIONS = ["all", "partial"] as const;
+export const IRREGULAR_CREW_REACTION_DEFAULT: IrregularCrewReaction = "all";
 export const IRREGULAR_CREW_REACTION_LABEL: Record<IrregularCrewReaction, string> = {
-  required: "필수",
-  optional: "선택",
-  selection: "선발",
-  none: "없음",
+  all: "전원",
+  partial: "부분",
 };
 export function isIrregularCrewReaction(v: unknown): v is IrregularCrewReaction {
-  return v === "required" || v === "optional" || v === "selection" || v === "none";
+  return v === "all" || v === "partial";
+}
+// 레거시(required|optional|selection|none) → 신규(all|partial) 매핑.
+//   '필수(required)'=전원 / 그 외=부분. 마이그레이션 미적용 DB·과거 행도 신규 값으로만 표시(구 값 비노출).
+export function coerceIrregularCrewReaction(v: unknown): IrregularCrewReaction {
+  if (v === "all" || v === "partial") return v;
+  if (v === "required") return "all";
+  return "partial";
 }
 
 // ── 포인트 / 소요시간 검증 (서버·클라 공용 SoT) ────────────────────────────────

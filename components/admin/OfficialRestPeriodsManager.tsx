@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import {
   OFFICIAL_REST_PERIOD_TYPE_LABELS,
   OFFICIAL_REST_PERIOD_TYPES,
@@ -126,6 +127,7 @@ export default function OfficialRestPeriodsManager() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const confirm = useConfirm();
 
   // 영향 대상 snapshot 재계산(6-C): cron 제거로 공식휴식 변경 후 수동 재계산이 필요하다.
   const [rcStart, setRcStart] = useState("");
@@ -262,10 +264,10 @@ export default function OfficialRestPeriodsManager() {
     }
     if (
       !dryRun &&
-      typeof window !== "undefined" &&
-      !window.confirm(
-        `${rcStart} ~ ${rcEnd} 범위의 영향 대상 snapshot 을 재계산합니다. 진행할까요?`,
-      )
+      !(await confirm({
+        ...CONFIRM.save,
+        description: `${rcStart} ~ ${rcEnd} 범위의 영향 대상 snapshot 을 재계산합니다. 진행할까요?`,
+      }))
     ) {
       return;
     }
@@ -311,8 +313,10 @@ export default function OfficialRestPeriodsManager() {
 
   async function removePeriod(period: OfficialRestPeriodDto) {
     if (
-      typeof window !== "undefined" &&
-      !window.confirm(`"${period.name}" 기간을 삭제하시겠습니까?`)
+      !(await confirm({
+        ...CONFIRM.delete,
+        description: `"${period.name}" 기간을 삭제하시겠습니까?`,
+      }))
     ) {
       return;
     }

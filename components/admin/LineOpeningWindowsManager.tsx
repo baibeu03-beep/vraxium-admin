@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 
 // /admin/settings/line-opening-windows — "라인 개설 기간(예외)" 관리.
 //   화면1: 현재 자동 정책 상태(개설 대상 주차 + 계산 규칙).
@@ -74,6 +75,7 @@ function fmtDot(iso: string | null): string {
 export default function LineOpeningWindowsManager() {
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState<Banner>(null);
+  const confirm = useConfirm();
 
   // 화면1 — 자동 정책
   const [autoWeek, setAutoWeek] = useState<AutoWeek | null>(null);
@@ -221,9 +223,10 @@ export default function LineOpeningWindowsManager() {
   const handleDelete = useCallback(
     async (w: ExceptionWindow) => {
       if (
-        !window.confirm(
-          `이 예외를 삭제하시겠습니까?\n(${w.weekLabel ?? "주차"} · ${w.activityTypeName ?? "전체 라인"})\n삭제 즉시 자동 정책 외 개설이 차단됩니다.`,
-        )
+        !(await confirm({
+          ...CONFIRM.delete,
+          description: `이 예외를 삭제하시겠습니까?\n(${w.weekLabel ?? "주차"} · ${w.activityTypeName ?? "전체 라인"})\n삭제 즉시 자동 정책 외 개설이 차단됩니다.`,
+        }))
       ) {
         return;
       }
@@ -246,7 +249,7 @@ export default function LineOpeningWindowsManager() {
         setBusyId(null);
       }
     },
-    [fetchWindows],
+    [fetchWindows, confirm],
   );
 
   const sortedWindows = useMemo(

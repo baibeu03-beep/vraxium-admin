@@ -41,7 +41,7 @@ try {
     ck(`[${hub}] '[섹션.1] 액트 목록' 제목 제거됨`, !/\[섹션\.1\] 액트 목록/.test(body));
     ck(`[${hub}] '신청 시점(필요) 순 …팝업' 설명 제거됨`, !/상태 버튼 클릭 시 체크 신청\/취소 팝업/.test(body));
     // 테이블 자체는 유지(컬럼 헤더 존재).
-    ck(`[${hub}] 액트 테이블 유지(컬럼 헤더 '액트명'/'상태')`, /액트명/.test(body) && /크루 반응/.test(body));
+    ck(`[${hub}] 액트 테이블 유지(컬럼 헤더 '액트명'/'상태')`, /액트명/.test(body) && /액트 종류/.test(body));
   }
 } catch (e) { console.error("ERROR:", e?.stack ?? e?.message ?? e); fail++; }
 finally { await browser.close(); console.log(`\n결과: ${pass} pass / ${fail} fail`); process.exit(fail > 0 ? 1 : 0); }

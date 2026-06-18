@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import {
   ORGANIZATION_LABEL,
   type OrganizationSlug,
@@ -973,6 +974,7 @@ export default function Cluster4Editor({
   memberDisplayName?: string | null;
 }) {
   const devMode = useAdminDevMode();
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<TabKey>("weekly_growth");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1295,7 +1297,10 @@ export default function Cluster4Editor({
     confirmMessage: string,
   ) => {
     if (saveDisabled) return;
-    const ok = window.confirm(`${confirmMessage}\n\nid: ${id}`);
+    const ok = await confirm({
+      ...CONFIRM.delete,
+      description: `${confirmMessage}\n\nid: ${id}`,
+    });
     if (!ok) return;
 
     const paramKeyMap: Record<Cluster4DeleteResource, string> = {

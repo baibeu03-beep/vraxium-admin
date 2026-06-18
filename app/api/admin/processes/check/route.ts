@@ -24,6 +24,7 @@ import {
 import { ProcessMasterError } from "@/lib/adminProcessesData";
 import {
   applyProcessCheckAction,
+  applyProcessManualGrant,
   getProcessCheckBoard,
 } from "@/lib/adminProcessCheckData";
 
@@ -130,6 +131,44 @@ export async function POST(request: NextRequest) {
   if (teamId && !UUID_RE.test(teamId)) {
     return Response.json({ success: false, error: "team_id 형식이 올바르지 않습니다" }, { status: 400 });
   }
+
+  // 선별(selection) 액트 수동 부여 — 대상 크루 명단 + 자유 입력 포인트(A→check·B→advantage·C→penalty).
+  //   request|cancel 과 페이로드가 달라 별도 분기(액트 종류·스코프·중복 방지는 데이터레이어 fail-closed).
+  if (action === "manual_grant") {
+    const targetIds = Array.isArray(b.target_user_ids) ? b.target_user_ids : [];
+    for (const id of targetIds) {
+      if (typeof id !== "string" || !UUID_RE.test(id.trim())) {
+        return Response.json({ success: false, error: "target_user_ids 형식이 올바르지 않습니다" }, { status: 400 });
+      }
+    }
+    try {
+      const data = await applyProcessManualGrant({
+        hub,
+        organization: orgRaw,
+        actId,
+        teamId,
+        scope,
+        partName,
+        mode,
+        adminId: admin.userId,
+        targetUserIds: (targetIds as string[]).map((x) => x.trim()),
+        durationMinutes: b.duration_minutes,
+        reason: b.reason,
+        pointCheck: b.point_a,
+        pointAdvantage: b.point_b,
+        pointPenalty: b.point_c,
+      });
+      return Response.json({ success: true, data }, { status: 201 });
+    } catch (error) {
+      const status = error instanceof ProcessMasterError ? error.status : 500;
+      console.error("[processes/check POST manual_grant]", error);
+      return Response.json(
+        { success: false, error: error instanceof Error ? error.message : "Failed" },
+        { status },
+      );
+    }
+  }
+
   if (!isProcessCheckAction(action)) {
     return Response.json({ success: false, error: "action 은 request|cancel 이어야 합니다" }, { status: 400 });
   }

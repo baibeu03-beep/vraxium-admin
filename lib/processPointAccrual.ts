@@ -191,22 +191,65 @@ async function loadWeek(weekId: string): Promise<WeekRow | null> {
   return (data as WeekRow | null) ?? null;
 }
 
+type RegularStatusRow = {
+  week_id: string;
+  act_id: string;
+  scope_mode: string | null;
+  organization_slug: string | null;
+  completion_type?: string | null;
+  manual_point_check?: number | null;
+  manual_point_advantage?: number | null;
+  manual_point_penalty?: number | null;
+};
+
 // 정규 프로세스 체크 완료 적립 (ref_id = process_check_statuses.id).
+//   - 검수/worker 완료(completion_type=NULL) → 마스터(process_acts) 점수.
+//   - 수동 부여(completion_type='manual_grant') → 상태 행 manual_point_*(자유 입력) override 점수.
 export async function accrueForCompletedRegular(statusId: string): Promise<AccrualResult> {
-  const { data: st } = await supabaseAdmin
+  // completion_type/manual_point_* 포함 select(미적용이면 컬럼 누락 → base 폴백 = 마스터 점수만).
+  const full = await supabaseAdmin
     .from("process_check_statuses")
-    .select("id,week_id,act_id,scope_mode,organization_slug")
+    .select(
+      "id,week_id,act_id,scope_mode,organization_slug,completion_type,manual_point_check,manual_point_advantage,manual_point_penalty",
+    )
     .eq("id", statusId)
     .maybeSingle();
+  let st = full.data as RegularStatusRow | null;
+  if (full.error) {
+    const code = (full.error as { code?: string }).code;
+    if (code === "42703" || code === "PGRST204" || code === "PGRST205") {
+      const base = await supabaseAdmin
+        .from("process_check_statuses")
+        .select("id,week_id,act_id,scope_mode,organization_slug")
+        .eq("id", statusId)
+        .maybeSingle();
+      st = base.data as RegularStatusRow | null;
+    }
+  }
   if (!st) return { ok: true, skipped: true, reason: "status_not_found", accruedUserIds: [] };
-  const row = st as { week_id: string; act_id: string; scope_mode: string | null; organization_slug: string | null };
-  const { data: act } = await supabaseAdmin
-    .from("process_acts")
-    .select("point_check,point_advantage,point_penalty")
-    .eq("id", row.act_id)
-    .maybeSingle();
-  if (!act) return { ok: true, skipped: true, reason: "act_not_found", accruedUserIds: [] };
-  const a = act as { point_check: number; point_advantage: number; point_penalty: number };
+  const row = st;
+
+  let pointCheck: number;
+  let pointAdvantage: number;
+  let pointPenalty: number;
+  if (row.completion_type === "manual_grant") {
+    // 수동 부여 — 자유 입력 override 점수(선별 규칙상 C=0).
+    pointCheck = row.manual_point_check ?? 0;
+    pointAdvantage = row.manual_point_advantage ?? 0;
+    pointPenalty = row.manual_point_penalty ?? 0;
+  } else {
+    const { data: act } = await supabaseAdmin
+      .from("process_acts")
+      .select("point_check,point_advantage,point_penalty")
+      .eq("id", row.act_id)
+      .maybeSingle();
+    if (!act) return { ok: true, skipped: true, reason: "act_not_found", accruedUserIds: [] };
+    const a = act as { point_check: number; point_advantage: number; point_penalty: number };
+    pointCheck = a.point_check ?? 0;
+    pointAdvantage = a.point_advantage ?? 0;
+    pointPenalty = a.point_penalty ?? 0;
+  }
+
   const week = await loadWeek(row.week_id);
   if (!week) return { ok: true, skipped: true, reason: "week_not_found", accruedUserIds: [] };
   return applyAward({
@@ -215,9 +258,9 @@ export async function accrueForCompletedRegular(statusId: string): Promise<Accru
     week,
     org: isOrganizationSlug(row.organization_slug) ? row.organization_slug : null,
     mode: row.scope_mode === "test" ? "test" : "operating",
-    pointCheck: a.point_check ?? 0,
-    pointAdvantage: a.point_advantage ?? 0,
-    pointPenalty: a.point_penalty ?? 0,
+    pointCheck,
+    pointAdvantage,
+    pointPenalty,
   });
 }
 

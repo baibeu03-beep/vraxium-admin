@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -19,8 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { type ScopeMode, appendModeQuery } from "@/lib/userScopeShared";
-import { reactionAllowsPointC } from "@/lib/adminProcessesTypes";
 import {
+  IRREGULAR_CREW_REACTION_DEFAULT,
   IRREGULAR_CREW_REACTION_LABEL,
   IRREGULAR_CREW_REACTIONS,
   irregularCafeLabel,
@@ -57,7 +58,7 @@ export default function ProcessIrregularManualGrantDialog({
   const [pointA, setPointA] = useState(0);
   const [pointB, setPointB] = useState(0);
   const [pointC, setPointC] = useState(0);
-  const [crewReaction, setCrewReaction] = useState<IrregularCrewReaction>("none");
+  const [crewReaction, setCrewReaction] = useState<IrregularCrewReaction>(IRREGULAR_CREW_REACTION_DEFAULT);
 
   // 대상 크루 — 자동완성 검색/선택 후보 + 명단.
   const [q, setQ] = useState("");
@@ -69,6 +70,26 @@ export default function ProcessIrregularManualGrantDialog({
   const [banner, setBanner] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const searchReq = useRef(0);
+  const confirm = useConfirm();
+
+  // 입력값이 하나라도 있으면 dirty(닫기 시 확인 문구 노출 판단).
+  const dirty =
+    actName.trim() !== "" ||
+    duration.trim() !== "" ||
+    reason.trim() !== "" ||
+    pointA !== 0 ||
+    pointB !== 0 ||
+    pointC !== 0 ||
+    crewReaction !== IRREGULAR_CREW_REACTION_DEFAULT ||
+    roster.length > 0 ||
+    q.trim() !== "";
+
+  // 닫기 — 입력값이 있을 때만 확인.
+  const handleClose = async () => {
+    if (submitting) return;
+    if (dirty && !(await confirm(CONFIRM.close))) return;
+    onClose();
+  };
 
   // 디바운스 자동완성 — org+mode 스코프(cafe-line-crew GET).
   useEffect(() => {
@@ -114,14 +135,15 @@ export default function ProcessIrregularManualGrantDialog({
     setResults([]);
   };
 
-  const reset = () => {
+  const reset = async () => {
+    if (!(await confirm(CONFIRM.reset))) return;
     setActName("");
     setDuration("");
     setReason("");
     setPointA(0);
     setPointB(0);
     setPointC(0);
-    setCrewReaction("none");
+    setCrewReaction(IRREGULAR_CREW_REACTION_DEFAULT);
     setQ("");
     setResults([]);
     setCandidate(null);
@@ -133,6 +155,7 @@ export default function ProcessIrregularManualGrantDialog({
     setBanner(null);
     if (!actName.trim()) return setBanner("액트명을 입력해주세요");
     if (roster.length === 0) return setBanner("대상 크루를 1명 이상 추가해주세요");
+    if (!(await confirm({ ...CONFIRM.checkComplete, confirmLabel: "수동 부여 완료" }))) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/admin/processes/check/irregular", {
@@ -167,7 +190,7 @@ export default function ProcessIrregularManualGrantDialog({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !submitting) onClose();
+        if (e.target === e.currentTarget && !submitting) void handleClose();
       }}
     >
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
@@ -208,15 +231,11 @@ export default function ProcessIrregularManualGrantDialog({
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">크루 반응</label>
+              <label className="text-xs text-muted-foreground">액트 종류</label>
               <select
-                aria-label="크루 반응"
+                aria-label="액트 종류"
                 value={crewReaction}
-                onChange={(e) => {
-                  const v = e.target.value as IrregularCrewReaction;
-                  setCrewReaction(v);
-                  if (!reactionAllowsPointC(v)) setPointC(0); // '필수' 아니면 즉시 C=0
-                }}
+                onChange={(e) => setCrewReaction(e.target.value as IrregularCrewReaction)}
                 disabled={submitting}
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               >
@@ -242,21 +261,20 @@ export default function ProcessIrregularManualGrantDialog({
             />
           </div>
 
-          {/* 포인트 A/B/C — 크루 반응이 '필수'가 아니면 C=0 고정·비활성 */}
+          {/* 포인트 A/B/C — 액트 종류(전원/부분)와 무관하게 각 0~20 자유 입력 */}
           <div className="grid grid-cols-3 gap-3">
             {([
-              ["포인트 A", pointA, setPointA, false],
-              ["포인트 B", pointB, setPointB, false],
-              ["포인트 C", pointC, setPointC, !reactionAllowsPointC(crewReaction)],
-            ] as const).map(([label, val, set, locked]) => (
+              ["포인트 A", pointA, setPointA],
+              ["포인트 B", pointB, setPointB],
+              ["포인트 C", pointC, setPointC],
+            ] as const).map(([label, val, set]) => (
               <div key={label} className="space-y-1">
                 <label className="text-xs text-muted-foreground">{label}</label>
                 <select
                   aria-label={label}
                   value={val}
                   onChange={(e) => set(Number(e.target.value))}
-                  disabled={submitting || locked}
-                  title={locked ? "‘필수’ 크루 반응만 포인트 C를 부여할 수 있습니다" : undefined}
+                  disabled={submitting}
                   className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {POINTS.map((p) => (
@@ -368,14 +386,14 @@ export default function ProcessIrregularManualGrantDialog({
 
         {/* 상단 버튼 — 초기화 / 체크 완료 (체크 신청·체크 취소 없음) */}
         <div className="mt-4 flex items-center justify-end gap-2">
-          <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={reset}>
+          <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={() => void reset()}>
             초기화
           </Button>
           <Button type="button" size="sm" disabled={submitting} onClick={() => void submit()}>
             {submitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1.5 h-3.5 w-3.5" />}
             체크 완료
           </Button>
-          <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={onClose}>
+          <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={() => void handleClose()}>
             닫기
           </Button>
         </div>

@@ -1,20 +1,21 @@
 "use client";
 
 // 비정규 액트 생성 팝업 — 검수 신청 / 수동 부여 공용.
-//   대상자(고객) 검색·선택 + 액트명 + 소요시간 + 사유 + 포인트 A/B/C + 크루 반응 + 검수 링크/시점.
+//   대상자(고객) 검색·선택 + 액트명 + 소요시간 + 사유 + 포인트 A/B/C + 액트 종류 + 검수 링크/시점.
 //   검수 신청 → 검수 링크·시점 필수(pending). 수동 부여 → 검수 링크·시점 선택(즉시 completed).
 //   ⚠ 카페는 입력하지 않는다(kind 파생 표시값). org+mode 분리는 대상자(target) 기준(서버 재검증).
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { DAY_NAMES } from "@/lib/practicalInfoSection0Format";
 import { type ScopeMode, appendModeQuery } from "@/lib/userScopeShared";
-import { reactionAllowsPointC } from "@/lib/adminProcessesTypes";
 import {
   IRREGULAR_CREW_REACTIONS,
+  IRREGULAR_CREW_REACTION_DEFAULT,
   IRREGULAR_CREW_REACTION_LABEL,
   IRREGULAR_KIND_LABEL,
   formatCheckDateTimeKo,
@@ -72,13 +73,36 @@ export default function ProcessIrregularDialog({
   const [pointA, setPointA] = useState(0);
   const [pointB, setPointB] = useState(0);
   const [pointC, setPointC] = useState(0);
-  const [crewReaction, setCrewReaction] = useState<IrregularCrewReaction>("none");
+  const [crewReaction, setCrewReaction] = useState<IrregularCrewReaction>(IRREGULAR_CREW_REACTION_DEFAULT);
   const [reviewLink, setReviewLink] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
 
   const [banner, setBanner] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const confirm = useConfirm();
+
+  // 입력값이 하나라도 있으면 dirty(닫기 시 확인 문구 노출 판단).
+  const dirty =
+    target !== null ||
+    q.trim() !== "" ||
+    actName.trim() !== "" ||
+    duration.trim() !== "" ||
+    reason.trim() !== "" ||
+    pointA !== 0 ||
+    pointB !== 0 ||
+    pointC !== 0 ||
+    crewReaction !== IRREGULAR_CREW_REACTION_DEFAULT ||
+    reviewLink.trim() !== "" ||
+    date !== "" ||
+    time !== "";
+
+  // 닫기 — 입력값이 있을 때만 확인.
+  const handleClose = async () => {
+    if (submitting) return;
+    if (dirty && !(await confirm(CONFIRM.close))) return;
+    onClose();
+  };
 
   const [nowMs] = useState(() => Date.now());
   const today = useMemo(() => new Date(nowMs), [nowMs]);
@@ -120,14 +144,15 @@ export default function ProcessIrregularDialog({
     return () => clearTimeout(t);
   }, [q, target, organization, mode]);
 
-  const reset = () => {
+  const reset = async () => {
+    if (!(await confirm(CONFIRM.reset))) return;
     setActName("");
     setDuration("");
     setReason("");
     setPointA(0);
     setPointB(0);
     setPointC(0);
-    setCrewReaction("none");
+    setCrewReaction(IRREGULAR_CREW_REACTION_DEFAULT);
     setReviewLink("");
     setDate("");
     setTime("");
@@ -153,6 +178,8 @@ export default function ProcessIrregularDialog({
       const link = validateReviewLink(reviewLink);
       if (!link.ok) return setBanner(link.error);
     }
+    // 한 번 더 확인 — 검수 신청/수동 부여 라벨 분기.
+    if (!(await confirm({ ...CONFIRM.complete, confirmLabel: isReview ? "검수 신청 완료" : "수동 부여 완료" }))) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/admin/processes/check/irregular", {
@@ -189,7 +216,7 @@ export default function ProcessIrregularDialog({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !submitting) onClose();
+        if (e.target === e.currentTarget && !submitting) void handleClose();
       }}
     >
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
@@ -203,7 +230,7 @@ export default function ProcessIrregularDialog({
               (카페: {irregularCafeLabel(kind)} · 자동)
             </span>
           </h2>
-          <button type="button" onClick={onClose} disabled={submitting} className="hover:opacity-70">
+          <button type="button" onClick={() => void handleClose()} disabled={submitting} className="hover:opacity-70">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -295,7 +322,7 @@ export default function ProcessIrregularDialog({
             />
           </div>
 
-          {/* 소요 시간 + 크루 반응 */}
+          {/* 소요 시간 + 액트 종류 */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">소요 시간(분)</label>
@@ -315,15 +342,11 @@ export default function ProcessIrregularDialog({
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">크루 반응</label>
+              <label className="text-xs text-muted-foreground">액트 종류</label>
               <select
-                aria-label="크루 반응"
+                aria-label="액트 종류"
                 value={crewReaction}
-                onChange={(e) => {
-                  const v = e.target.value as IrregularCrewReaction;
-                  setCrewReaction(v);
-                  if (!reactionAllowsPointC(v)) setPointC(0); // '필수' 아니면 즉시 C=0
-                }}
+                onChange={(e) => setCrewReaction(e.target.value as IrregularCrewReaction)}
                 disabled={submitting}
                 className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               >
@@ -352,21 +375,20 @@ export default function ProcessIrregularDialog({
             />
           </div>
 
-          {/* 포인트 A/B/C — 크루 반응이 '필수'가 아니면 C=0 고정·비활성 */}
+          {/* 포인트 A/B/C — 액트 종류(전원/부분)와 무관하게 각 0~20 자유 입력 */}
           <div className="grid grid-cols-3 gap-3">
             {([
-              ["포인트 A", pointA, setPointA, false],
-              ["포인트 B", pointB, setPointB, false],
-              ["포인트 C", pointC, setPointC, !reactionAllowsPointC(crewReaction)],
-            ] as const).map(([label, val, set, locked]) => (
+              ["포인트 A", pointA, setPointA],
+              ["포인트 B", pointB, setPointB],
+              ["포인트 C", pointC, setPointC],
+            ] as const).map(([label, val, set]) => (
               <div key={label} className="space-y-1">
                 <label className="text-xs text-muted-foreground">{label}</label>
                 <select
                   aria-label={label}
                   value={val}
                   onChange={(e) => set(Number(e.target.value))}
-                  disabled={submitting || locked}
-                  title={locked ? "‘필수’ 크루 반응만 포인트 C를 부여할 수 있습니다" : undefined}
+                  disabled={submitting}
                   className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {POINTS.map((p) => (
@@ -454,7 +476,7 @@ export default function ProcessIrregularDialog({
 
         {/* 버튼 — 정규 프로세스 체크 UX(초기화 / 체크 신청). 체크 취소는 신청 후 목록에서. */}
         <div className="mt-4 flex items-center justify-end gap-2">
-          <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={reset}>
+          <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={() => void reset()}>
             초기화
           </Button>
           <Button type="button" size="sm" disabled={submitting} onClick={() => void submit()}>
@@ -465,7 +487,7 @@ export default function ProcessIrregularDialog({
             )}
             {isReview ? "체크 신청" : "수동 부여"}
           </Button>
-          <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={onClose}>
+          <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={() => void handleClose()}>
             닫기
           </Button>
         </div>

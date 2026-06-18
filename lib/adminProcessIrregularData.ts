@@ -10,15 +10,16 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { ProcessMasterError } from "@/lib/adminProcessesData";
 import { resolveProcessWeek } from "@/lib/adminProcessCheckData";
-import { enforcePointC } from "@/lib/adminProcessesTypes";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
 import { accrueForCompletedIrregular, revokeForAct } from "@/lib/processPointAccrual";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   IRREGULAR_ACT_NAME_MAX,
+  IRREGULAR_CREW_REACTION_DEFAULT,
   IRREGULAR_CREW_REACTION_LABEL,
   IRREGULAR_KIND_LABEL,
+  coerceIrregularCrewReaction,
   irregularCafeLabel,
   isIrregularCrewReaction,
   isIrregularDuration,
@@ -88,9 +89,8 @@ function toRowDto(
 ): ProcessIrregularActRowDto {
   const kind: IrregularKind = r.kind === "manual_grant" ? "manual_grant" : "review_request";
   const status: IrregularStatus = r.status === "completed" ? "completed" : "pending";
-  const crew: IrregularCrewReaction = isIrregularCrewReaction(r.crew_reaction)
-    ? r.crew_reaction
-    : "none";
+  // 레거시(required|optional|selection|none) 값도 신규 2종(전원/부분)으로만 표시.
+  const crew: IrregularCrewReaction = coerceIrregularCrewReaction(r.crew_reaction);
   const recs = (recipientsByRef.get(r.id) ?? []).map((rc) => ({
     userId: rc.user_id,
     nickname: rc.nickname,
@@ -269,9 +269,9 @@ function parseCommonFields(input: {
   }
   const crewReaction: IrregularCrewReaction = isIrregularCrewReaction(input.crewReaction)
     ? input.crewReaction
-    : "none";
-  // 크루 반응이 '필수'가 아니면 포인트 C=0 강제(서버 보정 — 프론트 우회 방지).
-  return { actName, durationMinutes, reason, pointA, pointB, pointC: enforcePointC(crewReaction, pointC), crewReaction };
+    : IRREGULAR_CREW_REACTION_DEFAULT;
+  // 액트 종류(전원/부분)는 적용 범위 구분일 뿐 — 포인트 C(0~20)와 무관(decoupled).
+  return { actName, durationMinutes, reason, pointA, pointB, pointC, crewReaction };
 }
 
 // ── 검수 신청(review_request) 생성 — 대상자 미선택·pending(worker 가 사후 식별/완료) ──────
@@ -477,7 +477,7 @@ export async function completeIrregularAct(
   return toRowDto(data as IrregularRow);
 }
 
-// ── 크루 반응 변경 (테이블 인라인 드롭다운) ────────────────────────────────────
+// ── 액트 종류 변경 (테이블 인라인 드롭다운) ────────────────────────────────────
 export async function setIrregularCrewReaction(
   id: string,
   organization: string,
@@ -485,14 +485,13 @@ export async function setIrregularCrewReaction(
   crewReaction: unknown,
 ): Promise<ProcessIrregularActRowDto> {
   if (!isIrregularCrewReaction(crewReaction)) {
-    throw new ProcessMasterError(400, "crew_reaction 은 required|optional|selection|none 이어야 합니다");
+    throw new ProcessMasterError(400, "crew_reaction 은 all|partial 이어야 합니다");
   }
-  const row = await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
-  // 크루 반응이 '필수'가 아니면 포인트 C=0 강제(required 로 바꾸면 기존 C 유지).
-  const nextPointC = enforcePointC(crewReaction, row.point_c);
+  await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
+  // 액트 종류(전원/부분)는 적용 범위 구분 — 포인트 C 와 무관(decoupled). crew_reaction 만 변경.
   const { data, error } = await supabaseAdmin
     .from("process_irregular_acts")
-    .update({ crew_reaction: crewReaction, point_c: nextPointC })
+    .update({ crew_reaction: crewReaction })
     .eq("id", id)
     .select(ROW_SELECT)
     .single();

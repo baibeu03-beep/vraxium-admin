@@ -51,7 +51,7 @@ try {
   const cookieHdr = cks.map((c) => `${c.name}=${c.value}`).join("; ");
   const seed = await fetch(`${BASE}/api/admin/processes/check/irregular`, {
     method: "POST", headers: { "Content-Type": "application/json", cookie: cookieHdr },
-    body: JSON.stringify({ organization: ORG, kind: "manual_grant", act_name: `${TAG} 표시행`, target_user_ids: [opTarget.user_id], point_a: 7, point_b: 1, point_c: 1, crew_reaction: "required" }),
+    body: JSON.stringify({ organization: ORG, kind: "manual_grant", act_name: `${TAG} 표시행`, target_user_ids: [opTarget.user_id], point_a: 7, point_b: 1, point_c: 1, crew_reaction: "all" }),
   });
   ck("[시드] 수동부여 생성 201", seed.status === 201);
   // 검수 신청(체크 대기) 시드 — 상태 버튼→상세→체크 취소 동작 확인용.
@@ -124,22 +124,19 @@ try {
   // 포인트 드롭다운 0~20 — 0 옵션 존재.
   ck("[모달] 포인트 A 드롭다운 0 선택 가능", (await page.locator('select[aria-label="포인트 A"] option[value="0"]').count()) > 0 && (await page.locator('select[aria-label="포인트 A"] option[value="20"]').count()) > 0);
 
-  // 크루 반응 ↔ 포인트 C 규칙: 필수만 C 활성, 그 외 C=0 고정·비활성.
-  //   ⚠ 목록 행에도 '크루 반응' select 가 있으므로 모달 컨테이너로 스코프(strict 모드 회피).
+  // 액트 종류 = 전원/부분 2종만 노출(구 필수/선택/선발/없음 비노출). 포인트 C 는 종류와 무관(항상 활성).
+  //   ⚠ 목록 행에도 '액트 종류' select 가 있으므로 모달 컨테이너로 스코프(strict 모드 회피).
   const modal = page.locator(".fixed.inset-0.z-50");
-  const crewSel = modal.locator('select[aria-label="크루 반응"]');
+  const crewSel = modal.locator('select[aria-label="액트 종류"]');
   const cSel = modal.locator('select[aria-label="포인트 C"]');
-  await crewSel.selectOption("required");
-  ck("[규칙] 크루반응=필수 → 포인트 C 활성", !(await cSel.isDisabled()));
-  // C 값을 5로 올린 뒤 선택으로 바꾸면 0으로 강제·비활성.
+  const crewOpts = await crewSel.locator("option").allTextContents();
+  ck("[액트종류] 옵션 = 전원/부분 2종만", crewOpts.length === 2 && crewOpts.includes("전원") && crewOpts.includes("부분"), `opts=${JSON.stringify(crewOpts)}`);
+  ck("[액트종류] 구 옵션(필수/선택/선발/없음) 비노출", !crewOpts.some((o) => ["필수", "선택", "선발", "없음"].includes(o)));
+  await crewSel.selectOption("all");
+  ck("[규칙] 액트종류=전원 → 포인트 C 활성(decoupled)", !(await cSel.isDisabled()));
   await cSel.selectOption("5");
-  await crewSel.selectOption("optional");
-  ck("[규칙] 크루반응=선택 → 포인트 C 비활성", await cSel.isDisabled());
-  ck("[규칙] 크루반응=선택 → 포인트 C 값 0으로 강제", (await cSel.inputValue()) === "0");
-  await crewSel.selectOption("selection");
-  ck("[규칙] 크루반응=선발 → 포인트 C 비활성·0", (await cSel.isDisabled()) && (await cSel.inputValue()) === "0");
-  await crewSel.selectOption("none");
-  ck("[규칙] 크루반응=없음 → 포인트 C 비활성·0", (await cSel.isDisabled()) && (await cSel.inputValue()) === "0");
+  await crewSel.selectOption("partial");
+  ck("[규칙] 액트종류=부분 → 포인트 C 여전히 활성·값 유지(5)", !(await cSel.isDisabled()) && (await cSel.inputValue()) === "5");
 
   const term = (opTarget.display_name ?? "").trim();
   await page.getByPlaceholder("이름으로 검색").fill(term);

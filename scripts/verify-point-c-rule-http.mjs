@@ -1,4 +1,4 @@
-// 크루 반응 ↔ 포인트 C 규칙 검증 — 정규(act_type/point_penalty) + 비정규(crew_reaction/point_c).
+// 액트 종류 ↔ 포인트 C 규칙 검증 — 정규(act_type/point_penalty) + 비정규(crew_reaction/point_c).
 //   required 만 C 허용 · 그 외(optional/selection/basic/none)는 C=0 강제(백엔드 보정). DB==HTTP.
 // 전제: dev 서버(:3000) + process_acts / process_irregular_acts 마이그레이션 적용.
 import { createRequire } from "node:module";

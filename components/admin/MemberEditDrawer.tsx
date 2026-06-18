@@ -30,6 +30,7 @@ import {
 import { USER_FACING_ROLE_LABELS } from "@/lib/adminPermissionsTypes";
 import { cn } from "@/lib/utils";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 
 export type EditableMember = {
   userId: string;
@@ -171,6 +172,7 @@ function MemberEditDrawerInner({
   onSaved: (updated: EditableMember) => void;
 }) {
   const devMode = useAdminDevMode();
+  const confirm = useConfirm();
   const initial = useMemo(() => toForm(member), [member]);
   const [form, setForm] = useState<Form>(initial);
   const [saving, setSaving] = useState(false);
@@ -182,13 +184,25 @@ function MemberEditDrawerInner({
   const [weeksLoading, setWeeksLoading] = useState(false);
   const [weeksError, setWeeksError] = useState<string | null>(null);
 
+  const dirty = useMemo(
+    () => Object.keys(diffPatch(initial, form)).length > 0,
+    [initial, form],
+  );
+
+  // 닫기 — 입력값이 있을 때만 한 번 더 확인(없으면 그냥 닫기).
+  const requestClose = async () => {
+    if (saving) return;
+    if (dirty && !(await confirm(CONFIRM.close))) return;
+    onClose();
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !saving) onClose();
+      if (e.key === "Escape" && !saving) void requestClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [saving, onClose]);
+  });
 
   // 성장 중단 선택 시 주차 후보를 로드(이미 로드했으면 재사용). 다른 화면 데이터/계산 무변경 —
   // 고객과 동일한 weekly-cards 응답에서 (weekId, 표시 제목)만 추출해 드롭다운 옵션으로 쓴다.
@@ -231,11 +245,6 @@ function MemberEditDrawerInner({
     };
   }, [form.growth_status, weekOptions, weeksLoading, member.userId]);
 
-  const dirty = useMemo(
-    () => Object.keys(diffPatch(initial, form)).length > 0,
-    [initial, form],
-  );
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
@@ -244,6 +253,8 @@ function MemberEditDrawerInner({
       onClose();
       return;
     }
+    // 저장 전 한 번 더 확인.
+    if (!(await confirm(CONFIRM.save))) return;
     setSaving(true);
     setError(null);
     try {
@@ -318,7 +329,7 @@ function MemberEditDrawerInner({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => void requestClose()}
             disabled={saving}
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
             aria-label="닫기"
@@ -589,7 +600,7 @@ function MemberEditDrawerInner({
             <Button
               type="button"
               variant="outline"
-              onClick={onClose}
+              onClick={() => void requestClose()}
               disabled={saving}
             >
               취소

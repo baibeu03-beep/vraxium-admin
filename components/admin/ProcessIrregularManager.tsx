@@ -21,7 +21,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
+import { statusTone } from "@/lib/statusBadge";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import ProcessIrregularDialog from "@/components/admin/ProcessIrregularDialog";
@@ -33,7 +36,6 @@ import {
   IRREGULAR_STATUS_LABEL,
   emptyProcessIrregularBoard,
   formatCheckDateTimeKo,
-  irregularStatusClass,
   type IrregularCrewReaction,
   type IrregularKind,
   type ProcessIrregularActRowDto,
@@ -54,6 +56,7 @@ export default function ProcessIrregularManager() {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
   const mode = readScopeMode(searchParams);
+  const confirm = useConfirm();
 
   const [board, setBoard] = useState<ProcessIrregularBoardDto>(() =>
     emptyProcessIrregularBoard(org ?? ""),
@@ -98,7 +101,7 @@ export default function ProcessIrregularManager() {
   const periodLabel = week?.periodLabel ?? "주차 정보 없음";
   const weekDisabled = !week?.weekId;
 
-  // 인라인 PATCH(크루 반응 변경 / 체크 완료) + DELETE.
+  // 인라인 PATCH(액트 종류 변경 / 체크 완료) + DELETE.
   const patchRow = useCallback(
     async (id: string, payload: Record<string, unknown>) => {
       if (!org) return;
@@ -218,7 +221,7 @@ export default function ProcessIrregularManager() {
                     <TableHead className="text-right">Po.A</TableHead>
                     <TableHead className="text-right">Po.B</TableHead>
                     <TableHead className="text-right">Po.C</TableHead>
-                    <TableHead>크루 반응</TableHead>
+                    <TableHead>액트 종류</TableHead>
                     <TableHead>검수 링크</TableHead>
                     <TableHead>검수 시점</TableHead>
                     <TableHead className="text-right">관리</TableHead>
@@ -230,7 +233,14 @@ export default function ProcessIrregularManager() {
                       key={a.id}
                       act={a}
                       busy={busyId === a.id}
-                      onCrewReaction={(cr) => void patchRow(a.id, { action: "set_crew_reaction", crew_reaction: cr })}
+                      onCrewReaction={(cr) =>
+                        void (async () => {
+                          // 액트 종류 변경 = 즉시 저장 — 한 번 더 확인.
+                          const ok = await confirm(CONFIRM.save);
+                          if (!ok) return;
+                          await patchRow(a.id, { action: "set_crew_reaction", crew_reaction: cr });
+                        })()
+                      }
                       onOpenDetail={() => setDetailAct(a)}
                     />
                   ))}
@@ -287,16 +297,7 @@ function IrregularRow({
   return (
     <TableRow>
       <TableCell>
-        <span
-          className={cn(
-            "rounded px-1.5 py-0.5 text-xs font-medium",
-            act.kind === "manual_grant"
-              ? "bg-green-100 text-green-800"
-              : "bg-purple-100 text-purple-800",
-          )}
-        >
-          {act.kindLabel}
-        </span>
+        <StatusBadge label={act.kindLabel} size="sm" />
       </TableCell>
       <TableCell className="text-muted-foreground">{act.cafeLabel}</TableCell>
       <TableCell className="font-medium">{act.actName}</TableCell>
@@ -310,7 +311,7 @@ function IrregularRow({
       <TableCell className="text-right tabular-nums">{act.pointC}</TableCell>
       <TableCell>
         <select
-          aria-label="크루 반응"
+          aria-label="액트 종류"
           value={act.crewReaction}
           disabled={busy}
           onChange={(e) => onCrewReaction(e.target.value as IrregularCrewReaction)}
@@ -341,21 +342,21 @@ function IrregularRow({
       <TableCell className="whitespace-nowrap text-muted-foreground">
         {act.scheduledCheckAt ? formatCheckDateTimeKo(act.scheduledCheckAt) : "—"}
       </TableCell>
-      <TableCell className="text-right">
-        {/* 상태 버튼이 상세 보기 역할까지 통합 — 클릭 시 상세 모달(체크 취소/삭제는 모달 내). */}
-        <button
-          type="button"
+      <TableCell className="text-center">
+        {/* 상태 배지가 상세 보기 역할까지 통합 — 클릭 시 상세 모달(체크 취소/삭제는 모달 내). */}
+        <StatusBadge
+          tone={statusTone(IRREGULAR_STATUS_LABEL[act.status])}
+          size="sm"
           disabled={busy}
           onClick={onOpenDetail}
           title="클릭하여 상세 보기"
-          className={cn(
-            "inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs font-medium transition-colors hover:opacity-80 disabled:opacity-60",
-            irregularStatusClass(act.status),
-          )}
-        >
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-          {IRREGULAR_STATUS_LABEL[act.status]}
-        </button>
+          label={
+            <>
+              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              {IRREGULAR_STATUS_LABEL[act.status]}
+            </>
+          }
+        />
       </TableCell>
     </TableRow>
   );

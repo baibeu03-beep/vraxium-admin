@@ -20,6 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { classTone, rankTone } from "@/lib/statusBadge";
 import { cn } from "@/lib/utils";
 import { classLabel } from "@/lib/adminMembersTypes";
 import {
@@ -686,7 +688,26 @@ export default function MembersList() {
                               idx === 0 && "sticky left-0 z-10 bg-card border-r font-medium",
                             )}
                           >
-                            {c.clamp ? (
+                            {c.key === "status" && val !== "-" ? (
+                              // 상태 — 가장 눈에 띄는 solid 배지(같은 상태=같은 색).
+                              <StatusBadge label={val} size="sm" />
+                            ) : c.key === "rank" && val !== "—" ? (
+                              // 품계 — 상태보다 덜 튀는 soft 배지(품계 밴드별 색·같은 값=같은 색).
+                              <StatusBadge
+                                label={val}
+                                size="sm"
+                                appearance="soft"
+                                tone={rankTone(m.rankGradeNumber)}
+                              />
+                            ) : c.key === "class" ? (
+                              // 클래스 — 가장 은은한 outline 배지(계층별 색·같은 값=같은 색).
+                              <StatusBadge
+                                label={val}
+                                size="sm"
+                                appearance="outline"
+                                tone={classTone(val)}
+                              />
+                            ) : c.clamp ? (
                               <div className={cn("mx-auto truncate", c.clamp)} title={val}>
                                 {val}
                               </div>

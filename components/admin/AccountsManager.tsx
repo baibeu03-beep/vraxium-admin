@@ -43,6 +43,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   ORGANIZATIONS,
   ORGANIZATION_COMMON_LABEL,
@@ -103,6 +104,7 @@ function orgLabel(slug: string | null) {
 }
 
 export default function AccountsManager() {
+  const confirm = useConfirm();
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -413,10 +415,14 @@ export default function AccountsManager() {
   const handleResetPassword = useCallback(
     async (account: AccountDto) => {
       if (!isSuperAdmin) return;
-      const confirmed = window.confirm(
-        (account.displayName ?? account.email ?? account.userId) +
+      const confirmed = await confirm({
+        title: "비밀번호 재설정",
+        description:
+          (account.displayName ?? account.email ?? account.userId) +
           " 의 비밀번호를 새 임시 비밀번호로 재설정합니다.\n\n계속하시겠습니까?",
-      );
+        confirmLabel: "재설정",
+        tone: "destructive",
+      });
       if (!confirmed) return;
 
       markPending(account.userId, true);
@@ -445,7 +451,7 @@ export default function AccountsManager() {
         markPending(account.userId, false);
       }
     },
-    [isSuperAdmin, markPending],
+    [confirm, isSuperAdmin, markPending],
   );
 
   // ── derived ───────────────────────────────────────────────────────

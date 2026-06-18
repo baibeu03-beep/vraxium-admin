@@ -19,6 +19,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { SelectBadge } from "@/components/ui/status-badge";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import {
   PROCESS_ACT_TYPE_LABEL,
@@ -146,6 +148,7 @@ function WhenInput({
 }
 
 export default function ProcessRegisterManager() {
+  const confirm = useConfirm();
   const [activeHub, setActiveHub] = useState<ProcessHub>("club");
   const [banner, setBanner] = useState<Banner>(null);
 
@@ -238,6 +241,12 @@ export default function ProcessRegisterManager() {
     setActiveHub(hub);
   }, []);
 
+  // 액트 폼 초기화(로컬만) — 버튼에서만 한 번 더 확인. 등록 성공 후 내부 호출(resetActForm)은 확인 없이.
+  const handleResetActForm = useCallback(async () => {
+    if (!(await confirm(CONFIRM.reset))) return;
+    resetActForm();
+  }, [confirm, resetActForm]);
+
   const handleAddGroup = useCallback(async () => {
     const name = newGroupName.trim();
     if (!name) {
@@ -251,6 +260,8 @@ export default function ProcessRegisterManager() {
       });
       return;
     }
+    // 한 번 더 확인 — 라인급 마스터 저장.
+    if (!(await confirm(CONFIRM.save))) return;
     setAddingGroup(true);
     setBanner(null);
     try {
@@ -274,7 +285,7 @@ export default function ProcessRegisterManager() {
     } finally {
       setAddingGroup(false);
     }
-  }, [activeHub, newGroupName, lineGroups.length, loadHub]);
+  }, [activeHub, newGroupName, lineGroups.length, loadHub, confirm]);
 
   const handleDeleteGroup = useCallback(
     async (group: ProcessLineGroupDto) => {
@@ -285,7 +296,8 @@ export default function ProcessRegisterManager() {
         );
         return;
       }
-      if (!window.confirm(`라인급 "${group.name}" 을(를) 삭제할까요?`)) return;
+      // 한 번 더 확인 — 라인급 삭제.
+      if (!(await confirm({ ...CONFIRM.delete, description: `라인급 "${group.name}" 을(를) 삭제할까요?` }))) return;
       setBanner(null);
       try {
         const res = await fetch(`/api/admin/processes/line-groups/${group.id}`, {
@@ -311,7 +323,7 @@ export default function ProcessRegisterManager() {
         });
       }
     },
-    [activeHub, lineGroupId, loadHub],
+    [activeHub, lineGroupId, loadHub, confirm],
   );
 
   const handleSubmitAct = useCallback(async () => {
@@ -327,6 +339,8 @@ export default function ProcessRegisterManager() {
       setBanner({ kind: "error", message: "액트 종류를 먼저 선택해야 합니다" });
       return;
     }
+    // 한 번 더 확인 — 액트 마스터 저장.
+    if (!(await confirm(CONFIRM.save))) return;
     setSaving(true);
     setBanner(null);
     try {
@@ -377,7 +391,7 @@ export default function ProcessRegisterManager() {
   }, [
     activeHub, actName, lineGroupId, duration, occurWeek, occurDow, occurTime,
     checkWeek, checkDow, checkTime, pointCheck, pointAdvantage, pointPenalty,
-    cafe, checkTarget, actType, overview, remarks, resetActForm, loadHub,
+    cafe, checkTarget, actType, overview, remarks, resetActForm, loadHub, confirm,
   ]);
 
   return (
@@ -720,7 +734,7 @@ export default function ProcessRegisterManager() {
             <Button
               type="button"
               variant="outline"
-              onClick={resetActForm}
+              onClick={() => void handleResetActForm()}
               disabled={saving}
             >
               초기화
@@ -749,9 +763,10 @@ export default function ProcessRegisterManager() {
                   className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border px-3 py-2 text-sm"
                 >
                   <span className="font-medium">{a.actName}</span>
+                  <SelectBadge label={PROCESS_ACT_TYPE_LABEL[a.actType]} size="sm" />
                   <span className="text-xs text-muted-foreground">
-                    [{a.lineGroupName ?? "-"}] · {PROCESS_ACT_TYPE_LABEL[a.actType]} ·{" "}
-                    {a.durationMinutes}m · A{a.pointCheck}/B{a.pointAdvantage}/C{a.pointPenalty}
+                    [{a.lineGroupName ?? "-"}] · {a.durationMinutes}m · A{a.pointCheck}/B
+                    {a.pointAdvantage}/C{a.pointPenalty}
                   </span>
                 </div>
               ))}

@@ -23,6 +23,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SelectBadge } from "@/components/ui/status-badge";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import {
   PROCESS_ACT_TYPE_LABEL,
@@ -116,6 +118,7 @@ function SummaryRow({ label, value }: { label: string; value: React.ReactNode })
 }
 
 export default function ProcessInfoManager() {
+  const confirm = useConfirm();
   const [activeHub, setActiveHub] = useState<ProcessHub>("club");
   const [banner, setBanner] = useState<Banner>(null);
   const [loading, setLoading] = useState(false);
@@ -195,7 +198,8 @@ export default function ProcessInfoManager() {
 
   const handleDelete = useCallback(
     async (act: ProcessActDto) => {
-      if (!window.confirm(`액트 "${act.actName}" 을(를) 삭제할까요?\n삭제하면 되돌릴 수 없습니다.`)) return;
+      // 한 번 더 확인 — 삭제는 되돌릴 수 없음.
+      if (!(await confirm({ ...CONFIRM.delete, description: `액트 "${act.actName}" 을(를) 삭제할까요?\n삭제하면 되돌릴 수 없습니다.` }))) return;
       setDeletingId(act.id);
       setBanner(null);
       try {
@@ -210,7 +214,7 @@ export default function ProcessInfoManager() {
         setDeletingId(null);
       }
     },
-    [activeHub, loadInfo],
+    [activeHub, loadInfo, confirm],
   );
 
   return (
@@ -328,7 +332,7 @@ export default function ProcessInfoManager() {
                     <TableHead className="text-right">Po.A</TableHead>
                     <TableHead className="text-right">Po.B</TableHead>
                     <TableHead className="text-right">Po.C</TableHead>
-                    <TableHead>크루 반응</TableHead>
+                    <TableHead>액트 종류</TableHead>
                     <TableHead>체크 대상</TableHead>
                     <TableHead>카페</TableHead>
                     <TableHead className="text-right">삭제</TableHead>
@@ -348,7 +352,9 @@ export default function ProcessInfoManager() {
                       <TableCell className="text-right tabular-nums">{a.pointCheck}</TableCell>
                       <TableCell className="text-right tabular-nums">{a.pointAdvantage}</TableCell>
                       <TableCell className="text-right tabular-nums">{a.pointPenalty}</TableCell>
-                      <TableCell>{PROCESS_ACT_TYPE_LABEL[a.actType]}</TableCell>
+                      <TableCell className="text-center">
+                        <SelectBadge label={PROCESS_ACT_TYPE_LABEL[a.actType]} size="sm" />
+                      </TableCell>
                       <TableCell>{PROCESS_CHECK_TARGET_LABEL[a.checkTarget]}</TableCell>
                       <TableCell>{PROCESS_CAFE_LABEL[a.cafe]}</TableCell>
                       <TableCell className="text-right">

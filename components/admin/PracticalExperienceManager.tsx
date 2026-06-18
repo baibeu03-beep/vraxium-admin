@@ -35,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
@@ -413,7 +414,7 @@ function SummaryCard({
         variant === "success" && "border-green-200 bg-green-50",
         variant === "error" && "border-red-200 bg-red-50",
         variant === "info" && "border-blue-200 bg-blue-50",
-        variant === "default" && "border-gray-200 bg-gray-50",
+        variant === "default" && "border-border bg-muted",
       )}
     >
       <p
@@ -423,7 +424,7 @@ function SummaryCard({
           variant === "success" && "text-green-800",
           variant === "error" && "text-red-800",
           variant === "info" && "text-blue-800",
-          variant === "default" && "text-gray-800",
+          variant === "default" && "text-foreground",
         )}
       >
         {count}
@@ -436,7 +437,7 @@ function SummaryCard({
 function InputStatusBadge({ value }: { value: "draft" | "submitted" }) {
   if (value === "draft") {
     return (
-      <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+      <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
         임시저장
       </span>
     );
@@ -528,6 +529,7 @@ export default function PracticalExperienceManager() {
   // dev 모드(?dev=true): 주차 선택 UI 노출 + 과거 주차 검수/개설 허용 (테스트용).
   // 일반 모드: 주차 선택 UI 미렌더 + 정책 주차(현재 주차) 강제. 실무 정보(info) 와 동일 정책.
   const devMode = useAdminDevMode();
+  const confirm = useConfirm();
 
   // 헤더 [라인 관리]/[라인 개설] 2탭은 **조직 분기 모드(?org 있음)** 에서만 적용한다 (실무 정보와 동일 UX).
   // 통합 검수 시스템(원본, ?org 없음)에서는 기존 단일 화면 그대로 — 헤더 탭/분기 없음.
@@ -1005,7 +1007,7 @@ export default function PracticalExperienceManager() {
 
   const handleDeleteMaster = useCallback(
     async (id: string) => {
-      if (!confirm("이 라인을 삭제하시겠습니까?")) return;
+      if (!(await confirm({ ...CONFIRM.delete, description: "이 라인을 삭제하시겠습니까?" }))) return;
       try {
         const res = await fetch(`/api/admin/cluster4/experience-line-masters/${id}`, {
           method: "DELETE",
@@ -1021,7 +1023,7 @@ export default function PracticalExperienceManager() {
         setBanner({ kind: "error", message: "삭제 중 오류가 발생했습니다" });
       }
     },
-    [fetchInitialData],
+    [fetchInitialData, confirm],
   );
 
   // ──────────────────────────────────────────────────────────────
@@ -1321,7 +1323,7 @@ export default function PracticalExperienceManager() {
 
   const handleOpenDrafts = useCallback(async () => {
     if (openSelectedIds.size === 0) return;
-    if (!confirm(`선택한 ${openSelectedIds.size}건을 최종 개설하시겠습니까?`)) return;
+    if (!(await confirm({ ...CONFIRM.complete, description: `선택한 ${openSelectedIds.size}건을 최종 개설하시겠습니까?`, confirmLabel: "최종 개설" }))) return;
     setSaving(true);
     setBanner(null);
     try {
@@ -1349,7 +1351,7 @@ export default function PracticalExperienceManager() {
     } finally {
       setSaving(false);
     }
-  }, [openSelectedIds, refetchDrafts]);
+  }, [openSelectedIds, refetchDrafts, confirm]);
 
   // ──────────────────────────────────────────────────────────────
   // Render
@@ -1408,9 +1410,10 @@ export default function PracticalExperienceManager() {
           return;
         }
         const d = dry.data;
-        const ok = window.confirm(
-          `운영 전체 동기화 — dry-run 결과\n\n대상 ${d.usersScanned}명 중 ${d.usersFlipped}명, ${d.totalFlippedToFail}개 주차가 성장(실패)로 변경됩니다.\n실사용자가 포함되며 되돌리기 어렵습니다.\n\n실제로 DB에 반영하시겠습니까?`,
-        );
+        const ok = await confirm({
+          ...CONFIRM.save,
+          description: `운영 전체 동기화 — dry-run 결과\n\n대상 ${d.usersScanned}명 중 ${d.usersFlipped}명, ${d.totalFlippedToFail}개 주차가 성장(실패)로 변경됩니다.\n실사용자가 포함되며 되돌리기 어렵습니다.\n\n실제로 DB에 반영하시겠습니까?`,
+        });
         if (!ok) {
           setBanner({
             kind: "success",

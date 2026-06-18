@@ -51,7 +51,7 @@ async function main() {
   const mg = await createManualGrant({
     organization: ORG, mode: "operating", adminId: admin.id,
     actName: `${TAG} 수동`, targetUserIds: [opTarget.user_id],
-    durationMinutes: 20, reason: "사유", pointA: 4, pointB: 1, pointC: 1, crewReaction: "required",
+    durationMinutes: 20, reason: "사유", pointA: 4, pointB: 1, pointC: 1, crewReaction: "all",
   });
   ck("[direct] 수동부여 → status=completed · cafeLabel=미발생 · 크루1명", mg.status === "completed" && mg.cafeLabel === "미발생" && !!mg.completedAt && mg.matchedCount === 1 && mg.targetUserId === null);
 
@@ -59,7 +59,7 @@ async function main() {
   const rr = await createIrregularAct({
     organization: ORG, mode: "operating", adminId: admin.id,
     kind: "review_request", actName: `${TAG} 검수`, targetUserId: null,
-    pointA: 2, pointB: 1, pointC: 0, crewReaction: "optional",
+    pointA: 2, pointB: 1, pointC: 0, crewReaction: "partial",
     reviewLink: "https://cafe.naver.com/irr/d", scheduledCheckAt: new Date(Date.now() + DAY).toISOString(),
   });
   ck("[direct] 검수신청 → status=pending · cafeLabel=발생 · target null", rr.status === "pending" && rr.cafeLabel === "발생" && rr.targetUserId === null);

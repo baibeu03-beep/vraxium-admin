@@ -12,11 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { SelectBadge, StatusBadge } from "@/components/ui/status-badge";
 import {
   formatCheckDateTimeKo,
-  processCheckButtonClass,
-  processCheckButtonLabel,
+  processCheckActStatusLabel,
   type ProcessCheckActRowDto,
 } from "@/lib/adminProcessCheckTypes";
 
@@ -81,7 +80,7 @@ export default function ProcessCheckActTable({
                   <TableHead className="text-right">Po.A</TableHead>
                   <TableHead className="text-right">Po.B</TableHead>
                   <TableHead className="text-right">Po.C</TableHead>
-                  <TableHead>크루 반응</TableHead>
+                  <TableHead>종류</TableHead>
                   <TableHead>카페</TableHead>
                   <TableHead>신청 시점(실제)</TableHead>
                   <TableHead>검수 시점(실제)</TableHead>
@@ -104,7 +103,9 @@ export default function ProcessCheckActTable({
                     <TableCell className="text-right tabular-nums">{a.pointCheck}</TableCell>
                     <TableCell className="text-right tabular-nums">{a.pointAdvantage}</TableCell>
                     <TableCell className="text-right tabular-nums">{a.pointPenalty}</TableCell>
-                    <TableCell>{a.crewReactionLabel}</TableCell>
+                    <TableCell className="text-center">
+                      <SelectBadge label={a.crewReactionLabel} size="sm" />
+                    </TableCell>
                     <TableCell>{a.cafeLabel}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {a.requestedAt ? formatCheckDateTimeKo(a.requestedAt) : "—"}
@@ -112,32 +113,24 @@ export default function ProcessCheckActTable({
                     <TableCell className="whitespace-nowrap text-muted-foreground">
                       {a.scheduledCheckAt ? formatCheckDateTimeKo(a.scheduledCheckAt) : "—"}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-center">
                       {a.isCheckTarget ? (
                         readOnly ? (
                           // 팀 전체 스코프 — 읽기 전용 배지(클릭 불가).
-                          <span
+                          <StatusBadge
+                            label={processCheckActStatusLabel(a.status, a.completionType)}
+                            size="sm"
+                            className="opacity-70"
                             title="‘팀 전체’ 범위는 읽기 전용입니다. 팀 총괄/파트를 선택하면 체크할 수 있습니다."
-                            className={cn(
-                              "inline-block rounded-md border px-2.5 py-1 text-xs font-medium opacity-70",
-                              processCheckButtonClass(a.status),
-                            )}
-                          >
-                            {processCheckButtonLabel(a.status)}
-                          </span>
+                          />
                         ) : (
-                          <button
-                            type="button"
+                          <StatusBadge
+                            label={processCheckActStatusLabel(a.status, a.completionType)}
+                            size="sm"
+                            onClick={() => onOpenAct(a)}
                             disabled={weekDisabled}
                             title={weekDisabled ? "현재 주차 weeks 행 없음" : "클릭하여 체크 신청/취소"}
-                            onClick={() => onOpenAct(a)}
-                            className={cn(
-                              "rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                              processCheckButtonClass(a.status),
-                            )}
-                          >
-                            {processCheckButtonLabel(a.status)}
-                          </button>
+                          />
                         )
                       ) : (
                         <span className="text-xs text-muted-foreground">체크 대상 아님</span>

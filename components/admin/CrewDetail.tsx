@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ExternalLink, Loader2, NotebookPen, User, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { appendModeQuery, type ScopeMode } from "@/lib/userScopeShared";
 import { buildCustomerClusterUrl } from "@/lib/customerAppUrl";
@@ -134,24 +135,8 @@ function dashPct(value: number | null | undefined): string {
   return value == null ? "-" : `${value}%`;
 }
 
-// 시즌 결과 라벨별 배지 색(어드민 4종).
-const SEASON_RESULT_BADGE: Record<string, string> = {
-  "진행 중": "bg-blue-50 text-blue-700 ring-blue-200",
-  "시즌 성공": "bg-green-50 text-green-700 ring-green-200",
-  "시즌 휴식": "bg-amber-50 text-amber-700 ring-amber-200",
-  "시즌 중단": "bg-red-50 text-red-700 ring-red-200",
-};
-
-// 주차 성장 결과 라벨별 배지 색(어드민 7종).
-const WEEK_RESULT_BADGE: Record<string, string> = {
-  "성장 성공": "bg-green-50 text-green-700 ring-green-200",
-  "성장 실패": "bg-red-50 text-red-700 ring-red-200",
-  "개인 휴식": "bg-amber-50 text-amber-700 ring-amber-200",
-  "공식 휴식": "bg-slate-100 text-slate-600 ring-slate-200",
-  "진행 중": "bg-blue-50 text-blue-700 ring-blue-200",
-  "집계 중": "bg-indigo-50 text-indigo-700 ring-indigo-200",
-  "활동 중단": "bg-zinc-200 text-zinc-700 ring-zinc-300",
-};
+// 시즌 결과(4종)·주차 성장 결과(7종) 배지 색은 lib/statusBadge 레지스트리(단일 SoT)가
+// 담당한다 — 같은 상태=같은 색을 전 페이지에서 보장. 여기서 별도 색 맵을 두지 않는다.
 
 const WEEKLY_PAGE_SIZE = 15;
 
@@ -480,14 +465,7 @@ function SeasonResultsTable({ rows }: { rows: CrewSeasonResultRow[] }) {
             <tr key={r.seasonKey} className="border-b align-top last:border-0">
               <td className="whitespace-nowrap px-2 py-2 font-medium">{r.seasonNameShort}</td>
               <td className="whitespace-nowrap px-2 py-2">
-                <span
-                  className={cn(
-                    "inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
-                    SEASON_RESULT_BADGE[r.seasonResultLabel] ?? "bg-muted text-muted-foreground ring-border",
-                  )}
-                >
-                  {r.seasonResultLabel}
-                </span>
+                <StatusBadge label={r.seasonResultLabel} size="sm" />
               </td>
               <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.poA}</td>
               <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.poB}</td>
@@ -593,14 +571,7 @@ function WeeklyResultsTable({ rows }: { rows: CrewWeeklyResultRow[] }) {
               <tr key={r.weekId ?? `${r.weekName}-${start + i}`} className="border-b last:border-0">
                 <td className="whitespace-nowrap px-2 py-2 font-medium">{r.weekName}</td>
                 <td className="whitespace-nowrap px-2 py-2">
-                  <span
-                    className={cn(
-                      "inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
-                      WEEK_RESULT_BADGE[r.growthResultLabel] ?? "bg-muted text-muted-foreground ring-border",
-                    )}
-                  >
-                    {r.growthResultLabel}
-                  </span>
+                  <StatusBadge label={r.growthResultLabel} size="sm" />
                 </td>
                 <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{num(r.cumulativeSuccessWeeks)}</td>
                 <td className="max-w-[120px] truncate px-2 py-2" title={r.teamName ?? "-"}>{r.teamName ?? "-"}</td>

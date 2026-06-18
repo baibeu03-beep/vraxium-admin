@@ -6,8 +6,12 @@
       "hubLabel",
       "lineGroups",
       "logs",
+      "mode",
       "organization",
+      "selectedPart",
+      "selectedWeek",
       "summary",
+      "teamParts",
       "teams",
       "week"
     ],
@@ -31,8 +35,12 @@
       "hubLabel",
       "lineGroups",
       "logs",
+      "mode",
       "organization",
+      "selectedPart",
+      "selectedWeek",
       "summary",
+      "teamParts",
       "teams",
       "week"
     ],
@@ -41,7 +49,7 @@
       "actIds": []
     },
     "test": {
-      "weekNumber": 16,
+      "weekNumber": 13,
       "actIds": []
     }
   },
@@ -52,21 +60,27 @@
       "hubLabel",
       "lineGroups",
       "logs",
+      "mode",
       "organization",
+      "selectedPart",
+      "selectedWeek",
       "summary",
+      "teamParts",
       "teams",
       "week"
     ],
     "operating": {
       "weekNumber": 16,
       "actIds": [
-        "35607f30-c6f1-4af9-b038-8e20654e7f7b"
+        "35607f30-c6f1-4af9-b038-8e20654e7f7b",
+        "4421fd59-1ec8-4380-afb0-2650c9bfbcd3"
       ]
     },
     "test": {
       "weekNumber": 16,
       "actIds": [
-        "35607f30-c6f1-4af9-b038-8e20654e7f7b"
+        "35607f30-c6f1-4af9-b038-8e20654e7f7b",
+        "4421fd59-1ec8-4380-afb0-2650c9bfbcd3"
       ]
     }
   }

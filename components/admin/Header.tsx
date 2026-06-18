@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LogOut, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/theme/ThemeToggle";
 import { supabaseClient } from "@/lib/supabaseClient";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -170,6 +171,7 @@ export default function Header({
   if (pathname === "/admin") {
     return (
       <header className="flex items-center justify-end gap-4 border-b border-border bg-background px-4 py-2 sm:px-6">
+        <ThemeToggle />
         {userArea}
       </header>
     );
@@ -236,6 +238,7 @@ export default function Header({
       )}
       {/* min-w-0(shrink-0 제거): 좁은 폭에서 userArea 의 이메일 줄이 truncate 되며 함께 줄어든다 */}
       <div className="flex min-w-0 items-center gap-2">
+        <ThemeToggle className="shrink-0" />
         {/* 개발자 표시 토글 — SHOW_DEV_TOGGLE=false 로 화면에서만 숨김 (기능/로직 유지) */}
         {SHOW_DEV_TOGGLE && (
           <Button

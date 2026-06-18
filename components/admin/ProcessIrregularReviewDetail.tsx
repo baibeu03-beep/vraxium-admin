@@ -8,6 +8,7 @@
 import { useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import {
@@ -40,6 +41,7 @@ export default function ProcessIrregularReviewDetail({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const confirm = useConfirm();
   const [banner, setBanner] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const isReview = act.kind === "review_request";
@@ -47,6 +49,7 @@ export default function ProcessIrregularReviewDetail({
   const cancelable = isReview && act.status === "pending";
 
   // 체크 취소 = 신청 삭제(pending 에서만). 완료 후에는 취소 불가.
+  //   호출 측에서 한 번 더 확인을 끝낸 뒤 실제 DELETE 만 수행.
   const cancel = async () => {
     setBanner(null);
     setSubmitting(true);
@@ -103,7 +106,7 @@ export default function ProcessIrregularReviewDetail({
             label="포인트 A/B/C"
             value={`${act.pointA} / ${act.pointB} / ${act.pointC}`}
           />
-          <Row label="크루 반응" value={IRREGULAR_CREW_REACTION_LABEL[act.crewReaction]} />
+          <Row label="액트 종류" value={IRREGULAR_CREW_REACTION_LABEL[act.crewReaction]} />
           <Row
             label="검수 링크"
             value={
@@ -176,7 +179,19 @@ export default function ProcessIrregularReviewDetail({
               size="sm"
               className="border-rose-300 text-rose-700 hover:bg-rose-50"
               disabled={!cancelable || submitting}
-              onClick={() => void cancel()}
+              onClick={() =>
+                void (async () => {
+                  // 체크 취소(=신청 삭제) — 한 번 더 확인.
+                  const ok = await confirm({
+                    title: "취소",
+                    description: "이 동작을 취소 처리합니다. 진행하시겠습니까?",
+                    confirmLabel: "체크 취소",
+                    tone: "destructive",
+                  });
+                  if (!ok) return;
+                  await cancel();
+                })()
+              }
             >
               {submitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
               체크 취소
@@ -189,7 +204,14 @@ export default function ProcessIrregularReviewDetail({
               size="sm"
               className="border-rose-300 text-rose-700 hover:bg-rose-50"
               disabled={submitting}
-              onClick={() => void cancel()}
+              onClick={() =>
+                void (async () => {
+                  // 수동 부여 관리용 삭제 — 한 번 더 확인.
+                  const ok = await confirm(CONFIRM.delete);
+                  if (!ok) return;
+                  await cancel();
+                })()
+              }
             >
               {submitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
               삭제

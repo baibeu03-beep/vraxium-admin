@@ -57,7 +57,7 @@ try {
   // ── 1. 수동 부여(operating·복수 크루) → 즉시 completed · 카페=미발생 · recipients ──
   const mg = await api("/api/admin/processes/check/irregular", { method: "POST", body: J({
     organization: ORG, kind: "manual_grant", act_name: `${TAG} 수동1`, target_user_ids: [opTarget.user_id],
-    duration_minutes: 30, reason: "수동 부여 사유", point_a: 5, point_b: 1, point_c: 1, crew_reaction: "required",
+    duration_minutes: 30, reason: "수동 부여 사유", point_a: 5, point_b: 1, point_c: 1, crew_reaction: "all",
   }) });
   ck("[수동부여] 201 · status=completed · cafeLabel=미발생 · 크루1명 · target null", mg.status === 201 && mg.json.data?.status === "completed" && mg.json.data?.cafeLabel === "미발생" && mg.json.data?.matchedCount === 1 && mg.json.data?.targetUserId === null, `status=${mg.status} cafe=${mg.json.data?.cafeLabel} n=${mg.json.data?.matchedCount}`);
   const mgId = mg.json.data?.id;
@@ -76,7 +76,7 @@ try {
   const schedIso = new Date(Date.now() + DAY).toISOString();
   const rr = await api("/api/admin/processes/check/irregular", { method: "POST", body: J({
     organization: ORG, kind: "review_request", act_name: `${TAG} 검수1`,
-    reason: "검수 신청 사유", point_a: 3, point_b: 1, point_c: 0, crew_reaction: "optional",
+    reason: "검수 신청 사유", point_a: 3, point_b: 1, point_c: 0, crew_reaction: "partial",
     review_link: "https://cafe.naver.com/test/irr", scheduled_check_at: schedIso,
   }) });
   ck("[검수신청] 201 · status=pending · cafeLabel=발생 · target null(미저장)", rr.status === 201 && rr.json.data?.status === "pending" && rr.json.data?.cafeLabel === "발생" && rr.json.data?.targetUserId === null, `status=${rr.status} cafe=${rr.json.data?.cafeLabel} target=${rr.json.data?.targetUserId}`);
@@ -129,9 +129,12 @@ try {
   }) });
   ck("[가드] oranke 에 encre 크루 부여 → 422", guardOrg.status === 422, `status=${guardOrg.status}`);
 
-  // ── 11. 크루 반응 인라인 변경(PATCH set_crew_reaction) ──
-  const cr = await api("/api/admin/processes/check/irregular", { method: "PATCH", body: J({ id: rrId, organization: ORG, action: "set_crew_reaction", crew_reaction: "selection" }) });
-  ck("[크루반응] PATCH 200 · selection", cr.status === 200 && cr.json.data?.crewReaction === "selection", `status=${cr.status}`);
+  // ── 11. 액트 종류 인라인 변경(PATCH set_crew_reaction) — partial→all ──
+  const cr = await api("/api/admin/processes/check/irregular", { method: "PATCH", body: J({ id: rrId, organization: ORG, action: "set_crew_reaction", crew_reaction: "all" }) });
+  ck("[액트종류] PATCH 200 · all(전원)", cr.status === 200 && cr.json.data?.crewReaction === "all", `status=${cr.status} cr=${cr.json.data?.crewReaction}`);
+  // 구 enum(레거시) 거부 — 400.
+  const crBad = await api("/api/admin/processes/check/irregular", { method: "PATCH", body: J({ id: rrId, organization: ORG, action: "set_crew_reaction", crew_reaction: "required" }) });
+  ck("[액트종류] 레거시 값(required) 거부 → 400", crBad.status === 400, `status=${crBad.status}`);
 
   // ── 12. 검수신청 완료 처리(PATCH complete) ──
   const cp = await api("/api/admin/processes/check/irregular", { method: "PATCH", body: J({ id: rrId, organization: ORG, action: "complete" }) });

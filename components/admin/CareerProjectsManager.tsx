@@ -35,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import {
   stringifyJsonField,
   type CareerProjectDto,
@@ -200,6 +201,7 @@ function formToPayload(form: UpsertFormState): Record<string, unknown> {
 }
 
 export default function CareerProjectsManager() {
+  const confirm = useConfirm();
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [rows, setRows] = useState<CareerProjectDto[]>([]);
@@ -273,10 +275,12 @@ export default function CareerProjectsManager() {
     async (project: CareerProjectDto) => {
       const label = project.projectName ?? project.companyName ?? project.id;
       if (
-        !window.confirm(
-          `'${label}' 실무 경력 항목을 삭제하시겠어요?\n` +
+        !(await confirm({
+          ...CONFIRM.delete,
+          description:
+            `'${label}' 실무 경력 항목을 삭제하시겠어요?\n` +
             `이 동작은 되돌릴 수 없으며, 사용 중인 항목은 차단됩니다.`,
-        )
+        }))
       ) {
         return;
       }
@@ -307,7 +311,7 @@ export default function CareerProjectsManager() {
         setDeletingId(null);
       }
     },
-    [refresh],
+    [confirm, refresh],
   );
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));

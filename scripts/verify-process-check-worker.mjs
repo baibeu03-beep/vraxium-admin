@@ -55,7 +55,7 @@ try {
   const irr = (await sb.from("process_irregular_acts").insert({
     organization_slug: ORG, week_id: week.id, kind: "review_request", act_name: `${TAG} 비정규만기`,
     applicant_admin_name: "검증", scope_mode: "operating", point_a: 3, point_b: 1, point_c: 0,
-    crew_reaction: "optional", review_link: "https://cafe.naver.com/x/1", scheduled_check_at: pastIso, status: "pending",
+    crew_reaction: "partial", review_link: "https://cafe.naver.com/x/1", scheduled_check_at: pastIso, status: "pending",
   }).select("id").single()).data;
   // 미만기(future) 비정규 — due 아님.
   const irrFuture = (await sb.from("process_irregular_acts").insert({

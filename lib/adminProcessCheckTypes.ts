@@ -7,7 +7,7 @@
 //   - ⚠ user_weekly_points.points · 주차 성장 계산 · snapshot · checkGate 무접촉.
 //     포인트 부여/크롤링 연동(완료 트리거)은 후속 Phase — completed 저장 컬럼만 정의.
 
-import { PROCESS_HUB_LABEL, type ProcessHub } from "@/lib/adminProcessesTypes";
+import { PROCESS_HUB_LABEL, type ProcessActType, type ProcessHub } from "@/lib/adminProcessesTypes";
 import { DAY_NAMES, formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import type { ScopeMode } from "@/lib/userScopeShared";
 
@@ -43,10 +43,30 @@ export function processCheckLogActionClass(a: ProcessCheckLogAction): string {
   return "text-purple-700"; // check_requested
 }
 
-// 화면 액션(POST) — 신청/취소(완료는 시스템 트리거, 본 Phase 미구현).
+// 화면 액션(POST) — 신청/취소(검수 완료는 worker 트리거) + 수동 부여(선별 액트, 관리자 즉시 완료).
 export type ProcessCheckAction = "request" | "cancel";
 export function isProcessCheckAction(v: unknown): v is ProcessCheckAction {
   return v === "request" || v === "cancel";
+}
+
+// ── 선별(selection) 액트 수동 부여 (2026-06-18) ────────────────────────────────
+//   액트 종류(act_type)가 '선별' 인 액트는 "체크 필요" 클릭 시 [검수 신청]/[수동 부여] 선택.
+//   수동 부여 = 관리자가 대상 크루 + 포인트를 직접 입력 → 즉시 완료(completion_type='manual_grant').
+//   '선별' 규칙상 포인트 C = 0 강제(reactionAllowsPointC). 사유 최대 글자수는 비정규와 동일.
+export const MANUAL_GRANT_REASON_MAX = 50;
+
+// 액트 종류가 '선별' 인가 — 수동 부여 선택 UI 노출 여부의 단일 판정(서버/클라 공용).
+export function isSelectionActType(actType: ProcessActType | string | null | undefined): boolean {
+  return actType === "selection";
+}
+
+// 액트 행 상태 라벨 — 완료가 수동 부여면 "수동 부여 완료", 그 외는 기본 라벨.
+export function processCheckActStatusLabel(
+  status: ProcessCheckStatus,
+  completionType: "manual_grant" | null,
+): string {
+  if (status === "completed" && completionType === "manual_grant") return "수동 부여 완료";
+  return processCheckButtonLabel(status);
 }
 
 // ── 팀·파트 스코프 (experience 섹션.1) ─────────────────────────────────────────
@@ -162,11 +182,16 @@ export type ProcessCheckActRowDto = {
   pointCheck: number; // Po.A
   pointAdvantage: number; // Po.B
   pointPenalty: number; // Po.C
-  crewReactionLabel: string; // 크루 반응(= act_type 라벨)
+  // 액트 종류(act_type) — 키(분기용) + 표시 라벨("종류" 컬럼). 마스터(process_acts) 저장값 그대로.
+  //   '선별(selection)' 이면 "체크 필요" 클릭 시 [검수 신청]/[수동 부여] 선택 UI 노출.
+  actType: ProcessActType;
+  crewReactionLabel: string; // 종류(= act_type 라벨: 필수/선별 …)
   cafeLabel: string; // 카페(발생/미발생)
   isCheckTarget: boolean;
   // 체크 상태(현재값).
   status: ProcessCheckStatus;
+  // 완료 경로 — 'manual_grant'(관리자 수동 부여) / null(검수·일반). 행 라벨("수동 부여 완료") 분기.
+  completionType: "manual_grant" | null;
   reviewLink: string | null;
   scheduledCheckAt: string | null; // 검수 시점(실제)
   requestedAt: string | null; // 신청 시점(실제)

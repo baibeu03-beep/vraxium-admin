@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { APPLICANT_STATUSES } from "@/lib/adminApplicantTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 type Applicant = {
   id: string;
@@ -96,6 +97,7 @@ function statusBadgeClass(status: Applicant["status"]) {
 }
 
 export default function ApplicantsList() {
+  const confirm = useConfirm();
   const devMode = useAdminDevMode();
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,9 +172,12 @@ export default function ApplicantsList() {
 
   const handleReject = async (applicant: Applicant) => {
     if (rejectingId || approveTarget) return;
-    const confirmed = window.confirm(
-      `${applicant.name ?? applicant.email ?? "이 신청자"}의 가입을 거절하시겠습니까?`,
-    );
+    const confirmed = await confirm({
+      title: "가입 거절",
+      description: `${applicant.name ?? applicant.email ?? "이 신청자"}의 가입을 거절하시겠습니까?`,
+      confirmLabel: "거절",
+      tone: "destructive",
+    });
     if (!confirmed) return;
 
     setRejectingId(applicant.id);

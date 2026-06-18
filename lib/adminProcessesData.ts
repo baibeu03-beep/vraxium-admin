@@ -304,7 +304,7 @@ export async function createProcessAct(
       check_time: input.checkTime,
       point_check: input.pointCheck,
       point_advantage: input.pointAdvantage,
-      // 크루 반응(act_type)이 '필수'가 아니면 포인트 C(penalty)=0 강제(프론트 우회·잘못된 요청 보정).
+      // 액트 종류(act_type)이 '필수'가 아니면 포인트 C(penalty)=0 강제(프론트 우회·잘못된 요청 보정).
       point_penalty: enforcePointC(input.actType, input.pointPenalty),
       cafe: input.cafe,
       check_target: input.checkTarget,

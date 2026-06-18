@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { DAY_NAMES } from "@/lib/practicalInfoSection0Format";
 import { type ProcessHub } from "@/lib/adminProcessesTypes";
@@ -77,11 +78,15 @@ export default function ProcessCheckActDialog({
   onClose: () => void;
   onDone: () => void; // 성공 후 보드/로그/상태창 재조회
 }) {
+  const confirm = useConfirm();
   const [reviewLink, setReviewLink] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [banner, setBanner] = useState<Banner>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // 닫기 확인용 — needed 상태에서 입력값이 있을 때만 한 번 더 확인.
+  const dirty = reviewLink !== "" || date !== "" || time !== "";
 
   const status = act.status;
   // 팝업 오픈 시점 고정(취소 가능 판정/날짜 min·max 기준) — 렌더 중 Date.now() 호출 회피.
@@ -102,11 +107,20 @@ export default function ProcessCheckActDialog({
     status === "pending" &&
     (!act.scheduledCheckAt || nowMs < Date.parse(act.scheduledCheckAt));
 
-  const reset = () => {
+  const reset = async () => {
+    // 초기화 전 한 번 더 확인.
+    if (!(await confirm(CONFIRM.reset))) return;
     setReviewLink("");
     setDate("");
     setTime("");
     setBanner(null);
+  };
+
+  // 닫기 — 입력값이 있을 때만 한 번 더 확인(없으면 그냥 닫기).
+  const requestClose = async () => {
+    if (submitting) return;
+    if (dirty && !(await confirm(CONFIRM.close))) return;
+    onClose();
   };
 
   const submit = async (action: "request" | "cancel") => {
@@ -118,6 +132,21 @@ export default function ProcessCheckActDialog({
       const sched = validateScheduledCheckAt(scheduledIso, Date.now());
       if (!sched.ok) return setBanner({ kind: "error", message: sched.error });
     }
+    // 처리 전 한 번 더 확인(신청/취소 각각 안내 문구 분리).
+    const ok =
+      action === "request"
+        ? await confirm({
+            title: "체크 신청",
+            description: "체크를 신청합니다. 진행하시겠습니까?",
+            confirmLabel: "체크 신청",
+          })
+        : await confirm({
+            title: "체크 취소",
+            description: "체크를 취소 처리합니다. 진행하시겠습니까?",
+            confirmLabel: "체크 취소",
+            tone: "destructive",
+          });
+    if (!ok) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/admin/processes/check", {
@@ -152,7 +181,7 @@ export default function ProcessCheckActDialog({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !submitting) onClose();
+        if (e.target === e.currentTarget && !submitting) void requestClose();
       }}
     >
       <div className="w-full max-w-md rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
@@ -171,7 +200,7 @@ export default function ProcessCheckActDialog({
               {status === "completed" ? "체크 완료" : status === "pending" ? "체크 대기" : "체크 필요"}
             </span>
           </h2>
-          <button type="button" onClick={onClose} disabled={submitting} className="hover:opacity-70">
+          <button type="button" onClick={() => void requestClose()} disabled={submitting} className="hover:opacity-70">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -299,7 +328,7 @@ export default function ProcessCheckActDialog({
             variant="outline"
             size="sm"
             disabled={status !== "needed" || submitting}
-            onClick={reset}
+            onClick={() => void reset()}
           >
             초기화
           </Button>
@@ -323,7 +352,7 @@ export default function ProcessCheckActDialog({
             {submitting && status === "pending" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
             체크 취소
           </Button>
-          <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={onClose}>
+          <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={() => void requestClose()}>
             닫기
           </Button>
         </div>

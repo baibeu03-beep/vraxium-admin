@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import {
   CAREER_ENHANCEMENT_STATUSES,
   CAREER_GRADES,
@@ -237,6 +238,7 @@ export default function ActivityTab({
   >(() => new Map());
   const [careerDraft, setCareerDraft] = useState<CareerFormRow | null>(null);
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
+  const confirm = useConfirm();
 
   const targetUserId = bundle.userId ?? "";
 
@@ -464,7 +466,10 @@ export default function ActivityTab({
   ) => {
     if (saveDisabled) return;
 
-    const ok = window.confirm(`${confirmMessage}\n\nid: ${id}`);
+    const ok = await confirm({
+      ...CONFIRM.delete,
+      description: `${confirmMessage}\n\nid: ${id}`,
+    });
     if (!ok) return;
 
     const paramKeyMap: Record<Cluster4DeleteResource, string> = {

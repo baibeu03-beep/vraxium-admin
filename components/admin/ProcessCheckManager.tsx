@@ -19,11 +19,13 @@ import { formatLogDateTime } from "@/lib/practicalInfoSection0Format";
 import { PROCESS_HUB_LABEL, type ProcessHub } from "@/lib/adminProcessesTypes";
 import ProcessCheckActDialog from "@/components/admin/ProcessCheckActDialog";
 import ProcessCheckActTable from "@/components/admin/ProcessCheckActTable";
+import ProcessCheckManualGrantDialog from "@/components/admin/ProcessCheckManualGrantDialog";
 import ProcessCheckProgress from "@/components/admin/ProcessCheckProgress";
 import {
   PROCESS_CHECK_LOG_ACTION_LABEL,
   emptyProcessCheckBoard,
   formatCheckTodayCompact,
+  isSelectionActType,
   isTeamBasedProcessHub,
   processCheckLogActionClass,
   type ProcessCheckActRowDto,
@@ -51,6 +53,18 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   const [error, setError] = useState<string | null>(null);
   const [today] = useState(() => new Date());
   const [dialogAct, setDialogAct] = useState<ProcessCheckActRowDto | null>(null);
+  // 선별 액트 "체크 필요" 클릭 시 [검수 신청]/[수동 부여] 선택 모달 + 수동 부여 모달.
+  const [choiceAct, setChoiceAct] = useState<ProcessCheckActRowDto | null>(null);
+  const [manualGrantAct, setManualGrantAct] = useState<ProcessCheckActRowDto | null>(null);
+
+  // 액트 상태 버튼 클릭 — 선별(selection) 액트의 'needed' 만 선택 모달, 그 외는 기존 신청/표시 모달.
+  const openAct = useCallback((a: ProcessCheckActRowDto) => {
+    if (a.status === "needed" && isSelectionActType(a.actType)) {
+      setChoiceAct(a);
+    } else {
+      setDialogAct(a);
+    }
+  }, []);
 
   // 섹션.1(experience) 팀 스코프 보드.
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -404,7 +418,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 weekDisabled={teamWeekDisabled}
                 readOnly={scopeReadOnly}
                 showScopeColumn
-                onOpenAct={(a) => setDialogAct(a)}
+                onOpenAct={openAct}
               />
             </>
           )}
@@ -414,7 +428,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           acts={acts}
           loading={loading}
           weekDisabled={weekDisabled}
-          onOpenAct={(a) => setDialogAct(a)}
+          onOpenAct={openAct}
         />
       )}
 
@@ -428,6 +442,67 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           scope={teamMode ? scopeKind : null}
           partName={teamMode ? scopePartName : null}
           onClose={() => setDialogAct(null)}
+          onDone={refreshAfterAction}
+        />
+      )}
+
+      {/* 선별 액트 선택 모달 — [검수 신청](기존 UI) / [수동 부여](직접 입력 UI). */}
+      {choiceAct && org && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setChoiceAct(null);
+          }}
+        >
+          <div className="w-full max-w-sm rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="text-base font-semibold">선별 액트 체크</h2>
+              <button type="button" onClick={() => setChoiceAct(null)} className="hover:opacity-70">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mb-4 text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{choiceAct.actName}</span> — 체크 방식을 선택하세요.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDialogAct(choiceAct);
+                  setChoiceAct(null);
+                }}
+                className="rounded-md border border-purple-300 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-100"
+              >
+                검수 신청
+                <span className="mt-0.5 block text-[11px] font-normal text-purple-600">카페 글 기반 · worker 검수</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setManualGrantAct(choiceAct);
+                  setChoiceAct(null);
+                }}
+                className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 transition-colors hover:bg-green-100"
+              >
+                수동 부여
+                <span className="mt-0.5 block text-[11px] font-normal text-green-600">대상 크루 · 포인트 직접 입력</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 선별 액트 수동 부여 모달 — 대상 크루 + 포인트 직접 입력(C=0 고정). */}
+      {manualGrantAct && org && (
+        <ProcessCheckManualGrantDialog
+          act={manualGrantAct}
+          hub={hub}
+          organization={org}
+          mode={mode}
+          teamId={teamMode ? effectiveTeamId : null}
+          scope={teamMode ? scopeKind : null}
+          partName={teamMode ? scopePartName : null}
+          onClose={() => setManualGrantAct(null)}
           onDone={refreshAfterAction}
         />
       )}
