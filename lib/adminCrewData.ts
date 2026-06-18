@@ -279,6 +279,34 @@ type CrewSourceRows = {
   growthStats: UserGrowthStatsRow[];
 };
 
+// PostgREST 의 .in() 은 id 들을 URL 쿼리스트링에 그대로 나열한다 — 로스터 전체(700+)면
+// 쿼리스트링이 ~27KB 까지 커져 URL 길이 한계를 넘고 "Bad Request"/fetch failed 로 500 이 난다.
+// user_id 를 청크로 나눠 조회 후 병합한다(결과 동일·snapshot-only 무관). 청크 단위 실패는
+// 어느 테이블·어느 구간인지 메시지에 박아 원인을 정확히 남긴다.
+const ROSTER_IN_CHUNK = 150;
+async function fetchByIdsChunked<T>(
+  table: string,
+  select: string,
+  column: string,
+  ids: string[],
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += ROSTER_IN_CHUNK) {
+    const chunk = ids.slice(i, i + ROSTER_IN_CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from(table)
+      .select(select)
+      .in(column, chunk);
+    if (error) {
+      throw new Error(
+        `[fetchCrewSourceRows] ${table}.in(${column}) 청크 실패 [${i}-${i + chunk.length}/${ids.length}]: ${error.message}`,
+      );
+    }
+    out.push(...((data ?? []) as T[]));
+  }
+  return out;
+}
+
 async function fetchCrewSourceRows(options: {
   organization?: OrganizationSlug;
   userId?: string;
@@ -325,18 +353,14 @@ async function fetchCrewSourceRows(options: {
 
   const userIds = profiles.map((profile) => profile.user_id);
 
-  const [usersRes, membershipsRes, educationsRes, growthRes] = await Promise.all([
-    supabaseAdmin.from("users").select(USERS_SELECT).in("id", userIds),
-    supabaseAdmin.from("user_memberships").select(MEMBERSHIP_SELECT).in("user_id", userIds),
-    supabaseAdmin.from("user_educations").select(EDUCATION_SELECT).in("user_id", userIds),
-    supabaseAdmin.from("user_growth_stats").select(GROWTH_SELECT).in("user_id", userIds),
+  // .in() URL 길이 한계 회피 — user_id 청크 분할 조회(병렬 4종, 각 테이블 내부는 순차 청크).
+  const [users, memberships, educations, growthStats] = await Promise.all([
+    fetchByIdsChunked<UsersRow>("users", USERS_SELECT, "id", userIds),
+    fetchByIdsChunked<UserMembershipRow>("user_memberships", MEMBERSHIP_SELECT, "user_id", userIds),
+    fetchByIdsChunked<UserEducationRow>("user_educations", EDUCATION_SELECT, "user_id", userIds),
+    fetchByIdsChunked<UserGrowthStatsRow>("user_growth_stats", GROWTH_SELECT, "user_id", userIds),
   ]);
 
-  for (const res of [usersRes, membershipsRes, educationsRes, growthRes]) {
-    if (res.error) throw new Error(res.error.message);
-  }
-
-  const users = (usersRes.data ?? []) as unknown as UsersRow[];
   // graft 대상 후보만 수집 — olympus 외 소스 이관 행은 숫자가 겹쳐도 조회 자체를 배제.
   const legacyUserIds = users
     .filter((row) => canGraftLegacyCrewImport(row.source_system))
@@ -346,22 +370,12 @@ async function fetchCrewSourceRows(options: {
 
   let legacyRows: LegacyCrewRow[] = [];
   if (legacyUserIds.length > 0) {
-    const legacyRes = await supabaseAdmin
-      .from("legacy_crew_import")
-      .select(LEGACY_SELECT)
-      .in("legacy_user_id", legacyUserIds);
-    if (legacyRes.error) throw new Error(legacyRes.error.message);
-    legacyRows = (legacyRes.data ?? []) as unknown as LegacyCrewRow[];
+    legacyRows = await fetchByIdsChunked<LegacyCrewRow>(
+      "legacy_crew_import", LEGACY_SELECT, "legacy_user_id", legacyUserIds,
+    );
   }
 
-  return {
-    profiles,
-    users,
-    legacyRows,
-    memberships: (membershipsRes.data ?? []) as unknown as UserMembershipRow[],
-    educations: (educationsRes.data ?? []) as unknown as UserEducationRow[],
-    growthStats: (growthRes.data ?? []) as unknown as UserGrowthStatsRow[],
-  };
+  return { profiles, users, legacyRows, memberships, educations, growthStats };
 }
 
 function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
