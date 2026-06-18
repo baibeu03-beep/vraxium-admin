@@ -1,7 +1,7 @@
 // 프로세스 체크 · info — 테스트/운영 모드 주차 분리(13주차 예외) direct==HTTP 검증.
 //   operating GET → 현재 주차(W16·휴식) · test GET → 마지막 운영 주차(W13).
 //   test request 저장 주차 = W13(직접 DB 확인) · operating 보드엔 미노출(주차 분리) ·
-//   org 분리 · 다른 허브(club)는 test 예외 미적용(현재 주차 유지) · cleanup net-zero.
+//   org 분리 · club 허브도 test W13 예외 적용(2026-06-17 신규 허용) · cleanup net-zero.
 // 전제: dev 서버 + 2026-06-12_process_check_v2.sql 적용.
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
@@ -75,9 +75,11 @@ try {
   const bTe = await api(`/api/admin/processes/check?hub=${HUB}&org=${ORG}&mode=test`);
   ck("[테스트] GET 200 · weekNumber=13(13주차 예외) · weekId=W13", bTe.status === 200 && bTe.json.data?.week?.weekNumber === 13 && bTe.json.data?.week?.weekId === w13.id, `wn=${bTe.json.data?.week?.weekNumber}`);
 
-  // ── 3. 다른 허브(club)는 test 예외 미적용 → 현재 주차(W16) 유지 ──
+  // ── 3. club 도 test W13 예외 적용 → 마지막 운영주차(W13) ──
+  //   2026-06-17 정책 변경: process-club 신규 허용(lib/cluster4TestWeekPolicy TEST_WEEK_HUB_POLICY).
+  //   따라서 club test 도 info/competency 와 동일하게 휴식 꼬리에서 W13 으로 walk-back.
   const bClub = await api(`/api/admin/processes/check?hub=club&org=${ORG}&mode=test`);
-  ck("[격리] club test → weekNumber=16(예외 미적용)", bClub.status === 200 && bClub.json.data?.week?.weekNumber === 16, `wn=${bClub.json.data?.week?.weekNumber}`);
+  ck("[모드] club test → weekNumber=13(2026-06-17 club W13 예외 허용)", bClub.status === 200 && bClub.json.data?.week?.weekNumber === 13, `wn=${bClub.json.data?.week?.weekNumber}`);
 
   // ── 4. test request → W13 에 저장(직접 DB 확인) ──
   const schedIso = new Date(Date.now() + DAY).toISOString();

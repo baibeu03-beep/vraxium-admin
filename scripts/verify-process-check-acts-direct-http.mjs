@@ -61,11 +61,14 @@ try {
   });
   // 생성 순서를 일부러 뒤섞어 정렬을 검증: A(N 수 09:00), B(N 화 08:00), C(N 화 06:30), D(N+1 월 06:00)
   // 기대 정렬: C, B, A, D
+  // act_type 은 신규 등록 허용 2종(required=필수 · selection=선별)만 사용한다.
+  //   (구 'optional' 은 POST 검증에서 거부 — PROCESS_ACT_TYPE_OPTIONS=[required, selection].)
+  //   C·D 를 selection 으로 두어 "required 가 아니면 Po.C(penalty)=0 강제" 규칙을 함께 검증.
   const seed = [
     ["A", "N", 3, "09:00", "required", "occur"],
-    ["D", "N1", 1, "06:00", "optional", "none"],
+    ["D", "N1", 1, "06:00", "selection", "none"],
     ["B", "N", 2, "08:00", "required", "occur"],
-    ["C", "N", 2, "06:30", "optional", "none"],
+    ["C", "N", 2, "06:30", "selection", "none"],
   ];
   const made = {};
   for (const s of seed) { const c = await api("/api/admin/processes/acts", { method: "POST", body: J(mk(...s)) }); made[s[0]] = c.json.data?.id; }
@@ -87,8 +90,8 @@ try {
 
   // 컬럼 채움 + 실제 시점 빈칸 + 상태 needed.
   const C = mine.find((a) => a.actName.endsWith("C"));
-  // C = act_type 자율(optional) → 크루반응 규칙으로 Po.C(penalty)=0 강제(seed 는 1로 보냈으나 0 저장).
-  ck("[컬럼] 라인급/소요/Po.A·B/크루반응/카페 채움 · Po.C=0(자율)", C && C.lineGroupName === `${TAG} 라인급` && C.durationMinutes === 10 && C.pointCheck === 3 && C.pointAdvantage === 2 && C.pointPenalty === 0 && C.crewReactionLabel === "자율" && C.cafeLabel === "미발생", J(C && { g: C.lineGroupName, d: C.durationMinutes, c: C.pointPenalty, cr: C.crewReactionLabel, cafe: C.cafeLabel }));
+  // C = act_type 선별(selection) → required 가 아니므로 Po.C(penalty)=0 강제(seed 는 1로 보냈으나 0 저장).
+  ck("[컬럼] 라인급/소요/Po.A·B/크루반응/카페 채움 · Po.C=0(선별)", C && C.lineGroupName === `${TAG} 라인급` && C.durationMinutes === 10 && C.pointCheck === 3 && C.pointAdvantage === 2 && C.pointPenalty === 0 && C.crewReactionLabel === "선별" && C.cafeLabel === "미발생", J(C && { g: C.lineGroupName, d: C.durationMinutes, c: C.pointPenalty, cr: C.crewReactionLabel, cafe: C.cafeLabel }));
   const A = mine.find((a) => a.actName.endsWith("A"));
   // A = 필수(required) → Po.C(penalty)=1 유지(규칙 허용).
   ck("[컬럼] A: 크루반응=필수 · 카페=발생 · Po.C=1 유지", A && A.crewReactionLabel === "필수" && A.cafeLabel === "발생" && A.pointPenalty === 1);

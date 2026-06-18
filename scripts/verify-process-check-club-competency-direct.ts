@@ -5,7 +5,7 @@
  * 검증:
  *   1) 세 허브 보드 DTO 구조 동일(같은 키·teams 비팀=빈배열·hub/hubLabel만 차이).
  *   2) 액트 목록이 허브별로만 필터(board.acts 의 act_id 전부 process_acts.hub == 그 허브, 교차 0).
- *   3) 테스트 모드 주차 예외(2026 봄 W13): info·competency 적용 — club 만 test==operating(예외 비적용).
+ *   3) 테스트 모드 주차 예외(2026 봄 W13): info·competency·club 모두 적용(2026-06-17 club 신규 허용).
  *   4) org 분리(oranke/encre/phalanx) — board.organization 일치, 데이터 누설 0.
  */
 import { writeFileSync } from "fs";
@@ -52,10 +52,11 @@ async function main() {
   ok(inter === 0, `세 허브 액트 교차 0 (info∩competency∩club)`);
 
   // ── 3) 테스트 주차 예외 — info·competency 적용 / club 비적용 ──────
-  console.log("\n=== 3) 테스트 모드 주차 예외 — info·competency 적용, club 비적용 ===");
+  console.log("\n=== 3) 테스트 모드 주차 예외 — info·competency·club 모두 적용(2026-06-17) ===");
   // 봄 휴식 꼬리에서만 test 주차가 13 으로 walk-back 됨(operating 은 현재 16). 휴식 꼬리가 아니면
   // operating==test 라 예외 분기 자체가 검증 불가 → 전제 가드(휴식 꼬리)에서만 분리 단언.
-  const TEST_EXCEPTION_HUBS = new Set(["info", "competency"]);
+  // club 은 2026-06-17 process-club 신규 허용으로 info/competency 와 동일 정책(W13 예외 적용).
+  const TEST_EXCEPTION_HUBS = new Set(["info", "competency", "club"]);
   for (const hub of HUBS) {
     const op = await getProcessCheckBoard(hub, "oranke", null, "operating");
     const ts = await getProcessCheckBoard(hub, "oranke", null, "test");

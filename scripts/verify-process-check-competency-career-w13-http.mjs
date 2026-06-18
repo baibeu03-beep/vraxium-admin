@@ -1,7 +1,7 @@
 // 프로세스 체크 · competency/career — 테스트 모드 W13 예외 HTTP 검증(2026-06-17).
 //   operating GET → 현재 주차(W16·휴식) · test GET → 마지막 활동 주차(W13).
 //   test request 저장 주차 = W13(직접 DB 확인) · operating 보드엔 미노출(주차 분리) ·
-//   club 은 test 예외 미적용(현재 주차 유지·격리) · direct(스냅샷)==HTTP 주차 일치 · cleanup net-zero.
+//   club 도 test W13 예외 적용(2026-06-17 신규 허용) · direct(스냅샷)==HTTP 주차 일치 · cleanup net-zero.
 // 전제: dev 서버(:3000) + 2026-06-12_process_check_v2.sql 적용 +
 //        먼저 verify-process-check-club-competency-direct.ts 실행(direct 스냅샷 생성).
 import { createRequire } from "node:module";
@@ -112,8 +112,8 @@ try {
     ck(`[direct==HTTP/${HUB}] test 보드 a1.reviewLink == 신청값`, findAct(bTe2.json.data, a1.id)?.reviewLink === `https://cafe.naver.com/test/${HUB}13`);
   }
 
-  // 6. 격리 — club 은 test 예외 미적용 → 현재 주차(W16) 유지(다른 과거 주차 안 열림).
+  // 6. 모드 — club 도 test W13 예외 적용(2026-06-17 process-club 신규 허용) → 마지막 활동주차(W13).
   const bClub = await api(`/api/admin/processes/check?hub=club&org=${ORG}&mode=test`);
-  ck("[격리] club test → weekNumber=16(예외 미적용·16주차 제한 유지)", bClub.status === 200 && bClub.json.data?.week?.weekNumber === 16, `wn=${bClub.json.data?.week?.weekNumber}`);
+  ck("[모드] club test → weekNumber=13(2026-06-17 club W13 예외 허용)", bClub.status === 200 && bClub.json.data?.week?.weekNumber === 13, `wn=${bClub.json.data?.week?.weekNumber}`);
 } catch (e) { console.error("ERROR:", e?.stack ?? e?.message ?? e); fail++; }
 finally { await cleanup(); console.log("(cleanup — net-zero)"); console.log(`\n결과: ${pass} pass / ${fail} fail`); process.exit(fail > 0 ? 1 : 0); }

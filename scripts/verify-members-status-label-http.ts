@@ -1,18 +1,22 @@
 /**
  * 실제 HTTP 검증 — GET /api/admin/members 의 statusLabel 이
- * membership_level SoT 기준으로 내려오는지 확인한다.
+ * membership_level SoT(lib/adminMembersTypes.memberStatusLabel) 기준으로 내려오는지 확인한다.
  *
- *   기대:
- *     - T최수빈 (role=part_leader, level=일반)  → statusLabel "일반"
- *     - T임시우 (role=part_leader, level=심화)  → statusLabel "심화(파트장)"
+ *   1) SoT 단위 단언(원래 의도 보존, 데이터 비의존):
+ *        - memberStatusLabel("part_leader", "일반")        → "일반"  (파트장 role 이라도 level=일반이면 일반)
+ *        - memberStatusLabel("part_leader", "심화(파트장)") → "심화(파트장)"
+ *        - memberStatusLabel("part_leader", "심화")        → "심화(파트장)"
+ *   2) 데이터 주도 HTTP 단언: 실 DB 에서 라벨별 실존 멤버를 골라, HTTP statusLabel == SoT(role,level) 확인.
+ *        (하드코딩 이름 픽스처 제거 — 명단이 바뀌어도 깨지지 않는다.)
  *
- *   사전조건: dev 서버 기동 (기본 http://localhost:3010, SMOKE_BASE_URL 로 변경).
+ *   사전조건: dev 서버 기동 (기본 http://localhost:3000, SMOKE_BASE_URL 로 변경).
  *   npx tsx --env-file=.env.local scripts/verify-members-status-label-http.ts
  */
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
+import { memberStatusLabel } from "@/lib/adminMembersTypes";
 
-const baseUrl = process.env.SMOKE_BASE_URL ?? "http://localhost:3010";
+const baseUrl = process.env.SMOKE_BASE_URL ?? "http://localhost:3000";
 const adminEmail = process.env.SMOKE_ADMIN_EMAIL ?? "vanuatu.golden@gmail.com";
 
 function ensureEnv(name: string) {
@@ -76,9 +80,10 @@ type MemberDto = {
   status: string | null;
 };
 
-async function fetchMemberByName(cookieHeader: string, name: string) {
+// HTTP 검색 결과에서 userId 로 정확히 매칭(동명이인 안전).
+async function fetchMemberById(cookieHeader: string, name: string, userId: string) {
   const res = await fetch(
-    `${baseUrl}/api/admin/members?q=${encodeURIComponent(name)}&limit=10`,
+    `${baseUrl}/api/admin/members?q=${encodeURIComponent(name)}&limit=50`,
     { headers: { Cookie: cookieHeader } },
   );
   const json = (await res.json().catch(() => ({}))) as {
@@ -89,36 +94,83 @@ async function fetchMemberByName(cookieHeader: string, name: string) {
   if (!res.ok || !json.success) {
     throw new Error(`GET /api/admin/members q=${name} → ${res.status} ${json.error ?? ""}`);
   }
-  const member = (json.data?.members ?? []).find((m) =>
-    (m.displayName ?? "").includes(name),
-  );
-  if (!member) throw new Error(`member not found in HTTP response: ${name}`);
+  const member = (json.data?.members ?? []).find((m) => m.userId === userId);
+  if (!member) throw new Error(`member not found in HTTP response: ${name} (${userId})`);
   return member;
+}
+
+// 실 DB 에서 라벨별 실존 멤버 1명씩 선정(테스트 마커 'T' 접두 제외 — 운영 명단 기준).
+async function pickRealMembersByLabel(targets: string[]) {
+  const supabaseUrl = ensureEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const serviceRoleKey = ensureEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const sb = createClient(supabaseUrl, serviceRoleKey);
+
+  const { data: mem } = await sb
+    .from("user_memberships")
+    .select("user_id,membership_level")
+    .limit(10000);
+  const levelByUser = new Map((mem ?? []).map((m) => [m.user_id, m.membership_level]));
+
+  const { data: profs } = await sb
+    .from("user_profiles")
+    .select("user_id,display_name,role,organization_slug")
+    .not("display_name", "is", null)
+    .order("user_id", { ascending: true })
+    .limit(10000);
+
+  const chosen = new Map<string, { uid: string; name: string; role: string | null; level: string | null }>();
+  for (const p of profs ?? []) {
+    const name = (p.display_name ?? "").trim();
+    if (name.length < 2 || name.startsWith("T")) continue; // 테스트 마커/빈 이름 제외
+    const level = (levelByUser.get(p.user_id) ?? null) as string | null;
+    const label = memberStatusLabel(p.role, level);
+    if (targets.includes(label) && !chosen.has(label)) {
+      chosen.set(label, { uid: p.user_id, name, role: p.role, level });
+    }
+  }
+  return chosen;
 }
 
 async function main() {
   const cookieHeader = await makeAdminCookieHeader();
 
-  const cases: Array<{ name: string; expected: string }> = [
-    { name: "최수빈", expected: "일반" }, // role=part_leader 인데 level=일반 → 파트장 금지
-    { name: "임시우", expected: "심화(파트장)" }, // role=part_leader + level=심화
-  ];
-
   let failed = 0;
-  for (const c of cases) {
-    const m = await fetchMemberByName(cookieHeader, c.name);
-    const ok = m.statusLabel === c.expected;
+  const ck = (ok: boolean, msg: string) => {
+    console.log(`${ok ? "PASS" : "FAIL"} ${msg}`);
     if (!ok) failed += 1;
-    console.log(
-      `${ok ? "PASS" : "FAIL"} ${m.displayName} → statusLabel=${JSON.stringify(m.statusLabel)} (기대 ${JSON.stringify(c.expected)}) [role=${m.role}, membershipLevel=${m.membershipLevel}]`,
-    );
+  };
+
+  // 1) SoT 단위 단언 — 원래 픽스처가 검증하던 의도(파트장 role × level 분기)를 데이터 비의존으로 보존.
+  ck(memberStatusLabel("part_leader", "일반") === "일반",
+    `SoT memberStatusLabel(part_leader, 일반) → "일반" (level=일반이면 파트장 표기 금지)`);
+  ck(memberStatusLabel("part_leader", "심화(파트장)") === "심화(파트장)",
+    `SoT memberStatusLabel(part_leader, 심화(파트장)) → "심화(파트장)"`);
+  ck(memberStatusLabel("part_leader", "심화") === "심화(파트장)",
+    `SoT memberStatusLabel(part_leader, 심화) → "심화(파트장)"`);
+
+  // 2) 데이터 주도 HTTP 단언 — 라벨별 실존 멤버의 HTTP statusLabel == SoT(role, level).
+  const targets = ["일반", "심화(파트장)", "심화(에이전트)", "팀장", "앰배서더"];
+  const chosen = await pickRealMembersByLabel(targets);
+  if (chosen.size === 0) throw new Error("후보 멤버를 DB 에서 찾지 못했습니다.");
+
+  for (const label of targets) {
+    const c = chosen.get(label);
+    if (!c) {
+      console.log(`SKIP "${label}" — 현재 명단에 해당 라벨 운영 멤버 없음`);
+      continue;
+    }
+    const m = await fetchMemberById(cookieHeader, c.name, c.uid);
+    const expected = memberStatusLabel(c.role, c.level); // == label
+    const ok = m.statusLabel === expected;
+    ck(ok,
+      `${m.displayName} → HTTP statusLabel=${JSON.stringify(m.statusLabel)} == SoT ${JSON.stringify(expected)} [role=${m.role}, level=${m.membershipLevel}]`);
   }
 
   if (failed > 0) {
     console.error(`\n${failed}건 실패`);
     process.exit(1);
   }
-  console.log("\n모든 케이스 통과 — /admin/members HTTP 응답 기준 검증 완료");
+  console.log("\n모든 케이스 통과 — /admin/members HTTP statusLabel == membership_level SoT 검증 완료");
 }
 
 main().catch((e) => {

@@ -31,9 +31,18 @@ const api = async (path, init = {}) => {
 };
 let pass = 0, fail = 0; const ck = (l, ok, d = "") => { console.log(`  ${ok ? "✓" : "✗"} ${l}${d ? ` — ${d}` : ""}`); ok ? pass++ : fail++; };
 
+// 운영(operating) 보드는 (T) 테스트 팀을 제외하고 운영 팀만 노출한다.
+//   lib/cluster4ExperienceTestScope.TEST_TEAM_SCOPE 미러(이 스크립트는 oranke/encre 만 사용).
+//   filterTeamsByScope(teams, org, "operating") 와 동일 정책 — direct 가 HTTP 운영 보드와 정합.
+const TEST_TEAM_SCOPE = {
+  oranke: new Set(["과일(T)", "음료(T)", "콘텐츠실험(T)"]),
+  encre: new Set(["사운드(T)", "비주얼랩(T)", "팬덤실험(T)"]),
+  phalanx: new Set(["전략(T)", "제품실험(T)", "운영(T)"]),
+};
 async function directTeams(org) {
   const { data } = await sb.from("cluster4_teams").select("team_name").eq("organization_slug", org).eq("is_active", true).order("team_name", { ascending: true });
-  return (data ?? []).map((t) => t.team_name);
+  const testSet = TEST_TEAM_SCOPE[org] ?? new Set();
+  return (data ?? []).map((t) => t.team_name).filter((n) => !testSet.has(n)); // operating = 운영 팀만
 }
 async function cleanup() {
   const g = (await sb.from("process_line_groups").select("id").eq("hub", HUB).like("name", `${TAG}%`)).data ?? [];
