@@ -55,6 +55,8 @@ async function cleanup() {
         await sb.from("process_check_review_recipients").delete().eq("ref_id", sid);
         await sb.from("process_point_awards").delete().eq("source", "regular").eq("ref_id", sid);
       }
+      // 완료 sweep 이 남기는 [체크 완료] 자동 로그도 함께 정리(net-zero).
+      await sb.from("process_check_logs").delete().in("act_id", aIds);
       await sb.from("process_check_statuses").delete().in("act_id", aIds);
       await sb.from("process_acts").delete().in("id", aIds);
     }

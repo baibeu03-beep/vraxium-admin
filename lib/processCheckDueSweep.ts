@@ -29,6 +29,7 @@ import {
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { accrueForCompletedAct, type AccrualSource } from "@/lib/processPointAccrual";
+import { logProcessCheckCompletedForRegular } from "@/lib/adminProcessCheckData";
 
 // 워커와 동일 env 이름으로 재시도/쿨다운 정책을 공유한다(동작 일치).
 const MAX_ATTEMPTS = Number(process.env.WORKER_MAX_ATTEMPTS ?? 5);
@@ -276,6 +277,17 @@ export async function runDueProcessCheckSweep(opts: {
       if (item.source === "regular") upd.checked_crew_count = matched.length;
       const { error: uErr } = await supabaseAdmin.from(item.table).update(upd).eq("id", item.id);
       if (uErr) throw new Error(`complete update: ${uErr.message}`);
+
+      // ── 체크 완료 로그(자동) — 정규 행이 completed 로 전이되는 순간 1회 기록(요구사항 #3).
+      //   관리자 버튼 이벤트가 아니므로 actor_name="자동 검수". 멱등(같은 스코프 중복 로그 X)은 helper 내부.
+      //   변동(irregular)은 process_check_logs(허브 기반) 미사용 → 정규만. best-effort(로그 실패가 완료를 안 깸).
+      if (item.source === "regular") {
+        try {
+          await logProcessCheckCompletedForRegular(item.id);
+        } catch (logErr) {
+          log(`  ↳ 완료 로그 실패(격리) ${item.id}: ${String((logErr as Error)?.message ?? logErr).slice(0, 200)}`);
+        }
+      }
 
       // ── 포인트 적립(완료 즉시) — 원장 멱등·user_weekly_points 재계산·snapshot 무효화(lib SoT).
       //   best-effort: 적립 실패가 완료 처리를 되돌리지 않는다(완료는 멱등 재실행으로 적립 재시도 가능).
