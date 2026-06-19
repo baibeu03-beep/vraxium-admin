@@ -326,7 +326,7 @@ export default function AppUsersList() {
                   <TableHead>상태</TableHead>
                   <TableHead>가입일</TableHead>
                   <TableHead>최근 수정</TableHead>
-                  <TableHead className="w-[200px] text-right">관리</TableHead>
+                  <TableHead className="w-[200px]">관리</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -396,7 +396,7 @@ export default function AppUsersList() {
                       <TableCell className="whitespace-nowrap text-xs">
                         {fmtDate(user.updatedAt)}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
                         {currentSlug ? (
                           <div className="flex justify-end items-center gap-1">
                             <Link

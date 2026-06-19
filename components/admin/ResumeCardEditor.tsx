@@ -932,7 +932,7 @@ export default function ResumeCardEditor({
                         <th className="pb-1.5 pr-2 font-medium">
                           {devMode ? "Status" : "상태"}
                         </th>
-                        <th className="pb-1.5 pr-2 font-medium text-right">
+                        <th className="pb-1.5 pr-2 font-medium">
                           {devMode ? "Weeks" : "주차"}
                         </th>
                         <th className="pb-1.5 font-medium">
@@ -974,7 +974,7 @@ export default function ResumeCardEditor({
                               {rec.progressStatus}
                             </span>
                           </td>
-                          <td className="py-1.5 pr-2 text-right tabular-nums">
+                          <td className="py-1.5 pr-2 tabular-nums">
                             {rec.approvedWeeks}/{rec.totalWeeks}
                           </td>
                           <td className="py-1.5">

@@ -1094,7 +1094,7 @@ export default function PracticalInfoOpeningForm({
                       <th className="px-2 py-1.5">파트명</th>
                       <th className="px-2 py-1.5">학교명</th>
                       <th className="px-2 py-1.5">전공명</th>
-                      <th className="px-2 py-1.5 text-right">삭제</th>
+                      <th className="px-2 py-1.5">삭제</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1106,7 +1106,7 @@ export default function PracticalInfoOpeningForm({
                         <td className="px-2 py-1.5 text-xs">{c.partName ?? "-"}</td>
                         <td className="px-2 py-1.5 text-xs">{c.schoolName ?? "-"}</td>
                         <td className="px-2 py-1.5 text-xs">{c.majorName ?? "-"}</td>
-                        <td className="px-2 py-1.5 text-right">
+                        <td className="px-2 py-1.5">
                           <Button
                             type="button"
                             variant="ghost"

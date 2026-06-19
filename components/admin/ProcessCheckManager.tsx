@@ -63,10 +63,15 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   const [choiceAct, setChoiceAct] = useState<ProcessCheckActRowDto | null>(null);
   const [manualGrantAct, setManualGrantAct] = useState<ProcessCheckActRowDto | null>(null);
 
-  // 액트 상태 버튼 클릭 — 선별(selection) 액트의 'needed' 만 선택 모달, 그 외는 기존 신청/표시 모달.
+  // 액트 상태 버튼 클릭 — 팝업 라우팅:
+  //   needed + 선별         → 선택 모달([검수 신청]/[수동 입력])
+  //   completed + 수동 부여  → 수동 입력 팝업(체크 완료 크루 명단·읽기 전용)
+  //   그 외(필수·검수 신청/대기/완료) → 검수 링크 팝업
   const openAct = useCallback((a: ProcessCheckActRowDto) => {
     if (a.status === "needed" && isSelectionActType(a.actType)) {
       setChoiceAct(a);
+    } else if (a.status === "completed" && a.completionType === "manual_grant") {
+      setManualGrantAct(a);
     } else {
       setDialogAct(a);
     }
@@ -452,7 +457,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         />
       )}
 
-      {/* 선별 액트 선택 모달 — [검수 신청](기존 UI) / [수동 부여](직접 입력 UI). */}
+      {/* 선별 액트 선택 모달 — [검수 링크](검수 링크 입력 UI) / [수동 입력](직접 입력 UI). */}
       {choiceAct && org && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -479,7 +484,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 }}
                 className="rounded-md border border-purple-300 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-100"
               >
-                검수 신청
+                검수 링크
                 <span className="mt-0.5 block text-[11px] font-normal text-purple-600">카페 글 기반 · worker 검수</span>
               </button>
               <button
@@ -490,7 +495,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 }}
                 className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 transition-colors hover:bg-green-100"
               >
-                수동 부여
+                수동 입력
                 <span className="mt-0.5 block text-[11px] font-normal text-green-600">대상 크루 · 포인트 직접 입력</span>
               </button>
             </div>

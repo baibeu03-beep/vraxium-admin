@@ -196,7 +196,7 @@ export default function CareerEvaluationTab({
                     <TableHead>등급</TableHead>
                     <TableHead>점수</TableHead>
                     <TableHead>강화 상태</TableHead>
-                    <TableHead className="text-right">저장</TableHead>
+                    <TableHead>저장</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -242,7 +242,7 @@ export default function CareerEvaluationTab({
                             {RATING_STATUS_LABEL[t.ratingStatus]}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell>
                           <Button
                             size="sm"
                             onClick={() => handleSave(t)}

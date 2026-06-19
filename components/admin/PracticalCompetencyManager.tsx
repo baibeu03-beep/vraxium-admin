@@ -757,7 +757,7 @@ export default function PracticalCompetencyManager() {
                 ) : (
                   <Table>
                     {/* 컬럼 확장 예정: 추후 회원 매칭 단계에서 "회원 매칭" 컬럼 추가 (Phase 2) */}
-                    <TableHeader><TableRow><TableHead className="w-12">#</TableHead><TableHead>닉네임</TableHead><TableHead className="w-24 text-right">댓글 수</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead className="w-12">#</TableHead><TableHead>닉네임</TableHead><TableHead className="w-24">댓글 수</TableHead></TableRow></TableHeader>
                     <TableBody>
                       {[...cafeResult.nicknameCounts]
                         .sort((a, b) => b.count - a.count || a.nickname.localeCompare(b.nickname, "ko"))
@@ -765,7 +765,7 @@ export default function PracticalCompetencyManager() {
                           <TableRow key={n.nickname}>
                             <TableCell className="text-xs text-muted-foreground">{i + 1}</TableCell>
                             <TableCell className="font-medium">{n.nickname}</TableCell>
-                            <TableCell className="text-right">{n.count}</TableCell>
+                            <TableCell>{n.count}</TableCell>
                           </TableRow>
                         ))}
                     </TableBody>

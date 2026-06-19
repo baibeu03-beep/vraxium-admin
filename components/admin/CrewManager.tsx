@@ -457,15 +457,15 @@ export default function CrewManager({
                   <TableHead>{devMode ? "Part" : "파트"}</TableHead>
                   <TableHead>{devMode ? "Level" : "단계"}</TableHead>
                   <TableHead>{devMode ? "State" : "활동 상태"}</TableHead>
-                  <TableHead className="text-right">
+                  <TableHead>
                     {devMode ? "Cumulative" : "누적 주차"}
                   </TableHead>
-                  <TableHead className="text-right">
+                  <TableHead>
                     {devMode ? "Approved" : "승인 주차"}
                   </TableHead>
                   <TableHead>{devMode ? "Organization" : "소속"}</TableHead>
                   <TableHead>{devMode ? "Admin Note" : "운영 메모"}</TableHead>
-                  <TableHead className="w-[640px] text-right">
+                  <TableHead className="w-[640px]">
                     {devMode ? "Actions" : "바로가기"}
                   </TableHead>
                 </TableRow>
@@ -507,10 +507,10 @@ export default function CrewManager({
                     <TableCell>{formatValue(crew.partName)}</TableCell>
                     <TableCell>{formatValue(crew.membershipLevel)}</TableCell>
                     <TableCell>{formatValue(crew.membershipState)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       {formatValue(crew.cumulativeWeeks)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       {formatValue(crew.approvedWeeks)}
                     </TableCell>
                     <TableCell>{formatValue(crew.organizationSlug)}</TableCell>
@@ -520,7 +520,7 @@ export default function CrewManager({
                     >
                       {crew.adminNote ?? ""}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <div className="flex flex-wrap justify-end items-center gap-1">
                         <Link
                           href={

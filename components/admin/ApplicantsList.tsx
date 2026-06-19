@@ -311,7 +311,7 @@ export default function ApplicantsList() {
                   <TableHead>{devMode ? "연결된 user_id" : "연결된 회원"}</TableHead>
                   <TableHead>신청일</TableHead>
                   <TableHead>최근 수정</TableHead>
-                  <TableHead className="w-[180px] text-right">액션</TableHead>
+                  <TableHead className="w-[180px]">액션</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -362,7 +362,7 @@ export default function ApplicantsList() {
                       <TableCell className="whitespace-nowrap text-xs">
                         {fmtDate(applicant.updatedAt)}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
                         {isPending ? (
                           <div className="flex justify-end gap-2">
                             <Button
@@ -642,7 +642,7 @@ function ApproveDialog({
                 <TableHead>{devMode ? "Contact" : "연락 이메일"}</TableHead>
                 <TableHead>{devMode ? "Auth Email" : "로그인 이메일"}</TableHead>
                 <TableHead>{devMode ? "Org" : "소속"}</TableHead>
-                <TableHead className="w-[120px] text-right">선택</TableHead>
+                <TableHead className="w-[120px]">선택</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -678,7 +678,7 @@ function ApproveDialog({
                       {fmt(profile.auth_email)}
                     </TableCell>
                     <TableCell>{fmt(profile.organization)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <Button
                         size="sm"
                         type="button"

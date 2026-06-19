@@ -160,7 +160,7 @@ export default function TestUsersManager() {
                 <TableHead>역할</TableHead>
                 <TableHead>등급</TableHead>
                 <TableHead>성장 상태</TableHead>
-                <TableHead className="text-right">동작</TableHead>
+                <TableHead>동작</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -197,7 +197,7 @@ export default function TestUsersManager() {
                     <TableCell>{MEMBER_ROLE_LABEL[user.memberRole] ?? "일반"}</TableCell>
                     <TableCell>{dash(user.roleLabel)}</TableCell>
                     <TableCell>{growthSummary(user)}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       {/* 1행 2열 가로 배치 — 왼쪽: 어드민 페이지로 보기 / 오른쪽: 고객 페이지로 보기.
                           어드민 버튼은 team_leader/part_leader/agent 만 노출(crew/member 미노출 — 동작/조건 불변). */}
                       <div className="flex items-center justify-end gap-2">

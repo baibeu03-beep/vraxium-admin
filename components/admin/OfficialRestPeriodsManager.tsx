@@ -518,7 +518,7 @@ export default function OfficialRestPeriodsManager() {
                     <TableHead>종료일</TableHead>
                     <TableHead>설명</TableHead>
                     <TableHead>활성 여부</TableHead>
-                    <TableHead className="text-right">작업</TableHead>
+                    <TableHead>작업</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

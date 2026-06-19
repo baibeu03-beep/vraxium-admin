@@ -1101,7 +1101,7 @@ export default function Cluster4LineTable({
                   <TableHead className="whitespace-nowrap">기입 기간</TableHead>
                   <TableHead className="text-center">활성</TableHead>
                   <TableHead className="whitespace-nowrap">생성일</TableHead>
-                  <TableHead className="text-right">동작</TableHead>
+                  <TableHead>동작</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1166,7 +1166,6 @@ export default function Cluster4LineTable({
                           {fmtDateShort(line.createdAt)}
                         </TableCell>
                         <TableCell
-                          className="text-right"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Button

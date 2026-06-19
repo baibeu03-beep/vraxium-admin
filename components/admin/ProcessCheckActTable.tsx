@@ -74,17 +74,17 @@ export default function ProcessCheckActTable({
                   {showScopeColumn && <TableHead>팀 &amp; 파트</TableHead>}
                   <TableHead>액트명</TableHead>
                   <TableHead>소속 라인 급</TableHead>
-                  <TableHead className="text-right">소요(m)</TableHead>
+                  <TableHead>소요(m)</TableHead>
                   <TableHead>신청 시점(필요)</TableHead>
                   <TableHead>검수 시점(필요)</TableHead>
-                  <TableHead className="text-right">Po.A</TableHead>
-                  <TableHead className="text-right">Po.B</TableHead>
-                  <TableHead className="text-right">Po.C</TableHead>
+                  <TableHead>Po.A</TableHead>
+                  <TableHead>Po.B</TableHead>
+                  <TableHead>Po.C</TableHead>
                   <TableHead>종류</TableHead>
                   <TableHead>카페</TableHead>
                   <TableHead>신청 시점(실제)</TableHead>
                   <TableHead>검수 시점(실제)</TableHead>
-                  <TableHead className="text-right">상태</TableHead>
+                  <TableHead>상태</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -97,12 +97,12 @@ export default function ProcessCheckActTable({
                     )}
                     <TableCell className="font-medium">{a.actName}</TableCell>
                     <TableCell>{a.lineGroupName}</TableCell>
-                    <TableCell className="text-right tabular-nums">{a.durationMinutes}</TableCell>
+                    <TableCell className="tabular-nums">{a.durationMinutes}</TableCell>
                     <TableCell className="whitespace-nowrap">{a.occurWhen}</TableCell>
                     <TableCell className="whitespace-nowrap">{a.checkWhen}</TableCell>
-                    <TableCell className="text-right tabular-nums">{a.pointCheck}</TableCell>
-                    <TableCell className="text-right tabular-nums">{a.pointAdvantage}</TableCell>
-                    <TableCell className="text-right tabular-nums">{a.pointPenalty}</TableCell>
+                    <TableCell className="tabular-nums">{a.pointCheck}</TableCell>
+                    <TableCell className="tabular-nums">{a.pointAdvantage}</TableCell>
+                    <TableCell className="tabular-nums">{a.pointPenalty}</TableCell>
                     <TableCell className="text-center">
                       <SelectBadge label={a.crewReactionLabel} size="sm" />
                     </TableCell>

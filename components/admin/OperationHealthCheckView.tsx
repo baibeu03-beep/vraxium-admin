@@ -327,7 +327,7 @@ export default function OperationHealthCheckView() {
                   <TableHead>메시지</TableHead>
                   <TableHead>기대값</TableHead>
                   <TableHead>실제값</TableHead>
-                  <TableHead className="text-right">관리</TableHead>
+                  <TableHead>관리</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -360,7 +360,7 @@ export default function OperationHealthCheckView() {
                     <TableCell className="whitespace-nowrap text-xs tabular-nums">
                       {issue.actual_value ?? "—"}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       {GROWTH_RECALC_ISSUE_TYPES.has(issue.issue_type) &&
                       issue.user_id ? (
                         <button

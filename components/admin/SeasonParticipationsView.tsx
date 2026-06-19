@@ -346,13 +346,13 @@ export default function SeasonParticipationsView() {
                   <TableHead>시즌</TableHead>
                   <TableHead>시즌 기간</TableHead>
                   <TableHead>시즌 상태</TableHead>
-                  <TableHead className="text-right">성공 주차</TableHead>
-                  <TableHead className="text-right">실패 주차</TableHead>
-                  <TableHead className="text-right">개인 휴식</TableHead>
-                  <TableHead className="text-right">공식 휴식</TableHead>
+                  <TableHead>성공 주차</TableHead>
+                  <TableHead>실패 주차</TableHead>
+                  <TableHead>개인 휴식</TableHead>
+                  <TableHead>공식 휴식</TableHead>
                   <TableHead>메모</TableHead>
                   <TableHead>수정일</TableHead>
-                  <TableHead className="text-right">관리</TableHead>
+                  <TableHead>관리</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -375,16 +375,16 @@ export default function SeasonParticipationsView() {
                     <TableCell>
                       <PhaseBadge row={row} />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="tabular-nums">
                       {row.success_weeks.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="tabular-nums">
                       {row.fail_weeks.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="tabular-nums">
                       {row.personal_rest_weeks.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="tabular-nums">
                       {row.official_rest_weeks.toLocaleString()}
                     </TableCell>
                     <TableCell className="max-w-[240px] truncate text-xs text-muted-foreground" title={row.note ?? ""}>
@@ -393,7 +393,7 @@ export default function SeasonParticipationsView() {
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                       {formatDateTime(row.updated_at)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <button
                         type="button"
                         onClick={() => setEditing(row)}

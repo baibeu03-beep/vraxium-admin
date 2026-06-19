@@ -216,15 +216,15 @@ export default function ProcessIrregularManager() {
                     <TableHead>카페</TableHead>
                     <TableHead>액트명(변동)</TableHead>
                     <TableHead>신청자</TableHead>
-                    <TableHead className="text-right">소요(m)</TableHead>
+                    <TableHead>소요(m)</TableHead>
                     <TableHead>액트 신청 사유</TableHead>
-                    <TableHead className="text-right">Po.A</TableHead>
-                    <TableHead className="text-right">Po.B</TableHead>
-                    <TableHead className="text-right">Po.C</TableHead>
+                    <TableHead>Po.A</TableHead>
+                    <TableHead>Po.B</TableHead>
+                    <TableHead>Po.C</TableHead>
                     <TableHead>액트 종류</TableHead>
                     <TableHead>검수 링크</TableHead>
                     <TableHead>검수 시점</TableHead>
-                    <TableHead className="text-right">관리</TableHead>
+                    <TableHead>관리</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -302,13 +302,13 @@ function IrregularRow({
       <TableCell className="text-muted-foreground">{act.cafeLabel}</TableCell>
       <TableCell className="font-medium">{act.actName}</TableCell>
       <TableCell className="whitespace-nowrap">{act.applicantAdminName}</TableCell>
-      <TableCell className="text-right tabular-nums">{act.durationMinutes ?? "—"}</TableCell>
+      <TableCell className="tabular-nums">{act.durationMinutes ?? "—"}</TableCell>
       <TableCell className="max-w-[200px] truncate" title={act.reason ?? ""}>
         {act.reason || "—"}
       </TableCell>
-      <TableCell className="text-right tabular-nums">{act.pointA}</TableCell>
-      <TableCell className="text-right tabular-nums">{act.pointB}</TableCell>
-      <TableCell className="text-right tabular-nums">{act.pointC}</TableCell>
+      <TableCell className="tabular-nums">{act.pointA}</TableCell>
+      <TableCell className="tabular-nums">{act.pointB}</TableCell>
+      <TableCell className="tabular-nums">{act.pointC}</TableCell>
       <TableCell>
         <select
           aria-label="액트 종류"

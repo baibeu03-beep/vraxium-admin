@@ -413,7 +413,7 @@ export default function CareerProjectsManager() {
                     <TableHead>주차</TableHead>
                     <TableHead>생성</TableHead>
                     <TableHead>수정</TableHead>
-                    <TableHead className="text-right">액션</TableHead>
+                    <TableHead>액션</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -471,7 +471,7 @@ export default function CareerProjectsManager() {
                         <TableCell className="align-top text-xs text-muted-foreground">
                           {fmtDate(row.updatedAt)}
                         </TableCell>
-                        <TableCell className="align-top text-right">
+                        <TableCell className="align-top">
                           <div className="flex justify-end gap-1.5">
                             <Button
                               type="button"

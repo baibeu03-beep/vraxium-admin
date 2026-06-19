@@ -225,6 +225,14 @@
   html {
     @apply font-sans;
   }
+  /* 전역 표 기본 정렬 = 가운데(헤더/셀 통일). 공통 Table 컴포넌트를 쓰지 않는 raw <table> 까지
+     일관 적용. @layer base 라 text-left/text-right 등 유틸 클래스로 개별 override 가능(예외: 긴
+     설명/로그/JSON/코드/메모/마크다운). 정렬만 변경 — 데이터/로직 무관. */
+  th,
+  td {
+    text-align: center;
+    vertical-align: middle;
+  }
 }
 
 /* ───────────────────────────────────────────────────────────────────────────

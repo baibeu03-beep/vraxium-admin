@@ -531,7 +531,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
                         </Button>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       {/* X 삭제는 수동 추가(source='manual') 항목에만. 고객 신청(customer)은 버튼 미표시. */}
                       {a.source === "manual" ? (
                         <Button

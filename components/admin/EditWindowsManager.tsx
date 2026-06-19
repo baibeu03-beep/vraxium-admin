@@ -660,7 +660,7 @@ export default function EditWindowsManager() {
                   <TableHead>소속</TableHead>
                   <TableHead>상태</TableHead>
                   <TableHead>기간</TableHead>
-                  <TableHead className="w-[320px] text-right">액션</TableHead>
+                  <TableHead className="w-[320px]">액션</TableHead>
                   <TableHead>수정자</TableHead>
                   <TableHead>수정일시</TableHead>
                 </TableRow>
@@ -721,7 +721,7 @@ export default function EditWindowsManager() {
                           <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
                         <div className="flex items-center justify-end gap-1">
                           <button
                             type="button"

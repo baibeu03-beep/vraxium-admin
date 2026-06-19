@@ -578,7 +578,7 @@ export default function AccountsManager() {
                   <TableHead className="min-w-[160px]">역할</TableHead>
                   <TableHead className="min-w-[140px]">상태</TableHead>
                   <TableHead>생성일</TableHead>
-                  <TableHead className="text-right">액션</TableHead>
+                  <TableHead>액션</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -785,7 +785,7 @@ export default function AccountsManager() {
                       <TableCell className="whitespace-nowrap text-xs">
                         {fmtDate(account.createdAt)}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
                         <Button
                           variant="outline"
                           size="sm"

@@ -326,16 +326,16 @@ export default function ProcessInfoManager() {
                     <TableHead className="w-24">번호</TableHead>
                     <TableHead>액트명</TableHead>
                     <TableHead>소속 라인 급</TableHead>
-                    <TableHead className="text-right">소요(m)</TableHead>
+                    <TableHead>소요(m)</TableHead>
                     <TableHead>신청 시점</TableHead>
                     <TableHead>검수 시점</TableHead>
-                    <TableHead className="text-right">Po.A</TableHead>
-                    <TableHead className="text-right">Po.B</TableHead>
-                    <TableHead className="text-right">Po.C</TableHead>
+                    <TableHead>Po.A</TableHead>
+                    <TableHead>Po.B</TableHead>
+                    <TableHead>Po.C</TableHead>
                     <TableHead>액트 종류</TableHead>
                     <TableHead>체크 대상</TableHead>
                     <TableHead>카페</TableHead>
-                    <TableHead className="text-right">삭제</TableHead>
+                    <TableHead>삭제</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -346,18 +346,18 @@ export default function ProcessInfoManager() {
                       </TableCell>
                       <TableCell className="font-medium">{a.actName}</TableCell>
                       <TableCell>{a.lineGroupName ?? "-"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.durationMinutes}</TableCell>
+                      <TableCell className="tabular-nums">{a.durationMinutes}</TableCell>
                       <TableCell>{formatProcessWhen(a.occurWeek, a.occurDow, a.occurTime)}</TableCell>
                       <TableCell>{formatProcessWhen(a.checkWeek, a.checkDow, a.checkTime)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.pointCheck}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.pointAdvantage}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.pointPenalty}</TableCell>
+                      <TableCell className="tabular-nums">{a.pointCheck}</TableCell>
+                      <TableCell className="tabular-nums">{a.pointAdvantage}</TableCell>
+                      <TableCell className="tabular-nums">{a.pointPenalty}</TableCell>
                       <TableCell className="text-center">
                         <SelectBadge label={PROCESS_ACT_TYPE_LABEL[a.actType]} size="sm" />
                       </TableCell>
                       <TableCell>{PROCESS_CHECK_TARGET_LABEL[a.checkTarget]}</TableCell>
                       <TableCell>{PROCESS_CAFE_LABEL[a.cafe]}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
                         <Button
                           type="button"
                           variant="ghost"

@@ -216,29 +216,26 @@ export default function UserWeeklyStatusView({
                   <TableHead>주차</TableHead>
                   <TableHead>주차 기간</TableHead>
                   <TableHead>상태</TableHead>
-                  <TableHead className="text-right" title="별 = point.check">
+                  <TableHead title="별 = point.check">
                     Check
                   </TableHead>
                   <TableHead
-                    className="text-right"
                     title="받은 방패 원본(point.advantage) — 내부 집계/검증 전용, 고객 화면에는 노출되지 않습니다."
                   >
                     Advantage (Raw)
                   </TableHead>
                   <TableHead
-                    className="text-right"
                     title="번개 원본값(point.penalty) — 고객 화면에는 −Penalty 로 표시됩니다."
                   >
                     Penalty
                   </TableHead>
                   <TableHead
-                    className="text-right"
                     title="고객 화면 표시 방패 = Advantage(Raw) − Penalty. 고객 화면에 쓰이는 값은 이 값입니다."
                   >
                     Net Advantage
                   </TableHead>
-                  <TableHead className="text-right">평판</TableHead>
-                  <TableHead className="text-right">동료 수</TableHead>
+                  <TableHead>평판</TableHead>
+                  <TableHead>동료 수</TableHead>
                   <TableHead>실패 사유</TableHead>
                 </TableRow>
               </TableHeader>
@@ -257,35 +254,35 @@ export default function UserWeeklyStatusView({
                     <TableCell>
                       <StatusBadge row={row} />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="tabular-nums">
                       {row.weekly_star_count.toLocaleString()}
                     </TableCell>
                     <TableCell
                       title="raw — 내부 전용, 고객 화면 미노출"
-                      className="text-right tabular-nums text-muted-foreground"
+                      className="tabular-nums text-muted-foreground"
                     >
                       {row.weekly_shield_count.toLocaleString()}
                     </TableCell>
                     <TableCell
                       title={`고객 화면 표시: ${-row.weekly_lightning_count}`}
-                      className="text-right tabular-nums"
+                      className="tabular-nums"
                     >
                       {row.weekly_lightning_count.toLocaleString()}
                     </TableCell>
                     <TableCell
                       title="고객 화면 표시 방패 = Advantage(Raw) − Penalty"
-                      className="text-right font-medium tabular-nums"
+                      className="font-medium tabular-nums"
                     >
                       {row.weekly_net_shield_count.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="tabular-nums">
                       {row.reputation_score != null
                         ? `${row.reputation_score} (${row.weekly_reputation_count})`
                         : row.weekly_reputation_count > 0
                           ? `(${row.weekly_reputation_count})`
                           : "—"}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
+                    <TableCell className="tabular-nums">
                       {row.colleague_count.toLocaleString()}
                     </TableCell>
                     <TableCell className="max-w-[220px] truncate text-xs text-muted-foreground">

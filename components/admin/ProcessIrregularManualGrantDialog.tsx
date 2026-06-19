@@ -321,11 +321,11 @@ export default function ProcessIrregularManualGrantDialog({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">크루 번호</TableHead>
+                    <TableHead>크루 번호</TableHead>
                     <TableHead>크루명</TableHead>
                     <TableHead>소속 팀</TableHead>
                     <TableHead>학교</TableHead>
-                    <TableHead className="text-right">제거</TableHead>
+                    <TableHead>제거</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -338,11 +338,11 @@ export default function ProcessIrregularManualGrantDialog({
                   ) : (
                     roster.map((c) => (
                       <TableRow key={c.userId}>
-                        <TableCell className="text-right tabular-nums">{c.crewNo ?? "—"}</TableCell>
+                        <TableCell className="tabular-nums">{c.crewNo ?? "—"}</TableCell>
                         <TableCell className="font-medium">{c.name}</TableCell>
                         <TableCell>{c.teamName ?? "-"}</TableCell>
                         <TableCell>{c.schoolName ?? "-"}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell>
                           <button
                             type="button"
                             disabled={submitting}

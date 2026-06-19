@@ -450,13 +450,13 @@ function SeasonResultsTable({ rows }: { rows: CrewSeasonResultRow[] }) {
           <tr className="border-b text-xs text-muted-foreground">
             <th className="whitespace-nowrap px-2 py-2 text-left font-medium">시즌명</th>
             <th className="whitespace-nowrap px-2 py-2 text-left font-medium">시즌 결과</th>
-            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.A</th>
-            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.B</th>
-            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.C</th>
-            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 정보</th>
-            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 경험</th>
-            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 역량</th>
-            <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 경력</th>
+            <th className="whitespace-nowrap px-2 py-2 font-medium">Po.A</th>
+            <th className="whitespace-nowrap px-2 py-2 font-medium">Po.B</th>
+            <th className="whitespace-nowrap px-2 py-2 font-medium">Po.C</th>
+            <th className="whitespace-nowrap px-2 py-2 font-medium">실무 정보</th>
+            <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경험</th>
+            <th className="whitespace-nowrap px-2 py-2 font-medium">실무 역량</th>
+            <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경력</th>
             <th className="whitespace-nowrap px-2 py-2 text-left font-medium">소속 &amp; 클래스</th>
           </tr>
         </thead>
@@ -467,13 +467,13 @@ function SeasonResultsTable({ rows }: { rows: CrewSeasonResultRow[] }) {
               <td className="whitespace-nowrap px-2 py-2">
                 <StatusBadge label={r.seasonResultLabel} size="sm" />
               </td>
-              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.poA}</td>
-              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.poB}</td>
-              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.poC}</td>
-              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.info)}</td>
-              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.experience)}</td>
-              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.ability)}</td>
-              <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.career)}</td>
+              <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.poA}</td>
+              <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.poB}</td>
+              <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.poC}</td>
+              <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.info)}</td>
+              <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.experience)}</td>
+              <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.ability)}</td>
+              <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.career)}</td>
               <td className="px-2 py-2">
                 <SeasonMembershipCell memberships={r.memberships} />
               </td>
@@ -553,17 +553,17 @@ function WeeklyResultsTable({ rows }: { rows: CrewWeeklyResultRow[] }) {
             <tr className="border-b text-xs text-muted-foreground">
               <th className="whitespace-nowrap px-2 py-2 text-left font-medium">주차명</th>
               <th className="whitespace-nowrap px-2 py-2 text-left font-medium">성장 결과</th>
-              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">성장 성공 주차</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">성장 성공 주차</th>
               <th className="whitespace-nowrap px-2 py-2 text-left font-medium">팀</th>
               <th className="whitespace-nowrap px-2 py-2 text-left font-medium">파트</th>
               <th className="whitespace-nowrap px-2 py-2 text-left font-medium">클래스</th>
-              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.A</th>
-              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.B</th>
-              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">Po.C</th>
-              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 정보</th>
-              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 경험</th>
-              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 역량</th>
-              <th className="whitespace-nowrap px-2 py-2 text-right font-medium">실무 경력</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">Po.A</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">Po.B</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">Po.C</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">실무 정보</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경험</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">실무 역량</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경력</th>
             </tr>
           </thead>
           <tbody>
@@ -573,17 +573,17 @@ function WeeklyResultsTable({ rows }: { rows: CrewWeeklyResultRow[] }) {
                 <td className="whitespace-nowrap px-2 py-2">
                   <StatusBadge label={r.growthResultLabel} size="sm" />
                 </td>
-                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{num(r.cumulativeSuccessWeeks)}</td>
+                <td className="whitespace-nowrap px-2 py-2 tabular-nums">{num(r.cumulativeSuccessWeeks)}</td>
                 <td className="max-w-[120px] truncate px-2 py-2" title={r.teamName ?? "-"}>{r.teamName ?? "-"}</td>
                 <td className="max-w-[120px] truncate px-2 py-2" title={r.partName ?? "-"}>{r.partName ?? "-"}</td>
                 <td className="max-w-[120px] truncate px-2 py-2" title={r.classLabel}>{r.classLabel || "-"}</td>
-                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.points.poA}</td>
-                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.points.poB}</td>
-                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{r.points.poC}</td>
-                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.info)}</td>
-                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.experience)}</td>
-                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.ability)}</td>
-                <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{pct(r.hubRates.career)}</td>
+                <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.points.poA}</td>
+                <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.points.poB}</td>
+                <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.points.poC}</td>
+                <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.info)}</td>
+                <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.experience)}</td>
+                <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.ability)}</td>
+                <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.career)}</td>
               </tr>
             ))}
           </tbody>

@@ -546,7 +546,7 @@ export default function WeekRecognitionsView() {
                   <TableHead>공식 휴식 인정</TableHead>
                   <TableHead>메모</TableHead>
                   <TableHead>수정일</TableHead>
-                  <TableHead className="text-right">관리</TableHead>
+                  <TableHead>관리</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -593,7 +593,7 @@ export default function WeekRecognitionsView() {
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                       {formatDateTime(row.updated_at)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell>
                       <button
                         type="button"
                         onClick={() => setEditing(row)}

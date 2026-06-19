@@ -533,7 +533,7 @@ export default function WeeklyCardFinalizationView() {
                         <td className="px-4 py-2.5 text-muted-foreground">{row.label}</td>
                         <td
                           className={cn(
-                            "px-4 py-2.5 text-right font-semibold tabular-nums",
+"px-4 py-2.5 font-semibold tabular-nums",
                             toneClass(row.tone),
                           )}
                         >
@@ -546,7 +546,7 @@ export default function WeeklyCardFinalizationView() {
                         <td className="px-4 py-2 text-xs text-muted-foreground">
                           기타(no_data/진행 중 등)
                         </td>
-                        <td className="px-4 py-2 text-right text-xs tabular-nums text-muted-foreground">
+                        <td className="px-4 py-2 text-xs tabular-nums text-muted-foreground">
                           {aggregation.uncategorized.toLocaleString()}
                         </td>
                       </tr>
