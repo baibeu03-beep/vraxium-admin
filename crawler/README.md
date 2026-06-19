@@ -70,6 +70,41 @@ pm2 start crawler\ecosystem.config.cjs ; pm2 save ; pm2 startup
 
 ---
 
+## 상시 자동 실행 셋업 — "PC만 켜져 있으면 자동 부활" (권장)
+
+수동 `npm run crawler`(창 닫으면 죽음·부팅 자동 아님) 대신, 아래 2개 `.bat`으로
+**진단 → 자동실행 셋업**을 한다. 둘 다 시크릿을 출력하지 않는다.
+
+| 파일 | 권한 | 하는 일 |
+|---|---|---|
+| **`diagnose-windows.bat`** | 일반 | 현재 자동실행 구조 진단(8항목) → `diagnose-report-<시각>.txt` 저장(시크릿 미포함, 공유 가능). 요약에 **자동 실행 구조 (OK)/미완성** 판정. |
+| **`install-autostart-windows.bat`** | **관리자** | 크롤러를 **PM2 상시 실행**(크래시 자동재시작) + **부팅/로그온 자동**(`pm2-windows-startup`), **cloudflared를 Windows 서비스**로 설치(부팅 자동). |
+
+진단 8항목: `pm2 list` · PM2 부팅 등록 · 작업 스케줄러 · NSSM/서비스 · 8787 listen ·
+cloudflared 서비스 · `https://crawler.vraxium.store/health` · deep(네이버 세션 valid).
+
+```powershell
+# 1) 현재 상태 진단(누구나)
+.\crawler\diagnose-windows.ps1            # 또는 diagnose-windows.bat 더블클릭
+# 2) 자동 실행 셋업(관리자) — install-autostart-windows.bat 우클릭 "관리자 권한으로 실행"
+.\crawler\install-autostart-windows.ps1
+# 3) PC 재부팅 → 로그인 후 다시 진단해 모두 살아있는지 확인
+.\crawler\diagnose-windows.ps1
+```
+
+⚠ `pm2-windows-startup` 은 **로그온 시** 복구(HKCU Run)다. 로그인 없이 전원만 들어와도 띄우려면
+박스에 **자동 로그온**을 설정하거나, 크롤러도 **NSSM 서비스**로 등록한다:
+```powershell
+# (대안) 크롤러를 로그인 불요 서비스로 — nssm 설치 후
+nssm install cafe-crawler "C:\Program Files\nodejs\npm.cmd" "run crawler"
+nssm set cafe-crawler AppDirectory "<repo 루트>"
+nssm set cafe-crawler Start SERVICE_AUTO_START
+nssm start cafe-crawler
+```
+cloudflared 서비스(`cloudflared service install`)는 로그인 불요라 그대로 부팅 자동이다.
+
+---
+
 ## 최초 설치 (상세)
 
 ```powershell

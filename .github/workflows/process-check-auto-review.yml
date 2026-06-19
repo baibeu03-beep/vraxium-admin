@@ -1,0 +1,85 @@
+# 프로세스 체크 자동 검수 — GitHub Actions 스케줄 트리거.
+#
+#   검수 시점(scheduled_check_at)이 지난 [체크 대기] 항목을 주기적으로 자동 검수한다.
+#   운영 PC/버튼 없이, GitHub 클라우드 러너가 배포된 admin 의 내부 API 를 호출한다.
+#   실제 처리(크롤·식별·완료·포인트 적립)는 서버(run-due-checks → lib/processCheckDueSweep)가 수행.
+#
+#   필요한 GitHub Secrets:
+#     · ADMIN_BASE_URL     배포 admin 베이스 URL (예: https://vraxium-admin.vercel.app)
+#     · INTERNAL_API_KEY   서버 env INTERNAL_API_KEY 와 "동일한" 값(헤더 인증용)
+#
+#   ⚠ 실제 네이버 댓글 크롤은 서버 env CAFE_CRAWLER_URL 이 가리키는 외부 크롤러 서비스가
+#     떠 있어야 성공한다(미가동 시 항목은 실패→pending 유지·다음 주기 재시도).
+
+name: process-check-auto-review
+
+on:
+  schedule:
+    # 매 10분(UTC). GitHub 무료 러너는 부하 시 지연/스킵될 수 있다(주기 보장 아님).
+    # 5분으로 바꾸려면 "*/5 * * * *". 더 촘촘히는 권장하지 않음(중복 호출은 멱등이라 무해).
+    - cron: "*/10 * * * *"
+  # 수동 실행(Actions 탭 → Run workflow) — 테스트/즉시 처리용.
+  workflow_dispatch: {}
+
+# 직전 실행이 길어져도 겹치지 않게 직렬화(중복 호출 자체는 멱등이라 안전하지만 로그 가독성).
+concurrency:
+  group: process-check-auto-review
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run-due-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call run-due-checks API
+        env:
+          BASE_URL: ${{ secrets.ADMIN_BASE_URL }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${BASE_URL:-}" ] || [ -z "${INTERNAL_API_KEY:-}" ]; then
+            echo "::error::Secret 미설정 — ADMIN_BASE_URL / INTERNAL_API_KEY 를 등록하세요."
+            exit 1
+          fi
+
+          ENDPOINT="${BASE_URL%/}/api/admin/processes/check/run-due-checks"
+          echo "POST ${ENDPOINT}"
+
+          # 응답 본문은 response.json 으로, HTTP 코드는 stdout 으로 받는다.
+          #   --max-time 300: 서버 maxDuration 과 정렬(만기 항목 직렬 크롤 보호).
+          #   curl 자체 실패(네트워크/타임아웃)는 set -e 로 즉시 빨간 실패.
+          HTTP_CODE=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST "${ENDPOINT}" \
+            -H "content-type: application/json" \
+            -H "x-internal-api-key: ${INTERNAL_API_KEY}" \
+            --max-time 300 \
+            -d '{}')
+
+          echo "HTTP ${HTTP_CODE}"
+          echo "----- response body -----"
+          cat response.json || true
+          echo ""
+          echo "-------------------------"
+
+          if [ "${HTTP_CODE}" != "200" ]; then
+            echo "::error::run-due-checks 실패 (HTTP ${HTTP_CODE}). 위 본문에서 원인을 확인하세요."
+            exit 1
+          fi
+
+          # 본문 success:false(서버 내부 오류)도 실패로 처리. jq 는 ubuntu-latest 기본 제공.
+          SUCCESS=$(jq -r '.success' response.json 2>/dev/null || echo "unknown")
+          if [ "${SUCCESS}" != "true" ]; then
+            echo "::error::run-due-checks 응답 success != true — 본문 확인."
+            exit 1
+          fi
+
+          echo "summary: $(jq -c '.data | {due, eligible, succeeded, failed, capped}' response.json 2>/dev/null || echo '-')"
+          # 개별 실패 항목이 있으면 경고로 노출(워크플로는 성공으로 둔다 — 다음 주기 재시도).
+          FAILED=$(jq -r '.data.failed // 0' response.json 2>/dev/null || echo 0)
+          if [ "${FAILED}" != "0" ]; then
+            echo "::warning::검수 실패 항목 ${FAILED}건 — 항목별 last_error 는 응답 items[] 참고(다음 주기 재시도)."
+          fi
