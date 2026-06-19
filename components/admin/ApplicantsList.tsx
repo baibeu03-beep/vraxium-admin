@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { APPLICANT_STATUSES } from "@/lib/adminApplicantTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import type { ScopeMode } from "@/lib/userScopeShared";
 
 type Applicant = {
   id: string;
@@ -44,11 +45,11 @@ type Applicant = {
 };
 
 type UserProfileCandidate = {
-  user_id: string;
-  name: string | null;
-  contact_email: string | null;
-  auth_email: string | null;
-  organization: string | null;
+  userId: string;
+  displayName: string | null;
+  contactEmail: string | null;
+  authEmail: string | null;
+  organizationSlug: string | null;
 };
 
 type Banner = { kind: "success" | "error"; message: string } | null;
@@ -96,7 +97,7 @@ function statusBadgeClass(status: Applicant["status"]) {
   }
 }
 
-export default function ApplicantsList() {
+export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
   const confirm = useConfirm();
   const devMode = useAdminDevMode();
   const [applicants, setApplicants] = useState<Applicant[]>([]);
@@ -116,6 +117,7 @@ export default function ApplicantsList() {
       setError(null);
       const params = new URLSearchParams();
       if (status !== STATUS_ALL) params.set("status", status);
+      if (mode === "test") params.set("mode", mode);
       const url = `/api/admin/applicants${params.size ? `?${params}` : ""}`;
       try {
         const res = await fetch(url, { cache: "no-store" });
@@ -138,7 +140,7 @@ export default function ApplicantsList() {
     return () => {
       cancelled = true;
     };
-  }, [status, refreshTick]);
+  }, [mode, status, refreshTick]);
 
   useEffect(() => {
     if (!banner) return;
@@ -183,7 +185,7 @@ export default function ApplicantsList() {
     setRejectingId(applicant.id);
     try {
       const res = await fetch(
-        `/api/admin/applicants/${encodeURIComponent(applicant.id)}/reject`,
+        `/api/admin/applicants/${encodeURIComponent(applicant.id)}/reject${mode === "test" ? "?mode=test" : ""}`,
         { method: "POST" },
       );
       const json = await res.json();
@@ -426,6 +428,7 @@ export default function ApplicantsList() {
         <ApproveDialog
           applicant={approveTarget}
           devMode={devMode}
+          mode={mode}
           onClose={() => setApproveTarget(null)}
           onApproved={handleApproveSuccess}
           onError={(message) => setBanner({ kind: "error", message })}
@@ -438,6 +441,7 @@ export default function ApplicantsList() {
 type ApproveDialogProps = {
   applicant: Applicant;
   devMode: boolean;
+  mode: ScopeMode;
   onClose: () => void;
   onApproved: (linkedDisplayName: string | null) => void;
   onError: (message: string) => void;
@@ -446,11 +450,12 @@ type ApproveDialogProps = {
 function ApproveDialog({
   applicant,
   devMode,
+  mode,
   onClose,
   onApproved,
   onError,
 }: ApproveDialogProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(applicant.email ?? "");
   const [userResults, setUserResults] = useState<UserProfileCandidate[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserProfileCandidate | null>(
     null,
@@ -473,7 +478,7 @@ function ApproveDialog({
     setSelectedUser(null);
     try {
       const res = await fetch(
-        `/api/admin/user-profiles/search?q=${encodeURIComponent(trimmedQuery)}`,
+        `/api/admin/user-profiles/search?q=${encodeURIComponent(trimmedQuery)}${mode === "test" ? "&mode=test" : ""}`,
         { cache: "no-store" },
       );
       const json = await res.json();
@@ -501,11 +506,11 @@ function ApproveDialog({
     setApproving(true);
     try {
       const res = await fetch(
-        `/api/admin/applicants/${encodeURIComponent(applicant.id)}/approve-existing`,
+        `/api/admin/applicants/${encodeURIComponent(applicant.id)}/approve-existing${mode === "test" ? "?mode=test" : ""}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: selectedUser.user_id }),
+          body: JSON.stringify({ user_id: selectedUser.userId }),
         },
       );
       const json = await res.json();
@@ -513,9 +518,9 @@ function ApproveDialog({
         throw new Error(json?.error ?? "Failed to approve applicant.");
       }
       onApproved(
-        selectedUser.name ??
-          selectedUser.contact_email ??
-          selectedUser.user_id,
+        selectedUser.displayName ??
+          selectedUser.contactEmail ??
+          selectedUser.userId,
       );
     } catch (err) {
       onError(
@@ -532,7 +537,7 @@ function ApproveDialog({
     setApproving(true);
     try {
       const res = await fetch(
-        `/api/admin/applicants/${encodeURIComponent(applicant.id)}/approve-new`,
+        `/api/admin/applicants/${encodeURIComponent(applicant.id)}/approve-new${mode === "test" ? "?mode=test" : ""}`,
         { method: "POST" },
       );
       const json = await res.json();
@@ -647,10 +652,10 @@ function ApproveDialog({
             </TableHeader>
             <TableBody>
               {userResults.map((profile) => {
-                const isSelected = selectedUser?.user_id === profile.user_id;
+                const isSelected = selectedUser?.userId === profile.userId;
                 return (
                   <TableRow
-                    key={profile.user_id}
+                    key={profile.userId}
                     className={cn("cursor-pointer", isSelected && "bg-muted/60")}
                     onClick={() => {
                       if (!approving) {
@@ -660,24 +665,24 @@ function ApproveDialog({
                   >
                     <TableCell className="max-w-[200px]">
                       <div className="truncate font-medium">
-                        {fmt(profile.name)}
+                        {fmt(profile.displayName)}
                         {isSelected && (
                           <span className="ml-2 text-xs text-primary">선택됨</span>
                         )}
                       </div>
                       {devMode && (
                         <div className="truncate font-mono text-[11px] text-muted-foreground">
-                          {profile.user_id}
+                          {profile.userId}
                         </div>
                       )}
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate">
-                      {fmt(profile.contact_email)}
+                      {fmt(profile.contactEmail)}
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate">
-                      {fmt(profile.auth_email)}
+                      {fmt(profile.authEmail)}
                     </TableCell>
-                    <TableCell>{fmt(profile.organization)}</TableCell>
+                    <TableCell>{fmt(profile.organizationSlug)}</TableCell>
                     <TableCell>
                       <Button
                         size="sm"
@@ -736,11 +741,11 @@ function ApproveDialog({
               선택된 사용자
             </div>
             <div className="mt-1 font-medium">
-              {fmt(selectedUser.name)} / {fmt(selectedUser.contact_email)}
+              {fmt(selectedUser.displayName)} / {fmt(selectedUser.contactEmail)}
             </div>
             {devMode && (
               <div className="mt-1 font-mono text-xs text-muted-foreground">
-                {selectedUser.user_id}
+                {selectedUser.userId}
               </div>
             )}
             <div className="mt-1 text-xs text-muted-foreground">

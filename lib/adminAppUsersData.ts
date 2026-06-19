@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import { excludeSuperAdmins } from "@/lib/superAdmins";
+import { resolveUserScope } from "@/lib/userScope";
 import {
   ACCOUNT_STATUSES,
   isAccountStatus,
@@ -10,6 +11,7 @@ import {
   type AdminAppUserDto,
   type AppUserStatus,
   type ListAppUsersOptions,
+  type AdminAppUsersResult,
 } from "@/lib/adminAppUsersTypes";
 
 // user_profiles 읽기 전용 목록.
@@ -33,6 +35,7 @@ export {
   type AdminAppUserDto,
   type AppUserStatus,
   type ListAppUsersOptions,
+  type AdminAppUsersResult,
 };
 
 const APP_USER_SELECT = [
@@ -76,17 +79,32 @@ function escapeForIlike(value: string) {
 
 export async function listAppUsers(
   options: ListAppUsersOptions = {},
-): Promise<AdminAppUserDto[]> {
+): Promise<AdminAppUsersResult> {
   const limit = Math.min(Math.max(options.limit ?? 200, 1), 500);
+  const scope = await resolveUserScope(options.mode ?? "operating", null);
 
   let queryBuilder = supabaseAdmin
     .from("user_profiles")
-    .select(APP_USER_SELECT)
+    .select(APP_USER_SELECT, { count: "exact" })
     .order("updated_at", { ascending: false, nullsFirst: false })
     .limit(limit);
 
   // super admin 은 사용자 목록에서 제외 (목록 노출에서만 숨김).
   queryBuilder = excludeSuperAdmins(queryBuilder);
+
+  if (scope.mode === "test") {
+    const ids = scope.includeUserIds ?? [];
+    if (ids.length === 0) {
+      return { data: [], total: 0, displayedCount: 0, limit };
+    }
+    queryBuilder = queryBuilder.in("user_id", ids);
+  } else if (scope.excludeUserIds.length > 0) {
+    queryBuilder = queryBuilder.not(
+      "user_id",
+      "in",
+      `(${scope.excludeUserIds.join(",")})`,
+    );
+  }
 
   if (options.status) {
     queryBuilder = queryBuilder.eq("status", options.status);
@@ -112,8 +130,14 @@ export async function listAppUsers(
     );
   }
 
-  const { data, error } = await queryBuilder;
+  const { data, error, count } = await queryBuilder;
   if (error) throw new Error(error.message);
 
-  return ((data ?? []) as unknown as AppUserRow[]).map(toDto);
+  const rows = ((data ?? []) as unknown as AppUserRow[]).map(toDto);
+  return {
+    data: rows,
+    total: count ?? rows.length,
+    displayedCount: rows.length,
+    limit,
+  };
 }

@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ADMIN_READ_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { searchUserProfiles } from "@/lib/adminApplicantData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +18,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const data = await searchUserProfiles(query);
+    const data = await searchUserProfiles(
+      query,
+      parseScopeMode(request.nextUrl.searchParams.get("mode")),
+    );
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[admin/user-profiles GET]", error);

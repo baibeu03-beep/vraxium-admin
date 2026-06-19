@@ -1,9 +1,10 @@
 import { ADMIN_WRITE_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { rejectApplicant } from "@/lib/adminApplicantData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-async function handleReject({ params }: Ctx) {
+async function handleReject(request: Request, { params }: Ctx) {
   try {
     await requireAdmin(ADMIN_WRITE_ROLES);
   } catch (error) {
@@ -15,7 +16,10 @@ async function handleReject({ params }: Ctx) {
   const { id } = await params;
 
   try {
-    const data = await rejectApplicant(id);
+    const data = await rejectApplicant(
+      id,
+      parseScopeMode(new URL(request.url).searchParams.get("mode")),
+    );
     return Response.json({ success: true, data });
   } catch (error) {
     const message =
@@ -29,9 +33,9 @@ async function handleReject({ params }: Ctx) {
 }
 
 export async function POST(_request: Request, ctx: Ctx) {
-  return handleReject(ctx);
+  return handleReject(_request, ctx);
 }
 
 export async function PATCH(_request: Request, ctx: Ctx) {
-  return handleReject(ctx);
+  return handleReject(_request, ctx);
 }

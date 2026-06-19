@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { ORGANIZATION_COMMON_LABEL } from "@/lib/organizations";
 import { ACCOUNT_STATUSES } from "@/lib/adminAppUsersTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import type { ScopeMode } from "@/lib/userScopeShared";
 
 type AppUser = {
   userId: string;
@@ -68,9 +69,11 @@ function fmtDate(value: string | null | undefined) {
   }).format(date);
 }
 
-export default function AppUsersList() {
+export default function AppUsersList({ mode }: { mode: ScopeMode }) {
   const devMode = useAdminDevMode();
   const [users, setUsers] = useState<AppUser[]>([]);
+  const [total, setTotal] = useState(0);
+  const [displayedCount, setDisplayedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -97,6 +100,7 @@ export default function AppUsersList() {
       const params = new URLSearchParams();
       if (debouncedQuery) params.set("query", debouncedQuery);
       if (status !== STATUS_ALL) params.set("status", status);
+      if (mode === "test") params.set("mode", mode);
       const url = `/api/admin/app-users${params.size ? `?${params}` : ""}`;
       try {
         const res = await fetch(url, { cache: "no-store" });
@@ -104,7 +108,11 @@ export default function AppUsersList() {
         if (!res.ok || !json.success) {
           throw new Error(json?.error ?? "Failed to load users.");
         }
-        if (!cancelled) setUsers((json.data ?? []) as AppUser[]);
+        if (!cancelled) {
+          setUsers((json.data ?? []) as AppUser[]);
+          setTotal(Number(json.total ?? 0));
+          setDisplayedCount(Number(json.displayedCount ?? json.data?.length ?? 0));
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load users.");
@@ -117,7 +125,7 @@ export default function AppUsersList() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery, status, refreshTick]);
+  }, [debouncedQuery, mode, status, refreshTick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,8 +168,10 @@ export default function AppUsersList() {
 
   const summary = useMemo(() => {
     if (loading) return "불러오는 중...";
-    return `총 ${users.length}명`;
-  }, [users.length, loading]);
+    return total === displayedCount
+      ? `총 ${total}명`
+      : `전체 ${total}명 중 ${displayedCount}명 표시`;
+  }, [displayedCount, loading, total]);
 
   const reload = () => setRefreshTick((n) => n + 1);
 
@@ -184,7 +194,7 @@ export default function AppUsersList() {
     setSavingUserId(user.userId);
     try {
       const res = await fetch(
-        `/api/admin/user-profiles/${encodeURIComponent(user.userId)}/organization`,
+        `/api/admin/user-profiles/${encodeURIComponent(user.userId)}/organization${mode === "test" ? "?mode=test" : ""}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },

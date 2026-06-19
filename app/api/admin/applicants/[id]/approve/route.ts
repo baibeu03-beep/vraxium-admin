@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ADMIN_WRITE_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { approveApplicant } from "@/lib/adminApplicantData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -34,7 +35,11 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   }
 
   try {
-    const data = await approveApplicant(id, userId);
+    const data = await approveApplicant(
+      id,
+      userId,
+      parseScopeMode(request.nextUrl.searchParams.get("mode")),
+    );
     return Response.json({ success: true, data });
   } catch (error) {
     const message =

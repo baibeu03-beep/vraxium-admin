@@ -41,6 +41,14 @@ export type ListAppUsersOptions = {
   // 계정 활성 상태(active/inactive) 필터. (구: 성장값 혼재 AppUserStatus)
   status?: AccountStatus | null;
   limit?: number;
+  mode?: import("@/lib/userScopeShared").ScopeMode;
+};
+
+export type AdminAppUsersResult = {
+  data: AdminAppUserDto[];
+  total: number;
+  displayedCount: number;
+  limit: number;
 };
 
 export function isAppUserStatus(value: string | null): value is AppUserStatus {

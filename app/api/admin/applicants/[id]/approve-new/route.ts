@@ -1,14 +1,34 @@
 // app/api/admin/applicants/[id]/approve-new/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { randomUUID } from "crypto";
 import { recomputeAndStoreWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
+import {
+  ADMIN_WRITE_ROLES,
+  requireAdmin,
+  toAdminErrorResponse,
+} from "@/lib/adminAuth";
+import {
+  approveApplicant,
+  findUserProfilesByEmail,
+  listApplicants,
+} from "@/lib/adminApplicantData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 export async function POST(
-  _req: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  try {
+    await requireAdmin(ADMIN_WRITE_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
   const { id: applicantId } = await params;
+  const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
 
   const { data: applicant, error: applicantError } = await supabaseAdmin
     .from("applicants")
@@ -31,6 +51,56 @@ export async function POST(
     return NextResponse.json(
       { error: "Applicant email is required to create a user profile" },
       { status: 400 },
+    );
+  }
+
+  const visibleInMode = (await listApplicants(undefined, mode)).some(
+    (row) => row.id === applicantId,
+  );
+  if (!visibleInMode) {
+    return NextResponse.json(
+      { error: `Applicant is outside ${mode} mode scope` },
+      { status: 422 },
+    );
+  }
+
+  const exactMatches = await findUserProfilesByEmail(applicant.email, mode);
+  if (exactMatches.length > 1) {
+    return NextResponse.json(
+      { error: "Multiple existing user profiles match applicant.email" },
+      { status: 409 },
+    );
+  }
+  if (exactMatches.length === 1) {
+    try {
+      const linked = await approveApplicant(
+        applicantId,
+        exactMatches[0].userId,
+        mode,
+      );
+      return NextResponse.json({
+        ok: true,
+        approval_kind: "existing",
+        linked_user_id: linked.profile.userId,
+        data: linked,
+      });
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error ? error.message : "Failed to link existing user",
+        },
+        { status: (error as { status?: number })?.status ?? 400 },
+      );
+    }
+  }
+  if (mode === "test") {
+    return NextResponse.json(
+      {
+        error:
+          "Unlinked applicants cannot create a test user because applicants has no mode/user_id marker.",
+      },
+      { status: 422 },
     );
   }
 
@@ -175,6 +245,7 @@ export async function POST(
 
   return NextResponse.json({
     ok: true,
+    approval_kind: "new",
     linked_user_id: newProfile.user_id,
   });
 }

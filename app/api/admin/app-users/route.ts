@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { ADMIN_READ_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { isAccountStatus, listAppUsers } from "@/lib/adminAppUsersData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,11 +24,12 @@ export async function GET(request: NextRequest) {
   const queryParam = params.get("query")?.trim() ?? null;
 
   try {
-    const data = await listAppUsers({
+    const result = await listAppUsers({
       query: queryParam,
       status: isAccountStatus(statusParam) ? statusParam : null,
+      mode: parseScopeMode(params.get("mode")),
     });
-    return Response.json({ success: true, data });
+    return Response.json({ success: true, ...result });
   } catch (error) {
     console.error("[admin/app-users GET]", error);
     return Response.json(

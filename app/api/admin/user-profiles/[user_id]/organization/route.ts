@@ -6,6 +6,8 @@ import {
 } from "@/lib/adminAuth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
+import { assertUserIdsInScope, resolveUserScope } from "@/lib/userScope";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 const USER_PROFILE_SELECT =
   "user_id, display_name, contact_email, auth_email, organization_slug, status, created_at, updated_at";
@@ -27,6 +29,18 @@ export async function PATCH(
     return Response.json(
       { error: "user_id must be a UUID" },
       { status: 400 },
+    );
+  }
+  try {
+    const scope = await resolveUserScope(
+      parseScopeMode(request.nextUrl.searchParams.get("mode")),
+      null,
+    );
+    assertUserIdsInScope(scope, [user_id]);
+  } catch (error) {
+    return Response.json(
+      { error: error instanceof Error ? error.message : "User is outside mode scope" },
+      { status: (error as { status?: number })?.status ?? 422 },
     );
   }
 

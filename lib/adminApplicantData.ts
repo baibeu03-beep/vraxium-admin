@@ -2,6 +2,11 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import { excludeSuperAdmins } from "@/lib/superAdmins";
 import {
+  assertUserIdsInScope,
+  resolveUserScope,
+  type ScopeMode,
+} from "@/lib/userScope";
+import {
   APPLICANT_STATUSES,
   isApplicantStatus,
   type AdminApplicantDto,
@@ -125,7 +130,38 @@ function escapeForIlike(value: string) {
   return value.replace(/[%_,()]/g, "").trim();
 }
 
-export async function listApplicants(status?: ApplicantStatus) {
+async function fetchProfileIdsByApplicantEmails(rows: ApplicantRow[]) {
+  const emails = Array.from(
+    new Set(rows.map((row) => normalizeEmail(row.email)).filter(Boolean)),
+  );
+  const result = new Map<string, string[]>();
+  if (emails.length === 0) return result;
+
+  const { data, error } = await supabaseAdmin
+    .from("user_profiles")
+    .select("user_id,auth_email,contact_email");
+  if (error) throw new Error(error.message);
+
+  for (const row of (data ?? []) as Array<{
+    user_id: string;
+    auth_email: string | null;
+    contact_email: string | null;
+  }>) {
+    for (const rawEmail of [row.auth_email, row.contact_email]) {
+      const email = normalizeEmail(rawEmail);
+      if (!email || !emails.includes(email)) continue;
+      const ids = result.get(email) ?? [];
+      if (!ids.includes(row.user_id)) ids.push(row.user_id);
+      result.set(email, ids);
+    }
+  }
+  return result;
+}
+
+export async function listApplicants(
+  status?: ApplicantStatus,
+  mode: ScopeMode = "operating",
+) {
   let query = supabaseAdmin
     .from("applicants")
     .select(APPLICANT_SELECT)
@@ -146,11 +182,25 @@ export async function listApplicants(status?: ApplicantStatus) {
   }
 
   const rows = (data ?? []) as unknown as ApplicantRow[];
-  const linkedIds = rows
+  const scope = await resolveUserScope(mode, null);
+  const emailProfileIds = await fetchProfileIdsByApplicantEmails(rows);
+  const scopedRows = rows.filter((row) => {
+    if (row.linked_user_id) return scope.includes(row.linked_user_id);
+    const matchedIds = emailProfileIds.get(normalizeEmail(row.email)) ?? [];
+    if (matchedIds.length === 0) return mode === "operating";
+    const matchedModes = new Set(
+      matchedIds.map((userId) =>
+        scope.testUserIds.has(userId) ? "test" : "operating",
+      ),
+    );
+    return matchedModes.size === 1 && matchedModes.has(mode);
+  });
+
+  const linkedIds = scopedRows
     .map((row) => row.linked_user_id)
     .filter((id): id is string => Boolean(id));
   const displayNames = await fetchLinkedDisplayNames(linkedIds);
-  return rows.map((row) =>
+  return scopedRows.map((row) =>
     toApplicantDto(row, row.linked_user_id ? displayNames.get(row.linked_user_id) ?? null : null),
   );
 }
@@ -182,7 +232,10 @@ export async function getApplicantById(id: string) {
   );
 }
 
-export async function searchUserProfiles(query: string) {
+export async function searchUserProfiles(
+  query: string,
+  mode: ScopeMode = "operating",
+) {
   const rawQuery = query.trim();
   const trimmed = escapeForIlike(rawQuery);
   const filters = [
@@ -200,12 +253,21 @@ export async function searchUserProfiles(query: string) {
   if (filters.length === 0) return [];
 
   // super admin 은 멤버 검색/자동완성 결과에서 제외 (목록 노출에서만 숨김).
-  const { data, error } = await excludeSuperAdmins(
+  const scope = await resolveUserScope(mode, null);
+  let builder = excludeSuperAdmins(
     supabaseAdmin
       .from("user_profiles")
       .select(USER_PROFILE_SELECT)
       .or(filters.join(",")),
-  )
+  );
+  if (scope.mode === "test") {
+    const ids = scope.includeUserIds ?? [];
+    if (ids.length === 0) return [];
+    builder = builder.in("user_id", ids);
+  } else if (scope.excludeUserIds.length > 0) {
+    builder = builder.not("user_id", "in", `(${scope.excludeUserIds.join(",")})`);
+  }
+  const { data, error } = await builder
     .order("display_name", { ascending: true })
     .limit(20);
 
@@ -216,8 +278,53 @@ export async function searchUserProfiles(query: string) {
   return ((data ?? []) as unknown as UserProfileRow[]).map(toUserProfileCandidateDto);
 }
 
-export async function approveApplicant(applicantId: string, userId: string) {
-  const applicant = await getApplicantById(applicantId);
+export async function findUserProfilesByEmail(
+  email: string,
+  mode: ScopeMode = "operating",
+) {
+  const normalized = normalizeEmail(email);
+  if (!normalized) return [];
+  const scope = await resolveUserScope(mode, null);
+
+  const load = async (column: "auth_email" | "contact_email") => {
+    let builder = excludeSuperAdmins(
+      supabaseAdmin
+        .from("user_profiles")
+        .select(USER_PROFILE_SELECT)
+        .ilike(column, normalized),
+    );
+    if (scope.mode === "test") {
+      const ids = scope.includeUserIds ?? [];
+      if (ids.length === 0) return [];
+      builder = builder.in("user_id", ids);
+    } else if (scope.excludeUserIds.length > 0) {
+      builder = builder.not(
+        "user_id",
+        "in",
+        `(${scope.excludeUserIds.join(",")})`,
+      );
+    }
+    const { data, error } = await builder.order("display_name", {
+      ascending: true,
+    });
+    if (error) throw new Error(error.message);
+    return ((data ?? []) as unknown as UserProfileRow[]).map(
+      toUserProfileCandidateDto,
+    );
+  };
+
+  const authMatches = await load("auth_email");
+  return authMatches.length > 0 ? authMatches : load("contact_email");
+}
+
+export async function approveApplicant(
+  applicantId: string,
+  userId: string,
+  mode: ScopeMode = "operating",
+) {
+  const applicant = (await listApplicants(undefined, mode)).find(
+    (row) => row.id === applicantId,
+  );
   if (!applicant) {
     throw new Error("Applicant not found");
   }
@@ -247,6 +354,8 @@ export async function approveApplicant(applicantId: string, userId: string) {
   if (!targetRow) {
     throw new Error("Selected user_profile was not found");
   }
+  const scope = await resolveUserScope(mode, null);
+  assertUserIdsInScope(scope, [userId]);
 
   const target = targetRow as unknown as UserProfileRow;
   const currentAuthEmail = normalizeEmail(target.auth_email);
@@ -288,7 +397,7 @@ export async function approveApplicant(applicantId: string, userId: string) {
     .update({
       status: "approved",
       linked_user_id: userId,
-      reviewed_at: new Date().toISOString(),
+      approved_at: new Date().toISOString(),
     })
     .eq("id", applicantId)
     .select(APPLICANT_SELECT)
@@ -311,8 +420,13 @@ export async function approveApplicant(applicantId: string, userId: string) {
 // Backwards-compatible alias for the pre-approve naming.
 export const linkApplicantToUserProfile = approveApplicant;
 
-export async function rejectApplicant(applicantId: string) {
-  const applicant = await getApplicantById(applicantId);
+export async function rejectApplicant(
+  applicantId: string,
+  mode: ScopeMode = "operating",
+) {
+  const applicant = (await listApplicants(undefined, mode)).find(
+    (row) => row.id === applicantId,
+  );
   if (!applicant) {
     throw new Error("Applicant not found");
   }
@@ -324,7 +438,6 @@ export async function rejectApplicant(applicantId: string) {
     .from("applicants")
     .update({
       status: "rejected",
-      reviewed_at: new Date().toISOString(),
     })
     .eq("id", applicantId)
     .select(APPLICANT_SELECT)

@@ -1,80 +1,50 @@
-// app/api/admin/applicants/[id]/approve-existing/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { NextRequest } from "next/server";
+import {
+  ADMIN_WRITE_ROLES,
+  requireAdmin,
+  toAdminErrorResponse,
+} from "@/lib/adminAuth";
+import { approveApplicant } from "@/lib/adminApplicantData";
+import { isUuid } from "@/lib/isUuid";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 export async function POST(
-  req: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id: applicantId } = await params;
-  const { user_id } = await req.json();
-
-  if (!user_id) {
-    return NextResponse.json({ error: "user_id is required" }, { status: 400 });
+  try {
+    await requireAdmin(ADMIN_WRITE_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
 
-  const { data: applicant, error: applicantError } = await supabaseAdmin
-    .from("applicants")
-    .select("id, email, provider, status")
-    .eq("id", applicantId)
-    .single();
-
-  if (applicantError || !applicant) {
-    return NextResponse.json({ error: "Applicant not found" }, { status: 404 });
+  const body = (await request.json().catch(() => null)) as {
+    user_id?: unknown;
+  } | null;
+  if (typeof body?.user_id !== "string" || !isUuid(body.user_id)) {
+    return Response.json({ error: "user_id must be a UUID" }, { status: 400 });
   }
 
-  if (applicant.status !== "pending") {
-    return NextResponse.json(
-      { error: "Applicant is not pending" },
-      { status: 400 },
+  try {
+    const { id } = await params;
+    const result = await approveApplicant(
+      id,
+      body.user_id,
+      parseScopeMode(request.nextUrl.searchParams.get("mode")),
     );
+    return Response.json({
+      ok: true,
+      linked_user_id: result.profile.userId,
+      data: result,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to approve applicant";
+    const status =
+      (error as { status?: number })?.status ??
+      (message.includes("not found") ? 404 : message.includes("pending") ? 409 : 400);
+    return Response.json({ error: message }, { status });
   }
-
-  const { data: userProfile, error: userError } = await supabaseAdmin
-    .from("user_profiles")
-    .select("user_id, auth_email")
-    .eq("user_id", user_id)
-    .single();
-
-  if (userError || !userProfile) {
-    return NextResponse.json(
-      { error: "User profile not found" },
-      { status: 404 },
-    );
-  }
-
-  const { error: profileUpdateError } = await supabaseAdmin
-    .from("user_profiles")
-    .update({
-      auth_email: applicant.email,
-    })
-    .eq("user_id", user_id);
-
-  if (profileUpdateError) {
-    return NextResponse.json(
-      { error: profileUpdateError.message },
-      { status: 500 },
-    );
-  }
-
-  const { error: applicantUpdateError } = await supabaseAdmin
-    .from("applicants")
-    .update({
-      status: "approved",
-      linked_user_id: user_id,
-      approved_at: new Date().toISOString(),
-    })
-    .eq("id", applicantId);
-
-  if (applicantUpdateError) {
-    return NextResponse.json(
-      { error: applicantUpdateError.message },
-      { status: 500 },
-    );
-  }
-
-  return NextResponse.json({
-    ok: true,
-    linked_user_id: user_id,
-  });
 }

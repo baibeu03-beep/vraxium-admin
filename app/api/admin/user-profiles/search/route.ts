@@ -1,45 +1,39 @@
-// app/api/admin/user-profiles/search/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import { excludeSuperAdmins } from "@/lib/superAdmins";
+import {
+  ADMIN_READ_ROLES,
+  requireAdmin,
+  toAdminErrorResponse,
+} from "@/lib/adminAuth";
+import { searchUserProfiles } from "@/lib/adminApplicantData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export async function GET(request: NextRequest) {
+  try {
+    await requireAdmin(ADMIN_READ_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const q = searchParams.get("q")?.trim();
-
-  if (!q) {
+  const query = request.nextUrl.searchParams.get("q")?.trim();
+  if (!query) {
     return NextResponse.json({ users: [] });
   }
 
-  let query = supabaseAdmin
-    .from("user_profiles")
-    .select("user_id, auth_email, contact_email, name, organization")
-    .limit(20);
-
-  // super admin 은 검색/자동완성 결과에서 제외 (목록 노출에서만 숨김).
-  query = excludeSuperAdmins(query);
-
-  if (UUID_RE.test(q)) {
-    query = query.eq("user_id", q);
-  } else {
-    query = query.or(
-      [
-        `auth_email.ilike.%${q}%`,
-        `contact_email.ilike.%${q}%`,
-        `name.ilike.%${q}%`,
-        `organization.ilike.%${q}%`,
-      ].join(","),
+  try {
+    const users = await searchUserProfiles(
+      query,
+      parseScopeMode(request.nextUrl.searchParams.get("mode")),
+    );
+    return NextResponse.json({ users });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to search user profiles",
+      },
+      { status: 500 },
     );
   }
-
-  const { data, error } = await query;
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ users: data ?? [] });
 }
