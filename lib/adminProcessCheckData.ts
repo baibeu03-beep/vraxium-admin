@@ -326,7 +326,10 @@ async function resolveCrewMeta(userIds: string[]): Promise<Map<string, CrewMeta>
   const ids = Array.from(new Set(userIds.filter((x): x is string => Boolean(x))));
   if (ids.length === 0) return map;
   const [{ data: profs }, { data: mems }] = await Promise.all([
-    supabaseAdmin.from("user_profiles").select("user_id,display_name,role").in("user_id", ids),
+    supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,display_name,role,current_team_name,current_part_name")
+      .in("user_id", ids),
     supabaseAdmin
       .from("user_memberships")
       .select("user_id,team_name,part_name,membership_level,is_current")
@@ -344,12 +347,25 @@ async function resolveCrewMeta(userIds: string[]): Promise<Map<string, CrewMeta>
     const ex = memMap.get(m.user_id);
     if (!ex || (m.is_current && !ex.is_current)) memMap.set(m.user_id, m);
   }
-  for (const p of (profs ?? []) as Array<{ user_id: string; display_name: string | null; role: string | null }>) {
+  // 첫 비어있지 않은 값. 팀장 등 user_memberships 행이 없는 운영진은 team/part 가 전부 null 이 되어
+  // 명단에 팀이 "-" 로 빠지므로, 비정규화된 user_profiles.current_* 로 폴백한다(adminCrewData 의
+  // membership → profile.current_* 폴백 규칙과 동일 — 고객앱 resolver 규칙 5).
+  const pick = (...vals: Array<string | null | undefined>): string | null => {
+    for (const v of vals) if (v && v.trim()) return v;
+    return null;
+  };
+  for (const p of (profs ?? []) as Array<{
+    user_id: string;
+    display_name: string | null;
+    role: string | null;
+    current_team_name: string | null;
+    current_part_name: string | null;
+  }>) {
     const m = memMap.get(p.user_id);
     map.set(p.user_id, {
       name: p.display_name?.trim() || "(이름 없음)",
-      teamName: m?.team_name ?? null,
-      partName: m?.part_name ?? null,
+      teamName: pick(m?.team_name, p.current_team_name),
+      partName: pick(m?.part_name, p.current_part_name),
       className: classLabel(p.role ?? null, m?.membership_level ?? null),
     });
   }

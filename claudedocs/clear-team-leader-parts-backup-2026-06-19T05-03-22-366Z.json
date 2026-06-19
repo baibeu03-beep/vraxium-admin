@@ -1,0 +1,259 @@
+{
+  "generatedAt": "2026-06-19T05:03:22.367Z",
+  "profiles": [
+    {
+      "user_id": "16000b1f-30ad-4187-9754-11199a577a09",
+      "display_name": "유재희",
+      "organization_slug": "oranke",
+      "current_team_name": "엔터테인먼트",
+      "current_part_name": "팬마케팅"
+    },
+    {
+      "user_id": "3330f4c3-5331-4632-bbe6-01a19017a089",
+      "display_name": "T강서현",
+      "organization_slug": "oranke",
+      "current_team_name": "음료(T)",
+      "current_part_name": "커피"
+    },
+    {
+      "user_id": "7e15f412-65be-481c-8525-460b161244ca",
+      "display_name": "T이하준",
+      "organization_slug": "phalanx",
+      "current_team_name": "운영(T)",
+      "current_part_name": "응대"
+    },
+    {
+      "user_id": "90de758a-3b0c-498d-af55-9b1324f36b88",
+      "display_name": "T정도윤",
+      "organization_slug": "phalanx",
+      "current_team_name": "제품실험(T)",
+      "current_part_name": "앱"
+    },
+    {
+      "user_id": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+      "display_name": "T강지환",
+      "organization_slug": "phalanx",
+      "current_team_name": "전략(T)",
+      "current_part_name": "리서치"
+    },
+    {
+      "user_id": "9d73cad4-12ec-4bd8-a118-58f8cf705122",
+      "display_name": "T신유진",
+      "organization_slug": "encre",
+      "current_team_name": "비주얼랩(T)",
+      "current_part_name": "포토"
+    },
+    {
+      "user_id": "dff09eb2-6534-42de-99bd-8bf2ed315c01",
+      "display_name": "T최선우",
+      "organization_slug": "oranke",
+      "current_team_name": "콘텐츠실험(T)",
+      "current_part_name": "케이크"
+    },
+    {
+      "user_id": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+      "display_name": "T권태현",
+      "organization_slug": "encre",
+      "current_team_name": "사운드(T)",
+      "current_part_name": "보컬"
+    },
+    {
+      "user_id": "63813dc4-9dec-4511-83be-1f54196d09cf",
+      "display_name": "T류민서",
+      "organization_slug": "oranke",
+      "current_team_name": "과일(T)",
+      "current_part_name": "오렌지"
+    },
+    {
+      "user_id": "3db9012c-b339-4550-900c-873df9463514",
+      "display_name": "이창훈",
+      "organization_slug": "oranke",
+      "current_team_name": "스타일",
+      "current_part_name": "스타일링"
+    },
+    {
+      "user_id": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+      "display_name": "T강지아",
+      "organization_slug": "encre",
+      "current_team_name": "팬덤실험(T)",
+      "current_part_name": "응원"
+    },
+    {
+      "user_id": "ecaa1a4c-c72a-4ef5-9657-faa7414a241d",
+      "display_name": "김채은",
+      "organization_slug": "oranke",
+      "current_team_name": "커머스",
+      "current_part_name": "트렌드"
+    },
+    {
+      "user_id": "49453df4-6f6e-4480-b69f-be034ba97a46",
+      "display_name": "박지민",
+      "organization_slug": "phalanx",
+      "current_team_name": "IT",
+      "current_part_name": "일반"
+    },
+    {
+      "user_id": "7dfad8dc-b900-4e3c-a13b-e0b6b42342ca",
+      "display_name": "김연우",
+      "organization_slug": "phalanx",
+      "current_team_name": "브랜딩",
+      "current_part_name": "일반"
+    },
+    {
+      "user_id": "b9cb873d-1052-438f-825f-85af589fab82",
+      "display_name": "송영권",
+      "organization_slug": "phalanx",
+      "current_team_name": "서비스",
+      "current_part_name": "일반"
+    },
+    {
+      "user_id": "eed90410-4c85-4009-87a9-5e057a5e2ebf",
+      "display_name": "안지혜",
+      "organization_slug": "oranke",
+      "current_team_name": "F&B",
+      "current_part_name": "트렌드"
+    },
+    {
+      "user_id": "e318c666-b5f4-4508-916b-a228995baf15",
+      "display_name": "전성은",
+      "organization_slug": "oranke",
+      "current_team_name": "콘텐츠",
+      "current_part_name": "코믹스 2"
+    },
+    {
+      "user_id": "a7fa21b0-a44e-4569-acf1-0a630cc37450",
+      "display_name": "이유진",
+      "organization_slug": "encre",
+      "current_team_name": "A&R",
+      "current_part_name": "director"
+    }
+  ],
+  "memberships": [
+    {
+      "id": "c46f98e3-a510-49b3-ac8a-f2c4002bbe6b",
+      "user_id": "7dfad8dc-b900-4e3c-a13b-e0b6b42342ca",
+      "team_name": "브랜딩",
+      "part_name": "일반",
+      "is_current": true
+    },
+    {
+      "id": "0fbbbd3c-b0e5-413f-8dd2-206015be096b",
+      "user_id": "b9cb873d-1052-438f-825f-85af589fab82",
+      "team_name": "서비스",
+      "part_name": "일반",
+      "is_current": true
+    },
+    {
+      "id": "0906e9ca-a875-40d7-a2ec-27c94de1ec8c",
+      "user_id": "49453df4-6f6e-4480-b69f-be034ba97a46",
+      "team_name": "IT",
+      "part_name": "일반",
+      "is_current": true
+    },
+    {
+      "id": "92fc212e-f546-4ff6-8737-466bd4761f51",
+      "user_id": "eed90410-4c85-4009-87a9-5e057a5e2ebf",
+      "team_name": "F&B",
+      "part_name": "트렌드",
+      "is_current": true
+    },
+    {
+      "id": "687c26ee-ac0f-48d8-be35-96f7463ce844",
+      "user_id": "e318c666-b5f4-4508-916b-a228995baf15",
+      "team_name": "콘텐츠",
+      "part_name": "코믹스 2",
+      "is_current": true
+    },
+    {
+      "id": "f0e3d037-ad98-472e-8276-d95632a4c751",
+      "user_id": "7e15f412-65be-481c-8525-460b161244ca",
+      "team_name": "운영(T)",
+      "part_name": "응대",
+      "is_current": true
+    },
+    {
+      "id": "5020452b-cdbc-49bd-a518-b8f83fdd6a5d",
+      "user_id": "90de758a-3b0c-498d-af55-9b1324f36b88",
+      "team_name": "제품실험(T)",
+      "part_name": "앱",
+      "is_current": true
+    },
+    {
+      "id": "fce2e90c-091d-46c2-824b-00aa53370838",
+      "user_id": "16000b1f-30ad-4187-9754-11199a577a09",
+      "team_name": "엔터테인먼트",
+      "part_name": "팬마케팅",
+      "is_current": true
+    },
+    {
+      "id": "65c9169e-a63b-40c4-a7eb-0edd77a82607",
+      "user_id": "ecaa1a4c-c72a-4ef5-9657-faa7414a241d",
+      "team_name": "커머스",
+      "part_name": "트렌드",
+      "is_current": true
+    },
+    {
+      "id": "7e978d63-dac9-4a0f-8d2f-b5e99ce4e48b",
+      "user_id": "3330f4c3-5331-4632-bbe6-01a19017a089",
+      "team_name": "음료(T)",
+      "part_name": "커피",
+      "is_current": true
+    },
+    {
+      "id": "e93a93c4-b569-43cb-8ba6-1f45a2b6b410",
+      "user_id": "75d9cb24-b6ab-495d-a46d-5e021d04bf7b",
+      "team_name": "사운드(T)",
+      "part_name": "보컬",
+      "is_current": true
+    },
+    {
+      "id": "89bc48ef-744a-4fdd-a557-bfe12e54d4ac",
+      "user_id": "369d11e5-8c9e-423c-95e8-4e52a62460d7",
+      "team_name": "팬덤실험(T)",
+      "part_name": "응원",
+      "is_current": true
+    },
+    {
+      "id": "2cddf920-d8d9-4658-a7b0-110d0b2ce34f",
+      "user_id": "9d73cad4-12ec-4bd8-a118-58f8cf705122",
+      "team_name": "비주얼랩(T)",
+      "part_name": "포토",
+      "is_current": true
+    },
+    {
+      "id": "2fd350a2-91d3-4467-8018-1dd11499d9b0",
+      "user_id": "6678e364-68ad-4aa1-a531-79f62c2c166a",
+      "team_name": "전략(T)",
+      "part_name": "리서치",
+      "is_current": true
+    },
+    {
+      "id": "895750b5-4b5c-43c8-9578-283aedcdd3ea",
+      "user_id": "dff09eb2-6534-42de-99bd-8bf2ed315c01",
+      "team_name": "콘텐츠실험(T)",
+      "part_name": "케이크",
+      "is_current": true
+    },
+    {
+      "id": "d22805eb-3068-408a-a20f-b5c8b0e1735c",
+      "user_id": "a7fa21b0-a44e-4569-acf1-0a630cc37450",
+      "team_name": "A&R",
+      "part_name": "director",
+      "is_current": true
+    },
+    {
+      "id": "6e77a12b-78ed-477d-b257-76939bba9faf",
+      "user_id": "63813dc4-9dec-4511-83be-1f54196d09cf",
+      "team_name": "과일(T)",
+      "part_name": "오렌지",
+      "is_current": true
+    },
+    {
+      "id": "82a180fb-c26b-4ea5-82c1-ab777b4d7e0b",
+      "user_id": "3db9012c-b339-4550-900c-873df9463514",
+      "team_name": "스타일",
+      "part_name": "스타일링",
+      "is_current": true
+    }
+  ]
+}
