@@ -47,6 +47,32 @@ export function resolveCustomerAppUrl(): string | null {
   return PROD_CUSTOMER_APP_URL;
 }
 
+// 프로필 사진 URL 해석(단일 출처) — 어드민에서 깨지지 않게 절대 URL 로 정규화한다.
+// ──────────────────────────────────────────────────────────────────────────
+//   user_profiles.profile_photo_url 은 고객(front) 앱 public 기준의 "상대 경로"
+//   (예: "/images/0/cluster4/아호 캐릭터-px.png")로 저장되는 경우가 있다. 이 경로는
+//   고객 도메인에서만 200 이고, 어드민 도메인에서 그대로 <img src> 에 넣으면 어드민
+//   public 에 없어 404(깨진 이미지)가 된다.
+//   - 상대 경로("/…")  → 고객 앱 base URL 을 붙여 절대 URL 로(공백·한글은 URL 이 자동
+//     퍼센트 인코딩 → 브라우저 로드 성공). base 해석 실패 시 null(프론트가 placeholder).
+//   - 이미 절대(http/https) URL(실제 Supabase Storage/외부 사진) → 그대로 통과.
+//   - 그 외(빈값/비정상) → null. 운영/test 동일 DTO 경로(adminCrewDetailData)에서 사용.
+export function resolveProfilePhotoUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed; // 이미 절대 — 그대로
+  if (!trimmed.startsWith("/")) return null; // 절대도 상대(/…)도 아닌 비정상값
+  const base = resolveCustomerAppUrl();
+  if (!base) return null;
+  try {
+    // URL 생성자가 path 의 공백·한글을 자동으로 퍼센트 인코딩한다.
+    return new URL(trimmed, base).toString();
+  } catch {
+    return null;
+  }
+}
+
 // 고객 앱 cluster-4 페이지 절대 URL(단일 출처). 어드민→고객 SoT 진입 경로.
 //   - 라우트: /cluster-4-<suffix> (조직별 분기, lib/organizations 매핑).
 //   - test 여부로 쿼리/대상 사용자 식별 파라미터가 갈린다(고객앱 해석 규칙에 정합):

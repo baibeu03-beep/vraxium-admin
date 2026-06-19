@@ -151,6 +151,8 @@ export default function CrewDetail({
   const [detail, setDetail] = useState<CrewDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 프로필 사진 로드 실패 시 placeholder 폴백(크루 전환마다 재시도하도록 load 에서 리셋).
+  const [photoError, setPhotoError] = useState(false);
 
   // 클럽 관리 기록 모달.
   const [noteOpen, setNoteOpen] = useState(false);
@@ -158,6 +160,7 @@ export default function CrewDetail({
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setPhotoError(false);
     try {
       const res = await fetch(`/api/admin/members/${userId}`, { cache: "no-store" });
       const json = await res.json();
@@ -259,14 +262,17 @@ export default function CrewDetail({
             </CardHeader>
             <CardContent>
               <div className="flex gap-5">
-                {/* 프로필 사진 — Cluster2 첫 번째 슬롯(없으면 placeholder) */}
+                {/* 프로필 사진 — Cluster2 첫 번째 슬롯. URL 은 백엔드(resolveProfilePhotoUrl)가
+                    고객 앱 절대 경로로 정규화해 내려준다. 그래도 로드 실패(404/깨짐)하면
+                    onError 로 placeholder(이니셜 아이콘)로 안정 폴백한다. */}
                 <div className="shrink-0">
-                  {detail.profilePhotoUrl ? (
+                  {detail.profilePhotoUrl && !photoError ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={detail.profilePhotoUrl}
                       alt={`${dash(detail.displayName)} 프로필 사진`}
                       className="h-36 w-28 rounded-lg object-cover ring-1 ring-foreground/10"
+                      onError={() => setPhotoError(true)}
                     />
                   ) : (
                     <div className="flex h-36 w-28 items-center justify-center rounded-lg bg-muted ring-1 ring-foreground/10">

@@ -12,6 +12,7 @@ import { getCrewWeeklyResults, type CrewWeeklyResultRow } from "@/lib/adminCrewW
 import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { foldGrowthMetrics } from "@/lib/growthCore";
 import { isTransitionWeekStart } from "@/lib/seasonCalendar";
+import { resolveProfilePhotoUrl } from "@/lib/customerAppUrl";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 
 // 크루 상세 페이지(/admin/members/[userId]) 단건 DTO — 인적사항 + 클럽 소속.
@@ -587,7 +588,9 @@ export async function getCrewDetailDto(
     displayName: crew.displayName,
     organizationSlug: crew.organizationSlug,
     isTestUser,
-    profilePhotoUrl: crew.profilePhotoUrl,
+    // 상대 경로(고객 public 기준 "/images/…")는 어드민 도메인에서 404 가 되므로
+    // 고객 앱 절대 URL 로 정규화한다(절대 URL 은 그대로 통과). null=프론트 placeholder.
+    profilePhotoUrl: resolveProfilePhotoUrl(crew.profilePhotoUrl),
     gender: crew.gender,
     birthDate: crew.birthDate,
     age: crew.age,
