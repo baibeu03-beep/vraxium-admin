@@ -18,13 +18,41 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   )
 }
 
-function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
+// 내부 sentinel value(필터의 "전체" 등)는 화면에 라벨로 보여야 한다.
+// base-ui Select.Value 는 items/children 이 없으면 선택값을 raw 문자열로 그대로 렌더링하므로
+// (예: "__all__" 노출), children 미지정 시 공통 sentinel→라벨 기본 포맷터를 적용한다.
+//   · 표시 라벨만 바꾼다 — Select 의 실제 value/onValueChange/필터 로직은 불변.
+//   · 호출부가 children(노드 또는 (value)=>노드)을 주면 그대로 우선한다.
+const SELECT_VALUE_SENTINEL_LABELS: Record<string, string> = {
+  __all__: "전체",
+  all: "전체",
+  all_orgs: "전체 조직",
+  all_parts: "전체 파트",
+  all_teams: "전체 팀",
+}
+
+function SelectValue({
+  className,
+  children,
+  placeholder,
+  ...props
+}: SelectPrimitive.Value.Props) {
   return (
     <SelectPrimitive.Value
       data-slot="select-value"
       className={cn("flex flex-1 text-left", className)}
+      placeholder={placeholder}
       {...props}
-    />
+    >
+      {children ??
+        ((value: unknown) => {
+          if (value == null || value === "") return placeholder ?? null
+          return (
+            SELECT_VALUE_SENTINEL_LABELS[String(value)] ??
+            (value as React.ReactNode)
+          )
+        })}
+    </SelectPrimitive.Value>
   )
 }
 

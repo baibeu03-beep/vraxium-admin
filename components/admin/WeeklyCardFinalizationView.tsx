@@ -419,7 +419,14 @@ export default function WeeklyCardFinalizationView() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="시즌 선택" />
+                  <SelectValue placeholder="시즌 선택">
+                    {(v: string | null) =>
+                      !v || v === ALL
+                        ? "전체"
+                        : seasonLabelByKey.get(v)
+                          ? `${seasonLabelByKey.get(v)} (${v})`
+                          : v}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {seasons.map((s) => (
@@ -443,7 +450,13 @@ export default function WeeklyCardFinalizationView() {
                 disabled={seasonKey === ALL}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="주차 선택" />
+                  <SelectValue placeholder="주차 선택">
+                    {(v: string | null) => {
+                      if (!v || v === ALL) return "전체";
+                      const w = weekOptions.find((o) => String(o.weekNumber) === v);
+                      return w ? w.weekLabel : v;
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {weekOptions.map((w) => (
@@ -460,7 +473,12 @@ export default function WeeklyCardFinalizationView() {
               <label className="text-xs font-medium text-muted-foreground">조직</label>
               <Select value={org} onValueChange={(v) => setOrg(v ?? ALL)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="조직" />
+                  <SelectValue placeholder="조직">
+                    {(v: string | null) =>
+                      !v || v === ALL
+                        ? "전체"
+                        : ORGANIZATION_LABEL[v as keyof typeof ORGANIZATION_LABEL] ?? v}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL}>전체</SelectItem>
