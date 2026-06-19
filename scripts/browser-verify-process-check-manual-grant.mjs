@@ -1,6 +1,6 @@
 // 브라우저 검증 — /admin/processes/check/{hub} 선별 액트 수동 부여 UI.
-//   1) 액트 목록 표 "종류" 컬럼 · 2) 필수 액트 클릭 → 기존 신청 모달 · 3) 선별 액트 클릭 → [검수 신청]/[수동 부여] 선택 ·
-//   4) 검수 신청 → 기존 모달 · 5) 수동 부여 → 직접 입력 모달 · 6) 포인트 C disabled(시각적 비활성).
+//   1) 액트 목록 표 "종류" 컬럼 · 2) 필수 액트 클릭 → 기존 신청 모달 · 3) 선별 액트 클릭 → [검수 링크]/[수동 입력] 선택 ·
+//   4) 검수 링크 → 기존 모달 · 5) 수동 입력 → 직접 입력 모달 · 6) 포인트 C disabled(시각적 비활성).
 //   서비스롤로 선별/필수 액트 시드 → UI 확인 → cleanup(net-zero). 전제: dev 서버 + (저장까지 보려면) 2026-06-18 마이그레이션.
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
@@ -89,21 +89,21 @@ try {
   await page.mouse.click(5, 5);
   await page.waitForTimeout(300);
 
-  // (3) 선별 액트 "체크 필요" 클릭 → [검수 신청]/[수동 부여] 선택 모달.
+  // (3) 선별 액트 "체크 필요" 클릭 → [검수 링크]/[수동 입력] 선택 모달.
   await selRow.locator('button:has-text("체크 필요")').first().click();
   await page.waitForTimeout(400);
   const choiceVisible = await page.locator('text=체크 방식을 선택').first().isVisible().catch(() => false);
-  const hasReviewBtn = await page.locator('button:has-text("검수 신청")').first().isVisible().catch(() => false);
-  const hasManualBtn = await page.locator('button:has-text("수동 부여")').first().isVisible().catch(() => false);
-  ck("[3] 선별 액트 → 선택 모달 [검수 신청]/[수동 부여]", choiceVisible && hasReviewBtn && hasManualBtn, J({ choice: choiceVisible, rev: hasReviewBtn, man: hasManualBtn }));
+  const hasReviewBtn = await page.locator('button:has-text("검수 링크")').first().isVisible().catch(() => false);
+  const hasManualBtn = await page.locator('button:has-text("수동 입력")').first().isVisible().catch(() => false);
+  ck("[3] 선별 액트 → 선택 모달 [검수 링크]/[수동 입력]", choiceVisible && hasReviewBtn && hasManualBtn, J({ choice: choiceVisible, rev: hasReviewBtn, man: hasManualBtn }));
 
-  // (5) 수동 부여 클릭 → 직접 입력 모달.
-  await page.locator('button:has-text("수동 부여")').first().click();
+  // (5) 수동 입력 클릭 → 직접 입력 모달.
+  await page.locator('button:has-text("수동 입력")').first().click();
   await page.waitForTimeout(400);
-  const mgTitle = await page.locator('text=수동 부여').first().isVisible().catch(() => false);
+  const mgTitle = await page.locator('text=수동 입력').first().isVisible().catch(() => false);
   const hasActName = await page.locator('label:has-text("액트명")').first().isVisible().catch(() => false);
   const hasTargetCrew = await page.locator('text=대상 크루').first().isVisible().catch(() => false);
-  ck("[5] 수동 부여 → 직접 입력 모달(액트명·대상 크루)", mgTitle && hasActName && hasTargetCrew, J({ t: mgTitle, name: hasActName, crew: hasTargetCrew }));
+  ck("[5] 수동 입력 → 직접 입력 모달(액트명·대상 크루)", mgTitle && hasActName && hasTargetCrew, J({ t: mgTitle, name: hasActName, crew: hasTargetCrew }));
 
   // (6) 포인트 C select disabled(시각적 비활성).
   const pcSelect = page.locator('select[aria-label="포인트 C"]').first();
@@ -111,15 +111,15 @@ try {
   const pcClass = await pcSelect.getAttribute("class").catch(() => "");
   ck("[6] 포인트 C disabled + 흐림(opacity/muted)", pcDisabled && /opacity-60|bg-muted/.test(pcClass ?? ""), J({ disabled: pcDisabled, cls: (pcClass ?? "").includes("opacity-60") }));
 
-  // (4) 다시 선택 모달 → 검수 신청 → 기존 신청 모달(검수 링크).
+  // (4) 다시 선택 모달 → 검수 링크 → 기존 신청 모달(검수 링크 입력).
   await page.mouse.click(5, 5); await page.waitForTimeout(300);
   await selRow.locator('button:has-text("체크 필요")').first().click(); await page.waitForTimeout(300);
-  await page.locator('button:has-text("검수 신청")').first().click(); await page.waitForTimeout(400);
+  await page.locator('button:has-text("검수 링크")').first().click(); await page.waitForTimeout(400);
   const revDialog = await page.locator('text=검수 링크').first().isVisible().catch(() => false);
-  ck("[4] 선택 모달 → 검수 신청 → 기존 신청 모달(검수 링크)", revDialog);
+  ck("[4] 선택 모달 → 검수 링크 → 기존 신청 모달(검수 링크 입력)", revDialog);
   await page.mouse.click(5, 5); await page.waitForTimeout(300);
 
-  // (7) 저장 — 마이그레이션 적용 시에만 실제 부여 + "수동 부여 완료" 라벨 확인.
+  // (7) 저장 — 마이그레이션 적용 시에만 실제 부여 + "수동 입력 완료" 라벨 확인.
   const migApplied = !(await sb.from("process_check_statuses").select("completion_type").limit(1)).error;
   if (migApplied) {
     const markers = new Set(((await sb.from("test_user_markers").select("user_id")).data ?? []).map((x) => x.user_id));
@@ -127,17 +127,21 @@ try {
       .find((u) => markers.has(u.user_id) && (u.display_name ?? "").trim().length >= 2);
     if (testCrew) {
       await selRow.locator('button:has-text("체크 필요")').first().click(); await page.waitForTimeout(300);
-      await page.locator('button:has-text("수동 부여")').first().click(); await page.waitForTimeout(400);
+      await page.locator('button:has-text("수동 입력")').first().click(); await page.waitForTimeout(400);
       await page.locator('input[placeholder="이름으로 검색"]').first().fill((testCrew.display_name ?? "").trim());
       await page.waitForTimeout(900);
       const opt = page.locator('div.absolute button', { hasText: (testCrew.display_name ?? "").trim() }).first();
       if (await opt.isVisible().catch(() => false)) {
         await opt.click(); await page.waitForTimeout(200);
         await page.locator('button:has-text("확인")').first().click(); await page.waitForTimeout(200);
-        await page.locator('button:has-text("체크 완료")').first().click(); await page.waitForTimeout(1200);
+        // 제출 버튼(수동 입력) = '체크 신청' → confirm 게이트 '체크 완료'.
+        await page.locator('button:has-text("체크 신청")').first().click(); await page.waitForTimeout(300);
+        const cf = page.getByRole("button", { name: "체크 완료" });
+        if (await cf.count()) await cf.first().click();
+        await page.waitForTimeout(1200);
         const selRowAfter = page.locator(`tr:has-text("${TAG}selection")`).first();
         const label = await selRowAfter.innerText().catch(() => "");
-        ck("[7] 저장 후 행 '수동 부여 완료' 표시", label.includes("수동 부여 완료"), label.replace(/\s+/g, " ").slice(0, 80));
+        ck("[7] 저장 후 행 '수동 입력 완료' 표시", label.includes("수동 입력 완료"), label.replace(/\s+/g, " ").slice(0, 80));
       } else {
         ck("[7] 저장 — 검색 결과 없음(스킵)", true, "자동완성 옵션 미노출");
       }

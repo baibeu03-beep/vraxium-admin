@@ -1,4 +1,4 @@
-// /api/admin/processes/check/irregular — 변동 액트 보드 + 액션(검수신청/수동부여/완료/삭제).
+// /api/admin/processes/check/irregular — 변동 액트 보드 + 액션(검수 링크/수동 입력/완료/삭제).
 //
 //   GET    ?org=oranke[&mode=test]          → 보드 DTO(현재/마지막활동 주차 + 요약 5칸 + 액트 목록)
 //   POST   { organization, mode?, kind, act_name, target_user_id, ... }
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
   }
   const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
 
-  // 대상 크루 명단(수동 부여) — 배열의 각 id uuid 형식 검증.
+  // 대상 크루 명단(수동 입력) — 배열의 각 id uuid 형식 검증.
   const targetIds = Array.isArray(b.target_user_ids) ? b.target_user_ids : [];
   for (const id of targetIds) {
     if (typeof id !== "string" || !UUID_RE.test(id.trim())) {

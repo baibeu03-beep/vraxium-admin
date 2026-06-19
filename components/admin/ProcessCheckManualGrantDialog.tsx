@@ -25,9 +25,11 @@ import { type ScopeMode, appendModeQuery } from "@/lib/userScopeShared";
 import { type ProcessHub } from "@/lib/adminProcessesTypes";
 import {
   MANUAL_GRANT_REASON_MAX,
+  formatCheckDateTimeKo,
   type ProcessCheckActRowDto,
   type ProcessCheckScopeKind,
 } from "@/lib/adminProcessCheckTypes";
+import ProcessCheckCompletedCrewList from "@/components/admin/ProcessCheckCompletedCrewList";
 
 const POINTS = Array.from({ length: 21 }, (_, i) => i); // 0~20
 const DURATIONS = Array.from({ length: 18 }, (_, i) => (i + 1) * 5); // 5~90, 5분 단위
@@ -80,6 +82,13 @@ export default function ProcessCheckManualGrantDialog({
   const [submitting, setSubmitting] = useState(false);
   const searchReq = useRef(0);
   const confirm = useConfirm();
+
+  // 수동 입력 팝업의 상태별 모드 —
+  //   needed   : 입력 폼(대상 크루/포인트). 버튼 [초기화]·[체크 신청] 활성 · [체크 취소] 항상 비활성.
+  //   completed: 읽기 전용(체크 완료 크루 명단). 모든 액션 버튼 비활성.
+  //   ⚠ 수동 입력은 '체크 신청' 시 즉시 부여/완료 → '체크 대기'(pending)가 발생하지 않는다.
+  //      따라서 이 팝업은 needed/completed 만 다루며, 어떤 상태에서도 '체크 취소'는 비활성이다.
+  const isCompleted = act.status === "completed";
 
   // 입력값이 하나라도 있으면 dirty(닫기 시 확인 문구 노출 판단).
   const dirty =
@@ -205,13 +214,34 @@ export default function ProcessCheckManualGrantDialog({
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
-            선별 액트 · <span className="text-green-700">수동 부여</span>
+            선별 액트 ·{" "}
+            <span className="text-green-700">{isCompleted ? "수동 입력 완료" : "수동 입력"}</span>
             <span className="ml-2 text-xs font-normal text-muted-foreground">({act.lineGroupName})</span>
           </h2>
-          {/* 우측 상단 인원 수 */}
-          <span className="text-sm font-medium text-muted-foreground">대상 크루 {roster.length}명</span>
+          {/* 우측 상단 인원 수 — 완료=체크 완료 크루 수 / 입력=선택 중인 대상 수 */}
+          <span className="text-sm font-medium text-muted-foreground">
+            {isCompleted ? `체크 완료 크루 ${act.checkedCrewCount ?? 0}명` : `대상 크루 ${roster.length}명`}
+          </span>
         </div>
 
+        {isCompleted ? (
+          /* 체크 완료 — 읽기 전용(액트 정보 + 체크 완료 크루 명단). 입력/버튼 비활성. */
+          <div className="space-y-3">
+            <div className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <div className="flex gap-3">
+                <span className="w-24 shrink-0 text-muted-foreground">액트명</span>
+                <span className="min-w-0 break-words font-medium">{act.actName}</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="w-24 shrink-0 text-muted-foreground">완료 시점</span>
+                <span className="font-medium">
+                  {act.completedAt ? formatCheckDateTimeKo(act.completedAt) : "-"}
+                </span>
+              </div>
+            </div>
+            <ProcessCheckCompletedCrewList crews={act.completedCrewList} />
+          </div>
+        ) : (
         <div className="space-y-3">
           {/* 공통 입력 */}
           <div className="space-y-1">
@@ -356,11 +386,11 @@ export default function ProcessCheckManualGrantDialog({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">크루 번호</TableHead>
+                    <TableHead>크루 번호</TableHead>
                     <TableHead>크루명</TableHead>
                     <TableHead>소속 팀</TableHead>
                     <TableHead>학교</TableHead>
-                    <TableHead className="text-right">제거</TableHead>
+                    <TableHead>제거</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -373,11 +403,11 @@ export default function ProcessCheckManualGrantDialog({
                   ) : (
                     roster.map((c) => (
                       <TableRow key={c.userId}>
-                        <TableCell className="text-right tabular-nums">{c.crewNo ?? "—"}</TableCell>
+                        <TableCell className="tabular-nums">{c.crewNo ?? "—"}</TableCell>
                         <TableCell className="font-medium">{c.name}</TableCell>
                         <TableCell>{c.teamName ?? "-"}</TableCell>
                         <TableCell>{c.schoolName ?? "-"}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell>
                           <button
                             type="button"
                             disabled={submitting}
@@ -397,22 +427,47 @@ export default function ProcessCheckManualGrantDialog({
           </div>
 
           <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[11px] text-green-700">
-            수동 부여는 즉시 ‘수동 부여 완료’로 처리됩니다(체크 대기 없음). 같은 액트·주차에 이미 부여된 크루는 중복 저장되지 않습니다.
+            수동 입력은 즉시 ‘수동 입력 완료’로 처리됩니다(체크 대기 없음). 같은 액트·주차에 이미 부여된 크루는 중복 저장되지 않습니다.
           </p>
         </div>
+        )}
 
         {banner && (
           <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{banner}</p>
         )}
 
-        {/* 버튼 — 초기화 / 체크 완료 (체크 신청·체크 취소 없음) */}
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={() => void reset()}>
+        {/* 버튼 정책(수동 입력) —
+            [체크 필요]  초기화=활성 · 체크 신청=활성 · 체크 취소=비활성
+            [체크 완료]  초기화/체크 신청/체크 취소 모두 비활성(닫기만 활성)
+            ⚠ '체크 취소'는 어떤 상태에서도 비활성(수동 입력엔 체크 대기/취소 개념 없음). */}
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={submitting || isCompleted}
+            onClick={() => void reset()}
+          >
             초기화
           </Button>
-          <Button type="button" size="sm" disabled={submitting} onClick={() => void submit()}>
+          <Button
+            type="button"
+            size="sm"
+            disabled={submitting || isCompleted}
+            onClick={() => void submit()}
+          >
             {submitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1.5 h-3.5 w-3.5" />}
-            체크 완료
+            체크 신청
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-rose-300 text-rose-700"
+            disabled
+            title="수동 입력 방식은 ‘체크 신청’ 시 즉시 부여/완료됩니다 — 체크 취소가 없습니다."
+          >
+            체크 취소
           </Button>
           <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={() => void handleClose()}>
             닫기

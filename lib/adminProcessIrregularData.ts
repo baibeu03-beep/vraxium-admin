@@ -240,7 +240,7 @@ export async function searchIrregularTargets(
     }));
 }
 
-// ── 공통 필드 파싱(검수 신청·수동 부여 공용) ──────────────────────────────────
+// ── 공통 필드 파싱(검수 링크·수동 입력 공용) ──────────────────────────────────
 function parseCommonFields(input: {
   actName: unknown;
   durationMinutes?: unknown;
@@ -287,7 +287,7 @@ function parseCommonFields(input: {
   };
 }
 
-// ── 검수 신청(review_request) 생성 — 대상자 미선택·pending(worker 가 사후 식별/완료) ──────
+// ── 검수 링크(review_request) 생성 — 대상자 미선택·pending(worker 가 사후 식별/완료) ──────
 export async function createIrregularAct(input: {
   organization: string;
   mode: ScopeMode;
@@ -307,7 +307,7 @@ export async function createIrregularAct(input: {
 }): Promise<ProcessIrregularActRowDto> {
   const { organization, mode, adminId } = input;
   if (input.kind !== "review_request") {
-    throw new ProcessMasterError(400, "이 경로는 검수 신청(review_request) 전용입니다");
+    throw new ProcessMasterError(400, "이 경로는 검수 링크(review_request) 전용입니다");
   }
   const common = parseCommonFields(input);
 
@@ -318,7 +318,7 @@ export async function createIrregularAct(input: {
     if (!link.ok) throw new ProcessMasterError(400, link.error);
     reviewLink = link.value;
   }
-  if (!reviewLink) throw new ProcessMasterError(400, "검수 신청은 검수 링크가 필수입니다");
+  if (!reviewLink) throw new ProcessMasterError(400, "검수 링크은 검수 링크가 필수입니다");
 
   const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
   if (!week?.weekId) {
@@ -332,7 +332,7 @@ export async function createIrregularAct(input: {
     if (!sched.ok) throw new ProcessMasterError(400, sched.error);
     scheduledCheckAt = new Date(input.scheduledCheckAt).toISOString();
   }
-  if (!scheduledCheckAt) throw new ProcessMasterError(400, "검수 신청은 검수 시점이 필수입니다");
+  if (!scheduledCheckAt) throw new ProcessMasterError(400, "검수 링크은 검수 시점이 필수입니다");
 
   const applicantAdminName = await resolveAdminName(adminId);
   const { data: inserted, error: insErr } = await supabaseAdmin
@@ -364,7 +364,7 @@ export async function createIrregularAct(input: {
   return toRowDto(inserted as IrregularRow);
 }
 
-// ── 수동 부여(manual_grant) 생성 — 대상 크루 명단(복수)·생성 즉시 completed(created==completed) ──
+// ── 수동 입력(manual_grant) 생성 — 대상 크루 명단(복수)·생성 즉시 completed(created==completed) ──
 //   검수 링크/시점 없음. 크루는 org+mode 스코프 전원 통과(fail-closed) → recipients(matched) 저장.
 export async function createManualGrant(input: {
   organization: string;
@@ -381,9 +381,9 @@ export async function createManualGrant(input: {
   pointMode?: unknown;
 }): Promise<ProcessIrregularActRowDto> {
   const { organization, mode, adminId } = input;
-  // 수동 부여는 '전원' 선택 불가 — 항상 '부분'(포인트 방식 ab|c 택1)만 가능.
+  // 수동 입력는 '전원' 선택 불가 — 항상 '부분'(포인트 방식 ab|c 택1)만 가능.
   if (input.crewReaction === "all") {
-    throw new ProcessMasterError(400, "수동 부여는 '전원'을 선택할 수 없습니다(부분만 가능)");
+    throw new ProcessMasterError(400, "수동 입력는 '전원'을 선택할 수 없습니다(부분만 가능)");
   }
   const common = parseCommonFields({ ...input, crewReaction: "partial" });
 
@@ -391,7 +391,7 @@ export async function createManualGrant(input: {
   const ids = Array.isArray(input.targetUserIds)
     ? Array.from(new Set(input.targetUserIds.filter((x): x is string => typeof x === "string" && x.trim().length > 0)))
     : [];
-  if (ids.length === 0) throw new ProcessMasterError(400, "수동 부여는 대상 크루를 1명 이상 선택해야 합니다");
+  if (ids.length === 0) throw new ProcessMasterError(400, "수동 입력는 대상 크루를 1명 이상 선택해야 합니다");
 
   // org + mode 스코프 전원 검증(fail-closed 422) + 소속/이름 확정.
   const scope = await resolveUserScope(mode, organization as OrganizationSlug);
@@ -462,7 +462,7 @@ export async function createManualGrant(input: {
   if (recErr) throw migrationHint(recErr) ?? new ProcessMasterError(500, recErr.message);
 
   // 포인트 적립(완료 즉시) — era 경계(operating=summer+/test=+W13)·스코프 가드는 helper 내부.
-  //   best-effort: 적립 실패(마이그레이션 미적용 PGRST205 등)가 수동부여 생성을 깨뜨리지 않게 격리.
+  //   best-effort: 적립 실패(마이그레이션 미적용 PGRST205 등)가 수동 입력 생성을 깨뜨리지 않게 격리.
   try {
     const acc = await accrueForCompletedIrregular(act.id);
     if ("skipped" in acc && acc.skipped) {
@@ -508,9 +508,9 @@ export async function setIrregularCrewReaction(
     throw new ProcessMasterError(400, "crew_reaction 은 all|partial 이어야 합니다");
   }
   const row = await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
-  // 수동 부여는 '전원'으로 변경 불가(부분만 가능).
+  // 수동 입력는 '전원'으로 변경 불가(부분만 가능).
   if (crewReaction === "all" && row.kind === "manual_grant") {
-    throw new ProcessMasterError(400, "수동 부여는 '전원'으로 변경할 수 없습니다(부분만 가능)");
+    throw new ProcessMasterError(400, "수동 입력는 '전원'으로 변경할 수 없습니다(부분만 가능)");
   }
   // 포인트 정규화 — 변경 결과가 정책(전원=A/B/C·부분=ab|c)을 항상 만족하도록 보정.
   //   인라인은 포인트 방식 선택 UI 가 없어 pointMode 미지정 시 기존 값으로 추론(C만 있으면 c, 그 외 ab).

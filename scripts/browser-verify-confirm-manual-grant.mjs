@@ -1,5 +1,5 @@
-// 브라우저 검증 — 수동 부여 완료(ProcessIrregularManualGrantDialog) Confirm 게이트.
-//   버튼 라벨 "체크 완료" · 확인 라벨 "수동 부여 완료". 대상 크루 명단(1명 이상) 필수.
+// 브라우저 검증 — 수동 입력 완료(ProcessIrregularManualGrantDialog) Confirm 게이트.
+//   버튼 라벨 "체크 완료" · 확인 라벨 "수동 입력 완료". 대상 크루 명단(1명 이상) 필수.
 //   crew 검색(GET)·생성(POST) 모두 인터셉트 → DB 무변경(net-zero).
 //   C1 확인창 표시 · C2 취소 → 호출 0·팝업 유지·입력 유지 · C3 성공 → 팝업 닫힘.
 //   전제: dev 서버(localhost:3000).
@@ -55,17 +55,17 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const dialog = page.getByRole("alertdialog");
   try {
     await page.goto(`${BASE}/admin/processes/check/irregular?org=oranke&mode=test`, { waitUntil: "networkidle" });
-    const openMg = page.getByRole("button", { name: "수동 부여", exact: true });
+    const openMg = page.getByRole("button", { name: "수동 입력", exact: true });
     await openMg.waitFor({ state: "visible", timeout: 15000 });
     await page.waitForFunction(
-      () => { const b = [...document.querySelectorAll("button")].find((x) => x.textContent?.trim() === "수동 부여"); return b && !b.disabled; },
+      () => { const b = [...document.querySelectorAll("button")].find((x) => x.textContent?.trim() === "수동 입력"); return b && !b.disabled; },
       { timeout: 15000 },
     ).catch(() => {});
     await openMg.click();
 
     const submitMg = page.getByRole("button", { name: "체크 완료", exact: true });
     await submitMg.waitFor({ state: "visible", timeout: 5000 });
-    ck("팝업(수동 부여) 열림", await submitMg.isVisible());
+    ck("팝업(수동 입력) 열림", await submitMg.isVisible());
 
     // 액트명 + 대상 크루(검색→선택→확인) 채우기
     await page.getByPlaceholder("변동 액트명").fill("ZZ-검증-수동부여");
@@ -79,7 +79,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await submitMg.click();
     await dialog.waitFor({ state: "visible", timeout: 5000 });
     ck("C1) 확인창 표시", await dialog.isVisible());
-    ck("C1) 확인 버튼 라벨 '수동 부여 완료'", await dialog.getByRole("button", { name: "수동 부여 완료" }).isVisible());
+    ck("C1) 확인 버튼 라벨 '수동 입력 완료'", await dialog.getByRole("button", { name: "수동 입력 완료" }).isVisible());
 
     // C2) 취소 → 호출 0·팝업 유지·입력 유지
     await dialog.getByRole("button", { name: "취소" }).click();
@@ -92,7 +92,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     postBehavior = "success"; postCount = 0;
     await submitMg.click();
     await dialog.waitFor({ state: "visible", timeout: 5000 });
-    await dialog.getByRole("button", { name: "수동 부여 완료" }).click();
+    await dialog.getByRole("button", { name: "수동 입력 완료" }).click();
     await submitMg.waitFor({ state: "hidden", timeout: 8000 }).catch(() => {});
     ck("C3) 성공 시 API 호출됨", postCount === 1, `count=${postCount}`);
     ck("C3) 성공 시에만 팝업 닫힘", !(await submitMg.isVisible()));

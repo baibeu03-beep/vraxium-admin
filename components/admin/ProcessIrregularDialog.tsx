@@ -1,8 +1,8 @@
 "use client";
 
-// 변동 액트 생성 팝업 — 검수 신청 / 수동 부여 공용.
+// 변동 액트 생성 팝업 — 검수 링크 / 수동 입력 공용.
 //   대상자(고객) 검색·선택 + 액트명 + 소요시간 + 사유 + 포인트 A/B/C + 액트 종류 + 검수 링크/시점.
-//   검수 신청 → 검수 링크·시점 필수(pending). 수동 부여 → 검수 링크·시점 선택(즉시 completed).
+//   검수 링크 → 검수 링크·시점 필수(pending). 수동 입력 → 검수 링크·시점 선택(즉시 completed).
 //   ⚠ 카페는 입력하지 않는다(kind 파생 표시값). org+mode 분리는 대상자(target) 기준(서버 재검증).
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -170,7 +170,7 @@ export default function ProcessIrregularDialog({
 
   const submit = async () => {
     setBanner(null);
-    // 대상자 — 수동 부여만 필수(검수 신청은 크롤링으로 사후 식별).
+    // 대상자 — 수동 입력만 필수(검수 링크은 크롤링으로 사후 식별).
     if (!isReview && !target) return setBanner("대상자(고객)를 선택해주세요");
     if (!actName.trim()) return setBanner("액트명을 입력해주세요");
     if (isReview) {
@@ -183,8 +183,8 @@ export default function ProcessIrregularDialog({
       const link = validateReviewLink(reviewLink);
       if (!link.ok) return setBanner(link.error);
     }
-    // 한 번 더 확인 — 검수 신청/수동 부여 라벨 분기.
-    if (!(await confirm({ ...CONFIRM.complete, confirmLabel: isReview ? "검수 신청 완료" : "수동 부여 완료" }))) return;
+    // 한 번 더 확인 — 검수 링크/수동 입력 라벨 분기.
+    if (!(await confirm({ ...CONFIRM.complete, confirmLabel: isReview ? "검수 링크 완료" : "수동 입력 완료" }))) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/admin/processes/check/irregular", {
@@ -242,10 +242,10 @@ export default function ProcessIrregularDialog({
         </div>
 
         <div className="space-y-3">
-          {/* 대상자 — 수동 부여만(단일 대상). 검수 신청은 검수 시점에 크롤링으로 크루를 식별. */}
+          {/* 대상자 — 수동 입력만(단일 대상). 검수 링크은 검수 시점에 크롤링으로 크루를 식별. */}
           {isReview ? (
             <div className="rounded-md border border-purple-200 bg-purple-50 px-3 py-2 text-[11px] text-purple-700">
-              검수 신청은 대상자를 미리 선택하지 않습니다. 검수 시점이 도래하면 검수 링크의 댓글을
+              검수 링크은 대상자를 미리 선택하지 않습니다. 검수 시점이 도래하면 검수 링크의 댓글을
               크롤링해 반응한 크루를 자동 식별합니다.
             </div>
           ) : (
@@ -457,8 +457,8 @@ export default function ProcessIrregularDialog({
             )}
           >
             {isReview
-              ? "검수 신청 후 ‘체크 대기’ 상태가 되며, 검수 시점이 도래하면 자동 검수(크롤링)로 ‘체크 완료’ 됩니다."
-              : "수동 부여는 생성 즉시 ‘체크 완료’ 처리됩니다."}
+              ? "검수 링크 후 ‘체크 대기’ 상태가 되며, 검수 시점이 도래하면 자동 검수(크롤링)로 ‘체크 완료’ 됩니다."
+              : "수동 입력는 생성 즉시 ‘체크 완료’ 처리됩니다."}
           </p>
         </div>
 
@@ -479,7 +479,7 @@ export default function ProcessIrregularDialog({
             ) : (
               <Check className="mr-1.5 h-3.5 w-3.5" />
             )}
-            {isReview ? "체크 신청" : "수동 부여"}
+            {isReview ? "체크 신청" : "수동 입력"}
           </Button>
           <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={() => void handleClose()}>
             닫기

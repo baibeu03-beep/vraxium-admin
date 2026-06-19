@@ -2,8 +2,8 @@
 
 // /admin/processes/check/irregular — 변동 액트 관리(현재/마지막 활동 주차 고정).
 //
-//   우측 상단: [수동 부여] [검수 신청] (1행 2열).
-//   요약 5칸(1행 5열·칸막이): 전체 / 검수 신청 / 수동 부여 / 체크 완료 / 체크 대기.
+//   우측 상단: [수동 입력] [검수 링크] (1행 2열).
+//   요약 5칸(1행 5열·칸막이): 전체 / 검수 링크 / 수동 입력 / 체크 완료 / 체크 대기.
 //   목록: 종류·카페·액트명·신청자·소요시간·사유·포인트 A/B/C·크루반응(드롭다운)·검수링크·검수시점 + 관리.
 //
 // ?org 기준 데이터 분기 · ?mode(operating/test) 분리(대상자 기준). 카페=kind 파생(입력 없음).
@@ -127,8 +127,8 @@ export default function ProcessIrregularManager() {
   const summaryCells = useMemo(
     () => [
       { label: "전체 갯수", value: summary.total },
-      { label: "검수 신청", value: summary.reviewRequest, accent: "text-purple-700" },
-      { label: "수동 부여", value: summary.manualGrant, accent: "text-green-700" },
+      { label: "검수 링크", value: summary.reviewRequest, accent: "text-purple-700" },
+      { label: "수동 입력", value: summary.manualGrant, accent: "text-green-700" },
       { label: "체크 완료", value: summary.completed, accent: "text-green-700" },
       { label: "체크 대기", value: summary.pending, accent: "text-amber-700" },
     ],
@@ -141,7 +141,7 @@ export default function ProcessIrregularManager() {
         <div>
           <h1 className="text-lg font-semibold">변동 액트</h1>
           <p className="text-sm text-muted-foreground">
-            정규 기준표 외 변동 액트의 검수 신청 / 수동 부여 관리 (조직: {org ?? "미지정"})
+            정규 기준표 외 변동 액트의 검수 링크 / 수동 입력 관리 (조직: {org ?? "미지정"})
           </p>
         </div>
         {/* 우측 상단 버튼 — 1행 2열 */}
@@ -152,7 +152,7 @@ export default function ProcessIrregularManager() {
             onClick={() => setDialogKind("manual_grant")}
             className="rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-800 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            수동 부여
+            수동 입력
           </button>
           <button
             type="button"
@@ -160,7 +160,7 @@ export default function ProcessIrregularManager() {
             onClick={() => setDialogKind("review_request")}
             className="rounded-md border border-purple-300 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            검수 신청
+            검수 링크
           </button>
         </div>
       </div>
@@ -318,7 +318,7 @@ function IrregularRow({
           className="h-8 rounded-md border border-input bg-background px-1.5 text-xs disabled:opacity-60"
         >
           {IRREGULAR_CREW_REACTIONS.map((c) => (
-            // 수동 부여는 '전원' 불가(부분 고정) — 해당 옵션 비활성.
+            // 수동 입력는 '전원' 불가(부분 고정) — 해당 옵션 비활성.
             <option key={c} value={c} disabled={c === "all" && act.kind === "manual_grant"}>
               {IRREGULAR_CREW_REACTION_LABEL[c]}
             </option>

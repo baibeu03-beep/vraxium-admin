@@ -1,6 +1,6 @@
 // 브라우저 검증 — 저장/완료 계열 Confirm 게이트 동작(네트워크 인터셉트로 net-zero).
 //
-//   Scenario A — 검수 신청 완료(ProcessIrregularDialog, /admin/processes/check/irregular)
+//   Scenario A — 검수 링크 완료(ProcessIrregularDialog, /admin/processes/check/irregular)
 //     A1 validation 실패 → 확인창 안 뜸·API 호출 0·팝업 유지
 //     A2 확인창 표시 → 취소 → API 호출 0·입력값 유지·팝업 유지
 //     A3 확인 → API 호출(실패 500) → 팝업 유지 + 에러 배너
@@ -69,23 +69,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   try {
     // ─────────────────────────────────────────────────────────────
-    // Scenario A — 검수 신청 완료
+    // Scenario A — 검수 링크 완료
     // ─────────────────────────────────────────────────────────────
-    console.log("\n[A] 검수 신청 완료 (ProcessIrregularDialog)");
+    console.log("\n[A] 검수 링크 완료 (ProcessIrregularDialog)");
     await installPostRoute("**/api/admin/processes/check/irregular");
     await page.goto(`${BASE}/admin/processes/check/irregular?org=oranke&mode=test`, { waitUntil: "networkidle" });
 
-    const openReview = page.getByRole("button", { name: "검수 신청", exact: true });
+    const openReview = page.getByRole("button", { name: "검수 링크", exact: true });
     await openReview.waitFor({ state: "visible", timeout: 15000 });
     await page.waitForFunction(
-      () => { const b = [...document.querySelectorAll("button")].find((x) => x.textContent?.trim() === "검수 신청"); return b && !b.disabled; },
+      () => { const b = [...document.querySelectorAll("button")].find((x) => x.textContent?.trim() === "검수 링크"); return b && !b.disabled; },
       { timeout: 15000 },
     ).catch(() => {});
     await openReview.click();
 
     const submitReview = page.getByRole("button", { name: "체크 신청", exact: true });
     await submitReview.waitFor({ state: "visible", timeout: 5000 });
-    ck("팝업(검수 신청) 열림", await submitReview.isVisible());
+    ck("팝업(검수 링크) 열림", await submitReview.isVisible());
 
     // A1) validation 실패 — 빈 입력으로 제출 → 확인창 안 뜸·호출 0
     postBehavior = "pass"; postCount = 0;
@@ -109,7 +109,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await submitReview.click();
     await dialog.waitFor({ state: "visible", timeout: 5000 });
     ck("A2) 확인창 표시", await dialog.isVisible());
-    ck("A2) 확인 버튼 라벨 '검수 신청 완료'", await dialog.getByRole("button", { name: "검수 신청 완료" }).isVisible());
+    ck("A2) 확인 버튼 라벨 '검수 링크 완료'", await dialog.getByRole("button", { name: "검수 링크 완료" }).isVisible());
     await dialog.getByRole("button", { name: "취소" }).click();
     await dialog.waitFor({ state: "hidden", timeout: 5000 }).catch(() => {});
     ck("A2) 취소 시 API 호출 0", postCount === 0, `count=${postCount}`);
@@ -120,7 +120,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     postBehavior = "fail"; postCount = 0;
     await submitReview.click();
     await dialog.waitFor({ state: "visible", timeout: 5000 });
-    await dialog.getByRole("button", { name: "검수 신청 완료" }).click();
+    await dialog.getByRole("button", { name: "검수 링크 완료" }).click();
     await page.getByText("강제 실패(검증용)").waitFor({ state: "visible", timeout: 5000 }).catch(() => {});
     ck("A3) 실패 시 API 호출됨", postCount === 1, `count=${postCount}`);
     ck("A3) 실패 시 팝업 유지", await submitReview.isVisible());
@@ -130,7 +130,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     postBehavior = "success"; postCount = 0;
     await submitReview.click();
     await dialog.waitFor({ state: "visible", timeout: 5000 });
-    await dialog.getByRole("button", { name: "검수 신청 완료" }).click();
+    await dialog.getByRole("button", { name: "검수 링크 완료" }).click();
     await submitReview.waitFor({ state: "hidden", timeout: 8000 }).catch(() => {});
     ck("A4) 성공 시 API 호출됨", postCount === 1, `count=${postCount}`);
     ck("A4) 성공 시에만 팝업 닫힘", !(await submitReview.isVisible()));

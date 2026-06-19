@@ -204,7 +204,7 @@ type RegularStatusRow = {
 
 // 정규 프로세스 체크 완료 적립 (ref_id = process_check_statuses.id).
 //   - 검수/worker 완료(completion_type=NULL) → 마스터(process_acts) 점수.
-//   - 수동 부여(completion_type='manual_grant') → 상태 행 manual_point_*(자유 입력) override 점수.
+//   - 수동 입력(completion_type='manual_grant') → 상태 행 manual_point_*(자유 입력) override 점수.
 export async function accrueForCompletedRegular(statusId: string): Promise<AccrualResult> {
   // completion_type/manual_point_* 포함 select(미적용이면 컬럼 누락 → base 폴백 = 마스터 점수만).
   const full = await supabaseAdmin
@@ -233,7 +233,7 @@ export async function accrueForCompletedRegular(statusId: string): Promise<Accru
   let pointAdvantage: number;
   let pointPenalty: number;
   if (row.completion_type === "manual_grant") {
-    // 수동 부여 — 자유 입력 override 점수(선별 규칙상 C=0).
+    // 수동 입력 — 자유 입력 override 점수(선별 규칙상 C=0).
     pointCheck = row.manual_point_check ?? 0;
     pointAdvantage = row.manual_point_advantage ?? 0;
     pointPenalty = row.manual_point_penalty ?? 0;

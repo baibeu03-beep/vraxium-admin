@@ -59,14 +59,14 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   const [error, setError] = useState<string | null>(null);
   const [today] = useState(() => new Date());
   const [dialogAct, setDialogAct] = useState<ProcessCheckActRowDto | null>(null);
-  // 선별 액트 "체크 필요" 클릭 시 [검수 신청]/[수동 부여] 선택 모달 + 수동 부여 모달.
+  // 선별 액트 "체크 필요" 클릭 시 [검수 링크]/[수동 입력] 선택 모달 + 수동 입력 모달.
   const [choiceAct, setChoiceAct] = useState<ProcessCheckActRowDto | null>(null);
   const [manualGrantAct, setManualGrantAct] = useState<ProcessCheckActRowDto | null>(null);
 
   // 액트 상태 버튼 클릭 — 팝업 라우팅:
-  //   needed + 선별         → 선택 모달([검수 신청]/[수동 입력])
-  //   completed + 수동 부여  → 수동 입력 팝업(체크 완료 크루 명단·읽기 전용)
-  //   그 외(필수·검수 신청/대기/완료) → 검수 링크 팝업
+  //   needed + 선별         → 선택 모달([검수 링크]/[수동 입력])
+  //   completed + 수동 입력  → 수동 입력 팝업(체크 완료 크루 명단·읽기 전용)
+  //   그 외(필수·검수 링크 진행/대기/완료) → 검수 링크 팝업
   const openAct = useCallback((a: ProcessCheckActRowDto) => {
     if (a.status === "needed" && isSelectionActType(a.actType)) {
       setChoiceAct(a);
@@ -503,7 +503,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         </div>
       )}
 
-      {/* 선별 액트 수동 부여 모달 — 대상 크루 + 포인트 직접 입력(C=0 고정). */}
+      {/* 선별 액트 수동 입력 모달 — 대상 크루 + 포인트 직접 입력(C=0 고정). */}
       {manualGrantAct && org && (
         <ProcessCheckManualGrantDialog
           act={manualGrantAct}

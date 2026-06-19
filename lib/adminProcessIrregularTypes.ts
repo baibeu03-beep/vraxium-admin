@@ -2,7 +2,7 @@
 // Must not import server-only modules here.
 //
 // 정책 (2026-06-15 — 변동 액트 Phase):
-//   - 정규 기준표(process_acts) 외 검수신청/수동부여 인스턴스. 신규 테이블 process_irregular_acts.
+//   - 정규 기준표(process_acts) 외 검수 링크/수동 입력 인스턴스. 신규 테이블 process_irregular_acts.
 //   - 신청자 = 운영진(admin_users) · 대상자 = 고객앱 사용자(user_profiles).
 //   - org + test/operating 모드 분리는 target_user_id 기준.
 //   - ⚠ user_weekly_points.points · 주차 성장 계산 · snapshot · checkGate · demoUserId 무접촉.
@@ -18,19 +18,19 @@ export {
   validateScheduledCheckAt,
 } from "@/lib/adminProcessCheckTypes";
 
-// ── 종류 (검수 신청 / 수동 부여) ───────────────────────────────────────────────
+// ── 종류 (검수 링크 / 수동 입력) ───────────────────────────────────────────────
 export type IrregularKind = "review_request" | "manual_grant";
 export const IRREGULAR_KINDS = ["review_request", "manual_grant"] as const;
 export const IRREGULAR_KIND_LABEL: Record<IrregularKind, string> = {
-  review_request: "검수 신청",
-  manual_grant: "수동 부여",
+  review_request: "검수 링크",
+  manual_grant: "수동 입력",
 };
 export function isIrregularKind(v: unknown): v is IrregularKind {
   return v === "review_request" || v === "manual_grant";
 }
 
 // 카페(발생/미발생) — DB 컬럼이 아니라 kind 파생값(입력/저장 안 함, 사용자 수정 불가).
-//   review_request(검수 신청) → "발생" · manual_grant(수동 부여) → "미발생".
+//   review_request(검수 링크) → "발생" · manual_grant(수동 입력) → "미발생".
 export function irregularCafeLabel(kind: IrregularKind): string {
   return kind === "manual_grant" ? "미발생" : "발생";
 }
@@ -166,8 +166,8 @@ export type ProcessIrregularActRowDto = {
 
 export type ProcessIrregularSummary = {
   total: number; // 전체 갯수
-  reviewRequest: number; // 검수 신청(kind)
-  manualGrant: number; // 수동 부여(kind)
+  reviewRequest: number; // 검수 링크(kind)
+  manualGrant: number; // 수동 입력(kind)
   completed: number; // 체크 완료(status)
   pending: number; // 체크 대기(status)
 };

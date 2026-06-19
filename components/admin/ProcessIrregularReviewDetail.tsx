@@ -1,6 +1,6 @@
 "use client";
 
-// 검수 신청(review_request) 상세 — 정규 프로세스 체크 UX.
+// 검수 링크(review_request) 상세 — 정규 프로세스 체크 UX.
 //   pending  : 입력값 readonly(비활성) · [체크 취소]만 활성(신청 삭제).
 //   completed: 입력값 readonly + 자동 검수 결과(식별 크루) 표시 · 취소 불가.
 // ⚠ user_weekly_points·snapshot 무접촉 — point_a/b/c·식별 결과는 관리 기록.
@@ -45,7 +45,7 @@ export default function ProcessIrregularReviewDetail({
   const [banner, setBanner] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const isReview = act.kind === "review_request";
-  // 체크 취소(=신청 삭제)는 검수 신청 + pending 일 때만. 수동 부여는 완료 상태라 취소 없음.
+  // 체크 취소(=신청 삭제)는 검수 링크 + pending 일 때만. 수동 입력는 완료 상태라 취소 없음.
   const cancelable = isReview && act.status === "pending";
 
   // 체크 취소 = 신청 삭제(pending 에서만). 완료 후에는 취소 불가.
@@ -172,7 +172,7 @@ export default function ProcessIrregularReviewDetail({
 
         <div className="mt-4 flex items-center justify-end gap-2">
           {isReview ? (
-            // 검수 신청 — pending 에서만 체크 취소(=신청 삭제).
+            // 검수 링크 — pending 에서만 체크 취소(=신청 삭제).
             <Button
               type="button"
               variant="outline"
@@ -197,7 +197,7 @@ export default function ProcessIrregularReviewDetail({
               체크 취소
             </Button>
           ) : (
-            // 수동 부여 — 관리용 삭제(완료 상태·취소 개념 없음).
+            // 수동 입력 — 관리용 삭제(완료 상태·취소 개념 없음).
             <Button
               type="button"
               variant="outline"
@@ -206,7 +206,7 @@ export default function ProcessIrregularReviewDetail({
               disabled={submitting}
               onClick={() =>
                 void (async () => {
-                  // 수동 부여 관리용 삭제 — 한 번 더 확인.
+                  // 수동 입력 관리용 삭제 — 한 번 더 확인.
                   const ok = await confirm(CONFIRM.delete);
                   if (!ok) return;
                   await cancel();

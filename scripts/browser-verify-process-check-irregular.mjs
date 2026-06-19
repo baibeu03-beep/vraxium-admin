@@ -1,5 +1,5 @@
 // 브라우저 검증 — /admin/processes/check/irregular 변동 액트.
-//   버튼(수동 부여/검수 신청·1행2열) · 요약 5칸 · 표 헤더 종류→카페→… 순 · 시드 행 표시(카페 파생).
+//   버튼(수동 입력/검수 링크·1행2열) · 요약 5칸 · 표 헤더 종류→카페→… 순 · 시드 행 표시(카페 파생).
 //   서비스롤로 시드 1행 생성 → 표시 확인 → cleanup(net-zero). 전제: dev 서버 + 마이그레이션 적용.
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
@@ -54,7 +54,7 @@ try {
     body: JSON.stringify({ organization: ORG, kind: "manual_grant", act_name: `${TAG} 표시행`, target_user_ids: [opTarget.user_id], point_a: 7, point_b: 1, point_c: 0, crew_reaction: "partial", point_mode: "ab" }),
   });
   ck("[시드] 수동부여 생성 201", seed.status === 201);
-  // 검수 신청(체크 대기) 시드 — 상태 버튼→상세→체크 취소 동작 확인용.
+  // 검수 링크(체크 대기) 시드 — 상태 버튼→상세→체크 취소 동작 확인용.
   const seedRR = await fetch(`${BASE}/api/admin/processes/check/irregular`, {
     method: "POST", headers: { "Content-Type": "application/json", cookie: cookieHdr },
     body: JSON.stringify({ organization: ORG, kind: "review_request", act_name: `${TAG} 대기행`, review_link: "https://cafe.naver.com/x/req", scheduled_check_at: new Date(Date.now() + 86_400_000).toISOString(), point_a: 2, point_b: 1, point_c: 1 }),
@@ -69,11 +69,11 @@ try {
   const body = (await page.locator("body").textContent()) ?? "";
 
   // 버튼 2종.
-  ck("[버튼] 수동 부여", await page.getByRole("button", { name: "수동 부여" }).count() > 0);
-  ck("[버튼] 검수 신청", await page.getByRole("button", { name: "검수 신청" }).count() > 0);
+  ck("[버튼] 수동 입력", await page.getByRole("button", { name: "수동 입력" }).count() > 0);
+  ck("[버튼] 검수 링크", await page.getByRole("button", { name: "검수 링크" }).count() > 0);
 
   // 요약 5칸 라벨.
-  for (const lbl of ["전체 갯수", "검수 신청", "수동 부여", "체크 완료", "체크 대기"]) {
+  for (const lbl of ["전체 갯수", "검수 링크", "수동 입력", "체크 완료", "체크 대기"]) {
     ck(`[요약] ${lbl} 표시`, body.includes(lbl));
   }
 
@@ -86,8 +86,8 @@ try {
   // 시드 행 표시 + 카페=미발생(수동부여 파생).
   ck("[행] 시드 액트명 표시", body.includes(`${TAG} 표시행`));
   const rowText = (await page.locator("tbody tr", { hasText: `${TAG} 표시행` }).first().textContent()) ?? "";
-  ck("[행] 수동 부여 → 카페 '미발생' 표시", rowText.includes("미발생"));
-  ck("[행] 수동 부여 → 상태 '체크 완료'", rowText.includes("체크 완료"));
+  ck("[행] 수동 입력 → 카페 '미발생' 표시", rowText.includes("미발생"));
+  ck("[행] 수동 입력 → 상태 '체크 완료'", rowText.includes("체크 완료"));
 
   // ── 상태 버튼 통합 — 별도 [상세] 버튼 제거, 상태 버튼이 상세 역할 ──
   ck("[버튼통합] 목록에 '상세' 버튼 없음", (await page.getByRole("button", { name: "상세" }).count()) === 0);
@@ -118,8 +118,8 @@ try {
   await page.getByRole("button", { name: "닫기" }).click();
   await page.waitForTimeout(200);
 
-  // ── 수동 부여 모달 — 자동완성 검색 → 확인 → 명단 추가 → 인원 수 ──
-  await page.getByRole("button", { name: "수동 부여" }).click();
+  // ── 수동 입력 모달 — 자동완성 검색 → 확인 → 명단 추가 → 인원 수 ──
+  await page.getByRole("button", { name: "수동 입력" }).click();
   await page.waitForTimeout(400);
   ck("[모달] 대상 크루 0명 초기표시", ((await page.locator("text=대상 크루 0명").count()) > 0));
   ck("[모달] 버튼 초기화/체크 완료 존재", (await page.getByRole("button", { name: "초기화" }).count()) > 0 && (await page.getByRole("button", { name: "체크 완료" }).count()) > 0);
@@ -127,11 +127,11 @@ try {
   // 포인트 드롭다운 0~20 — 0 옵션 존재.
   ck("[모달] 포인트 A 드롭다운 0 선택 가능", (await page.locator('select[aria-label="포인트 A"] option[value="0"]').count()) > 0 && (await page.locator('select[aria-label="포인트 A"] option[value="20"]').count()) > 0);
 
-  // 수동 부여는 '부분' 고정(전원 선택 불가) + 포인트 방식(A+B|C) 라디오. 구 필수/선택/선발/없음 비노출.
+  // 수동 입력는 '부분' 고정(전원 선택 불가) + 포인트 방식(A+B|C) 라디오. 구 필수/선택/선발/없음 비노출.
   //   ⚠ 목록 행에도 '액트 종류' select 가 있으므로 모달 컨테이너로 스코프(strict 모드 회피).
   const modal = page.locator(".fixed.inset-0.z-50").last();
   const cSel = modal.locator('select[aria-label="포인트 C"]');
-  ck("[수동] 액트 종류 '부분 (수동 부여 고정)' 표시", (await modal.getByText("부분 (수동 부여 고정)").count()) > 0);
+  ck("[수동] 액트 종류 '부분 (수동 입력 고정)' 표시", (await modal.getByText("부분 (수동 입력 고정)").count()) > 0);
   ck("[수동] 액트 종류 select(전원 선택) 없음", (await modal.locator('select[aria-label="액트 종류"]').count()) === 0);
   ck("[수동] 포인트 방식 라디오 2개(A+B 부여/C 부여)", (await modal.getByRole("radio").count()) === 2);
   const bodyTxt = await modal.innerText();
