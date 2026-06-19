@@ -16,6 +16,10 @@ import {
 } from "@/lib/adminCluster4LinesTypes";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { insertOpeningLogForLine } from "@/lib/adminCluster4OpeningLogs";
+import {
+  assertLineInRequestScope,
+  resolveRequestScope,
+} from "@/lib/userScope";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -29,7 +33,7 @@ async function resolveLineWeekId(lineId: string): Promise<string | null> {
   return (data?.[0] as { week_id: string | null } | undefined)?.week_id ?? null;
 }
 
-export async function GET(_request: NextRequest, { params }: Ctx) {
+export async function GET(request: NextRequest, { params }: Ctx) {
   try {
     await requireAdmin(ADMIN_READ_ROLES);
   } catch (error) {
@@ -40,6 +44,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
 
   const { id } = await params;
   try {
+    await assertLineInRequestScope(request, id);
     const line = await getCluster4Line(id);
     return Response.json({ success: true, data: { line } });
   } catch (error) {
@@ -47,6 +52,13 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
       return Response.json(
         { success: false, error: error.message },
         { status: error.status },
+      );
+    }
+    const status = (error as { status?: number }).status;
+    if (status === 422) {
+      return Response.json(
+        { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+        { status },
       );
     }
     console.error("[admin/cluster4/lines/:id GET]", error);
@@ -89,6 +101,14 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       { status: parsed.status },
     );
   }
+  try {
+    await assertLineInRequestScope(request, id, (body as { mode?: unknown })?.mode);
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
+  }
 
   // [섹션 0] 로그창: info 라인 is_active 전환을 개설/취소 로그로 남기기 위해 직전 상태를 읽어둔다.
   const { data: beforeRow } = await supabaseAdmin
@@ -103,7 +123,15 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   } | null;
 
   try {
-    const line = await updateCluster4Line(id, parsed.value, admin.userId);
+    const scope = await resolveRequestScope(request, {
+      bodyMode: (body as { mode?: unknown }).mode,
+    });
+    const line = await updateCluster4Line(
+      id,
+      parsed.value,
+      admin.userId,
+      scope.mode,
+    );
     // is_active 변동(개설상태 ↑↓) 시 best-effort 로그 — false→true=[개설 완료], true→false=[개설 취소].
     // (snapshot 무관·본 동작과 분리. 로그 실패가 PATCH 를 깨지 않는다.)
     const nextActive = parsed.value.isActive;
@@ -140,7 +168,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: Ctx) {
+export async function DELETE(request: NextRequest, { params }: Ctx) {
   let admin;
   try {
     admin = await requireAdmin(CLUSTER4_LINE_WRITE_ROLES);
@@ -151,6 +179,14 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
   }
 
   const { id } = await params;
+  try {
+    await assertLineInRequestScope(request, id);
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
+  }
 
   // [섹션 0] 로그창: 삭제 후엔 조회 불가하므로 직전 상태/주차를 확보. 활성 info 라인 삭제 = [개설 취소].
   const { data: beforeRow } = await supabaseAdmin
@@ -167,7 +203,8 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
   const weekIdForLog = cancelLog ? await resolveLineWeekId(id) : null;
 
   try {
-    await deleteCluster4Line(id);
+    const scope = await resolveRequestScope(request);
+    await deleteCluster4Line(id, scope.mode);
     if (cancelLog) {
       await insertOpeningLogForLine({
         action: "cancel",

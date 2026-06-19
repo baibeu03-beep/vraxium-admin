@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import type {
   Cluster4InfoLineDetail,
   Cluster4InfoLineTargetDetail,
@@ -291,18 +292,21 @@ async function fetchTargetCountsByLineIds(lineIds: string[]) {
 
   if (targetIds.length === 0) return { targetCounts, submissionCounts };
 
-  const { data: submissionRows, error: submissionError } = await supabaseAdmin
-    .from("cluster4_line_submissions")
-    .select("line_target_id")
-    .in("line_target_id", targetIds);
-  if (submissionError) {
-    throw new Cluster4LineError(500, submissionError.message);
-  }
+  for (let index = 0; index < targetIds.length; index += 200) {
+    const batch = targetIds.slice(index, index + 200);
+    const { data: submissionRows, error: submissionError } = await supabaseAdmin
+      .from("cluster4_line_submissions")
+      .select("line_target_id")
+      .in("line_target_id", batch);
+    if (submissionError) {
+      throw new Cluster4LineError(500, submissionError.message);
+    }
 
-  for (const row of (submissionRows ?? []) as Cluster4SubmissionCountRow[]) {
-    const lineId = targetIdToLineId.get(row.line_target_id);
-    if (!lineId) continue;
-    submissionCounts.set(lineId, (submissionCounts.get(lineId) ?? 0) + 1);
+    for (const row of (submissionRows ?? []) as Cluster4SubmissionCountRow[]) {
+      const lineId = targetIdToLineId.get(row.line_target_id);
+      if (!lineId) continue;
+      submissionCounts.set(lineId, (submissionCounts.get(lineId) ?? 0) + 1);
+    }
   }
 
   return { targetCounts, submissionCounts };
@@ -311,15 +315,18 @@ async function fetchTargetCountsByLineIds(lineIds: string[]) {
 async function fetchSubmissionCountsByTargetIds(targetIds: string[]) {
   const counts = new Map<string, number>();
   if (targetIds.length === 0) return counts;
-  const { data, error } = await supabaseAdmin
-    .from("cluster4_line_submissions")
-    .select("line_target_id")
-    .in("line_target_id", targetIds);
-  if (error) {
-    throw new Cluster4LineError(500, error.message);
-  }
-  for (const row of (data ?? []) as Cluster4SubmissionCountRow[]) {
-    counts.set(row.line_target_id, (counts.get(row.line_target_id) ?? 0) + 1);
+  for (let index = 0; index < targetIds.length; index += 200) {
+    const batch = targetIds.slice(index, index + 200);
+    const { data, error } = await supabaseAdmin
+      .from("cluster4_line_submissions")
+      .select("line_target_id")
+      .in("line_target_id", batch);
+    if (error) {
+      throw new Cluster4LineError(500, error.message);
+    }
+    for (const row of (data ?? []) as Cluster4SubmissionCountRow[]) {
+      counts.set(row.line_target_id, (counts.get(row.line_target_id) ?? 0) + 1);
+    }
   }
   return counts;
 }
@@ -454,6 +461,7 @@ export async function collectLineOrgAudience(lineId: string): Promise<string[]> 
 async function invalidateWeeklyCardsForLineChange(
   lineId: string,
   extraUserIds: Array<string | null | undefined> = [],
+  mode?: ScopeMode,
 ): Promise<void> {
   let audience: string[] = [];
   try {
@@ -464,16 +472,22 @@ async function invalidateWeeklyCardsForLineChange(
       message: e instanceof Error ? e.message : String(e),
     });
   }
-  const ids = [
+  let ids = [
     ...audience,
     ...extraUserIds.filter((u): u is string => Boolean(u)),
   ];
+  if (mode) {
+    const scope = await resolveUserScope(mode, null);
+    ids = scope.filter(ids);
+  }
   await invalidateWeeklyCardsForUsers(ids);
 }
 
 // 라인에 연결된 대상자(target_mode='user') + org 노출 audience 의 weekly-card snapshot 을 무효화한다.
 // 라인 메타 변경/활성 토글처럼 "라인 단위" 변경이 모든 노출 대상 카드에 영향을 줄 때 사용.
-async function invalidateSnapshotsForLineTargets(lineId: string): Promise<void> {
+async function listLineTargetUserIdsForInvalidation(
+  lineId: string,
+): Promise<string[]> {
   const { data, error } = await supabaseAdmin
     .from("cluster4_line_targets")
     .select("target_user_id")
@@ -489,6 +503,11 @@ async function invalidateSnapshotsForLineTargets(lineId: string): Promise<void> 
     .map((r) => (r as { target_user_id: string | null }).target_user_id)
     .filter((u): u is string => Boolean(u));
   // 배정자(Step 1) + org 노출 audience(Step 2) 모두 무효화.
+  return assignedIds;
+}
+
+async function invalidateSnapshotsForLineTargets(lineId: string): Promise<void> {
+  const assignedIds = await listLineTargetUserIdsForInvalidation(lineId);
   await invalidateWeeklyCardsForLineChange(lineId, assignedIds);
 }
 
@@ -543,6 +562,7 @@ export type ListCluster4LinesOptions = {
   organization?: OrganizationSlug | null;
   limit?: number;
   offset?: number;
+  mode?: ScopeMode;
 };
 
 export async function listCluster4Lines(
@@ -550,6 +570,22 @@ export async function listCluster4Lines(
 ): Promise<ListCluster4LinesResult> {
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
   const offset = Math.max(options.offset ?? 0, 0);
+  const scope = await resolveUserScope(options.mode ?? "operating", null);
+  const { data: scopedTargetRows, error: scopedTargetError } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("line_id,target_user_id")
+    .eq("target_mode", "user");
+  if (scopedTargetError) throw new Cluster4LineError(500, scopedTargetError.message);
+  const excludedLineIds = Array.from(
+    new Set(
+      (scopedTargetRows ?? [])
+        .filter((row) => {
+          const userId = (row as { target_user_id: string | null }).target_user_id;
+          return Boolean(userId && !scope.includes(userId));
+        })
+        .map((row) => (row as { line_id: string }).line_id),
+    ),
+  );
 
   let lineIdsFilter: string[] | null = null;
   if (options.weekId || options.targetMode) {
@@ -599,6 +635,9 @@ export async function listCluster4Lines(
   }
   if (lineIdsFilter) {
     queryBuilder = queryBuilder.in("id", lineIdsFilter);
+  }
+  if (excludedLineIds.length > 0) {
+    queryBuilder = queryBuilder.not("id", "in", `(${excludedLineIds.join(",")})`);
   }
 
   const rawQuery = options.query?.trim() ?? "";
@@ -686,6 +725,7 @@ export async function updateCluster4Line(
   id: string,
   input: Cluster4LinePatchInput,
   actorAdminId: string,
+  mode?: ScopeMode,
 ): Promise<Cluster4LineDto> {
   if (!isUuid(id)) {
     throw new Cluster4LineError(400, "line id must be a UUID");
@@ -715,7 +755,12 @@ export async function updateCluster4Line(
     throw new Cluster4LineError(404, "cluster4 line not found");
   }
   // 라인 메타(title/output/기입기간/is_active 등) 변경은 모든 대상자 주차 카드에 영향 → 즉시 재계산.
-  await invalidateSnapshotsForLineTargets(id);
+  if (mode) {
+    const assignedIds = await listLineTargetUserIdsForInvalidation(id);
+    await invalidateWeeklyCardsForLineChange(id, assignedIds, mode);
+  } else {
+    await invalidateSnapshotsForLineTargets(id);
+  }
   const { targetCounts, submissionCounts } = await fetchTargetCountsByLineIds([id]);
   return toLineDto(
     data as unknown as Cluster4LineRow,
@@ -941,7 +986,10 @@ export async function findActiveInfoLineId(
   return null;
 }
 
-export async function deleteCluster4Line(id: string): Promise<void> {
+export async function deleteCluster4Line(
+  id: string,
+  mode?: ScopeMode,
+): Promise<void> {
   await ensureLineExists(id);
   // 삭제 전 대상자 + org audience 수집 — FK cascade 로 targets/라인 행이 사라지기 전에 확보.
   //   (collectLineOrgAudience 는 cluster4_lines 행을 읽으므로 반드시 삭제 전에 호출한다.)
@@ -962,11 +1010,17 @@ export async function deleteCluster4Line(id: string): Promise<void> {
   }
   // 라인 삭제 = 배정자 카드에서 라인 제거 + org audience 의 분모 A(synthetic fail) 제거 →
   // 배정자 + org audience 전원 즉시 재계산(placeholder/분모 복귀 반영).
-  await invalidateWeeklyCardsForUsers([...affectedUserIds, ...orgAudience]);
+  let invalidationIds = [...affectedUserIds, ...orgAudience];
+  if (mode) {
+    const scope = await resolveUserScope(mode, null);
+    invalidationIds = scope.filter(invalidationIds);
+  }
+  await invalidateWeeklyCardsForUsers(invalidationIds);
 }
 
 export async function listCluster4LineTargets(
   lineId: string,
+  mode: ScopeMode = "operating",
 ): Promise<ListCluster4LineTargetsResult> {
   await ensureLineExists(lineId);
 
@@ -980,7 +1034,10 @@ export async function listCluster4LineTargets(
     throw new Cluster4LineError(500, error.message);
   }
 
-  const rows = (data ?? []) as unknown as Cluster4LineTargetRow[];
+  const scope = await resolveUserScope(mode, null);
+  const rows = ((data ?? []) as unknown as Cluster4LineTargetRow[]).filter(
+    (row) => !row.target_user_id || scope.includes(row.target_user_id),
+  );
   const submissionCounts = await fetchSubmissionCountsByTargetIds(rows.map((row) => row.id));
   return {
     lineId,
@@ -992,6 +1049,7 @@ export async function createCluster4LineTarget(
   lineId: string,
   input: Cluster4LineTargetCreateInput,
   actorAdminId: string,
+  mode?: ScopeMode,
 ): Promise<Cluster4LineTargetDto> {
   await ensureLineExists(lineId);
   await ensureWeekExists(input.weekId);
@@ -1022,6 +1080,7 @@ export async function createCluster4LineTarget(
   await invalidateWeeklyCardsForLineChange(
     lineId,
     input.targetMode === "user" ? [input.targetUserId] : [],
+    mode,
   );
   return toTargetDto(data as unknown as Cluster4LineTargetRow, 0);
 }
@@ -1030,6 +1089,7 @@ export async function updateCluster4LineTarget(
   targetId: string,
   input: Cluster4LineTargetPatchInput,
   actorAdminId: string,
+  mode?: ScopeMode,
 ): Promise<Cluster4LineTargetDto> {
   if (!isUuid(targetId)) {
     throw new Cluster4LineError(400, "target id must be a UUID");
@@ -1090,7 +1150,7 @@ export async function updateCluster4LineTarget(
   await invalidateWeeklyCardsForLineChange(existingRow.line_id, [
     existingRow.target_user_id,
     nextMode === "user" ? nextUserId : null,
-  ]);
+  ], mode);
   const submissionCounts = await fetchSubmissionCountsByTargetIds([targetId]);
   return toTargetDto(
     data as unknown as Cluster4LineTargetRow,
@@ -1098,7 +1158,10 @@ export async function updateCluster4LineTarget(
   );
 }
 
-export async function deleteCluster4LineTarget(targetId: string): Promise<void> {
+export async function deleteCluster4LineTarget(
+  targetId: string,
+  mode?: ScopeMode,
+): Promise<void> {
   if (!isUuid(targetId)) {
     throw new Cluster4LineError(400, "target id must be a UUID");
   }
@@ -1120,7 +1183,11 @@ export async function deleteCluster4LineTarget(targetId: string): Promise<void> 
   // 타깃 해제는 해제 대상자의 가용 라인을 줄이고, 그것이 그 라인의 마지막 타깃이면 org audience 의
   // 분모 A(synthetic fail)도 사라진다 → 해제 대상자 + 라인 org audience 전원 재계산.
   const removed = existing as { line_id: string; target_user_id: string | null };
-  await invalidateWeeklyCardsForLineChange(removed.line_id, [removed.target_user_id]);
+  await invalidateWeeklyCardsForLineChange(
+    removed.line_id,
+    [removed.target_user_id],
+    mode,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1139,6 +1206,7 @@ export type ListCluster4LinesDetailedOptions = {
   organization?: OrganizationSlug | null;
   limit?: number;
   offset?: number;
+  mode?: ScopeMode;
 };
 
 export async function listCluster4LinesDetailed(
@@ -1587,7 +1655,13 @@ export async function listCluster4LinesDetailed(
     };
   });
 
-  return { rows, total: rows.length, limit, offset };
+  const scope = await resolveUserScope(options.mode ?? "operating", null);
+  const scopedRows = rows.filter((row) =>
+    row.targets.every(
+      (target) => !target.targetUserId || scope.includes(target.targetUserId),
+    ),
+  );
+  return { rows: scopedRows, total: scopedRows.length, limit, offset };
 }
 
 // 실무 정보(part_type='info') 전용 wrapper — 기존 info-lines GET 호환 유지.

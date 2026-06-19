@@ -8,6 +8,10 @@ import {
   listExperienceDrafts,
   createExperienceDraft,
 } from "@/lib/adminExperienceDraftData";
+import {
+  assertUserInRequestScope,
+  resolveRequestScope,
+} from "@/lib/userScope";
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,6 +33,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const scope = await resolveRequestScope(request);
     const data = await listExperienceDrafts({
       weekId,
       organizationSlug: sp.get("organization")?.trim() || null,
@@ -37,6 +42,7 @@ export async function GET(request: NextRequest) {
       inputStatus: sp.get("input_status")?.trim() || null,
       reviewStatus: sp.get("review_status")?.trim() || null,
       openStatus: sp.get("open_status")?.trim() || null,
+      mode: scope.mode,
     });
     return Response.json({ success: true, data });
   } catch (error) {
@@ -68,6 +74,16 @@ export async function POST(request: NextRequest) {
   const parsed = parseExperienceDraftCreateBody(body);
   if (!parsed.ok) {
     return Response.json({ success: false, error: parsed.error }, { status: parsed.status });
+  }
+  try {
+    await assertUserInRequestScope(request, parsed.value.targetUserId, {
+      bodyMode: (body as { mode?: unknown }).mode,
+    });
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
   }
 
   try {

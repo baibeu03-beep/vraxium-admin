@@ -7,13 +7,14 @@ import {
 } from "@/lib/adminAuth";
 import { getMemberDisplayName } from "@/lib/adminCrewData";
 import { getCrewNote, upsertCrewNote } from "@/lib/adminCrewManagementNotes";
+import { assertUserInRequestScope } from "@/lib/userScope";
 
 // 클럽 관리 기록(관리자 메모) — 조회/저장. 사용자당 1행 upsert. snapshot 무접촉.
 //   GET  /api/admin/members/[user_id]/note  → 마지막 저장 메모
 //   PUT  /api/admin/members/[user_id]/note  → { note } upsert (저장 버튼)
 type Ctx = { params: Promise<{ user_id: string }> };
 
-export async function GET(_request: NextRequest, { params }: Ctx) {
+export async function GET(request: NextRequest, { params }: Ctx) {
   try {
     await requireAdmin(ADMIN_READ_ROLES);
   } catch (error) {
@@ -23,6 +24,14 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
   }
 
   const { user_id } = await params;
+  try {
+    await assertUserInRequestScope(request, user_id);
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
+  }
   try {
     const note = await getCrewNote(user_id);
     return Response.json({ success: true, data: note });
@@ -59,6 +68,16 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
     return Response.json(
       { success: false, error: "note(string) is required" },
       { status: 400 },
+    );
+  }
+  try {
+    await assertUserInRequestScope(request, user_id, {
+      bodyMode: (body as { mode?: unknown } | null)?.mode,
+    });
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
     );
   }
 

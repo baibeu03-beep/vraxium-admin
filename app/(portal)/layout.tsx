@@ -5,6 +5,8 @@ import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import TestModeToggle from "@/components/admin/TestModeToggle";
 import { requireAdminPage } from "@/lib/adminAuth";
 import { loadAdminDisplayName } from "@/lib/adminMe";
+import { AdminModeProvider } from "@/components/admin/AdminModeProvider";
+import { Suspense } from "react";
 
 export default async function PortalLayout({
   children,
@@ -16,7 +18,9 @@ export default async function PortalLayout({
   const adminDisplayName = await loadAdminDisplayName(admin.userId);
 
   return (
-    <SidebarProvider>
+    <Suspense fallback={null}>
+      <AdminModeProvider>
+        <SidebarProvider>
       {/* 데이터가 바뀌는 버튼(초기화/저장/완료/삭제/닫기)에 공통 확인 UI 제공 */}
       <ConfirmProvider>
         <div className="flex flex-1 min-h-screen bg-muted/40">
@@ -35,6 +39,8 @@ export default async function PortalLayout({
         {/* 운영/테스트 모드 토글(표시 전용·admin 경로 한정, 자체 Suspense). */}
         <TestModeToggle />
       </ConfirmProvider>
-    </SidebarProvider>
+        </SidebarProvider>
+      </AdminModeProvider>
+    </Suspense>
   );
 }

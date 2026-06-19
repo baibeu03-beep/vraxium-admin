@@ -12,6 +12,7 @@ import {
 } from "@/lib/adminCrewData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { assertUserInRequestScope } from "@/lib/userScope";
 
 const LEGACY_TABLE = "legacy_crew_import";
 
@@ -42,7 +43,7 @@ function pickLegacyUpdate(body: unknown): LegacyUpdate {
   return out;
 }
 
-export async function GET(_request: NextRequest, { params }: Ctx) {
+export async function GET(request: NextRequest, { params }: Ctx) {
   try {
     await requireAdmin(ADMIN_READ_ROLES);
   } catch (error) {
@@ -61,6 +62,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
         { status: 404 },
       );
     }
+    await assertUserInRequestScope(request, crew.userId);
 
     return Response.json({ success: true, data: crew });
   } catch (error) {
@@ -70,7 +72,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
         success: false,
         error: error instanceof Error ? error.message : "Failed to load crew",
       },
-      { status: 500 },
+      { status: (error as { status?: number }).status ?? 500 },
     );
   }
 }
@@ -113,6 +115,16 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
     return Response.json(
       { success: false, error: "Crew not found" },
       { status: 404 },
+    );
+  }
+  try {
+    await assertUserInRequestScope(request, existing.userId, {
+      bodyMode: (body as { mode?: unknown } | null)?.mode,
+    });
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
     );
   }
 
@@ -232,7 +244,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   return Response.json({ success: true, data: crew, warning });
 }
 
-export async function DELETE(_request: NextRequest, { params }: Ctx) {
+export async function DELETE(request: NextRequest, { params }: Ctx) {
   try {
     await requireAdmin(ADMIN_WRITE_ROLES);
   } catch (error) {
@@ -248,6 +260,14 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
     return Response.json(
       { success: false, error: "Crew not found" },
       { status: 404 },
+    );
+  }
+  try {
+    await assertUserInRequestScope(request, existing.userId);
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
     );
   }
 

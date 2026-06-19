@@ -7,6 +7,11 @@ import {
   upsertCareerEvaluation,
 } from "@/lib/adminCareerEvaluationsData";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import {
+  assertLineInRequestScope,
+  assertUserInRequestScope,
+} from "@/lib/userScope";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 // GET /api/admin/cluster4/career-evaluations?line_id=<uuid>
 // 평가 탭 로드용 — career 라인의 user-mode 대상자별 현재 평점.
@@ -25,11 +30,22 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const targets = await listCareerEvaluationTargetsForLine(lineId);
+    await assertLineInRequestScope(request, lineId);
+    const targets = await listCareerEvaluationTargetsForLine(
+      lineId,
+      parseScopeMode(request.nextUrl.searchParams.get("mode")),
+    );
     return Response.json({ success: true, data: { targets } });
   } catch (error) {
     if (error instanceof CareerEvaluationError) {
       return Response.json({ success: false, error: error.message }, { status: error.status });
+    }
+    const status = (error as { status?: number }).status;
+    if (status === 422) {
+      return Response.json(
+        { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+        { status },
+      );
     }
     console.error("[career-evaluations GET]", error);
     return Response.json(
@@ -71,6 +87,14 @@ export async function POST(request: NextRequest) {
   }
   if (typeof b.grade !== "string") {
     return Response.json({ success: false, error: "grade is required" }, { status: 400 });
+  }
+  try {
+    await assertUserInRequestScope(request, b.user_id, { bodyMode: b.mode });
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
   }
 
   try {

@@ -16,6 +16,7 @@ import {
 } from "@/lib/adminCluster4LinesTypes";
 import { isUuid } from "@/lib/isUuid";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 function parseIntParam(
   raw: string | null,
@@ -53,6 +54,7 @@ export async function GET(request: NextRequest) {
   );
   const limit = parseIntParam(params.get("limit"), 50, { min: 1, max: 500 });
   const offset = parseIntParam(params.get("offset"), 0, { min: 0, max: 100000 });
+  const mode = parseScopeMode(params.get("mode"));
 
   if (
     partType !== null &&
@@ -93,6 +95,7 @@ export async function GET(request: NextRequest) {
         organization,
         limit,
         offset,
+        mode,
       });
       return Response.json({ success: true, data });
     }
@@ -104,6 +107,7 @@ export async function GET(request: NextRequest) {
       organization,
       limit,
       offset,
+      mode,
     });
     return Response.json({ success: true, data });
   } catch (error) {

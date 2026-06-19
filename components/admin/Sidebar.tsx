@@ -28,6 +28,7 @@ import {
 } from "@/lib/organizations";
 import { orgHref, readOrgParam } from "@/lib/adminOrgContext";
 import { useSidebar } from "@/components/admin/sidebarContext";
+import { useAdminMode } from "@/components/admin/AdminModeProvider";
 
 // 통합/조직 모드 노출 분기 플래그. (대분류 leaf/branch + 중분류 child 공통)
 //  - integratedOnly: 통합 검수 시스템(orgFocus 없음)에서만 노출
@@ -362,6 +363,7 @@ export default function Sidebar() {
     setOpen: setSidebarOpen,
     toggle: toggleSidebar,
   } = useSidebar();
+  const { href: modeHref } = useAdminMode();
 
   // 관리자 정보 + 로그아웃은 상단 Header 우측으로 이동했다 (components/admin/Header.tsx).
 
@@ -404,8 +406,8 @@ export default function Sidebar() {
   //   - /admin/crews/{org}: path 기반 → 그대로(부착 안 함)
   //   - 그 외: orgHref 로 ?org 부착 (통합 모드면 orgFocus=null → 원본 그대로 = ?org 없음)
   const childHref = (child: ChildItem) => {
-    if (/^\/admin\/crews\/[^/]+$/.test(child.href)) return child.href;
-    return orgHref(child.href, orgFocus);
+    if (/^\/admin\/crews\/[^/]+$/.test(child.href)) return modeHref(child.href);
+    return modeHref(orgHref(child.href, orgFocus));
   };
 
   const [openBranches, setOpenBranches] = useState<Record<string, boolean>>(
@@ -449,7 +451,7 @@ export default function Sidebar() {
         {sidebarOpen && (
           // HOME 라벨 = /admin 홈 링크. /admin(HOME)에서는 navLocked 로 다른 메뉴와 동일하게 이동 차단.
           <Link
-            href="/admin"
+            href={modeHref("/admin")}
             aria-disabled={navLocked || undefined}
             tabIndex={navLocked ? -1 : undefined}
             onClick={(e) => {
@@ -492,7 +494,7 @@ export default function Sidebar() {
             return (
               <Link
                 key={item.href}
-                href={item.href}
+                href={modeHref(item.href)}
                 title={!sidebarOpen ? item.label : undefined}
                 aria-current={active ? "page" : undefined}
                 aria-disabled={navLocked || undefined}

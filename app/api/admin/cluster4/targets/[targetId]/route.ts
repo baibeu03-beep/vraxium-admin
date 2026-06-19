@@ -9,6 +9,11 @@ import {
   CLUSTER4_LINE_WRITE_ROLES,
   parseCluster4LineTargetPatchBody,
 } from "@/lib/adminCluster4LinesTypes";
+import {
+  assertUserInRequestScope,
+  getLineTargetUserId,
+  resolveRequestScope,
+} from "@/lib/userScope";
 
 type Ctx = { params: Promise<{ targetId: string }> };
 
@@ -41,9 +46,35 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       { status: parsed.status },
     );
   }
+  try {
+    const currentUserId = await getLineTargetUserId(targetId);
+    if (currentUserId) {
+      await assertUserInRequestScope(request, currentUserId, {
+        bodyMode: (body as { mode?: unknown })?.mode,
+      });
+    }
+    if (parsed.value.targetUserId) {
+      await assertUserInRequestScope(request, parsed.value.targetUserId, {
+        bodyMode: (body as { mode?: unknown })?.mode,
+      });
+    }
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
+  }
 
   try {
-    const target = await updateCluster4LineTarget(targetId, parsed.value, admin.userId);
+    const scope = await resolveRequestScope(request, {
+      bodyMode: (body as { mode?: unknown }).mode,
+    });
+    const target = await updateCluster4LineTarget(
+      targetId,
+      parsed.value,
+      admin.userId,
+      scope.mode,
+    );
     return Response.json({ success: true, data: { target } });
   } catch (error) {
     if (error instanceof Cluster4LineError) {
@@ -63,7 +94,7 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   }
 }
 
-export async function DELETE(_request: NextRequest, { params }: Ctx) {
+export async function DELETE(request: NextRequest, { params }: Ctx) {
   try {
     await requireAdmin(CLUSTER4_LINE_WRITE_ROLES);
   } catch (error) {
@@ -73,9 +104,19 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
   }
 
   const { targetId } = await params;
+  try {
+    const currentUserId = await getLineTargetUserId(targetId);
+    if (currentUserId) await assertUserInRequestScope(request, currentUserId);
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
+  }
 
   try {
-    await deleteCluster4LineTarget(targetId);
+    const scope = await resolveRequestScope(request);
+    await deleteCluster4LineTarget(targetId, scope.mode);
     return Response.json({ success: true, data: { targetId } });
   } catch (error) {
     if (error instanceof Cluster4LineError) {

@@ -9,6 +9,7 @@
 // 비범위: user_week_statuses sync, category/slot. career_records(legacy)는 건드리지 않는다.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { isUuid } from "@/lib/isUuid";
 import {
   type CareerGrade,
@@ -157,6 +158,7 @@ export async function upsertCareerEvaluation(
 // 평가 탭 로드용: career 라인의 user-mode 대상자 목록 + 현재 평점.
 export async function listCareerEvaluationTargetsForLine(
   lineId: string,
+  mode: ScopeMode = "operating",
 ): Promise<CareerEvaluationTargetDto[]> {
   if (!isUuid(lineId)) {
     throw new CareerEvaluationError(400, "lineId must be a UUID");
@@ -229,7 +231,8 @@ export async function listCareerEvaluationTargetsForLine(
     nameByUser.set(p.user_id, p.display_name ?? null);
   }
 
-  return userTargets.map((t) => {
+  const scope = await resolveUserScope(mode, null);
+  return userTargets.filter((t) => scope.includes(t.target_user_id)).map((t) => {
     const ev = evalByKey.get(`${t.id}:${t.target_user_id}`) ?? null;
     const grade = ev?.grade ?? null;
     return {

@@ -5,6 +5,10 @@ import {
   parseExperienceDraftOpenBody,
 } from "@/lib/adminExperienceDraftTypes";
 import { openExperienceDrafts } from "@/lib/adminExperienceDraftData";
+import {
+  assertUsersInRequestScope,
+  getExperienceDraftTargetUserIds,
+} from "@/lib/userScope";
 
 export async function POST(request: NextRequest) {
   let admin;
@@ -26,6 +30,18 @@ export async function POST(request: NextRequest) {
   const parsed = parseExperienceDraftOpenBody(body);
   if (!parsed.ok) {
     return Response.json({ success: false, error: parsed.error }, { status: parsed.status });
+  }
+  try {
+    await assertUsersInRequestScope(
+      request,
+      await getExperienceDraftTargetUserIds(parsed.value.draftIds),
+      { bodyMode: (body as { mode?: unknown }).mode },
+    );
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
   }
 
   try {

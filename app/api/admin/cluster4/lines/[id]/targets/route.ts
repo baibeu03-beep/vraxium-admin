@@ -13,10 +13,16 @@ import {
   CLUSTER4_LINE_WRITE_ROLES,
   parseCluster4LineTargetCreateBody,
 } from "@/lib/adminCluster4LinesTypes";
+import {
+  assertLineInRequestScope,
+  assertUserInRequestScope,
+  resolveRequestScope,
+} from "@/lib/userScope";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_request: NextRequest, { params }: Ctx) {
+export async function GET(request: NextRequest, { params }: Ctx) {
   try {
     await requireAdmin(ADMIN_READ_ROLES);
   } catch (error) {
@@ -27,13 +33,24 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
 
   const { id } = await params;
   try {
-    const data = await listCluster4LineTargets(id);
+    await assertLineInRequestScope(request, id);
+    const data = await listCluster4LineTargets(
+      id,
+      parseScopeMode(request.nextUrl.searchParams.get("mode")),
+    );
     return Response.json({ success: true, data });
   } catch (error) {
     if (error instanceof Cluster4LineError) {
       return Response.json(
         { success: false, error: error.message },
         { status: error.status },
+      );
+    }
+    const status = (error as { status?: number }).status;
+    if (status === 422) {
+      return Response.json(
+        { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+        { status },
       );
     }
     console.error("[admin/cluster4/lines/:id/targets GET]", error);
@@ -76,9 +93,30 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       { status: parsed.status },
     );
   }
+  try {
+    await assertLineInRequestScope(request, id, (body as { mode?: unknown })?.mode);
+    if (parsed.value.targetMode === "user") {
+      await assertUserInRequestScope(request, parsed.value.targetUserId, {
+        bodyMode: (body as { mode?: unknown })?.mode,
+      });
+    }
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
+  }
 
   try {
-    const target = await createCluster4LineTarget(id, parsed.value, admin.userId);
+    const scope = await resolveRequestScope(request, {
+      bodyMode: (body as { mode?: unknown }).mode,
+    });
+    const target = await createCluster4LineTarget(
+      id,
+      parsed.value,
+      admin.userId,
+      scope.mode,
+    );
     return Response.json({ success: true, data: { target } }, { status: 201 });
   } catch (error) {
     if (error instanceof Cluster4LineError) {

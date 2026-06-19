@@ -13,13 +13,14 @@ import {
 import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
 import { getCrewNote } from "@/lib/adminCrewManagementNotes";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { assertUserInRequestScope } from "@/lib/userScope";
 
 type Ctx = { params: Promise<{ user_id: string }> };
 
 // GET /api/admin/members/[user_id]
 //   크루 상세 페이지(/admin/members/[userId]) 단건 DTO.
 //   프로필 + 크루 코드 + 클럽 관리 기록(관리자 메모). 코드 없으면 lazy 생성(freeze). snapshot 무접촉.
-export async function GET(_request: NextRequest, { params }: Ctx) {
+export async function GET(request: NextRequest, { params }: Ctx) {
   let admin;
   try {
     admin = await requireAdmin(ADMIN_READ_ROLES);
@@ -30,6 +31,14 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
   }
 
   const { user_id } = await params;
+  try {
+    await assertUserInRequestScope(request, user_id);
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
+  }
 
   try {
     const detail = await getCrewDetailDto(user_id, { generatedBy: admin.userId });
@@ -89,6 +98,16 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
       );
     }
     throw error;
+  }
+  try {
+    await assertUserInRequestScope(request, user_id, {
+      bodyMode: (body as { mode?: unknown } | null)?.mode,
+    });
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
   }
 
   // organization_slug 는 ORGANIZATIONS whitelist 또는 null 만 허용.

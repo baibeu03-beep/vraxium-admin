@@ -30,11 +30,12 @@ import {
   parseScopeMode,
   readScopeMode,
   appendModeQuery,
+  setModeQuery,
   type ScopeMode,
 } from "@/lib/userScopeShared";
 
 // 순수 헬퍼는 userScopeShared(클라이언트 공용)에서 정의·여기서 재노출(서버 호출부 호환).
-export { parseScopeMode, readScopeMode, appendModeQuery };
+export { parseScopeMode, readScopeMode, appendModeQuery, setModeQuery };
 export type { ScopeMode };
 
 // useSearchParams()(ReadonlyURLSearchParams)·URLSearchParams 양쪽 호환 최소 형태.
@@ -119,6 +120,121 @@ export async function resolveUserScopeFromParams(
   team?: string | null,
 ): Promise<UserScope> {
   return resolveUserScope(readScopeMode(searchParams), org, team);
+}
+
+export async function resolveRequestScope(
+  request: Request,
+  options: {
+    bodyMode?: unknown;
+    org?: OrganizationSlug | null;
+    team?: string | null;
+  } = {},
+): Promise<UserScope> {
+  const urlMode = new URL(request.url).searchParams.get("mode");
+  const bodyMode = typeof options.bodyMode === "string" ? options.bodyMode : null;
+  return resolveUserScope(
+    parseScopeMode(urlMode ?? bodyMode),
+    options.org ?? null,
+    options.team ?? null,
+  );
+}
+
+export async function assertUserInRequestScope(
+  request: Request,
+  userId: string,
+  options: {
+    bodyMode?: unknown;
+    org?: OrganizationSlug | null;
+    team?: string | null;
+  } = {},
+): Promise<UserScope> {
+  const scope = await resolveRequestScope(request, options);
+  assertUserIdsInScope(scope, [userId]);
+  return scope;
+}
+
+export async function assertUsersInRequestScope(
+  request: Request,
+  userIds: ReadonlyArray<string>,
+  options: {
+    bodyMode?: unknown;
+    org?: OrganizationSlug | null;
+    team?: string | null;
+  } = {},
+): Promise<UserScope> {
+  const scope = await resolveRequestScope(request, options);
+  assertUserIdsInScope(scope, userIds);
+  return scope;
+}
+
+type UserIdScopeQuery<T> = T & {
+  in(column: string, values: readonly string[]): T;
+  not(column: string, operator: string, value: string): T;
+};
+
+export function applyUserIdScope<T>(
+  query: T,
+  column: string,
+  scope: UserScope,
+): T | null {
+  const builder = query as UserIdScopeQuery<T>;
+  if (scope.mode === "test") {
+    const ids = scope.includeUserIds ?? [];
+    return ids.length > 0 ? builder.in(column, ids) : null;
+  }
+  return scope.excludeUserIds.length > 0
+    ? builder.not(column, "in", `(${scope.excludeUserIds.join(",")})`)
+    : query;
+}
+
+export async function listLineTargetUserIds(lineId: string): Promise<string[]> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("target_user_id")
+    .eq("line_id", lineId)
+    .eq("target_mode", "user");
+  if (error) throw new Error(error.message);
+  return (data ?? [])
+    .map((row) => (row as { target_user_id: string | null }).target_user_id)
+    .filter((id): id is string => Boolean(id));
+}
+
+export async function assertLineInRequestScope(
+  request: Request,
+  lineId: string,
+  bodyMode?: unknown,
+): Promise<UserScope> {
+  return assertUsersInRequestScope(
+    request,
+    await listLineTargetUserIds(lineId),
+    { bodyMode },
+  );
+}
+
+export async function getLineTargetUserId(
+  targetId: string,
+): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("target_user_id")
+    .eq("id", targetId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as { target_user_id: string | null } | null)?.target_user_id ?? null;
+}
+
+export async function getExperienceDraftTargetUserIds(
+  draftIds: readonly string[],
+): Promise<string[]> {
+  if (draftIds.length === 0) return [];
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_experience_line_drafts")
+    .select("target_user_id")
+    .in("id", Array.from(draftIds));
+  if (error) throw new Error(error.message);
+  return (data ?? [])
+    .map((row) => (row as { target_user_id: string | null }).target_user_id)
+    .filter((id): id is string => Boolean(id));
 }
 
 // (선택) 현재 org 의 활동 명부 user_id 를 스코프 적용해 반환하는 헬퍼.

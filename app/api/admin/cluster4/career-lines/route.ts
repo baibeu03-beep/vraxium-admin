@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { assertUsersInRequestScope } from "@/lib/userScope";
 import { isUuid } from "@/lib/isUuid";
 import {
   getSeasonForDate,
@@ -231,6 +232,16 @@ export async function POST(request: NextRequest) {
   }
 
   const input = parsed.value;
+  try {
+    await assertUsersInRequestScope(request, input.target_user_ids, {
+      bodyMode: (body as { mode?: unknown }).mode,
+    });
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
+  }
 
   try {
     // Resolve target week — override 우선, 미지정 시 current week.

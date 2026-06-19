@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireAdmin, toAdminErrorResponse, ADMIN_READ_ROLES } from "@/lib/adminAuth";
 import { getExperienceWorkflowSummary } from "@/lib/adminExperienceDraftData";
+import { resolveRequestScope } from "@/lib/userScope";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +25,12 @@ export async function GET(request: NextRequest) {
   const organization = sp.get("organization")?.trim() || null;
 
   try {
-    const summary = await getExperienceWorkflowSummary(weekId, organization);
+    const scope = await resolveRequestScope(request);
+    const summary = await getExperienceWorkflowSummary(
+      weekId,
+      organization,
+      scope.mode,
+    );
     return Response.json({ success: true, data: summary });
   } catch (error) {
     console.error("[experience-workflow-summary GET]", error);

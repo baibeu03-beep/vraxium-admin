@@ -14,6 +14,7 @@ import {
   outputImageCaptions as toOutputImageCaptions,
 } from "@/lib/cluster4OutputImages";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
+import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 
 // ── Row → DTO mapping ─────────────────────────────────────
 
@@ -75,6 +76,7 @@ export async function listExperienceDrafts(filters: {
   inputStatus?: string | null;
   reviewStatus?: string | null;
   openStatus?: string | null;
+  mode?: ScopeMode;
 }): Promise<ExperienceDraftDto[]> {
   let query = supabaseAdmin
     .from("cluster4_experience_line_drafts")
@@ -107,7 +109,8 @@ export async function listExperienceDrafts(filters: {
     rows = rows.filter((r) => r.part_name === filters.part);
   }
 
-  return rows.map(toDraftDto);
+  const scope = await resolveUserScope(filters.mode ?? "operating", null);
+  return rows.filter((row) => scope.includes(row.target_user_id)).map(toDraftDto);
 }
 
 // ── Create draft ───────────────────────────────────────────
@@ -684,10 +687,11 @@ export type WorkflowSummary = {
 export async function getExperienceWorkflowSummary(
   weekId: string,
   organizationSlug?: string | null,
+  mode: ScopeMode = "operating",
 ): Promise<WorkflowSummary> {
   let query = supabaseAdmin
     .from("cluster4_experience_line_drafts")
-    .select("input_status,review_status,open_status")
+    .select("target_user_id,input_status,review_status,open_status")
     .eq("week_id", weekId);
 
   if (organizationSlug) {
@@ -697,11 +701,13 @@ export async function getExperienceWorkflowSummary(
   const { data, error } = await query;
   if (error) throw new Error(error.message);
 
-  const rows = (data ?? []) as Array<{
+  const scope = await resolveUserScope(mode, null);
+  const rows = ((data ?? []) as Array<{
+    target_user_id: string;
     input_status: string;
     review_status: string;
     open_status: string;
-  }>;
+  }>).filter((row) => scope.includes(row.target_user_id));
 
   let draftCount = 0;
   let submittedCount = 0;

@@ -5,6 +5,10 @@ import {
   parseExperienceDraftReviewBody,
 } from "@/lib/adminExperienceDraftTypes";
 import { reviewExperienceDraft } from "@/lib/adminExperienceDraftData";
+import {
+  assertUsersInRequestScope,
+  getExperienceDraftTargetUserIds,
+} from "@/lib/userScope";
 
 type RouteCtx = { params: Promise<{ id: string }> };
 
@@ -30,6 +34,18 @@ export async function PATCH(request: NextRequest, ctx: RouteCtx) {
   const parsed = parseExperienceDraftReviewBody(body);
   if (!parsed.ok) {
     return Response.json({ success: false, error: parsed.error }, { status: parsed.status });
+  }
+  try {
+    await assertUsersInRequestScope(
+      request,
+      await getExperienceDraftTargetUserIds([id]),
+      { bodyMode: (body as { mode?: unknown }).mode },
+    );
+  } catch (error) {
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "Scope violation" },
+      { status: (error as { status?: number }).status ?? 422 },
+    );
   }
 
   try {

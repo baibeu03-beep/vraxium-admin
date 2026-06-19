@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────
 
 export type ScopeMode = "operating" | "test";
+export const ADMIN_MODE_STORAGE_KEY = "vraxium.admin.scopeMode";
 
 // useSearchParams()(ReadonlyURLSearchParams)·URLSearchParams 양쪽 호환 최소 형태.
 type SearchParamsLike = { get(name: string): string | null } | null | undefined;
@@ -28,6 +29,16 @@ export function appendModeQuery(href: string, mode: ScopeMode): string {
   const [path, query] = pathAndQuery.split("?");
   const params = new URLSearchParams(query ?? "");
   if (params.get("mode") !== "test") params.set("mode", "test");
+  const qs = params.toString();
+  return `${path}${qs ? `?${qs}` : ""}${hash ? `#${hash}` : ""}`;
+}
+
+export function setModeQuery(href: string, mode: ScopeMode): string {
+  const [pathAndQuery, hash] = href.split("#");
+  const [path, query] = pathAndQuery.split("?");
+  const params = new URLSearchParams(query ?? "");
+  if (mode === "test") params.set("mode", "test");
+  else params.delete("mode");
   const qs = params.toString();
   return `${path}${qs ? `?${qs}` : ""}${hash ? `#${hash}` : ""}`;
 }
