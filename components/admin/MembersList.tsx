@@ -650,8 +650,8 @@ export default function MembersList() {
 
             {!error && partialFailure && (
               <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                일부 snapshot 조회 실패 — {partialFailure.growthUnavailable.toLocaleString()}명의 성장
-                성공/성장 가능/활동 완료율을 불러오지 못해 “-”로 표시합니다. 잠시 후 새로고침하면
+                일부 정보를 불러오지 못했습니다 — {partialFailure.growthUnavailable.toLocaleString()}명의 성장
+                성공/성장 가능/활동 완료율을 “-”로 표시합니다. 잠시 후 새로고침하면
                 복구될 수 있습니다.
               </div>
             )}

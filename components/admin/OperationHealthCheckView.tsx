@@ -306,8 +306,8 @@ export default function OperationHealthCheckView() {
         <CardHeader>
           <CardTitle className="text-base">정합성 이슈 목록</CardTitle>
           <CardDescription>
-            user_growth_stats · user_week_statuses · user_season_statuses · weeks ·
-            season_definitions 를 대조해 발견한 정합성 문제입니다. 자동 수정은 제공하지
+            성장 통계 · 주차 인정 상태 · 시즌 상태 · 주차 · 시즌 정의 데이터를 대조해
+            발견한 정합성 문제입니다. 자동 수정은 제공하지
             않습니다.
             {data?.truncated &&
               ` (이슈가 많아 처음 ${issues.length.toLocaleString()}건만 표시합니다.)`}

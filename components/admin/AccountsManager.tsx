@@ -1037,7 +1037,7 @@ function CreateAccountDrawerInner({
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-muted-foreground">
-                {ORGANIZATION_COMMON_LABEL} 을 선택하면 organization_slug 를 null 로 저장합니다 (조직 횡단).
+                {ORGANIZATION_COMMON_LABEL} 을 선택하면 특정 조직에 속하지 않는 공용 계정으로 저장합니다 (조직 횡단).
               </p>
             </div>
 

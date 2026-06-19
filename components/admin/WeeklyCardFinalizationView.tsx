@@ -113,11 +113,11 @@ function StatusBadges({ target }: { target: FinalizationWeekStatus }) {
             ? "border-orange-200 bg-orange-50 text-orange-700"
             : "border-emerald-200 bg-emerald-50 text-emerald-700",
         )}
-        title={`코호트 ${target.snapshot.cohortSize}명 · 신선 ${target.snapshot.fresh} · stale ${target.snapshot.stale} · 미생성 ${target.snapshot.missing}`}
+        title={`대상 인원 ${target.snapshot.cohortSize}명 · 최신 ${target.snapshot.fresh} · 갱신 필요 ${target.snapshot.stale} · 미생성 ${target.snapshot.missing}`}
       >
         {target.snapshot.isStale
-          ? `snapshot stale (${target.snapshot.stale + target.snapshot.missing})`
-          : "snapshot 신선"}
+          ? `갱신 필요 (${target.snapshot.stale + target.snapshot.missing})`
+          : "최신 상태"}
       </span>
     </div>
   );
@@ -258,18 +258,18 @@ export default function WeeklyCardFinalizationView() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "재계산 실패");
+        throw new Error(json?.error ?? "카드 정보 업데이트 실패");
       }
       const data = json.data as WeeklyCardFinalizationResult;
       applyResultPayload(data);
       setBanner({
         kind: "success",
-        message: `snapshot 재계산 완료 (요청 ${data.snapshotRecompute.requested} · 성공 ${data.snapshotRecompute.recomputed} · 실패 ${data.snapshotRecompute.failed}).`,
+        message: `카드 정보 업데이트 완료 (요청 ${data.snapshotRecompute.requested} · 성공 ${data.snapshotRecompute.recomputed} · 실패 ${data.snapshotRecompute.failed}).`,
       });
     } catch (err) {
       setBanner({
         kind: "error",
-        message: err instanceof Error ? err.message : "재계산 실패",
+        message: err instanceof Error ? err.message : "카드 정보 업데이트 실패",
       });
     } finally {
       setRecomputing(false);
@@ -297,8 +297,8 @@ export default function WeeklyCardFinalizationView() {
       setBanner({
         kind: "success",
         message: already
-          ? `이미 확정된 주차입니다. 코호트 snapshot 을 재계산했습니다 (성공 ${data.snapshotRecompute.recomputed}).`
-          : `집계 확정 완료. 코호트 snapshot 재계산 (성공 ${data.snapshotRecompute.recomputed} · 실패 ${data.snapshotRecompute.failed}).`,
+          ? `이미 확정된 주차입니다. 대상 인원의 카드 정보를 업데이트했습니다 (성공 ${data.snapshotRecompute.recomputed}).`
+          : `집계 확정 완료. 대상 인원의 카드 정보를 업데이트했습니다 (성공 ${data.snapshotRecompute.recomputed} · 실패 ${data.snapshotRecompute.failed}).`,
       });
     } catch (err) {
       setBanner({
@@ -367,8 +367,8 @@ export default function WeeklyCardFinalizationView() {
         <div>
           <h1 className="text-xl font-semibold">주차 카드 집계 확정</h1>
           <p className="text-sm text-muted-foreground">
-            특정 시즌/주차의 집계 결과를 확인하고 확정합니다. 확정 = 주차 결과 공표
-            (weeks.result_published_at) + 코호트 카드 snapshot 재계산. 사용자별 인정
+            특정 시즌/주차의 집계 결과를 확인하고 확정합니다. 확정하면 주차 결과를
+            공개하고 대상 인원의 카드 정보를 최신 상태로 업데이트합니다. 사용자별 인정
             상태(성공/실패/휴식)는 변경하지 않습니다.
           </p>
         </div>
@@ -402,8 +402,7 @@ export default function WeeklyCardFinalizationView() {
         <CardHeader>
           <CardTitle className="text-base">시즌 · 주차 · 조직 선택</CardTitle>
           <CardDescription>
-            seasonId 는 weeks.season_key 로 해석합니다. 조직은 집계 표시 범위 스코프이며,
-            확정/재계산은 주차 전체 코호트에 적용됩니다.
+            조직은 집계 표시 범위이며, 확정/업데이트는 주차 전체 인원에 적용됩니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -487,7 +486,7 @@ export default function WeeklyCardFinalizationView() {
               disabled={!canQuery || recomputing}
             >
               {recomputing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              snapshot 재계산
+              카드 정보 업데이트
             </Button>
             <Button
               type="button"
@@ -544,7 +543,7 @@ export default function WeeklyCardFinalizationView() {
                     {aggregation.uncategorized > 0 && (
                       <tr className="border-t">
                         <td className="px-4 py-2 text-xs text-muted-foreground">
-                          기타(no_data/진행 중 등)
+                          기타(데이터 없음/진행 중 등)
                         </td>
                         <td className="px-4 py-2 text-xs tabular-nums text-muted-foreground">
                           {aggregation.uncategorized.toLocaleString()}
@@ -556,10 +555,10 @@ export default function WeeklyCardFinalizationView() {
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              집계 기준 = user_week_statuses.status. 단, PMS 활동인정 데이터(cluster4_weekly_pms_activity
-              + org_week_thresholds)가 있는 org×주차는 weekly-ranking 과 동일한 PMS 공식
-              (Star≥4 + confirmStar)으로 산출합니다. 시드 테스트 유저(test_user_markers)는 코호트에서
-              제외됩니다. "미확정 인원"은 현재 집계 중으로 표시되는 인원이며, 확정하면 0이 됩니다.
+              집계 기준은 사용자별 주차 인정 상태입니다. 단, PMS 활동 인정 데이터가 있는
+              조직·주차는 주간 랭킹과 동일한 PMS 기준(별점 4점 이상 + 확인 별점)으로 산출합니다.
+              테스트 계정은 집계 대상에서 제외됩니다. "미확정 인원"은 현재 집계 중으로 표시되는
+              인원이며, 확정하면 0이 됩니다.
             </p>
           </CardContent>
         </Card>
@@ -571,15 +570,15 @@ export default function WeeklyCardFinalizationView() {
           <CardHeader>
             <CardTitle className="text-base">확정 반영 검증 (주차 카드 재조회)</CardTitle>
             <CardDescription>
-              테스트 유저(demoUserId)로 실제 주차 카드 API를 재호출해 해당 주차가 더 이상
-              "집계 중"이 아닌지 확인합니다. 데모/일반 동일 DTO 경로입니다.
+              테스트 유저 ID로 실제 주차 카드를 다시 조회해 해당 주차가 더 이상
+              "집계 중"이 아닌지 확인합니다.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex flex-wrap items-end gap-2">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">
-                  demoUserId (테스트 유저 profile user_id)
+                  테스트 유저 ID
                 </label>
                 <Input
                   value={demoUserId}
@@ -610,14 +609,13 @@ export default function WeeklyCardFinalizationView() {
                 )}
               >
                 {!verifyResult.found ? (
-                  `해당 주차(${target.weekLabel}) 카드를 이 유저에게서 찾지 못했습니다 (코호트 밖일 수 있음).`
+                  `해당 주차(${target.weekLabel}) 카드를 이 유저에게서 찾지 못했습니다 (대상 인원이 아닐 수 있음).`
                 ) : verifyResult.stillTallying ? (
-                  `아직 "집계 중"입니다 (userWeekStatus=${verifyResult.userWeekStatus}). snapshot 재계산이 필요할 수 있습니다.`
+                  `아직 "집계 중"입니다. 카드 정보 업데이트가 필요할 수 있습니다.`
                 ) : (
                   <span className="inline-flex items-center gap-1">
                     <CheckCircle2 className="h-4 w-4" />
-                    더 이상 "집계 중"이 아닙니다 — {verifyResult.statusLabel} (
-                    {verifyResult.userWeekStatus}).
+                    더 이상 "집계 중"이 아닙니다 — {verifyResult.statusLabel}.
                   </span>
                 )}
               </div>
@@ -658,9 +656,9 @@ export default function WeeklyCardFinalizationView() {
             </div>
             <p className="text-sm text-muted-foreground">
               이 주차를 확정하면 고객 페이지의 해당 주차 카드가 "성장(집계 중)"에서 사용자별
-              성공/실패 상태로 전환되고, 코호트 전체의 카드 snapshot 이 재계산됩니다.
+              성공/실패 상태로 전환되고, 대상 인원 전체의 카드 정보가 최신 상태로 업데이트됩니다.
               사용자별 인정 상태 자체는 변경되지 않습니다.
-              {target.isFinalized && " (이미 확정된 주차 — snapshot 재계산만 수행됩니다.)"}
+              {target.isFinalized && " (이미 확정된 주차 — 카드 정보 업데이트만 수행됩니다.)"}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <Button
@@ -678,7 +676,7 @@ export default function WeeklyCardFinalizationView() {
                 disabled={finalizing}
               >
                 {finalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {target.isFinalized ? "snapshot 재계산" : "집계 확정"}
+                {target.isFinalized ? "카드 정보 업데이트" : "집계 확정"}
               </Button>
             </div>
           </div>

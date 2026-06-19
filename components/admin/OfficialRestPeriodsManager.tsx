@@ -266,7 +266,7 @@ export default function OfficialRestPeriodsManager() {
       !dryRun &&
       !(await confirm({
         ...CONFIRM.save,
-        description: `${rcStart} ~ ${rcEnd} 범위의 영향 대상 snapshot 을 재계산합니다. 진행할까요?`,
+        description: `${rcStart} ~ ${rcEnd} 범위의 영향 대상 카드 정보를 업데이트합니다. 진행할까요?`,
       }))
     ) {
       return;
@@ -289,23 +289,23 @@ export default function OfficialRestPeriodsManager() {
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "재계산 호출에 실패했습니다.");
+        throw new Error(json?.error ?? "업데이트에 실패했습니다.");
       }
       const d = json.data;
       if (d.dry_run) {
         const sample = (d.sample_user_ids ?? []).slice(0, 5).join(", ");
         setRcResult(
-          `대상 ${d.target_count}명${sample ? ` (예: ${sample}…)` : ""}. 확인 후 '재계산 실행'을 누르세요.`,
+          `대상 ${d.target_count}명${sample ? ` (예: ${sample}…)` : ""}. 확인 후 '업데이트 실행'을 누르세요.`,
         );
       } else {
         const failSample = (d.failed_user_ids ?? []).slice(0, 10).join(", ");
         setRcResult(
-          `재계산 완료 — 요청 ${d.requested} / 성공 ${d.recomputed} / 실패 ${d.failed}` +
-            (d.failed > 0 ? ` (실패 user: ${failSample})` : ""),
+          `업데이트 완료 — 요청 ${d.requested} / 성공 ${d.recomputed} / 실패 ${d.failed}` +
+            (d.failed > 0 ? ` (실패 대상: ${failSample})` : ""),
         );
       }
     } catch (err) {
-      setRcError(err instanceof Error ? err.message : "재계산 호출에 실패했습니다.");
+      setRcError(err instanceof Error ? err.message : "업데이트에 실패했습니다.");
     } finally {
       setRcBusy(false);
     }
@@ -382,8 +382,8 @@ export default function OfficialRestPeriodsManager() {
         </Card>
         <Card size="sm">
           <CardHeader>
-            <CardDescription>데이터 소스</CardDescription>
-            <CardTitle>official_rest_periods</CardTitle>
+            <CardDescription>관리 대상</CardDescription>
+            <CardTitle>공식 휴식 기간</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -577,10 +577,10 @@ export default function OfficialRestPeriodsManager() {
                             size="sm"
                             onClick={() => prefillRecompute(period)}
                             disabled={rcBusy}
-                            title="이 기간을 아래 '영향 대상 재계산' 범위로 채웁니다"
+                            title="이 기간을 아래 '영향 대상 카드 정보 업데이트' 범위로 채웁니다"
                           >
                             <Calculator className="h-3.5 w-3.5" />
-                            재계산 범위
+                            업데이트 범위
                           </Button>
                         </div>
                       </TableCell>
@@ -595,11 +595,11 @@ export default function OfficialRestPeriodsManager() {
 
       <Card className="border-amber-300/40 bg-amber-50/40">
         <CardHeader>
-          <CardTitle>영향 대상 snapshot 재계산</CardTitle>
+          <CardTitle>영향 대상 카드 정보 업데이트</CardTitle>
           <CardDescription>
             공식 휴식 기간을 추가/수정/삭제하면 해당 날짜 범위의 주차 카드 판정이 바뀝니다.
-            자동 재계산(cron)이 없으므로, 변경 후 이 버튼으로 영향 대상의 카드 snapshot 을
-            수동 재계산하세요. (각 기간 행의 &quot;재계산 범위&quot; 버튼으로 날짜를 채울 수 있습니다.)
+            변경 후 이 버튼으로 영향 대상의 카드 정보를 직접 최신 상태로 업데이트하세요.
+            (각 기간 행의 &quot;업데이트 범위&quot; 버튼으로 날짜를 채울 수 있습니다.)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -637,7 +637,7 @@ export default function OfficialRestPeriodsManager() {
               disabled={rcBusy}
             >
               <RefreshCw className={cn("h-4 w-4", rcBusy && "animate-spin")} />
-              재계산 실행
+              업데이트 실행
             </Button>
           </div>
           {rcError && (

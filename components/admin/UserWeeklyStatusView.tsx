@@ -204,7 +204,7 @@ export default function UserWeeklyStatusView({
         <CardHeader>
           <CardTitle className="text-base">주차별 상태</CardTitle>
           <CardDescription>
-            user_week_statuses 를 기준으로 시즌·주차 메타와 포인트·평판·동료 값을 조합했습니다.
+            사용자별 주차 인정 상태를 기준으로 시즌·주차 정보와 포인트·평판·동료 값을 조합했습니다.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -216,16 +216,16 @@ export default function UserWeeklyStatusView({
                   <TableHead>주차</TableHead>
                   <TableHead>주차 기간</TableHead>
                   <TableHead>상태</TableHead>
-                  <TableHead title="별 = point.check">
+                  <TableHead title="별 개수 = 획득한 체크 수">
                     Check
                   </TableHead>
                   <TableHead
-                    title="받은 방패 원본(point.advantage) — 내부 집계/검증 전용, 고객 화면에는 노출되지 않습니다."
+                    title="받은 방패 원본값 — 내부 집계/검증 전용, 고객 화면에는 노출되지 않습니다."
                   >
                     Advantage (Raw)
                   </TableHead>
                   <TableHead
-                    title="번개 원본값(point.penalty) — 고객 화면에는 −Penalty 로 표시됩니다."
+                    title="번개 원본값 — 고객 화면에는 감점(−)으로 표시됩니다."
                   >
                     Penalty
                   </TableHead>
@@ -258,7 +258,7 @@ export default function UserWeeklyStatusView({
                       {row.weekly_star_count.toLocaleString()}
                     </TableCell>
                     <TableCell
-                      title="raw — 내부 전용, 고객 화면 미노출"
+                      title="원본값 — 내부 전용, 고객 화면 미노출"
                       className="tabular-nums text-muted-foreground"
                     >
                       {row.weekly_shield_count.toLocaleString()}

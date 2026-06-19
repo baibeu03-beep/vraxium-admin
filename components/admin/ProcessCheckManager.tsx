@@ -209,7 +209,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
 
       {!org && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          조직(?org)이 지정되어야 합니다. 예: <code>/admin/processes/check/experience?org=oranke</code>
+          조직이 지정되어야 합니다. 주소 끝에 조직 코드를 붙여 다시 열어주세요. (예: ?org=oranke)
         </div>
       )}
 

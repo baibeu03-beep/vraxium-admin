@@ -416,7 +416,7 @@ export default function WeekRecognitionsView() {
         <CardHeader>
           <CardTitle className="text-base">인정 결과 목록</CardTitle>
           <CardDescription>
-            user_week_statuses 를 기준으로 시즌·주차 메타와 이름·조직을 조합했습니다.
+            사용자별 주차 인정 상태를 기준으로 시즌·주차 정보와 이름·조직을 조합했습니다.
             {data?.truncated && " (결과가 많아 일부만 표시됩니다.)"}
           </CardDescription>
         </CardHeader>
@@ -789,11 +789,11 @@ function CheckThresholdManager({
   return (
     <Card id="check-threshold">
       <CardHeader>
-        <CardTitle className="text-base">주차 인정 check 기준 관리</CardTitle>
+        <CardTitle className="text-base">주차 인정 체크 기준 관리</CardTitle>
         <CardDescription>
-          주차 성공 판정에 필요한 point.check 개수 기준입니다. 주차 성공 = [실무 경험]
-          통합 라인 평점 4점 이상(강화 성공) <span className="font-medium">그리고</span> check
-          획득 수가 이 기준 이상. advantage / penalty 는 판정에 사용하지 않습니다.
+          주차 성공 판정에 필요한 체크 개수 기준입니다. 주차 성공 = [실무 경험]
+          통합 라인 평점 4점 이상(강화 성공) <span className="font-medium">그리고</span> 체크
+          획득 수가 이 기준 이상. 가산점 / 감점은 판정에 사용하지 않습니다.
           비워 두면 기본값 {DEFAULT_WEEK_CHECK_THRESHOLD}개가 적용됩니다.
         </CardDescription>
       </CardHeader>
@@ -885,7 +885,7 @@ function CheckThresholdRow({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to update check threshold.");
+        throw new Error(json?.error ?? "체크 인정 기준 저장에 실패했습니다.");
       }
       const d = json.data as {
         week_label: string;
@@ -894,10 +894,10 @@ function CheckThresholdRow({
         snapshot_recompute?: { requested: number; recomputed: number };
       };
       const snap = d.snapshot_recompute
-        ? ` (snapshot ${d.snapshot_recompute.recomputed}/${d.snapshot_recompute.requested}명 재계산)`
+        ? ` (카드 정보 ${d.snapshot_recompute.recomputed}/${d.snapshot_recompute.requested}명 업데이트)`
         : "";
       onSaved(
-        `${seasonLabel} ${d.week_label} check 인정 기준을 ${
+        `${seasonLabel} ${d.week_label} 체크 인정 기준을 ${
           d.check_threshold_is_default
             ? `기본값(${d.effective_check_threshold}개)`
             : `${d.effective_check_threshold}개`
@@ -905,7 +905,7 @@ function CheckThresholdRow({
       );
     } catch (err) {
       onError(
-        err instanceof Error ? err.message : "Failed to update check threshold.",
+        err instanceof Error ? err.message : "체크 인정 기준 저장에 실패했습니다.",
       );
     } finally {
       setSaving(false);

@@ -570,7 +570,7 @@ function LineDetailModal({
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  기업/감독자 정보는 연결된 경력 프로젝트(career_projects)에 저장됩니다. 저장 시 대상자 weekly-card 가 갱신됩니다.
+                  기업/감독자 정보는 연결된 경력 프로젝트에 저장됩니다. 저장 시 대상자의 주차 카드가 갱신됩니다.
                 </p>
               </>
             ) : (

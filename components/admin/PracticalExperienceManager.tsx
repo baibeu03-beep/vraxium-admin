@@ -1487,7 +1487,7 @@ export default function PracticalExperienceManager() {
             size="sm"
             onClick={() => handleSyncExperienceGrowth("test")}
             disabled={syncing}
-            title="테스트 사용자(display_name 에 'T' 포함)만 대상으로 성장 상태 동기화 (success→fail 단방향)"
+            title="테스트 계정만 대상으로 성장 상태 동기화 (성공→실패 단방향)"
           >
             {syncing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             성장 동기화(테스트)
