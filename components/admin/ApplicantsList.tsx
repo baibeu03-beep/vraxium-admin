@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, RefreshCw, Search, UserPlus, UserX, X } from "lucide-react";
+import {
+  CheckCheck,
+  CheckCircle2,
+  RefreshCw,
+  Search,
+  UserPlus,
+  UserX,
+  X,
+} from "lucide-react";
 import {
   Card,
   CardContent,
@@ -109,6 +117,7 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
   const [banner, setBanner] = useState<Banner>(null);
   const [approveTarget, setApproveTarget] = useState<Applicant | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [approvingAll, setApprovingAll] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -208,6 +217,56 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
     }
   };
 
+  // 전체 승인 대상 = 현재 mode 스코프로 로드된 pending 지원자(서버 처리 모집단과 일치).
+  // 클라이언트 검색어(query)는 표시 narrowing 일 뿐이므로 카운트/대상에 반영하지 않는다.
+  const pendingCount = useMemo(
+    () => applicants.filter((a) => a.status === "pending").length,
+    [applicants],
+  );
+
+  const handleApproveAll = async () => {
+    if (approvingAll || rejectingId || approveTarget) return;
+    if (pendingCount === 0) {
+      setBanner({ kind: "error", message: "승인 대기 중인 지원자가 없습니다." });
+      return;
+    }
+    const confirmed = await confirm({
+      title: "전체 승인",
+      description: `현재 필터 조건의 승인 대기 지원자 ${pendingCount}명을 전체 승인하시겠습니까?`,
+      confirmLabel: "전체 승인",
+    });
+    if (!confirmed) return;
+
+    setApprovingAll(true);
+    setBanner(null);
+    try {
+      const res = await fetch(
+        `/api/admin/applicants/approve-all${mode === "test" ? "?mode=test" : ""}`,
+        { method: "POST" },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        throw new Error(json?.error ?? "전체 승인에 실패했습니다.");
+      }
+      const { succeeded = 0, failed = 0 } = json as {
+        succeeded?: number;
+        failed?: number;
+      };
+      setBanner({
+        kind: failed > 0 ? "error" : "success",
+        message: `전체 승인 완료 — 성공 ${succeeded}명 / 실패 ${failed}명`,
+      });
+      setRefreshTick((n) => n + 1);
+    } catch (err) {
+      setBanner({
+        kind: "error",
+        message: err instanceof Error ? err.message : "전체 승인에 실패했습니다.",
+      });
+    } finally {
+      setApprovingAll(false);
+    }
+  };
+
   const handleApproveSuccess = (linkedDisplayName: string | null) => {
     setBanner({
       kind: "success",
@@ -233,14 +292,33 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
             )}
           </p>
         </div>
-        <Button
-          variant="outline"
-          onClick={() => setRefreshTick((n) => n + 1)}
-          disabled={loading}
-        >
-          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-          새로고침
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => void handleApproveAll()}
+            disabled={
+              loading ||
+              approvingAll ||
+              pendingCount === 0 ||
+              Boolean(rejectingId) ||
+              Boolean(approveTarget)
+            }
+          >
+            <CheckCheck
+              className={cn("h-4 w-4", approvingAll && "animate-pulse")}
+            />
+            {approvingAll
+              ? "승인 중..."
+              : `전체 승인${pendingCount > 0 ? ` (${pendingCount})` : ""}`}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setRefreshTick((n) => n + 1)}
+            disabled={loading || approvingAll}
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            새로고침
+          </Button>
+        </div>
       </div>
 
       {banner && (
