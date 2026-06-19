@@ -40,6 +40,27 @@ export function buildLineOpeningTabs(
   ];
 }
 
+// 크루 온보딩(/admin/users/applicants) 공통 2탭:
+//   가입 대기자(기본, applicants 승인/거절) / 가입된 사용자(?tab=app-users, 소속 배정).
+export function buildCrewOnboardingTabs(
+  pathname: string,
+  searchParams: SearchParamsLike,
+  current: "applicants" | "app-users",
+): AdminPageHeaderTab[] {
+  return [
+    {
+      label: "가입 대기자",
+      href: tabHref(pathname, searchParams, "tab", "app-users", true),
+      active: current === "applicants",
+    },
+    {
+      label: "가입된 사용자",
+      href: tabHref(pathname, searchParams, "tab", "app-users", false),
+      active: current === "app-users",
+    },
+  ];
+}
+
 // 멤버 관리(/admin/members) 공통 2탭: 크루 목록(기본) / 크루 정보(?tab=info).
 export function buildMembersTabs(
   pathname: string,

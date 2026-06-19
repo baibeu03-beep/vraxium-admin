@@ -1,5 +1,5 @@
-import ApplicantsList from "@/components/admin/ApplicantsList";
+import CrewOnboarding from "@/components/admin/CrewOnboarding";
 
 export default function UserApplicantsPage() {
-  return <ApplicantsList />;
+  return <CrewOnboarding />;
 }
