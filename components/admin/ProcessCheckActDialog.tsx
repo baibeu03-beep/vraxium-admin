@@ -23,6 +23,7 @@ import {
   type ProcessCheckActRowDto,
   type ProcessCheckScopeKind,
 } from "@/lib/adminProcessCheckTypes";
+import ProcessCheckCompletedCrewList from "@/components/admin/ProcessCheckCompletedCrewList";
 
 // 30분 단위 시간 슬롯(00:00 ~ 23:30).
 const TIME_SLOTS: string[] = (() => {
@@ -47,11 +48,12 @@ function dowOf(dateStr: string): string {
 
 type Banner = { kind: "error"; message: string } | null;
 
-function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+// 라벨(위) + 값(아래) 셀 — grid 칸/검수 링크·검수 시점 표시 공용.
+function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex gap-3 text-sm">
-      <span className="w-24 shrink-0 text-muted-foreground">{label}</span>
-      <span className="min-w-0 break-words font-medium">{value}</span>
+    <div className="space-y-1">
+      <div className="text-xs text-muted-foreground">{label}</div>
+      <div className="min-w-0 break-words text-sm font-medium">{children}</div>
     </div>
   );
 }
@@ -184,7 +186,7 @@ export default function ProcessCheckActDialog({
         if (e.target === e.currentTarget && !submitting) void requestClose();
       }}
     >
-      <div className="w-full max-w-md rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
+      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
             액트 체크 ·{" "}
@@ -205,100 +207,98 @@ export default function ProcessCheckActDialog({
           </button>
         </div>
 
-        {/* 표시 정보(공통) */}
-        <div className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2">
-          <InfoRow label="액트명" value={act.actName} />
-          <InfoRow label="소속 라인급" value={act.lineGroupName} />
+        {/* (1) 상단 정보 — 1행 3열: 액트명 / 소속 라인급 / 액트 종류 */}
+        <div className="grid grid-cols-3 gap-3 rounded-md border bg-muted/30 px-3 py-2">
+          <Field label="액트명">{act.actName}</Field>
+          <Field label="소속 라인급">{act.lineGroupName}</Field>
+          <Field label="액트 종류">{act.crewReactionLabel}</Field>
         </div>
 
-        {/* 입력/표시 — 상태별 */}
-        <div className="mt-3 space-y-3">
+        {/* (2) 검수 링크 — needed=입력 / 그 외=링크 표시 */}
+        <div className="mt-3 space-y-1">
           {status === "needed" ? (
             <>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">
-                  검수 링크 <span className="text-red-500">*</span> (네이버 카페 게시물 링크)
-                </label>
-                <Input
-                  value={reviewLink}
-                  onChange={(e) => setReviewLink(e.target.value)}
-                  placeholder="https://cafe.naver.com/..."
-                  disabled={submitting}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">
-                  검수 시점 <span className="text-red-500">*</span> (24시간 · now 이후 ~ +7일)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={date}
-                    min={minDate}
-                    max={maxDate}
-                    onChange={(e) => setDate(e.target.value)}
-                    disabled={submitting}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                  />
-                  <span className="w-8 text-center text-sm text-muted-foreground">
-                    {date ? `(${dowOf(date)})` : "(–)"}
-                  </span>
-                  <select
-                    aria-label="검수 시각"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    disabled={submitting}
-                    className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-                  >
-                    <option value="">시간</option>
-                    {TIME_SLOTS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {scheduledIso && (
-                  <p className="text-[11px] text-muted-foreground">→ {formatCheckDateTimeKo(scheduledIso)}</p>
-                )}
-              </div>
-              <InfoRow label="체크 크루" value="-" />
+              <label className="text-xs text-muted-foreground">
+                검수 링크 <span className="text-red-500">*</span> (네이버 카페 게시물 링크)
+              </label>
+              <Input
+                value={reviewLink}
+                onChange={(e) => setReviewLink(e.target.value)}
+                placeholder="https://cafe.naver.com/..."
+                disabled={submitting}
+              />
             </>
           ) : (
-            <>
-              <InfoRow
-                label="검수 링크"
-                value={
-                  act.reviewLink ? (
-                    <a href={act.reviewLink} target="_blank" rel="noreferrer" className="text-blue-600 underline">
-                      {act.reviewLink}
-                    </a>
-                  ) : (
-                    "-"
-                  )
-                }
-              />
-              <InfoRow
-                label={status === "completed" ? "검수 시점" : "검수 시점"}
-                value={act.scheduledCheckAt ? formatCheckDateTimeKo(act.scheduledCheckAt) : "-"}
-              />
-              {status === "completed" ? (
-                <>
-                  <InfoRow
-                    label="신청 시점"
-                    value={act.requestedAt ? formatCheckDateTimeKo(act.requestedAt) : "-"}
-                  />
-                  <InfoRow
-                    label="완료 시점"
-                    value={act.completedAt ? formatCheckDateTimeKo(act.completedAt) : "-"}
-                  />
-                  <InfoRow label="체크 크루 수" value={act.checkedCrewCount ?? "-"} />
-                </>
+            <Field label="검수 링크">
+              {act.reviewLink ? (
+                <a href={act.reviewLink} target="_blank" rel="noreferrer" className="text-blue-600 underline">
+                  {act.reviewLink}
+                </a>
               ) : (
-                <InfoRow label="체크 크루" value="-" />
+                "-"
               )}
-            </>
+            </Field>
           )}
+        </div>
+
+        {/* (3) 1행 2열 — 검수 시점 / 체크 크루 인원수 */}
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          {status === "needed" ? (
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">
+                검수 시점 <span className="text-red-500">*</span> (24시간 · now 이후 ~ +7일)
+              </label>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <input
+                  type="date"
+                  value={date}
+                  min={minDate}
+                  max={maxDate}
+                  onChange={(e) => setDate(e.target.value)}
+                  disabled={submitting}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                />
+                <span className="w-8 text-center text-sm text-muted-foreground">
+                  {date ? `(${dowOf(date)})` : "(–)"}
+                </span>
+                <select
+                  aria-label="검수 시각"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
+                  disabled={submitting}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                >
+                  <option value="">시간</option>
+                  {TIME_SLOTS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {scheduledIso && (
+                <p className="text-[11px] text-muted-foreground">→ {formatCheckDateTimeKo(scheduledIso)}</p>
+              )}
+            </div>
+          ) : (
+            <Field label="검수 시점">{act.scheduledCheckAt ? formatCheckDateTimeKo(act.scheduledCheckAt) : "-"}</Field>
+          )}
+          <Field label="체크 크루 인원수">
+            {status === "completed" ? `${act.checkedCrewCount ?? act.completedCrewList.length}명` : "-"}
+          </Field>
+        </div>
+
+        {/* 완료 부가 정보(신청/완료 시점) — completed 만 */}
+        {status === "completed" && (
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <Field label="신청 시점">{act.requestedAt ? formatCheckDateTimeKo(act.requestedAt) : "-"}</Field>
+            <Field label="완료 시점">{act.completedAt ? formatCheckDateTimeKo(act.completedAt) : "-"}</Field>
+          </div>
+        )}
+
+        {/* (4) 체크 크루 명단(이름·소속 팀·소속 파트·클래스) — 없으면 안내 문구 */}
+        <div className="mt-3">
+          <ProcessCheckCompletedCrewList crews={act.completedCrewList} />
         </div>
 
         {/* 검수 크루 식별 진단(테스트/관리자용) — "검수 크루 0명"의 원인 분리. needed 는 의미 없음(생략). */}

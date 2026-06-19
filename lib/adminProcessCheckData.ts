@@ -20,6 +20,7 @@ import {
   type ProcessWeekRef,
 } from "@/lib/adminProcessesTypes";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
+import { classLabel } from "@/lib/adminMembersTypes";
 import { accrueForCompletedRegular } from "@/lib/processPointAccrual";
 import type { OrganizationSlug } from "@/lib/organizations";
 import {
@@ -44,6 +45,7 @@ import {
   TEAM_OVERALL_LABEL,
   type ProcessCheckAction,
   type ProcessCheckActRowDto,
+  type ProcessCheckCrewDto,
   type ProcessCheckBoardDto,
   type ProcessCheckLineGroupDto,
   type ProcessCheckLogAction,
@@ -133,7 +135,7 @@ async function completionColumnsAvailable(): Promise<boolean> {
 }
 
 const MANUAL_GRANT_MIGRATION_HINT =
-  "선별 액트 수동 부여는 completion_type/manual_point_* 컬럼이 필요합니다. db/migrations/2026-06-18_process_check_manual_grant.sql 을 SQL Editor 에서 적용해주세요.";
+  "선별 액트 수동 입력은 completion_type/manual_point_* 컬럼이 필요합니다. db/migrations/2026-06-18_process_check_manual_grant.sql 을 SQL Editor 에서 적용해주세요.";
 
 // 선택 팀의 팀명 조회(org·active 검증). 없으면 null.
 async function resolveTeamName(teamId: string, organization: string): Promise<string | null> {
@@ -315,31 +317,113 @@ function toStatusState(r: StatusRow): StatusState {
   };
 }
 
-// ── 검수 크루 식별 결과(recipients) 조인 — 진단(reviewerDebug) 산출용 ──────────────
+// ── 크루 메타(이름·팀·파트·클래스) 일괄 해소 — 체크 완료 명단/수동 부여 공용 ────────
+//   user_profiles(display_name·role) + user_memberships(team_name·part_name·membership_level).
+//   className = classLabel(role, level) 단일 SoT(/admin/members 클래스 컬럼과 동일).
+type CrewMeta = { name: string; teamName: string | null; partName: string | null; className: string };
+async function resolveCrewMeta(userIds: string[]): Promise<Map<string, CrewMeta>> {
+  const map = new Map<string, CrewMeta>();
+  const ids = Array.from(new Set(userIds.filter((x): x is string => Boolean(x))));
+  if (ids.length === 0) return map;
+  const [{ data: profs }, { data: mems }] = await Promise.all([
+    supabaseAdmin.from("user_profiles").select("user_id,display_name,role").in("user_id", ids),
+    supabaseAdmin
+      .from("user_memberships")
+      .select("user_id,team_name,part_name,membership_level,is_current")
+      .in("user_id", ids),
+  ]);
+  type MemRow = {
+    user_id: string;
+    team_name: string | null;
+    part_name: string | null;
+    membership_level: string | null;
+    is_current: boolean | null;
+  };
+  const memMap = new Map<string, MemRow>();
+  for (const m of (mems ?? []) as MemRow[]) {
+    const ex = memMap.get(m.user_id);
+    if (!ex || (m.is_current && !ex.is_current)) memMap.set(m.user_id, m);
+  }
+  for (const p of (profs ?? []) as Array<{ user_id: string; display_name: string | null; role: string | null }>) {
+    const m = memMap.get(p.user_id);
+    map.set(p.user_id, {
+      name: p.display_name?.trim() || "(이름 없음)",
+      teamName: m?.team_name ?? null,
+      partName: m?.part_name ?? null,
+      className: classLabel(p.role ?? null, m?.membership_level ?? null),
+    });
+  }
+  return map;
+}
+
+// 크루 메타 맵 + (user_id, 닉네임 폴백) → 명단 행. user_id 미해소면 닉네임만(나머지 null/"-").
+function toCrewDto(
+  meta: Map<string, CrewMeta>,
+  userId: string | null,
+  nickname: string | null,
+): ProcessCheckCrewDto {
+  const m = userId ? meta.get(userId) : undefined;
+  return {
+    userId,
+    name: m?.name ?? (nickname?.trim() || "(이름 없음)"),
+    teamName: m?.teamName ?? null,
+    partName: m?.partName ?? null,
+    className: m?.className ?? "-",
+  };
+}
+
+// ── 검수 크루 식별 결과(recipients) 조인 — 진단(reviewerDebug) + 체크 완료 명단 산출용 ──
 //   process_check_review_recipients(source='regular', ref_id=status row id). best-effort
-//   (테이블/컬럼 미적용이면 빈 맵 → reviewerDebug 는 status 기반 파생만으로 동작).
+//   (테이블/컬럼 미적용이면 빈 맵 → reviewerDebug 는 status 기반 파생만·명단은 빈 배열).
+//   agg      = ref_id 별 매칭/미매칭 집계(reviewerDebug 용).
+//   crewLists = ref_id 별 매칭 크루 명단(이름·팀·파트·클래스 — 체크 완료 팝업 명단).
 type RecipientAgg = { matched: number; unmatchedAuthors: string[] };
-async function loadReviewerRecipients(
-  statusRowIds: string[],
-): Promise<Map<string, RecipientAgg>> {
-  const map = new Map<string, RecipientAgg>();
-  if (statusRowIds.length === 0) return map;
+type RecipientData = {
+  agg: Map<string, RecipientAgg>;
+  crewLists: Map<string, ProcessCheckCrewDto[]>;
+};
+async function loadRecipientData(statusRowIds: string[]): Promise<RecipientData> {
+  const agg = new Map<string, RecipientAgg>();
+  const crewLists = new Map<string, ProcessCheckCrewDto[]>();
+  if (statusRowIds.length === 0) return { agg, crewLists };
   const { data, error } = await supabaseAdmin
     .from("process_check_review_recipients")
-    .select("ref_id,match_type,nickname")
+    .select("ref_id,match_type,nickname,user_id")
     .eq("source", "regular")
     .in("ref_id", statusRowIds);
   if (error) {
     console.warn("[process-check-recipients] read unavailable:", error.message);
-    return map;
+    return { agg, crewLists };
   }
-  for (const r of (data ?? []) as Array<{ ref_id: string; match_type: string; nickname: string | null }>) {
-    let agg = map.get(r.ref_id);
-    if (!agg) map.set(r.ref_id, (agg = { matched: 0, unmatchedAuthors: [] }));
-    if (r.match_type === "matched") agg.matched += 1;
-    else agg.unmatchedAuthors.push(r.nickname ?? "");
+  const rows = (data ?? []) as Array<{
+    ref_id: string;
+    match_type: string;
+    nickname: string | null;
+    user_id: string | null;
+  }>;
+  // 매칭 크루(명단 대상) — ref_id 별 보관 + 메타 해소용 user_id 수집.
+  const matchedByRef = new Map<string, Array<{ userId: string | null; nickname: string | null }>>();
+  const userIds: string[] = [];
+  for (const r of rows) {
+    let a = agg.get(r.ref_id);
+    if (!a) agg.set(r.ref_id, (a = { matched: 0, unmatchedAuthors: [] }));
+    if (r.match_type === "matched") {
+      a.matched += 1;
+      let lst = matchedByRef.get(r.ref_id);
+      if (!lst) matchedByRef.set(r.ref_id, (lst = []));
+      lst.push({ userId: r.user_id, nickname: r.nickname });
+      if (r.user_id) userIds.push(r.user_id);
+    } else {
+      a.unmatchedAuthors.push(r.nickname ?? "");
+    }
   }
-  return map;
+  const meta = await resolveCrewMeta(userIds);
+  for (const [ref, lst] of matchedByRef) {
+    const out = lst.map((x) => toCrewDto(meta, x.userId, x.nickname));
+    out.sort((a, b) => a.name.localeCompare(b.name));
+    crewLists.set(ref, out);
+  }
+  return { agg, crewLists };
 }
 
 // 액트 행 1건의 검수 크루 진단 산출 — recipients(있으면 우선) + status/last_error 파생.
@@ -456,8 +540,8 @@ export async function getProcessCheckBoard(
   const rows = week?.weekId
     ? await loadStatusRows(organization, hub, week.weekId, teamId, partAvail, completionAvail)
     : [];
-  // 검수 크루 식별 결과(recipients) 조인 — reviewerDebug 산출(read-only·best-effort).
-  const recipients = await loadReviewerRecipients(
+  // 검수 크루 식별 결과(recipients) 조인 — reviewerDebug + 체크 완료 명단(read-only·best-effort).
+  const { agg: recipients, crewLists } = await loadRecipientData(
     rows.map((r) => r.state.statusRowId).filter((x): x is string => Boolean(x)),
   );
   const nullMap = new Map<string, StatusState>(); // part_name IS NULL(팀 총괄/info)
@@ -520,6 +604,9 @@ export async function getProcessCheckBoard(
     requestedAt: st.requestedAt,
     completedAt: st.completedAt,
     checkedCrewCount: st.checkedCrewCount,
+    // 체크 완료 명단 — completed 행만(상태행 id 로 매핑). 그 외는 빈 배열.
+    completedCrewList:
+      st.status === "completed" && st.statusRowId ? crewLists.get(st.statusRowId) ?? [] : [],
     reviewerDebug: buildReviewerDebug(st, recipients),
   });
 
@@ -945,6 +1032,8 @@ export async function applyProcessCheckAction(input: {
     requestedAt: st.requested_at,
     completedAt: st.completed_at,
     checkedCrewCount: st.checked_crew_count,
+    // 신청/취소는 completed 가 아님 — 체크 완료 명단 없음.
+    completedCrewList: [],
     // 신청/취소 직후 — 검수는 아직 미실행(worker 미처리). 디버그는 not_started 기본값.
     reviewerDebug: {
       resolutionStatus: deriveReviewerResolutionStatus({
@@ -1047,7 +1136,7 @@ export async function applyProcessManualGrant(input: {
 
   const week = await resolveCurrentWeek(hub, mode);
   if (!week?.weekId) {
-    throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 수동 부여를 저장할 수 없습니다");
+    throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 수동 입력을 저장할 수 없습니다");
   }
   const weekId = week.weekId;
 
@@ -1094,7 +1183,7 @@ export async function applyProcessManualGrant(input: {
   if (!act.is_active) throw new ProcessMasterError(409, "비활성 액트는 부여할 수 없습니다");
   if (act.check_target !== "check") throw new ProcessMasterError(409, "체크 대상이 아닌 액트입니다");
   if (act.act_type !== "selection") {
-    throw new ProcessMasterError(422, "수동 부여는 ‘선별’ 액트에만 가능합니다");
+    throw new ProcessMasterError(422, "수동 입력은 ‘선별’ 액트에만 가능합니다");
   }
 
   const { data: groupData } = await supabaseAdmin
@@ -1110,7 +1199,7 @@ export async function applyProcessManualGrant(input: {
     const scopeKind = isProcessCheckScopeKind(input.scope) ? input.scope : null;
     if (!scopeKind) throw new ProcessMasterError(422, "체크 범위(scope: team_overall|part)가 필요합니다");
     if (!isCheckableScope(scopeKind)) {
-      throw new ProcessMasterError(422, "‘팀 전체’ 범위에서는 수동 부여를 할 수 없습니다");
+      throw new ProcessMasterError(422, "‘팀 전체’ 범위에서는 수동 입력을 할 수 없습니다");
     }
     const actIsPart = isPartLineGroupName(lineGroupName);
     if (scopeKind === "team_overall") {
@@ -1159,7 +1248,7 @@ export async function applyProcessManualGrant(input: {
         ),
       )
     : [];
-  if (ids.length === 0) throw new ProcessMasterError(400, "수동 부여는 대상 크루를 1명 이상 선택해야 합니다");
+  if (ids.length === 0) throw new ProcessMasterError(400, "수동 입력은 대상 크루를 1명 이상 선택해야 합니다");
   const scope = await resolveUserScope(mode, organization as OrganizationSlug);
   assertUserIdsInScope(scope, ids);
   const { data: profs, error: pErr } = await supabaseAdmin
@@ -1200,7 +1289,7 @@ export async function applyProcessManualGrant(input: {
   const current = cur as { id: string; status: ProcessCheckStatus; completion_type: string | null } | null;
   if (current) {
     if (current.status === "pending") {
-      throw new ProcessMasterError(409, "검수 신청(체크 대기) 중인 액트입니다. 먼저 체크 취소 후 수동 부여하세요.");
+      throw new ProcessMasterError(409, "검수 링크로 체크 대기 중인 액트입니다. 먼저 체크 취소 후 수동 입력하세요.");
     }
     if (current.status === "completed" && current.completion_type !== "manual_grant") {
       throw new ProcessMasterError(409, "이미 검수로 체크 완료된 액트입니다.");
@@ -1279,6 +1368,13 @@ export async function applyProcessManualGrant(input: {
     .update({ checked_crew_count: totalCrew })
     .eq("id", statusRowId);
 
+  // 체크 완료 명단(이름·팀·파트·클래스) — 이번 부여 후 전체 수신 크루(기존 ∪ 신규).
+  const allCrewIds = Array.from(new Set<string>([...existing, ...newIds]));
+  const crewMeta = await resolveCrewMeta(allCrewIds);
+  const completedCrewList = allCrewIds
+    .map((id) => toCrewDto(crewMeta, id, byId.get(id)?.display_name ?? null))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
   // 포인트 적립(완료 즉시) — best-effort 격리(적립 실패가 부여를 깨지 않게).
   //   era 경계(operating=summer+/test=+W13) 미허용 주차면 적립 스킵(기록만 남음).
   try {
@@ -1332,6 +1428,7 @@ export async function applyProcessManualGrant(input: {
     requestedAt: nowIso,
     completedAt: nowIso,
     checkedCrewCount: totalCrew,
+    completedCrewList,
     reviewerDebug: {
       resolutionStatus: deriveReviewerResolutionStatus({
         status: "completed",

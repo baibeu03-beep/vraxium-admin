@@ -50,8 +50,8 @@ export function isProcessCheckAction(v: unknown): v is ProcessCheckAction {
 }
 
 // ── 선별(selection) 액트 수동 부여 (2026-06-18) ────────────────────────────────
-//   액트 종류(act_type)가 '선별' 인 액트는 "체크 필요" 클릭 시 [검수 신청]/[수동 부여] 선택.
-//   수동 부여 = 관리자가 대상 크루 + 포인트를 직접 입력 → 즉시 완료(completion_type='manual_grant').
+//   액트 종류(act_type)가 '선별' 인 액트는 "체크 필요" 클릭 시 [검수 링크]/[수동 입력] 선택.
+//   수동 입력 = 관리자가 대상 크루 + 포인트를 직접 입력 → 즉시 완료(completion_type='manual_grant').
 //   '선별' 규칙상 포인트 C = 0 강제(reactionAllowsPointC). 사유 최대 글자수는 변동와 동일.
 export const MANUAL_GRANT_REASON_MAX = 50;
 
@@ -60,12 +60,13 @@ export function isSelectionActType(actType: ProcessActType | string | null | und
   return actType === "selection";
 }
 
-// 액트 행 상태 라벨 — 완료가 수동 부여면 "수동 부여 완료", 그 외는 기본 라벨.
+// 액트 행 상태 라벨 — 완료가 수동 입력이면 "수동 입력 완료", 그 외는 기본 라벨.
+//   (UI 용어 통일: 정규 프로세스 체크는 '검수 링크'/'수동 입력' — 저장값 enum 은 manual_grant 유지.)
 export function processCheckActStatusLabel(
   status: ProcessCheckStatus,
   completionType: "manual_grant" | null,
 ): string {
-  if (status === "completed" && completionType === "manual_grant") return "수동 부여 완료";
+  if (status === "completed" && completionType === "manual_grant") return "수동 입력 완료";
   return processCheckButtonLabel(status);
 }
 
@@ -169,6 +170,18 @@ export type ProcessCheckReviewerDebug = {
 // "팀 & 파트" 컬럼 값 — 팀 총괄 액트 = "팀 총괄" / 파트 액트 = 파트명. ("팀 전체"는 값이 아님)
 export const TEAM_OVERALL_LABEL = "팀 총괄";
 
+// 체크 완료 크루 1명 — 검수 링크/수동 입력 팝업의 "체크 완료" 상태 명단(이름·팀·파트·클래스).
+//   출처 = process_check_review_recipients(matched) → user_profiles(이름·role) + user_memberships
+//   (team_name/part_name/membership_level). className = classLabel(role, level) 단일 SoT.
+//   매칭됐으나 user_id 미해소(닉네임만) 인 경우 name=닉네임 · 나머지 null/"-".
+export type ProcessCheckCrewDto = {
+  userId: string | null;
+  name: string;
+  teamName: string | null;
+  partName: string | null;
+  className: string;
+};
+
 export type ProcessCheckActRowDto = {
   actId: string;
   lineGroupId: string;
@@ -197,6 +210,9 @@ export type ProcessCheckActRowDto = {
   requestedAt: string | null; // 신청 시점(실제)
   completedAt: string | null;
   checkedCrewCount: number | null;
+  // 체크 완료 크루 명단(이름·팀·파트·클래스) — status==="completed" 일 때만 채움(그 외 []).
+  //   검수 링크/수동 입력 팝업 공용. 운영/테스트(mode) 동일 DTO 구조.
+  completedCrewList: ProcessCheckCrewDto[];
   // 검수 크루 식별 진단(read-only) — "검수 크루 0명" 원인 분리. 운영 화면 노출 선택.
   reviewerDebug: ProcessCheckReviewerDebug;
 };
