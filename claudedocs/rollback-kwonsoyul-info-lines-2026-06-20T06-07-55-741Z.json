@@ -1,0 +1,203 @@
+{
+  "createdAt": "2026-06-20T06:07:57.963Z",
+  "targetUserId": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+  "targetDisplayName": "T권소율",
+  "org": "oranke",
+  "lineCodePrefix": "IFOK-KSYTEST-W",
+  "note": "롤백: cluster4_line_targets(line_id in createdLineIds) 삭제 → cluster4_lines(createdLineIds) 삭제 → snapshot 재계산.",
+  "createdLineIds": [
+    "ff226133-2415-4b77-90ee-857ff9e67824",
+    "4e317e40-5f9a-4db0-9cd3-42909b976843",
+    "f2038c1e-a9ae-495a-b59e-dd3fafe1fe37",
+    "0f387ae1-22d9-4f2a-a4cd-99facce01fd8",
+    "d5ffd09b-fad0-4f4c-939e-acd35c5c64f1",
+    "2a7cc7d5-0700-4277-b9f4-4bf50ef06ceb",
+    "3a0aeb6c-ef41-4e2c-ba46-376cb543cf75",
+    "cfbb2835-8075-454e-88d3-50d44dc80110",
+    "c4f37490-f973-4507-9de1-b740d25057d4",
+    "99555fef-cb4d-4cdd-89d9-dcf02a76fa50",
+    "dd0009ae-0101-4845-a902-b53f5a33ffd6"
+  ],
+  "createdTargetIds": [
+    "2ec0ece5-9767-4a4d-9fc8-f974379dfc6d",
+    "e2fee26b-d6ee-4e2a-93dc-7220ea192b0c",
+    "45b4f478-82b4-4a48-9345-928a62ca4567",
+    "5258899a-709c-4f6b-969a-611bc6b9c02a",
+    "742c3d8b-a204-4ee6-87d1-d7cc4681e594",
+    "d844a06b-ef6d-424a-9dbd-7749e78618d1",
+    "4e0bcec9-83cc-486b-b090-d62c004de48e",
+    "3c4dec99-df7a-4490-bceb-55378d83a0a9",
+    "00f5a418-2fc8-432e-819e-652558e5863d",
+    "01cbc2be-5d19-428f-9509-426ec86e9af0",
+    "eca099fc-29c0-41be-9b9e-ec655649fb95"
+  ],
+  "createdLines": [
+    {
+      "id": "ff226133-2415-4b77-90ee-857ff9e67824",
+      "line_code": "IFOK-KSYTEST-W1",
+      "week_id": "d3aa89d8-35f6-42b3-bb12-a1d65b6b0e91",
+      "part_type": "info",
+      "activity_type_id": "wisdom",
+      "is_active": true
+    },
+    {
+      "id": "4e317e40-5f9a-4db0-9cd3-42909b976843",
+      "line_code": "IFOK-KSYTEST-W2",
+      "week_id": "31672f8c-e58c-4d92-9939-197237d7fbcf",
+      "part_type": "info",
+      "activity_type_id": "wisdom",
+      "is_active": true
+    },
+    {
+      "id": "f2038c1e-a9ae-495a-b59e-dd3fafe1fe37",
+      "line_code": "IFOK-KSYTEST-W3",
+      "week_id": "c6800fe1-8200-4b10-9c97-7515b6a805ca",
+      "part_type": "info",
+      "activity_type_id": "wisdom",
+      "is_active": true
+    },
+    {
+      "id": "0f387ae1-22d9-4f2a-a4cd-99facce01fd8",
+      "line_code": "IFOK-KSYTEST-W4",
+      "week_id": "5eca4fe4-77ff-46bc-9e53-8772a078b651",
+      "part_type": "info",
+      "activity_type_id": "wisdom",
+      "is_active": true
+    },
+    {
+      "id": "d5ffd09b-fad0-4f4c-939e-acd35c5c64f1",
+      "line_code": "IFOK-KSYTEST-W5",
+      "week_id": "20a7ebcb-85ea-4a98-83fa-a920d010038a",
+      "part_type": "info",
+      "activity_type_id": "wisdom",
+      "is_active": true
+    },
+    {
+      "id": "2a7cc7d5-0700-4277-b9f4-4bf50ef06ceb",
+      "line_code": "IFOK-KSYTEST-W6",
+      "week_id": "27f57da9-5817-492b-bcfe-b9f6f61f8067",
+      "part_type": "info",
+      "activity_type_id": "wisdom",
+      "is_active": true
+    },
+    {
+      "id": "3a0aeb6c-ef41-4e2c-ba46-376cb543cf75",
+      "line_code": "IFOK-KSYTEST-W7",
+      "week_id": "94f273c1-8998-4900-9f38-57fe8926fc0a",
+      "part_type": "info",
+      "activity_type_id": "wisdom",
+      "is_active": true
+    },
+    {
+      "id": "cfbb2835-8075-454e-88d3-50d44dc80110",
+      "line_code": "IFOK-KSYTEST-W8",
+      "week_id": "33b02e62-c020-4632-b0be-c2ec6aec86ee",
+      "part_type": "info",
+      "activity_type_id": "wisdom",
+      "is_active": true
+    },
+    {
+      "id": "c4f37490-f973-4507-9de1-b740d25057d4",
+      "line_code": "IFOK-KSYTEST-W9",
+      "week_id": "b531c234-e860-499a-992c-b74d2c1d5349",
+      "part_type": "info",
+      "activity_type_id": "wisdom",
+      "is_active": true
+    },
+    {
+      "id": "99555fef-cb4d-4cdd-89d9-dcf02a76fa50",
+      "line_code": "IFOK-KSYTEST-W10",
+      "week_id": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+      "part_type": "info",
+      "activity_type_id": "wisdom",
+      "is_active": true
+    },
+    {
+      "id": "dd0009ae-0101-4845-a902-b53f5a33ffd6",
+      "line_code": "IFOK-KSYTEST-W11",
+      "week_id": "67e07106-564e-4dab-b180-8f11c909973a",
+      "part_type": "info",
+      "activity_type_id": "wisdom",
+      "is_active": true
+    }
+  ],
+  "createdTargets": [
+    {
+      "id": "2ec0ece5-9767-4a4d-9fc8-f974379dfc6d",
+      "line_id": "ff226133-2415-4b77-90ee-857ff9e67824",
+      "week_id": "d3aa89d8-35f6-42b3-bb12-a1d65b6b0e91",
+      "target_user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "target_mode": "user"
+    },
+    {
+      "id": "e2fee26b-d6ee-4e2a-93dc-7220ea192b0c",
+      "line_id": "4e317e40-5f9a-4db0-9cd3-42909b976843",
+      "week_id": "31672f8c-e58c-4d92-9939-197237d7fbcf",
+      "target_user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "target_mode": "user"
+    },
+    {
+      "id": "45b4f478-82b4-4a48-9345-928a62ca4567",
+      "line_id": "f2038c1e-a9ae-495a-b59e-dd3fafe1fe37",
+      "week_id": "c6800fe1-8200-4b10-9c97-7515b6a805ca",
+      "target_user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "target_mode": "user"
+    },
+    {
+      "id": "5258899a-709c-4f6b-969a-611bc6b9c02a",
+      "line_id": "0f387ae1-22d9-4f2a-a4cd-99facce01fd8",
+      "week_id": "5eca4fe4-77ff-46bc-9e53-8772a078b651",
+      "target_user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "target_mode": "user"
+    },
+    {
+      "id": "742c3d8b-a204-4ee6-87d1-d7cc4681e594",
+      "line_id": "d5ffd09b-fad0-4f4c-939e-acd35c5c64f1",
+      "week_id": "20a7ebcb-85ea-4a98-83fa-a920d010038a",
+      "target_user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "target_mode": "user"
+    },
+    {
+      "id": "d844a06b-ef6d-424a-9dbd-7749e78618d1",
+      "line_id": "2a7cc7d5-0700-4277-b9f4-4bf50ef06ceb",
+      "week_id": "27f57da9-5817-492b-bcfe-b9f6f61f8067",
+      "target_user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "target_mode": "user"
+    },
+    {
+      "id": "4e0bcec9-83cc-486b-b090-d62c004de48e",
+      "line_id": "3a0aeb6c-ef41-4e2c-ba46-376cb543cf75",
+      "week_id": "94f273c1-8998-4900-9f38-57fe8926fc0a",
+      "target_user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "target_mode": "user"
+    },
+    {
+      "id": "3c4dec99-df7a-4490-bceb-55378d83a0a9",
+      "line_id": "cfbb2835-8075-454e-88d3-50d44dc80110",
+      "week_id": "33b02e62-c020-4632-b0be-c2ec6aec86ee",
+      "target_user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "target_mode": "user"
+    },
+    {
+      "id": "00f5a418-2fc8-432e-819e-652558e5863d",
+      "line_id": "c4f37490-f973-4507-9de1-b740d25057d4",
+      "week_id": "b531c234-e860-499a-992c-b74d2c1d5349",
+      "target_user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "target_mode": "user"
+    },
+    {
+      "id": "01cbc2be-5d19-428f-9509-426ec86e9af0",
+      "line_id": "99555fef-cb4d-4cdd-89d9-dcf02a76fa50",
+      "week_id": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+      "target_user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "target_mode": "user"
+    },
+    {
+      "id": "eca099fc-29c0-41be-9b9e-ec655649fb95",
+      "line_id": "dd0009ae-0101-4845-a902-b53f5a33ffd6",
+      "week_id": "67e07106-564e-4dab-b180-8f11c909973a",
+      "target_user_id": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+      "target_mode": "user"
+    }
+  ]
+}

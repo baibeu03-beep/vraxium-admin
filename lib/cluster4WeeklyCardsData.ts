@@ -406,6 +406,7 @@ function openedFailLineDetail(
   partType: Extract<Cluster4LinePartType, "information" | "experience">,
   activityTypeNameById: Map<string, string>,
   experienceMasterMetaById: Map<string, ExperienceMasterMeta>,
+  infoDisplayCodeByActivityTypeId: Map<string, string>,
 ): Cluster4LineDetailDto {
   const enhancement = computeCluster4Enhancement({
     hasTarget: false,
@@ -470,12 +471,15 @@ function openedFailLineDetail(
     careerGradePoints: null,
     careerRatingStatus: null,
     lineCode: line.line_code,
-    // 고객 표시용 공식 코드 — experience 는 마스터 메타(registration 우선), information 은 마스터
-    // 브리지가 없어 null(센티넬/내부 코드 노출 방지 → 고객 화면 숨김).
+    // 고객 표시용 공식 코드 — experience 는 마스터 메타(registration 우선), information 은
+    // line_registrations(hub='info') 운영자 코드(IFBS-NN000X, /admin/lines/info SoT). 미상이면 null
+    // (센티넬/내부 코드 노출 방지 → 고객 화면 숨김).
     displayLineCode:
       partType === "experience" && experienceLineMasterId
         ? experienceMasterMetaById.get(experienceLineMasterId)?.displayLineCode ?? null
-        : null,
+        : partType === "information" && activityTypeId
+          ? infoDisplayCodeByActivityTypeId.get(activityTypeId) ?? null
+          : null,
     projectCode: null,
     companyName: null,
     companyLogoUrl: null,
@@ -723,6 +727,7 @@ function toLineDetail(
   careerGradeByTargetId: Map<string, CareerGradeEval>,
   careerProjectMetaById: Map<string, CareerProjectMeta>,
   competencyMasterMetaById: Map<string, CompetencyMasterMeta>,
+  infoDisplayCodeByActivityTypeId: Map<string, string>,
 ): Cluster4LineDetailDto | null {
   const line = target.cluster4_lines;
   if (!line) return null;
@@ -763,8 +768,9 @@ function toLineDetail(
           : null;
   // 고객 표시용 공식 라인 코드: 각 part 의 마스터/registration line_code(공식형) 사용.
   //   개설 시 cluster4_lines.line_code 에 들어가는 내부 코드(날짜형 EXBS-EN241021 /
-  //   센티넬 IF..-OPEN<ts>)와 별개. information 은 마스터 브리지가 없어 항상 null(숨김).
-  //   미상이면 null — 호출부/프론트는 내부 lineCode 로 fallback 하지 않는다.
+  //   센티넬 IF..-OPEN<ts> / info-OK-wisdom-2026w10)와 별개.
+  //   information 은 line_registrations(hub='info') 의 운영자 코드(IFBS-NN000X)를 노출한다
+  //   (활동유형명 매칭, /admin/lines/info SoT). 미상이면 null — 내부 lineCode 로 fallback 하지 않는다.
   const displayLineCode =
     partType === "experience" && experienceLineMasterId
       ? experienceMasterMetaById.get(experienceLineMasterId)?.displayLineCode ?? null
@@ -772,7 +778,9 @@ function toLineDetail(
         ? competencyMasterMetaById.get(competencyLineMasterId)?.displayLineCode ?? null
         : partType === "career"
           ? careerMeta?.displayLineCode ?? null
-          : null;
+          : partType === "information" && activityTypeId
+            ? infoDisplayCodeByActivityTypeId.get(activityTypeId) ?? null
+            : null;
   // 강화 상태: 타깃이 존재하므로(1차 대상자) 마감 여부로 success/pending 을 가른다.
   // 마감(submission_closes_at = 수 22:00 KST) 후면 미기입이라도 success.
   // career 는 추가로 평점을 반영한다 — 마감 후 D=fail / S~C=success / 미평가=pending(unevaluated).
@@ -1261,6 +1269,51 @@ async function fetchActivityTypeNamesByIds(
   return map;
 }
 
+// info(실무 정보) sub-line 고객 표시용 공식 라인 코드 룩업.
+//   info 라인은 experience/competency 처럼 master 브리지가 없어 displayLineCode 가 없었다.
+//   /admin/lines/info(=line_registrations, hub='info')의 운영자 표시 코드(예: 위즈덤→IFBS-NN0001)를
+//   고객 DTO 의 displayLineCode 로 노출한다 — 내부 코드(info-OK-wisdom-2026w10)는 매칭용 lineCode 로만 유지.
+//   매핑: cluster4_lines.activity_type_id → activity_types.name → line_registrations.line_name → line_code.
+//   실패/미연결이면 그 activity 는 맵에서 빠지고 displayLineCode=null(프론트 코드태그 숨김 — 내부코드 노출 금지).
+async function fetchInfoDisplayCodeByActivityTypeIds(
+  activityTypeIds: string[],
+  activityTypeNameById: Map<string, string>,
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (activityTypeIds.length === 0) return map;
+  const names = Array.from(
+    new Set(
+      activityTypeIds
+        .map((id) => activityTypeNameById.get(id))
+        .filter((n): n is string => Boolean(n)),
+    ),
+  );
+  if (names.length === 0) return map;
+  const { data, error } = await supabaseAdmin
+    .from("line_registrations")
+    .select("line_name,line_code,is_active")
+    .eq("hub", "info")
+    .eq("is_active", true)
+    .in("line_name", names);
+  if (error) {
+    console.warn("[cluster4/weekly-cards] info line_registrations lookup failed", {
+      message: error.message,
+    });
+    return map;
+  }
+  // line_name → line_code (첫 active 우선; info registration 은 org=common 단일이라 충돌 없음).
+  const codeByName = new Map<string, string>();
+  for (const r of (data ?? []) as Array<{ line_name: string; line_code: string | null }>) {
+    if (r.line_code && !codeByName.has(r.line_name)) codeByName.set(r.line_name, r.line_code);
+  }
+  for (const id of activityTypeIds) {
+    const name = activityTypeNameById.get(id);
+    const code = name ? codeByName.get(name) : undefined;
+    if (code) map.set(id, code);
+  }
+  return map;
+}
+
 // experience_line_master_id → {category, slotOrder} 일괄 룩업.
 // experience sub-line 5슬롯 분류 노출용. 실패해도 카드를 깨뜨리지 않고 분류만 null 폴백한다.
 async function fetchExperienceMasterMetaByIds(
@@ -1711,6 +1764,9 @@ async function fetchLineDetailsByWeek(
   );
   const activityTypeNameById =
     await fetchActivityTypeNamesByIds(activityTypeIds);
+  // info 라인 고객 표시 코드(IFBS-NN000X) — /admin/lines/info(line_registrations) SoT.
+  const infoDisplayCodeByActivityTypeId =
+    await fetchInfoDisplayCodeByActivityTypeIds(activityTypeIds, activityTypeNameById);
 
   // experience sub-line 5슬롯 분류 (experience_line_master_id → {category, slotOrder}) 일괄 룩업.
   // 미배정 fail 라인의 카테고리/슬롯도 노출하므로 targetRows(전 유저) 기준으로 넓힌다.
@@ -1870,6 +1926,7 @@ async function fetchLineDetailsByWeek(
         careerGradeByTargetId,
         careerProjectMetaById,
         competencyMasterMetaById,
+        infoDisplayCodeByActivityTypeId,
       );
       if (!base) continue;
       if (target.cluster4_lines) userTargetedLineIds.add(target.cluster4_lines.id);
@@ -2006,6 +2063,7 @@ async function fetchLineDetailsByWeek(
                 publicPart,
                 activityTypeNameById,
                 experienceMasterMetaById,
+                infoDisplayCodeByActivityTypeId,
               ),
             );
           }
