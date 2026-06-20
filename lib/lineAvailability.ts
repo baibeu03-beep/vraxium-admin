@@ -14,6 +14,7 @@ import type {
   Cluster4ExperienceCategory,
 } from "@/shared/cluster4.contracts";
 import { type CareerGrade, isCareerGradeFail } from "@/lib/careerGrade";
+import { classLabel } from "@/lib/adminMembersTypes";
 
 // ─────────────────────────────────────────────────────────────────────
 // 실무 경험 5슬롯 정책 (2026-06-04 확정):
@@ -139,20 +140,54 @@ export function isManagementSlotOpenForLevel(
   return prefix.startsWith("심화") || prefix.startsWith("운영진");
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// 역할(role) 병합 게이트 (2026-06-19):
+//   운영진(team_leader/ambassador)은 등급 체계 밖이라 user_memberships.membership_level
+//   가 "일반"인 경우가 정상이다(등급 SoT 가 아니라 user_profiles.role 이 운영진 정체성을 보유).
+//   level 만 보던 isManagementSlotOpenForLevel 은 이런 팀장/앰배서더를 "일반"으로 잠가버려
+//   고객앱 실무 경험 관리(5) 슬롯이 부당하게 잠겼다.
+//   → /admin/members·이력서 클래스 컬럼과 동일한 단일 SoT classLabel(role, level) 로 판정한다.
+//     classLabel 이 "심화…" 또는 "운영진…" 이면 관리 슬롯 개방. (정규/관리자/최고 관리자/크루는 잠금.)
+//   part_leader/agent 인데 level="일반" 인 경우는 classLabel 이 "정규" → 잠금(기존 정책 유지).
+// ─────────────────────────────────────────────────────────────────────
+export function isManagementSlotOpenFor(
+  role: string | null,
+  membershipLevel: string | null,
+): boolean {
+  const cls = classLabel(role ?? null, membershipLevel ?? null);
+  return cls.startsWith("심화") || cls.startsWith("운영진");
+}
+
 // membership 선택은 고객앱/pickBestMembership 동일 규칙(team_name 보유 행 > is_current,
 // 같은 등급은 updated_at 최신). 조회 실패 시 잠금(false) 폴백 — 분모 과대 방지(fail-closed).
 export async function fetchManagementSlotOpen(
   profileUserId: string,
 ): Promise<boolean> {
-  const { data, error } = await supabaseAdmin
-    .from("user_memberships")
-    .select("membership_level,team_name,is_current,updated_at")
-    .eq("user_id", profileUserId);
+  // membership_level(등급) + user_profiles.role(운영진 정체성)을 함께 조회한다.
+  // 운영진(팀장/앰배서더)은 level="일반" 이어도 관리 슬롯 개방이어야 하므로 role 병합 필수.
+  const [{ data, error }, { data: profile, error: profileError }] =
+    await Promise.all([
+      supabaseAdmin
+        .from("user_memberships")
+        .select("membership_level,team_name,is_current,updated_at")
+        .eq("user_id", profileUserId),
+      supabaseAdmin
+        .from("user_profiles")
+        .select("role")
+        .eq("user_id", profileUserId)
+        .maybeSingle(),
+    ]);
   if (error) {
     console.warn("[cluster4/lineAvailability] user_memberships lookup failed", {
       message: error.message,
     });
     return false;
+  }
+  if (profileError) {
+    console.warn("[cluster4/lineAvailability] user_profiles role lookup failed", {
+      message: profileError.message,
+    });
+    // role 미상이어도 level 만으로 보수적 판정(운영진 누락 가능 — fail-closed 유지).
   }
   type Row = {
     membership_level: string | null;
@@ -173,7 +208,10 @@ export async function fetchManagementSlotOpen(
     if (rankDelta !== 0) return rankDelta;
     return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
   })[0];
-  return isManagementSlotOpenForLevel(best?.membership_level ?? null);
+  return isManagementSlotOpenFor(
+    (profile?.role as string | null) ?? null,
+    best?.membership_level ?? null,
+  );
 }
 
 export type LineCategory = "info" | "ability" | "experience" | "career";
