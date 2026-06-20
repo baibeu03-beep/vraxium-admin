@@ -26,6 +26,7 @@ import {
   readPageSlug,
   PageAccessError,
 } from "@/lib/pageAccess";
+import { observeApiRoute } from "@/lib/apiObservability";
 
 export async function GET(request: NextRequest) {
   const TAG = "[cluster3/club-rank GET]";
@@ -86,19 +87,23 @@ export async function GET(request: NextRequest) {
     targetUserId = resolved;
   }
 
+  const resolvedUserId = targetUserId;
+  // club-rank 실시간 계산 핫패스 — 실행 시간/쿼리/timeout 계측(과거 club-rank timeout 감시).
+  return observeApiRoute(TAG, async (obs) => {
   try {
     // 페이지 slug ↔ 실제 org 접근 게이트(internal/세션 동일 적용).
     await assertPageAccessBySlug({
-      userId: targetUserId,
+      userId: resolvedUserId,
       pageType: "cluster3",
       requestedSlug: readPageSlug(request),
     });
 
-    const dto = await getClubRank(targetUserId);
+    const dto = await getClubRank(resolvedUserId);
+    obs.processed = 1;
 
     console.log(TAG, "result:", {
       mode: internalAuthAccepted ? "internal" : "session",
-      profileUserId: targetUserId,
+      profileUserId: resolvedUserId,
       avgPercentile: dto.avgPercentile,
       rankGrade: dto.rankGrade,
       isFrozen: dto.isFrozen,
@@ -128,4 +133,5 @@ export async function GET(request: NextRequest) {
       { status: 500 },
     );
   }
+  });
 }

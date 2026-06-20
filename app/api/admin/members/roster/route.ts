@@ -3,6 +3,7 @@ import { ADMIN_READ_ROLES, requireAdmin, toAdminErrorResponse } from "@/lib/admi
 import { listMembersRoster } from "@/lib/adminMembersData";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import { parseScopeMode } from "@/lib/userScopeShared";
+import { observeApiRoute } from "@/lib/apiObservability";
 
 // GET /api/admin/members/roster?organization=<slug>&mode=<operating|test>
 //
@@ -34,20 +35,24 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  try {
-    const data = await listMembersRoster({
-      organization,
-      mode: parseScopeMode(params.get("mode")),
-    });
-    return Response.json({ success: true, data });
-  } catch (error) {
-    console.error("[admin/members/roster GET]", error);
-    return Response.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to load roster",
-      },
-      { status: 500 },
-    );
-  }
+  // 페이지네이션 없는 전원 로스터 — 대량 조회 핫패스. 실행 시간/처리 건수/쿼리/timeout 계측.
+  return observeApiRoute("[admin/members/roster GET]", async (obs) => {
+    try {
+      const data = await listMembersRoster({
+        organization,
+        mode: parseScopeMode(params.get("mode")),
+      });
+      obs.processed = Array.isArray(data) ? data.length : undefined;
+      return Response.json({ success: true, data });
+    } catch (error) {
+      console.error("[admin/members/roster GET]", error);
+      return Response.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Failed to load roster",
+        },
+        { status: 500 },
+      );
+    }
+  });
 }

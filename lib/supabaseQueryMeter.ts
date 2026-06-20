@@ -11,7 +11,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 //   });
 // supabaseAdmin.from(...) 호출마다 tickQuery() 가 자동 증가시킨다(supabaseAdmin Proxy).
 
-export type QueryMeter = { count: number; label: string };
+export type QueryMeter = { count: number; timeouts: number; label: string };
 
 const als = new AsyncLocalStorage<QueryMeter>();
 
@@ -19,7 +19,7 @@ export function runWithQueryMeter<T>(
   label: string,
   fn: (meter: QueryMeter) => Promise<T>,
 ): Promise<T> {
-  const meter: QueryMeter = { count: 0, label };
+  const meter: QueryMeter = { count: 0, timeouts: 0, label };
   return als.run(meter, () => fn(meter));
 }
 
@@ -27,6 +27,13 @@ export function runWithQueryMeter<T>(
 export function tickQuery(): void {
   const meter = als.getStore();
   if (meter) meter.count += 1;
+}
+
+// Supabase 조회가 timeout/connection 오류(522 · statement timeout)로 실패할 때마다 부른다.
+// 대량 조회 포화 모니터링용 — 메터가 없으면(계측 밖) no-op.
+export function tickTimeout(): void {
+  const meter = als.getStore();
+  if (meter) meter.timeouts += 1;
 }
 
 export function currentQueryCount(): number {

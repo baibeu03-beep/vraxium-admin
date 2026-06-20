@@ -20,6 +20,7 @@ import {
 } from "@/lib/cluster3GrowthData";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { observeApiRoute } from "@/lib/apiObservability";
 
 export async function GET(request: NextRequest) {
   const TAG = "[cluster3/growth-status-batch GET]";
@@ -49,42 +50,40 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  try {
-    let rosterQuery = supabaseAdmin
-      .from("user_profiles")
-      .select("user_id")
-      .not("organization_slug", "is", null);
-    if (org) rosterQuery = rosterQuery.eq("organization_slug", org);
+  // 고객앱 /crews graft 대량 배치 핫패스 — 실행 시간/처리 건수/쿼리/timeout 계측.
+  return observeApiRoute(TAG, async (obs) => {
+    try {
+      let rosterQuery = supabaseAdmin
+        .from("user_profiles")
+        .select("user_id")
+        .not("organization_slug", "is", null);
+      if (org) rosterQuery = rosterQuery.eq("organization_slug", org);
 
-    const rosterRes = await rosterQuery;
-    if (rosterRes.error) {
-      throw new GrowthError(500, rosterRes.error.message);
-    }
-    const userIds = ((rosterRes.data ?? []) as Array<{ user_id: string }>).map(
-      (row) => row.user_id,
-    );
+      const rosterRes = await rosterQuery;
+      if (rosterRes.error) {
+        throw new GrowthError(500, rosterRes.error.message);
+      }
+      const userIds = ((rosterRes.data ?? []) as Array<{ user_id: string }>).map(
+        (row) => row.user_id,
+      );
 
-    const startedAt = Date.now();
-    const data = await getGrowthStatusResolutionBatch(userIds);
-    console.log(TAG, "ok", {
-      org,
-      users: data.length,
-      elapsedMs: Date.now() - startedAt,
-    });
+      const data = await getGrowthStatusResolutionBatch(userIds);
+      obs.processed = data.length;
 
-    return Response.json({ success: true, data });
-  } catch (error) {
-    if (error instanceof GrowthError) {
-      console.error(TAG, "growth error", { status: error.status, message: error.message });
+      return Response.json({ success: true, data });
+    } catch (error) {
+      if (error instanceof GrowthError) {
+        console.error(TAG, "growth error", { status: error.status, message: error.message });
+        return Response.json(
+          { success: false, error: error.message },
+          { status: error.status },
+        );
+      }
+      console.error(TAG, "unexpected error", error);
       return Response.json(
-        { success: false, error: error.message },
-        { status: error.status },
+        { success: false, error: "Internal server error" },
+        { status: 500 },
       );
     }
-    console.error(TAG, "unexpected error", error);
-    return Response.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 },
-    );
-  }
+  });
 }

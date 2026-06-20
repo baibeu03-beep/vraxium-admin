@@ -26,6 +26,7 @@ import {
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { foldGrowthMetrics, resolveGrowthStatusDetail } from "@/lib/growthCore";
 import { rosterActivityRate } from "@/lib/rosterCardStats";
+import { GROWTH_CARD_CONCURRENCY, mapWithConcurrency } from "@/lib/concurrency";
 import type { WeekResultStatusKey } from "@/shared/growth.contracts";
 
 // Cluster3 성장 지표 계산 — server-only.
@@ -640,18 +641,19 @@ export async function getGrowthIndicatorsBatchInternal(
   const cardsByUser = new Map<string, ResolvedCardLite[]>();
   let snapshotHits = 0;
   let fallbacks = 0;
-  await Promise.all(
-    profiles.map(async (profile) => {
-      const r = await getResolvedCardsForUser(profile.user_id);
-      cardsByUser.set(profile.user_id, r.cards);
-      if (r.source === "snapshot") snapshotHits++;
-      else fallbacks++;
-    }),
-  );
+  // 무제한 팬아웃 금지 — per-user snapshot 조회를 GROWTH_CARD_CONCURRENCY 로 묶는다(풀 포화 방지).
+  await mapWithConcurrency(profiles, GROWTH_CARD_CONCURRENCY, async (profile) => {
+    const r = await getResolvedCardsForUser(profile.user_id);
+    cardsByUser.set(profile.user_id, r.cards);
+    if (r.source === "snapshot") snapshotHits++;
+    else fallbacks++;
+  });
   console.log(
     "[cluster3][growth] batch card source",
+    `users=${profiles.length}`,
     `snapshot=${snapshotHits}`,
     `fallback=${fallbacks}`,
+    `concurrency=${GROWTH_CARD_CONCURRENCY}`,
   );
 
   const seasonKey = currentSeasonDbKey();
@@ -721,19 +723,19 @@ export async function getGrowthStatusResolutionBatch(
   const cardsByUser = new Map<string, ResolvedCardLite[]>();
   let snapshotHits = 0;
   let fallbacks = 0;
-  await Promise.all(
-    profiles.map(async (profile) => {
-      const r = await getResolvedCardsForUser(profile.user_id);
-      cardsByUser.set(profile.user_id, r.cards);
-      if (r.source === "snapshot") snapshotHits++;
-      else fallbacks++;
-    }),
-  );
+  // 무제한 팬아웃 금지 — per-user snapshot 조회를 GROWTH_CARD_CONCURRENCY 로 묶는다(풀 포화 방지).
+  await mapWithConcurrency(profiles, GROWTH_CARD_CONCURRENCY, async (profile) => {
+    const r = await getResolvedCardsForUser(profile.user_id);
+    cardsByUser.set(profile.user_id, r.cards);
+    if (r.source === "snapshot") snapshotHits++;
+    else fallbacks++;
+  });
   console.log(
     "[cluster3][growth-status-batch] card source",
     `users=${profiles.length}`,
     `snapshot=${snapshotHits}`,
     `fallback=${fallbacks}`,
+    `concurrency=${GROWTH_CARD_CONCURRENCY}`,
   );
 
   const seasonKey = currentSeasonDbKey();
@@ -818,8 +820,10 @@ export async function getGrowthRosterBatch(
   // snapshot 조회가 실패한(status:"error" — 예: statement timeout) 사용자. 이들은 무거운 실시간
   // 폴백으로 빠지지 않고(전체 요청 timeout/hang 유발) 결과에서 제외한다 → 호출부가 "-"로 fail-soft.
   const failedUserIds = new Set<string>();
-  await Promise.all(
-    profiles.map(async (profile) => {
+  // snapshot 은 위에서 배치(.in())로 이미 읽었다. 여기 per-user 작업은 miss(신규 유저)에만
+  // 실시간 폴백을 타므로 대개 가볍지만, 콜드 캐시(전원 miss) 시 무제한 팬아웃이 될 수 있어
+  // GROWTH_CARD_CONCURRENCY 로 묶는다.
+  await mapWithConcurrency(profiles, GROWTH_CARD_CONCURRENCY, async (profile) => {
       const snap = snapByUser.get(profile.user_id) ?? { status: "miss" as const };
       let lite: ResolvedCardLite[] | null = null;
       let available = 0;
@@ -858,8 +862,7 @@ export async function getGrowthRosterBatch(
       }
       liteByUser.set(profile.user_id, lite);
       activityByUser.set(profile.user_id, { available, completed });
-    }),
-  );
+  });
 
   const seasonKey = currentSeasonDbKey();
   return profiles

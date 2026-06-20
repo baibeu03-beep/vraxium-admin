@@ -3,6 +3,7 @@ import { getCluster4WeeklyCardsForProfileUser } from "@/lib/cluster4WeeklyCardsD
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { deriveRosterCardStats } from "@/lib/rosterCardStats";
 import { computeScheduleReliabilityFromRows } from "@/lib/scheduleReliabilityCore";
+import { tickTimeout } from "@/lib/supabaseQueryMeter";
 
 const ROSTER_STATS_TABLE = "cluster4_roster_card_stats";
 
@@ -291,6 +292,7 @@ export async function readWeeklyCardsSnapshot(
 
   if (error) {
     // ⚠ 조회 실패를 miss 로 강등하지 않는다 — miss 로 보면 (lazy 허용 시) 무거운 계산으로 빠진다.
+    tickTimeout(); // 포화 계측 — 단일 snapshot 조회 실패(timeout/connection)
     console.warn("[weekly-cards][snapshot] read error", {
       profileUserId,
       message: error.message,
@@ -343,6 +345,7 @@ export async function readWeeklyCardsSnapshotBatch(
       .in("user_id", chunk);
     if (error) {
       // 조회 실패한 청크는 전원 error 로 표기(miss 로 강등하지 않음 — 조회 전용 정책 유지).
+      tickTimeout(); // 포화 계측 — 배치 청크 조회 실패(statement timeout 등)
       console.warn("[weekly-cards][snapshot] batch read error", {
         count: chunk.length,
         message: error.message,
