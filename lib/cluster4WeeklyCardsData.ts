@@ -49,7 +49,7 @@ import {
   type LineOrgScope,
 } from "@/lib/cluster4LineOrg";
 import { resolveLineScopeFromValues } from "@/lib/lineScope";
-import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
+import { fetchUserOrganizationSlug } from "@/lib/userOrg";
 import {
   emptyWeeklyPeople,
   fetchWeeklyPeopleByWeek,
@@ -116,6 +116,9 @@ type ExperienceMasterMeta = {
   lineName: string | null;
   // 조직 노출 판정 SoT (org 필터용). 'encre'|'oranke'|'phalanx'|'common'|null.
   organizationSlug: string | null;
+  // 고객 표시용 공식 라인 코드 (DTO.displayLineCode source). registration(line_registrations.line_code)
+  // 우선·마스터 폴백. 개설 시 생성되는 내부 line_code(날짜형/센티넬)와 별개. 미상이면 null(숨김).
+  displayLineCode: string | null;
 };
 
 // cluster4_competency_line_masters 메타 (competency part 라인에만 적용).
@@ -124,6 +127,8 @@ type CompetencyMasterMeta = {
   lineName: string | null;
   // 조직 노출 판정 SoT (org 필터용).
   organizationSlug: string | null;
+  // 고객 표시용 공식 라인 코드 (DTO.displayLineCode source — experience 와 동일 의미).
+  displayLineCode: string | null;
 };
 
 // cluster4_career_line_evaluations 의 평점 (career part 라인에만 적용).
@@ -145,6 +150,8 @@ type CareerProjectMeta = {
   lineName: string | null;
   // 조직 노출 판정 SoT (org 필터용).
   organizationSlug: string | null;
+  // 고객 표시용 공식 라인 코드 (DTO.displayLineCode source) = career_projects.line_code.
+  displayLineCode: string | null;
 };
 
 type SubmissionRow = {
@@ -308,6 +315,8 @@ function emptyLine(
     careerGradePoints: null,
     careerRatingStatus: null,
     lineCode: null,
+    // 미개설 placeholder — 표시용 라인 코드 없음(고객 화면 숨김).
+    displayLineCode: null,
     projectCode: null,
     // sponsor-card 메타 — 미개설 placeholder 이므로 항상 null.
     companyName: null,
@@ -461,6 +470,12 @@ function openedFailLineDetail(
     careerGradePoints: null,
     careerRatingStatus: null,
     lineCode: line.line_code,
+    // 고객 표시용 공식 코드 — experience 는 마스터 메타(registration 우선), information 은 마스터
+    // 브리지가 없어 null(센티넬/내부 코드 노출 방지 → 고객 화면 숨김).
+    displayLineCode:
+      partType === "experience" && experienceLineMasterId
+        ? experienceMasterMetaById.get(experienceLineMasterId)?.displayLineCode ?? null
+        : null,
     projectCode: null,
     companyName: null,
     companyLogoUrl: null,
@@ -548,6 +563,8 @@ function openedCareerLineDetail(
     careerGradePoints: null,
     careerRatingStatus: careerRatingStatusFromGrade(null),
     lineCode: line.line_code,
+    // 고객 표시용 공식 코드 = career_projects.line_code(careerMeta). 미상이면 null(숨김).
+    displayLineCode: careerMeta?.displayLineCode ?? null,
     // career part 의 line_code 는 career_projects.line_code 와 동일 (= projectCode).
     projectCode: line.line_code,
     // sponsor-card 메타 (career_projects).
@@ -630,6 +647,10 @@ function openedCompetencyFailLineDetail(
     careerGradePoints: null,
     careerRatingStatus: null,
     lineCode: line.line_code,
+    // 고객 표시용 공식 코드 — competency 마스터 메타(registration 우선). 미상이면 null(숨김).
+    displayLineCode: competencyLineMasterId
+      ? competencyMasterMetaById.get(competencyLineMasterId)?.displayLineCode ?? null
+      : null,
     projectCode: null,
     companyName: null,
     companyLogoUrl: null,
@@ -740,6 +761,18 @@ function toLineDetail(
         : partType === "career"
           ? careerMeta?.lineName ?? null
           : null;
+  // 고객 표시용 공식 라인 코드: 각 part 의 마스터/registration line_code(공식형) 사용.
+  //   개설 시 cluster4_lines.line_code 에 들어가는 내부 코드(날짜형 EXBS-EN241021 /
+  //   센티넬 IF..-OPEN<ts>)와 별개. information 은 마스터 브리지가 없어 항상 null(숨김).
+  //   미상이면 null — 호출부/프론트는 내부 lineCode 로 fallback 하지 않는다.
+  const displayLineCode =
+    partType === "experience" && experienceLineMasterId
+      ? experienceMasterMetaById.get(experienceLineMasterId)?.displayLineCode ?? null
+      : partType === "competency" && competencyLineMasterId
+        ? competencyMasterMetaById.get(competencyLineMasterId)?.displayLineCode ?? null
+        : partType === "career"
+          ? careerMeta?.displayLineCode ?? null
+          : null;
   // 강화 상태: 타깃이 존재하므로(1차 대상자) 마감 여부로 success/pending 을 가른다.
   // 마감(submission_closes_at = 수 22:00 KST) 후면 미기입이라도 success.
   // career 는 추가로 평점을 반영한다 — 마감 후 D=fail / S~C=success / 미평가=pending(unevaluated).
@@ -829,6 +862,8 @@ function toLineDetail(
     careerGradePoints,
     careerRatingStatus,
     lineCode: line.line_code,
+    // 고객 표시용 공식 코드 (위 displayLineCode 계산값 — registration/master 우선, 미상 null).
+    displayLineCode,
     // career part 의 line_code 는 career_projects.line_code 와 동일 (= projectCode).
     projectCode: partType === "career" ? line.line_code : null,
     // sponsor-card 메타 (career part 만 값, 그 외 null).
@@ -1242,6 +1277,7 @@ async function fetchExperienceMasterMetaByIds(
       slotOrder: m.slotOrder,
       lineName: m.lineName,
       organizationSlug: m.organizationSlug,
+      displayLineCode: m.lineCode,
     });
   }
   return map;
@@ -1259,7 +1295,11 @@ async function fetchCompetencyMasterMetaByIds(
   // (2E-4) registrations-first + 마스터 fallback (헬퍼 내부) — shape 등가 유지.
   const meta = await getCompetencyMetaByMasterIdsRegFirst(ids);
   for (const [id, m] of meta) {
-    map.set(id, { lineName: m.lineName, organizationSlug: m.organizationSlug });
+    map.set(id, {
+      lineName: m.lineName,
+      organizationSlug: m.organizationSlug,
+      displayLineCode: m.lineCode,
+    });
   }
   return map;
 }
@@ -1275,7 +1315,7 @@ async function fetchCareerProjectMetaByIds(
   const { data, error } = await supabaseAdmin
     .from("career_projects")
     .select(
-      "id,company_name,company_logo_url,supervisor_name,supervisor_department,supervisor_position,supervisor_profile_img,line_name,organization_slug",
+      "id,company_name,company_logo_url,supervisor_name,supervisor_department,supervisor_position,supervisor_profile_img,line_name,line_code,organization_slug",
     )
     .in("id", ids);
   if (error) {
@@ -1293,6 +1333,7 @@ async function fetchCareerProjectMetaByIds(
     supervisor_position: string | null;
     supervisor_profile_img: string | null;
     line_name: string | null;
+    line_code: string | null;
     organization_slug: string | null;
   }[]) {
     map.set(row.id, {
@@ -1304,6 +1345,7 @@ async function fetchCareerProjectMetaByIds(
       supervisorPhotoUrl: row.supervisor_profile_img ?? null,
       lineName: row.line_name ?? null,
       organizationSlug: row.organization_slug ?? null,
+      displayLineCode: row.line_code ?? null,
     });
   }
   return map;
@@ -1373,27 +1415,9 @@ async function fetchHubEditWindows(
   return map;
 }
 
-// 조회 대상 사용자의 조직(org)을 user_profiles.organization_slug 에서 읽는다.
-// org 라인 노출 필터의 기준값. null(미상/미지정)이면 org 필터를 적용하지 않는다(fail-open).
-// 실패해도 weekly-cards 전체를 깨뜨리지 않고 null 폴백한다.
-async function fetchUserOrganizationSlug(
-  profileUserId: string,
-): Promise<OrganizationSlug | null> {
-  const { data, error } = await supabaseAdmin
-    .from("user_profiles")
-    .select("organization_slug")
-    .eq("user_id", profileUserId)
-    .maybeSingle();
-  if (error) {
-    console.warn("[cluster4/weekly-cards] user org lookup failed (fail-open)", {
-      profileUserId,
-      message: error.message,
-    });
-    return null;
-  }
-  const slug = (data as { organization_slug: string | null } | null)?.organization_slug;
-  return isOrganizationSlug(slug) ? slug : null;
-}
+// org 라인 노출 필터의 기준값(fetchUserOrganizationSlug)은 lib/userOrg.ts 로 이관했다.
+// snapshot 생성(이 파일)과 snapshot 조회 시 slug 접근 게이트(lib/pageAccess)가 동일 함수를
+// 공유하도록 단일 출처로 통일한다(요구사항 #7).
 
 // 사용자 현재 팀 id + 역할(파트장/에이전트) — 여름 주차 synthetic fail 팀/역할 스코프용.
 //   역할 판정은 개설 단계(overallMemberStatus=memberStatusLabel)와 동일 함수로 정합 보장.

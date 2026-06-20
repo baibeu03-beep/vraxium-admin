@@ -87,6 +87,10 @@ export type ExperienceMasterMetaView = {
   slotOrder: number | null;
   lineName: string | null;
   organizationSlug: string | null;
+  // 고객 표시용 공식 라인 코드 — registration(line_registrations.line_code) 우선, 미연결 마스터
+  // 폴백(마스터 line_code). 둘 다 공식형(예: EXBS-EN0001)이며 개설 시 생성되는 내부 코드
+  // (EXBS-EN241021 날짜형 / IF..-OPEN<ts> 센티넬)와 별개. 미상이면 null(고객 화면 숨김).
+  lineCode: string | null;
 };
 
 // experience master id 집합 → 메타 (registrations-first, 미커버는 마스터 fallback).
@@ -98,7 +102,7 @@ export async function getExperienceMetaByMasterIdsRegFirst(
 
   const { data: regs, error: regError } = await supabaseAdmin
     .from("line_registrations")
-    .select("bridged_master_id,line_type,line_name,organization_slug")
+    .select("bridged_master_id,line_type,line_name,line_code,organization_slug")
     .eq("hub", "experience")
     .in("bridged_master_id", ids);
   if (regError) {
@@ -110,6 +114,7 @@ export async function getExperienceMetaByMasterIdsRegFirst(
       bridged_master_id: string;
       line_type: string;
       line_name: string;
+      line_code: string | null;
       organization_slug: string | null;
     }>) {
       const pair = KO_TO_EXPERIENCE[r.line_type] ?? null;
@@ -118,6 +123,7 @@ export async function getExperienceMetaByMasterIdsRegFirst(
         slotOrder: pair?.slot ?? null,
         lineName: r.line_name,
         organizationSlug: r.organization_slug,
+        lineCode: r.line_code ?? null,
       });
     }
   }
@@ -126,7 +132,7 @@ export async function getExperienceMetaByMasterIdsRegFirst(
   if (missing.length > 0) {
     const { data: masters, error: masterError } = await supabaseAdmin
       .from("cluster4_experience_line_masters")
-      .select("id,experience_category,experience_slot_order,line_name,organization_slug")
+      .select("id,experience_category,experience_slot_order,line_name,line_code,organization_slug")
       .in("id", missing);
     if (masterError) {
       console.warn("[2E-4 master fallback] experience meta 실패", {
@@ -138,6 +144,7 @@ export async function getExperienceMetaByMasterIdsRegFirst(
         experience_category: string | null;
         experience_slot_order: number | null;
         line_name: string | null;
+        line_code: string | null;
         organization_slug: string | null;
       }>) {
         map.set(m.id, {
@@ -145,6 +152,7 @@ export async function getExperienceMetaByMasterIdsRegFirst(
           slotOrder: m.experience_slot_order,
           lineName: m.line_name,
           organizationSlug: m.organization_slug,
+          lineCode: m.line_code ?? null,
         });
       }
     }
@@ -155,6 +163,8 @@ export async function getExperienceMetaByMasterIdsRegFirst(
 export type CompetencyMasterMetaView = {
   lineName: string | null;
   organizationSlug: string | null;
+  // 고객 표시용 공식 라인 코드 (experience 와 동일 의미 — ExperienceMasterMetaView.lineCode 참조).
+  lineCode: string | null;
 };
 
 // competency master id 집합 → 메타 (registrations-first + 마스터 fallback).
@@ -166,7 +176,7 @@ export async function getCompetencyMetaByMasterIdsRegFirst(
 
   const { data: regs, error: regError } = await supabaseAdmin
     .from("line_registrations")
-    .select("bridged_master_id,line_name,organization_slug")
+    .select("bridged_master_id,line_name,line_code,organization_slug")
     .eq("hub", "competency")
     .in("bridged_master_id", ids);
   if (regError) {
@@ -177,11 +187,13 @@ export async function getCompetencyMetaByMasterIdsRegFirst(
     for (const r of (regs ?? []) as Array<{
       bridged_master_id: string;
       line_name: string;
+      line_code: string | null;
       organization_slug: string | null;
     }>) {
       map.set(r.bridged_master_id, {
         lineName: r.line_name,
         organizationSlug: r.organization_slug,
+        lineCode: r.line_code ?? null,
       });
     }
   }
@@ -190,7 +202,7 @@ export async function getCompetencyMetaByMasterIdsRegFirst(
   if (missing.length > 0) {
     const { data: masters, error: masterError } = await supabaseAdmin
       .from("cluster4_competency_line_masters")
-      .select("id,line_name,organization_slug")
+      .select("id,line_name,line_code,organization_slug")
       .in("id", missing);
     if (masterError) {
       console.warn("[2E-4 master fallback] competency meta 실패", {
@@ -200,9 +212,14 @@ export async function getCompetencyMetaByMasterIdsRegFirst(
       for (const m of (masters ?? []) as Array<{
         id: string;
         line_name: string | null;
+        line_code: string | null;
         organization_slug: string | null;
       }>) {
-        map.set(m.id, { lineName: m.line_name, organizationSlug: m.organization_slug });
+        map.set(m.id, {
+          lineName: m.line_name,
+          organizationSlug: m.organization_slug,
+          lineCode: m.line_code ?? null,
+        });
       }
     }
   }

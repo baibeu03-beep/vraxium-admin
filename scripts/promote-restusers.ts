@@ -197,8 +197,25 @@ async function main() {
     orgThr.set(org, m);
   }
   const markers = new Set((await fetchAllSb<{ user_id: string }>("test_user_markers", "user_id", "user_id")).map((m) => m.user_id));
-  const { data: master } = await sb.from("cluster4_experience_line_masters").select("id").eq("line_name", UNIFIED_MASTER_NAME).maybeSingle();
+  const { data: master } = await sb.from("cluster4_experience_line_masters").select("id,line_code").eq("line_name", UNIFIED_MASTER_NAME).maybeSingle();
   if (!master) throw new Error("[통합] 마스터 부재");
+  // 개설 라인 line_code = 공식 라인 코드(/admin/lines/info=line_registrations.line_code 우선,
+  //   미연결 시 마스터 line_code). 과거의 주차 날짜형(EXBS-EN{YYMMDD}) 생성은 폐기 — 고객 표시용
+  //   displayLineCode 와 정합(내부 임시 코드 비노출). org 토큰(BS) 보존 → org 판정 불변.
+  const { data: unifiedReg } = await sb
+    .from("line_registrations")
+    .select("line_code")
+    .eq("bridged_master_id", (master as any).id)
+    .maybeSingle();
+  const UNIFIED_OFFICIAL_LINE_CODE: string | null =
+    (unifiedReg as { line_code: string } | null)?.line_code ??
+    (master as { line_code: string | null }).line_code ??
+    null;
+  if (!UNIFIED_OFFICIAL_LINE_CODE) {
+    throw new Error(
+      "[통합] 공식 라인 코드 부재 — line_registrations.bridged_master_id 또는 마스터 line_code 필요(날짜형 생성 금지)",
+    );
+  }
   const unifiedLines = await fetchAllSb<{ id: string; week_id: string | null }>(
     "cluster4_lines", "id,week_id", "id",
     (q) => q.eq("experience_line_master_id", (master as any).id).eq("is_active", true));
@@ -414,7 +431,9 @@ async function main() {
   // 0) [통합] 라인 ensure
   for (const w of [...ensureWeekById.values()].sort((a, b) => a.start_date.localeCompare(b.start_date))) {
     if (lineByWeekId.has(w.id)) continue;
-    const code = `EXBS-EN${w.start_date.slice(2, 4)}${w.start_date.slice(5, 7)}${w.start_date.slice(8, 10)}`;
+    // 공식 라인 코드 사용(날짜형 생성 폐기 — 고객 displayLineCode 와 정합). 같은 통합 마스터의
+    //   주차별 라인은 동일 공식 코드를 공유한다(line_code 유니크 제약 없음·week_id 로 구분).
+    const code = UNIFIED_OFFICIAL_LINE_CODE;
     const { data, error } = await sb.from("cluster4_lines").insert({
       part_type: "experience", main_title: UNIFIED_LINE_MAIN_TITLE,
       experience_line_master_id: (master as any).id, line_code: code, week_id: w.id,

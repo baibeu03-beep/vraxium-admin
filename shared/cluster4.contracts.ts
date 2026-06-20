@@ -227,7 +227,13 @@ export type Cluster4VisibleLineDto = {
 
   // cluster4_lines.line_code — competency/experience/career 공통 식별 코드.
   // career part 의 경우 career_projects.line_code 와 동일 (= projectCode).
+  //   ⚠ 내부 매칭/조회 전용. 개설 경로에 따라 날짜형(EXBS-EN241021)·센티넬(IF..-OPEN<ts>)
+  //   같은 내부 코드가 들어갈 수 있어 고객 화면에 직접 노출하면 안 된다 — 표시는 displayLineCode 사용.
   lineCode: string | null;
+  // 고객 표시용 공식 라인 코드 — /admin/lines/info(line_registrations.line_code) 우선, 미연결
+  //   시 허브 마스터 line_code 폴백(둘 다 공식형). information 은 브리지가 없어 항상 null.
+  //   미상이면 null — 프론트는 이 값이 없으면 코드를 숨기고 절대 lineCode 로 fallback 하지 않는다.
+  displayLineCode: string | null;
   projectCode: string | null;
 
   // 실무 경력(career) sponsor-card 메타 — source: career_projects (careerProjectId 로 조회).

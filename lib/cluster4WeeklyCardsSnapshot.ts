@@ -255,7 +255,10 @@ async function writeRosterCardStats(
 //   는 기존 필드 — 종전 신정책 주차에서 null 이던 값이 채워짐)이나 신정책 주차의 verdict/주차상태
 //   (success↔fail)·checkGate 값이 달라지므로 기존 v20 snapshot 을 stale(version_mismatch) 처리해
 //   재계산하게 한다. (DB 백필 아님 — 파생 캐시 재생성. 레거시 주차 값은 불변.)
-export const WEEKLY_CARDS_DTO_VERSION = 21;
+// v22 (2026-06-20): 고객 표시용 displayLineCode 신설(registration/master 공식 코드 우선,
+//   information·미연결은 null·고객 화면 숨김). 내부 lineCode 는 매칭용으로 유지. 기존 v21
+//   snapshot 은 displayLineCode 필드가 없으므로 stale(version_mismatch) 처리해 재계산하게 한다.
+export const WEEKLY_CARDS_DTO_VERSION = 22;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 
