@@ -361,11 +361,36 @@ async function computeWeeklyCards(
     .order("year", { ascending: false })
     .order("week_number", { ascending: false });
 
-  if (uwsErr || !uwsData || uwsData.length === 0) {
-    // 활동 이력(uws)이 전혀 없으면 표시할 궤적이 없다 → 기존과 동일하게 빈 목록.
-    return { cards: [] };
+  // 현재 시즌/주차 + 시즌 휴식(seasonal_rest) 여부 — 빈-uws 조기 종료 판단보다 먼저 산정.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const currentSeason = getSeasonForDate(todayIso);
+  const currentWeek = currentSeason
+    ? getWeekInSeason(currentSeason, todayIso)
+    : null;
+  const currentWeekStart = currentWeek?.weekStart ?? null;
+  const currentSeasonKey = currentSeason ? seasonDbKey(currentSeason) : null;
+  // 현재 시즌에 시즌 휴식 신청(user_season_statuses.status='rest')이 있는가.
+  //   true 면 활동주차 uws 가 없어도 현재 휴식 시즌 주차를 휴식(개인) 카드로 생성한다.
+  let currentSeasonRestActive = false;
+  if (currentSeasonKey) {
+    const { data: ssRest } = await supabaseAdmin
+      .from("user_season_statuses")
+      .select("status")
+      .eq("user_id", userId)
+      .eq("season_key", currentSeasonKey)
+      .eq("status", "rest")
+      .limit(1);
+    currentSeasonRestActive = (ssRest?.length ?? 0) > 0;
   }
-  const uwsRows = uwsData as UwsRow[];
+
+  // uws 조회 오류는 그대로 빈 목록(오류 마스킹 금지).
+  if (uwsErr) return { cards: [] };
+  // 활동 이력(uws)이 전혀 없으면 표시할 궤적이 없다 → 기존과 동일하게 빈 목록.
+  //   단, 현재 시즌이 시즌 휴식인 회원은 현재 휴식 시즌만 카드를 생성하도록 진행(공백 화면 방지).
+  if (!uwsData || uwsData.length === 0) {
+    if (!(currentSeasonRestActive && currentSeason)) return { cards: [] };
+  }
+  const uwsRows = (uwsData ?? []) as UwsRow[];
   // week_start_date → uws (보조 데이터 lookup). 카드 주차에 붙인다.
   const uwsByStart = new Map<string, UwsRow>();
   for (const r of uwsRows) uwsByStart.set(r.week_start_date, r);
@@ -374,19 +399,14 @@ async function computeWeeklyCards(
   // 루프 안에서 주차별로 seasonCalendar rule ∨ 날짜 overlap 으로 판정한다.
   const activeRestPeriods = await fetchActiveRestPeriods();
 
-  // 2. 현재 시즌/주차 판별 (카드 범위 상한 + running/official_rest 판정).
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const currentSeason = getSeasonForDate(todayIso);
-  const currentWeek = currentSeason
-    ? getWeekInSeason(currentSeason, todayIso)
-    : null;
-  const currentWeekStart = currentWeek?.weekStart ?? null;
-
   // 3. 카드 대상 weeks 범위: [가장 이른 uws 주차, 현재 주차]. 현재 주차가 없으면 최신 uws 까지.
   //    미래 주차(현재 주차 이후)는 제외한다.
+  //    빈 uws(현재 시즌 휴식 신규)는 현재 시즌으로 범위 폴백(아래 현재 시즌 weeks 병합과 함께 동작).
   const uwsStartsSorted = uwsRows.map((r) => r.week_start_date).sort();
-  const lowerBound = uwsStartsSorted[0];
-  const latestUwsStart = uwsStartsSorted[uwsStartsSorted.length - 1];
+  const restRangeFallback = currentSeason?.startDate ?? currentWeekStart ?? todayIso;
+  const lowerBound = uwsStartsSorted[0] ?? restRangeFallback;
+  const latestUwsStart =
+    uwsStartsSorted[uwsStartsSorted.length - 1] ?? currentWeekStart ?? restRangeFallback;
   // 상한 = max(현재 주차, 마지막 uws 주차). 시즌 전체가 시드된 사용자(테스터)는 미래 주차
   // uws 가 존재하므로 latestUwsStart 까지 weeks 를 조회해야 한다. 종전엔 삼항 양쪽이 모두
   // currentWeekStart 인 no-op 이라 미래 주차 weeks row 가 조회 범위 밖 → 해당 uws 가 고아로
@@ -455,6 +475,42 @@ async function computeWeeklyCards(
       synthetic: true,
     });
   }
+  // 현재 시즌이 시즌 휴식인 회원: 현재 휴식 시즌의 모든 주차를 카드 대상에 포함한다(현재 주차까지).
+  //   범위 조회/조기 드롭으로 누락되는 활동주차를 휴식(개인)으로 채우기 위함. 과거 시즌은 손대지 않음
+  //   (현재 시즌 season_key 한정). 미래 주차(현재 주차 이후)는 제외.
+  if (currentSeasonRestActive && currentSeasonKey) {
+    const { data: curSeasonWeeks } = await supabaseAdmin
+      .from("weeks")
+      .select(
+        "id,week_number,start_date,end_date,season_key,is_official_rest,holiday_name,iso_year,iso_week,result_published_at",
+      )
+      .eq("season_key", currentSeasonKey);
+    for (const w of (curSeasonWeeks ?? []) as WeeksRow[]) {
+      if (!w.start_date) continue;
+      if (currentWeekStart && w.start_date > currentWeekStart) continue; // 미래 주차 제외
+      if (cardWeekByStart.has(w.start_date)) continue;
+      cardWeekByStart.set(w.start_date, {
+        id: w.id,
+        week_number: w.week_number,
+        start_date: w.start_date,
+        end_date: w.end_date,
+        season_key: w.season_key,
+        iso_year: w.iso_year,
+        iso_week: w.iso_week,
+        result_published_at: w.result_published_at,
+        synthetic: false,
+      });
+    }
+  }
+  // 현재 휴식 시즌 주차 시작일 집합 — buildResolvedWeeks 가 활동주차를 휴식(개인)으로 강제할 대상.
+  //   (공식 휴식/전환 주차는 resolver 내부에서 제외되므로 그대로 official_rest/전환 유지.)
+  const currentSeasonRestStarts = new Set<string>();
+  if (currentSeasonRestActive && currentSeasonKey) {
+    for (const w of cardWeekByStart.values()) {
+      if (w.season_key === currentSeasonKey) currentSeasonRestStarts.add(w.start_date);
+    }
+  }
+
   // 최신순(내림차순) 카드 출력 / 오름차순은 누적 계산용.
   const cardWeeksDesc = [...cardWeekByStart.values()].sort((a, b) =>
     a.start_date < b.start_date ? 1 : a.start_date > b.start_date ? -1 : 0,
@@ -752,6 +808,7 @@ async function computeWeeklyCards(
       activeRestPeriods,
       isCurrentWeekStart,
       isWeekPublished,
+      isCurrentSeasonRestWeek: (s) => currentSeasonRestStarts.has(s),
     },
   );
 

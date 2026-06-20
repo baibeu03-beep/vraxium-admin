@@ -43,6 +43,10 @@ export type BuildResolvedWeeksDeps<W> = {
   activeRestPeriods: readonly OfficialRestPeriodDto[];
   isCurrentWeekStart: (start: string) => boolean;
   isWeekPublished: (w: W) => boolean;
+  // 현재 시즌이 "시즌 휴식(seasonal_rest)"인 회원의 주차인가(현재 휴식 시즌 한정).
+  //   true 면 그 시즌의 활동주차(비공식휴식·비전환)를 휴식(개인)으로 채운다.
+  //   미지정 시 false — 비휴식 회원·과거 시즌은 영향 없음(기존 동작 불변).
+  isCurrentSeasonRestWeek?: (start: string) => boolean;
 };
 
 export function buildResolvedWeeks<W extends ResolvableWeek>(
@@ -74,13 +78,25 @@ export function buildResolvedWeeks<W extends ResolvableWeek>(
       weekIsOfficialRest,
       experienceVerdictStatus: deps.getVerdictStatus(weekId),
     });
-    if (resolved.status === null) continue; // no_data → 카드 미생성
+    // ── 현재 휴식 시즌(seasonal_rest)의 활동주차 → 휴식(개인) 채움 ──
+    //   공식 휴식 주차(official_rest)·전환 주차는 제외(기존 매핑 유지). no_data(uws 없음)로
+    //   사라질 활동주차도 personal_rest 카드로 생성한다(공백 화면 방지). 별도 카드 상태는 만들지 않음.
+    //   누적 성장주차(success 집계)에는 personal_rest 가 포함되지 않으므로 정책 6 자동 충족.
+    let resultStatus = resolved.status;
+    if (
+      (deps.isCurrentSeasonRestWeek?.(startDate) ?? false) &&
+      !weekIsOfficialRest &&
+      !isTransitionWeekStart(startDate)
+    ) {
+      resultStatus = "personal_rest";
+    }
+    if (resultStatus === null) continue; // no_data → 카드 미생성
     if (resolved.flippedToFail) flippedToFail++;
     byStart.set(startDate, {
       startDate,
       endDate,
       weekId,
-      resultStatus: resolved.status,
+      resultStatus,
       isTransition: isTransitionWeekStart(startDate),
       isCurrentWeek,
     });

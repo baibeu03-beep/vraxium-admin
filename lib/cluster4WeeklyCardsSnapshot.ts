@@ -259,7 +259,9 @@ async function writeRosterCardStats(
 // v22 (2026-06-20): 고객 표시용 displayLineCode 신설(registration/master 공식 코드 우선,
 //   information·미연결은 null·고객 화면 숨김). 내부 lineCode 는 매칭용으로 유지. 기존 v21
 //   snapshot 은 displayLineCode 필드가 없으므로 stale(version_mismatch) 처리해 재계산하게 한다.
-export const WEEKLY_CARDS_DTO_VERSION = 22;
+// v23 (2026-06-20): 현재 시즌이 시즌 휴식(seasonal_rest)인 회원의 활동주차를 휴식(개인) 카드로
+//   채우는 정책 추가(빈 화면 해소). 카드 출력이 바뀌므로 버전 bump → 전원 lazy 재계산으로 수렴.
+export const WEEKLY_CARDS_DTO_VERSION = 23;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 
