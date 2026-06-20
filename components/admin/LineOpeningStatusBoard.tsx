@@ -145,6 +145,7 @@ export default function LineOpeningStatusBoard({
     if (!data || variant !== "hub") return null;
     return buildHubOpenStatusLine({
       hubLabel,
+      currentWeek: data.currentWeek,
       targetWeek: data.targetWeek,
       opened: data.opened ?? false,
     });

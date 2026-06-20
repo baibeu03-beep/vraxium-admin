@@ -94,6 +94,37 @@ function periodLabel(w: StatusWeek): string {
 const t = (text: string): StatusToken => ({ text, red: false });
 const r = (text: string): StatusToken => ({ text, red: true });
 
+// 대상 주차 호칭 — 금요일 경계(금~일)나 테스트 W13 폴드로 대상 주차가 현재 주차와 같아지면
+// "이번 주", 다르면 "개설 대상 주차". (예전엔 항상 "지난 주" 고정 → 같은 주를 한 화면에서
+//  '이번 주'이자 '지난 주'로 부르는 오표기가 있었다.) 동일 주차 판정은 startDate(YYYY-MM-DD).
+function targetWeekPrefix(
+  current: StatusWeek | null,
+  target: StatusWeek,
+): string {
+  if (current && current.startDate === target.startDate) return "이번 주";
+  return "개설 대상 주차";
+}
+
+// 개설 상태 꼬리 문구 — 허브/팀 공용. head 가 "… 라인이 "/"… 라인들이 " 로 끝난 뒤 이어진다.
+//   opened           → "‘개설 완료’ 되었습니다."        (positive)
+//   미개설·휴식 주차  → "개설 대상이 아닙니다 (공식 휴식 주차)."  (neutral — 액션 요구 안 함)
+//   미개설·정규 주차  → "‘개설’ 되어야 합니다."          (warning)
+function openStateTail(
+  opened: boolean,
+  isOfficialRest: boolean | undefined,
+): { tone: StatusLine["tone"]; tokens: StatusToken[] } {
+  if (opened) {
+    return { tone: "positive", tokens: [t("‘"), r("개설 완료"), t("’ 되었습니다.")] };
+  }
+  if (isOfficialRest) {
+    return {
+      tone: "neutral",
+      tokens: [t("개설 대상이 아닙니다 ("), r("공식 휴식 주차"), t(").")],
+    };
+  }
+  return { tone: "warning", tokens: [t("‘"), r("개설"), t("’ 되어야 합니다.")] };
+}
+
 // ──────────────────────────────────────────────────────────────
 // 블록 빌더
 // ──────────────────────────────────────────────────────────────
@@ -123,12 +154,13 @@ function buildBlock2(input: LineOpeningStatusInput): StatusLine {
     return {
       id: "block2",
       tone: "neutral",
-      tokens: [t("지난 주(개설 대상) 주차 정보를 확인할 수 없습니다.")],
+      tokens: [t("개설 대상 주차 정보를 확인할 수 없습니다.")],
     };
   }
   const period = periodLabel(targetWeek);
+  const prefix = targetWeekPrefix(input.currentWeek, targetWeek);
   const head: StatusToken[] = [
-    t("지난 주 ["),
+    t(`${prefix} [`),
     r(period),
     t(`] 는 [${hubLabel}] 허브(각 세부 팀) 산하 `),
   ];
@@ -154,65 +186,54 @@ function buildBlock3(input: LineOpeningStatusInput): StatusLine[] {
   const { targetWeek, teams, hubLabel } = input;
   if (!targetWeek) return [];
   const period = periodLabel(targetWeek);
+  const prefix = targetWeekPrefix(input.currentWeek, targetWeek);
 
   return teams.map((team) => {
     const head: StatusToken[] = [
-      t("지난 주 ["),
+      t(`${prefix} [`),
       r(period),
       t("] 의 ‘"),
       r(team.teamName),
       t(`’ 의 [${hubLabel}] 허브 산하 라인이 `),
     ];
-    if (team.opened) {
-      return {
-        id: `team-${team.teamId}`,
-        tone: "positive",
-        tokens: [...head, t("‘"), r("개설 완료"), t("’ 되었습니다.")],
-      };
-    }
+    const tail = openStateTail(team.opened, targetWeek.isOfficialRest);
     return {
       id: `team-${team.teamId}`,
-      tone: "warning",
-      tokens: [...head, t("‘"), r("개설"), t("’ 되어야 합니다.")],
+      tone: tail.tone,
+      tokens: [...head, ...tail.tokens],
     };
   });
 }
 
 // 허브 전체 1문장 개설 상태 — 실무 역량(competency)처럼 팀별 분기가 없는 허브용.
 // 블록3(팀별)이 아니라 허브 산하 라인 전체의 개설 여부 1줄만 만든다. 빨강: 시즌·주차·개설/개설 완료.
-//   기본:  "지난 주 [{period}] 의 [{hub}] 허브 산하 라인들이 ‘개설’ 되어야 합니다."
-//   완료:  "지난 주 [{period}] 의 [{hub}] 허브 산하 라인들이 ‘개설 완료’ 되었습니다."
+//   완료:  "{prefix} [{period}] 의 [{hub}] 허브 산하 라인들이 ‘개설 완료’ 되었습니다."
+//   미개설(정규):  "… 라인들이 ‘개설’ 되어야 합니다."
+//   미개설(휴식):  "… 라인들이 개설 대상이 아닙니다 (공식 휴식 주차)."
+//   prefix = 대상 주차==현재 주차면 "이번 주", 아니면 "개설 대상 주차" (targetWeekPrefix).
 export function buildHubOpenStatusLine(input: {
   hubLabel: string;
+  currentWeek: StatusWeek | null;
   targetWeek: StatusWeek | null;
   opened: boolean;
 }): StatusLine {
-  const { hubLabel, targetWeek, opened } = input;
+  const { hubLabel, currentWeek, targetWeek, opened } = input;
   if (!targetWeek) {
     return {
       id: "hub-open",
       tone: "neutral",
-      tokens: [t("지난 주(개설 대상) 주차 정보를 확인할 수 없습니다.")],
+      tokens: [t("개설 대상 주차 정보를 확인할 수 없습니다.")],
     };
   }
   const period = periodLabel(targetWeek);
+  const prefix = targetWeekPrefix(currentWeek, targetWeek);
   const head: StatusToken[] = [
-    t("지난 주 ["),
+    t(`${prefix} [`),
     r(period),
     t(`] 의 [${hubLabel}] 허브 산하 라인들이 `),
   ];
-  if (opened) {
-    return {
-      id: "hub-open",
-      tone: "positive",
-      tokens: [...head, t("‘"), r("개설 완료"), t("’ 되었습니다.")],
-    };
-  }
-  return {
-    id: "hub-open",
-    tone: "warning",
-    tokens: [...head, t("‘"), r("개설"), t("’ 되어야 합니다.")],
-  };
+  const tail = openStateTail(opened, targetWeek.isOfficialRest);
+  return { id: "hub-open", tone: tail.tone, tokens: [...head, ...tail.tokens] };
 }
 
 // ──────────────────────────────────────────────────────────────

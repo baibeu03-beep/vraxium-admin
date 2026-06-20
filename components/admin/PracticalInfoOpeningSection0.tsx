@@ -117,6 +117,17 @@ export default function PracticalInfoOpeningSection0({
   const lastWeekLabel = openableWeek ? formatBannerPeriod(openableWeek) : null;
   const thisWeekLabel = currentWeek ? formatBannerPeriod(currentWeek) : null;
 
+  // 대상 주차 호칭 — 금요일 경계(금~일)로 개설 대상이 현재 주차와 같아지면 "이번 주",
+  //   다르면 "개설 대상 주차". (공용 엔진 targetWeekPrefix 와 동일 규칙 — 같은 주를 한 화면에서
+  //   '이번 주'이자 '지난 주'로 부르던 오표기 제거.) 비교 = 시즌/연도/주차번호.
+  const targetIsCurrent =
+    !!currentWeek &&
+    !!openableWeek &&
+    currentWeek.year === openableWeek.year &&
+    currentWeek.seasonName === openableWeek.seasonName &&
+    currentWeek.weekNumber === openableWeek.weekNumber;
+  const lastWeekPrefix = targetIsCurrent ? "이번 주" : "개설 대상 주차";
+
   return (
     <div className="space-y-4">
       {/* 2분할 배치: 좌(상태창) | 우(로그창). 모바일=단일 컬럼 stack(반응형). */}
@@ -140,26 +151,30 @@ export default function PracticalInfoOpeningSection0({
             {lastWeekLabel ? (
               loadingLine ? (
                 <p className="flex items-center gap-1.5 text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> 지난 주 라인 상태
-                  확인 중…
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> {lastWeekPrefix} 라인
+                  상태 확인 중…
                 </p>
               ) : opened ? (
                 <p className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-green-800">
-                  지난 주 <span className="font-semibold">[{lastWeekLabel}]</span> 의{" "}
-                  {activityName} 라인이 ‘개설’ 되어, 크루 기입이 가능합니다.
+                  {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}
+                  의 {activityName} 라인이 ‘개설’ 되어, 크루 기입이 가능합니다.
+                </p>
+              ) : openableWeek?.isOfficialRest ? (
+                /* 공식 휴식 주차 — 액션(개설 되어야) 요구하지 않는다(공용 엔진과 동일). */
+                <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-foreground">
+                  {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}
+                  의 {activityName} 라인은 개설 대상이 아닙니다 (
+                  <span className="font-semibold text-red-600">공식 휴식 주차</span>).
                 </p>
               ) : (
                 <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-amber-800">
-                  지난 주 <span className="font-semibold">[{lastWeekLabel}]</span> 의{" "}
-                  {activityName} 라인이 ‘개설’ 되어야 합니다.
-                  {openableWeek?.isOfficialRest && (
-                    <span className="ml-1 text-amber-600">(공식 휴식 주차)</span>
-                  )}
+                  {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}
+                  의 {activityName} 라인이 ‘개설’ 되어야 합니다.
                 </p>
               )
             ) : (
               <p className="text-muted-foreground">
-                지난 주(개설 대상) 주차 정보를 확인할 수 없습니다.
+                개설 대상 주차 정보를 확인할 수 없습니다.
               </p>
             )}
           </CardContent>
