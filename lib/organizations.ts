@@ -40,3 +40,32 @@ export function organizationRouteSuffix(slug: string | null | undefined): string
     ? ORGANIZATION_ROUTE_SUFFIX[slug]
     : DEFAULT_ROUTE_SUFFIX;
 }
+
+// ── 역방향: 고객 페이지 slug → organization ──────────────────────────────
+// 위 ORGANIZATION_ROUTE_SUFFIX 의 역매핑. 프론트 라우트 suffix(canonical + legacy)를
+// 내부 org slug 로 환원한다. 페이지 slug ↔ 실제 소속 org 접근 게이트(lib/pageAccess)의
+// 유일한 매핑 정의소다 — 프론트 lib/cluster-route 의 SUFFIX_TO_ORG 와 동일 의미를 유지한다.
+//   marketing / -marketing / ok / -ok        → oranke
+//   entertainment / -entertainment / ec / -ec → encre
+//   planning / -planning / px / -px           → phalanx
+const PAGE_SLUG_TO_ORGANIZATION: Record<string, OrganizationSlug> = {
+  marketing: "oranke",
+  ok: "oranke",
+  entertainment: "encre",
+  ec: "encre",
+  planning: "phalanx",
+  px: "phalanx",
+};
+
+// 페이지 slug 를 organization 으로 환원한다. 선행 "-" 와 대소문자를 정규화한다.
+//   recognized=false → 알 수 없는 slug(접근 제약 미적용 대상).
+export function pageSlugToOrganization(slug: string | null | undefined): {
+  org: OrganizationSlug | null;
+  recognized: boolean;
+} {
+  if (typeof slug !== "string") return { org: null, recognized: false };
+  const normalized = slug.trim().replace(/^-+/, "").toLowerCase();
+  if (!normalized) return { org: null, recognized: false };
+  const org = PAGE_SLUG_TO_ORGANIZATION[normalized];
+  return org ? { org, recognized: true } : { org: null, recognized: false };
+}

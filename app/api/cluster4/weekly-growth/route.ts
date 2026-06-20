@@ -15,6 +15,12 @@ import {
 } from "@/lib/cluster4WeeklyGrowthData";
 import { DemoModeError } from "@/lib/demoMode";
 import { resolveRequestScope } from "@/lib/requestScope";
+import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
+import {
+  assertPageAccessBySlug,
+  readPageSlug,
+  PageAccessError,
+} from "@/lib/pageAccess";
 import {
   currentQueryCount,
   runWithQueryMeter,
@@ -43,7 +49,16 @@ async function handleGet(request: NextRequest) {
     if (requestScope.demoUserId) {
       // 데모 인증은 demoUserId(viewer)로 통과하되, 조회 대상은 userId(pageOwner)가 있으면 우선한다.
       // foreign viewer(테스트유저가 타 유저 페이지 조회) 시 성장 데이터는 페이지 주인 기준이어야 함.
-      const dto = await getWeeklyGrowth(requestScope.targetUserId || requestScope.demoUserId);
+      const cardTargetUserId = requestScope.targetUserId || requestScope.demoUserId;
+      // 페이지 slug ↔ 실제 org 접근 게이트(데모 경로 동일 적용).
+      await assertPageAccessBySlug({
+        userId: cardTargetUserId,
+        mode: requestScope.mode,
+        demoUserId: requestScope.demoUserId,
+        pageType: "cluster4",
+        requestedSlug: readPageSlug(request),
+      });
+      const dto = await getWeeklyGrowth(cardTargetUserId);
       if (!dto) {
         logDone("demo-404");
         return Response.json(
@@ -56,6 +71,12 @@ async function handleGet(request: NextRequest) {
     }
   } catch (error) {
     if (error instanceof DemoModeError) {
+      return Response.json(
+        { success: false, error: error.message },
+        { status: error.status },
+      );
+    }
+    if (error instanceof PageAccessError) {
       return Response.json(
         { success: false, error: error.message },
         { status: error.status },
@@ -81,6 +102,15 @@ async function handleGet(request: NextRequest) {
   console.log(TAG, "auth.users.id =", user.id, "| email =", user.email);
 
   try {
+    // 페이지 slug ↔ 실제 org 접근 게이트(세션 경로 — 본인 데이터). profile userId 해석 실패 시
+    // userId=null → fail-open(기존 동작 보존). 데이터 경로(getWeeklyGrowthByUserId)는 불변.
+    const ownProfileUserId = await resolveProfileUserId(user.id, user.email);
+    await assertPageAccessBySlug({
+      userId: ownProfileUserId,
+      pageType: "cluster4",
+      requestedSlug: readPageSlug(request),
+    });
+
     const dto = await getWeeklyGrowthByUserId(user.id, user.email);
     if (!dto) {
       console.warn(TAG, "getWeeklyGrowthByUserId returned null for auth.id =", user.id);
@@ -99,6 +129,13 @@ async function handleGet(request: NextRequest) {
     logDone("ok");
     return Response.json({ success: true, data: dto });
   } catch (error) {
+    if (error instanceof PageAccessError) {
+      logDone("page-access");
+      return Response.json(
+        { success: false, error: error.message },
+        { status: error.status },
+      );
+    }
     logDone("error");
     console.error(TAG, error);
     return Response.json(

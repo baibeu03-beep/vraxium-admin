@@ -22,6 +22,11 @@ import {
 import { DemoModeError } from "@/lib/demoMode";
 import { resolveRequestScope } from "@/lib/requestScope";
 import {
+  assertPageAccessBySlug,
+  readPageSlug,
+  PageAccessError,
+} from "@/lib/pageAccess";
+import {
   currentQueryCount,
   runWithQueryMeter,
 } from "@/lib/supabaseQueryMeter";
@@ -383,6 +388,15 @@ async function handleGet(request: NextRequest): Promise<Response> {
       // 데이터가 섞이면 안 된다. userId 가 없으면(본인 페이지) 기존대로 demoUserId 기준.
       const cardTargetUserId = requestScope.targetUserId || requestScope.demoUserId;
 
+      // 페이지 slug ↔ 실제 org 접근 게이트(데모 경로도 동일 적용 — 요구사항 #4·#5).
+      await assertPageAccessBySlug({
+        userId: cardTargetUserId,
+        mode: requestScope.mode,
+        demoUserId: requestScope.demoUserId,
+        pageType: "cluster4",
+        requestedSlug: readPageSlug(request),
+      });
+
       // 진입경로 일관성(2026-06-16): demoUserId(테스트 유저) 경로도 일반 로그인 경로와 100% 동일하게
       //   snapshot-only 로더(loadWeeklyCards)만 사용한다. demoUserId 는 "조회 대상 userId"만 바꾸며
       //   DTO 생성/계산 로직은 분기하지 않는다. mode 파라미터는 weekly-cards DTO 에 영향을 주지 않는다
@@ -401,6 +415,9 @@ async function handleGet(request: NextRequest): Promise<Response> {
   } catch (error) {
     if (error instanceof DemoModeError) {
       return done(fail(error.status, error.message, "demo_mode"), "demo-error");
+    }
+    if (error instanceof PageAccessError) {
+      return done(fail(error.status, error.message, "page_access_denied"), "demo-page-access");
     }
     if (error instanceof Cluster4WeeklyCardsError) {
       return done(
@@ -480,6 +497,13 @@ async function handleGet(request: NextRequest): Promise<Response> {
       profileUserId = ownProfileUserId;
     }
 
+    // 페이지 slug ↔ 실제 org 접근 게이트(세션/internal 경로 동일 적용 — 요구사항 #4).
+    await assertPageAccessBySlug({
+      userId: profileUserId,
+      pageType: "cluster4",
+      requestedSlug: readPageSlug(request),
+    });
+
     // 진입경로 일관성(2026-06-16): mode 파라미터는 weekly-cards DTO 계산에 영향을 주지 않는다.
     //   세션/internal 경로도 snapshot-only 로더만 사용 — 테스트 유저든 실유저든 동일 userId 면
     //   동일 snapshot row 를 반환한다(데모 경로와 정합).
@@ -521,6 +545,10 @@ async function handleGet(request: NextRequest): Promise<Response> {
   } catch (error) {
     if (error instanceof AdminAuthError) {
       return done(fail(error.status, error.message, "forbidden"), "admin-error");
+    }
+
+    if (error instanceof PageAccessError) {
+      return done(fail(error.status, error.message, "page_access_denied"), "page-access");
     }
 
     if (error instanceof Cluster4WeeklyCardsError) {

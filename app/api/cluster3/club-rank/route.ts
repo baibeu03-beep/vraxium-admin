@@ -21,6 +21,11 @@ import { getSupabaseServerClient } from "@/lib/supabaseServer";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import { getClubRank } from "@/lib/cluster3ClubRankData";
 import { GrowthError } from "@/lib/cluster3GrowthData";
+import {
+  assertPageAccessBySlug,
+  readPageSlug,
+  PageAccessError,
+} from "@/lib/pageAccess";
 
 export async function GET(request: NextRequest) {
   const TAG = "[cluster3/club-rank GET]";
@@ -82,6 +87,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // 페이지 slug ↔ 실제 org 접근 게이트(internal/세션 동일 적용).
+    await assertPageAccessBySlug({
+      userId: targetUserId,
+      pageType: "cluster3",
+      requestedSlug: readPageSlug(request),
+    });
+
     const dto = await getClubRank(targetUserId);
 
     console.log(TAG, "result:", {
@@ -94,6 +106,12 @@ export async function GET(request: NextRequest) {
 
     return Response.json({ success: true, data: dto });
   } catch (error) {
+    if (error instanceof PageAccessError) {
+      return Response.json(
+        { success: false, error: error.message },
+        { status: error.status },
+      );
+    }
     console.error(TAG, error);
     if (error instanceof GrowthError) {
       return Response.json(

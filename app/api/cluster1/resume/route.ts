@@ -13,6 +13,11 @@
 
 import type { NextRequest } from "next/server";
 import { getCluster1Resume } from "@/lib/cluster1ResumeData";
+import {
+  assertPageAccessBySlug,
+  readPageSlug,
+  PageAccessError,
+} from "@/lib/pageAccess";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -50,6 +55,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // 페이지 slug ↔ 실제 org 접근 게이트(internal 경로).
+    await assertPageAccessBySlug({
+      userId,
+      pageType: "cluster1",
+      requestedSlug: readPageSlug(request),
+    });
+
     // getCluster1Resume 의 식별자(legacyUserId)는 user_profiles.user_id(UUID)다 (lib/adminCrewData 참고).
     const dto = await getCluster1Resume(userId);
     if (!dto) {
@@ -66,6 +78,12 @@ export async function GET(request: NextRequest) {
     });
     return Response.json({ success: true, data: dto });
   } catch (error) {
+    if (error instanceof PageAccessError) {
+      return Response.json(
+        { success: false, error: error.message },
+        { status: error.status },
+      );
+    }
     console.error(TAG, error);
     return Response.json(
       {
