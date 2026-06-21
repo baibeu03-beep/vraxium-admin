@@ -1955,14 +1955,20 @@ async function fetchLineDetailsByWeek(
         now,
       });
       const legacySubmissionBasedEnhancement =
-        legacyAdditive && dbPartType !== "competency";
+        legacyAdditive &&
+        dbPartType !== "competency" &&
+        dbPartType !== "info";
       lines.push({
         ...base,
-        // 레거시 추가 라인(info/competency/career)은 제출 기반으로 강화율에 반영한다:
+        // 레거시 추가 라인(career)은 제출 기반으로 강화율에 반영한다:
         //   enhancementStatus := base.status (success/fail/pending). status="void" 는 타깃 보유
         //   라인에서는 발생하지 않으나 타입 안전상 not_applicable 로 폴백한다.
         //   통합 라인·신규 주차(legacyAdditive=false)는 공용 enhancement 규칙을 그대로 유지(불변).
         //   competency 는 관리자 개설 target 자체가 성공 SoT 이므로 submission 기반 override 에서 제외한다.
+        //   info(실무 정보)도 동일 — 대상자 배정 자체가 강화 SoT 다(2026-06-21, computeCluster4Enhancement
+        //     문서 정책 "배정+마감 후=success, 제출 무관"과 정합). 레거시/비레거시 주차가 갈라지지 않게
+        //     레거시 override 에서 info 를 제외한다. 미기입은 submissionStatus(not_submitted)로만 표시되고
+        //     강화 실패 사유가 아니다. (미배정 크루의 synthetic fail = Step 2 는 불변 — 개설+미배정=fail.)
         ...(legacySubmissionBasedEnhancement
           ? {
               enhancementStatus:
