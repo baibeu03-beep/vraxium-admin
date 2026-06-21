@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import {
   DAY_NAMES,
   computeOpenNeed,
+  isValidLineOpeningWeek,
   weekName,
   weekRange,
   type SeasonWeekRow,
@@ -114,6 +115,7 @@ export default function PracticalInfoWeekResults() {
   }, []);
 
   // 드롭다운 옵션 — 미래 주차 제외(가장 최신 = 개설 필요 기간 주차), 최신순.
+  //   0주차·시즌 최대 초과(전환 주차 17/9 등)는 라인 개설 대상이 아니므로 필터에서 제외.
   const options = useMemo(() => {
     if (!weeks) return [];
     const need = computeOpenNeed(weeks, new Date()).need;
@@ -123,6 +125,7 @@ export default function PracticalInfoWeekResults() {
         (w) =>
           w.week_id != null &&
           w.week_start_date != null &&
+          isValidLineOpeningWeek(w) &&
           (cutoff == null || w.week_start_date <= cutoff),
       )
       .sort((a, b) =>

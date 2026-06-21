@@ -12,12 +12,48 @@
 
 export type SeasonWeekRow = {
   week_id?: string;
+  // season-weeks DTO 의 season_key("2025-winter") — 시즌 타입 판정(주차 유효성)에 사용.
+  season_key?: string | null;
   season_name: string | null;
   week_number: number | null;
   week_start_date: string | null;
   week_end_date: string | null;
   is_current_week?: boolean;
 };
+
+// 시즌별 정규 최대 주차(전환 주차 +1 은 제외). 라인 개설 주차 선택 필터의 SoT.
+//   봄/가을 1~16, 여름/겨울 1~8. 0주차·최대 초과(전환 주차 17/9 등)는 개설 대상이 아님.
+export const SEASON_MAX_WEEK: Record<string, number> = {
+  spring: 16,
+  summer: 8,
+  autumn: 16,
+  winter: 8,
+};
+
+// season_key("2025-winter") 우선, 없으면 season_name("…겨울시즌") 한글로 시즌 타입 추출.
+export function seasonTypeToken(
+  w: Pick<SeasonWeekRow, "season_key" | "season_name">,
+): "spring" | "summer" | "autumn" | "winter" | null {
+  const m = /(spring|summer|autumn|winter)/i.exec(w.season_key ?? "");
+  if (m) return m[1].toLowerCase() as "spring" | "summer" | "autumn" | "winter";
+  const name = w.season_name ?? "";
+  if (name.includes("봄")) return "spring";
+  if (name.includes("여름")) return "summer";
+  if (name.includes("가을")) return "autumn";
+  if (name.includes("겨울")) return "winter";
+  return null;
+}
+
+// 라인 개설 주차 선택 필터 — 0주차 및 시즌 최대 초과(전환 주차 포함) 제외.
+//   봄/가을 1~16, 여름/겨울 1~8 만 유효. 시즌 타입 미상이면 16(보수적 상한)으로 본다.
+//   ⚠ 표시/선택 필터 전용. season-weeks DTO 원본(전환 주차 포함)·snapshot 에는 영향 없음.
+export function isValidLineOpeningWeek(w: SeasonWeekRow): boolean {
+  const n = w.week_number;
+  if (n == null || n < 1) return false; // 0주차·미지정 제외
+  const type = seasonTypeToken(w);
+  const max = type ? SEASON_MAX_WEEK[type] : 16;
+  return n <= max;
+}
 
 export const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
@@ -45,8 +81,12 @@ export function seasonLabelOnly(seasonName: string | null): string {
   return seasonName.replace(/^\s*\d{4}\s*년도\s*/, "").trim() || seasonName;
 }
 // "26년 봄시즌 14주차"
+// 시즌 연도 = 주차 종료일(일요일) 기준. 겨울 경계 주차(예: 24-12-30~25-01-05)는
+//   종료일이 속한 연도(2025)로 표시해 season_definitions 의 시즌 귀속 연도와 일치시킨다.
+//   종료일이 없으면 시작일 연도로 폴백(이전 동작 유지).
 export function weekName(w: SeasonWeekRow): string {
-  const year = w.week_start_date ? Number(w.week_start_date.slice(0, 4)) : NaN;
+  const yearSource = w.week_end_date ?? w.week_start_date;
+  const year = yearSource ? Number(yearSource.slice(0, 4)) : NaN;
   const yLabel = Number.isFinite(year) ? `${yy2(year)}년 ` : "";
   return `${yLabel}${seasonLabelOnly(w.season_name)} ${w.week_number ?? "-"}주차`;
 }
