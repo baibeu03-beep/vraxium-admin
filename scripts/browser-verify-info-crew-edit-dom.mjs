@@ -74,11 +74,40 @@ try {
 
   if (btnVisible) {
     await editBtn.click();
-    await pg.waitForTimeout(1500);
+    await pg.waitForTimeout(1800);
     const heading = await pg.getByText("개설 대상 크루 수정", { exact: false }).first().isVisible().catch(() => false);
     check("모달 헤더 노출", heading);
-    const cur = await pg.getByText("현재 대상자", { exact: false }).first().isVisible().catch(() => false);
-    check("모달에 '현재 대상자' 섹션 노출", cur);
+    // 신규: "현재 개설 대상 크루" 섹션 + 현재 대상자 수(1명) — 기존 대상자가 바로 보임.
+    const cur = await pg.getByText("현재 개설 대상 크루", { exact: false }).first().isVisible().catch(() => false);
+    check("모달에 '현재 개설 대상 크루' 섹션 노출", cur);
+    // 현재 대상자 수(N명) — 헤더 카운트가 보이는지(개설 라인은 최소 1명/0명 상태 표시).
+    const countShown = await pg.getByText(/현재 개설 대상 크루\s*\d+명/).first().isVisible().catch(() => false);
+    check("현재 대상자 수(N명) 표시", countShown);
+    // 대상자 목록 컬럼: 이름 + 팀·파트 / 학교·전공(클래스 정보).
+    const teamPartCol = await pg.getByText("팀 · 파트", { exact: false }).first().isVisible().catch(() => false);
+    const schoolMajorCol = await pg.getByText("학교 · 전공", { exact: false }).first().isVisible().catch(() => false);
+    check("팀·파트 / 학교·전공 컬럼(클래스 정보) 노출", teamPartCol && schoolMajorCol);
+    // 첫 대상자 행의 이름 셀이 enrich 되어(비어있지/"-" 아님) 렌더되는지.
+    //   ⚠ wisdom 카드가 실데이터 라인을 가리킬 수 있어(임시 라인과 중복) 특정 이름이 아닌 enrich 여부만 본다.
+    const firstNameCell = pg
+      .locator("table tbody tr")
+      .first()
+      .locator("td")
+      .nth(1);
+    const firstName = (await firstNameCell.innerText().catch(() => "")).trim();
+    check("대상자 이름 enrich 표시(non-empty, '-' 아님)", firstName.length > 0 && firstName !== "-", `name="${firstName}"`);
+    // [제외] 버튼 — 클릭 시 pending(되돌리기 + 저장 후 예상) 전환.
+    const excludeBtn = pg.getByRole("button", { name: /제외/ }).first();
+    const excludeVisible = await excludeBtn.isVisible().catch(() => false);
+    check("[제외] 버튼 노출", excludeVisible);
+    if (excludeVisible) {
+      await excludeBtn.click();
+      await pg.waitForTimeout(400);
+      const undo = await pg.getByRole("button", { name: /되돌리기/ }).first().isVisible().catch(() => false);
+      check("[제외] 후 '되돌리기'(pending) 전환", undo);
+      const afterPreview = await pg.getByText("저장 후 예상", { exact: false }).first().isVisible().catch(() => false);
+      check("'저장 후 예상' 미리보기 표시", afterPreview);
+    }
     const addToggle = await pg.getByRole("button", { name: /기존 유지 \+ 추가/ }).isVisible().catch(() => false);
     const replaceToggle = await pg.getByRole("button", { name: "전체 교체" }).isVisible().catch(() => false);
     check("반영 방식 토글(추가/교체) 노출", addToggle && replaceToggle);

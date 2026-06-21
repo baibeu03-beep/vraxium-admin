@@ -205,15 +205,47 @@ export async function loadCrewRecords(
   }
   const { data: profiles, error: pErr } = await profilesQuery;
   if (pErr) throw new Error(pErr.message);
-  const profileRows = (profiles ?? []) as Array<{
-    user_id: string;
-    display_name: string | null;
-    school_name: string | null;
-    department_name: string | null;
-    organization_slug: string | null;
-    current_team_name: string | null;
-    current_part_name: string | null;
-  }>;
+  return enrichCrewProfiles(
+    (profiles ?? []) as CrewProfileRow[],
+  );
+}
+
+// 특정 userId 집합 → CrewRecord. 라인 개설 "현재 대상 크루"를 같은 enrichment(팀/파트/학교/전공/crew_no)
+// 로 표시하기 위한 by-id 로더. org/mode 무관 — 정확히 그 userId 들만 조회한다(매칭/검색과 동일 DTO).
+export async function loadCrewRecordsByUserIds(
+  userIds: string[],
+): Promise<CrewRecord[]> {
+  const ids = Array.from(new Set(userIds.filter((id) => id)));
+  if (ids.length === 0) return [];
+  const rows: CrewProfileRow[] = [];
+  for (let i = 0; i < ids.length; i += 500) {
+    const slice = ids.slice(i, i + 500);
+    const { data, error } = await supabaseAdmin
+      .from("user_profiles")
+      .select(
+        "user_id,display_name,school_name,department_name,organization_slug,current_team_name,current_part_name",
+      )
+      .in("user_id", slice);
+    if (error) throw new Error(error.message);
+    rows.push(...((data ?? []) as CrewProfileRow[]));
+  }
+  return enrichCrewProfiles(rows);
+}
+
+type CrewProfileRow = {
+  user_id: string;
+  display_name: string | null;
+  school_name: string | null;
+  department_name: string | null;
+  organization_slug: string | null;
+  current_team_name: string | null;
+  current_part_name: string | null;
+};
+
+// user_profiles 행 묶음 → CrewRecord 묶음. 멤버십(팀/파트)·학력(학교/전공)·crew_no 를 일괄 enrich.
+async function enrichCrewProfiles(
+  profileRows: CrewProfileRow[],
+): Promise<CrewRecord[]> {
   if (profileRows.length === 0) return [];
 
   const userIds = profileRows.map((p) => p.user_id);

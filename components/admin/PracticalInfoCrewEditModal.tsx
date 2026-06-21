@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { Loader2, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import CafeCrewPicker, {
@@ -11,12 +11,14 @@ import CafeCrewPicker, {
 
 // 실무 정보 — "개설 대상 크루 수정" 모달.
 //   이미 개설된 (과거) 라인의 개설 대상 크루를 카페 검수 UI(CafeCrewPicker)로 사후 수정한다.
-//   - mode='add'(기본)  : 기존 대상자 유지 + 검수된 크루 추가(중복은 "이미 추가됨").
+//   - 상단 "현재 개설 대상 크루" 섹션: 이름/팀·파트/학교·전공 + [제외](모달 내부 pending change).
+//   - mode='add'(기본)  : 기존 대상자 유지(+제외 예정 반영) + 검수된 크루 추가(중복은 "이미 추가됨").
 //   - mode='replace'    : 기존 user 대상자를 검수된 집합으로 전부 교체.
-//   - 저장 = PATCH /api/admin/cluster4/info-lines/crew (org+mode 쿼리 동봉, 서버 스코프 가드).
+//   - 저장 = PATCH /api/admin/cluster4/info-lines/crew — pending 제외 + 추가/교체를 한 번에 반영.
+//     · add + 제외 없음            → mode='add'(기존 유지 + 추가).
+//     · add + 제외 있음 / replace  → mode='replace'(최종 집합으로 교체) — 한 번의 호출로 add/remove 동시.
 //   - 허용 주차 게이트(25겨울 W1 ~ 26봄 W11)는 서버가 fail-closed 로 강제(버튼 노출도 동일 게이트).
-
-type ExistingTarget = { userId: string; displayName: string };
+//   - 현재 대상자/매칭은 운영·테스트(demoUserId) 경로 모두 같은 CrewRecord DTO(GET ?mode 동봉).
 
 export default function PracticalInfoCrewEditModal({
   lineId,
@@ -41,42 +43,34 @@ export default function PracticalInfoCrewEditModal({
   const [candidates, setCandidates] = useState<CafeCrew[]>([]);
   const [, setMeta] = useState<CafeCrewMeta>(null);
 
-  const [existing, setExisting] = useState<ExistingTarget[]>([]);
+  // 현재 개설 대상 크루(enriched). GET /info-lines/crew — 이름/팀·파트/학교·전공/crew_no.
+  const [existing, setExisting] = useState<CafeCrew[]>([]);
   const [loadingExisting, setLoadingExisting] = useState(true);
+  // [제외] 로 마킹된 현재 대상자 userId(저장 전까지 DB 미반영 · 모달 내부 pending change).
+  const [pendingRemovals, setPendingRemovals] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  // 기존 대상자 조회 — info-lines GET(week_id + activity_type_id + organization).
+  // 현재 대상자 조회 — info-lines/crew GET(line_id + week_id + org + mode, enriched DTO).
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoadingExisting(true);
       try {
         const loc = new URLSearchParams(window.location.search);
+        const qs = new URLSearchParams({ line_id: lineId, week_id: weekId });
         const org = loc.get("org");
-        const qs = new URLSearchParams({
-          week_id: weekId,
-          activity_type_id: activityTypeId,
-        });
         if (org) qs.set("organization", org);
-        const res = await fetch(`/api/admin/cluster4/info-lines?${qs.toString()}`);
+        if (loc.get("mode") === "test") qs.set("mode", "test");
+        const res = await fetch(
+          `/api/admin/cluster4/info-lines/crew?${qs.toString()}`,
+        );
         const json = await res.json();
         if (cancelled) return;
-        const rows = json?.success ? (json.data?.rows ?? []) : [];
-        const line = rows.find((r: { id: string }) => r.id === lineId) ?? null;
-        const targets: ExistingTarget[] = line
-          ? (line.targets ?? [])
-              .filter(
-                (t: { targetMode: string; targetUserId: string | null }) =>
-                  t.targetMode === "user" && t.targetUserId,
-              )
-              .map((t: { targetUserId: string; displayName: string }) => ({
-                userId: t.targetUserId,
-                displayName: t.displayName,
-              }))
-          : [];
-        setExisting(targets);
+        const rows: CafeCrew[] = json?.success ? (json.data?.targets ?? []) : [];
+        setExisting(rows);
+        if (!json?.success) setError(json?.error ?? "기존 대상자를 불러오지 못했습니다");
       } catch {
         if (!cancelled) setError("기존 대상자를 불러오지 못했습니다");
       } finally {
@@ -88,10 +82,57 @@ export default function PracticalInfoCrewEditModal({
     };
   }, [lineId, weekId, activityTypeId]);
 
-  // add 모드: 기존 대상자를 "이미 추가됨"으로 제외. replace 모드: 전부 교체하므로 제외 없음.
+  const toggleRemoval = useCallback((userId: string) => {
+    setPendingRemovals((prev) => {
+      const next = new Set(prev);
+      if (next.has(userId)) next.delete(userId);
+      else next.add(userId);
+      return next;
+    });
+  }, []);
+
+  // 모드 전환: replace 로 가면 개별 제외 마킹은 의미 없음(전체 교체) → 초기화.
+  const switchMode = useCallback((mode: "add" | "replace") => {
+    setEditMode(mode);
+    if (mode === "replace") setPendingRemovals(new Set());
+  }, []);
+
+  // 유지될 현재 대상자(add 모드: 제외 예정 제거 / replace 모드: 전부 빠짐).
+  const keptExisting = useMemo(
+    () =>
+      editMode === "replace"
+        ? []
+        : existing.filter((e) => !pendingRemovals.has(e.userId)),
+    [editMode, existing, pendingRemovals],
+  );
+
+  // 카페 검수에서 "이미 추가됨"으로 제외할 대상 = 유지될 현재 대상자.
+  //   (제외 예정이거나 replace 모드면 후보로 다시 넣을 수 있게 제외하지 않는다.)
   const existingMemberIds = useMemo(
-    () => (editMode === "add" ? existing.map((e) => e.userId) : []),
-    [editMode, existing],
+    () => keptExisting.map((e) => e.userId),
+    [keptExisting],
+  );
+
+  // 저장 후 최종 대상 userId 집합.
+  const finalUserIds = useMemo(() => {
+    const ids =
+      editMode === "replace"
+        ? candidates.map((c) => c.userId)
+        : [...keptExisting.map((e) => e.userId), ...candidates.map((c) => c.userId)];
+    return Array.from(new Set(ids));
+  }, [editMode, candidates, keptExisting]);
+
+  // 제외(저장 시) 미리보기 — add: 제외 예정 / replace: 현재 대상자 중 후보에 없는 사람.
+  const candidateIdSet = useMemo(
+    () => new Set(candidates.map((c) => c.userId)),
+    [candidates],
+  );
+  const removalPreview = useMemo(
+    () =>
+      editMode === "replace"
+        ? existing.filter((e) => !candidateIdSet.has(e.userId))
+        : existing.filter((e) => pendingRemovals.has(e.userId)),
+    [editMode, existing, candidateIdSet, pendingRemovals],
   );
 
   const handleSave = useCallback(async () => {
@@ -103,6 +144,15 @@ export default function PracticalInfoCrewEditModal({
       const org = loc.get("org");
       if (org) sp.set("organization", org);
       if (loc.get("mode") === "test") sp.set("mode", "test");
+
+      // 반영 방식 매핑:
+      //   add + 제외 없음 → mode='add'(기존 유지 + 추가, 기존 동작 그대로).
+      //   add + 제외 있음 / replace → mode='replace'(최종 집합) — add/remove 를 한 번에 반영.
+      const useReplace =
+        editMode === "replace" || pendingRemovals.size > 0;
+      const apiMode = useReplace ? "replace" : "add";
+      const apiIds = useReplace ? finalUserIds : candidates.map((c) => c.userId);
+
       const res = await fetch(
         `/api/admin/cluster4/info-lines/crew${sp.toString() ? `?${sp.toString()}` : ""}`,
         {
@@ -111,8 +161,8 @@ export default function PracticalInfoCrewEditModal({
           body: JSON.stringify({
             line_id: lineId,
             week_id: weekId,
-            mode: editMode,
-            target_user_ids: candidates.map((c) => c.userId),
+            mode: apiMode,
+            target_user_ids: apiIds,
           }),
         },
       );
@@ -127,9 +177,12 @@ export default function PracticalInfoCrewEditModal({
         removed: string[];
         finalUserCount: number;
       };
-      const parts = [`추가 ${d.added.length}명`];
-      if (d.alreadyPresent.length) parts.push(`이미 추가됨 ${d.alreadyPresent.length}명`);
+      const parts: string[] = [];
+      if (d.added.length) parts.push(`추가 ${d.added.length}명`);
       if (d.removed.length) parts.push(`제외 ${d.removed.length}명`);
+      if (apiMode === "add" && d.alreadyPresent.length)
+        parts.push(`이미 추가됨 ${d.alreadyPresent.length}명`);
+      if (parts.length === 0) parts.push("변경 없음");
       parts.push(`현재 대상 ${d.finalUserCount}명`);
       onSaved(`개설 대상 크루가 수정되었습니다 (${parts.join(" · ")})`);
     } catch {
@@ -138,9 +191,11 @@ export default function PracticalInfoCrewEditModal({
       setSaving(false);
       setConfirmOpen(false);
     }
-  }, [lineId, weekId, editMode, candidates, onSaved]);
+  }, [lineId, weekId, editMode, candidates, finalUserIds, pendingRemovals, onSaved]);
 
   const canSave = !saving && !loadingExisting;
+  const hasChanges =
+    candidates.length > 0 || pendingRemovals.size > 0 || editMode === "replace";
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8">
@@ -170,13 +225,112 @@ export default function PracticalInfoCrewEditModal({
           </div>
         )}
 
+        {/* 현재 개설 대상 크루 (이름/팀·파트/학교·전공 + [제외] pending) */}
+        <div className="space-y-2 rounded-md border p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold">
+              현재 개설 대상 크루{" "}
+              <span className="text-muted-foreground">
+                {loadingExisting ? "…" : `${existing.length}명`}
+              </span>
+            </p>
+            {!loadingExisting && (pendingRemovals.size > 0 || editMode === "replace") && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                저장 후 예상 {finalUserIds.length}명
+                {removalPreview.length > 0 ? ` · 제외 ${removalPreview.length}명` : ""}
+              </span>
+            )}
+          </div>
+
+          {editMode === "replace" && existing.length > 0 && (
+            <p className="rounded-md bg-red-50 px-2 py-1 text-xs text-red-700">
+              전체 교체 모드 — 아래 현재 대상자는 모두 제외되고, 검수된 크루로 교체됩니다.
+            </p>
+          )}
+
+          {loadingExisting ? (
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
+            </p>
+          ) : existing.length === 0 ? (
+            <p className="py-3 text-center text-sm text-muted-foreground">
+              현재 개설 대상 크루가 없습니다 (0명 개설 상태).
+            </p>
+          ) : (
+            <div className="max-h-60 overflow-y-auto rounded-md border">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted/60">
+                  <tr className="border-b text-left text-xs text-muted-foreground">
+                    <th className="px-2 py-1.5">크루 번호</th>
+                    <th className="px-2 py-1.5">이름</th>
+                    <th className="px-2 py-1.5">팀 · 파트</th>
+                    <th className="px-2 py-1.5">학교 · 전공</th>
+                    <th className="px-2 py-1.5 text-right">제외</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {existing.map((e) => {
+                    const removed = editMode === "replace" || pendingRemovals.has(e.userId);
+                    return (
+                      <tr
+                        key={e.userId}
+                        className={cn(
+                          "border-b last:border-0",
+                          removed && "bg-red-50/60 text-muted-foreground line-through",
+                        )}
+                      >
+                        <td className="px-2 py-1.5 font-mono text-xs">{e.crewNo ?? "-"}</td>
+                        <td className="px-2 py-1.5 font-medium">{e.name || "-"}</td>
+                        <td className="px-2 py-1.5 text-xs">
+                          {(e.teamName ?? "-") + " · " + (e.partName ?? "-")}
+                        </td>
+                        <td className="px-2 py-1.5 text-xs">
+                          {(e.schoolName ?? "-") + " · " + (e.majorName ?? "-")}
+                        </td>
+                        <td className="px-2 py-1.5 text-right">
+                          {editMode === "replace" ? (
+                            <span className="text-xs text-red-600 no-underline">교체 제외</span>
+                          ) : pendingRemovals.has(e.userId) ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 gap-1 text-xs no-underline"
+                              onClick={() => toggleRemoval(e.userId)}
+                              disabled={saving}
+                            >
+                              <Undo2 className="h-3.5 w-3.5" /> 되돌리기
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 gap-1 text-xs text-red-600"
+                              onClick={() => toggleRemoval(e.userId)}
+                              disabled={saving}
+                              aria-label={`${e.name} 제외`}
+                            >
+                              <X className="h-3.5 w-3.5" /> 제외
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         {/* 반영 방식 — add(기본) / replace */}
         <div className="space-y-2 rounded-md border p-3">
           <p className="text-sm font-semibold">반영 방식</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => setEditMode("add")}
+              onClick={() => switchMode("add")}
               className={cn(
                 "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
                 editMode === "add"
@@ -188,7 +342,7 @@ export default function PracticalInfoCrewEditModal({
             </button>
             <button
               type="button"
-              onClick={() => setEditMode("replace")}
+              onClick={() => switchMode("replace")}
               className={cn(
                 "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
                 editMode === "replace"
@@ -201,32 +355,9 @@ export default function PracticalInfoCrewEditModal({
           </div>
           <p className="text-xs text-muted-foreground">
             {editMode === "add"
-              ? "기존 대상자는 그대로 두고, 검수된 크루를 추가합니다. 이미 대상자인 크루는 \"이미 추가됨\"으로 제외됩니다."
+              ? "기존 대상자는 그대로 두고(제외 예정 제외), 검수된 크루를 추가합니다. 이미 대상자인 크루는 \"이미 추가됨\"으로 제외됩니다."
               : "기존 대상자를 모두 제외하고, 검수된 크루로 전부 교체합니다. (주의: 기존 대상자가 빠집니다)"}
           </p>
-        </div>
-
-        {/* 현재 대상자 (읽기 전용) */}
-        <div className="space-y-1 rounded-md border p-3">
-          <p className="text-sm font-semibold">
-            현재 대상자{" "}
-            <span className="text-muted-foreground">
-              ({loadingExisting ? "…" : existing.length}명)
-            </span>
-          </p>
-          {loadingExisting ? (
-            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
-            </p>
-          ) : existing.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              현재 대상자가 없습니다 (0명 개설 상태).
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              {existing.map((e) => e.displayName).join(", ")}
-            </p>
-          )}
         </div>
 
         {/* 카페 검수 UI (공용 CafeCrewPicker) */}
@@ -243,12 +374,18 @@ export default function PracticalInfoCrewEditModal({
           <p className="text-xs text-muted-foreground">
             {editMode === "add" ? "추가" : "교체"} 대상 검수 크루:{" "}
             <span className="font-medium text-foreground">{candidates.length}명</span>
+            {editMode === "add" && pendingRemovals.size > 0 ? (
+              <>
+                {" · "}
+                <span className="font-medium text-red-600">제외 {pendingRemovals.size}명</span>
+              </>
+            ) : null}
           </p>
           <div className="flex gap-3">
             <Button variant="outline" onClick={onClose} disabled={saving}>
               닫기
             </Button>
-            <Button onClick={() => setConfirmOpen(true)} disabled={!canSave}>
+            <Button onClick={() => setConfirmOpen(true)} disabled={!canSave || !hasChanges}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               수정 저장
             </Button>
@@ -285,6 +422,14 @@ export default function PracticalInfoCrewEditModal({
               <div className="flex gap-2">
                 <dt className="w-20 shrink-0 text-muted-foreground">검수 크루</dt>
                 <dd className="font-medium">{candidates.length}명</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-muted-foreground">제외</dt>
+                <dd className="font-medium text-red-600">{removalPreview.length}명</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-20 shrink-0 text-muted-foreground">저장 후 대상</dt>
+                <dd className="font-medium">{finalUserIds.length}명</dd>
               </div>
             </dl>
             <p className="text-xs text-amber-700">

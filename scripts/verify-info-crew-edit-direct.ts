@@ -21,6 +21,7 @@ import {
 } from "@/lib/adminCluster4LinesData";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { isInfoCrewEditableWeek } from "@/lib/cluster4InfoCrewEditWindow";
+import { loadCrewRecordsByUserIds } from "@/lib/cluster4CafeLineMatch";
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -161,6 +162,30 @@ async function main() {
     const tA = await userTargets(lineOK, W10);
     check("A) DB user targets = {A,B}", sortJoin(tA.users) === sortJoin([A, B]));
     check("A) DB sentinel 제거됨(0)", tA.sentinels === 0, `sentinels=${tA.sentinels}`);
+    // "현재 개설 대상 크루" DTO(loadCrewRecordsByUserIds) — 이름/팀·파트/학교·전공 enrich.
+    const crewsA = await loadCrewRecordsByUserIds([A, B]);
+    result.crewDtoA = crewsA;
+    check("A) crew DTO count=2", crewsA.length === 2, `len=${crewsA.length}`);
+    check(
+      "A) crew DTO userIds = {A,B}",
+      sortJoin(crewsA.map((c) => c.userId)) === sortJoin([A, B]),
+    );
+    check(
+      "A) crew DTO 이름 enrich(모두 non-empty)",
+      crewsA.every((c) => typeof c.name === "string" && c.name.length > 0),
+      crewsA.map((c) => c.name).join(","),
+    );
+    check(
+      "A) crew DTO shape(team/part/school/major/crewNo 키 존재)",
+      crewsA.every(
+        (c) =>
+          "teamName" in c &&
+          "partName" in c &&
+          "schoolName" in c &&
+          "majorName" in c &&
+          "crewNo" in c,
+      ),
+    );
     // snapshot 영향: A,B 가 stale 로 마킹됐는지(또는 snapshot 무존재 시 null 허용).
     const staleA = await isStale(A);
     const staleB = await isStale(B);

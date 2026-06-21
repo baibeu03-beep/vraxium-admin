@@ -1,10 +1,15 @@
 import { NextRequest } from "next/server";
-import { requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
+import {
+  ADMIN_READ_ROLES,
+  requireAdmin,
+  toAdminErrorResponse,
+} from "@/lib/adminAuth";
 import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
 import {
   Cluster4LineError,
   editInfoLineCrew,
 } from "@/lib/adminCluster4LinesData";
+import { loadCrewRecordsByUserIds } from "@/lib/cluster4CafeLineMatch";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
 import { isOrganizationSlug } from "@/lib/organizations";
@@ -13,6 +18,90 @@ import {
   readScopeMode,
   assertUserIdsInScope,
 } from "@/lib/userScope";
+
+// GET /api/admin/cluster4/info-lines/crew?line_id=&week_id=&organization=&mode=
+//   "개설 대상 크루 수정" 모달 상단 "현재 개설 대상 크루" 섹션용 — 이 라인+주차의 현재 user 대상자를
+//   카페 검수 결과와 동일한 CrewRecord shape(이름/팀/파트/학교/전공/crew_no)로 enrich 해 돌려준다.
+//   - 0명 개설 sentinel(rule-mode)은 대상자가 아니므로 제외 → 빈 배열(빈 상태 UI).
+//   - org/mode 무관하게 정확히 그 대상 userId 만 by-id 조회 → 운영/테스트(demoUserId) 경로 동일 DTO.
+//   - 표시 전용(read-only). snapshot/points/고객 DTO 무접촉.
+export async function GET(request: NextRequest) {
+  try {
+    await requireAdmin(ADMIN_READ_ROLES);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
+  const params = request.nextUrl.searchParams;
+  const lineId = params.get("line_id")?.trim() || null;
+  const weekId = params.get("week_id")?.trim() || null;
+  if (!lineId || !isUuid(lineId)) {
+    return Response.json(
+      { success: false, error: "line_id is required and must be a UUID" },
+      { status: 400 },
+    );
+  }
+  if (!weekId || !isUuid(weekId)) {
+    return Response.json(
+      { success: false, error: "week_id is required and must be a UUID" },
+      { status: 400 },
+    );
+  }
+
+  try {
+    // 현재 user 대상자(생성 순) — rule-mode sentinel 제외.
+    const { data: targetRows, error: targetErr } = await supabaseAdmin
+      .from("cluster4_line_targets")
+      .select("target_user_id,target_mode,created_at")
+      .eq("line_id", lineId)
+      .eq("week_id", weekId)
+      .eq("target_mode", "user")
+      .order("created_at", { ascending: true });
+    if (targetErr) {
+      return Response.json(
+        { success: false, error: targetErr.message },
+        { status: 500 },
+      );
+    }
+    const userIds = ((targetRows ?? []) as Array<{ target_user_id: string | null }>)
+      .map((r) => r.target_user_id)
+      .filter((id): id is string => Boolean(id));
+
+    const crews = await loadCrewRecordsByUserIds(userIds);
+    const crewById = new Map(crews.map((c) => [c.userId, c]));
+    // 대상 추가 순서 보존 — 미해소(프로필 없음) userId 는 최소 레코드로 폴백(이름 알 수 없음).
+    const targets = userIds.map(
+      (id) =>
+        crewById.get(id) ?? {
+          userId: id,
+          crewNo: null,
+          name: "(알 수 없음)",
+          teamName: null,
+          partName: null,
+          schoolName: null,
+          majorName: null,
+          organization: null,
+        },
+    );
+
+    return Response.json({
+      success: true,
+      data: { targets, count: targets.length },
+    });
+  } catch (error) {
+    console.error("[admin/cluster4/info-lines/crew GET]", error);
+    return Response.json(
+      {
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to load info line crew",
+      },
+      { status: 500 },
+    );
+  }
+}
 
 // PATCH /api/admin/cluster4/info-lines/crew?organization=&mode=
 //   이미 개설된 (과거) 실무 정보 라인의 개설 대상 크루를 카페 검수 결과로 사후 수정한다.

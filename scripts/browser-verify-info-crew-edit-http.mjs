@@ -138,6 +138,17 @@ async function httpPatch(lineId, opts, ids) {
   return { status: r.status, json: await r.json() };
 }
 
+// 현재 개설 대상 크루 조회 GET — enriched DTO(이름/팀·파트/학교·전공).
+async function httpGetCrew(lineId, mode = "test") {
+  const sp = new URLSearchParams({ line_id: lineId, week_id: W10, organization: ORG });
+  if (mode === "test") sp.set("mode", "test");
+  const url = `${BASE}/api/admin/cluster4/info-lines/crew?${sp.toString()}`;
+  const r = await fetch(url, {
+    headers: { cookie: COOKIE, connection: "close" },
+  });
+  return { status: r.status, json: await r.json() };
+}
+
 let lineId = null;
 try {
   lineId = await createTempLine("OK");
@@ -152,6 +163,23 @@ try {
   check("A) finalUserCount=2", dA.finalUserCount === 2);
   const tA = await userTargets(lineId);
   check("A) DB user targets = {A,B}, sentinel 0", sortJoin(tA.users) === sortJoin([A, B]) && tA.sentinels === 0);
+
+  // ── GET 현재 개설 대상 크루 (enriched DTO) — count/ids/이름 ──
+  const gA = await httpGetCrew(lineId, "test");
+  check("GET) HTTP 200", gA.status === 200 && gA.json.success, `status=${gA.status}`);
+  const gTargets = gA.json.data?.targets ?? [];
+  check("GET) count=2 (DB 일치)", gA.json.data?.count === 2 && gTargets.length === 2, `count=${gA.json.data?.count}`);
+  check("GET) targets userIds = {A,B}", sortJoin(gTargets.map((t) => t.userId)) === sortJoin([A, B]));
+  check("GET) 이름 enrich(모두 non-empty)", gTargets.every((t) => typeof t.name === "string" && t.name.length > 0), gTargets.map((t) => t.name).join(","));
+  check("GET) team/part/school/major 키 존재(클래스 정보)", gTargets.every((t) => "teamName" in t && "partName" in t && "schoolName" in t && "majorName" in t));
+  // 운영/테스트(demoUserId) 경로 동일 DTO — by-id 조회라 mode 무관 동일 결과.
+  const gOp = await httpGetCrew(lineId, "operating");
+  const gOpTargets = gOp.json.data?.targets ?? [];
+  check(
+    "GET) 운영==테스트 동일 DTO(userIds/이름 일치)",
+    sortJoin(gOpTargets.map((t) => t.userId)) === sortJoin(gTargets.map((t) => t.userId)) &&
+      sortJoin(gOpTargets.map((t) => `${t.userId}:${t.name}`)) === sortJoin(gTargets.map((t) => `${t.userId}:${t.name}`)),
+  );
 
   // ── B: add [A(dup),C] ──
   const rB = await httpPatch(lineId, { mode: "add" }, [A, C]);
@@ -174,6 +202,20 @@ try {
   check("D) removed=[B], final=0", sortJoin(dD.removed ?? []) === sortJoin([B]) && dD.finalUserCount === 0);
   const tD = await userTargets(lineId);
   check("D) DB user targets 없음, sentinel 복원(1)", tD.users.length === 0 && tD.sentinels === 1);
+
+  // ── E: 모달 "[제외] + 저장" 경로 — add 모드에서 A 제외(no 신규) = 최종집합 replace ──
+  //   재구성 {A,B,C} → 모달이 보내는 finalUserIds=[B,C](A 제외) replace → removed=[A].
+  await httpPatch(lineId, { mode: "add" }, [A, B, C]); // 재구성
+  const rE = await httpPatch(lineId, { mode: "replace" }, [B, C]); // 모달 add+제외A 매핑
+  const dE = rE.json.data ?? {};
+  check("E) [제외] 경로: removed=[A], added=[], final=2", sortJoin(dE.removed ?? []) === sortJoin([A]) && (dE.added ?? []).length === 0 && dE.finalUserCount === 2);
+  const tE = await userTargets(lineId);
+  check("E) DB user targets = {B,C}", sortJoin(tE.users) === sortJoin([B, C]));
+  // 저장 후 GET 재조회 == DB(2명) — 새로고침 시 목록 정합.
+  const gE = await httpGetCrew(lineId, "test");
+  check("E) 저장 후 GET count=2, ids={B,C}", gE.json.data?.count === 2 && sortJoin((gE.json.data?.targets ?? []).map((t) => t.userId)) === sortJoin([B, C]));
+  // 0명 복원(다음 게이트/cleanup 기존 흐름 보존).
+  await httpPatch(lineId, { mode: "replace" }, []);
 
   // ── 게이트: 범위 밖 주차(W13) = 403 ──
   const rG = await httpPatch(lineId, { mode: "add", weekId: W13 }, [A]);
