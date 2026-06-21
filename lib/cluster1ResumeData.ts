@@ -509,15 +509,18 @@ function dummySeasonRecords(): SeasonRecord[] {
 //   이력서 = 공표 완료 확정 성과 / 허브 weekly-cards = 실시간·검수 현황 으로 도메인 분리 —
 //   허브 식(fetchWeeklyCardLineAggregates)과 일부러 다르다. 허브·snapshot·uws 는 불변.
 //
-//   4개 공통 규칙:
+//   공통 규칙:
 //     ① 공표 필터: weeks.result_published_at 있는 주차만 (미공표/검수중 제외).
 //     ② 강화 성공만: 마감(submission_closes_at) 지난 본인 user target 중 success 만.
 //        - info/competency: 마감 = success (평가 체계 없음 — 허브와 동일 기준).
 //        - experience: rating ≥ 4 만. rating ≤ 3(강화 실패)·미평가 제외
 //          (허브는 미평가=success 로 치지만 이력서는 "평가 확정" 전엔 카운트하지 않는다).
 //        - career: grade S/A/B/C 만. D(강화 실패)·미평가 제외.
-//     ③ 주차 fold: 같은 주차에 success 가 여러 개여도 part 당 1 unit
-//        (카드 v14 의 주차 1칸 fold 기준과 동일 — 값 = "공표 완료된 강화 성공 주차 수").
+//     ③ 집계 단위(2026-06-21 info 정정):
+//        - info(실무 정보 습득): 성공한 **distinct 라인 수**. weekly-cards 의 "실무 정보 N개 중 M개"
+//          (라인=활동 단위, 위즈덤/에세이/… 각각 1개) 의 성공 개수(M)와 1:1 일치시킨다. 같은 주차에
+//          여러 info 라인을 성공하면 그만큼 +N (위즈덤·에세이·인포데스크 = 3건). 제출 여부 무관(배정+마감=성공).
+//        - experience/competency/career: 종전대로 **주차 fold**(part 당 주차 1 unit) 유지(불변).
 //   user_activity_details / career_records 미사용(legacy 동결). 제출 여부 무관.
 // ─────────────────────────────────────────────────────────────────────
 async function computePracticalStats(
@@ -580,7 +583,9 @@ async function computePracticalStats(
   );
 
   // ② 마감 지난 target 분류. experience/career 는 평가 조회 후 success 확정.
-  const infoWeeks = new Set<string>();
+  //   info 는 distinct **라인**(활동 단위)으로 집계 — weekly-cards 의 라인별 success 개수와 일치.
+  //   experience/competency/career 는 종전대로 distinct **주차**(주차 fold) 유지(불변).
+  const infoLines = new Set<string>();
   const abilityWeeks = new Set<string>();
   const experienceCandidates: { id: string; week_id: string }[] = [];
   const careerCandidates: { id: string; week_id: string }[] = [];
@@ -593,7 +598,8 @@ async function computePracticalStats(
     if (!deadlinePassed) continue;
     switch (line.part_type) {
       case "info":
-        infoWeeks.add(t.week_id);
+        // 실무 정보 습득 = 성공한 distinct 라인 수(같은 주차 여러 라인 = 그만큼 +N).
+        infoLines.add(t.line_id);
         break;
       case "competency":
         abilityWeeks.add(t.week_id);
@@ -645,9 +651,9 @@ async function computePracticalStats(
     }
   }
 
-  // ③ 주차 fold — Set 크기 = part 당 성공 주차 수.
+  // ③ 집계: info = distinct 라인 수, 그 외 = distinct 성공 주차 수(주차 fold).
   return {
-    infoCount: infoWeeks.size,
+    infoCount: infoLines.size,
     experienceCount: experienceWeeks.size,
     abilityUnitCount: abilityWeeks.size,
     careerProjectCount: careerWeeks.size,
