@@ -240,6 +240,64 @@ export function getExperienceAvailable(org: OrganizationSlug | null): number {
 // 분모 cap 도 표시 칸 수와 동일한 6 으로 맞춘다 (구 5).
 export const CAREER_DISPLAY_CAP = 6;
 
+// ─────────────────────────────────────────────────────────────────────
+// 대용량 line_id .in() 안전 조회 (2026-06-20)
+//   cluster4_line_targets 를 "활성 라인 전체"의 line_id 집합으로 조회할 때, 라인 수가 커지면
+//   (실측: experience 262 / info+exp+comp 508) .in("line_id", [...]) URL 이 서버 한도를 넘어
+//   "Bad Request" 또는 "TypeError: fetch failed" 로 결정적 실패한다. 종전 코드는 이 에러를
+//   삼키고 "수집분(=빈 배열)으로 계속"했기에 분모 A·분자 B·개설 신호가 통째로 비어 카드가
+//   degraded 되는 사고가 있었다(주차 수가 많은 사용자일수록 URL 이 길어 더 잘 실패).
+//   line_id 를 청크로 끊어(주차 수에 따라 청크 크기 적응) 호출하고, 각 청크는 PostgREST 기본
+//   1000행 cap 을 넘지 않도록 range 페이지네이션한다. 모든 행을 합쳐 반환 → 집계 정책/수식은
+//   무변경(입력 행 집합만 완전·정확하게 확보). userScope 를 주면 본인 배정(target_mode=user
+//   · target_user_id) 필터를 적용한다(분모/분자 함수용; 개설 신호 함수는 미지정).
+async function fetchLineTargetsByLineIdsChunked(
+  lineIds: string[],
+  weekIds: string[],
+  columns: string,
+  userScope?: string,
+): Promise<Record<string, unknown>[]> {
+  const out: Record<string, unknown>[] = [];
+  if (lineIds.length === 0 || weekIds.length === 0) return out;
+  // line_id 청크 + week_id 가 함께 URL 에 들어가므로, 주차 수가 많을수록 라인 청크를 줄여
+  // 총 식별자 수를 한도 아래(실측 200+153 OK · 262+153 실패)로 유지한다.
+  const lineChunk = Math.max(25, 230 - weekIds.length);
+  for (let i = 0; i < lineIds.length; i += lineChunk) {
+    const chunk = lineIds.slice(i, i + lineChunk);
+    const pageSize = 1000;
+    let from = 0;
+    for (;;) {
+      let q = supabaseAdmin
+        .from("cluster4_line_targets")
+        .select(columns)
+        .in("line_id", chunk)
+        .in("week_id", weekIds);
+      if (userScope) {
+        q = q.eq("target_mode", "user").eq("target_user_id", userScope);
+      }
+      const { data, error } = await q
+        .order("id", { ascending: true })
+        .range(from, from + pageSize - 1);
+      if (error) {
+        // 청크 단위 실패만 격리(기존 "에러 무시하고 계속" 계약 유지). 청크 분할로 실질
+        // 실패율은 0 에 수렴하나, 방어적으로 그 청크만 건너뛰고 나머지는 계속 수집한다.
+        console.warn("[lineAvailability] chunked line_targets fetch failed", {
+          from,
+          chunkSize: chunk.length,
+          weeks: weekIds.length,
+          message: error.message,
+        });
+        break;
+      }
+      const rows = (data ?? []) as unknown as Record<string, unknown>[];
+      out.push(...rows);
+      if (rows.length < pageSize) break;
+      from += pageSize;
+    }
+  }
+  return out;
+}
+
 export async function fetchInfoLineCountsByWeek(
   userId: string,
   weekIds: string[],
@@ -256,18 +314,14 @@ export async function fetchInfoLineCountsByWeek(
   const lineIds = (lines ?? []).map((l: { id: string }) => l.id);
   if (lineIds.length === 0) return result;
 
-  const { data: targets } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("week_id")
-    .eq("target_mode", "user")
-    .eq("target_user_id", userId)
-    .in("line_id", lineIds)
-    .in("week_id", weekIds);
-
-  if (targets) {
-    for (const t of targets as { week_id: string }[]) {
-      result.set(t.week_id, (result.get(t.week_id) ?? 0) + 1);
-    }
+  const targets = await fetchLineTargetsByLineIdsChunked(
+    lineIds,
+    weekIds,
+    "week_id",
+    userId,
+  );
+  for (const t of targets as { week_id: string }[]) {
+    result.set(t.week_id, (result.get(t.week_id) ?? 0) + 1);
   }
   return result;
 }
@@ -291,18 +345,14 @@ export async function fetchExperienceLineCountsByWeek(
   const lineIds = (lines ?? []).map((l: { id: string }) => l.id);
   if (lineIds.length === 0) return result;
 
-  const { data: targets } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("week_id")
-    .eq("target_mode", "user")
-    .eq("target_user_id", userId)
-    .in("line_id", lineIds)
-    .in("week_id", weekIds);
-
-  if (targets) {
-    for (const t of targets as { week_id: string }[]) {
-      result.set(t.week_id, (result.get(t.week_id) ?? 0) + 1);
-    }
+  const targets = await fetchLineTargetsByLineIdsChunked(
+    lineIds,
+    weekIds,
+    "week_id",
+    userId,
+  );
+  for (const t of targets as { week_id: string }[]) {
+    result.set(t.week_id, (result.get(t.week_id) ?? 0) + 1);
   }
   return result;
 }
@@ -327,18 +377,14 @@ export async function fetchCompetencyLineCountsByWeek(
   const lineIds = (lines ?? []).map((l: { id: string }) => l.id);
   if (lineIds.length === 0) return result;
 
-  const { data: targets } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("week_id")
-    .eq("target_mode", "user")
-    .eq("target_user_id", userId)
-    .in("line_id", lineIds)
-    .in("week_id", weekIds);
-
-  if (targets) {
-    for (const t of targets as { week_id: string }[]) {
-      result.set(t.week_id, (result.get(t.week_id) ?? 0) + 1);
-    }
+  const targets = await fetchLineTargetsByLineIdsChunked(
+    lineIds,
+    weekIds,
+    "week_id",
+    userId,
+  );
+  for (const t of targets as { week_id: string }[]) {
+    result.set(t.week_id, (result.get(t.week_id) ?? 0) + 1);
   }
   return result;
 }
@@ -382,18 +428,14 @@ export async function fetchCareerLineCountsByWeek(
   const lineIds = (lines ?? []).map((l: { id: string }) => l.id);
   if (lineIds.length === 0) return result;
 
-  const { data: targets } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("week_id")
-    .eq("target_mode", "user")
-    .eq("target_user_id", userId)
-    .in("line_id", lineIds)
-    .in("week_id", weekIds);
-
-  if (targets) {
-    for (const t of targets as { week_id: string }[]) {
-      result.set(t.week_id, (result.get(t.week_id) ?? 0) + 1);
-    }
+  const targets = await fetchLineTargetsByLineIdsChunked(
+    lineIds,
+    weekIds,
+    "week_id",
+    userId,
+  );
+  for (const t of targets as { week_id: string }[]) {
+    result.set(t.week_id, (result.get(t.week_id) ?? 0) + 1);
   }
   return result;
 }
@@ -421,15 +463,12 @@ export async function fetchCareerLineSuccessCountsByWeek(
   }
   if (closesById.size === 0) return result;
 
-  const { data: targets } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("id,week_id,line_id")
-    .eq("target_mode", "user")
-    .eq("target_user_id", userId)
-    .in("line_id", Array.from(closesById.keys()))
-    .in("week_id", weekIds);
-
-  const targetRows = (targets ?? []) as { id: string; week_id: string; line_id: string }[];
+  const targetRows = (await fetchLineTargetsByLineIdsChunked(
+    Array.from(closesById.keys()),
+    weekIds,
+    "id,week_id,line_id",
+    userId,
+  )) as { id: string; week_id: string; line_id: string }[];
   // 마감 지난 타깃만 success 후보. 그 중 grade C 이상인 것을 센다.
   const deadlinePassed = targetRows.filter((t) => {
     const closes = closesById.get(t.line_id);
@@ -698,15 +737,14 @@ export async function fetchInfoLineSuccessCountsByWeek(
   }
   if (closesById.size === 0) return result;
 
-  const { data: targets } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("week_id,line_id")
-    .eq("target_mode", "user")
-    .eq("target_user_id", userId)
-    .in("line_id", Array.from(closesById.keys()))
-    .in("week_id", weekIds);
+  const targets = await fetchLineTargetsByLineIdsChunked(
+    Array.from(closesById.keys()),
+    weekIds,
+    "week_id,line_id",
+    userId,
+  );
 
-  for (const t of (targets ?? []) as { week_id: string; line_id: string }[]) {
+  for (const t of targets as { week_id: string; line_id: string }[]) {
     const closes = closesById.get(t.line_id);
     // success = 마감(submission_closes_at) 지남. 제출 유무 무관.
     if (closes && new Date(closes).getTime() < now) {
@@ -740,15 +778,14 @@ export async function fetchLineSuccessCountsByWeek(
   }
   if (closesById.size === 0) return result;
 
-  const { data: targets } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("week_id,line_id")
-    .eq("target_mode", "user")
-    .eq("target_user_id", userId)
-    .in("line_id", Array.from(closesById.keys()))
-    .in("week_id", weekIds);
+  const targets = await fetchLineTargetsByLineIdsChunked(
+    Array.from(closesById.keys()),
+    weekIds,
+    "week_id,line_id",
+    userId,
+  );
 
-  for (const t of (targets ?? []) as { week_id: string; line_id: string }[]) {
+  for (const t of targets as { week_id: string; line_id: string }[]) {
     const closes = closesById.get(t.line_id);
     // success = 마감(submission_closes_at) 지남. 제출 유무 무관.
     if (closes && new Date(closes).getTime() < now) {
@@ -787,13 +824,9 @@ async function fetchOpenWeeksForPart(
   const lineIds = (lines ?? []).map((l: { id: string }) => l.id);
   if (lineIds.length === 0) return result;
 
-  const { data: targets } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("week_id")
-    .in("line_id", lineIds)
-    .in("week_id", weekIds);
+  const targets = await fetchLineTargetsByLineIdsChunked(lineIds, weekIds, "week_id");
 
-  for (const t of (targets ?? []) as { week_id: string }[]) {
+  for (const t of targets as { week_id: string }[]) {
     result.add(t.week_id);
   }
   return result;
@@ -887,32 +920,11 @@ export async function fetchWeeksWithOpenLinesByPart(
   //   절단되면 분모 A(개설 distinct 라인 수)가 재계산 시점마다 비결정적으로 흔들린다
   //   (2026-06-04 실측: 37주차 보유자 매칭 2,765행 > cap).
   //   fetchExperienceRequiredSlotStatusByWeek 와 동일 패턴 — 집계 정책/수식 무변경.
-  let targets: { week_id: string; line_id: string }[] = [];
-  {
-    const pageSize = 1000;
-    let from = 0;
-    for (;;) {
-      const { data: page, error: pageErr } = await supabaseAdmin
-        .from("cluster4_line_targets")
-        .select("week_id,line_id,id")
-        .in("line_id", [...partByLineId.keys()])
-        .in("week_id", weekIds)
-        .order("id", { ascending: true })
-        .range(from, from + pageSize - 1);
-      if (pageErr) {
-        // 기존 동작 보존: 조회 에러는 무시하고 수집분으로 계속(원본도 에러를 무시했음).
-        console.warn("[lineAvailability] open-lines targets page fetch failed", {
-          from,
-          message: pageErr.message,
-        });
-        break;
-      }
-      const rows = (page ?? []) as { week_id: string; line_id: string }[];
-      targets = targets.concat(rows);
-      if (rows.length < pageSize) break;
-      from += pageSize;
-    }
-  }
+  const targets = (await fetchLineTargetsByLineIdsChunked(
+    [...partByLineId.keys()],
+    weekIds,
+    "week_id,line_id,id",
+  )) as { week_id: string; line_id: string }[];
 
   // week → part → distinct line_id 집합 (중복 타깃/유저 다수를 1라인으로 접는다).
   const seen = new Map<string, Set<string>>(); // key = `${part}:${week}`
@@ -1689,38 +1701,21 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
   //    절단되면 본인 타깃이 무작위로 누락돼 "항상-개설 + 타깃 없음 = fail" 오판이 비결정적으로
   //    발생한다(2026-06-04 실측: 17주차 보유자 매칭 1,338행 > cap → sync 무작위 flip).
   //    카드 라인 수집 경로(fetchAllLineTargetsByWeek)와 동일한 전수 수집 패턴 — 판정 정책/수식 무변경.
-  let targets: {
+  const targets = (
+    lineSlot.size > 0
+      ? await fetchLineTargetsByLineIdsChunked(
+          [...lineSlot.keys()],
+          currentWeekIds,
+          "week_id,line_id,target_mode,target_user_id,id",
+        )
+      : []
+  ) as {
     week_id: string;
     line_id: string;
     target_mode: string;
     target_user_id: string | null;
     id: string;
-  }[] = [];
-  if (lineSlot.size > 0) {
-    const pageSize = 1000;
-    let from = 0;
-    for (;;) {
-      const { data: targetRows, error: targetErr } = await supabaseAdmin
-        .from("cluster4_line_targets")
-        .select("week_id,line_id,target_mode,target_user_id,id")
-        .in("line_id", [...lineSlot.keys()])
-        .in("week_id", currentWeekIds)
-        .order("id", { ascending: true })
-        .range(from, from + pageSize - 1);
-      if (targetErr) {
-        // 기존 동작 보존: 조회 에러는 무시하고 수집분으로 계속(원본도 에러를 무시했음).
-        console.warn("[lineAvailability] required-slot targets page fetch failed", {
-          from,
-          message: targetErr.message,
-        });
-        break;
-      }
-      const page = (targetRows ?? []) as (typeof targets[number] & { id: string })[];
-      targets = targets.concat(page);
-      if (page.length < pageSize) break;
-      from += pageSize;
-    }
-  }
+  }[];
 
   // week → slot → { 사용자 배정 라인 마감들, 본인 target_id 들(평점 룩업용), 그 주차에 (누구든) 개설 여부 }
   type SlotAgg = { userClosesAt: (string | null)[]; userTargetIds: string[]; opened: boolean };
