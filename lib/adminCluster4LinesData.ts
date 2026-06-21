@@ -34,17 +34,17 @@ import {
   outputImageCaptions as outputImageCaptionList,
 } from "@/lib/cluster4OutputImages";
 import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
-import {
-  isLineVisibleForUserOrg,
-  parseLineCodeOrg,
-  type LineOrgScope,
-} from "@/lib/cluster4LineOrg";
+import { type LineOrgScope } from "@/lib/cluster4LineOrg";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import {
   isLineScopeVisibleForOrg,
   resolveLineScopeFromValues,
   resolveLineScope,
 } from "@/lib/lineScope";
+import {
+  INFO_CREW_EDIT_WINDOW_LABEL,
+  isInfoCrewEditableWeek,
+} from "@/lib/cluster4InfoCrewEditWindow";
 
 export class Cluster4LineError extends Error {
   status: number;
@@ -984,6 +984,214 @@ export async function findActiveInfoLineId(
     if (visibleToOrg(r.line_code)) return r.id;
   }
   return null;
+}
+
+export type EditInfoLineCrewResult = {
+  lineId: string;
+  weekId: string;
+  mode: "add" | "replace";
+  added: string[]; // 이번에 새로 대상에 추가된 userId
+  alreadyPresent: string[]; // 이미 대상자라 추가하지 않은(중복) userId
+  removed: string[]; // replace 로 제외된 userId (add 모드는 항상 [])
+  finalUserCount: number; // 처리 후 user-mode 대상자 수
+};
+
+// 이미 개설된 (과거) 실무 정보 라인의 "개설 대상 크루"를 카페 검수 결과로 사후 수정한다.
+//   mode='add'     : 기존 대상자 유지 + 신규 크루 추가(중복은 제외 — alreadyPresent).
+//   mode='replace' : 기존 user 대상자를 신규 집합으로 전부 교체.
+//
+// 0명 ↔ N명 전이 시 zeroTargetOpen sentinel(rule-mode) 을 정합 유지한다:
+//   - user 대상이 1명 이상이 되면 sentinel 삭제(중복 개설 카운트 방지).
+//   - replace 로 0명이 되면 sentinel 1행 보장(라인은 개설 유지 = 전체 강화 실패).
+//
+// 게이트(fail-closed):
+//   - 라인 = part_type 'info' + is_active(개설 상태)만.
+//   - org-scoped 진입이면 그 org 에 보이는 라인만(타org 라인 오수정 차단).
+//   - 주차 = lib/cluster4InfoCrewEditWindow 허용 범위(25겨울 W1 ~ 26봄 W11)만.
+//   - target_user_ids 의 org/mode 스코프 가드는 호출부(route)에서 수행(POST 와 동일).
+//
+// snapshot: 추가/제외 대상 + 라인 org audience(분모 A) 를 invalidateWeeklyCardsForLineChange 로
+//   즉시 재계산 — POST/DELETE/타깃변경과 동일 경로(누락 없는 단일 SoT).
+export async function editInfoLineCrew(opts: {
+  lineId: string;
+  weekId: string;
+  mode: "add" | "replace";
+  targetUserIds: string[];
+  actorAdminId: string;
+  organization: OrganizationSlug | null;
+  scopeMode?: ScopeMode;
+}): Promise<EditInfoLineCrewResult> {
+  const { lineId, weekId, mode, actorAdminId, organization, scopeMode } = opts;
+  if (!isUuid(lineId)) throw new Cluster4LineError(400, "line id must be a UUID");
+  if (!isUuid(weekId)) throw new Cluster4LineError(400, "week_id must be a UUID");
+  if (mode !== "add" && mode !== "replace") {
+    throw new Cluster4LineError(400, "mode must be 'add' or 'replace'");
+  }
+  const desiredIds = Array.from(new Set(opts.targetUserIds));
+  for (const uid of desiredIds) {
+    if (!isUuid(uid)) throw new Cluster4LineError(400, "target_user_ids must contain valid UUIDs");
+  }
+
+  // 1. 라인 조회 + part_type/is_active 게이트.
+  const { data: lineRow, error: lineErr } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id,part_type,is_active,line_code,week_id")
+    .eq("id", lineId)
+    .maybeSingle();
+  if (lineErr) throw new Cluster4LineError(500, lineErr.message);
+  if (!lineRow) throw new Cluster4LineError(404, "cluster4 line not found");
+  const line = lineRow as {
+    id: string;
+    part_type: string;
+    is_active: boolean | null;
+    line_code: string | null;
+    week_id: string | null;
+  };
+  if (line.part_type !== "info") {
+    throw new Cluster4LineError(400, "실무 정보(info) 라인만 개설 대상 크루를 수정할 수 있습니다");
+  }
+  if (!line.is_active) {
+    throw new Cluster4LineError(409, "비활성(취소된) 라인은 개설 대상 크루를 수정할 수 없습니다");
+  }
+
+  // 2. org 가시성 게이트 — org-scoped 진입이면 그 org 에 보이는 라인만 수정 허용(타org 차단).
+  if (organization) {
+    const lineScope = resolveLineScopeFromValues({
+      partType: "info",
+      lineCode: line.line_code,
+    });
+    if (!isLineScopeVisibleForOrg(lineScope, organization, { allowUnknown: false })) {
+      throw new Cluster4LineError(403, "현재 조직에서 수정할 수 없는 라인입니다");
+    }
+  }
+
+  // 3. 주차 게이트 — weeks 행 + 허용 범위(25겨울 W1 ~ 26봄 W11). 라인-주차 연결도 함께 확인.
+  const { data: weekRow, error: weekErr } = await supabaseAdmin
+    .from("weeks")
+    .select("id,start_date,end_date")
+    .eq("id", weekId)
+    .maybeSingle();
+  if (weekErr) throw new Cluster4LineError(500, weekErr.message);
+  if (!weekRow) throw new Cluster4LineError(404, "week not found");
+  const week = weekRow as { start_date: string | null; end_date: string | null };
+  if (!isInfoCrewEditableWeek(week.start_date, week.end_date)) {
+    throw new Cluster4LineError(
+      403,
+      `이 주차는 개설 대상 크루 수정 허용 범위(${INFO_CREW_EDIT_WINDOW_LABEL}) 밖입니다`,
+    );
+  }
+
+  // 4. 기존 대상(이 라인 + 이 주차) 조회 — user 타깃 / zeroTarget sentinel 분리.
+  const { data: existingRows, error: existingErr } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("id,target_mode,target_user_id,target_rule")
+    .eq("line_id", lineId)
+    .eq("week_id", weekId);
+  if (existingErr) throw new Cluster4LineError(500, existingErr.message);
+  const existRows = (existingRows ?? []) as Array<{
+    id: string;
+    target_mode: string;
+    target_user_id: string | null;
+    target_rule: Record<string, unknown> | null;
+  }>;
+  // 라인이 이 주차와 연결돼 있는지 확인(타깃이 전혀 없으면 라인 자체 week_id 로 검증).
+  if (existRows.length === 0 && line.week_id && line.week_id !== weekId) {
+    throw new Cluster4LineError(404, "해당 주차에 연결된 라인이 아닙니다");
+  }
+  const existingUserById = new Map<string, string>(); // userId → line_target.id
+  const sentinelIds: string[] = [];
+  for (const r of existRows) {
+    if (r.target_mode === "user" && r.target_user_id) {
+      existingUserById.set(r.target_user_id, r.id);
+    } else if (r.target_mode === "rule") {
+      sentinelIds.push(r.id);
+    }
+  }
+  const existingUserIds = new Set(existingUserById.keys());
+
+  // 5. add/replace 차이 계산.
+  let toAdd: string[];
+  let toRemove: string[];
+  let alreadyPresent: string[];
+  if (mode === "add") {
+    toAdd = desiredIds.filter((id) => !existingUserIds.has(id));
+    alreadyPresent = desiredIds.filter((id) => existingUserIds.has(id));
+    toRemove = [];
+  } else {
+    const desiredSet = new Set(desiredIds);
+    toAdd = desiredIds.filter((id) => !existingUserIds.has(id));
+    alreadyPresent = desiredIds.filter((id) => existingUserIds.has(id));
+    toRemove = [...existingUserIds].filter((id) => !desiredSet.has(id));
+  }
+
+  // 6. 제외(replace) — user 타깃 삭제.
+  if (toRemove.length > 0) {
+    const removeTargetIds = toRemove
+      .map((id) => existingUserById.get(id))
+      .filter((v): v is string => Boolean(v));
+    const { error: delErr } = await supabaseAdmin
+      .from("cluster4_line_targets")
+      .delete()
+      .in("id", removeTargetIds);
+    if (delErr) throw translatePostgrestError(delErr.message, delErr.code);
+  }
+
+  // 7. 추가 — user 타깃 insert.
+  if (toAdd.length > 0) {
+    const insertRows = toAdd.map((userId) => ({
+      line_id: lineId,
+      week_id: weekId,
+      target_mode: "user" as const,
+      target_user_id: userId,
+      target_rule: {},
+      created_by: actorAdminId,
+      updated_by: actorAdminId,
+    }));
+    const { error: insErr } = await supabaseAdmin
+      .from("cluster4_line_targets")
+      .insert(insertRows);
+    if (insErr) throw translatePostgrestError(insErr.message, insErr.code);
+  }
+
+  // 8. sentinel 정합 — 처리 후 user 대상자 수에 맞춘다.
+  const finalUserCount =
+    existingUserIds.size + toAdd.length - toRemove.length;
+  if (finalUserCount > 0 && sentinelIds.length > 0) {
+    // user 대상이 생겼으면 zeroTarget sentinel 제거(중복 개설 카운트 방지).
+    const { error: sDelErr } = await supabaseAdmin
+      .from("cluster4_line_targets")
+      .delete()
+      .in("id", sentinelIds);
+    if (sDelErr) throw translatePostgrestError(sDelErr.message, sDelErr.code);
+  } else if (finalUserCount === 0 && sentinelIds.length === 0) {
+    // 0명이 됐는데 sentinel 이 없으면 1행 보장(라인은 개설 유지 = 전체 강화 실패).
+    const { error: sInsErr } = await supabaseAdmin
+      .from("cluster4_line_targets")
+      .insert({
+        line_id: lineId,
+        week_id: weekId,
+        target_mode: "rule" as const,
+        target_user_id: null,
+        target_rule: { zeroTargetOpen: true },
+        created_by: actorAdminId,
+        updated_by: actorAdminId,
+      });
+    if (sInsErr) throw translatePostgrestError(sInsErr.message, sInsErr.code);
+  }
+
+  // 9. snapshot 재계산 — 추가/제외 대상 + 라인 org audience(분모 A) 즉시 무효화.
+  //    (sentinel 전이 시에도 audience 전원의 분모가 바뀌므로 audience 를 포함한다.)
+  await invalidateWeeklyCardsForLineChange(lineId, [...toAdd, ...toRemove], scopeMode);
+
+  return {
+    lineId,
+    weekId,
+    mode,
+    added: toAdd,
+    alreadyPresent,
+    removed: toRemove,
+    finalUserCount,
+  };
 }
 
 export async function deleteCluster4Line(

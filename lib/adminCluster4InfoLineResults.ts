@@ -24,6 +24,8 @@ export type InfoLineResultStatus = "opened" | "needs_opening" | "not_open";
 export type InfoLineResultDto = {
   activityTypeId: string;
   lineName: string;
+  // 개설된(opened) 라인의 cluster4_lines.id — "개설 대상 크루 수정" 진입에 사용. 미개설이면 null.
+  lineId: string | null;
   status: InfoLineResultStatus;
   openedAt: string | null; // opened_at ?? created_at (개설 완료일 때)
   mainTitle: string | null;
@@ -36,6 +38,9 @@ export type InfoLineResultsDto = {
   weekId: string;
   weekLabel: string;
   weekPeriod: string;
+  // 주차 시작/종료일(date-only ISO) — "개설 대상 크루 수정" 허용 범위 판정에 사용(클라이언트 게이트).
+  weekStartDate: string | null;
+  weekEndDate: string | null;
   openLineCount: number; // 오픈 라인(임시 = 오픈 대상 라인 수 = status!=not_open). 추후 정의.
   openedLineCount: number; // 개설 라인(실제 개설된 활성 라인 수)
   lines: InfoLineResultDto[];
@@ -250,6 +255,7 @@ export async function getInfoLineResultsForWeek(opts: {
       return {
         activityTypeId: t.id,
         lineName: t.name ?? t.id,
+        lineId: null,
         status: "needs_opening",
         openedAt: null,
         mainTitle: null,
@@ -266,6 +272,7 @@ export async function getInfoLineResultsForWeek(opts: {
     return {
       activityTypeId: t.id,
       lineName: t.name ?? t.id,
+      lineId: line.id,
       status: "opened",
       openedAt: line.opened_at ?? line.created_at,
       mainTitle: line.main_title ?? null,
@@ -279,5 +286,14 @@ export async function getInfoLineResultsForWeek(opts: {
   // 오픈 라인(임시): 오픈 대상 라인 수 = not_open 아닌 라인. 현재 전 활동유형 오픈 대상이라 = lines.length.
   const openLineCount = lines.filter((l) => l.status !== "not_open").length;
 
-  return { weekId, weekLabel, weekPeriod, openLineCount, openedLineCount, lines };
+  return {
+    weekId,
+    weekLabel,
+    weekPeriod,
+    weekStartDate: w.start_date,
+    weekEndDate: w.end_date,
+    openLineCount,
+    openedLineCount,
+    lines,
+  };
 }

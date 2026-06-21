@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Upload, Trash2, X, Search, Users, Lock, Unlock } from "lucide-react";
+import { Loader2, Upload, Trash2, X, Lock, Unlock } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -13,6 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import CafeCrewPicker, {
+  type CafeCrew,
+  type CafeCrewMeta,
+} from "@/components/admin/CafeCrewPicker";
 
 // 실무 정보 라인 개설 폼 — [섹션 0] 하단 실제 개설 영역.
 //   (1) 개설할 주차: getOpenableWeekStartMs(금요일 경계 규칙)로 자동 고정 + disabled.
@@ -52,20 +56,6 @@ export type ExceptionFormWeek = OpeningFormWeek & {
 };
 
 type ActivityTypeOption = { id: string; name: string };
-
-// 우리 클럽 크루 레코드(검수/후보/수동추가 공통 — cluster4CafeLineMatch.CrewRecord 미러).
-type CafeCrew = {
-  userId: string;
-  crewNo: number | null;
-  name: string;
-  teamName: string | null;
-  partName: string | null;
-  schoolName: string | null;
-  majorName: string | null;
-  organization: string | null;
-};
-
-type CafeReviewItem = { order: number; nickname: string; reason: string };
 
 type UploadedImage = { url: string; name: string };
 
@@ -248,28 +238,27 @@ export default function PracticalInfoOpeningForm({
   const [normalWeekId, setNormalWeekId] = useState<string>("");
 
   const [lineId, setLineId] = useState<string>(defaultActivityTypeId ?? "");
+  // 상단 활동유형 탭이 바뀌면(=defaultActivityTypeId 변경) "라인명" 선택값을 현재 탭으로 맞춘다.
+  // effect 대신 렌더 단계 prop-동기화 패턴(React 권장) — 직전 prop 값을 추적해 변경 시에만 set.
+  const [seenDefaultActivityTypeId, setSeenDefaultActivityTypeId] = useState<string>(
+    defaultActivityTypeId ?? "",
+  );
+  if ((defaultActivityTypeId ?? "") !== seenDefaultActivityTypeId) {
+    setSeenDefaultActivityTypeId(defaultActivityTypeId ?? "");
+    setLineId(defaultActivityTypeId ?? "");
+  }
   const [mainTitle, setMainTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [linkDesc, setLinkDesc] = useState("");
   const [image, setImage] = useState<UploadedImage | null>(null);
   const [imageDesc, setImageDesc] = useState("");
 
-  // ── 라인 개설 크루 ──
-  const [cafeUrl, setCafeUrl] = useState("");
-  const [cafeLoading, setCafeLoading] = useState(false);
-  const [cafeError, setCafeError] = useState<string | null>(null);
-  const [cafeMeta, setCafeMeta] = useState<{
-    cafeUrl: string;
-    rawCommentCount: number;
-    matchedCrewCount: number;
-  } | null>(null);
-  // 후보 목록(개설 크루) — 댓글 시간순(자동 매칭) 우선, 이후 수동 추가분 append. 저장 전 임시 상태.
+  // ── 라인 개설 크루 (CafeCrewPicker 가 카페 검수·수동추가 로직 소유) ──
+  //   candidates / cafeMeta 는 개설 payload 에 필요하므로 폼이 소유(controlled).
   const [candidates, setCandidates] = useState<CafeCrew[]>([]);
-  const [review, setReview] = useState<CafeReviewItem[]>([]);
-  // 수동 추가 검색.
-  const [manualQ, setManualQ] = useState("");
-  const [manualResults, setManualResults] = useState<CafeCrew[]>([]);
-  const [manualSearching, setManualSearching] = useState(false);
+  const [cafeMeta, setCafeMeta] = useState<CafeCrewMeta>(null);
+  // resetSignal 증가 → 피커 내부 입력(카페 URL/검수결과/수동검색) 초기화.
+  const [crewResetSignal, setCrewResetSignal] = useState(0);
 
   const [imageModalOpen, setImageModalOpen] = useState(false);
   // 개설 확인 / 초기화 확인 / 개설 취소 확인 모달.
@@ -284,14 +273,6 @@ export default function PracticalInfoOpeningForm({
   const [banner, setBanner] = useState<Banner>(null);
 
   const unlocked = devMode && adminUnlock;
-
-  // 상단 활동유형 탭이 바뀌면(=defaultActivityTypeId 변경) "라인명" 선택값을 현재 탭으로 맞춘다.
-  // 기존 선택이 새 탭과 맞지 않으면 초기화되는 효과(라인명 드롭다운은 현재 탭 활동유형만 노출).
-  useEffect(() => {
-    setLineId((prev) =>
-      prev === (defaultActivityTypeId ?? "") ? prev : defaultActivityTypeId ?? "",
-    );
-  }, [defaultActivityTypeId]);
 
   // 일반 모드 선택지 = 자동 정책 주차 + 활성 예외 주차(중복 id 는 예외가 우선 — 휴식 덮어쓰기).
   //   isException=false → 자동 정책, true → 예외 허용. allowed = 예외의 허용 라인(null=전체).
@@ -350,11 +331,6 @@ export default function PracticalInfoOpeningForm({
     return !!lineId && !opt.allowed.includes(lineId);
   }, [unlocked, normalOptions, effectiveWeek, lineId]);
 
-  const candidateIds = useMemo(
-    () => new Set(candidates.map((c) => c.userId)),
-    [candidates],
-  );
-
   // 현재 (선택 주차 + 선택 라인) 에 이미 개설된 활성 라인 조회 — [개설 취소] 대상 판정.
   //   라인 개설/취소 후 refreshTick 으로 재조회. setTimeout(0) 로 비동기 분리(effect 동기 setState 회피).
   const effectiveWeekId = effectiveWeek?.id ?? null;
@@ -389,104 +365,6 @@ export default function PracticalInfoOpeningForm({
     };
   }, [effectiveWeekId, lineId, refreshTick]);
 
-  // 수동 추가 검색 — q 디바운스. (검색창이 비면 드롭다운이 숨겨지므로 별도 clear 불필요)
-  useEffect(() => {
-    const q = manualQ.trim();
-    if (!q) return;
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      setManualSearching(true);
-      try {
-        // 현재 org + mode 모집단으로만 검색 — 조직/모드 경계 밖 동명이인 제외.
-        const loc = new URLSearchParams(window.location.search);
-        const org = loc.get("org");
-        const sp = new URLSearchParams({ q });
-        if (org) sp.set("organization", org);
-        if (loc.get("mode") === "test") sp.set("mode", "test");
-        const res = await fetch(
-          `/api/admin/cluster4/cafe-line-crew?${sp.toString()}`,
-        );
-        const json = await res.json();
-        if (cancelled) return;
-        setManualResults(json?.success ? (json.data?.crews ?? []) : []);
-      } catch {
-        if (!cancelled) setManualResults([]);
-      } finally {
-        if (!cancelled) setManualSearching(false);
-      }
-    }, 300);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [manualQ]);
-
-  const addCandidate = useCallback((crew: CafeCrew) => {
-    setCandidates((prev) =>
-      prev.some((c) => c.userId === crew.userId) ? prev : [...prev, crew],
-    );
-  }, []);
-  const removeCandidate = useCallback((userId: string) => {
-    setCandidates((prev) => prev.filter((c) => c.userId !== userId));
-  }, []);
-  const clearCandidates = useCallback(() => {
-    setCandidates([]);
-  }, []);
-
-  const handleVerifyCafe = useCallback(async () => {
-    if (!cafeUrl.trim()) {
-      setCafeError("네이버 카페 게시물 링크를 입력해주세요");
-      return;
-    }
-    setCafeLoading(true);
-    setCafeError(null);
-    try {
-      // 현재 org + mode(운영/테스트) 모집단으로만 매칭 — 조직/모드 경계 밖 동명이인 제외.
-      const loc = new URLSearchParams(window.location.search);
-      const org = loc.get("org");
-      const sp = new URLSearchParams();
-      if (org) sp.set("organization", org);
-      if (loc.get("mode") === "test") sp.set("mode", "test");
-      const res = await fetch(
-        `/api/admin/cluster4/cafe-line-crew${sp.toString() ? `?${sp.toString()}` : ""}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: cafeUrl.trim() }),
-        },
-      );
-      const json = await res.json();
-      if (!json.success) {
-        setCafeError(json.message ?? json.error ?? "검수 실패");
-        return;
-      }
-      const d = json.data as {
-        cafeUrl: string;
-        rawCommentCount: number;
-        matchedCrewCount: number;
-        matched: Array<{ crew: CafeCrew }>;
-        review: CafeReviewItem[];
-      };
-      // 자동 매칭 크루를 댓글 시간순 그대로 후보 목록에 채운다(기존 후보와 dedupe).
-      const matchedCrews = d.matched.map((m) => m.crew);
-      setCandidates((prev) => {
-        const seen = new Set(prev.map((c) => c.userId));
-        const fresh = matchedCrews.filter((c) => !seen.has(c.userId));
-        return [...prev, ...fresh];
-      });
-      setReview(d.review ?? []);
-      setCafeMeta({
-        cafeUrl: d.cafeUrl,
-        rawCommentCount: d.rawCommentCount,
-        matchedCrewCount: d.matchedCrewCount,
-      });
-    } catch {
-      setCafeError("검수 요청 중 오류가 발생했습니다");
-    } finally {
-      setCafeLoading(false);
-    }
-  }, [cafeUrl]);
-
   // 초기화 = 화면 입력값만 페이지 최초 상태로 되돌린다(DB 무관). 주차/라인은 기본값으로.
   const resetForm = useCallback(() => {
     setLineId(defaultActivityTypeId ?? "");
@@ -497,13 +375,9 @@ export default function PracticalInfoOpeningForm({
     setLinkDesc("");
     setImage(null);
     setImageDesc("");
-    setCafeUrl("");
-    setCafeError(null);
     setCafeMeta(null);
     setCandidates([]);
-    setReview([]);
-    setManualQ("");
-    setManualResults([]);
+    setCrewResetSignal((s) => s + 1);
   }, [defaultActivityTypeId]);
 
   // [개설] 활성 판정 — 필수값 누락 사유 목록(복수). 비어 있으면 개설 가능.
@@ -624,7 +498,7 @@ export default function PracticalInfoOpeningForm({
         week_id: week.id,
         submission_opens_at: week.submissionOpensAt,
         submission_closes_at: week.submissionClosesAt,
-        cafe_url: cafeMeta?.cafeUrl ?? (cafeUrl.trim() || null),
+        cafe_url: cafeMeta?.cafeUrl ?? null,
         matched_crew_count: cafeMeta?.matchedCrewCount ?? null,
         raw_comment_count: cafeMeta?.rawCommentCount ?? null,
       };
@@ -676,7 +550,6 @@ export default function PracticalInfoOpeningForm({
     image,
     imageDesc,
     cafeMeta,
-    cafeUrl,
     unlocked,
     resetForm,
     onOpened,
@@ -939,193 +812,15 @@ export default function PracticalInfoOpeningForm({
           </div>
         </section>
 
-        {/* 5. 라인 개설 크루 */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <Label className="text-sm font-semibold">라인 개설 크루</Label>
-            <span className="text-xs text-muted-foreground">
-              <Users className="mr-1 inline h-3 w-3" />
-              {candidates.length}명
-            </span>
-          </div>
-
-          {/* 카페 링크 검수 */}
-          <div className="space-y-2 rounded-md border p-3">
-            <p className="text-xs font-medium text-muted-foreground">카페 링크 검수</p>
-            <div className="flex items-center gap-2">
-              <Input
-                value={cafeUrl}
-                onChange={(e) => setCafeUrl(e.target.value)}
-                placeholder="https://cafe.naver.com/... (게시물 링크)"
-                aria-label="카페 게시물 링크"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !cafeLoading) handleVerifyCafe();
-                }}
-                disabled={cafeLoading}
-              />
-              <Button
-                type="button"
-                onClick={handleVerifyCafe}
-                disabled={cafeLoading}
-                className="shrink-0"
-              >
-                {cafeLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="mr-2 h-4 w-4" />
-                )}
-                {cafeLoading ? "검수 중..." : "검수"}
-              </Button>
-            </div>
-            {cafeError && <p className="text-sm text-red-600">{cafeError}</p>}
-            {cafeMeta && (
-              <p className="text-xs text-muted-foreground">
-                원본 댓글 {cafeMeta.rawCommentCount} · 자동 매칭 {cafeMeta.matchedCrewCount} · 수동
-                확인 {review.length}
-              </p>
-            )}
-          </div>
-
-          {/* 인원 수 + 초기화 + 수동 추가 (한 줄, 목록 위) */}
-          <div className="space-y-2 rounded-md border p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">
-                <Users className="mr-1 inline h-3 w-3" />
-                개설 크루 {candidates.length}명
-              </span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={clearCandidates}
-                disabled={candidates.length === 0}
-              >
-                초기화
-              </Button>
-              <div className="relative min-w-[200px] flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  placeholder="크루 수동 추가 검색..."
-                  value={manualQ}
-                  onChange={(e) => setManualQ(e.target.value)}
-                  aria-label="크루 수동 추가 검색"
-                />
-              </div>
-            </div>
-            {manualQ.trim() && (
-              <div className="max-h-52 overflow-y-auto rounded-md border">
-                {manualSearching ? (
-                  <p className="flex items-center gap-1.5 px-3 py-3 text-sm text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> 검색 중…
-                  </p>
-                ) : manualResults.length === 0 ? (
-                  <p className="px-3 py-3 text-sm text-muted-foreground">검색 결과가 없습니다</p>
-                ) : (
-                  manualResults.map((c) => {
-                    const already = candidateIds.has(c.userId);
-                    return (
-                      <div
-                        key={c.userId}
-                        className="flex items-center justify-between gap-2 border-b px-3 py-2 text-sm last:border-0"
-                      >
-                        <span className="min-w-0 truncate">
-                          <span className="font-mono text-xs text-muted-foreground">
-                            {c.crewNo ?? "-"}
-                          </span>{" "}
-                          <span className="font-medium">{c.name || "-"}</span>{" "}
-                          <span className="text-xs text-muted-foreground">
-                            {c.teamName ?? "-"} · {c.schoolName ?? "-"} · {c.majorName ?? "-"}
-                          </span>
-                        </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={already}
-                          onClick={() => addCandidate(c)}
-                        >
-                          {already ? "추가됨" : "추가"}
-                        </Button>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* 수동 확인 필요 (자동 매칭 안 됨 — 직접 검색해 추가).
-              운영자가 자동 매칭 실패 건을 먼저 확인·처리하도록 목록 위로 배치(문구/색상/동작 동일). */}
-          {review.length > 0 && (
-            <div className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3">
-              <p className="text-xs font-medium text-amber-800">
-                수동 확인 필요 {review.length}건 — 자동 매칭하지 않았습니다(오매칭 방지). 위
-                &quot;수동 추가&quot;로 직접 확인 후 넣어주세요.
-              </p>
-              <ul className="max-h-40 space-y-0.5 overflow-y-auto text-xs text-amber-900">
-                {review.map((r) => (
-                  <li key={`${r.order}-${r.nickname}`} className="truncate">
-                    · <span className="font-medium">{r.nickname}</span>{" "}
-                    <span className="text-amber-700">({r.reason})</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* 검수 크루 목록 — 댓글 시간순 */}
-          <div className="space-y-2 rounded-md border p-3">
-            <p className="text-xs font-medium text-muted-foreground">
-              검수 크루 목록 · 댓글 시간순
-            </p>
-            {candidates.length === 0 ? (
-              <p className="py-3 text-center text-sm text-muted-foreground">
-                후보가 없습니다.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-xs text-muted-foreground">
-                      <th className="px-2 py-1.5">크루 번호</th>
-                      <th className="px-2 py-1.5">이름</th>
-                      <th className="px-2 py-1.5">팀명</th>
-                      <th className="px-2 py-1.5">파트명</th>
-                      <th className="px-2 py-1.5">학교명</th>
-                      <th className="px-2 py-1.5">전공명</th>
-                      <th className="px-2 py-1.5">삭제</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {candidates.map((c) => (
-                      <tr key={c.userId} className="border-b last:border-0">
-                        <td className="px-2 py-1.5 font-mono text-xs">{c.crewNo ?? "-"}</td>
-                        <td className="px-2 py-1.5 font-medium">{c.name || "-"}</td>
-                        <td className="px-2 py-1.5 text-xs">{c.teamName ?? "-"}</td>
-                        <td className="px-2 py-1.5 text-xs">{c.partName ?? "-"}</td>
-                        <td className="px-2 py-1.5 text-xs">{c.schoolName ?? "-"}</td>
-                        <td className="px-2 py-1.5 text-xs">{c.majorName ?? "-"}</td>
-                        <td className="px-2 py-1.5">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => removeCandidate(c.userId)}
-                            aria-label={`${c.name} 제거`}
-                          >
-                            <X className="h-4 w-4 text-red-500" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </section>
+        {/* 5. 라인 개설 크루 — 공용 CafeCrewPicker(카페 검수·수동추가 단일 SoT).
+            초기화는 key 변경으로 피커를 remount 해 내부 입력/검수 상태를 비운다. */}
+        <CafeCrewPicker
+          key={crewResetSignal}
+          candidates={candidates}
+          onCandidatesChange={setCandidates}
+          onMetaChange={setCafeMeta}
+          disabled={saving}
+        />
       </CardContent>
 
       {/* 이미지 확대 모달 */}
