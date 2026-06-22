@@ -11,6 +11,11 @@ import {
   RESUME_BADGE_BY_GROWTH_STATUS,
   type GrowthStatusKey,
 } from "@/shared/growth.contracts";
+import {
+  resolveSeasonPosition,
+  POSITION_CODE_TO_LABEL,
+  type PositionCode,
+} from "@/lib/positionHistory";
 import type {
   Cluster1ResumeDto,
   ResumeStatus,
@@ -344,9 +349,11 @@ export async function computeSeasonRecords(
     weeksBySeason.set(key, arr);
   }
 
-  // 시즌 직책 = 등급 SoT(user_memberships.membership_level, is_current 우선) + role 보조.
-  // role 은 "심화" 등급 내 파트장/에이전트 구분과 운영진 표기에만 쓴다(단독 사용 금지).
-  const [membershipRes, profileRoleRes] = await Promise.all([
+  // 시즌 직책 SoT(2026-06-22 개편) = user_position_histories(주차단위 PMS 이관 이력).
+  //   시즌별로 그 시즌 주차들의 직책을 모아 resolveSeasonPosition(3주룰)으로 대표 직책 산정.
+  //   과거 시즌에 현재 직책을 복사하던 종전 버그 제거.
+  //   PMS 이력이 없는 시즌(현재 2026 시즌·native 미이관자)만 현재 membership/role 로 fallback.
+  const [membershipRes, profileRoleRes, positionRes] = await Promise.all([
     supabaseAdmin
       .from("user_memberships")
       .select("membership_level,is_current,created_at,updated_at")
@@ -357,7 +364,36 @@ export async function computeSeasonRecords(
       .select("role,growth_status")
       .eq("user_id", userId)
       .maybeSingle(),
+    supabaseAdmin
+      .from("user_position_histories")
+      .select("season_key,position_code")
+      .eq("user_id", userId),
   ]);
+
+  // 시즌별 대표 직책 맵. 테이블 미적용/조회실패 시 빈 맵 → 전 시즌 현재 membership fallback
+  //   (= 종전 동작, 무회귀). PMS 이력 보유 시즌만 주차단위 산정값으로 덮인다.
+  const seasonPositionMap = new Map<string, PositionCode>();
+  if (positionRes.error) {
+    console.warn("[cluster1] user_position_histories 조회 실패 → 전 시즌 현재 직책 fallback", {
+      userId,
+      message: positionRes.error.message,
+    });
+  } else {
+    const codesBySeason = new Map<string, PositionCode[]>();
+    for (const r of (positionRes.data ?? []) as Array<{
+      season_key: string | null;
+      position_code: PositionCode;
+    }>) {
+      if (!r.season_key) continue;
+      const arr = codesBySeason.get(r.season_key) ?? [];
+      arr.push(r.position_code);
+      codesBySeason.set(r.season_key, arr);
+    }
+    for (const [key, codes] of codesBySeason) {
+      const resolved = resolveSeasonPosition(codes);
+      if (resolved) seasonPositionMap.set(key, resolved);
+    }
+  }
   const profileRow = profileRoleRes.data as {
     role: string | null;
     growth_status: string | null;
@@ -428,7 +464,11 @@ export async function computeSeasonRecords(
     const seasonName =
       SEASON_LABEL_MAP[season.season_type] ?? season.season_label;
 
-    const position = resolvePosition(membershipRes.data ?? [], profileRole);
+    // 시즌별 실제 이력 우선. 이력 없는 시즌(현재 2026·미이관자)만 현재 membership/role.
+    const seasonPositionCode = seasonPositionMap.get(season.season_key);
+    const position: PositionLabel = seasonPositionCode
+      ? POSITION_CODE_TO_LABEL[seasonPositionCode]
+      : resolvePosition(membershipRes.data ?? [], profileRole);
 
     records.push({
       year: yearStr,
