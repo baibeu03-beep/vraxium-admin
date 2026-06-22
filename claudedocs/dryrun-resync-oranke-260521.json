@@ -1,0 +1,996 @@
+{
+  "mode": "convert-dry-run",
+  "organization": "oranke",
+  "orgToken": "OK",
+  "file": "_info-260521-new.xlsx",
+  "flags": {
+    "excludeNullSource": true,
+    "deactivateLeftover": true,
+    "overwriteOutputLinks": false
+  },
+  "candidateSlots": 260,
+  "candidates": 260,
+  "eligibleExistingRows": 252,
+  "excludedNullSourceRows": 1,
+  "targetWrites": {
+    "cluster4_line_targets": 0,
+    "note": "convert 모드는 cluster4_lines 만 UPDATE/INSERT. 대상 크루(line_targets) read/write 없음 → 0건."
+  },
+  "actions": {
+    "convertCommonToOk": 0,
+    "titleUpdate": 8,
+    "matchedSkip": 244,
+    "insert": 7,
+    "deactivate": 0,
+    "insertSkippedNullPresent": 1,
+    "leftoverKept": 0,
+    "otherOrgLeftUntouched": 0,
+    "delete": 0
+  },
+  "mainTitleAndOutputLink": {
+    "mainTitleChanged": 8,
+    "outputLinkNewlyAdded": 76,
+    "outputLinkChanged": 0,
+    "breakdown": {
+      "existingRowLinkAdded": 72,
+      "insertedRowWithLink": 4,
+      "labelOnlyFix": 0,
+      "conflictOverwritten": 0,
+      "conflictPreservedNoWrite": 28
+    },
+    "label": "카페 공표글 링크",
+    "note": "outputLinkChanged = label_only(URL 동일·label 정정) + conflict_apply(--overwrite 시 URL 교체). conflict_skip(기존 멀티링크 보존)은 쓰기 0건이라 제외."
+  },
+  "outputLinkConflictsPreserved": [
+    {
+      "id": "044c45c5-5e89-4813-9224-94417ac99a87",
+      "weekLabel": "2025-W39",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/35739",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/queNhPCLGfU",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/35739",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "34ae0574-5f7b-4f62-af3d-90c3db53d3c6",
+      "weekLabel": "2025-W40",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/36149",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/S7wOXatBq9s",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/36149",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "3ad88b4b-1c27-40df-a73a-619dcdb060ed",
+      "weekLabel": "2025-W44",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/36621",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/_0ZDLY-zspE",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/36621",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "1c53c54e-9033-49b6-b2ae-eee28da45981",
+      "weekLabel": "2025-W45",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/36997",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/RSIzUX27Eug",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/36997",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "01012a20-6e3e-4fca-8984-3405809cab72",
+      "weekLabel": "2025-W46",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/37375",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/YhdP1HLc2ao",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/37375",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "886c2df2-9248-444e-903c-c027f68cdcb5",
+      "weekLabel": "2025-W47",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/37713",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/RcTkow4IxHc",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/37713",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "8d99af1c-17d7-4fc2-85da-9daea04b394d",
+      "weekLabel": "2025-W48",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/38072",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/L6W0OHD1Y2Q?si=TtcERSU50zGwFdWS",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/38072",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "169cb996-0c09-4eff-879d-bd11a07e1b52",
+      "weekLabel": "2026-W01",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/38683",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/jH4UkOC4myY",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/38683",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "6ba8905d-9051-4cd8-bef2-76c716337150",
+      "weekLabel": "2026-W02",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/38889",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/6-3cToKFD2s",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/38889",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "f32d2831-6d9b-42c0-b5da-39e3a149dd62",
+      "weekLabel": "2026-W03",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/39150",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/kkT-k4igFPs",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/39150",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "3f40b8c1-6473-4e0a-af7f-6073d6954cd0",
+      "weekLabel": "2026-W04",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/39433",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/WJlDEuWXSvg",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/39433",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "dfbd5688-e03e-4812-a6c1-e524b470db90",
+      "weekLabel": "2026-W05",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/39699",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/qIhJjaf69gk",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/39699",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "6a57dde6-e966-4543-aa03-87517c2d99bc",
+      "weekLabel": "2026-W06",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/39966",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/NAmbldg8hjk",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/39966",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "6c6d3762-442e-4115-bbd0-4a3da01cc3ab",
+      "weekLabel": "2026-W07",
+      "activityTypeId": "wisdom",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/40228",
+          "label": "[위즈덤] 진행장소"
+        },
+        {
+          "url": "https://youtu.be/IgZ-_gfk99Y?si=7XJVBYq_bkRy6dGQ",
+          "label": "[위즈덤] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/40228",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "d6e69bd0-cb10-444f-9842-9e5b0017939c",
+      "weekLabel": "2025-W39",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/35803",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%ec%b6%9c%ec%8b%9c-40%eb%85%84-%eb%90%9c-%ec%b9%b8%ec%b5%b8%ea%b0%80-%ea%b0%91%ec%9e%90%ea%b8%b0-%ec%9c%a0%ed%96%89%ed%85%9c%ec%9d%b4-%eb%90%9c-%ec%9d%b4%ec%9c%a0-%eb%b0%94%ec%9d%b4%eb%9f%b4%ec%9d%84/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/35803",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "a346e754-18f3-4ebb-8b18-b356bf93f060",
+      "weekLabel": "2025-W40",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/36214",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/k-%eb%9f%ad%ec%85%94%eb%a6%ac-%eb%b8%8c%eb%9e%9c%eb%94%a9%ec%9d%98-%ea%b5%90%ea%b3%bc%ec%84%9c-%ec%a0%a0%eb%aa%ac%c2%b7%ed%83%ac%eb%b2%84%eb%a6%b0%ec%a6%88%c2%b7%eb%88%84%eb%8d%b0%ec%9d%b4%ed%81%ac/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/36214",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "ed3dfed5-3ff8-4be0-a39a-b44173b9cb28",
+      "weekLabel": "2025-W44",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/36682",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%ec%8b%ac%ec%9d%80%ea%b2%bd%ec%9d%b4-%ec%99%9c-%ea%b1%b0%ea%b8%b0%ec%84%9c-%eb%82%98%ec%99%80-%eb%b9%8c%eb%93%9c%ec%97%85%eb%b6%80%ed%84%b0-%eb%82%a8%eb%8b%ac%eb%9e%90%eb%8d%98-%ec%b9%b4%ec%b9%b4/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/36682",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "80ddbb58-aaa2-44b8-bb31-f2db419da901",
+      "weekLabel": "2025-W45",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/37039",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%ec%a0%9c%eb%8b%88%ec%9d%98-%ed%95%9c%ea%b8%80-%ed%8f%b0%ed%8a%b8%eb%b6%80%ed%84%b0-%eb%b6%95%ec%96%b4%eb%b9%b5-%ec%95%a1%eb%a7%89%ec%9d%b4%ea%b9%8c%ec%a7%80-z%ec%84%b8%eb%8c%80-%ed%99%80%eb%a6%b0-k/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/37039",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "81c16350-195d-4152-9550-e3601650948b",
+      "weekLabel": "2025-W46",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/37409",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/apec-%ea%b4%91%ea%b3%a0%ea%b0%80-ai%ea%b0%80-%ec%95%84%eb%8b%88%eb%9d%bc%ea%b3%a0-ai-%ec%8b%9c%eb%8c%80%ec%97%90-%eb%b8%8c%eb%9e%9c%eb%93%9c%ea%b0%80-%ed%95%a0-%ec%88%98-%ec%9e%88%eb%8a%94-%ec%b0%a8/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/37409",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "c0e0c2ce-6187-41ed-b285-e7a3b38dc359",
+      "weekLabel": "2025-W47",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/37765",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%ed%85%90%ed%85%90-%ed%82%a4%eb%a7%81-%ec%bd%94%eb%8b%a5-%ec%b0%a8%eb%a9%94%eb%9d%bc-sns%ec%97%90%ec%84%9c-%eb%82%9c%eb%a6%ac-%eb%82%9c-%ea%b5%bf%ec%a6%88%eb%93%a4%ec%9d%98-%ea%b3%b5%ed%86%b5/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/37765",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "1036fbfc-7449-4d22-bdcd-3a76b38c26c8",
+      "weekLabel": "2025-W48",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/38107",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%ed%88%ac%ec%8d%b8%ea%b3%bc-%ed%8f%ac%eb%a5%b4%ec%89%90%ea%b0%80-%ec%86%90%ec%9e%a1%ec%9d%80-%ec%9d%b4%ec%9c%a0-%ec%9d%b8%ea%b8%b0-fb-%ec%bd%9c%eb%9d%bc%eb%b3%b4-%ec%82%ac%eb%a1%80%eb%a1%9c/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/38107",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "a655928a-9da6-4296-8864-8618ed36d126",
+      "weekLabel": "2026-W01",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/38720",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%ed%96%a5%ea%b8%b0-%eb%a7%88%ec%bc%80%ed%8c%85-%ec%82%ac%eb%a1%80-%eb%aa%a8%ec%9d%8c-%ec%98%a4%ea%b0%90-%ec%a4%91-%ea%b0%80%ec%9e%a5-%eb%af%bc%ea%b0%90%ed%95%9c-%ed%9b%84%ea%b0%81%ec%9c%bc%eb%a1%9c/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/38720",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "ecbbc586-66f2-4106-9328-76b0c21cf46d",
+      "weekLabel": "2026-W02",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/38946",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%ec%b9%98%ed%82%a8-%eb%b8%8c%eb%9e%9c%eb%93%9c%ea%b0%80-%ec%99%9c-%ec%b0%9c%ec%a7%88%eb%b0%a9%ec%97%90%ec%84%9c-%ed%96%89%ec%82%ac%eb%a5%bc-%ec%98%a4%eb%b8%90%ec%97%90%eb%b9%a0%ec%a7%84%eb%8b%ad/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/38946",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "8505efe5-0cd7-4d1e-9fd4-039f69385828",
+      "weekLabel": "2026-W03",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/39229",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%ec%97%b0%ea%b8%88-%ec%a0%80%ec%b6%95-%ec%96%98%ea%b8%b0%ed%95%98%eb%8a%94-%eb%b8%8c%eb%9e%9c%eb%93%9c-%ea%b3%84%ec%a0%95-%ec%b0%a9%ed%95%9c%ea%b5%ac%eb%91%90%ec%9d%98-%ec%97%91%ec%8a%a4-%eb%a7%88/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/39229",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "2f31c37a-711d-4127-b1cf-1be04f78e0d4",
+      "weekLabel": "2026-W04",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/39456",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%eb%8b%a8%ec%88%9c-%ed%98%91%ec%b0%ac%c2%b7%ea%b3%b5%eb%8f%99-%ea%b5%ac%eb%a7%a4-%eb%a7%90%ea%b3%a0-%ec%8b%a0%eb%b0%95%ed%95%9c-%ec%9d%b8%ed%94%8c%eb%a3%a8%ec%96%b8%ec%84%9c-%eb%a7%88%ec%bc%80/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/39456",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "37168422-d9a2-4894-a209-fadb3abf923e",
+      "weekLabel": "2026-W05",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/39744",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%ec%b9%a8%ec%b0%a9%eb%a7%a8%ec%9d%b4-%eb%93%9c%eb%94%94%ec%96%b4-%eb%a1%af%eb%8d%b0%eb%a6%ac%ec%95%84%eb%a5%bc-%ec%9d%b8%ec%a0%95%ed%96%88%eb%8b%a4-%eb%aa%a8%eb%8d%b8-%ec%84%9c%ec%82%ac-%ec%a0%9c/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/39744",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "d78b02a1-2399-4f61-8433-a72009ce326d",
+      "weekLabel": "2026-W06",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/40024",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%ed%8c%9d%ec%97%85%ec%8a%a4%ed%86%a0%ec%96%b4-%eb%b6%80%ea%b3%84-%eb%a7%90%ea%b3%a0-%ea%b0%88%ec%88%98%eb%a1%9d-%ec%b0%b8%ec%8b%a0%ed%95%b4%ec%a7%80%eb%8a%94-%ec%97%94%ed%84%b0%ed%85%8c%ec%9d%b8/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/40024",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "815b3c31-57e3-48c3-9b0d-0e5522799915",
+      "weekLabel": "2026-W07",
+      "activityTypeId": "essay",
+      "existing": [
+        {
+          "url": "https://cafe.naver.com/oranke/40257",
+          "label": "[에세이] 진행장소"
+        },
+        {
+          "url": "https://gogumafarm.kr/%ec%97%90%ec%9d%b4%eb%b8%94%eb%a6%ac%c2%b7%eb%ac%b4%ec%8b%a0%ec%82%ac%c2%b7%ec%a7%80%ea%b7%b8%ec%9e%ac%ea%b7%b8-%eb%b9%84%ea%b5%90-%eb%b6%84%ec%84%9d-%ec%b9%98%ec%97%b4%ed%95%9c-%ed%8c%a8%ec%85%98/",
+          "label": "[에세이] 주제/소재"
+        }
+      ],
+      "xlsx": [
+        {
+          "url": "https://cafe.naver.com/oranke/40257",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    }
+  ],
+  "encrePhalanxRemoval": {
+    "rowsLeavingOtherOrgVisibility": 0,
+    "breakdown": {
+      "convertedToOranke": 0,
+      "deactivated": 0
+    },
+    "nullSourceRowsRemainingCommon": 1,
+    "note": "convert(common→OK) + deactivate(전 org 제거) = encre·phalanx 에서 사라지는 행. NULL-source 제외분은 common 으로 남아 계속 노출."
+  },
+  "finalOrankeRowsPerSlot": {
+    "oneLinePerSlotAchieved": true,
+    "distribution": {
+      "1": 260
+    },
+    "slotsWithMoreThanOne": 0,
+    "multiSlotSample": [],
+    "note": "최종 oranke 가시 행 = 유지 적격행 + insert + (제외 NULL-source 행, common 이지만 oranke 에도 노출). NULL slot 은 1 common 행으로 1개."
+  },
+  "excludedNullSourceList": [
+    {
+      "id": "9d21e661-3b0f-41b1-9ff1-5073fb5476ce",
+      "week_id": "a2112b50-64d2-42d6-a243-faf9fcdc6ffc",
+      "activity_type_id": "calendar",
+      "line_code": "IFEC-OPEN1781869424825",
+      "main_title": "캘린더 라인 개설을 테스트 해보고 있습니다.",
+      "source_type": null
+    }
+  ],
+  "sampleConvert": [],
+  "sampleTitleUpdate": [
+    {
+      "id": "2a970769-c4f1-4360-a65f-5123026e97f5",
+      "weekLabel": "2026-W18",
+      "activityTypeId": "wisdom",
+      "titleFrom": "영화관 속 특별한 굿즈, 요시 팝콘통을 만나다",
+      "titleTo": "[엔터테인먼트/IP] 영화관 속 특별한 굿즈, 요시 팝콘통을 만나다! 콘텐츠 IP를 활용한 한정판 마케팅이 소비자의 구매 욕구를 자극하는 방식은?"
+    },
+    {
+      "id": "2cfed36d-5a0a-43bd-a1bc-3db7cf0df2b8",
+      "weekLabel": "2026-W19",
+      "activityTypeId": "wisdom",
+      "titleFrom": "다시 돌아온 브랜드별 컵빙수 대전",
+      "titleTo": "[베버리지/카페] 다시 돌아온 브랜드별 컵빙수 대전! 매년 반복되는 시즌성 미투(Me-too) 전략 속에서 우리 브랜드만의 독창성을 확보하는 마케팅 차별점은?"
+    },
+    {
+      "id": "66693805-7b41-45b6-8239-3df75ad8f075",
+      "weekLabel": "2026-W20",
+      "activityTypeId": "wisdom",
+      "titleFrom": "누르기만 해도 힐링? 말랑이 열풍의 이유",
+      "titleTo": "[소비재/트렌드] 누르기만 해도 힐링? 말랑이 열풍의 이유! 감정을 위로하고 스트레스를 해소하는 '디토(Ditto) 소비'와 키덜트 마케팅의 결합?"
+    },
+    {
+      "id": "57e33d3c-2ad3-46d3-b60a-4a1c33feff6f",
+      "weekLabel": "2026-W10",
+      "activityTypeId": "essay",
+      "titleFrom": "[엔터테인먼트/신개념] ‘밤티크림’ 체험단 수천 명이 몰렸다고? 올리브영 사례로 본 사전 마케팅 전략",
+      "titleTo": "‘밤티크림’ 체험단 수천 명이 몰렸다고? 올리브영 사례로 본 사전 마케팅 전략"
+    },
+    {
+      "id": "b1e4663c-cd05-42e6-b710-67d9215e1db5",
+      "weekLabel": "2026-W11",
+      "activityTypeId": "essay",
+      "titleFrom": "[소비자/브랜딩] 벚꽃·만우절·지구의 날… 4월 시즈널 마케팅 대비를 위한 레퍼런스 총정리!",
+      "titleTo": "벚꽃·만우절·지구의 날… 4월 시즈널 마케팅 대비를 위한 레퍼런스 총정리!"
+    },
+    {
+      "id": "aabe9534-9b19-4854-b532-b473b7b6dd88",
+      "weekLabel": "2026-W12",
+      "activityTypeId": "essay",
+      "titleFrom": "[AI/기술] AI 기본법, 마케터도 적용 대상일까? AI 생성 콘텐츠 표기 기준 총정리",
+      "titleTo": "AI 기본법, 마케터도 적용 대상일까? AI 생성 콘텐츠 표기 기준 총정리"
+    },
+    {
+      "id": "a1d642e6-28e4-4642-bcc8-aaf763a94f98",
+      "weekLabel": "2026-W13",
+      "activityTypeId": "essay",
+      "titleFrom": "[문화/미디어] 이색 상영회부터 브랜드 편승까지! <왕과 사는 남자> 마케팅 총정리",
+      "titleTo": "이색 상영회부터 브랜드 편승까지! <왕과 사는 남자> 마케팅 총정리"
+    },
+    {
+      "id": "1e514a55-e77f-40d3-80ba-57e3454364a8",
+      "weekLabel": "2026-W14",
+      "activityTypeId": "essay",
+      "titleFrom": "[문화/브랜딩] 힙한 브랜드 피드는 이렇게 만든다! 디지털 코어 콘텐츠 레퍼런스 모음.zip",
+      "titleTo": "힙한 브랜드 피드는 이렇게 만든다! 디지털 코어 콘텐츠 레퍼런스 모음.zip"
+    }
+  ],
+  "sampleLinkAdd": [
+    {
+      "id": "595aaa3a-cf68-4fe9-bb8d-2456e4fa191c",
+      "weekLabel": "2025-W01",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/23592",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "31be24f8-d9b9-4528-a935-dd86d2d64f42",
+      "weekLabel": "2025-W02",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/23901",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "ae292568-c487-4158-b5e5-dfb5cca71ae3",
+      "weekLabel": "2025-W03",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/24317",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "cdbe11a1-38ca-4f59-9f31-223fb69d866a",
+      "weekLabel": "2025-W04",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/24683",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "bf04fa4d-acb0-4634-8b8c-f8f2892c1c5b",
+      "weekLabel": "2025-W06",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/25174",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "92bfcf86-0f18-42af-b625-6714eb0a4499",
+      "weekLabel": "2025-W07",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/25530",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "7ef5798c-31bb-4fc7-a6ce-847d231dd348",
+      "weekLabel": "2025-W08",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/25946",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "789a229e-d1d3-4a15-b142-bf7033eca746",
+      "weekLabel": "2025-W10",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/26537",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "e5b4ce45-0574-4e6b-a604-fd95238c6a12",
+      "weekLabel": "2025-W11",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/26888",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "47857330-f6d8-4f3e-955f-0140c25732d9",
+      "weekLabel": "2025-W12",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/27266",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "f2cc166e-052d-4ae7-b3f0-314fa8e4458d",
+      "weekLabel": "2025-W13",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/27723",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "d18f1e01-295b-4786-b188-bb03b9867bac",
+      "weekLabel": "2025-W14",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/28210",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "6b353daf-2be9-4e97-baf0-3ae7d955ea60",
+      "weekLabel": "2025-W18",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/28728",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "513dd56f-cdb9-4dca-9bad-79c3d9e3bf0f",
+      "weekLabel": "2025-W19",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/29108",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "9340c236-ae6a-4d4a-90d0-c942bbcd1ef7",
+      "weekLabel": "2025-W20",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/29506",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "2b5b3d58-d55f-4eae-82aa-e4c4f74c46ef",
+      "weekLabel": "2025-W21",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/29894",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "35da80fa-e445-40db-af0f-b76ae217f6fa",
+      "weekLabel": "2025-W22",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/30275",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "d97e2421-6dc5-4d82-bfa3-01a45de2323e",
+      "weekLabel": "2025-W27",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/31009",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "3718ff21-dcb1-46ad-8575-7254bd4182a1",
+      "weekLabel": "2025-W28",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/31418",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    },
+    {
+      "id": "d7939069-a5d7-4ecd-a215-bb91b86d8595",
+      "weekLabel": "2025-W29",
+      "activityTypeId": "wisdom",
+      "linkTo": [
+        {
+          "url": "https://cafe.naver.com/oranke/31773",
+          "label": "카페 공표글 링크"
+        }
+      ]
+    }
+  ],
+  "sampleLinkLabelOnly": [],
+  "sampleDeactivate": [],
+  "sampleInsert": [
+    {
+      "weekLabel": "2026-W21",
+      "activityTypeId": "wisdom",
+      "lineCode": "info-OK-wisdom-2026w21",
+      "mainTitle": "[유통/소비자] 가성비로 고물가에 살아남은 햄버거 근황? 불황기 마케팅에서 '가격 대비 심리적 만족(가심비)'을 극대화하는 전술이란?"
+    },
+    {
+      "weekLabel": "2026-W22",
+      "activityTypeId": "wisdom",
+      "lineCode": "info-OK-wisdom-2026w22",
+      "mainTitle": "[F&B/글로벌] 일본인들이 '요아정'에 줄 서는 이유! 국내 시장을 흔든 커스터마이징 트렌드가 해외 소비자의 취향까지 저격한 비결은?"
+    },
+    {
+      "weekLabel": "2026-W21",
+      "activityTypeId": "essay",
+      "lineCode": "info-OK-essay-2026w21",
+      "mainTitle": "한 명에게 보인 진심에 수십 만 명이 반응했다! 농심·착한구두의 감동 설계 마케팅"
+    },
+    {
+      "weekLabel": "2026-W22",
+      "activityTypeId": "essay",
+      "lineCode": "info-OK-essay-2026w22",
+      "mainTitle": "스트레스를 팔 수 있는 팝업트럭? 메시지를 오프라인 경험으로 확장한 감정가게 캠페인"
+    },
+    {
+      "weekLabel": "2026-W21",
+      "activityTypeId": "infodesk",
+      "lineCode": "info-OK-infodesk-2026w21",
+      "mainTitle": "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자"
+    },
+    {
+      "weekLabel": "2026-W22",
+      "activityTypeId": "infodesk",
+      "lineCode": "info-OK-infodesk-2026w22",
+      "mainTitle": "산업/직무와 관련한 기술, 스킬을 탐구/학습하여 타인에게 설명해보자"
+    },
+    {
+      "weekLabel": "2026-W21",
+      "activityTypeId": "calendar",
+      "lineCode": "info-OK-calendar-2026w21",
+      "mainTitle": "관심있는 산업/직무 분야에서 정보를 얻을 수 있는 어떤 일정들이 있을까?"
+    }
+  ],
+  "skippedInsertsSample": [
+    {
+      "weekLabel": "2026-W22",
+      "activityTypeId": "calendar",
+      "reason": "NULL-source 행 존재(제외 대상) → 이중노출 방지로 insert 생략"
+    }
+  ]
+}

@@ -1,0 +1,1268 @@
+{
+  "organization": "oranke",
+  "orgToken": "OK",
+  "file": "_info-260521-new.xlsx",
+  "updatesBefore": [
+    {
+      "id": "595aaa3a-cf68-4fe9-bb8d-2456e4fa191c",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w01",
+        "main_title": "[완구/장난감] 산타 할아버지도 오로라핑은 못 구한다… 중고로 7배까지 뛰었다고?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "31be24f8-d9b9-4528-a935-dd86d2d64f42",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w02",
+        "main_title": "[미디어/컬쳐] '오징어게임 2'가 몰고온 경이로운 '한국 놀이문화', 너..달고나 먹어봤어?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "ae292568-c487-4158-b5e5-dfb5cca71ae3",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w03",
+        "main_title": "[소비자/트렌드] \"50년 전 포장 그대로\"... 불황 속 '레트로 마케팅', 언제까지, 왜 먹힐까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "cdbe11a1-38ca-4f59-9f31-223fb69d866a",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w04",
+        "main_title": "[소비자/트렌드] '토핑경제' 2025 소비 키워드, 개인 취향 맞춤 '커스터마이징'이 뜬다!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "bf04fa4d-acb0-4634-8b8c-f8f2892c1c5b",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w06",
+        "main_title": "[소비자/B2C] 새해 SSM 경쟁 본격화…불황에 '기업형 슈퍼마켓'이 뜬다고? 새로운 소비 구조!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "92bfcf86-0f18-42af-b625-6714eb0a4499",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w07",
+        "main_title": "[소비자/B2C] 없는 것 빼고 다 있다... 골동품 가득 풍물시장 '북적', 오래된 것이 마케팅을 만나면?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "7ef5798c-31bb-4fc7-a6ce-847d231dd348",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w08",
+        "main_title": "[AI 소비재] 챗GPT가 심리 상담까지...삶에 파고든 '대화형 AI', 새로운 기술은 마케팅을 타고!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "789a229e-d1d3-4a15-b142-bf7033eca746",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w10",
+        "main_title": "[F&B/베이커리] 성심당에서 튀소만큼 인기 많은 ‘이것’... 전문점까지 생긴다? 로컬에서 해외로!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "e5b4ce45-0574-4e6b-a604-fd95238c6a12",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w11",
+        "main_title": "[코스메틱/트레블] 두 유 노 올영? 외국인의 필수 관광 코스가 된 이유! 해외시장으로 나간다면?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "47857330-f6d8-4f3e-955f-0140c25732d9",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w12",
+        "main_title": "[엔터테인먼트/F&B] 올해 ‘코첼라’, ‘불닭볶음면’도 간다! 미디어에 마케팅을 입힌다면?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "f2cc166e-052d-4ae7-b3f0-314fa8e4458d",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w13",
+        "main_title": "[소비자/바캉스] 5월 2일 임시공휴일? 한눈에 요약해 드립니다! 쉬는 날의 매출은?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "d18f1e01-295b-4786-b188-bb03b9867bac",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w14",
+        "main_title": "[엔터테인먼트/유통] 제니가 쏘아 올린 바나나킥… 농심 시총 2,640억 뛰었다! 셀럽 마케티의 힘?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "6b353daf-2be9-4e97-baf0-3ae7d955ea60",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w18",
+        "main_title": "[베버리지/카페] “스타벅스 주문 방식 바뀔까?” 국내 키오스크 첫 매장 생긴다!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "513dd56f-cdb9-4dca-9bad-79c3d9e3bf0f",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w19",
+        "main_title": "[F&B/유통] 치킨이 땡겨요… 앞으로 ‘땡겨요’ 앱으로 30% 할인 받으세요!, 할인 마케팅은 언제까지?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "9340c236-ae6a-4d4a-90d0-c942bbcd1ef7",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w20",
+        "main_title": "[콘텐츠/배급] 영화관 업계, 빅딜의 서막! '메가시네마'로 CGV에 맞설까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "2b5b3d58-d55f-4eae-82aa-e4c4f74c46ef",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w21",
+        "main_title": "[F&B/소비재] 뉴요커 사로잡은 한국의 '전 남친 토스트'! 소형 푸드는 어떤 마케팅으로?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "35da80fa-e445-40db-af0f-b76ae217f6fa",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w22",
+        "main_title": "[유통/소비재] 한강 배달음식 음쓰 고민 해결? ‘다회용기’ 주문하고 반납함에만 넣어준다면?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "d97e2421-6dc5-4d82-bfa3-01a45de2323e",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w27",
+        "main_title": "[운송/교통] 지하철 기다림 문제 해결? 카카오, 이제 지도 위에 교통을 '보여주는 마케팅' 으로?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "3718ff21-dcb1-46ad-8575-7254bd4182a1",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w28",
+        "main_title": "[소비재/유통] 일주일 만에 20만 개 팔린 꿈돌이 라면! 이 위에 입힐 수 있는 마케팅의 정체는?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "d7939069-a5d7-4ecd-a215-bb91b86d8595",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w29",
+        "main_title": "[음료/유통] 오렌지 주스, 국민 물병 델몬트, 역사 속으로 사라지나요? 마케팅으로 못 살려?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "de0b98e6-e3b3-4a1a-ae70-8712e715963f",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w30",
+        "main_title": "[해외/유통] 돈키호테, 드디어 한국에 진출하다! '돈키호테 팝업스토어' 는 어떤 마케팅이 될까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "5e5be25b-450a-4a17-9780-403233e38bca",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w31",
+        "main_title": "[앤티끄/소비재] 전통 문화 굿즈의 축복이 끝이 없네.. K-헤리티지! 어떤 시장으로 클까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "9114d093-b2de-4204-b351-59f39b66c452",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w32",
+        "main_title": "[도메스틱/유통] 위기에 빠진 커피 브랜드, 블루보틀&팀홀튼! 어떤 마케팅 타개책이 있을까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "4ddee33d-1bd3-4745-8c79-ae3f57c28fc9",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w33",
+        "main_title": "[F&B/유통] 국내 뷔페 시장 애슐리, 제 2의 전성기를 맞이하다! 어떤 마케팅이 입혀졌을까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "8d3ae830-9bc1-4556-ab8b-d5d982526416",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w34",
+        "main_title": "[패스트푸드/유통] 롯데리아, 미국으로 뻗어나가다! 도메스틱 시장과 해외 시장의 마케팅은 어떤 차이가?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "0ef8978a-064b-419b-a1f2-6cc13a75a487",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w36",
+        "main_title": "[금융/소비자] 이색 미니 보험의 등장! 전문가들의 금융상품이 점점 더 일상으로 다가오는 마케팅?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "1d7cff60-9ffb-4a0c-82a4-0465c1a1a02e",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w37",
+        "main_title": "[유통/딜리버리] 퀵커머스, 대형마트에 도입되다! 발빠른 소비재의 시장 규모 확장과 어떤 연관성이?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "abdbb60e-0ac0-4827-b51e-f7377ba297d2",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w38",
+        "main_title": "[F&B/유통] 치폴레, 한국에 상륙하다! 해외 시장에서의 마케팅이 도메스틱 시장에서 먹힌다면?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "044c45c5-5e89-4813-9224-94417ac99a87",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w39",
+        "main_title": "[도메스틱/소비재] 한국 브랜드의 일본 진출은 어떤 방식으로 이루어지며, 마케팅 전술은 어떻게 변화하는가?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/35739",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/queNhPCLGfU",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "34ae0574-5f7b-4f62-af3d-90c3db53d3c6",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w40",
+        "main_title": "[해외/유통] 탕후루, 하이디라오까지.. 중국 기업의 한국 진출? 중국 기업의 마케팅은 어떤 식으로 적응하는가?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/36149",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/S7wOXatBq9s",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "3ad88b4b-1c27-40df-a73a-619dcdb060ed",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w44",
+        "main_title": "[도메스틱/소비재] 바나나 우유, 외국인들의 마음을 저격하다? 국내 커스터마이징된 마케팅의 진화!",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/36621",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/_0ZDLY-zspE",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "1c53c54e-9033-49b6-b2ae-eee28da45981",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w45",
+        "main_title": "[뷰티/코스메틱] 대박 난 올리브영, APEC 속에서도 인정받다! 국내 코스메틱 브랜드의 마케팅의 디벨롭 전략?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/36997",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/RSIzUX27Eug",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "01012a20-6e3e-4fca-8984-3405809cab72",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w46",
+        "main_title": "[F&B/소비재] 깐부치킨, 전성기를 맞이하다? 어떤 마케팅이 과포화 경쟁시장인 치킨 시장에서 깐부를 살렸을까?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/37375",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/YhdP1HLc2ao",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "886c2df2-9248-444e-903c-c027f68cdcb5",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w47",
+        "main_title": "[유통/소비재] CU, 하와이까지 진출하다! 국내 토종 브랜드들의 앞다툰 해외진줄에서 필요한 마케팅 전술은?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/37713",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/RcTkow4IxHc",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "8d99af1c-17d7-4fc2-85da-9daea04b394d",
+      "before": {
+        "line_code": "info-OK-wisdom-2025w48",
+        "main_title": "[유통/소비재] 아트박스, K-굿즈로 외국인을 사로잡다! 도메스틱 시장과 해외 시장의 차이는 마케팅으로 메꿔질까?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/38072",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/L6W0OHD1Y2Q?si=TtcERSU50zGwFdWS",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "169cb996-0c09-4eff-879d-bd11a07e1b52",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w01",
+        "main_title": "[유통/해외] 미국판 다이소, 달러제너럴 근황은 어떨까? 무엇이 시장과 규모의 차이를 만드는 마케팅 요소인가?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/38683",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/jH4UkOC4myY",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "6ba8905d-9051-4cd8-bef2-76c716337150",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w02",
+        "main_title": "[미디어/유통] 흑백요리사, 유통 마케팅 트렌드가 되다! 전천후 공전의 히트를 거머쥔 미디어를 마케팅에 얹는다면?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/38889",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/6-3cToKFD2s",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "f32d2831-6d9b-42c0-b5da-39e3a149dd62",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w03",
+        "main_title": "[운송/소비재] 교통카드로 변신한 역명판 근황? 실생활에서 소비자들에게 다가갈 수 있는 '쉬운' 마케팅이라면?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/39150",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/kkT-k4igFPs",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "3f40b8c1-6473-4e0a-af7f-6073d6954cd0",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w04",
+        "main_title": "[뷰티/수출입] K뷰티, 쇼핑을 넘어 더 다양한 경험으로 외국인을 사로잡다! 마케팅의 핵심은 결국 '경험' 이 아닐까?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/39433",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/WJlDEuWXSvg",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "dfbd5688-e03e-4812-a6c1-e524b470db90",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w05",
+        "main_title": "[문화/유통] 전 세계로 뻗어나가고 있는 뮷즈 근황! 세대가 달라지면 '작은 마케팅' 부터 달라진다고?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/39699",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/qIhJjaf69gk",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "6a57dde6-e966-4543-aa03-87517c2d99bc",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w06",
+        "main_title": "[유통/식음료] 저가 커피 시장, 가격 경쟁 심화 속 메뉴 다각화로 돌파! 어떤 마케팅이 저가 커피 시장을 장악할까?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/39966",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/NAmbldg8hjk",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "6c6d3762-442e-4115-bbd0-4a3da01cc3ab",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w07",
+        "main_title": "[식문화/소비재] 미국 식탁까지 진출한 한국 소울푸드 ‘달걀장’ 근황! 우리에겐 당연한 것이 다른 시장에서는 멋진 마케팅이라고?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/40228",
+            "label": "[위즈덤] 진행장소"
+          },
+          {
+            "url": "https://youtu.be/IgZ-_gfk99Y?si=7XJVBYq_bkRy6dGQ",
+            "label": "[위즈덤] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "b648d2a7-7e35-4e83-abe3-27280e7c1be4",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w10",
+        "main_title": "[식문화/소비재] 흔한 제철 채소에서 품절 대란템이 된 '봄동' 근황",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "c35b9f0f-cb4d-4f19-aaed-1d614a1f4d60",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w11",
+        "main_title": "[문화/유통] 쑥뜸, 2030 세대의 새로운 이색 힐링 요법이 되다",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "4ce25887-44d2-4653-961b-a5119615bff0",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w12",
+        "main_title": "[문화/미디어] 한강공원 속 특별한 편의점, 러닝 스테이션을 만나다",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "92e7ae24-afa2-40e7-90dc-3fd103c019a1",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w13",
+        "main_title": "[문화/수출입] 중국 밀크티 차지의 한국 상륙, 성공할까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "23f89e80-de5d-4aaa-a3be-df5bf9a7d43b",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w14",
+        "main_title": "[문화/해외] 콜롬비아·아르헨티나도 반한 K-치킨 로드",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "2a970769-c4f1-4360-a65f-5123026e97f5",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w18",
+        "main_title": "영화관 속 특별한 굿즈, 요시 팝콘통을 만나다",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "2cfed36d-5a0a-43bd-a1bc-3db7cf0df2b8",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w19",
+        "main_title": "다시 돌아온 브랜드별 컵빙수 대전",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "66693805-7b41-45b6-8239-3df75ad8f075",
+      "before": {
+        "line_code": "info-OK-wisdom-2026w20",
+        "main_title": "누르기만 해도 힐링? 말랑이 열풍의 이유",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "60fa1b44-a9d3-47be-a826-8cf96bf9adae",
+      "before": {
+        "line_code": "info-OK-essay-2025w01",
+        "main_title": "[소비재/트렌드] 불확실성의 시대에 긍정의 고리를 덧씌우다…Z세대의 포지티브 모멘텀, ‘럭키비키’",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "2b56cf74-45fe-441d-aac6-5ed70f8a4657",
+      "before": {
+        "line_code": "info-OK-essay-2025w02",
+        "main_title": "[소비재/트렌드] 새해를 여는 단어 ‘아보하’… 무탈하고 평범한 일상의 가치",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "7d208b4b-e84a-4c0e-aa3b-b3b3a4c25576",
+      "before": {
+        "line_code": "info-OK-essay-2025w03",
+        "main_title": "[소비재/트렌드] 2025년에도 귀염뽀짝한게 최고야, 무해력! 무해함과 귀여움을 마케팅으로?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "1aa21bcf-1142-405c-9642-10bce4db6724",
+      "before": {
+        "line_code": "info-OK-essay-2025w04",
+        "main_title": "[트렌드/사회] \"YOLO is dying\" 줄인다는 것이 꼭 절약일 필요가 있을까? '작아지는' 시대의 마케팅!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "85eddbfb-12a9-475a-9a6c-ef0d72dbfff4",
+      "before": {
+        "line_code": "info-OK-essay-2025w06",
+        "main_title": "[트렌드/브랜딩] 헤리티지 마케팅.. 고리타분한거 아니야? 무엇이 소비자의 무의식에 박혀있는 역사가 되는가!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "29e5d48f-fd7d-4fb6-88f5-a1fcb586bef8",
+      "before": {
+        "line_code": "info-OK-essay-2025w07",
+        "main_title": "[소비재/유통] 저속노화 트렌드? 많이 먹어야 건강한 시대가 끝나는 것은 마케팅의 위기로 이어질까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "8a581a66-348f-4afa-9ff2-901d0d18af5e",
+      "before": {
+        "line_code": "info-OK-essay-2025w08",
+        "main_title": "[펫/소비재] 펫플루언서 마케팅은 새로운 시장의 개척인가? 아니면 그대로 이어온 클래식 마케팅의 연속인가?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "6eb079fa-8116-4486-b018-523f26cb4ef5",
+      "before": {
+        "line_code": "info-OK-essay-2025w10",
+        "main_title": "[소비재/헬스케어] 스위치온 다이어트가 파고든 틈새시장! 마케팅으로 주류 시장으로 움직일 수 있을까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "23d26735-fb9e-4c99-8463-af621aabb34d",
+      "before": {
+        "line_code": "info-OK-essay-2025w11",
+        "main_title": "[출판/트렌드] Z세대가 선택한 책, 베스트셀러 된다… ‘북톡’ 열풍! 독서가 혼자하는 것이 아닌 시대의 마케팅은?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "64828765-e438-4e2d-8081-b21fc7132954",
+      "before": {
+        "line_code": "info-OK-essay-2025w12",
+        "main_title": "[신개념/엔터테인먼트] 이스터에그 맛집으로 소문난 컴백 프로모션 K-pop 시장? 의도적 실수 or 이스터에그 마케팅인가!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "203eb32f-98c7-4cb4-af77-c0eee0c6333d",
+      "before": {
+        "line_code": "info-OK-essay-2025w13",
+        "main_title": "[IT/콘텐츠] 인스타그램 매거진이 종이잡지를 죽였다니까! 큐레이팅을 중심으로 한 마케팅.. 쉬운거 아니야?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "0625a40d-7329-4e73-a662-2445639abbe9",
+      "before": {
+        "line_code": "info-OK-essay-2025w14",
+        "main_title": "[미디어/컬쳐] 다시 팟캐스트가 돌아왔다고? 진중하고 조용한 팟캐스트를 통한 마케팅은 어떨까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "9549da8d-6e11-4aad-b243-a658578c9594",
+      "before": {
+        "line_code": "info-OK-essay-2025w18",
+        "main_title": "[브랜딩/트렌드] 광고도 감성도 과거로 돌아가는 중?! 노스탤지어 마케팅을 주목해야 하는 이유",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "746aa131-43d3-4823-98f7-55f4f510e5ef",
+      "before": {
+        "line_code": "info-OK-essay-2025w19",
+        "main_title": "[트렌드/컬쳐] \"저 잠깐 은퇴할게요\" : Z세데 사이에서 '마이크로 은퇴' 가 트렌드인 이유",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "f34eead7-3eab-4ca0-8bf6-97351f42496a",
+      "before": {
+        "line_code": "info-OK-essay-2025w20",
+        "main_title": "[생활/문화] 금수저보다 제철과일수저? 당연한 것이 떠오른다! MZ 트렌드 마케팅",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "e93cc96d-100a-4fd4-828c-d9f311cf23d2",
+      "before": {
+        "line_code": "info-OK-essay-2025w21",
+        "main_title": "[브랜딩/심리] AI 시대에 무슨 휴먼터치야? 하지만.. 결국 '사람' 인걸?! 휴먼터치 마케팅은 어쩌면 근본일지도?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "c88f8e70-b8d5-4d2c-85c9-38a9db3ce506",
+      "before": {
+        "line_code": "info-OK-essay-2025w22",
+        "main_title": "[브랜딩/트렌드] 고리타분한 클래식이 힙하다고? 클래식의 마이너 시장 취향 소비자에게 마케팅을 입힌다면?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "dda26b2b-983e-4109-8b2c-a5c0a1775dea",
+      "before": {
+        "line_code": "info-OK-essay-2025w27",
+        "main_title": "[소비재/광고] 긍정전문 아이돌X짜증전문 배우 캐스팅? 광고인듯 영화인듯 시네마틱 광고 마케팅!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "75755d03-e4ad-49f2-bd7d-51382dd86d75",
+      "before": {
+        "line_code": "info-OK-essay-2025w28",
+        "main_title": "[IT/서비스] 이제는 가식이 아닌 진정성과 즉시성이라고! 에스파 티저로도 쓰인 비리얼! 이것 뭐에요~?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "58f42c5b-7399-4449-956e-c331d38f90ee",
+      "before": {
+        "line_code": "info-OK-essay-2025w29",
+        "main_title": "[브랜딩/심리] LG가 마케팅을 못한다고? 사실 그게 전략이라는 말은 뭐야? 대중의 인지도는 마케팅으로!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "a8d87d08-53cb-4078-b36c-52d47d1145f6",
+      "before": {
+        "line_code": "info-OK-essay-2025w30",
+        "main_title": "[서비스/콘텐츠] '이거 광고야' 새롭게 등장한 광고 패러다임? '이래도 되는 광고' 와 '이상한 광고' 의 마케팅!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "f9999998-0ac2-43df-be55-26a977740341",
+      "before": {
+        "line_code": "info-OK-essay-2025w31",
+        "main_title": "[시장/트렌드] 아무리 좋은 것이라도 나한테 안맞으면 그게 뭔데? 초개인화 마케팅은 일시적일까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "7b87f0c8-04dc-419a-8498-d45b2a93bb43",
+      "before": {
+        "line_code": "info-OK-essay-2025w32",
+        "main_title": "[소비재/트렌드] 대한민국 역사상 처음 맞닥뜨리는 작아지는 시장! 그 안에서의 절약 소비 트렌드 마케팅?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "1dc93989-8b8c-49ac-a8ba-4acbe6b78e6e",
+      "before": {
+        "line_code": "info-OK-essay-2025w33",
+        "main_title": "[콘텐츠/재산권] 웬즈데이가 역대급 콜라보와 함께 돌아왔다! 웬디스, 치토스 사례로 보는 IP 활용 전략은 어떤 마케팅으로?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "e80a4147-2588-46fb-bc54-78e0abe1dada",
+      "before": {
+        "line_code": "info-OK-essay-2025w34",
+        "main_title": "[유튜브/광고] 당연하겠지만..공공기관도 마케팅이 필요하다구! 어떤 스토리? 어떤 타이밍으로 들어가야 될까?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "3317f9f1-0dd0-40d4-94bd-c1d305bdb852",
+      "before": {
+        "line_code": "info-OK-essay-2025w36",
+        "main_title": "[소비재/트렌드] 초고령화시대라는 대한민국이면.. 시니어세대가 가장 큰 소비자 계층이겠지? 돌아보자, 시니어 마케팅!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "bbe60c36-1841-4e08-bb11-a4f2d7298984",
+      "before": {
+        "line_code": "info-OK-essay-2025w37",
+        "main_title": "[IT/서비스] 재화/서비스 보다 중요한건 이제 '경험' 이라구! CX 마케팅, 언제까지 미룰거니?",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "fab3dd9e-8430-45f9-a2a2-400903ca5dac",
+      "before": {
+        "line_code": "info-OK-essay-2025w38",
+        "main_title": "[트렌드/브랜딩] 포켓몬은 야구장에, 무신사는 GS25에? 업계를 넘나드는 요즘 콜라보 근황! 연결하자, 마케팅도!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "d6e69bd0-cb10-444f-9842-9e5b0017939c",
+      "before": {
+        "line_code": "info-OK-essay-2025w39",
+        "main_title": "[트렌드/IT] 출시 40년 된 칸쵸가 갑자기 유행템이 된 이유! 바이럴을 부르는 캠페인 설계법은 어떤 마케팅으로?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/35803",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%ec%b6%9c%ec%8b%9c-40%eb%85%84-%eb%90%9c-%ec%b9%b8%ec%b5%b8%ea%b0%80-%ea%b0%91%ec%9e%90%ea%b8%b0-%ec%9c%a0%ed%96%89%ed%85%9c%ec%9d%b4-%eb%90%9c-%ec%9d%b4%ec%9c%a0-%eb%b0%94%ec%9d%b4%eb%9f%b4%ec%9d%84/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "a346e754-18f3-4ebb-8b18-b356bf93f060",
+      "before": {
+        "line_code": "info-OK-essay-2025w40",
+        "main_title": "[브랜딩/소비재] K-럭셔리 브랜딩의 교과서? 젠몬·탬버린즈·누데이크로 살펴보는 아이아이컴바인드의 전략",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/36214",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/k-%eb%9f%ad%ec%85%94%eb%a6%ac-%eb%b8%8c%eb%9e%9c%eb%94%a9%ec%9d%98-%ea%b5%90%ea%b3%bc%ec%84%9c-%ec%a0%a0%eb%aa%ac%c2%b7%ed%83%ac%eb%b2%84%eb%a6%b0%ec%a6%88%c2%b7%eb%88%84%eb%8d%b0%ec%9d%b4%ed%81%ac/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "ed3dfed5-3ff8-4be0-a39a-b44173b9cb28",
+      "before": {
+        "line_code": "info-OK-essay-2025w44",
+        "main_title": "[콘텐츠/IT] 심은경이 왜 거기서 나와?! 빌드업부터 남달랐던 카카오페이 부캐 마케팅 뜯어보기!",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/36682",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%ec%8b%ac%ec%9d%80%ea%b2%bd%ec%9d%b4-%ec%99%9c-%ea%b1%b0%ea%b8%b0%ec%84%9c-%eb%82%98%ec%99%80-%eb%b9%8c%eb%93%9c%ec%97%85%eb%b6%80%ed%84%b0-%eb%82%a8%eb%8b%ac%eb%9e%90%eb%8d%98-%ec%b9%b4%ec%b9%b4/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "80ddbb58-aaa2-44b8-bb31-f2db419da901",
+      "before": {
+        "line_code": "info-OK-essay-2025w45",
+        "main_title": "[엔터테인먼트/소비재] 제니의 한글 폰트부터 붕어빵 액막이까지, Z세대 홀린 K-컬처 마케팅은?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/37039",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%ec%a0%9c%eb%8b%88%ec%9d%98-%ed%95%9c%ea%b8%80-%ed%8f%b0%ed%8a%b8%eb%b6%80%ed%84%b0-%eb%b6%95%ec%96%b4%eb%b9%b5-%ec%95%a1%eb%a7%89%ec%9d%b4%ea%b9%8c%ec%a7%80-z%ec%84%b8%eb%8c%80-%ed%99%80%eb%a6%b0-k/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "81c16350-195d-4152-9550-e3601650948b",
+      "before": {
+        "line_code": "info-OK-essay-2025w46",
+        "main_title": "[AI/광고] APEC 광고가 AI가 아니라고? AI 시대에 브랜드가 할 수 있는 차별화 전략! 기술보다 사람을 보여주자구!",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/37409",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/apec-%ea%b4%91%ea%b3%a0%ea%b0%80-ai%ea%b0%80-%ec%95%84%eb%8b%88%eb%9d%bc%ea%b3%a0-ai-%ec%8b%9c%eb%8c%80%ec%97%90-%eb%b8%8c%eb%9e%9c%eb%93%9c%ea%b0%80-%ed%95%a0-%ec%88%98-%ec%9e%88%eb%8a%94-%ec%b0%a8/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "c0e0c2ce-6187-41ed-b285-e7a3b38dc359",
+      "before": {
+        "line_code": "info-OK-essay-2025w47",
+        "main_title": "[소비재/트렌드] 텐텐 키링, 코닥 차메라… SNS에서 난리 난 굿즈들의 공통점은 ‘리얼리티’? 이색굿즈, 소비자의 마음을 사로잡다!",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/37765",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%ed%85%90%ed%85%90-%ed%82%a4%eb%a7%81-%ec%bd%94%eb%8b%a5-%ec%b0%a8%eb%a9%94%eb%9d%bc-sns%ec%97%90%ec%84%9c-%eb%82%9c%eb%a6%ac-%eb%82%9c-%ea%b5%bf%ec%a6%88%eb%93%a4%ec%9d%98-%ea%b3%b5%ed%86%b5/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "1036fbfc-7449-4d22-bdcd-3a76b38c26c8",
+      "before": {
+        "line_code": "info-OK-essay-2025w48",
+        "main_title": "[브랜딩/전략] 투썸과 포르쉐가 손잡은 이유? 인기 F&B 콜라보 사례로 보는 전략 포인트! 다른 이미지를 융합하는 마케팅?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/38107",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%ed%88%ac%ec%8d%b8%ea%b3%bc-%ed%8f%ac%eb%a5%b4%ec%89%90%ea%b0%80-%ec%86%90%ec%9e%a1%ec%9d%80-%ec%9d%b4%ec%9c%a0-%ec%9d%b8%ea%b8%b0-fb-%ec%bd%9c%eb%9d%bc%eb%b3%b4-%ec%82%ac%eb%a1%80%eb%a1%9c/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "a655928a-9da6-4296-8864-8618ed36d126",
+      "before": {
+        "line_code": "info-OK-essay-2026w01",
+        "main_title": "[브랜딩/심리] 향기 마케팅 사례 모음: 오감 중 가장 민감한 후각으로 설계하는 브랜드 경험! 마케팅의 냄새는 어떤 것인가?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/38720",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%ed%96%a5%ea%b8%b0-%eb%a7%88%ec%bc%80%ed%8c%85-%ec%82%ac%eb%a1%80-%eb%aa%a8%ec%9d%8c-%ec%98%a4%ea%b0%90-%ec%a4%91-%ea%b0%80%ec%9e%a5-%eb%af%bc%ea%b0%90%ed%95%9c-%ed%9b%84%ea%b0%81%ec%9c%bc%eb%a1%9c/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "ecbbc586-66f2-4106-9328-76b0c21cf46d",
+      "before": {
+        "line_code": "info-OK-essay-2026w02",
+        "main_title": "[소비자/브랜딩] 치킨 브랜드가 왜 찜질방에서 행사를? 오븐에빠진닭 ‘핑계정산소’의 영리한 경험 설계! 더할 수 있는 것은 마케팅으로!",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/38946",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%ec%b9%98%ed%82%a8-%eb%b8%8c%eb%9e%9c%eb%93%9c%ea%b0%80-%ec%99%9c-%ec%b0%9c%ec%a7%88%eb%b0%a9%ec%97%90%ec%84%9c-%ed%96%89%ec%82%ac%eb%a5%bc-%ec%98%a4%eb%b8%90%ec%97%90%eb%b9%a0%ec%a7%84%eb%8b%ad/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "8505efe5-0cd7-4d1e-9fd4-039f69385828",
+      "before": {
+        "line_code": "info-OK-essay-2026w03",
+        "main_title": "[금융/브랜딩] 연금 저축 얘기하는 브랜드 계정?! 착한구두의 엑스 마케팅이 특별한 이유! 진심이 담긴 공감 마케팅",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/39229",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%ec%97%b0%ea%b8%88-%ec%a0%80%ec%b6%95-%ec%96%98%ea%b8%b0%ed%95%98%eb%8a%94-%eb%b8%8c%eb%9e%9c%eb%93%9c-%ea%b3%84%ec%a0%95-%ec%b0%a9%ed%95%9c%ea%b5%ac%eb%91%90%ec%9d%98-%ec%97%91%ec%8a%a4-%eb%a7%88/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "2f31c37a-711d-4127-b1cf-1be04f78e0d4",
+      "before": {
+        "line_code": "info-OK-essay-2026w04",
+        "main_title": "[브랜딩/광고] 단순 협찬·공동 구매 말고! 신박한 인플루언서 마케팅 사례 4가지 : 이제는 스토리를 부여해야 한다구!?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/39456",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%eb%8b%a8%ec%88%9c-%ed%98%91%ec%b0%ac%c2%b7%ea%b3%b5%eb%8f%99-%ea%b5%ac%eb%a7%a4-%eb%a7%90%ea%b3%a0-%ec%8b%a0%eb%b0%95%ed%95%9c-%ec%9d%b8%ed%94%8c%eb%a3%a8%ec%96%b8%ec%84%9c-%eb%a7%88%ec%bc%80/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "37168422-d9a2-4894-a209-fadb3abf923e",
+      "before": {
+        "line_code": "info-OK-essay-2026w05",
+        "main_title": "[브랜딩/광고] 침착맨이 드디어 롯데리아를 인정했다?! 모델 서사 제대로 써먹은 브랜드 캠페인 사례 : 신뢰를 복원하는 마케팅",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/39744",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%ec%b9%a8%ec%b0%a9%eb%a7%a8%ec%9d%b4-%eb%93%9c%eb%94%94%ec%96%b4-%eb%a1%af%eb%8d%b0%eb%a6%ac%ec%95%84%eb%a5%bc-%ec%9d%b8%ec%a0%95%ed%96%88%eb%8b%a4-%eb%aa%a8%eb%8d%b8-%ec%84%9c%ec%82%ac-%ec%a0%9c/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "d78b02a1-2399-4f61-8433-a72009ce326d",
+      "before": {
+        "line_code": "info-OK-essay-2026w06",
+        "main_title": "[엔터테인먼트/신개념] 팝업스토어, 부계 말고? 갈수록 참신해지는 엔터테인먼트 마케팅 사례 7가지 : 경험과 관계로 가치를!",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/40024",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%ed%8c%9d%ec%97%85%ec%8a%a4%ed%86%a0%ec%96%b4-%eb%b6%80%ea%b3%84-%eb%a7%90%ea%b3%a0-%ea%b0%88%ec%88%98%eb%a1%9d-%ec%b0%b8%ec%8b%a0%ed%95%b4%ec%a7%80%eb%8a%94-%ec%97%94%ed%84%b0%ed%85%8c%ec%9d%b8/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "815b3c31-57e3-48c3-9b0d-0e5522799915",
+      "before": {
+        "line_code": "info-OK-essay-2026w07",
+        "main_title": "[패션/소비재] 에이블리·무신사·지그재그 비교 분석: 치열한 패션 플랫폼 시장에서 살아남는 법 : 소비자는 무엇을 보고 싶은가?",
+        "is_active": true,
+        "output_links": [
+          {
+            "url": "https://cafe.naver.com/oranke/40257",
+            "label": "[에세이] 진행장소"
+          },
+          {
+            "url": "https://gogumafarm.kr/%ec%97%90%ec%9d%b4%eb%b8%94%eb%a6%ac%c2%b7%eb%ac%b4%ec%8b%a0%ec%82%ac%c2%b7%ec%a7%80%ea%b7%b8%ec%9e%ac%ea%b7%b8-%eb%b9%84%ea%b5%90-%eb%b6%84%ec%84%9d-%ec%b9%98%ec%97%b4%ed%95%9c-%ed%8c%a8%ec%85%98/",
+            "label": "[에세이] 주제/소재"
+          }
+        ]
+      },
+      "action": "update"
+    },
+    {
+      "id": "57e33d3c-2ad3-46d3-b60a-4a1c33feff6f",
+      "before": {
+        "line_code": "info-OK-essay-2026w10",
+        "main_title": "[엔터테인먼트/신개념] ‘밤티크림’ 체험단 수천 명이 몰렸다고? 올리브영 사례로 본 사전 마케팅 전략",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "b1e4663c-cd05-42e6-b710-67d9215e1db5",
+      "before": {
+        "line_code": "info-OK-essay-2026w11",
+        "main_title": "[소비자/브랜딩] 벚꽃·만우절·지구의 날… 4월 시즈널 마케팅 대비를 위한 레퍼런스 총정리!",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "aabe9534-9b19-4854-b532-b473b7b6dd88",
+      "before": {
+        "line_code": "info-OK-essay-2026w12",
+        "main_title": "[AI/기술] AI 기본법, 마케터도 적용 대상일까? AI 생성 콘텐츠 표기 기준 총정리",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "a1d642e6-28e4-4642-bcc8-aaf763a94f98",
+      "before": {
+        "line_code": "info-OK-essay-2026w13",
+        "main_title": "[문화/미디어] 이색 상영회부터 브랜드 편승까지! <왕과 사는 남자> 마케팅 총정리",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "1e514a55-e77f-40d3-80ba-57e3454364a8",
+      "before": {
+        "line_code": "info-OK-essay-2026w14",
+        "main_title": "[문화/브랜딩] 힙한 브랜드 피드는 이렇게 만든다! 디지털 코어 콘텐츠 레퍼런스 모음.zip",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "096bcb50-ee46-4b8c-b8d0-1b38b2edf8fd",
+      "before": {
+        "line_code": "info-OK-essay-2026w18",
+        "main_title": "유미의 미니홈피부터 살목지 공포 금기집까지! 과몰입 유발하는 요즘 IP 마케팅",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "af2b0d15-4b56-4da4-bf0c-4da8fa535fbc",
+      "before": {
+        "line_code": "info-OK-essay-2026w19",
+        "main_title": "초여름·장마·환경의 날… 6월 시즈널 키워드를 제대로 활용한 마케팅 레퍼런스",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    },
+    {
+      "id": "e5e603bb-e47d-4961-b23d-4b3daf51a505",
+      "before": {
+        "line_code": "info-OK-essay-2026w20",
+        "main_title": "살목지에 가면 듀오 귀신이 나온다? 바이럴을 부른 최신 브랜드 숏폼 5가지",
+        "is_active": true,
+        "output_links": []
+      },
+      "action": "update"
+    }
+  ],
+  "insertedIds": [
+    "716fe6d1-6330-4a57-b554-3012e271676a",
+    "32cbe764-1c8f-452d-a042-3f4c6024205f",
+    "07719806-ae00-4678-95bb-fbaa5a8804d1",
+    "3f380d75-9b36-47bc-856d-d554a9eeb526",
+    "9a1f21ba-ed82-45b7-8679-d1e5bf4a4faf",
+    "5d615d68-4efa-4308-8b60-71e0c7049f86",
+    "fe285aae-304a-4b19-a95c-bc5a44996df6"
+  ]
+}
