@@ -49,12 +49,22 @@ const SEASON_OPTIONS: { key: SeasonToken; label: string }[] = [
 // 주차 선택: 0~18
 const WEEK_OPTIONS = Array.from({ length: 19 }, (_, i) => String(i));
 
-type ActivityKey = "official" | "rest";
+type ActivityKey = "official" | "rest" | "transition";
 
 const ACTIVITY_OPTIONS: { key: ActivityKey; label: string }[] = [
   { key: "official", label: "공식 활동" },
   { key: "rest", label: "공식 휴식" },
+  { key: "transition", label: "전환 주차" },
 ];
+
+// 시즌별 정규 주수 — 전환 주차(정규 주수 +1) 검증용. 백엔드 SEASON_WEEKS 미러.
+//   전환 주차 번호 = SEASON_WEEKS + 1 (봄/가을 17, 여름/겨울 9).
+const SEASON_WEEKS: Record<SeasonToken, number> = {
+  winter: 8,
+  spring: 16,
+  summer: 8,
+  autumn: 16,
+};
 
 // base-ui Select 는 items 매핑이 있어야 닫힌 트리거에 라벨을 표시한다.
 const YEAR_ITEMS = [
@@ -264,6 +274,7 @@ export default function PeriodRegisterForm() {
 
     const seasonKey = `${regYear}-${regSeason}`;
     const weekNumber = Number(regWeek);
+    const isTransition = activity === "transition";
 
     // 시험기간 고정 휴식: 봄/가을 6~8·14~16주차는 공식 휴식 고정 — 공식 활동 등록 차단.
     // (백엔드 POST 에서도 동일 규칙으로 재검증한다 — 400)
@@ -274,6 +285,20 @@ export default function PeriodRegisterForm() {
     if (activity === "official" && isExamRestWeek) {
       alert("해당 주차는 시험기간 공식 휴식 주차입니다.");
       return;
+    }
+
+    // 전환 주차: 시즌 정규 주수 +1 (봄/가을 17주, 여름/겨울 9주)만 등록 가능.
+    //   저장 DTO 는 그대로(is_official_rest=false) — is_transition 은 week_number 로 파생되므로
+    //   주차 번호가 맞지 않으면 조회 시 전환으로 잡히지 않아 등록 단계에서 차단한다.
+    //   (백엔드 POST 에서도 동일 규칙으로 재검증한다 — 400)
+    if (isTransition) {
+      const expectedWeek = SEASON_WEEKS[regSeason as SeasonToken] + 1;
+      if (weekNumber !== expectedWeek) {
+        const seasonLabel =
+          SEASON_OPTIONS.find((o) => o.key === regSeason)?.label ?? regSeason;
+        alert(`전환 주차는 ${seasonLabel} 시즌 ${expectedWeek}주차여야 합니다.`);
+        return;
+      }
     }
 
     // 프론트 중복 검증 — 기간 정보와 동일한 rows(season_key+week_number) 기준.
@@ -295,7 +320,10 @@ export default function PeriodRegisterForm() {
           year: Number(regYear),
           season_type: regSeason,
           week_number: weekNumber,
+          // 전환 주차도 저장 표현은 공식 활동과 동일(is_official_rest=false). 전환 여부는
+          // week_number(정규 주수 +1)로 조회 시 파생되며, is_transition 은 백엔드 교차검증용.
           is_official_rest: activity === "rest",
+          is_transition: isTransition,
           note: trimmedNote.length > 0 ? trimmedNote : null,
           week_start_date: selectedCandidate.start,
           week_end_date: selectedCandidate.end,

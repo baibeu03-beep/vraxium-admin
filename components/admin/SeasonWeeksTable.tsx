@@ -230,7 +230,21 @@ function rowRemark(row: SeasonWeekRow): string {
   return "";
 }
 
-function ActivityBadge({ isRest }: { isRest: boolean }) {
+function ActivityBadge({
+  isRest,
+  isTransition,
+}: {
+  isRest: boolean;
+  isTransition?: boolean;
+}) {
+  // 전환 주차는 공식 휴식이 아니므로(is_official_rest=false) 별도 배지로 표기한다.
+  if (isTransition) {
+    return (
+      <span className="inline-flex h-6 items-center rounded-md bg-sky-100 px-2 text-xs font-medium text-sky-800 ring-1 ring-sky-200">
+        전환 주차
+      </span>
+    );
+  }
   return (
     <span
       className={cn(
@@ -554,7 +568,10 @@ export default function SeasonWeeksTable() {
                       {row.week_number ?? "-"}
                     </TableCell>
                     <TableCell>
-                      <ActivityBadge isRest={row.is_official_rest} />
+                      <ActivityBadge
+                        isRest={row.is_official_rest}
+                        isTransition={row.is_transition}
+                      />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {rowRemark(row)}

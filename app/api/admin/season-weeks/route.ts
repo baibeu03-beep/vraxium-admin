@@ -370,6 +370,9 @@ type RegisterBody = {
   season_type?: unknown;
   week_number?: unknown;
   is_official_rest?: unknown;
+  // 전환 주차 의도(선택). 저장 컬럼 없음 — is_transition 은 week_number(정규 주수 +1)로
+  // GET 에서 파생된다. 본 필드는 교차검증 전용이며 미전송(undefined)이면 기존 흐름과 동일.
+  is_transition?: unknown;
   note?: unknown;
   week_start_date?: unknown;
   week_end_date?: unknown;
@@ -445,6 +448,29 @@ export async function POST(request: Request) {
     return badRequest("활동 구분(공식 활동/공식 휴식)을 선택해야 합니다.");
   }
   const isOfficialRest = body.is_official_rest;
+
+  // 전환 주차(선택): 저장 표현은 공식 활동과 동일(is_official_rest=false)이며 별도 컬럼이 없다.
+  //   전환 여부는 GET 에서 week_number(정규 주수 +1)로 파생되므로, 여기서는 의도와 주차 번호가
+  //   어긋나는 등록(전환인데 휴식·전환 번호가 아님)을 차단해 조회 시 전환으로 잡히도록 보장한다.
+  let isTransition = false;
+  if (body.is_transition != null) {
+    if (typeof body.is_transition !== "boolean") {
+      return badRequest("전환 주차 여부는 true/false 여야 합니다.");
+    }
+    isTransition = body.is_transition;
+  }
+  if (isTransition) {
+    if (isOfficialRest) {
+      return badRequest("전환 주차는 공식 휴식으로 등록할 수 없습니다.");
+    }
+    const regularWeeks = SEASON_WEEKS[seasonType as RegisterSeasonType];
+    if (regularWeeks == null) {
+      return badRequest("시즌 정규 주수를 확인할 수 없습니다.");
+    }
+    if (weekNumber !== regularWeeks + 1) {
+      return badRequest(`전환 주차는 ${regularWeeks + 1}주차여야 합니다.`);
+    }
+  }
 
   // 시험기간 고정 휴식(2026-06-07 정책 확정): 봄/가을 6~8·14~16주차는 공식 휴식 고정 —
   // "공식 활동" 등록을 차단한다. (설/추석/기타는 주차가 매년 달라 관리자 휴식 등록으로 처리)
@@ -661,6 +687,8 @@ export async function POST(request: Request) {
         week_start_date: startDate,
         week_end_date: endDate,
         is_official_rest: isOfficialRest,
+        // 파생 표시값 — GET 의 is_transition 과 동일 기준(week_number > 정규 주수).
+        is_transition: isTransition,
         holiday_name: note,
         rest_period_id: restPeriodId,
       },
