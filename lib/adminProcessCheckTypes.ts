@@ -60,13 +60,13 @@ export function isSelectionActType(actType: ProcessActType | string | null | und
   return actType === "selection";
 }
 
-// 액트 행 상태 라벨 — 완료가 수동 입력이면 "수동 입력 완료", 그 외는 기본 라벨.
-//   (UI 용어 통일: 정규 프로세스 체크는 '검수 링크'/'수동 입력' — 저장값 enum 은 manual_grant 유지.)
+// 액트 행 상태 라벨 — 완료가 수동 부여면 "수동 부여 완료", 그 외는 기본 라벨.
+//   (UI 용어 통일 SoT: '링크 신청'/'수동 부여' — 저장값 enum 은 manual_grant 유지.)
 export function processCheckActStatusLabel(
   status: ProcessCheckStatus,
   completionType: "manual_grant" | null,
 ): string {
-  if (status === "completed" && completionType === "manual_grant") return "수동 입력 완료";
+  if (status === "completed" && completionType === "manual_grant") return "수동 부여 완료";
   return processCheckButtonLabel(status);
 }
 
@@ -109,11 +109,11 @@ export function validateScheduledCheckAt(scheduledIso: string, nowMs: number): S
 // 검수 링크 검증 — 네이버 카페 게시물 링크(필수). http(s) URL 만 강제(호스트는 강제하지 않음).
 export function validateReviewLink(raw: unknown): { ok: true; value: string } | { ok: false; error: string } {
   if (typeof raw !== "string" || raw.trim().length === 0) {
-    return { ok: false, error: "검수 링크(네이버 카페 게시물 링크)는 필수입니다" };
+    return { ok: false, error: "링크(네이버 카페 게시물 링크)는 필수입니다" };
   }
   const v = raw.trim();
   if (!/^https?:\/\/\S+$/i.test(v)) {
-    return { ok: false, error: "검수 링크는 http(s) URL 이어야 합니다" };
+    return { ok: false, error: "링크는 http(s) URL 이어야 합니다" };
   }
   return { ok: true, value: v };
 }

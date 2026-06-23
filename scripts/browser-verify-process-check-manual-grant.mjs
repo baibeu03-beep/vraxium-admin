@@ -83,9 +83,9 @@ try {
   // (2) 필수 액트 "체크 필요" 클릭 → 기존 신청 모달(검수 링크 입력 노출, 선택 모달 아님).
   await reqRow.locator('button:has-text("체크 필요")').first().click();
   await page.waitForTimeout(400);
-  const reqDialogReview = await page.locator('text=검수 링크').first().isVisible().catch(() => false);
+  const reqDialogReview = await page.locator('input[placeholder="https://cafe.naver.com/..."]').first().isVisible().catch(() => false);
   const reqChooser = await page.locator('text=체크 방식을 선택').first().isVisible().catch(() => false);
-  ck("[2] 필수 액트 → 기존 신청 모달(검수 링크 입력) · 선택 모달 아님", reqDialogReview && !reqChooser, J({ review: reqDialogReview, chooser: reqChooser }));
+  ck("[2] 필수 액트 → 기존 신청 모달(링크 입력) · 선택 모달 아님", reqDialogReview && !reqChooser, J({ review: reqDialogReview, chooser: reqChooser }));
   await page.mouse.click(5, 5);
   await page.waitForTimeout(300);
 
@@ -93,17 +93,20 @@ try {
   await selRow.locator('button:has-text("체크 필요")').first().click();
   await page.waitForTimeout(400);
   const choiceVisible = await page.locator('text=체크 방식을 선택').first().isVisible().catch(() => false);
-  const hasReviewBtn = await page.locator('button:has-text("검수 링크")').first().isVisible().catch(() => false);
-  const hasManualBtn = await page.locator('button:has-text("수동 입력")').first().isVisible().catch(() => false);
-  ck("[3] 선별 액트 → 선택 모달 [검수 링크]/[수동 입력]", choiceVisible && hasReviewBtn && hasManualBtn, J({ choice: choiceVisible, rev: hasReviewBtn, man: hasManualBtn }));
+  const hasReviewBtn = await page.locator('button:has-text("링크 신청")').first().isVisible().catch(() => false);
+  const hasManualBtn = await page.locator('button:has-text("수동 부여")').first().isVisible().catch(() => false);
+  ck("[3] 선별 액트 → 선택 모달 [링크 신청]/[수동 부여]", choiceVisible && hasReviewBtn && hasManualBtn, J({ choice: choiceVisible, rev: hasReviewBtn, man: hasManualBtn }));
+  // 용어 통일 — 선택 모달에 구 용어('검수 링크'/'수동 입력') 미노출.
+  const chooserTxt = await page.locator('text=체크 방식을 선택').locator('xpath=ancestor::div[contains(@class,"rounded-xl")]').first().innerText().catch(() => "");
+  ck("[3] 선택 모달에 '검수 링크'/'수동 입력' 없음", !chooserTxt.includes("검수 링크") && !chooserTxt.includes("수동 입력"), chooserTxt.replace(/\s+/g, " ").slice(0, 60));
 
-  // (5) 수동 입력 클릭 → 직접 입력 모달.
-  await page.locator('button:has-text("수동 입력")').first().click();
+  // (5) 수동 부여 클릭 → 직접 입력 모달.
+  await page.locator('button:has-text("수동 부여")').first().click();
   await page.waitForTimeout(400);
-  const mgTitle = await page.locator('text=수동 입력').first().isVisible().catch(() => false);
+  const mgTitle = await page.locator('text=수동 부여').first().isVisible().catch(() => false);
   const hasActName = await page.locator('label:has-text("액트명")').first().isVisible().catch(() => false);
   const hasTargetCrew = await page.locator('text=대상 크루').first().isVisible().catch(() => false);
-  ck("[5] 수동 입력 → 직접 입력 모달(액트명·대상 크루)", mgTitle && hasActName && hasTargetCrew, J({ t: mgTitle, name: hasActName, crew: hasTargetCrew }));
+  ck("[5] 수동 부여 → 직접 입력 모달(액트명·대상 크루)", mgTitle && hasActName && hasTargetCrew, J({ t: mgTitle, name: hasActName, crew: hasTargetCrew }));
 
   // (6) 포인트 C select disabled(시각적 비활성).
   const pcSelect = page.locator('select[aria-label="포인트 C"]').first();
@@ -114,9 +117,9 @@ try {
   // (4) 다시 선택 모달 → 검수 링크 → 기존 신청 모달(검수 링크 입력).
   await page.mouse.click(5, 5); await page.waitForTimeout(300);
   await selRow.locator('button:has-text("체크 필요")').first().click(); await page.waitForTimeout(300);
-  await page.locator('button:has-text("검수 링크")').first().click(); await page.waitForTimeout(400);
-  const revDialog = await page.locator('text=검수 링크').first().isVisible().catch(() => false);
-  ck("[4] 선택 모달 → 검수 링크 → 기존 신청 모달(검수 링크 입력)", revDialog);
+  await page.locator('button:has-text("링크 신청")').first().click(); await page.waitForTimeout(400);
+  const revDialog = await page.locator('input[placeholder="https://cafe.naver.com/..."]').first().isVisible().catch(() => false);
+  ck("[4] 선택 모달 → 링크 신청 → 기존 신청 모달(링크 입력)", revDialog);
   await page.mouse.click(5, 5); await page.waitForTimeout(300);
 
   // (7) 저장 — 마이그레이션 적용 시에만 실제 부여 + "수동 입력 완료" 라벨 확인.
@@ -127,7 +130,7 @@ try {
       .find((u) => markers.has(u.user_id) && (u.display_name ?? "").trim().length >= 2);
     if (testCrew) {
       await selRow.locator('button:has-text("체크 필요")').first().click(); await page.waitForTimeout(300);
-      await page.locator('button:has-text("수동 입력")').first().click(); await page.waitForTimeout(400);
+      await page.locator('button:has-text("수동 부여")').first().click(); await page.waitForTimeout(400);
       await page.locator('input[placeholder="이름으로 검색"]').first().fill((testCrew.display_name ?? "").trim());
       await page.waitForTimeout(900);
       const opt = page.locator('div.absolute button', { hasText: (testCrew.display_name ?? "").trim() }).first();
@@ -141,7 +144,7 @@ try {
         await page.waitForTimeout(1200);
         const selRowAfter = page.locator(`tr:has-text("${TAG}selection")`).first();
         const label = await selRowAfter.innerText().catch(() => "");
-        ck("[7] 저장 후 행 '수동 입력 완료' 표시", label.includes("수동 입력 완료"), label.replace(/\s+/g, " ").slice(0, 80));
+        ck("[7] 저장 후 행 '수동 부여 완료' 표시", label.includes("수동 부여 완료"), label.replace(/\s+/g, " ").slice(0, 80));
       } else {
         ck("[7] 저장 — 검색 결과 없음(스킵)", true, "자동완성 옵션 미노출");
       }

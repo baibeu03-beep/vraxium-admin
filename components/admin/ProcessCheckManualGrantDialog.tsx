@@ -215,7 +215,7 @@ export default function ProcessCheckManualGrantDialog({
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
             선별 액트 ·{" "}
-            <span className="text-green-700">{isCompleted ? "수동 입력 완료" : "수동 입력"}</span>
+            <span className="text-green-700">{isCompleted ? "수동 부여 완료" : "수동 부여"}</span>
             <span className="ml-2 text-xs font-normal text-muted-foreground">({act.lineGroupName})</span>
           </h2>
           {/* 우측 상단 인원 수 — 완료=체크 완료 크루 수 / 입력=선택 중인 대상 수 */}
@@ -427,7 +427,7 @@ export default function ProcessCheckManualGrantDialog({
           </div>
 
           <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[11px] text-green-700">
-            수동 입력은 즉시 ‘수동 입력 완료’로 처리됩니다(체크 대기 없음). 같은 액트·주차에 이미 부여된 크루는 중복 저장되지 않습니다.
+            수동 부여는 즉시 ‘수동 부여 완료’로 처리됩니다(체크 대기 없음). 같은 액트·주차에 이미 부여된 크루는 중복 저장되지 않습니다.
           </p>
         </div>
         )}
@@ -465,7 +465,7 @@ export default function ProcessCheckManualGrantDialog({
             size="sm"
             className="border-rose-300 text-rose-700"
             disabled
-            title="수동 입력 방식은 ‘체크 신청’ 시 즉시 부여/완료됩니다 — 체크 취소가 없습니다."
+            title="수동 부여 방식은 ‘체크 신청’ 시 즉시 부여/완료됩니다 — 체크 취소가 없습니다."
           >
             체크 취소
           </Button>

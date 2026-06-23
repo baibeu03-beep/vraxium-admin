@@ -219,7 +219,7 @@ export default function ProcessCheckActDialog({
           {status === "needed" ? (
             <>
               <label className="text-xs text-muted-foreground">
-                검수 링크 <span className="text-red-500">*</span> (네이버 카페 게시물 링크)
+                링크 <span className="text-red-500">*</span> (네이버 카페 게시물 링크)
               </label>
               <Input
                 value={reviewLink}
@@ -229,7 +229,7 @@ export default function ProcessCheckActDialog({
               />
             </>
           ) : (
-            <Field label="검수 링크">
+            <Field label="링크">
               {act.reviewLink ? (
                 <a href={act.reviewLink} target="_blank" rel="noreferrer" className="text-blue-600 underline">
                   {act.reviewLink}

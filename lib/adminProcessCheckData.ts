@@ -135,7 +135,7 @@ async function completionColumnsAvailable(): Promise<boolean> {
 }
 
 const MANUAL_GRANT_MIGRATION_HINT =
-  "선별 액트 수동 입력은 completion_type/manual_point_* 컬럼이 필요합니다. db/migrations/2026-06-18_process_check_manual_grant.sql 을 SQL Editor 에서 적용해주세요.";
+  "선별 액트 수동 부여는 completion_type/manual_point_* 컬럼이 필요합니다. db/migrations/2026-06-18_process_check_manual_grant.sql 을 SQL Editor 에서 적용해주세요.";
 
 // 선택 팀의 팀명 조회(org·active 검증). 없으면 null.
 async function resolveTeamName(teamId: string, organization: string): Promise<string | null> {
@@ -1299,7 +1299,7 @@ export async function applyProcessManualGrant(input: {
 
   const week = await resolveCurrentWeek(hub, mode);
   if (!week?.weekId) {
-    throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 수동 입력을 저장할 수 없습니다");
+    throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 수동 부여를 저장할 수 없습니다");
   }
   const weekId = week.weekId;
 
@@ -1346,7 +1346,7 @@ export async function applyProcessManualGrant(input: {
   if (!act.is_active) throw new ProcessMasterError(409, "비활성 액트는 부여할 수 없습니다");
   if (act.check_target !== "check") throw new ProcessMasterError(409, "체크 대상이 아닌 액트입니다");
   if (act.act_type !== "selection") {
-    throw new ProcessMasterError(422, "수동 입력은 ‘선별’ 액트에만 가능합니다");
+    throw new ProcessMasterError(422, "수동 부여는 ‘선별’ 액트에만 가능합니다");
   }
 
   const { data: groupData } = await supabaseAdmin
@@ -1362,7 +1362,7 @@ export async function applyProcessManualGrant(input: {
     const scopeKind = isProcessCheckScopeKind(input.scope) ? input.scope : null;
     if (!scopeKind) throw new ProcessMasterError(422, "체크 범위(scope: team_overall|part)가 필요합니다");
     if (!isCheckableScope(scopeKind)) {
-      throw new ProcessMasterError(422, "‘팀 전체’ 범위에서는 수동 입력을 할 수 없습니다");
+      throw new ProcessMasterError(422, "‘팀 전체’ 범위에서는 수동 부여를 할 수 없습니다");
     }
     const actIsPart = isPartLineGroupName(lineGroupName);
     if (scopeKind === "team_overall") {
@@ -1411,7 +1411,7 @@ export async function applyProcessManualGrant(input: {
         ),
       )
     : [];
-  if (ids.length === 0) throw new ProcessMasterError(400, "수동 입력은 대상 크루를 1명 이상 선택해야 합니다");
+  if (ids.length === 0) throw new ProcessMasterError(400, "수동 부여는 대상 크루를 1명 이상 선택해야 합니다");
   const scope = await resolveUserScope(mode, organization as OrganizationSlug);
   assertUserIdsInScope(scope, ids);
   const { data: profs, error: pErr } = await supabaseAdmin
@@ -1452,7 +1452,7 @@ export async function applyProcessManualGrant(input: {
   const current = cur as { id: string; status: ProcessCheckStatus; completion_type: string | null } | null;
   if (current) {
     if (current.status === "pending") {
-      throw new ProcessMasterError(409, "검수 링크로 체크 대기 중인 액트입니다. 먼저 체크 취소 후 수동 입력하세요.");
+      throw new ProcessMasterError(409, "링크 신청으로 체크 대기 중인 액트입니다. 먼저 체크 취소 후 수동 부여하세요.");
     }
     if (current.status === "completed" && current.completion_type !== "manual_grant") {
       throw new ProcessMasterError(409, "이미 검수로 체크 완료된 액트입니다.");

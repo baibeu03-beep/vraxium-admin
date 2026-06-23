@@ -83,6 +83,12 @@ try {
   await page.waitForTimeout(900);
   const body = (await page.locator("body").textContent()) ?? "";
 
+  // ── 용어 통일 — 보드(표/통계)에 구 용어 '검수 링크/검수 신청/수동 입력' 미노출 + 신규 용어 노출 ──
+  ck("[용어] 보드에 '검수 링크' 없음", !body.includes("검수 링크"));
+  ck("[용어] 보드에 '검수 신청' 없음", !body.includes("검수 신청"));
+  ck("[용어] 보드에 '수동 입력' 없음", !body.includes("수동 입력"));
+  ck("[용어] 보드에 '링크 신청' · '수동 부여' 노출", body.includes("링크 신청") && body.includes("수동 부여"));
+
   // ── 버튼 [전원][부분] ──
   ck("[버튼] 전원", await page.getByRole("button", { name: "전원", exact: true }).count() > 0);
   ck("[버튼] 부분", await page.getByRole("button", { name: "부분", exact: true }).count() > 0);
@@ -116,11 +122,11 @@ try {
   await page.getByRole("button", { name: "전원", exact: true }).click();
   await page.waitForTimeout(400);
   const allModal = page.locator(".fixed.inset-0.z-50").last();
-  ck("[전원] 모달 — '검수 링크 신청' 제목", (await allModal.getByText("검수 링크 신청").count()) > 0);
+  ck("[전원] 모달 — '링크 신청' 제목", (await allModal.getByText("링크 신청").count()) > 0);
   ck("[전원] 액트 종류 '전원 (고정)'", (await allModal.getByText("전원 (고정)").count()) > 0);
   ck("[전원] 포인트 방식 라디오 없음(전원=A/B/C 자유)", (await allModal.getByRole("radio").count()) === 0);
   ck("[전원] 포인트 A/B/C 모두 활성", !(await allModal.locator('select[aria-label="포인트 A"]').isDisabled()) && !(await allModal.locator('select[aria-label="포인트 C"]').isDisabled()));
-  ck("[전원] 검수 링크 입력 존재", (await allModal.getByPlaceholder("https://cafe.naver.com/...").count()) > 0);
+  ck("[전원] 링크 입력 존재", (await allModal.getByPlaceholder("https://cafe.naver.com/...").count()) > 0);
   // 하단 버튼 순서: 초기화 | 체크 신청 | 체크 취소.
   const allBtns = (await allModal.locator("div.mt-4.flex button").allTextContents()).map((t) => t.trim());
   ck("[전원] 하단 버튼 '초기화 | 체크 신청 | 체크 취소' 순서", JSON.stringify(allBtns) === JSON.stringify(["초기화", "체크 신청", "체크 취소"]), JSON.stringify(allBtns));
@@ -131,8 +137,8 @@ try {
   // 부분 > 검수 링크 — 하단 버튼 순서 확인 후 닫기.
   await page.getByRole("button", { name: "부분", exact: true }).click();
   await page.waitForTimeout(300);
-  ck("[부분] 선택 팝업 — 검수 링크/수동 입력 버튼", (await page.getByRole("button", { name: "검수 링크" }).count()) > 0 && (await page.getByRole("button", { name: "수동 입력" }).count()) > 0);
-  await page.getByRole("button", { name: "검수 링크" }).click();
+  ck("[부분] 선택 팝업 — 링크 신청/수동 부여 버튼", (await page.getByRole("button", { name: "링크 신청" }).count()) > 0 && (await page.getByRole("button", { name: "수동 부여" }).count()) > 0);
+  await page.getByRole("button", { name: "링크 신청" }).click();
   await page.waitForTimeout(400);
   const partReviewModal = page.locator(".fixed.inset-0.z-50").last();
   ck("[부분-검수] 액트 종류 '부분 (고정)'", (await partReviewModal.getByText("부분 (고정)").count()) > 0);
@@ -144,10 +150,10 @@ try {
   // 부분 > 수동 입력.
   await page.getByRole("button", { name: "부분", exact: true }).click();
   await page.waitForTimeout(300);
-  await page.getByRole("button", { name: "수동 입력" }).click();
+  await page.getByRole("button", { name: "수동 부여" }).click();
   await page.waitForTimeout(400);
   const mModal = page.locator(".fixed.inset-0.z-50").last();
-  ck("[수동] 액트 종류 '부분 (수동 입력 고정)'", (await mModal.getByText("부분 (수동 입력 고정)").count()) > 0);
+  ck("[수동] 액트 종류 '부분 (수동 부여 고정)'", (await mModal.getByText("부분 (수동 부여 고정)").count()) > 0);
   ck("[수동] 포인트 방식 라디오 없음(X 초기화 방식)", (await mModal.getByRole("radio").count()) === 0);
   ck("[수동] X 초기화 버튼(포인트 C 초기화) 존재", (await mModal.locator('button[aria-label="포인트 C 초기화"]').count()) > 0);
   ck("[수동] 대상 크루 0명 초기 표시", (await mModal.getByText("대상 크루 0명").count()) > 0);

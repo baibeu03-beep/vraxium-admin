@@ -133,7 +133,7 @@ export default function ProcessIrregularManager() {
         <div>
           <h1 className="text-lg font-semibold">변동 액트</h1>
           <p className="text-sm text-muted-foreground">
-            정규 기준표 외 변동(비정규) 액트의 검수 링크 / 수동 부여 관리 (조직: {org ?? "미지정"})
+            정규 기준표 외 변동(비정규) 액트의 링크 신청 / 수동 부여 관리 (조직: {org ?? "미지정"})
           </p>
         </div>
         {/* 우측 상단 버튼 — [전원] [부분]. 과거 주차(조회 전용)에서는 비활성. */}
@@ -345,14 +345,14 @@ function PartialChoiceDialog({
             onClick={onReview}
             className="rounded-md border border-purple-300 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-100"
           >
-            검수 링크
+            링크 신청
           </button>
           <button
             type="button"
             onClick={onManual}
             className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 transition-colors hover:bg-green-100"
           >
-            수동 입력
+            수동 부여
           </button>
         </div>
         <div className="mt-4 flex justify-end">

@@ -22,8 +22,8 @@ export {
 export type IrregularKind = "review_request" | "manual_grant";
 export const IRREGULAR_KINDS = ["review_request", "manual_grant"] as const;
 export const IRREGULAR_KIND_LABEL: Record<IrregularKind, string> = {
-  review_request: "검수 링크",
-  manual_grant: "수동 입력",
+  review_request: "링크 신청",
+  manual_grant: "수동 부여",
 };
 export function isIrregularKind(v: unknown): v is IrregularKind {
   return v === "review_request" || v === "manual_grant";

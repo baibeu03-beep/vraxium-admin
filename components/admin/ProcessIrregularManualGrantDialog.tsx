@@ -157,7 +157,7 @@ export default function ProcessIrregularManualGrantDialog({
     setBanner(null);
     if (!actName.trim()) return setBanner("액트명을 입력해주세요");
     if (roster.length === 0) return setBanner("대상 크루를 1명 이상 추가해주세요");
-    if (!(await confirm({ ...CONFIRM.checkComplete, confirmLabel: "수동 입력 완료" }))) return;
+    if (!(await confirm({ ...CONFIRM.checkComplete, confirmLabel: "수동 부여 완료" }))) return;
     setSubmitting(true);
     try {
       const res = await fetch("/api/admin/processes/check/irregular", {
@@ -199,7 +199,7 @@ export default function ProcessIrregularManualGrantDialog({
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
-            변동 액트 · <span className="text-green-700">수동 입력</span>
+            변동 액트 · <span className="text-green-700">수동 부여</span>
             <span className="ml-2 text-xs font-normal text-muted-foreground">
               (카페: {irregularCafeLabel("manual_grant")} · 자동)
             </span>
@@ -238,9 +238,9 @@ export default function ProcessIrregularManualGrantDialog({
               <div
                 aria-label="액트 종류"
                 className="flex h-9 cursor-not-allowed items-center rounded-md border border-input bg-muted/50 px-2 text-sm text-muted-foreground"
-                title="수동 입력는 '부분'만 가능합니다"
+                title="수동 부여는 '부분'만 가능합니다"
               >
-                부분 (수동 입력 고정)
+                부분 (수동 부여 고정)
               </div>
             </div>
           </div>
@@ -363,7 +363,7 @@ export default function ProcessIrregularManualGrantDialog({
           </div>
 
           <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[11px] text-green-700">
-            수동 입력는 이미 검수가 끝난 상태입니다. [체크 완료] 시 즉시 ‘체크 완료’로 생성됩니다(체크 대기 없음).
+            수동 부여는 이미 검수가 끝난 상태입니다. [체크 완료] 시 즉시 ‘체크 완료’로 생성됩니다(체크 대기 없음).
           </p>
         </div>
 

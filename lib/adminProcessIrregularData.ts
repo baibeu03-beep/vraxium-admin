@@ -442,7 +442,7 @@ export async function createIrregularAct(input: {
 }): Promise<ProcessIrregularActRowDto> {
   const { organization, mode, adminId } = input;
   if (input.kind !== "review_request") {
-    throw new ProcessMasterError(400, "이 경로는 검수 링크(review_request) 전용입니다");
+    throw new ProcessMasterError(400, "이 경로는 링크 신청(review_request) 전용입니다");
   }
   const common = parseCommonFields(input);
 
@@ -453,7 +453,7 @@ export async function createIrregularAct(input: {
     if (!link.ok) throw new ProcessMasterError(400, link.error);
     reviewLink = link.value;
   }
-  if (!reviewLink) throw new ProcessMasterError(400, "검수 링크은 검수 링크가 필수입니다");
+  if (!reviewLink) throw new ProcessMasterError(400, "링크 신청은 링크가 필수입니다");
 
   const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
   if (!week?.weekId) {
@@ -467,7 +467,7 @@ export async function createIrregularAct(input: {
     if (!sched.ok) throw new ProcessMasterError(400, sched.error);
     scheduledCheckAt = new Date(input.scheduledCheckAt).toISOString();
   }
-  if (!scheduledCheckAt) throw new ProcessMasterError(400, "검수 링크은 검수 시점이 필수입니다");
+  if (!scheduledCheckAt) throw new ProcessMasterError(400, "링크 신청은 검수 시점이 필수입니다");
 
   const applicantAdminName = await resolveAdminName(adminId);
   const { data: inserted, error: insErr } = await supabaseAdmin
@@ -518,7 +518,7 @@ export async function createManualGrant(input: {
   const { organization, mode, adminId } = input;
   // 수동 입력는 '전원' 선택 불가 — 항상 '부분'(포인트 방식 ab|c 택1)만 가능.
   if (input.crewReaction === "all") {
-    throw new ProcessMasterError(400, "수동 입력는 '전원'을 선택할 수 없습니다(부분만 가능)");
+    throw new ProcessMasterError(400, "수동 부여는 '전원'을 선택할 수 없습니다(부분만 가능)");
   }
   const common = parseCommonFields({ ...input, crewReaction: "partial" });
 
@@ -526,7 +526,7 @@ export async function createManualGrant(input: {
   const ids = Array.isArray(input.targetUserIds)
     ? Array.from(new Set(input.targetUserIds.filter((x): x is string => typeof x === "string" && x.trim().length > 0)))
     : [];
-  if (ids.length === 0) throw new ProcessMasterError(400, "수동 입력는 대상 크루를 1명 이상 선택해야 합니다");
+  if (ids.length === 0) throw new ProcessMasterError(400, "수동 부여는 대상 크루를 1명 이상 선택해야 합니다");
 
   // org + mode 스코프 전원 검증(fail-closed 422) + 소속/이름 확정.
   const scope = await resolveUserScope(mode, organization as OrganizationSlug);
@@ -656,7 +656,7 @@ export async function setIrregularCrewReaction(
   await assertCurrentWeekRow(row, mode); // 과거 주차 = 조회 전용
   // 수동 입력는 '전원'으로 변경 불가(부분만 가능).
   if (crewReaction === "all" && row.kind === "manual_grant") {
-    throw new ProcessMasterError(400, "수동 입력는 '전원'으로 변경할 수 없습니다(부분만 가능)");
+    throw new ProcessMasterError(400, "수동 부여는 '전원'으로 변경할 수 없습니다(부분만 가능)");
   }
   // 포인트 정규화 — 변경 결과가 정책(전원=A/B/C·부분=ab|c)을 항상 만족하도록 보정.
   //   인라인은 포인트 방식 선택 UI 가 없어 pointMode 미지정 시 기존 값으로 추론(C만 있으면 c, 그 외 ab).

@@ -88,9 +88,9 @@ try {
   const enabled = await btn.isEnabled();
   ck("[테스트] '체크 필요' 버튼 활성(W13 변경 가능)", enabled);
 
-  // 클릭 → 체크 신청 모달 오픈("검수 링크" 입력 노출).
+  // 클릭 → 체크 신청 모달 오픈(링크 입력 노출).
   await btn.click();
-  const modalOpen = await page.getByText("검수 링크", { exact: false }).first().isVisible().catch(() => false);
-  ck("[테스트] 버튼 클릭 → 체크 신청 모달 오픈(검수 링크 입력)", modalOpen);
+  const modalOpen = await page.locator('input[placeholder="https://cafe.naver.com/..."]').first().isVisible().catch(() => false);
+  ck("[테스트] 버튼 클릭 → 체크 신청 모달 오픈(링크 입력)", modalOpen);
 } catch (e) { console.error("ERROR:", e?.stack ?? e?.message ?? e); fail++; }
 finally { await browser.close(); await cleanup(); console.log("(cleanup — net-zero)"); console.log(`\n결과: ${pass} pass / ${fail} fail`); process.exit(fail > 0 ? 1 : 0); }

@@ -484,7 +484,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 }}
                 className="rounded-md border border-purple-300 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-100"
               >
-                검수 링크
+                링크 신청
                 <span className="mt-0.5 block text-[11px] font-normal text-purple-600">카페 글 기반 · worker 검수</span>
               </button>
               <button
@@ -495,7 +495,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 }}
                 className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 transition-colors hover:bg-green-100"
               >
-                수동 입력
+                수동 부여
                 <span className="mt-0.5 block text-[11px] font-normal text-green-600">대상 크루 · 포인트 직접 입력</span>
               </button>
             </div>

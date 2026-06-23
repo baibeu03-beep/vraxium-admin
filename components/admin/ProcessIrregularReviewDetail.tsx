@@ -112,7 +112,7 @@ export default function ProcessIrregularReviewDetail({
           />
           <Row label="액트 종류" value={IRREGULAR_CREW_REACTION_LABEL[act.crewReaction]} />
           <Row
-            label="검수 링크"
+            label="링크"
             value={
               act.reviewLink ? (
                 <a href={act.reviewLink} target="_blank" rel="noreferrer" className="text-blue-600 underline">

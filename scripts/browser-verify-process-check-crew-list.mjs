@@ -122,11 +122,11 @@ try {
   await page.waitForTimeout(500);
   {
     const t = (await page.locator("body").textContent()) ?? "";
-    const hasReviewInput = (await page.getByText("검수 링크", { exact: false }).count()) > 0;
-    // 선택 모달이면 '체크 방식을 선택하세요' 안내 + [수동 입력] 버튼이 뜬다 — 필수는 안 떠야 함.
-    const hasChoice = /체크 방식을 선택/.test(t) && (await page.getByRole("button", { name: /수동 입력/ }).count()) > 0;
-    ck("[2] 필수 액트 → 검수 링크 팝업(검수 링크 입력 노출)", hasReviewInput);
-    ck("[2] 필수 액트 → 수동 입력 선택 안 뜸(선택 모달 없음)", !hasChoice, `choice=${hasChoice}`);
+    const hasReviewInput = (await page.locator('input[placeholder="https://cafe.naver.com/..."]').count()) > 0;
+    // 선택 모달이면 '체크 방식을 선택하세요' 안내 + [수동 부여] 버튼이 뜬다 — 필수는 안 떠야 함.
+    const hasChoice = /체크 방식을 선택/.test(t) && (await page.getByRole("button", { name: /수동 부여/ }).count()) > 0;
+    ck("[2] 필수 액트 → 링크 신청 팝업(링크 입력 노출)", hasReviewInput);
+    ck("[2] 필수 액트 → 수동 부여 선택 안 뜸(선택 모달 없음)", !hasChoice, `choice=${hasChoice}`);
   }
   await closeDialog();
 
@@ -134,9 +134,9 @@ try {
   await rowOf(`${TAG}-선별needed`).locator("button").first().click();
   await page.waitForTimeout(500);
   {
-    const hasReq = (await page.getByRole("button", { name: /검수 링크/ }).count()) > 0;
-    const hasManual = (await page.getByRole("button", { name: /수동 입력/ }).count()) > 0;
-    ck("[3] 선별 액트 → [검수 링크]+[수동 입력] 둘 다", hasReq && hasManual, `req=${hasReq} manual=${hasManual}`);
+    const hasReq = (await page.getByRole("button", { name: /링크 신청/ }).count()) > 0;
+    const hasManual = (await page.getByRole("button", { name: /수동 부여/ }).count()) > 0;
+    ck("[3] 선별 액트 → [링크 신청]+[수동 부여] 둘 다", hasReq && hasManual, `req=${hasReq} manual=${hasManual}`);
   }
   await closeDialog();
 
@@ -157,7 +157,7 @@ try {
   await page.waitForTimeout(500);
   {
     const dlg = (await page.locator("body").textContent()) ?? "";
-    const isManualDialog = dlg.includes("수동 입력 완료");
+    const isManualDialog = dlg.includes("수동 부여 완료");
     const hasHeaders = ["이름", "소속 팀", "소속 파트", "클래스"].every((h) => dlg.includes(h));
     const cancelBtn = page.getByRole("button", { name: "체크 취소" });
     const cancelDisabled = (await cancelBtn.count()) > 0 ? await cancelBtn.first().isDisabled() : false;

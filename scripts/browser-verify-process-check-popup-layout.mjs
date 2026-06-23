@@ -124,14 +124,14 @@ try {
   ck("[8] 버튼 4종 유지(초기화/체크 신청/체크 취소/닫기)", btnsOk);
   await closeDialog();
 
-  // 1) 수동 입력 팝업 너비 측정 → '체크 필요' 와 동일.
+  // 1) 수동 부여 팝업 너비 측정 → '체크 필요' 와 동일.
   await rowOf(`${TAG}-선별needed`).locator("button").first().click();
   await page.waitForTimeout(400);
-  await page.getByRole("button", { name: /수동 입력/ }).first().click();
+  await page.getByRole("button", { name: /수동 부여/ }).first().click();
   await page.waitForTimeout(500);
   const manualBox = await panel().boundingBox();
   const widthEq = neededBox && manualBox && Math.abs(neededBox.width - manualBox.width) <= 2;
-  ck("[1] '체크 필요' 너비 == '수동 입력' 너비", !!widthEq, `needed=${neededBox?.width} manual=${manualBox?.width}`);
+  ck("[1] '체크 필요' 너비 == '수동 부여' 너비", !!widthEq, `needed=${neededBox?.width} manual=${manualBox?.width}`);
   await closeDialog();
 } catch (e) { console.error("ERROR:", e?.stack ?? e?.message ?? e); fail++; }
 finally {

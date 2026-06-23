@@ -166,7 +166,7 @@ export default function ProcessIrregularDialog({
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
-            변동 액트 · <span className="text-purple-700">검수 링크 신청</span>
+            변동 액트 · <span className="text-purple-700">링크 신청</span>
             <span
               className={cn(
                 "ml-2 rounded border px-1.5 py-0.5 text-xs font-medium",
@@ -255,10 +255,10 @@ export default function ProcessIrregularDialog({
             disabled={submitting}
           />
 
-          {/* 검수 링크 (필수) */}
+          {/* 링크 (필수) */}
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
-              검수 링크 <span className="text-red-500">*</span>
+              링크 <span className="text-red-500">*</span>
             </label>
             <Input
               value={reviewLink}
@@ -307,7 +307,7 @@ export default function ProcessIrregularDialog({
           </div>
 
           <p className="rounded-md border border-purple-200 bg-purple-50 px-3 py-2 text-[11px] text-purple-700">
-            검수 링크 신청 후 ‘체크 대기’ 상태가 되며, 검수 시점이 지나면 자동으로 ‘체크 완료’ 됩니다.
+            링크 신청 후 ‘체크 대기’ 상태가 되며, 검수 시점이 지나면 자동으로 ‘체크 완료’ 됩니다.
           </p>
         </div>
 

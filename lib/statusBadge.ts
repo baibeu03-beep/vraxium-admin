@@ -57,14 +57,11 @@ const LABEL_TONE: Record<string, BadgeTone> = {
   "체크 필요": "warning",
   "체크 대기": "violet",
   "체크 완료": "success",
-  // 정규 프로세스 체크 UI 용어 통일(검수 링크 / 수동 입력). 변동(irregular) 페이지는 아래 구 라벨 유지.
-  "수동 입력 완료": "info",
-  "수동 입력": "info",
-  "검수 링크": "violet",
+  // UI 용어 통일(SoT) — 링크 신청 / 수동 부여. (저장값 enum review_request/manual_grant 은 불변)
+  "링크 신청": "violet",
   "수동 부여 완료": "info",
   "수동 부여": "info",
   "체크 대상 아님": "neutral",
-  "검수 신청": "violet",
   "검수 대기": "violet",
 
   // 액트 종류(필수/자율/선별/기타)
