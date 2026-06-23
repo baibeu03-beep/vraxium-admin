@@ -1,6 +1,8 @@
 // /api/admin/processes/check/irregular — 변동 액트 보드 + 액션(검수 링크/수동 입력/완료/삭제).
 //
-//   GET    ?org=oranke[&mode=test]          → 보드 DTO(현재/마지막활동 주차 + 요약 5칸 + 액트 목록)
+//   GET    ?org=oranke[&mode=test][&week=<weekId>]
+//            → 보드 DTO(주차 드롭다운 + 선택주차 요약 7칸 + 액트 목록). week 미지정/목록밖이면 현재 주차.
+//            과거 주차 = 조회 전용(editable=false). 검수 시점 경과 검수링크는 응답에서 '체크 완료'로 파생.
 //   POST   { organization, mode?, kind, act_name, target_user_id, ... }
 //            kind=review_request → pending(검수링크/검수시점 필수) · manual_grant → 즉시 completed
 //   PATCH  { id, organization, mode?, action:'complete' }   → pending → completed
@@ -55,9 +57,12 @@ export async function GET(request: NextRequest) {
     );
   }
   const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
+  // 선택 주차(드롭다운) — 목록 밖/형식 오류면 데이터레이어가 현재 주차로 폴백.
+  const weekRaw = request.nextUrl.searchParams.get("week")?.trim() || null;
+  const selectedWeekId = weekRaw && UUID_RE.test(weekRaw) ? weekRaw : null;
 
   try {
-    const data = await getIrregularBoard(orgRaw, mode);
+    const data = await getIrregularBoard(orgRaw, mode, selectedWeekId);
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[processes/check/irregular GET]", error);

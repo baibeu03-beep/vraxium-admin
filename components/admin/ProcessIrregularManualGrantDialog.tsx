@@ -20,12 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { type ScopeMode, appendModeQuery } from "@/lib/userScopeShared";
-import { IrregularPointFields } from "@/components/admin/IrregularPointFields";
-import {
-  IRREGULAR_POINT_MODE_DEFAULT,
-  irregularCafeLabel,
-  type IrregularPointMode,
-} from "@/lib/adminProcessIrregularTypes";
+import { IrregularPointFields, derivePartialPointMode } from "@/components/admin/IrregularPointFields";
+import { irregularCafeLabel } from "@/lib/adminProcessIrregularTypes";
 
 const DURATIONS = Array.from({ length: 18 }, (_, i) => (i + 1) * 5); // 5~90, 5분 단위
 const REASON_MAX = 50;
@@ -56,8 +52,7 @@ export default function ProcessIrregularManualGrantDialog({
   const [pointA, setPointA] = useState(0);
   const [pointB, setPointB] = useState(0);
   const [pointC, setPointC] = useState(0);
-  // 수동 입력는 항상 '부분'(전원 불가). 포인트 방식(A+B|C)만 선택.
-  const [pointMode, setPointMode] = useState<IrregularPointMode>(IRREGULAR_POINT_MODE_DEFAULT);
+  // 수동 부여는 항상 '부분'(전원 불가). 포인트 방식(A+B|C)은 입력값에서 파생(derivePartialPointMode).
 
   // 대상 크루 — 자동완성 검색/선택 후보 + 명단.
   const [q, setQ] = useState("");
@@ -79,7 +74,6 @@ export default function ProcessIrregularManualGrantDialog({
     pointA !== 0 ||
     pointB !== 0 ||
     pointC !== 0 ||
-    pointMode !== IRREGULAR_POINT_MODE_DEFAULT ||
     roster.length > 0 ||
     q.trim() !== "";
 
@@ -128,7 +122,17 @@ export default function ProcessIrregularManualGrantDialog({
 
   const addCandidate = () => {
     if (!candidate) return;
-    setRoster((prev) => (prev.some((c) => c.userId === candidate.userId) ? prev : [...prev, candidate]));
+    // 이미 명단에 있으면 추가하지 않고 안내 팝업.
+    if (roster.some((c) => c.userId === candidate.userId)) {
+      void confirm({
+        title: "이미 추가된 크루",
+        description: `${candidate.name} 님은 이미 명단에 기재되었습니다.`,
+        confirmLabel: "확인",
+        cancelLabel: "닫기",
+      });
+      return;
+    }
+    setRoster((prev) => [...prev, candidate]);
     setCandidate(null);
     setQ("");
     setResults([]);
@@ -142,7 +146,6 @@ export default function ProcessIrregularManualGrantDialog({
     setPointA(0);
     setPointB(0);
     setPointC(0);
-    setPointMode(IRREGULAR_POINT_MODE_DEFAULT);
     setQ("");
     setResults([]);
     setCandidate(null);
@@ -172,7 +175,7 @@ export default function ProcessIrregularManualGrantDialog({
           point_b: pointB,
           point_c: pointC,
           crew_reaction: "partial",
-          point_mode: pointMode,
+          point_mode: derivePartialPointMode(pointC),
         }),
       });
       const json = await res.json().catch(() => ({}));
@@ -257,11 +260,9 @@ export default function ProcessIrregularManualGrantDialog({
             />
           </div>
 
-          {/* 포인트 — 부분(수동 입력): 포인트 방식(A+B|C) 택1 + 비활성·안내문 */}
+          {/* 포인트 — 부분(수동 부여): A+B 또는 C 택1(X 초기화) */}
           <IrregularPointFields
             crewReaction="partial"
-            pointMode={pointMode}
-            setPointMode={setPointMode}
             pointA={pointA}
             setPointA={setPointA}
             pointB={pointB}

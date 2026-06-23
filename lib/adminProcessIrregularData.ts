@@ -9,7 +9,12 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { ProcessMasterError } from "@/lib/adminProcessesData";
-import { resolveProcessWeek } from "@/lib/adminProcessCheckData";
+import { resolveProcessWeek, resolveProcessWeekStartMs } from "@/lib/adminProcessCheckData";
+import { describeWeekByStartMs } from "@/lib/cluster4WeekPolicy";
+import {
+  processCheckPeriodLabel,
+  processCheckLogPeriodLabel,
+} from "@/lib/adminProcessCheckTypes";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
 import { accrueForCompletedIrregular, revokeForAct } from "@/lib/processPointAccrual";
 import type { OrganizationSlug } from "@/lib/organizations";
@@ -20,11 +25,11 @@ import {
   IRREGULAR_CREW_REACTION_LABEL,
   IRREGULAR_KIND_LABEL,
   coerceIrregularCrewReaction,
+  effectiveIrregularStatus,
   irregularCafeLabel,
+  irregularWeekStatusLabel,
   isIrregularCrewReaction,
   isIrregularDuration,
-  isIrregularKind,
-  isIrregularPoint,
   isIrregularPointMode,
   normalizeIrregularPoints,
   validateReviewLink,
@@ -34,10 +39,14 @@ import {
   type IrregularPointMode,
   type IrregularStatus,
   type IrregularTargetUserDto,
+  type ProcessCheckWeekDto,
   type ProcessIrregularActRowDto,
   type ProcessIrregularBoardDto,
   type ProcessIrregularSummary,
+  type ProcessIrregularWeekOptionDto,
 } from "@/lib/adminProcessIrregularTypes";
+
+const DAY_MS = 86_400_000;
 
 // 변동 액트는 info 와 동일한 주차 정책(테스트=휴식꼬리→마지막 활동주차) 적용.
 //   공통 SoT 의 "process-irregular" hub 키로 위임(허용 정책은 cluster4TestWeekPolicy 단일 출처).
@@ -56,6 +65,7 @@ function migrationHint(error: { code?: string } | null): ProcessMasterError | nu
 
 type IrregularRow = {
   id: string;
+  week_id: string;
   kind: string;
   act_name: string;
   applicant_admin_name: string;
@@ -77,7 +87,7 @@ type IrregularRow = {
 };
 
 const ROW_SELECT =
-  "id,kind,act_name,applicant_admin_name,target_user_id,target_user_name,duration_minutes,reason,point_a,point_b,point_c,crew_reaction,review_link,scheduled_check_at,status,completed_at,created_at,attempt_count,last_error";
+  "id,week_id,kind,act_name,applicant_admin_name,target_user_id,target_user_name,duration_minutes,reason,point_a,point_b,point_c,crew_reaction,review_link,scheduled_check_at,status,completed_at,created_at,attempt_count,last_error";
 
 type RecipientRow = {
   user_id: string | null;
@@ -89,9 +99,14 @@ type RecipientRow = {
 function toRowDto(
   r: IrregularRow,
   recipientsByRef: Map<string, RecipientRow[]> = new Map(),
+  nowMs: number = Date.now(),
 ): ProcessIrregularActRowDto {
   const kind: IrregularKind = r.kind === "manual_grant" ? "manual_grant" : "review_request";
-  const status: IrregularStatus = r.status === "completed" ? "completed" : "pending";
+  const rawStatus: IrregularStatus = r.status === "completed" ? "completed" : "pending";
+  // 검수 시점 자동 완료 — review_request + pending 인데 검수 시점이 지났으면 표시/통계상 '체크 완료'.
+  //   ⚠ DB status 는 그대로(여기서 write 없음). 포인트 적립·실제 검수는 워커가 담당.
+  const status: IrregularStatus = effectiveIrregularStatus(kind, rawStatus, r.scheduled_check_at, nowMs);
+  const autoCompleted = status === "completed" && rawStatus === "pending";
   // 레거시(required|optional|selection|none) 값도 신규 2종(전원/부분)으로만 표시.
   const crew: IrregularCrewReaction = coerceIrregularCrewReaction(r.crew_reaction);
   const recs = (recipientsByRef.get(r.id) ?? []).map((rc) => ({
@@ -119,7 +134,10 @@ function toRowDto(
     reviewLink: r.review_link,
     scheduledCheckAt: r.scheduled_check_at,
     status,
-    completedAt: r.completed_at,
+    rawStatus,
+    autoCompleted,
+    // 자동 완료(워커 미처리)면 실제 완료 시각이 없으므로 검수 시점을 완료 시각으로 표시.
+    completedAt: r.completed_at ?? (autoCompleted ? r.scheduled_check_at : null),
     createdAt: r.created_at,
     recipients: recs,
     matchedCount: recs.filter((x) => x.matchType === "matched").length,
@@ -155,19 +173,128 @@ function summarize(acts: ProcessIrregularActRowDto[]): ProcessIrregularSummary {
     total: acts.length,
     reviewRequest: acts.filter((a) => a.kind === "review_request").length,
     manualGrant: acts.filter((a) => a.kind === "manual_grant").length,
+    // 체크 완료/대기 = 유효 상태(검수 시점 자동 완료 반영).
     completed: acts.filter((a) => a.status === "completed").length,
     pending: acts.filter((a) => a.status === "pending").length,
+    all: acts.filter((a) => a.crewReaction === "all").length,
+    partial: acts.filter((a) => a.crewReaction === "partial").length,
   };
 }
 
-// ── 보드 조회 (org × week × 대상고객 스코프) ───────────────────────────────────
+// ── 주차 드롭다운 목록(현재 시즌 W1~현재주차) + 현재 주차 식별 ──────────────────
+//   미래 주차는 포함하지 않는다. 테스트 모드는 기존 W13 폴드 정책(resolveProcessWeekStartMs) 유지.
+//   각 주차의 weeks.id 는 (iso_year, iso_week) 로 일괄 lookup(없으면 null — 조회는 빈 보드).
+async function resolveIrregularWeekList(mode: ScopeMode): Promise<{
+  options: ProcessIrregularWeekOptionDto[];
+  currentWeekId: string | null;
+  currentWeekMs: number | null;
+  selectedWeekDtoByMs: Map<number, ProcessCheckWeekDto>;
+}> {
+  const empty = { options: [], currentWeekId: null, currentWeekMs: null, selectedWeekDtoByMs: new Map() };
+  const currentMs = resolveProcessWeekStartMs(mode, IRREGULAR_TEST_WEEK_HUB);
+  if (currentMs == null) return empty;
+  const curDesc = describeWeekByStartMs(currentMs);
+  if (!curDesc) return empty;
+
+  // 현재 시즌 1주차 시작 = 현재 주차 시작 − (현재 주차번호 − 1)주.
+  const seasonStartMs = currentMs - (curDesc.weekNumber - 1) * 7 * DAY_MS;
+  const descs: Array<{ ms: number; d: ReturnType<typeof describeWeekByStartMs> }> = [];
+  for (let i = 0; i < curDesc.weekNumber; i++) {
+    const ms = seasonStartMs + i * 7 * DAY_MS;
+    descs.push({ ms, d: describeWeekByStartMs(ms) });
+  }
+
+  // weeks.id 일괄 lookup — 등장하는 iso_year/iso_week 범위로 조회 후 (year,week) 정확 매칭.
+  const isoYears = Array.from(new Set(descs.map((x) => x.d?.isoYear).filter((x): x is number => x != null)));
+  const isoWeeks = Array.from(new Set(descs.map((x) => x.d?.isoWeek).filter((x): x is number => x != null)));
+  const weekIdByKey = new Map<string, string>();
+  if (isoYears.length && isoWeeks.length) {
+    const { data } = await supabaseAdmin
+      .from("weeks")
+      .select("id,iso_year,iso_week")
+      .in("iso_year", isoYears)
+      .in("iso_week", isoWeeks);
+    for (const w of (data ?? []) as Array<{ id: string; iso_year: number; iso_week: number }>) {
+      weekIdByKey.set(`${w.iso_year}-${w.iso_week}`, w.id);
+    }
+  }
+
+  const selectedWeekDtoByMs = new Map<number, ProcessCheckWeekDto>();
+  const options: ProcessIrregularWeekOptionDto[] = [];
+  for (const { ms, d } of descs) {
+    if (!d) continue;
+    const weekId = weekIdByKey.get(`${d.isoYear}-${d.isoWeek}`) ?? null;
+    const isCurrent = ms === currentMs;
+    options.push({
+      weekId,
+      weekNumber: d.weekNumber,
+      weekName: `${d.weekNumber}주차`,
+      startDate: d.weekStart,
+      endDate: d.weekEnd,
+      isOfficialRest: d.isOfficialRest,
+      statusLabel: irregularWeekStatusLabel(d.isOfficialRest),
+      isCurrent,
+    });
+    const base = { year: d.year, seasonName: d.seasonName, weekNumber: d.weekNumber };
+    selectedWeekDtoByMs.set(ms, {
+      weekId,
+      weekName: `${d.weekNumber}주차`,
+      editable: isCurrent && Boolean(weekId),
+      year: d.year,
+      seasonName: d.seasonName,
+      weekNumber: d.weekNumber,
+      startDate: d.weekStart,
+      endDate: d.weekEnd,
+      periodLabel: processCheckPeriodLabel(base),
+      logPeriodLabel: processCheckLogPeriodLabel(base),
+    });
+  }
+  // 최신 주차가 위로 오도록 역순(현재 주차가 맨 위 = 기본 선택).
+  options.reverse();
+  const currentWeekId = weekIdByKey.get(`${curDesc.isoYear}-${curDesc.isoWeek}`) ?? null;
+  return { options, currentWeekId, currentWeekMs: currentMs, selectedWeekDtoByMs };
+}
+
+// ── 보드 조회 (org × 선택주차 × 대상고객 스코프) ───────────────────────────────
+//   selectedWeekId: 드롭다운 선택 주차(목록 내 weekId). 미지정/목록 밖이면 현재 주차로 폴백.
+//   과거 주차 = 조회 전용(editable=false). 미래 주차는 목록에 없으므로 선택 불가.
 export async function getIrregularBoard(
   organization: string,
   mode: ScopeMode = "operating",
+  selectedWeekId?: string | null,
 ): Promise<ProcessIrregularBoardDto> {
-  const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
-  if (!week?.weekId) {
-    return { organization, week, summary: summarize([]), acts: [] };
+  const nowMs = Date.now();
+  const { options, currentWeekId, selectedWeekDtoByMs } =
+    await resolveIrregularWeekList(mode);
+
+  // 선택 주차 결정 — 목록(현재 시즌 W1~현재)에 있는 weekId 만 허용. 그 외(미래/타시즌)는 현재 주차.
+  const validIds = new Set(options.map((o) => o.weekId).filter((x): x is string => Boolean(x)));
+  const effectiveWeekId =
+    selectedWeekId && validIds.has(selectedWeekId) ? selectedWeekId : currentWeekId;
+
+  // 선택 주차 DTO(라벨·날짜·status) — ms 매핑으로 역추적.
+  let week: ProcessCheckWeekDto | null = null;
+  for (const dto of selectedWeekDtoByMs.values()) {
+    if (dto.weekId && dto.weekId === effectiveWeekId) {
+      week = dto;
+      break;
+    }
+  }
+  // 폴백(weeks 행 없음 등) — 기존 현재 주차 resolver 로 라벨만이라도 채운다.
+  if (!week) week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
+
+  const editable = Boolean(effectiveWeekId) && effectiveWeekId === currentWeekId;
+
+  if (!effectiveWeekId) {
+    return {
+      organization,
+      week,
+      weeks: options,
+      selectedWeekId: null,
+      editable: false,
+      summary: summarize([]),
+      acts: [],
+    };
   }
 
   // 스코프 분기 = 행에 기록된 scope_mode(operating/test). review_request 는 대상자 미선택(null)
@@ -176,16 +303,24 @@ export async function getIrregularBoard(
     .from("process_irregular_acts")
     .select(ROW_SELECT)
     .eq("organization_slug", organization)
-    .eq("week_id", week.weekId)
+    .eq("week_id", effectiveWeekId)
     .eq("scope_mode", mode)
     .order("created_at", { ascending: false });
   if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
 
   const rows = (data ?? []) as IrregularRow[];
   const recipients = await loadRecipientsByRef(rows.map((r) => r.id));
-  const acts = rows.map((r) => toRowDto(r, recipients));
+  const acts = rows.map((r) => toRowDto(r, recipients, nowMs));
 
-  return { organization, week, summary: summarize(acts), acts };
+  return {
+    organization,
+    week,
+    weeks: options,
+    selectedWeekId: effectiveWeekId,
+    editable,
+    summary: summarize(acts),
+    acts,
+  };
 }
 
 // ── 대상 고객 검색 (스코프 적용) ───────────────────────────────────────────────
@@ -476,6 +611,15 @@ export async function createManualGrant(input: {
   return toRowDto(act, recipients);
 }
 
+// 과거 주차 행은 조회 전용 — 현재 주차가 아니면 변경/취소 차단(fail-closed).
+//   현재 주차(weeks.id) = resolveProcessWeek(운영=현재 / 테스트=W13 폴드)와 동일 SoT.
+async function assertCurrentWeekRow(row: IrregularRow, mode: ScopeMode): Promise<void> {
+  const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
+  if (!week?.weekId || row.week_id !== week.weekId) {
+    throw new ProcessMasterError(409, "과거 주차 변동 액트는 조회 전용입니다(변경/취소 불가)");
+  }
+}
+
 // ── 체크 완료 처리 (review_request: pending → completed) ───────────────────────
 export async function completeIrregularAct(
   id: string,
@@ -483,6 +627,7 @@ export async function completeIrregularAct(
   mode: ScopeMode,
 ): Promise<ProcessIrregularActRowDto> {
   const row = await loadScopedRow(id, organization, mode);
+  await assertCurrentWeekRow(row, mode);
   if (row.status === "completed") {
     throw new ProcessMasterError(409, "이미 체크 완료된 변동 액트입니다");
   }
@@ -508,6 +653,7 @@ export async function setIrregularCrewReaction(
     throw new ProcessMasterError(400, "crew_reaction 은 all|partial 이어야 합니다");
   }
   const row = await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
+  await assertCurrentWeekRow(row, mode); // 과거 주차 = 조회 전용
   // 수동 입력는 '전원'으로 변경 불가(부분만 가능).
   if (crewReaction === "all" && row.kind === "manual_grant") {
     throw new ProcessMasterError(400, "수동 입력는 '전원'으로 변경할 수 없습니다(부분만 가능)");
@@ -540,7 +686,16 @@ export async function deleteIrregularAct(
   organization: string,
   mode: ScopeMode,
 ): Promise<void> {
-  await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
+  const row = await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
+  await assertCurrentWeekRow(row, mode); // 과거 주차 = 조회 전용
+  // 검수 링크(review_request) 체크 취소는 '체크 대기'(검수 시점 전)에서만. 검수 시점이 지나면
+  //   조회 시점 자동 완료 상태이므로 취소 불가(체크 완료 후 취소 불가 정책).
+  if (row.kind === "review_request" && row.status === "pending" && row.scheduled_check_at) {
+    const t = Date.parse(row.scheduled_check_at);
+    if (!Number.isNaN(t) && Date.now() >= t) {
+      throw new ProcessMasterError(409, "검수 시점이 지나 체크 취소할 수 없습니다");
+    }
+  }
   // 적립 회수 — 원장 행 제거 후 영향 사용자 user_weekly_points 재계산 + snapshot 무효화(best-effort).
   try {
     await revokeForAct("irregular", id);

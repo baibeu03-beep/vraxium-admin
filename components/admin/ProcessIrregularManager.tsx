@@ -1,18 +1,24 @@
 "use client";
 
-// /admin/processes/check/irregular — 변동 액트 관리(현재/마지막 활동 주차 고정).
+// /admin/processes/check/irregular — 변동(비정규) 액트 관리.
 //
-//   우측 상단: [수동 입력] [검수 링크] (1행 2열).
-//   요약 5칸(1행 5열·칸막이): 전체 / 검수 링크 / 수동 입력 / 체크 완료 / 체크 대기.
-//   목록: 종류·카페·액트명·신청자·소요시간·사유·포인트 A/B/C·크루반응(드롭다운)·검수링크·검수시점 + 관리.
+//   주차 드롭다운: 현재 시즌 W1~현재 주차(미래 주차 미노출). 과거 주차는 조회 전용(버튼/입력 비활성).
+//     드롭다운 옆에 (YYYY-MM-DD ~ YYYY-MM-DD) + 주차 상태(공식 활동/휴식 주차) 표시.
+//   우측 상단 버튼: [전원](=검수 링크·all) · [부분](→ 검수 링크 / 수동 입력 선택).
+//   통계 7칸: 전체 / 링크 신청 / 수동 부여 / 체크 완료 / 체크 대기 / 전원 / 부분.
+//   목록: 종류 | 액트 종류 | 액트명(비정규) | 신청자 | 소요 시간(m) | 액트 신청 사유 |
+//         po A | po B | po C | 신청 시점(실제) | 검수 시점(실제) | 체크 상태.
+//   검수 링크 신청은 '체크 대기' → 검수 시점 경과 시 보드에서 자동 '체크 완료'(조회 시점 파생).
+//   수동 부여는 항상 즉시 '체크 완료'(체크 대기 없음).
 //
 // ?org 기준 데이터 분기 · ?mode(operating/test) 분리(대상자 기준). 카페=kind 파생(입력 없음).
 // ⚠ 고객앱·snapshot·user_weekly_points·demoUserId 무접촉(관리자 전용).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown, Loader2, X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -22,7 +28,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { statusTone } from "@/lib/statusBadge";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -31,21 +36,21 @@ import ProcessIrregularDialog from "@/components/admin/ProcessIrregularDialog";
 import ProcessIrregularManualGrantDialog from "@/components/admin/ProcessIrregularManualGrantDialog";
 import ProcessIrregularReviewDetail from "@/components/admin/ProcessIrregularReviewDetail";
 import {
-  IRREGULAR_CREW_REACTIONS,
-  IRREGULAR_CREW_REACTION_LABEL,
   IRREGULAR_STATUS_LABEL,
   emptyProcessIrregularBoard,
   formatCheckDateTimeKo,
   type IrregularCrewReaction,
-  type IrregularKind,
   type ProcessIrregularActRowDto,
   type ProcessIrregularBoardDto,
 } from "@/lib/adminProcessIrregularTypes";
 
+// 다이얼로그 모드 — null | 전원(검수·all) | 부분 선택 | 부분 검수(partial) | 수동 부여.
+type DialogMode = "review-all" | "partial-choice" | "review-partial" | "manual";
+
 // 요약 1칸 — 칸막이(divide-x) 형태의 간단 표기.
 function SummaryCell({ label, value, accent }: { label: string; value: number; accent?: string }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-3 py-2">
+    <div className="flex flex-1 flex-col items-center justify-center px-2 py-2">
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className={cn("text-lg font-semibold tabular-nums", accent)}>{value}</span>
     </div>
@@ -56,16 +61,16 @@ export default function ProcessIrregularManager() {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
   const mode = readScopeMode(searchParams);
-  const confirm = useConfirm();
 
   const [board, setBoard] = useState<ProcessIrregularBoardDto>(() =>
     emptyProcessIrregularBoard(org ?? ""),
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [dialogKind, setDialogKind] = useState<IrregularKind | null>(null);
+  // 사용자가 선택한 주차(weeks.id). null = 현재 주차(서버 기본).
+  const [weekParam, setWeekParam] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogMode | null>(null);
   const [detailAct, setDetailAct] = useState<ProcessIrregularActRowDto | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
   const reqRef = useRef(0);
 
   const loadBoard = useCallback(async () => {
@@ -76,9 +81,9 @@ export default function ProcessIrregularManager() {
     const myReq = ++reqRef.current;
     setLoading(true);
     try {
-      const res = await fetch(
-        appendModeQuery(`/api/admin/processes/check/irregular?org=${encodeURIComponent(org)}`, mode),
-      );
+      let url = `/api/admin/processes/check/irregular?org=${encodeURIComponent(org)}`;
+      if (weekParam) url += `&week=${encodeURIComponent(weekParam)}`;
+      const res = await fetch(appendModeQuery(url, mode));
       const json = await res.json().catch(() => ({}));
       if (myReq !== reqRef.current) return;
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
@@ -91,49 +96,36 @@ export default function ProcessIrregularManager() {
     } finally {
       if (myReq === reqRef.current) setLoading(false);
     }
-  }, [org, mode]);
+  }, [org, mode, weekParam]);
 
   useEffect(() => {
     void loadBoard();
   }, [loadBoard]);
 
-  const { week, summary, acts } = board;
-  const periodLabel = week?.periodLabel ?? "주차 정보 없음";
-  const weekDisabled = !week?.weekId;
+  const { weeks, selectedWeekId, editable, summary, acts } = board;
 
-  // 인라인 PATCH(액트 종류 변경 / 체크 완료) + DELETE.
-  const patchRow = useCallback(
-    async (id: string, payload: Record<string, unknown>) => {
-      if (!org) return;
-      setBusyId(id);
-      try {
-        const res = await fetch("/api/admin/processes/check/irregular", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, organization: org, ...(mode === "test" ? { mode: "test" } : {}), ...payload }),
-        });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
-        await loadBoard();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "처리에 실패했습니다");
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [org, mode, loadBoard],
+  // 선택 주차 옵션(날짜 범위·상태 라벨).
+  const selectedOption = useMemo(
+    () => weeks.find((w) => w.weekId && w.weekId === selectedWeekId) ?? null,
+    [weeks, selectedWeekId],
   );
+  // 현재 select 표시값 — 사용자가 막 고른 값(weekParam) 우선, 없으면 서버 선택값.
+  const selValue = weekParam ?? selectedWeekId ?? "";
 
   const summaryCells = useMemo(
     () => [
       { label: "전체 갯수", value: summary.total },
-      { label: "검수 링크", value: summary.reviewRequest, accent: "text-purple-700" },
-      { label: "수동 입력", value: summary.manualGrant, accent: "text-green-700" },
+      { label: "링크 신청", value: summary.reviewRequest, accent: "text-purple-700" },
+      { label: "수동 부여", value: summary.manualGrant, accent: "text-green-700" },
       { label: "체크 완료", value: summary.completed, accent: "text-green-700" },
       { label: "체크 대기", value: summary.pending, accent: "text-amber-700" },
+      { label: "전원", value: summary.all, accent: "text-blue-700" },
+      { label: "부분", value: summary.partial, accent: "text-orange-700" },
     ],
     [summary],
   );
+
+  const canAct = Boolean(org) && editable;
 
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4">
@@ -141,26 +133,26 @@ export default function ProcessIrregularManager() {
         <div>
           <h1 className="text-lg font-semibold">변동 액트</h1>
           <p className="text-sm text-muted-foreground">
-            정규 기준표 외 변동 액트의 검수 링크 / 수동 입력 관리 (조직: {org ?? "미지정"})
+            정규 기준표 외 변동(비정규) 액트의 검수 링크 / 수동 부여 관리 (조직: {org ?? "미지정"})
           </p>
         </div>
-        {/* 우측 상단 버튼 — 1행 2열 */}
+        {/* 우측 상단 버튼 — [전원] [부분]. 과거 주차(조회 전용)에서는 비활성. */}
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            disabled={!org || weekDisabled}
-            onClick={() => setDialogKind("manual_grant")}
-            className="rounded-md border border-green-300 bg-green-50 px-4 py-2 text-sm font-medium text-green-800 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={!canAct}
+            onClick={() => setDialog("review-all")}
+            className="rounded-md border border-blue-300 bg-blue-50 px-5 py-2 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            수동 입력
+            전원
           </button>
           <button
             type="button"
-            disabled={!org || weekDisabled}
-            onClick={() => setDialogKind("review_request")}
-            className="rounded-md border border-purple-300 bg-purple-50 px-4 py-2 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={!canAct}
+            onClick={() => setDialog("partial-choice")}
+            className="rounded-md border border-orange-300 bg-orange-50 px-5 py-2 text-sm font-medium text-orange-800 transition-colors hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            검수 링크
+            부분
           </button>
         </div>
       </div>
@@ -180,20 +172,51 @@ export default function ProcessIrregularManager() {
         </div>
       )}
 
-      {/* 주차명 — 읽기 전용(운영=현재 / 테스트=마지막 활동 주차). */}
-      <div className="max-w-xs space-y-1">
-        <label className="text-xs text-muted-foreground">주차명 (변경 불가)</label>
-        <div
-          aria-disabled="true"
-          aria-label="주차명"
-          className="flex cursor-not-allowed items-center justify-between rounded-md border border-input bg-muted/50 px-3 py-2 text-sm"
-        >
-          <span className={cn(weekDisabled && "text-muted-foreground")}>{periodLabel}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+      {/* 주차 드롭다운 + 날짜 범위 + 상태 */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">주차 선택</label>
+          <select
+            aria-label="주차 선택"
+            value={selValue}
+            disabled={!org || weeks.length === 0}
+            onChange={(e) => setWeekParam(e.target.value || null)}
+            className="h-9 min-w-[140px] rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {weeks.length === 0 && <option value="">주차 정보 없음</option>}
+            {weeks.map((w) => (
+              <option key={w.weekId ?? w.weekNumber} value={w.weekId ?? ""} disabled={!w.weekId}>
+                {w.weekName}
+                {w.isCurrent ? " (현재)" : ""}
+              </option>
+            ))}
+          </select>
         </div>
+        {selectedOption && (
+          <div className="flex flex-wrap items-center gap-2 pt-5 text-sm">
+            <span className="rounded-md border bg-muted/40 px-2.5 py-1 tabular-nums text-muted-foreground">
+              ({selectedOption.startDate} ~ {selectedOption.endDate})
+            </span>
+            <span
+              className={cn(
+                "rounded-md border px-2.5 py-1 text-xs font-medium",
+                selectedOption.isOfficialRest
+                  ? "border-slate-300 bg-slate-100 text-slate-600"
+                  : "border-emerald-300 bg-emerald-50 text-emerald-700",
+              )}
+            >
+              {selectedOption.statusLabel}
+            </span>
+            {!editable && (
+              <span className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
+                조회 전용 (현재 주차만 등록/취소 가능)
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* 요약 5칸 — 1행 5열 칸막이 */}
+      {/* 통계 7칸 — 1행 7열 칸막이 */}
       <div className="flex divide-x rounded-md border bg-card">
         {summaryCells.map((c) => (
           <SummaryCell key={c.label} label={c.label} value={c.value} accent={c.accent} />
@@ -213,36 +236,22 @@ export default function ProcessIrregularManager() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>종류</TableHead>
-                    <TableHead>카페</TableHead>
-                    <TableHead>액트명(변동)</TableHead>
-                    <TableHead>신청자</TableHead>
-                    <TableHead>소요(m)</TableHead>
-                    <TableHead>액트 신청 사유</TableHead>
-                    <TableHead>Po.A</TableHead>
-                    <TableHead>Po.B</TableHead>
-                    <TableHead>Po.C</TableHead>
                     <TableHead>액트 종류</TableHead>
-                    <TableHead>검수 링크</TableHead>
-                    <TableHead>검수 시점</TableHead>
-                    <TableHead>관리</TableHead>
+                    <TableHead>액트명(비정규)</TableHead>
+                    <TableHead>신청자</TableHead>
+                    <TableHead>소요 시간(m)</TableHead>
+                    <TableHead>액트 신청 사유</TableHead>
+                    <TableHead>po A</TableHead>
+                    <TableHead>po B</TableHead>
+                    <TableHead>po C</TableHead>
+                    <TableHead>신청 시점(실제)</TableHead>
+                    <TableHead>검수 시점(실제)</TableHead>
+                    <TableHead>체크 상태</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {acts.map((a) => (
-                    <IrregularRow
-                      key={a.id}
-                      act={a}
-                      busy={busyId === a.id}
-                      onCrewReaction={(cr) =>
-                        void (async () => {
-                          // 액트 종류 변경 = 즉시 저장 — 한 번 더 확인.
-                          const ok = await confirm(CONFIRM.save);
-                          if (!ok) return;
-                          await patchRow(a.id, { action: "set_crew_reaction", crew_reaction: cr });
-                        })()
-                      }
-                      onOpenDetail={() => setDetailAct(a)}
-                    />
+                    <IrregularRow key={a.id} act={a} onOpenDetail={() => setDetailAct(a)} />
                   ))}
                 </TableBody>
               </Table>
@@ -251,21 +260,40 @@ export default function ProcessIrregularManager() {
         </CardContent>
       </Card>
 
-      {dialogKind === "review_request" && org && (
+      {/* 부분 선택 팝업 — 검수 링크 / 수동 입력 */}
+      {dialog === "partial-choice" && (
+        <PartialChoiceDialog
+          onClose={() => setDialog(null)}
+          onReview={() => setDialog("review-partial")}
+          onManual={() => setDialog("manual")}
+        />
+      )}
+
+      {dialog === "review-all" && org && (
         <ProcessIrregularDialog
-          kind="review_request"
+          crewReaction="all"
           organization={org}
           mode={mode}
-          onClose={() => setDialogKind(null)}
+          onClose={() => setDialog(null)}
           onDone={loadBoard}
         />
       )}
 
-      {dialogKind === "manual_grant" && org && (
+      {dialog === "review-partial" && org && (
+        <ProcessIrregularDialog
+          crewReaction="partial"
+          organization={org}
+          mode={mode}
+          onClose={() => setDialog(null)}
+          onDone={loadBoard}
+        />
+      )}
+
+      {dialog === "manual" && org && (
         <ProcessIrregularManualGrantDialog
           organization={org}
           mode={mode}
-          onClose={() => setDialogKind(null)}
+          onClose={() => setDialog(null)}
           onDone={loadBoard}
         />
       )}
@@ -275,6 +303,7 @@ export default function ProcessIrregularManager() {
           act={detailAct}
           organization={org}
           mode={mode}
+          editable={editable}
           onClose={() => setDetailAct(null)}
           onDone={loadBoard}
         />
@@ -283,23 +312,80 @@ export default function ProcessIrregularManager() {
   );
 }
 
+// 부분 버튼 클릭 시 — 검수 링크 / 수동 입력 선택 팝업.
+function PartialChoiceDialog({
+  onClose,
+  onReview,
+  onManual,
+}: {
+  onClose: () => void;
+  onReview: () => void;
+  onManual: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-sm rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
+        <div className="mb-1 flex items-center justify-between">
+          <h2 className="text-base font-semibold">
+            부분 액트 · <span className="text-orange-700">방식 선택</span>
+          </h2>
+          <button type="button" onClick={onClose} className="hover:opacity-70">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mb-4 text-sm text-muted-foreground">부분 액트를 어떤 방식으로 등록할까요?</p>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onReview}
+            className="rounded-md border border-purple-300 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-100"
+          >
+            검수 링크
+          </button>
+          <button
+            type="button"
+            onClick={onManual}
+            className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 transition-colors hover:bg-green-100"
+          >
+            수동 입력
+          </button>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+            닫기
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function IrregularRow({
   act,
-  busy,
-  onCrewReaction,
   onOpenDetail,
 }: {
   act: ProcessIrregularActRowDto;
-  busy: boolean;
-  onCrewReaction: (cr: IrregularCrewReaction) => void;
   onOpenDetail: () => void;
 }) {
+  const crewTone: Record<IrregularCrewReaction, string> = {
+    all: "border-blue-300 bg-blue-50 text-blue-700",
+    partial: "border-orange-300 bg-orange-50 text-orange-700",
+  };
   return (
     <TableRow>
       <TableCell>
         <StatusBadge label={act.kindLabel} size="sm" />
       </TableCell>
-      <TableCell className="text-muted-foreground">{act.cafeLabel}</TableCell>
+      <TableCell>
+        <span className={cn("rounded border px-1.5 py-0.5 text-xs font-medium", crewTone[act.crewReaction])}>
+          {act.crewReactionLabel}
+        </span>
+      </TableCell>
       <TableCell className="font-medium">{act.actName}</TableCell>
       <TableCell className="whitespace-nowrap">{act.applicantAdminName}</TableCell>
       <TableCell className="tabular-nums">{act.durationMinutes ?? "—"}</TableCell>
@@ -309,54 +395,20 @@ function IrregularRow({
       <TableCell className="tabular-nums">{act.pointA}</TableCell>
       <TableCell className="tabular-nums">{act.pointB}</TableCell>
       <TableCell className="tabular-nums">{act.pointC}</TableCell>
-      <TableCell>
-        <select
-          aria-label="액트 종류"
-          value={act.crewReaction}
-          disabled={busy}
-          onChange={(e) => onCrewReaction(e.target.value as IrregularCrewReaction)}
-          className="h-8 rounded-md border border-input bg-background px-1.5 text-xs disabled:opacity-60"
-        >
-          {IRREGULAR_CREW_REACTIONS.map((c) => (
-            // 수동 입력는 '전원' 불가(부분 고정) — 해당 옵션 비활성.
-            <option key={c} value={c} disabled={c === "all" && act.kind === "manual_grant"}>
-              {IRREGULAR_CREW_REACTION_LABEL[c]}
-            </option>
-          ))}
-        </select>
-      </TableCell>
-      <TableCell className="max-w-[160px]">
-        {act.reviewLink ? (
-          <a
-            href={act.reviewLink}
-            target="_blank"
-            rel="noreferrer"
-            className="block truncate text-blue-600 underline"
-            title={act.reviewLink}
-          >
-            {act.reviewLink}
-          </a>
-        ) : (
-          "—"
-        )}
+      <TableCell className="whitespace-nowrap text-muted-foreground">
+        {act.createdAt ? formatCheckDateTimeKo(act.createdAt) : "—"}
       </TableCell>
       <TableCell className="whitespace-nowrap text-muted-foreground">
         {act.scheduledCheckAt ? formatCheckDateTimeKo(act.scheduledCheckAt) : "—"}
       </TableCell>
       <TableCell className="text-center">
-        {/* 상태 배지가 상세 보기 역할까지 통합 — 클릭 시 상세 모달(체크 취소/삭제는 모달 내). */}
+        {/* 상태 배지 클릭 → 상세 모달(체크 취소/삭제·검수 링크는 모달 내). */}
         <StatusBadge
           tone={statusTone(IRREGULAR_STATUS_LABEL[act.status])}
           size="sm"
-          disabled={busy}
           onClick={onOpenDetail}
           title="클릭하여 상세 보기"
-          label={
-            <>
-              {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-              {IRREGULAR_STATUS_LABEL[act.status]}
-            </>
-          }
+          label={IRREGULAR_STATUS_LABEL[act.status]}
         />
       </TableCell>
     </TableRow>

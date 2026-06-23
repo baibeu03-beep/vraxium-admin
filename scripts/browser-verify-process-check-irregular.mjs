@@ -1,6 +1,8 @@
-// 브라우저 검증 — /admin/processes/check/irregular 변동 액트.
-//   버튼(수동 입력/검수 링크·1행2열) · 요약 5칸 · 표 헤더 종류→카페→… 순 · 시드 행 표시(카페 파생).
-//   서비스롤로 시드 1행 생성 → 표시 확인 → cleanup(net-zero). 전제: dev 서버 + 마이그레이션 적용.
+// 브라우저 검증 — /admin/processes/check/irregular 변동 액트 (신규 UI).
+//   주차 드롭다운(현재 시즌 W1~현재·날짜범위·상태) · [전원][부분] 버튼 · 통계 7칸 ·
+//   표 헤더 12열(종류|액트 종류|액트명(비정규)|신청자|소요 시간(m)|액트 신청 사유|po A|po B|po C|신청 시점(실제)|검수 시점(실제)|체크 상태) ·
+//   검수 시점 자동 완료 · 부분>수동 입력 모달(X 초기화·중복 팝업) · 과거 주차 조회 전용.
+//   전제: dev 서버 + 2026-06-15_process_irregular_acts.sql 적용.
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -42,24 +44,37 @@ if (probe.error) { console.log(`⚠ 마이그레이션 미적용(${probe.error.c
 const browser = await chromium.launch();
 try {
   const cks = await cookies();
+  const cookieHdr = cks.map((c) => `${c.name}=${c.value}`).join("; ");
   await cleanup();
 
-  // 시드 1행 — operating 보드 주차로 저장하기 위해 API 로 생성(주차 산출 위임).
+  // 현재/과거 주차 weekId 확보(보드 GET).
+  const board = JSON.parse(await (await fetch(`${BASE}/api/admin/processes/check/irregular?org=${ORG}`, { headers: { cookie: cookieHdr } })).text());
+  const curId = board.data.selectedWeekId;
+  const pastOpt = (board.data.weeks ?? []).find((w) => !w.isCurrent && w.weekId);
+  ck("[전제] 현재/과거 주차 weekId 확보", !!curId && !!pastOpt, `cur=${!!curId} past=${pastOpt?.weekNumber}`);
+
+  // 시드: 수동 부여(체크 완료) · 검수신청(체크 대기·미래) · 자동완료(검수시점 과거·직접 insert).
   const markers = new Set(((await sb.from("test_user_markers").select("user_id")).data ?? []).map((x) => x.user_id));
   const opTarget = (((await sb.from("user_profiles").select("user_id,display_name").eq("organization_slug", ORG)).data ?? []).find((u) => !markers.has(u.user_id) && (u.display_name ?? "").trim().length >= 2));
   if (!opTarget) { console.log("⚠ 운영 대상 없음"); await cleanup(); process.exit(2); }
-  const cookieHdr = cks.map((c) => `${c.name}=${c.value}`).join("; ");
-  const seed = await fetch(`${BASE}/api/admin/processes/check/irregular`, {
+  const seed1 = await fetch(`${BASE}/api/admin/processes/check/irregular`, {
     method: "POST", headers: { "Content-Type": "application/json", cookie: cookieHdr },
     body: JSON.stringify({ organization: ORG, kind: "manual_grant", act_name: `${TAG} 표시행`, target_user_ids: [opTarget.user_id], point_a: 7, point_b: 1, point_c: 0, crew_reaction: "partial", point_mode: "ab" }),
   });
-  ck("[시드] 수동부여 생성 201", seed.status === 201);
-  // 검수 링크(체크 대기) 시드 — 상태 버튼→상세→체크 취소 동작 확인용.
-  const seedRR = await fetch(`${BASE}/api/admin/processes/check/irregular`, {
+  ck("[시드] 부분 수동 부여 생성 201", seed1.status === 201);
+  const seed2 = await fetch(`${BASE}/api/admin/processes/check/irregular`, {
     method: "POST", headers: { "Content-Type": "application/json", cookie: cookieHdr },
-    body: JSON.stringify({ organization: ORG, kind: "review_request", act_name: `${TAG} 대기행`, review_link: "https://cafe.naver.com/x/req", scheduled_check_at: new Date(Date.now() + 86_400_000).toISOString(), point_a: 2, point_b: 1, point_c: 1 }),
+    body: JSON.stringify({ organization: ORG, kind: "review_request", act_name: `${TAG} 대기행`, crew_reaction: "all", review_link: "https://cafe.naver.com/x/req", scheduled_check_at: new Date(Date.now() + 86_400_000).toISOString(), point_a: 2, point_b: 1, point_c: 0, point_mode: "ab" }),
   });
-  ck("[시드] 검수신청(대기) 생성 201", seedRR.status === 201);
+  ck("[시드] 전원 검수신청(대기) 생성 201", seed2.status === 201);
+  // 자동완료 시드 — 검수시점 과거(직접 insert, createX 는 미래만 허용).
+  await sb.from("process_irregular_acts").insert({
+    organization_slug: ORG, week_id: curId, kind: "review_request", act_name: `${TAG} 자동완료행`,
+    applicant_admin_id: null, applicant_admin_name: "검증관리자", target_user_id: null, target_user_name: null,
+    scope_mode: "operating", duration_minutes: 10, reason: "auto", point_a: 3, point_b: 2, point_c: 0,
+    crew_reaction: "all", review_link: "https://cafe.naver.com/x/auto", scheduled_check_at: new Date(Date.now() - 3600_000).toISOString(),
+    status: "pending", completed_at: null,
+  });
 
   const ctx = await browser.newContext();
   await ctx.addCookies(cks);
@@ -68,94 +83,117 @@ try {
   await page.waitForTimeout(900);
   const body = (await page.locator("body").textContent()) ?? "";
 
-  // 버튼 2종.
-  ck("[버튼] 수동 입력", await page.getByRole("button", { name: "수동 입력" }).count() > 0);
-  ck("[버튼] 검수 링크", await page.getByRole("button", { name: "검수 링크" }).count() > 0);
+  // ── 버튼 [전원][부분] ──
+  ck("[버튼] 전원", await page.getByRole("button", { name: "전원", exact: true }).count() > 0);
+  ck("[버튼] 부분", await page.getByRole("button", { name: "부분", exact: true }).count() > 0);
 
-  // 요약 5칸 라벨.
-  for (const lbl of ["전체 갯수", "검수 링크", "수동 입력", "체크 완료", "체크 대기"]) {
-    ck(`[요약] ${lbl} 표시`, body.includes(lbl));
+  // ── 통계 7칸 ──
+  for (const lbl of ["전체 갯수", "링크 신청", "수동 부여", "체크 완료", "체크 대기", "전원", "부분"]) {
+    ck(`[통계] ${lbl} 표시`, body.includes(lbl));
   }
 
-  // 표 헤더 순서: 종류 → 카페 → 액트명(변동).
-  const headers = await page.locator("thead th").allTextContents();
-  const h = headers.map((t) => t.trim());
-  const iKind = h.indexOf("종류"), iCafe = h.indexOf("카페"), iAct = h.findIndex((t) => t.includes("액트명"));
-  ck("[헤더] 종류 → 카페 → 액트명 순서", iKind >= 0 && iCafe === iKind + 1 && iAct === iCafe + 1, JSON.stringify(h));
+  // ── 주차 드롭다운 + 날짜범위 + 상태 ──
+  ck("[주차] 주차 선택 드롭다운 존재", (await page.locator('select[aria-label="주차 선택"]').count()) > 0);
+  ck("[주차] (YYYY-MM-DD ~ YYYY-MM-DD) 날짜범위 표시", /\(\d{4}-\d{2}-\d{2} ~ \d{4}-\d{2}-\d{2}\)/.test(body));
+  ck("[주차] 주차 상태(공식 활동/휴식 주차) 표시", body.includes("공식 활동 주차") || body.includes("공식 휴식 주차"));
 
-  // 시드 행 표시 + 카페=미발생(수동부여 파생).
-  ck("[행] 시드 액트명 표시", body.includes(`${TAG} 표시행`));
-  const rowText = (await page.locator("tbody tr", { hasText: `${TAG} 표시행` }).first().textContent()) ?? "";
-  ck("[행] 수동 입력 → 카페 '미발생' 표시", rowText.includes("미발생"));
-  ck("[행] 수동 입력 → 상태 '체크 완료'", rowText.includes("체크 완료"));
+  // ── 표 헤더 12열 순서 ──
+  const h = (await page.locator("thead th").allTextContents()).map((t) => t.trim());
+  const expected = ["종류", "액트 종류", "액트명(비정규)", "신청자", "소요 시간(m)", "액트 신청 사유", "po A", "po B", "po C", "신청 시점(실제)", "검수 시점(실제)", "체크 상태"];
+  ck("[헤더] 12열 순서 정확", JSON.stringify(h) === JSON.stringify(expected), JSON.stringify(h));
 
-  // ── 상태 버튼 통합 — 별도 [상세] 버튼 제거, 상태 버튼이 상세 역할 ──
-  ck("[버튼통합] 목록에 '상세' 버튼 없음", (await page.getByRole("button", { name: "상세" }).count()) === 0);
+  // ── 시드 행 표시 ──
+  ck("[행] 부분 수동 부여 → 체크 완료 + '부분'", (() => { const r = body; return r.includes(`${TAG} 표시행`); })());
+  const mgRow = (await page.locator("tbody tr", { hasText: `${TAG} 표시행` }).first().textContent()) ?? "";
+  ck("[행] 수동 부여 행 — 액트 종류 '부분' · 상태 '체크 완료'", mgRow.includes("부분") && mgRow.includes("체크 완료"));
+  const waitRow = (await page.locator("tbody tr", { hasText: `${TAG} 대기행` }).first().textContent()) ?? "";
+  ck("[행] 전원 검수신청(미래) — 액트 종류 '전원' · 상태 '체크 대기'", waitRow.includes("전원") && waitRow.includes("체크 대기"));
+  // 자동완료 — 검수시점 과거 review_request 가 '체크 완료'로 표시.
+  const autoRow = (await page.locator("tbody tr", { hasText: `${TAG} 자동완료행` }).first().textContent()) ?? "";
+  ck("[자동완료] 과거 검수시점 행 = 브라우저 '체크 완료' 표시", autoRow.includes("체크 완료"));
 
-  // 체크 대기 행: 관리 셀 버튼 1개(상태 버튼만) → 클릭 시 상세 모달 + 체크 취소.
-  const waitRow = page.locator("tbody tr", { hasText: `${TAG} 대기행` }).first();
-  const waitBtns = await waitRow.locator("td:last-child button").count();
-  ck("[체크대기] 행 관리 버튼 1개", waitBtns === 1, `n=${waitBtns}`);
-  await waitRow.getByRole("button", { name: "체크 대기" }).click();
+  // ── [전원] 다이얼로그 — 검수 링크 신청 · 액트 종류 전원 고정 · 포인트 라디오 없음 ──
+  await page.getByRole("button", { name: "전원", exact: true }).click();
   await page.waitForTimeout(400);
-  ck("[체크대기] 상태 버튼 클릭 → 상세 모달 + 체크 취소 버튼", (await page.getByRole("button", { name: "체크 취소" }).count()) > 0);
-  await page.locator(".fixed.inset-0.z-50").getByRole("button", { name: "체크 취소" }).first().click(); // 상세 모달의 체크 취소
+  const allModal = page.locator(".fixed.inset-0.z-50").last();
+  ck("[전원] 모달 — '검수 링크 신청' 제목", (await allModal.getByText("검수 링크 신청").count()) > 0);
+  ck("[전원] 액트 종류 '전원 (고정)'", (await allModal.getByText("전원 (고정)").count()) > 0);
+  ck("[전원] 포인트 방식 라디오 없음(전원=A/B/C 자유)", (await allModal.getByRole("radio").count()) === 0);
+  ck("[전원] 포인트 A/B/C 모두 활성", !(await allModal.locator('select[aria-label="포인트 A"]').isDisabled()) && !(await allModal.locator('select[aria-label="포인트 C"]').isDisabled()));
+  ck("[전원] 검수 링크 입력 존재", (await allModal.getByPlaceholder("https://cafe.naver.com/...").count()) > 0);
+  // 하단 버튼 순서: 초기화 | 체크 신청 | 체크 취소.
+  const allBtns = (await allModal.locator("div.mt-4.flex button").allTextContents()).map((t) => t.trim());
+  ck("[전원] 하단 버튼 '초기화 | 체크 신청 | 체크 취소' 순서", JSON.stringify(allBtns) === JSON.stringify(["초기화", "체크 신청", "체크 취소"]), JSON.stringify(allBtns));
+  await allModal.getByRole("button", { name: "체크 취소" }).click();
   await page.waitForTimeout(300);
-  // 확인 다이얼로그(z-[60]) 수락 — 동일 라벨 '체크 취소'.
-  await page.locator(".fixed.inset-0.z-\\[60\\]").getByRole("button", { name: "체크 취소" }).click();
-  await page.waitForTimeout(600);
-  ck("[체크대기] 체크 취소 → 행 제거", (await page.locator("tbody tr", { hasText: `${TAG} 대기행` }).count()) === 0);
 
-  // 체크 완료 행: 관리 셀 버튼 1개(중복 없음) → 클릭 시 상세 모달.
-  const doneRow = page.locator("tbody tr", { hasText: `${TAG} 표시행` }).first();
-  const doneStatusBtn = doneRow.getByRole("button", { name: "체크 완료" });
-  await doneStatusBtn.waitFor({ state: "visible", timeout: 5000 }); // 보드 리로드 안정화 대기
-  const doneBtns = await doneRow.getByRole("button").count(); // 크루반응은 <select>라 버튼 아님
-  ck("[체크완료] 행 관리 버튼 1개(중복 없음)", doneBtns === 1, `n=${doneBtns}`);
-  await doneStatusBtn.click();
+  // ── [부분] → 선택 팝업(검수 링크/수동 입력) ──
+  // 부분 > 검수 링크 — 하단 버튼 순서 확인 후 닫기.
+  await page.getByRole("button", { name: "부분", exact: true }).click();
+  await page.waitForTimeout(300);
+  ck("[부분] 선택 팝업 — 검수 링크/수동 입력 버튼", (await page.getByRole("button", { name: "검수 링크" }).count()) > 0 && (await page.getByRole("button", { name: "수동 입력" }).count()) > 0);
+  await page.getByRole("button", { name: "검수 링크" }).click();
   await page.waitForTimeout(400);
-  ck("[체크완료] 상태 버튼 클릭 → 상세 모달 열림(닫기 버튼)", (await page.getByRole("button", { name: "닫기" }).count()) > 0);
-  await page.getByRole("button", { name: "닫기" }).click();
-  await page.waitForTimeout(200);
+  const partReviewModal = page.locator(".fixed.inset-0.z-50").last();
+  ck("[부분-검수] 액트 종류 '부분 (고정)'", (await partReviewModal.getByText("부분 (고정)").count()) > 0);
+  const partBtns = (await partReviewModal.locator("div.mt-4.flex button").allTextContents()).map((t) => t.trim());
+  ck("[부분-검수] 하단 버튼 '초기화 | 체크 신청 | 체크 취소' 순서", JSON.stringify(partBtns) === JSON.stringify(["초기화", "체크 신청", "체크 취소"]), JSON.stringify(partBtns));
+  await partReviewModal.getByRole("button", { name: "체크 취소" }).click();
+  await page.waitForTimeout(300);
 
-  // ── 수동 입력 모달 — 자동완성 검색 → 확인 → 명단 추가 → 인원 수 ──
+  // 부분 > 수동 입력.
+  await page.getByRole("button", { name: "부분", exact: true }).click();
+  await page.waitForTimeout(300);
   await page.getByRole("button", { name: "수동 입력" }).click();
   await page.waitForTimeout(400);
-  ck("[모달] 대상 크루 0명 초기표시", ((await page.locator("text=대상 크루 0명").count()) > 0));
-  ck("[모달] 버튼 초기화/체크 완료 존재", (await page.getByRole("button", { name: "초기화" }).count()) > 0 && (await page.getByRole("button", { name: "체크 완료" }).count()) > 0);
-  ck("[모달] 체크 신청/취소 버튼 없음", (await page.getByRole("button", { name: "체크 신청" }).count()) === 0 && (await page.getByRole("button", { name: "체크 취소" }).count()) === 0);
-  // 포인트 드롭다운 0~20 — 0 옵션 존재.
-  ck("[모달] 포인트 A 드롭다운 0 선택 가능", (await page.locator('select[aria-label="포인트 A"] option[value="0"]').count()) > 0 && (await page.locator('select[aria-label="포인트 A"] option[value="20"]').count()) > 0);
+  const mModal = page.locator(".fixed.inset-0.z-50").last();
+  ck("[수동] 액트 종류 '부분 (수동 입력 고정)'", (await mModal.getByText("부분 (수동 입력 고정)").count()) > 0);
+  ck("[수동] 포인트 방식 라디오 없음(X 초기화 방식)", (await mModal.getByRole("radio").count()) === 0);
+  ck("[수동] X 초기화 버튼(포인트 C 초기화) 존재", (await mModal.locator('button[aria-label="포인트 C 초기화"]').count()) > 0);
+  ck("[수동] 대상 크루 0명 초기 표시", (await mModal.getByText("대상 크루 0명").count()) > 0);
 
-  // 수동 입력는 '부분' 고정(전원 선택 불가) + 포인트 방식(A+B|C) 라디오. 구 필수/선택/선발/없음 비노출.
-  //   ⚠ 목록 행에도 '액트 종류' select 가 있으므로 모달 컨테이너로 스코프(strict 모드 회피).
-  const modal = page.locator(".fixed.inset-0.z-50").last();
-  const cSel = modal.locator('select[aria-label="포인트 C"]');
-  ck("[수동] 액트 종류 '부분 (수동 입력 고정)' 표시", (await modal.getByText("부분 (수동 입력 고정)").count()) > 0);
-  ck("[수동] 액트 종류 select(전원 선택) 없음", (await modal.locator('select[aria-label="액트 종류"]').count()) === 0);
-  ck("[수동] 포인트 방식 라디오 2개(A+B 부여/C 부여)", (await modal.getByRole("radio").count()) === 2);
-  const bodyTxt = await modal.innerText();
-  ck("[수동] 구 옵션(필수/선택/선발/없음) 비노출", !["필수", "선발"].some((w) => bodyTxt.includes(w)));
-  // 기본 A+B 부여 → 포인트 C 비활성. C 부여 라디오 → A/B 비활성.
-  ck("[규칙] 기본 A+B 부여 → 포인트 C 비활성", await cSel.isDisabled());
-  await modal.getByRole("radio", { name: "C 부여" }).click();
-  await page.waitForTimeout(200);
-  ck("[규칙] C 부여 → 포인트 C 활성·포인트 A 비활성", !(await cSel.isDisabled()) && (await modal.locator('select[aria-label="포인트 A"]').isDisabled()));
+  // 포인트 규칙: A 입력 → C 잠금 / C 초기화하면 다시 활성 흐름 확인.
+  const aSel = mModal.locator('select[aria-label="포인트 A"]');
+  const cSel = mModal.locator('select[aria-label="포인트 C"]');
+  await aSel.selectOption("4");
+  await page.waitForTimeout(150);
+  ck("[수동] 포인트 A 입력 시 포인트 C 비활성", await cSel.isDisabled());
+  await mModal.locator('button[aria-label="포인트 A 초기화"]').click();
+  await page.waitForTimeout(150);
+  ck("[수동] A 초기화(X) → 포인트 C 다시 활성", !(await cSel.isDisabled()));
 
+  // 대상 크루 검색 → 확인 → 명단 추가 → 중복 추가 시 안내 팝업.
   const term = (opTarget.display_name ?? "").trim();
-  await page.getByPlaceholder("이름으로 검색").fill(term);
-  // 디바운스 + 크루 로딩(org 전체 user_profiles·멤버십·학력)은 수 초 걸릴 수 있어 충분히 대기.
-  const sugg = page.locator("button", { hasText: term }).first();
+  await mModal.getByPlaceholder("이름으로 검색").fill(term);
+  const sugg = mModal.locator("button", { hasText: term }).first();
   await sugg.waitFor({ state: "visible", timeout: 12000 }).catch(() => {});
   if (await sugg.count() > 0) {
     await sugg.click();
-    await page.getByRole("button", { name: "확인" }).click();
+    await mModal.getByRole("button", { name: "확인" }).click();
     await page.waitForTimeout(300);
-    ck("[모달] 명단에 크루 1명 추가 · '대상 크루 1명'", (await page.locator("text=대상 크루 1명").count()) > 0);
-    const modal = (await page.locator("body").textContent()) ?? "";
-    ck("[모달] 명단 표에 크루명 표시", modal.includes(term));
-  } else {
-    ck("[모달] 자동완성 결과(크루 검색)", false, `'${term}' 검색 결과 없음`);
+    ck("[수동] 명단 크루 1명 추가('대상 크루 1명')", (await mModal.getByText("대상 크루 1명").count()) > 0);
+    // 중복 추가 — 같은 크루 재검색 → 확인 → '이미 명단에 기재되었습니다' 팝업.
+    await mModal.getByPlaceholder("이름으로 검색").fill(term);
+    const sugg2 = mModal.locator("button", { hasText: term }).first();
+    await sugg2.waitFor({ state: "visible", timeout: 12000 }).catch(() => {});
+    if (await sugg2.count() > 0) {
+      await sugg2.click();
+      await mModal.getByRole("button", { name: "확인" }).click();
+      await page.waitForTimeout(300);
+      ck("[수동] 중복 추가 → '이미 명단에 기재되었습니다' 팝업", (await page.getByText("이미 명단에 기재되었습니다").count()) > 0);
+    } else ck("[수동] 중복 추가 재검색", false, "재검색 결과 없음");
+  } else ck("[수동] 자동완성 결과(크루 검색)", false, `'${term}' 검색 결과 없음`);
+
+  // ── 과거 주차 선택 → 버튼 비활성 + 조회 전용 ──
+  //   (모달/확인 팝업 teardown 대신 페이지 리로드로 깨끗한 상태에서 검증)
+  if (pastOpt?.weekId) {
+    await page.goto(`${BASE}/admin/processes/check/irregular?org=${ORG}`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(700);
+    await page.locator('select[aria-label="주차 선택"]').selectOption(pastOpt.weekId);
+    await page.waitForTimeout(900);
+    ck("[과거] 조회 전용 배지 표시", (await page.getByText("조회 전용").count()) > 0);
+    ck("[과거] [전원] 버튼 비활성", await page.getByRole("button", { name: "전원", exact: true }).isDisabled());
+    ck("[과거] [부분] 버튼 비활성", await page.getByRole("button", { name: "부분", exact: true }).isDisabled());
   }
 } catch (e) { console.error("ERROR:", e?.stack ?? e?.message ?? e); fail++; }
 finally { await cleanup(); await browser.close(); console.log("(cleanup — net-zero)"); console.log(`\n결과: ${pass} pass / ${fail} fail`); process.exit(fail > 0 ? 1 : 0); }

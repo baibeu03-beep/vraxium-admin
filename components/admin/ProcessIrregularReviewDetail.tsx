@@ -32,12 +32,15 @@ export default function ProcessIrregularReviewDetail({
   act,
   organization,
   mode,
+  editable = true,
   onClose,
   onDone,
 }: {
   act: ProcessIrregularActRowDto;
   organization: string;
   mode: ScopeMode;
+  // 현재 주차(편집 가능)일 때만 체크 취소/삭제 허용. 과거 주차 = 조회 전용.
+  editable?: boolean;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -45,8 +48,9 @@ export default function ProcessIrregularReviewDetail({
   const [banner, setBanner] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const isReview = act.kind === "review_request";
-  // 체크 취소(=신청 삭제)는 검수 링크 + pending 일 때만. 수동 입력는 완료 상태라 취소 없음.
-  const cancelable = isReview && act.status === "pending";
+  // 체크 취소(=신청 삭제)는 현재 주차 · 검수 링크 · pending(검수 시점 전) 일 때만.
+  //   수동 부여/완료/과거 주차는 취소 불가.
+  const cancelable = editable && isReview && act.status === "pending";
 
   // 체크 취소 = 신청 삭제(pending 에서만). 완료 후에는 취소 불가.
   //   호출 측에서 한 번 더 확인을 끝낸 뒤 실제 DELETE 만 수행.
@@ -197,13 +201,13 @@ export default function ProcessIrregularReviewDetail({
               체크 취소
             </Button>
           ) : (
-            // 수동 입력 — 관리용 삭제(완료 상태·취소 개념 없음).
+            // 수동 부여 — 관리용 삭제(완료 상태·취소 개념 없음). 과거 주차는 비활성.
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="border-rose-300 text-rose-700 hover:bg-rose-50"
-              disabled={submitting}
+              disabled={submitting || !editable}
               onClick={() =>
                 void (async () => {
                   // 수동 입력 관리용 삭제 — 한 번 더 확인.
@@ -223,7 +227,9 @@ export default function ProcessIrregularReviewDetail({
         </div>
         {isReview && !cancelable && (
           <p className="mt-2 text-right text-[11px] text-muted-foreground">
-            검수 완료된 신청은 취소할 수 없습니다.
+            {!editable
+              ? "과거 주차는 조회 전용입니다(체크 취소 불가)."
+              : "검수 시점이 지났거나 완료된 신청은 취소할 수 없습니다."}
           </p>
         )}
       </div>

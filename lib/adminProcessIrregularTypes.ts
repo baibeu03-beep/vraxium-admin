@@ -41,6 +41,20 @@ export const IRREGULAR_STATUS_LABEL: Record<IrregularStatus, string> = {
   pending: "체크 대기",
   completed: "체크 완료",
 };
+// 검수 시점 자동 완료(조회 시점 파생) — review_request + pending 인데 검수 시점이 지났으면 '체크 완료'.
+//   ⚠ DB status 는 그대로 두고(영구 write 없음) 표시/통계만 완료로 본다. 포인트 적립·실제 검수는
+//      기존 워커 로직이 담당(미접촉). nowMs 는 호출부(서버 GET)가 주입.
+export function effectiveIrregularStatus(
+  kind: IrregularKind,
+  status: IrregularStatus,
+  scheduledCheckAt: string | null,
+  nowMs: number,
+): IrregularStatus {
+  if (status !== "pending" || kind !== "review_request") return status;
+  if (!scheduledCheckAt) return status;
+  const t = Date.parse(scheduledCheckAt);
+  return !Number.isNaN(t) && nowMs >= t ? "completed" : status;
+}
 export function irregularStatusClass(s: IrregularStatus): string {
   return s === "completed"
     ? "border-green-300 bg-green-100 text-green-800"
@@ -153,9 +167,12 @@ export type ProcessIrregularActRowDto = {
   crewReactionLabel: string;
   reviewLink: string | null;
   scheduledCheckAt: string | null; // 검수 시점
+  // status = 표시/통계용 유효 상태(검수 시점 자동 완료 반영). rawStatus = DB 원본(취소 가능 판정용).
   status: IrregularStatus;
+  rawStatus: IrregularStatus;
+  autoCompleted: boolean; // 검수 시점 경과로 자동 완료 표시된 행(DB 는 아직 pending).
   completedAt: string | null;
-  createdAt: string;
+  createdAt: string; // 신청 시점(실제)
   // 자동 검수 결과(review_request·completed 후). 매칭된 크루 + 수동확인 목록.
   recipients: ProcessIrregularRecipientDto[];
   matchedCount: number; // recipients 중 matched 수
@@ -166,15 +183,36 @@ export type ProcessIrregularActRowDto = {
 
 export type ProcessIrregularSummary = {
   total: number; // 전체 갯수
-  reviewRequest: number; // 검수 링크(kind)
-  manualGrant: number; // 수동 입력(kind)
-  completed: number; // 체크 완료(status)
-  pending: number; // 체크 대기(status)
+  reviewRequest: number; // 링크 신청(kind=review_request)
+  manualGrant: number; // 수동 부여(kind=manual_grant)
+  completed: number; // 체크 완료(유효 상태)
+  pending: number; // 체크 대기(유효 상태)
+  all: number; // 전원(crew_reaction=all)
+  partial: number; // 부분(crew_reaction=partial)
 };
+
+// 주차 드롭다운 1개 옵션(현재 시즌 W1~현재주차). 미래 주차는 목록에 포함하지 않는다.
+export type ProcessIrregularWeekOptionDto = {
+  weekId: string | null;
+  weekNumber: number;
+  weekName: string; // "3주차"
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  isOfficialRest: boolean;
+  statusLabel: string; // "공식 활동 주차" | "공식 휴식 주차"
+  isCurrent: boolean; // 현재(편집 가능) 주차 여부
+};
+
+export function irregularWeekStatusLabel(isOfficialRest: boolean): string {
+  return isOfficialRest ? "공식 휴식 주차" : "공식 활동 주차";
+}
 
 export type ProcessIrregularBoardDto = {
   organization: string;
-  week: ProcessCheckWeekDto | null;
+  week: ProcessCheckWeekDto | null; // 선택 주차
+  weeks: ProcessIrregularWeekOptionDto[]; // 드롭다운(현재 시즌 W1~현재주차)
+  selectedWeekId: string | null;
+  editable: boolean; // 선택 주차 == 현재 주차 일 때만 true(과거 주차 = 조회 전용)
   summary: ProcessIrregularSummary;
   acts: ProcessIrregularActRowDto[]; // 최신순(생성 역순)
 };
@@ -183,7 +221,10 @@ export function emptyProcessIrregularBoard(organization: string): ProcessIrregul
   return {
     organization,
     week: null,
-    summary: { total: 0, reviewRequest: 0, manualGrant: 0, completed: 0, pending: 0 },
+    weeks: [],
+    selectedWeekId: null,
+    editable: false,
+    summary: { total: 0, reviewRequest: 0, manualGrant: 0, completed: 0, pending: 0, all: 0, partial: 0 },
     acts: [],
   };
 }
