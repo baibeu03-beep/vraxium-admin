@@ -225,17 +225,19 @@ async function resolveIrregularWeekList(mode: ScopeMode): Promise<{
     if (!d) continue;
     const weekId = weekIdByKey.get(`${d.isoYear}-${d.isoWeek}`) ?? null;
     const isCurrent = ms === currentMs;
+    const base = { year: d.year, seasonName: d.seasonName, weekNumber: d.weekNumber };
     options.push({
       weekId,
       weekNumber: d.weekNumber,
       weekName: `${d.weekNumber}주차`,
+      // 드롭다운 표기 = 연도+시즌+주차(공용 SoT). "26년 봄 시즌 17주차".
+      periodLabel: processCheckLogPeriodLabel(base),
       startDate: d.weekStart,
       endDate: d.weekEnd,
       isOfficialRest: d.isOfficialRest,
       statusLabel: irregularWeekStatusLabel(d.isOfficialRest),
       isCurrent,
     });
-    const base = { year: d.year, seasonName: d.seasonName, weekNumber: d.weekNumber };
     selectedWeekDtoByMs.set(ms, {
       weekId,
       weekName: `${d.weekNumber}주차`,

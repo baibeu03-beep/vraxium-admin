@@ -172,29 +172,30 @@ export default function ProcessIrregularManager() {
         </div>
       )}
 
-      {/* 주차 드롭다운 + 날짜 범위 + 상태 */}
+      {/* 주차 선택 — 라벨·드롭다운·날짜 범위·상태 배지를 한 줄에 세로 중앙 정렬 */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">주차 선택</label>
-          <select
-            aria-label="주차 선택"
-            value={selValue}
-            disabled={!org || weeks.length === 0}
-            onChange={(e) => setWeekParam(e.target.value || null)}
-            className="h-9 min-w-[140px] rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {weeks.length === 0 && <option value="">주차 정보 없음</option>}
-            {weeks.map((w) => (
-              <option key={w.weekId ?? w.weekNumber} value={w.weekId ?? ""} disabled={!w.weekId}>
-                {w.weekName}
-                {w.isCurrent ? " (현재)" : ""}
-              </option>
-            ))}
-          </select>
-        </div>
+        <label htmlFor="irregular-week-select" className="shrink-0 text-xs text-muted-foreground">
+          주차 선택
+        </label>
+        <select
+          id="irregular-week-select"
+          aria-label="주차 선택"
+          value={selValue}
+          disabled={!org || weeks.length === 0}
+          onChange={(e) => setWeekParam(e.target.value || null)}
+          className="h-9 min-w-[200px] rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {weeks.length === 0 && <option value="">주차 정보 없음</option>}
+          {weeks.map((w) => (
+            <option key={w.weekId ?? w.weekNumber} value={w.weekId ?? ""} disabled={!w.weekId}>
+              {w.periodLabel}
+              {w.isCurrent ? " (현재)" : ""}
+            </option>
+          ))}
+        </select>
         {selectedOption && (
-          <div className="flex flex-wrap items-center gap-2 pt-5 text-sm">
-            <span className="rounded-md border bg-muted/40 px-2.5 py-1 tabular-nums text-muted-foreground">
+          <>
+            <span className="rounded-md border bg-muted/40 px-2.5 py-1 text-sm tabular-nums text-muted-foreground">
               ({selectedOption.startDate} ~ {selectedOption.endDate})
             </span>
             <span
@@ -212,7 +213,7 @@ export default function ProcessIrregularManager() {
                 조회 전용 (현재 주차만 등록/취소 가능)
               </span>
             )}
-          </div>
+          </>
         )}
       </div>
 

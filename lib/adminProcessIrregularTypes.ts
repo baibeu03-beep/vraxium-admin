@@ -196,6 +196,7 @@ export type ProcessIrregularWeekOptionDto = {
   weekId: string | null;
   weekNumber: number;
   weekName: string; // "3주차"
+  periodLabel: string; // 드롭다운 표기 — "26년 봄 시즌 3주차"(연도+시즌+주차, processCheckLogPeriodLabel SoT)
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
   isOfficialRest: boolean;
