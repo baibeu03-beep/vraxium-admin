@@ -1436,12 +1436,16 @@ function segmentSeasonPositions(
 }
 
 // 시즌 다건 배치: user_position_histories 1쿼리 → 시즌별 상태 구간 맵.
-//   PMS 행이 있는 시즌 → 구간(다건). 없는 시즌 → 현재값 단일 항목(최후 fallback)으로 채워, 선택
-//   시즌이 무엇이든 맵에 항상 엔트리가 있게 한다(area-6/7 BySeason 과 동일하게 완전한 맵).
+//   PMS 행이 있는 시즌 → 구간(다건). PMS 행이 없는 시즌:
+//     · 현재 시즌(sk === currentSeasonKey)만 현재값 단일 항목(최후 fallback) — native·미이관 회원이
+//       지금 활동 중인 시즌은 현재 membership/role 로 채워야 빈 화면이 안 된다.
+//     · 과거 시즌은 빈 배열 — 과거 시즌을 "현재 등급/역할"로 덮지 않는다(주차/시즌 핀 원칙).
+//   currentSeasonKey=null(달력 갭) 이면 어떤 시즌도 fallback 을 받지 않는다(보수적·과거 보호 우선).
 export async function computeSeasonActivityStatusesBySeason(
   userId: string,
   seasonKeys: string[],
   fallback: CurrentActivityFallback,
+  currentSeasonKey: string | null,
 ): Promise<Record<string, SeasonActivityStatus[]>> {
   const out: Record<string, SeasonActivityStatus[]> = {};
   const keys = Array.from(new Set(seasonKeys.filter((k): k is string => !!k)));
@@ -1472,7 +1476,10 @@ export async function computeSeasonActivityStatusesBySeason(
   for (const sk of keys) {
     const rows = bySeason.get(sk);
     const seg = rows ? segmentSeasonPositions(rows, fallback) : [];
-    out[sk] = seg.length > 0 ? seg : fallbackItem;
+    // PMS 구간이 있으면 그대로. 없으면 현재 시즌만 현재값 fallback, 과거 시즌은 빈 배열(현재값으로
+    //   과거 시즌을 덮지 않음). currentSeasonKey 미상(null)이면 fallback 미적용(과거 보호 우선).
+    const isCurrentSeason = currentSeasonKey != null && sk === currentSeasonKey;
+    out[sk] = seg.length > 0 ? seg : isCurrentSeason ? fallbackItem : [];
   }
   return out;
 }
@@ -1486,7 +1493,12 @@ export async function computeSeasonActivityStatuses(
   if (!season) return []; // 현재 시즌 판별 불가(달력 갭) → 빈 배열.
   const seasonKey = seasonDbKey(season);
   const fb = await fetchCurrentActivityFallback(userId);
-  const map = await computeSeasonActivityStatusesBySeason(userId, [seasonKey], fb);
+  // 현재 시즌(달력 기준)일 때만 현재값 fallback 을 허용한다. 과거 시즌(adminCrewSeasonResults 등)은
+  //   PMS 이력이 없으면 빈 배열 — 과거 시즌을 "현재 등급/역할"로 덮지 않는다.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const curSeason = getSeasonForDate(todayIso);
+  const currentSeasonKey = curSeason ? seasonDbKey(curSeason) : null;
+  const map = await computeSeasonActivityStatusesBySeason(userId, [seasonKey], fb, currentSeasonKey);
   return map[seasonKey] ?? [];
 }
 
