@@ -21,6 +21,7 @@ import ProcessCheckActDialog from "@/components/admin/ProcessCheckActDialog";
 import ProcessCheckActTable from "@/components/admin/ProcessCheckActTable";
 import ProcessCheckManualGrantDialog from "@/components/admin/ProcessCheckManualGrantDialog";
 import ProcessCheckProgress from "@/components/admin/ProcessCheckProgress";
+import { WeekSelectRow } from "@/components/admin/WeekSelectRow";
 import {
   PROCESS_CHECK_LOG_ACTION_LABEL,
   emptyProcessCheckBoard,
@@ -58,6 +59,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [today] = useState(() => new Date());
+  // 사용자가 선택한 주차(weeks.id). null = 현재 주차(서버 기본). 섹션.0/1 양쪽 동일 주차로 조회.
+  const [weekParam, setWeekParam] = useState<string | null>(null);
   const [dialogAct, setDialogAct] = useState<ProcessCheckActRowDto | null>(null);
   // 선별 액트 "체크 필요" 클릭 시 [검수 링크]/[수동 입력] 선택 모달 + 수동 입력 모달.
   const [choiceAct, setChoiceAct] = useState<ProcessCheckActRowDto | null>(null);
@@ -98,9 +101,9 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     const myReq = ++reqRef.current;
     setLoading(true);
     try {
-      const res = await fetch(
-        appendModeQuery(`/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}`, mode),
-      );
+      let url = `/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}`;
+      if (weekParam) url += `&week=${encodeURIComponent(weekParam)}`;
+      const res = await fetch(appendModeQuery(url, mode));
       const json = await res.json().catch(() => ({}));
       if (myReq !== reqRef.current) return;
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
@@ -113,7 +116,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     } finally {
       if (myReq === reqRef.current) setLoading(false);
     }
-  }, [hub, org, mode]);
+  }, [hub, org, mode, weekParam]);
 
   // 섹션.1 팀 보드 — 서버가 스코프(team_all|team_overall|part)로 액트/요약/상태를 필터해 반환.
   //   teamParts(드롭다운)·selectedPart(크루 수)도 함께. 파트별 상태는 서버에서 part_name 으로 독립.
@@ -125,6 +128,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
       try {
         let url = `/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}&team=${encodeURIComponent(teamId)}&scope=${scopeKind}`;
         if (scopeKind === "part" && partName) url += `&part=${encodeURIComponent(partName)}`;
+        if (weekParam) url += `&week=${encodeURIComponent(weekParam)}`;
         const res = await fetch(appendModeQuery(url, mode));
         const json = await res.json().catch(() => ({}));
         if (myReq !== teamReqRef.current) return;
@@ -137,7 +141,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         if (myReq === teamReqRef.current) setTeamLoading(false);
       }
     },
-    [hub, org, mode],
+    [hub, org, mode, weekParam],
   );
 
   useEffect(() => {
@@ -151,13 +155,16 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     if (el) el.scrollTop = el.scrollHeight;
   }, [board.logs]);
 
-  const { week, selectedWeek, summary, acts, logs, teams } = board;
+  const { week, selectedWeek, summary, acts, logs, teams, weeks, selectedWeekId, editable } = board;
   const displayWeek = selectedWeek ?? week;
   const weekName = displayWeek?.weekName ?? displayWeek?.periodLabel ?? "주차 정보 없음";
   const periodLabel = displayWeek?.periodLabel ?? weekName;
-  const weekDisabled = !(displayWeek?.editable ?? Boolean(displayWeek?.weekId));
-  const teamDisplayWeek = teamBoard.selectedWeek ?? teamBoard.week ?? displayWeek;
-  const teamWeekDisabled = !(teamDisplayWeek?.editable ?? Boolean(teamDisplayWeek?.weekId));
+  // 과거 주차(editable=false) = 조회 전용 → 섹션.0/1 모든 쓰기 버튼 비활성(weekDisabled).
+  const weekDisabled = !editable;
+  // 드롭다운 표시값 — 사용자가 막 고른 값(weekParam) 우선, 없으면 서버 선택값.
+  const selValue = weekParam ?? selectedWeekId ?? "";
+  // 섹션.1(팀 보드)도 동일 선택 주차 → 같은 editable 축으로 쓰기 가드(미로드 시 보수적으로 비활성).
+  const teamWeekDisabled = !teamBoard.editable;
 
   // 선택 팀 — 명시 선택이 유효하면 그것, 아니면 첫 팀(설계상 첫 팀 기본 선택). setState-in-effect 회피.
   const effectiveTeamId = useMemo(() => {
@@ -224,18 +231,16 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
 
       {/* ════ [섹션.0] 액트 관리 — 전체 팀 고정 ════ */}
       <SectionTitle>[액트 관리]</SectionTitle>
-      {/* 주차명 드롭다운 — 이번 주 N 고정(read-only). */}
-      <div className="max-w-xs space-y-1">
-        <label className="text-xs text-muted-foreground">주차명 (이번 주 · 변경 불가)</label>
-        <div
-          aria-disabled="true"
-          aria-label="주차명"
-          className="flex cursor-not-allowed items-center justify-between rounded-md border border-input bg-muted/50 px-3 py-2 text-sm"
-        >
-          <span className={cn(weekDisabled && "text-muted-foreground")}>{weekName}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-        </div>
-      </div>
+      {/* 주차 선택 — 공용 WeekSelectRow(현재 기본·미래 숨김·날짜·상태·과거 조회전용). */}
+      <WeekSelectRow
+        weeks={weeks}
+        selectedWeekId={selectedWeekId}
+        editable={editable}
+        value={selValue}
+        onChange={setWeekParam}
+        disabled={!org}
+        selectId={`process-check-week-select-${hub}`}
+      />
 
       {/* 상태창1 (좌) + 로그창 (우) */}
       <div className="grid items-start gap-4 lg:grid-cols-2">

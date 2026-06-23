@@ -247,6 +247,24 @@ export type ProcessCheckWeekDto = {
   logPeriodLabel: string; // "26년 여름 시즌 2주차" (로그 denorm)
 };
 
+// 주차 선택 드롭다운 1개 옵션(현재 시즌 W1~현재주차 · 미래 주차 미포함). 프로세스 체크/변동 액트 공용 SoT.
+//   WeekSelectRow(공용 컴포넌트) + resolveSelectableProcessWeeks(공용 유틸)가 사용.
+export type ProcessWeekOptionDto = {
+  weekId: string | null;
+  weekNumber: number;
+  weekName: string; // "3주차"
+  periodLabel: string; // 드롭다운 표기 — "26년 봄 시즌 3주차"(연도+시즌+주차, processCheckLogPeriodLabel SoT)
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  isOfficialRest: boolean;
+  statusLabel: string; // "공식 활동 주차" | "공식 휴식 주차"
+  isCurrent: boolean; // 현재(편집 가능) 주차 여부
+};
+
+export function processWeekStatusLabel(isOfficialRest: boolean): string {
+  return isOfficialRest ? "공식 휴식 주차" : "공식 활동 주차";
+}
+
 export type ProcessCheckLogDto = {
   id: string;
   action: ProcessCheckLogAction;
@@ -277,8 +295,13 @@ export type ProcessCheckBoardDto = {
   hubLabel: string;
   organization: string;
   mode: ScopeMode;
-  week: ProcessCheckWeekDto | null;
+  week: ProcessCheckWeekDto | null; // 선택 주차(드롭다운 선택값 — 미선택이면 현재 주차)
   selectedWeek: ProcessCheckWeekDto | null;
+  // 주차 드롭다운(현재 시즌 W1~현재주차 · 미래 미포함) + 선택 주차 식별 + 편집 가능 여부.
+  //   editable = 선택 주차 == 현재 주차 일 때만 true(과거 주차 = 조회 전용 · 모든 쓰기 비활성).
+  weeks: ProcessWeekOptionDto[];
+  selectedWeekId: string | null;
+  editable: boolean;
   // 팀 구분 허브(experience)면 org 팀 목록(상태창1 팀별 문장용). 그 외(info 등)는 빈 배열(허브 전체 1문장).
   teams: ProcessCheckTeamDto[];
   // 선택 팀의 실제 파트 목록(user_memberships.part_name · org+mode 스코프 · "일반" 제외). 드롭다운 파트 옵션.
@@ -300,6 +323,9 @@ export function emptyProcessCheckBoard(hub: ProcessHub, organization: string): P
     mode: "operating",
     week: null,
     selectedWeek: null,
+    weeks: [],
+    selectedWeekId: null,
+    editable: false,
     teams: [],
     teamParts: [],
     selectedPart: null,

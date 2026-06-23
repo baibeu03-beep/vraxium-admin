@@ -37,6 +37,7 @@ import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   processCheckLogPeriodLabel,
   processCheckPeriodLabel,
+  processWeekStatusLabel,
   validateReviewLink,
   validateScheduledCheckAt,
   isPartLineGroupName,
@@ -58,6 +59,7 @@ import {
   type ProcessCheckSummary,
   type ProcessCheckTeamDto,
   type ProcessCheckWeekDto,
+  type ProcessWeekOptionDto,
 } from "@/lib/adminProcessCheckTypes";
 
 // org 팀 동적 조회(cluster4_teams) — 팀명 하드코딩 금지. listTeams(adminExperienceLineData)와 동일 원천.
@@ -219,6 +221,119 @@ export async function resolveProcessWeek(
 // 허브 기준 현재 주차(기존 호출부 유지) — ProcessHub → 공통 테스트 예외 hub 키로 매핑해 위임.
 function resolveCurrentWeek(hub: ProcessHub, mode: ScopeMode): Promise<ProcessCheckWeekDto | null> {
   return resolveProcessWeek(mode, PROCESS_HUB_TO_TEST_WEEK_HUB[hub] ?? null);
+}
+
+// ── 주차 선택 목록(현재 시즌 W1~현재주차) — 프로세스 체크/변동 액트 공용 SoT ───────────
+//   미래 주차는 포함하지 않는다(현재 주차가 목록 끝=기본 선택). 테스트 모드는 기존 W13 폴드 정책 유지.
+//   각 주차의 weeks.id 는 (iso_year, iso_week) 로 일괄 lookup(없으면 null → 조회는 빈 보드).
+//   editable = 현재 주차일 때만 true(과거 주차 = 조회 전용).
+const SELECTABLE_WEEK_DAY_MS = 86_400_000;
+export async function resolveSelectableProcessWeeks(
+  mode: ScopeMode,
+  hub: Cluster4TestWeekHub | null,
+): Promise<{
+  options: ProcessWeekOptionDto[];
+  currentWeekId: string | null;
+  selectedWeekDtoByMs: Map<number, ProcessCheckWeekDto>;
+}> {
+  const empty = { options: [], currentWeekId: null, selectedWeekDtoByMs: new Map<number, ProcessCheckWeekDto>() };
+  const currentMs = resolveProcessWeekStartMs(mode, hub);
+  if (currentMs == null) return empty;
+  const curDesc = describeWeekByStartMs(currentMs);
+  if (!curDesc) return empty;
+
+  // 현재 시즌 1주차 시작 = 현재 주차 시작 − (현재 주차번호 − 1)주.
+  const seasonStartMs = currentMs - (curDesc.weekNumber - 1) * 7 * SELECTABLE_WEEK_DAY_MS;
+  const descs: Array<{ ms: number; d: ReturnType<typeof describeWeekByStartMs> }> = [];
+  for (let i = 0; i < curDesc.weekNumber; i++) {
+    const ms = seasonStartMs + i * 7 * SELECTABLE_WEEK_DAY_MS;
+    descs.push({ ms, d: describeWeekByStartMs(ms) });
+  }
+
+  // weeks.id 일괄 lookup — 등장하는 iso_year/iso_week 범위로 조회 후 (year,week) 정확 매칭.
+  const isoYears = Array.from(new Set(descs.map((x) => x.d?.isoYear).filter((x): x is number => x != null)));
+  const isoWeeks = Array.from(new Set(descs.map((x) => x.d?.isoWeek).filter((x): x is number => x != null)));
+  const weekIdByKey = new Map<string, string>();
+  if (isoYears.length && isoWeeks.length) {
+    const { data } = await supabaseAdmin
+      .from("weeks")
+      .select("id,iso_year,iso_week")
+      .in("iso_year", isoYears)
+      .in("iso_week", isoWeeks);
+    for (const w of (data ?? []) as Array<{ id: string; iso_year: number; iso_week: number }>) {
+      weekIdByKey.set(`${w.iso_year}-${w.iso_week}`, w.id);
+    }
+  }
+
+  const selectedWeekDtoByMs = new Map<number, ProcessCheckWeekDto>();
+  const options: ProcessWeekOptionDto[] = [];
+  for (const { ms, d } of descs) {
+    if (!d) continue;
+    const weekId = weekIdByKey.get(`${d.isoYear}-${d.isoWeek}`) ?? null;
+    const isCurrent = ms === currentMs;
+    const base = { year: d.year, seasonName: d.seasonName, weekNumber: d.weekNumber };
+    options.push({
+      weekId,
+      weekNumber: d.weekNumber,
+      weekName: `${d.weekNumber}주차`,
+      // 드롭다운 표기 = 연도+시즌+주차(공용 SoT). "26년 봄 시즌 17주차".
+      periodLabel: processCheckLogPeriodLabel(base),
+      startDate: d.weekStart,
+      endDate: d.weekEnd,
+      isOfficialRest: d.isOfficialRest,
+      statusLabel: processWeekStatusLabel(d.isOfficialRest),
+      isCurrent,
+    });
+    selectedWeekDtoByMs.set(ms, {
+      weekId,
+      weekName: `${d.weekNumber}주차`,
+      // 현재 주차에서만 편집 가능(과거 = 조회 전용).
+      editable: isCurrent && Boolean(weekId),
+      year: d.year,
+      seasonName: d.seasonName,
+      weekNumber: d.weekNumber,
+      startDate: d.weekStart,
+      endDate: d.weekEnd,
+      periodLabel: processCheckPeriodLabel(base),
+      logPeriodLabel: processCheckLogPeriodLabel(base),
+    });
+  }
+  // 최신 주차가 위로(현재 주차가 맨 위 = 기본 선택).
+  options.reverse();
+  const currentWeekId = weekIdByKey.get(`${curDesc.isoYear}-${curDesc.isoWeek}`) ?? null;
+  return { options, currentWeekId, selectedWeekDtoByMs };
+}
+
+// 보드 조회용 — 선택 주차(weekId) 해석 + 주차 목록/현재주차/편집가능 동시 반환.
+//   selectedWeekId 가 목록 밖(미래/타시즌/형식오류)이면 현재 주차로 폴백. week DTO 는 선택 주차 기준.
+async function resolveBoardWeek(
+  hub: ProcessHub,
+  mode: ScopeMode,
+  selectedWeekId: string | null | undefined,
+): Promise<{
+  week: ProcessCheckWeekDto | null;
+  weeks: ProcessWeekOptionDto[];
+  selectedWeekId: string | null;
+  effectiveWeekId: string | null;
+  editable: boolean;
+}> {
+  const hubKey = PROCESS_HUB_TO_TEST_WEEK_HUB[hub] ?? null;
+  const { options, currentWeekId, selectedWeekDtoByMs } = await resolveSelectableProcessWeeks(mode, hubKey);
+
+  const validIds = new Set(options.map((o) => o.weekId).filter((x): x is string => Boolean(x)));
+  const effectiveWeekId = selectedWeekId && validIds.has(selectedWeekId) ? selectedWeekId : currentWeekId;
+
+  let week: ProcessCheckWeekDto | null = null;
+  for (const dto of selectedWeekDtoByMs.values()) {
+    if (dto.weekId && dto.weekId === effectiveWeekId) {
+      week = dto;
+      break;
+    }
+  }
+  if (!week) week = await resolveCurrentWeek(hub, mode); // weeks 행 없음 등 폴백(라벨만).
+
+  const editable = Boolean(effectiveWeekId) && effectiveWeekId === currentWeekId;
+  return { week, weeks: options, selectedWeekId: effectiveWeekId, effectiveWeekId, editable };
 }
 
 // ── 마스터(활성) 읽기 ─────────────────────────────────────────────────────────
@@ -527,8 +642,11 @@ export async function getProcessCheckBoard(
   scope: ProcessCheckScopeKind | null = null,
   // 선택 파트명(scope=part). user_memberships 의 실제 파트.
   partName: string | null = null,
+  // 드롭다운 선택 주차(weeks.id). 미지정/목록 밖이면 현재 주차로 폴백. 과거 주차 = 조회 전용(editable=false).
+  selectedWeekId: string | null = null,
 ): Promise<ProcessCheckBoardDto> {
-  const week = await resolveCurrentWeek(hub, mode);
+  const { week, weeks: weekOptions, selectedWeekId: effSelectedWeekId, effectiveWeekId, editable } =
+    await resolveBoardWeek(hub, mode, selectedWeekId);
   const { groups, acts } = await loadActiveMaster(hub);
   const teamBased = isTeamBasedProcessHub(hub);
 
@@ -553,8 +671,8 @@ export async function getProcessCheckBoard(
 
   // 상태 행 로드 + 스코프별 액트→상태 맵 구성. completion_type(수동 부여)도 함께(적용 시).
   const completionAvail = await completionColumnsAvailable();
-  const rows = week?.weekId
-    ? await loadStatusRows(organization, hub, week.weekId, teamId, partAvail, completionAvail)
+  const rows = effectiveWeekId
+    ? await loadStatusRows(organization, hub, effectiveWeekId, teamId, partAvail, completionAvail)
     : [];
   // 검수 크루 식별 결과(recipients) 조인 — reviewerDebug + 체크 완료 명단(read-only·best-effort).
   const { agg: recipients, crewLists } = await loadRecipientData(
@@ -683,7 +801,7 @@ export async function getProcessCheckBoard(
     isAllCompleted: actTotal > 0 && actCompleted === actTotal,
   };
 
-  const logs = await listProcessCheckLogs(hub, organization, week?.weekId ?? null);
+  const logs = await listProcessCheckLogs(hub, organization, effectiveWeekId);
 
   // 선택 파트의 체크 대상 크루 수(표시·가드 참고) — scope=part 일 때만.
   let selectedPart: { name: string; crewCount: number } | null = null;
@@ -699,6 +817,9 @@ export async function getProcessCheckBoard(
     mode,
     week,
     selectedWeek: week,
+    weeks: weekOptions,
+    selectedWeekId: effSelectedWeekId,
+    editable,
     teams,
     teamParts,
     selectedPart,

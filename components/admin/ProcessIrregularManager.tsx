@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,7 @@ import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import ProcessIrregularDialog from "@/components/admin/ProcessIrregularDialog";
 import ProcessIrregularManualGrantDialog from "@/components/admin/ProcessIrregularManualGrantDialog";
 import ProcessIrregularReviewDetail from "@/components/admin/ProcessIrregularReviewDetail";
+import { WeekSelectRow } from "@/components/admin/WeekSelectRow";
 import {
   IRREGULAR_STATUS_LABEL,
   emptyProcessIrregularBoard,
@@ -104,11 +105,6 @@ export default function ProcessIrregularManager() {
 
   const { weeks, selectedWeekId, editable, summary, acts } = board;
 
-  // 선택 주차 옵션(날짜 범위·상태 라벨).
-  const selectedOption = useMemo(
-    () => weeks.find((w) => w.weekId && w.weekId === selectedWeekId) ?? null,
-    [weeks, selectedWeekId],
-  );
   // 현재 select 표시값 — 사용자가 막 고른 값(weekParam) 우선, 없으면 서버 선택값.
   const selValue = weekParam ?? selectedWeekId ?? "";
 
@@ -172,50 +168,16 @@ export default function ProcessIrregularManager() {
         </div>
       )}
 
-      {/* 주차 선택 — 라벨·드롭다운·날짜 범위·상태 배지를 한 줄에 세로 중앙 정렬 */}
-      <div className="flex flex-wrap items-center gap-3">
-        <label htmlFor="irregular-week-select" className="shrink-0 text-xs text-muted-foreground">
-          주차 선택
-        </label>
-        <select
-          id="irregular-week-select"
-          aria-label="주차 선택"
-          value={selValue}
-          disabled={!org || weeks.length === 0}
-          onChange={(e) => setWeekParam(e.target.value || null)}
-          className="h-9 min-w-[200px] rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {weeks.length === 0 && <option value="">주차 정보 없음</option>}
-          {weeks.map((w) => (
-            <option key={w.weekId ?? w.weekNumber} value={w.weekId ?? ""} disabled={!w.weekId}>
-              {w.periodLabel}
-              {w.isCurrent ? " (현재)" : ""}
-            </option>
-          ))}
-        </select>
-        {selectedOption && (
-          <>
-            <span className="rounded-md border bg-muted/40 px-2.5 py-1 text-sm tabular-nums text-muted-foreground">
-              ({selectedOption.startDate} ~ {selectedOption.endDate})
-            </span>
-            <span
-              className={cn(
-                "rounded-md border px-2.5 py-1 text-xs font-medium",
-                selectedOption.isOfficialRest
-                  ? "border-slate-300 bg-slate-100 text-slate-600"
-                  : "border-emerald-300 bg-emerald-50 text-emerald-700",
-              )}
-            >
-              {selectedOption.statusLabel}
-            </span>
-            {!editable && (
-              <span className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
-                조회 전용 (현재 주차만 등록/취소 가능)
-              </span>
-            )}
-          </>
-        )}
-      </div>
+      {/* 주차 선택 — 공용 WeekSelectRow(프로세스 체크와 동일 SoT). */}
+      <WeekSelectRow
+        weeks={weeks}
+        selectedWeekId={selectedWeekId}
+        editable={editable}
+        value={selValue}
+        onChange={setWeekParam}
+        disabled={!org}
+        selectId="irregular-week-select"
+      />
 
       {/* 통계 7칸 — 1행 7열 칸막이 */}
       <div className="flex divide-x rounded-md border bg-card">

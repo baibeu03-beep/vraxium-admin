@@ -1,6 +1,8 @@
 // /api/admin/processes/check — 프로세스 체크 보드 + 액션(체크 신청/취소).
 //
-//   GET  ?hub=info&org=oranke  → 보드 DTO(현재 주차 + [섹션.1] 액트 + 상태창1/2 + 로그)
+//   GET  ?hub=info&org=oranke[&week=<weekId>]
+//          → 보드 DTO(주차 드롭다운 + 선택주차 [섹션.1] 액트 + 상태창1/2 + 로그). week 미지정=현재 주차.
+//          과거 주차 = 조회 전용(editable=false → 모든 쓰기 버튼 비활성).
 //   POST { hub, organization, act_id, action: 'request'|'cancel', review_link?, scheduled_check_at? }
 //          request → needed→pending(검수 링크/시점 저장) · cancel → pending→needed(검수 시점 전만)
 //
@@ -66,9 +68,12 @@ export async function GET(request: NextRequest) {
 
   // 팀 목록 스코프(operating=운영 팀만 / test=(T) 팀만). 기본 operating.
   const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
+  // 선택 주차(드롭다운) — 목록 밖/형식 오류면 데이터레이어가 현재 주차로 폴백. 과거 주차 = 조회 전용.
+  const weekRaw = request.nextUrl.searchParams.get("week")?.trim() || null;
+  const selectedWeekId = weekRaw && UUID_RE.test(weekRaw) ? weekRaw : null;
 
   try {
-    const data = await getProcessCheckBoard(hubRaw, orgRaw, teamRaw, mode, scope, partRaw);
+    const data = await getProcessCheckBoard(hubRaw, orgRaw, teamRaw, mode, scope, partRaw, selectedWeekId);
     return Response.json({ success: true, data });
   } catch (error) {
     const status = error instanceof ProcessMasterError ? error.status : 500;

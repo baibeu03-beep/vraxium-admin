@@ -9,12 +9,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { ProcessMasterError } from "@/lib/adminProcessesData";
-import { resolveProcessWeek, resolveProcessWeekStartMs } from "@/lib/adminProcessCheckData";
-import { describeWeekByStartMs } from "@/lib/cluster4WeekPolicy";
-import {
-  processCheckPeriodLabel,
-  processCheckLogPeriodLabel,
-} from "@/lib/adminProcessCheckTypes";
+import { resolveProcessWeek, resolveSelectableProcessWeeks } from "@/lib/adminProcessCheckData";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
 import { accrueForCompletedIrregular, revokeForAct } from "@/lib/processPointAccrual";
 import type { OrganizationSlug } from "@/lib/organizations";
@@ -27,7 +22,6 @@ import {
   coerceIrregularCrewReaction,
   effectiveIrregularStatus,
   irregularCafeLabel,
-  irregularWeekStatusLabel,
   isIrregularCrewReaction,
   isIrregularDuration,
   isIrregularPointMode,
@@ -43,10 +37,7 @@ import {
   type ProcessIrregularActRowDto,
   type ProcessIrregularBoardDto,
   type ProcessIrregularSummary,
-  type ProcessIrregularWeekOptionDto,
 } from "@/lib/adminProcessIrregularTypes";
-
-const DAY_MS = 86_400_000;
 
 // 변동 액트는 info 와 동일한 주차 정책(테스트=휴식꼬리→마지막 활동주차) 적용.
 //   공통 SoT 의 "process-irregular" hub 키로 위임(허용 정책은 cluster4TestWeekPolicy 단일 출처).
@@ -181,81 +172,8 @@ function summarize(acts: ProcessIrregularActRowDto[]): ProcessIrregularSummary {
   };
 }
 
-// ── 주차 드롭다운 목록(현재 시즌 W1~현재주차) + 현재 주차 식별 ──────────────────
-//   미래 주차는 포함하지 않는다. 테스트 모드는 기존 W13 폴드 정책(resolveProcessWeekStartMs) 유지.
-//   각 주차의 weeks.id 는 (iso_year, iso_week) 로 일괄 lookup(없으면 null — 조회는 빈 보드).
-async function resolveIrregularWeekList(mode: ScopeMode): Promise<{
-  options: ProcessIrregularWeekOptionDto[];
-  currentWeekId: string | null;
-  currentWeekMs: number | null;
-  selectedWeekDtoByMs: Map<number, ProcessCheckWeekDto>;
-}> {
-  const empty = { options: [], currentWeekId: null, currentWeekMs: null, selectedWeekDtoByMs: new Map() };
-  const currentMs = resolveProcessWeekStartMs(mode, IRREGULAR_TEST_WEEK_HUB);
-  if (currentMs == null) return empty;
-  const curDesc = describeWeekByStartMs(currentMs);
-  if (!curDesc) return empty;
-
-  // 현재 시즌 1주차 시작 = 현재 주차 시작 − (현재 주차번호 − 1)주.
-  const seasonStartMs = currentMs - (curDesc.weekNumber - 1) * 7 * DAY_MS;
-  const descs: Array<{ ms: number; d: ReturnType<typeof describeWeekByStartMs> }> = [];
-  for (let i = 0; i < curDesc.weekNumber; i++) {
-    const ms = seasonStartMs + i * 7 * DAY_MS;
-    descs.push({ ms, d: describeWeekByStartMs(ms) });
-  }
-
-  // weeks.id 일괄 lookup — 등장하는 iso_year/iso_week 범위로 조회 후 (year,week) 정확 매칭.
-  const isoYears = Array.from(new Set(descs.map((x) => x.d?.isoYear).filter((x): x is number => x != null)));
-  const isoWeeks = Array.from(new Set(descs.map((x) => x.d?.isoWeek).filter((x): x is number => x != null)));
-  const weekIdByKey = new Map<string, string>();
-  if (isoYears.length && isoWeeks.length) {
-    const { data } = await supabaseAdmin
-      .from("weeks")
-      .select("id,iso_year,iso_week")
-      .in("iso_year", isoYears)
-      .in("iso_week", isoWeeks);
-    for (const w of (data ?? []) as Array<{ id: string; iso_year: number; iso_week: number }>) {
-      weekIdByKey.set(`${w.iso_year}-${w.iso_week}`, w.id);
-    }
-  }
-
-  const selectedWeekDtoByMs = new Map<number, ProcessCheckWeekDto>();
-  const options: ProcessIrregularWeekOptionDto[] = [];
-  for (const { ms, d } of descs) {
-    if (!d) continue;
-    const weekId = weekIdByKey.get(`${d.isoYear}-${d.isoWeek}`) ?? null;
-    const isCurrent = ms === currentMs;
-    const base = { year: d.year, seasonName: d.seasonName, weekNumber: d.weekNumber };
-    options.push({
-      weekId,
-      weekNumber: d.weekNumber,
-      weekName: `${d.weekNumber}주차`,
-      // 드롭다운 표기 = 연도+시즌+주차(공용 SoT). "26년 봄 시즌 17주차".
-      periodLabel: processCheckLogPeriodLabel(base),
-      startDate: d.weekStart,
-      endDate: d.weekEnd,
-      isOfficialRest: d.isOfficialRest,
-      statusLabel: irregularWeekStatusLabel(d.isOfficialRest),
-      isCurrent,
-    });
-    selectedWeekDtoByMs.set(ms, {
-      weekId,
-      weekName: `${d.weekNumber}주차`,
-      editable: isCurrent && Boolean(weekId),
-      year: d.year,
-      seasonName: d.seasonName,
-      weekNumber: d.weekNumber,
-      startDate: d.weekStart,
-      endDate: d.weekEnd,
-      periodLabel: processCheckPeriodLabel(base),
-      logPeriodLabel: processCheckLogPeriodLabel(base),
-    });
-  }
-  // 최신 주차가 위로 오도록 역순(현재 주차가 맨 위 = 기본 선택).
-  options.reverse();
-  const currentWeekId = weekIdByKey.get(`${curDesc.isoYear}-${curDesc.isoWeek}`) ?? null;
-  return { options, currentWeekId, currentWeekMs: currentMs, selectedWeekDtoByMs };
-}
+// 주차 드롭다운 목록 = 프로세스 체크와 동일 공용 SoT(resolveSelectableProcessWeeks). 변동 액트는
+//   "process-irregular" hub 키로 위임(현재 시즌 W1~현재주차·미래 미포함·테스트 W13 폴드 정책 유지).
 
 // ── 보드 조회 (org × 선택주차 × 대상고객 스코프) ───────────────────────────────
 //   selectedWeekId: 드롭다운 선택 주차(목록 내 weekId). 미지정/목록 밖이면 현재 주차로 폴백.
@@ -267,7 +185,7 @@ export async function getIrregularBoard(
 ): Promise<ProcessIrregularBoardDto> {
   const nowMs = Date.now();
   const { options, currentWeekId, selectedWeekDtoByMs } =
-    await resolveIrregularWeekList(mode);
+    await resolveSelectableProcessWeeks(mode, IRREGULAR_TEST_WEEK_HUB);
 
   // 선택 주차 결정 — 목록(현재 시즌 W1~현재)에 있는 weekId 만 허용. 그 외(미래/타시즌)는 현재 주차.
   const validIds = new Set(options.map((o) => o.weekId).filter((x): x is string => Boolean(x)));
