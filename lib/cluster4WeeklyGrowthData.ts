@@ -15,6 +15,11 @@ import {
   type Season,
 } from "@/lib/seasonCalendar";
 import { getGraduationThreshold } from "@/lib/pointLabels";
+import {
+  resolveSeasonPosition,
+  POSITION_CODE_TO_LABEL,
+  type PositionCode,
+} from "@/lib/positionHistory";
 import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import {
   matchOfficialRestPeriods,
@@ -543,6 +548,55 @@ async function computeWeeklyCards(
     }
   }
 
+  // 6-b. 직책(역할 배지) SoT = user_position_histories(주차단위 PMS 이관 이력).
+  //   카드 역할 배지(roleLabel)는 "현재 등급"이 아니라 "그 카드 주차 당시 단계"여야 한다.
+  //   한 시즌 안에서도 주차마다 단계가 바뀔 수 있으므로(예: W1~4 일반 → W5~ 심화) 주차 단위로
+  //   정확히 매칭한다(week_start_date 1:1). 우선순위:
+  //     ① 그 주차 행(weekPositionLabelByStart) — 주차 단위 정확값.
+  //     ② 같은 시즌에 PMS 행은 있으나 그 주차만 비는(gap) 경우 → 시즌 대표(resolveSeasonPosition,
+  //        3주룰) fallback — 이력서 resume-activities(computeSeasonRecords)와 동일 SoT·산정.
+  //     ③ PMS 이력이 전혀 없는 시즌(현재 native·미이관) → 현재 membership/role(crewMeta.roleLabelRaw).
+  //   테이블 미적용/조회실패 시 두 맵 모두 비어 ③ 현재값 fallback(무회귀).
+  const weekPositionLabelByStart = new Map<string, string>(); // week_start_date → 라벨
+  const seasonPositionLabelMap = new Map<string, string>();    // season_key → 시즌대표 라벨
+  if (seasonKeys.length > 0) {
+    const { data: positionData, error: positionErr } = await supabaseAdmin
+      .from("user_position_histories")
+      .select("season_key,week_start_date,position_code")
+      .eq("user_id", userId)
+      .in("season_key", seasonKeys);
+    if (positionErr) {
+      console.warn(
+        "[weekly-cards] user_position_histories 조회 실패 → 카드 역할배지 현재값 fallback",
+        { userId, message: positionErr.message },
+      );
+    } else {
+      const codesBySeason = new Map<string, PositionCode[]>();
+      for (const r of (positionData ?? []) as Array<{
+        season_key: string | null;
+        week_start_date: string | null;
+        position_code: PositionCode;
+      }>) {
+        // ① 주차 단위 정확 매칭 (week_start_date = 카드 startDate).
+        if (r.week_start_date) {
+          weekPositionLabelByStart.set(
+            r.week_start_date,
+            POSITION_CODE_TO_LABEL[r.position_code],
+          );
+        }
+        // ② 시즌 대표(gap 주차 fallback)용 코드 수집.
+        if (!r.season_key) continue;
+        const arr = codesBySeason.get(r.season_key) ?? [];
+        arr.push(r.position_code);
+        codesBySeason.set(r.season_key, arr);
+      }
+      for (const [key, codes] of codesBySeason) {
+        const resolved = resolveSeasonPosition(codes);
+        if (resolved) seasonPositionLabelMap.set(key, POSITION_CODE_TO_LABEL[resolved]);
+      }
+    }
+  }
+
   // 7. 주차별 포인트 조회 (iso year/week 키).
   const { data: pointsData } = await supabaseAdmin
     .from("user_weekly_points")
@@ -952,7 +1006,12 @@ async function computeWeeklyCards(
       partLabel,
       teamNameRaw: crewMeta.teamNameRaw,
       partNameRaw: crewMeta.partNameRaw,
-      roleLabelRaw: crewMeta.roleLabelRaw,
+      // 역할 배지 = 그 카드 "주차" 당시 단계 우선(주차 정확값) → 같은 시즌 gap 주차는 시즌 대표 →
+      //   PMS 없는 시즌만 현재값. 한 시즌 안에서도 주차별로 다르게 표시된다(W2 일반/W7 심화 등).
+      roleLabelRaw:
+        weekPositionLabelByStart.get(startDate) ||
+        (seasonKey && seasonPositionLabelMap.get(seasonKey)) ||
+        crewMeta.roleLabelRaw,
       membershipStatusLabelRaw: crewMeta.membershipStatusLabelRaw,
       organizationSlug: crewMeta.organizationSlug,
       points: pts?.points ?? 0,
@@ -1237,250 +1296,198 @@ type ActivitySource = {
   endedAt: string | null;
 };
 
-// export — 시즌별 결과 표(/admin/members 상세)가 시즌별 소속&클래스 SoT 로 재사용한다.
-//   season 인자를 과거 시즌으로 넘기면 그 시즌 범위(joined_at/left_at 오버랩)의 팀/파트/클래스를
-//   area-8 과 동일 산식으로 돌려준다(현재 시즌 전용 아님 — 시즌 객체만 바꾸면 됨).
+// ─────────────────────────────────────────────────────────────────────
+// area-8 시즌 상태 — SoT = user_position_histories (주차단위 PMS 직책).
+//   한 시즌의 주차별 position_code 를 시작일 순으로 정렬해, 연속 동일 상태를 한 구간으로 병합한다
+//   (상태가 바뀌면 별도 행 — 예: W1~3 일반 → W4~ 심화 = 2행). 라벨 = POSITION_CODE_TO_LABEL —
+//   cluster-4-card roleLabel 과 동일 매핑을 공유한다(같은 시즌/주차면 카드 배지와 area-8 상태 일치).
+//   존재하지 않는 user_team_parts / user_role_history 는 사용하지 않는다.
+//   PMS 이력이 없는 시즌만 현재 membership/role 단일 항목(최후 fallback).
+// ─────────────────────────────────────────────────────────────────────
+
+type PositionHistoryRow = {
+  season_key: string | null;
+  week_start_date: string | null;
+  position_code: PositionCode;
+  raw_team: string | null;
+  raw_part: string | null;
+};
+
+type CurrentActivityFallback = {
+  teamName: string | null;
+  partName: string | null;
+  level: string | null;
+  role: string | null;
+};
+
+// 현재 membership(team/part/level) + profile.role — 최후 fallback 단일 항목용.
+//   고객앱 resolver 규칙(team_name 보유 행 우선) + 규칙 5(profile current_* 폴백).
+async function fetchCurrentActivityFallback(
+  userId: string,
+): Promise<CurrentActivityFallback> {
+  const [membershipRes, profileRes] = await Promise.all([
+    supabaseAdmin
+      .from("user_memberships")
+      .select("team_name,part_name,membership_level,is_current,updated_at")
+      .eq("user_id", userId),
+    supabaseAdmin
+      .from("user_profiles")
+      .select("role,current_team_name,current_part_name")
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+  type MemRow = {
+    team_name: string | null;
+    part_name: string | null;
+    membership_level: string | null;
+    is_current: boolean | null;
+    updated_at: string | null;
+  };
+  const memRank = (r: MemRow): number => {
+    const cur = Boolean(r.is_current);
+    const team = typeof r.team_name === "string" && r.team_name.trim() !== "";
+    if (cur && team) return 0;
+    if (team) return 1;
+    if (cur) return 2;
+    return 3;
+  };
+  const memberships = ((membershipRes.data ?? []) as MemRow[]).slice().sort((a, b) => {
+    const d = memRank(a) - memRank(b);
+    if (d !== 0) return d;
+    return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
+  });
+  const m = memberships[0] ?? null;
+  const profileRow =
+    (profileRes.data as {
+      role: string | null;
+      current_team_name: string | null;
+      current_part_name: string | null;
+    } | null) ?? null;
+  return {
+    teamName: firstNonEmpty(m?.team_name, profileRow?.current_team_name),
+    partName: firstNonEmpty(m?.part_name, profileRow?.current_part_name),
+    level: m?.membership_level ?? null,
+    role: profileRow?.role ?? null,
+  };
+}
+
+// 현재 등급/역할 → POSITION_CODE_TO_LABEL 과 동일한 통합 라벨(카드 roleLabel 일관).
+function currentStatusLabel(level: string | null, role: string | null): string {
+  if (isTeamLeaderRole(role)) return POSITION_CODE_TO_LABEL.operating_team_leader;
+  if (isAmbassadorRole(role)) return POSITION_CODE_TO_LABEL.operating_ambassador;
+  if (isPartLeaderRole(role, level)) return POSITION_CODE_TO_LABEL.advanced_part_leader;
+  if (isAgentRole(role, level)) return POSITION_CODE_TO_LABEL.advanced_agent;
+  return POSITION_CODE_TO_LABEL.regular;
+}
+
+// 최후 fallback 단일 항목(현재 membership/role). 신호 전무면 [].
+function currentFallbackStatuses(fb: CurrentActivityFallback): SeasonActivityStatus[] {
+  if (!firstNonEmpty(fb.teamName, fb.partName, fb.level, fb.role)) return [];
+  return [
+    {
+      id: "current-fallback",
+      order: 1,
+      teamLabel: firstNonEmpty(fb.teamName) ?? "-",
+      partLabel: firstNonEmpty(fb.partName) ?? "-",
+      statusLabel: currentStatusLabel(fb.level, fb.role),
+      rawRole: fb.role,
+      rawMembershipLevel: fb.level,
+      startedAt: null,
+      endedAt: null,
+    },
+  ];
+}
+
+// 한 시즌의 주차별 position 행 → 상태 구간(연속 동일 statusLabel 병합) 다건.
+//   병합 기준 = statusLabel(상태)만 — 상태가 바뀌면 별도 행. team/part 는 구간 시작 행 값을 보존.
+function segmentSeasonPositions(
+  rows: PositionHistoryRow[],
+  fb: CurrentActivityFallback,
+): SeasonActivityStatus[] {
+  const sorted = [...rows].sort((a, b) =>
+    (a.week_start_date ?? "").localeCompare(b.week_start_date ?? ""),
+  );
+  const segments: SeasonActivityStatus[] = [];
+  for (const r of sorted) {
+    const statusLabel = POSITION_CODE_TO_LABEL[r.position_code];
+    const teamLabel = firstNonEmpty(r.raw_team, fb.teamName) ?? "-";
+    const partLabel = firstNonEmpty(r.raw_part, fb.partName) ?? "-";
+    const prev = segments[segments.length - 1];
+    if (prev && prev.statusLabel === statusLabel) {
+      // 같은 상태 연속 → 구간 종료일만 연장(별도 행 만들지 않음).
+      prev.endedAt = r.week_start_date ?? prev.endedAt;
+      continue;
+    }
+    segments.push({
+      id: `pos-${r.season_key ?? "?"}-${r.week_start_date ?? segments.length}`,
+      order: 0,
+      teamLabel,
+      partLabel,
+      statusLabel,
+      rawRole: null,
+      rawMembershipLevel: r.position_code,
+      startedAt: r.week_start_date ?? null,
+      endedAt: r.week_start_date ?? null,
+    });
+  }
+  return segments
+    .slice(0, MAX_SEASON_ACTIVITY_STATUSES)
+    .map((e, i) => ({ ...e, order: i + 1 }));
+}
+
+// 시즌 다건 배치: user_position_histories 1쿼리 → 시즌별 상태 구간 맵.
+//   PMS 행이 있는 시즌 → 구간(다건). 없는 시즌 → 현재값 단일 항목(최후 fallback)으로 채워, 선택
+//   시즌이 무엇이든 맵에 항상 엔트리가 있게 한다(area-6/7 BySeason 과 동일하게 완전한 맵).
+export async function computeSeasonActivityStatusesBySeason(
+  userId: string,
+  seasonKeys: string[],
+  fallback: CurrentActivityFallback,
+): Promise<Record<string, SeasonActivityStatus[]>> {
+  const out: Record<string, SeasonActivityStatus[]> = {};
+  const keys = Array.from(new Set(seasonKeys.filter((k): k is string => !!k)));
+  if (keys.length === 0) return out;
+
+  const { data, error } = await supabaseAdmin
+    .from("user_position_histories")
+    .select("season_key,week_start_date,position_code,raw_team,raw_part")
+    .eq("user_id", userId)
+    .in("season_key", keys);
+  if (error) {
+    // 조회 실패(테이블 미적용 등) → 전 시즌 현재값 fallback(무회귀).
+    console.warn("[weekly-growth][area-8] user_position_histories 조회 실패 → 현재값 fallback", {
+      userId,
+      message: error.message,
+    });
+  }
+
+  const bySeason = new Map<string, PositionHistoryRow[]>();
+  for (const r of (data ?? []) as PositionHistoryRow[]) {
+    if (!r.season_key) continue;
+    const arr = bySeason.get(r.season_key) ?? [];
+    arr.push(r);
+    bySeason.set(r.season_key, arr);
+  }
+
+  const fallbackItem = currentFallbackStatuses(fallback);
+  for (const sk of keys) {
+    const rows = bySeason.get(sk);
+    const seg = rows ? segmentSeasonPositions(rows, fallback) : [];
+    out[sk] = seg.length > 0 ? seg : fallbackItem;
+  }
+  return out;
+}
+
+// 단건(시즌 1개) — area-8 현재 시즌 + /admin/members 상세 시즌별 결과표(adminCrewSeasonResults)가 공유.
+//   season 의 seasonKey 로 position 이력 구간을 보고, 없으면 현재 membership/role 단일 fallback.
 export async function computeSeasonActivityStatuses(
   userId: string,
   season: Season | null,
 ): Promise<SeasonActivityStatus[]> {
   if (!season) return []; // 현재 시즌 판별 불가(달력 갭) → 빈 배열.
-  const seasonStart = season.startDate;
-  const seasonEnd = season.endDate;
-
-  try {
-    const [teamPartsRes, roleHistRes, membershipRes, profileRes] =
-      await Promise.all([
-        supabaseAdmin
-          .from("user_team_parts")
-          .select("id,team_id,part_id,joined_at,left_at,managed_team_id")
-          .eq("user_id", userId),
-        supabaseAdmin
-          .from("user_role_history")
-          .select("role,started_at,ended_at")
-          .eq("user_id", userId),
-        supabaseAdmin
-          .from("user_memberships")
-          .select("team_name,part_name,membership_level,is_current,updated_at")
-          .eq("user_id", userId),
-        supabaseAdmin
-          .from("user_profiles")
-          .select("role,current_team_name,current_part_name")
-          .eq("user_id", userId)
-          .maybeSingle(),
-      ]);
-
-    if (teamPartsRes.error)
-      console.warn("[weekly-growth][area-8] user_team_parts lookup failed", {
-        message: teamPartsRes.error.message,
-      });
-    if (roleHistRes.error)
-      console.warn("[weekly-growth][area-8] user_role_history lookup failed", {
-        message: roleHistRes.error.message,
-      });
-    if (membershipRes.error)
-      console.warn("[weekly-growth][area-8] user_memberships lookup failed", {
-        message: membershipRes.error.message,
-      });
-    if (profileRes.error)
-      console.warn("[weekly-growth][area-8] user_profiles lookup failed", {
-        message: profileRes.error.message,
-      });
-
-    const teamParts = (teamPartsRes.data ?? []) as TeamPartRow[];
-    const roleHistory = (roleHistRes.data ?? []) as RoleHistoryRow[];
-
-    // 현재 등급(level)/팀/파트 — user_memberships(is_current 우선, 그다음 updated_at 최신).
-    type MemRow = {
-      team_name: string | null;
-      part_name: string | null;
-      membership_level: string | null;
-      is_current: boolean | null;
-      updated_at: string | null;
-    };
-    // 고객앱과 동일한 membership 선택 resolver(team_name 보유 행 우선) — adminCrewData.pickBestMembership
-    // 와 동일 규칙. is_current=true 라도 team_name 이 NULL 이면 team_name 보유 행을 우선해 팀/파트가
-    // 비지 않게 한다(area-8 상태 이력의 fallback 단일 항목에도 동일 적용).
-    const memRank = (r: MemRow): number => {
-      const cur = Boolean(r.is_current);
-      const team = typeof r.team_name === "string" && r.team_name.trim() !== "";
-      if (cur && team) return 0;
-      if (team) return 1;
-      if (cur) return 2;
-      return 3;
-    };
-    const memberships = ((membershipRes.data ?? []) as MemRow[]).slice().sort(
-      (a, b) => {
-        const rankDelta = memRank(a) - memRank(b);
-        if (rankDelta !== 0) return rankDelta;
-        return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
-      },
-    );
-    const currentMembership = memberships[0] ?? null;
-    const profileRow =
-      (profileRes.data as {
-        role: string | null;
-        current_team_name: string | null;
-        current_part_name: string | null;
-      } | null) ?? null;
-    const currentLevel = currentMembership?.membership_level ?? null;
-    // 고객앱 resolver 규칙 5: membership 행에 team/part 가 없으면 profile 의 current_* 로 폴백.
-    const currentTeamName = firstNonEmpty(
-      currentMembership?.team_name,
-      profileRow?.current_team_name,
-    );
-    const currentPartName = firstNonEmpty(
-      currentMembership?.part_name,
-      profileRow?.current_part_name,
-    );
-    const currentRole = profileRow?.role ?? null;
-
-    // 윈도 시작 시점에 활성인 role (started_at <= winStart < ended_at). 최신 started_at 우선.
-    const resolveRoleForWindow = (winStart: string | null): string | null => {
-      if (!winStart || roleHistory.length === 0) return null;
-      const ws = winStart.slice(0, 10);
-      const active = roleHistory
-        .filter((r) => {
-          const s = (r.started_at ?? "").slice(0, 10);
-          if (!s || s > ws) return false;
-          const e = r.ended_at ? r.ended_at.slice(0, 10) : null;
-          return e === null || e > ws;
-        })
-        .sort((a, b) =>
-          (b.started_at ?? "").localeCompare(a.started_at ?? ""),
-        );
-      return active[0]?.role ?? null;
-    };
-
-    // teams / parts 라벨 일괄 조회.
-    const teamIds = new Set<string>();
-    const partIds = new Set<string>();
-    for (const tp of teamParts) {
-      if (tp.team_id) teamIds.add(tp.team_id);
-      if (tp.managed_team_id) teamIds.add(tp.managed_team_id);
-      if (tp.part_id) partIds.add(tp.part_id);
-    }
-    const teamNameById = new Map<string, string>();
-    const partNameById = new Map<string, string>();
-    if (teamIds.size > 0) {
-      const { data } = await supabaseAdmin
-        .from("teams")
-        .select("id,name")
-        .in("id", [...teamIds]);
-      for (const t of (data ?? []) as { id: string; name: string | null }[]) {
-        if (t.id && t.name) teamNameById.set(t.id, t.name);
-      }
-    }
-    if (partIds.size > 0) {
-      const { data } = await supabaseAdmin
-        .from("parts")
-        .select("id,name")
-        .in("id", [...partIds]);
-      for (const p of (data ?? []) as { id: string; name: string | null }[]) {
-        if (p.id && p.name) partNameById.set(p.id, p.name);
-      }
-    }
-
-    // 시즌과 겹치는 user_team_parts → 활동 source.
-    const sources: ActivitySource[] = [];
-    for (const tp of teamParts) {
-      if (!windowOverlapsSeason(tp.joined_at, tp.left_at, seasonStart, seasonEnd))
-        continue;
-      sources.push({
-        id: tp.id ?? `tp-${tp.team_id ?? "?"}-${tp.joined_at ?? "?"}`,
-        teamName: tp.team_id ? teamNameById.get(tp.team_id) ?? null : null,
-        partName: tp.part_id ? partNameById.get(tp.part_id) ?? null : null,
-        managedTeamName: tp.managed_team_id
-          ? teamNameById.get(tp.managed_team_id) ?? null
-          : null,
-        // 역할: 윈도 시작 시점 role 이력 우선, 없으면 현재 role(profile).
-        rawRole: resolveRoleForWindow(tp.joined_at) ?? currentRole,
-        rawLevel: currentLevel,
-        startedAt: tp.joined_at ?? null,
-        endedAt: tp.left_at ?? null,
-      });
-    }
-
-    // fallback: 이력 row 가 없으면 현재 membership/profile 로 단일 항목.
-    if (sources.length === 0) {
-      // 현재 활동 신호(팀/파트/등급/역할)가 하나도 없으면 표시할 궤적이 없다 → [].
-      if (
-        !firstNonEmpty(currentTeamName, currentPartName, currentLevel, currentRole)
-      ) {
-        return [];
-      }
-      sources.push({
-        id: `current-${userId}`,
-        teamName: currentTeamName,
-        partName: currentPartName,
-        managedTeamName: null,
-        rawRole: currentRole,
-        rawLevel: currentLevel,
-        startedAt: null,
-        endedAt: null,
-      });
-    }
-
-    // 정렬: startedAt ASC, null 은 마지막.
-    sources.sort((a, b) => {
-      const sa = a.startedAt;
-      const sb = b.startedAt;
-      if (sa && sb) return sa < sb ? -1 : sa > sb ? 1 : 0;
-      if (sa && !sb) return -1;
-      if (!sa && sb) return 1;
-      return 0;
-    });
-
-    // 라벨 산출 + 연속 동일(team/part/status) 병합.
-    const merged: SeasonActivityStatus[] = [];
-    for (const s of sources) {
-      const labels = buildActivityLabels({
-        rawRole: s.rawRole,
-        rawLevel: s.rawLevel,
-        teamName: s.teamName,
-        partName: s.partName,
-        managedTeamName: s.managedTeamName,
-      });
-      const prev = merged[merged.length - 1];
-      if (
-        prev &&
-        prev.teamLabel === labels.teamLabel &&
-        prev.partLabel === labels.partLabel &&
-        prev.statusLabel === labels.statusLabel
-      ) {
-        // 병합: 진행 중(null endedAt)이면 계속 열린 채로, 아니면 더 늦은 종료일로 확장.
-        if (prev.endedAt !== null) {
-          prev.endedAt =
-            s.endedAt === null
-              ? null
-              : s.endedAt > prev.endedAt
-                ? s.endedAt
-                : prev.endedAt;
-        }
-        continue;
-      }
-      merged.push({
-        id: s.id,
-        order: 0, // 아래에서 1-base 재부여
-        teamLabel: labels.teamLabel,
-        partLabel: labels.partLabel,
-        statusLabel: labels.statusLabel,
-        rawRole: s.rawRole,
-        rawMembershipLevel: s.rawLevel,
-        startedAt: s.startedAt,
-        endedAt: s.endedAt,
-      });
-    }
-
-    return merged
-      .slice(0, MAX_SEASON_ACTIVITY_STATUSES)
-      .map((e, i) => ({ ...e, order: i + 1 }));
-  } catch (error) {
-    console.warn("[weekly-growth][area-8] computeSeasonActivityStatuses failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
-    return [];
-  }
+  const seasonKey = seasonDbKey(season);
+  const fb = await fetchCurrentActivityFallback(userId);
+  const map = await computeSeasonActivityStatusesBySeason(userId, [seasonKey], fb);
+  return map[seasonKey] ?? [];
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1551,8 +1558,8 @@ export async function getWeeklyGrowth(
     weeklyCards,
     currentSeasonKey,
   );
-  // area-8-season-status — 현재 시즌 팀/파트/상태 활동 이력. seasonSummary 와 동일하게
-  // live 경로(snapshot 미사용)이며 현재 시즌(currentSeason) 범위로 필터한다.
+  // area-8-season-status(현재 시즌 단건) — SoT = user_position_histories(주차단위) 구간 산정.
+  //   시즌별 맵(선택 시즌 연동)은 weekly-cards 라우트가 스냅샷 카드에서 제공한다(카드 roleLabel 공유).
   const seasonActivityStatuses = await computeSeasonActivityStatuses(
     crew.userId,
     currentSeason,

@@ -261,7 +261,18 @@ async function writeRosterCardStats(
 //   snapshot 은 displayLineCode 필드가 없으므로 stale(version_mismatch) 처리해 재계산하게 한다.
 // v23 (2026-06-20): 현재 시즌이 시즌 휴식(seasonal_rest)인 회원의 활동주차를 휴식(개인) 카드로
 //   채우는 정책 추가(빈 화면 해소). 카드 출력이 바뀌므로 버전 bump → 전원 lazy 재계산으로 수렴.
-export const WEEKLY_CARDS_DTO_VERSION = 23;
+// v24 (2026-06-20): information 라인 displayLineCode 를 line_registrations(hub='info') 운영자 코드
+//   (IFBS-NN000X, /admin/lines/info SoT)로 채움(종전 null → 내부코드 노출 방지). 내부 lineCode 는
+//   매칭용 유지. 카드 출력(displayLineCode)이 바뀌므로 bump → 기존 snapshot stale → lazy 재계산 수렴.
+// v25 (2026-06-23): 카드 역할 배지(roleLabel)를 "현재 등급"에서 "그 카드 당시 단계"로 전환.
+//   SoT = user_position_histories(주차단위 PMS 이력). PMS 이력 없는 시즌만 현재 membership/role
+//   fallback(무회귀). 과거 카드가 더 이상 현재 단계로 덮이지 않는다.
+// v26 (2026-06-23): roleLabel 산정을 시즌 대표(resolveSeasonPosition)에서 "주차 단위 정확값"으로
+//   세분화. 한 시즌 안에서도 주차별 단계가 다르면 카드마다 다르게 표시된다(예: W1~4 일반 / W5~ 심화).
+//   우선순위: ① 그 주차 행(week_start_date 1:1) → ② 같은 시즌 gap 주차는 시즌 대표(이력서와 동일
+//   SoT·산정) → ③ PMS 없는 시즌은 현재값. v25(시즌 일괄) 대비 같은 시즌 내 주차 값이 달라지므로
+//   기존 snapshot 을 stale(version_mismatch) 처리해 재계산한다.
+export const WEEKLY_CARDS_DTO_VERSION = 26;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

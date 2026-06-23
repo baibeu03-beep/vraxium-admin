@@ -38,7 +38,9 @@ import type {
 import {
   computeAreaSixCircles,
   computeSeasonAreaProgress,
+  computeSeasonActivityStatusesFromCards,
 } from "@/lib/cluster4SeasonCircles";
+import type { SeasonActivityStatus } from "@/lib/cluster4WeeklyGrowthTypes";
 import { getSeasonForDate, seasonDbKey } from "@/lib/seasonCalendar";
 
 // 무거운 list API — Vercel function 최대 실행시간 상한을 명시(안전망).
@@ -80,6 +82,7 @@ const DEBUG_COMPARE = process.env.CLUSTER4_WEEKLY_CARDS_DEBUG === "1";
 function seasonCircleMaps(cards: Cluster4WeeklyCardDto[]): {
   areaSixCirclesBySeason: Record<string, Cluster4AreaSixCirclesDto>;
   seasonAreaProgressBySeason: Record<string, Cluster4SeasonAreaProgressDto>;
+  seasonActivityStatusesBySeason: Record<string, SeasonActivityStatus[]>;
 } {
   const seasonKeys = Array.from(
     new Set(cards.map((c) => c.seasonKey).filter((k): k is string => !!k)),
@@ -90,7 +93,9 @@ function seasonCircleMaps(cards: Cluster4WeeklyCardDto[]): {
     areaSixCirclesBySeason[sk] = computeAreaSixCircles(cards, sk);
     seasonAreaProgressBySeason[sk] = computeSeasonAreaProgress(cards, sk);
   }
-  return { areaSixCirclesBySeason, seasonAreaProgressBySeason };
+  // area-8 시즌 상태(시즌별 상태 구간) — 카드 roleLabel SoT(= cluster-4-card 배지 동일). 한 번에 전 시즌.
+  const seasonActivityStatusesBySeason = computeSeasonActivityStatusesFromCards(cards);
+  return { areaSixCirclesBySeason, seasonAreaProgressBySeason, seasonActivityStatusesBySeason };
 }
 
 // growthInfo: 성장 배지(성장 중단/완료/휴식/진행) 단일 출처 — 데모·일반 동일 응답 필드.
@@ -101,7 +106,8 @@ function ok(
   seasonAreaProgress: Cluster4SeasonAreaProgressDto,
   growthInfo: GrowthStopInfo | null = null,
 ) {
-  const { areaSixCirclesBySeason, seasonAreaProgressBySeason } = seasonCircleMaps(data);
+  const { areaSixCirclesBySeason, seasonAreaProgressBySeason, seasonActivityStatusesBySeason } =
+    seasonCircleMaps(data);
   return Response.json({
     success: true,
     data,
@@ -109,6 +115,7 @@ function ok(
     seasonAreaProgress,
     areaSixCirclesBySeason,
     seasonAreaProgressBySeason,
+    seasonActivityStatusesBySeason,
     growthInfo,
     error: null,
   });
@@ -122,6 +129,7 @@ function fail(status: number, message: string, code: string) {
       seasonAreaProgress: computeSeasonAreaProgress([], currentSeasonKey()),
       areaSixCirclesBySeason: {} as Record<string, Cluster4AreaSixCirclesDto>,
       seasonAreaProgressBySeason: {} as Record<string, Cluster4SeasonAreaProgressDto>,
+      seasonActivityStatusesBySeason: {} as Record<string, SeasonActivityStatus[]>,
       growthInfo: null as GrowthStopInfo | null,
       error: { message, code },
     },
@@ -529,6 +537,7 @@ async function handleGet(request: NextRequest): Promise<Response> {
           seasonAreaProgress: areaProgress,
           areaSixCirclesBySeason: errMaps.areaSixCirclesBySeason,
           seasonAreaProgressBySeason: errMaps.seasonAreaProgressBySeason,
+          seasonActivityStatusesBySeason: errMaps.seasonActivityStatusesBySeason,
           growthInfo: null,
           error: { message: result.detail || "snapshot read failed", code: "snapshot_read_error" },
         }),

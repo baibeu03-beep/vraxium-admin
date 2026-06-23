@@ -252,6 +252,8 @@ export type WeeklyGrowthDto = {
   seasonPointSummary: SeasonPointSummary;
   // area-8-season-status — 현재 시즌 팀/파트/상태 활동 이력(최대 6개, 발생순).
   // 현재 시즌 판별 불가 시 [].
+  // (시즌별 맵 seasonActivityStatusesBySeason 은 weekly-cards 라우트가 스냅샷 카드에서 산출해
+  //  제공한다 — 카드 roleLabel SoT 공유. 여기 DTO 는 현재 시즌 단건만 유지.)
   seasonActivityStatuses: SeasonActivityStatus[];
 };
 

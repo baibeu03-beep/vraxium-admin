@@ -19,6 +19,63 @@ import type {
   Cluster4SeasonAreaProgressKey,
   Cluster4WeeklyCardDto,
 } from "@/shared/cluster4.contracts";
+import type { SeasonActivityStatus } from "@/lib/cluster4WeeklyGrowthTypes";
+
+// area-8-season-status 시즌별 맵 — 순수 함수(browser-safe). 단일 출처(SoT) = weekly-cards 스냅샷
+// cards 의 주차별 roleLabel(= cluster-4-card 역할 배지와 동일 값·동일 라벨, user_position_histories
+// 기반 v26). 한 시즌의 카드를 시작일 순으로 정렬해 연속 동일 roleLabel 을 한 구간으로 병합한다
+// (상태가 바뀌면 별도 행 — 예: W1~3 일반(정규) → W4~ 심화(에이전트) = 2행). 최신 상태로 덮어쓰지 않는다.
+//   · 카드 기반이라 area-8 == 카드 배지(같은 시즌/주차) 정합이 구조적으로 보장된다.
+//   · demoUserId/일반 모드가 같은 스냅샷 cards 를 읽으면 같은 결과(분기 없음).
+//   · teamLabel/partLabel = 카드의 teamName/partName(없으면 "-"). 빈 roleLabel 카드는 스킵.
+const MAX_ACTIVITY_SEGMENTS = 6;
+export function computeSeasonActivityStatusesFromCards(
+  cards: Cluster4WeeklyCardDto[],
+): Record<string, SeasonActivityStatus[]> {
+  const bySeason = new Map<string, Cluster4WeeklyCardDto[]>();
+  for (const c of cards) {
+    if (!c.seasonKey) continue;
+    const arr = bySeason.get(c.seasonKey) ?? [];
+    arr.push(c);
+    bySeason.set(c.seasonKey, arr);
+  }
+  const out: Record<string, SeasonActivityStatus[]> = {};
+  for (const [seasonKey, list] of bySeason) {
+    const sorted = [...list].sort((a, b) =>
+      a.startDate < b.startDate ? -1 : a.startDate > b.startDate ? 1 : 0,
+    );
+    const segs: SeasonActivityStatus[] = [];
+    for (const c of sorted) {
+      const statusLabel = (c.roleLabel ?? "").trim();
+      if (!statusLabel) continue; // 라벨 없는 카드는 구간에서 제외
+      const teamLabel = (c.teamName ?? "").trim() || "-";
+      const partLabel = (c.partName ?? "").trim() || "-";
+      const prev = segs[segs.length - 1];
+      if (prev && prev.statusLabel === statusLabel) {
+        // 같은 상태 연속 → 구간 종료일만 연장(별도 행 만들지 않음).
+        prev.endedAt = c.startDate ?? prev.endedAt;
+        continue;
+      }
+      segs.push({
+        id: `card-${seasonKey}-${c.startDate}`,
+        order: 0,
+        teamLabel,
+        partLabel,
+        statusLabel,
+        rawRole: null,
+        rawMembershipLevel: null,
+        startedAt: c.startDate ?? null,
+        endedAt: c.startDate ?? null,
+      });
+    }
+    if (segs.length > 0) {
+      out[seasonKey] = segs
+        .slice(0, MAX_ACTIVITY_SEGMENTS)
+        .map((e, i) => ({ ...e, order: i + 1 }));
+    }
+  }
+  return out;
+}
 
 // roundGrowthRate(lib/lineAvailability)와 동일 규칙. 그 파일은 server 의존이라
 // browser-safe 유지를 위해 순수 동작만 인라인한다(값 불변: available 0 → 0).
