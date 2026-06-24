@@ -38,7 +38,9 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
 import PracticalInfoOpeningSection0 from "@/components/admin/PracticalInfoOpeningSection0";
 import PracticalInfoCurrentSituation from "@/components/admin/PracticalInfoCurrentSituation";
-import PracticalInfoWeekResults from "@/components/admin/PracticalInfoWeekResults";
+import PracticalInfoWeekResults, {
+  type SelectedInfoWeekMeta,
+} from "@/components/admin/PracticalInfoWeekResults";
 import type { Cluster4InfoLineDetail } from "@/lib/adminCluster4LinesTypes";
 import {
   buildOutputLinksFromForm,
@@ -703,7 +705,11 @@ export default function PracticalInfoManager() {
   // 라인 개설 예외(line_opening_windows) — 활성 예외가 가리키는 주차 + 허용 라인.
   // 자동 정책 외 주차를 개설 폼에서 함께 선택할 수 있게 한다(예외 허용 주차).
   const [exceptionWeeks, setExceptionWeeks] = useState<ExceptionWeekItem[]>([]);
+  // 선택 주차 단일 SoT — "주차별 개설 결과" 드롭다운(PracticalInfoWeekResults)이 이 값을 제어하며,
+  //   "신규 개설 주차" 라벨·라인 목록·탭 dot·라인 조회 API 파라미터가 모두 이 weekId 를 공유한다.
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
+  // "주차별 개설 결과" 가 보고하는 선택 주차 표시 메타(weeks-options 범위 밖 과거 주차 라벨 표기용).
+  const [selectedWeekMeta, setSelectedWeekMeta] = useState<SelectedInfoWeekMeta | null>(null);
   const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
   const [users, setUsers] = useState<UserItem[]>([]);
 
@@ -988,10 +994,14 @@ export default function PracticalInfoManager() {
     [weekOptions, selectedWeekId],
   );
 
-  const canOpenSelected = useMemo(() => {
-    if (selectedWeek) return selectedWeek.canOpen;
-    return !!currentWeek?.weekId && currentWeek.canOpen;
-  }, [selectedWeek, currentWeek]);
+  // 신규 라인 개설 가능 여부는 "선택 주차"(단일 SoT) 기준으로만 판정한다.
+  //   선택 주차가 weeks-options(개설 가능 최근 주차)에 없으면(예: 과거 W16 열람) selectedWeek=null
+  //   → 개설 불가. 이전의 currentWeek fallback 은 열람 주차와 무관한 주차로 개설을 허용해
+  //   "표시 주차 ≠ 개설 주차" 불일치를 만들 수 있어 제거한다.
+  const canOpenSelected = useMemo(
+    () => (selectedWeek ? selectedWeek.canOpen : false),
+    [selectedWeek],
+  );
 
   // ── Save (신규 라인 개설) — 활동 유형은 현재 탭으로 고정 ──
   const handleSave = useCallback(async () => {
@@ -1221,8 +1231,14 @@ export default function PracticalInfoManager() {
       <PracticalInfoCurrentSituation />
 
       {/* 주차별 개설 결과(표시 전용 · read-only) — 주차 선택 + 요약 + 라인별 개설 상황 카드.
-          라인 관리 탭에만 노출(라인 개설 탭은 입력 집중 위해 제외). */}
-      <PracticalInfoWeekResults />
+          라인 관리 탭에만 노출(라인 개설 탭은 입력 집중 위해 제외).
+          이 카드의 주차 드롭다운이 manage 탭의 유일한 주차 선택 컨트롤(단일 SoT=selectedWeekId)이며,
+          선택을 바꾸면 아래 "신규 개설 주차" 라벨·라인 목록·탭 dot 이 동일 주차로 따라간다. */}
+      <PracticalInfoWeekResults
+        selectedWeekId={selectedWeekId}
+        onSelectWeek={setSelectedWeekId}
+        onWeekMetaResolved={setSelectedWeekMeta}
+      />
 
       {/* Banner */}
       {banner && (
@@ -1241,28 +1257,40 @@ export default function PracticalInfoManager() {
         </div>
       )}
 
-      {/* Selected week summary */}
-      {selectedWeek && (
-        <p className="text-sm text-muted-foreground">
-          신규 개설 주차:{" "}
-          <span className="font-medium text-foreground">
-            {selectedWeek.year} {selectedWeek.seasonName} W{selectedWeek.weekNumber}
-          </span>{" "}
-          ({fmtDateWithDay(selectedWeek.startDate)} ~ {fmtDateWithDay(selectedWeek.endDate)})
-          {selectedWeek.canOpen &&
-            selectedWeek.submissionOpensAt &&
-            selectedWeek.submissionClosesAt && (
-              <>
-                {" · 기입 "}
-                {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~{" "}
-                {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}
-              </>
+      {/* Selected week summary — "주차별 개설 결과" 선택 주차(단일 SoT)와 항상 동일.
+          라벨/기간은 selectedWeekMeta(주차 전 범위)에서, 기입 기간·휴식 안내는 selectedWeek
+          (weeks-options=개설 가능 주차)에서 가져온다. 둘 다 같은 selectedWeekId 를 가리킨다. */}
+      {(() => {
+        const label =
+          selectedWeekMeta?.label ??
+          (selectedWeek
+            ? `${selectedWeek.year} ${selectedWeek.seasonName} W${selectedWeek.weekNumber}`
+            : null);
+        const startDate = selectedWeekMeta?.startDate ?? selectedWeek?.startDate ?? null;
+        const endDate = selectedWeekMeta?.endDate ?? selectedWeek?.endDate ?? null;
+        if (!label) return null;
+        return (
+          <p className="text-sm text-muted-foreground">
+            신규 개설 주차:{" "}
+            <span className="font-medium text-foreground">{label}</span>
+            {startDate && endDate
+              ? ` (${fmtDateWithDay(startDate)} ~ ${fmtDateWithDay(endDate)})`
+              : null}
+            {selectedWeek?.canOpen &&
+              selectedWeek.submissionOpensAt &&
+              selectedWeek.submissionClosesAt && (
+                <>
+                  {" · 기입 "}
+                  {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~{" "}
+                  {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}
+                </>
+              )}
+            {selectedWeek && !selectedWeek.canOpen && (
+              <span className="font-medium text-orange-600"> · 공식 휴식 주차 (개설 불가)</span>
             )}
-          {!selectedWeek.canOpen && (
-            <span className="font-medium text-orange-600"> · 공식 휴식 주차 (개설 불가)</span>
-          )}
-        </p>
-      )}
+          </p>
+        );
+      })()}
 
       {/* Activity-type tabs */}
       <div className="flex flex-wrap gap-2 border-b pb-px">
