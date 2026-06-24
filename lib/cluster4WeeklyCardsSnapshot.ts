@@ -272,7 +272,14 @@ async function writeRosterCardStats(
 //   우선순위: ① 그 주차 행(week_start_date 1:1) → ② 같은 시즌 gap 주차는 시즌 대표(이력서와 동일
 //   SoT·산정) → ③ PMS 없는 시즌은 현재값. v25(시즌 일괄) 대비 같은 시즌 내 주차 값이 달라지므로
 //   기존 snapshot 을 stale(version_mismatch) 처리해 재계산한다.
-export const WEEKLY_CARDS_DTO_VERSION = 26;
+// v27 (2026-06-24): 실무 정보(info) 라인 개설 신호를 라인행 존재 기준으로 확장 — 대상 크루 0명
+//   (cluster4_line_targets 0건)이어도 org-visible active info 라인은 고객 카드에 "개설(미배정=강화
+//   실패, 내용 노출)"로 포함한다(per-activity 모델). 종전에는 openedByWeek/lineOrgById 가
+//   targetRows(타깃 join)에서만 만들어져 타깃 0건 info 라인(예: 위즈덤/캘린더 0명 개설)이 누락됐다.
+//   fetchActiveInfoLinesByWeek 로 라인행을 직접 보강(cluster4_line_targets 무변경 — sentinel 미사용).
+//   카드 lines 구성·강화율(breakdownFromLines A)이 달라지므로 기존 v26 snapshot 을
+//   stale(version_mismatch) 처리해 재계산하게 한다. (DB 백필 아님 — 파생 캐시 재생성.)
+export const WEEKLY_CARDS_DTO_VERSION = 27;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

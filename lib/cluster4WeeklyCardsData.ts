@@ -243,6 +243,32 @@ const TARGET_WITH_LINE_SELECT = `
   )
 `;
 
+// cluster4_lines 단독 조회 컬럼 — TARGET_WITH_LINE_SELECT 의 cluster4_lines 본문과 동일 필드
+// (+ week_id). 타깃 0건 라인을 "개설 신호"로 보강할 때 라인 객체 모양을 targetRows 와 일치시킨다.
+const LINE_ROW_SELECT = `
+  id,
+  week_id,
+  part_type,
+  main_title,
+  output_link_1,
+  output_links,
+  output_images,
+  submission_opens_at,
+  submission_closes_at,
+  is_active,
+  activity_type_id,
+  line_code,
+  team_id,
+  competency_line_master_id,
+  experience_line_master_id,
+  career_project_id
+`;
+
+// openedByWeek 보강용 라인 행 = targetRows 의 cluster4_lines 객체 + 자신의 week_id.
+type InfoLineRow = NonNullable<TargetWithLineRow["cluster4_lines"]> & {
+  week_id: string | null;
+};
+
 export class Cluster4WeeklyCardsError extends Error {
   status: number;
 
@@ -1625,6 +1651,33 @@ async function fetchAllLineTargetsByWeek(
   );
 }
 
+// 그 주차의 활성 실무 정보(info) 라인을 cluster4_lines 에서 직접 전수 수집한다(타깃 무관).
+//   ⚠ 정책(2026-06-09 per-activity 모델): 실무 정보 라인은 대상 크루가 0명이어도 "개설"이며,
+//     org-visible 이면 미배정 크루에게 "강화 실패(내용 노출)"로 보여야 한다. 그러나 openedByWeek 는
+//     cluster4_line_targets(targetRows) 기반이라 타깃이 1건도 없는 info 라인(예: 위즈덤/캘린더 0명
+//     개설)을 누락한다. 여기서 라인행 자체를 개설 신호로 보강해 그 누락을 메운다.
+//   cluster4_line_targets 에 sentinel 을 쓰지 않는다(데이터 무변경 — 조회 시점 로직 보강).
+//   info 만 대상(experience/competency/career 는 슬롯/보이드/패딩 등 별도 정책 — 타깃 기반 유지).
+//   안정 정렬(created_at desc, id desc)로 페이지 경계 안전. openedByWeek 는 line.id 단위 dedup 이라
+//   targetRows 와 겹치는 라인(타깃 보유 info)은 자연히 1회만 반영된다.
+async function fetchActiveInfoLinesByWeek(weekIds: string[]): Promise<InfoLineRow[]> {
+  if (weekIds.length === 0) return [];
+  return collectAllRows<InfoLineRow>((from, to) =>
+    supabaseAdmin
+      .from("cluster4_lines")
+      .select(LINE_ROW_SELECT)
+      .eq("part_type", "info")
+      .eq("is_active", true)
+      .in("week_id", weekIds)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to) as unknown as Promise<{
+      data: InfoLineRow[] | null;
+      error: { message: string } | null;
+    }>,
+  );
+}
+
 async function fetchLineDetailsByWeek(
   profileUserId: string,
   weekIds: string[],
@@ -1667,12 +1720,15 @@ async function fetchLineDetailsByWeek(
   // 걸리면 openedByWeek(개설 신호)·본인 real DTO·canEdit 가 누락되고, 헤더 분모 A
   // (growth 경로 fetchWeeksWithOpenLinesByPart)와 어긋나 "총 N개 중 …인데 칸은 N-1개"가 발생한다.
   // 완전 집합 위에서 계산하면 두 경로가 동일 opened-line 집합을 공유해 정합이 보장된다(요구 2·3).
-  const [targetRows, editWindowByPart, userOrg, userTeamRole] = await Promise.all([
-    fetchAllLineTargetsByWeek(weekIds),
-    fetchHubEditWindows(profileUserId),
-    fetchUserOrganizationSlug(profileUserId),
-    fetchUserTeamAndRole(profileUserId),
-  ]);
+  const [targetRows, editWindowByPart, userOrg, userTeamRole, activeInfoLines] =
+    await Promise.all([
+      fetchAllLineTargetsByWeek(weekIds),
+      fetchHubEditWindows(profileUserId),
+      fetchUserOrganizationSlug(profileUserId),
+      fetchUserTeamAndRole(profileUserId),
+      // 타깃 0건 포함 활성 info 라인(개설 신호 보강용 — per-activity 모델).
+      fetchActiveInfoLinesByWeek(weekIds),
+    ]);
   const relevantTargets = targetRows.filter(
     (row) => row.target_mode === "user" && row.target_user_id === profileUserId,
   );
@@ -1757,9 +1813,11 @@ async function fetchLineDetailsByWeek(
   // 본인 미배정 fail 라인도 content(activityTypeName)를 노출하므로 targetRows(전 유저) 기준으로 넓힌다.
   const activityTypeIds = Array.from(
     new Set(
-      targetRows
-        .map((row) => row.cluster4_lines?.activity_type_id)
-        .filter((id): id is string => Boolean(id)),
+      [
+        ...targetRows.map((row) => row.cluster4_lines?.activity_type_id),
+        // 타깃 0건 info 라인의 activityType 도 라벨/표시코드(IFBS-NN000X) 룩업 대상에 포함.
+        ...activeInfoLines.map((line) => line.activity_type_id),
+      ].filter((id): id is string => Boolean(id)),
     ),
   );
   const activityTypeNameById =
@@ -1809,6 +1867,18 @@ async function fetchLineDetailsByWeek(
     if (!m) {
       m = new Map();
       openedByWeek.set(row.week_id, m);
+    }
+    if (!m.has(line.id)) m.set(line.id, { dbPart: line.part_type, line });
+  }
+  // 타깃 0건 info 라인 보강 — 라인행 자체를 그 라인 week_id 의 개설 신호로 추가한다.
+  //   line.id 단위 dedup 이라 타깃 보유 info 라인(이미 위에서 추가됨)은 중복되지 않는다.
+  //   Step 2 에서 org 필터(isLineVisibleForUserOrg)·본인 배정 제외가 그대로 적용된다.
+  for (const line of activeInfoLines) {
+    if (!line.week_id) continue;
+    let m = openedByWeek.get(line.week_id);
+    if (!m) {
+      m = new Map();
+      openedByWeek.set(line.week_id, m);
     }
     if (!m.has(line.id)) m.set(line.id, { dbPart: line.part_type, line });
   }
@@ -1866,6 +1936,20 @@ async function fetchLineDetailsByWeek(
         applied: codeOrg,
       });
     }
+  }
+  // 타깃 0건 info 라인의 org 판정도 채운다(Step 2 org 필터 isLineVisibleForUserOrg 에서 사용).
+  //   info 는 line_code 토큰(EC/OK/PX/BS)으로 org 가 결정되므로 master 메타와 무관하다.
+  for (const line of activeInfoLines) {
+    if (lineOrgById.has(line.id)) continue;
+    lineOrgById.set(
+      line.id,
+      resolveLineOrg(
+        line,
+        experienceMasterMetaById,
+        competencyMasterMetaById,
+        careerProjectMetaById,
+      ),
+    );
   }
 
   const now = Date.now();

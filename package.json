@@ -23,7 +23,8 @@
     "verify:scope": "npm run verify:scope-helper-usage && npm run verify:scope-centralization",
     "verify:admin-mode-p1": "tsx --env-file=.env.local scripts/verify-admin-mode-p1.ts",
     "verify:admin-mode-p1-browser": "tsx --env-file=.env.local scripts/verify-admin-mode-p1-browser.ts",
-    "verify:applicants-approve-all": "tsx --env-file=.env.local scripts/verify-applicants-approve-all.ts"
+    "verify:applicants-approve-all": "tsx --env-file=.env.local scripts/verify-applicants-approve-all.ts",
+    "verify:zerotarget-info-policy": "tsx --env-file=.env.local scripts/verify-zerotarget-info-policy.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
