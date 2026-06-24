@@ -1,0 +1,16 @@
+{
+  "generatedFrom": "claudedocs/encre-info-autoreview-dryrun-full.json",
+  "rule": "matched user_id → cluster4_line_targets(target_mode='user'), dedup by (line_id,user_id), additive(기존 유지)",
+  "plannedInsertCount": 0,
+  "distinctUsers": 0,
+  "linesAffected": 0,
+  "dedupSkip": 5339,
+  "otherSkip": {
+    "inactiveSkip": 0,
+    "nonInfoSkip": 0,
+    "nullWeekSkip": 0,
+    "missingUserSkip": 0,
+    "nonEncreUserSkip": 0
+  },
+  "plannedRows": []
+}
