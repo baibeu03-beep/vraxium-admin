@@ -172,8 +172,9 @@ function parseDate(v: string | undefined): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
 }
 // "25 겨울 3주차" → { seasonKey:"2025-winter", weekNumber:3 }
+//   체크마크/쉼표/하이픈 허용: "✅ 24, 가을 - 14주차" 등 phalanx 아카데미 포맷도 파싱.
 function parsePeriodLabel(label: string): { seasonKey: string; weekNumber: number } | null {
-  const m = String(label ?? "").match(/(\d{2})\s*(겨울|봄|여름|가을)\s*(\d+)\s*주차/);
+  const m = String(label ?? "").match(/(\d{2})\s*,?\s*(겨울|봄|여름|가을)\s*[-–—]?\s*(\d+)\s*주차/);
   if (!m) return null;
   const key = SEASON_KO_TO_KEY[m[2]];
   if (!key) return null;
@@ -186,6 +187,12 @@ function weekRefForLineCode(w: WeekRow): string {
 function buildLineCode(orgToken: string | null, act: string, w: WeekRow): string | null {
   if (!orgToken) return null;
   return `info-${orgToken}-${act}-${weekRefForLineCode(w)}`;
+}
+
+// 멱등/기존행 매칭 키 — 모든 사용처가 동일 구성을 쓰도록 단일 헬퍼로 고정(구분자 NUL).
+//   과거 가드가 공백 구분자를 써서 NUL 키와 불일치 → 멱등 미작동 했던 버그 재발 방지.
+function lineKey(lineCode: string | null, act: string, weekId: string, title: string): string {
+  return [lineCode ?? "", act, weekId, title].join("\u0000");
 }
 function weekLabel(w: WeekRow): string {
   if (w.iso_year && w.iso_week) return `${w.iso_year}-W${String(w.iso_week).padStart(2, "0")}`;
@@ -419,14 +426,37 @@ async function main() {
       if (error) throw new Error(`existing query failed: ${error.message}`);
       existing.push(...((data ?? []) as any[]));
     }
+    // 멱등 키(existKey) SoT — 위 broad 쿼리는 후보 주차×전 org 라인이라 PostgREST 1000행 cap 에
+    //   truncate 될 수 있어(누락 시 가드가 못 걸러 중복 insert→유니크 위반) 멱등 판정에 부적합.
+    //   org 토큰이 있으면 line_code prefix 로 좁히고 order("id")+range 페이지네이션 → 자기-org
+    //   excel_import 라인 전수를 cap-safe 하게 수집(주차 무관). common(null) 은 레거시 broad 경로.
     const existKey = new Map<string, string>();
-    for (const e of existing) existKey.set(`${e.line_code ?? ""} ${e.activity_type_id} ${e.week_id} ${e.main_title}`, e.id);
+    if (orgToken) {
+      const selfPrefix = `info-${orgToken}-%`;
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data, error } = await sb
+          .from("cluster4_lines")
+          .select("id,activity_type_id,week_id,main_title,line_code")
+          .eq("part_type", "info")
+          .eq("source_type", "excel_import")
+          .like("line_code", selfPrefix)
+          .order("id", { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (error) throw new Error(`self-line query failed: ${error.message}`);
+        const rows = (data ?? []) as Array<{ id: string; activity_type_id: string; week_id: string; main_title: string; line_code: string | null }>;
+        for (const e of rows) existKey.set(lineKey(e.line_code, e.activity_type_id, e.week_id, e.main_title), e.id);
+        if (rows.length < PAGE) break;
+      }
+    } else {
+      for (const e of existing) existKey.set(lineKey(e.line_code, e.activity_type_id, e.week_id, e.main_title), e.id);
+    }
 
     // update vs insert
     let insertCount = 0,
       updateCount = 0;
     for (const c of candidates) {
-      const k = `${c.lineCode ?? ""} ${c.act} ${c.week.id} ${c.mainTitle}`;
+      const k = lineKey(c.lineCode, c.act, c.week.id, c.mainTitle);
       if (existKey.has(k)) updateCount++;
       else insertCount++;
     }
@@ -606,8 +636,17 @@ async function main() {
     const execErrors: Array<{ where: string; key: string; error: string }> = [];
     let linesInserted = 0;
     let targetsInserted = 0;
+    let linesSkippedExisting = 0;
 
     for (const c of candidates) {
+      // 멱등 가드: 이미 동일 (line_code, act, week, title) 행이 있으면 재삽입하지 않는다.
+      //   existKey 는 상단 existing 조회로 매 실행마다 재구성되므로, 재실행 시 직전에 들어간
+      //   행을 중복 insert(유니크 위반)하지 않고 건너뛴다. 누락분만 신규 insert.
+      const idemKey = lineKey(c.lineCode, c.act, c.week.id, c.mainTitle);
+      if (existKey.has(idemKey)) {
+        linesSkippedExisting++;
+        continue;
+      }
       const { data, error } = await sb.from("cluster4_lines").insert(linePayload(c, fileName)).select("id").single();
       if (error || !data) {
         execErrors.push({ where: "line", key: `${c.act}/${weekLabel(c.week)}/${c.mainTitle.slice(0, 20)}`, error: error?.message ?? "no id" });
@@ -659,6 +698,7 @@ async function main() {
           file: fileName,
           organization: { slug: organization, lineCodeToken: orgToken },
           linesInserted,
+          linesSkippedExisting,
           targetsInserted,
           dupAutoConfirmed,
           snapshotInvalidated: staleCount,
