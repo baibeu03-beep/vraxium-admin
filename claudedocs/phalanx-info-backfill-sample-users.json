@@ -1,4 +1,17 @@
 {
-  "sample": [],
-  "affectedCount": 0
+  "sample": [
+    "6ae9f3ba-746e-4014-9f69-3f4b4b61af24",
+    "eda82067-9c13-4253-b774-5d025f8e28c5",
+    "e04f135e-8505-499e-9c73-d3d37c258a49",
+    "19ad5abc-6a4f-4211-a462-ebb866e0cf8e",
+    "69578e9f-d207-457a-a64f-d2ce3b6cc5e8",
+    "7b1a2a8f-982d-473e-9e30-e95031bfcffe",
+    "4777c3c1-8bbb-4903-afb0-c4f5f8cc3481",
+    "f919bef3-f1dc-41a3-a698-4e98c008bf13",
+    "004e3761-a7f9-4029-bd04-f6431488ed76",
+    "b93308d8-cd7d-4ecf-abd8-2658e91c99e6",
+    "abcf156a-d668-4700-ae4d-275cc384abf7",
+    "d8a3fef0-e7b9-458d-8b05-5852477a25c4"
+  ],
+  "affectedCount": 88
 }
