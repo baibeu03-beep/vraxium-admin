@@ -128,11 +128,12 @@ async function main() {
   ACTOR = (adminRow as { id: string } | null)?.id ?? "";
   if (!ACTOR) throw new Error("admin_users 행을 찾을 수 없습니다");
 
-  // 사전: 범위 함수 sanity.
-  check("W10(2026-05-04) 허용 범위 안", isInfoCrewEditableWeek("2026-05-04", "2026-05-10"));
-  check("W13(2026-05-25) 허용 범위 밖", !isInfoCrewEditableWeek("2026-05-25", "2026-05-31"));
-  check("25겨울 W1(2024-12-30) 허용 범위 안", isInfoCrewEditableWeek("2024-12-30", "2025-01-05"));
-  check("24가을(2024-12-29 이전) 허용 범위 밖", !isInfoCrewEditableWeek("2024-12-23", "2024-12-29"));
+  // 사전: 정책 함수 sanity — "이미 종료된 과거 주차만 수정 가능"(nowMs 고정으로 결정성 확보).
+  const NOW = Date.parse("2026-06-24T00:00:00Z");
+  check("과거 주차(end<오늘) editable", isInfoCrewEditableWeek("2025-11-10", "2025-11-16", NOW));
+  check("아주 과거(2024) editable", isInfoCrewEditableWeek("2024-07-15", "2024-07-21", NOW));
+  check("현재 진행 주차(오늘 포함) 불가", !isInfoCrewEditableWeek("2026-06-22", "2026-06-28", NOW));
+  check("미래 주차 불가", !isInfoCrewEditableWeek("2026-07-06", "2026-07-12", NOW));
 
   let lineOK: string | null = null;
   let lineEC: string | null = null;

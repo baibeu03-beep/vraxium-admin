@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Users } from "lucide-react";
 import {
   Card,
@@ -19,9 +19,19 @@ import {
   weekRange,
   type SeasonWeekRow,
 } from "@/lib/practicalInfoSeasonWeeks";
+
+// 부모(PracticalInfoManager)로 끌어올린 선택 주차 SoT 를 표시용으로 되돌려주기 위한 메타.
+//   weekId 단일 SoT 외에, "신규 개설 주차" 라벨이 weeks-options(최근 N주) 밖 주차(예: 과거 W16)도
+//   정확히 표기할 수 있도록 season-weeks 행에서 라벨/기간을 함께 보고한다.
+export type SelectedInfoWeekMeta = {
+  weekId: string;
+  label: string;
+  startDate: string | null;
+  endDate: string | null;
+};
 import { readOrgParam } from "@/lib/adminOrgContext";
 import {
-  INFO_CREW_EDIT_WINDOW_LABEL,
+  INFO_CREW_EDIT_POLICY_LABEL,
   isInfoCrewEditableWeek,
 } from "@/lib/cluster4InfoCrewEditWindow";
 import PracticalInfoCrewEditModal from "@/components/admin/PracticalInfoCrewEditModal";
@@ -71,11 +81,20 @@ const STATUS_META: Record<
   not_open: { label: "오픈 없음", cls: "border-border bg-muted text-muted-foreground" },
 };
 
-export default function PracticalInfoWeekResults() {
+export default function PracticalInfoWeekResults({
+  selectedWeekId,
+  onSelectWeek,
+  onWeekMetaResolved,
+}: {
+  // 선택 주차 단일 SoT — 부모(PracticalInfoManager)가 소유한다.
+  //   이 드롭다운이 manage 탭의 유일한 주차 선택 컨트롤이며, 변경 시 부모 state 를 갱신해
+  //   "신규 개설 주차" 라벨·라인 목록·탭 dot·API 파라미터가 모두 같은 weekId 를 쓰게 한다.
+  selectedWeekId: string;
+  onSelectWeek: (weekId: string) => void;
+  onWeekMetaResolved: (meta: SelectedInfoWeekMeta | null) => void;
+}) {
   const [weeks, setWeeks] = useState<SeasonWeekRow[] | null>(null);
   const [weeksError, setWeeksError] = useState<string | null>(null);
-  const [selectedWeekId, setSelectedWeekId] = useState<string>("");
-  const defaultedRef = useRef(false);
 
   const [results, setResults] = useState<Results | null>(null);
   const [loading, setLoading] = useState(false);
@@ -98,13 +117,8 @@ export default function PracticalInfoWeekResults() {
         }
         const rows = (json.data?.rows ?? []) as SeasonWeekRow[];
         setWeeks(rows);
-        if (!defaultedRef.current) {
-          const need = computeOpenNeed(rows, new Date()).need;
-          if (need?.week_id) {
-            defaultedRef.current = true;
-            setSelectedWeekId(need.week_id);
-          }
-        }
+        // 기본 선택 주차는 부모(PracticalInfoManager)가 weeks-options 의 isOpenTarget(금요일 경계,
+        // 서버 강제와 동일 함수)으로 단일하게 정한다 → 여기서는 default 를 set 하지 않는다(이중 default 제거).
       } catch {
         if (!cancelled) setWeeksError("주차 정보를 불러오지 못했습니다");
       }
@@ -120,18 +134,47 @@ export default function PracticalInfoWeekResults() {
     if (!weeks) return [];
     const need = computeOpenNeed(weeks, new Date()).need;
     const cutoff = need?.week_start_date ?? null;
-    return weeks
-      .filter(
-        (w) =>
-          w.week_id != null &&
-          w.week_start_date != null &&
-          isValidLineOpeningWeek(w) &&
-          (cutoff == null || w.week_start_date <= cutoff),
-      )
-      .sort((a, b) =>
-        (b.week_start_date ?? "").localeCompare(a.week_start_date ?? ""),
-      );
-  }, [weeks]);
+    const filtered = weeks.filter(
+      (w) =>
+        w.week_id != null &&
+        w.week_start_date != null &&
+        isValidLineOpeningWeek(w) &&
+        (cutoff == null || w.week_start_date <= cutoff),
+    );
+    // 선택 주차(부모 SoT)가 cutoff/유효성 필터에 걸려 옵션에서 빠지면, controlled <select> 의
+    // value 가 어떤 option 과도 매칭되지 않아 "드롭다운 표시 ≠ 실제 선택" 불일치가 난다.
+    // → 선택 주차 행은 항상 옵션에 포함시켜 표시값과 SoT 가 절대 갈라지지 않게 한다.
+    if (
+      selectedWeekId &&
+      !filtered.some((w) => w.week_id === selectedWeekId)
+    ) {
+      const selectedRow = weeks.find((w) => w.week_id === selectedWeekId);
+      if (selectedRow) filtered.push(selectedRow);
+    }
+    return filtered.sort((a, b) =>
+      (b.week_start_date ?? "").localeCompare(a.week_start_date ?? ""),
+    );
+  }, [weeks, selectedWeekId]);
+
+  // 선택 주차(SoT) → 표시용 메타를 부모로 보고. "신규 개설 주차" 라벨이 weeks-options(최근 N주)
+  // 범위 밖 주차도 정확히 표기할 수 있게 한다(라인 목록과 라벨이 항상 같은 주차를 가리키도록).
+  useEffect(() => {
+    if (!weeks || !selectedWeekId) {
+      onWeekMetaResolved(null);
+      return;
+    }
+    const row = weeks.find((w) => w.week_id === selectedWeekId);
+    onWeekMetaResolved(
+      row
+        ? {
+            weekId: selectedWeekId,
+            label: weekName(row),
+            startDate: row.week_start_date ?? null,
+            endDate: row.week_end_date ?? null,
+          }
+        : null,
+    );
+  }, [weeks, selectedWeekId, onWeekMetaResolved]);
 
   // 선택 주차 개설 결과 조회 — 최초 로드 + 크루 수정 저장 후 재조회 공용.
   const fetchResults = useCallback(async (weekId: string) => {
@@ -172,7 +215,7 @@ export default function PracticalInfoWeekResults() {
     };
   }, [selectedWeekId, fetchResults]);
 
-  // 선택 주차가 "개설 대상 크루 수정" 허용 범위(25겨울 W1 ~ 26봄 W11)인지.
+  // 선택 주차가 "개설 대상 크루 수정" 가능한지 — 정책: 이미 종료된 과거 주차만(현재/미래 불가).
   const weekEditable = useMemo(
     () => isInfoCrewEditableWeek(results?.weekStartDate, results?.weekEndDate),
     [results?.weekStartDate, results?.weekEndDate],
@@ -191,7 +234,7 @@ export default function PracticalInfoWeekResults() {
           aria-label="개설 결과 주차 선택"
           className="rounded-md border border-input bg-background px-3 py-2 text-base"
           value={selectedWeekId}
-          onChange={(e) => setSelectedWeekId(e.target.value)}
+          onChange={(e) => onSelectWeek(e.target.value)}
           disabled={!weeks || options.length === 0}
         >
           {options.length === 0 && <option value="">주차 없음</option>}
@@ -233,13 +276,13 @@ export default function PracticalInfoWeekResults() {
               </div>
             )}
 
-            {/* 수정 불가 범위 안내 — 개설 라인이 있는데 허용 범위 밖이면 표시. */}
+            {/* 수정 불가 안내 — 개설 라인이 있는데 아직 종료 전(진행 중/예정) 주차면 표시. */}
             {results &&
               !weekEditable &&
               results.lines.some((l) => l.status === "opened") && (
                 <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-                  이 주차는 개설 대상 크루 수정 허용 범위({INFO_CREW_EDIT_WINDOW_LABEL}) 밖이라
-                  수정 버튼이 표시되지 않습니다.
+                  이 주차는 아직 종료되지 않아(진행 중/예정) 개설 대상 크루 수정 버튼이
+                  표시되지 않습니다. ({INFO_CREW_EDIT_POLICY_LABEL})
                 </p>
               )}
 

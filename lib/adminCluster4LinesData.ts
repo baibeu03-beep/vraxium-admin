@@ -42,7 +42,7 @@ import {
   resolveLineScope,
 } from "@/lib/lineScope";
 import {
-  INFO_CREW_EDIT_WINDOW_LABEL,
+  INFO_CREW_EDIT_POLICY_LABEL,
   isInfoCrewEditableWeek,
 } from "@/lib/cluster4InfoCrewEditWindow";
 
@@ -1065,7 +1065,7 @@ export async function editInfoLineCrew(opts: {
     }
   }
 
-  // 3. 주차 게이트 — weeks 행 + 허용 범위(25겨울 W1 ~ 26봄 W11). 라인-주차 연결도 함께 확인.
+  // 3. 주차 게이트 — weeks 행 + 정책(이미 종료된 과거 주차만 수정 가능). 라인-주차 연결도 함께 확인.
   const { data: weekRow, error: weekErr } = await supabaseAdmin
     .from("weeks")
     .select("id,start_date,end_date")
@@ -1077,7 +1077,7 @@ export async function editInfoLineCrew(opts: {
   if (!isInfoCrewEditableWeek(week.start_date, week.end_date)) {
     throw new Cluster4LineError(
       403,
-      `이 주차는 개설 대상 크루 수정 허용 범위(${INFO_CREW_EDIT_WINDOW_LABEL}) 밖입니다`,
+      `이 주차는 아직 종료되지 않아(진행 중/예정) 개설 대상 크루를 수정할 수 없습니다 (${INFO_CREW_EDIT_POLICY_LABEL})`,
     );
   }
 
