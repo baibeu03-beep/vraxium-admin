@@ -30,9 +30,11 @@ async function main() {
     `${all.cumulative.cumulativeClubbing} = ${en.cumulative.cumulativeClubbing}+${ok.cumulative.cumulativeClubbing}+${px.cumulative.cumulativeClubbing}`,
   );
   ck(
-    "누적 엘리트 all = en+ok+px",
-    all.cumulative.cumulativeElite ===
-      en.cumulative.cumulativeElite + ok.cumulative.cumulativeElite + px.cumulative.cumulativeElite,
+    "누적 엘리트 = null(졸업/엘리트 기획 미정) 전 org 동일",
+    all.cumulative.cumulativeElite === null &&
+      en.cumulative.cumulativeElite === null &&
+      ok.cumulative.cumulativeElite === null &&
+      px.cumulative.cumulativeElite === null,
   );
   ck(
     "누적 활동중단 all = en+ok+px",

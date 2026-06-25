@@ -53,9 +53,9 @@ async function readSnapshotCards(
   return out;
 }
 
-// 누적 활동중단으로 보는 growth_status override 값(메모 SoT: graduated/suspended/paused).
+// 누적 활동중단으로 보는 growth_status override 값(메모 SoT: suspended/paused).
+//   (누적 엘리트=graduated 는 졸업/엘리트 기획 미정으로 현재 null 처리 — counting 미수행.)
 const SUSPENDED_STATUSES = new Set(["suspended", "paused"]);
-const GRADUATED_STATUS = "graduated";
 
 const SEASON_KEY_TO_KO: Record<string, string> = {
   spring: "봄",
@@ -78,15 +78,21 @@ function seasonKoFromKey(seasonKey: string | null | undefined): string | null {
 }
 
 export type InfoCumulativeStats = {
+  // 0. 데이터 시작 — 집계 데이터가 존재하는 가장 오래된 확정 주차명("24년 여름시즌 2주차"). 없으면 null.
+  dataStartWeekLabel: string | null;
   // 1. 클럽 수 — 현재 스코프가 포괄하는 클럽 수(통합=3, 단일=1).
   clubCount: number;
   // 2. 누적 클러빙 — 클럽 등록 이력 보유자 전체(activity_started_at 보유). 모든 상태 포함.
   cumulativeClubbing: number;
-  // 3. 누적 엘리트 — 정상 졸업자 누적(growth_status='graduated').
-  cumulativeElite: number;
+  // 3. 누적 엘리트 — 정상 졸업자 누적. 졸업/엘리트 기획 미정 → null(필드 유지).
+  cumulativeElite: number | null;
   // 4. 누적 활동 중단 — 활동 중단자 누적(growth_status∈suspended/paused).
   cumulativeSuspended: number;
 };
+
+// 주차별 표 우측 Po.A/B/C — 해당 주 스코프(조직) 내 최고 포인트 크루 TOP 3.
+//   points = snapshot 카드 points.star(= user_weekly_points.points). 조직별 탭에서만 노출.
+export type InfoTopCrew = { name: string; points: number };
 
 export type InfoOldestCrew = {
   // 활동 시작 주차 라벨("24-여름-2"). 산정 불가 시 null.
@@ -125,6 +131,9 @@ export type InfoWeekRow = {
   weeklyGrowthRate: number | null;
   // 13. Oldest(해당 주 활동 크루 중 최장 활동). 없으면 null.
   oldest: InfoOldestCrew | null;
+  // 14~16. Po.A/B/C — 해당 주 스코프 최고 포인트 크루 TOP 3(내림차순). 없으면 null.
+  //   조직별 탭에서만 표시(통합 탭은 컬럼 미노출). DTO 는 항상 채운다(조직 필터만 다름).
+  weeklyTopPoints: InfoTopCrew[] | null;
 };
 
 export type MembersInfoStatsDto = {
@@ -205,6 +214,8 @@ type WeekAcc = {
   rateCount: number;
   orgsWithClubbing: Set<string>;
   oldest: { startedAt: string; name: string; clubLabel: string } | null;
+  // 해당 주 포인트(star>0) 보유 크루 — 행 조립에서 정렬·TOP3 산출(Po.A/B/C).
+  topPoints: { name: string; points: number }[];
 };
 
 function newAcc(): WeekAcc {
@@ -218,6 +229,7 @@ function newAcc(): WeekAcc {
     rateCount: 0,
     orgsWithClubbing: new Set(),
     oldest: null,
+    topPoints: [],
   };
 }
 
@@ -275,16 +287,15 @@ export async function loadMembersInfoStats(opts: {
   ]);
 
   // ── [섹션.1-A] 역대 누적 ──
-  let cumulativeElite = 0;
   let cumulativeSuspended = 0;
   for (const r of roster) {
-    if (r.growth_status === GRADUATED_STATUS) cumulativeElite++;
-    else if (r.growth_status != null && SUSPENDED_STATUSES.has(r.growth_status)) cumulativeSuspended++;
+    if (r.growth_status != null && SUSPENDED_STATUSES.has(r.growth_status)) cumulativeSuspended++;
   }
   const cumulative: InfoCumulativeStats = {
+    dataStartWeekLabel: null, // weeks 조립 후 설정(가장 오래된 확정·데이터 보유 주차).
     clubCount: orgs.length,
     cumulativeClubbing: roster.length,
-    cumulativeElite,
+    cumulativeElite: null, // 졸업/엘리트 기획 미정 → null(필드 유지).
     cumulativeSuspended,
   };
 
@@ -380,6 +391,11 @@ export async function loadMembersInfoStats(opts: {
           }
         }
       }
+      // Po.A/B/C — 해당 주 포인트(star = user_weekly_points.points) 보유 크루 수집(>0만).
+      const star = card.points?.star;
+      if (typeof star === "number" && star > 0) {
+        acc.topPoints.push({ name: meta?.name ?? "-", points: star });
+      }
     }
   }
 
@@ -413,6 +429,7 @@ export async function loadMembersInfoStats(opts: {
         growthSuccessRate: null,
         weeklyGrowthRate: null,
         oldest: null,
+        weeklyTopPoints: null,
       };
     }
     const acc = acc0;
@@ -430,6 +447,12 @@ export async function loadMembersInfoStats(opts: {
           clubLabel: acc.oldest.clubLabel,
         }
       : null;
+    // Po.A/B/C — 포인트 내림차순(동점 이름순) TOP 3. 없으면 null.
+    const sortedTop = [...acc.topPoints].sort(
+      (p, q) => q.points - p.points || p.name.localeCompare(q.name, "ko"),
+    );
+    const weeklyTopPoints: InfoTopCrew[] | null =
+      sortedTop.length > 0 ? sortedTop.slice(0, 3) : null;
     return {
       weekId: w.week_id,
       seasonWeekName,
@@ -446,8 +469,14 @@ export async function loadMembersInfoStats(opts: {
       growthSuccessRate,
       weeklyGrowthRate,
       oldest,
+      weeklyTopPoints,
     };
   });
+
+  // 데이터 시작 — 집계 데이터가 있는 가장 오래된 확정 주차(weeks 는 desc → 뒤에서부터 탐색).
+  const oldestWithData =
+    [...weeks].reverse().find((w) => w.finalized && (w.clubbing ?? 0) > 0) ?? null;
+  cumulative.dataStartWeekLabel = oldestWithData ? oldestWithData.seasonWeekName : null;
 
   return {
     scope: { organization: opts.organization, mode: opts.mode, orgs },

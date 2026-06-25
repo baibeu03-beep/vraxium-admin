@@ -41,6 +41,7 @@ import {
 import type {
   MembersInfoStatsDto,
   InfoWeekRow,
+  InfoTopCrew,
 } from "@/lib/adminMembersInfoStats";
 
 type Member = {
@@ -958,6 +959,8 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
   const weeks = data?.weeks ?? [];
   const totalPages = Math.max(1, Math.ceil(weeks.length / WEEKS_PER_PAGE));
   const pageRows = weeks.slice(page * WEEKS_PER_PAGE, page * WEEKS_PER_PAGE + WEEKS_PER_PAGE);
+  // Po.A/B/C 는 조직별 탭(엥크레/오랑캐/팔랑크스)에서만 노출 — 통합 탭은 미표시.
+  const showPoints = org !== "all";
 
   return (
     <div className="flex flex-col gap-6">
@@ -976,7 +979,10 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
             <div className="py-2 text-sm text-muted-foreground">불러오는 중...</div>
           ) : (
             <div className="flex flex-wrap gap-x-8 gap-y-3">
-              <CumulativeStat label="클럽 수" value={data.cumulative.clubCount} />
+              <CumulativeStat label="데이터 시작" value={data.cumulative.dataStartWeekLabel} />
+              {org === "all" && (
+                <CumulativeStat label="클럽 수" value={data.cumulative.clubCount} />
+              )}
               <CumulativeStat label="누적 클러빙" value={data.cumulative.cumulativeClubbing} />
               <CumulativeStat label="누적 엘리트" value={data.cumulative.cumulativeElite} />
               <CumulativeStat label="누적 활동 중단" value={data.cumulative.cumulativeSuspended} />
@@ -1027,6 +1033,8 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
                         "성장 성공율(c)",
                         "주차 성장률(d)",
                         "Oldest",
+                        // 조직별 탭에서만 우측에 Po.A/B/C(최고 포인트 TOP 3).
+                        ...(showPoints ? ["Po.A", "Po.B", "Po.C"] : []),
                       ].map((h) => (
                         <TableHead
                           key={h}
@@ -1039,11 +1047,11 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
                   </TableHeader>
                   <TableBody>
                     {pageRows.map((w) => (
-                      <InfoWeekTableRow key={w.weekId} w={w} />
+                      <InfoWeekTableRow key={w.weekId} w={w} showPoints={showPoints} />
                     ))}
                     {pageRows.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={13} className="py-10 text-center text-muted-foreground">
+                        <TableCell colSpan={showPoints ? 16 : 13} className="py-10 text-center text-muted-foreground">
                           표시할 주차가 없습니다.
                         </TableCell>
                       </TableRow>
@@ -1082,21 +1090,35 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
   );
 }
 
-function CumulativeStat({ label, value }: { label: string; value: number }) {
+// 누적 지표 칸 — 숫자(2xl tabular)·문자(데이터 시작 주차명, lg)·null("-") 모두 지원.
+function CumulativeStat({ label, value }: { label: string; value: string | number | null }) {
+  const isNum = typeof value === "number";
+  const display = value == null ? "-" : isNum ? value.toLocaleString() : value;
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-2xl font-semibold tabular-nums text-foreground">
-        {value.toLocaleString()}
+      <span
+        className={cn(
+          "font-semibold text-foreground",
+          isNum ? "text-2xl tabular-nums" : "whitespace-nowrap text-lg",
+        )}
+      >
+        {display}
       </span>
     </div>
   );
 }
 
-function InfoWeekTableRow({ w }: { w: InfoWeekRow }) {
+// Po.A/B/C 셀 — "김수로 120P" 또는 "-".
+function fmtTopCrew(c: InfoTopCrew | undefined): string {
+  return c ? `${c.name} ${c.points.toLocaleString()}P` : "-";
+}
+
+function InfoWeekTableRow({ w, showPoints }: { w: InfoWeekRow; showPoints: boolean }) {
   const oldest = w.oldest
     ? `${w.oldest.startWeekLabel ?? "-"}, ${w.oldest.name}(${w.oldest.clubLabel})`
     : "-";
+  const top = w.weeklyTopPoints ?? [];
   return (
     <TableRow>
       <TableCell className="whitespace-nowrap text-center align-middle">
@@ -1121,6 +1143,13 @@ function InfoWeekTableRow({ w }: { w: InfoWeekRow }) {
       <TableCell className="text-center align-middle tabular-nums">{fmtPctCell(w.growthSuccessRate)}</TableCell>
       <TableCell className="text-center align-middle tabular-nums">{fmtPctCell(w.weeklyGrowthRate)}</TableCell>
       <TableCell className="whitespace-nowrap text-center align-middle">{oldest}</TableCell>
+      {showPoints && (
+        <>
+          <TableCell className="whitespace-nowrap text-center align-middle">{fmtTopCrew(top[0])}</TableCell>
+          <TableCell className="whitespace-nowrap text-center align-middle">{fmtTopCrew(top[1])}</TableCell>
+          <TableCell className="whitespace-nowrap text-center align-middle">{fmtTopCrew(top[2])}</TableCell>
+        </>
+      )}
     </TableRow>
   );
 }
