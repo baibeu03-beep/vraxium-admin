@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { Badge } from "@/components/ui/badge";
 import { classTone, rankTone } from "@/lib/statusBadge";
 import { cn } from "@/lib/utils";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -32,6 +33,15 @@ import {
   type MemberStatusBucket,
 } from "@/lib/memberStatusBucket";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
+import {
+  resolveMembersInfoSection0,
+  type MembersInfoSection0,
+  type SeasonWeekInfoRow,
+} from "@/lib/adminMembersInfoSection0";
+import type {
+  MembersInfoStatsDto,
+  InfoWeekRow,
+} from "@/lib/adminMembersInfoStats";
 
 type Member = {
   userId: string;
@@ -540,15 +550,7 @@ export default function MembersList() {
       />
 
       {tab === "info" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">크루 정보</CardTitle>
-            <CardDescription>준비 중입니다.</CardDescription>
-          </CardHeader>
-          <CardContent className="py-16 text-center text-sm text-muted-foreground">
-            준비 중입니다.
-          </CardContent>
-        </Card>
+        <MembersInfoTab />
       ) : (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-2">
@@ -767,6 +769,359 @@ export default function MembersList() {
         </Card>
       )}
     </div>
+  );
+}
+
+// ── 크루 정보 탭 ────────────────────────────────────────────────────
+// [섹션.0] 상단 현재 정보(오늘/시즌·주차/기간/공식 활동·휴식) + 4개 클럽 하위 탭.
+//   섹션.0 = /api/admin/season-weeks(시즌·주차 SoT) 그대로 표기 — 프론트 임의 계산 없음.
+//   클럽 탭 전환은 로컬 state 일 뿐 섹션.0 은 동일하게 유지된다(상단 고정).
+//   snapshot·demoUserId 무관(현재 접속 시점 시즌/주차 정보 — 사용자별 데이터 아님).
+
+type InfoClubTab = "all" | "encre" | "oranke" | "phalanx";
+const INFO_CLUB_TABS: { value: InfoClubTab; label: string }[] = [
+  { value: "all", label: "통합" },
+  { value: "encre", label: "엥크레" },
+  { value: "oranke", label: "오랑캐" },
+  { value: "phalanx", label: "팔랑크스" },
+];
+
+function MembersInfoTab() {
+  const searchParams = useSearchParams();
+  const mode = readScopeMode(searchParams);
+  const [section0, setSection0] = useState<MembersInfoSection0 | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [clubTab, setClubTab] = useState<InfoClubTab>("all");
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/admin/season-weeks", { cache: "no-store" });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error ?? "Failed to load season weeks.");
+        }
+        if (cancelled) return;
+        const rows = (json.data?.rows ?? []) as SeasonWeekInfoRow[];
+        // 접속 로컬 시각 기준으로 섹션.0 표기값 계산(순수 함수 — 검증 스크립트와 동일 코드).
+        setSection0(resolveMembersInfoSection0(rows, new Date()));
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load season weeks.");
+        setSection0(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* [섹션.0] 상단 현재 정보 — 단일 가로 배너(통합 관리자 상단 A영역과 동일 UX).
+          클럽 탭 전환과 무관하게 고정. */}
+      <Card data-testid="members-info-section0">
+        <CardContent className="py-4">
+          {error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : loading ? (
+            <div className="py-2 text-sm text-muted-foreground">불러오는 중...</div>
+          ) : section0 && section0.found ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+              <span className="text-foreground">오늘은,</span>
+              {/* 날짜 + 시즌/주차 — 강조 배지 */}
+              <Badge tone="info" appearance="solid" size="lg" className="tabular-nums">
+                {section0.todayLabel}, {section0.seasonWeekName}
+              </Badge>
+              <span className="text-foreground">입니다.</span>
+              {/* 주차 기간(월 ~ 일) — 중립 pill */}
+              <span className="rounded-md border bg-muted/40 px-2.5 py-1 text-sm tabular-nums text-muted-foreground">
+                {section0.periodRange}
+              </span>
+              {/* 공식 활동/휴식 — 별도 강조 배지 */}
+              <span className="flex items-center gap-1">
+                <Badge
+                  tone={section0.weekStatus === "공식 휴식" ? "warning" : "success"}
+                  appearance="solid"
+                  size="lg"
+                >
+                  {section0.weekStatus}
+                </Badge>
+                <span className="text-foreground">주차</span>
+              </span>
+            </div>
+          ) : (
+            <div className="py-2 text-sm text-muted-foreground">
+              현재 시즌/주차 정보를 찾지 못했습니다.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 클럽 하위 탭 (통합 / 엥크레 / 오랑캐 / 팔랑크스) — 탭 전환은 로컬 state(섹션.0 불변). */}
+      <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
+        {INFO_CLUB_TABS.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            onClick={() => setClubTab(t.value)}
+            className={cn(
+              "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
+              clubTab === t.value
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* [섹션.1] 역대 누적 + 주차별 데이터 — 선택 클럽 스코프. */}
+      <InfoStatsPanel org={clubTab} mode={mode} />
+    </div>
+  );
+}
+
+// ── [섹션.1] 집계 패널 — 역대 누적(1-A) + 주차별 데이터(1-B) ─────────────
+//   데이터 = /api/admin/members/info-stats(백엔드 DTO 단일 SoT). 프론트 임의 계산 없음.
+//   값 null = 미확정/placeholder → "-" 표시. 20주차/page 페이지네이션(최신 상단).
+
+const WEEKS_PER_PAGE = 20;
+
+// 1-B 컬럼 정의 — 라벨 + InfoWeekRow 셀 렌더(숫자/배지/Oldest). 표시 전용.
+const fmtNumCell = (v: number | null): string => (v == null ? "-" : v.toLocaleString());
+const fmtPctCell = (v: number | null): string => (v == null ? "-" : `${v}%`);
+
+function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "test" }) {
+  const [data, setData] = useState<MembersInfoStatsDto | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  // (org, mode)별 결과 캐시 — 탭 왕복 시 재조회 방지.
+  const cache = useRef<Map<string, MembersInfoStatsDto>>(new Map());
+  const cacheKey = `${mode}:${org}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    const cached = cache.current.get(cacheKey);
+    if (cached) {
+      setData(cached);
+      setPage(0); // 탭/모드 변경 시 첫 페이지로.
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const qs = new URLSearchParams();
+        if (org !== "all") qs.set("organization", org);
+        const url = appendModeQuery(
+          `/api/admin/members/info-stats${qs.toString() ? `?${qs}` : ""}`,
+          mode,
+        );
+        const res = await fetch(url, { cache: "no-store" });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error ?? "Failed to load info stats.");
+        }
+        if (cancelled) return;
+        const dto = json.data as MembersInfoStatsDto;
+        cache.current.set(cacheKey, dto);
+        setData(dto);
+        setPage(0); // 새 데이터 로드 시 첫 페이지로.
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load info stats.");
+        setData(null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [cacheKey, org, mode]);
+
+  const weeks = data?.weeks ?? [];
+  const totalPages = Math.max(1, Math.ceil(weeks.length / WEEKS_PER_PAGE));
+  const pageRows = weeks.slice(page * WEEKS_PER_PAGE, page * WEEKS_PER_PAGE + WEEKS_PER_PAGE);
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* [섹션.1-A] 역대 누적 */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">역대 누적</CardTitle>
+          <CardDescription>클럽 등록 이력 전체 기준 누적 지표 (역대)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : loading || !data ? (
+            <div className="py-2 text-sm text-muted-foreground">불러오는 중...</div>
+          ) : (
+            <div className="flex flex-wrap gap-x-8 gap-y-3">
+              <CumulativeStat label="클럽 수" value={data.cumulative.clubCount} />
+              <CumulativeStat label="누적 클러빙" value={data.cumulative.cumulativeClubbing} />
+              <CumulativeStat label="누적 엘리트" value={data.cumulative.cumulativeElite} />
+              <CumulativeStat label="누적 활동 중단" value={data.cumulative.cumulativeSuspended} />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* [섹션.1-B] 주차별 데이터 */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
+          <div className="space-y-1.5">
+            <CardTitle className="text-base">주차별 데이터</CardTitle>
+            <CardDescription>
+              최신 주차 상단 · 페이지당 {WEEKS_PER_PAGE}주차. 미확정(현재/미검수) 주차는 “-”.
+            </CardDescription>
+          </div>
+          {data && data.partialFailure && (
+            <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-800">
+              일부 크루({data.partialFailure.snapshotUnavailable.toLocaleString()}) 스냅샷 미조회 — 집계 누락 가능
+            </span>
+          )}
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : loading || !data ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">불러오는 중...</div>
+          ) : (
+            <>
+              <div className="overflow-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      {[
+                        "클럽 상태",
+                        "시즌 & 주차",
+                        "클럽 수",
+                        "클러빙",
+                        "시즌 휴식",
+                        "엘리트",
+                        "활동 중단",
+                        "주차 휴식",
+                        "성장 성공(a)",
+                        "성장 실패(b)",
+                        "성장 성공율(c)",
+                        "주차 성장률(d)",
+                        "Oldest",
+                      ].map((h) => (
+                        <TableHead
+                          key={h}
+                          className="whitespace-nowrap text-center align-middle text-xs font-medium tracking-wide text-muted-foreground"
+                        >
+                          {h}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pageRows.map((w) => (
+                      <InfoWeekTableRow key={w.weekId} w={w} />
+                    ))}
+                    {pageRows.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={13} className="py-10 text-center text-muted-foreground">
+                          표시할 주차가 없습니다.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* 페이지네이션 — 20주차/page */}
+              <div className="flex items-center justify-end gap-3 text-sm">
+                <span className="text-muted-foreground">
+                  {weeks.length.toLocaleString()}주차 · {page + 1} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page <= 0}
+                >
+                  이전
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                >
+                  다음
+                </Button>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function CumulativeStat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-2xl font-semibold tabular-nums text-foreground">
+        {value.toLocaleString()}
+      </span>
+    </div>
+  );
+}
+
+function InfoWeekTableRow({ w }: { w: InfoWeekRow }) {
+  const oldest = w.oldest
+    ? `${w.oldest.startWeekLabel ?? "-"}, ${w.oldest.name}(${w.oldest.clubLabel})`
+    : "-";
+  return (
+    <TableRow>
+      <TableCell className="whitespace-nowrap text-center align-middle">
+        <StatusBadge
+          label={w.clubStatus}
+          size="sm"
+          appearance="soft"
+          tone={w.clubStatus === "공식 휴식" ? "warning" : "success"}
+        />
+      </TableCell>
+      <TableCell className="whitespace-nowrap text-center align-middle font-medium">
+        {w.seasonWeekName}
+      </TableCell>
+      <TableCell className="text-center align-middle tabular-nums">{fmtNumCell(w.clubCount)}</TableCell>
+      <TableCell className="text-center align-middle tabular-nums">{fmtNumCell(w.clubbing)}</TableCell>
+      <TableCell className="text-center align-middle tabular-nums">{fmtNumCell(w.seasonalRest)}</TableCell>
+      <TableCell className="text-center align-middle tabular-nums">{fmtNumCell(w.elite)}</TableCell>
+      <TableCell className="text-center align-middle tabular-nums">{fmtNumCell(w.suspended)}</TableCell>
+      <TableCell className="text-center align-middle tabular-nums">{fmtNumCell(w.weeklyRest)}</TableCell>
+      <TableCell className="text-center align-middle tabular-nums">{fmtNumCell(w.growthSuccess)}</TableCell>
+      <TableCell className="text-center align-middle tabular-nums">{fmtNumCell(w.growthFail)}</TableCell>
+      <TableCell className="text-center align-middle tabular-nums">{fmtPctCell(w.growthSuccessRate)}</TableCell>
+      <TableCell className="text-center align-middle tabular-nums">{fmtPctCell(w.weeklyGrowthRate)}</TableCell>
+      <TableCell className="whitespace-nowrap text-center align-middle">{oldest}</TableCell>
+    </TableRow>
   );
 }
 
