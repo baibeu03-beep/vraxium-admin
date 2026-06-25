@@ -36,6 +36,31 @@ import {
 // 안전 상한. 앱 규모상 충분하지만 무한정 로드를 막기 위해 캡을 둔다.
 const MAX_ROWS = 5000;
 
+// PostgREST max-rows(1000) 때문에 .limit(N>1000) 은 조용히 1000 으로 잘려, "1000행 초과 = 절단"
+// 감지(truncated)가 영영 안 잡힌다(예: user_week_statuses 9.7k행이 무필터 조회 시 1000행만 노출).
+// .range() 페이지네이션으로 실제로 끝까지(또는 stopAfter 초과까지) 읽는다. 결과 순서는 호출부에서
+// 다시 정렬하므로, 페이지 경계 안정성을 위해 호출 측이 고유 tiebreaker(예: id)로 정렬해야 한다.
+async function collectRowsPaged<T>(
+  runPage: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  opts: { pageSize?: number; stopAfter?: number } = {},
+): Promise<T[]> {
+  const pageSize = opts.pageSize ?? 1000;
+  const stopAfter = opts.stopAfter ?? Number.POSITIVE_INFINITY;
+  const rows: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await runPage(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as T[];
+    rows.push(...page);
+    if (page.length < pageSize) break; // 더 없음(마지막 페이지)
+    if (rows.length > stopAfter) break; // 절단 감지에 충분(호출부가 truncated 판정·slice)
+  }
+  return rows;
+}
+
 type SeasonDefinitionRow = {
   season_key: string;
   season_label: string | null;
@@ -200,55 +225,59 @@ export async function getWeekRecognitions(
   // 3) organization_slug / search 가 있으면 user_id 집합을 먼저 좁힌다.
   let restrictUserIds: string[] | null = null;
   if (organizationSlug || search) {
-    let profileQuery = supabaseAdmin
-      .from("user_profiles")
-      .select("user_id,display_name,organization_slug");
-    if (organizationSlug) {
-      profileQuery = profileQuery.eq("organization_slug", organizationSlug);
-    }
-    if (search) {
-      profileQuery = profileQuery.ilike("display_name", `%${search}%`);
-    }
-    const { data, error } = await profileQuery.limit(MAX_ROWS);
-    if (error) throw new Error(error.message);
-    restrictUserIds = ((data ?? []) as ProfileRow[]).map((p) => p.user_id);
+    // PostgREST 1000행 cap 회피 — .range() 페이지네이션(stable order: user_id).
+    const profileRows = await collectRowsPaged<ProfileRow>(
+      (from, to) => {
+        let q = supabaseAdmin
+          .from("user_profiles")
+          .select("user_id,display_name,organization_slug")
+          .order("user_id", { ascending: true })
+          .range(from, to);
+        if (organizationSlug) q = q.eq("organization_slug", organizationSlug);
+        if (search) q = q.ilike("display_name", `%${search}%`);
+        return q;
+      },
+      { pageSize: 1000, stopAfter: MAX_ROWS },
+    );
+    restrictUserIds = profileRows.map((p) => p.user_id);
     if (restrictUserIds.length === 0) {
       return emptyResult(seasons, weeks);
     }
   }
 
   // 4) user_week_statuses 조회 — 가능한 필터는 DB 에서 적용.
-  let statusQuery = supabaseAdmin
-    .from("user_week_statuses")
-    .select(
-      "id,user_id,year,week_number,week_start_date,status,is_official_rest_override,note,updated_at",
-    )
-    .order("week_start_date", { ascending: false })
-    .order("updated_at", { ascending: false })
-    .limit(MAX_ROWS + 1);
+  //   ⚠ PostgREST max-rows(1000) 때문에 .limit(MAX_ROWS+1) 은 조용히 1000 으로 잘려 truncated 가
+  //     영영 false 였다(9.7k행 무필터 조회 시 1000행만 노출). .range() 페이지네이션으로 실제로
+  //     끝까지(또는 MAX_ROWS 초과까지) 읽는다. 페이지 경계 안정용 tiebreaker=id(고유).
+  const buildStatusPage = (from: number, to: number) => {
+    let q = supabaseAdmin
+      .from("user_week_statuses")
+      .select(
+        "id,user_id,year,week_number,week_start_date,status,is_official_rest_override,note,updated_at",
+      )
+      .order("week_start_date", { ascending: false })
+      .order("updated_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to);
 
-  if (status) statusQuery = statusQuery.eq("status", status);
+    if (status) q = q.eq("status", status);
 
-  if (targetWeek) {
-    // 특정 주차: 그 주차의 ISO (year, week) 로 한정.
-    statusQuery = statusQuery
-      .eq("year", targetWeek.iso_year)
-      .eq("week_number", targetWeek.iso_week);
-  } else if (season && season.start_date && season.end_date) {
-    // 시즌 날짜창: week_start_date 가 시즌 기간 안.
-    statusQuery = statusQuery
-      .gte("week_start_date", season.start_date)
-      .lte("week_start_date", season.end_date);
-  }
+    if (targetWeek) {
+      // 특정 주차: 그 주차의 ISO (year, week) 로 한정.
+      q = q.eq("year", targetWeek.iso_year).eq("week_number", targetWeek.iso_week);
+    } else if (season && season.start_date && season.end_date) {
+      // 시즌 날짜창: week_start_date 가 시즌 기간 안.
+      q = q.gte("week_start_date", season.start_date).lte("week_start_date", season.end_date);
+    }
 
-  if (restrictUserIds) {
-    statusQuery = statusQuery.in("user_id", restrictUserIds);
-  }
+    if (restrictUserIds) q = q.in("user_id", restrictUserIds);
+    return q;
+  };
 
-  const { data: statusData, error: statusError } = await statusQuery;
-  if (statusError) throw new Error(statusError.message);
-
-  let statusRows = (statusData ?? []) as UserWeekStatusRow[];
+  let statusRows = await collectRowsPaged<UserWeekStatusRow>(buildStatusPage, {
+    pageSize: 1000,
+    stopAfter: MAX_ROWS,
+  });
 
   // season iso 폴백(날짜창 없는 시즌)일 때 in-memory 로 한정.
   if (seasonIsoFallback) {

@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { mapWithConcurrency } from "@/lib/concurrency";
 import { GrowthError } from "@/lib/cluster3GrowthData";
 import {
   type ClubRankDto,
@@ -49,6 +50,38 @@ type UserWeekStatusRow = {
 
 function computeWeeklyScore(row: { points: number; advantages: number; penalty: number }): number {
   return (row.points * 1) + (row.advantages * 3) - (row.penalty * 5);
+}
+
+// 전체 user_weekly_points(순위 모집단 = 전 사용자) 읽기 — getClubRank(개인)·getClubRankGradeBatch
+// (어드민)이 공유(동일 SoT·동일 행 → 품계 parity 보장).
+//   PostgREST max-rows(1000) 때문에 .range() 페이지네이션이 필수다. 종전엔 페이지를 직렬로 읽어
+//   (14k행 = 15왕복 ≈ 2.5s) 라운드트립이 쌓이고 origin 점유 시간이 길었다. 전체 행수를 head count
+//   로 먼저 구한 뒤 페이지들을 제한 동시성으로 병렬 조회한다 — 같은 행을 모두 읽어 합치므로 결과·
+//   알고리즘은 불변(아래에서 주차별로 재그룹). origin 점유 시간을 줄여 포화(521/타임아웃)도 완화한다.
+const POINTS_PAGE = 1000;
+const POINTS_PAGE_CONCURRENCY = 4;
+async function readAllWeeklyPoints(): Promise<WeeklyPointRow[]> {
+  const { count, error: countErr } = await supabaseAdmin
+    .from("user_weekly_points")
+    .select("user_id", { count: "exact", head: true });
+  if (countErr) throw new GrowthError(500, countErr.message);
+  const total = count ?? 0;
+  if (total === 0) return [];
+  const pageCount = Math.ceil(total / POINTS_PAGE);
+  const pageIndexes = Array.from({ length: pageCount }, (_, i) => i);
+  const pages = await mapWithConcurrency(pageIndexes, POINTS_PAGE_CONCURRENCY, async (i) => {
+    const from = i * POINTS_PAGE;
+    const res = await supabaseAdmin
+      .from("user_weekly_points")
+      .select("user_id,year,week_number,points,advantages,penalty")
+      .order("year", { ascending: true })
+      .order("week_number", { ascending: true })
+      .order("user_id", { ascending: true })
+      .range(from, from + POINTS_PAGE - 1);
+    if (res.error) throw new GrowthError(500, res.error.message);
+    return (res.data ?? []) as WeeklyPointRow[];
+  });
+  return pages.flat();
 }
 
 // ─── 품계 모집단 제외 정책 (단일 SoT) ──────────────────────────────────
@@ -127,28 +160,10 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
   const firstWeek = userFirstWeekRes.data as UserWeekStatusRow | null;
 
   // 주차별 RANK 는 전 사용자 대비 상대 순위라 user_weekly_points 전체가 필요하다.
-  // Supabase(PostgREST) 기본 1000행 제한을 .range() 페이지네이션으로 우회한다.
-  // (전체 row 가 1000 을 넘으면 무제한 select 는 조용히 잘려, 잘린 구간의
-  //  사용자는 weeklyDetails 가 비어 avgPercentile=null 이 되고, 남은 사용자의
-  //  주차별 totalParticipants/순위도 틀어진다.)
-  const allPoints: WeeklyPointRow[] = [];
-  const pageSize = 1000;
-  let from = 0;
-  while (true) {
-    const pageRes = await supabaseAdmin
-      .from("user_weekly_points")
-      .select("user_id,year,week_number,points,advantages,penalty")
-      .order("year", { ascending: true })
-      .order("week_number", { ascending: true })
-      .order("user_id", { ascending: true })
-      .range(from, from + pageSize - 1);
-
-    if (pageRes.error) throw new GrowthError(500, pageRes.error.message);
-    const rows = (pageRes.data ?? []) as WeeklyPointRow[];
-    allPoints.push(...rows);
-    if (rows.length < pageSize) break;
-    from += pageSize;
-  }
+  // (전체 row 가 1000 을 넘으면 무제한 select 는 조용히 잘려, 잘린 구간의 사용자는 weeklyDetails 가
+  //  비어 avgPercentile=null 이 되고, 남은 사용자의 주차별 totalParticipants/순위도 틀어진다.)
+  // readAllWeeklyPoints 가 count→병렬 페이지네이션으로 전 행을 읽는다(getClubRankGradeBatch 공유).
+  const allPoints = await readAllWeeklyPoints();
 
   // 모집단 제외 정책: seasonal_rest 사용자의 행을 RANK 계산 전에 제거한다.
   // (대상 본인이 seasonal_rest 면 본인 행도 빠져 weeklyDetails 가 비고 avgPercentile=null.)
@@ -322,26 +337,11 @@ export async function getClubRankGradeBatch(
     }
   }
 
-  // 2) 전체 user_weekly_points 1회 읽기(순위 모집단 = 전 사용자, getClubRank 과 동일).
+  // 2) 전체 user_weekly_points 1회 읽기(순위 모집단 = 전 사용자, getClubRank 과 동일 SoT/행).
   //    seasonal_rest 사용자는 모집단에서 제외(getClubRank 과 동일 정책·단일 SoT).
+  //    readAllWeeklyPoints = count→병렬 페이지네이션(직렬 15왕복 → 병렬, parity 유지).
   const excludedIds = await getRankPopulationExcludedUserIds();
-  const allPoints: WeeklyPointRow[] = [];
-  const pageSize = 1000;
-  let from = 0;
-  for (;;) {
-    const pageRes = await supabaseAdmin
-      .from("user_weekly_points")
-      .select("user_id,year,week_number,points,advantages,penalty")
-      .order("year", { ascending: true })
-      .order("week_number", { ascending: true })
-      .order("user_id", { ascending: true })
-      .range(from, from + pageSize - 1);
-    if (pageRes.error) throw new GrowthError(500, pageRes.error.message);
-    const rows = (pageRes.data ?? []) as WeeklyPointRow[];
-    allPoints.push(...rows);
-    if (rows.length < pageSize) break;
-    from += pageSize;
-  }
+  const allPoints = await readAllWeeklyPoints();
 
   const populationPoints =
     excludedIds.size === 0
