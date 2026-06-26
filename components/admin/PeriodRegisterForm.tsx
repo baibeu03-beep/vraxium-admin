@@ -590,9 +590,9 @@ export default function PeriodRegisterForm() {
 
           {/* 3행: 우측 버튼 — 등록 / 취소(입력값 초기화) */}
           <div className="flex items-center justify-end gap-2">
-            <Button type="button" onClick={handleSubmit} disabled={submitting}>
+            <Button type="button" onClick={handleSubmit} loading={submitting}>
               <CalendarPlus className="h-4 w-4" />
-              {submitting ? "등록 중..." : "등록"}
+              등록
             </Button>
             <Button
               type="button"
@@ -635,12 +635,10 @@ export default function PeriodRegisterForm() {
                 <Button
                   type="button"
                   onClick={handleReflectCheck}
-                  disabled={updateBusy}
+                  loading={updateBusy}
                 >
-                  <RefreshCw
-                    className={`h-4 w-4 ${updateBusy ? "animate-spin" : ""}`}
-                  />
-                  {updateBusy ? "확인 중..." : "고객 페이지 업데이트"}
+                  <RefreshCw className="h-4 w-4" />
+                  고객 페이지 업데이트
                 </Button>
               </div>
             ) : (
@@ -659,12 +657,10 @@ export default function PeriodRegisterForm() {
                   <Button
                     type="button"
                     onClick={handleReflectRun}
-                    disabled={updateBusy}
+                    loading={updateBusy}
                   >
-                    <RefreshCw
-                      className={`h-4 w-4 ${updateBusy ? "animate-spin" : ""}`}
-                    />
-                    {updateBusy ? "반영 중..." : "업데이트 실행"}
+                    <RefreshCw className="h-4 w-4" />
+                    업데이트 실행
                   </Button>
                   <Button
                     type="button"

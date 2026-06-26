@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import { ADMIN_READ_ROLES } from "@/lib/adminAuthRoles";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
@@ -294,14 +295,7 @@ export default function AdminUsersList() {
                   </TableRow>
                 )}
                 {loading && filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={devMode ? 6 : 5}
-                      className="py-10 text-center text-muted-foreground"
-                    >
-                      불러오는 중...
-                    </TableCell>
-                  </TableRow>
+                  <TableSkeletonRows columns={devMode ? 6 : 5} rows={6} />
                 )}
               </TableBody>
             </Table>

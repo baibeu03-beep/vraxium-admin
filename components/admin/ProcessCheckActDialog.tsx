@@ -7,7 +7,7 @@
 // 검수 시점 = 날짜+시간(24h, 30분), 요일 자동. now 이전/+7일 초과 불가(서버 재검증).
 
 import { useMemo, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
@@ -335,10 +335,10 @@ export default function ProcessCheckActDialog({
           <Button
             type="button"
             size="sm"
+            loading={submitting && status === "needed"}
             disabled={status !== "needed" || submitting}
             onClick={() => void submit("request")}
           >
-            {submitting && status === "needed" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
             체크 신청
           </Button>
           <Button
@@ -346,10 +346,10 @@ export default function ProcessCheckActDialog({
             variant="outline"
             size="sm"
             className="border-rose-300 text-rose-700 hover:bg-rose-50"
+            loading={submitting && status === "pending"}
             disabled={!cancelable || submitting}
             onClick={() => void submit("cancel")}
           >
-            {submitting && status === "pending" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
             체크 취소
           </Button>
           <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={() => void requestClose()}>

@@ -9,7 +9,7 @@
 //     → 상태 행 completed+manual_grant + recipients(중복 스킵) + 포인트 적립(snapshot 무효화).
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -453,10 +453,11 @@ export default function ProcessCheckManualGrantDialog({
           <Button
             type="button"
             size="sm"
+            loading={submitting}
             disabled={submitting || isCompleted}
             onClick={() => void submit()}
           >
-            {submitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1.5 h-3.5 w-3.5" />}
+            <Check className="mr-1.5 h-3.5 w-3.5" />
             체크 신청
           </Button>
           <Button

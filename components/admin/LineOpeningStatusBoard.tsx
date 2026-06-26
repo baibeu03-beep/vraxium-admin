@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -164,9 +164,7 @@ export default function LineOpeningStatusBoard({
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         {loading ? (
-          <p className="flex items-center gap-1.5 text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
-          </p>
+          <LoadingState active />
         ) : error ? (
           <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-red-800">
             {error}

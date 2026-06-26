@@ -222,8 +222,8 @@ export default function LoginForm() {
             {errorMessage && (
               <p className="text-sm text-destructive">{errorMessage}</p>
             )}
-            <Button type="submit" className="w-full" disabled={loading || kakaoLoading}>
-              {loading ? "로그인 중..." : "로그인"}
+            <Button type="submit" className="w-full" loading={loading} disabled={kakaoLoading}>
+              로그인
             </Button>
             <Link
               href="/forgot-password"

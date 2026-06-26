@@ -15,7 +15,7 @@
 //   - 하단 "등록된 라인" 목록은 /admin/lines/info 로 이동 (2026-06-07) — 이 화면은 등록 폼만.
 
 import { useCallback, useRef, useState } from "react";
-import { Loader2, Trash2, Upload, X } from "lucide-react";
+import { Trash2, Upload, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -169,15 +169,12 @@ function LogoUploadField({
           type="button"
           variant="outline"
           className="w-full"
-          disabled={disabled || uploading}
+          loading={uploading}
+          disabled={disabled}
           onClick={() => fileRef.current?.click()}
         >
-          {uploading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Upload className="mr-2 h-4 w-4" />
-          )}
-          {uploading ? "업로드 중..." : "로고 이미지 업로드"}
+          <Upload className="mr-2 h-4 w-4" />
+          로고 이미지 업로드
         </Button>
       )}
     </div>
@@ -602,8 +599,7 @@ export default function LineRegistrationManager() {
 
           {/* ── 버튼 (우측 하단: 등록 · 초기화) ── */}
           <div className="flex items-center justify-end gap-2 border-t pt-4">
-            <Button type="button" onClick={() => void handleSubmit()} disabled={saving}>
-              {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            <Button type="button" loading={saving} onClick={() => void handleSubmit()}>
               등록
             </Button>
             <Button type="button" variant="outline" onClick={handleReset} disabled={saving}>

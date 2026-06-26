@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,7 +28,6 @@ import {
   isMemberAssignableRole,
 } from "@/lib/adminMembersTypes";
 import { USER_FACING_ROLE_LABELS } from "@/lib/adminPermissionsTypes";
-import { cn } from "@/lib/utils";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 
@@ -605,10 +604,7 @@ function MemberEditDrawerInner({
             >
               취소
             </Button>
-            <Button type="submit" disabled={saving || !dirty}>
-              {saving && (
-                <Loader2 className={cn("h-4 w-4 animate-spin")} aria-hidden />
-              )}
+            <Button type="submit" loading={saving} disabled={saving || !dirty}>
               저장
             </Button>
           </footer>

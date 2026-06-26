@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { buildCustomerClusterUrl } from "@/lib/customerAppUrl";
 
 // GET /api/admin/test-users 응답 row (lib/testUsers.ts TestUserDto 와 동일 shape).
@@ -165,14 +166,7 @@ export default function TestUsersManager() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={10}
-                    className="py-8 text-center text-sm text-muted-foreground"
-                  >
-                    불러오는 중…
-                  </TableCell>
-                </TableRow>
+                <TableSkeletonRows columns={10} rows={6} />
               ) : users.length === 0 ? (
                 <TableRow>
                   <TableCell

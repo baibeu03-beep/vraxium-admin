@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -441,9 +442,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
 
         {/* 승인 명단 테이블 */}
         {loading ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
+          <LoadingState active />
         ) : apps.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
             신청 데이터가 없습니다. (크루 신청 또는 수동 추가 시 표시됩니다)
@@ -608,8 +607,8 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
               <Button variant="outline" onClick={() => setAddOpen(false)} disabled={saving}>
                 취소
               </Button>
-              <Button onClick={submitAdd} disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}확인
+              <Button onClick={submitAdd} loading={saving} disabled={saving}>
+                확인
               </Button>
             </div>
           </div>
@@ -668,8 +667,8 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
               <Button variant="outline" onClick={() => setRejectApp(null)} disabled={saving}>
                 취소
               </Button>
-              <Button onClick={submitReject} disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}확인
+              <Button onClick={submitReject} loading={saving} disabled={saving}>
+                확인
               </Button>
             </div>
           </div>
@@ -708,10 +707,11 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
               </Button>
               <Button
                 onClick={submitDelete}
+                loading={saving}
                 disabled={saving}
                 className="bg-red-600 text-white hover:bg-red-700"
               >
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}삭제
+                삭제
               </Button>
             </div>
           </div>

@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
-  Loader2,
   Plus,
   Search,
   Check,
@@ -14,6 +13,7 @@ import {
   Pencil,
   Users,
 } from "lucide-react";
+import { LoadingState } from "@/components/ui/loading-state";
 import {
   Card,
   CardContent,
@@ -313,15 +313,12 @@ function ImageUploadSlot({
           <Button
             variant="outline"
             className="w-full"
-            disabled={disabled || uploading}
+            loading={uploading}
+            disabled={disabled}
             onClick={() => fileRef.current?.click()}
           >
-            {uploading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="mr-2 h-4 w-4" />
-            )}
-            {uploading ? "업로드 중..." : "이미지 업로드"}
+            <Upload className="mr-2 h-4 w-4" />
+            이미지 업로드
           </Button>
         </div>
       )}
@@ -680,8 +677,7 @@ function LineDetailModal({
           <Button variant="outline" onClick={onClose} disabled={saving}>
             닫기
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button onClick={handleSave} loading={saving}>
             라인 정보 저장
           </Button>
         </div>
@@ -1162,11 +1158,7 @@ export default function PracticalInfoManager() {
 
   // ── Render ──
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingState active />;
   }
 
   // 중복 기준: activity_type_id + week_id. detailLines 는 이미 현재 탭(activity_type)
@@ -1372,9 +1364,7 @@ export default function PracticalInfoManager() {
               </div>
             )}
             {linesLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
+              <LoadingState active />
             ) : detailLines.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">
                 개설된 라인이 없습니다.
@@ -1675,8 +1665,7 @@ export default function PracticalInfoManager() {
                 >
                   취소
                 </Button>
-                <Button onClick={handleSave} disabled={saving}>
-                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button onClick={handleSave} loading={saving}>
                   저장
                 </Button>
               </div>

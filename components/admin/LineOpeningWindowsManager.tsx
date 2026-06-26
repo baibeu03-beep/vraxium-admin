@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Plus, Power, Trash2, CalendarClock } from "lucide-react";
+import { Plus, Power, Trash2, CalendarClock } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
@@ -263,11 +264,7 @@ export default function LineOpeningWindowsManager() {
   );
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingState active />;
   }
 
   return (
@@ -416,8 +413,7 @@ export default function LineOpeningWindowsManager() {
             </div>
           )}
 
-          <Button type="button" onClick={handleCreate} disabled={submitting}>
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button type="button" loading={submitting} onClick={handleCreate}>
             예외 등록
           </Button>
         </CardContent>
@@ -476,14 +472,10 @@ export default function LineOpeningWindowsManager() {
                     type="button"
                     variant="outline"
                     size="sm"
+                    loading={busyId === w.id}
                     onClick={() => handleToggle(w)}
-                    disabled={busyId === w.id}
                   >
-                    {busyId === w.id ? (
-                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Power className="mr-1.5 h-3.5 w-3.5" />
-                    )}
+                    <Power className="mr-1.5 h-3.5 w-3.5" />
                     {w.isActive ? "비활성화" : "활성화"}
                   </Button>
                   <Button

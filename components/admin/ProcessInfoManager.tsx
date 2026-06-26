@@ -8,7 +8,7 @@
 // 정렬/필터/페이지네이션은 표시용(클라이언트) — 요약 수치는 허브 전체 기준(필터 무관).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -38,6 +38,7 @@ import {
   type ProcessHub,
   type ProcessPointTriplet,
 } from "@/lib/adminProcessesTypes";
+import { LoadingState } from "@/components/ui/loading-state";
 
 type Banner = { kind: "success" | "error"; message: string } | null;
 
@@ -311,7 +312,7 @@ export default function ProcessInfoManager() {
         </CardHeader>
         <CardContent className="space-y-3">
           {loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">불러오는 중...</p>
+            <LoadingState active />
           ) : pageRows.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               {acts.length === 0
@@ -363,10 +364,11 @@ export default function ProcessInfoManager() {
                           variant="ghost"
                           size="sm"
                           className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                          loading={deletingId === a.id}
                           disabled={deletingId === a.id}
                           onClick={() => void handleDelete(a)}
                         >
-                          {deletingId === a.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "삭제"}
+                          삭제
                         </Button>
                       </TableCell>
                     </TableRow>

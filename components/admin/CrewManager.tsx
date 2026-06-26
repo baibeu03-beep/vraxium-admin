@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import {
   ORGANIZATIONS,
@@ -680,15 +681,8 @@ export default function CrewManager({
                   </TableRow>
                 )}
 
-                {loading && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={17}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      {devMode ? "Loading crews..." : "불러오는 중..."}
-                    </TableCell>
-                  </TableRow>
+                {loading && filtered.length === 0 && (
+                  <TableSkeletonRows columns={17} rows={8} />
                 )}
               </TableBody>
             </Table>

@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ExternalLink, Loader2, NotebookPen, User, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, NotebookPen, User, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cn } from "@/lib/utils";
 import { appendModeQuery, type ScopeMode } from "@/lib/userScopeShared";
@@ -245,10 +246,7 @@ export default function CrewDetail({
       {loading ? (
         <Card>
           <CardContent>
-            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              불러오는 중...
-            </div>
+            <LoadingState active />
           </CardContent>
         </Card>
       ) : detail ? (
@@ -755,8 +753,7 @@ function CrewNoteDialog({
           <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onClose}>
             취소
           </Button>
-          <Button type="button" size="sm" disabled={saving} onClick={save}>
-            {saving && <Loader2 className={cn("h-4 w-4 animate-spin")} />}
+          <Button type="button" size="sm" loading={saving} disabled={saving} onClick={save}>
             저장
           </Button>
         </div>

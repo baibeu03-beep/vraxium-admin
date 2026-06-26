@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown, Loader2, X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -34,6 +34,7 @@ import {
   type ProcessCheckScopeKind,
 } from "@/lib/adminProcessCheckTypes";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { LoadingState } from "@/components/ui/loading-state";
 
 function Red({ children }: { children: React.ReactNode }) {
   return <span className="font-semibold text-red-600">{children}</span>;
@@ -313,9 +314,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           </CardHeader>
           <CardContent ref={logScrollRef} className="max-h-72 flex-1 space-y-1.5 overflow-y-auto text-sm">
             {loading ? (
-              <p className="flex items-center gap-1.5 text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
-              </p>
+              <LoadingState active variant="inline" />
             ) : logs.length === 0 ? (
               <p className="text-muted-foreground">아직 기록된 체크 로그가 없습니다.</p>
             ) : (

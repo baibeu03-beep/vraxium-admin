@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Users } from "lucide-react";
+import { Users } from "lucide-react";
+import { LoadingState } from "@/components/ui/loading-state";
 import {
   Card,
   CardContent,
@@ -249,9 +250,7 @@ export default function PracticalInfoWeekResults({
         {weeksError ? (
           <p className="text-base text-red-600">{weeksError}</p>
         ) : !weeks ? (
-          <p className="flex items-center gap-1.5 text-base text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
-          </p>
+          <LoadingState active />
         ) : (
           <>
             {/* 요약 카운트 */}
@@ -289,9 +288,7 @@ export default function PracticalInfoWeekResults({
             {error ? (
               <p className="text-base text-red-600">{error}</p>
             ) : loading ? (
-              <p className="flex items-center gap-1.5 text-base text-muted-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> 개설 결과 불러오는 중…
-              </p>
+              <LoadingState active variant="inline" title="개설 결과 불러오는 중…" />
             ) : !results ? (
               <p className="text-base text-muted-foreground">표시할 주차를 선택해주세요.</p>
             ) : (

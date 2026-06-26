@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
 import {
   Table,
   TableBody,
@@ -181,9 +181,7 @@ export default function CareerEvaluationTab({
         <Card>
           <CardContent className="pt-6">
             {loading ? (
-              <div className="flex items-center justify-center py-10 text-muted-foreground">
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 불러오는 중…
-              </div>
+              <LoadingState active />
             ) : targets.length === 0 ? (
               <p className="py-10 text-center text-sm text-muted-foreground">
                 이 라인에 배정된 대상자가 없습니다.
@@ -245,12 +243,10 @@ export default function CareerEvaluationTab({
                         <TableCell>
                           <Button
                             size="sm"
+                            loading={savingTargetId === t.lineTargetId}
                             onClick={() => handleSave(t)}
                             disabled={savingTargetId === t.lineTargetId || !draft}
                           >
-                            {savingTargetId === t.lineTargetId && (
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            )}
                             저장
                           </Button>
                         </TableCell>

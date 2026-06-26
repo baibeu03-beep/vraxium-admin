@@ -9,7 +9,7 @@
 // 3단 구조: 허브급(탭 자체가 값) → 라인급(칩, 최대 12개) → 액트(폼 등록).
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -49,6 +49,7 @@ import {
   type ProcessLineGroupDto,
   type ProcessWeekRef,
 } from "@/lib/adminProcessesTypes";
+import { LoadingState } from "@/components/ui/loading-state";
 
 type Banner = { kind: "success" | "error"; message: string } | null;
 
@@ -477,15 +478,15 @@ export default function ProcessRegisterManager() {
                   variant="outline"
                   className="shrink-0"
                   onClick={() => void handleAddGroup()}
+                  loading={addingGroup}
                   disabled={addingGroup || lineGroups.length >= PROCESS_LINE_GROUP_MAX}
                 >
-                  {addingGroup && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                   등록
                 </Button>
               </div>
 
               {loading ? (
-                <p className="text-xs text-muted-foreground">불러오는 중...</p>
+                <LoadingState active variant="inline" />
               ) : lineGroups.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   등록된 라인급이 없습니다. 위에서 먼저 라인급을 등록해주세요.
@@ -727,8 +728,7 @@ export default function ProcessRegisterManager() {
 
           {/* 버튼 — 초기화(로컬만) · 등록(DB 저장) */}
           <div className="flex items-center justify-end gap-2 border-t pt-4">
-            <Button type="button" onClick={() => void handleSubmitAct()} disabled={saving}>
-              {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            <Button type="button" onClick={() => void handleSubmitAct()} loading={saving} disabled={saving}>
               등록
             </Button>
             <Button
@@ -752,7 +752,7 @@ export default function ProcessRegisterManager() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">불러오는 중...</p>
+            <LoadingState active variant="inline" />
           ) : acts.length === 0 ? (
             <p className="text-sm text-muted-foreground">등록된 액트가 없습니다.</p>
           ) : (

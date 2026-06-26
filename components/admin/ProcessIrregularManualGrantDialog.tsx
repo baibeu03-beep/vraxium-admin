@@ -7,7 +7,7 @@
 //   ⚠ user_weekly_points·snapshot 무접촉.
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Loader2, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -376,8 +376,8 @@ export default function ProcessIrregularManualGrantDialog({
           <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={() => void reset()}>
             초기화
           </Button>
-          <Button type="button" size="sm" disabled={submitting} onClick={() => void submit()}>
-            {submitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1.5 h-3.5 w-3.5" />}
+          <Button type="button" size="sm" loading={submitting} onClick={() => void submit()}>
+            <Check className="mr-1.5 h-3.5 w-3.5" />
             체크 완료
           </Button>
           <Button type="button" variant="ghost" size="sm" disabled={submitting} onClick={() => void handleClose()}>

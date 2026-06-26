@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Search, History } from "lucide-react";
+import { Search, History } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import {
   CLUSTER4_HUB_LABEL,
   type Cluster4LinePartType,
@@ -284,11 +285,7 @@ export default function LineHistoryManager() {
           </div>
 
           {/* 표 */}
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : rows.length > 0 ? (
+          {loading || rows.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -304,7 +301,10 @@ export default function LineHistoryManager() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((row) => (
+                  {loading && rows.length === 0 ? (
+                    <TableSkeletonRows columns={8} rows={6} />
+                  ) : (
+                    rows.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell className="max-w-[18rem] truncate font-medium">
                         {row.lineName}
@@ -342,7 +342,8 @@ export default function LineHistoryManager() {
                         {formatDate(row.createdAt)}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>

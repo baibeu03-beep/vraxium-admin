@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 
 // ── 데이터 타입: /api/admin/season-weeks 응답 DTO 그대로 (수정 금지) ──────────
@@ -527,8 +528,23 @@ export default function SeasonWeeksTable() {
 
       {/* 테이블 */}
       {loading ? (
-        <div className="flex h-36 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
-          데이터를 불러오는 중입니다.
+        <div className="overflow-hidden rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>이름</TableHead>
+                <TableHead>기간</TableHead>
+                <TableHead>년도</TableHead>
+                <TableHead>시즌</TableHead>
+                <TableHead>주차</TableHead>
+                <TableHead>활동</TableHead>
+                <TableHead>비고</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <TableSkeletonRows columns={7} rows={8} />
+            </TableBody>
+          </Table>
         </div>
       ) : filtered.length === 0 ? (
         <div className="flex h-36 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">

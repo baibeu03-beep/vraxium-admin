@@ -209,15 +209,12 @@ export default function CafeCrewPicker({
           <Button
             type="button"
             onClick={handleVerifyCafe}
+            loading={cafeLoading}
             disabled={disabled || cafeLoading}
             className="shrink-0"
           >
-            {cafeLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Search className="mr-2 h-4 w-4" />
-            )}
-            {cafeLoading ? "검수 중..." : "검수"}
+            <Search className="mr-2 h-4 w-4" />
+            검수
           </Button>
         </div>
         {cafeError && <p className="text-sm text-red-600">{cafeError}</p>}

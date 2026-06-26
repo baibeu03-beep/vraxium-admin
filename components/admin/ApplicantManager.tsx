@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 
 type Applicant = {
@@ -226,6 +227,7 @@ export default function ApplicantManager() {
         <Button
           variant="outline"
           onClick={() => void refreshApplicants(selectedId)}
+          loading={loading}
           disabled={loading || acting}
         >
           Refresh
@@ -264,6 +266,9 @@ export default function ApplicantManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {loading && applicants.length === 0 && (
+                  <TableSkeletonRows columns={4} rows={6} />
+                )}
                 {applicants.map((applicant) => {
                   const active = applicant.id === selectedId;
                   return (
@@ -377,10 +382,11 @@ export default function ApplicantManager() {
                             <Button
                               size="sm"
                               onClick={() => void handleLink(profile.userId)}
+                              loading={linkingUserId === profile.userId}
                               disabled={acting}
                             >
                               <Link2 className="h-3.5 w-3.5" />
-                              {linkingUserId === profile.userId ? "Linking" : "Link"}
+                              Link
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -405,16 +411,7 @@ export default function ApplicantManager() {
                           </TableCell>
                         </TableRow>
                       )}
-                      {searchLoading && (
-                        <TableRow>
-                          <TableCell
-                            colSpan={5}
-                            className="py-8 text-center text-muted-foreground"
-                          >
-                            Searching...
-                          </TableCell>
-                        </TableRow>
-                      )}
+                      {searchLoading && <TableSkeletonRows columns={5} rows={6} />}
                     </TableBody>
                   </Table>
                 </div>

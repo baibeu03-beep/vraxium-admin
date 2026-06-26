@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import type {
   UserWeeklyStatusDto,
@@ -301,14 +302,7 @@ export default function UserWeeklyStatusView({
                   </TableRow>
                 )}
                 {loading && rows.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={11}
-                      className="py-10 text-center text-muted-foreground"
-                    >
-                      불러오는 중...
-                    </TableCell>
-                  </TableRow>
+                  <TableSkeletonRows columns={11} rows={6} />
                 )}
               </TableBody>
             </Table>

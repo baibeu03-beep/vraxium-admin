@@ -7,7 +7,7 @@
 //   ⚠ 카페는 입력하지 않는다(kind 파생 표시값). org+mode 분리는 서버가 scope_mode 로 각인.
 
 import { useMemo, useState } from "react";
-import { Loader2, X, Check } from "lucide-react";
+import { X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -321,12 +321,8 @@ export default function ProcessIrregularDialog({
           <Button type="button" variant="outline" size="sm" disabled={submitting} onClick={() => void reset()}>
             초기화
           </Button>
-          <Button type="button" size="sm" disabled={submitting} onClick={() => void submit()}>
-            {submitting ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Check className="mr-1.5 h-3.5 w-3.5" />
-            )}
+          <Button type="button" size="sm" loading={submitting} onClick={() => void submit()}>
+            <Check className="mr-1.5 h-3.5 w-3.5" />
             체크 신청
           </Button>
           {/* 신청 전 단계의 '체크 취소' = 팝업 닫기(단순 취소). 신청 후 실제 취소는 상세 모달에서. */}

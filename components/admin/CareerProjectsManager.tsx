@@ -8,7 +8,6 @@ import {
   useState,
 } from "react";
 import {
-  Loader2,
   Pencil,
   Plus,
   RefreshCw,
@@ -34,6 +33,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { LoadingState } from "@/components/ui/loading-state";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import {
@@ -417,6 +418,9 @@ export default function CareerProjectsManager() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  {loading && rows.length === 0 && (
+                    <TableSkeletonRows columns={6} rows={6} />
+                  )}
                   {rows.length === 0 && !loading ? (
                     <TableRow>
                       <TableCell
@@ -492,12 +496,10 @@ export default function CareerProjectsManager() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => void handleDelete(row)}
-                                disabled={deletingId === row.id}
+                                loading={deletingId === row.id}
                                 className="text-rose-700 hover:bg-rose-50 hover:text-rose-800"
                               >
-                                {deletingId === row.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
+                                {deletingId !== row.id && (
                                   <Trash2 className="h-3.5 w-3.5" />
                                 )}
                                 <span className="ml-1.5">삭제</span>
@@ -515,9 +517,11 @@ export default function CareerProjectsManager() {
 
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div>
-              {loading
-                ? "불러오는 중…"
-                : `총 ${total.toLocaleString()}개 · ${currentPage}/${totalPages} 페이지`}
+              {loading ? (
+                <LoadingState active variant="inline" />
+              ) : (
+                `총 ${total.toLocaleString()}개 · ${currentPage}/${totalPages} 페이지`
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               <Button
@@ -698,12 +702,9 @@ function CareerProjectEditor({
               type="button"
               size="sm"
               onClick={() => void handleSave()}
-              disabled={saving}
+              loading={saving}
             >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-              <span className={cn(saving && "ml-1.5")}>
-                {isEdit ? "변경 사항 저장" : "추가"}
-              </span>
+              <span>{isEdit ? "변경 사항 저장" : "추가"}</span>
             </Button>
           )}
         </div>
@@ -1044,10 +1045,7 @@ function WeekScheduler({
       </div>
       <div className="flex-1 overflow-y-auto p-3">
         {loading || states === null ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="ml-2">불러오는 중…</span>
-          </div>
+          <LoadingState active />
         ) : states.length === 0 ? (
           <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             등록된 주차가 없습니다.

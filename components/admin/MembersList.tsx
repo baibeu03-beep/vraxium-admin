@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { classTone, rankTone } from "@/lib/statusBadge";
@@ -752,15 +753,8 @@ export default function MembersList() {
                       </TableCell>
                     </TableRow>
                   )}
-                  {loading && (
-                    <TableRow>
-                      <TableCell
-                        colSpan={COLUMNS.length + 1}
-                        className="py-10 text-center text-muted-foreground"
-                      >
-                        불러오는 중...
-                      </TableCell>
-                    </TableRow>
+                  {loading && rows.length === 0 && (
+                    <TableSkeletonRows columns={COLUMNS.length + 1} rows={8} />
                   )}
                 </TableBody>
               </Table>

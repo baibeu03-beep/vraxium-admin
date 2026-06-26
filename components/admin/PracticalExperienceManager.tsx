@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  Loader2,
   Plus,
   Search,
   Check,
@@ -26,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
 import {
   Table,
   TableBody,
@@ -344,15 +344,12 @@ function ImageUploadSlot({
           <Button
             variant="outline"
             className="w-full"
-            disabled={disabled || uploading}
+            loading={uploading}
+            disabled={disabled}
             onClick={() => fileRef.current?.click()}
           >
-            {uploading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="mr-2 h-4 w-4" />
-            )}
-            {uploading ? "업로드 중..." : "이미지 업로드"}
+            {!uploading && <Upload className="mr-2 h-4 w-4" />}
+            이미지 업로드
           </Button>
         </div>
       )}
@@ -1363,7 +1360,7 @@ export default function PracticalExperienceManager() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        <LoadingState active />
       </div>
     );
   }
@@ -1486,17 +1483,17 @@ export default function PracticalExperienceManager() {
             variant="outline"
             size="sm"
             onClick={() => handleSyncExperienceGrowth("test")}
-            disabled={syncing}
+            loading={syncing}
             title="테스트 계정만 대상으로 성장 상태 동기화 (성공→실패 단방향)"
           >
-            {syncing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             성장 동기화(테스트)
           </Button>
           <Button
             variant="destructive"
             size="sm"
             onClick={() => handleSyncExperienceGrowth("all")}
-            disabled={syncing || devMode}
+            loading={syncing}
+            disabled={devMode}
             title={
               devMode
                 ? "개발자 모드(ON)에서는 운영 전체 동기화가 비활성화됩니다. ?dev=true 를 끄면 dry-run→confirm 흐름으로 사용할 수 있습니다."
@@ -1732,8 +1729,7 @@ export default function PracticalExperienceManager() {
                   <Button variant="outline" onClick={resetMasterForm} disabled={saving}>
                     취소
                   </Button>
-                  <Button onClick={handleSaveMaster} disabled={saving}>
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button onClick={handleSaveMaster} loading={saving}>
                     {editingMasterId ? "수정" : "저장"}
                   </Button>
                 </div>
@@ -1886,9 +1882,7 @@ export default function PracticalExperienceManager() {
                     <Plus className="mr-1 h-4 w-4" /> 새 입력
                   </Button>
                 )}
-                {refreshing && (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                )}
+                <LoadingState active={refreshing} variant="inline" />
               </div>
             </CardHeader>
             <CardContent>
@@ -2198,13 +2192,11 @@ export default function PracticalExperienceManager() {
                       <Button
                         variant="outline"
                         onClick={() => saveDraft(false)}
-                        disabled={saving}
+                        loading={saving}
                       >
-                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         임시 저장
                       </Button>
-                      <Button onClick={() => saveDraft(true)} disabled={saving}>
-                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      <Button onClick={() => saveDraft(true)} loading={saving}>
                         제출
                       </Button>
                     </>
@@ -2283,9 +2275,7 @@ export default function PracticalExperienceManager() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">검수 목록 ({reviewDrafts.length}건)</CardTitle>
-                {refreshing && (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                )}
+                <LoadingState active={refreshing} variant="inline" />
               </div>
             </CardHeader>
             <CardContent>
@@ -2484,17 +2474,15 @@ export default function PracticalExperienceManager() {
                       variant="outline"
                       className="border-red-300 text-red-700 hover:bg-red-50"
                       onClick={() => submitReview("rejected")}
-                      disabled={saving}
+                      loading={saving}
                     >
-                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       <XCircle className="mr-1 h-4 w-4" /> 반려
                     </Button>
                     <Button
                       className="bg-green-600 hover:bg-green-700"
                       onClick={() => submitReview("approved")}
-                      disabled={saving}
+                      loading={saving}
                     >
-                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       <CheckCircle2 className="mr-1 h-4 w-4" /> 승인
                     </Button>
                   </div>
@@ -2574,15 +2562,13 @@ export default function PracticalExperienceManager() {
                   최종 개설 목록 ({openDrafts.length}건)
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  {refreshing && (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
+                  <LoadingState active={refreshing} variant="inline" />
                   <Button
                     size="sm"
                     onClick={handleOpenDrafts}
-                    disabled={saving || openSelectedIds.size === 0}
+                    loading={saving}
+                    disabled={openSelectedIds.size === 0}
                   >
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     선택 일괄 개설 ({openSelectedIds.size}건)
                   </Button>
                 </div>
@@ -2694,11 +2680,8 @@ export default function PracticalExperienceManager() {
                     variant="outline"
                     size="sm"
                     onClick={() => void fetchExperienceLines()}
-                    disabled={expLinesLoading}
+                    loading={expLinesLoading}
                   >
-                    {expLinesLoading && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    )}
                     새로고침
                   </Button>
                 </div>
@@ -2710,9 +2693,7 @@ export default function PracticalExperienceManager() {
                   {expLinesError}
                 </p>
               ) : expLinesLoading ? (
-                <div className="flex items-center justify-center py-10">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
+                <LoadingState active />
               ) : expTargetRows.length === 0 ? (
                 <p className="py-6 text-center text-sm text-muted-foreground">
                   {expLines.length === 0

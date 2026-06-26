@@ -123,8 +123,8 @@ export default function ForgotPasswordForm() {
               {errorMessage && (
                 <p className="text-sm text-destructive">{errorMessage}</p>
               )}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "발송 중..." : "재설정 메일 보내기"}
+              <Button type="submit" className="w-full" loading={loading}>
+                재설정 메일 보내기
               </Button>
               <Link
                 href="/login"

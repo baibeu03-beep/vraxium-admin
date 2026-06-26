@@ -6,7 +6,7 @@
 // ⚠ user_weekly_points·snapshot 무접촉 — point_a/b/c·식별 결과는 관리 기록.
 
 import { useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
@@ -182,7 +182,8 @@ export default function ProcessIrregularReviewDetail({
               variant="outline"
               size="sm"
               className="border-rose-300 text-rose-700 hover:bg-rose-50"
-              disabled={!cancelable || submitting}
+              loading={submitting}
+              disabled={!cancelable}
               onClick={() =>
                 void (async () => {
                   // 체크 취소(=신청 삭제) — 한 번 더 확인.
@@ -197,7 +198,6 @@ export default function ProcessIrregularReviewDetail({
                 })()
               }
             >
-              {submitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
               체크 취소
             </Button>
           ) : (
@@ -207,7 +207,8 @@ export default function ProcessIrregularReviewDetail({
               variant="outline"
               size="sm"
               className="border-rose-300 text-rose-700 hover:bg-rose-50"
-              disabled={submitting || !editable}
+              loading={submitting}
+              disabled={!editable}
               onClick={() =>
                 void (async () => {
                   // 수동 입력 관리용 삭제 — 한 번 더 확인.
@@ -217,7 +218,6 @@ export default function ProcessIrregularReviewDetail({
                 })()
               }
             >
-              {submitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
               삭제
             </Button>
           )}

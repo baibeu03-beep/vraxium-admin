@@ -269,3 +269,38 @@ input[type="radio"]:disabled,
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Global navigation / loading feedback (project-wide, single source).
+   Driven by components/admin/NavProgress.tsx + the `loading` prop on <Button>.
+   Unlayered so it reliably overrides utility/disabled rules above.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* 페이지 전환 중: 전체 커서를 progress 로 — "작업 진행 중"을 항상 인지시킨다(요구사항 2·3). */
+body[data-nav-pending],
+body[data-nav-pending] * {
+  cursor: progress !important;
+}
+
+/* 클릭된 링크: "접수됨" 즉시 피드백(active 느낌 — 살짝 눌린/흐려진 상태). hover 잔상 제거. */
+[data-nav-clicked] {
+  opacity: 0.7;
+  transform: translateY(0.5px);
+  transition:
+    opacity 0.1s ease,
+    transform 0.1s ease;
+}
+
+/* API 호출 중 버튼(<Button loading>): disabled 의 not-allowed 대신 progress 커서로. */
+button[data-loading="true"]:disabled,
+button[data-loading="true"][aria-disabled="true"] {
+  cursor: progress !important;
+  opacity: 0.75;
+}
+
+/* 모션 최소화 선호 시: 스켈레톤 펄스는 정지(스피너 회전은 로딩 신호이므로 유지). */
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="skeleton"] {
+    animation: none;
+  }
+}

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Loader2,
   Plus,
   Search,
   Check,
@@ -11,6 +10,7 @@ import {
   Trash2,
   Pencil,
 } from "lucide-react";
+import { LoadingState } from "@/components/ui/loading-state";
 import {
   Card,
   CardContent,
@@ -272,15 +272,12 @@ function ImageUploadSlot({
           <Button
             variant="outline"
             className="w-full"
-            disabled={disabled || uploading}
+            loading={uploading}
+            disabled={disabled}
             onClick={() => fileRef.current?.click()}
           >
-            {uploading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="mr-2 h-4 w-4" />
-            )}
-            {uploading ? "업로드 중..." : "이미지 업로드"}
+            <Upload className="mr-2 h-4 w-4" />
+            이미지 업로드
           </Button>
         </div>
       )}
@@ -400,15 +397,12 @@ function LogoUploadField({
           type="button"
           variant="outline"
           className="w-full"
-          disabled={disabled || uploading}
+          loading={uploading}
+          disabled={disabled}
           onClick={() => fileRef.current?.click()}
         >
-          {uploading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Upload className="mr-2 h-4 w-4" />
-          )}
-          {uploading ? "업로드 중..." : emptyButtonLabel}
+          <Upload className="mr-2 h-4 w-4" />
+          {emptyButtonLabel}
         </Button>
       )}
     </div>
@@ -1120,11 +1114,7 @@ export default function PracticalCareerManager() {
 
   // ── Render ──
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingState active />;
   }
 
   return (
@@ -1398,8 +1388,7 @@ export default function PracticalCareerManager() {
                 {/* Actions */}
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="outline" onClick={resetRegForm} disabled={saving}>취소</Button>
-                  <Button onClick={handleSaveProject} disabled={saving}>
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button onClick={handleSaveProject} loading={saving}>
                     {editingProjectId ? "수정" : "등록"}
                   </Button>
                 </div>
@@ -1666,8 +1655,7 @@ export default function PracticalCareerManager() {
                 {/* Actions */}
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="outline" onClick={resetLineForm} disabled={saving}>취소</Button>
-                  <Button onClick={handleSaveLine} disabled={saving}>
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button onClick={handleSaveLine} loading={saving}>
                     개설
                   </Button>
                 </div>

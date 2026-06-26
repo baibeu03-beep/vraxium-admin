@@ -1,13 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import PracticalInfoOpeningLogPanel from "@/components/admin/PracticalInfoOpeningLogPanel";
 import PracticalInfoOpeningForm, {
@@ -150,10 +150,11 @@ export default function PracticalInfoOpeningSection0({
             {/* 문구2: 지난 주(개설 대상) 라인 개설 필요/완료 */}
             {lastWeekLabel ? (
               loadingLine ? (
-                <p className="flex items-center gap-1.5 text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> {lastWeekPrefix} 라인
-                  상태 확인 중…
-                </p>
+                <LoadingState
+                  active
+                  variant="inline"
+                  title={`${lastWeekPrefix} 라인 상태 확인 중…`}
+                />
               ) : opened ? (
                 <p className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-green-800">
                   {lastWeekPrefix} <span className="font-semibold">[{lastWeekLabel}]</span>{" "}

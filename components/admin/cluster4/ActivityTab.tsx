@@ -901,17 +901,19 @@ function SubmissionSlotCard({
               <Button
                 type="button"
                 size="sm"
+                loading={savingRowId === row.lineTargetId}
                 onClick={() => onSave(row.lineTargetId)}
                 disabled={rowDisabled || savingRowId === row.lineTargetId}
               >
                 <Save className="h-4 w-4" />
-                {savingRowId === row.lineTargetId ? "저장 중..." : "저장"}
+                저장
               </Button>
               {isSubmitted && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
+                  loading={savingRowId === row.submissionId}
                   onClick={() => onDelete(row.submissionId!, headerTitle)}
                   disabled={rowDisabled || savingRowId === row.submissionId}
                   className="text-destructive hover:bg-destructive/10 hover:text-destructive"
@@ -1382,15 +1384,12 @@ function CareerSubPane({
                 <Button
                   type="button"
                   size="sm"
+                  loading={savingRowId === row.id}
                   onClick={() => onSave(row.id)}
                   disabled={rowDisabled || savingRowId === row.id}
                 >
                   <Save className="h-4 w-4" />
-                  {savingRowId === row.id
-                    ? "저장 중..."
-                    : isDraft
-                      ? "추가"
-                      : "저장"}
+                  {isDraft ? "추가" : "저장"}
                 </Button>
                 {isDraft ? (
                   <Button

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, X, ChevronDown } from "lucide-react";
+import { X, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -253,9 +253,9 @@ export default function CompetencyOpeningDashboard() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={() => runAction("open")}
+              loading={acting}
               disabled={acting || loadingStatus || !org}
             >
-              {acting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               개설
             </Button>
             <Button variant="outline" onClick={handleReset} disabled={acting}>
@@ -265,10 +265,10 @@ export default function CompetencyOpeningDashboard() {
               variant="outline"
               className="border-red-300 text-red-700 hover:bg-red-50"
               onClick={() => runAction("cancel")}
+              loading={acting}
               // 기본적으로 개설 완료(opened) 상태일 때만 enabled.
               disabled={acting || loadingStatus || !org || opened !== true}
             >
-              {acting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               개설 취소
             </Button>
           </div>

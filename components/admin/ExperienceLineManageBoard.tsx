@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -10,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
@@ -289,9 +289,7 @@ export default function ExperienceLineManageBoard({
       {loading ? (
         <Card>
           <CardContent className="py-6">
-            <p className="flex items-center gap-1.5 text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
-            </p>
+            <LoadingState active variant="inline" />
           </CardContent>
         </Card>
       ) : error ? (

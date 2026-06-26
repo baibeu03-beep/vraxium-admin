@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import {
@@ -1481,21 +1482,18 @@ export default function Cluster4Editor({
             <Button
               type="button"
               size="sm"
+              loading={saving}
               onClick={() => void handleSave()}
               disabled={saveDisabled || !tabHasRows}
             >
               <Save className="h-4 w-4" />
-              {saving
+              {currentTabDirty
                 ? devMode
-                  ? "Saving..."
-                  : "저장 중..."
-                : currentTabDirty
-                  ? devMode
-                    ? "Save *"
-                    : "저장 *"
-                  : devMode
-                    ? "Save"
-                    : "저장"}
+                  ? "Save *"
+                  : "저장 *"
+                : devMode
+                  ? "Save"
+                  : "저장"}
             </Button>
           )}
         </div>
@@ -1594,9 +1592,13 @@ export default function Cluster4Editor({
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {!weeklyGrowth ? (
-              <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">
-                {loading ? "로딩 중..." : "주간 성장 데이터를 불러올 수 없습니다."}
-              </div>
+              loading ? (
+                <LoadingState active />
+              ) : (
+                <div className="rounded-md border border-dashed bg-muted/30 px-3 py-4 text-center text-sm text-muted-foreground">
+                  주간 성장 데이터를 불러올 수 없습니다.
+                </div>
+              )
             ) : (
               <>
                 {/* 현재 클럽 진행 문구 */}

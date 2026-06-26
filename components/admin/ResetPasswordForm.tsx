@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LoadingState } from "@/components/ui/loading-state";
 
 // /auth/recovery 에서 recovery 세션(쿠키)이 발급된 상태로 진입하는 화면.
 // 세션이 없으면 재요청 안내만 보여준다.
@@ -98,9 +99,11 @@ export default function ResetPasswordForm() {
         </CardHeader>
         <CardContent>
           {sessionState === "checking" && (
-            <p className="text-sm text-muted-foreground">
-              재설정 세션을 확인하는 중...
-            </p>
+            <LoadingState
+              active
+              variant="inline"
+              title="재설정 세션을 확인하는 중..."
+            />
           )}
 
           {sessionState === "missing" && (
@@ -174,8 +177,8 @@ export default function ResetPasswordForm() {
               {errorMessage && (
                 <p className="text-sm text-destructive">{errorMessage}</p>
               )}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "변경 중..." : "비밀번호 변경"}
+              <Button type="submit" className="w-full" loading={loading}>
+                비밀번호 변경
               </Button>
             </form>
           )}

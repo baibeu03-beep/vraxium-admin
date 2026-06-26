@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, RotateCcw, Eye, CheckCircle2, XCircle, X } from "lucide-react";
+import { RotateCcw, Eye, CheckCircle2, XCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -397,11 +398,7 @@ export default function ExperienceTeamOverallBoard({
   }, [post, fetchBoard, onActivity]);
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-10">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <LoadingState active />;
   }
   if (!board) {
     return (
@@ -635,13 +632,10 @@ export default function ExperienceTeamOverallBoard({
               variant="outline"
               className="w-full justify-center"
               onClick={onReview}
+              loading={saving}
               disabled={saving || opened}
             >
-              {saving ? (
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-              ) : (
-                <Eye className="mr-1.5 h-4 w-4" />
-              )}
+              <Eye className="mr-1.5 h-4 w-4" />
               개설 검수
             </Button>
           )}
@@ -657,6 +651,7 @@ export default function ExperienceTeamOverallBoard({
             <Button
               className="w-full justify-center"
               onClick={onOpen}
+              loading={saving}
               disabled={saving || opened}
             >
               <CheckCircle2 className="mr-1.5 h-4 w-4" /> 개설 완료
@@ -667,6 +662,7 @@ export default function ExperienceTeamOverallBoard({
               variant="outline"
               className="w-full justify-center border-red-300 text-red-700 hover:bg-red-50"
               onClick={onCancel}
+              loading={saving}
               disabled={saving || !opened}
               title={!opened ? "개설 완료 후에만 취소할 수 있습니다" : undefined}
             >

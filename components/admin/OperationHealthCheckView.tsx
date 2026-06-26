@@ -18,6 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import {
   ORGANIZATION_COMMON_LABEL,
@@ -390,25 +392,20 @@ export default function OperationHealthCheckView() {
                   </TableRow>
                 )}
                 {loading && issues.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={10}
-                      className="py-10 text-center text-muted-foreground"
-                    >
-                      점검 중...
-                    </TableCell>
-                  </TableRow>
+                  <TableSkeletonRows columns={10} rows={6} />
                 )}
               </TableBody>
             </Table>
           </div>
 
           <div className="text-xs text-muted-foreground">
-            {loading
-              ? "점검 중..."
-              : `${issues.length.toLocaleString()}건 표시${
-                  data?.truncated ? ` (전체 ${summary?.total_issues?.toLocaleString()}건)` : ""
-                }`}
+            {loading ? (
+              <LoadingState active variant="inline" />
+            ) : (
+              `${issues.length.toLocaleString()}건 표시${
+                data?.truncated ? ` (전체 ${summary?.total_issues?.toLocaleString()}건)` : ""
+              }`
+            )}
           </div>
         </CardContent>
       </Card>

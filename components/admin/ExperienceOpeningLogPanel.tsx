@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -11,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatLogDateTime } from "@/lib/practicalInfoSection0Format";
 import {
@@ -77,9 +77,7 @@ export default function ExperienceOpeningLogPanel({
       </CardHeader>
       <CardContent className="flex-1 space-y-1.5 overflow-y-auto text-sm">
         {loading ? (
-          <p className="flex items-center gap-1.5 text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
-          </p>
+          <LoadingState active variant="inline" />
         ) : logs.length === 0 ? (
           <p className="text-muted-foreground">
             아직 기록된 개설 로그가 없습니다.

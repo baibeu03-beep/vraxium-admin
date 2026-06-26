@@ -21,7 +21,7 @@
 //   저장 컬럼 main_title_mode 는 무수정 보존 — 편집 모달은 기존 동작 유지.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link2, Loader2, Pencil, RefreshCw, Search, X } from "lucide-react";
+import { Link2, Pencil, RefreshCw, Search, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -32,6 +32,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import {
   Table,
   TableBody,
@@ -351,9 +353,7 @@ function RegistrationEditModal({
               {loadError}
             </div>
           ) : !detail ? (
-            <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 불러오는 중…
-            </div>
+            <LoadingState active />
           ) : (
             <>
               {error && (
@@ -522,10 +522,10 @@ function RegistrationEditModal({
           <Button
             type="button"
             size="sm"
+            loading={saving}
             onClick={() => void handleSave()}
-            disabled={saving || !detail}
+            disabled={!detail}
           >
-            {saving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
             저장
           </Button>
         </div>
@@ -869,7 +869,9 @@ export default function LineRegistrationInfoManager() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.length === 0 && !loading ? (
+                  {loading && filtered.length === 0 ? (
+                    <TableSkeletonRows columns={11} rows={6} />
+                  ) : filtered.length === 0 && !loading ? (
                     <TableRow>
                       <TableCell
                         colSpan={11}
@@ -972,14 +974,10 @@ export default function LineRegistrationInfoManager() {
                                 type="button"
                                 variant="outline"
                                 size="sm"
+                                loading={bridgingId === row.id}
                                 onClick={() => void handleBridge(row)}
-                                disabled={bridgingId === row.id}
                               >
-                                {bridgingId === row.id ? (
-                                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Link2 className="mr-1 h-3.5 w-3.5" />
-                                )}
+                                <Link2 className="mr-1 h-3.5 w-3.5" />
                                 개설 연결
                               </Button>
                             )}

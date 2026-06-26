@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, RefreshCw, Search, X } from "lucide-react";
+import { RefreshCw, Search, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -28,6 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 import {
@@ -800,14 +801,7 @@ export default function EditWindowsManager() {
                   </TableRow>
                 )}
                 {loading && rows.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={9}
-                      className="py-10 text-center text-muted-foreground"
-                    >
-                      불러오는 중...
-                    </TableCell>
-                  </TableRow>
+                  <TableSkeletonRows columns={9} rows={6} />
                 )}
               </TableBody>
             </Table>
@@ -1189,8 +1183,7 @@ function EditWindowDrawerInner({
             >
               취소
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+            <Button type="submit" loading={saving}>
               저장
             </Button>
           </footer>
@@ -1435,8 +1428,7 @@ function BulkEditWindowDrawerInner({
             >
               취소
             </Button>
-            <Button type="submit" disabled={saving || selectedCount === 0}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+            <Button type="submit" loading={saving} disabled={selectedCount === 0}>
               저장
             </Button>
           </footer>

@@ -27,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import { ORGANIZATION_COMMON_LABEL } from "@/lib/organizations";
 import { ACCOUNT_STATUSES } from "@/lib/adminAppUsersTypes";
@@ -460,14 +461,7 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
                   </TableRow>
                 )}
                 {loading && users.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={8}
-                      className="py-10 text-center text-muted-foreground"
-                    >
-                      불러오는 중...
-                    </TableCell>
-                  </TableRow>
+                  <TableSkeletonRows columns={8} rows={6} />
                 )}
               </TableBody>
             </Table>

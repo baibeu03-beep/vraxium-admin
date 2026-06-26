@@ -10,7 +10,6 @@ import {
   Check,
   Copy,
   KeyRound,
-  Loader2,
   Pencil,
   RefreshCw,
   Search,
@@ -42,6 +41,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
@@ -610,16 +610,12 @@ export default function AccountsManager() {
                               size="sm"
                               variant="outline"
                               className="h-8 px-2"
-                              disabled={isPending}
+                              loading={isPending}
                               onClick={() => void handleNameSave(account)}
                               title="저장"
                               aria-label="이름 저장"
                             >
-                              {isPending ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <Check className="h-3.5 w-3.5" />
-                              )}
+                              <Check className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               size="sm"
@@ -789,15 +785,12 @@ export default function AccountsManager() {
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={!isSuperAdmin || isPending}
+                          loading={isPending}
+                          disabled={!isSuperAdmin}
                           onClick={() => void handleResetPassword(account)}
                           title="비밀번호 재설정"
                         >
-                          {isPending ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <KeyRound className="h-3.5 w-3.5" />
-                          )}
+                          <KeyRound className="h-3.5 w-3.5" />
                           비밀번호
                         </Button>
                       </TableCell>
@@ -815,14 +808,7 @@ export default function AccountsManager() {
                   </TableRow>
                 )}
                 {loading && accounts.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="py-10 text-center text-muted-foreground"
-                    >
-                      불러오는 중...
-                    </TableCell>
-                  </TableRow>
+                  <TableSkeletonRows columns={7} rows={6} />
                 )}
               </TableBody>
             </Table>
@@ -1137,8 +1123,7 @@ function CreateAccountDrawerInner({
             <Button type="button" variant="outline" onClick={onClose} disabled={saving}>
               취소
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+            <Button type="submit" loading={saving}>
               운영 계정 생성
             </Button>
           </footer>

@@ -1,5 +1,6 @@
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
+import { Loader2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -44,14 +45,27 @@ function Button({
   className,
   variant = "default",
   size = "default",
+  loading = false,
+  disabled,
+  children,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
+}: ButtonPrimitive.Props &
+  VariantProps<typeof buttonVariants> & {
+    /** API 호출 중 표시. true 면 자동 disabled + 스피너 + cursor:progress 로 중복 클릭을 막는다. */
+    loading?: boolean
+  }) {
   return (
     <ButtonPrimitive
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, className }))}
+      data-loading={loading || undefined}
+      aria-busy={loading || undefined}
+      disabled={loading || disabled}
+      className={cn(buttonVariants({ variant, size, className }), loading && "cursor-progress")}
       {...props}
-    />
+    >
+      {loading && <Loader2 className="animate-spin" />}
+      {children}
+    </ButtonPrimitive>
   )
 }
 

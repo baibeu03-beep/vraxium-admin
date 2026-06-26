@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, RotateCcw, Send, User, X } from "lucide-react";
+import { RotateCcw, Send, User, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
 import ExperienceTeamOverallBoard from "@/components/admin/ExperienceTeamOverallBoard";
@@ -548,9 +549,7 @@ export default function ExperiencePartLeadInput({
     <Card>
       <CardContent className="space-y-4 pt-6">
         {bootLoading ? (
-          <p className="flex items-center gap-1.5 text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
-          </p>
+          <LoadingState active variant="inline" />
         ) : (
           <>
             {/* 팀 탭(동적) */}
@@ -658,9 +657,7 @@ export default function ExperiencePartLeadInput({
             )}
 
             {gridLoading || partsLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
+              <LoadingState active />
             ) : isOverall ? (
               selectedTeam && selectedWeekId ? (
                 <ExperienceTeamOverallBoard
@@ -816,19 +813,17 @@ function PartGrid({
           <Button
             className="w-full justify-center"
             onClick={onSubmit}
+            loading={saving}
             disabled={saving || crews.length === 0}
           >
-            {saving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="mr-1.5 h-4 w-4" />
-            )}
+            <Send className="mr-1.5 h-4 w-4" />
             개설 신청
           </Button>
           <Button
             variant="outline"
             className="w-full justify-center border-red-300 text-red-700 hover:bg-red-50"
             onClick={onCancel}
+            loading={saving}
             disabled={saving || !submitted}
             title={!submitted ? "신청 후에만 취소할 수 있습니다" : undefined}
           >

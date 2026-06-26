@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Loader2, Undo2, X } from "lucide-react";
+import { Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import CafeCrewPicker, {
   type CafeCrew,
@@ -249,9 +250,7 @@ export default function PracticalInfoCrewEditModal({
           )}
 
           {loadingExisting ? (
-            <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
-            </p>
+            <LoadingState active />
           ) : existing.length === 0 ? (
             <p className="py-3 text-center text-sm text-muted-foreground">
               현재 개설 대상 크루가 없습니다 (0명 개설 상태).
@@ -385,8 +384,11 @@ export default function PracticalInfoCrewEditModal({
             <Button variant="outline" onClick={onClose} disabled={saving}>
               닫기
             </Button>
-            <Button onClick={() => setConfirmOpen(true)} disabled={!canSave || !hasChanges}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button
+              onClick={() => setConfirmOpen(true)}
+              disabled={!canSave || !hasChanges}
+              loading={saving}
+            >
               수정 저장
             </Button>
           </div>
@@ -443,8 +445,7 @@ export default function PracticalInfoCrewEditModal({
               >
                 취소
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button onClick={handleSave} loading={saving}>
                 확인
               </Button>
             </div>

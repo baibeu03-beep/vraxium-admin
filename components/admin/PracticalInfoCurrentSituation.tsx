@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2 } from "lucide-react";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { LoadingState } from "@/components/ui/loading-state";
 import {
   computeOpenNeed,
   weekFull,
@@ -54,9 +54,7 @@ export default function PracticalInfoCurrentSituation() {
         {error ? (
           <p className="text-red-600">{error}</p>
         ) : !computed ? (
-          <p className="flex items-center gap-1.5 text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중…
-          </p>
+          <LoadingState active />
         ) : (
           <>
             <div className="flex gap-2">

@@ -34,6 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import { APPLICANT_STATUSES } from "@/lib/adminApplicantTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
@@ -295,20 +296,16 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
         <div className="flex items-center gap-2">
           <Button
             onClick={() => void handleApproveAll()}
+            loading={approvingAll}
             disabled={
               loading ||
-              approvingAll ||
               pendingCount === 0 ||
               Boolean(rejectingId) ||
               Boolean(approveTarget)
             }
           >
-            <CheckCheck
-              className={cn("h-4 w-4", approvingAll && "animate-pulse")}
-            />
-            {approvingAll
-              ? "승인 중..."
-              : `전체 승인${pendingCount > 0 ? ` (${pendingCount})` : ""}`}
+            <CheckCheck className="h-4 w-4" />
+            {`전체 승인${pendingCount > 0 ? ` (${pendingCount})` : ""}`}
           </Button>
           <Button
             variant="outline"
@@ -457,10 +454,11 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
                               size="sm"
                               variant="destructive"
                               onClick={() => void handleReject(applicant)}
+                              loading={isRejecting}
                               disabled={Boolean(rejectingId) || Boolean(approveTarget)}
                             >
                               <UserX className="h-3.5 w-3.5" />
-                              {isRejecting ? "처리 중..." : "거절"}
+                              거절
                             </Button>
                           </div>
                         ) : (
@@ -481,14 +479,7 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
                   </TableRow>
                 )}
                 {loading && filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={8}
-                      className="py-10 text-center text-muted-foreground"
-                    >
-                      불러오는 중...
-                    </TableCell>
-                  </TableRow>
+                  <TableSkeletonRows columns={8} rows={6} />
                 )}
               </TableBody>
             </Table>
@@ -705,10 +696,11 @@ function ApproveDialog({
             type="button"
             variant="outline"
             onClick={() => void handleSearch()}
-            disabled={searching || approving}
+            loading={searching}
+            disabled={approving}
           >
             <Search className="h-4 w-4" />
-            {searching ? "검색 중..." : "검색"}
+            검색
           </Button>
         </div>
 
@@ -799,16 +791,7 @@ function ApproveDialog({
                   </TableCell>
                 </TableRow>
               )}
-              {searching && (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="py-8 text-center text-muted-foreground"
-                  >
-                    검색 중...
-                  </TableCell>
-                </TableRow>
-              )}
+              {searching && <TableSkeletonRows columns={5} rows={6} />}
             </TableBody>
           </Table>
         </div>
@@ -842,18 +825,19 @@ function ApproveDialog({
             type="button"
             variant="secondary"
             onClick={() => void handleApproveNew()}
-            disabled={approving}
+            loading={approving}
           >
             <UserPlus className="h-3.5 w-3.5" />
-            {approving ? "처리 중..." : "신규 사용자로 생성 후 승인"}
+            신규 사용자로 생성 후 승인
           </Button>
           <Button
             type="button"
             onClick={() => void handleApproveExisting()}
-            disabled={!selectedUser || approving}
+            loading={approving}
+            disabled={!selectedUser}
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
-            {approving ? "처리 중..." : "이 사용자와 연결 승인"}
+            이 사용자와 연결 승인
           </Button>
         </div>
       </div>

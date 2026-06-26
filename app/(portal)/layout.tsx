@@ -1,5 +1,6 @@
 import Sidebar from "@/components/admin/Sidebar";
 import Header from "@/components/admin/Header";
+import NavProgress from "@/components/admin/NavProgress";
 import { SidebarProvider } from "@/components/admin/sidebarContext";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import TestModeToggle from "@/components/admin/TestModeToggle";
@@ -23,6 +24,9 @@ export default async function PortalLayout({
         <SidebarProvider>
       {/* 데이터가 바뀌는 버튼(초기화/저장/완료/삭제/닫기)에 공통 확인 UI 제공 */}
       <ConfirmProvider>
+        {/* 전역 네비게이션 진행 표시(상단 Progress Bar + 클릭 피드백 + cursor:progress).
+            Layout 한 곳에만 마운트 → 어드민 전체 공통 적용. */}
+        <NavProgress />
         <div className="flex flex-1 min-h-screen bg-muted/40">
           <Sidebar />
           {/* min-w-0 lets this flex child shrink below intrinsic content width so

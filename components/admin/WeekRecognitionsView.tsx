@@ -26,6 +26,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import {
   ORGANIZATIONS,
@@ -615,21 +617,18 @@ export default function WeekRecognitionsView() {
                   </TableRow>
                 )}
                 {loading && rows.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={11}
-                      className="py-10 text-center text-muted-foreground"
-                    >
-                      불러오는 중...
-                    </TableCell>
-                  </TableRow>
+                  <TableSkeletonRows columns={11} rows={6} />
                 )}
               </TableBody>
             </Table>
           </div>
 
           <div className="text-xs text-muted-foreground">
-            {loading ? "불러오는 중..." : `${rows.length.toLocaleString()}건`}
+            {loading ? (
+              <LoadingState active variant="inline" />
+            ) : (
+              `${rows.length.toLocaleString()}건`
+            )}
           </div>
         </CardContent>
       </Card>
@@ -750,8 +749,8 @@ function PublishWeekModal({
           <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
             취소
           </Button>
-          <Button type="button" onClick={submit} disabled={saving}>
-            {saving ? "확정 중..." : "결과 확정"}
+          <Button type="button" onClick={submit} loading={saving}>
+            결과 확정
           </Button>
         </div>
       </div>
@@ -951,9 +950,10 @@ function CheckThresholdRow({
             type="button"
             size="sm"
             onClick={save}
-            disabled={saving || invalid || !dirty}
+            loading={saving}
+            disabled={invalid || !dirty}
           >
-            {saving ? "저장 중..." : "저장"}
+            저장
           </Button>
         </div>
         {invalid && (
@@ -1110,8 +1110,8 @@ function WeekRecognitionEditModal({
           >
             취소
           </Button>
-          <Button type="button" onClick={submit} disabled={saving}>
-            {saving ? "저장 중..." : "저장"}
+          <Button type="button" onClick={submit} loading={saving}>
+            저장
           </Button>
         </div>
       </div>

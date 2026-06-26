@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
 import {
@@ -255,9 +256,7 @@ export default function CompetencyLineManageBoard({
 
         <div className="flex flex-wrap items-center gap-2">
           {loading ? (
-            <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" /> 집계 불러오는 중…
-            </span>
+            <LoadingState active variant="inline" />
           ) : (
             <>
               <StatCard label="활동 크루" value={summary.activeCrews} />
@@ -284,9 +283,7 @@ export default function CompetencyLineManageBoard({
             : ""}
         </div>
         {loading ? (
-          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            <Loader2 className="mr-1.5 inline h-3.5 w-3.5 animate-spin" /> 불러오는 중…
-          </p>
+          <LoadingState active />
         ) : results.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">
             해당 주차의 활동 대상 크루가 없습니다.

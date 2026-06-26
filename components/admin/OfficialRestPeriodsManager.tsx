@@ -27,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import {
@@ -474,7 +475,12 @@ export default function OfficialRestPeriodsManager() {
               />
             </div>
             <div className="flex items-end gap-2">
-              <Button type="button" onClick={saveDraft} disabled={!canSubmit}>
+              <Button
+                type="button"
+                onClick={saveDraft}
+                loading={saving}
+                disabled={!canSubmit}
+              >
                 <CalendarPlus className="h-4 w-4" />
                 {editing ? "수정" : "추가"}
               </Button>
@@ -500,9 +506,7 @@ export default function OfficialRestPeriodsManager() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex h-24 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
-              데이터를 불러오는 중입니다.
-            </div>
+            <LoadingState active />
           ) : periods.length === 0 ? (
             <div className="flex h-24 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
               등록된 공식 휴식 기간이 없습니다.

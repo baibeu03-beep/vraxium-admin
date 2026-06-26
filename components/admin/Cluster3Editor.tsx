@@ -634,20 +634,17 @@ export default function Cluster3Editor({
             type="button"
             size="sm"
             onClick={() => void handleSave()}
+            loading={saving}
             disabled={inputsDisabled}
           >
-            <Save className="h-4 w-4" />
-            {saving
-              ? devMode
-                ? "Saving..."
-                : "저장 중..."
-              : devMode
-                ? anyDirty
-                  ? "Save All *"
-                  : "Save All"
-                : anyDirty
-                  ? "전체 저장 *"
-                  : "전체 저장"}
+            {!saving && <Save className="h-4 w-4" />}
+            {devMode
+              ? anyDirty
+                ? "Save All *"
+                : "Save All"
+              : anyDirty
+                ? "전체 저장 *"
+                : "전체 저장"}
           </Button>
         </div>
       </div>

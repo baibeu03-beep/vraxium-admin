@@ -172,14 +172,11 @@ function OpeningImageSlot({
               className="h-7 w-7 shadow"
               onClick={() => fileRef.current?.click()}
               disabled={disabled || uploading}
+              loading={uploading}
               aria-label="이미지 업로드"
               title="업로드"
             >
-              {uploading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Upload className="h-4 w-4" />
-              )}
+              {!uploading && <Upload className="h-4 w-4" />}
             </Button>
             <Button
               type="button"
@@ -586,8 +583,8 @@ export default function PracticalInfoOpeningForm({
               type="button"
               onClick={handleOpenClick}
               disabled={saving || !canOpen}
+              loading={saving}
             >
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               개설
             </Button>
             <Button
@@ -900,8 +897,7 @@ export default function PracticalInfoOpeningForm({
               >
                 취소
               </Button>
-              <Button type="button" onClick={executeOpen} disabled={saving}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button type="button" onClick={executeOpen} loading={saving}>
                 확인
               </Button>
             </div>
@@ -990,10 +986,9 @@ export default function PracticalInfoOpeningForm({
               <Button
                 type="button"
                 onClick={executeCancel}
-                disabled={saving}
+                loading={saving}
                 className="bg-red-600 text-white hover:bg-red-700"
               >
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 개설 취소
               </Button>
             </div>

@@ -26,6 +26,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import {
   ORGANIZATIONS,
@@ -415,21 +417,18 @@ export default function SeasonParticipationsView() {
                   </TableRow>
                 )}
                 {loading && rows.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={12}
-                      className="py-10 text-center text-muted-foreground"
-                    >
-                      불러오는 중...
-                    </TableCell>
-                  </TableRow>
+                  <TableSkeletonRows columns={12} rows={6} />
                 )}
               </TableBody>
             </Table>
           </div>
 
           <div className="text-xs text-muted-foreground">
-            {loading ? "불러오는 중..." : `${rows.length.toLocaleString()}건`}
+            {loading ? (
+              <LoadingState active variant="inline" />
+            ) : (
+              `${rows.length.toLocaleString()}건`
+            )}
           </div>
         </CardContent>
       </Card>
@@ -584,8 +583,8 @@ function SeasonParticipationEditModal({
           >
             취소
           </Button>
-          <Button type="button" onClick={submit} disabled={saving}>
-            {saving ? "저장 중..." : "저장"}
+          <Button type="button" onClick={submit} loading={saving}>
+            저장
           </Button>
         </div>
       </div>

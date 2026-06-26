@@ -26,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import {
   USER_FACING_ROLES,
@@ -370,14 +371,7 @@ export default function PermissionsMatrix() {
                   </TableRow>
                 )}
                 {loading && permissions.length === 0 && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={USER_FACING_ROLES.length + 1}
-                      className="py-10 text-center text-muted-foreground"
-                    >
-                      불러오는 중...
-                    </TableCell>
-                  </TableRow>
+                  <TableSkeletonRows columns={USER_FACING_ROLES.length + 1} rows={6} />
                 )}
               </TableBody>
             </Table>

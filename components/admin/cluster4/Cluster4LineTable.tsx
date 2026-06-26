@@ -5,7 +5,7 @@
 // 데이터는 GET /api/admin/cluster4/lines?partType=&detailed=1 (append-only) 로 자체 조회.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Check, X, Search, ChevronDown, ChevronRight, Pencil, Upload, Trash2 } from "lucide-react";
+import { Check, X, Search, ChevronDown, ChevronRight, Pencil, Upload, Trash2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { LoadingState } from "@/components/ui/loading-state";
 import {
   Table,
   TableBody,
@@ -154,9 +155,9 @@ function MetaImageUploadField({
           </Button>
         </div>
       ) : (
-        <Button type="button" variant="outline" className="w-full" disabled={disabled || uploading} onClick={() => fileRef.current?.click()}>
-          {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-          {uploading ? "업로드 중..." : emptyButtonLabel}
+        <Button type="button" variant="outline" className="w-full" loading={uploading} disabled={disabled || uploading} onClick={() => fileRef.current?.click()}>
+          {!uploading && <Upload className="mr-2 h-4 w-4" />}
+          {emptyButtonLabel}
         </Button>
       )}
     </div>
@@ -315,10 +316,10 @@ function LineWorkflowSection({
                 size="sm"
                 variant={st.done ? "outline" : "default"}
                 className="w-full"
+                loading={busy === cfg.action}
                 disabled={busy !== null}
                 onClick={() => handleAction(cfg.action)}
               >
-                {busy === cfg.action && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {st.done ? `${cfg.doneLabel} (다시 처리)` : cfg.buttonLabel}
               </Button>
             </div>
@@ -796,8 +797,7 @@ function LineDetailModal({
             닫기
           </Button>
           {editable && (
-            <Button onClick={handleSave} disabled={saving}>
-              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={handleSave} loading={saving} disabled={saving}>
               라인 정보 저장
             </Button>
           )}
@@ -968,9 +968,11 @@ export default function Cluster4LineTable({
       <CardHeader className="pb-3">
         <CardTitle className="text-base">{title}</CardTitle>
         <CardDescription>
-          {loading
-            ? "불러오는 중..."
-            : `총 ${rows.length}개 · 필터 결과 ${filteredRows.length}개`}
+          {loading ? (
+            <LoadingState active variant="inline" />
+          ) : (
+            `총 ${rows.length}개 · 필터 결과 ${filteredRows.length}개`
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -1079,9 +1081,7 @@ export default function Cluster4LineTable({
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
+          <LoadingState active />
         ) : filteredRows.length === 0 ? (
           <p className="py-10 text-center text-sm text-muted-foreground">
             {rows.length === 0 ? "개설된 라인이 없습니다." : "필터 결과가 없습니다."}

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Loader2, Plus, Search, Check, X, Upload, Trash2, Pencil } from "lucide-react";
+import { Plus, Search, Check, X, Upload, Trash2, Pencil } from "lucide-react";
+import { LoadingState } from "@/components/ui/loading-state";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -168,9 +169,9 @@ function ImageUploadSlot({ label, image, caption, onUpload, onRemove, onCaptionC
       ) : (
         <div>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleFileChange} disabled={disabled || uploading} />
-          <Button variant="outline" className="w-full" disabled={disabled || uploading} onClick={() => fileRef.current?.click()}>
-            {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-            {uploading ? "업로드 중..." : "이미지 업로드"}
+          <Button variant="outline" className="w-full" loading={uploading} disabled={disabled} onClick={() => fileRef.current?.click()}>
+            <Upload className="mr-2 h-4 w-4" />
+            이미지 업로드
           </Button>
         </div>
       )}
@@ -456,7 +457,7 @@ export default function PracticalCompetencyManager() {
     } catch { setCafeError("댓글 수집 요청 중 오류가 발생했습니다"); } finally { setCafeLoading(false); }
   }, [cafeUrl]);
 
-  if (loading) return <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  if (loading) return <LoadingState active />;
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
@@ -619,7 +620,7 @@ export default function PracticalCompetencyManager() {
 
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="outline" onClick={resetLineForm} disabled={saving}>취소</Button>
-                  <Button onClick={handleSaveLine} disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}저장</Button>
+                  <Button onClick={handleSaveLine} loading={saving}>저장</Button>
                 </div>
               </CardContent>
             </Card>
@@ -695,7 +696,7 @@ export default function PracticalCompetencyManager() {
                 <div className="space-y-2"><Label>원본 파일명</Label><Input value={mfSourceFile} onChange={(e) => setMfSourceFile(e.target.value)} placeholder="source.xlsx" /></div>
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="outline" onClick={resetMasterForm} disabled={saving}>취소</Button>
-                  <Button onClick={handleSaveMaster} disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{editingMasterId ? "수정" : "저장"}</Button>
+                  <Button onClick={handleSaveMaster} loading={saving}>{editingMasterId ? "수정" : "저장"}</Button>
                 </div>
               </CardContent>
             </Card>
@@ -721,9 +722,9 @@ export default function PracticalCompetencyManager() {
                   onKeyDown={(e) => { if (e.key === "Enter" && !cafeLoading) handleCollectCafeComments(); }}
                   disabled={cafeLoading}
                 />
-                <Button onClick={handleCollectCafeComments} disabled={cafeLoading}>
-                  {cafeLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                  {cafeLoading ? "수집 중..." : "댓글 수집"}
+                <Button onClick={handleCollectCafeComments} loading={cafeLoading}>
+                  <Search className="mr-2 h-4 w-4" />
+                  댓글 수집
                 </Button>
               </div>
               {cafeLoading && <p className="text-xs text-muted-foreground">댓글 페이지를 순회하며 수집 중입니다. 댓글 수에 따라 수십 초가 걸릴 수 있습니다.</p>}

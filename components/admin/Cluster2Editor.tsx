@@ -688,16 +688,11 @@ export default function Cluster2Editor({
             type="button"
             size="sm"
             onClick={() => void handleSave()}
+            loading={saving}
             disabled={inputsDisabled}
           >
-            <Save className="h-4 w-4" />
-            {saving
-              ? devMode
-                ? "Saving..."
-                : "저장 중..."
-              : devMode
-                ? "Save All"
-                : "전체 저장"}
+            {!saving && <Save className="h-4 w-4" />}
+            {devMode ? "Save All" : "전체 저장"}
           </Button>
         </div>
       </div>

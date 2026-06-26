@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import { statusTone } from "@/lib/statusBadge";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -190,7 +191,7 @@ export default function ProcessIrregularManager() {
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">불러오는 중…</p>
+            <LoadingState active />
           ) : acts.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">변동 액트가 없습니다.</p>
           ) : (
