@@ -33,6 +33,25 @@ export function halfKeyToLastSeasonKey(halfKey: string): string | null {
   return `${parsed.year}-${season}`;
 }
 
+// 반기 → 두 시즌 키(방학 → 학기 순). 파트×주차 존재표 x축(약 26주) 구성용.
+//   상반기(H1) = 겨울(방학) + 봄(학기), 하반기(H2) = 여름(방학) + 가을(학기).
+export function halfKeyToSeasonKeys(halfKey: string): [string, string] | null {
+  const parsed = parseHalfKey(halfKey);
+  if (!parsed) return null;
+  return parsed.period === "H1"
+    ? [`${parsed.year}-winter`, `${parsed.year}-spring`]
+    : [`${parsed.year}-summer`, `${parsed.year}-autumn`];
+}
+
+// 시즌 키 → 한글 시즌명(년도 생략). 파트×주차 존재표 x축 라벨용.
+export function seasonKeyToSeasonLabel(seasonKey: string): string {
+  const m = /-(winter|spring|summer|autumn)$/.exec(seasonKey);
+  if (!m) return seasonKey;
+  return { winter: "겨울", spring: "봄", summer: "여름", autumn: "가을" }[
+    m[1] as SeasonType
+  ];
+}
+
 // 시즌 키 → 그 시즌이 속한 반기 키.
 //   겨울·봄 → H1, 여름·가을 → H2. 연도는 season_key 접두(2026-winter → 2026-H1).
 export function seasonKeyToHalfKey(seasonKey: string): string | null {

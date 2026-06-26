@@ -42,6 +42,21 @@ type TeamDto = {
   leaderGradeLabel: string | null;
   partCount: number;
   partNames: string[];
+  partWeekMatrix: PartWeekMatrix | null;
+};
+
+type PartWeekColumn = {
+  weekStartDate: string;
+  seasonKey: string;
+  seasonLabel: string;
+  weekNumber: number | null;
+  label: string;
+  isRest: boolean;
+};
+
+type PartWeekMatrix = {
+  partNames: string[];
+  present: boolean[][];
 };
 
 type HalfOption = {
@@ -59,6 +74,7 @@ type InfoDto = {
   editable: boolean;
   halves: HalfOption[];
   teams: TeamDto[];
+  weekColumns: PartWeekColumn[];
 };
 
 type LeaderCandidate = {
@@ -116,6 +132,7 @@ export default function TeamPartsInfoManager() {
   const [halves, setHalves] = useState<HalfOption[]>([]);
   const [currentHalfKey, setCurrentHalfKey] = useState<string | null>(null);
   const [byOrg, setByOrg] = useState<Record<string, TeamDto[]>>({});
+  const [weekColumns, setWeekColumns] = useState<PartWeekColumn[]>([]);
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState<Banner>(null);
 
@@ -160,12 +177,23 @@ export default function TeamPartsInfoManager() {
         setHalf(base.selectedHalfKey);
 
         const map: Record<string, TeamDto[]> = {};
+        const colsByOrg: Record<string, PartWeekColumn[]> = {};
         ORGANIZATIONS.forEach((org, i) => {
           map[org] = results[i].teams;
+          colsByOrg[org] = results[i].weekColumns ?? [];
         });
         setByOrg(map);
+        // x축 주차 = 선택 반기 기준(조직 불변). focusOrg 우선, 없으면 첫 비어있지 않은 것.
+        setWeekColumns(
+          colsByOrg[focusOrg]?.length
+            ? colsByOrg[focusOrg]
+            : (ORGANIZATIONS.map((o) => colsByOrg[o]).find(
+                (c) => c && c.length,
+              ) ?? []),
+        );
       } catch (e) {
         setByOrg({});
+        setWeekColumns([]);
         setHalves([]);
         setBanner({
           kind: "error",
@@ -549,6 +577,69 @@ export default function TeamPartsInfoManager() {
                     ))}
                   </span>
                 </div>
+
+                {/* Row 3: 파트 × 주차 존재표 — 시안 [5]. 가로 스크롤. */}
+                {t.partWeekMatrix && weekColumns.length > 0 ? (
+                  <div className="space-y-1">
+                    <div
+                      className="overflow-x-auto rounded-md border border-zinc-200"
+                      data-part-week-table={t.teamName}
+                    >
+                      <table className="border-collapse text-xs">
+                        <thead>
+                          <tr>
+                            <th className="sticky left-0 z-10 border-b border-r bg-zinc-50 px-2 py-1 text-left font-semibold whitespace-nowrap">
+                              파트 \ 주차
+                            </th>
+                            {weekColumns.map((c) => (
+                              <th
+                                key={c.weekStartDate}
+                                className={
+                                  "border-b border-r px-1.5 py-1 text-center font-medium whitespace-nowrap " +
+                                  (c.isRest
+                                    ? "bg-zinc-100 text-zinc-400"
+                                    : "bg-zinc-50")
+                                }
+                              >
+                                {c.label}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {t.partWeekMatrix.partNames.map((p, pi) => (
+                            <tr key={p} data-pw-row={p}>
+                              <td className="sticky left-0 z-10 border-b border-r bg-white px-2 py-1 font-medium whitespace-nowrap">
+                                {p}
+                              </td>
+                              {weekColumns.map((c, wi) => {
+                                const on = Boolean(
+                                  t.partWeekMatrix?.present[pi]?.[wi],
+                                );
+                                return (
+                                  <td
+                                    key={c.weekStartDate}
+                                    data-pw-cell={on ? "1" : "0"}
+                                    className={
+                                      "border-b border-r px-1.5 py-1 text-center " +
+                                      (c.isRest ? "bg-zinc-50/60" : "")
+                                    }
+                                  >
+                                    {on ? (
+                                      <span className="text-emerald-600">●</span>
+                                    ) : (
+                                      ""
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ))}
 

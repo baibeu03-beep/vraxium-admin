@@ -1,6 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   halfKeyToLastSeasonKey,
+  halfKeyToSeasonKeys,
+  seasonKeyToSeasonLabel,
   halfLabel,
   isHalfKey,
   isEditableHalf,
@@ -28,6 +30,23 @@ export class TeamHalfWriteError extends Error {
   }
 }
 
+// 파트×주차 존재표 x축 1열(선택 반기의 한 주차). 년도 생략·시즌명+주차 라벨.
+export type PartWeekColumnDto = {
+  weekStartDate: string; // weeks.start_date (YYYY-MM-DD) — UPH 조인 키
+  seasonKey: string;
+  seasonLabel: string; // 겨울/봄/여름/가을
+  weekNumber: number | null;
+  label: string; // "겨울 1"
+  isRest: boolean; // 공식 휴식 주차
+};
+
+// 팀별 파트×주차 존재표. partNames = y축(일반 first), present[partIdx][weekIdx] = 그 주 존재 여부.
+//   x축 주차 목록은 DTO 최상위 weekColumns 와 인덱스 일치.
+export type PartWeekMatrixDto = {
+  partNames: string[];
+  present: boolean[][];
+};
+
 export type TeamHalfTeamDto = {
   teamHalfId: string; // cluster4_team_halves.id (수정/삭제·파트 카탈로그 키)
   teamName: string;
@@ -50,6 +69,8 @@ export type TeamHalfTeamDto = {
   // 파트(현재 주차 기준) — 점유 파트 없으면 "일반"(min 1).
   partCount: number;
   partNames: string[];
+  // 파트×주차 존재표(선택 반기 누적). loadTeamPartsInfo(GET) 에서만 채움 — POST 응답은 null.
+  partWeekMatrix: PartWeekMatrixDto | null;
 };
 
 // 한 클럽(조직)당 한 반기 최대 팀 수. 백엔드 강제 검증의 SoT.
@@ -73,6 +94,8 @@ export type TeamPartsInfoDto = {
   editable: boolean;
   halves: HalfOptionDto[];
   teams: TeamHalfTeamDto[];
+  // 파트×주차 존재표 x축(선택 반기 ~26주). 팀별 partWeekMatrix.present 와 인덱스 일치.
+  weekColumns: PartWeekColumnDto[];
 };
 
 type Row = {
@@ -275,8 +298,9 @@ async function getLeaderBasicsBatch(
   return out;
 }
 
-// 현재 주차 기준 팀별 파트 점유. 점유 파트(≥1명) 없으면 "일반"(min 1).
-//   파트 SoT = user_memberships.part_name(현재·active). org 는 user_profiles 로 매칭.
+// [POST 폴백 전용] 현재 주차 기준 팀별 파트 점유(user_memberships 현재·active).
+//   GET(loadTeamPartsInfo)에서는 derivePartsFromMatrix(선택 반기 마지막 활동 주차)로 덮어쓴다.
+//   register/save POST 응답에만 쓰이고 프론트는 GET 으로 재로딩하므로 표시에 영향 없음.
 async function computeTeamPartInfo(
   organization: string,
   teamNames: string[],
@@ -393,8 +417,182 @@ export async function listHalfTeams(
       leaderGradeLabel: lb?.gradeLabel ?? null,
       partCount: pi.partCount,
       partNames: pi.partNames,
+      partWeekMatrix: null, // loadTeamPartsInfo(GET)에서 채움.
     };
   });
+}
+
+// ── 파트×주차 존재표 계산 ──────────────────────────────────────────────
+// 선택 반기의 두 시즌(방학→학기, ~26주) x축 + 팀별 파트(누적) y축 존재표.
+//   주차별 소속 이력 SoT = user_position_histories(PMS useractivities 이관, 주차단위).
+//   조인: organization + 정규화(괄호 strip)된 raw_team == team_name, week_start_date == weeks.start_date.
+//   y축 파트 = 카탈로그(cluster4_team_parts, "일반" 보장) ∪ UPH raw_part(있는 그대로 전부).
+//   셀 = 그 주에 그 파트 소속 크루 ≥1(존재). UPH 무접촉·read 전용 → snapshot 영향 없음.
+const stripParen = (s: string): string => s.replace(/\(.*?\)/g, "").trim();
+
+async function computePartWeekData(
+  organization: string,
+  halfKey: string,
+  teams: Array<{ teamHalfId: string; teamName: string }>,
+): Promise<{
+  weekColumns: PartWeekColumnDto[];
+  byTeam: Map<string, PartWeekMatrixDto>;
+}> {
+  const byTeam = new Map<string, PartWeekMatrixDto>();
+  const seasons = halfKeyToSeasonKeys(halfKey);
+  if (!seasons) return { weekColumns: [], byTeam };
+
+  // 1) x축 주차(두 시즌 전체, 휴식 포함). 방학시즌 → 학기시즌, 각 주차번호 오름차순.
+  const { data: wdata, error: wErr } = await supabaseAdmin
+    .from("weeks")
+    .select("start_date,season_key,week_number,is_official_rest")
+    .in("season_key", seasons);
+  if (wErr) throw new Error(wErr.message);
+  const seasonOrder = (sk: string) => (sk === seasons[0] ? 0 : 1);
+  const weekRows = ((wdata ?? []) as Array<{
+    start_date: string;
+    season_key: string;
+    week_number: number | null;
+    is_official_rest: boolean | null;
+  }>).sort(
+    (a, b) =>
+      seasonOrder(a.season_key) - seasonOrder(b.season_key) ||
+      (a.week_number ?? 0) - (b.week_number ?? 0),
+  );
+  const weekColumns: PartWeekColumnDto[] = weekRows.map((w) => ({
+    weekStartDate: String(w.start_date).slice(0, 10),
+    seasonKey: w.season_key,
+    seasonLabel: seasonKeyToSeasonLabel(w.season_key),
+    weekNumber: w.week_number,
+    label: `${seasonKeyToSeasonLabel(w.season_key)} ${w.week_number ?? ""}`.trim(),
+    isRest: !!w.is_official_rest,
+  }));
+  const weekIdxByStart = new Map(weekColumns.map((c, i) => [c.weekStartDate, i]));
+
+  if (teams.length === 0) return { weekColumns, byTeam };
+
+  // 2) 카탈로그 파트(team_half_id 별) — "일반" 보장·표시 순서.
+  const catalogByTeamName = new Map<string, string[]>(); // teamName → 비-일반 파트(순서)
+  const teamHalfIds = teams.map((t) => t.teamHalfId);
+  const nameByHalfId = new Map(teams.map((t) => [t.teamHalfId, t.teamName]));
+  const { data: cps, error: cErr } = await supabaseAdmin
+    .from("cluster4_team_parts")
+    .select("team_half_id,part_name,is_default,display_order")
+    .in("team_half_id", teamHalfIds);
+  if (cErr) throw new Error(cErr.message);
+  const catalogRows = ((cps ?? []) as Array<{
+    team_half_id: string;
+    part_name: string;
+    is_default: boolean | null;
+    display_order: number | null;
+  }>).sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+  for (const r of catalogRows) {
+    const tn = nameByHalfId.get(r.team_half_id);
+    if (!tn) continue;
+    if (r.part_name === DEFAULT_PART_NAME) continue; // "일반"은 항상 맨 앞 고정.
+    const arr = catalogByTeamName.get(tn) ?? [];
+    if (!arr.includes(r.part_name)) arr.push(r.part_name);
+    catalogByTeamName.set(tn, arr);
+  }
+
+  // 3) UPH(주차단위 소속 이력) — org + 두 시즌. 페이지네이션.
+  const uph: Array<{
+    raw_team: string | null;
+    raw_part: string | null;
+    week_start_date: string;
+  }> = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabaseAdmin
+      .from("user_position_histories")
+      .select("raw_team,raw_part,week_start_date")
+      .eq("organization", organization)
+      .in("season_key", seasons)
+      .order("week_start_date", { ascending: true })
+      .range(from, from + 999);
+    if (error) throw new Error(error.message);
+    const batch = (data ?? []) as typeof uph;
+    uph.push(...batch);
+    if (batch.length < 1000) break;
+  }
+
+  // 4) team_name 매칭(직접 → 괄호 strip). team_name 은 org 내 유일.
+  const teamNameSet = new Set(teams.map((t) => t.teamName));
+  // teamName → partName → Set<weekIdx>, 그리고 partName 최초 등장 weekIdx(정렬용).
+  const presence = new Map<string, Map<string, Set<number>>>();
+  const firstSeen = new Map<string, Map<string, number>>();
+  for (const r of uph) {
+    const rt = r.raw_team ?? "";
+    const team = teamNameSet.has(rt)
+      ? rt
+      : teamNameSet.has(stripParen(rt))
+        ? stripParen(rt)
+        : null;
+    if (!team) continue;
+    const wi = weekIdxByStart.get(String(r.week_start_date).slice(0, 10));
+    if (wi === undefined) continue;
+    const part = (r.raw_part ?? "").trim();
+    if (!part) continue; // null/empty raw_part 는 파트 미상 — 제외.
+    const pm = presence.get(team) ?? new Map<string, Set<number>>();
+    const set = pm.get(part) ?? new Set<number>();
+    set.add(wi);
+    pm.set(part, set);
+    presence.set(team, pm);
+    const fm = firstSeen.get(team) ?? new Map<string, number>();
+    if (!fm.has(part) || wi < (fm.get(part) ?? Infinity)) fm.set(part, wi);
+    firstSeen.set(team, fm);
+  }
+
+  // 5) 팀별 matrix 조립. y축 = ["일반", 카탈로그 비-일반(순서), UPH-only(최초주차→이름)].
+  for (const t of teams) {
+    const seen = presence.get(t.teamName) ?? new Map<string, Set<number>>();
+    const first = firstSeen.get(t.teamName) ?? new Map<string, number>();
+
+    const partNames: string[] = [DEFAULT_PART_NAME];
+    for (const p of catalogByTeamName.get(t.teamName) ?? []) {
+      if (!partNames.includes(p)) partNames.push(p);
+    }
+    const uphOnly = [...seen.keys()]
+      .filter((p) => !partNames.includes(p))
+      .sort(
+        (a, b) =>
+          (first.get(a) ?? Infinity) - (first.get(b) ?? Infinity) ||
+          a.localeCompare(b),
+      );
+    for (const p of uphOnly) partNames.push(p);
+
+    const present = partNames.map((p) => {
+      const set = seen.get(p);
+      return weekColumns.map((_, wi) => !!set?.has(wi));
+    });
+    byTeam.set(t.teamName, { partNames, present });
+  }
+
+  return { weekColumns, byTeam };
+}
+
+// 파트 수/파트명 = 선택 반기 "마지막 활동 주차"(존재표에서 어떤 파트든 ≥1) 기준.
+//   파트×주차 존재표(②)와 동일 시점 — 그 주에 실제 존재한 파트만 노출(현재 멤버십 아님).
+//   순서 = 존재표 y축(matrix.partNames) 순 → 같은 box 안 행 순서와 일치.
+//   활동 주차 없음(전 반기 데이터 0) → "일반"(min 1) 폴백.
+function derivePartsFromMatrix(
+  matrix: PartWeekMatrixDto,
+  weekCount: number,
+): { partCount: number; partNames: string[] } {
+  let lastIdx = -1;
+  for (let wi = weekCount - 1; wi >= 0; wi--) {
+    if (matrix.present.some((row) => row[wi])) {
+      lastIdx = wi;
+      break;
+    }
+  }
+  if (lastIdx < 0) {
+    return { partCount: 1, partNames: [DEFAULT_PART_NAME] };
+  }
+  const names = matrix.partNames.filter((_, pi) => matrix.present[pi][lastIdx]);
+  if (names.length === 0) {
+    return { partCount: 1, partNames: [DEFAULT_PART_NAME] };
+  }
+  return { partCount: names.length, partNames: names };
 }
 
 // 페이지 1회 로드: 현재 반기 + 반기 옵션 + 선택 반기 팀.
@@ -419,6 +617,36 @@ export async function loadTeamPartsInfo(
   const teams = selected ? await listHalfTeams(organization, selected) : [];
   const editable = selected != null && isEditableHalf(selected, currentHalfKey);
 
+  // 파트×주차 존재표(선택 반기). 팀별 matrix 를 teams 에 병합 + x축 weekColumns.
+  let weekColumns: PartWeekColumnDto[] = [];
+  if (selected && teams.length > 0) {
+    const { weekColumns: cols, byTeam } = await computePartWeekData(
+      organization,
+      selected,
+      teams.map((t) => ({ teamHalfId: t.teamHalfId, teamName: t.teamName })),
+    );
+    weekColumns = cols;
+    // ① 팀정보 ② 파트 수/파트명 ③ 존재표 — 모두 선택 반기 마지막 활동 주차로 통일.
+    for (const t of teams) {
+      const m = byTeam.get(t.teamName) ?? null;
+      t.partWeekMatrix = m;
+      if (m) {
+        const derived = derivePartsFromMatrix(m, cols.length);
+        t.partCount = derived.partCount;
+        t.partNames = derived.partNames;
+      }
+      // m 없음(이론상 미발생) → listHalfTeams 멤버십 폴백 값 유지.
+    }
+  } else if (selected) {
+    // 팀이 없어도 x축은 계산(빈 표·UI 일관).
+    const { weekColumns: cols } = await computePartWeekData(
+      organization,
+      selected,
+      [],
+    );
+    weekColumns = cols;
+  }
+
   return {
     organization,
     currentHalfKey,
@@ -426,6 +654,7 @@ export async function loadTeamPartsInfo(
     editable,
     halves,
     teams,
+    weekColumns,
   };
 }
 
