@@ -607,12 +607,16 @@ export async function loadMembersInfoStats(opts: {
           }
         }
       }
-      // Po.A/B/C — 포인트 종류별 합계 누적(이름 무관·전 카드 합산). null=0 기여.
-      //   star=A포인트 · shield=adv−pen · lightning=−pen. (snapshot points 그대로)
+      // Po.A/B/C — 종류별 1위 크루 갱신. per-crew: A=star · Advantage=shield−lightning · Penalty=−lightning.
+      //   (snapshot points 그대로. null 은 0 취급 후 value>0 만 후보.)
       const pts = card.points as { star?: number | null; shield?: number | null; lightning?: number | null } | undefined;
-      acc.starSum += pts?.star ?? 0;
-      acc.shieldSum += pts?.shield ?? 0;
-      acc.lightningSum += pts?.lightning ?? 0;
+      const crewName = meta?.name ?? "-";
+      const aPoint = pts?.star ?? 0;
+      const advPoint = (pts?.shield ?? 0) - (pts?.lightning ?? 0);
+      const penPoint = -(pts?.lightning ?? 0);
+      acc.leaderA = considerLeader(acc.leaderA, crewName, aPoint);
+      acc.leaderB = considerLeader(acc.leaderB, crewName, advPoint);
+      acc.leaderC = considerLeader(acc.leaderC, crewName, penPoint);
     }
   }
 
@@ -646,7 +650,7 @@ export async function loadMembersInfoStats(opts: {
         growthSuccessRate: null,
         weeklyGrowthRate: null,
         oldest: null,
-        weeklyPointTotals: null,
+        weeklyPointLeaders: null,
       };
     }
     const acc = acc0;
@@ -664,12 +668,11 @@ export async function loadMembersInfoStats(opts: {
           clubLabel: acc.oldest.clubLabel,
         }
       : null;
-    // Po.A/B/C — 포인트 종류별 합계(랭킹 아님). poA=Σstar · poB=Σadvantage(=Σshield−Σlightning) ·
-    //   poC=Σpenalty(=−Σlightning). 정수 합산이라 부동소수 위험 없음.
-    const weeklyPointTotals: InfoWeeklyPointTotals = {
-      poA: acc.starSum,
-      poB: acc.shieldSum - acc.lightningSum,
-      poC: -acc.lightningSum,
+    // Po.A/B/C — 종류별 1위 크루({name,points}|null). 값 0 이하/후보 없음 = null.
+    const weeklyPointLeaders: InfoWeeklyPointLeaders = {
+      poA: acc.leaderA,
+      poB: acc.leaderB,
+      poC: acc.leaderC,
     };
     return {
       weekId: w.week_id,
@@ -687,7 +690,7 @@ export async function loadMembersInfoStats(opts: {
       growthSuccessRate,
       weeklyGrowthRate,
       oldest,
-      weeklyPointTotals,
+      weeklyPointLeaders,
     };
   });
 

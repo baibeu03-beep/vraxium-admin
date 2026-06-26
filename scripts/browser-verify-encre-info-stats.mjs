@@ -77,7 +77,9 @@ ck("누적 엘리트 라벨", b.includes("누적 엘리트"));
 for (const h of ["Po.A", "Po.B", "Po.C"]) ck(`표 헤더 '${h}'`, b.includes(h));
 if (ff) {
   const a = ff.weeklyTopPoints[0];
-  ck(`[${ff.seasonWeekName}] Po.A '${a.name} ${a.points}P' 렌더`, b.includes(`${a.name} ${a.points}P`));
+  // 표시 형식: "이름 님 (포인트개)"
+  ck(`[${ff.seasonWeekName}] Po.A '${a.name} 님 (${a.points}개)' 렌더`, b.includes(`${a.name} 님 (${a.points}개)`));
+  ck(`[${ff.seasonWeekName}] 구 형식 'NP' 미노출`, !b.includes(`${a.name} ${a.points}P`));
 }
 
 // C) 스크린샷(엥크레)

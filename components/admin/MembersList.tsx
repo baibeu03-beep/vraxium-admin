@@ -41,7 +41,6 @@ import {
 import type {
   MembersInfoStatsDto,
   InfoWeekRow,
-  InfoTopCrew,
 } from "@/lib/adminMembersInfoStats";
 
 type Member = {
@@ -1109,16 +1108,16 @@ function CumulativeStat({ label, value }: { label: string; value: string | numbe
   );
 }
 
-// Po.A/B/C 셀 — "김수로 120P" 또는 "-".
-function fmtTopCrew(c: InfoTopCrew | undefined): string {
-  return c ? `${c.name} ${c.points.toLocaleString()}P` : "-";
+// Po.A/B/C 셀 — 종류별 1위 크루 "이름 님 (N개)". 없으면 "-".
+function fmtPointLeader(c: { name: string; points: number } | null | undefined): string {
+  return c ? `${c.name} 님 (${c.points.toLocaleString()}개)` : "-";
 }
 
 function InfoWeekTableRow({ w, showPoints }: { w: InfoWeekRow; showPoints: boolean }) {
   const oldest = w.oldest
     ? `${w.oldest.startWeekLabel ?? "-"}, ${w.oldest.name}(${w.oldest.clubLabel})`
     : "-";
-  const top = w.weeklyTopPoints ?? [];
+  const pl = w.weeklyPointLeaders;
   return (
     <TableRow>
       <TableCell className="whitespace-nowrap text-center align-middle">
@@ -1145,9 +1144,9 @@ function InfoWeekTableRow({ w, showPoints }: { w: InfoWeekRow; showPoints: boole
       <TableCell className="whitespace-nowrap text-center align-middle">{oldest}</TableCell>
       {showPoints && (
         <>
-          <TableCell className="whitespace-nowrap text-center align-middle">{fmtTopCrew(top[0])}</TableCell>
-          <TableCell className="whitespace-nowrap text-center align-middle">{fmtTopCrew(top[1])}</TableCell>
-          <TableCell className="whitespace-nowrap text-center align-middle">{fmtTopCrew(top[2])}</TableCell>
+          <TableCell className="whitespace-nowrap text-center align-middle">{fmtPointLeader(pl?.poA)}</TableCell>
+          <TableCell className="whitespace-nowrap text-center align-middle">{fmtPointLeader(pl?.poB)}</TableCell>
+          <TableCell className="whitespace-nowrap text-center align-middle">{fmtPointLeader(pl?.poC)}</TableCell>
         </>
       )}
     </TableRow>

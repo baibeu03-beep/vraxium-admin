@@ -12,12 +12,24 @@ const ck = (l: string, ok: boolean, d = "") => {
   if (!ok) fail++;
 };
 
+// 4 org 을 모두 partialFailure 없이(완전 조회) 받을 때까지 재시도.
+//   통합(all)은 632 크루 fat 조회라 dev Supabase 에서 transient 청크 실패가 잦다 → 부분조회면
+//   합산이 어긋난다(코드 발산 아님). 모든 read 가 완전할 때만 비교(by construction all=union이라 동치).
+async function loadAllClean() {
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    const en = await loadMembersInfoStats({ organization: "encre", mode: "operating" });
+    const ok = await loadMembersInfoStats({ organization: "oranke", mode: "operating" });
+    const px = await loadMembersInfoStats({ organization: "phalanx", mode: "operating" });
+    const all = await loadMembersInfoStats({ organization: "all", mode: "operating" });
+    const pf = [en, ok, px, all].map((d) => d.partialFailure?.snapshotUnavailable ?? 0);
+    if (pf.every((n) => n === 0)) return { en, ok, px, all };
+    console.log(`  · attempt ${attempt}: 부분조회(en/ok/px/all 미조회=${pf.join("/")}) → 재시도`);
+  }
+  throw new Error("6회 내 완전 조회 실패(dev Supabase transient) — snapshot 자체는 무영향");
+}
+
 async function main() {
-  // 순차 호출(스냅샷 read-only — 호출 간 변동 없음). all 마지막에 호출해 최신 상태로 비교.
-  const en = await loadMembersInfoStats({ organization: "encre", mode: "operating" });
-  const ok = await loadMembersInfoStats({ organization: "oranke", mode: "operating" });
-  const px = await loadMembersInfoStats({ organization: "phalanx", mode: "operating" });
-  const all = await loadMembersInfoStats({ organization: "all", mode: "operating" });
+  const { en, ok, px, all } = await loadAllClean();
 
   const idx = (d: typeof all) => new Map(d.weeks.map((w) => [w.weekId, w]));
   const mEn = idx(en), mOk = idx(ok), mPx = idx(px);
