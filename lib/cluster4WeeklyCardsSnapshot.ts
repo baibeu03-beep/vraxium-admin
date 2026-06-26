@@ -286,7 +286,18 @@ async function writeRosterCardStats(
 //   기존 v27 snapshot 에는 experienceRate 필드가 없으므로 stale(version_mismatch) 처리해 재계산한다.
 // v29 (2026-06-26): detailLogMessageMeta append-only. Detail Log message branching
 // uses snapshot-baked previous/current status and capped success streak.
-export const WEEKLY_CARDS_DTO_VERSION = 29;
+// v30 (2026-06-26): 카드 DTO 에 actLogs[](Detail Log "수행 내역")를 append-only 추가.
+//   1차 범위 = 수행/적립된 액트만(미수행/미적립 예정·미스 row 제외 — 후속 Phase). SoT=
+//   process_point_awards(사용자·주차 적립 원장) → regular=process_acts(+line_groups)·
+//   irregular=process_irregular_acts JOIN. 포인트=원장 적립값(수동 override 포함). 변동>부분
+//   대상자 필터는 원장 생성(processPointAccrual: recipients matched / manual_grant target)에서
+//   이미 적용 — 카드는 user_id 원장만 본다(demoUserId 테스트도 그 사용자 원장 그대로). 주차 배분=
+//   원장(iso_year,iso_week)→weeks→start_date 로 card.startDate 에 매칭(합성 weekId 안전). 기존
+//   v29 snapshot 에는 actLogs 키가 없으므로
+//   stale(version_mismatch) 처리 → cron/lazy 재계산하며 채운다(DB 백필 아님 — 파생 캐시 재생성).
+//   ⚠ 무효화 경로: process_point_awards 적립/회수(processPointAccrual.applyAward/revokeForAct)가
+//   이미 invalidateWeeklyCardsForUsers 를 호출 — v30 부터 그 재계산이 actLogs 까지 갱신한다.
+export const WEEKLY_CARDS_DTO_VERSION = 30;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

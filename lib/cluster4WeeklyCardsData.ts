@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { loadActLogsByStartDate } from "@/lib/cluster4ActLogsData";
 import {
   getCompetencyMetaByMasterIdsRegFirst,
   getExperienceMetaByMasterIdsRegFirst,
@@ -2504,11 +2505,13 @@ export async function getCluster4WeeklyCardsForAuthUser(
       .map((card) => card.weekId as string),
   );
   const tLinesStart = Date.now();
-  const [lineMap, headerSnapshot, peopleMap] = await Promise.all([
+  const [lineMap, headerSnapshot, peopleMap, actLogsByWeek] = await Promise.all([
     fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds, legacyWeekIds),
     fetchHeaderExtrasSnapshot(profileUserId),
     // 위클리 평판/연계동료 + 인적사항 (주차별). 실패해도 빈 맵 폴백 → 카드 보호.
     fetchWeeklyPeopleByWeek(profileUserId, weekIds),
+    // Detail Log 액트 내역(적립 원장 → startDate 버킷). 실패 시 빈 맵(카드 보호). (append-only, v30)
+    loadActLogsByStartDate(profileUserId),
   ]);
   console.log(
     "[weekly-cards][timing] lineDetails+headerExtras",
@@ -2525,12 +2528,17 @@ export async function getCluster4WeeklyCardsForAuthUser(
     const people = card.weekId
       ? (peopleMap.get(card.weekId) ?? emptyWeeklyPeople())
       : emptyWeeklyPeople();
-    return toWeeklyCardDto(
-      card,
-      lines,
-      resolveHeaderExtras(card, headerSnapshot),
-      people,
-    );
+    // Detail Log 액트 내역 — startDate 기준 배분(없으면 []). 합성 weekId 안전. snapshot baking. (v30)
+    const actLogs = card.startDate ? (actLogsByWeek.get(card.startDate) ?? []) : [];
+    return {
+      ...toWeeklyCardDto(
+        card,
+        lines,
+        resolveHeaderExtras(card, headerSnapshot),
+        people,
+      ),
+      actLogs,
+    };
   }));
 }
 
@@ -2581,11 +2589,13 @@ export async function getCluster4WeeklyCardsForProfileUser(
       .map((card) => card.weekId as string),
   );
   const tLinesStart = Date.now();
-  const [lineMap, headerSnapshot, peopleMap] = await Promise.all([
+  const [lineMap, headerSnapshot, peopleMap, actLogsByWeek] = await Promise.all([
     fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds, legacyWeekIds),
     fetchHeaderExtrasSnapshot(profileUserId),
     // 위클리 평판/연계동료 + 인적사항 (주차별). 실패해도 빈 맵 폴백 → 카드 보호.
     fetchWeeklyPeopleByWeek(profileUserId, weekIds),
+    // Detail Log 액트 내역(적립 원장 → startDate 버킷). 실패 시 빈 맵(카드 보호). (append-only, v30)
+    loadActLogsByStartDate(profileUserId),
   ]);
   console.log(
     "[weekly-cards][timing] lineDetails+headerExtras",
@@ -2602,11 +2612,16 @@ export async function getCluster4WeeklyCardsForProfileUser(
     const people = card.weekId
       ? (peopleMap.get(card.weekId) ?? emptyWeeklyPeople())
       : emptyWeeklyPeople();
-    return toWeeklyCardDto(
-      card,
-      lines,
-      resolveHeaderExtras(card, headerSnapshot),
-      people,
-    );
+    // Detail Log 액트 내역 — startDate 기준 배분(없으면 []). 합성 weekId 안전. snapshot baking. (v30)
+    const actLogs = card.startDate ? (actLogsByWeek.get(card.startDate) ?? []) : [];
+    return {
+      ...toWeeklyCardDto(
+        card,
+        lines,
+        resolveHeaderExtras(card, headerSnapshot),
+        people,
+      ),
+      actLogs,
+    };
   }));
 }

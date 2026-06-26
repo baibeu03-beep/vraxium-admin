@@ -387,6 +387,33 @@ export type Cluster4DetailLogMessageMetaDto = {
   successStreakWeeks: number;
 };
 
+// ── Detail Log 액트 내역 (append-only, v30) ──
+// 1차 범위 = "수행/적립된 액트 내역"만(미수행/미적립 예정 액트·미스 row 제외).
+// SoT = process_point_awards(사용자·주차 적립 원장). 행이 곧 "이 크루가 받은 액트" 이므로
+//   변동>부분 대상자 필터(recipients matched / manual_grant target)가 원장 단계에서 이미 적용됨.
+// 액트 상세는 JOIN: regular→process_acts(+process_line_groups), irregular→process_irregular_acts.
+// 포인트(A/B/C)는 원장 적립값(수동 override 포함 실제 부여값) 그대로 — 마스터 재읽기 아님.
+export type Cluster4ActLogSource = "regular" | "irregular";
+// 1차는 수행/적립된 내역만 포함하므로 항상 "checked". (miss/실패 row 는 후속 Phase.)
+export type Cluster4ActLogResult = "checked";
+export type Cluster4ActLogDto = {
+  weekNumber: number;             // 부착된 카드의 시즌 주차 번호
+  result: Cluster4ActLogResult;   // 1차: "checked" 고정
+  actName: string;
+  occurredAt: string | null;      // 실제 발생/검수 시점 (irregular=scheduled_check_at??created_at, regular=completed_at??requested_at)
+  requestedAt: string | null;     // 체크 신청 시점 (regular=process_check_statuses.requested_at, irregular=null)
+  hub: string | null;             // regular=process_acts.hub, irregular=null(허브 비귀속)
+  lineGroupName: string | null;   // regular=process_line_groups.name, irregular=null
+  durationMinutes: number;        // 소요 시간(분). 없으면 0.
+  pointA: number;                 // = process_point_awards.point_check
+  pointB: number;                 // = process_point_awards.point_advantage
+  pointC: number;                 // = process_point_awards.point_penalty
+  source: Cluster4ActLogSource;
+  // regular: process_acts.act_type ("required"|"selection"|레거시 "optional"|"basic")
+  // irregular: process_irregular_acts.crew_reaction ("all"|"partial")
+  kind: string;
+};
+
 export type Cluster4WeeklyCardDto = {
   weekId: string | null;
   weekNumber: number;
@@ -456,6 +483,10 @@ export type Cluster4WeeklyCardDto = {
   titleText: string;
   lines: Cluster4LineDetailDto[];
   detailLogMessageMeta?: Cluster4DetailLogMessageMetaDto;
+  // ── Detail Log 액트 내역 (append-only, v30) ──
+  // 그 주차에 이 크루가 수행/적립한 프로세스 액트 목록. 없으면 []. SoT=process_point_awards.
+  // 프론트는 이 값을 "수행 내역"으로 렌더만 하고 별도 API 호출/임의 계산 금지(snapshot-only).
+  actLogs?: Cluster4ActLogDto[];
 
   // ── section1-header 단일 출처 보강 필드 (append-only) ──
   // status-badge 아이콘 결정. userWeekStatus 와 동일 enum 이지만 "아이콘용" 이라는 의도를 명시.
