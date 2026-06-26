@@ -1,0 +1,344 @@
+{
+ "mode": "preview",
+ "excelStopped": 66,
+ "resolvedCount": 66,
+ "perOrg": {
+  "encre": 37,
+  "oranke": 21,
+  "phalanx": 8
+ },
+ "held": [],
+ "conflicts": [],
+ "resolved": [
+  {
+   "name": "최지영",
+   "org": "encre",
+   "userId": "78c6c6f0-ce6f-4282-8315-55eceab3d1ad"
+  },
+  {
+   "name": "최유빈",
+   "org": "encre",
+   "userId": "d31d3d60-00c2-4d0f-bb56-a973c3b2bad7"
+  },
+  {
+   "name": "최성은",
+   "org": "encre",
+   "userId": "a08802dc-d928-45ae-b746-dedce7ec09fe"
+  },
+  {
+   "name": "차명주",
+   "org": "encre",
+   "userId": "e22032a0-d63b-4089-8792-f7b7cfcbddae"
+  },
+  {
+   "name": "이종혁",
+   "org": "encre",
+   "userId": "4f793419-76ea-4eaf-af71-f296f3a25a01"
+  },
+  {
+   "name": "이인서",
+   "org": "encre",
+   "userId": "c4b7c6ee-d69e-499f-b8ab-3574b2529159"
+  },
+  {
+   "name": "이보배",
+   "org": "encre",
+   "userId": "991ff170-12fc-4afd-818c-83c4708a7d43"
+  },
+  {
+   "name": "이나윤",
+   "org": "encre",
+   "userId": "06cb02c5-3eb5-44cd-a783-925648bc155f"
+  },
+  {
+   "name": "윤지원",
+   "org": "encre",
+   "userId": "1a22c830-748c-4c9f-af42-70e5d1423860"
+  },
+  {
+   "name": "옥유빈",
+   "org": "encre",
+   "userId": "241cbc47-ca0d-4172-9291-12086b64be04"
+  },
+  {
+   "name": "손승준",
+   "org": "encre",
+   "userId": "8894cc95-c307-4871-84bc-bf67a759c7d1"
+  },
+  {
+   "name": "성수인",
+   "org": "encre",
+   "userId": "40fd1f6d-6112-4c7c-9869-8c5247d2e5b1"
+  },
+  {
+   "name": "박준영",
+   "org": "encre",
+   "userId": "61915331-4ef0-4aef-a2f8-e28f6cb0d170"
+  },
+  {
+   "name": "박소민",
+   "org": "encre",
+   "userId": "62ac075a-f6c9-4d52-a476-378c9ddf66bf"
+  },
+  {
+   "name": "박가은",
+   "org": "encre",
+   "userId": "50afc15e-bee0-4fdb-be9f-503f75b18956"
+  },
+  {
+   "name": "문찬식",
+   "org": "encre",
+   "userId": "2d46ad94-66ed-47df-b305-ed3b32c21ae4"
+  },
+  {
+   "name": "강민경",
+   "org": "encre",
+   "userId": "822a62c0-dbe5-43d3-9809-278f0c60aea7"
+  },
+  {
+   "name": "강민주",
+   "org": "encre",
+   "userId": "db6a6135-1508-450b-885b-48a8e49737a1"
+  },
+  {
+   "name": "강소윤",
+   "org": "encre",
+   "userId": "210c58d6-1e00-42db-bd42-d9073ef5652a"
+  },
+  {
+   "name": "강현묵",
+   "org": "encre",
+   "userId": "39f9cef7-c6a4-47e7-b767-8abee8637eaf"
+  },
+  {
+   "name": "김가윤",
+   "org": "encre",
+   "userId": "e3f957c4-367b-419f-99a7-4e2172d0918e"
+  },
+  {
+   "name": "김경은",
+   "org": "encre",
+   "userId": "c849b8ee-f16c-4adc-9463-9379120b04b7"
+  },
+  {
+   "name": "김나은",
+   "org": "encre",
+   "userId": "25c55418-5080-478b-8479-89be5b460820"
+  },
+  {
+   "name": "김민아",
+   "org": "encre",
+   "userId": "052aeb95-4239-418c-a31f-33a07520362d"
+  },
+  {
+   "name": "서다희",
+   "org": "encre",
+   "userId": "a60c6f44-f300-421d-88b6-0a0a18c6757e"
+  },
+  {
+   "name": "오범모",
+   "org": "encre",
+   "userId": "f176eea2-530b-4efc-ae28-be4727d0ce19"
+  },
+  {
+   "name": "조서연",
+   "org": "encre",
+   "userId": "b4baa160-9df9-432a-b7a6-2c96f2f50254"
+  },
+  {
+   "name": "전수빈",
+   "org": "encre",
+   "userId": "6c271430-9267-4b1d-8730-b97c746015a3"
+  },
+  {
+   "name": "김민영",
+   "org": "encre",
+   "userId": "75764c31-8206-4d98-8acd-3015ce98d539"
+  },
+  {
+   "name": "김보배",
+   "org": "encre",
+   "userId": "498d87c0-d1a9-443c-a470-d7d18057e509"
+  },
+  {
+   "name": "박소현",
+   "org": "encre",
+   "userId": "5d7ab85f-fa6b-4b84-841b-ee0faf885ee4"
+  },
+  {
+   "name": "김여은",
+   "org": "encre",
+   "userId": "666eeccf-8b9e-4d93-b857-9b15b46b910b"
+  },
+  {
+   "name": "김재연",
+   "org": "encre",
+   "userId": "8ba14f7b-20f3-4732-bf9f-e49e517384f8"
+  },
+  {
+   "name": "김제현",
+   "org": "encre",
+   "userId": "e752c775-ac53-4ab1-a1c6-bbd988633e8c"
+  },
+  {
+   "name": "박유민",
+   "org": "encre",
+   "userId": "f55c4dcb-6b51-41cf-98b8-9068eeddcc0e"
+  },
+  {
+   "name": "안지민",
+   "org": "encre",
+   "userId": "539a45b0-71d1-49ca-a7c4-03ab462d3cc1"
+  },
+  {
+   "name": "김현지",
+   "org": "encre",
+   "userId": "da086fbd-de44-428b-a700-36a54cae6a45"
+  },
+  {
+   "name": "이채은",
+   "org": "oranke",
+   "userId": "50610737-9d35-4514-a617-c70072d4b2c0"
+  },
+  {
+   "name": "이나영",
+   "org": "oranke",
+   "userId": "579e077f-fc58-46cc-b7a8-6b42e81592ef"
+  },
+  {
+   "name": "이승아",
+   "org": "oranke",
+   "userId": "a928431e-6acc-4329-902c-cea0ee515eb2"
+  },
+  {
+   "name": "임정",
+   "org": "oranke",
+   "userId": "41349692-429a-4036-8800-8d21929dbf0a"
+  },
+  {
+   "name": "곽진아",
+   "org": "oranke",
+   "userId": "8d691b0b-feee-4ba0-bb4f-06c46e5ba55b"
+  },
+  {
+   "name": "김나우",
+   "org": "oranke",
+   "userId": "90bc680e-f8ef-4545-8f61-1fef0a6d4dd2"
+  },
+  {
+   "name": "김민수",
+   "org": "oranke",
+   "userId": "22a95d1f-8207-4539-894b-49d9a4a2aa05"
+  },
+  {
+   "name": "김혜윤",
+   "org": "oranke",
+   "userId": "288541d1-1cb3-4ffe-ba2e-c3ee92f4aa83"
+  },
+  {
+   "name": "배서진",
+   "org": "oranke",
+   "userId": "d6de72d3-2095-48b9-9eb0-aac2b3c116b2"
+  },
+  {
+   "name": "한승재",
+   "org": "oranke",
+   "userId": "bd72548d-82e7-406b-ba06-f2946e6ba0b4"
+  },
+  {
+   "name": "김현아",
+   "org": "oranke",
+   "userId": "5c3a934d-ee83-469e-87da-5b2096808a2f"
+  },
+  {
+   "name": "오나연",
+   "org": "oranke",
+   "userId": "d92d9519-7f01-40f2-abe8-094838cd1eb0"
+  },
+  {
+   "name": "임혜진",
+   "org": "oranke",
+   "userId": "53a5add3-ea2f-4ae1-8a18-90178b147c70"
+  },
+  {
+   "name": "최예진",
+   "org": "oranke",
+   "userId": "4bed6fc3-a38c-4cb9-a2d9-5e406f5177f3"
+  },
+  {
+   "name": "이유진",
+   "org": "oranke",
+   "userId": "b0b1e041-180c-4187-b40d-848d3f9552cb"
+  },
+  {
+   "name": "박진우",
+   "org": "oranke",
+   "userId": "1c427e64-2b45-483f-a9c3-4339254b004b"
+  },
+  {
+   "name": "지예림",
+   "org": "oranke",
+   "userId": "e6b25f1b-3bc9-40fb-af87-4f2f44a9e6df"
+  },
+  {
+   "name": "박채원",
+   "org": "oranke",
+   "userId": "02054750-6a4a-413b-9394-fc542c4ae1ac"
+  },
+  {
+   "name": "공나윤",
+   "org": "oranke",
+   "userId": "af1ba984-4dfb-40ef-a2a4-39c66b59c11f"
+  },
+  {
+   "name": "문지원",
+   "org": "oranke",
+   "userId": "19aef58d-3694-4586-8992-003b0c368c38"
+  },
+  {
+   "name": "이종헌",
+   "org": "oranke",
+   "userId": "d58347a0-09d7-4a64-954d-a956cd393360"
+  },
+  {
+   "name": "양혁진",
+   "org": "phalanx",
+   "userId": "7fc78617-7a56-4fe0-8cbd-a9d857f292bc"
+  },
+  {
+   "name": "정수아",
+   "org": "phalanx",
+   "userId": "2dc7f9ac-3452-426f-a948-51e40dc953de"
+  },
+  {
+   "name": "신지현",
+   "org": "phalanx",
+   "userId": "d43fff71-8f90-465a-a471-c65abfa3ce36"
+  },
+  {
+   "name": "김연우",
+   "org": "phalanx",
+   "userId": "7dfad8dc-b900-4e3c-a13b-e0b6b42342ca"
+  },
+  {
+   "name": "김민송",
+   "org": "phalanx",
+   "userId": "24caea11-ae48-489f-83a9-52780cb9eb96"
+  },
+  {
+   "name": "조은재",
+   "org": "phalanx",
+   "userId": "296de78e-2a24-450c-9af1-c93a66b9f982"
+  },
+  {
+   "name": "선은채",
+   "org": "phalanx",
+   "userId": "89eca4ba-5dc5-493a-8389-d3cf84cdc869"
+  },
+  {
+   "name": "김민서",
+   "org": "phalanx",
+   "userId": "b8825301-3bfa-40d0-bbca-5a0cc645e446"
+  }
+ ]
+}

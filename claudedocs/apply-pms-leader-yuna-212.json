@@ -1,0 +1,15 @@
+{
+  "src": "olympus",
+  "uid": 212,
+  "userId": "4ff19118-c13f-4a3c-aad2-fbb189244266",
+  "inserted": {
+    "users": true,
+    "profile": true,
+    "membership": "91454af8-5ac3-4961-a4cb-4639a7b7c8ee",
+    "education": "a9719944-1e69-4655-8177-b58db714fc36"
+  },
+  "relink": {
+    "team_half_id": "7767cd0e-05ae-4213-baef-e94a779907e0",
+    "priorLeader": "e04f135e-8505-499e-9c73-d3d37c258a49"
+  }
+}

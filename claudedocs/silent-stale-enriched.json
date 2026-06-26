@@ -1,0 +1,609 @@
+[
+ {
+  "userId": "0035b7c5-6092-4bc5-937e-06c1c6bc5780",
+  "org": "encre",
+  "computedAt": "2026-06-25T04:43:29.161+00:00",
+  "deterministic": true,
+  "httpStatus": 200,
+  "httpEqStored": true,
+  "httpEqDirect": true,
+  "storedEqDirect": true,
+  "cause": "transient_false_positive(now_match)",
+  "diffCards": [
+   {
+    "weekId": "dd479e91-2f06-459a-930b-6774b34c12bd",
+    "seasonKey": "2026-spring",
+    "weekNumber": 17,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "9af934a2-5c11-4932-b800-5bdb83183e68",
+    "seasonKey": "2026-spring",
+    "weekNumber": 16,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "190ea8e9-461c-4ec4-abba-e83e63a4dc92",
+    "seasonKey": "2026-spring",
+    "weekNumber": 15,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "286ddd42-aa7c-4df8-bcff-c7c1a9f5425e",
+    "seasonKey": "2026-spring",
+    "weekNumber": 14,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "a2112b50-64d2-42d6-a243-faf9fcdc6ffc",
+    "seasonKey": "2026-spring",
+    "weekNumber": 13,
+    "statusLabel": "휴식(개인)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "00000000-0000-0000-0000-202605210002",
+    "seasonKey": "2026-spring",
+    "weekNumber": 12,
+    "statusLabel": "휴식(개인)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "67e07106-564e-4dab-b180-8f11c909973a",
+    "seasonKey": "2026-spring",
+    "weekNumber": 11,
+    "statusLabel": "휴식(개인)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+    "seasonKey": "2026-spring",
+    "weekNumber": 10,
+    "statusLabel": "휴식(개인)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "b531c234-e860-499a-992c-b74d2c1d5349",
+    "seasonKey": "2026-spring",
+    "weekNumber": 9,
+    "statusLabel": "휴식(개인)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "33b02e62-c020-4632-b0be-c2ec6aec86ee",
+    "seasonKey": "2026-spring",
+    "weekNumber": 8,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "94f273c1-8998-4900-9f38-57fe8926fc0a",
+    "seasonKey": "2026-spring",
+    "weekNumber": 7,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "27f57da9-5817-492b-bcfe-b9f6f61f8067",
+    "seasonKey": "2026-spring",
+    "weekNumber": 6,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "20a7ebcb-85ea-4a98-83fa-a920d010038a",
+    "seasonKey": "2026-spring",
+    "weekNumber": 5,
+    "statusLabel": "휴식(개인)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "5eca4fe4-77ff-46bc-9e53-8772a078b651",
+    "seasonKey": "2026-spring",
+    "weekNumber": 4,
+    "statusLabel": "휴식(개인)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "c6800fe1-8200-4b10-9c97-7515b6a805ca",
+    "seasonKey": "2026-spring",
+    "weekNumber": 3,
+    "statusLabel": "휴식(개인)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "31672f8c-e58c-4d92-9939-197237d7fbcf",
+    "seasonKey": "2026-spring",
+    "weekNumber": 2,
+    "statusLabel": "휴식(개인)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "d3aa89d8-35f6-42b3-bb12-a1d65b6b0e91",
+    "seasonKey": "2026-spring",
+    "weekNumber": 1,
+    "statusLabel": "휴식(개인)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "92ae6aef-131a-4fc5-beb0-68c7c2fb397a",
+    "seasonKey": "2026-winter",
+    "weekNumber": 9,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "97a6523b-0e0e-4de7-93c5-bb8404ac9ac2",
+    "seasonKey": "2026-winter",
+    "weekNumber": 8,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "69723c73-725b-4dbb-a7af-29313c35fa80",
+    "seasonKey": "2025-autumn",
+    "weekNumber": 17,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "2d5799c7-1987-4e32-a58f-94557cacd879",
+    "seasonKey": "2025-autumn",
+    "weekNumber": 16,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "a32422e8-f6fa-4e44-9ba0-a5d6e0f109fb",
+    "seasonKey": "2025-autumn",
+    "weekNumber": 15,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "cdf32a4d-2195-4c9f-b058-5adeaa28e60e",
+    "seasonKey": "2025-autumn",
+    "weekNumber": 14,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "0d5c1ad2-5dac-48c6-b092-8f1b2a924b93",
+    "seasonKey": "2025-autumn",
+    "weekNumber": 8,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "355b58ba-7fad-4fd9-bbd6-a5685eacdcfc",
+    "seasonKey": "2025-autumn",
+    "weekNumber": 7,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "9e9710d7-d20b-42ec-8dfa-ea722202ca66",
+    "seasonKey": "2025-autumn",
+    "weekNumber": 6,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "c14efec7-d273-49eb-a4fa-bb058f0a7f78",
+    "seasonKey": "2025-spring",
+    "weekNumber": 16,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "09aa7593-9ff8-443d-b495-4ad73f9b03b3",
+    "seasonKey": "2025-spring",
+    "weekNumber": 15,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "575ad945-12bd-4fcd-95b3-92519aad3d86",
+    "seasonKey": "2025-spring",
+    "weekNumber": 14,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "26ddb54a-ec52-4bef-b4f4-7814ee4d30fa",
+    "seasonKey": "2025-spring",
+    "weekNumber": 8,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "6035009a-8602-49f1-8c3f-7c35be1e3f4a",
+    "seasonKey": "2025-spring",
+    "weekNumber": 7,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "b92ed6d2-e261-43d8-aef7-325129d07c00",
+    "seasonKey": "2025-spring",
+    "weekNumber": 6,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "b39ebb3d-7d9f-444d-84b1-8e2ed858b2d5",
+    "seasonKey": "2025-winter",
+    "weekNumber": 5,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "9f11a6c6-902d-4d46-9f54-c03a371c62cf",
+    "seasonKey": "2024-autumn",
+    "weekNumber": 16,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "6e355dc9-d662-4497-8378-25b9743808f1",
+    "seasonKey": "2024-autumn",
+    "weekNumber": 15,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "a74ecd68-7a0b-4e60-bc2d-5634c551bc33",
+    "seasonKey": "2024-autumn",
+    "weekNumber": 14,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "7d41357b-8212-44b2-bad6-45090641e6b4",
+    "seasonKey": "2024-autumn",
+    "weekNumber": 8,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "67906ed8-b316-469e-b491-5dafe24b7cc5",
+    "seasonKey": "2024-autumn",
+    "weekNumber": 7,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "8d18584b-38f3-4a73-9f47-f7dcba21ac7e",
+    "seasonKey": "2024-autumn",
+    "weekNumber": 6,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "bd9a6b97-95f3-4e10-88f1-b010a6919cc1",
+    "seasonKey": "2024-autumn",
+    "weekNumber": 0,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "4290c2d1-9651-4b1a-b827-41be10f89a4d",
+    "seasonKey": "2024-summer",
+    "weekNumber": 8,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "ac50778a-4a4d-4b8d-a116-66ea34417127",
+    "seasonKey": "2024-summer",
+    "weekNumber": 6,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "9bbf4ddd-6faf-489a-b813-54d2c283f218",
+    "seasonKey": "2024-summer",
+    "weekNumber": 5,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "1c584832-7b40-41a6-82e4-3a2fa68ac346",
+    "seasonKey": "2024-summer",
+    "weekNumber": 4,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "84d7e7ee-9d15-4726-a400-579cf164e0da",
+    "seasonKey": "2024-summer",
+    "weekNumber": 3,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "ad79b7c0-8bd1-491a-b91b-7551134453b7",
+    "seasonKey": "2024-summer",
+    "weekNumber": 2,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "07d1c32b-29ff-4e06-848b-348288732c11",
+    "seasonKey": "2024-summer",
+    "weekNumber": 1,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "0e37c07a-2ec2-4eb2-959d-0e216c1cd114",
+    "seasonKey": "2024-spring",
+    "weekNumber": 17,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "9bf01d27-95d1-4b9f-8a93-8993f53714cf",
+    "seasonKey": "2024-spring",
+    "weekNumber": 0,
+    "statusLabel": "휴식(공식)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "64b56d7c-ee11-44f0-83d8-abb57a52c975",
+    "seasonKey": "2024-winter",
+    "weekNumber": 7,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "34a04b5a-7823-4883-89e3-eeedff5db8eb",
+    "seasonKey": "2024-winter",
+    "weekNumber": 5,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "665b0da0-c03b-4f95-90cc-089b356a13dc",
+    "seasonKey": "2024-winter",
+    "weekNumber": 4,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "32ea862e-5ace-4364-b188-5f614c1c6058",
+    "seasonKey": "2024-winter",
+    "weekNumber": 3,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   },
+   {
+    "weekId": "681234d3-3b1c-44ac-b4ba-7055014849b6",
+    "seasonKey": "2024-winter",
+    "weekNumber": 2,
+    "statusLabel": "성장(성공)",
+    "hubsChanged": [],
+    "metaChanged": true,
+    "fieldPaths": [
+     "experienceRate"
+    ]
+   }
+  ]
+ }
+]

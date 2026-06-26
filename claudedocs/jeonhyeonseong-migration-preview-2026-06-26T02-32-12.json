@@ -1,0 +1,55 @@
+{
+ "generatedAt": "2026-06-26T02-32-12",
+ "mode": "preview",
+ "target": {
+  "src": "oranke",
+  "uid": 1051,
+  "name": "전현성",
+  "org": "oranke",
+  "uuid": "1920aadb-5a5f-4826-8237-c7376e15b143"
+ },
+ "pms": {
+  "birthIso": "2004-10-01",
+  "gender": "남",
+  "school": "인천대",
+  "major": "스포츠과학부",
+  "contact": "01040068153",
+  "mail": "wjsgustjd22@gmail.com",
+  "team": "커머스",
+  "part": "센스",
+  "level": "일반",
+  "state": "활동정지",
+  "startDate": "2025-03-17",
+  "week": 13,
+  "balStar": 838,
+  "balShield": 40
+ },
+ "teamPart": {
+  "teamName": "커머스",
+  "partName": "센스"
+ },
+ "counts": {
+  "pointlogs": 375,
+  "ledger": 376,
+  "uwp": 21,
+  "uws": 16,
+  "experience": 16,
+  "flips": 0,
+  "unattributed": 2,
+  "ensureLines": 0,
+  "summerConflict": 0
+ },
+ "seasonBreakdown": {
+  "2025-spring": 8,
+  "2025-summer": 8
+ },
+ "sentinel": {
+  "points": 5,
+  "advantages": 13,
+  "penalty": 0
+ },
+ "seasonStatus": {
+  "season_key": "2026-summer",
+  "status": "rest"
+ }
+}

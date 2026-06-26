@@ -1,0 +1,100 @@
+◇ injected env (0) from .env.local // tip: ◈ encrypted .env [www.dotenvx.com]
+윤서영 후보: [{"user_id":"73b3fa9a-e875-43d0-a945-477237eb2f68","display_name":"윤서영","organization_slug":"encre"}]
+
+──── 상세: 윤서영 (encre) 73b3fa9a-e875-43d0-a945-477237eb2f68 ────
+  uws 행수: 22
+  season_key 분포: [["2024-autumn",8],["2025-winter",7],["2025-summer",7]]
+   2024-09-09 wk37 success       season=2024-autumn
+   2024-09-23 wk39 success       season=2024-autumn
+   2024-09-30 wk40 success       season=2024-autumn
+   2024-10-28 wk44 success       season=2024-autumn
+   2024-11-04 wk45 success       season=2024-autumn
+   2024-11-11 wk46 success       season=2024-autumn
+   2024-11-18 wk47 success       season=2024-autumn
+   2024-11-25 wk48 success       season=2024-autumn
+   2024-12-30 wk1 success       season=2025-winter
+   2025-01-06 wk2 success       season=2025-winter
+   2025-01-13 wk3 success       season=2025-winter
+   2025-01-20 wk4 success       season=2025-winter
+   2025-02-03 wk6 success       season=2025-winter
+   2025-02-10 wk7 success       season=2025-winter
+   2025-02-17 wk8 fail          season=2025-winter
+   2025-07-07 wk28 success       season=2025-summer
+   2025-07-14 wk29 success       season=2025-summer
+   2025-07-21 wk30 success       season=2025-summer
+   2025-07-28 wk31 success       season=2025-summer
+   2025-08-04 wk32 success       season=2025-summer
+   2025-08-11 wk33 success       season=2025-summer
+   2025-08-18 wk34 fail          season=2025-summer
+  computeSeasonRecords → 3 rows:
+   25 여름 시즌 | 운영진(앰배서더) | 정상 완료 | 6주/8주 | 승인 완료
+   25 겨울 시즌 | 운영진(앰배서더) | 정상 완료 | 6주/8주 | 승인 완료
+   24 가을 시즌 | 운영진(앰배서더) | 정상 완료 | 8주/16주 | 승인 완료
+
+
+════════ 전수 감사 (테스트 제외) ════════
+대상 유저(uws보유·테스트제외): 624
+  ...100/624
+  ...200/624
+  ...300/624
+  ...400/624
+  ...500/624
+  ...600/624
+
+──── 이상치 55건 ────
+kind 분포: [["0/n",55]]
+  [0/n] 지예빈 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 오유나 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 구현지 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 김영진 (encre) :: 25 여름 시즌 0/8 활동 중단
+  [0/n] 설경민 (oranke) :: 25 봄 시즌 0/16 활동 중단
+  [0/n] 육소헌 (encre) :: 25 가을 시즌 0/16 활동 중단
+  [0/n] 임하경 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 김민경 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 김세현 (encre) :: 26 봄 시즌 0/16 활동 중단
+  [0/n] 조규리 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 제서영 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 목정민 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 김나연 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 엄태설 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 선해솔 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 이종혁 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 정혜선 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 박소민 (encre) :: 26 봄 시즌 0/16 활동 중단
+  [0/n] 안지윤 (oranke) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 손지영 (oranke) :: 23 가을 시즌 0/16 활동 중단
+  [0/n] 서유진 (oranke) :: 25 여름 시즌 0/8 활동 중단
+  [0/n] 백자은 (encre) :: 25 가을 시즌 0/16 활동 중단
+  [0/n] 김희재 (encre) :: 23 가을 시즌 0/16 활동 중단
+  [0/n] 최수연 (encre) :: 26 봄 시즌 0/16 활동 중단
+  [0/n] 손승준 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 최서윤 (oranke) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 고영서 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 정우진 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 유희주 (encre) :: 23 가을 시즌 0/16 활동 중단
+  [0/n] 이보배 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 손정민 (encre) :: 26 봄 시즌 0/16 활동 중단
+  [0/n] 손정민 (encre) :: 25 가을 시즌 0/16 활동 중단
+  [0/n] 손정민 (encre) :: 25 여름 시즌 0/8 활동 중단
+  [0/n] 손정민 (encre) :: 25 봄 시즌 0/16 활동 중단
+  [0/n] 손정민 (encre) :: 25 겨울 시즌 0/8 활동 중단
+  [0/n] 손정민 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 노서정 (encre) :: 25 여름 시즌 0/8 활동 중단
+  [0/n] 김준우 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 박동근 (-) :: 26 봄 시즌 0/16 활동 중단
+  [0/n] 황승희 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 김유정 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 양지원 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 공지민 (oranke) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 이유나 (-) :: 26 봄 시즌 0/16 활동 중단
+  [0/n] 이인서 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 김수연 (encre) :: 26 봄 시즌 0/16 활동 중단
+  [0/n] 최시윤 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 김기연 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 강민주 (encre) :: 25 가을 시즌 0/16 활동 중단
+  [0/n] 박상아 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 김다정 (encre) :: 26 봄 시즌 0/16 활동 중단
+  [0/n] 이예령 (encre) :: 25 겨울 시즌 0/8 활동 중단
+  [0/n] 김유나 (encre) :: 24 봄 시즌 0/16 활동 중단
+  [0/n] 백윤서 (encre) :: 25 겨울 시즌 0/8 활동 중단
+  [0/n] 송신혜 (encre) :: 24 봄 시즌 0/16 활동 중단

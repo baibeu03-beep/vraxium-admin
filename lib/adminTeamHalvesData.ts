@@ -11,6 +11,7 @@ import {
 import { getUserIdByCrewCode } from "@/lib/adminCrewCodeData";
 import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
 import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
+import { classLabel } from "@/lib/adminMembersTypes";
 import { isOrganizationSlug } from "@/lib/organizations";
 
 // 반기별 팀 SoT(cluster4_team_halves) 데이터 접근.
@@ -36,13 +37,16 @@ export type TeamHalfTeamDto = {
   description: string | null;
   leaderUserId: string | null;
   leaderCrewCode: string | null;
-  // 팀장 기본정보(시안 box Row2) — user_profiles + 대표 학력. 품계/클래스는 box 미표시.
+  // 팀장 기본정보(시안 box Row2). 이름 = leader_name SoT(명단) 우선, 없으면 연결크루 display_name.
+  //   인물 부가정보(성별/생년월일/학교/전공/거주/클래스/품계)는 연결크루 존재 시에만 채움(무매칭=null→"-").
   leaderName: string | null;
   leaderBirth6: string | null; // YYMMDD
   leaderGender: string | null;
   leaderSchool: string | null;
   leaderMajor: string | null;
   leaderResidence: string | null;
+  leaderClassLabel: string | null; // 클래스(정규/심화/운영진…)
+  leaderGradeLabel: string | null; // 품계(예: "2품")
   // 파트(현재 주차 기준) — 점유 파트 없으면 "일반"(min 1).
   partCount: number;
   partNames: string[];
@@ -80,6 +84,7 @@ type Row = {
   description: string | null;
   leader_user_id: string | null;
   leader_crew_code: string | null;
+  leader_name: string | null;
 };
 
 // 팀 생성 직후/점유 파트가 없을 때 노출하는 기본 파트명.
@@ -152,12 +157,44 @@ export async function listAvailableHalves(
 //   user_profiles + 대표 학력(user_educations) — 품계/클래스(코호트 스캔)는 box 미표시라 제외.
 type LeaderBasic = {
   name: string | null;
+  org: string | null; // 연결 크루의 organization_slug — 팀 org 와 다르면 상세 미노출(조직 강제).
   birth6: string | null;
   gender: string | null;
   residence: string | null;
   school: string | null;
   major: string | null;
+  classLabel: string | null;
+  gradeLabel: string | null;
 };
+
+// user_memberships 행 중 대표 등급(membership_level) 선택 — 클래스 산출용.
+//   현재+팀보유 우선 → 팀보유 → 현재 → 그 외, 동률은 updated_at desc.
+//   (lib/lineAvailability·diag-team-leader-management-gate 의 pickLevel 과 동일 규칙)
+type MemLevelRow = {
+  user_id: string;
+  membership_level: string | null;
+  team_name: string | null;
+  is_current: boolean | null;
+  updated_at: string | null;
+};
+function pickLevel(rows: MemLevelRow[]): string | null {
+  if (rows.length === 0) return null;
+  const rank = (r: MemLevelRow) => {
+    const cur = Boolean(r.is_current);
+    const team = typeof r.team_name === "string" && r.team_name.trim() !== "";
+    if (cur && team) return 0;
+    if (team) return 1;
+    if (cur) return 2;
+    return 3;
+  };
+  const best = rows.slice().sort((a, b) => {
+    const d = rank(a) - rank(b);
+    if (d !== 0) return d;
+    return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
+  })[0];
+  return best?.membership_level ?? null;
+}
+
 async function getLeaderBasicsBatch(
   userIds: string[],
 ): Promise<Map<string, LeaderBasic>> {
@@ -166,7 +203,7 @@ async function getLeaderBasicsBatch(
 
   const { data: profs, error: pErr } = await supabaseAdmin
     .from("user_profiles")
-    .select("user_id,display_name,gender,birth_date,address,school_name,department_name")
+    .select("user_id,display_name,gender,birth_date,address,school_name,department_name,role,organization_slug")
     .in("user_id", userIds);
   if (pErr) throw new Error(pErr.message);
 
@@ -175,6 +212,20 @@ async function getLeaderBasicsBatch(
     .select("user_id,school_name,major_name_1,is_primary,sort_order,updated_at")
     .in("user_id", userIds);
   if (eErr) throw new Error(eErr.message);
+
+  // 클래스(role+membership_level) + 품계(getClubRankGradeBatch) 배치.
+  const { data: mems, error: mErr } = await supabaseAdmin
+    .from("user_memberships")
+    .select("user_id,membership_level,team_name,is_current,updated_at")
+    .in("user_id", userIds);
+  if (mErr) throw new Error(mErr.message);
+  const memByUser = new Map<string, MemLevelRow[]>();
+  for (const m of (mems ?? []) as MemLevelRow[]) {
+    const arr = memByUser.get(m.user_id) ?? [];
+    arr.push(m);
+    memByUser.set(m.user_id, arr);
+  }
+  const gradeMap = await getClubRankGradeBatch(userIds);
 
   // 대표 학력 선택: is_primary 우선 → sort_order asc → updated_at desc.
   const eduByUser = new Map<string, { school: string | null; major: string | null }>();
@@ -203,15 +254,22 @@ async function getLeaderBasicsBatch(
     address: string | null;
     school_name: string | null;
     department_name: string | null;
+    role: string | null;
+    organization_slug: string | null;
   }>) {
     const edu = eduByUser.get(p.user_id);
+    const level = pickLevel(memByUser.get(p.user_id) ?? []);
+    const grade = gradeMap.get(p.user_id);
     out.set(p.user_id, {
       name: p.display_name,
+      org: p.organization_slug,
       birth6: toBirth6(p.birth_date),
       gender: p.gender,
       residence: p.address,
       school: edu?.school ?? p.school_name ?? null,
       major: edu?.major ?? p.department_name ?? null,
+      classLabel: classLabel(p.role ?? null, level),
+      gradeLabel: grade?.label ?? null,
     });
   }
   return out;
@@ -286,7 +344,7 @@ export async function listHalfTeams(
   const { data, error } = await supabaseAdmin
     .from("cluster4_team_halves")
     .select(
-      "id,team_name,team_id,display_order,is_active,description,leader_user_id,leader_crew_code",
+      "id,team_name,team_id,display_order,is_active,description,leader_user_id,leader_crew_code,leader_name",
     )
     .eq("organization_slug", organization)
     .eq("half_key", halfKey)
@@ -306,7 +364,10 @@ export async function listHalfTeams(
   ]);
 
   return rows.map((r) => {
-    const lb = r.leader_user_id ? leaderBasics.get(r.leader_user_id) : null;
+    const lbRaw = r.leader_user_id ? leaderBasics.get(r.leader_user_id) : null;
+    // 조직 강제: 연결 크루의 org 가 팀 org 와 다르면 상세를 노출하지 않는다(다른 조직 동명 방지).
+    //   leader_name(이름 SoT)은 유지되므로 이름만 표시되고 나머지는 "-".
+    const lb = lbRaw && lbRaw.org === organization ? lbRaw : null;
     const pi = partInfo.get(r.team_name) ?? {
       partCount: 1,
       partNames: [DEFAULT_PART_NAME],
@@ -320,12 +381,16 @@ export async function listHalfTeams(
       description: r.description,
       leaderUserId: r.leader_user_id,
       leaderCrewCode: r.leader_crew_code,
-      leaderName: lb?.name ?? null,
+      // 이름 = 명단 SoT(leader_name) 우선, 없으면 연결크루 display_name. 둘 다 없으면 null→"-".
+      leaderName: r.leader_name ?? lb?.name ?? null,
+      // 부가정보는 연결크루 존재 시에만(무매칭=null→UI "-").
       leaderBirth6: lb?.birth6 ?? null,
       leaderGender: lb?.gender ?? null,
       leaderSchool: lb?.school ?? null,
       leaderMajor: lb?.major ?? null,
       leaderResidence: lb?.residence ?? null,
+      leaderClassLabel: lb?.classLabel ?? null,
+      leaderGradeLabel: lb?.gradeLabel ?? null,
       partCount: pi.partCount,
       partNames: pi.partNames,
     };

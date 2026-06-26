@@ -38,6 +38,8 @@ type TeamDto = {
   leaderSchool: string | null;
   leaderMajor: string | null;
   leaderResidence: string | null;
+  leaderClassLabel: string | null;
+  leaderGradeLabel: string | null;
   partCount: number;
   partNames: string[];
 };
@@ -499,7 +501,10 @@ export default function TeamPartsInfoManager() {
 
                 {/* Row 2: 팀장 기본정보 · 파트 수 · 파트 칩 */}
                 <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-medium">
+                  <span
+                    data-team-leader-name={t.teamName}
+                    className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-medium"
+                  >
                     {dash(t.leaderName)}
                   </span>
                   <span className="text-muted-foreground">
@@ -514,6 +519,18 @@ export default function TeamPartsInfoManager() {
                   </span>
                   <span className="text-muted-foreground">
                     {dash(t.leaderResidence)}
+                  </span>
+                  <span
+                    data-team-leader-class={t.teamName}
+                    className="text-muted-foreground"
+                  >
+                    {dash(t.leaderClassLabel)}
+                  </span>
+                  <span
+                    data-team-leader-grade={t.teamName}
+                    className="text-muted-foreground"
+                  >
+                    {dash(t.leaderGradeLabel)}
                   </span>
                   <span className="ml-2">
                     · 파트 수{" "}

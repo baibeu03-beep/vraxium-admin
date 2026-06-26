@@ -1,0 +1,1052 @@
+=== encre 실무정보(info) 자동 검수 DRY-RUN (READ-ONLY) ===
+날짜 기준 적립 경계(CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) = 2026-06-29
+크롤러: CAFE_CRAWLER_URL 설정됨(외부 서비스) · NO_CRAWL=false
+
+[1] active info 라인 605건 중 encre(EC 토큰) 345건
+    └ user-target 0명: 309건 (그 중 cafe링크 없음 0건)
+[1] ✅ 자동 검수 대상 라인(0명 + cafe링크) = 309건
+
+── 대상 라인 목록 ──
+  · 5e1b7c38 | info-EC-wisdom-2025w01 | 2025-winter 1주차(iso 2025-W1, start 2024-12-30, 공표됨) | act=wisdom(위즈덤) | "[미디어/숏폼] “짧아야 오래 본다” 네이버 숏텐츠 출시와 플랫폼 대전! 숏폼 커머스의 생존 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/21843
+  · fad48250 | info-EC-wisdom-2025w30 | 2025-summer 4주차(iso 2025-W30, start 2025-07-21, 공표됨) | act=wisdom(위즈덤) | "[패션/문화] 콘서트 드레스 코드와 패션의 만남! 드레스 코드를 드레스 밈(Meme)으로 확장하는 팬덤 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/30092
+  · 83d40999 | info-EC-wisdom-2026w06 | 2026-winter 6주차(iso 2026-W6, start 2026-02-02, 공표됨) | act=wisdom(위즈덤) | "[뮤직/트렌드] 각양각색 K-POP 하우스 붐! Y2K 감성과 세련된 미니멀리즘을 관통하는 장르 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37393
+  · 19e5cd1e | info-EC-wisdom-2024w11 | 2024-spring 2주차(iso 2024-W11, start 2024-03-11, 공표됨) | act=wisdom(위즈덤) | "[문화/트렌드] Y2K 다음 주자는 누구인가? 미래주의와 아날로그가 결합한 차세대 레트로 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/9087
+  · 84e2bf22 | info-EC-wisdom-2024w40 | 2024-autumn 5주차(iso 2024-W40, start 2024-09-30, 공표됨) | act=wisdom(위즈덤) | "[패션/트렌드] 기능성에 힙함을 더한 '고프코어' 열풍! 아웃도어를 일상으로 끌어들인 패션 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/19201
+  · 1d1262b7 | info-EC-wisdom-2023w47 | 2023-autumn 12주차(iso 2023-W47, start 2023-11-20, 공표됨) | act=wisdom(위즈덤) | "[엔터/브랜딩] 데뷔 후 또 데뷔하는 유닛 결성 전략! 메인 브랜드의 자산을 활용한 마이크로 타깃팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/3669
+  · f013c08b | info-EC-wisdom-2025w02 | 2025-winter 2주차(iso 2025-W2, start 2025-01-06, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/IP] 웹툰 원작 드라마, 누가 누구를 살리는가? 원작 팬덤과 미디어 연출의 흥행 방정식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/22132
+  · a9839572 | info-EC-wisdom-2025w31 | 2025-summer 5주차(iso 2025-W31, start 2025-07-28, 공표됨) | act=wisdom(위즈덤) | "[이커머스/가격] 실시간으로 변하는 다이내믹 프라이싱! 수요와 공급에 맞춘 데이터 기반 가격 정책" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/30497
+  · eb91bc3f | info-EC-wisdom-2026w07 | 2026-winter 7주차(iso 2026-W7, start 2026-02-09, 공표됨) | act=wisdom(위즈덤) | "[엔터/브랜딩] 아이돌 활동의 꽃, 유닛 그룹의 매력! 메인 브랜드의 정체성을 다각화하는 서브 브랜딩 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37665
+  · 5a44e7b1 | info-EC-wisdom-2024w12 | 2024-spring 3주차(iso 2024-W12, start 2024-03-18, 공표됨) | act=wisdom(위즈덤) | "[미디어/플랫폼] OTT 전쟁은 끝났다? 독점 체제 속 수익성 개선과 통합으로 재편되는 스트리밍 시장" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/9574
+  · a541dde6 | info-EC-wisdom-2024w44 | 2024-autumn 9주차(iso 2024-W44, start 2024-10-28, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/비즈니스] 시즌제 콘텐츠, 한국 시장에 정착할 수 있을까? 롱런 IP 브랜딩의 과제와 한계" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/19649
+  · 8e03a7ab | info-EC-wisdom-2023w48 | 2023-autumn 13주차(iso 2023-W48, start 2023-11-27, 공표됨) | act=wisdom(위즈덤) | "[AI 테크/콘텐츠] AI가 가져온 편리함과 불편함 사이의 K-POP! 기술과 예술의 경계에서 찾은 상생 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/4018
+  · dbd38a36 | info-EC-essay-2025w29 | 2025-summer 3주차(iso 2025-W29, start 2025-07-14, 공표됨) | act=essay(에세이) | "[디자인/소비재] 팔리는 귀여움, 캐릭터 IP의 시대! 브랜드에 생명력을 불어넣는 캐릭터 브랜딩 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/29756
+  · 9e030051 | info-EC-wisdom-2025w03 | 2025-winter 3주차(iso 2025-W3, start 2025-01-13, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/IP] 오징어게임 시즌2의 굵직한 콜라보 상품들! 메가 히트 IP가 입증한 비즈니스 스케일업" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/22522
+  · 36a3eedd | info-EC-wisdom-2025w32 | 2025-summer 6주차(iso 2025-W32, start 2025-08-04, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/미디어] 지금은 자체 콘텐츠 시대! 외주 미디어를 넘어 브랜드 독점 채널을 키우는 자컨 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/30858
+  · d95faa08 | info-EC-wisdom-2026w10 | 2026-spring 1주차(iso 2026-W10, start 2026-03-02, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/영화] 얼어붙은 극장을 녹인 흥행 비결! 관객의 자발적 바이럴을 유도하는 과몰입 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38242
+  · 61f7fe33 | info-EC-wisdom-2024w13 | 2024-spring 4주차(iso 2024-W13, start 2024-03-25, 공표됨) | act=wisdom(위즈덤) | "[거시경제/소비자] 아시아에서 코카콜라가 가장 비싼 나라 한국! 유통 구조와 가격 저항선의 마케팅 함수" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/10096
+  · 68021979 | info-EC-wisdom-2024w45 | 2024-autumn 10주차(iso 2024-W45, start 2024-11-04, 공표됨) | act=wisdom(위즈덤) | "[미디어/플랫폼] 티빙·웨이브 합병 법인 vs 넷플릭스! 토종 OTT 연합군이 던진 글로벌 방어선" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/19993
+  · 0183d418 | info-EC-essay-2025w01 | 2025-winter 1주차(iso 2025-W1, start 2024-12-30, 공표됨) | act=essay(에세이) | "[콘텐츠/트렌드] 2024 콘텐츠 트렌드 분석! 파편화된 취향 시대의 킬러 콘텐츠 내러티브 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/21862
+  · a044871c | info-EC-wisdom-2025w04 | 2025-winter 4주차(iso 2025-W4, start 2025-01-20, 공표됨) | act=wisdom(위즈덤) | "[플랫폼/미디어] OTT와 결합한 지상파! 생존을 위해 미디어 경계를 허무는 콘텐츠 동맹 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/22948
+  · 2f22bfe7 | info-EC-wisdom-2025w33 | 2025-summer 7주차(iso 2025-W33, start 2025-08-11, 공표됨) | act=wisdom(위즈덤) | "[패션/앰배서더] 내 최애가 명품 브랜드 앰배서더? 글로벌 팬덤을 구매력으로 흡수하는 럭셔리 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/31233
+  · a0b114a0 | info-EC-wisdom-2026w11 | 2026-spring 2주차(iso 2026-W11, start 2026-03-09, 공표됨) | act=wisdom(위즈덤) | "[미디어/커리어] 퇴사 후 유튜버 된 '충주맨'! 공공기관 브랜딩을 넘어 개인 IP로 스케일업하는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38498
+  · 529d368a | info-EC-wisdom-2024w14 | 2024-spring 5주차(iso 2024-W14, start 2024-04-01, 공표됨) | act=wisdom(위즈덤) | "[미디어/리스크] 익명이라는 탈을 쓴 가짜뉴스! 브랜드 신뢰도를 위협하는 미디어 리스크 매니지먼트" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/10571
+  · 75b895a9 | info-EC-wisdom-2024w46 | 2024-autumn 11주차(iso 2024-W46, start 2024-11-11, 공표됨) | act=wisdom(위즈덤) | "[플랫폼/CX] 넷플릭스 북마크 기능 도입! 사용자 이탈을 막고 시청 여정을 최적화하는 락인 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/20349
+  · b114a8ba | info-EC-wisdom-2025w06 | 2025-winter 6주차(iso 2025-W6, start 2025-02-03, 공표됨) | act=wisdom(위즈덤) | "[광고/콘텐츠] 오히려 매력적인 PPL의 비결! 콘텐츠의 맥락과 자연스럽게 녹아드는 서사 중심의 PPL 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/23374
+  · ee0062b4 | info-EC-wisdom-2025w34 | 2025-summer 8주차(iso 2025-W34, start 2025-08-18, 공표됨) | act=wisdom(위즈덤) | "[소셜미디어/광고] 챌린지로 마케팅하는 숏폼의 세상! 소비자가 직접 참여해 확산하는 바이럴 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/31583
+  · 62c6a94d | info-EC-wisdom-2026w12 | 2026-spring 3주차(iso 2026-W12, start 2026-03-16, 공표됨) | act=wisdom(위즈덤) | "[엔터/리스크] 있었는데 없어요? 아이돌의 활동 중단과 탈퇴! 팬덤 비즈니스의 리스크 매니지먼트 가이드라인" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38780
+  · b0e6bf9e | info-EC-wisdom-2024w18 | 2024-spring 9주차(iso 2024-W18, start 2024-04-29, 공표됨) | act=wisdom(위즈덤) | "[미디어/밈] "꽁꽁 얼어붙은 한강 위로" 밈의 대박 비밀! 알고리즘을 타고 확산하는 자발적 바이럴 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/11254
+  · 56c052c7 | info-EC-wisdom-2024w47 | 2024-autumn 12주차(iso 2024-W47, start 2024-11-18, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/영화] 짧고 강렬하게 소비하는 '스낵무비'! 시베케이션 시대에 맞춘 초가성비 극장 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/20648
+  · 4608b34b | info-EC-essay-2025w03 | 2025-winter 3주차(iso 2025-W3, start 2025-01-13, 공표됨) | act=essay(에세이) | "[소비자/트렌드] 초가성비 실리주의 듀프코어 소비트렌드! 브랜드 헤리티지보다 실속을 따지는 Z세대 문화" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/22578
+  · e9731377 | info-EC-essay-2025w32 | 2025-summer 6주차(iso 2025-W32, start 2025-08-04, 공표됨) | act=essay(에세이) | "[콘텐츠/미디어] 연애 프로그램의 흥행과 포맷화! 시청자의 대입 심리를 자극하는 리얼리티 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/30907
+  · cbec2aee | info-EC-wisdom-2025w07 | 2025-winter 7주차(iso 2025-W7, start 2025-02-10, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/IP] '원작 기반 드라마'가 나아가야 할 방향! 오리지널 IP의 내러티브를 살리는 미디어 다각화 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/23728
+  · 66959de9 | info-EC-wisdom-2025w36 | 2025-autumn 1주차(iso 2025-W36, start 2025-09-01, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/영화] 얼어붙은 극장을 녹인 흥행 비결! 관객의 자발적 바이럴을 유도하는 과몰입 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38242
+  · 218df48f | info-EC-wisdom-2026w13 | 2026-spring 4주차(iso 2026-W13, start 2026-03-23, 공표됨) | act=wisdom(위즈덤) | "[엔터/OOH] BTS의 광화문 컴백 라이브! 도시 공간을 거대한 무대로 바꾸는 데스티네이션 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39037
+  · 826d5104 | info-EC-wisdom-2024w19 | 2024-spring 9주차(iso 2024-W19, start 2024-05-06, 공표됨) | act=wisdom(위즈덤) | "[엔터/조직] 독이 된 멀티 레이블 시스템의 이면! 자율성과 정체성 충돌 속 엔터 기업의 리스크 관리" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/11664
+  · 5f27c372 | info-EC-wisdom-2025w08 | 2025-winter 8주차(iso 2025-W8, start 2025-02-17, 공표됨) | act=wisdom(위즈덤) | "[금융/브랜딩] 은행 업계의 아이돌 모델 등장! 신뢰 중심 비즈니스에 젊고 트렌디한 이미지를 입히는 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/24122
+  · 6b9544f0 | info-EC-wisdom-2025w37 | 2025-autumn 2주차(iso 2025-W37, start 2025-09-08, 공표됨) | act=wisdom(위즈덤) | "[미디어/커리어] 퇴사 후 유튜버 된 '충주맨'! 공공기관 브랜딩을 넘어 개인 IP로 스케일업하는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38498
+  · b0bffb9f | info-EC-wisdom-2026w14 | 2026-spring 5주차(iso 2026-W14, start 2026-03-30, 공표됨) | act=wisdom(위즈덤) | "[미디어/숏폼] 이제 쇼츠는 지겨워요, '롱폼'의 부활! 인스턴트 콘텐츠 피로감을 해소하는 내러티브 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39385
+  · 6ecdfcef | info-EC-wisdom-2024w20 | 2024-spring 11주차(iso 2024-W20, start 2024-05-13, 공표됨) | act=wisdom(위즈덤) | "[엔터/커리어] 연습생에서 아이돌 제작자로! 아티스트 헤리티지를 비즈니스로 전환하는 퍼스널 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/12091
+  · 4571e93a | info-EC-wisdom-2025w10 | 2025-spring 1주차(iso 2025-W10, start 2025-03-03, 공표됨) | act=wisdom(위즈덤) | "[소셜미디어/커뮤니티] 인스타그램 공지 채널 프로모션 활용 방안! D2C 소통으로 팬덤 밀도를 높이는 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/24827
+  · b8ced7ba | info-EC-wisdom-2025w38 | 2025-autumn 3주차(iso 2025-W38, start 2025-09-15, 공표됨) | act=wisdom(위즈덤) | "[엔터/리스크] 있었는데 없어요? 아이돌의 활동 중단과 탈퇴! 팬덤 비즈니스의 리스크 매니지먼트 가이드라인" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38780
+  · dbc36627 | info-EC-wisdom-2026w18 | 2026-spring 9주차(iso 2026-W18, start 2026-04-27, 공표됨) | act=wisdom(위즈덤) | "[미디어/플랫폼] 연예인들이 유튜브로 모이는 진짜 이유! TV 권력을 넘어 퍼스널 브랜딩을 구축하는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39820
+  · 5d227bcf | info-EC-wisdom-2025w11 | 2025-spring 2주차(iso 2025-W11, start 2025-03-10, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/유튜브] 유튜브 콘텐츠의 '시그니처 연출'! 채널의 정체성을 확립하고 팬덤을 각인시키는 편집 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/25164
+  · 1e6c8808 | info-EC-wisdom-2025w39 | 2025-autumn 4주차(iso 2025-W39, start 2025-09-22, 공표됨) | act=wisdom(위즈덤) | "[엔터/OOH] BTS의 광화문 컴백 라이브! 도시 공간을 거대한 무대로 바꾸는 데스티네이션 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39037
+  · ca018bfa | info-EC-wisdom-2026w19 | 2026-spring 10주차(iso 2026-W19, start 2026-05-04, 공표됨) | act=wisdom(위즈덤) | "[F&B/글로벌] 장원영이 샤라웃한 밀크티 '차지'의 한국 진출! 글로벌 인기 브랜드를 활용한 인플루언서 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40062
+  · 47b9282e | info-EC-wisdom-2024w22 | 2024-spring 13주차(iso 2024-W22, start 2024-05-27, 공표됨) | act=wisdom(위즈덤) | "[AI 테크/플랫폼] 멀티모달 AI 'GPT-4o' 전격 공개! 음성과 시각 정보를 통합한 차세대 인터페이스" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/12911
+  · 4ffaf019 | info-EC-wisdom-2023w29 | 2023-summer 3주차(iso 2023-W29, start 2023-07-17, 공표됨) | act=wisdom(위즈덤) | "[소셜미디어/플랫폼] 트위터를 겨냥한 신규 SNS, 스레드! 텍스트 기반 소통으로 회귀하는 Z세대의 새로운 아지트" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/569
+  · 4c581621 | info-EC-wisdom-2025w12 | 2025-spring 3주차(iso 2025-W12, start 2025-03-17, 공표됨) | act=wisdom(위즈덤) | "[디자인/브랜딩] 아이돌의 아이덴티티, 로고 디자인! 브랜드의 핵심 가치를 한눈에 드러내는 시각화 기술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/25538
+  · 63c46933 | info-EC-wisdom-2025w40 | 2025-autumn 5주차(iso 2025-W40, start 2025-09-29, 공표됨) | act=wisdom(위즈덤) | "[미디어/숏폼] 이제 쇼츠는 지겨워요, '롱폼'의 부활! 인스턴트 콘텐츠 피로감을 해소하는 내러티브 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39385
+  · cb80f00c | info-EC-wisdom-2026w20 | 2026-spring 11주차(iso 2026-W20, start 2026-05-11, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/IP] K-리메이크 콘텐츠의 매력! 검증된 흥행 IP를 트렌디하게 재해석하는 리브랜딩 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40333
+  · 08e13248 | info-EC-wisdom-2024w27 | 2024-summer 1주차(iso 2024-W27, start 2024-07-01, 공표됨) | act=wisdom(위즈덤) | "[AI 테크/미래] 인간 전문가 수준을 넘은 구글 Gemini! 생성형 AI가 제안하는 비즈니스 생산성 혁신" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/13996
+  · 601a79c6 | info-EC-wisdom-2025w13 | 2025-spring 4주차(iso 2025-W13, start 2025-03-24, 공표됨) | act=wisdom(위즈덤) | "[패션/트렌드] 호프코어가 가져다주는 힘! 일상적이고 편안한 감성으로 친근감을 형성하는 패션 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/25948
+  · 456dfc72 | info-EC-wisdom-2025w44 | 2025-autumn 9주차(iso 2025-W44, start 2025-10-27, 공표됨) | act=wisdom(위즈덤) | "[테크/경험] 아이돌 콘서트를 점령한 AR 기술! 가상과 현실을 연결해 무대 몰입감을 높이는 테크 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/34106
+  · 9b257017 | info-EC-wisdom-2026w21 | 2026-spring 12주차(iso 2026-W21, start 2026-05-18, 공표됨) | act=wisdom(위즈덤) | "[공간/경험] 반려견도 같이 가는 영화관! 극장가 '체험형 상영회' 트렌드! CX를 강화하는 극장의 생존 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40612
+  · a0fb921f | info-EC-wisdom-2024w28 | 2024-summer 2주차(iso 2024-W28, start 2024-07-08, 공표됨) | act=wisdom(위즈덤) | "[소셜미디어/Z세대] 미디어보다 소셜을 강조하는 SNS '노플레이스'! 관계 중심 피드가 이끈 Z세대 트렌드" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/14385
+  · 5136e5b6 | info-EC-wisdom-2023w31 | 2023-summer 5주차(iso 2023-W31, start 2023-07-31, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/글로벌] 한류, 이제는 K-예능으로 이어지다! 포맷 수출을 넘어 글로벌 OTT를 타고 뻗어가는 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/710
+  · 62fe8f52 | info-EC-essay-2025w11 | 2025-spring 2주차(iso 2025-W11, start 2025-03-10, 공표됨) | act=essay(에세이) | "[디자인/콘텐츠] 뮤직비디오 트렌드 변화! 단순한 비주얼을 넘어 브랜드 세계관을 시각화하는 연출법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/25205
+  · ff2e1020 | info-EC-essay-2026w04 | 2026-winter 4주차(iso 2026-W4, start 2026-01-19, 공표됨) | act=essay(에세이) | "[소셜미디어/광고] 선택이 아닌 필수가 된 숏폼 챌린지! 바이럴을 유도하는 중독성 있는 콘텐츠 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36798
+  · 53f8e58d | info-EC-wisdom-2025w14 | 2025-spring 5주차(iso 2025-W14, start 2025-03-31, 공표됨) | act=wisdom(위즈덤) | "[경험/VMD] 콘서트를 다채롭게 만드는 컨페티 효과! 절정의 순간에 브랜드 경험을 각인시키는 연출 기법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/26350
+  · a97c2144 | info-EC-wisdom-2025w45 | 2025-autumn 10주차(iso 2025-W45, start 2025-11-03, 공표됨) | act=wisdom(위즈덤) | "[엔터/커리어] 아이돌 업계의 경력직 선호와 재데뷔! 인지도를 자산으로 활용하는 리포지셔닝 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/34422
+  · e9b2aead | info-EC-wisdom-2025w18 | 2025-spring 9주차(iso 2025-W18, start 2025-04-28, 공표됨) | act=wisdom(위즈덤) | "[유통/소비재] 작고 소중한 가챠 마케팅! 뽑기의 랜덤 재미를 활용해 도파민과 구매를 자극하는 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/26813
+  · 0b467209 | info-EC-wisdom-2025w19 | 2025-spring 10주차(iso 2025-W19, start 2025-05-05, 공표됨) | act=wisdom(위즈덤) | "[게이미피케이션/앱] 듀오링고의 앱 마케팅! 캐릭터 IP와 일일 미션으로 리텐션을 극대화하는 그로스해킹" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/27163
+  · 1dbbc41f | info-EC-wisdom-2025w20 | 2025-spring 11주차(iso 2025-W20, start 2025-05-12, 공표됨) | act=wisdom(위즈덤) | "[디자인/소비재] 앨범 커버 마케팅! 비주얼 아트를 통해 소장 가치와 브랜드 정체성을 시각화하는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/27524
+  · 63917eb0 | info-EC-wisdom-2025w48 | 2025-autumn 13주차(iso 2025-W48, start 2025-11-24, 공표됨) | act=wisdom(위즈덤) | "[엔터/팬덤] 팬사랑의 척도가 된 역조공! 단순한 선물을 넘어 브랜드 충성도를 높이는 팬덤 관계 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/35392
+  · bf53e0d9 | info-EC-wisdom-2025w21 | 2025-spring 12주차(iso 2025-W21, start 2025-05-19, 공표됨) | act=wisdom(위즈덤) | "[엔터/리스크] 연예인 공항 논란과 소속사 대응! 브랜드 이미지를 보호하는 위기관리(CR) 리스크 매니지먼트" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/27850
+  · 16a37a89 | info-EC-wisdom-2026w01 | 2026-winter 1주차(iso 2026-W1, start 2025-12-29, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/영화] 한국 영화계의 성장 둔화와 생존 과제! 관객의 눈높이에 맞춘 극장용 콘텐츠 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36038
+  · 6ff5aa1a | info-EC-wisdom-2024w04 | 2024-winter 4주차(iso 2024-W4, start 2024-01-22, 공표됨) | act=wisdom(위즈덤) | "[테크/비즈니스] 230조 규모의 AI 반도체 전쟁 시작! 글로벌 빅테크 기업들의 인프라 주도권 싸움" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/6204
+  · fbc7749d | info-EC-wisdom-2024w33 | 2024-summer 7주차(iso 2024-W33, start 2024-08-12, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/미디어] 영화와 음악의 결합 '마이 아티 필름'! 장르 간 경계를 깨고 팬덤을 확장하는 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/16745
+  · 16e4eed9 | info-EC-wisdom-2023w37 | 2023-autumn 2주차(iso 2023-W37, start 2023-09-11, 공표됨) | act=wisdom(위즈덤) | "[미디어/소비자] 콘텐츠 한글 자막 열풍의 진짜 이유! 텍스트 소비에 익숙한 Z세대의 시청 패턴 분석" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/1556
+  · 788e71ca | info-EC-essay-2025w19 | 2025-spring 10주차(iso 2025-W19, start 2025-05-05, 공표됨) | act=essay(에세이) | "[미디어/리스크] 악플과 정당한 비판의 경계선! 브랜드 평판 리스크에 대응하는 커뮤니케이션 매뉴얼" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/27202
+  · e4af30d4 | info-EC-essay-2026w11 | 2026-spring 2주차(iso 2026-W11, start 2026-03-09, 공표됨) | act=essay(에세이) | "[플랫폼/소비자] 유료 소통 플랫폼의 이면과 구독 피로감! 친밀함을 파는 D2C 비즈니스의 리텐션 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38524
+  · fb5ffdf8 | info-EC-essay-2024w14 | 2024-spring 5주차(iso 2024-W14, start 2024-04-01, 공표됨) | act=essay(에세이) | "[소비자/트렌드] 어른이들의 장난감 키덜트 마케팅! 노스탤지어 감성을 자극해 지갑을 열게 하는 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/10708
+  · 7cd87267 | info-EC-essay-2024w46 | 2024-autumn 11주차(iso 2024-W46, start 2024-11-11, 공표됨) | act=essay(에세이) | "[비즈니스/전략] 포지티브 모멘텀! 작은 성공의 경험을 브랜드의 폭발적인 성장 동력으로 바꾸는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/20361
+  · e7e5eb32 | info-EC-calendar-2025w18 | 2025-spring 9주차(iso 2025-W18, start 2025-04-28, 공표됨) | act=calendar(캘린더) | "더블랙레이블 엔터테인먼트 행상 담당자, RBW 엔터테인먼트 아티스트 영상담당자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/26928
+  · 147b41ef | info-EC-calendar-2025w47 | 2025-autumn 12주차(iso 2025-W47, start 2025-11-17, 공표됨) | act=calendar(캘린더) | "YG 비주얼팀 / 비주얼 디렉팅 담당자, 마케팅기획팀, KQ 엔터테인먼트 신인개발팀 트레이닝 파트 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/35221
+  · 5fa05f1c | info-EC-calendar-2024w02 | 2024-winter 2주차(iso 2024-W2, start 2024-01-08, 공표됨) | act=calendar(캘린더) | "카카오 엔터테인먼트 음악콘텐츠 등록/검수, 지에프 엔터테인먼트 SNS 담당자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/5544
+  · cf6460f2 | info-EC-wisdom-2025w22 | 2025-spring 13주차(iso 2025-W22, start 2025-05-26, 공표됨) | act=wisdom(위즈덤) | "[엔터/역주행] 아이유가 불러온 타임슬립 효과! 과거 콘텐츠를 현재의 메가 히트로 만드는 역주행 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/28218
+  · c3276c78 | info-EC-wisdom-2026w02 | 2026-winter 2주차(iso 2026-W2, start 2026-01-05, 공표됨) | act=wisdom(위즈덤) | "[F&B/미디어] 흑백요리사 열풍의 명과 암! 미디어 신드롬을 F&B 매출로 연결하는 시즈널 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36197
+  · 91aa03b5 | info-EC-wisdom-2024w05 | 2024-winter 5주차(iso 2024-W5, start 2024-01-29, 공표됨) | act=wisdom(위즈덤) | "[AI 테크/기업] 애플 vs MS 빅테크 승자는? AI 에이전트 패권을 둘러싼 글로벌 테크 브랜딩 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/6745
+  · 0c925021 | info-EC-wisdom-2024w34 | 2024-summer 8주차(iso 2024-W34, start 2024-08-19, 공표됨) | act=wisdom(위즈덤) | "[미디어/숏폼] 1분 만에 몰입하는 '숏 드라마' 열풍! 숏폼 플랫폼이 주도하는 새로운 콘텐츠 비즈니스" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/17185
+  · 11a97d54 | info-EC-wisdom-2023w38 | 2023-autumn 3주차(iso 2023-W38, start 2023-09-18, 공표됨) | act=wisdom(위즈덤) | "[글로벌/엔터] 걸그룹이 가진 힘, 영국 시장 안착! 글로벌 팝 시장을 뚫어낸 K-엔터의 현지화 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/1889
+  · 8f64bdeb | info-EC-essay-2025w20 | 2025-spring 11주차(iso 2025-W20, start 2025-05-12, 공표됨) | act=essay(에세이) | "[콘텐츠/미디어] 관찰 예능 vs 버라이어티 쇼! 대중의 시청 피로감을 파고드는 트렌디한 포맷 기획" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/27549
+  · 6fc500a9 | info-EC-essay-2026w12 | 2026-spring 3주차(iso 2026-W12, start 2026-03-16, 공표됨) | act=essay(에세이) | "[엔터/팬덤] 탈퇴 멤버의 복귀를 둘러싼 논란! 팬덤 민심을 수습하고 브랜드 가치를 회복하는 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38817
+  · 248b30b4 | info-EC-essay-2024w18 | 2024-spring 9주차(iso 2024-W18, start 2024-04-29, 공표됨) | act=essay(에세이) | "[문화/커리어] 할리우드 금수저 '네포 베이비' 논란! 공정성 이슈 속 엔터 업계의 인재 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/11311
+  · e4d9deec | info-EC-essay-2024w47 | 2024-autumn 12주차(iso 2024-W47, start 2024-11-18, 공표됨) | act=essay(에세이) | "[소비자/문화] 내 태생을 소장하는 '생년 빈티지'! Z세대의 유니크한 취향을 자극하는 희소성 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/20689
+  · c587be2e | info-EC-forum-2024w45 | 2024-autumn 10주차(iso 2024-W45, start 2024-11-04, 공표됨) | act=forum(포럼) | "[디자인/기획] 미리캔버스를 활용한 PPT 제작 꿀팁! 템플릿을 넘어 뼈대를 세우는 기획 시각화 기술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/19763
+  · 07451085 | info-EC-calendar-2025w19 | 2025-spring 10주차(iso 2025-W19, start 2025-05-05, 공표됨) | act=calendar(캘린더) | "제이지스타 엔터테인먼트 공연팀, 나무엑터스 엔터테인먼트 홍보마케팅팀 모집 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/27302
+  · 50dee197 | info-EC-wisdom-2025w27 | 2025-summer 1주차(iso 2025-W27, start 2025-06-30, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/IP] "K-POP 데몬헌터스"의 해외 흥행 비결! 글로벌 타깃의 니즈를 관통한 K-컬처 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/29005
+  · 67bc63a4 | info-EC-wisdom-2026w03 | 2026-winter 3주차(iso 2026-W3, start 2026-01-12, 공표됨) | act=wisdom(위즈덤) | "[엔터/트렌드] 백투더 '엑방원' 3세대 아이돌의 귀환! 향수와 헤리티지를 자극하는 레트로 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36458
+  · 08843902 | info-EC-wisdom-2024w07 | 2024-winter 7주차(iso 2024-W7, start 2024-02-12, 공표됨) | act=wisdom(위즈덤) | "[엔터/리스크] 외국인이 바라본 한국 엔터 산업의 문제점! 지속 가능한 성장을 위한 체질 개선 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/7191
+  · dee64715 | info-EC-wisdom-2024w36 | 2024-autumn 1주차(iso 2024-W36, start 2024-09-02, 공표됨) | act=wisdom(위즈덤) | "[이커머스/콘텐츠] 재미와 쇼핑을 한 번에, '쇼퍼테인먼트'! 콘텐츠로 소비자의 구매 욕구를 자극하는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/17998
+  · ade18760 | info-EC-wisdom-2023w40 | 2023-autumn 5주차(iso 2023-W40, start 2023-10-02, 공표됨) | act=wisdom(위즈덤) | "[공간/경험] 변화하는 영화관과 미래 스페이스 마케팅! 스크린을 넘어 복합 문화 공간으로의 CX 진화" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/2274
+  · 66242b73 | info-EC-essay-2025w21 | 2025-spring 12주차(iso 2025-W21, start 2025-05-19, 공표됨) | act=essay(에세이) | "[엔터/커리어] 아티스트의 멀티 타이틀 전략! 본업을 넘어 영역을 확장하는 멀티 페르소나 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/27887
+  · 103d609c | info-EC-essay-2026w13 | 2026-spring 4주차(iso 2026-W13, start 2026-03-23, 공표됨) | act=essay(에세이) | "[엔터/법률] 아이돌 발목 잡는 전속계약서 분쟁! 지속 가능한 파트너십을 위한 계약 구조 혁신" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39115
+  · d5522b30 | info-EC-essay-2024w19 | 2024-spring 9주차(iso 2024-W19, start 2024-05-06, 공표됨) | act=essay(에세이) | "[미디어/플랫폼] 디즈니플러스 해지율 1위의 명과 암! 킬러 콘텐츠 공백을 메우기 위한 리텐션 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/11756
+  · 6427c526 | info-EC-essay-2024w48 | 2024-autumn 13주차(iso 2024-W48, start 2024-11-25, 공표됨) | act=essay(에세이) | "[미디어/플랫폼] 음원 플랫폼 경쟁의 미래! 빅테크의 공습에 맞서는 토종 플랫폼의 서비스 락인 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/20993
+  · 1118829d | info-EC-calendar-2025w20 | 2025-spring 11주차(iso 2025-W20, start 2025-05-12, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 영상제작팀 숏폼 담당자, 아메바컬쳐 엔터테인먼트 마키팅 커뮤니케이션팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/27636
+  · 44d6494e | info-EC-wisdom-2025w28 | 2025-summer 2주차(iso 2025-W28, start 2025-07-07, 공표됨) | act=wisdom(위즈덤) | "[글로벌/엔터] 글로벌 그룹 "캣츠아이"와 K-POP의 미래! 현지화 전략을 통한 크로스보더 브랜딩 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/29335
+  · 76d15344 | info-EC-wisdom-2026w04 | 2026-winter 4주차(iso 2026-W4, start 2026-01-19, 공표됨) | act=wisdom(위즈덤) | "[소비자/트렌드] 너도 나도 두쫀쿠, '디토 소비'의 본질! 가치관이 일치하는 대상을 따라 하는 취향 소비" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36750
+  · 33266573 | info-EC-wisdom-2024w08 | 2024-winter 8주차(iso 2024-W8, start 2024-02-19, 공표됨) | act=wisdom(위즈덤) | "[글로벌/엔터] K팝 시장 전망, "K 없는 K팝"의 부상! 현지화 전략을 통한 크로스보더 엔터 비즈니스" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/7784
+  · 37ac7d28 | info-EC-wisdom-2024w37 | 2024-autumn 2주차(iso 2024-W37, start 2024-09-09, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/IP] 어른들 울린 '사랑의 하츄핑' 신드롬! 키즈 IP를 넘어 전 세대를 락인시킨 팬덤 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/18341
+  · 5b2efe13 | info-EC-wisdom-2023w44 | 2023-autumn 9주차(iso 2023-W44, start 2023-10-30, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/미디어] 감 잃은 예능 프로그램의 이유와 해결 방안! 포맷 진부화를 극복하는 내러티브 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/2699
+  · 43cd359a | info-EC-essay-2025w22 | 2025-spring 13주차(iso 2025-W22, start 2025-05-26, 공표됨) | act=essay(에세이) | "[비즈니스/커뮤니케이션] 이미지 메이킹의 중요성! 브랜드 페르소나를 구축해 신뢰 자산을 선점하는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/28259
+  · 449f44c1 | info-EC-essay-2026w14 | 2026-spring 5주차(iso 2026-W14, start 2026-03-30, 공표됨) | act=essay(에세이) | "[AI 테크/음성] 진짜일까 가짜일까 알쏭달쏭 AI 커버곡! 저작권 가이드라인과 기술 악용의 경계선" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39443
+  · 7a4e7562 | info-EC-essay-2024w20 | 2024-spring 11주차(iso 2024-W20, start 2024-05-13, 공표됨) | act=essay(에세이) | "[엔터/버추얼] 가상 공간을 찢고 나온 버튜버의 본질! 서브컬처에서 주류 엔터로 안착한 가상 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/12172
+  · e30700e5 | info-EC-essay-2023w29 | 2023-summer 3주차(iso 2023-W29, start 2023-07-17, 공표됨) | act=essay(에세이) | "[미디어/플랫폼] 넷플릭스를 잡아라! OTT 시장의 미래 전망! 독점 체제에 맞서는 글로벌 스트리밍의 생존 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/587
+  · 898301df | info-EC-calendar-2025w21 | 2025-spring 12주차(iso 2025-W21, start 2025-05-19, 공표됨) | act=calendar(캘린더) | "FNC 엔터테인먼트 미디어제작파트(영상), 이든 엔터테인먼트 신인개발팀 팀원 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/27994
+  · 07f7f214 | info-EC-calendar-2026w02 | 2026-winter 2주차(iso 2026-W2, start 2026-01-05, 공표됨) | act=calendar(캘린더) | "하이업 엔터테인먼트 매니지먼트, 콘텐츠제작팀, U& 엔터테인먼트 신인개발팀 정규직 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36333
+  · a10aa890 | info-EC-wisdom-2025w29 | 2025-summer 3주차(iso 2025-W29, start 2025-07-14, 공표됨) | act=wisdom(위즈덤) | "[뮤직/브랜딩] '올데이 프로젝트'가 불러온 혼성그룹 돌풍! 희소성 있는 포지셔닝으로 틈새시장을 뚫는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/29705
+  · 3be5b660 | info-EC-wisdom-2026w05 | 2026-winter 5주차(iso 2026-W5, start 2026-01-26, 공표됨) | act=wisdom(위즈덤) | "[엔터/프로모션] 뱀파이어한테 피 뽑히러 가는 아이돌 특이 프로모션! 경험을 극대화하는 체험 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37040
+  · fa7f79a1 | info-EC-wisdom-2024w10 | 2024-spring 1주차(iso 2024-W10, start 2024-03-04, 공표됨) | act=wisdom(위즈덤) | "[AI 테크/리스크] 딥페이크에 속지 말자! AI 기술 오용에 대응하는 브랜드 이미지 및 보안 가이드라인" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/8595
+  · 790f17be | info-EC-wisdom-2024w39 | 2024-autumn 4주차(iso 2024-W39, start 2024-09-23, 공표됨) | act=wisdom(위즈덤) | "[플랫폼/리브랜딩] SOOP이 된 아프리카TV! 글로벌 진출과 이미지 쇄신을 위한 플랫폼 리포지셔닝" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/18761
+  · cdd2b531 | info-EC-wisdom-2023w46 | 2023-autumn 11주차(iso 2023-W46, start 2023-11-13, 공표됨) | act=wisdom(위즈덤) | "[미디어/숏폼] 숏폼 유행의 이유와 한계는 어디까지? 콘텐츠 파편화 시대의 도파민 마케팅 명암" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/3356
+  · 8d4564bf | info-EC-essay-2025w27 | 2025-summer 1주차(iso 2025-W27, start 2025-06-30, 공표됨) | act=essay(에세이) | "[콘텐츠/IP] 웹툰 원작 콘텐츠 흥행 공식! 탄탄한 서사적 자산을 시각 매체로 트랜스포메이션하는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/29047
+  · 8bea12e1 | info-EC-essay-2026w18 | 2026-spring 9주차(iso 2026-W18, start 2026-04-27, 공표됨) | act=essay(에세이) | "[엔터/리스크] 아이돌 외모 악플과 외모지상주의! 아티스트 멘탈 케어와 브랜드 이미지 보호 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39844
+  · 362917ed | info-EC-essay-2024w21 | 2024-spring 12주차(iso 2024-W21, start 2024-05-20, 공표됨) | act=essay(에세이) | "[글로벌/리스크] 네이버 라인을 둘러싼 한일 지정학적 이슈! 빅테크 플랫폼의 기술 주권과 리스크 관리" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/12591
+  · 7eb488d7 | info-EC-essay-2023w30 | 2023-summer 4주차(iso 2023-W30, start 2023-07-24, 공표됨) | act=essay(에세이) | "[미디어/리스크] 끊이지 않는 가짜뉴스와 찌라시! 브랜드 평판을 보호하는 리스크 커뮤니케이션 매뉴얼" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/682
+  · 96f747ec | info-EC-forum-2024w47 | 2024-autumn 12주차(iso 2024-W47, start 2024-11-18, 공표됨) | act=forum(포럼) | "[엔터/브랜딩] 아티스트 기획 꿀팁 바래? 다 줄게! 팬덤의 니즈를 관통하는 차세대 엔터 브랜딩 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/20687
+  · be7da7ef | info-EC-calendar-2025w22 | 2025-spring 13주차(iso 2025-W22, start 2025-05-26, 공표됨) | act=calendar(캘린더) | "FNC 엔터테인먼트 마케팅2팀, BELIFT LAB 엔터테인먼트 콘텐츠기획(사진) (계약직) 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/28331
+  · 07dfdfd8 | info-EC-wisdom-2025w46 | 2025-autumn 11주차(iso 2025-W46, start 2025-11-10, 공표됨) | act=wisdom(위즈덤) | "[브랜딩/스토리] 아이돌 세계관, 이제는 필수가 아니다? 과한 설정 대신 직관적인 컨셉으로 전환하는 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/34753
+  · b9fc5bca | info-EC-wisdom-2024w01 | 2024-winter 1주차(iso 2024-W1, start 2024-01-01, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/영화] 영화 산업을 살리기 위한 다각화 방법! 홀드백 제도 개선과 차별화된 CX 공간 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/4983
+  · c4bdd228 | info-EC-wisdom-2024w30 | 2024-summer 4주차(iso 2024-W30, start 2024-07-22, 공표됨) | act=wisdom(위즈덤) | "[유튜브/테크] 생성 AI 영상 삭제 요청 허용한 유튜브! AI 대중화 시대의 콘텐츠 저작권 및 딥페이크 대응" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/15301
+  · e788a778 | info-EC-wisdom-2023w33 | 2023-summer 7주차(iso 2023-W33, start 2023-08-14, 공표됨) | act=wisdom(위즈덤) | "[소셜미디어/광고] 챌린지 밈이 가진 미디어의 힘! 소비자의 참여로 완성되는 사용자 생성 콘텐츠(UGC) 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/787
+  · e715629f | info-EC-essay-2025w13 | 2025-spring 4주차(iso 2025-W13, start 2025-03-24, 공표됨) | act=essay(에세이) | "[엔터/트렌드] 아이돌 세대 분리 논란과 기준! 세대 교체 흐름 속에서 포지셔닝을 선점하는 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/26001
+  · 2d11913d | info-EC-essay-2026w06 | 2026-winter 6주차(iso 2026-W6, start 2026-02-02, 공표됨) | act=essay(에세이) | "[콘텐츠/공연] 노래 없는 뮤지컬, 공연계의 장르 세탁! 경계를 허물고 관객층을 넓히는 융합 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37422
+  · a0057cdf | info-EC-essay-2024w11 | 2024-spring 2주차(iso 2024-W11, start 2024-03-11, 공표됨) | act=essay(에세이) | "[콘텐츠/팬덤] 소비자가 직접 확장하는 세계관, 팬 픽션! 2차 창작을 통해 생명력을 얻는 IP 비즈니스" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/9173
+  · 22718853 | info-EC-essay-2024w40 | 2024-autumn 5주차(iso 2024-W40, start 2024-09-30, 공표됨) | act=essay(에세이) | "[광고/프로모션] 예측 불가능한 재미, 게릴라 마케팅! 한정된 비용으로 바이럴 효과를 극대화하는 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/19268
+  · b6e244ea | info-EC-essay-2023w48 | 2023-autumn 13주차(iso 2023-W48, start 2023-11-27, 공표됨) | act=essay(에세이) | "[엔터/기업] SM엔터테인먼트 분석! '30년 헤리티지'와 시스템화된 SMP로 구현하는 비주얼 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/4049
+  · 032d4400 | info-EC-calendar-2025w12 | 2025-spring 3주차(iso 2025-W12, start 2025-03-17, 공표됨) | act=calendar(캘린더) | "더블랙레이블 엔터테인먼트 캐스팅 담당자, 재이콥스 엔터테인먼트 2025 XGALX A&R 담당자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/25723
+  · ed6a5ab4 | info-EC-calendar-2025w44 | 2025-autumn 9주차(iso 2025-W44, start 2025-10-27, 공표됨) | act=calendar(캘린더) | "더블랙레이블 엔터테인먼트 매니지먼트, 모드하우스 엔터테인먼트 A&R Intern 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/34241
+  · 9d21e661 | IFEC-OPEN1781869424825 | 2026-spring 13주차(iso 2026-W22, start 2026-05-25, 공표됨) | act=calendar(캘린더) | "캘린더 라인 개설을 테스트 해보고 있습니다." | links=1 | target(user/rule)=0/1
+        ↳ https://cafe.naver.com/encreclub/41274
+  · 06313180 | info-EC-wisdom-2025w47 | 2025-autumn 12주차(iso 2025-W47, start 2025-11-17, 공표됨) | act=wisdom(위즈덤) | "[엔터/조직] 아이돌 노조 결성 움직임과 변화! 엔터테인먼트 산업의 지속 가능성을 위한 ESG 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/35086
+  · 6817e2d4 | info-EC-wisdom-2024w02 | 2024-winter 2주차(iso 2024-W2, start 2024-01-08, 공표됨) | act=wisdom(위즈덤) | "[엔터/버추얼] 버추얼 아이돌 근황과 이세돌(이세계아이돌)! 메타버스 팬덤을 현실 매출로 연결하는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/5380
+  · d4ecb7ce | info-EC-wisdom-2024w31 | 2024-summer 5주차(iso 2024-W31, start 2024-07-29, 공표됨) | act=wisdom(위즈덤) | "[브랜딩/경험] 다시 아날로그적인 경험을 제안하는 ARS 마케팅! 레트로 감성으로 소통하는 커뮤니케이션" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/15807
+  · f06f9f70 | info-EC-wisdom-2023w34 | 2023-summer 8주차(iso 2023-W34, start 2023-08-21, 공표됨) | act=wisdom(위즈덤) | "[글로벌/엔터] K-POP의 글로벌화, 어디까지 갈 것인가? 주류 시장 진입을 위한 다국적 브랜딩 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/855
+  · f46633e0 | info-EC-essay-2025w14 | 2025-spring 5주차(iso 2025-W14, start 2025-03-31, 공표됨) | act=essay(에세이) | "[이커머스/가격] 콘서트 암표 논란과 해결 방안! 블록체인 NFT 티켓 도입을 통한 암시장 근절 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/26398
+  · e06ae4ce | info-EC-essay-2026w07 | 2026-winter 7주차(iso 2026-W7, start 2026-02-09, 공표됨) | act=essay(에세이) | "[문화/팬덤] 팬덤의 생일 카페 문화! 자발적 콘텐츠 생산이 만드는 로컬 공간 브랜딩의 정수" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37704
+  · 646d22d3 | info-EC-essay-2024w12 | 2024-spring 3주차(iso 2024-W12, start 2024-03-18, 공표됨) | act=essay(에세이) | "[이커머스/거시경제] 고물가가 낳은 초저가 커머스의 해! 가성비 극단주의 속 리테일 생존 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/9676
+  · e4a84688 | info-EC-essay-2024w44 | 2024-autumn 9주차(iso 2024-W44, start 2024-10-28, 공표됨) | act=essay(에세이) | "[웰니스/소비재] 잠 못 드는 현대인을 위한 슬리포노믹스! 수면 기술과 힐링 케어가 만든 신시장 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/19697
+  · 17f7bfa4 | info-EC-calendar-2025w13 | 2025-spring 4주차(iso 2025-W13, start 2025-03-24, 공표됨) | act=calendar(캘린더) | "비욘드이엔티 엔터테인먼트 음반기획/공연기획/해외마케팅 신입사원, 포고 엔터테인먼트 영상팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/26138
+  · 732e47ff | info-EC-wisdom-2026w22 | 2026-spring 13주차(iso 2026-W22, start 2026-05-25, 공표됨) | act=wisdom(위즈덤) | "[엔터/콘텐츠] 춤·요리·패션 대결! 'K-서바이벌 예능' 전성시대! 시청자를 몰입시키는 서바이벌 포맷의 힘" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40871
+  · c9bc82be | info-EC-wisdom-2024w29 | 2024-summer 3주차(iso 2024-W29, start 2024-07-15, 공표됨) | act=wisdom(위즈덤) | "[미디어/플랫폼] 숏폼 후발주자 네이버의 앱 개편 전략! 클립(Clip)을 무기로 삼은 트래픽 스케일업" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/14831
+  · d0202f61 | info-EC-wisdom-2023w32 | 2023-summer 6주차(iso 2023-W32, start 2023-08-07, 공표됨) | act=wisdom(위즈덤) | "[공간/테크] 3조 짜리 360도 극장 'MSG 스피어'! 시각적 충격을 통해 미래형 엔터테인먼트 경험을 파는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/734
+  · 934427e5 | info-EC-essay-2025w12 | 2025-spring 3주차(iso 2025-W12, start 2025-03-17, 공표됨) | act=essay(에세이) | "[글로벌/뮤직] 영어가사 아이돌 곡은 POP인가 K-POP인가? 장르의 경계가 무너진 크로스보더 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/25590
+  · 7291fb80 | info-EC-essay-2026w05 | 2026-winter 5주차(iso 2026-W5, start 2026-01-26, 공표됨) | act=essay(에세이) | "[엔터/커리어] 아이돌의 학업과 학력 문제! 조기 데뷔 트렌드 속 아티스트의 생애 주기 커리어 관리" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37098
+  · 301c21b4 | info-EC-essay-2024w10 | 2024-spring 1주차(iso 2024-W10, start 2024-03-04, 공표됨) | act=essay(에세이) | "[콘텐츠/영화] 조용한 대박, 슬리퍼 히트의 조건! 마케팅 물량공세 없이 입소문 하나로 역주행하는 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/8729
+  · 96f7a949 | info-EC-essay-2024w39 | 2024-autumn 4주차(iso 2024-W39, start 2024-09-23, 공표됨) | act=essay(에세이) | "[디자인/소비재] 소장 가치를 파는 굿즈 마케팅! 브랜드 정체성을 일상 템에 입히는 팬덤 관계 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/18852
+  · b74baa8b | info-EC-essay-2023w47 | 2023-autumn 12주차(iso 2023-W47, start 2023-11-20, 공표됨) | act=essay(에세이) | "[엔터/기업] YG엔터테인먼트 분석! 고유의 '힙합 아이덴티티'와 프리미엄 아티스트 포지셔닝 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/3721
+  · caf865a5 | info-EC-calendar-2025w11 | 2025-spring 2주차(iso 2025-W11, start 2025-03-10, 공표됨) | act=calendar(캘린더) | "FNC 엔터테인먼트 디자인파트, 애플뮤직 엔터테인먼트 콘텐츠기획팀 정규직 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/25330
+  · f8617ede | info-EC-calendar-2025w40 | 2025-autumn 5주차(iso 2025-W40, start 2025-09-29, 공표됨) | act=calendar(캘린더) | "카카오 엔터테인먼트 온라인 마케팅 모니터링 및 이벤트 관리 어시스턴트 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/33859
+  · cc23e090 | info-EC-calendar-2026w20 | 2026-spring 11주차(iso 2026-W20, start 2026-05-11, 공표됨) | act=calendar(캘린더) | "SM 매니지먼트 담당, F&F 가수 매니지먼트, 하이업 마케팅 팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40473
+  · e3f7f742 | info-EC-wisdom-2024w03 | 2024-winter 3주차(iso 2024-W3, start 2024-01-15, 공표됨) | act=wisdom(위즈덤) | "[거시경제/엔터] 팝음악과 공연의 새로운 역사 '스위프트노믹스'! 아티스트 팬덤이 움직이는 지역 경제 효과" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/5787
+  · 2f2b154a | info-EC-wisdom-2024w32 | 2024-summer 6주차(iso 2024-W32, start 2024-08-05, 공표됨) | act=wisdom(위즈덤) | "[공간/경험] Z세대의 놀이터 '무인 포토부스'! 오프라인 아날로그 경험을 공유 문화로 만든 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/16288
+  · a59c33ec | info-EC-wisdom-2023w36 | 2023-autumn 1주차(iso 2023-W36, start 2023-09-04, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/리스크] 유명해질수록 늘어나는 대중의 분노? 메가 콘텐츠가 마주하는 악플 및 리스크 매니지먼트" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/1202
+  · 092feaa3 | info-EC-essay-2025w18 | 2025-spring 9주차(iso 2025-W18, start 2025-04-28, 공표됨) | act=essay(에세이) | "[뮤직/브랜딩] 완제품과 다른 데모곡의 매력! 날것의 감성으로 코어 팬덤의 소장 가치를 자극하는 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/26837
+  · 30bef276 | info-EC-essay-2026w10 | 2026-spring 1주차(iso 2026-W10, start 2026-03-02, 공표됨) | act=essay(에세이) | "[소비자/트렌드] '경도'와 '감튀'의 상관관계와 느슨한 연대! 2030의 파편화된 취향 공동체 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38279
+  · 1a349e8c | info-EC-essay-2024w13 | 2024-spring 4주차(iso 2024-W13, start 2024-03-25, 공표됨) | act=essay(에세이) | "[콘텐츠/영화] 오컬트 영화 '파묘'의 천만 흥행 비결! 전통 소재를 세련된 장르물로 바꾼 스토리텔링" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/10195
+  · 7e425d1c | info-EC-essay-2024w45 | 2024-autumn 10주차(iso 2024-W45, start 2024-11-04, 공표됨) | act=essay(에세이) | "[문화/Z세대] 텍스트 힙 트렌드와 독서 붐! 숏폼 시대에 글을 읽는 힙한 감성을 파는 문화 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/20014
+  · 58d2503e | info-EC-calendar-2025w14 | 2025-spring 5주차(iso 2025-W14, start 2025-03-31, 공표됨) | act=calendar(캘린더) | "PLEDIS 엔터테인먼트 A&R (뮤직 프로덕션), 에이치뮤직엔터테인먼트 A&R 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/26534
+  · bf82ca40 | info-EC-calendar-2025w46 | 2025-autumn 11주차(iso 2025-W46, start 2025-11-10, 공표됨) | act=calendar(캘린더) | "FNC 엔터테인먼트 마케팅1팀, MORE VISION 엔터테인먼트 아티스트 매니저 (로드매니저) 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/34898
+  · 78122e95 | info-EC-calendar-2024w01 | 2024-winter 1주차(iso 2024-W1, start 2024-01-01, 공표됨) | act=calendar(캘린더) | "더핑크퐁컴퍼니 엔터테인먼트 유튜브 채널 운영 PM, 아메바컬쳐 엔터테인먼트 마케팅 비주얼 파트 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/5190
+  · ea81009b | info-EC-calendar-2024w30 | 2024-summer 4주차(iso 2024-W30, start 2024-07-22, 공표됨) | act=calendar(캘린더) | "JMG 엔터테인먼트 가수매니지먼트, 웨이크원 엔터테인먼트 현장매니저 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/15530
+  · cee0d761 | info-EC-calendar-2023w40 | 2023-autumn 5주차(iso 2023-W40, start 2023-10-02, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/2415
+  · 5351deb7 | info-EC-wisdom-2024w21 | 2024-spring 12주차(iso 2024-W21, start 2024-05-20, 공표됨) | act=wisdom(위즈덤) | "[엔터/리스크] 아이돌 안무 복사 붙여넣기 논란! K-POP 산업의 크리에이티브 저작권 보호 과제" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/12525
+  · 47946008 | info-EC-wisdom-2023w28 | 2023-summer 2주차(iso 2023-W28, start 2023-07-10, 공표됨) | act=wisdom(위즈덤) | "[콘텐츠/영화] 영화가 사라진다...! 위기의 극장! 홀드백 붕괴와 OTT 공습 속 오프라인 플랫폼의 생존 과제" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/479
+  · 09a54d99 | info-EC-essay-2025w07 | 2025-winter 7주차(iso 2025-W7, start 2025-02-10, 공표됨) | act=essay(에세이) | "[브랜딩/경험] 브랜드를 오감으로 경험하는 체험 마케팅! 오프라인 접점에서 긍정적 각인을 남기는 CX" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/23769
+  · 1a3854aa | info-EC-essay-2026w01 | 2026-winter 1주차(iso 2026-W1, start 2025-12-29, 공표됨) | act=essay(에세이) | "[엔터/리스크] 바람 잘 날 없는 사생활 논란! 이슈 발생 시 브랜드 타격을 최소화하는 위기관리(CR)" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36053
+  · 821e0818 | info-EC-essay-2024w04 | 2024-winter 4주차(iso 2024-W4, start 2024-01-22, 공표됨) | act=essay(에세이) | "[비즈니스/구조] 엔터테인먼트 기획사 vs 에이전시 비교 분석! 아티스트 매니지먼트의 비즈니스 모델" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/6309
+  · 5eb1118a | info-EC-essay-2024w33 | 2024-summer 7주차(iso 2024-W33, start 2024-08-12, 공표됨) | act=essay(에세이) | "[광고/스포츠] 매복 마케팅의 정수, 앰부시 마케팅! 공식 후원사 없이 대형 이벤트를 활용하는 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/16797
+  · fc6c30d6 | info-EC-essay-2023w40 | 2023-autumn 5주차(iso 2023-W40, start 2023-10-02, 공표됨) | act=essay(에세이) | "[콘텐츠/영화] 시선을 매료시키는 영화 마케팅의 세계! 예고편부터 포스터까지 관객을 낚는 비주얼 기획" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/2332
+  · 8277d65f | info-EC-wisdom-2024w48 | 2024-autumn 13주차(iso 2024-W48, start 2024-11-25, 공표됨) | act=wisdom(위즈덤) | "[게이미피케이션/경험] 피크민 블룸, 너 누군데? 일상을 게임으로 만드는 라이프 트래킹 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/20960
+  · 1ee3bc26 | info-EC-essay-2025w04 | 2025-winter 4주차(iso 2025-W4, start 2025-01-20, 공표됨) | act=essay(에세이) | "[미디어/소셜] 소비자가 직접 창작하는 언드 미디어! UGC 확산을 통해 브랜드 신뢰도를 높이는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/23006
+  · d418fe72 | info-EC-essay-2025w33 | 2025-summer 7주차(iso 2025-W33, start 2025-08-11, 공표됨) | act=essay(에세이) | "[브랜딩/스토리] 아이돌 세계관 붕괴와 독자 장르의 등장! 복잡한 내러티브 대신 직관적 컨셉으로 변형" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/31289
+  · 8b923891 | info-EC-essay-2024w02 | 2024-winter 2주차(iso 2024-W2, start 2024-01-08, 공표됨) | act=essay(에세이) | "[엔터/미래] 아이돌 산업의 과거·현재·미래! 세대교체 흐름 속에서 지속 가능한 글로벌 스케일업 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/5438
+  · 10056c85 | info-EC-essay-2024w31 | 2024-summer 5주차(iso 2024-W31, start 2024-07-29, 공표됨) | act=essay(에세이) | "[소비자/Z세대] 다이어리부터 별걸 다 꾸미는 '별다꾸' 문화! 커스터마이징으로 취향을 드러내는 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/15877
+  · 58bc3b17 | info-EC-essay-2023w37 | 2023-autumn 2주차(iso 2023-W37, start 2023-09-11, 공표됨) | act=essay(에세이) | "[콘텐츠/소셜미디어] 일상을 자산으로 만드는 브이로그 콘텐츠! 친근감과 대리 만족을 주는 1인 미디어" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/1591
+  · c3cd569e | info-EC-calendar-2025w03 | 2025-winter 3주차(iso 2025-W3, start 2025-01-13, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 예능 제작 PD 채용(프리랜서), SM 영상사업 담당자, MD기획 담당자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/22705
+  · 7b49a855 | info-EC-calendar-2025w33 | 2025-summer 7주차(iso 2025-W33, start 2025-08-11, 공표됨) | act=calendar(캘린더) | "PLEDIS 엔터테인먼트 아티스트 마케팅, 빅플랫닛메이드 엔터테인먼트 마케팅팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/31406
+  · f3f97138 | info-EC-calendar-2026w11 | 2026-spring 2주차(iso 2026-W11, start 2026-03-09, 공표됨) | act=calendar(캘린더) | "스타쉽 가수 매니저, F&F 엔터테인먼트 제작사업부문, YH 엔터테인먼트 음악사업본부 매니지먼트 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38621
+  · d9189dec | info-EC-calendar-2024w14 | 2024-spring 5주차(iso 2024-W14, start 2024-04-01, 공표됨) | act=calendar(캘린더) | "유진 엔터테인먼트 국내해외 공연스탭/매니저, 씨나인 엔터테인먼트 경영지원팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/10892
+  · 96cb4bf3 | info-EC-calendar-2024w46 | 2024-autumn 11주차(iso 2024-W46, start 2024-11-11, 공표됨) | act=calendar(캘린더) | "젤리피쉬 엔터테인먼트 기획제작부분, EDAM 엔터테인먼트 마케팅팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/20458
+  · 2b82c047 | info-EC-session-2025w20 | 2025-spring 11주차(iso 2025-W20, start 2025-05-12, 공표됨) | act=session(세션) | "썸머 시즌 축제/페스티벌 동향 트렌드 & 아티스트의 고향과 어린시절, 그룹 밀어주기, AI 사용 확대" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40428
+  · 48492bb3 | info-EC-wisdom-2023w27 | 2023-summer 1주차(iso 2023-W27, start 2023-07-03, 공표됨) | act=wisdom(위즈덤) | "[엔터/커리어] 아이돌 연습생을 가르치는 아이돌 학원! 글로벌 K-POP 인프라가 만든 새로운 교육 비즈니스 모델" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/475
+  · 84326557 | info-EC-essay-2025w06 | 2025-winter 6주차(iso 2025-W6, start 2025-02-03, 공표됨) | act=essay(에세이) | "[문화/시즌] 기대를 확신으로 바꾸는 시즈널 브랜딩! 한정판 마케팅으로 소비심리를 자극하는 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/23406
+  · de573693 | info-EC-essay-2025w34 | 2025-summer 8주차(iso 2025-W34, start 2025-08-18, 공표됨) | act=essay(에세이) | "[콘텐츠/광고] 브랜드 스토리를 녹인 브랜디드 콘텐츠! 광고 거부감을 지우고 몰입을 이끄는 서사 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/31630
+  · 46a040bf | info-EC-essay-2024w03 | 2024-winter 3주차(iso 2024-W3, start 2024-01-15, 공표됨) | act=essay(에세이) | "[공간/경험] 팝업스토어 전성시대와 K-POP의 주도권! 오프라인 공간을 팬덤 성지로 만드는 VMD 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/5846
+  · d39a5cee | info-EC-essay-2024w32 | 2024-summer 6주차(iso 2024-W32, start 2024-08-05, 공표됨) | act=essay(에세이) | "[콘텐츠/영화] 오컬트 콘텐츠 신드롬! 샤머니즘과 미스터리 서사에 열광하는 대중 심리 분석" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/16344
+  · 1ce52e19 | info-EC-essay-2023w38 | 2023-autumn 3주차(iso 2023-W38, start 2023-09-18, 공표됨) | act=essay(에세이) | "[엔터/ESG] 자연보호 vs K-POP 실물 앨범 쓰레기 논란! 팬덤 비즈니스가 마주한 친환경 ESG 과제" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/1934
+  · 1649d6c1 | info-EC-calendar-2025w04 | 2025-winter 4주차(iso 2025-W4, start 2025-01-20, 공표됨) | act=calendar(캘린더) | "제이플로 엔터테인먼트 기획 마케팅, 빅 엔터테인먼트 현장 매니저 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/23114
+  · 19143b75 | info-EC-calendar-2025w34 | 2025-summer 8주차(iso 2025-W34, start 2025-08-18, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인머늩 일본 사업 담당자, 가수 매니저, JYP Software Engineer / Data 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/31794
+  · 467fb0ab | info-EC-calendar-2026w12 | 2026-spring 3주차(iso 2026-W12, start 2026-03-16, 공표됨) | act=calendar(캘린더) | "CJ ENM 신입사원, 스타쉽 미디어커뮤니케이션 담당자, 팬클럽 운영 담당자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38894
+  · ea37a6fd | info-EC-calendar-2024w18 | 2024-spring 9주차(iso 2024-W18, start 2024-04-29, 공표됨) | act=calendar(캘린더) | "YG 채널마케팅팀/채널 관리 담당자, WM 엔터테인먼트 콘텐츠제작팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/11398
+  · a47e3c5e | info-EC-calendar-2024w47 | 2024-autumn 12주차(iso 2024-W47, start 2024-11-18, 공표됨) | act=calendar(캘린더) | "큐브 엔터테인먼트 부무별 신입/경력, YG 신인개발팀 / 연습생 담당자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/20764
+  · 12c7095f | info-EC-session-2025w21 | 2025-spring 12주차(iso 2025-W21, start 2025-05-19, 공표됨) | act=session(세션) | "썸머 시즌에서의 뮤직 산업 유행과 트렌드 & 산업 내 덕질과 대중성의 갭 차이" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40693
+  · 156163c7 | info-EC-wisdom-2023w30 | 2023-summer 4주차(iso 2023-W30, start 2023-07-24, 공표됨) | act=wisdom(위즈덤) | "[디자인/심리] 캐릭터가 사람을 닮으면 혐오감을 준다? 불쾌한 골짜기(Uncanny Valley)를 극복하는 3D 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/663
+  · a47dc063 | info-EC-essay-2025w10 | 2025-spring 1주차(iso 2025-W10, start 2025-03-03, 공표됨) | act=essay(에세이) | "[소셜미디어/플랫폼] X(트위터) 마케팅으로 입소문 내기! 실시간 텍스트 트렌드를 장악하는 바이럴 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/24862
+  · d2832170 | info-EC-essay-2026w03 | 2026-winter 3주차(iso 2026-W3, start 2026-01-12, 공표됨) | act=essay(에세이) | "[엔터/콘텐츠] 해도 문제 안 해도 문제, 라이브 실력 논란! K-POP의 본질적 가치와 퍼포먼스 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36521
+  · 743c48fd | info-EC-essay-2024w07 | 2024-winter 7주차(iso 2024-W7, start 2024-02-12, 공표됨) | act=essay(에세이) | "[비즈니스/법률] 마케터 필수 지식 Copyright & License! 콘텐츠 활용 시 리스크를 줄이는 저작권 가이드" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/7253
+  · 6047d46a | info-EC-essay-2024w36 | 2024-autumn 1주차(iso 2024-W36, start 2024-09-02, 공표됨) | act=essay(에세이) | "[뮤직/퍼포먼스] K-POP과 보깅 댄스의 만남! 하이패션 감성과 서브컬처를 결합한 비주얼 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/18049
+  · 73f2e55b | info-EC-essay-2023w45 | 2023-autumn 10주차(iso 2023-W45, start 2023-11-06, 공표됨) | act=essay(에세이) | "[엔터/기업] 하이브(HYBE) 분석! 멀티 레이블 시스템과 메가 IP 통합 플랫폼 위버스의 시너지 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/3054
+  · 33cf902c | info-EC-calendar-2025w08 | 2025-winter 8주차(iso 2025-W8, start 2025-02-17, 공표됨) | act=calendar(캘린더) | "KQ 엔터테인먼트 음반 제작 업무 신입사원, 쇼플레이 엔터테인먼트 영상 부문 신입 및 경력자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/24364
+  · bacadf93 | info-EC-calendar-2025w38 | 2025-autumn 3주차(iso 2025-W38, start 2025-09-15, 공표됨) | act=calendar(캘린더) | "SM 트레이닝 담당자, 스타쉽 음반제작/프로덕션팀 신입/경력, 이닛 엔터테인먼트 캐스팅 (신입/경력) 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/33089
+  · 09931460 | info-EC-calendar-2026w18 | 2026-spring 9주차(iso 2026-W18, start 2026-04-27, 공표됨) | act=calendar(캘린더) | "와이에이치 엔터테인먼트 음악사업본부 매니지먼트, F&F 엔터테인먼트 PR 및 대외협력실 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39910
+  · 69f16957 | info-EC-calendar-2024w21 | 2024-spring 12주차(iso 2024-W21, start 2024-05-20, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 팬마케팅팀, IST 엔터테인먼트 제작2본부 A&R팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/12675
+  · 77c415e5 | info-EC-calendar-2023w33 | 2023-summer 7주차(iso 2023-W33, start 2023-08-14, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/828
+  · 90ddb872 | info-EC-session-2026w05 | 2026-winter 5주차(iso 2026-W5, start 2026-01-26, 공표됨) | act=session(세션) | "엔터테인먼트 산업 비전공 신입사원 진출 & 사운드체크석과 콘서트 티켓 과잉구매 업자 논란 이슈" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37194
+  · 843e20cb | info-EC-essay-2025w02 | 2025-winter 2주차(iso 2025-W2, start 2025-01-06, 공표됨) | act=essay(에세이) | "[소비자/트렌드] 도파밍, 재미를 수집하는 시대! 도파민을 찾아 나선 소비자들을 겨냥한 숏 사이클 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/22195
+  · b488e800 | info-EC-essay-2025w31 | 2025-summer 5주차(iso 2025-W31, start 2025-07-28, 공표됨) | act=essay(에세이) | "[소셜미디어/데이터] 알고리즘의 편리함 뒤 필터버블의 이면! 취향 파편화 시대의 개인화 마케팅 리스크" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/30533
+  · 682deb6c | info-EC-essay-2026w22 | 2026-spring 13주차(iso 2026-W22, start 2026-05-25, 공표됨) | act=essay(에세이) | "[엔터/조직] 한 지붕 아래 여러 레이블, K-POP 멀티레이블의 명암! 독자성과 시너지의 균형 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40923
+  · 773e52e3 | info-EC-essay-2024w29 | 2024-summer 3주차(iso 2024-W29, start 2024-07-15, 공표됨) | act=essay(에세이) | "[광고/OOH] 진짜야 가짜야? 가상 옥외광고 FOOH! 시각적 왜곡과 SNS 공유를 노린 테크 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/14889
+  · 3be0076e | info-EC-essay-2023w34 | 2023-summer 8주차(iso 2023-W34, start 2023-08-21, 공표됨) | act=essay(에세이) | "[글로벌/브랜딩] 글로벌 대기업들의 한류 마케팅 대결! K-컬처 자산을 활용해 현지 시장을 침공하는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/865
+  · c1ce8fac | info-EC-forum-2025w21 | 2025-spring 12주차(iso 2025-W21, start 2025-05-19, 공표됨) | act=forum(포럼) | "[미디어/숏폼] 편집 꿀팁 대방출, 파이널컷 A to Z! 맥(Mac) 환경에 최적화된 고효율 영상 제작 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/27900
+  · 9398a7f4 | info-EC-forum-2023w45 | 2023-autumn 10주차(iso 2023-W45, start 2023-11-06, 공표됨) | act=forum(포럼) | "[디자인/콘텐츠] 레퍼런스 없이 포토샵으로 썸네일 만들기! 클릭을 부르는 폰트 배치와 색상 대비 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/2781
+  · 134becc9 | info-EC-calendar-2025w31 | 2025-summer 5주차(iso 2025-W31, start 2025-07-28, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 영상제작팀, SM 캐릭터 디자이너, KOZ 엔터테인먼트 아티스트마케팅 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/30657
+  · c0cc914f | info-EC-calendar-2026w07 | 2026-winter 7주차(iso 2026-W7, start 2026-02-09, 공표됨) | act=calendar(캘린더) | "스타쉽 팬마케팅팀, 에버모어 엔터테인먼트 영상컨텐츠 담당자, U& 엔터테인먼트 캐스팅 디렉터 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37785
+  · 1ba48868 | info-EC-calendar-2024w12 | 2024-spring 3주차(iso 2024-W12, start 2024-03-18, 공표됨) | act=calendar(캘린더) | "에스팀 엔터테인먼트 아티스트 매니저, 제나두 엔터테인먼트 영상팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/9863
+  · cbd8ac43 | info-EC-calendar-2024w44 | 2024-autumn 9주차(iso 2024-W44, start 2024-10-28, 공표됨) | act=calendar(캘린더) | "YG 가수 매니지먼트 담당자, WM 엔터테인먼트 A&R팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/19756
+  · 2b5ba52e | info-EC-session-2025w18 | 2025-spring 9주차(iso 2025-W18, start 2025-04-28, 공표됨) | act=session(세션) | "연예인 사복 패션과 대중성 기반의 앱 & 티케팅 매크로 논란과 숏폼 대 롱폼 경쟁, 최애 그룹의 커버곡" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39874
+  · 2ee58691 | info-EC-essay-2025w08 | 2025-winter 8주차(iso 2025-W8, start 2025-02-17, 공표됨) | act=essay(에세이) | "[유통/이커머스] 유료 팬 플랫폼의 미래 전망! 커뮤니티 결속력을 기반으로 이커머스를 확장하는 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/24167
+  · 03d935fc | info-EC-essay-2026w02 | 2026-winter 2주차(iso 2026-W2, start 2026-01-05, 공표됨) | act=essay(에세이) | "[미디어/글로벌] 넷플릭스와 한국 콘텐츠의 기묘한 관계! 글로벌 플랫폼 의존도와 IP 주도권 전쟁" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36247
+  · 0f6c7dfc | info-EC-essay-2024w06 | 2024-winter 6주차(iso 2024-W6, start 2024-02-05, 공표됨) | act=essay(에세이) | "[테크/경험] 가상 현실과 엔터테인먼트의 결합! 공간의 한계를 지우는 실감형 메타버스 CX 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/6812
+  · ba3ddba8 | info-EC-essay-2024w34 | 2024-summer 8주차(iso 2024-W34, start 2024-08-19, 공표됨) | act=essay(에세이) | "[문화/뮤직] 힙합 트렌드의 변화와 대중화! 장르의 경계를 허물며 진화하는 유스 컬처(Youth Culture)" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/17293
+  · 58227afc | info-EC-essay-2023w44 | 2023-autumn 9주차(iso 2023-W44, start 2023-10-30, 공표됨) | act=essay(에세이) | "[콘텐츠/미디어] 연애 프로그램의 시청자 흡입 요인! 도파민과 과몰입을 유도하는 내러티브 편집 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/2724
+  · 79ff38ae | info-EC-calendar-2025w07 | 2025-winter 7주차(iso 2025-W7, start 2025-02-10, 공표됨) | act=calendar(캘린더) | "SM M/V 담당자, 디네이션 엔터테인먼트 영상콘텐츠팀 PD 채용 (기획/촬영/편집) 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/23875
+  · 526a494d | info-EC-calendar-2025w37 | 2025-autumn 2주차(iso 2025-W37, start 2025-09-08, 공표됨) | act=calendar(캘린더) | "카카오 엔터테인먼트 PR 담당자, 가요 앨범 출시 및 마케팅, KQ 엔터테인먼트 비주얼크리에이티브팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/32734
+  · 91c438f5 | info-EC-calendar-2026w14 | 2026-spring 5주차(iso 2026-W14, start 2026-03-30, 공표됨) | act=calendar(캘린더) | "SM M/V 담당자, YH 엔터테인먼트 디자인팀, KOZ 엔터테인먼트 프로덕션 코디네이터 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39584
+  · 61108f61 | info-EC-calendar-2024w20 | 2024-spring 11주차(iso 2024-W20, start 2024-05-13, 공표됨) | act=calendar(캘린더) | "홈 엔터테인먼트 기획팀, SM 아티스트숏폼콘텐츠 기획 및 제작 담당자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/12271
+  · 6059071a | info-EC-calendar-2023w32 | 2023-summer 6주차(iso 2023-W32, start 2023-08-07, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/771
+  · b441ca2a | info-EC-session-2026w04 | 2026-winter 4주차(iso 2026-W4, start 2026-01-19, 공표됨) | act=session(세션) | "콘서트 관람 스타일 (눈 vs 폰)과 최애 메인 보컬 & 신인그룹의 세계관과 과도한 세계화 이슈" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36843
+  · a647c083 | info-EC-essay-2025w28 | 2025-summer 2주차(iso 2025-W28, start 2025-07-07, 공표됨) | act=essay(에세이) | "[글로벌/정치] 한한령과 K-콘텐츠 산업의 돌파구! 지정학적 리스크를 분산하는 다국적 시장 다각화 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/29383
+  · 13f9a19b | info-EC-essay-2026w19 | 2026-spring 10주차(iso 2026-W19, start 2026-05-04, 공표됨) | act=essay(에세이) | "[테크/경험] 극장으로 들어온 VR 콘서트! 시공간을 초월한 몰입형 경험이 제안하는 미래형 CX 전략" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40111
+  · 5c769932 | info-EC-essay-2024w22 | 2024-spring 13주차(iso 2024-W22, start 2024-05-27, 공표됨) | act=essay(에세이) | "[글로벌/엔터] 지금의 한류가 직면한 과제와 미래! 단순한 유행을 넘어 지속 가능한 문화 자산이 되는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/12980
+  · d625470a | info-EC-essay-2023w31 | 2023-summer 5주차(iso 2023-W31, start 2023-07-31, 공표됨) | act=essay(에세이) | "[글로벌/엔터] K-POP이 노리는 다음 타깃 주류 시장! 서구권 팝 시장을 관통하기 위한 현지화 브랜딩" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/717
+  · 1374f0b0 | info-EC-calendar-2025w27 | 2025-summer 1주차(iso 2025-W27, start 2025-06-30, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 가수 매니저, 위에화 엔터테인먼트코리아 배우사업본부 매니지먼트팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/29152
+  · 9bb08333 | info-EC-calendar-2026w04 | 2026-winter 4주차(iso 2026-W4, start 2026-01-19, 공표됨) | act=calendar(캘린더) | "그레이트엠 엔터테인먼트 A&R팀, 영상 제작팀, 안테나 엔터테인먼트 매니지먼트팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36897
+  · 12874651 | info-EC-calendar-2024w08 | 2024-winter 8주차(iso 2024-W8, start 2024-02-19, 공표됨) | act=calendar(캘린더) | "더뮤즈 엔터테인먼트 마케팅팀, J WIN 엔터테인먼트 마케팅팀, 젤리피쉬 엔터테인먼트 마케팅 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/8209
+  · d3fc2d4a | info-EC-calendar-2024w37 | 2024-autumn 2주차(iso 2024-W37, start 2024-09-09, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 팬마케팅팀, 키아나 엔터테인먼트 신입 개발 및 캐스팅 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/18494
+  · 6702baf4 | info-EC-session-2025w11 | 2025-spring 2주차(iso 2025-W11, start 2025-03-10, 공표됨) | act=session(세션) | "스프링 시즌의 벚꽃 키워드 트렌드 & 지방 콘서트의 소멸과 콘서트 촬영 금지 찬반 여론 이슈" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38569
+  · 79465fce | info-EC-essay-2025w30 | 2025-summer 4주차(iso 2025-W30, start 2025-07-21, 공표됨) | act=essay(에세이) | "[공간/서비스] 콘서트 본인 확인과 개인정보 침해의 경계! 안전한 티켓팅과 CX 편의성의 밸런스 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/30154
+  · bed153be | info-EC-essay-2026w21 | 2026-spring 12주차(iso 2026-W21, start 2026-05-18, 공표됨) | act=essay(에세이) | "[엔터/리스크] 연애는 자유 혹은 책임? 아이돌 연애를 바라보는 시선! 팬덤 비즈니스의 리스크 매니지먼트" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40659
+  · b5648b59 | info-EC-essay-2024w28 | 2024-summer 2주차(iso 2024-W28, start 2024-07-08, 공표됨) | act=essay(에세이) | "[디자인/소비재] 브랜드 X 캐릭터 IP의 시너지! 메가 IP와의 콜라보로 친근감을 형성하는 콜라보 마케팅" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/14436
+  · 90f3fca2 | info-EC-essay-2023w33 | 2023-summer 7주차(iso 2023-W33, start 2023-08-14, 공표됨) | act=essay(에세이) | "[AI 테크/미래] AI의 세상, 경쟁자일까 동료일까? 생성형 AI 툴을 활용한 기획자의 업무 효율화 가이드" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/797
+  · cf9ad0b1 | info-EC-forum-2023w40 | 2023-autumn 5주차(iso 2023-W40, start 2023-10-02, 공표됨) | act=forum(포럼) | "[디자인/콘텐츠] 포토샵으로 유튜브·블로그 썸네일 만들기! 시각적 계층 구조를 활용한 레이아웃 기획" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/2235
+  · a392826f | info-EC-calendar-2025w29 | 2025-summer 3주차(iso 2025-W29, start 2025-07-14, 공표됨) | act=calendar(캘린더) | "SM 글로벌 PM 담당자, 사람 엔터테인먼트 홍보마케팅, 와이원 엔터테인먼트 매니지먼트팀/ 배우 매니저 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/29903
+  · d3e70841 | info-EC-calendar-2026w06 | 2026-winter 6주차(iso 2026-W6, start 2026-02-02, 공표됨) | act=calendar(캘린더) | "FNC 광고팀, 미디어제작파트(영상), 하이업 엔터테인먼트 매니지먼트, PLEDIS 아티스트의전 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37512
+  · 40445f98 | info-EC-calendar-2024w11 | 2024-spring 2주차(iso 2024-W11, start 2024-03-11, 공표됨) | act=calendar(캘린더) | "골드더스트 엔터테인먼트 마케팅, 저스트 엔터테인먼트 마케팅 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/9371
+  · 1aad770f | info-EC-calendar-2024w40 | 2024-autumn 5주차(iso 2024-W40, start 2024-09-30, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 아티스트 해외 PR/마케팅 담당, BH 엔터테인먼트 매니지먼트 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/19349
+  · ee5cc51a | info-EC-session-2025w13 | 2025-spring 4주차(iso 2025-W13, start 2025-03-24, 공표됨) | act=session(세션) | "컴백하는 프로듀스 시절의 아이돌과 스프링 시즌 트렌드 & 팬덤 문화 강세와 포토카드, 아이돌 보호의 과잉 여부" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39174
+  · 5631d269 | info-EC-essay-2026w20 | 2026-spring 11주차(iso 2026-W20, start 2026-05-11, 공표됨) | act=essay(에세이) | "[로컬/이벤트] 대학 축제 연예인 섭외 대전! 라인업 경쟁 속 대학 브랜딩과 예산 효율화의 한 끗" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40379
+  · 67acf86e | info-EC-essay-2024w27 | 2024-summer 1주차(iso 2024-W27, start 2024-07-01, 공표됨) | act=essay(에세이) | "[이커머스/글로벌] 새로운 바람 C-커머스의 역습! 초저가 공급망이 국내 유통 생태계에 미친 파장" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/14031
+  · 1d1e6e9d | info-EC-essay-2023w32 | 2023-summer 6주차(iso 2023-W32, start 2023-08-07, 공표됨) | act=essay(에세이) | "[거시경제/엔터] 전 세계를 뒤흔든 '스위프트노믹스'와 펀플레이션! 문화 소비가 이끄는 로컬 경제 효과" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/745
+  · aa94c045 | info-EC-calendar-2025w28 | 2025-summer 2주차(iso 2025-W28, start 2025-07-07, 공표됨) | act=calendar(캘린더) | "SM International A&R 인턴십, 앤유 엔터테인먼트 A&R, U& 엔터테인먼트 캐스팅 디렉터 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/29508
+  · bf60b9d6 | info-EC-calendar-2026w05 | 2026-winter 5주차(iso 2026-W5, start 2026-01-26, 공표됨) | act=calendar(캘린더) | "스타쉽 가수 매니저, 담액터스 엔터테인먼트 신인개발팀 신입 및 경력자, 큐브 영어권사업팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37227
+  · 75215330 | info-EC-calendar-2024w10 | 2024-spring 1주차(iso 2024-W10, start 2024-03-04, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 현장 매니저, 에이블 엔터테인먼트 신인개발팀/상담 및 영업팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/8863
+  · 66dcc6f2 | info-EC-calendar-2024w39 | 2024-autumn 4주차(iso 2024-W39, start 2024-09-23, 공표됨) | act=calendar(캘린더) | "디네이션 엔터테인먼트 영상콘텐츠팀 PD, 노매드 엔터테인먼트 A&R 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/18958
+  · da416015 | info-EC-session-2025w12 | 2025-spring 3주차(iso 2025-W12, start 2025-03-17, 공표됨) | act=session(세션) | "개강의 계절과 아이돌 자컨의 트렌드 & 다가오는 광화문 광장 BTS 컴백 무대와 도로통제 이슈" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38862
+  · c8370355 | info-EC-essay-2024w01 | 2024-winter 1주차(iso 2024-W1, start 2024-01-01, 공표됨) | act=essay(에세이) | "[엔터/소비재] 앨범 판매량과 엔터 산업의 상관관계! 실물 소장 욕구와 팬덤 화력의 마케팅 함수" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/5014
+  · c4c56c37 | info-EC-essay-2024w30 | 2024-summer 4주차(iso 2024-W30, start 2024-07-22, 공표됨) | act=essay(에세이) | "[미디어/플랫폼] 왓챠플레이의 생존 전략! 대형 OTT 틈바구니에서 시네필 코어 팬덤을 지키는 법" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/15380
+  · e13de830 | info-EC-essay-2023w36 | 2023-autumn 1주차(iso 2023-W36, start 2023-09-04, 공표됨) | act=essay(에세이) | "[뮤직/브랜딩] 빠르게 변화하는 K-POP과 마케팅 방안! 숏폼 밈(Meme) 트렌드에 대응하는 실시간 전술" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/1254
+  · 287b16bc | info-EC-calendar-2025w02 | 2025-winter 2주차(iso 2025-W2, start 2025-01-06, 공표됨) | act=calendar(캘린더) | "SM Creative Visual 담당자, 스타쉽 엔터테인먼트 신인개발2팀 캐스팅 담당자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/22320
+  · 8c25092a | info-EC-calendar-2025w32 | 2025-summer 6주차(iso 2025-W32, start 2025-08-04, 공표됨) | act=calendar(캘린더) | "SM 영상사업 인턴십, 아티스트 소셜 콘텐츠 제작 인턴십, FNC 엔터테인먼트 비주얼파트 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/31043
+  · 386d9b0e | info-EC-calendar-2026w10 | 2026-spring 1주차(iso 2026-W10, start 2026-03-02, 공표됨) | act=calendar(캘린더) | "SM 콘텐츠 프로모션 인턴십, 큐브 제작기획, EDAM 엔터테인먼트 MD 담당 경력직 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/38350
+  · 019845a6 | info-EC-calendar-2024w13 | 2024-spring 4주차(iso 2024-W13, start 2024-03-25, 공표됨) | act=calendar(캘린더) | "카카오 엔터테인먼트 광고 운영 어시스턴트, 젤리피쉬 엔터테인먼트 마케팅파트 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/10350
+  · d3238332 | info-EC-calendar-2024w45 | 2024-autumn 10주차(iso 2024-W45, start 2024-11-04, 공표됨) | act=calendar(캘린더) | "YG 퍼포먼스톤텐츠 담당자, 젤리피쉬 엔터테인먼트 영상/사진 촬영 편집 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/20096
+  · 80505744 | info-EC-session-2025w19 | 2025-spring 10주차(iso 2025-W19, start 2025-05-05, 공표됨) | act=session(세션) | "대학교 축제 시즌과 어버이날과 같은 시즌별 이벤트 & 아이돌 산업의 컨셉 대결과 홍보방법, 콘텐츠 불법 복제 이슈" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40138
+  · 50cc03e2 | info-EC-practical_lecture-2024w13 | 2024-spring 4주차(iso 2024-W13, start 2024-03-25, 공표됨) | act=practical_lecture(아카데미) | "[엔터/커리어] 엔터테인먼트 취업의 모든 것, 콘텐츠·팬마케팅 실무 클래스 신청! 주니어 기획자를 위한 합격 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/7149
+  · 00de5585 | info-EC-essay-2024w08 | 2024-winter 8주차(iso 2024-W8, start 2024-02-19, 공표됨) | act=essay(에세이) | "[콘텐츠/법률] 불법 유통 웹툰·웹소설과 저작권 침해! K-콘텐츠 생태계를 보호하기 위한 보안 매뉴얼" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/7909
+  · 99bb0121 | info-EC-essay-2024w37 | 2024-autumn 2주차(iso 2024-W37, start 2024-09-09, 공표됨) | act=essay(에세이) | "[게이미피케이션/앱] 일상을 게임처럼 바꾸는 게이미피케이션! 몰입과 보상을 통해 리텐션을 높이는 그로스해킹" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/18387
+  · 8f0b7635 | info-EC-essay-2023w46 | 2023-autumn 11주차(iso 2023-W46, start 2023-11-13, 공표됨) | act=essay(에세이) | "[엔터/기업] JYP엔터테인먼트 분석! '인성 중심'의 조직 문화와 시스템화된 글로벌 현지화 공식" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/3385
+  · 5f7d43eb | info-EC-calendar-2025w10 | 2025-spring 1주차(iso 2025-W10, start 2025-03-03, 공표됨) | act=calendar(캘린더) | "스타쉽 신인개발1팀 캐스팅 담당자, 포켓돌스스튜디오 엔터테인먼트 콘텐츠팀 (디자인 담당) 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/24974
+  · 976d12cd | info-EC-calendar-2025w39 | 2025-autumn 4주차(iso 2025-W39, start 2025-09-22, 공표됨) | act=calendar(캘린더) | "SM 퍼포먼스 디렉팅 담당자, BELIFT LAB 엔터테인먼트 프로덕션코디네이터 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/33462
+  · 8c1465dc | info-EC-calendar-2026w19 | 2026-spring 10주차(iso 2026-W19, start 2026-05-04, 공표됨) | act=calendar(캘린더) | "유나스 엔터테인먼트 캐스팅 디렉터, 모두 엔터테인먼트 신입 매니지먼트 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40186
+  · beca3207 | info-EC-calendar-2024w22 | 2024-spring 13주차(iso 2024-W22, start 2024-05-27, 공표됨) | act=calendar(캘린더) | "VAST 엔터테인먼트 매니지먼트본부 매니저, 젤리피쉬 엔터테인먼트 기획제작, 마케팅 부분 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/13075
+  · 2d75d62b | info-EC-calendar-2023w34 | 2023-summer 8주차(iso 2023-W34, start 2023-08-21, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/879
+  · 750f9a6d | info-EC-session-2026w06 | 2026-winter 6주차(iso 2026-W6, start 2026-02-02, 공표됨) | act=session(세션) | "2월 발렌타이 데이 시즌에 대한 디저트 트렌드 & 버츄얼 아이돌의 인간미, 그룹 아티스트의 멤버 수 토론" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37461
+  · bb490845 | info-EC-calendar-2025w06 | 2025-winter 6주차(iso 2025-W6, start 2025-02-03, 공표됨) | act=calendar(캘린더) | "아트매닉컴퍼니 제작팀 A&R 정규직, 디네이션 엔터테인먼트 아트디렉터 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/23497
+  · 59a98306 | info-EC-calendar-2025w36 | 2025-autumn 1주차(iso 2025-W36, start 2025-09-01, 공표됨) | act=calendar(캘린더) | "SM 콘텐츠 프로모션 인턴십, 더블랙레이블 엔터테인먼트 음반기획/프로모션 담당 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/32421
+  · dca760eb | info-EC-calendar-2026w13 | 2026-spring 4주차(iso 2026-W13, start 2026-03-23, 공표됨) | act=calendar(캘린더) | "SM 매니지먼트 담당자, 스타쉽 마케팅팀, 더블랙레이블 팬마케팅 담당, 음박 기혹/프로모션 담당 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/39209
+  · 0dbc665c | info-EC-calendar-2024w19 | 2024-spring 9주차(iso 2024-W19, start 2024-05-06, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 마케팅팀, 위에화 엔터테인먼트 음악사업본부 매니지먼트팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/11862
+  · 07b1a390 | info-EC-calendar-2024w48 | 2024-autumn 13주차(iso 2024-W48, start 2024-11-25, 공표됨) | act=calendar(캘린더) | "위에화 엔터테인먼트 음악사업본부 매니지먼트팀, SM Creative Visual 담당자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/21069
+  · b8d0b9c5 | info-EC-session-2026w03 | 2026-winter 3주차(iso 2026-W3, start 2026-01-12, 공표됨) | act=session(세션) | "갑작스러운 두쫀쿠 열풍과 겨울 트렌드 & 감다살 아이돌 컴백과 엔터 업계 워라밸 가능 여부 이슈" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36565
+  · 94bae5ce | info-EC-calendar-2025w45 | 2025-autumn 10주차(iso 2025-W45, start 2025-11-03, 공표됨) | act=calendar(캘린더) | "SM 국내 언론홍보 담당자, SOURCE MUSIC 엔터테인먼트 퍼포먼스디렉터 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/34568
+  · b19c222d | info-EC-calendar-2026w22 | 2026-spring 13주차(iso 2026-W22, start 2026-05-25, 공표됨) | act=calendar(캘린더) | "스타쉽 팬마케팅 팀, SM 아티스트 콘텐츠 제작 인턴, 젤리피쉬 마케팅 담당자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40994
+  · 8693d638 | info-EC-calendar-2024w29 | 2024-summer 3주차(iso 2024-W29, start 2024-07-15, 공표됨) | act=calendar(캘린더) | "큐브 엔터테인먼트 팬마케팅팀, 웨이크원 엔터테인먼트 신인개발 캐스팅 업무 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/15014
+  · 93ddd2ff | info-EC-calendar-2023w38 | 2023-autumn 3주차(iso 2023-W38, start 2023-09-18, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/2019
+  · 7d94d209 | info-EC-calendar-2025w48 | 2025-autumn 13주차(iso 2025-W48, start 2025-11-24, 공표됨) | act=calendar(캘린더) | "SM 매니지먼트, 멜론티켓 마케팅/ 프로모션 담당 어시스턴트, RBW 엔터테인먼트 IMC팀 팀원 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/35534
+  · 57036196 | info-EC-calendar-2024w03 | 2024-winter 3주차(iso 2024-W3, start 2024-01-15, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 신인개발팀 트레이닝, 유진 엔터테인먼트 국내해외 공연스탭/매니저 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/5970
+  · 09eba7ec | info-EC-calendar-2024w32 | 2024-summer 6주차(iso 2024-W32, start 2024-08-05, 공표됨) | act=calendar(캘린더) | "KQ 엔터테인먼트 팬마케팅/SNS, 잼 엔터테인먼트 배우 홍보팀 (컨텐츠 담당) 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/16467
+  · 4f84bef3 | info-EC-calendar-2023w45 | 2023-autumn 10주차(iso 2023-W45, start 2023-11-06, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/3122
+  · 7bdfe278 | info-EC-calendar-2026w01 | 2026-winter 1주차(iso 2026-W1, start 2025-12-29, 공표됨) | act=calendar(캘린더) | "SM 음반 프로젝트 매니지먼트 담당자, F&F 엔터테인먼트 PR 및 대외협력팀, KOZ 엔터테인먼트 디자인 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36090
+  · 72e74a5e | info-EC-calendar-2024w04 | 2024-winter 4주차(iso 2024-W4, start 2024-01-22, 공표됨) | act=calendar(캘린더) | "iGet 엔터테인먼트 해외사업부 마케팅, 미스틱스토리 엔터테인먼트 배우사업부문 매니저 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/6492
+  · e55e02e7 | info-EC-calendar-2024w33 | 2024-summer 7주차(iso 2024-W33, start 2024-08-12, 공표됨) | act=calendar(캘린더) | "포켓7 엔터테인먼트 제작 마케팅팀, 젤리피쉬 엔터테인먼트 기획제작, 마케팅 부분 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/16910
+  · 58565046 | info-EC-calendar-2023w46 | 2023-autumn 11주차(iso 2023-W46, start 2023-11-13, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/3456
+  · c9f8f220 | info-EC-calendar-2026w03 | 2026-winter 3주차(iso 2026-W3, start 2026-01-12, 공표됨) | act=calendar(캘린더) | "Studio Realive 연출PD, 기획PD, nCH 엔터테인먼트 신인개발본부 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/36609
+  · 53ff0fbe | info-EC-calendar-2026w21 | 2026-spring 12주차(iso 2026-W21, start 2026-05-18, 공표됨) | act=calendar(캘린더) | "스타쉽 영상 콘텐츠 제작, SM 아티스트 비쥬얼 담당, SM 연기자매니지먼트 담당 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/40727
+  · 59b72844 | info-EC-calendar-2024w28 | 2024-summer 2주차(iso 2024-W28, start 2024-07-08, 공표됨) | act=calendar(캘린더) | "스타수비 엔터테인먼트 캐릭터 IP 개발 및 MD 기획 담당자, 브레이브 엔터테인먼트 영상팀 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/14542
+  · 4209755c | info-EC-calendar-2024w05 | 2024-winter 5주차(iso 2024-W5, start 2024-01-29, 공표됨) | act=calendar(캘린더) | "APM 엔터테인먼트 경리/회계 담당자, YG 지속가능경영/ ESG경영 운영 담당자 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/6911
+  · d642fdca | info-EC-calendar-2024w34 | 2024-summer 8주차(iso 2024-W34, start 2024-08-19, 공표됨) | act=calendar(캘린더) | "NCH 엔터테인먼트 팬마케팅/팬매니저, 디네이션 엔터테인먼트 영상콘텐츠팀 PD 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/17478
+  · b734526b | info-EC-calendar-2023w47 | 2023-autumn 12주차(iso 2023-W47, start 2023-11-20, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/3783
+  · 4ddb4e6b | info-EC-calendar-2024w07 | 2024-winter 7주차(iso 2024-W7, start 2024-02-12, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 신인개발팀 트레이닝, 유진 엔터테인먼트 국내해외 공연스탭/매니저 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/7466
+  · 42bc999e | info-EC-calendar-2024w36 | 2024-autumn 1주차(iso 2024-W36, start 2024-09-02, 공표됨) | act=calendar(캘린더) | "스타쉽 엔터테인먼트 영상제작팀, 에스투 엔터테인먼트 기획제작본부 프로덕션 파트 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/18139
+  · e05a73eb | info-EC-calendar-2023w48 | 2023-autumn 13주차(iso 2023-W48, start 2023-11-27, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/4109
+  · c6cd59ad | info-EC-calendar-2024w27 | 2024-summer 1주차(iso 2024-W27, start 2024-07-01, 공표됨) | act=calendar(캘린더) | "BH 엔터테인먼트 매니지먼트, 버스데이컴퍼니 엔터테인먼트 콘텐츠 마케팅 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/14111
+  · 4f8645b3 | info-EC-calendar-2023w36 | 2023-autumn 1주차(iso 2023-W36, start 2023-09-04, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/1299
+  · 68744562 | info-EC-session-2026w07 | 2026-winter 7주차(iso 2026-W7, start 2026-02-09, 공표됨) | act=session(세션) | "민족의 명절, 설날 한가위 트렌드 & 관세 영향에 대한 엔터테인먼트 산업 전망, 너무 어린 아이돌 데뷔 나이 이슈" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/37731
+  · d95bd59b | info-EC-calendar-2024w31 | 2024-summer 5주차(iso 2024-W31, start 2024-07-29, 공표됨) | act=calendar(캘린더) | "IST 엔터테인먼트 제작3본부 A&R팀, EDAM 엔터테인먼트 MD 담당 등 채용/커리어 정보 10건" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/16001
+  · 6ad3c346 | info-EC-calendar-2023w37 | 2023-autumn 2주차(iso 2023-W37, start 2023-09-11, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/1638
+  · 659a8976 | info-EC-calendar-2023w44 | 2023-autumn 9주차(iso 2023-W44, start 2023-10-30, 공표됨) | act=calendar(캘린더) | "엔터테인먼트/미디어 관련 클럽 내/외부 정보, 일정 습득을 통한 스케쥴링, 플래닝 수립, 진행" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/2785
+  · f3664673 | info-EC-practical_lecture-2025w01 | 2025-winter 1주차(iso 2025-W1, start 2024-12-30, 공표됨) | act=practical_lecture(아카데미) | "[트렌드/특강] 2025 트렌드의 모든 것! '트렌드 코리아' 이혜원 저자 특강! 미래 시장을 움직일 소비 키워드 큐레이션" | links=1 | target(user/rule)=0/0
+        ↳ https://cafe.naver.com/encreclub/21856
+
+[크롤러 health] status=200 body={"ok":true,"session":"valid"}
+
+[3] encre 크루 레코드 335명 로드 → operating(테스트 91명 제외) = 304명
+
+[2] 카페 댓글 크롤 + 매칭(기존 vs 팀/파트 변형 동시)
+
+  · 5e1b7c38 info-EC-wisdom-2025w01 [2025-winter 1주차] 닉 83 | 기존 매칭 24 · 변형 24 (+0) | 적립 SKIP
+  · fad48250 info-EC-wisdom-2025w30 [2025-summer 4주차] 닉 75 | 기존 매칭 20 · 변형 21 (+1) | 적립 SKIP
+  · 83d40999 info-EC-wisdom-2026w06 [2026-winter 6주차] 닉 65 | 기존 매칭 40 · 변형 40 (+0) | 적립 SKIP
+  · 19e5cd1e info-EC-wisdom-2024w11 [2024-spring 2주차] 닉 99 | 기존 매칭 12 · 변형 12 (+0) | 적립 SKIP
+  · 84e2bf22 info-EC-wisdom-2024w40 [2024-autumn 5주차] 닉 80 | 기존 매칭 17 · 변형 17 (+0) | 적립 SKIP
+  · 1d1262b7 info-EC-wisdom-2023w47 [2023-autumn 12주차] 닉 133 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · f013c08b info-EC-wisdom-2025w02 [2025-winter 2주차] 닉 70 | 기존 매칭 21 · 변형 21 (+0) | 적립 SKIP
+  · a9839572 info-EC-wisdom-2025w31 [2025-summer 5주차] 닉 89 | 기존 매칭 26 · 변형 27 (+1) | 적립 SKIP
+  · eb91bc3f info-EC-wisdom-2026w07 [2026-winter 7주차] 닉 54 | 기존 매칭 34 · 변형 34 (+0) | 적립 SKIP
+  · 5a44e7b1 info-EC-wisdom-2024w12 [2024-spring 3주차] 닉 112 | 기존 매칭 17 · 변형 17 (+0) | 적립 SKIP
+  · a541dde6 info-EC-wisdom-2024w44 [2024-autumn 9주차] 닉 84 | 기존 매칭 18 · 변형 18 (+0) | 적립 SKIP
+  · 8e03a7ab info-EC-wisdom-2023w48 [2023-autumn 13주차] 닉 121 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · dbd38a36 info-EC-essay-2025w29 [2025-summer 3주차] 닉 11 | 기존 매칭 6 · 변형 6 (+0) | 적립 SKIP
+  · 9e030051 info-EC-wisdom-2025w03 [2025-winter 3주차] 닉 79 | 기존 매칭 23 · 변형 23 (+0) | 적립 SKIP
+  · 36a3eedd info-EC-wisdom-2025w32 [2025-summer 6주차] 닉 77 | 기존 매칭 27 · 변형 28 (+1) | 적립 SKIP
+  · d95faa08 info-EC-wisdom-2026w10 [2026-spring 1주차] 닉 56 | 기존 매칭 40 · 변형 40 (+0) | 적립 SKIP
+  · 61f7fe33 info-EC-wisdom-2024w13 [2024-spring 4주차] 닉 120 | 기존 매칭 24 · 변형 24 (+0) | 적립 SKIP
+  · 68021979 info-EC-wisdom-2024w45 [2024-autumn 10주차] 닉 87 | 기존 매칭 19 · 변형 19 (+0) | 적립 SKIP
+  · 0183d418 info-EC-essay-2025w01 [2025-winter 1주차] 닉 9 | 기존 매칭 6 · 변형 6 (+0) | 적립 SKIP
+  · a044871c info-EC-wisdom-2025w04 [2025-winter 4주차] 닉 78 | 기존 매칭 24 · 변형 24 (+0) | 적립 SKIP
+  · 2f22bfe7 info-EC-wisdom-2025w33 [2025-summer 7주차] 닉 82 | 기존 매칭 25 · 변형 25 (+0) | 적립 SKIP
+  · a0b114a0 info-EC-wisdom-2026w11 [2026-spring 2주차] 닉 57 | 기존 매칭 41 · 변형 41 (+0) | 적립 SKIP
+  · 529d368a info-EC-wisdom-2024w14 [2024-spring 5주차] 닉 132 | 기존 매칭 29 · 변형 29 (+0) | 적립 SKIP
+  · 75b895a9 info-EC-wisdom-2024w46 [2024-autumn 11주차] 닉 81 | 기존 매칭 18 · 변형 18 (+0) | 적립 SKIP
+  · b114a8ba info-EC-wisdom-2025w06 [2025-winter 6주차] 닉 87 | 기존 매칭 25 · 변형 25 (+0) | 적립 SKIP
+  · ee0062b4 info-EC-wisdom-2025w34 [2025-summer 8주차] 닉 70 | 기존 매칭 22 · 변형 22 (+0) | 적립 SKIP
+  · 62c6a94d info-EC-wisdom-2026w12 [2026-spring 3주차] 닉 59 | 기존 매칭 45 · 변형 45 (+0) | 적립 SKIP
+  · b0e6bf9e info-EC-wisdom-2024w18 [2024-spring 9주차] 닉 143 | 기존 매칭 33 · 변형 33 (+0) | 적립 SKIP
+  · 56c052c7 info-EC-wisdom-2024w47 [2024-autumn 12주차] 닉 70 | 기존 매칭 17 · 변형 17 (+0) | 적립 SKIP
+  · 4608b34b info-EC-essay-2025w03 [2025-winter 3주차] 닉 6 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · e9731377 info-EC-essay-2025w32 [2025-summer 6주차] 닉 4 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · cbec2aee info-EC-wisdom-2025w07 [2025-winter 7주차] 닉 80 | 기존 매칭 27 · 변형 27 (+0) | 적립 SKIP
+  · 66959de9 info-EC-wisdom-2025w36 [2025-autumn 1주차] 닉 56 | 기존 매칭 40 · 변형 40 (+0) | 적립 SKIP
+  · 218df48f info-EC-wisdom-2026w13 [2026-spring 4주차] 닉 68 | 기존 매칭 53 · 변형 53 (+0) | 적립 SKIP
+  · 826d5104 info-EC-wisdom-2024w19 [2024-spring 9주차] 닉 129 | 기존 매칭 26 · 변형 26 (+0) | 적립 SKIP
+  · 5f27c372 info-EC-wisdom-2025w08 [2025-winter 8주차] 닉 75 | 기존 매칭 28 · 변형 28 (+0) | 적립 SKIP
+  · 6b9544f0 info-EC-wisdom-2025w37 [2025-autumn 2주차] 닉 57 | 기존 매칭 41 · 변형 41 (+0) | 적립 SKIP
+  · b0bffb9f info-EC-wisdom-2026w14 [2026-spring 5주차] 닉 59 | 기존 매칭 51 · 변형 51 (+0) | 적립 SKIP
+  · 6ecdfcef info-EC-wisdom-2024w20 [2024-spring 11주차] 닉 128 | 기존 매칭 30 · 변형 30 (+0) | 적립 SKIP
+  · 4571e93a info-EC-wisdom-2025w10 [2025-spring 1주차] 닉 73 | 기존 매칭 17 · 변형 17 (+0) | 적립 SKIP
+  · b8ced7ba info-EC-wisdom-2025w38 [2025-autumn 3주차] 닉 59 | 기존 매칭 45 · 변형 45 (+0) | 적립 SKIP
+  · dbc36627 info-EC-wisdom-2026w18 [2026-spring 9주차] 닉 65 | 기존 매칭 61 · 변형 61 (+0) | 적립 SKIP
+  · 5d227bcf info-EC-wisdom-2025w11 [2025-spring 2주차] 닉 74 | 기존 매칭 15 · 변형 15 (+0) | 적립 SKIP
+  · 1e6c8808 info-EC-wisdom-2025w39 [2025-autumn 4주차] 닉 68 | 기존 매칭 53 · 변형 53 (+0) | 적립 SKIP
+  · ca018bfa info-EC-wisdom-2026w19 [2026-spring 10주차] 닉 62 | 기존 매칭 59 · 변형 59 (+0) | 적립 SKIP
+  · 47b9282e info-EC-wisdom-2024w22 [2024-spring 13주차] 닉 98 | 기존 매칭 22 · 변형 22 (+0) | 적립 SKIP
+  · 4ffaf019 info-EC-wisdom-2023w29 [2023-summer 3주차] 닉 125 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 4c581621 info-EC-wisdom-2025w12 [2025-spring 3주차] 닉 0 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 63c46933 info-EC-wisdom-2025w40 [2025-autumn 5주차] 닉 59 | 기존 매칭 51 · 변형 51 (+0) | 적립 SKIP
+  · cb80f00c info-EC-wisdom-2026w20 [2026-spring 11주차] 닉 69 | 기존 매칭 66 · 변형 66 (+0) | 적립 SKIP
+  · 08e13248 info-EC-wisdom-2024w27 [2024-summer 1주차] 닉 108 | 기존 매칭 22 · 변형 22 (+0) | 적립 SKIP
+  · 601a79c6 info-EC-wisdom-2025w13 [2025-spring 4주차] 닉 87 | 기존 매칭 19 · 변형 19 (+0) | 적립 SKIP
+  · 456dfc72 info-EC-wisdom-2025w44 [2025-autumn 9주차] 닉 76 | 기존 매칭 35 · 변형 36 (+1) | 적립 SKIP
+  · 9b257017 info-EC-wisdom-2026w21 [2026-spring 12주차] 닉 64 | 기존 매칭 63 · 변형 63 (+0) | 적립 SKIP
+  · a0fb921f info-EC-wisdom-2024w28 [2024-summer 2주차] 닉 118 | 기존 매칭 24 · 변형 24 (+0) | 적립 SKIP
+  · 5136e5b6 info-EC-wisdom-2023w31 [2023-summer 5주차] 닉 129 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 62fe8f52 info-EC-essay-2025w11 [2025-spring 2주차] 닉 7 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · ff2e1020 info-EC-essay-2026w04 [2026-winter 4주차] 닉 6 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · 53f8e58d info-EC-wisdom-2025w14 [2025-spring 5주차] 닉 99 | 기존 매칭 26 · 변형 26 (+0) | 적립 SKIP
+  · a97c2144 info-EC-wisdom-2025w45 [2025-autumn 10주차] 닉 77 | 기존 매칭 35 · 변형 35 (+0) | 적립 SKIP
+  · e9b2aead info-EC-wisdom-2025w18 [2025-spring 9주차] 닉 97 | 기존 매칭 28 · 변형 28 (+0) | 적립 SKIP
+  · 0b467209 info-EC-wisdom-2025w19 [2025-spring 10주차] 닉 97 | 기존 매칭 28 · 변형 28 (+0) | 적립 SKIP
+  · 1dbbc41f info-EC-wisdom-2025w20 [2025-spring 11주차] 닉 100 | 기존 매칭 26 · 변형 26 (+0) | 적립 SKIP
+  · 63917eb0 info-EC-wisdom-2025w48 [2025-autumn 13주차] 닉 57 | 기존 매칭 32 · 변형 33 (+1) | 적립 SKIP
+  · bf53e0d9 info-EC-wisdom-2025w21 [2025-spring 12주차] 닉 91 | 기존 매칭 26 · 변형 26 (+0) | 적립 SKIP
+  · 16a37a89 info-EC-wisdom-2026w01 [2026-winter 1주차] 닉 49 | 기존 매칭 21 · 변형 21 (+0) | 적립 SKIP
+  · 6ff5aa1a info-EC-wisdom-2024w04 [2024-winter 4주차] 닉 119 | 기존 매칭 11 · 변형 11 (+0) | 적립 SKIP
+  · fbc7749d info-EC-wisdom-2024w33 [2024-summer 7주차] 닉 91 | 기존 매칭 23 · 변형 23 (+0) | 적립 SKIP
+  · 16e4eed9 info-EC-wisdom-2023w37 [2023-autumn 2주차] 닉 119 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 788e71ca info-EC-essay-2025w19 [2025-spring 10주차] 닉 7 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · e4af30d4 info-EC-essay-2026w11 [2026-spring 2주차] 닉 7 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · fb5ffdf8 info-EC-essay-2024w14 [2024-spring 5주차] 닉 22 | 기존 매칭 6 · 변형 6 (+0) | 적립 SKIP
+  · 7cd87267 info-EC-essay-2024w46 [2024-autumn 11주차] 닉 4 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · e7e5eb32 info-EC-calendar-2025w18 [2025-spring 9주차] 닉 62 | 기존 매칭 16 · 변형 16 (+0) | 적립 SKIP
+  · 147b41ef info-EC-calendar-2025w47 [2025-autumn 12주차] 닉 74 | 기존 매칭 36 · 변형 38 (+2) | 적립 SKIP
+  · 5fa05f1c info-EC-calendar-2024w02 [2024-winter 2주차] 닉 103 | 기존 매칭 7 · 변형 7 (+0) | 적립 SKIP
+  · cf6460f2 info-EC-wisdom-2025w22 [2025-spring 13주차] 닉 82 | 기존 매칭 24 · 변형 24 (+0) | 적립 SKIP
+  · c3276c78 info-EC-wisdom-2026w02 [2026-winter 2주차] 닉 52 | 기존 매칭 24 · 변형 24 (+0) | 적립 SKIP
+  · 91aa03b5 info-EC-wisdom-2024w05 [2024-winter 5주차] 닉 114 | 기존 매칭 16 · 변형 16 (+0) | 적립 SKIP
+  · 0c925021 info-EC-wisdom-2024w34 [2024-summer 8주차] 닉 83 | 기존 매칭 21 · 변형 21 (+0) | 적립 SKIP
+  · 11a97d54 info-EC-wisdom-2023w38 [2023-autumn 3주차] 닉 122 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · 8f64bdeb info-EC-essay-2025w20 [2025-spring 11주차] 닉 3 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 6fc500a9 info-EC-essay-2026w12 [2026-spring 3주차] 닉 2 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 248b30b4 info-EC-essay-2024w18 [2024-spring 9주차] 닉 15 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · e4d9deec info-EC-essay-2024w47 [2024-autumn 12주차] 닉 5 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · c587be2e info-EC-forum-2024w45 [2024-autumn 10주차] 닉 0 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 07451085 info-EC-calendar-2025w19 [2025-spring 10주차] 닉 69 | 기존 매칭 20 · 변형 20 (+0) | 적립 SKIP
+  · 50dee197 info-EC-wisdom-2025w27 [2025-summer 1주차] 닉 82 | 기존 매칭 27 · 변형 27 (+0) | 적립 SKIP
+  · 67bc63a4 info-EC-wisdom-2026w03 [2026-winter 3주차] 닉 58 | 기존 매칭 31 · 변형 33 (+2) | 적립 SKIP
+  · 08843902 info-EC-wisdom-2024w07 [2024-winter 7주차] 닉 114 | 기존 매칭 15 · 변형 15 (+0) | 적립 SKIP
+  · dee64715 info-EC-wisdom-2024w36 [2024-autumn 1주차] 닉 85 | 기존 매칭 20 · 변형 20 (+0) | 적립 SKIP
+  · ade18760 info-EC-wisdom-2023w40 [2023-autumn 5주차] 닉 132 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 66242b73 info-EC-essay-2025w21 [2025-spring 12주차] 닉 4 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 103d609c info-EC-essay-2026w13 [2026-spring 4주차] 닉 4 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · d5522b30 info-EC-essay-2024w19 [2024-spring 9주차] 닉 16 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · 6427c526 info-EC-essay-2024w48 [2024-autumn 13주차] 닉 1 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 1118829d info-EC-calendar-2025w20 [2025-spring 11주차] 닉 77 | 기존 매칭 25 · 변형 25 (+0) | 적립 SKIP
+  · 44d6494e info-EC-wisdom-2025w28 [2025-summer 2주차] 닉 82 | 기존 매칭 25 · 변형 26 (+1) | 적립 SKIP
+  · 76d15344 info-EC-wisdom-2026w04 [2026-winter 4주차] 닉 56 | 기존 매칭 33 · 변형 33 (+0) | 적립 SKIP
+  · 33266573 info-EC-wisdom-2024w08 [2024-winter 8주차] 닉 95 | 기존 매칭 11 · 변형 11 (+0) | 적립 SKIP
+  · 37ac7d28 info-EC-wisdom-2024w37 [2024-autumn 2주차] 닉 89 | 기존 매칭 21 · 변형 21 (+0) | 적립 SKIP
+  · 5b2efe13 info-EC-wisdom-2023w44 [2023-autumn 9주차] 닉 145 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 43cd359a info-EC-essay-2025w22 [2025-spring 13주차] 닉 2 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 449f44c1 info-EC-essay-2026w14 [2026-spring 5주차] 닉 5 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 7a4e7562 info-EC-essay-2024w20 [2024-spring 11주차] 닉 12 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · e30700e5 info-EC-essay-2023w29 [2023-summer 3주차] 닉 4 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 898301df info-EC-calendar-2025w21 [2025-spring 12주차] 닉 76 | 기존 매칭 22 · 변형 22 (+0) | 적립 SKIP
+  · 07f7f214 info-EC-calendar-2026w02 [2026-winter 2주차] 닉 64 | 기존 매칭 26 · 변형 28 (+2) | 적립 SKIP
+  · a10aa890 info-EC-wisdom-2025w29 [2025-summer 3주차] 닉 87 | 기존 매칭 25 · 변형 25 (+0) | 적립 SKIP
+  · 3be5b660 info-EC-wisdom-2026w05 [2026-winter 5주차] 닉 50 | 기존 매칭 29 · 변형 29 (+0) | 적립 SKIP
+  · fa7f79a1 info-EC-wisdom-2024w10 [2024-spring 1주차] 닉 110 | 기존 매칭 15 · 변형 15 (+0) | 적립 SKIP
+  · 790f17be info-EC-wisdom-2024w39 [2024-autumn 4주차] 닉 89 | 기존 매칭 22 · 변형 22 (+0) | 적립 SKIP
+  · cdd2b531 info-EC-wisdom-2023w46 [2023-autumn 11주차] 닉 140 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 8d4564bf info-EC-essay-2025w27 [2025-summer 1주차] 닉 9 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 8bea12e1 info-EC-essay-2026w18 [2026-spring 9주차] 닉 6 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 362917ed info-EC-essay-2024w21 [2024-spring 12주차] 닉 6 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 7eb488d7 info-EC-essay-2023w30 [2023-summer 4주차] 닉 8 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 96f747ec info-EC-forum-2024w47 [2024-autumn 12주차] 닉 7 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · be7da7ef info-EC-calendar-2025w22 [2025-spring 13주차] 닉 74 | 기존 매칭 20 · 변형 20 (+0) | 적립 SKIP
+  · 07dfdfd8 info-EC-wisdom-2025w46 [2025-autumn 11주차] 닉 75 | 기존 매칭 36 · 변형 37 (+1) | 적립 SKIP
+  · b9fc5bca info-EC-wisdom-2024w01 [2024-winter 1주차] 닉 143 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · c4bdd228 info-EC-wisdom-2024w30 [2024-summer 4주차] 닉 115 | 기존 매칭 23 · 변형 23 (+0) | 적립 SKIP
+  · e788a778 info-EC-wisdom-2023w33 [2023-summer 7주차] 닉 140 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · e715629f info-EC-essay-2025w13 [2025-spring 4주차] 닉 7 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 2d11913d info-EC-essay-2026w06 [2026-winter 6주차] 닉 2 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · a0057cdf info-EC-essay-2024w11 [2024-spring 2주차] 닉 11 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 22718853 info-EC-essay-2024w40 [2024-autumn 5주차] 닉 12 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · b6e244ea info-EC-essay-2023w48 [2023-autumn 13주차] 닉 7 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 032d4400 info-EC-calendar-2025w12 [2025-spring 3주차] 닉 66 | 기존 매칭 15 · 변형 15 (+0) | 적립 SKIP
+  · ed6a5ab4 info-EC-calendar-2025w44 [2025-autumn 9주차] 닉 81 | 기존 매칭 31 · 변형 34 (+3) | 적립 SKIP
+  · 9d21e661 IFEC-OPEN1781869424825 [2026-spring 13주차] 닉 104 | 기존 매칭 100 · 변형 100 (+0) | 적립 SKIP
+  · 06313180 info-EC-wisdom-2025w47 [2025-autumn 12주차] 닉 66 | 기존 매칭 36 · 변형 37 (+1) | 적립 SKIP
+  · 6817e2d4 info-EC-wisdom-2024w02 [2024-winter 2주차] 닉 117 | 기존 매칭 6 · 변형 6 (+0) | 적립 SKIP
+  · d4ecb7ce info-EC-wisdom-2024w31 [2024-summer 5주차] 닉 110 | 기존 매칭 31 · 변형 31 (+0) | 적립 SKIP
+  · f06f9f70 info-EC-wisdom-2023w34 [2023-summer 8주차] 닉 129 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · f46633e0 info-EC-essay-2025w14 [2025-spring 5주차] 닉 6 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · e06ae4ce info-EC-essay-2026w07 [2026-winter 7주차] 닉 3 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 646d22d3 info-EC-essay-2024w12 [2024-spring 3주차] 닉 11 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · e4a84688 info-EC-essay-2024w44 [2024-autumn 9주차] 닉 10 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 17f7bfa4 info-EC-calendar-2025w13 [2025-spring 4주차] 닉 68 | 기존 매칭 20 · 변형 20 (+0) | 적립 SKIP
+  · 732e47ff info-EC-wisdom-2026w22 [2026-spring 13주차] 닉 59 | 기존 매칭 59 · 변형 59 (+0) | 적립 SKIP
+  · c9bc82be info-EC-wisdom-2024w29 [2024-summer 3주차] 닉 111 | 기존 매칭 21 · 변형 21 (+0) | 적립 SKIP
+  · d0202f61 info-EC-wisdom-2023w32 [2023-summer 6주차] 닉 131 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 934427e5 info-EC-essay-2025w12 [2025-spring 3주차] 닉 12 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · 7291fb80 info-EC-essay-2026w05 [2026-winter 5주차] 닉 6 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 301c21b4 info-EC-essay-2024w10 [2024-spring 1주차] 닉 15 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 96f7a949 info-EC-essay-2024w39 [2024-autumn 4주차] 닉 13 | 기존 매칭 6 · 변형 6 (+0) | 적립 SKIP
+  · b74baa8b info-EC-essay-2023w47 [2023-autumn 12주차] 닉 5 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · caf865a5 info-EC-calendar-2025w11 [2025-spring 2주차] 닉 75 | 기존 매칭 18 · 변형 18 (+0) | 적립 SKIP
+  · f8617ede info-EC-calendar-2025w40 [2025-autumn 5주차] 닉 71 | 기존 매칭 27 · 변형 28 (+1) | 적립 SKIP
+  · cc23e090 info-EC-calendar-2026w20 [2026-spring 11주차] 닉 70 | 기존 매칭 65 · 변형 65 (+0) | 적립 SKIP
+  · e3f7f742 info-EC-wisdom-2024w03 [2024-winter 3주차] 닉 133 | 기존 매칭 9 · 변형 9 (+0) | 적립 SKIP
+  · 2f2b154a info-EC-wisdom-2024w32 [2024-summer 6주차] 닉 110 | 기존 매칭 29 · 변형 29 (+0) | 적립 SKIP
+  · a59c33ec info-EC-wisdom-2023w36 [2023-autumn 1주차] 닉 132 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 092feaa3 info-EC-essay-2025w18 [2025-spring 9주차] 닉 7 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · 30bef276 info-EC-essay-2026w10 [2026-spring 1주차] 닉 7 | 기존 매칭 6 · 변형 6 (+0) | 적립 SKIP
+  · 1a349e8c info-EC-essay-2024w13 [2024-spring 4주차] 닉 16 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · 7e425d1c info-EC-essay-2024w45 [2024-autumn 10주차] 닉 5 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 58d2503e info-EC-calendar-2025w14 [2025-spring 5주차] 닉 76 | 기존 매칭 20 · 변형 20 (+0) | 적립 SKIP
+  · bf82ca40 info-EC-calendar-2025w46 [2025-autumn 11주차] 닉 70 | 기존 매칭 30 · 변형 32 (+2) | 적립 SKIP
+  · 78122e95 info-EC-calendar-2024w01 [2024-winter 1주차] 닉 95 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · ea81009b info-EC-calendar-2024w30 [2024-summer 4주차] 닉 90 | 기존 매칭 20 · 변형 20 (+0) | 적립 SKIP
+  · cee0d761 info-EC-calendar-2023w40 [2023-autumn 5주차] 닉 67 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · 5351deb7 info-EC-wisdom-2024w21 [2024-spring 12주차] 닉 117 | 기존 매칭 29 · 변형 29 (+0) | 적립 SKIP
+  · 47946008 info-EC-wisdom-2023w28 [2023-summer 2주차] 닉 117 | 기존 매칭 11 · 변형 11 (+0) | 적립 SKIP
+  · 09a54d99 info-EC-essay-2025w07 [2025-winter 7주차] 닉 3 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 1a3854aa info-EC-essay-2026w01 [2026-winter 1주차] 닉 7 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 821e0818 info-EC-essay-2024w04 [2024-winter 4주차] 닉 6 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 5eb1118a info-EC-essay-2024w33 [2024-summer 7주차] 닉 8 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · fc6c30d6 info-EC-essay-2023w40 [2023-autumn 5주차] 닉 14 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 8277d65f info-EC-wisdom-2024w48 [2024-autumn 13주차] 닉 62 | 기존 매칭 12 · 변형 12 (+0) | 적립 SKIP
+  · 1ee3bc26 info-EC-essay-2025w04 [2025-winter 4주차] 닉 4 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · d418fe72 info-EC-essay-2025w33 [2025-summer 7주차] 닉 5 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · 8b923891 info-EC-essay-2024w02 [2024-winter 2주차] 닉 7 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 10056c85 info-EC-essay-2024w31 [2024-summer 5주차] 닉 10 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · 58bc3b17 info-EC-essay-2023w37 [2023-autumn 2주차] 닉 14 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · c3cd569e info-EC-calendar-2025w03 [2025-winter 3주차] 닉 73 | 기존 매칭 20 · 변형 20 (+0) | 적립 SKIP
+  · 7b49a855 info-EC-calendar-2025w33 [2025-summer 7주차] 닉 66 | 기존 매칭 21 · 변형 22 (+1) | 적립 SKIP
+  · f3f97138 info-EC-calendar-2026w11 [2026-spring 2주차] 닉 82 | 기존 매칭 60 · 변형 60 (+0) | 적립 SKIP
+  · d9189dec info-EC-calendar-2024w14 [2024-spring 5주차] 닉 121 | 기존 매칭 24 · 변형 24 (+0) | 적립 SKIP
+  · 96cb4bf3 info-EC-calendar-2024w46 [2024-autumn 11주차] 닉 77 | 기존 매칭 15 · 변형 15 (+0) | 적립 SKIP
+  · 2b82c047 info-EC-session-2025w20 [2025-spring 11주차] 닉 23 | 기존 매칭 21 · 변형 21 (+0) | 적립 SKIP
+  · 48492bb3 info-EC-wisdom-2023w27 [2023-summer 1주차] 닉 117 | 기존 매칭 12 · 변형 12 (+0) | 적립 SKIP
+  · 84326557 info-EC-essay-2025w06 [2025-winter 6주차] 닉 4 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · de573693 info-EC-essay-2025w34 [2025-summer 8주차] 닉 2 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 46a040bf info-EC-essay-2024w03 [2024-winter 3주차] 닉 10 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · d39a5cee info-EC-essay-2024w32 [2024-summer 6주차] 닉 8 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · 1ce52e19 info-EC-essay-2023w38 [2023-autumn 3주차] 닉 12 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 1649d6c1 info-EC-calendar-2025w04 [2025-winter 4주차] 닉 73 | 기존 매칭 23 · 변형 23 (+0) | 적립 SKIP
+  · 19143b75 info-EC-calendar-2025w34 [2025-summer 8주차] 닉 67 | 기존 매칭 20 · 변형 21 (+1) | 적립 SKIP
+  · 467fb0ab info-EC-calendar-2026w12 [2026-spring 3주차] 닉 45 | 기존 매칭 34 · 변형 34 (+0) | 적립 SKIP
+  · ea37a6fd info-EC-calendar-2024w18 [2024-spring 9주차] 닉 108 | 기존 매칭 22 · 변형 22 (+0) | 적립 SKIP
+  · a47e3c5e info-EC-calendar-2024w47 [2024-autumn 12주차] 닉 62 | 기존 매칭 11 · 변형 11 (+0) | 적립 SKIP
+  · 12c7095f info-EC-session-2025w21 [2025-spring 12주차] 닉 28 | 기존 매칭 26 · 변형 26 (+0) | 적립 SKIP
+  · 156163c7 info-EC-wisdom-2023w30 [2023-summer 4주차] 닉 131 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · a47dc063 info-EC-essay-2025w10 [2025-spring 1주차] 닉 6 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · d2832170 info-EC-essay-2026w03 [2026-winter 3주차] 닉 6 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 743c48fd info-EC-essay-2024w07 [2024-winter 7주차] 닉 8 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 6047d46a info-EC-essay-2024w36 [2024-autumn 1주차] 닉 14 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 73f2e55b info-EC-essay-2023w45 [2023-autumn 10주차] 닉 13 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 33cf902c info-EC-calendar-2025w08 [2025-winter 8주차] 닉 78 | 기존 매칭 30 · 변형 30 (+0) | 적립 SKIP
+  · bacadf93 info-EC-calendar-2025w38 [2025-autumn 3주차] 닉 62 | 기존 매칭 20 · 변형 22 (+2) | 적립 SKIP
+  · 09931460 info-EC-calendar-2026w18 [2026-spring 9주차] 닉 76 | 기존 매칭 62 · 변형 62 (+0) | 적립 SKIP
+  · 69f16957 info-EC-calendar-2024w21 [2024-spring 12주차] 닉 100 | 기존 매칭 22 · 변형 22 (+0) | 적립 SKIP
+  · 77c415e5 info-EC-calendar-2023w33 [2023-summer 7주차] 닉 35 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 90ddb872 info-EC-session-2026w05 [2026-winter 5주차] 닉 17 | 기존 매칭 9 · 변형 10 (+1) | 적립 SKIP
+  · 843e20cb info-EC-essay-2025w02 [2025-winter 2주차] 닉 7 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · b488e800 info-EC-essay-2025w31 [2025-summer 5주차] 닉 3 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 682deb6c info-EC-essay-2026w22 [2026-spring 13주차] 닉 1 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 773e52e3 info-EC-essay-2024w29 [2024-summer 3주차] 닉 13 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · 3be0076e info-EC-essay-2023w34 [2023-summer 8주차] 닉 7 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · c1ce8fac info-EC-forum-2025w21 [2025-spring 12주차] 닉 0 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 9398a7f4 info-EC-forum-2023w45 [2023-autumn 10주차] 닉 0 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 134becc9 info-EC-calendar-2025w31 [2025-summer 5주차] 닉 80 | 기존 매칭 30 · 변형 31 (+1) | 적립 SKIP
+  · c0cc914f info-EC-calendar-2026w07 [2026-winter 7주차] 닉 53 | 기존 매칭 30 · 변형 32 (+2) | 적립 SKIP
+  · 1ba48868 info-EC-calendar-2024w12 [2024-spring 3주차] 닉 103 | 기존 매칭 24 · 변형 24 (+0) | 적립 SKIP
+  · cbd8ac43 info-EC-calendar-2024w44 [2024-autumn 9주차] 닉 71 | 기존 매칭 12 · 변형 12 (+0) | 적립 SKIP
+  · 2b5ba52e info-EC-session-2025w18 [2025-spring 9주차] 닉 46 | 기존 매칭 40 · 변형 40 (+0) | 적립 SKIP
+  · 2ee58691 info-EC-essay-2025w08 [2025-winter 8주차] 닉 2 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · 03d935fc info-EC-essay-2026w02 [2026-winter 2주차] 닉 5 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · 0f6c7dfc info-EC-essay-2024w06 [2024-winter 6주차] 닉 8 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · ba3ddba8 info-EC-essay-2024w34 [2024-summer 8주차] 닉 7 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 58227afc info-EC-essay-2023w44 [2023-autumn 9주차] 닉 11 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 79ff38ae info-EC-calendar-2025w07 [2025-winter 7주차] 닉 78 | 기존 매칭 24 · 변형 24 (+0) | 적립 SKIP
+  · 526a494d info-EC-calendar-2025w37 [2025-autumn 2주차] 닉 65 | 기존 매칭 23 · 변형 24 (+1) | 적립 SKIP
+  · 91c438f5 info-EC-calendar-2026w14 [2026-spring 5주차] 닉 76 | 기존 매칭 59 · 변형 59 (+0) | 적립 SKIP
+  · 61108f61 info-EC-calendar-2024w20 [2024-spring 11주차] 닉 124 | 기존 매칭 28 · 변형 28 (+0) | 적립 SKIP
+  · 6059071a info-EC-calendar-2023w32 [2023-summer 6주차] 닉 56 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · b441ca2a info-EC-session-2026w04 [2026-winter 4주차] 닉 31 | 기존 매칭 21 · 변형 22 (+1) | 적립 SKIP
+  · a647c083 info-EC-essay-2025w28 [2025-summer 2주차] 닉 11 | 기존 매칭 6 · 변형 6 (+0) | 적립 SKIP
+  · 13f9a19b info-EC-essay-2026w19 [2026-spring 10주차] 닉 7 | 기존 매칭 7 · 변형 7 (+0) | 적립 SKIP
+  · 5c769932 info-EC-essay-2024w22 [2024-spring 13주차] 닉 9 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · d625470a info-EC-essay-2023w31 [2023-summer 5주차] 닉 10 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 1374f0b0 info-EC-calendar-2025w27 [2025-summer 1주차] 닉 69 | 기존 매칭 21 · 변형 21 (+0) | 적립 SKIP
+  · 9bb08333 info-EC-calendar-2026w04 [2026-winter 4주차] 닉 57 | 기존 매칭 28 · 변형 30 (+2) | 적립 SKIP
+  · 12874651 info-EC-calendar-2024w08 [2024-winter 8주차] 닉 84 | 기존 매칭 17 · 변형 17 (+0) | 적립 SKIP
+  · d3fc2d4a info-EC-calendar-2024w37 [2024-autumn 2주차] 닉 69 | 기존 매칭 14 · 변형 14 (+0) | 적립 SKIP
+  · 6702baf4 info-EC-session-2025w11 [2025-spring 2주차] 닉 43 | 기존 매칭 34 · 변형 34 (+0) | 적립 SKIP
+  · 79465fce info-EC-essay-2025w30 [2025-summer 4주차] 닉 4 | 기존 매칭 2 · 변형 2 (+0) | 적립 SKIP
+  · bed153be info-EC-essay-2026w21 [2026-spring 12주차] 닉 0 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · b5648b59 info-EC-essay-2024w28 [2024-summer 2주차] 닉 15 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 90f3fca2 info-EC-essay-2023w33 [2023-summer 7주차] 닉 7 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · cf9ad0b1 info-EC-forum-2023w40 [2023-autumn 5주차] 닉 0 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · a392826f info-EC-calendar-2025w29 [2025-summer 3주차] 닉 74 | 기존 매칭 21 · 변형 21 (+0) | 적립 SKIP
+  · d3e70841 info-EC-calendar-2026w06 [2026-winter 6주차] 닉 60 | 기존 매칭 30 · 변형 33 (+3) | 적립 SKIP
+  · 40445f98 info-EC-calendar-2024w11 [2024-spring 2주차] 닉 87 | 기존 매칭 16 · 변형 16 (+0) | 적립 SKIP
+  · 1aad770f info-EC-calendar-2024w40 [2024-autumn 5주차] 닉 73 | 기존 매칭 12 · 변형 12 (+0) | 적립 SKIP
+  · ee5cc51a info-EC-session-2025w13 [2025-spring 4주차] 닉 53 | 기존 매칭 41 · 변형 41 (+0) | 적립 SKIP
+  · 5631d269 info-EC-essay-2026w20 [2026-spring 11주차] 닉 4 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · 67acf86e info-EC-essay-2024w27 [2024-summer 1주차] 닉 13 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 1d1e6e9d info-EC-essay-2023w32 [2023-summer 6주차] 닉 10 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · aa94c045 info-EC-calendar-2025w28 [2025-summer 2주차] 닉 77 | 기존 매칭 22 · 변형 23 (+1) | 적립 SKIP
+  · bf60b9d6 info-EC-calendar-2026w05 [2026-winter 5주차] 닉 56 | 기존 매칭 26 · 변형 29 (+3) | 적립 SKIP
+  · 75215330 info-EC-calendar-2024w10 [2024-spring 1주차] 닉 99 | 기존 매칭 17 · 변형 17 (+0) | 적립 SKIP
+  · 66dcc6f2 info-EC-calendar-2024w39 [2024-autumn 4주차] 닉 80 | 기존 매칭 18 · 변형 18 (+0) | 적립 SKIP
+  · da416015 info-EC-session-2025w12 [2025-spring 3주차] 닉 41 | 기존 매칭 30 · 변형 30 (+0) | 적립 SKIP
+  · c8370355 info-EC-essay-2024w01 [2024-winter 1주차] 닉 10 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · c4c56c37 info-EC-essay-2024w30 [2024-summer 4주차] 닉 13 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · e13de830 info-EC-essay-2023w36 [2023-autumn 1주차] 닉 14 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 287b16bc info-EC-calendar-2025w02 [2025-winter 2주차] 닉 72 | 기존 매칭 19 · 변형 19 (+0) | 적립 SKIP
+  · 8c25092a info-EC-calendar-2025w32 [2025-summer 6주차] 닉 43 | 기존 매칭 12 · 변형 12 (+0) | 적립 SKIP
+  · 386d9b0e info-EC-calendar-2026w10 [2026-spring 1주차] 닉 66 | 기존 매칭 45 · 변형 45 (+0) | 적립 SKIP
+  · 019845a6 info-EC-calendar-2024w13 [2024-spring 4주차] 닉 123 | 기존 매칭 23 · 변형 23 (+0) | 적립 SKIP
+  · d3238332 info-EC-calendar-2024w45 [2024-autumn 10주차] 닉 76 | 기존 매칭 16 · 변형 16 (+0) | 적립 SKIP
+  · 80505744 info-EC-session-2025w19 [2025-spring 10주차] 닉 44 | 기존 매칭 40 · 변형 40 (+0) | 적립 SKIP
+  · 50cc03e2 info-EC-practical_lecture-2024w13 [2024-spring 4주차] 닉 49 | 기존 매칭 9 · 변형 9 (+0) | 적립 SKIP
+  · 00de5585 info-EC-essay-2024w08 [2024-winter 8주차] 닉 2 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 99bb0121 info-EC-essay-2024w37 [2024-autumn 2주차] 닉 11 | 기존 매칭 5 · 변형 5 (+0) | 적립 SKIP
+  · 8f0b7635 info-EC-essay-2023w46 [2023-autumn 11주차] 닉 11 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 5f7d43eb info-EC-calendar-2025w10 [2025-spring 1주차] 닉 59 | 기존 매칭 14 · 변형 14 (+0) | 적립 SKIP
+  · 976d12cd info-EC-calendar-2025w39 [2025-autumn 4주차] 닉 58 | 기존 매칭 21 · 변형 23 (+2) | 적립 SKIP
+  · 8c1465dc info-EC-calendar-2026w19 [2026-spring 10주차] 닉 37 | 기존 매칭 32 · 변형 32 (+0) | 적립 SKIP
+  · beca3207 info-EC-calendar-2024w22 [2024-spring 13주차] 닉 112 | 기존 매칭 23 · 변형 23 (+0) | 적립 SKIP
+  · 2d75d62b info-EC-calendar-2023w34 [2023-summer 8주차] 닉 35 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+  · 750f9a6d info-EC-session-2026w06 [2026-winter 6주차] 닉 41 | 기존 매칭 28 · 변형 30 (+2) | 적립 SKIP
+  · bb490845 info-EC-calendar-2025w06 [2025-winter 6주차] 닉 80 | 기존 매칭 23 · 변형 23 (+0) | 적립 SKIP
+  · 59a98306 info-EC-calendar-2025w36 [2025-autumn 1주차] 닉 51 | 기존 매칭 16 · 변형 18 (+2) | 적립 SKIP
+  · dca760eb info-EC-calendar-2026w13 [2026-spring 4주차] 닉 77 | 기존 매칭 57 · 변형 57 (+0) | 적립 SKIP
+  · 0dbc665c info-EC-calendar-2024w19 [2024-spring 9주차] 닉 87 | 기존 매칭 19 · 변형 19 (+0) | 적립 SKIP
+  · 07b1a390 info-EC-calendar-2024w48 [2024-autumn 13주차] 닉 102 | 기존 매칭 27 · 변형 27 (+0) | 적립 SKIP
+  · b8d0b9c5 info-EC-session-2026w03 [2026-winter 3주차] 닉 45 | 기존 매칭 23 · 변형 26 (+3) | 적립 SKIP
+  · 94bae5ce info-EC-calendar-2025w45 [2025-autumn 10주차] 닉 75 | 기존 매칭 31 · 변형 34 (+3) | 적립 SKIP
+  · b19c222d info-EC-calendar-2026w22 [2026-spring 13주차] 닉 69 | 기존 매칭 68 · 변형 68 (+0) | 적립 SKIP
+  · 8693d638 info-EC-calendar-2024w29 [2024-summer 3주차] 닉 103 | 기존 매칭 25 · 변형 25 (+0) | 적립 SKIP
+  · 93ddd2ff info-EC-calendar-2023w38 [2023-autumn 3주차] 닉 57 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 7d94d209 info-EC-calendar-2025w48 [2025-autumn 13주차] 닉 68 | 기존 매칭 32 · 변형 35 (+3) | 적립 SKIP
+  · 57036196 info-EC-calendar-2024w03 [2024-winter 3주차] 닉 137 | 기존 매칭 20 · 변형 20 (+0) | 적립 SKIP
+  · 09eba7ec info-EC-calendar-2024w32 [2024-summer 6주차] 닉 86 | 기존 매칭 18 · 변형 18 (+0) | 적립 SKIP
+  · 4f84bef3 info-EC-calendar-2023w45 [2023-autumn 10주차] 닉 57 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · 7bdfe278 info-EC-calendar-2026w01 [2026-winter 1주차] 닉 61 | 기존 매칭 21 · 변형 23 (+2) | 적립 SKIP
+  · 72e74a5e info-EC-calendar-2024w04 [2024-winter 4주차] 닉 100 | 기존 매칭 10 · 변형 10 (+0) | 적립 SKIP
+  · e55e02e7 info-EC-calendar-2024w33 [2024-summer 7주차] 닉 84 | 기존 매칭 16 · 변형 16 (+0) | 적립 SKIP
+  · 58565046 info-EC-calendar-2023w46 [2023-autumn 11주차] 닉 50 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · c9f8f220 info-EC-calendar-2026w03 [2026-winter 3주차] 닉 61 | 기존 매칭 30 · 변형 33 (+3) | 적립 SKIP
+  · 53ff0fbe info-EC-calendar-2026w21 [2026-spring 12주차] 닉 67 | 기존 매칭 61 · 변형 61 (+0) | 적립 SKIP
+[cafe-crawler-client] POST https://crawler.vraxium.store/crawl hasSecret=true cfAccess=false timeoutMs=120000
+[cafe-crawler-client] response status=200 ok=true error=- bodyLen=5080 body={"ok":true,"data":{"articleUrl":"https://cafe.naver.com/encreclub/14542","totalComments":97,"uniqueNicknames":97,"nicknames":["11기 프로듀싱 김민서","11기 프로듀싱 장소원","10기 KPOP 김서영","12기 비주얼 임채윤","11기 프로듀싱 김지민","11기 프로듀싱 이자련","11기 셀럽 이혜원","11기 프로듀싱 강서연","11기 비주얼 강내현","11기 아카이빙 김선경","9기 아카이빙 조시현","11기 미디어 허서윤",
+  · 59b72844 info-EC-calendar-2024w28 [2024-summer 2주차] 닉 97 | 기존 매칭 22 · 변형 22 (+0) | 적립 SKIP
+  · 4209755c info-EC-calendar-2024w05 [2024-winter 5주차] 닉 110 | 기존 매칭 19 · 변형 19 (+0) | 적립 SKIP
+  · d642fdca info-EC-calendar-2024w34 [2024-summer 8주차] 닉 86 | 기존 매칭 23 · 변형 23 (+0) | 적립 SKIP
+  · b734526b info-EC-calendar-2023w47 [2023-autumn 12주차] 닉 64 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 4ddb4e6b info-EC-calendar-2024w07 [2024-winter 7주차] 닉 115 | 기존 매칭 18 · 변형 18 (+0) | 적립 SKIP
+  · 42bc999e info-EC-calendar-2024w36 [2024-autumn 1주차] 닉 81 | 기존 매칭 14 · 변형 14 (+0) | 적립 SKIP
+  · e05a73eb info-EC-calendar-2023w48 [2023-autumn 13주차] 닉 56 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · c6cd59ad info-EC-calendar-2024w27 [2024-summer 1주차] 닉 124 | 기존 매칭 25 · 변형 25 (+0) | 적립 SKIP
+  · 4f8645b3 info-EC-calendar-2023w36 [2023-autumn 1주차] 닉 70 | 기존 매칭 3 · 변형 3 (+0) | 적립 SKIP
+  · 68744562 info-EC-session-2026w07 [2026-winter 7주차] 닉 29 | 기존 매칭 19 · 변형 20 (+1) | 적립 SKIP
+  · d95bd59b info-EC-calendar-2024w31 [2024-summer 5주차] 닉 110 | 기존 매칭 31 · 변형 31 (+0) | 적립 SKIP
+  · 6ad3c346 info-EC-calendar-2023w37 [2023-autumn 2주차] 닉 36 | 기존 매칭 1 · 변형 1 (+0) | 적립 SKIP
+  · 659a8976 info-EC-calendar-2023w44 [2023-autumn 9주차] 닉 58 | 기존 매칭 4 · 변형 4 (+0) | 적립 SKIP
+  · f3664673 info-EC-practical_lecture-2025w01 [2025-winter 1주차] 닉 1 | 기존 매칭 0 · 변형 0 (+0) | 적립 SKIP
+
+================= DRY-RUN 비교 종합 =================
+대상(크롤) 라인 수                : 309
+크롤 성공/실패 링크 (캐시히트)     : 309 / 0 (cache 308)
+댓글 작성자(닉네임) 총 수          : 17929
+
+                          기존 매칭기    →   팀/파트 변형
+자동 매칭(닉네임 기준)   :   5279 (29.4%)  →    5339 (29.8%)
+  └ 고유 user_id        :    256        →     259
+모호(동명이인 등)        :    358 (2.0%)  →     298 (1.7%)
+미매칭(이름 0명)         :  12126 (67.6%)  →   12126 (67.6%)
+형식 불명               :     80        →      80
+
+변형이 추가 확정(동명이인 해소+신규)  : 60건  ← 기존 review → 변형 auto
+적립 SKIP 라인(start<2026-06-29) : 309/309
+
+── 변형 추가확정 중 동명이인 존재(수동 검증 권장) : 60건 ──
+  ⚠ [info-EC-wisdom-2025w30] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  ⚠ [info-EC-wisdom-2025w31] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  ⚠ [info-EC-wisdom-2025w32] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  ⚠ [info-EC-wisdom-2025w44] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-wisdom-2025w48] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-calendar-2025w47] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2025w47] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-wisdom-2026w03] "15기 갤러리 박가은" → 박가은(crew#1265, 50afc15e) (cohort:name+team) | 다른 후보: 박가은(crew#1408/시즌전체휴식·director)
+  ⚠ [info-EC-wisdom-2026w03] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-wisdom-2025w28] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  ⚠ [info-EC-calendar-2026w02] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2026w02] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-wisdom-2025w46] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-calendar-2025w44] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2025w44] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  ⚠ [info-EC-calendar-2025w44] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-wisdom-2025w47] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-calendar-2025w40] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2025w46] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-calendar-2025w46] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2025w33] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  ⚠ [info-EC-calendar-2025w34] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  ⚠ [info-EC-calendar-2025w38] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2025w38] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  ⚠ [info-EC-session-2026w05] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2025w31] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  ⚠ [info-EC-calendar-2026w07] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-calendar-2026w07] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2025w37] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  ⚠ [info-EC-session-2026w04] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2026w04] "15기 갤러리 박가은" → 박가은(crew#1265, 50afc15e) (cohort:name+team) | 다른 후보: 박가은(crew#1408/시즌전체휴식·director)
+  ⚠ [info-EC-calendar-2026w04] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2026w06] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-calendar-2026w06] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2026w06] "15기 갤러리 박가은" → 박가은(crew#1265, 50afc15e) (cohort:name+team) | 다른 후보: 박가은(crew#1408/시즌전체휴식·director)
+  ⚠ [info-EC-calendar-2025w28] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  ⚠ [info-EC-calendar-2026w05] "15기 갤러리 박가은" → 박가은(crew#1265, 50afc15e) (cohort:name+team) | 다른 후보: 박가은(crew#1408/시즌전체휴식·director)
+  ⚠ [info-EC-calendar-2026w05] "13기 갤러리 이혜인" → 이혜인(crew#1239, 787d36ba) (cohort:name+team) | 다른 후보: 이혜인(crew#1348/프로듀싱·이야기)
+  ⚠ [info-EC-calendar-2026w05] "14기 갤러리 김도연" → 김도연(crew#1264, 13fb675f) (cohort:name+team) | 다른 후보: 김도연(crew#1383/시즌전체휴식·콘텐츠)
+  ⚠ [info-EC-calendar-2025w39] "14기 비주얼 김수연" → 김수연(crew#1249, d09aeeb3) (cohort:name+team) | 다른 후보: 김수연(crew#1349/프로듀싱·소리)
+  … 외 20건
+
+── 시즌별 매칭률(변형 기준) ──
+  season            라인  닉네임  자동매칭(률)   모호  미매칭  recipient
+  2023-autumn        28   1660      64 (  3.9%)    39   1514        64
+  2023-summer        17   1191      35 (  2.9%)    64   1066        35
+  2024-autumn        29   1500     330 ( 22.0%)    42   1093       330
+  2024-spring        31   2434     497 ( 20.4%)    31   1884       497
+  2024-summer        24   1713     399 ( 23.3%)    24   1276       399
+  2024-winter        21   1630     171 ( 10.5%)     4   1447       171
+  2025-autumn        20   1325     696 ( 52.5%)     1    626       696
+  2025-spring        38   1841     659 ( 35.8%)    20   1162       659
+  2025-summer        23   1169     381 ( 32.6%)    32    753       381
+  2025-winter        21   1042     332 ( 31.9%)    14    690       332
+  2026-spring        31   1430    1219 ( 85.2%)    11    199      1219
+  2026-winter        26    994     556 ( 55.9%)    16    416       556
+
+실제 execute 시 생성될 recipient(검수 명단) 행 수 = 5339 (라인×매칭user, 변형 기준)
+  └ 고유 user_id = 259명 / 적립 발생 라인 0 → process_point_awards 0행(과거주차 era_blocked)
+
+전체 라인별 상세(JSON) → claudedocs/encre-info-autoreview-dryrun-full.json (309 lines)
+
+=== JSON_REPORT_BEGIN ===
+{
+  "effectiveFrom": "2026-06-29",
+  "crawledLines": 309,
+  "crawlOk": 309,
+  "crawlFail": 0,
+  "cacheHit": 308,
+  "totalNicknames": 17929,
+  "base": {
+    "autoMatched": 5279,
+    "distinctUsers": 256,
+    "ambiguous": 358,
+    "unmatched": 12126,
+    "unparseable": 80
+  },
+  "variant": {
+    "autoMatched": 5339,
+    "distinctUsers": 259,
+    "ambiguous": 298,
+    "unmatched": 12126,
+    "unparseable": 80
+  },
+  "resolvedByVariant": 60,
+  "riskCases": 60,
+  "skipAccrualLines": 309,
+  "totalRecipients": 5339
+}
+=== JSON_REPORT_END ===

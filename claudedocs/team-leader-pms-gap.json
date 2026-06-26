@@ -1,0 +1,2274 @@
+[
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "노서정",
+    "teams": [
+      "프로듀싱"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1290,
+      "name": "노서정",
+      "school": "숙명여대",
+      "major": "홍보광고학과",
+      "birth": "030921",
+      "gender": "여",
+      "contact": "01088252004",
+      "mail": "j30n921@gmail.com",
+      "state": "운영진",
+      "team": "프로듀싱",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MIGRATED",
+    "sbUserId": "9ba3e55f-9192-4cdf-9127-d7ee0c150151",
+    "sbVia": "bridge",
+    "tablesPresent": {
+      "users": true,
+      "profile": true,
+      "membership": true
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "이유진",
+    "teams": [
+      "A&R"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1490,
+      "name": "이유진",
+      "school": "숭실대",
+      "major": "글로벌통상학과",
+      "birth": "031227",
+      "gender": "여",
+      "contact": "01056765735",
+      "mail": "chloe031227@gmail.com",
+      "state": "운영진",
+      "team": "A&R",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 3,
+    "status": "MIGRATED",
+    "sbUserId": "a7fa21b0-a44e-4569-acf1-0a630cc37450",
+    "sbVia": "bridge",
+    "tablesPresent": {
+      "users": true,
+      "profile": true,
+      "membership": true
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "김지희",
+    "teams": [
+      "갤러리"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1374,
+      "name": "김지희",
+      "school": "연세대",
+      "major": "언론홍보영상학부",
+      "birth": "030613",
+      "gender": "여",
+      "contact": "01057067518",
+      "mail": "diritdirit02@gmail.com",
+      "state": "졸업",
+      "team": "갤러리",
+      "teamRole": "파트장",
+      "userRole": null,
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "김세현",
+    "teams": [
+      "팬마케팅"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1542,
+      "name": "김세현",
+      "school": "고려대학교",
+      "major": "디지털경영학과",
+      "birth": "020521",
+      "gender": "여",
+      "contact": "01040383263",
+      "mail": "goraduck02@gmail.com",
+      "state": "운영진",
+      "team": "팬마케팅",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MIGRATED",
+    "sbUserId": "34498647-6579-406e-ac83-596fc5627411",
+    "sbVia": "bridge",
+    "tablesPresent": {
+      "users": true,
+      "profile": true,
+      "membership": true
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "서유솔",
+    "teams": [
+      "비주얼"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1142,
+      "name": "서유솔",
+      "school": "조선대",
+      "major": "시각디자인학과",
+      "birth": "040210",
+      "gender": "여",
+      "contact": "01088359047",
+      "mail": "yourpine04@gmail.com",
+      "state": "운영진",
+      "team": "A&R",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MIGRATED",
+    "sbUserId": "ef4938c2-5dfe-4500-a0bc-0d953c6f7314",
+    "sbVia": "bridge",
+    "tablesPresent": {
+      "users": true,
+      "profile": true,
+      "membership": true
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "양은지",
+    "teams": [
+      "갤러리"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 89,
+      "name": "양은지",
+      "school": "백석대",
+      "major": "경영학과",
+      "birth": "010505",
+      "gender": "여",
+      "contact": "01059132487",
+      "mail": "011005dmswl@gmail.com",
+      "state": "졸업",
+      "team": "앰배서더",
+      "teamRole": null,
+      "userRole": null,
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "박윤슬",
+    "teams": [
+      "A&R"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1415,
+      "name": "박윤슬",
+      "school": "경성대",
+      "major": "미디어커뮤니케이션학과",
+      "birth": "061025",
+      "gender": "여",
+      "contact": "01029504021",
+      "mail": "jinisgirl1245@gmail.com",
+      "state": "운영진",
+      "team": "A&R",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MIGRATED",
+    "sbUserId": "8de1b490-25c6-4b76-9880-a4b7d2af3c81",
+    "sbVia": "bridge",
+    "tablesPresent": {
+      "users": true,
+      "profile": true,
+      "membership": true
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "강다은",
+    "teams": [
+      "아이돌"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1433,
+      "name": "강다은",
+      "school": "한국외대 일반대학원",
+      "major": "글로벌문화콘텐츠학과",
+      "birth": "980919",
+      "gender": "여",
+      "contact": "01095072155",
+      "mail": "dukang98@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "신연우",
+    "teams": [
+      "프로듀싱"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1153,
+      "name": "신연우",
+      "school": "동아대",
+      "major": "경제학과",
+      "birth": "020325",
+      "gender": "여",
+      "contact": "01033293830",
+      "mail": "sywkosw2002@gmail.com",
+      "state": "졸업",
+      "team": "프로듀싱",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "조성준",
+    "teams": [
+      "콘텐츠"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1250,
+      "name": "조성준",
+      "school": "한국외대",
+      "major": "융합인재학부",
+      "birth": "010129",
+      "gender": "남",
+      "contact": "01033607531",
+      "mail": "aimcastleing@gmail.com",
+      "state": "졸업",
+      "team": "콘텐츠",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "정다윤",
+    "teams": [
+      "비주얼",
+      "셀럽"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 425,
+      "name": "정다윤",
+      "school": "백석예술대",
+      "major": "디자인미술학부 시각디자인전공",
+      "birth": "021122",
+      "gender": "여",
+      "contact": "01031710932",
+      "mail": "dijeihei@gmail.com",
+      "state": "졸업",
+      "team": "비주얼",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "류승현",
+    "teams": [
+      "에디터"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1237,
+      "name": "류승현",
+      "school": "건국대 글로컬캠퍼스",
+      "major": "동화한국어문화학과",
+      "birth": "051115",
+      "gender": "여",
+      "contact": "01075393266",
+      "mail": "a75393266@gmail.com",
+      "state": "졸업",
+      "team": "리포터",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "최유진",
+    "teams": [
+      "프로듀싱",
+      "셀럽"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1235,
+      "name": "최유진",
+      "school": "이화여대",
+      "major": "커뮤니케이션 미디어 학부과",
+      "birth": "010310",
+      "gender": "여",
+      "contact": "01045953917",
+      "mail": "stellamark3917@gmail.com",
+      "state": "졸업",
+      "team": "셀럽",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "장소원",
+    "teams": [
+      "콘텐츠",
+      "프로듀싱"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1006,
+      "name": "장소원",
+      "school": "한동대",
+      "major": "공연영상학과, 언론정보학과",
+      "birth": "030905",
+      "gender": "여",
+      "contact": "01088201082",
+      "mail": "jangsowon0905@gmail.com",
+      "state": "졸업",
+      "team": "프로듀싱",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "최지은",
+    "teams": [
+      "A&R",
+      "콘텐츠"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 804,
+      "name": "최지은",
+      "school": "가톨릭대",
+      "major": "국어국문",
+      "birth": "040730",
+      "gender": "여",
+      "contact": "01067732107",
+      "mail": "ju04040407@gmail.com",
+      "state": "졸업",
+      "team": "K-POP",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "이하늘",
+    "teams": [
+      "아카이빙",
+      "A&R"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1013,
+      "name": "이하늘",
+      "school": "한국외대",
+      "major": "중국외교통상학부",
+      "birth": "000702",
+      "gender": "여",
+      "contact": "01028299590",
+      "mail": "lhnskysj07@gmail.com",
+      "state": "졸업",
+      "team": "A&R",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "한채린",
+    "teams": [
+      "미디어",
+      "아카이빙"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1224,
+      "name": "한채린",
+      "school": "단국대",
+      "major": "뉴뮤직학과",
+      "birth": "000522",
+      "gender": "여",
+      "contact": "01053711073",
+      "mail": "hcroee@gmail.com",
+      "state": "졸업",
+      "team": "아카이빙",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "이나은",
+    "teams": [
+      "리포터",
+      "미디어"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1264,
+      "name": "이나은",
+      "school": "경희대",
+      "major": "미디어학과",
+      "birth": "031014",
+      "gender": "여",
+      "contact": "01071785363",
+      "mail": "workingnow03@gmail.com",
+      "state": "졸업",
+      "team": "미디어",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "김유민",
+    "teams": [
+      "비주얼",
+      "리포터"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1041,
+      "name": "김유민",
+      "school": "가천대",
+      "major": "경영학과",
+      "birth": "030409",
+      "gender": "여",
+      "contact": "01039238773",
+      "mail": "yuminkim0409@gmail.com",
+      "state": "졸업",
+      "team": "리포터",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "최예원",
+    "teams": [
+      "K-POP"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1073,
+      "name": "최예원",
+      "school": "건국대 글로컬",
+      "major": "신문방송학과",
+      "birth": "030728",
+      "gender": "여",
+      "contact": "01046246349",
+      "mail": "yewon0104624@gmail.com",
+      "state": "졸업",
+      "team": "K-POP",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "최은수",
+    "teams": [
+      "비주얼"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 467,
+      "name": "최은수",
+      "school": "연세대 미래",
+      "major": "경영학과",
+      "birth": "011212",
+      "gender": "여",
+      "contact": "01038672363",
+      "mail": "nnyangnyang240@gmail.com",
+      "state": "졸업",
+      "team": "비주얼",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "이서연",
+    "teams": [
+      "프로듀싱"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1056,
+      "name": "이서연",
+      "school": "중앙대",
+      "major": "국어국문학과",
+      "birth": "020103",
+      "gender": "여",
+      "contact": "01082558611",
+      "mail": "sabina010300@gmail.com",
+      "state": "졸업",
+      "team": "프로듀싱",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 4,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "김한들",
+    "teams": [
+      "글로벌"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1047,
+      "name": "김한들",
+      "school": "세종대",
+      "major": "경영학과",
+      "birth": "20040420",
+      "gender": "여",
+      "contact": "01039492021",
+      "mail": "scb23288@gmail.com",
+      "state": "졸업",
+      "team": "콘텐츠",
+      "teamRole": null,
+      "userRole": null,
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "조영인",
+    "teams": [
+      "콘텐츠"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1071,
+      "name": "조영인",
+      "school": "단국대",
+      "major": "경영학과",
+      "birth": "020905",
+      "gender": "여",
+      "contact": "01094471206",
+      "mail": "joyeongin05@gmail.com",
+      "state": "졸업",
+      "team": "콘텐츠",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "한서연",
+    "teams": [
+      "A&R"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 861,
+      "name": "한서연",
+      "school": "고려대",
+      "major": "노어노문학과",
+      "birth": "041015",
+      "gender": "여",
+      "contact": "01020405633",
+      "mail": "rnrmf1414@gmail.com",
+      "state": "졸업",
+      "team": "프로듀싱",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "김예나",
+    "teams": [
+      "미디어"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1020,
+      "name": "김예나",
+      "school": "단국대",
+      "major": "문예창작과",
+      "birth": "020625",
+      "gender": "여",
+      "contact": "01097557679",
+      "mail": "zlknfx9375@gmail.com",
+      "state": "졸업",
+      "team": "미디어",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "이유나",
+    "teams": [
+      "리포터"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1348,
+      "name": "이유나",
+      "school": "ㅐㅐ",
+      "major": "ㅐㅐ",
+      "birth": "22",
+      "gender": "여",
+      "contact": "01026931440",
+      "mail": "nana@dalgona.me",
+      "state": "운영진",
+      "team": "리포터",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "윤석찬",
+    "teams": [
+      "갤러리"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 1347,
+      "name": "윤석찬",
+      "school": "ㅋ",
+      "major": "ㅋ",
+      "birth": "11",
+      "gender": "남",
+      "contact": "01092858337",
+      "mail": "ysch409@gmail.com",
+      "state": "활동정지",
+      "team": "갤러리",
+      "teamRole": "매니저",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "김기현",
+    "teams": [
+      "K-POP"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 842,
+      "name": "김기현",
+      "school": "경기대학교",
+      "major": "관광문화콘텐츠과",
+      "birth": "020828",
+      "gender": "여",
+      "contact": "01036363162",
+      "mail": "fullsunlight06@gmail.com",
+      "state": "졸업",
+      "team": "아이돌",
+      "teamRole": null,
+      "userRole": null,
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "이우연",
+    "teams": [
+      "글로벌"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 452,
+      "name": "이우연",
+      "school": "강원대",
+      "major": "경영학과",
+      "birth": "000403",
+      "gender": "여",
+      "contact": "01034032443",
+      "mail": "uyone04@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": null,
+      "userRole": null,
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "이상협",
+    "teams": [
+      "콘텐츠"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 259,
+      "name": "이상협",
+      "school": "인하대",
+      "major": "중국학과",
+      "birth": "980413",
+      "gender": "남",
+      "contact": "01090750356",
+      "mail": "dltkdguq8888@gmail.com",
+      "state": "활동정지",
+      "team": "콘텐츠",
+      "teamRole": null,
+      "userRole": null,
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "이상준",
+    "teams": [
+      "미디어"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 391,
+      "name": "이상준",
+      "school": "경북대",
+      "major": "경제통상학과",
+      "birth": "990321",
+      "gender": "남",
+      "contact": "01020147927",
+      "mail": "euoplo7927@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": null,
+      "userRole": null,
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "정유리",
+    "teams": [
+      "프로듀싱"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 884,
+      "name": "정유리",
+      "school": "서울시립대",
+      "major": "사회복지학과",
+      "birth": "000221",
+      "gender": "여",
+      "contact": "01094267790",
+      "mail": "a01094267790@gmail.com",
+      "state": "졸업",
+      "team": "프로듀싱",
+      "teamRole": null,
+      "userRole": null,
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "encre",
+    "src": "hrdb",
+    "name": "최준혁",
+    "teams": [
+      "A&R"
+    ],
+    "pmsLeader": {
+      "src": "hrdb",
+      "userId": 724,
+      "name": "최준혁",
+      "school": "고려대",
+      "major": "영어영문학과",
+      "birth": "000404",
+      "gender": "남",
+      "contact": "01047939804",
+      "mail": "louis000404@gmail.com",
+      "state": "졸업",
+      "team": "A&R",
+      "teamRole": null,
+      "userRole": null,
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "안지혜",
+    "teams": [
+      "F&B"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 1141,
+      "name": "안지혜",
+      "school": "숭실대",
+      "major": "경제학과",
+      "birth": "050124",
+      "gender": "여",
+      "contact": "01096393995",
+      "mail": "anjihye687@gmail.com",
+      "state": "운영진",
+      "team": "F&B",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MIGRATED",
+    "sbUserId": "eed90410-4c85-4009-87a9-5e057a5e2ebf",
+    "sbVia": "bridge",
+    "tablesPresent": {
+      "users": true,
+      "profile": true,
+      "membership": true
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "전성은",
+    "teams": [
+      "콘텐츠"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 1202,
+      "name": "전성은",
+      "school": "인하대",
+      "major": "국제통상학과",
+      "birth": "040524",
+      "gender": "여",
+      "contact": "01088300688",
+      "mail": "jse040524@gmail.com",
+      "state": "운영진",
+      "team": "콘텐츠",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MIGRATED",
+    "sbUserId": "e318c666-b5f4-4508-916b-a228995baf15",
+    "sbVia": "bridge",
+    "tablesPresent": {
+      "users": true,
+      "profile": true,
+      "membership": true
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "김채은",
+    "teams": [
+      "커머스"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 1181,
+      "name": "김채은",
+      "school": "성균관대학교",
+      "major": "심리학과",
+      "birth": "020415",
+      "gender": "여",
+      "contact": "01079350473",
+      "mail": "sofiakim1234@gmail.com",
+      "state": "운영진",
+      "team": "커머스",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 2,
+    "status": "MIGRATED",
+    "sbUserId": "ecaa1a4c-c72a-4ef5-9657-faa7414a241d",
+    "sbVia": "bridge",
+    "tablesPresent": {
+      "users": true,
+      "profile": true,
+      "membership": true
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "이창훈",
+    "teams": [
+      "스타일"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 1207,
+      "name": "이창훈",
+      "school": "한국외국어대",
+      "major": "동아프리카어전공/광고pr브랜딩",
+      "birth": "030109",
+      "gender": "남",
+      "contact": "01080283254",
+      "mail": "hashbrown030109@gmail.com",
+      "state": "운영진",
+      "team": "패션",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MIGRATED",
+    "sbUserId": "3db9012c-b339-4550-900c-873df9463514",
+    "sbVia": "bridge",
+    "tablesPresent": {
+      "users": true,
+      "profile": true,
+      "membership": true
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "유재희",
+    "teams": [
+      "엔터테인먼트"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 1176,
+      "name": "유재희",
+      "school": "한양대",
+      "major": "행정학과",
+      "birth": "030209",
+      "gender": "여",
+      "contact": "01064066568",
+      "mail": "jaeheeisbana@gmail.com",
+      "state": "운영진",
+      "team": "엔터테인먼트",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MIGRATED",
+    "sbUserId": "16000b1f-30ad-4187-9754-11199a577a09",
+    "sbVia": "bridge",
+    "tablesPresent": {
+      "users": true,
+      "profile": true,
+      "membership": true
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "강서현",
+    "teams": [
+      "엔터테인먼트"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 1027,
+      "name": "강서현",
+      "school": "연세대",
+      "major": "사학과",
+      "birth": "041005",
+      "gender": "여",
+      "contact": "01052148645",
+      "mail": "weus1005@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "김다현",
+    "teams": [
+      "F&B"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 982,
+      "name": "김다현",
+      "school": "국민대",
+      "major": "도자공예과",
+      "birth": "020911",
+      "gender": "여",
+      "contact": "01089288918",
+      "mail": "rongdaron020911@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "임수영",
+    "teams": [
+      "미디어"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 902,
+      "name": "임수영",
+      "school": "명지대",
+      "major": "미술사학과",
+      "birth": "20031216",
+      "gender": "여",
+      "contact": "01051573811",
+      "mail": "nyeongeee1216@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "한아름",
+    "teams": [
+      "콘텐츠"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 953,
+      "name": "한아름",
+      "school": "중부대",
+      "major": "미디어커뮤니케이션학과",
+      "birth": "041107",
+      "gender": "여",
+      "contact": "01054613006",
+      "mail": "arm530360@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "박성은",
+    "teams": [
+      "브랜드"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 1034,
+      "name": "박성은",
+      "school": "단국대학교",
+      "major": "경영학과",
+      "birth": "001221",
+      "gender": "여",
+      "contact": "01084477459",
+      "mail": "younggye505@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "윤진영",
+    "teams": [
+      "커머스"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 668,
+      "name": "윤진영",
+      "school": "동국대학교wise캠퍼스",
+      "major": "경영학과",
+      "birth": "020507",
+      "gender": "남",
+      "contact": "01057984582",
+      "mail": "exit.global.warming@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "박시현",
+    "teams": [
+      "패션"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 1031,
+      "name": "박시현",
+      "school": "숙명여대",
+      "major": "교육학부",
+      "birth": "050213",
+      "gender": "여",
+      "contact": "01033612474",
+      "mail": "imineverlanx@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "남현수",
+    "teams": [
+      "뷰티"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 575,
+      "name": "남현수",
+      "school": "가천대",
+      "major": "경영학과",
+      "birth": "030310",
+      "gender": "여",
+      "contact": "01077137082",
+      "mail": "hyeonsu7082@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "김다영",
+    "teams": [
+      "포스트"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 390,
+      "name": "김다영",
+      "school": "단국대",
+      "major": "베트남학과",
+      "birth": "011011",
+      "gender": "여",
+      "contact": "01089168048",
+      "mail": "dykate1011@gmail.com",
+      "state": "졸업",
+      "team": "포스트(미디어)",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "김준서",
+    "teams": [
+      "레저"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 565,
+      "name": "김준서",
+      "school": "충남대",
+      "major": "영문학과",
+      "birth": "010816",
+      "gender": "남",
+      "contact": "01083262351",
+      "mail": "gjunseo48@gmail.com",
+      "state": "졸업",
+      "team": "레저",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "노주경",
+    "teams": [
+      "헬스케어"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 829,
+      "name": "노주경",
+      "school": "동국대학교",
+      "major": "국어국문문예창작학과",
+      "birth": "010920",
+      "gender": "남",
+      "contact": "01030130192",
+      "mail": "qwqw019200@gmail.com",
+      "state": "졸업",
+      "team": "헬스케어",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "정혜정",
+    "teams": [
+      "디렉팅"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 557,
+      "name": "정혜정",
+      "school": "영남대",
+      "major": "중국언어문화학과",
+      "birth": "031229",
+      "gender": "여",
+      "contact": "01053869271",
+      "mail": "asa9638@gmail.com",
+      "state": "졸업",
+      "team": "디렉팅(미디어)",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "최가은",
+    "teams": [
+      "뷰티"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 928,
+      "name": "최가은",
+      "school": "고려대",
+      "major": "영어영문학과",
+      "birth": "010602",
+      "gender": "여",
+      "contact": "01067980257",
+      "mail": "gaeunchoi0602@gmail.com",
+      "state": "졸업",
+      "team": "뷰티",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "조민정",
+    "teams": [
+      "패션"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 840,
+      "name": "조민정",
+      "school": "동국대",
+      "major": "광고홍보학과",
+      "birth": "010910",
+      "gender": "여",
+      "contact": "01036142880",
+      "mail": "whalswjd8668@gmail.com",
+      "state": "졸업",
+      "team": "패션",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "심우정",
+    "teams": [
+      "푸드"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 596,
+      "name": "심우정",
+      "school": "숙명여대",
+      "major": "중어중문학과",
+      "birth": "000404",
+      "gender": "여",
+      "contact": "01066841153",
+      "mail": "friendshipswj@gmail.com",
+      "state": "졸업",
+      "team": "푸드",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "김나은",
+    "teams": [
+      "라이프"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 613,
+      "name": "김나은",
+      "school": "상명대",
+      "major": "식품영양학과",
+      "birth": "040412",
+      "gender": "여",
+      "contact": "01041225578",
+      "mail": "kimne5578@gmail.com",
+      "state": "졸업",
+      "team": "라이프",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "이상협",
+    "teams": [
+      "헬스케어"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 919,
+      "name": "이상협",
+      "school": "ㅎㅎ",
+      "major": "ㅎㅎ",
+      "birth": "66",
+      "gender": "남",
+      "contact": "01090750356",
+      "mail": "sh980413@naver.com",
+      "state": "활동정지",
+      "team": "헬스케어",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "권하윤",
+    "teams": [
+      "레저"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 357,
+      "name": "권하윤",
+      "school": "한양대학교",
+      "major": "국제학부, 빅데이터융합전공",
+      "birth": "011019",
+      "gender": "여",
+      "contact": "01036019310",
+      "mail": "hajiyun0903@gmail.com",
+      "state": "졸업",
+      "team": "운영진",
+      "teamRole": null,
+      "userRole": null,
+      "level": "심화"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "김효진",
+    "teams": [
+      "라이프"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 282,
+      "name": "김효진",
+      "school": "동국대",
+      "major": "광고홍보학과",
+      "birth": "000229",
+      "gender": "여",
+      "contact": "01068583778",
+      "mail": "hyoji0029@gmail.com",
+      "state": "졸업",
+      "team": "라이프",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "송현수",
+    "teams": [
+      "푸드"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 64,
+      "name": "송현수",
+      "school": "아주대학교",
+      "major": "심리학과",
+      "birth": "010322",
+      "gender": "여",
+      "contact": "01053487173",
+      "mail": "thdgustn0322@gmail.com",
+      "state": "졸업",
+      "team": "푸드",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "심화"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "김홍찬",
+    "teams": [
+      "뷰티",
+      "푸드"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 72,
+      "name": "김홍찬",
+      "school": "건국대학교",
+      "major": "경영학과",
+      "birth": "990419",
+      "gender": "남",
+      "contact": "01047375416",
+      "mail": "mkim419@gmail.com",
+      "state": "졸업",
+      "team": "뷰티",
+      "teamRole": null,
+      "userRole": null,
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "단승연",
+    "teams": [
+      "패션"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 917,
+      "name": "단승연",
+      "school": "가톨릭대학교",
+      "major": "바이오메디컬화학공학과 / 미디어기술콘텐츠학과",
+      "birth": "010112",
+      "gender": "여",
+      "contact": "01030281123",
+      "mail": "ddy0112@gmail.com",
+      "state": "운영진",
+      "team": "패션",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "이유나",
+    "teams": [
+      "스포츠"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 916,
+      "name": "이유나",
+      "school": "ㅇㅇ",
+      "major": "ㄴㄴ",
+      "birth": "1111",
+      "gender": "여",
+      "contact": "01026931440",
+      "mail": "nana@dalgona.me",
+      "state": "운영진",
+      "team": "스포츠",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 2,
+    "status": "NAMESAKE_WRONG",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "윤석찬",
+    "teams": [
+      "미디어"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 915,
+      "name": "윤석찬",
+      "school": "한국대",
+      "major": "경영학과",
+      "birth": "99",
+      "gender": "남",
+      "contact": "01033334444",
+      "mail": "ysch409@gmail.com",
+      "state": "활동정지",
+      "team": "미디어",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 2,
+    "status": "MISSING",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "송지우",
+    "teams": [
+      "IT온라인"
+    ],
+    "pmsLeader": null,
+    "pmsAllSameName": 0,
+    "status": "NO_PMS",
+    "sbUserId": null,
+    "sbVia": null
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "박소담",
+    "teams": [
+      "뷰티"
+    ],
+    "pmsLeader": null,
+    "pmsAllSameName": 0,
+    "status": "NO_PMS",
+    "sbUserId": null,
+    "sbVia": null
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "정부기",
+    "teams": [
+      "하드웨어"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 386,
+      "name": "정부기",
+      "school": "성균관 대학교",
+      "major": "소비자학과",
+      "birth": "8808080",
+      "gender": "남",
+      "contact": "01062557490",
+      "mail": "boogiww@gmail.com",
+      "state": "활동정지",
+      "team": "패션",
+      "teamRole": null,
+      "userRole": null,
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "안수현",
+    "teams": [
+      "헬스케어"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 847,
+      "name": "안수현",
+      "school": "숙명여대",
+      "major": "경제학부",
+      "birth": "860502",
+      "gender": "여",
+      "contact": "01001000001",
+      "mail": "adminOranke@gmail.com",
+      "state": "활동정지",
+      "team": "신입",
+      "teamRole": null,
+      "userRole": null,
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "권노은",
+    "teams": [
+      "뷰티"
+    ],
+    "pmsLeader": null,
+    "pmsAllSameName": 0,
+    "status": "NO_PMS",
+    "sbUserId": null,
+    "sbVia": null
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "최유진",
+    "teams": [
+      "라이프"
+    ],
+    "pmsLeader": {
+      "src": "oranke",
+      "userId": 488,
+      "name": "최유진",
+      "school": "고려대",
+      "major": "불어불문학과",
+      "birth": "010315",
+      "gender": "여",
+      "contact": "01084807934",
+      "mail": "yujin7933@gmail.com",
+      "state": "활동정지",
+      "team": "시즌전체휴식",
+      "teamRole": null,
+      "userRole": null,
+      "level": "일반"
+    },
+    "pmsAllSameName": 1,
+    "status": "NOT_OPERATOR_IN_PMS",
+    "sbUserId": "882e86ce-31b7-45a1-bd79-879b0b1fd080",
+    "sbVia": "bridge",
+    "tablesPresent": {
+      "users": true,
+      "profile": true,
+      "membership": true
+    }
+  },
+  {
+    "org": "oranke",
+    "src": "oranke",
+    "name": "양은지",
+    "teams": [
+      "패션"
+    ],
+    "pmsLeader": null,
+    "pmsAllSameName": 0,
+    "status": "NO_PMS",
+    "sbUserId": null,
+    "sbVia": null
+  },
+  {
+    "org": "phalanx",
+    "src": "olympus",
+    "name": "이유나",
+    "teams": [
+      "IT"
+    ],
+    "pmsLeader": {
+      "src": "olympus",
+      "userId": 212,
+      "name": "이유나",
+      "school": "성균관대",
+      "major": "컴퓨터교육과",
+      "birth": "041122",
+      "gender": "여",
+      "contact": "01049083031",
+      "mail": "lyuna041122@gmail.com",
+      "state": "운영진",
+      "team": "IT",
+      "teamRole": "팀장",
+      "userRole": "운영진",
+      "level": "일반"
+    },
+    "pmsAllSameName": 2,
+    "status": "NAMESAKE_WRONG",
+    "sbUserId": null,
+    "sbVia": null,
+    "tablesPresent": {
+      "users": false,
+      "profile": false,
+      "membership": false
+    }
+  }
+]

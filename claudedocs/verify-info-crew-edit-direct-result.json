@@ -1,0 +1,78 @@
+{
+  "pass": 32,
+  "fail": 0,
+  "result": {
+    "scenarioA": {
+      "lineId": "7d7664a4-bdba-4e18-a6fa-8f9b45ee052c",
+      "weekId": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+      "mode": "add",
+      "added": [
+        "13b8e55e-ff49-43f3-a01f-cb68bfb74581",
+        "28a39131-a719-4264-b2a4-96dbda64cbb6"
+      ],
+      "alreadyPresent": [],
+      "removed": [],
+      "finalUserCount": 2
+    },
+    "crewDtoA": [
+      {
+        "userId": "13b8e55e-ff49-43f3-a01f-cb68bfb74581",
+        "crewNo": 1006,
+        "name": "T한지윤",
+        "teamName": "음료(T)",
+        "partName": "커피",
+        "schoolName": "고려대학교",
+        "majorName": "디자인학과",
+        "organization": "oranke"
+      },
+      {
+        "userId": "28a39131-a719-4264-b2a4-96dbda64cbb6",
+        "crewNo": 1008,
+        "name": "T권소율",
+        "teamName": "과일(T)",
+        "partName": "수박",
+        "schoolName": "서강대학교",
+        "majorName": "경영학과",
+        "organization": "oranke"
+      }
+    ],
+    "scenarioB": {
+      "lineId": "7d7664a4-bdba-4e18-a6fa-8f9b45ee052c",
+      "weekId": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+      "mode": "add",
+      "added": [
+        "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a"
+      ],
+      "alreadyPresent": [
+        "13b8e55e-ff49-43f3-a01f-cb68bfb74581"
+      ],
+      "removed": [],
+      "finalUserCount": 3
+    },
+    "scenarioC": {
+      "lineId": "7d7664a4-bdba-4e18-a6fa-8f9b45ee052c",
+      "weekId": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+      "mode": "replace",
+      "added": [],
+      "alreadyPresent": [
+        "28a39131-a719-4264-b2a4-96dbda64cbb6"
+      ],
+      "removed": [
+        "13b8e55e-ff49-43f3-a01f-cb68bfb74581",
+        "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a"
+      ],
+      "finalUserCount": 1
+    },
+    "scenarioD": {
+      "lineId": "7d7664a4-bdba-4e18-a6fa-8f9b45ee052c",
+      "weekId": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+      "mode": "replace",
+      "added": [],
+      "alreadyPresent": [],
+      "removed": [
+        "28a39131-a719-4264-b2a4-96dbda64cbb6"
+      ],
+      "finalUserCount": 0
+    }
+  }
+}

@@ -1,0 +1,483 @@
+total: 729 | version dist: {"28":729} | is_stale: 0
+[weekly-cards][timing] line aggregates+verdict 1430ms | weeks=9
+[weekly-cards][timing] getWeeklyGrowth crew=3249ms currentWeek=2ms summary+cards=2051ms total=5302ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5408ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1180ms | weeks=9
+[weekly-cards][timing] line aggregates+verdict 1805ms | weeks=16
+[weekly-cards][timing] getWeeklyGrowth crew=106ms currentWeek=0ms summary+cards=2401ms total=2507ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2631ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1495ms | weeks=16
+[weekly-cards][timing] line aggregates+verdict 4192ms | weeks=76
+[weekly-cards][timing] getWeeklyGrowth crew=112ms currentWeek=0ms summary+cards=4935ms total=5047ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5164ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2287ms | weeks=41
+[weekly-cards][timing] line aggregates+verdict 4879ms | weeks=109
+[weekly-cards][timing] getWeeklyGrowth crew=136ms currentWeek=0ms summary+cards=5544ms total=5680ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5790ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2252ms | weeks=49
+[weekly-cards][timing] line aggregates+verdict 3464ms | weeks=63
+[weekly-cards][timing] getWeeklyGrowth crew=124ms currentWeek=0ms summary+cards=4113ms total=4237ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4341ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2116ms | weeks=38
+[weekly-cards][timing] line aggregates+verdict 3875ms | weeks=72
+[weekly-cards][timing] getWeeklyGrowth crew=109ms currentWeek=0ms summary+cards=4522ms total=4631ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4732ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1909ms | weeks=37
+[weekly-cards][timing] line aggregates+verdict 3497ms | weeks=64
+[weekly-cards][timing] getWeeklyGrowth crew=134ms currentWeek=0ms summary+cards=4165ms total=4299ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4412ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 3074ms | weeks=48
+[weekly-cards][timing] line aggregates+verdict 4810ms | weeks=110
+[weekly-cards][timing] getWeeklyGrowth crew=186ms currentWeek=0ms summary+cards=5496ms total=5682ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5785ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2620ms | weeks=56
+[weekly-cards][timing] line aggregates+verdict 2148ms | weeks=25
+[weekly-cards][timing] getWeeklyGrowth crew=106ms currentWeek=0ms summary+cards=2741ms total=2847ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2960ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2095ms | weeks=24
+[weekly-cards][timing] line aggregates+verdict 2137ms | weeks=25
+[weekly-cards][timing] getWeeklyGrowth crew=115ms currentWeek=0ms summary+cards=2747ms total=2862ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2968ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2180ms | weeks=24
+[weekly-cards][timing] line aggregates+verdict 4362ms | weeks=100
+[weekly-cards][timing] getWeeklyGrowth crew=114ms currentWeek=1ms summary+cards=5012ms total=5127ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5236ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2217ms | weeks=47
+[weekly-cards][timing] line aggregates+verdict 2193ms | weeks=25
+[weekly-cards][timing] getWeeklyGrowth crew=164ms currentWeek=0ms summary+cards=2811ms total=2975ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3080ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2168ms | weeks=24
+[weekly-cards][timing] line aggregates+verdict 2933ms | weeks=39
+[weekly-cards][timing] getWeeklyGrowth crew=129ms currentWeek=1ms summary+cards=3535ms total=3665ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3768ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 3059ms | weeks=39
+[weekly-cards][timing] getWeeklyGrowth crew=162ms currentWeek=0ms summary+cards=187ms total=349ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 452ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 53ms | weeks=0
+[weekly-cards][timing] line aggregates+verdict 1719ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=178ms currentWeek=0ms summary+cards=2315ms total=2493ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2597ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1427ms | weeks=15
+[weekly-cards][timing] line aggregates+verdict 4763ms | weeks=107
+[weekly-cards][timing] getWeeklyGrowth crew=108ms currentWeek=0ms summary+cards=5394ms total=5502ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5610ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 4015ms | weeks=63
+[weekly-cards][timing] line aggregates+verdict 3085ms | weeks=47
+[weekly-cards][timing] getWeeklyGrowth crew=217ms currentWeek=0ms summary+cards=3685ms total=3902ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4012ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 3908ms | weeks=47
+[weekly-cards][timing] line aggregates+verdict 4730ms | weeks=118
+[weekly-cards][timing] getWeeklyGrowth crew=136ms currentWeek=0ms summary+cards=5415ms total=5551ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5673ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1866ms | weeks=46
+[weekly-cards][timing] line aggregates+verdict 3693ms | weeks=65
+[weekly-cards][timing] getWeeklyGrowth crew=110ms currentWeek=0ms summary+cards=4363ms total=4473ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4578ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2637ms | weeks=46
+[weekly-cards][timing] line aggregates+verdict 2944ms | weeks=40
+[weekly-cards][timing] getWeeklyGrowth crew=151ms currentWeek=0ms summary+cards=3541ms total=3692ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3796ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 3367ms | weeks=40
+[weekly-cards][timing] line aggregates+verdict 1825ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=110ms currentWeek=0ms summary+cards=2401ms total=2511ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2613ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1654ms | weeks=17
+[weekly-cards][timing] line aggregates+verdict 2005ms | weeks=22
+[weekly-cards][timing] getWeeklyGrowth crew=108ms currentWeek=0ms summary+cards=2587ms total=2695ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2801ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1964ms | weeks=22
+[weekly-cards][timing] line aggregates+verdict 1798ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=107ms currentWeek=0ms summary+cards=2358ms total=2465ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2567ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1636ms | weeks=17
+[weekly-cards][timing] line aggregates+verdict 4911ms | weeks=141
+[weekly-cards][timing] getWeeklyGrowth crew=113ms currentWeek=0ms summary+cards=5578ms total=5691ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5793ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1752ms | weeks=53
+[weekly-cards][timing] line aggregates+verdict 3277ms | weeks=63
+[weekly-cards][timing] getWeeklyGrowth crew=113ms currentWeek=0ms summary+cards=3922ms total=4035ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4135ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2000ms | weeks=38
+[weekly-cards][timing] line aggregates+verdict 3734ms | weeks=92
+[weekly-cards][timing] getWeeklyGrowth crew=111ms currentWeek=0ms summary+cards=4391ms total=4502ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4608ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2173ms | weeks=53
+[weekly-cards][timing] line aggregates+verdict 1819ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=128ms currentWeek=0ms summary+cards=2393ms total=2521ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2625ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1639ms | weeks=17
+[weekly-cards][timing] line aggregates+verdict 1337ms | weeks=13
+[weekly-cards][timing] getWeeklyGrowth crew=106ms currentWeek=0ms summary+cards=1897ms total=2003ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2110ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1086ms | weeks=13
+[weekly-cards][timing] line aggregates+verdict 2889ms | weeks=40
+[weekly-cards][timing] getWeeklyGrowth crew=107ms currentWeek=0ms summary+cards=3528ms total=3635ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3738ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2168ms | weeks=32
+[weekly-cards][timing] line aggregates+verdict 1548ms | weeks=16
+[weekly-cards][timing] getWeeklyGrowth crew=122ms currentWeek=0ms summary+cards=2142ms total=2264ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2369ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1397ms | weeks=16
+[weekly-cards][timing] line aggregates+verdict 4826ms | weeks=133
+[weekly-cards][timing] getWeeklyGrowth crew=113ms currentWeek=0ms summary+cards=5443ms total=5556ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5654ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1816ms | weeks=53
+[weekly-cards][timing] line aggregates+verdict 4069ms | weeks=100
+[weekly-cards][timing] getWeeklyGrowth crew=133ms currentWeek=0ms summary+cards=4688ms total=4821ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4926ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2046ms | weeks=47
+[weekly-cards][timing] line aggregates+verdict 3840ms | weeks=75
+[weekly-cards][timing] getWeeklyGrowth crew=105ms currentWeek=0ms summary+cards=4497ms total=4602ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4702ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2834ms | weeks=48
+[weekly-cards][timing] line aggregates+verdict 1331ms | weeks=9
+[weekly-cards][timing] getWeeklyGrowth crew=159ms currentWeek=0ms summary+cards=1907ms total=2066ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2167ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 920ms | weeks=9
+[weekly-cards][timing] line aggregates+verdict 4577ms | weeks=107
+[weekly-cards][timing] getWeeklyGrowth crew=109ms currentWeek=0ms summary+cards=5150ms total=5259ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5378ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1995ms | weeks=44
+[weekly-cards][timing] line aggregates+verdict 4692ms | weeks=118
+[weekly-cards][timing] getWeeklyGrowth crew=109ms currentWeek=0ms summary+cards=5341ms total=5450ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5559ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1761ms | weeks=47
+[weekly-cards][timing] line aggregates+verdict 4738ms | weeks=117
+[weekly-cards][timing] getWeeklyGrowth crew=110ms currentWeek=0ms summary+cards=5365ms total=5475ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5579ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1754ms | weeks=45
+[weekly-cards][timing] line aggregates+verdict 2017ms | weeks=25
+[weekly-cards][timing] getWeeklyGrowth crew=109ms currentWeek=0ms summary+cards=2622ms total=2731ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2868ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2112ms | weeks=24
+[weekly-cards][timing] line aggregates+verdict 2130ms | weeks=25
+[weekly-cards][timing] getWeeklyGrowth crew=109ms currentWeek=0ms summary+cards=2728ms total=2837ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2956ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2280ms | weeks=25
+[weekly-cards][timing] line aggregates+verdict 1640ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=116ms currentWeek=0ms summary+cards=2230ms total=2346ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2451ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1330ms | weeks=15
+[weekly-cards][timing] line aggregates+verdict 4299ms | weeks=112
+[weekly-cards][timing] getWeeklyGrowth crew=107ms currentWeek=0ms summary+cards=4977ms total=5084ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5190ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1883ms | weeks=47
+[weekly-cards][timing] line aggregates+verdict 3327ms | weeks=63
+[weekly-cards][timing] getWeeklyGrowth crew=131ms currentWeek=0ms summary+cards=3963ms total=4094ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4212ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1980ms | weeks=36
+[weekly-cards][timing] line aggregates+verdict 1908ms | weeks=25
+[weekly-cards][timing] getWeeklyGrowth crew=159ms currentWeek=0ms summary+cards=2486ms total=2645ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2751ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2295ms | weeks=25
+[weekly-cards][timing] line aggregates+verdict 4096ms | weeks=91
+[weekly-cards][timing] getWeeklyGrowth crew=119ms currentWeek=0ms summary+cards=4744ms total=4863ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4965ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2369ms | weeks=54
+[weekly-cards][timing] line aggregates+verdict 1812ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=108ms currentWeek=0ms summary+cards=2379ms total=2487ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2593ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1740ms | weeks=17
+[weekly-cards][timing] line aggregates+verdict 1692ms | weeks=15
+[weekly-cards][timing] getWeeklyGrowth crew=139ms currentWeek=0ms summary+cards=2278ms total=2417ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2522ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1400ms | weeks=15
+[weekly-cards][timing] line aggregates+verdict 3371ms | weeks=63
+[weekly-cards][timing] getWeeklyGrowth crew=212ms currentWeek=0ms summary+cards=4020ms total=4232ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4335ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1796ms | weeks=35
+[weekly-cards][timing] line aggregates+verdict 2729ms | weeks=49
+[weekly-cards][timing] getWeeklyGrowth crew=109ms currentWeek=0ms summary+cards=3356ms total=3465ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3564ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1977ms | weeks=30
+[weekly-cards][timing] line aggregates+verdict 3771ms | weeks=72
+[weekly-cards][timing] getWeeklyGrowth crew=117ms currentWeek=0ms summary+cards=4349ms total=4466ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4567ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2474ms | weeks=47
+[weekly-cards][timing] line aggregates+verdict 4751ms | weeks=108
+[weekly-cards][timing] getWeeklyGrowth crew=112ms currentWeek=0ms summary+cards=5379ms total=5491ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5591ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2477ms | weeks=54
+[weekly-cards][timing] line aggregates+verdict 1536ms | weeks=13
+[weekly-cards][timing] getWeeklyGrowth crew=106ms currentWeek=0ms summary+cards=2124ms total=2230ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2341ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1090ms | weeks=13
+[weekly-cards][timing] line aggregates+verdict 3755ms | weeks=74
+[weekly-cards][timing] getWeeklyGrowth crew=106ms currentWeek=0ms summary+cards=4391ms total=4497ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4605ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2423ms | weeks=46
+[weekly-cards][timing] line aggregates+verdict 3753ms | weeks=73
+[weekly-cards][timing] getWeeklyGrowth crew=106ms currentWeek=0ms summary+cards=4386ms total=4492ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 4596ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1949ms | weeks=38
+[weekly-cards][timing] line aggregates+verdict 1518ms | weeks=13
+[weekly-cards][timing] getWeeklyGrowth crew=111ms currentWeek=0ms summary+cards=2088ms total=2199ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2303ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1164ms | weeks=13
+[weekly-cards][timing] line aggregates+verdict 1367ms | weeks=9
+[weekly-cards][timing] getWeeklyGrowth crew=119ms currentWeek=0ms summary+cards=1930ms total=2049ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2152ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 915ms | weeks=9
+[weekly-cards][timing] line aggregates+verdict 2727ms | weeks=38
+[weekly-cards][timing] getWeeklyGrowth crew=183ms currentWeek=0ms summary+cards=3322ms total=3505ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3609ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2962ms | weeks=38
+[weekly-cards][timing] line aggregates+verdict 1840ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=179ms currentWeek=0ms summary+cards=2438ms total=2617ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2736ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1730ms | weeks=17
+[weekly-cards][timing] line aggregates+verdict 1654ms | weeks=17
+[weekly-cards][timing] getWeeklyGrowth crew=111ms currentWeek=0ms summary+cards=2233ms total=2344ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 2455ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 1712ms | weeks=17
+[weekly-cards][timing] line aggregates+verdict 2200ms | weeks=25
+[weekly-cards][timing] getWeeklyGrowth crew=181ms currentWeek=0ms summary+cards=2775ms total=2956ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 3062ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 2177ms | weeks=24
+[weekly-cards][timing] line aggregates+verdict 4867ms | weeks=108
+[weekly-cards][timing] getWeeklyGrowth crew=132ms currentWeek=0ms summary+cards=5514ms total=5646ms
+[weekly-cards][timing] getWeeklyGrowth(profileUser) 5754ms
+[cluster4/weekly-cards] user_team_parts lookup failed {
+  message: "Could not find the table 'public.user_team_parts' in the schema cache"
+}
+[cluster4/weekly-cards] user_profiles lookup failed { message: 'column user_profiles.onboarding_week_id does not exist' }
+[weekly-cards][timing] lineDetails+headerExtras 3539ms | weeks=72
+
+[FINAL sample] direct==stored match=60/60 mismatch=0
+FINAL DONE

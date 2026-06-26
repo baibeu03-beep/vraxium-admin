@@ -1,0 +1,27 @@
+
+> nftg@0.1.0 dev
+> next dev -p 3001
+
+  ▲ Next.js 14.2.13
+  - Local:        http://localhost:3001
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 3.2s
+ ✓ Compiled /middleware in 99ms (72 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 1597ms (1489 modules)
+ GET / 200 in 2202ms
+ GET / 200 in 362ms
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 996ms (1049 modules)
+ GET /api/auth/session/ 200 in 1599ms
+[next-auth][warn][NEXTAUTH_URL] 
+https://next-auth.js.org/warnings#nextauth_url
+[next-auth][warn][DEBUG_ENABLED] 
+https://next-auth.js.org/warnings#debug_enabled
+ POST /api/auth/_log/ 200 in 231ms
+ POST /api/auth/_log/ 200 in 230ms
+ GET / 200 in 441ms
+ GET /api/auth/session/ 200 in 53ms
+ GET /api/auth/session/ 200 in 26ms

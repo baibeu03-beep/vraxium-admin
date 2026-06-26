@@ -1,0 +1,44 @@
+◇ injected env (0) from .env.local // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+is_stale 드레인 모니터 (30s 간격, 최대 20분)
+[ 1] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=1
+[ 2] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=2
+[ 3] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=3
+[ 4] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=4
+[ 5] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=5
+[ 6] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=6
+[ 7] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=7
+[ 8] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=8
+[ 9] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=9
+[10] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=10
+[11] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=11
+[12] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=12
+[13] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=13
+[14] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=14
+[15] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=15
+[16] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=16
+[17] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=17
+[18] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=18
+[19] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=19
+[20] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=20
+[21] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=21
+[22] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=22
+[23] tot=725 v24=725 non-v24=0 is_stale=386 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=23
+[24] tot=725 v24=725 non-v24=0 is_stale=629 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=24
+[25] tot=725 v24=725 non-v24=0 is_stale=609 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=25
+[26] tot=725 v24=725 non-v24=0 is_stale=591 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=26
+[27] tot=725 v24=725 non-v24=0 is_stale=571 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=27
+[28] tot=725 v24=725 non-v24=0 is_stale=551 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=28
+[29] tot=725 v24=725 non-v24=0 is_stale=538 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=29
+[30] tot=725 v24=725 non-v24=0 is_stale=620 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=30
+[31] tot=725 v24=725 non-v24=0 is_stale=604 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=31
+[32] tot=725 v24=725 non-v24=0 is_stale=620 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=32
+[33] tot=725 v24=725 non-v24=0 is_stale=601 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=33
+[34] tot=725 v24=725 non-v24=0 is_stale=584 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=34
+[35] tot=725 v24=725 non-v24=0 is_stale=571 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=35
+[36] tot=725 v24=725 non-v24=0 is_stale=571 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=36
+[37] tot=725 v24=725 non-v24=0 is_stale=571 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=37
+[38] tot=725 v24=725 non-v24=0 is_stale=571 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=38
+[39] tot=725 v24=725 non-v24=0 is_stale=571 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=39
+[40] tot=725 v24=725 non-v24=0 is_stale=571 | 신규 운영자편집(markStale)=0 | 운영자 idle 연속=40
+
+⏱ 모니터 종료(20분). 최종 is_stale=571 (운영자 편집이 지속되면 0 미도달 — 편집 종료 후 자가복구).

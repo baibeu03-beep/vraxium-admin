@@ -1,0 +1,96 @@
+{
+ "mode": "preview",
+ "statusFix": {
+  "label": "강원대 김준우",
+  "src": "hrdb",
+  "uid": 1505,
+  "from": "rest",
+  "to": "active",
+  "userId": "9d1d0edd-b3c7-4ad8-90d6-7021087c119e",
+  "current": "rest"
+ },
+ "plans": [
+  {
+   "src": "hrdb",
+   "uid": 852,
+   "name": "김준우",
+   "school": "백석대",
+   "uuid": "bfa99ae2-e08e-4823-b63c-c1e2c57b5339",
+   "seasonStatus": "rest",
+   "counts": {
+    "uws": 28,
+    "uwp": 43,
+    "ledger": 817,
+    "exp": 28,
+    "flips": 0
+   },
+   "seasonBreakdown": {
+    "2023-summer": 7,
+    "2023-autumn": 9,
+    "2024-winter": 6,
+    "2024-summer": 6
+   },
+   "summerConflict": 0,
+   "bal": {
+    "Star": 1291,
+    "Shield": 51
+   }
+  },
+  {
+   "src": "hrdb",
+   "uid": 1607,
+   "name": "이다경",
+   "school": "세종대",
+   "uuid": "1427126a-09de-41ec-a796-8f367c1e7f89",
+   "seasonStatus": "rest",
+   "counts": {
+    "uws": 6,
+    "uwp": 15,
+    "ledger": 175,
+    "exp": 6,
+    "flips": 0
+   },
+   "seasonBreakdown": {
+    "2026-winter": 5,
+    "2026-spring": 1
+   },
+   "summerConflict": 0,
+   "bal": {
+    "Star": 356,
+    "Shield": 35
+   }
+  },
+  {
+   "src": "oranke",
+   "uid": 1200,
+   "name": "류건영",
+   "school": "고려대",
+   "uuid": "4f62d054-a3ba-4291-9582-fe7b1a1e191a",
+   "seasonStatus": "active",
+   "counts": {
+    "uws": 24,
+    "uwp": 37,
+    "ledger": 734,
+    "exp": 24,
+    "flips": 0
+   },
+   "seasonBreakdown": {
+    "2025-summer": 5,
+    "2025-autumn": 9,
+    "2026-winter": 5,
+    "2026-spring": 5
+   },
+   "summerConflict": 0,
+   "bal": {
+    "Star": 2042,
+    "Shield": 121
+   }
+  }
+ ],
+ "failed": [],
+ "expectAfter": {
+  "active": 201,
+  "rest": 51,
+  "stopped": 66
+ }
+}

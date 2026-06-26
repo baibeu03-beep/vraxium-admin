@@ -1,0 +1,90 @@
+
+> vraxium-admin@0.1.0 dev
+> next dev -p 3000
+
+▲ Next.js 16.2.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.219.109:3000
+- Environments: .env.local
+✓ Ready in 768ms
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 3469ms | supabaseQueries=3 | user=770ef474-a123-4464-9a57-1995f8d9e5da | outcome=HIT | lazyRan=false | cards=60
+ GET /api/cluster4/weekly-cards?userId=770ef474-a123-4464-9a57-1995f8d9e5da 200 in 3.8s (next.js: 235ms, proxy.ts: 82ms, application-code: 3.5s)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 251ms | supabaseQueries=3 | user=b97ea231-da32-42be-9421-214fa3ccecdb | outcome=HIT | lazyRan=false | cards=17
+ GET /api/cluster4/weekly-cards?userId=b97ea231-da32-42be-9421-214fa3ccecdb 200 in 268ms (next.js: 4ms, proxy.ts: 6ms, application-code: 257ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 326ms | supabaseQueries=3 | user=ef4938c2-5dfe-4500-a0bc-0d953c6f7314 | outcome=HIT | lazyRan=false | cards=73
+ GET /api/cluster4/weekly-cards?userId=ef4938c2-5dfe-4500-a0bc-0d953c6f7314 200 in 340ms (next.js: 3ms, proxy.ts: 4ms, application-code: 332ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 303ms | supabaseQueries=3 | user=16611401-68ea-48ed-84fa-ae2897367757 | outcome=HIT | lazyRan=false | cards=63
+ GET /api/cluster4/weekly-cards?userId=16611401-68ea-48ed-84fa-ae2897367757 200 in 316ms (next.js: 3ms, proxy.ts: 4ms, application-code: 309ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 240ms | supabaseQueries=3 | user=5c5bd454-ca1c-4e2b-a059-6f09190a718f | outcome=HIT | lazyRan=false | cards=17
+ GET /api/cluster4/weekly-cards?userId=5c5bd454-ca1c-4e2b-a059-6f09190a718f 200 in 254ms (next.js: 3ms, proxy.ts: 5ms, application-code: 247ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 267ms | supabaseQueries=3 | user=7afe98c2-372c-478e-b29a-ecc6f96af598 | outcome=HIT | lazyRan=false | cards=40
+ GET /api/cluster4/weekly-cards?userId=7afe98c2-372c-478e-b29a-ecc6f96af598 200 in 284ms (next.js: 5ms, proxy.ts: 7ms, application-code: 272ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 277ms | supabaseQueries=3 | user=f55c4dcb-6b51-41cf-98b8-9068eeddcc0e | outcome=HIT | lazyRan=false | cards=55
+ GET /api/cluster4/weekly-cards?userId=f55c4dcb-6b51-41cf-98b8-9068eeddcc0e 200 in 289ms (next.js: 3ms, proxy.ts: 4ms, application-code: 282ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 270ms | supabaseQueries=3 | user=ec365256-63f7-42d4-a23e-90731391c9a2 | outcome=HIT | lazyRan=false | cards=66
+ GET /api/cluster4/weekly-cards?userId=ec365256-63f7-42d4-a23e-90731391c9a2 200 in 284ms (next.js: 3ms, proxy.ts: 4ms, application-code: 277ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 261ms | supabaseQueries=3 | user=70b776fb-801d-4630-b18f-565ce2f84688 | outcome=HIT | lazyRan=false | cards=39
+ GET /api/cluster4/weekly-cards?userId=70b776fb-801d-4630-b18f-565ce2f84688 200 in 275ms (next.js: 4ms, proxy.ts: 4ms, application-code: 267ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 318ms | supabaseQueries=3 | user=60e3e8a2-0d28-4bfa-bac6-55f480bfa92a | outcome=HIT | lazyRan=false | cards=63
+ GET /api/cluster4/weekly-cards?userId=60e3e8a2-0d28-4bfa-bac6-55f480bfa92a 200 in 334ms (next.js: 3ms, proxy.ts: 6ms, application-code: 325ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 271ms | supabaseQueries=3 | user=9ba3e55f-9192-4cdf-9127-d7ee0c150151 | outcome=HIT | lazyRan=false | cards=55
+ GET /api/cluster4/weekly-cards?userId=9ba3e55f-9192-4cdf-9127-d7ee0c150151 200 in 284ms (next.js: 3ms, proxy.ts: 4ms, application-code: 277ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 298ms | supabaseQueries=3 | user=6ce93fa8-2518-4cda-8bce-6aec0caf0d44 | outcome=HIT | lazyRan=false | cards=53
+ GET /api/cluster4/weekly-cards?userId=6ce93fa8-2518-4cda-8bce-6aec0caf0d44 200 in 310ms (next.js: 3ms, proxy.ts: 4ms, application-code: 303ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 685ms | supabaseQueries=3 | user=770ef474-a123-4464-9a57-1995f8d9e5da | outcome=HIT | lazyRan=false | cards=60
+ GET /api/cluster4/weekly-cards?userId=770ef474-a123-4464-9a57-1995f8d9e5da 200 in 697ms (next.js: 2ms, proxy.ts: 3ms, application-code: 691ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 375ms | supabaseQueries=3 | user=770ef474-a123-4464-9a57-1995f8d9e5da | outcome=HIT | lazyRan=false | cards=60
+ GET /api/cluster4/weekly-cards?userId=770ef474-a123-4464-9a57-1995f8d9e5da 200 in 390ms (next.js: 3ms, proxy.ts: 4ms, application-code: 383ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 397ms | supabaseQueries=3 | user=770ef474-a123-4464-9a57-1995f8d9e5da | outcome=HIT | lazyRan=false | cards=60
+ GET /api/cluster4/weekly-cards?userId=770ef474-a123-4464-9a57-1995f8d9e5da 200 in 407ms (next.js: 3ms, proxy.ts: 3ms, application-code: 401ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 240ms | supabaseQueries=3 | user=b97ea231-da32-42be-9421-214fa3ccecdb | outcome=HIT | lazyRan=false | cards=17
+ GET /api/cluster4/weekly-cards?userId=b97ea231-da32-42be-9421-214fa3ccecdb 200 in 254ms (next.js: 3ms, proxy.ts: 3ms, application-code: 247ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 340ms | supabaseQueries=3 | user=ef4938c2-5dfe-4500-a0bc-0d953c6f7314 | outcome=HIT | lazyRan=false | cards=73
+ GET /api/cluster4/weekly-cards?userId=ef4938c2-5dfe-4500-a0bc-0d953c6f7314 200 in 351ms (next.js: 3ms, proxy.ts: 3ms, application-code: 345ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 280ms | supabaseQueries=3 | user=16611401-68ea-48ed-84fa-ae2897367757 | outcome=HIT | lazyRan=false | cards=63
+ GET /api/cluster4/weekly-cards?userId=16611401-68ea-48ed-84fa-ae2897367757 200 in 291ms (next.js: 3ms, proxy.ts: 3ms, application-code: 285ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 239ms | supabaseQueries=3 | user=5c5bd454-ca1c-4e2b-a059-6f09190a718f | outcome=HIT | lazyRan=false | cards=17
+ GET /api/cluster4/weekly-cards?userId=5c5bd454-ca1c-4e2b-a059-6f09190a718f 200 in 254ms (next.js: 3ms, proxy.ts: 5ms, application-code: 246ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 241ms | supabaseQueries=3 | user=7afe98c2-372c-478e-b29a-ecc6f96af598 | outcome=HIT | lazyRan=false | cards=40
+ GET /api/cluster4/weekly-cards?userId=7afe98c2-372c-478e-b29a-ecc6f96af598 200 in 251ms (next.js: 2ms, proxy.ts: 3ms, application-code: 246ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 282ms | supabaseQueries=3 | user=f55c4dcb-6b51-41cf-98b8-9068eeddcc0e | outcome=HIT | lazyRan=false | cards=55
+ GET /api/cluster4/weekly-cards?userId=f55c4dcb-6b51-41cf-98b8-9068eeddcc0e 200 in 293ms (next.js: 3ms, proxy.ts: 4ms, application-code: 287ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 283ms | supabaseQueries=3 | user=ec365256-63f7-42d4-a23e-90731391c9a2 | outcome=HIT | lazyRan=false | cards=66
+ GET /api/cluster4/weekly-cards?userId=ec365256-63f7-42d4-a23e-90731391c9a2 200 in 294ms (next.js: 2ms, proxy.ts: 3ms, application-code: 288ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 241ms | supabaseQueries=3 | user=70b776fb-801d-4630-b18f-565ce2f84688 | outcome=HIT | lazyRan=false | cards=39
+ GET /api/cluster4/weekly-cards?userId=70b776fb-801d-4630-b18f-565ce2f84688 200 in 251ms (next.js: 2ms, proxy.ts: 4ms, application-code: 246ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 320ms | supabaseQueries=3 | user=60e3e8a2-0d28-4bfa-bac6-55f480bfa92a | outcome=HIT | lazyRan=false | cards=63
+ GET /api/cluster4/weekly-cards?userId=60e3e8a2-0d28-4bfa-bac6-55f480bfa92a 200 in 333ms (next.js: 3ms, proxy.ts: 3ms, application-code: 327ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 306ms | supabaseQueries=3 | user=9ba3e55f-9192-4cdf-9127-d7ee0c150151 | outcome=HIT | lazyRan=false | cards=55
+ GET /api/cluster4/weekly-cards?userId=9ba3e55f-9192-4cdf-9127-d7ee0c150151 200 in 317ms (next.js: 3ms, proxy.ts: 3ms, application-code: 311ms)
+[weekly-cards] internal auth accepted
+[weekly-cards] done ok | 269ms | supabaseQueries=3 | user=6ce93fa8-2518-4cda-8bce-6aec0caf0d44 | outcome=HIT | lazyRan=false | cards=53
+ GET /api/cluster4/weekly-cards?userId=6ce93fa8-2518-4cda-8bce-6aec0caf0d44 200 in 283ms (next.js: 3ms, proxy.ts: 6ms, application-code: 274ms)
+[?25h
