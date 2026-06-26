@@ -966,6 +966,188 @@ export async function registerTeamHalf(
   return { teams: await listHalfTeams(organization, halfKey) };
 }
 
+// ── 팀 수정(현재·다음 반기만) ─────────────────────────────────────────
+// 기존 팀 box 의 팀명·개요·팀장(crew_code)을 수정한다. 등록과 동일 게이트(편집 가능 반기).
+//   팀명 변경 시 같은 (org, 반기) 내 다른 행과 충돌하면 409(UNIQUE(org,half,team_name) 보호).
+//   팀장 변경 시 산하 "일반" 파트장도 동기화(ensureGeneralPart 는 기존행 미변경이라 직접 update).
+export type UpdateTeamInput = {
+  organization: string;
+  halfKey: string;
+  teamHalfId: string;
+  teamName: string;
+  description: string;
+  leaderCrewCode: string;
+};
+
+export async function updateTeamHalf(
+  input: UpdateTeamInput,
+  today?: string,
+): Promise<{ teams: TeamHalfTeamDto[] }> {
+  const organization = String(input.organization ?? "").trim();
+  const halfKey = String(input.halfKey ?? "").trim();
+  const teamHalfId = String(input.teamHalfId ?? "").trim();
+  const teamName = String(input.teamName ?? "").trim();
+  const description = String(input.description ?? "").trim();
+  const leaderCrewCode = String(input.leaderCrewCode ?? "").trim();
+
+  if (!isOrganizationSlug(organization)) {
+    throw new TeamHalfWriteError(400, "유효한 조직이 필요합니다.");
+  }
+  if (!isHalfKey(halfKey)) {
+    throw new TeamHalfWriteError(400, "유효하지 않은 반기 키입니다.");
+  }
+  if (!teamHalfId) {
+    throw new TeamHalfWriteError(400, "수정할 팀 식별자가 필요합니다.");
+  }
+  // 현재·다음 반기만 수정 허용(과거 반기 fail-closed).
+  const currentHalfKey = await resolveCurrentHalfKey(today);
+  if (!isEditableHalf(halfKey, currentHalfKey)) {
+    throw new TeamHalfWriteError(
+      403,
+      "현재 또는 다음 반기만 수정할 수 있습니다. 과거 반기는 조회 전용입니다.",
+    );
+  }
+  if (!teamName) {
+    throw new TeamHalfWriteError(400, "팀 명을 입력해주세요.");
+  }
+  if (teamName.length > MAX_TEAM_NAME_LENGTH) {
+    throw new TeamHalfWriteError(
+      400,
+      `팀 명은 최대 ${MAX_TEAM_NAME_LENGTH}자까지 입력할 수 있습니다.`,
+    );
+  }
+  if (!description) {
+    throw new TeamHalfWriteError(400, "팀 개요를 입력해주세요.");
+  }
+  if (description.length > MAX_TEAM_DESCRIPTION_LENGTH) {
+    throw new TeamHalfWriteError(
+      400,
+      `팀 개요는 최대 ${MAX_TEAM_DESCRIPTION_LENGTH}자까지 입력할 수 있습니다.`,
+    );
+  }
+  if (!leaderCrewCode) {
+    throw new TeamHalfWriteError(400, "팀장 크루코드를 입력해주세요.");
+  }
+  const leaderUserId = await getUserIdByCrewCode(leaderCrewCode);
+  if (!leaderUserId) {
+    throw new TeamHalfWriteError(
+      400,
+      "해당 크루코드의 크루를 찾을 수 없습니다. 팀장은 이미 등록된 크루만 가능합니다.",
+    );
+  }
+
+  // 대상 행 + 같은 (org, 반기) 행 로드(팀명 충돌 검사).
+  const { data: rowsData, error: rowsError } = await supabaseAdmin
+    .from("cluster4_team_halves")
+    .select("id,team_name,is_active")
+    .eq("organization_slug", organization)
+    .eq("half_key", halfKey);
+  if (rowsError) throw new TeamHalfWriteError(500, rowsError.message);
+  const rows = (rowsData ?? []) as Array<{
+    id: string;
+    team_name: string;
+    is_active: boolean;
+  }>;
+
+  const target = rows.find((r) => r.id === teamHalfId);
+  if (!target || !target.is_active) {
+    throw new TeamHalfWriteError(404, "수정할 팀을 찾을 수 없습니다.");
+  }
+  // 팀명을 다른 행(활성/비활성 불문)과 겹치게 변경 불가(UNIQUE 보호).
+  const clash = rows.find((r) => r.id !== teamHalfId && r.team_name === teamName);
+  if (clash) {
+    throw new TeamHalfWriteError(409, "이미 존재하는 팀명입니다.");
+  }
+
+  // team_id soft-link 재해석(현재 마스터에 동일 org/name 있으면).
+  const { data: masterData, error: masterError } = await supabaseAdmin
+    .from("cluster4_teams")
+    .select("id")
+    .eq("organization_slug", organization)
+    .eq("team_name", teamName)
+    .maybeSingle();
+  if (masterError) throw new TeamHalfWriteError(500, masterError.message);
+  const teamId = (masterData as { id: string } | null)?.id ?? null;
+
+  const { error: updError } = await supabaseAdmin
+    .from("cluster4_team_halves")
+    .update({
+      team_name: teamName,
+      description,
+      leader_user_id: leaderUserId,
+      leader_crew_code: leaderCrewCode,
+      team_id: teamId,
+    })
+    .eq("id", teamHalfId);
+  if (updError) throw new TeamHalfWriteError(500, updError.message);
+
+  // 산하 "일반" 파트장 동기화(팀장 변경 반영). 없으면 생성.
+  await ensureGeneralPart(teamHalfId, leaderUserId);
+  const { error: partError } = await supabaseAdmin
+    .from("cluster4_team_parts")
+    .update({ leader_user_id: leaderUserId })
+    .eq("team_half_id", teamHalfId)
+    .eq("part_name", DEFAULT_PART_NAME);
+  if (partError) throw new TeamHalfWriteError(500, partError.message);
+
+  return { teams: await listHalfTeams(organization, halfKey) };
+}
+
+// ── 팀 삭제 대기 처리(현재·다음 반기만) ───────────────────────────────
+// 하드 삭제하지 않고 is_active=false 로 전환("삭제 대기" 비활성). 목록·존재표에서 사라지고
+//   더 이상 수정/갱신 대상이 아니다. 실제 삭제(하드)는 후속 프로세스에서 이 행들을 대상으로 한다.
+export async function markTeamHalfDeletionPending(
+  organization: string,
+  halfKey: string,
+  teamHalfId: string,
+  today?: string,
+): Promise<{ teams: TeamHalfTeamDto[] }> {
+  const org = String(organization ?? "").trim();
+  const half = String(halfKey ?? "").trim();
+  const id = String(teamHalfId ?? "").trim();
+
+  if (!isOrganizationSlug(org)) {
+    throw new TeamHalfWriteError(400, "유효한 조직이 필요합니다.");
+  }
+  if (!isHalfKey(half)) {
+    throw new TeamHalfWriteError(400, "유효하지 않은 반기 키입니다.");
+  }
+  if (!id) {
+    throw new TeamHalfWriteError(400, "삭제할 팀 식별자가 필요합니다.");
+  }
+  const currentHalfKey = await resolveCurrentHalfKey(today);
+  if (!isEditableHalf(half, currentHalfKey)) {
+    throw new TeamHalfWriteError(
+      403,
+      "현재 또는 다음 반기만 수정할 수 있습니다. 과거 반기는 조회 전용입니다.",
+    );
+  }
+
+  const { data: targetData, error: targetError } = await supabaseAdmin
+    .from("cluster4_team_halves")
+    .select("id,is_active")
+    .eq("organization_slug", org)
+    .eq("half_key", half)
+    .eq("id", id)
+    .maybeSingle();
+  if (targetError) throw new TeamHalfWriteError(500, targetError.message);
+  const target = targetData as { id: string; is_active: boolean } | null;
+  if (!target) {
+    throw new TeamHalfWriteError(404, "삭제할 팀을 찾을 수 없습니다.");
+  }
+
+  if (target.is_active) {
+    const { error } = await supabaseAdmin
+      .from("cluster4_team_halves")
+      .update({ is_active: false })
+      .eq("id", id);
+    if (error) throw new TeamHalfWriteError(500, error.message);
+  }
+  // 이미 비활성(중복 삭제 요청)이면 idempotent — 그대로 성공 처리.
+
+  return { teams: await listHalfTeams(org, half) };
+}
+
 // 팀의 "일반" 파트를 보장한다(없으면 생성). UNIQUE(team_half_id, part_name) 로 중복 불가.
 //   기본 파트장 = 팀장. 이미 있으면 미변경(idempotent). 삭제는 앱 레이어에서 금지.
 export async function ensureGeneralPart(

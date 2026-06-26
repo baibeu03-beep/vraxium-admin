@@ -140,8 +140,9 @@ export default function TeamPartsInfoManager() {
     orgFromUrl ?? ORGANIZATIONS[0],
   );
 
-  // 팀 등록 팝업.
+  // 팀 등록/수정 팝업(같은 컴포넌트, editingTeam 으로 모드 구분).
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<TeamDto | null>(null);
   const [teamName, setTeamName] = useState("");
   const [description, setDescription] = useState("");
   const [crewCode, setCrewCode] = useState("");
@@ -149,6 +150,12 @@ export default function TeamPartsInfoManager() {
   const [lookingUp, setLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
+
+  // 삭제 확인 팝업(삭제 대기 전환 대상).
+  const [deleteTarget, setDeleteTarget] = useState<TeamDto | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const isEditMode = editingTeam != null;
 
   const load = useCallback(
     async (halfKey: string | null, focusOrg: OrganizationSlug) => {
@@ -248,60 +255,80 @@ export default function TeamPartsInfoManager() {
     setLeader(null);
     setLookupError(null);
   };
-  const openModal = () => {
-    if (!editable) return;
-    resetForm();
-    setModalOpen(true);
-  };
-  const closeModal = () => {
-    setModalOpen(false);
-    resetForm();
-  };
-
-  const callCrew = async () => {
-    const code = crewCode.trim();
-    if (!code) return;
+  // 크루코드로 팀장 정보 호출. 인자 code 우선(수정 모드 프리필), 없으면 입력값.
+  const lookupCrew = async (code: string): Promise<LeaderCandidate | null> => {
+    const c = code.trim();
+    if (!c) return null;
     setLookingUp(true);
     setLookupError(null);
     setLeader(null);
     try {
       const res = await fetch(
-        `/api/admin/team-parts/crew-lookup?code=${encodeURIComponent(code)}`,
+        `/api/admin/team-parts/crew-lookup?code=${encodeURIComponent(c)}`,
         { cache: "no-store" },
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json?.error ?? `조회 실패 (${res.status})`);
       }
-      setLeader(json.data as LeaderCandidate);
+      const cand = json.data as LeaderCandidate;
+      setLeader(cand);
+      return cand;
     } catch (e) {
       setLeader(null);
       setLookupError(e instanceof Error ? e.message : "크루 조회 실패");
+      return null;
     } finally {
       setLookingUp(false);
     }
   };
+  const callCrew = () => lookupCrew(crewCode);
 
-  const canRegister =
+  const openModal = () => {
+    if (!editable) return;
+    setEditingTeam(null);
+    resetForm();
+    setModalOpen(true);
+  };
+  // [수정] — 같은 팝업을 수정 모드로. 기존 값 프리필 + 팀장 정보 자동 호출.
+  const openEditModal = (t: TeamDto) => {
+    if (!editable) return;
+    setEditingTeam(t);
+    setTeamName(t.teamName);
+    setDescription(t.description ?? "");
+    setCrewCode(t.leaderCrewCode ?? "");
+    setLeader(null);
+    setLookupError(null);
+    setModalOpen(true);
+    if (t.leaderCrewCode) void lookupCrew(t.leaderCrewCode);
+  };
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditingTeam(null);
+    resetForm();
+  };
+
+  const canSubmit =
     teamName.trim().length > 0 &&
     teamName.trim().length <= MAX_TEAM_NAME &&
     description.trim().length > 0 &&
     description.trim().length <= MAX_TEAM_DESC &&
     leader != null &&
-    !atLimit &&
+    (isEditMode || !atLimit) &&
     !registering;
 
-  const register = async () => {
+  const submitTeam = async () => {
     if (!half || !leader) return;
     setRegistering(true);
     setBanner(null);
     try {
       const res = await fetch(`/api/admin/team-parts/info`, {
-        method: "POST",
+        method: isEditMode ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           organization: activeOrg,
           halfKey: half,
+          ...(isEditMode ? { teamHalfId: editingTeam!.teamHalfId } : {}),
           teamName: teamName.trim(),
           description: description.trim(),
           leaderCrewCode: (leader.crewCode ?? crewCode).trim(),
@@ -309,16 +336,56 @@ export default function TeamPartsInfoManager() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? `등록 실패 (${res.status})`);
+        throw new Error(
+          json?.error ?? `${isEditMode ? "수정" : "등록"} 실패 (${res.status})`,
+        );
       }
-      setBanner({ kind: "success", message: "팀이 등록되었습니다." });
+      setBanner({
+        kind: "success",
+        message: isEditMode ? "팀이 수정되었습니다." : "팀이 등록되었습니다.",
+      });
       closeModal();
       await load(half, activeOrg);
     } catch (e) {
       // 팝업은 유지하고 오류 노출(재시도 가능).
-      setLookupError(e instanceof Error ? e.message : "등록 실패");
+      setLookupError(
+        e instanceof Error ? e.message : isEditMode ? "수정 실패" : "등록 실패",
+      );
     } finally {
       setRegistering(false);
+    }
+  };
+
+  // [삭제] 확인 → 삭제 대기(is_active=false) 전환.
+  const confirmDelete = async () => {
+    if (!half || !deleteTarget) return;
+    setDeleting(true);
+    setBanner(null);
+    try {
+      const res = await fetch(`/api/admin/team-parts/info`, {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          organization: activeOrg,
+          halfKey: half,
+          teamHalfId: deleteTarget.teamHalfId,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error ?? `삭제 실패 (${res.status})`);
+      }
+      setBanner({ kind: "success", message: "팀이 삭제 대기 상태로 전환되었습니다." });
+      setDeleteTarget(null);
+      await load(half, activeOrg);
+    } catch (e) {
+      setBanner({
+        kind: "error",
+        message: e instanceof Error ? e.message : "삭제 실패",
+      });
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -500,13 +567,9 @@ export default function TeamPartsInfoManager() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      data-team-edit={t.teamName}
                       disabled={!editable}
-                      onClick={() =>
-                        setBanner({
-                          kind: "success",
-                          message: "수정 기능은 후속 작업에서 연결됩니다(버튼 UI).",
-                        })
-                      }
+                      onClick={() => openEditModal(t)}
                     >
                       수정
                     </Button>
@@ -514,13 +577,9 @@ export default function TeamPartsInfoManager() {
                       type="button"
                       variant="outline"
                       size="sm"
+                      data-team-delete={t.teamName}
                       disabled={!editable}
-                      onClick={() =>
-                        setBanner({
-                          kind: "success",
-                          message: "삭제 기능은 후속 작업에서 연결됩니다(버튼 UI).",
-                        })
-                      }
+                      onClick={() => setDeleteTarget(t)}
                     >
                       삭제
                     </Button>
@@ -663,7 +722,46 @@ export default function TeamPartsInfoManager() {
         ) : null}
       </CardContent>
 
-      {/* ── 팀 등록 팝업 ─────────────────────────────────── */}
+      {/* ── 삭제 확인 팝업 ─────────────────────────────────── */}
+      {deleteTarget ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !deleting) setDeleteTarget(null);
+          }}
+        >
+          <div
+            id="team-parts-delete-modal"
+            className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl"
+          >
+            <p className="mb-5 text-sm font-medium">이 팀을 삭제하시겠습니까?</p>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={deleting}
+                onClick={() => setDeleteTarget(null)}
+              >
+                취소
+              </Button>
+              <Button
+                type="button"
+                id="team-parts-delete-confirm"
+                size="sm"
+                disabled={deleting}
+                onClick={confirmDelete}
+              >
+                {deleting ? "삭제 중…" : "확인"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── 팀 등록/수정 팝업 ─────────────────────────────── */}
       {modalOpen ? (
         <div
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4"
@@ -679,16 +777,23 @@ export default function TeamPartsInfoManager() {
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold">
-                팀 등록 · {CLUB_LABEL[activeOrg]} · {half ? formatHalf(half) : ""}
+                {isEditMode ? "팀 수정" : "팀 등록"} · {CLUB_LABEL[activeOrg]} ·{" "}
+                {half ? formatHalf(half) : ""}
               </h2>
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   id="team-parts-register-submit"
-                  onClick={register}
-                  disabled={!canRegister}
+                  onClick={submitTeam}
+                  disabled={!canSubmit}
                 >
-                  {registering ? "등록 중…" : "등록"}
+                  {registering
+                    ? isEditMode
+                      ? "확인 중…"
+                      : "등록 중…"
+                    : isEditMode
+                      ? "확인"
+                      : "등록"}
                 </Button>
                 <Button
                   type="button"
@@ -702,7 +807,7 @@ export default function TeamPartsInfoManager() {
               </div>
             </div>
 
-            {atLimit ? (
+            {!isEditMode && atLimit ? (
               <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
                 한 클럽에는 최대 {MAX_TEAMS_PER_CLUB}개 팀까지만 등록할 수 있습니다.
               </div>
