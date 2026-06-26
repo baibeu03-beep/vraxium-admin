@@ -13,6 +13,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isTransitionWeekStart } from "@/lib/seasonCalendar";
 import { isSeasonParticipationStatus } from "@/lib/adminSeasonParticipationsTypes";
+import { getRankPopulationSeasonKey, resyncGradeStatsBatch } from "@/lib/cluster3ClubRankData";
 import type {
   SeasonParticipationFilterOptions,
   SeasonParticipationRow,
@@ -375,10 +376,10 @@ export async function updateSeasonParticipation(
     );
   }
 
-  // 5) 수정 전 기존 row 확인 — 없으면 404.
+  // 5) 수정 전 기존 row 확인 — 없으면 404. (old status 는 품계 캐시 freshness 판단에 사용)
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("user_season_statuses")
-    .select("id")
+    .select("id, status")
     .eq("id", id)
     .maybeSingle();
   if (existingError) {
@@ -390,6 +391,7 @@ export async function updateSeasonParticipation(
       "user_season_statuses row not found.",
     );
   }
+  const previousStatus = (existing as { status?: string | null }).status ?? null;
 
   // updated_at 은 DB 트리거(touch_user_season_statuses_updated_at)가 갱신한다.
   const { data: updated, error: updateError } = await supabaseAdmin
@@ -419,6 +421,24 @@ export async function updateSeasonParticipation(
     note: row.note ?? null,
     updated_at: row.updated_at ?? null,
   };
+
+  // freshness 훅 — 품계 RANK 모집단은 '현재 시즌 rest' 사용자를 제외(상대 백분위)한다.
+  //   rest 경계를 넘는 변경(rest→비rest / 비rest→rest)이 "현재 RANK 시즌"에서 일어나면
+  //   전 사용자 백분위가 흔들리므로 user_grade_stats 전체를 best-effort 재동기한다.
+  //   (stopped/note 변경·과거 시즌·non-rest 간 변경은 모집단 불변 → 스킵, 풀스캔 회피.)
+  const wasRest = previousStatus === "rest";
+  const isRest = row.status === "rest";
+  if (wasRest !== isRest) {
+    try {
+      const rankSeasonKey = await getRankPopulationSeasonKey();
+      if (rankSeasonKey && row.season_key === rankSeasonKey) {
+        await resyncGradeStatsBatch();
+      }
+    } catch (e) {
+      // 재동기 실패가 상태 수정 자체를 되돌리지 않도록 best-effort 로그만.
+      console.error("[updateSeasonParticipation] grade-stats resync failed:", e);
+    }
+  }
 
   return {
     row: updatedRow,

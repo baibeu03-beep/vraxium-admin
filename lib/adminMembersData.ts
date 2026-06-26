@@ -10,7 +10,7 @@ import type { ScopeMode } from "@/lib/userScopeShared";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { getGrowthRosterBatchFast } from "@/lib/cluster3GrowthData";
 import { operationalSeasonDbKey } from "@/lib/seasonCalendar";
-import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
+import { applyRosterView, type FilterValue, type SortEntry } from "@/lib/membersRosterView";
 import { getScheduleReliabilityRateBatch } from "@/lib/cluster1ResumeData";
 import { WEEKLY_CARDS_DTO_VERSION } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { listAdminCrewDtos } from "@/lib/adminCrewData";
@@ -654,13 +654,75 @@ async function fetchSeasonParticipantIds(seasonKey: string | null): Promise<Set<
   return out;
 }
 
+export type RosterStatusCounts = { total: number; active: number; rest: number; stopped: number };
+export type ListMembersRosterResult = {
+  members: MemberRosterRow[];
+  partialFailure: RosterPartialFailure | null;
+  total: number; // operationalSeasonKey 모집단(필터 전)
+  filteredTotal: number; // 검색/상태필터 적용 후 결과 수
+  statusCounts: RosterStatusCounts; // 모집단 기준 active/rest/stopped (user_season_statuses)
+  page: number;
+  pageSize: number;
+};
+
+// 품계 = user_grade_stats 캐시(grade·grade_label). user_id .in 청크 조회(풀스캔 없음).
+//   캐시 신선도는 resyncGradeStatsBatch/syncGradeStats 가 보장(roster 는 read-only).
+async function fetchGradeCacheByIds(
+  ids: string[],
+): Promise<Map<string, { grade: number | null; label: string | null }>> {
+  const out = new Map<string, { grade: number | null; label: string | null }>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await supabaseAdmin
+      .from("user_grade_stats")
+      .select("user_id,grade,grade_label")
+      .in("user_id", ids.slice(i, i + 200));
+    if (error) throw new Error(error.message);
+    for (const r of (data ?? []) as Array<{ user_id: string; grade: number | null; grade_label: string | null }>) {
+      out.set(r.user_id, { grade: r.grade, label: r.grade_label });
+    }
+  }
+  return out;
+}
+
+// operationalSeasonKey 모집단의 active/rest/stopped 카운트 — user_season_statuses 단건 집계(별도 카운트).
+async function fetchSeasonStatusCounts(seasonKey: string | null): Promise<RosterStatusCounts> {
+  const counts: RosterStatusCounts = { total: 0, active: 0, rest: 0, stopped: 0 };
+  if (!seasonKey) return counts;
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabaseAdmin
+      .from("user_season_statuses")
+      .select("status")
+      .eq("season_key", seasonKey)
+      .order("user_id", { ascending: true })
+      .range(from, from + 999);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as Array<{ status: string }>;
+    for (const r of rows) {
+      counts.total += 1;
+      if (r.status === "active") counts.active += 1;
+      else if (r.status === "rest") counts.rest += 1;
+      else if (r.status === "stopped") counts.stopped += 1;
+    }
+    if (rows.length < 1000) break;
+  }
+  return counts;
+}
+
 export async function listMembersRoster(options: {
   organization?: OrganizationSlug | null; // slug | null/undefined(전체)
   mode?: ScopeMode;
+  // 서버 페이지네이션 + 필터/검색/정렬 (단일 SoT lib/membersRosterView 공유).
+  page?: number;
+  pageSize?: number;
+  search?: string | null;
+  filter?: FilterValue | null;
+  sort?: SortEntry[];
   // 단계별 소요 시간을 콘솔에 출력(진단 전용 — 라우트는 미사용, prod 로그 무영향).
   profile?: boolean;
-}): Promise<{ members: MemberRosterRow[]; partialFailure: RosterPartialFailure | null }> {
+}): Promise<ListMembersRosterResult> {
   const mode = options.mode ?? "operating";
+  const page = Math.max(1, options.page ?? 1);
+  const pageSize = Math.min(200, Math.max(1, options.pageSize ?? 50));
   const t = (label: string, ms: number) => {
     if (options.profile) console.log(`[roster][profile] ${label}=${ms}ms`);
   };
@@ -680,7 +742,9 @@ export async function listMembersRoster(options: {
   const crews = opSeasonKey ? crewsAll.filter((c) => seasonParticipants.has(c.userId)) : crewsAll;
   t("seasonParticipantFilter", crews.length);
   const userIds = crews.map((c) => c.userId);
-  if (userIds.length === 0) return { members: [], partialFailure: null };
+  if (userIds.length === 0) {
+    return { members: [], partialFailure: null, total: 0, filteredTotal: 0, statusCounts: { total: 0, active: 0, rest: 0, stopped: 0 }, page, pageSize };
+  }
 
   const ID_CHUNK = 200;
 
@@ -727,19 +791,21 @@ export async function listMembersRoster(options: {
     return { map, failedChunks };
   };
 
-  // 일정 신뢰도 + Po.A/B/C 는 slim 우선(getRosterPointsScheduleFast) — 읽기 경로에서 전수 스캔 회피.
-  //   품계(클럽 랭크)는 이 Phase 범위 밖 — 전체 코호트 백분위라 live 유지(후속 Phase 분리).
-  const [growthResult, clubRankByUser, statsByUser] = await Promise.all([
+  // 일정 신뢰도 + Po.A/B/C = slim 캐시(getRosterPointsScheduleFast). 품계 = user_grade_stats 캐시
+  //   (fetchGradeCacheByIds, .in 청크) — 종전 getClubRankGradeBatch live 전수 스캔을 제거(병목 해소).
+  //   상태 카운트(active/rest/stopped)는 user_season_statuses 단건 집계(별도). 전부 풀스캔/대량 .in 없음.
+  const [growthResult, gradeByUser, statsByUser, statusCounts] = await Promise.all([
     buildGrowthMap(),
-    getClubRankGradeBatch(userIds),
+    fetchGradeCacheByIds(userIds),
     getRosterPointsScheduleFast(userIds),
+    fetchSeasonStatusCounts(opSeasonKey),
   ]);
   const growthByUser = growthResult.map;
-  t("batches(growth+clubRank+points·schedule-slim)", Date.now() - s);
+  t("batches(growth+grade-cache+points·schedule-slim+counts)", Date.now() - s);
 
-  const members: MemberRosterRow[] = crews.map((c) => {
+  const allMembers: MemberRosterRow[] = crews.map((c) => {
     const g = growthByUser.get(c.userId);
-    const rank = clubRankByUser.get(c.userId) ?? null;
+    const rank = gradeByUser.get(c.userId) ?? null;
     const st = statsByUser.get(c.userId);
     return {
       userId: c.userId,
@@ -766,12 +832,17 @@ export async function listMembersRoster(options: {
     };
   });
 
-  // 이름(한글) → user_id 안정 정렬(클라이언트가 다시 정렬하므로 기본값).
-  members.sort(
-    (a, b) =>
-      (a.displayName ?? "").localeCompare(b.displayName ?? "", "ko") ||
-      a.userId.localeCompare(b.userId),
-  );
+  // 서버 측 필터(상태 버킷)+검색(부분검색)+정렬 — lib/membersRosterView 공용 SoT(클라와 동일 결과).
+  const filteredSorted = applyRosterView(allMembers, {
+    filter: options.filter ?? undefined,
+    search: options.search ?? undefined,
+    sort: options.sort ?? undefined,
+  });
+  const filteredTotal = filteredSorted.length;
+  // 페이지 슬라이스 — 해당 페이지 행만 응답(50/page 기본).
+  const offset = (page - 1) * pageSize;
+  const members = filteredSorted.slice(offset, offset + pageSize);
+  t("filter+sort+page", filteredTotal);
 
   // 일부 사용자의 성장 지표(snapshot)를 못 읽었으면 부분 실패로 표기 → 화면 안내.
   //   - growthUnavailable = 성장상태/성공·가능주차/활동완료율이 비어 "-"로 렌더되는 사용자 수.
@@ -785,7 +856,7 @@ export async function listMembersRoster(options: {
     console.warn("[roster] partial failure", { ...partialFailure, total: userIds.length });
   }
 
-  return { members, partialFailure };
+  return { members, partialFailure, total: userIds.length, filteredTotal, statusCounts, page, pageSize };
 }
 
 // ─────────────────────────────────────────────────────────────────────────

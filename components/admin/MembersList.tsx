@@ -350,13 +350,21 @@ export default function MembersList() {
   const [appliedSearch, setAppliedSearch] = useState("");
   const lastEditedRef = useRef<"search" | "condition">("condition");
 
-  const [roster, setRoster] = useState<Member[]>([]);
+  const [roster, setRoster] = useState<Member[]>([]); // 서버 페이지(이미 필터/정렬/슬라이스됨)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // 일부 사용자의 성장 지표(snapshot)를 못 읽은 부분 실패 — 전체는 정상 표시하되 안내만.
   const [partialFailure, setPartialFailure] = useState<RosterPartialFailureClient | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
-  const rosterCache = useRef<Map<string, RosterCacheEntry>>(new Map());
+
+  // 서버 페이지네이션 상태 — 모집단/필터결과 카운트 + 현재 페이지.
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0); // operationalSeasonKey 모집단(필터 전)
+  const [filteredTotal, setFilteredTotal] = useState(0); // 검색/상태필터 후 결과 수
+  const [statusCounts, setStatusCounts] = useState<{ active: number; rest: number; stopped: number }>(
+    { active: 0, rest: 0, stopped: 0 },
+  );
 
   // 정렬 스택 — 맨 앞이 1순위. 새 클릭이 항상 1순위가 되고 직전 조건은 후순위로 밀린다.
   const [sortStack, setSortStack] = useState<SortEntry[]>([]);
@@ -423,18 +431,11 @@ export default function MembersList() {
   ]);
 
   const fetchOrg = clubFetchOrg(appliedClub);
-  const cacheKey = `${mode}:${fetchOrg ?? "__ALL__"}`;
+  const sortParam = sortStack.map((s) => `${s.key}:${s.dir}`).join(",");
 
+  // 서버 페이지네이션 — 필터/검색/정렬/페이지를 서버로 보내고 해당 페이지 행만 받는다.
   useEffect(() => {
     let cancelled = false;
-    const cached = rosterCache.current.get(cacheKey);
-    if (cached) {
-      setRoster(cached.members);
-      setPartialFailure(cached.partialFailure);
-      setLoading(false);
-      setError(null);
-      return;
-    }
     const load = async () => {
       setLoading(true);
       setError(null);
@@ -442,21 +443,26 @@ export default function MembersList() {
       try {
         const params = new URLSearchParams();
         if (fetchOrg) params.set("organization", fetchOrg);
-        const url = appendModeQuery(
-          `/api/admin/members/roster${params.toString() ? `?${params}` : ""}`,
-          mode,
-        );
+        params.set("page", String(page));
+        params.set("pageSize", String(PAGE_SIZE));
+        if (appliedFilter && appliedFilter !== "none") params.set("filter", appliedFilter);
+        if (appliedSearch.trim()) params.set("search", appliedSearch.trim());
+        if (sortParam) params.set("sort", sortParam);
+        const url = appendModeQuery(`/api/admin/members/roster?${params}`, mode);
         const res = await fetch(url, { cache: "no-store" });
         const json = await res.json();
-        if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? "Failed to load roster.");
-        }
+        if (!res.ok || !json.success) throw new Error(json?.error ?? "Failed to load roster.");
         if (cancelled) return;
-        const members = (json.data?.members ?? []) as Member[];
-        const partial = (json.data?.partialFailure ?? null) as RosterPartialFailureClient | null;
-        rosterCache.current.set(cacheKey, { members, partialFailure: partial });
-        setRoster(members);
-        setPartialFailure(partial);
+        const d = json.data ?? {};
+        setRoster((d.members ?? []) as Member[]);
+        setPartialFailure((d.partialFailure ?? null) as RosterPartialFailureClient | null);
+        setTotal(d.total ?? 0);
+        setFilteredTotal(d.filteredTotal ?? 0);
+        setStatusCounts({
+          active: d.statusCounts?.active ?? 0,
+          rest: d.statusCounts?.rest ?? 0,
+          stopped: d.statusCounts?.stopped ?? 0,
+        });
       } catch (err) {
         if (cancelled) return;
         setError(err instanceof Error ? err.message : "Failed to load roster.");
@@ -470,30 +476,14 @@ export default function MembersList() {
     return () => {
       cancelled = true;
     };
-  }, [cacheKey, fetchOrg, mode, refreshTick]);
+  }, [fetchOrg, mode, appliedFilter, appliedSearch, sortParam, page, refreshTick]);
 
-  // 표 A 행 — 필터(상태 버킷) + 검색(표시값 부분검색) + 다중 정렬.
-  const rows = useMemo(() => {
-    const buckets = FILTER_BUCKETS[appliedFilter];
-    const q = appliedSearch.trim().toLowerCase();
-    let out = roster.filter((m) => {
-      if (buckets && !buckets.includes(statusBucket(m.displayGrowthStatus))) return false;
-      if (q && !rowSearchText(m).includes(q)) return false;
-      return true;
-    });
-    if (sortStack.length > 0) {
-      out = [...out].sort((a, b) => {
-        for (const s of sortStack) {
-          const c = compareCol(a, b, COLUMN_MAP[s.key], s.dir);
-          if (c !== 0) return c;
-        }
-        return a.userId.localeCompare(b.userId);
-      });
-    }
-    return out;
-  }, [roster, appliedFilter, appliedSearch, sortStack]);
+  // 서버가 필터/정렬/슬라이스를 끝낸 페이지 — 클라이언트는 그대로 렌더.
+  const rows = roster;
+  const totalPages = Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE));
 
   const applyConditions = useCallback(() => {
+    setPage(1); // 조건 변경 → 1페이지부터
     if (lastEditedRef.current === "search" && pendingSearch.trim() !== "") {
       setPendingClub("none");
       setPendingFilter("none");
@@ -510,22 +500,24 @@ export default function MembersList() {
 
   const resetConditions = useCallback(() => {
     lastEditedRef.current = "condition";
+    setPage(1);
     setPendingClub(DEFAULT_CLUB);
     setPendingFilter(DEFAULT_FILTER);
     setPendingSearch("");
     setAppliedClub(DEFAULT_CLUB);
     setAppliedFilter(DEFAULT_FILTER);
     setAppliedSearch("");
+    setSortStack([]);
   }, []);
 
   const reload = () => {
-    rosterCache.current.delete(cacheKey);
     setRefreshTick((n) => n + 1);
   };
 
   // 헤더 클릭 — 3-state: 기본방향 → 반대방향 → 정렬 해제. 그 외 컬럼 클릭은 1순위로.
   const handleSort = useCallback((key: ColKey) => {
     const col = COLUMN_MAP[key];
+    setPage(1); // 정렬 변경 → 1페이지부터
     setSortStack((prev) => {
       if (prev[0]?.key === key) {
         const cur = prev[0].dir;
@@ -631,10 +623,16 @@ export default function MembersList() {
                   확인
                 </Button>
 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  결과 값
-                  <span className="rounded-full border border-foreground/20 bg-foreground/5 px-3 py-1 font-mono text-sm text-foreground">
-                    {loading ? "…" : rows.length.toLocaleString()}
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span>전체 <b className="text-foreground">{total.toLocaleString()}</b></span>
+                  <span>· 활동 {statusCounts.active.toLocaleString()}</span>
+                  <span>· 휴식 {statusCounts.rest.toLocaleString()}</span>
+                  <span>· 중단 {statusCounts.stopped.toLocaleString()}</span>
+                  <span className="flex items-center gap-2">
+                    결과 값
+                    <span className="rounded-full border border-foreground/20 bg-foreground/5 px-3 py-1 font-mono text-sm text-foreground">
+                      {loading ? "…" : filteredTotal.toLocaleString()}
+                    </span>
                   </span>
                 </div>
 
@@ -759,6 +757,23 @@ export default function MembersList() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* 페이지네이션 — 서버 페이지(50/page). 검색/필터/정렬 결과 기준. */}
+            {filteredTotal > 0 && (
+              <div className="flex items-center justify-between gap-4 text-xs text-muted-foreground">
+                <span>
+                  {((page - 1) * PAGE_SIZE + 1).toLocaleString()}–
+                  {Math.min(page * PAGE_SIZE, filteredTotal).toLocaleString()} / {filteredTotal.toLocaleString()}
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button variant="outline" size="sm" disabled={loading || page <= 1} onClick={() => setPage(1)}>처음</Button>
+                  <Button variant="outline" size="sm" disabled={loading || page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>이전</Button>
+                  <span className="px-2 font-mono text-foreground">{page} / {totalPages}</span>
+                  <Button variant="outline" size="sm" disabled={loading || page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>다음</Button>
+                  <Button variant="outline" size="sm" disabled={loading || page >= totalPages} onClick={() => setPage(totalPages)}>마지막</Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

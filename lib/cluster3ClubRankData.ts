@@ -97,9 +97,10 @@ async function readAllWeeklyPoints(): Promise<WeeklyPointRow[]> {
 //   본인 품계도 모집단에서 빠지므로(주차별 scored 에서 제거) targetEntry 부재 →
 //   weeklyDetails 가 비어 avgPercentile=null(—) 이 된다(= 품계 계산에 미참여).
 // getClubRank()·getClubRankGradeBatch() 두 모집단 빌더가 공통으로 호출한다.
-export async function getRankPopulationExcludedUserIds(): Promise<Set<string>> {
-  const excluded = new Set<string>();
-  // 현재 시즌 season_key = 오늘이 속한 주차의 season_key (시즌 갭/전환이면 제외 없음 — 보수적).
+// 품계 RANK 모집단에서 'rest'로 제외되는 기준 시즌 = 오늘이 속한 주차의 season_key.
+// (시즌 갭/전환 시기는 null → 제외 없음, 보수적). season-status 변경이 품계 캐시를
+//  스테일하게 만드는지 판단하는 freshness 훅에서도 공유한다(단일 SoT).
+export async function getRankPopulationSeasonKey(): Promise<string | null> {
   const today = new Date().toISOString().slice(0, 10);
   const wk = await supabaseAdmin
     .from("weeks")
@@ -110,7 +111,13 @@ export async function getRankPopulationExcludedUserIds(): Promise<Set<string>> {
     .limit(1)
     .maybeSingle();
   if (wk.error) throw new GrowthError(500, wk.error.message);
-  const currentSeasonKey = (wk.data as { season_key?: string } | null)?.season_key ?? null;
+  return (wk.data as { season_key?: string } | null)?.season_key ?? null;
+}
+
+export async function getRankPopulationExcludedUserIds(): Promise<Set<string>> {
+  const excluded = new Set<string>();
+  // 현재 시즌 season_key = 오늘이 속한 주차의 season_key (시즌 갭/전환이면 제외 없음 — 보수적).
+  const currentSeasonKey = await getRankPopulationSeasonKey();
   if (!currentSeasonKey) return excluded;
 
   const pageSize = 1000;
@@ -293,7 +300,7 @@ export async function getClubRank(userId: string): Promise<ClubRankDto> {
 // 전체 포인트를 1회만 읽어 모든 대상자의 품계를 동시에 계산한다. user_grade_stats 캐시는
 // 고객 화면이 참조하지 않아(club-rank 라우트=live) parity 가 깨지므로 사용하지 않는다.
 //   graduated/suspended = user_club_rank_frozen 고정값(getClubRank 과 동일).
-export type ClubRankGrade = { grade: number; label: string };
+export type ClubRankGrade = { grade: number; label: string; avgPercentile: number | null };
 
 export async function getClubRankGradeBatch(
   userIds: string[],
@@ -402,7 +409,7 @@ export async function getClubRankGradeBatch(
       const label = frozen.rank_grade;
       const grade =
         label in GRADE_NUMBER_MAP ? GRADE_NUMBER_MAP[label as RankGradeLabel] : null;
-      result.set(userId, grade != null ? { grade, label } : null);
+      result.set(userId, grade != null ? { grade, label, avgPercentile: frozen.avg_percentile ?? null } : null);
       continue;
     }
     const details = pctByUser.get(userId) ?? [];
@@ -417,10 +424,60 @@ export async function getClubRankGradeBatch(
     const rawAvg = eligible.reduce((acc, d) => acc + d.pct, 0) / eligible.length;
     const avgPercentile = Math.ceil(rawAvg * 100) / 100;
     const label = resolveRankGrade(avgPercentile);
-    result.set(userId, { grade: toGradeNumber(label), label });
+    result.set(userId, { grade: toGradeNumber(label), label, avgPercentile });
   }
 
   return result;
+}
+
+// ─── 배치 재동기 (1회 전체 스캔) ────────────────────────────────────────
+// getClubRankGradeBatch(1회 readAllWeeklyPoints) 로 모든 대상자의 품계를 계산해
+//   user_grade_stats 에 UPSERT 한다. syncAllGradeStats(사용자별 getClubRank=N회 풀스캔)의
+//   배치 대체 — 전체를 1회만 스캔. userIds 미지정 시 organization_slug 보유 전 사용자.
+//   품계 null(모집단 제외/이력 부재) = grade/avg null 로 UPSERT(스테일 잔존 방지).
+export async function resyncGradeStatsBatch(
+  userIds?: string[],
+): Promise<{ total: number; graded: number; nulled: number }> {
+  let targets = userIds ?? null;
+  if (!targets) {
+    const all: string[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabaseAdmin
+        .from("user_profiles")
+        .select("user_id")
+        .not("organization_slug", "is", null)
+        .order("user_id", { ascending: true })
+        .range(from, from + 999);
+      if (error) throw new GrowthError(500, error.message);
+      const rows = (data ?? []) as Array<{ user_id: string }>;
+      all.push(...rows.map((r) => r.user_id));
+      if (rows.length < 1000) break;
+    }
+    targets = all;
+  }
+  if (targets.length === 0) return { total: 0, graded: 0, nulled: 0 };
+
+  const grades = await getClubRankGradeBatch(targets); // 1회 전체 스캔
+  const nowIso = new Date().toISOString();
+  let graded = 0, nulled = 0;
+  const payload = targets.map((userId) => {
+    const g = grades.get(userId) ?? null;
+    if (g) graded++; else nulled++;
+    return {
+      user_id: userId,
+      avg_percentile: g?.avgPercentile ?? null,
+      grade: g?.grade ?? null,
+      grade_label: g?.label ?? null,
+      updated_at: nowIso,
+    };
+  });
+  for (let i = 0; i < payload.length; i += 200) {
+    const { error } = await supabaseAdmin
+      .from("user_grade_stats")
+      .upsert(payload.slice(i, i + 200), { onConflict: "user_id" });
+    if (error) throw new GrowthError(500, `resyncGradeStatsBatch upsert: ${error.message}`);
+  }
+  return { total: targets.length, graded, nulled };
 }
 
 // ─── user_grade_stats 동기화 ────────────────────────────────────────
@@ -517,7 +574,7 @@ export async function syncAllGradeStats(): Promise<{
 
 export type GrowthCacheSyncResult = {
   cumulativeResynced: number;
-  gradeStats: Awaited<ReturnType<typeof syncAllGradeStats>>;
+  gradeStats: Awaited<ReturnType<typeof resyncGradeStatsBatch>>;
 };
 
 export async function syncGrowthCachesAfterPointsChange(
@@ -541,7 +598,8 @@ export async function syncGrowthCachesAfterPointsChange(
   }
 
   // 2) grade stats 전체 재계산 (상대 백분위 → 전체 사용자 필수)
-  const gradeStats = await syncAllGradeStats();
+  //    syncAllGradeStats(사용자별 getClubRank = N회 풀스캔) → resyncGradeStatsBatch(1회 스캔).
+  const gradeStats = await resyncGradeStatsBatch();
 
   return { cumulativeResynced, gradeStats };
 }
