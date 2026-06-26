@@ -12,6 +12,7 @@ import {
 } from "@/lib/cluster4CafeLineMatch";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import { resolveUserScope, readScopeMode } from "@/lib/userScope";
+import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
 
 // 현재 URL org 컨텍스트 → organization_slug. 라인 개설 크루는 해당 조직 소속만 매칭한다(org 격리).
 //   미지정/무효 = null(통합 모드, 전체 크루). 실무 정보 개설 폼은 항상 org-scoped 로 진입한다.
@@ -30,7 +31,16 @@ async function loadScopedCrews(request: NextRequest) {
     organization,
   );
   const crews = await loadCrewRecords(organization);
-  return scope.filter(crews, (c) => c.userId);
+  const scoped = scope.filter(crews, (c) => c.userId);
+  // 라인 개설/수정 후보 한정: 현재 시즌 전체 휴식자(user_season_statuses(현재시즌,rest))를 후보에서 제외한다.
+  //   excludeSeasonRest 플래그가 있을 때만 적용 — 라인 개설 UI(CafeCrewPicker/CompetencyApplicantSection)만
+  //   전달하고, 프로세스 수동부여 등 비-개설 소비처는 기존 동작을 보존한다(growth_status 미사용·과거 무소급).
+  const exParam = request.nextUrl.searchParams.get("excludeSeasonRest");
+  if (exParam === "1" || exParam === "true") {
+    const restIds = await getCurrentSeasonRestUserIds();
+    return scoped.filter((c) => !restIds.has(c.userId));
+  }
+  return scoped;
 }
 
 // 라인 개설 크루 — 카페 링크 검수(POST) + 수동추가 검색(GET).

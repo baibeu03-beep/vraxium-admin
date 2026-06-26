@@ -14,6 +14,7 @@ import {
   type ScopeMode,
 } from "@/lib/userScope";
 import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
+import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
 import {
   EXPERIENCE_PART_LINE_KEYS,
   type ExperiencePartLineType,
@@ -81,6 +82,8 @@ async function loadTeamCrewRows(
   // 모집단 스코프(operating=실사용자만 / test=테스트 유저만) — userScope resolver(SoT=test_user_markers).
   // org 필터는 위 profileQuery 가 이미 적용하므로 scope.org 는 null(includes 판정은 org 무관).
   const scope = await resolveUserScope(mode, null);
+  // 라인 개설 후보 = 현재 시즌 전체 휴식자 제외(season_key 기준·growth_status 미사용·과거 무소급).
+  const restIds = await getCurrentSeasonRestUserIds();
 
   type MemRow = {
     user_id: string;
@@ -100,6 +103,7 @@ async function loadTeamCrewRows(
   for (const p of profs) {
     // 모집단 스코프: operating=실사용자만 / test=테스트 유저만.
     if (!scope.includes(p.user_id)) continue;
+    if (restIds.has(p.user_id)) continue; // 현재 시즌 전체 휴식자 제외(라인 개설 후보 아님).
     const m = memMap.get(p.user_id);
     if (!m || m.team_name !== teamName) continue;
     // 휴식 크루는 평가 대상에서 제외(active 만).

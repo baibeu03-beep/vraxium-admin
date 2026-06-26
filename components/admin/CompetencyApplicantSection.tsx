@@ -205,6 +205,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
         const sp = new URLSearchParams({ q: term });
         if (org) sp.set("organization", org);
         if (mode === "test") sp.set("mode", "test");
+        sp.set("excludeSeasonRest", "1"); // 역량 라인 개설 후보 = 현재 시즌 휴식자 제외
         const res = await fetch(`/api/admin/cluster4/cafe-line-crew?${sp.toString()}`);
         const json = await res.json();
         if (cancelled) return;

@@ -86,22 +86,41 @@ async function readAllWeeklyPoints(): Promise<WeeklyPointRow[]> {
 
 // ─── 품계 모집단 제외 정책 (단일 SoT) ──────────────────────────────────
 //
-// growth_status='seasonal_rest'(시즌 전체 휴식자)는 "현재 활동 인원"이 아니므로
-// 상대 백분위 모집단에서 제외한다. 과거 활동 이력(user_weekly_points·
-// user_week_statuses)·snapshot·admin/members 표시는 전혀 건드리지 않는다 —
-// 오직 품계 RANK 계산의 분모/순위에서만 빠진다.
+// 시즌 전체 휴식자는 "현재 활동 인원"이 아니므로 상대 백분위 모집단에서 제외한다.
+// 판정 기준 = 시즌 스코프 user_season_statuses(현재 시즌 season_key, status='rest').
+//   ⚠ 종전엔 whole-person user_profiles.growth_status='seasonal_rest' 로 제외했으나, 이 플래그는
+//     과거 시즌(예: 2026-spring) 휴식자에게 영구 잔존하여 다음 시즌(2026-summer)에 활동 재개해도
+//     계속 제외되는 시즌 오인 버그가 있었다(growthCore 도 이 컬럼을 legacy 로 간주·미참조).
+//     → 오늘 주차의 season_key 를 산출한 뒤 그 시즌 휴식자만 제외하도록 시즌 스코프로 정정.
+// 과거 활동 이력(user_weekly_points·user_week_statuses)·snapshot·admin/members 표시는 전혀
+//   건드리지 않는다 — 오직 품계 RANK 계산의 분모/순위에서만 빠진다.
 //   본인 품계도 모집단에서 빠지므로(주차별 scored 에서 제거) targetEntry 부재 →
 //   weeklyDetails 가 비어 avgPercentile=null(—) 이 된다(= 품계 계산에 미참여).
 // getClubRank()·getClubRankGradeBatch() 두 모집단 빌더가 공통으로 호출한다.
 export async function getRankPopulationExcludedUserIds(): Promise<Set<string>> {
   const excluded = new Set<string>();
+  // 현재 시즌 season_key = 오늘이 속한 주차의 season_key (시즌 갭/전환이면 제외 없음 — 보수적).
+  const today = new Date().toISOString().slice(0, 10);
+  const wk = await supabaseAdmin
+    .from("weeks")
+    .select("season_key")
+    .lte("start_date", today)
+    .gte("end_date", today)
+    .order("start_date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (wk.error) throw new GrowthError(500, wk.error.message);
+  const currentSeasonKey = (wk.data as { season_key?: string } | null)?.season_key ?? null;
+  if (!currentSeasonKey) return excluded;
+
   const pageSize = 1000;
   let from = 0;
   for (;;) {
     const res = await supabaseAdmin
-      .from("user_profiles")
+      .from("user_season_statuses")
       .select("user_id")
-      .eq("growth_status", "seasonal_rest")
+      .eq("season_key", currentSeasonKey)
+      .eq("status", "rest")
       .order("user_id", { ascending: true })
       .range(from, from + pageSize - 1);
     if (res.error) throw new GrowthError(500, res.error.message);

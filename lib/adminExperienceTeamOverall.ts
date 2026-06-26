@@ -23,6 +23,7 @@ import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
+import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
 import {
   EXPERIENCE_OVERALL_CATEGORIES,
   OVERALL_CELL_DEFAULT,
@@ -95,6 +96,8 @@ async function loadTeamMembersWithLeaders(
   // 모집단 스코프(operating=실사용자만 / test=테스트 유저만) — userScope resolver(SoT=test_user_markers).
   // org 필터는 위 profileQuery 가 적용하므로 scope.org=null(includes 판정은 org 무관).
   const scope = await resolveUserScope(mode, null);
+  // 라인 개설 후보 = 현재 시즌 전체 휴식자 제외(season_key 기준·growth_status 미사용·과거 무소급).
+  const restIds = await getCurrentSeasonRestUserIds();
 
   type MemRow = {
     user_id: string;
@@ -114,6 +117,7 @@ async function loadTeamMembersWithLeaders(
   for (const p of profs) {
     // 모집단 스코프: operating=실사용자만 / test=테스트 유저만.
     if (!scope.includes(p.user_id)) continue;
+    if (restIds.has(p.user_id)) continue; // 현재 시즌 전체 휴식자 제외(라인 개설 후보 아님).
     const m = memMap.get(p.user_id);
     if (!m || m.team_name !== teamName) continue;
     if (m.membership_state === "rest") continue; // 휴식 제외(active 만).
