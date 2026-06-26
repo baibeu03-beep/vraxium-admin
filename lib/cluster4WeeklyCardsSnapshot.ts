@@ -284,7 +284,9 @@ async function writeRosterCardStats(
 //   활동 내역(통합 임시 라인)이 experience 라인으로 집계에 실려 total 에 그대로 포함된다("봄 시즌까지
 //   통합 임시 라인을 오픈 라인으로 인정" 정책). 프론트 Detail Log/카드 본문이 이 값을 단일 출처로 소비.
 //   기존 v27 snapshot 에는 experienceRate 필드가 없으므로 stale(version_mismatch) 처리해 재계산한다.
-export const WEEKLY_CARDS_DTO_VERSION = 28;
+// v29 (2026-06-26): detailLogMessageMeta append-only. Detail Log message branching
+// uses snapshot-baked previous/current status and capped success streak.
+export const WEEKLY_CARDS_DTO_VERSION = 29;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

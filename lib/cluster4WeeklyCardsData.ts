@@ -1150,6 +1150,70 @@ function cardMessage(card: WeeklyCardDto): string | null {
   return null;
 }
 
+type DetailLogPreviousWeekStatus = "success" | "fail" | "none" | "rest";
+
+function detailLogPreviousStatus(
+  card: Cluster4WeeklyCardDto | null,
+): DetailLogPreviousWeekStatus {
+  if (!card) return "none";
+  if (card.isTransition || card.userWeekStatus === "personal_rest" || card.userWeekStatus === "official_rest") {
+    return "rest";
+  }
+  if (card.userWeekStatus === "success" || card.userWeekStatus === "fail") {
+    return card.userWeekStatus;
+  }
+  return "none";
+}
+
+function withDetailLogMessageMeta(
+  cards: Cluster4WeeklyCardDto[],
+): Cluster4WeeklyCardDto[] {
+  const chronological = cards
+    .map((card, index) => ({ card, index }))
+    .sort((a, b) =>
+      a.card.startDate < b.card.startDate
+        ? -1
+        : a.card.startDate > b.card.startDate
+          ? 1
+          : a.index - b.index,
+    );
+
+  const out = [...cards];
+  let previous: Cluster4WeeklyCardDto | null = null;
+  let successStreak = 0;
+
+  for (const { card, index } of chronological) {
+    const previousWeekStatus = detailLogPreviousStatus(previous);
+    const currentWeekStatus =
+      card.userWeekStatus === "success" || card.userWeekStatus === "fail"
+        ? card.userWeekStatus
+        : null;
+
+    if (currentWeekStatus) {
+      successStreak =
+        currentWeekStatus === "success" && previousWeekStatus === "success"
+          ? successStreak + 1
+          : currentWeekStatus === "success"
+            ? 1
+            : 0;
+      out[index] = {
+        ...card,
+        detailLogMessageMeta: {
+          previousWeekStatus,
+          currentWeekStatus,
+          successStreakWeeks: Math.min(successStreak, 10),
+        },
+      };
+    } else {
+      successStreak = 0;
+    }
+
+    previous = card;
+  }
+
+  return out;
+}
+
 type HeaderExtras = {
   generation: number | null;
   managedTeamName: string | null;
@@ -2452,7 +2516,7 @@ export async function getCluster4WeeklyCardsForAuthUser(
     `| weeks=${weekIds.length}`,
   );
 
-  return weeklyGrowth.weeklyCards.map((card) => {
+  return withDetailLogMessageMeta(weeklyGrowth.weeklyCards.map((card) => {
     // 폴백(라인 맵 자체가 비어 있는 degenerate 경로) — 개설 신호가 없으므로 not_applicable.
     const lines = card.weekId
       ? (lineMap.get(card.weekId) ??
@@ -2467,7 +2531,7 @@ export async function getCluster4WeeklyCardsForAuthUser(
       resolveHeaderExtras(card, headerSnapshot),
       people,
     );
-  });
+  }));
 }
 
 export async function getCluster4WeeklyCardsForProfileUser(
@@ -2529,7 +2593,7 @@ export async function getCluster4WeeklyCardsForProfileUser(
     `| weeks=${weekIds.length}`,
   );
 
-  return weeklyGrowth.weeklyCards.map((card) => {
+  return withDetailLogMessageMeta(weeklyGrowth.weeklyCards.map((card) => {
     // 폴백(라인 맵 자체가 비어 있는 degenerate 경로) — 개설 신호가 없으므로 not_applicable.
     const lines = card.weekId
       ? (lineMap.get(card.weekId) ??
@@ -2544,5 +2608,5 @@ export async function getCluster4WeeklyCardsForProfileUser(
       resolveHeaderExtras(card, headerSnapshot),
       people,
     );
-  });
+  }));
 }

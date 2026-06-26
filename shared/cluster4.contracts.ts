@@ -381,6 +381,12 @@ export type Cluster4ColleagueSummaryDto = {
   writtenLimit: number;       // 3
 };
 
+export type Cluster4DetailLogMessageMetaDto = {
+  previousWeekStatus: "success" | "fail" | "none" | "rest";
+  currentWeekStatus: "success" | "fail";
+  successStreakWeeks: number;
+};
+
 export type Cluster4WeeklyCardDto = {
   weekId: string | null;
   weekNumber: number;
@@ -449,6 +455,7 @@ export type Cluster4WeeklyCardDto = {
   cardMessage: string | null;
   titleText: string;
   lines: Cluster4LineDetailDto[];
+  detailLogMessageMeta?: Cluster4DetailLogMessageMetaDto;
 
   // ── section1-header 단일 출처 보강 필드 (append-only) ──
   // status-badge 아이콘 결정. userWeekStatus 와 동일 enum 이지만 "아이콘용" 이라는 의도를 명시.
