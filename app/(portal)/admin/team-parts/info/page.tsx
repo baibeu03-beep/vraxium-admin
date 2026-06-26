@@ -1,20 +1,12 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Suspense } from "react";
+import TeamPartsInfoManager from "@/components/admin/TeamPartsInfoManager";
+import { LoadingState } from "@/components/ui/loading-state";
 
-// IA 개편 Phase 1 placeholder — 메뉴 연결 확인용. 실제 기능은 추후 구현.
+// 반기별 팀 정보 [섹션.1]. SoT = cluster4_team_halves(반기 → 마지막 시즌 기준).
 export default function TeamPartsInfoPage() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>팀 &amp; 파트 정보</CardTitle>
-      </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">
-        팀 &amp; 파트 정보 기능은 추후 구현 예정입니다.
-      </CardContent>
-    </Card>
+    <Suspense fallback={<LoadingState active />}>
+      <TeamPartsInfoManager />
+    </Suspense>
   );
 }

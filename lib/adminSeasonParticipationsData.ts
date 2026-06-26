@@ -96,6 +96,49 @@ function emptyAgg(): WeekAgg {
   return { total: 0, success: 0, fail: 0, personal_rest: 0, official_rest: 0 };
 }
 
+// user_id 청크 단위 .in() 조회 — GET URL 길이 한도 회피(읽기 전용).
+const ID_CHUNK = 150;
+
+async function fetchProfilesByIds(ids: string[]): Promise<ProfileRow[]> {
+  const out: ProfileRow[] = [];
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const chunk = ids.slice(i, i + ID_CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,display_name,organization_slug")
+      .in("user_id", chunk);
+    if (error) throw new Error(error.message);
+    out.push(...((data ?? []) as ProfileRow[]));
+  }
+  return out;
+}
+
+// user_week_statuses 는 사용자당 다수 행 → 청크별 order+range 페이지네이션으로 1000행 cap 도 우회.
+async function fetchWeekStatusesByIds(
+  ids: string[],
+  seasonKey: string | null,
+): Promise<WeekStatusRow[]> {
+  const out: WeekStatusRow[] = [];
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    const chunk = ids.slice(i, i + ID_CHUNK);
+    for (let from = 0; ; from += 1000) {
+      let q = supabaseAdmin
+        .from("user_week_statuses")
+        .select("user_id,season_key,status,week_start_date")
+        .in("user_id", chunk)
+        .order("user_id", { ascending: true })
+        .range(from, from + 999);
+      if (seasonKey) q = q.eq("season_key", seasonKey);
+      const { data, error } = await q;
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []) as WeekStatusRow[];
+      out.push(...rows);
+      if (rows.length < 1000) break;
+    }
+  }
+  return out;
+}
+
 export async function getSeasonParticipations(
   options: SeasonParticipationFilterOptions,
 ): Promise<SeasonParticipationsDto> {
@@ -167,31 +210,22 @@ export async function getSeasonParticipations(
   const userIds = Array.from(new Set(seasonStatusRows.map((r) => r.user_id)));
 
   // 4) 프로필(이름/조직) + 주차 상태 집계를 병렬 조회.
-  let weekQuery = supabaseAdmin
-    .from("user_week_statuses")
-    .select("user_id,season_key,status,week_start_date")
-    .in("user_id", userIds);
-  if (seasonKey) weekQuery = weekQuery.eq("season_key", seasonKey);
-
-  const [profileRes, weekRes] = await Promise.all([
-    supabaseAdmin
-      .from("user_profiles")
-      .select("user_id,display_name,organization_slug")
-      .in("user_id", userIds),
-    weekQuery,
+  //    ⚠ userIds 가 수백~수천이면 .in() 한 번에 넣을 때 PostgREST GET URL 길이 한도를 넘어
+  //    "fetch failed" 로 터진다(전체/무필터 조회에서 발생). user_id 청크 + range 페이지네이션으로
+  //    분할 조회한다(읽기 전용, 결과 동일).
+  const [profiles, weekRows] = await Promise.all([
+    fetchProfilesByIds(userIds),
+    fetchWeekStatusesByIds(userIds, seasonKey),
   ]);
 
-  if (profileRes.error) throw new Error(profileRes.error.message);
-  if (weekRes.error) throw new Error(weekRes.error.message);
-
   const profileMap = new Map<string, ProfileRow>();
-  for (const p of (profileRes.data ?? []) as ProfileRow[]) {
+  for (const p of profiles) {
     profileMap.set(p.user_id, p);
   }
 
   // (user_id::season_key) → 주차 집계.
   const weekAgg = new Map<string, WeekAgg>();
-  for (const w of (weekRes.data ?? []) as WeekStatusRow[]) {
+  for (const w of weekRows) {
     if (!w.season_key) continue;
     // 전환 주차는 시즌 참여/휴식 집계에서 제외(공식 휴식·성공 어느 쪽도 아님).
     if (w.week_start_date && isTransitionWeekStart(w.week_start_date)) continue;
