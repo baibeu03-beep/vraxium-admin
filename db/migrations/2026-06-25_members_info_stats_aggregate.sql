@@ -3,20 +3,35 @@
 --
 -- 배경: loadMembersInfoStats 가 cluster4_weekly_card_snapshots.cards(fat jsonb, ~600크루 ×
 --   수십KB ≈ 30MB)를 전수 서버로 전송해 통합 탭이 38~49초였다(대역폭 병목). 집계에 필요한
---   스칼라(주차ID·주차상태·강화분모·주차성장률·별점)만 DB에서 unnest·투영해 전송량을 ~1MB로 줄인다.
+--   스칼라(주차ID·주차상태·강화분모·주차성장률·포인트 star/shield/lightning)만 DB에서 unnest·투영해
+--   전송량을 ~1MB로 줄인다.
 --
--- ⚠ snapshot-only: 두 함수 모두 읽기 전용(STABLE). snapshot 재계산/생성/변경 없음 — cards 원본 무접촉.
+-- ⚠ snapshot-only: 두 함수 모두 읽기 전용(STABLE). snapshot 재계산/생성/변경 없음 — cards/테이블 무접촉.
 -- ⚠ 동작 불변: 앱은 동일 스칼라 행을 받아 기존과 똑같은 JS 집계 루프를 돈다(값·DTO 동일).
 --   SQL 에서 합계/정렬/콜레이션을 하지 않으므로(투영만) 부동소수/한글정렬 parity 위험이 없다.
--- ⚠ PostgREST max-rows(1000) 때문에 card_rows 는 앱에서 .range() 페이지네이션으로 전 행을 읽는다.
 --
--- Supabase SQL Editor 에서 그대로 실행. CREATE OR REPLACE — 재실행 안전(idempotent).
+-- ⚠ 재실행/반환타입 변경(42P13 대응): RETURNS TABLE 컬럼 집합이 바뀌면 CREATE OR REPLACE 는
+--   "cannot change return type of existing function" 으로 실패한다. 그래서 DROP FUNCTION IF EXISTS
+--   (정확한 시그니처) 후 CREATE 한다 → 재실행 안전(idempotent). DROP 대상은 "이 두 함수"뿐이다.
+--   · 데이터/스냅샷 테이블은 절대 DROP 하지 않는다(함수만 제거).
+--   · 의존성: 두 함수는 leaf(다른 함수/뷰/트리거가 참조하지 않음 — 앱이 PostgREST RPC 로만 호출).
+--     따라서 DROP 순서는 무관하나, 명시적으로 card_rows → valid_users 순으로 제거한다.
+--
+-- Supabase SQL Editor 에서 그대로 실행.
+
+-- 0) 기존 함수 제거(반환 컬럼 변경 대응). IF EXISTS 라 최초 실행/재실행 모두 안전.
+drop function if exists public.members_info_stats_card_rows(uuid[], text[]);
+drop function if exists public.members_info_stats_valid_users(uuid[]);
 
 -- 1) 주차 카드 스칼라 행 — (대상 사용자 × 표시 주차)의 카드별 1행, 집계에 필요한 필드만.
+--   반환: 주차ID·주차상태·강화분모·주차성장률 + 포인트(star/shield/lightning) + card_count(사용자별
+--     카드 총수 — 앱의 청크 패킹/검증용. 카드행마다 동일값 반복).
+--     · star=A포인트(points) · shield=advantage−penalty(net) · lightning=−penalty.
+--       앱이 poA=Σstar · poB=Σshield−Σlightning(=Σadvantage) · poC=−Σlightning(=Σpenalty) 로 합산.
 --   ⚠ 성능: 대상 사용자를 "먼저" 필터(picked CTE, user_id 유니크 인덱스)한 뒤 그 행만 unnest 해야
 --     한다. unnest 를 먼저 하면(plan B) 매 호출마다 전체 snapshot 의 fat cards(전 사용자)를 풀어
 --     읽어 statement timeout 이 난다. AS MATERIALIZED 로 필터-먼저(plan A)를 고정한다.
-create or replace function public.members_info_stats_card_rows(
+create function public.members_info_stats_card_rows(
   p_user_ids uuid[],
   p_week_ids text[]
 )
@@ -26,18 +41,16 @@ returns table (
   user_week_status text,
   growth_denominator numeric,
   weekly_growth_rate numeric,
-  -- 포인트 종류별 합계용(Po.A/B/C). points 객체를 그대로 투영(snapshot SoT):
-  --   star=A포인트(points) · shield=advantage−penalty(net) · lightning=−penalty.
-  --   앱이 poA=Σstar · poB=Σshield−Σlightning(=Σadvantage) · poC=−Σlightning(=Σpenalty) 로 합산.
   star numeric,
   shield numeric,
-  lightning numeric
+  lightning numeric,
+  card_count integer
 )
 language sql
 stable
 as $$
   with picked as materialized (
-    select s.user_id, s.cards
+    select s.user_id, s.cards, s.card_count
     from public.cluster4_weekly_card_snapshots s
     where s.user_id = any(p_user_ids)
       and jsonb_typeof(s.cards) = 'array'
@@ -50,7 +63,8 @@ as $$
     nullif(card.value ->> 'weeklyGrowthRate', '')::numeric   as weekly_growth_rate,
     nullif(card.value #>> '{points,star}', '')::numeric      as star,
     nullif(card.value #>> '{points,shield}', '')::numeric    as shield,
-    nullif(card.value #>> '{points,lightning}', '')::numeric as lightning
+    nullif(card.value #>> '{points,lightning}', '')::numeric as lightning,
+    (p.card_count)::integer                                  as card_count
   from picked p
   cross join lateral jsonb_array_elements(p.cards) as card(value)
   where p_week_ids is null
@@ -60,7 +74,7 @@ $$;
 
 -- 2) 유효 snapshot 보유자(cards 가 배열인 행 — 빈 배열 포함). 앱이 snapshotUnavailable 산정에 사용.
 --    (cards 미보유/비배열 = 미반환 → 호출부에서 "snapshot 미조회"로 집계.)
-create or replace function public.members_info_stats_valid_users(
+create function public.members_info_stats_valid_users(
   p_user_ids uuid[]
 )
 returns table (user_id uuid)

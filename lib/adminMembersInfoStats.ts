@@ -71,54 +71,56 @@ const CARD_ROW_RPC_CONCURRENCY = 3; // 작은 청크 RPC 동시 실행 상한(or
 // 미적용/구버전(전체 fat cards 스캔형)·미존재·origin 포화면 probe 가 느리거나 실패 → fat 폴백해
 // 깨진 함수를 청크 수만큼 반복 호출(스캔 증폭)하는 것을 막는다. 결과는 프로세스 단위 memo.
 const RPC_PROBE_SLOW_MS = 1500; // 소량(3명) 입력이 이 시간을 넘으면 비최적 함수로 판단
+// 불건강 판정 시 재probe 쿨다운 — 마이그레이션 재적용 후 서버 재시작 없이도 자연 회복(self-heal)하되,
+// 깨진 함수를 매 요청 probe(스캔) 하지 않게 막는다(쿨다운 중엔 fat 사용).
+const RPC_PROBE_COOLDOWN_MS = 60_000;
 
-// null=미확인 / true=건강(빠름) / false=비최적·미존재(이 프로세스에선 fat 사용).
-let rpcAggHealthy: boolean | null = null;
+// 건강(빠름)으로 확인되면 영구 신뢰(rpcAggHealthy=true). 불건강(느림·구버전·미존재)은 영구 memo 하지
+// 않고 쿨다운만 두어, 재적용 후 다음 probe 에서 자동 복구되게 한다.
+let rpcAggHealthy = false;
+let rpcProbeCooldownUntil = 0;
 
-// 소량(3명) card_rows 호출로 함수가 filter-first(빠름)인지 1회 판정(프로세스 memo). 실패/느림 → false.
+// 소량(3명) card_rows 호출로 함수가 filter-first(빠름)+신버전(shield 투영)인지 판정. 불건강=쿨다운 후 재시도.
 async function isCardRowsRpcHealthy(weekIds: string[]): Promise<boolean> {
-  if (rpcAggHealthy !== null) return rpcAggHealthy;
+  if (rpcAggHealthy) return true; // 한 번 건강 확인되면 영구 신뢰
+  if (Date.now() < rpcProbeCooldownUntil) return false; // 쿨다운 중 — fat 사용(재probe 폭주 방지)
+  const markUnhealthy = (msg?: string) => {
+    rpcProbeCooldownUntil = Date.now() + RPC_PROBE_COOLDOWN_MS;
+    if (msg) console.warn(msg);
+    return false;
+  };
   try {
     const { data: ids, error: idErr } = await supabaseAdmin
       .from(SNAPSHOT_TABLE)
       .select("user_id")
       .limit(3);
-    if (idErr) return false; // origin 불안정 → 이번엔 fat(아래에서), 다음 요청에 재시도(memo 안 함)
+    if (idErr) return false; // origin 불안정 → 이번엔 fat, 쿨다운 미설정(다음 요청 재시도)
     const probeIds = ((ids ?? []) as Array<{ user_id: string }>).map((r) => r.user_id);
-    if (probeIds.length === 0) {
-      rpcAggHealthy = false; // snapshot 없음 → RPC 불필요
-      return false;
-    }
+    if (probeIds.length === 0) return markUnhealthy(); // snapshot 없음 → RPC 불필요
     const t0 = Date.now();
     const res = await supabaseAdmin
       .rpc("members_info_stats_card_rows", { p_user_ids: probeIds, p_week_ids: weekIds })
       .select("*");
     if (res.error) {
       if (isMissingFunctionError(res.error)) {
-        rpcAggHealthy = false; // 함수 미존재(마이그레이션 전) → 확정 폴백
-        console.warn("[members-info-stats] 집계 RPC 미존재 → fat 폴백");
-        return false;
+        return markUnhealthy("[members-info-stats] 집계 RPC 미존재 → fat 폴백(쿨다운 후 재시도)");
       }
-      return false; // timeout 등 일시 오류 → 이번엔 fat, memo 안 함(다음에 재시도)
+      return false; // timeout 등 일시 오류 → 이번엔 fat, 쿨다운 미설정(다음 요청 재시도)
     }
-    // 구 RPC(shield/lightning 미투영) 감지 → fat 폴백. fat 카드엔 points.{star,shield,lightning}
-    //   전부 있어 Po.A/B/C 합산이 정확. (RPC 재적용 전까지 무중단·정확.)
+    // 구 RPC(shield/lightning 미투영) 감지 → fat 폴백. fat 카드엔 points.{star,shield,lightning} 전부
+    //   있어 Po.A/B/C 합산이 정확(RPC 재적용 전까지 무중단·정확). 재적용되면 쿨다운 후 자동 복구.
     const probeRows = (res.data ?? []) as CardScalarRow[];
     if (probeRows.length > 0 && !("shield" in (probeRows[0] as object))) {
-      rpcAggHealthy = false;
-      console.warn("[members-info-stats] 집계 RPC 구버전(shield 미투영) → fat 폴백 (card_rows 재적용 필요)");
-      return false;
+      return markUnhealthy("[members-info-stats] 집계 RPC 구버전(shield 미투영) → fat 폴백 (card_rows 재적용 필요)");
     }
     const ms = Date.now() - t0;
     if (ms < RPC_PROBE_SLOW_MS) {
       rpcAggHealthy = true; // filter-first(MATERIALIZED) 적용 — 확정 사용
       return true;
     }
-    rpcAggHealthy = false; // 느림 = 전체 스캔형(비최적) → 확정 폴백(스캔 증폭 차단)
-    console.warn(`[members-info-stats] 집계 RPC 비최적(probe ${ms}ms) → fat 폴백 (MATERIALIZED 재적용 필요)`);
-    return false;
+    return markUnhealthy(`[members-info-stats] 집계 RPC 비최적(probe ${ms}ms) → fat 폴백 (MATERIALIZED 재적용 필요)`);
   } catch {
-    return false; // network/timeout → 이번엔 fat, memo 안 함
+    return false; // network/timeout → 이번엔 fat, 쿨다운 미설정(다음 요청 재시도)
   }
 }
 
