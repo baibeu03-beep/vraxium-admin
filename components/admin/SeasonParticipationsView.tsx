@@ -48,10 +48,12 @@ const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 type Banner = { kind: "success" | "error"; message: string } | null;
 
-// user_season_statuses.status 원본값(success/rest) 필터 라벨.
+// user_season_statuses.status 원본값(success/rest/stopped) 필터 라벨.
 const STATUS_FILTER_LABEL: Record<string, string> = {
   success: "참여(인정)",
+  active: "활동/참여",
   rest: "휴식",
+  stopped: "중단",
 };
 
 // 파생 분류(season_phase) 배지 — 요약 카드와 동일 분류.
@@ -63,6 +65,10 @@ const PHASE_META: Record<SeasonPhase, { label: string; className: string }> = {
   rest: {
     label: "휴식",
     className: "border-sky-200 bg-sky-50 text-sky-700",
+  },
+  stopped: {
+    label: "중단",
+    className: "border-rose-200 bg-rose-50 text-rose-700",
   },
   completed: {
     label: "완료",
@@ -125,7 +131,7 @@ function SummaryCard({
 }: {
   label: string;
   value: number | null;
-  tone?: "default" | "active" | "rest" | "completed" | "unknown";
+  tone?: "default" | "active" | "rest" | "stopped" | "completed" | "unknown";
   loading: boolean;
 }) {
   return (
@@ -137,6 +143,7 @@ function SummaryCard({
             "text-2xl font-semibold tabular-nums",
             tone === "active" && "text-emerald-600",
             tone === "rest" && "text-sky-600",
+            tone === "stopped" && "text-rose-600",
             tone === "completed" && "text-violet-600",
             tone === "unknown" && "text-muted-foreground",
           )}
@@ -267,10 +274,11 @@ export default function SeasonParticipationsView() {
       )}
 
       {/* 요약 카드 */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <SummaryCard label="전체" value={summary?.total_count ?? null} loading={loading} />
         <SummaryCard label="참여 중" value={summary?.active_count ?? null} tone="active" loading={loading} />
         <SummaryCard label="휴식" value={summary?.rest_count ?? null} tone="rest" loading={loading} />
+        <SummaryCard label="중단" value={summary?.stopped_count ?? null} tone="stopped" loading={loading} />
         <SummaryCard label="완료" value={summary?.completed_count ?? null} tone="completed" loading={loading} />
         <SummaryCard label="기타/미확인" value={summary?.unknown_count ?? null} tone="unknown" loading={loading} />
       </div>

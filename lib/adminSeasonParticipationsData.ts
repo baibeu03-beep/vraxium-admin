@@ -77,6 +77,8 @@ function deriveSeasonPhase(
   today: string,
 ): SeasonPhase {
   if (status === "rest") return "rest";
+  if (status === "stopped") return "stopped";
+  if (status === "active") return "active";
   if (status === "success") {
     if (endDate && endDate < today) return "completed";
     return "active";
@@ -289,6 +291,7 @@ export async function getSeasonParticipations(
     total_count: rows.length,
     active_count: rows.filter((r) => r.season_phase === "active").length,
     rest_count: rows.filter((r) => r.season_phase === "rest").length,
+    stopped_count: rows.filter((r) => r.season_phase === "stopped").length,
     completed_count: rows.filter((r) => r.season_phase === "completed").length,
     unknown_count: rows.filter((r) => r.season_phase === "unknown").length,
   };
@@ -356,7 +359,7 @@ export async function updateSeasonParticipation(
     if (!isSeasonParticipationStatus(input.status)) {
       throw new SeasonParticipationUpdateError(
         400,
-        `Unknown status: ${String(input.status)} (allowed: success, rest)`,
+        `Unknown status: ${String(input.status)} (allowed: success, active, rest, stopped)`,
       );
     }
     patch.status = input.status;
@@ -433,6 +436,7 @@ function emptyResult(
       total_count: 0,
       active_count: 0,
       rest_count: 0,
+      stopped_count: 0,
       completed_count: 0,
       unknown_count: 0,
     },

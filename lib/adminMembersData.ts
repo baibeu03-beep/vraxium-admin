@@ -9,6 +9,7 @@ import {
 import type { ScopeMode } from "@/lib/userScopeShared";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { getGrowthRosterBatchFast } from "@/lib/cluster3GrowthData";
+import { operationalSeasonDbKey } from "@/lib/seasonCalendar";
 import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
 import { getScheduleReliabilityRateBatch } from "@/lib/cluster1ResumeData";
 import { WEEKLY_CARDS_DTO_VERSION } from "@/lib/cluster4WeeklyCardsSnapshot";
@@ -633,6 +634,26 @@ export async function getRosterPointsScheduleFast(
   return out;
 }
 
+// 시즌 참여자(user_season_statuses 행 보유) user_id 집합 — 명부 모집단 필터용.
+//   season_key 단건 조회 + range pagination(대량 .in 미사용). seasonKey=null 이면 빈 집합.
+async function fetchSeasonParticipantIds(seasonKey: string | null): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (!seasonKey) return out;
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabaseAdmin
+      .from("user_season_statuses")
+      .select("user_id")
+      .eq("season_key", seasonKey)
+      .order("user_id", { ascending: true })
+      .range(from, from + 999);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as Array<{ user_id: string }>;
+    for (const r of rows) out.add(r.user_id);
+    if (rows.length < 1000) break;
+  }
+  return out;
+}
+
 export async function listMembersRoster(options: {
   organization?: OrganizationSlug | null; // slug | null/undefined(전체)
   mode?: ScopeMode;
@@ -647,8 +668,17 @@ export async function listMembersRoster(options: {
   // 1) 프로필/소속/팀·파트/학교·전공/등급/성별·생년월일 = crew DTO 배치(단일 SoT).
   //    org 미지정 = 전 조직(+소속 없음). scope·super admin 제외는 내부에서 처리.
   let s = Date.now();
-  const crews = await listAdminCrewDtos(options.organization ?? undefined, mode);
+  const crewsAll = await listAdminCrewDtos(options.organization ?? undefined, mode);
   t("listAdminCrewDtos", Date.now() - s);
+
+  // 1-b) 모집단 = "운영 기준 시즌"(operationalSeasonKey)의 시즌 참여자(user_season_statuses 행 보유)로 좁힌다.
+  //   DB 전체 user_profiles 가 아니라 해당 시즌 운영 대상자만 — 과거/이관 회원 혼입 방지(요구사항).
+  //   active/rest/stopped 모두 참여자로 포함. season_key 단건 조회(≈수백행·1페이지)라 부하 미미.
+  //   참여자 SoT 가 비어있는(미구성) 시즌이면 모집단 0 → 빈 목록(시즌 참여행을 먼저 구성해야 함).
+  const opSeasonKey = operationalSeasonDbKey(new Date().toISOString().slice(0, 10));
+  const seasonParticipants = await fetchSeasonParticipantIds(opSeasonKey);
+  const crews = opSeasonKey ? crewsAll.filter((c) => seasonParticipants.has(c.userId)) : crewsAll;
+  t("seasonParticipantFilter", crews.length);
   const userIds = crews.map((c) => c.userId);
   if (userIds.length === 0) return { members: [], partialFailure: null };
 
@@ -664,6 +694,10 @@ export async function listMembersRoster(options: {
   //   실패 청크는 건너뛰고 failedChunks 로 집계 → 해당 사용자는 아래에서 "-"(null)로 렌더되고,
   //   화면에 "일부 snapshot 조회 실패" 안내가 뜬다. (loading 무한 회전·전체 500 방지)
   const buildGrowthMap = async () => {
+    // 회원 명부 상태 집계는 "운영 기준 시즌"(operationalSeasonKey)으로 본다 — 전환 주차면 다음 시즌.
+    //   (예: 봄→여름 전환 주차엔 2026-summer 기준으로 휴식/중단/활동을 집계. 시즌명 하드코딩 없음.)
+    //   /crews·이력서 등 다른 화면은 기존 현재 시즌 기준 유지(이 override 는 명부 경로에만 전달).
+    const opSeasonKey = operationalSeasonDbKey(new Date().toISOString().slice(0, 10));
     const map = new Map<
       string,
       { displayGrowthStatus: string; successWeeks: number; growableWeeks: number; activityRate: number }
@@ -672,7 +706,7 @@ export async function listMembersRoster(options: {
     for (let i = 0; i < userIds.length; i += ID_CHUNK) {
       const chunk = userIds.slice(i, i + ID_CHUNK);
       try {
-        const rows = await getGrowthRosterBatchFast(chunk);
+        const rows = await getGrowthRosterBatchFast(chunk, opSeasonKey);
         for (const r of rows) {
           map.set(r.userId, {
             displayGrowthStatus: r.displayGrowthStatus,

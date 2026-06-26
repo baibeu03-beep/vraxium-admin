@@ -235,6 +235,9 @@ export function extractManualOverride(
 export type ComputeAutoGrowthStatusInput = {
   // 현재 시즌에 시즌 휴식 신청(user_season_statuses.status='rest')이 있는가.
   seasonRestActive: boolean;
+  // 현재 시즌에 시즌 중단(user_season_statuses.status='stopped')이 있는가. (2026-summer SoT)
+  //   whole-person growth_status 가 아니라 season_key 단위 — 과거 시즌 무영향. 휴식보다 우선.
+  seasonStoppedActive?: boolean;
   currentWeekStatus: string | null; // 현재 주차 user_week_statuses.status
   approvedWeeks: number; // a
   elapsedWeeks: number; // h
@@ -247,12 +250,15 @@ export function computeAutoGrowthStatus(
 ): GrowthStatusKey {
   const {
     seasonRestActive,
+    seasonStoppedActive,
     currentWeekStatus,
     approvedWeeks,
     elapsedWeeks,
     graduationThreshold,
   } = input;
 
+  // 시즌 중단(stopped)은 휴식보다 우선 — "성장 중단"(suspended 라벨) 으로 표시.
+  if (seasonStoppedActive) return "suspended";
   if (seasonRestActive) return "seasonal_rest";
   if (currentWeekStatus === "personal_rest") return "weekly_rest";
   if (currentWeekStatus === "official_rest") return "official_rest";

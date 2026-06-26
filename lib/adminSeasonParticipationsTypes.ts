@@ -5,19 +5,23 @@
 // 시즌별 주차 상태 요약을 붙인다. 기존 시즌 휴식 로직은 변경하지 않는다.
 //
 // user_season_statuses.status 의 실제 허용값(DB CHECK):
-//   - 'success' : 시즌 참여(인정)
+//   - 'success' : 시즌 참여(인정, 종료 시즌)
+//   - 'active'  : 시즌 참여/활동 (2026-06-26 추가 — 진행 시즌 운영 대상자 멤버십)
 //   - 'rest'    : 시즌 휴식
-//   (db/migrations/2026-05-25_season_definitions_and_user_seasons.sql
-//    CHECK (status IN ('success', 'rest')))
+//   - 'stopped' : 시즌 중단 (2026-06-26 추가 — season-scoped, growth_status 미사용)
+//   (db/migrations/2026-06-26_user_season_statuses_active.sql
+//    CHECK (status IN ('success', 'rest', 'stopped', 'active')))
 //
-// 요약 카드의 5분류(active/rest/completed/unknown)는 위 2개 DB 값만으로는 만들 수
+// 요약 카드의 분류(active/rest/stopped/completed/unknown)는 DB 값만으로는 만들 수
 // 없으므로 season_definitions 의 기간과 오늘을 함께 써서 파생한다(season_phase):
 //   - rest                                   → 'rest'    (휴식)
+//   - stopped                                → 'stopped' (중단)
+//   - active                                 → 'active'   (참여/활동 — 진행 시즌)
 //   - success + 시즌 종료(end_date < 오늘)    → 'completed' (완료)
 //   - success + 그 외                         → 'active'   (참여 중)
-//   - status 가 success/rest 가 아님          → 'unknown'  (기타/미확인)
+//   - 그 외                                   → 'unknown'  (기타/미확인)
 
-export const SEASON_PARTICIPATION_STATUSES = ["success", "rest"] as const;
+export const SEASON_PARTICIPATION_STATUSES = ["success", "active", "rest", "stopped"] as const;
 
 export type SeasonParticipationStatus =
   (typeof SEASON_PARTICIPATION_STATUSES)[number];
@@ -31,7 +35,7 @@ export function isSeasonParticipationStatus(
   );
 }
 
-export type SeasonPhase = "active" | "rest" | "completed" | "unknown";
+export type SeasonPhase = "active" | "rest" | "stopped" | "completed" | "unknown";
 
 export type SeasonParticipationRow = {
   // user_season_statuses.id — 단건 상태 수정(PATCH) 대상 식별용.
@@ -61,6 +65,7 @@ export type SeasonParticipationSummary = {
   total_count: number;
   active_count: number;
   rest_count: number;
+  stopped_count: number;
   completed_count: number;
   unknown_count: number;
 };

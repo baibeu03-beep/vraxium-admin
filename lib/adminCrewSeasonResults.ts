@@ -67,14 +67,18 @@ function deriveSeasonStatusLabel(args: {
   userStatus: string | null;
   resumeProgressStatus: string | null;
   resumeGraftLoaded: boolean;
+  // 현재 시즌(isCurrent)의 시즌 스코프 상태 — user_season_statuses(현재 시즌). whole-person 아님.
+  currentSeasonRest: boolean;
+  currentSeasonStopped: boolean;
 }): string {
-  const { isCurrent, endDate, today, growthStatus, userStatus, resumeProgressStatus, resumeGraftLoaded } = args;
+  const { isCurrent, endDate, today, growthStatus, userStatus, resumeProgressStatus, resumeGraftLoaded, currentSeasonRest, currentSeasonStopped } = args;
   const gs = String(growthStatus || "").toLowerCase();
   const st = String(userStatus || "").toLowerCase();
+  // 시즌 중단 = 현재 시즌 stopped(시즌 스코프) 또는 whole-person 운영 override. 휴식보다 우선.
   const isFailed =
-    gs === "suspended" || gs === "withdrawn" || gs === "expelled" || gs === "deferred" || st === "suspended";
-  const isRest =
-    gs === "resting" || gs === "official_rest" || gs === "season_rest" || gs === "seasonal_rest" || gs === "weekly_rest";
+    currentSeasonStopped || gs === "suspended" || gs === "withdrawn" || gs === "expelled" || gs === "deferred" || st === "suspended";
+  // 시즌 휴식 = 현재 시즌 rest(시즌 스코프). 종전 whole-person growth_status 판정을 정정.
+  const isRest = currentSeasonRest;
 
   // 시즌 중 졸업 — 최우선(이력서 "정상 졸업" 또는 graft 미확보 시 현재 시즌 graduated 폴백).
   if (resumeProgressStatus === "정상 졸업" || (!resumeGraftLoaded && isCurrent && gs === "graduated")) {
@@ -156,7 +160,7 @@ export async function getCrewSeasonResults(
   userId: string,
   todayIso: string,
 ): Promise<CrewSeasonResultRow[]> {
-  const [wpRes, wsRes, profileRes, records, snapshot] = await Promise.all([
+  const [wpRes, wsRes, profileRes, records, snapshot, seasonStatusRes] = await Promise.all([
     supabaseAdmin
       .from("user_weekly_points")
       .select("week_start_date,points,advantages,penalty")
@@ -165,7 +169,17 @@ export async function getCrewSeasonResults(
     supabaseAdmin.from("user_profiles").select("growth_status,status").eq("user_id", userId).maybeSingle(),
     computeSeasonRecords(userId),
     readWeeklyCardsSnapshot(userId),
+    // 시즌 스코프 휴식/중단 — user_season_statuses(season_key 별). 현재 시즌 라벨에만 사용.
+    supabaseAdmin.from("user_season_statuses").select("season_key,status").eq("user_id", userId),
   ]);
+  // season_key → {rest, stopped}
+  const seasonStatusByKey = new Map<string, { rest: boolean; stopped: boolean }>();
+  for (const r of (seasonStatusRes.data ?? []) as Array<{ season_key: string; status: string }>) {
+    const e = seasonStatusByKey.get(r.season_key) ?? { rest: false, stopped: false };
+    if (r.status === "rest") e.rest = true;
+    else if (r.status === "stopped") e.stopped = true;
+    seasonStatusByKey.set(r.season_key, e);
+  }
 
   const weeklyPoints = (wpRes.data ?? []) as Array<{
     week_start_date: string | null;
@@ -247,6 +261,7 @@ export async function getCrewSeasonResults(
       const range = rangeByKey.get(seasonKey) ?? { start: "", end: null };
       const isCurrent = !!(range.start && range.end && todayIso >= range.start && todayIso <= range.end);
 
+      const seasonScoped = seasonStatusByKey.get(seasonKey) ?? { rest: false, stopped: false };
       const customerLabel = deriveSeasonStatusLabel({
         isCurrent,
         endDate: range.end,
@@ -255,6 +270,9 @@ export async function getCrewSeasonResults(
         userStatus,
         resumeProgressStatus: resumeByKey.get(seasonKey) ?? null,
         resumeGraftLoaded,
+        // 현재 시즌(isCurrent)에만 시즌 스코프 휴식/중단 적용 — 과거 시즌은 resumeProgressStatus 가 판정.
+        currentSeasonRest: isCurrent && seasonScoped.rest,
+        currentSeasonStopped: isCurrent && seasonScoped.stopped,
       });
 
       // 허브 강화율 — area-7 동일 산식(카드 라인 earned/total), total 0 → null("-").

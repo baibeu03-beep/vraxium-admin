@@ -1,0 +1,7864 @@
+{
+ "matched": [
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "황승희",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 21,
+    "note": "운영진 선발"
+   },
+   "userId": "b09b2559-249c-4358-a1f4-f89132db854c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 21
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "형애현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "3cd9c0ea-c754-4b04-9385-71cf36f7ac26",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "현유빈",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "807f863e-874f-4294-9ffc-d6cebf1976ee",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 18,
+   "dbApproved": 17
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "한지혜",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "195e5424-5c06-4dac-ad3f-61b7694b1323",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "한정민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "cd30baf8-5251-4104-9dd7-d666b06486c8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "태소담",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 21,
+    "note": ""
+   },
+   "userId": "c15513ad-654d-4401-a527-e9fc4728a3c0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "추가현",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "40b2e0a5-016e-4559-8508-3861deb81065",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 6,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최현정",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "274117f9-34f7-4587-a00b-eba5c996d166",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최지영",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "78c6c6f0-ce6f-4282-8315-55eceab3d1ad",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최인영",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "07c877a7-0e2e-4f7d-a250-7f16363d7a88",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 39,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최은정",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 27,
+    "note": ""
+   },
+   "userId": "5566175c-529b-423b-8c4a-a42e5cf0ace0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 26
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최유빈",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "d31d3d60-00c2-4d0f-bb56-a973c3b2bad7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최시윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "d56b5e7b-dcac-4a98-aafd-0485c9c2e291",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최수연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "83e12978-5a56-45ce-87d4-89e6bddca7ce",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 26,
+   "dbApproved": 15
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최성은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 24,
+    "note": ""
+   },
+   "userId": "a08802dc-d928-45ae-b746-dedce7ec09fe",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최민희",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 29,
+    "note": "졸업 크루"
+   },
+   "userId": "1d1f2bcd-4880-4203-86a3-d045998867f2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최민서",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "774323e0-d95d-4c52-934c-2bf1ef6ee433",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최가현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 35,
+    "note": "졸업 크루"
+   },
+   "userId": "20cf20f6-bbce-49f1-b989-fdf45732beb9",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 40,
+   "dbApproved": 35
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "차승혜",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "8c7f4cb3-6d8d-4aa9-a18d-fd8678dcdce0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "차명주",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "e22032a0-d63b-4089-8792-f7b7cfcbddae",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "지예빈",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "0202ce98-16b6-42af-9f81-852ce8449b5e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "조한설",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "0eb6190f-8255-48b9-a7fe-a84cc205a63b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "조한별",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "4995975f-5fe5-489f-ba40-80aeb836bb1e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "조은비",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "655f134b-de37-4814-ab57-7859fd62fe58",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "조은별",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "c7ffd577-3d8c-49b4-82bd-989ef73a05ba",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "조연우",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "a126f24c-176a-4e52-8b01-390f13033702",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "조수빈",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 9,
+    "note": "운영진 선발"
+   },
+   "userId": "02706319-9281-41a5-97ef-705dfa56ab21",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "조서연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "404bb12d-9eb6-4c56-a0db-95b1294e9455",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "조규리",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "34d1a415-154f-43ac-898f-c84842a9f357",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 16,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "제서영",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "34ef6e2f-3333-4a28-b423-6648825c34ac",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 15,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "정희진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "78cf7e65-b49b-424d-915e-665bac8c7f97",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "정혜선",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 31,
+    "note": "졸업 크루"
+   },
+   "userId": "60e3e8a2-0d28-4bfa-bac6-55f480bfa92a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 32,
+   "dbApproved": 30
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "정태양",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "f39522b7-57e3-4a48-836a-fef6cc471881",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "정우진",
+    "status": "검수 대상",
+    "cat": "검수",
+    "weeks": 28,
+    "note": "졸업 크루인데 납부 안 함"
+   },
+   "userId": "943f6bdb-69d2-4bce-971e-9d244237d5ae",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 35,
+   "dbApproved": 29
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "정아현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "badde5c7-8325-4513-9ac7-1d2fd7493c43",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "정서연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 22,
+    "note": ""
+   },
+   "userId": "94b72f3b-39ab-4101-a342-14eb248c1386",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 23,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "전소연",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 14,
+    "note": "운영진 선발"
+   },
+   "userId": "56d285e1-9d3e-43aa-b461-8d91c880a72f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "장지선",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 37,
+    "note": ""
+   },
+   "userId": "7dd0bbf6-8cd4-4d19-a542-e36138e1fba4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 39,
+   "dbApproved": 37
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "장아현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 21,
+    "note": ""
+   },
+   "userId": "1edde6a3-a961-42d8-ae8d-601da1a16d85",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 22,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "임하경",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "25a91b95-5807-4857-9e65-334c85fe090b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "임주아",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "4edcb82a-bde5-4a04-9f7c-58d71781cb0a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 15
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "임가현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "11471a35-3c69-4c3b-864b-986a17f8daad",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 16,
+   "dbApproved": 16
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이혜인",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 40,
+    "note": "운영진 선발"
+   },
+   "userId": "787d36ba-ac71-4682-912d-d020b5162000",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 42,
+   "dbApproved": 41
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이혜인",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "e7610025-6fa7-4227-b64b-cd3bb632d7be",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "휴식",
+   "dbCum": 6,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이혜원",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "88b700c2-1d01-4658-a608-04381fb953e4",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이하윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 27,
+    "note": ""
+   },
+   "userId": "d5fd9168-0cfd-4e8b-8844-914299944806",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 28,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이채빈",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "44ca9e66-50b9-4839-a30a-d3f553ad3259",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이지영",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "a292a2e9-1b6d-465b-9bce-a212b43f11b9",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이지수",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "5c5bd454-ca1c-4e2b-a059-6f09190a718f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이종혁",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "4f793419-76ea-4eaf-af71-f296f3a25a01",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이재은",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "70ceae97-79e0-45e5-a5fe-9badabea9288",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 10,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이인서",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "c4b7c6ee-d69e-499f-b8ab-3574b2529159",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이은수",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 21,
+    "note": ""
+   },
+   "userId": "781620d0-fffe-43bd-b8b0-aa7f660d3b6f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 21,
+   "dbApproved": 21
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이유민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "b02247cd-995d-4ea1-93f2-d60cdefdf07d",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이수진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "6c197c58-19f5-40e7-9784-b5344755c64b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이수민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "873604b5-66ad-473e-9948-1a24b87f2bca",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이서희",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 38,
+    "note": "졸업 크루"
+   },
+   "userId": "5229c8af-918c-47e7-876d-390d0ace8dfd",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 42,
+   "dbApproved": 39
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이보영",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "f91f1955-006c-48c9-ad31-4ff25cf16966",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이보배",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "991ff170-12fc-4afd-818c-83c4708a7d43",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 17,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이나윤",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "06cb02c5-3eb5-44cd-a783-925648bc155f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이나경",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "4657a702-2e46-45c4-8c99-69f0d9c9b3b1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이기쁨",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "97009183-2b9e-4029-9e1a-4db3057f68b7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "윤지원",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "1a22c830-748c-4c9f-af42-70e5d1423860",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "유송미",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 24,
+    "note": ""
+   },
+   "userId": "2a96450c-6979-4c95-9b8d-9d60cd05290c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 23,
+   "dbApproved": 23
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "옥유빈",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "241cbc47-ca0d-4172-9291-12086b64be04",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "오주하",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "db3cce9d-b189-404d-b6ab-31b70a6bbeb6",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "오유나",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "072e8890-edc3-4878-9e3c-da4a1f7853d0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 23
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "엄태설",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "404a6a14-c1be-4c2b-8c51-93fb40339c0d",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "양지원",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "b495c6e3-af4a-47fb-859a-d6f3d5cb20e5",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "양예슬",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "2a074248-8207-4027-96d6-9e5155f0d52f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "양다연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "017ef342-98e0-40bc-8eaf-9bd8ddd46653",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "안지원",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 25,
+    "note": ""
+   },
+   "userId": "6a4deabb-a0dd-4e9b-92a3-1f21829d3d51",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "안은비",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 37,
+    "note": "졸업 크루"
+   },
+   "userId": "3c4fc830-a465-4a00-a26a-a0c37fa3052c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 42,
+   "dbApproved": 37
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "송현민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "face625e-e526-410d-a101-66d91e7f6529",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "송은서",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "f15a6824-6a36-4440-a447-460705c648bf",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 15,
+   "dbApproved": 15
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "송신혜",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 25,
+    "note": ""
+   },
+   "userId": "f9171ced-ed9a-44ee-b350-2feb2a95e4e6",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 28,
+   "dbApproved": 25
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "손지희",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "8c080f19-59ac-4acc-b8e4-dc2bc3a5ee07",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 6,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "손정민",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "9b925612-41b4-49c6-ad13-70a5a0d1f4d8",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 82,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "손승준",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "8894cc95-c307-4871-84bc-bf67a759c7d1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "성수인",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "40fd1f6d-6112-4c7c-9869-8c5247d2e5b1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "설아린",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "9f0e8520-3a0a-4ac4-8e4b-8c871a2f6d31",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 12,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "선해솔",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 24,
+    "note": ""
+   },
+   "userId": "43eadae5-596e-4903-9a92-2f5cc18e59f6",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 32,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "서원지",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "f47b46ae-4381-4ad1-836c-069bd0af3858",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "서민영",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "de28dccd-0ed8-429b-943e-41c153f39135",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박준영",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "61915331-4ef0-4aef-a2f8-e28f6cb0d170",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박정후",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "b5a0808a-1b81-4241-9178-fb7fc26fde5f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박정은",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "a14758b5-4532-4ee2-bc7b-d6e7e7a34730",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박재영",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "167ae617-2d32-408e-b6fc-233dda84b3e1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박시원",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "abaff66e-41ff-49c7-9a94-9a7b199fbb5e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박소연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "b8626cbd-f447-4b3f-85a2-a1249177dda0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 12,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박소민",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "62ac075a-f6c9-4d52-a476-378c9ddf66bf",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박상아",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "e086bb34-c71a-414a-bf37-1036978d20f9",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박가은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "50afc15e-bee0-4fdb-be9f-503f75b18956",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "문현수",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 36,
+    "note": "졸업 크루"
+   },
+   "userId": "c60fe520-a38d-421a-99f4-39aef24ee983",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 35,
+   "dbApproved": 35
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "문찬식",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 1,
+    "note": ""
+   },
+   "userId": "2d46ad94-66ed-47df-b305-ed3b32c21ae4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 1
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "목정민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "3c190a72-f452-46d3-a87e-407fad07e85a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 17,
+   "dbApproved": 15
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "류신형",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "6d6da914-4744-4057-ab87-05000f7df7c4",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 9,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "나예진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "dd10d62a-633b-430b-a342-36db7bfb3aa3",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 15
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김혜령",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "68b8b08e-62b1-4808-b9b4-77834c96d0a3",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강민경",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "822a62c0-dbe5-43d3-9809-278f0c60aea7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강민서",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 13,
+    "note": "운영진 선발"
+   },
+   "userId": "a60df4d3-61d6-4c8d-b3f0-0f200836d050",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강민주",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "db6a6135-1508-450b-885b-48a8e49737a1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강소윤",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "210c58d6-1e00-42db-bd42-d9073ef5652a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강수정",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "73f4231c-24f6-414b-b38b-bdc838c3eef0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강지원",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "c3e000ab-8343-4e5f-827e-1bfd7fb626d2",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 11,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강지윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 24,
+    "note": ""
+   },
+   "userId": "5fcd40d8-1df7-4715-9ce8-362ae051654b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 25
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강현묵",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "39f9cef7-c6a4-47e7-b767-8abee8637eaf",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "견희진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 19,
+    "note": ""
+   },
+   "userId": "d22fda98-0d83-42ec-b68b-b507b6302a64",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "고영서",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 12,
+    "note": "운영진 선발"
+   },
+   "userId": "940eaf5c-6fed-496a-b272-37ce9569169a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "고채민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 19,
+    "note": ""
+   },
+   "userId": "ea970f61-7adf-4cbf-8b3c-92172b06d941",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 21,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "구동은",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "16b1703f-a78c-4506-b5ab-ff7b9d6688a6",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "구현지",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "132d85d1-40da-4567-9da8-e3d4c4687388",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 23
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "기혜빈",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": "시즌 휴식 등록 했다가, 활동으로 바꾸어서 납부 2회함."
+   },
+   "userId": "69a6dac1-318a-438c-9f7d-a72930f3d1f5",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 23
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김가윤",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "e3f957c4-367b-419f-99a7-4e2172d0918e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 2
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김가희",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "690c5e30-9d2c-4a15-ba42-aceee0ad171a",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김경은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "c849b8ee-f16c-4adc-9463-9379120b04b7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김규린",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "7f1cafa2-4dc1-4d8a-9f8c-b51ef5c4ab7e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김기연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "d57bc0fb-2c10-4482-ba90-5d65fdd15a06",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김나연",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 1,
+    "note": "활동 등록했다가 휴식으로 변경함"
+   },
+   "userId": "3d34ecae-ef55-4752-8e40-71a497df020d",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 10,
+   "dbApproved": 1
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김나은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 1,
+    "note": ""
+   },
+   "userId": "25c55418-5080-478b-8479-89be5b460820",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 1
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김다연",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "63c0f55c-6c41-4164-a0cd-689f7e94cf8e",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 22,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김다정",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "ea37d14d-d0ca-43f8-ab8d-632cf31f4fab",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 13,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김도연",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "b6959224-a3f7-4730-943a-3054e34f48de",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 23,
+   "dbApproved": 23
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김도연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "b6959224-a3f7-4730-943a-3054e34f48de",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 23,
+   "dbApproved": 23
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김민경",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "2f7cece2-d8ff-4c1e-a847-79f0df296cd8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김민아",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "e31d9987-d6c9-4fa6-a8ff-e50098ddaef0",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "휴식",
+   "dbCum": 15,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김민아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "052aeb95-4239-418c-a31f-33a07520362d",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이다경",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": null,
+   "reason": "missing"
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이재훈",
+    "status": "검수 대상",
+    "cat": "검수",
+    "weeks": 26,
+    "note": ""
+   },
+   "userId": "0571d61e-e0fd-40c0-b733-a776f8d7ca26",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 31,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "황수민",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": null,
+    "note": ""
+   },
+   "userId": "7c379c6a-0c87-4922-89e0-d7a20fa8cf88",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "서다희",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": null,
+    "note": ""
+   },
+   "userId": "a60c6f44-f300-421d-88b6-0a0a18c6757e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "오범모",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "f176eea2-530b-4efc-ae28-be4727d0ce19",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 3,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박가은",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "01ecb8d5-cd46-4378-9769-63887556a6af",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "휴식",
+   "dbCum": 3,
+   "dbApproved": 2
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "오재우",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "01fe3128-ff4e-443d-a520-98da81a28e57",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 4,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "조서연",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "b4baa160-9df9-432a-b7a6-2c96f2f50254",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 4,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "전수빈",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "6c271430-9267-4b1d-8730-b97c746015a3",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김민영",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 0,
+    "note": ""
+   },
+   "userId": "75764c31-8206-4d98-8acd-3015ce98d539",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 0,
+   "dbApproved": 0
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김보배",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "498d87c0-d1a9-443c-a470-d7d18057e509",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김성현",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "17abd6f7-3278-44c3-8c51-0d2bba6ca822",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "정유나",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "c88858de-b77e-4535-80ab-862e65d3d6f3",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이예령",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "ec3344e2-7fd2-44b6-9c85-46c44535f482",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 9,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박기연",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "7dc56793-ebed-4434-9222-c50cea1c112d",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 11,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "임지윤",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "c67fc4f5-54f3-4316-9eb1-66b03ebd0b90",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 13,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박소현",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "5d7ab85f-fa6b-4b84-841b-ee0faf885ee4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "한서정",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "b3168f9c-cfc1-42c9-9883-687820ac09f4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 12,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "한유림",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "58c06b53-a0a6-4bf7-9b2f-c2183b15ab08",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "윤정환",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "4badcded-2cf4-40e2-834f-7feb21441a05",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 12,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김소현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "585a97ed-f17f-48a5-b5fe-64d8f6712b6f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김수민",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "7073ce7a-c4aa-4385-9a69-da8f27eada67",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 17,
+   "dbApproved": 16
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김수연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "e89a2163-9271-4a59-876f-63292846abbe",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 5,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김승현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "74a22910-edab-48a4-b336-92f301de9b60",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 12,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김여은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "666eeccf-8b9e-4d93-b857-9b15b46b910b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김영채",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "d0bf4c90-8a39-4136-81ec-04fc82e09b08",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김예진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 25,
+    "note": ""
+   },
+   "userId": "f306646b-8cd9-46f6-b386-db8b731f2f0f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 29,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김유나",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 28,
+    "note": "졸업 크루"
+   },
+   "userId": "f810ae32-7261-402e-8db1-12a32eed8629",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 29,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김유정",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 26,
+    "note": ""
+   },
+   "userId": "b38b90b9-9db1-4db6-8895-ac3c513d9ceb",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 28,
+   "dbApproved": 26
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김재연",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "8ba14f7b-20f3-4732-bf9f-e49e517384f8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박영서",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "2add9357-fe82-461b-9dc0-ddf0224fd1aa",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "정세린",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "4b9ec8d2-1dc5-4e75-8e84-149b144f26f4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "우태경",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "5a60921f-a885-40db-b504-652bdf0e14c9",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 17,
+   "dbApproved": 17
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이성민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 17,
+    "note": ""
+   },
+   "userId": "d7585fb8-120a-4bfe-a5e9-3cc1af9ade8c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 17,
+   "dbApproved": 17
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김제현",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "e752c775-ac53-4ab1-a1c6-bbd988633e8c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 21,
+   "dbApproved": 19
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박유민",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "f55c4dcb-6b51-41cf-98b8-9068eeddcc0e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 22,
+   "dbApproved": 18
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "안지민",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "539a45b0-71d1-49ca-a7c4-03ab462d3cc1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 20,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "황예원",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "a394ed48-0306-4fb2-8c58-a4897ef84058",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 23,
+   "dbApproved": 17
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "방시은",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 19,
+    "note": ""
+   },
+   "userId": "50557ca0-6f9f-4e71-b02c-cfcee64cd0a7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "신수빈",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 19,
+    "note": ""
+   },
+   "userId": "16611401-68ea-48ed-84fa-ae2897367757",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 21,
+   "dbApproved": 19
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "장유경",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 21,
+    "note": ""
+   },
+   "userId": "47cf8b39-678f-4f3b-bb83-ac5780ff3aea",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "송시윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "ed261ac9-d211-4838-a7fe-327b7878c2d7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 26,
+   "dbApproved": 25
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이예지",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "8e55068b-0d9b-424c-b6eb-a9393997e79d",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김주형",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "b52b8238-6a39-41ff-9ff5-bc9d83dc0005",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김준우",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 28,
+    "note": ""
+   },
+   "userId": "9d1d0edd-b3c7-4ad8-90d6-7021087c119e",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 29,
+   "dbApproved": 26
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김준우",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 25,
+    "note": ""
+   },
+   "userId": "9d1d0edd-b3c7-4ad8-90d6-7021087c119e",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 29,
+   "dbApproved": 26
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김지민",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "b97ea231-da32-42be-9421-214fa3ccecdb",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 10,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김지우",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 27,
+    "note": ""
+   },
+   "userId": "770ef474-a123-4464-9a57-1995f8d9e5da",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 31,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김채연",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 22,
+    "note": ""
+   },
+   "userId": "b83ae2d2-c8f2-4d90-ba20-f908182bf7c3",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 22,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김현수",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "e2b689f9-eaeb-4311-bff5-03eb73f5bb30",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 16,
+   "dbApproved": 16
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김현지",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "da086fbd-de44-428b-a700-36a54cae6a45",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "남수현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 25,
+    "note": ""
+   },
+   "userId": "af51fdd7-3333-45f2-b935-57724fc7986b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김종원",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "2ac6d5e9-f650-4bfc-99bc-36895aa8c9a2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 18
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "송수진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 30,
+    "note": ""
+   },
+   "userId": "fc83bff6-f160-4a9b-a1ee-477168248977",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 30,
+   "dbApproved": 30
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박수진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 26,
+    "note": ""
+   },
+   "userId": "4ad73381-7414-4b8d-85cb-354c535de6f1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 28,
+   "dbApproved": 26
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이수현",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "f00381de-8b3a-49dd-842b-d6ad3a6c0621",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 25,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이채은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "50610737-9d35-4514-a617-c70072d4b2c0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김채현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 17,
+    "note": ""
+   },
+   "userId": "012a3195-f55b-496e-969d-db50a3e24cb9",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 17,
+   "dbApproved": 16
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박정호",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "602f1282-2e4a-4305-be91-1ffb2f5a979d",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 26,
+   "dbApproved": 23
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "임서현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 24,
+    "note": ""
+   },
+   "userId": "df952cd1-7aa4-4cb8-a085-530e469f40ff",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이윤희",
+    "status": "검수 대상",
+    "cat": "검수",
+    "weeks": 21,
+    "note": ""
+   },
+   "userId": "edf49916-ee63-4fe3-bba0-f07bf3360c03",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 21
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "최서윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 24,
+    "note": ""
+   },
+   "userId": "8cc1ae06-3110-4e34-918c-2a92674725a1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박유진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 27,
+    "note": ""
+   },
+   "userId": "576d0e8f-d4d3-49b4-8d0f-34ec3e51dac8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "우강현",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "39ee6e0b-45e3-45b5-94f8-03ce223895cd",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 23,
+   "dbApproved": 23
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김지우",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "535fd54a-b9c4-4daa-a364-b4360d87a90f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 23,
+   "dbApproved": 23
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박소윤",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "4c6c334e-4d85-40dd-b8d5-cbec1548fca6",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 22,
+   "dbApproved": 21
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이나영",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "579e077f-fc58-46cc-b7a8-6b42e81592ef",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김대혁",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "2d00608d-052a-4569-a017-b9ca76269f9d",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 15
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김민서",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "89c7cecb-0057-4d09-bb92-9ec96fffe44c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김수진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "264740d2-05b1-4acc-bba1-21723e8e1005",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이윤서",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "fd4eb101-24c4-4f95-8349-9d9f8d9b81c4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 16,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이지연",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "a46a5702-7820-4761-bda2-2a6f8c470a44",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 16,
+   "dbApproved": 16
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "최지웅",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "6c3951c7-b6f6-4e0a-ac5a-91312c8a89b6",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 16,
+   "dbApproved": 16
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "최희원",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "805c3a4c-714f-4b43-9dac-f99adeec05f4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 16,
+   "dbApproved": 16
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "고수림",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "c285e987-b465-4cd1-a434-9a015142240b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "지서연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "fc7c0e67-52af-456f-8ac2-6f767605f9fd",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이승아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "a928431e-6acc-4329-902c-cea0ee515eb2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "최민제",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "3b8249e7-8e2a-469b-8028-936d20d7a575",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김나연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "16e4d039-0c75-4fc1-b01c-d878651e6217",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "신재현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "61392a42-644a-4f68-ae3e-e8345b0d651f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "안은서",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "a35d864f-6a92-44f9-b9d8-a9fa731757b0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이송미",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "af7c2dde-e333-4ee9-b522-1a5147b5f4a9",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 12,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "임정",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "41349692-429a-4036-8800-8d21929dbf0a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 12,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김아현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "ecb12eec-1dab-40ba-ad14-552af3f49ea6",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "송주연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "73f3f6f0-7487-4d30-9a5b-1db2029394d4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "정재웅",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "60eb6c66-90da-4a7a-b600-d6244f79b666",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이규린",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "c04025d3-74f7-44f7-ac69-8362ceb3b179",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김수현",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "f2a34887-89b5-4d67-bc91-940f87b3a3ff",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김태이",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "80223a7e-d5d9-40e1-8a7f-f552e6fbbcf3",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "최수연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "5bccee15-13ef-43a0-b1a7-9febd01cc4b6",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "나민경",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "a33c16d4-3397-4b59-881c-0e20353634a7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "여하은",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "40b4ce65-832b-41a1-a7db-c6797a5ab133",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "곽진아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "8d691b0b-feee-4ba0-bb4f-06c46e5ba55b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이민주",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "3df14bb9-8efd-4964-ae85-3f8dbd586ad8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "유현종",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "fc192b9c-dc3a-408d-ae94-e841c929fcf9",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김나우",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "90bc680e-f8ef-4545-8f61-1fef0a6d4dd2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박유지",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "9b043e11-e9f6-4b45-84a7-b00474446c65",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김민수",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "22a95d1f-8207-4539-894b-49d9a4a2aa05",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김성일",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "785f99e2-16b2-45df-b0ac-c192dcefd9ed",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김아진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "c7f05f19-9355-413c-9d89-f4c4649480a1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김하람",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "25ef0c5f-8100-4ae5-b873-780aa2cc0ea6",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김혜윤",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "288541d1-1cb3-4ffe-ba2e-c3ee92f4aa83",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박가은",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "b1a55fc5-9193-45fc-8011-24b0ff8c2681",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박소연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "c51891b3-c9a1-4add-820f-ecd3e6798238",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "배서진",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "d6de72d3-2095-48b9-9eb0-aac2b3c116b2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이나겸",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "62848fb4-2714-49b1-94f9-aea23d97aa0d",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이서진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "871345ba-07c9-4f88-9e84-0084975eda71",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이용준",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "a93590dd-72dc-4659-b1d9-ad5665372cd6",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "정우현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "66857854-5f47-463d-ac86-ce1494a2dcc8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이지송",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "7ea8c551-c7f3-4064-afb4-0cfb7dd1058e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "한승재",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "bd72548d-82e7-406b-ba06-f2946e6ba0b4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "정재은",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "f2e7bb45-8463-4baa-890a-5559fdfd4745",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "에밀리아",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "f04962bb-aa45-4629-a7e2-cd8c9617b67d",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이해주",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "52a09655-7e7f-4018-bc8a-a299012e1039",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "조상율",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "c28624f5-38cb-4faa-97ee-129afd1dbafa",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "공지민",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "bc03931f-25c8-4091-92b6-ee47e2a86d7a",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 8,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김동욱",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "d6475378-443f-44f1-adce-3dd5afb5779d",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 7,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "선종민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "8147c480-0e5b-41b8-aabe-bfe55c42843a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김현아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "5c3a934d-ee83-469e-87da-5b2096808a2f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "오나연",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "d92d9519-7f01-40f2-abe8-094838cd1eb0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 2
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "임혜진",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "53a5add3-ea2f-4ae1-8a18-90178b147c70",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이혜교",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "91dd686c-b845-43fc-9a0f-0cddb2b210a5",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "권유민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "8609071f-4a70-46c2-966a-5367296bac1c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김나윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "fd9e5d4f-3ee3-4413-8e2f-84ef1bd9d45d",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김예령",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "4d6d229e-2520-4b27-b330-8e7219c05976",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "권진영",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "d9503c5b-6c4e-46ed-acce-31a5b6d01a0c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김세진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "209e27c2-2ee4-4e26-b38f-4d11cea564cb",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "최예진",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "4bed6fc3-a38c-4cb9-a2d9-5e406f5177f3",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이유진",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "b0b1e041-180c-4187-b40d-848d3f9552cb",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김시영",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "6caa1555-c6e3-4dcc-946c-85da6b70ae90",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박건희",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "e5cc1fc9-d367-405d-be03-660bd4105d13",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이선호",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "f4148064-35df-4d16-bae8-168fcd0c0e10",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "조선규",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "9fc9ab44-8788-4202-b295-01f4b4af57cb",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "송서영",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "99a175c2-c942-4c51-914e-7ece38874167",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "전지연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "5c03de6a-0fbb-4b7c-bbd3-0427de8d6973",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김민결",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "692f9ce6-724b-40b2-a8f5-18dc6ae80c3c",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 9,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박솔이",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "ed6894d3-ada0-4d26-9ee6-e6c32743845a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 18,
+   "dbApproved": 18
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박제우",
+    "status": "검수 대상",
+    "cat": "검수",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "7491c666-fa61-4a7f-bb71-2c69fca676cd",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박진우",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "1c427e64-2b45-483f-a9c3-4339254b004b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "설경민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "1ad229f6-37f9-4e19-ac29-cbe9eb3705eb",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 16,
+   "dbApproved": 15
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "설유정",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "940b4c02-32a0-429b-ac47-5755b84cf4e8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "안동주",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "e503a954-2492-40e6-a4e2-822521a5bd33",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "전현성",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "1e847cb4-1e51-4a7b-825e-8555a3bf56bd",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 16,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "정은지",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "c91a10ba-1a05-4dbc-9bb2-ec66861f54af",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "휴식",
+   "dbCum": 7,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "지예림",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "e6b25f1b-3bc9-40fb-af87-4f2f44a9e6df",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 3,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박채원",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "02054750-6a4a-413b-9394-fc542c4ae1ac",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 3,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "공나윤",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "af1ba984-4dfb-40ef-a2a4-39c66b59c11f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이윤재",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "0d79d7a3-1fb3-4e6f-8734-53f437c8d11e",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 12,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "문지원",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "19aef58d-3694-4586-8992-003b0c368c38",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이종헌",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "d58347a0-09d7-4a64-954d-a956cd393360",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "송혜린",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "919bbc63-f5b0-4ff8-b569-4ca41fec4226",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 21,
+   "dbApproved": 21
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "류건영",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 24,
+    "note": ""
+   },
+   "userId": null,
+   "reason": "missing"
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "박시은",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 19,
+    "note": ""
+   },
+   "userId": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 22,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "성채윤",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "19cb4129-ba73-4685-9912-7d9d4ed3768b",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 20,
+   "dbApproved": 19
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "정혜빈",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 29,
+    "note": ""
+   },
+   "userId": "f3ac0827-793c-42a0-a83a-1c9070914b2e",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 31,
+   "dbApproved": 29
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "권원중",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 30,
+    "note": ""
+   },
+   "userId": "361f69d5-a718-4675-bbcb-15b8f69bf431",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 31,
+   "dbApproved": 29
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "권희윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 27,
+    "note": ""
+   },
+   "userId": "f7c159f8-ad78-46fd-b4c7-d39e6229f2e2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 26
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "위다인",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "33cd8f8a-a412-49dc-914c-01b1251871f9",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 17,
+   "dbApproved": 15
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "조창현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 22,
+    "note": ""
+   },
+   "userId": "1cde2e27-3069-4890-847c-83fd20a81f74",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김다빈",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "6bd51d10-8f4d-48ba-82cf-9284fc75eff0",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 23,
+   "dbApproved": 19
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "이다윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "c144d6fb-5a01-4453-aded-ae00dffdcf0b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 22,
+   "dbApproved": 19
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "이선욱",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "ff93b3dd-2bbd-44ad-9f2f-467a1dbe298f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 16,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김성곤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "974ba08b-7411-4fc8-ab22-178977de73a8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 23,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "이윤아",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "f5ea2501-1319-443a-9326-78f6bdce522d",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "이채성",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "35cd5770-98ec-49b4-95db-8ca6c92e53bf",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "강민지",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "a35a306b-6f53-4b0e-8b8b-afb6c34ec93a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "정수빈",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "d151c37b-5195-4ae1-ba79-d3b229a49eff",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "이현재",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "42913661-f637-4282-bdc5-04406dcb1aca",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김시원",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "566900f7-f4b2-4a95-bf11-d3dc4346453a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "양혁진",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "7fc78617-7a56-4fe0-8cbd-a9d857f292bc",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "조정인",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "d7cb79cc-9ed4-4ae1-bac3-cf86a684dd3e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "유지민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "3c9d2dfe-629c-4d81-b847-80e42e656d4c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "옥지윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "abef6e53-53c5-4277-bb70-e031153e533f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "송영권",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "b9cb873d-1052-438f-825f-85af589fab82",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "이다은",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "ebd7cf95-4e48-4ec4-9cf9-4392be5e59ac",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "범혜민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "a90bc300-6f64-450f-b107-ab112ab944ca",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "정수아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 1,
+    "note": ""
+   },
+   "userId": "2dc7f9ac-3452-426f-a948-51e40dc953de",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 1
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "신지현",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "d43fff71-8f90-465a-a471-c65abfa3ce36",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "박지민",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "49453df4-6f6e-4480-b69f-be034ba97a46",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김연우",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "7dfad8dc-b900-4e3c-a13b-e0b6b42342ca",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김민송",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "24caea11-ae48-489f-83a9-52780cb9eb96",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "강은비",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "11867101-8086-43d6-9349-6307ee286966",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 6,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "조은재",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "296de78e-2a24-450c-9af1-c93a66b9f982",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김성훈",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "004e3761-a7f9-4029-bd04-f6431488ed76",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 41,
+   "dbApproved": 16
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "박채원",
+    "status": "",
+    "cat": "기타",
+    "weeks": null,
+    "note": ""
+   },
+   "userId": "b93308d8-cd7d-4ecf-abd8-2658e91c99e6",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 21,
+   "dbApproved": 21
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "선은채",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "89eca4ba-5dc5-493a-8389-d3cf84cdc869",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "최종원",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 25,
+    "note": ""
+   },
+   "userId": "c0f0b494-f7a3-4811-86d5-08a2fbb1aef1",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 21,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "공준혁",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "ebb7eb40-76ba-4d51-8765-6966db7e587b",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김민서",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "b8825301-3bfa-40d0-bbca-5a0cc645e446",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "양설아",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "9a9afde8-2a79-429b-a512-88b99f675c6e",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 10,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "신유이",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "71f4e51a-372f-4fb7-ae14-43f5fb5d91dc",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 19,
+   "dbApproved": 14
+  }
+ ],
+ "statusDiff": [
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최지영",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "78c6c6f0-ce6f-4282-8315-55eceab3d1ad",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최유빈",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "d31d3d60-00c2-4d0f-bb56-a973c3b2bad7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최성은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 24,
+    "note": ""
+   },
+   "userId": "a08802dc-d928-45ae-b746-dedce7ec09fe",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "차명주",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "e22032a0-d63b-4089-8792-f7b7cfcbddae",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이종혁",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "4f793419-76ea-4eaf-af71-f296f3a25a01",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이인서",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "c4b7c6ee-d69e-499f-b8ab-3574b2529159",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이보배",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "991ff170-12fc-4afd-818c-83c4708a7d43",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 17,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이나윤",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "06cb02c5-3eb5-44cd-a783-925648bc155f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "윤지원",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "1a22c830-748c-4c9f-af42-70e5d1423860",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 5
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "옥유빈",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "241cbc47-ca0d-4172-9291-12086b64be04",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "손승준",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "8894cc95-c307-4871-84bc-bf67a759c7d1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "성수인",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "40fd1f6d-6112-4c7c-9869-8c5247d2e5b1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박준영",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "61915331-4ef0-4aef-a2f8-e28f6cb0d170",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박소민",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "62ac075a-f6c9-4d52-a476-378c9ddf66bf",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박가은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "50afc15e-bee0-4fdb-be9f-503f75b18956",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "문찬식",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 1,
+    "note": ""
+   },
+   "userId": "2d46ad94-66ed-47df-b305-ed3b32c21ae4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 1
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강민경",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "822a62c0-dbe5-43d3-9809-278f0c60aea7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강민주",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "db6a6135-1508-450b-885b-48a8e49737a1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강소윤",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "210c58d6-1e00-42db-bd42-d9073ef5652a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강현묵",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "39f9cef7-c6a4-47e7-b767-8abee8637eaf",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김가윤",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "e3f957c4-367b-419f-99a7-4e2172d0918e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 2
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김경은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "c849b8ee-f16c-4adc-9463-9379120b04b7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김나은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 1,
+    "note": ""
+   },
+   "userId": "25c55418-5080-478b-8479-89be5b460820",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 1
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김도연",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "b6959224-a3f7-4730-943a-3054e34f48de",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 23,
+   "dbApproved": 23
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김민아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "052aeb95-4239-418c-a31f-33a07520362d",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "서다희",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": null,
+    "note": ""
+   },
+   "userId": "a60c6f44-f300-421d-88b6-0a0a18c6757e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "오범모",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "f176eea2-530b-4efc-ae28-be4727d0ce19",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 3,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "조서연",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "b4baa160-9df9-432a-b7a6-2c96f2f50254",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 4,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "전수빈",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "6c271430-9267-4b1d-8730-b97c746015a3",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김민영",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 0,
+    "note": ""
+   },
+   "userId": "75764c31-8206-4d98-8acd-3015ce98d539",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 0,
+   "dbApproved": 0
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김보배",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "498d87c0-d1a9-443c-a470-d7d18057e509",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박소현",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "5d7ab85f-fa6b-4b84-841b-ee0faf885ee4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김여은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "666eeccf-8b9e-4d93-b857-9b15b46b910b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김재연",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "8ba14f7b-20f3-4732-bf9f-e49e517384f8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김제현",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "e752c775-ac53-4ab1-a1c6-bbd988633e8c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 21,
+   "dbApproved": 19
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박유민",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "f55c4dcb-6b51-41cf-98b8-9068eeddcc0e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 22,
+   "dbApproved": 18
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "안지민",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "539a45b0-71d1-49ca-a7c4-03ab462d3cc1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 20,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김준우",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 28,
+    "note": ""
+   },
+   "userId": "9d1d0edd-b3c7-4ad8-90d6-7021087c119e",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 29,
+   "dbApproved": 26
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김현지",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "da086fbd-de44-428b-a700-36a54cae6a45",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이채은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "50610737-9d35-4514-a617-c70072d4b2c0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이나영",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "579e077f-fc58-46cc-b7a8-6b42e81592ef",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이승아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "a928431e-6acc-4329-902c-cea0ee515eb2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "임정",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "41349692-429a-4036-8800-8d21929dbf0a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 12,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "곽진아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "8d691b0b-feee-4ba0-bb4f-06c46e5ba55b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김나우",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "90bc680e-f8ef-4545-8f61-1fef0a6d4dd2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김민수",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "22a95d1f-8207-4539-894b-49d9a4a2aa05",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김혜윤",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "288541d1-1cb3-4ffe-ba2e-c3ee92f4aa83",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "배서진",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "d6de72d3-2095-48b9-9eb0-aac2b3c116b2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "한승재",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "bd72548d-82e7-406b-ba06-f2946e6ba0b4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김현아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "5c3a934d-ee83-469e-87da-5b2096808a2f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "오나연",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "d92d9519-7f01-40f2-abe8-094838cd1eb0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 2
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "임혜진",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "53a5add3-ea2f-4ae1-8a18-90178b147c70",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "최예진",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "4bed6fc3-a38c-4cb9-a2d9-5e406f5177f3",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이유진",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "b0b1e041-180c-4187-b40d-848d3f9552cb",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박진우",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "1c427e64-2b45-483f-a9c3-4339254b004b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "지예림",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "e6b25f1b-3bc9-40fb-af87-4f2f44a9e6df",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 3,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박채원",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "02054750-6a4a-413b-9394-fc542c4ae1ac",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 3,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "공나윤",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "af1ba984-4dfb-40ef-a2a4-39c66b59c11f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "문지원",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "19aef58d-3694-4586-8992-003b0c368c38",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이종헌",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "d58347a0-09d7-4a64-954d-a956cd393360",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "양혁진",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "7fc78617-7a56-4fe0-8cbd-a9d857f292bc",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "정수아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 1,
+    "note": ""
+   },
+   "userId": "2dc7f9ac-3452-426f-a948-51e40dc953de",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 1
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "신지현",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "d43fff71-8f90-465a-a471-c65abfa3ce36",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김연우",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "7dfad8dc-b900-4e3c-a13b-e0b6b42342ca",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김민송",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "24caea11-ae48-489f-83a9-52780cb9eb96",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "조은재",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "296de78e-2a24-450c-9af1-c93a66b9f982",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "선은채",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "89eca4ba-5dc5-493a-8389-d3cf84cdc869",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김민서",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "b8825301-3bfa-40d0-bbca-5a0cc645e446",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 11
+  }
+ ],
+ "weekDiff": [
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "현유빈",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "807f863e-874f-4294-9ffc-d6cebf1976ee",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 18,
+   "dbApproved": 17
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "태소담",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 21,
+    "note": ""
+   },
+   "userId": "c15513ad-654d-4401-a527-e9fc4728a3c0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최인영",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "07c877a7-0e2e-4f7d-a250-7f16363d7a88",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 39,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최은정",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 27,
+    "note": ""
+   },
+   "userId": "5566175c-529b-423b-8c4a-a42e5cf0ace0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 26
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최수연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "83e12978-5a56-45ce-87d4-89e6bddca7ce",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 26,
+   "dbApproved": 15
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "최민희",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 29,
+    "note": "졸업 크루"
+   },
+   "userId": "1d1f2bcd-4880-4203-86a3-d045998867f2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "정혜선",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 31,
+    "note": "졸업 크루"
+   },
+   "userId": "60e3e8a2-0d28-4bfa-bac6-55f480bfa92a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 32,
+   "dbApproved": 30
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "정우진",
+    "status": "검수 대상",
+    "cat": "검수",
+    "weeks": 28,
+    "note": "졸업 크루인데 납부 안 함"
+   },
+   "userId": "943f6bdb-69d2-4bce-971e-9d244237d5ae",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 35,
+   "dbApproved": 29
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "장아현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 21,
+    "note": ""
+   },
+   "userId": "1edde6a3-a961-42d8-ae8d-601da1a16d85",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 22,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이혜인",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 40,
+    "note": "운영진 선발"
+   },
+   "userId": "787d36ba-ac71-4682-912d-d020b5162000",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 42,
+   "dbApproved": 41
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이서희",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 38,
+    "note": "졸업 크루"
+   },
+   "userId": "5229c8af-918c-47e7-876d-390d0ace8dfd",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 42,
+   "dbApproved": 39
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "유송미",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 24,
+    "note": ""
+   },
+   "userId": "2a96450c-6979-4c95-9b8d-9d60cd05290c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 23,
+   "dbApproved": 23
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "오주하",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "db3cce9d-b189-404d-b6ab-31b70a6bbeb6",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "안지원",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 25,
+    "note": ""
+   },
+   "userId": "6a4deabb-a0dd-4e9b-92a3-1f21829d3d51",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "문현수",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 36,
+    "note": "졸업 크루"
+   },
+   "userId": "c60fe520-a38d-421a-99f4-39aef24ee983",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 35,
+   "dbApproved": 35
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강소윤",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "210c58d6-1e00-42db-bd42-d9073ef5652a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강지원",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "c3e000ab-8343-4e5f-827e-1bfd7fb626d2",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 11,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "강지윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 24,
+    "note": ""
+   },
+   "userId": "5fcd40d8-1df7-4715-9ce8-362ae051654b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 25
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "견희진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 19,
+    "note": ""
+   },
+   "userId": "d22fda98-0d83-42ec-b68b-b507b6302a64",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "고채민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 19,
+    "note": ""
+   },
+   "userId": "ea970f61-7adf-4cbf-8b3c-92172b06d941",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 21,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이재훈",
+    "status": "검수 대상",
+    "cat": "검수",
+    "weeks": 26,
+    "note": ""
+   },
+   "userId": "0571d61e-e0fd-40c0-b733-a776f8d7ca26",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 31,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "오범모",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "f176eea2-530b-4efc-ae28-be4727d0ce19",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 3,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "오재우",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 3,
+    "note": ""
+   },
+   "userId": "01fe3128-ff4e-443d-a520-98da81a28e57",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 4,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "전수빈",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "6c271430-9267-4b1d-8730-b97c746015a3",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김성현",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "17abd6f7-3278-44c3-8c51-0d2bba6ca822",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이예령",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "ec3344e2-7fd2-44b6-9c85-46c44535f482",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 9,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박기연",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "7dc56793-ebed-4434-9222-c50cea1c112d",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 11,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "임지윤",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "c67fc4f5-54f3-4316-9eb1-66b03ebd0b90",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 13,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박소현",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "5d7ab85f-fa6b-4b84-841b-ee0faf885ee4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "한서정",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "b3168f9c-cfc1-42c9-9883-687820ac09f4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 12,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "한유림",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 11,
+    "note": ""
+   },
+   "userId": "58c06b53-a0a6-4bf7-9b2f-c2183b15ab08",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "윤정환",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "4badcded-2cf4-40e2-834f-7feb21441a05",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 12,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김예진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 25,
+    "note": ""
+   },
+   "userId": "f306646b-8cd9-46f6-b386-db8b731f2f0f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 29,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김유나",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 28,
+    "note": "졸업 크루"
+   },
+   "userId": "f810ae32-7261-402e-8db1-12a32eed8629",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 29,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "박영서",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "2add9357-fe82-461b-9dc0-ddf0224fd1aa",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "정세린",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "4b9ec8d2-1dc5-4e75-8e84-149b144f26f4",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "우태경",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "5a60921f-a885-40db-b504-652bdf0e14c9",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 17,
+   "dbApproved": 17
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김제현",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "e752c775-ac53-4ab1-a1c6-bbd988633e8c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 21,
+   "dbApproved": 19
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "안지민",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "539a45b0-71d1-49ca-a7c4-03ab462d3cc1",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 20,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "황예원",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "a394ed48-0306-4fb2-8c58-a4897ef84058",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 23,
+   "dbApproved": 17
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "방시은",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 19,
+    "note": ""
+   },
+   "userId": "50557ca0-6f9f-4e71-b02c-cfcee64cd0a7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "장유경",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 21,
+    "note": ""
+   },
+   "userId": "47cf8b39-678f-4f3b-bb83-ac5780ff3aea",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "송시윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "ed261ac9-d211-4838-a7fe-327b7878c2d7",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 26,
+   "dbApproved": 25
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "이예지",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "8e55068b-0d9b-424c-b6eb-a9393997e79d",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김준우",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 28,
+    "note": ""
+   },
+   "userId": "9d1d0edd-b3c7-4ad8-90d6-7021087c119e",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 29,
+   "dbApproved": 26
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "김준우",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 25,
+    "note": ""
+   },
+   "userId": "9d1d0edd-b3c7-4ad8-90d6-7021087c119e",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 29,
+   "dbApproved": 26
+  },
+  {
+   "ex": {
+    "org": "엥크레",
+    "orgSlug": "encre",
+    "name": "남수현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 25,
+    "note": ""
+   },
+   "userId": "af51fdd7-3333-45f2-b935-57724fc7986b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 27
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이수현",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "f00381de-8b3a-49dd-842b-d6ad3a6c0621",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 25,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이채은",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "50610737-9d35-4514-a617-c70072d4b2c0",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 25,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김채현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 17,
+    "note": ""
+   },
+   "userId": "012a3195-f55b-496e-969d-db50a3e24cb9",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 17,
+   "dbApproved": 16
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박유진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 27,
+    "note": ""
+   },
+   "userId": "576d0e8f-d4d3-49b4-8d0f-34ec3e51dac8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 24,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박소윤",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "4c6c334e-4d85-40dd-b8d5-cbec1548fca6",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 22,
+   "dbApproved": 21
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이나영",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "579e077f-fc58-46cc-b7a8-6b42e81592ef",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김민서",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "89c7cecb-0057-4d09-bb92-9ec96fffe44c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김수진",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 16,
+    "note": ""
+   },
+   "userId": "264740d2-05b1-4acc-bba1-21723e8e1005",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이지연",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "a46a5702-7820-4761-bda2-2a6f8c470a44",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 16,
+   "dbApproved": 16
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이승아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "a928431e-6acc-4329-902c-cea0ee515eb2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "신재현",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "61392a42-644a-4f68-ae3e-e8345b0d651f",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "임정",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "41349692-429a-4036-8800-8d21929dbf0a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 12,
+   "dbApproved": 10
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "곽진아",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "8d691b0b-feee-4ba0-bb4f-06c46e5ba55b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박소연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "c51891b3-c9a1-4add-820f-ecd3e6798238",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "정재은",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "f2e7bb45-8463-4baa-890a-5559fdfd4745",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 8,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "선종민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "8147c480-0e5b-41b8-aabe-bfe55c42843a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이선호",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "f4148064-35df-4d16-bae8-168fcd0c0e10",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "전지연",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "5c03de6a-0fbb-4b7c-bbd3-0427de8d6973",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 24
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "김민결",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "692f9ce6-724b-40b2-a8f5-18dc6ae80c3c",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 9,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박솔이",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 12,
+    "note": ""
+   },
+   "userId": "ed6894d3-ada0-4d26-9ee6-e6c32743845a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 18,
+   "dbApproved": 18
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박제우",
+    "status": "검수 대상",
+    "cat": "검수",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "7491c666-fa61-4a7f-bb71-2c69fca676cd",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박진우",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 18,
+    "note": ""
+   },
+   "userId": "1c427e64-2b45-483f-a9c3-4339254b004b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "설경민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "1ad229f6-37f9-4e19-ac29-cbe9eb3705eb",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 16,
+   "dbApproved": 15
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "설유정",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "940b4c02-32a0-429b-ac47-5755b84cf4e8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 11,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "안동주",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "e503a954-2492-40e6-a4e2-822521a5bd33",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "전현성",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 6,
+    "note": ""
+   },
+   "userId": "1e847cb4-1e51-4a7b-825e-8555a3bf56bd",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 16,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "정은지",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "c91a10ba-1a05-4dbc-9bb2-ec66861f54af",
+   "reason": "dup-resolved(주차)",
+   "dbStat": "휴식",
+   "dbCum": 7,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "지예림",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "e6b25f1b-3bc9-40fb-af87-4f2f44a9e6df",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 3,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "박채원",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 2,
+    "note": ""
+   },
+   "userId": "02054750-6a4a-413b-9394-fc542c4ae1ac",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 3,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이윤재",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "0d79d7a3-1fb3-4e6f-8734-53f437c8d11e",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 12,
+   "dbApproved": 11
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "문지원",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "19aef58d-3694-4586-8992-003b0c368c38",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "이종헌",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "d58347a0-09d7-4a64-954d-a956cd393360",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "오랑캐",
+    "orgSlug": "oranke",
+    "name": "송혜린",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "919bbc63-f5b0-4ff8-b569-4ca41fec4226",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 21,
+   "dbApproved": 21
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "박시은",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 19,
+    "note": ""
+   },
+   "userId": "56c46098-5c4c-4da8-8658-a6eb57fc1bad",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 22,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "성채윤",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "19cb4129-ba73-4685-9912-7d9d4ed3768b",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 20,
+   "dbApproved": 19
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "권원중",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 30,
+    "note": ""
+   },
+   "userId": "361f69d5-a718-4675-bbcb-15b8f69bf431",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 31,
+   "dbApproved": 29
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "권희윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 27,
+    "note": ""
+   },
+   "userId": "f7c159f8-ad78-46fd-b4c7-d39e6229f2e2",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 27,
+   "dbApproved": 26
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김다빈",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "6bd51d10-8f4d-48ba-82cf-9284fc75eff0",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 23,
+   "dbApproved": 19
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "이다윤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "c144d6fb-5a01-4453-aded-ae00dffdcf0b",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 22,
+   "dbApproved": 19
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김성곤",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 23,
+    "note": ""
+   },
+   "userId": "974ba08b-7411-4fc8-ab22-178977de73a8",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 23,
+   "dbApproved": 22
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "이윤아",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "f5ea2501-1319-443a-9326-78f6bdce522d",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 14
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "이채성",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "35cd5770-98ec-49b4-95db-8ca6c92e53bf",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 15,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "강민지",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "a35a306b-6f53-4b0e-8b8b-afb6c34ec93a",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "정수빈",
+    "status": "시즌 활동,운영진",
+    "cat": "운영진",
+    "weeks": 14,
+    "note": ""
+   },
+   "userId": "d151c37b-5195-4ae1-ba79-d3b229a49eff",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 14,
+   "dbApproved": 13
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "이현재",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 13,
+    "note": ""
+   },
+   "userId": "42913661-f637-4282-bdc5-04406dcb1aca",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 12
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "양혁진",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "7fc78617-7a56-4fe0-8cbd-a9d857f292bc",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "조정인",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 10,
+    "note": ""
+   },
+   "userId": "d7cb79cc-9ed4-4ae1-bac3-cf86a684dd3e",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 10,
+   "dbApproved": 9
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "유지민",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 8,
+    "note": ""
+   },
+   "userId": "3c9d2dfe-629c-4d81-b847-80e42e656d4c",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 7
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "송영권",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 9,
+    "note": ""
+   },
+   "userId": "b9cb873d-1052-438f-825f-85af589fab82",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 9,
+   "dbApproved": 8
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "신지현",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "d43fff71-8f90-465a-a471-c65abfa3ce36",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 7,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김민송",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "24caea11-ae48-489f-83a9-52780cb9eb96",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "강은비",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "11867101-8086-43d6-9349-6307ee286966",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 6,
+   "dbApproved": 4
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "조은재",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 4,
+    "note": ""
+   },
+   "userId": "296de78e-2a24-450c-9af1-c93a66b9f982",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 6,
+   "dbApproved": 3
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "김성훈",
+    "status": "시즌 활동",
+    "cat": "활동",
+    "weeks": 15,
+    "note": ""
+   },
+   "userId": "004e3761-a7f9-4029-bd04-f6431488ed76",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 41,
+   "dbApproved": 16
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "선은채",
+    "status": "시즌 중단",
+    "cat": "중단",
+    "weeks": 20,
+    "note": ""
+   },
+   "userId": "89eca4ba-5dc5-493a-8389-d3cf84cdc869",
+   "reason": "single",
+   "dbStat": "활동",
+   "dbCum": 13,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "최종원",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 25,
+    "note": ""
+   },
+   "userId": "c0f0b494-f7a3-4811-86d5-08a2fbb1aef1",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 21,
+   "dbApproved": 20
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "공준혁",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 5,
+    "note": ""
+   },
+   "userId": "ebb7eb40-76ba-4d51-8765-6966db7e587b",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 6,
+   "dbApproved": 6
+  },
+  {
+   "ex": {
+    "org": "팔랑크스",
+    "orgSlug": "phalanx",
+    "name": "양설아",
+    "status": "시즌 휴식",
+    "cat": "휴식",
+    "weeks": 7,
+    "note": ""
+   },
+   "userId": "9a9afde8-2a79-429b-a512-88b99f675c6e",
+   "reason": "single",
+   "dbStat": "휴식",
+   "dbCum": 10,
+   "dbApproved": 9
+  }
+ ],
+ "exRestNotDb": [
+  "b6959224-a3f7-4730-943a-3054e34f48de"
+ ],
+ "dbRestNotEx": [
+  "13fb675f-3943-4be8-89c5-0739024dd5b2"
+ ]
+}

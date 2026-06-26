@@ -149,6 +149,31 @@ export function isTransitionWeekStart(weekStartIso: string): boolean {
   return getSeasonWeekStatusForDate(weekStartIso) === "transition";
 }
 
+// 시즌 체인상 다음 시즌. 가을(연중 마지막) → 다음 해 겨울. (DB 무관·순수 캘린더)
+export function getNextSeason(season: Season): Season {
+  const cal = getSeasonCalendar(season.year);
+  const idx = cal.findIndex((s) => s.type === season.type);
+  if (idx >= 0 && idx < cal.length - 1) return cal[idx + 1];
+  return getSeasonCalendar(season.year + 1)[0];
+}
+
+// 운영 기준 시즌(operationalSeason): 현재 날짜가 전환 주차(시즌 정규 주수 +1)에 있으면
+//   "다음 시즌", 일반 활동 주차이면 "현재 시즌". 회원 명부/현재 활동 회원 목록처럼
+//   "지금 운영상 어느 시즌으로 봐야 하는가"가 필요한 화면에서 사용한다.
+//   (예: 봄 전환 주차면 여름, 여름 전환 주차면 가을 — 시즌명 하드코딩 없이 캘린더로 산출.)
+export function getOperationalSeason(iso: string): Season | null {
+  const season = getSeasonForDate(iso);
+  if (!season) return null;
+  return getSeasonWeekStatusForDate(iso) === "transition"
+    ? getNextSeason(season)
+    : season;
+}
+
+export function operationalSeasonDbKey(iso: string): DbSeasonKey | null {
+  const s = getOperationalSeason(iso);
+  return s ? seasonDbKey(s) : null;
+}
+
 export function getUserSeasons(
   activityStartedAt: string,
   activityEndedAt: string | null,

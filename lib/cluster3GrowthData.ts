@@ -370,10 +370,11 @@ function buildIndicators(
   }
 
   // f = 성장 휴식 시즌 (시즌 전체 휴식 신청)
-  // g = 성장(성공) 시즌 (f 가 아닌 시즌)
+  // g = 성장(성공) 시즌 (f·중단이 아닌 시즌)
   let f = 0, g = 0;
   for (const sr of seasonRows) {
     if (sr.status === "rest") f++;
+    else if (sr.status === "stopped") { /* 중단 시즌은 성공 시즌(g)에 포함하지 않음 */ }
     else g++;
   }
 
@@ -383,10 +384,17 @@ function buildIndicators(
     seasonRows.some(
       (sr) => sr.status === "rest" && sr.season_key === currentSeasonKey,
     );
+  // 시즌 중단 자동 판정 = 현재 시즌에 user_season_statuses.status='stopped' 존재(season-scoped).
+  const seasonStoppedActive =
+    currentSeasonKey !== null &&
+    seasonRows.some(
+      (sr) => sr.status === "stopped" && sr.season_key === currentSeasonKey,
+    );
 
   const resolution = resolveGrowthStatusDetail({
     growthStatus: profile.growth_status,
     seasonRestActive,
+    seasonStoppedActive,
     currentWeekStatus,
     approvedWeeks: a,
     elapsedWeeks: h,
@@ -784,6 +792,8 @@ export type GrowthRosterRow = {
 
 export async function getGrowthRosterBatch(
   userIds: string[],
+  // 시즌 키 override(미지정=현재 시즌). /admin/members 명부는 operationalSeasonDbKey 를 넘긴다.
+  seasonKeyOverride?: string | null,
 ): Promise<GrowthRosterRow[]> {
   if (userIds.length === 0) return [];
 
@@ -864,7 +874,7 @@ export async function getGrowthRosterBatch(
       activityByUser.set(profile.user_id, { available, completed });
   });
 
-  const seasonKey = currentSeasonDbKey();
+  const seasonKey = seasonKeyOverride !== undefined ? seasonKeyOverride : currentSeasonDbKey();
   return profiles
     .filter((profile) => !failedUserIds.has(profile.user_id))
     .map((profile) => {
@@ -916,6 +926,8 @@ type RosterSlimRow = {
 
 export async function getGrowthRosterBatchFast(
   userIds: string[],
+  // 시즌 키 override(미지정=현재 시즌). /admin/members 명부는 operationalSeasonDbKey 를 넘긴다.
+  seasonKeyOverride?: string | null,
 ): Promise<GrowthRosterRow[]> {
   if (userIds.length === 0) return [];
   const ID_CHUNK = 200;
@@ -986,9 +998,9 @@ export async function getGrowthRosterBatchFast(
 
   const out: GrowthRosterRow[] = [];
 
-  // 2) fat 폴백(미백필/불일치/누락) — 기존 검증된 경로 그대로.
+  // 2) fat 폴백(미백필/불일치/누락) — 기존 검증된 경로 그대로(override 전달).
   if (needFatIds.length > 0) {
-    out.push(...(await getGrowthRosterBatch(needFatIds)));
+    out.push(...(await getGrowthRosterBatch(needFatIds, seasonKeyOverride)));
   }
 
   // 3) slim 경로 — a/e/h/activity=slim, 상태=resolveGrowthStatusDetail(buildIndicators 동일 입력).
@@ -1014,7 +1026,7 @@ export async function getGrowthRosterBatchFast(
       list.push(row);
       seasonsByUser.set(row.user_id!, list);
     }
-    const seasonKey = currentSeasonDbKey();
+    const seasonKey = seasonKeyOverride !== undefined ? seasonKeyOverride : currentSeasonDbKey();
 
     for (const profile of profiles) {
       const s = slimByUser.get(profile.user_id)!;
@@ -1025,9 +1037,13 @@ export async function getGrowthRosterBatchFast(
       const seasonRestActive =
         seasonKey !== null &&
         seasonRows.some((sr) => sr.status === "rest" && sr.season_key === seasonKey);
+      const seasonStoppedActive =
+        seasonKey !== null &&
+        seasonRows.some((sr) => sr.status === "stopped" && sr.season_key === seasonKey);
       const display = resolveGrowthStatusDetail({
         growthStatus: profile.growth_status,
         seasonRestActive,
+        seasonStoppedActive,
         currentWeekStatus: currentWeekMap.get(profile.user_id) ?? null,
         approvedWeeks: s.success_weeks,
         elapsedWeeks: s.elapsed_weeks,
