@@ -1,0 +1,346 @@
+{
+ "generatedAt": "2026-06-26T01-26-10",
+ "mode": "apply",
+ "seasonKey": "2026-summer",
+ "expected": {
+  "encre": 34,
+  "oranke": 8,
+  "phalanx": 8,
+  "total": 50
+ },
+ "resolvedCount": 44,
+ "resolvedPerOrg": {
+  "encre": 30,
+  "oranke": 6,
+  "phalanx": 8
+ },
+ "toInsertCount": 44,
+ "toInsertPerOrg": {
+  "encre": 30,
+  "oranke": 6,
+  "phalanx": 8
+ },
+ "alreadyHas": [],
+ "held": [
+  {
+   "org": "encre",
+   "name": "이혜인",
+   "reason": "동명이인 2 — user_id 확정 필요(임의선택 금지)",
+   "candidates": [
+    "e7610025-6fa7-4227-b64b-cd3bb632d7be",
+    "787d36ba-ac71-4682-912d-d020b5162000"
+   ]
+  },
+  {
+   "org": "encre",
+   "name": "김도연",
+   "reason": "동명이인 2 — user_id 확정 필요(임의선택 금지)",
+   "candidates": [
+    "b6959224-a3f7-4730-943a-3054e34f48de",
+    "13fb675f-3943-4be8-89c5-0739024dd5b2"
+   ]
+  },
+  {
+   "org": "encre",
+   "name": "김민아",
+   "reason": "동명이인 2 — user_id 확정 필요(임의선택 금지)",
+   "candidates": [
+    "052aeb95-4239-418c-a31f-33a07520362d",
+    "e31d9987-d6c9-4fa6-a8ff-e50098ddaef0"
+   ]
+  },
+  {
+   "org": "encre",
+   "name": "박가은",
+   "reason": "동명이인 2 — user_id 확정 필요(임의선택 금지)",
+   "candidates": [
+    "01ecb8d5-cd46-4378-9769-63887556a6af",
+    "50afc15e-bee0-4fdb-be9f-503f75b18956"
+   ]
+  },
+  {
+   "org": "oranke",
+   "name": "전현성",
+   "reason": "user_profiles 매칭 0 (미존재/미이관/오타)",
+   "candidates": []
+  },
+  {
+   "org": "oranke",
+   "name": "정은지",
+   "reason": "동명이인 2 — user_id 확정 필요(임의선택 금지)",
+   "candidates": [
+    "c91a10ba-1a05-4dbc-9bb2-ec66861f54af",
+    "c2683c1e-bda1-4782-8fc1-c4f4e3520f40"
+   ]
+  }
+ ],
+ "resolved": [
+  {
+   "org": "encre",
+   "name": "현유빈",
+   "userId": "807f863e-874f-4294-9ffc-d6cebf1976ee"
+  },
+  {
+   "org": "encre",
+   "name": "추가현",
+   "userId": "40b2e0a5-016e-4559-8508-3861deb81065"
+  },
+  {
+   "org": "encre",
+   "name": "최인영",
+   "userId": "07c877a7-0e2e-4f7d-a250-7f16363d7a88"
+  },
+  {
+   "org": "encre",
+   "name": "제서영",
+   "userId": "34ef6e2f-3333-4a28-b423-6648825c34ac"
+  },
+  {
+   "org": "encre",
+   "name": "이재은",
+   "userId": "70ceae97-79e0-45e5-a5fe-9badabea9288"
+  },
+  {
+   "org": "encre",
+   "name": "송은서",
+   "userId": "f15a6824-6a36-4440-a447-460705c648bf"
+  },
+  {
+   "org": "encre",
+   "name": "손지희",
+   "userId": "8c080f19-59ac-4acc-b8e4-dc2bc3a5ee07"
+  },
+  {
+   "org": "encre",
+   "name": "손정민",
+   "userId": "9b925612-41b4-49c6-ad13-70a5a0d1f4d8"
+  },
+  {
+   "org": "encre",
+   "name": "류신형",
+   "userId": "6d6da914-4744-4057-ab87-05000f7df7c4"
+  },
+  {
+   "org": "encre",
+   "name": "김혜령",
+   "userId": "68b8b08e-62b1-4808-b9b4-77834c96d0a3"
+  },
+  {
+   "org": "encre",
+   "name": "강지원",
+   "userId": "c3e000ab-8343-4e5f-827e-1bfd7fb626d2"
+  },
+  {
+   "org": "encre",
+   "name": "김가희",
+   "userId": "690c5e30-9d2c-4a15-ba42-aceee0ad171a"
+  },
+  {
+   "org": "encre",
+   "name": "김나연",
+   "userId": "3d34ecae-ef55-4752-8e40-71a497df020d"
+  },
+  {
+   "org": "encre",
+   "name": "김다연",
+   "userId": "63c0f55c-6c41-4164-a0cd-689f7e94cf8e"
+  },
+  {
+   "org": "encre",
+   "name": "김다정",
+   "userId": "ea37d14d-d0ca-43f8-ab8d-632cf31f4fab"
+  },
+  {
+   "org": "encre",
+   "name": "황수민",
+   "userId": "7c379c6a-0c87-4922-89e0-d7a20fa8cf88"
+  },
+  {
+   "org": "encre",
+   "name": "오재우",
+   "userId": "01fe3128-ff4e-443d-a520-98da81a28e57"
+  },
+  {
+   "org": "encre",
+   "name": "김성현",
+   "userId": "17abd6f7-3278-44c3-8c51-0d2bba6ca822"
+  },
+  {
+   "org": "encre",
+   "name": "이예령",
+   "userId": "ec3344e2-7fd2-44b6-9c85-46c44535f482"
+  },
+  {
+   "org": "encre",
+   "name": "박기연",
+   "userId": "7dc56793-ebed-4434-9222-c50cea1c112d"
+  },
+  {
+   "org": "encre",
+   "name": "임지윤",
+   "userId": "c67fc4f5-54f3-4316-9eb1-66b03ebd0b90"
+  },
+  {
+   "org": "encre",
+   "name": "윤정환",
+   "userId": "4badcded-2cf4-40e2-834f-7feb21441a05"
+  },
+  {
+   "org": "encre",
+   "name": "김수민",
+   "userId": "7073ce7a-c4aa-4385-9a69-da8f27eada67"
+  },
+  {
+   "org": "encre",
+   "name": "김유나",
+   "userId": "f810ae32-7261-402e-8db1-12a32eed8629"
+  },
+  {
+   "org": "encre",
+   "name": "우태경",
+   "userId": "5a60921f-a885-40db-b504-652bdf0e14c9"
+  },
+  {
+   "org": "encre",
+   "name": "황예원",
+   "userId": "a394ed48-0306-4fb2-8c58-a4897ef84058"
+  },
+  {
+   "org": "encre",
+   "name": "김준우",
+   "userId": "9d1d0edd-b3c7-4ad8-90d6-7021087c119e"
+  },
+  {
+   "org": "encre",
+   "name": "김지민",
+   "userId": "b97ea231-da32-42be-9421-214fa3ccecdb"
+  },
+  {
+   "org": "encre",
+   "name": "김지우",
+   "userId": "770ef474-a123-4464-9a57-1995f8d9e5da"
+  },
+  {
+   "org": "encre",
+   "name": "김채연",
+   "userId": "b83ae2d2-c8f2-4d90-ba20-f908182bf7c3"
+  },
+  {
+   "org": "oranke",
+   "name": "이수현",
+   "userId": "f00381de-8b3a-49dd-842b-d6ad3a6c0621"
+  },
+  {
+   "org": "oranke",
+   "name": "박소윤",
+   "userId": "4c6c334e-4d85-40dd-b8d5-cbec1548fca6"
+  },
+  {
+   "org": "oranke",
+   "name": "공지민",
+   "userId": "bc03931f-25c8-4091-92b6-ee47e2a86d7a"
+  },
+  {
+   "org": "oranke",
+   "name": "김동욱",
+   "userId": "d6475378-443f-44f1-adce-3dd5afb5779d"
+  },
+  {
+   "org": "oranke",
+   "name": "김민결",
+   "userId": "692f9ce6-724b-40b2-a8f5-18dc6ae80c3c"
+  },
+  {
+   "org": "oranke",
+   "name": "이윤재",
+   "userId": "0d79d7a3-1fb3-4e6f-8734-53f437c8d11e"
+  },
+  {
+   "org": "phalanx",
+   "name": "성채윤",
+   "userId": "19cb4129-ba73-4685-9912-7d9d4ed3768b"
+  },
+  {
+   "org": "phalanx",
+   "name": "정혜빈",
+   "userId": "f3ac0827-793c-42a0-a83a-1c9070914b2e"
+  },
+  {
+   "org": "phalanx",
+   "name": "김다빈",
+   "userId": "6bd51d10-8f4d-48ba-82cf-9284fc75eff0"
+  },
+  {
+   "org": "phalanx",
+   "name": "강은비",
+   "userId": "11867101-8086-43d6-9349-6307ee286966"
+  },
+  {
+   "org": "phalanx",
+   "name": "최종원",
+   "userId": "c0f0b494-f7a3-4811-86d5-08a2fbb1aef1"
+  },
+  {
+   "org": "phalanx",
+   "name": "공준혁",
+   "userId": "ebb7eb40-76ba-4d51-8765-6966db7e587b"
+  },
+  {
+   "org": "phalanx",
+   "name": "양설아",
+   "userId": "9a9afde8-2a79-429b-a512-88b99f675c6e"
+  },
+  {
+   "org": "phalanx",
+   "name": "신유이",
+   "userId": "71f4e51a-372f-4fb7-ae14-43f5fb5d91dc"
+  }
+ ],
+ "insertedIds": [
+  "76d9c8d2-a9ef-4c8a-b41a-b84681f06807",
+  "6effbb88-8955-44c0-93a0-ac7555d4328c",
+  "d53f1613-178e-46f8-8f45-4a4cc9af2621",
+  "e1e2772d-932f-46f2-be02-fad92439cfbc",
+  "f385b9a7-2436-4382-8fa7-16a73a896ca6",
+  "e661c439-b8b0-4c4e-ad12-b45f2bbcb0a8",
+  "aaa5fef6-8392-4331-8686-e13b0d41f117",
+  "b2575a39-23e5-4d3a-8562-dfac31b6aa6f",
+  "c301e7e2-aad3-4609-b79d-bfd1b97f8439",
+  "56e762cb-9bbf-4705-8ae6-0e0f268d9df2",
+  "99e236e5-c253-4e05-9b39-8695432a6a65",
+  "bf51c5a6-a16d-4073-ab76-752273a77976",
+  "561bc5cb-bb4d-419d-8c6b-d21f11ae1d6d",
+  "25af7635-6c1d-4c07-bbb4-3ee78df8ec74",
+  "fc0dacdd-6547-4661-824a-4c40ccd9db66",
+  "2d91f206-0120-40fb-97d1-d58538ad691c",
+  "0837beeb-ec5a-4270-acd5-86c2986bdbe6",
+  "f5d5d5b9-2227-4552-8eaf-4fd0e63024aa",
+  "40f27dc9-b6b4-4ebe-a6c7-da668ba67180",
+  "c2d7d2bf-184a-4409-9005-8516e2f9eef2",
+  "10f1fe44-c6e3-44bc-9a0b-c9122a2f7102",
+  "74d638df-f70e-4839-b502-72f307a44df6",
+  "a5e2d92e-bbb6-4421-882b-4416731bc8b5",
+  "96e477f5-bb03-4618-bbdb-45af650fbc25",
+  "55218ce7-49f8-4d40-aadf-19fa2e21da48",
+  "ece3df6d-b215-4fe3-8a53-46232cf2d447",
+  "60093210-d64b-44dd-96cb-ba992312d53f",
+  "2e71fc77-aacc-4943-9adf-7035bde65844",
+  "d021ef61-a8e1-4ed3-bb91-167e45635eaa",
+  "2786e8fb-08a4-43f8-9ee5-b2c00b199e00",
+  "962a4e4e-becb-4a9e-afa8-d8fd90559e40",
+  "af306b09-38f8-4ead-9295-c30b4bedf595",
+  "4fa6ed90-aea7-4e47-a57e-2573ef66fb59",
+  "7e06622f-40ff-4e33-9c94-0e370be69495",
+  "87fad685-9c08-44a1-bdc9-3b075d701afa",
+  "157d9b81-172f-49ec-9e2e-4b928a0db338",
+  "35fdac96-61c4-450a-b289-7b7ab75d5f2c",
+  "ca79d75e-fa58-4f89-b388-d1bdde97269a",
+  "eede422f-2160-4d7c-85d0-8c60a7f8b214",
+  "86f578fc-6e3d-4023-918a-b7c53dcd46bb",
+  "d92d5577-ebcc-4223-92f5-766e12c37129",
+  "4f0aa91e-1037-4f20-b21c-6b3b8a53c666",
+  "eeca68f2-7956-4fd0-8920-8f1f35dd06ae",
+  "23b2d530-87d2-4032-99a1-b6e8df177d93"
+ ],
+ "insertedCount": 44
+}

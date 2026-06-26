@@ -1,0 +1,91 @@
+{
+ "mode": "apply",
+ "seasonKey": "2026-summer",
+ "chosen": [
+  {
+   "org": "encre",
+   "name": "이혜인",
+   "userId": "e7610025-6fa7-4227-b64b-cd3bb632d7be",
+   "ev": {
+    "school": "광운대",
+    "team": "프로듀싱",
+    "part": "이야기",
+    "phone": "8301"
+   }
+  },
+  {
+   "org": "encre",
+   "name": "김도연",
+   "userId": "13fb675f-3943-4be8-89c5-0739024dd5b2",
+   "ev": {
+    "school": "조선대",
+    "team": "갤러리",
+    "part": "코믹스",
+    "phone": "1620"
+   }
+  },
+  {
+   "org": "encre",
+   "name": "김민아",
+   "userId": "e31d9987-d6c9-4fa6-a8ff-e50098ddaef0",
+   "ev": {
+    "school": "한국외대",
+    "team": "팬마케팅",
+    "part": "FanFlow",
+    "phone": "7452"
+   }
+  },
+  {
+   "org": "encre",
+   "name": "박가은",
+   "userId": "01ecb8d5-cd46-4378-9769-63887556a6af",
+   "ev": {
+    "school": "청운대",
+    "team": "시즌전체휴식",
+    "part": "director",
+    "phone": "3036"
+   }
+  },
+  {
+   "org": "oranke",
+   "name": "정은지",
+   "userId": "c91a10ba-1a05-4dbc-9bb2-ec66861f54af",
+   "ev": {
+    "school": "숭실대",
+    "team": "시즌전체휴식",
+    "part": "예능",
+    "phone": "4315"
+   }
+  }
+ ],
+ "failedResolve": [],
+ "toInsert": [
+  {
+   "name": "이혜인",
+   "userId": "e7610025-6fa7-4227-b64b-cd3bb632d7be"
+  },
+  {
+   "name": "김도연",
+   "userId": "13fb675f-3943-4be8-89c5-0739024dd5b2"
+  },
+  {
+   "name": "김민아",
+   "userId": "e31d9987-d6c9-4fa6-a8ff-e50098ddaef0"
+  },
+  {
+   "name": "박가은",
+   "userId": "01ecb8d5-cd46-4378-9769-63887556a6af"
+  },
+  {
+   "name": "정은지",
+   "userId": "c91a10ba-1a05-4dbc-9bb2-ec66861f54af"
+  }
+ ],
+ "insertedIds": [
+  "03e9efa9-38d9-448b-8137-cf7711b6c592",
+  "683384a7-ec8e-4149-bbeb-296a8a48aa87",
+  "370dced1-5806-4387-862c-203696a4e3d9",
+  "bcdd0824-fdaf-4670-baba-2e5389c557c8",
+  "b3564da0-c842-44b9-b7ca-bfd61623445f"
+ ]
+}
