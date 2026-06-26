@@ -118,11 +118,11 @@ const MENU_INTEGRATED: MenuItem[] = [
   },
   {
     kind: "branch",
-    label: "팀과 파트",
+    label: "클럽 정보",
     icon: Network,
     basePath: "/admin/team-parts",
     children: [
-      { label: "팀 & 파트 정보", href: "/admin/team-parts/info" },
+      { label: "팀 내역", href: "/admin/team-parts/info" },
       { label: "팀 & 파트 등록", href: "/admin/team-parts/register" },
     ],
   },
@@ -270,7 +270,7 @@ const MENU_ORG: MenuItem[] = [
       { label: "주차와 시즌", href: "/admin/season-weeks" },
       { label: "허브와 라인", href: "/admin/lines/info" },
       { label: "허브별 프로세스 목록", href: "/admin/processes/info" },
-      { label: "팀 & 파트", href: "/admin/team-parts/info" },
+      { label: "팀 내역", href: "/admin/team-parts/info" },
     ],
   },
 ];

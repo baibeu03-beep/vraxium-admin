@@ -8,7 +8,7 @@ import {
 import { isOrganizationSlug } from "@/lib/organizations";
 import {
   loadTeamPartsInfo,
-  saveCurrentHalfTeams,
+  registerTeamHalf,
   TeamHalfWriteError,
 } from "@/lib/adminTeamHalvesData";
 
@@ -70,11 +70,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { organization, halfKey, teamNames } = (body ?? {}) as {
-    organization?: unknown;
-    halfKey?: unknown;
-    teamNames?: unknown;
-  };
+  const { organization, halfKey, teamName, description, leaderCrewCode } =
+    (body ?? {}) as {
+      organization?: unknown;
+      halfKey?: unknown;
+      teamName?: unknown;
+      description?: unknown;
+      leaderCrewCode?: unknown;
+    };
 
   if (typeof organization !== "string" || !isOrganizationSlug(organization)) {
     return Response.json(
@@ -89,21 +92,27 @@ export async function POST(request: NextRequest) {
     );
   }
   if (
-    !Array.isArray(teamNames) ||
-    !teamNames.every((t) => typeof t === "string")
+    typeof teamName !== "string" ||
+    typeof description !== "string" ||
+    typeof leaderCrewCode !== "string"
   ) {
     return Response.json(
-      { success: false, error: "teamNames 는 문자열 배열이어야 합니다." },
+      {
+        success: false,
+        error: "teamName · description · leaderCrewCode 가 필요합니다.",
+      },
       { status: 400 },
     );
   }
 
   try {
-    const teams = await saveCurrentHalfTeams(
+    const { teams } = await registerTeamHalf({
       organization,
       halfKey,
-      teamNames as string[],
-    );
+      teamName,
+      description,
+      leaderCrewCode,
+    });
     return Response.json({ success: true, data: { teams } });
   } catch (error) {
     if (error instanceof TeamHalfWriteError) {
@@ -116,7 +125,7 @@ export async function POST(request: NextRequest) {
     return Response.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "저장에 실패했습니다.",
+        error: error instanceof Error ? error.message : "등록에 실패했습니다.",
       },
       { status: 500 },
     );

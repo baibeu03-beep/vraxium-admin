@@ -55,3 +55,20 @@ export function halfLabel(halfKey: string): string {
 export function compareHalfKeyDesc(a: string, b: string): number {
   return b.localeCompare(a);
 }
+
+// 다음 반기 키. H1 → 같은 해 H2, H2 → 다음 해 H1.
+export function nextHalfKey(halfKey: string): string | null {
+  const p = parseHalfKey(halfKey);
+  if (!p) return null;
+  return p.period === "H1" ? `${p.year}-H2` : `${p.year + 1}-H1`;
+}
+
+// 편집 가능 판정의 단일 SoT — 현재 반기 OR 다음 반기(과거는 조회 전용).
+//   프론트 disabled·백엔드 write gate·canEdit 판정이 모두 이 함수를 거친다.
+export function isEditableHalf(
+  halfKey: string,
+  currentHalfKey: string | null,
+): boolean {
+  if (!currentHalfKey) return false;
+  return halfKey === currentHalfKey || halfKey === nextHalfKey(currentHalfKey);
+}

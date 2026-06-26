@@ -43,6 +43,7 @@ const TITLES: Record<string, string> = {
   "/admin/settings/line-opening-windows": "운영 관리 · 라인 개설 기간",
   "/admin/lines/register": "허브와 라인 · 라인 등록",
   "/admin/lines/info": "허브와 라인 · 라인 정보",
+  "/admin/team-parts/info": "클럽 정보 · 팀 내역",
   "/admin/career-projects": "라인 개설 · 실무 경력",
   "/admin/import": "데이터 관리 · 가져오기",
 };

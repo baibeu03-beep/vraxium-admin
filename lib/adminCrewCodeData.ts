@@ -333,6 +333,20 @@ export async function getCrewCode(userId: string): Promise<string | null> {
   return (data as { crew_code: string | null } | null)?.crew_code ?? null;
 }
 
+// 역방향: crew_code → user_id. 코드로 등록된 크루가 없으면 null(팀장 등록 불가 신호).
+//   crew_code 는 freeze SoT 라 대소문자/공백 정규화만 한다(코드 자체는 생성 규칙대로 보존).
+export async function getUserIdByCrewCode(crewCode: string): Promise<string | null> {
+  const code = String(crewCode ?? "").trim();
+  if (!code) return null;
+  const { data, error } = await supabaseAdmin
+    .from("user_profiles")
+    .select("user_id")
+    .eq("crew_code", code)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as { user_id: string | null } | null)?.user_id ?? null;
+}
+
 // detail 조회 시 코드가 없으면 파티션 append 로 1건 생성(freeze: 기존 코드는 건드리지 않음).
 //   파티션(org+시작주차) 내 기존 코드의 max(이름순)+1 부여 → 초기 배치 가나다 이후 합류자 append.
 //   생성 불가(데이터 누락)면 null 반환(앱은 "미생성" 표시).

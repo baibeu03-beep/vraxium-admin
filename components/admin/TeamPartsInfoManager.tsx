@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -16,15 +15,31 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import {
   ORGANIZATIONS,
-  ORGANIZATION_LABEL,
-  isOrganizationSlug,
+  type OrganizationSlug,
 } from "@/lib/organizations";
+import { parseHalfKey } from "@/lib/teamHalf";
+
+const MAX_TEAMS_PER_CLUB = 10;
+const MAX_TEAM_NAME = 12;
+const MAX_TEAM_DESC = 200;
 
 type TeamDto = {
+  teamHalfId: string;
   teamName: string;
   teamId: string | null;
   displayOrder: number;
   isActive: boolean;
+  description: string | null;
+  leaderUserId: string | null;
+  leaderCrewCode: string | null;
+  leaderName: string | null;
+  leaderBirth6: string | null;
+  leaderGender: string | null;
+  leaderSchool: string | null;
+  leaderMajor: string | null;
+  leaderResidence: string | null;
+  partCount: number;
+  partNames: string[];
 };
 
 type HalfOption = {
@@ -44,46 +59,112 @@ type InfoDto = {
   teams: TeamDto[];
 };
 
+type LeaderCandidate = {
+  userId: string;
+  crewCode: string | null;
+  organizationSlug: string | null;
+  name: string | null;
+  gender: string | null;
+  birth6: string | null;
+  residence: string | null;
+  school: string | null;
+  major: string | null;
+  classLabel: string | null;
+  teamName: string | null;
+  partName: string | null;
+  successWeeks: number | null;
+  gradeLabel: string | null;
+};
+
 type Banner = { kind: "success" | "error"; message: string } | null;
+
+const CLUB_LABEL: Record<OrganizationSlug, string> = {
+  encre: "엥크레",
+  oranke: "오랑캐",
+  phalanx: "팔랑크스",
+};
+const CHIP_CLS: Record<OrganizationSlug, string> = {
+  encre: "bg-red-500 text-white border-red-600",
+  oranke: "bg-yellow-300 text-zinc-900 border-yellow-400",
+  phalanx: "bg-green-500 text-white border-green-600",
+};
+const TAB_ACTIVE_CLS = CHIP_CLS;
 
 const SELECT_CLS =
   "rounded-md border border-input bg-background px-3 py-2 text-sm";
+
+function formatHalf(halfKey: string): string {
+  const p = parseHalfKey(halfKey);
+  if (!p) return halfKey;
+  return `${p.year}년 ${p.period === "H1" ? "상반기" : "하반기"}`;
+}
+function dash(v: string | number | null | undefined): string {
+  return v === null || v === undefined || v === "" ? "-" : String(v);
+}
+function formatBirth6(b: string | null): string {
+  if (!b || b.length < 6) return "-";
+  return `${b.slice(0, 2)}. ${b.slice(2, 4)}. ${b.slice(4, 6)}`;
+}
 
 export default function TeamPartsInfoManager() {
   const searchParams = useSearchParams();
   const orgFromUrl = readOrgParam(searchParams);
 
-  const [org, setOrg] = useState<string>(orgFromUrl ?? ORGANIZATIONS[0]);
   const [half, setHalf] = useState<string | null>(null);
-  const [data, setData] = useState<InfoDto | null>(null);
+  const [halves, setHalves] = useState<HalfOption[]>([]);
+  const [currentHalfKey, setCurrentHalfKey] = useState<string | null>(null);
+  const [byOrg, setByOrg] = useState<Record<string, TeamDto[]>>({});
   const [loading, setLoading] = useState(true);
   const [banner, setBanner] = useState<Banner>(null);
 
-  // 현재 반기 편집 드래프트(팀명 배열).
-  const [draft, setDraft] = useState<string[]>([]);
-  const [newTeam, setNewTeam] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [activeOrg, setActiveOrg] = useState<OrganizationSlug>(
+    orgFromUrl ?? ORGANIZATIONS[0],
+  );
+
+  // 팀 등록 팝업.
+  const [modalOpen, setModalOpen] = useState(false);
+  const [teamName, setTeamName] = useState("");
+  const [description, setDescription] = useState("");
+  const [crewCode, setCrewCode] = useState("");
+  const [leader, setLeader] = useState<LeaderCandidate | null>(null);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
+  const [registering, setRegistering] = useState(false);
 
   const load = useCallback(
-    async (organization: string, halfKey: string | null) => {
+    async (halfKey: string | null, focusOrg: OrganizationSlug) => {
       setLoading(true);
       setBanner(null);
       try {
-        const params = new URLSearchParams({ organization });
-        if (halfKey) params.set("half", halfKey);
-        const res = await fetch(`/api/admin/team-parts/info?${params.toString()}`, {
-          cache: "no-store",
+        const results = await Promise.all(
+          ORGANIZATIONS.map(async (org) => {
+            const params = new URLSearchParams({ organization: org });
+            if (halfKey) params.set("half", halfKey);
+            const res = await fetch(
+              `/api/admin/team-parts/info?${params.toString()}`,
+              { cache: "no-store" },
+            );
+            const json = await res.json();
+            if (!res.ok || !json.success) {
+              throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+            }
+            return json.data as InfoDto;
+          }),
+        );
+
+        const base = results[0];
+        setHalves(base.halves);
+        setCurrentHalfKey(base.currentHalfKey);
+        setHalf(base.selectedHalfKey);
+
+        const map: Record<string, TeamDto[]> = {};
+        ORGANIZATIONS.forEach((org, i) => {
+          map[org] = results[i].teams;
         });
-        const json = await res.json();
-        if (!res.ok || !json.success) {
-          throw new Error(json?.error ?? `조회 실패 (${res.status})`);
-        }
-        const dto = json.data as InfoDto;
-        setData(dto);
-        setHalf(dto.selectedHalfKey);
-        setDraft(dto.teams.map((t) => t.teamName));
+        setByOrg(map);
       } catch (e) {
-        setData(null);
+        setByOrg({});
+        setHalves([]);
         setBanner({
           kind: "error",
           message: e instanceof Error ? e.message : "조회 실패",
@@ -95,148 +176,128 @@ export default function TeamPartsInfoManager() {
     [],
   );
 
-  // org 변경 → 현재 반기로 리셋(half=null).
   useEffect(() => {
-    void load(org, null);
-  }, [org, load]);
-
-  const onOrgChange = (value: string) => {
-    if (isOrganizationSlug(value)) {
-      setHalf(null);
-      setOrg(value);
-    }
-  };
+    void load(null, activeOrg);
+    // 최초 1회만.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onHalfChange = (value: string) => {
     setHalf(value);
-    void load(org, value);
+    void load(value, activeOrg);
+  };
+  const onTabChange = (org: OrganizationSlug) => {
+    setActiveOrg(org);
+    setBanner(null);
   };
 
-  const editable = data?.editable ?? false;
-  const dirty = useMemo(() => {
-    if (!data) return false;
-    const original = data.teams.map((t) => t.teamName);
-    if (original.length !== draft.length) return true;
-    return original.some((name, i) => name !== draft[i]);
-  }, [data, draft]);
+  // 편집 가능 = 백엔드 권위(halves[].editable: 현재 OR 다음 반기). 프론트가 재정의하지 않는다.
+  const selectedHalfOption = useMemo(
+    () => halves.find((h) => h.halfKey === half) ?? null,
+    [halves, half],
+  );
+  const editable = selectedHalfOption?.editable ?? false;
+  const isCurrentHalf = half != null && half === currentHalfKey;
 
-  const addTeam = () => {
-    const name = newTeam.trim();
-    if (!name) return;
-    if (draft.includes(name)) {
-      setBanner({ kind: "error", message: "이미 목록에 있는 팀입니다." });
-      return;
+  const clubCount = useMemo(
+    () => ORGANIZATIONS.filter((o) => (byOrg[o]?.length ?? 0) > 0).length,
+    [byOrg],
+  );
+  const totalTeams = useMemo(
+    () => ORGANIZATIONS.reduce((sum, o) => sum + (byOrg[o]?.length ?? 0), 0),
+    [byOrg],
+  );
+  const activeTeams = byOrg[activeOrg] ?? [];
+  const atLimit = activeTeams.length >= MAX_TEAMS_PER_CLUB;
+
+  // ── 팝업 제어 ──
+  const resetForm = () => {
+    setTeamName("");
+    setDescription("");
+    setCrewCode("");
+    setLeader(null);
+    setLookupError(null);
+  };
+  const openModal = () => {
+    if (!editable) return;
+    resetForm();
+    setModalOpen(true);
+  };
+  const closeModal = () => {
+    setModalOpen(false);
+    resetForm();
+  };
+
+  const callCrew = async () => {
+    const code = crewCode.trim();
+    if (!code) return;
+    setLookingUp(true);
+    setLookupError(null);
+    setLeader(null);
+    try {
+      const res = await fetch(
+        `/api/admin/team-parts/crew-lookup?code=${encodeURIComponent(code)}`,
+        { cache: "no-store" },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+      }
+      setLeader(json.data as LeaderCandidate);
+    } catch (e) {
+      setLeader(null);
+      setLookupError(e instanceof Error ? e.message : "크루 조회 실패");
+    } finally {
+      setLookingUp(false);
     }
-    setDraft((d) => [...d, name]);
-    setNewTeam("");
   };
 
-  const removeTeam = (name: string) =>
-    setDraft((d) => d.filter((t) => t !== name));
+  const canRegister =
+    teamName.trim().length > 0 &&
+    teamName.trim().length <= MAX_TEAM_NAME &&
+    description.trim().length > 0 &&
+    description.trim().length <= MAX_TEAM_DESC &&
+    leader != null &&
+    !atLimit &&
+    !registering;
 
-  const move = (index: number, dir: -1 | 1) => {
-    setDraft((d) => {
-      const next = [...d];
-      const target = index + dir;
-      if (target < 0 || target >= next.length) return d;
-      [next[index], next[target]] = [next[target], next[index]];
-      return next;
-    });
-  };
-
-  const resetDraft = () => {
-    if (data) setDraft(data.teams.map((t) => t.teamName));
-  };
-
-  const save = async () => {
-    if (!data || !half) return;
-    setSaving(true);
+  const register = async () => {
+    if (!half || !leader) return;
+    setRegistering(true);
     setBanner(null);
     try {
       const res = await fetch(`/api/admin/team-parts/info`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          organization: org,
+          organization: activeOrg,
           halfKey: half,
-          teamNames: draft,
+          teamName: teamName.trim(),
+          description: description.trim(),
+          leaderCrewCode: (leader.crewCode ?? crewCode).trim(),
         }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? `저장 실패 (${res.status})`);
+        throw new Error(json?.error ?? `등록 실패 (${res.status})`);
       }
-      setBanner({ kind: "success", message: "저장되었습니다." });
-      await load(org, half);
+      setBanner({ kind: "success", message: "팀이 등록되었습니다." });
+      closeModal();
+      await load(half, activeOrg);
     } catch (e) {
-      setBanner({
-        kind: "error",
-        message: e instanceof Error ? e.message : "저장 실패",
-      });
+      // 팝업은 유지하고 오류 노출(재시도 가능).
+      setLookupError(e instanceof Error ? e.message : "등록 실패");
     } finally {
-      setSaving(false);
+      setRegistering(false);
     }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>팀 &amp; 파트 정보 — 반기별 팀</CardTitle>
-        <CardDescription>
-          반기를 선택하면 그 반기가 끝난 시점(마지막 시즌)에 존재한 팀 목록을
-          보여줍니다. 현재 반기만 수정할 수 있고, 과거 반기는 조회 전용입니다.
-        </CardDescription>
+        <CardTitle>팀 내역</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">조직</span>
-            <select
-              id="team-parts-org-select"
-              className={SELECT_CLS}
-              value={org}
-              onChange={(e) => onOrgChange(e.target.value)}
-            >
-              {ORGANIZATIONS.map((slug) => (
-                <option key={slug} value={slug}>
-                  {ORGANIZATION_LABEL[slug]}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="text-muted-foreground">반기</span>
-            <select
-              id="team-parts-half-select"
-              className={SELECT_CLS}
-              value={half ?? ""}
-              onChange={(e) => onHalfChange(e.target.value)}
-              disabled={loading || !data || data.halves.length === 0}
-            >
-              {data?.halves.map((h) => (
-                <option key={h.halfKey} value={h.halfKey}>
-                  {h.label}
-                  {h.isCurrent ? " (현재)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          {data && half ? (
-            <span
-              className={
-                "rounded-md px-2 py-1 text-xs " +
-                (editable
-                  ? "bg-emerald-50 text-emerald-700"
-                  : "bg-muted text-muted-foreground")
-              }
-            >
-              {editable ? "현재 반기 · 수정 가능" : "과거 반기 · 조회 전용"}
-            </span>
-          ) : null}
-        </div>
-
+      <CardContent className="space-y-6">
         {banner ? (
           <div
             className={
@@ -250,112 +311,391 @@ export default function TeamPartsInfoManager() {
           </div>
         ) : null}
 
-        {loading ? (
-          <LoadingState active />
-        ) : !data || data.halves.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            이 조직에 등록된 반기 팀 데이터가 없습니다.
-          </p>
-        ) : editable ? (
-          <div className="space-y-3">
-            <ol className="space-y-2">
-              {draft.map((name, i) => (
-                <li
-                  key={name}
-                  className="flex items-center gap-2 rounded-md border border-input px-3 py-2 text-sm"
-                >
-                  <span className="w-6 text-muted-foreground">{i + 1}</span>
-                  <span className="flex-1 font-medium">{name}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => move(i, -1)}
-                    disabled={i === 0}
-                    aria-label="위로"
-                  >
-                    <ArrowUp className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => move(i, 1)}
-                    disabled={i === draft.length - 1}
-                    aria-label="아래로"
-                  >
-                    <ArrowDown className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeTeam(name)}
-                    aria-label="삭제"
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </Button>
-                </li>
-              ))}
-              {draft.length === 0 ? (
-                <li className="text-sm text-muted-foreground">
-                  등록된 팀이 없습니다. 아래에서 추가하세요.
-                </li>
-              ) : null}
-            </ol>
+        {/* ── [섹션.1] 요약 ─────────────────────────────── */}
+        <section className="rounded-lg border border-dashed border-red-300 p-4">
+          <div className="mb-3 flex flex-wrap items-center gap-x-8 gap-y-3">
+            <label className="flex items-center gap-2 text-sm font-semibold">
+              <span>● 해당 시기</span>
+              <select
+                id="team-parts-half-select"
+                className={SELECT_CLS}
+                value={half ?? ""}
+                onChange={(e) => onHalfChange(e.target.value)}
+                disabled={loading || halves.length === 0}
+              >
+                {halves.map((h) => (
+                  <option key={h.halfKey} value={h.halfKey}>
+                    {formatHalf(h.halfKey)}
+                    {h.isCurrent ? " (현재)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="text-sm">
+              · 클럽 수{" "}
+              <strong id="team-parts-club-count" className="text-base">
+                {clubCount}
+              </strong>
+            </span>
+            <span className="text-sm">
+              · 전체 팀 수{" "}
+              <strong id="team-parts-total-team-count" className="text-base">
+                {totalTeams}
+              </strong>
+            </span>
+          </div>
 
-            <div className="flex items-center gap-2">
-              <Input
-                value={newTeam}
-                onChange={(e) => setNewTeam(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    addTeam();
-                  }
-                }}
-                placeholder="팀 이름 추가"
-                className="max-w-xs"
-              />
-              <Button type="button" variant="outline" onClick={addTeam}>
-                <Plus className="mr-1 h-4 w-4" />
-                추가
-              </Button>
+          {loading ? (
+            <LoadingState active />
+          ) : halves.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              등록된 반기 팀 데이터가 없습니다.
+            </p>
+          ) : (
+            <div className="space-y-4 rounded-md bg-sky-50 p-4">
+              {ORGANIZATIONS.map((org) => {
+                const teams = byOrg[org] ?? [];
+                return (
+                  <div
+                    key={org}
+                    data-club-row={org}
+                    className="flex items-start gap-4"
+                  >
+                    <div className="w-20 shrink-0 pt-1 text-sm font-bold">
+                      {CLUB_LABEL[org]}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-3">
+                      {teams.length === 0 ? (
+                        <span className="text-sm text-muted-foreground">
+                          팀 없음
+                        </span>
+                      ) : (
+                        teams.map((t) => (
+                          <div
+                            key={t.teamName}
+                            className="flex flex-col items-center gap-1"
+                          >
+                            <span
+                              className={
+                                "rounded-md border px-3 py-1 text-sm font-bold " +
+                                CHIP_CLS[org]
+                              }
+                            >
+                              {t.teamName}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {dash(t.leaderName)}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* ── [섹션.2] 조직 탭 + 팀 등록 박스 ── */}
+        {!loading && halves.length > 0 ? (
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex gap-1">
+                {ORGANIZATIONS.map((org) => (
+                  <button
+                    key={org}
+                    type="button"
+                    data-org-tab={org}
+                    onClick={() => onTabChange(org)}
+                    className={
+                      "rounded-md border px-3 py-1.5 text-sm font-bold " +
+                      (activeOrg === org
+                        ? TAB_ACTIVE_CLS[org]
+                        : "border-input bg-background text-muted-foreground")
+                    }
+                  >
+                    {CLUB_LABEL[org]}
+                  </button>
+                ))}
+              </div>
+              <span className="text-sm">
+                · 팀 수{" "}
+                <strong id="team-parts-active-team-count" className="text-base">
+                  {activeTeams.length}
+                </strong>
+                <span className="text-muted-foreground">
+                  {" "}
+                  / {MAX_TEAMS_PER_CLUB}
+                </span>
+              </span>
+              <span
+                className={
+                  "rounded-md px-2 py-1 text-xs " +
+                  (editable
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-muted text-muted-foreground")
+                }
+              >
+                {isCurrentHalf
+                  ? "현재 반기 · 수정 가능"
+                  : editable
+                    ? "다음 반기 · 수정 가능"
+                    : "과거 반기 · 조회 전용"}
+              </span>
             </div>
 
-            <div className="flex items-center gap-2 pt-1">
-              <Button type="button" onClick={save} disabled={saving || !dirty}>
-                {saving ? "저장 중…" : "저장"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetDraft}
-                disabled={saving || !dirty}
+            {/* 등록된 팀 box 누적(위) — 시안 [4]. 하단 주차별 내역 영역은 범위 제외. */}
+            {activeTeams.map((t) => (
+              <div
+                key={t.teamHalfId}
+                data-team-box={t.teamName}
+                className="space-y-3 rounded-lg border border-zinc-300 bg-white p-4"
               >
-                초기화
-              </Button>
+                {/* Row 1: 팀명 · 개요 · 수정/삭제 */}
+                <div className="flex items-start gap-3">
+                  <span
+                    className={
+                      "shrink-0 rounded-md border px-3 py-1 text-sm font-bold " +
+                      CHIP_CLS[activeOrg]
+                    }
+                  >
+                    {t.teamName}
+                  </span>
+                  <span className="flex-1 rounded-md border border-input bg-muted/30 px-3 py-1.5 text-sm">
+                    {dash(t.description)}
+                  </span>
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!editable}
+                      onClick={() =>
+                        setBanner({
+                          kind: "success",
+                          message: "수정 기능은 후속 작업에서 연결됩니다(버튼 UI).",
+                        })
+                      }
+                    >
+                      수정
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={!editable}
+                      onClick={() =>
+                        setBanner({
+                          kind: "success",
+                          message: "삭제 기능은 후속 작업에서 연결됩니다(버튼 UI).",
+                        })
+                      }
+                    >
+                      삭제
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Row 2: 팀장 기본정보 · 파트 수 · 파트 칩 */}
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-medium">
+                    {dash(t.leaderName)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {formatBirth6(t.leaderBirth6)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {dash(t.leaderGender)}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {dash(t.leaderSchool)}
+                    {t.leaderMajor ? `, ${t.leaderMajor}` : ""}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {dash(t.leaderResidence)}
+                  </span>
+                  <span className="ml-2">
+                    · 파트 수{" "}
+                    <strong data-team-partcount={t.teamName}>
+                      {t.partCount}
+                    </strong>
+                  </span>
+                  <span className="flex flex-wrap gap-1" data-team-parts={t.teamName}>
+                    {t.partNames.map((p) => (
+                      <span
+                        key={p}
+                        className="rounded-md border border-input bg-background px-2 py-0.5 text-xs font-medium"
+                      >
+                        {p}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            {/* 빈 박스 — 클릭 시 팀 등록 팝업(현재·다음 반기). 과거 반기=비활성. */}
+            <button
+              type="button"
+              id="team-parts-register-box"
+              onClick={openModal}
+              disabled={!editable}
+              aria-label="팀 등록"
+              className={
+                "flex min-h-[140px] w-full items-center justify-center rounded-lg border-2 border-dashed text-lg font-bold transition-colors " +
+                (editable
+                  ? "cursor-pointer border-zinc-300 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50"
+                  : "cursor-not-allowed border-zinc-200 text-zinc-300")
+              }
+            >
+              + 팀 등록
+            </button>
+          </section>
+        ) : null}
+      </CardContent>
+
+      {/* ── 팀 등록 팝업 ─────────────────────────────────── */}
+      {modalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeModal();
+          }}
+        >
+          <div
+            id="team-parts-register-modal"
+            className="mt-10 w-full max-w-3xl rounded-lg bg-orange-50 p-6 shadow-xl"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold">
+                팀 등록 · {CLUB_LABEL[activeOrg]} · {half ? formatHalf(half) : ""}
+              </h2>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  id="team-parts-register-submit"
+                  onClick={register}
+                  disabled={!canRegister}
+                >
+                  {registering ? "등록 중…" : "등록"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={closeModal}
+                  aria-label="닫기"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {atLimit ? (
+              <div className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                한 클럽에는 최대 {MAX_TEAMS_PER_CLUB}개 팀까지만 등록할 수 있습니다.
+              </div>
+            ) : null}
+
+            {/* 팀 명 / 팀 개요 */}
+            <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-semibold">● 팀 명</span>
+                <Input
+                  id="team-parts-name-input"
+                  value={teamName}
+                  maxLength={MAX_TEAM_NAME}
+                  onChange={(e) => setTeamName(e.target.value)}
+                  placeholder={`팀 명 (최대 ${MAX_TEAM_NAME}자)`}
+                />
+                <span className="text-xs text-muted-foreground">
+                  {teamName.length}/{MAX_TEAM_NAME}
+                </span>
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-semibold">● 팀 개요</span>
+                <textarea
+                  id="team-parts-desc-input"
+                  value={description}
+                  maxLength={MAX_TEAM_DESC}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder={`팀 개요 (최대 ${MAX_TEAM_DESC}자)`}
+                  rows={3}
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+                <span className="text-xs text-muted-foreground">
+                  {description.length}/{MAX_TEAM_DESC}
+                </span>
+              </label>
+            </div>
+
+            {/* 팀장 - 크루코드 + 호출 + [6] 크루 정보 */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[260px_1fr]">
+              <div className="flex flex-col gap-2 text-sm">
+                <span className="font-semibold">● 팀장 · 크루 코드</span>
+                <Input
+                  id="team-parts-crewcode-input"
+                  value={crewCode}
+                  onChange={(e) => setCrewCode(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void callCrew();
+                    }
+                  }}
+                  placeholder="크루 코드"
+                />
+                <Button
+                  type="button"
+                  id="team-parts-call-button"
+                  variant="outline"
+                  onClick={callCrew}
+                  disabled={lookingUp || !crewCode.trim()}
+                  className="self-start"
+                >
+                  {lookingUp ? "호출 중…" : "호출"}
+                </Button>
+                {lookupError ? (
+                  <span className="text-xs text-red-600">{lookupError}</span>
+                ) : null}
+              </div>
+
+              {/* [6] 크루 정보 */}
+              <div
+                id="team-parts-leader-info"
+                className="min-h-[110px] rounded-md border border-sky-200 bg-sky-50 p-3 text-sm"
+              >
+                {leader ? (
+                  <div className="space-y-1">
+                    <div>
+                      {dash(leader.name)} | {dash(leader.gender)} |{" "}
+                      {formatBirth6(leader.birth6)} | {dash(leader.residence)}
+                    </div>
+                    <div>
+                      {dash(leader.school)} 학교 | {dash(leader.major)} 학과
+                    </div>
+                    <div>
+                      {dash(leader.classLabel)} | {dash(leader.teamName)} 팀 |{" "}
+                      {dash(leader.partName)} 파트 |{" "}
+                      {leader.successWeeks != null
+                        ? `${leader.successWeeks} 주차`
+                        : "-"}{" "}
+                      | {dash(leader.gradeLabel)}
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground">
+                    크루 코드를 입력하고 [호출]을 누르면 팀장 정보가 표시됩니다.
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-        ) : (
-          <ol className="space-y-2">
-            {data.teams.map((t, i) => (
-              <li
-                key={t.teamName}
-                className="flex items-center gap-3 rounded-md border border-input px-3 py-2 text-sm"
-              >
-                <span className="w-6 text-muted-foreground">{i + 1}</span>
-                <span className="font-medium">{t.teamName}</span>
-              </li>
-            ))}
-            {data.teams.length === 0 ? (
-              <li className="text-sm text-muted-foreground">
-                이 반기에 등록된 팀이 없습니다.
-              </li>
-            ) : null}
-          </ol>
-        )}
-      </CardContent>
+        </div>
+      ) : null}
     </Card>
   );
 }
