@@ -1249,6 +1249,15 @@ function toWeeklyCardDto(
     growthNumerator: completedLines,
     growthDenominator: availableLines,
 
+    // 실무 경험 허브 강화율 — 동일 breakdown.experience SoT 노출(프론트 Detail Log·카드 본문 단일 출처).
+    //   레거시(2026 여름 W1 이전) 주차는 [통합] 주차 활동 내역(통합 임시 라인)이 experience 라인으로
+    //   집계에 실리므로 total(=available)에 자동 포함된다. 휴식 주차는 breakdown 이 비어 0/0/0.
+    experienceRate: {
+      count: breakdown.experience.completed,
+      total: breakdown.experience.available,
+      rate: roundGrowthRate(breakdown.experience.completed, breakdown.experience.available),
+    },
+
     // 실무 경험 필수 슬롯(도출/분석/평가) 성장 판정 — 백엔드 verdict 그대로 패스스루.
     // (WeeklyCardDto.experienceGrowth 의 string-literal union 은 Cluster4ExperienceGrowth 에 구조적으로 대입 가능)
     experienceGrowth: card.experienceGrowth,

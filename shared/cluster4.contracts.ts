@@ -15,6 +15,14 @@ export type Cluster4LinePartType =
 
 export type Cluster4LineStatus = "void" | "pending" | "success" | "fail";
 
+// 허브 강화율 집계 객체 (count=강화 성공 분자 B, total=가용 라인 분모 A, rate=round(B/A*100)).
+//   "총 total개 중 count개 강화" 의미. 프론트 weekly-cards 소비처(Detail Log·카드 본문)의 단일 출처.
+export type Cluster4RateDto = {
+  rate: number;
+  count: number;
+  total: number;
+};
+
 // 강화 상태(enhancementStatus): "1차 라인 제출 대상자였는가(lineTargetId 존재)" 와
 // "마감 여부" 중심으로 산정한다. 2차(라인 칸) submission 존재 여부로 success/fail 을
 // 판단하지 않는다 — 마감(수 22:00 KST) 후 타깃이 있으면 미기입이라도 success 이며,
@@ -424,6 +432,13 @@ export type Cluster4WeeklyCardDto = {
   weeklyGrowthRate: number;
   growthNumerator: number;
   growthDenominator: number;
+
+  // 실무 경험 허브 강화율 — breakdownFromLines(lines[]) 의 experience 칸 단일 출처.
+  //   count = 강화 성공 칸 수(B), total = 가용 라인 칸 수(A=denominator), rate = round(B/A*100).
+  //   레거시(2026 여름 W1 이전) 주차는 [통합] 주차 활동 내역(임시 통합 라인)이 experience 라인으로
+  //   렌더되므로 total 에 그대로 포함된다 — "봄 시즌까지 통합 임시 라인을 오픈 라인으로 인정" 정책.
+  //   휴식 주차는 {rate:0,count:0,total:0}. 프론트 Detail Log/카드 본문이 이 값을 그대로 소비한다.
+  experienceRate: Cluster4RateDto;
 
   // 실무 경험 필수 슬롯(도출/분석/평가) 기준 성장 판정 (append-only).
   // userWeekStatus 가 fail 인 사유가 이 verdict 인지 appliedToWeekStatus 로 확인 가능.

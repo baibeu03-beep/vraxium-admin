@@ -279,7 +279,12 @@ async function writeRosterCardStats(
 //   fetchActiveInfoLinesByWeek 로 라인행을 직접 보강(cluster4_line_targets 무변경 — sentinel 미사용).
 //   카드 lines 구성·강화율(breakdownFromLines A)이 달라지므로 기존 v26 snapshot 을
 //   stale(version_mismatch) 처리해 재계산하게 한다. (DB 백필 아님 — 파생 캐시 재생성.)
-export const WEEKLY_CARDS_DTO_VERSION = 27;
+// v28 (2026-06-26): 카드 DTO 에 experienceRate{count,total,rate}(실무 경험 허브 강화율)를 추가한다.
+//   breakdownFromLines 의 experience 칸 단일 출처 — 레거시(2026 여름 W1 이전) 주차는 [통합] 주차
+//   활동 내역(통합 임시 라인)이 experience 라인으로 집계에 실려 total 에 그대로 포함된다("봄 시즌까지
+//   통합 임시 라인을 오픈 라인으로 인정" 정책). 프론트 Detail Log/카드 본문이 이 값을 단일 출처로 소비.
+//   기존 v27 snapshot 에는 experienceRate 필드가 없으므로 stale(version_mismatch) 처리해 재계산한다.
+export const WEEKLY_CARDS_DTO_VERSION = 28;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 
