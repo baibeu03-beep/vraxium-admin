@@ -199,9 +199,9 @@ export default function PracticalInfoCrewEditModal({
     candidates.length > 0 || pendingRemovals.size > 0 || editMode === "replace";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-8">
       <div
-        className="w-full max-w-3xl space-y-5 rounded-lg bg-background p-6 shadow-xl"
+        className="max-h-[90vh] w-full max-w-3xl space-y-5 overflow-y-auto rounded-xl bg-background p-6 shadow-xl ring-1 ring-foreground/10"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

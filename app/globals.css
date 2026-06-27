@@ -1,3 +1,6 @@
+/* 전역 기본 폰트 = Pretendard(단일 소스). 동적 서브셋 — 필요한 글리프만 로드.
+   font-family 는 :root 의 --font-sans 한 곳에서만 지정한다(아래 참조). */
+@import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -83,6 +86,12 @@
 }
 
 :root {
+  /* 프로젝트 전역 기본 폰트 — 단일 소스. Pretendard 우선, 시스템/한글 폴백.
+     Tailwind `font-sans` 및 base `html { font-family }` 가 모두 이 값을 참조한다. */
+  --font-sans:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, "Segoe UI", Roboto, "Helvetica Neue", "Apple SD Gothic Neo",
+    "Noto Sans KR", "Malgun Gothic", sans-serif;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

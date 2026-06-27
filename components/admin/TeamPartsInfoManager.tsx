@@ -766,7 +766,7 @@ export default function TeamPartsInfoManager() {
       {/* ── 팀 등록/수정 팝업 ─────────────────────────────── */}
       {modalOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           role="dialog"
           aria-modal="true"
           onMouseDown={(e) => {
@@ -775,7 +775,7 @@ export default function TeamPartsInfoManager() {
         >
           <div
             id="team-parts-register-modal"
-            className="mt-10 w-full max-w-3xl rounded-lg bg-orange-50 p-6 shadow-xl"
+            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-orange-50 p-6 shadow-xl ring-1 ring-foreground/10"
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold">
