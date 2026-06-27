@@ -4,7 +4,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LogOut, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabaseClient } from "@/lib/supabaseClient";
-import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 import {
   toggleDevQuery,
   useAdminDevMode,
@@ -15,51 +14,8 @@ import { cn } from "@/lib/utils";
 // 기능·로직·상태값은 모두 유지하고 렌더링만 끈다 — 다시 쓰려면 true 로 변경.
 const SHOW_DEV_TOGGLE = false;
 
-// 공통 상단 헤더(AdminPageHeader)를 본문에서 직접 렌더하는 페이지들 — 글로벌 상단 바는
-// title/탭을 비우고(우측 사용자 영역만), 제목·설명·탭은 본문 AdminPageHeader 가 단일 소스로 담당한다.
-// (라인 개설 실무 정보/경험/역량 + 멤버 관리 + 프로세스 체크 정보/경험.) 중복 노출 방지.
-const IN_PAGE_HEADER_PATHS = new Set<string>([
-  "/admin/line-opening/practical-info",
-  "/admin/line-opening/practical-experience",
-  "/admin/line-opening/practical-competency",
-  "/admin/members",
-  "/admin/processes/check/info",
-  "/admin/processes/check/experience",
-  "/admin/processes/check/competency",
-  "/admin/processes/check/club",
-]);
-
-// 통합 검수 시스템(원본) 헤더 타이틀 — 기존 그대로. (조직 분기 메뉴 개편과 무관하게 유지)
-const TITLES: Record<string, string> = {
-  "/admin": "대시보드",
-  "/admin/periods/register": "주차와 시즌 · 기간 등록",
-  "/admin/season-weeks": "주차와 시즌 · 기간 정보",
-  "/admin/members": "멤버 관리 · 전체 멤버",
-  "/admin/crews": "멤버 관리 · 조직별",
-  "/admin/users/applicants": "멤버 관리 · 승인 대기",
-  "/admin/users/app-users": "멤버 관리 · 가입된 사용자",
-  "/admin/users/admin-users": "멤버 관리 · 관리자 계정",
-  "/admin/settings/edit-windows": "운영 관리 · 작성 기간",
-  "/admin/settings/line-opening-windows": "운영 관리 · 라인 개설 기간",
-  "/admin/lines/register": "허브와 라인 · 라인 등록",
-  "/admin/lines/info": "허브와 라인 · 라인 정보",
-  "/admin/team-parts/info": "클럽 정보 · 팀 내역",
-  "/admin/career-projects": "라인 개설 · 실무 경력",
-  "/admin/import": "데이터 관리 · 가져오기",
-};
-
-function resolveTitle(pathname: string): string {
-  const direct = TITLES[pathname];
-  if (direct) return direct;
-  const orgMatch = pathname.match(/^\/admin\/crews\/([^/]+)/);
-  if (orgMatch) {
-    const slug = orgMatch[1];
-    if (isOrganizationSlug(slug)) {
-      return `멤버 관리 · ${ORGANIZATION_LABEL[slug]}`;
-    }
-  }
-  return "Admin";
-}
+// 페이지 제목은 더 이상 글로벌 헤더가 렌더하지 않는다 — 각 페이지 본문의 제목만 단일 소스로
+// 사용한다(중복 노출 제거). 헤더는 우측 사용자 정보(로그아웃/이메일)만 담당한다.
 
 type HeaderProps = {
   // 로그인된 관리자 정보 — 표시 전용. (portal) layout(서버)에서 내려준다.
@@ -76,11 +32,6 @@ export default function Header({
   const router = useRouter();
   const searchParams = useSearchParams();
   const devMode = useAdminDevMode();
-  const title = resolveTitle(pathname);
-
-  // 제목·설명·탭을 본문 AdminPageHeader 가 담당하는 페이지에서는 글로벌 상단 바 좌측을 비운다.
-  // (라인 개설/멤버/프로세스 체크 — 본문 단일 소스. org/탭 보존 로직도 본문으로 이동.)
-  const usesInPageHeader = IN_PAGE_HEADER_PATHS.has(pathname);
 
   // 사이드바 최하단에 있던 기존 로그아웃 로직을 그대로 이동 (auth/세션 로직 수정 없음).
   const handleLogout = async () => {
@@ -132,28 +83,11 @@ export default function Header({
     </div>
   );
 
-  // /admin HOME 화면에서는 타이틀/버튼은 숨기되 관리자 정보+로그아웃은 유지한다.
+  // 페이지 제목(h1)은 글로벌 헤더에서 제거 — 본문 제목이 단일 소스. 헤더는 우측 사용자
+  // 영역만 담당하므로 모든 페이지(HOME 포함)에서 동일하게 justify-end 로 정렬한다.
   // 고정 h-24 — 사이드바 상단 HOME 영역과 동일 높이(기준=Header, HOME 이 여기에 맞춰 늘어남).
-  if (pathname === "/admin") {
-    return (
-      <header className="flex h-24 items-center justify-end gap-4 border-b border-border bg-background px-4 sm:px-6">
-        {userArea}
-      </header>
-    );
-  }
-
   return (
-    // px-4 sm:px-6 + 타이틀 flex-1: 좁은 폭(사이드바 펼침 + 모바일)에서도 우측 영역이 잘리지 않도록
-    // 고정 h-24 — 사이드바 상단 HOME 영역과 동일 높이(상단 바가 하나로 정렬되도록·기준=Header)
-    <header className="flex h-24 items-center justify-between gap-3 border-b border-border bg-background px-4 sm:gap-4 sm:px-6">
-      {usesInPageHeader ? (
-        // 본문 AdminPageHeader 가 제목/설명/탭을 단일 소스로 담당 — 글로벌 바 좌측은 비운다.
-        <div className="min-w-0 flex-1" aria-hidden />
-      ) : (
-        <h1 className="min-w-0 flex-1 truncate text-[13.5px] font-semibold tracking-tight text-foreground">
-          {title}
-        </h1>
-      )}
+    <header className="flex h-24 items-center justify-end gap-3 border-b border-border bg-background px-4 sm:gap-4 sm:px-6">
       {/* min-w-0(shrink-0 제거): 좁은 폭에서 userArea 의 이메일 줄이 truncate 되며 함께 줄어든다 */}
       <div className="flex min-w-0 items-center gap-2">
         {/* 개발자 표시 토글 — SHOW_DEV_TOGGLE=false 로 화면에서만 숨김 (기능/로직 유지) */}
