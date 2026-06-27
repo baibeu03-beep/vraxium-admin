@@ -14,6 +14,8 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isTransitionWeekStart } from "@/lib/seasonCalendar";
+import { fetchOperationalSeasonParticipants } from "@/lib/operationalSeasonParticipants";
+import { resolveUserScope } from "@/lib/userScope";
 import { isWeekRecognitionStatus } from "@/lib/adminWeekRecognitionsTypes";
 import type {
   WeekRecognitionFilterOptions,
@@ -35,6 +37,18 @@ import {
 
 // 안전 상한. 앱 규모상 충분하지만 무한정 로드를 막기 위해 캡을 둔다.
 const MAX_ROWS = 5000;
+
+// .in("user_id", ids) 의 id 들은 PostgREST 가 GET URL 쿼리스트링에 그대로 나열한다.
+// 모집단(현재 시즌 참여자 ~300명)이라도 한 번에 넣으면 URL 이 길어져 엣지가 400(또는
+// undici "fetch failed")으로 거부할 수 있으므로, 모든 user_id .in 조회는 이 크기로 청크 분할한다.
+// (lib/adminMembersData·adminCrewData 등 다른 데이터 레이어와 동일한 방어 패턴.)
+const ID_CHUNK = 150;
+
+function chunkIds(ids: string[], size = ID_CHUNK): string[][] {
+  const out: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) out.push(ids.slice(i, i + size));
+  return out;
+}
 
 // PostgREST max-rows(1000) 때문에 .limit(N>1000) 은 조용히 1000 으로 잘려, "1000행 초과 = 절단"
 // 감지(truncated)가 영영 안 잡힌다(예: user_week_statuses 9.7k행이 무필터 조회 시 1000행만 노출).
@@ -165,6 +179,24 @@ function weekLabelOf(week: WeekRow | null, fallbackIsoWeek: number | null) {
   return "주차 미지정";
 }
 
+// DTO 출력용 — 시즌/주차 옵션을 최신순(start_date desc)으로 내보낸다.
+//   드롭다운·check 기준 관리 탭 목록이 최신 시즌/주차를 위에 보이도록. 내부 매칭용 weeks/seasons
+//   배열 순서(weekByIso "first wins" 등)는 건드리지 않고 출력 사본만 정렬한다.
+function seasonStartMs(s: SeasonDefinitionRow): number {
+  return s.start_date ? Date.parse(s.start_date) : Number.NEGATIVE_INFINITY;
+}
+function weekStartMs(w: WeekRow): number {
+  return w.start_date ? Date.parse(w.start_date) : Number.NEGATIVE_INFINITY;
+}
+function toSeasonOptionsLatestFirst(seasons: SeasonDefinitionRow[]) {
+  return [...seasons]
+    .sort((a, b) => seasonStartMs(b) - seasonStartMs(a))
+    .map((s) => ({ season_key: s.season_key, season_label: seasonName(s) }));
+}
+function toWeekOptionsLatestFirst(weeks: WeekRow[]) {
+  return [...weeks].sort((a, b) => weekStartMs(b) - weekStartMs(a)).map(weekOptionOf);
+}
+
 export async function getWeekRecognitions(
   options: WeekRecognitionFilterOptions,
 ): Promise<WeekRecognitionsDto> {
@@ -222,8 +254,30 @@ export async function getWeekRecognitions(
     );
   }
 
-  // 3) organization_slug / search 가 있으면 user_id 집합을 먼저 좁힌다.
-  let restrictUserIds: string[] | null = null;
+  // 3) 모집단 한정 — 운영 기준 시즌 참여자(user_season_statuses)만.
+  //   /admin/members 명부와 동일 기준. 종전엔 전체 user_week_statuses(전 시즌 9.7k행 → 고유
+  //   사용자 719명)에서 user_id 를 모아 user_profiles 를 한 번에 .in() 조회해 URL 이 폭주,
+  //   "fetch failed"(또는 엣지 400)가 났다. 이제 최초 조회 단계부터 현재 시즌 대상자(~318명)만 본다.
+  //   org/search 필터가 있으면 그 결과와 교집합한다.
+  const [op, scope] = await Promise.all([
+    // 공통 SoT(lib/operationalSeasonParticipants) — /admin/members 명부와 동일 모집단 기준.
+    fetchOperationalSeasonParticipants(),
+    // 테스터(test_user_markers) 제외 — operating 스코프 단일 SoT.
+    //   이름 '%T%' 휴리스틱이 아니라 마커 테이블 기준(이유나 등 'T' 없는 테스터까지 제외).
+    //   mode 분기 없음 → demoUserId 테스트/일반 모드가 동일 DTO·조회 기준.
+    resolveUserScope("operating", null),
+  ]);
+  const opSeasonKey = op.seasonKey;
+  // seasonKey 미해소(off-season 등)면 null → 아래에서 전수 폴백(.in 청크 유지). 해소 시 참여자 id 배열.
+  const participantIds: string[] | null = opSeasonKey ? op.ids : null;
+
+  // opSeasonKey 가 해소됐는데 참여자가 0명이면(시즌 참여행 미구성) 빈 목록.
+  if (opSeasonKey && participantIds && participantIds.length === 0) {
+    return emptyResult(seasons, weeks);
+  }
+
+  // restrictUserIds: 참여자 집합(미해소면 null=전수 폴백). org/search 가 있으면 교집합.
+  let restrictUserIds: string[] | null = participantIds;
   if (organizationSlug || search) {
     // PostgREST 1000행 cap 회피 — .range() 페이지네이션(stable order: user_id).
     const profileRows = await collectRowsPaged<ProfileRow>(
@@ -239,45 +293,81 @@ export async function getWeekRecognitions(
       },
       { pageSize: 1000, stopAfter: MAX_ROWS },
     );
-    restrictUserIds = profileRows.map((p) => p.user_id);
+    const filteredIds = profileRows.map((p) => p.user_id);
+    if (restrictUserIds) {
+      const participantSet = new Set(restrictUserIds);
+      restrictUserIds = filteredIds.filter((id) => participantSet.has(id));
+    } else {
+      restrictUserIds = filteredIds;
+    }
     if (restrictUserIds.length === 0) {
       return emptyResult(seasons, weeks);
     }
   }
 
-  // 4) user_week_statuses 조회 — 가능한 필터는 DB 에서 적용.
-  //   ⚠ PostgREST max-rows(1000) 때문에 .limit(MAX_ROWS+1) 은 조용히 1000 으로 잘려 truncated 가
-  //     영영 false 였다(9.7k행 무필터 조회 시 1000행만 노출). .range() 페이지네이션으로 실제로
-  //     끝까지(또는 MAX_ROWS 초과까지) 읽는다. 페이지 경계 안정용 tiebreaker=id(고유).
-  const buildStatusPage = (from: number, to: number) => {
-    let q = supabaseAdmin
-      .from("user_week_statuses")
-      .select(
-        "id,user_id,year,week_number,week_start_date,status,is_official_rest_override,note,updated_at",
-      )
-      .order("week_start_date", { ascending: false })
-      .order("updated_at", { ascending: false })
-      .order("id", { ascending: true })
-      .range(from, to);
-
-    if (status) q = q.eq("status", status);
-
-    if (targetWeek) {
-      // 특정 주차: 그 주차의 ISO (year, week) 로 한정.
-      q = q.eq("year", targetWeek.iso_year).eq("week_number", targetWeek.iso_week);
-    } else if (season && season.start_date && season.end_date) {
-      // 시즌 날짜창: week_start_date 가 시즌 기간 안.
-      q = q.gte("week_start_date", season.start_date).lte("week_start_date", season.end_date);
+  // 테스터 제외 — 참여자 목록에서 미리 제거(쿼리 비용·URL 길이 절감). 폴백(restrictUserIds=null)
+  //   경로는 아래 statusRows 단계에서 방어적으로 한 번 더 거른다.
+  if (restrictUserIds) {
+    restrictUserIds = restrictUserIds.filter((id) => scope.includes(id));
+    if (restrictUserIds.length === 0) {
+      return emptyResult(seasons, weeks);
     }
+  }
 
-    if (restrictUserIds) q = q.in("user_id", restrictUserIds);
-    return q;
-  };
+  // 4) user_week_statuses 조회 — 참여자(restrictUserIds) 한정 + 가능한 필터는 DB 에서 적용.
+  //   ⚠ PostgREST max-rows(1000) 때문에 .limit(MAX_ROWS+1) 은 조용히 1000 으로 잘려 truncated 가
+  //     영영 false 였다. .range() 페이지네이션으로 실제로 끝까지(또는 MAX_ROWS 초과까지) 읽는다.
+  //   ⚠ user_id .in 은 ID_CHUNK(150) 로 청크 분할해 URL 길이 폭주를 막는다(참여자 수가 줄어도 유지).
+  //     결과 순서는 호출부에서 다시 정렬하므로 청크 간 순서는 무관.
+  const buildStatusPage =
+    (chunk: string[] | null) => (from: number, to: number) => {
+      let q = supabaseAdmin
+        .from("user_week_statuses")
+        .select(
+          "id,user_id,year,week_number,week_start_date,status,is_official_rest_override,note,updated_at",
+        )
+        .order("week_start_date", { ascending: false })
+        .order("updated_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to);
 
-  let statusRows = await collectRowsPaged<UserWeekStatusRow>(buildStatusPage, {
-    pageSize: 1000,
-    stopAfter: MAX_ROWS,
-  });
+      if (status) q = q.eq("status", status);
+
+      if (targetWeek) {
+        // 특정 주차: 그 주차의 ISO (year, week) 로 한정.
+        q = q
+          .eq("year", targetWeek.iso_year)
+          .eq("week_number", targetWeek.iso_week);
+      } else if (season && season.start_date && season.end_date) {
+        // 시즌 날짜창: week_start_date 가 시즌 기간 안.
+        q = q
+          .gte("week_start_date", season.start_date)
+          .lte("week_start_date", season.end_date);
+      }
+
+      if (chunk) q = q.in("user_id", chunk);
+      return q;
+    };
+
+  let statusRows: UserWeekStatusRow[];
+  if (restrictUserIds) {
+    // 참여자 id 를 150개 청크로 나눠 각각 페이지네이션 조회 후 합친다.
+    statusRows = [];
+    for (const chunk of chunkIds(restrictUserIds)) {
+      const part = await collectRowsPaged<UserWeekStatusRow>(
+        buildStatusPage(chunk),
+        { pageSize: 1000, stopAfter: MAX_ROWS },
+      );
+      statusRows.push(...part);
+      if (statusRows.length > MAX_ROWS) break; // 절단 감지에 충분
+    }
+  } else {
+    // opSeasonKey 미해소 폴백(전수) — 그래도 페이지네이션으로 끝까지 읽는다.
+    statusRows = await collectRowsPaged<UserWeekStatusRow>(
+      buildStatusPage(null),
+      { pageSize: 1000, stopAfter: MAX_ROWS },
+    );
+  }
 
   // season iso 폴백(날짜창 없는 시즌)일 때 in-memory 로 한정.
   if (seasonIsoFallback) {
@@ -287,17 +377,30 @@ export async function getWeekRecognitions(
     });
   }
 
+  // 테스터 최종 제외(방어적) — restrictUserIds 미적용 폴백 경로 및 drift 대비.
+  //   목록·집계(summary) 모두 이 필터 이후의 rows 에서 파생되므로 화면/카운트 동시 제외된다.
+  statusRows = statusRows.filter((r) => scope.includes(r.user_id));
+
+  // 청크 합산은 전역 순서를 보장하지 않으므로, 절단(slice) 전에 주차 시작일 desc 로 안정 정렬해
+  //   "최근 주차 우선"으로 자른다(종전 단일 정렬 쿼리 + slice 와 동일 의미).
+  statusRows.sort((a, b) => {
+    const aw = a.week_start_date ?? "";
+    const bw = b.week_start_date ?? "";
+    if (aw !== bw) return aw < bw ? 1 : -1;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+
   const truncated = statusRows.length > MAX_ROWS;
   if (truncated) statusRows = statusRows.slice(0, MAX_ROWS);
 
-  // 5) 프로필 조회(이름/조직). 이미 좁힌 경우에도 표시값을 위해 한 번 더 모은다.
+  // 5) 프로필 조회(이름/조직). user_id .in 은 ID_CHUNK(150) 청크 분할(URL 길이 방어).
   const userIds = Array.from(new Set(statusRows.map((r) => r.user_id)));
   const profileMap = new Map<string, ProfileRow>();
-  if (userIds.length > 0) {
+  for (const chunk of chunkIds(userIds)) {
     const { data: profData, error: profErr } = await supabaseAdmin
       .from("user_profiles")
       .select("user_id,display_name,organization_slug")
-      .in("user_id", userIds);
+      .in("user_id", chunk);
     if (profErr) throw new Error(profErr.message);
     for (const p of (profData ?? []) as ProfileRow[]) {
       profileMap.set(p.user_id, p);
@@ -371,11 +474,9 @@ export async function getWeekRecognitions(
   return {
     rows,
     summary,
-    seasons: seasons.map((s) => ({
-      season_key: s.season_key,
-      season_label: seasonName(s),
-    })),
-    weeks: weeks.map(weekOptionOf),
+    // 시즌/주차 옵션은 최신순(start_date desc) — 드롭다운·check 기준 관리 탭 목록 최신 우선.
+    seasons: toSeasonOptionsLatestFirst(seasons),
+    weeks: toWeekOptionsLatestFirst(weeks),
     truncated,
     generated_at: new Date().toISOString(),
   };
@@ -828,11 +929,8 @@ function emptyResult(
       personal_rest_count: 0,
       official_rest_count: 0,
     },
-    seasons: seasons.map((s) => ({
-      season_key: s.season_key,
-      season_label: seasonName(s),
-    })),
-    weeks: weeks.map(weekOptionOf),
+    seasons: toSeasonOptionsLatestFirst(seasons),
+    weeks: toWeekOptionsLatestFirst(weeks),
     truncated: false,
     generated_at: new Date().toISOString(),
   };

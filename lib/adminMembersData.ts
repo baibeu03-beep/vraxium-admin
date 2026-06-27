@@ -10,6 +10,7 @@ import type { ScopeMode } from "@/lib/userScopeShared";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { getGrowthRosterBatchFast } from "@/lib/cluster3GrowthData";
 import { operationalSeasonDbKey } from "@/lib/seasonCalendar";
+import { fetchOperationalSeasonParticipants } from "@/lib/operationalSeasonParticipants";
 import { applyRosterView, type FilterValue, type SortEntry } from "@/lib/membersRosterView";
 import { getScheduleReliabilityRateBatch } from "@/lib/cluster1ResumeData";
 import { WEEKLY_CARDS_DTO_VERSION } from "@/lib/cluster4WeeklyCardsSnapshot";
@@ -636,36 +637,6 @@ export async function getRosterPointsScheduleFast(
 
 export type RosterStatusCounts = { total: number; active: number; rest: number; stopped: number };
 
-// 시즌 참여자(user_season_statuses 행 보유) id 집합 + active/rest/stopped 카운트를 한 번에.
-//   season_key 단건 조회 + range pagination(대량 .in 미사용). seasonKey=null 이면 빈 결과.
-//   id 집합은 명부 모집단(보강 대상 허용목록), 카운트는 요약 표기 — user_season_statuses 를
-//   두 번 스캔하지 않도록 단일 패스로 함께 산출한다(종전 ids/counts 2회 스캔 통합).
-async function fetchSeasonParticipantsAndCounts(
-  seasonKey: string | null,
-): Promise<{ ids: Set<string>; counts: RosterStatusCounts }> {
-  const ids = new Set<string>();
-  const counts: RosterStatusCounts = { total: 0, active: 0, rest: 0, stopped: 0 };
-  if (!seasonKey) return { ids, counts };
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabaseAdmin
-      .from("user_season_statuses")
-      .select("user_id,status")
-      .eq("season_key", seasonKey)
-      .order("user_id", { ascending: true })
-      .range(from, from + 999);
-    if (error) throw new Error(error.message);
-    const rows = (data ?? []) as Array<{ user_id: string; status: string }>;
-    for (const r of rows) {
-      ids.add(r.user_id);
-      counts.total += 1;
-      if (r.status === "active") counts.active += 1;
-      else if (r.status === "rest") counts.rest += 1;
-      else if (r.status === "stopped") counts.stopped += 1;
-    }
-    if (rows.length < 1000) break;
-  }
-  return { ids, counts };
-}
 export type ListMembersRosterResult = {
   members: MemberRosterRow[];
   partialFailure: RosterPartialFailure | null;
@@ -719,9 +690,12 @@ export async function listMembersRoster(options: {
   //   active/rest/stopped 모두 참여자로 포함. id 집합 + active/rest/stopped 카운트를 단일 스캔으로 산출.
   //   참여자 SoT 가 비어있는(미구성) 시즌이면 모집단 0 → 빈 목록(시즌 참여행을 먼저 구성해야 함).
   let s = Date.now();
-  const opSeasonKey = operationalSeasonDbKey(new Date().toISOString().slice(0, 10));
-  const { ids: seasonParticipants, counts: statusCounts } =
-    await fetchSeasonParticipantsAndCounts(opSeasonKey);
+  // 공통 SoT(lib/operationalSeasonParticipants) — /admin/week-recognitions 와 동일 모집단 기준.
+  const {
+    seasonKey: opSeasonKey,
+    ids: participantIds,
+    counts: statusCounts,
+  } = await fetchOperationalSeasonParticipants();
   t("seasonParticipants+counts", Date.now() - s);
 
   // 2) 프로필/소속/팀·파트/학교·전공/등급/성별·생년월일 = crew DTO 배치(단일 SoT).
@@ -730,7 +704,7 @@ export async function listMembersRoster(options: {
   //    opSeasonKey 없으면(운영 시즌 미해소) 종전대로 전수 보강(허용목록 undefined). org/scope/super admin
   //    제외는 listAdminCrewDtos 내부에서 교집합 적용 → 결과 집합은 전수 후 필터와 동일.
   s = Date.now();
-  const participantAllowlist = opSeasonKey ? [...seasonParticipants] : undefined;
+  const participantAllowlist = opSeasonKey ? participantIds : undefined;
   const crews = await listAdminCrewDtos(options.organization ?? undefined, mode, participantAllowlist);
   t("listAdminCrewDtos(참여자 보강)", Date.now() - s);
   const userIds = crews.map((c) => c.userId);
