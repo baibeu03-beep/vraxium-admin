@@ -310,29 +310,59 @@ async function fetchByIdsChunked<T>(
 async function fetchCrewSourceRows(options: {
   organization?: OrganizationSlug;
   userId?: string;
+  // 보강 대상 허용목록(예: 시즌 참여자). 지정 시 user_profiles 를 이 id 들로 좁혀(.in 청크)
+  // users/membership/education/growth 보강을 모집단만큼만 수행한다(전수 보강 회피).
+  // org/super admin 제외/scope 는 그대로 함께 적용 — 결과 집합은 전수 후 필터와 동일.
+  userIds?: string[];
   // 모집단 스코프(operating=테스트 제외 / test=테스트만). SoT=test_user_markers(userScope).
   // 목록 조회에만 적용 — 단건 user_id 조회(POST 후 정규화 등)는 노출 목록이 아니라 무관.
   scope?: UserScope;
 }): Promise<CrewSourceRows> {
-  let profileQuery = supabaseAdmin
-    .from("user_profiles")
-    .select(PROFILE_SELECT);
+  let fetchedProfiles: UserProfileRow[];
 
-  if (options.organization) {
-    profileQuery = profileQuery.eq("organization_slug", options.organization);
-  }
   if (options.userId) {
-    profileQuery = profileQuery.eq("user_id", options.userId);
+    // 단건 조회 — super admin 제외/허용목록 무관(노출 목록 아님).
+    const res = await supabaseAdmin
+      .from("user_profiles")
+      .select(PROFILE_SELECT)
+      .eq("user_id", options.userId);
+    if (res.error) throw new Error(res.error.message);
+    fetchedProfiles = (res.data ?? []) as unknown as UserProfileRow[];
+  } else if (options.userIds) {
+    // 허용목록(시즌 참여자 등)으로 좁힌 목록 조회 — .in() URL 길이 한계 회피용 청크 분할.
+    // org 필터 + super admin 제외는 청크마다 함께 적용한다(전수 경로와 동일 의미).
+    // 청크는 서로 독립이라 병렬 실행(분할로 늘어난 왕복 지연 상쇄).
+    const ids = options.userIds;
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += ROSTER_IN_CHUNK) {
+      chunks.push(ids.slice(i, i + ROSTER_IN_CHUNK));
+    }
+    const chunkResults = await Promise.all(
+      chunks.map((chunk) => {
+        let q = supabaseAdmin
+          .from("user_profiles")
+          .select(PROFILE_SELECT)
+          .in("user_id", chunk);
+        if (options.organization) q = q.eq("organization_slug", options.organization);
+        q = excludeSuperAdmins(q);
+        return q;
+      }),
+    );
+    const acc: UserProfileRow[] = [];
+    for (const res of chunkResults) {
+      if (res.error) throw new Error(res.error.message);
+      acc.push(...((res.data ?? []) as unknown as UserProfileRow[]));
+    }
+    fetchedProfiles = acc;
   } else {
-    // 크루 "목록" 조회 시 super admin 제외. 단건 user_id 조회(POST 후 정규화 등)는
-    // 노출 목록이 아니므로 그대로 둔다 — super admin 의 단건 조회/권한에는 영향 없음.
-    profileQuery = excludeSuperAdmins(profileQuery);
+    // 전수 목록 조회 — 크루 "목록" 조회 시 super admin 제외.
+    let q = supabaseAdmin.from("user_profiles").select(PROFILE_SELECT);
+    if (options.organization) q = q.eq("organization_slug", options.organization);
+    q = excludeSuperAdmins(q);
+    const res = await q;
+    if (res.error) throw new Error(res.error.message);
+    fetchedProfiles = (res.data ?? []) as unknown as UserProfileRow[];
   }
-
-  const profileRes = await profileQuery;
-  if (profileRes.error) throw new Error(profileRes.error.message);
-
-  const fetchedProfiles = (profileRes.data ?? []) as unknown as UserProfileRow[];
   // 목록 경로에서만 스코프 필터(test_user_markers). 단건 userId 조회는 그대로.
   // 여기서 좁혀두면 이후 users/membership/education/growth 보강 쿼리가 실사용자(또는
   // 테스트 유저)만 대상으로 돌아 불필요한 행을 끌어오지 않는다.
@@ -507,10 +537,13 @@ function buildAdminCrewDtos(rows: CrewSourceRows): AdminCrewDto[] {
 export async function listAdminCrewDtos(
   organization?: OrganizationSlug,
   mode: ScopeMode = "operating",
+  // 보강 대상 허용목록(시즌 참여자 등). 지정 시 전수 보강 대신 이 모집단만 보강한다.
+  // org/scope/super admin 제외와 교집합 — 결과는 전수 후 필터와 동일(성능만 개선).
+  userIds?: string[],
 ) {
   // operating(기본)=실사용자만(테스트 제외) / test=test_user_markers 만. team 컨텍스트 불필요.
   const scope = await resolveUserScope(mode, organization ?? null);
-  const rows = await fetchCrewSourceRows({ organization, scope });
+  const rows = await fetchCrewSourceRows({ organization, scope, userIds });
   return buildAdminCrewDtos(rows).sort((a, b) => {
     if (a.isVisible !== b.isVisible) return Number(b.isVisible) - Number(a.isVisible);
     const teamCompare = (a.teamName ?? "").localeCompare(b.teamName ?? "", "ko");

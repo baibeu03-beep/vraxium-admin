@@ -634,27 +634,38 @@ export async function getRosterPointsScheduleFast(
   return out;
 }
 
-// 시즌 참여자(user_season_statuses 행 보유) user_id 집합 — 명부 모집단 필터용.
-//   season_key 단건 조회 + range pagination(대량 .in 미사용). seasonKey=null 이면 빈 집합.
-async function fetchSeasonParticipantIds(seasonKey: string | null): Promise<Set<string>> {
-  const out = new Set<string>();
-  if (!seasonKey) return out;
+export type RosterStatusCounts = { total: number; active: number; rest: number; stopped: number };
+
+// 시즌 참여자(user_season_statuses 행 보유) id 집합 + active/rest/stopped 카운트를 한 번에.
+//   season_key 단건 조회 + range pagination(대량 .in 미사용). seasonKey=null 이면 빈 결과.
+//   id 집합은 명부 모집단(보강 대상 허용목록), 카운트는 요약 표기 — user_season_statuses 를
+//   두 번 스캔하지 않도록 단일 패스로 함께 산출한다(종전 ids/counts 2회 스캔 통합).
+async function fetchSeasonParticipantsAndCounts(
+  seasonKey: string | null,
+): Promise<{ ids: Set<string>; counts: RosterStatusCounts }> {
+  const ids = new Set<string>();
+  const counts: RosterStatusCounts = { total: 0, active: 0, rest: 0, stopped: 0 };
+  if (!seasonKey) return { ids, counts };
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabaseAdmin
       .from("user_season_statuses")
-      .select("user_id")
+      .select("user_id,status")
       .eq("season_key", seasonKey)
       .order("user_id", { ascending: true })
       .range(from, from + 999);
     if (error) throw new Error(error.message);
-    const rows = (data ?? []) as Array<{ user_id: string }>;
-    for (const r of rows) out.add(r.user_id);
+    const rows = (data ?? []) as Array<{ user_id: string; status: string }>;
+    for (const r of rows) {
+      ids.add(r.user_id);
+      counts.total += 1;
+      if (r.status === "active") counts.active += 1;
+      else if (r.status === "rest") counts.rest += 1;
+      else if (r.status === "stopped") counts.stopped += 1;
+    }
     if (rows.length < 1000) break;
   }
-  return out;
+  return { ids, counts };
 }
-
-export type RosterStatusCounts = { total: number; active: number; rest: number; stopped: number };
 export type ListMembersRosterResult = {
   members: MemberRosterRow[];
   partialFailure: RosterPartialFailure | null;
@@ -684,30 +695,6 @@ async function fetchGradeCacheByIds(
   return out;
 }
 
-// operationalSeasonKey 모집단의 active/rest/stopped 카운트 — user_season_statuses 단건 집계(별도 카운트).
-async function fetchSeasonStatusCounts(seasonKey: string | null): Promise<RosterStatusCounts> {
-  const counts: RosterStatusCounts = { total: 0, active: 0, rest: 0, stopped: 0 };
-  if (!seasonKey) return counts;
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabaseAdmin
-      .from("user_season_statuses")
-      .select("status")
-      .eq("season_key", seasonKey)
-      .order("user_id", { ascending: true })
-      .range(from, from + 999);
-    if (error) throw new Error(error.message);
-    const rows = (data ?? []) as Array<{ status: string }>;
-    for (const r of rows) {
-      counts.total += 1;
-      if (r.status === "active") counts.active += 1;
-      else if (r.status === "rest") counts.rest += 1;
-      else if (r.status === "stopped") counts.stopped += 1;
-    }
-    if (rows.length < 1000) break;
-  }
-  return counts;
-}
-
 export async function listMembersRoster(options: {
   organization?: OrganizationSlug | null; // slug | null/undefined(전체)
   mode?: ScopeMode;
@@ -727,20 +714,25 @@ export async function listMembersRoster(options: {
     if (options.profile) console.log(`[roster][profile] ${label}=${ms}ms`);
   };
 
-  // 1) 프로필/소속/팀·파트/학교·전공/등급/성별·생년월일 = crew DTO 배치(단일 SoT).
-  //    org 미지정 = 전 조직(+소속 없음). scope·super admin 제외는 내부에서 처리.
-  let s = Date.now();
-  const crewsAll = await listAdminCrewDtos(options.organization ?? undefined, mode);
-  t("listAdminCrewDtos", Date.now() - s);
-
-  // 1-b) 모집단 = "운영 기준 시즌"(operationalSeasonKey)의 시즌 참여자(user_season_statuses 행 보유)로 좁힌다.
+  // 1) 모집단 = "운영 기준 시즌"(operationalSeasonKey)의 시즌 참여자(user_season_statuses 행 보유).
   //   DB 전체 user_profiles 가 아니라 해당 시즌 운영 대상자만 — 과거/이관 회원 혼입 방지(요구사항).
-  //   active/rest/stopped 모두 참여자로 포함. season_key 단건 조회(≈수백행·1페이지)라 부하 미미.
+  //   active/rest/stopped 모두 참여자로 포함. id 집합 + active/rest/stopped 카운트를 단일 스캔으로 산출.
   //   참여자 SoT 가 비어있는(미구성) 시즌이면 모집단 0 → 빈 목록(시즌 참여행을 먼저 구성해야 함).
+  let s = Date.now();
   const opSeasonKey = operationalSeasonDbKey(new Date().toISOString().slice(0, 10));
-  const seasonParticipants = await fetchSeasonParticipantIds(opSeasonKey);
-  const crews = opSeasonKey ? crewsAll.filter((c) => seasonParticipants.has(c.userId)) : crewsAll;
-  t("seasonParticipantFilter", crews.length);
+  const { ids: seasonParticipants, counts: statusCounts } =
+    await fetchSeasonParticipantsAndCounts(opSeasonKey);
+  t("seasonParticipants+counts", Date.now() - s);
+
+  // 2) 프로필/소속/팀·파트/학교·전공/등급/성별·생년월일 = crew DTO 배치(단일 SoT).
+  //    종전에는 전 조직 전수(637) 보강 후 시즌 참여자(318)로 필터 → 보강 절반이 낭비됐다.
+  //    이제 시즌 참여자 id 만 보강 대상으로 넘겨(전수 보강 회피) 동일 결과를 더 빠르게 만든다.
+  //    opSeasonKey 없으면(운영 시즌 미해소) 종전대로 전수 보강(허용목록 undefined). org/scope/super admin
+  //    제외는 listAdminCrewDtos 내부에서 교집합 적용 → 결과 집합은 전수 후 필터와 동일.
+  s = Date.now();
+  const participantAllowlist = opSeasonKey ? [...seasonParticipants] : undefined;
+  const crews = await listAdminCrewDtos(options.organization ?? undefined, mode, participantAllowlist);
+  t("listAdminCrewDtos(참여자 보강)", Date.now() - s);
   const userIds = crews.map((c) => c.userId);
   if (userIds.length === 0) {
     return { members: [], partialFailure: null, total: 0, filteredTotal: 0, statusCounts: { total: 0, active: 0, rest: 0, stopped: 0 }, page, pageSize };
@@ -793,12 +785,12 @@ export async function listMembersRoster(options: {
 
   // 일정 신뢰도 + Po.A/B/C = slim 캐시(getRosterPointsScheduleFast). 품계 = user_grade_stats 캐시
   //   (fetchGradeCacheByIds, .in 청크) — 종전 getClubRankGradeBatch live 전수 스캔을 제거(병목 해소).
-  //   상태 카운트(active/rest/stopped)는 user_season_statuses 단건 집계(별도). 전부 풀스캔/대량 .in 없음.
-  const [growthResult, gradeByUser, statsByUser, statusCounts] = await Promise.all([
+  //   상태 카운트(active/rest/stopped)는 위 fetchSeasonParticipantsAndCounts 단일 스캔에서 이미 산출.
+  //   전부 풀스캔/대량 .in 없음.
+  const [growthResult, gradeByUser, statsByUser] = await Promise.all([
     buildGrowthMap(),
     fetchGradeCacheByIds(userIds),
     getRosterPointsScheduleFast(userIds),
-    fetchSeasonStatusCounts(opSeasonKey),
   ]);
   const growthByUser = growthResult.map;
   t("batches(growth+grade-cache+points·schedule-slim+counts)", Date.now() - s);
