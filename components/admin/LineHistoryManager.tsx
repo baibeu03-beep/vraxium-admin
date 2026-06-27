@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   CLUSTER4_HUB_LABEL,
   type Cluster4LinePartType,
@@ -87,6 +88,7 @@ export default function LineHistoryManager() {
   const [rows, setRows] = useState<Cluster4OpenedLineDto[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
 
   // 시즌 드롭다운 옵션 — 마운트 시 1회(status=all, 넉넉한 limit) 로드해 고정한다.

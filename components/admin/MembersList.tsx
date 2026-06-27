@@ -21,6 +21,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { LoadingState } from "@/components/ui/loading-state";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { classTone, rankTone } from "@/lib/statusBadge";
@@ -352,6 +354,8 @@ export default function MembersList() {
 
   const [roster, setRoster] = useState<Member[]>([]); // 서버 페이지(이미 필터/정렬/슬라이스됨)
   const [loading, setLoading] = useState(true);
+  // 전역 로딩 배너에 보고(검색/필터/페이지/정렬/새로고침 = 서버 재조회).
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   // 일부 사용자의 성장 지표(snapshot)를 못 읽은 부분 실패 — 전체는 정상 표시하되 안내만.
   const [partialFailure, setPartialFailure] = useState<RosterPartialFailureClient | null>(null);
@@ -657,6 +661,12 @@ export default function MembersList() {
               </div>
             )}
 
+            {/* 재요청 중(필터/검색/페이지 변경) — 기존 표를 유지하고 상단에 진행 표시.
+                최초 로딩(데이터 없음)은 표 안 스켈레톤이 담당. (요구사항 3·4) */}
+            {rows.length > 0 && (
+              <LoadingState active={loading} variant="inline" className="px-1" />
+            )}
+
             <div className="overflow-auto rounded-lg border">
               <Table>
                 <TableHeader>
@@ -800,6 +810,7 @@ function MembersInfoTab() {
   const mode = readScopeMode(searchParams);
   const [section0, setSection0] = useState<MembersInfoSection0 | null>(null);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [clubTab, setClubTab] = useState<InfoClubTab>("all");
 
@@ -914,6 +925,7 @@ const fmtPctCell = (v: number | null): string => (v == null ? "-" : `${v}%`);
 function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "test" }) {
   const [data, setData] = useState<MembersInfoStatsDto | null>(null);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   // (org, mode)별 결과 캐시 — 탭 왕복 시 재조회 방지.

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { LoadingState } from "@/components/ui/loading-state";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
@@ -191,6 +192,7 @@ export default function ExperienceLineManageBoard({
 
   const [data, setData] = useState<ExperienceLineManageSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
 
   // 주차 드롭다운 — 옵션(weeks-options) + 선택 주차. 기본값 = openable(개설 대상) 주차.

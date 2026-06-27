@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 
 type Applicant = {
@@ -58,6 +59,7 @@ function fmtDate(value: string | null | undefined) {
 export default function ApplicantManager() {
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [banner, setBanner] = useState<Banner>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");

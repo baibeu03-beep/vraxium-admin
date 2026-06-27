@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { buildCustomerClusterUrl } from "@/lib/customerAppUrl";
 
 // GET /api/admin/test-users 응답 row (lib/testUsers.ts TestUserDto 와 동일 shape).
@@ -65,6 +66,7 @@ export default function TestUsersManager() {
   const router = useRouter();
   const [users, setUsers] = useState<TestUser[]>([]);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {

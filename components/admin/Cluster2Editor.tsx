@@ -40,6 +40,7 @@ function applyOperatorLabels(
   return fields.map((f) => ({ ...f, label: operatorLabel(f.label) }));
 }
 import PhotoSlots from "@/components/admin/cluster2/PhotoSlots";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import EducationsList, {
   EDUCATION_FIELD_DEFS,
   type EducationDto,
@@ -485,6 +486,7 @@ export default function Cluster2Editor({
   const devMode = useAdminDevMode();
   const withDev = useWithDevQuery();
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [saving, setSaving] = useState(false);
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());

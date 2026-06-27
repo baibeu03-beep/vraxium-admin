@@ -20,6 +20,7 @@ import {
 import { DebugSection } from "@/components/admin/fieldKit";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import ActivityTab from "@/components/admin/cluster4/ActivityTab";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import type {
   Cluster4ApplySummary,
   Cluster4Bundle,
@@ -978,6 +979,7 @@ export default function Cluster4Editor({
   const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<TabKey>("weekly_growth");
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [saving, setSaving] = useState(false);
   const [weeklyGrowth, setWeeklyGrowth] = useState<WeeklyGrowthDto | null>(null);
   const [bundle, setBundle] = useState<Cluster4Bundle>(() =>

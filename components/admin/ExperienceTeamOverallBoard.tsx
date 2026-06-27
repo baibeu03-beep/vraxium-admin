@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   Table,
   TableBody,
@@ -83,6 +84,7 @@ export default function ExperienceTeamOverallBoard({
 }) {
   const [board, setBoard] = useState<BoardDto | null>(null);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 

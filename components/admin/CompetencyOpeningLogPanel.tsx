@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { LoadingState } from "@/components/ui/loading-state";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatLogDateTime } from "@/lib/practicalInfoSection0Format";
 import {
@@ -34,6 +35,7 @@ export default function CompetencyOpeningLogPanel({
   const org = readOrgParam(searchParams);
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
 
   useEffect(() => {
     let cancelled = false;

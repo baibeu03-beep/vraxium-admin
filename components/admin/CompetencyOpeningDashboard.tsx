@@ -17,6 +17,7 @@ import {
 import LineOpeningStatusBoard from "@/components/admin/LineOpeningStatusBoard";
 import CompetencyOpeningLogPanel from "@/components/admin/CompetencyOpeningLogPanel";
 import CompetencyApplicantSection from "@/components/admin/CompetencyApplicantSection";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 
 // 실무 역량 [라인 개설] 탭 — 운영 대시보드.
 //   상태창(허브 전체 1문장) + 로그창 + [개설 주차 | 아웃풋 링크 1 | 설명 1] 입력행 + [개설 완료]/[개설 취소].
@@ -56,6 +57,7 @@ export default function CompetencyOpeningDashboard() {
 
   const [opened, setOpened] = useState<boolean | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
+  useReportLoading(loadingStatus);
   const [acting, setActing] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
   // 상태창·로그창 재조회 신호 — 개설 완료/취소 직후 증가.

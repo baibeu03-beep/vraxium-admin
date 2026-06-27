@@ -24,6 +24,7 @@ import {
   type FieldDef,
 } from "@/components/admin/fieldKit";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import type { Cluster1ResumeDto } from "@/lib/cluster1ResumeTypes";
 
 // 라벨 끝의 영문 column-name 괄호 제거 — "이름 (display_name)" → "이름".
@@ -253,6 +254,7 @@ export default function ResumeCardEditor({
 }) {
   const devMode = useAdminDevMode();
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [saving, setSaving] = useState(false);
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [orgSettings, setOrgSettings] = useState<OrgSettings>(null);

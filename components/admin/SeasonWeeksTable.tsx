@@ -20,6 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { LoadingState } from "@/components/ui/loading-state";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 
 // ── 데이터 타입: /api/admin/season-weeks 응답 DTO 그대로 (수정 금지) ──────────
@@ -291,6 +293,7 @@ export default function SeasonWeeksTable() {
   const [conflicts, setConflicts] = useState<SeasonWeekConflict[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading); // 전역 로딩 배너 보고
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
@@ -526,8 +529,9 @@ export default function SeasonWeeksTable() {
         </CardContent>
       </Card>
 
-      {/* 테이블 */}
-      {loading ? (
+      {/* 테이블 — 최초 로딩(데이터 없음)에는 스켈레톤, 재요청(데이터 있음)에는
+          기존 표를 유지하고 상단에 미니 진행 표시(요구사항 3). */}
+      {loading && rows.length === 0 ? (
         <div className="overflow-hidden rounded-md border">
           <Table>
             <TableHeader>
@@ -546,12 +550,18 @@ export default function SeasonWeeksTable() {
             </TableBody>
           </Table>
         </div>
-      ) : filtered.length === 0 ? (
+      ) : !loading && filtered.length === 0 ? (
         <div className="flex h-36 items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
           조건에 맞는 주차 데이터가 없습니다.
         </div>
       ) : (
         <div className="overflow-hidden rounded-md border">
+          {/* 재요청 중 — 기존 데이터 유지 + 상단 미니 진행 표시. */}
+          {loading && (
+            <div className="border-b bg-muted/30 px-3 py-1.5">
+              <LoadingState active variant="inline" />
+            </div>
+          )}
           <Table>
             <TableHeader>
               <TableRow>

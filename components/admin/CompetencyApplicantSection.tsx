@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { LoadingState } from "@/components/ui/loading-state";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -112,6 +113,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
   const [apps, setApps] = useState<ApplicationDto[]>([]);
   const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   // 수동 추가 자동완성.

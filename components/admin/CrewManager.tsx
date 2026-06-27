@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import {
   ORGANIZATIONS,
@@ -138,6 +139,7 @@ export default function CrewManager({
   const mode = readScopeMode(searchParams);
   const [data, setData] = useState<Crew[]>([]);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading); // 전역 로딩 배너 보고
   const [search, setSearch] = useState("");
   const [team, setTeam] = useState<string>(ALL);
   const [part, setPart] = useState<string>(ALL);

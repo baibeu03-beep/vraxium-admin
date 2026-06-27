@@ -33,6 +33,7 @@ import { cn } from "@/lib/utils";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import Cluster4LineTable from "@/components/admin/cluster4/Cluster4LineTable";
 import CareerEvaluationTab from "@/components/admin/cluster4/CareerEvaluationTab";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   buildOutputLinksFromForm,
   OUTPUT_LINK_LABEL_PLACEHOLDER,
@@ -459,6 +460,7 @@ export default function PracticalCareerManager() {
   const [lineRefreshKey, setLineRefreshKey] = useState(0);
 
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 

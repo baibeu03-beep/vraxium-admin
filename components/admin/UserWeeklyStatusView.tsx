@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import type {
   UserWeeklyStatusDto,
@@ -125,6 +126,7 @@ export default function UserWeeklyStatusView({
 }) {
   const [data, setData] = useState<UserWeeklyStatusDto | null>(null);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
 

@@ -12,6 +12,7 @@ import {
   formatFullDateRangeKo,
 } from "@/lib/practicalInfoSection0Format";
 import PracticalInfoCurrentSituation from "@/components/admin/PracticalInfoCurrentSituation";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 
 // 실무 역량 [라인 관리] 탭 — 상단 보드.
 //   "[실무 역량] Hub" 제목 + 현재 상황(오늘/개설 필요/개설 이행 기간, practical-info 공용) +
@@ -117,6 +118,7 @@ export default function CompetencyLineManageBoard({
   const [summary, setSummary] = useState<Summary>(EMPTY);
   const [results, setResults] = useState<CrewResult[]>([]);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 

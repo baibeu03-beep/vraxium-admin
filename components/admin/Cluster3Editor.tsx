@@ -16,6 +16,7 @@ import {
   type OrganizationSlug,
 } from "@/lib/organizations";
 import { DebugSection, fmt } from "@/components/admin/fieldKit";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   useAdminDevMode,
   useWithDevQuery,
@@ -339,6 +340,7 @@ export default function Cluster3Editor({
   const devMode = useAdminDevMode();
   const withDev = useWithDevQuery();
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [saving, setSaving] = useState(false);
   const [bundle, setBundle] = useState<Cluster3Bundle>(() =>
     buildEmptyBundle(legacyUserId),

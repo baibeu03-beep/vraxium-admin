@@ -1,6 +1,8 @@
 import Sidebar from "@/components/admin/Sidebar";
 import Header from "@/components/admin/Header";
 import NavProgress from "@/components/admin/NavProgress";
+import GlobalLoadingBanner from "@/components/admin/GlobalLoadingBanner";
+import { LoadingBannerProvider } from "@/components/admin/loadingBannerContext";
 import { SidebarProvider } from "@/components/admin/sidebarContext";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import TestModeToggle from "@/components/admin/TestModeToggle";
@@ -24,6 +26,8 @@ export default async function PortalLayout({
         <SidebarProvider>
       {/* 데이터가 바뀌는 버튼(초기화/저장/완료/삭제/닫기)에 공통 확인 UI 제공 */}
       <ConfirmProvider>
+        {/* 전역 로딩 배너 상태 — 화면별 조회 컴포넌트가 useReportLoading 으로 보고. */}
+        <LoadingBannerProvider>
         {/* 전역 네비게이션 진행 표시(상단 Progress Bar + 클릭 피드백 + cursor:progress).
             Layout 한 곳에만 마운트 → 어드민 전체 공통 적용. */}
         <NavProgress />
@@ -37,11 +41,14 @@ export default async function PortalLayout({
               adminDisplayName={adminDisplayName}
               adminEmail={admin.email}
             />
+            {/* 공통 로딩 배너 — 헤더 바로 아래·콘텐츠 최상단 고정 위치(전역 단일 출처). */}
+            <GlobalLoadingBanner />
             <main className="flex-1 min-w-0 p-6">{children}</main>
           </div>
         </div>
         {/* 운영/테스트 모드 토글(표시 전용·admin 경로 한정, 자체 Suspense). */}
         <TestModeToggle />
+        </LoadingBannerProvider>
       </ConfirmProvider>
         </SidebarProvider>
       </AdminModeProvider>

@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   Table,
   TableBody,
@@ -541,6 +542,7 @@ function RegistrationEditModal({
 export default function LineRegistrationInfoManager() {
   const [data, setData] = useState<ListLineRegistrationsResult | null>(null);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
   // Phase 2C — 브리지 진행/결과 상태.
@@ -685,11 +687,8 @@ export default function LineRegistrationInfoManager() {
   const total = data?.total ?? 0;
 
   return (
+    // 페이지 제목/탭은 상위 LineManagement(AdminPageHeader)가 담당 — 여기선 본문만.
     <div className="flex w-full flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold tracking-normal text-foreground">라인 정보</h1>
-      </div>
-
       {banner && (
         <div
           className={cn(

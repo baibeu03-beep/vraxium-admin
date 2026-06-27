@@ -43,6 +43,7 @@ import {
   type EnhancementFilter,
 } from "@/components/admin/cluster4/enhancementBadges";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 
 type StatusFilter = "all" | "active" | "inactive";
 
@@ -832,6 +833,7 @@ export default function Cluster4LineTable({
 }) {
   const [rows, setRows] = useState<Cluster4LineDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [orgNames, setOrgNames] = useState<Record<string, string>>({});
 

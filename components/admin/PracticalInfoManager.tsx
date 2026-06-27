@@ -14,6 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { LoadingState } from "@/components/ui/loading-state";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   Card,
   CardContent,
@@ -717,6 +718,8 @@ export default function PracticalInfoManager() {
   const [weekLines, setWeekLines] = useState<Cluster4InfoLineDetail[]>([]);
 
   const [loading, setLoading] = useState(true);
+  // 전역 로딩 배너 보고 — 최초 로딩 + 라인 재조회(필터 변경).
+  useReportLoading(loading || linesLoading);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 

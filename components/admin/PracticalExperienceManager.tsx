@@ -66,6 +66,7 @@ import LineOpeningStatusBoard from "@/components/admin/LineOpeningStatusBoard";
 import ExperienceOpeningLogPanel from "@/components/admin/ExperienceOpeningLogPanel";
 import ExperiencePartLeadInput from "@/components/admin/ExperiencePartLeadInput";
 import ExperienceLineManageBoard from "@/components/admin/ExperienceLineManageBoard";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   ...ORGANIZATIONS.map((slug) => ({ value: slug, label: ORGANIZATION_LABEL[slug] })),
@@ -552,6 +553,7 @@ export default function PracticalExperienceManager() {
   const [summary, setSummary] = useState<WorkflowSummary | null>(null);
 
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);

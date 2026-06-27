@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { ORGANIZATION_COMMON_LABEL } from "@/lib/organizations";
 import { ACCOUNT_STATUSES } from "@/lib/adminAppUsersTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import type { ScopeMode } from "@/lib/userScopeShared";
 
 type AppUser = {
@@ -76,6 +77,7 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
   const [total, setTotal] = useState(0);
   const [displayedCount, setDisplayedCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");

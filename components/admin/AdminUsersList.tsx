@@ -30,6 +30,7 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import { ADMIN_READ_ROLES } from "@/lib/adminAuthRoles";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 
 type AdminUser = {
   id: string;
@@ -87,6 +88,7 @@ export default function AdminUsersList() {
   const devMode = useAdminDevMode();
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<string>(ROLE_ALL);

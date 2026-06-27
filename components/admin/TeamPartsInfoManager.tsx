@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import {
   ORGANIZATIONS,
@@ -134,6 +135,7 @@ export default function TeamPartsInfoManager() {
   const [byOrg, setByOrg] = useState<Record<string, TeamDto[]>>({});
   const [weekColumns, setWeekColumns] = useState<PartWeekColumn[]>([]);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [banner, setBanner] = useState<Banner>(null);
 
   const [activeOrg, setActiveOrg] = useState<OrganizationSlug>(

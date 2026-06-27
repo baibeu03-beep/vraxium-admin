@@ -37,6 +37,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   stringifyJsonField,
   type CareerProjectDto,
@@ -210,6 +211,7 @@ export default function CareerProjectsManager() {
   const [offset, setOffset] = useState(0);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
   const [refreshTick, setRefreshTick] = useState(0);
@@ -947,6 +949,7 @@ function WeekScheduler({
 }) {
   const [states, setStates] = useState<CareerProjectWeekStateDto[] | null>(null);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [pending, setPending] = useState<Set<string>>(new Set());
   const [reloadTick, setReloadTick] = useState(0);
 

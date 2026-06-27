@@ -14,6 +14,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 
 // /admin/settings/line-opening-windows — "라인 개설 기간(예외)" 관리.
 //   화면1: 현재 자동 정책 상태(개설 대상 주차 + 계산 규칙).
@@ -75,6 +76,7 @@ function fmtDot(iso: string | null): string {
 
 export default function LineOpeningWindowsManager() {
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [banner, setBanner] = useState<Banner>(null);
   const confirm = useConfirm();
 

@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { LoadingState } from "@/components/ui/loading-state";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import {
   ORGANIZATIONS,
@@ -212,6 +213,7 @@ function SummaryCard({
 export default function WeekRecognitionsView() {
   const [data, setData] = useState<WeekRecognitionsDto | null>(null);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading); // 전역 로딩 배너 보고
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const [activeTab, setActiveTab] = useState<ViewTabKey>("recognitions");

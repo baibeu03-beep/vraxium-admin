@@ -39,6 +39,7 @@ import { cn } from "@/lib/utils";
 import { APPLICANT_STATUSES } from "@/lib/adminApplicantTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import type { ScopeMode } from "@/lib/userScopeShared";
 
 type Applicant = {
@@ -111,6 +112,7 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
   const devMode = useAdminDevMode();
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<string>(STATUS_DEFAULT);

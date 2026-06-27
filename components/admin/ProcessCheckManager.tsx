@@ -35,6 +35,7 @@ import {
 } from "@/lib/adminProcessCheckTypes";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { LoadingState } from "@/components/ui/loading-state";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 
 function Red({ children }: { children: React.ReactNode }) {
   return <span className="font-semibold text-red-600">{children}</span>;
@@ -58,6 +59,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     emptyProcessCheckBoard(hub, org ?? ""),
   );
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [today] = useState(() => new Date());
   // 사용자가 선택한 주차(weeks.id). null = 현재 주차(서버 기본). 섹션.0/1 양쪽 동일 주차로 조회.

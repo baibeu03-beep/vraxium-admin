@@ -30,6 +30,7 @@ import {
 import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   OFFICIAL_REST_PERIOD_TYPE_LABELS,
   OFFICIAL_REST_PERIOD_TYPES,
@@ -125,6 +126,7 @@ export default function OfficialRestPeriodsManager() {
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);

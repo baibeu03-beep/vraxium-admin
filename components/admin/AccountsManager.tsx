@@ -44,6 +44,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   ORGANIZATIONS,
   ORGANIZATION_COMMON_LABEL,
@@ -110,6 +111,7 @@ export default function AccountsManager() {
   const [offset, setOffset] = useState(0);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
   const [refreshTick, setRefreshTick] = useState(0);

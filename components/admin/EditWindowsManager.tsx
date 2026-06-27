@@ -49,6 +49,7 @@ import {
   type WeekOption,
 } from "@/lib/adminEditWindowsTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 
 const PAGE_SIZE = 50;
 const RESOURCE_OPTIONS = [...EDITABLE_RESOURCES].sort((a, b) => a.order - b.order);
@@ -133,6 +134,7 @@ export default function EditWindowsManager() {
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const [banner, setBanner] = useState<Banner>(null);

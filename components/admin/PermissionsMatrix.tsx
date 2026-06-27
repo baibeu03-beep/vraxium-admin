@@ -27,6 +27,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import {
   USER_FACING_ROLES,
@@ -74,6 +75,7 @@ export default function PermissionsMatrix() {
   const [matrix, setMatrix] = useState<RoleMatrix>({});
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
   const [clusterFilter, setClusterFilter] = useState<string>("all");

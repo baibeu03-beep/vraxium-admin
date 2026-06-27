@@ -37,6 +37,7 @@ import ProcessIrregularDialog from "@/components/admin/ProcessIrregularDialog";
 import ProcessIrregularManualGrantDialog from "@/components/admin/ProcessIrregularManualGrantDialog";
 import ProcessIrregularReviewDetail from "@/components/admin/ProcessIrregularReviewDetail";
 import { WeekSelectRow } from "@/components/admin/WeekSelectRow";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   IRREGULAR_STATUS_LABEL,
   emptyProcessIrregularBoard,
@@ -68,6 +69,7 @@ export default function ProcessIrregularManager() {
     emptyProcessIrregularBoard(org ?? ""),
   );
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   // 사용자가 선택한 주차(weeks.id). null = 현재 주차(서버 기본).
   const [weekParam, setWeekParam] = useState<string | null>(null);

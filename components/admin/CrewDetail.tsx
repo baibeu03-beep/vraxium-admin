@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import { appendModeQuery, type ScopeMode } from "@/lib/userScopeShared";
 import { buildCustomerClusterUrl } from "@/lib/customerAppUrl";
@@ -151,6 +152,7 @@ export default function CrewDetail({
   const router = useRouter();
   const [detail, setDetail] = useState<CrewDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
+  useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   // 프로필 사진 로드 실패 시 placeholder 폴백(크루 전환마다 재시도하도록 load 에서 리셋).
   const [photoError, setPhotoError] = useState(false);
