@@ -61,6 +61,29 @@ export function buildCrewOnboardingTabs(
   ];
 }
 
+// 라인 관리(/admin/lines/*) 공통 2탭: 라인 정보(기본) / 라인 등록(?tab=register).
+//   - 기본(쿼리 없음) = 라인 정보 → /admin/lines/register 로 들어와도 라인 정보가 먼저 보인다.
+//   - 기존 두 라우트(/admin/lines/register · /admin/lines/info)는 그대로 동작(둘 다 기본=정보).
+//   - 현재 경로(pathname)를 유지한 채 ?tab 만 토글 → org 등 다른 쿼리도 보존된다.
+export function buildLineManageTabs(
+  pathname: string,
+  searchParams: SearchParamsLike,
+  current: "info" | "register",
+): AdminPageHeaderTab[] {
+  return [
+    {
+      label: "라인 정보",
+      href: tabHref(pathname, searchParams, "tab", "register", true),
+      active: current === "info",
+    },
+    {
+      label: "라인 등록",
+      href: tabHref(pathname, searchParams, "tab", "register", false),
+      active: current === "register",
+    },
+  ];
+}
+
 // 멤버 관리(/admin/members) 공통 2탭: 크루 목록(기본) / 크루 정보(?tab=info).
 export function buildMembersTabs(
   pathname: string,

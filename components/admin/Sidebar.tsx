@@ -48,6 +48,9 @@ type LeafItem = ScopeFlags & {
 type ChildItem = ScopeFlags & {
   label: string;
   href: string;
+  // 활성 판정용 추가 경로(선택). 하나의 메뉴가 여러 라우트를 묶을 때 사용
+  //  (예: "라인 관리" = /admin/lines/register + /admin/lines/info). 없으면 href 로 판정.
+  matchPaths?: string[];
 };
 
 type BranchItem = ScopeFlags & {
@@ -97,8 +100,13 @@ const MENU_INTEGRATED: MenuItem[] = [
     basePath: "/admin/line-opening",
     matchPaths: ["/admin/lines", "/admin/line-opening", "/admin/career-projects"],
     children: [
-      { label: "라인 등록", href: "/admin/lines/register" },
-      { label: "라인 정보", href: "/admin/lines/info" },
+      // 라인 등록/정보는 "라인 관리" 단일 메뉴로 통합(페이지 안에서 탭 전환).
+      //   기본 진입 = 라인 등록. 두 라우트 모두 활성 하이라이트되도록 matchPaths 사용.
+      {
+        label: "라인 관리",
+        href: "/admin/lines/register",
+        matchPaths: ["/admin/lines"],
+      },
       // [비활성화 2026-06-14] 개설 이력 페이지 임시 비활성화(복구 시 주석 해제).
       //   라우트도 page.tsx 에서 notFound() 처리됨.
       // { label: "개설 이력", href: "/admin/line-opening/line-history" },
@@ -583,7 +591,9 @@ export default function Sidebar() {
                   className="mt-0.5 mb-1 ml-[1.0625rem] flex flex-col gap-px border-l border-sidebar-border pl-2"
                 >
                   {visibleChildren(item).map((child) => {
-                    const childActive = isLeafActive(pathname, child.href);
+                    const childActive = child.matchPaths
+                      ? child.matchPaths.some((p) => isUnderBase(pathname, p))
+                      : isLeafActive(pathname, child.href);
                     return (
                       <li key={child.href}>
                         <Link

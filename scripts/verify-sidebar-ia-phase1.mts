@@ -121,8 +121,8 @@ const EXPECTED_INTEGRATED: Array<[string, string]> = [
   ["기간 등록", "/admin/periods/register"],
   ["기간 정보", "/admin/season-weeks"],
   ["주차 인정 결과", "/admin/week-recognitions"],
-  ["라인 등록", "/admin/lines/register"],
-  ["라인 정보", "/admin/line-opening/line-history"],
+  // 라인 등록/정보는 "라인 관리" 단일 메뉴로 통합(페이지 안 탭 전환, 기본 진입=등록).
+  ["라인 관리", "/admin/lines/register"],
   ["라인 개설 [실무 경력]", "/admin/line-opening/practical-career"],
   ["프로세스 등록", "/admin/processes/register"],
   ["프로세스 정보", "/admin/processes/info"],

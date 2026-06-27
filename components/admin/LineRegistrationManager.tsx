@@ -15,7 +15,7 @@
 //   - 하단 "등록된 라인" 목록은 /admin/lines/info 로 이동 (2026-06-07) — 이 화면은 등록 폼만.
 
 import { useCallback, useRef, useState } from "react";
-import { Trash2, Upload, X } from "lucide-react";
+import { Loader2, Trash2, Upload, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -128,6 +128,9 @@ function LogoUploadField({
     [onChange],
   );
 
+  // 표시 UI = 실무 정보 개설 폼(PracticalInfoOpeningForm)의 사각형 미리보기와 동일한 스타일.
+  //   (w-40 aspect-square 점선 박스 + "미리보기" placeholder, 업로드 시 이미지 채움)
+  //   업로드/삭제는 우측 상단 아이콘 버튼. 업로드 기능(API)·onChange/onRemove 동작은 무변경.
   return (
     <div>
       <input
@@ -138,45 +141,47 @@ function LogoUploadField({
         onChange={handleFileChange}
         disabled={disabled || uploading}
       />
-      {value ? (
-        <div className="flex items-center gap-2 rounded-md border p-2">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={value} alt="기업 로고" className="h-10 w-10 shrink-0 rounded object-cover" />
-          <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{value}</p>
+      <div className="relative w-40">
+        {value ? (
+          <div className="aspect-square w-40 overflow-hidden rounded-md border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={value} alt="기업 로고" className="h-full w-full object-cover" />
+          </div>
+        ) : (
+          <div className="flex aspect-square w-40 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
+            {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : "미리보기"}
+          </div>
+        )}
+        {/* 우측 상단: 업로드 / 삭제 (이미지가 있을 때만 삭제 노출) */}
+        <div className="absolute right-1 top-1 flex flex-col gap-1">
           <Button
             type="button"
-            variant="outline"
-            size="sm"
-            className="shrink-0"
+            variant="secondary"
+            size="icon-sm"
+            className="shadow"
             disabled={disabled || uploading}
             onClick={() => fileRef.current?.click()}
+            title={value ? "로고 교체" : "로고 업로드"}
+            aria-label={value ? "로고 교체" : "로고 업로드"}
           >
-            교체
+            <Upload className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="shrink-0"
-            disabled={disabled || uploading}
-            onClick={onRemove}
-          >
-            <Trash2 className="h-4 w-4 text-red-500" />
-          </Button>
+          {value && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon-sm"
+              className="shadow"
+              disabled={disabled || uploading}
+              onClick={onRemove}
+              title="로고 삭제"
+              aria-label="로고 삭제"
+            >
+              <Trash2 className="h-3.5 w-3.5 text-red-500" />
+            </Button>
+          )}
         </div>
-      ) : (
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          loading={uploading}
-          disabled={disabled}
-          onClick={() => fileRef.current?.click()}
-        >
-          <Upload className="mr-2 h-4 w-4" />
-          로고 이미지 업로드
-        </Button>
-      )}
+      </div>
     </div>
   );
 }
