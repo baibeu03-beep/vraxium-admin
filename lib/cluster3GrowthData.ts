@@ -702,6 +702,92 @@ export async function getGrowthStatusResolutionBatch(
 ): Promise<GrowthStatusResolutionRow[]> {
   if (userIds.length === 0) return [];
 
+  // slim(cluster4_roster_card_stats) 우선 — displayGrowthStatus 는 a(success_weeks)·
+  // h(elapsed_weeks)만 필요하고 resolveGrowthStatusDetail 이 full resolution(raw/auto/
+  // override/display/mismatch)을 산출하므로 fat cards(수십 KB jsonb)를 읽지 않는다.
+  // getGrowthRosterBatchFast 와 동일 slim SoT·drift 가드 → 동일 displayGrowthStatus.
+  // slim 무효/누락만 fat 폴백(정밀). slim a/h 는 writer 가 같은 snapshot 카드에서 파생·
+  // 저장(drift 가드로 동시점 보장)이라 fat 결과와 동일하다.
+  //   ⚠️ 종전 per-user getResolvedCardsForUser(N+1) + fat cards 가 운영 org당 10~20s 병목
+  //      (고객 /crews graft 22s 의 92%). slim 경로로 경량 SELECT 몇 개로 축소.
+  const { slimByUser, slimValidIds, needFatIds } = await fetchValidSlimRosterStats(userIds);
+  const out: GrowthStatusResolutionRow[] = [];
+
+  if (needFatIds.length > 0) {
+    out.push(...(await resolveStatusFatBatch(needFatIds)));
+  }
+
+  if (slimValidIds.length > 0) {
+    const [profileRes, seasonRes, currentWeekMap] = await Promise.all([
+      supabaseAdmin
+        .from("user_profiles")
+        .select("user_id,growth_status,activity_started_at,activity_ended_at,organization_slug")
+        .in("user_id", slimValidIds),
+      supabaseAdmin
+        .from("user_season_statuses")
+        .select("user_id,status,season_key")
+        .in("user_id", slimValidIds),
+      fetchCurrentWeekStatusBatch(slimValidIds),
+    ]);
+    if (profileRes.error) throw new GrowthError(500, profileRes.error.message);
+    if (seasonRes.error) throw new GrowthError(500, seasonRes.error.message);
+
+    const profiles = (profileRes.data ?? []) as ProfileRow[];
+    const seasonsByUser = new Map<string, SeasonStatusRow[]>();
+    for (const row of (seasonRes.data ?? []) as (SeasonStatusRow & { user_id: string })[]) {
+      const list = seasonsByUser.get(row.user_id!) ?? [];
+      list.push(row);
+      seasonsByUser.set(row.user_id!, list);
+    }
+    const seasonKey = currentSeasonDbKey();
+
+    for (const profile of profiles) {
+      const s = slimByUser.get(profile.user_id)!;
+      const org = profile.organization_slug;
+      const orgValid = org && isOrganizationSlug(org) ? (org as OrganizationSlug) : null;
+      const threshold = orgValid ? getGraduationThreshold(orgValid) : null;
+      const seasonRows = seasonsByUser.get(profile.user_id) ?? [];
+      const seasonRestActive =
+        seasonKey !== null &&
+        seasonRows.some((sr) => sr.status === "rest" && sr.season_key === seasonKey);
+      const seasonStoppedActive =
+        seasonKey !== null &&
+        seasonRows.some((sr) => sr.status === "stopped" && sr.season_key === seasonKey);
+      const detail = resolveGrowthStatusDetail({
+        growthStatus: profile.growth_status,
+        seasonRestActive,
+        seasonStoppedActive,
+        currentWeekStatus: currentWeekMap.get(profile.user_id) ?? null,
+        approvedWeeks: s.success_weeks,
+        elapsedWeeks: s.elapsed_weeks,
+        graduationThreshold: threshold,
+      });
+      out.push({
+        userId: profile.user_id,
+        organizationSlug: profile.organization_slug,
+        growthStatusRaw: profile.growth_status,
+        autoGrowthStatusKey: detail.auto,
+        manualOverrideStatus: detail.override,
+        displayGrowthStatus: detail.display,
+        overrideMismatch: detail.overrideMismatch,
+      });
+    }
+
+    // 프로필 행이 없는 slim 사용자(이론상 드묾) → fat 폴백.
+    const gotProfiles = new Set(profiles.map((p) => p.user_id));
+    const missing = slimValidIds.filter((id) => !gotProfiles.has(id));
+    if (missing.length > 0) out.push(...(await resolveStatusFatBatch(missing)));
+  }
+
+  return out;
+}
+
+// fat 경로(정밀) — slim 무효/누락 사용자에 대해서만. snapshot 배치 읽기 + buildIndicators.
+async function resolveStatusFatBatch(
+  userIds: string[],
+): Promise<GrowthStatusResolutionRow[]> {
+  if (userIds.length === 0) return [];
+
   const [profileRes, seasonRes, currentWeekMap] = await Promise.all([
     supabaseAdmin
       .from("user_profiles")
@@ -727,27 +813,62 @@ export async function getGrowthStatusResolutionBatch(
     seasonsByUser.set(row.user_id!, list);
   }
 
-  // ResolvedWeek 카드 — snapshot-first (배치 internal 과 동일 소스).
+  // ResolvedWeek 카드 — snapshot 배치 읽기(.in() 단일 SELECT, N→1). getGrowthRosterBatch 와
+  // 동일 패턴: hit/stale(비어있지 않음)은 그 카드를 쓰고, miss 만 개별 실시간 폴백(드묾),
+  // snapshot error(timeout 등)는 fail-soft 로 해당 사용자만 제외(무거운 실시간 폴백 storm →
+  // 전체 요청 timeout 방지). 카드 SoT 동일(같은 snapshot 테이블/카드).
+  //   ⚠️ 종전 per-user getResolvedCardsForUser(N+1 snapshot 조회)이 운영에서 org당 10~20s
+  //      병목이었다(고객 /crews graft 22s 의 92%). 배치화로 단일 SELECT.
   const cardsByUser = new Map<string, ResolvedCardLite[]>();
+  const snapByUser = await readWeeklyCardsSnapshotBatch(profiles.map((p) => p.user_id));
+  const failedUserIds = new Set<string>();
   let snapshotHits = 0;
   let fallbacks = 0;
-  // 무제한 팬아웃 금지 — per-user snapshot 조회를 GROWTH_CARD_CONCURRENCY 로 묶는다(풀 포화 방지).
   await mapWithConcurrency(profiles, GROWTH_CARD_CONCURRENCY, async (profile) => {
-    const r = await getResolvedCardsForUser(profile.user_id);
-    cardsByUser.set(profile.user_id, r.cards);
-    if (r.source === "snapshot") snapshotHits++;
-    else fallbacks++;
+    const snap = snapByUser.get(profile.user_id) ?? { status: "miss" as const };
+    let lite: ResolvedCardLite[] | null = null;
+    if (snap.status === "hit" || (snap.status === "stale" && snap.cards.length > 0)) {
+      lite = snapshotCardsToLite(snap.cards);
+      snapshotHits++;
+    } else if (snap.status === "error") {
+      failedUserIds.add(profile.user_id);
+      return;
+    }
+    if (!lite) {
+      // miss(snapshot 없음 — 신규 유저)에만 실시간 폴백(무겁다). 실패해도 전체 배치 안 깨고 제외.
+      try {
+        const g = await getWeeklyGrowth(profile.user_id);
+        lite = (g?.weeklyCards ?? []).map((c) => ({
+          resultStatus: c.resultStatus,
+          startDate: c.startDate,
+          endDate: c.endDate,
+          isTransition: c.isTransition,
+        }));
+        fallbacks++;
+      } catch (e) {
+        console.warn("[growth-status-batch] realtime fallback failed → omit user", {
+          userId: profile.user_id,
+          message: e instanceof Error ? e.message : String(e),
+        });
+        failedUserIds.add(profile.user_id);
+        return;
+      }
+    }
+    cardsByUser.set(profile.user_id, lite);
   });
   console.log(
     "[cluster3][growth-status-batch] card source",
     `users=${profiles.length}`,
     `snapshot=${snapshotHits}`,
     `fallback=${fallbacks}`,
+    `failed=${failedUserIds.size}`,
     `concurrency=${GROWTH_CARD_CONCURRENCY}`,
   );
 
   const seasonKey = currentSeasonDbKey();
-  return profiles.map((profile) => {
+  return profiles
+    .filter((profile) => !failedUserIds.has(profile.user_id))
+    .map((profile) => {
     const internal = buildIndicators(
       profile,
       [], // weekRows — _debug 전용 입력
@@ -924,15 +1045,16 @@ type RosterSlimRow = {
   activity_completed: number;
 };
 
-export async function getGrowthRosterBatchFast(
-  userIds: string[],
-  // 시즌 키 override(미지정=현재 시즌). /admin/members 명부는 operationalSeasonDbKey 를 넘긴다.
-  seasonKeyOverride?: string | null,
-): Promise<GrowthRosterRow[]> {
-  if (userIds.length === 0) return [];
+// slim(cluster4_roster_card_stats) 배치 로드 + drift 가드. getGrowthRosterBatchFast 와
+// getGrowthStatusResolutionBatch 가 공유한다(동일 slim SoT·동일 유효성 판정).
+//   - slim 읽기 실패(표 부재 등) 또는 drift-guard 읽기 실패 시 fail-soft: 전원 needFat.
+//   - 유효 slim = dto_version 일치 ∧ snapshot_computed_at == 현재 snapshot.computed_at.
+async function fetchValidSlimRosterStats(userIds: string[]): Promise<{
+  slimByUser: Map<string, RosterSlimRow>;
+  slimValidIds: string[];
+  needFatIds: string[];
+}> {
   const ID_CHUNK = 200;
-
-  // 1) slim 읽기(경량, cards 미포함). 표 부재(마이그레이션 미적용) 등 실패 시 전체 fat 폴백.
   const slimByUser = new Map<string, RosterSlimRow>();
   let slimAvailable = true;
   try {
@@ -961,8 +1083,8 @@ export async function getGrowthRosterBatchFast(
     try {
       for (let i = 0; i < slimIds.length; i += ID_CHUNK) {
         const chunk = slimIds.slice(i, i + ID_CHUNK);
-        // computed_at 만 SELECT(fat cards 미포함) — 경량. 단 실패 시 throw 하지 않고 slim 전체를
-        // 무효화(→ fat 폴백)해 로스터 경로가 500 으로 깨지지 않게 한다(fail-soft).
+        // computed_at 만 SELECT(fat cards 미포함) — 경량. 실패 시 throw 하지 않고 slim 전체를
+        // 무효화(→ fat 폴백)해 경로가 500 으로 깨지지 않게 한다(fail-soft).
         const { data, error } = await supabaseAdmin
           .from("cluster4_weekly_card_snapshots")
           .select("user_id,computed_at")
@@ -995,6 +1117,18 @@ export async function getGrowthRosterBatchFast(
       needFatIds.push(uid);
     }
   }
+  return { slimByUser, slimValidIds, needFatIds };
+}
+
+export async function getGrowthRosterBatchFast(
+  userIds: string[],
+  // 시즌 키 override(미지정=현재 시즌). /admin/members 명부는 operationalSeasonDbKey 를 넘긴다.
+  seasonKeyOverride?: string | null,
+): Promise<GrowthRosterRow[]> {
+  if (userIds.length === 0) return [];
+
+  // slim 배치 로드 + drift 가드(공유 헬퍼).
+  const { slimByUser, slimValidIds, needFatIds } = await fetchValidSlimRosterStats(userIds);
 
   const out: GrowthRosterRow[] = [];
 
