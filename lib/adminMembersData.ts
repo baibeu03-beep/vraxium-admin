@@ -559,15 +559,21 @@ export async function getRosterPointsScheduleFast(
   const ID_CHUNK = 200;
 
   // 1) slim 읽기(경량). 표/컬럼 부재(마이그레이션 미적용) 등 실패 시 전체 live 폴백.
+  //    청크는 서로 독립이라 병렬 실행(서울↔함수 리전 왕복 지연이 청크 수만큼 직렬 누적되는 것 방지).
   const slimByUser = new Map<string, RosterSlimPointsRow>();
   let slimAvailable = true;
   try {
-    for (let i = 0; i < userIds.length; i += ID_CHUNK) {
-      const chunk = userIds.slice(i, i + ID_CHUNK);
-      const { data, error } = await supabaseAdmin
-        .from(ROSTER_STATS_TABLE)
-        .select("user_id,dto_version,snapshot_computed_at,schedule_rate,po_a,po_b,po_c")
-        .in("user_id", chunk);
+    const chunks: string[][] = [];
+    for (let i = 0; i < userIds.length; i += ID_CHUNK) chunks.push(userIds.slice(i, i + ID_CHUNK));
+    const results = await Promise.all(
+      chunks.map((chunk) =>
+        supabaseAdmin
+          .from(ROSTER_STATS_TABLE)
+          .select("user_id,dto_version,snapshot_computed_at,schedule_rate,po_a,po_b,po_c")
+          .in("user_id", chunk),
+      ),
+    );
+    for (const { data, error } of results) {
       if (error) throw new Error(error.message);
       for (const r of (data ?? []) as RosterSlimPointsRow[]) slimByUser.set(r.user_id, r);
     }
@@ -582,12 +588,17 @@ export async function getRosterPointsScheduleFast(
   const snapComputedAt = new Map<string, string>();
   if (slimAvailable && slimByUser.size > 0) {
     const slimIds = [...slimByUser.keys()];
-    for (let i = 0; i < slimIds.length; i += ID_CHUNK) {
-      const chunk = slimIds.slice(i, i + ID_CHUNK);
-      const { data, error } = await supabaseAdmin
-        .from("cluster4_weekly_card_snapshots")
-        .select("user_id,computed_at")
-        .in("user_id", chunk);
+    const chunks: string[][] = [];
+    for (let i = 0; i < slimIds.length; i += ID_CHUNK) chunks.push(slimIds.slice(i, i + ID_CHUNK));
+    const results = await Promise.all(
+      chunks.map((chunk) =>
+        supabaseAdmin
+          .from("cluster4_weekly_card_snapshots")
+          .select("user_id,computed_at")
+          .in("user_id", chunk),
+      ),
+    );
+    for (const { data, error } of results) {
       if (error) throw new Error(error.message);
       for (const r of (data ?? []) as { user_id: string; computed_at: string }[]) {
         snapComputedAt.set(r.user_id, r.computed_at);
@@ -653,11 +664,18 @@ async function fetchGradeCacheByIds(
   ids: string[],
 ): Promise<Map<string, { grade: number | null; label: string | null }>> {
   const out = new Map<string, { grade: number | null; label: string | null }>();
-  for (let i = 0; i < ids.length; i += 200) {
-    const { data, error } = await supabaseAdmin
-      .from("user_grade_stats")
-      .select("user_id,grade,grade_label")
-      .in("user_id", ids.slice(i, i + 200));
+  // 청크는 서로 독립 — 병렬 조회로 왕복 지연 직렬 누적 방지(결과 동일).
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += 200) chunks.push(ids.slice(i, i + 200));
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      supabaseAdmin
+        .from("user_grade_stats")
+        .select("user_id,grade,grade_label")
+        .in("user_id", chunk),
+    ),
+  );
+  for (const { data, error } of results) {
     if (error) throw new Error(error.message);
     for (const r of (data ?? []) as Array<{ user_id: string; grade: number | null; grade_label: string | null }>) {
       out.set(r.user_id, { grade: r.grade, label: r.grade_label });
@@ -733,24 +751,35 @@ export async function listMembersRoster(options: {
       { displayGrowthStatus: string; successWeeks: number; growableWeeks: number; activityRate: number }
     >();
     let failedChunks = 0;
-    for (let i = 0; i < userIds.length; i += ID_CHUNK) {
-      const chunk = userIds.slice(i, i + ID_CHUNK);
-      try {
-        const rows = await getGrowthRosterBatchFast(chunk, opSeasonKey);
-        for (const r of rows) {
-          map.set(r.userId, {
-            displayGrowthStatus: r.displayGrowthStatus,
-            successWeeks: r.successWeeks,
-            growableWeeks: r.growableWeeks,
-            activityRate: r.activityRate,
+    // 청크 단위 fail-soft 유지 + 청크 병렬화(왕복 지연 직렬 누적 방지). 청크별 try/catch 로
+    // 한 청크가 실패해도 나머지는 살리고 failedChunks 만 누적 → 동작 의미 동일.
+    const chunks: string[][] = [];
+    for (let i = 0; i < userIds.length; i += ID_CHUNK) chunks.push(userIds.slice(i, i + ID_CHUNK));
+    const chunkResults = await Promise.all(
+      chunks.map(async (chunk, idx) => {
+        try {
+          return { rows: await getGrowthRosterBatchFast(chunk, opSeasonKey) };
+        } catch (err) {
+          console.warn("[roster] growth batch chunk failed → fail-soft", {
+            chunkStart: idx * ID_CHUNK,
+            chunkSize: chunk.length,
+            message: err instanceof Error ? err.message : String(err),
           });
+          return { rows: null };
         }
-      } catch (err) {
+      }),
+    );
+    for (const res of chunkResults) {
+      if (!res.rows) {
         failedChunks += 1;
-        console.warn("[roster] growth batch chunk failed → fail-soft", {
-          chunkStart: i,
-          chunkSize: chunk.length,
-          message: err instanceof Error ? err.message : String(err),
+        continue;
+      }
+      for (const r of res.rows) {
+        map.set(r.userId, {
+          displayGrowthStatus: r.displayGrowthStatus,
+          successWeeks: r.successWeeks,
+          growableWeeks: r.growableWeeks,
+          activityRate: r.activityRate,
         });
       }
     }

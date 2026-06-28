@@ -378,28 +378,36 @@ export default function MembersList() {
   // sessionStorage 로 복원한다(모집단 모드별 분리 키). URL 마이그레이션 없이 "최대한 유지".
   const storageKey = `members-list-state:${mode}`;
   const persistSkip = useRef(false);
+  // sessionStorage 복원 완료 게이트 — 복원 전 기본값으로 한 번, 복원 후 또 한 번 조회되는
+  // 왕복 시 이중 fetch 를 막는다(상세 페이지 → 목록 복귀). 복원값으로 1회만 조회.
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(storageKey);
-      if (!raw) return;
-      const s = JSON.parse(raw) as Partial<PersistedState>;
-      // 복원이 유발하는 첫 persist 1회 스킵 — 기본값이 저장값을 덮어쓰지 않게.
-      persistSkip.current = true;
-      // 마운트 시 1회 sessionStorage → state 동기화(상세 페이지 왕복 복원). 외부 저장소
-      // 복원은 effect 가 정석이며 cascading 의도된 동작이라 규칙을 좁게 끈다.
-      /* eslint-disable react-hooks/set-state-in-effect */
-      if (s.pendingClub) setPendingClub(s.pendingClub);
-      if (s.pendingFilter) setPendingFilter(s.pendingFilter);
-      if (typeof s.pendingSearch === "string") setPendingSearch(s.pendingSearch);
-      if (s.appliedClub) setAppliedClub(s.appliedClub);
-      if (s.appliedFilter) setAppliedFilter(s.appliedFilter);
-      if (typeof s.appliedSearch === "string") setAppliedSearch(s.appliedSearch);
-      if (s.lastEdited) lastEditedRef.current = s.lastEdited;
-      if (Array.isArray(s.sortStack)) setSortStack(s.sortStack);
-      /* eslint-enable react-hooks/set-state-in-effect */
+      if (raw) {
+        const s = JSON.parse(raw) as Partial<PersistedState>;
+        // 복원이 유발하는 첫 persist 1회 스킵 — 기본값이 저장값을 덮어쓰지 않게.
+        persistSkip.current = true;
+        // 마운트 시 1회 sessionStorage → state 동기화(상세 페이지 왕복 복원). 외부 저장소
+        // 복원은 effect 가 정석이며 cascading 의도된 동작이라 규칙을 좁게 끈다.
+        /* eslint-disable react-hooks/set-state-in-effect */
+        if (s.pendingClub) setPendingClub(s.pendingClub);
+        if (s.pendingFilter) setPendingFilter(s.pendingFilter);
+        if (typeof s.pendingSearch === "string") setPendingSearch(s.pendingSearch);
+        if (s.appliedClub) setAppliedClub(s.appliedClub);
+        if (s.appliedFilter) setAppliedFilter(s.appliedFilter);
+        if (typeof s.appliedSearch === "string") setAppliedSearch(s.appliedSearch);
+        if (s.lastEdited) lastEditedRef.current = s.lastEdited;
+        if (Array.isArray(s.sortStack)) setSortStack(s.sortStack);
+        /* eslint-enable react-hooks/set-state-in-effect */
+      }
     } catch {
       // 손상된 스냅샷은 무시(기본값 유지).
+    } finally {
+      // 복원 적용(또는 복원값 없음 확정) 후에야 fetch 를 연다 — 복원 전 기본값 조회 1회를 생략.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setHydrated(true);
     }
   }, [storageKey]);
 
@@ -439,6 +447,8 @@ export default function MembersList() {
 
   // 서버 페이지네이션 — 필터/검색/정렬/페이지를 서버로 보내고 해당 페이지 행만 받는다.
   useEffect(() => {
+    // sessionStorage 복원 전에는 조회하지 않는다(복원값으로 1회만 — 이중 fetch 방지).
+    if (!hydrated) return;
     let cancelled = false;
     const load = async () => {
       setLoading(true);
@@ -480,7 +490,7 @@ export default function MembersList() {
     return () => {
       cancelled = true;
     };
-  }, [fetchOrg, mode, appliedFilter, appliedSearch, sortParam, page, refreshTick]);
+  }, [hydrated, fetchOrg, mode, appliedFilter, appliedSearch, sortParam, page, refreshTick]);
 
   // 서버가 필터/정렬/슬라이스를 끝낸 페이지 — 클라이언트는 그대로 렌더.
   const rows = roster;
