@@ -297,6 +297,15 @@ async function writeRosterCardStats(
 //   stale(version_mismatch) 처리 → cron/lazy 재계산하며 채운다(DB 백필 아님 — 파생 캐시 재생성).
 //   ⚠ 무효화 경로: process_point_awards 적립/회수(processPointAccrual.applyAward/revokeForAct)가
 //   이미 invalidateWeeklyCardsForUsers 를 호출 — v30 부터 그 재계산이 actLogs 까지 갱신한다.
+// 2026-06-28 (버전 bump 없음 — 의도적): computeWeeklyCards 가 현재 시즌 카드 골격을
+//   user_week_statuses 가 아닌 user_season_statuses(시즌 명부) 참여 row 기준으로도 생성하도록
+//   확장했다(활동 uws 0 인 신규 참여자에게 현재 시즌 카드 노출). DTO shape 은 불변(카드 집합만
+//   확장)이라 dto_version 은 그대로 둔다. 적용 시점이 2026 여름 W1(2026-06-29 월) = 주차 경계와
+//   겹치므로, 기존 snapshot 은 그날 첫 조회에서 boundary-stale(computed_at < 현재 주차 시작)로
+//   "블로킹 lazy 재계산"되어 즉시 신코드(여름 카드)로 수렴한다. version bump 을 하면 그 경로가
+//   version_mismatch(비블로킹 bg)로 선점되어 첫 조회가 구 snapshot(여름 카드 없음)을 보여주고
+//   둘째 조회에서야 갱신되므로, 시즌 시작일에 한해 오히려 손해다 → bump 하지 않는다. 신규 유저는
+//   miss→lazy 로 즉시 생성된다. (참고: 직전 버전 히스토리는 v30.)
 export const WEEKLY_CARDS_DTO_VERSION = 30;
 
 const TABLE = "cluster4_weekly_card_snapshots";

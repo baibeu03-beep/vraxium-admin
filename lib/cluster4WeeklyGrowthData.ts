@@ -374,26 +374,35 @@ async function computeWeeklyCards(
     : null;
   const currentWeekStart = currentWeek?.weekStart ?? null;
   const currentSeasonKey = currentSeason ? seasonDbKey(currentSeason) : null;
-  // 현재 시즌에 시즌 휴식 신청(user_season_statuses.status='rest')이 있는가.
-  //   true 면 활동주차 uws 가 없어도 현재 휴식 시즌 주차를 휴식(개인) 카드로 생성한다.
+  // 현재 시즌 참여/휴식 여부 — user_season_statuses(시즌 명부) 단일 출처.
+  //   ① 참여 row(상태 무관)가 있으면 활동주차 uws/포인트가 아직 없어도 현재 시즌 주차를
+  //      카드 골격으로 생성한다(시즌 진행 중 표시·빈 화면 방지). 예: 2026 여름 시즌 명부
+  //      (user_season_statuses)는 있으나 주차 결과(user_week_statuses)가 아직 없는 신규 참여자.
+  //   ② status='rest' 인 경우엔 추가로 그 시즌 활동주차를 휴식(개인) 카드로 강제한다(v23 정책).
+  //   ⚠ user_week_statuses 에 가짜 결과 row 를 만들지 않는다 — 조회 시점 카드 골격만 생성한다.
+  //      현재 주차(진행 중)는 resolveWeekResultStatus 에서 uws 없으면 running("진행 중")으로,
+  //      과거 미공표 주차는 tallying("집계 중")으로 자연 산정된다(포인트 없으면 0).
   let currentSeasonRestActive = false;
+  let currentSeasonParticipationActive = false;
   if (currentSeasonKey) {
-    const { data: ssRest } = await supabaseAdmin
+    const { data: ssRows } = await supabaseAdmin
       .from("user_season_statuses")
       .select("status")
       .eq("user_id", userId)
-      .eq("season_key", currentSeasonKey)
-      .eq("status", "rest")
-      .limit(1);
-    currentSeasonRestActive = (ssRest?.length ?? 0) > 0;
+      .eq("season_key", currentSeasonKey);
+    if ((ssRows?.length ?? 0) > 0) {
+      currentSeasonParticipationActive = true;
+      currentSeasonRestActive = (ssRows ?? []).some((r) => r.status === "rest");
+    }
   }
 
   // uws 조회 오류는 그대로 빈 목록(오류 마스킹 금지).
   if (uwsErr) return { cards: [] };
   // 활동 이력(uws)이 전혀 없으면 표시할 궤적이 없다 → 기존과 동일하게 빈 목록.
-  //   단, 현재 시즌이 시즌 휴식인 회원은 현재 휴식 시즌만 카드를 생성하도록 진행(공백 화면 방지).
+  //   단, 현재 시즌에 참여 row(user_season_statuses)가 있는 회원은 현재 시즌 주차를 카드 골격
+  //   으로 생성하도록 진행(공백 화면 방지). 시즌 휴식(rest)도 참여의 한 형태이므로 포함된다.
   if (!uwsData || uwsData.length === 0) {
-    if (!(currentSeasonRestActive && currentSeason)) return { cards: [] };
+    if (!(currentSeasonParticipationActive && currentSeason)) return { cards: [] };
   }
   const uwsRows = (uwsData ?? []) as UwsRow[];
   // week_start_date → uws (보조 데이터 lookup). 카드 주차에 붙인다.
@@ -480,10 +489,11 @@ async function computeWeeklyCards(
       synthetic: true,
     });
   }
-  // 현재 시즌이 시즌 휴식인 회원: 현재 휴식 시즌의 모든 주차를 카드 대상에 포함한다(현재 주차까지).
-  //   범위 조회/조기 드롭으로 누락되는 활동주차를 휴식(개인)으로 채우기 위함. 과거 시즌은 손대지 않음
+  // 현재 시즌에 참여 row 가 있는 회원: 현재 시즌의 모든 주차를 카드 대상에 포함한다(현재 주차까지).
+  //   범위 조회/조기 드롭으로 누락되는 주차를 채우기 위함(시즌 휴식이면 아래 currentSeasonRestStarts
+  //   로 휴식(개인) 강제, 그 외 참여자는 running/tallying 으로 자연 산정). 과거 시즌은 손대지 않음
   //   (현재 시즌 season_key 한정). 미래 주차(현재 주차 이후)는 제외.
-  if (currentSeasonRestActive && currentSeasonKey) {
+  if (currentSeasonParticipationActive && currentSeasonKey) {
     const { data: curSeasonWeeks } = await supabaseAdmin
       .from("weeks")
       .select(
