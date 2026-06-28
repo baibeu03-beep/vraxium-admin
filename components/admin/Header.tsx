@@ -3,7 +3,6 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LogOut, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabaseClient } from "@/lib/supabaseClient";
 import {
   toggleDevQuery,
   useAdminDevMode,
@@ -35,7 +34,10 @@ export default function Header({
 
   // 사이드바 최하단에 있던 기존 로그아웃 로직을 그대로 이동 (auth/세션 로직 수정 없음).
   const handleLogout = async () => {
-    await supabaseClient.auth.signOut();
+    // Supabase 브라우저 SDK(~230KB)를 어드민 공통 초기 번들에서 제외 — 헤더는 모든 어드민
+    // 페이지 레이아웃에 포함되므로, 로그아웃 클릭 시에만 동적 import 로 SDK 를 불러온다.
+    const { getSupabaseBrowserClient } = await import("@/lib/supabaseBrowser");
+    await getSupabaseBrowserClient().auth.signOut();
     router.push("/login");
     router.refresh();
   };
