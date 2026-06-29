@@ -35,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -233,24 +234,12 @@ const TEMP_HIDE_EXPERIENCE_TAB_CONTENT = true;
 // Date formatting (KST locale, 12-hour clock with day-of-week)
 // ──────────────────────────────────────────────────────────────
 
-const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
-
 function fmtDateWithDay(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${DAY_NAMES[d.getDay()]})`;
+  return formatClubDate(iso);
 }
 
 function fmtDateTimeWithDay(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  let h = d.getHours();
-  const min = d.getMinutes();
-  const ampm = h < 12 ? "오전" : "오후";
-  if (h === 0) h = 12;
-  else if (h > 12) h -= 12;
-  const minStr = String(min).padStart(2, "0");
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${DAY_NAMES[d.getDay()]}) ${ampm} ${h}:${minStr}`;
+  return formatClubDateTime(iso);
 }
 
 function urlToImage(url: string): UploadedImage {
@@ -511,7 +500,7 @@ function DevWeekSelector({
         <option value="">주차를 선택해주세요</option>
         {weekOptions.map((w) => (
           <option key={w.id} value={w.id} disabled={!w.canOpen}>
-            {w.label} ({w.startDate} ~ {w.endDate})
+            {w.label} ({formatClubDate(w.startDate)} ~ {formatClubDate(w.endDate)})
             {w.isCurrent ? " · 현재" : ""}
             {!w.canOpen ? " · 휴식" : ""}
           </option>

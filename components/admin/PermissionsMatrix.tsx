@@ -29,6 +29,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import AdminHelp from "@/components/admin/AdminHelp";
 import {
   USER_FACING_ROLES,
   type PermissionDto,
@@ -213,13 +214,14 @@ export default function PermissionsMatrix() {
   // ── render ──────────────────────────────────────────────────────
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-end justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="mr-auto">
           <h2 className="text-2xl font-semibold tracking-tight">권한 설정</h2>
           <p className="text-sm text-muted-foreground">
             회원 역할별로 어떤 작업을 허용할지 설정합니다. 변경은 최고 관리자만 가능합니다.
           </p>
         </div>
+        <AdminHelp />
         <Button
           variant="outline"
           onClick={() => setRefreshTick((n) => n + 1)}

@@ -8,7 +8,8 @@
 //     포인트 부여/크롤링 연동(완료 트리거)은 후속 Phase — completed 저장 컬럼만 정의.
 
 import { PROCESS_HUB_LABEL, type ProcessActType, type ProcessHub } from "@/lib/adminProcessesTypes";
-import { DAY_NAMES, formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
+import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import type { ScopeMode } from "@/lib/userScopeShared";
 
 // ── 체크 상태 ────────────────────────────────────────────────────────────────
@@ -345,24 +346,15 @@ export function emptyProcessCheckBoard(hub: ProcessHub, organization: string): P
 
 // ── 표시 포맷 ─────────────────────────────────────────────────────────────────
 
-// "26.07.08(수)" — 공백 없는 컴팩트 표기(상태창 1 문장1).
+// "26 - 07 - 08 (수)" — 오늘 날짜(상태창 1 문장1). 클럽 일정 공통 표기(formatClubDate SoT).
 export function formatCheckTodayCompact(d: Date): string {
-  const yy = String(((d.getFullYear() % 100) + 100) % 100).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yy}.${mm}.${dd}(${DAY_NAMES[d.getDay()]})`;
+  return formatClubDate(d);
 }
 
-// "2026-07-08(수) 17:00" — 검수/신청 시점 표기(로컬 KST · 24h). 빈 값은 호출부에서 처리.
+// "26 - 07 - 08 (수) 17:00" — 검수/신청 시점(KST · 24h). 클럽 일정 공통 표기(formatClubDateTime SoT).
+//   빈 값은 호출부에서 처리.
 export function formatCheckDateTimeKo(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const y = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  return `${y}-${mm}-${dd}(${DAY_NAMES[d.getDay()]}) ${hh}:${mi}`;
+  return formatClubDateTime(iso, iso);
 }
 
 // 주차 라벨(상태창/드롭다운) "26년, 여름 시즌, 2주차".

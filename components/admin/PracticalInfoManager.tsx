@@ -34,6 +34,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
@@ -171,29 +172,11 @@ const EDIT_REASON_LABEL: Record<string, string> = {
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 function fmtDateWithDay(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const dow = DAY_NAMES[d.getDay()];
-  return `${y}. ${m}. ${day}. (${dow})`;
+  return formatClubDate(iso);
 }
 
 function fmtDateTimeWithDay(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const dow = DAY_NAMES[d.getDay()];
-  let h = d.getHours();
-  const min = d.getMinutes();
-  const ampm = h < 12 ? "오전" : "오후";
-  if (h === 0) h = 12;
-  else if (h > 12) h -= 12;
-  const minStr = min === 0 ? "00" : String(min).padStart(2, "0");
-  return `${y}. ${m}. ${day}. (${dow}) ${ampm} ${h}:${minStr}`;
+  return formatClubDateTime(iso);
 }
 
 function fmtDateShort(iso: string): string {
@@ -654,7 +637,7 @@ function LineDetailModal({
                       <SubmissionStatusBadge status={t.submissionStatus} />
                       {t.submitted && t.submittedAt ? (
                         <span className="ml-1 text-[11px] text-muted-foreground">
-                          · {fmtDateShort(t.submittedAt)}
+                          · {formatClubDateTime(t.submittedAt)}
                         </span>
                       ) : null}
                     </TableCell>
@@ -1207,7 +1190,7 @@ export default function PracticalInfoManager() {
               <option value="">주차를 선택해주세요</option>
               {weekOptions.map((w) => (
                 <option key={w.id} value={w.id} disabled={!w.canOpen}>
-                  {w.label} ({w.startDate} ~ {w.endDate})
+                  {w.label} ({formatClubDate(w.startDate)} ~ {formatClubDate(w.endDate)})
                   {w.isOpenTarget ? " · 개설대상" : ""}
                   {w.isCurrent ? " · 현재(N)" : ""}
                   {!w.canOpen ? " · 휴식" : ""}
@@ -1438,8 +1421,8 @@ export default function PracticalInfoManager() {
                           </TableCell>
                           <TableCell className="text-center">{line.canEditCount}</TableCell>
                           <TableCell className="whitespace-nowrap text-[11px] text-muted-foreground">
-                            {fmtDateShort(line.submissionOpensAt)}
-                            <br />~ {fmtDateShort(line.submissionClosesAt)}
+                            {formatClubDate(line.submissionOpensAt)}
+                            <br />~ {formatClubDate(line.submissionClosesAt)}
                           </TableCell>
                           <TableCell className="text-center">
                             {line.isActive ? (

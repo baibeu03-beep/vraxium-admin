@@ -31,6 +31,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import AdminHelp from "@/components/admin/AdminHelp";
 import {
   ORGANIZATIONS,
   ORGANIZATION_COMMON_LABEL,
@@ -45,6 +46,7 @@ import {
   type WeekRecognitionWeekOption,
 } from "@/lib/adminWeekRecognitionsTypes";
 import { DEFAULT_WEEK_CHECK_THRESHOLD } from "@/lib/cluster4Enhancement";
+import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 
 const ALL = "__all__";
 
@@ -56,7 +58,6 @@ const VIEW_TABS = [
 type ViewTabKey = (typeof VIEW_TABS)[number]["key"];
 
 type Banner = { kind: "success" | "error"; message: string } | null;
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   success: {
@@ -83,9 +84,7 @@ function statusLabel(status: string) {
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "-";
-  const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return value;
-  return `${value}(${WEEKDAYS[date.getUTCDay()]})`;
+  return formatClubDate(value);
 }
 
 function formatRange(start: string | null, end: string | null) {
@@ -163,7 +162,7 @@ function ConfirmStatusBadge({
         : "border-border bg-muted text-muted-foreground";
   const title =
     status === "확정 완료" && at
-      ? `확정 완료 · ${formatDateTime(at)}`
+      ? `확정 완료 · ${formatClubDateTime(at)}`
       : status === "집계 중"
         ? "집계 중 — 결과 확정 전"
         : "진행 중";
@@ -358,13 +357,14 @@ export default function WeekRecognitionsView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-end justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="mr-auto">
           <h2 className="text-2xl font-semibold tracking-tight">주차 인정 결과</h2>
           <p className="text-sm text-muted-foreground">
             특정 주차 또는 시즌 기준으로 사용자별 주차 인정 상태를 한 화면에서 확인합니다.
           </p>
         </div>
+        <AdminHelp />
         <Button variant="outline" onClick={reload} disabled={loading}>
           <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           새로고침
@@ -462,7 +462,7 @@ export default function WeekRecognitionsView() {
                 {weekOptions.map((w) => (
                   <SelectItem key={w.week_id} value={w.week_id}>
                     {w.week_label}
-                    {w.week_start_date ? ` · ${w.week_start_date}` : ""}
+                    {w.week_start_date ? ` · ${formatClubDate(w.week_start_date)}` : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -535,8 +535,8 @@ export default function WeekRecognitionsView() {
                     <span className="text-xs text-muted-foreground">
                       {confirmed
                         ? reviewed
-                          ? `공표 · ${formatDateTime(selectedWeek.result_published_at)} → 검수 완료 · ${formatDateTime(selectedWeek.result_reviewed_at)}`
-                          : `공표(공표 중) · ${formatDateTime(selectedWeek.result_published_at)} — /weekly-ranking 은 "공표 중". 검수 완료 시 "검수 완료"로 전환됩니다.`
+                          ? `공표 · ${formatClubDateTime(selectedWeek.result_published_at)} → 검수 완료 · ${formatClubDateTime(selectedWeek.result_reviewed_at)}`
+                          : `공표(공표 중) · ${formatClubDateTime(selectedWeek.result_published_at)} — /weekly-ranking 은 "공표 중". 검수 완료 시 "검수 완료"로 전환됩니다.`
                         : confirmStatus === "집계 중"
                           ? '집계 중 — 결과 확정 전. 고객 페이지에서 이 주차는 "성장(집계 중)"으로 표시됩니다.'
                           : "진행 중 — 주차 종료 후 결과를 확정할 수 있습니다."}
@@ -1177,7 +1177,7 @@ function WeekRecognitionEditModal({
           <div className="font-medium">{row.user_name ?? "—"}</div>
           <div className="text-xs text-muted-foreground">
             {(row.season_label ?? "—") + " · " + row.week_label}
-            {row.week_start_date ? ` · ${row.week_start_date}` : ""}
+            {row.week_start_date ? ` · ${formatClubDate(row.week_start_date)}` : ""}
           </div>
         </div>
 

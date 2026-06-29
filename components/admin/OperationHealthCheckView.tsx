@@ -22,6 +22,7 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import AdminHelp from "@/components/admin/AdminHelp";
 import {
   ORGANIZATION_COMMON_LABEL,
   ORGANIZATION_LABEL,
@@ -228,6 +229,7 @@ export default function OperationHealthCheckView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <AdminHelp />
           <Button
             variant="outline"
             onClick={() => runRecalc("all_mismatched")}

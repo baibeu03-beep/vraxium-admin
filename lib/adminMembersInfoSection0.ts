@@ -9,8 +9,8 @@
 //   공식 휴식 주차 → [공식 휴식]
 //   전환 주차     → [공식 휴식] (사용자 화면 기준 공식 휴식과 동일 취급)
 
+import { formatClubDate } from "@/lib/clubDate";
 import {
-  DAY_NAMES,
   weekName,
   type SeasonWeekRow,
 } from "@/lib/practicalInfoSeasonWeeks";
@@ -37,21 +37,13 @@ export type MembersInfoSection0 = {
 };
 
 const pad2 = (n: number) => String(n).padStart(2, "0");
-const yy2 = (year: number) => pad2(((year % 100) + 100) % 100);
 
-// date-only ISO 의 요일(UTC 기준 — season-weeks 와 동일 컨벤션 · TZ 시프트 회피).
-function dowOfIso(iso: string): number {
-  return new Date(`${iso}T00:00:00Z`).getUTCDay();
-}
-
-// "26년 6/24(수)" — YYYY-MM-DD ISO 를 짧은 한글 표기로(월/일 0패딩 없음).
+// "26 - 06 - 24 (수)" — 클럽 일정 공통 표기(formatClubDate SoT).
 function fmtDateShort(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!m) return iso;
-  return `${yy2(+m[1])}년 ${+m[2]}/${+m[3]}(${DAY_NAMES[dowOfIso(iso)]})`;
+  return formatClubDate(iso, iso);
 }
 
-// "26년 6/22(월) ~ 26년 6/28(일)" — 주차 시작/종료(월~일) 범위.
+// "26 - 06 - 22 (월) ~ 26 - 06 - 28 (일)" — 주차 시작/종료(월~일) 범위.
 function fmtRangeShort(startIso: string, endIso: string): string {
   return `${fmtDateShort(startIso)} ~ ${fmtDateShort(endIso)}`;
 }

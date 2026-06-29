@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatClubDate } from "@/lib/clubDate";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import CafeCrewPicker, {
   type CafeCrew,
@@ -26,8 +27,6 @@ import CafeCrewPicker, {
 //   (5) 라인 개설 크루: 네이버 카페 검수(매칭) + 수동 추가/삭제/초기화.
 //       0명 개설 허용 — 0명이면 그 주차/라인은 전체 크루 강화 실패, 1명↑이면 그 크루만 대기→성공.
 //   (6) 저장: POST /api/admin/cluster4/info-lines (target_user_ids=후보 목록, cafe 메타 포함).
-
-const DAY_KO = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 // "일반" 버튼 고정 문구.
 const GENERAL_MAIN_TITLE =
@@ -61,17 +60,11 @@ type UploadedImage = { url: string; name: string };
 
 type Banner = { kind: "success" | "error" | "info"; message: string } | null;
 
-function fmtDot(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!m) return iso;
-  const dow = new Date(`${iso}T00:00:00Z`).getUTCDay();
-  return `${m[1].slice(2)}.${m[2]}.${m[3]}(${DAY_KO[dow]})`;
-}
 function weekTitle(w: OpeningFormWeek): string {
   return `${w.year}년 ${w.seasonName} ${w.weekNumber}주차`;
 }
 function weekRange(w: OpeningFormWeek): string {
-  return `${fmtDot(w.startDate)} - ${fmtDot(w.endDate)}`;
+  return `${formatClubDate(w.startDate)} ~ ${formatClubDate(w.endDate)}`;
 }
 
 // ── 이미지 업로드 슬롯 (사각형 미리보기 + 클릭 확대 모달) ──

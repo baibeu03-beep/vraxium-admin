@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
+import { formatClubDate } from "@/lib/clubDate";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import {
   ORGANIZATION_LABEL,
@@ -805,7 +806,7 @@ function WeeklyListCard({
               {c.seasonYear} {c.seasonName}, {c.weekNumber}주차
             </div>
             <div className="text-xs text-muted-foreground">
-              {c.dateRangeDisplay}
+              {`${formatClubDate(c.startDate)} ~ ${formatClubDate(c.endDate)}`}
             </div>
           </div>
         </div>
@@ -1659,7 +1660,7 @@ export default function Cluster4Editor({
                     <div className="mt-2 text-[10px] text-muted-foreground">
                       status: {weeklyGrowth.currentWeekInfo.status} ·
                       restReason: {String(weeklyGrowth.currentWeekInfo.restReason)} ·
-                      period: {weeklyGrowth.currentWeekInfo.startDate} ~ {weeklyGrowth.currentWeekInfo.endDate}
+                      period: {formatClubDate(weeklyGrowth.currentWeekInfo.startDate)} ~ {formatClubDate(weeklyGrowth.currentWeekInfo.endDate)}
                     </div>
                   )}
                 </div>

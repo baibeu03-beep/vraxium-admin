@@ -13,8 +13,10 @@ import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import AdminHelp from "@/components/admin/AdminHelp";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { formatClubDate } from "@/lib/clubDate";
 
 // /admin/settings/line-opening-windows — "라인 개설 기간(예외)" 관리.
 //   화면1: 현재 자동 정책 상태(개설 대상 주차 + 계산 규칙).
@@ -271,12 +273,15 @@ export default function LineOpeningWindowsManager() {
 
   return (
     <div className="mx-auto w-full max-w-[1100px] space-y-6 px-4 py-6">
-      <div>
-        <h1 className="text-2xl font-bold">라인 개설 기간 (예외 설정)</h1>
-        <p className="text-sm text-muted-foreground">
-          자동 정책으로 정해진 개설 가능 주차 외에, 특정 주차/라인을 추가로 열어야 할 때
-          예외를 등록합니다. (지난 주차 뒤늦은 개설 · 재개설 · 운영/장애 복구 등)
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">라인 개설 기간 (예외 설정)</h1>
+          <p className="text-sm text-muted-foreground">
+            자동 정책으로 정해진 개설 가능 주차 외에, 특정 주차/라인을 추가로 열어야 할 때
+            예외를 등록합니다. (지난 주차 뒤늦은 개설 · 재개설 · 운영/장애 복구 등)
+          </p>
+        </div>
+        <AdminHelp />
       </div>
 
       {banner && (
@@ -310,7 +315,7 @@ export default function LineOpeningWindowsManager() {
                 {autoWeek.year}년 {autoWeek.seasonName} {autoWeek.weekNumber}주차
               </p>
               <p className="text-sm text-muted-foreground">
-                {fmtDot(autoWeek.startDate)} ~ {fmtDot(autoWeek.endDate)}
+                {formatClubDate(autoWeek.startDate)} ~ {formatClubDate(autoWeek.endDate)}
                 {!autoWeek.canOpen && (
                   <span className="ml-2 text-orange-600">(공식 휴식 주차)</span>
                 )}
@@ -357,7 +362,7 @@ export default function LineOpeningWindowsManager() {
               <option value="">주차를 선택해주세요</option>
               {weekOptions.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.label} ({fmtDot(w.startDate)} ~ {fmtDot(w.endDate)})
+                  {w.label} ({formatClubDate(w.startDate)} ~ {formatClubDate(w.endDate)})
                   {w.isOpenTarget ? " · 자동 정책" : ""}
                   {w.isCurrent && !w.isOpenTarget ? " · 현재" : ""}
                   {!w.canOpen ? " · 휴식" : ""}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatClubDateTime } from "@/lib/clubDate";
 import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
@@ -62,19 +63,9 @@ type CrewResult = {
   applied: boolean;
 };
 
-// 신청 시간 표기 — KST 기준 "26.07.06(월), 21:52". 미신청('-').
+// 신청 시간 표기 — KST 기준 "26 - 07 - 06 (월) 21:52". 미신청('-').
 function formatAppliedAt(iso: string | null): string {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "-";
-  const kst = new Date(d.getTime() + 9 * 3600 * 1000); // UTC+9 시프트 후 getUTC* 로 KST 성분 추출
-  const yy = String(kst.getUTCFullYear()).slice(2);
-  const mm = String(kst.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(kst.getUTCDate()).padStart(2, "0");
-  const dow = "일월화수목금토"[kst.getUTCDay()];
-  const hh = String(kst.getUTCHours()).padStart(2, "0");
-  const mi = String(kst.getUTCMinutes()).padStart(2, "0");
-  return `${yy}.${mm}.${dd}(${dow}), ${hh}:${mi}`;
+  return formatClubDateTime(iso);
 }
 
 function StatCard({

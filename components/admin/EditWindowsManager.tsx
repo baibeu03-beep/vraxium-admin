@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
+import AdminHelp from "@/components/admin/AdminHelp";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 import {
   DEFAULT_RESOURCE_KEY,
@@ -50,6 +51,7 @@ import {
 } from "@/lib/adminEditWindowsTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { formatClubDateTime } from "@/lib/clubDate";
 
 const PAGE_SIZE = 50;
 const RESOURCE_OPTIONS = [...EDITABLE_RESOURCES].sort((a, b) => a.order - b.order);
@@ -426,8 +428,8 @@ export default function EditWindowsManager() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-end justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="mr-auto">
           <h2 className="text-2xl font-semibold tracking-tight">작성기간 관리</h2>
           <p className="text-sm text-muted-foreground">
             {devMode
@@ -441,6 +443,7 @@ export default function EditWindowsManager() {
             )}
           </p>
         </div>
+        <AdminHelp />
         <Button variant="outline" onClick={reload} disabled={loading}>
           <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           새로고침
@@ -713,11 +716,11 @@ export default function EditWindowsManager() {
                           <div className="flex flex-col">
                             <span>
                               <span className="text-muted-foreground">시작</span>{" "}
-                              {fmtDate(row.window.openedAt)}
+                              {formatClubDateTime(row.window.openedAt)}
                             </span>
                             <span>
                               <span className="text-muted-foreground">종료</span>{" "}
-                              {fmtDate(row.window.expiresAt)}
+                              {formatClubDateTime(row.window.expiresAt)}
                             </span>
                           </div>
                         ) : (

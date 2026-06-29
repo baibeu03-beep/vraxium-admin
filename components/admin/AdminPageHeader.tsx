@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import AdminHelp from "@/components/admin/AdminHelp";
 
 // 어드민 페이지 공통 상단 헤더 — 모든 어드민 페이지의 상단 구조(제목·설명·탭)를 통일한다.
 //   - title       : 페이지/섹션 제목 (필수)
@@ -30,13 +31,17 @@ export default function AdminPageHeader({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="space-y-1">
-        <h1 className="text-lg font-semibold tracking-tight text-foreground">
-          {title}
-        </h1>
-        {description ? (
-          <p className="text-sm text-muted-foreground">{description}</p>
-        ) : null}
+      {/* 제목 블록(좌) + [도움말](우) — 좁은 화면에선 자연스럽게 아래로 래핑. */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-lg font-semibold tracking-tight text-foreground">
+            {title}
+          </h1>
+          {description ? (
+            <p className="text-sm text-muted-foreground">{description}</p>
+          ) : null}
+        </div>
+        <AdminHelp className="ml-auto" />
       </div>
 
       {hasTabs ? (

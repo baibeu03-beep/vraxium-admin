@@ -30,6 +30,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import AdminHelp from "@/components/admin/AdminHelp";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import Cluster4LineTable from "@/components/admin/cluster4/Cluster4LineTable";
 import CareerEvaluationTab from "@/components/admin/cluster4/CareerEvaluationTab";
@@ -162,24 +164,12 @@ type TabKey = "registration" | "opening" | "evaluation";
 // Date formatting
 // ──────────────────────────────────────────────────────────────
 
-const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
-
 function fmtDateWithDay(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${DAY_NAMES[d.getDay()]})`;
+  return formatClubDate(iso);
 }
 
 function fmtDateTimeWithDay(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  let h = d.getHours();
-  const min = d.getMinutes();
-  const ampm = h < 12 ? "오전" : "오후";
-  if (h === 0) h = 12;
-  else if (h > 12) h -= 12;
-  const minStr = String(min).padStart(2, "0");
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${DAY_NAMES[d.getDay()]}) ${ampm} ${h}:${minStr}`;
+  return formatClubDateTime(iso);
 }
 
 function fmtDateShort(iso: string): string {
@@ -1121,7 +1111,10 @@ export default function PracticalCareerManager() {
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
-      <h1 className="text-2xl font-bold">실무 경력 라인 관리</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h1 className="text-2xl font-bold">실무 경력 라인 관리</h1>
+        <AdminHelp />
+      </div>
 
       {banner && (
         <div
@@ -1223,7 +1216,7 @@ export default function PracticalCareerManager() {
                           <TableCell className="text-center">{p.defaultTargetUserIds.length}명</TableCell>
                           <TableCell className="text-xs text-muted-foreground">
                             {p.startDate && p.endDate
-                              ? `${p.startDate} ~ ${p.endDate}`
+                              ? `${formatClubDate(p.startDate)} ~ ${formatClubDate(p.endDate)}`
                               : "-"}
                           </TableCell>
                           <TableCell>
@@ -1423,7 +1416,7 @@ export default function PracticalCareerManager() {
                     <option value="">주차를 선택해주세요</option>
                     {weekOptions.map((w) => (
                       <option key={w.id} value={w.id} disabled={!w.canOpen}>
-                        {w.label} ({w.startDate} ~ {w.endDate})
+                        {w.label} ({formatClubDate(w.startDate)} ~ {formatClubDate(w.endDate)})
                         {w.isCurrent ? " · 현재" : ""}
                         {!w.canOpen ? " · 휴식" : ""}
                       </option>
@@ -1520,7 +1513,7 @@ export default function PracticalCareerManager() {
                       {selectedOption.startDate && selectedOption.endDate && (
                         <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">프로젝트 기간</Label>
-                          <p className="text-sm">{selectedOption.startDate} ~ {selectedOption.endDate}</p>
+                          <p className="text-sm">{formatClubDate(selectedOption.startDate)} ~ {formatClubDate(selectedOption.endDate)}</p>
                         </div>
                       )}
                     </div>

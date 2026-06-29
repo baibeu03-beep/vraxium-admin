@@ -92,9 +92,15 @@ type ApiRow = {
   holiday_name?: string | null;
 };
 
+// 클럽 일정 공통 표기 "YY - MM - DD (요일)" — lib/clubDate.formatClubDate 와 동일 규칙.
 function formatKoreanDate(value: string) {
-  const [y, m, d] = value.split("-");
-  return `${y}년 ${Number(m)}월 ${Number(d)}일`;
+  const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+  const [y, m, d] = value.split("-").map(Number);
+  const yy = String(((y % 100) + 100) % 100).padStart(2, "0");
+  const mm = String(m).padStart(2, "0");
+  const dd = String(d).padStart(2, "0");
+  const dow = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return `${yy} - ${mm} - ${dd} (${dow})`;
 }
 
 const SEASON_CODE: Record<string, string> = {

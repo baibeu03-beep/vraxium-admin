@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
+import AdminHelp from "@/components/admin/AdminHelp";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
@@ -471,6 +472,7 @@ export default function AccountsManager() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <AdminHelp />
           <Button variant="outline" onClick={reload} disabled={loading}>
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             새로고침

@@ -16,8 +16,8 @@ function eq(label: string, got: string, want: string) {
   );
 }
 
-// 2026-07-06 = 월요일 (요구 예시: "26. 07. 06(월)")
-eq("formatToday(2026-07-06)", formatToday(new Date(2026, 6, 6)), "26. 07. 06(월)");
+// 2026-07-06 = 월요일 — 클럽 일정 공통 표기 "YY - MM - DD (요일)" (formatClubDate SoT)
+eq("formatToday(2026-07-06)", formatToday(new Date(2026, 6, 6)), "26 - 07 - 06 (월)");
 eq(
   "formatBannerPeriod 이번주",
   formatBannerPeriod({ year: 2026, seasonName: "여름 시즌", weekNumber: 2 }),

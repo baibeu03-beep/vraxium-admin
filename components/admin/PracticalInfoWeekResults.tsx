@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatClubDateTime } from "@/lib/clubDate";
 import {
-  DAY_NAMES,
   computeOpenNeed,
   isValidLineOpeningWeek,
   weekName,
@@ -63,14 +63,9 @@ type Results = {
   lines: LineResult[];
 };
 
-const pad2 = (n: number) => String(n).padStart(2, "0");
-// "26-07-06(월), 17:23" — 개설 시점(로컬 시각).
+// "26 - 07 - 06 (월) 17:23" — 개설 시점(KST).
 function fmtOpenedAt(iso: string | null): string {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const yy = pad2(((d.getFullYear() % 100) + 100) % 100);
-  return `${yy}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}(${DAY_NAMES[d.getDay()]}), ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  return formatClubDateTime(iso);
 }
 
 const STATUS_META: Record<

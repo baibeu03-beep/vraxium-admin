@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
+import AdminHelp from "@/components/admin/AdminHelp";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
@@ -37,6 +38,7 @@ import {
   type OfficialRestPeriodDto,
   type OfficialRestPeriodType,
 } from "@/lib/officialRestPeriodsTypes";
+import { formatClubDate } from "@/lib/clubDate";
 
 type Draft = {
   name: string;
@@ -269,7 +271,7 @@ export default function OfficialRestPeriodsManager() {
       !dryRun &&
       !(await confirm({
         ...CONFIRM.save,
-        description: `${rcStart} ~ ${rcEnd} 범위의 영향 대상 카드 정보를 업데이트합니다. 진행할까요?`,
+        description: `${formatClubDate(rcStart)} ~ ${formatClubDate(rcEnd)} 범위의 영향 대상 카드 정보를 업데이트합니다. 진행할까요?`,
       }))
     ) {
       return;
@@ -342,8 +344,8 @@ export default function OfficialRestPeriodsManager() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="mr-auto">
           <h1 className="text-xl font-semibold tracking-normal text-foreground">
             공식 휴식 관리
           </h1>
@@ -351,6 +353,7 @@ export default function OfficialRestPeriodsManager() {
             명절 및 임시 공식 휴식 기간을 관리합니다.
           </p>
         </div>
+        <AdminHelp />
         <Button
           type="button"
           variant="outline"
@@ -537,8 +540,8 @@ export default function OfficialRestPeriodsManager() {
                       <TableCell>
                         {OFFICIAL_REST_PERIOD_TYPE_LABELS[period.type]}
                       </TableCell>
-                      <TableCell>{period.startDate}</TableCell>
-                      <TableCell>{period.endDate}</TableCell>
+                      <TableCell>{formatClubDate(period.startDate)}</TableCell>
+                      <TableCell>{formatClubDate(period.endDate)}</TableCell>
                       <TableCell className="max-w-[320px] truncate">
                         {period.description || "-"}
                       </TableCell>

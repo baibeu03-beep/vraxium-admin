@@ -30,6 +30,7 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import AdminHelp from "@/components/admin/AdminHelp";
 import {
   ORGANIZATIONS,
   ORGANIZATION_COMMON_LABEL,
@@ -43,9 +44,9 @@ import {
   type SeasonParticipationStatus,
   type SeasonPhase,
 } from "@/lib/adminSeasonParticipationsTypes";
+import { formatClubDate } from "@/lib/clubDate";
 
 const ALL = "__all__";
-const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 type Banner = { kind: "success" | "error"; message: string } | null;
 
@@ -83,9 +84,7 @@ const PHASE_META: Record<SeasonPhase, { label: string; className: string }> = {
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "-";
-  const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) return value;
-  return `${value}(${WEEKDAYS[date.getUTCDay()]})`;
+  return formatClubDate(value);
 }
 
 function formatRange(start: string | null, end: string | null) {
@@ -243,13 +242,14 @@ export default function SeasonParticipationsView() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-end justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="mr-auto">
           <h2 className="text-2xl font-semibold tracking-tight">시즌 참여/휴식</h2>
           <p className="text-sm text-muted-foreground">
             시즌별 참여·휴식 상태와 해당 시즌의 주차 상태 구성을 한 화면에서 확인합니다.
           </p>
         </div>
+        <AdminHelp />
         <Button variant="outline" onClick={reload} disabled={loading}>
           <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           새로고침

@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { formatClubDate } from "@/lib/clubDate";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
@@ -329,10 +330,10 @@ export default function LineHistoryManager() {
                         {row.weekLabel ?? row.seasonName ?? "—"}
                       </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">
-                        {formatDate(row.startDate)}
+                        {formatClubDate(row.startDate)}
                       </TableCell>
                       <TableCell className="text-sm whitespace-nowrap">
-                        {formatDate(row.endDate)}
+                        {formatClubDate(row.endDate)}
                       </TableCell>
                       <TableCell className="text-center">
                         <StatusBadge status={row.status} />

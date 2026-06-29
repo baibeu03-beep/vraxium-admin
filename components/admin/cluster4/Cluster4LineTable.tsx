@@ -26,6 +26,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import type {
   Cluster4LineDetail,
   Cluster4LinePartType,
@@ -183,11 +184,7 @@ function CanEditBadge({ canEdit, reason }: { canEdit: boolean; reason: string })
 // ──────────────────────────────────────────────────────────────
 
 function fmtDateTime(iso: string | null): string {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${DAY_NAMES[d.getDay()]}) ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return formatClubDateTime(iso);
 }
 
 // 라인 개설 역할별 진행 상태 + 담당자 기록 + 권장 시간 안내 (실무 경력 라인 전용).
@@ -773,7 +770,7 @@ function LineDetailModal({
                       <SubmissionStatusBadge status={t.submissionStatus} />
                       {t.submitted && t.submittedAt ? (
                         <span className="ml-1 text-[11px] text-muted-foreground">
-                          · {fmtDateShort(t.submittedAt)}
+                          · {formatClubDate(t.submittedAt)}
                         </span>
                       ) : null}
                     </TableCell>
@@ -1154,8 +1151,8 @@ export default function Cluster4LineTable({
                         </TableCell>
                         <TableCell className="text-center">{line.canEditCount}</TableCell>
                         <TableCell className="whitespace-nowrap text-[11px] text-muted-foreground">
-                          {fmtDateShort(line.submissionOpensAt)}
-                          <br />~ {fmtDateShort(line.submissionClosesAt)}
+                          {formatClubDate(line.submissionOpensAt)}
+                          <br />~ {formatClubDate(line.submissionClosesAt)}
                         </TableCell>
                         <TableCell className="text-center">
                           {line.isActive ? (

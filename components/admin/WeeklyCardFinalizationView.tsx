@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import AdminHelp from "@/components/admin/AdminHelp";
 import { ORGANIZATIONS, ORGANIZATION_LABEL } from "@/lib/organizations";
 import type {
   FinalizationAggregation,
@@ -28,19 +29,14 @@ import type {
   WeeklyCardFinalizationPreview,
   WeeklyCardFinalizationResult,
 } from "@/lib/adminWeeklyCardFinalizationTypes";
+import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 
 const ALL = "__all__";
 
 type Banner = { kind: "success" | "error" | "info"; message: string } | null;
 
 function formatDateTime(value: string | null | undefined) {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(d);
+  return formatClubDateTime(value, "—");
 }
 
 // 집계 표의 행 정의 — 라벨/키/색조.
@@ -363,8 +359,8 @@ export default function WeeklyCardFinalizationView() {
 
   return (
     <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="mr-auto">
           <h1 className="text-xl font-semibold">주차 카드 집계 확정</h1>
           <p className="text-sm text-muted-foreground">
             특정 시즌/주차의 집계 결과를 확인하고 확정합니다. 확정하면 주차 결과를
@@ -372,6 +368,7 @@ export default function WeeklyCardFinalizationView() {
             상태(성공/실패/휴식)는 변경하지 않습니다.
           </p>
         </div>
+        <AdminHelp />
         <Button
           type="button"
           variant="outline"
@@ -530,7 +527,7 @@ export default function WeeklyCardFinalizationView() {
                   {target.weekLabel}
                 </CardTitle>
                 <CardDescription>
-                  {target.startDate} ~ {target.endDate} · 조직{" "}
+                  {formatClubDate(target.startDate)} ~ {formatClubDate(target.endDate)} · 조직{" "}
                   {org === ALL ? "전체" : ORGANIZATION_LABEL[org as keyof typeof ORGANIZATION_LABEL] ?? org}
                 </CardDescription>
               </div>
@@ -669,7 +666,7 @@ export default function WeeklyCardFinalizationView() {
                 {target.weekLabel}
               </div>
               <div className="text-xs text-muted-foreground">
-                {target.startDate} ~ {target.endDate}
+                {formatClubDate(target.startDate)} ~ {formatClubDate(target.endDate)}
               </div>
             </div>
             <p className="text-sm text-muted-foreground">

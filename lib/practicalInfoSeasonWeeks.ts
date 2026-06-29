@@ -10,6 +10,8 @@
 // 주차/기간 SoT = /admin/season-weeks (GET /api/admin/season-weeks). 하드코딩 없음(오늘 날짜가
 // 어떤 week range 에 속하는지로 현재 주차를 찾는다).
 
+import { formatClubDate } from "@/lib/clubDate";
+
 export type SeasonWeekRow = {
   week_id?: string;
   // season-weeks DTO 의 season_key("2025-winter") — 시즌 타입 판정(주차 유효성)에 사용.
@@ -69,11 +71,9 @@ export function addDaysIso(iso: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
-// "26-06-29(월)"
+// "26 - 06 - 29 (월)" — 클럽 일정 공통 표기(formatClubDate SoT).
 export function fmtDate(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  if (!m) return iso;
-  return `${m[1].slice(2)}-${m[2]}-${m[3]}(${DAY_NAMES[dowOfIso(iso)]})`;
+  return formatClubDate(iso, iso);
 }
 // season-weeks season_name 은 "2026년도 봄시즌" 처럼 연도 포함 → 표시("26년 …")용으로 앞쪽 "YYYY년도" 제거.
 export function seasonLabelOnly(seasonName: string | null): string {
@@ -114,7 +114,7 @@ export function computeOpenNeed(
 ): OpenNeedComputed {
   const today = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
   const dow = now.getDay(); // 0=일 … 6=토 (로컬)
-  const todayLabel = `${yy2(now.getFullYear())}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}(${DAY_NAMES[dow]})`;
+  const todayLabel = formatClubDate(today, today);
 
   const current =
     rows.find(

@@ -11,9 +11,8 @@
 // "지난 주" = 개설 대상 주차(금요일 경계 규칙, weeks-options 의 isOpenTarget 과 동일 SoT).
 // 별도 Sunday reset 로직은 없다 — 3개 허브가 동일한 openable-week 경계를 쓴다.
 
+import { formatClubDate } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
-
-const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 // ──────────────────────────────────────────────────────────────
 // 입력 타입 (서버 상태 API 응답을 그대로 받는다)
@@ -73,13 +72,9 @@ export type LineOpeningStatus = {
 // 포맷 헬퍼
 // ──────────────────────────────────────────────────────────────
 
-// "26.07.06(월)" — 스펙 표기(공백 없음). practicalInfoSection0Format.formatToday 와 동일 의미이나
-// 상태창 스펙 포맷(공백 제거)에 맞춘 변형.
+// "26 - 07 - 06 (월)" — 오늘 날짜. 클럽 일정 공통 표기(formatClubDate SoT).
 function fmtTodayCompact(d: Date): string {
-  const yy = String(((d.getFullYear() % 100) + 100) % 100).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yy}.${mm}.${dd}(${DAY_NAMES[d.getDay()]})`;
+  return formatClubDate(d);
 }
 
 // "26년, 여름 시즌, 2주차" — 기존 SoT 포맷 재사용.

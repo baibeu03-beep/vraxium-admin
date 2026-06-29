@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
@@ -110,22 +111,12 @@ type ExistingLineDto = {
 
 type UploadedImage = { url: string; name: string };
 
-const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
-
 function fmtDateWithDay(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${DAY_NAMES[d.getDay()]})`;
+  return formatClubDate(iso);
 }
 
 function fmtDateTimeWithDay(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  let h = d.getHours();
-  const min = d.getMinutes();
-  const ampm = h < 12 ? "오전" : "오후";
-  if (h === 0) h = 12; else if (h > 12) h -= 12;
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${DAY_NAMES[d.getDay()]}) ${ampm} ${h}:${String(min).padStart(2, "0")}`;
+  return formatClubDateTime(iso);
 }
 
 function fmtDateShort(iso: string): string {
@@ -515,7 +506,7 @@ export default function PracticalCompetencyManager() {
                     <option value="">주차를 선택해주세요</option>
                     {weekOptions.map((w) => (
                       <option key={w.id} value={w.id} disabled={!w.canOpen}>
-                        {w.label} ({w.startDate} ~ {w.endDate})
+                        {w.label} ({formatClubDate(w.startDate)} ~ {formatClubDate(w.endDate)})
                         {w.isCurrent ? " · 현재" : ""}
                         {!w.canOpen ? " · 휴식" : ""}
                       </option>

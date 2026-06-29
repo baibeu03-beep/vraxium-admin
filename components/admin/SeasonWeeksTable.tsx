@@ -23,6 +23,8 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import AdminHelp from "@/components/admin/AdminHelp";
+import { formatClubDate } from "@/lib/clubDate";
 
 // ── 데이터 타입: /api/admin/season-weeks 응답 DTO 그대로 (수정 금지) ──────────
 type SeasonSummary = {
@@ -138,9 +140,7 @@ const NEXT_SEASON: Record<SeasonToken, SeasonToken> = {
 // ── 표시 헬퍼 ────────────────────────────────────────────────────────────────
 function formatKoreanDate(value: string | null | undefined) {
   if (!value) return null;
-  const [y, m, d] = value.split("-");
-  if (!y || !m || !d) return value;
-  return `${y}년 ${Number(m)}월 ${Number(d)}일`;
+  return formatClubDate(value);
 }
 
 function formatPeriod(start: string | null, end: string | null) {
@@ -392,8 +392,8 @@ export default function SeasonWeeksTable() {
   return (
     <div className="flex flex-col gap-4">
       {/* 상단: 페이지 제목 */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="mr-auto">
           <h1 className="text-xl font-semibold tracking-normal text-foreground">
             기간 정보
           </h1>
@@ -401,6 +401,7 @@ export default function SeasonWeeksTable() {
             기간 등록에서 등록된 주차 정보를 조회합니다.
           </p>
         </div>
+        <AdminHelp />
         <Button
           type="button"
           variant="outline"

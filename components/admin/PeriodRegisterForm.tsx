@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CalendarPlus, RefreshCw, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import AdminHelp from "@/components/admin/AdminHelp";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -13,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { formatClubDate } from "@/lib/clubDate";
 
 // ── 데이터 타입: /api/admin/season-weeks 응답 DTO 그대로 (기간 정보와 동일 원천 —
 //    기간 등록 전용 데이터 구조를 만들지 않는다) ─────────────────────────────
@@ -95,12 +97,6 @@ function toIsoDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-// 표시 형식: 26. 06. 29. (월)
-function formatCandidateDate(iso: string, dayLabel: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${y.slice(2)}. ${m}. ${d}. (${dayLabel})`;
-}
-
 function weekCandidatesOfYear(year: number): WeekCandidate[] {
   const out: WeekCandidate[] = [];
   // 전년 12월 말부터 첫 월요일을 찾아, 수요일(월+2일)이 해당 연도를 벗어날 때까지 순회.
@@ -119,7 +115,7 @@ function weekCandidatesOfYear(year: number): WeekCandidate[] {
       out.push({
         start,
         end,
-        label: `${formatCandidateDate(start, "월")} ~ ${formatCandidateDate(end, "일")}`,
+        label: `${formatClubDate(start)} ~ ${formatClubDate(end)}`,
       });
     }
     cursor.setUTCDate(cursor.getUTCDate() + 7);
@@ -426,8 +422,8 @@ export default function PeriodRegisterForm() {
   return (
     <div className="flex flex-col gap-4">
       {/* 상단: 페이지 제목 */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="mr-auto">
           <h1 className="text-xl font-semibold tracking-normal text-foreground">
             기간 등록
           </h1>
@@ -435,6 +431,7 @@ export default function PeriodRegisterForm() {
             주차 기간을 등록합니다. 등록된 기간은 기간 정보에서 즉시 조회됩니다.
           </p>
         </div>
+        <AdminHelp />
         <Button type="button" variant="outline" render={<Link href="/admin/season-weeks" />}>
           기간 정보로 이동
         </Button>
