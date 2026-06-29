@@ -229,6 +229,8 @@ export default function WeekRecognitionsView() {
   const [editing, setEditing] = useState<WeekRecognitionRow | null>(null);
   const [publishTarget, setPublishTarget] =
     useState<WeekRecognitionWeekOption | null>(null);
+  const [reviewTarget, setReviewTarget] =
+    useState<WeekRecognitionWeekOption | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
 
   useEffect(() => {
@@ -313,6 +315,15 @@ export default function WeekRecognitionsView() {
     setBanner({
       kind: "success",
       message: `${label} 결과를 확정했습니다. 고객 페이지에서 이 주차 카드가 성공/실패 상태로 전환됩니다.`,
+    });
+    setRefreshTick((n) => n + 1);
+  }, []);
+
+  const handleReviewed = useCallback((label: string) => {
+    setReviewTarget(null);
+    setBanner({
+      kind: "success",
+      message: `${label} 검수를 완료했습니다. /weekly-ranking 에서 이 주차 카드가 "검수 완료"로 표시됩니다.`,
     });
     setRefreshTick((n) => n + 1);
   }, []);
@@ -506,6 +517,9 @@ export default function WeekRecognitionsView() {
               const confirmed = confirmStatus === "확정 완료";
               // 결과 확정은 "집계 중"(종료·미확정) 주차에서만 가능. 진행 중/확정 완료는 비활성.
               const canConfirm = confirmStatus === "집계 중";
+              // 검수 완료는 공표(확정 완료) 이후에만 가능 — 미공표/미검수에서만 활성.
+              const reviewed = !!selectedWeek.result_reviewed_at;
+              const canReview = confirmed && !reviewed;
               return (
                 <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/20 px-4 py-3">
                   <div className="flex flex-col gap-0.5">
@@ -520,19 +534,31 @@ export default function WeekRecognitionsView() {
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {confirmed
-                        ? `확정 완료 · ${formatDateTime(selectedWeek.result_published_at)}`
+                        ? reviewed
+                          ? `공표 · ${formatDateTime(selectedWeek.result_published_at)} → 검수 완료 · ${formatDateTime(selectedWeek.result_reviewed_at)}`
+                          : `공표(공표 중) · ${formatDateTime(selectedWeek.result_published_at)} — /weekly-ranking 은 "공표 중". 검수 완료 시 "검수 완료"로 전환됩니다.`
                         : confirmStatus === "집계 중"
                           ? '집계 중 — 결과 확정 전. 고객 페이지에서 이 주차는 "성장(집계 중)"으로 표시됩니다.'
                           : "진행 중 — 주차 종료 후 결과를 확정할 수 있습니다."}
                     </span>
                   </div>
-                  <Button
-                    type="button"
-                    onClick={() => setPublishTarget(selectedWeek)}
-                    disabled={!canConfirm}
-                  >
-                    {confirmed ? "확정 완료" : "이 주차 결과 확정"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      onClick={() => setPublishTarget(selectedWeek)}
+                      disabled={!canConfirm}
+                    >
+                      {confirmed ? "공표 완료" : "이 주차 결과 공표"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={canReview ? "default" : "ghost"}
+                      onClick={() => setReviewTarget(selectedWeek)}
+                      disabled={!canReview}
+                    >
+                      {reviewed ? "검수 완료됨" : "검수 완료"}
+                    </Button>
+                  </div>
                 </div>
               );
             })()}
@@ -665,6 +691,106 @@ export default function WeekRecognitionsView() {
           onPublished={handlePublished}
         />
       )}
+
+      {reviewTarget && (
+        <ReviewWeekModal
+          week={reviewTarget}
+          onClose={() => setReviewTarget(null)}
+          onReviewed={handleReviewed}
+        />
+      )}
+    </div>
+  );
+}
+
+// 검수 완료 모달 — 공표된 주차의 weeks.result_reviewed_at 을 세팅한다(PublishWeekModal 미러).
+//   개인 카드/스냅샷 무영향 — /weekly-ranking 라벨만 '공표 중' → '검수 완료'.
+function ReviewWeekModal({
+  week,
+  onClose,
+  onReviewed,
+}: {
+  week: WeekRecognitionWeekOption;
+  onClose: () => void;
+  onReviewed: (label: string) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (saving) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/weeks/${encodeURIComponent(week.week_id)}/review-result`,
+        { method: "PATCH" },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error ?? "Failed to mark week result reviewed.");
+      }
+      onReviewed(week.week_label);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to mark week result reviewed.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="주차 검수 완료"
+        className="w-full max-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-semibold">주차 검수 완료</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            aria-label="닫기"
+            className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-50"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mb-4 rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+          <div className="font-medium">{week.week_label}</div>
+          <div className="text-xs text-muted-foreground">
+            {formatRange(week.week_start_date, week.week_end_date)}
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <p className="text-sm text-muted-foreground">
+          이 주차를 검수 완료하면 고객 <code>/weekly-ranking</code> 카드가
+          {' "공표 중"에서 "검수 완료"로 전환됩니다. '}
+          개인 주차 카드/집계 수치는 변하지 않으며(검수 완료는 랭킹 라벨 신호), 검수 완료는 취소할 수
+          없습니다.
+        </p>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
+            취소
+          </Button>
+          <Button type="button" onClick={submit} loading={saving}>
+            검수 완료
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

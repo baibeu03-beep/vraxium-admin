@@ -25,6 +25,7 @@ import type {
   WeekRecognitionUpdateResult,
   WeekRecognitionUpdatedRow,
   WeekResultPublishResult,
+  WeekResultReviewResult,
   WeekCheckThresholdUpdateInput,
   WeekCheckThresholdUpdateResult,
 } from "@/lib/adminWeekRecognitionsTypes";
@@ -92,6 +93,9 @@ type WeekRow = {
   iso_year: number | null;
   iso_week: number | null;
   result_published_at: string | null;
+  // 검수 완료 시각(관리자 검수 완료 버튼). NULL=미검수. /weekly-ranking: 공표+검수 → '검수 완료'.
+  //   마이그레이션(2026-06-29_weeks_result_reviewed_at) 미적용 DB 폴백 시 undefined → null 취급.
+  result_reviewed_at?: string | null;
   // 주차 인정 point.check 기준값. NULL=기본값. 마이그레이션 미적용 DB 폴백 시 undefined.
   check_threshold?: number | null;
 };
@@ -99,7 +103,7 @@ type WeekRow = {
 // weeks 조회 — check_threshold 컬럼 미적용 DB(마이그레이션 전) 방어 폴백 포함.
 async function fetchWeekRows(): Promise<WeekRow[]> {
   const WITH_THRESHOLD =
-    "id,season_key,week_number,start_date,end_date,iso_year,iso_week,result_published_at,check_threshold";
+    "id,season_key,week_number,start_date,end_date,iso_year,iso_week,result_published_at,result_reviewed_at,check_threshold";
   const { data, error } = await supabaseAdmin
     .from("weeks")
     .select(WITH_THRESHOLD)
@@ -107,7 +111,7 @@ async function fetchWeekRows(): Promise<WeekRow[]> {
   if (!error) return (data ?? []) as WeekRow[];
 
   console.warn(
-    "[week-recognitions] weeks.check_threshold select failed — fallback without column",
+    "[week-recognitions] weeks select with check_threshold/result_reviewed_at failed — fallback without those columns (마이그레이션 미적용 가능)",
     { message: error.message },
   );
   const { data: fallback, error: fallbackError } = await supabaseAdmin
@@ -129,6 +133,7 @@ function weekOptionOf(w: WeekRow) {
     week_start_date: w.start_date,
     week_end_date: w.end_date,
     result_published_at: w.result_published_at ?? null,
+    result_reviewed_at: w.result_reviewed_at ?? null,
     check_threshold: threshold,
     effective_check_threshold: threshold ?? DEFAULT_WEEK_CHECK_THRESHOLD,
     check_threshold_is_default: threshold == null,
@@ -773,6 +778,89 @@ export async function publishWeekResult(
     week_end_date: row.end_date ?? null,
     result_published_at: row.result_published_at ?? nowIso,
     snapshot_recompute: snapshotRecompute,
+  };
+}
+
+// ─── 주차 결과 검수 완료(review) ─────────────────────────────────────
+//
+// weeks.result_reviewed_at 을 now() 로 세팅한다(관리자 "검수 완료" 버튼). 이 값이 채워지면
+// 고객 /weekly-ranking 카드가 '공표 중' → '검수 완료'로 전환된다.
+//
+// 불변식:
+//   - 공표(result_published_at) 이후에만 가능 — 미공표 주차 검수 완료는 409 거절.
+//   - user_week_statuses / 개인 weekly-cards snapshot 은 절대 건드리지 않는다.
+//     (검수 완료는 /weekly-ranking 집계 라벨 신호일 뿐 — 개인 주차 카드 DTO 에 영향 없음 → 재계산 불필요.)
+//   - result_reviewed_at IS NULL 인 주차만 갱신(.is 가드) → 중복 검수 방지(멱등·취소 미지원).
+
+export class WeekResultReviewError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "WeekResultReviewError";
+    this.status = status;
+  }
+}
+
+export async function markWeekResultReviewed(
+  weekId: string,
+): Promise<WeekResultReviewResult> {
+  const id = String(weekId ?? "").trim();
+  if (!id) {
+    throw new WeekResultReviewError(400, "week_id is required.");
+  }
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("weeks")
+    .select("id,week_number,iso_week,start_date,end_date,result_published_at,result_reviewed_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (existingError) {
+    throw new WeekResultReviewError(500, existingError.message);
+  }
+  if (!existing) {
+    throw new WeekResultReviewError(404, "weeks row not found.");
+  }
+  const week = existing as PublishWeekRow & { result_reviewed_at: string | null };
+  // 공표 선행 필수 — 공표되지 않은 주차는 검수 완료할 수 없다.
+  if (!week.result_published_at) {
+    throw new WeekResultReviewError(409, "공표되지 않은 주차는 검수 완료할 수 없습니다.");
+  }
+  if (week.result_reviewed_at) {
+    throw new WeekResultReviewError(409, "이미 검수 완료된 주차입니다.");
+  }
+
+  const nowIso = new Date().toISOString();
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from("weeks")
+    .update({ result_reviewed_at: nowIso })
+    .eq("id", id)
+    .is("result_reviewed_at", null)
+    .select("id,week_number,iso_week,start_date,end_date,result_published_at,result_reviewed_at")
+    .maybeSingle();
+  if (updateError) {
+    throw new WeekResultReviewError(500, updateError.message);
+  }
+  if (!updated) {
+    // 가드에 걸렸다 = 그 사이 다른 요청이 먼저 검수 완료함.
+    throw new WeekResultReviewError(409, "이미 검수 완료된 주차입니다.");
+  }
+
+  const row = updated as PublishWeekRow & { result_reviewed_at: string | null };
+  const label =
+    row.week_number != null
+      ? `${row.week_number}주차`
+      : row.iso_week != null
+        ? `${row.iso_week}주(ISO)`
+        : "주차 미지정";
+  // ⚠ snapshot 재계산 없음 — result_reviewed_at 은 개인 주차 카드 DTO 에 영향이 없다
+  //   (/weekly-ranking 집계 라벨만 공표 중 → 검수 완료로 바뀜).
+  return {
+    week_id: row.id,
+    week_label: label,
+    week_start_date: row.start_date ?? null,
+    week_end_date: row.end_date ?? null,
+    result_published_at: row.result_published_at ?? null,
+    result_reviewed_at: row.result_reviewed_at ?? nowIso,
   };
 }
 

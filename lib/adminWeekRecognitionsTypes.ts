@@ -66,6 +66,8 @@ export type WeekRecognitionWeekOption = {
   week_end_date: string | null;
   // weeks.result_published_at — 주차 선택 시 공표 상태/버튼 표시에 사용.
   result_published_at: string | null;
+  // weeks.result_reviewed_at — 검수 완료 시각(검수 완료 버튼). NULL=미검수. 공표+검수 → 검수 완료.
+  result_reviewed_at: string | null;
   // ── 주차 인정 point.check 기준값 (2026-06-05 레거시 통합 라인 정책 정정) ──
   // weeks.check_threshold 원본값. NULL = 기본값 적용 (마이그레이션 미적용 DB 도 NULL 취급).
   check_threshold: number | null;
@@ -149,6 +151,18 @@ export type WeekResultPublishResult = {
     recomputed: number;
     failed: number;
   };
+};
+
+// weeks.result_reviewed_at 을 now() 로 세팅하는 "검수 완료" 액션 결과.
+//   공표(result_published_at) 이후에만 가능하며, user_week_statuses/snapshot 은 건드리지 않는다
+//   (검수 완료는 /weekly-ranking 집계 라벨 신호일 뿐 — 개인 주차 카드 DTO 에 영향 없음).
+export type WeekResultReviewResult = {
+  week_id: string;
+  week_label: string;
+  week_start_date: string | null;
+  week_end_date: string | null;
+  result_published_at: string | null;
+  result_reviewed_at: string;
 };
 
 // ─── 주차 인정 check 기준값 수정(PATCH) 전용 DTO ─────────────────────
