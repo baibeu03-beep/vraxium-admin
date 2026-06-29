@@ -43,6 +43,8 @@ type LeafItem = ScopeFlags & {
   label: string;
   href: string;
   icon: LucideIcon;
+  // /admin(HOME)에서도 클릭/이동을 허용한다(navLocked 예외). 대시보드 메뉴 전용.
+  alwaysEnabled?: boolean;
 };
 
 type ChildItem = ScopeFlags & {
@@ -74,7 +76,8 @@ type MenuItem = LeafItem | BranchItem;
 
 // ── 통합 검수 시스템(원본) — 기존 그대로 ──────────────────────────────────
 const MENU_INTEGRATED: MenuItem[] = [
-  { kind: "leaf", label: "대시보드", href: "/admin", icon: LayoutDashboard },
+  // 대시보드는 HOME(/admin)과 분리된 별도 빈 화면. HOME에서도 이동 가능하도록 navLocked 예외.
+  { kind: "leaf", label: "대시보드", href: "/admin/dashboard", icon: LayoutDashboard, alwaysEnabled: true },
   {
     kind: "branch",
     label: "주차와 시즌",
@@ -499,16 +502,18 @@ export default function Sidebar() {
           if (item.kind === "leaf") {
             const Icon = item.icon;
             const active = isLeafActive(pathname, item.href);
+            // 대시보드(alwaysEnabled)는 HOME에서도 클릭/이동 가능 — navLocked 예외.
+            const leafLocked = navLocked && !item.alwaysEnabled;
             return (
               <Link
                 key={item.href}
                 href={modeHref(item.href)}
                 title={!sidebarOpen ? item.label : undefined}
                 aria-current={active ? "page" : undefined}
-                aria-disabled={navLocked || undefined}
-                tabIndex={navLocked ? -1 : undefined}
+                aria-disabled={leafLocked || undefined}
+                tabIndex={leafLocked ? -1 : undefined}
                 onClick={(e) => {
-                  if (navLocked) e.preventDefault();
+                  if (leafLocked) e.preventDefault();
                 }}
                 className={cn(
                   "group/leaf relative flex items-center rounded-md text-sm transition-colors",
@@ -518,7 +523,7 @@ export default function Sidebar() {
                   active
                     ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
                     : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
-                  navLocked && "pointer-events-none",
+                  leafLocked && "pointer-events-none",
                 )}
               >
                 <Icon className={cn("h-4 w-4 shrink-0", !active && "text-sidebar-foreground/55 group-hover/leaf:text-sidebar-accent-foreground")} />
