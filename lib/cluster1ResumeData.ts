@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isTransitionWeekStart } from "@/lib/seasonCalendar";
+import { getCurrentActivityDateIso, isTransitionWeekStart } from "@/lib/seasonCalendar";
 import { computeScheduleReliabilityFromRows } from "@/lib/scheduleReliabilityCore";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import { EXPERIENCE_RATING_FAIL_THRESHOLD } from "@/lib/cluster4Enhancement";
@@ -261,12 +261,6 @@ const SEASON_TOTAL_WEEKS: Record<string, number> = {
   winter: 8,
 };
 
-// KST(UTC+9) 기준 오늘 날짜 문자열 "YYYY-MM-DD". 시즌 검수 경계는 날짜 단위라
-// 서버 타임존(UTC)·시각(00:00 등)에 흔들리지 않도록 KST 달력일로 환산해 비교한다.
-function kstDateString(d: Date): string {
-  return new Date(d.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
-}
-
 // "YYYY-MM-DD" + n일 → "YYYY-MM-DD". UTC 자정 기준 달력일 가산(시/분/타임존 무관).
 function addCalendarDays(dateStr: string, days: number): string {
   const ms = Date.UTC(
@@ -438,7 +432,12 @@ export async function computeSeasonRecords(
       progressStatus = "정상 졸업";
     } else if (isOngoing) {
       progressStatus = "진행 중";
-    } else if (hasRest && !hasFail) {
+    } else if (hasRest && !hasFail && approvedWeeks === 0) {
+      // "통합 휴식" = 그 시즌이 전체적으로 휴식으로 볼 수 있는 경우로 한정한다
+      // (2026-06-29 정정). 인정(공표 success) 주차가 0이고 실패도 없는데 휴식 주차만
+      // 있는 시즌만 통합 휴식이다. 일부 주차만 휴식이고 활동 성공(인정) 주차가 1개라도
+      // 있으면 — 분기 순서상 종전엔 success 9주여도 휴식 1주에 강등됐다 — 아래 "정상 완료"로
+      // 떨어진다. 인정 주차 0 기준은 바로 아래 "활동 중단"(hasFail) 분기와 동일한 SoT다.
       progressStatus = "통합 휴식";
     } else if (hasFail && approvedWeeks === 0) {
       // 활동 중단 = 그 시즌에 인정(공표 success) 주차가 0인데 실패만 있는 경우로 한정한다
@@ -455,7 +454,7 @@ export async function computeSeasonRecords(
     //   end_date(KST 달력일) + 14일을 포함 상한으로 두고 오늘(KST) 날짜와 비교한다.
     //   end_date 를 new Date 로 UTC 자정 비교하면 14일째 00:00 직후 승인 완료로
     //   빠지는 off-by-one 이 생기므로 날짜 문자열 비교로 처리한다.
-    const todayKst = kstDateString(now);
+    const todayKst = getCurrentActivityDateIso(now.getTime());
     const reviewCutoff = addCalendarDays(season.end_date.slice(0, 10), 14);
     const reviewStatus: SeasonRecord["reviewStatus"] =
       todayKst <= reviewCutoff ? "검수 중" : "승인 완료";

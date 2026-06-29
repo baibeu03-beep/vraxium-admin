@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { refreshWeeklyCardsSnapshotSafe } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 
 // 시즌 전체 휴식 신청 검증 + 실행 — server-only.
 //
@@ -103,7 +104,7 @@ export async function convertRemainingToPersonalRest(
   seasonKey: string,
 ): Promise<{ converted: number }> {
   // 현재 시즌의 미래 주차 중 success/fail → personal_rest 전환
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getCurrentActivityDateIso();
 
   const { data: futureWeeks } = await supabaseAdmin
     .from("user_week_statuses")

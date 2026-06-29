@@ -18,6 +18,7 @@ import {
   describeWeekByStartMs,
   getOpenableWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { resolveCluster4TestOpenableWeekStartMs } from "@/lib/cluster4TestWeekPolicy";
 import {
   addManualCompetencyApplication,
@@ -39,7 +40,7 @@ import {
 //   (예외 미적용 시 test 모드에서 개설은 W13, 신청자 집계는 정규주차로 어긋남 — read/write 주차 불일치)
 //   공통 SoT(resolveCluster4TestOpenableWeekStartMs)는 operating·비휴식꼬리에서 base 그대로(운영 정책 무변).
 async function resolveTargetWeekId(mode: ScopeMode): Promise<string | null> {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getCurrentActivityDateIso();
   const regularOpenableStartMs = getOpenableWeekStartMs(todayIso);
   const openableStartMs = resolveCluster4TestOpenableWeekStartMs(
     mode,

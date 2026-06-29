@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { assertUsersInRequestScope } from "@/lib/userScope";
 import { isUuid } from "@/lib/isUuid";
 import {
+  getCurrentActivityDateIso,
   getSeasonForDate,
   getCalendarWeekStatus,
 } from "@/lib/seasonCalendar";
@@ -174,7 +175,7 @@ function resolveCurrentWeek(): {
   submissionOpensAt: string;
   submissionClosesAt: string;
 } | null {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getCurrentActivityDateIso();
   const season = getSeasonForDate(todayIso);
   if (!season) return null;
 

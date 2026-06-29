@@ -6,6 +6,7 @@
 // 포인트 부여/크롤링(완료 트리거)은 본 Phase 범위 밖.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { ProcessMasterError } from "@/lib/adminProcessesData";
 import {
   PROCESS_ACT_TYPE_LABEL,
@@ -176,7 +177,7 @@ export function resolveProcessWeekStartMs(
   mode: ScopeMode,
   hub: Cluster4TestWeekHub | null,
 ): number | null {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getCurrentActivityDateIso();
   const curMs = getCurrentWeekStartMs(todayIso);
   if (curMs == null) return null;
   if (hub == null) return curMs; // 예외 미허용 허브 → 현재 주차.

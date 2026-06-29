@@ -33,6 +33,7 @@ import {
   getOpenableWeekStartMs,
   submissionWindowForWeekStartIso,
 } from "@/lib/cluster4WeekPolicy";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { resolveCluster4TestOpenableWeekStartMs } from "@/lib/cluster4TestWeekPolicy";
 import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
 import { isOrganizationSlug } from "@/lib/organizations";
@@ -361,7 +362,7 @@ export async function POST(request: NextRequest) {
   let effectiveClosesAt = input.submission_closes_at;
 
   if (!devMode) {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = getCurrentActivityDateIso();
     const clientWeekId = input.week_id; // 이미 UUID 검증됨.
 
     // 자동 정책(개설 대상) 주차 — 비휴식 + 기입기간 산출 가능 + weeks 행 존재 시 "사용 가능".

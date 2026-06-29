@@ -41,7 +41,12 @@ import {
   computeSeasonActivityStatusesFromCards,
 } from "@/lib/cluster4SeasonCircles";
 import type { SeasonActivityStatus } from "@/lib/cluster4WeeklyGrowthTypes";
-import { getSeasonForDate, seasonDbKey } from "@/lib/seasonCalendar";
+import {
+  getSeasonForDate,
+  seasonDbKey,
+  getCurrentActivityDateIso,
+  weekStartToBoundaryMs,
+} from "@/lib/seasonCalendar";
 
 // 무거운 list API — Vercel function 최대 실행시간 상한을 명시(안전망).
 // dynamic: 인증/유저별 데이터이므로 캐시 금지(항상 동적 실행).
@@ -170,7 +175,7 @@ async function finalizeOk(
 // 오늘 날짜 기준 현재 시즌 key (area-6-circles 집계 대상 시즌). 달력 갭이면 null.
 //   area-1/area-4(seasonSummary)와 동일한 seasonCalendar 현재 시즌 기준으로 통일.
 function currentSeasonKey(): string | null {
-  const season = getSeasonForDate(new Date().toISOString().slice(0, 10));
+  const season = getSeasonForDate(getCurrentActivityDateIso());
   return season ? seasonDbKey(season) : null;
 }
 
@@ -239,11 +244,13 @@ function scheduleVersionMismatchRecompute(profileUserId: string): void {
 async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
   const snap = await readWeeklyCardsSnapshot(profileUserId);
 
-  // 현재 주차 시작(월요일 00:00 UTC) — computed_at 이 이보다 과거면 주차 경계를 지난 snapshot.
+  // 현재 주차 경계 시각(월요일 00:01 KST) — computed_at 이 이보다 과거면 주차 경계를 지난
+  // snapshot(boundary-stale). 현재 주차 선택은 00:01 KST 에 넘어가는 활동 날짜로 하고,
+  // 추상 주차 시작(월요일 00:00 UTC)을 실제 경계 시각으로 변환해 비교한다(00:01~09:00 KST
+  // 구간 herd 방지 — 그 시각에 재계산된 snapshot 은 경계 이후라 신선 판정).
   // 추가 쿼리 0 (순수 달력 연산). 달력 갭(시즌 판별 불가)이면 경계 판정 생략(신선 취급).
-  const weekStartMs = getCurrentWeekStartMs(
-    new Date().toISOString().slice(0, 10),
-  );
+  const weekStartMs = getCurrentWeekStartMs(getCurrentActivityDateIso());
+  const boundaryMs = weekStartMs == null ? null : weekStartToBoundaryMs(weekStartMs);
 
   // 단건 lazy 재계산 — 실패해도 throw 하지 않고 null 반환(호출부가 구 값으로 폴백).
   const lazyRecompute = async (): Promise<Cluster4WeeklyCardDto[] | null> => {
@@ -260,7 +267,7 @@ async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
 
   if (snap.status === "hit") {
     const boundaryStale =
-      weekStartMs != null && Date.parse(snap.computedAt) < weekStartMs;
+      boundaryMs != null && Date.parse(snap.computedAt) < boundaryMs;
     if (!boundaryStale) {
       return { cards: snap.cards, outcome: "hit", detail: "", lazyRan: false };
     }

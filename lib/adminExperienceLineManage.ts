@@ -14,6 +14,7 @@ import {
   describeWeekByStartMs,
   getOpenableWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { getTeamOverallBoard } from "@/lib/adminExperienceTeamOverall";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
@@ -240,7 +241,7 @@ export async function getExperienceLineManageSummary(
     }
   } else {
     // 개설 대상 주차(금요일 경계, openable).
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = getCurrentActivityDateIso();
     const openableStartMs = getOpenableWeekStartMs(todayIso);
     const targetInfo =
       openableStartMs != null ? describeWeekByStartMs(openableStartMs) : null;

@@ -13,7 +13,7 @@
 //   대량 .in("user_id", …) 을 쓰지 않으므로 GET URL 길이 폭주가 없다.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { operationalSeasonDbKey } from "@/lib/seasonCalendar";
+import { getCurrentActivityDateIso, operationalSeasonDbKey } from "@/lib/seasonCalendar";
 
 export type SeasonParticipantCounts = {
   total: number; // user_season_statuses 행 수(시즌 참여 행)
@@ -74,7 +74,7 @@ export async function fetchSeasonParticipants(
 
 // 운영 기준 시즌(operationalSeasonDbKey(today))의 참여자. today 미지정 시 오늘(UTC) 기준.
 export async function fetchOperationalSeasonParticipants(
-  today: string = new Date().toISOString().slice(0, 10),
+  today: string = getCurrentActivityDateIso(),
 ): Promise<OperationalSeasonParticipants> {
   return fetchSeasonParticipants(operationalSeasonDbKey(today));
 }

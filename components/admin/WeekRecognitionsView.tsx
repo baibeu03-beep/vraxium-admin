@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { LoadingState } from "@/components/ui/loading-state";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import {
@@ -134,7 +135,7 @@ function StatusBadge({ row }: { row: WeekRecognitionRow }) {
 type ConfirmStatus = "진행 중" | "집계 중" | "확정 완료";
 
 function kstToday(): string {
-  return new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+  return getCurrentActivityDateIso();
 }
 
 function confirmStatusOf(

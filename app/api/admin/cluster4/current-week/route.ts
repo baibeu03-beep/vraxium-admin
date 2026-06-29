@@ -4,7 +4,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getSeasonForDate, seasonDbKey } from "@/lib/seasonCalendar";
+import { getCurrentActivityDateIso, getSeasonForDate, seasonDbKey } from "@/lib/seasonCalendar";
 import { resolveWeekOfficialRest } from "@/lib/officialRestPeriodsData";
 
 const DAY_MS = 86_400_000;
@@ -43,7 +43,7 @@ export async function GET() {
   }
 
   try {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = getCurrentActivityDateIso();
     const season = getSeasonForDate(todayIso);
 
     if (!season) {

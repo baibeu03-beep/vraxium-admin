@@ -11,7 +11,7 @@ import { getCrewSeasonResults, type CrewSeasonResultRow } from "@/lib/adminCrewS
 import { getCrewWeeklyResults, type CrewWeeklyResultRow } from "@/lib/adminCrewWeeklyResults";
 import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { foldGrowthMetrics } from "@/lib/growthCore";
-import { isTransitionWeekStart } from "@/lib/seasonCalendar";
+import { isTransitionWeekStart, getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { resolveProfilePhotoUrl } from "@/lib/customerAppUrl";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 
@@ -418,7 +418,7 @@ export async function getCrewDetailDto(
   if (!crew) return null;
 
   const id = crew.userId;
-  const todayIso = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10); // KST 달력일
+  const todayIso = getCurrentActivityDateIso(); // 현재 활동 날짜(월 00:01 KST 경계 SoT)
 
   const [
     profileRes,

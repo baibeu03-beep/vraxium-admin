@@ -11,7 +11,7 @@
 //   - search            : user_profiles.display_name ilike.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isTransitionWeekStart } from "@/lib/seasonCalendar";
+import { getCurrentActivityDateIso, isTransitionWeekStart } from "@/lib/seasonCalendar";
 import { isSeasonParticipationStatus } from "@/lib/adminSeasonParticipationsTypes";
 import { getRankPopulationSeasonKey, resyncGradeStatsBatch } from "@/lib/cluster3ClubRankData";
 import type {
@@ -242,7 +242,7 @@ export async function getSeasonParticipations(
     weekAgg.set(key, agg);
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getCurrentActivityDateIso();
 
   // 5) rows 조립.
   const rows: SeasonParticipationRow[] = seasonStatusRows.map((ss) => {

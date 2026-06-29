@@ -42,6 +42,47 @@ function toMs(iso: string): number {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// 시즌/주차 "현재 기준 시각" — 매주 월요일 00:01 KST 경계 (2026-06-29 변경).
+//
+// 배경: 내부 캘린더는 UTC 자정 앵커(ANCHOR_MS = Date.UTC(2023,0,2))를 쓰므로, 추상 주차
+//   시작(월요일 00:00 UTC)은 실제로 "월요일 09:00 KST"에 해당한다. 종전에는 "현재 날짜"를
+//   UTC 날짜(new Date().toISOString().slice(0,10))로 뽑아 현재 시즌/주차 선택과 snapshot
+//   경계가 모두 월요일 09:00 KST 에 넘어갔다.
+//
+// 변경: 경계를 매주 월요일 00:01 KST 로 통일한다. 두 축을 함께 옮긴다.
+//   ① 현재 시즌/주차 선택 → getCurrentActivityDateIso(): KST(UTC+9) 기준 날짜를 쓰되,
+//      00:01 에 날짜가 넘어가도록 1분을 보정한다(= +9h − 1min 시프트 후 날짜 절단). 따라서
+//      날짜 문자열이 "월요일 00:01 KST"에 다음 주로 넘어간다. 현재-시각 기반 시즌/주차 계산
+//      (운영자/고객/데모/일반)은 전부 이 단일 함수를 입력으로 쓴다(인라인 UTC/KST 시프트 금지).
+//   ② snapshot 신선도 경계 → weekStartToBoundaryMs(): 추상 주차 시작(월요일 00:00 UTC)을
+//      실제 경계 시각(월요일 00:01 KST = 00:00 UTC − 9h + 1min)으로 변환한다. snapshot
+//      .computed_at < 이 값이면 주차 경계를 지난 것(boundary-stale). ①과 동일하게 00:01 KST.
+//
+//   ⚠ getCurrentWeekStartMs/describeWeekByStartMs 가 반환하는 추상 주차 시작(월요일 00:00
+//      UTC)의 의미는 바꾸지 않는다 — week_start_date 등 날짜 마커로 쓰이기 때문. 본 변경은
+//      "현재 시각 → 어느 날짜/주차인가" 입력과 "신선도 경계 시각"만 옮긴다.
+// ─────────────────────────────────────────────────────────────────────
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+// 주차/시즌 경계 = 매주 월요일 00:01 KST (자정 직후 1분). 단일 상수 — 경계 시각 변경은 여기 한 곳.
+export const WEEK_BOUNDARY_KST_MS = 1 * 60 * 1000;
+
+// 현재 시각 기준 "활동 날짜"(YYYY-MM-DD) — 매일 00:01 KST 에 날짜가 넘어간다(주차 경계는
+//   월요일 00:01 KST). 현재 시즌/주차/개설대상 주차 선택의 단일 입력. UTC 날짜
+//   (new Date().toISOString())나 인라인 KST 시프트를 직접 쓰지 말고 항상 이 함수를 쓴다
+//   (운영자/고객/데모/일반 일관 — 같은 시각이면 모두 같은 날짜/주차).
+export function getCurrentActivityDateIso(nowMs: number = Date.now()): string {
+  return new Date(nowMs + KST_OFFSET_MS - WEEK_BOUNDARY_KST_MS)
+    .toISOString()
+    .slice(0, 10);
+}
+
+// 추상 주차 시작(월요일 00:00 UTC ms) → 실제 주차 경계 시각 ms(월요일 00:01 KST).
+//   snapshot.computed_at(타임스탬프)와 비교해 boundary-stale 을 판정한다. ①과 같은 경계 시각.
+export function weekStartToBoundaryMs(weekStartMs: number): number {
+  return weekStartMs - KST_OFFSET_MS + WEEK_BOUNDARY_KST_MS;
+}
+
 export function getSeasonCalendar(year: number): Season[] {
   const yearOffset = year - 2023;
   let cursor = ANCHOR_MS + yearOffset * 364 * DAY_MS;

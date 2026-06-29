@@ -5,7 +5,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getSeasonForDate } from "@/lib/seasonCalendar";
+import { getCurrentActivityDateIso, getSeasonForDate } from "@/lib/seasonCalendar";
 import {
   describeWeekByStartMs,
   getCurrentWeekStartMs,
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = getCurrentActivityDateIso();
     const todaySeason = getSeasonForDate(todayIso);
     if (!todaySeason) {
       return Response.json(

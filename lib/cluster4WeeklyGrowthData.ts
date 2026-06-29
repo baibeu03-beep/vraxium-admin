@@ -6,6 +6,7 @@ import {
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import {
+  getCurrentActivityDateIso,
   getSeasonForDate,
   getSeasonCalendar,
   getCalendarWeekStatus,
@@ -119,7 +120,7 @@ function getNextSeason(current: Season): Season | null {
 // Compute current week info
 // ─────────────────────────────────────────────────────────────────────
 async function computeCurrentWeekInfo(): Promise<CurrentWeekInfo> {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getCurrentActivityDateIso();
   const season = getSeasonForDate(todayIso);
 
   if (!season) {
@@ -367,7 +368,7 @@ async function computeWeeklyCards(
     .order("week_number", { ascending: false });
 
   // 현재 시즌/주차 + 시즌 휴식(seasonal_rest) 여부 — 빈-uws 조기 종료 판단보다 먼저 산정.
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getCurrentActivityDateIso();
   const currentSeason = getSeasonForDate(todayIso);
   const currentWeek = currentSeason
     ? getWeekInSeason(currentSeason, todayIso)
@@ -1505,7 +1506,7 @@ export async function computeSeasonActivityStatuses(
   const fb = await fetchCurrentActivityFallback(userId);
   // 현재 시즌(달력 기준)일 때만 현재값 fallback 을 허용한다. 과거 시즌(adminCrewSeasonResults 등)은
   //   PMS 이력이 없으면 빈 배열 — 과거 시즌을 "현재 등급/역할"로 덮지 않는다.
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getCurrentActivityDateIso();
   const curSeason = getSeasonForDate(todayIso);
   const currentSeasonKey = curSeason ? seasonDbKey(curSeason) : null;
   const map = await computeSeasonActivityStatusesBySeason(userId, [seasonKey], fb, currentSeasonKey);
@@ -1527,7 +1528,7 @@ export async function getWeeklyGrowth(
   const currentWeekInfo = await computeCurrentWeekInfo();
 
   // 진입 화면 시즌 요약 — 현재 시즌(달력) 단일 정보. 사용자 데이터와 무관하게 항상 산출.
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getCurrentActivityDateIso();
   const currentSeason = getSeasonForDate(todayIso);
   const seasonSummary = currentSeason
     ? buildSeasonSummary(currentSeason, todayIso)
@@ -1735,8 +1736,8 @@ export async function syncExperienceGrowthWeekStatuses(
     { alwaysOpenWeekIds },
   );
 
-  // 4. 현재 주차 (running = DB 미반영 상태 → sync 대상에서 제외).
-  const todayIso = new Date(now).toISOString().slice(0, 10);
+  // 4. 현재 주차 (running = DB 미반영 상태 → sync 대상에서 제외). 월 00:01 KST 경계 SoT.
+  const todayIso = getCurrentActivityDateIso(now);
   const currentSeason = getSeasonForDate(todayIso);
   const currentWeek = currentSeason
     ? getWeekInSeason(currentSeason, todayIso)

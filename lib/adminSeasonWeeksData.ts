@@ -5,6 +5,7 @@
 // (snapshot·demoUserId·일반 사용자 경로와 무관 — 순수 시즌/주차 메타 데이터.)
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import {
   matchOfficialRestPeriods,
@@ -222,7 +223,7 @@ export async function loadSeasonWeeks(today?: string): Promise<SeasonWeeksData> 
   const activePeriods = await fetchActiveRestPeriods();
 
   const seasonByKey = new Map(seasons.map((season) => [season.season_key, season]));
-  const todayIso = today ?? new Date().toISOString().slice(0, 10);
+  const todayIso = today ?? getCurrentActivityDateIso();
   const rows: SeasonWeekDto[] = [];
   const conflicts: SeasonWeekConflictDto[] = [];
 

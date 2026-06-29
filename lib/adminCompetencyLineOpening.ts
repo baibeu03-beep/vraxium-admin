@@ -23,6 +23,7 @@ import {
   getCurrentWeekStartMs,
   getOpenableWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import {
   collectLineOrgAudience,
   resolveCluster4LineOrgScope,
@@ -62,7 +63,7 @@ async function resolveWeeks(mode: ScopeMode = "operating"): Promise<{
   targetWeek: StatusWeek | null;
   targetWeekId: string | null;
 }> {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getCurrentActivityDateIso();
   const currentStartMs = getCurrentWeekStartMs(todayIso);
   const regularOpenableStartMs = getOpenableWeekStartMs(todayIso);
   // 테스트 모드 예외(전 조직, 공통 SoT): 휴식 꼬리면 W13 시작 ms, 아니면 정규 대상 그대로.

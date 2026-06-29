@@ -9,6 +9,7 @@ import {
   describeWeekByStartMs,
   getOpenableWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { listCompetencyOpeningLogs } from "@/lib/adminCompetencyOpeningLogs";
 
 // 실무 역량 라인 개설 행동 이력 로그 — read-only.
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
 
   try {
     let targetWeekId: string | null = null;
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = getCurrentActivityDateIso();
     const openableStartMs = getOpenableWeekStartMs(todayIso);
     const targetInfo =
       openableStartMs != null ? describeWeekByStartMs(openableStartMs) : null;

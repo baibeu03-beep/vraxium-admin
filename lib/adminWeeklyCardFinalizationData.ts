@@ -21,6 +21,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import {
   fetchActiveRestPeriods,
   isSeasonRuleRestForWeekStart,
@@ -103,7 +104,7 @@ function addDaysIso(iso: string, days: number): string {
 
 // 오늘이 속한 주차 시작(월요일) ISO — 카드 경계 판정과 동일 함수(getCurrentWeekStartMs).
 function currentWeekStartIso(): string | null {
-  const ms = getCurrentWeekStartMs(new Date().toISOString().slice(0, 10));
+  const ms = getCurrentWeekStartMs(getCurrentActivityDateIso());
   return ms == null ? null : fmtDate(ms);
 }
 

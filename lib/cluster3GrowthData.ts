@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
+  getCurrentActivityDateIso,
   getSeasonForDate,
   isTransitionWeekStart,
   seasonDbKey,
@@ -187,7 +188,7 @@ async function fetchOverrideAuditMeta(
 
 // 현재 시즌 db key ("2026-spring" 형식) — 시즌 휴식 자동 판정 기준.
 function currentSeasonDbKey(): string | null {
-  const season = getSeasonForDate(new Date().toISOString().slice(0, 10));
+  const season = getSeasonForDate(getCurrentActivityDateIso());
   return season ? seasonDbKey(season) : null;
 }
 
@@ -357,7 +358,7 @@ function buildIndicators(
     (card) => !card.isTransition && card.resultStatus === "official_rest",
   ).length;
   // 지나간 주차 h: end_date < today 인 전환 제외 주차 (현재 진행중/미래 제외).
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getCurrentActivityDateIso();
   const h = cards.filter(
     (card) => !card.isTransition && card.endDate < todayIso,
   ).length;

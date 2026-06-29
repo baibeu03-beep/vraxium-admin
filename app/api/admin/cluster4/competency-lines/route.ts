@@ -12,6 +12,7 @@ import {
 } from "@/lib/userScope";
 import { getRegistrationByBridgedMasterId } from "@/lib/lineRegistrationLookup";
 import {
+  getCurrentActivityDateIso,
   getSeasonForDate,
   getCalendarWeekStatus,
 } from "@/lib/seasonCalendar";
@@ -177,7 +178,7 @@ function resolveCurrentWeek(): {
   submissionOpensAt: string;
   submissionClosesAt: string;
 } | null {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getCurrentActivityDateIso();
   const season = getSeasonForDate(todayIso);
   if (!season) return null;
 

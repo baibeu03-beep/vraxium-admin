@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 
 // 라인 개설 대상자 풀(후보 목록) 시즌 휴식 제외 — 공용 SoT.
 //
@@ -10,7 +11,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 // 오늘(또는 주어진 날짜)이 속한 주차의 season_key. 시즌 갭/전환이면 null.
 export async function resolveCurrentSeasonKey(dateIso?: string): Promise<string | null> {
-  const today = dateIso ?? new Date().toISOString().slice(0, 10);
+  const today = dateIso ?? getCurrentActivityDateIso();
   const { data, error } = await supabaseAdmin
     .from("weeks")
     .select("season_key")

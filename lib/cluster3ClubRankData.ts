@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { GrowthError } from "@/lib/cluster3GrowthData";
 import {
@@ -101,7 +102,7 @@ async function readAllWeeklyPoints(): Promise<WeeklyPointRow[]> {
 // (시즌 갭/전환 시기는 null → 제외 없음, 보수적). season-status 변경이 품계 캐시를
 //  스테일하게 만드는지 판단하는 freshness 훅에서도 공유한다(단일 SoT).
 export async function getRankPopulationSeasonKey(): Promise<string | null> {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getCurrentActivityDateIso();
   const wk = await supabaseAdmin
     .from("weeks")
     .select("season_key")

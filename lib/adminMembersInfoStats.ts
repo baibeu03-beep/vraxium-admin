@@ -19,7 +19,7 @@ import { SUPER_ADMIN_EXCLUDE_OR } from "@/lib/superAdmins";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import { weekName, type SeasonWeekRow } from "@/lib/practicalInfoSeasonWeeks";
-import { getSeasonForDate } from "@/lib/seasonCalendar";
+import { getCurrentActivityDateIso, getSeasonForDate } from "@/lib/seasonCalendar";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 
 const SNAPSHOT_TABLE = "cluster4_weekly_card_snapshots";
@@ -516,7 +516,7 @@ export async function loadMembersInfoStats(opts: {
   };
 
   // ── 주차 목록(시작된 주차만, 로스터 활동 시작 이후) ──
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getCurrentActivityDateIso();
   const allWeeks = seasonWeeks.rows as SeasonWeekRow[];
   const orgByUser = new Map(roster.map((r) => [r.user_id, r.organization_slug]));
   const metaByUser = new Map(

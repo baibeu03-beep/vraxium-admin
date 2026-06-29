@@ -9,6 +9,7 @@ import {
   describeWeekByStartMs,
   getOpenableWeekStartMs,
 } from "@/lib/cluster4WeekPolicy";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { listExperienceOpeningLogs } from "@/lib/adminExperienceOpeningLogs";
 
 // 실무 경험 라인 개설 행동 이력 로그 — read-only.
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
   try {
     // 대상 주차 weeks.id(UUID) — 개설 대상(금요일 경계) 주차.
     let targetWeekId: string | null = null;
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = getCurrentActivityDateIso();
     const openableStartMs = getOpenableWeekStartMs(todayIso);
     const targetInfo =
       openableStartMs != null ? describeWeekByStartMs(openableStartMs) : null;

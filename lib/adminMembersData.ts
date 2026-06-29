@@ -9,7 +9,7 @@ import {
 import type { ScopeMode } from "@/lib/userScopeShared";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { getGrowthRosterBatchFast } from "@/lib/cluster3GrowthData";
-import { operationalSeasonDbKey } from "@/lib/seasonCalendar";
+import { getCurrentActivityDateIso, operationalSeasonDbKey } from "@/lib/seasonCalendar";
 import { fetchOperationalSeasonParticipants } from "@/lib/operationalSeasonParticipants";
 import { applyRosterView, type FilterValue, type SortEntry } from "@/lib/membersRosterView";
 import { getScheduleReliabilityRateBatch } from "@/lib/cluster1ResumeData";
@@ -745,7 +745,7 @@ export async function listMembersRoster(options: {
     // 회원 명부 상태 집계는 "운영 기준 시즌"(operationalSeasonKey)으로 본다 — 전환 주차면 다음 시즌.
     //   (예: 봄→여름 전환 주차엔 2026-summer 기준으로 휴식/중단/활동을 집계. 시즌명 하드코딩 없음.)
     //   /crews·이력서 등 다른 화면은 기존 현재 시즌 기준 유지(이 override 는 명부 경로에만 전달).
-    const opSeasonKey = operationalSeasonDbKey(new Date().toISOString().slice(0, 10));
+    const opSeasonKey = operationalSeasonDbKey(getCurrentActivityDateIso());
     const map = new Map<
       string,
       { displayGrowthStatus: string; successWeeks: number; growableWeeks: number; activityRate: number }

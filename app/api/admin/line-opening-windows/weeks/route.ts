@@ -8,6 +8,7 @@ import {
   LineOpeningWindowError,
   listExceptionWeekFormOptions,
 } from "@/lib/lineOpeningWindowsData";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 
 // GET /api/admin/line-opening-windows/weeks
 // 예외 등록 폼(화면 2) 주차 드롭다운 옵션 — 현재 주차 N 주변 [-2 … +2].
@@ -21,7 +22,7 @@ export async function GET(_request: NextRequest) {
   }
 
   try {
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const todayIso = getCurrentActivityDateIso();
     const weeks = await listExceptionWeekFormOptions(todayIso);
     return Response.json({ success: true, data: { weeks } });
   } catch (error) {

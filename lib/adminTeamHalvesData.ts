@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import {
   halfKeyToLastSeasonKey,
   halfKeyToSeasonKeys,
@@ -117,7 +118,7 @@ export const DEFAULT_PART_NAME = "일반";
 export async function resolveCurrentHalfKey(
   today?: string,
 ): Promise<string | null> {
-  const todayIso = today ?? new Date().toISOString().slice(0, 10);
+  const todayIso = today ?? getCurrentActivityDateIso();
 
   const { data, error } = await supabaseAdmin
     .from("season_definitions")

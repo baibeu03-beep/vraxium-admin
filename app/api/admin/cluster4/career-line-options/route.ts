@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireAdmin, toAdminErrorResponse, ADMIN_READ_ROLES } from "@/lib/adminAuth";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
+  getCurrentActivityDateIso,
   getSeasonForDate,
   getCalendarWeekStatus,
 } from "@/lib/seasonCalendar";
@@ -19,7 +20,7 @@ function resolveCurrentWeek(): {
   submissionOpensAt: string;
   submissionClosesAt: string;
 } | null {
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = getCurrentActivityDateIso();
   const season = getSeasonForDate(todayIso);
   if (!season) return null;
 
