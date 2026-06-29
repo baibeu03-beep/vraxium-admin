@@ -11,6 +11,10 @@
 //   · 요일은 한국어 한 글자(일/월/화/수/목/금/토)를 괄호로 뒤에 붙인다.
 //   · 날짜가 없거나 invalid 이면 fallback("-" 기본)을 반환한다.
 //
+// 줄바꿈 품질: 날짜 한 건은 "하나의 의미 단위"다. 날짜 내부 공백은 비분리 공백
+//   (NBSP, U+00A0)을 써서 날짜 중간에서 줄바꿈되지 않게 한다(렌더 모양은 일반 공백과
+//   동일). 범위(start~end)는 구분자에 일반 공백을 써서 두 날짜 "사이"에서만 줄바꿈된다.
+//
 // 제외 대상(이 유틸을 쓰지 말 것): 크루 생년월일, 프로필 birth_date,
 //   계정 생성일/연락처 등 "클럽 일정이 아닌" 일반 메타 날짜.
 //
@@ -20,6 +24,9 @@
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+// 날짜 내부 공백 = 비분리 공백(NBSP). 날짜를 한 덩어리로 묶어 중간 줄바꿈을 막는다.
+const NB = " ";
 
 type Ymd = { y: number; m: number; d: number };
 
@@ -58,7 +65,7 @@ function toYmd(input: string | number | Date | null | undefined): Ymd | null {
 }
 
 /**
- * 클럽 일정 날짜를 "YY - MM - DD (요일)" 형식 문자열로 변환한다.
+ * 클럽 일정 날짜를 "YY - MM - DD (요일)" 형식 문자열로 변환한다(날짜 내부는 NBSP).
  * 입력이 없거나 invalid 이면 fallback(기본 "-")을 반환한다.
  */
 export function formatClubDate(
@@ -72,12 +79,13 @@ export function formatClubDate(
   const mm = String(m).padStart(2, "0");
   const dd = String(d).padStart(2, "0");
   const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-  return `${yy} - ${mm} - ${dd} (${weekday})`;
+  return `${yy}${NB}-${NB}${mm}${NB}-${NB}${dd}${NB}(${weekday})`;
 }
 
 /**
  * 시각까지 함께 보여주던 클럽 일정(공표일·검수일·마감일·예약 검수시각 등)을
  * "YY - MM - DD (요일) HH:mm" 형식으로 변환한다. 시각은 KST(UTC+9) 기준.
+ * 날짜+시각 전체가 한 덩어리(NBSP)로 묶여 중간에서 줄바꿈되지 않는다.
  *
  * 주의: 원래 시각이 없던 순수 날짜에는 이 함수를 쓰지 말고 formatClubDate 를 쓴다
  *   (없던 시각을 새로 붙이지 않는다). date-only 문자열이 들어오면 시각 없이
@@ -101,12 +109,13 @@ export function formatClubDateTime(
   const kst = new Date(date.getTime() + KST_OFFSET_MS);
   const hh = String(kst.getUTCHours()).padStart(2, "0");
   const mi = String(kst.getUTCMinutes()).padStart(2, "0");
-  return `${datePart} ${hh}:${mi}`;
+  return `${datePart}${NB}${hh}:${mi}`;
 }
 
 /**
  * 기간(시작~종료)을 "YY - MM - DD (요일) {sep} YY - MM - DD (요일)" 로 변환한다.
- * 한쪽만 있으면 그 한쪽만, 둘 다 없으면 fallback 을 반환한다.
+ * 각 날짜는 한 덩어리(NBSP)이고, 구분자(기본 " → ")는 일반 공백이라 두 날짜
+ * 사이에서만 줄바꿈된다. 한쪽만 있으면 그 한쪽만, 둘 다 없으면 fallback 을 반환한다.
  */
 export function formatClubDateRange(
   start: string | number | Date | null | undefined,

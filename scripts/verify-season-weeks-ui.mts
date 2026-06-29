@@ -93,14 +93,17 @@ type ApiRow = {
 };
 
 // 클럽 일정 공통 표기 "YY - MM - DD (요일)" — lib/clubDate.formatClubDate 와 동일 규칙.
+//   날짜 내부 공백은 NBSP(U+00A0)다(줄바꿈 방지) — 렌더 UI 와 동일하게 NBSP 로 생성해야
+//   startsWith 비교가 일치한다.
 function formatKoreanDate(value: string) {
   const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+  const NB = String.fromCharCode(160);
   const [y, m, d] = value.split("-").map(Number);
   const yy = String(((y % 100) + 100) % 100).padStart(2, "0");
   const mm = String(m).padStart(2, "0");
   const dd = String(d).padStart(2, "0");
   const dow = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
-  return `${yy} - ${mm} - ${dd} (${dow})`;
+  return `${yy}${NB}-${NB}${mm}${NB}-${NB}${dd}${NB}(${dow})`;
 }
 
 const SEASON_CODE: Record<string, string> = {

@@ -166,19 +166,23 @@ const EDIT_REASON_LABEL: Record<string, string> = {
 };
 
 // ──────────────────────────────────────────────────────────────
-// Date formatting — 오전/오후 + (요일)
+// Date formatting — 클럽 일정은 formatClubDate/formatClubDateTime(공통 SoT) 위임.
+//   fmtDateShort 는 메타(라인 생성일)용으로만 남겨둔 기존 표기다.
 // ──────────────────────────────────────────────────────────────
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
+// 클럽 일정 날짜(시각 없음) — "YY - MM - DD (요일)".
 function fmtDateWithDay(iso: string): string {
   return formatClubDate(iso);
 }
 
+// 클럽 일정 날짜+시각 — "YY - MM - DD (요일) HH:mm".
 function fmtDateTimeWithDay(iso: string): string {
   return formatClubDateTime(iso);
 }
 
+// 메타(라인 생성일) 전용 — 기존 표기 유지(클럽 일정 통일 대상 아님).
 function fmtDateShort(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;

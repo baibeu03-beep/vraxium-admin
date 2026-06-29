@@ -8,6 +8,7 @@
 // ⚠ 표시 전용(presentational) — 데이터/상태는 부모가 소유. value/onChange 로 제어한다.
 
 import { cn } from "@/lib/utils";
+import { formatClubDate } from "@/lib/clubDate";
 import type { ProcessWeekOptionDto } from "@/lib/adminProcessCheckTypes";
 
 export function WeekSelectRow({
@@ -52,7 +53,7 @@ export function WeekSelectRow({
       {selectedOption && (
         <>
           <span className="rounded-md border bg-muted/40 px-2.5 py-1 text-sm tabular-nums text-muted-foreground">
-            ({selectedOption.startDate} ~ {selectedOption.endDate})
+            ({formatClubDate(selectedOption.startDate)} ~ {formatClubDate(selectedOption.endDate)})
           </span>
           <span
             className={cn(
