@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { toSessionCookieOptions } from "@/lib/sessionCookieOptions";
 
 // Refresh the Supabase auth cookies on every request so server-rendered pages
 // and route handlers see a non-expired session. This is the canonical
@@ -23,7 +24,9 @@ export async function middleware(request: NextRequest) {
           }
           response = NextResponse.next({ request });
           for (const { name, value, options } of cookiesToSet) {
-            response.cookies.set(name, value, options);
+            // Session cookies: drop maxAge/expires so the refreshed auth cookies
+            // end on browser close. See lib/sessionCookieOptions.ts.
+            response.cookies.set(name, value, toSessionCookieOptions(options));
           }
         },
       },

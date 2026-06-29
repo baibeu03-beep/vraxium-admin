@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { toSessionCookieOptions } from "@/lib/sessionCookieOptions";
 
 export async function getSupabaseServerClient() {
   const cookieStore = await cookies();
@@ -15,7 +16,9 @@ export async function getSupabaseServerClient() {
         setAll(cookiesToSet) {
           try {
             for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
+              // Session cookies: drop maxAge/expires so the session ends on
+              // browser close. See lib/sessionCookieOptions.ts.
+              cookieStore.set(name, value, toSessionCookieOptions(options));
             }
           } catch {
             // Server Components cannot always mutate cookies; middleware can be added later if refresh is needed.

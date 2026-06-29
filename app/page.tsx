@@ -10,18 +10,15 @@ export default function HomePage() {
           <div>
             <p className="text-sm text-muted-foreground">Vraxium Admin</p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-              관리자 포털
+              Cluv Crew Care Page
             </h1>
           </div>
-          <p className="text-sm text-muted-foreground">
-            크루 데이터, 표시 여부, 관리자 메모를 관리하는 전용 페이지입니다.
-          </p>
           <Button
             render={<Link href="/login" />}
             nativeButton={false}
             className="w-full"
           >
-            관리자 로그인
+            로그인
           </Button>
         </CardContent>
       </Card>
