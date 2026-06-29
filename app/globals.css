@@ -85,6 +85,40 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ───────────────────────────────────────────────────────────────────────────
+   전역 타이포그래피 스케일 — 단일 SoT (어드민 폰트 기준값).
+   Tailwind v4 의 폰트 크기 유틸(text-2xs ~ text-4xl)이 참조하는 --text-* 토큰을
+   한 곳에서 일괄 조정한다. 페이지별 font-size 추가 없이 여기 기준값만 바꾼다.
+   · 본문 기준(읽기 편한 수준): text-xs 12→13.5px · text-sm 14→16px · text-base 16→18px.
+     제목(lg~4xl)은 기존 기본값 대비 ×1.125 로, 단계 간 비율을 그대로 유지하며 자연 확대.
+   · font-size 만 키우고 간격/높이(p-*, h-*, gap-* = spacing 토큰)는 건드리지 않는다
+     → 버튼/입력창 높이·여백은 그대로, "글자만" 커진다. line-height 도 함께 맞춰
+     줄간격이 답답하지 않게 한다.
+   · text-2xs = 토큰 미만(아주 조밀한 라벨·배지 sm)용 신규 토큰. 고정 px 대신 이 토큰을 쓴다.
+   ⚠ 아직 토큰을 안 쓰는 임의 픽셀(text-[10px], text-[11px] 등 조밀 라벨)은 미반영 —
+     우선순위(버튼/배지/사이드바/로그패널) 외 잔여분은 후속 정리 대상.
+   ─────────────────────────────────────────────────────────────────────────── */
+@theme {
+  --text-2xs: 0.78125rem;          /* 12.5px — 신규(토큰 미만 라벨·배지 sm) */
+  --text-2xs--line-height: 1.125rem;
+  --text-xs: 0.84375rem;           /* 12px → 13.5px */
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 1rem;                 /* 14px → 16px */
+  --text-sm--line-height: 1.5rem;
+  --text-base: 1.125rem;           /* 16px → 18px */
+  --text-base--line-height: 1.625rem;
+  --text-lg: 1.265625rem;          /* 18px → 20.25px (×1.125) */
+  --text-lg--line-height: 1.875rem;
+  --text-xl: 1.40625rem;           /* 20px → 22.5px (×1.125) */
+  --text-xl--line-height: 1.875rem;
+  --text-2xl: 1.6875rem;           /* 24px → 27px (×1.125) */
+  --text-2xl--line-height: 2.125rem;
+  --text-3xl: 2.109375rem;         /* 30px → 33.75px (×1.125) */
+  --text-3xl--line-height: 2.5rem;
+  --text-4xl: 2.53125rem;          /* 36px → 40.5px (×1.125) */
+  --text-4xl--line-height: 2.75rem;
+}
+
 :root {
   /* 프로젝트 전역 기본 폰트 — 단일 소스. Pretendard 우선, 시스템/한글 폴백.
      Tailwind `font-sans` 및 base `html { font-family }` 가 모두 이 값을 참조한다. */
@@ -230,6 +264,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 한국어 줄바꿈 규칙(전역 기본): 공백(의미) 단위로만 줄바꿈 → 단어 중간 끊김·조사만
+       다음 줄로 내려감·"봄시/즌" 같은 어색한 분리를 막는다. 한 토큰이 줄을 넘칠 때만
+       overflow-wrap 으로 분해해 가로 오버플로를 방지한다. 숫자+단위 등 묶어야 하는 곳은
+       컴포넌트에서 whitespace-nowrap/inline-flex 로 추가 고정. */
+    word-break: keep-all;
+    overflow-wrap: break-word;
   }
   html {
     @apply font-sans;

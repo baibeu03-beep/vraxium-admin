@@ -84,7 +84,7 @@ export default function PracticalInfoOpeningLogPanel({
           </p>
         ) : (
           logs.map((l) => (
-            <p key={l.id} className="text-[13px] leading-relaxed">
+            <p key={l.id} className="text-xs leading-relaxed">
               <span
                 className={cn(
                   "font-semibold",

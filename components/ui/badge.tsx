@@ -39,7 +39,7 @@ export const badgeVariants = cva(
           "bg-transparent text-foreground/70 border-[var(--bt-bd)]/55",
       },
       size: {
-        sm: "px-1.5 py-0.5 text-[0.6875rem]",
+        sm: "px-1.5 py-0.5 text-2xs",
         md: "px-2.5 py-1 text-xs",
         lg: "px-3 py-1.5 text-sm",
       },

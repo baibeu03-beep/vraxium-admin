@@ -321,7 +321,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
               <p className="text-muted-foreground">아직 기록된 체크 로그가 없습니다.</p>
             ) : (
               logs.map((l) => (
-                <p key={l.id} className="text-[13px] leading-relaxed">
+                <p key={l.id} className="text-xs leading-relaxed">
                   <span className={cn("font-semibold", processCheckLogActionClass(l.action))}>
                     [{PROCESS_CHECK_LOG_ACTION_LABEL[l.action]}]
                   </span>{" "}

@@ -469,7 +469,7 @@ export default function Sidebar() {
               if (navLocked) e.preventDefault();
             }}
             className={cn(
-              "rounded-md text-[13px] font-semibold tracking-[0.02em] text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground",
+              "rounded-md text-xs font-semibold tracking-[0.02em] text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground",
               navLocked && "pointer-events-none",
             )}
           >
@@ -610,7 +610,7 @@ export default function Sidebar() {
                             if (navLocked) e.preventDefault();
                           }}
                           className={cn(
-                            "block rounded-md px-2.5 py-1 text-[13px] transition-colors",
+                            "block rounded-md px-2.5 py-1 text-xs transition-colors",
                             childActive
                               ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
                               : "text-sidebar-foreground/70 hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground",
