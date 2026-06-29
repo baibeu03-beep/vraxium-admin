@@ -107,14 +107,17 @@ export default function AdminHelp({ className }: Props) {
 
   return (
     <>
-      {/* 트리거 버튼 — 기본 대비 ~1.2배(높이/글자/아이콘/패딩). 팝업도 동일 배율. */}
+      {/* 트리거 버튼 — 눈에 띄는 색(sky)으로 강조. 크기는 기본 대비 ~1.2배. */}
       <Button
         type="button"
         variant="outline"
         onClick={openModal}
         aria-haspopup="dialog"
         title="이 페이지의 관련 도움말"
-        className={cn("h-[34px] shrink-0 gap-1.5 px-3 text-sm", className)}
+        className={cn(
+          "h-[34px] shrink-0 gap-1.5 border-transparent bg-sky-500 px-3 text-sm font-semibold text-white shadow-sm hover:bg-sky-600 hover:text-white dark:bg-sky-600 dark:hover:bg-sky-500",
+          className,
+        )}
       >
         <CircleHelp className="size-4" />
         도움말
@@ -138,9 +141,6 @@ export default function AdminHelp({ className }: Props) {
             <div className="flex items-start justify-between gap-3 border-b border-border px-6 py-3.5">
               <div className="min-w-0">
                 <h2 className="text-[24px] font-semibold leading-tight text-foreground">관련 도움말</h2>
-                <p className="truncate text-sm text-muted-foreground" title={pathname}>
-                  {pathname}
-                </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {canEdit && (
