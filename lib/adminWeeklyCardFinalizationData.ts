@@ -35,6 +35,7 @@ import { WEEKLY_CARDS_DTO_VERSION } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { markWeekResultPublished } from "@/lib/adminWeekRecognitionsData";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
+import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
 import { type StateScope, readQaWeekState } from "@/lib/operationalState";
 import { computeWeeklyLeagueAggregation } from "@/lib/weeklyLeaguePmsAggregation";
 import type {
@@ -212,11 +213,15 @@ async function loadCohort(
   if (error) throw new WeeklyCardFinalizationError(500, error.message);
 
   // user 당 1행으로 dedupe (동일 주차 중복 방어 — 첫 행 유지) + scope 별 테스트 유저 분리.
+  //   QA 고정 필터(QA_FIXED_TEST_ONLY): scope 가 operating(실DB 쓰기)이어도 코호트는 테스트
+  //   유저만으로 좁힌다 — "카드 집계 화면 실사용자 노출 0"과 "쓰기는 운영 로직·대상은 테스트
+  //   한정" 동시 충족. 쓰기 SoT(weeks/snapshot)는 scope 가 그대로 결정.
+  const keepTestOnly = QA_FIXED_TEST_ONLY || scope === "qa";
   const byUser = new Map<string, CohortMember>();
   for (const r of (data ?? []) as { user_id: string; status: string }[]) {
     const isTest = testIds.has(r.user_id);
-    // operating: 테스트 제외 / qa: 테스트만(실유저 제외 — 운영 데이터 무접촉).
-    if (scope === "qa" ? !isTest : isTest) continue;
+    // test-only: 테스트만(실유저 제외) / operating: 테스트 제외(실유저만).
+    if (keepTestOnly ? !isTest : isTest) continue;
     if (!byUser.has(r.user_id)) {
       byUser.set(r.user_id, { userId: r.user_id, status: r.status });
     }
@@ -385,8 +390,10 @@ async function buildTargetStatusAndAggregation(
   //   ⚠ QA(scope=qa)는 운영 PMS/weekly-league 집계를 타지 않는다 — 테스트 코호트 uws 버킷팅만 사용.
   let aggregation: FinalizationAggregation;
   let healthCohortIds: string[];
+  //   ⚠ QA 고정 필터(QA_FIXED_TEST_ONLY): computeWeeklyLeagueAggregation 은 test 제외·실유저
+  //     전용(테스트 모집단 불가)이라 QA 기간엔 타지 않는다 → 테스트 코호트 uws 버킷팅만 사용.
   const wl =
-    scope === "operating" && org && target.season_key
+    !QA_FIXED_TEST_ONLY && scope === "operating" && org && target.season_key
       ? await computeWeeklyLeagueAggregation(org)
       : null;
   const wlWeek = wl?.byWeekId.get(target.id) ?? null;

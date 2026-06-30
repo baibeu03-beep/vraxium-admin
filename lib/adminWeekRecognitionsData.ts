@@ -36,6 +36,7 @@ import {
   recomputeWeeklyCardsSnapshotsForUsers,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
+import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
 import {
   type StateScope,
   readQaWeekState,
@@ -705,7 +706,9 @@ export async function recomputeCohortSnapshots(
   let userIds = Array.from(
     new Set(((data ?? []) as { user_id: string }[]).map((p) => p.user_id)),
   );
-  if (scope === "qa") {
+  // QA 고정 필터(QA_FIXED_TEST_ONLY): scope 가 operating(실 weeks 공표)이어도 재계산 코호트는
+  //   테스트 유저로 좁힌다 — 실유저 snapshot 무접촉(쓰기 대상 테스트 한정).
+  if (QA_FIXED_TEST_ONLY || scope === "qa") {
     const testIds = await fetchTestUserMarkerIds();
     userIds = userIds.filter((id) => testIds.has(id));
   }
