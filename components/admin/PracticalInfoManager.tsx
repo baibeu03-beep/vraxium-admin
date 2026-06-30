@@ -880,7 +880,12 @@ export default function PracticalInfoManager() {
       // 조직 모드면 (해당 조직 OR 공통) 라인만, 통합 모드(org 없음)면 전체.
       const org = readOrgParam(new URLSearchParams(window.location.search));
       if (org) qs.set("organization", org);
-      const res = await fetch(`/api/admin/cluster4/info-lines?${qs.toString()}`);
+      const res = await fetch(
+        appendModeQuery(
+          `/api/admin/cluster4/info-lines?${qs.toString()}`,
+          readScopeMode(new URLSearchParams(window.location.search)),
+        ),
+      );
       const json = await res.json();
       if (json.success) {
         setDetailLines(json.data.rows ?? []);
@@ -906,7 +911,12 @@ export default function PracticalInfoManager() {
       const qs = new URLSearchParams({ week_id: weekId });
       const org = readOrgParam(new URLSearchParams(window.location.search));
       if (org) qs.set("organization", org);
-      const res = await fetch(`/api/admin/cluster4/info-lines?${qs.toString()}`);
+      const res = await fetch(
+        appendModeQuery(
+          `/api/admin/cluster4/info-lines?${qs.toString()}`,
+          readScopeMode(new URLSearchParams(window.location.search)),
+        ),
+      );
       const json = await res.json();
       setWeekLines(json.success ? (json.data.rows ?? []) : []);
     } catch (error) {
@@ -1175,8 +1185,7 @@ export default function PracticalInfoManager() {
       )}
     >
       <AdminPageHeader
-        title="실무 정보 라인"
-        description="허브와 라인 · 라인 관리 / 라인 개설"
+        title="실무 정보"
         tabs={
           orgScoped
             ? buildLineOpeningTabs(pathname, searchParams, mainTab)

@@ -313,7 +313,8 @@ export default function PracticalCompetencyManager() {
         fetch(appendModeQuery(`/api/admin/cluster4/teams${orgParam}`, scopeMode)),
         // 라인 등록 데이터는 조직별 권한 분리 전 단계라 전체 조직을 조회한다.
         fetch(`/api/admin/cluster4/competency-line-masters`),
-        fetch(`/api/admin/cluster4/lines?${linesQs.toString()}`),
+        // ⚠ QA 누수 차단: 라인 대상자(개설 대상 크루)도 mode 전달 필수 — 미전달=operating(실사용자 라인) 노출.
+        fetch(appendModeQuery(`/api/admin/cluster4/lines?${linesQs.toString()}`, scopeMode)),
         // ⚠ QA 누수 차단: 개설 대상 크루(crews)는 mode 전달 필수(미전달=operating 기본 → 실사용자 노출).
         fetch(appendModeQuery(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`, scopeMode)),
       ]);
@@ -455,8 +456,7 @@ export default function PracticalCompetencyManager() {
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
       <AdminPageHeader
-        title="실무 역량 라인"
-        description="허브와 라인 · 라인 관리 / 라인 개설"
+        title="실무 역량"
         tabs={
           orgScoped
             ? buildLineOpeningTabs(pathname, searchParams, mainTab)

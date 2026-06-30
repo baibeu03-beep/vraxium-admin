@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   Card,
   CardContent,
@@ -65,8 +66,12 @@ export default function CareerEvaluationTab({
     setLoading(true);
     setBanner(null);
     try {
+      // ⚠ QA 누수 차단: 라인 대상자 평가도 mode 전달 — 백엔드 mode-aware(operating/test 모집단).
       const res = await fetch(
-        `/api/admin/cluster4/career-evaluations?line_id=${encodeURIComponent(lineId)}`,
+        appendModeQuery(
+          `/api/admin/cluster4/career-evaluations?line_id=${encodeURIComponent(lineId)}`,
+          readScopeMode(new URLSearchParams(window.location.search)),
+        ),
       );
       const json = await res.json();
       if (!res.ok || !json.success) {

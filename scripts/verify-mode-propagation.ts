@@ -1,41 +1,56 @@
 /**
- * 프론트 mode 전파 정적 검증 — components/admin 의 "사용자/크루 모집단 API" fetch 가
- * mode(=test) 를 전파하는지 검사한다. HTTP 누수 스캐너(verify-scope-leak-scan)는 자신이 mode=test
- * 를 붙여 BACKEND scope 만 보므로, "백엔드는 scope되는데 프론트가 mode 미전달 → 운영 유저 노출"
- * (class 2) 누수를 못 잡는다. 본 스크립트가 그 갭을 닫는다.
+ * 프론트 mode 전파 정적 검증 (catalog-free / 백엔드 파생).
  *
- *   누수 판정: 모집단 endpoint 를 fetch 하는 구문 주변에 appendModeQuery / mode 전파가 없으면 위반.
+ *   문제: 손으로 적은 endpoint 화이트리스트는 누락된다(cluster4/lines·info-lines 미포함 → 실유저 노출 누수
+ *   를 못 잡았다). 그래서 카탈로그를 **백엔드에서 파생**한다:
+ *     1) app/api/admin/**\/route.ts 중 GET 이 있고 mode 를 읽는(readScopeMode|parseScopeMode) 라우트
+ *        = "모드 인지 모집단 엔드포인트". 단건([id]) leaf 라우트는 제외(목록 아님).
+ *     2) components/admin 의 그 엔드포인트 GET fetch 가 mode 를 전파하지 않으면 위반(class 2 누수).
+ *
  *   npx tsx scripts/verify-mode-propagation.ts
  */
 import { readdirSync, readFileSync, statSync } from "fs";
 import { join } from "path";
 
-const ROOT = "components/admin";
+function walk(dir: string): string[] {
+  const out: string[] = [];
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name);
+    const st = statSync(p);
+    if (st.isDirectory()) out.push(...walk(p));
+    else if (name.endsWith(".ts") || name.endsWith(".tsx")) out.push(p);
+  }
+  return out;
+}
 
-// 사용자/크루 "모집단(목록/검색)" endpoint — 호출 시 반드시 mode 를 전파해야 한다.
-//   (단건 by-id 조회는 제외 — 목록 누수만 대상.)
-const POP_ENDPOINTS = [
-  "/api/admin/cluster4/users",
-  "/api/admin/cluster4/crews",
-  "/api/admin/crews",
-  "/api/admin/members/roster",
-  "/api/admin/members?",
-  "/api/admin/app-users",
-  "/api/admin/user-profiles",
-  "/api/admin/applicants",
-  "/api/admin/season-participations?",
-  "/api/admin/edit-windows?",
-  "/api/admin/edit-windows/bulk",
-  "/api/admin/cluster4/cafe-line-crew",
-  "/api/admin/week-recognitions?",
-  "/api/admin/team-parts/crew-lookup",
-  "/api/admin/cluster4/competency/applications",
-  "/api/admin/cluster4/info-lines/crew",
-  "/api/admin/cluster4/experience/team-overall",
-  "/api/admin/cluster4/experience/part-input",
-  "/api/admin/processes/check/irregular/targets",
-];
-// mode 전파로 인정하는 토큰(주변에 하나라도 있으면 OK).
+// ── 1) 백엔드에서 "모드 인지 모집단 엔드포인트" 카탈로그 파생 ──────────────────
+const API_ROOT = "app/api/admin";
+const modeEndpoints = new Set<string>();
+for (const file of walk(API_ROOT)) {
+  if (!file.endsWith("route.ts")) continue;
+  const src = readFileSync(file, "utf8");
+  if (!/readScopeMode|parseScopeMode/.test(src)) continue; // mode 를 읽는 라우트만
+  if (!/export\s+async\s+function\s+GET/.test(src)) continue; // GET(목록 표시) 있는 것만
+  // 경로 파생: app/api/admin/cluster4/lines/route.ts → /api/admin/cluster4/lines
+  const norm = file.replace(/\\/g, "/");
+  const ep = norm.replace(/^app\/api\/admin/, "/api/admin").replace(/\/route\.ts$/, "");
+  // leaf 가 동적 세그먼트([id]) 면 단건 라우트 → 목록 아님(제외).
+  const segs = ep.split("/");
+  if (/^\[.+\]$/.test(segs[segs.length - 1])) continue;
+  // 동적 세그먼트가 중간에 있으면(예: /a/[id]/b) 매칭 단순화를 위해 정적 prefix 만 카탈로그에 둔다.
+  const staticPrefix = (() => {
+    const acc: string[] = [];
+    for (const s of segs) {
+      if (/^\[.+\]$/.test(s)) break;
+      acc.push(s);
+    }
+    return acc.join("/");
+  })();
+  modeEndpoints.add(staticPrefix);
+}
+
+// ── 2) 프론트 fetch 가 그 엔드포인트에 mode 를 전파하는지 검사 ──────────────────
+const FE_ROOT = "components/admin";
 const MODE_TOKENS = [
   "appendModeQuery",
   'set("mode"',
@@ -47,43 +62,42 @@ const MODE_TOKENS = [
   ",mode)",
   "scopeMode",
   'get("mode")',
+  "modeQs", // `?...${modeQs}` 패턴(modeQs = mode==="test" ? "&mode=test" : "")
+  "${mode", // 템플릿 보간 mode 변수
 ];
-
-function walk(dir: string): string[] {
-  const out: string[] = [];
-  for (const name of readdirSync(dir)) {
-    const p = join(dir, name);
-    const st = statSync(p);
-    if (st.isDirectory()) out.push(...walk(p));
-    else if (name.endsWith(".tsx") || name.endsWith(".ts")) out.push(p);
-  }
-  return out;
+// fetch 구문 줄에서 endpoint 추출: "/api/admin/...."(따옴표/백틱) 의 path 부분(? 이전).
+function endpointOf(line: string): { ep: string; after: string } | null {
+  const m = line.match(/["'`](\/api\/admin\/[^"'`?]*)/);
+  if (!m) return null;
+  const full = m[1];
+  // path 끝 위치의 다음 문자(쿼리 `?` / 종료 따옴표 / `/`) 판별용.
+  const idx = line.indexOf(full) + full.length;
+  return { ep: full, after: line.charAt(idx) };
 }
 
 let violations = 0;
 let checked = 0;
-for (const file of walk(ROOT)) {
+for (const file of walk(FE_ROOT)) {
   const lines = readFileSync(file, "utf8").split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const ep = POP_ENDPOINTS.find((e) => line.includes(e));
-    if (!ep) continue;
-    // 단건 by-id 경로 제외: endpoint 바로 뒤가 '/' 면 /crews/${id} 같은 단건 라우트 → 목록 아님.
-    //   (패턴에 '?'/'/bulk' 가 이미 포함된 건 목록·일괄이므로 그대로 검사.)
-    if (!ep.endsWith("?") && !ep.endsWith("/bulk")) {
-      const after = line.charAt(line.indexOf(ep) + ep.length);
-      if (after === "/") continue; // 단건 by-id → skip
-    }
-    // 이 줄(또는 직전 몇 줄)에 fetch( 가 있는 fetch 구문인지 확인.
+    if (!line.includes("/api/admin/")) continue;
+    const parsed = endpointOf(line);
+    if (!parsed) continue;
+    let { ep } = parsed;
+    // trailing slash 정리.
+    ep = ep.replace(/\/$/, "");
+    // 정확히 모드 인지 목록 엔드포인트인가? (단건 sub-path /ep/${id} 는 ep 와 불일치 → 자동 제외)
+    if (!modeEndpoints.has(ep)) continue;
+    // fetch 구문인지 확인(직전 몇 줄 포함).
     const back = lines.slice(Math.max(0, i - 6), i + 1).join("\n");
     if (!/fetch\s*\(/.test(back)) continue;
-    // 쓰기(POST/PATCH/DELETE)는 제외 — 백엔드 assertUserIdsInScope 로 fail-closed(누수 아님·422).
-    //   본 검사는 "목록 표시(GET) 누수"(class 2)만 대상.
+    // 쓰기(POST/PATCH/DELETE/PUT)는 제외 — 백엔드 assertUserIdsInScope 로 fail-closed(누수 아님).
     const optWin = lines.slice(i, i + 8).join("\n");
     if (/method:\s*["'`](POST|PATCH|DELETE|PUT)["'`]/.test(optWin)) continue;
     checked++;
-    // 주변 window(같은 핸들러) 에서 mode 전파 토큰 탐색 — 핸들러 상단에서 sp.set("mode") 하는 경우 포함.
-    const win = lines.slice(Math.max(0, i - 22), i + 5).join("\n");
+    // 주변 핸들러 window 에서 mode 전파 토큰 탐색.
+    const win = lines.slice(Math.max(0, i - 24), i + 6).join("\n");
     const hasMode = MODE_TOKENS.some((t) => win.includes(t));
     if (!hasMode) {
       violations++;
@@ -93,6 +107,8 @@ for (const file of walk(ROOT)) {
   }
 }
 
-console.log(`\n검사한 모집단 fetch: ${checked} · 위반(mode 미전파): ${violations}`);
+console.log(`\n백엔드 파생 모드 인지 엔드포인트: ${modeEndpoints.size}개`);
+console.log([...modeEndpoints].sort().map((e) => `  · ${e}`).join("\n"));
+console.log(`\n검사한 모집단 GET fetch: ${checked} · 위반(mode 미전파): ${violations}`);
 console.log(violations === 0 ? "✅ 모든 모집단 fetch 가 mode 전파" : `❌ ${violations} 건 mode 미전파(class 2 누수)`);
 process.exit(violations === 0 ? 0 : 1);

@@ -589,7 +589,8 @@ export default function PracticalCareerManager() {
         fetch(appendModeQuery(`/api/admin/cluster4/teams${orgParam}`, scopeMode)),
         fetch(`/api/admin/career-projects?limit=200`),
         fetch(`/api/admin/cluster4/career-line-options${orgParam}`),
-        fetch("/api/admin/cluster4/lines?partType=career&limit=100"),
+        // ⚠ QA 누수 차단: 라인 대상자(개설 대상 크루)도 mode 전달 필수 — 미전달=operating(실사용자 라인) 노출.
+        fetch(appendModeQuery("/api/admin/cluster4/lines?partType=career&limit=100", scopeMode)),
         // ⚠ QA 누수 차단: 개설 대상 크루(crews)는 mode 전달 필수(미전달=operating 기본 → 실사용자 노출).
         fetch(appendModeQuery(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`, scopeMode)),
         // 테스트 모드는 ?mode=test 전달 → 휴식꼬리에서 W13 을 드롭다운에 포함(operating 미부착=불변).
@@ -1113,8 +1114,8 @@ export default function PracticalCareerManager() {
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="text-2xl font-bold">실무 경력 라인 관리</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">라인 개설 [실무 경력]</h1>
         <AdminHelp />
       </div>
 

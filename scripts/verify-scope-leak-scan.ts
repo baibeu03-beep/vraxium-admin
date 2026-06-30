@@ -285,6 +285,18 @@ async function main() {
       modeAware: true,
       variants: [{ label: "query=T", qs: "query=T" }, { label: "query=이", qs: "query=%EC%9D%B4" }],
     },
+    // 라인 대상자(개설 대상 크루) 목록 — rows[].targets[].targetUserId. 4허브 라인개설 화면의
+    //   "개설 대상 크루"가 실제 부르는 endpoint. (2026-06-30 누수: 백엔드는 scope 하나 프론트 mode 미전파였음.)
+    {
+      name: "cluster4/lines(targets)",
+      path: "/api/admin/cluster4/lines",
+      modeAware: true,
+      variants: [
+        { label: "partType=career org=encre", qs: "partType=career&detailed=1&limit=500&organization=encre" },
+        { label: "partType=competency org=encre", qs: "partType=competency&detailed=1&limit=500&organization=encre" },
+        { label: "partType=experience org=encre", qs: "partType=experience&detailed=1&limit=500&organization=encre" },
+      ],
+    },
   ];
 
   let leakCount = 0;

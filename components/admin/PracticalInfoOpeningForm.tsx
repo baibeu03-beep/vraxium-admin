@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Upload, Trash2, X, Lock, Unlock } from "lucide-react";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   Card,
   CardContent,
@@ -338,7 +339,13 @@ export default function PracticalInfoOpeningForm({
           activity_type_id: lineId,
         });
         if (org) qs.set("organization", org);
-        const res = await fetch(`/api/admin/cluster4/info-lines?${qs.toString()}`);
+        // ⚠ QA 누수 차단: 개설된 라인(대상 크루 포함)도 mode 전달 필수 — 미전달=operating(실사용자) 노출.
+        const res = await fetch(
+          appendModeQuery(
+            `/api/admin/cluster4/info-lines?${qs.toString()}`,
+            readScopeMode(new URLSearchParams(window.location.search)),
+          ),
+        );
         const json = await res.json();
         if (cancelled) return;
         const row = json?.success

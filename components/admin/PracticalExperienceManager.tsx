@@ -612,7 +612,11 @@ export default function PracticalExperienceManager() {
       });
       const org = readOrgParam(new URLSearchParams(window.location.search));
       if (org) qs.set("organization", org);
-      const res = await fetch(`/api/admin/cluster4/lines?${qs.toString()}`);
+      // ⚠ QA 누수 차단: 라인 대상자(개설 대상 크루)도 mode 전달 필수 — 미전달=operating(실사용자 라인) 노출.
+      const scopeMode = readScopeMode(new URLSearchParams(window.location.search));
+      const res = await fetch(
+        appendModeQuery(`/api/admin/cluster4/lines?${qs.toString()}`, scopeMode),
+      );
       const json = await res.json();
       if (json.success) {
         setExpLines(json.data.rows ?? []);
@@ -1463,8 +1467,7 @@ export default function PracticalExperienceManager() {
       )}
     >
       <AdminPageHeader
-        title="실무 경험 라인"
-        description="허브와 라인 · 라인 관리 / 라인 개설"
+        title="실무 경험"
         tabs={
           orgScoped
             ? buildLineOpeningTabs(pathname, searchParams, mainTab)

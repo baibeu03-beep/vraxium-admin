@@ -1879,6 +1879,9 @@ export type ListCluster4InfoLinesDetailedOptions = {
   // 조직 스코프. null/미지정 = 통합(전체). 지정 시 (lineOrg == organization) OR common.
   // info 라인은 코드 토큰이 없으면 common 으로 귀속되므로, 조직 화면에서도 공통 info 는 노출된다.
   organization?: OrganizationSlug | null;
+  // 운영/테스트 모집단 스코프(QA 누수 차단). 미지정=operating(실사용자만).
+  //   test → target 이 test_user_markers 인 라인만 노출. 누락 시 operating 라인(실사용자)이 test 화면에 섞인다.
+  mode?: ScopeMode;
 };
 
 export async function listCluster4InfoLinesDetailed(
@@ -1889,6 +1892,7 @@ export async function listCluster4InfoLinesDetailed(
     weekId: options.weekId,
     activityTypeId: options.activityTypeId,
     organization: options.organization,
+    mode: options.mode,
   });
   return { rows };
 }

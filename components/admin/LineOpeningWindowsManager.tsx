@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Power, Trash2, CalendarClock } from "lucide-react";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   Card,
   CardContent,
@@ -105,8 +106,10 @@ export default function LineOpeningWindowsManager() {
   }, []);
 
   const fetchMeta = useCallback(async () => {
+    const scopeMode = readScopeMode(new URLSearchParams(window.location.search));
     const [autoRes, weeksRes, typesRes] = await Promise.all([
-      fetch("/api/admin/cluster4/weeks-options?limit=3"),
+      // mode 전달 — 테스트 휴식꼬리 W13 폴드 정합(operating 미부착=불변, 유저 노출과 무관).
+      fetch(appendModeQuery("/api/admin/cluster4/weeks-options?limit=3", scopeMode)),
       fetch("/api/admin/line-opening-windows/weeks"),
       fetch("/api/admin/cluster4/activity-types?cluster=practical_info"),
     ]);
@@ -273,14 +276,8 @@ export default function LineOpeningWindowsManager() {
 
   return (
     <div className="mx-auto w-full max-w-[1100px] space-y-6 px-4 py-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">라인 개설 기간 (예외 설정)</h1>
-          <p className="text-sm text-muted-foreground">
-            자동 정책으로 정해진 개설 가능 주차 외에, 특정 주차/라인을 추가로 열어야 할 때
-            예외를 등록합니다. (지난 주차 뒤늦은 개설 · 재개설 · 운영/장애 복구 등)
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">라인 개설 기간</h1>
         <AdminHelp />
       </div>
 

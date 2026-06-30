@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import PracticalInfoOpeningLogPanel from "@/components/admin/PracticalInfoOpeningLogPanel";
 import PracticalInfoOpeningForm, {
   type OpeningFormWeek,
@@ -93,7 +94,12 @@ export default function PracticalInfoOpeningSection0({
       // org 컨텍스트(?org) → organization 변환.
       const org = readOrgParam(new URLSearchParams(window.location.search));
       if (org) qs.set("organization", org);
-      const res = await fetch(`/api/admin/cluster4/info-lines?${qs.toString()}`);
+      const res = await fetch(
+        appendModeQuery(
+          `/api/admin/cluster4/info-lines?${qs.toString()}`,
+          readScopeMode(new URLSearchParams(window.location.search)),
+        ),
+      );
       const json = await res.json();
       const rows: Array<{ id: string; isActive: boolean }> = json?.success
         ? json.data?.rows ?? []

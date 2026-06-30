@@ -6,6 +6,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, X, Search, ChevronDown, ChevronRight, Pencil, Upload, Trash2 } from "lucide-react";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   Card,
   CardContent,
@@ -856,7 +857,13 @@ export default function Cluster4LineTable({
       });
       // 선택 주차가 지정되면 서버에서 해당 주차 라인만 조회한다.
       if (weekId) qs.set("weekId", weekId);
-      const res = await fetch(`/api/admin/cluster4/lines?${qs.toString()}`);
+      // ⚠ QA 누수 차단: 라인 대상자(개설 대상 크루)도 mode 전달 필수 — 미전달=operating(실사용자 라인) 노출.
+      const res = await fetch(
+        appendModeQuery(
+          `/api/admin/cluster4/lines?${qs.toString()}`,
+          readScopeMode(new URLSearchParams(window.location.search)),
+        ),
+      );
       const json = await res.json();
       if (json.success) {
         setRows(json.data.rows ?? []);

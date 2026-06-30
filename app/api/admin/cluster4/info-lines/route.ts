@@ -73,6 +73,9 @@ export async function GET(request: NextRequest) {
   // 조직 스코프(통합 ↔ 조직 진입). 내부 API 컨벤션은 organization. 미지정/무효 = 통합(전체).
   const organizationRaw = params.get("organization")?.trim() || null;
   const organization = isOrganizationSlug(organizationRaw) ? organizationRaw : null;
+  // 운영/테스트 모집단 스코프(QA 누수 차단) — ?mode=test → target 이 test_user_markers 인 라인만.
+  //   미지정=operating(실사용자 라인만). 누락 시 "개설 대상 크루"에 운영 실사용자가 섞인다.
+  const mode = readScopeMode(params);
 
   if (weekId !== null && !isUuid(weekId)) {
     return Response.json(
@@ -86,6 +89,7 @@ export async function GET(request: NextRequest) {
       weekId,
       activityTypeId,
       organization,
+      mode,
     });
     return Response.json({ success: true, data });
   } catch (error) {
