@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { CheckCircle2, Loader2, RefreshCw, X } from "lucide-react";
 import {
   Card,
@@ -147,6 +149,10 @@ export default function WeeklyCardFinalizationView() {
     stillTallying?: boolean;
   } | null>(null);
 
+  // QA 모드(?mode=test) — 미리보기/확정 모두에 전파해야 백엔드 scope(테스트 코호트·qa_weeks_state)와
+  //   정합한다. 미전파 시 테스트 모드 화면에서 확정 버튼이 운영 공표(실사용자 재계산)로 새는 위험.
+  const mode = readScopeMode(useSearchParams());
+
   useEffect(() => {
     if (!banner) return;
     const t = window.setTimeout(() => setBanner(null), 5000);
@@ -157,9 +163,10 @@ export default function WeeklyCardFinalizationView() {
   const loadOptions = useCallback(async () => {
     setOptionsLoading(true);
     try {
-      const res = await fetch("/api/admin/weekly-card-finalization/preview", {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        appendModeQuery("/api/admin/weekly-card-finalization/preview", mode),
+        { cache: "no-store" },
+      );
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json?.error ?? "옵션을 불러오지 못했습니다.");
@@ -175,7 +182,7 @@ export default function WeeklyCardFinalizationView() {
     } finally {
       setOptionsLoading(false);
     }
-  }, []);
+  }, [mode]);
 
   useEffect(() => {
     void loadOptions();
@@ -219,6 +226,7 @@ export default function WeeklyCardFinalizationView() {
       params.set("seasonId", seasonKey);
       params.set("weekNumber", weekNumber);
       if (org !== ALL) params.set("org", org);
+      if (mode === "test") params.set("mode", "test");
       const res = await fetch(
         `/api/admin/weekly-card-finalization/preview?${params.toString()}`,
         { cache: "no-store" },
@@ -240,18 +248,21 @@ export default function WeeklyCardFinalizationView() {
     } finally {
       setPreviewLoading(false);
     }
-  }, [canQuery, seasonKey, weekNumber, org]);
+  }, [canQuery, seasonKey, weekNumber, org, mode]);
 
   // 2) snapshot 재계산(확정 플래그 불변).
   const runRecompute = useCallback(async () => {
     if (!canQuery) return;
     setRecomputing(true);
     try {
-      const res = await fetch("/api/admin/weekly-card-finalization/finalize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildBody("recompute")),
-      });
+      const res = await fetch(
+        appendModeQuery("/api/admin/weekly-card-finalization/finalize", mode),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildBody("recompute")),
+        },
+      );
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json?.error ?? "카드 정보 업데이트 실패");
@@ -270,18 +281,21 @@ export default function WeeklyCardFinalizationView() {
     } finally {
       setRecomputing(false);
     }
-  }, [canQuery, buildBody]);
+  }, [canQuery, buildBody, mode]);
 
   // 3) 집계 확정(공표 + 코호트 재계산).
   const runFinalize = useCallback(async () => {
     if (!canQuery) return;
     setFinalizing(true);
     try {
-      const res = await fetch("/api/admin/weekly-card-finalization/finalize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildBody("finalize")),
-      });
+      const res = await fetch(
+        appendModeQuery("/api/admin/weekly-card-finalization/finalize", mode),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildBody("finalize")),
+        },
+      );
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json?.error ?? "확정 실패");
@@ -304,7 +318,7 @@ export default function WeeklyCardFinalizationView() {
     } finally {
       setFinalizing(false);
     }
-  }, [canQuery, buildBody]);
+  }, [canQuery, buildBody, mode]);
 
   // 확정 후 검증: 실제 주차 카드 API 를 demoUserId 로 재호출해 해당 주차가 더 이상
   // "집계 중"(tallying)이 아님을 확인한다. 데모/일반 동일 DTO(loadWeeklyCards) 경로.

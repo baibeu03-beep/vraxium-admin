@@ -18,6 +18,7 @@ import {
   WeekRecognitionUpdateError,
 } from "@/lib/adminWeekRecognitionsData";
 import type { WeekRecognitionUpdateInput } from "@/lib/adminWeekRecognitionsTypes";
+import { readScopeMode } from "@/lib/userScopeShared";
 
 type Ctx = { params: Promise<{ user_week_status_id: string }> };
 
@@ -64,7 +65,9 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   }
 
   try {
-    const data = await updateWeekRecognition(user_week_status_id, input);
+    // ?mode=test → QA 쓰기 스코프(테스트 유저만). 미지정 = operating(실사용자만). 실사용자 write 차단.
+    const mode = readScopeMode(request.nextUrl.searchParams);
+    const data = await updateWeekRecognition(user_week_status_id, input, mode);
     return Response.json({ success: true, data });
   } catch (error) {
     if (error instanceof WeekRecognitionUpdateError) {

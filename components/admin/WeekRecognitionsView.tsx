@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { RefreshCw, Search, X } from "lucide-react";
 import {
   Card,
@@ -246,6 +248,9 @@ export default function WeekRecognitionsView() {
     return () => window.clearTimeout(timer);
   }, [search]);
 
+  // QA 모드(?mode=test) — 조회/쓰기 전부에 전파해야 백엔드 스코프(테스트 유저만)와 정합한다.
+  const mode = readScopeMode(useSearchParams());
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -257,6 +262,7 @@ export default function WeekRecognitionsView() {
       if (organization !== ALL) params.set("organization_slug", organization);
       if (status !== ALL) params.set("status", status);
       if (debouncedSearch) params.set("search", debouncedSearch);
+      if (mode === "test") params.set("mode", "test");
 
       try {
         const res = await fetch(
@@ -285,7 +291,7 @@ export default function WeekRecognitionsView() {
     return () => {
       cancelled = true;
     };
-  }, [seasonKey, weekId, organization, status, debouncedSearch, refreshTick]);
+  }, [seasonKey, weekId, organization, status, debouncedSearch, refreshTick, mode]);
 
   const reload = useCallback(() => setRefreshTick((n) => n + 1), []);
 
@@ -716,6 +722,7 @@ function ReviewWeekModal({
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mode = readScopeMode(useSearchParams());
 
   const submit = async () => {
     if (saving) return;
@@ -723,7 +730,10 @@ function ReviewWeekModal({
     setError(null);
     try {
       const res = await fetch(
-        `/api/admin/weeks/${encodeURIComponent(week.week_id)}/review-result`,
+        appendModeQuery(
+          `/api/admin/weeks/${encodeURIComponent(week.week_id)}/review-result`,
+          mode,
+        ),
         { method: "PATCH" },
       );
       const json = await res.json();
@@ -806,6 +816,7 @@ function PublishWeekModal({
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mode = readScopeMode(useSearchParams());
 
   const submit = async () => {
     if (saving) return;
@@ -813,7 +824,10 @@ function PublishWeekModal({
     setError(null);
     try {
       const res = await fetch(
-        `/api/admin/weeks/${encodeURIComponent(week.week_id)}/publish-result`,
+        appendModeQuery(
+          `/api/admin/weeks/${encodeURIComponent(week.week_id)}/publish-result`,
+          mode,
+        ),
         { method: "PATCH" },
       );
       const json = await res.json();
@@ -986,6 +1000,7 @@ function CheckThresholdRow({
     week.check_threshold == null ? "" : String(week.check_threshold),
   );
   const [saving, setSaving] = useState(false);
+  const mode = readScopeMode(useSearchParams());
 
   useEffect(() => {
     setValue(week.check_threshold == null ? "" : String(week.check_threshold));
@@ -1004,7 +1019,10 @@ function CheckThresholdRow({
     setSaving(true);
     try {
       const res = await fetch(
-        `/api/admin/weeks/${encodeURIComponent(week.week_id)}/check-threshold`,
+        appendModeQuery(
+          `/api/admin/weeks/${encodeURIComponent(week.week_id)}/check-threshold`,
+          mode,
+        ),
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -1113,6 +1131,7 @@ function WeekRecognitionEditModal({
   const [override, setOverride] = useState(row.is_official_rest_override);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mode = readScopeMode(useSearchParams());
 
   const submit = async () => {
     if (saving) return;
@@ -1120,9 +1139,12 @@ function WeekRecognitionEditModal({
     setError(null);
     try {
       const res = await fetch(
-        `/api/admin/week-recognitions/${encodeURIComponent(
-          row.user_week_status_id,
-        )}`,
+        appendModeQuery(
+          `/api/admin/week-recognitions/${encodeURIComponent(
+            row.user_week_status_id,
+          )}`,
+          mode,
+        ),
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },

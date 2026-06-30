@@ -16,6 +16,8 @@ import { getCrewDetailDto } from "@/lib/adminCrewDetailData";
 import { getClubRankGradeBatch } from "@/lib/cluster3ClubRankData";
 import { classLabel } from "@/lib/adminMembersTypes";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
+import type { ScopeMode } from "@/lib/userScopeShared";
 
 // 반기별 팀 SoT(cluster4_team_halves) 데이터 접근.
 //   · 조회: 반기 → 그 반기의 팀 목록(불변 스냅샷 team_name).
@@ -602,6 +604,9 @@ export async function loadTeamPartsInfo(
   organization: string,
   selectedHalfKey?: string | null,
   today?: string,
+  // 운영(operating·기본)/QA(test) 팀 분기. operating=(T) 테스트팀 제외 / test=(T) 테스트팀만.
+  //   ⚠ 종전엔 mode 분기 없이 전 팀을 노출 → ?mode=test 에도 운영 팀이 섞여 보였다(QA 누수).
+  mode: ScopeMode = "operating",
 ): Promise<TeamPartsInfoDto> {
   const currentHalfKey = await resolveCurrentHalfKey(today);
   const halves = await listAvailableHalves(organization, currentHalfKey);
@@ -615,7 +620,11 @@ export async function loadTeamPartsInfo(
     selected = halves[0].halfKey;
   }
 
-  const teams = selected ? await listHalfTeams(organization, selected) : [];
+  // 팀 목록 스코프 단일 SoT(filterTeamsByScope) — operating/test 분기. 매트릭스 계산 전에 적용해
+  //   존재표/파트수도 스코프 팀 기준으로 통일한다.
+  const teams = selected
+    ? filterTeamsByScope(await listHalfTeams(organization, selected), organization, mode)
+    : [];
   const editable = selected != null && isEditableHalf(selected, currentHalfKey);
 
   // 파트×주차 존재표(선택 반기). 팀별 matrix 를 teams 에 병합 + x축 weekColumns.
@@ -828,9 +837,27 @@ export type RegisterTeamInput = {
   leaderCrewCode: string;
 };
 
+// 팀 쓰기 스코프 가드(fail-closed) — 대상 팀명이 요청 모드 스코프에 속해야 한다.
+//   test 모드는 (T) 테스트 팀만, operating 모드는 운영 팀(비-T)만 생성/수정/삭제 가능.
+//   QA 화면에서 운영 팀을, 운영 화면에서 테스트 팀을 건드리는 사고를 원천 차단.
+function assertTeamHalfScope(
+  organization: string,
+  teamName: string,
+  mode: ScopeMode,
+): void {
+  const isTest = isTestTeam(organization, teamName);
+  if (isTest !== (mode === "test")) {
+    throw new TeamHalfWriteError(
+      422,
+      `대상 팀이 현재 모드(${mode}) 스코프에 속하지 않습니다. QA 모드에서는 테스트(T) 팀만, 운영 모드에서는 운영 팀만 수정할 수 있습니다.`,
+    );
+  }
+}
+
 export async function registerTeamHalf(
   input: RegisterTeamInput,
   today?: string,
+  mode: ScopeMode = "operating",
 ): Promise<{ teams: TeamHalfTeamDto[] }> {
   const organization = String(input.organization ?? "").trim();
   const halfKey = String(input.halfKey ?? "").trim();
@@ -861,6 +888,8 @@ export async function registerTeamHalf(
       `팀 명은 최대 ${MAX_TEAM_NAME_LENGTH}자까지 입력할 수 있습니다.`,
     );
   }
+  // 쓰기 스코프 가드 — 신규 팀명이 요청 모드 스코프(test=(T)/operating=비T)에 속해야.
+  assertTeamHalfScope(organization, teamName, mode);
   if (!description) {
     throw new TeamHalfWriteError(400, "팀 개요를 입력해주세요.");
   }
@@ -983,6 +1012,7 @@ export type UpdateTeamInput = {
 export async function updateTeamHalf(
   input: UpdateTeamInput,
   today?: string,
+  mode: ScopeMode = "operating",
 ): Promise<{ teams: TeamHalfTeamDto[] }> {
   const organization = String(input.organization ?? "").trim();
   const halfKey = String(input.halfKey ?? "").trim();
@@ -1054,6 +1084,9 @@ export async function updateTeamHalf(
   if (!target || !target.is_active) {
     throw new TeamHalfWriteError(404, "수정할 팀을 찾을 수 없습니다.");
   }
+  // 쓰기 스코프 가드 — 기존 팀명·신규 팀명 모두 요청 모드 스코프에 속해야(운영↔테스트 전환 차단).
+  assertTeamHalfScope(organization, target.team_name, mode);
+  assertTeamHalfScope(organization, teamName, mode);
   // 팀명을 다른 행(활성/비활성 불문)과 겹치게 변경 불가(UNIQUE 보호).
   const clash = rows.find((r) => r.id !== teamHalfId && r.team_name === teamName);
   if (clash) {
@@ -1102,6 +1135,7 @@ export async function markTeamHalfDeletionPending(
   halfKey: string,
   teamHalfId: string,
   today?: string,
+  mode: ScopeMode = "operating",
 ): Promise<{ teams: TeamHalfTeamDto[] }> {
   const org = String(organization ?? "").trim();
   const half = String(halfKey ?? "").trim();
@@ -1126,16 +1160,18 @@ export async function markTeamHalfDeletionPending(
 
   const { data: targetData, error: targetError } = await supabaseAdmin
     .from("cluster4_team_halves")
-    .select("id,is_active")
+    .select("id,team_name,is_active")
     .eq("organization_slug", org)
     .eq("half_key", half)
     .eq("id", id)
     .maybeSingle();
   if (targetError) throw new TeamHalfWriteError(500, targetError.message);
-  const target = targetData as { id: string; is_active: boolean } | null;
+  const target = targetData as { id: string; team_name: string; is_active: boolean } | null;
   if (!target) {
     throw new TeamHalfWriteError(404, "삭제할 팀을 찾을 수 없습니다.");
   }
+  // 쓰기 스코프 가드 — 대상 팀명이 요청 모드 스코프에 속해야(QA서 운영팀 삭제 차단).
+  assertTeamHalfScope(org, target.team_name, mode);
 
   if (target.is_active) {
     const { error } = await supabaseAdmin

@@ -15,7 +15,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isTransitionWeekStart } from "@/lib/seasonCalendar";
 import { fetchOperationalSeasonParticipants } from "@/lib/operationalSeasonParticipants";
-import { resolveUserScope } from "@/lib/userScope";
+import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { isWeekRecognitionStatus } from "@/lib/adminWeekRecognitionsTypes";
 import type {
   WeekRecognitionFilterOptions,
@@ -271,13 +271,14 @@ export async function getWeekRecognitions(
   //   사용자 719명)에서 user_id 를 모아 user_profiles 를 한 번에 .in() 조회해 URL 이 폭주,
   //   "fetch failed"(또는 엣지 400)가 났다. 이제 최초 조회 단계부터 현재 시즌 대상자(~318명)만 본다.
   //   org/search 필터가 있으면 그 결과와 교집합한다.
+  // QA 분기(mode=test)=test_user_markers 등재 유저만 / operating(기본)=실사용자만.
+  //   ⚠ 종전엔 "operating" 하드코딩이라 ?mode=test 화면에도 실사용자가 노출됐다(QA 누수).
+  //   test_user_markers 마커 테이블 기준(이름 '%T%' 휴리스틱 아님). 미지정 = operating(fail-safe).
+  const scopeMode: ScopeMode = options.mode === "test" ? "test" : "operating";
   const [op, scope] = await Promise.all([
     // 공통 SoT(lib/operationalSeasonParticipants) — /admin/members 명부와 동일 모집단 기준.
     fetchOperationalSeasonParticipants(),
-    // 테스터(test_user_markers) 제외 — operating 스코프 단일 SoT.
-    //   이름 '%T%' 휴리스틱이 아니라 마커 테이블 기준(이유나 등 'T' 없는 테스터까지 제외).
-    //   mode 분기 없음 → demoUserId 테스트/일반 모드가 동일 DTO·조회 기준.
-    resolveUserScope("operating", null),
+    resolveUserScope(scopeMode, null),
   ]);
   const opSeasonKey = op.seasonKey;
   // seasonKey 미해소(off-season 등)면 null → 아래에서 전수 폴백(.in 청크 유지). 해소 시 참여자 id 배열.
@@ -534,6 +535,10 @@ const UPDATED_SELECT =
 export async function updateWeekRecognition(
   userWeekStatusId: string,
   input: WeekRecognitionUpdateInput,
+  // 운영(operating·기본)/QA(test) 쓰기 스코프. test → 대상 user 가 test_user_markers 일 때만 허용,
+  //   operating → 실사용자일 때만 허용. 스코프 위반 시 422(fail-closed) — QA 화면에서 실사용자
+  //   user_week_statuses 를 쓰는 사고를 원천 차단한다.
+  mode: "operating" | "test" = "operating",
 ): Promise<WeekRecognitionUpdateResult> {
   const id = String(userWeekStatusId ?? "").trim();
   if (!id) {
@@ -572,7 +577,7 @@ export async function updateWeekRecognition(
   // 5) 수정 전 기존 row 확인 — 없으면 404.
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("user_week_statuses")
-    .select("id")
+    .select("id,user_id")
     .eq("id", id)
     .maybeSingle();
   if (existingError) {
@@ -580,6 +585,20 @@ export async function updateWeekRecognition(
   }
   if (!existing) {
     throw new WeekRecognitionUpdateError(404, "user_week_statuses row not found.");
+  }
+
+  // 5-1) 쓰기 스코프 가드(fail-closed) — 대상 user 가 요청 모드 스코프에 속해야 한다.
+  //   test 모드에서 실사용자 행을, operating 모드에서 테스트 유저 행을 수정하려 하면 422 차단.
+  //   (다른 write 경로 assertUserIdsInScope 와 동일 축 — userScope 단일 SoT.)
+  {
+    const targetUserId = (existing as { user_id: string }).user_id;
+    const scope = await resolveUserScope(mode === "test" ? "test" : "operating", null);
+    if (!scope.includes(targetUserId)) {
+      throw new WeekRecognitionUpdateError(
+        422,
+        `대상 사용자가 현재 모드(${mode}) 스코프에 속하지 않습니다. QA 모드에서는 테스트 유저만, 운영 모드에서는 실사용자만 수정할 수 있습니다.`,
+      );
+    }
   }
 
   // updated_at 은 DB 트리거(touch_user_week_statuses_updated_at)가 갱신한다.

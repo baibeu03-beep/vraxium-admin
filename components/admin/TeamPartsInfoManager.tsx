@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   ORGANIZATIONS,
   type OrganizationSlug,
@@ -128,6 +129,8 @@ function formatBirth6(b: string | null): string {
 export default function TeamPartsInfoManager() {
   const searchParams = useSearchParams();
   const orgFromUrl = readOrgParam(searchParams);
+  // QA 모드(?mode=test) — 팀 정보 조회에 전파(백엔드 filterTeamsByScope 와 정합: 테스트 (T)팀만).
+  const mode = readScopeMode(searchParams);
 
   const [half, setHalf] = useState<string | null>(null);
   const [halves, setHalves] = useState<HalfOption[]>([]);
@@ -168,6 +171,7 @@ export default function TeamPartsInfoManager() {
           ORGANIZATIONS.map(async (org) => {
             const params = new URLSearchParams({ organization: org });
             if (halfKey) params.set("half", halfKey);
+            if (mode === "test") params.set("mode", "test");
             const res = await fetch(
               `/api/admin/team-parts/info?${params.toString()}`,
               { cache: "no-store" },
@@ -212,7 +216,7 @@ export default function TeamPartsInfoManager() {
         setLoading(false);
       }
     },
-    [],
+    [mode],
   );
 
   useEffect(() => {
@@ -324,7 +328,7 @@ export default function TeamPartsInfoManager() {
     setRegistering(true);
     setBanner(null);
     try {
-      const res = await fetch(`/api/admin/team-parts/info`, {
+      const res = await fetch(appendModeQuery(`/api/admin/team-parts/info`, mode), {
         method: isEditMode ? "PUT" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -364,7 +368,7 @@ export default function TeamPartsInfoManager() {
     setDeleting(true);
     setBanner(null);
     try {
-      const res = await fetch(`/api/admin/team-parts/info`, {
+      const res = await fetch(appendModeQuery(`/api/admin/team-parts/info`, mode), {
         method: "DELETE",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

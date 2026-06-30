@@ -6,6 +6,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { readScopeMode } from "@/lib/userScopeShared";
 import {
   loadTeamPartsInfo,
   registerTeamHalf,
@@ -38,9 +39,11 @@ export async function GET(request: NextRequest) {
   }
 
   const half = request.nextUrl.searchParams.get("half")?.trim() || null;
+  // ?mode=test → QA(테스트 (T)팀만). 미지정 = operating(운영 팀만). QA 누수 차단.
+  const mode = readScopeMode(request.nextUrl.searchParams);
 
   try {
-    const data = await loadTeamPartsInfo(organization, half);
+    const data = await loadTeamPartsInfo(organization, half, undefined, mode);
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[admin/team-parts/info GET]", error);
@@ -110,13 +113,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { teams } = await registerTeamHalf({
-      organization,
-      halfKey,
-      teamName,
-      description,
-      leaderCrewCode,
-    });
+    const { teams } = await registerTeamHalf(
+      { organization, halfKey, teamName, description, leaderCrewCode },
+      undefined,
+      readScopeMode(request.nextUrl.searchParams),
+    );
     return Response.json({ success: true, data: { teams } });
   } catch (error) {
     if (error instanceof TeamHalfWriteError) {
@@ -193,14 +194,11 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    const { teams } = await updateTeamHalf({
-      organization,
-      halfKey,
-      teamHalfId,
-      teamName,
-      description,
-      leaderCrewCode,
-    });
+    const { teams } = await updateTeamHalf(
+      { organization, halfKey, teamHalfId, teamName, description, leaderCrewCode },
+      undefined,
+      readScopeMode(request.nextUrl.searchParams),
+    );
     return Response.json({ success: true, data: { teams } });
   } catch (error) {
     if (error instanceof TeamHalfWriteError) {
@@ -263,6 +261,8 @@ export async function DELETE(request: NextRequest) {
       organization,
       halfKey,
       teamHalfId,
+      undefined,
+      readScopeMode(request.nextUrl.searchParams),
     );
     return Response.json({ success: true, data: { teams } });
   } catch (error) {
