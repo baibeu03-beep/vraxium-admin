@@ -15,6 +15,7 @@ import {
 import { getSeasonParticipations } from "@/lib/adminSeasonParticipationsData";
 import { isSeasonParticipationStatus } from "@/lib/adminSeasonParticipationsTypes";
 import { isOrganizationSlug } from "@/lib/organizations";
+import { readScopeMode } from "@/lib/userScopeShared";
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,6 +52,8 @@ export async function GET(request: NextRequest) {
       organizationSlug,
       status,
       search,
+      // ?mode=test → QA(테스트 유저만). 미지정=operating(실사용자만). QA 누수 차단.
+      mode: readScopeMode(params),
     });
     return Response.json({ success: true, data });
   } catch (error) {

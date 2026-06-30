@@ -1,5 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
+import { resolveUserScope, applyUserIdScope, type ScopeMode } from "@/lib/userScope";
+
+const IMPOSSIBLE_UUID = "00000000-0000-0000-0000-000000000000";
 import {
   isEditableResourceKey,
   isWeekScopedResourceKey,
@@ -149,6 +152,8 @@ export type ListEditWindowsOptions = {
   weekId?: string | null;
   limit?: number;
   offset?: number;
+  // 운영(operating·기본)/QA(test) 모집단 분기. test=test_user_markers만, operating=실사용자만.
+  mode?: ScopeMode;
 };
 
 function applyProfileFilters<T extends { or: (s: string) => T }>(
@@ -194,6 +199,14 @@ export async function listEditWindowsWithUsers(
 
   const rawQuery = options.query?.trim() ?? "";
   queryBuilder = applyProfileFilters(queryBuilder, rawQuery);
+
+  // QA 누수 차단 — 쿼리 레벨 scope(operating=실사용자만 / test=test_user_markers만).
+  //   ⚠ 종전엔 user_profiles 전수 페이지네이션이라 ?mode=test 에도 실사용자가 노출됐다.
+  //   range/count 전에 적용 → 페이지네이션·총개수도 scope 기준. test+마커0이면 빈 결과.
+  {
+    const scope = await resolveUserScope(options.mode === "test" ? "test" : "operating", null);
+    queryBuilder = applyUserIdScope(queryBuilder, "user_id", scope) ?? queryBuilder.in("user_id", [IMPOSSIBLE_UUID]);
+  }
 
   queryBuilder = queryBuilder
     .order("display_name", { ascending: true, nullsFirst: false })
@@ -276,6 +289,8 @@ export async function listMatchingEditWindowUserIds(options: {
   query?: string | null;
   resourceKey: string;
   max?: number;
+  // 운영(operating·기본)/QA(test) 분기 — bulk select-all 이 테스트/실사용자를 섞지 않도록.
+  mode?: ScopeMode;
 }): Promise<string[]> {
   if (!isEditableResourceKey(options.resourceKey)) {
     throw new EditWindowError(
@@ -293,6 +308,11 @@ export async function listMatchingEditWindowUserIds(options: {
     .range(0, max - 1);
 
   queryBuilder = applyProfileFilters(queryBuilder, options.query?.trim() ?? "");
+  // QA 누수 차단 — bulk 대상에서 scope 밖 유저 제외(operating=실사용자만 / test=마커만).
+  {
+    const scope = await resolveUserScope(options.mode === "test" ? "test" : "operating", null);
+    queryBuilder = applyUserIdScope(queryBuilder, "user_id", scope) ?? queryBuilder.in("user_id", [IMPOSSIBLE_UUID]);
+  }
 
   const { data, error } = await queryBuilder;
   if (error) {

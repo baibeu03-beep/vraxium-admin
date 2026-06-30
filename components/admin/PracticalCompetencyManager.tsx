@@ -314,7 +314,8 @@ export default function PracticalCompetencyManager() {
         // 라인 등록 데이터는 조직별 권한 분리 전 단계라 전체 조직을 조회한다.
         fetch(`/api/admin/cluster4/competency-line-masters`),
         fetch(`/api/admin/cluster4/lines?${linesQs.toString()}`),
-        fetch(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`),
+        // ⚠ QA 누수 차단: 개설 대상 크루(crews)는 mode 전달 필수(미전달=operating 기본 → 실사용자 노출).
+        fetch(appendModeQuery(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`, scopeMode)),
       ]);
       const teamsJson = await teamsRes.json(); if (teamsJson.success) setTeams(teamsJson.data);
       const mastersJson = await mastersRes.json(); if (mastersJson.success) setMasters(mastersJson.data);
@@ -330,7 +331,8 @@ export default function PracticalCompetencyManager() {
     if (!adminOrg) return;
     const params = new URLSearchParams(); params.set("organization", adminOrg);
     if (crewFilterStatus) params.set("status", crewFilterStatus);
-    try { const res = await fetch(`/api/admin/cluster4/crews?${params}`); const json = await res.json(); if (json.success) setCrews(json.data); } catch { /* silent */ }
+    const scopeMode = readScopeMode(new URLSearchParams(window.location.search)); // QA 누수 차단
+    try { const res = await fetch(appendModeQuery(`/api/admin/cluster4/crews?${params}`, scopeMode)); const json = await res.json(); if (json.success) setCrews(json.data); } catch { /* silent */ }
   }, [adminOrg, crewFilterStatus]);
 
   useEffect(() => { if (SHOW_LEGACY_SECTIONS && !loading) refetchCrews(); }, [crewFilterStatus]); // eslint-disable-line react-hooks/exhaustive-deps

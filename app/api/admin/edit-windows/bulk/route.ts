@@ -15,6 +15,8 @@ import {
   isEditableResourceKey,
 } from "@/lib/adminEditWindowsTypes";
 import { markWeeklyCardsSnapshotStaleMany } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { readScopeMode } from "@/lib/userScopeShared";
+import { resolveUserScope } from "@/lib/userScope";
 
 function parseUserIds(input: unknown): string[] {
   if (!Array.isArray(input)) return [];
@@ -69,6 +71,9 @@ export async function POST(request: NextRequest) {
       ? input.week_id.trim()
       : null;
 
+  // ?mode=test → QA 쓰기 스코프(테스트 유저만). 미지정=operating(실사용자만). QA 누수 차단.
+  const mode = readScopeMode(request.nextUrl.searchParams);
+
   try {
     let userIds = parseUserIds(input.user_ids);
     if (input.select_all_matching === true) {
@@ -78,6 +83,7 @@ export async function POST(request: NextRequest) {
       userIds = await listMatchingEditWindowUserIds({
         resourceKey,
         query: typeof filters.q === "string" ? filters.q : null,
+        mode, // select-all 모집단도 scope 한정
       });
     }
 
@@ -86,6 +92,16 @@ export async function POST(request: NextRequest) {
       return Response.json(
         { success: false, error: "No user_ids selected" },
         { status: 400 },
+      );
+    }
+
+    // 쓰기 스코프 가드(fail-closed) — 명시 user_ids 경로도 전원 모드 스코프에 속해야(실사용자 write 차단).
+    const scope = await resolveUserScope(mode === "test" ? "test" : "operating", null);
+    const outOfScope = userIds.filter((id) => !scope.includes(id));
+    if (outOfScope.length > 0) {
+      return Response.json(
+        { success: false, error: `대상 ${outOfScope.length}명이 현재 모드(${mode}) 스코프 밖입니다. QA 모드는 테스트 유저만, 운영 모드는 실사용자만 일괄 처리할 수 있습니다.` },
+        { status: 422 },
       );
     }
 

@@ -80,6 +80,8 @@ export type SeasonParticipationFilterOptions = {
   organizationSlug?: string | null;
   status?: string | null;
   search?: string | null;
+  // 운영(operating·기본)/QA(test) 모집단 분기. test=test_user_markers만, operating=실사용자만. 미지정=operating.
+  mode?: "operating" | "test";
 };
 
 export type SeasonParticipationsDto = {

@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { RefreshCw, Search, X } from "lucide-react";
 import {
   Card,
@@ -161,6 +163,8 @@ export default function SeasonParticipationsView() {
   useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  // QA 모드(?mode=test) — 조회/쓰기에 전파해야 백엔드 scope(테스트 유저만)와 정합(누수 차단).
+  const mode = readScopeMode(useSearchParams());
 
   const [seasonKey, setSeasonKey] = useState<string>(ALL);
   const [organization, setOrganization] = useState<string>(ALL);
@@ -194,6 +198,7 @@ export default function SeasonParticipationsView() {
       if (organization !== ALL) params.set("organization_slug", organization);
       if (status !== ALL) params.set("status", status);
       if (debouncedSearch) params.set("search", debouncedSearch);
+      if (mode === "test") params.set("mode", "test");
 
       try {
         const res = await fetch(
@@ -222,7 +227,7 @@ export default function SeasonParticipationsView() {
     return () => {
       cancelled = true;
     };
-  }, [seasonKey, organization, status, debouncedSearch, refreshTick]);
+  }, [seasonKey, organization, status, debouncedSearch, refreshTick, mode]);
 
   const reload = useCallback(() => setRefreshTick((n) => n + 1), []);
 
@@ -471,6 +476,7 @@ function SeasonParticipationEditModal({
   const [note, setNote] = useState(row.note ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const mode = readScopeMode(useSearchParams()); // QA 쓰기 스코프 전파(실사용자 write 차단)
 
   const submit = async () => {
     if (saving) return;
@@ -478,9 +484,12 @@ function SeasonParticipationEditModal({
     setError(null);
     try {
       const res = await fetch(
-        `/api/admin/season-participations/${encodeURIComponent(
-          row.user_season_status_id,
-        )}`,
+        appendModeQuery(
+          `/api/admin/season-participations/${encodeURIComponent(
+            row.user_season_status_id,
+          )}`,
+          mode,
+        ),
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },

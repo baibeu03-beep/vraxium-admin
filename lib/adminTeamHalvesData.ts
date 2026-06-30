@@ -18,6 +18,7 @@ import { classLabel } from "@/lib/adminMembersTypes";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
 import type { ScopeMode } from "@/lib/userScopeShared";
+import { resolveUserScope } from "@/lib/userScope";
 
 // 반기별 팀 SoT(cluster4_team_halves) 데이터 접근.
 //   · 조회: 반기 → 그 반기의 팀 목록(불변 스냅샷 team_name).
@@ -798,9 +799,14 @@ function toBirth6(birthDate: string | null): string | null {
 
 export async function lookupCrewByCode(
   crewCode: string,
+  mode: ScopeMode = "operating",
 ): Promise<TeamLeaderCandidateDto | null> {
   const userId = await getUserIdByCrewCode(crewCode);
   if (!userId) return null;
+
+  // QA 누수 차단 — 스코프 밖 크루는 노출하지 않는다(test=test_user_markers만 / operating=실사용자만).
+  const scope = await resolveUserScope(mode === "test" ? "test" : "operating", null);
+  if (!scope.includes(userId)) return null;
 
   const detail = await getCrewDetailDto(userId);
   if (!detail) return null;

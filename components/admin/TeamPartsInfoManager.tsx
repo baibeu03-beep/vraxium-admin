@@ -270,7 +270,7 @@ export default function TeamPartsInfoManager() {
     setLeader(null);
     try {
       const res = await fetch(
-        `/api/admin/team-parts/crew-lookup?code=${encodeURIComponent(c)}`,
+        appendModeQuery(`/api/admin/team-parts/crew-lookup?code=${encodeURIComponent(c)}`, mode),
         { cache: "no-store" },
       );
       const json = await res.json();

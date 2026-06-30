@@ -590,7 +590,8 @@ export default function PracticalCareerManager() {
         fetch(`/api/admin/career-projects?limit=200`),
         fetch(`/api/admin/cluster4/career-line-options${orgParam}`),
         fetch("/api/admin/cluster4/lines?partType=career&limit=100"),
-        fetch(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`),
+        // ⚠ QA 누수 차단: 개설 대상 크루(crews)는 mode 전달 필수(미전달=operating 기본 → 실사용자 노출).
+        fetch(appendModeQuery(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`, scopeMode)),
         // 테스트 모드는 ?mode=test 전달 → 휴식꼬리에서 W13 을 드롭다운에 포함(operating 미부착=불변).
         fetch(appendModeQuery("/api/admin/cluster4/weeks-options?limit=3", scopeMode)),
       ]);
@@ -647,7 +648,8 @@ export default function PracticalCareerManager() {
       const params = new URLSearchParams();
       params.set("organization", adminOrg);
       if (status) params.set("status", status);
-      const res = await fetch(`/api/admin/cluster4/crews?${params}`);
+      const scopeMode = readScopeMode(new URLSearchParams(window.location.search)); // QA 누수 차단
+      const res = await fetch(appendModeQuery(`/api/admin/cluster4/crews?${params}`, scopeMode));
       const json = await res.json();
       if (json.success) setCrews(json.data);
     } catch { /* silent */ }

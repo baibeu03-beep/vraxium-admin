@@ -813,7 +813,14 @@ export default function PracticalInfoManager() {
           ),
         ),
         fetch("/api/admin/cluster4/activity-types?cluster=practical_info"),
-        fetch("/api/admin/cluster4/users"),
+        // ⚠ QA 누수 차단: 개설 대상 크루(users)는 mode 를 전달해야 백엔드 scope(테스트 유저만)와 정합.
+        //   미전달 시 operating 기본 → 테스트 모드 화면에 실사용자 노출.
+        fetch(
+          appendModeQuery(
+            "/api/admin/cluster4/users",
+            readScopeMode(new URLSearchParams(window.location.search)),
+          ),
+        ),
         fetch("/api/admin/line-opening-windows/active"),
       ]);
 

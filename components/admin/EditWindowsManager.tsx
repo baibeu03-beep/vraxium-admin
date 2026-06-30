@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { RefreshCw, Search, X } from "lucide-react";
 import {
   Card,
@@ -202,6 +203,7 @@ export default function EditWindowsManager() {
       if (weekScoped && selectedWeekId) params.set("week_id", selectedWeekId);
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String(offset));
+      if (readScopeMode(searchParams) === "test") params.set("mode", "test"); // QA 누수 차단
       try {
         const res = await fetch("/api/admin/edit-windows?" + params.toString(), {
           cache: "no-store",
@@ -908,7 +910,10 @@ async function patchWindow(
   weekId: string | null = null,
 ): Promise<EditWindowDto | null> {
   const res = await fetch(
-    "/api/admin/edit-windows/" + encodeURIComponent(userId),
+    appendModeQuery(
+      "/api/admin/edit-windows/" + encodeURIComponent(userId),
+      readScopeMode(new URLSearchParams(window.location.search)), // QA 쓰기 스코프 전파
+    ),
     {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -935,11 +940,17 @@ async function bulkWindow(
   body: BulkUpsertBody | BulkCloseBody,
   weekId: string | null = null,
 ): Promise<number> {
-  const res = await fetch("/api/admin/edit-windows/bulk", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...body, week_id: weekId }),
-  });
+  const res = await fetch(
+    appendModeQuery(
+      "/api/admin/edit-windows/bulk",
+      readScopeMode(new URLSearchParams(window.location.search)), // QA 쓰기 스코프 전파
+    ),
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, week_id: weekId }),
+    },
+  );
   const json = await res.json();
   if (!res.ok || !json.success) {
     throw new Error(json?.error ?? "Failed to save selected users");

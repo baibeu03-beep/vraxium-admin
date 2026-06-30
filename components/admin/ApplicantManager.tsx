@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link2, Search, UserX } from "lucide-react";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   Card,
   CardContent,
@@ -76,9 +77,13 @@ export default function ApplicantManager() {
   const refreshApplicants = async (preserveId?: string | null) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/applicants?status=pending", {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        appendModeQuery(
+          "/api/admin/applicants?status=pending",
+          readScopeMode(new URLSearchParams(window.location.search)),
+        ),
+        { cache: "no-store" },
+      );
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json?.error ?? "Failed to load applicants.");
@@ -124,7 +129,10 @@ export default function ApplicantManager() {
       setSearchLoading(true);
       try {
         const res = await fetch(
-          `/api/admin/user-profiles?query=${encodeURIComponent(trimmed)}`,
+          appendModeQuery(
+            `/api/admin/user-profiles?query=${encodeURIComponent(trimmed)}`,
+            readScopeMode(new URLSearchParams(window.location.search)),
+          ),
           { cache: "no-store" },
         );
         const json = await res.json();

@@ -839,8 +839,12 @@ export default function PracticalExperienceManager() {
         fetch(appendModeQuery(`/api/admin/cluster4/teams${orgParam}`, scopeMode)),
         // 라인 등록 데이터는 조직별 권한 분리 전 단계라 전체 조직을 조회한다.
         fetch(`/api/admin/cluster4/experience-line-masters`),
+        // ⚠ QA 누수 차단: 개설 대상 크루(crews)는 mode 전달 필수(미전달=operating 기본 → 실사용자 노출).
         fetch(
-          `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`,
+          appendModeQuery(
+            `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`,
+            scopeMode,
+          ),
         ),
       ]);
 

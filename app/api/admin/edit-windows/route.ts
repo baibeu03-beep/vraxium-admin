@@ -12,6 +12,7 @@ import {
   DEFAULT_RESOURCE_KEY,
   isEditableResourceKey,
 } from "@/lib/adminEditWindowsTypes";
+import { readScopeMode } from "@/lib/userScopeShared";
 
 function parseIntParam(
   raw: string | null,
@@ -55,6 +56,8 @@ export async function GET(request: NextRequest) {
       weekId,
       limit,
       offset,
+      // ?mode=test → QA(테스트 유저만). 미지정=operating(실사용자만). QA 누수 차단.
+      mode: readScopeMode(params),
     });
     return Response.json({ success: true, data });
   } catch (error) {

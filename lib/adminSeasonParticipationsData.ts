@@ -11,6 +11,7 @@
 //   - search            : user_profiles.display_name ilike.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { resolveUserScope } from "@/lib/userScope";
 import { getCurrentActivityDateIso, isTransitionWeekStart } from "@/lib/seasonCalendar";
 import { isSeasonParticipationStatus } from "@/lib/adminSeasonParticipationsTypes";
 import { getRankPopulationSeasonKey, resyncGradeStatsBatch } from "@/lib/cluster3ClubRankData";
@@ -206,6 +207,11 @@ export async function getSeasonParticipations(
   const truncated = seasonStatusRows.length > MAX_ROWS;
   if (truncated) seasonStatusRows = seasonStatusRows.slice(0, MAX_ROWS);
 
+  // QA 누수 차단(week-recognitions 와 동일 축) — test=test_user_markers만 / operating=실사용자만.
+  //   ⚠ 종전엔 scope 미적용이라 ?mode=test 화면에도 실사용자가, 운영 화면엔 테스트 유저가 섞였다.
+  const scope = await resolveUserScope(options.mode === "test" ? "test" : "operating", null);
+  seasonStatusRows = seasonStatusRows.filter((r) => scope.includes(r.user_id));
+
   if (seasonStatusRows.length === 0) {
     return emptyResult(seasonOptions);
   }
@@ -345,6 +351,9 @@ const WEEK_STATUS_SYNC_NOTE =
 export async function updateSeasonParticipation(
   userSeasonStatusId: string,
   input: SeasonParticipationUpdateInput,
+  // 운영(operating·기본)/QA(test) 쓰기 스코프. test → 대상이 test_user_markers 일 때만 허용,
+  //   operating → 실사용자일 때만. 위반 시 422(fail-closed) — QA서 실사용자 시즌상태 write 차단.
+  mode: "operating" | "test" = "operating",
 ): Promise<SeasonParticipationUpdateResult> {
   const id = String(userSeasonStatusId ?? "").trim();
   if (!id) {
@@ -379,7 +388,7 @@ export async function updateSeasonParticipation(
   // 5) 수정 전 기존 row 확인 — 없으면 404. (old status 는 품계 캐시 freshness 판단에 사용)
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("user_season_statuses")
-    .select("id, status")
+    .select("id, user_id, status")
     .eq("id", id)
     .maybeSingle();
   if (existingError) {
@@ -390,6 +399,17 @@ export async function updateSeasonParticipation(
       404,
       "user_season_statuses row not found.",
     );
+  }
+  // 5-1) 쓰기 스코프 가드(fail-closed) — 대상 user 가 요청 모드 스코프에 속해야 한다.
+  {
+    const targetUserId = (existing as { user_id: string }).user_id;
+    const scope = await resolveUserScope(mode === "test" ? "test" : "operating", null);
+    if (!scope.includes(targetUserId)) {
+      throw new SeasonParticipationUpdateError(
+        422,
+        `대상 사용자가 현재 모드(${mode}) 스코프에 속하지 않습니다. QA 모드는 테스트 유저만, 운영 모드는 실사용자만 수정할 수 있습니다.`,
+      );
+    }
   }
   const previousStatus = (existing as { status?: string | null }).status ?? null;
 

@@ -5,6 +5,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { lookupCrewByCode } from "@/lib/adminTeamHalvesData";
+import { readScopeMode } from "@/lib/userScopeShared";
 
 // 팀장 크루코드 [호출] — crew_code 로 등록된 크루를 조회(11개 필드).
 //   조회 안 되면 404(팀장 등록 불가). 인물 정보 SoT=기존 크루/프로필.
@@ -26,7 +27,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const crew = await lookupCrewByCode(code);
+    // ?mode=test → QA(테스트 크루만). 미지정=operating(실사용자만). 스코프 밖 크루는 404.
+    const crew = await lookupCrewByCode(code, readScopeMode(request.nextUrl.searchParams));
     if (!crew) {
       return Response.json(
         {
