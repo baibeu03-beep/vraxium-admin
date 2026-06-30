@@ -65,9 +65,19 @@ export async function GET(request: NextRequest) {
         { status: 500 },
       );
     }
-    const userIds = ((targetRows ?? []) as Array<{ target_user_id: string | null }>)
+    const rawUserIds = ((targetRows ?? []) as Array<{ target_user_id: string | null }>)
       .map((r) => r.target_user_id)
       .filter((id): id is string => Boolean(id));
+
+    // ── 운영/테스트 모집단 스코프 (QA 누수 차단) ──────────────────────────────
+    //   "현재 개설 대상 크루" 는 이 라인의 user 대상자를 그대로 보여준다. mode 미적용 시 test 모드에서
+    //   운영 라인을 열면 운영 실유저(예: 양다연)가 그대로 노출된다.
+    //     operating : test_user_markers 제외(실유저 라인 = 기존과 동일·불변).
+    //     test      : test_user_markers 만(운영 라인의 실유저 대상자 = 0 명).
+    //   org 축은 미적용(라인 대상자는 이미 그 라인 소속) → operating 동작 바이트 동일.
+    const mode = readScopeMode(params);
+    const scope = await resolveUserScope(mode, null);
+    const userIds = rawUserIds.filter((id) => scope.includes(id));
 
     const crews = await loadCrewRecordsByUserIds(userIds);
     const crewById = new Map(crews.map((c) => [c.userId, c]));
