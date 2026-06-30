@@ -430,7 +430,7 @@ export default function EditWindowsManager() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end gap-3">
         <div className="mr-auto">
-          <h2 className="text-2xl font-semibold tracking-tight">작성기간 관리</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">작성 기간 관리</h2>
           <p className="text-sm text-muted-foreground">
             {devMode
               ? "사용자별 / 리소스별 편집 가능 기간을 열고 닫습니다."

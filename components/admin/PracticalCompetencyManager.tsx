@@ -453,7 +453,7 @@ export default function PracticalCompetencyManager() {
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
       <AdminPageHeader
-        title="실무 역량 라인"
+        title="실무 역량"
         description="허브와 라인 · 라인 관리 / 라인 개설"
         tabs={
           orgScoped

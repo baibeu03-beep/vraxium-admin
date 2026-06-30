@@ -7,13 +7,8 @@ import AdminHelp from "@/components/admin/AdminHelp";
 export default function TestUsersPage() {
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold">테스트 유저</h1>
-          <p className="text-sm text-muted-foreground">
-            더미 유저를 선택해 고객 페이지를 데모 모드로 미리볼 수 있습니다.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-lg font-semibold">테스트 모드</h1>
         <AdminHelp />
       </div>
       <TestUsersManager />

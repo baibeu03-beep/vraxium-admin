@@ -1459,7 +1459,7 @@ export default function PracticalExperienceManager() {
       )}
     >
       <AdminPageHeader
-        title="실무 경험 라인"
+        title="실무 경험"
         description="허브와 라인 · 라인 관리 / 라인 개설"
         tabs={
           orgScoped

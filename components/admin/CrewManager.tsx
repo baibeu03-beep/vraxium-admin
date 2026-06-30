@@ -374,11 +374,11 @@ export default function CrewManager({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>
-            {ORGANIZATION_LABEL[organization]} {devMode ? "Crews" : "멤버"}
+            {ORGANIZATION_LABEL[organization]} {devMode ? "Crews" : "크루"}
           </CardTitle>
           <Button onClick={openCreate} size="sm">
             <Plus className="h-4 w-4" />
-            {devMode ? "Add Crew" : "멤버 추가"}
+            {devMode ? "Add Crew" : "크루 추가"}
           </Button>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">

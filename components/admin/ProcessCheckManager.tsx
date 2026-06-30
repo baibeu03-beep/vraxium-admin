@@ -213,8 +213,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
       <AdminPageHeader
-        title={`프로세스 체크 · ${hubLabel} 급`}
-        description={`이번 주 [${hubLabel} 급] 프로세스 액트 체크 (조직: ${org ?? "미지정"})`}
+        title={`${hubLabel} 급`}
       />
 
       {!org && (

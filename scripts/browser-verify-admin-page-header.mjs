@@ -95,7 +95,7 @@ try {
   let h = await readHeader(page);
   check("AdminPageHeader 탭 nav 존재", h.hasPageTabNav);
   check("글로벌 헤더 옛 중복 탭 제거됨", !h.hasOldTabNav);
-  check("제목 '실무 정보 라인'", h.h1s.some((x) => x.text === "실무 정보 라인"), h.h1s.map((x) => x.text).join(" | "));
+  check("제목 '실무 정보'", h.h1s.some((x) => x.text === "실무 정보"), h.h1s.map((x) => x.text).join(" | "));
   check("탭 2개(라인 관리/라인 개설)", h.tabs.length === 2, h.tabs.map((t) => t.label).join(","));
   {
     const manage = h.tabs.find((t) => t.label === "라인 관리");
@@ -126,7 +126,7 @@ try {
   await page.goto(`${BASE}/admin/line-opening/practical-experience?org=encre`, { waitUntil: "networkidle" });
   h = await readHeader(page);
   check("탭 nav 존재 + 옛 탭 없음", h.hasPageTabNav && !h.hasOldTabNav);
-  check("제목 '실무 경험 라인'", h.h1s.some((x) => x.text === "실무 경험 라인"), h.h1s.map((x) => x.text).join(" | "));
+  check("제목 '실무 경험'", h.h1s.some((x) => x.text === "실무 경험"), h.h1s.map((x) => x.text).join(" | "));
   check("라인 관리 active(기본)", h.tabs.find((t) => t.label === "라인 관리")?.active);
 
   // ── 4) processes/check/info?org=encre (탭 없음) ──
@@ -134,21 +134,21 @@ try {
   await page.goto(`${BASE}/admin/processes/check/info?org=encre`, { waitUntil: "networkidle" });
   h = await readHeader(page);
   check("탭 없음(title+description만)", !h.hasPageTabNav);
-  check("제목 '프로세스 체크 ·' 시작", h.h1s.some((x) => x.text.startsWith("프로세스 체크 ·")), h.h1s.map((x) => x.text).join(" | "));
+  check("제목 '실무 정보 급'", h.h1s.some((x) => x.text === "실무 정보 급"), h.h1s.map((x) => x.text).join(" | "));
 
   // ── 5) processes/check/experience?org=encre ──
   console.log("\n[5] /admin/processes/check/experience?org=encre");
   await page.goto(`${BASE}/admin/processes/check/experience?org=encre`, { waitUntil: "networkidle" });
   h = await readHeader(page);
   check("탭 없음", !h.hasPageTabNav);
-  check("제목 '프로세스 체크 ·' 시작", h.h1s.some((x) => x.text.startsWith("프로세스 체크 ·")), h.h1s.map((x) => x.text).join(" | "));
+  check("제목 '실무 경험 급'", h.h1s.some((x) => x.text === "실무 경험 급"), h.h1s.map((x) => x.text).join(" | "));
 
   // ── 6) members?org=encre ──
   console.log("\n[6] /admin/members?org=encre");
   await page.goto(`${BASE}/admin/members?org=encre`, { waitUntil: "networkidle" });
   h = await readHeader(page);
   check("탭 nav 존재 + 옛 탭 없음", h.hasPageTabNav && !h.hasOldTabNav);
-  check("제목 '멤버 관리'", h.h1s.some((x) => x.text === "멤버 관리"), h.h1s.map((x) => x.text).join(" | "));
+  check("제목 '크루 관리'", h.h1s.some((x) => x.text === "크루 관리"), h.h1s.map((x) => x.text).join(" | "));
   {
     const list = h.tabs.find((t) => t.label === "크루 목록");
     const info = h.tabs.find((t) => t.label === "크루 정보");

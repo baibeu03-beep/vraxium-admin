@@ -275,7 +275,7 @@ export default function LineOpeningWindowsManager() {
     <div className="mx-auto w-full max-w-[1100px] space-y-6 px-4 py-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">라인 개설 기간 (예외 설정)</h1>
+          <h1 className="text-2xl font-bold">라인 개설 기간</h1>
           <p className="text-sm text-muted-foreground">
             자동 정책으로 정해진 개설 가능 주차 외에, 특정 주차/라인을 추가로 열어야 할 때
             예외를 등록합니다. (지난 주차 뒤늦은 개설 · 재개설 · 운영/장애 복구 등)

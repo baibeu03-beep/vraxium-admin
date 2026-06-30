@@ -1112,7 +1112,10 @@ export default function PracticalCareerManager() {
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="text-2xl font-bold">실무 경력 라인 관리</h1>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold">라인 개설 [실무 경력]</h1>
+          <p className="text-sm text-muted-foreground">실무 경력 허브의 라인을 관리합니다.</p>
+        </div>
         <AdminHelp />
       </div>
 
