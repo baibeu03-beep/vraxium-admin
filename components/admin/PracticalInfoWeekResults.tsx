@@ -31,6 +31,7 @@ export type SelectedInfoWeekMeta = {
   endDate: string | null;
 };
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   INFO_CREW_EDIT_POLICY_LABEL,
   isInfoCrewEditableWeek,
@@ -183,7 +184,13 @@ export default function PracticalInfoWeekResults({
       const org = readOrgParam(new URLSearchParams(window.location.search));
       const qs = new URLSearchParams({ week_id: weekId });
       if (org) qs.set("organization", org);
-      const res = await fetch(`/api/admin/cluster4/info-line-results?${qs.toString()}`);
+      // ⚠ QA 누수 차단: 주차별 개설 결과 목록도 mode 전달 — 미전달=operating(운영 라인) 노출.
+      const res = await fetch(
+        appendModeQuery(
+          `/api/admin/cluster4/info-line-results?${qs.toString()}`,
+          readScopeMode(new URLSearchParams(window.location.search)),
+        ),
+      );
       const json = await res.json();
       if (json?.success) setResults(json.data as Results);
       else {

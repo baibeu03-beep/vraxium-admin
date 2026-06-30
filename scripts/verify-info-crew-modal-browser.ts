@@ -93,12 +93,12 @@ async function main() {
     return { selected, clicked, crewIds: [...new Set(crewIds)], modal };
   }
 
-  // TEST 모드 — 사용자 신고 핵심.
+  // TEST 모드 — 운영 라인은 주차별 개설 결과에서 숨겨지므로(info-line-results scope) "수정" 버튼
+  //   자체가 없어 모달 진입 불가 = 운영 "현재 개설 대상 크루" 노출 0(이중 방어: info-lines/crew 도 scope).
   const t = await run("test");
   const tOp = t.crewIds.filter((id) => !markers.has(id));
-  ck("모달 진입(select+수정 클릭) 성공 [test]", t.selected && t.clicked && t.modal.hasModal, { selected: t.selected, clicked: t.clicked });
-  ck("[test] info-lines/crew 응답 운영유저 0", tOp.length === 0, { total: t.crewIds.length, opLeak: tOp.length });
-  ck("[test] 렌더 '현재 개설 대상 크루' 카운트 운영유저 미포함(0)", t.modal.countText === 0, { rendered: t.modal.countText });
+  ck("[test] 운영 라인 숨김 → '개설 대상 크루 수정' 버튼 없음(모달 진입 불가)", t.selected && !t.clicked, { selected: t.selected, 수정버튼있음: t.clicked });
+  ck("[test] 운영 '현재 개설 대상 크루' 노출 0 (모달 미진입+endpoint scope)", tOp.length === 0, { opLeak: tOp.length });
 
   // OPERATING 모드 — 기존과 동일(운영 대상자 보임).
   const o = await run("operating");

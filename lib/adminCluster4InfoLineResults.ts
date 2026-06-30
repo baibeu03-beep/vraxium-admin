@@ -18,6 +18,7 @@ import { fmtDate, seasonLabelOnly, yy2 } from "@/lib/practicalInfoSeasonWeeks";
 import { resolveCluster4LineOrgScope } from "@/lib/adminCluster4LinesData";
 import { isLineVisibleForUserOrg } from "@/lib/cluster4LineOrg";
 import type { OrganizationSlug } from "@/lib/organizations";
+import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 
 export type InfoLineResultStatus = "opened" | "needs_opening" | "not_open";
 
@@ -94,8 +95,11 @@ export async function getInfoLineResultsForWeek(opts: {
   // — 어드민 라인 목록(filterLineIdsByOrg) · 고객 weekly-cards(isLineVisibleForUserOrg) 와 동일 정책.
   // info 라인 org SoT = line_code 토큰(OK/EC/PX/BS). 토큰 없는 info 는 'common' 으로 전체 노출.
   organization?: OrganizationSlug | null;
+  // 운영/테스트 모집단 스코프(QA 누수 차단). 미지정=operating(실유저 라인만).
+  //   test → user 대상자가 test_user_markers 인 라인만 "개설된 라인"으로 노출(운영 라인 0건).
+  mode?: ScopeMode;
 }): Promise<InfoLineResultsDto> {
-  const { weekId, organization = null } = opts;
+  const { weekId, organization = null, mode } = opts;
   if (!isUuid(weekId)) throw new Error("week_id must be a UUID");
 
   // 조직 지정 시 라인 1건이 그 조직에 노출되는지 — resolveCluster4LineOrgScope(단일 SoT) 로 판정.
@@ -157,8 +161,18 @@ export async function getInfoLineResultsForWeek(opts: {
   typeRows.sort((a, b) => orderIdx(a.id) - orderIdx(b.id) || a.id.localeCompare(b.id));
 
   // 3. 해당 주차의 개설(활성) 라인 — 타깃(week_id, 0명 sentinel 포함) ∪ 라인 자체 week_id.
-  const lineByActivity = new Map<string, LineMeta>();
-  const userTargetIdsByLine = new Map<string, string[]>(); // lineId → user-mode target.id[]
+  //    운영/테스트 모집단 스코프(QA 누수 차단): info-lines GET 과 동일 every() 정책 —
+  //    라인의 user 대상자가 전원 현재 mode scope 안일 때만 "개설된 라인"으로 노출한다.
+  //      operating : 실유저 대상자 라인 유지(기존 동일). test 라인(marker 대상자) 제외.
+  //      test      : marker 대상자 라인만. 운영 라인(실유저 대상자) 제외 → "운영 라인 0건".
+  //    0명(sentinel/무대상자) 라인은 user 대상자가 없어 양쪽 노출(노출 운영 유저 0). org 축은 별도 isOrgVisible.
+  const scope = await resolveUserScope(mode ?? "operating", null);
+
+  // 후보 라인(메타) + 라인별 user 대상자(user_id) + user target.id(2차 기입 카운트용) 를 먼저 모은다.
+  //   (라인의 전체 user 대상자를 알아야 every() 판정이 가능 → lineByActivity 확정은 뒤로 미룬다.)
+  const candidateLineMeta = new Map<string, LineMeta>(); // lineId → meta (tRows 우선, 그다음 lRows)
+  const userIdsByLineId = new Map<string, string[]>(); // lineId → target_user_id[]
+  const userTargetIdsByLineId = new Map<string, string[]>(); // lineId → target.id[]
 
   const { data: tRows, error: tErr } = await supabaseAdmin
     .from("cluster4_line_targets")
@@ -178,16 +192,16 @@ export async function getInfoLineResultsForWeek(opts: {
     const line = row.cluster4_lines;
     if (!line || !line.activity_type_id) continue;
     if (!(await isOrgVisible(line))) continue;
-    if (!lineByActivity.has(line.activity_type_id))
-      lineByActivity.set(line.activity_type_id, line);
+    if (!candidateLineMeta.has(line.id)) candidateLineMeta.set(line.id, line);
     if (row.target_mode === "user" && row.target_user_id) {
-      const arr = userTargetIdsByLine.get(line.id) ?? [];
-      arr.push(row.id);
-      userTargetIdsByLine.set(line.id, arr);
+      if (!userIdsByLineId.has(line.id)) userIdsByLineId.set(line.id, []);
+      if (!userTargetIdsByLineId.has(line.id)) userTargetIdsByLineId.set(line.id, []);
+      userIdsByLineId.get(line.id)!.push(row.target_user_id);
+      userTargetIdsByLineId.get(line.id)!.push(row.id);
     }
   }
 
-  // 타깃이 전혀 없는 라인 대비 — 라인 자체 week_id 로도 union.
+  // 타깃이 전혀 없는 라인 대비 — 라인 자체 week_id 로도 union(0명 sentinel 포함).
   const { data: lRows } = await supabaseAdmin
     .from("cluster4_lines")
     .select("id,activity_type_id,main_title,opened_at,opened_by,created_by,created_at,line_code")
@@ -195,10 +209,27 @@ export async function getInfoLineResultsForWeek(opts: {
     .eq("week_id", weekId)
     .eq("is_active", true);
   for (const line of (lRows ?? []) as LineMeta[]) {
-    if (!line.activity_type_id || lineByActivity.has(line.activity_type_id))
-      continue;
+    if (!line.activity_type_id) continue;
     if (!(await isOrgVisible(line))) continue;
+    if (!candidateLineMeta.has(line.id)) candidateLineMeta.set(line.id, line);
+  }
+
+  // 모드 스코프 every() + activity 별 대표 라인 선정(후보 삽입 순서 = tRows→lRows 유지).
+  const lineByActivity = new Map<string, LineMeta>();
+  const userTargetIdsByLine = new Map<string, string[]>(); // lineId → user-mode target.id[] (in-scope 라인만)
+  for (const line of candidateLineMeta.values()) {
+    if (!line.activity_type_id) continue;
+    if (lineByActivity.has(line.activity_type_id)) continue; // 이미 대표 라인 확정
+    const uids = userIdsByLineId.get(line.id) ?? [];
+    // test : 마커 user 대상자가 있고 전원 마커인 라인만(운영 라인 + 0대상 sentinel 라인 모두 제외 → "운영 라인 0건").
+    // operating : 비-마커 대상자 라인 + 0대상(sentinel) 라인 유지(기존 동일). 테스트 라인(전원 마커)만 제외.
+    const inScope =
+      mode === "test"
+        ? uids.length > 0 && uids.every((id) => scope.includes(id))
+        : uids.length === 0 || uids.every((id) => scope.includes(id));
+    if (!inScope) continue;
     lineByActivity.set(line.activity_type_id, line);
+    userTargetIdsByLine.set(line.id, userTargetIdsByLineId.get(line.id) ?? []);
   }
 
   // 4. 개설자 이름 일괄 resolve (display_name ?? admin email ?? "관리자").
