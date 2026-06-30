@@ -10,6 +10,7 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { buildLineManageTabs } from "@/lib/adminHeaderTabs";
+import { readOrgParam } from "@/lib/adminOrgContext";
 import LineRegistrationManager from "@/components/admin/LineRegistrationManager";
 import LineRegistrationInfoManager from "@/components/admin/LineRegistrationInfoManager";
 
@@ -18,11 +19,13 @@ export default function LineManagement() {
   const searchParams = useSearchParams();
   const tab: "info" | "register" =
     searchParams?.get("tab") === "register" ? "register" : "info";
+  // 사이드바 메뉴명과 페이지 제목 정합: 통합 모드 = "라인 관리", 조직 모드(?org) = "허브와 라인".
+  const org = readOrgParam(searchParams);
 
   return (
     <div className="flex w-full flex-col gap-4">
       <AdminPageHeader
-        title="라인 관리"
+        title={org ? "허브와 라인" : "라인 관리"}
         tabs={buildLineManageTabs(pathname, searchParams, tab)}
       />
       {tab === "register" ? (

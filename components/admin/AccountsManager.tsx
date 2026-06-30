@@ -466,7 +466,7 @@ export default function AccountsManager() {
     <div className="flex flex-col gap-6">
       <div className="flex items-end justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-semibold tracking-tight">계정 관리</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">어드민 계정</h2>
           <p className="text-sm text-muted-foreground">
             어드민 페이지에 로그인할 수 있는 운영 계정을 관리합니다. 일반 프론트 회원은 표시되지 않습니다.
           </p>

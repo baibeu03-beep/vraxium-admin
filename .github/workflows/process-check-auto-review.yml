@@ -83,3 +83,53 @@ jobs:
           if [ "${FAILED}" != "0" ]; then
             echo "::warning::검수 실패 항목 ${FAILED}건 — 항목별 last_error 는 응답 items[] 참고(다음 주기 재시도)."
           fi
+
+      # ── 운영 자동 fallback — 주차 공표/검수 자동 실행(Phase D) ───────────────────────
+      #   데드라인(공표=N+1 목 14:00 KST · 검수=N+1 금 16:00 KST)이 지났는데 수동 미실행인
+      #   주차를 자동 처리한다. 수동 버튼과 동일 Action Service(scope=operating)를 호출하며,
+      #   이미 처리된 주차는 409 가드로 skip(멱등). 위 단계(검수 sweep)와 독립 — if: always().
+      - name: Call run-due-week-actions API (주차 공표/검수 자동 fallback)
+        if: always()
+        env:
+          BASE_URL: ${{ secrets.ADMIN_BASE_URL }}
+          INTERNAL_API_KEY: ${{ secrets.INTERNAL_API_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${BASE_URL:-}" ] || [ -z "${INTERNAL_API_KEY:-}" ]; then
+            echo "::error::Secret 미설정 — ADMIN_BASE_URL / INTERNAL_API_KEY 를 등록하세요."
+            exit 1
+          fi
+
+          ENDPOINT="${BASE_URL%/}/api/admin/weeks/run-due-week-actions"
+          echo "POST ${ENDPOINT}"
+
+          HTTP_CODE=$(curl -sS -o response_week.json -w "%{http_code}" \
+            -X POST "${ENDPOINT}" \
+            -H "content-type: application/json" \
+            -H "x-internal-api-key: ${INTERNAL_API_KEY}" \
+            --max-time 300 \
+            -d '{}')
+
+          echo "HTTP ${HTTP_CODE}"
+          echo "----- response body -----"
+          cat response_week.json || true
+          echo ""
+          echo "-------------------------"
+
+          if [ "${HTTP_CODE}" != "200" ]; then
+            echo "::error::run-due-week-actions 실패 (HTTP ${HTTP_CODE}). 위 본문에서 원인을 확인하세요."
+            exit 1
+          fi
+
+          SUCCESS=$(jq -r '.success' response_week.json 2>/dev/null || echo "unknown")
+          if [ "${SUCCESS}" != "true" ]; then
+            echo "::error::run-due-week-actions 응답 success != true — 본문 확인."
+            exit 1
+          fi
+
+          echo "summary: $(jq -c '.data | {publish, review, capped}' response_week.json 2>/dev/null || echo '-')"
+          WFAILED=$(( $(jq -r '.data.publish.failed // 0' response_week.json 2>/dev/null || echo 0) + $(jq -r '.data.review.failed // 0' response_week.json 2>/dev/null || echo 0) ))
+          if [ "${WFAILED}" != "0" ]; then
+            echo "::warning::자동 공표/검수 실패 ${WFAILED}건 — week_auto_action_log·응답 items[] 참고(다음 주기 재시도)."
+          fi
