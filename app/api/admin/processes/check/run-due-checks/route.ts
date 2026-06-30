@@ -19,6 +19,7 @@
 import type { NextRequest } from "next/server";
 import { parseScopeMode } from "@/lib/userScopeShared";
 import { runDueProcessCheckSweep } from "@/lib/processCheckDueSweep";
+import { resolveStateScopeFromRequest } from "@/lib/operationalState";
 
 export const maxDuration = 300; // 만기 항목 크롤링 직렬 처리 — 넉넉한 상한(초과분은 catch-up).
 export const dynamic = "force-dynamic";
@@ -69,6 +70,9 @@ export async function POST(request: NextRequest) {
   const modes = modesRaw
     ? Array.from(new Set(modesRaw.map((m) => parseScopeMode(m))))
     : null;
+  // QA 분기: ?mode=test → scope=qa. fail-safe — scope=qa 가 명시될 때만 QA sweep(테스트 항목 강제).
+  //   미지정 = operating(기존 동작 불변). scope 는 body.modes 보다 우선(qa면 test 항목만).
+  const scope = resolveStateScopeFromRequest(request);
   const onlyIds = readStringArray(body.onlyIds);
   const maxItems =
     typeof body.maxItems === "number" && Number.isFinite(body.maxItems)
@@ -80,6 +84,7 @@ export async function POST(request: NextRequest) {
     const result = await runDueProcessCheckSweep({
       orgs,
       modes,
+      scope,
       onlyIds,
       maxItems,
       log: (m) => console.log(`[run-due-checks] ${m}`),

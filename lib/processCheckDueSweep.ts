@@ -30,6 +30,7 @@ import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { accrueForCompletedAct, type AccrualSource } from "@/lib/processPointAccrual";
 import { logProcessCheckCompletedForRegular } from "@/lib/adminProcessCheckData";
+import { type StateScope, logQaAction } from "@/lib/operationalState";
 
 // 워커와 동일 env 이름으로 재시도/쿨다운 정책을 공유한다(동작 일치).
 const MAX_ATTEMPTS = Number(process.env.WORKER_MAX_ATTEMPTS ?? 5);
@@ -155,10 +156,19 @@ export async function runDueProcessCheckSweep(opts: {
   crawlAndMatch?: SweepCrawlAndMatch;
   accrue?: SweepAccrue | null;
   log?: (m: string) => void;
+  // 운영(operating·기본)/QA(qa) 분기. Action Service 공통 — 향후 운영 자동 fallback 도 같은 함수 사용.
+  //   scope="qa" → 처리 대상을 scope_mode='test' 항목으로 **강제 한정**(modes 입력 무시·fail-safe)
+  //     + 실행 결과를 qa_action_log(action='sweep')에 기록. 테스트 크루만 대상이 됨이 보장된다.
+  //   scope 미지정/operating → 기존 동작 바이트 동일(modes 입력 그대로·qa 로깅 없음).
+  scope?: StateScope;
+  actor?: string | null;
 } = {}): Promise<SweepResult> {
   const now = opts.now ?? Date.now();
   const orgs = opts.orgs ?? null;
-  const modes = opts.modes ?? null;
+  const scope: StateScope = opts.scope ?? "operating";
+  // fail-safe: QA sweep 은 scope='qa' 가 명시될 때만, 그리고 그 때는 무조건 test 항목만 처리한다.
+  //   (호출부가 modes 에 operating 을 넣어도 QA 에서는 절대 운영 항목을 건드리지 않는다.)
+  const modes = scope === "qa" ? ["test"] : (opts.modes ?? null);
   const onlyIds = opts.onlyIds ?? null;
   const maxItems = Math.max(1, opts.maxItems ?? DEFAULT_MAX_ITEMS);
   const crawlAndMatch = opts.crawlAndMatch ?? inProcessCrawlAndMatch;
@@ -355,5 +365,29 @@ export async function runDueProcessCheckSweep(opts: {
     }
   }
 
-  return { due: due.length, eligible: eligible.length, succeeded, failed, capped, items };
+  const result: SweepResult = { due: due.length, eligible: eligible.length, succeeded, failed, capped, items };
+
+  // ── QA sweep 추적(요구사항 #7) — scope='qa' 실행만 qa_action_log(action='sweep')에 기록 ──
+  //   운영 sweep 은 기록하지 않는다(운영 동작 불변). best-effort(로깅 실패가 sweep 을 안 깸).
+  if (scope === "qa") {
+    const accruedTotal = items.reduce(
+      (n, it) => n + (it.outcome === "completed" ? (it.accrued ?? 0) : 0),
+      0,
+    );
+    await logQaAction({
+      action: "sweep",
+      weekId: null,
+      before: { due: result.due, eligible: result.eligible, onlyIds, orgs },
+      after: {
+        succeeded: result.succeeded,
+        failed: result.failed,
+        capped: result.capped,
+        accruedRecipients: accruedTotal,
+        itemIds: items.map((it) => it.id),
+      },
+      actor: opts.actor ?? null,
+    });
+  }
+
+  return result;
 }
