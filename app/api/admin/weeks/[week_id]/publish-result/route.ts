@@ -18,12 +18,15 @@ import {
   publishWeekResult,
   WeekResultPublishError,
 } from "@/lib/adminWeekRecognitionsData";
+import { resolveStateScopeFromRequest } from "@/lib/operationalState";
 
 type Ctx = { params: Promise<{ week_id: string }> };
 
-export async function PATCH(_request: NextRequest, { params }: Ctx) {
+export async function PATCH(request: NextRequest, { params }: Ctx) {
+  let actorId: string | null = null;
   try {
-    await requireAdmin(ADMIN_WRITE_ROLES);
+    const admin = await requireAdmin(ADMIN_WRITE_ROLES);
+    actorId = (admin as { id?: string } | null)?.id ?? null;
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -31,9 +34,11 @@ export async function PATCH(_request: NextRequest, { params }: Ctx) {
   }
 
   const { week_id } = await params;
+  // ?mode=test → scope=qa (qa_weeks_state 에만 기록, 테스트 코호트만 재계산). 기본 operating.
+  const scope = resolveStateScopeFromRequest(request);
 
   try {
-    const data = await publishWeekResult(week_id);
+    const data = await publishWeekResult(week_id, scope, actorId);
     return Response.json({ success: true, data });
   } catch (error) {
     if (error instanceof WeekResultPublishError) {

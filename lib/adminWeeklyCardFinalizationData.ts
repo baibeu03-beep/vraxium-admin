@@ -35,6 +35,7 @@ import { WEEKLY_CARDS_DTO_VERSION } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { markWeekResultPublished } from "@/lib/adminWeekRecognitionsData";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
+import { type StateScope, readQaWeekState } from "@/lib/operationalState";
 import { computeWeeklyLeagueAggregation } from "@/lib/weeklyLeaguePmsAggregation";
 import type {
   FinalizationAggregation,
@@ -197,21 +198,25 @@ type CohortMember = { userId: string; status: string };
 async function loadCohort(
   weekStartDate: string,
   org: string | null,
+  // operating(기본) = 테스트 유저 제외(운영 코호트). qa = 테스트 유저만(QA 코호트, 실유저 제외).
+  scope: StateScope = "operating",
 ): Promise<{ all: CohortMember[]; scoped: CohortMember[] }> {
   const [{ data, error }, testIds] = await Promise.all([
     supabaseAdmin
       .from("user_week_statuses")
       .select("user_id,status")
       .eq("week_start_date", weekStartDate),
-    // 시드 테스트 유저 제외(weekly-ranking 과 동일 기준 = test_user_markers). 별도 기준 금지.
+    // 테스트 유저 분리 기준 = test_user_markers(weekly-ranking 과 동일). 별도 기준 금지.
     fetchTestUserMarkerIds(),
   ]);
   if (error) throw new WeeklyCardFinalizationError(500, error.message);
 
-  // user 당 1행으로 dedupe (동일 주차 중복 방어 — 첫 행 유지) + 테스트 유저 제외.
+  // user 당 1행으로 dedupe (동일 주차 중복 방어 — 첫 행 유지) + scope 별 테스트 유저 분리.
   const byUser = new Map<string, CohortMember>();
   for (const r of (data ?? []) as { user_id: string; status: string }[]) {
-    if (testIds.has(r.user_id)) continue; // 테스트 유저는 코호트(집계·재계산·스냅샷)에서 제외.
+    const isTest = testIds.has(r.user_id);
+    // operating: 테스트 제외 / qa: 테스트만(실유저 제외 — 운영 데이터 무접촉).
+    if (scope === "qa" ? !isTest : isTest) continue;
     if (!byUser.has(r.user_id)) {
       byUser.set(r.user_id, { userId: r.user_id, status: r.status });
     }
@@ -342,6 +347,9 @@ async function buildTargetStatusAndAggregation(
   org: string | null,
   curWeekStart: string | null,
   activeRestPeriods: Awaited<ReturnType<typeof fetchActiveRestPeriods>>,
+  // QA: 코호트=테스트 유저, 공표상태=qa overlay(effectivePublishedAt), 운영 PMS 집계 경로 미사용.
+  scope: StateScope = "operating",
+  effectivePublishedAt: string | null | undefined = undefined,
 ): Promise<{
   status: FinalizationWeekStatus;
   aggregation: FinalizationAggregation;
@@ -361,18 +369,24 @@ async function buildTargetStatusAndAggregation(
     isSeasonRuleRestForWeekStart(start) ||
     matchOfficialRestPeriods({ startDate: start, endDate: end }, activeRestPeriods)
       .length > 0;
-  const currentPublished = Boolean(target.result_published_at);
+  // 공표상태: operating=운영 weeks · qa=overlay(effectivePublishedAt ?? 운영 baseline).
+  const resolvedPublishedAt =
+    scope === "qa"
+      ? (effectivePublishedAt ?? target.result_published_at ?? null)
+      : (target.result_published_at ?? null);
+  const currentPublished = Boolean(resolvedPublishedAt);
 
-  const { all, scoped } = await loadCohort(start, org);
+  const { all, scoped } = await loadCohort(start, org, scope);
 
   // ── weekly-ranking 봄 정합 집계 재사용(front weekly-league 이식) ──
   //   org(encre/oranke/phalanx) + 2026-spring 종료 주차면 front 와 100% 동일한 집계
   //   (PMS 공식 데이터-게이트·예외 보정·공식휴식 0·uws 폴백)을 그대로 쓴다. 그 외(타 시즌/org=전체/
   //   미종료 주차)는 기존 uws 버킷팅 폴백. 집계 분포·snapshot 신선도 코호트 모두 동일 출처.
+  //   ⚠ QA(scope=qa)는 운영 PMS/weekly-league 집계를 타지 않는다 — 테스트 코호트 uws 버킷팅만 사용.
   let aggregation: FinalizationAggregation;
   let healthCohortIds: string[];
   const wl =
-    org && target.season_key
+    scope === "operating" && org && target.season_key
       ? await computeWeeklyLeagueAggregation(org)
       : null;
   const wlWeek = wl?.byWeekId.get(target.id) ?? null;
@@ -408,7 +422,7 @@ async function buildTargetStatusAndAggregation(
     weekLabel: weekLabelOf(target),
     startDate: start,
     endDate: end,
-    resultPublishedAt: target.result_published_at ?? null,
+    resultPublishedAt: resolvedPublishedAt,
     isFinalized: currentPublished,
     isCurrentWeek,
     isOfficialRest: weekIsOfficialRest,
@@ -423,7 +437,10 @@ export async function previewWeeklyCardFinalization(opts: {
   seasonKey: string | null;
   weekNumber: number | null;
   org: string | null;
+  // operating(기본)=운영 코호트·weeks 공표상태 / qa=테스트 코호트·qa overlay 공표상태.
+  scope?: StateScope;
 }): Promise<WeeklyCardFinalizationPreview> {
+  const scope: StateScope = opts.scope ?? "operating";
   const { seasons, weeks, weekRows, activeRestPeriods, curWeekStart } =
     await loadOptions();
 
@@ -432,11 +449,18 @@ export async function previewWeeklyCardFinalization(opts: {
 
   if (opts.seasonKey && opts.weekNumber != null) {
     const targetRow = resolveTargetWeek(weekRows, opts.seasonKey, opts.weekNumber);
+    const qaPrev = scope === "qa" ? await readQaWeekState(targetRow.id) : null;
+    const effectivePublishedAt =
+      scope === "qa"
+        ? (qaPrev?.result_published_at ?? targetRow.result_published_at ?? null)
+        : undefined;
     const built = await buildTargetStatusAndAggregation(
       targetRow,
       opts.org,
       curWeekStart,
       activeRestPeriods,
+      scope,
+      effectivePublishedAt,
     );
     target = built.status;
     aggregation = built.aggregation;
@@ -458,52 +482,66 @@ export async function runWeeklyCardFinalization(opts: {
   weekNumber: number;
   org: string | null;
   mode: FinalizationMode;
+  // operating(기본)=운영 확정(비-테스트 코호트·weeks 공표). qa=QA 확정(테스트 코호트·qa_weeks_state).
+  scope?: StateScope;
+  actor?: string | null;
 }): Promise<WeeklyCardFinalizationResult> {
+  const scope: StateScope = opts.scope ?? "operating";
+  const actor = opts.actor ?? null;
   const { weekRows, activeRestPeriods, curWeekStart } = await loadOptions();
   const targetRow = resolveTargetWeek(weekRows, opts.seasonKey, opts.weekNumber);
   if (!targetRow.start_date) {
     throw new WeeklyCardFinalizationError(422, "선택한 주차에 start_date 가 없습니다.");
   }
 
-  // 재계산 코호트 = 주차 전역(모든 org) 비-테스트 유저. 공표는 주차 전역 이벤트이므로 org 미적용,
-  // 단 테스트 유저는 제외(요구사항 3 — 집계·재계산·스냅샷 코호트 모두 동일 제외 기준).
-  const { all: nonTestCohort } = await loadCohort(targetRow.start_date, null);
-  const nonTestIds = nonTestCohort.map((m) => m.userId);
+  // 재계산 코호트: operating=주차 전역 비-테스트 유저 / qa=테스트 유저만(실유저 무접촉).
+  //   공표는 주차 전역 이벤트이므로 org 미적용. 코호트 분리 기준 = test_user_markers(요구사항 3).
+  const { all: cohort } = await loadCohort(targetRow.start_date, null, scope);
+  const cohortIds = cohort.map((m) => m.userId);
   const recompute = async () => {
-    const r = await recomputeWeeklyCardsSnapshotsForUsers(nonTestIds, { concurrency: 3 });
+    const r = await recomputeWeeklyCardsSnapshotsForUsers(cohortIds, { concurrency: 3 });
     return { requested: r.requested, recomputed: r.recomputed, failed: r.failed };
   };
 
+  // 공표 선행상태: operating=운영 weeks · qa=overlay(qa ?? 운영 baseline).
+  const qaPrev = scope === "qa" ? await readQaWeekState(targetRow.id) : null;
+  const effectivePublishedAt =
+    scope === "qa"
+      ? (qaPrev?.result_published_at ?? targetRow.result_published_at ?? null)
+      : (targetRow.result_published_at ?? null);
+
   let published: WeeklyCardFinalizationResult["published"] = null;
   let snapshotRecompute = { requested: 0, recomputed: 0, failed: 0 };
+  let resolvedPublishedAt = effectivePublishedAt;
 
   if (opts.mode === "finalize") {
-    if (targetRow.result_published_at) {
-      // 이미 확정됨 — 멱등하게 비-테스트 코호트 스냅샷만 재계산(재확정 효과). 공표값은 보존.
-      published = {
-        resultPublishedAt: targetRow.result_published_at,
-        alreadyFinalized: true,
-      };
+    if (effectivePublishedAt) {
+      // 이미 확정됨 — 멱등하게 코호트 스냅샷만 재계산(재확정 효과). 공표값은 보존.
+      published = { resultPublishedAt: effectivePublishedAt, alreadyFinalized: true };
       snapshotRecompute = await recompute();
     } else {
-      // 미확정 → 공표 SoT 쓰기(markWeekResultPublished, 단일 공표 진입점) + 비-테스트 코호트 재계산.
-      //   ⚠ publishWeekResult(전체 코호트 재계산)를 쓰지 않는다 — 본 경로는 테스트 유저를 제외한다.
-      const { row } = await markWeekResultPublished(targetRow.id);
+      // 미확정 → 공표 SoT 쓰기(단일 공표 진입점 markWeekResultPublished, scope 분기) + 코호트 재계산.
+      //   operating: weeks 공표(비-테스트 코호트) / qa: qa_weeks_state 공표(테스트 코호트).
+      //   ⚠ publishWeekResult(전체 코호트 재계산)를 쓰지 않는다 — 본 경로는 scope 코호트만 재계산.
+      const { row } = await markWeekResultPublished(targetRow.id, scope, actor);
       published = { resultPublishedAt: row.result_published_at, alreadyFinalized: false };
-      targetRow.result_published_at = row.result_published_at;
+      resolvedPublishedAt = row.result_published_at;
+      if (scope === "operating") targetRow.result_published_at = row.result_published_at;
       snapshotRecompute = await recompute();
     }
   } else {
-    // recompute: 공표 플래그 변경 없이 비-테스트 코호트 스냅샷만 재계산.
+    // recompute: 공표 플래그 변경 없이 scope 코호트 스냅샷만 재계산.
     snapshotRecompute = await recompute();
   }
 
-  // 재계산/공표 후의 최신 status + (org 필터 반영) 집계.
+  // 재계산/공표 후의 최신 status + (org 필터 반영) 집계. qa 면 테스트 코호트·overlay 공표상태.
   const built = await buildTargetStatusAndAggregation(
     targetRow,
     opts.org,
     curWeekStart,
     activeRestPeriods,
+    scope,
+    resolvedPublishedAt,
   );
 
   return {

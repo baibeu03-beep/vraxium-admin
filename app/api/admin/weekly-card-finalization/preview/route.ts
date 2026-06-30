@@ -17,6 +17,7 @@ import {
   previewWeeklyCardFinalization,
   WeeklyCardFinalizationError,
 } from "@/lib/adminWeeklyCardFinalizationData";
+import { resolveStateScopeFromRequest } from "@/lib/operationalState";
 
 export const dynamic = "force-dynamic";
 
@@ -46,8 +47,11 @@ export async function GET(request: NextRequest) {
     weekNumber = parsed;
   }
 
+  // ?mode=test → scope=qa (테스트 코호트·qa overlay 공표상태 미리보기). 기본 operating.
+  const scope = resolveStateScopeFromRequest(request);
+
   try {
-    const data = await previewWeeklyCardFinalization({ seasonKey, weekNumber, org });
+    const data = await previewWeeklyCardFinalization({ seasonKey, weekNumber, org, scope });
     return Response.json({ success: true, data });
   } catch (error) {
     if (error instanceof WeeklyCardFinalizationError) {

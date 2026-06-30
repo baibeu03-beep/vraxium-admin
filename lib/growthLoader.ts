@@ -18,6 +18,10 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import type { OfficialRestPeriodDto } from "@/lib/officialRestPeriodsTypes";
+import {
+  resolveStateScopeForUser,
+  applyQaWeekPublishOverlay,
+} from "@/lib/operationalState";
 
 export class GrowthLoaderError extends Error {
   status: number;
@@ -135,6 +139,11 @@ export async function loadGrowthInput(
       .order("start_date", { ascending: true });
     if (weeksRes.error) throw new GrowthLoaderError(500, weeksRes.error.message);
     weeks = (weeksRes.data ?? []) as GrowthWeekRow[];
+    // QA 오버레이: 테스트 유저면 qa_weeks_state.result_published_at 로 공표상태 COALESCE override
+    //   (운영 weeks 무변경 · 미공표 주차를 QA 에서 먼저 공표한 결과가 테스트 유저 카드에 반영).
+    //   실유저(operating) → applyQaWeekPublishOverlay 가 즉시 원본 반환(qa_* 무조회) → 경로 불변.
+    const scope = await resolveStateScopeForUser(userId);
+    weeks = await applyQaWeekPublishOverlay(weeks, scope);
   }
 
   return {

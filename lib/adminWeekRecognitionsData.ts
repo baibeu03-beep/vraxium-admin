@@ -35,6 +35,13 @@ import {
   refreshWeeklyCardsSnapshotSafe,
   recomputeWeeklyCardsSnapshotsForUsers,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { fetchTestUserMarkerIds } from "@/lib/testUsers";
+import {
+  type StateScope,
+  readQaWeekState,
+  writeQaWeekState,
+  logQaAction,
+} from "@/lib/operationalState";
 
 // 안전 상한. 앱 규모상 충분하지만 무한정 로드를 막기 위해 캡을 둔다.
 const MAX_ROWS = 5000;
@@ -658,8 +665,11 @@ export class WeekResultPublishError extends Error {
 //   - best-effort: 사용자별 실패는 격리되고 throw 하지 않는다(본 쓰기 응답 보호).
 //   - start_date 가 없으면 no-op(zeros).
 // 반환 shape 은 publish-result/check-threshold 응답의 snapshot_recompute 와 동일.
+//   scope="qa" → 코호트를 test_user_markers 등재 유저로 좁혀 테스트 유저 snapshot 만
+//   재계산한다(실유저 snapshot 무접촉). scope="operating"(기본) → 전체 코호트(기존 동작).
 export async function recomputeCohortSnapshots(
   weekStartDate: string | null,
+  scope: StateScope = "operating",
 ): Promise<{ requested: number; recomputed: number; failed: number }> {
   if (!weekStartDate) return { requested: 0, recomputed: 0, failed: 0 };
   const { data, error } = await supabaseAdmin
@@ -673,9 +683,13 @@ export async function recomputeCohortSnapshots(
     });
     return { requested: 0, recomputed: 0, failed: 0 };
   }
-  const userIds = Array.from(
+  let userIds = Array.from(
     new Set(((data ?? []) as { user_id: string }[]).map((p) => p.user_id)),
   );
+  if (scope === "qa") {
+    const testIds = await fetchTestUserMarkerIds();
+    userIds = userIds.filter((id) => testIds.has(id));
+  }
   const r = await recomputeWeeklyCardsSnapshotsForUsers(userIds, {
     concurrency: 3,
   });
@@ -703,6 +717,8 @@ type PublishWeekRow = {
 //   - 없으면 404, 이미 공표돼 있으면 409(중복 방지), IS NULL 가드로 race 방어.
 export async function markWeekResultPublished(
   weekId: string,
+  scope: StateScope = "operating",
+  actor: string | null = null,
 ): Promise<{ row: PublishWeekRow; label: string; nowIso: string }> {
   const id = String(weekId ?? "").trim();
   if (!id) {
@@ -721,11 +737,37 @@ export async function markWeekResultPublished(
     throw new WeekResultPublishError(404, "weeks row not found.");
   }
   const week = existing as PublishWeekRow;
+  // 운영 공표 완료 주차는 QA 에서도 baseline 으로 이미 공표 상태(COALESCE) → 중복 공표 거절.
   if (week.result_published_at) {
     throw new WeekResultPublishError(409, "이미 공표된 주차입니다.");
   }
 
   const nowIso = new Date().toISOString();
+
+  if (scope === "qa") {
+    // QA: 운영 weeks 는 절대 건드리지 않고 qa_weeks_state 오버레이에만 공표 기록.
+    const qaPrev = await readQaWeekState(id);
+    if (qaPrev?.result_published_at) {
+      throw new WeekResultPublishError(409, "이미 공표된 주차입니다(QA).");
+    }
+    await writeQaWeekState(id, { result_published_at: nowIso }, actor);
+    await logQaAction({
+      action: "publish",
+      weekId: id,
+      before: { qa_result_published_at: qaPrev?.result_published_at ?? null },
+      after: { qa_result_published_at: nowIso },
+      actor,
+    });
+    const row: PublishWeekRow = { ...week, result_published_at: nowIso };
+    const label =
+      row.week_number != null
+        ? `${row.week_number}주차`
+        : row.iso_week != null
+          ? `${row.iso_week}주(ISO)`
+          : "주차 미지정";
+    return { row, label, nowIso };
+  }
+
   const { data: updated, error: updateError } = await supabaseAdmin
     .from("weeks")
     .update({ result_published_at: nowIso })
@@ -754,16 +796,19 @@ export async function markWeekResultPublished(
 
 export async function publishWeekResult(
   weekId: string,
+  scope: StateScope = "operating",
+  actor: string | null = null,
 ): Promise<WeekResultPublishResult> {
-  // 1~2) 공표 SoT 쓰기(가드/멱등)는 공통 진입점에 위임.
-  const { row, label, nowIso } = await markWeekResultPublished(weekId);
+  // 1~2) 공표 SoT 쓰기(가드/멱등)는 공통 진입점에 위임. scope=qa 면 qa_weeks_state 에만 기록.
+  const { row, label, nowIso } = await markWeekResultPublished(weekId, scope, actor);
 
   // 쓰기 시점 snapshot 갱신: 공표로 해당 주차 카드가 tallying→success/fail 로 전환되므로,
   // 그 주차 참여자(user_week_statuses 보유) 전원의 snapshot 을 즉시 재계산한다.
-  // best-effort — 실패해도 공표(weeks.result_published_at)는 롤백하지 않고 로그만 남긴다.
+  //   scope=qa → 테스트 유저 코호트만 재계산(실유저 snapshot 무접촉).
+  // best-effort — 실패해도 공표는 롤백하지 않고 로그만 남긴다.
   let snapshotRecompute: WeekResultPublishResult["snapshot_recompute"];
   try {
-    snapshotRecompute = await recomputeCohortSnapshots(row.start_date);
+    snapshotRecompute = await recomputeCohortSnapshots(row.start_date, scope);
   } catch (e) {
     console.warn("[publish-result] snapshot recompute hook failed (publish kept)", {
       weekId: row.id,
@@ -803,6 +848,8 @@ export class WeekResultReviewError extends Error {
 
 export async function markWeekResultReviewed(
   weekId: string,
+  scope: StateScope = "operating",
+  actor: string | null = null,
 ): Promise<WeekResultReviewResult> {
   const id = String(weekId ?? "").trim();
   if (!id) {
@@ -821,6 +868,43 @@ export async function markWeekResultReviewed(
     throw new WeekResultReviewError(404, "weeks row not found.");
   }
   const week = existing as PublishWeekRow & { result_reviewed_at: string | null };
+
+  if (scope === "qa") {
+    // QA: 공표/검수 선행 판정은 effective(qa ?? 운영 baseline) 기준, 쓰기는 qa_weeks_state 만.
+    const qaPrev = await readQaWeekState(id);
+    const effectivePublished = qaPrev?.result_published_at ?? week.result_published_at;
+    if (!effectivePublished) {
+      throw new WeekResultReviewError(409, "공표되지 않은 주차는 검수 완료할 수 없습니다(QA).");
+    }
+    const effectiveReviewed = qaPrev?.result_reviewed_at ?? week.result_reviewed_at;
+    if (effectiveReviewed) {
+      throw new WeekResultReviewError(409, "이미 검수 완료된 주차입니다(QA).");
+    }
+    const nowIso = new Date().toISOString();
+    await writeQaWeekState(id, { result_reviewed_at: nowIso }, actor);
+    await logQaAction({
+      action: "review",
+      weekId: id,
+      before: { qa_result_reviewed_at: qaPrev?.result_reviewed_at ?? null },
+      after: { qa_result_reviewed_at: nowIso },
+      actor,
+    });
+    const label =
+      week.week_number != null
+        ? `${week.week_number}주차`
+        : week.iso_week != null
+          ? `${week.iso_week}주(ISO)`
+          : "주차 미지정";
+    return {
+      week_id: id,
+      week_label: label,
+      week_start_date: week.start_date ?? null,
+      week_end_date: week.end_date ?? null,
+      result_published_at: effectivePublished ?? null,
+      result_reviewed_at: nowIso,
+    };
+  }
+
   // 공표 선행 필수 — 공표되지 않은 주차는 검수 완료할 수 없다.
   if (!week.result_published_at) {
     throw new WeekResultReviewError(409, "공표되지 않은 주차는 검수 완료할 수 없습니다.");
@@ -884,6 +968,8 @@ export class WeekCheckThresholdUpdateError extends Error {
 export async function updateWeekCheckThreshold(
   weekId: string,
   input: WeekCheckThresholdUpdateInput,
+  scope: StateScope = "operating",
+  actor: string | null = null,
 ): Promise<WeekCheckThresholdUpdateResult> {
   const id = String(weekId ?? "").trim();
   if (!id) {
@@ -921,33 +1007,54 @@ export async function updateWeekCheckThreshold(
     throw new WeekCheckThresholdUpdateError(404, "weeks row not found.");
   }
 
-  // 2) 갱신. check_threshold 컬럼 미적용 DB 면 명시적 에러로 안내.
-  const { data: updated, error: updateError } = await supabaseAdmin
-    .from("weeks")
-    .update({ check_threshold: nextValue })
-    .eq("id", id)
-    .select("id,week_number,iso_week,start_date,check_threshold")
-    .maybeSingle();
-  if (updateError) {
-    const missingColumn = /check_threshold/.test(updateError.message);
-    throw new WeekCheckThresholdUpdateError(
-      missingColumn ? 409 : 500,
-      missingColumn
-        ? "weeks.check_threshold 컬럼이 없습니다. db/migrations/2026-06-05_weeks_check_threshold.sql 을 Supabase SQL Editor 에서 먼저 적용하세요."
-        : updateError.message,
-    );
-  }
-  if (!updated) {
-    throw new WeekCheckThresholdUpdateError(404, "weeks row not found.");
-  }
-
-  const row = updated as {
+  // 2) 갱신. scope=qa 면 운영 weeks 를 건드리지 않고 qa_weeks_state.check_threshold 만 기록.
+  type ThresholdRow = {
     id: string;
     week_number: number | null;
     iso_week: number | null;
     start_date: string | null;
     check_threshold: number | null;
   };
+  let row: ThresholdRow;
+
+  if (scope === "qa") {
+    const qaPrev = await readQaWeekState(id);
+    await writeQaWeekState(id, { check_threshold: nextValue }, actor);
+    await logQaAction({
+      action: "check_threshold",
+      weekId: id,
+      before: { qa_check_threshold: qaPrev?.check_threshold ?? null },
+      after: { qa_check_threshold: nextValue },
+      actor,
+    });
+    const base = existing as {
+      id: string;
+      week_number: number | null;
+      iso_week: number | null;
+      start_date: string | null;
+    };
+    row = { ...base, check_threshold: nextValue };
+  } else {
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("weeks")
+      .update({ check_threshold: nextValue })
+      .eq("id", id)
+      .select("id,week_number,iso_week,start_date,check_threshold")
+      .maybeSingle();
+    if (updateError) {
+      const missingColumn = /check_threshold/.test(updateError.message);
+      throw new WeekCheckThresholdUpdateError(
+        missingColumn ? 409 : 500,
+        missingColumn
+          ? "weeks.check_threshold 컬럼이 없습니다. db/migrations/2026-06-05_weeks_check_threshold.sql 을 Supabase SQL Editor 에서 먼저 적용하세요."
+          : updateError.message,
+      );
+    }
+    if (!updated) {
+      throw new WeekCheckThresholdUpdateError(404, "weeks row not found.");
+    }
+    row = updated as ThresholdRow;
+  }
   const label =
     row.week_number != null
       ? `${row.week_number}주차`
@@ -964,9 +1071,14 @@ export async function updateWeekCheckThreshold(
         .from("user_week_statuses")
         .select("user_id")
         .eq("week_start_date", row.start_date);
-      const userIds = Array.from(
+      let userIds = Array.from(
         new Set(((parts ?? []) as { user_id: string }[]).map((p) => p.user_id)),
       );
+      // scope=qa → 테스트 유저 코호트만 재계산(실유저 snapshot 무접촉).
+      if (scope === "qa") {
+        const testIds = await fetchTestUserMarkerIds();
+        userIds = userIds.filter((uid) => testIds.has(uid));
+      }
       const r = await recomputeWeeklyCardsSnapshotsForUsers(userIds, {
         concurrency: 3,
       });

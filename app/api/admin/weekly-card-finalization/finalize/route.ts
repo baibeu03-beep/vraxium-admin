@@ -20,17 +20,22 @@ import {
   WeeklyCardFinalizationError,
 } from "@/lib/adminWeeklyCardFinalizationData";
 import type { FinalizationMode } from "@/lib/adminWeeklyCardFinalizationTypes";
+import { resolveStateScopeFromRequest } from "@/lib/operationalState";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  let actorId: string | null = null;
   try {
-    await requireAdmin(ADMIN_WRITE_ROLES);
+    const admin = await requireAdmin(ADMIN_WRITE_ROLES);
+    actorId = (admin as { id?: string } | null)?.id ?? null;
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
     throw error;
   }
+  // ?mode=test → scope=qa (qa_weeks_state 공표 + 테스트 코호트 재계산). 기본 operating.
+  const scope = resolveStateScopeFromRequest(request);
 
   let body: Record<string, unknown>;
   try {
@@ -70,6 +75,8 @@ export async function POST(request: NextRequest) {
       weekNumber,
       org,
       mode,
+      scope,
+      actor: actorId,
     });
     return Response.json({ success: true, data });
   } catch (error) {

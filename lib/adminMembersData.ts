@@ -713,6 +713,7 @@ export async function listMembersRoster(options: {
     seasonKey: opSeasonKey,
     ids: participantIds,
     counts: statusCounts,
+    statusByUser,
   } = await fetchOperationalSeasonParticipants();
   t("seasonParticipants+counts", Date.now() - s);
 
@@ -729,6 +730,25 @@ export async function listMembersRoster(options: {
   if (userIds.length === 0) {
     return { members: [], partialFailure: null, total: 0, filteredTotal: 0, statusCounts: { total: 0, active: 0, rest: 0, stopped: 0 }, page, pageSize };
   }
+
+  // 상단 카운트(활동/휴식/중단)를 mode/조직 scope 가 적용된 모집단(userIds)으로 재집계한다.
+  //   fetchOperationalSeasonParticipants.counts 는 전체(un-scoped)라, 운영/QA 모드에서 목록(total)
+  //   과 배지 숫자가 어긋난다(예: QA 모드 목록 91인데 배지엔 실유저 포함). statusByUser(시즌 상태)로
+  //   scope 부분집합만 tally → 목록과 배지가 동일 모집단 기준.  운영 시즌 미해소(off-season)면
+  //   statusByUser 가 비어 기존 동작(zeros) 보존.
+  const scopedStatusCounts = opSeasonKey
+    ? userIds.reduce(
+        (acc, id) => {
+          acc.total += 1;
+          const st = statusByUser.get(id);
+          if (st === "active") acc.active += 1;
+          else if (st === "rest") acc.rest += 1;
+          else if (st === "stopped") acc.stopped += 1;
+          return acc;
+        },
+        { total: 0, active: 0, rest: 0, stopped: 0 },
+      )
+    : statusCounts;
 
   const ID_CHUNK = 200;
 
@@ -851,7 +871,7 @@ export async function listMembersRoster(options: {
     console.warn("[roster] partial failure", { ...partialFailure, total: userIds.length });
   }
 
-  return { members, partialFailure, total: userIds.length, filteredTotal, statusCounts, page, pageSize };
+  return { members, partialFailure, total: userIds.length, filteredTotal, statusCounts: scopedStatusCounts, page, pageSize };
 }
 
 // ─────────────────────────────────────────────────────────────────────────

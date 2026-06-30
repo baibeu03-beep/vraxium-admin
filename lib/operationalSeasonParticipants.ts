@@ -31,6 +31,9 @@ export type OperationalSeasonParticipants = {
   idSet: Set<string>;
   // active/rest/stopped 카운트(요약 표기용). 단일 스캔으로 ids 와 함께 산출.
   counts: SeasonParticipantCounts;
+  // user_id → 시즌 상태(active/rest/stopped/그 외). scope 적용 카운트 재집계용(roster).
+  //   counts 는 전체(un-scoped)라, 모드/조직 scope 가 적용된 부분집합의 카운트가 필요할 때 사용.
+  statusByUser: Map<string, string>;
 };
 
 // 주어진 season_key 의 시즌 참여자 id 집합 + active/rest/stopped 카운트를 단일 패스로 산출.
@@ -40,13 +43,14 @@ export async function fetchSeasonParticipants(
 ): Promise<OperationalSeasonParticipants> {
   const ids: string[] = [];
   const idSet = new Set<string>();
+  const statusByUser = new Map<string, string>();
   const counts: SeasonParticipantCounts = {
     total: 0,
     active: 0,
     rest: 0,
     stopped: 0,
   };
-  if (!seasonKey) return { seasonKey: null, ids, idSet, counts };
+  if (!seasonKey) return { seasonKey: null, ids, idSet, counts, statusByUser };
 
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabaseAdmin
@@ -61,6 +65,7 @@ export async function fetchSeasonParticipants(
       if (!idSet.has(r.user_id)) {
         idSet.add(r.user_id);
         ids.push(r.user_id);
+        statusByUser.set(r.user_id, r.status);
       }
       counts.total += 1;
       if (r.status === "active") counts.active += 1;
@@ -69,7 +74,7 @@ export async function fetchSeasonParticipants(
     }
     if (rows.length < 1000) break;
   }
-  return { seasonKey, ids, idSet, counts };
+  return { seasonKey, ids, idSet, counts, statusByUser };
 }
 
 // 운영 기준 시즌(operationalSeasonDbKey(today))의 참여자. today 미지정 시 오늘(UTC) 기준.

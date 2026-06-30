@@ -5,6 +5,10 @@ import {
 } from "@/lib/lineRegistrationLookup";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import {
+  resolveStateScopeForUser,
+  fetchQaWeekCheckThresholdMap,
+} from "@/lib/operationalState";
+import {
   computeCluster4Enhancement,
   EXPERIENCE_RATING_FAIL_THRESHOLD,
   DEFAULT_WEEK_CHECK_THRESHOLD,
@@ -1347,6 +1351,21 @@ export async function fetchLegacyUnifiedExperienceByWeek(
       }
     }
 
+    // ── QA 오버레이 (테스트 유저 한정) — qa_weeks_state.check_threshold 최우선 override ──
+    //   COALESCE(qa, 운영 baseline[org→weeks→30]): qa 값이 있으면 덮어쓰고, 없으면 위 체인 유지.
+    //   실유저(operating) → fetchQaWeekCheckThresholdMap 빈 맵(무조회) → 경로 불변.
+    {
+      const qaScope = await resolveStateScopeForUser(userId);
+      const qaThresholds = await fetchQaWeekCheckThresholdMap(
+        [...result.keys()],
+        qaScope,
+      );
+      for (const [wid, thr] of qaThresholds) {
+        const s = result.get(wid);
+        if (s) s.checkThreshold = thr;
+      }
+    }
+
     if (isoByWeekId.size > 0) {
       const years = [...new Set([...isoByWeekId.values()].map((v) => v.year))];
       type PointsRow = {
@@ -1546,6 +1565,17 @@ async function fetchNewPolicyCheckGateInputs(
           if (g && r.check_threshold >= 0) g.threshold = r.check_threshold;
         }
       }
+    }
+  }
+
+  // 2-QA) QA 오버레이 (테스트 유저 한정) — qa_weeks_state.check_threshold 최우선 override.
+  //   COALESCE(qa, 운영 baseline[org→weeks→30]). 실유저(operating) → 빈 맵(무조회) → 경로 불변.
+  {
+    const qaScope = await resolveStateScopeForUser(userId);
+    const qaThresholds = await fetchQaWeekCheckThresholdMap(weekIds, qaScope);
+    for (const [wid, thr] of qaThresholds) {
+      const g = out.get(wid);
+      if (g) g.threshold = thr;
     }
   }
 
