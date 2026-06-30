@@ -129,13 +129,8 @@ export default function ProcessIrregularManager() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4">
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="mr-auto">
-          <h1 className="text-lg font-semibold">변동 액트</h1>
-          <p className="text-sm text-muted-foreground">
-            정규 기준표 외 변동(비정규) 액트의 링크 신청 / 수동 부여 관리 (조직: {org ?? "미지정"})
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <h1 className="mr-auto text-lg font-semibold">변동 액트</h1>
         <AdminHelp />
         {/* 우측 상단 버튼 — [전원] [부분]. 과거 주차(조회 전용)에서는 비활성. */}
         <div className="grid grid-cols-2 gap-2">

@@ -423,14 +423,9 @@ export default function PeriodRegisterForm() {
     <div className="flex flex-col gap-4">
       {/* 상단: 페이지 제목 */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="mr-auto">
-          <h1 className="text-xl font-semibold tracking-normal text-foreground">
-            기간 등록
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            주차 기간을 등록합니다. 등록된 기간은 기간 정보에서 즉시 조회됩니다.
-          </p>
-        </div>
+        <h1 className="mr-auto text-xl font-semibold tracking-normal text-foreground">
+          기간 등록
+        </h1>
         <AdminHelp />
         <Button type="button" variant="outline" render={<Link href="/admin/season-weeks" />}>
           기간 정보로 이동

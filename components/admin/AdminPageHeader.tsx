@@ -2,10 +2,9 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 
-// 어드민 페이지 공통 상단 헤더 — 모든 어드민 페이지의 상단 구조(제목·설명·탭)를 통일한다.
-//   - title       : 페이지/섹션 제목 (필수)
-//   - description : 선택적 설명 문구
-//   - tabs        : 선택적 탭 배열. 없으면 제목(+설명)만 렌더.
+// 어드민 페이지 공통 상단 헤더 — 모든 어드민 페이지의 상단 구조(제목·탭)를 통일한다.
+//   - title : 페이지/섹션 제목 (필수). 페이지 헤더는 H1만 표시한다(서브타이틀 없음).
+//   - tabs  : 선택적 탭 배열. 없으면 제목만 렌더.
 //
 // 탭 스타일은 기존 글로벌 Header.tsx 의 라인 개설/멤버 탭과 동일한 디자인 토큰을 쓴다
 // (active = bg-foreground/text-background, inactive = muted + hover). href 는 호출부가
@@ -18,29 +17,22 @@ export type AdminPageHeaderTab = {
 
 type AdminPageHeaderProps = {
   title: string;
-  description?: string;
   tabs?: AdminPageHeaderTab[];
 };
 
 export default function AdminPageHeader({
   title,
-  description,
   tabs,
 }: AdminPageHeaderProps) {
   const hasTabs = Array.isArray(tabs) && tabs.length > 0;
 
   return (
     <div className="flex flex-col gap-3">
-      {/* 제목 블록(좌) + [도움말](우) — 좁은 화면에선 자연스럽게 아래로 래핑. */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-lg font-semibold tracking-tight text-foreground">
-            {title}
-          </h1>
-          {description ? (
-            <p className="text-sm text-muted-foreground">{description}</p>
-          ) : null}
-        </div>
+      {/* 제목(좌) + [도움말](우) — 좁은 화면에선 자연스럽게 아래로 래핑. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-lg font-semibold tracking-tight text-foreground">
+          {title}
+        </h1>
         <AdminHelp className="ml-auto" />
       </div>
 

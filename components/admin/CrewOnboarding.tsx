@@ -25,8 +25,7 @@ export default function CrewOnboarding() {
   return (
     <div className="flex flex-col gap-6">
       <AdminPageHeader
-        title="크루 온보딩"
-        description="신규 가입 신청 승인과 가입된 사용자의 소속(조직) 배정을 관리합니다."
+        title="크루 등록"
         tabs={buildCrewOnboardingTabs(pathname, searchParams, tab)}
       />
 

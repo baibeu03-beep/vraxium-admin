@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { RefreshCw, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatClubDate } from "@/lib/clubDate";
 
 // ── 데이터 타입: /api/admin/season-weeks 응답 DTO 그대로 (수정 금지) ──────────
@@ -289,6 +291,8 @@ function pageNumbers(current: number, total: number): number[] {
 }
 
 export default function SeasonWeeksTable() {
+  // 사이드바 메뉴명과 페이지 제목 정합: 통합 모드 = "기간 정보", 조직 모드(?org) = "주차와 시즌".
+  const org = readOrgParam(useSearchParams());
   const [rows, setRows] = useState<SeasonWeekRow[]>([]);
   const [conflicts, setConflicts] = useState<SeasonWeekConflict[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
@@ -393,14 +397,9 @@ export default function SeasonWeeksTable() {
     <div className="flex flex-col gap-4">
       {/* 상단: 페이지 제목 */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="mr-auto">
-          <h1 className="text-xl font-semibold tracking-normal text-foreground">
-            기간 정보
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            기간 등록에서 등록된 주차 정보를 조회합니다.
-          </p>
-        </div>
+        <h1 className="mr-auto text-xl font-semibold tracking-normal text-foreground">
+          {org ? "주차와 시즌" : "기간 정보"}
+        </h1>
         <AdminHelp />
         <Button
           type="button"

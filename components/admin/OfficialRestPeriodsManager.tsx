@@ -345,14 +345,9 @@ export default function OfficialRestPeriodsManager() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="mr-auto">
-          <h1 className="text-xl font-semibold tracking-normal text-foreground">
-            공식 휴식 관리
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            명절 및 임시 공식 휴식 기간을 관리합니다.
-          </p>
-        </div>
+        <h1 className="mr-auto text-xl font-semibold tracking-normal text-foreground">
+          공식 휴식 관리
+        </h1>
         <AdminHelp />
         <Button
           type="button"

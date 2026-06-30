@@ -374,14 +374,7 @@ export default function WeeklyCardFinalizationView() {
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="mr-auto">
-          <h1 className="text-xl font-semibold">주차 카드 집계 확정</h1>
-          <p className="text-sm text-muted-foreground">
-            특정 시즌/주차의 집계 결과를 확인하고 확정합니다. 확정하면 주차 결과를
-            공개하고 대상 인원의 카드 정보를 최신 상태로 업데이트합니다. 사용자별 인정
-            상태(성공/실패/휴식)는 변경하지 않습니다.
-          </p>
-        </div>
+        <h1 className="mr-auto text-xl font-semibold">주차 카드 집계 확정</h1>
         <AdminHelp />
         <Button
           type="button"

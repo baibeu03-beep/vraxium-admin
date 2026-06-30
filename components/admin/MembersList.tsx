@@ -551,8 +551,7 @@ export default function MembersList() {
     // max-w 와 분리. 좁은 max-w 를 강제하지 않는다(공통 wrapper 미공유).
     <div className="flex w-full flex-col gap-6 px-4 py-6">
       <AdminPageHeader
-        title="멤버 관리"
-        description="크루 목록 · 크루 정보"
+        title="크루 관리"
         tabs={buildMembersTabs(pathname, searchParams, tab)}
       />
 
