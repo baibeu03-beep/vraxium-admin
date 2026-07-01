@@ -238,7 +238,19 @@ export default function ExperiencePartLeadInput({
           opts.find((o) => o.isOpenTarget) ??
           opts.find((o) => o.isCurrent) ??
           opts[0];
-        const defaultWeekId = targetOption?.id ?? fallbackWeek?.id ?? "";
+        // ⚠ 시즌 경계 보정: 개설 대상 주차(금요일 경계 N-1)가 공식 휴식 주차(canOpen=false)면 —
+        //   예: 여름 W1 진입 직후 수요일엔 N-1 이 이전 시즌 휴식주(봄 W17)로 떨어진다 — 실제 활동
+        //   주차(현재 주차·canOpen)를 기본값으로 잡는다. 이렇게 해야 파트장 [개설 신청]과 에이전트
+        //   [개설 검수]가 수동 선택 없이 같은 활동 주차(여름 W1)를 기본으로 보게 되어 정렬된다.
+        //   (target 이 정상 개설 가능 주차면 기존 동작 그대로 — 회귀 없음.)
+        const currentUsable = opts.find((o) => o.isCurrent && o.canOpen) ?? null;
+        const targetUsable = targetOption && targetOption.canOpen ? targetOption : null;
+        const defaultWeekId =
+          targetUsable?.id ??
+          currentUsable?.id ??
+          targetOption?.id ??
+          fallbackWeek?.id ??
+          "";
         setSelectedWeekId((prev) => prev || defaultWeekId);
 
         const actorData: PartInputActor | null = actorJson?.success
