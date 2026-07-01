@@ -787,7 +787,7 @@ export type OpenOverallResult = {
   warnings: string[];
 };
 
-// ── [개설 완료] 최종 저장 + 고객 페이지(cluster4_lines) 반영 ──
+// ── [개설 완료] 최종 저장 + 크루 페이지(cluster4_lines) 반영 ──
 export async function openTeamOverall(input: {
   organization: string;
   weekId: string;

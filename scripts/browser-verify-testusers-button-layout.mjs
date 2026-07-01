@@ -58,7 +58,7 @@ const rects = (name) => page.evaluate((name) => {
   if (!row) return null;
   const btns = [...row.querySelectorAll("button")];
   const find = (label) => { const b = btns.find((x) => (x.textContent || "").includes(label)); return b ? b.getBoundingClientRect() : null; };
-  const admin = find("어드민 페이지로 보기"), cust = find("고객 페이지로 보기");
+  const admin = find("어드민 페이지로 보기"), cust = find("크루 페이지로 보기");
   return {
     admin: admin ? { left: Math.round(admin.left), top: Math.round(admin.top) } : null,
     cust: cust ? { left: Math.round(cust.left), top: Math.round(cust.top) } : null,

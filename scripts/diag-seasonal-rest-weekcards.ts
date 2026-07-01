@@ -1,7 +1,7 @@
 /**
  * diag-seasonal-rest-weekcards.ts  (READ-ONLY)
  *
- * 목적: growth_status='seasonal_rest'(시즌 휴식) 회원의 "주차 정보"가 고객 페이지에서
+ * 목적: growth_status='seasonal_rest'(시즌 휴식) 회원의 "주차 정보"가 크루 페이지에서
  *       정상 노출되지 않는 원인을 DB → direct → snapshot 전 구간으로 추적.
  *       (HTTP/브라우저는 별도 단계에서 확인)
  *

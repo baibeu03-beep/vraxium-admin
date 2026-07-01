@@ -24,7 +24,7 @@ export type TestUserDto = {
   growthStatus: string | null;
   organizationSlug: string | null;
   // organizationSlug 의 표시 라벨 (encre→Encre 등). slug 가 없으면 null.
-  // 고객 페이지 경로 분기는 organizationSlug 기준, 표시는 organizationName 기준.
+  // 크루 페이지 경로 분기는 organizationSlug 기준, 표시는 organizationName 기준.
   organizationName: string | null;
   userType: string | null;
   legacyUserId: string | null;

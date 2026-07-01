@@ -348,7 +348,7 @@ export default function ExperienceTeamOverallBoard({
   }, [allCrews]);
 
   const onOpen = useCallback(async () => {
-    if (!confirm("현재 입력값으로 개설 완료하시겠습니까? 고객 페이지에 실제 반영됩니다.")) return;
+    if (!confirm("현재 입력값으로 개설 완료하시겠습니까? 크루 페이지에 실제 반영됩니다.")) return;
     setSaving(true);
     setBanner(null);
     try {
@@ -363,7 +363,7 @@ export default function ExperienceTeamOverallBoard({
         evaluationsCreated: number;
       };
       const warnings: string[] = json.warnings ?? [];
-      let msg = `개설 완료 — 라인 ${d.linesCreated}개, 대상 ${d.targetsCreated}명, 평가 ${d.evaluationsCreated}건 (고객 페이지 반영)`;
+      let msg = `개설 완료 — 라인 ${d.linesCreated}개, 대상 ${d.targetsCreated}명, 평가 ${d.evaluationsCreated}건 (크루 페이지 반영)`;
       if (warnings.length > 0) msg += ` · 경고 ${warnings.length}건: ${warnings.join(" / ")}`;
       setBanner({ kind: warnings.length > 0 ? "error" : "success", message: msg });
       await fetchBoard();
@@ -376,7 +376,7 @@ export default function ExperienceTeamOverallBoard({
   }, [post, fetchBoard, onActivity]);
 
   const onCancel = useCallback(async () => {
-    if (!confirm("이미 개설 완료된 정보를 모두 취소하고 고객 페이지 반영을 원복하시겠습니까?")) return;
+    if (!confirm("이미 개설 완료된 정보를 모두 취소하고 크루 페이지 반영을 원복하시겠습니까?")) return;
     setSaving(true);
     setBanner(null);
     try {
@@ -388,7 +388,7 @@ export default function ExperienceTeamOverallBoard({
       const d = json.data as { linesRemoved: number };
       setBanner({
         kind: "success",
-        message: `개설 취소 — 라인 ${d.linesRemoved}개 원복되었습니다 (고객 페이지 원복)`,
+        message: `개설 취소 — 라인 ${d.linesRemoved}개 원복되었습니다 (크루 페이지 원복)`,
       });
       await fetchBoard();
       onActivity?.();

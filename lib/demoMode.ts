@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { isTestUser } from "@/lib/testUsers";
 
-// 고객 페이지 데모/테스트 모드.
+// 크루 페이지 데모/테스트 모드.
 // ─────────────────────────────────────────────────────────────────────
 // `?demoUserId={profile.user_id}` 로 접근 시, 로그인 세션 대신 지정한 테스트
 // 유저의 데이터를 조회하게 한다. 안전장치:

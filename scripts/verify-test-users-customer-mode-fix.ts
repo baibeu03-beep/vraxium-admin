@@ -7,7 +7,7 @@
  *   + 수정 효과 입증: before(no-mode, snapshot) != after(mode=test, summer-sim)
  *
  *   경로 모델:
- *     · "고객 페이지로 보기"(수정 후) → 고객앱 URL ?admin=true&demoUserId=X&mode=test
+ *     · "크루 페이지로 보기"(수정 후) → 고객앱 URL ?admin=true&demoUserId=X&mode=test
  *         → 고객 프록시 fetch /api/cluster4/weekly-cards?userId=X&demoUserId=X&mode=test
  *     · "Vercel 직접 접속 + demoUserId + mode=test" → 동일 쿼리
  *     ⇒ 두 경로는 수정 후 쿼리 동치 → 동일 응답이어야 함.
@@ -96,7 +96,7 @@ async function main() {
   const C = await getCluster4WeeklyCardsForProfileUser(uid, { effectiveFromOverride: TEST_SUMMER_SIM_EFFECTIVE_FROM });
   // E: admin HTTP mode=test
   const E = await getCards(ADMIN, `?demoUserId=${uid}&mode=test`);
-  // FA: front proxy, 수정 후 "고객 페이지로 보기" 경로 (userId+demoUserId+mode=test)
+  // FA: front proxy, 수정 후 "크루 페이지로 보기" 경로 (userId+demoUserId+mode=test)
   const FA = await getCards(FRONT, `?userId=${uid}&demoUserId=${uid}&mode=test`);
   // FV: front proxy, "Vercel 직접 접속 + demoUserId + mode=test" (동치)
   const FV = await getCards(FRONT, `?demoUserId=${uid}&mode=test`);
@@ -110,7 +110,7 @@ async function main() {
   console.log(`카드 수: C=${C.length} E=${E.cards.length} FA=${FA.cards.length} FV=${FV.cards.length} FB=${FB.cards.length}\n`);
 
   ck("[4] direct summer-sim(C) == admin HTTP ?demoUserId&mode=test (E)", fpC === fpE);
-  ck("[3] '고객 페이지로 보기'(수정후 FA) == 'Vercel 직접+mode=test'(FV)", fpFA === fpFV);
+  ck("[3] '크루 페이지로 보기'(수정후 FA) == 'Vercel 직접+mode=test'(FV)", fpFA === fpFV);
   ck("[3] 고객 프록시 mode=test(FA) == 백엔드 summer-sim(C)", fpFA === fpC,
      fpFA === fpC ? "" : "프록시 enrich 가 값 변형(테스트 유저 비파괴 기대)");
   ck("[수정효과] 수정전 no-mode(FB) != 수정후 mode=test(FA) — 실제로 뷰가 바뀜", fpFB !== fpFA,

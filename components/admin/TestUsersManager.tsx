@@ -110,7 +110,7 @@ export default function TestUsersManager() {
       );
       return;
     }
-    // 어드민 탭(/admin/test-users)은 그대로 두고 고객 페이지는 새 탭에서 연다.
+    // 어드민 탭(/admin/test-users)은 그대로 두고 크루 페이지는 새 탭에서 연다.
     //   window.open(_blank, noopener,noreferrer) → opener 노출 차단 + 새 브라우징 컨텍스트.
     window.open(url, "_blank", "noopener,noreferrer");
   }, []);
@@ -194,7 +194,7 @@ export default function TestUsersManager() {
                     <TableCell>{dash(user.roleLabel)}</TableCell>
                     <TableCell>{growthSummary(user)}</TableCell>
                     <TableCell>
-                      {/* 1행 2열 가로 배치 — 왼쪽: 어드민 페이지로 보기 / 오른쪽: 고객 페이지로 보기.
+                      {/* 1행 2열 가로 배치 — 왼쪽: 어드민 페이지로 보기 / 오른쪽: 크루 페이지로 보기.
                           어드민 버튼은 team_leader/part_leader/agent 만 노출(crew/member 미노출 — 동작/조건 불변). */}
                       <div className="flex items-center justify-end gap-2">
                         {IMPERSONATABLE_ROLES.has(user.memberRole) && (
@@ -214,7 +214,7 @@ export default function TestUsersManager() {
                           onClick={() => openCustomerPage(user)}
                         >
                           <ExternalLink />
-                          고객 페이지로 보기
+                          크루 페이지로 보기
                         </Button>
                       </div>
                     </TableCell>

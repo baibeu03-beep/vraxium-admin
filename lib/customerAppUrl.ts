@@ -1,7 +1,7 @@
 // 단일 출처: 고객(front) 앱 base URL resolver.
 // ──────────────────────────────────────────────────────────────────────────
 // admin 앱과 고객(front) 앱은 서로 다른 Vercel 프로젝트(= 다른 도메인)로 배포된다.
-//   - 이 repo 에는 고객 페이지 라우트(/cluster-4-marketing 등)가 존재하지 않는다.
+//   - 이 repo 에는 크루 페이지 라우트(/cluster-4-marketing 등)가 존재하지 않는다.
 //   - vercel.json 에 고객 앱으로의 rewrite 도 없다.
 //   → 따라서 window.location.origin / 요청 헤더(host, x-forwarded-host) 는 모두
 //     "admin 도메인" 을 가리키므로 고객 앱 base URL 의 출처로 쓸 수 없다.

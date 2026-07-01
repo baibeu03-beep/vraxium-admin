@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   }
 
   // 주간 자원(주간 회고/동료/평판)은 반드시 현재 보고 있는 주차의 week_id 를 함께
-  // 받아야 한다. 프론트 고객 페이지는 카드의 weekId 를 ?week_id 로 전달한다.
+  // 받아야 한다. 프론트 크루 페이지는 카드의 weekId 를 ?week_id 로 전달한다.
   const requiresWeek = isWeekScopedResourceKey(resourceKey);
   const weekId =
     request.nextUrl.searchParams.get("week_id")?.trim() || null;

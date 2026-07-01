@@ -9,10 +9,10 @@
 --
 --   버튼 4종:
 --     [개설 검수] 에이전트 — 현재 입력값(관리/확장 셀 + 아웃풋)을 임시 저장(status='reviewed').
---                          고객 페이지 미반영. 재접속 시 그대로 복원.
+--                          크루 페이지 미반영. 재접속 시 그대로 복원.
 --     [초기화]   프론트 전용(DB 무관).
---     [개설 완료] 팀장 — 최종 저장 + 고객 페이지(cluster4_lines) 반영(status='opened').
---     [개설 취소] 팀장 — opened 라인 전부 취소(고객 페이지 원복) + status='reviewed' 로 복귀.
+--     [개설 완료] 팀장 — 최종 저장 + 크루 페이지(cluster4_lines) 반영(status='opened').
+--     [개설 취소] 팀장 — opened 라인 전부 취소(크루 페이지 원복) + status='reviewed' 로 복귀.
 --
 -- 저장 범위(설계 결정):
 --   - 도출/분석/견문 셀은 여기 저장하지 않는다 — 항상 파트 신청(part_submissions)에서 라이브로 읽는다.
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS public.cluster4_experience_team_overall_opened_lines 
 );
 
 COMMENT ON TABLE public.cluster4_experience_team_overall_opened_lines
-  IS '팀 총괄 개설 완료로 생성한 cluster4_lines id 추적 — 개설 취소 시 이 라인/타깃/평가를 삭제해 고객 페이지를 원복한다.';
+  IS '팀 총괄 개설 완료로 생성한 cluster4_lines id 추적 — 개설 취소 시 이 라인/타깃/평가를 삭제해 크루 페이지를 원복한다.';
 
 -- ── 조회용 인덱스 ──
 CREATE INDEX IF NOT EXISTS cluster4_experience_team_overall_scope_idx

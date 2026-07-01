@@ -319,7 +319,7 @@ export default function WeekRecognitionsView() {
     setPublishTarget(null);
     setBanner({
       kind: "success",
-      message: `${label} 결과를 확정했습니다. 고객 페이지에서 이 주차 카드가 성공/실패 상태로 전환됩니다.`,
+      message: `${label} 결과를 확정했습니다. 크루 페이지에서 이 주차 카드가 성공/실패 상태로 전환됩니다.`,
     });
     setRefreshTick((n) => n + 1);
   }, []);
@@ -544,7 +544,7 @@ export default function WeekRecognitionsView() {
                           ? `공표 · ${formatClubDateTime(selectedWeek.result_published_at)} → 검수 완료 · ${formatClubDateTime(selectedWeek.result_reviewed_at)}`
                           : `공표(공표 중) · ${formatClubDateTime(selectedWeek.result_published_at)} — /weekly-ranking 은 "공표 중". 검수 완료 시 "검수 완료"로 전환됩니다.`
                         : confirmStatus === "집계 중"
-                          ? '집계 중 — 결과 확정 전. 고객 페이지에서 이 주차는 "성장(집계 중)"으로 표시됩니다.'
+                          ? '집계 중 — 결과 확정 전. 크루 페이지에서 이 주차는 "성장(집계 중)"으로 표시됩니다.'
                           : "진행 중 — 주차 종료 후 결과를 확정할 수 있습니다."}
                     </span>
                   </div>
@@ -882,7 +882,7 @@ function PublishWeekModal({
         )}
 
         <p className="text-sm text-muted-foreground">
-          이 주차 결과를 확정하면 고객 페이지에서 해당 주차 카드가
+          이 주차 결과를 확정하면 크루 페이지에서 해당 주차 카드가
           {' "성장(집계 중)"에서 사용자별 성공/실패 상태로 전환됩니다. '}
           사용자별 인정 상태(성공/실패/휴식) 자체는 변경되지 않으며, 결과 확정은 취소할 수
           없습니다.

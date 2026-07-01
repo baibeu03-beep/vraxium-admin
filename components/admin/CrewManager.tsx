@@ -134,7 +134,7 @@ export default function CrewManager({
   organization: OrganizationSlug;
 }) {
   const devMode = useAdminDevMode();
-  // 운영/테스트 모드 — URL ?mode=test 면 test, 그 외 operating(기본). TestModeToggle 가 URL 조작.
+  // 운영/테스트 모드 — URL ?mode=test 면 test, 그 외 operating(기본). ?mode 는 URL 직접 진입으로만 설정.
   const searchParams = useSearchParams();
   const mode = readScopeMode(searchParams);
   const [data, setData] = useState<Crew[]>([]);

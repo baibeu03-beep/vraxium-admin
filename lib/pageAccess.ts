@@ -3,7 +3,7 @@ import { pageSlugToOrganization } from "@/lib/organizations";
 import { fetchUserOrganizationSlug } from "@/lib/userOrg";
 
 // =============================================================
-// 분기형(slug/org) 고객 페이지 공통 접근 게이트 — 단일 출처.
+// 분기형(slug/org) 크루 페이지 공통 접근 게이트 — 단일 출처.
 //
 // 문제: /cluster-4-entertainment, /cluster-4-planning 처럼 URL slug 만 바꿔도
 //   실제 소속이 아닌 org-브랜드 페이지가 열린다. 프론트 리다이렉트가 아니라

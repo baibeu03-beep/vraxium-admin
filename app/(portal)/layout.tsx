@@ -5,7 +5,6 @@ import GlobalLoadingBanner from "@/components/admin/GlobalLoadingBanner";
 import { LoadingBannerProvider } from "@/components/admin/loadingBannerContext";
 import { SidebarProvider } from "@/components/admin/sidebarContext";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
-import TestModeToggle from "@/components/admin/TestModeToggle";
 import { requireAdminPage } from "@/lib/adminAuth";
 import { loadAdminDisplayName } from "@/lib/adminMe";
 import { AdminModeProvider } from "@/components/admin/AdminModeProvider";
@@ -46,8 +45,8 @@ export default async function PortalLayout({
             <main className="flex-1 min-w-0 p-6">{children}</main>
           </div>
         </div>
-        {/* 운영/테스트 모드 토글(표시 전용·admin 경로 한정, 자체 Suspense). */}
-        <TestModeToggle />
+        {/* 테스트 모드 전환은 URL ?mode=test 로만 진입한다(일반 UI 토글 제거).
+            AdminModeProvider 가 ?mode 를 그대로 해석하므로 QA/테스트 동작은 불변. */}
         </LoadingBannerProvider>
       </ConfirmProvider>
         </SidebarProvider>

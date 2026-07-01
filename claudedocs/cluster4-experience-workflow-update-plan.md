@@ -271,14 +271,14 @@
 | 기준 | 후보 A: 신규 draft 테이블 | 후보 B: cluster4_lines 상태 컬럼 추가 |
 |---|---|---|
 | 의미 보존 | cluster4_lines = "개설된 라인"만 저장 | cluster4_lines에 draft가 섞임 |
-| 고객 페이지 안전성 | draft가 cluster4_lines에 없으므로 노출 위험 없음 | WHERE workflow_status='opened' 필터 누락 시 draft 노출 |
+| 크루 페이지 안전성 | draft가 cluster4_lines에 없으므로 노출 위험 없음 | WHERE workflow_status='opened' 필터 누락 시 draft 노출 |
 | 기존 코드 영향 | 기존 cluster4_lines 조회 로직 변경 불필요 | 모든 기존 쿼리에 `workflow_status='opened'` 조건 추가 필요 |
 | 검수/반려 이력 | draft 테이블에 자연스럽게 포함 | cluster4_lines에 review 관련 컬럼 혼재 |
 | 코드 수정량 | 신규 API + 신규 UI (기존 코드 영향 적음) | 기존 API 전체 수정 + 고객 API 수정 |
 
 **결론: 후보 A 채택 (신규 draft 테이블)**
 
-기존 `cluster4_lines`의 의미("개설된 라인")를 유지하고, 고객 페이지에 draft가 노출될 위험을 원천 차단한다.
+기존 `cluster4_lines`의 의미("개설된 라인")를 유지하고, 크루 페이지에 draft가 노출될 위험을 원천 차단한다.
 
 ### 5-2. 신규 테이블: `cluster4_experience_line_drafts`
 
@@ -347,7 +347,7 @@ UNIQUE(week_id, target_user_id, experience_line_master_id)
 1. 파트장은 draft에서 평점 입력
 2. 에이전트가 검수 시 평점도 확인
 3. 팀장이 개설하면 → cluster4_lines + cluster4_line_targets 생성 → evaluations에 rating 복사
-4. 고객 페이지는 기존대로 evaluations 조회
+4. 크루 페이지는 기존대로 evaluations 조회
 
 **대안**: evaluations 테이블을 사용하지 않고 draft.rating → cluster4_lines 확장 컬럼으로 옮기는 방식도 가능하나, 기존 evaluations 테이블이 line_target_id 기반이므로 현재 설계를 유지하는 것이 일관성 있음.
 
@@ -816,6 +816,6 @@ GET /api/admin/cluster4/experience-workflow-summary
 ### 10-6. `cluster4_experience_line_evaluations` 테이블 유지 여부
 
 - 현재 미사용 상태. 최종 개설 시 rating을 복사하는 대상으로 활용 제안.
-- 대안: evaluations 테이블을 사용하지 않고, 고객 페이지에서 draft.rating을 직접 조회.
-  - 이 경우 draft 테이블이 고객 페이지 API의 의존 대상이 되어 결합도가 높아짐.
-- → **제안**: evaluations 테이블 유지. 개설 시 복사. 고객 페이지는 evaluations만 조회.
+- 대안: evaluations 테이블을 사용하지 않고, 크루 페이지에서 draft.rating을 직접 조회.
+  - 이 경우 draft 테이블이 크루 페이지 API의 의존 대상이 되어 결합도가 높아짐.
+- → **제안**: evaluations 테이블 유지. 개설 시 복사. 크루 페이지는 evaluations만 조회.

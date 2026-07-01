@@ -164,7 +164,7 @@ export default function PeriodRegisterForm() {
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // 고객 페이지 업데이트 — 등록한 주차 기간을 고객 페이지에 반영(등록 직후 노출).
+  // 크루 페이지 업데이트 — 등록한 주차 기간을 크루 페이지에 반영(등록 직후 노출).
   // 내부적으로 영향 대상 카드 재계산 API 를 재사용하되, 화면에는 개발 용어를 쓰지 않는다.
   const [lastRegistered, setLastRegistered] = useState<{
     start: string;
@@ -336,7 +336,7 @@ export default function PeriodRegisterForm() {
           SEASON_OPTIONS.find((o) => o.key === regSeason)?.label ?? regSeason
         } ${weekNumber}주차(${selectedCandidate.label})가 등록되었습니다.`,
       );
-      // 고객 페이지 업데이트 대상 = 방금 등록한 주차 기간(resetForm 전에 캡처).
+      // 크루 페이지 업데이트 대상 = 방금 등록한 주차 기간(resetForm 전에 캡처).
       setLastRegistered({
         start: selectedCandidate.start,
         end: selectedCandidate.end,
@@ -354,7 +354,7 @@ export default function PeriodRegisterForm() {
     }
   };
 
-  // ── 고객 페이지 업데이트 ────────────────────────────────────────────────────
+  // ── 크루 페이지 업데이트 ────────────────────────────────────────────────────
   // 1단계: 반영 대상 수 확인 → 2단계: 실제 반영. 기존 영향-대상 재계산 API 재사용.
   const REFLECT_API = "/api/admin/cluster4/recompute-official-rest-snapshots";
 
@@ -402,18 +402,18 @@ export default function PeriodRegisterForm() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setUpdateError(json?.error ?? "고객 페이지 업데이트에 실패했습니다.");
+        setUpdateError(json?.error ?? "크루 페이지 업데이트에 실패했습니다.");
         return;
       }
       const requested = Number(json.data?.requested ?? 0);
       const failed = Number(json.data?.failed ?? 0);
       setUpdateDone(
-        `고객 페이지 업데이트가 완료되었습니다. 대상: ${requested}명` +
+        `크루 페이지 업데이트가 완료되었습니다. 대상: ${requested}명` +
           (failed > 0 ? ` (반영 실패 ${failed}명)` : ""),
       );
       setReflectTargetCount(null);
     } catch {
-      setUpdateError("고객 페이지 업데이트 중 오류가 발생했습니다.");
+      setUpdateError("크루 페이지 업데이트 중 오류가 발생했습니다.");
     } finally {
       setUpdateBusy(false);
     }
@@ -599,16 +599,16 @@ export default function PeriodRegisterForm() {
         </CardContent>
       </Card>
 
-      {/* 고객 페이지 업데이트 — 등록 직후 노출. 등록한 기간을 고객 페이지에 반영. */}
+      {/* 크루 페이지 업데이트 — 등록 직후 노출. 등록한 기간을 크루 페이지에 반영. */}
       {lastRegistered && (
         <Card className="border-sky-200 bg-sky-50/40">
           <CardContent className="flex flex-col gap-3 py-5">
             <div>
               <h2 className="text-base font-semibold text-foreground">
-                고객 페이지 업데이트
+                크루 페이지 업데이트
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                등록한 기간 정보를 고객 페이지에 반영합니다.
+                등록한 기간 정보를 크루 페이지에 반영합니다.
               </p>
             </div>
 
@@ -630,7 +630,7 @@ export default function PeriodRegisterForm() {
                   loading={updateBusy}
                 >
                   <RefreshCw className="h-4 w-4" />
-                  고객 페이지 업데이트
+                  크루 페이지 업데이트
                 </Button>
               </div>
             ) : (

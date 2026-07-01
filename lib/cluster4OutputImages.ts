@@ -6,7 +6,7 @@
 //   - 레거시: output_images 가 string[] 인 기존 행도 그대로 읽을 수 있어야 한다.
 //   - 읽기: 두 형태(string | {url, caption})를 모두 정규화한다.
 //
-// 프론트(고객 페이지)의 캡션 오버레이:
+// 프론트(크루 페이지)의 캡션 오버레이:
 //   <div class="image-caption-overlay"><span class="caption-text"></span></div>
 //   → outputImageCaptions[i] 를 caption-text 에 채운다 (없으면 빈 문자열).
 

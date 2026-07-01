@@ -677,7 +677,7 @@ export default function WeeklyCardFinalizationView() {
               </div>
             </div>
             <p className="text-sm text-muted-foreground">
-              이 주차를 확정하면 고객 페이지의 해당 주차 카드가 "성장(집계 중)"에서 사용자별
+              이 주차를 확정하면 크루 페이지의 해당 주차 카드가 "성장(집계 중)"에서 사용자별
               성공/실패 상태로 전환되고, 대상 인원 전체의 카드 정보가 최신 상태로 업데이트됩니다.
               사용자별 인정 상태 자체는 변경되지 않습니다.
               {target.isFinalized && " (이미 확정된 주차 — 카드 정보 업데이트만 수행됩니다.)"}

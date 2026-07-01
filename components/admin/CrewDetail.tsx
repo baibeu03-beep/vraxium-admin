@@ -192,7 +192,7 @@ export default function CrewDetail({
 
   const openCareerResume = useCallback(() => {
     if (!detail) return;
-    // 고객 페이지 SoT 경로(/cluster-4-<suffix>) 재사용. 새 탭.
+    // 크루 페이지 SoT 경로(/cluster-4-<suffix>) 재사용. 새 탭.
     //   테스트 유저(test_user_markers) → demoUserId+mode=test(테스트 유저 모드 배너·여름 시뮬).
     //   일반(운영) 크루 → userId 만(배너 없음·실제 사용자 cluster-4 카드). 모집단 모드(list)와
     //   무관하게 "그 크루가 테스트 유저인가"로만 결정한다(operating 탭의 일반 크루에 배너 금지).

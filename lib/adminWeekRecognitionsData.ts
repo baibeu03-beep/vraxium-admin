@@ -661,7 +661,7 @@ export async function updateWeekRecognition(
 
 // ─── 주차 결과 공표(publish) ──────────────────────────────────────────
 //
-// weeks.result_published_at 을 now() 로 세팅한다. 이 값이 채워지면 고객 페이지의
+// weeks.result_published_at 을 now() 로 세팅한다. 이 값이 채워지면 크루 페이지의
 // 해당 주차 카드가 "성장(집계 중)"(tallying)에서 user_week_statuses.status 기준
 // success(성장 성공)/fail(성장 실패)로 전환된다.
 //

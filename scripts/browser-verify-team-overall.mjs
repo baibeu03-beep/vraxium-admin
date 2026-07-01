@@ -3,7 +3,7 @@
 //   (5) 팀 총괄 진입(5열 그리드 + 라인별 아웃풋 + 버튼 4종) 렌더.
 //   (6) 개설 검수 → 재접속(reload) → "개설 검수 (임시저장)" 배지 복원.
 //   (9) 개설 검수 직후 상태창/로그창 refetch(refreshKey 배선) — opening-status/opening-logs GET 증가.
-//   review 전용(고객 페이지 무접촉). 검수 헤더는 말미 service-role 삭제(잔여 없음).
+//   review 전용(크루 페이지 무접촉). 검수 헤더는 말미 service-role 삭제(잔여 없음).
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";

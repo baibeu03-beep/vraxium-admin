@@ -1,5 +1,5 @@
 /**
- * "고객 페이지 업데이트" 버튼 검증 — 기간 등록 → 대상 확인(dry_run) → 실제 반영(실행).
+ * "크루 페이지 업데이트" 버튼 검증 — 기간 등록 → 대상 확인(dry_run) → 실제 반영(실행).
  * 버튼은 기존 API /api/admin/cluster4/recompute-official-rest-snapshots 를 재사용한다.
  *
  *  파트 A) 버튼 wiring (테스트 주차, 무오염):
