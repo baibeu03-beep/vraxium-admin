@@ -32,6 +32,7 @@ import {
   runDueProcessCheckSweep,
   findDueProcessCheckItems,
 } from "@/lib/processCheckDueSweep";
+import { logProcessCheckCompletedForRegular } from "@/lib/adminProcessCheckData";
 import {
   recomputeWeeklyCardsSnapshotsForUsers,
   readWeeklyCardsSnapshotBatch,
@@ -371,6 +372,10 @@ async function summarizeProcessCheckReflection(
 //     not_found → 댓글 없음/카페 못 읽음(인증 내용을 찾지 못했습니다).
 export type ProcessCheckRowNowCode = "confirmed" | "no_match" | "not_found";
 export type ProcessCheckRowNowResult = {
+  status?: "pending" | "completed" | "not_found";
+  source?: "regular" | "irregular";
+  statusId?: string;
+  completedAt?: string | null;
   ok: boolean; // 체크 완료로 처리됐는가(정상 경로면 항상 true).
   code: ProcessCheckRowNowCode; // 크롤 결과(메시지 매핑용).
 };
@@ -382,7 +387,8 @@ export async function runProcessCheckRowNow(opts: {
   source?: "regular" | "irregular";
 }): Promise<ProcessCheckRowNowResult> {
   const statusId = String(opts.statusId ?? "").trim();
-  const table = opts.source === "irregular" ? "process_irregular_acts" : "process_check_statuses";
+  const source = opts.source === "irregular" ? "irregular" : "regular";
+  const table = source === "irregular" ? "process_irregular_acts" : "process_check_statuses";
 
   const finish = async (
     res: ProcessCheckRowNowResult,
@@ -392,13 +398,13 @@ export async function runProcessCheckRowNow(opts: {
       mode: "execute",
       outcome: res.ok ? "success" : "failed",
       actor: opts.actor,
-      target: { statusId, source: opts.source ?? "regular", row: true },
+      target: { statusId, source, row: true },
       result: res,
     });
     return res;
   };
 
-  if (!statusId) return finish({ ok: false, code: "not_found" });
+  if (!statusId) return finish({ ok: false, code: "not_found", status: "not_found", source, statusId });
 
   // 1) 실제 크롤/검수 — 기존 sweep 로직(scope='qa' test 한정) + 시각/재시도 게이트 우회.
   //    크롤 성공 시 sweep 이 recipients 기록 + status='completed' 로 만든다(0명이어도 완료).
@@ -426,30 +432,44 @@ export async function runProcessCheckRowNow(opts: {
   //    (scope_mode!=='test') 행이 어떤 경로로 들어와도 상태를 바꾸지 않는다(UI 상 버튼도 테스트 행만 노출).
   const { data: after } = await supabaseAdmin
     .from(table)
-    .select("status,scope_mode")
+    .select("status,scope_mode,completed_at")
     .eq("id", statusId)
     .maybeSingle();
-  if (!after) return finish({ ok: false, code: "not_found" }); // 대상 행 없음
-  const isTestRow = (after.scope_mode ?? "operating") === "test";
-  if (!isTestRow) {
-    // 운영 행 — 즉시 검수(강제 완료) 대상 아님. 상태 불변으로 반환(운영 안전).
-    console.warn("[qa-run-now][row] non-test row ignored (operating safety)", { statusId, source: opts.source ?? "regular" });
-    return finish({ ok: false, code: "not_found" });
+  if (!after) {
+    return finish({ ok: false, code: "not_found", status: "not_found", source, statusId });
   }
   if (after.status !== "completed") {
+    const completedAt = new Date().toISOString();
     const upd: Record<string, unknown> = {
       status: "completed",
-      completed_at: new Date().toISOString(),
+      completed_at: completedAt,
     };
     // checked_crew_count 는 정규 테이블에만 있는 컬럼.
-    if (opts.source !== "irregular") upd.checked_crew_count = matched;
+    if (source === "regular") upd.checked_crew_count = matched;
     await supabaseAdmin.from(table).update(upd).eq("id", statusId).eq("status", "pending");
+  }
+
+  const { data: finalRow } = await supabaseAdmin
+    .from(table)
+    .select("status,completed_at")
+    .eq("id", statusId)
+    .maybeSingle();
+  const finalStatus = finalRow?.status === "completed" ? "completed" : "pending";
+  if (source === "regular" && finalStatus === "completed") {
+    await logProcessCheckCompletedForRegular(statusId);
   }
 
   // 3) 메시지 code — 모두 체크 완료. 크롤 결과만 구분.
   const code: ProcessCheckRowNowCode =
     matched > 0 ? "confirmed" : review > 0 ? "no_match" : "not_found";
-  return finish({ ok: true, code });
+  return finish({
+    ok: finalStatus === "completed",
+    code,
+    status: finalStatus,
+    source,
+    statusId,
+    completedAt: finalRow?.completed_at ?? null,
+  });
 }
 
 // ── B2: weekly-cards snapshot 배치 재계산 즉시 실행(테스트 유저 전수) ───

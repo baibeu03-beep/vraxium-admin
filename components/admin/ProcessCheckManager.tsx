@@ -111,7 +111,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     try {
       let url = `/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}`;
       if (weekParam) url += `&week=${encodeURIComponent(weekParam)}`;
-      const res = await fetch(appendModeQuery(url, mode));
+      const res = await fetch(appendModeQuery(url, mode), { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
       if (myReq !== reqRef.current) return;
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
@@ -137,7 +137,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         let url = `/api/admin/processes/check?hub=${hub}&org=${encodeURIComponent(org)}&team=${encodeURIComponent(teamId)}&scope=${scopeKind}`;
         if (scopeKind === "part" && partName) url += `&part=${encodeURIComponent(partName)}`;
         if (weekParam) url += `&week=${encodeURIComponent(weekParam)}`;
-        const res = await fetch(appendModeQuery(url, mode));
+        const res = await fetch(appendModeQuery(url, mode), { cache: "no-store" });
         const json = await res.json().catch(() => ({}));
         if (myReq !== teamReqRef.current) return;
         if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
@@ -210,9 +210,9 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   }, [teamMode, effectiveTeamId, scopeKind, scopePartName, loadTeamBoard]);
 
   // 액션 성공 후 — 섹션.0(로그/상태창) + 섹션.1(선택 팀·스코프 상태) 갱신.
-  const refreshAfterAction = useCallback(() => {
-    void loadBoard();
-    if (teamMode && effectiveTeamId) void loadTeamBoard(effectiveTeamId, scopeKind, scopePartName);
+  const refreshAfterAction = useCallback(async () => {
+    await loadBoard();
+    if (teamMode && effectiveTeamId) await loadTeamBoard(effectiveTeamId, scopeKind, scopePartName);
   }, [loadBoard, loadTeamBoard, teamMode, effectiveTeamId, scopeKind, scopePartName]);
 
   // QA 자동 검수(행 단위) — '체크 대기' 행을 지금 즉시 검수하고, 성공 시 '체크 완료'를 보드에 즉시 반영.
@@ -231,12 +231,13 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
       try {
         const res = await fetch("/api/admin/qa/run-now/process-check-row", {
           method: "POST",
+          cache: "no-store",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ statusId: act.checkStatusId }),
+          body: JSON.stringify({ statusId: act.checkStatusId, source: "regular" }),
         });
         const json = await res.json().catch(() => ({}));
         // 즉시 검수는 크롤 결과와 무관하게 항상 '체크 완료' — code 는 크롤 결과(메시지)만 구분.
-        if (!res.ok || !json?.success) {
+        if (!res.ok || !json?.success || json?.data?.status !== "completed") {
           setAutoReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
         } else {
           const code: string = json?.data?.code ?? "not_found";
@@ -248,7 +249,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           setAutoReviewBanner(COPY[code] ?? COPY.not_found);
         }
         // 상태가 바뀌었을 수 있으니 보드를 새로고침(완료면 '체크 완료'로 보이고 버튼이 사라진다).
-        refreshAfterAction();
+        await refreshAfterAction();
       } catch {
         setAutoReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
       } finally {

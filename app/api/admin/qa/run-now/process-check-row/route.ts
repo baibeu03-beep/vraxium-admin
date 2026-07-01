@@ -14,6 +14,8 @@ import { runProcessCheckRowNow, QaRunNowScopeError } from "@/lib/qaRunNow";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
 export async function POST(request: NextRequest) {
   let admin;
   try {
@@ -39,17 +41,20 @@ export async function POST(request: NextRequest) {
     const result = await runProcessCheckRowNow({
       statusId,
       source,
-      actor: admin.email ?? admin.userId,
+      actor: admin.userId,
     });
-    return Response.json({ success: true, data: result, error: null });
+    return Response.json({ success: true, data: result, error: null }, { headers: NO_STORE_HEADERS });
   } catch (error) {
     if (error instanceof QaRunNowScopeError) {
-      return Response.json({ success: false, error: error.message }, { status: error.status });
+      return Response.json(
+        { success: false, error: error.message },
+        { status: error.status, headers: NO_STORE_HEADERS },
+      );
     }
     console.error("[qa/run-now/process-check-row] error", error);
     return Response.json(
       { success: false, error: error instanceof Error ? error.message : "run failed" },
-      { status: 500 },
+      { status: 500, headers: NO_STORE_HEADERS },
     );
   }
 }

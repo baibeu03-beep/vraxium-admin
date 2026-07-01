@@ -31,6 +31,7 @@ const SERVICE = g("SUPABASE_SERVICE_ROLE_KEY")!;
 const admin = createClient(SUPABASE_URL, SERVICE);
 const SHOT = resolve(adminRoot, "claudedocs");
 const ORG = "encre", HUB = "club";
+const MODE = process.env.VERIFY_MODE === "operating" ? "operating" : "test";
 
 let pass = 0, fail = 0;
 const ck = (l: string, ok: boolean, d = "") => { console.log(`  ${ok ? "✓" : "✗"} ${l}${d ? ` — ${d}` : ""}`); ok ? pass++ : fail++; };
@@ -52,25 +53,69 @@ async function main() {
   const page = await context.newPage();
 
   let seedId: string | null = null;
+  let seedActId: string | null = null;
+  let seedGroupId: string | null = null;
   const { data: preLogs } = await admin.from("process_check_logs").select("id").eq("organization_slug", ORG);
   const preLogIds = new Set((preLogs ?? []).map((l: any) => l.id));
 
   try {
     // 보드 GET(test) — 현재 주차 + needed 체크대상 액트 1개.
-    await page.goto(`${BASE}/admin/processes/check/club?org=${ORG}&mode=test`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${BASE}/admin/processes/check/club?org=${ORG}&mode=${MODE}`, { waitUntil: "domcontentloaded" });
     const board = await page.evaluate(async (qs) => {
       const r = await fetch(`/api/admin/processes/check?${qs}`); return await r.json();
-    }, `hub=${HUB}&org=${ORG}&mode=test`);
+    }, `hub=${HUB}&org=${ORG}&mode=${MODE}`);
     const acts = board?.data?.acts ?? [];
     const weekId = board?.data?.week?.weekId ?? board?.data?.selectedWeekId ?? null;
-    const target = acts.find((a: any) => a.isCheckTarget && a.status === "needed" && a.lineGroupId);
+    let target = acts.find((a: any) => a.isCheckTarget && a.status === "needed" && a.lineGroupId);
+    if (weekId && !target) {
+      const tag = `ZZ-qa-row-${Date.now()}`;
+      const grp = await admin
+        .from("process_line_groups")
+        .insert({ hub: HUB, name: `${tag} line` })
+        .select("id,name")
+        .single();
+      if (!grp.error && grp.data) {
+        seedGroupId = (grp.data as any).id;
+        const act = await admin
+          .from("process_acts")
+          .insert({
+            line_group_id: seedGroupId,
+            hub: HUB,
+            act_name: `${tag} act`,
+            duration_minutes: 10,
+            occur_week: "N",
+            occur_dow: 1,
+            occur_time: "10:00",
+            check_week: "N",
+            check_dow: 3,
+            check_time: "12:00",
+            point_check: 1,
+            point_advantage: 0,
+            point_penalty: 0,
+            cafe: "occur",
+            check_target: "check",
+            act_type: "required",
+            is_active: true,
+          })
+          .select("id,act_name,line_group_id")
+          .single();
+        if (!act.error && act.data) {
+          seedActId = (act.data as any).id;
+          target = {
+            actId: seedActId,
+            actName: (act.data as any).act_name,
+            lineGroupId: (act.data as any).line_group_id,
+          };
+        }
+      }
+    }
     if (!weekId || !target) { console.log("⚠ 시드 가능한 needed 체크대상 액트/주차 없음 — skip"); await browser.close(); process.exit(0); }
 
     // 시드: 현재 주차·미래예약(검수 예정 시각 전 상태 재현)·체크 대기.
     const future = new Date(Date.now() + 2 * 86_400_000).toISOString();
     const ins = await admin.from("process_check_statuses").insert({
       organization_slug: ORG, hub: HUB, week_id: weekId, act_id: target.actId, line_group_id: target.lineGroupId,
-      status: "pending", scope_mode: "test", scheduled_check_at: future, review_link: "https://cafe.naver.com/qa-row-browser", attempt_count: 0,
+      status: "pending", scope_mode: MODE, scheduled_check_at: future, review_link: "https://cafe.naver.com/qa-row-browser", attempt_count: 0,
     }).select("id").maybeSingle();
     if (ins.error || !ins.data) { console.log(`⚠ 시드 실패(${ins.error?.message}) — skip`); await browser.close(); process.exit(0); }
     seedId = (ins.data as any).id;
@@ -107,6 +152,8 @@ async function main() {
       await page.getByRole("alertdialog").getByRole("button", { name: "즉시 검수" }).click();
       const resp = await respPromise;
       clicked = Boolean(resp);
+      const respJson = resp ? await resp.json().catch(() => ({})) : {};
+      ck("[2b] HTTP body data.status=completed", respJson?.data?.status === "completed", JSON.stringify(respJson?.data ?? null));
       ck("[2] 확인 후 process-check-row HTTP 응답 수신", Boolean(resp), resp ? `status=${resp.status()}` : "no-response");
       // 결과 배너 — 크롤 결과 3종 문구(모두 '체크 완료로 처리했습니다'), 내부 용어 없음.
       const CLEAN = /체크 완료로 처리했습니다/;
@@ -125,11 +172,17 @@ async function main() {
     const noBtn = (await rowLoc2.getByRole("button", { name: "즉시 검수" }).count()) === 0;
     // DB 도 completed 확인(화면·데이터 일치).
     const { data: dbRow } = await admin.from("process_check_statuses").select("status").eq("id", seedId!).maybeSingle();
+    const { count: completedLogCount } = await admin
+      .from("process_check_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("act_id", target.actId)
+      .eq("action", "check_completed");
     ck(
       "[3] 클릭만으로 '체크 완료'(인증 못 찾아도) + '즉시 검수' 버튼 사라짐",
       clicked && rowText.includes("체크 완료") && noBtn && (dbRow as any)?.status === "completed",
       `noBtn=${noBtn}/db=${(dbRow as any)?.status}`,
     );
+    ck("[4] 상태창/상세 이력용 check_completed 로그 기록", (completedLogCount ?? 0) >= 1, `logs=${completedLogCount ?? 0}`);
     await page.evaluate(() => document.querySelectorAll(".overflow-x-auto").forEach((el) => el.scrollTo({ left: 99999 })));
     await rowLoc2.scrollIntoViewIfNeeded().catch(() => {});
     await page.screenshot({ path: resolve(SHOT, "qa-row-completed.png") }).catch(() => {});
@@ -143,6 +196,8 @@ async function main() {
     const { data: postLogs } = await admin.from("process_check_logs").select("id").eq("organization_slug", ORG);
     const newLogIds = (postLogs ?? []).map((l: any) => l.id).filter((id: string) => !preLogIds.has(id));
     if (newLogIds.length) await admin.from("process_check_logs").delete().in("id", newLogIds);
+    if (seedActId) await admin.from("process_acts").delete().eq("id", seedActId);
+    if (seedGroupId) await admin.from("process_line_groups").delete().eq("id", seedGroupId);
     ck("[cleanup] 시드 삭제(무흔적)", true, `logs removed=${newLogIds.length}`);
     await browser.close();
   }

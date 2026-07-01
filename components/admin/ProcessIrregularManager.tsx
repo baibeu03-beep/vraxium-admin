@@ -89,7 +89,7 @@ export default function ProcessIrregularManager() {
     try {
       let url = `/api/admin/processes/check/irregular?org=${encodeURIComponent(org)}`;
       if (weekParam) url += `&week=${encodeURIComponent(weekParam)}`;
-      const res = await fetch(appendModeQuery(url, mode));
+      const res = await fetch(appendModeQuery(url, mode), { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
       if (myReq !== reqRef.current) return;
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
@@ -126,12 +126,13 @@ export default function ProcessIrregularManager() {
       try {
         const res = await fetch("/api/admin/qa/run-now/process-check-row", {
           method: "POST",
+          cache: "no-store",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ statusId: act.id, source: "irregular" }),
         });
         const json = await res.json().catch(() => ({}));
         // 즉시 검수는 크롤 결과와 무관하게 항상 '체크 완료' — code 는 크롤 결과(메시지)만 구분.
-        if (!res.ok || !json?.success) {
+        if (!res.ok || !json?.success || json?.data?.status !== "completed") {
           setReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
         } else {
           const code: string = json?.data?.code ?? "not_found";
@@ -142,7 +143,7 @@ export default function ProcessIrregularManager() {
           };
           setReviewBanner(COPY[code] ?? COPY.not_found);
         }
-        void loadBoard();
+        await loadBoard();
       } catch {
         setReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
       } finally {
