@@ -716,8 +716,14 @@ export async function markWeeklyCardsSnapshotStale(
   console.log("[weekly-cards][snapshot] mark stale ok", `user=${profileUserId}`);
 }
 
-// 여러 사용자 snapshot 을 한 번의 UPDATE 로 stale 처리한다(career 라인 개설 = 대상자 N명).
+// 여러 사용자 snapshot 을 stale 처리한다(라인 개설 org audience = 대상자 N명, 최대 수백~천 단위).
 // 빈/중복 id 는 정리하고, 행이 없는 사용자는 자연스럽게 no-op. best-effort(throw 안 함).
+//
+// ⚠ 반드시 청크 단위로 .in() 을 실행한다. 단일 .in("user_id", [수백 UUID]) 는 PostgREST 의 URL/요청
+//   길이 한도를 넘겨 400 'Bad Request' 로 실패하고, 그 실패가 여기서 조용히 삼켜지면 is_stale 이
+//   세팅되지 않는다 → snapshot-only 조회 런타임에서 lazy 재계산이 트리거되지 않아 "실무 경험/역량
+//   라인이 고객앱에 반영 안 됨"(2026-07-01 근본원인, 실측 audience=729 → Bad Request)을 유발한다.
+//   Info 개설은 targets(소수)만 무효화해 즉시 재계산 경로라 이 버그에 걸리지 않았다.
 export async function markWeeklyCardsSnapshotStaleMany(
   profileUserIds: string[],
 ): Promise<void> {
@@ -725,16 +731,28 @@ export async function markWeeklyCardsSnapshotStaleMany(
     new Set(profileUserIds.filter((id): id is string => Boolean(id))),
   );
   if (uniqueIds.length === 0) return;
-  const { error } = await supabaseAdmin
-    .from(TABLE)
-    .update({ is_stale: true })
-    .in("user_id", uniqueIds);
-  if (error) {
-    console.warn("[weekly-cards][snapshot] mark stale (many) failed", {
-      count: uniqueIds.length,
-      message: error.message,
-    });
-    return;
+  const CHUNK = 100; // UUID 100개 ≈ 3.7KB — PostgREST URL 한도 안전 구간.
+  let failed = 0;
+  for (let i = 0; i < uniqueIds.length; i += CHUNK) {
+    const chunk = uniqueIds.slice(i, i + CHUNK);
+    const { error } = await supabaseAdmin
+      .from(TABLE)
+      .update({ is_stale: true })
+      .in("user_id", chunk);
+    if (error) {
+      failed += chunk.length;
+      console.warn("[weekly-cards][snapshot] mark stale (many) chunk failed", {
+        chunk: chunk.length,
+        message: error.message,
+      });
+    }
   }
-  console.log("[weekly-cards][snapshot] mark stale (many) ok", `count=${uniqueIds.length}`);
+  if (failed > 0) {
+    console.warn(
+      "[weekly-cards][snapshot] mark stale (many) partial",
+      `failed=${failed}/${uniqueIds.length}`,
+    );
+  } else {
+    console.log("[weekly-cards][snapshot] mark stale (many) ok", `count=${uniqueIds.length}`);
+  }
 }

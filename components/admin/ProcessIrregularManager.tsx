@@ -307,6 +307,7 @@ export default function ProcessIrregularManager() {
           crewReaction="all"
           organization={org}
           mode={mode}
+          weekId={selectedWeekId}
           onClose={() => setDialog(null)}
           onDone={loadBoard}
         />
@@ -317,6 +318,7 @@ export default function ProcessIrregularManager() {
           crewReaction="partial"
           organization={org}
           mode={mode}
+          weekId={selectedWeekId}
           onClose={() => setDialog(null)}
           onDone={loadBoard}
         />
@@ -326,6 +328,7 @@ export default function ProcessIrregularManager() {
         <ProcessIrregularManualGrantDialog
           organization={org}
           mode={mode}
+          weekId={selectedWeekId}
           onClose={() => setDialog(null)}
           onDone={loadBoard}
         />

@@ -15,6 +15,7 @@ import {
 } from "@/lib/cluster4OutputImages";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
+import { collectLineOrgAudience } from "@/lib/adminCluster4LinesData";
 
 // ── Row → DTO mapping ─────────────────────────────────────
 
@@ -645,7 +646,13 @@ export async function openExperienceDrafts(
 
   // 개설로 라인/타깃/평가가 생성되어 대상자들의 주차 카드(가용 라인·평점)가 바뀐다 → 즉시 재계산.
   // ≤10 즉시 / >10 background(after) — 저장 직후 고객 반영(평점→강화/주차인정). best-effort.
-  await invalidateWeeklyCardsForUsers(drafts.map((d) => d.target_user_id));
+  const affectedUsers = new Set(drafts.map((d) => d.target_user_id));
+  for (const lineId of createdLineIds) {
+    for (const userId of await collectLineOrgAudience(lineId).catch(() => [])) {
+      affectedUsers.add(userId);
+    }
+  }
+  await invalidateWeeklyCardsForUsers(Array.from(affectedUsers));
 
   // 행동 이력: 개설된 draft 마다 [개설 완료] 로그(재완료 시 행 추가 = 덮어쓰기 금지). best-effort.
   const draftById = new Map(drafts.map((d) => [d.id, d]));

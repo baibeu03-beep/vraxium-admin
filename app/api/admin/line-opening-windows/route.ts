@@ -5,9 +5,11 @@ import {
   requireAdmin,
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
+import { isOrganizationSlug } from "@/lib/organizations";
 import {
   LineOpeningWindowError,
   createLineOpeningWindows,
+  isLineOpeningWindowHub,
   listLineOpeningWindows,
 } from "@/lib/lineOpeningWindowsData";
 
@@ -45,9 +47,10 @@ export async function GET(_request: NextRequest) {
 
 // POST /api/admin/line-opening-windows
 // 예외 등록 — 화면 2. body:
-//   { week_id, scope: "all" | "lines", activity_type_ids?: string[] }
-//   scope=all  → 해당 주차 전체(activity_type_id NULL) 1행.
-//   scope=lines → activity_type_ids 각각 1행.
+//   { week_id, organization_slug?: string|null, hub?: string|null,
+//     scope?: "all" | "lines", activity_type_ids?: string[] }
+//   organization_slug 미지정/null/"all" → 전체 조직 · hub 미지정/null/"all" → 전체 라인 종류.
+//   scope=lines(레거시) → activity_type_ids 각각 1행(info 세부 라인). 기본 scope=all(허브 전체).
 export async function POST(request: NextRequest) {
   let admin;
   try {
@@ -83,6 +86,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // org: null/"all"/미지정 = 전체 조직, 값이면 유효 조직 검증.
+  const orgRaw = typeof input.organization_slug === "string" ? input.organization_slug.trim() : "";
+  let organizationSlug: string | null = null;
+  if (orgRaw && orgRaw !== "all") {
+    if (!isOrganizationSlug(orgRaw)) {
+      return Response.json(
+        { success: false, error: "organization_slug 은 유효한 조직(encre|oranke|phalanx)이어야 합니다" },
+        { status: 400 },
+      );
+    }
+    organizationSlug = orgRaw;
+  }
+
+  // hub(라인 종류): null/"all"/미지정 = 전체, 값이면 info|experience|competency 검증.
+  const hubRaw = typeof input.hub === "string" ? input.hub.trim() : "";
+  let hub: string | null = null;
+  if (hubRaw && hubRaw !== "all") {
+    if (!isLineOpeningWindowHub(hubRaw)) {
+      return Response.json(
+        { success: false, error: "hub 은 info|experience|competency 중 하나여야 합니다" },
+        { status: 400 },
+      );
+    }
+    hub = hubRaw;
+  }
+
+  // 레거시 scope=lines(info 세부 활동유형)도 계속 지원 — 기본은 허브 전체(activityTypeIds=null).
   const scope = input.scope === "lines" ? "lines" : "all";
   let activityTypeIds: string[] | null = null;
   if (scope === "lines") {
@@ -108,6 +138,8 @@ export async function POST(request: NextRequest) {
     const windows = await createLineOpeningWindows({
       weekId,
       activityTypeIds,
+      organizationSlug,
+      hub,
       createdBy: admin.userId ?? null,
     });
     return Response.json({ success: true, data: { windows } }, { status: 201 });

@@ -313,7 +313,7 @@ export async function POST(request: NextRequest) {
       });
       // 공식 휴식이라도 "해당 주차 전체(scope=all)" 라인 개설 예외가 활성이면 허용(휴식 차단 덮어씀).
       //   info-lines 게이트·assertWeekOpenable 과 동일 정책(세 허브 공용). 예외 없으면 종전대로 400.
-      if (rest.isOfficialRest && !(await hasActiveAllLineException(input.week_id))) {
+      if (rest.isOfficialRest && !(await hasActiveAllLineException(input.week_id, scopeOrg, "competency"))) {
         return Response.json(
           { success: false, error: "공식 휴식 주차에는 라인을 개설할 수 없습니다" },
           { status: 400 },

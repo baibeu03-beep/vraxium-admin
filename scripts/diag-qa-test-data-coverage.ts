@@ -1,5 +1,5 @@
 /**
- * READ-ONLY QA 진단: QA_FIXED_TEST_ONLY=true 상태에서 어드민 화면이 비는 원인을
+ * READ-ONLY QA 진단: QA_HIDE_REAL_USERS=true 상태에서 어드민 화면이 비는 원인을
  * 데이터 테이블별 테스트 유저(test_user_markers) 커버리지로 정량화한다.
  * 정책/데이터 무변경. 단순 SELECT count 만 수행.
  *

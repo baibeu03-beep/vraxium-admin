@@ -26,6 +26,28 @@ export class LineOpeningWindowError extends Error {
   }
 }
 
+// 예외가 가리킬 수 있는 라인 종류(hub) — line-opening 이 실제 주차를 여는 3허브. NULL=전체.
+//   (클럽/경력은 라인 개설 흐름이 없어 제외 — 예외를 걸어도 소비처가 없다.)
+export const LINE_OPENING_WINDOW_HUBS = ["info", "experience", "competency"] as const;
+export type LineOpeningWindowHub = (typeof LINE_OPENING_WINDOW_HUBS)[number];
+export function isLineOpeningWindowHub(v: unknown): v is LineOpeningWindowHub {
+  return typeof v === "string" && (LINE_OPENING_WINDOW_HUBS as readonly string[]).includes(v);
+}
+
+// 예외 1행이 (queryOrg, queryHub) 에 적용되는가.
+//   (exc.org IS NULL ∨ exc.org == queryOrg) AND (exc.hub IS NULL ∨ exc.hub == queryHub).
+//   query 가 null 이면 exc.org/hub 가 NULL 인 '전체' 예외만 매칭(스코프 미지정 호출은 전체만 본다).
+function scopeApplies(
+  exc: { organization_slug: string | null; hub: string | null },
+  org: string | null,
+  hub: string | null,
+): boolean {
+  return (
+    (exc.organization_slug === null || exc.organization_slug === org) &&
+    (exc.hub === null || exc.hub === hub)
+  );
+}
+
 function toMs(iso: string): number {
   return Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
 }
@@ -37,6 +59,8 @@ function toMs(iso: string): number {
 type WindowRow = {
   id: string;
   week_id: string;
+  organization_slug: string | null;
+  hub: string | null;
   activity_type_id: string | null;
   allow_opening: boolean;
   is_active: boolean;
@@ -48,6 +72,8 @@ type WindowRow = {
 export type LineOpeningWindowDto = {
   id: string;
   weekId: string;
+  organizationSlug: string | null; // null = 전체 조직
+  hub: string | null; // null = 전체 라인 종류
   activityTypeId: string | null;
   allowOpening: boolean;
   isActive: boolean;
@@ -148,20 +174,28 @@ function weekLabelFromRow(row: WeekRow): {
 export async function findActiveLineOpeningException(
   weekId: string,
   activityTypeId: string,
+  org: string | null = null,
+  hub: string | null = null,
 ): Promise<boolean> {
   if (!isUuid(weekId)) return false;
   // activity_type_id 는 text slug('wisdom' 등)이라 PostgREST .or() 문자열에 값을 끼워넣지 않고,
-  // 해당 주차의 활성 예외 행만 받아 JS 에서 (전체 NULL ∨ 일치) 를 판정한다(인젝션/이스케이프 회피).
+  // 해당 주차의 활성 예외 행만 받아 JS 에서 (org/hub 스코프) ∧ (전체 NULL ∨ 일치) 를 판정한다.
   const { data, error } = await supabaseAdmin
     .from("line_opening_windows")
-    .select("activity_type_id")
+    .select("organization_slug,hub,activity_type_id")
     .eq("week_id", weekId)
     .eq("is_active", true)
     .eq("allow_opening", true);
   if (error) throw new LineOpeningWindowError(500, error.message);
-  const rows = (data ?? []) as Array<{ activity_type_id: string | null }>;
+  const rows = (data ?? []) as Array<{
+    organization_slug: string | null;
+    hub: string | null;
+    activity_type_id: string | null;
+  }>;
   return rows.some(
-    (r) => r.activity_type_id === null || r.activity_type_id === activityTypeId,
+    (r) =>
+      scopeApplies(r, org, hub) &&
+      (r.activity_type_id === null || r.activity_type_id === activityTypeId),
   );
 }
 
@@ -174,34 +208,49 @@ export async function findActiveLineOpeningException(
 //   게이트는 activity_type 가 없으므로 NULL(전체) 예외만 본다.
 // ─────────────────────────────────────────────────────────────────────────
 
-// 단일 주차 — scope=all 활성 예외 존재 여부. 경험(assertWeekOpenable)·역량(competency-lines) 게이트용.
-export async function hasActiveAllLineException(weekId: string): Promise<boolean> {
+// 단일 주차 — 허브 전체(activity_type_id NULL) 활성 예외 존재 여부(org+hub 스코프).
+//   경험(assertWeekOpenable)·역량(competency-lines) 게이트용.
+export async function hasActiveAllLineException(
+  weekId: string,
+  org: string | null = null,
+  hub: string | null = null,
+): Promise<boolean> {
   if (!isUuid(weekId)) return false;
   const { data, error } = await supabaseAdmin
     .from("line_opening_windows")
-    .select("id")
+    .select("organization_slug,hub")
     .eq("week_id", weekId)
-    .is("activity_type_id", null)
-    .eq("is_active", true)
-    .eq("allow_opening", true)
-    .limit(1);
-  if (error) throw new LineOpeningWindowError(500, error.message);
-  return (data ?? []).length > 0;
-}
-
-// scope=all 활성 예외가 걸린 week_id 집합. weeks-options 처럼 여러 주차를 한 번에 판정할 때 사용
-//   (라운드트립 1회). 작은 테이블이라 전량 조회로 충분.
-export async function getActiveAllLineExceptionWeekIds(): Promise<Set<string>> {
-  const { data, error } = await supabaseAdmin
-    .from("line_opening_windows")
-    .select("week_id")
     .is("activity_type_id", null)
     .eq("is_active", true)
     .eq("allow_opening", true);
   if (error) throw new LineOpeningWindowError(500, error.message);
-  return new Set(
-    ((data ?? []) as Array<{ week_id: string }>).map((r) => r.week_id),
+  return ((data ?? []) as Array<{ organization_slug: string | null; hub: string | null }>).some(
+    (r) => scopeApplies(r, org, hub),
   );
+}
+
+// 허브 전체(activity_type_id NULL) 활성 예외가 걸린 week_id 집합(org+hub 스코프).
+//   weeks-options 처럼 여러 주차를 한 번에 판정할 때 사용(라운드트립 1회·작은 테이블 전량 조회).
+export async function getActiveAllLineExceptionWeekIds(
+  org: string | null = null,
+  hub: string | null = null,
+): Promise<Set<string>> {
+  const { data, error } = await supabaseAdmin
+    .from("line_opening_windows")
+    .select("week_id,organization_slug,hub")
+    .is("activity_type_id", null)
+    .eq("is_active", true)
+    .eq("allow_opening", true);
+  if (error) throw new LineOpeningWindowError(500, error.message);
+  const out = new Set<string>();
+  for (const r of (data ?? []) as Array<{
+    week_id: string;
+    organization_slug: string | null;
+    hub: string | null;
+  }>) {
+    if (scopeApplies(r, org, hub)) out.add(r.week_id);
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -212,7 +261,7 @@ export async function listLineOpeningWindows(): Promise<LineOpeningWindowDto[]> 
   const { data, error } = await supabaseAdmin
     .from("line_opening_windows")
     .select(
-      "id,week_id,activity_type_id,allow_opening,is_active,created_by,created_at,updated_at",
+      "id,week_id,organization_slug,hub,activity_type_id,allow_opening,is_active,created_by,created_at,updated_at",
     )
     .order("created_at", { ascending: false });
   if (error) throw new LineOpeningWindowError(500, error.message);
@@ -273,6 +322,8 @@ export async function listLineOpeningWindows(): Promise<LineOpeningWindowDto[]> 
     return {
       id: r.id,
       weekId: r.week_id,
+      organizationSlug: r.organization_slug,
+      hub: r.hub,
       activityTypeId: r.activity_type_id,
       allowOpening: r.allow_opening,
       isActive: r.is_active,
@@ -299,11 +350,20 @@ export async function listLineOpeningWindows(): Promise<LineOpeningWindowDto[]> 
 
 export async function createLineOpeningWindows(input: {
   weekId: string;
-  // null = 해당 주차 전체. 배열 = 특정 활동 유형들(각 1행).
+  // null = 해당 주차 전체(허브 전체). 배열 = 특정 활동 유형들(info 세부 라인·각 1행).
   activityTypeIds: string[] | null;
+  // null = 전체 조직 · 값 = 그 조직만.
+  organizationSlug?: string | null;
+  // null = 전체 라인 종류 · 값 = info|experience|competency.
+  hub?: string | null;
   createdBy: string | null;
 }): Promise<LineOpeningWindowDto[]> {
   const weekRow = await loadWeekRow(input.weekId);
+  const org = input.organizationSlug ?? null;
+  const hub = input.hub ?? null;
+  if (hub !== null && !isLineOpeningWindowHub(hub)) {
+    throw new LineOpeningWindowError(400, "유효하지 않은 라인 종류(hub)입니다");
+  }
 
   // 대상 activity_type_id 집합 결정. null 항목 1개 = 전체.
   let targetActivityTypeIds: Array<string | null>;
@@ -341,17 +401,23 @@ export async function createLineOpeningWindows(input: {
 
   const results: LineOpeningWindowDto[] = [];
   for (const activityTypeId of targetActivityTypeIds) {
-    // 기존 행(active/inactive 무관) 탐색 — 중복 방지 + 재활성.
-    const existingQuery = supabaseAdmin
+    // 기존 행(active/inactive 무관) 탐색 — (week_id, org, hub, activity_type_id) 조합 중복 방지 + 재활성.
+    let existingQuery = supabaseAdmin
       .from("line_opening_windows")
       .select(
-        "id,week_id,activity_type_id,allow_opening,is_active,created_by,created_at,updated_at",
+        "id,week_id,organization_slug,hub,activity_type_id,allow_opening,is_active,created_by,created_at,updated_at",
       )
       .eq("week_id", weekRow.id);
-    const { data: existingRows, error: exErr } = await (activityTypeId === null
-      ? existingQuery.is("activity_type_id", null)
-      : existingQuery.eq("activity_type_id", activityTypeId)
-    ).limit(1);
+    existingQuery =
+      org === null
+        ? existingQuery.is("organization_slug", null)
+        : existingQuery.eq("organization_slug", org);
+    existingQuery = hub === null ? existingQuery.is("hub", null) : existingQuery.eq("hub", hub);
+    existingQuery =
+      activityTypeId === null
+        ? existingQuery.is("activity_type_id", null)
+        : existingQuery.eq("activity_type_id", activityTypeId);
+    const { data: existingRows, error: exErr } = await existingQuery.limit(1);
     if (exErr) throw new LineOpeningWindowError(500, exErr.message);
 
     const existing = (existingRows ?? [])[0] as WindowRow | undefined;
@@ -362,7 +428,7 @@ export async function createLineOpeningWindows(input: {
         .update({ is_active: true, allow_opening: true })
         .eq("id", existing.id)
         .select(
-          "id,week_id,activity_type_id,allow_opening,is_active,created_by,created_at,updated_at",
+          "id,week_id,organization_slug,hub,activity_type_id,allow_opening,is_active,created_by,created_at,updated_at",
         )
         .single();
       if (uErr) throw new LineOpeningWindowError(500, uErr.message);
@@ -372,13 +438,15 @@ export async function createLineOpeningWindows(input: {
         .from("line_opening_windows")
         .insert({
           week_id: weekRow.id,
+          organization_slug: org,
+          hub,
           activity_type_id: activityTypeId,
           allow_opening: true,
           is_active: true,
           created_by: input.createdBy,
         })
         .select(
-          "id,week_id,activity_type_id,allow_opening,is_active,created_by,created_at,updated_at",
+          "id,week_id,organization_slug,hub,activity_type_id,allow_opening,is_active,created_by,created_at,updated_at",
         )
         .single();
       if (iErr) throw new LineOpeningWindowError(500, iErr.message);
@@ -394,6 +462,8 @@ function rowToBareDto(r: WindowRow, weekRow: WeekRow): LineOpeningWindowDto {
   return {
     id: r.id,
     weekId: r.week_id,
+    organizationSlug: r.organization_slug,
+    hub: r.hub,
     activityTypeId: r.activity_type_id,
     allowOpening: r.allow_opening,
     isActive: r.is_active,
@@ -490,17 +560,22 @@ export async function listExceptionWeekFormOptions(
 // 아니면 특정 활동 유형들의 합집합.
 // ─────────────────────────────────────────────────────────────────────────
 
-export async function listActiveExceptionWeeks(): Promise<ActiveExceptionWeek[]> {
+export async function listActiveExceptionWeeks(
+  org: string | null = null,
+  hub: string | null = null,
+): Promise<ActiveExceptionWeek[]> {
   const { data, error } = await supabaseAdmin
     .from("line_opening_windows")
-    .select("week_id,activity_type_id")
+    .select("week_id,organization_slug,hub,activity_type_id")
     .eq("is_active", true)
     .eq("allow_opening", true);
   if (error) throw new LineOpeningWindowError(500, error.message);
-  const rows = (data ?? []) as Array<{
+  const rows = ((data ?? []) as Array<{
     week_id: string;
+    organization_slug: string | null;
+    hub: string | null;
     activity_type_id: string | null;
-  }>;
+  }>).filter((r) => scopeApplies(r, org, hub));
   if (rows.length === 0) return [];
 
   // 주차별 병합.

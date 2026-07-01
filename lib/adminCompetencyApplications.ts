@@ -10,7 +10,10 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadCrewRecords } from "@/lib/cluster4CafeLineMatch";
 import { listCrewsForTargetSelection } from "@/lib/adminExperienceLineData";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
-import { assertUserIdsInScope, resolveUserScope } from "@/lib/userScope";
+import {
+  assertUserIdsInScope,
+  resolveUserScope,
+} from "@/lib/userScope";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import type { OrganizationSlug } from "@/lib/organizations";
 
@@ -166,8 +169,12 @@ export async function getCompetencyApplicationSummary(
 ): Promise<CompetencyApplicationSummary> {
   const [rows, activeList] = await Promise.all([
     loadApplicationRows(org, weekId),
-    // 활동 크루 모집단 = 현재 모드(operating=실사용자 / test=test_user_markers) — listCrews 가 mode 스코프 적용.
-    listCrewsForTargetSelection({ organization: org, status: "active", mode }).catch(() => []),
+    // 활동 크루 모집단 = QA_HIDE_REAL_USERS 스위치 기준(QA=테스트 유저 / 종료 후=실사용자) — listCrews 가 스코프 적용.
+    listCrewsForTargetSelection({
+      organization: org,
+      status: "active",
+      mode,
+    }).catch(() => []),
   ]);
   // 활동 크루 = 휴식 제외 + 현재 모드 모집단. 강화 결과 분모 = 활동 크루(미신청 포함).
   const activeIds = new Set(activeList.map((c) => c.userId));
@@ -230,8 +237,12 @@ export async function getCompetencyLineResults(
 ): Promise<CompetencyLineResultDto[]> {
   const [rows, activeList, records] = await Promise.all([
     loadApplicationRows(org, weekId),
-    // 활동 대상 크루 모집단 = 현재 모드 스코프(집계 카드 분모와 동일 source).
-    listCrewsForTargetSelection({ organization: org, status: "active", mode }).catch(() => []),
+    // 활동 대상 크루 모집단 = 현재 스코프(집계 카드 분모와 동일 source).
+    listCrewsForTargetSelection({
+      organization: org,
+      status: "active",
+      mode,
+    }).catch(() => []),
     loadCrewRecords().catch(() => []),
   ]);
   const byUser = new Map(records.map((r) => [r.userId, r]));
@@ -362,6 +373,7 @@ export type ApprovalReflectResult = {
   openedLines: number;
   rejectedCrews: number;
   affectedUserIds: string[];
+  openedLineIds: string[];
 };
 
 // 라인 타깃 생성 전 사전 가드(write 0) — 승인 신청 대상 전원이 현재 모드 모집단에 부합하는지 검증.
@@ -386,14 +398,20 @@ export async function openApprovedApplications(input: {
   outputLink1: string | null;
   description: string | null;
   adminId: string | null;
-  // 운영/테스트 모집단 — 라인 타깃(cluster4_line_targets) 생성 직전 fail-closed 가드.
+  // 모집단(QA_HIDE_REAL_USERS 기준) — 라인 타깃(cluster4_line_targets) 생성 직전 fail-closed 가드.
   mode?: ScopeMode;
 }): Promise<ApprovalReflectResult> {
   const rows = await loadApplicationRows(input.org, input.weekId);
   // 아직 개설 안 된 신청만 처리(opened 재처리 방지 — 멱등).
   const pending = rows.filter((r) => r.resolution !== "opened");
   if (pending.length === 0) {
-    return { openedCrews: 0, openedLines: 0, rejectedCrews: 0, affectedUserIds: [] };
+    return {
+      openedCrews: 0,
+      openedLines: 0,
+      rejectedCrews: 0,
+      affectedUserIds: [],
+      openedLineIds: [],
+    };
   }
 
   // ── 모드 스코프 가드(fail-closed) ─────────────────────────────────────────
@@ -432,6 +450,7 @@ export async function openApprovedApplications(input: {
   const link1 = (input.outputLink1 ?? "").trim() || null;
   const desc = (input.description ?? "").trim();
   const affected = new Set<string>();
+  const openedLineIds: string[] = [];
   const openedLineKeys = new Set<string>();
   let openedCrews = 0;
   let rejectedCrews = 0;
@@ -478,6 +497,7 @@ export async function openApprovedApplications(input: {
       continue;
     }
     const lineId = (lineRow as { id: string }).id;
+    openedLineIds.push(lineId);
     const { data: tgtRow, error: tgtErr } = await supabaseAdmin
       .from("cluster4_line_targets")
       .insert({
@@ -515,6 +535,7 @@ export async function openApprovedApplications(input: {
     openedLines: openedLineKeys.size,
     rejectedCrews,
     affectedUserIds: Array.from(affected),
+    openedLineIds,
   };
 }
 

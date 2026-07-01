@@ -5,7 +5,6 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import { isOrganizationSlug } from "@/lib/organizations";
-import { readScopeMode } from "@/lib/userScope";
 import {
   cancelCompetencyHub,
   openCompetencyHub,
@@ -62,7 +61,7 @@ export async function POST(request: NextRequest) {
   // 대시보드에서 선택한 개설 주차(허용 예외 포함). 미지정=정규 개설 대상 주차.
   const weekId = typeof b.week_id === "string" && b.week_id.trim() ? b.week_id.trim() : null;
   // 운영/테스트 모드 — 개설 완료 시 신청/승인 명단 기반 라인 타깃 생성 가드로 전달.
-  const mode = readScopeMode(request.nextUrl.searchParams);
+  const mode = "operating";
 
   try {
     const data =

@@ -11,7 +11,10 @@ import {
   filterCrewRecords,
 } from "@/lib/cluster4CafeLineMatch";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
-import { resolveUserScope, readScopeMode } from "@/lib/userScope";
+import {
+  readScopeMode,
+  resolveUserScope,
+} from "@/lib/userScope";
 import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
 
 // 현재 URL org 컨텍스트 → organization_slug. 라인 개설 크루는 해당 조직 소속만 매칭한다(org 격리).
@@ -26,10 +29,9 @@ function readOrganization(request: NextRequest): OrganizationSlug | null {
 // 이름만으로 조직/모드를 무시하고 매칭하지 않도록, 매칭 입력 자체를 이 모집단으로 좁힌다.
 async function loadScopedCrews(request: NextRequest) {
   const organization = readOrganization(request);
-  const scope = await resolveUserScope(
-    readScopeMode(request.nextUrl.searchParams),
-    organization,
-  );
+  // 라인 개설 크루 후보 = 현재 모집단(QA_HIDE_REAL_USERS=true 면 test 유저 / 종료 후 실사용자).
+  //   화면에 보이는 후보 == 개설 대상이 항상 같은 축(단일 스위치).
+  const scope = await resolveUserScope(readScopeMode(request.nextUrl.searchParams), organization);
   const crews = await loadCrewRecords(organization);
   const scoped = scope.filter(crews, (c) => c.userId);
   // 라인 개설/수정 후보 한정: 현재 시즌 전체 휴식자(user_season_statuses(현재시즌,rest))를 후보에서 제외한다.

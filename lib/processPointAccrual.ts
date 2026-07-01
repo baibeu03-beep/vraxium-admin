@@ -60,14 +60,16 @@ export type AccrualResult =
   | { ok: true; accruedUserIds: string[]; skipped?: false }
   | { ok: true; skipped: true; reason: string; accruedUserIds: [] };
 
-// era 경계(순수) — operating=summer 이후 / test=+휴식꼬리 예외 주차(공통 SoT, 현재 2026-spring W13).
+// era 경계(순수) — operating 정책 단일 기준(slot effective_from 이후 주차만 적립).
+//   ⚠ 2026-07-01: 테스트 전용 W13 예외는 폐지됨(isCluster4TestExceptionWeek 는 항상 false).
+//     주차 판정은 operating 그대로이며 QA 모집단 스위치와 무관하다.
 export function isAccrualAllowedWeek(mode: ScopeMode, week: {
   start_date: string;
   season_key: string | null;
   week_number: number | null;
 }): boolean {
-  if (week.start_date >= CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) return true; // operating+test
-  // 테스트 예외 주차(2026-spring W13 등)는 공통 정책 단일 출처로 판정 — 하드코딩 제거.
+  if (week.start_date >= CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM) return true;
+  // 폐지된 예외 경로(항상 false) — 시그니처 호환용 잔존. 신규 예외를 여기에 추가하지 말 것.
   if (isCluster4TestExceptionWeek(mode, week.season_key, week.week_number)) return true;
   return false;
 }

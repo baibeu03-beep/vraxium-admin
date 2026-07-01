@@ -12,7 +12,7 @@
 //   C5 user_snapshot  : recomputeWeeklyCardsSnapshotsForUsers(선택한 test userIds, fail-closed)
 //                       = 기존 POST /api/admin/cluster4/recompute-user-snapshots 가 부르는 함수
 //
-// qaFixedScope 공존: 본 모듈의 test 한정은 lib/qaFixedScope(QA_FIXED_TEST_ONLY 전역 스위치)와
+// qaFixedScope 공존: 본 모듈의 test 한정은 lib/qaFixedScope(QA_HIDE_REAL_USERS 전역 스위치)와
 //   독립이다 — 스위치가 켜져 있든 꺼져 있든 run-now 는 항상 test_user_markers 로 자체 fail-closed
 //   한다(이중 방어). 두 메커니즘은 충돌하지 않으며 서로의 동작을 바꾸지 않는다.
 //

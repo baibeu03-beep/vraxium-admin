@@ -612,11 +612,8 @@ export default function PracticalExperienceManager() {
       });
       const org = readOrgParam(new URLSearchParams(window.location.search));
       if (org) qs.set("organization", org);
-      // ⚠ QA 누수 차단: 라인 대상자(개설 대상 크루)도 mode 전달 필수 — 미전달=operating(실사용자 라인) 노출.
-      const scopeMode = readScopeMode(new URLSearchParams(window.location.search));
-      const res = await fetch(
-        appendModeQuery(`/api/admin/cluster4/lines?${qs.toString()}`, scopeMode),
-      );
+      // 라인 대상자 모집단 = 서버 QA_HIDE_REAL_USERS 스위치 기준(QA=테스트 / 종료 후 실사용자).
+      const res = await fetch(`/api/admin/cluster4/lines?${qs.toString()}`);
       const json = await res.json();
       if (json.success) {
         setExpLines(json.data.rows ?? []);
@@ -837,18 +834,13 @@ export default function PracticalExperienceManager() {
       if (initialWeekId && !selectedWeekId) setSelectedWeekId(initialWeekId);
 
       const orgParam = org ? `?organization=${org}` : "";
-      // 팀 목록 스코프(operating=운영 팀만 / test=(T) 팀만) — URL ?mode 보존(서버 listTeams 가 filterTeamsByScope 적용).
-      const scopeMode = readScopeMode(new URLSearchParams(window.location.search));
+      // 팀/크루 모집단 = 서버 QA_HIDE_REAL_USERS 스위치 기준(QA=테스트 / 종료 후 실사용자). 클라 강제 없음.
       const [teamsRes, mastersRes, crewsRes] = await Promise.all([
-        fetch(appendModeQuery(`/api/admin/cluster4/teams${orgParam}`, scopeMode)),
+        fetch(`/api/admin/cluster4/teams${orgParam}`),
         // 라인 등록 데이터는 조직별 권한 분리 전 단계라 전체 조직을 조회한다.
         fetch(`/api/admin/cluster4/experience-line-masters`),
-        // ⚠ QA 누수 차단: 개설 대상 크루(crews)는 mode 전달 필수(미전달=operating 기본 → 실사용자 노출).
         fetch(
-          appendModeQuery(
-            `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`,
-            scopeMode,
-          ),
+          `/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`,
         ),
       ]);
 

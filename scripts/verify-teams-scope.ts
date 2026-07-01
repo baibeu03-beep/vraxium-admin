@@ -5,7 +5,7 @@
 
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { isTestTeam } from "@/lib/cluster4ExperienceTestScope";
-import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { readFileSync } from "node:fs";
@@ -33,11 +33,11 @@ const hasTestTeam = (teams: Array<{ teamName: string }>) =>
   teams.filter((t) => isTestTeam(ORG, t.teamName)).length;
 const allTestTeam = (teams: Array<{ teamName: string }>) =>
   teams.length > 0 && teams.every((t) => isTestTeam(ORG, t.teamName));
-// QA 고정 필터(QA_FIXED_TEST_ONLY): QA 기간엔 operating 도 test 축 → (T) 팀만.
+// QA 실사용자 숨김(QA_HIDE_REAL_USERS): QA 기간엔 operating 도 test 축 → (T) 팀만.
 //   operating 기대: QA 중 = 전원 (T) / QA 종료 후 = (T) 0개.
 const opOk = (teams: Array<{ teamName: string }>) =>
-  QA_FIXED_TEST_ONLY ? allTestTeam(teams) : hasTestTeam(teams) === 0;
-const opLabel = QA_FIXED_TEST_ONLY ? "전원 (T)(QA)" : "(T) 0개";
+  QA_HIDE_REAL_USERS ? allTestTeam(teams) : hasTestTeam(teams) === 0;
+const opLabel = QA_HIDE_REAL_USERS ? "전원 (T)(QA)" : "(T) 0개";
 
 async function main() {
   // ── 세션 쿠키(magiclink) ──

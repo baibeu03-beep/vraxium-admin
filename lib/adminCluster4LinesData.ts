@@ -1,7 +1,13 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isUuid } from "@/lib/isUuid";
-import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
-import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
+import {
+  invalidateWeeklyCardsForUsers,
+  markWeeklyCardsSnapshotStaleMany,
+} from "@/lib/cluster4WeeklyCardsSnapshot";
+import {
+  resolveUserScope,
+  type ScopeMode,
+} from "@/lib/userScope";
 import type {
   Cluster4InfoLineDetail,
   Cluster4InfoLineTargetDetail,
@@ -481,6 +487,46 @@ async function invalidateWeeklyCardsForLineChange(
     ids = scope.filter(ids);
   }
   await invalidateWeeklyCardsForUsers(ids);
+}
+
+// 라인 "개설" 무효화 단일 기준(3허브 통일 SoT — info/experience/competency 동일).
+// ─────────────────────────────────────────────────────────────────────────────
+// 정책(cluster4Enhancement): 개설된 라인은 배정 크루뿐 아니라 org audience 전원의 분모 A
+//   (synthetic fail: info 개설+미배정=fail, experience 필수슬롯 미개설=fail, competency 미배정+개설=fail)
+//   에 반영된다. 따라서 개설 시 "배정 타깃 + org audience" 를 함께 무효화해야 비배정 크루 카드가
+//   stale(is_stale=false인데 분모 변경) 로 남지 않는다. 과거엔 info 만 targets-only(+lazy 수렴)로
+//   달랐으나(구현 드리프트), 이 헬퍼 하나로 통일한다.
+//
+// 무효화 전략(3허브 동일):
+//   1) 배정 타깃    → invalidateWeeklyCardsForUsers(≤10 즉시 재계산) : 개설 크루가 곧바로 반영됨.
+//   2) 그 외 audience → markWeeklyCardsSnapshotStaleMany(청크) 로 stale 마킹만 : 분모 A 변경을
+//      각자 조회 시 lazy 재계산으로 수렴(대량 729명 즉시 재계산 herd 회피 · snapshot-only 정합).
+// 스코프: resolveUserScope(mode) 로 현재 모집단만(QA=test / 운영=실유저) — 교차 모드 실유저 무접촉.
+export async function invalidateWeeklyCardsForLineOpen(
+  lineId: string,
+  targetUserIds: ReadonlyArray<string>,
+  mode: ScopeMode,
+): Promise<void> {
+  const scope = await resolveUserScope(mode, null);
+  const targets = scope.filter(
+    Array.from(new Set(targetUserIds.filter((u): u is string => Boolean(u)))),
+  );
+  // 1) 배정 타깃: 즉시 반영 경로(개설 크루가 자기 카드에서 바로 본다).
+  if (targets.length > 0) await invalidateWeeklyCardsForUsers(targets);
+
+  // 2) org audience(분모 A) 중 배정 외 나머지: stale 마킹만 → lazy-on-read 로 수렴.
+  let audience: string[] = [];
+  try {
+    audience = await collectLineOrgAudience(lineId);
+  } catch (e) {
+    console.warn("[cluster4/lines] line-open org audience 산정 실패 (배정자만 무효화)", {
+      lineId,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+  const targetSet = new Set(targets);
+  const rest = scope.filter(audience).filter((id) => !targetSet.has(id));
+  if (rest.length > 0) await markWeeklyCardsSnapshotStaleMany(rest);
 }
 
 // 라인에 연결된 대상자(target_mode='user') + org 노출 audience 의 weekly-card snapshot 을 무효화한다.
@@ -1741,9 +1787,9 @@ export async function listCluster4LinesDetailed(
   }
 
   // QA 스코프 정책(2026-07-01): 라인(cluster4_lines)은 운영 그대로 전부 노출하고,
-  //   대상 크루(cluster4_line_targets)만 현재 모집단(QA=test)으로 좁힌다.
-  //   → 고객앱과 어드민의 line_id 집합이 항상 일치하고, 대상자 목록/카운트만 T 로 필터된다.
-  //   (라인이 test scope 로 사라지지 않는다 — 실사용자는 대상자 표시에서만 숨겨진다.)
+  //   대상 크루(cluster4_line_targets)만 현재 모집단(QA_HIDE_REAL_USERS=true 면 test)으로 좁힌다.
+  //   → 고객앱과 어드민의 line_id 집합이 항상 일치하고, 대상자 목록/카운트만 모집단으로 필터된다.
+  //   (라인이 사라지지 않는다 — 실사용자는 대상자 "표시"에서만 숨겨진다. 화면=write 대상 동일 축.)
   const targetScope = await resolveUserScope(options.mode ?? "operating", null);
 
   const rows: Cluster4InfoLineDetail[] = lineRows.map((line) => {

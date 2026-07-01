@@ -46,6 +46,7 @@ export default function ProcessIrregularDialog({
   crewReaction,
   organization,
   mode,
+  weekId = null,
   onClose,
   onDone,
 }: {
@@ -53,6 +54,8 @@ export default function ProcessIrregularDialog({
   crewReaction: IrregularCrewReaction;
   organization: string;
   mode: ScopeMode;
+  // 선택 주차(weeks.id) — 예외 허용 주차에 생성 시 보드와 동일 주차로 write. 미부착=현재 주차.
+  weekId?: string | null;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -131,6 +134,7 @@ export default function ProcessIrregularDialog({
         body: JSON.stringify({
           organization,
           ...(mode === "test" ? { mode: "test" } : {}),
+          ...(weekId ? { week: weekId } : {}),
           kind: "review_request",
           act_name: actName.trim(),
           duration_minutes: duration.trim() ? Number(duration) : null,

@@ -57,9 +57,13 @@ export async function isWeekOfficialRestById(
 //   (호출부의 기존 주차 404 처리에 위임 — 휴식 판정과 별개 사유).
 //   단, 운영자가 등록한 "해당 주차 전체(scope=all)" 라인 개설 예외가 활성이면 휴식 차단을
 //   덮어쓴다(info-lines 게이트와 동일 정책 — 세 허브 공용). 예외 없으면 종전대로 422.
-export async function assertWeekOpenable(weekId: string): Promise<void> {
+export async function assertWeekOpenable(
+  weekId: string,
+  org: string | null = null,
+  hub: string | null = null,
+): Promise<void> {
   const { rest } = await isWeekOfficialRestById(weekId);
-  if (rest && !(await hasActiveAllLineException(weekId))) {
+  if (rest && !(await hasActiveAllLineException(weekId, org, hub))) {
     throw Object.assign(
       new Error("공식 휴식 주차에는 라인을 개설할 수 없습니다."),
       { status: 422 },

@@ -6,7 +6,9 @@ import {
 } from "@/lib/adminExperienceDraftTypes";
 import { openExperienceDrafts } from "@/lib/adminExperienceDraftData";
 import {
-  assertUsersInRequestScope,
+  assertUserIdsInScope,
+  resolveUserScope,
+  readScopeMode,
   getExperienceDraftTargetUserIds,
 } from "@/lib/userScope";
 
@@ -32,10 +34,10 @@ export async function POST(request: NextRequest) {
     return Response.json({ success: false, error: parsed.error }, { status: parsed.status });
   }
   try {
-    await assertUsersInRequestScope(
-      request,
+    const scope = await resolveUserScope(readScopeMode(request.nextUrl.searchParams), null);
+    assertUserIdsInScope(
+      scope,
       await getExperienceDraftTargetUserIds(parsed.value.draftIds),
-      { bodyMode: (body as { mode?: unknown }).mode },
     );
   } catch (error) {
     return Response.json(

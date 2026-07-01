@@ -2,14 +2,10 @@ import { NextRequest } from "next/server";
 import { requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { isUuid } from "@/lib/isUuid";
 import { isOrganizationSlug } from "@/lib/organizations";
-import {
-  assertUserIdsInScope,
-  readScopeMode,
-  resolveUserScope,
-} from "@/lib/userScope";
+import { assertUserIdsInScope, resolveUserScope, readScopeMode } from "@/lib/userScope";
+import { invalidateWeeklyCardsForLineOpen } from "@/lib/adminCluster4LinesData";
 import { getRegistrationByBridgedMasterId } from "@/lib/lineRegistrationLookup";
 import {
   type Cluster4OutputLink,
@@ -187,11 +183,13 @@ export async function POST(request: NextRequest) {
   //   info-lines/competency-lines POST 와 동일 가드. 개설 대상(target_user_ids)은 (현재 org 소속)
   //   AND (현재 mode 모집단) 둘 다여야 한다. operating=실사용자만 / test=test_user_markers 만.
   //   org 지정(?organization) 시 전원 그 org 소속이어야(동명이인 타org 차단). 위반 시 DB write 0.
-  const scopeMode = readScopeMode(request.nextUrl.searchParams);
   const scopeOrgRaw = request.nextUrl.searchParams.get("organization")?.trim() || null;
   const scopeOrg = isOrganizationSlug(scopeOrgRaw) ? scopeOrgRaw : null;
+  const scopeMode = readScopeMode(request.nextUrl.searchParams);
 
-  // 1) mode 가드 — test_user_markers 등재 여부 축(operating↔test 혼입 422).
+  // 1) 개설 대상(target_user_ids)은 현재 모집단에 부합해야 한다 — 다른 라인개설 경로(info/competency)와
+  //    동일하게 QA_HIDE_REAL_USERS 기준 population 게이트를 쓴다. QA 기간엔 화면에 보인 test 크루 ==
+  //    개설 대상(test 유저)로 통일되고, 운영 복귀 후엔 실사용자로 통일된다.
   try {
     const scope = await resolveUserScope(scopeMode, scopeOrg);
     assertUserIdsInScope(scope, input.target_user_ids);
@@ -329,9 +327,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 대상자 weekly-cards snapshot 즉시 재계산 → 고객 앱에 실제 라인이 바로 내려오게 한다.
-    // (cron 축소로 stale-only 는 미반영) ≤10명 즉시 / >10명 백그라운드. best-effort.
-    await invalidateWeeklyCardsForUsers(input.target_user_ids);
+    // weekly-cards snapshot 무효화 = 3허브 통일 헬퍼(info/competency 와 동일 기준):
+    //   배정 타깃(즉시 재계산 → 개설 크루 바로 반영) + org audience 분모 A(stale→lazy 수렴).
+    //   스코프는 헬퍼가 mode 로 적용(교차 모드 실유저 무접촉 — 과거 experience 는 스코프 미적용이었음).
+    await invalidateWeeklyCardsForLineOpen(lineRow.id, input.target_user_ids, scopeMode);
 
     return Response.json(
       {

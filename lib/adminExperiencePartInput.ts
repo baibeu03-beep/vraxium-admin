@@ -324,7 +324,8 @@ export async function savePartSubmission(input: {
   mode?: ScopeMode;
 }): Promise<{ submitted: true }> {
   // 0a. 공식 휴식 주차 차단(UI canOpen 과 동일 판정) — operating/test 무관, write 전 422.
-  await assertWeekOpenable(input.weekId);
+  //   예외(line_opening_windows)는 org+hub 스코프 판정(Encre+실무경험 등록 시 그 org·경험만 통과).
+  await assertWeekOpenable(input.weekId, input.organization, "experience");
 
   // 0b. 안전장치 — 셀의 crew userId 가 현재 모드 스코프에 전원 부합하는지 검증(헤더 upsert 전).
   //    operating: 테스트 계정이 / test: 실사용자가 하나라도 섞이면 422 로 중단.

@@ -12,7 +12,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { isTestTeam, TEST_TEAM_SCOPE } from "@/lib/cluster4ExperienceTestScope";
-import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 
 const ORGS = ["encre", "oranke", "phalanx"];
 
@@ -23,7 +23,7 @@ function chunk<T>(a: T[], n: number): T[][] {
 }
 
 async function main() {
-  console.log(`QA_FIXED_TEST_ONLY = ${QA_FIXED_TEST_ONLY}\n`);
+  console.log(`QA_HIDE_REAL_USERS = ${QA_HIDE_REAL_USERS}\n`);
   const testIds = [...(await fetchTestUserMarkerIds())];
   console.log(`test_user_markers 총 ${testIds.length}명\n`);
 

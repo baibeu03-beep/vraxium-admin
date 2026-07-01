@@ -51,6 +51,7 @@ export default function ProcessCheckManualGrantDialog({
   teamId = null,
   scope = null,
   partName = null,
+  weekId = null,
   onClose,
   onDone,
 }: {
@@ -61,6 +62,8 @@ export default function ProcessCheckManualGrantDialog({
   teamId?: string | null; // experience 섹션.1 선택 팀(POST team_id). 비팀 허브=null.
   scope?: ProcessCheckScopeKind | null; // experience 팀·파트 스코프(team_overall|part).
   partName?: string | null; // part 스코프일 때 선택 파트명.
+  // 선택 주차(weeks.id) — 예외 허용 주차 저장 시 보드와 동일 주차로 write. 미부착=현재 주차.
+  weekId?: string | null;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -184,6 +187,7 @@ export default function ProcessCheckManualGrantDialog({
           ...(scope ? { scope } : {}),
           ...(scope === "part" && partName ? { part_name: partName } : {}),
           ...(mode === "test" ? { mode: "test" } : {}),
+          ...(weekId ? { week: weekId } : {}),
           act_name: actName.trim(),
           target_user_ids: roster.map((c) => c.userId),
           duration_minutes: duration.trim() ? Number(duration) : null,

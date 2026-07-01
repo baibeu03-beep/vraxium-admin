@@ -307,16 +307,13 @@ export default function PracticalCompetencyManager() {
       const linesQs = new URLSearchParams({ partType: "competency", limit: "100" });
       const urlOrg = readOrgParam(new URLSearchParams(window.location.search));
       if (urlOrg) linesQs.set("organization", urlOrg);
-      // 팀 목록 스코프(operating=운영 팀만 / test=(T) 팀만) — URL ?mode 보존(서버 listTeams 가 filterTeamsByScope 적용).
-      const scopeMode = readScopeMode(new URLSearchParams(window.location.search));
+      // 팀/라인/크루 모집단 = 서버 QA_HIDE_REAL_USERS 스위치 기준(QA=테스트 / 종료 후 실사용자). 클라 강제 없음.
       const [teamsRes, mastersRes, linesRes, crewsRes] = await Promise.all([
-        fetch(appendModeQuery(`/api/admin/cluster4/teams${orgParam}`, scopeMode)),
+        fetch(`/api/admin/cluster4/teams${orgParam ?? ""}`),
         // 라인 등록 데이터는 조직별 권한 분리 전 단계라 전체 조직을 조회한다.
         fetch(`/api/admin/cluster4/competency-line-masters`),
-        // ⚠ QA 누수 차단: 라인 대상자(개설 대상 크루)도 mode 전달 필수 — 미전달=operating(실사용자 라인) 노출.
-        fetch(appendModeQuery(`/api/admin/cluster4/lines?${linesQs.toString()}`, scopeMode)),
-        // ⚠ QA 누수 차단: 개설 대상 크루(crews)는 mode 전달 필수(미전달=operating 기본 → 실사용자 노출).
-        fetch(appendModeQuery(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`, scopeMode)),
+        fetch(`/api/admin/cluster4/lines?${linesQs.toString()}`),
+        fetch(`/api/admin/cluster4/crews${orgParam ? orgParam + "&" : "?"}status=active`),
       ]);
       const teamsJson = await teamsRes.json(); if (teamsJson.success) setTeams(teamsJson.data);
       const mastersJson = await mastersRes.json(); if (mastersJson.success) setMasters(mastersJson.data);
@@ -332,8 +329,7 @@ export default function PracticalCompetencyManager() {
     if (!adminOrg) return;
     const params = new URLSearchParams(); params.set("organization", adminOrg);
     if (crewFilterStatus) params.set("status", crewFilterStatus);
-    const scopeMode = readScopeMode(new URLSearchParams(window.location.search)); // QA 누수 차단
-    try { const res = await fetch(appendModeQuery(`/api/admin/cluster4/crews?${params}`, scopeMode)); const json = await res.json(); if (json.success) setCrews(json.data); } catch { /* silent */ }
+    try { const res = await fetch(`/api/admin/cluster4/crews?${params}`); const json = await res.json(); if (json.success) setCrews(json.data); } catch { /* silent */ }
   }, [adminOrg, crewFilterStatus]);
 
   useEffect(() => { if (SHOW_LEGACY_SECTIONS && !loading) refetchCrews(); }, [crewFilterStatus]); // eslint-disable-line react-hooks/exhaustive-deps

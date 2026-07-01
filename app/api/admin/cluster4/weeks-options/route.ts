@@ -16,7 +16,11 @@ import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import { matchOfficialRestPeriods } from "@/lib/officialRestPeriodsTypes";
 import { readScopeMode } from "@/lib/userScopeShared";
 import { resolveCluster4TestOpenableWeekStartMs } from "@/lib/cluster4TestWeekPolicy";
-import { getActiveAllLineExceptionWeekIds } from "@/lib/lineOpeningWindowsData";
+import {
+  getActiveAllLineExceptionWeekIds,
+  isLineOpeningWindowHub,
+} from "@/lib/lineOpeningWindowsData";
+import { isOrganizationSlug } from "@/lib/organizations";
 
 // 라인 개설 어드민 UI 에서 사용하는 "최근 주차 옵션" 엔드포인트.
 // 현재 주차 N 을 포함해 직전 몇 주(N-1, N-2 ...) 까지 weeks 테이블에서 매칭한 행만 돌려준다.
@@ -164,9 +168,14 @@ export async function GET(request: NextRequest) {
 
     // 날짜형 공식 휴식(설/추석/임시) — 활성 official_rest_periods 1회 prefetch.
     const activeRestPeriods = await fetchActiveRestPeriods();
-    // "해당 주차 전체(scope=all)" 활성 라인 개설 예외 week_id 집합 — 1회 prefetch.
-    //   휴식 주차라도 이 예외가 있으면 canOpen=true 로 열어 세 허브(정보/경험/역량)가 개설 가능.
-    const exceptionWeekIds = await getActiveAllLineExceptionWeekIds();
+    // "해당 주차 전체(허브 전체)" 활성 라인 개설 예외 week_id 집합 — org+hub 스코프로 1회 prefetch.
+    //   휴식 주차라도 이 예외가 있으면 canOpen=true 로 열어 해당 org·hub 드롭다운에서 개설 가능.
+    //   ?org·?hub 미지정(예: 통합/기타 호출)은 '전체/전체' 예외만 반영(스코프 격리).
+    const orgParam = searchParams.get("org")?.trim() || null;
+    const org = isOrganizationSlug(orgParam) ? orgParam : null;
+    const hubParam = searchParams.get("hub")?.trim() || null;
+    const hub = isLineOpeningWindowHub(hubParam) ? hubParam : null;
+    const exceptionWeekIds = await getActiveAllLineExceptionWeekIds(org, hub);
 
     type WeekRow = {
       id: string;

@@ -96,6 +96,9 @@ export async function POST(request: NextRequest) {
     return Response.json({ success: false, error: "organization 은 유효한 조직이어야 합니다" }, { status: 400 });
   }
   const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
+  // 선택 주차(weeks.id) — 현재와 다르면 데이터레이어가 활성 예외("irregular")일 때만 허용. 미부착=현재 주차.
+  const weekRaw = typeof b.week === "string" && b.week.trim() ? b.week.trim() : null;
+  const selectedWeekId = weekRaw && UUID_RE.test(weekRaw) ? weekRaw : null;
 
   // 대상 크루 명단(수동 입력) — 배열의 각 id uuid 형식 검증.
   const targetIds = Array.isArray(b.target_user_ids) ? b.target_user_ids : [];
@@ -121,6 +124,7 @@ export async function POST(request: NextRequest) {
             pointC: b.point_c,
             crewReaction: b.crew_reaction,
             pointMode: b.point_mode,
+            weekId: selectedWeekId,
           })
         : await createIrregularAct({
             organization: orgRaw,
@@ -137,6 +141,7 @@ export async function POST(request: NextRequest) {
             pointMode: b.point_mode,
             reviewLink: b.review_link,
             scheduledCheckAt: b.scheduled_check_at,
+            weekId: selectedWeekId,
           });
     return Response.json({ success: true, data }, { status: 201 });
   } catch (error) {

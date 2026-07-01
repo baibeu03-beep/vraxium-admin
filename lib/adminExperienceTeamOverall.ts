@@ -800,7 +800,8 @@ export async function openTeamOverall(input: {
 }): Promise<OpenOverallResult> {
   const mode: ScopeMode = input.mode ?? "operating";
   // 공식 휴식 주차 차단(UI canOpen 과 동일 판정) — operating/test 무관, 모든 write 전 422.
-  await assertWeekOpenable(input.weekId);
+  //   예외(line_opening_windows)는 org+hub 스코프로 판정(Encre+실무경험 등록 시 그 org·경험만 통과).
+  await assertWeekOpenable(input.weekId, input.organization, "experience");
 
   const existing = await loadOverallStored(input.organization, input.weekId, input.teamId);
   if (existing.status === "opened") {

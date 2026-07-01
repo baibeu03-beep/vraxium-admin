@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
-import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   formatBannerPeriod,
   formatFullDateRangeKo,
@@ -56,7 +55,6 @@ export default function CompetencyOpeningDashboard() {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
   // 운영/테스트 모드 — 개설 완료 시 라인 타깃 생성 가드(서버)와 같은 모드로 판정되도록 보존.
-  const mode = readScopeMode(searchParams);
 
   const [opened, setOpened] = useState<boolean | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
@@ -106,9 +104,7 @@ export default function CompetencyOpeningDashboard() {
       if (selectedWeekId) params.set("week_id", selectedWeekId);
       const qs = params.toString() ? `?${params.toString()}` : "";
       // mode 보존 — 상태창/개설과 동일 모드로 개설 대상 주차(테스트 W13 예외)를 판정.
-      const res = await fetch(
-        appendModeQuery(`/api/admin/cluster4/competency/opening-status${qs}`, mode),
-      );
+      const res = await fetch(`/api/admin/cluster4/competency/opening-status${qs}`);
       const json = await res.json();
       if (json?.success) {
         setOpened(Boolean(json.data?.opened));
@@ -129,7 +125,7 @@ export default function CompetencyOpeningDashboard() {
     } finally {
       setLoadingStatus(false);
     }
-  }, [org, mode, selectedWeekId]);
+  }, [org, selectedWeekId]);
 
   useEffect(() => {
     void fetchStatus();
@@ -140,8 +136,11 @@ export default function CompetencyOpeningDashboard() {
     let cancelled = false;
     (async () => {
       try {
+        // ?org·?hub=competency 전달 → line_opening_windows 예외를 org+역량 스코프로만 드롭다운에 노출.
         const res = await fetch(
-          `/api/admin/cluster4/weeks-options?limit=8${mode === "test" ? "&mode=test" : ""}`,
+          `/api/admin/cluster4/weeks-options?limit=8${
+            org ? `&org=${encodeURIComponent(org)}` : ""
+          }&hub=competency`,
         );
         const json = await res.json();
         if (cancelled) return;
@@ -153,7 +152,7 @@ export default function CompetencyOpeningDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [org]);
 
   // 개설 주차 드롭다운 바깥 클릭 시 닫기.
   useEffect(() => {
@@ -203,7 +202,7 @@ export default function CompetencyOpeningDashboard() {
           body.output_description = linkDesc.trim();
         }
         const res = await fetch(
-          appendModeQuery("/api/admin/cluster4/competency/opening", mode),
+          "/api/admin/cluster4/competency/opening",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -231,7 +230,7 @@ export default function CompetencyOpeningDashboard() {
         setActing(false);
       }
     },
-    [org, mode, linkUrl, linkDesc, fetchStatus, openTargetWeek],
+    [org, linkUrl, linkDesc, fetchStatus, openTargetWeek],
   );
 
   return (

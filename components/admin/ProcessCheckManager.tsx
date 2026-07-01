@@ -527,6 +527,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           mode={mode}
           scope={teamMode ? scopeKind : null}
           partName={teamMode ? scopePartName : null}
+          weekId={selectedWeekId}
           onClose={() => setDialogAct(null)}
           onDone={refreshAfterAction}
         />
@@ -588,6 +589,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           teamId={teamMode ? effectiveTeamId : null}
           scope={teamMode ? scopeKind : null}
           partName={teamMode ? scopePartName : null}
+          weekId={selectedWeekId}
           onClose={() => setManualGrantAct(null)}
           onDone={refreshAfterAction}
         />

@@ -69,14 +69,16 @@ export async function GET(request: NextRequest) {
 
   const orgRaw = request.nextUrl.searchParams.get("organization")?.trim() || null;
   const org = isOrganizationSlug(orgRaw) ? orgRaw : null;
-  // 운영/테스트 모드 — 활동 크루 집계/결과 모집단을 결정(operating=실사용자 / test=test_user_markers).
+  // 모집단 모드 — 집계/결과 대상(QA_HIDE_REAL_USERS=true 면 test 유저 / 종료 후 실사용자). 주차는 operating.
   const mode = readScopeMode(request.nextUrl.searchParams);
 
   try {
-    // week_id 지정 시 그 주차(라인 관리 탭 드롭다운), 미지정/무효 시 개설 대상 주차.
+    // week_id 지정 시 그 주차(라인 관리 탭 드롭다운), 미지정/무효 시 개설 대상 주차(operating 주차 정책).
     const weekParam = request.nextUrl.searchParams.get("week_id")?.trim() || null;
     const weekId =
-      weekParam && isUuid(weekParam) ? weekParam : await resolveTargetWeekId(mode);
+      weekParam && isUuid(weekParam)
+        ? weekParam
+        : await resolveTargetWeekId(mode);
     if (!org || !weekId) {
       return Response.json({
         success: true,

@@ -1,8 +1,8 @@
 /**
- * 검증: 실무 경험 라인 개설 팀/파트 드롭다운 — QA 고정(QA_FIXED_TEST_ONLY) 정합.
+ * 검증: 실무 경험 라인 개설 팀/파트 드롭다운 — QA 고정(QA_HIDE_REAL_USERS) 정합.
  *   npx tsx --env-file=.env.local scripts/verify-experience-team-dropdown-qa.ts   (dev :3000 필요)
  *
- * 계약(QA_FIXED_TEST_ONLY=true 전제):
+ * 계약(QA_HIDE_REAL_USERS=true 전제):
  *   · 운영 URL(mode 미부착)이라도 팀 드롭다운은 (T) 테스트 팀만 = 테스트 유저가 실제 소속한 팀.
  *   · 각 (T) 팀의 파트 드롭다운은 비어있지 않고, 크루는 전원 test_user_markers.
  *   · direct(listTeams/listTeamParts/listPartCrews) == HTTP(cluster4/teams·part-input).
@@ -18,7 +18,7 @@ import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { listTeamParts, listPartCrews } from "@/lib/adminExperiencePartInput";
 import { isTestTeam } from "@/lib/cluster4ExperienceTestScope";
-import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 
 const BASE = "http://localhost:3000";
 const EMAIL = process.env.SMOKE_ADMIN_EMAIL ?? "vanuatu.golden@gmail.com";
@@ -59,8 +59,8 @@ async function sessionCookie(): Promise<string> {
 }
 
 async function main() {
-  console.log(`QA_FIXED_TEST_ONLY = ${QA_FIXED_TEST_ONLY}\n`);
-  ck("QA_FIXED_TEST_ONLY 켜짐(전제)", QA_FIXED_TEST_ONLY === true);
+  console.log(`QA_HIDE_REAL_USERS = ${QA_HIDE_REAL_USERS}\n`);
+  ck("QA_HIDE_REAL_USERS 켜짐(전제)", QA_HIDE_REAL_USERS === true);
   const testIds = await fetchTestUserMarkerIds();
   const cookie = await sessionCookie();
   const getJson = async (path: string) => {

@@ -38,11 +38,14 @@ type Crew = {
 export default function ProcessIrregularManualGrantDialog({
   organization,
   mode,
+  weekId = null,
   onClose,
   onDone,
 }: {
   organization: string;
   mode: ScopeMode;
+  // 선택 주차(weeks.id) — 예외 허용 주차에 생성 시 보드와 동일 주차로 write. 미부착=현재 주차.
+  weekId?: string | null;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -166,6 +169,7 @@ export default function ProcessIrregularManualGrantDialog({
         body: JSON.stringify({
           organization,
           ...(mode === "test" ? { mode: "test" } : {}),
+          ...(weekId ? { week: weekId } : {}),
           kind: "manual_grant",
           act_name: actName.trim(),
           target_user_ids: roster.map((c) => c.userId),

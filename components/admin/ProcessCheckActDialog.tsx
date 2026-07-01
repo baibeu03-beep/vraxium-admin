@@ -66,6 +66,7 @@ export default function ProcessCheckActDialog({
   mode = "operating",
   scope = null,
   partName = null,
+  weekId = null,
   onClose,
   onDone,
 }: {
@@ -77,6 +78,8 @@ export default function ProcessCheckActDialog({
   // experience 팀·파트 스코프 — team_overall|part(team_all 은 읽기전용이라 팝업이 열리지 않음).
   scope?: ProcessCheckScopeKind | null;
   partName?: string | null; // part 스코프일 때 선택 파트명(user_memberships 실제 파트).
+  // 선택 주차(weeks.id) — 보드 선택 주차. 예외 허용 주차 저장 시 보드와 동일 주차로 write.
+  weekId?: string | null;
   onClose: () => void;
   onDone: () => void; // 성공 후 보드/로그/상태창 재조회
 }) {
@@ -164,6 +167,8 @@ export default function ProcessCheckActDialog({
           ...(scope === "part" && partName ? { part_name: partName } : {}),
           // 운영 모드면 미부착(기존 페이로드 불변) — 서버 기본 operating.
           ...(mode === "test" ? { mode: "test" } : {}),
+          // 선택 주차 — 현재 주차와 다르면(예외 허용 주차) 서버가 그 주차로 저장. 미부착=현재 주차.
+          ...(weekId ? { week: weekId } : {}),
           action,
           ...(action === "request" ? { review_link: reviewLink.trim(), scheduled_check_at: scheduledIso } : {}),
         }),

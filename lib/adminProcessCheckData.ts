@@ -32,6 +32,11 @@ import {
   resolveCluster4TestOpenableWeekStartMs,
   type Cluster4TestWeekHub,
 } from "@/lib/cluster4TestWeekPolicy";
+import {
+  getActiveProcessCheckExceptionWeekIds,
+  hasActiveProcessCheckException,
+} from "@/lib/processCheckWindowsData";
+import { isUuid } from "@/lib/isUuid";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
 import { listTeamParts, listPartCrews } from "@/lib/adminExperiencePartInput";
 import type { ScopeMode } from "@/lib/userScopeShared";
@@ -229,9 +234,15 @@ function resolveCurrentWeek(hub: ProcessHub, mode: ScopeMode): Promise<ProcessCh
 //   각 주차의 weeks.id 는 (iso_year, iso_week) 로 일괄 lookup(없으면 null → 조회는 빈 보드).
 //   editable = 현재 주차일 때만 true(과거 주차 = 조회 전용).
 const SELECTABLE_WEEK_DAY_MS = 86_400_000;
+function weekStartIsoToMs(iso: string): number {
+  return Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+}
 export async function resolveSelectableProcessWeeks(
   mode: ScopeMode,
   hub: Cluster4TestWeekHub | null,
+  // 활성 예외 주차(process_check_windows) — 기본 목록(현재 시즌 W1~현재) 밖이어도 옵션에 추가하고
+  //   편집 가능으로 연다. 예외는 기본 정책을 대체하지 않고 "추가 허용"(비어 있으면 기존 동작 불변).
+  exceptionWeekIds: Set<string> = new Set(),
 ): Promise<{
   options: ProcessWeekOptionDto[];
   currentWeekId: string | null;
@@ -265,13 +276,44 @@ export async function resolveSelectableProcessWeeks(
       weekIdByKey.set(`${w.iso_year}-${w.iso_week}`, w.id);
     }
   }
+  const currentWeekId = weekIdByKey.get(`${curDesc.isoYear}-${curDesc.isoWeek}`) ?? null;
 
-  const selectedWeekDtoByMs = new Map<number, ProcessCheckWeekDto>();
-  const options: ProcessWeekOptionDto[] = [];
+  // 통합 엔트리(ms 로 유일화) — 기본 정책(W1~현재) + 예외 주차(범위 밖 미래/타시즌).
+  type Entry = { ms: number; d: ReturnType<typeof describeWeekByStartMs>; weekId: string | null };
+  const byMs = new Map<number, Entry>();
   for (const { ms, d } of descs) {
     if (!d) continue;
-    const weekId = weekIdByKey.get(`${d.isoYear}-${d.isoWeek}`) ?? null;
+    byMs.set(ms, { ms, d, weekId: weekIdByKey.get(`${d.isoYear}-${d.isoWeek}`) ?? null });
+  }
+
+  // 예외 주차 중 기본 목록에 없는 것(미래/타시즌)을 추가로 붙인다(week_id → weeks 행 조회).
+  const coveredWeekIds = new Set(
+    Array.from(byMs.values()).map((e) => e.weekId).filter((x): x is string => Boolean(x)),
+  );
+  const extraIds = Array.from(exceptionWeekIds).filter((id) => isUuid(id) && !coveredWeekIds.has(id));
+  if (extraIds.length > 0) {
+    const { data } = await supabaseAdmin
+      .from("weeks")
+      .select("id,start_date")
+      .in("id", extraIds);
+    for (const w of (data ?? []) as Array<{ id: string; start_date: string }>) {
+      const ms = weekStartIsoToMs(w.start_date);
+      const d = describeWeekByStartMs(ms);
+      if (!d) continue;
+      const existing = byMs.get(ms);
+      if (existing) existing.weekId = w.id;
+      else byMs.set(ms, { ms, d, weekId: w.id });
+    }
+  }
+
+  // 최신(시작일 큰) 주차가 위로 — 미래 예외 → 현재 → 과거.
+  const entries = Array.from(byMs.values()).sort((a, b) => b.ms - a.ms);
+  const selectedWeekDtoByMs = new Map<number, ProcessCheckWeekDto>();
+  const options: ProcessWeekOptionDto[] = [];
+  for (const { ms, d, weekId } of entries) {
+    if (!d) continue;
     const isCurrent = ms === currentMs;
+    const isException = Boolean(weekId) && exceptionWeekIds.has(weekId as string);
     const base = { year: d.year, seasonName: d.seasonName, weekNumber: d.weekNumber };
     options.push({
       weekId,
@@ -288,8 +330,8 @@ export async function resolveSelectableProcessWeeks(
     selectedWeekDtoByMs.set(ms, {
       weekId,
       weekName: `${d.weekNumber}주차`,
-      // 현재 주차에서만 편집 가능(과거 = 조회 전용).
-      editable: isCurrent && Boolean(weekId),
+      // 현재 주차 또는 활성 예외 주차만 편집 가능(그 외 과거 = 조회 전용).
+      editable: (isCurrent || isException) && Boolean(weekId),
       year: d.year,
       seasonName: d.seasonName,
       weekNumber: d.weekNumber,
@@ -299,9 +341,6 @@ export async function resolveSelectableProcessWeeks(
       logPeriodLabel: processCheckLogPeriodLabel(base),
     });
   }
-  // 최신 주차가 위로(현재 주차가 맨 위 = 기본 선택).
-  options.reverse();
-  const currentWeekId = weekIdByKey.get(`${curDesc.isoYear}-${curDesc.isoWeek}`) ?? null;
   return { options, currentWeekId, selectedWeekDtoByMs };
 }
 
@@ -311,6 +350,8 @@ async function resolveBoardWeek(
   hub: ProcessHub,
   mode: ScopeMode,
   selectedWeekId: string | null | undefined,
+  // 활성 예외 주차(process_check_windows · org+hub 스코프). 기본 목록 밖 예외 주차도 선택·편집 가능.
+  exceptionWeekIds: Set<string> = new Set(),
 ): Promise<{
   week: ProcessCheckWeekDto | null;
   weeks: ProcessWeekOptionDto[];
@@ -319,7 +360,11 @@ async function resolveBoardWeek(
   editable: boolean;
 }> {
   const hubKey = PROCESS_HUB_TO_TEST_WEEK_HUB[hub] ?? null;
-  const { options, currentWeekId, selectedWeekDtoByMs } = await resolveSelectableProcessWeeks(mode, hubKey);
+  const { options, currentWeekId, selectedWeekDtoByMs } = await resolveSelectableProcessWeeks(
+    mode,
+    hubKey,
+    exceptionWeekIds,
+  );
 
   const validIds = new Set(options.map((o) => o.weekId).filter((x): x is string => Boolean(x)));
   const effectiveWeekId = selectedWeekId && validIds.has(selectedWeekId) ? selectedWeekId : currentWeekId;
@@ -333,8 +378,62 @@ async function resolveBoardWeek(
   }
   if (!week) week = await resolveCurrentWeek(hub, mode); // weeks 행 없음 등 폴백(라벨만).
 
-  const editable = Boolean(effectiveWeekId) && effectiveWeekId === currentWeekId;
+  // 편집 가능 = 현재 주차이거나 활성 예외 주차(추가 허용).
+  const editable =
+    Boolean(effectiveWeekId) &&
+    (effectiveWeekId === currentWeekId ||
+      (Boolean(effectiveWeekId) && exceptionWeekIds.has(effectiveWeekId as string)));
   return { week, weeks: options, selectedWeekId: effectiveWeekId, effectiveWeekId, editable };
+}
+
+// weeks.id 로 직접 주차 DTO 해석 — write 경로가 선택(예외) 주차에 저장할 때 라벨/기간 산출용.
+export async function resolveProcessWeekByWeekId(weekId: string): Promise<ProcessCheckWeekDto | null> {
+  if (!isUuid(weekId)) return null;
+  const { data } = await supabaseAdmin
+    .from("weeks")
+    .select("id,start_date")
+    .eq("id", weekId)
+    .maybeSingle();
+  const row = data as { id: string; start_date: string } | null;
+  if (!row) return null;
+  const d = describeWeekByStartMs(weekStartIsoToMs(row.start_date));
+  if (!d) return null;
+  const base = { year: d.year, seasonName: d.seasonName, weekNumber: d.weekNumber };
+  return {
+    weekId: row.id,
+    weekName: `${d.weekNumber}주차`,
+    editable: true,
+    year: d.year,
+    seasonName: d.seasonName,
+    weekNumber: d.weekNumber,
+    startDate: d.weekStart,
+    endDate: d.weekEnd,
+    periodLabel: processCheckPeriodLabel(base),
+    logPeriodLabel: processCheckLogPeriodLabel(base),
+  };
+}
+
+// write 대상 주차 결정 — 기본=현재 주차. 선택 주차가 현재와 다르면 활성 예외(org+hub)일 때만 허용.
+//   예외가 아니면 fail-closed(422) — 조회는 과거 주차를 보여줘도 저장은 예외/현재 주차로만 강제.
+async function resolveWriteWeek(
+  hub: ProcessHub,
+  mode: ScopeMode,
+  organization: string,
+  requestedWeekId: string | null | undefined,
+): Promise<ProcessCheckWeekDto | null> {
+  const currentWeek = await resolveCurrentWeek(hub, mode);
+  const requested =
+    typeof requestedWeekId === "string" && requestedWeekId.trim() ? requestedWeekId.trim() : null;
+  if (!requested || requested === currentWeek?.weekId) return currentWeek;
+  const allowed = await hasActiveProcessCheckException(requested, organization, hub);
+  if (!allowed) {
+    throw new ProcessMasterError(422, "선택한 주차는 편집할 수 없습니다(예외 허용 주차가 아닙니다)");
+  }
+  const exWeek = await resolveProcessWeekByWeekId(requested);
+  if (!exWeek?.weekId) {
+    throw new ProcessMasterError(400, "예외 주차(weeks 행)를 찾을 수 없습니다");
+  }
+  return exWeek;
 }
 
 // ── 마스터(활성) 읽기 ─────────────────────────────────────────────────────────
@@ -646,8 +745,10 @@ export async function getProcessCheckBoard(
   // 드롭다운 선택 주차(weeks.id). 미지정/목록 밖이면 현재 주차로 폴백. 과거 주차 = 조회 전용(editable=false).
   selectedWeekId: string | null = null,
 ): Promise<ProcessCheckBoardDto> {
+  // 활성 예외 주차(process_check_windows · org+hub 스코프) — 기본 정책 밖 주차도 드롭다운/편집 허용.
+  const exceptionWeekIds = await getActiveProcessCheckExceptionWeekIds(organization, hub);
   const { week, weeks: weekOptions, selectedWeekId: effSelectedWeekId, effectiveWeekId, editable } =
-    await resolveBoardWeek(hub, mode, selectedWeekId);
+    await resolveBoardWeek(hub, mode, selectedWeekId, exceptionWeekIds);
   const { groups, acts } = await loadActiveMaster(hub);
   const teamBased = isTeamBasedProcessHub(hub);
 
@@ -912,10 +1013,12 @@ export async function applyProcessCheckAction(input: {
   adminId: string;
   // 보드 조회와 동일한 주차로 저장하기 위한 스코프 모드(테스트=13주차 예외·info). 기본 operating.
   mode?: ScopeMode;
+  // 드롭다운 선택 주차(weeks.id). 현재 주차와 다르면 활성 예외(process_check_windows)일 때만 허용.
+  weekId?: string | null;
 }): Promise<ProcessCheckActRowDto> {
   const { hub, organization, actId, action, adminId } = input;
 
-  const week = await resolveCurrentWeek(hub, input.mode ?? "operating");
+  const week = await resolveWriteWeek(hub, input.mode ?? "operating", organization, input.weekId);
   if (!week?.weekId) {
     throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 체크를 저장할 수 없습니다");
   }
@@ -1406,6 +1509,8 @@ export async function applyProcessManualGrant(input: {
   scope?: ProcessCheckScopeKind | null;
   partName?: string | null;
   mode?: ScopeMode;
+  // 드롭다운 선택 주차(weeks.id). 현재 주차와 다르면 활성 예외(process_check_windows)일 때만 허용.
+  weekId?: string | null;
   adminId: string;
   targetUserIds: unknown; // string[]
   durationMinutes?: unknown;
@@ -1422,7 +1527,7 @@ export async function applyProcessManualGrant(input: {
     throw new ProcessMasterError(500, MANUAL_GRANT_MIGRATION_HINT);
   }
 
-  const week = await resolveCurrentWeek(hub, mode);
+  const week = await resolveWriteWeek(hub, mode, organization, input.weekId);
   if (!week?.weekId) {
     throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 수동 부여를 저장할 수 없습니다");
   }

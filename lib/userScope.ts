@@ -26,7 +26,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import type { OrganizationSlug } from "@/lib/organizations";
-import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import {
   parseScopeMode,
   readScopeMode,
@@ -71,9 +71,11 @@ export async function resolveUserScope(
   team?: string | null,
 ): Promise<UserScope> {
   const testUserIds = await fetchTestUserMarkerIds();
-  // QA 고정 필터(lib/qaFixedScope.QA_FIXED_TEST_ONLY): QA 기간엔 전달 mode 와 무관하게
-  //   test 모집단으로 고정한다(어드민 전 화면 테스터 전용). QA 종료 시 상수만 false → 종전 동작.
-  const effectiveMode: ScopeMode = QA_FIXED_TEST_ONLY ? "test" : mode;
+  // QA 실사용자 숨김(lib/qaFixedScope.QA_HIDE_REAL_USERS): QA 기간엔 전달 mode 와 무관하게
+  //   test 모집단으로 고정한다 — "화면에 보이는 사용자 == write 대상"을 하나의 스위치로 통일한다.
+  //   정책/주차/publish 등 로직은 operating 그대로이고, 여기서 정하는 건 "누가 모집단인가"뿐이다.
+  //   QA 종료 시 상수만 false → 실사용자 모집단으로 복귀(운영 로직 무변).
+  const effectiveMode: ScopeMode = QA_HIDE_REAL_USERS ? "test" : mode;
   const isTest = effectiveMode === "test";
 
   const includes = (userId: string): boolean =>

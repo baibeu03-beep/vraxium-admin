@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────
-// verify:qa-fixed-scope — QA 고정 모집단 필터(lib/qaFixedScope.QA_FIXED_TEST_ONLY) 검증.
+// verify:qa-fixed-scope — QA 고정 모집단 필터(lib/qaFixedScope.QA_HIDE_REAL_USERS) 검증.
 //
-// 계약: QA_FIXED_TEST_ONLY=true 면 전달 mode 와 무관하게 어드민 집계/코호트가 test_user_markers
+// 계약: QA_HIDE_REAL_USERS=true 면 전달 mode 와 무관하게 어드민 집계/코호트가 test_user_markers
 //   테스트 유저만 본다(실사용자 노출 0). 외부 환경변수/배포 분기에 의존하지 않는다.
 //
 // 커버리지(중앙 resolveUserScope 외 별축 경로 — leak 보정 지점):
@@ -16,7 +16,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import { resolveUserScope } from "@/lib/userScope";
-import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { previewWeeklyCardFinalization } from "@/lib/adminWeeklyCardFinalizationData";
 import { getGrowthStatusResolutionBatch } from "@/lib/cluster3GrowthData";
 import type { OrganizationSlug } from "@/lib/organizations";
@@ -70,8 +70,8 @@ async function orgTestCount(userIds: string[], org: OrganizationSlug, testIds: S
 }
 
 async function main() {
-  console.log(`=== verify:qa-fixed-scope (QA_FIXED_TEST_ONLY=${QA_FIXED_TEST_ONLY}) ===`);
-  check("QA_FIXED_TEST_ONLY 가 켜져 있음(QA 기간)", QA_FIXED_TEST_ONLY === true);
+  console.log(`=== verify:qa-fixed-scope (QA_HIDE_REAL_USERS=${QA_HIDE_REAL_USERS}) ===`);
+  check("QA_HIDE_REAL_USERS 가 켜져 있음(QA 기간)", QA_HIDE_REAL_USERS === true);
 
   const testIds = await fetchTestUserMarkerIds();
   check("test_user_markers 비어있지 않음", testIds.size > 0, { count: testIds.size });
@@ -121,7 +121,7 @@ async function main() {
       .eq("organization_slug", org);
     let ids = ((roster ?? []) as { user_id: string }[]).map((r) => r.user_id);
     const before = ids.length;
-    if (QA_FIXED_TEST_ONLY) ids = ids.filter((id) => testIds.has(id)); // 라우트와 동일 보정
+    if (QA_HIDE_REAL_USERS) ids = ids.filter((id) => testIds.has(id)); // 라우트와 동일 보정
     const leak = ids.filter((id) => !testIds.has(id));
     check(`[${org}] growth 로스터 실사용자 누수 0 (보정 ${before}→${ids.length})`, leak.length === 0, { leak: leak.slice(0, 3) });
     if (ids.length > 0) {

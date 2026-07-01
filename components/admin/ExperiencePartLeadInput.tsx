@@ -173,7 +173,12 @@ export default function ExperiencePartLeadInput({
           fetch(`/api/admin/cluster4/teams${qsOrg}${modeParam}`),
           // weeks-options 는 공용 SoT — ?mode 전달로 테스트 휴식꼬리에서 W13 을 드롭다운 목록에
           // 포함시킨다(operating 은 미부착=byte-identical). 개설 대상 주차 권위는 아래 opening-status.
-          fetch(`/api/admin/cluster4/weeks-options?limit=3${modeQs}`),
+          //   ?org·?hub=experience 전달 → line_opening_windows 예외를 org+경험 스코프로만 드롭다운에 노출.
+          fetch(
+            `/api/admin/cluster4/weeks-options?limit=3${modeQs}${
+              org ? `&org=${encodeURIComponent(org)}` : ""
+            }&hub=experience`,
+          ),
           fetch(`/api/admin/cluster4/experience/opening-status${qsOrg}${modeParam}`),
           fetch(`/api/admin/cluster4/experience/part-input${qsOrg}${modeParam}${actAsParam}`),
         ]);

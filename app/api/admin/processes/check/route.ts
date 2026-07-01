@@ -116,6 +116,10 @@ export async function POST(request: NextRequest) {
   // 스코프 모드(operating=현재 주차 / test=info 13주차 예외). GET 과 동일 SoT(parseScopeMode).
   //   ⚠ 저장 주차가 보드 조회 주차와 일치하도록 write 경로도 mode 를 받아 전달한다.
   const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
+  // 선택 주차(weeks.id) — 현재 주차와 다르면 데이터레이어가 활성 예외(process_check_windows)일 때만 허용.
+  //   미부착/형식오류면 현재 주차(기존 동작 불변).
+  const weekRaw = typeof b.week === "string" && b.week.trim() ? b.week.trim() : null;
+  const selectedWeekId = weekRaw && UUID_RE.test(weekRaw) ? weekRaw : null;
 
   if (!isProcessHub(hub)) {
     return Response.json(
@@ -155,6 +159,7 @@ export async function POST(request: NextRequest) {
         scope,
         partName,
         mode,
+        weekId: selectedWeekId,
         adminId: admin.userId,
         targetUserIds: (targetIds as string[]).map((x) => x.trim()),
         durationMinutes: b.duration_minutes,
@@ -191,6 +196,7 @@ export async function POST(request: NextRequest) {
       scheduledCheckAt: b.scheduled_check_at,
       adminId: admin.userId,
       mode,
+      weekId: selectedWeekId,
     });
     return Response.json({ success: true, data }, { status: 201 });
   } catch (error) {

@@ -22,7 +22,7 @@ import { isOrganizationSlug } from "@/lib/organizations";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { observeApiRoute } from "@/lib/apiObservability";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
-import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 
 export async function GET(request: NextRequest) {
   const TAG = "[cluster3/growth-status-batch GET]";
@@ -69,10 +69,11 @@ export async function GET(request: NextRequest) {
         (row) => row.user_id,
       );
 
-      // QA 고정 필터(QA_FIXED_TEST_ONLY): 이 라우트는 자체 로스터(org 전원)를 만들어
-      //   resolveUserScope 를 거치지 않으므로, QA 기간엔 여기서 test_user_markers 로 좁힌다.
-      //   고객앱 /crews 의 성장상태 graft 가 실사용자를 노출하지 않게 한다. QA 종료 시 상수만 false.
-      if (QA_FIXED_TEST_ONLY) {
+      // QA 실사용자 숨김(QA_HIDE_REAL_USERS): 성장상태 계산 로직은 operating snapshot 그대로지만,
+      //   고객앱 /crews 에 "보여줄 사람"(성장상태 graft 대상)만 테스트 유저로 좁힌다 — 이 라우트는
+      //   자체 로스터(org 전원)를 만들어 resolveUserScope 를 안 거치므로 여기서 직접 필터한다.
+      //   URL·snapshot·랭킹 로직은 operating 불변, "사람 노출"만 QA 기간 제한. 종료 시 상수만 false.
+      if (QA_HIDE_REAL_USERS) {
         const testIds = await fetchTestUserMarkerIds();
         userIds = userIds.filter((id) => testIds.has(id));
       }

@@ -21,9 +21,37 @@ import { formatClubDate } from "@/lib/clubDate";
 
 // /admin/settings/line-opening-windows — "라인 개설 기간(예외)" 관리.
 //   화면1: 현재 자동 정책 상태(개설 대상 주차 + 계산 규칙).
-//   화면2: 예외 추가(주차 선택 + 전체/특정 라인 + 등록).
+//   화면2: 예외 추가(주차 + 조직 범위 + 라인 종류 선택 → 등록).
 //   화면3: 등록된 예외 목록(활성/비활성 토글 · 삭제).
-// 판정: 라인 개설 가능 = 자동 정책 허용 OR 활성 예외 존재. (실제 강제는 info-lines POST 게이트)
+// 판정: 라인 개설 가능 = 자동 정책 허용 OR 활성 예외 존재(org+hub 스코프). 예외는 추가 허용.
+//   실제 강제는 info-lines/experience/competency write 게이트 + weeks-options 드롭다운.
+
+// null(전체)을 나타내는 select 센티널 — 명시적 "all".
+const ALL = "all";
+
+const ORG_OPTIONS = [
+  { value: ALL, label: "전체 조직" },
+  { value: "encre", label: "Encre" },
+  { value: "oranke", label: "Oranke" },
+  { value: "phalanx", label: "Phalanx" },
+];
+
+// 라인 종류(hub) — line-opening 이 실제 주차를 여는 3허브. (클럽/경력은 라인 개설 흐름 없음 → 제외)
+const HUB_OPTIONS = [
+  { value: ALL, label: "전체 라인 종류" },
+  { value: "info", label: "실무 정보" },
+  { value: "experience", label: "실무 경험" },
+  { value: "competency", label: "실무 역량" },
+];
+
+function orgLabel(org: string | null): string {
+  if (org === null) return "전체 조직";
+  return ORG_OPTIONS.find((o) => o.value === org)?.label ?? org;
+}
+function hubLabel(hub: string | null): string {
+  if (hub === null) return "전체 라인 종류";
+  return HUB_OPTIONS.find((o) => o.value === hub)?.label ?? hub;
+}
 
 type AutoWeek = {
   label: string;
@@ -50,11 +78,11 @@ type WeekFormOption = {
   canOpen: boolean;
 };
 
-type ActivityType = { id: string; name: string };
-
 type ExceptionWindow = {
   id: string;
   weekId: string;
+  organizationSlug: string | null;
+  hub: string | null;
   activityTypeId: string | null;
   allowOpening: boolean;
   isActive: boolean;
@@ -88,10 +116,9 @@ export default function LineOpeningWindowsManager() {
 
   // 화면2 — 예외 추가 폼
   const [weekOptions, setWeekOptions] = useState<WeekFormOption[]>([]);
-  const [activityTypes, setActivityTypes] = useState<ActivityType[]>([]);
   const [formWeekId, setFormWeekId] = useState("");
-  const [formScope, setFormScope] = useState<"all" | "lines">("all");
-  const [formLineIds, setFormLineIds] = useState<Set<string>>(new Set());
+  const [formOrg, setFormOrg] = useState<string>(ALL);
+  const [formHub, setFormHub] = useState<string>(ALL);
   const [submitting, setSubmitting] = useState(false);
 
   // 화면3 — 예외 목록
@@ -107,18 +134,15 @@ export default function LineOpeningWindowsManager() {
 
   const fetchMeta = useCallback(async () => {
     const scopeMode = readScopeMode(new URLSearchParams(window.location.search));
-    const [autoRes, weeksRes, typesRes] = await Promise.all([
-      // mode 전달 — 테스트 휴식꼬리 W13 폴드 정합(operating 미부착=불변, 유저 노출과 무관).
+    const [autoRes, weeksRes] = await Promise.all([
+      // mode 전달 — 테스트 휴식꼬리 W13 폴드 정합(operating 미부착=불변).
       fetch(appendModeQuery("/api/admin/cluster4/weeks-options?limit=3", scopeMode)),
       fetch("/api/admin/line-opening-windows/weeks"),
-      fetch("/api/admin/cluster4/activity-types?cluster=practical_info"),
     ]);
 
     const autoJson = await autoRes.json();
     if (autoJson.success) {
-      const opts = (autoJson.data.weeks ?? []) as Array<
-        AutoWeek & { weekId?: string }
-      >;
+      const opts = (autoJson.data.weeks ?? []) as Array<AutoWeek & { weekId?: string }>;
       setAutoWeek(opts.find((o) => o.isOpenTarget) ?? null);
     }
 
@@ -130,16 +154,6 @@ export default function LineOpeningWindowsManager() {
       const def =
         opts.find((o) => o.isOpenTarget) ?? opts.find((o) => o.isCurrent) ?? opts[0];
       if (def) setFormWeekId((prev) => prev || def.id);
-    }
-
-    const typesJson = await typesRes.json();
-    if (typesJson.success) {
-      setActivityTypes(
-        (typesJson.data ?? []).map((t: { id: string; name: string }) => ({
-          id: t.id,
-          name: t.name,
-        })),
-      );
     }
   }, []);
 
@@ -156,22 +170,9 @@ export default function LineOpeningWindowsManager() {
     })();
   }, [fetchMeta, fetchWindows]);
 
-  const toggleLine = useCallback((id: string) => {
-    setFormLineIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
-
   const handleCreate = useCallback(async () => {
     if (!formWeekId) {
       setBanner({ kind: "error", message: "주차를 선택해주세요" });
-      return;
-    }
-    if (formScope === "lines" && formLineIds.size === 0) {
-      setBanner({ kind: "error", message: "특정 라인 허용 시 최소 1개 선택해주세요" });
       return;
     }
     setSubmitting(true);
@@ -182,9 +183,8 @@ export default function LineOpeningWindowsManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           week_id: formWeekId,
-          scope: formScope,
-          activity_type_ids:
-            formScope === "lines" ? Array.from(formLineIds) : undefined,
+          organization_slug: formOrg, // "all" = 전체 조직(서버가 null 로 변환)
+          hub: formHub, // "all" = 전체 라인 종류
         }),
       });
       const json = await res.json();
@@ -193,15 +193,13 @@ export default function LineOpeningWindowsManager() {
         return;
       }
       setBanner({ kind: "success", message: "예외가 등록되었습니다" });
-      setFormScope("all");
-      setFormLineIds(new Set());
       await fetchWindows();
     } catch {
       setBanner({ kind: "error", message: "예외 등록 중 오류가 발생했습니다" });
     } finally {
       setSubmitting(false);
     }
-  }, [formWeekId, formScope, formLineIds, fetchWindows]);
+  }, [formWeekId, formOrg, formHub, fetchWindows]);
 
   const handleToggle = useCallback(
     async (w: ExceptionWindow) => {
@@ -233,7 +231,7 @@ export default function LineOpeningWindowsManager() {
       if (
         !(await confirm({
           ...CONFIRM.delete,
-          description: `이 예외를 삭제하시겠습니까?\n(${w.weekLabel ?? "주차"} · ${w.activityTypeName ?? "전체 라인"})\n삭제 즉시 자동 정책 외 개설이 차단됩니다.`,
+          description: `이 예외를 삭제하시겠습니까?\n(${w.weekLabel ?? "주차"} · ${orgLabel(w.organizationSlug)} · ${w.activityTypeName ?? hubLabel(w.hub)})\n삭제 즉시 자동 정책 외 개설이 차단됩니다.`,
         }))
       ) {
         return;
@@ -341,17 +339,17 @@ export default function LineOpeningWindowsManager() {
             <Plus className="h-4 w-4" /> 예외 추가
           </CardTitle>
           <CardDescription>
-            선택한 주차를 (전체 라인 또는 특정 라인만) 추가 개설 가능 상태로 엽니다.
+            선택한 주차를 (선택한 조직·라인 종류 범위에서) 추가 개설 가능 상태로 엽니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* 주차 선택 */}
           <div className="space-y-1">
-            <Label htmlFor="exc-week" className="text-sm font-semibold">
+            <Label htmlFor="low-week" className="text-sm font-semibold">
               주차 선택
             </Label>
             <select
-              id="exc-week"
+              id="low-week"
               className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={formWeekId}
               onChange={(e) => setFormWeekId(e.target.value)}
@@ -368,54 +366,43 @@ export default function LineOpeningWindowsManager() {
             </select>
           </div>
 
-          {/* 허용 범위 */}
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">허용 범위</Label>
-            <div className="flex flex-col gap-2">
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="exc-scope"
-                  checked={formScope === "all"}
-                  onChange={() => setFormScope("all")}
-                />
-                해당 주차 전체
-              </label>
-              <label className="flex cursor-pointer items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="exc-scope"
-                  checked={formScope === "lines"}
-                  onChange={() => setFormScope("lines")}
-                />
-                특정 라인만
-              </label>
+          {/* 조직 범위 / 라인 종류 */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1">
+              <Label htmlFor="low-org" className="text-sm font-semibold">
+                조직 범위
+              </Label>
+              <select
+                id="low-org"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={formOrg}
+                onChange={(e) => setFormOrg(e.target.value)}
+              >
+                {ORG_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="low-hub" className="text-sm font-semibold">
+                라인 종류
+              </Label>
+              <select
+                id="low-hub"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={formHub}
+                onChange={(e) => setFormHub(e.target.value)}
+              >
+                {HUB_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-
-          {/* 특정 라인 선택 */}
-          {formScope === "lines" && (
-            <div className="space-y-2 rounded-md border p-3">
-              <p className="text-xs font-medium text-muted-foreground">
-                실무 정보 라인 목록 (개설 허용할 라인 선택)
-              </p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {activityTypes.map((t) => (
-                  <label
-                    key={t.id}
-                    className="flex cursor-pointer items-center gap-2 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={formLineIds.has(t.id)}
-                      onChange={() => toggleLine(t.id)}
-                    />
-                    {t.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
 
           <Button type="button" loading={submitting} onClick={handleCreate}>
             예외 등록
@@ -462,9 +449,12 @@ export default function LineOpeningWindowsManager() {
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    허용:{" "}
+                    범위:{" "}
+                    <span className="font-medium text-foreground">{orgLabel(w.organizationSlug)}</span>
+                    {" · "}
                     <span className="font-medium text-foreground">
-                      {w.activityTypeName ?? "전체 라인"}
+                      {/* 레거시 특정 라인(activity_type) 예외면 그 이름, 아니면 라인 종류(hub). */}
+                      {w.activityTypeName ?? hubLabel(w.hub)}
                     </span>
                   </p>
                   <p className="text-xs text-muted-foreground">

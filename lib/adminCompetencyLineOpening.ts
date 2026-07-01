@@ -27,6 +27,7 @@ import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import {
   collectLineOrgAudience,
   resolveCluster4LineOrgScope,
+  invalidateWeeklyCardsForLineOpen,
 } from "@/lib/adminCluster4LinesData";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { insertCompetencyOpeningLog } from "@/lib/adminCompetencyOpeningLogs";
@@ -105,13 +106,15 @@ function toMs(iso: string): number {
 async function resolveEffectiveWeek(
   mode: ScopeMode,
   requestedWeekId?: string | null,
+  // 예외 판정 스코프 — 역량 대시보드의 org(조직 진입 시). null=통합/미지정.
+  org: string | null = null,
 ): Promise<{ currentWeek: StatusWeek | null; targetWeek: StatusWeek | null; targetWeekId: string | null }> {
   const base = await resolveWeeks(mode);
   const req = (requestedWeekId ?? "").trim();
   if (!req || req === base.targetWeekId) return base;
 
-  // 요청 주차가 허용(scope=all) 예외인지 검증 — 아니면 임의 주차 개설 차단.
-  if (!(await hasActiveAllLineException(req))) {
+  // 요청 주차가 허용(허브 전체) 예외인지 검증(org+역량 스코프) — 아니면 임의 주차 개설 차단.
+  if (!(await hasActiveAllLineException(req, org, "competency"))) {
     throw Object.assign(
       new Error("선택한 주차는 개설 대상 주차(또는 허용된 예외 주차)가 아닙니다"),
       { status: 400 },
@@ -304,17 +307,18 @@ async function collectAffectedUsers(lineIds: string[]): Promise<string[]> {
   return Array.from(affected);
 }
 
-// snapshot 무효화 대상 스코프 적용 — 운영 모드는 그대로, 테스트 모드는 테스트 모집단만 남긴다
-// (org audience 경로로 실사용자가 stale 처리되는 것을 차단 · 혼입 0). 마커 조회 실패 시 보수적
-// fail-safe: test 는 빈 결과(실사용자 절대 유입 안 됨)·operating 은 전체 유지.
+// snapshot 무효화 대상 스코프 적용 — 현재 모집단(QA_HIDE_REAL_USERS 기준)만 남긴다.
+//   QA 기간(스위치 on): mode 무관 test 모집단 → org audience 경로로 실사용자 snapshot 이 무효화/
+//     재계산되는 것을 차단(실유저 무접촉 · 개설 대상 크루와 동일 축). 운영 복귀 후: operating 모집단.
+//   resolveUserScope 가 마커 조회 실패 시 보수적 fail-safe(test=빈 결과·operating=전체 유지)를 보장.
 async function scopeAffectedUsers(
   mode: ScopeMode,
   org: OrganizationSlug,
   affected: ReadonlySet<string>,
 ): Promise<string[]> {
   const ids = Array.from(affected);
-  if (mode !== "test" || ids.length === 0) return ids;
-  const scope = await resolveUserScope("test", org);
+  if (ids.length === 0) return ids;
+  const scope = await resolveUserScope(mode, org);
   return scope.filter(ids);
 }
 
@@ -337,6 +341,7 @@ export async function getCompetencyOpeningStatus(
   const { currentWeek, targetWeek, targetWeekId } = await resolveEffectiveWeek(
     mode,
     requestedWeekId,
+    org,
   );
   let opened = false;
   let outputLink1 = "";
@@ -376,8 +381,8 @@ export async function openCompetencyHub(input: {
   // 대시보드에서 선택한 개설 주차(허용 예외 주차 포함). 미지정=정규 개설 대상 주차.
   weekId?: string | null;
 }): Promise<CompetencyOpeningActionResult> {
-  const mode = input.mode ?? "operating";
-  const { targetWeekId } = await resolveEffectiveWeek(mode, input.weekId);
+  const mode: ScopeMode = "operating";
+  const { targetWeekId } = await resolveEffectiveWeek(mode, input.weekId, input.organization);
   if (!targetWeekId) {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });
   }
@@ -385,7 +390,8 @@ export async function openCompetencyHub(input: {
   const link = (input.outputLink1 ?? "").trim() || null;
   const desc = (input.description ?? "").trim() || null;
 
-  // 모드 스코프 사전 가드(write 0) — 승인 신청 대상에 운영↔테스트 혼입이 있으면 어떤 토글보다 먼저 422.
+  // 모집단 스코프 사전 가드(write 0) — 승인 신청 대상이 현재 모집단(QA_HIDE_REAL_USERS 기준)과
+  //   어긋나면 어떤 토글보다 먼저 422. 화면에 보인 크루 == 개설 대상이 항상 일치한다.
   await assertApprovedApplicationsInScope(org, targetWeekId, mode);
 
   const lines = await loadOrgCompetencyLines(org, targetWeekId);
@@ -453,6 +459,7 @@ export async function openCompetencyHub(input: {
     openedLines: 0,
     rejectedCrews: 0,
     affectedUserIds: [] as string[],
+    openedLineIds: [] as string[],
   };
   try {
     appResult = await openApprovedApplications({
@@ -461,7 +468,7 @@ export async function openCompetencyHub(input: {
       outputLink1: link,
       description: desc,
       adminId: input.adminId,
-      mode: input.mode,
+      mode,
     });
   } catch (e) {
     // 모드 스코프 위반(422)은 fail-closed — 운영자에게 그대로 노출(라인 타깃 혼입 차단).
@@ -472,17 +479,15 @@ export async function openCompetencyHub(input: {
     );
   }
 
-  const affected = new Set<string>(appResult.affectedUserIds);
-  if (lineIds.length > 0) {
-    for (const u of await collectAffectedUsers(lineIds)) affected.add(u);
+  // 개설 무효화 = 3허브 통일 헬퍼(배정 타깃 즉시 재계산 + org audience 분모 A stale). info/experience 와 동일 기준.
+  //   openedLineIds/lineIds 는 동일 org → 아무 라인 하나로 org audience 산정. 스코프는 헬퍼가 mode 로 처리.
+  const auditLineId = appResult.openedLineIds[0] ?? lineIds[0] ?? null;
+  if (auditLineId) {
+    await invalidateWeeklyCardsForLineOpen(auditLineId, appResult.affectedUserIds, mode);
+  } else if (appResult.affectedUserIds.length > 0) {
+    const scope = await resolveUserScope(mode, org);
+    await invalidateWeeklyCardsForUsers(scope.filter(appResult.affectedUserIds));
   }
-  // 테스트 모드에서는 snapshot 무효화 대상을 테스트 모집단으로 좁힌다 — org audience(synthetic-fail)
-  // 경로로 실사용자가 섞이지 않도록(혼입 0). 운영 모드는 기존대로 전체 영향 유저 반영.
-  const affectedUsers = await scopeAffectedUsers(mode, org, affected);
-  // 마크-스테일만으로는 snapshot-only 조회 런타임에서 고객이 옛 snapshot 을 계속 본다(역량만 미반영
-  //   버그의 근본 원인). info/experience 개설과 동일하게 invalidate(≤10 즉시 / >10 백그라운드 recompute)로
-  //   개설 직후 고객 weekly-cards 에 반영되게 한다(읽기 경로·DTO·demoUserId 무변경).
-  if (affectedUsers.length > 0) await invalidateWeeklyCardsForUsers(affectedUsers);
 
   await insertCompetencyOpeningLog({
     action: "open",
@@ -512,7 +517,7 @@ export async function cancelCompetencyHub(input: {
   weekId?: string | null;
 }): Promise<CompetencyOpeningActionResult> {
   const mode = input.mode ?? "operating";
-  const { targetWeekId } = await resolveEffectiveWeek(mode, input.weekId);
+  const { targetWeekId } = await resolveEffectiveWeek(mode, input.weekId, input.organization);
   if (!targetWeekId) {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });
   }

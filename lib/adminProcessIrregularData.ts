@@ -9,7 +9,15 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { ProcessMasterError } from "@/lib/adminProcessesData";
-import { resolveProcessWeek, resolveSelectableProcessWeeks } from "@/lib/adminProcessCheckData";
+import {
+  resolveProcessWeek,
+  resolveProcessWeekByWeekId,
+  resolveSelectableProcessWeeks,
+} from "@/lib/adminProcessCheckData";
+import {
+  getActiveProcessCheckExceptionWeekIds,
+  hasActiveProcessCheckException,
+} from "@/lib/processCheckWindowsData";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
 import { accrueForCompletedIrregular, revokeForAct } from "@/lib/processPointAccrual";
 import type { OrganizationSlug } from "@/lib/organizations";
@@ -42,6 +50,28 @@ import {
 // 변동 액트는 info 와 동일한 주차 정책(테스트=휴식꼬리→마지막 활동주차) 적용.
 //   공통 SoT 의 "process-irregular" hub 키로 위임(허용 정책은 cluster4TestWeekPolicy 단일 출처).
 const IRREGULAR_TEST_WEEK_HUB = "process-irregular" as const;
+
+// write 대상 주차 — 기본=현재. 선택 주차가 현재와 다르면 활성 예외(org+"irregular")일 때만 허용.
+//   예외가 아니면 fail-closed(422). process_check_windows 단일 SoT.
+async function resolveIrregularWriteWeek(
+  organization: string,
+  mode: ScopeMode,
+  requestedWeekId: unknown,
+): Promise<ProcessCheckWeekDto | null> {
+  const current = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
+  const requested =
+    typeof requestedWeekId === "string" && requestedWeekId.trim() ? requestedWeekId.trim() : null;
+  if (!requested || requested === current?.weekId) return current;
+  const allowed = await hasActiveProcessCheckException(requested, organization, "irregular");
+  if (!allowed) {
+    throw new ProcessMasterError(422, "선택한 주차는 편집할 수 없습니다(예외 허용 주차가 아닙니다)");
+  }
+  const exWeek = await resolveProcessWeekByWeekId(requested);
+  if (!exWeek?.weekId) {
+    throw new ProcessMasterError(400, "예외 주차(weeks 행)를 찾을 수 없습니다");
+  }
+  return exWeek;
+}
 
 function migrationHint(error: { code?: string } | null): ProcessMasterError | null {
   const code = error?.code;
@@ -184,10 +214,12 @@ export async function getIrregularBoard(
   selectedWeekId?: string | null,
 ): Promise<ProcessIrregularBoardDto> {
   const nowMs = Date.now();
+  // 활성 예외 주차(process_check_windows · org+"irregular" 스코프) — 기본 목록 밖 주차도 선택·편집 허용.
+  const exceptionWeekIds = await getActiveProcessCheckExceptionWeekIds(organization, "irregular");
   const { options, currentWeekId, selectedWeekDtoByMs } =
-    await resolveSelectableProcessWeeks(mode, IRREGULAR_TEST_WEEK_HUB);
+    await resolveSelectableProcessWeeks(mode, IRREGULAR_TEST_WEEK_HUB, exceptionWeekIds);
 
-  // 선택 주차 결정 — 목록(현재 시즌 W1~현재)에 있는 weekId 만 허용. 그 외(미래/타시즌)는 현재 주차.
+  // 선택 주차 결정 — 목록(현재 시즌 W1~현재 + 예외 주차)에 있는 weekId 만 허용. 그 외는 현재 주차.
   const validIds = new Set(options.map((o) => o.weekId).filter((x): x is string => Boolean(x)));
   const effectiveWeekId =
     selectedWeekId && validIds.has(selectedWeekId) ? selectedWeekId : currentWeekId;
@@ -203,7 +235,10 @@ export async function getIrregularBoard(
   // 폴백(weeks 행 없음 등) — 기존 현재 주차 resolver 로 라벨만이라도 채운다.
   if (!week) week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
 
-  const editable = Boolean(effectiveWeekId) && effectiveWeekId === currentWeekId;
+  // 편집 가능 = 현재 주차이거나 활성 예외 주차(추가 허용).
+  const editable =
+    Boolean(effectiveWeekId) &&
+    (effectiveWeekId === currentWeekId || exceptionWeekIds.has(effectiveWeekId as string));
 
   if (!effectiveWeekId) {
     return {
@@ -359,6 +394,7 @@ export async function createIrregularAct(input: {
   pointMode?: unknown;
   reviewLink?: unknown;
   scheduledCheckAt?: unknown;
+  weekId?: unknown; // 선택 주차(weeks.id) — 현재와 다르면 활성 예외("irregular")일 때만 허용.
 }): Promise<ProcessIrregularActRowDto> {
   const { organization, mode, adminId } = input;
   if (input.kind !== "review_request") {
@@ -375,7 +411,7 @@ export async function createIrregularAct(input: {
   }
   if (!reviewLink) throw new ProcessMasterError(400, "링크 신청은 링크가 필수입니다");
 
-  const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
+  const week = await resolveIrregularWriteWeek(organization, mode, input.weekId);
   if (!week?.weekId) {
     throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 변동 액트를 저장할 수 없습니다");
   }
@@ -434,6 +470,7 @@ export async function createManualGrant(input: {
   pointC?: unknown;
   crewReaction?: unknown;
   pointMode?: unknown;
+  weekId?: unknown; // 선택 주차(weeks.id) — 현재와 다르면 활성 예외("irregular")일 때만 허용.
 }): Promise<ProcessIrregularActRowDto> {
   const { organization, mode, adminId } = input;
   // 수동 입력는 '전원' 선택 불가 — 항상 '부분'(포인트 방식 ab|c 택1)만 가능.
@@ -466,7 +503,7 @@ export async function createManualGrant(input: {
     }
   }
 
-  const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
+  const week = await resolveIrregularWriteWeek(organization, mode, input.weekId);
   if (!week?.weekId) {
     throw new ProcessMasterError(400, "현재 주차(weeks 행)를 찾을 수 없어 변동 액트를 저장할 수 없습니다");
   }
@@ -533,11 +570,16 @@ export async function createManualGrant(input: {
 
 // 과거 주차 행은 조회 전용 — 현재 주차가 아니면 변경/취소 차단(fail-closed).
 //   현재 주차(weeks.id) = resolveProcessWeek(운영=현재 / 테스트=W13 폴드)와 동일 SoT.
-async function assertCurrentWeekRow(row: IrregularRow, mode: ScopeMode): Promise<void> {
+//   단, 활성 예외 주차(process_check_windows · org+"irregular")면 조회 전용 해제(추가 허용).
+async function assertCurrentWeekRow(
+  row: IrregularRow,
+  mode: ScopeMode,
+  organization: string,
+): Promise<void> {
   const week = await resolveProcessWeek(mode, IRREGULAR_TEST_WEEK_HUB);
-  if (!week?.weekId || row.week_id !== week.weekId) {
-    throw new ProcessMasterError(409, "과거 주차 변동 액트는 조회 전용입니다(변경/취소 불가)");
-  }
+  if (week?.weekId && row.week_id === week.weekId) return;
+  if (await hasActiveProcessCheckException(row.week_id, organization, "irregular")) return;
+  throw new ProcessMasterError(409, "과거 주차 변동 액트는 조회 전용입니다(변경/취소 불가)");
 }
 
 // ── 체크 완료 처리 (review_request: pending → completed) ───────────────────────
@@ -547,7 +589,7 @@ export async function completeIrregularAct(
   mode: ScopeMode,
 ): Promise<ProcessIrregularActRowDto> {
   const row = await loadScopedRow(id, organization, mode);
-  await assertCurrentWeekRow(row, mode);
+  await assertCurrentWeekRow(row, mode, organization);
   if (row.status === "completed") {
     throw new ProcessMasterError(409, "이미 체크 완료된 변동 액트입니다");
   }
@@ -573,7 +615,7 @@ export async function setIrregularCrewReaction(
     throw new ProcessMasterError(400, "crew_reaction 은 all|partial 이어야 합니다");
   }
   const row = await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
-  await assertCurrentWeekRow(row, mode); // 과거 주차 = 조회 전용
+  await assertCurrentWeekRow(row, mode, organization); // 과거 주차 = 조회 전용
   // 수동 입력는 '전원'으로 변경 불가(부분만 가능).
   if (crewReaction === "all" && row.kind === "manual_grant") {
     throw new ProcessMasterError(400, "수동 부여는 '전원'으로 변경할 수 없습니다(부분만 가능)");
@@ -607,7 +649,7 @@ export async function deleteIrregularAct(
   mode: ScopeMode,
 ): Promise<void> {
   const row = await loadScopedRow(id, organization, mode); // 존재 + org + 대상 스코프 검증
-  await assertCurrentWeekRow(row, mode); // 과거 주차 = 조회 전용
+  await assertCurrentWeekRow(row, mode, organization); // 과거 주차 = 조회 전용
   // 검수 링크(review_request) 체크 취소는 '체크 대기'(검수 시점 전)에서만. 검수 시점이 지나면
   //   조회 시점 자동 완료 상태이므로 취소 불가(체크 완료 후 취소 불가 정책).
   if (row.kind === "review_request" && row.status === "pending" && row.scheduled_check_at) {

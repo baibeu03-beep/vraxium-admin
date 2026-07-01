@@ -9,7 +9,7 @@ import {
 } from "@/lib/adminCluster4LinesTypes";
 import {
   Cluster4LineError,
-  collectLineOrgAudience,
+  invalidateWeeklyCardsForLineOpen,
   deleteCluster4Line,
   findActiveInfoLineId,
   listCluster4InfoLinesDetailed,
@@ -422,6 +422,8 @@ export async function POST(request: NextRequest) {
         hasException = await findActiveLineOpeningException(
           clientWeekId,
           input.activity_type_id,
+          scopeOrg,
+          "info",
         );
       } catch (error) {
         if (error instanceof LineOpeningWindowError) {
@@ -709,22 +711,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // weekly-cards snapshot 무효화 → 고객 앱 반영.
-    //   - 크루 1명 이상: 배정 크루(기존 동작). (미배정 크루의 fail 은 lazy/배치로 수렴 — 기존과 동일)
-    //   - 크루 0명: 배정 크루가 없으므로, 라인 노출 org audience(전체 크루) 를 무효화해 "전체 강화 실패"가
-    //     반영되게 한다. ≤10명 즉시 / >10명 stale+백그라운드. best-effort.
-    if (isZeroTarget) {
-      const audience = await collectLineOrgAudience(createdLine.id);
-      // ⚠ snapshot 재계산 대상도 현재 mode 모집단만 — collectLineOrgAudience 는 org 만으로
-      //   audience 를 잡으므로(test_user_markers 미적용), 여기서 mode 스코프를 적용하지 않으면
-      //   test 모드 0명 개설이 실유저 snapshot 을, operating 0명 개설이 테스트 유저 snapshot 을
-      //   재계산하게 된다. resolveUserScope(mode) 로 좁혀 교차 모드 영향 0 을 보장한다.
-      const audienceScope = await resolveUserScope(scopeMode, scopeOrg);
-      await invalidateWeeklyCardsForUsers(audienceScope.filter(audience));
-    } else {
-      // target 전원은 위 스코프 가드를 통과(현재 mode 모집단)했으므로 그대로 재계산.
-      await invalidateWeeklyCardsForUsers(input.target_user_ids);
-    }
+    // weekly-cards snapshot 무효화 = 3허브 통일 헬퍼(info/experience/competency 동일 기준).
+    //   개설된 info 라인은 배정 크루뿐 아니라 org audience 전원의 분모 A(개설+미배정=fail)에
+    //   반영되므로, 배정 타깃(즉시 재계산) + org audience(stale→lazy 수렴)를 함께 무효화한다.
+    //   0명 개설도 동일 헬퍼로 처리(targets=[] → audience 만 stale). 스코프는 헬퍼가 mode 로 적용
+    //   (교차 모드 실유저 무접촉). 과거 targets-only(+미배정 lazy 수렴) 드리프트 제거.
+    await invalidateWeeklyCardsForLineOpen(createdLine.id, input.target_user_ids, scopeMode);
 
     // [섹션 0] 로그창: 개설 = [개설 완료] 로그. best-effort(snapshot 무관, 본 동작과 분리).
     await insertOpeningLogForLine({

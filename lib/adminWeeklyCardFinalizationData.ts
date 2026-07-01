@@ -35,7 +35,7 @@ import { WEEKLY_CARDS_DTO_VERSION } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { markWeekResultPublished } from "@/lib/adminWeekRecognitionsData";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
-import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { type StateScope, readQaWeekState } from "@/lib/operationalState";
 import { computeWeeklyLeagueAggregation } from "@/lib/weeklyLeaguePmsAggregation";
 import type {
@@ -213,10 +213,10 @@ async function loadCohort(
   if (error) throw new WeeklyCardFinalizationError(500, error.message);
 
   // user 당 1행으로 dedupe (동일 주차 중복 방어 — 첫 행 유지) + scope 별 테스트 유저 분리.
-  //   QA 고정 필터(QA_FIXED_TEST_ONLY): scope 가 operating(실DB 쓰기)이어도 코호트는 테스트
-  //   유저만으로 좁힌다 — "카드 집계 화면 실사용자 노출 0"과 "쓰기는 운영 로직·대상은 테스트
-  //   한정" 동시 충족. 쓰기 SoT(weeks/snapshot)는 scope 가 그대로 결정.
-  const keepTestOnly = QA_FIXED_TEST_ONLY || scope === "qa";
+  //   QA 실사용자 숨김(QA_HIDE_REAL_USERS): 집계/publish 로직은 operating 그대로이고 코호트(=대상
+  //   모집단)만 테스트 유저로 좁힌다 — "카드 집계 화면 실사용자 노출 0"과 "화면 표시 == write 대상"
+  //   동시 충족. 쓰기 SoT(weeks/snapshot)는 scope 가 그대로 결정(운영 로직).
+  const keepTestOnly = QA_HIDE_REAL_USERS || scope === "qa";
   const byUser = new Map<string, CohortMember>();
   for (const r of (data ?? []) as { user_id: string; status: string }[]) {
     const isTest = testIds.has(r.user_id);
@@ -390,10 +390,11 @@ async function buildTargetStatusAndAggregation(
   //   ⚠ QA(scope=qa)는 운영 PMS/weekly-league 집계를 타지 않는다 — 테스트 코호트 uws 버킷팅만 사용.
   let aggregation: FinalizationAggregation;
   let healthCohortIds: string[];
-  //   ⚠ QA 고정 필터(QA_FIXED_TEST_ONLY): computeWeeklyLeagueAggregation 은 test 제외·실유저
-  //     전용(테스트 모집단 불가)이라 QA 기간엔 타지 않는다 → 테스트 코호트 uws 버킷팅만 사용.
+  //   ⚠ QA 실사용자 숨김(QA_HIDE_REAL_USERS): computeWeeklyLeagueAggregation 은 구조상 실유저
+  //     전용(PMS 명부·테스트 모집단 정의 없음)이라, QA 테스트 코호트엔 operating 폴백인 uws
+  //     버킷팅을 그대로 쓴다(정책 분기가 아니라, PMS 집계가 테스트 모집단에 미정의이기 때문).
   const wl =
-    !QA_FIXED_TEST_ONLY && scope === "operating" && org && target.season_key
+    !QA_HIDE_REAL_USERS && scope === "operating" && org && target.season_key
       ? await computeWeeklyLeagueAggregation(org)
       : null;
   const wlWeek = wl?.byWeekId.get(target.id) ?? null;

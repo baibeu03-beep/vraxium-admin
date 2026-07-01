@@ -18,8 +18,8 @@ export async function GET(request: NextRequest) {
 
   const org =
     request.nextUrl.searchParams.get("organization")?.trim() || null;
-  // 모집단 모드(operating 기본 / test). 팀 목록 스코프는 listTeams 가 filterTeamsByScope
-  // 단일 helper 로 적용한다(operating=운영 팀만 / test=(T) 테스트 팀만, 인라인 쿼리·필터 제거).
+  // 팀 목록(=선택창)은 listTeams 가 filterTeamsByScope 단일 helper 로 모집단을 적용한다.
+  //   QA_HIDE_REAL_USERS=true 면 (T) 테스트 팀만 / 종료 후 운영 팀만 — 크루/파트 모집단과 동일 축.
   const mode = parseScopeMode(request.nextUrl.searchParams.get("mode"));
 
   try {

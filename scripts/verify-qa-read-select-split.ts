@@ -1,7 +1,17 @@
-/** 검증: QA_FIXED_TEST_ONLY 유지하 read=운영노출 / select+write=test전용 (direct). */
+// ─────────────────────────────────────────────────────────────────────
+// @deprecated 2026-07-01: validates removed QA behavior (forceOperating split / W13 exception).
+//   Kept for history.
+//
+//   이 스크립트는 폐지된 "read=운영노출 / select+write=test전용" 분리(forceOperating split)를
+//   검증한다. 2026-07-01 정책 변경으로 QA_HIDE_REAL_USERS 는 population-only 단일 스위치가 되어
+//   read·select·write 모집단이 항상 동일(테스트 전용)하다. "읽기만 실사용자 노출"이라는 전제는
+//   더 이상 성립하지 않으므로 아래 [READ] 계약(실유저 노출)은 현행 모델과 어긋난다.
+//   심볼 유효성(import) 만 유지하며, 로직은 이력 보존용으로 남겨둔다.
+// ─────────────────────────────────────────────────────────────────────
+/** @deprecated 검증: (구) QA_HIDE_REAL_USERS 유지하 read=운영노출 / select+write=test전용 (direct). */
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
-import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import {
   listCluster4LinesDetailed, listCluster4InfoLinesDetailed, listCluster4LineTargets,
 } from "@/lib/adminCluster4LinesData";
@@ -15,7 +25,7 @@ let pass = 0, fail = 0;
 const ok = (c: boolean, m: string) => { console.log(`${c?"✅":"❌"} ${m}`); c?pass++:fail++; };
 
 (async () => {
-  console.log(`QA_FIXED_TEST_ONLY = ${QA_FIXED_TEST_ONLY} (유지 전제)\n`);
+  console.log(`QA_HIDE_REAL_USERS = ${QA_HIDE_REAL_USERS} (유지 전제)\n`);
   const testIds = await fetchTestUserMarkerIds();
 
   // 표본: 실유저 대상 experience 라인 (spring)

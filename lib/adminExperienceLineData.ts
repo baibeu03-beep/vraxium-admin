@@ -1,6 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchCrewNoMap } from "@/lib/adminCrewNo";
-import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
+import {
+  resolveUserScope,
+  type ScopeMode,
+} from "@/lib/userScope";
 import { filterTeamsByScope } from "@/lib/cluster4ExperienceTestScope";
 import type {
   ExperienceLineMasterDto,
@@ -333,7 +336,7 @@ export async function listCrewsForTargetSelection(options: {
   if (profileError) throw new Error(profileError.message);
   if (!profiles || profiles.length === 0) return [];
 
-  // 모집단 스코프(operating=실사용자만 / test=test_user_markers 만) — userScope resolver(SoT).
+  // 모집단 스코프 — userScope resolver(SoT). QA_HIDE_REAL_USERS=true 면 mode 무관 test 모집단(화면=write 대상).
   const scope = await resolveUserScope(options.mode ?? "operating", null);
   const scopedProfiles = (profiles as ProfileRow[]).filter((p) => scope.includes(p.user_id));
   if (scopedProfiles.length === 0) return [];

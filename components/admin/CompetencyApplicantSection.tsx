@@ -19,7 +19,6 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
-import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 
 // 실무 역량 [라인 개설] — [해당 크루] 영역.
 //   상단: 요약(활동/신청/개설/반려/신청 라인/개설 라인) + 수동 추가(자동완성 + 추가).
@@ -107,8 +106,6 @@ function SummaryChip({ label, value, tone }: { label: string; value: number; ton
 export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?: number }) {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
-  // 운영/테스트 모드 — 크루 검색·집계·수동 추가 모집단을 현재 모드로 한정(URL ?mode SoT).
-  const mode = readScopeMode(searchParams);
 
   const [apps, setApps] = useState<ApplicationDto[]>([]);
   const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
@@ -143,10 +140,11 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = org ? `?organization=${encodeURIComponent(org)}` : "";
-      // 집계/결과 모집단도 현재 모드로 한정(operating=실사용자 / test=테스트 계정).
+      const qs = new URLSearchParams();
+      if (org) qs.set("organization", org);
+      // 집계/결과 모집단 = 서버 QA_HIDE_REAL_USERS 스위치 기준(QA=테스트 유저 / 종료 후 실사용자).
       const res = await fetch(
-        appendModeQuery(`/api/admin/cluster4/competency/applications${qs}`, mode),
+        `/api/admin/cluster4/competency/applications?${qs.toString()}`,
       );
       const json = await res.json();
       if (json?.success) {
@@ -162,7 +160,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
     } finally {
       setLoading(false);
     }
-  }, [org, mode]);
+  }, [org]);
 
   useEffect(() => {
     void fetchData();
@@ -206,7 +204,6 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
         // 현재 org + mode 모집단으로만 검색 — 조직/모드 경계 밖 동명이인(실사용자/타org) 제외.
         const sp = new URLSearchParams({ q: term });
         if (org) sp.set("organization", org);
-        if (mode === "test") sp.set("mode", "test");
         sp.set("excludeSeasonRest", "1"); // 역량 라인 개설 후보 = 현재 시즌 휴식자 제외
         const res = await fetch(`/api/admin/cluster4/cafe-line-crew?${sp.toString()}`);
         const json = await res.json();
@@ -223,7 +220,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
       cancelled = true;
       clearTimeout(t);
     };
-  }, [q, selectedCrew, org, mode]);
+  }, [q, selectedCrew, org]);
 
   // 검색 드롭다운 바깥 클릭 닫기.
   useEffect(() => {
@@ -262,8 +259,8 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
     setSaving(true);
     setBanner(null);
     try {
-      // mode 를 URL 에 보존 — 서버 스코프 가드(operating↔test 혼입 422)가 같은 모드로 판정.
-      const res = await fetch(appendModeQuery("/api/admin/cluster4/competency/applications", mode), {
+      // 서버 스코프 가드(QA_HIDE_REAL_USERS 기준 모집단 혼입 422)가 화면과 동일 축으로 판정.
+      const res = await fetch("/api/admin/cluster4/competency/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -291,7 +288,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
     } finally {
       setSaving(false);
     }
-  }, [org, mode, selectedCrew, masters, addMasterId, addLink, fetchData]);
+  }, [org, selectedCrew, masters, addMasterId, addLink, fetchData]);
 
   const patchApp = useCallback(
     async (id: string, patch: Record<string, unknown>) => {

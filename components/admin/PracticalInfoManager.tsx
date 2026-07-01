@@ -807,11 +807,15 @@ export default function PracticalInfoManager() {
   // ── Meta fetch (weeks / types / users) ──
   const fetchMeta = useCallback(async () => {
     try {
+      // org·hub 스코프 — line_opening_windows 예외를 '그 조직 + 실무정보'로만 드롭다운/폼에 노출.
+      //   info 개설은 통합(org=null 가능)이라 org 없으면 '전체 조직' 예외만 반영.
+      const metaOrg = readOrgParam(new URLSearchParams(window.location.search));
+      const metaOrgQs = metaOrg ? `&org=${encodeURIComponent(metaOrg)}` : "";
       const [weekRes, weeksRes, typesRes, usersRes, excRes] = await Promise.all([
         fetch("/api/admin/cluster4/current-week"),
         fetch(
           appendModeQuery(
-            "/api/admin/cluster4/weeks-options?limit=3",
+            `/api/admin/cluster4/weeks-options?limit=3${metaOrgQs}&hub=info`,
             readScopeMode(new URLSearchParams(window.location.search)),
           ),
         ),
@@ -824,7 +828,7 @@ export default function PracticalInfoManager() {
             readScopeMode(new URLSearchParams(window.location.search)),
           ),
         ),
-        fetch("/api/admin/line-opening-windows/active"),
+        fetch(`/api/admin/line-opening-windows/active?hub=info${metaOrgQs}`),
       ]);
 
       const weekJson = await weekRes.json();
