@@ -497,24 +497,24 @@ async function invalidateWeeklyCardsForLineChange(
 //   stale(is_stale=false인데 분모 변경) 로 남지 않는다. 과거엔 info 만 targets-only(+lazy 수렴)로
 //   달랐으나(구현 드리프트), 이 헬퍼 하나로 통일한다.
 //
-// 무효화 전략(3허브 동일):
-//   1) 배정 타깃    → invalidateWeeklyCardsForUsers(≤10 즉시 재계산) : 개설 크루가 곧바로 반영됨.
-//   2) 그 외 audience → markWeeklyCardsSnapshotStaleMany(청크) 로 stale 마킹만 : 분모 A 변경을
-//      각자 조회 시 lazy 재계산으로 수렴(대량 729명 즉시 재계산 herd 회피 · snapshot-only 정합).
-// 스코프: resolveUserScope(mode) 로 현재 모집단만(QA=test / 운영=실유저) — 교차 모드 실유저 무접촉.
+// 무효화 전략(3허브 동일 · 실무정보와 동일 수준):
+//   1) 배정 타깃    → invalidateWeeklyCardsForUsers(≤10 즉시 재계산). **스코프 필터 없음** — 개설
+//      대상(line_targets)은 이미 개설 게이트를 통과한 확정 대상이므로, 반드시 즉시 재계산해 개설
+//      크루가 자기 카드에서 바로 본다(실무정보 has-target 경로와 동일 — 타깃엔 모집단 필터 미적용).
+//   2) 그 외 audience → markWeeklyCardsSnapshotStaleMany(청크) 로 stale 마킹만(교차 모드 실유저
+//      무접촉 위해 여기서만 스코프 필터). 분모 A 변경은 각자 조회 시 lazy 재계산으로 수렴.
 export async function invalidateWeeklyCardsForLineOpen(
   lineId: string,
   targetUserIds: ReadonlyArray<string>,
   mode: ScopeMode,
 ): Promise<void> {
-  const scope = await resolveUserScope(mode, null);
-  const targets = scope.filter(
-    Array.from(new Set(targetUserIds.filter((u): u is string => Boolean(u)))),
+  // 1) 배정 타깃: 스코프 무관 즉시 재계산(개설 대상 = 반드시 반영, 실무정보와 동일 보장).
+  const targets = Array.from(
+    new Set(targetUserIds.filter((u): u is string => Boolean(u))),
   );
-  // 1) 배정 타깃: 즉시 반영 경로(개설 크루가 자기 카드에서 바로 본다).
   if (targets.length > 0) await invalidateWeeklyCardsForUsers(targets);
 
-  // 2) org audience(분모 A) 중 배정 외 나머지: stale 마킹만 → lazy-on-read 로 수렴.
+  // 2) org audience(분모 A) 중 배정 외 나머지: 스코프 필터 후 stale 마킹만 → lazy-on-read 로 수렴.
   let audience: string[] = [];
   try {
     audience = await collectLineOrgAudience(lineId);
@@ -525,6 +525,7 @@ export async function invalidateWeeklyCardsForLineOpen(
     });
   }
   const targetSet = new Set(targets);
+  const scope = await resolveUserScope(mode, null);
   const rest = scope.filter(audience).filter((id) => !targetSet.has(id));
   if (rest.length > 0) await markWeeklyCardsSnapshotStaleMany(rest);
 }

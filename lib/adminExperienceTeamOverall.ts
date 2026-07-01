@@ -19,6 +19,7 @@ import {
   type ScopeMode,
 } from "@/lib/userScope";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { invalidateWeeklyCardsForLineOpen } from "@/lib/adminCluster4LinesData";
 import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import { resolveOutputLinks } from "@/lib/cluster4OutputLinks";
@@ -1007,9 +1008,15 @@ export async function openTeamOverall(input: {
     warnings.push(`상태 갱신 실패 — ${statusErr.message}`);
   }
 
-  // 대상자 주차 카드 즉시 재계산(저장 직후 고객 반영) — ≤10 즉시 / >10 background. 평점→강화/주차인정 반영.
+  // weekly-cards snapshot 무효화 = 3허브 통일 헬퍼(info/experience-lines/competency 와 동일 기준):
+  //   배정 크루 즉시 재계산(개설 크루 바로 반영) + org audience 분모 A stale(비배정 크루 lazy 수렴).
+  //   과거엔 배정자만 무효화해 비배정 크루 강화율 분모가 지연됐다(드리프트) — 통일로 해소.
   if (affectedUserIds.size > 0) {
-    await invalidateWeeklyCardsForUsers(Array.from(affectedUserIds));
+    if (createdLineIds.length > 0) {
+      await invalidateWeeklyCardsForLineOpen(createdLineIds[0], Array.from(affectedUserIds), mode);
+    } else {
+      await invalidateWeeklyCardsForUsers(Array.from(affectedUserIds));
+    }
   }
 
   await insertExperienceOpeningLog({
