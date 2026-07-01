@@ -460,7 +460,10 @@ function LineDetailModal({
             </p>
             <h2 className="truncate text-lg font-bold">{line.mainTitle}</h2>
             {devMode && (
-              <p className="font-mono text-xs text-muted-foreground">lineId: {line.id}</p>
+              <p className="font-mono text-xs text-muted-foreground">
+                lineId: {line.id}
+                {line.lineCode ? ` · ${line.lineCode}` : ""}
+              </p>
             )}
           </div>
           <Button variant="ghost" size="icon" onClick={onClose}>

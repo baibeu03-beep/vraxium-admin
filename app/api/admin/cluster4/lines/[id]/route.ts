@@ -44,7 +44,8 @@ export async function GET(request: NextRequest, { params }: Ctx) {
 
   const { id } = await params;
   try {
-    await assertLineInRequestScope(request, id);
+    // 조회(Read): 라인은 운영 그대로 노출 — QA 스코프로 라인을 막지 않는다(고객앱과 동일 line_id).
+    //   대상 크루 T 필터는 /targets 조회에서 적용. 수정/삭제(PATCH/DELETE) write 가드는 유지.
     const line = await getCluster4Line(id);
     return Response.json({ success: true, data: { line } });
   } catch (error) {

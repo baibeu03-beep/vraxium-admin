@@ -33,7 +33,8 @@ export async function GET(request: NextRequest, { params }: Ctx) {
 
   const { id } = await params;
   try {
-    await assertLineInRequestScope(request, id);
+    // 조회(Read): 라인 자체는 막지 않는다(운영 라인 전부 열람 가능).
+    //   대상 크루는 listCluster4LineTargets 가 현재 모집단(QA=test)으로 필터 → T 만 표시.
     const data = await listCluster4LineTargets(
       id,
       parseScopeMode(request.nextUrl.searchParams.get("mode")),

@@ -161,11 +161,9 @@ export async function getInfoLineResultsForWeek(opts: {
   typeRows.sort((a, b) => orderIdx(a.id) - orderIdx(b.id) || a.id.localeCompare(b.id));
 
   // 3. 해당 주차의 개설(활성) 라인 — 타깃(week_id, 0명 sentinel 포함) ∪ 라인 자체 week_id.
-  //    운영/테스트 모집단 스코프(QA 누수 차단): info-lines GET 과 동일 every() 정책 —
-  //    라인의 user 대상자가 전원 현재 mode scope 안일 때만 "개설된 라인"으로 노출한다.
-  //      operating : 실유저 대상자 라인 유지(기존 동일). test 라인(marker 대상자) 제외.
-  //      test      : marker 대상자 라인만. 운영 라인(실유저 대상자) 제외 → "운영 라인 0건".
-  //    0명(sentinel/무대상자) 라인은 user 대상자가 없어 양쪽 노출(노출 운영 유저 0). org 축은 별도 isOrgVisible.
+  //    QA 정책(2026-07-01): 라인 자체는 운영 그대로 전부 노출한다(고객앱과 동일 line_id 집합).
+  //    scope 는 라인 제외가 아니라 "개설 해당자/2차 기입자 카운트"를 현재 모집단(QA=test)으로
+  //    좁히는 데만 쓴다(대상 크루 = T 만). org 축은 별도 isOrgVisible.
   const scope = await resolveUserScope(mode ?? "operating", null);
 
   // 후보 라인(메타) + 라인별 user 대상자(user_id) + user target.id(2차 기입 카운트용) 를 먼저 모은다.
@@ -214,22 +212,20 @@ export async function getInfoLineResultsForWeek(opts: {
     if (!candidateLineMeta.has(line.id)) candidateLineMeta.set(line.id, line);
   }
 
-  // 모드 스코프 every() + activity 별 대표 라인 선정(후보 삽입 순서 = tRows→lRows 유지).
+  // activity 별 대표 라인 선정(후보 삽입 순서 = tRows→lRows 유지).
+  //   라인은 운영 그대로 전부 노출(개설 라인 목록 = 고객앱과 동일 line_id). 대상자 카운트
+  //   (개설 해당자·2차 기입자)만 현재 모집단(QA=test)으로 좁힌다.
   const lineByActivity = new Map<string, LineMeta>();
-  const userTargetIdsByLine = new Map<string, string[]>(); // lineId → user-mode target.id[] (in-scope 라인만)
+  const userTargetIdsByLine = new Map<string, string[]>(); // lineId → user-mode target.id[] (현재 모집단만)
   for (const line of candidateLineMeta.values()) {
     if (!line.activity_type_id) continue;
     if (lineByActivity.has(line.activity_type_id)) continue; // 이미 대표 라인 확정
-    const uids = userIdsByLineId.get(line.id) ?? [];
-    // test : 마커 user 대상자가 있고 전원 마커인 라인만(운영 라인 + 0대상 sentinel 라인 모두 제외 → "운영 라인 0건").
-    // operating : 비-마커 대상자 라인 + 0대상(sentinel) 라인 유지(기존 동일). 테스트 라인(전원 마커)만 제외.
-    const inScope =
-      mode === "test"
-        ? uids.length > 0 && uids.every((id) => scope.includes(id))
-        : uids.length === 0 || uids.every((id) => scope.includes(id));
-    if (!inScope) continue;
     lineByActivity.set(line.activity_type_id, line);
-    userTargetIdsByLine.set(line.id, userTargetIdsByLineId.get(line.id) ?? []);
+    const uids = userIdsByLineId.get(line.id) ?? [];
+    const tids = userTargetIdsByLineId.get(line.id) ?? [];
+    // uids/tids 는 같은 row 에서 함께 push 되어 동일 순서 → index 로 scope(현재 모집단) 필터.
+    const scopedTids = tids.filter((_, i) => scope.includes(uids[i]));
+    userTargetIdsByLine.set(line.id, scopedTids);
   }
 
   // 4. 개설자 이름 일괄 resolve (display_name ?? admin email ?? "관리자").

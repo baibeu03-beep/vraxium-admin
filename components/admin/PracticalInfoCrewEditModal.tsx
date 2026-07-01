@@ -9,6 +9,7 @@ import CafeCrewPicker, {
   type CafeCrew,
   type CafeCrewMeta,
 } from "@/components/admin/CafeCrewPicker";
+import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 
 // 실무 정보 — "개설 대상 크루 수정" 모달.
 //   이미 개설된 (과거) 라인의 개설 대상 크루를 카페 검수 UI(CafeCrewPicker)로 사후 수정한다.
@@ -40,6 +41,7 @@ export default function PracticalInfoCrewEditModal({
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
+  const devMode = useAdminDevMode();
   const [editMode, setEditMode] = useState<"add" | "replace">("add");
   const [candidates, setCandidates] = useState<CafeCrew[]>([]);
   const [, setMeta] = useState<CafeCrewMeta>(null);
@@ -213,6 +215,11 @@ export default function PracticalInfoCrewEditModal({
             <h2 className="truncate text-lg font-bold">개설 대상 크루 수정</h2>
             {mainTitle ? (
               <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{mainTitle}</p>
+            ) : null}
+            {devMode ? (
+              <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                lineId: {lineId}
+              </p>
             ) : null}
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} disabled={saving}>

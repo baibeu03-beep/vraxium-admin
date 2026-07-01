@@ -570,22 +570,10 @@ export async function listCluster4Lines(
 ): Promise<ListCluster4LinesResult> {
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
   const offset = Math.max(options.offset ?? 0, 0);
-  const scope = await resolveUserScope(options.mode ?? "operating", null);
-  const { data: scopedTargetRows, error: scopedTargetError } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("line_id,target_user_id")
-    .eq("target_mode", "user");
-  if (scopedTargetError) throw new Cluster4LineError(500, scopedTargetError.message);
-  const excludedLineIds = Array.from(
-    new Set(
-      (scopedTargetRows ?? [])
-        .filter((row) => {
-          const userId = (row as { target_user_id: string | null }).target_user_id;
-          return Boolean(userId && !scope.includes(userId));
-        })
-        .map((row) => (row as { line_id: string }).line_id),
-    ),
-  );
+  // QA 정책(2026-07-01): 라인(cluster4_lines)은 운영 그대로 전부 노출 — 라인 자체를 스코프로
+  //   제외하지 않는다(고객앱과 동일 line_id 집합). 대상 크루 T 필터는 대상자 조회
+  //   (/lines/[id]/targets·/info-lines/crew·detailed.targets)에서 적용한다.
+  const excludedLineIds: string[] = [];
 
   let lineIdsFilter: string[] | null = null;
   if (options.weekId || options.targetMode) {
@@ -1752,8 +1740,16 @@ export async function listCluster4LinesDetailed(
     targetsByLineId.set(target.line_id, list);
   }
 
+  // QA 스코프 정책(2026-07-01): 라인(cluster4_lines)은 운영 그대로 전부 노출하고,
+  //   대상 크루(cluster4_line_targets)만 현재 모집단(QA=test)으로 좁힌다.
+  //   → 고객앱과 어드민의 line_id 집합이 항상 일치하고, 대상자 목록/카운트만 T 로 필터된다.
+  //   (라인이 test scope 로 사라지지 않는다 — 실사용자는 대상자 표시에서만 숨겨진다.)
+  const targetScope = await resolveUserScope(options.mode ?? "operating", null);
+
   const rows: Cluster4InfoLineDetail[] = lineRows.map((line) => {
-    const lineTargets = targetsByLineId.get(line.id) ?? [];
+    const lineTargets = (targetsByLineId.get(line.id) ?? []).filter(
+      (t) => !t.target_user_id || targetScope.includes(t.target_user_id),
+    );
     let submittedCount = 0;
     let canEditCount = 0;
 
@@ -1863,13 +1859,8 @@ export async function listCluster4LinesDetailed(
     };
   });
 
-  const scope = await resolveUserScope(options.mode ?? "operating", null);
-  const scopedRows = rows.filter((row) =>
-    row.targets.every(
-      (target) => !target.targetUserId || scope.includes(target.targetUserId),
-    ),
-  );
-  return { rows: scopedRows, total: scopedRows.length, limit, offset };
+  // 라인 자체는 필터하지 않는다(운영 라인 전부 노출). 대상 크루는 위 targetScope 로 이미 좁혔다.
+  return { rows, total: rows.length, limit, offset };
 }
 
 // 실무 정보(part_type='info') 전용 wrapper — 기존 info-lines GET 호환 유지.
