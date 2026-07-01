@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2, Search, Plus, X, ExternalLink, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { formatLogPeriodLabel } from "@/lib/practicalInfoSection0Format";
 
 // 실무 역량 [라인 개설] — [해당 크루] 영역.
 //   상단: 요약(활동/신청/개설/반려/신청 라인/개설 라인) + 수동 추가(자동완성 + 추가).
@@ -75,6 +76,18 @@ type MasterItem = {
   isActive: boolean;
 };
 
+// 주차 헤더용 메타(weeks-options 로 resolve) — 신청 API 응답의 week_id 를 라벨로 바꾼다.
+type WeekMeta = { year: number; seasonKey: string; weekNumber: number };
+
+// "26년 여름 시즌 1주차" — info/experience 로그창과 동일 주차 표기(단일 SoT).
+function weekHeaderLabel(meta: WeekMeta | undefined): string {
+  return formatLogPeriodLabel({
+    isoYear: meta?.year ?? null,
+    seasonKey: meta?.seasonKey ?? null,
+    weekNumber: meta?.weekNumber ?? null,
+  });
+}
+
 const EMPTY_SUMMARY: Summary = {
   activeCrews: 0,
   appliedCrews: 0,
@@ -109,6 +122,10 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
 
   const [apps, setApps] = useState<ApplicationDto[]>([]);
   const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
+  // 신청 명단이 속한 개설 대상 주차(단일). 주차 헤더 그룹핑 키로 사용한다.
+  const [weekId, setWeekId] = useState<string | null>(null);
+  // weekId → 주차 메타(라벨용). weeks-options(읽기 전용, 기존 엔드포인트)로 resolve.
+  const [weekMetaById, setWeekMetaById] = useState<Map<string, WeekMeta>>(new Map());
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
@@ -150,13 +167,16 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
       if (json?.success) {
         setApps(json.data?.applications ?? []);
         setSummary(json.data?.summary ?? EMPTY_SUMMARY);
+        setWeekId(json.data?.weekId ?? null);
       } else {
         setApps([]);
         setSummary(EMPTY_SUMMARY);
+        setWeekId(null);
       }
     } catch {
       setApps([]);
       setSummary(EMPTY_SUMMARY);
+      setWeekId(null);
     } finally {
       setLoading(false);
     }
@@ -189,6 +209,56 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
       cancelled = true;
     };
   }, [org]);
+
+  // 주차 라벨 맵 — weeks-options(읽기 전용, 기존 엔드포인트)로 weekId→메타 resolve.
+  //   신청 API 응답은 개설 대상 주차 1개(week_id)만 돌려주므로 그 주차 라벨만 있으면 되지만,
+  //   주차가 늘어도 자동 대응하도록 최근 주차 전체를 맵으로 담아둔다(백엔드/응답 무변경).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const qs = new URLSearchParams({ limit: "20", hub: "competency" });
+        if (org) qs.set("org", org);
+        const res = await fetch(`/api/admin/cluster4/weeks-options?${qs.toString()}`);
+        const json = await res.json();
+        if (cancelled) return;
+        const m = new Map<string, WeekMeta>();
+        for (const w of (json?.success ? json.data?.weeks ?? [] : []) as Array<{
+          id: string;
+          year: number;
+          seasonKey: string;
+          weekNumber: number;
+        }>) {
+          m.set(w.id, { year: w.year, seasonKey: w.seasonKey, weekNumber: w.weekNumber });
+        }
+        setWeekMetaById(m);
+      } catch {
+        if (!cancelled) setWeekMetaById(new Map());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [org]);
+
+  // 신청 명단을 주차 기준으로 그룹핑 — info/experience 와 동일한 "주차 헤더 + 그 주차 크루" UI.
+  //   현재 신청 API 는 개설 대상 주차 1개만 반환하므로 그룹은 하나지만, 응답이 여러 주차를
+  //   담게 되면 주차별로 자동 분리된다(순수 렌더 그룹핑 — API/DB 무관).
+  const weekGroups = useMemo(() => {
+    const byWeek = new Map<string, ApplicationDto[]>();
+    for (const a of apps) {
+      // 행 단위 week_id 가 응답에 없으므로 명단 전체가 속한 개설 대상 주차(weekId)로 묶는다.
+      const key = weekId ?? "__none__";
+      const arr = byWeek.get(key);
+      if (arr) arr.push(a);
+      else byWeek.set(key, [a]);
+    }
+    return Array.from(byWeek.entries()).map(([wid, list]) => ({
+      weekId: wid,
+      meta: weekMetaById.get(wid),
+      apps: list,
+    }));
+  }, [apps, weekId, weekMetaById]);
 
   // 자동완성 검색(디바운스). cafe-line-crew GET 재사용 — 크루 번호+이름+학교 반환.
   useEffect(() => {
@@ -462,7 +532,21 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {apps.map((a) => (
+                {weekGroups.map((g) => (
+                  <Fragment key={g.weekId}>
+                    {/* 주차 헤더 — "26년 여름 시즌 N주차" + 그 주차 크루 수. 아래에 해당 주차 크루만 표시. */}
+                    <TableRow className="bg-muted/40 hover:bg-muted/40">
+                      <TableCell
+                        colSpan={7}
+                        className="whitespace-nowrap py-2 text-sm font-semibold"
+                      >
+                        {weekHeaderLabel(g.meta)}
+                        <span className="ml-2 text-xs font-normal text-muted-foreground">
+                          {g.apps.length}명
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                    {g.apps.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="whitespace-nowrap font-medium">
                       {a.crewLabel}
@@ -547,6 +631,8 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
                       ) : null}
                     </TableCell>
                   </TableRow>
+                    ))}
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
