@@ -811,6 +811,10 @@ export async function openTeamOverall(input: {
       { status: 409 },
     );
   }
+  // ⚠ 권한(Role)과 업무 흐름(Process) 분리: 팀장은 최고 권한 — status 가 reviewed 가 아니어도(검수 전)
+  //   개설 완료할 수 있어야 한다. 순서 강제(status 하드 블록)를 두지 않는다. 역할 제한(파트장=신청만·
+  //   에이전트=검수만·개설은 팀장/owner)은 라우트의 assertImpersonationCapability 가 이미 담당한다.
+  //   "권장 다음 액션" 안내는 프론트에서 시각적 강조로만 처리(하드 블록 아님).
 
   // 1) 입력값 저장(status 는 일단 reviewed 로 보존 — 반영 성공 후 opened 로 승격).
   const overallId = await persistReviewState({

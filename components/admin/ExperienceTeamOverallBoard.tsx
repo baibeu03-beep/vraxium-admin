@@ -127,6 +127,12 @@ export default function ExperienceTeamOverallBoard({
   const opened = board?.status === "opened";
   const extensionActive = board?.extensionActive ?? false;
 
+  // 업무 흐름(Process)상 "현재 상태에서 권장되는 다음 액션" — 시각적 강조(안내)용일 뿐, 권한을 막지 않는다.
+  //   none(검수 전) → 개설 검수, reviewed(검수 완료) → 개설 완료, opened(완료) → 없음.
+  //   ⚠ 팀장 권한은 상태와 무관 — 검수 전이라도 개설 완료 버튼은 활성(강조만 안 될 뿐).
+  const recommendedNext: "review" | "open" | null =
+    board?.status === "reviewed" ? "open" : board?.status === "opened" ? null : "review";
+
   // 보드를 로컬 편집 state 로 흡수(저장값/기본값).
   const hydrate = useCallback((b: BoardDto) => {
     const lc = new Map<string, OverallCell>();
@@ -627,11 +633,21 @@ export default function ExperienceTeamOverallBoard({
         {/* 우측 고정 액션 컬럼(lg+) — 1열 4행 세로 버튼 그룹. 모바일: 콘텐츠 하단 stack.
             파트 선택 화면의 우측 액션 영역과 동일 구조. 동작/색상/disabled 조건 무변경. */}
         <div className="flex flex-col gap-2 lg:w-36 lg:shrink-0 lg:self-start lg:border-l lg:pl-3">
-          {/* 임퍼소네이션 버튼 게이팅(UX) — 비임퍼(actorMemberRole=null)=전체 노출(기존 동작).
-              검수=agent/team_leader · 개설/취소=team_leader 만. 서버 가드(403)가 실제 경계. */}
+          {/* 권장 다음 액션 안내(업무 흐름) — 현재 상태 기준. 권한 제한이 아니라 UX 힌트. */}
+          {!opened && (
+            <p className="text-[11px] leading-tight text-muted-foreground">
+              권장 다음 단계:{" "}
+              <span className="font-semibold text-foreground">
+                {recommendedNext === "open" ? "개설 완료" : "개설 검수"}
+              </span>
+            </p>
+          )}
+          {/* 역할 게이팅(UX) — 비임퍼(actorMemberRole=null)=전체 노출(기존 동작).
+              검수=agent/team_leader · 개설/취소=team_leader 만. 서버 가드(403)가 실제 권한 경계.
+              variant(강조)는 "권장 다음 액션"에 따라 동적 — 권한/활성 여부와는 별개(팀장은 상태 무관 가능). */}
           {(!actorMemberRole || actorMemberRole === "agent" || actorMemberRole === "team_leader") && (
             <Button
-              variant="outline"
+              variant={recommendedNext === "review" ? "default" : "outline"}
               className="w-full justify-center"
               onClick={onReview}
               loading={saving}
@@ -651,10 +667,20 @@ export default function ExperienceTeamOverallBoard({
           </Button>
           {(!actorMemberRole || actorMemberRole === "team_leader") && (
             <Button
+              // 팀장(최고 권한)은 status 와 무관하게 개설 완료 가능 — 검수 전(none)이라도 활성.
+              //   status 로 막지 않는다(이미 완료된 opened 만 제외). "권장 순서"는 variant 강조로만 안내.
+              variant={recommendedNext === "open" ? "default" : "outline"}
               className="w-full justify-center"
               onClick={onOpen}
               loading={saving}
               disabled={saving || opened}
+              title={
+                opened
+                  ? "이미 개설 완료됨 — 수정하려면 [개설 취소] 후 진행하세요."
+                  : board.status !== "reviewed"
+                    ? "권장 순서는 에이전트 [개설 검수] 후이지만, 팀장은 바로 개설 완료할 수 있습니다."
+                    : undefined
+              }
             >
               <CheckCircle2 className="mr-1.5 h-4 w-4" /> 개설 완료
             </Button>
