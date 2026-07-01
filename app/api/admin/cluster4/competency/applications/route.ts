@@ -26,6 +26,7 @@ import {
   getCompetencyLineResults,
   listCompetencyApplications,
 } from "@/lib/adminCompetencyApplications";
+import { resolveEffectiveWeek } from "@/lib/adminCompetencyLineOpening";
 
 // 실무 역량 [라인 개설] 신청/승인 명단.
 //   GET  ?organization=&week_id?=  → { applications, summary, weekId } (week_id 미지정 시 개설 대상 주차)
@@ -203,7 +204,12 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const weekId = await resolveTargetWeekId(scopeMode);
+    // 수동 추가 주차 = 대시보드에서 선택한 개설 주차(body.week_id) 우선. 미지정 시에만 개설 대상 주차로 fallback.
+    //   개설(openCompetencyHub)과 동일한 resolveEffectiveWeek 로 해석 → 선택 주차(정규 대상 또는 허용 예외)만
+    //   honor, 임의 주차 주입은 400(fail-closed). read(GET)·write(POST)·개설이 모두 같은 주차를 가리키게 한다.
+    const bodyWeekId =
+      typeof b.week_id === "string" && isUuid(b.week_id.trim()) ? b.week_id.trim() : null;
+    const { targetWeekId: weekId } = await resolveEffectiveWeek(scopeMode, bodyWeekId, orgRaw);
     if (!weekId) {
       return Response.json(
         { success: false, error: "개설 대상 주차 정보를 확인할 수 없습니다" },

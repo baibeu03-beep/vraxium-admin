@@ -383,8 +383,12 @@ export default function CompetencyOpeningDashboard() {
         </CardContent>
       </Card>
 
-      {/* [해당 크루] — 신청/승인 명단(요약 + 수동 추가 + 테이블 + 반려 사유). 개설 완료/취소 시 refreshKey 로 갱신. */}
-      <CompetencyApplicantSection refreshKey={refreshKey} />
+      {/* [해당 크루] — 신청/승인 명단(요약 + 수동 추가 + 테이블 + 반려 사유). 개설 완료/취소 시 refreshKey 로 갱신.
+          selectedWeekId = 상단에서 선택한 개설 주차 — 명단 조회/수동 추가가 그 주차를 대상으로 하도록 전달(상태창과 동일 주차). */}
+      <CompetencyApplicantSection
+        refreshKey={refreshKey}
+        selectedWeekId={openTargetWeek?.id ?? null}
+      />
     </div>
   );
 }

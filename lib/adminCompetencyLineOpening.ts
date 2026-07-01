@@ -103,7 +103,7 @@ function toMs(iso: string): number {
 //   (정규 개설 대상 주차와 일치) 또는 (scope=all 활성 예외 주차)일 때만 그 주차를 쓰고,
 //   그 외에는 400(fail-closed). 요청이 없으면 정규 개설 대상(금요일 경계, 테스트 W13 예외) 그대로.
 //   → /admin/settings/line-opening-windows 에서 허용한 주차를 역량 대시보드에서 선택·개설 가능.
-async function resolveEffectiveWeek(
+export async function resolveEffectiveWeek(
   mode: ScopeMode,
   requestedWeekId?: string | null,
   // 예외 판정 스코프 — 역량 대시보드의 org(조직 진입 시). null=통합/미지정.

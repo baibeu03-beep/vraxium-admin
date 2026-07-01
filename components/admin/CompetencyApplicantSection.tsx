@@ -116,7 +116,15 @@ function SummaryChip({ label, value, tone }: { label: string; value: number; ton
   );
 }
 
-export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?: number }) {
+export default function CompetencyApplicantSection({
+  refreshKey,
+  // 상단 대시보드에서 선택한 개설 주차 — 명단 조회/수동 추가가 이 주차를 대상으로 한다.
+  //   미지정(null)이면 백엔드가 개설 대상 주차(금요일 경계·테스트 W13 예외)로 fallback(상태창과 동일 SoT).
+  selectedWeekId,
+}: {
+  refreshKey?: number;
+  selectedWeekId?: string | null;
+}) {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
 
@@ -159,6 +167,8 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
     try {
       const qs = new URLSearchParams();
       if (org) qs.set("organization", org);
+      // 선택한 개설 주차 전달 — 서버가 그 주차 명단/집계를 반환(미전달 시 개설 대상 주차 fallback).
+      if (selectedWeekId) qs.set("week_id", selectedWeekId);
       // 집계/결과 모집단 = 서버 QA_HIDE_REAL_USERS 스위치 기준(QA=테스트 유저 / 종료 후 실사용자).
       const res = await fetch(
         `/api/admin/cluster4/competency/applications?${qs.toString()}`,
@@ -180,7 +190,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
     } finally {
       setLoading(false);
     }
-  }, [org]);
+  }, [org, selectedWeekId]);
 
   useEffect(() => {
     void fetchData();
@@ -336,6 +346,8 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
         body: JSON.stringify({
           organization: org,
           target_user_id: selectedCrew.userId,
+          // 선택한 개설 주차로 저장 — 미전달 시 서버가 개설 대상 주차로 fallback(조회/개설과 동일 주차).
+          week_id: selectedWeekId ?? null,
           // line_master_id + line_code + line_name 함께 저장(자유 입력 아님).
           competency_line_master_id: master.id,
           line_code: master.lineCode,
@@ -358,7 +370,7 @@ export default function CompetencyApplicantSection({ refreshKey }: { refreshKey?
     } finally {
       setSaving(false);
     }
-  }, [org, selectedCrew, masters, addMasterId, addLink, fetchData]);
+  }, [org, selectedCrew, masters, addMasterId, addLink, selectedWeekId, fetchData]);
 
   const patchApp = useCallback(
     async (id: string, patch: Record<string, unknown>) => {
