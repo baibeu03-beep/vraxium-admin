@@ -11,6 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────
 
 import type { ScopeMode } from "@/lib/userScopeShared";
+import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
 
 // org → 테스트 팀명 집합. 단일 출처(이 상수 외에서 팀명 하드코딩 금지).
 export const TEST_TEAM_SCOPE: Readonly<Record<string, ReadonlySet<string>>> = {
@@ -33,14 +34,20 @@ export function isTestTeam(organization: string, teamName: string): boolean {
 // admin 의 모든 팀 목록 산출 경로(listTeams·cluster4/teams·opening-status·process-check)는
 // 화면별 임시 필터 대신 이 함수 하나만 거친다(팀명 하드코딩·중복 분기 금지).
 //
+// ⚠ QA 고정 필터 정합(lib/qaFixedScope.QA_FIXED_TEST_ONLY): resolveUserScope 는 QA 기간에 전달
+//   mode 와 무관하게 test 모집단(테스트 유저)으로 고정한다. 팀 목록도 동일 effectiveMode 를 써야
+//   "팀 드롭다운=운영 팀(mode 미부착) ↔ 크루/파트=테스트 유저(QA 강제)" 불일치(운영 팀에 테스트
+//   크루 0명 → 파트/크루 빈칸)를 막을 수 있다. userScope 와 같은 축으로 QA 를 반영한다.
+//
 // organization 은 단일 org 컨텍스트(모든 admin 팀 목록이 org 스코프). org 미지정(전 org)일 때는
 // 각 팀의 organizationSlug 로 판정한다. teamName 만 있으면 충분(ProcessCheckTeamDto 호환).
 export function filterTeamsByScope<
   T extends { teamName: string; organizationSlug?: string | null },
 >(teams: readonly T[], organization: string | null, mode: ScopeMode): T[] {
+  const effectiveMode: ScopeMode = QA_FIXED_TEST_ONLY ? "test" : mode;
   return teams.filter((team) => {
     const org = (organization ?? team.organizationSlug ?? "").trim();
     const isTest = isTestTeam(org, team.teamName);
-    return mode === "test" ? isTest : !isTest;
+    return effectiveMode === "test" ? isTest : !isTest;
   });
 }

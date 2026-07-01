@@ -5,6 +5,7 @@
 
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { isTestTeam } from "@/lib/cluster4ExperienceTestScope";
+import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { readFileSync } from "node:fs";
@@ -32,6 +33,11 @@ const hasTestTeam = (teams: Array<{ teamName: string }>) =>
   teams.filter((t) => isTestTeam(ORG, t.teamName)).length;
 const allTestTeam = (teams: Array<{ teamName: string }>) =>
   teams.length > 0 && teams.every((t) => isTestTeam(ORG, t.teamName));
+// QA 고정 필터(QA_FIXED_TEST_ONLY): QA 기간엔 operating 도 test 축 → (T) 팀만.
+//   operating 기대: QA 중 = 전원 (T) / QA 종료 후 = (T) 0개.
+const opOk = (teams: Array<{ teamName: string }>) =>
+  QA_FIXED_TEST_ONLY ? allTestTeam(teams) : hasTestTeam(teams) === 0;
+const opLabel = QA_FIXED_TEST_ONLY ? "전원 (T)(QA)" : "(T) 0개";
 
 async function main() {
   // ── 세션 쿠키(magiclink) ──
@@ -71,13 +77,13 @@ async function main() {
   // ── 1) direct: listTeams ──
   const dOp = await listTeams(ORG, "operating");
   const dTest = await listTeams(ORG, "test");
-  ck(`[direct] listTeams operating (T) 0개 (${dOp.length}팀)`, hasTestTeam(dOp) === 0, names(dOp).join(", "));
+  ck(`[direct] listTeams operating ${opLabel} (${dOp.length}팀)`, opOk(dOp), names(dOp).join(", "));
   ck(`[direct] listTeams test 전원 (T) (${dTest.length}팀)`, allTestTeam(dTest), names(dTest).join(", "));
 
   // ── 2) HTTP: cluster4/teams ──
   const hOp = await httpTeams(`/api/admin/cluster4/teams?organization=${ORG}`);
   const hTest = await httpTeams(`/api/admin/cluster4/teams?organization=${ORG}&mode=test`);
-  ck(`[HTTP] cluster4/teams operating (T) 0개 (${hOp.length}팀)`, hasTestTeam(hOp) === 0, names(hOp).join(", "));
+  ck(`[HTTP] cluster4/teams operating ${opLabel} (${hOp.length}팀)`, opOk(hOp), names(hOp).join(", "));
   ck(`[HTTP] cluster4/teams test 전원 (T) (${hTest.length}팀)`, allTestTeam(hTest), names(hTest).join(", "));
 
   // direct == HTTP (cluster4/teams 는 listTeams 와 동일 경로)
@@ -89,13 +95,13 @@ async function main() {
   // ── 3) HTTP: opening-status (팀별 개설 현황 블록3) ──
   const osOp = await httpTeams(`/api/admin/cluster4/experience/opening-status?organization=${ORG}`);
   const osTest = await httpTeams(`/api/admin/cluster4/experience/opening-status?organization=${ORG}&mode=test`);
-  ck(`[HTTP] opening-status operating (T) 0개 (${osOp.length}팀)`, hasTestTeam(osOp) === 0, names(osOp).join(", "));
+  ck(`[HTTP] opening-status operating ${opLabel} (${osOp.length}팀)`, opOk(osOp), names(osOp).join(", "));
   ck(`[HTTP] opening-status test 전원 (T) (${osTest.length}팀)`, allTestTeam(osTest), names(osTest).join(", "));
 
   // ── 4) HTTP: processes/check (experience 섹션.1 팀 탭) ──
   const pcOp = await httpTeams(`/api/admin/processes/check?hub=experience&org=${ORG}`);
   const pcTest = await httpTeams(`/api/admin/processes/check?hub=experience&org=${ORG}&mode=test`);
-  ck(`[HTTP] processes/check operating (T) 0개 (${pcOp.length}팀)`, hasTestTeam(pcOp) === 0, names(pcOp).join(", "));
+  ck(`[HTTP] processes/check operating ${opLabel} (${pcOp.length}팀)`, opOk(pcOp), names(pcOp).join(", "));
   ck(`[HTTP] processes/check test 전원 (T) (${pcTest.length}팀)`, allTestTeam(pcTest), names(pcTest).join(", "));
 
   console.log(`\n결과: ${pass} pass / ${fail} fail`);

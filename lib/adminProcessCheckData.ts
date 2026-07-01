@@ -732,6 +732,7 @@ export async function getProcessCheckBoard(
     crewReactionLabel: PROCESS_ACT_TYPE_LABEL[a.act_type as ProcessActType] ?? a.act_type,
     cafeLabel: PROCESS_CAFE_LABEL[a.cafe as ProcessCafe] ?? a.cafe,
     isCheckTarget: a.check_target === "check",
+    checkStatusId: st.statusRowId,
     status: st.status,
     completionType: st.completionType,
     reviewLink: st.reviewLink,
@@ -1151,6 +1152,8 @@ export async function applyProcessCheckAction(input: {
     actId,
     lineGroupId: act.line_group_id,
     lineGroupName,
+    // 변경 직후 낙관적 반영용 DTO — 행 id 는 직후 보드 refetch(buildRow)가 채운다(여기선 null).
+    checkStatusId: null,
     partLabel: teamBased ? (partNameToStore ?? TEAM_OVERALL_LABEL) : TEAM_OVERALL_LABEL,
     actName: act.act_name,
     durationMinutes: act.duration_minutes,
@@ -1699,6 +1702,8 @@ export async function applyProcessManualGrant(input: {
     actId,
     lineGroupId: act.line_group_id,
     lineGroupName,
+    // 변경 직후 낙관적 반영용 DTO — 행 id 는 직후 보드 refetch(buildRow)가 채운다(여기선 null).
+    checkStatusId: null,
     partLabel: teamBased ? (partNameToStore ?? TEAM_OVERALL_LABEL) : TEAM_OVERALL_LABEL,
     actName: act.act_name,
     durationMinutes: act.duration_minutes,

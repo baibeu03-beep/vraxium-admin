@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingState } from "@/components/ui/loading-state";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 import { statusTone } from "@/lib/statusBadge";
@@ -107,6 +108,50 @@ export default function ProcessIrregularManager() {
     void loadBoard();
   }, [loadBoard]);
 
+  // 즉시 검수(행 단위) — '체크 대기' 링크 신청 행을 검수 시점 전이라도 지금 바로 검수.
+  const confirm = useConfirm();
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+  const [reviewBanner, setReviewBanner] = useState<{ kind: "success" | "info"; message: string } | null>(null);
+  const handleImmediateReview = useCallback(
+    async (act: ProcessIrregularActRowDto) => {
+      if (reviewingId) return;
+      const ok = await confirm({
+        title: "즉시 검수",
+        description: "이 항목을 지금 바로 검수하시겠습니까?",
+        confirmLabel: "즉시 검수",
+      });
+      if (!ok) return;
+      setReviewingId(act.id);
+      setReviewBanner(null);
+      try {
+        const res = await fetch("/api/admin/qa/run-now/process-check-row", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ statusId: act.id, source: "irregular" }),
+        });
+        const json = await res.json().catch(() => ({}));
+        // 즉시 검수는 크롤 결과와 무관하게 항상 '체크 완료' — code 는 크롤 결과(메시지)만 구분.
+        if (!res.ok || !json?.success) {
+          setReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
+        } else {
+          const code: string = json?.data?.code ?? "not_found";
+          const COPY: Record<string, { kind: "success" | "info"; message: string }> = {
+            confirmed: { kind: "success", message: "인증 내용을 확인했습니다. 체크 완료로 처리했습니다." },
+            no_match: { kind: "info", message: "인증 댓글은 있었지만 대상자를 찾지 못했습니다. 체크 완료로 처리했습니다." },
+            not_found: { kind: "info", message: "인증 내용을 찾지 못했습니다. 체크 완료로 처리했습니다." },
+          };
+          setReviewBanner(COPY[code] ?? COPY.not_found);
+        }
+        void loadBoard();
+      } catch {
+        setReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
+      } finally {
+        setReviewingId(null);
+      }
+    },
+    [confirm, reviewingId, loadBoard],
+  );
+
   const { weeks, selectedWeekId, editable, summary, acts } = board;
 
   // 현재 select 표시값 — 사용자가 막 고른 값(weekParam) 우선, 없으면 서버 선택값.
@@ -168,6 +213,23 @@ export default function ProcessIrregularManager() {
         </div>
       )}
 
+      {/* 즉시 검수 결과 배너 — 검수 완료 / 카페에서 인증 내용을 찾지 못했습니다. */}
+      {reviewBanner && (
+        <div
+          className={cn(
+            "flex items-center justify-between rounded-md border px-3 py-2 text-sm",
+            reviewBanner.kind === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-amber-200 bg-amber-50 text-amber-800",
+          )}
+        >
+          <span>{reviewBanner.message}</span>
+          <button type="button" onClick={() => setReviewBanner(null)} className="hover:opacity-70">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* 주차 선택 — 공용 WeekSelectRow(프로세스 체크와 동일 SoT). */}
       <WeekSelectRow
         weeks={weeks}
@@ -210,11 +272,18 @@ export default function ProcessIrregularManager() {
                     <TableHead>신청 시점(실제)</TableHead>
                     <TableHead>검수 시점(실제)</TableHead>
                     <TableHead>체크 상태</TableHead>
+                    <TableHead className="text-center">즉시 검수</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {acts.map((a) => (
-                    <IrregularRow key={a.id} act={a} onOpenDetail={() => setDetailAct(a)} />
+                    <IrregularRow
+                      key={a.id}
+                      act={a}
+                      onOpenDetail={() => setDetailAct(a)}
+                      onImmediateReview={() => handleImmediateReview(a)}
+                      reviewing={reviewingId === a.id}
+                    />
                   ))}
                 </TableBody>
               </Table>
@@ -331,10 +400,17 @@ function PartialChoiceDialog({
 function IrregularRow({
   act,
   onOpenDetail,
+  onImmediateReview,
+  reviewing,
 }: {
   act: ProcessIrregularActRowDto;
   onOpenDetail: () => void;
+  onImmediateReview: () => void;
+  reviewing: boolean;
 }) {
+  // 즉시 검수 = '체크 대기'(pending) 링크 신청(review_request) + 검수 링크가 있는 행만.
+  const canReviewNow =
+    act.kind === "review_request" && act.status === "pending" && Boolean(act.reviewLink);
   const crewTone: Record<IrregularCrewReaction, string> = {
     all: "border-blue-300 bg-blue-50 text-blue-700",
     partial: "border-orange-300 bg-orange-50 text-orange-700",
@@ -373,6 +449,22 @@ function IrregularRow({
           title="클릭하여 상세 보기"
           label={IRREGULAR_STATUS_LABEL[act.status]}
         />
+      </TableCell>
+      {/* '즉시 검수' 전용 컬럼 — 체크 대기 링크 신청 행만 지금 바로 검수(검수 시점 전이라도). */}
+      <TableCell className="text-center">
+        {canReviewNow ? (
+          <button
+            type="button"
+            onClick={onImmediateReview}
+            disabled={reviewing}
+            className="rounded-md border border-purple-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-50"
+            title="검수 시점 전이라도 지금 바로 검수합니다."
+          >
+            {reviewing ? "검수 중…" : "즉시 검수"}
+          </button>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
       </TableCell>
     </TableRow>
   );

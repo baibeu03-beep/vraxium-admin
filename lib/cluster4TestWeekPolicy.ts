@@ -22,6 +22,15 @@
 
 import { describeWeekByStartMs } from "@/lib/cluster4WeekPolicy";
 import type { ScopeMode } from "@/lib/userScopeShared";
+import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
+
+// QA 고정 필터 정합(lib/qaFixedScope): QA 기간엔 전달 mode 와 무관하게 test 축으로 판정한다.
+//   resolveUserScope(모집단)·filterTeamsByScope(팀 목록)와 동일하게, "대상 주차" 축도 QA 를
+//   반영해야 운영 URL(mode 미부착)에서 휴식 꼬리 시 마지막 활동 주차(W13)를 개설/체크 대상으로
+//   잡을 수 있다. QA 종료(false) 시 전달 mode 그대로(종전 동작).
+function effectiveTestWeekMode(mode: ScopeMode): ScopeMode {
+  return QA_FIXED_TEST_ONLY ? "test" : mode;
+}
 
 const DAY_MS = 86_400_000;
 const WEEK_MS = 7 * DAY_MS;
@@ -77,7 +86,7 @@ export function isCluster4TestExceptionWeek(
   seasonKey: string | null,
   weekNumber: number | null,
 ): boolean {
-  if (mode !== "test") return false;
+  if (effectiveTestWeekMode(mode) !== "test") return false;
   if (seasonKey == null || weekNumber == null) return false;
   return CLUSTER4_TEST_EXCEPTION_WEEKS.some(
     (w) => w.seasonKey === seasonKey && w.weekNumber === weekNumber,
@@ -90,7 +99,7 @@ export function isTestWeekExceptionAllowed(
   hub: Cluster4TestWeekHub,
   organization: string | null,
 ): boolean {
-  if (mode !== "test") return false;
+  if (effectiveTestWeekMode(mode) !== "test") return false;
   const policy = TEST_WEEK_HUB_POLICY[hub];
   if (!policy || !policy.allowed) return false;
   if (policy.orgs == null) return true; // 전 조직 허용.

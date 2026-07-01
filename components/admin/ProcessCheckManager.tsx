@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronDown, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -48,6 +49,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   const hubLabel = PROCESS_HUB_LABEL[hub];
+  const confirm = useConfirm();
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
   // 팀 목록(섹션.1 팀 탭) 스코프 — operating=운영 팀만 / test=(T) 팀만. 토글 보존(appendModeQuery).
@@ -68,6 +70,9 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   // 선별 액트 "체크 필요" 클릭 시 [검수 링크]/[수동 입력] 선택 모달 + 수동 입력 모달.
   const [choiceAct, setChoiceAct] = useState<ProcessCheckActRowDto | null>(null);
   const [manualGrantAct, setManualGrantAct] = useState<ProcessCheckActRowDto | null>(null);
+  // QA 자동 검수(행 단위) — 실행 중 행 id(스피너/중복방지) + 결과 배너.
+  const [autoReviewingId, setAutoReviewingId] = useState<string | null>(null);
+  const [autoReviewBanner, setAutoReviewBanner] = useState<{ kind: "success" | "info"; message: string } | null>(null);
 
   // 액트 상태 버튼 클릭 — 팝업 라우팅:
   //   needed + 선별         → 선택 모달([검수 링크]/[수동 입력])
@@ -210,6 +215,49 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     if (teamMode && effectiveTeamId) void loadTeamBoard(effectiveTeamId, scopeKind, scopePartName);
   }, [loadBoard, loadTeamBoard, teamMode, effectiveTeamId, scopeKind, scopePartName]);
 
+  // QA 자동 검수(행 단위) — '체크 대기' 행을 지금 즉시 검수하고, 성공 시 '체크 완료'를 보드에 즉시 반영.
+  //   검수 예정 시각 전이라도 실행되며(서버가 시각 조건만 우회), 기존 자동 스케줄은 그대로다.
+  const handleAutoReview = useCallback(
+    async (act: ProcessCheckActRowDto) => {
+      if (!act.checkStatusId || autoReviewingId) return; // 중복 클릭/대상 없음 가드
+      const ok = await confirm({
+        title: "즉시 검수",
+        description: "이 항목을 지금 바로 검수하시겠습니까?",
+        confirmLabel: "즉시 검수",
+      });
+      if (!ok) return;
+      setAutoReviewingId(act.checkStatusId);
+      setAutoReviewBanner(null);
+      try {
+        const res = await fetch("/api/admin/qa/run-now/process-check-row", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ statusId: act.checkStatusId }),
+        });
+        const json = await res.json().catch(() => ({}));
+        // 즉시 검수는 크롤 결과와 무관하게 항상 '체크 완료' — code 는 크롤 결과(메시지)만 구분.
+        if (!res.ok || !json?.success) {
+          setAutoReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
+        } else {
+          const code: string = json?.data?.code ?? "not_found";
+          const COPY: Record<string, { kind: "success" | "info"; message: string }> = {
+            confirmed: { kind: "success", message: "인증 내용을 확인했습니다. 체크 완료로 처리했습니다." },
+            no_match: { kind: "info", message: "인증 댓글은 있었지만 대상자를 찾지 못했습니다. 체크 완료로 처리했습니다." },
+            not_found: { kind: "info", message: "인증 내용을 찾지 못했습니다. 체크 완료로 처리했습니다." },
+          };
+          setAutoReviewBanner(COPY[code] ?? COPY.not_found);
+        }
+        // 상태가 바뀌었을 수 있으니 보드를 새로고침(완료면 '체크 완료'로 보이고 버튼이 사라진다).
+        refreshAfterAction();
+      } catch {
+        setAutoReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
+      } finally {
+        setAutoReviewingId(null);
+      }
+    },
+    [autoReviewingId, confirm, refreshAfterAction],
+  );
+
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
       <AdminPageHeader
@@ -226,6 +274,23 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         <div className="flex items-center justify-between rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
           <span className="whitespace-pre-line">{error}</span>
           <button type="button" onClick={() => setError(null)} className="hover:opacity-70">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* QA 자동 검수 결과 배너 — 행 단위 즉시 검수 후 완료/실패 메시지. */}
+      {autoReviewBanner && (
+        <div
+          className={cn(
+            "flex items-center justify-between rounded-md border px-3 py-2 text-sm",
+            autoReviewBanner.kind === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-amber-200 bg-amber-50 text-amber-800",
+          )}
+        >
+          <span className="whitespace-pre-line">{autoReviewBanner.message}</span>
+          <button type="button" onClick={() => setAutoReviewBanner(null)} className="hover:opacity-70">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -435,6 +500,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 readOnly={scopeReadOnly}
                 showScopeColumn
                 onOpenAct={openAct}
+                onAutoReview={handleAutoReview}
+                autoReviewingId={autoReviewingId}
               />
             </>
           )}
@@ -445,6 +512,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           loading={loading}
           weekDisabled={weekDisabled}
           onOpenAct={openAct}
+          onAutoReview={handleAutoReview}
+          autoReviewingId={autoReviewingId}
         />
       )}
 

@@ -1,5 +1,6 @@
 import TestUsersManager from "@/components/admin/TestUsersManager";
 import AdminHelp from "@/components/admin/AdminHelp";
+import QaRunNowSnapshotPanels from "@/components/admin/QaRunNowSnapshotPanels";
 
 // /admin/test-users — 데모/테스트 미리보기 대상 유저 선택 화면.
 // 데이터는 클라이언트에서 GET /api/admin/test-users 로 조회한다.
@@ -12,6 +13,8 @@ export default function TestUsersPage() {
         <AdminHelp />
       </div>
       <TestUsersManager />
+      {/* (추가) QA 즉시 실행: weekly-cards snapshot 재계산(테스트 전수 / 선택 유저) 입구. */}
+      <QaRunNowSnapshotPanels />
     </div>
   );
 }

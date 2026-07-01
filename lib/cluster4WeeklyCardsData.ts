@@ -952,7 +952,23 @@ function breakdownFromLines(
     experience: mk(),
     career: mk(),
   };
+  // 실무 정보 허브 dedupe (2026-07-01): 고객 정보 허브는 활동유형(activityTypeKey)당 카드 1칸만
+  // 렌더한다(고정 9종, findCluster4Line first-match). 같은 활동유형에 라인이 2개 이상(예: 정규 라인 +
+  // 수동 테스트 라인 calendar) 있으면 화면엔 1칸인데 이 집계가 라인 수(2)를 세어 "총 N개"·주차 성장률
+  // 분모가 화면 칸 수보다 부풀었다(예: calendar 2개 → info 4 인데 화면 3칸). → info 는 활동유형당 첫
+  // 등장 라인 1개만 집계한다(대표 = 배열 첫 라인 = 고객 findCluster4Line 과 동일 순서·상태). 첫 라인이
+  // not_applicable 이면 그 유형은 화면에서도 faded(비활성)이므로 집계에서 빠진다(seen 마킹은 첫 등장에서,
+  // 카운트는 na 제외 규칙 그대로 — 화면 활성 칸과 1:1). 다른 파트(competency/experience/career)는 렌더
+  // 모델이 달라 불변. activityTypeKey 부재(비정상) info 라인은 dedupe 불가 → 기존대로 개별 집계(회귀 방지).
+  const seenInfoTypes = new Set<string>();
   for (const line of lines) {
+    if (line.partType === "information") {
+      const typeKey = (line.activityTypeKey ?? line.activityTypeId ?? null) as string | null;
+      if (typeKey) {
+        if (seenInfoTypes.has(typeKey)) continue; // 같은 유형 2번째+ 라인 = 화면에도 안 뜨는 칸 → 집계 제외
+        seenInfoTypes.add(typeKey);
+      }
+    }
     if (line.enhancementStatus === "not_applicable") continue;
     const detail = breakdownForPart(breakdown, line.partType);
     detail.available += 1;

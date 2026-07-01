@@ -306,7 +306,13 @@ async function writeRosterCardStats(
 //   version_mismatch(비블로킹 bg)로 선점되어 첫 조회가 구 snapshot(여름 카드 없음)을 보여주고
 //   둘째 조회에서야 갱신되므로, 시즌 시작일에 한해 오히려 손해다 → bump 하지 않는다. 신규 유저는
 //   miss→lazy 로 즉시 생성된다. (참고: 직전 버전 히스토리는 v30.)
-export const WEEKLY_CARDS_DTO_VERSION = 30;
+// v31 (2026-07-01): breakdownFromLines 실무 정보(info) 집계를 활동유형(activityTypeKey)당 1칸으로
+//   dedupe. 고객 정보 허브는 유형당 카드 1칸만 렌더(findCluster4Line first-match)하므로, 같은 활동유형에
+//   라인이 2개 이상(예: 정규 + 테스트 calendar) 있으면 "총 N개"(=info denominator)·주차 성장률 분모가
+//   화면 칸 수보다 부풀었다(예: info 4 인데 화면 3칸, 성장률 1/5 대신 1/4 이어야 함). info denominator/
+//   numerator 와 growthDenominator(=4허브 합) 가 함께 바뀌므로 기존 v30 snapshot 을
+//   stale(version_mismatch) 처리해 cron/lazy 가 재계산하게 한다. (DB 백필 아님 — 파생 캐시 재생성.)
+export const WEEKLY_CARDS_DTO_VERSION = 31;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

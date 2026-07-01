@@ -90,23 +90,29 @@ export type SweepResult = {
 };
 
 // ── 만기 항목 조회(정규+변동) — 워커 findDueItems 와 동일 조건 ───────────────────
-export async function findDueProcessCheckItems(nowIso: string): Promise<DueItem[]> {
+//   ignoreSchedule=true 면 scheduled_check_at 게이트를 생략한다(검수 예정 시각 전이라도 후보).
+//   기본(false)은 자동 스케줄과 동일(시각 도래 항목만) — 옵션 미지정 시 동작 바이트 동일.
+export async function findDueProcessCheckItems(
+  nowIso: string,
+  opts: { ignoreSchedule?: boolean } = {},
+): Promise<DueItem[]> {
   const sel = "id,organization_slug,scope_mode,review_link,attempt_count,last_attempt_at";
-  const [{ data: reg }, { data: irr }] = await Promise.all([
-    supabaseAdmin
-      .from("process_check_statuses")
-      .select(sel)
-      .eq("status", "pending")
-      .lte("scheduled_check_at", nowIso)
-      .not("review_link", "is", null),
-    supabaseAdmin
-      .from("process_irregular_acts")
-      .select(sel)
-      .eq("kind", "review_request")
-      .eq("status", "pending")
-      .lte("scheduled_check_at", nowIso)
-      .not("review_link", "is", null),
-  ]);
+  let regQ = supabaseAdmin
+    .from("process_check_statuses")
+    .select(sel)
+    .eq("status", "pending")
+    .not("review_link", "is", null);
+  let irrQ = supabaseAdmin
+    .from("process_irregular_acts")
+    .select(sel)
+    .eq("kind", "review_request")
+    .eq("status", "pending")
+    .not("review_link", "is", null);
+  if (!opts.ignoreSchedule) {
+    regQ = regQ.lte("scheduled_check_at", nowIso);
+    irrQ = irrQ.lte("scheduled_check_at", nowIso);
+  }
+  const [{ data: reg }, { data: irr }] = await Promise.all([regQ, irrQ]);
   type Row = Omit<DueItem, "source" | "table">;
   return [
     ...((reg ?? []) as Row[]).map(
@@ -162,6 +168,12 @@ export async function runDueProcessCheckSweep(opts: {
   //   scope 미지정/operating → 기존 동작 바이트 동일(modes 입력 그대로·qa 로깅 없음).
   scope?: StateScope;
   actor?: string | null;
+  // QA "즉시 실행" 전용(opt-in) — 기본 false(자동 스케줄 동작 바이트 동일).
+  //   ignoreSchedule  : scheduled_check_at 게이트 우회(검수 예정 시각 전이라도 처리).
+  //   ignoreRetryGate : attempt_count/cooldown 재시도 게이트 우회(방금 실패한 항목도 즉시 재실행).
+  //   둘 다 GitHub Actions 자동 sweep 은 미지정 → 운영 스케줄은 그대로 유지된다.
+  ignoreSchedule?: boolean;
+  ignoreRetryGate?: boolean;
 } = {}): Promise<SweepResult> {
   const now = opts.now ?? Date.now();
   const orgs = opts.orgs ?? null;
@@ -174,9 +186,11 @@ export async function runDueProcessCheckSweep(opts: {
   const crawlAndMatch = opts.crawlAndMatch ?? inProcessCrawlAndMatch;
   const accrue = opts.accrue === undefined ? accrueForCompletedAct : opts.accrue;
   const log = opts.log ?? (() => {});
+  const ignoreSchedule = opts.ignoreSchedule === true;
+  const ignoreRetryGate = opts.ignoreRetryGate === true;
 
   const nowIso = new Date(now).toISOString();
-  const due = await findDueProcessCheckItems(nowIso);
+  const due = await findDueProcessCheckItems(nowIso, { ignoreSchedule });
 
   // 쓰기 직전 스코프 재검증용 테스트 유저 집합(sweep 당 1회). 조회 실패 → 빈 집합(fail-safe:
   //   operating 전원 통과 / test 전원 차단 → 실유저 절대 유입 안 됨, lib/userScope 와 동일 축).
@@ -189,8 +203,10 @@ export async function runDueProcessCheckSweep(opts: {
       (!orgs || orgs.includes(d.organization_slug)) &&
       (!modes || modes.includes(d.scope_mode ?? "operating")) &&
       (!onlyIds || onlyIds.includes(d.id)) &&
-      (d.attempt_count ?? 0) < MAX_ATTEMPTS &&
-      (!d.last_attempt_at || now - Date.parse(d.last_attempt_at) >= COOLDOWN_MS),
+      // 재시도 게이트(소진/쿨다운) — ignoreRetryGate 면 우회(QA 즉시 실행).
+      (ignoreRetryGate ||
+        ((d.attempt_count ?? 0) < MAX_ATTEMPTS &&
+          (!d.last_attempt_at || now - Date.parse(d.last_attempt_at) >= COOLDOWN_MS))),
   );
   const eligible = eligibleAll.slice(0, maxItems);
   const capped = eligibleAll.length - eligible.length;

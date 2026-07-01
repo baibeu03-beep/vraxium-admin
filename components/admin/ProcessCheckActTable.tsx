@@ -26,6 +26,8 @@ export default function ProcessCheckActTable({
   readOnly = false,
   showScopeColumn = false,
   onOpenAct,
+  onAutoReview,
+  autoReviewingId = null,
 }: {
   acts: ProcessCheckActRowDto[];
   loading: boolean;
@@ -35,6 +37,10 @@ export default function ProcessCheckActTable({
   // "팀 & 파트" 컬럼 표시(experience 만) — 행의 partLabel("팀 총괄"/파트명) 노출.
   showScopeColumn?: boolean;
   onOpenAct: (act: ProcessCheckActRowDto) => void;
+  // QA '자동 검수'(행 단위) — '체크 대기' 행을 지금 즉시 검수. 미전달이면 버튼 미노출.
+  onAutoReview?: (act: ProcessCheckActRowDto) => void;
+  // 현재 자동 검수 중인 행의 checkStatusId(스피너/중복클릭 방지). 없으면 null.
+  autoReviewingId?: string | null;
 }) {
   // 카드 제목/설명(CardHeader) 제거 — 액트 목록(CardContent)만 렌더(info/experience 공용).
   // 요약 — 현재 표시되는 acts(필터/팀/탭 적용 후) 기준 프론트 집계. DB/DTO 무변경.
@@ -44,6 +50,15 @@ export default function ProcessCheckActTable({
   return (
     <Card>
       <CardContent>
+        {/* 즉시 검수 안내 — 버튼이 제공될 때만(운영자용 한 줄 설명). 가로 스크롤 밖 고정. */}
+        {onAutoReview && (
+          <div className="mb-3 rounded-md border bg-muted/30 px-3 py-2">
+            <div className="text-sm font-medium">즉시 검수</div>
+            <div className="text-xs text-muted-foreground">
+              검수 시점을 기다리지 않고 ‘체크 대기’ 행을 지금 바로 검수할 수 있습니다.
+            </div>
+          </div>
+        )}
         {loading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">불러오는 중…</p>
         ) : acts.length === 0 ? (
@@ -85,6 +100,7 @@ export default function ProcessCheckActTable({
                   <TableHead>신청 시점(실제)</TableHead>
                   <TableHead>검수 시점(실제)</TableHead>
                   <TableHead>상태</TableHead>
+                  {onAutoReview && <TableHead className="text-center">즉시 검수</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -136,6 +152,24 @@ export default function ProcessCheckActTable({
                         <span className="text-xs text-muted-foreground">체크 대상 아님</span>
                       )}
                     </TableCell>
+                    {/* '즉시 검수' 전용 컬럼 — 체크 대기(pending) 행만 지금 바로 검수(검수 시점 전이라도). */}
+                    {onAutoReview && (
+                      <TableCell className="text-center">
+                        {!readOnly && a.isCheckTarget && a.status === "pending" && a.checkStatusId ? (
+                          <button
+                            type="button"
+                            onClick={() => onAutoReview(a)}
+                            disabled={weekDisabled || autoReviewingId === a.checkStatusId}
+                            className="rounded-md border border-purple-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-50"
+                            title="검수 시점 전이라도 지금 바로 검수합니다."
+                          >
+                            {autoReviewingId === a.checkStatusId ? "검수 중…" : "즉시 검수"}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

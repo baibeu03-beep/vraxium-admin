@@ -202,6 +202,9 @@ export type ProcessCheckActRowDto = {
   crewReactionLabel: string; // 종류(= act_type 라벨: 필수/선별 …)
   cafeLabel: string; // 카페(발생/미발생)
   isCheckTarget: boolean;
+  // 이 행에 대응하는 process_check_statuses.id — needed(상태 행 없음)면 null.
+  //   QA "자동 검수" 버튼이 이 행만 즉시 검수할 때 대상 식별자로 쓴다.
+  checkStatusId: string | null;
   // 체크 상태(현재값).
   status: ProcessCheckStatus;
   // 완료 경로 — 'manual_grant'(관리자 수동 부여) / null(검수·일반). 행 라벨("수동 부여 완료") 분기.

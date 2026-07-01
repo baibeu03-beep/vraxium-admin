@@ -16,6 +16,10 @@ import {
   type Cluster4TestWeekHub,
 } from "@/lib/cluster4TestWeekPolicy";
 import { describeWeekByStartMs } from "@/lib/cluster4WeekPolicy";
+import { QA_FIXED_TEST_ONLY } from "@/lib/qaFixedScope";
+
+// QA 고정 필터(QA_FIXED_TEST_ONLY): QA 기간엔 operating 이 test 축으로 판정된다(모집단·팀·주차 동일).
+//   따라서 operating 계약(W13 차단·false)은 QA 종료 후에만 유효 — QA 중엔 test 와 동일 기대값으로 검증.
 
 const DAY_MS = 86_400_000;
 
@@ -69,11 +73,15 @@ check("W13 = 활동 주차(비휴식)", describeWeekByStartMs(w13!)?.isOfficialR
 check("W14 = 공식 휴식", describeWeekByStartMs(w14!)?.isOfficialRest === true);
 check("W16 = 공식 휴식", describeWeekByStartMs(w16!)?.isOfficialRest === true);
 
-console.log("\n── 1) operating 모드 = base 불변(운영 정책 유지 · W13 차단) ──");
+console.log(
+  `\n── 1) operating 모드 (QA_FIXED_TEST_ONLY=${QA_FIXED_TEST_ONLY}) ──`,
+);
 for (const hub of ALL_HUBS) {
+  // QA 중: operating 도 test 축 → W16→W13 폴드. QA 종료 후: base 불변(W16).
+  const expected = QA_FIXED_TEST_ONLY ? w13 : w16;
   check(
-    `operating/${hub}: W16→W16(폴드 없음)`,
-    resolveCluster4TestOpenableWeekStartMs("operating", w16!, { hub, organization: null }) === w16,
+    `operating/${hub}: W16→${QA_FIXED_TEST_ONLY ? "W13(QA 폴드)" : "W16(불변)"}`,
+    resolveCluster4TestOpenableWeekStartMs("operating", w16!, { hub, organization: null }) === expected,
   );
 }
 
@@ -105,14 +113,20 @@ for (const org of ["encre", "oranke", "phalanx", "olympus", null]) {
 
 console.log("\n── 5) isCluster4TestExceptionWeek (accrual era 게이트용) ──");
 check("test·2026-spring·W13 → true", isCluster4TestExceptionWeek("test", "2026-spring", 13) === true);
-check("operating·2026-spring·W13 → false(운영 차단)", isCluster4TestExceptionWeek("operating", "2026-spring", 13) === false);
+check(
+  `operating·2026-spring·W13 → ${QA_FIXED_TEST_ONLY ? "true(QA 강제)" : "false(운영 차단)"}`,
+  isCluster4TestExceptionWeek("operating", "2026-spring", 13) === QA_FIXED_TEST_ONLY,
+);
 check("test·2026-spring·W12 → false", isCluster4TestExceptionWeek("test", "2026-spring", 12) === false);
 check("test·2026-summer·W1 → false", isCluster4TestExceptionWeek("test", "2026-summer", 1) === false);
 check("test·null·null → false", isCluster4TestExceptionWeek("test", null, null) === false);
 
 console.log("\n── 6) isTestWeekExceptionAllowed (hub/org 정책) ──");
 for (const hub of ALL_HUBS) {
-  check(`operating/${hub} → false`, isTestWeekExceptionAllowed("operating", hub, null) === false);
+  check(
+    `operating/${hub} → ${QA_FIXED_TEST_ONLY ? "true(QA 강제)" : "false"}`,
+    isTestWeekExceptionAllowed("operating", hub, null) === QA_FIXED_TEST_ONLY,
+  );
   check(`test/${hub} → true(전 조직)`, isTestWeekExceptionAllowed("test", hub, null) === true);
 }
 

@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/card";
 
 // IA 개편 Phase 1 placeholder — 메뉴 연결 확인용. 실제 기능은 추후 구현.
+// (QA 즉시 실행 A1 패널은 섹션 공용 layout.tsx 가 모든 하위 페이지 상단에 단일 출처로 노출한다.)
 export default function ProcessCheckPage() {
   return (
     <Card>
