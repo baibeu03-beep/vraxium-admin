@@ -32,9 +32,11 @@ export async function GET(request: NextRequest) {
   const org = isOrganizationSlug(orgRaw) ? orgRaw : null;
   // 운영/테스트 모드 — 개설 대상 주차 판정에 사용(테스트 모드 W13 예외와 동일 SoT).
   const mode = readScopeMode(request.nextUrl.searchParams);
+  // 대시보드에서 선택한 주차(허용 예외 포함) — opened/prefill 을 그 주차 기준으로 조회.
+  const weekId = request.nextUrl.searchParams.get("week_id")?.trim() || null;
 
   try {
-    const data = await getCompetencyOpeningStatus(org, mode);
+    const data = await getCompetencyOpeningStatus(org, mode, weekId);
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[admin/cluster4/competency/opening-status GET]", error);

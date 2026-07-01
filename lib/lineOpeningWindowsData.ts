@@ -26,8 +26,6 @@ export class LineOpeningWindowError extends Error {
   }
 }
 
-const DAY_MS = 86_400_000;
-
 function toMs(iso: string): number {
   return Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
 }
@@ -64,7 +62,7 @@ export type LineOpeningWindowDto = {
   activityTypeName: string | null; // null = 전체 라인
 };
 
-// 예외 등록 폼(화면 2) 주차 드롭다운 옵션. 현재 주차 N 주변 ±N 주.
+// 예외 등록 폼(화면 2) 주차 드롭다운 옵션. weeks 에 존재하는 전 시즌·전 주차.
 export type ExceptionWeekFormOption = {
   id: string; // weeks.id
   label: string; // "26년 봄 시즌 13주차 (26.06.01 ~ 26.06.07)"
@@ -164,6 +162,45 @@ export async function findActiveLineOpeningException(
   const rows = (data ?? []) as Array<{ activity_type_id: string | null }>;
   return rows.some(
     (r) => r.activity_type_id === null || r.activity_type_id === activityTypeId,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// 주차 단위(scope=all) 활성 예외 판정 — 실무 정보/경험/역량 3개 허브 공용.
+//   "해당 주차 전체" 예외 = activity_type_id IS NULL 인 활성 allow_opening 행.
+//   (특정 라인(practical_info activity_type) 예외는 info 전용이라 여기서 제외한다 —
+//    2026-07 정책: 전체 허용 예외만 세 허브가 주차 단위로 공유해 공식 휴식 자동 차단을 덮어쓴다.)
+// info-lines POST 의 findActiveLineOpeningException(NULL ∨ 일치)과 정합하되, 경험/역량
+//   게이트는 activity_type 가 없으므로 NULL(전체) 예외만 본다.
+// ─────────────────────────────────────────────────────────────────────────
+
+// 단일 주차 — scope=all 활성 예외 존재 여부. 경험(assertWeekOpenable)·역량(competency-lines) 게이트용.
+export async function hasActiveAllLineException(weekId: string): Promise<boolean> {
+  if (!isUuid(weekId)) return false;
+  const { data, error } = await supabaseAdmin
+    .from("line_opening_windows")
+    .select("id")
+    .eq("week_id", weekId)
+    .is("activity_type_id", null)
+    .eq("is_active", true)
+    .eq("allow_opening", true)
+    .limit(1);
+  if (error) throw new LineOpeningWindowError(500, error.message);
+  return (data ?? []).length > 0;
+}
+
+// scope=all 활성 예외가 걸린 week_id 집합. weeks-options 처럼 여러 주차를 한 번에 판정할 때 사용
+//   (라운드트립 1회). 작은 테이블이라 전량 조회로 충분.
+export async function getActiveAllLineExceptionWeekIds(): Promise<Set<string>> {
+  const { data, error } = await supabaseAdmin
+    .from("line_opening_windows")
+    .select("week_id")
+    .is("activity_type_id", null)
+    .eq("is_active", true)
+    .eq("allow_opening", true);
+  if (error) throw new LineOpeningWindowError(500, error.message);
+  return new Set(
+    ((data ?? []) as Array<{ week_id: string }>).map((r) => r.week_id),
   );
 }
 
@@ -400,73 +437,48 @@ export async function deleteLineOpeningWindow(id: string): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// 예외 등록 폼(화면 2) 주차 옵션 — 현재 주차 N 주변 [-2 … +2].
-// 자동 정책은 과거 주차만 다루지만, 예외는 미래/지난 주차 모두 열 수 있어야 하므로
-// 양방향으로 제공한다. weeks 테이블에 매칭되는 행만 반환.
+// 예외 등록 폼(화면 2) 주차 옵션 — weeks 테이블에 존재하는 모든 주차.
+// 자동 정책은 과거(개설 대상) 주차만 다루지만, 예외는 과거/현재/미래 주차 모두
+// 열 수 있어야 하므로 DB 에 등록된 전 시즌·전 주차를 옵션으로 노출한다.
+//   · 하드코딩된 ±N 범위 제한 없음 — 시즌 캘린더(describeWeekByStartMs)로 각 행을 서술.
+//   · 향후 시즌이 weeks 에 추가되면(기간 등록 페이지) 별도 코드 수정 없이 자동으로
+//     옵션이 늘어난다(FK 대상이 실재하는 weeks 행이므로 등록 가능한 주차와 항상 일치).
+//   · 정렬 = 시작일 내림차순(미래→과거)이라 최근 주차가 상단에 온다.
 // ─────────────────────────────────────────────────────────────────────────
 
 export async function listExceptionWeekFormOptions(
   todayIso: string,
 ): Promise<ExceptionWeekFormOption[]> {
+  // 현재 주차 / 개설 대상(금요일 경계) 주차 시작 — isCurrent·isOpenTarget 표시용.
+  //   단일 SoT 함수에서 파생(중복 계산 금지). 시즌 밖(null)이어도 옵션은 그대로 반환.
   const currentWeekStartMs = getCurrentWeekStartMs(todayIso);
-  if (currentWeekStartMs == null) return [];
-
-  // 개설 대상(금요일 경계) 주차 시작 — isOpenTarget 표시용. 단일 SoT 함수에서 파생
-  //   (중복 계산 금지 — getOpenableWeekStartMs 와 항상 동일).
   const openableWeekStartMs = getOpenableWeekStartMs(todayIso);
 
-  const offsets = [-2, -1, 0, 1, 2]; // 과거 2주 ~ 미래 2주
-  const descriptors: Array<{
-    weekStartMs: number;
-    isCurrent: boolean;
-    isOpenTarget: boolean;
-    info: NonNullable<ReturnType<typeof describeWeekByStartMs>>;
-  }> = [];
-  for (const off of offsets) {
-    const weekStartMs = currentWeekStartMs + off * 7 * DAY_MS;
-    const info = describeWeekByStartMs(weekStartMs);
-    if (!info) continue;
-    descriptors.push({
-      weekStartMs,
-      isCurrent: off === 0,
-      isOpenTarget: weekStartMs === openableWeekStartMs,
-      info,
-    });
-  }
-  if (descriptors.length === 0) return [];
-
-  const orExpr = descriptors
-    .map(
-      (d) => `and(iso_year.eq.${d.info.isoYear},iso_week.eq.${d.info.isoWeek})`,
-    )
-    .join(",");
+  // weeks 전 행을 시작일 내림차순으로 조회. (현재 규모 ~160행 · 1000행 cap 여유,
+  //   ~19년치까지 단일 페이지. 초과 시엔 range 페이지네이션이 필요하나 현재 불필요.)
   const { data: weekRows, error } = await supabaseAdmin
     .from("weeks")
     .select(WEEK_SELECT)
-    .or(orExpr);
+    .order("start_date", { ascending: false })
+    .limit(1000);
   if (error) throw new LineOpeningWindowError(500, error.message);
 
-  const rowByKey = new Map<string, WeekRow>();
-  for (const r of (weekRows ?? []) as WeekRow[]) {
-    rowByKey.set(`${r.iso_year}::${r.iso_week}`, r);
-  }
-
   const options: ExceptionWeekFormOption[] = [];
-  // 미래→과거 순(15주차, 14주차, 13주차 …)으로 정렬해 보여준다.
-  for (const d of [...descriptors].sort((a, b) => b.weekStartMs - a.weekStartMs)) {
-    const row = rowByKey.get(`${d.info.isoYear}::${d.info.isoWeek}`);
-    if (!row) continue;
+  for (const row of (weekRows ?? []) as WeekRow[]) {
+    const weekStartMs = toMs(row.start_date);
+    const info = describeWeekByStartMs(weekStartMs);
+    if (!info) continue; // 시즌 캘린더 밖(비정상 행)은 건너뜀.
     options.push({
       id: row.id,
-      label: `${d.info.year}년 ${d.info.seasonName} ${d.info.weekNumber}주차`,
-      year: d.info.year,
-      seasonName: d.info.seasonName,
-      weekNumber: d.info.weekNumber,
-      startDate: d.info.weekStart,
-      endDate: d.info.weekEnd,
-      isCurrent: d.isCurrent,
-      isOpenTarget: d.isOpenTarget,
-      canOpen: !d.info.isOfficialRest,
+      label: `${info.year}년 ${info.seasonName} ${info.weekNumber}주차`,
+      year: info.year,
+      seasonName: info.seasonName,
+      weekNumber: info.weekNumber,
+      startDate: info.weekStart,
+      endDate: info.weekEnd,
+      isCurrent: weekStartMs === currentWeekStartMs,
+      isOpenTarget: weekStartMs === openableWeekStartMs,
+      canOpen: !info.isOfficialRest,
     });
   }
   return options;

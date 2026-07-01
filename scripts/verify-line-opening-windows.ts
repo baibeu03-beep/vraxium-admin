@@ -154,6 +154,15 @@ async function main() {
   const todayIso = new Date().toISOString().slice(0, 10);
   const formWeeks = await listExceptionWeekFormOptions(todayIso);
   check("listExceptionWeekFormOptions 반환(>=1)", formWeeks.length >= 1);
+  // 드롭다운은 weeks 전 행을 동적 노출한다(±N 캡 없음) → 옵션 수 == weeks 행 수.
+  const { count: weeksCount } = await sb
+    .from("weeks")
+    .select("*", { count: "exact", head: true });
+  check(
+    "옵션 수 == weeks 전 행(동적·전 시즌 노출, ±N 캡 제거)",
+    formWeeks.length === (weeksCount ?? -1),
+    `options=${formWeeks.length} weeks=${weeksCount}`,
+  );
 
   // ── [7-삭제] 삭제 후 즉시 차단 ──
   console.log("[7] 삭제 후 차단");

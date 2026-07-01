@@ -11,7 +11,7 @@ import {
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 
 // GET /api/admin/line-opening-windows/weeks
-// 예외 등록 폼(화면 2) 주차 드롭다운 옵션 — 현재 주차 N 주변 [-2 … +2].
+// 예외 등록 폼(화면 2) 주차 드롭다운 옵션 — weeks 에 존재하는 전 시즌·전 주차(동적).
 export async function GET(_request: NextRequest) {
   try {
     await requireAdmin(ADMIN_READ_ROLES);

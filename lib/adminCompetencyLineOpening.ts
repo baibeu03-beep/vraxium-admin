@@ -31,6 +31,7 @@ import {
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { insertCompetencyOpeningLog } from "@/lib/adminCompetencyOpeningLogs";
 import { resolveCluster4TestOpenableWeekStartMs } from "@/lib/cluster4TestWeekPolicy";
+import { hasActiveAllLineException } from "@/lib/lineOpeningWindowsData";
 import { resolveUserScope } from "@/lib/userScope";
 import {
   assertApprovedApplicationsInScope,
@@ -90,6 +91,46 @@ async function resolveWeeks(mode: ScopeMode = "operating"): Promise<{
     currentWeek: currentInfo ? toStatusWeek(currentInfo) : null,
     targetWeek: targetInfo ? toStatusWeek(targetInfo) : null,
     targetWeekId,
+  };
+}
+
+function toMs(iso: string): number {
+  return Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+}
+
+// 개설/취소/상태의 "대상 주차" 확정 — 요청 주차(requestedWeekId)가 있으면
+//   (정규 개설 대상 주차와 일치) 또는 (scope=all 활성 예외 주차)일 때만 그 주차를 쓰고,
+//   그 외에는 400(fail-closed). 요청이 없으면 정규 개설 대상(금요일 경계, 테스트 W13 예외) 그대로.
+//   → /admin/settings/line-opening-windows 에서 허용한 주차를 역량 대시보드에서 선택·개설 가능.
+async function resolveEffectiveWeek(
+  mode: ScopeMode,
+  requestedWeekId?: string | null,
+): Promise<{ currentWeek: StatusWeek | null; targetWeek: StatusWeek | null; targetWeekId: string | null }> {
+  const base = await resolveWeeks(mode);
+  const req = (requestedWeekId ?? "").trim();
+  if (!req || req === base.targetWeekId) return base;
+
+  // 요청 주차가 허용(scope=all) 예외인지 검증 — 아니면 임의 주차 개설 차단.
+  if (!(await hasActiveAllLineException(req))) {
+    throw Object.assign(
+      new Error("선택한 주차는 개설 대상 주차(또는 허용된 예외 주차)가 아닙니다"),
+      { status: 400 },
+    );
+  }
+  const { data: w } = await supabaseAdmin
+    .from("weeks")
+    .select("start_date")
+    .eq("id", req)
+    .maybeSingle();
+  const startDate = (w as { start_date: string } | null)?.start_date;
+  if (!startDate) {
+    throw Object.assign(new Error("요청한 주차를 찾을 수 없습니다"), { status: 404 });
+  }
+  const info = describeWeekByStartMs(toMs(startDate));
+  return {
+    currentWeek: base.currentWeek,
+    targetWeek: info ? toStatusWeek(info) : base.targetWeek,
+    targetWeekId: req,
   };
 }
 
@@ -291,8 +332,12 @@ export type CompetencyOpeningStatus = {
 export async function getCompetencyOpeningStatus(
   org: OrganizationSlug | null,
   mode: ScopeMode = "operating",
+  requestedWeekId?: string | null,
 ): Promise<CompetencyOpeningStatus> {
-  const { currentWeek, targetWeek, targetWeekId } = await resolveWeeks(mode);
+  const { currentWeek, targetWeek, targetWeekId } = await resolveEffectiveWeek(
+    mode,
+    requestedWeekId,
+  );
   let opened = false;
   let outputLink1 = "";
   let outputDescription = "";
@@ -328,9 +373,11 @@ export async function openCompetencyHub(input: {
   adminId: string | null;
   // 운영/테스트 모집단 — 신청/승인 명단 기반 라인 타깃 생성 시 fail-closed 가드로 전달.
   mode?: ScopeMode;
+  // 대시보드에서 선택한 개설 주차(허용 예외 주차 포함). 미지정=정규 개설 대상 주차.
+  weekId?: string | null;
 }): Promise<CompetencyOpeningActionResult> {
   const mode = input.mode ?? "operating";
-  const { targetWeekId } = await resolveWeeks(mode);
+  const { targetWeekId } = await resolveEffectiveWeek(mode, input.weekId);
   if (!targetWeekId) {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });
   }
@@ -461,9 +508,11 @@ export async function cancelCompetencyHub(input: {
   adminId: string | null;
   // 운영/테스트 모드 — 개설(open)과 동일 주차를 대상으로 취소하도록 전달(테스트 모드 W13 예외 정합).
   mode?: ScopeMode;
+  // 개설과 동일 주차(허용 예외 포함)를 취소하도록 전달.
+  weekId?: string | null;
 }): Promise<CompetencyOpeningActionResult> {
   const mode = input.mode ?? "operating";
-  const { targetWeekId } = await resolveWeeks(mode);
+  const { targetWeekId } = await resolveEffectiveWeek(mode, input.weekId);
   if (!targetWeekId) {
     throw Object.assign(new Error("개설 대상 주차 정보를 확인할 수 없습니다"), { status: 400 });
   }

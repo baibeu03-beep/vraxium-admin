@@ -15,6 +15,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { describeWeekByStartMs } from "@/lib/cluster4WeekPolicy";
 import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import { matchOfficialRestPeriods } from "@/lib/officialRestPeriodsTypes";
+import { hasActiveAllLineException } from "@/lib/lineOpeningWindowsData";
 
 // "YYYY-MM-DD" → 주차 시작 ms(UTC 자정). cluster4WeekPolicy 내부 기준과 동일.
 function startDateToMs(iso: string): number {
@@ -54,9 +55,11 @@ export async function isWeekOfficialRestById(
 // 라인 개설/저장 write 직전 가드 — 공식 휴식 주차면 422 throw(write 중단).
 //   operating/test 무관(주차 정책은 모드와 독립). weeks 행 미존재(found=false)는 통과
 //   (호출부의 기존 주차 404 처리에 위임 — 휴식 판정과 별개 사유).
+//   단, 운영자가 등록한 "해당 주차 전체(scope=all)" 라인 개설 예외가 활성이면 휴식 차단을
+//   덮어쓴다(info-lines 게이트와 동일 정책 — 세 허브 공용). 예외 없으면 종전대로 422.
 export async function assertWeekOpenable(weekId: string): Promise<void> {
   const { rest } = await isWeekOfficialRestById(weekId);
-  if (rest) {
+  if (rest && !(await hasActiveAllLineException(weekId))) {
     throw Object.assign(
       new Error("공식 휴식 주차에는 라인을 개설할 수 없습니다."),
       { status: 422 },

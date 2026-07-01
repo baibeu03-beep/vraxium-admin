@@ -38,6 +38,9 @@ type WeekOption = {
   canOpen: boolean;
   isOpenTarget: boolean;
   isCurrent: boolean;
+  // /admin/settings/line-opening-windows 에서 허용한 "해당 주차 전체" 예외 주차.
+  //   정규 개설 대상(isOpenTarget)이 아니어도 선택·개설 가능.
+  hasOpeningException: boolean;
 };
 
 // 드롭다운 메인 표기 = "26년, 봄 시즌, 1주차" (상태창과 동일 공통 포맷).
@@ -74,25 +77,34 @@ export default function CompetencyOpeningDashboard() {
   // 서버가 판정한 개설 대상 주차 시작일(YYYY-MM-DD). 테스트 모드 W13 예외가 반영된 권위값 —
   // 드롭다운 표기를 이 주차로 맞춰 "상태창/실제 개설 대상"과 일치시킨다(운영 모드는 정규 주차).
   const [targetStartDate, setTargetStartDate] = useState<string | null>(null);
+  // 사용자가 드롭다운에서 고른 개설 주차(정규 대상 또는 허용 예외 주차). 미선택=정규 대상.
+  const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
 
   // 개설 주차 커스텀 드롭다운 열림 상태(메인 표기 + 날짜 도움말 2줄 옵션을 위해 native select 대신 사용).
   const [weekMenuOpen, setWeekMenuOpen] = useState(false);
   const weekMenuRef = useRef<HTMLDivElement>(null);
 
-  // 개설 대상 주차 — 서버 판정값(targetStartDate, 테스트 모드 W13 예외 반영) 우선,
-  // 없으면 정규 금요일 경계(isOpenTarget). practical-info 의 개설할 주차 로직과 동일 SoT.
+  // 개설 대상 주차 — 사용자가 고른 주차(selectedWeekId) 우선, 없으면 서버 판정값
+  //   (targetStartDate, 테스트 모드 W13 예외 반영) → 정규 금요일 경계(isOpenTarget) → 현재.
   const openTargetWeek =
+    (selectedWeekId ? weekOptions.find((w) => w.id === selectedWeekId) : undefined) ??
     (targetStartDate
       ? weekOptions.find((w) => w.startDate === targetStartDate)
       : undefined) ??
     weekOptions.find((w) => w.isOpenTarget) ??
     weekOptions.find((w) => w.isCurrent) ??
     null;
+  // 선택 가능 = 정규 개설 대상 OR 허용 예외 주차.
+  const isSelectableWeek = (w: WeekOption) => w.isOpenTarget || w.hasOpeningException;
 
   const fetchStatus = useCallback(async () => {
     setLoadingStatus(true);
     try {
-      const qs = org ? `?organization=${encodeURIComponent(org)}` : "";
+      const params = new URLSearchParams();
+      if (org) params.set("organization", org);
+      // 선택 주차(허용 예외 포함)가 있으면 그 주차 기준 opened/prefill 조회.
+      if (selectedWeekId) params.set("week_id", selectedWeekId);
+      const qs = params.toString() ? `?${params.toString()}` : "";
       // mode 보존 — 상태창/개설과 동일 모드로 개설 대상 주차(테스트 W13 예외)를 판정.
       const res = await fetch(
         appendModeQuery(`/api/admin/cluster4/competency/opening-status${qs}`, mode),
@@ -117,7 +129,7 @@ export default function CompetencyOpeningDashboard() {
     } finally {
       setLoadingStatus(false);
     }
-  }, [org, mode]);
+  }, [org, mode, selectedWeekId]);
 
   useEffect(() => {
     void fetchStatus();
@@ -184,6 +196,8 @@ export default function CompetencyOpeningDashboard() {
       setBanner(null);
       try {
         const body: Record<string, unknown> = { action, organization: org };
+        // 선택한 개설 주차(허용 예외 포함) 전달 — 서버가 정규 대상/예외 주차만 허용(fail-closed).
+        if (openTargetWeek) body.week_id = openTargetWeek.id;
         if (action === "open") {
           body.output_link_1 = linkUrl.trim();
           body.output_description = linkDesc.trim();
@@ -217,7 +231,7 @@ export default function CompetencyOpeningDashboard() {
         setActing(false);
       }
     },
-    [org, mode, linkUrl, linkDesc, fetchStatus],
+    [org, mode, linkUrl, linkDesc, fetchStatus, openTargetWeek],
   );
 
   return (
@@ -305,14 +319,17 @@ export default function CompetencyOpeningDashboard() {
                 {weekMenuOpen && weekOptions.length > 0 && (
                   <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-md border bg-background py-1 shadow-md">
                     {weekOptions.map((w) => {
-                      const selectable = w.isOpenTarget;
+                      const selectable = isSelectableWeek(w);
                       const selected = openTargetWeek?.id === w.id;
                       return (
                         <button
                           key={w.id}
                           type="button"
                           disabled={!selectable}
-                          onClick={() => setWeekMenuOpen(false)}
+                          onClick={() => {
+                            if (selectable) setSelectedWeekId(w.id);
+                            setWeekMenuOpen(false);
+                          }}
                           className={cn(
                             "block w-full px-3 py-1.5 text-left",
                             selectable
@@ -324,6 +341,7 @@ export default function CompetencyOpeningDashboard() {
                           <div className="text-sm">
                             {weekMainLabel(w)}
                             {w.isOpenTarget ? " · 개설대상" : ""}
+                            {w.hasOpeningException ? " · 허용 주차" : ""}
                             {w.isCurrent ? " · 현재" : ""}
                           </div>
                           <div className="text-xs text-muted-foreground">
@@ -336,7 +354,8 @@ export default function CompetencyOpeningDashboard() {
                 )}
               </div>
               <p className="text-[11px] text-muted-foreground">
-                오늘 기준 개설 대상 주차로 자동 고정 · 다른 주차 선택 불가
+                오늘 기준 개설 대상 주차로 자동 고정 · 허용된 예외 주차(설정 &gt; 라인 개설 기간)만
+                추가 선택 가능
               </p>
             </div>
 
