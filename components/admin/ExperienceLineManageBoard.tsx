@@ -14,6 +14,7 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
+import { useLineManageWeekOptions } from "@/lib/lineManageWeekOptions";
 import {
   formatTeamLeader,
   type ExperienceLineManageSummary,
@@ -195,40 +196,16 @@ export default function ExperienceLineManageBoard({
   useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
 
-  // 주차 드롭다운 — 옵션(weeks-options) + 선택 주차. 기본값 = openable(개설 대상) 주차.
-  const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
+  // 주차 드롭다운 — 실무 정보 라인 관리와 동일 SoT(season-weeks 전 주차). 공용 hook 사용.
+  //   "라인 관리"는 조회/관리용이므로 최근 N주로 제한하지 않는다(개설 정책은 별개·불변).
+  const { options: weekOptions, defaultWeekId, ready: weeksReady } =
+    useLineManageWeekOptions();
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
-  // 옵션 로드 시도 완료 신호 — 기본 주차 확정 후에만 보드를 조회(중복 fetch 방지).
-  const [weeksReady, setWeeksReady] = useState(false);
 
-  // 주차 옵션 부트스트랩(실무 정보 라인 관리와 동일 — weeks-options?limit=3).
+  // 기본 선택 = openable(개설 대상) → 현재 → 최신(공용 hook 산출). 이미 선택된 값은 유지.
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(
-          `/api/admin/cluster4/weeks-options?limit=3${mode === "test" ? "&mode=test" : ""}`,
-        );
-        const json = await res.json();
-        if (cancelled) return;
-        const opts: WeekOption[] = json?.success ? json.data?.weeks ?? [] : [];
-        setWeekOptions(opts);
-        // 기본 선택 = openable(개설 대상) → 현재 → 첫 옵션.
-        const def =
-          opts.find((o) => o.isOpenTarget) ??
-          opts.find((o) => o.isCurrent) ??
-          opts[0];
-        setSelectedWeekId((prev) => prev || (def?.id ?? ""));
-      } catch {
-        /* 옵션 조회 실패 — week_id 없이 openable 기본 경로로 폴백. */
-      } finally {
-        if (!cancelled) setWeeksReady(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (defaultWeekId) setSelectedWeekId((prev) => prev || defaultWeekId);
+  }, [defaultWeekId]);
 
   // 보드 조회 — org + (옵션 준비 완료) 일 때. 선택 주차가 있으면 week_id 로 해당 주차 집계.
   useEffect(() => {
@@ -362,14 +339,3 @@ export default function ExperienceLineManageBoard({
     </div>
   );
 }
-
-// 주차 드롭다운 옵션 — weeks-options 응답(실무 정보 라인 관리 드롭다운과 동일 기준/SoT).
-type WeekOption = {
-  id: string;
-  year: number;
-  seasonName: string;
-  weekNumber: number;
-  canOpen: boolean;
-  isCurrent: boolean;
-  isOpenTarget: boolean;
-};

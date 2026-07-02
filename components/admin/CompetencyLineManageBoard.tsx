@@ -13,24 +13,13 @@ import {
   formatFullDateRangeKo,
 } from "@/lib/practicalInfoSection0Format";
 import PracticalInfoCurrentSituation from "@/components/admin/PracticalInfoCurrentSituation";
+import { useLineManageWeekOptions } from "@/lib/lineManageWeekOptions";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 
 // 실무 역량 [라인 관리] 탭 — 상단 보드.
 //   "[실무 역량] Hub" 제목 + 현재 상황(오늘/개설 필요/개설 이행 기간, practical-info 공용) +
 //   주차 드롭다운(좌) + 6 집계 카드(우). 집계는 라인 개설 탭과 동일 DTO(competency/applications)
 //   를 주차만 바꿔(week_id) 조회 → 같은 주차면 값 일치. snapshot 무관(읽기 전용).
-
-type WeekOption = {
-  id: string;
-  seasonName: string;
-  year: number;
-  weekNumber: number;
-  startDate: string;
-  endDate: string;
-  canOpen: boolean;
-  isOpenTarget: boolean;
-  isCurrent: boolean;
-};
 
 type Summary = {
   activeCrews: number;
@@ -103,9 +92,11 @@ export default function CompetencyLineManageBoard({
   // 운영/테스트 모드 — 집계/결과 모집단을 현재 모드로 한정.
   const mode = readScopeMode(searchParams);
 
-  const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
+  // 주차 드롭다운 — 실무 정보 라인 관리와 동일 SoT(season-weeks 전 주차). 공용 hook 사용.
+  //   "라인 관리"는 조회/관리용이므로 최근 N주로 제한하지 않는다(개설 정책은 별개·불변).
+  const { options: weekOptions, defaultWeekId, ready: weeksReady } =
+    useLineManageWeekOptions();
   const [selectedWeekId, setSelectedWeekId] = useState<string>("");
-  const [weeksReady, setWeeksReady] = useState(false);
   const [summary, setSummary] = useState<Summary>(EMPTY);
   const [results, setResults] = useState<CrewResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,34 +104,10 @@ export default function CompetencyLineManageBoard({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // 주차 옵션 부트스트랩 — practical-info/experience 와 동일 SoT(weeks-options).
-  // 기본 선택 = openable(개설 대상, 금요일 경계 isOpenTarget) → 현재 → 첫 옵션.
+  // 기본 선택 = openable(개설 대상) → 현재 → 최신(공용 hook 산출). 이미 선택된 값은 유지.
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(
-          `/api/admin/cluster4/weeks-options?limit=8${mode === "test" ? "&mode=test" : ""}`,
-        );
-        const json = await res.json();
-        if (cancelled) return;
-        const opts: WeekOption[] = json?.success ? json.data?.weeks ?? [] : [];
-        setWeekOptions(opts);
-        const def =
-          opts.find((o) => o.isOpenTarget) ??
-          opts.find((o) => o.isCurrent) ??
-          opts[0];
-        setSelectedWeekId((prev) => prev || (def?.id ?? ""));
-      } catch {
-        /* 폴백: week_id 없이 개설 대상 기본 경로 */
-      } finally {
-        if (!cancelled) setWeeksReady(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (defaultWeekId) setSelectedWeekId((prev) => prev || defaultWeekId);
+  }, [defaultWeekId]);
 
   // 바깥 클릭 시 드롭다운 닫기.
   useEffect(() => {
@@ -239,7 +206,9 @@ export default function CompetencyLineManageBoard({
                     {w.isCurrent ? " · 현재" : ""}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {formatFullDateRangeKo(w.startDate, w.endDate)}
+                    {w.startDate && w.endDate
+                      ? formatFullDateRangeKo(w.startDate, w.endDate)
+                      : null}
                   </div>
                 </button>
               ))}

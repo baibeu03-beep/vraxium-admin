@@ -15,11 +15,11 @@ import { cn } from "@/lib/utils";
 import { formatClubDateTime } from "@/lib/clubDate";
 import {
   computeOpenNeed,
-  isValidLineOpeningWeek,
   weekName,
   weekRange,
   type SeasonWeekRow,
 } from "@/lib/practicalInfoSeasonWeeks";
+import { buildLineManageWeekRows } from "@/lib/lineManageWeekOptions";
 
 // 부모(PracticalInfoManager)로 끌어올린 선택 주차 SoT 를 표시용으로 되돌려주기 위한 메타.
 //   weekId 단일 SoT 외에, "신규 개설 주차" 라벨이 weeks-options(최근 N주) 밖 주차(예: 과거 W16)도
@@ -127,31 +127,11 @@ export default function PracticalInfoWeekResults({
 
   // 드롭다운 옵션 — 미래 주차 제외(가장 최신 = 개설 필요 기간 주차), 최신순.
   //   0주차·시즌 최대 초과(전환 주차 17/9 등)는 라인 개설 대상이 아니므로 필터에서 제외.
-  const options = useMemo(() => {
-    if (!weeks) return [];
-    const need = computeOpenNeed(weeks, new Date()).need;
-    const cutoff = need?.week_start_date ?? null;
-    const filtered = weeks.filter(
-      (w) =>
-        w.week_id != null &&
-        w.week_start_date != null &&
-        isValidLineOpeningWeek(w) &&
-        (cutoff == null || w.week_start_date <= cutoff),
-    );
-    // 선택 주차(부모 SoT)가 cutoff/유효성 필터에 걸려 옵션에서 빠지면, controlled <select> 의
-    // value 가 어떤 option 과도 매칭되지 않아 "드롭다운 표시 ≠ 실제 선택" 불일치가 난다.
-    // → 선택 주차 행은 항상 옵션에 포함시켜 표시값과 SoT 가 절대 갈라지지 않게 한다.
-    if (
-      selectedWeekId &&
-      !filtered.some((w) => w.week_id === selectedWeekId)
-    ) {
-      const selectedRow = weeks.find((w) => w.week_id === selectedWeekId);
-      if (selectedRow) filtered.push(selectedRow);
-    }
-    return filtered.sort((a, b) =>
-      (b.week_start_date ?? "").localeCompare(a.week_start_date ?? ""),
-    );
-  }, [weeks, selectedWeekId]);
+  //   실무 경험/역량 라인 관리 드롭다운과 동일 SoT(buildLineManageWeekRows 공용).
+  const options = useMemo(
+    () => (weeks ? buildLineManageWeekRows(weeks, selectedWeekId) : []),
+    [weeks, selectedWeekId],
+  );
 
   // 선택 주차(SoT) → 표시용 메타를 부모로 보고. "신규 개설 주차" 라벨이 weeks-options(최근 N주)
   // 범위 밖 주차도 정확히 표기할 수 있게 한다(라인 목록과 라벨이 항상 같은 주차를 가리키도록).
