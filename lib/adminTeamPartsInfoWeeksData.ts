@@ -108,8 +108,8 @@ function yy(iso: string | null): string | null {
   return String(((year % 100) + 100) % 100).padStart(2, "0");
 }
 
-// 표 주차명: "26 - 여름 - 3"
-function weekTableName(r: SeasonWeekDto): string {
+// 표 주차명: "26 - 여름 - 3" (활동 관리 페이지의 관리 주차명 공용).
+export function weekTableName(r: SeasonWeekDto): string {
   const year = yy(r.week_end_date ?? r.week_start_date ?? r.season_start_date);
   const season = seasonKoFromKey(r.season_key) ?? r.season_name ?? "-";
   const n = r.week_number ?? "-";
@@ -117,20 +117,20 @@ function weekTableName(r: SeasonWeekDto): string {
 }
 
 // 배너 주차명: "26년 여름 시즌 3주차"
-function weekBannerName(r: SeasonWeekDto): string {
+export function weekBannerName(r: SeasonWeekDto): string {
   const year = yy(r.week_end_date ?? r.week_start_date ?? r.season_start_date);
   const season = seasonKoFromKey(r.season_key) ?? r.season_name ?? "-";
   const n = r.week_number ?? "-";
   return `${year ?? "--"}년 ${season} 시즌 ${n}주차`;
 }
 
-function weekRangeLabel(r: SeasonWeekDto): string {
+export function weekRangeLabel(r: SeasonWeekDto): string {
   if (!r.week_start_date || !r.week_end_date) return "-";
   return `${formatClubDate(r.week_start_date)} ~ ${formatClubDate(r.week_end_date)}`;
 }
 
 // 오늘 라벨: "2026년 7/14(화)" — date-only ISO 를 그대로 달력 날짜로 해석.
-function formatTodayLabel(iso: string): string {
+export function formatTodayLabel(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return iso;
   const y = Number(m[1]);
