@@ -53,6 +53,9 @@ type ChildItem = ScopeFlags & {
   // 활성 판정용 추가 경로(선택). 하나의 메뉴가 여러 라우트를 묶을 때 사용
   //  (예: "라인 관리" = /admin/lines/register + /admin/lines/info). 없으면 href 로 판정.
   matchPaths?: string[];
+  // 정확 일치만 활성으로 본다(하위 경로 제외). 예: "팀 내역"(/admin/team-parts/info)이
+  //  "/admin/team-parts/info/weeks"(주차 내역)에서 같이 활성되지 않도록.
+  exact?: boolean;
 };
 
 type BranchItem = ScopeFlags & {
@@ -133,7 +136,9 @@ const MENU_INTEGRATED: MenuItem[] = [
     icon: Network,
     basePath: "/admin/team-parts",
     children: [
-      { label: "팀 내역", href: "/admin/team-parts/info" },
+      { label: "팀 내역", href: "/admin/team-parts/info", exact: true },
+      { label: "시즌 내역", href: "/admin/team-parts/info/seasons" },
+      { label: "주차 내역", href: "/admin/team-parts/info/weeks" },
       { label: "팀 & 파트 등록", href: "/admin/team-parts/register" },
     ],
   },
@@ -283,7 +288,7 @@ const MENU_ORG: MenuItem[] = [
       { label: "주차와 시즌", href: "/admin/season-weeks" },
       { label: "허브와 라인", href: "/admin/lines/info" },
       { label: "허브별 프로세스 목록", href: "/admin/processes/info" },
-      { label: "팀 내역", href: "/admin/team-parts/info" },
+      { label: "팀 내역", href: "/admin/team-parts/info", exact: true },
     ],
   },
 ];
@@ -600,7 +605,9 @@ export default function Sidebar() {
                   {visibleChildren(item).map((child) => {
                     const childActive = child.matchPaths
                       ? child.matchPaths.some((p) => isUnderBase(pathname, p))
-                      : isLeafActive(pathname, child.href);
+                      : child.exact
+                        ? pathname === child.href
+                        : isLeafActive(pathname, child.href);
                     return (
                       <li key={child.href}>
                         <Link
