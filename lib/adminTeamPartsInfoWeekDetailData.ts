@@ -112,12 +112,13 @@ function activityStatusOf(r: SeasonWeekDto): WeekActivityStatus {
 }
 
 // 저장된 오픈 설정(config jsonb) + open_confirmed. 테이블 미적용/행 없음 → null(정책 기본값).
-type SavedConfig = {
+export type SavedConfig = {
   practicalInfo?: Record<string, boolean>;
   practicalExperience?: Record<string, Partial<Record<ExperienceLineType, boolean>>>;
   practicalCompetency?: { checked?: boolean };
 };
-async function loadSavedConfig(
+// 액트 체크 관리 등 다른 조회에서도 오픈 설정을 읽을 수 있게 export.
+export async function loadWeekOpeningConfig(
   weekId: string,
   organization: OrganizationSlug,
 ): Promise<{ config: SavedConfig | null; openConfirmed: boolean }> {
@@ -207,7 +208,7 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
 
   const [{ config: saved, openConfirmed }, reviewed, isExpansionWeek, infoCatalog, teams] =
     await Promise.all([
-      loadSavedConfig(weekId, organization),
+      loadWeekOpeningConfig(weekId, organization),
       loadReviewed(weekId),
       loadIsExpansionWeek(organization, managedRow.week_start_date, managedRow.week_end_date),
       loadInfoLineCatalog(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -19,6 +19,13 @@ import type {
   TeamPartsInfoWeekDetailData,
   ExperienceLineType,
 } from "@/lib/adminTeamPartsInfoWeekDetailData";
+import type {
+  ActCheckManagementData,
+  ActCheckSummary,
+  ActCheckActDto,
+  ActCheckVariableActDto,
+  ActCheckStatus,
+} from "@/lib/adminTeamPartsInfoActCheckData";
 
 const EXP_TYPE_LABEL: Record<ExperienceLineType, string> = {
   derive: "도출",
@@ -37,6 +44,203 @@ const EXP_TYPES: ExperienceLineType[] = [
 
 type InfoChecked = Record<string, boolean>;
 type ExpChecked = Record<string, Record<ExperienceLineType, boolean>>;
+
+type DayKey = keyof ActCheckManagementData["practicalInfo"]["lines"][number]["regularActsByDay"];
+type DayCol = { key: DayKey; label: string };
+
+// 요일 2행 배치: [월·화·수·목] / [금·토·일].
+const DAY_GROUPS: DayCol[][] = [
+  [
+    { key: "mon", label: "월" },
+    { key: "tue", label: "화" },
+    { key: "wed", label: "수" },
+    { key: "thu", label: "목" },
+  ],
+  [
+    { key: "fri", label: "금" },
+    { key: "sat", label: "토" },
+    { key: "sun", label: "일" },
+  ],
+];
+
+function ActSummaryRow({ title, s }: { title: string; s: ActCheckSummary }) {
+  const item = (label: string, value: number | string) => (
+    <span className="whitespace-nowrap">
+      · {label} <strong className="text-base">{value}</strong>
+    </span>
+  );
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-emerald-50/70 px-4 py-2 text-sm">
+      <span className="font-bold">{title}</span>
+      {item("전체", s.totalActs)}
+      {item("가동", s.activeActs)}
+      {item("체크", s.checkedActs)}
+      {item("미체크", s.uncheckedActs)}
+      {item("변동", s.variableActs)}
+      {item("액트 체크율", `${s.actCheckRate}%`)}
+    </div>
+  );
+}
+
+// 🔴 정시(ontime) / 🔵 지연(late) — 색상 규칙 유지.
+function CheckDot({ status }: { status: ActCheckStatus }) {
+  if (!status) return null;
+  const isLate = status === "late";
+  return (
+    <span
+      data-check-status={status}
+      title={isLate ? "지연 신청" : "정시 신청"}
+      className={"inline-block h-2.5 w-2.5 shrink-0 rounded-full " + (isLate ? "bg-blue-500" : "bg-red-500")}
+    />
+  );
+}
+
+// 카드 한 줄 렌더 — 존재하는 항목만 " │ " 구분자로 이어 붙인다(액트명·신청시점·원·담당자).
+function CardRow({ parts }: { parts: ReactNode[] }) {
+  return (
+    <>
+      {parts.map((node, i) => (
+        <span key={i} className="flex items-center gap-x-2 whitespace-nowrap">
+          {i > 0 ? <span className="text-muted-foreground/30">│</span> : null}
+          {node}
+        </span>
+      ))}
+    </>
+  );
+}
+
+// 정규 액트 카드: ① 액트명 ② 신청 시점 ③ 체크 상태(원) ④ 담당자명(역할). 가동이면 "가동" 배지(비가동은 미표시).
+function ActCard({ act }: { act: ActCheckActDto }) {
+  const parts: ReactNode[] = [<span key="n" className="font-semibold">{act.actName}</span>];
+  if (act.scheduledLabel) parts.push(<span key="s" className="text-muted-foreground">{act.scheduledLabel}</span>);
+  if (act.checkStatus) parts.push(<CheckDot key="d" status={act.checkStatus} />);
+  if (act.requesterLabel) parts.push(<span key="r" className="text-muted-foreground">{act.requesterLabel}</span>);
+  return (
+    <div
+      data-act={act.actId}
+      data-act-active={act.isActiveThisWeek ? "1" : "0"}
+      className={
+        "flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded border px-2 py-1.5 text-sm " +
+        (act.isActiveThisWeek ? "border-emerald-300 bg-emerald-50" : "border-zinc-200 bg-white")
+      }
+    >
+      <CardRow parts={parts} />
+      {act.isActiveThisWeek ? (
+        <span className="ml-auto shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white">가동</span>
+      ) : null}
+    </div>
+  );
+}
+
+// 변동 액트 카드(요일별 변동 영역) — 동일 한 줄 구성 + "변동" 배지.
+function VariableCard({ act }: { act: ActCheckVariableActDto }) {
+  const parts: ReactNode[] = [<span key="n" className="font-semibold">{act.actName}</span>];
+  if (act.scheduledLabel) parts.push(<span key="s" className="text-muted-foreground">{act.scheduledLabel}</span>);
+  if (act.checkStatus) parts.push(<CheckDot key="d" status={act.checkStatus} />);
+  if (act.requesterLabel) parts.push(<span key="r" className="text-muted-foreground">{act.requesterLabel}</span>);
+  return (
+    <div
+      data-variable-act={act.id}
+      className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded border border-orange-300 bg-orange-50 px-2 py-1.5 text-sm"
+    >
+      <CardRow parts={parts} />
+      <span className="ml-auto shrink-0 rounded bg-orange-400 px-1.5 py-0.5 text-xs font-bold text-white">변동</span>
+    </div>
+  );
+}
+
+// 요일 헤더 통계(전체·가동·체크·변동) — 표시 데이터로 프론트 산출.
+function dayStats(data: ActCheckManagementData, key: DayKey) {
+  const regular = data.practicalInfo.lines.flatMap((l) => l.regularActsByDay[key]);
+  const variable = data.practicalInfo.variableActsByDay[key];
+  return {
+    total: regular.length + variable.length,
+    active: regular.filter((a) => a.isActiveThisWeek).length,
+    checked: regular.filter((a) => a.isChecked).length + variable.filter((v) => v.checkStatus != null).length,
+    variable: variable.length,
+  };
+}
+
+function DayHeader({ label, stats }: { label: string; stats: ReturnType<typeof dayStats> }) {
+  return (
+    <div className="flex items-center gap-2 whitespace-nowrap">
+      <span className="rounded bg-slate-700 px-2 py-0.5 text-sm text-white">{label}</span>
+      <span className="text-xs font-normal text-muted-foreground">
+        전체 <strong className="text-foreground">{stats.total}</strong> · 가동{" "}
+        <strong className="text-foreground">{stats.active}</strong> · 체크{" "}
+        <strong className="text-foreground">{stats.checked}</strong> · 변동{" "}
+        <strong className="text-foreground">{stats.variable}</strong>
+      </span>
+    </div>
+  );
+}
+
+// 요일 그룹(월~목 / 금~일) 테이블 — 라인 급 컬럼은 최소폭(colgroup 고정), 요일 컬럼은 넓게 균등 분배.
+//   행 내 셀 높이는 표가 자동 정렬(같은 행 = 가장 많은 액트 요일 높이에 맞춤).
+function ActCheckGroupTable({ data, cols }: { data: ActCheckManagementData; cols: DayCol[] }) {
+  return (
+    <table className="w-full table-fixed border-collapse text-sm">
+      <colgroup>
+        <col style={{ width: "6rem" }} />
+        {cols.map((c) => (
+          <col key={c.key} />
+        ))}
+      </colgroup>
+      <thead>
+        <tr className="bg-zinc-50">
+          <th className="border px-1.5 py-2 text-center align-middle font-semibold whitespace-nowrap">라인 급</th>
+          {cols.map((d) => (
+            <th key={d.key} className="border px-2 py-2 text-left align-middle font-semibold">
+              <DayHeader label={d.label} stats={dayStats(data, d.key)} />
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {data.practicalInfo.lines.map((line) => (
+          <tr key={line.lineId} data-info-line-row={line.lineId} className="align-top">
+            <td className="border px-1.5 py-2 text-center font-bold">
+              <span
+                className={
+                  "inline-block rounded px-1.5 py-0.5 text-sm whitespace-nowrap " +
+                  (line.isOpenThisWeek ? "bg-amber-200 text-amber-900" : "bg-zinc-100 text-zinc-500")
+                }
+              >
+                {line.lineName}
+              </span>
+            </td>
+            {cols.map((d) => (
+              <td key={d.key} className="border px-1.5 py-1.5 align-top">
+                <div className="flex flex-col gap-1">
+                  {line.regularActsByDay[d.key].length === 0 ? (
+                    <span className="text-xs text-muted-foreground/40">–</span>
+                  ) : (
+                    line.regularActsByDay[d.key].map((act) => <ActCard key={act.actId} act={act} />)
+                  )}
+                </div>
+              </td>
+            ))}
+          </tr>
+        ))}
+        {/* 변동 액트 행 — 항상 존재(요일별 실제 신청분만). */}
+        <tr data-variable-row className="align-top">
+          <td className="border bg-orange-50 px-1.5 py-2 text-center text-sm font-bold text-orange-900 whitespace-nowrap">변동 액트</td>
+          {cols.map((d) => (
+            <td key={d.key} className="border px-1.5 py-1.5 align-top">
+              <div className="flex flex-col gap-1">
+                {data.practicalInfo.variableActsByDay[d.key].length === 0 ? (
+                  <span className="text-xs text-muted-foreground/40">–</span>
+                ) : (
+                  data.practicalInfo.variableActsByDay[d.key].map((v) => <VariableCard key={v.id} act={v} />)
+                )}
+              </div>
+            </td>
+          ))}
+        </tr>
+      </tbody>
+    </table>
+  );
+}
 
 function statusBadge(status: "official_activity" | "official_rest" | null) {
   if (!status) return null;
@@ -92,6 +296,12 @@ export default function TeamPartsInfoWeekDetailManager({
   const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   const [activeTab, setActiveTab] = useState<"act" | "line">("act");
+
+  // [액트 체크 관리] 탭 데이터(탭 진입 시 로드·오픈 확인 후 갱신).
+  const [actData, setActData] = useState<ActCheckManagementData | null>(null);
+  const [actLoading, setActLoading] = useState(false);
+  const [actError, setActError] = useState<string | null>(null);
+  const [actRefresh, setActRefresh] = useState(0);
 
   const listHref = appendModeQuery(
     club ? `/admin/team-parts/info/weeks?org=${club}` : "/admin/team-parts/info/weeks",
@@ -153,6 +363,34 @@ export default function TeamPartsInfoWeekDetailManager({
     };
   }, [club, mode, weekId]);
 
+  // [액트 체크 관리] 탭 활성 시(또는 오픈 확인 후) act-check-management 조회.
+  useEffect(() => {
+    if (activeTab !== "act" || !club) return;
+    let cancelled = false;
+    // 탭 진입/오픈확인 후 외부(API) 동기화 effect — 로딩표시 setState 는 의도된 동작.
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
+    setActLoading(true);
+    setActError(null);
+    void (async () => {
+      try {
+        const params = new URLSearchParams({ club });
+        if (mode === "test") params.set("mode", "test");
+        const res = await fetch(
+          `/api/admin/team-parts/info/weeks/${weekId}/act-check-management?${params.toString()}`,
+          { cache: "no-store" },
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+        if (!cancelled) setActData(json.data as ActCheckManagementData);
+      } catch (e) {
+        if (!cancelled) { setActData(null); setActError(e instanceof Error ? e.message : "조회 실패"); }
+      } finally {
+        if (!cancelled) setActLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, club, mode, weekId, actRefresh]);
+
   const buildConfig = () => ({
     practicalInfo: infoChecked,
     practicalExperience: expChecked,
@@ -176,6 +414,8 @@ export default function TeamPartsInfoWeekDetailManager({
       if (!res.ok || !json.success) throw new Error(json?.error ?? `저장 실패 (${res.status})`);
       setOpenConfirmed(true);
       setBanner({ kind: "success", message: "오픈 설정이 저장되었습니다." });
+      // 액트 체크 관리 탭 "가동" 상태가 오픈 설정 기준으로 갱신되도록 재조회 트리거.
+      setActRefresh((n) => n + 1);
     } catch (e) {
       setBanner({ kind: "error", message: e instanceof Error ? e.message : "오픈 확인 실패" });
     } finally {
@@ -418,9 +658,34 @@ export default function TeamPartsInfoWeekDetailManager({
               </div>
               <div
                 data-tab-content
-                className="min-h-[120px] rounded-b-md border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground"
+                className="min-h-[120px] rounded-b-md border bg-muted/20 p-4"
               >
-                {activeTab === "act" ? "액트 체크 관리" : "라인 개설 관리"} 영역은 추후 구현 예정입니다.
+                {activeTab === "line" ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">
+                    라인 개설 관리 영역은 추후 구현 예정입니다.
+                  </p>
+                ) : actLoading ? (
+                  <LoadingState active />
+                ) : actError ? (
+                  <p className="py-6 text-center text-sm text-red-700">{actError}</p>
+                ) : actData ? (
+                  <div className="space-y-3" data-act-check-panel>
+                    {/* [0] 주차 전체 · 실무 정보 요약 */}
+                    <ActSummaryRow title="# 주차 전체 액트 체크 관리" s={actData.summary} />
+                    <ActSummaryRow title="허브 [실무 정보]" s={actData.practicalInfo.summary} />
+
+                    {/* 실무 정보 라인별 정규 액트 — 요일 2행(월~목 / 금~일) */}
+                    <div className="space-y-3">
+                      {DAY_GROUPS.map((cols, i) => (
+                        <div key={i} className="overflow-x-auto rounded-md border bg-background" data-day-group={i}>
+                          <ActCheckGroupTable data={actData} cols={cols} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="py-6 text-center text-sm text-muted-foreground">데이터가 없습니다.</p>
+                )}
               </div>
             </section>
           </>
