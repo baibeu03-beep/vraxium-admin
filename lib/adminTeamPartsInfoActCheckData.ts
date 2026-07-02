@@ -19,6 +19,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
+import { listTeams } from "@/lib/adminExperienceLineData";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import type { OrganizationSlug } from "@/lib/organizations";
@@ -74,6 +75,15 @@ export type ActCheckInfoLineDto = {
   regularActsByDay: Record<DayKey, ActCheckActDto[]>;
 };
 
+// 실무 경험 팀 탭 — 팀별 요약 + 라인급(라인그룹) 행 + 요일별 액트.
+export type ActCheckHubTeam = {
+  teamId: string;
+  teamName: string;
+  summary: ActCheckSummary;
+  lines: ActCheckInfoLineDto[];
+  variableActsByDay: Record<DayKey, ActCheckVariableActDto[]>;
+};
+
 export type ActCheckManagementData = {
   weekId: string;
   club: OrganizationSlug;
@@ -83,6 +93,11 @@ export type ActCheckManagementData = {
     lines: ActCheckInfoLineDto[];
     // 요일별 변동 액트(정규 액트 아래 "변동 액트" 행에 표시).
     variableActsByDay: Record<DayKey, ActCheckVariableActDto[]>;
+  };
+  // 실무 경험 — 허브 요약 + 팀 탭(팀별 요약/라인급/요일 액트).
+  practicalExperience: {
+    summary: ActCheckSummary;
+    teams: ActCheckHubTeam[];
   };
 };
 
@@ -197,26 +212,34 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     return lgName ? infoTypeIdByName.get(lgName) ?? null : null;
   };
 
-  // 4) 체크 상태행(act_id → row). (org, hub, week)
+  // 4) 체크 상태행. info/competency = act_id 단위(team_id null), experience = (act_id, team_id) 단위.
   const statusByAct = new Map<string, StatusRow>();
   const appliedActIds = new Set<string>();
+  const expStatusByActTeam = new Map<string, StatusRow>();
+  const appliedExpSet = new Set<string>();
+  const preferApplied = (prev: StatusRow | undefined, applied: boolean) =>
+    !prev || (applied && !(prev.status === "pending" || prev.status === "completed"));
   {
     const { data, error } = await supabaseAdmin
       .from("process_check_statuses")
-      .select("act_id,status,requested_at,completed_at,scheduled_check_at,requested_by")
+      .select("act_id,hub,team_id,status,requested_at,completed_at,scheduled_check_at,requested_by")
       .eq("organization_slug", organization)
       .in("hub", LINE_HUBS as unknown as string[])
       .eq("week_id", weekId);
     if (error) {
       console.warn("[act-check-management] check_statuses read unavailable:", error.message);
     } else {
-      for (const r of (data ?? []) as StatusRow[]) {
+      for (const r of (data ?? []) as Array<StatusRow & { hub: string | null; team_id: string | null }>) {
         if (!r.act_id) continue;
-        // (org,hub,week,act) 유니크(info)·experience 다중행이면 신청됨 우선.
         const applied = r.status === "pending" || r.status === "completed";
-        if (applied) appliedActIds.add(r.act_id);
-        const prev = statusByAct.get(r.act_id);
-        if (!prev || (applied && !(prev.status === "pending" || prev.status === "completed"))) statusByAct.set(r.act_id, r);
+        if (r.hub === "experience" && r.team_id) {
+          const key = `${r.act_id}::${r.team_id}`;
+          if (applied) appliedExpSet.add(key);
+          if (preferApplied(expStatusByActTeam.get(key), applied)) expStatusByActTeam.set(key, r);
+        } else {
+          if (applied) appliedActIds.add(r.act_id);
+          if (preferApplied(statusByAct.get(r.act_id), applied)) statusByAct.set(r.act_id, r);
+        }
       }
     }
   }
@@ -246,6 +269,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     new Set(
       [
         ...Array.from(statusByAct.values()).map((s) => s.requested_by),
+        ...Array.from(expStatusByActTeam.values()).map((s) => s.requested_by),
         ...irr.map((r) => r.applicant_admin_id),
       ].filter((v): v is string => !!v),
     ),
@@ -353,6 +377,80 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     return { lineId: t.id, lineName: t.name ?? t.id, isOpenThisWeek: infoOpenSet.has(t.id), regularActsByDay: byDay };
   });
 
+  // 8b) 실무 경험 — 팀 탭 × 라인급(라인그룹) × 요일. 가동/체크는 팀별.
+  //   가동(팀) = open_confirmed && 해당 팀의 실무경험 오픈설정 중 하나라도 체크. 체크 = (act, team) 상태행 신청됨.
+  //   변동 액트는 팀 귀속 불가(process_irregular_acts 팀 컬럼 없음) → 경험 팀/허브 변동=0.
+  const teams = await listTeams(organization, mode);
+  const { data: expLgData } = await supabaseAdmin
+    .from("process_line_groups").select("id,name,sort_order").eq("hub", "experience").eq("is_active", true);
+  const expLineGroups = ((expLgData ?? []) as Array<{ id: string; name: string | null; sort_order: number | null }>)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""));
+  const expActs = acts.filter((a) => a.hub === "experience");
+  const teamOpenOf = (teamId: string): boolean =>
+    openConfirmed && Object.values(config?.practicalExperience?.[teamId] ?? {}).some((v) => v === true);
+  const expCardOf = (a: ActRow, teamId: string, teamOpen: boolean): ActCheckActDto => {
+    const st = expStatusByActTeam.get(`${a.id}::${teamId}`) ?? null;
+    const applied = st != null && (st.status === "pending" || st.status === "completed");
+    const derivedDate = dateForDow(weekStart, a.check_dow, a.check_week);
+    const scheduledLabel = st?.scheduled_check_at
+      ? formatClubDateTime(st.scheduled_check_at)
+      : derivedDate
+        ? `${formatClubDate(derivedDate)}${hhmm(a.check_time) ? ` ${hhmm(a.check_time)}` : ""}`
+        : null;
+    let checkStatus: ActCheckStatus = null;
+    if (applied) {
+      const deadlineMs = st?.scheduled_check_at ? Date.parse(st.scheduled_check_at) : deadlineMsKst(derivedDate, a.check_time);
+      checkStatus = timingOf(st?.completed_at ?? st?.requested_at ?? null, Number.isNaN(deadlineMs as number) ? null : deadlineMs);
+    }
+    return {
+      actId: a.id, actName: a.act_name, isActiveThisWeek: teamOpen, isChecked: applied,
+      scheduledLabel, checkStatus, requesterLabel: regularRequesterLabel(st?.requested_by ?? null),
+    };
+  };
+  const expTeams: ActCheckHubTeam[] = teams.map((t) => {
+    const teamOpen = teamOpenOf(t.id);
+    const teamLines: ActCheckInfoLineDto[] = expLineGroups.map((lg) => {
+      const byDay = emptyByDay<ActCheckActDto>();
+      for (const a of expActs) {
+        if (a.line_group_id !== lg.id) continue;
+        const d = a.occur_dow;
+        const key: DayKey | null = d != null && d >= 0 && d <= 6 ? DOW_KEY[d] : null;
+        if (!key) continue;
+        byDay[key].push(expCardOf(a, t.id, teamOpen));
+      }
+      return { lineId: lg.id, lineName: lg.name ?? lg.id, isOpenThisWeek: teamOpen, regularActsByDay: byDay };
+    });
+    const active = expActs.filter((a) => a.check_target === "check" && teamOpen);
+    const activeActs = active.length;
+    const checkedActs = active.filter((a) => appliedExpSet.has(`${a.id}::${t.id}`)).length;
+    return {
+      teamId: t.id,
+      teamName: t.teamName,
+      summary: {
+        totalActs: expActs.length,
+        activeActs,
+        checkedActs,
+        uncheckedActs: activeActs - checkedActs,
+        variableActs: 0,
+        actCheckRate: rate(activeActs, checkedActs),
+      },
+      lines: teamLines,
+      variableActsByDay: emptyByDay<ActCheckVariableActDto>(),
+    };
+  });
+  const expHubSummary: ActCheckSummary = expTeams.reduce(
+    (acc, t) => ({
+      totalActs: acc.totalActs + t.summary.totalActs,
+      activeActs: acc.activeActs + t.summary.activeActs,
+      checkedActs: acc.checkedActs + t.summary.checkedActs,
+      uncheckedActs: acc.uncheckedActs + t.summary.uncheckedActs,
+      variableActs: 0,
+      actCheckRate: 0,
+    }),
+    { totalActs: 0, activeActs: 0, checkedActs: 0, uncheckedActs: 0, variableActs: 0, actCheckRate: 0 },
+  );
+  expHubSummary.actCheckRate = rate(expHubSummary.activeActs, expHubSummary.checkedActs);
+
   // 9) 집계(이전 산식 동일). activeActs = check_target='check' && 가동.
   const isActActive = (a: ActRow): boolean => {
     if (a.hub === "info") { const l = infoLineIdOfAct(a); return l != null && infoOpenSet.has(l); }
@@ -382,6 +480,10 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       summary: buildSummary(infoActs),
       lines,
       variableActsByDay,
+    },
+    practicalExperience: {
+      summary: expHubSummary,
+      teams: expTeams,
     },
   };
 }

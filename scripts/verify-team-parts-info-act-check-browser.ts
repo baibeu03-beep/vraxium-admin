@@ -62,27 +62,40 @@ async function main() {
   await page.waitForTimeout(2500);
 
   ck("액트 체크 패널 렌더", !!(await page.$("[data-act-check-panel]")));
-  // 요일 2행 그룹 테이블 2개.
-  const groups = await page.$$('[data-day-group]');
-  ck("요일 2행 그룹 테이블 2개", groups.length === 2, { groups: groups.length });
-  // 그룹0 헤더 = 월화수목, 그룹1 = 금토일.
-  const g0 = await page.$eval('[data-day-group="0"]', (e: any) => e.textContent);
-  const g1 = await page.$eval('[data-day-group="1"]', (e: any) => e.textContent);
-  ck("그룹0 = 월·화·수·목", ["월", "화", "수", "목"].every((d) => g0.includes(d)) && !g0.includes("금"), { });
-  ck("그룹1 = 금·토·일", ["금", "토", "일"].every((d) => g1.includes(d)));
-  // 요일 헤더 통계.
-  ck("요일 헤더 전체/가동/체크/변동", ["전체", "가동", "체크", "변동"].every((k) => g0.includes(k)));
-  // 위즈덤 라인 행 + 정규 액트 카드.
-  ck("위즈덤 라인 행", !!(await page.$('[data-info-line-row="wisdom"]')));
-  const anyActCard = await page.$('[data-act]');
-  ck("정규 액트 카드 존재(오픈 알림 등)", !!anyActCard);
-  // 변동 액트 행 항상 존재(그룹당 1).
-  const varRows = await page.$$('[data-variable-row]');
-  ck("변동 액트 행 존재(그룹당)", varRows.length === 2, { varRows: varRows.length });
-  // 변동 카드(해당 주차에 변동 있을 때).
-  const varCards = await page.$$('[data-variable-act]');
-  if (expectVariable) ck("변동 액트 카드 렌더", varCards.length >= 1, { varCards: varCards.length });
-  else console.log(`   (이 주차 변동 액트 없음 — 변동 행은 빈 상태 유지, cards=${varCards.length})`);
+
+  // 허브 섹션 2개(실무 정보 + 실무 경험).
+  ck("실무 정보 허브 섹션", !!(await page.$('[data-hub-section="info"]')));
+  ck("실무 경험 허브 섹션", !!(await page.$('[data-hub-section="experience"]')));
+
+  // ── 실무 정보 허브 ──
+  const infoGroups = await page.$$('[data-hub-section="info"] [data-day-group]');
+  ck("[정보] 요일 2행 그룹", infoGroups.length === 2, { groups: infoGroups.length });
+  const g0 = await page.$eval('[data-hub-section="info"] [data-day-group="0"]', (e: any) => e.textContent);
+  const g1 = await page.$eval('[data-hub-section="info"] [data-day-group="1"]', (e: any) => e.textContent);
+  ck("[정보] 그룹0 = 월·화·수·목", ["월", "화", "수", "목"].every((d) => g0.includes(d)) && !g0.includes("금"));
+  ck("[정보] 그룹1 = 금·토·일", ["금", "토", "일"].every((d) => g1.includes(d)));
+  ck("[정보] 요일 헤더 전체/가동/체크/변동", ["전체", "가동", "체크", "변동"].every((k) => g0.includes(k)));
+  ck("[정보] 위즈덤 라인 행", !!(await page.$('[data-hub-section="info"] [data-info-line-row="wisdom"]')));
+  const varCards = await page.$$('[data-hub-section="info"] [data-variable-act]');
+  if (expectVariable) ck("[정보] 변동 액트 카드 렌더", varCards.length >= 1, { varCards: varCards.length });
+  else console.log(`   (이 주차 변동 액트 없음, cards=${varCards.length})`);
+
+  // ── 실무 경험 허브 ──
+  const expTabs = await page.$$('[data-exp-team-tab]');
+  ck("[경험] 팀 탭 렌더(>=1)", expTabs.length >= 1, { tabs: expTabs.length });
+  const expGroups = await page.$$('[data-hub-section="experience"] [data-day-group]');
+  ck("[경험] 선택 팀 요일 2행 그룹", expGroups.length === 2, { groups: expGroups.length });
+  const expText = await page.$eval('[data-hub-section="experience"]', (e: any) => e.textContent);
+  ck("[경험] 허브 요약 제목", /허브 급 2 : \[실무 경험\]/.test(expText));
+  ck("[경험] 라인급(조직 관리) 행", /조직 관리/.test(expText), { has: /조직 관리/.test(expText) });
+  // 팀 탭 전환 시 팀 요약 제목이 바뀐다.
+  if (expTabs.length >= 2) {
+    const before = await page.$eval('[data-hub-section="experience"]', (e: any) => e.textContent);
+    await expTabs[1].click();
+    await page.waitForTimeout(500);
+    const after = await page.$eval('[data-hub-section="experience"]', (e: any) => e.textContent);
+    ck("[경험] 팀 탭 전환 시 팀 요약 변경", before !== after);
+  }
 
   await page.screenshot({ path: "claudedocs/qa-team-parts-act-check.png", fullPage: true });
   await ctx.browser()?.close?.();

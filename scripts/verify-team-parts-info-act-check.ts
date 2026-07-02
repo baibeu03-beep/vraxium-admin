@@ -73,8 +73,23 @@ async function main() {
     }
     // 형상·불변식(operating).
     const d = await loadTeamPartsInfoActCheckManagement({ weekId, organization: org, mode: "operating" });
-    check(`[${org}] top keys`, JSON.stringify(Object.keys(d).sort()) === JSON.stringify(["club", "practicalInfo", "summary", "weekId"]));
+    check(`[${org}] top keys`, JSON.stringify(Object.keys(d).sort()) === JSON.stringify(["club", "practicalExperience", "practicalInfo", "summary", "weekId"]));
     check(`[${org}] practicalInfo.lines = 9`, d.practicalInfo.lines.length === 9, { n: d.practicalInfo.lines.length });
+    // 실무 경험 허브: 팀 배열·팀별 요약 불변식·허브 요약=팀 합.
+    const exp = d.practicalExperience;
+    check(`[${org}] practicalExperience.teams 존재`, Array.isArray(exp.teams));
+    invariants(`[${org}] exp hub`, exp.summary);
+    for (const t of exp.teams) {
+      invariants(`[${org}] exp team ${t.teamName}`, t.summary);
+      check(`[${org}] exp team ${t.teamName} 변동=0`, t.summary.variableActs === 0);
+      check(`[${org}] exp team ${t.teamName} 라인급 존재`, t.lines.length >= 1, { n: t.lines.length });
+    }
+    const sumField = (k: "totalActs" | "activeActs" | "checkedActs") => exp.teams.reduce((n, t) => n + (t.summary as any)[k], 0);
+    check(`[${org}] exp 허브 요약 = 팀 합(total/active/checked)`,
+      exp.summary.totalActs === sumField("totalActs") && exp.summary.activeActs === sumField("activeActs") && exp.summary.checkedActs === sumField("checkedActs"),
+      { hub: exp.summary, teamsTotal: sumField("totalActs") });
+    // 오픈확인 전: 모든 팀 미오픈·activeActs=0.
+    check(`[${org}] (오픈확인 전) exp 전 팀 activeActs=0`, exp.teams.every((t) => t.summary.activeActs === 0));
     const wisdom = d.practicalInfo.lines.find((l) => l.lineId === "wisdom");
     check(`[${org}] 위즈덤 라인 존재·요일버킷 7개`, !!wisdom && Object.keys(wisdom!.regularActsByDay).length === 7);
     invariants(`[${org}] week`, d.summary);

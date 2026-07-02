@@ -67,15 +67,39 @@ const DAY_GROUPS: DayCol[][] = [
 //   금·토·일 행은 남는 1칸을 빈 셀로 채워(내용 없음) 균등 4등분 폭을 공유한다.
 const DAY_COLS_PER_ROW = 4;
 
-function ActSummaryRow({ title, s }: { title: string; s: ActCheckSummary }) {
+// 요약 위계: 1=주차 전체(최상위·진한 배경·큰 제목), 2=허브 급(중간), 3=팀(하위·연한 라인 박스).
+type SummaryLevel = 1 | 2 | 3;
+const SUMMARY_STYLE: Record<SummaryLevel, { box: string; title: string; num: string; label: string }> = {
+  1: {
+    box: "rounded-lg border-2 border-emerald-800 bg-emerald-600 px-4 py-3 text-emerald-50 shadow-sm",
+    title: "text-lg font-extrabold text-white",
+    num: "text-lg text-white",
+    label: "text-emerald-50/90",
+  },
+  2: {
+    box: "rounded-md border border-emerald-300 bg-emerald-100/80 px-4 py-2.5 text-emerald-900",
+    title: "text-base font-bold text-emerald-900",
+    num: "text-base text-emerald-950",
+    label: "text-emerald-800",
+  },
+  3: {
+    box: "ml-4 rounded border border-emerald-200 border-l-4 border-l-emerald-400 bg-white px-4 py-1.5 text-foreground",
+    title: "text-sm font-semibold text-emerald-700",
+    num: "text-sm text-foreground",
+    label: "text-muted-foreground",
+  },
+};
+
+function ActSummaryRow({ title, s, level = 2 }: { title: string; s: ActCheckSummary; level?: SummaryLevel }) {
+  const st = SUMMARY_STYLE[level];
   const item = (label: string, value: number | string) => (
-    <span className="whitespace-nowrap">
-      · {label} <strong className="text-base">{value}</strong>
+    <span className={"whitespace-nowrap " + st.label}>
+      · {label} <strong className={st.num}>{value}</strong>
     </span>
   );
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-emerald-50/70 px-4 py-2 text-sm">
-      <span className="font-bold">{title}</span>
+    <div className={"flex flex-wrap items-center gap-x-4 gap-y-1 text-sm " + st.box}>
+      <span className={st.title}>{title}</span>
       {item("전체", s.totalActs)}
       {item("가동", s.activeActs)}
       {item("체크", s.checkedActs)}
@@ -183,10 +207,14 @@ function VariableCard({ act }: { act: ActCheckVariableActDto }) {
   );
 }
 
+// 허브 라인/변동 데이터 타입(실무 정보·실무 경험 팀 공용).
+type HubLine = ActCheckManagementData["practicalInfo"]["lines"][number];
+type HubVariableByDay = ActCheckManagementData["practicalInfo"]["variableActsByDay"];
+
 // 요일 헤더 통계(전체·가동·체크·변동) — 표시 데이터로 프론트 산출.
-function dayStats(data: ActCheckManagementData, key: DayKey) {
-  const regular = data.practicalInfo.lines.flatMap((l) => l.regularActsByDay[key]);
-  const variable = data.practicalInfo.variableActsByDay[key];
+function dayStats(lines: HubLine[], variableActsByDay: HubVariableByDay, key: DayKey) {
+  const regular = lines.flatMap((l) => l.regularActsByDay[key]);
+  const variable = variableActsByDay[key];
   return {
     total: regular.length + variable.length,
     active: regular.filter((a) => a.isActiveThisWeek).length,
@@ -211,7 +239,7 @@ function DayHeader({ label, stats }: { label: string; stats: ReturnType<typeof d
 
 // 요일 그룹(월~목 / 금~일) 테이블 — 라인 급 컬럼은 최소폭(colgroup 고정), 요일 컬럼은 넓게 균등 분배.
 //   행 내 셀 높이는 표가 자동 정렬(같은 행 = 가장 많은 액트 요일 높이에 맞춤).
-function ActCheckGroupTable({ data, cols }: { data: ActCheckManagementData; cols: DayCol[] }) {
+function ActCheckGroupTable({ lines, variableActsByDay, cols }: { lines: HubLine[]; variableActsByDay: HubVariableByDay; cols: DayCol[] }) {
   // 요일 칸 수를 4 로 고정 — 부족한 칸은 빈 셀로 채워 두 행의 요일 컬럼 폭을 동일하게 맞춘다.
   const padCount = Math.max(0, DAY_COLS_PER_ROW - cols.length);
   const pads = Array.from({ length: padCount });
@@ -228,7 +256,7 @@ function ActCheckGroupTable({ data, cols }: { data: ActCheckManagementData; cols
           <th className="border px-1.5 py-2 text-center align-middle font-semibold whitespace-nowrap">라인 급</th>
           {cols.map((d) => (
             <th key={d.key} className="border px-2 py-2 text-left align-middle font-semibold">
-              <DayHeader label={d.label} stats={dayStats(data, d.key)} />
+              <DayHeader label={d.label} stats={dayStats(lines, variableActsByDay, d.key)} />
             </th>
           ))}
           {pads.map((_, i) => (
@@ -237,44 +265,52 @@ function ActCheckGroupTable({ data, cols }: { data: ActCheckManagementData; cols
         </tr>
       </thead>
       <tbody>
-        {data.practicalInfo.lines.map((line) => (
-          <tr key={line.lineId} data-info-line-row={line.lineId} className="align-top">
-            <td className="border px-1.5 py-2 text-center font-bold">
-              <span
-                className={
-                  "inline-block rounded px-1.5 py-0.5 text-sm whitespace-nowrap " +
-                  (line.isOpenThisWeek ? "bg-amber-200 text-amber-900" : "bg-zinc-100 text-zinc-500")
-                }
-              >
-                {line.lineName}
-              </span>
+        {lines.length === 0 ? (
+          <tr>
+            <td colSpan={1 + DAY_COLS_PER_ROW} className="border px-2 py-4 text-center text-xs text-muted-foreground">
+              표시할 라인급이 없습니다.
             </td>
-            {cols.map((d) => (
-              <td key={d.key} className="border px-1.5 py-1.5 align-top">
-                <div className="flex flex-col gap-1">
-                  {line.regularActsByDay[d.key].length === 0 ? (
-                    <span className="text-xs text-muted-foreground/40">–</span>
-                  ) : (
-                    line.regularActsByDay[d.key].map((act) => <ActCard key={act.actId} act={act} />)
-                  )}
-                </div>
-              </td>
-            ))}
-            {pads.map((_, i) => (
-              <td key={`pad-${i}`} aria-hidden className="bg-background" />
-            ))}
           </tr>
-        ))}
+        ) : (
+          lines.map((line) => (
+            <tr key={line.lineId} data-info-line-row={line.lineId} className="align-top">
+              <td className="border px-1.5 py-2 text-center font-bold">
+                <span
+                  className={
+                    "inline-block rounded px-1.5 py-0.5 text-sm whitespace-nowrap " +
+                    (line.isOpenThisWeek ? "bg-amber-200 text-amber-900" : "bg-zinc-100 text-zinc-500")
+                  }
+                >
+                  {line.lineName}
+                </span>
+              </td>
+              {cols.map((d) => (
+                <td key={d.key} className="border px-1.5 py-1.5 align-top">
+                  <div className="flex flex-col gap-1">
+                    {line.regularActsByDay[d.key].length === 0 ? (
+                      <span className="text-xs text-muted-foreground/40">–</span>
+                    ) : (
+                      line.regularActsByDay[d.key].map((act) => <ActCard key={act.actId} act={act} />)
+                    )}
+                  </div>
+                </td>
+              ))}
+              {pads.map((_, i) => (
+                <td key={`pad-${i}`} aria-hidden className="bg-background" />
+              ))}
+            </tr>
+          ))
+        )}
         {/* 변동 액트 행 — 항상 존재(요일별 실제 신청분만). */}
         <tr data-variable-row className="align-top">
           <td className="border bg-orange-50 px-1.5 py-2 text-center text-sm font-bold text-orange-900 whitespace-nowrap">변동 액트</td>
           {cols.map((d) => (
             <td key={d.key} className="border px-1.5 py-1.5 align-top">
               <div className="flex flex-col gap-1">
-                {data.practicalInfo.variableActsByDay[d.key].length === 0 ? (
+                {variableActsByDay[d.key].length === 0 ? (
                   <span className="text-xs text-muted-foreground/40">–</span>
                 ) : (
-                  data.practicalInfo.variableActsByDay[d.key].map((v) => <VariableCard key={v.id} act={v} />)
+                  variableActsByDay[d.key].map((v) => <VariableCard key={v.id} act={v} />)
                 )}
               </div>
             </td>
@@ -285,6 +321,19 @@ function ActCheckGroupTable({ data, cols }: { data: ActCheckManagementData; cols
         </tr>
       </tbody>
     </table>
+  );
+}
+
+// 허브 액트 표(실무 정보·실무 경험 팀 공용) — 요일 2행(월~목 / 금~일).
+function HubActTable({ lines, variableActsByDay }: { lines: HubLine[]; variableActsByDay: HubVariableByDay }) {
+  return (
+    <div className="space-y-3">
+      {DAY_GROUPS.map((cols, i) => (
+        <div key={i} className="overflow-x-auto rounded-md border bg-background" data-day-group={i}>
+          <ActCheckGroupTable lines={lines} variableActsByDay={variableActsByDay} cols={cols} />
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -342,6 +391,8 @@ export default function TeamPartsInfoWeekDetailManager({
   const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   const [activeTab, setActiveTab] = useState<"act" | "line">("act");
+  // 실무 경험 선택 팀(탭). null 이면 렌더 시 첫 팀으로 폴백.
+  const [expTeamId, setExpTeamId] = useState<string | null>(null);
 
   // [액트 체크 관리] 탭 데이터(탭 진입 시 로드·오픈 확인 후 갱신).
   const [actData, setActData] = useState<ActCheckManagementData | null>(null);
@@ -715,19 +766,69 @@ export default function TeamPartsInfoWeekDetailManager({
                 ) : actError ? (
                   <p className="py-6 text-center text-sm text-red-700">{actError}</p>
                 ) : actData ? (
-                  <div className="space-y-3" data-act-check-panel>
-                    {/* [0] 주차 전체 · 실무 정보 요약 */}
-                    <ActSummaryRow title="# 주차 전체 액트 체크 관리" s={actData.summary} />
-                    <ActSummaryRow title="허브 [실무 정보]" s={actData.practicalInfo.summary} />
+                  <div className="space-y-5" data-act-check-panel>
+                    {/* [0] 주차 전체 요약 — 최상위 */}
+                    <ActSummaryRow title="# 주차 전체 액트 체크 관리" s={actData.summary} level={1} />
 
-                    {/* 실무 정보 라인별 정규 액트 — 요일 2행(월~목 / 금~일) */}
-                    <div className="space-y-3">
-                      {DAY_GROUPS.map((cols, i) => (
-                        <div key={i} className="overflow-x-auto rounded-md border bg-background" data-day-group={i}>
-                          <ActCheckGroupTable data={actData} cols={cols} />
-                        </div>
-                      ))}
+                    {/* 허브 급 1: 실무 정보 — 중위 */}
+                    <div className="space-y-3" data-hub-section="info">
+                      <ActSummaryRow title="허브 급 1 : [실무 정보]" s={actData.practicalInfo.summary} level={2} />
+                      <HubActTable
+                        lines={actData.practicalInfo.lines}
+                        variableActsByDay={actData.practicalInfo.variableActsByDay}
+                      />
                     </div>
+
+                    {/* 허브 급 2: 실무 경험 (팀 탭) */}
+                    {(() => {
+                      const teams = actData.practicalExperience.teams;
+                      const selected = teams.find((t) => t.teamId === expTeamId) ?? teams[0] ?? null;
+                      return (
+                        <div className="space-y-3" data-hub-section="experience">
+                          <ActSummaryRow title="허브 급 2 : [실무 경험]" s={actData.practicalExperience.summary} level={2} />
+                          {teams.length === 0 ? (
+                            <p className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                              이번 주 활동하는 팀이 없습니다.
+                            </p>
+                          ) : (
+                            <>
+                              {/* 팀 탭 */}
+                              <div className="flex flex-wrap gap-1" role="tablist" aria-label="실무 경험 팀 선택">
+                                {teams.map((t) => (
+                                  <button
+                                    key={t.teamId}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={selected?.teamId === t.teamId}
+                                    data-exp-team-tab={t.teamId}
+                                    onClick={() => setExpTeamId(t.teamId)}
+                                    className={
+                                      "rounded-md border px-3 py-1.5 text-sm font-bold transition-colors " +
+                                      (selected?.teamId === t.teamId
+                                        ? "border-emerald-600 bg-emerald-600 text-white"
+                                        : "border-input bg-background text-muted-foreground hover:bg-muted")
+                                    }
+                                  >
+                                    {t.teamName}
+                                  </button>
+                                ))}
+                              </div>
+                              {selected ? (
+                                <>
+                                  {/* 선택 팀 요약 — 하위 */}
+                                  <ActSummaryRow title={`[${selected.teamName}] 팀 요약`} s={selected.summary} level={3} />
+                                  {/* 선택 팀 라인급 × 요일 액트 */}
+                                  <HubActTable
+                                    lines={selected.lines}
+                                    variableActsByDay={selected.variableActsByDay}
+                                  />
+                                </>
+                              ) : null}
+                            </>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ) : (
                   <p className="py-6 text-center text-sm text-muted-foreground">데이터가 없습니다.</p>
