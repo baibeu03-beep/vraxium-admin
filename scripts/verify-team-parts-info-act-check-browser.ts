@@ -63,9 +63,10 @@ async function main() {
 
   ck("액트 체크 패널 렌더", !!(await page.$("[data-act-check-panel]")));
 
-  // 허브 섹션 2개(실무 정보 + 실무 경험).
+  // 허브 섹션 3개(실무 정보 + 실무 경험 + 실무 역량).
   ck("실무 정보 허브 섹션", !!(await page.$('[data-hub-section="info"]')));
   ck("실무 경험 허브 섹션", !!(await page.$('[data-hub-section="experience"]')));
+  ck("실무 역량 허브 섹션", !!(await page.$('[data-hub-section="competency"]')));
 
   // ── 실무 정보 허브 ──
   const infoGroups = await page.$$('[data-hub-section="info"] [data-day-group]');
@@ -96,6 +97,13 @@ async function main() {
     const after = await page.$eval('[data-hub-section="experience"]', (e: any) => e.textContent);
     ck("[경험] 팀 탭 전환 시 팀 요약 변경", before !== after);
   }
+
+  // ── 실무 역량 허브(실무 정보와 동일 UI) ──
+  const compGroups = await page.$$('[data-hub-section="competency"] [data-day-group]');
+  ck("[역량] 요일 2행 그룹", compGroups.length === 2, { groups: compGroups.length });
+  const compText = await page.$eval('[data-hub-section="competency"]', (e: any) => e.textContent);
+  ck("[역량] 허브 요약 제목", /허브 급 3 : \[실무 역량\]/.test(compText));
+  ck("[역량] 요일 헤더 전체/가동/체크/변동", ["전체", "가동", "체크", "변동"].every((k) => compText.includes(k)));
 
   await page.screenshot({ path: "claudedocs/qa-team-parts-act-check.png", fullPage: true });
   await ctx.browser()?.close?.();

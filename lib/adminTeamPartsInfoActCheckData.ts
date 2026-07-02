@@ -99,6 +99,12 @@ export type ActCheckManagementData = {
     summary: ActCheckSummary;
     teams: ActCheckHubTeam[];
   };
+  // 실무 역량 — 실무 정보와 동일 구조(허브 요약 + 라인급/요일 액트). 현재 라인 1개.
+  practicalCompetency: {
+    summary: ActCheckSummary;
+    lines: ActCheckInfoLineDto[];
+    variableActsByDay: Record<DayKey, ActCheckVariableActDto[]>;
+  };
 };
 
 type ActRow = {
@@ -451,6 +457,26 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   );
   expHubSummary.actCheckRate = rate(expHubSummary.activeActs, expHubSummary.checkedActs);
 
+  // 8c) 실무 역량 — 실무 정보와 동일 구조(라인급 × 요일). 가동/체크 = 허브 단위(compOpen).
+  //   라인급 = process_line_groups(hub='competency'). 현재 라인 1개. 카드는 cardOf(competency 분기) 재사용.
+  //   변동 액트는 info 허브(실무 정보)에 귀속되므로 역량 변동=0(경험과 동일).
+  const { data: compLgData } = await supabaseAdmin
+    .from("process_line_groups").select("id,name,sort_order").eq("hub", "competency").eq("is_active", true);
+  const compLineGroups = ((compLgData ?? []) as Array<{ id: string; name: string | null; sort_order: number | null }>)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""));
+  const compActs = acts.filter((a) => a.hub === "competency");
+  const compLines: ActCheckInfoLineDto[] = compLineGroups.map((lg) => {
+    const byDay = emptyByDay<ActCheckActDto>();
+    for (const a of compActs) {
+      if (a.line_group_id !== lg.id) continue;
+      const d = a.occur_dow;
+      const key: DayKey | null = d != null && d >= 0 && d <= 6 ? DOW_KEY[d] : null;
+      if (!key) continue;
+      byDay[key].push(cardOf(a));
+    }
+    return { lineId: lg.id, lineName: lg.name ?? lg.id, isOpenThisWeek: compOpen, regularActsByDay: byDay };
+  });
+
   // 9) 집계(이전 산식 동일). activeActs = check_target='check' && 가동.
   const isActActive = (a: ActRow): boolean => {
     if (a.hub === "info") { const l = infoLineIdOfAct(a); return l != null && infoOpenSet.has(l); }
@@ -484,6 +510,24 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     practicalExperience: {
       summary: expHubSummary,
       teams: expTeams,
+    },
+    practicalCompetency: {
+      // 역량 변동 액트=0 → totalActs 는 정규 액트만(buildSummary 의 +variableCount 미포함).
+      summary: (() => {
+        const active = compActs.filter((a) => a.check_target === "check" && isActActive(a));
+        const activeActs = active.length;
+        const checkedActs = active.filter((a) => appliedActIds.has(a.id)).length;
+        return {
+          totalActs: compActs.length,
+          activeActs,
+          checkedActs,
+          uncheckedActs: activeActs - checkedActs,
+          variableActs: 0,
+          actCheckRate: rate(activeActs, checkedActs),
+        };
+      })(),
+      lines: compLines,
+      variableActsByDay: emptyByDay<ActCheckVariableActDto>(),
     },
   };
 }

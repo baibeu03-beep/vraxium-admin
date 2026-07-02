@@ -73,8 +73,19 @@ async function main() {
     }
     // 형상·불변식(operating).
     const d = await loadTeamPartsInfoActCheckManagement({ weekId, organization: org, mode: "operating" });
-    check(`[${org}] top keys`, JSON.stringify(Object.keys(d).sort()) === JSON.stringify(["club", "practicalExperience", "practicalInfo", "summary", "weekId"]));
+    check(`[${org}] top keys`, JSON.stringify(Object.keys(d).sort()) === JSON.stringify(["club", "practicalCompetency", "practicalExperience", "practicalInfo", "summary", "weekId"]));
     check(`[${org}] practicalInfo.lines = 9`, d.practicalInfo.lines.length === 9, { n: d.practicalInfo.lines.length });
+    // 실무 역량 허브: 실무 정보와 동일 구조(요약 불변식·변동=0·라인급 요일버킷 7개).
+    const comp = d.practicalCompetency;
+    invariants(`[${org}] comp hub`, comp.summary);
+    check(`[${org}] comp 변동=0`, comp.summary.variableActs === 0);
+    check(`[${org}] comp variableActsByDay 버킷 7개`, Object.keys(comp.variableActsByDay).length === 7);
+    for (const l of comp.lines) {
+      check(`[${org}] comp 라인 ${l.lineName} 요일버킷 7개`, Object.keys(l.regularActsByDay).length === 7);
+    }
+    // 오픈확인 전: 역량 라인 전부 미오픈·activeActs=0.
+    check(`[${org}] (오픈확인 전) comp 라인 전부 미오픈`, comp.lines.every((l) => l.isOpenThisWeek === false));
+    check(`[${org}] (오픈확인 전) comp activeActs=0`, comp.summary.activeActs === 0, comp.summary);
     // 실무 경험 허브: 팀 배열·팀별 요약 불변식·허브 요약=팀 합.
     const exp = d.practicalExperience;
     check(`[${org}] practicalExperience.teams 존재`, Array.isArray(exp.teams));

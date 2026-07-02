@@ -68,7 +68,9 @@ type OverallMemberRow = {
 
 // (org, teamName) 의 활동 멤버(파트장 포함) — user_profiles(role) + user_memberships(현재행).
 // adminExperiencePartInput.loadTeamCrewRows 와 동일 소스이나 파트장을 포함한다(팀 총괄 요구).
-async function loadTeamMembersWithLeaders(
+// 팀 코호트(라인 개설 후보) — 팀장/관리자·휴식·제외 파트를 뺀 크루 목록(statusLabel/isPartLeader 포함).
+//   실무 경험 라인칸 "개설 가능 크루" 모수 계산에 재사용(관리 라인 = 심화 크루만).
+export async function loadTeamMembersWithLeaders(
   organization: string,
   teamName: string,
   mode: ScopeMode = "operating",

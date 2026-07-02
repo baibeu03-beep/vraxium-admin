@@ -27,6 +27,7 @@ import type {
   ActCheckVariableActDto,
   ActCheckStatus,
 } from "@/lib/adminTeamPartsInfoActCheckData";
+import type { LineOpeningManagementData } from "@/lib/adminTeamPartsInfoLineOpeningData";
 
 const EXP_TYPE_LABEL: Record<ExperienceLineType, string> = {
   derive: "도출",
@@ -106,6 +107,222 @@ function ActSummaryRow({ title, s, level = 2 }: { title: string; s: ActCheckSumm
       {item("미체크", s.uncheckedActs)}
       {item("변동", s.variableActs)}
       {item("액트 체크율", `${s.actCheckRate}%`)}
+    </div>
+  );
+}
+
+// 라인 개설 관리 요약(라인칸 개설율) — 액트 요약과 동일 위계(1=주차 전체, 2=허브 급).
+function LineSummaryRow({
+  title,
+  s,
+  level = 1,
+}: {
+  title: string;
+  s: LineOpeningManagementData["summary"];
+  level?: SummaryLevel;
+}) {
+  const st = SUMMARY_STYLE[level];
+  const item = (label: string, value: number | string) => (
+    <span className={"whitespace-nowrap " + st.label}>
+      · {label} <strong className={st.num}>{value}</strong>
+    </span>
+  );
+  return (
+    <div className={"flex flex-wrap items-center gap-x-4 gap-y-1 text-sm " + st.box}>
+      <span className={st.title}>{title}</span>
+      {item("전체", s.totalLines)}
+      {item("오픈", s.openLines)}
+      {item("개설", s.createdLines)}
+      {item("미개설", s.notCreatedLines)}
+      {item("라인칸 개설율", `${s.lineOpenRate}%`)}
+    </div>
+  );
+}
+
+// 진행 상태 배지 — not_required(개설 불가)/required(개설 필요)/crew_submitting(크루 기입 중)/crew_submission_closed(크루 기입 종료).
+type InfoLineRow = LineOpeningManagementData["practicalInfo"]["lines"][number];
+// 진행 상태 배지 정책:
+//   개설 불가(not_required)   = 에러 아님, "개설 대상 아님" → 회색(빛바램)
+//   개설 필요(required)       = 오픈됐으나 미개설 → 빨강/주황(경고)
+//   크루 기입 중(submitting)  = 개설 완료·기입 가능 → 초록
+//   크루 기입 종료(closed)    = 검수 이후 → 중립/완료(슬레이트)
+const PROGRESS_META: Record<InfoLineRow["progressStatus"], { label: string; cls: string }> = {
+  not_required: { label: "개설 불가", cls: "bg-zinc-200 text-zinc-500" },
+  required: { label: "개설 필요", cls: "bg-orange-500 text-white" },
+  crew_submitting: { label: "크루 기입 중", cls: "bg-emerald-600 text-white" },
+  crew_submission_closed: { label: "크루 기입 종료", cls: "bg-slate-500 text-white" },
+};
+function ProgressBadge({ status }: { status: InfoLineRow["progressStatus"] }) {
+  const m = PROGRESS_META[status];
+  return (
+    <span className={"inline-block rounded px-2 py-0.5 text-xs font-bold whitespace-nowrap " + m.cls}>
+      {m.label}
+    </span>
+  );
+}
+
+// 라인칸 4상태(액트 카드와 동일한 "상태가 한눈에" 정책 — 데이터/산식 불변, 표시만):
+//   not_open       = 이번 주 오픈 안 됨(isOpenThisWeek=false)        → 회색/빛바랜·라인명 외 "-"
+//   open_uncreated = 오픈됐으나 미개설(created 아님)                 → 경고색(연한 주황)·개설 후 정보 "-"
+//   created_ontime = 오픈·제시간 개설(월 23:59 이전)                 → 초록·✅ 아이콘·전체 정보
+//   created_late   = 오픈·지연 개설(월 23:59 이후)                   → 초록(유지)·⏰ 아이콘으로 지연 구분
+type InfoLineCardState = "not_open" | "open_uncreated" | "created_ontime" | "created_late";
+function resolveInfoLineState(l: InfoLineRow): InfoLineCardState {
+  if (!l.isOpenThisWeek) return "not_open";
+  const created =
+    l.progressStatus === "crew_submitting" || l.progressStatus === "crew_submission_closed";
+  if (!created) return "open_uncreated";
+  return l.createdTimingStatus === "late" ? "created_late" : "created_ontime";
+}
+// 상태 표현은 "행 전체 배경"이 아니라 라인명 칩(액트 카드처럼 상태 카드)에만 적용한다.
+//   → 표 구조/가독성 유지. 미오픈은 빨강 아님·회색 빛바램(개설 대상 아님).
+const INFO_NAME_CHIP_CLASS: Record<InfoLineCardState, string> = {
+  not_open: "border-zinc-200 bg-zinc-100 text-zinc-400",
+  open_uncreated: "border-orange-300 bg-orange-50 text-orange-900",
+  created_ontime: "border-emerald-300 bg-emerald-50 text-emerald-900",
+  created_late: "border-emerald-300 bg-emerald-50 text-emerald-900",
+};
+
+// 개설 시점 셀 — 라벨 + 타이밍 아이콘(정상=✅ 초록·지연=⏰ 빨강). 미개설=빈칸("-"은 셀에서 처리).
+function CreatedAtCell({ row }: { row: InfoLineRow }) {
+  if (!row.createdAtLabel) return <span className="text-muted-foreground">-</span>;
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      <span>{row.createdAtLabel}</span>
+      {row.createdTimingStatus === "late" ? (
+        <AlarmClock className="h-4 w-4 shrink-0 text-rose-500" aria-label="지연 개설" />
+      ) : (
+        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-label="정상 개설" />
+      )}
+    </span>
+  );
+}
+
+// 라인칸 개설 상태 표(실무 정보·실무 경험 팀 공용) — 7컬럼·상태별 라인명 칩·"-" 정책.
+//   lineAttr = 행 식별 data 속성명(정보=data-info-open-line, 경험=data-exp-open-line).
+function LineOpeningTable({ lines, lineAttr }: { lines: InfoLineRow[]; lineAttr: string }) {
+  const dash = <span className="text-muted-foreground">-</span>;
+  return (
+    <div className="overflow-x-auto rounded-md border bg-background">
+      <table className="w-full border-collapse text-sm">
+        <thead>
+          <tr className="bg-zinc-50 text-center">
+            <th className="border px-2 py-2 font-semibold">라인명</th>
+            <th className="border px-2 py-2 font-semibold">운영진</th>
+            <th className="border px-2 py-2 font-semibold">운영</th>
+            <th className="border px-2 py-2 font-semibold">개설 시점</th>
+            <th className="border px-2 py-2 font-semibold">개설 크루</th>
+            <th className="border px-2 py-2 font-semibold">기입 크루</th>
+            <th className="border px-2 py-2 font-semibold">진행 상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.length === 0 ? (
+            <tr>
+              <td colSpan={7} className="border px-2 py-4 text-center text-xs text-muted-foreground">
+                표시할 라인이 없습니다.
+              </td>
+            </tr>
+          ) : (
+            lines.map((l) => {
+              const state = resolveInfoLineState(l);
+              const created = state === "created_ontime" || state === "created_late";
+              return (
+                <tr key={l.lineId} {...{ [lineAttr]: l.lineId }} data-line-state={state} className="align-middle">
+                  <td className="border px-2 py-1.5">
+                    {/* 라인명 = 상태 카드(액트 카드처럼). 배경/색은 여기에만 적용. */}
+                    <span className={"inline-block rounded border px-2 py-0.5 font-semibold " + INFO_NAME_CHIP_CLASS[state]}>
+                      {l.lineName}
+                    </span>
+                  </td>
+                  <td className="border px-2 py-1.5 whitespace-nowrap">
+                    {created && l.operatorName ? `${l.operatorName} 님` : dash}
+                  </td>
+                  <td className="border px-2 py-1.5 text-center">
+                    <span
+                      className={
+                        "inline-block rounded px-2 py-0.5 text-xs font-bold " +
+                        (l.isOpenThisWeek ? "bg-emerald-700 text-white" : "bg-zinc-200 text-zinc-500")
+                      }
+                    >
+                      {l.isOpenThisWeek ? "오픈" : "미오픈"}
+                    </span>
+                  </td>
+                  <td className="border px-2 py-1.5">{created ? <CreatedAtCell row={l} /> : dash}</td>
+                  <td className="border px-2 py-1.5 text-center tabular-nums whitespace-nowrap">
+                    {created ? `${l.createdCrewCount} / ${l.eligibleCrewCount}` : dash}
+                  </td>
+                  <td className="border px-2 py-1.5 text-center tabular-nums whitespace-nowrap">
+                    {created ? `${l.submittedCrewCount} / ${l.submissionEligibleCrewCount}` : dash}
+                  </td>
+                  <td className="border px-2 py-1.5 text-center">
+                    <ProgressBadge status={l.progressStatus} />
+                  </td>
+                </tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// 허브 급 1: 실무 정보 — 허브 요약 + 라인별 표(요약 위계는 [액트 체크 관리]와 동일).
+//   등록된 모든 라인은 항상 표시(오픈 여부로 숨기지 않음). 상태별 배경색으로 한눈에 구분.
+function InfoLineOpeningSection({ data }: { data: LineOpeningManagementData["practicalInfo"] }) {
+  return (
+    <div className="space-y-3" data-hub-section="info-line-opening">
+      <LineSummaryRow title="허브 급 1 : [실무 정보]" s={data.summary} level={2} />
+      <LineOpeningTable lines={data.lines} lineAttr="data-info-open-line" />
+    </div>
+  );
+}
+
+// 허브 급 2: 실무 경험 — 허브 요약 + 팀 탭 + 선택 팀 요약/라인표. 집계는 선택 "팀 기준".
+function ExperienceLineOpeningSection({ data }: { data: LineOpeningManagementData["practicalExperience"] }) {
+  const teams = data.teams;
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const selected = teams.find((t) => t.teamId === teamId) ?? teams[0] ?? null;
+  return (
+    <div className="space-y-3" data-hub-section="experience-line-opening">
+      <LineSummaryRow title="허브 급 2 : [실무 경험]" s={data.summary} level={2} />
+      {teams.length === 0 ? (
+        <p className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+          이번 주 활동하는 팀이 없습니다.
+        </p>
+      ) : (
+        <>
+          {/* 팀 탭 */}
+          <div className="flex flex-wrap gap-1" role="tablist" aria-label="실무 경험 팀 선택">
+            {teams.map((t) => (
+              <button
+                key={t.teamId}
+                type="button"
+                role="tab"
+                aria-selected={selected?.teamId === t.teamId}
+                data-exp-team-tab={t.teamId}
+                onClick={() => setTeamId(t.teamId)}
+                className={
+                  "rounded-md border px-3 py-1.5 text-sm font-bold transition-colors " +
+                  (selected?.teamId === t.teamId
+                    ? "border-emerald-600 bg-emerald-600 text-white"
+                    : "border-input bg-background text-muted-foreground hover:bg-muted")
+                }
+              >
+                {t.teamName}
+              </button>
+            ))}
+          </div>
+          {selected ? (
+            <>
+              {/* 선택 팀 요약(하위 위계) + 라인표 */}
+              <LineSummaryRow title={`[${selected.teamName}] 팀 요약`} s={selected.summary} level={3} />
+              <LineOpeningTable lines={selected.lines} lineAttr="data-exp-open-line" />
+            </>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }
@@ -246,7 +463,8 @@ function ActCheckGroupTable({ lines, variableActsByDay, cols }: { lines: HubLine
   return (
     <table className="w-full table-fixed border-collapse text-sm">
       <colgroup>
-        <col style={{ width: "6rem" }} />
+        {/* 라인 급 컬럼 고정 폭(7rem=112px) — 긴 라인명이 요일 컬럼을 침범하지 못하게 고정. */}
+        <col style={{ width: "7rem" }} />
         {Array.from({ length: DAY_COLS_PER_ROW }).map((_, i) => (
           <col key={i} />
         ))}
@@ -274,10 +492,13 @@ function ActCheckGroupTable({ lines, variableActsByDay, cols }: { lines: HubLine
         ) : (
           lines.map((line) => (
             <tr key={line.lineId} data-info-line-row={line.lineId} className="align-top">
-              <td className="border px-1.5 py-2 text-center font-bold">
+              {/* 라인 급 셀 — overflow-hidden 으로 셀 밖 침범 차단. 배지는 max-w-full + truncate(nowrap+ellipsis)
+                  로 셀 안에서만 표시하고 넘치면 말줄임(…). 전체 이름은 title 툴팁으로. */}
+              <td className="overflow-hidden border px-1.5 py-2 text-center font-bold">
                 <span
+                  title={line.lineName}
                   className={
-                    "inline-block rounded px-1.5 py-0.5 text-sm whitespace-nowrap " +
+                    "inline-block max-w-full truncate rounded px-1.5 py-0.5 align-middle text-sm " +
                     (line.isOpenThisWeek ? "bg-amber-200 text-amber-900" : "bg-zinc-100 text-zinc-500")
                   }
                 >
@@ -400,6 +621,11 @@ export default function TeamPartsInfoWeekDetailManager({
   const [actError, setActError] = useState<string | null>(null);
   const [actRefresh, setActRefresh] = useState(0);
 
+  // [라인 개설 관리] 탭 데이터(주차 전체 요약). 탭 진입/오픈 확인 후 로드.
+  const [lineData, setLineData] = useState<LineOpeningManagementData | null>(null);
+  const [lineLoading, setLineLoading] = useState(false);
+  const [lineError, setLineError] = useState<string | null>(null);
+
   const listHref = appendModeQuery(
     club ? `/admin/team-parts/info/weeks?org=${club}` : "/admin/team-parts/info/weeks",
     mode,
@@ -483,6 +709,33 @@ export default function TeamPartsInfoWeekDetailManager({
         if (!cancelled) { setActData(null); setActError(e instanceof Error ? e.message : "조회 실패"); }
       } finally {
         if (!cancelled) setActLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeTab, club, mode, weekId, actRefresh]);
+
+  // [라인 개설 관리] 탭 활성 시(또는 오픈 확인 후) line-opening-management 요약 조회.
+  useEffect(() => {
+    if (activeTab !== "line" || !club) return;
+    let cancelled = false;
+    /* eslint-disable-next-line react-hooks/set-state-in-effect */
+    setLineLoading(true);
+    setLineError(null);
+    void (async () => {
+      try {
+        const params = new URLSearchParams({ club });
+        if (mode === "test") params.set("mode", "test");
+        const res = await fetch(
+          `/api/admin/team-parts/info/weeks/${weekId}/line-opening-management?${params.toString()}`,
+          { cache: "no-store" },
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json?.error ?? `조회 실패 (${res.status})`);
+        if (!cancelled) setLineData(json.data as LineOpeningManagementData);
+      } catch (e) {
+        if (!cancelled) { setLineData(null); setLineError(e instanceof Error ? e.message : "조회 실패"); }
+      } finally {
+        if (!cancelled) setLineLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -758,9 +1011,25 @@ export default function TeamPartsInfoWeekDetailManager({
                 className="min-h-[120px] rounded-b-md border bg-muted/20 p-4"
               >
                 {activeTab === "line" ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">
-                    라인 개설 관리 영역은 추후 구현 예정입니다.
-                  </p>
+                  lineLoading ? (
+                    <LoadingState active />
+                  ) : lineError ? (
+                    <p className="py-6 text-center text-sm text-red-700">{lineError}</p>
+                  ) : lineData ? (
+                    <div className="space-y-5" data-line-opening-panel>
+                      {/* [0] 주차 전체 요약 — 최상위 */}
+                      <LineSummaryRow title="# 주차 전체 라인칸 개설 관리" s={lineData.summary} level={1} />
+                      {/* 허브 급 1: 실무 정보 — 요약 + 라인별 표 */}
+                      <InfoLineOpeningSection data={lineData.practicalInfo} />
+                      {/* 허브 급 2: 실무 경험 — 요약 + 팀 탭 + 선택 팀 라인표 */}
+                      <ExperienceLineOpeningSection data={lineData.practicalExperience} />
+                      <p className="text-center text-xs text-muted-foreground">
+                        실무 역량 라인칸 개설 상세는 다음 작업에서 제공됩니다.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="py-6 text-center text-sm text-muted-foreground">데이터가 없습니다.</p>
+                  )
                 ) : actLoading ? (
                   <LoadingState active />
                 ) : actError ? (
@@ -829,6 +1098,15 @@ export default function TeamPartsInfoWeekDetailManager({
                         </div>
                       );
                     })()}
+
+                    {/* 허브 급 3: 실무 역량 — 실무 정보와 동일 UI(허브 요약 + 라인급/요일 액트). */}
+                    <div className="space-y-3" data-hub-section="competency">
+                      <ActSummaryRow title="허브 급 3 : [실무 역량]" s={actData.practicalCompetency.summary} level={2} />
+                      <HubActTable
+                        lines={actData.practicalCompetency.lines}
+                        variableActsByDay={actData.practicalCompetency.variableActsByDay}
+                      />
+                    </div>
                   </div>
                 ) : (
                   <p className="py-6 text-center text-sm text-muted-foreground">데이터가 없습니다.</p>
