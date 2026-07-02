@@ -327,6 +327,18 @@ function ExperienceLineOpeningSection({ data }: { data: LineOpeningManagementDat
   );
 }
 
+// 허브 급 3: 실무 역량 — 허브 요약 + 등록 라인(마스터)별 표. 구성은 [실무 정보]와 동일.
+//   역량은 크루가 선택해 진행 → "개설 필요(required)" 상태 없음(미개설=개설 불가 회색·개설=크루 기입 중/종료).
+//   등록 라인은 모두 표시(하드코딩 아님·마스터 조회). 상태 로직/색상은 공용 LineOpeningTable 그대로.
+function CompetencyLineOpeningSection({ data }: { data: LineOpeningManagementData["practicalCompetency"] }) {
+  return (
+    <div className="space-y-3" data-hub-section="competency-line-opening">
+      <LineSummaryRow title="허브 급 3 : [실무 역량]" s={data.summary} level={2} />
+      <LineOpeningTable lines={data.lines} lineAttr="data-comp-open-line" />
+    </div>
+  );
+}
+
 // 카드 한 줄 렌더 — 존재하는 항목만 " │ " 구분자로 이어 붙인다.
 function CardRow({ parts }: { parts: ReactNode[] }) {
   return (
@@ -1023,9 +1035,8 @@ export default function TeamPartsInfoWeekDetailManager({
                       <InfoLineOpeningSection data={lineData.practicalInfo} />
                       {/* 허브 급 2: 실무 경험 — 요약 + 팀 탭 + 선택 팀 라인표 */}
                       <ExperienceLineOpeningSection data={lineData.practicalExperience} />
-                      <p className="text-center text-xs text-muted-foreground">
-                        실무 역량 라인칸 개설 상세는 다음 작업에서 제공됩니다.
-                      </p>
+                      {/* 허브 급 3: 실무 역량 — 요약 + 등록 라인별 표 */}
+                      <CompetencyLineOpeningSection data={lineData.practicalCompetency} />
                     </div>
                   ) : (
                     <p className="py-6 text-center text-sm text-muted-foreground">데이터가 없습니다.</p>

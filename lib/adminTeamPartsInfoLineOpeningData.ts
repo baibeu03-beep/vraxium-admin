@@ -36,7 +36,6 @@ import {
 } from "@/lib/adminCluster4InfoLineResults";
 import { listTeams, listCrewsForTargetSelection } from "@/lib/adminExperienceLineData";
 import { loadTeamMembersWithLeaders } from "@/lib/adminExperienceTeamOverall";
-import { resolveCluster4LineOrgScope } from "@/lib/adminCluster4LinesData";
 import {
   canEditOverallManagement,
   type ExperienceOverallCategory,
@@ -136,6 +135,12 @@ export type LineOpeningManagementData = {
     summary: LineOpeningSummary;
     teams: ExperienceLineOpeningTeam[];
   };
+  // 허브 급 3: 실무 역량 — 허브 요약 + 등록 라인(마스터)별 라인칸 개설 상태.
+  //   크루가 선택해 진행 → 주 시작 시점엔 오픈 여부 미상. "개설 필요(required)" 상태 없음.
+  practicalCompetency: {
+    summary: LineOpeningSummary;
+    lines: LineOpeningRowDto[];
+  };
 };
 
 function rate(open: number, created: number): number {
@@ -172,49 +177,162 @@ function createdTiming(
   return openedMs <= deadline ? "ontime" : "late";
 }
 
-// 대상 주차(weekId)에 활성(그 조직 소유) 역량 라인이 하나라도 있는가 = 역량 개설 완료.
-//   테이블/컬럼 미적용 등 오류는 fail-closed(개설 안 됨)로 본다.
-async function hasCreatedCompetencyLine(
-  organization: OrganizationSlug,
-  weekId: string,
-): Promise<boolean> {
-  try {
-    const { data: tRows, error: tErr } = await supabaseAdmin
-      .from("cluster4_line_targets")
-      .select("line_id")
-      .eq("week_id", weekId);
-    if (tErr) return false;
-    const lineIds = Array.from(
-      new Set(
-        ((tRows ?? []) as Array<{ line_id: string | null }>)
-          .map((r) => r.line_id)
-          .filter((id): id is string => id != null),
-      ),
-    );
-    if (lineIds.length === 0) return false;
+// 허브 급 3: 실무 역량 — 등록 라인(cluster4_competency_line_masters, is_active) 전부 표시 + 라인칸 개설 상태.
+//   역량 라인은 크루가 선택해 진행 → 개설되기 전엔 오픈 여부 미상. "개설 필요(required)" 상태 없음:
+//     · 미개설 = 개설 불가(not_required, 회색)   · 개설 완료 = 크루 기입 중   · 주차 검수 이후 = 크루 기입 종료
+//   개설 판정(클럽 기준) = 마스터에 연결된 활성 역량 라인(cluster4_lines.competency_line_master_id)이
+//     이번 주 타깃을 가지며, 그 타깃 중 클럽 활동 크루(eligibleCrewIds)가 1명 이상.
+//     · 개설 크루 = 그 클럽 크루 수 / 분모 = 클럽 활동 크루(eligibleCrewIds.size)
+//     · 기입 크루 = 그 크루 중 2차 기입 존재 수 / 분모 = 개설 크루
+//   openLines = createdLines(개설=오픈), notCreatedLines=0. 등록 30개는 하드코딩 아님(마스터 조회).
+async function loadCompetencyLineOpening(opts: {
+  weekId: string;
+  organization: OrganizationSlug;
+  weekStart: string | null;
+  reviewed: boolean;
+  eligibleCrewIds: ReadonlySet<string>;
+}): Promise<LineOpeningManagementData["practicalCompetency"]> {
+  const { weekId, organization, weekStart, reviewed, eligibleCrewIds } = opts;
+  const empty = { summary: { totalLines: 0, openLines: 0, createdLines: 0, notCreatedLines: 0, lineOpenRate: 0 }, lines: [] as LineOpeningRowDto[] };
 
-    const { data: lineRows, error: lErr } = await supabaseAdmin
-      .from("cluster4_lines")
-      .select(
-        "id,part_type,line_code,experience_line_master_id,competency_line_master_id,is_active",
-      )
-      .eq("part_type", "competency")
-      .eq("is_active", true)
-      .in("id", lineIds);
-    if (lErr) return false;
-    for (const row of (lineRows ?? []) as Array<{
-      part_type: string;
-      line_code: string | null;
-      experience_line_master_id: string | null;
-      competency_line_master_id: string | null;
-    }>) {
-      const lineOrg = await resolveCluster4LineOrgScope(row);
-      if (lineOrg === organization) return true;
-    }
-    return false;
-  } catch {
-    return false;
+  // 1) 등록 라인(마스터) — 클럽 노출(common ∪ org). 표시 순서 = line_code.
+  const { data: masterData, error: mErr } = await supabaseAdmin
+    .from("cluster4_competency_line_masters")
+    .select("id,line_code,line_name")
+    .eq("is_active", true)
+    .in("organization_slug", ["common", organization]);
+  if (mErr) {
+    console.warn("[line-opening-management] competency masters unavailable:", mErr.message);
+    return empty;
   }
+  const masters = ((masterData ?? []) as Array<{ id: string; line_code: string | null; line_name: string | null }>)
+    .sort((a, b) => (a.line_code ?? "").localeCompare(b.line_code ?? ""));
+  if (masters.length === 0) return empty;
+  const masterIds = new Set(masters.map((m) => m.id));
+
+  // 2) 이번 주 타깃 → line_id + user, 그리고 competency 라인 메타(마스터/개설시점/개설자).
+  const { data: tRows, error: tErr } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("id,line_id,target_user_id")
+    .eq("week_id", weekId);
+  const targetsByLine = new Map<string, Array<{ id: string; userId: string | null }>>();
+  const lineIds: string[] = [];
+  if (!tErr) {
+    for (const r of (tRows ?? []) as Array<{ id: string; line_id: string | null; target_user_id: string | null }>) {
+      if (!r.line_id) continue;
+      const arr = targetsByLine.get(r.line_id) ?? [];
+      if (arr.length === 0) lineIds.push(r.line_id);
+      arr.push({ id: r.id, userId: r.target_user_id });
+      targetsByLine.set(r.line_id, arr);
+    }
+  }
+  type CompLine = { masterId: string; openedAt: string | null; openerId: string | null };
+  const compLineById = new Map<string, CompLine>();
+  if (lineIds.length) {
+    for (let i = 0; i < lineIds.length; i += 200) {
+      const chunk = lineIds.slice(i, i + 200);
+      const { data: lineRows } = await supabaseAdmin
+        .from("cluster4_lines")
+        .select("id,competency_line_master_id,opened_at,created_at,opened_by,created_by")
+        .eq("part_type", "competency")
+        .eq("is_active", true)
+        .in("id", chunk);
+      for (const r of (lineRows ?? []) as Array<{ id: string; competency_line_master_id: string | null; opened_at: string | null; created_at: string | null; opened_by: string | null; created_by: string | null }>) {
+        if (!r.competency_line_master_id || !masterIds.has(r.competency_line_master_id)) continue;
+        compLineById.set(r.id, { masterId: r.competency_line_master_id, openedAt: r.opened_at ?? r.created_at, openerId: r.opened_by ?? r.created_by });
+      }
+    }
+  }
+
+  // 3) 마스터별 집계 — 클럽 크루 타깃(eligibleCrewIds)만. 개설 크루/기입 크루 분모 = 클럽 크루.
+  type Agg = { users: Set<string>; targetIds: string[]; openedAt: string | null; openerId: string | null };
+  const aggByMaster = new Map<string, Agg>();
+  for (const [lineId, targets] of targetsByLine) {
+    const meta = compLineById.get(lineId);
+    if (!meta) continue;
+    const agg = aggByMaster.get(meta.masterId) ?? { users: new Set<string>(), targetIds: [], openedAt: meta.openedAt, openerId: meta.openerId };
+    // 개설 시점/개설자는 가장 이른 라인 기준(멀티 라인 대비).
+    if (meta.openedAt && (!agg.openedAt || meta.openedAt < agg.openedAt)) { agg.openedAt = meta.openedAt; agg.openerId = meta.openerId; }
+    for (const t of targets) {
+      if (!t.userId || !eligibleCrewIds.has(t.userId)) continue; // 클럽 활동 크루만.
+      agg.users.add(t.userId);
+      agg.targetIds.push(t.id);
+    }
+    aggByMaster.set(meta.masterId, agg);
+  }
+
+  // 4) 2차 기입 크루 수(개설 크루 분모) — 위 target id 들 제출 중 기입 존재.
+  const submittedByMaster = new Map<string, number>();
+  const targetIdToMaster = new Map<string, string>();
+  for (const [masterId, agg] of aggByMaster) for (const tid of agg.targetIds) targetIdToMaster.set(tid, masterId);
+  const allTargetIds = [...targetIdToMaster.keys()];
+  for (let i = 0; i < allTargetIds.length; i += 500) {
+    const chunk = allTargetIds.slice(i, i + 500);
+    const { data } = await supabaseAdmin
+      .from("cluster4_line_submissions")
+      .select("line_target_id,subtitle,growth_point,output_link_2,output_link_3,output_link_4,output_link_5,output_links,output_images")
+      .in("line_target_id", chunk);
+    for (const r of (data ?? []) as Array<Record<string, unknown> & { line_target_id: string }>) {
+      if (!hasSecondInputSubmission(r)) continue;
+      const masterId = targetIdToMaster.get(r.line_target_id);
+      if (masterId) submittedByMaster.set(masterId, (submittedByMaster.get(masterId) ?? 0) + 1);
+    }
+  }
+
+  // 5) 운영진(개설자) 이름.
+  const openerIds = Array.from(new Set([...aggByMaster.values()].map((a) => a.openerId).filter((v): v is string => !!v)));
+  const nameById = new Map<string, string>();
+  if (openerIds.length) {
+    const { data: profs } = await supabaseAdmin.from("user_profiles").select("user_id,display_name").in("user_id", openerIds);
+    for (const p of (profs ?? []) as Array<{ user_id: string; display_name: string | null }>) if (p.display_name?.trim()) nameById.set(p.user_id, p.display_name.trim());
+    const missing = openerIds.filter((id) => !nameById.has(id));
+    if (missing.length) {
+      const { data: admins } = await supabaseAdmin.from("admin_users").select("id,email").in("id", missing);
+      for (const a of (admins ?? []) as Array<{ id: string; email: string | null }>) if (a.email) nameById.set(a.id, a.email);
+    }
+  }
+
+  // 6) 라인 DTO — 등록 마스터 전부. 개설(클럽 크루≥1) 여부로 상태 결정.
+  const eligibleCrewCount = eligibleCrewIds.size;
+  const lines: LineOpeningRowDto[] = masters.map((m) => {
+    const agg = aggByMaster.get(m.id) ?? null;
+    const createdCrewCount = agg ? agg.users.size : 0;
+    const created = createdCrewCount > 0; // 클럽 기준 개설.
+    // 역량은 "개설 필요(required)" 없음 → 미개설=not_required, 개설=크루 기입 중/종료.
+    const progressStatus: InfoLineProgressStatus = !created
+      ? "not_required"
+      : reviewed
+        ? "crew_submission_closed"
+        : "crew_submitting";
+    return {
+      lineId: m.id,
+      lineName: m.line_name ?? m.line_code ?? m.id,
+      operatorName: created && agg?.openerId ? nameById.get(agg.openerId) ?? "관리자" : null,
+      // 개설=오픈(역량은 개설 시점에야 오픈 여부를 앎). 미개설=미오픈.
+      isOpenThisWeek: created,
+      createdAtLabel: created ? formatCreatedAtKst(agg?.openedAt ?? null) : null,
+      createdTimingStatus: created ? createdTiming(agg?.openedAt ?? null, weekStart) : null,
+      createdCrewCount: created ? createdCrewCount : null,
+      eligibleCrewCount,
+      submittedCrewCount: created ? submittedByMaster.get(m.id) ?? 0 : null,
+      submissionEligibleCrewCount: created ? createdCrewCount : null,
+      progressStatus,
+    };
+  });
+
+  const totalLines = lines.length;
+  const createdLines = lines.filter((l) => l.isOpenThisWeek).length;
+  // openLines = createdLines(개설=오픈), notCreatedLines=0.
+  return {
+    summary: {
+      totalLines,
+      openLines: createdLines,
+      createdLines,
+      notCreatedLines: 0,
+      lineOpenRate: rate(createdLines, createdLines),
+    },
+    lines,
+  };
 }
 
 // 허브 급 2: 실무 경험 — 팀별(팀 탭) 요약 + (도출·분석·견문·관리·확장) 라인칸 개설 상태.
@@ -464,7 +582,6 @@ export async function loadTeamPartsInfoLineOpeningManagement(opts: {
     infoCatalog,
     teams,
     infoResults,
-    compCreated,
     weekMeta,
     eligibleCrews,
   ] = await Promise.all([
@@ -478,7 +595,6 @@ export async function loadTeamPartsInfoLineOpeningManagement(opts: {
       );
       return null;
     }),
-    hasCreatedCompetencyLine(organization, weekId),
     loadWeekMeta(weekId),
     // 개설 가능했던 크루(모집단) = 조직 활동 크루(휴식 제외·현재 모드 스코프). 라인 공통 분모.
     listCrewsForTargetSelection({ organization, status: "active", mode }).catch((e) => {
@@ -491,8 +607,8 @@ export async function loadTeamPartsInfoLineOpeningManagement(opts: {
   ]);
 
   const savedInfo = config?.practicalInfo ?? {};
-  const compChecked = config?.practicalCompetency?.checked === true;
   const eligibleCrewCount = eligibleCrews.length;
+  const eligibleCrewIds = new Set(eligibleCrews.map((c) => c.userId));
   const infoResultById = new Map<string, InfoLineResultDto>(
     (infoResults?.lines ?? []).map((l) => [l.activityTypeId, l]),
   );
@@ -542,22 +658,19 @@ export async function loadTeamPartsInfoLineOpeningManagement(opts: {
     reviewed: weekMeta.reviewed,
   });
 
-  // ── 실무 역량(허브 단일 라인) ──
-  let compTotal = 1;
-  let compOpen = 0;
-  let compCreatedCount = 0;
-  {
-    const isOpen = openConfirmed && compChecked;
-    if (isOpen) {
-      compOpen = 1;
-      if (compCreated) compCreatedCount = 1;
-    }
-  }
+  // ── 허브 급 3: 실무 역량 — 등록 라인(마스터)별 개설 상태(클럽 크루 기준) ──
+  const competency = await loadCompetencyLineOpening({
+    weekId,
+    organization,
+    weekStart,
+    reviewed: weekMeta.reviewed,
+    eligibleCrewIds,
+  });
 
   // ── 주차 전체 요약 = 정보 + 경험 + 역량 합(실무 경력 제외) ──
-  const totalLines = infoTotal + experience.summary.totalLines + compTotal;
-  const openLines = infoOpen + experience.summary.openLines + compOpen;
-  const createdLines = infoCreated + experience.summary.createdLines + compCreatedCount;
+  const totalLines = infoTotal + experience.summary.totalLines + competency.summary.totalLines;
+  const openLines = infoOpen + experience.summary.openLines + competency.summary.openLines;
+  const createdLines = infoCreated + experience.summary.createdLines + competency.summary.createdLines;
 
   return {
     weekId,
@@ -580,5 +693,6 @@ export async function loadTeamPartsInfoLineOpeningManagement(opts: {
       lines: infoLines,
     },
     practicalExperience: experience,
+    practicalCompetency: competency,
   };
 }

@@ -71,7 +71,7 @@ async function main() {
       check(`[${org}/${mode}] HTTP 200·success`, res.ok && json?.success === true, { status: res.status });
       check(`[${org}/${mode}] direct == HTTP`, JSON.stringify(direct) === JSON.stringify(json?.data));
       invariants(`[${org}/${mode}]`, direct.summary);
-      check(`[${org}/${mode}] top keys`, JSON.stringify(Object.keys(direct).sort()) === JSON.stringify(["club", "practicalExperience", "practicalInfo", "summary", "weekId"]));
+      check(`[${org}/${mode}] top keys`, JSON.stringify(Object.keys(direct).sort()) === JSON.stringify(["club", "practicalCompetency", "practicalExperience", "practicalInfo", "summary", "weekId"]));
       // 실무 정보 허브 요약 불변식 + 라인 목록.
       const pi = direct.practicalInfo;
       invariants(`[${org}/${mode}] info`, pi.summary);
@@ -132,6 +132,30 @@ async function main() {
               (l.createdCrewCount ?? 0) <= l.eligibleCrewCount &&
               l.submissionEligibleCrewCount === l.createdCrewCount, l);
           }
+        }
+      }
+
+      // ── 실무 역량 허브: 등록 라인(마스터) 전부·"개설 필요(required)" 없음·openLines==createdLines ──
+      const pc = direct.practicalCompetency;
+      invariants(`[${org}/${mode}] comp`, pc.summary);
+      check(`[${org}/${mode}] comp summary.total == lines.length`, pc.summary.totalLines === pc.lines.length, { total: pc.summary.totalLines, lines: pc.lines.length });
+      check(`[${org}/${mode}] comp lines>0(등록 라인 존재)`, pc.lines.length > 0, { n: pc.lines.length });
+      check(`[${org}/${mode}] comp openLines==createdLines(개설=오픈)`, pc.summary.openLines === pc.summary.createdLines && pc.summary.notCreatedLines === 0, pc.summary);
+      for (const l of pc.lines) {
+        const created = l.progressStatus === "crew_submitting" || l.progressStatus === "crew_submission_closed";
+        // 역량엔 required("개설 필요") 상태가 절대 없음.
+        check(`[${org}/${mode}] comp[${l.lineId.slice(0, 6)}] required 없음`, l.progressStatus !== "required", l.progressStatus);
+        check(`[${org}/${mode}] comp[${l.lineId.slice(0, 6)}] progress enum(역량)`, ["not_required", "crew_submitting", "crew_submission_closed"].includes(l.progressStatus), l.progressStatus);
+        check(`[${org}/${mode}] comp[${l.lineId.slice(0, 6)}] isOpen==created`, l.isOpenThisWeek === created);
+        if (!created) {
+          check(`[${org}/${mode}] comp[${l.lineId.slice(0, 6)}] 미개설 필드 null`,
+            l.operatorName === null && l.createdAtLabel === null && l.createdTimingStatus === null &&
+            l.createdCrewCount === null && l.submittedCrewCount === null && l.submissionEligibleCrewCount === null);
+        } else {
+          check(`[${org}/${mode}] comp[${l.lineId.slice(0, 6)}] 기입<=개설<=가능`,
+            (l.submittedCrewCount ?? 0) <= (l.createdCrewCount ?? 0) &&
+            (l.createdCrewCount ?? 0) <= l.eligibleCrewCount &&
+            l.submissionEligibleCrewCount === l.createdCrewCount && (l.createdCrewCount ?? 0) >= 1, l);
         }
       }
     }

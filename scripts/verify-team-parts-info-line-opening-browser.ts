@@ -123,6 +123,18 @@ async function main() {
     ck("팀 탭 전환 시 팀 요약 변경", before !== after);
   }
 
+  // ── 허브 급 3: 실무 역량 섹션 ──
+  ck("실무 역량 라인 개설 섹션 렌더", !!(await page.$('[data-hub-section="competency-line-opening"]')));
+  const compText = await page.$eval('[data-hub-section="competency-line-opening"]', (e: any) => e.textContent);
+  ck("실무 역량 허브 요약 제목", /허브 급 3 : \[실무 역량\]/.test(compText));
+  const compDto = httpJson.data.practicalCompetency;
+  const compRows = await page.$$('[data-comp-open-line]');
+  ck("실무 역량 등록 라인 전부 표시(하드코딩 아님)", compRows.length === compDto.lines.length && compRows.length > 0, { rows: compRows.length, dto: compDto.lines.length });
+  // 이 주차(오픈확인 전) 역량은 전부 미개설 → not_open, "개설 필요" 배지 없음.
+  const compStates0 = await page.$$eval('[data-comp-open-line]', (els: any[]) => els.map((e) => e.getAttribute("data-line-state")));
+  ck("역량 미개설=not_open(개설 필요 없음)", compStates0.every((s: string | null) => s === "not_open"), { sample: compStates0.slice(0, 3) });
+  ck("역량 표에 '개설 필요' 미표기", !compText.includes("개설 필요"));
+
   await page.screenshot({ path: "claudedocs/qa-team-parts-line-opening.png", fullPage: true });
 
   // ── 상태별 배경색 시나리오: 실제 개설 정보 라인이 있는 주차에 임시 전체 오픈확인 → 색상 확인 → 원복 ──
@@ -205,6 +217,30 @@ async function main() {
       await supabaseAdmin.from("cluster4_week_opening_configs").delete().eq("week_id", CREATED_WEEK).eq("organization_slug", CREATED_ORG);
     }
     console.log("   (시나리오 open-config 원복 완료)");
+  }
+
+  // ── 실무 역량 개설 완료 시각 확인(config 무관 — 역량 개설은 cluster4_lines 존재 기반) ──
+  //   phalanx a2112b50 주차엔 개설 완료 역량 라인이 있어 초록 칩으로 표시된다.
+  {
+    const COMP_WEEK = "a2112b50-64d2-42d6-a243-faf9fcdc6ffc";
+    const cg = await fetch(`${BASE}/api/admin/team-parts/info/weeks/${COMP_WEEK}/line-opening-management?club=phalanx`, { headers: { cookie: cookieHeader } });
+    const cgj: any = await cg.json();
+    const compCreated = cgj.data.practicalCompetency.lines.filter((l: any) => l.progressStatus === "crew_submitting" || l.progressStatus === "crew_submission_closed");
+    ck("phalanx 역량 개설 완료 라인 존재(DTO)", compCreated.length > 0, { n: compCreated.length });
+    if (compCreated.length > 0) {
+      // 개설 완료 라인 = createdCrewCount>=1, eligible<=클럽 크루, required 아님.
+      ck("역량 개설 라인 개설크루>=1·개설<=가능", compCreated.every((l: any) => (l.createdCrewCount ?? 0) >= 1 && (l.createdCrewCount ?? 0) <= l.eligibleCrewCount));
+      await page.goto(`${BASE}/admin/team-parts/info/weeks/${COMP_WEEK}?club=phalanx`, { waitUntil: "domcontentloaded", timeout: 90000 });
+      await page.waitForTimeout(3500);
+      await page.click('[data-tab="line"]');
+      await page.waitForTimeout(2500);
+      const compCreatedChip = await page.$$eval('[data-comp-open-line][data-line-state^="created"] td:first-child span', (els: any[]) => els.map((e) => e.className));
+      ck("역량 개설 완료 라인명 칩 초록", compCreatedChip.length > 0 && compCreatedChip.every((c: string) => c.includes("emerald")), { n: compCreatedChip.length });
+      const compText2 = await page.$eval('[data-hub-section="competency-line-opening"]', (e: any) => e.textContent);
+      ck("역량 개설 라인 '크루 기입 중/종료' 표기", /크루 기입 (중|종료)/.test(compText2));
+      ck("역량 표에 '개설 필요' 미표기(개설 후에도)", !compText2.includes("개설 필요"));
+      await page.screenshot({ path: "claudedocs/qa-team-parts-line-opening-competency.png", fullPage: true });
+    }
   }
 
   await ctx.browser()?.close?.();
