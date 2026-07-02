@@ -20,6 +20,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 
@@ -220,65 +221,88 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     }
   }
 
-  // 5) 담당자명(역할) 해석 — requested_by(정규) 이름 + 멤버십 역할(best-effort).
-  const requesterIds = Array.from(new Set(Array.from(statusByAct.values()).map((s) => s.requested_by).filter((v): v is string => !!v)));
-  const requesterLabelById = new Map<string, string>();
+  // 5) 변동 액트 원본 로드(org, week, scope_mode=mode) — 담당자 해석 후 카드화(7).
+  type IrrRow = {
+    id: string; act_name: string | null; applicant_admin_id: string | null; applicant_admin_name: string | null;
+    scheduled_check_at: string | null; completed_at: string | null; created_at: string | null; status: string | null;
+  };
+  let irr: IrrRow[] = [];
+  {
+    const { data, error } = await supabaseAdmin
+      .from("process_irregular_acts")
+      .select("id,act_name,applicant_admin_id,applicant_admin_name,scheduled_check_at,completed_at,created_at,status")
+      .eq("organization_slug", organization)
+      .eq("week_id", weekId)
+      .eq("scope_mode", mode);
+    if (error) console.warn("[act-check-management] irregular acts read unavailable:", error.message);
+    else irr = (data ?? []) as IrrRow[];
+  }
+  const variableCount = irr.length;
+
+  // 6) 담당자 이름 + 역할 해석 — 정규(requested_by) ∪ 변동(applicant_admin_id).
+  //    역할 = memberStatusLabel(user_profiles.role, membership_level)(앰배서더/팀장/파트장/에이전트/…).
+  //    운영자(등급 미상 admin)면 "관리자". 담당자명 뒤에 항상 (역할)을 붙인다.
+  const requesterIds = Array.from(
+    new Set(
+      [
+        ...Array.from(statusByAct.values()).map((s) => s.requested_by),
+        ...irr.map((r) => r.applicant_admin_id),
+      ].filter((v): v is string => !!v),
+    ),
+  );
+  const requesterInfoById = new Map<string, { name: string; role: string }>();
   if (requesterIds.length) {
-    const { data: profs } = await supabaseAdmin.from("user_profiles").select("user_id,display_name").in("user_id", requesterIds);
+    const [{ data: profs }, { data: mems }, { data: admins }] = await Promise.all([
+      supabaseAdmin.from("user_profiles").select("user_id,display_name,role").in("user_id", requesterIds),
+      supabaseAdmin.from("user_memberships").select("user_id,membership_level,is_current").in("user_id", requesterIds),
+      supabaseAdmin.from("admin_users").select("id,email").in("id", requesterIds),
+    ]);
     const nameById = new Map<string, string>();
-    for (const p of (profs ?? []) as Array<{ user_id: string; display_name: string | null }>) if (p.display_name?.trim()) nameById.set(p.user_id, p.display_name.trim());
-    const { data: mems } = await supabaseAdmin.from("user_memberships").select("user_id,membership_level,is_current").in("user_id", requesterIds);
-    const roleById = new Map<string, string>();
-    for (const m of (mems ?? []) as Array<{ user_id: string; membership_level: string | null; is_current: boolean | null }>) {
-      if (m.is_current && m.membership_level?.trim()) roleById.set(m.user_id, m.membership_level.trim());
+    const roleRawById = new Map<string, string | null>();
+    const levelById = new Map<string, string | null>();
+    const isAdmin = new Set<string>();
+    for (const p of (profs ?? []) as Array<{ user_id: string; display_name: string | null; role: string | null }>) {
+      if (p.display_name?.trim()) nameById.set(p.user_id, p.display_name.trim());
+      roleRawById.set(p.user_id, p.role ?? null);
     }
-    // admin 이메일 폴백.
-    const missing = requesterIds.filter((id) => !nameById.has(id));
-    if (missing.length) {
-      const { data: admins } = await supabaseAdmin.from("admin_users").select("id,email").in("id", missing);
-      for (const a of (admins ?? []) as Array<{ id: string; email: string | null }>) if (a.email) nameById.set(a.id, a.email);
+    for (const m of (mems ?? []) as Array<{ user_id: string; membership_level: string | null; is_current: boolean | null }>) {
+      if (m.is_current) levelById.set(m.user_id, m.membership_level ?? null);
+    }
+    for (const a of (admins ?? []) as Array<{ id: string; email: string | null }>) {
+      isAdmin.add(a.id);
+      if (!nameById.has(a.id) && a.email) nameById.set(a.id, a.email);
     }
     for (const id of requesterIds) {
       const name = nameById.get(id);
       if (!name) continue;
-      const role = roleById.get(id);
-      requesterLabelById.set(id, role ? `${name} 님(${role})` : `${name} 님`);
+      let role = memberStatusLabel(roleRawById.get(id) ?? null, levelById.get(id) ?? null);
+      if (role === "크루" && isAdmin.has(id)) role = "관리자";
+      requesterInfoById.set(id, { name, role });
     }
   }
+  const regularRequesterLabel = (id: string | null): string | null => {
+    const info = id ? requesterInfoById.get(id) : null;
+    return info ? `${info.name} 님(${info.role})` : null;
+  };
 
-  // 6) 변동 액트(org, week, scope_mode=mode) — 요일별 배치.
+  // 7) 변동 액트 → 요일별 카드(담당자명(역할) 포함).
   const variableActsByDay = emptyByDay<ActCheckVariableActDto>();
-  let variableCount = 0;
-  {
-    const { data, error } = await supabaseAdmin
-      .from("process_irregular_acts")
-      .select("id,act_name,applicant_admin_name,scheduled_check_at,completed_at,created_at,status")
-      .eq("organization_slug", organization)
-      .eq("week_id", weekId)
-      .eq("scope_mode", mode);
-    if (error) {
-      console.warn("[act-check-management] irregular acts read unavailable:", error.message);
-    } else {
-      const irr = (data ?? []) as Array<{
-        id: string; act_name: string | null; applicant_admin_name: string | null;
-        scheduled_check_at: string | null; completed_at: string | null; created_at: string | null; status: string | null;
-      }>;
-      variableCount = irr.length;
-      for (const r of irr) {
-        const anchor = r.scheduled_check_at ?? r.created_at;
-        const dow = kstDow(anchor);
-        const key: DayKey | null = dow != null && dow >= 0 && dow <= 6 ? DOW_KEY[dow] : null;
-        if (!key) continue;
-        const deadline = r.scheduled_check_at ? Date.parse(r.scheduled_check_at) : null;
-        variableActsByDay[key].push({
-          id: r.id,
-          actName: r.act_name ?? "(변동 액트)",
-          scheduledLabel: r.scheduled_check_at ? formatClubDateTime(r.scheduled_check_at) : null,
-          checkStatus: r.completed_at ? timingOf(r.completed_at, Number.isNaN(deadline as number) ? null : deadline) : null,
-          requesterLabel: r.applicant_admin_name?.trim() ? `${r.applicant_admin_name.trim()} 님` : null,
-        });
-      }
-    }
+  for (const r of irr) {
+    const anchor = r.scheduled_check_at ?? r.created_at;
+    const dow = kstDow(anchor);
+    const key: DayKey | null = dow != null && dow >= 0 && dow <= 6 ? DOW_KEY[dow] : null;
+    if (!key) continue;
+    const deadline = r.scheduled_check_at ? Date.parse(r.scheduled_check_at) : null;
+    const info = r.applicant_admin_id ? requesterInfoById.get(r.applicant_admin_id) : null;
+    const name = r.applicant_admin_name?.trim() || info?.name || null;
+    const role = info?.role ?? "관리자"; // 변동 액트 신청자 = 운영진(admin) → 기본 "관리자".
+    variableActsByDay[key].push({
+      id: r.id,
+      actName: r.act_name ?? "(변동 액트)",
+      scheduledLabel: r.scheduled_check_at ? formatClubDateTime(r.scheduled_check_at) : null,
+      checkStatus: r.completed_at ? timingOf(r.completed_at, Number.isNaN(deadline as number) ? null : deadline) : null,
+      requesterLabel: name ? `${name} 님(${role})` : null,
+    });
   }
 
   // 7) 정규 액트 → 카드 필드 계산.
@@ -306,7 +330,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       isChecked: applied,
       scheduledLabel,
       checkStatus,
-      requesterLabel: st?.requested_by ? requesterLabelById.get(st.requested_by) ?? null : null,
+      requesterLabel: regularRequesterLabel(st?.requested_by ?? null),
     };
   };
 

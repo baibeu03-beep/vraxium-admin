@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { CheckCircle2, AlarmClock } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -62,6 +63,9 @@ const DAY_GROUPS: DayCol[][] = [
     { key: "sun", label: "일" },
   ],
 ];
+// 두 행의 요일 컬럼 width 를 동일하게 맞추기 위해 요일 칸 수를 4 로 고정한다.
+//   금·토·일 행은 남는 1칸을 빈 셀로 채워(내용 없음) 균등 4등분 폭을 공유한다.
+const DAY_COLS_PER_ROW = 4;
 
 function ActSummaryRow({ title, s }: { title: string; s: ActCheckSummary }) {
   const item = (label: string, value: number | string) => (
@@ -82,20 +86,7 @@ function ActSummaryRow({ title, s }: { title: string; s: ActCheckSummary }) {
   );
 }
 
-// 🔴 정시(ontime) / 🔵 지연(late) — 색상 규칙 유지.
-function CheckDot({ status }: { status: ActCheckStatus }) {
-  if (!status) return null;
-  const isLate = status === "late";
-  return (
-    <span
-      data-check-status={status}
-      title={isLate ? "지연 신청" : "정시 신청"}
-      className={"inline-block h-2.5 w-2.5 shrink-0 rounded-full " + (isLate ? "bg-blue-500" : "bg-red-500")}
-    />
-  );
-}
-
-// 카드 한 줄 렌더 — 존재하는 항목만 " │ " 구분자로 이어 붙인다(액트명·신청시점·원·담당자).
+// 카드 한 줄 렌더 — 존재하는 항목만 " │ " 구분자로 이어 붙인다.
 function CardRow({ parts }: { parts: ReactNode[] }) {
   return (
     <>
@@ -109,43 +100,86 @@ function CardRow({ parts }: { parts: ReactNode[] }) {
   );
 }
 
-// 정규 액트 카드: ① 액트명 ② 신청 시점 ③ 체크 상태(원) ④ 담당자명(역할). 가동이면 "가동" 배지(비가동은 미표시).
-function ActCard({ act }: { act: ActCheckActDto }) {
-  const parts: ReactNode[] = [<span key="n" className="font-semibold">{act.actName}</span>];
-  if (act.scheduledLabel) parts.push(<span key="s" className="text-muted-foreground">{act.scheduledLabel}</span>);
-  if (act.checkStatus) parts.push(<CheckDot key="d" status={act.checkStatus} />);
-  if (act.requesterLabel) parts.push(<span key="r" className="text-muted-foreground">{act.requesterLabel}</span>);
+// 액트 카드 4상태(현재 상태값만으로 표현 — 데이터/판정 로직 불변):
+//   inactive    = 이번 주 가동 대상 아님   → 회색(빛바랜)·액트명만
+//   pending     = 가동 대상·아직 미신청     → 기본색·신청시점/담당자·아이콘 없음
+//   done_ontime = 제시간 체크 완료          → 초록·✔ 아이콘
+//   done_late   = 지연 체크 완료            → 초록·⏰ 아이콘
+type CardState = "inactive" | "pending" | "done_ontime" | "done_late";
+function resolveCardState(active: boolean, checked: boolean, status: ActCheckStatus): CardState {
+  if (!active) return "inactive";
+  if (!checked) return "pending";
+  return status === "late" ? "done_late" : "done_ontime";
+}
+const CARD_STATE_CLASS: Record<CardState, string> = {
+  inactive: "border-zinc-200 bg-zinc-100 text-zinc-400",
+  pending: "border-zinc-300 bg-white",
+  done_ontime: "border-emerald-300 bg-emerald-50",
+  done_late: "border-emerald-300 bg-emerald-50",
+};
+function StateIcon({ state }: { state: CardState }) {
+  if (state === "done_ontime")
+    return <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-label="제시간 체크 완료" />;
+  if (state === "done_late")
+    return <AlarmClock className="h-4 w-4 shrink-0 text-amber-500" aria-label="지연 체크 완료" />;
+  return null;
+}
+
+// 정규/변동 공용 상태 카드.
+function StateCard({
+  state, actName, scheduledLabel, requesterLabel, dataAttrs, tag,
+}: {
+  state: CardState;
+  actName: string;
+  scheduledLabel: string | null;
+  requesterLabel: string | null;
+  dataAttrs: Record<string, string>;
+  tag?: ReactNode;
+}) {
+  const parts: ReactNode[] = [<span key="n" className="font-semibold">{actName}</span>];
+  if (state !== "inactive") {
+    if (scheduledLabel) parts.push(<span key="s" className="text-muted-foreground">{scheduledLabel}</span>);
+    if (state === "done_ontime" || state === "done_late") parts.push(<StateIcon key="i" state={state} />);
+    if (requesterLabel) parts.push(<span key="r" className="text-muted-foreground">{requesterLabel}</span>);
+  }
   return (
     <div
-      data-act={act.actId}
-      data-act-active={act.isActiveThisWeek ? "1" : "0"}
-      className={
-        "flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded border px-2 py-1.5 text-sm " +
-        (act.isActiveThisWeek ? "border-emerald-300 bg-emerald-50" : "border-zinc-200 bg-white")
-      }
+      {...dataAttrs}
+      data-card-state={state}
+      className={"flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded border px-2 py-1.5 text-sm " + CARD_STATE_CLASS[state]}
     >
       <CardRow parts={parts} />
-      {act.isActiveThisWeek ? (
-        <span className="ml-auto shrink-0 rounded bg-emerald-600 px-1.5 py-0.5 text-xs font-bold text-white">가동</span>
-      ) : null}
+      {tag}
     </div>
   );
 }
 
-// 변동 액트 카드(요일별 변동 영역) — 동일 한 줄 구성 + "변동" 배지.
-function VariableCard({ act }: { act: ActCheckVariableActDto }) {
-  const parts: ReactNode[] = [<span key="n" className="font-semibold">{act.actName}</span>];
-  if (act.scheduledLabel) parts.push(<span key="s" className="text-muted-foreground">{act.scheduledLabel}</span>);
-  if (act.checkStatus) parts.push(<CheckDot key="d" status={act.checkStatus} />);
-  if (act.requesterLabel) parts.push(<span key="r" className="text-muted-foreground">{act.requesterLabel}</span>);
+// 정규 액트 카드.
+function ActCard({ act }: { act: ActCheckActDto }) {
+  const state = resolveCardState(act.isActiveThisWeek, act.isChecked, act.checkStatus);
   return (
-    <div
-      data-variable-act={act.id}
-      className="flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded border border-orange-300 bg-orange-50 px-2 py-1.5 text-sm"
-    >
-      <CardRow parts={parts} />
-      <span className="ml-auto shrink-0 rounded bg-orange-400 px-1.5 py-0.5 text-xs font-bold text-white">변동</span>
-    </div>
+    <StateCard
+      state={state}
+      actName={act.actName}
+      scheduledLabel={act.scheduledLabel}
+      requesterLabel={act.requesterLabel}
+      dataAttrs={{ "data-act": act.actId, "data-act-active": act.isActiveThisWeek ? "1" : "0" }}
+    />
+  );
+}
+
+// 변동 액트 카드 — 항상 신청분(가동), 완료 여부로 상태 결정 + "변동" 배지.
+function VariableCard({ act }: { act: ActCheckVariableActDto }) {
+  const state = resolveCardState(true, act.checkStatus != null, act.checkStatus);
+  return (
+    <StateCard
+      state={state}
+      actName={act.actName}
+      scheduledLabel={act.scheduledLabel}
+      requesterLabel={act.requesterLabel}
+      dataAttrs={{ "data-variable-act": act.id }}
+      tag={<span className="ml-auto shrink-0 rounded bg-orange-400 px-1.5 py-0.5 text-xs font-bold text-white">변동</span>}
+    />
   );
 }
 
@@ -178,12 +212,15 @@ function DayHeader({ label, stats }: { label: string; stats: ReturnType<typeof d
 // 요일 그룹(월~목 / 금~일) 테이블 — 라인 급 컬럼은 최소폭(colgroup 고정), 요일 컬럼은 넓게 균등 분배.
 //   행 내 셀 높이는 표가 자동 정렬(같은 행 = 가장 많은 액트 요일 높이에 맞춤).
 function ActCheckGroupTable({ data, cols }: { data: ActCheckManagementData; cols: DayCol[] }) {
+  // 요일 칸 수를 4 로 고정 — 부족한 칸은 빈 셀로 채워 두 행의 요일 컬럼 폭을 동일하게 맞춘다.
+  const padCount = Math.max(0, DAY_COLS_PER_ROW - cols.length);
+  const pads = Array.from({ length: padCount });
   return (
     <table className="w-full table-fixed border-collapse text-sm">
       <colgroup>
         <col style={{ width: "6rem" }} />
-        {cols.map((c) => (
-          <col key={c.key} />
+        {Array.from({ length: DAY_COLS_PER_ROW }).map((_, i) => (
+          <col key={i} />
         ))}
       </colgroup>
       <thead>
@@ -193,6 +230,9 @@ function ActCheckGroupTable({ data, cols }: { data: ActCheckManagementData; cols
             <th key={d.key} className="border px-2 py-2 text-left align-middle font-semibold">
               <DayHeader label={d.label} stats={dayStats(data, d.key)} />
             </th>
+          ))}
+          {pads.map((_, i) => (
+            <th key={`pad-${i}`} aria-hidden className="bg-background" />
           ))}
         </tr>
       </thead>
@@ -220,6 +260,9 @@ function ActCheckGroupTable({ data, cols }: { data: ActCheckManagementData; cols
                 </div>
               </td>
             ))}
+            {pads.map((_, i) => (
+              <td key={`pad-${i}`} aria-hidden className="bg-background" />
+            ))}
           </tr>
         ))}
         {/* 변동 액트 행 — 항상 존재(요일별 실제 신청분만). */}
@@ -235,6 +278,9 @@ function ActCheckGroupTable({ data, cols }: { data: ActCheckManagementData; cols
                 )}
               </div>
             </td>
+          ))}
+          {pads.map((_, i) => (
+            <td key={`pad-${i}`} aria-hidden className="bg-background" />
           ))}
         </tr>
       </tbody>
