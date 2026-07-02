@@ -109,27 +109,36 @@ async function main() {
     check("존재하지 않는 week → 404", r3.status === 404);
   }
 
-  // ── review 라운드트립(복원) ──
+  // ── 검수 완료(review=finalize) 라운드트립 — 안전(공표 불변) ──
+  //   review 는 이제 공표+검수 확정이다. 미공표 주차를 공표하면 실크루가 영향받으므로,
+  //   이미 공표된 주차의 result_reviewed_at 만 임시 null→검수→원본 시각 원복(published 내내 불변).
+  //   상세 검수 완료(publish/finalize) 전체 경로는 verify-team-parts-info-week-review.ts 에서 검증.
   {
-    const { data: nullWeek } = await supabaseAdmin
-      .from("weeks").select("id,result_reviewed_at").is("result_reviewed_at", null).limit(1).maybeSingle();
-    const rw = (nullWeek as { id: string } | null)?.id;
+    const { data: pubWeek } = await supabaseAdmin
+      .from("weeks").select("id,result_published_at,result_reviewed_at")
+      .not("result_published_at", "is", null).order("start_date", { ascending: false }).limit(1).maybeSingle();
+    const rw = (pubWeek as { id: string } | null)?.id;
+    const origPub = (pubWeek as any)?.result_published_at as string | undefined;
+    const origRev = (pubWeek as any)?.result_reviewed_at as string | null | undefined;
     if (!rw) {
-      console.log("⚠ result_reviewed_at NULL 주차 없음 — review 라운드트립 생략.");
+      console.log("⚠ 공표된 주차 없음 — review 라운드트립 생략.");
     } else {
+      await supabaseAdmin.from("weeks").update({ result_reviewed_at: null }).eq("id", rw);
       const res = await fetch(`${BASE}/api/admin/team-parts/info/weeks/${rw}/review?club=encre`, { method: "POST", headers: { cookie } });
       const json: any = await res.json();
-      check("review POST 성공", res.ok && json?.success === true && json?.data?.reviewed === true, { status: res.status });
-      const { data: after } = await supabaseAdmin.from("weeks").select("result_reviewed_at").eq("id", rw).maybeSingle();
+      check("review POST 성공(ok·reviewed)", res.ok && json?.success === true && json?.ok === true && json?.data?.reviewed === true, { status: res.status });
+      check("review: 공표 불변(alreadyPublished=true)", json?.data?.alreadyPublished === true);
+      const { data: after } = await supabaseAdmin.from("weeks").select("result_published_at,result_reviewed_at").eq("id", rw).maybeSingle();
       check("review 후 weeks.result_reviewed_at 세팅", (after as any)?.result_reviewed_at != null);
+      check("review 후 weeks.result_published_at 불변", (after as any)?.result_published_at === origPub);
       // GET 반영 확인.
       const g = await fetch(`${BASE}/api/admin/team-parts/info/weeks/${rw}?club=encre`, { headers: { cookie } });
       const gj: any = await g.json();
       check("review 후 GET managedWeek.reviewed=true", gj?.data?.managedWeek?.reviewed === true);
-      // 복원(원상태 = null).
-      await supabaseAdmin.from("weeks").update({ result_reviewed_at: null }).eq("id", rw);
+      // 원복(원본 검수 시각 — published 는 건드리지 않음).
+      await supabaseAdmin.from("weeks").update({ result_reviewed_at: origRev ?? null }).eq("id", rw);
       const { data: rev } = await supabaseAdmin.from("weeks").select("result_reviewed_at").eq("id", rw).maybeSingle();
-      check("review 복원(null)", (rev as any)?.result_reviewed_at == null);
+      check("review 원복(원본 시각)", (rev as any)?.result_reviewed_at === (origRev ?? null));
     }
   }
 
