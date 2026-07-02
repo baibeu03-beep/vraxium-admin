@@ -37,6 +37,13 @@ import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
+import {
+  publishWeekResult,
+  markWeekResultReviewed,
+  recomputeCohortSnapshots,
+  WeekResultPublishError,
+  WeekResultReviewError,
+} from "@/lib/adminWeekRecognitionsData";
 
 export type WeekActivityStatus = "official_activity" | "official_rest";
 export type ExperienceLineType =
@@ -352,27 +359,113 @@ export async function saveWeekOpenConfirm(opts: {
   return { openConfirmed: true };
 }
 
-// [주차 검수] — weeks.result_reviewed_at 세팅(publish 개념·전 서비스 반영 가능 상태 확정).
-//   새 데이터 계산/ snapshot 재계산 없음. 이미 검수된 주차는 최초 검수 시각 유지(idempotent).
+// [검수 완료] 응답 — 이 주차가 최종 확정(공표+검수) 상태가 됐음을 알린다.
+export type TeamPartsWeekReviewResult = {
+  weekId: string;
+  reviewed: true;
+  reviewedAt: string;
+  publishedAt: string;
+  // 최초 클릭 여부 구분(멱등 재클릭 시 true) — 응답 소비처가 "새로 확정"과 "이미 확정"을 구분할 수 있게.
+  alreadyPublished: boolean;
+  alreadyReviewed: boolean;
+  // 코호트(그 주차 user_week_statuses 보유자) weekly-cards snapshot 재계산 결과.
+  snapshotRecompute: { requested: number; recomputed: number; failed: number };
+};
+
+// [검수 완료] — 이 주차의 결과를 "최종 확정"한다(액트 체크/라인 개설 검토 후 크루 결과 반영).
+//
+//   weekly-card-finalization 과 동일 개념·동일 단일 SoT 를 재사용한다(새 기준/새 데이터 없음):
+//     1) 공표(publish)      = weeks.result_published_at (미공표면 publishWeekResult, 이미 공표면 멱등)
+//                             → 크루 주차 카드가 tallying(집계 중) → user_week_statuses.status 기준
+//                               success(성장 성공)/fail(성장 실패)로 전환된다.
+//     2) 코호트 재계산       = recomputeCohortSnapshots (그 주차 uws 보유자 전원 카드 즉시 재계산)
+//                             → snapshot-only 조회 구조에서 크루 카드가 즉시 최신 결과를 반영.
+//     3) 검수 완료(reviewed) = weeks.result_reviewed_at (주차 검수 컬럼·상세 V 신호 + /weekly-ranking 라벨)
+//
+//   불변식:
+//     - user_week_statuses.status(성장 성공/실패 SoT)는 절대 건드리지 않는다 — 공표는 "표시 가능 상태"로
+//       전환하는 이벤트일 뿐, 결과 판정 자체는 기존 계산 경로가 소유한다.
+//     - 주차 전역(org 무관) 확정. 멱등 — 이미 확정된 주차 재클릭 시 코호트만 재계산(재확정 효과).
+//     - operating SoT(weeks)만 쓴다 — 목록/상세의 주차 검수 V 가 weeks 를 직접 읽으므로(mode 무관 동일
+//       값) 여기도 동일 저장소를 써야 새로고침 후 V 가 유지된다. mode 는 액트/라인 관리 팀 스코프에만 영향.
 export async function markTeamPartsWeekReviewed(
   weekId: string,
-): Promise<{ reviewed: true }> {
+  actor: string | null = null,
+): Promise<TeamPartsWeekReviewResult> {
+  // 0) 주차 존재 + 현재 공표/검수 상태.
   const { data: wk, error: wkErr } = await supabaseAdmin
     .from("weeks")
-    .select("id,result_reviewed_at")
+    .select("id,start_date,result_published_at,result_reviewed_at")
     .eq("id", weekId)
     .maybeSingle();
   if (wkErr) throw new WeekDetailWriteError(500, wkErr.message);
   if (!wk) throw new WeekDetailWriteError(404, "주차를 찾을 수 없습니다.");
+  const week = wk as {
+    id: string;
+    start_date: string | null;
+    result_published_at: string | null;
+    result_reviewed_at: string | null;
+  };
 
-  const row = wk as { result_reviewed_at: string | null };
-  if (row.result_reviewed_at != null) return { reviewed: true }; // 이미 검수됨(멱등).
+  // 1) 공표(publish) + 코호트 재계산.
+  const alreadyPublished = week.result_published_at != null;
+  let publishedAt = week.result_published_at;
+  let snapshotRecompute = { requested: 0, recomputed: 0, failed: 0 };
+  if (!alreadyPublished) {
+    try {
+      const r = await publishWeekResult(weekId, "operating", actor);
+      publishedAt = r.result_published_at;
+      if (r.snapshot_recompute) snapshotRecompute = r.snapshot_recompute;
+    } catch (e) {
+      if (e instanceof WeekResultPublishError) {
+        // 409 = 그 사이 다른 요청이 공표함(race) → 멱등하게 재계산으로 진행.
+        if (e.status === 409) {
+          snapshotRecompute = await recomputeCohortSnapshots(week.start_date, "operating");
+          const { data } = await supabaseAdmin
+            .from("weeks").select("result_published_at").eq("id", weekId).maybeSingle();
+          publishedAt = (data as { result_published_at: string | null } | null)?.result_published_at ?? publishedAt;
+        } else {
+          throw new WeekDetailWriteError(e.status, e.message);
+        }
+      } else {
+        throw e;
+      }
+    }
+  }
+  // 이미 공표된 주차는 코호트 재계산을 하지 않는다: 공표 시점(publishWeekResult)에 이미 재계산됐고,
+  //   성장 성공/실패 SoT(user_week_statuses)는 검수로 바뀌지 않으므로 크루 카드가 달라질 게 없다.
+  //   (재클릭 = 검수 완료 여부만 멱등 보정.) → 대규모 코호트 재클릭 시 불필요한 재계산 방지.
 
-  const { error } = await supabaseAdmin
-    .from("weeks")
-    .update({ result_reviewed_at: new Date().toISOString() })
-    .eq("id", weekId)
-    .is("result_reviewed_at", null);
-  if (error) throw new WeekDetailWriteError(500, `주차 검수 저장 실패: ${error.message}`);
-  return { reviewed: true };
+  // 2) 검수 완료(reviewed) — 공표 선행 완료 상태에서 result_reviewed_at 세팅.
+  const alreadyReviewed = week.result_reviewed_at != null;
+  let reviewedAt = week.result_reviewed_at;
+  if (!alreadyReviewed) {
+    try {
+      const rev = await markWeekResultReviewed(weekId, "operating", actor);
+      reviewedAt = rev.result_reviewed_at;
+    } catch (e) {
+      if (e instanceof WeekResultReviewError) {
+        // 409 = 이미 검수됨(race) → 최신 값 재조회로 멱등 처리.
+        if (e.status === 409) {
+          const { data } = await supabaseAdmin
+            .from("weeks").select("result_reviewed_at").eq("id", weekId).maybeSingle();
+          reviewedAt = (data as { result_reviewed_at: string | null } | null)?.result_reviewed_at ?? reviewedAt;
+        } else {
+          throw new WeekDetailWriteError(e.status, e.message);
+        }
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  return {
+    weekId,
+    reviewed: true,
+    reviewedAt: reviewedAt ?? new Date().toISOString(),
+    publishedAt: publishedAt ?? new Date().toISOString(),
+    alreadyPublished,
+    alreadyReviewed,
+    snapshotRecompute,
+  };
 }
