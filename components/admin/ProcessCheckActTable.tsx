@@ -112,7 +112,19 @@ export default function ProcessCheckActTable({
                       </TableCell>
                     )}
                     <TableCell className="font-medium">{a.actName}</TableCell>
-                    <TableCell>{a.lineGroupName}</TableCell>
+                    {/* 소속 라인 급 — experience(showScopeColumn) 만 명시적으로 작은 폰트(text-[11px])로 강제.
+                        base TableCell 의 whitespace-nowrap 이 남으면 긴 라인명이 옆 컬럼을 침범하므로
+                        whitespace-normal 로 override + break-keep(한글 단어 유지·가능하면 한 줄) + max-w 로 셀 안에 가둠.
+                        info 는 기존 크기(text-sm·nowrap) 유지. */}
+                    <TableCell
+                      className={
+                        showScopeColumn
+                          ? "max-w-[9rem] whitespace-normal break-keep px-2 text-[11px] leading-tight"
+                          : undefined
+                      }
+                    >
+                      {a.lineGroupName}
+                    </TableCell>
                     <TableCell className="tabular-nums">{a.durationMinutes}</TableCell>
                     <TableCell className="whitespace-nowrap">{a.occurWhen}</TableCell>
                     <TableCell className="whitespace-nowrap">{a.checkWhen}</TableCell>
