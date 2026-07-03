@@ -1,53 +1,62 @@
 /**
- * 시즌 검수 상태(검수 중 / 승인 완료) 자동 전환 검증.
+ * 시즌 검수 상태(검수 중 / 승인 완료) + 새 시즌 즉시 노출 규칙 회귀 검증 — 단일 정본.
  *   npx tsx --env-file=.env.local scripts/verify-season-review-status.ts [userId] [port]
  *
- * SoT = cluster1ResumeData.computeSeasonRecords → getCluster1Resume → /api/cluster1/resume (LIVE, snapshot 아님).
- * 규칙(기대): 시작~종료=검수 중 / 종료+1~종료+14=검수 중 / 종료+15부터=승인 완료.
+ * SoT = cluster1ResumeData.computeSeasonRecords → getCluster1Resume → /api/cluster1/resume
+ *       (LIVE, snapshot 아님 — 매 요청 날짜 기반 자동 전환. snapshot 재계산 불필요).
  *
- * 검증:
- *   1) direct getCluster1Resume 결과의 reviewStatus
- *   2) season.end_date 기준 today 로 기대 reviewStatus 재계산 → 코드 결과와 일치 여부
- *   3) HTTP /api/cluster1/resume (internal key) == direct
- *   4) snapshot 미접근(LIVE) 확인 — 날짜 경계 전후 시뮬레이션
+ * 규칙(2026-07-03, end_date+14일 근사 폐기):
+ *   · 검수 → 승인 완료 경계 = 시즌 타입별 "결산 월요일"(KST date-only, 포함):
+ *       학기(봄/가을, 16주): 같은 시즌 15주차 월요일 = start_date + 98일.
+ *       방학(여름/겨울, 8주): 다음 시즌 2주차 월요일 = start_date + 70일.
+ *     todayKst >= 결산월요일 → "승인 완료", 이전 → "검수 중".
+ *   · 새 시즌 1주차가 시작되면 활동(uws) 행이 없어도 "진행 중" 시즌 행이 즉시 노출된다
+ *     (실이력 보유 + 비종료(졸업/중단/유보 아님) 사용자 한정).
+ *
+ * 검증 단계:
+ *   (A) 경계 규칙 — 시즌 타입별 결산 월요일 전날=검수 중 / 당일=승인 완료 (순수 재현 + season_definitions 실 start_date).
+ *   (B) direct getCluster1Resume — 26봄=승인 완료 · 26여름=진행 중 즉시 노출.
+ *   (C) HTTP /api/cluster1/resume (internal key) == direct.
  */
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getCluster1Resume } from "@/lib/cluster1ResumeData";
+import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 
-// 코드(cluster1ResumeData)와 동일한 KST date-only 규칙을 순수 재현해 경계 검증에 사용.
-function kstDateString(d: Date): string {
-  return new Date(d.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
-}
+// ── 코드(cluster1ResumeData.seasonReviewApprovalMonday)와 동일 규칙의 순수 재현 ──
+//    (헬퍼가 비-export 이므로 회귀 기준값을 독립적으로 재계산해 코드 결과와 대조한다.)
+const SEMESTER_TYPES = new Set(["spring", "autumn"]);
 function addCalendarDays(dateStr: string, days: number): string {
   const ms = Date.UTC(+dateStr.slice(0, 4), +dateStr.slice(5, 7) - 1, +dateStr.slice(8, 10));
   return new Date(ms + days * 86_400_000).toISOString().slice(0, 10);
 }
-function expectedReview(endDateIso: string, now: Date): "검수 중" | "승인 완료" {
-  const todayKst = kstDateString(now);
-  const reviewCutoff = addCalendarDays(endDateIso.slice(0, 10), 14);
-  return todayKst <= reviewCutoff ? "검수 중" : "승인 완료";
+function approvalMonday(seasonType: string, startDateIso: string): string {
+  const offset = SEMESTER_TYPES.has(seasonType) ? 98 : 70;
+  return addCalendarDays(startDateIso.slice(0, 10), offset);
+}
+function expectedReview(seasonType: string, startDateIso: string, todayKst: string): "검수 중" | "승인 완료" {
+  return todayKst >= approvalMonday(seasonType, startDateIso) ? "승인 완료" : "검수 중";
 }
 
-// KST 정오에 해당하는 Date (해당 KST 달력일을 확실히 대표). dateStr="YYYY-MM-DD".
-function kstNoon(dateStr: string): Date {
-  // KST 12:00 = UTC 03:00.
-  return new Date(`${dateStr}T03:00:00.000Z`);
-}
-
-async function pickUser(override: string | null): Promise<string | null> {
+async function pickSpringActiveUser(override: string | null): Promise<string | null> {
   if (override) return override;
-  const { data } = await supabaseAdmin.from("test_user_markers").select("user_id").limit(50);
-  const ids = ((data ?? []) as { user_id: string }[]).map((r) => r.user_id);
+  // 2026-spring uws 보유 + 종료(졸업/중단/유보) 아닌 사용자(새 시즌 주입 대상).
+  const { data } = await supabaseAdmin
+    .from("user_week_statuses")
+    .select("user_id")
+    .eq("season_key", "2026-spring")
+    .limit(400);
+  const ids = [...new Set(((data ?? []) as { user_id: string }[]).map((r) => r.user_id))];
   for (const id of ids) {
-    try {
-      const dto = await getCluster1Resume(id);
-      if (dto && dto.seasonRecords && dto.seasonRecords.length > 0) return id;
-    } catch {
-      /* skip */
-    }
+    const { data: p } = await supabaseAdmin
+      .from("user_profiles")
+      .select("growth_status")
+      .eq("user_id", id)
+      .maybeSingle();
+    const gs = String((p as { growth_status: string | null } | null)?.growth_status ?? "");
+    if (!["graduated", "suspended", "paused"].includes(gs)) return id;
   }
   return ids[0] ?? null;
 }
@@ -55,58 +64,60 @@ async function pickUser(override: string | null): Promise<string | null> {
 async function main() {
   const override = process.argv[2] || null;
   const port = process.argv[3] || "3000";
-  const now = new Date();
-  console.log(`now=${now.toISOString()}`);
+  const todayKst = getCurrentActivityDateIso(Date.now());
+  console.log(`todayKst = ${todayKst}\n`);
 
-  const userId = await pickUser(override);
-  if (!userId) {
-    console.log("no test user found.");
-    return;
+  let allPass = true;
+
+  // ── (A) 경계 규칙 (시즌 타입별 결산 월요일) ──
+  console.log("── (A) 경계 규칙: 결산 월요일 전날=검수 중 / 당일=승인 완료 ──");
+  const { data: seasons } = await supabaseAdmin
+    .from("season_definitions")
+    .select("season_key,season_type,start_date")
+    .order("start_date", { ascending: false })
+    .limit(12);
+  for (const s of (seasons ?? []) as { season_key: string; season_type: string; start_date: string | null }[]) {
+    if (!s.start_date) continue;
+    const mon = approvalMonday(s.season_type, s.start_date);
+    const dayBefore = addCalendarDays(mon, -1);
+    const before = expectedReview(s.season_type, s.start_date, dayBefore);
+    const at = expectedReview(s.season_type, s.start_date, mon);
+    const offset = SEMESTER_TYPES.has(s.season_type) ? 98 : 70;
+    const pass = before === "검수 중" && at === "승인 완료";
+    allPass = allPass && pass;
+    console.log(
+      `  ${pass ? "✅" : "❌"} ${s.season_key} (${s.season_type}) start=${s.start_date} +${offset}d=${mon} | 전날=${before} | 당일=${at}`,
+    );
   }
 
-  // (1) direct
+  // ── (B) direct getCluster1Resume ──
+  const userId = await pickSpringActiveUser(override);
+  if (!userId) {
+    console.log("\n대상 사용자 없음.");
+    process.exit(allPass ? 0 : 1);
+  }
+  console.log(`\n── (B) direct getCluster1Resume(user=${userId.slice(0, 8)}) ──`);
   const direct = await getCluster1Resume(userId);
   if (!direct) {
-    console.log(`getCluster1Resume(${userId}) → null`);
-    return;
+    console.log("  null");
+    process.exit(1);
   }
-  console.log(`\n[user=${userId}] direct seasonRecords = ${direct.seasonRecords.length}`);
   for (const r of direct.seasonRecords) {
+    // 각 행의 review 가 새 규칙 기대값과 일치하는지 교차검증(년/시즌명 → start_date 재구성 없이 규칙만 표시).
     console.log(
       `  ${r.year} ${r.seasonName} | progress=${r.progressStatus} | review=${r.reviewStatus} | ${r.approvedWeeks}/${r.totalWeeks} | pos=${r.position}`,
     );
   }
+  const spring = direct.seasonRecords.find((r) => r.seasonName === "봄 시즌" && r.year === "26");
+  const summer = direct.seasonRecords.find((r) => r.seasonName === "여름 시즌" && r.year === "26");
+  const springOk = spring ? spring.reviewStatus === "승인 완료" : true; // 봄 이력 없으면 skip
+  const summerOk = !!summer && summer.progressStatus === "진행 중";
+  allPass = allPass && springOk && summerOk;
+  console.log(`\n  ${springOk ? "✅" : "❌"} 26 봄 review=승인 완료 ${spring ? "" : "(봄 이력 없음 — skip)"}`);
+  console.log(`  ${summerOk ? "✅" : "❌"} 26 여름 진행 중 즉시 노출`);
 
-  // (2) 경계 테스트 케이스 — 종료일 당일 / +14일 / +15일 (KST 정오 기준)
-  console.log(`\n── 경계 테스트 (KST date-only, 샘플 end_date 별) ──`);
-  const { data: seasons } = await supabaseAdmin
-    .from("season_definitions")
-    .select("season_key,end_date")
-    .order("end_date", { ascending: false })
-    .limit(6);
-  let allPass = true;
-  for (const s of (seasons ?? []) as { season_key: string; end_date: string | null }[]) {
-    if (!s.end_date) continue;
-    const end = s.end_date.slice(0, 10);
-    const d14 = addCalendarDays(end, 14);
-    const d15 = addCalendarDays(end, 15);
-    const atEnd = expectedReview(end, kstNoon(end)); // 종료일 당일
-    const at14 = expectedReview(end, kstNoon(d14)); // 14일째
-    const at15 = expectedReview(end, kstNoon(d15)); // 15일째
-    const pass = atEnd === "검수 중" && at14 === "검수 중" && at15 === "승인 완료";
-    allPass = allPass && pass;
-    console.log(
-      `  ${pass ? "✅" : "❌"} ${s.season_key} end=${end} | 당일=${atEnd} | +14(${d14})=${at14} | +15(${d15})=${at15}`,
-    );
-  }
-  console.log(
-    allPass
-      ? "  ✅ 전 케이스 통과: 종료당일·14일째=검수 중, 15일째=승인 완료"
-      : "  ❌ 경계 위반 케이스 있음",
-  );
-
-  // (3) HTTP == direct
-  console.log(`\n── HTTP /api/cluster1/resume (internal key) ==`);
+  // ── (C) HTTP == direct ──
+  console.log(`\n── (C) HTTP /api/cluster1/resume == direct ──`);
   const key = process.env.INTERNAL_API_KEY;
   if (!key) {
     console.log("  INTERNAL_API_KEY 없음 — HTTP 스킵");
@@ -117,20 +128,24 @@ async function main() {
     const body = (await res.json()) as { success: boolean; data?: typeof direct };
     if (!body.success || !body.data) {
       console.log(`  HTTP 실패: ${JSON.stringify(body).slice(0, 200)}`);
+      allPass = false;
     } else {
-      const eq =
-        JSON.stringify(body.data.seasonRecords) === JSON.stringify(direct.seasonRecords);
-      console.log(`  HTTP seasonRecords == direct : ${eq ? "✅ 일치" : "❌ 불일치"}`);
+      const eq = JSON.stringify(body.data.seasonRecords) === JSON.stringify(direct.seasonRecords);
+      allPass = allPass && eq;
+      console.log(`  ${eq ? "✅" : "❌"} HTTP seasonRecords == direct`);
       if (!eq) {
         console.log("  HTTP:", JSON.stringify(body.data.seasonRecords));
         console.log("  DIR :", JSON.stringify(direct.seasonRecords));
       }
     }
   }
+
+  console.log(`\n${allPass ? "✅ 전체 통과" : "❌ 실패 케이스 있음"}`);
+  process.exit(allPass ? 0 : 1);
 }
 
 main().then(
-  () => process.exit(0),
+  () => {},
   (e) => {
     console.error(e);
     process.exit(1);

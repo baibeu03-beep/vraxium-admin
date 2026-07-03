@@ -1,5 +1,11 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getCurrentActivityDateIso, isTransitionWeekStart } from "@/lib/seasonCalendar";
+import {
+  getCurrentActivityDateIso,
+  isTransitionWeekStart,
+  getSeasonForDate,
+  seasonTypeToCode,
+  seasonDbKey,
+} from "@/lib/seasonCalendar";
 import { computeScheduleReliabilityFromRows } from "@/lib/scheduleReliabilityCore";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import { EXPERIENCE_RATING_FAIL_THRESHOLD } from "@/lib/cluster4Enhancement";
@@ -9,6 +15,7 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { getGrowthIndicators } from "@/lib/cluster3GrowthData";
 import {
   RESUME_BADGE_BY_GROWTH_STATUS,
+  isManualOverrideStatus,
   type GrowthStatusKey,
 } from "@/shared/growth.contracts";
 import {
@@ -271,6 +278,35 @@ function addCalendarDays(dateStr: string, days: number): string {
   return new Date(ms + days * 86_400_000).toISOString().slice(0, 10);
 }
 
+// 학기 시즌(16주) 판별 — 방학(여름/겨울 8주)과 검수 확정 경계가 다르다.
+const SEMESTER_SEASON_TYPES = new Set(["spring", "autumn"]);
+
+// 시즌 이력이 "승인 완료"로 최종 확정되는 월요일(포함, KST date-only). 시작일 기준 달력일 가산.
+//   · 학기(봄/가을): 같은 시즌 15주차 월요일 = 시작일 + 98일(14주 뒤).
+//       14주차 목요일 공표 → 금요일 14시 활동 종료 → 15주차 월요일 최종 확정.
+//   · 방학(여름/겨울): 다음 시즌 2주차 월요일 = 시작일 + 70일.
+//       방학 8주 + 전환 1주 = 9주(63일) 뒤 다음 시즌 1주차, 그 다음 주(2주차) 월요일 확정.
+//       다음 시즌 1주차 목요일 공표 → 금요일 14시 종료 → 2주차 월요일 최종 확정.
+//   종전 규칙(end_date + 14일)은 "2주 경과" 근사라 학기 결산(15주차 월요일)보다 늦게 승인
+//   완료로 넘어가 이미 결산된 시즌이 계속 "검수 중"으로 남던 결함이 있었다(2026-07-03 교체).
+function seasonReviewApprovalMonday(
+  seasonType: string,
+  startDateIso: string,
+): string {
+  const offsetDays = SEMESTER_SEASON_TYPES.has(seasonType) ? 98 : 70;
+  return addCalendarDays(startDateIso.slice(0, 10), offsetDays);
+}
+
+function resolveSeasonReviewStatus(
+  seasonType: string,
+  startDateIso: string,
+  todayKst: string,
+): SeasonRecord["reviewStatus"] {
+  return todayKst >= seasonReviewApprovalMonday(seasonType, startDateIso)
+    ? "승인 완료"
+    : "검수 중";
+}
+
 // export — 시즌별 결과 표(/admin/members 상세)가 시즌 결과 라벨 SoT 로 재사용한다.
 //   고객 시즌 그로스의 deriveSeasonStatus 가 이 progressStatus 를 graft 하는 단일 출처이므로,
 //   admin 표도 동일 함수를 직접 써서 화면 간 결과 라벨을 일치시킨다.
@@ -401,10 +437,17 @@ export async function computeSeasonRecords(
     seasons.find((s) => weeksBySeason.has(s.season_key))?.season_key ?? null;
 
   const records: SeasonRecord[] = [];
+  // 위 루프에서 실제 행이 생성된 시즌 키 — 아래 "새 시즌 즉시 노출" 중복 방지에 사용.
+  const presentSeasonKeys = new Set<string>();
+
+  const now = new Date();
+  // 시즌 검수 상태 경계는 KST date-only(UTC timestamp 비교 금지) — 단일 today 로 전 시즌 비교.
+  const todayKst = getCurrentActivityDateIso(now.getTime());
 
   for (const season of seasons) {
     const seasonWeeks = weeksBySeason.get(season.season_key);
     if (!seasonWeeks || seasonWeeks.length === 0) continue;
+    presentSeasonKeys.add(season.season_key);
 
     // 총 주차 수 = 시즌 타입별 고정값(봄/가을 16 · 여름/겨울 8, seasonCalendar CHAIN 과 동일).
     // 종전에는 user_week_statuses 행 개수를 그대로 써서 전환 주차 포함 시 "4주 / 9주"처럼
@@ -417,7 +460,6 @@ export async function computeSeasonRecords(
       (w) => w.status === "success" && isPublishedStart(w.week_start_date),
     ).length;
 
-    const now = new Date();
     // progressStatus "진행 중" 판정은 기존 동작 보존(시즌 종료일 timestamp 기준).
     const isOngoing = now <= new Date(season.end_date);
 
@@ -449,15 +491,13 @@ export async function computeSeasonRecords(
       progressStatus = "정상 완료";
     }
 
-    // 시즌 검수 상태 — KST date-only 경계(UTC timestamp 비교 금지).
-    //   시작 후 ~ 종료 후 14일째(포함)까지 "검수 중", 15일째부터 "승인 완료".
-    //   end_date(KST 달력일) + 14일을 포함 상한으로 두고 오늘(KST) 날짜와 비교한다.
-    //   end_date 를 new Date 로 UTC 자정 비교하면 14일째 00:00 직후 승인 완료로
-    //   빠지는 off-by-one 이 생기므로 날짜 문자열 비교로 처리한다.
-    const todayKst = getCurrentActivityDateIso(now.getTime());
-    const reviewCutoff = addCalendarDays(season.end_date.slice(0, 10), 14);
-    const reviewStatus: SeasonRecord["reviewStatus"] =
-      todayKst <= reviewCutoff ? "검수 중" : "승인 완료";
+    // 시즌 검수 상태 — 시즌 타입별 결산 경계(seasonReviewApprovalMonday) 기준.
+    //   학기(봄/가을)=15주차 월요일, 방학(여름/겨울)=다음 시즌 2주차 월요일부터 "승인 완료".
+    const reviewStatus = resolveSeasonReviewStatus(
+      season.season_type,
+      season.start_date,
+      todayKst,
+    );
 
     const yearStr = season.season_key.slice(2, 4);
     const seasonName =
@@ -477,6 +517,41 @@ export async function computeSeasonRecords(
       approvedWeeks,
       totalWeeks,
       reviewStatus,
+    });
+  }
+
+  // ── 새 시즌 즉시 노출 ──────────────────────────────────────────────
+  // 오늘(KST) 기준 현재 시즌 1주차가 시작됐는데 아직 활동(uws) 행이 없어 위 루프에서
+  //   빠진 경우, "진행 중" 시즌 행을 합성해 맨 위에 노출한다 — 새 시즌 시작 즉시 이력서
+  //   카드에 해당 시즌 내역이 보이도록 한다(예: 26 여름 1주차 시작 → 26 여름 시즌 노출).
+  //   getSeasonForDate 는 시즌 1주차 월요일(전환 주차 제외)부터 다음 시즌으로 넘어간다.
+  //
+  //   범위 한정(오노출 방지):
+  //     · 실제 활동 이력이 있는 크루만(records.length>0) — 더미/0이력 사용자엔 미주입.
+  //     · 운영 종료 상태(졸업/중단/유보 = MANUAL_OVERRIDE_STATUSES) 아님 — 이미 떠난
+  //       사용자에게 새 시즌 "진행 중"을 붙이지 않는다.
+  //     · 이미 그 시즌 행이 있으면(uws 존재) 중복 주입하지 않는다.
+  const currentSeason = getSeasonForDate(todayKst);
+  if (
+    currentSeason &&
+    records.length > 0 &&
+    !isManualOverrideStatus(profileRow?.growth_status ?? null) &&
+    !presentSeasonKeys.has(seasonDbKey(currentSeason))
+  ) {
+    const typeCode = seasonTypeToCode(currentSeason.type);
+    records.unshift({
+      year: String(currentSeason.year).slice(2),
+      seasonName: SEASON_LABEL_MAP[typeCode] ?? `${currentSeason.type} 시즌`,
+      // 현재 소속/직책(과거 이력 없는 신규 시즌이므로 현재 membership/role).
+      position: resolvePosition(membershipRes.data ?? [], profileRole),
+      progressStatus: "진행 중",
+      approvedWeeks: 0,
+      totalWeeks: SEASON_TOTAL_WEEKS[typeCode] ?? currentSeason.seasonWeeks,
+      reviewStatus: resolveSeasonReviewStatus(
+        typeCode,
+        currentSeason.startDate,
+        todayKst,
+      ),
     });
   }
 
