@@ -468,20 +468,31 @@ export default function Sidebar() {
       >
         {sidebarOpen && (
           // HOME 라벨 = /admin 홈 링크. /admin(HOME)에서는 navLocked 로 다른 메뉴와 동일하게 이동 차단.
-          <Link
-            href={modeHref("/admin")}
-            aria-disabled={navLocked || undefined}
-            tabIndex={navLocked ? -1 : undefined}
-            onClick={(e) => {
-              if (navLocked) e.preventDefault();
-            }}
-            className={cn(
-              "rounded-md text-xs font-semibold tracking-[0.02em] text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground",
-              navLocked && "pointer-events-none",
+          // HOME 우측 배지 = 현재 렌더 중인 사이드바 모드. orgFocus(사이드바 선택 SoT)를 그대로 사용
+          //   → 조직 분기 사이드바(MENU_ORG)면 [개별], 통합 검수 시스템(MENU_INTEGRATED)이면 [통합].
+          //   (URL 문자열/ mode=test 와 무관 — menu 를 결정하는 값과 동일 출처)
+          <div className="flex items-center gap-2">
+            <Link
+              href={modeHref("/admin")}
+              aria-disabled={navLocked || undefined}
+              tabIndex={navLocked ? -1 : undefined}
+              onClick={(e) => {
+                if (navLocked) e.preventDefault();
+              }}
+              className={cn(
+                "rounded-md text-xs font-semibold tracking-[0.02em] text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground",
+                navLocked && "pointer-events-none",
+              )}
+            >
+              HOME
+            </Link>
+            {/* HOME 화면(/admin)에서는 배지를 숨기고 HOME 만 노출. */}
+            {!navLocked && (
+              <span className="rounded bg-sidebar-accent/60 px-1.5 py-0.5 text-xs font-medium text-sidebar-foreground/70">
+                {orgFocus ? "개별" : "통합"}
+              </span>
             )}
-          >
-            HOME
-          </Link>
+          </div>
         )}
         <button
           type="button"
