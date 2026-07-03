@@ -444,18 +444,19 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       variableActsByDay: emptyByDay<ActCheckVariableActDto>(),
     };
   });
-  const expHubSummary: ActCheckSummary = expTeams.reduce(
-    (acc, t) => ({
-      totalActs: acc.totalActs + t.summary.totalActs,
-      activeActs: acc.activeActs + t.summary.activeActs,
-      checkedActs: acc.checkedActs + t.summary.checkedActs,
-      uncheckedActs: acc.uncheckedActs + t.summary.uncheckedActs,
-      variableActs: 0,
-      actCheckRate: 0,
-    }),
-    { totalActs: 0, activeActs: 0, checkedActs: 0, uncheckedActs: 0, variableActs: 0, actCheckRate: 0 },
-  );
-  expHubSummary.actCheckRate = rate(expHubSummary.activeActs, expHubSummary.checkedActs);
+  // 허브 요약 — 팀별 합산이 아니라 "대표로 1번"(distinct 액트) 집계. 모든 팀은 동일한 액트 카탈로그를
+  //   공유하므로 팀 수만큼 곱하지 않는다. 전체=distinct 경험 액트, 가동=check 대상(허브 오픈=expOpen 기준·
+  //   info/역량 buildSummary 와 동일), 체크=어느 팀이든 체크된 액트(1회). 변동=0(경험 변동 액트 없음).
+  const expHubActive = expActs.filter((a) => a.check_target === "check" && expOpen);
+  const expHubChecked = expHubActive.filter((a) => expTeams.some((t) => appliedExpSet.has(`${a.id}::${t.teamId}`)));
+  const expHubSummary: ActCheckSummary = {
+    totalActs: expActs.length,
+    activeActs: expHubActive.length,
+    checkedActs: expHubChecked.length,
+    uncheckedActs: expHubActive.length - expHubChecked.length,
+    variableActs: 0,
+    actCheckRate: rate(expHubActive.length, expHubChecked.length),
+  };
 
   // 8c) 실무 역량 — 실무 정보와 동일 구조(라인급 × 요일). 가동/체크 = 허브 단위(compOpen).
   //   라인급 = process_line_groups(hub='competency'). 현재 라인 1개. 카드는 cardOf(competency 분기) 재사용.

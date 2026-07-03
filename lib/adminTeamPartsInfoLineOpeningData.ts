@@ -515,18 +515,29 @@ async function loadExperienceLineOpening(opts: {
     };
   });
 
-  const hub = teamDtos.reduce(
-    (acc, t) => ({
-      totalLines: acc.totalLines + t.summary.totalLines,
-      openLines: acc.openLines + t.summary.openLines,
-      createdLines: acc.createdLines + t.summary.createdLines,
-      notCreatedLines: 0,
-      lineOpenRate: 0,
-    }),
-    { totalLines: 0, openLines: 0, createdLines: 0, notCreatedLines: 0, lineOpenRate: 0 },
-  );
-  hub.notCreatedLines = hub.openLines - hub.createdLines;
-  hub.lineOpenRate = rate(hub.openLines, hub.createdLines);
+  // 허브 요약 — 팀별 합산이 아니라 "대표로 1번"(카테고리 distinct) 집계. 모든 팀이 동일한 5개
+  //   카테고리를 공유하므로 팀 수만큼 곱하지 않는다. 전체=카테고리 수, 오픈=어느 팀이든 오픈된
+  //   카테고리(1회), 개설=어느 팀이든 개설(크루 기입)된 카테고리(1회).
+  const openCategories = new Set<string>();
+  const createdCategories = new Set<string>();
+  for (const t of teamDtos) {
+    for (const l of t.lines) {
+      if (!l.isOpenThisWeek) continue;
+      // lineId = `${teamId}::${category}` → 카테고리만 추출해 팀 간 중복 제거.
+      const category = l.lineId.slice(l.lineId.indexOf("::") + 2);
+      openCategories.add(category);
+      if (l.progressStatus === "crew_submitting" || l.progressStatus === "crew_submission_closed") {
+        createdCategories.add(category);
+      }
+    }
+  }
+  const hub: LineOpeningSummary = {
+    totalLines: EXP_CATEGORIES.length,
+    openLines: openCategories.size,
+    createdLines: createdCategories.size,
+    notCreatedLines: openCategories.size - createdCategories.size,
+    lineOpenRate: rate(openCategories.size, createdCategories.size),
+  };
 
   return { summary: hub, teams: teamDtos };
 }
