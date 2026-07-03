@@ -524,7 +524,7 @@ export default function CrewManager({
                       {crew.adminNote ?? ""}
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap justify-end items-center gap-1">
+                      <div className="flex flex-nowrap items-center gap-1 whitespace-nowrap">
                         <Link
                           href={
                             `/admin/crews/${encodeURIComponent(
