@@ -488,7 +488,14 @@ export default function Sidebar() {
             </Link>
             {/* HOME 화면(/admin)에서는 배지를 숨기고 HOME 만 노출. */}
             {!navLocked && (
-              <span className="rounded bg-sidebar-accent/60 px-1.5 py-0.5 text-xs font-medium text-sidebar-foreground/70">
+              <span
+                className={cn(
+                  "rounded-md px-2.5 py-0.5 text-sm font-semibold text-white",
+                  // 배경색도 사이드바 선택 SoT(orgFocus)로 함께 결정:
+                  //   조직 분기 = 진한 파란색 [개별], 통합 검수 시스템 = 진한 보라색 [통합].
+                  orgFocus ? "bg-blue-600" : "bg-violet-600",
+                )}
+              >
                 {orgFocus ? "개별" : "통합"}
               </span>
             )}
