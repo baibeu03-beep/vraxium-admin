@@ -44,6 +44,8 @@ import {
   WeekResultPublishError,
   WeekResultReviewError,
 } from "@/lib/adminWeekRecognitionsData";
+import { revertWeeklyCardFinalization } from "@/lib/adminWeeklyCardFinalizationData";
+import type { StateScope } from "@/lib/operationalState";
 
 export type WeekActivityStatus = "official_activity" | "official_rest";
 export type ExperienceLineType =
@@ -359,6 +361,43 @@ export async function saveWeekOpenConfirm(opts: {
   return { openConfirmed: true };
 }
 
+// [오픈 확인 취소] — ↩ 실행 취소 = 직전 단계("오픈 확인 전") 복원.
+//   open_confirmed=true → false 로만 되돌린다(config jsonb 는 보존 → 재확인 시 동일 설정 복귀).
+//   saveWeekOpenConfirm 과 동일 SoT(cluster4_week_opening_configs)·snapshot 무접촉.
+//   멱등: 이미 false 이거나 행이 없으면 0행 갱신 → reverted:false 로 성공 반환(중복 취소 안전).
+export async function revertWeekOpenConfirm(opts: {
+  weekId: string;
+  organization: OrganizationSlug;
+  actorId?: string | null;
+}): Promise<{ openConfirmed: false; reverted: boolean }> {
+  const { weekId, organization } = opts;
+
+  // 관리 주차 존재 확인(saveWeekOpenConfirm 과 대칭).
+  const { data: wk, error: wkErr } = await supabaseAdmin
+    .from("weeks")
+    .select("id")
+    .eq("id", weekId)
+    .maybeSingle();
+  if (wkErr) throw new WeekDetailWriteError(500, wkErr.message);
+  if (!wk) throw new WeekDetailWriteError(404, "주차를 찾을 수 없습니다.");
+
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_week_opening_configs")
+    .update({
+      open_confirmed: false,
+      open_confirmed_at: null,
+      open_confirmed_by: null,
+    })
+    .eq("week_id", weekId)
+    .eq("organization_slug", organization)
+    .eq("open_confirmed", true) // 멱등 가드: 이미 취소/미확인이면 0행.
+    .select("week_id");
+  if (error) {
+    throw new WeekDetailWriteError(500, `오픈 확인 취소 실패: ${error.message}`);
+  }
+  return { openConfirmed: false, reverted: (data ?? []).length > 0 };
+}
+
 // [검수 완료] 응답 — 이 주차가 최종 확정(공표+검수) 상태가 됐음을 알린다.
 export type TeamPartsWeekReviewResult = {
   weekId: string;
@@ -467,5 +506,42 @@ export async function markTeamPartsWeekReviewed(
     alreadyPublished,
     alreadyReviewed,
     snapshotRecompute,
+  };
+}
+
+// [주차 검수 실행 취소] — markTeamPartsWeekReviewed(공표+검수) 실행 직전 상태로 복원.
+//   result_published_at=NULL + result_reviewed_at=NULL + 코호트 snapshot 재계산 → 카드 success/fail→tallying.
+//   weekId → (season_key, week_number) 로 해석해 공용 revertWeeklyCardFinalization(rollback 로직)을 재사용한다.
+//   scope: operating(기본)=운영 weeks · qa=qa_weeks_state 오버레이(테스트 코호트·안전 검증용).
+export async function revertTeamPartsWeekReview(
+  weekId: string,
+  scope: StateScope = "operating",
+  actor: string | null = null,
+): Promise<{ weekId: string; reverted: boolean; publishedAt: string | null; reviewedAt: string | null; snapshotRecompute: { requested: number; recomputed: number; failed: number } }> {
+  const { data: wk, error: wkErr } = await supabaseAdmin
+    .from("weeks")
+    .select("id,season_key,week_number")
+    .eq("id", weekId)
+    .maybeSingle();
+  if (wkErr) throw new WeekDetailWriteError(500, wkErr.message);
+  const w = wk as { season_key: string | null; week_number: number | null } | null;
+  if (!w?.season_key || w.week_number == null) {
+    throw new WeekDetailWriteError(404, "주차(season/weekNumber)를 찾을 수 없습니다.");
+  }
+
+  // 공용 rollback 로직 재사용(집계 확정 역연산과 동일 SoT·코호트·재계산).
+  const r = await revertWeeklyCardFinalization({
+    seasonKey: w.season_key,
+    weekNumber: w.week_number,
+    org: null,
+    scope,
+    actor,
+  });
+  return {
+    weekId,
+    reverted: r.reverted,
+    publishedAt: r.published?.resultPublishedAt ?? null,
+    reviewedAt: null,
+    snapshotRecompute: r.snapshotRecompute,
   };
 }

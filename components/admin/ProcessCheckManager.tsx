@@ -259,6 +259,37 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
     [autoReviewingId, confirm, refreshAfterAction],
   );
 
+  // ↩ 실행 취소(행 단위) — 완료된 체크를 직전 단계(pending)로 되돌린다: 포인트 회수 + 대상자
+  //   snapshot 재계산 + status completed→pending. 운영/테스트 공용(멱등·가역). 확인 모달은
+  //   ActionControl 이 담당하므로 여기서는 별도 confirm 없이 요청만 보낸다.
+  const handleRollback = useCallback(
+    async (act: ProcessCheckActRowDto) => {
+      if (!act.checkStatusId) return;
+      setAutoReviewBanner(null);
+      try {
+        const res = await fetch("/api/admin/processes/check/rollback", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ statusId: act.checkStatusId }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.success) {
+          setAutoReviewBanner({ kind: "info", message: json?.error ?? "실행 취소를 처리하지 못했습니다." });
+        } else {
+          setAutoReviewBanner({
+            kind: "success",
+            message: "체크 완료를 취소했습니다(‘체크 완료 전’ 상태·포인트 회수·카드 재계산).",
+          });
+        }
+        await refreshAfterAction();
+      } catch {
+        setAutoReviewBanner({ kind: "info", message: "실행 취소를 처리하지 못했습니다." });
+      }
+    },
+    [refreshAfterAction],
+  );
+
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
       <AdminPageHeader
@@ -503,6 +534,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 onOpenAct={openAct}
                 onAutoReview={handleAutoReview}
                 autoReviewingId={autoReviewingId}
+                onRollback={handleRollback}
+                rollbackMode={mode === "test" ? "test" : "operating"}
               />
             </>
           )}
@@ -515,6 +548,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           onOpenAct={openAct}
           onAutoReview={handleAutoReview}
           autoReviewingId={autoReviewingId}
+          onRollback={handleRollback}
+          rollbackMode={mode === "test" ? "test" : "operating"}
         />
       )}
 

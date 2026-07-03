@@ -13,8 +13,10 @@ import {
 import { isUuid } from "@/lib/isUuid";
 import {
   markTeamPartsWeekReviewed,
+  revertTeamPartsWeekReview,
   WeekDetailWriteError,
 } from "@/lib/adminTeamPartsInfoWeekDetailData";
+import { resolveStateScopeFromRequest } from "@/lib/operationalState";
 
 type Ctx = { params: Promise<{ weekId: string }> };
 
@@ -52,6 +54,41 @@ export async function POST(_request: NextRequest, { params }: Ctx) {
     console.error("[admin/team-parts/info/weeks/[weekId]/review POST]", error);
     return Response.json(
       { success: false, error: error instanceof Error ? error.message : "검수 완료에 실패했습니다." },
+      { status: 500 },
+    );
+  }
+}
+
+// DELETE — ↩ 실행 취소: 주차 검수(공표+검수) 실행 직전 상태로 복원.
+//   result_published_at=NULL + result_reviewed_at=NULL + 코호트 재계산 → 카드 success/fail→tallying.
+//   ?mode=test → scope=qa(qa_weeks_state·테스트 코호트·안전). 기본 operating. 강한 확인 모달은 UI 책임.
+export async function DELETE(request: NextRequest, { params }: Ctx) {
+  let actorId: string | null = null;
+  try {
+    const admin = await requireAdmin(ADMIN_WRITE_ROLES);
+    actorId = (admin as { id?: string } | null)?.id ?? null;
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+
+  const { weekId } = await params;
+  if (!isUuid(weekId)) {
+    return Response.json({ success: false, error: "weekId must be a UUID" }, { status: 400 });
+  }
+  const scope = resolveStateScopeFromRequest(request);
+
+  try {
+    const result = await revertTeamPartsWeekReview(weekId, scope, actorId);
+    return Response.json({ success: true, data: result });
+  } catch (error) {
+    if (error instanceof WeekDetailWriteError) {
+      return Response.json({ success: false, error: error.message }, { status: error.status });
+    }
+    console.error("[admin/team-parts/info/weeks/[weekId]/review DELETE]", error);
+    return Response.json(
+      { success: false, error: error instanceof Error ? error.message : "주차 검수 실행 취소에 실패했습니다." },
       { status: 500 },
     );
   }

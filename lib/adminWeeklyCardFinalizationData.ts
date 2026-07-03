@@ -36,7 +36,7 @@ import { markWeekResultPublished } from "@/lib/adminWeekRecognitionsData";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
-import { type StateScope, readQaWeekState } from "@/lib/operationalState";
+import { type StateScope, readQaWeekState, writeQaWeekState } from "@/lib/operationalState";
 import { computeWeeklyLeagueAggregation } from "@/lib/weeklyLeaguePmsAggregation";
 import type {
   FinalizationAggregation,
@@ -560,6 +560,85 @@ export async function runWeeklyCardFinalization(opts: {
     snapshotRecompute,
     org: opts.org,
     generatedAt: new Date().toISOString(),
+  };
+}
+
+// ── Public: ↩ 실행 취소(주차 검수/집계 확정 실행 직전 상태로 복원) ──────────
+//   집계 확정(주차 검수)의 역연산 = 확정 직전(집계 중) 상태 복원:
+//     · result_published_at = NULL(미공표)  · result_reviewed_at = NULL(검수⇒공표 불변식 유지)
+//     · 코호트 snapshot 재계산 → 고객 카드가 success/fail → tallying(집계 중) 으로 복귀
+//   operating: 운영 weeks 직접 수정(전 크루) · qa: qa_weeks_state 오버레이 null(운영 baseline 로 원복).
+//   멱등: 이미 미공표면 공표 플래그 변경 없이 재계산만(no-op). result_reviewed_at 은 snapshot 무영향.
+//   ⚠ 전 크루·고객 앱에 영향을 주는 최종 역연산 — 호출부(UI)는 반드시 강한 확인 모달을 거친다.
+export async function revertWeeklyCardFinalization(opts: {
+  seasonKey: string;
+  weekNumber: number;
+  org: string | null;
+  scope?: StateScope;
+  actor?: string | null;
+}): Promise<WeeklyCardFinalizationResult & { reverted: boolean }> {
+  const scope: StateScope = opts.scope ?? "operating";
+  const actor = opts.actor ?? null;
+  const { weekRows, activeRestPeriods, curWeekStart } = await loadOptions();
+  const targetRow = resolveTargetWeek(weekRows, opts.seasonKey, opts.weekNumber);
+  if (!targetRow.start_date) {
+    throw new WeeklyCardFinalizationError(422, "선택한 주차에 start_date 가 없습니다.");
+  }
+
+  // 복원 코호트 = 확정과 동일(주차 전역, scope 분리): operating=비-테스트 / qa=테스트.
+  const { all: cohort } = await loadCohort(targetRow.start_date, null, scope);
+  const cohortIds = cohort.map((m) => m.userId);
+
+  // 공표 선행상태(확정 여부): operating=weeks · qa=overlay(qa ?? 운영 baseline).
+  const qaPrev = scope === "qa" ? await readQaWeekState(targetRow.id) : null;
+  const effectivePublishedAt =
+    scope === "qa"
+      ? (qaPrev?.result_published_at ?? targetRow.result_published_at ?? null)
+      : (targetRow.result_published_at ?? null);
+
+  let reverted = false;
+  if (effectivePublishedAt) {
+    if (scope === "qa") {
+      // qa: overlay 를 null 로 → 읽기 오버레이 필터가 운영 baseline(미공표)으로 원복.
+      await writeQaWeekState(
+        targetRow.id,
+        { result_published_at: null, result_reviewed_at: null },
+        actor,
+      );
+    } else {
+      // operating: weeks 직접 미공표 + 검수 해제(reviewed⇒published 불변식 유지).
+      const { error } = await supabaseAdmin
+        .from("weeks")
+        .update({ result_published_at: null, result_reviewed_at: null })
+        .eq("id", targetRow.id);
+      if (error) throw new WeeklyCardFinalizationError(500, error.message);
+      targetRow.result_published_at = null;
+    }
+    reverted = true;
+  }
+
+  // 복원 후(또는 이미 미공표) 코호트 재계산 → 카드 tallying 복귀.
+  const r = await recomputeWeeklyCardsSnapshotsForUsers(cohortIds, { concurrency: 3 });
+  const snapshotRecompute = { requested: r.requested, recomputed: r.recomputed, failed: r.failed };
+
+  const built = await buildTargetStatusAndAggregation(
+    targetRow,
+    opts.org,
+    curWeekStart,
+    activeRestPeriods,
+    scope,
+    null, // 미공표 기준으로 집계(집계 중).
+  );
+
+  return {
+    mode: "recompute",
+    target: built.status,
+    aggregation: built.aggregation,
+    published: { resultPublishedAt: null, alreadyFinalized: false },
+    snapshotRecompute,
+    org: opts.org,
+    generatedAt: new Date().toISOString(),
+    reverted,
   };
 }
 

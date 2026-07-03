@@ -11,6 +11,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ActionControl } from "@/components/admin/ActionControl";
+import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -657,6 +659,7 @@ export default function TeamPartsInfoWeekDetailManager({
   const [reviewed, setReviewed] = useState(false);
   const [openConfirmed, setOpenConfirmed] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [reverting, setReverting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
@@ -822,6 +825,22 @@ export default function TeamPartsInfoWeekDetailManager({
     }
   };
 
+  // ↩ 실행 취소 — 직전 단계("오픈 확인 전") 복원. open_confirmed=false(config 보존)·snapshot 무접촉.
+  const onOpenConfirmRevert = async () => {
+    if (!club || readOnly) return;
+    setBanner(null);
+    const res = await fetch(
+      appendModeQuery(`/api/admin/team-parts/info/weeks/${weekId}/open-confirm?club=${club}`, mode),
+      { method: "DELETE" },
+    );
+    const json = await res.json();
+    if (!res.ok || !json.success) throw new Error(json?.error ?? `취소 실패 (${res.status})`);
+    setOpenConfirmed(false);
+    setBanner({ kind: "success", message: "오픈 확인이 취소되었습니다(‘오픈 확인 전’ 상태)." });
+    // 액트 체크 관리 탭 "가동" 상태가 오픈 설정 기준으로 갱신되도록 재조회 트리거.
+    setActRefresh((n) => n + 1);
+  };
+
   const onReview = async () => {
     if (!club || readOnly) return;
     setReviewing(true);
@@ -839,6 +858,33 @@ export default function TeamPartsInfoWeekDetailManager({
       setBanner({ kind: "error", message: e instanceof Error ? e.message : "주차 검수 실패" });
     } finally {
       setReviewing(false);
+    }
+  };
+
+  // ↩ 실행 취소 — 주차 검수(공표+검수) 실행 직전 상태로 복원(성장 성공/실패·고객 앱 표시 원복).
+  //   확인 모달은 공용 ActionControl 이 담당(강한 확인 문구).
+  const onReviewRevert = async () => {
+    if (!club || readOnly) return;
+    setReverting(true);
+    setBanner(null);
+    try {
+      const res = await fetch(
+        appendModeQuery(`/api/admin/team-parts/info/weeks/${weekId}/review?club=${club}`, mode),
+        { method: "DELETE" },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json?.error ?? `실행 취소 실패 (${res.status})`);
+      setReviewed(false);
+      setBanner({
+        kind: "success",
+        message: json.data?.reverted
+          ? "주차 검수를 실행 취소했습니다(‘검수 전·집계 중’ 상태로 복원)."
+          : "이미 미확정(집계 중) 상태입니다.",
+      });
+    } catch (e) {
+      setBanner({ kind: "error", message: e instanceof Error ? e.message : "실행 취소 실패" });
+    } finally {
+      setReverting(false);
     }
   };
 
@@ -912,7 +958,8 @@ export default function TeamPartsInfoWeekDetailManager({
               </span>
               <span className="text-muted-foreground">{managedWeek?.weekRangeLabel}</span>
               {statusBadge(managedWeek?.activityStatus ?? null)}
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                {/* 기존 [주차 검수] 버튼 — 그대로 유지(대체/이름변경 금지). */}
                 <Button
                   type="button"
                   data-review-button
@@ -922,6 +969,29 @@ export default function TeamPartsInfoWeekDetailManager({
                 >
                   {reviewed ? "검수 완료" : reviewing ? "검수 중…" : "주차 검수"}
                 </Button>
+                {/* 공용 수동 실행 — 기존 버튼 옆에 ⚡ 즉시 실행 / ↩ 실행 취소(검수 실행 직전 복원) 추가. */}
+                {!readOnly && (
+                  <div data-ac-week-review>
+                    <ActionControl
+                      onInstant={onReview}
+                      instantBusy={reviewing}
+                      instantDisabled={reviewed}
+                      instantDisabledReason="이미 주차 검수(확정)된 주차입니다."
+                      instantConfirmDescription={
+                        "이 작업은 현재 주차의 활동 결과를 확정합니다.\n실행하면 성장 성공/실패와 고객 앱 화면에 즉시 반영됩니다.\n정말 실행하시겠습니까?"
+                      }
+                      onRollback={onReviewRevert}
+                      rollbackBusy={reverting}
+                      rollbackClass={ACTION_CONTROL_REGISTRY.weekResultPublish.rollback.class}
+                      rollbackDisabled={!reviewed}
+                      rollbackDisabledReason="주차 검수(확정)된 주차에서만 실행 취소할 수 있습니다."
+                      rollbackConfirmDescription={
+                        "이 작업은 주차 검수를 실행하기 전 상태로 되돌립니다.\n변경된 주차 결과와 고객 앱 표시도 함께 이전 상태로 복원됩니다.\n정말 실행하시겠습니까?"
+                      }
+                      mode={mode === "test" ? "test" : "operating"}
+                    />
+                  </div>
+                )}
                 {readOnly ? (
                   <ReadOnlyStatusPill
                     done={reviewed}
@@ -946,7 +1016,8 @@ export default function TeamPartsInfoWeekDetailManager({
                     * 여기서 체크된 허브 &amp; 라인 들이, 아래 액트 체크와 라인 개설 여부에 반영됩니다.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* 기존 '오픈 확인' 버튼 — 그대로 유지(대체/이름변경 금지). */}
                   <Button
                     type="button"
                     data-open-confirm-button
@@ -956,6 +1027,20 @@ export default function TeamPartsInfoWeekDetailManager({
                   >
                     {confirming ? "저장 중…" : "오픈 확인"}
                   </Button>
+                  {/* 공용 수동 실행 — 기존 버튼 옆에 ⚡ 즉시 실행 / ↩ 실행 취소(직전 단계 복원)를 추가. */}
+                  {!readOnly && (
+                    <div data-ac-open-confirm>
+                      <ActionControl
+                        onInstant={onOpenConfirm}
+                        instantBusy={confirming}
+                        onRollback={onOpenConfirmRevert}
+                        rollbackClass={ACTION_CONTROL_REGISTRY.weekOpenConfirm.rollback.class}
+                        rollbackDisabled={!openConfirmed}
+                        rollbackDisabledReason="아직 오픈 확인되지 않았습니다."
+                        mode={mode === "test" ? "test" : "operating"}
+                      />
+                    </div>
+                  )}
                   {readOnly ? (
                     <ReadOnlyStatusPill
                       done={openConfirmed}

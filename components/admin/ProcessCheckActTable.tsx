@@ -13,6 +13,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SelectBadge, StatusBadge } from "@/components/ui/status-badge";
+import { ActionControl } from "@/components/admin/ActionControl";
+import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import {
   formatCheckDateTimeKo,
   processCheckActStatusLabel,
@@ -28,6 +30,8 @@ export default function ProcessCheckActTable({
   onOpenAct,
   onAutoReview,
   autoReviewingId = null,
+  onRollback,
+  rollbackMode = "operating",
 }: {
   acts: ProcessCheckActRowDto[];
   loading: boolean;
@@ -41,6 +45,10 @@ export default function ProcessCheckActTable({
   onAutoReview?: (act: ProcessCheckActRowDto) => void;
   // 현재 자동 검수 중인 행의 checkStatusId(스피너/중복클릭 방지). 없으면 null.
   autoReviewingId?: string | null;
+  // ↩ 실행 취소(행 단위) — '체크 완료' 행을 직전 단계(pending)로 되돌린다. 미전달이면 버튼 미노출.
+  onRollback?: (act: ProcessCheckActRowDto) => void | Promise<void>;
+  // 실행 취소 확인 모달의 운영/테스트 표기.
+  rollbackMode?: "operating" | "test";
 }) {
   // 카드 제목/설명(CardHeader) 제거 — 액트 목록(CardContent)만 렌더(info/experience 공용).
   // 요약 — 현재 표시되는 acts(필터/팀/탭 적용 후) 기준 프론트 집계. DB/DTO 무변경.
@@ -100,7 +108,9 @@ export default function ProcessCheckActTable({
                   <TableHead>신청 시점(실제)</TableHead>
                   <TableHead>검수 시점(실제)</TableHead>
                   <TableHead>상태</TableHead>
-                  {onAutoReview && <TableHead className="text-center">즉시 검수</TableHead>}
+                  {(onAutoReview || onRollback) && (
+                    <TableHead className="text-center">수동 실행</TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -164,10 +174,10 @@ export default function ProcessCheckActTable({
                         <span className="text-xs text-muted-foreground">체크 대상 아님</span>
                       )}
                     </TableCell>
-                    {/* '즉시 검수' 전용 컬럼 — 체크 대기(pending) 행만 지금 바로 검수(검수 시점 전이라도). */}
-                    {onAutoReview && (
+                    {/* '수동 실행' 컬럼 — 대기(pending)=⚡즉시 검수 / 완료(completed)=↩실행 취소(직전 단계 복원). */}
+                    {(onAutoReview || onRollback) && (
                       <TableCell className="text-center">
-                        {!readOnly && a.isCheckTarget && a.status === "pending" && a.checkStatusId ? (
+                        {!readOnly && onAutoReview && a.isCheckTarget && a.status === "pending" && a.checkStatusId ? (
                           <button
                             type="button"
                             onClick={() => onAutoReview(a)}
@@ -177,6 +187,16 @@ export default function ProcessCheckActTable({
                           >
                             {autoReviewingId === a.checkStatusId ? "검수 중…" : "즉시 검수"}
                           </button>
+                        ) : !readOnly && onRollback && a.status === "completed" && a.checkStatusId ? (
+                          <div className="inline-flex justify-center" data-pc-rollback={a.checkStatusId}>
+                            <ActionControl
+                              hideInstant
+                              size="xs"
+                              rollbackClass={ACTION_CONTROL_REGISTRY.processCheckComplete.rollback.class}
+                              mode={rollbackMode}
+                              onRollback={() => onRollback(a)}
+                            />
+                          </div>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
