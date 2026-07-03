@@ -3,19 +3,19 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { ScrollAffordance } from "@/components/ui/scroll-affordance"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div
-      data-slot="table-container"
-      className="relative w-full overflow-x-auto"
-    >
+    // 가로 스크롤 인지 UX(가장자리 Fade + 첫 진입 힌트)를 모든 표에 기본 배선.
+    // 오버플로가 실제로 있을 때만 표시된다.
+    <ScrollAffordance data-slot="table-container" className="w-full">
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
         {...props}
       />
-    </div>
+    </ScrollAffordance>
   )
 }
 
@@ -81,7 +81,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
         // 전역 기본 정렬 = 가운데(text-center align-middle). 예외(긴 텍스트/로그/JSON/코드/메모 등)는
         // 호출부에서 text-left 를 주면 twMerge 가 우선 적용한다(개별 override 유지).
         // 셀 padding 통일(px-3) + 헤더는 약간 작은 muted 라벨로 가독성↑.
-        "h-11 px-3 text-center align-middle text-xs font-semibold tracking-wide whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
+        "h-11 px-3 text-center align-middle text-sm font-semibold tracking-wide whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

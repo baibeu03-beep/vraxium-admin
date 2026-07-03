@@ -342,7 +342,7 @@ function ThemeSettings({ collapsed }: { collapsed: boolean }) {
 
   return (
     <div className="shrink-0 border-t border-sidebar-border p-2.5">
-      <p className="px-1 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-sidebar-foreground/45">
+      <p className="px-1 pb-1.5 text-2xs font-medium uppercase tracking-wide text-sidebar-foreground/45">
         테마
       </p>
       <div
