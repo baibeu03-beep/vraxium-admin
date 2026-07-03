@@ -28,7 +28,11 @@ import { Badge } from "@/components/ui/badge";
 import { classTone, rankTone } from "@/lib/statusBadge";
 import { cn } from "@/lib/utils";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
-import { buildMembersTabs } from "@/lib/adminHeaderTabs";
+import { buildCrewsTabs, buildMembersTabs } from "@/lib/adminHeaderTabs";
+import {
+  ORGANIZATION_LABEL,
+  type OrganizationSlug,
+} from "@/lib/organizations";
 import { classLabel } from "@/lib/adminMembersTypes";
 import {
   BUCKET_LABEL,
@@ -334,20 +338,36 @@ type PersistedState = {
   sortStack: SortEntry[];
 };
 
-export default function MembersList() {
+export default function MembersList({
+  lockedOrg,
+}: {
+  // 조직 크루 화면(/admin/crews/{org})에서 org 를 고정한다. 지정 시:
+  //   · "클럽" 드롭다운을 숨기고 목록/검색을 항상 이 org 로 스코프한다(실제 데이터 필터).
+  //   · 두 번째 탭이 크루 정보(집계)가 아니라 크루 관리(CrewManager)가 된다.
+  // 미지정(/admin/members)이면 기존 동작과 완전히 동일하다.
+  lockedOrg?: OrganizationSlug;
+} = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const mode = readScopeMode(searchParams);
 
-  // 탭은 글로벌 헤더(Header.tsx)의 ?tab 으로 구동된다 — 본문은 URL 만 읽는다.
-  const tab: MemberTab = searchParams?.get("tab") === "info" ? "info" : "list";
+  // 탭은 ?tab 으로 구동된다 — 본문은 URL 만 읽는다.
+  //   · 멤버 모드: 크루 목록(list) / 크루 정보(info, ?tab=info)
+  //   · 크루 모드(lockedOrg): 크루 목록(list) / 크루 관리(?tab=manage) — 두 번째 탭을 "info" 슬롯으로 재사용.
+  const secondTabActive = lockedOrg
+    ? searchParams?.get("tab") === "manage"
+    : searchParams?.get("tab") === "info";
+  const tab: MemberTab = secondTabActive ? "info" : "list";
+
+  // 클럽 조건 기본값 — 크루 모드면 고정 org, 아니면 전체.
+  const defaultClub: ClubValue = lockedOrg ?? DEFAULT_CLUB;
 
   // pending = 입력 중 · applied = 확인으로 적용된 값.
-  const [pendingClub, setPendingClub] = useState<ClubValue>(DEFAULT_CLUB);
+  const [pendingClub, setPendingClub] = useState<ClubValue>(defaultClub);
   const [pendingFilter, setPendingFilter] = useState<FilterValue>(DEFAULT_FILTER);
   const [pendingSearch, setPendingSearch] = useState("");
-  const [appliedClub, setAppliedClub] = useState<ClubValue>(DEFAULT_CLUB);
+  const [appliedClub, setAppliedClub] = useState<ClubValue>(defaultClub);
   const [appliedFilter, setAppliedFilter] = useState<FilterValue>(DEFAULT_FILTER);
   const [appliedSearch, setAppliedSearch] = useState("");
   const lastEditedRef = useRef<"search" | "condition">("condition");
@@ -376,7 +396,7 @@ export default function MembersList() {
   // ── 조건/정렬 유지(상세 페이지 왕복) ──────────────────────────────────
   // [이동] → /admin/members/[userId] → [목록으로 돌아가기] 시 클럽/필터/검색/정렬을
   // sessionStorage 로 복원한다(모집단 모드별 분리 키). URL 마이그레이션 없이 "최대한 유지".
-  const storageKey = `members-list-state:${mode}`;
+  const storageKey = `members-list-state:${lockedOrg ?? "all"}:${mode}`;
   const persistSkip = useRef(false);
   // sessionStorage 복원 완료 게이트 — 복원 전 기본값으로 한 번, 복원 후 또 한 번 조회되는
   // 왕복 시 이중 fetch 를 막는다(상세 페이지 → 목록 복귀). 복원값으로 1회만 조회.
@@ -392,10 +412,11 @@ export default function MembersList() {
         // 마운트 시 1회 sessionStorage → state 동기화(상세 페이지 왕복 복원). 외부 저장소
         // 복원은 effect 가 정석이며 cascading 의도된 동작이라 규칙을 좁게 끈다.
         /* eslint-disable react-hooks/set-state-in-effect */
-        if (s.pendingClub) setPendingClub(s.pendingClub);
+        // 크루 모드(lockedOrg)는 클럽이 org 로 고정 — 저장된 클럽값은 복원하지 않는다.
+        if (!lockedOrg && s.pendingClub) setPendingClub(s.pendingClub);
         if (s.pendingFilter) setPendingFilter(s.pendingFilter);
         if (typeof s.pendingSearch === "string") setPendingSearch(s.pendingSearch);
-        if (s.appliedClub) setAppliedClub(s.appliedClub);
+        if (!lockedOrg && s.appliedClub) setAppliedClub(s.appliedClub);
         if (s.appliedFilter) setAppliedFilter(s.appliedFilter);
         if (typeof s.appliedSearch === "string") setAppliedSearch(s.appliedSearch);
         if (s.lastEdited) lastEditedRef.current = s.lastEdited;
@@ -409,7 +430,7 @@ export default function MembersList() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setHydrated(true);
     }
-  }, [storageKey]);
+  }, [storageKey, lockedOrg]);
 
   useEffect(() => {
     if (persistSkip.current) {
@@ -499,30 +520,32 @@ export default function MembersList() {
   const applyConditions = useCallback(() => {
     setPage(1); // 조건 변경 → 1페이지부터
     if (lastEditedRef.current === "search" && pendingSearch.trim() !== "") {
-      setPendingClub("none");
+      // 검색은 클럽/필터와 중첩 안 함(중립화). 단 크루 모드는 org 스코프를 반드시 유지한다.
+      const searchClub: ClubValue = lockedOrg ?? "none";
+      setPendingClub(searchClub);
       setPendingFilter("none");
-      setAppliedClub("none");
+      setAppliedClub(searchClub);
       setAppliedFilter("none");
       setAppliedSearch(pendingSearch.trim());
     } else {
-      setAppliedClub(pendingClub);
+      setAppliedClub(lockedOrg ?? pendingClub);
       setAppliedFilter(pendingFilter);
       setAppliedSearch("");
       setPendingSearch("");
     }
-  }, [pendingSearch, pendingClub, pendingFilter]);
+  }, [pendingSearch, pendingClub, pendingFilter, lockedOrg]);
 
   const resetConditions = useCallback(() => {
     lastEditedRef.current = "condition";
     setPage(1);
-    setPendingClub(DEFAULT_CLUB);
+    setPendingClub(defaultClub);
     setPendingFilter(DEFAULT_FILTER);
     setPendingSearch("");
-    setAppliedClub(DEFAULT_CLUB);
+    setAppliedClub(defaultClub);
     setAppliedFilter(DEFAULT_FILTER);
     setAppliedSearch("");
     setSortStack([]);
-  }, []);
+  }, [defaultClub]);
 
   const reload = () => {
     setRefreshTick((n) => n + 1);
@@ -551,20 +574,27 @@ export default function MembersList() {
     // max-w 와 분리. 좁은 max-w 를 강제하지 않는다(공통 wrapper 미공유).
     <div className="flex w-full flex-col gap-6 px-4 py-6">
       <AdminPageHeader
-        title="크루 관리"
-        tabs={buildMembersTabs(pathname, searchParams, tab)}
+        title={lockedOrg ? `${ORGANIZATION_LABEL[lockedOrg]} 크루` : "크루 관리"}
+        tabs={
+          lockedOrg
+            ? buildCrewsTabs(pathname, searchParams, secondTabActive ? "manage" : "list")
+            : buildMembersTabs(pathname, searchParams, tab)
+        }
       />
 
       {tab === "info" ? (
-        <MembersInfoTab />
+        // 두 번째 탭 = 집계(크루 정보) 뷰. 크루 모드(lockedOrg)는 현재 org 로 스코프(클럽 탭·집계 모두).
+        //   크루 편집(수정/저장/공개토글)은 크루 목록 탭 → 상세(회원 상세)에서 수행.
+        <MembersInfoTab lockedOrg={lockedOrg} />
       ) : (
         <Card>
           <CardHeader className="flex flex-row items-start justify-between gap-2">
             <div className="space-y-1.5">
               <CardTitle className="text-base">크루 목록</CardTitle>
               <CardDescription>
-                클럽·필터를 고른 뒤 <b>확인</b>을 눌러야 목록에 반영됩니다. 검색은
-                클럽/필터와 중첩되지 않습니다. 헤더 클릭으로 다중 정렬(클릭 순서 = 우선순위).
+                {lockedOrg ? "필터" : "클럽·필터"}를 고른 뒤 <b>확인</b>을 눌러야 목록에
+                반영됩니다. 검색은 {lockedOrg ? "필터" : "클럽/필터"}와 중첩되지 않습니다.
+                헤더 클릭으로 다중 정렬(클릭 순서 = 우선순위).
               </CardDescription>
             </div>
             <Button variant="outline" onClick={reload} disabled={loading}>
@@ -575,23 +605,26 @@ export default function MembersList() {
           <CardContent className="flex flex-col gap-4">
             {/* 조건 영역 */}
             <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/30 p-3">
-              <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-                클럽
-                <select
-                  value={pendingClub}
-                  onChange={(e) => {
-                    lastEditedRef.current = "condition";
-                    setPendingClub(e.target.value as ClubValue);
-                  }}
-                  className="h-9 w-36 rounded-md border border-input bg-background px-3 text-sm text-foreground"
-                >
-                  {CLUB_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {/* 클럽 드롭다운 — 크루 모드(lockedOrg)는 org 가 고정이라 숨긴다. */}
+              {!lockedOrg && (
+                <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  클럽
+                  <select
+                    value={pendingClub}
+                    onChange={(e) => {
+                      lastEditedRef.current = "condition";
+                      setPendingClub(e.target.value as ClubValue);
+                    }}
+                    className="h-9 w-36 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  >
+                    {CLUB_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
 
               <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                 필터
@@ -809,14 +842,29 @@ const INFO_CLUB_TABS: { value: InfoClubTab; label: string }[] = [
   { value: "phalanx", label: "팔랑크스" },
 ];
 
-function MembersInfoTab() {
+function MembersInfoTab({
+  // 조직 크루 화면(/admin/crews/{org})의 "크루 관리" 탭에서 org 를 고정한다. 지정 시:
+  //   · 클럽 하위 탭을 현재 org 하나로 제한(다른 조직 클럽 미노출).
+  //   · 집계(info-stats)를 항상 이 org 로 스코프(실제 데이터 필터).
+  // 미지정(/admin/members 크루 정보 탭)이면 통합 포함 4개 탭 = 기존과 동일.
+  lockedOrg,
+}: {
+  lockedOrg?: OrganizationSlug;
+} = {}) {
   const searchParams = useSearchParams();
   const mode = readScopeMode(searchParams);
   const [section0, setSection0] = useState<MembersInfoSection0 | null>(null);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
-  const [clubTab, setClubTab] = useState<InfoClubTab>("all");
+  const [clubTab, setClubTab] = useState<InfoClubTab>(lockedOrg ?? "all");
+
+  // 클럽 하위 탭 — 크루 모드(lockedOrg)는 현재 org 하나만 노출한다.
+  const clubTabs = lockedOrg
+    ? INFO_CLUB_TABS.filter((t) => t.value === lockedOrg)
+    : INFO_CLUB_TABS;
+  // 크루 모드는 org 고정(탭 전환 불가) — 집계 스코프도 항상 lockedOrg.
+  const activeOrg: InfoClubTab = lockedOrg ?? clubTab;
 
   useEffect(() => {
     let cancelled = false;
@@ -891,18 +939,21 @@ function MembersInfoTab() {
         </CardContent>
       </Card>
 
-      {/* 클럽 하위 탭 (통합 / 엥크레 / 오랑캐 / 팔랑크스) — 탭 전환은 로컬 state(섹션.0 불변). */}
+      {/* 클럽 하위 탭 (통합 / 엥크레 / 오랑캐 / 팔랑크스) — 탭 전환은 로컬 state(섹션.0 불변).
+          크루 모드(lockedOrg)는 현재 org 하나만 노출(다른 조직 클럽 미노출). */}
       <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
-        {INFO_CLUB_TABS.map((t) => (
+        {clubTabs.map((t) => (
           <button
             key={t.value}
             type="button"
             onClick={() => setClubTab(t.value)}
+            disabled={Boolean(lockedOrg)}
             className={cn(
               "rounded-md px-4 py-1.5 text-sm font-medium transition-colors",
-              clubTab === t.value
+              activeOrg === t.value
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
+              lockedOrg && "cursor-default",
             )}
           >
             {t.label}
@@ -910,8 +961,8 @@ function MembersInfoTab() {
         ))}
       </div>
 
-      {/* [섹션.1] 역대 누적 + 주차별 데이터 — 선택 클럽 스코프. */}
-      <InfoStatsPanel org={clubTab} mode={mode} />
+      {/* [섹션.1] 역대 누적 + 주차별 데이터 — 선택 클럽(크루 모드는 org 고정) 스코프. */}
+      <InfoStatsPanel org={activeOrg} mode={mode} />
     </div>
   );
 }

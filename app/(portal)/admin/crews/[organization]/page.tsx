@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import CrewManager from "@/components/admin/CrewManager";
+import MembersList from "@/components/admin/MembersList";
 import { isOrganizationSlug, ORGANIZATION_LABEL } from "@/lib/organizations";
 
 type Props = {
@@ -34,7 +34,10 @@ export default async function CrewOrganizationPage({
           {ORGANIZATION_LABEL[organization]}
         </span>
       </div>
-      <CrewManager organization={organization} />
+      {/* /admin/members 와 동일한 UI 를 org 로 고정해 재사용한다.
+          · "크루 목록" 탭 = 조직 스코프 목록(클럽 드롭다운 없음, 데이터도 org 필터)
+          · "크루 관리" 탭 = 크루 정보(집계/통계) 뷰를 현재 org 로 스코프(MembersList 내부에서 렌더) */}
+      <MembersList lockedOrg={organization} />
     </div>
   );
 }

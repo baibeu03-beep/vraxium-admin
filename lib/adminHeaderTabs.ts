@@ -84,6 +84,30 @@ export function buildLineManageTabs(
   ];
 }
 
+// 조직 크루(/admin/crews/{org}) 공통 2탭: 크루 목록(기본) / 크루 관리(?tab=manage).
+//   멤버 관리(/admin/members)와 동일한 UI 를 조직 스코프로 재사용한다:
+//     · 크루 목록 = MembersList 목록(org 고정, 클럽 드롭다운 없음)
+//     · 크루 관리 = 크루 정보(집계/통계) 뷰(MembersInfoTab)를 현재 org 로 스코프
+//   org 는 path 로 고정되므로 tabHref 가 pathname 유지 + ?tab 만 토글 → org·mode 보존.
+export function buildCrewsTabs(
+  pathname: string,
+  searchParams: SearchParamsLike,
+  current: "list" | "manage",
+): AdminPageHeaderTab[] {
+  return [
+    {
+      label: "크루 목록",
+      href: tabHref(pathname, searchParams, "tab", "manage", true),
+      active: current === "list",
+    },
+    {
+      label: "크루 관리",
+      href: tabHref(pathname, searchParams, "tab", "manage", false),
+      active: current === "manage",
+    },
+  ];
+}
+
 // 멤버 관리(/admin/members) 공통 2탭: 크루 목록(기본) / 크루 정보(?tab=info).
 export function buildMembersTabs(
   pathname: string,
