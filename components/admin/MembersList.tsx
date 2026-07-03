@@ -697,10 +697,6 @@ export default function MembersList() {
                         />
                       );
                     })}
-                    {/* 이동 — 정렬/검색 비대상. 행별 상세 페이지 진입 버튼 컬럼. */}
-                    <TableHead className="text-center align-middle text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      이동
-                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -717,7 +713,18 @@ export default function MembersList() {
                               idx === 0 && "sticky left-0 z-10 bg-card border-r font-medium",
                             )}
                           >
-                            {c.key === "status" && val !== "-" ? (
+                            {c.key === "name" ? (
+                              // 이름 — 클릭 시 상세 페이지 진입([이동] 컬럼 대체). 현재 모집단 모드 유지.
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  router.push(appendModeQuery(`/admin/members/${m.userId}`, mode))
+                                }
+                                className="cursor-pointer underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+                              >
+                                {val}
+                              </button>
+                            ) : c.key === "status" && val !== "-" ? (
                               // 상태 — 가장 눈에 띄는 solid 배지(같은 상태=같은 색).
                               <StatusBadge label={val} size="sm" />
                             ) : c.key === "rank" && val !== "—" ? (
@@ -746,24 +753,12 @@ export default function MembersList() {
                           </TableCell>
                         );
                       })}
-                      {/* 행 우측 [이동] — 행 전체 클릭 아님(버튼만). 현재 모집단 모드 유지. */}
-                      <TableCell className="whitespace-nowrap text-center align-middle">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            router.push(appendModeQuery(`/admin/members/${m.userId}`, mode))
-                          }
-                        >
-                          이동
-                        </Button>
-                      </TableCell>
                     </TableRow>
                   ))}
                   {!loading && rows.length === 0 && !error && (
                     <TableRow>
                       <TableCell
-                        colSpan={COLUMNS.length + 1}
+                        colSpan={COLUMNS.length}
                         className="py-10 text-center text-muted-foreground"
                       >
                         조회된 크루가 없습니다.
@@ -771,7 +766,7 @@ export default function MembersList() {
                     </TableRow>
                   )}
                   {loading && rows.length === 0 && (
-                    <TableSkeletonRows columns={COLUMNS.length + 1} rows={8} />
+                    <TableSkeletonRows columns={COLUMNS.length} rows={8} />
                   )}
                 </TableBody>
               </Table>
