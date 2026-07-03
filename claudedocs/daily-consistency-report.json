@@ -1,0 +1,145 @@
+{
+  "started": "2026-07-03T07:54:43.853Z",
+  "finished": "2026-07-03T08:11:03.403Z",
+  "mode": "fix",
+  "results": [
+    {
+      "check": "grade-cache",
+      "targets": "1,2,7",
+      "remediable": true,
+      "checked": 730,
+      "mismatchesBefore": 0,
+      "cause": null,
+      "fixApplied": null,
+      "mismatchesAfter": null,
+      "converged": true,
+      "samples": []
+    },
+    {
+      "check": "growth-stats-cache",
+      "targets": "3",
+      "remediable": true,
+      "checked": -1,
+      "mismatchesBefore": 0,
+      "cause": null,
+      "fixApplied": null,
+      "mismatchesAfter": null,
+      "converged": true,
+      "samples": []
+    },
+    {
+      "check": "weekly-snapshot",
+      "targets": "4",
+      "remediable": true,
+      "checked": 729,
+      "mismatchesBefore": 406,
+      "cause": "stale-snapshot",
+      "fixApplied": "recompute: recomputed=406 failed=0",
+      "mismatchesAfter": 0,
+      "converged": true,
+      "samples": [
+        {
+          "u": "76a42307"
+        },
+        {
+          "u": "770ef474"
+        },
+        {
+          "u": "774323e0"
+        },
+        {
+          "u": "781620d0"
+        },
+        {
+          "u": "785f99e2"
+        },
+        {
+          "u": "7876eed8"
+        },
+        {
+          "u": "787d36ba"
+        },
+        {
+          "u": "78b7423f"
+        }
+      ]
+    },
+    {
+      "check": "cumulative-ledger",
+      "targets": "5",
+      "remediable": true,
+      "checked": 722,
+      "mismatchesBefore": 0,
+      "cause": null,
+      "fixApplied": null,
+      "mismatchesAfter": null,
+      "converged": true,
+      "samples": []
+    },
+    {
+      "check": "cross-app-http",
+      "targets": "3,6,7,8",
+      "remediable": false,
+      "checked": 5,
+      "mismatchesBefore": 0,
+      "cause": null,
+      "fixApplied": null,
+      "mismatchesAfter": null,
+      "converged": true,
+      "samples": []
+    },
+    {
+      "check": "structural-health",
+      "targets": "보조",
+      "remediable": false,
+      "checked": 425,
+      "mismatchesBefore": 425,
+      "cause": "structural",
+      "fixApplied": null,
+      "mismatchesAfter": null,
+      "converged": null,
+      "samples": [
+        {
+          "type": "season_rest_without_personal_rest",
+          "u": "T강민서",
+          "msg": "시즌 상태가 'rest' 이지만 해당 시즌 user_week_status"
+        },
+        {
+          "type": "season_rest_without_personal_rest",
+          "u": "T강민서",
+          "msg": "시즌 상태가 'rest' 이지만 해당 시즌 user_week_status"
+        },
+        {
+          "type": "season_rest_without_personal_rest",
+          "u": "T공지민",
+          "msg": "시즌 상태가 'rest' 이지만 해당 시즌 user_week_status"
+        },
+        {
+          "type": "season_rest_without_personal_rest",
+          "u": "T공지민",
+          "msg": "시즌 상태가 'rest' 이지만 해당 시즌 user_week_status"
+        },
+        {
+          "type": "season_rest_without_personal_rest",
+          "u": "T김가윤",
+          "msg": "시즌 상태가 'rest' 이지만 해당 시즌 user_week_status"
+        },
+        {
+          "type": "season_rest_without_personal_rest",
+          "u": "T김가윤",
+          "msg": "시즌 상태가 'rest' 이지만 해당 시즌 user_week_status"
+        },
+        {
+          "type": "season_rest_without_personal_rest",
+          "u": "T김나연",
+          "msg": "시즌 상태가 'rest' 이지만 해당 시즌 user_week_status"
+        },
+        {
+          "type": "season_rest_without_personal_rest",
+          "u": "T김나연",
+          "msg": "시즌 상태가 'rest' 이지만 해당 시즌 user_week_status"
+        }
+      ]
+    }
+  ]
+}
