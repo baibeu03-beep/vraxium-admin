@@ -64,6 +64,31 @@ function eq(a: string | null | undefined, b: string | null | undefined): boolean
   return na.length > 0 && na === nb;
 }
 
+// 테스트 유저 구분용 접두 'T' 제거 — 맨 앞의 단일 T 1개만(전체 T 제거가 아님).
+//   "T김민지"→"김민지", "TTT김민지"→"TT김민지"(→ 실명 댓글엔 걸리지 않음=안전), "김민지"→"김민지".
+//   test 모집단에서만 사용한다: 테스트 유저 display_name 의 구분 접두를 벗겨 실명 댓글과 대조.
+export function stripSingleLeadingTestPrefix(name: string | null | undefined): string {
+  const s = (name ?? "").trim();
+  return s.startsWith("T") ? s.slice(1) : s;
+}
+
+// 이름 일치 판정. 항상 원문(display_name)을 먼저 비교하므로 operating 동작은 완전 불변이다.
+//   stripTestPrefix(=test 모집단)일 때만, 크루 이름의 "단일 T 접두"를 벗긴 값으로도 추가 비교한다:
+//   댓글 작성자=실명(김민지) ↔ 테스트 유저=T+실명(T김민지). 학교/팀/전공에는 적용하지 않는다(이름 한정).
+function nameEq(
+  crewName: string | null | undefined,
+  parsedName: string | null | undefined,
+  stripTestPrefix: boolean,
+): boolean {
+  if (eq(crewName, parsedName)) return true;
+  if (!stripTestPrefix) return false;
+  const trimmed = (crewName ?? "").trim();
+  const stripped = stripSingleLeadingTestPrefix(trimmed);
+  // 실제로 T가 벗겨진 경우에만 추가 비교(원본과 같으면 위에서 이미 판정 — 중복/오탐 방지).
+  if (stripped === trimmed) return false;
+  return eq(stripped, parsedName);
+}
+
 // ── 닉네임 파서 ──
 export type ParsedNickname =
   | { format: "old"; name: string; schoolName: string; cohort: string; raw: string }
@@ -109,9 +134,11 @@ type SingleMatch =
 export function matchNickname(
   parsed: ParsedNickname,
   crews: CrewRecord[],
+  // test 모집단이면 크루 이름의 단일 T 접두를 벗긴 값도 비교(기본 false=operating 불변).
+  stripTestPrefix = false,
 ): SingleMatch {
   if (parsed.format === "old") {
-    const nameMatches = crews.filter((c) => eq(c.name, parsed.name));
+    const nameMatches = crews.filter((c) => nameEq(c.name, parsed.name, stripTestPrefix));
     // 1순위: 이름 + 학교명 정확히 1명.
     const ns = nameMatches.filter((c) => eq(c.schoolName, parsed.schoolName));
     if (ns.length === 1) {
@@ -131,7 +158,7 @@ export function matchNickname(
   }
 
   if (parsed.format === "new") {
-    const nameMatches = crews.filter((c) => eq(c.name, parsed.name));
+    const nameMatches = crews.filter((c) => nameEq(c.name, parsed.name, stripTestPrefix));
     const full = nameMatches.filter(
       (c) => eq(c.teamName, parsed.teamName) && eq(c.majorName, parsed.majorName),
     );
@@ -151,7 +178,7 @@ export function matchNickname(
   return {
     status: "review",
     reason: "형식 불명(파싱 불가) — 수동 확인",
-    nameCandidates: crews.filter((c) => eq(c.name, parsed.name)),
+    nameCandidates: crews.filter((c) => nameEq(c.name, parsed.name, stripTestPrefix)),
   };
 }
 
@@ -160,14 +187,17 @@ export function matchNickname(
 export function matchCafeComments(
   nicknames: string[],
   crews: CrewRecord[],
+  // stripTestPrefix: test 모집단에서만 크루 이름 단일 T 접두 제거 비교(operating 기본 false).
+  opts: { stripTestPrefix?: boolean } = {},
 ): CafeMatchResult {
+  const stripTestPrefix = opts.stripTestPrefix === true;
   const matched: CafeMatchedCandidate[] = [];
   const review: CafeReviewItem[] = [];
   const matchedUserIds = new Set<string>();
 
   nicknames.forEach((nickname, order) => {
     const parsed = parseCafeNickname(nickname);
-    const m = matchNickname(parsed, crews);
+    const m = matchNickname(parsed, crews, stripTestPrefix);
     if (m.status === "auto") {
       if (matchedUserIds.has(m.crew.userId)) return; // 동일 크루 중복 댓글 → 1회만
       matchedUserIds.add(m.crew.userId);

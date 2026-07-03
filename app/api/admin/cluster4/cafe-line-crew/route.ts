@@ -9,11 +9,13 @@ import {
   loadCrewRecords,
   matchCafeComments,
   filterCrewRecords,
+  type CrewRecord,
 } from "@/lib/cluster4CafeLineMatch";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import {
   readScopeMode,
   resolveUserScope,
+  type ScopeMode,
 } from "@/lib/userScope";
 import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
 
@@ -27,7 +29,11 @@ function readOrganization(request: NextRequest): OrganizationSlug | null {
 // org(조직) + mode(운영/테스트) 를 모두 적용해 라인 개설 크루 후보를 조회한다.
 //   operating: test_user_markers 전원 제외(실사용자만). test: test_user_markers 만(실사용자 제외).
 // 이름만으로 조직/모드를 무시하고 매칭하지 않도록, 매칭 입력 자체를 이 모집단으로 좁힌다.
-async function loadScopedCrews(request: NextRequest) {
+// 반환에 effective mode 를 함께 실어 보낸다 — 매칭(POST)이 test 모집단에서만 T 접두 제거 비교를
+//   켤 수 있도록. mode 는 resolveUserScope 가 QA_HIDE_REAL_USERS 를 반영해 해소한 값(요청 mode 아님).
+async function loadScopedCrews(
+  request: NextRequest,
+): Promise<{ crews: CrewRecord[]; mode: ScopeMode }> {
   const organization = readOrganization(request);
   // 라인 개설 크루 후보 = 현재 모집단(QA_HIDE_REAL_USERS=true 면 test 유저 / 종료 후 실사용자).
   //   화면에 보이는 후보 == 개설 대상이 항상 같은 축(단일 스위치).
@@ -40,9 +46,9 @@ async function loadScopedCrews(request: NextRequest) {
   const exParam = request.nextUrl.searchParams.get("excludeSeasonRest");
   if (exParam === "1" || exParam === "true") {
     const restIds = await getCurrentSeasonRestUserIds();
-    return scoped.filter((c) => !restIds.has(c.userId));
+    return { crews: scoped.filter((c) => !restIds.has(c.userId)), mode: scope.mode };
   }
-  return scoped;
+  return { crews: scoped, mode: scope.mode };
 }
 
 // 라인 개설 크루 — 카페 링크 검수(POST) + 수동추가 검색(GET).
@@ -93,8 +99,11 @@ export async function POST(request: NextRequest) {
 
     // 2) 우리 크루 DB(현재 org + mode 모집단) 와 엄격 매칭.
     //    org 외 동명이인·모드 외 사용자(운영↔테스트)는 매칭 입력에서 제외된다.
-    const crews = await loadScopedCrews(request);
-    const result = matchCafeComments(collected.data.nicknames, crews);
+    //    test 모집단이면 크루 이름의 단일 T 접두를 벗겨 실명 댓글과 대조한다(operating 불변).
+    const { crews, mode } = await loadScopedCrews(request);
+    const result = matchCafeComments(collected.data.nicknames, crews, {
+      stripTestPrefix: mode === "test",
+    });
 
     return Response.json({
       success: true,
@@ -138,8 +147,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // 수동 추가 검색도 현재 org + mode 모집단으로 한정 — 조직/운영·테스트 경계를 벗어난
-    // 동명이인이 섞이지 않게 한다.
-    const crews = await loadScopedCrews(request);
+    // 동명이인이 섞이지 않게 한다. (부분일치 검색이라 "김민지"로 "T김민지"도 이미 걸린다.)
+    const { crews } = await loadScopedCrews(request);
     const matches = filterCrewRecords(crews, q).slice(0, 30);
     return Response.json({ success: true, data: { crews: matches } });
   } catch (error) {
