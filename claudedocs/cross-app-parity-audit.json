@@ -1,0 +1,45 @@
+{
+  "testers": [
+    "42864260-e4ea-4150-a87f-cff545b02af1",
+    "e6574586-6279-41cc-ae36-1c9dc3078bc3",
+    "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+    "e4dcb97e-a515-4ec5-a91e-32ca4e629dae",
+    "4a81b6d1-e488-4f14-8530-0cad60fe4f0d",
+    "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a"
+  ],
+  "findings": [
+    {
+      "screen": "이력서카드 품계/백분위",
+      "field": "avgPercentile",
+      "userId": "bf3b4305-751a-49e3-88ad-95a20e5c4dad",
+      "adminSource": "cluster3/club-rank avgPercentile (live)",
+      "customerSource": "profile gradeStats.avgPercentile (user_grade_stats cache-first)",
+      "directValue": "(n/a)",
+      "adminHttp": 45.07,
+      "customerHttp": 47.75,
+      "snapshotImpact": false,
+      "needsRecompute": true,
+      "cause": "stale-grade-cache",
+      "priority": 1,
+      "note": "고객은 user_grade_stats 캐시 우선(캐시 null 일 때만 graft). 포인트 변경 후 sync:grade-stats 필요."
+    },
+    {
+      "screen": "이력서카드 품계/백분위",
+      "field": "avgPercentile",
+      "userId": "1a0b0f9e-4e10-4d06-aa56-6d26ee4b203a",
+      "adminSource": "cluster3/club-rank avgPercentile (live)",
+      "customerSource": "profile gradeStats.avgPercentile (user_grade_stats cache-first)",
+      "directValue": "(n/a)",
+      "adminHttp": 44.49,
+      "customerHttp": 46.69,
+      "snapshotImpact": false,
+      "needsRecompute": true,
+      "cause": "stale-grade-cache",
+      "priority": 1,
+      "note": "고객은 user_grade_stats 캐시 우선(캐시 null 일 때만 graft). 포인트 변경 후 sync:grade-stats 필요."
+    }
+  ],
+  "byCause": {
+    "stale-grade-cache": 2
+  }
+}
