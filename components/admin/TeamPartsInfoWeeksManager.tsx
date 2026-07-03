@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
+import { readOrgParam } from "@/lib/adminOrgContext";
 import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
 import type {
   TeamPartsInfoWeeksData,
@@ -56,10 +57,23 @@ function statusBadge(status: TeamPartsInfoWeekItem["clubActivityStatus"]) {
   );
 }
 
-export default function TeamPartsInfoWeeksManager() {
+export default function TeamPartsInfoWeeksManager({
+  scoped = false,
+  detailBasePath = "/admin/team-parts/info/weeks",
+}: {
+  // scoped=true(클럽 진행 · 개별 조직 운영진): URL ?org 로 조직 1개에 고정하고
+  //   통합 탭을 숨긴다(조회 전용). 통합 어드민(/admin/team-parts/info/weeks)은 scoped=false
+  //   기본값으로 기존 동작이 그대로 유지된다.
+  // detailBasePath: [활동 관리] 이동 및 상세 back-link 의 기준 경로.
+  scoped?: boolean;
+  detailBasePath?: string;
+} = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const mode = readScopeMode(searchParams);
+  // scoped 모드에서는 URL ?org 로 조직을 고정한다. 미지정/무효면 안내만 표시.
+  const scopedOrg = scoped ? readOrgParam(searchParams) : null;
+  const scopedMissing = scoped && !scopedOrg;
 
   const [activeTab, setActiveTab] = useState<TabKey>("encre");
   const [page, setPage] = useState(1);
@@ -68,7 +82,9 @@ export default function TeamPartsInfoWeeksManager() {
   const [error, setError] = useState<string | null>(null);
   useReportLoading(loading);
 
-  const isIntegrated = activeTab === "integrated";
+  // scoped 모드면 URL org 로 고정, 아니면 탭 상태를 사용한다.
+  const effectiveTab: TabKey = scoped ? (scopedOrg ?? "encre") : activeTab;
+  const isIntegrated = effectiveTab === "integrated";
 
   const load = useCallback(
     async (club: OrganizationSlug, pageNum: number) => {
@@ -103,11 +119,11 @@ export default function TeamPartsInfoWeeksManager() {
   useEffect(() => {
     // 통합 탭은 준비 중(자체 안내 블록 렌더) → API 호출/상태 갱신 없음.
     //   이전 클럽 데이터는 state 에 남아 있어도 통합 화면에선 렌더되지 않는다.
-    if (isIntegrated) return;
+    if (isIntegrated || scopedMissing) return;
     // 탭/페이지 변경 시 외부(API)와 동기화하는 정석 effect — load 내부 setState 는 의도된 동작.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load(activeTab as OrganizationSlug, page);
-  }, [activeTab, page, isIntegrated, load]);
+    void load(effectiveTab as OrganizationSlug, page);
+  }, [effectiveTab, page, isIntegrated, scopedMissing, load]);
 
   const onTabChange = (tab: TabKey) => {
     setActiveTab(tab);
@@ -122,38 +138,65 @@ export default function TeamPartsInfoWeeksManager() {
       );
       return;
     }
-    const href = appendModeQuery(
-      `/admin/team-parts/info/weeks/${item.weekId}?club=${club}`,
-      mode,
-    );
-    router.push(href);
+    // scoped(클럽 진행)는 ?org, 통합 어드민은 기존 ?club 컨텍스트를 유지한다.
+    const detailHref = scoped
+      ? `${detailBasePath}/${item.weekId}?org=${club}`
+      : `${detailBasePath}/${item.weekId}?club=${club}`;
+    router.push(appendModeQuery(detailHref, mode));
   };
 
   const pagination = data?.pagination ?? null;
   const totalPages = pagination?.totalPages ?? 1;
   const currentWeek = data?.currentWeek ?? null;
 
+  // scoped 모드에서 URL org 가 없거나 무효면 안내만 표시(조회 전용 · 데이터 로드 없음).
+  if (scopedMissing) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>주차 내역</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            유효한 org 파라미터가 필요합니다. (사이드바에서 조직을 선택해 진입해 주세요.)
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle>주차 내역</CardTitle>
+        {scoped ? (
+          <span
+            data-readonly-badge
+            className="rounded-md bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-500"
+          >
+            조회 전용
+          </span>
+        ) : null}
       </CardHeader>
       <CardContent className="space-y-5">
         {/* ── 클럽 탭 ─────────────────────────────── */}
+        {/* scoped(개별 조직)는 자기 조직 탭만 고정 노출(비활성). 통합은 4개 탭. */}
         <div className="flex flex-wrap gap-1" role="tablist" aria-label="클럽 선택">
-          {TABS.map((tab) => (
+          {(scoped ? [effectiveTab] : TABS).map((tab) => (
             <button
               key={tab}
               type="button"
               role="tab"
-              aria-selected={activeTab === tab}
+              aria-selected={effectiveTab === tab}
               data-club-tab={tab}
+              disabled={scoped}
               onClick={() => onTabChange(tab)}
               className={
                 "rounded-md border px-4 py-1.5 text-sm font-bold transition-colors " +
-                (activeTab === tab
+                (effectiveTab === tab
                   ? TAB_ACTIVE_CLS[tab]
-                  : "border-input bg-background text-muted-foreground hover:bg-muted")
+                  : "border-input bg-background text-muted-foreground hover:bg-muted") +
+                (scoped ? " cursor-default" : "")
               }
             >
               {TAB_LABEL[tab]}
@@ -285,7 +328,7 @@ export default function TeamPartsInfoWeeksManager() {
                               size="sm"
                               data-manage-activity={item.weekId}
                               onClick={() =>
-                                onManageActivity(item, activeTab as OrganizationSlug)
+                                onManageActivity(item, effectiveTab as OrganizationSlug)
                               }
                             >
                               활동 관리

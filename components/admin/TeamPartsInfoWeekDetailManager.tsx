@@ -593,10 +593,47 @@ function CheckV() {
   );
 }
 
+// 조회 전용(개별 조직) 상태 배지 — 완료=초록 / 대기=회색·노랑. 통합 어드민에서 설정한
+//   검수·오픈 확인 상태를 그대로 보여주기만 한다(입력 불가).
+function ReadOnlyStatusPill({
+  done,
+  doneLabel,
+  pendingLabel,
+  dataAttr,
+}: {
+  done: boolean;
+  doneLabel: string;
+  pendingLabel: string;
+  dataAttr?: string;
+}) {
+  return (
+    <span
+      {...(dataAttr ? { [dataAttr]: done ? "true" : "false" } : {})}
+      className={
+        "inline-flex items-center gap-1 rounded-md px-3 py-1 text-sm font-bold " +
+        (done
+          ? "bg-emerald-100 text-emerald-800"
+          : "bg-amber-100 text-amber-800")
+      }
+    >
+      {done ? <CheckV /> : null}
+      {done ? doneLabel : pendingLabel}
+    </span>
+  );
+}
+
 export default function TeamPartsInfoWeekDetailManager({
   weekId,
+  readOnly = false,
+  listHrefBase = "/admin/team-parts/info/weeks",
 }: {
   weekId: string;
+  // readOnly=true(클럽 진행 · 개별 조직 운영진): 검수 완료 / 오픈 확인 / 허브·라인 체크박스를
+  //   모두 비활성화하고 상태만 표시한다(통합 어드민에서 설정한 상태를 그대로 조회).
+  //   통합 어드민(activity 관리)은 readOnly=false 기본값으로 기존 동작이 그대로 유지된다.
+  readOnly?: boolean;
+  // 상단 back-link( ← 주차 내역 )의 기준 경로.
+  listHrefBase?: string;
 }) {
   const searchParams = useSearchParams();
   const mode = readScopeMode(searchParams);
@@ -639,7 +676,7 @@ export default function TeamPartsInfoWeekDetailManager({
   const [lineError, setLineError] = useState<string | null>(null);
 
   const listHref = appendModeQuery(
-    club ? `/admin/team-parts/info/weeks?org=${club}` : "/admin/team-parts/info/weeks",
+    club ? `${listHrefBase}?org=${club}` : listHrefBase,
     mode,
   );
 
@@ -760,7 +797,7 @@ export default function TeamPartsInfoWeekDetailManager({
   });
 
   const onOpenConfirm = async () => {
-    if (!club) return;
+    if (!club || readOnly) return;
     setConfirming(true);
     setBanner(null);
     try {
@@ -786,7 +823,7 @@ export default function TeamPartsInfoWeekDetailManager({
   };
 
   const onReview = async () => {
-    if (!club) return;
+    if (!club || readOnly) return;
     setReviewing(true);
     setBanner(null);
     try {
@@ -880,12 +917,23 @@ export default function TeamPartsInfoWeekDetailManager({
                   type="button"
                   data-review-button
                   onClick={onReview}
-                  disabled={reviewing || reviewed}
+                  disabled={readOnly || reviewing || reviewed}
                   className="bg-slate-800 text-white hover:bg-slate-700"
                 >
                   {reviewed ? "검수 완료" : reviewing ? "검수 중…" : "주차 검수"}
                 </Button>
-                {reviewed ? <span data-reviewed="true"><CheckV /></span> : null}
+                {readOnly ? (
+                  <ReadOnlyStatusPill
+                    done={reviewed}
+                    doneLabel="주차 검수 완료"
+                    pendingLabel="주차 검수 대기"
+                    dataAttr="data-reviewed"
+                  />
+                ) : reviewed ? (
+                  <span data-reviewed="true">
+                    <CheckV />
+                  </span>
+                ) : null}
               </div>
             </section>
 
@@ -903,12 +951,23 @@ export default function TeamPartsInfoWeekDetailManager({
                     type="button"
                     data-open-confirm-button
                     onClick={onOpenConfirm}
-                    disabled={confirming}
+                    disabled={readOnly || confirming}
                     className="bg-slate-800 text-white hover:bg-slate-700"
                   >
                     {confirming ? "저장 중…" : "오픈 확인"}
                   </Button>
-                  {openConfirmed ? <span data-open-confirmed="true"><CheckV /></span> : null}
+                  {readOnly ? (
+                    <ReadOnlyStatusPill
+                      done={openConfirmed}
+                      doneLabel="오픈 확인 완료"
+                      pendingLabel="오픈 확인 전"
+                      dataAttr="data-open-confirmed"
+                    />
+                  ) : openConfirmed ? (
+                    <span data-open-confirmed="true">
+                      <CheckV />
+                    </span>
+                  ) : null}
                 </div>
               </div>
 
@@ -923,6 +982,7 @@ export default function TeamPartsInfoWeekDetailManager({
                           type="checkbox"
                           className="h-4 w-4"
                           checked={infoChecked[l.lineId] ?? false}
+                          disabled={readOnly}
                           onChange={() => toggleInfo(l.lineId)}
                         />
                         <span className="truncate">{l.lineName}</span>
@@ -962,6 +1022,7 @@ export default function TeamPartsInfoWeekDetailManager({
                                   className="h-4 w-4"
                                   data-exp-cell={`${team.teamId}:${type}`}
                                   checked={expChecked[team.teamId]?.[type] ?? false}
+                                  disabled={readOnly}
                                   onChange={() => toggleExp(team.teamId, type)}
                                 />
                               </td>
@@ -982,6 +1043,7 @@ export default function TeamPartsInfoWeekDetailManager({
                       className="h-4 w-4"
                       data-competency-checkbox
                       checked={compChecked}
+                      disabled={readOnly}
                       onChange={() => setCompChecked((v) => !v)}
                     />
                     <span>정상 진행</span>
