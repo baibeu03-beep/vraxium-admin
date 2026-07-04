@@ -13,7 +13,7 @@ import {
   PanelLeft,
   PanelLeftClose,
   Sun,
-  TrendingUp,
+  // TrendingUp, // [클럽 진행] 메뉴 비노출로 미사용 — 재활성화 시 함께 주석 해제
   UserPlus,
   Users,
   Workflow,
@@ -139,19 +139,23 @@ const MENU_INTEGRATED: MenuItem[] = [
       { label: "팀 내역", href: "/admin/team-parts/info", exact: true },
       { label: "시즌 내역", href: "/admin/team-parts/info/seasons" },
       { label: "주차 내역", href: "/admin/team-parts/info/weeks" },
-      { label: "팀 & 파트 등록", href: "/admin/team-parts/register" },
+      // [팀 & 파트 등록] 메뉴 비노출(주석 처리) — /admin/team-parts/register 라우트/코드는 유지.
+      //   재활성화하려면 아래 줄의 주석을 해제하세요.
+      // { label: "팀 & 파트 등록", href: "/admin/team-parts/register" },
     ],
   },
-  {
-    kind: "branch",
-    label: "클럽 진행",
-    icon: TrendingUp,
-    basePath: "/admin/club-progress",
-    children: [
-      { label: "주차 내역", href: "/admin/club-progress/weekly" },
-      { label: "시즌 내역", href: "/admin/club-progress/seasons" },
-    ],
-  },
+  // [클럽 진행] 메뉴 비노출(주석 처리) — /admin/club-progress/* 라우트/코드는 유지.
+  //   재활성화하려면 아래 블록의 주석을 해제하세요.
+  // {
+  //   kind: "branch",
+  //   label: "클럽 진행",
+  //   icon: TrendingUp,
+  //   basePath: "/admin/club-progress",
+  //   children: [
+  //     { label: "주차 내역", href: "/admin/club-progress/weekly" },
+  //     { label: "시즌 내역", href: "/admin/club-progress/seasons" },
+  //   ],
+  // },
   {
     kind: "branch",
     label: "크루 활동",
@@ -237,17 +241,18 @@ const MENU_ORG: MenuItem[] = [
       { label: "변동 액트", href: "/admin/processes/check/irregular" },
     ],
   },
-  // 3) 클럽 진행
-  {
-    kind: "branch",
-    label: "클럽 진행",
-    icon: TrendingUp,
-    basePath: "/admin/club-progress",
-    children: [
-      { label: "주차 내역", href: "/admin/club-progress/weekly" },
-      { label: "시즌 내역", href: "/admin/club-progress/seasons" },
-    ],
-  },
+  // 3) 클럽 진행 — 메뉴 비노출(주석 처리). /admin/club-progress/* 라우트/코드는 유지.
+  //   재활성화하려면 아래 블록의 주석을 해제하세요.
+  // {
+  //   kind: "branch",
+  //   label: "클럽 진행",
+  //   icon: TrendingUp,
+  //   basePath: "/admin/club-progress",
+  //   children: [
+  //     { label: "주차 내역", href: "/admin/club-progress/weekly" },
+  //     { label: "시즌 내역", href: "/admin/club-progress/seasons" },
+  //   ],
+  // },
   // 4) 크루 활동 — 크루 관리(해당 조직 목록), 휴식 관리, 커뮤니케이션.
   {
     kind: "branch",
