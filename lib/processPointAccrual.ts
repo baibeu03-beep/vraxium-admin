@@ -5,6 +5,8 @@
 //   정규  : ref_id=process_check_statuses.id, 포인트=process_acts(point_check/advantage/penalty)
 //   변동: ref_id=process_irregular_acts.id,  포인트=point_a/b/c
 //   매핑   : point_check→points / point_advantage→advantages / point_penalty→penalty
+//   ⚠ 정책(2026-07-04): 패널티 Po.C 동시 지급 차단 — 자동 매칭(카페/검수) 이행자는 C 금지,
+//     보상(A/B)과 C 동시 금지(A+C·B+C 불가). 순수 수동 패널티(미발생)만 유지. SoT=resolveEffectivePenalty.
 //   주차   : weeks.iso_year/iso_week (user_weekly_points 키)
 //   대상자 : process_check_review_recipients(source,ref_id,match_type='matched',user_id)
 //
@@ -54,7 +56,28 @@ type AwardInput = {
   pointCheck: number;
   pointAdvantage: number;
   pointPenalty: number;
+  // 자동 매칭 여부 — 카페 링크/검수 완료(worker) 자동 집계면 true(=이행자), 수동 부여면 false.
+  //   이행자(자동 매칭)는 정책상 패널티 Po.C 를 절대 받지 않는다(applyAward 에서 강제).
+  autoMatched: boolean;
 };
+
+// 패널티(Po.C) 지급 정책(2026-07-04) — 순수 함수(단일 SoT, 테스트 용이).
+//   1) 자동 매칭(카페/검수 완료)된 이행자 → 패널티 절대 미지급(C=0). "카페 자동매칭=이행자" 요구.
+//   2) 수동 부여라도 보상(A>0 또는 B>0)과 패널티(C)를 한 사람에게 함께 지급 금지 → C=0.
+//   3) 그 외(수동 부여 + 순수 패널티: A=0,B=0,C>0) → 관리자 명시 '미발생' 패널티이므로 유지.
+export function resolveEffectivePenalty(input: {
+  autoMatched: boolean;
+  pointCheck: number;
+  pointAdvantage: number;
+  pointPenalty: number;
+}): number {
+  const requested = input.pointPenalty ?? 0;
+  if (requested <= 0) return requested;
+  if (input.autoMatched) return 0; // (1) 이행자
+  const hasReward = (input.pointCheck ?? 0) > 0 || (input.pointAdvantage ?? 0) > 0;
+  if (hasReward) return 0; // (2) A+C·B+C 동시 금지
+  return requested; // (3) 순수 패널티(수동 미발생) 유지
+}
 
 export type AccrualResult =
   | { ok: true; accruedUserIds: string[]; skipped?: false }
@@ -141,6 +164,30 @@ async function applyAward(input: AwardInput): Promise<AccrualResult> {
 
   const year = week.iso_year;
   const wk = week.iso_week;
+
+  // ── 정책(2026-07-04): 패널티 Po.C 동시 지급 차단(resolveEffectivePenalty 단일 SoT) ────────
+  //   자동 매칭 이행자 → C 금지 / 보상(A·B)과 C 동시 금지 / 순수 수동 패널티만 유지.
+  //   ⚠ 원장(process_point_awards)에 최종값을 기록한다 — recomputeWeeklyPoints 가 원장 합으로
+  //     user_weekly_points.penalty 를 재계산하므로, 여기서 확정돼야 C 가 되살아나지 않는다.
+  //   모든 경로 공통(신규/재실행/즉시/수동/자동) — applyAward 가 단일 choke point.
+  const effectivePenalty = resolveEffectivePenalty({
+    autoMatched: input.autoMatched,
+    pointCheck: input.pointCheck,
+    pointAdvantage: input.pointAdvantage,
+    pointPenalty: input.pointPenalty,
+  });
+  if ((input.pointPenalty ?? 0) > 0 && effectivePenalty === 0) {
+    console.warn("[accrual] Po.C(penalty) 차단 — 이행자/보상 동시 지급 정책", {
+      source,
+      refId,
+      autoMatched: input.autoMatched,
+      requestedPenalty: input.pointPenalty,
+      pointCheck: input.pointCheck,
+      pointAdvantage: input.pointAdvantage,
+      recipients: userIds.length,
+    });
+  }
+
   // 원장 멱등 upsert(UNIQUE source,ref_id,user_id).
   const ledgerRows = userIds.map((uid) => ({
     source,
@@ -150,7 +197,7 @@ async function applyAward(input: AwardInput): Promise<AccrualResult> {
     week_number: wk,
     point_check: input.pointCheck,
     point_advantage: input.pointAdvantage,
-    point_penalty: input.pointPenalty,
+    point_penalty: effectivePenalty,
     organization_slug: org,
     scope_mode: mode,
     updated_at: new Date().toISOString(),
@@ -263,6 +310,8 @@ export async function accrueForCompletedRegular(statusId: string): Promise<Accru
     pointCheck,
     pointAdvantage,
     pointPenalty,
+    // 검수/worker 완료(completion_type=NULL) = 카페 자동 매칭 이행자. 수동 부여만 false.
+    autoMatched: row.completion_type !== "manual_grant",
   });
 }
 
@@ -270,12 +319,12 @@ export async function accrueForCompletedRegular(statusId: string): Promise<Accru
 export async function accrueForCompletedIrregular(actId: string): Promise<AccrualResult> {
   const { data: act } = await supabaseAdmin
     .from("process_irregular_acts")
-    .select("id,week_id,point_a,point_b,point_c,scope_mode,organization_slug")
+    .select("id,week_id,kind,point_a,point_b,point_c,scope_mode,organization_slug")
     .eq("id", actId)
     .maybeSingle();
   if (!act) return { ok: true, skipped: true, reason: "irregular_not_found", accruedUserIds: [] };
   const row = act as {
-    week_id: string; point_a: number; point_b: number; point_c: number;
+    week_id: string; kind: string | null; point_a: number; point_b: number; point_c: number;
     scope_mode: string | null; organization_slug: string | null;
   };
   const week = await loadWeek(row.week_id);
@@ -289,6 +338,8 @@ export async function accrueForCompletedIrregular(actId: string): Promise<Accrua
     pointCheck: row.point_a ?? 0,
     pointAdvantage: row.point_b ?? 0,
     pointPenalty: row.point_c ?? 0,
+    // 검수 링크(review_request) = 카페 자동 매칭 이행자 → C 금지. 수동 부여(manual_grant)만 false.
+    autoMatched: row.kind !== "manual_grant",
   });
 }
 
