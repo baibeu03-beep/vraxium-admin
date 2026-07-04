@@ -456,7 +456,8 @@ export async function runProcessCheckRowNow(opts: {
     .maybeSingle();
   const finalStatus = finalRow?.status === "completed" ? "completed" : "pending";
   if (source === "regular" && finalStatus === "completed") {
-    await logProcessCheckCompletedForRegular(statusId);
+    // 즉시 검수는 운영자 버튼 클릭 — 완료 로그 actor_name 은 실제 관리자(자동 검수 아님).
+    await logProcessCheckCompletedForRegular(statusId, { adminId: opts.actor ?? null });
   }
 
   // 3) 메시지 code — 모두 체크 완료. 크롤 결과만 구분.

@@ -57,6 +57,7 @@ const PROCESS_CHECK_LOG_CHIP_CLASS: Record<string, string> = {
   check_completed: "border-green-200 bg-green-50 text-green-700",
   check_cancelled: "border-rose-200 bg-rose-50 text-rose-700",
   check_requested: "border-purple-200 bg-purple-50 text-purple-700",
+  check_rolled_back: "border-rose-200 bg-rose-50 text-rose-700",
 };
 
 export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {

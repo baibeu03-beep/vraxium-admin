@@ -110,6 +110,12 @@ function isPartColumnMissing(error: { code?: string } | null): boolean {
   return code === "42703" || code === "PGRST204" || code === "PGRST205";
 }
 
+// process_check_logs.action CHECK 제약 위반(23514 + action 제약명) — 신규 액션값 미확장 신호.
+//   check_rolled_back 이 구 CHECK(3값) 에 걸릴 때 check_cancelled 폴백 판정에 쓴다.
+function isActionCheckConstraint(error: { code?: string; message?: string } | null): boolean {
+  return error?.code === "23514" && /action/i.test(error?.message ?? "");
+}
+
 // v4(part_name) 적용 여부 — true 만 캐시(적용 후 영구). 미적용이면 매번 재탐(저렴·degraded 일시).
 //   미적용 시: 파트별 독립 불가 → 파트 write 는 fail-closed, read 는 파트 미구분(공유)로 degrade.
 let _partColAvailable = false;
@@ -1327,7 +1333,7 @@ async function insertProcessCheckLog(input: {
       if (dn) actorName = dn;
     }
 
-    const base = {
+    const baseFields = {
       organization_slug: input.organization,
       hub: input.hub,
       week_id: input.weekId,
@@ -1335,17 +1341,26 @@ async function insertProcessCheckLog(input: {
       ...(input.teamId || input.teamName ? { team_id: input.teamId, team_name: input.teamName } : {}),
       act_id: input.actId,
       line_group_id: input.lineGroupId,
-      action: input.action,
       period_label: input.periodLabel,
       line_group_name: input.lineGroupName,
       act_name: input.actName,
       actor_name: actorName,
     };
-    // v4 적용 시 part_name(denorm) 포함. 미적용(42703)이면 part_name 없이 재시도(로그 회귀 방지).
-    const withPart = input.teamId ? { ...base, part_name: input.partName } : base;
-    let { error } = await supabaseAdmin.from("process_check_logs").insert(withPart);
-    if (error && isPartColumnMissing(error) && withPart !== base) {
-      ({ error } = await supabaseAdmin.from("process_check_logs").insert(base));
+    // 한 액션값으로 insert 시도 — v4 적용 시 part_name(denorm) 포함. 미적용(42703)이면 part_name 없이 재시도.
+    const attempt = async (action: string) => {
+      const base = { ...baseFields, action };
+      const withPart = input.teamId ? { ...base, part_name: input.partName } : base;
+      let { error } = await supabaseAdmin.from("process_check_logs").insert(withPart);
+      if (error && isPartColumnMissing(error) && withPart !== base) {
+        ({ error } = await supabaseAdmin.from("process_check_logs").insert(base));
+      }
+      return error;
+    };
+    let error = await attempt(input.action);
+    // action CHECK 제약 미확장(check_rolled_back 거부) → check_cancelled 로 폴백(로그 유실 방지).
+    //   2026-07-04_process_check_logs_rollback_action.sql 적용 후에는 정식 값으로 기록된다.
+    if (error && isActionCheckConstraint(error) && input.action === "check_rolled_back") {
+      error = await attempt("check_cancelled");
     }
     if (error) console.warn("[process-check-logs] insert skipped:", error.message);
   } catch (e) {
@@ -1372,124 +1387,209 @@ async function deriveLogPeriodLabel(weekId: string): Promise<string> {
   return processCheckLogPeriodLabel({ year: d.year, seasonName: d.seasonName, weekNumber: d.weekNumber });
 }
 
-// ── 검수 완료(자동) 로그 — 정규 행이 completed 로 "전환되는 순간" 1회 기록 ───────────────
-//   호출처: 검수 sweep(runDueProcessCheckSweep)이 status='pending' 행을 completed 로 전이한 직후.
-//   관리자가 직접 누르는 이벤트가 아니므로 actor_name 은 시스템 라벨(자동 검수)로 남긴다.
+// 정규(regular) 체크 행 1건의 로그 표시 컨텍스트(denorm) — 완료/실행취소 로그가 공유.
 //   표시값(주차/라인급/액트/팀·파트)은 같은 스코프의 check_requested 로그를 그대로 재사용해
-//   "요청-완료" 한 쌍의 텍스트가 로그창에서 일치하게 한다(없으면 마스터/주차에서 파생).
-//   멱등: 같은 (org,hub,week,act,team,part) 스코프에 check_completed 로그가 이미 있으면 재기록 안 함
-//     → 같은 항목을 다시 처리해도(이미 completed) 중복 [체크 완료] 로그가 생기지 않는다.
+//   "요청-완료-실행취소" 문장의 텍스트가 로그창에서 일치하게 한다(없으면 마스터/주차에서 파생).
+type RegularLogContext = {
+  organization: string;
+  hub: ProcessHub;
+  weekId: string;
+  teamId: string | null;
+  teamName: string | null;
+  partName: string | null;
+  actId: string;
+  lineGroupId: string;
+  periodLabel: string;
+  lineGroupName: string;
+  actName: string;
+  status: string;
+};
+
+async function resolveRegularLogContext(statusRowId: string): Promise<RegularLogContext | null> {
+  const partAvail = await partNameColumnAvailable();
+  const sel = partAvail
+    ? "organization_slug,hub,week_id,act_id,line_group_id,team_id,part_name,status"
+    : "organization_slug,hub,week_id,act_id,line_group_id,team_id,status";
+  const { data: rowData, error: rowErr } = await supabaseAdmin
+    .from("process_check_statuses")
+    .select(sel)
+    .eq("id", statusRowId)
+    .maybeSingle();
+  if (rowErr || !rowData) return null;
+  const r = rowData as unknown as {
+    organization_slug: string;
+    hub: string;
+    week_id: string | null;
+    act_id: string;
+    line_group_id: string | null;
+    team_id: string | null;
+    part_name?: string | null;
+    status: string;
+  };
+  if (!r.week_id) return null;
+  const hub = r.hub as ProcessHub;
+  const weekId = r.week_id;
+  const teamId = r.team_id ?? null;
+  const partName = partAvail ? (r.part_name ?? null) : null;
+
+  // 표시값(denorm) — 같은 스코프의 check_requested 로그 재사용(요청-완료 쌍 일관). 없으면 마스터 파생.
+  let reqQ = supabaseAdmin
+    .from("process_check_logs")
+    .select("period_label,line_group_name,act_name")
+    .eq("organization_slug", r.organization_slug)
+    .eq("hub", hub)
+    .eq("week_id", weekId)
+    .eq("act_id", r.act_id)
+    .eq("action", "check_requested");
+  reqQ = teamId ? reqQ.eq("team_id", teamId) : reqQ.is("team_id", null);
+  if (partAvail) reqQ = partName ? reqQ.eq("part_name", partName) : reqQ.is("part_name", null);
+  const { data: reqLog } = await reqQ
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const rl = reqLog as
+    | { period_label: string; line_group_name: string; act_name: string }
+    | null;
+
+  let periodLabel: string;
+  let lineGroupName: string;
+  let actName: string;
+  let lineGroupId = r.line_group_id ?? "";
+  if (rl) {
+    periodLabel = rl.period_label;
+    lineGroupName = rl.line_group_name;
+    actName = rl.act_name;
+  } else {
+    // 폴백 — 요청 로그가 없는 예외 경로. 마스터/주차에서 파생.
+    const { data: actRow } = await supabaseAdmin
+      .from("process_acts")
+      .select("act_name,line_group_id")
+      .eq("id", r.act_id)
+      .maybeSingle();
+    actName = (actRow as { act_name: string } | null)?.act_name ?? "-";
+    lineGroupId = lineGroupId || (actRow as { line_group_id: string } | null)?.line_group_id || "";
+    lineGroupName = "-";
+    if (lineGroupId) {
+      const { data: g } = await supabaseAdmin
+        .from("process_line_groups")
+        .select("name")
+        .eq("id", lineGroupId)
+        .maybeSingle();
+      lineGroupName = (g as { name: string } | null)?.name ?? "-";
+    }
+    periodLabel = await deriveLogPeriodLabel(weekId);
+  }
+
+  const teamName = teamId ? await resolveTeamName(teamId, r.organization_slug) : null;
+
+  return {
+    organization: r.organization_slug,
+    hub,
+    weekId,
+    teamId,
+    teamName,
+    partName,
+    actId: r.act_id,
+    lineGroupId,
+    periodLabel,
+    lineGroupName,
+    actName,
+    status: r.status,
+  };
+}
+
+// ── 검수 완료 로그 — 정규 행이 completed 로 "전환되는 순간" 1회 기록 ──────────────────────
+//   호출처: 자동 sweep(runDueProcessCheckSweep) + 즉시 검수(runProcessCheckRowNow).
+//   행위자(actor_name):
+//     · adminId 지정(운영자가 [즉시 검수] 버튼을 누른 경우) → 그 관리자 display_name.
+//     · adminId 미지정(스케줄러 자동 sweep) → 시스템 라벨 "자동 검수".
+//   멱등(중복 방지) + 재검수 허용: 같은 (org,hub,week,act,team,part) 스코프에서 "가장 최근"의
+//     완료/되돌림 이벤트가 이미 check_completed 면 재기록 안 함(즉시 검수 = sweep→강제완료 두 경로가
+//     모두 이 함수를 호출하므로 첫 기록만 남긴다). 반대로 그 사이 실행 취소(check_rolled_back·미적용
+//     폴백 check_cancelled)가 끼면 최신 이벤트가 되돌림 → 재검수는 새 [체크 완료] 로그로 남긴다.
 //   변동(irregular)은 process_check_logs(허브 기반)를 쓰지 않으므로 정규(source='regular')만 대상.
 //   ⚠ snapshot/user_weekly_points/적립 무접촉 — 로그 1행만. best-effort(실패가 sweep 을 깨지 않음).
-export async function logProcessCheckCompletedForRegular(statusRowId: string): Promise<void> {
+export async function logProcessCheckCompletedForRegular(
+  statusRowId: string,
+  opts: { adminId?: string | null } = {},
+): Promise<void> {
   try {
-    const partAvail = await partNameColumnAvailable();
-    const sel = partAvail
-      ? "organization_slug,hub,week_id,act_id,line_group_id,team_id,part_name,status"
-      : "organization_slug,hub,week_id,act_id,line_group_id,team_id,status";
-    const { data: rowData, error: rowErr } = await supabaseAdmin
-      .from("process_check_statuses")
-      .select(sel)
-      .eq("id", statusRowId)
-      .maybeSingle();
-    if (rowErr || !rowData) return;
-    const r = rowData as unknown as {
-      organization_slug: string;
-      hub: string;
-      week_id: string | null;
-      act_id: string;
-      line_group_id: string | null;
-      team_id: string | null;
-      part_name?: string | null;
-      status: string;
-    };
-    if (r.status !== "completed" || !r.week_id) return; // 실제 completed 전환 행만(방어).
-    const hub = r.hub as ProcessHub;
-    const weekId = r.week_id;
-    const teamId = r.team_id ?? null;
-    const partName = partAvail ? (r.part_name ?? null) : null;
+    const ctx = await resolveRegularLogContext(statusRowId);
+    if (!ctx) return;
+    if (ctx.status !== "completed") return; // 실제 completed 전환 행만(방어).
 
-    // 멱등 가드 — 같은 스코프에 check_completed 로그가 이미 있으면 재기록 안 함(중복 방지).
+    // 멱등 가드 — 스코프의 완료/되돌림 이벤트 중 "최신"이 check_completed 면 재기록 안 함.
+    //   되돌림(check_rolled_back 또는 폴백 check_cancelled)이 마지막이면 재검수 → 새 완료 로그 허용.
     let dupQ = supabaseAdmin
       .from("process_check_logs")
-      .select("id")
-      .eq("organization_slug", r.organization_slug)
-      .eq("hub", hub)
-      .eq("week_id", weekId)
-      .eq("act_id", r.act_id)
-      .eq("action", "check_completed");
-    dupQ = teamId ? dupQ.eq("team_id", teamId) : dupQ.is("team_id", null);
-    if (partAvail) dupQ = partName ? dupQ.eq("part_name", partName) : dupQ.is("part_name", null);
-    const { data: dup, error: dupErr } = await dupQ.limit(1);
-    if (!dupErr && dup && dup.length > 0) return; // 이미 [체크 완료] 기록됨.
-
-    // 표시값(denorm) — 같은 스코프의 check_requested 로그 재사용(요청-완료 쌍 일관). 없으면 마스터 파생.
-    let reqQ = supabaseAdmin
-      .from("process_check_logs")
-      .select("period_label,line_group_name,act_name")
-      .eq("organization_slug", r.organization_slug)
-      .eq("hub", hub)
-      .eq("week_id", weekId)
-      .eq("act_id", r.act_id)
-      .eq("action", "check_requested");
-    reqQ = teamId ? reqQ.eq("team_id", teamId) : reqQ.is("team_id", null);
-    if (partAvail) reqQ = partName ? reqQ.eq("part_name", partName) : reqQ.is("part_name", null);
-    const { data: reqLog } = await reqQ
+      .select("action,created_at")
+      .eq("organization_slug", ctx.organization)
+      .eq("hub", ctx.hub)
+      .eq("week_id", ctx.weekId)
+      .eq("act_id", ctx.actId)
+      .in("action", ["check_completed", "check_rolled_back", "check_cancelled"]);
+    dupQ = ctx.teamId ? dupQ.eq("team_id", ctx.teamId) : dupQ.is("team_id", null);
+    if (await partNameColumnAvailable()) {
+      dupQ = ctx.partName ? dupQ.eq("part_name", ctx.partName) : dupQ.is("part_name", null);
+    }
+    const { data: dup, error: dupErr } = await dupQ
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const rl = reqLog as
-      | { period_label: string; line_group_name: string; act_name: string }
-      | null;
-
-    let periodLabel: string;
-    let lineGroupName: string;
-    let actName: string;
-    let lineGroupId = r.line_group_id ?? "";
-    if (rl) {
-      periodLabel = rl.period_label;
-      lineGroupName = rl.line_group_name;
-      actName = rl.act_name;
-    } else {
-      // 폴백 — 요청 로그가 없는 예외 경로. 마스터/주차에서 파생.
-      const { data: actRow } = await supabaseAdmin
-        .from("process_acts")
-        .select("act_name,line_group_id")
-        .eq("id", r.act_id)
-        .maybeSingle();
-      actName = (actRow as { act_name: string } | null)?.act_name ?? "-";
-      lineGroupId = lineGroupId || (actRow as { line_group_id: string } | null)?.line_group_id || "";
-      lineGroupName = "-";
-      if (lineGroupId) {
-        const { data: g } = await supabaseAdmin
-          .from("process_line_groups")
-          .select("name")
-          .eq("id", lineGroupId)
-          .maybeSingle();
-        lineGroupName = (g as { name: string } | null)?.name ?? "-";
-      }
-      periodLabel = await deriveLogPeriodLabel(weekId);
+      .limit(1);
+    if (!dupErr && dup && dup.length > 0 && (dup[0] as { action: string }).action === "check_completed") {
+      return; // 최신 이벤트가 완료 → 이미 [체크 완료] 기록됨(중복 방지).
     }
 
-    const teamName = teamId ? await resolveTeamName(teamId, r.organization_slug) : null;
-
+    const adminId = opts.adminId?.trim() || null;
     await insertProcessCheckLog({
-      organization: r.organization_slug,
-      hub,
-      weekId,
-      teamId,
-      teamName,
-      partName,
-      actId: r.act_id,
-      lineGroupId,
+      organization: ctx.organization,
+      hub: ctx.hub,
+      weekId: ctx.weekId,
+      teamId: ctx.teamId,
+      teamName: ctx.teamName,
+      partName: ctx.partName,
+      actId: ctx.actId,
+      lineGroupId: ctx.lineGroupId,
       action: "check_completed",
-      periodLabel,
-      lineGroupName,
-      actName,
-      actorName: PROCESS_CHECK_AUTO_ACTOR,
+      periodLabel: ctx.periodLabel,
+      lineGroupName: ctx.lineGroupName,
+      actName: ctx.actName,
+      // 관리자 버튼(즉시 검수) → 관리자 이름 · 자동 sweep → "자동 검수".
+      ...(adminId ? { adminId } : { actorName: PROCESS_CHECK_AUTO_ACTOR }),
     });
   } catch (e) {
-    console.warn("[process-check-logs] auto-complete log failed:", e instanceof Error ? e.message : e);
+    console.warn("[process-check-logs] complete log failed:", e instanceof Error ? e.message : e);
+  }
+}
+
+// ── 실행 취소(↩) 로그 — 정규 행이 completed→pending 으로 되돌려질 때 1회 기록 ─────────────
+//   호출처: rollbackProcessCheckCompletion(실행 취소 API). 관리자 버튼 이벤트이므로 adminId 필수 —
+//   actor_name 은 그 관리자 display_name(자동 검수 아님). 멱등 dedup 없음(취소는 매번 별도 이벤트로
+//   시간순 누적). 표시값(denorm)은 완료 로그와 동일 컨텍스트 재사용 → 요청-완료-실행취소 문장 일치.
+//   ⚠ 로그 1행만 — 포인트 회수/snapshot 재계산은 rollback lib 이 담당. best-effort(로그 실패가 취소를 안 깸).
+export async function logProcessCheckRolledBackForRegular(
+  statusRowId: string,
+  opts: { adminId?: string | null } = {},
+): Promise<void> {
+  try {
+    const ctx = await resolveRegularLogContext(statusRowId);
+    if (!ctx) return;
+    await insertProcessCheckLog({
+      organization: ctx.organization,
+      hub: ctx.hub,
+      weekId: ctx.weekId,
+      teamId: ctx.teamId,
+      teamName: ctx.teamName,
+      partName: ctx.partName,
+      actId: ctx.actId,
+      lineGroupId: ctx.lineGroupId,
+      action: "check_rolled_back",
+      periodLabel: ctx.periodLabel,
+      lineGroupName: ctx.lineGroupName,
+      actName: ctx.actName,
+      adminId: opts.adminId?.trim() || null,
+    });
+  } catch (e) {
+    console.warn("[process-check-logs] rollback log failed:", e instanceof Error ? e.message : e);
   }
 }
 

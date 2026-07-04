@@ -32,15 +32,21 @@ export function processCheckButtonClass(s: ProcessCheckStatus): string {
 }
 
 // ── 체크 행동(로그) ───────────────────────────────────────────────────────────
-export type ProcessCheckLogAction = "check_requested" | "check_cancelled" | "check_completed";
+//   check_rolled_back = ↩ 실행 취소(완료→대기 되돌림). 관리자 버튼 이벤트 — actor_name=관리자 이름.
+export type ProcessCheckLogAction =
+  | "check_requested"
+  | "check_cancelled"
+  | "check_completed"
+  | "check_rolled_back";
 export const PROCESS_CHECK_LOG_ACTION_LABEL: Record<ProcessCheckLogAction, string> = {
   check_requested: "체크 신청",
   check_cancelled: "체크 취소",
   check_completed: "체크 완료",
+  check_rolled_back: "실행 취소",
 };
 export function processCheckLogActionClass(a: ProcessCheckLogAction): string {
   if (a === "check_completed") return "text-green-700";
-  if (a === "check_cancelled") return "text-rose-700";
+  if (a === "check_cancelled" || a === "check_rolled_back") return "text-rose-700";
   return "text-purple-700"; // check_requested
 }
 

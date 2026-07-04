@@ -18,6 +18,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { revokeForAct } from "@/lib/processPointAccrual";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { logProcessCheckRolledBackForRegular } from "@/lib/adminProcessCheckData";
 
 export type ProcessCheckRollbackResult = {
   ok: boolean;
@@ -76,6 +77,10 @@ export async function rollbackProcessCheckCompletion(opts: {
     const rc = await recomputeWeeklyCardsSnapshotsForUsers(revokedUserIds, { concurrency: 4 });
     recompute = { requested: rc.requested, recomputed: rc.recomputed, failed: rc.failed };
   }
+
+  // 5) 실행 취소 로그 — 상태창(로그)에 "실행 취소 · 관리자 이름" 을 시간순 기록. 실제 completed→pending
+  //   전이가 일어난 이 경로에서만(위 early-return 은 no-op → 미기록). best-effort(로그 실패가 취소를 안 깸).
+  await logProcessCheckRolledBackForRegular(statusId, { adminId: opts.actor ?? null });
 
   return { ok: true, status: "pending", statusId, scopeMode, revokedUserIds, recipientsDeleted, recompute };
 }

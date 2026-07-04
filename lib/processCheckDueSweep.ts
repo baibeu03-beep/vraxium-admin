@@ -316,7 +316,9 @@ export async function runDueProcessCheckSweep(opts: {
       //   변동(irregular)은 process_check_logs(허브 기반) 미사용 → 정규만. best-effort(로그 실패가 완료를 안 깸).
       if (item.source === "regular") {
         try {
-          await logProcessCheckCompletedForRegular(item.id);
+          // 운영자가 [즉시 검수]를 눌러 태운 sweep 이면 actor=관리자 이름, 자동 스케줄이면 opts.actor
+          //   미지정 → 완료 로그가 "자동 검수" 라벨로 남는다(runProcessCheckRowNow 만 actor 전달).
+          await logProcessCheckCompletedForRegular(item.id, { adminId: opts.actor ?? null });
         } catch (logErr) {
           log(`  ↳ 완료 로그 실패(격리) ${item.id}: ${String((logErr as Error)?.message ?? logErr).slice(0, 200)}`);
         }
