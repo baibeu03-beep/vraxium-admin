@@ -55,7 +55,7 @@ export default function ProcessCheckProgress({
             </div>
           )}
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1 border-t border-border pt-4">
           <p className="text-sm">
             이번 주 체크 필요 [액트] 프로세스 <Red>{summary.actTotal}</Red>개 중{" "}
             <Red>{summary.actApplied}</Red>개 체크 신청 완료

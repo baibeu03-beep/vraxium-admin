@@ -29,7 +29,6 @@ import {
   formatCheckTodayCompact,
   isSelectionActType,
   isTeamBasedProcessHub,
-  processCheckLogActionClass,
   type ProcessCheckActRowDto,
   type ProcessCheckBoardDto,
   type ProcessCheckScopeKind,
@@ -43,9 +42,22 @@ function Red({ children }: { children: React.ReactNode }) {
 }
 
 // 어드민 공통 섹션 타이틀 — 모든 허브(info/experience/competency/club)가 공유.
+//   좌측 액센트 바로 섹션 경계를 명확히(디자인 톤 정리 — 데이터/구조 무변).
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="mb-2 text-base font-semibold tracking-tight text-foreground">{children}</h2>;
+  return (
+    <h2 className="mt-1 mb-3 flex items-center gap-2 text-base font-semibold tracking-tight text-foreground">
+      <span aria-hidden className="h-4 w-1 rounded-full bg-primary" />
+      {children}
+    </h2>
+  );
 }
+
+// 로그창 액션 칩 — text-color(processCheckLogActionClass)와 동일 의미의 배경/테두리 매핑(가독성↑).
+const PROCESS_CHECK_LOG_CHIP_CLASS: Record<string, string> = {
+  check_completed: "border-green-200 bg-green-50 text-green-700",
+  check_cancelled: "border-rose-200 bg-rose-50 text-rose-700",
+  check_requested: "border-purple-200 bg-purple-50 text-purple-700",
+};
 
 export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   const hubLabel = PROCESS_HUB_LABEL[hub];
@@ -348,7 +360,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
             <CardTitle className="text-base">상태창</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <p>
+            <p className="rounded-md border border-border bg-muted/40 px-3 py-2">
               오늘은 <Red>{formatCheckTodayCompact(today)}</Red>
               이며, 이번 주는 [<Red>{periodLabel}</Red>] 입니다. (월 ~ 일)
             </p>
@@ -410,21 +422,34 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">로그창</CardTitle>
           </CardHeader>
-          <CardContent ref={logScrollRef} className="max-h-72 flex-1 space-y-1.5 overflow-y-auto text-sm">
+          <CardContent
+            ref={logScrollRef}
+            className="max-h-72 flex-1 space-y-0.5 overflow-y-auto text-sm"
+          >
             {loading ? (
               <LoadingState active variant="inline" />
             ) : logs.length === 0 ? (
               <p className="text-muted-foreground">아직 기록된 체크 로그가 없습니다.</p>
             ) : (
               logs.map((l) => (
-                <p key={l.id} className="text-xs leading-relaxed">
-                  <span className={cn("font-semibold", processCheckLogActionClass(l.action))}>
-                    [{PROCESS_CHECK_LOG_ACTION_LABEL[l.action]}]
-                  </span>{" "}
-                  [{l.periodLabel}]
-                  {l.teamName ? ` - ${l.teamName} 팀${l.partName ? ` · ${l.partName}` : ""} -` : ""}{" "}
-                  [{l.lineGroupName}] {l.actName} - {l.actorName} 님 - {formatLogDateTime(l.createdAt)}
-                </p>
+                <div
+                  key={l.id}
+                  className="flex items-start gap-1.5 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/40"
+                >
+                  <span
+                    className={cn(
+                      "mt-0.5 inline-flex shrink-0 items-center rounded border px-1.5 py-0.5 text-[11px] font-semibold",
+                      PROCESS_CHECK_LOG_CHIP_CLASS[l.action],
+                    )}
+                  >
+                    {PROCESS_CHECK_LOG_ACTION_LABEL[l.action]}
+                  </span>
+                  <span className="text-xs leading-relaxed text-foreground/80">
+                    [{l.periodLabel}]
+                    {l.teamName ? ` - ${l.teamName} 팀${l.partName ? ` · ${l.partName}` : ""} -` : ""}{" "}
+                    [{l.lineGroupName}] {l.actName} - {l.actorName} 님 - {formatLogDateTime(l.createdAt)}
+                  </span>
+                </div>
               ))
             )}
           </CardContent>
