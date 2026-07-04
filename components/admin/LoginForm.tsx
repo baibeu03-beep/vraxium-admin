@@ -64,6 +64,13 @@ function describeCallbackParams(params: URLSearchParams): {
     return { kind: "error", message: error };
   }
 
+  if (params.get("reason") === "idle") {
+    return {
+      kind: "info",
+      message: "장시간 미사용으로 자동 로그아웃되었습니다. 다시 로그인해주세요.",
+    };
+  }
+
   if (params.get("pending") === "1") {
     return {
       kind: "info",

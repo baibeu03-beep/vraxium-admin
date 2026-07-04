@@ -5,6 +5,7 @@ import GlobalLoadingBanner from "@/components/admin/GlobalLoadingBanner";
 import { LoadingBannerProvider } from "@/components/admin/loadingBannerContext";
 import { SidebarProvider } from "@/components/admin/sidebarContext";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
+import AdminSessionProvider from "@/components/admin/AdminSessionProvider";
 import { requireAdminPage } from "@/lib/adminAuth";
 import { loadAdminDisplayName } from "@/lib/adminMe";
 import { AdminModeProvider } from "@/components/admin/AdminModeProvider";
@@ -22,6 +23,9 @@ export default async function PortalLayout({
   return (
     <Suspense fallback={null}>
       <AdminModeProvider>
+        {/* 표준 쿠키 세션 관리(단일 SoT): 미사용 자동 로그아웃 + 탭 간 즉시 로그아웃 +
+            헤더 카운트다운 공급. Header 가 소비할 수 있도록 하위 트리를 감싼다. */}
+        <AdminSessionProvider>
         <SidebarProvider>
       {/* 데이터가 바뀌는 버튼(초기화/저장/완료/삭제/닫기)에 공통 확인 UI 제공 */}
       <ConfirmProvider>
@@ -50,6 +54,7 @@ export default async function PortalLayout({
         </LoadingBannerProvider>
       </ConfirmProvider>
         </SidebarProvider>
+        </AdminSessionProvider>
       </AdminModeProvider>
     </Suspense>
   );

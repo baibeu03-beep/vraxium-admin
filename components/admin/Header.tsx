@@ -7,6 +7,7 @@ import {
   toggleDevQuery,
   useAdminDevMode,
 } from "@/components/admin/useAdminDevMode";
+import SessionCountdown from "@/components/admin/SessionCountdown";
 import { cn } from "@/lib/utils";
 
 // 개발자 표시 토글 버튼 노출 여부.
@@ -38,6 +39,9 @@ export default function Header({
     // 페이지 레이아웃에 포함되므로, 로그아웃 클릭 시에만 동적 import 로 SDK 를 불러온다.
     const { getSupabaseBrowserClient } = await import("@/lib/supabaseBrowser");
     await getSupabaseBrowserClient().auth.signOut();
+    // 다른 모든 탭/창도 즉시 로그아웃 화면으로 보낸다(공유 쿠키는 이미 위 signOut 으로 제거됨).
+    const { postAdminLogout } = await import("@/lib/adminAuthChannel");
+    postAdminLogout();
     router.push("/login");
     router.refresh();
   };
@@ -51,11 +55,12 @@ export default function Header({
   };
 
   // 관리자 정보 + 로그아웃: 헤더 우측에 세로 배치로 노출(테마 전환은 사이드바 하단으로 이동).
-  // 1행: [로그아웃] 버튼 / 2행: 환영 문구 / 3행: 이름 | 이메일.
-  // 이 3행 콘텐츠가 상단 바 높이(h-24)의 기준 — HOME 영역이 이 높이에 맞춰 늘어난다.
+  // 1행: [로그아웃] 버튼 / 2행: 환영 문구 / 3행: 이름 | 이메일 / 4행: 자동 로그아웃 카운트다운.
+  // 이 4행 콘텐츠가 상단 바 높이(h-28)의 기준 — HOME 영역이 이 높이에 맞춰 늘어난다.
+  // justify-center 로 블록 전체를 헤더 내부에서 세로 중앙 정렬(위/아래 여백 균등 → border 안 겹침).
   const userArea = (
     // min-w-0(shrink-0 제거): 좁은 폭에서 고정폭 대신 이름/이메일 줄만 truncate 되도록
-    <div className="flex min-w-0 flex-col items-end gap-0.5">
+    <div className="flex min-w-0 flex-col items-end justify-center gap-1.5">
       <Button
         type="button"
         variant="ghost"
@@ -63,15 +68,16 @@ export default function Header({
         onClick={handleLogout}
         aria-label="로그아웃"
         title="로그아웃"
-        className="mb-2 shrink-0 font-semibold text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
+        // 표준 size(h-8)·items-center 유지 — 헤더 높이가 4행을 담으므로 글자 잘림 없음.
+        className="shrink-0 font-semibold text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
       >
         <LogOut className="h-4 w-4" />
         로그아웃
       </Button>
-      {/* 환영 문구 + 이름/이메일 두 줄은 같은 컨테이너에서 left-aligned —
-          줄 길이가 달라도 왼쪽 시작 x좌표가 항상 일치한다. */}
-      <div className="flex w-full min-w-0 flex-col items-start gap-0.5 text-left">
-        <span className="text-sm font-medium text-foreground">
+      {/* 환영 문구 + 이름/이메일 + 카운트다운은 같은 컨테이너에서 left-aligned —
+          줄 길이가 달라도 왼쪽 시작 x좌표가 항상 일치한다. leading-tight 로 줄 간격 정돈. */}
+      <div className="flex w-full min-w-0 flex-col items-start gap-0.5 text-left leading-tight">
+        <span className="whitespace-nowrap text-sm font-medium text-foreground">
           반갑습니다! 😊
         </span>
         <span
@@ -81,15 +87,19 @@ export default function Header({
           {(adminDisplayName ?? "관리자") + " 님"}
           {adminEmail ? ` | ${adminEmail}` : ""}
         </span>
+        {/* 자동 로그아웃 카운트다운 — 실제 로그아웃 타이머와 동일 SoT(AdminSessionProvider).
+            mt-0.5 로 이메일 줄과 살짝 띄우고, 상단 헤더의 세로 중앙 정렬 여백이 하단 border 와의 간격을 확보. */}
+        <SessionCountdown className="mt-0.5" />
       </div>
     </div>
   );
 
   // 페이지 제목(h1)은 글로벌 헤더에서 제거 — 본문 제목이 단일 소스. 헤더는 우측 사용자
   // 영역만 담당하므로 모든 페이지(HOME 포함)에서 동일하게 justify-end 로 정렬한다.
-  // 고정 h-24 — 사이드바 상단 HOME 영역과 동일 높이(기준=Header, HOME 이 여기에 맞춰 늘어남).
+  // 고정 h-32 — 4행 사용자 정보(로그아웃/환영/이름·이메일/카운트다운)가 잘리지 않고
+  //   하단 border 와 여유(약 7px)가 생기는 높이. 사이드바 HOME 영역과 동일 높이(기준=Header).
   return (
-    <header className="flex h-24 items-center justify-end gap-3 border-b border-border bg-background px-4 sm:gap-4 sm:px-6">
+    <header className="flex h-32 items-center justify-end gap-3 border-b border-border bg-background px-4 sm:gap-4 sm:px-6">
       {/* min-w-0(shrink-0 제거): 좁은 폭에서 userArea 의 이메일 줄이 truncate 되며 함께 줄어든다 */}
       <div className="flex min-w-0 items-center gap-2">
         {/* 개발자 표시 토글 — SHOW_DEV_TOGGLE=false 로 화면에서만 숨김 (기능/로직 유지) */}

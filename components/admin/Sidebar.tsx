@@ -468,9 +468,9 @@ export default function Sidebar() {
     >
       <div
         className={cn(
-          // h-28: 우측 Header 와 동일 높이(기준=Header). HOME 영역이 Header 높이에 맞춰 늘어나
+          // h-32: 우측 Header 와 동일 높이(기준=Header). HOME 영역이 Header 높이에 맞춰 늘어나
           // 상단 바가 좌우 하나로 정렬된다.
-          "flex h-28 shrink-0 items-center border-b border-sidebar-border",
+          "flex h-32 shrink-0 items-center border-b border-sidebar-border",
           sidebarOpen ? "justify-between px-4" : "justify-center px-0",
         )}
       >
