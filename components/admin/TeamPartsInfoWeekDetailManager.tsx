@@ -969,17 +969,12 @@ export default function TeamPartsInfoWeekDetailManager({
                 >
                   {reviewed ? "검수 완료" : reviewing ? "검수 중…" : "주차 검수"}
                 </Button>
-                {/* 공용 수동 실행 — 기존 버튼 옆에 ⚡ 즉시 실행 / ↩ 실행 취소(검수 실행 직전 복원) 추가. */}
+                {/* 공용 수동 실행 — 기존 [주차 검수] 버튼이 이미 즉시 실행 역할을 하므로(중복 방지)
+                    ⚡ 즉시 실행은 두지 않고, 옆에 ↩ 실행 취소(검수 실행 직전 복원)만 추가한다. */}
                 {!readOnly && (
                   <div data-ac-week-review>
                     <ActionControl
-                      onInstant={onReview}
-                      instantBusy={reviewing}
-                      instantDisabled={reviewed}
-                      instantDisabledReason="이미 주차 검수(확정)된 주차입니다."
-                      instantConfirmDescription={
-                        "이 작업은 현재 주차의 활동 결과를 확정합니다.\n실행하면 성장 성공/실패와 고객 앱 화면에 즉시 반영됩니다.\n정말 실행하시겠습니까?"
-                      }
+                      hideInstant
                       onRollback={onReviewRevert}
                       rollbackBusy={reverting}
                       rollbackClass={ACTION_CONTROL_REGISTRY.weekResultPublish.rollback.class}
@@ -1027,12 +1022,12 @@ export default function TeamPartsInfoWeekDetailManager({
                   >
                     {confirming ? "저장 중…" : "오픈 확인"}
                   </Button>
-                  {/* 공용 수동 실행 — 기존 버튼 옆에 ⚡ 즉시 실행 / ↩ 실행 취소(직전 단계 복원)를 추가. */}
+                  {/* 공용 수동 실행 — 기존 [오픈 확인] 버튼이 이미 즉시 실행 역할을 하므로(중복 방지)
+                      ⚡ 즉시 실행은 두지 않고, 옆에 ↩ 실행 취소(직전 단계 복원)만 추가한다. */}
                   {!readOnly && (
                     <div data-ac-open-confirm>
                       <ActionControl
-                        onInstant={onOpenConfirm}
-                        instantBusy={confirming}
+                        hideInstant
                         onRollback={onOpenConfirmRevert}
                         rollbackClass={ACTION_CONTROL_REGISTRY.weekOpenConfirm.rollback.class}
                         rollbackDisabled={!openConfirmed}

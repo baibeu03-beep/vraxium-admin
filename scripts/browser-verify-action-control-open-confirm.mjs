@@ -1,7 +1,8 @@
-// 브라우저(인증 세션) 검증 — Action Control Batch 1: 오픈 확인 ⚡ 즉시 실행 / ↩ 실행 취소.
-//   1) 상세 페이지에 ⚡ "즉시 실행" · ↩ "실행 취소" 버튼 렌더
+// 브라우저(인증 세션) 검증 — Action Control: 오픈 확인 ↩ 실행 취소(⚡ 즉시 실행은 제거됨).
+//   기존 [오픈 확인] 버튼이 이미 즉시 실행 역할이므로 ⚡ 중복 버튼은 두지 않고 ↩ 만 추가.
+//   1) 상세 페이지: 기존 [오픈 확인] 버튼 유지 · ⚡ "즉시 실행" 미노출 · ↩ "실행 취소" 렌더
 //   2) 최초(미확인) 시 ↩ 비활성(아직 되돌릴 것 없음)
-//   3) ⚡ 클릭 → 오픈 확인 완료(badge) + ↩ 활성화
+//   3) 기존 [오픈 확인] 클릭 → 오픈 확인 완료(badge) + ↩ 활성화
 //   4) ↩ 클릭 → 운영 확인 모달 필수 → 확인 → '오픈 확인 전' 복귀(badge 사라짐)
 //   5) snapshot 무변경 · 원본 상태 복원
 // 사용법: SMOKE_BASE_URL=http://localhost:3000 node scripts/browser-verify-action-control-open-confirm.mjs
@@ -56,6 +57,15 @@ async function readRow(weekId) {
 const browser = await chromium.launch({ channel: "chromium", headless: true });
 const context = await browser.newContext();
 await context.addCookies(await makeAdminCookies());
+// 창 단위 어드민 세션(WindowSessionGuard) 통과 — 로그인 때 심어지는 wsid + 신선한 heartbeat 를
+//   각 네비게이션 직전에 주입(addInitScript 는 매 로드마다 실행 → beat 는 항상 STALE_MS 이내).
+const WSID = "verify-" + Date.now().toString(36);
+await context.addInitScript((wsid) => {
+  try {
+    sessionStorage.setItem("admin.window.wsid", wsid);
+    localStorage.setItem("admin.window.beat:" + wsid, String(Date.now()));
+  } catch {}
+}, WSID);
 const page = await context.newPage();
 
 let weekId = null, orig = null;
@@ -85,22 +95,22 @@ try {
   await origBtn.first().waitFor({ timeout: 15000 });
   check("기존 '오픈 확인' 버튼 유지(라벨 불변)", (await origBtn.first().innerText()).includes("오픈 확인"));
 
-  // 공용 ⚡/↩ 는 기존 버튼 옆에 추가된 별도 컨트롤.
+  // 공용 컨트롤은 기존 버튼 옆에 ↩ 실행 취소만 추가(⚡ 즉시 실행은 제거 — 중복 방지).
   const scope = page.locator('[data-ac-open-confirm]');
   await scope.first().waitFor({ timeout: 15000 });
   const instantBtn = scope.getByRole("button", { name: /즉시 실행/ });
   const rollbackBtn = scope.getByRole("button", { name: /실행 취소/ });
-  check("⚡ '즉시 실행' 버튼 추가 렌더", await instantBtn.count() > 0);
+  check("⚡ '즉시 실행' 버튼 미노출(제거됨)", await instantBtn.count() === 0);
   check("↩ '실행 취소' 버튼 추가 렌더", await rollbackBtn.count() > 0);
   check("최초(미확인) ↩ 비활성", await rollbackBtn.first().isDisabled());
 
-  // ⚡ 즉시 실행(추가 버튼) → 오픈 확인 완료.
-  await instantBtn.first().click();
+  // 실행은 기존 [오픈 확인] 버튼으로 → 오픈 확인 완료.
+  await origBtn.first().click();
   await page.locator('[data-open-confirmed="true"]').first().waitFor({ timeout: 15000 });
-  check("⚡ 실행 후 오픈 확인 완료 badge 표시", await page.locator('[data-open-confirmed="true"]').count() > 0);
+  check("기존 [오픈 확인] 실행 후 오픈 확인 완료 badge 표시", await page.locator('[data-open-confirmed="true"]').count() > 0);
   const rowAfterConfirm = await readRow(weekId);
-  check("⚡ 실행 후 DB open_confirmed=true", rowAfterConfirm?.open_confirmed === true);
-  check("⚡ 실행 후 ↩ 활성화", !(await rollbackBtn.first().isDisabled()));
+  check("실행 후 DB open_confirmed=true", rowAfterConfirm?.open_confirmed === true);
+  check("실행 후 ↩ 활성화", !(await rollbackBtn.first().isDisabled()));
 
   // ↩ 실행 취소 → 운영 확인 모달 필수 → 확인.
   await rollbackBtn.first().click();

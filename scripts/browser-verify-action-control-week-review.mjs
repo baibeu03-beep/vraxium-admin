@@ -1,5 +1,5 @@
-// 브라우저 검증 — 주차 검수(team-parts) ⚡/↩ additive. 실제 확정/취소 없이(모달 취소+가로채기) 배선·문구만.
-//   /admin/team-parts/info/weeks/[weekId]?club=encre 의 기존 [주차 검수] 버튼 옆 ⚡ 즉시 실행 / ↩ 실행 취소.
+// 브라우저 검증 — 주차 검수(team-parts) ↩ additive. 실제 확정/취소 없이(모달 취소+가로채기) 배선·문구만.
+//   /admin/team-parts/info/weeks/[weekId]?club=encre 의 기존 [주차 검수] 버튼 옆 ↩ 실행 취소만(⚡ 제거).
 // 사용법: SMOKE_BASE_URL=http://localhost:3000 node scripts/browser-verify-action-control-week-review.mjs
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
@@ -24,6 +24,14 @@ const ck = (l, ok, d = "") => { console.log(`  ${ok ? "✓" : "✗"} ${l}${d ? `
 const br = await chromium.launch({ channel: "chromium", headless: true });
 const ctx = await br.newContext({ viewport: { width: 1400, height: 1400 } });
 await ctx.addCookies(await cookies());
+// 창 단위 어드민 세션(WindowSessionGuard) 통과 — wsid + 신선한 heartbeat 를 각 로드 직전 주입.
+const WSID = "verify-" + Date.now().toString(36);
+await ctx.addInitScript((wsid) => {
+  try {
+    sessionStorage.setItem("admin.window.wsid", wsid);
+    localStorage.setItem("admin.window.beat:" + wsid, String(Date.now()));
+  } catch {}
+}, WSID);
 const page = await ctx.newPage();
 const captured = [];
 // review POST/DELETE 가로채 실제 실행 차단(모달 취소하면 애초에 안 감; 이중 안전).
@@ -43,29 +51,20 @@ try {
   ck("주차 상세 렌더(에러 없음)", !/Application error|Unhandled Runtime/i.test(bodyText));
   // 기존 [주차 검수] 버튼 유지.
   ck("기존 [주차 검수] 버튼 유지", (await page.locator("[data-review-button]").count()) > 0);
-  // 공용 ⚡/↩ 추가.
+  // 공용 컨트롤은 ↩ 실행 취소만 추가(⚡ 즉시 실행 제거 — 기존 버튼이 즉시 실행 역할).
   const ac = page.locator("[data-ac-week-review]");
   await ac.first().waitFor({ timeout: 10000 });
   const zap = ac.getByRole("button", { name: /즉시 실행/ });
   const undo = ac.getByRole("button", { name: /실행 취소/ });
-  ck("⚡ '즉시 실행' 추가 렌더", (await zap.count()) > 0);
+  ck("⚡ '즉시 실행' 미노출(제거됨)", (await zap.count()) === 0);
   ck("↩ '실행 취소' 추가 렌더", (await undo.count()) > 0);
 
-  // ⚡ 확인 모달(지정 문구) → 취소(확정 안 함).
+  // 상태별 ↩ 활성/비활성 — 미확정=비활성(+사유), 확정=활성. 실제 확정은 기존 버튼/HTTP 로 검증.
   const reviewedAlready = await page.locator('[data-reviewed="true"]').count() > 0;
-  if (!reviewedAlready && !(await zap.first().isDisabled())) {
-    await zap.first().click();
-    const dlg = page.locator('[role="alertdialog"]');
-    await dlg.waitFor({ timeout: 8000 });
-    const t = await dlg.innerText();
-    ck("⚡ 확인 모달 지정 문구", t.includes("현재 주차의 활동 결과를 확정합니다") && t.includes("성장 성공/실패") && t.includes("정말 실행하시겠습니까"), t.replace(/\s+/g, " ").slice(0, 50));
-    ck("⚡ 확인 버튼 '⚡ 즉시 실행'", (await dlg.getByRole("button").allInnerTexts()).some(x => x.includes("⚡") && x.includes("즉시 실행")));
-    await dlg.getByRole("button", { name: "취소" }).click();
-    ck("모달 취소 → 검수 미실행(POST 없음)", !captured.includes("POST"));
-    // 미확정 상태면 ↩ 비활성 + 사유.
+  if (!reviewedAlready) {
     ck("미확정 시 ↩ 비활성(사유 tooltip)", await undo.first().isDisabled() && ((await undo.first().getAttribute("title"))?.includes("확정") ?? false));
   } else {
-    console.log("  · 이미 검수 완료 상태 → ↩ 활성; ⚡ 비활성(정상). 반대 상태는 direct/HTTP 로 검증.");
+    console.log("  · 이미 검수 완료 상태 → ↩ 활성(정상). 반대 상태는 direct/HTTP 로 검증.");
     ck("검수 완료 시 ↩ 활성", !(await undo.first().isDisabled()));
   }
 } catch (e) { ck("예외 없음", false, String(e?.message ?? e).slice(0, 160)); }
