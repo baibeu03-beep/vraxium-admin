@@ -132,20 +132,27 @@ export const ACTION_CONTROL_REGISTRY = {
     },
   },
 
-  // ⚠️ 비정규 수동부여 — 부재 → completed(생성+포인트). 시간 게이트 존재.
+  // ✅ 변동(비정규) 액트 — 종류별 "실행 전" 복원(다시 검수/부여할 수 있는 상태로).
+  //     링크 신청 : 체크 완료 → 체크 대기(행 유지·재검수 가능). 수동 부여 : 부여 전(부재) → 행 삭제.
+  //     공통: 적립 포인트 회수 + recipients 삭제 + 대상 유저 snapshot 재계산. 워커/자동 스케줄 무변경.
+  //     예외: 예약 검수 시각 경과로 '표시상 자동 완료'된 링크 신청은 되돌릴 실행이 없어 ↩ 비활성(호출부).
   processIrregularGrant: {
     id: "processIrregularGrant",
-    label: "비정규 수동부여",
+    label: "변동 액트",
     page: "/admin/processes/check/irregular",
-    autoTrigger: null,
-    service: "lib/adminProcessIrregularData.ts › createManualGrant · deleteIrregularAct",
+    autoTrigger: {
+      kind: "external-poller",
+      detail: "로컬 워커(process-check-worker) — 링크 신청 예약 검수 시각 경과 시 완료",
+    },
+    service: "lib/adminProcessIrregularData.ts › rollbackIrregularAct (revokeForAct + status/삭제 + snapshot 재계산)",
     instant: true,
     rollback: {
-      class: "partial",
-      targetStep: "부여 전(부재)",
-      method: "deleteIrregularAct → revokeForAct + 행 삭제",
+      class: "reversible",
+      targetStep: "실행 전(링크 신청=검수 전 대기 / 수동 부여=부여 전 부재)",
+      method:
+        "링크 신청→status pending·scheduled_check_at=null(행 유지·재검수) · 수동 부여→행 삭제 · 공통 revokeForAct + snapshot 재계산",
       requiresSnapshotRecompute: true,
-      reason: "예약 검수 시각(scheduled_check_at)이 지나 자동 완료된 건은 취소할 수 없습니다.",
+      reason: null,
     },
   },
 

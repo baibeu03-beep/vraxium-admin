@@ -20,6 +20,7 @@ import {
 } from "@/lib/processCheckWindowsData";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
 import { accrueForCompletedIrregular, revokeForAct } from "@/lib/processPointAccrual";
+import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
@@ -666,6 +667,88 @@ export async function deleteIrregularAct(
   }
   const { error } = await supabaseAdmin.from("process_irregular_acts").delete().eq("id", id);
   if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
+}
+
+// ── ↩ 실행 취소(직전 "실행 전" 상태 복원) — 운영/테스트 공용(QA 전용 아님) ──────────
+//
+//   Action Control 표준 UX. 종류별로 "실행하기 전" 상태로 되돌린다(단순 표시 복원이 아니라
+//   해당 액트를 다시 검수/부여할 수 있는 상태로 복원):
+//     · 링크 신청(review_request) : 체크 완료 → 체크 대기(검수 전). 행은 유지하고 재검수 가능하게
+//         scheduled_check_at 을 비운다(과거 예약시각이 남으면 조회 시점 자동 완료로 다시 완료 표시되어
+//         '즉시 검수'가 숨겨짐 → 재테스트 불가). completed_at=null.
+//     · 수동 부여(manual_grant) : 부여 전(부재) → 행 삭제.
+//   공통: 적립 포인트 회수(revokeForAct) + recipients 삭제 + 대상 유저 snapshot **명시적 재계산**
+//         (invalidate 의 컨텍스트 의존 우회 → direct==HTTP 결정성). org/mode 무관 동일 로직.
+//
+//   차단: 링크 신청이 예약 검수 시각 경과로 '표시상 자동 완료'(DB 는 아직 pending·워커 미실행)된 건은
+//         되돌릴 실행(적립/완료)이 없어 409 로 거부(호출부에서 ↩ 도 비활성).
+export type IrregularRollbackResult = {
+  ok: true;
+  id: string;
+  kind: IrregularKind;
+  status: "pending" | "deleted";
+  revokedUserIds: string[];
+  recipientsDeleted: number;
+  recompute?: { requested: number; recomputed: number; failed: number };
+};
+
+export async function rollbackIrregularAct(
+  id: string,
+  organization: string,
+  mode: ScopeMode,
+): Promise<IrregularRollbackResult> {
+  const row = await loadScopedRow(id, organization, mode); // 존재 + org + scope_mode 검증
+  await assertCurrentWeekRow(row, mode, organization); // 과거 주차 = 조회 전용(409)
+  const kind: IrregularKind = row.kind === "manual_grant" ? "manual_grant" : "review_request";
+
+  // 링크 신청이 DB pending 인데 예약 검수 시각이 지나 '표시상 자동 완료'된 건 — 되돌릴 실행이 없음.
+  if (kind === "review_request" && row.status !== "completed" && row.scheduled_check_at) {
+    const t = Date.parse(row.scheduled_check_at);
+    if (!Number.isNaN(t) && Date.now() >= t) {
+      throw new ProcessMasterError(
+        409,
+        "예약 검수 시각이 지나 자동 완료된 건은 되돌릴 수 없습니다",
+      );
+    }
+  }
+
+  // 1) 적립 회수(원장 삭제 + user_weekly_points 재합산 + 등급 + snapshot 무효화) — 멱등.
+  const { revokedUserIds } = await revokeForAct("irregular", id);
+
+  // 2) recipients 삭제(source=irregular). 재검수 시 워커/즉시검수가 다시 기록.
+  const { data: delRec, error: recErr } = await supabaseAdmin
+    .from("process_check_review_recipients")
+    .delete()
+    .eq("source", "irregular")
+    .eq("ref_id", id)
+    .select("id");
+  if (recErr) throw migrationHint(recErr) ?? new ProcessMasterError(500, recErr.message);
+  const recipientsDeleted = (delRec ?? []).length;
+
+  // 3) 종류별 '실행 전' 복원.
+  let status: "pending" | "deleted";
+  if (kind === "manual_grant") {
+    const { error } = await supabaseAdmin.from("process_irregular_acts").delete().eq("id", id);
+    if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
+    status = "deleted";
+  } else {
+    // 링크 신청 → 체크 대기 복원. scheduled_check_at 을 비워 재검수(즉시 검수) 가능 상태로.
+    const { error } = await supabaseAdmin
+      .from("process_irregular_acts")
+      .update({ status: "pending", completed_at: null, scheduled_check_at: null })
+      .eq("id", id);
+    if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
+    status = "pending";
+  }
+
+  // 4) 대상 유저 snapshot 명시적 재계산(direct==HTTP 결정성). 회수 대상이 없으면 스킵.
+  let recompute: { requested: number; recomputed: number; failed: number } | undefined;
+  if (revokedUserIds.length > 0) {
+    const rc = await recomputeWeeklyCardsSnapshotsForUsers(revokedUserIds, { concurrency: 4 });
+    recompute = { requested: rc.requested, recomputed: rc.recomputed, failed: rc.failed };
+  }
+
+  return { ok: true, id, kind, status, revokedUserIds, recipientsDeleted, recompute };
 }
 
 // 단건 로드 — org + scope_mode 일치 검증(다른 org/모드 행 접근 차단).

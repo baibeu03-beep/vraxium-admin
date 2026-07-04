@@ -39,6 +39,8 @@ import ProcessIrregularDialog from "@/components/admin/ProcessIrregularDialog";
 import ProcessIrregularManualGrantDialog from "@/components/admin/ProcessIrregularManualGrantDialog";
 import ProcessIrregularReviewDetail from "@/components/admin/ProcessIrregularReviewDetail";
 import { WeekSelectRow } from "@/components/admin/WeekSelectRow";
+import { ActionControl } from "@/components/admin/ActionControl";
+import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   IRREGULAR_STATUS_LABEL,
@@ -151,6 +153,44 @@ export default function ProcessIrregularManager() {
       }
     },
     [confirm, reviewingId, loadBoard],
+  );
+
+  // ↩ 실행 취소(행 단위) — 완료된 액트를 '실행 전' 상태로 복원(다시 검수/부여 가능).
+  //   링크 신청 → 체크 대기(행 유지·재검수) · 수동 부여 → 행 삭제. 공통 포인트 회수 + snapshot 재계산.
+  //   확인 모달은 ActionControl 이 담당하므로 여기서는 별도 confirm 없이 요청만 보낸다. org/mode 무관.
+  const [rollingBackId, setRollingBackId] = useState<string | null>(null);
+  const handleRollback = useCallback(
+    async (act: ProcessIrregularActRowDto) => {
+      if (!org || rollingBackId) return;
+      setRollingBackId(act.id);
+      setReviewBanner(null);
+      try {
+        const res = await fetch("/api/admin/processes/check/irregular/rollback", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: act.id, organization: org, ...(mode === "test" ? { mode: "test" } : {}) }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.success) {
+          setReviewBanner({ kind: "info", message: json?.error ?? "실행 취소를 처리하지 못했습니다." });
+        } else {
+          setReviewBanner({
+            kind: "success",
+            message:
+              act.kind === "manual_grant"
+                ? "수동 부여를 실행 전(부여 없음) 상태로 되돌렸습니다(항목 삭제·포인트 회수·카드 재계산)."
+                : "검수를 취소하고 ‘체크 대기(검수 전)’ 상태로 되돌렸습니다(포인트 회수·카드 재계산·재검수 가능).",
+          });
+        }
+        await loadBoard();
+      } catch {
+        setReviewBanner({ kind: "info", message: "실행 취소를 처리하지 못했습니다." });
+      } finally {
+        setRollingBackId(null);
+      }
+    },
+    [org, mode, rollingBackId, loadBoard],
   );
 
   const { weeks, selectedWeekId, editable, summary, acts } = board;
@@ -284,6 +324,10 @@ export default function ProcessIrregularManager() {
                       onOpenDetail={() => setDetailAct(a)}
                       onImmediateReview={() => handleImmediateReview(a)}
                       reviewing={reviewingId === a.id}
+                      onRollback={() => handleRollback(a)}
+                      rollbackMode={mode === "test" ? "test" : "operating"}
+                      rollingBack={rollingBackId === a.id}
+                      editable={editable}
                     />
                   ))}
                 </TableBody>
@@ -406,15 +450,31 @@ function IrregularRow({
   onOpenDetail,
   onImmediateReview,
   reviewing,
+  onRollback,
+  rollbackMode,
+  rollingBack,
+  editable,
 }: {
   act: ProcessIrregularActRowDto;
   onOpenDetail: () => void;
   onImmediateReview: () => void;
   reviewing: boolean;
+  onRollback: () => void;
+  rollbackMode: "operating" | "test";
+  rollingBack: boolean;
+  editable: boolean;
 }) {
   // 즉시 검수 = '체크 대기'(pending) 링크 신청(review_request) + 검수 링크가 있는 행만.
   const canReviewNow =
     act.kind === "review_request" && act.status === "pending" && Boolean(act.reviewLink);
+  // ↩ 실행 취소 = 완료된 액트를 '실행 전' 상태로. 단, 예약 검수 시각 경과로 '표시상 자동 완료'된
+  //   링크 신청(DB 는 pending·워커 미실행·회수 대상 없음)은 되돌릴 실행이 없어 비활성.
+  const canRollback = editable && act.status === "completed" && !act.autoCompleted;
+  const rollbackBlocked = editable && act.status === "completed" && act.autoCompleted;
+  const rollbackConfirm =
+    act.kind === "manual_grant"
+      ? "이 수동 부여를 실행 전(부여 없음) 상태로 되돌립니다.\n\n항목이 삭제되고 적립된 포인트가 회수됩니다(관련 카드 재계산).\n\n계속하시겠습니까?"
+      : "이 검수를 취소하고 ‘체크 대기(검수 전)’ 상태로 되돌립니다.\n\n적립된 포인트가 회수되고, 다시 검수할 수 있습니다(행은 유지).\n\n계속하시겠습니까?";
   const crewTone: Record<IrregularCrewReaction, string> = {
     all: "border-blue-300 bg-blue-50 text-blue-700",
     partial: "border-orange-300 bg-orange-50 text-orange-700",
@@ -454,7 +514,7 @@ function IrregularRow({
           label={IRREGULAR_STATUS_LABEL[act.status]}
         />
       </TableCell>
-      {/* '즉시 검수' 전용 컬럼 — 체크 대기 링크 신청 행만 지금 바로 검수(검수 시점 전이라도). */}
+      {/* '즉시 검수' 전용 컬럼 — 대기(pending)=⚡즉시 검수 / 완료(completed)=↩실행 취소(실행 전 복원). */}
       <TableCell className="text-center">
         {canReviewNow ? (
           <button
@@ -466,6 +526,24 @@ function IrregularRow({
           >
             {reviewing ? "검수 중…" : "즉시 검수"}
           </button>
+        ) : canRollback || rollbackBlocked ? (
+          <div className="inline-flex justify-center" data-ir-rollback={act.id}>
+            <ActionControl
+              hideInstant
+              size="xs"
+              rollbackClass={ACTION_CONTROL_REGISTRY.processIrregularGrant.rollback.class}
+              mode={rollbackMode}
+              onRollback={onRollback}
+              rollbackBusy={rollingBack}
+              rollbackDisabled={rollbackBlocked}
+              rollbackDisabledReason={
+                rollbackBlocked
+                  ? "예약 검수 시각이 지나 자동 완료된 건은 되돌릴 수 없습니다(워커 검수 후 취소 가능)."
+                  : undefined
+              }
+              rollbackConfirmDescription={rollbackConfirm}
+            />
+          </div>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         )}
