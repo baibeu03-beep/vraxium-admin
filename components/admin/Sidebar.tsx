@@ -90,13 +90,16 @@ const MENU_INTEGRATED: MenuItem[] = [
       "/admin/periods",
       "/admin/season-weeks",
       "/admin/week-recognitions",
-      "/admin/weekly-card-finalization",
+      // [비활성화 2026-07-04] 주차 카드 집계 확정 페이지 비노출 — 재활성화 시 주석 해제.
+      // "/admin/weekly-card-finalization",
     ],
     children: [
       { label: "기간 등록", href: "/admin/periods/register" },
       { label: "기간 정보", href: "/admin/season-weeks" },
       { label: "주차 인정 결과", href: "/admin/week-recognitions" },
-      { label: "주차 카드 집계 확정", href: "/admin/weekly-card-finalization" },
+      // [주차 카드 집계 확정] 메뉴 비노출(주석 처리) — /admin/weekly-card-finalization 라우트/컴포넌트는 유지.
+      //   라우트도 page.tsx 에서 notFound() 처리됨. 재활성화하려면 아래 줄의 주석을 해제하세요.
+      // { label: "주차 카드 집계 확정", href: "/admin/weekly-card-finalization" },
     ],
   },
   {
@@ -465,9 +468,9 @@ export default function Sidebar() {
     >
       <div
         className={cn(
-          // h-24: 우측 Header 와 동일 높이(기준=Header). HOME 영역이 Header 높이에 맞춰 늘어나
+          // h-28: 우측 Header 와 동일 높이(기준=Header). HOME 영역이 Header 높이에 맞춰 늘어나
           // 상단 바가 좌우 하나로 정렬된다.
-          "flex h-24 shrink-0 items-center border-b border-sidebar-border",
+          "flex h-28 shrink-0 items-center border-b border-sidebar-border",
           sidebarOpen ? "justify-between px-4" : "justify-center px-0",
         )}
       >
