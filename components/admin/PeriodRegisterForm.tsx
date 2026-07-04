@@ -70,19 +70,19 @@ const SEASON_WEEKS: Record<SeasonToken, number> = {
 
 // base-ui Select 는 items 매핑이 있어야 닫힌 트리거에 라벨을 표시한다.
 const YEAR_ITEMS = [
-  { value: NONE, label: "선택" },
+  { value: NONE, label: "-" },
   ...YEAR_OPTIONS.map((y) => ({ value: y, label: `${y}년` })),
 ];
 const SEASON_ITEMS = [
-  { value: NONE, label: "선택" },
+  { value: NONE, label: "-" },
   ...SEASON_OPTIONS.map((o) => ({ value: o.key, label: o.label })),
 ];
 const WEEK_ITEMS = [
-  { value: NONE, label: "선택" },
+  { value: NONE, label: "-" },
   ...WEEK_OPTIONS.map((w) => ({ value: w, label: `${w}주차` })),
 ];
 const ACTIVITY_ITEMS = [
-  { value: NONE, label: "선택" },
+  { value: NONE, label: "-" },
   ...ACTIVITY_OPTIONS.map((o) => ({ value: o.key, label: o.label })),
 ];
 
@@ -212,7 +212,7 @@ export default function PeriodRegisterForm() {
 
   const candidateItems = useMemo(
     () => [
-      { value: NONE, label: "선택" },
+      { value: NONE, label: "-" },
       ...candidates.map((c) => ({ value: c.start, label: c.label })),
     ],
     [candidates],
@@ -458,7 +458,7 @@ export default function PeriodRegisterForm() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>선택</SelectItem>
+                  <SelectItem value={NONE}>-</SelectItem>
                   {YEAR_OPTIONS.map((year) => (
                     <SelectItem key={year} value={year}>
                       {year}년
@@ -480,7 +480,7 @@ export default function PeriodRegisterForm() {
                 </SelectTrigger>
                 {/* 한 번에 10개 정도 노출 — 항목 높이(28px)×10 + 패딩 */}
                 <SelectContent className="max-h-80" alignItemWithTrigger={false}>
-                  <SelectItem value={NONE}>선택</SelectItem>
+                  <SelectItem value={NONE}>-</SelectItem>
                   {candidates.map((candidate) => (
                     <SelectItem key={candidate.start} value={candidate.start}>
                       {candidate.label}
@@ -500,7 +500,7 @@ export default function PeriodRegisterForm() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>선택</SelectItem>
+                  <SelectItem value={NONE}>-</SelectItem>
                   {YEAR_OPTIONS.map((year) => (
                     <SelectItem key={year} value={year}>
                       {year}년
@@ -520,7 +520,7 @@ export default function PeriodRegisterForm() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>선택</SelectItem>
+                  <SelectItem value={NONE}>-</SelectItem>
                   {SEASON_OPTIONS.map((option) => (
                     <SelectItem key={option.key} value={option.key}>
                       {option.label}
@@ -540,7 +540,7 @@ export default function PeriodRegisterForm() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-80" alignItemWithTrigger={false}>
-                  <SelectItem value={NONE}>선택</SelectItem>
+                  <SelectItem value={NONE}>-</SelectItem>
                   {WEEK_OPTIONS.map((week) => (
                     <SelectItem key={week} value={week}>
                       {week}주차
@@ -560,7 +560,7 @@ export default function PeriodRegisterForm() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>선택</SelectItem>
+                  <SelectItem value={NONE}>-</SelectItem>
                   {ACTIVITY_OPTIONS.map((option) => (
                     <SelectItem key={option.key} value={option.key}>
                       {option.label}
