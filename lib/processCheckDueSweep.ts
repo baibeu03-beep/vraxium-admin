@@ -127,7 +127,9 @@ export async function findDueProcessCheckItems(
 // 기본 인프로세스 크롤+매칭 — cafe-line-crew(POST) 라우트와 "동일 로직"을 직접 수행한다.
 //   닉네임 수집(fetchCafeNicknames: 운영=외부 크롤러/로컬=Playwright) → org+mode 모집단으로 좁혀 매칭.
 //   ⚠ 매칭 입력 자체를 org+mode 풀로 한정하므로 동명이인/타 모드 유입을 1차 차단한다(2차 가드는 sweep).
-async function inProcessCrawlAndMatch(
+// export: 검증 스크립트가 이 "실제" 매칭 경로(부수효과 없음: 크롤+스코프+매칭만)를 mock 크롤러로
+//   직접 구동해 cafe-line-crew(POST) 와의 파리티를 확인할 수 있도록 한다(런타임 동작 무변).
+export async function inProcessCrawlAndMatch(
   org: string,
   mode: string,
   url: string,
@@ -139,7 +141,12 @@ async function inProcessCrawlAndMatch(
   const scopeMode: ScopeMode = mode === "test" ? "test" : "operating";
   const scope = await resolveUserScope(scopeMode, isOrganizationSlug(org) ? org : null);
   const crews = scope.filter(await loadCrewRecords(org), (c) => c.userId);
-  const result = matchCafeComments(collected.data.nicknames, crews);
+  // cafe-line-crew(POST) 와 동일: test 모집단이면 크루 이름의 단일 T 접두를 벗겨 실명 댓글과 대조한다.
+  //   scope.mode 는 resolveUserScope 가 QA_HIDE_REAL_USERS 를 반영해 해소한 "실효 모드"(요청 mode 아님).
+  //   operating 은 stripTestPrefix=false → 강민지↔T강민지 를 절대 동일인으로 보지 않음(기존 동작 불변).
+  const result = matchCafeComments(collected.data.nicknames, crews, {
+    stripTestPrefix: scope.mode === "test",
+  });
   return {
     matched: result.matched.map((m) => ({
       userId: m.crew.userId,
