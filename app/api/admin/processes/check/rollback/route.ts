@@ -1,8 +1,9 @@
 // POST /api/admin/processes/check/rollback
 //
-// Process Check ↩ 실행 취소(직전 단계 복원) — 운영/테스트 공용.
-//   완료된 정규 체크를 pending 으로 되돌린다: 포인트 회수 + recipients 삭제 + status completed→pending
-//   + 대상 유저 snapshot 재계산. 멱등·가역(재검수로 원복) → 운영에서도 제공. 자동 sweep 무변경.
+// Process Check ↩ 실행 취소('실행 전' 완전 복원) — 운영/테스트 공용.
+//   완료된 정규 체크를 '체크 필요'(needed)로 되돌린다: 포인트 회수 + recipients 삭제 +
+//   status completed→needed(검수링크·검수시점 초기화) + 대상 유저 snapshot 재계산. 재-신청으로
+//   원복 가능. needed 로 내려야 관리자가 검수링크·검수시점을 다시 입력할 수 있다. 자동 sweep 무변경.
 //   강한 확인 절차는 호출부(ActionControl 확인 모달)가 담당.
 //
 // 인증: 관리자 쓰기 권한(ADMIN_WRITE_ROLES). body: { statusId: string }

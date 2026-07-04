@@ -94,9 +94,9 @@ async function main() {
   await setupAccrued("test");
   const beforeUwp = (await supabaseAdmin.from("user_weekly_points").select("points").eq("user_id", U).eq("year", year).eq("week_number", week).maybeSingle()).data as any;
   const resDirect = await rollbackProcessCheckCompletion({ statusId: R.id, actor: null });
-  check("[direct] ok·status=pending·scopeMode=test·revoke U", resDirect.ok && resDirect.status === "pending" && resDirect.scopeMode === "test" && resDirect.revokedUserIds.includes(U), stable(resDirect));
-  const sAfterD = await supabaseAdmin.from("process_check_statuses").select("status,completed_at").eq("id", R.id).maybeSingle();
-  check("[direct] completed→pending·completed_at null", (sAfterD.data as any)?.status === "pending" && (sAfterD.data as any)?.completed_at === null);
+  check("[direct] ok·status=needed·scopeMode=test·revoke U", resDirect.ok && resDirect.status === "needed" && resDirect.scopeMode === "test" && resDirect.revokedUserIds.includes(U), stable(resDirect));
+  const sAfterD = await supabaseAdmin.from("process_check_statuses").select("status,completed_at,review_link,scheduled_check_at,requested_at").eq("id", R.id).maybeSingle();
+  check("[direct] completed→needed·완료/입력값 초기화", (sAfterD.data as any)?.status === "needed" && (sAfterD.data as any)?.completed_at === null && (sAfterD.data as any)?.review_link === null && (sAfterD.data as any)?.scheduled_check_at === null && (sAfterD.data as any)?.requested_at === null);
   const ledD = await supabaseAdmin.from("process_point_awards").select("id").eq("source", "regular").eq("ref_id", R.id);
   const recD = await supabaseAdmin.from("process_check_review_recipients").select("id").eq("source", "regular").eq("ref_id", R.id);
   check("[direct] 원장·recipients 삭제", (ledD.data ?? []).length === 0 && (recD.data ?? []).length === 0);
@@ -108,7 +108,7 @@ async function main() {
   // ── (B) HTTP (test scope) ──
   await setupAccrued("test");
   const h = await rollbackHttp(cookie, R.id);
-  check("[HTTP] 200·success·status=pending", h.status === 200 && h.json?.success === true && h.json?.data?.status === "pending", { status: h.status });
+  check("[HTTP] 200·success·status=needed", h.status === 200 && h.json?.success === true && h.json?.data?.status === "needed", { status: h.status });
 
   // ── (C) direct == HTTP ──
   check("direct == HTTP (안정 필드 동일)", JSON.stringify(stable(resDirect)) === JSON.stringify(stable(h.json?.data)), { direct: stable(resDirect), http: stable(h.json?.data) });
@@ -122,7 +122,7 @@ async function main() {
   // ── (E) 운영 스코프 풀사이클(테스트 행 scope 임시 operating) ──
   await setupAccrued("operating");
   const opRes = await rollbackHttp(cookie, R.id);
-  check("[HTTP] 운영 스코프 완료행 풀 롤백(revoke+pending)", opRes.status === 200 && opRes.json?.data?.status === "pending" && opRes.json?.data?.scopeMode === "operating" && opRes.json?.data?.revokedUserIds?.includes(U), { data: stable(opRes.json?.data) });
+  check("[HTTP] 운영 스코프 완료행 풀 롤백(revoke+needed)", opRes.status === 200 && opRes.json?.data?.status === "needed" && opRes.json?.data?.scopeMode === "operating" && opRes.json?.data?.revokedUserIds?.includes(U), { data: stable(opRes.json?.data) });
   const uwpOp = (await supabaseAdmin.from("user_weekly_points").select("points").eq("user_id", U).eq("year", year).eq("week_number", week).maybeSingle()).data as any;
   check("[HTTP] 운영 스코프 uwp 회수(→0)", (uwpOp?.points ?? 0) === 0);
 
@@ -130,7 +130,7 @@ async function main() {
   const nf = await rollbackHttp(cookie, "00000000-0000-0000-0000-000000000000");
   check("[HTTP] 없는 행 → not_found", nf.json?.data?.status === "not_found" && nf.json?.data?.ok === false);
   const idem = await rollbackProcessCheckCompletion({ statusId: R.id, actor: null });
-  check("[direct] 비완료 멱등 no-op", idem.ok && idem.status === "pending" && idem.revokedUserIds.length === 0, stable(idem));
+  check("[direct] 비완료 멱등 no-op", idem.ok && idem.status === "needed" && idem.revokedUserIds.length === 0, stable(idem));
 
   // ── (G) 전 상태 복원 ──
   await supabaseAdmin.from("process_check_statuses").update(origStatus).eq("id", R.id);

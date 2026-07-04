@@ -158,7 +158,7 @@ async function main() {
   const aRowStatus = (await sb.from("process_check_statuses").select("status").eq("id", aSt).maybeSingle()).data as any;
   const aLogsAfter = actLogs((await board()).logs, A.act_name);
   const aRbk = aLogsAfter[aLogsAfter.length - 1]; // 최신(맨 아래=최신)
-  ck("[4a #1 direct] rollback 성공 → status pending", rbA.ok && rbA.status === "pending" && aRowStatus?.status === "pending", J({ ok: rbA.ok, status: rbA.status }));
+  ck("[4a #1 direct] rollback 성공 → status needed", rbA.ok && rbA.status === "needed" && aRowStatus?.status === "needed", J({ ok: rbA.ok, status: rbA.status }));
   ck("[4b #1] 실행 취소 로그 1건 신규 추가", aLogsAfter.length === beforeA + 1, `before=${beforeA} after=${aLogsAfter.length}`);
   ck("[4c #3] 실행 취소 로그 actor=관리자 이름", aRbk?.actorName === adminName && aRbk?.actorName !== AUTO, `actor=${aRbk?.actorName}`);
   ck("[4d] 실행 취소 로그 action = check_rolled_back(또는 폴백 check_cancelled)", ROLLBACK_ACTIONS.includes(aRbk?.action ?? ""), `action=${aRbk?.action}`);
@@ -173,12 +173,12 @@ async function main() {
   });
   const cLogsAfter = actLogs((await board()).logs, Cc.act_name);
   const cRbk = cLogsAfter[cLogsAfter.length - 1];
-  ck("[5a #1 HTTP] rollback route 200 · status pending", rbHttp.status === 200 && rbHttp.json?.success && rbHttp.json?.data?.status === "pending", J({ status: rbHttp.status, data: rbHttp.json?.data?.status }));
+  ck("[5a #1 HTTP] rollback route 200 · status needed", rbHttp.status === 200 && rbHttp.json?.success && rbHttp.json?.data?.status === "needed", J({ status: rbHttp.status, data: rbHttp.json?.data?.status }));
   ck("[5b #1 HTTP] 실행 취소 로그 1건 신규 추가", cLogsAfter.length === beforeC + 1, `before=${beforeC} after=${cLogsAfter.length}`);
   ck("[5c #3 HTTP] 실행 취소 로그 actor=관리자 이름", cRbk?.actorName === adminName && cRbk?.actorName !== AUTO, `actor=${cRbk?.actorName}`);
   ck("[5d #3 direct==HTTP] direct(A)·HTTP(C) 실행 취소 로그 action·actor 동일", aRbk?.action === cRbk?.action && aRbk?.actorName === cRbk?.actorName, J({ direct: `${aRbk?.action}:${aRbk?.actorName}`, http: `${cRbk?.action}:${cRbk?.actorName}` }));
 
-  // ── 6) 멱등 — 이미 pending(취소됨) 행 rollback 재호출 → 추가 로그 X ────────────────────
+  // ── 6) 멱등 — 이미 needed(실행 취소됨) 행 rollback 재호출 → 추가 로그 X ────────────────────
   const beforeIdem = actLogs((await board()).logs, A.act_name).length;
   const rbIdem = await rollbackProcessCheckCompletion({ statusId: aSt, actor: adminId });
   const afterIdem = actLogs((await board()).logs, A.act_name).length;
@@ -193,12 +193,17 @@ async function main() {
   console.log(`  · #10 보고: 실행 취소 로그는 process_check_logs 1행 INSERT 뿐 — snapshot 무접촉.`);
   console.log(`  · rollback 의 snapshot 재계산은 '적립된 포인트를 회수한 유저'가 있을 때만 발생(기존 동작·본 수정 무변). accrue=null 이라 revokedUserIds=[] → 재계산 스킵.`);
 
-  // ── 7.5) 재검수 허용 — 완료→실행취소→재검수 시 새 [체크 완료] 로그가 시간순으로 남는가 ─────────
+  // ── 7.5) 재검수 허용 — 완료→실행취소(→needed)→재신청→재검수 시 새 [체크 완료] 로그가 시간순으로 남는가 ─
   //   (되돌림-인지 dedup: 최신 이벤트가 되돌림이면 재검수는 새 완료 로그로 기록).
   const D = await mkAct("D재검수");
   const { stId: dSt } = await seedCompleted(D.id, week.id, user, adminId); // 완료#1
-  await rollbackProcessCheckCompletion({ statusId: dSt, actor: adminId }); // 실행 취소
-  // 재검수 — 같은 행(pending) 을 다시 sweep(주입 매칭) → 완료#2.
+  await rollbackProcessCheckCompletion({ statusId: dSt, actor: adminId }); // 실행 취소 → status=needed(입력값 초기화)
+  // 재-신청 — 실행 취소는 이제 needed 로 내리므로(검수링크·검수시점 재입력 가능), 재검수 전에 다시 신청(pending)
+  //   상태로 복원한다(관리자가 검수링크·검수시점을 재입력하는 실제 UX 모사). 그 뒤 sweep(주입 매칭) → 완료#2.
+  await sb.from("process_check_statuses").update({
+    status: "pending", review_link: "https://cafe.naver.com/x/seed", scheduled_check_at: PAST,
+    requested_at: PAST, requested_by: user,
+  }).eq("id", dSt);
   await runDueProcessCheckSweep({ scope: "qa", onlyIds: [dSt], ignoreSchedule: true, ignoreRetryGate: true, crawlAndMatch: matchUser(user), accrue: null, actor: adminId });
   const dSeq = (await dbLogs(D.id)).map((l) => `${l.action}:${l.actorName}`);
   const dCompleteCount = (await dbLogs(D.id)).filter((l) => l.action === "check_completed").length;
