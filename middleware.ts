@@ -5,6 +5,12 @@ import {
   ADMIN_IDLE_TIMEOUT_MS,
   ADMIN_LAST_ACTIVE_COOKIE,
 } from "@/lib/adminSessionConfig";
+import {
+  decodeActivityMarker,
+  encodeActivityMarker,
+  isSameLogin,
+} from "@/lib/adminActivityCookie";
+import { decodeJwtClaims } from "@/lib/jwtClaims";
 
 // Refresh the Supabase auth cookies on every request so server-rendered pages
 // and route handlers see a non-expired session (canonical @supabase/ssr pattern
@@ -51,25 +57,48 @@ export async function middleware(request: NextRequest) {
 
   if (user) {
     const now = Date.now();
-    const lastActiveRaw = request.cookies.get(ADMIN_LAST_ACTIVE_COOKIE)?.value;
-    const lastActive = lastActiveRaw ? Number(lastActiveRaw) : null;
-    const idleExpired =
-      lastActive !== null &&
-      Number.isFinite(lastActive) &&
-      now - lastActive > ADMIN_IDLE_TIMEOUT_MS;
+    const stored = decodeActivityMarker(
+      request.cookies.get(ADMIN_LAST_ACTIVE_COOKIE)?.value,
+    );
 
-    if (idleExpired) {
-      return buildIdleLogoutResponse(request);
+    // Identify the CURRENT login so a stale activity marker from a *previous*
+    // session cannot idle-expire a session that was just re-established. The
+    // access token's `session_id` is stable across refreshes within one login
+    // and changes on a new sign-in; `iat` is the fallback for legacy markers.
+    // getUser() above already verified the token — getSession() here is a local
+    // cookie read (no network) used only for these bookkeeping claims.
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const claims = decodeJwtClaims(session?.access_token);
+    const currentSessionId =
+      typeof claims?.session_id === "string" ? claims.session_id : null;
+    const currentIssuedAtMs =
+      typeof claims?.iat === "number" ? claims.iat * 1000 : null;
+
+    if (stored) {
+      const sameLogin = isSameLogin(stored, currentSessionId, currentIssuedAtMs);
+      const idleExpired =
+        sameLogin && now - stored.timestampMs > ADMIN_IDLE_TIMEOUT_MS;
+
+      if (idleExpired) {
+        return buildIdleLogoutResponse(request);
+      }
     }
 
-    // Slide the activity window forward. Session cookie (no maxAge) so it also
-    // dies on full browser close; idle is enforced by comparing timestamps.
-    response.cookies.set(ADMIN_LAST_ACTIVE_COOKIE, String(now), {
-      path: "/",
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-    });
+    // Slide the activity window forward, keyed to the current login. Session
+    // cookie (no maxAge) so it also dies on full browser close; idle is enforced
+    // by comparing timestamps for the *same* session.
+    response.cookies.set(
+      ADMIN_LAST_ACTIVE_COOKIE,
+      encodeActivityMarker(now, currentSessionId),
+      {
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
+    );
   }
 
   return response;

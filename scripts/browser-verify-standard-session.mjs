@@ -32,6 +32,18 @@ const ANON = get("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 const SERVICE = get("SUPABASE_SERVICE_ROLE_KEY");
 const admin = createClient(SUPABASE_URL, SERVICE);
 
+// Decode the (already-trusted) session id from a JWT so idle can be simulated
+// faithfully: real idle keeps the SAME session_id, only the timestamp goes old.
+function sessionIdFromJwt(token) {
+  try {
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return JSON.parse(Buffer.from(padded, "base64").toString("utf8")).session_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function makeAdminCookies() {
   const browser = createClient(SUPABASE_URL, ANON);
   const { data: linkData } = await admin.auth.admin.generateLink({ type: "magiclink", email: adminEmail });
@@ -46,9 +58,11 @@ async function makeAdminCookies() {
     access_token: verifyData.session.access_token,
     refresh_token: verifyData.session.refresh_token,
   });
-  return captured.map((i) => ({
+  const cookies = captured.map((i) => ({
     name: i.name, value: i.value, domain: "localhost", path: "/", httpOnly: false, secure: false, sameSite: "Lax",
   }));
+  cookies.sessionId = sessionIdFromJwt(verifyData.session.access_token);
+  return cookies;
 }
 
 let pass = 0, fail = 0;
@@ -116,33 +130,45 @@ try {
   const httpCookies = await makeAdminCookies();
   const httpHeader = httpCookies.map((c) => `${c.name}=${c.value}`).join("; ");
   const oldTs = Date.now() - 60 * 60 * 1000; // 1시간 전(모든 15~30분 창 초과)
+  // 진짜 미사용은 "동일 세션"에서 시간만 흐른 것 → 마커를 현재 세션 id 로 키잉해야
+  // 충실한 시뮬레이션이다(재로그인=다른 세션 id 와 구분).
+  const idleMarker = `${oldTs}.${httpCookies.sessionId}`;
 
   // ── D) 미사용 자동 로그아웃(서버 SoT, HTTP) ──
   console.log("\n[D] 미사용 자동 로그아웃(서버 enforcement)");
-  // 정상(활동시각 쿠키 없음) 요청 → 200 + admin_last_active 슬라이딩 갱신
+  // 정상(활동시각 쿠키 없음) 요청 → 200 + admin_last_active 슬라이딩 갱신(세션키 형식)
   const freshApi = await fetch(`${BASE}/api/admin/me`, { headers: { cookie: httpHeader, connection: "close" } });
   const freshCookies = getSetCookie(freshApi);
   check("정상 요청 → 200", freshApi.status === 200, `status=${freshApi.status}`);
-  check("정상 요청이 admin_last_active 슬라이딩 갱신", freshCookies.some((c) => /^admin_last_active=\d+/.test(c)),
+  check("정상 요청이 admin_last_active 슬라이딩 갱신(ts.sessionId)",
+    freshCookies.some((c) => /^admin_last_active=\d+\.[0-9a-f-]{36}/.test(c)),
     freshCookies.filter((c) => /admin_last_active/.test(c)).join(" | ") || "(none)");
-  // API + 오래된 활동시각 → 401 + sb 인증 쿠키 만료
+  // API + 오래된 활동시각(동일 세션) → 401 + sb 인증 쿠키 만료
   const idleApi = await fetch(`${BASE}/api/admin/me`, {
-    headers: { cookie: `${httpHeader}; admin_last_active=${oldTs}`, connection: "close" },
+    headers: { cookie: `${httpHeader}; admin_last_active=${idleMarker}`, connection: "close" },
     redirect: "manual",
   });
-  check("오래된 세션 API → 401", idleApi.status === 401, `status=${idleApi.status}`);
+  check("오래된 세션 API(동일 세션) → 401", idleApi.status === 401, `status=${idleApi.status}`);
   const clears = getSetCookie(idleApi);
   check("응답이 sb 인증 쿠키를 만료시킴", clears.some((c) => /^sb-/.test(c) && /(Max-Age=0|Expires=)/i.test(c)),
     clears.filter((c) => /^sb-/.test(c)).join(" | ") || `${clears.length} set-cookie`);
-  // 페이지 + 오래된 활동시각 → /login?reason=idle 리다이렉트
+  // 페이지 + 오래된 활동시각(동일 세션) → /login?reason=idle 리다이렉트
   const idlePage = await fetch(`${BASE}/admin`, {
-    headers: { cookie: `${httpHeader}; admin_last_active=${oldTs}`, connection: "close" },
+    headers: { cookie: `${httpHeader}; admin_last_active=${idleMarker}`, connection: "close" },
     redirect: "manual",
   });
   const loc = idlePage.headers.get("location") ?? "";
-  check("오래된 세션 페이지 → /login?reason=idle 리다이렉트",
+  check("오래된 세션 페이지(동일 세션) → /login?reason=idle 리다이렉트",
     [301, 302, 307, 308].includes(idlePage.status) && /\/login/.test(loc) && /reason=idle/.test(loc),
     `status=${idlePage.status} loc=${loc}`);
+  // 재로그인 레이스: 새 세션 + 이전 세션의 stale 마커(다른 session id) → 로그아웃되면 안 됨(200)
+  const priorCookies = await makeAdminCookies();
+  const relogin = await fetch(`${BASE}/api/admin/me`, {
+    headers: { cookie: `${httpHeader}; admin_last_active=${oldTs}.${priorCookies.sessionId}`, connection: "close" },
+    redirect: "manual",
+  });
+  check("재로그인(이전 세션 stale 마커) → 200(로그아웃 안 됨)", relogin.status === 200,
+    `status=${relogin.status} prior=${String(priorCookies.sessionId).slice(0, 8)} cur=${String(httpCookies.sessionId).slice(0, 8)}`);
 
   // ── E) 브라우저 종료 후 재로그인: 세션 쿠키 여부 ──
   console.log("\n[E] 인증 쿠키가 세션 쿠키(브라우저 종료 시 소멸)인지");
