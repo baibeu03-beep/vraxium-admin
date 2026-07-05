@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-07-05",
+  "operatorUserIds": [
+    "16000b1f-30ad-4187-9754-11199a577a09",
+    "e318c666-b5f4-4508-916b-a228995baf15",
+    "2d00608d-052a-4569-a017-b9ca76269f9d",
+    "c2683c1e-bda1-4782-8fc1-c4f4e3520f40",
+    "39d6490e-03fd-4b5c-8eb0-89029c49c711",
+    "ecaa1a4c-c72a-4ef5-9657-faa7414a241d",
+    "eed90410-4c85-4009-87a9-5e057a5e2ebf",
+    "39ee6e0b-45e3-45b5-94f8-03ce223895cd",
+    "e54d55f6-6b65-4f06-a22e-6895c3a43768",
+    "e9a9cacc-7db0-4db6-aeb7-6a1fd6591cc4",
+    "8cc1ae06-3110-4e34-918c-2a92674725a1",
+    "a35d864f-6a92-44f9-b9d8-a9fa731757b0",
+    "a46a5702-7820-4761-bda2-2a6f8c470a44",
+    "fd4eb101-24c4-4f95-8349-9d9f8d9b81c4",
+    "f2a34887-89b5-4d67-bc91-940f87b3a3ff",
+    "3db9012c-b339-4550-900c-873df9463514",
+    "89c7cecb-0057-4d09-bb92-9ec96fffe44c",
+    "56cee23b-9100-49e7-9847-3b7fedb86db9"
+  ],
+  "rollback": "DELETE FROM operator_markers WHERE organization_slug='oranke'; DELETE FROM weekly_league_roster_orgs WHERE organization_slug='oranke';"
+}
