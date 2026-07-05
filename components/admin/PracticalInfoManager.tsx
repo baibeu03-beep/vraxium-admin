@@ -154,6 +154,13 @@ const PREFERRED_TAB_ORDER = [
   "etc_a",
 ] as const;
 
+// 라인 개설/목록 관련 UI — 신규 개설 주차 요약 · 활동유형 탭 · 라인 목록 카드 · 상세/편집 모달 ·
+// 레거시 개설 폼 — 은 모두 '라인 개설' 탭(?tab=open · PracticalInfoOpeningSection0)으로 이관되었다.
+// manage('라인 관리', 기본 화면) 탭에서는 이들을 전부 숨긴다(코드는 보존 — 실무 역량
+// PracticalCompetencyManager 의 SHOW_LEGACY_SECTIONS 패턴과 동일). ORG/MODE·통합 여부와
+// 무관하게 항상 숨겨진다. manage 탭에는 '현재 상황'과 '주차별 개설 결과'(주차 선택 SoT)만 남는다.
+const SHOW_MANAGE_LINE_SECTIONS: boolean = false;
+
 const EDIT_REASON_LABEL: Record<string, string> = {
   ok: "편집 가능",
   ok_override: "오버라이드",
@@ -1262,10 +1269,11 @@ export default function PracticalInfoManager() {
         </div>
       )}
 
-      {/* Selected week summary — "주차별 개설 결과" 선택 주차(단일 SoT)와 항상 동일.
-          라벨/기간은 selectedWeekMeta(주차 전 범위)에서, 기입 기간·휴식 안내는 selectedWeek
-          (weeks-options=개설 가능 주차)에서 가져온다. 둘 다 같은 selectedWeekId 를 가리킨다. */}
-      {(() => {
+      {/* Selected week summary("신규 개설 주차: …" + 기입 기간) — 신규 라인 개설 대상 주차를
+          안내하던 개설 컨텍스트 문구. 라인 개설이 '라인 개설' 탭(?tab=open)으로 이관되어
+          manage(라인 관리) 탭에서는 중복이므로 숨긴다(SHOW_MANAGE_LINE_SECTIONS=false, 코드 보존).
+          라인 목록/현재 상황/주차별 개설 결과(주차 선택 SoT)는 그대로 유지된다. */}
+      {SHOW_MANAGE_LINE_SECTIONS && (() => {
         const label =
           selectedWeekMeta?.label ??
           (selectedWeek
@@ -1297,6 +1305,10 @@ export default function PracticalInfoManager() {
         );
       })()}
 
+      {/* 활동유형 탭 + 라인 목록 카드 + 상세/편집 모달 = 라인 개설/목록 UI.
+          '라인 개설' 탭(?tab=open)으로 이관되어 manage 탭에서는 전부 숨긴다(코드 보존). */}
+      {SHOW_MANAGE_LINE_SECTIONS && (
+        <>
       {/* Activity-type tabs */}
       <div className="flex flex-wrap gap-2 border-b pb-px">
         {orderedTypes.map((t) => (
@@ -1336,7 +1348,7 @@ export default function PracticalInfoManager() {
                 개설된 라인 {detailLines.length}개 · 행을 클릭하면 상세/편집
               </CardDescription>
             </div>
-            {!showForm && (
+            {SHOW_MANAGE_LINE_SECTIONS && !showForm && (
               <Button
                 onClick={() => setShowForm(true)}
                 disabled={!canOpenSelected || newLineDisabled}
@@ -1353,7 +1365,7 @@ export default function PracticalInfoManager() {
             )}
           </CardHeader>
           <CardContent>
-            {newLineDisabled && !showForm && (
+            {SHOW_MANAGE_LINE_SECTIONS && newLineDisabled && !showForm && (
               <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800">
                 선택한 주차에는 이 활동 유형의 활성 라인이 이미 있습니다. 신규 개설은 기존 라인 비활성화 후 가능합니다.
               </p>
@@ -1482,8 +1494,8 @@ export default function PracticalInfoManager() {
           </CardContent>
         </Card>
 
-        {/* New Line Form */}
-        {showForm && (
+        {/* New Line Form — '라인 개설' 탭(?tab=open)으로 이관됨. manage 탭에서는 숨김(코드 보존). */}
+        {SHOW_MANAGE_LINE_SECTIONS && showForm && (
           <Card className="h-fit xl:sticky xl:top-6">
             <CardHeader>
               <CardTitle className="text-base">새 실무 정보 라인</CardTitle>
@@ -1701,6 +1713,8 @@ export default function PracticalInfoManager() {
             fetchMeta();
           }}
         />
+      )}
+        </>
       )}
         </>
       )}
