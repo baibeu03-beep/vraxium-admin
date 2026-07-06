@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { RotateCcw, Send, User, X } from "lucide-react";
 import {
   Card,
@@ -69,6 +69,8 @@ export default function ExperiencePartLeadInput({
   onActivity?: () => void;
 } = {}) {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const org = readOrgParam(searchParams);
   // 모집단 모드(operating 기본 / ?mode=test). 운영 화면은 mode 미부착이라 기존 동작 불변.
   const mode = readScopeMode(searchParams);
@@ -81,7 +83,11 @@ export default function ExperiencePartLeadInput({
   const [teams, setTeams] = useState<Team[]>([]);
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string>("");
-  const [selectedWeekId, setSelectedWeekId] = useState<string>("");
+  // 선택 주차는 URL(?week)에 보존 — 새로고침 후에도 유지되고, 로그창(ExperienceOpeningLogPanel)이
+  //   같은 주차를 조회하도록 SoT 를 URL 로 통일한다. 초기값 = URL 의 ?week(있으면).
+  const [selectedWeekId, setSelectedWeekId] = useState<string>(
+    () => searchParams?.get("week")?.trim() || "",
+  );
   // 기본 파트는 부트 후 parts 효과에서 실제 파트로 설정된다(팀 총괄은 사용자가 명시 선택 시에만).
   const [part, setPart] = useState<string>("");
   const [actor, setActor] = useState<PartInputActor | null>(null);
@@ -418,6 +424,22 @@ export default function ExperiencePartLeadInput({
     setBanner(null);
   }, []);
 
+  // 주차 변경 — 상태 + URL(?week) 동기화. URL 을 SoT 로 삼아 (a) 새로고침 후 선택 주차 유지,
+  //   (b) 형제 로그창이 같은 주차의 개설 로그를 조회하게 한다(개설 대상 밖 예외 주차 포함).
+  //   mode/org/actAs/tab 등 기존 쿼리는 보존하고 week 만 갱신. 소프트 네비게이션(상태 유지).
+  const onSelectWeek = useCallback(
+    (weekId: string) => {
+      setSelectedWeekId(weekId);
+      setBanner(null);
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      if (weekId) params.set("week", weekId);
+      else params.delete("week");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    },
+    [searchParams, pathname, router],
+  );
+
   // ── 셀 편집(체크/점수 연동) ──
   const updateCell = useCallback(
     (crewUserId: string, lineType: ExperiencePartLineType, next: PartInputCell) => {
@@ -612,7 +634,7 @@ export default function ExperiencePartLeadInput({
                 <select
                   className="w-64 rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={selectedWeekId}
-                  onChange={(e) => setSelectedWeekId(e.target.value)}
+                  onChange={(e) => onSelectWeek(e.target.value)}
                 >
                   {weekOptions.map((w) => (
                     <option key={w.id} value={w.id} disabled={!w.canOpen}>

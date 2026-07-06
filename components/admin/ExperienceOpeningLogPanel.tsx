@@ -42,6 +42,9 @@ export default function ExperienceOpeningLogPanel({
 }) {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  // 파트장 그리드가 선택한 주차(?week) — 있으면 그 주차의 로그를 보여준다(개설 대상 밖 예외 주차 포함).
+  //   없으면 서버가 개설 대상 주차로 폴백(기존 동작). 그리드↔로그창 주차 정합 SoT.
+  const weekId = searchParams?.get("week")?.trim() || null;
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
@@ -51,9 +54,12 @@ export default function ExperienceOpeningLogPanel({
     (async () => {
       if (!cancelled) setLoading(true);
       try {
-        const qs = org ? `?organization=${encodeURIComponent(org)}` : "";
+        const params = new URLSearchParams();
+        if (org) params.set("organization", org);
+        if (weekId) params.set("week_id", weekId);
+        const suffix = params.toString();
         const res = await fetch(
-          `/api/admin/cluster4/experience/opening-logs${qs}`,
+          `/api/admin/cluster4/experience/opening-logs${suffix ? `?${suffix}` : ""}`,
         );
         const json = await res.json();
         if (cancelled) return;
@@ -67,14 +73,16 @@ export default function ExperienceOpeningLogPanel({
     return () => {
       cancelled = true;
     };
-  }, [org, refreshKey]);
+  }, [org, weekId, refreshKey]);
 
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="pb-3">
         <CardTitle className="text-base">로그창</CardTitle>
         <CardDescription>
-          이번 주(개설 대상) 라인 개설 행동 이력 (최신순)
+          {weekId
+            ? "선택한 주차 라인 개설 행동 이력 (최신순)"
+            : "이번 주(개설 대상) 라인 개설 행동 이력 (최신순)"}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 space-y-1.5 overflow-y-auto text-sm">
