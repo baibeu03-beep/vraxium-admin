@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { isUuid } from "@/lib/isUuid";
 import {
   invalidateWeeklyCardsForUsers,
@@ -206,6 +207,8 @@ function linePayload(
   if ("isActive" in input && input.isActive !== undefined) payload.is_active = input.isActive;
   if (mode === "create") {
     payload.created_by = actorAdminId;
+    // QA 기간(QA_HIDE_REAL_USERS=true) 생성분 표식 — 운영 조회 제외. update 시엔 flip 금지(생성 시점만).
+    payload.is_qa_test = QA_HIDE_REAL_USERS;
   }
   return payload;
 }

@@ -7,6 +7,7 @@
 //    테이블 미적용(수동 마이그 전)이면 list/summary 는 빈/0 으로 graceful 동작.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { loadCrewRecords } from "@/lib/cluster4CafeLineMatch";
 import { listCrewsForTargetSelection } from "@/lib/adminExperienceLineData";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
@@ -487,6 +488,8 @@ export async function openApprovedApplications(input: {
         submission_opens_at: win?.opensAt ?? nowIso,
         submission_closes_at: win?.closesAt ?? nowIso,
         is_active: true,
+        // QA 기간(QA_HIDE_REAL_USERS=true) 생성분 표식 — 운영 조회 제외. 기본 false.
+        is_qa_test: QA_HIDE_REAL_USERS,
         created_by: input.adminId,
         updated_by: input.adminId,
       })

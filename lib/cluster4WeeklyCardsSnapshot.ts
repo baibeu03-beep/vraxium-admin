@@ -312,7 +312,12 @@ async function writeRosterCardStats(
 //   화면 칸 수보다 부풀었다(예: info 4 인데 화면 3칸, 성장률 1/5 대신 1/4 이어야 함). info denominator/
 //   numerator 와 growthDenominator(=4허브 합) 가 함께 바뀌므로 기존 v30 snapshot 을
 //   stale(version_mismatch) 처리해 cron/lazy 가 재계산하게 한다. (DB 백필 아님 — 파생 캐시 재생성.)
-export const WEEKLY_CARDS_DTO_VERSION = 31;
+// v32 (2026-07-06): 레거시 주차(2026 여름 W1 이전) 실무경험/실무역량 표시 정책 변경(Phase 3) — granular
+//   경험 라인이 있는 레거시 주차는 [통합] 대신 granular 표시 + 5슬롯(여름 규칙 미러링), 역량은 라인 보유
+//   주차에 fold(1칸). granular 없는 레거시 주차는 불변([통합] 단일). 실사용자는 레거시 granular 부재라
+//   무변경이지만, 그런 라인 보유(테스트/향후 운영) 유저 카드 값이 바뀌므로 v31 snapshot 을 stale 처리해
+//   재계산. (강화율 SoT 통일로 카드=성장 동일 소스라 성장화면도 함께 수렴.)
+export const WEEKLY_CARDS_DTO_VERSION = 32;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

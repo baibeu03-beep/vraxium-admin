@@ -15,6 +15,7 @@ import {
   listCluster4InfoLinesDetailed,
 } from "@/lib/adminCluster4LinesData";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { isUuid } from "@/lib/isUuid";
 import {
@@ -607,6 +608,8 @@ export async function POST(request: NextRequest) {
       submission_closes_at: effectiveClosesAt,
       week_id: effectiveWeekId,
       is_active: true,
+      // QA 기간(QA_HIDE_REAL_USERS=true) 생성분 표식 — 운영 조회 제외. 기본 false.
+      is_qa_test: QA_HIDE_REAL_USERS,
       created_by: admin.userId,
       updated_by: admin.userId,
     };

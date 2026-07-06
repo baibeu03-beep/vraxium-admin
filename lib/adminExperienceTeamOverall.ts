@@ -13,6 +13,7 @@
 // (저렴) + 기존 lazy recompute 경로에 위임 — 생성/조회 로직 변경 없음.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import {
   assertUserIdsInScope,
   resolveUserScope,
@@ -927,6 +928,8 @@ export async function openTeamOverall(input: {
             submission_opens_at: submissionOpensAt,
             submission_closes_at: submissionClosesAt,
             is_active: true,
+            // QA 기간(QA_HIDE_REAL_USERS=true) 생성분 표식 — 운영 조회 제외. 기본 false.
+            is_qa_test: QA_HIDE_REAL_USERS,
             created_by: input.adminId,
             updated_by: input.adminId,
           })

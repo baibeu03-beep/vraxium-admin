@@ -4,7 +4,8 @@ import {
   requireAdmin,
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
-import { getWeeklyGrowth } from "@/lib/cluster4WeeklyGrowthData";
+// 강화율 SoT 통일(2026-07-06): 카드 경로(breakdownFromLines)와 동일 SoT 로 노출.
+import { getUnifiedWeeklyGrowth } from "@/lib/cluster4WeeklyCardsData";
 
 type Ctx = { params: Promise<{ legacy_user_id: string }> };
 
@@ -19,7 +20,7 @@ export async function GET(_request: NextRequest, { params }: Ctx) {
 
   const { legacy_user_id } = await params;
   try {
-    const dto = await getWeeklyGrowth(legacy_user_id);
+    const dto = await getUnifiedWeeklyGrowth(legacy_user_id);
     if (!dto) {
       return Response.json(
         { success: false, error: "Crew not found" },

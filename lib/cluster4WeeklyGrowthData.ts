@@ -780,6 +780,12 @@ async function computeWeeklyCards(
       }
     }
 
+    // ⚠ 강화율 SoT 통일(2026-07-06) 이후 이 블록(허브별 SQL 집계 lineBreakdown/weeklyGrowth + 아래
+    //   레거시 override)의 결과는 고객/어드민 조회에서 더 이상 사용되지 않는다 —
+    //   weekly-cards 는 breakdownFromLines(카드 렌더 셀), weekly-growth 는 applyUnifiedBreakdownToGrowth
+    //   (cluster4WeeklyCardsData.ts)가 카드 경로 breakdown 으로 덮어쓴다. 여기 수치를 바꿔도 화면엔
+    //   반영되지 않으니 절대 이 경로로 강화율을 "고치려" 하지 말 것(드리프트 원천 — 후속 삭제 예정).
+    //   유효 산출물은 주차 verdict(experienceVerdictMap)·누적·요약뿐이다.
     // 레거시(허브 도입 전) 주차 집계 override (2026-06-05 통합 라인 정책):
     //   실무 정보/역량/경력 = 라인 없음 → A·B 전부 0 (not_applicable, 분모 제외).
     //   실무 경험 = 통합 라인 1개 기준 — 개설 시 A=1, B=강화 성공(타깃+마감+평점 4 이상/미평가) 1.
@@ -1054,7 +1060,7 @@ async function computeWeeklyCards(
 // 시즌 성장률: 주차별 평균이 아니라 시즌 전체 합산 기반
 //   rate = ceil(totalCompleted / totalAvailable × 100)
 // ─────────────────────────────────────────────────────────────────────
-function computeSeasonGrowthRates(cards: WeeklyCardDto[]): SeasonGrowthRate[] {
+export function computeSeasonGrowthRates(cards: WeeklyCardDto[]): SeasonGrowthRate[] {
   const map = new Map<string, { label: string; completed: number; available: number }>();
 
   for (const c of cards) {

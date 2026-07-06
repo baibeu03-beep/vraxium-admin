@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { loadActLogsByStartDate } from "@/lib/cluster4ActLogsData";
 import {
   getCompetencyMetaByMasterIdsRegFirst,
@@ -8,12 +9,14 @@ import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import {
   getWeeklyGrowth,
   getWeeklyGrowthByUserId,
+  computeSeasonGrowthRates,
 } from "@/lib/cluster4WeeklyGrowthData";
 import type {
   WeekResultStatus,
   WeeklyCardDto,
   WeeklyCardLineBreakdown,
   WeeklyCardLineDetail,
+  WeeklyGrowthDto,
 } from "@/lib/cluster4WeeklyGrowthTypes";
 import {
   CAREER_DISPLAY_CAP,
@@ -243,6 +246,9 @@ const TARGET_WITH_LINE_SELECT = `
     career_project_id
   )
 `;
+// NOTE: is_qa_test 는 SELECT 에 넣지 않는다 — 필터(.eq("...is_qa_test", false))는 컬럼명으로 동작하며,
+//   QA 기간(QA_HIDE_REAL_USERS=true)엔 필터 자체가 미적용이라 컬럼 부재(마이그 전)에도 조회가 깨지지 않는다.
+//   운영(flag=false) 전환 시점엔 마이그레이션이 이미 적용돼 있어야 한다(migration 파일 주석 참조).
 
 // cluster4_lines 단독 조회 컬럼 — TARGET_WITH_LINE_SELECT 의 cluster4_lines 본문과 동일 필드
 // (+ week_id). 타깃 0건 라인을 "개설 신호"로 보강할 때 라인 객체 모양을 targetRows 와 일치시킨다.
@@ -1726,19 +1732,24 @@ async function fetchAllLineTargetsByWeek(
   weekIds: string[],
 ): Promise<TargetWithLineRow[]> {
   if (weekIds.length === 0) return [];
-  return collectAllRows<TargetWithLineRow>((from, to) =>
-    supabaseAdmin
+  return collectAllRows<TargetWithLineRow>((from, to) => {
+    let q = supabaseAdmin
       .from("cluster4_line_targets")
       .select(TARGET_WITH_LINE_SELECT)
       .in("week_id", weekIds)
-      .eq("cluster4_lines.is_active", true)
+      .eq("cluster4_lines.is_active", true);
+    // QA 라인 분리(2026-07-06): 운영 조회(QA_HIDE_REAL_USERS=false)에서는 QA 테스트 라인 제외.
+    //   QA 조회(true)에서는 필터 미적용 → 운영+QA 라인 모두 노출(사용자 확정). 강화율 SoT 통일 이후
+    //   라인 렌더가 카드/성장 공통 소스이므로 이 한 곳(+info) 필터가 두 경로 모두에 반영된다.
+    if (!QA_HIDE_REAL_USERS) q = q.eq("cluster4_lines.is_qa_test", false);
+    return q
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .range(from, to) as unknown as Promise<{
       data: TargetWithLineRow[] | null;
       error: { message: string } | null;
-    }>,
-  );
+    }>;
+  });
 }
 
 // 그 주차의 활성 실무 정보(info) 라인을 cluster4_lines 에서 직접 전수 수집한다(타깃 무관).
@@ -1752,20 +1763,23 @@ async function fetchAllLineTargetsByWeek(
 //   targetRows 와 겹치는 라인(타깃 보유 info)은 자연히 1회만 반영된다.
 async function fetchActiveInfoLinesByWeek(weekIds: string[]): Promise<InfoLineRow[]> {
   if (weekIds.length === 0) return [];
-  return collectAllRows<InfoLineRow>((from, to) =>
-    supabaseAdmin
+  return collectAllRows<InfoLineRow>((from, to) => {
+    let q = supabaseAdmin
       .from("cluster4_lines")
       .select(LINE_ROW_SELECT)
       .eq("part_type", "info")
       .eq("is_active", true)
-      .in("week_id", weekIds)
+      .in("week_id", weekIds);
+    // QA 라인 분리(2026-07-06): 운영 조회에서 QA 테스트 info 라인 제외(QA 조회는 전부 노출).
+    if (!QA_HIDE_REAL_USERS) q = q.eq("is_qa_test", false);
+    return q
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .range(from, to) as unknown as Promise<{
       data: InfoLineRow[] | null;
       error: { message: string } | null;
-    }>,
-  );
+    }>;
+  });
 }
 
 async function fetchLineDetailsByWeek(
@@ -2051,8 +2065,29 @@ async function fetchLineDetailsByWeek(
     const lines: Cluster4LineDetailDto[] = [];
     const partsPresent = new Set<Cluster4LinePartType>();
     const userTargetedLineIds = new Set<string>();
-    // 레거시(허브 도입 전) 주차 — 통합 라인만 렌더, 그 외 라인/placeholder 전부 차단.
+    // 레거시(허브 도입 전) 주차 — 기본은 통합 라인만 렌더.
     const isLegacyWeek = legacyWeekIds.has(weekId);
+    // Phase 3(2026-07-06): 레거시 주차에 granular(비통합) 실무경험 라인이 있으면 그 주차의 경험 허브는
+    //   여름 규칙으로 렌더한다 — [통합] 대신 granular 경험 표시 + 5슬롯 placeholder. granular 이 없으면
+    //   기존 레거시 [통합] 단일 유지(무변경). 실사용자 레거시 주차엔 granular 부재라 항상 false →
+    //   과거 강화율 불변. QA/테스트 백필 경험 라인만 표시된다. (역량은 아래 별도 게이트로 항상 허용.)
+    const hasGranularExperience =
+      isLegacyWeek &&
+      (weekTargets.some((t) => {
+        const l = t.cluster4_lines;
+        return !!l && l.part_type === "experience" && !isLegacyUnifiedLine(l);
+      }) ||
+        (() => {
+          const opened = openedByWeek.get(weekId);
+          return opened
+            ? [...opened.values()].some(
+                ({ line }) =>
+                  line.part_type === "experience" && !isLegacyUnifiedLine(line),
+              )
+            : false;
+        })());
+    // 경험 허브의 "여름처럼 렌더" 여부 — 비레거시이거나(항상) granular 보유 레거시.
+    const experienceAsSummer = !isLegacyWeek || hasGranularExperience;
 
     // 1. 본인 배정 라인 (real DTO).
     for (const target of weekTargets) {
@@ -2069,14 +2104,17 @@ async function fetchLineDetailsByWeek(
       //     lines 와 무관 → 추가 라인을 집계해도 주차 판정은 불변(강화율↔verdict 디커플).
       const legacyAdditive =
         isLegacyWeek && !isLegacyUnifiedLine(target.cluster4_lines);
-      if (legacyAdditive && target.cluster4_lines?.part_type === "experience") {
-        // 실무 경험은 통합 라인만 대표 — 비통합 experience 추가 라인은 렌더하지 않는다.
+      if (
+        legacyAdditive &&
+        target.cluster4_lines?.part_type === "experience" &&
+        !hasGranularExperience
+      ) {
+        // 레거시 + granular 경험 없음 → 통합 라인만 대표(비통합 경험 숨김). granular 있으면 표시(Phase 3).
         continue;
       }
-      // 여름(비레거시) 주차: 레거시 [통합] 라인은 신규 도출 라인으로 대체 — 분모/표시에서 제외.
-      //   operating 레거시 주차(isLegacyWeek=true)는 통합이 정당한 단일 대표 라인이라 유지(불변).
-      //   mode=test 여름 시뮬·실여름(통합 미생성) 모두 일관 — 통합이 신규 도출을 대체하지 않게 한다.
-      if (!isLegacyWeek && isLegacyUnifiedLine(target.cluster4_lines)) {
+      // [통합] 라인 제외: 여름(비레거시) 또는 granular 경험 보유 레거시 주차(Phase 3 — 통합 대체).
+      //   granular 없는 레거시 주차(experienceAsSummer=false)는 통합이 정당한 단일 대표 라인이라 유지(불변).
+      if (experienceAsSummer && isLegacyUnifiedLine(target.cluster4_lines)) {
         continue;
       }
       // org 노출 필터: 다른 조직 라인이면 본인 배정이라도 제외(요구 6).
@@ -2179,10 +2217,14 @@ async function fetchLineDetailsByWeek(
           //     라인 개설이 되면(0명 개설 포함) 레거시 주차에서도 미배정 크루 = 강화 실패로 노출한다.
           //     (info 는 통합 라인이 아니므로 legacy unified 모델 대상이 아니다. 라인 개설 자체가
           //      없으면 그대로 not_applicable(Step 3). 주차 verdict 는 통합 라인 기준 디커플 — 불변.)
+          //   Phase 3(2026-07-06): 레거시에서도 역량(competency)은 항상, 경험(experience)은 granular 보유
+          //   주차에 한해 개설 신호(미배정 fail/content 노출)를 허용한다. career 등은 기존대로 차단.
           if (
             isLegacyWeek &&
             !isLegacyUnifiedLine(line) &&
-            toPublicPart(dbPart) !== "information"
+            toPublicPart(dbPart) !== "information" &&
+            toPublicPart(dbPart) !== "competency" &&
+            !(toPublicPart(dbPart) === "experience" && hasGranularExperience)
           )
             continue;
           // org 노출 필터(핵심 수정 — EC 라인이 PHALANX 에 누수되던 지점). 다른 조직 + org 판정
@@ -2219,10 +2261,9 @@ async function fetchLineDetailsByWeek(
               if (!managementSlotOpen && slotOrder === EXPERIENCE_MANAGEMENT_SLOT_ORDER) {
                 continue;
               }
-              // ── 여름(비레거시) 주차 한정: synthetic fail 팀/역할 스코프 ──
-              //   operating 레거시 주차(isLegacyWeek=true)는 기존 정책 불변(여기 진입 전 차단).
-              //   실여름 운영·mode=test 여름 시뮬 모두 동일 적용.
-              if (!isLegacyWeek) {
+              // ── 여름(비레거시) 또는 granular 경험 레거시 주차: synthetic fail 팀/역할 스코프 ──
+              //   granular 없는 레거시 주차는 여기 진입 전 차단(experienceAsSummer=false).
+              if (experienceAsSummer) {
                 // 타팀 라인 제외: 본인 팀에 개설된 experience 라인만 분모 대상(타팀/공용 누수 차단).
                 //   teamId 미해석 시 필터 미적용(fail-open).
                 if (userTeamRole.teamId && line.team_id !== userTeamRole.teamId) {
@@ -2259,9 +2300,10 @@ async function fetchLineDetailsByWeek(
     //       (진행/집계 중 fail 선반영 금지·휴식/전환·실사용자 과거 보존)는 해당 없음.
     //     - 확장 슬롯(4)이 비어 있으면 → 해당 없음 placeholder (정해진 주차에만 열림).
     //   org 필터로 숨겨진 라인 칸도 "이 사용자에게 없는 칸"이므로 placeholder 가 자리를 채운다.
-    // 레거시(허브 도입 전) 주차: 5슬롯 placeholder(2.5)/career 6칸 패딩(2.6)/competency
-    // 단일 정규화(2.7) 전부 미적용 — 통합 라인 1개(+step 3 na placeholder)만 남긴다.
-    if (!isLegacyWeek) {
+    // 레거시(허브 도입 전) 주차: 기본은 5슬롯(2.5)/career 패딩(2.6)/competency fold(2.7) 미적용 —
+    //   통합 라인 1개(+step 3 na)만. Phase 3(2026-07-06): granular 경험 보유 레거시 주차는 2.5 적용,
+    //   역량은 라인 실제 보유 시에만 2.7 fold 적용(합성 금지). career 패딩(2.6)은 레거시 불변.
+    if (experienceAsSummer) {
     const experienceSlotsPresent = new Set<number>();
     for (const l of lines) {
       if (l.partType === "experience" && l.experienceSlotOrder != null) {
@@ -2306,10 +2348,12 @@ async function fetchLineDetailsByWeek(
       );
     }
     partsPresent.add("experience");
+    } // experienceAsSummer (2.5 게이트 끝)
 
-    // 2.6 실무 경력 6칸 패딩 (2026-06-04 정책: 항상 6개 칸 표시).
+    // 2.6 실무 경력 6칸 패딩 (2026-06-04 정책: 항상 6개 칸 표시) — 여름만(레거시 불변).
     //   개설/선발/미선발(content 노출)로 채워지지 않은 나머지 칸은 보이드
     //   (status="void", enhancementStatus=not_applicable → 분모 제외).
+    if (!isLegacyWeek) {
     const careerCount = lines.reduce(
       (n, l) => (l.partType === "career" ? n + 1 : n),
       0,
@@ -2318,17 +2362,17 @@ async function fetchLineDetailsByWeek(
       lines.push(emptyLine("career", weekId, false));
     }
     partsPresent.add("career");
+    } // !isLegacyWeek (2.6 게이트 끝)
 
     // 2.7 실무 역량 단일 정규화 (2026-06-04 v14): 역량은 1인·1주차 항상 정확히 1칸.
     //   - 라인 N개(개설/배정 무관) → 대표 1개로 fold: success > pending > fail 우선.
-    //     (성공이 하나라도 있으면 주차 역량은 성공, 진행 중이 있으면 대기, 그 외 실패.)
-    //   - 라인 0개(미개설 포함) → placeholder. (v14.1) "강화 대기"는 미확정(running/tallying)
-    //     주차에서만 — 확정(공표) 주차의 미수행은 더 이상 수행 불가이므로 "강화 실패"(보이드).
-    //     growth 경로 abilityNormalized(A=1·B=0)와 동일 의미라 den/num 수식은 변하지 않는다.
+    //   - 여름: 라인 0개면 placeholder(미확정=대기/확정=실패). growth abilityNormalized 와 동일.
+    //   - Phase 3(2026-07-06) 레거시: 역량 라인이 실제 있을 때만 fold(1칸) — 없으면 합성 placeholder
+    //     금지(step 3 na). 실사용자 레거시 주차엔 역량 라인 부재라 무변경(과거 강화율 불변).
     //   - 휴식/전환 주차(restWeek)는 기존 na placeholder 유지(분모 제외) — step 3 에서 채움.
-    //   → 분모 A(ability)는 비휴식 주차에서 항상 1, 주차 성장률 합산에도 역량은 항상 1만 기여.
     if (!restWeek) {
       const compLines = lines.filter((l) => l.partType === "competency");
+      if (!isLegacyWeek || compLines.length > 0) {
       const fold =
         compLines.find((l) => l.enhancementStatus === "success") ??
         compLines.find((l) => l.enhancementStatus === "pending") ??
@@ -2351,8 +2395,8 @@ async function fetchLineDetailsByWeek(
         }
       }
       partsPresent.add("competency");
+      } // 레거시=역량 라인 보유 시에만 fold(합성 금지)
     }
-    } // !isLegacyWeek (2.5/2.6/2.7 게이트 끝)
 
     // 3. 라인이 전혀 없는 part → not_applicable placeholder (UI 완결성; 미개설·휴식주차).
     //   (experience/career 는 2.5/2.6 에서 항상 채워지므로 사실상 info/competency 전용.)
@@ -2481,6 +2525,47 @@ function resolveHeaderExtras(
   };
 }
 
+// 주차 분류(라인 렌더 입력) — 단일 출처.
+//   카드 경로(getCluster4WeeklyCardsFor*)와 성장 통일 경로(getUnifiedWeeklyGrowth)가 동일한
+//   weekIds·restWeekIds·slotFailWeekIds·legacyWeekIds·confirmedWeekIds 를 공유하도록 파생 로직을
+//   한 곳으로 모은다 → 두 경로가 fetchLineDetailsByWeek 에 완전히 동일한 입력을 넘겨 breakdown 이
+//   구조적으로 일치한다(강화율 SoT 통일의 전제).
+function deriveWeekClassification(
+  weeklyCards: WeeklyCardDto[],
+  effectiveFrom: string,
+): {
+  weekIds: string[];
+  restWeekIds: Set<string>;
+  slotFailWeekIds: Set<string>;
+  legacyWeekIds: Set<string>;
+  confirmedWeekIds: Set<string>;
+} {
+  const weekIds = weeklyCards
+    .map((card) => card.weekId)
+    .filter((weekId): weekId is string => Boolean(weekId));
+  // 휴식 주차(personal_rest/official_rest)/전환 — competency placeholder 를 fail 로 강제하지 않기 위한 신호.
+  const restWeekIds = new Set(
+    weeklyCards
+      .filter((card) => card.weekId && (card.isTransition || isRestWeek(card.resultStatus)))
+      .map((card) => card.weekId as string),
+  );
+  // 허브/라인 체계 적용 주차: 필수 슬롯 fail 적용(판정 완료 + EFFECTIVE_FROM 이후 — 사용자 유형 무관).
+  const slotFailWeekIds = buildSlotFailWeekIds(weeklyCards, effectiveFrom);
+  // 레거시(허브 도입 전) 주차 — 통합 라인 단일 렌더 게이트. override 시 빈 집합(여름 렌더).
+  const legacyWeekIds = buildLegacyWeekIds(weeklyCards, effectiveFrom);
+  // 확정(공표) 주차 — resultStatus 가 success/fail (resolver 가 result_published_at 반영).
+  const confirmedWeekIds = new Set(
+    weeklyCards
+      .filter(
+        (card) =>
+          card.weekId &&
+          (card.resultStatus === "success" || card.resultStatus === "fail"),
+      )
+      .map((card) => card.weekId as string),
+  );
+  return { weekIds, restWeekIds, slotFailWeekIds, legacyWeekIds, confirmedWeekIds };
+}
+
 export async function getCluster4WeeklyCardsForAuthUser(
   authUserId: string,
   authEmail?: string | null,
@@ -2494,32 +2579,10 @@ export async function getCluster4WeeklyCardsForAuthUser(
     throw new Cluster4WeeklyCardsError(404, "User profile not found.");
   }
 
-  const weekIds = weeklyGrowth.weeklyCards
-    .map((card) => card.weekId)
-    .filter((weekId): weekId is string => Boolean(weekId));
-  // 휴식 주차(personal_rest/official_rest) — competency placeholder 를 fail 로 강제하지 않기 위한 신호.
-  const restWeekIds = new Set(
-    weeklyGrowth.weeklyCards
-      .filter((card) => card.weekId && (card.isTransition || isRestWeek(card.resultStatus)))
-      .map((card) => card.weekId as string),
-  );
-  // 허브/라인 체계 적용 주차: 필수 슬롯 fail 적용(판정 완료 + EFFECTIVE_FROM 이후 — 사용자 유형 무관).
+  const { weekIds, restWeekIds, slotFailWeekIds, legacyWeekIds, confirmedWeekIds } =
+    deriveWeekClassification(weeklyGrowth.weeklyCards, CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM);
   // 관리(5) 슬롯 게이트: membership_level 심화/운영진만 개방 — 잠금 사용자는 분모 제외(해당 없음).
   const managementSlotOpen = await fetchManagementSlotOpen(profileUserId);
-  const slotFailWeekIds = buildSlotFailWeekIds(weeklyGrowth.weeklyCards);
-  // 레거시(허브 도입 전) 주차 — 통합 라인 단일 렌더 게이트.
-  const legacyWeekIds = buildLegacyWeekIds(weeklyGrowth.weeklyCards);
-  // 확정(공표) 주차 — resultStatus 가 success/fail (resolver 가 result_published_at 반영).
-  // v14.1 competency placeholder 분기(확정=강화 실패 / 미확정=강화 대기)용.
-  const confirmedWeekIds = new Set(
-    weeklyGrowth.weeklyCards
-      .filter(
-        (card) =>
-          card.weekId &&
-          (card.resultStatus === "success" || card.resultStatus === "fail"),
-      )
-      .map((card) => card.weekId as string),
-  );
   const tLinesStart = Date.now();
   const [lineMap, headerSnapshot, peopleMap, actLogsByWeek] = await Promise.all([
     fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds, legacyWeekIds),
@@ -2558,6 +2621,107 @@ export async function getCluster4WeeklyCardsForAuthUser(
   }));
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// 강화율 SoT 통일 — 성장 화면(weekly-growth) DTO 의 허브 수치를 카드 경로(P1)와 동일하게 만든다.
+//
+//   문제: getWeeklyGrowth 는 자체 SQL 집계 + 레거시 override 로 허브별 완료/가용을 독립 재계산했는데,
+//         이는 카드 경로(fetchLineDetailsByWeek → breakdownFromLines)와 손으로 미러링돼 드리프트했다
+//         (특히 레거시 info 허브에서 대량 divergence). 카드(cluster-4-card)를 단일 SoT 로 확정한다.
+//   해결: getWeeklyGrowth 가 만든 DTO 를 받아, 카드 경로와 "완전히 동일한" 라인 렌더(fetchLineDetailsByWeek)
+//         결과에서 breakdownFromLines 로 허브 수치를 재산출해 각 카드의 weeklyGrowth/lineBreakdown 을
+//         덮어쓴다. 시즌율(seasonGrowthRates)도 그 카드에서 다시 fold → 카드/성장/시즌이 한 source.
+//   비용: getWeeklyGrowth(주차 분류·verdict·누적) 1회 + fetchLineDetailsByWeek 1회 = 카드 경로와 동일.
+//         getWeeklyGrowth 내부의 허브 SQL 집계 결과는 여기서 폐기된다(후속 정리 대상 — 무해).
+// ─────────────────────────────────────────────────────────────────────
+async function applyUnifiedBreakdownToGrowth(
+  profileUserId: string,
+  growth: WeeklyGrowthDto,
+  effectiveFrom: string,
+): Promise<WeeklyGrowthDto> {
+  const { weekIds, restWeekIds, slotFailWeekIds, legacyWeekIds, confirmedWeekIds } =
+    deriveWeekClassification(growth.weeklyCards, effectiveFrom);
+  const managementSlotOpen = await fetchManagementSlotOpen(profileUserId);
+  const lineMap = await fetchLineDetailsByWeek(
+    profileUserId,
+    weekIds,
+    restWeekIds,
+    slotFailWeekIds,
+    managementSlotOpen,
+    confirmedWeekIds,
+    legacyWeekIds,
+  );
+
+  const weeklyCards = growth.weeklyCards.map((card) => {
+    // 카드 경로와 동일한 렌더 셀 집합. degenerate(빈 맵) 폴백도 카드 경로와 동일하게 na 라인 →
+    // breakdownFromLines 가 0/0(분모 제외)으로 처리한다.
+    const lines = card.weekId
+      ? (lineMap.get(card.weekId) ??
+          PUBLIC_PARTS.map((p) => emptyLine(p, card.weekId, false)))
+      : PUBLIC_PARTS.map((p) => emptyLine(p, null, false));
+    // 휴식 주차는 카드 경로(toWeeklyCardDto)와 동일하게 빈 breakdown(가용 라인 미정 → 0/0).
+    const rest = isRestWeek(card.resultStatus);
+    const breakdown: WeeklyCardLineBreakdown = rest
+      ? emptyBreakdown()
+      : breakdownFromLines(lines);
+    const completedLines =
+      breakdown.info.completed +
+      breakdown.ability.completed +
+      breakdown.experience.completed +
+      breakdown.career.completed;
+    const availableLines =
+      breakdown.info.available +
+      breakdown.ability.available +
+      breakdown.experience.available +
+      breakdown.career.available;
+    return {
+      ...card,
+      lineBreakdown: breakdown,
+      weeklyGrowth: {
+        completedLines,
+        availableLines,
+        rate: roundGrowthRate(completedLines, availableLines),
+      },
+    };
+  });
+
+  return {
+    ...growth,
+    weeklyCards,
+    // 시즌율도 통일된 카드 수치에서 다시 fold(전환 주차 제외 — computeSeasonGrowthRates 규칙).
+    seasonGrowthRates: computeSeasonGrowthRates(weeklyCards),
+  };
+}
+
+// weekly-growth 라우트(고객/어드민) 진입점 — 카드 경로와 동일 SoT 로 강화율/총 N개/시즌율을 노출.
+export async function getUnifiedWeeklyGrowth(
+  profileUserId: string,
+  opts: { effectiveFromOverride?: string } = {},
+): Promise<WeeklyGrowthDto | null> {
+  const effectiveFrom =
+    opts.effectiveFromOverride ?? CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM;
+  const growth = await getWeeklyGrowth(profileUserId, {
+    effectiveFromOverride: opts.effectiveFromOverride,
+  });
+  if (!growth) return null;
+  return applyUnifiedBreakdownToGrowth(profileUserId, growth, effectiveFrom);
+}
+
+export async function getUnifiedWeeklyGrowthByUserId(
+  authUserId: string,
+  authEmail?: string | null,
+): Promise<WeeklyGrowthDto | null> {
+  const [profileUserId, growth] = await Promise.all([
+    resolveProfileUserId(authUserId, authEmail),
+    getWeeklyGrowthByUserId(authUserId, authEmail),
+  ]);
+  if (!profileUserId || !growth) return null;
+  return applyUnifiedBreakdownToGrowth(
+    profileUserId,
+    growth,
+    CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM,
+  );
+}
+
 export async function getCluster4WeeklyCardsForProfileUser(
   profileUserId: string,
   opts: { effectiveFromOverride?: string } = {},
@@ -2578,32 +2742,10 @@ export async function getCluster4WeeklyCardsForProfileUser(
     throw new Cluster4WeeklyCardsError(404, "User profile not found.");
   }
 
-  const weekIds = weeklyGrowth.weeklyCards
-    .map((card) => card.weekId)
-    .filter((weekId): weekId is string => Boolean(weekId));
-  // 휴식 주차(personal_rest/official_rest) — competency placeholder 를 fail 로 강제하지 않기 위한 신호.
-  const restWeekIds = new Set(
-    weeklyGrowth.weeklyCards
-      .filter((card) => card.weekId && (card.isTransition || isRestWeek(card.resultStatus)))
-      .map((card) => card.weekId as string),
-  );
-  // 허브/라인 체계 적용 주차: 필수 슬롯 fail 적용(판정 완료 + EFFECTIVE_FROM 이후 — 사용자 유형 무관).
+  const { weekIds, restWeekIds, slotFailWeekIds, legacyWeekIds, confirmedWeekIds } =
+    deriveWeekClassification(weeklyGrowth.weeklyCards, effectiveFrom);
   // 관리(5) 슬롯 게이트: membership_level 심화/운영진만 개방 — 잠금 사용자는 분모 제외(해당 없음).
   const managementSlotOpen = await fetchManagementSlotOpen(profileUserId);
-  const slotFailWeekIds = buildSlotFailWeekIds(weeklyGrowth.weeklyCards, effectiveFrom);
-  // 레거시(허브 도입 전) 주차 — 통합 라인 단일 렌더 게이트. override 시 빈 집합(여름 렌더).
-  const legacyWeekIds = buildLegacyWeekIds(weeklyGrowth.weeklyCards, effectiveFrom);
-  // 확정(공표) 주차 — resultStatus 가 success/fail (resolver 가 result_published_at 반영).
-  // v14.1 competency placeholder 분기(확정=강화 실패 / 미확정=강화 대기)용.
-  const confirmedWeekIds = new Set(
-    weeklyGrowth.weeklyCards
-      .filter(
-        (card) =>
-          card.weekId &&
-          (card.resultStatus === "success" || card.resultStatus === "fail"),
-      )
-      .map((card) => card.weekId as string),
-  );
   const tLinesStart = Date.now();
   const [lineMap, headerSnapshot, peopleMap, actLogsByWeek] = await Promise.all([
     fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds, legacyWeekIds),

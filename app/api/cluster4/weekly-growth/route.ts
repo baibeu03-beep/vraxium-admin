@@ -9,10 +9,12 @@
 
 import type { NextRequest } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabaseServer";
+// 강화율 SoT 통일(2026-07-06): weekly-growth 도 카드 경로(breakdownFromLines)와 동일 SoT 로 노출.
+//   getUnifiedWeeklyGrowth* = getWeeklyGrowth + 카드 경로 라인 렌더에서 허브 수치 재산출(덮어쓰기).
 import {
-  getWeeklyGrowth,
-  getWeeklyGrowthByUserId,
-} from "@/lib/cluster4WeeklyGrowthData";
+  getUnifiedWeeklyGrowth,
+  getUnifiedWeeklyGrowthByUserId,
+} from "@/lib/cluster4WeeklyCardsData";
 import { DemoModeError } from "@/lib/demoMode";
 import { resolveRequestScope } from "@/lib/requestScope";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
@@ -58,7 +60,7 @@ async function handleGet(request: NextRequest) {
         pageType: "cluster4",
         requestedSlug: readPageSlug(request),
       });
-      const dto = await getWeeklyGrowth(cardTargetUserId);
+      const dto = await getUnifiedWeeklyGrowth(cardTargetUserId);
       if (!dto) {
         logDone("demo-404");
         return Response.json(
@@ -111,7 +113,7 @@ async function handleGet(request: NextRequest) {
       requestedSlug: readPageSlug(request),
     });
 
-    const dto = await getWeeklyGrowthByUserId(user.id, user.email);
+    const dto = await getUnifiedWeeklyGrowthByUserId(user.id, user.email);
     if (!dto) {
       console.warn(TAG, "getWeeklyGrowthByUserId returned null for auth.id =", user.id);
       return Response.json(

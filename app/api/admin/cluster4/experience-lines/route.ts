@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { requireAdmin, toAdminErrorResponse } from "@/lib/adminAuth";
 import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { isUuid } from "@/lib/isUuid";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { assertUserIdsInScope, resolveUserScope, readScopeMode } from "@/lib/userScope";
@@ -288,6 +289,8 @@ export async function POST(request: NextRequest) {
         submission_opens_at: input.submission_opens_at,
         submission_closes_at: input.submission_closes_at,
         is_active: true,
+        // QA 기간(QA_HIDE_REAL_USERS=true) 생성분 표식 — 운영 조회 제외. 기본 false.
+        is_qa_test: QA_HIDE_REAL_USERS,
         created_by: admin.userId,
         updated_by: admin.userId,
       })
