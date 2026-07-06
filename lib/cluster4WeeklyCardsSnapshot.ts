@@ -317,7 +317,13 @@ async function writeRosterCardStats(
 //   주차에 fold(1칸). granular 없는 레거시 주차는 불변([통합] 단일). 실사용자는 레거시 granular 부재라
 //   무변경이지만, 그런 라인 보유(테스트/향후 운영) 유저 카드 값이 바뀌므로 v31 snapshot 을 stale 처리해
 //   재계산. (강화율 SoT 통일로 카드=성장 동일 소스라 성장화면도 함께 수렴.)
-export const WEEKLY_CARDS_DTO_VERSION = 32;
+// v33 (2026-07-06): 실무 경험 강화상태 팀 스코프 fail-closed. (A) 미배정 synthetic fail 은 "본인 소속팀에
+//   개설된" 라인만 대상 — 팀 미지정 라인(team_id=null, 예: QA 검증 잔재 EX-QAOP-*)·타팀 라인·본인 팀
+//   미해석 유저는 제외(해당 없음). 과거 fail-open(어느 한쪽 team null 이면 통과)이 팀 없는 라인을 전
+//   사용자 강화 실패로 흘리던 버그. (B) 필수 슬롯(1·2·3·5) 빈칸 placeholder 의 required_fail 은 내 팀이
+//   그 슬롯을 개설한 확정 주차에만 — 팀 미개설 슬롯은 해당 없음(케이스 3·4). experience fail↔해당없음 이
+//   달라지므로 v32 snapshot 을 stale(version_mismatch) 처리해 재계산. (파생 캐시 재생성 — DB 백필 아님.)
+export const WEEKLY_CARDS_DTO_VERSION = 33;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

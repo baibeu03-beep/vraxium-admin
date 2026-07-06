@@ -2264,9 +2264,18 @@ async function fetchLineDetailsByWeek(
               // ── 여름(비레거시) 또는 granular 경험 레거시 주차: synthetic fail 팀/역할 스코프 ──
               //   granular 없는 레거시 주차는 여기 진입 전 차단(experienceAsSummer=false).
               if (experienceAsSummer) {
-                // 타팀 라인 제외: 본인 팀에 개설된 experience 라인만 분모 대상(타팀/공용 누수 차단).
-                //   teamId 미해석 시 필터 미적용(fail-open).
-                if (userTeamRole.teamId && line.team_id !== userTeamRole.teamId) {
+                // 팀 스코프(2026-07-06 fail-closed): 실무 경험은 팀별 라인 구조 → "본인 소속팀에 개설된"
+                //   라인만 미배정 synthetic fail 대상이다. 다음은 모두 "내 팀 라인 아님" → 제외(해당 없음):
+                //     ① 본인 팀 미해석(userTeamRole.teamId=null, 예: 시즌전체휴식 등 team_id 미매핑)
+                //     ② 팀 미지정 라인(line.team_id=null, 예: QA 검증 잔재 EX-QAOP-*)
+                //     ③ 타팀 라인(line.team_id !== 본인 팀)
+                //   과거 fail-open(어느 한쪽이라도 null 이면 통과)이 팀 없는 라인을 전 사용자 fail 로
+                //   흘리던 버그 수정 — "다른 팀 라인 개설 여부를 내 팀에 적용"하지 않는다.
+                if (
+                  !userTeamRole.teamId ||
+                  !line.team_id ||
+                  line.team_id !== userTeamRole.teamId
+                ) {
                   continue;
                 }
                 // 타역할 관리(5) 라인 제외: 본인 역할 라인만(_파트장→파트장 / _에이전트→에이전트).
@@ -2310,6 +2319,25 @@ async function fetchLineDetailsByWeek(
         experienceSlotsPresent.add(l.experienceSlotOrder);
       }
     }
+    // 내 팀이 이 주차에 개설한 experience 슬롯 집합(팀 스코프) — 빈 필수 슬롯 placeholder 를
+    //   "강화 실패(required_fail)"로 낙인찍는 건 내 팀이 그 슬롯 라인을 실제 개설했을 때만 정당하다.
+    //   실무 경험은 팀별 라인 구조이므로 "내 팀 미개설" 슬롯은 실패가 아니라 해당 없음(케이스 3·4).
+    //   내 팀이 개설했는데 내가 미배정이면 Step 2 가 이미 채워(슬롯 present) 여기 진입하지 않는다 —
+    //   즉 여기서 비어있고 team-open 인 극단(내 팀 라인이 org/데이터로 걸러진 경우)만 required_fail.
+    const teamOpenedExpSlots = new Set<number>();
+    if (userTeamRole.teamId) {
+      const weekOpenedForTeam = openedByWeek.get(weekId);
+      if (weekOpenedForTeam) {
+        for (const { dbPart, line } of weekOpenedForTeam.values()) {
+          if (toPublicPart(dbPart) !== "experience") continue;
+          if (line.team_id !== userTeamRole.teamId) continue;
+          const so = line.experience_line_master_id
+            ? experienceMasterMetaById.get(line.experience_line_master_id)?.slotOrder ?? null
+            : null;
+          if (so != null) teamOpenedExpSlots.add(so);
+        }
+      }
+    }
     for (const slot of EXPERIENCE_ALWAYS_OPEN_SLOT_ORDERS) {
       if (!experienceSlotsPresent.has(slot)) {
         // 관리(5) 슬롯은 잠금 사용자(membership_level 일반/미확정)에게 "항상-개설 fail" 미적용 —
@@ -2320,7 +2348,10 @@ async function fetchLineDetailsByWeek(
           experienceSlotPlaceholderLine(
             weekId,
             slot,
-            !managementLocked && slotFailWeekIds.has(weekId)
+            // 내 팀이 그 슬롯을 개설한 확정 주차에서만 강화 실패. 팀 미개설 → 해당 없음(케이스 3·4).
+            !managementLocked &&
+              teamOpenedExpSlots.has(slot) &&
+              slotFailWeekIds.has(weekId)
               ? "required_fail"
               : "not_opened",
           ),
