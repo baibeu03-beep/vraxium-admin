@@ -511,7 +511,9 @@ export default function ExperienceTeamOverallBoard({
                                 : "border-green-300 bg-green-50 text-green-800",
                             )}
                           >
-                            {cell.checked ? "✓" : "✕"} {cell.score}
+                            {cell.checked && cell.score >= 1
+                              ? `✓ ${cell.score}`
+                              : "✕ -"}
                           </span>
                         </TableCell>
                       );
@@ -558,14 +560,19 @@ export default function ExperienceTeamOverallBoard({
                           />
                           <select
                             className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
-                            value={cell.score}
+                            // 점수는 1~10만 유효. 미체크(=미평가)면 '-' 표시(0='0점'과 혼동 방지).
+                            //   0 은 selectable 점수가 아니다 — 미평가 placeholder 는 rating=0/evaluated_by=null 로만 존재.
+                            value={cell.checked && cell.score >= 1 ? String(cell.score) : ""}
                             disabled={disabled}
                             onChange={(e) =>
                               setLeaderScore(crew.userId, c.key, Number(e.target.value))
                             }
                             aria-label={`${crew.displayName} ${c.label} 점수`}
                           >
-                            {Array.from({ length: 11 }, (_, i) => i).map((n) => (
+                            <option value="" disabled>
+                              -
+                            </option>
+                            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
                               <option key={n} value={n}>
                                 {n}
                               </option>
