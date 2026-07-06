@@ -69,8 +69,9 @@ export type Cluster4EnhancementInput = {
   //   "success" → 마감 후 success, "fail" → 마감 후 fail, "unevaluated" → 마감 후 pending.
   careerGradeVerdict?: "success" | "fail" | "unevaluated" | null;
   // experience 평점 평가 결과. experience 호출부만 전달한다. 미전달이면 기존 동작 유지.
-  //   "fail" → 마감 후 fail (rating <= 3), "pass"/null → 기존 동작(마감 후 success).
-  experienceRatingVerdict?: "fail" | "pass" | null;
+  //   "fail" → 마감 후 fail (rating 1~3), "unevaluated" → 마감 후 pending (rating 미입력=placeholder 0),
+  //   "pass"/null → 기존 동작(마감 후 success).
+  experienceRatingVerdict?: "fail" | "pass" | "unevaluated" | null;
 };
 
 // experience 평점 강화 실패 임계: rating <= 3. weekly-cards / smoke 공용 SoT.
@@ -139,6 +140,17 @@ export function computeCluster4Enhancement(
         enhancementStatus: "fail",
         submissionStatus,
         enhancementReason: "experience_rating_fail",
+      };
+    }
+    // 미평가(rating 미입력 = placeholder 0) → 아직 평가 전이므로 '강화 대기'.
+    //   대상자로 선정됐으나 (소급 개설 등으로) 평점이 아직 입력되지 않은 경우, 마감이 지났다는
+    //   이유만으로 즉시 강화 실패/성공으로 확정하지 않는다. 실제 평점 입력(별도 마감/확정 처리) 후에만
+    //   rating 1~3 → fail, 4점 이상 → success 로 전환된다.
+    if (input.experienceRatingVerdict === "unevaluated") {
+      return {
+        enhancementStatus: "pending",
+        submissionStatus,
+        enhancementReason: "experience_unevaluated_after_deadline",
       };
     }
     // career 평점 반영 (P0). careerGradeVerdict 미전달(undefined)인 비career 경로는

@@ -61,6 +61,10 @@ export type Cluster4EnhancementReason =
   | "career_not_submitted"
   // experience 전용: 타깃 있음 + 마감 후 + 평점 3점 이하(rating <= 3) → fail
   | "experience_rating_fail"
+  // experience 전용: 타깃 있음(대상자) + 마감 후 + 미평가(rating 미입력 = placeholder 0) → pending(평가 대기).
+  //   rating 0 은 1~10 척도의 '미평가' placeholder(evaluated_by=null)이므로 강화 실패(rating<=3)로 보지 않는다.
+  //   실제 평점(1~3)이 입력되면 experience_rating_fail 로, 4점 이상이면 success 로 확정된다(평가=별도 마감/확정 처리).
+  | "experience_unevaluated_after_deadline"
   // competency 전용 (2026-06-04 v14): 선택 과제 미수행(라인 0개 포함) → 해당 없음이 아니라 강화 대기.
   // 역량은 1인·1주차 단일 칸 정규화 — not_applicable 불가.
   //   ⚠ v14.1 보정: "강화 대기"는 미확정(running/tallying) 주차에서만. 확정(공표) 주차의

@@ -323,7 +323,13 @@ async function writeRosterCardStats(
 //   사용자 강화 실패로 흘리던 버그. (B) 필수 슬롯(1·2·3·5) 빈칸 placeholder 의 required_fail 은 내 팀이
 //   그 슬롯을 개설한 확정 주차에만 — 팀 미개설 슬롯은 해당 없음(케이스 3·4). experience fail↔해당없음 이
 //   달라지므로 v32 snapshot 을 stale(version_mismatch) 처리해 재계산. (파생 캐시 재생성 — DB 백필 아님.)
-export const WEEKLY_CARDS_DTO_VERSION = 33;
+// v34 (2026-07-06): 실무 경험 '미평가' 라인을 강화 실패 대신 강화 대기(pending)로 표시. 대상자로 선정됐으나
+//   평점이 아직 입력되지 않은(cluster4_experience_line_evaluations.rating = 0 = 1~10 척도의 미평가 placeholder,
+//   evaluated_by=null) 라인이 마감 후 rating<=3 규칙에 걸려 '강화 실패'로 오표시되던 버그. rating 0 은 미평가로
+//   보아 pending(experience_unevaluated_after_deadline), 실제 평점 1~3 → fail, 4 이상 → success 로 확정.
+//   (소급 개설/과거 주차도 평가 입력 전에는 강화 대기 유지.) 강화율 A/B 불변(pending·fail 모두 A 포함, B 제외).
+//   experience fail↔pending 표시가 달라지므로 v33 snapshot 을 stale 처리해 재계산. (파생 캐시 재생성 — DB 백필 아님.)
+export const WEEKLY_CARDS_DTO_VERSION = 34;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

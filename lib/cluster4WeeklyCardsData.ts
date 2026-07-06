@@ -826,11 +826,15 @@ function toLineDetail(
     partType === "experience"
       ? experienceRatingByTargetId.get(target.id) ?? null
       : null;
+  // rating 0 은 1~10 척도의 '미평가' placeholder(evaluated_by=null) → 강화 대기(unevaluated).
+  //   실제 평점 1~3 → fail, 4 이상 → pass(success). rating 행 부재(null) → undefined(기존 success).
   const experienceRatingVerdict =
     partType === "experience" && experienceRatingValue != null
-      ? experienceRatingValue <= EXPERIENCE_RATING_FAIL_THRESHOLD
-        ? "fail"
-        : "pass"
+      ? experienceRatingValue <= 0
+        ? "unevaluated"
+        : experienceRatingValue <= EXPERIENCE_RATING_FAIL_THRESHOLD
+          ? "fail"
+          : "pass"
       : undefined;
   const enhancement = computeCluster4Enhancement({
     hasTarget: true,
