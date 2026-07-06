@@ -1,5 +1,5 @@
 /**
- * 1) 로그인 화면 "Cluv Code" 라벨 + Email 문구 부재
+ * 1) 로그인 화면 "Admin Code" 라벨 + Email 문구 부재
  * 2) 사이드바 하단 로그아웃 버튼 — 긴 페이지(/admin/members 등) 스크롤 후에도
  *    뷰포트 안에 항상 보이는지 (sticky+h-screen 수정 검증)
  * 3) 다른 어드민 화면 이동 시에도 유지
@@ -95,13 +95,13 @@ async function main() {
   const browser = await chromium.launch({ channel: "chromium" });
 
   try {
-    // ── 1) 로그인 화면(비로그인): Cluv Code 라벨 ───────────────────────
+    // ── 1) 로그인 화면(비로그인): Admin Code 라벨 ───────────────────────
     const anonCtx = await browser.newContext({ baseURL: baseUrl, viewport: VIEWPORT });
     const anonPage = await anonCtx.newPage();
     await anonPage.goto("/login", { waitUntil: "networkidle" });
     check(
-      "/login: 'Cluv Code' 라벨 표시",
-      await anonPage.getByText("Cluv Code", { exact: true }).isVisible(),
+      "/login: 'Admin Code' 라벨 표시",
+      await anonPage.getByText("Admin Code", { exact: true }).isVisible(),
     );
     const bodyText = await anonPage.locator("body").innerText();
     check(
