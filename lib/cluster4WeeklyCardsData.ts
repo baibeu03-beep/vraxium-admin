@@ -755,7 +755,7 @@ function toLineDetail(
   target: TargetWithLineRow,
   submission: SubmissionRow | null,
   activityTypeNameById: Map<string, string>,
-  experienceRatingByTargetId: Map<string, number>,
+  experienceEvalByTargetId: Map<string, { rating: number; evaluated: boolean }>,
   experienceMasterMetaById: Map<string, ExperienceMasterMeta>,
   careerGradeByTargetId: Map<string, CareerGradeEval>,
   careerProjectMetaById: Map<string, CareerProjectMeta>,
@@ -822,20 +822,24 @@ function toLineDetail(
   const deadlinePassed =
     Boolean(closesAt) && Date.now() > new Date(closesAt).getTime();
   // 실무 경험 평점: experience part 만 매핑. rating <= 3 → 마감 후 fail.
-  const experienceRatingValue =
+  const experienceEval =
     partType === "experience"
-      ? experienceRatingByTargetId.get(target.id) ?? null
+      ? experienceEvalByTargetId.get(target.id) ?? null
       : null;
-  // rating 0 은 1~10 척도의 '미평가' placeholder(evaluated_by=null) → 강화 대기(unevaluated).
-  //   실제 평점 1~3 → fail, 4 이상 → pass(success). rating 행 부재(null) → undefined(기존 success).
+  // rating 0 의 의미를 evaluated_by 로 분리(정책 명확화):
+  //   · rating 0 + evaluated_by=null → '미평가' placeholder(소급 개설·점수 미입력) → 강화 대기(unevaluated).
+  //   · rating 0 + evaluated_by=set  → 팀장이 실제 0점으로 평가 → fail (0 ≤ 3, 명시적 '0점').
+  //   · rating 1~3 → fail, 4 이상 → pass(success). 평가 행 부재(null) → undefined(기존 success).
   const experienceRatingVerdict =
-    partType === "experience" && experienceRatingValue != null
-      ? experienceRatingValue <= 0
-        ? "unevaluated"
-        : experienceRatingValue <= EXPERIENCE_RATING_FAIL_THRESHOLD
+    experienceEval == null
+      ? undefined
+      : experienceEval.rating <= 0
+        ? experienceEval.evaluated
           ? "fail"
-          : "pass"
-      : undefined;
+          : "unevaluated"
+        : experienceEval.rating <= EXPERIENCE_RATING_FAIL_THRESHOLD
+          ? "fail"
+          : "pass";
   const enhancement = computeCluster4Enhancement({
     hasTarget: true,
     deadlinePassed,
@@ -891,7 +895,7 @@ function toLineDetail(
     experienceLineMasterId,
     // 실무 경험 평점: cluster4_experience_line_evaluations.rating (현재 대상자 기준).
     // experience part 만 매핑하고 그 외 part 는 null. 미평가면 null.
-    experienceRating: experienceRatingValue,
+    experienceRating: experienceEval?.rating ?? null,
     // 실무 경험 5슬롯 분류: cluster4_experience_line_masters (experience_line_master_id 조인).
     // experience part 만 매핑하고 그 외 part 는 null. 미분류면 null.
     experienceCategory:
@@ -1865,11 +1869,17 @@ async function fetchLineDetailsByWeek(
   const experienceTargetIds = relevantTargets
     .filter((row) => row.cluster4_lines?.part_type === "experience")
     .map((row) => row.id);
-  const experienceRatingByTargetId = new Map<string, number>();
+  // rating 0 의 의미를 evaluated_by 로 분리하기 위해 평점과 평가 여부를 함께 담는다.
+  //   evaluated_by=null → 미평가 placeholder(개설만 되고 점수 미입력) → 강화 대기.
+  //   evaluated_by=set  → 팀장이 실제로 0점으로 평가 → fail(0 ≤ 3). rating 1~10 은 evaluated_by 무관.
+  const experienceEvalByTargetId = new Map<
+    string,
+    { rating: number; evaluated: boolean }
+  >();
   if (experienceTargetIds.length > 0) {
     const { data: evalData, error: evalError } = await supabaseAdmin
       .from("cluster4_experience_line_evaluations")
-      .select("line_target_id,rating")
+      .select("line_target_id,rating,evaluated_by")
       .eq("user_id", profileUserId)
       .in("line_target_id", experienceTargetIds);
     if (evalError) {
@@ -1879,9 +1889,13 @@ async function fetchLineDetailsByWeek(
     } else {
       for (const row of (evalData ?? []) as {
         line_target_id: string;
-        rating: number;
+        rating: number | null;
+        evaluated_by: string | null;
       }[]) {
-        experienceRatingByTargetId.set(row.line_target_id, row.rating);
+        experienceEvalByTargetId.set(row.line_target_id, {
+          rating: row.rating ?? 0,
+          evaluated: row.evaluated_by != null,
+        });
       }
     }
   }
@@ -2137,7 +2151,7 @@ async function fetchLineDetailsByWeek(
         target,
         submissionsByTargetId.get(target.id) ?? null,
         activityTypeNameById,
-        experienceRatingByTargetId,
+        experienceEvalByTargetId,
         experienceMasterMetaById,
         careerGradeByTargetId,
         careerProjectMetaById,
