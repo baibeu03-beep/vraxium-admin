@@ -12,8 +12,12 @@
  *    운영(구버전) 인스턴스가 조회 경로 bg 재계산으로 구버전을 되쓸 수 있다(수렴 무효 flip). 배포 완료 후 실행.
  *
  * 사용:
- *   npx tsx --env-file=.env.local scripts/converge-weekly-card-snapshots.ts          # 수렴 실행
+ *   npx tsx --env-file=.env.local scripts/converge-weekly-card-snapshots.ts          # 수렴(stale 만 재계산)
+ *   npx tsx --env-file=.env.local scripts/converge-weekly-card-snapshots.ts --force  # 전수 재계산(버전 무관·출처 확실성)
  *   npx tsx --env-file=.env.local scripts/converge-weekly-card-snapshots.ts --dry    # 대상 집계만(재계산 안 함)
+ *
+ * --force: dto_version 이 이미 현재 값이어도 전체 snapshot 행을 재계산한다. 고객 표시값 직결 규칙
+ *   변경 후 "전원이 최신 코드로 계산됐음"을 보장(출처 확실성)하고 싶을 때 사용. 결과는 멱등(동일 값).
  */
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -26,6 +30,7 @@ const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const sb = createClient(url, key);
 
 const DRY = process.argv.includes("--dry");
+const FORCE = process.argv.includes("--force"); // 버전 무관 전수 재계산.
 const CONCURRENCY = 3; // 재계산 1건 ~37쿼리 → 부하 보호(backfill 동일 기준).
 const PAGE = 1000;
 
@@ -33,7 +38,8 @@ async function main() {
   const TARGET = WEEKLY_CARDS_DTO_VERSION;
   console.log(`[converge] 현재 코드 WEEKLY_CARDS_DTO_VERSION = ${TARGET}`);
 
-  // 1. 전체 snapshot 행의 (user_id, dto_version) 스캔 → 버전 분포 + stale 대상 수집.
+  // 1. 전체 snapshot 행의 (user_id, dto_version) 스캔 → 버전 분포 + 대상 수집.
+  //    --force: 전수. 기본: dto_version != 현재 값(stale) 만.
   const staleUserIds: string[] = [];
   const versionCount = new Map<number, number>();
   let total = 0;
@@ -48,17 +54,17 @@ async function main() {
     for (const r of rows) {
       total++;
       versionCount.set(r.dto_version, (versionCount.get(r.dto_version) ?? 0) + 1);
-      if (r.dto_version !== TARGET) staleUserIds.push(r.user_id);
+      if (FORCE || r.dto_version !== TARGET) staleUserIds.push(r.user_id);
     }
     if (rows.length < PAGE) break;
   }
 
   console.log(`[converge] snapshot 총 ${total}행 · 버전 분포:`,
     [...versionCount.entries()].sort((a, b) => a[0] - b[0]).map(([v, n]) => `v${v}=${n}`).join(" "));
-  console.log(`[converge] 수렴 대상(dto_version != ${TARGET}): ${staleUserIds.length}명`);
+  console.log(`[converge] ${FORCE ? "전수 재계산(--force)" : `수렴 대상(dto_version != ${TARGET})`}: ${staleUserIds.length}명`);
 
   if (staleUserIds.length === 0) {
-    console.log("[converge] 이미 전원 현재 버전 — 재계산 불필요.");
+    console.log("[converge] 재계산 대상 없음(전원 현재 버전).");
     return;
   }
   if (DRY) {
