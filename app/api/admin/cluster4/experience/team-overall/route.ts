@@ -180,6 +180,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // 로그 실행자 = 임퍼소네이션 유효 시 그 테스트 유저(에이전트/팀장), 아니면 실 admin.
+    //   opened_by/reviewed_by(감사 컬럼)는 실 admin 유지 — 로그 표기 실행자만 actorId 로 분리.
+    const actorId =
+      impersonation.active && impersonation.userId
+        ? impersonation.userId
+        : admin.userId;
+
     if (action === "cancel") {
       const data = await cancelTeamOverall({
         organization,
@@ -187,6 +194,7 @@ export async function POST(request: NextRequest) {
         teamId,
         teamName,
         adminId: admin.userId,
+        actorId,
       });
       return Response.json({ success: true, data });
     }
@@ -203,6 +211,7 @@ export async function POST(request: NextRequest) {
         leaderCells,
         outputs,
         adminId: admin.userId,
+        actorId,
         mode,
       });
       return Response.json({ success: true, data }, { status: 201 });
@@ -217,6 +226,7 @@ export async function POST(request: NextRequest) {
       leaderCells,
       outputs,
       adminId: admin.userId,
+      actorId,
       mode,
     });
     return Response.json(

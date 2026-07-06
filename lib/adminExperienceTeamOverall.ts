@@ -510,6 +510,8 @@ export async function saveTeamOverallReview(input: {
   leaderCells: OverallLeaderCellDto[];
   outputs: OverallOutput[];
   adminId: string | null;
+  // 로그 실행자(임퍼소네이션 유효 시 그 테스트 유저=에이전트/팀장, 아니면 실 admin). 미지정 시 adminId.
+  actorId?: string | null;
   mode?: ScopeMode;
 }): Promise<{ status: "reviewed" }> {
   // 이미 개설 완료된 팀은 [개설 취소] 후에만 재검수/수정 가능(고객 라인과 불일치 방지).
@@ -536,11 +538,12 @@ export async function saveTeamOverallReview(input: {
   await persistReviewState({ ...input, status: "reviewed" });
   await insertExperienceOpeningLog({
     action: "review",
-    draftId: null,
     weekId: input.weekId,
     organizationSlug: input.organization,
-    targetUserId: null,
-    changedBy: input.adminId,
+    actorUserId: input.actorId ?? input.adminId,
+    teamId: input.teamId,
+    teamName: input.teamName,
+    isTeamLevel: true,
   });
   return { status: "reviewed" };
 }
@@ -800,6 +803,8 @@ export async function openTeamOverall(input: {
   leaderCells: OverallLeaderCellDto[];
   outputs: OverallOutput[];
   adminId: string | null;
+  // 로그 실행자(임퍼소네이션 유효 시 그 테스트 유저=팀장, 아니면 실 admin). 미지정 시 adminId.
+  actorId?: string | null;
   mode?: ScopeMode;
 }): Promise<OpenOverallResult> {
   const mode: ScopeMode = input.mode ?? "operating";
@@ -1030,11 +1035,12 @@ export async function openTeamOverall(input: {
 
   await insertExperienceOpeningLog({
     action: "open",
-    draftId: null,
     weekId: input.weekId,
     organizationSlug: input.organization,
-    targetUserId: null,
-    changedBy: input.adminId,
+    actorUserId: input.actorId ?? input.adminId,
+    teamId: input.teamId,
+    teamName: input.teamName,
+    isTeamLevel: true,
   });
 
   return {
@@ -1053,6 +1059,8 @@ export async function cancelTeamOverall(input: {
   teamId: string;
   teamName: string;
   adminId: string | null;
+  // 로그 실행자(임퍼소네이션 유효 시 그 테스트 유저=팀장, 아니면 실 admin). 미지정 시 adminId.
+  actorId?: string | null;
 }): Promise<{ status: "reviewed"; linesRemoved: number }> {
   const { data: header } = await supabaseAdmin
     .from("cluster4_experience_team_overall")
@@ -1104,11 +1112,12 @@ export async function cancelTeamOverall(input: {
 
   await insertExperienceOpeningLog({
     action: "cancel",
-    draftId: null,
     weekId: input.weekId,
     organizationSlug: input.organization,
-    targetUserId: null,
-    changedBy: input.adminId,
+    actorUserId: input.actorId ?? input.adminId,
+    teamId: input.teamId,
+    teamName: input.teamName,
+    isTeamLevel: true,
   });
 
   return { status: "reviewed", linesRemoved: lineIds.length };

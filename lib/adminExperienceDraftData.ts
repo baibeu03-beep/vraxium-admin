@@ -162,11 +162,15 @@ export async function createExperienceDraft(
   if (dto.inputStatus === "submitted") {
     await insertExperienceOpeningLog({
       action: "apply",
-      draftId: dto.id,
       weekId: dto.weekId,
       organizationSlug: dto.organizationSlug,
+      actorUserId: adminId,
+      teamId: dto.teamId,
+      teamName: dto.teamName,
+      partName: dto.partName,
+      isTeamLevel: false,
+      draftId: dto.id,
       targetUserId: dto.targetUserId,
-      changedBy: adminId,
     });
   }
   return dto;
@@ -276,11 +280,15 @@ export async function updateExperienceDraft(
   if (input.inputStatus === "submitted") {
     await insertExperienceOpeningLog({
       action: "apply",
-      draftId: dto.id,
       weekId: dto.weekId,
       organizationSlug: dto.organizationSlug,
+      actorUserId: adminId,
+      teamId: dto.teamId,
+      teamName: dto.teamName,
+      partName: dto.partName,
+      isTeamLevel: false,
+      draftId: dto.id,
       targetUserId: dto.targetUserId,
-      changedBy: adminId,
     });
   }
   return dto;
@@ -361,11 +369,15 @@ export async function reviewExperienceDraft(
   if (reviewAction) {
     await insertExperienceOpeningLog({
       action: reviewAction,
-      draftId: dto.id,
       weekId: dto.weekId,
       organizationSlug: dto.organizationSlug,
+      actorUserId: adminId,
+      teamId: dto.teamId,
+      teamName: dto.teamName,
+      partName: dto.partName,
+      isTeamLevel: false,
+      draftId: dto.id,
       targetUserId: dto.targetUserId,
-      changedBy: adminId,
     });
   }
   return dto;
@@ -409,6 +421,7 @@ type DraftForOpen = {
   week_id: string;
   organization_slug: string;
   team_id: string | null;
+  part_name: string | null;
   target_user_id: string;
   experience_line_master_id: string;
   line_code: string;
@@ -433,7 +446,7 @@ export async function openExperienceDrafts(
   const { data: rawDrafts, error: fetchError } = await supabaseAdmin
     .from("cluster4_experience_line_drafts")
     .select(
-      "id,week_id,organization_slug,team_id,target_user_id," +
+      "id,week_id,organization_slug,team_id,part_name,target_user_id," +
       "experience_line_master_id,line_code,main_title," +
       "output_link_1,output_link_2,output_links,output_images," +
       "rating,review_status,open_status,entered_by,entered_at",
@@ -664,11 +677,14 @@ export async function openExperienceDrafts(
     if (!d) continue;
     await insertExperienceOpeningLog({
       action: "open",
-      draftId: d.id,
       weekId: d.week_id,
       organizationSlug: d.organization_slug,
+      actorUserId: adminId,
+      teamId: d.team_id,
+      partName: d.part_name,
+      isTeamLevel: false,
+      draftId: d.id,
       targetUserId: d.target_user_id,
-      changedBy: adminId,
     });
   }
 

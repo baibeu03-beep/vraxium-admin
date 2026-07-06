@@ -525,6 +525,9 @@ export default function ExperiencePartLeadInput({
       qs.set("week_id", selectedWeekId);
       qs.set("team_id", selectedTeam.id);
       qs.set("part", part);
+      // 로그 실행자(파트장) 해석용 — POST 와 동일하게 mode/actAsTestUserId 전파.
+      if (mode === "test") qs.set("mode", "test");
+      if (actAsTestUserId) qs.set("actAsTestUserId", actAsTestUserId);
       const res = await fetch(
         `/api/admin/cluster4/experience/part-input?${qs.toString()}`,
         { method: "DELETE" },
@@ -542,7 +545,7 @@ export default function ExperiencePartLeadInput({
     } finally {
       setSaving(false);
     }
-  }, [selectedTeam, selectedWeekId, part, data, org, fetchGrid, onActivity]);
+  }, [selectedTeam, selectedWeekId, part, data, org, mode, actAsTestUserId, fetchGrid, onActivity]);
 
   const isOverall = part === TEAM_OVERALL;
   const submitted = data?.submitted ?? false;

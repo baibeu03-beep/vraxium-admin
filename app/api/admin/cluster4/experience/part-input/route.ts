@@ -217,14 +217,19 @@ export async function POST(request: NextRequest) {
       cells,
       mode,
     });
-    // 행동 이력: [개설 신청] 로그(best-effort, 실행자 소속 기준). 실패해도 신청 저장 무영향.
+    // 행동 이력: [개설 신청] 로그(best-effort). 실패해도 신청 저장 무영향.
+    //   실행자 = 임퍼소네이션 유효 시 그 테스트 유저(파트장), 아니면 실 admin. 파트 단위 → 파트명.
     await insertExperienceOpeningLog({
       action: "apply",
-      draftId: null,
       weekId,
       organizationSlug: organization,
-      targetUserId: null,
-      changedBy: admin.userId,
+      actorUserId:
+        impersonation.active && impersonation.userId
+          ? impersonation.userId
+          : admin.userId,
+      teamId,
+      partName: part,
+      isTeamLevel: false,
     });
     return Response.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
@@ -256,6 +261,9 @@ export async function DELETE(request: NextRequest) {
   const weekId = sp.get("week_id")?.trim() || "";
   const teamId = sp.get("team_id")?.trim() || "";
   const part = sp.get("part")?.trim() || "";
+  // 로그 실행자 해석용(POST 와 동일 규칙) — mode=test + 유효 테스트 유저면 그 파트장을 실행자로.
+  const mode = parseScopeMode(sp.get("mode"));
+  const actAsTestUserId = sp.get("actAsTestUserId")?.trim() || null;
 
   if (!organization || !weekId || !teamId || !part) {
     return Response.json(
@@ -267,13 +275,19 @@ export async function DELETE(request: NextRequest) {
   try {
     const result = await deletePartSubmission(organization, weekId, teamId, part);
     // 행동 이력: [신청 취소] 로그(개설 취소와 다른 이벤트). best-effort.
+    //   실행자 = 임퍼소네이션 유효 시 그 테스트 유저(파트장), 아니면 실 admin. 파트 단위 → 파트명.
+    const impersonation = await resolveImpersonation({ mode, actAsTestUserId });
     await insertExperienceOpeningLog({
       action: "apply_cancel",
-      draftId: null,
       weekId,
       organizationSlug: organization,
-      targetUserId: null,
-      changedBy: admin.userId,
+      actorUserId:
+        impersonation.active && impersonation.userId
+          ? impersonation.userId
+          : admin.userId,
+      teamId,
+      partName: part,
+      isTeamLevel: false,
     });
     return Response.json({ success: true, data: result });
   } catch (error) {
