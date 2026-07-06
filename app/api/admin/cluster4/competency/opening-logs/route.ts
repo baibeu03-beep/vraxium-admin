@@ -29,21 +29,29 @@ export async function GET(request: NextRequest) {
   }
 
   const org = request.nextUrl.searchParams.get("organization")?.trim() || null;
+  // 대시보드가 실제로 작업 중인 주차(?week_id) — 개설 대상(금요일 경계) 밖의 예외 주차
+  //   (line_opening_windows scope=all)로 라인을 열면 로그도 그 주차에 남는다. 대시보드와 같은
+  //   주차의 로그를 보여주기 위해 override 를 우선한다. 미지정(기존 호출)이면 개설 대상 주차 폴백.
+  //   (실무 경험 opening-logs 와 동일 패턴 — 쓰기/읽기 주차 정합.)
+  const overrideWeekId =
+    request.nextUrl.searchParams.get("week_id")?.trim() || null;
 
   try {
-    let targetWeekId: string | null = null;
-    const todayIso = getCurrentActivityDateIso();
-    const openableStartMs = getOpenableWeekStartMs(todayIso);
-    const targetInfo =
-      openableStartMs != null ? describeWeekByStartMs(openableStartMs) : null;
-    if (targetInfo) {
-      const { data: weekRow } = await supabaseAdmin
-        .from("weeks")
-        .select("id")
-        .eq("iso_year", targetInfo.isoYear)
-        .eq("iso_week", targetInfo.isoWeek)
-        .maybeSingle();
-      targetWeekId = (weekRow as { id: string } | null)?.id ?? null;
+    let targetWeekId: string | null = overrideWeekId;
+    if (!targetWeekId) {
+      const todayIso = getCurrentActivityDateIso();
+      const openableStartMs = getOpenableWeekStartMs(todayIso);
+      const targetInfo =
+        openableStartMs != null ? describeWeekByStartMs(openableStartMs) : null;
+      if (targetInfo) {
+        const { data: weekRow } = await supabaseAdmin
+          .from("weeks")
+          .select("id")
+          .eq("iso_year", targetInfo.isoYear)
+          .eq("iso_week", targetInfo.isoWeek)
+          .maybeSingle();
+        targetWeekId = (weekRow as { id: string } | null)?.id ?? null;
+      }
     }
 
     const logs = await listCompetencyOpeningLogs({

@@ -33,6 +33,9 @@ export default function CompetencyOpeningLogPanel({
 }) {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  // 대시보드가 선택한 주차(?week) — 있으면 그 주차 로그를 보여준다(개설 대상 밖 예외 주차 포함).
+  //   없으면 서버가 개설 대상 주차로 폴백(기존 동작). 대시보드↔로그창 주차 정합 SoT(실무 경험과 동일).
+  const weekId = searchParams?.get("week")?.trim() || null;
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
@@ -42,9 +45,12 @@ export default function CompetencyOpeningLogPanel({
     (async () => {
       if (!cancelled) setLoading(true);
       try {
-        const qs = org ? `?organization=${encodeURIComponent(org)}` : "";
+        const params = new URLSearchParams();
+        if (org) params.set("organization", org);
+        if (weekId) params.set("week_id", weekId);
+        const suffix = params.toString();
         const res = await fetch(
-          `/api/admin/cluster4/competency/opening-logs${qs}`,
+          `/api/admin/cluster4/competency/opening-logs${suffix ? `?${suffix}` : ""}`,
         );
         const json = await res.json();
         if (cancelled) return;
@@ -58,7 +64,7 @@ export default function CompetencyOpeningLogPanel({
     return () => {
       cancelled = true;
     };
-  }, [org, refreshKey]);
+  }, [org, weekId, refreshKey]);
 
   return (
     <Card className="flex h-full flex-col">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { X, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -53,6 +53,8 @@ function weekMainLabel(w: WeekOption): string {
 
 export default function CompetencyOpeningDashboard() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const org = readOrgParam(searchParams);
   // 운영/테스트 모드 — 개설 완료 시 라인 타깃 생성 가드(서버)와 같은 모드로 판정되도록 보존.
 
@@ -76,7 +78,25 @@ export default function CompetencyOpeningDashboard() {
   // 드롭다운 표기를 이 주차로 맞춰 "상태창/실제 개설 대상"과 일치시킨다(운영 모드는 정규 주차).
   const [targetStartDate, setTargetStartDate] = useState<string | null>(null);
   // 사용자가 드롭다운에서 고른 개설 주차(정규 대상 또는 허용 예외 주차). 미선택=정규 대상.
-  const [selectedWeekId, setSelectedWeekId] = useState<string | null>(null);
+  //   URL(?week)에 보존 — 새로고침 후에도 유지되고, 로그창(CompetencyOpeningLogPanel)이 같은 주차를
+  //   조회하도록 SoT 를 URL 로 통일한다(실무 경험과 동일 구조). 초기값 = URL 의 ?week(있으면).
+  const [selectedWeekId, setSelectedWeekId] = useState<string | null>(
+    () => searchParams?.get("week")?.trim() || null,
+  );
+
+  // 주차 변경 — 상태 + URL(?week) 동기화. URL 을 SoT 로 삼아 (a) 새로고침 후 선택 주차 유지,
+  //   (b) 형제 로그창이 같은 주차의 개설 로그를 조회하게 한다(개설 대상 밖 예외 주차 포함).
+  const onSelectWeek = useCallback(
+    (weekId: string) => {
+      setSelectedWeekId(weekId);
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      if (weekId) params.set("week", weekId);
+      else params.delete("week");
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    },
+    [searchParams, pathname, router],
+  );
 
   // 개설 주차 커스텀 드롭다운 열림 상태(메인 표기 + 날짜 도움말 2줄 옵션을 위해 native select 대신 사용).
   const [weekMenuOpen, setWeekMenuOpen] = useState(false);
@@ -326,7 +346,7 @@ export default function CompetencyOpeningDashboard() {
                           type="button"
                           disabled={!selectable}
                           onClick={() => {
-                            if (selectable) setSelectedWeekId(w.id);
+                            if (selectable) onSelectWeek(w.id);
                             setWeekMenuOpen(false);
                           }}
                           className={cn(
