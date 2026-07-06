@@ -9,8 +9,12 @@ import {
   requireAdmin,
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
-import { isProcessHub } from "@/lib/adminProcessesTypes";
-import { ProcessMasterError, getProcessInfo } from "@/lib/adminProcessesData";
+import { isProcessHub, type ProcessHub } from "@/lib/adminProcessesTypes";
+import {
+  ProcessMasterError,
+  getProcessInfo,
+  getProcessInfoAll,
+} from "@/lib/adminProcessesData";
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,15 +26,17 @@ export async function GET(request: NextRequest) {
   }
 
   const hubRaw = request.nextUrl.searchParams.get("hub")?.trim() ?? null;
-  if (!isProcessHub(hubRaw)) {
+  // hub=all → 프로세스 관리 화면의 전체 허브 단일 표.
+  const isAll = hubRaw === "all";
+  if (!isAll && !isProcessHub(hubRaw)) {
     return Response.json(
-      { success: false, error: "hub must be one of club|info|experience|competency|career" },
+      { success: false, error: "hub must be one of all|club|info|experience|competency|career" },
       { status: 400 },
     );
   }
 
   try {
-    const data = await getProcessInfo(hubRaw);
+    const data = isAll ? await getProcessInfoAll() : await getProcessInfo(hubRaw as ProcessHub);
     return Response.json({ success: true, data });
   } catch (error) {
     const status = error instanceof ProcessMasterError ? error.status : 500;

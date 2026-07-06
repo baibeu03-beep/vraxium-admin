@@ -128,8 +128,7 @@ const MENU_INTEGRATED: MenuItem[] = [
     icon: Workflow,
     basePath: "/admin/processes",
     children: [
-      { label: "프로세스 등록", href: "/admin/processes/register" },
-      { label: "프로세스 정보", href: "/admin/processes/info" },
+      { label: "프로세스 관리", href: "/admin/processes/register", matchPaths: ["/admin/processes/register", "/admin/processes/info"] },
       { label: "프로세스 체크 [실무 경력]", href: "/admin/processes/check" },
     ],
   },

@@ -159,6 +159,40 @@ export function formatProcessWhen(
   return `${PROCESS_WEEK_REF_LABEL[week]}주 ${d} ${time}`;
 }
 
+// ── 신청/검수 시점 선후 비교 (서버/클라 공용 SoT) ──────────────────────────
+//   시점 = (주차 N<N+1) → (요일 일0~토6) → (시각 분) 의 사전식 순서.
+//   검수 시점(check)은 신청 시점(occur)보다 이전일 수 없다.
+//   "HH:MM" 이외/범위 밖 값은 방어적으로 0 처리 — 기존에 저장된 이상 데이터도 깨지지 않게 한다.
+export function processWhenOrdinal(
+  week: ProcessWeekRef,
+  dow: number,
+  time: string,
+): number {
+  const weekRank = week === "N1" ? 1 : 0;
+  const safeDow = Number.isInteger(dow) && dow >= 0 && dow <= 6 ? dow : 0;
+  const [hRaw, mRaw] = typeof time === "string" ? time.split(":") : [];
+  const h = Number(hRaw);
+  const m = Number(mRaw);
+  const minutes =
+    (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+  return weekRank * 100000 + safeDow * 10000 + minutes;
+}
+
+// 검수 시점이 신청 시점보다 이전이면 true (같은 시점은 허용).
+export function isCheckBeforeOccur(
+  occurWeek: ProcessWeekRef,
+  occurDow: number,
+  occurTime: string,
+  checkWeek: ProcessWeekRef,
+  checkDow: number,
+  checkTime: string,
+): boolean {
+  return (
+    processWhenOrdinal(checkWeek, checkDow, checkTime) <
+    processWhenOrdinal(occurWeek, occurDow, occurTime)
+  );
+}
+
 // ── 프로세스 정보(/admin/processes/info) 요약 ──────────────────────────────
 export type ProcessPointTriplet = { check: number; advantage: number; penalty: number };
 
@@ -377,6 +411,20 @@ export function parseProcessActCreateBody(
   }
   if (!isProcessTime(body.check_time)) {
     return { ok: false, status: 400, error: "check_time must be a 30분 단위 시각 (06:00~24:00)" };
+  }
+
+  // 검수 시점은 신청 시점보다 이전일 수 없다 (프론트 우회·잘못된 요청 차단).
+  if (
+    isCheckBeforeOccur(
+      body.occur_week,
+      occurDow,
+      body.occur_time,
+      body.check_week,
+      checkDow,
+      body.check_time,
+    )
+  ) {
+    return { ok: false, status: 400, error: "신청 시점보다 이전입니다." };
   }
 
   const pointCheck = Number(body.point_check);

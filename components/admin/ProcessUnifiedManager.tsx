@@ -1,0 +1,1165 @@
+"use client";
+
+// /admin/processes/register (= "프로세스 관리") — 프로세스 등록 + 프로세스 정보 통합 화면.
+//
+// 상단: 액트/라인급 "마스터" 등록 폼 (POST /api/admin/processes/{line-groups,acts}).
+// 하단: 전체 허브 액트를 단일 표로 조회 (GET /api/admin/processes/info?hub=all) + 삭제.
+//
+// 사용자 수행기록 · user_weekly_points 자동 합산 · 주차 성장 계산 · snapshot · checkGate 판정은
+// 일절 건드리지 않는다 — point.check 를 "정의"하는 카탈로그이며 계산 반영은 별도 Phase.
+// 조직/모드(demoUserId·mode=test) 구분 없음 — 허브×라인급×액트 전역 1세트(동일 DTO).
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { SelectBadge } from "@/components/ui/status-badge";
+import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
+import { cn } from "@/lib/utils";
+import {
+  PROCESS_ACT_TYPE_LABEL,
+  PROCESS_ACT_TYPE_OPTIONS,
+  PROCESS_CAFE_LABEL,
+  PROCESS_CAFE_OPTIONS,
+  PROCESS_CHECK_TARGET_LABEL,
+  PROCESS_CHECK_TARGET_OPTIONS,
+  PROCESS_DOW_LABELS,
+  PROCESS_DURATION_OPTIONS,
+  PROCESS_HUBS,
+  PROCESS_HUB_LABEL,
+  PROCESS_LINE_GROUP_MAX,
+  PROCESS_NAME_MAX,
+  PROCESS_POINT_OPTIONS,
+  PROCESS_TIME_OPTIONS,
+  PROCESS_WEEK_REFS,
+  PROCESS_WEEK_REF_LABEL,
+  enforcePointC,
+  formatProcessWhen,
+  isCheckBeforeOccur,
+  reactionAllowsPointC,
+  type ProcessActDto,
+  type ProcessActSummary,
+  type ProcessActType,
+  type ProcessCafe,
+  type ProcessCheckTarget,
+  type ProcessHub,
+  type ProcessLineGroupDto,
+  type ProcessPointTriplet,
+  type ProcessWeekRef,
+} from "@/lib/adminProcessesTypes";
+import { LoadingState } from "@/components/ui/loading-state";
+
+type Banner = { kind: "success" | "error"; message: string } | null;
+
+const SELECT_CLS =
+  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60";
+const FILTER_SELECT_CLS = "h-9 rounded-md border border-input bg-background px-3 text-sm";
+const PAGE_SIZE = 15;
+
+const EMPTY_SUMMARY: ProcessActSummary = {
+  actCount: 0,
+  lineGroupCount: 0,
+  totalDurationMinutes: 0,
+  required: { check: 0, advantage: 0, penalty: 0 },
+  excellent: { check: 0, advantage: 0, penalty: 0 },
+  max: { check: 0, advantage: 0, penalty: 0 },
+};
+
+// 허브 급 드롭다운 — 디폴트 "-"(미선택). "-" 상태에서는 등록 불가.
+const HUB_PLACEHOLDER = "" as const;
+
+// ── 정렬/필터 (표시용) ─────────────────────────────────────────────────────
+type SortKey = "occur" | "duration";
+const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "occur", label: "신청 시점 순" },
+  { key: "duration", label: "소요 시간 순" },
+];
+
+type FilterKey = "all" | "required" | "optional" | "selection" | "basic" | "check" | "posting";
+const FILTER_OPTIONS: { key: FilterKey; label: string }[] = [
+  { key: "all", label: "전체" },
+  { key: "required", label: "필수" },
+  { key: "optional", label: "선택" },
+  { key: "selection", label: "선발" },
+  { key: "basic", label: "기본" },
+  { key: "check", label: "체크" },
+  { key: "posting", label: "포스팅" },
+];
+
+// 허브 급 필터 — 전체 + 5개 허브.
+type HubFilterKey = "all" | ProcessHub;
+
+function matchFilter(a: ProcessActDto, f: FilterKey): boolean {
+  switch (f) {
+    case "all":
+      return true;
+    case "required":
+    case "optional":
+    case "selection":
+    case "basic":
+      return a.actType === f;
+    case "check":
+      return a.checkTarget === "check";
+    case "posting":
+      return a.cafe === "occur";
+    default:
+      return true;
+  }
+}
+
+const weekRank = (w: string) => (w === "N" ? 0 : 1);
+const shortActId = (id: string) => id.slice(0, 8);
+
+// A/B/C 를 균등 분산으로 표시 (붙어보이지 않게) — 요약 카드 공용.
+function PointTripletCells({ t }: { t: ProcessPointTriplet }) {
+  return (
+    <div className="grid grid-cols-3 gap-x-5 tabular-nums">
+      {(
+        [
+          ["A", t.check],
+          ["B", t.advantage],
+          ["C", t.penalty],
+        ] as const
+      ).map(([k, v]) => (
+        <span key={k} className="flex items-baseline justify-end gap-1">
+          <span className="text-xs font-normal text-muted-foreground">{k}</span>
+          <span>{v}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function pageItems(current: number, total: number): (number | "...")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const items: (number | "...")[] = [1];
+  if (current > 3) items.push("...");
+  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) items.push(i);
+  if (current < total - 2) items.push("...");
+  items.push(total);
+  return items;
+}
+
+function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-b py-2 last:border-b-0">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm font-semibold tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+function FormRow({
+  label,
+  required,
+  children,
+  alignTop,
+}: {
+  label: string;
+  required?: boolean;
+  children: React.ReactNode;
+  alignTop?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-[110px_minmax(0,1fr)] gap-3",
+        alignTop ? "items-start" : "items-center",
+      )}
+    >
+      <Label className={cn("text-sm text-foreground", alignTop && "pt-2")}>
+        {label}
+        {required && <span className="ml-0.5 text-red-500">*</span>}
+      </Label>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+// 주/요일/시간 3종 묶음 입력 (신청 시점 · 검수 시점 공용).
+function WhenInput({
+  week,
+  dow,
+  time,
+  onWeek,
+  onDow,
+  onTime,
+  disabled,
+  idPrefix,
+}: {
+  week: ProcessWeekRef;
+  dow: number;
+  time: string;
+  onWeek: (v: ProcessWeekRef) => void;
+  onDow: (v: number) => void;
+  onTime: (v: string) => void;
+  disabled?: boolean;
+  idPrefix: string;
+}) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <select
+        aria-label={`${idPrefix} 주`}
+        className={SELECT_CLS}
+        value={week}
+        onChange={(e) => onWeek(e.target.value as ProcessWeekRef)}
+        disabled={disabled}
+      >
+        {PROCESS_WEEK_REFS.map((w) => (
+          <option key={w} value={w}>
+            {PROCESS_WEEK_REF_LABEL[w]}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label={`${idPrefix} 요일`}
+        className={SELECT_CLS}
+        value={dow}
+        onChange={(e) => onDow(Number(e.target.value))}
+        disabled={disabled}
+      >
+        {PROCESS_DOW_LABELS.map((d, i) => (
+          <option key={i} value={i}>
+            {d}
+          </option>
+        ))}
+      </select>
+      <select
+        aria-label={`${idPrefix} 시간`}
+        className={SELECT_CLS}
+        value={time}
+        onChange={(e) => onTime(e.target.value)}
+        disabled={disabled}
+      >
+        {PROCESS_TIME_OPTIONS.map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+export default function ProcessUnifiedManager() {
+  const confirm = useConfirm();
+  const [banner, setBanner] = useState<Banner>(null);
+
+  // ── 등록 폼 (허브 = 드롭다운, 디폴트 "-") ──
+  const [selectedHub, setSelectedHub] = useState<ProcessHub | typeof HUB_PLACEHOLDER>(HUB_PLACEHOLDER);
+  const [lineGroups, setLineGroups] = useState<ProcessLineGroupDto[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  const [addingGroup, setAddingGroup] = useState(false);
+
+  const [actName, setActName] = useState("");
+  const [lineGroupId, setLineGroupId] = useState<string>("");
+  const [duration, setDuration] = useState<number>(PROCESS_DURATION_OPTIONS[0]);
+  const [occurWeek, setOccurWeek] = useState<ProcessWeekRef>("N");
+  const [occurDow, setOccurDow] = useState(0);
+  const [occurTime, setOccurTime] = useState(PROCESS_TIME_OPTIONS[0]);
+  const [checkWeek, setCheckWeek] = useState<ProcessWeekRef>("N");
+  const [checkDow, setCheckDow] = useState(0);
+  const [checkTime, setCheckTime] = useState(PROCESS_TIME_OPTIONS[0]);
+  const [pointCheck, setPointCheck] = useState(0);
+  const [pointAdvantage, setPointAdvantage] = useState(0);
+  const [pointPenalty, setPointPenalty] = useState(0);
+  const [cafe, setCafe] = useState<ProcessCafe>("occur");
+  const [checkTarget, setCheckTarget] = useState<ProcessCheckTarget>("check");
+  const [actType, setActType] = useState<ProcessActType | "">("");
+  const [overview, setOverview] = useState("");
+  const [remarks, setRemarks] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  // ── 통합 표 (전체 허브) ──
+  const [acts, setActs] = useState<ProcessActDto[]>([]);
+  const [summary, setSummary] = useState<ProcessActSummary>(EMPTY_SUMMARY);
+  const [infoLoading, setInfoLoading] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("occur");
+  const [filter, setFilter] = useState<FilterKey>("all");
+  const [hubFilter, setHubFilter] = useState<HubFilterKey>("all");
+  const [page, setPage] = useState(1);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const infoReqRef = useRef(0);
+
+  // 전체 허브 액트/요약 로드.
+  const loadInfo = useCallback(async () => {
+    const myReq = ++infoReqRef.current;
+    setInfoLoading(true);
+    try {
+      const res = await fetch("/api/admin/processes/info?hub=all");
+      const json = await res.json().catch(() => ({}));
+      if (myReq !== infoReqRef.current) return;
+      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      setActs((json.data?.acts ?? []) as ProcessActDto[]);
+      setSummary((json.data?.summary ?? EMPTY_SUMMARY) as ProcessActSummary);
+    } catch (err) {
+      if (myReq !== infoReqRef.current) return;
+      setActs([]);
+      setSummary(EMPTY_SUMMARY);
+      setBanner({ kind: "error", message: err instanceof Error ? err.message : "조회에 실패했습니다" });
+    } finally {
+      if (myReq === infoReqRef.current) setInfoLoading(false);
+    }
+  }, []);
+
+  // 선택 허브의 라인급 로드 ("-" 이면 비움).
+  const loadGroups = useCallback(async (hub: ProcessHub | typeof HUB_PLACEHOLDER) => {
+    if (!hub) {
+      setLineGroups([]);
+      return;
+    }
+    setGroupsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/processes/line-groups?hub=${hub}`);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || `라인급 조회 실패 (HTTP ${res.status})`);
+      }
+      setLineGroups((json.data ?? []) as ProcessLineGroupDto[]);
+    } catch (err) {
+      setLineGroups([]);
+      setBanner({
+        kind: "error",
+        message: err instanceof Error ? err.message : "라인급 조회에 실패했습니다",
+      });
+    } finally {
+      setGroupsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadInfo();
+  }, [loadInfo]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [sortKey, filter, hubFilter]);
+
+  // 액트 폼만 초기화 — 허브 선택은 유지(연속 등록).
+  const resetActForm = useCallback(() => {
+    setActName("");
+    setLineGroupId("");
+    setDuration(PROCESS_DURATION_OPTIONS[0]);
+    setOccurWeek("N");
+    setOccurDow(0);
+    setOccurTime(PROCESS_TIME_OPTIONS[0]);
+    setCheckWeek("N");
+    setCheckDow(0);
+    setCheckTime(PROCESS_TIME_OPTIONS[0]);
+    setPointCheck(0);
+    setPointAdvantage(0);
+    setPointPenalty(0);
+    setCafe("occur");
+    setCheckTarget("check");
+    setActType("");
+    setOverview("");
+    setRemarks("");
+  }, []);
+
+  const handleHubChange = useCallback(
+    (hub: ProcessHub | typeof HUB_PLACEHOLDER) => {
+      setBanner(null);
+      setSelectedHub(hub);
+      setLineGroupId("");
+      setNewGroupName("");
+      void loadGroups(hub);
+    },
+    [loadGroups],
+  );
+
+  // ── 신청/검수 시점 선후 가드 ────────────────────────────────────────────
+  // 신청 시점 변경 시: 검수 시점이 이전이 되면 신청 시점으로 끌어올린다(불변식 유지).
+  const applyOccur = useCallback(
+    (nextWeek: ProcessWeekRef, nextDow: number, nextTime: string) => {
+      setOccurWeek(nextWeek);
+      setOccurDow(nextDow);
+      setOccurTime(nextTime);
+      if (isCheckBeforeOccur(nextWeek, nextDow, nextTime, checkWeek, checkDow, checkTime)) {
+        setCheckWeek(nextWeek);
+        setCheckDow(nextDow);
+        setCheckTime(nextTime);
+      }
+    },
+    [checkWeek, checkDow, checkTime],
+  );
+  // 검수 시점 변경 시: 신청 시점보다 이전이면 반영하지 않고 alert.
+  const guardCheck = useCallback(
+    (nextWeek: ProcessWeekRef, nextDow: number, nextTime: string): boolean => {
+      if (isCheckBeforeOccur(occurWeek, occurDow, occurTime, nextWeek, nextDow, nextTime)) {
+        window.alert("신청 시점보다 이전입니다.");
+        return false;
+      }
+      return true;
+    },
+    [occurWeek, occurDow, occurTime],
+  );
+
+  const handleResetActForm = useCallback(async () => {
+    if (!(await confirm(CONFIRM.reset))) return;
+    resetActForm();
+  }, [confirm, resetActForm]);
+
+  const handleAddGroup = useCallback(async () => {
+    if (!selectedHub) {
+      setBanner({ kind: "error", message: "허브 급을 먼저 선택해주세요" });
+      return;
+    }
+    const name = newGroupName.trim();
+    if (!name) {
+      setBanner({ kind: "error", message: "라인급명을 입력해주세요" });
+      return;
+    }
+    if (lineGroups.length >= PROCESS_LINE_GROUP_MAX) {
+      setBanner({
+        kind: "error",
+        message: `라인급은 최대 ${PROCESS_LINE_GROUP_MAX}개까지 등록할 수 있습니다`,
+      });
+      return;
+    }
+    if (!(await confirm(CONFIRM.save))) return;
+    setAddingGroup(true);
+    setBanner(null);
+    try {
+      const res = await fetch("/api/admin/processes/line-groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hub: selectedHub, name }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      setNewGroupName("");
+      await loadGroups(selectedHub);
+      await loadInfo();
+      setBanner({ kind: "success", message: `라인급 "${name}" 이(가) 등록되었습니다` });
+    } catch (err) {
+      setBanner({
+        kind: "error",
+        message: err instanceof Error ? err.message : "라인급 등록에 실패했습니다",
+      });
+    } finally {
+      setAddingGroup(false);
+    }
+  }, [selectedHub, newGroupName, lineGroups.length, loadGroups, loadInfo, confirm]);
+
+  const handleDeleteGroup = useCallback(
+    async (group: ProcessLineGroupDto) => {
+      if (group.actCount > 0) {
+        window.alert(
+          "산하 등록된 액트가 존재합니다.\n\n산하 등록된 액트가 없어야, 이 라인 급을 삭제할 수 있습니다.\n\n액트 삭제는 아래 통합 목록 표에서 진행해주세요.",
+        );
+        return;
+      }
+      if (!(await confirm({ ...CONFIRM.delete, description: `라인급 "${group.name}" 을(를) 삭제할까요?` }))) return;
+      setBanner(null);
+      try {
+        const res = await fetch(`/api/admin/processes/line-groups/${group.id}`, { method: "DELETE" });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) {
+          if (res.status === 409) {
+            window.alert(json.error || "산하 액트가 존재하여 삭제할 수 없습니다");
+            if (selectedHub) await loadGroups(selectedHub);
+            return;
+          }
+          throw new Error(json.error || `HTTP ${res.status}`);
+        }
+        if (lineGroupId === group.id) setLineGroupId("");
+        if (selectedHub) await loadGroups(selectedHub);
+        await loadInfo();
+        setBanner({ kind: "success", message: `라인급 "${group.name}" 이(가) 삭제되었습니다` });
+      } catch (err) {
+        setBanner({
+          kind: "error",
+          message: err instanceof Error ? err.message : "라인급 삭제에 실패했습니다",
+        });
+      }
+    },
+    [selectedHub, lineGroupId, loadGroups, loadInfo, confirm],
+  );
+
+  const handleSubmitAct = useCallback(async () => {
+    if (!selectedHub) {
+      setBanner({ kind: "error", message: "허브 급을 먼저 선택해야 합니다" });
+      return;
+    }
+    if (!actName.trim()) {
+      setBanner({ kind: "error", message: "액트명을 입력해주세요" });
+      return;
+    }
+    if (!lineGroupId) {
+      setBanner({ kind: "error", message: "소속 라인급을 선택해주세요" });
+      return;
+    }
+    if (!actType) {
+      setBanner({ kind: "error", message: "액트 종류를 먼저 선택해야 합니다" });
+      return;
+    }
+    // 방어적 재검증 — 검수 시점이 신청 시점보다 이전이면 등록 차단(백엔드도 동일 검증).
+    if (isCheckBeforeOccur(occurWeek, occurDow, occurTime, checkWeek, checkDow, checkTime)) {
+      window.alert("신청 시점보다 이전입니다.");
+      return;
+    }
+    if (!(await confirm(CONFIRM.save))) return;
+    setSaving(true);
+    setBanner(null);
+    try {
+      const res = await fetch("/api/admin/processes/acts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          line_group_id: lineGroupId,
+          hub: selectedHub,
+          act_name: actName.trim(),
+          duration_minutes: duration,
+          occur_week: occurWeek,
+          occur_dow: occurDow,
+          occur_time: occurTime,
+          check_week: checkWeek,
+          check_dow: checkDow,
+          check_time: checkTime,
+          point_check: pointCheck,
+          point_advantage: pointAdvantage,
+          point_penalty: enforcePointC(actType, pointPenalty),
+          cafe,
+          check_target: checkTarget,
+          act_type: actType,
+          overview: overview.trim() || null,
+          remarks: remarks.trim() || null,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      const saved = json.data as ProcessActDto;
+      resetActForm();
+      await loadGroups(selectedHub);
+      await loadInfo();
+      setBanner({
+        kind: "success",
+        message: `액트가 등록되었습니다 (${saved.hubLabel} · ${saved.lineGroupName ?? "-"} · ${saved.actName})`,
+      });
+    } catch (err) {
+      setBanner({
+        kind: "error",
+        message: err instanceof Error ? err.message : "액트 등록에 실패했습니다",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    selectedHub, actName, lineGroupId, duration, occurWeek, occurDow, occurTime,
+    checkWeek, checkDow, checkTime, pointCheck, pointAdvantage, pointPenalty,
+    cafe, checkTarget, actType, overview, remarks, resetActForm, loadGroups, loadInfo, confirm,
+  ]);
+
+  const handleDelete = useCallback(
+    async (act: ProcessActDto) => {
+      if (!(await confirm({ ...CONFIRM.delete, description: `액트 "${act.actName}" 을(를) 삭제할까요?\n삭제하면 되돌릴 수 없습니다.` }))) return;
+      setDeletingId(act.id);
+      setBanner(null);
+      try {
+        const res = await fetch(`/api/admin/processes/acts/${act.id}`, { method: "DELETE" });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+        await loadInfo();
+        // 삭제된 액트가 현재 선택 허브 소속이면 라인급 산하 액트수도 갱신.
+        if (selectedHub && act.hub === selectedHub) await loadGroups(selectedHub);
+        setBanner({ kind: "success", message: `액트가 삭제되었습니다 (${act.actName})` });
+      } catch (err) {
+        setBanner({ kind: "error", message: err instanceof Error ? err.message : "삭제에 실패했습니다" });
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [selectedHub, loadGroups, loadInfo, confirm],
+  );
+
+  const visibleActs = useMemo(() => {
+    const filtered = acts.filter(
+      (a) => (hubFilter === "all" || a.hub === hubFilter) && matchFilter(a, filter),
+    );
+    const sorted = [...filtered];
+    if (sortKey === "duration") {
+      sorted.sort((a, b) => a.durationMinutes - b.durationMinutes);
+    } else {
+      sorted.sort(
+        (a, b) =>
+          weekRank(a.occurWeek) - weekRank(b.occurWeek) ||
+          a.occurDow - b.occurDow ||
+          a.occurTime.localeCompare(b.occurTime),
+      );
+    }
+    return sorted;
+  }, [acts, filter, hubFilter, sortKey]);
+
+  const pageCount = Math.max(1, Math.ceil(visibleActs.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageRows = useMemo(
+    () => visibleActs.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [visibleActs, safePage],
+  );
+
+  const canSubmit = Boolean(selectedHub);
+
+  return (
+    // 통합 표가 좌우 스크롤 없이 최대한 보이도록 넓게(≈1760px). min-w-0 로 실제 오버플로 시엔 표 내부 스크롤.
+    <div className="mx-auto flex w-full max-w-[1760px] flex-col gap-4">
+      {banner && (
+        <div
+          className={cn(
+            "flex items-center justify-between rounded-md border px-3 py-2 text-sm",
+            banner.kind === "success"
+              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+              : "border-rose-200 bg-rose-50 text-rose-800",
+          )}
+        >
+          <span className="whitespace-pre-line">{banner.message}</span>
+          <button type="button" onClick={() => setBanner(null)} className="hover:opacity-70">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* ── 등록 폼 ── */}
+      <Card>
+        <CardHeader>
+          <CardTitle>프로세스 등록</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* [1] 허브 급 — 드롭다운(디폴트 "-"). "-" 상태에서는 등록 불가. */}
+          <FormRow label="허브 급" required>
+            <select
+              aria-label="허브 급"
+              className={cn(SELECT_CLS, "max-w-[240px]")}
+              value={selectedHub}
+              onChange={(e) =>
+                handleHubChange(e.target.value as ProcessHub | typeof HUB_PLACEHOLDER)
+              }
+            >
+              <option value={HUB_PLACEHOLDER}>-</option>
+              {PROCESS_HUBS.map((h) => (
+                <option key={h} value={h}>
+                  {PROCESS_HUB_LABEL[h]} 급
+                </option>
+              ))}
+            </select>
+          </FormRow>
+
+          {/* [2] 액트명 */}
+          <FormRow label="액트명" required>
+            <Input
+              value={actName}
+              onChange={(e) => setActName(e.target.value)}
+              maxLength={PROCESS_NAME_MAX}
+              placeholder="예) [브리핑] 클럽 시작"
+              disabled={!canSubmit}
+            />
+          </FormRow>
+
+          {/* [3] 소속 라인급 — 등록 + 칩 목록 */}
+          <FormRow label="소속 라인급" required alignTop>
+            {!canSubmit ? (
+              <p className="pt-2 text-xs text-muted-foreground">
+                허브 급을 먼저 선택하면 라인급을 등록/선택할 수 있습니다.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    maxLength={PROCESS_NAME_MAX}
+                    placeholder={`라인급명 (최대 ${PROCESS_LINE_GROUP_MAX}개)`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void handleAddGroup();
+                      }
+                    }}
+                    disabled={addingGroup || lineGroups.length >= PROCESS_LINE_GROUP_MAX}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => void handleAddGroup()}
+                    loading={addingGroup}
+                    disabled={addingGroup || lineGroups.length >= PROCESS_LINE_GROUP_MAX}
+                  >
+                    등록
+                  </Button>
+                </div>
+
+                {groupsLoading ? (
+                  <LoadingState active variant="inline" />
+                ) : lineGroups.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    등록된 라인급이 없습니다. 위에서 먼저 라인급을 등록해주세요.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {lineGroups.map((g) => {
+                      const selected = lineGroupId === g.id;
+                      return (
+                        <div
+                          key={g.id}
+                          className={cn(
+                            "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
+                            selected ? "border-primary bg-primary/10" : "border-border bg-background",
+                          )}
+                        >
+                          <input
+                            type="checkbox"
+                            aria-label={`${g.name} 선택`}
+                            checked={selected}
+                            onChange={() => setLineGroupId(selected ? "" : g.id)}
+                          />
+                          <span>{g.name}</span>
+                          <span className="text-xs text-muted-foreground">(액트 {g.actCount})</span>
+                          <button
+                            type="button"
+                            aria-label={`${g.name} 삭제`}
+                            className="text-muted-foreground hover:text-red-500"
+                            onClick={() => void handleDeleteGroup(g)}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </FormRow>
+
+          {/* [4] 소요 시간 */}
+          <FormRow label="소요 시간" required>
+            <select
+              aria-label="소요 시간"
+              className={cn(SELECT_CLS, "max-w-[160px]")}
+              value={duration}
+              onChange={(e) => setDuration(Number(e.target.value))}
+              disabled={!canSubmit}
+            >
+              {PROCESS_DURATION_OPTIONS.map((m) => (
+                <option key={m} value={m}>
+                  {m}m
+                </option>
+              ))}
+            </select>
+          </FormRow>
+
+          {/* [5] 신청 시점(필요) */}
+          <FormRow label="신청 시점(필요)" required>
+            <WhenInput
+              week={occurWeek}
+              dow={occurDow}
+              time={occurTime}
+              onWeek={(v) => applyOccur(v, occurDow, occurTime)}
+              onDow={(v) => applyOccur(occurWeek, v, occurTime)}
+              onTime={(v) => applyOccur(occurWeek, occurDow, v)}
+              idPrefix="신청"
+              disabled={!canSubmit}
+            />
+          </FormRow>
+
+          {/* [6] 검수 시점(필요) — 신청 시점보다 이전이면 반영 차단(alert). */}
+          <FormRow label="검수 시점(필요)" required>
+            <WhenInput
+              week={checkWeek}
+              dow={checkDow}
+              time={checkTime}
+              onWeek={(v) => guardCheck(v, checkDow, checkTime) && setCheckWeek(v)}
+              onDow={(v) => guardCheck(checkWeek, v, checkTime) && setCheckDow(v)}
+              onTime={(v) => guardCheck(checkWeek, checkDow, v) && setCheckTime(v)}
+              idPrefix="검수"
+              disabled={!canSubmit}
+            />
+          </FormRow>
+
+          {/* [7] 액트 종류 | 카페 | 체크 대상 */}
+          <div className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-3">
+            <FormRow label="액트 종류" required>
+              <select
+                aria-label="액트 종류"
+                className={SELECT_CLS}
+                value={actType}
+                disabled={!canSubmit}
+                onChange={(e) => {
+                  const v = e.target.value as ProcessActType | "";
+                  setActType(v);
+                  if (!v || !reactionAllowsPointC(v)) setPointPenalty(0);
+                }}
+              >
+                <option value="" disabled>
+                  선택
+                </option>
+                {PROCESS_ACT_TYPE_OPTIONS.map((t) => (
+                  <option key={t} value={t}>
+                    {PROCESS_ACT_TYPE_LABEL[t]}
+                  </option>
+                ))}
+              </select>
+            </FormRow>
+            <FormRow label="카페" required>
+              <select
+                aria-label="카페"
+                className={SELECT_CLS}
+                value={cafe}
+                disabled={!canSubmit}
+                onChange={(e) => setCafe(e.target.value as ProcessCafe)}
+              >
+                {PROCESS_CAFE_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {PROCESS_CAFE_LABEL[c]}
+                  </option>
+                ))}
+              </select>
+            </FormRow>
+            <FormRow label="체크 대상" required>
+              <select
+                aria-label="체크 대상"
+                className={SELECT_CLS}
+                value={checkTarget}
+                disabled={!canSubmit}
+                onChange={(e) => setCheckTarget(e.target.value as ProcessCheckTarget)}
+              >
+                {PROCESS_CHECK_TARGET_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {PROCESS_CHECK_TARGET_LABEL[c]}
+                  </option>
+                ))}
+              </select>
+            </FormRow>
+          </div>
+
+          {/* [8] 포인트 — A/B/C (0~20). 미선택 잠금 · '선별'이면 C 고정. */}
+          <FormRow label="포인트" required alignTop>
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-3 gap-x-8 gap-y-2">
+                {(
+                  [
+                    { label: "A · point.check", value: pointCheck, set: setPointCheck },
+                    { label: "B · point.advantage", value: pointAdvantage, set: setPointAdvantage },
+                    {
+                      label: "C · point.penalty",
+                      value: pointPenalty,
+                      set: setPointPenalty,
+                      hardDisabled: actType !== "" && !reactionAllowsPointC(actType),
+                    },
+                  ] as const
+                ).map((p) => {
+                  const locked = !canSubmit || actType === "";
+                  const hardDisabled = "hardDisabled" in p && p.hardDisabled;
+                  return (
+                    <div key={p.label} className="space-y-1">
+                      <span className="text-xs text-muted-foreground">{p.label}</span>
+                      <select
+                        aria-label={p.label}
+                        className={cn(SELECT_CLS, locked && "cursor-not-allowed opacity-60")}
+                        value={p.value}
+                        disabled={hardDisabled}
+                        title={
+                          locked
+                            ? "허브 급·액트 종류를 먼저 선택해야 합니다"
+                            : hardDisabled
+                              ? "‘필수’ 액트만 포인트 C(미이행 페널티)를 부여할 수 있습니다"
+                              : undefined
+                        }
+                        onMouseDown={(e) => {
+                          if (locked) {
+                            e.preventDefault();
+                            setBanner({
+                              kind: "error",
+                              message: !canSubmit
+                                ? "허브 급을 먼저 선택해야 합니다"
+                                : "액트 종류를 먼저 선택해야 합니다",
+                            });
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (locked) {
+                            e.preventDefault();
+                            setBanner({
+                              kind: "error",
+                              message: !canSubmit
+                                ? "허브 급을 먼저 선택해야 합니다"
+                                : "액트 종류를 먼저 선택해야 합니다",
+                            });
+                          }
+                        }}
+                        onChange={(e) => {
+                          if (locked) return;
+                          p.set(Number(e.target.value));
+                        }}
+                      >
+                        {PROCESS_POINT_OPTIONS.map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+              {canSubmit && actType === "" && (
+                <p className="text-xs text-amber-600">액트 종류를 먼저 선택해야 합니다</p>
+              )}
+            </div>
+          </FormRow>
+
+          {/* [9] 개요 */}
+          <FormRow label="개요" alignTop>
+            <textarea
+              aria-label="개요"
+              className="min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              value={overview}
+              onChange={(e) => setOverview(e.target.value)}
+              placeholder="액트 개요 (150자 이상 권장, 제한은 엄격하지 않음)"
+              disabled={!canSubmit}
+            />
+          </FormRow>
+
+          {/* [10] 비고 */}
+          <FormRow label="비고" alignTop>
+            <textarea
+              aria-label="비고"
+              className="min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="비고"
+              disabled={!canSubmit}
+            />
+          </FormRow>
+
+          <div className="flex items-center justify-end gap-2 border-t pt-4">
+            <Button
+              type="button"
+              onClick={() => void handleSubmitAct()}
+              loading={saving}
+              disabled={saving || !canSubmit}
+            >
+              등록
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleResetActForm()}
+              disabled={saving || !canSubmit}
+            >
+              초기화
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── 전역 요약 (전체 허브) ── */}
+      <div className="grid grid-cols-1 gap-x-12 rounded-lg border bg-muted/30 px-4 py-2 md:grid-cols-2">
+        <div>
+          <SummaryRow label="전체 액트 수" value={`${summary.actCount}개`} />
+          <SummaryRow label="전체 라인급 수" value={`${summary.lineGroupCount}개`} />
+          <SummaryRow label="총합 소요 시간" value={`${summary.totalDurationMinutes}m`} />
+        </div>
+        <div>
+          <SummaryRow label="필수 포인트 총합" value={<PointTripletCells t={summary.required} />} />
+          <SummaryRow label="우수 포인트 총합" value={<PointTripletCells t={summary.excellent} />} />
+          <SummaryRow label="최대 포인트 총합" value={<PointTripletCells t={summary.max} />} />
+        </div>
+      </div>
+
+      {/* ── 통합 목록 표 (전체 허브) ── */}
+      <Card>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              허브 급
+              <select
+                aria-label="허브 급 필터"
+                className={FILTER_SELECT_CLS}
+                value={hubFilter}
+                onChange={(e) => setHubFilter(e.target.value as HubFilterKey)}
+              >
+                <option value="all">전체</option>
+                {PROCESS_HUBS.map((h) => (
+                  <option key={h} value={h}>
+                    {PROCESS_HUB_LABEL[h]} 급
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              정렬
+              <select
+                aria-label="정렬"
+                className={FILTER_SELECT_CLS}
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+              >
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              필터
+              <select
+                aria-label="필터"
+                className={FILTER_SELECT_CLS}
+                value={filter}
+                onChange={(e) => setFilter(e.target.value as FilterKey)}
+              >
+                {FILTER_OPTIONS.map((o) => (
+                  <option key={o.key} value={o.key}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <span className="text-sm font-medium text-muted-foreground">
+            결과 수 {visibleActs.length}개
+          </span>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {infoLoading ? (
+            <LoadingState active />
+          ) : pageRows.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              {acts.length === 0
+                ? "등록된 액트가 없습니다. 위 등록 폼에서 먼저 등록해주세요."
+                : "필터 조건에 맞는 액트가 없습니다."}
+            </p>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-20">번호</TableHead>
+                    <TableHead>허브 급</TableHead>
+                    <TableHead className="text-left">액트명</TableHead>
+                    <TableHead className="text-left">소속 라인 급</TableHead>
+                    <TableHead>소요(m)</TableHead>
+                    <TableHead>신청 시점(필요)</TableHead>
+                    <TableHead>검수 시점(필요)</TableHead>
+                    <TableHead>Po.A</TableHead>
+                    <TableHead>Po.B</TableHead>
+                    <TableHead>Po.C</TableHead>
+                    <TableHead>액트 종류</TableHead>
+                    <TableHead>체크 대상</TableHead>
+                    <TableHead>카페</TableHead>
+                    <TableHead>삭제</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pageRows.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell className="font-mono text-xs text-muted-foreground" title={a.id}>
+                        {shortActId(a.id)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{a.hubLabel} 급</TableCell>
+                      <TableCell className="max-w-[240px] whitespace-normal break-words text-left font-medium">
+                        {a.actName}
+                      </TableCell>
+                      <TableCell className="max-w-[180px] whitespace-normal break-words text-left">
+                        {a.lineGroupName ?? "-"}
+                      </TableCell>
+                      <TableCell className="tabular-nums">{a.durationMinutes}</TableCell>
+                      <TableCell>{formatProcessWhen(a.occurWeek, a.occurDow, a.occurTime)}</TableCell>
+                      <TableCell>{formatProcessWhen(a.checkWeek, a.checkDow, a.checkTime)}</TableCell>
+                      <TableCell className="tabular-nums">{a.pointCheck}</TableCell>
+                      <TableCell className="tabular-nums">{a.pointAdvantage}</TableCell>
+                      <TableCell className="tabular-nums">{a.pointPenalty}</TableCell>
+                      <TableCell className="text-center">
+                        <SelectBadge label={PROCESS_ACT_TYPE_LABEL[a.actType]} size="sm" />
+                      </TableCell>
+                      <TableCell>{PROCESS_CHECK_TARGET_LABEL[a.checkTarget]}</TableCell>
+                      <TableCell>{PROCESS_CAFE_LABEL[a.cafe]}</TableCell>
+                      <TableCell>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+                          loading={deletingId === a.id}
+                          disabled={deletingId === a.id}
+                          onClick={() => void handleDelete(a)}
+                        >
+                          삭제
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {/* 페이지네이션 — 15개 기준 */}
+              {pageCount > 1 && (
+                <div className="flex items-center justify-center gap-1 pt-2" aria-label="페이지네이션">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={safePage <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    aria-label="이전 페이지"
+                  >
+                    ‹
+                  </Button>
+                  {pageItems(safePage, pageCount).map((it, i) =>
+                    it === "..." ? (
+                      <span key={`e${i}`} className="px-2 text-sm text-muted-foreground">
+                        …
+                      </span>
+                    ) : (
+                      <Button
+                        key={it}
+                        type="button"
+                        variant={it === safePage ? "default" : "outline"}
+                        size="sm"
+                        className="min-w-9"
+                        aria-label={`${it} 페이지`}
+                        aria-current={it === safePage ? "page" : undefined}
+                        onClick={() => setPage(it)}
+                      >
+                        {it}
+                      </Button>
+                    ),
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={safePage >= pageCount}
+                    onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                    aria-label="다음 페이지"
+                  >
+                    ›
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

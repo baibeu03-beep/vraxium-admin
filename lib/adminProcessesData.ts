@@ -269,6 +269,35 @@ export async function listProcessActs(hub: ProcessHub): Promise<ProcessActDto[]>
   return rows.map((r) => actToDto(r, nameById.get(r.line_group_id) ?? null));
 }
 
+// 전체 허브 액트 목록(소속 라인급명 포함) — 프로세스 관리 화면의 단일 표용.
+// 허브 필터 없이 process_acts 전체를 조회한다. 각 행에 hub/hubLabel 이 포함된다.
+export async function listAllProcessActs(): Promise<ProcessActDto[]> {
+  const { data, error } = await supabaseAdmin
+    .from("process_acts")
+    .select(ACT_SELECT)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true });
+  if (error) {
+    throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
+  }
+  const rows = (data ?? []) as unknown as ActRow[];
+  if (rows.length === 0) return [];
+
+  const groupIds = Array.from(new Set(rows.map((r) => r.line_group_id)));
+  const { data: groups, error: gErr } = await supabaseAdmin
+    .from("process_line_groups")
+    .select("id,name")
+    .in("id", groupIds);
+  if (gErr) {
+    throw migrationHint(gErr) ?? new ProcessMasterError(500, gErr.message);
+  }
+  const nameById = new Map<string, string>();
+  for (const g of (groups ?? []) as { id: string; name: string }[]) {
+    nameById.set(g.id, g.name);
+  }
+  return rows.map((r) => actToDto(r, nameById.get(r.line_group_id) ?? null));
+}
+
 export async function createProcessAct(
   input: ProcessActCreateInput,
   actorAdminId: string,
@@ -343,4 +372,18 @@ export async function getProcessInfo(hub: ProcessHub): Promise<ProcessInfoResult
   ]);
   const summary = computeProcessActSummary(acts, groups.length);
   return { hub, hubLabel: PROCESS_HUB_LABEL[hub], acts, summary };
+}
+
+// 프로세스 관리(전체 허브) — 모든 허브의 액트 목록 + 전역 요약.
+//   요약은 전체 허브 액트/라인급을 합산한 글로벌 값(누적계층 계산은 허브별과 동일).
+export async function getProcessInfoAll(): Promise<ProcessInfoResult> {
+  const acts = await listAllProcessActs();
+  const { count, error } = await supabaseAdmin
+    .from("process_line_groups")
+    .select("*", { count: "exact", head: true });
+  if (error) {
+    throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
+  }
+  const summary = computeProcessActSummary(acts, count ?? 0);
+  return { hub: "club", hubLabel: "전체", acts, summary };
 }
