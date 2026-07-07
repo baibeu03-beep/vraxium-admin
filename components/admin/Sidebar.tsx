@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -435,24 +435,21 @@ export default function Sidebar() {
     return modeHref(orgHref(child.href, orgFocus));
   };
 
+  // 기본값: 모든 대분류의 하위 메뉴를 펼친 상태로 시작한다(최초 진입/새로고침 공통).
+  //   · 여기서 명시적으로 열어두고, 아래 branchOpen 도 미설정 시 `?? true` 로 폴백한다.
+  //   · mode(test/일반)·org 분기와 무관 — 노출 조건(isItemVisible/visibleChildren)은 그대로.
+  //   · 사용자가 직접 접으면 openBranches[basePath]=false 로 기록되어 그 상태가 유지된다.
   const [openBranches, setOpenBranches] = useState<Record<string, boolean>>(
     () => {
       const init: Record<string, boolean> = {};
       for (const item of menu) {
-        if (item.kind === "branch" && isUnderAnyBase(pathname, item)) {
+        if (item.kind === "branch") {
           init[item.basePath] = true;
         }
       }
       return init;
     },
   );
-
-  // 홈(/admin) 도착 시 펼쳐져 있던 하위 카테고리를 모두 접는다.
-  // (사이드바 HOME 링크·직접 URL 진입 공통 — URL 이동만이 아니라 open state 도 초기화.
-  //  하위 페이지로 다시 이동하면 branchOpen 의 inSection fallback 으로 해당 분기가 자동으로 펼쳐진다.)
-  useEffect(() => {
-    if (pathname === "/admin") setOpenBranches({});
-  }, [pathname]);
 
 
   return (
@@ -566,7 +563,9 @@ export default function Sidebar() {
 
           const Icon = item.icon;
           const inSection = isUnderAnyBase(pathname, item);
-          const branchOpen = openBranches[item.basePath] ?? inSection;
+          // 기본 펼침: 미설정(신규 노출된 분기 등)은 열림으로 폴백한다.
+          //   사용자가 접으면 false 가 기록되어 그 값이 우선한다.
+          const branchOpen = openBranches[item.basePath] ?? true;
 
           // 사이드바가 접힌 상태: 아이콘만, 클릭 시 펼치고 분기도 같이 연다.
           if (!sidebarOpen) {
