@@ -329,7 +329,15 @@ async function writeRosterCardStats(
 //   보아 pending(experience_unevaluated_after_deadline), 실제 평점 1~3 → fail, 4 이상 → success 로 확정.
 //   (소급 개설/과거 주차도 평가 입력 전에는 강화 대기 유지.) 강화율 A/B 불변(pending·fail 모두 A 포함, B 제외).
 //   experience fail↔pending 표시가 달라지므로 v33 snapshot 을 stale 처리해 재계산. (파생 캐시 재생성 — DB 백필 아님.)
-export const WEEKLY_CARDS_DTO_VERSION = 34;
+// v35 (2026-07-07): 레거시 주차 granular 실무 경험 라인이 rating>=4(강화 성공)인데 '강화 실패'로 표시되던 버그.
+//   원인: legacySubmissionBasedEnhancement override 가 experience 를 제외하지 않아, granular 경험 라인
+//   (experienceAsSummer=true, 여름 rating 정책 대상)의 rating 기반 enhancementStatus(success)를 제출 기반
+//   base.status(미기입=fail)로 덮었다. 그 결과 enhancementStatus="fail" 인데 experienceRating=7·
+//   enhancementReason="target_exists_after_deadline"(computeCluster4Enhancement 의 success 사유)라는 불가능한
+//   조합이 스냅샷에 저장(T안건우 봄 W10 EXOK-EN0002~0004). experience 를 override 에서 제외 → 경험은 평점이 SoT
+//   (rating<=3 fail / >=4 success / 미평가 pending). experience fail↔success 표시가 달라지므로 v34 snapshot 을
+//   stale(version_mismatch) 처리해 재계산. (파생 캐시 재생성 — DB 백필 아님.)
+export const WEEKLY_CARDS_DTO_VERSION = 35;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

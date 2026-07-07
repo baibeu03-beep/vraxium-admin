@@ -2187,7 +2187,8 @@ async function fetchLineDetailsByWeek(
       const legacySubmissionBasedEnhancement =
         legacyAdditive &&
         dbPartType !== "competency" &&
-        dbPartType !== "info";
+        dbPartType !== "info" &&
+        dbPartType !== "experience";
       lines.push({
         ...base,
         // 레거시 추가 라인(career)은 제출 기반으로 강화율에 반영한다:
@@ -2199,6 +2200,13 @@ async function fetchLineDetailsByWeek(
         //     문서 정책 "배정+마감 후=success, 제출 무관"과 정합). 레거시/비레거시 주차가 갈라지지 않게
         //     레거시 override 에서 info 를 제외한다. 미기입은 submissionStatus(not_submitted)로만 표시되고
         //     강화 실패 사유가 아니다. (미배정 크루의 synthetic fail = Step 2 는 불변 — 개설+미배정=fail.)
+        //   experience(실무 경험)도 제외(2026-07-07): 레거시 주차에서 granular(비통합) 경험 라인은
+        //     hasGranularExperience=true → experienceAsSummer 로 "여름처럼" rating 기반 판정된다
+        //     (base.enhancementStatus 는 experienceRatingVerdict 로 이미 rating<=3 fail / >=4 success 반영).
+        //     submission 기반 override(base.status)를 씌우면 rating>=4 인데도 미기입(base.status="fail")
+        //     때문에 '강화 실패'로 덮여, enhancementStatus="fail" 인데 experienceRating=7·
+        //     enhancementReason="target_exists_after_deadline"(=computeCluster4Enhancement 의 success 사유)
+        //     이라는 불가능한 조합이 스냅샷에 저장됐다(T안건우 봄 W10 EXOK-EN0002~0004). 경험은 평점이 SoT.
         ...(legacySubmissionBasedEnhancement
           ? {
               enhancementStatus:
