@@ -89,8 +89,9 @@
    전역 타이포그래피 스케일 — 단일 SoT (어드민 폰트 기준값).
    Tailwind v4 의 폰트 크기 유틸(text-2xs ~ text-4xl)이 참조하는 --text-* 토큰을
    한 곳에서 일괄 조정한다. 페이지별 font-size 추가 없이 여기 기준값만 바꾼다.
-   · 본문 기준(≈+3pt, 관리자 장시간 가독성): text-xs 12→15px · text-sm 14→17.5px · text-base 16→20px.
-     Tailwind 기본 대비 약 +4px(≈3pt) 확대. 단계 간 간격을 고르게(≈2.5px) 유지한다.
+   · 본문 기준(누적 ≈+6pt, 관리자 장시간 가독성): text-xs 12→18.5px · text-sm 14→21px · text-base 16→23.5px.
+     1차(07-03) +3pt 위에 2차(07-07) +3pt 추가 = 각 단계 +3.5px 재상향. 단계 간 간격을 고르게 유지한다.
+     line-height 도 동반 확대해 커진 글자에 답답함이 없게 한다.
      제목(lg~4xl)은 본문과 비율을 유지하며 완만히 확대 — 페이지 헤더가 과도히 커지지 않게 한다.
    · font-size 만 키우고 간격/높이(p-*, h-*, gap-* = spacing 토큰)는 건드리지 않는다
      → 버튼/입력창 높이·여백은 그대로, "글자만" 커진다. line-height 도 함께 맞춰
@@ -100,24 +101,24 @@
      토큰화 완료(네비/배지/상단 통계) — 긴 꼬리(에디터·다이얼로그 내부)는 후속 정리 대상.
    ─────────────────────────────────────────────────────────────────────────── */
 @theme {
-  --text-2xs: 0.84375rem;          /* 13.5px — 신규(토큰 미만 라벨·배지 sm) */
-  --text-2xs--line-height: 1.25rem;
-  --text-xs: 0.9375rem;            /* 12px → 15px */
-  --text-xs--line-height: 1.375rem;
-  --text-sm: 1.09375rem;           /* 14px → 17.5px */
-  --text-sm--line-height: 1.625rem;
-  --text-base: 1.25rem;            /* 16px → 20px */
-  --text-base--line-height: 1.75rem;
-  --text-lg: 1.375rem;             /* 18px → 22px */
-  --text-lg--line-height: 2rem;
-  --text-xl: 1.5rem;               /* 20px → 24px */
-  --text-xl--line-height: 2rem;
-  --text-2xl: 1.75rem;             /* 24px → 28px */
-  --text-2xl--line-height: 2.25rem;
-  --text-3xl: 2.125rem;            /* 30px → 34px */
-  --text-3xl--line-height: 2.5rem;
-  --text-4xl: 2.5rem;              /* 36px → 40px */
-  --text-4xl--line-height: 2.75rem;
+  --text-2xs: 1.0625rem;           /* 13.5px → 17px (신규: 토큰 미만 라벨·배지 sm) */
+  --text-2xs--line-height: 1.5rem;
+  --text-xs: 1.15625rem;           /* 15px → 18.5px */
+  --text-xs--line-height: 1.625rem;
+  --text-sm: 1.3125rem;            /* 17.5px → 21px (본문/표 기준) */
+  --text-sm--line-height: 1.875rem;
+  --text-base: 1.46875rem;         /* 20px → 23.5px */
+  --text-base--line-height: 2rem;
+  --text-lg: 1.59375rem;           /* 22px → 25.5px */
+  --text-lg--line-height: 2.25rem;
+  --text-xl: 1.71875rem;           /* 24px → 27.5px */
+  --text-xl--line-height: 2.25rem;
+  --text-2xl: 1.96875rem;          /* 28px → 31.5px */
+  --text-2xl--line-height: 2.5rem;
+  --text-3xl: 2.34375rem;          /* 34px → 37.5px */
+  --text-3xl--line-height: 2.75rem;
+  --text-4xl: 2.71875rem;          /* 40px → 43.5px */
+  --text-4xl--line-height: 3rem;
 }
 
 :root {
@@ -265,6 +266,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 클래스 없는 상속 텍스트(생 div/span/p)도 확대 스케일을 따르게 한다.
+       font-size 만 지정 — 1rem(루트) 은 그대로라 spacing(p-, h-, gap- = rem)·버튼/입력
+       높이는 불변. text- 유틸을 쓰는 요소는 각자의 토큰으로 이 값을 덮어쓴다. */
+    font-size: var(--text-base);
     /* 한국어 줄바꿈 규칙(전역 기본): 공백(의미) 단위로만 줄바꿈 → 단어 중간 끊김·조사만
        다음 줄로 내려감·"봄시/즌" 같은 어색한 분리를 막는다. 한 토큰이 줄을 넘칠 때만
        overflow-wrap 으로 분해해 가로 오버플로를 방지한다. 숫자+단위 등 묶어야 하는 곳은

@@ -113,12 +113,12 @@ try {
     const a = await audit();
     console.log(`  · body=${a.bodyFont}px, th(med)=${a.thFont}px (${a.thCount}), td(med)=${a.tdFont}px (${a.tdCount}), containers=${a.containers}, fades=${a.withFades}, overflowed=${a.overflowed}`);
 
-    // body 폰트 = 20px(text-base 신규 기준). 16±1 이면 스케일 미적용.
-    check(`body 폰트 확대(≥18px)`, a.bodyFont >= 18, `${a.bodyFont}px`);
+    // body 폰트 = 23.5px(text-base 2차 확대 기준). 20 이하면 2차 스케일 미적용.
+    check(`body 폰트 2차 확대(≥22px)`, a.bodyFont >= 22, `${a.bodyFont}px`);
     if (a.thCount > 0) {
-      // th = text-sm = 17.5px. 15 미만이면 헤더 미확대.
-      check(`헤더(th) ≥16px`, a.thFont >= 16, `${a.thFont}px`);
-      check(`셀(td) ≥16px`, a.tdFont >= 16, `${a.tdFont}px`);
+      // th/td = text-sm = 21px. 19 미만이면 2차 미확대.
+      check(`헤더(th) ≥19px`, a.thFont >= 19, `${a.thFont}px`);
+      check(`셀(td) ≥19px`, a.tdFont >= 19, `${a.tdFont}px`);
     } else {
       console.log("  · 렌더된 table 없음(데이터/탭 의존) — 표 검사 스킵");
     }
