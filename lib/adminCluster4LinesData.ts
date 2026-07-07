@@ -1254,6 +1254,21 @@ export async function deleteCluster4Line(
   if (error) {
     throw translatePostgrestError(error.message, error.code);
   }
+  // ⚠ 고아 방지(2026-07): 실무 역량 라인은 cluster4_competency_applications(resolution='opened',
+  //   opened_line_id) 로 개설 상태를 별도 추적한다. 라인 행만 지우고 그 application 을 그대로 두면
+  //   "opened 인데 라인 없음"(고아) 상태가 되어 통계=개설/고객앱=미표시 불일치가 생긴다. 라인 삭제 시
+  //   그 라인을 가리키는 competency 신청을 pending 으로 복원(개설 취소와 동일 정합성) — 다음 개설에서
+  //   재반영 가능. competency 외(info/experience/career) 라인은 매칭 0행이라 무영향. best-effort.
+  const { error: appResetErr } = await supabaseAdmin
+    .from("cluster4_competency_applications")
+    .update({ resolution: "pending", opened_line_id: null, opened_target_id: null })
+    .eq("opened_line_id", id);
+  if (appResetErr) {
+    console.warn("[cluster4/lines] 라인 삭제 후 competency 신청 pending 복원 실패(고아 가능 — self-heal 보정)", {
+      lineId: id,
+      message: appResetErr.message,
+    });
+  }
   // 라인 삭제 = 배정자 카드에서 라인 제거 + org audience 의 분모 A(synthetic fail) 제거 →
   // 배정자 + org audience 전원 즉시 재계산(placeholder/분모 복귀 반영).
   let invalidationIds = [...affectedUserIds, ...orgAudience];
