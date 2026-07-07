@@ -20,6 +20,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import AdminHelp from "@/components/admin/AdminHelp";
 import {
   Table,
   TableBody,
@@ -621,6 +622,9 @@ export default function ProcessUnifiedManager() {
     // 본문은 사이드바 제외 main 전체 폭을 사용(중앙 고정 캡 제거) → 넓은 모니터에서 좌우 여백 없이
     // 통합 표가 화면 폭을 최대한 쓴다. 폭이 부족할 때만 표 내부에서 가로 스크롤(fallback).
     <div className="flex w-full min-w-0 flex-col gap-4">
+      <div className="flex justify-end">
+        <AdminHelp />
+      </div>
       {banner && (
         <div
           className={cn(

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import AdminHelp from "@/components/admin/AdminHelp";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -398,7 +399,10 @@ export default function TeamPartsInfoManager() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>팀 내역</CardTitle>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle>팀 내역</CardTitle>
+          <AdminHelp />
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {banner ? (

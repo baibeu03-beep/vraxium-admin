@@ -1,11 +1,16 @@
 import HomeLaunchGrid from "@/components/admin/HomeLaunchGrid";
+import AdminHelp from "@/components/admin/AdminHelp";
 
 // /admin HOME 안내 화면.
 // 기존 대시보드(카드/통계/차트)는 노출하지 않는다 — UI 교체 작업 (백엔드/DTO/snapshot 무관).
 // 데스크톱 관리자 화면 기준 "안내문" 레이아웃 — 큰 본문 크기·넉넉한 문단 간격·중앙 정렬.
 export default function AdminHomePage() {
   return (
-    <div className="mx-auto flex min-h-[78vh] w-full max-w-[880px] flex-col justify-center gap-14 px-8 py-16">
+    <>
+      <div className="flex justify-end">
+        <AdminHelp />
+      </div>
+      <div className="mx-auto flex min-h-[78vh] w-full max-w-[880px] flex-col justify-center gap-14 px-8 py-16">
       <section className="flex flex-col gap-7 text-center">
         <p className="text-lg leading-9 text-foreground">
           본 시스템은 ‘전국청춘성장 클럽- 기업/실무자 관리 후원회 (BlackSmith)’
@@ -46,6 +51,7 @@ export default function AdminHomePage() {
       </section>
 
       <HomeLaunchGrid />
-    </div>
+      </div>
+    </>
   );
 }

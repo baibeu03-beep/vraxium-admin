@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import AdminHelp from "@/components/admin/AdminHelp";
 import { LoadingState } from "@/components/ui/loading-state";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
@@ -155,7 +156,10 @@ export default function TeamPartsInfoWeeksManager({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>주차 내역</CardTitle>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>주차 내역</CardTitle>
+            <AdminHelp />
+          </div>
         </CardHeader>
         <CardContent>
           <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -170,14 +174,17 @@ export default function TeamPartsInfoWeeksManager({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle>주차 내역</CardTitle>
-        {scoped ? (
-          <span
-            data-readonly-badge
-            className="rounded-md bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-500"
-          >
-            조회 전용
-          </span>
-        ) : null}
+        <div className="flex items-center gap-2">
+          {scoped ? (
+            <span
+              data-readonly-badge
+              className="rounded-md bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-500"
+            >
+              조회 전용
+            </span>
+          ) : null}
+          <AdminHelp />
+        </div>
       </CardHeader>
       <CardContent className="space-y-5">
         {/* ── 클럽 탭 ─────────────────────────────── */}

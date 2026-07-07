@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import AdminHelp from "@/components/admin/AdminHelp";
 import {
   Select,
   SelectContent,
@@ -241,6 +242,9 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex justify-end">
+        <AdminHelp />
+      </div>
       <div className="flex items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight">가입된 사용자</h2>

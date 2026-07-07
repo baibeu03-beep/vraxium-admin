@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
+import AdminHelp from "@/components/admin/AdminHelp";
 import ResumeCardEditor from "@/components/admin/ResumeCardEditor";
 import { getMemberDisplayName } from "@/lib/adminCrewData";
 import { isOrganizationSlug, ORGANIZATION_LABEL } from "@/lib/organizations";
@@ -25,6 +26,9 @@ export default async function CrewResumeCardPage({
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <AdminHelp />
+      </div>
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link
           href={`/admin/crews${devSuffix}`}

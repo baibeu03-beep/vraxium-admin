@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import AdminHelp from "@/components/admin/AdminHelp";
 import { ActionControl } from "@/components/admin/ActionControl";
 import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -903,12 +904,15 @@ export default function TeamPartsInfoWeekDetailManager({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle>활동 관리</CardTitle>
-        <Link
-          href={listHref}
-          className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-        >
-          ← 주차 내역
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            href={listHref}
+            className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+          >
+            ← 주차 내역
+          </Link>
+          <AdminHelp />
+        </div>
       </CardHeader>
       <CardContent className="space-y-5">
         {banner ? (

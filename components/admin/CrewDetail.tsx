@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, ExternalLink, NotebookPen, User, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import AdminHelp from "@/components/admin/AdminHelp";
 import { LoadingState } from "@/components/ui/loading-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
@@ -213,6 +214,9 @@ export default function CrewDetail({
   //   1920 에선 꽉 차게·2560 에선 좌우 여백 확보(100% 확장 금지). 모바일은 기존 방식.
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 px-4 py-6 sm:px-6">
+      <div className="flex justify-end">
+        <AdminHelp />
+      </div>
       {/* 상단 3버튼 헤더 — 1행 3열 그리드 */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Button variant="outline" onClick={goBack} className="justify-center">

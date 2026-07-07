@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import AdminHelp from "@/components/admin/AdminHelp";
 import {
   Table,
   TableBody,
@@ -322,6 +323,9 @@ export default function CareerProjectsManager() {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex justify-end">
+        <AdminHelp />
+      </div>
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between gap-3">
