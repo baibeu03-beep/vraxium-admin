@@ -69,11 +69,12 @@ function FormRow({
   return (
     <div
       className={cn(
-        "grid grid-cols-[92px_minmax(0,1fr)] gap-3",
+        // 라벨 컬럼: "메인 타이틀" 등 최장 라벨이 커진 폰트에서 한 줄로 들어오도록 128px 확보.
+        "grid grid-cols-[128px_minmax(0,1fr)] gap-3",
         alignTop ? "items-start" : "items-center",
       )}
     >
-      <Label className={cn("text-sm text-foreground", alignTop && "pt-2")}>
+      <Label className={cn("whitespace-nowrap text-sm text-foreground", alignTop && "pt-2")}>
         {label}
         {required && <span className="ml-0.5 text-red-500">*</span>}
       </Label>

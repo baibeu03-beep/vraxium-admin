@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   formatBannerPeriod,
   formatFullDateRangeKo,
@@ -237,8 +238,8 @@ export default function CompetencyOpeningDashboard() {
         const d = json.data ?? {};
         // 실제 반영 수(reflectedLines/reflectedCrews) = 사전 토글 + 신청 반영/삭제 합산.
         //   competency 라인은 전부 common 마스터 → linesChanged/linesTotal 은 항상 0(loadOrgCompetencyLines
-        //   가 common 제외). 실제 개설은 신청 반영(openedCrews) 경로이므로 그 합산값을 표시해야 "0/0" 오표시를
-        //   피한다. (구 필드 폴백: reflectedLines 미제공 시 openedCrews+linesChanged 로 계산.)
+        //   가 common 제외). 실제 개설은 신청 반영(openedLines) 경로이므로 그 합산값을 표시해야 "0/0" 오표시를
+        //   피한다. (구 필드 폴백: reflectedLines 미제공 시 openedLines+linesChanged 로 계산.)
         const reflectedLines =
           d.reflectedLines ?? (d.openedCrews ?? 0) + (d.linesChanged ?? 0);
         const reflectedCrews = d.reflectedCrews ?? d.openedCrews ?? 0;
@@ -290,7 +291,14 @@ export default function CompetencyOpeningDashboard() {
           잘리지 않도록 이 카드만 해제(이미지 없음 → 안전). */}
       <Card className="overflow-visible">
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">라인 개설</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            라인 개설
+            <AdminHelpIconButton
+              size="sm"
+              helpKey="admin.competency.dashboard.section.lineOpening"
+              title="라인 개설 (허브 전체)"
+            />
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* 버튼 — 글자 길이에 맞춘 content width(좌우 padding만), 한 줄에 [개설] [초기화] [개설 취소]. */}
@@ -325,8 +333,12 @@ export default function CompetencyOpeningDashboard() {
           {/* [개설 주차] | [아웃풋 링크 1] | [설명 1] — 한 행 */}
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">
+              <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 개설 주차 <span className="text-red-500">*</span>
+                <AdminHelpIconButton
+                  helpKey="admin.competency.dashboard.input.openWeek"
+                  title="개설 주차"
+                />
               </Label>
               {/* 커스텀 드롭다운 — 선택값=메인 표기만, 옵션 목록=메인 + 날짜 도움말 2줄.
                   선택 로직 불변(개설 대상 주차 isOpenTarget 만 선택 가능, 나머지 disabled). */}
@@ -388,7 +400,13 @@ export default function CompetencyOpeningDashboard() {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">아웃풋 링크 1</Label>
+              <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                아웃풋 링크 1
+                <AdminHelpIconButton
+                  helpKey="admin.competency.dashboard.input.outputLink1"
+                  title="아웃풋 링크 1"
+                />
+              </Label>
               <Input
                 value={linkUrl}
                 onChange={(e) => setLinkUrl(e.target.value)}
@@ -399,7 +417,13 @@ export default function CompetencyOpeningDashboard() {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">설명 1</Label>
+              <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                설명 1
+                <AdminHelpIconButton
+                  helpKey="admin.competency.dashboard.input.outputDesc1"
+                  title="설명 1"
+                />
+              </Label>
               <Input
                 value={linkDesc}
                 onChange={(e) => setLinkDesc(e.target.value)}

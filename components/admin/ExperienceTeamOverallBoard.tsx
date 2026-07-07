@@ -611,7 +611,7 @@ export default function ExperienceTeamOverallBoard({
               </p>
               {/* [링크1][URL 입력][설명1][설명 입력] — 한 행 가로 배치, 라벨 80px·입력칸 flex-1 */}
               <div className="flex w-full items-center gap-2">
-                <Label className="w-20 shrink-0 text-xs font-medium text-muted-foreground">
+                <Label className="w-28 shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground">
                   링크1
                 </Label>
                 <Input
@@ -621,7 +621,7 @@ export default function ExperienceTeamOverallBoard({
                   placeholder="URL 입력"
                   onChange={(e) => setOutput(c.key, { link: e.target.value })}
                 />
-                <Label className="w-20 shrink-0 text-xs font-medium text-muted-foreground">
+                <Label className="w-28 shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground">
                   설명1
                 </Label>
                 <Input

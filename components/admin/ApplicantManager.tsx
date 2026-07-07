@@ -291,7 +291,7 @@ export default function ApplicantManager() {
                         setQuery(applicant.name?.trim() || applicant.email?.trim() || "");
                       }}
                     >
-                      <TableCell className="max-w-[160px] truncate font-medium">
+                      <TableCell className="max-w-[224px] truncate font-medium">
                         {fmt(applicant.name)}
                       </TableCell>
                       <TableCell className="max-w-[220px] truncate">

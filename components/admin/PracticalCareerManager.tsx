@@ -1113,7 +1113,7 @@ export default function PracticalCareerManager() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
+    <div className="w-full min-w-0 space-y-6 px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">라인 개설 [실무 경력]</h1>
         <AdminHelp />

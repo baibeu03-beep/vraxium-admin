@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -112,7 +113,13 @@ function HeadcountSummary({ team }: { team: LineManageTeam }) {
   const h = team.headcount;
   return (
     <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-      <p className="font-semibold">전체 {h.total}명</p>
+      <p className="inline-flex items-center gap-1 font-semibold">
+        전체 {h.total}명
+        <AdminHelpIconButton
+          helpKey="admin.experience.lineBoard.metric.teamHeadcount"
+          title="팀 인원 요약"
+        />
+      </p>
       <p className="text-muted-foreground">
         =) 활동 <span className="font-medium text-foreground">{h.active}</span> | 휴식{" "}
         <span className="font-medium text-foreground">{h.rest}</span> | 중단{" "}
@@ -136,6 +143,10 @@ function TeamCard({ team }: { team: LineManageTeam }) {
           <div className="flex shrink-0 items-center gap-2">
             <CardTitle className="text-base">{team.teamName}</CardTitle>
             <TeamStatusBadge opened={team.opened} />
+            <AdminHelpIconButton
+              helpKey="admin.experience.lineBoard.badge.openStatus"
+              title="개설 상태 배지"
+            />
           </div>
           {/* 파트별 신청 상태(색 칸 = 신청 완료 / 흰 칸 = 미신청). */}
           {team.parts.length === 0 ? (
@@ -307,7 +318,7 @@ export default function ExperienceLineManageBoard({
                 {weekLabel ?? "주차 정보 없음"}
               </span>
             )}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <CountBadge label="팀 수" value={data.totals.teamCount} />
               <CountBadge
                 label="개설 완료"
@@ -318,6 +329,10 @@ export default function ExperienceLineManageBoard({
                 label="개설 필요"
                 value={data.totals.neededCount}
                 tone="warning"
+              />
+              <AdminHelpIconButton
+                helpKey="admin.experience.lineBoard.metric.openSummary"
+                title="라인 개설 요약"
               />
             </div>
           </div>

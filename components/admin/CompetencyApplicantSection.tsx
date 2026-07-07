@@ -733,15 +733,15 @@ export default function CompetencyApplicantSection({
             <h3 className="text-base font-bold">반려 사유</h3>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-muted-foreground">크루명</dt>
+                <dt className="w-24 shrink-0 whitespace-nowrap text-muted-foreground">크루명</dt>
                 <dd className="min-w-0 break-words font-medium">{rejectApp.crewLabel}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-muted-foreground">라인명</dt>
+                <dt className="w-24 shrink-0 whitespace-nowrap text-muted-foreground">라인명</dt>
                 <dd className="font-medium">{rejectApp.lineName}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-muted-foreground">제출 링크</dt>
+                <dt className="w-24 shrink-0 whitespace-nowrap text-muted-foreground">제출 링크</dt>
                 <dd className="min-w-0 break-all">
                   {rejectApp.submissionLink ? (
                     <a
@@ -798,11 +798,11 @@ export default function CompetencyApplicantSection({
             </p>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-muted-foreground">크루명</dt>
+                <dt className="w-24 shrink-0 whitespace-nowrap text-muted-foreground">크루명</dt>
                 <dd className="min-w-0 break-words font-medium">{deleteApp.crewLabel}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-16 shrink-0 text-muted-foreground">라인명</dt>
+                <dt className="w-24 shrink-0 whitespace-nowrap text-muted-foreground">라인명</dt>
                 <dd className="font-medium">{deleteApp.lineName}</dd>
               </div>
             </dl>

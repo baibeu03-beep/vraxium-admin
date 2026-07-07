@@ -14,4 +14,4 @@ CREATE TABLE IF NOT EXISTS public.admin_page_help_contents (
 COMMENT ON TABLE public.admin_page_help_contents IS
   '어드민 페이지별 관련 도움말 본문. page_path 단위 단일 행, content 빈 문자열 허용.';
 COMMENT ON COLUMN public.admin_page_help_contents.page_path IS
-  '어드민 경로(usePathname, 쿼리스트링 제외). 예: /admin/members, /admin/season-participations';
+  '도움말 식별 키. (1) 페이지 경로 "/admin/..."(usePathname) 또는 (2) 요소 도움말 키 "admin.foo.bar.column.x". org/mode 무관 공통 키.';

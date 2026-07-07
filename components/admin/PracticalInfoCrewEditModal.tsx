@@ -415,29 +415,29 @@ export default function PracticalInfoCrewEditModal({
             <h3 className="text-base font-bold">개설 대상 크루 수정 확인</h3>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">주차</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">주차</dt>
                 <dd className="font-medium">{weekLabel}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">라인</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">라인</dt>
                 <dd className="font-medium">{lineName}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">반영 방식</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">반영 방식</dt>
                 <dd className="font-medium">
                   {editMode === "add" ? "기존 유지 + 추가" : "전체 교체"}
                 </dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">검수 크루</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">검수 크루</dt>
                 <dd className="font-medium">{candidates.length}명</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">제외</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">제외</dt>
                 <dd className="font-medium text-red-600">{removalPreview.length}명</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">저장 후 대상</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">저장 후 대상</dt>
                 <dd className="font-medium">{finalUserIds.length}명</dd>
               </div>
             </dl>

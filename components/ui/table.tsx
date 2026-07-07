@@ -81,7 +81,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
         // 전역 기본 정렬 = 가운데(text-center align-middle). 예외(긴 텍스트/로그/JSON/코드/메모 등)는
         // 호출부에서 text-left 를 주면 twMerge 가 우선 적용한다(개별 override 유지).
         // 셀 padding 통일(px-3) + 헤더는 약간 작은 muted 라벨로 가독성↑.
-        "h-11 px-3 text-center align-middle text-sm font-semibold tracking-wide whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
+        "h-11 px-4 text-center align-middle text-sm font-semibold tracking-wide whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
@@ -95,8 +95,8 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
       data-slot="table-cell"
       className={cn(
         // 전역 기본 정렬 = 가운데(text-center align-middle). 예외는 호출부 text-left override 유지.
-        // 셀 padding 통일(px-3 py-2.5).
-        "px-3 py-2.5 text-center align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
+        // 셀 padding 통일(px-4 py-2.5) — 커진 폰트 대비 가로 여백 확보.
+        "px-4 py-2.5 text-center align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}

@@ -212,7 +212,7 @@ export default function CrewDetail({
   // 내용 폭: 좁은 화면은 full(px-4) 유지, 넓은 화면은 1600px 캡으로 가로 공간 적극 활용.
   //   1920 에선 꽉 차게·2560 에선 좌우 여백 확보(100% 확장 금지). 모바일은 기존 방식.
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6 px-4 py-6 sm:px-6">
+    <div className="flex w-full min-w-0 flex-col gap-6 px-4 py-6 sm:px-6">
       {/* 상단 3버튼 헤더 — 1행 3열 그리드 */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Button variant="outline" onClick={goBack} className="justify-center">

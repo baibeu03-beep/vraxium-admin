@@ -635,10 +635,10 @@ function LineDetailModal({
                 {line.targets.map((t) => (
                   <TableRow key={t.lineTargetId}>
                     <TableCell className="font-medium">{t.displayName}</TableCell>
-                    <TableCell className="max-w-[160px] truncate text-xs text-muted-foreground">
+                    <TableCell className="max-w-[220px] truncate text-xs text-muted-foreground">
                       {t.subtitle ?? "—"}
                     </TableCell>
-                    <TableCell className="max-w-[160px] truncate text-xs text-muted-foreground">
+                    <TableCell className="max-w-[220px] truncate text-xs text-muted-foreground">
                       {t.growthPoint ?? "—"}
                     </TableCell>
                     <TableCell className="text-center">
@@ -1187,15 +1187,13 @@ export default function PracticalInfoManager() {
   // 다른 주차의 active 라인은 현재 주차 신규 개설을 막지 않는다.
   const newLineDisabled = detailLines.some((l) => l.isActive);
 
-  // 본문 폭: 조직 분기 모드에서만 넓게 사용(max-width 제거 → 좌우 여백 = 레이아웃 main p-6).
-  // 통합 검수 시스템(원본)에서는 기존 폭(max-w-[1440px] 가운데 정렬) 그대로 유지.
+  // 본문 폭: org/mode 무관 사이드바 제외 main 전체 폭 사용(중앙 고정 캡 제거).
+  // 넓은 모니터에서 좌우 여백 없이 표가 화면 폭을 최대한 쓰고, 폭 부족 시에만 표 내부 가로 스크롤.
   return (
     <div
       className={cn(
         "space-y-6",
-        orgScoped
-          ? "w-full min-w-0"
-          : "mx-auto w-full max-w-[1440px] px-4 py-6",
+        orgScoped ? "w-full min-w-0" : "w-full min-w-0 px-4 py-6",
       )}
     >
       <AdminPageHeader

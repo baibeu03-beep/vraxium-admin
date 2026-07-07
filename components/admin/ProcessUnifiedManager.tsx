@@ -178,11 +178,12 @@ function FormRow({
   return (
     <div
       className={cn(
-        "grid grid-cols-[110px_minmax(0,1fr)] gap-3",
+        // 라벨 컬럼: 커진 폰트에서 "신청 시점(필요)" 등 최장 라벨이 한 줄로 들어오도록 176px 확보.
+        "grid grid-cols-[176px_minmax(0,1fr)] gap-3",
         alignTop ? "items-start" : "items-center",
       )}
     >
-      <Label className={cn("text-sm text-foreground", alignTop && "pt-2")}>
+      <Label className={cn("whitespace-nowrap text-sm text-foreground", alignTop && "pt-2")}>
         {label}
         {required && <span className="ml-0.5 text-red-500">*</span>}
       </Label>
@@ -617,8 +618,9 @@ export default function ProcessUnifiedManager() {
   const canSubmit = Boolean(selectedHub);
 
   return (
-    // 통합 표가 좌우 스크롤 없이 최대한 보이도록 넓게(≈1760px). min-w-0 로 실제 오버플로 시엔 표 내부 스크롤.
-    <div className="mx-auto flex w-full max-w-[1760px] flex-col gap-4">
+    // 본문은 사이드바 제외 main 전체 폭을 사용(중앙 고정 캡 제거) → 넓은 모니터에서 좌우 여백 없이
+    // 통합 표가 화면 폭을 최대한 쓴다. 폭이 부족할 때만 표 내부에서 가로 스크롤(fallback).
+    <div className="flex w-full min-w-0 flex-col gap-4">
       {banner && (
         <div
           className={cn(
@@ -635,8 +637,8 @@ export default function ProcessUnifiedManager() {
         </div>
       )}
 
-      {/* ── 등록 폼 ── */}
-      <Card>
+      {/* ── 등록 폼 ── 표는 full width, 폼은 가독성 위해 자체 폭 상한(좌측 정렬). */}
+      <Card className="w-full max-w-[1040px]">
         <CardHeader>
           <CardTitle>프로세스 등록</CardTitle>
         </CardHeader>
@@ -1053,38 +1055,40 @@ export default function ProcessUnifiedManager() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-20">번호</TableHead>
-                    <TableHead>허브 급</TableHead>
-                    <TableHead className="text-left">액트명</TableHead>
-                    <TableHead className="text-left">소속 라인 급</TableHead>
-                    <TableHead>소요(m)</TableHead>
-                    <TableHead>신청 시점(필요)</TableHead>
-                    <TableHead>검수 시점(필요)</TableHead>
-                    <TableHead>Po.A</TableHead>
-                    <TableHead>Po.B</TableHead>
-                    <TableHead>Po.C</TableHead>
-                    <TableHead>액트 종류</TableHead>
-                    <TableHead>체크 대상</TableHead>
-                    <TableHead>카페</TableHead>
-                    <TableHead>삭제</TableHead>
+                    <TableHead className="w-[68px]">번호</TableHead>
+                    <TableHead className="w-[84px]">허브 급</TableHead>
+                    {/* 액트명 = 이 표의 핵심 텍스트 컬럼. 남는 폭을 우선 배분받도록 넉넉한 min-width. */}
+                    <TableHead className="min-w-[320px] text-left">액트명</TableHead>
+                    <TableHead className="min-w-[150px] text-left">소속 라인 급</TableHead>
+                    <TableHead className="w-[64px]">소요(m)</TableHead>
+                    <TableHead className="w-[124px]">신청 시점(필요)</TableHead>
+                    <TableHead className="w-[124px]">검수 시점(필요)</TableHead>
+                    <TableHead className="w-[52px]">Po.A</TableHead>
+                    <TableHead className="w-[52px]">Po.B</TableHead>
+                    <TableHead className="w-[52px]">Po.C</TableHead>
+                    <TableHead className="w-[96px]">액트 종류</TableHead>
+                    <TableHead className="w-[88px]">체크 대상</TableHead>
+                    <TableHead className="w-[72px]">카페</TableHead>
+                    <TableHead className="w-[72px]">삭제</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pageRows.map((a) => (
                     <TableRow key={a.id}>
-                      <TableCell className="font-mono text-xs text-muted-foreground" title={a.id}>
+                      <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground" title={a.id}>
                         {shortActId(a.id)}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{a.hubLabel} 급</TableCell>
-                      <TableCell className="max-w-[240px] whitespace-normal break-words text-left font-medium">
+                      {/* 액트명 = 남는 폭 우선 배분 대상. 넉넉한 상한으로 넓은 화면 슬랙을 흡수(초장문 독식만 방지). */}
+                      <TableCell className="min-w-[320px] max-w-[760px] whitespace-normal break-words text-left font-medium">
                         {a.actName}
                       </TableCell>
-                      <TableCell className="max-w-[180px] whitespace-normal break-words text-left">
+                      <TableCell className="min-w-[150px] max-w-[260px] whitespace-normal break-words text-left">
                         {a.lineGroupName ?? "-"}
                       </TableCell>
                       <TableCell className="tabular-nums">{a.durationMinutes}</TableCell>
-                      <TableCell>{formatProcessWhen(a.occurWeek, a.occurDow, a.occurTime)}</TableCell>
-                      <TableCell>{formatProcessWhen(a.checkWeek, a.checkDow, a.checkTime)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatProcessWhen(a.occurWeek, a.occurDow, a.occurTime)}</TableCell>
+                      <TableCell className="whitespace-nowrap">{formatProcessWhen(a.checkWeek, a.checkDow, a.checkTime)}</TableCell>
                       <TableCell className="tabular-nums">{a.pointCheck}</TableCell>
                       <TableCell className="tabular-nums">{a.pointAdvantage}</TableCell>
                       <TableCell className="tabular-nums">{a.pointPenalty}</TableCell>

@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   Table,
   TableBody,
@@ -399,7 +400,13 @@ export default function OfficialRestPeriodsManager() {
         <CardContent>
           <div className="grid gap-3 lg:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_1.5fr_auto]">
             <div className="grid gap-1.5">
-              <Label htmlFor="rest-name">이름</Label>
+              <Label htmlFor="rest-name" className="inline-flex items-center gap-1">
+                이름
+                <AdminHelpIconButton
+                  helpKey="admin.restPeriods.input.name"
+                  title="공식 휴식 기간 이름"
+                />
+              </Label>
               <Input
                 id="rest-name"
                 value={draft.name}

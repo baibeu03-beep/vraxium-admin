@@ -233,11 +233,11 @@ export default function ProcessCheckManualGrantDialog({
           <div className="space-y-3">
             <div className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-3">
-                <span className="w-24 shrink-0 text-muted-foreground">액트명</span>
+                <span className="w-28 shrink-0 whitespace-nowrap text-muted-foreground">액트명</span>
                 <span className="min-w-0 break-words font-medium">{act.actName}</span>
               </div>
               <div className="flex gap-3">
-                <span className="w-24 shrink-0 text-muted-foreground">완료 시점</span>
+                <span className="w-28 shrink-0 whitespace-nowrap text-muted-foreground">완료 시점</span>
                 <span className="font-medium">
                   {act.completedAt ? formatCheckDateTimeKo(act.completedAt) : "-"}
                 </span>

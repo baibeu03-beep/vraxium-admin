@@ -20,6 +20,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { CAREER_GRADES, CAREER_GRADE_POINTS } from "@/lib/careerGrade";
 import type {
   CareerEvaluationTargetDto,
@@ -152,7 +153,13 @@ export default function CareerEvaluationTab({
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">평가 대상 라인</Label>
+            <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              평가 대상 라인
+              <AdminHelpIconButton
+                helpKey="admin.career.evaluation.input.targetLine"
+                title="평가 대상 라인"
+              />
+            </Label>
             <select
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={selectedLineId}
@@ -196,9 +203,33 @@ export default function CareerEvaluationTab({
                 <TableHeader>
                   <TableRow>
                     <TableHead>대상자</TableHead>
-                    <TableHead>등급</TableHead>
-                    <TableHead>점수</TableHead>
-                    <TableHead>강화 상태</TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center justify-center gap-1">
+                        등급
+                        <AdminHelpIconButton
+                          helpKey="admin.career.evaluation.column.grade"
+                          title="등급 (S/A/B/C/D)"
+                        />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center justify-center gap-1">
+                        점수
+                        <AdminHelpIconButton
+                          helpKey="admin.career.evaluation.column.score"
+                          title="점수 (환산)"
+                        />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center justify-center gap-1">
+                        강화 상태
+                        <AdminHelpIconButton
+                          helpKey="admin.career.evaluation.column.enhancementStatus"
+                          title="강화 상태"
+                        />
+                      </span>
+                    </TableHead>
                     <TableHead>저장</TableHead>
                   </TableRow>
                 </TableHeader>

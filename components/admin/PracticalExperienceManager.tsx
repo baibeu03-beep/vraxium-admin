@@ -39,6 +39,7 @@ import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
@@ -390,10 +391,13 @@ function SummaryCard({
   title,
   count,
   variant = "default",
+  help,
 }: {
   title: string;
   count: number;
   variant?: "default" | "warning" | "success" | "error" | "info";
+  // 지표 설명(돋보기 도움말). 제공 시 지표명 옆에 도움말 아이콘 노출.
+  help?: { helpKey: string; title?: string };
 }) {
   return (
     <div
@@ -418,7 +422,16 @@ function SummaryCard({
       >
         {count}
       </p>
-      <p className="mt-1 text-xs text-muted-foreground">{title}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {help ? (
+          <span className="inline-flex items-center gap-1">
+            {title}
+            <AdminHelpIconButton helpKey={help.helpKey} title={help.title} />
+          </span>
+        ) : (
+          title
+        )}
+      </p>
     </div>
   );
 }
@@ -489,8 +502,12 @@ function DevWeekSelector({
   if (weekOptions.length === 0) return null;
   return (
     <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">
+      <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
         대상 주차 <span className="text-amber-600">(dev)</span>
+        <AdminHelpIconButton
+          helpKey="admin.experience.manager.input.devWeek"
+          title="대상 주차"
+        />
       </Label>
       <select
         className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -1448,14 +1465,12 @@ export default function PracticalExperienceManager() {
   };
 
   return (
-    // 본문 폭: 조직 분기 모드(?org)에서는 전체 폭 사용(섹션0/섹션1 동일 기준 — practical-info 미러).
-    // 통합 모드(?org 없음)에서는 기존 폭(max-w-[1440px] 가운데 정렬) 유지.
+    // 본문 폭: org/mode 무관 사이드바 제외 main 전체 폭 사용(중앙 고정 캡 제거 — practical-info 미러).
+    // 넓은 모니터에서 좌우 여백 없이 표가 화면 폭을 최대한 쓰고, 폭 부족 시에만 표 내부 가로 스크롤.
     <div
       className={cn(
         "space-y-6",
-        orgScoped
-          ? "w-full min-w-0"
-          : "mx-auto w-full max-w-[1440px] px-4 py-6",
+        orgScoped ? "w-full min-w-0" : "w-full min-w-0 px-4 py-6",
       )}
     >
       <AdminPageHeader
@@ -1583,13 +1598,69 @@ export default function PracticalExperienceManager() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>조직</TableHead>
-                      <TableHead>라인 코드</TableHead>
-                      <TableHead>유형/슬롯</TableHead>
-                      <TableHead>라인명</TableHead>
-                      <TableHead>메인 타이틀</TableHead>
-                      <TableHead>팀</TableHead>
-                      <TableHead className="text-center">활성</TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          조직
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.lines.column.org"
+                            title="조직"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          라인 코드
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.lines.column.lineCode"
+                            title="라인 코드"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          유형/슬롯
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.lines.column.typeSlot"
+                            title="유형/슬롯"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          라인명
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.lines.column.lineName"
+                            title="라인명"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          메인 타이틀
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.lines.column.mainTitle"
+                            title="메인 타이틀"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          팀
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.lines.column.team"
+                            title="팀"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <span className="inline-flex items-center justify-center gap-1">
+                          활성
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.lines.column.active"
+                            title="활성"
+                          />
+                        </span>
+                      </TableHead>
                       <TableHead className="w-20" />
                     </TableRow>
                   </TableHeader>
@@ -1775,14 +1846,30 @@ export default function PracticalExperienceManager() {
 
           {/* Summary cards */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <SummaryCard title="미입력" count={inputCounts.noInput} variant="default" />
-            <SummaryCard title="임시저장" count={inputCounts.drafted} variant="info" />
+            <SummaryCard
+              title="미입력"
+              count={inputCounts.noInput}
+              variant="default"
+              help={{ helpKey: "admin.experience.manager.input.stat.notEntered", title: "미입력" }}
+            />
+            <SummaryCard
+              title="임시저장"
+              count={inputCounts.drafted}
+              variant="info"
+              help={{ helpKey: "admin.experience.manager.input.stat.draft", title: "임시저장" }}
+            />
             <SummaryCard
               title="제출완료"
               count={inputCounts.submitted}
               variant="success"
+              help={{ helpKey: "admin.experience.manager.input.stat.submitted", title: "제출완료" }}
             />
-            <SummaryCard title="반려" count={inputCounts.rejected} variant="error" />
+            <SummaryCard
+              title="반려"
+              count={inputCounts.rejected}
+              variant="error"
+              help={{ helpKey: "admin.experience.manager.input.stat.rejected", title: "반려" }}
+            />
           </div>
 
           {/* Filters */}
@@ -1888,13 +1975,69 @@ export default function PracticalExperienceManager() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>사용자명</TableHead>
-                      <TableHead>팀</TableHead>
-                      <TableHead>파트</TableHead>
-                      <TableHead>라인</TableHead>
-                      <TableHead className="text-center">평점</TableHead>
-                      <TableHead>입력</TableHead>
-                      <TableHead>검수</TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          사용자명
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.userName"
+                            title="사용자명"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          팀
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.team"
+                            title="팀"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          파트
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.part"
+                            title="파트"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          라인
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.line"
+                            title="라인"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <span className="inline-flex items-center justify-center gap-1">
+                          평점
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.rating"
+                            title="평점"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          입력
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.input.column.input"
+                            title="입력"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          검수
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.review"
+                            title="검수"
+                          />
+                        </span>
+                      </TableHead>
                       <TableHead className="w-12" />
                     </TableRow>
                   </TableHeader>
@@ -2234,19 +2377,32 @@ export default function PracticalExperienceManager() {
               title="검수 대기"
               count={summary?.submittedCount ?? 0}
               variant="warning"
+              help={{ helpKey: "admin.experience.manager.review.stat.pending", title: "검수 대기" }}
             />
             <SummaryCard
               title="승인"
               count={(summary?.approvedCount ?? 0) + (summary?.openedCount ?? 0)}
               variant="success"
+              help={{ helpKey: "admin.experience.manager.review.stat.approved", title: "승인" }}
             />
-            <SummaryCard title="반려" count={summary?.rejectedCount ?? 0} variant="error" />
+            <SummaryCard
+              title="반려"
+              count={summary?.rejectedCount ?? 0}
+              variant="error"
+              help={{ helpKey: "admin.experience.manager.review.stat.rejected", title: "반려" }}
+            />
           </div>
 
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center gap-2">
-                <Label className="text-sm">상태 필터:</Label>
+                <Label className="inline-flex items-center gap-1 text-sm">
+                  상태 필터:
+                  <AdminHelpIconButton
+                    helpKey="admin.experience.manager.review.filter.status"
+                    title="상태 필터"
+                  />
+                </Label>
                 <select
                   className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
                   value={reviewFilterStatus}
@@ -2281,13 +2437,69 @@ export default function PracticalExperienceManager() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>사용자명</TableHead>
-                      <TableHead>팀</TableHead>
-                      <TableHead>파트</TableHead>
-                      <TableHead>라인</TableHead>
-                      <TableHead className="text-center">평점</TableHead>
-                      <TableHead>입력 시간</TableHead>
-                      <TableHead>검수</TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          사용자명
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.userName"
+                            title="사용자명"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          팀
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.team"
+                            title="팀"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          파트
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.part"
+                            title="파트"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          라인
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.line"
+                            title="라인"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <span className="inline-flex items-center justify-center gap-1">
+                          평점
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.rating"
+                            title="평점"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          입력 시간
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.review.column.inputTime"
+                            title="입력 시간"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          검수
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.review"
+                            title="검수"
+                          />
+                        </span>
+                      </TableHead>
                       <TableHead className="w-12" />
                     </TableRow>
                   </TableHeader>
@@ -2527,21 +2739,26 @@ export default function PracticalExperienceManager() {
               title="승인 완료"
               count={(summary?.approvedCount ?? 0) + (summary?.openedCount ?? 0)}
               variant="success"
+              help={{ helpKey: "admin.experience.manager.open.stat.approved", title: "승인 완료" }}
             />
             <SummaryCard
               title="개설 대기"
               count={summary?.approvedCount ?? 0}
               variant="warning"
+              help={{ helpKey: "admin.experience.manager.open.stat.pending", title: "개설 대기" }}
             />
             <SummaryCard
               title="개설 완료"
               count={summary?.openedCount ?? 0}
               variant="info"
+              help={{ helpKey: "admin.experience.manager.open.stat.opened", title: "개설 완료" }}
             />
             <SummaryCard
               title="미검수 경고"
               count={summary?.submittedCount ?? 0}
               variant="error"
+              help={{ helpKey: "admin.experience.manager.open.stat.unreviewedWarning", title: "미검수 경고",
+              }}
             />
           </div>
 
@@ -2578,13 +2795,69 @@ export default function PracticalExperienceManager() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-10" />
-                      <TableHead>사용자명</TableHead>
-                      <TableHead>팀</TableHead>
-                      <TableHead>파트</TableHead>
-                      <TableHead>라인</TableHead>
-                      <TableHead className="text-center">평점</TableHead>
-                      <TableHead>검수일시</TableHead>
-                      <TableHead>개설 상태</TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          사용자명
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.userName"
+                            title="사용자명"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          팀
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.team"
+                            title="팀"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          파트
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.part"
+                            title="파트"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          라인
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.line"
+                            title="라인"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <span className="inline-flex items-center justify-center gap-1">
+                          평점
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.crewColumn.rating"
+                            title="평점"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          검수일시
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.open.column.reviewedAt"
+                            title="검수일시"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center justify-center gap-1">
+                          개설 상태
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.open.column.openStatus"
+                            title="개설 상태"
+                          />
+                        </span>
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -2695,11 +2968,51 @@ export default function PracticalExperienceManager() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="whitespace-nowrap">주차</TableHead>
-                        <TableHead>경험 라인명</TableHead>
-                        <TableHead>대상자</TableHead>
-                        <TableHead className="text-center">라인칸 기입 상태</TableHead>
-                        <TableHead className="text-center">강화 상태</TableHead>
+                        <TableHead className="whitespace-nowrap">
+                          <span className="inline-flex items-center justify-center gap-1">
+                            주차
+                            <AdminHelpIconButton
+                              helpKey="admin.experience.manager.overview.column.week"
+                              title="주차"
+                            />
+                          </span>
+                        </TableHead>
+                        <TableHead>
+                          <span className="inline-flex items-center justify-center gap-1">
+                            경험 라인명
+                            <AdminHelpIconButton
+                              helpKey="admin.experience.manager.overview.column.lineName"
+                              title="경험 라인명"
+                            />
+                          </span>
+                        </TableHead>
+                        <TableHead>
+                          <span className="inline-flex items-center justify-center gap-1">
+                            대상자
+                            <AdminHelpIconButton
+                              helpKey="admin.experience.manager.overview.column.target"
+                              title="대상자"
+                            />
+                          </span>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <span className="inline-flex items-center justify-center gap-1">
+                            라인칸 기입 상태
+                            <AdminHelpIconButton
+                              helpKey="admin.experience.manager.overview.column.slotFillStatus"
+                              title="라인칸 기입 상태"
+                            />
+                          </span>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <span className="inline-flex items-center justify-center gap-1">
+                            강화 상태
+                            <AdminHelpIconButton
+                              helpKey="admin.experience.manager.overview.column.enhancementStatus"
+                              title="강화 상태"
+                            />
+                          </span>
+                        </TableHead>
                         {devMode && (
                           <>
                             <TableHead className="font-mono text-[11px]">

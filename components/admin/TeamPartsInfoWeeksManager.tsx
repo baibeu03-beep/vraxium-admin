@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingState } from "@/components/ui/loading-state";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -264,34 +265,94 @@ export default function TeamPartsInfoWeeksManager({
                   <thead>
                     <tr className="bg-zinc-50 text-xs text-muted-foreground">
                       <th className="border-b px-3 py-2 text-left font-semibold whitespace-nowrap">
-                        주차명
+                        <span className="inline-flex items-center gap-1">
+                          주차명
+                          <AdminHelpIconButton
+                            helpKey="admin.teamParts.info.weeks.column.weekName"
+                            title="주차명"
+                          />
+                        </span>
                       </th>
                       <th className="border-b px-3 py-2 text-center font-semibold whitespace-nowrap">
-                        클럽 활동
+                        <span className="inline-flex items-center justify-center gap-1">
+                          클럽 활동
+                          <AdminHelpIconButton
+                            helpKey="admin.teamParts.info.weeks.column.clubActivity"
+                            title="클럽 활동"
+                          />
+                        </span>
                       </th>
                       <th className="border-b px-3 py-2 text-center font-semibold whitespace-nowrap">
-                        활동 관리
+                        <span className="inline-flex items-center justify-center gap-1">
+                          활동 관리
+                          <AdminHelpIconButton
+                            helpKey="admin.teamParts.info.weeks.column.activityManage"
+                            title="활동 관리"
+                          />
+                        </span>
                       </th>
                       <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        액트 체크율
+                        <span className="inline-flex items-center justify-end gap-1">
+                          액트 체크율
+                          <AdminHelpIconButton
+                            helpKey="admin.teamParts.info.weeks.column.actCheckRate"
+                            title="액트 체크율"
+                          />
+                        </span>
                       </th>
                       <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        전체 액트
+                        <span className="inline-flex items-center justify-end gap-1">
+                          전체 액트
+                          <AdminHelpIconButton
+                            helpKey="admin.teamParts.info.weeks.column.totalActs"
+                            title="전체 액트"
+                          />
+                        </span>
                       </th>
                       <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        가동 액트
+                        <span className="inline-flex items-center justify-end gap-1">
+                          가동 액트
+                          <AdminHelpIconButton
+                            helpKey="admin.teamParts.info.weeks.column.activeActs"
+                            title="가동 액트"
+                          />
+                        </span>
                       </th>
                       <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        라인칸 개설율
+                        <span className="inline-flex items-center justify-end gap-1">
+                          라인칸 개설율
+                          <AdminHelpIconButton
+                            helpKey="admin.teamParts.info.weeks.column.lineOpenRate"
+                            title="라인칸 개설율"
+                          />
+                        </span>
                       </th>
                       <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        전체 라인
+                        <span className="inline-flex items-center justify-end gap-1">
+                          전체 라인
+                          <AdminHelpIconButton
+                            helpKey="admin.teamParts.info.weeks.column.totalLines"
+                            title="전체 라인"
+                          />
+                        </span>
                       </th>
                       <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        오픈 라인
+                        <span className="inline-flex items-center justify-end gap-1">
+                          오픈 라인
+                          <AdminHelpIconButton
+                            helpKey="admin.teamParts.info.weeks.column.openLines"
+                            title="오픈 라인"
+                          />
+                        </span>
                       </th>
                       <th className="border-b px-3 py-2 text-center font-semibold whitespace-nowrap">
-                        주차 검수
+                        <span className="inline-flex items-center justify-center gap-1">
+                          주차 검수
+                          <AdminHelpIconButton
+                            helpKey="admin.teamParts.info.weeks.column.weekReview"
+                            title="주차 검수"
+                          />
+                        </span>
                       </th>
                     </tr>
                   </thead>

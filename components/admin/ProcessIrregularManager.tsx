@@ -214,7 +214,7 @@ export default function ProcessIrregularManager() {
   const canAct = Boolean(org) && editable;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="mr-auto text-lg font-semibold">변동 액트</h1>
         <AdminHelp />
@@ -492,7 +492,7 @@ function IrregularRow({
       <TableCell className="font-medium">{act.actName}</TableCell>
       <TableCell className="whitespace-nowrap">{act.applicantAdminName}</TableCell>
       <TableCell className="tabular-nums">{act.durationMinutes ?? "—"}</TableCell>
-      <TableCell className="max-w-[200px] truncate" title={act.reason ?? ""}>
+      <TableCell className="max-w-[280px] truncate" title={act.reason ?? ""}>
         {act.reason || "—"}
       </TableCell>
       <TableCell className="tabular-nums">{act.pointA}</TableCell>

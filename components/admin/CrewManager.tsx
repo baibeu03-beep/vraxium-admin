@@ -37,6 +37,7 @@ import {
   type OrganizationSlug,
 } from "@/lib/organizations";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { formatDepartmentName } from "@/components/admin/fieldKit";
 import MemberEditDrawer, {
@@ -383,61 +384,89 @@ export default function CrewManager({
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative w-full sm:w-64">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={devMode ? "Search name" : "이름으로 검색"}
-                className="pl-8"
+            <span className="inline-flex items-center gap-1">
+              <div className="relative w-full sm:w-64">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={devMode ? "Search name" : "이름으로 검색"}
+                  className="pl-8"
+                />
+              </div>
+              <AdminHelpIconButton
+                helpKey="admin.crews.manager.filter.search"
+                title="검색"
+                size="xs"
               />
-            </div>
+            </span>
 
-            <Select value={team} onValueChange={(value) => setTeam(value ?? ALL)}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder={devMode ? "All teams" : "전체 팀"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{devMode ? "All teams" : "전체 팀"}</SelectItem>
-                {teams.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {value}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={part} onValueChange={(value) => setPart(value ?? ALL)}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder={devMode ? "All parts" : "전체 파트"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>{devMode ? "All parts" : "전체 파트"}</SelectItem>
-                {parts.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {value}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={visibility}
-              onValueChange={(value) => setVisibility(value ?? ALL)}
-            >
-              <SelectTrigger className="w-32">
-                <SelectValue placeholder={devMode ? "Visibility" : "공개 여부"} />
-              </SelectTrigger>
-              <SelectContent>
-                {(devMode ? VISIBILITY_OPTIONS_DEV : VISIBILITY_OPTIONS_OPERATOR).map(
-                  (option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+            <span className="inline-flex items-center gap-1">
+              <Select value={team} onValueChange={(value) => setTeam(value ?? ALL)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder={devMode ? "All teams" : "전체 팀"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>{devMode ? "All teams" : "전체 팀"}</SelectItem>
+                  {teams.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
                     </SelectItem>
-                  ),
-                )}
-              </SelectContent>
-            </Select>
+                  ))}
+                </SelectContent>
+              </Select>
+              <AdminHelpIconButton
+                helpKey="admin.crews.manager.filter.team"
+                title="팀 필터"
+                size="xs"
+              />
+            </span>
+
+            <span className="inline-flex items-center gap-1">
+              <Select value={part} onValueChange={(value) => setPart(value ?? ALL)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder={devMode ? "All parts" : "전체 파트"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>{devMode ? "All parts" : "전체 파트"}</SelectItem>
+                  {parts.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <AdminHelpIconButton
+                helpKey="admin.crews.manager.filter.part"
+                title="파트 필터"
+                size="xs"
+              />
+            </span>
+
+            <span className="inline-flex items-center gap-1">
+              <Select
+                value={visibility}
+                onValueChange={(value) => setVisibility(value ?? ALL)}
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue placeholder={devMode ? "Visibility" : "공개 여부"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(devMode ? VISIBILITY_OPTIONS_DEV : VISIBILITY_OPTIONS_OPERATOR).map(
+                    (option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+              <AdminHelpIconButton
+                helpKey="admin.crews.manager.filter.visibility"
+                title="공개 여부"
+                size="xs"
+              />
+            </span>
           </div>
 
           <div className="overflow-hidden rounded-md border">
@@ -445,7 +474,14 @@ export default function CrewManager({
               <TableHeader>
                 <TableRow>
                   <TableHead className="sticky left-0 z-20 bg-card w-16">
-                    {devMode ? "Status" : "상태"}
+                    <span className="inline-flex items-center justify-center gap-1">
+                      {devMode ? "Status" : "상태"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.manager.column.status"
+                        title="상태(공개 여부)"
+                        size="xs"
+                      />
+                    </span>
                   </TableHead>
                   <TableHead className="sticky left-16 z-20 bg-card border-r">
                     {devMode ? "Name" : "이름"}
@@ -456,20 +492,95 @@ export default function CrewManager({
                   <TableHead>{devMode ? "Email" : "이메일"}</TableHead>
                   <TableHead>{devMode ? "School" : "학교"}</TableHead>
                   <TableHead>{devMode ? "Department" : "학과"}</TableHead>
-                  <TableHead>{devMode ? "Team" : "팀"}</TableHead>
-                  <TableHead>{devMode ? "Part" : "파트"}</TableHead>
-                  <TableHead>{devMode ? "Level" : "단계"}</TableHead>
-                  <TableHead>{devMode ? "State" : "활동 상태"}</TableHead>
                   <TableHead>
-                    {devMode ? "Cumulative" : "누적 주차"}
+                    <span className="inline-flex items-center justify-center gap-1">
+                      {devMode ? "Team" : "팀"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.manager.column.team"
+                        title="팀"
+                        size="xs"
+                      />
+                    </span>
                   </TableHead>
                   <TableHead>
-                    {devMode ? "Approved" : "승인 주차"}
+                    <span className="inline-flex items-center justify-center gap-1">
+                      {devMode ? "Part" : "파트"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.manager.column.part"
+                        title="파트"
+                        size="xs"
+                      />
+                    </span>
                   </TableHead>
-                  <TableHead>{devMode ? "Organization" : "소속"}</TableHead>
-                  <TableHead>{devMode ? "Admin Note" : "운영 메모"}</TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      {devMode ? "Level" : "단계"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.manager.column.level"
+                        title="단계(등급)"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      {devMode ? "State" : "활동 상태"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.manager.column.state"
+                        title="활동 상태"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      {devMode ? "Cumulative" : "누적 주차"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.manager.column.cumulativeWeeks"
+                        title="누적 주차"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      {devMode ? "Approved" : "승인 주차"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.manager.column.approvedWeeks"
+                        title="승인 주차"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      {devMode ? "Organization" : "소속"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.manager.column.organization"
+                        title="소속"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      {devMode ? "Admin Note" : "운영 메모"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.manager.column.adminNote"
+                        title="운영 메모"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
                   <TableHead className="w-[640px]">
-                    {devMode ? "Actions" : "바로가기"}
+                    <span className="inline-flex items-center justify-center gap-1">
+                      {devMode ? "Actions" : "바로가기"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.manager.column.actions"
+                        title="바로가기"
+                        size="xs"
+                      />
+                    </span>
                   </TableHead>
                 </TableRow>
               </TableHeader>

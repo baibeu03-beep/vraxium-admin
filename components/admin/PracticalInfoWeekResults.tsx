@@ -365,7 +365,7 @@ function Row({
 }) {
   return (
     <div className="flex gap-2">
-      <dt className="w-24 shrink-0 text-muted-foreground">{label}</dt>
+      <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">{label}</dt>
       <dd className={cn("min-w-0 font-medium", wrap ? "break-words" : "truncate")}>
         {value}
       </dd>

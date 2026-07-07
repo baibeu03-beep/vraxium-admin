@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
@@ -450,7 +451,7 @@ export default function PracticalCompetencyManager() {
   if (loading) return <LoadingState active />;
 
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-6 px-4 py-6">
+    <div className="w-full min-w-0 space-y-6 px-4 py-6">
       <AdminPageHeader
         title="실무 역량"
         tabs={
@@ -495,7 +496,13 @@ export default function PracticalCompetencyManager() {
             <CardContent className="space-y-3">
               {weekOptions.length > 0 && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">대상 주차</Label>
+                  <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    대상 주차
+                    <AdminHelpIconButton
+                      helpKey="admin.competency.manager.input.targetWeek"
+                      title="대상 주차"
+                    />
+                  </Label>
                   <select
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={selectedWeekId}
@@ -544,7 +551,12 @@ export default function PracticalCompetencyManager() {
               <CardHeader><CardTitle className="text-base">새 실무 역량 라인</CardTitle><CardDescription>기입 마감: {fmtDateTimeWithDay((selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string)}</CardDescription></CardHeader>
               <CardContent className="space-y-5">
                 <div className="space-y-2">
-                  <Label>라인 <span className="text-red-500">*</span></Label>
+                  <Label className="inline-flex items-center gap-1">라인 <span className="text-red-500">*</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.competency.manager.input.line"
+                      title="라인"
+                    />
+                  </Label>
                   <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={selectedMasterId} onChange={(e) => setSelectedMasterId(e.target.value)}>
                     <option value="">선택해주세요</option>
                     {activeMasters.map((m) => <option key={m.id} value={m.id}>{m.lineName}</option>)}
@@ -572,7 +584,12 @@ export default function PracticalCompetencyManager() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between"><Label>개설 대상 크루 <span className="text-red-500">*</span></Label><span className="text-xs text-muted-foreground">선택됨: {selectedUserIds.size}명</span></div>
+                  <div className="flex items-center justify-between"><Label className="inline-flex items-center gap-1">개설 대상 크루 <span className="text-red-500">*</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.competency.manager.input.targetCrew"
+                      title="개설 대상 크루"
+                    />
+                  </Label><span className="text-xs text-muted-foreground">선택됨: {selectedUserIds.size}명</span></div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <select className="rounded-md border border-input bg-background px-2 py-1.5 text-xs" value={crewFilterTeam} onChange={(e) => setCrewFilterTeam(e.target.value)}>
                       <option value="">전체 팀</option>{teams.map((t) => <option key={t.id} value={t.teamName}>{t.teamName}</option>)}
@@ -639,7 +656,39 @@ export default function PracticalCompetencyManager() {
             <CardContent>
               {masters.length === 0 ? <p className="py-4 text-center text-sm text-muted-foreground">등록된 라인이 없습니다</p> : (
                 <Table>
-                  <TableHeader><TableRow><TableHead>조직</TableHead><TableHead>라인 코드</TableHead><TableHead>라인명</TableHead><TableHead>메인 타이틀</TableHead><TableHead className="text-center">활성</TableHead><TableHead className="w-20" /></TableRow></TableHeader>
+                  <TableHeader><TableRow>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        조직
+                        <AdminHelpIconButton helpKey="admin.competency.manager.master.org" title="조직" />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        라인 코드
+                        <AdminHelpIconButton helpKey="admin.competency.manager.master.lineCode" title="라인 코드" />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        라인명
+                        <AdminHelpIconButton helpKey="admin.competency.manager.master.lineName" title="라인명" />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        메인 타이틀
+                        <AdminHelpIconButton helpKey="admin.competency.manager.master.mainTitle" title="메인 타이틀" />
+                      </span>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <span className="inline-flex items-center justify-center gap-1">
+                        활성
+                        <AdminHelpIconButton helpKey="admin.competency.manager.master.active" title="활성" />
+                      </span>
+                    </TableHead>
+                    <TableHead className="w-20" />
+                  </TableRow></TableHeader>
                   <TableBody>
                     {masters.map((m) => (
                       <TableRow key={m.id}>
@@ -731,15 +780,24 @@ export default function PracticalCompetencyManager() {
                 <div className="grid grid-cols-3 gap-3 sm:max-w-xl">
                   <div className="rounded-md border bg-muted/30 p-4 text-center">
                     <p className="text-2xl font-bold">{cafeResult.totalComments}</p>
-                    <p className="text-xs text-muted-foreground">전체 댓글 수</p>
+                    <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      전체 댓글 수
+                      <AdminHelpIconButton helpKey="admin.competency.manager.cafe.totalComments" title="전체 댓글 수" />
+                    </p>
                   </div>
                   <div className="rounded-md border bg-muted/30 p-4 text-center">
                     <p className="text-2xl font-bold">{cafeResult.uniqueNicknames}</p>
-                    <p className="text-xs text-muted-foreground">참여 인원 수</p>
+                    <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      참여 인원 수
+                      <AdminHelpIconButton helpKey="admin.competency.manager.cafe.uniqueNicknames" title="참여 인원 수" />
+                    </p>
                   </div>
                   <div className="rounded-md border bg-muted/30 p-4 text-center">
                     <p className="text-2xl font-bold">{cafeResult.totalComments - cafeResult.uniqueNicknames}</p>
-                    <p className="text-xs text-muted-foreground">추가 댓글 수</p>
+                    <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      추가 댓글 수
+                      <AdminHelpIconButton helpKey="admin.competency.manager.cafe.extraComments" title="추가 댓글 수" />
+                    </p>
                   </div>
                 </div>
                 {cafeResult.nicknameCounts.length === 0 ? (
@@ -747,7 +805,19 @@ export default function PracticalCompetencyManager() {
                 ) : (
                   <Table>
                     {/* 컬럼 확장 예정: 추후 회원 매칭 단계에서 "회원 매칭" 컬럼 추가 (Phase 2) */}
-                    <TableHeader><TableRow><TableHead className="w-12">#</TableHead><TableHead>닉네임</TableHead><TableHead className="w-24">댓글 수</TableHead></TableRow></TableHeader>
+                    <TableHeader><TableRow><TableHead className="w-12">#</TableHead>
+                      <TableHead>
+                        <span className="inline-flex items-center gap-1">
+                          닉네임
+                          <AdminHelpIconButton helpKey="admin.competency.manager.cafe.nickname" title="닉네임" />
+                        </span>
+                      </TableHead>
+                      <TableHead className="w-24">
+                        <span className="inline-flex items-center gap-1">
+                          댓글 수
+                          <AdminHelpIconButton helpKey="admin.competency.manager.cafe.commentCount" title="댓글 수" />
+                        </span>
+                      </TableHead></TableRow></TableHeader>
                     <TableBody>
                       {[...cafeResult.nicknameCounts]
                         .sort((a, b) => b.count - a.count || a.nickname.localeCompare(b.nickname, "ko"))

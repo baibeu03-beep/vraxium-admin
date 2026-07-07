@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SelectBadge, StatusBadge } from "@/components/ui/status-badge";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ActionControl } from "@/components/admin/ActionControl";
 import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import {
@@ -93,22 +94,144 @@ export default function ProcessCheckActTable({
             <Table>
               <TableHeader>
                 <TableRow>
-                  {showScopeColumn && <TableHead>팀 &amp; 파트</TableHead>}
-                  <TableHead>액트명</TableHead>
-                  <TableHead>소속 라인 급</TableHead>
-                  <TableHead>소요(m)</TableHead>
-                  <TableHead>신청 시점(필요)</TableHead>
-                  <TableHead>검수 시점(필요)</TableHead>
-                  <TableHead>Po.A</TableHead>
-                  <TableHead>Po.B</TableHead>
-                  <TableHead>Po.C</TableHead>
-                  <TableHead>종류</TableHead>
-                  <TableHead>카페</TableHead>
-                  <TableHead>신청 시점(실제)</TableHead>
-                  <TableHead>검수 시점(실제)</TableHead>
-                  <TableHead>상태</TableHead>
+                  {showScopeColumn && (
+                    <TableHead>
+                      <span className="inline-flex items-center justify-center gap-1">
+                        팀 &amp; 파트
+                        <AdminHelpIconButton
+                          helpKey="admin.processCheck.actTable.column.teamPart"
+                          title="팀 & 파트"
+                        />
+                      </span>
+                    </TableHead>
+                  )}
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      액트명
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.actName"
+                        title="액트명"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      소속 라인 급
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.lineGroup"
+                        title="소속 라인 급"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      소요(m)
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.duration"
+                        title="소요(m)"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      신청 시점(필요)
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.applyTimeRequired"
+                        title="신청 시점(필요)"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      검수 시점(필요)
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.reviewTimeRequired"
+                        title="검수 시점(필요)"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      Po.A
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.poA"
+                        title="Po.A"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      Po.B
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.poB"
+                        title="Po.B"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      Po.C
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.poC"
+                        title="Po.C"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      종류
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.kind"
+                        title="종류"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      카페
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.cafe"
+                        title="카페"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      신청 시점(실제)
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.applyTimeActual"
+                        title="신청 시점(실제)"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      검수 시점(실제)
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.reviewTimeActual"
+                        title="검수 시점(실제)"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center justify-center gap-1">
+                      상태
+                      <AdminHelpIconButton
+                        helpKey="admin.processCheck.actTable.column.status"
+                        title="상태"
+                      />
+                    </span>
+                  </TableHead>
                   {(onAutoReview || onRollback) && (
-                    <TableHead className="text-center">수동 실행</TableHead>
+                    <TableHead className="text-center">
+                      <span className="inline-flex items-center justify-center gap-1">
+                        수동 실행
+                        <AdminHelpIconButton
+                          helpKey="admin.processCheck.actTable.column.manualAction"
+                          title="수동 실행"
+                        />
+                      </span>
+                    </TableHead>
                   )}
                 </TableRow>
               </TableHeader>

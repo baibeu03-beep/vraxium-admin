@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -78,11 +79,23 @@ export default function ExperienceOpeningLogPanel({
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">로그창</CardTitle>
-        <CardDescription>
+        <CardTitle className="inline-flex items-center gap-1.5 text-base">
+          로그창
+          <AdminHelpIconButton
+            size="sm"
+            helpKey="admin.experience.log.section.logPanel"
+            title="라인 개설 로그창"
+          />
+        </CardTitle>
+        <CardDescription className="inline-flex items-center gap-1">
           {weekId
             ? "선택한 주차 라인 개설 행동 이력 (최신순)"
             : "이번 주(개설 대상) 라인 개설 행동 이력 (최신순)"}
+          <AdminHelpIconButton
+            size="xs"
+            helpKey="admin.experience.log.section.itemFormat"
+            title="로그 항목 형식"
+          />
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 space-y-1.5 overflow-y-auto text-sm">

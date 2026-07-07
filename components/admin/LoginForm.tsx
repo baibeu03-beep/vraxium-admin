@@ -172,15 +172,15 @@ export default function LoginForm() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/40 px-6">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Admin Login</CardTitle>
+      <Card className="w-full max-w-md">
+        <CardHeader className="gap-1.5 pt-1">
+          <CardTitle className="text-lg">Admin Login</CardTitle>
         </CardHeader>
         <CardContent>
           {callbackBanner && (
             <div
               className={
-                "mb-4 rounded-md border px-3 py-2 text-sm " +
+                "mb-5 rounded-lg border px-4 py-3 text-sm leading-relaxed " +
                 (callbackBanner.kind === "info"
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                   : "border-red-200 bg-red-50 text-red-700")
@@ -189,7 +189,7 @@ export default function LoginForm() {
               {callbackBanner.message}
             </div>
           )}
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <form onSubmit={handleLogin} className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <Label htmlFor="email">Admin Code</Label>
               <Input
@@ -198,6 +198,7 @@ export default function LoginForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="h-11 px-3.5"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -209,19 +210,19 @@ export default function LoginForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="pr-9"
+                  className="h-11 px-3.5 pr-11"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
                   aria-pressed={showPassword}
-                  className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-r-lg"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-r-lg"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    <EyeOff className="h-5 w-5" aria-hidden="true" />
                   ) : (
-                    <Eye className="h-4 w-4" aria-hidden="true" />
+                    <Eye className="h-5 w-5" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -229,12 +230,17 @@ export default function LoginForm() {
             {errorMessage && (
               <p className="text-sm text-destructive">{errorMessage}</p>
             )}
-            <Button type="submit" className="w-full" loading={loading} disabled={kakaoLoading}>
+            <Button
+              type="submit"
+              className="mt-1 h-11 w-full text-base"
+              loading={loading}
+              disabled={kakaoLoading}
+            >
               로그인
             </Button>
             <Link
               href="/forgot-password"
-              className="text-center text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              className="text-center text-sm text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
             >
               비밀번호를 잊으셨나요?
             </Link>

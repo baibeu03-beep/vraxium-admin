@@ -399,7 +399,7 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
                   const isRejecting = rejectingId === applicant.id;
                   return (
                     <TableRow key={applicant.id}>
-                      <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[160px] truncate font-medium">
+                      <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[224px] truncate font-medium">
                         {fmt(applicant.name)}
                       </TableCell>
                       <TableCell className="max-w-[220px] truncate">

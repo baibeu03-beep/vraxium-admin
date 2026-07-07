@@ -93,9 +93,9 @@ export default function ResetPasswordForm() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/40 px-6">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>새 비밀번호 설정</CardTitle>
+      <Card className="w-full max-w-md">
+        <CardHeader className="gap-1.5 pt-1">
+          <CardTitle className="text-lg">새 비밀번호 설정</CardTitle>
         </CardHeader>
         <CardContent>
           {sessionState === "checking" && (
@@ -108,7 +108,7 @@ export default function ResetPasswordForm() {
 
           {sessionState === "missing" && (
             <div className="flex flex-col gap-4">
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm leading-relaxed text-red-700">
                 재설정 세션이 없거나 만료되었습니다. 재설정 메일을 다시
                 요청해주세요.
               </div>
@@ -122,7 +122,7 @@ export default function ResetPasswordForm() {
           )}
 
           {sessionState === "ready" && done && (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm leading-relaxed text-emerald-700">
               비밀번호가 변경되었습니다. 관리자 화면으로 이동합니다...
             </div>
           )}
@@ -140,7 +140,7 @@ export default function ResetPasswordForm() {
                     autoComplete="new-password"
                     required
                     minLength={8}
-                    className="pr-9"
+                    className="h-11 px-3.5 pr-11"
                   />
                   <button
                     type="button"
@@ -149,16 +149,16 @@ export default function ResetPasswordForm() {
                       showPassword ? "비밀번호 숨기기" : "비밀번호 보기"
                     }
                     aria-pressed={showPassword}
-                    className="absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-r-lg"
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded-r-lg"
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                      <EyeOff className="h-5 w-5" aria-hidden="true" />
                     ) : (
-                      <Eye className="h-4 w-4" aria-hidden="true" />
+                      <Eye className="h-5 w-5" aria-hidden="true" />
                     )}
                   </button>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   8자 이상으로 입력해주세요.
                 </p>
               </div>
@@ -172,12 +172,13 @@ export default function ResetPasswordForm() {
                   autoComplete="new-password"
                   required
                   minLength={8}
+                  className="h-11 px-3.5"
                 />
               </div>
               {errorMessage && (
                 <p className="text-sm text-destructive">{errorMessage}</p>
               )}
-              <Button type="submit" className="w-full" loading={loading}>
+              <Button type="submit" className="mt-1 h-11 w-full text-base" loading={loading}>
                 비밀번호 변경
               </Button>
             </form>

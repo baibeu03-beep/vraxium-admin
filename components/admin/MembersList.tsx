@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { classTone, rankTone } from "@/lib/statusBadge";
 import { cn } from "@/lib/utils";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { buildCrewsTabs, buildMembersTabs } from "@/lib/adminHeaderTabs";
 import {
   ORGANIZATION_LABEL,
@@ -204,6 +205,8 @@ type Column = {
   align?: "right";
   // 긴 텍스트 컬럼 너비 상한(max-width 클래스). 지정 시 한 줄 ellipsis + title hover.
   clamp?: string;
+  // 컬럼 헤더 옆 인라인 도움말(돋보기). 지정한 컬럼에만 표시(의미가 모호한 지표 위주).
+  help?: { helpKey: string; title?: string };
   text: (m: Member) => string; // 표시 + 검색
   num?: (m: Member) => number | null; // number/rank 정렬값
   date?: (m: Member) => number | null; // date 정렬값(ms)
@@ -216,9 +219,16 @@ const COLUMNS: Column[] = [
     key: "status",
     label: "상태",
     type: "string",
+    help: { helpKey: "admin.members.column.status", title: "상태" },
     text: (m) => BUCKET_LABEL[statusBucket(m.displayGrowthStatus)],
   },
-  { key: "class", label: "클래스", type: "string", text: (m) => classLabel(m.role, m.membershipLevel) },
+  {
+    key: "class",
+    label: "클래스",
+    type: "string",
+    help: { helpKey: "admin.members.column.class", title: "클래스" },
+    text: (m) => classLabel(m.role, m.membershipLevel),
+  },
   { key: "gender", label: "성별", type: "string", text: (m) => fmtStr(m.gender) },
   {
     key: "birth",
@@ -229,12 +239,27 @@ const COLUMNS: Column[] = [
   },
   { key: "school", label: "학교", type: "string", clamp: "max-w-[160px]", text: (m) => fmtStr(m.schoolName) },
   { key: "major", label: "전공", type: "string", clamp: "max-w-[160px]", text: (m) => fmtStr(m.departmentName) },
-  { key: "team", label: "팀", type: "string", clamp: "max-w-[120px]", text: (m) => fmtStr(m.teamName) },
-  { key: "part", label: "파트", type: "string", clamp: "max-w-[120px]", text: (m) => fmtStr(m.partName) },
+  {
+    key: "team",
+    label: "팀",
+    type: "string",
+    clamp: "max-w-[120px]",
+    help: { helpKey: "admin.members.column.team", title: "팀" },
+    text: (m) => fmtStr(m.teamName),
+  },
+  {
+    key: "part",
+    label: "파트",
+    type: "string",
+    clamp: "max-w-[120px]",
+    help: { helpKey: "admin.members.column.part", title: "파트" },
+    text: (m) => fmtStr(m.partName),
+  },
   {
     key: "rank",
     label: "품계",
     type: "rank",
+    help: { helpKey: "admin.members.column.rank", title: "품계" },
     text: (m) => fmtStr(m.rankGradeLabel),
     // 정승=1(최상위) → 높은 순 = grade 오름차순. null 은 정렬 시 항상 뒤로.
     num: (m) => m.rankGradeNumber,
@@ -244,6 +269,7 @@ const COLUMNS: Column[] = [
     label: "성장 성공",
     type: "number",
     align: "right",
+    help: { helpKey: "admin.members.column.success", title: "성장 성공" },
     text: (m) => fmtNum(m.successWeeks),
     num: (m) => m.successWeeks,
   },
@@ -252,17 +278,43 @@ const COLUMNS: Column[] = [
     label: "성장 가능",
     type: "number",
     align: "right",
+    help: { helpKey: "admin.members.column.growable", title: "성장 가능" },
     text: (m) => fmtNum(m.growableWeeks),
     num: (m) => m.growableWeeks,
   },
-  { key: "poA", label: "Po.A", type: "number", align: "right", text: (m) => fmtNum(m.poA), num: (m) => m.poA },
-  { key: "poB", label: "Po.B", type: "number", align: "right", text: (m) => fmtNum(m.poB), num: (m) => m.poB },
-  { key: "poC", label: "Po.C", type: "number", align: "right", text: (m) => fmtNum(m.poC), num: (m) => m.poC },
+  {
+    key: "poA",
+    label: "Po.A",
+    type: "number",
+    align: "right",
+    help: { helpKey: "admin.members.column.poA", title: "Po.A" },
+    text: (m) => fmtNum(m.poA),
+    num: (m) => m.poA,
+  },
+  {
+    key: "poB",
+    label: "Po.B",
+    type: "number",
+    align: "right",
+    help: { helpKey: "admin.members.column.poB", title: "Po.B" },
+    text: (m) => fmtNum(m.poB),
+    num: (m) => m.poB,
+  },
+  {
+    key: "poC",
+    label: "Po.C",
+    type: "number",
+    align: "right",
+    help: { helpKey: "admin.members.column.poC", title: "Po.C" },
+    text: (m) => fmtNum(m.poC),
+    num: (m) => m.poC,
+  },
   {
     key: "schedule",
     label: "일정 신뢰도",
     type: "number",
     align: "right",
+    help: { helpKey: "admin.members.column.schedule", title: "일정 신뢰도" },
     text: (m) => fmtPct(m.scheduleReliability),
     num: (m) => m.scheduleReliability,
   },
@@ -271,6 +323,7 @@ const COLUMNS: Column[] = [
     label: "활동 완료율",
     type: "number",
     align: "right",
+    help: { helpKey: "admin.members.column.activity", title: "활동 완료율" },
     text: (m) => fmtPct(m.activityCompletion),
     num: (m) => m.activityCompletion,
   },
@@ -608,7 +661,14 @@ export default function MembersList({
               {/* 클럽 드롭다운 — 크루 모드(lockedOrg)는 org 가 고정이라 숨긴다. */}
               {!lockedOrg && (
                 <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-                  클럽
+                  <span className="inline-flex items-center gap-1">
+                    클럽
+                    <AdminHelpIconButton
+                      helpKey="admin.members.filter.club"
+                      title="클럽"
+                      size="xs"
+                    />
+                  </span>
                   <select
                     value={pendingClub}
                     onChange={(e) => {
@@ -627,7 +687,14 @@ export default function MembersList({
               )}
 
               <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-                필터
+                <span className="inline-flex items-center gap-1">
+                  필터
+                  <AdminHelpIconButton
+                    helpKey="admin.members.filter.growthFilter"
+                    title="필터"
+                    size="xs"
+                  />
+                </span>
                 <select
                   value={pendingFilter}
                   onChange={(e) => {
@@ -645,7 +712,14 @@ export default function MembersList({
               </label>
 
               <label className="flex flex-1 flex-col gap-1 text-xs text-muted-foreground">
-                검색
+                <span className="inline-flex items-center gap-1">
+                  검색
+                  <AdminHelpIconButton
+                    helpKey="admin.members.filter.search"
+                    title="검색"
+                    size="xs"
+                  />
+                </span>
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -720,6 +794,7 @@ export default function MembersList({
                         <SortableHeader
                           key={c.key}
                           label={c.label}
+                          help={c.help}
                           dir={entry?.dir ?? null}
                           priority={priority >= 0 ? priority + 1 : null}
                           showPriority={sortStack.length > 1}
@@ -1231,6 +1306,7 @@ function InfoWeekTableRow({ w, showPoints }: { w: InfoWeekRow; showPoints: boole
 
 function SortableHeader({
   label,
+  help,
   dir,
   priority,
   showPriority,
@@ -1238,6 +1314,7 @@ function SortableHeader({
   className,
 }: {
   label: string;
+  help?: { helpKey: string; title?: string };
   dir: "asc" | "desc" | null;
   priority: number | null;
   showPriority: boolean;
@@ -1247,28 +1324,38 @@ function SortableHeader({
   const active = dir != null;
   return (
     <TableHead className={cn("text-center align-middle", className)}>
-      <button
-        type="button"
-        onClick={onSort}
-        className={cn(
-          "inline-flex w-full items-center justify-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground",
-          active && "text-foreground",
+      {/* 정렬 트리거(button) 와 도움말(button) 은 형제로 둔다 — 버튼 중첩(무효 HTML) 방지. */}
+      <span className="inline-flex w-full items-center justify-center gap-1">
+        <button
+          type="button"
+          onClick={onSort}
+          className={cn(
+            "inline-flex items-center justify-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground",
+            active && "text-foreground",
+          )}
+        >
+          <span>{label}</span>
+          {dir === "asc" ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : dir === "desc" ? (
+            <ArrowDown className="h-3 w-3" />
+          ) : (
+            <ArrowUpDown className="h-3 w-3 opacity-40" />
+          )}
+          {active && showPriority && priority != null && (
+            <span className="rounded-full bg-foreground/10 px-1 text-[9px] font-semibold text-foreground">
+              {priority}
+            </span>
+          )}
+        </button>
+        {help && (
+          <AdminHelpIconButton
+            helpKey={help.helpKey}
+            title={help.title}
+            size="xs"
+          />
         )}
-      >
-        <span>{label}</span>
-        {dir === "asc" ? (
-          <ArrowUp className="h-3 w-3" />
-        ) : dir === "desc" ? (
-          <ArrowDown className="h-3 w-3" />
-        ) : (
-          <ArrowUpDown className="h-3 w-3 opacity-40" />
-        )}
-        {active && showPriority && priority != null && (
-          <span className="rounded-full bg-foreground/10 px-1 text-[9px] font-semibold text-foreground">
-            {priority}
-          </span>
-        )}
-      </button>
+      </span>
     </TableHead>
   );
 }

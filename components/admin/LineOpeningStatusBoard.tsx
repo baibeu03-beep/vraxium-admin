@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -157,7 +158,14 @@ export default function LineOpeningStatusBoard({
     <Card>
       {/* hub variant(실무 역량)는 설명 문구 제거 + 헤더 컴팩트. team variant(실무 경험)는 기존 유지(회귀 방지). */}
       <CardHeader className={variant === "hub" ? "pb-2" : "pb-3"}>
-        <CardTitle className="text-base">상태창</CardTitle>
+        <CardTitle className="inline-flex items-center gap-1.5 text-base">
+          상태창
+          <AdminHelpIconButton
+            size="sm"
+            helpKey="admin.lineOpening.statusBoard.section.board"
+            title="라인 개설 상태창"
+          />
+        </CardTitle>
         {variant !== "hub" && (
           <CardDescription>
             이번 주 {hubLabel} 라인 개설 운영 현황 (표시 전용)

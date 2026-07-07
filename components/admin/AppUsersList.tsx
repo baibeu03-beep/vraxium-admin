@@ -351,7 +351,7 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
                   const selectValue = currentSlug ?? ORG_NONE;
                   return (
                     <TableRow key={user.userId}>
-                      <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[180px]">
+                      <TableCell className="sticky left-0 z-10 bg-card border-r max-w-[248px]">
                         <div className="truncate font-medium">{fmt(user.displayName)}</div>
                         {devMode && (
                           <div className="truncate font-mono text-[10px] text-muted-foreground">

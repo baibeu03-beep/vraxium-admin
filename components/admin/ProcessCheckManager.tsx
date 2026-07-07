@@ -33,6 +33,7 @@ import {
   type ProcessCheckBoardDto,
   type ProcessCheckScopeKind,
 } from "@/lib/adminProcessCheckTypes";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
@@ -304,7 +305,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
+    <div className="flex w-full min-w-0 flex-col gap-4">
       <AdminPageHeader
         title={`${hubLabel} 급`}
       />
@@ -514,7 +515,13 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                       <CardTitle className="text-base">팀 &amp; 파트</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                      <label className="text-xs text-muted-foreground">체크 범위 선택</label>
+                      <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                        체크 범위 선택
+                        <AdminHelpIconButton
+                          helpKey="admin.processCheck.manager.filter.scope"
+                          title="체크 범위 선택"
+                        />
+                      </label>
                       <div className="relative">
                         <select
                           aria-label="팀 & 파트 범위"

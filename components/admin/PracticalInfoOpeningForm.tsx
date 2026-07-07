@@ -131,7 +131,7 @@ function OpeningImageSlot({
 
       {/* 1행: "이미지 1" 라벨 + 미리보기 공간(우측 상단 업로드/삭제 2행 1열) */}
       <div className="flex items-start gap-2">
-        <Label className="w-12 shrink-0 pt-1 text-xs text-muted-foreground">
+        <Label className="w-20 shrink-0 pt-1 whitespace-nowrap text-xs text-muted-foreground">
           이미지 1
         </Label>
         <div className="relative">
@@ -190,7 +190,7 @@ function OpeningImageSlot({
 
       {/* 2행: "설명 1" 라벨 + 이미지 설명 입력 */}
       <div className="flex items-center gap-2">
-        <Label className="w-12 shrink-0 text-xs text-muted-foreground">설명 1</Label>
+        <Label className="w-20 shrink-0 whitespace-nowrap text-xs text-muted-foreground">설명 1</Label>
         <Input
           value={caption}
           onChange={(e) => onCaptionChange(e.target.value)}
@@ -768,7 +768,7 @@ export default function PracticalInfoOpeningForm({
             <div className="space-y-2 rounded-md border p-3">
               <p className="text-xs font-medium text-muted-foreground">아웃풋 링크</p>
               <div className="flex items-center gap-2">
-                <Label className="w-12 shrink-0 text-xs text-muted-foreground">
+                <Label className="w-20 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                   링크 1
                 </Label>
                 <Input
@@ -779,7 +779,7 @@ export default function PracticalInfoOpeningForm({
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Label className="w-12 shrink-0 text-xs text-muted-foreground">
+                <Label className="w-20 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                   설명 1
                 </Label>
                 <Input
@@ -861,27 +861,27 @@ export default function PracticalInfoOpeningForm({
             <p className="text-sm text-muted-foreground">아래 정보로 라인을 개설합니다.</p>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">개설 주차</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">개설 주차</dt>
                 <dd className="font-medium">{weekTitle(effectiveWeek)}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">라인명</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">라인명</dt>
                 <dd className="font-medium">{lineName}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">메인 타이틀</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">메인 타이틀</dt>
                 <dd className="min-w-0 break-words font-medium">{mainTitle.trim()}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">아웃풋 링크</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">아웃풋 링크</dt>
                 <dd className="font-medium">{linkUrl.trim() ? 1 : 0}개</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">아웃풋 이미지</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">아웃풋 이미지</dt>
                 <dd className="font-medium">{image ? 1 : 0}개</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">개설 크루</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">개설 크루</dt>
                 <dd className="font-medium">{candidates.length}명</dd>
               </div>
             </dl>
@@ -958,15 +958,15 @@ export default function PracticalInfoOpeningForm({
             </p>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">개설 주차</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">개설 주차</dt>
                 <dd className="font-medium">{weekTitle(effectiveWeek)}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">라인명</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">라인명</dt>
                 <dd className="font-medium">{lineName}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-20 shrink-0 text-muted-foreground">메인 타이틀</dt>
+                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">메인 타이틀</dt>
                 <dd className="min-w-0 break-words font-medium">{openedLine.mainTitle}</dd>
               </div>
             </dl>

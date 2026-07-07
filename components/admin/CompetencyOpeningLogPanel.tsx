@@ -2,8 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -69,7 +76,21 @@ export default function CompetencyOpeningLogPanel({
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">로그창</CardTitle>
+        <CardTitle className="inline-flex items-center gap-1.5 text-base">
+          로그창
+          <AdminHelpIconButton
+            size="sm"
+            helpKey="admin.competency.log.section.logPanel"
+            title="라인 개설 로그창"
+          />
+        </CardTitle>
+        <CardDescription className="inline-flex items-center gap-1">
+          라인 개설·취소 행동 이력 (최신순)
+          <AdminHelpIconButton
+            helpKey="admin.competency.log.section.itemFormat"
+            title="로그 항목 형식"
+          />
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 space-y-1.5 overflow-y-auto text-sm">
         {loading ? (

@@ -57,16 +57,16 @@ export default function PracticalInfoCurrentSituation() {
           <LoadingState active />
         ) : (
           <>
-            <div className="flex gap-2">
-              <span className="w-28 shrink-0 text-muted-foreground">오늘 날짜</span>
+            <div className="flex gap-3">
+              <span className="w-40 shrink-0 whitespace-nowrap text-muted-foreground">오늘 날짜</span>
               <span className="font-semibold">{computed.todayLabel}</span>
             </div>
-            <div className="flex gap-2">
-              <span className="w-28 shrink-0 text-muted-foreground">개설 필요 기간</span>
+            <div className="flex gap-3">
+              <span className="w-40 shrink-0 whitespace-nowrap text-muted-foreground">개설 필요 기간</span>
               <span className="font-semibold">{weekFull(computed.need)}</span>
             </div>
-            <div className="flex gap-2">
-              <span className="w-28 shrink-0 text-muted-foreground">개설 이행 기간</span>
+            <div className="flex gap-3">
+              <span className="w-40 shrink-0 whitespace-nowrap text-muted-foreground">개설 이행 기간</span>
               <span className="font-semibold">{weekFull(computed.fulfil)}</span>
             </div>
             {!computed.current && (
