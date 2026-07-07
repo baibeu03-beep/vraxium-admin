@@ -37,6 +37,7 @@ import { resolveUserScope } from "@/lib/userScope";
 import {
   assertApprovedApplicationsInScope,
   cancelOpenedApplications,
+  countOpenedCompetencyState,
   hasOpenedApplications,
   openApprovedApplications,
 } from "@/lib/adminCompetencyApplications";
@@ -502,6 +503,10 @@ export async function openCompetencyHub(input: {
     changedBy: input.adminId,
   });
 
+  // 배너 "반영 수" = 현재 개설(고객 반영) 총 상태(델타 아님). 통계 카드(개설 크루/라인)와 정합하고,
+  //   멱등 재개설·self-heal 후에도 "개설 3 vs 0 반영" 모순이 생기지 않게 한다. resolution='opened' +
+  //   실제 라인 존재 신청만 센다(고아 제외 — countOpenedCompetencyState). 사전 토글 org 라인은 합산.
+  const openedState = await countOpenedCompetencyState(org, targetWeekId);
   return {
     status: "opened",
     linesChanged: lineIds.length,
@@ -509,11 +514,9 @@ export async function openCompetencyHub(input: {
     openedCrews: appResult.openedCrews,
     openedLines: appResult.openedLines,
     rejectedCrews: appResult.rejectedCrews,
-    // 실제 반영 라인 row = 사전 활성 토글(linesChanged) + 신청 반영으로 새로 개설된 라인 row(크루당 1행 = openedCrews).
-    //   ⚠ openedLines(=distinct 마스터 수)가 아니라 openedCrews(=생성된 cluster4_lines row 수)를 쓴다.
-    //     같은 마스터를 여러 크루에 개설하면 라인 row 는 크루 수만큼 생기므로(per-crew 모델), 반영 라인 수 = 크루 수다.
-    reflectedLines: lineIds.length + appResult.openedCrews,
-    reflectedCrews: appResult.openedCrews,
+    // 반영 라인 row = 사전 활성 토글(org 라인) + 현재 개설된 신청 라인(고아 제외). 반영 크루 = 개설 신청 크루.
+    reflectedLines: lineIds.length + openedState.lines,
+    reflectedCrews: openedState.crews,
   };
 }
 

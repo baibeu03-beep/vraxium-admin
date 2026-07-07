@@ -52,7 +52,7 @@ export type CompetencyApplicationSummary = {
 };
 
 const SELECT =
-  "id,target_user_id,competency_line_master_id,line_code,line_name,submission_link,cafe_checked,approval_checked,rejection_reason,source,resolution,created_at";
+  "id,target_user_id,competency_line_master_id,line_code,line_name,submission_link,cafe_checked,approval_checked,rejection_reason,source,resolution,opened_line_id,created_at";
 
 type AppRow = {
   id: string;
@@ -66,6 +66,9 @@ type AppRow = {
   rejection_reason: string | null;
   source: "customer" | "manual";
   resolution: "pending" | "opened" | "rejected";
+  // 개설로 생성된 라인 id (resolution='opened' 일 때). 외부 정리 등으로 라인이 삭제되면 이 값은
+  //   남지만 실제 cluster4_lines row 는 없을 수 있다(고아) → openApprovedApplications 가 self-heal.
+  opened_line_id: string | null;
   created_at: string;
 };
 
@@ -404,8 +407,35 @@ export async function openApprovedApplications(input: {
   mode?: ScopeMode;
 }): Promise<ApprovalReflectResult> {
   const rows = await loadApplicationRows(input.org, input.weekId);
-  // 아직 개설 안 된 신청만 처리(opened 재처리 방지 — 멱등).
-  const pending = rows.filter((r) => r.resolution !== "opened");
+  // 신규(미개설) 신청 — 아직 opened 아님.
+  const fresh = rows.filter((r) => r.resolution !== "opened");
+  // self-heal: resolution='opened' 인데 실제 라인 row 가 사라진(외부 정리 등) 고아 신청은 재생성 대상.
+  //   (원인: 봄 2026 테스트라인 정리 등 라인만 삭제되고 application resolution 은 opened 로 남음 →
+  //    통계는 개설 3인데 고객앱엔 라인 없음. 재개설 시 이 고아를 다시 열어 라인/타깃을 복구한다.)
+  const openedRows = rows.filter((r) => r.resolution === "opened");
+  const priorOpenedLineIds = Array.from(
+    new Set(openedRows.map((r) => r.opened_line_id).filter((id): id is string => !!id)),
+  );
+  const existingLineIds = new Set<string>();
+  if (priorOpenedLineIds.length > 0) {
+    const { data: existRows } = await supabaseAdmin
+      .from("cluster4_lines")
+      .select("id")
+      .in("id", priorOpenedLineIds);
+    for (const l of (existRows ?? []) as Array<{ id: string }>) existingLineIds.add(l.id);
+  }
+  const orphaned = openedRows.filter(
+    (r) => !r.opened_line_id || !existingLineIds.has(r.opened_line_id),
+  );
+  if (orphaned.length > 0) {
+    console.warn("[competency open] 고아 opened 신청 self-heal(라인 재생성)", {
+      org: input.org,
+      weekId: input.weekId,
+      count: orphaned.length,
+    });
+  }
+  // 처리 대상 = 신규 신청 + 고아(라인 소실) opened 신청. 정상 opened(라인 존재)는 멱등 스킵.
+  const pending = [...fresh, ...orphaned];
   if (pending.length === 0) {
     return {
       openedCrews: 0,
@@ -555,6 +585,40 @@ export async function openApprovedApplications(input: {
     affectedUserIds: Array.from(affected),
     openedLineIds,
   };
+}
+
+// 현재 "고객 반영(개설)" 상태의 competency 총계 — resolution='opened' 이면서 실제 cluster4_lines row 가
+//   존재하는 신청만 센다(고아=라인 소실은 제외). 완료 배너의 "반영 수" SoT 로, 통계 카드(개설 크루/개설
+//   라인)와 정합하게 한다. 델타(이번 클릭에 새로 연 수)가 아니라 현재 열려있는 총 상태를 표시하기 위함
+//   — 멱등 재개설에서도 "개설 3 vs 0 반영" 모순이 생기지 않는다.
+export async function countOpenedCompetencyState(
+  org: OrganizationSlug,
+  weekId: string,
+): Promise<{ crews: number; lines: number }> {
+  const { data } = await supabaseAdmin
+    .from("cluster4_competency_applications")
+    .select("target_user_id,opened_line_id")
+    .eq("organization_slug", org)
+    .eq("week_id", weekId)
+    .eq("resolution", "opened");
+  const rows = (data ?? []) as Array<{ target_user_id: string; opened_line_id: string | null }>;
+  const lineIds = Array.from(
+    new Set(rows.map((r) => r.opened_line_id).filter((id): id is string => !!id)),
+  );
+  const existing = new Set<string>();
+  if (lineIds.length > 0) {
+    const { data: lines } = await supabaseAdmin
+      .from("cluster4_lines")
+      .select("id")
+      .in("id", lineIds);
+    for (const l of (lines ?? []) as Array<{ id: string }>) existing.add(l.id);
+  }
+  const crews = new Set(
+    rows
+      .filter((r) => r.opened_line_id && existing.has(r.opened_line_id))
+      .map((r) => r.target_user_id),
+  );
+  return { crews: crews.size, lines: existing.size };
 }
 
 export async function cancelOpenedApplications(input: {
