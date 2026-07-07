@@ -1,0 +1,261 @@
+{
+  "generatedAt": "2026-07-07T01:49:34.275Z",
+  "checks": {
+    "snapshotScan": {
+      "scannedUsers": 729,
+      "totalCompetencyLines": 24979,
+      "enhancementStatusDistribution": {
+        "pending": 1320,
+        "not_applicable": 23363,
+        "fail": 292,
+        "success": 4
+      },
+      "assignedEnhancementDistribution": {
+        "success": 4
+      },
+      "reasonDistribution": {
+        "competency_optional_pending": 1320,
+        "target_missing_not_required_non_career": 23363,
+        "target_missing_required": 292,
+        "target_exists_after_deadline": 4
+      },
+      "suspectAssignedFailCount": 0,
+      "suspectSamples": [],
+      "submissionFailButEnhancementKeptCount": 3,
+      "submissionFailButEnhancementKeptSamples": [
+        {
+          "weekId": "a2112b50-64d2-42d6-a243-faf9fcdc6ffc",
+          "partType": "competency",
+          "lineId": "f018a582-3147-4274-92d7-65805adbaebe",
+          "lineTargetId": "07f77c79-5dbc-47b4-8aee-bfda807c41b4",
+          "lineCode": "CPBS-NN0028",
+          "status": "fail",
+          "enhancementStatus": "success",
+          "enhancementReason": "target_exists_after_deadline",
+          "submissionStatus": "not_submitted",
+          "experienceRating": null,
+          "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a"
+        },
+        {
+          "weekId": "a2112b50-64d2-42d6-a243-faf9fcdc6ffc",
+          "partType": "competency",
+          "lineId": "690080f3-c6aa-4afd-95ed-c660c8d9d4cd",
+          "lineTargetId": "32d5922d-2ad3-40b3-b420-9f2655350cfe",
+          "lineCode": "CPBS-NN0012",
+          "status": "fail",
+          "enhancementStatus": "success",
+          "enhancementReason": "target_exists_after_deadline",
+          "submissionStatus": "not_submitted",
+          "experienceRating": null,
+          "userId": "b303c17e-26ec-429c-804e-f0d25c3f9463"
+        },
+        {
+          "weekId": "a2112b50-64d2-42d6-a243-faf9fcdc6ffc",
+          "partType": "competency",
+          "lineId": "f45019cf-5bb4-498c-b730-034c97f365e6",
+          "lineTargetId": "2aaa68e0-9636-4571-b205-41f146281b01",
+          "lineCode": "CPBS-NN0022",
+          "status": "fail",
+          "enhancementStatus": "success",
+          "enhancementReason": "target_exists_after_deadline",
+          "submissionStatus": "not_submitted",
+          "experienceRating": null,
+          "userId": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a"
+        }
+      ]
+    },
+    "dbCompetencyLines": {
+      "totalLines": 6,
+      "lineIds": [
+        "3e95e0ff-c580-44b4-9e14-0da91b3205e7",
+        "72e48f7d-fc93-415d-a217-a7b0247e39bf",
+        "f45019cf-5bb4-498c-b730-034c97f365e6",
+        "690080f3-c6aa-4afd-95ed-c660c8d9d4cd",
+        "f018a582-3147-4274-92d7-65805adbaebe",
+        "2bdc67c1-541e-4ecc-af98-16c84d0fdde5"
+      ]
+    },
+    "directVsSnapshotParity": {
+      "sampledUsers": 4,
+      "results": [
+        {
+          "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+          "snapStatus": "hit",
+          "dtoVersionMatch": true,
+          "directCompCount": 29,
+          "snapCompCount": 29,
+          "directSuspectFails": 0,
+          "mismatchCount": 0,
+          "mismatches": []
+        },
+        {
+          "userId": "ae55adcf-fd72-479f-86d3-60863b39a03d",
+          "snapStatus": "hit",
+          "dtoVersionMatch": true,
+          "directCompCount": 28,
+          "snapCompCount": 28,
+          "directSuspectFails": 0,
+          "mismatchCount": 0,
+          "mismatches": []
+        },
+        {
+          "userId": "b303c17e-26ec-429c-804e-f0d25c3f9463",
+          "snapStatus": "hit",
+          "dtoVersionMatch": true,
+          "directCompCount": 40,
+          "snapCompCount": 40,
+          "directSuspectFails": 0,
+          "mismatchCount": 0,
+          "mismatches": []
+        },
+        {
+          "userId": "b817db7d-ecd5-46bb-ab13-cc34134e5f9a",
+          "snapStatus": "hit",
+          "dtoVersionMatch": true,
+          "directCompCount": 27,
+          "snapCompCount": 27,
+          "directSuspectFails": 0,
+          "mismatchCount": 0,
+          "mismatches": []
+        }
+      ],
+      "anyMismatch": false,
+      "anyDirectSuspectFail": false
+    },
+    "httpParity": {
+      "userId": "bd57f30b-308f-4fbb-a7b7-71d76b3ce73a",
+      "httpStatus": 200,
+      "httpCompCount": 29,
+      "httpSuspectFails": 0,
+      "sample": [
+        {
+          "weekId": "39aae7a0-216f-4262-8a67-6beef1bccf22",
+          "partType": "competency",
+          "lineId": null,
+          "lineTargetId": null,
+          "lineCode": null,
+          "status": "void",
+          "enhancementStatus": "pending",
+          "enhancementReason": "competency_optional_pending",
+          "submissionStatus": "not_submitted",
+          "experienceRating": null
+        },
+        {
+          "weekId": "496656d0-8d92-4738-b69b-e5e28aa1d57a",
+          "partType": "competency",
+          "lineId": null,
+          "lineTargetId": null,
+          "lineCode": null,
+          "status": "void",
+          "enhancementStatus": "pending",
+          "enhancementReason": "competency_optional_pending",
+          "submissionStatus": "not_submitted",
+          "experienceRating": null
+        },
+        {
+          "weekId": "dd479e91-2f06-459a-930b-6774b34c12bd",
+          "partType": "competency",
+          "lineId": null,
+          "lineTargetId": null,
+          "lineCode": null,
+          "status": "void",
+          "enhancementStatus": "not_applicable",
+          "enhancementReason": "target_missing_not_required_non_career",
+          "submissionStatus": "not_required",
+          "experienceRating": null
+        },
+        {
+          "weekId": "9af934a2-5c11-4932-b800-5bdb83183e68",
+          "partType": "competency",
+          "lineId": null,
+          "lineTargetId": null,
+          "lineCode": null,
+          "status": "void",
+          "enhancementStatus": "not_applicable",
+          "enhancementReason": "target_missing_not_required_non_career",
+          "submissionStatus": "not_required",
+          "experienceRating": null
+        },
+        {
+          "weekId": "190ea8e9-461c-4ec4-abba-e83e63a4dc92",
+          "partType": "competency",
+          "lineId": null,
+          "lineTargetId": null,
+          "lineCode": null,
+          "status": "void",
+          "enhancementStatus": "not_applicable",
+          "enhancementReason": "target_missing_not_required_non_career",
+          "submissionStatus": "not_required",
+          "experienceRating": null
+        },
+        {
+          "weekId": "286ddd42-aa7c-4df8-bcff-c7c1a9f5425e",
+          "partType": "competency",
+          "lineId": null,
+          "lineTargetId": null,
+          "lineCode": null,
+          "status": "void",
+          "enhancementStatus": "not_applicable",
+          "enhancementReason": "target_missing_not_required_non_career",
+          "submissionStatus": "not_required",
+          "experienceRating": null
+        },
+        {
+          "weekId": "a2112b50-64d2-42d6-a243-faf9fcdc6ffc",
+          "partType": "competency",
+          "lineId": "f018a582-3147-4274-92d7-65805adbaebe",
+          "lineTargetId": "07f77c79-5dbc-47b4-8aee-bfda807c41b4",
+          "lineCode": "CPBS-NN0028",
+          "status": "fail",
+          "enhancementStatus": "success",
+          "enhancementReason": "target_exists_after_deadline",
+          "submissionStatus": "not_submitted",
+          "experienceRating": null
+        },
+        {
+          "weekId": "00000000-0000-0000-0000-202605210002",
+          "partType": "competency",
+          "lineId": null,
+          "lineTargetId": null,
+          "lineCode": null,
+          "status": "void",
+          "enhancementStatus": "not_applicable",
+          "enhancementReason": "target_missing_not_required_non_career",
+          "submissionStatus": "not_required",
+          "experienceRating": null
+        },
+        {
+          "weekId": "67e07106-564e-4dab-b180-8f11c909973a",
+          "partType": "competency",
+          "lineId": null,
+          "lineTargetId": null,
+          "lineCode": null,
+          "status": "void",
+          "enhancementStatus": "not_applicable",
+          "enhancementReason": "target_missing_not_required_non_career",
+          "submissionStatus": "not_required",
+          "experienceRating": null
+        },
+        {
+          "weekId": "6cc59d70-3aa6-4823-8854-5b82691d1a84",
+          "partType": "competency",
+          "lineId": null,
+          "lineTargetId": null,
+          "lineCode": null,
+          "status": "void",
+          "enhancementStatus": "not_applicable",
+          "enhancementReason": "target_missing_not_required_non_career",
+          "submissionStatus": "not_required",
+          "experienceRating": null
+        }
+      ]
+    }
+  },
+  "verdict": {
+    "competencyExcludedFromLegacyOverride": true,
+    "snapshotSuspectAssignedFails": 0,
+    "directSuspectFails": 0,
+    "directVsSnapshotAnyMismatch": false,
+    "PASS": true
+  }
+}
