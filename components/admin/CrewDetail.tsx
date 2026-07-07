@@ -6,6 +6,7 @@ import { ArrowLeft, ExternalLink, NotebookPen, User, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
+import EnhancementStatusEditModal from "@/components/admin/cluster4/EnhancementStatusEditModal";
 import { LoadingState } from "@/components/ui/loading-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
@@ -414,8 +415,13 @@ export default function CrewDetail({
               </div>
             </div>
 
-            {/* 하단부: 주차 결과 표 — 최신→오래된, 15개/페이지·기본 1페이지(최신). */}
-            <WeeklyResultsTable rows={detail.weeklyResults} />
+            {/* 하단부: 주차 결과 표 — 최신→오래된, 15개/페이지·기본 1페이지(최신).
+                각 주차 행의 실무 4허브 옆 "수정"으로 그 주차 라인 강화 상태를 수동 수정한다. */}
+            <WeeklyResultsTable
+              rows={detail.weeklyResults}
+              userId={detail.userId}
+              mode={mode}
+            />
           </CardContent>
         </Card>
         </>
@@ -528,11 +534,22 @@ function SeasonMembershipCell({
   );
 }
 
-// 주차 결과 표 — 13컬럼. 최신→오래된 표시(맨 위=가장 최신), 15개/페이지·기본 1페이지.
-function WeeklyResultsTable({ rows }: { rows: CrewWeeklyResultRow[] }) {
+// 주차 결과 표 — 최신→오래된 표시(맨 위=가장 최신), 15개/페이지·기본 1페이지.
+//   맨 오른쪽 "강화 상태" 열의 [수정] 으로 그 주차 라인 강화 상태를 수동 수정한다(모달).
+function WeeklyResultsTable({
+  rows,
+  userId,
+  mode,
+}: {
+  rows: CrewWeeklyResultRow[];
+  userId: string;
+  mode: ScopeMode;
+}) {
   const totalPages = Math.max(1, Math.ceil(rows.length / WEEKLY_PAGE_SIZE));
   // 기본 = 1페이지(최신 주차). rows.length 변화 시 1페이지로 리셋.
   const [page, setPage] = useState(1);
+  // 강화 상태 수정 모달 대상 주차.
+  const [editWeek, setEditWeek] = useState<{ weekId: string; weekName: string } | null>(null);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
@@ -574,6 +591,7 @@ function WeeklyResultsTable({ rows }: { rows: CrewWeeklyResultRow[] }) {
               <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경험</th>
               <th className="whitespace-nowrap px-2 py-2 font-medium">실무 역량</th>
               <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경력</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">강화 상태</th>
             </tr>
           </thead>
           <tbody>
@@ -594,6 +612,21 @@ function WeeklyResultsTable({ rows }: { rows: CrewWeeklyResultRow[] }) {
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.experience)}</td>
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.ability)}</td>
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.career)}</td>
+                <td className="whitespace-nowrap px-2 py-2 text-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!r.weekId}
+                    onClick={() =>
+                      r.weekId &&
+                      setEditWeek({ weekId: r.weekId, weekName: r.weekName })
+                    }
+                    className="h-7 px-2 text-xs"
+                  >
+                    수정
+                  </Button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -613,6 +646,16 @@ function WeeklyResultsTable({ rows }: { rows: CrewWeeklyResultRow[] }) {
             다음
           </Button>
         </div>
+      )}
+
+      {editWeek && (
+        <EnhancementStatusEditModal
+          userId={userId}
+          mode={mode}
+          weekId={editWeek.weekId}
+          weekName={editWeek.weekName}
+          onClose={() => setEditWeek(null)}
+        />
       )}
     </div>
   );

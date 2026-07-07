@@ -956,7 +956,9 @@ function breakdownForPart(
 // 별도 SQL 집계(weekly-growth 경로)와 어긋날 수 없도록 카드에 실제로 실린 칸을 그대로 센다 —
 // "라인 칸은 강화 실패인데 헤더 강화율은 성공으로 카운트" 류의 불일치가 구조적으로 불가능해진다.
 // (org 노출 필터·슬롯 placeholder·career 패딩까지 모두 반영된 최종 칸 집합 기준.)
-function breakdownFromLines(
+// export: read-time override 데코레이터(lib/cluster4EnhancementOverride.ts)가 override 적용 후
+//   동일 산식으로 강화율을 재파생하기 위해 재사용한다. 내부 로직은 무변경(export 만 추가).
+export function breakdownFromLines(
   lines: Cluster4LineDetailDto[],
 ): WeeklyCardLineBreakdown {
   const mk = (): WeeklyCardLineDetail => ({ completed: 0, available: 0 });
@@ -991,12 +993,14 @@ function breakdownFromLines(
   return breakdown;
 }
 
-function emptyBreakdown(): WeeklyCardLineBreakdown {
+// export: read-time override 재파생용(휴식 주차 = 빈 breakdown). 내부 로직 무변경.
+export function emptyBreakdown(): WeeklyCardLineBreakdown {
   const mk = (): WeeklyCardLineDetail => ({ completed: 0, available: 0 });
   return { info: mk(), ability: mk(), experience: mk(), career: mk() };
 }
 
-function attachLineBreakdown(
+// export: read-time override 재파생용(라인별 numerator/denominator/rate 재부착). 내부 로직 무변경.
+export function attachLineBreakdown(
   lines: Cluster4LineDetailDto[],
   breakdown: WeeklyCardLineBreakdown,
   isRest: boolean,

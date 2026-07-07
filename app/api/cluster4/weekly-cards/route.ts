@@ -13,6 +13,7 @@ import {
   readWeeklyCardsSnapshot,
   recomputeAndStoreWeeklyCardsSnapshot,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { applyEnhancementOverridesToCards } from "@/lib/cluster4EnhancementOverride";
 import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
 import {
   loadGrowthStopInfo,
@@ -233,7 +234,30 @@ function scheduleVersionMismatchRecompute(profileUserId: string): void {
   }
 }
 
-// 카드 로딩의 단일 진입점 (demo/일반/internal 모든 경로 공용 — DTO·로직 단일).
+// 카드 로딩 단일 진입점(demo/session/internal 공용). snapshot-only 로더(loadWeeklyCardsRaw)의
+// 결과에 라인 강화 상태 수동 override 를 read-time overlay 로 덧씌운 뒤 반환한다.
+//   - override 는 조회 시점에만 적용(snapshot 무접촉·계산 무수정). 자세한 정책은
+//     lib/cluster4EnhancementOverride.ts 참고.
+//   - override 행이 없거나 매칭 라인이 없으면 raw 결과를 그대로 반환 → 기존 응답과 100% 동일.
+//   - demo(mode=test/demoUserId) 와 session 경로가 모두 이 함수를 통과하므로 동일 DTO·동일 overlay
+//     를 탄다(override 키 = user_id, mode 무관).
+async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
+  const result = await loadWeeklyCardsRaw(profileUserId);
+  try {
+    const cards = await applyEnhancementOverridesToCards(profileUserId, result.cards);
+    // applyEnhancementOverridesToCards 는 override 없음/무변경 시 동일 배열 참조를 반환한다.
+    return cards === result.cards ? result : { ...result, cards };
+  } catch (e) {
+    // overlay 실패는 격리한다 — override 때문에 조회가 깨지면 안 되므로 raw 결과로 폴백.
+    console.warn("[weekly-cards] enhancement override overlay failed → raw fallback", {
+      profileUserId,
+      message: e instanceof Error ? e.message : String(e),
+    });
+    return result;
+  }
+}
+
+// snapshot-only 로더 (계산 없이 저장본 조회 — override overlay 이전의 raw 결과).
 //   - hit + 신선(computed_at ≥ 현재 주차 시작) → 저장 카드 그대로 (쿼리 1, 계산 0). 대다수 요청.
 //   - hit + boundary-stale(주차 경계 통과)     → 단건 재계산·저장 → 최신 반환. 실패 시 구 카드 폴백.
 //   - stale(is_stale=true)                    → 단건 재계산·저장 → 최신 반환. 실패 시 구 카드 폴백.
@@ -241,7 +265,7 @@ function scheduleVersionMismatchRecompute(profileUserId: string): void {
 //                                                그 1명만 재계산 → 다음 조회부터 신버전 수렴. 실패 시 구값 보존.
 //   - miss(행 없음, 신규 유저)                 → 단건 재계산·저장 → 최신 반환. 실패 시 빈 배열.
 //   - error(조회 실패)                         → 빈 배열. 일시 오류에 계산 폭증 방지 — 절대 계산 안 함.
-async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
+async function loadWeeklyCardsRaw(profileUserId: string): Promise<LoadResult> {
   const snap = await readWeeklyCardsSnapshot(profileUserId);
 
   // 현재 주차 경계 시각(월요일 00:01 KST) — computed_at 이 이보다 과거면 주차 경계를 지난
