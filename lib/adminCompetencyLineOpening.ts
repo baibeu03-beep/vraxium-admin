@@ -367,6 +367,12 @@ export type CompetencyOpeningActionResult = {
   openedCrews: number;
   openedLines: number;
   rejectedCrews: number;
+  // ⚠ 고객 반영/원복된 실제 라인·크루 총계 = 사전 토글(linesChanged) + 신청 반영/삭제(openedLines/removedLines).
+  //   완료 메시지 SoT. linesChanged/linesTotal 만으로는 "0/0" 오표시 — competency 라인은 전부 common 마스터라
+  //   loadOrgCompetencyLines(lineOrg===org 로 common 제외)에서 항상 0이고, 실제 개설은 신청 반영(openApprovedApplications)
+  //   경로로 이뤄지기 때문. 그 결과(openedLines/openedCrews)를 합산해 실제 반영 수를 표시한다.
+  reflectedLines: number;
+  reflectedCrews: number;
 };
 
 // ── [개설 완료] 허브 전체 역량 라인 is_active=true + 주차 공통 아웃풋(링크/설명) 반영 + markStale + 로그 ──
@@ -503,6 +509,11 @@ export async function openCompetencyHub(input: {
     openedCrews: appResult.openedCrews,
     openedLines: appResult.openedLines,
     rejectedCrews: appResult.rejectedCrews,
+    // 실제 반영 라인 row = 사전 활성 토글(linesChanged) + 신청 반영으로 새로 개설된 라인 row(크루당 1행 = openedCrews).
+    //   ⚠ openedLines(=distinct 마스터 수)가 아니라 openedCrews(=생성된 cluster4_lines row 수)를 쓴다.
+    //     같은 마스터를 여러 크루에 개설하면 라인 row 는 크루 수만큼 생기므로(per-crew 모델), 반영 라인 수 = 크루 수다.
+    reflectedLines: lineIds.length + appResult.openedCrews,
+    reflectedCrews: appResult.openedCrews,
   };
 }
 
@@ -611,5 +622,8 @@ export async function cancelCompetencyHub(input: {
     openedCrews: 0,
     openedLines: 0,
     rejectedCrews: 0,
+    // 실제 원복 = 사전 비활성 토글(linesChanged) + 신청 반영으로 삭제된 라인(removedLines).
+    reflectedLines: lineIds.length + appCancel.removedLines,
+    reflectedCrews: appCancel.affectedUserIds.length,
   };
 }

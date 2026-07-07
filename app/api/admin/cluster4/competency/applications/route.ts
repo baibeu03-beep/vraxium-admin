@@ -27,6 +27,7 @@ import {
   listCompetencyApplications,
 } from "@/lib/adminCompetencyApplications";
 import { resolveEffectiveWeek } from "@/lib/adminCompetencyLineOpening";
+import { deriveEndStatus } from "@/lib/growthCore";
 
 // 실무 역량 [라인 개설] 신청/승인 명단.
 //   GET  ?organization=&week_id?=  → { applications, summary, weekId } (week_id 미지정 시 개설 대상 주차)
@@ -185,7 +186,7 @@ export async function POST(request: NextRequest) {
   {
     const { data: profileRow, error: profileErr } = await supabaseAdmin
       .from("user_profiles")
-      .select("organization_slug")
+      .select("organization_slug,growth_status")
       .eq("user_id", targetUserId)
       .maybeSingle();
     if (profileErr) {
@@ -197,6 +198,18 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: `현재 조직(${orgRaw}) 소속이 아닌 사용자는 추가할 수 없습니다.`,
+        },
+        { status: 422 },
+      );
+    }
+    // 성장 중단(paused/suspended) 방어 가드 — 피커 제외를 우회한 직접 payload 도 차단(fail-closed).
+    //   성장 중단 유저는 truncateCardsForGrowthStop 로 고객앱에 카드가 노출되지 않아 개설이 무의미하다.
+    const targetGrowth = (profileRow as { growth_status: string | null } | null)?.growth_status ?? null;
+    if (deriveEndStatus(targetGrowth) === "stopped") {
+      return Response.json(
+        {
+          success: false,
+          error: "성장 중단(휴학·중단) 상태의 유저는 개설 대상에서 제외되어 추가할 수 없습니다.",
         },
         { status: 422 },
       );

@@ -11,6 +11,7 @@ import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { loadCrewRecords } from "@/lib/cluster4CafeLineMatch";
 import { listCrewsForTargetSelection } from "@/lib/adminExperienceLineData";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { filterGrowthStoppedUserIds } from "@/lib/cluster4GrowthStopPolicy";
 import {
   assertUserIdsInScope,
   resolveUserScope,
@@ -425,6 +426,11 @@ export async function openApprovedApplications(input: {
     .map((r) => r.target_user_id);
   assertUserIdsInScope(scope, approvedTargetIds);
 
+  // 성장 중단(paused/suspended) 방어 — 피커/저장 게이트를 우회했거나 승인 후 중단으로 바뀐 대상은
+  //   개설해도 truncateCardsForGrowthStop 로 고객앱 미노출이라 라인을 만들지 않는다(pending 유지 →
+  //   추후 성장 재개 시 재개설 가능). 전체 open 을 깨지 않고 해당 대상만 조용히 건너뛴다.
+  const stoppedTargetIds = await filterGrowthStoppedUserIds(approvedTargetIds);
+
   const weekStart = await loadWeekStart(input.weekId);
   const win = weekStart ? deriveWindow(weekStart) : null;
   const nowIso = new Date().toISOString();
@@ -463,6 +469,15 @@ export async function openApprovedApplications(input: {
         .update({ resolution: "rejected", updated_at: nowIso })
         .eq("id", r.id);
       rejectedCrews++;
+      continue;
+    }
+
+    // 성장 중단 대상 방어 — 라인 생성 없이 pending 유지(로그만). 고객앱 미노출이라 개설 무의미.
+    if (stoppedTargetIds.has(r.target_user_id)) {
+      console.warn("[competency open] 성장 중단 대상 개설 건너뜀(pending 유지)", {
+        applicationId: r.id,
+        targetUserId: r.target_user_id,
+      });
       continue;
     }
 

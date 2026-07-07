@@ -18,6 +18,7 @@ import {
   type ScopeMode,
 } from "@/lib/userScope";
 import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
+import { filterGrowthStoppedUserIds } from "@/lib/cluster4GrowthStopPolicy";
 
 // 현재 URL org 컨텍스트 → organization_slug. 라인 개설 크루는 해당 조직 소속만 매칭한다(org 격리).
 //   미지정/무효 = null(통합 모드, 전체 크루). 실무 정보 개설 폼은 항상 org-scoped 로 진입한다.
@@ -43,12 +44,21 @@ async function loadScopedCrews(
   // 라인 개설/수정 후보 한정: 현재 시즌 전체 휴식자(user_season_statuses(현재시즌,rest))를 후보에서 제외한다.
   //   excludeSeasonRest 플래그가 있을 때만 적용 — 라인 개설 UI(CafeCrewPicker/CompetencyApplicantSection)만
   //   전달하고, 프로세스 수동부여 등 비-개설 소비처는 기존 동작을 보존한다(growth_status 미사용·과거 무소급).
+  let filtered = scoped;
   const exParam = request.nextUrl.searchParams.get("excludeSeasonRest");
   if (exParam === "1" || exParam === "true") {
     const restIds = await getCurrentSeasonRestUserIds();
-    return { crews: scoped.filter((c) => !restIds.has(c.userId)), mode: scope.mode };
+    filtered = filtered.filter((c) => !restIds.has(c.userId));
   }
-  return { crews: scoped, mode: scope.mode };
+  // 성장 중단(paused/suspended) 후보 제외 — 개설해도 truncateCardsForGrowthStop 로 고객앱 미노출이라
+  //   개설 대상에서 뺀다(opt-in: excludeGrowthStopped 플래그가 있을 때만 — 실무 역량 개설 피커 등).
+  //   과거/비개설 소비처(프로세스 수동부여 등)는 이 플래그 미전달로 기존 동작 보존.
+  const exGrowth = request.nextUrl.searchParams.get("excludeGrowthStopped");
+  if (exGrowth === "1" || exGrowth === "true") {
+    const stoppedIds = await filterGrowthStoppedUserIds(filtered.map((c) => c.userId));
+    filtered = filtered.filter((c) => !stoppedIds.has(c.userId));
+  }
+  return { crews: filtered, mode: scope.mode };
 }
 
 // 라인 개설 크루 — 카페 링크 검수(POST) + 수동추가 검색(GET).

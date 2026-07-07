@@ -60,6 +60,37 @@ export async function loadGrowthStopInfo(
   };
 }
 
+// 주어진 사용자 중 "성장 중단(suspended/paused)" 부분집합을 판정한다(deriveEndStatus SoT 재사용).
+//   용도: 라인 개설 대상 선정 게이트 — 성장 중단 유저는 truncateCardsForGrowthStop 로 미확정 주차 카드가
+//   고객앱에서 노출되지 않으므로 개설해도 무의미하다. 개설 UI 피커/저장/개설 단계에서 이 집합을 제외한다.
+//   ⚠ truncation 정책 자체(truncateCardsForGrowthStop)는 불변 — 여기서는 "개설 대상 후보"만 좁힌다.
+//   userIds 를 넘긴 부분만 조회(전역 스캔 아님). 조회 실패 시 빈 Set(보수적: 아무도 제외하지 않음).
+export async function filterGrowthStoppedUserIds(
+  userIds: readonly string[],
+): Promise<Set<string>> {
+  const ids = Array.from(new Set(userIds.filter((id): id is string => Boolean(id))));
+  if (ids.length === 0) return new Set();
+  const stopped = new Set<string>();
+  const CHUNK = 500;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    const { data, error } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,growth_status")
+      .in("user_id", chunk);
+    if (error) {
+      console.warn("[growth-stop] filterGrowthStoppedUserIds 조회 실패 → 제외 없음", {
+        message: error.message,
+      });
+      continue;
+    }
+    for (const r of (data ?? []) as Array<{ user_id: string; growth_status: string | null }>) {
+      if (deriveEndStatus(r.growth_status) === "stopped") stopped.add(r.user_id);
+    }
+  }
+  return stopped;
+}
+
 // 성장 중단 사용자의 카드 목록을 "확정 주차"까지만 남긴다.
 //   미확정 상태(running=진행 중, tallying=집계 중) 카드를 제거한다(= 중단 이후 노출 금지).
 //   확정 상태(success/fail/personal_rest/official_rest)는 보존.

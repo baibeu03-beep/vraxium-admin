@@ -235,12 +235,21 @@ export default function CompetencyOpeningDashboard() {
           return;
         }
         const d = json.data ?? {};
+        // 실제 반영 수(reflectedLines/reflectedCrews) = 사전 토글 + 신청 반영/삭제 합산.
+        //   competency 라인은 전부 common 마스터 → linesChanged/linesTotal 은 항상 0(loadOrgCompetencyLines
+        //   가 common 제외). 실제 개설은 신청 반영(openedCrews) 경로이므로 그 합산값을 표시해야 "0/0" 오표시를
+        //   피한다. (구 필드 폴백: reflectedLines 미제공 시 openedCrews+linesChanged 로 계산.)
+        const reflectedLines =
+          d.reflectedLines ?? (d.openedCrews ?? 0) + (d.linesChanged ?? 0);
+        const reflectedCrews = d.reflectedCrews ?? d.openedCrews ?? 0;
         setBanner({
           kind: "success",
           message:
             action === "open"
-              ? `개설 완료 — 역량 라인 ${d.linesChanged ?? 0}/${d.linesTotal ?? 0}개 반영`
-              : `개설 취소 — 역량 라인 ${d.linesChanged ?? 0}/${d.linesTotal ?? 0}개 원복`,
+              ? `개설 완료 — 역량 라인 ${reflectedLines}개 반영` +
+                (reflectedCrews ? ` (크루 ${reflectedCrews}명)` : "") +
+                (d.rejectedCrews ? ` · 반려 ${d.rejectedCrews}명` : "")
+              : `개설 취소 — 역량 라인 ${reflectedLines}개 원복`,
         });
         setRefreshKey((k) => k + 1);
         await fetchStatus();

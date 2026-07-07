@@ -285,6 +285,9 @@ export default function CompetencyApplicantSection({
         const sp = new URLSearchParams({ q: term });
         if (org) sp.set("organization", org);
         sp.set("excludeSeasonRest", "1"); // 역량 라인 개설 후보 = 현재 시즌 휴식자 제외
+        // 성장 중단(paused/suspended) 유저 제외 — 개설해도 고객앱에서 카드가 truncate 되어 노출되지 않으므로
+        //   개설 대상 후보에서 뺀다(서버 excludeGrowthStopped opt-in).
+        sp.set("excludeGrowthStopped", "1");
         const res = await fetch(`/api/admin/cluster4/cafe-line-crew?${sp.toString()}`);
         const json = await res.json();
         if (cancelled) return;
@@ -521,6 +524,10 @@ export default function CompetencyApplicantSection({
             <Plus className="mr-1 h-4 w-4" /> 추가
           </Button>
         </div>
+        {/* 성장 중단(휴학·중단) 유저는 고객앱에 카드가 노출되지 않아 개설 대상에서 제외됨 — 검색 결과에도 표시되지 않는다. */}
+        <p className="text-[11px] text-muted-foreground">
+          ※ 성장 중단(paused/suspended) 유저는 고객앱에 카드가 노출되지 않아 개설 대상에서 제외되며 검색 결과에도 표시되지 않습니다.
+        </p>
 
         {/* 승인 명단 테이블 */}
         {loading ? (
