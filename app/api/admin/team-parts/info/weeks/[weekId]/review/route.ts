@@ -20,7 +20,7 @@ import { resolveStateScopeFromRequest } from "@/lib/operationalState";
 
 type Ctx = { params: Promise<{ weekId: string }> };
 
-export async function POST(_request: NextRequest, { params }: Ctx) {
+export async function POST(request: NextRequest, { params }: Ctx) {
   let actorId: string | null = null;
   try {
     const admin = await requireAdmin(ADMIN_WRITE_ROLES);
@@ -36,8 +36,23 @@ export async function POST(_request: NextRequest, { params }: Ctx) {
     return Response.json({ success: false, error: "weekId must be a UUID" }, { status: 400 });
   }
 
+  // scope: ?mode=test → qa(테스트 코호트·qa_weeks_state). 기본 operating(실유저·운영 weeks).
+  const scope = resolveStateScopeFromRequest(request);
+  // allowIncompleteTestData: 안전장치(라인0 mass-fail·적립 미완료·pending) bypass 요청.
+  //   ⚠ 실제 bypass 여부는 서버가 scope 로 최종 판정(operating 실유저면 무시). body 없으면 false.
+  let allowIncompleteTestData = false;
   try {
-    const result = await markTeamPartsWeekReviewed(weekId, actorId);
+    const body = (await request.json()) as { allowIncompleteTestData?: unknown } | null;
+    allowIncompleteTestData = body?.allowIncompleteTestData === true;
+  } catch {
+    // body 없음(기존 호출 호환) → false.
+  }
+
+  try {
+    const result = await markTeamPartsWeekReviewed(weekId, actorId, {
+      scope,
+      allowIncompleteTestData,
+    });
     // DTO: { ok, weekId, reviewed, reviewedAt } (+ 확정 상세). success 래퍼는 프론트 호환 유지.
     return Response.json({
       success: true,

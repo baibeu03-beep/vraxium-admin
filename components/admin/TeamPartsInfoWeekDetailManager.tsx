@@ -17,6 +17,7 @@ import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
+import type { ReviewReadiness } from "@/lib/adminWeekReviewReadiness";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import type {
@@ -662,6 +663,11 @@ export default function TeamPartsInfoWeekDetailManager({
   const [reviewing, setReviewing] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // 검수 준비 상태 모달.
+  const [showReadiness, setShowReadiness] = useState(false);
+  const [readiness, setReadiness] = useState<ReviewReadiness | null>(null);
+  const [readinessLoading, setReadinessLoading] = useState(false);
+  const [showReviewHelp, setShowReviewHelp] = useState(false);
   const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   const [activeTab, setActiveTab] = useState<"act" | "line">("act");
@@ -842,23 +848,62 @@ export default function TeamPartsInfoWeekDetailManager({
     setActRefresh((n) => n + 1);
   };
 
-  const onReview = async () => {
+  //   force=true (테스트 전용): 안전장치 bypass 요청. 서버가 scope 로 최종 판정하므로
+  //   operating 실유저 경로에서는 무시된다(플래그를 보내도 거부). mode=test(QA)에서만 실효.
+  const onReview = async (force = false) => {
     if (!club || readOnly) return;
     setReviewing(true);
     setBanner(null);
     try {
       const res = await fetch(
         appendModeQuery(`/api/admin/team-parts/info/weeks/${weekId}/review?club=${club}`, mode),
-        { method: "POST" },
+        force
+          ? {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ allowIncompleteTestData: true }),
+            }
+          : { method: "POST" },
       );
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json?.error ?? `검수 실패 (${res.status})`);
       setReviewed(true);
-      setBanner({ kind: "success", message: "주차 검수가 완료되었습니다." });
+      setShowReadiness(false);
+      setBanner({
+        kind: "success",
+        message: force
+          ? "테스트 데이터 불완전 상태에서 강제로 검수 완료했습니다."
+          : "주차 검수가 완료되었습니다.",
+      });
     } catch (e) {
       setBanner({ kind: "error", message: e instanceof Error ? e.message : "주차 검수 실패" });
     } finally {
       setReviewing(false);
+    }
+  };
+
+  // [주차 검수] 클릭 → 준비 상태 조회 후 모달 표시(읽기 전용). 조건 충족 시에만 실제 검수 완료.
+  const openReadiness = async () => {
+    if (!club || readOnly) return;
+    setShowReadiness(true);
+    setReadiness(null);
+    setReadinessLoading(true);
+    setBanner(null);
+    try {
+      const res = await fetch(
+        appendModeQuery(
+          `/api/admin/team-parts/info/weeks/${weekId}/review-readiness?club=${club}`,
+          mode,
+        ),
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json?.error ?? `준비 상태 조회 실패 (${res.status})`);
+      setReadiness(json.data as ReviewReadiness);
+    } catch (e) {
+      setBanner({ kind: "error", message: e instanceof Error ? e.message : "준비 상태 조회 실패" });
+      setShowReadiness(false);
+    } finally {
+      setReadinessLoading(false);
     }
   };
 
@@ -963,16 +1008,120 @@ export default function TeamPartsInfoWeekDetailManager({
               <span className="text-muted-foreground">{managedWeek?.weekRangeLabel}</span>
               {statusBadge(managedWeek?.activityStatus ?? null)}
               <div className="ml-auto flex flex-wrap items-center gap-2">
-                {/* 기존 [주차 검수] 버튼 — 그대로 유지(대체/이름변경 금지). */}
+                {/* [주차 검수] — 클릭 시 "검수 준비 상태" 모달을 먼저 연다(바로 확정하지 않음). */}
                 <Button
                   type="button"
                   data-review-button
-                  onClick={onReview}
+                  onClick={openReadiness}
                   disabled={readOnly || reviewing || reviewed}
                   className="bg-slate-800 text-white hover:bg-slate-700"
                 >
                   {reviewed ? "검수 완료" : reviewing ? "검수 중…" : "주차 검수"}
                 </Button>
+                {/* 검수 준비 상태 모달. */}
+                {showReadiness && !readOnly && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                    role="dialog"
+                    aria-modal="true"
+                    data-review-readiness-modal
+                  >
+                    <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-base font-semibold text-slate-800">검수 준비 상태</h3>
+                        <button
+                          type="button"
+                          onClick={() => setShowReviewHelp((v) => !v)}
+                          className="text-xs text-slate-500 underline hover:text-slate-700"
+                        >
+                          {showReviewHelp ? "도움말 닫기" : "검수 완료란? (도움말)"}
+                        </button>
+                      </div>
+
+                      {showReviewHelp && (
+                        <div className="mt-3 rounded-md bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                          <p className="font-medium text-slate-700">검수 완료 시 수행되는 작업</p>
+                          <ul className="mt-1 list-disc pl-4">
+                            <li>대상자별 주차 <b>성공/실패</b>를 계산합니다.</li>
+                            <li>결과를 <b>user_week_statuses</b>(주차 성적표)에 저장합니다.</li>
+                            <li>고객 카드 <b>snapshot 을 재생성</b>합니다.</li>
+                            <li>고객 앱 cluster-4의 <b>주차 카드가 확정</b>(성공/실패/휴식)됩니다.</li>
+                          </ul>
+                          <p className="mt-1">실행 취소(↩)로 이전 상태로 되돌릴 수 있습니다.</p>
+                        </div>
+                      )}
+
+                      {readinessLoading || !readiness ? (
+                        <p className="mt-4 text-sm text-slate-500">준비 상태를 확인하는 중…</p>
+                      ) : !readiness.applicable ? (
+                        <p className="mt-4 text-sm text-slate-600">
+                          {readiness.notApplicableReason ?? "이 주차는 준비 상태 점검 대상이 아닙니다."}
+                        </p>
+                      ) : (
+                        <>
+                          <ul className="mt-4 space-y-2">
+                            {readiness.items.map((it) => (
+                              <li key={it.key} className="flex items-start gap-2 text-sm">
+                                <span className={it.ok ? "text-emerald-600" : "text-rose-500"}>
+                                  {it.ok ? "✅" : "❌"}
+                                </span>
+                                <span className="flex-1">
+                                  <span className={it.ok ? "text-slate-700" : "font-medium text-slate-800"}>
+                                    {it.label}
+                                  </span>
+                                  <span className="ml-1 text-xs text-slate-500">— {it.detail}</span>
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                          {!readiness.ready && (
+                            <p className="mt-3 rounded-md bg-rose-50 p-2 text-xs text-rose-700">
+                              부족한 항목(❌)을 완료하면 검수 완료를 진행할 수 있습니다.
+                            </p>
+                          )}
+                        </>
+                      )}
+
+                      <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+                        <Button
+                          type="button"
+                          onClick={() => setShowReadiness(false)}
+                          disabled={reviewing}
+                          className="border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        >
+                          닫기
+                        </Button>
+                        {/* 테스트 전용 강제 진행 — mode=test 에서만. 운영 모드에선 렌더 안 됨. */}
+                        {mode === "test" && (
+                          <Button
+                            type="button"
+                            data-force-review-confirm
+                            onClick={() => onReview(true)}
+                            disabled={reviewing}
+                            className="border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                            title="테스트 데이터가 불완전해도 안전장치를 건너뛰고 검수 완료합니다(테스트 모드 전용)."
+                          >
+                            {reviewing ? "진행 중…" : "테스트 데이터가 불완전하지만 강제로 검수 완료"}
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          data-review-confirm
+                          onClick={() => onReview(false)}
+                          disabled={reviewing || readinessLoading || !readiness?.applicable || !readiness?.ready}
+                          className="bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50"
+                          title={
+                            readiness && readiness.applicable && !readiness.ready
+                              ? "부족한 항목을 먼저 완료해주세요."
+                              : undefined
+                          }
+                        >
+                          {reviewing ? "검수 중…" : "검수 완료"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {/* 공용 수동 실행 — 기존 [주차 검수] 버튼이 이미 즉시 실행 역할을 하므로(중복 방지)
                     ⚡ 즉시 실행은 두지 않고, 옆에 ↩ 실행 취소(검수 실행 직전 복원)만 추가한다. */}
                 {!readOnly && (

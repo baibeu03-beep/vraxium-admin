@@ -46,6 +46,14 @@ import {
 } from "@/lib/adminWeekRecognitionsData";
 import { revertWeeklyCardFinalization } from "@/lib/adminWeeklyCardFinalizationData";
 import type { StateScope } from "@/lib/operationalState";
+import {
+  finalizeWeekUws,
+  revertWeekUws,
+  UwsFinalizeBlockedError,
+  type FinalizeUwsResult,
+} from "@/lib/adminWeekUwsFinalize";
+import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
 
 export type WeekActivityStatus = "official_activity" | "official_rest";
 export type ExperienceLineType =
@@ -409,6 +417,8 @@ export type TeamPartsWeekReviewResult = {
   alreadyReviewed: boolean;
   // 코호트(그 주차 user_week_statuses 보유자) weekly-cards snapshot 재계산 결과.
   snapshotRecompute: { requested: number; recomputed: number; failed: number };
+  // uws 확정 결과(2026-summer+ 운영 주차). 레거시/공식휴식/현재미래 주차는 skipped=true.
+  uwsFinalize: FinalizeUwsResult | null;
 };
 
 // [검수 완료] — 이 주차의 결과를 "최종 확정"한다(액트 체크/라인 개설 검토 후 크루 결과 반영).
@@ -430,11 +440,17 @@ export type TeamPartsWeekReviewResult = {
 export async function markTeamPartsWeekReviewed(
   weekId: string,
   actor: string | null = null,
+  opts: { scope?: StateScope; allowIncompleteTestData?: boolean } = {},
 ): Promise<TeamPartsWeekReviewResult> {
-  // 0) 주차 존재 + 현재 공표/검수 상태.
+  // scope: operating(기본, 실유저·운영 weeks) / qa(mode=test·테스트 코호트·qa_weeks_state).
+  //   allowIncompleteTestData 는 finalizeWeekUws 내부에서 test/QA 스코프일 때만 안전장치를 bypass 한다.
+  const scope: StateScope = opts.scope ?? "operating";
+  // 0) 주차 존재 + 현재 공표/검수 상태 + uws 확정에 필요한 메타.
   const { data: wk, error: wkErr } = await supabaseAdmin
     .from("weeks")
-    .select("id,start_date,result_published_at,result_reviewed_at")
+    .select(
+      "id,start_date,end_date,season_key,iso_year,iso_week,is_official_rest,result_published_at,result_reviewed_at",
+    )
     .eq("id", weekId)
     .maybeSingle();
   if (wkErr) throw new WeekDetailWriteError(500, wkErr.message);
@@ -442,9 +458,42 @@ export async function markTeamPartsWeekReviewed(
   const week = wk as {
     id: string;
     start_date: string | null;
+    end_date: string | null;
+    season_key: string | null;
+    iso_year: number | null;
+    iso_week: number | null;
+    is_official_rest: boolean | null;
     result_published_at: string | null;
     result_reviewed_at: string | null;
   };
+
+  // 0.5) uws 확정 (공표 선행!) — 2026-summer+ 운영 주차의 코호트 verdict 를 user_week_statuses 로
+  //   persist 한다. 레거시/공식휴식/현재·미래 주차는 내부에서 skip. 적립 미완료(전원 0점 fail 위험)·
+  //   평가 미입력(pending) 이면 여기서 422 로 차단해 공표/검수를 진행하지 않는다(사고 방지).
+  //   ⚠ 반드시 공표 전 — 공표의 코호트 스냅샷 재계산이 이 uws 를 읽어 카드를 success/fail 로 굳힌다.
+  let uwsFinalize: FinalizeUwsResult;
+  try {
+    uwsFinalize = await finalizeWeekUws(
+      {
+        id: week.id,
+        start_date: week.start_date,
+        end_date: week.end_date,
+        season_key: week.season_key,
+        iso_year: week.iso_year,
+        iso_week: week.iso_week,
+        is_official_rest: week.is_official_rest,
+      },
+      scope,
+      actor,
+      { allowIncompleteTestData: opts.allowIncompleteTestData },
+    );
+  } catch (e) {
+    if (e instanceof UwsFinalizeBlockedError) {
+      // 적립 미완료 / 평가 미입력 / 라인 미개설 mass-fail → 관리자 안내 후 중단(공표·검수 미실행).
+      throw new WeekDetailWriteError(e.status, e.message);
+    }
+    throw e;
+  }
 
   // 1) 공표(publish) + 코호트 재계산.
   const alreadyPublished = week.result_published_at != null;
@@ -452,14 +501,14 @@ export async function markTeamPartsWeekReviewed(
   let snapshotRecompute = { requested: 0, recomputed: 0, failed: 0 };
   if (!alreadyPublished) {
     try {
-      const r = await publishWeekResult(weekId, "operating", actor);
+      const r = await publishWeekResult(weekId, scope, actor);
       publishedAt = r.result_published_at;
       if (r.snapshot_recompute) snapshotRecompute = r.snapshot_recompute;
     } catch (e) {
       if (e instanceof WeekResultPublishError) {
         // 409 = 그 사이 다른 요청이 공표함(race) → 멱등하게 재계산으로 진행.
         if (e.status === 409) {
-          snapshotRecompute = await recomputeCohortSnapshots(week.start_date, "operating");
+          snapshotRecompute = await recomputeCohortSnapshots(week.start_date, scope);
           const { data } = await supabaseAdmin
             .from("weeks").select("result_published_at").eq("id", weekId).maybeSingle();
           publishedAt = (data as { result_published_at: string | null } | null)?.result_published_at ?? publishedAt;
@@ -475,12 +524,36 @@ export async function markTeamPartsWeekReviewed(
   //   성장 성공/실패 SoT(user_week_statuses)는 검수로 바뀌지 않으므로 크루 카드가 달라질 게 없다.
   //   (재클릭 = 검수 완료 여부만 멱등 보정.) → 대규모 코호트 재클릭 시 불필요한 재계산 방지.
 
+  // 1.5) uws 가 실제로 바뀐 사용자(생성/갱신)의 카드 snapshot + 성장 캐시(user_growth_stats) 재계산.
+  //   신규 공표 경로는 publishWeekResult 가 코호트 스냅샷을 이미 재계산하지만,
+  //   ① 이미-공표 재클릭(공표 스킵) 경로와 ② user_growth_stats(공표 경로 미갱신)를 위해
+  //   affected 를 명시 재계산한다(멱등·best-effort). uws→성장 캐시(누적/졸업)까지 즉시 정합.
+  if (uwsFinalize.affectedUserIds.length > 0) {
+    try {
+      await recomputeWeeklyCardsSnapshotsForUsers(uwsFinalize.affectedUserIds, { concurrency: 3 });
+    } catch (e) {
+      console.warn("[team-parts/review] affected snapshot 재계산 실패(격리)", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+    for (const uid of uwsFinalize.affectedUserIds) {
+      try {
+        await recalcUserGrowthStats(uid);
+      } catch (e) {
+        console.warn("[team-parts/review] recalcUserGrowthStats 실패(격리)", {
+          userId: uid,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+
   // 2) 검수 완료(reviewed) — 공표 선행 완료 상태에서 result_reviewed_at 세팅.
   const alreadyReviewed = week.result_reviewed_at != null;
   let reviewedAt = week.result_reviewed_at;
   if (!alreadyReviewed) {
     try {
-      const rev = await markWeekResultReviewed(weekId, "operating", actor);
+      const rev = await markWeekResultReviewed(weekId, scope, actor);
       reviewedAt = rev.result_reviewed_at;
     } catch (e) {
       if (e instanceof WeekResultReviewError) {
@@ -506,6 +579,7 @@ export async function markTeamPartsWeekReviewed(
     alreadyPublished,
     alreadyReviewed,
     snapshotRecompute,
+    uwsFinalize,
   };
 }
 
@@ -517,7 +591,7 @@ export async function revertTeamPartsWeekReview(
   weekId: string,
   scope: StateScope = "operating",
   actor: string | null = null,
-): Promise<{ weekId: string; reverted: boolean; publishedAt: string | null; reviewedAt: string | null; snapshotRecompute: { requested: number; recomputed: number; failed: number } }> {
+): Promise<{ weekId: string; reverted: boolean; publishedAt: string | null; reviewedAt: string | null; snapshotRecompute: { requested: number; recomputed: number; failed: number }; uwsRevert: Awaited<ReturnType<typeof revertWeekUws>> }> {
   const { data: wk, error: wkErr } = await supabaseAdmin
     .from("weeks")
     .select("id,season_key,week_number")
@@ -529,7 +603,13 @@ export async function revertTeamPartsWeekReview(
     throw new WeekDetailWriteError(404, "주차(season/weekNumber)를 찾을 수 없습니다.");
   }
 
-  // 공용 rollback 로직 재사용(집계 확정 역연산과 동일 SoT·코호트·재계산).
+  // 0) uws 확정 역연산 (검수 완료가 생성/갱신한 uws 되돌리기) — 공표 해제보다 먼저.
+  //   생성분 DELETE + 갱신분 prev_status 복원. run-log(cluster4_week_finalize_runs) provenance 기준.
+  //   ⚠ revertWeeklyCardFinalization 의 코호트 재계산은 "현재 uws 보유자" 기준이라, 삭제된 uws 의
+  //   사용자는 그 재계산에 안 잡힌다 → 아래에서 affected 를 명시 재계산해 카드가 skeleton/집계중으로 복귀.
+  const uwsRevert = await revertWeekUws(weekId);
+
+  // 1) 공용 rollback 로직 재사용(공표/검수 해제 + 코호트 재계산).
   const r = await revertWeeklyCardFinalization({
     seasonKey: w.season_key,
     weekNumber: w.week_number,
@@ -537,11 +617,34 @@ export async function revertTeamPartsWeekReview(
     scope,
     actor,
   });
+
+  // 2) 삭제/복원된 uws 사용자의 snapshot + 성장 캐시 재계산 (카드/누적 원복).
+  if (uwsRevert.affectedUserIds.length > 0) {
+    try {
+      await recomputeWeeklyCardsSnapshotsForUsers(uwsRevert.affectedUserIds, { concurrency: 3 });
+    } catch (e) {
+      console.warn("[team-parts/review revert] affected snapshot 재계산 실패(격리)", {
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+    for (const uid of uwsRevert.affectedUserIds) {
+      try {
+        await recalcUserGrowthStats(uid);
+      } catch (e) {
+        console.warn("[team-parts/review revert] recalcUserGrowthStats 실패(격리)", {
+          userId: uid,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+
   return {
     weekId,
-    reverted: r.reverted,
+    reverted: r.reverted || uwsRevert.reverted,
     publishedAt: r.published?.resultPublishedAt ?? null,
     reviewedAt: null,
     snapshotRecompute: r.snapshotRecompute,
+    uwsRevert,
   };
 }
