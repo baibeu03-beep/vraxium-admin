@@ -74,6 +74,8 @@ export {
   // 저수준 qa 상태 read/write (Action Service 가 가드와 함께 호출)
   readQaWeekState,
   writeQaWeekState,
+  // 자동 sweep 재공표 보류(실행 취소 시 set, 재공표 시 clear)
+  setWeekAutoPublishHold,
   logQaAction,
   type QaWeekStateRow,
   type QaActionName,

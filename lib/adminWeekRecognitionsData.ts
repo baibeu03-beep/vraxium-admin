@@ -41,6 +41,7 @@ import {
   type StateScope,
   readQaWeekState,
   writeQaWeekState,
+  setWeekAutoPublishHold,
   logQaAction,
 } from "@/lib/operationalState";
 
@@ -776,6 +777,8 @@ export async function markWeekResultPublished(
       throw new WeekResultPublishError(409, "이미 공표된 주차입니다(QA).");
     }
     await writeQaWeekState(id, { result_published_at: nowIso }, actor);
+    // 재공표 시 자동 sweep 재공표 보류 해제(실행 취소 → 재검수 흐름). qa 스코프.
+    await setWeekAutoPublishHold(id, "qa", null, actor);
     await logQaAction({
       action: "publish",
       weekId: id,
@@ -808,6 +811,9 @@ export async function markWeekResultPublished(
     // 가드에 걸렸다 = 그 사이 다른 요청이 먼저 공표함.
     throw new WeekResultPublishError(409, "이미 공표된 주차입니다.");
   }
+
+  // 재공표 시 자동 sweep 재공표 보류 해제(실행 취소 → 재검수 흐름). operating 스코프.
+  await setWeekAutoPublishHold(id, "operating", null, actor);
 
   const row = updated as PublishWeekRow;
   const label =

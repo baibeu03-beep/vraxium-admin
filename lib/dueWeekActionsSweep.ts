@@ -47,6 +47,8 @@ type WeekRow = {
   is_official_rest: boolean | null;
   result_published_at: string | null;
   result_reviewed_at: string | null;
+  // 관리자 [실행 취소] 재공표 보류(마이그레이션 2026-07-09). NOT NULL = 자동 공표 금지.
+  auto_publish_hold_at?: string | null;
 };
 type Outcome = "done" | "skipped" | "failed";
 export type WeekAutoItem = {
@@ -107,11 +109,31 @@ export async function runDueWeekActionsSweep(opts: {
   const nowIso = new Date(now).toISOString();
 
   // 후보 주차 로드: 종료됐고(end_date 존재) 미공표거나 공표·미검수인 주차만(소수). cutoff 는 JS 에서 정밀 판정.
-  const { data, error } = await supabaseAdmin
-    .from("weeks")
-    .select("id,start_date,end_date,is_official_rest,result_published_at,result_reviewed_at")
-    .not("end_date", "is", null)
-    .order("end_date", { ascending: true });
+  //   auto_publish_hold_at(실행 취소 보류) 포함 select — 컬럼 미적용(마이그레이션 전)이면 없는 select 로 폴백.
+  const SEL_HOLD =
+    "id,start_date,end_date,is_official_rest,result_published_at,result_reviewed_at,auto_publish_hold_at";
+  const SEL_BASE = "id,start_date,end_date,is_official_rest,result_published_at,result_reviewed_at";
+  let data: WeekRow[] | null = null;
+  let error: { message?: string } | null = null;
+  {
+    const r = await supabaseAdmin
+      .from("weeks")
+      .select(SEL_HOLD)
+      .not("end_date", "is", null)
+      .order("end_date", { ascending: true });
+    data = (r.data as WeekRow[] | null) ?? null;
+    error = r.error;
+  }
+  if (error && /auto_publish_hold_at|column .* does not exist|42703/i.test(error.message ?? "")) {
+    log("⚠ auto_publish_hold_at 컬럼 미적용 — 보류 게이트 없이 진행(마이그레이션 2026-07-09 실행 권장)");
+    const r = await supabaseAdmin
+      .from("weeks")
+      .select(SEL_BASE)
+      .not("end_date", "is", null)
+      .order("end_date", { ascending: true });
+    data = (r.data as WeekRow[] | null) ?? null;
+    error = r.error;
+  }
   if (error) throw new Error(error.message);
   const weeks = (data ?? []) as WeekRow[];
 
@@ -123,12 +145,39 @@ export async function runDueWeekActionsSweep(opts: {
     items: [],
   };
 
-  // ── 공표 due: 미공표 · 非휴식 · now >= N+1 목 14:00 KST ──
+  // ── 공표 보류: 관리자가 [실행 취소]로 확정을 되돌린 주차(auto_publish_hold_at) → 자동 재공표 금지.
+  //   재검수(재공표) 시 markWeekResultPublished 가 이 값을 null 로 해제한다. mode/org/운영·테스트 무관 —
+  //   sweep 은 operating 게이트(weeks.auto_publish_hold_at)만 본다. 관찰: 보류로 제외한 due 를 로그.
+  const heldExcluded = weeks.filter(
+    (w) =>
+      w.end_date != null &&
+      !w.result_published_at &&
+      !w.is_official_rest &&
+      !!w.auto_publish_hold_at &&
+      (!onlyIds || onlyIds.includes(w.id)) &&
+      now >= publishCutoffMs(w.end_date),
+  );
+  if (heldExcluded.length > 0) {
+    log(`↷ 실행 취소 보류로 자동 공표 제외 ${heldExcluded.length}건: ${heldExcluded.map((w) => w.start_date).join(", ")}`);
+    for (const w of heldExcluded) {
+      result.items.push({
+        action: "publish",
+        weekId: w.id,
+        weekStart: w.start_date,
+        outcome: "skipped",
+        cutoffIso: new Date(publishCutoffMs(w.end_date!)).toISOString(),
+        error: "manual_revert_hold",
+      });
+    }
+  }
+
+  // ── 공표 due: 미공표 · 非휴식 · 보류 아님 · now >= N+1 목 14:00 KST ──
   const publishDue = weeks.filter(
     (w) =>
       w.end_date != null &&
       !w.result_published_at &&
       !w.is_official_rest &&
+      !w.auto_publish_hold_at &&
       (!onlyIds || onlyIds.includes(w.id)) &&
       now >= publishCutoffMs(w.end_date),
   );

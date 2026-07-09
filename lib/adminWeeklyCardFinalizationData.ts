@@ -36,7 +36,7 @@ import { markWeekResultPublished } from "@/lib/adminWeekRecognitionsData";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
-import { type StateScope, readQaWeekState, writeQaWeekState } from "@/lib/operationalState";
+import { type StateScope, readQaWeekState, writeQaWeekState, setWeekAutoPublishHold } from "@/lib/operationalState";
 import { computeWeeklyLeagueAggregation } from "@/lib/weeklyLeaguePmsAggregation";
 import type {
   FinalizationAggregation,
@@ -616,6 +616,12 @@ export async function revertWeeklyCardFinalization(opts: {
     }
     reverted = true;
   }
+
+  // 실행 취소 = 관리자가 의도적으로 확정을 되돌림 → 자동 sweep 재공표 보류 표시(now).
+  //   result_published_at=null 만으로는 부족(마감 지난 주차는 sweep 이 곧 재공표) → 명시 보류 상태를
+  //   남긴다. 재검수(markWeekResultPublished 재공표) 시 자동 해제. 스코프 분리(operating/qa) — 자동
+  //   sweep 은 operating 만 게이트로 읽는다. best-effort(컬럼 미적용이면 경고만).
+  await setWeekAutoPublishHold(targetRow.id, scope, new Date().toISOString(), actor);
 
   // 복원 후(또는 이미 미공표) 코호트 재계산 → 카드 tallying 복귀.
   const r = await recomputeWeeklyCardsSnapshotsForUsers(cohortIds, { concurrency: 3 });

@@ -25,6 +25,55 @@ export type QaWeekStateRow = {
   check_threshold: number | null;
 };
 
+// 컬럼 미적용(마이그레이션 2026-07-09_weeks_auto_publish_hold 미실행) 판정 — 42703/does not exist.
+function isMissingColumnError(message: string | undefined | null): boolean {
+  return /auto_publish_hold_at|column .* does not exist|42703/i.test(message ?? "");
+}
+
+// ─── 자동 sweep 재공표 보류(auto_publish_hold) 저수준 write ────────────
+//   관리자가 [실행 취소] 하면 now, [검수 완료](재공표) 하면 null 로 세팅한다.
+//   스코프 분리: operating=weeks · qa=qa_weeks_state (자동 sweep 은 operating 만 게이트로 읽음).
+//   best-effort — 컬럼 미적용(마이그레이션 전)이면 경고만 하고 통과(보류 기능 비활성·기존 흐름 불변).
+export async function setWeekAutoPublishHold(
+  weekId: string,
+  scope: StateScope,
+  holdAt: string | null,
+  actor: string | null,
+): Promise<void> {
+  const id = String(weekId ?? "").trim();
+  if (!id) return;
+  try {
+    if (scope === "qa") {
+      const { error } = await supabaseAdmin.from("qa_weeks_state").upsert(
+        {
+          week_id: id,
+          auto_publish_hold_at: holdAt,
+          updated_at: new Date().toISOString(),
+          updated_by: actor,
+        },
+        { onConflict: "week_id" },
+      );
+      if (error) throw error;
+    } else {
+      const { error } = await supabaseAdmin
+        .from("weeks")
+        .update({ auto_publish_hold_at: holdAt })
+        .eq("id", id);
+      if (error) throw error;
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    if (isMissingColumnError(message)) {
+      console.warn(
+        "[auto-publish-hold] 컬럼 미적용 — 보류 기록 생략(마이그레이션 2026-07-09_weeks_auto_publish_hold 실행 필요)",
+        { weekId: id, scope },
+      );
+      return;
+    }
+    console.warn("[auto-publish-hold] set 실패(격리)", { weekId: id, scope, message });
+  }
+}
+
 export type QaActionName =
   | "publish"
   | "review"
