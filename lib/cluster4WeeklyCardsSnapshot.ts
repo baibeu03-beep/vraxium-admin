@@ -4,6 +4,7 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 import { deriveRosterCardStats } from "@/lib/rosterCardStats";
 import { computeScheduleReliabilityFromRows } from "@/lib/scheduleReliabilityCore";
 import { tickTimeout } from "@/lib/supabaseQueryMeter";
+import { runWithCohortRequestCache } from "@/lib/cohortRequestCache";
 
 const ROSTER_STATS_TABLE = "cluster4_roster_card_stats";
 
@@ -663,8 +664,22 @@ export async function recomputeWeeklyCardsSnapshotsForUsers(
       }
     }
   }
-  await Promise.all(
-    Array.from({ length: Math.min(concurrency, uniqueIds.length) }, () => worker()),
+  // 코호트 요청 캐시: 배치 전체를 한 스코프로 감싸 전역/코호트-불변 GET(official_rest_periods·
+  //   activity_types·season_definitions·weeks·line_registrations·cluster4_lines·
+  //   cluster4_line_targets 등)을 유저마다 다시 조회하지 않고 1회만 실행·공유한다(rows 동일 → JSON 불변).
+  await runWithCohortRequestCache(
+    () =>
+      Promise.all(
+        Array.from({ length: Math.min(concurrency, uniqueIds.length) }, () => worker()),
+      ),
+    (stats) => {
+      if (uniqueIds.length > 1) {
+        console.log(
+          "[weekly-cards][snapshot] cohort request cache",
+          `users=${uniqueIds.length} sharedHits=${stats.hits} realGets=${stats.misses}`,
+        );
+      }
+    },
   );
 
   return {
