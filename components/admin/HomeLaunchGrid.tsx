@@ -21,7 +21,7 @@ const ITEMS: LaunchItem[] = [
 const NOT_READY_MESSAGE = "프로세스가 DB화 되지 않았습니다.";
 
 const cardClass =
-  "flex min-h-[88px] items-center justify-center rounded-xl border border-border bg-background px-6 py-7 text-center text-lg font-bold tracking-tight text-foreground shadow-sm transition-colors hover:bg-muted/70 hover:border-foreground/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+  "flex min-h-[96px] items-center justify-center rounded-xl border border-border bg-background px-6 py-8 text-center text-xl font-bold tracking-tight text-foreground shadow-sm transition-colors hover:bg-muted/70 hover:border-foreground/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 
 export default function HomeLaunchGrid() {
   const [toast, setToast] = useState<string | null>(null);
