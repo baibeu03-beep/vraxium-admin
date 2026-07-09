@@ -495,6 +495,19 @@ export async function markTeamPartsWeekReviewed(
     throw e;
   }
 
+  // 0.7) 현재/미래 주차 가드 (2026-07-09) — 진행 중인 주차는 검수 완료 불가.
+  //   finalizeWeekUws 가 current_or_future_week 로 skip 하면 uws 가 생기지 않는데(현재 주차는
+  //   resolver 가 항상 running 으로 판정), 그대로 공표까지 진행하면 그 주차가 과거로 넘어가는 순간
+  //   "published + uws 없음"이 되어 카드가 no_data 로 드롭되는 미래 사고를 예약하게 된다.
+  //   → 여기서 명시 차단해 공표·검수를 실행하지 않는다(안내 후 종료). 레거시/공식휴식/빈 코호트
+  //     skip 은 과거·유효 주차라 종전대로 공표 진행(카드 드롭 위험 없음 — uws 이관본/휴식 판정 존재).
+  if (uwsFinalize.skipped && uwsFinalize.skipReason === "current_or_future_week") {
+    throw new WeekDetailWriteError(
+      422,
+      "현재 진행 중인 주차는 아직 검수 완료할 수 없습니다. 주차가 종료된 후 검수 완료를 진행해주세요.",
+    );
+  }
+
   // 1) 공표(publish) + 코호트 재계산.
   const alreadyPublished = week.result_published_at != null;
   let publishedAt = week.result_published_at;
