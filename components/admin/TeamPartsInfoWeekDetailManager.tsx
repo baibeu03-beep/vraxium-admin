@@ -669,6 +669,9 @@ export default function TeamPartsInfoWeekDetailManager({
   const [readinessLoading, setReadinessLoading] = useState(false);
   const [showReviewHelp, setShowReviewHelp] = useState(false);
   const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  // 검수 완료/실행 취소 진행 단계 안내(단일 요청 동안 시간 기반 전환). 완료/실패는 요청 resolve
+  //   시점에만 banner 로 표시한다(조기 성공 토스트 금지 — progress 는 "진행 중"만 나타낸다).
+  const [progress, setProgress] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<"act" | "line">("act");
   // 실무 경험 선택 팀(탭). null 이면 렌더 시 첫 팀으로 폴백.
@@ -848,12 +851,33 @@ export default function TeamPartsInfoWeekDetailManager({
     setActRefresh((n) => n + 1);
   };
 
+  // 단일 요청(검수 완료/실행 취소) 동안 단계 안내를 시간 기반으로 전환한다. 서버 처리 순서
+  //   (성적 rollback/확정 → 고객 카드 snapshot 재계산)를 반영하되, 실제 완료는 요청 resolve
+  //   시점에만 banner 로 표시한다(조기 성공 토스트 금지). 반환한 stop() 을 finally 에서 호출해
+  //   타이머를 정리하고 progress 를 반드시 해제한다(로딩 state 가 남지 않도록).
+  const startStagedProgress = (stages: { label: string; afterMs: number }[]): (() => void) => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const s of stages) {
+      if (s.afterMs <= 0) setProgress(s.label);
+      else timers.push(setTimeout(() => setProgress(s.label), s.afterMs));
+    }
+    return () => {
+      for (const t of timers) clearTimeout(t);
+      setProgress(null);
+    };
+  };
+
   //   force=true (테스트 전용): 안전장치 bypass 요청. 서버가 scope 로 최종 판정하므로
   //   operating 실유저 경로에서는 무시된다(플래그를 보내도 거부). mode=test(QA)에서만 실효.
   const onReview = async (force = false) => {
     if (!club || readOnly) return;
     setReviewing(true);
     setBanner(null);
+    // 단계 안내: 성적 확정 → 고객 카드 재계산(snapshot 다건이 벽시계를 지배).
+    const stopProgress = startStagedProgress([
+      { label: "성적 확정하는 중…", afterMs: 0 },
+      { label: "고객 카드 다시 계산 중…", afterMs: 1200 },
+    ]);
     try {
       const res = await fetch(
         appendModeQuery(`/api/admin/team-parts/info/weeks/${weekId}/review?club=${club}`, mode),
@@ -872,12 +896,14 @@ export default function TeamPartsInfoWeekDetailManager({
       setBanner({
         kind: "success",
         message: force
-          ? "테스트 데이터 불완전 상태에서 강제로 검수 완료했습니다."
-          : "주차 검수가 완료되었습니다.",
+          ? "테스트 데이터 불완전 상태에서 강제로 검수 완료했습니다. (완료)"
+          : "주차 검수가 완료되었습니다. (완료)",
       });
     } catch (e) {
       setBanner({ kind: "error", message: e instanceof Error ? e.message : "주차 검수 실패" });
     } finally {
+      // 성공/실패/예외 무관하게 progress·loading state 를 반드시 해제한다.
+      stopProgress();
       setReviewing(false);
     }
   };
@@ -913,6 +939,11 @@ export default function TeamPartsInfoWeekDetailManager({
     if (!club || readOnly) return;
     setReverting(true);
     setBanner(null);
+    // 단계 안내: 성적 되돌리기(uws/공표·검수 rollback) → 고객 카드 재계산(snapshot 다건).
+    const stopProgress = startStagedProgress([
+      { label: "성적 되돌리는 중…", afterMs: 0 },
+      { label: "고객 카드 다시 계산 중…", afterMs: 1200 },
+    ]);
     try {
       const res = await fetch(
         appendModeQuery(`/api/admin/team-parts/info/weeks/${weekId}/review?club=${club}`, mode),
@@ -924,12 +955,14 @@ export default function TeamPartsInfoWeekDetailManager({
       setBanner({
         kind: "success",
         message: json.data?.reverted
-          ? "주차 검수를 실행 취소했습니다(‘검수 전·집계 중’ 상태로 복원)."
-          : "이미 미확정(집계 중) 상태입니다.",
+          ? "주차 검수를 실행 취소했습니다(‘검수 전·집계 중’ 상태로 복원). (완료)"
+          : "이미 미확정(집계 중) 상태입니다. (완료)",
       });
     } catch (e) {
       setBanner({ kind: "error", message: e instanceof Error ? e.message : "실행 취소 실패" });
     } finally {
+      // 성공/실패/예외 무관하게 progress·loading state 를 반드시 해제한다.
+      stopProgress();
       setReverting(false);
     }
   };
@@ -960,7 +993,19 @@ export default function TeamPartsInfoWeekDetailManager({
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        {banner ? (
+        {progress ? (
+          <div
+            className="flex items-center gap-2 rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-700"
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-sky-300 border-t-sky-600"
+              aria-hidden
+            />
+            <span>{progress}</span>
+          </div>
+        ) : banner ? (
           <div
             className={
               "rounded-md px-3 py-2 text-sm " +

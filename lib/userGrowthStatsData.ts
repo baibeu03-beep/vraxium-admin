@@ -77,3 +77,49 @@ export async function recalcUserGrowthStats(
 
   return { approved_weeks, cumulative_weeks };
 }
+
+// 여러 사용자 성장 캐시를 제한 동시성으로 병렬 재계산한다(검수 완료/실행 취소의 직렬 for-await 대체).
+//   - 사용자별 실패는 격리(로그+계속) — best-effort. 전체가 throw 하지 않는다(본 요청 응답 보호).
+//   - 각 호출이 저렴(1 SELECT + 1 UPSERT ≈ 100ms)해 직렬이면 N 배 누적된다 → 병렬로 벽시계 단축.
+//   - concurrency 기본 8 (lib DB 포화 가드 상한과 동일). 빈/중복 id 는 정리.
+export async function recalcUserGrowthStatsForUsers(
+  userIds: string[],
+  opts: { concurrency?: number } = {},
+): Promise<{ requested: number; recalculated: number; failed: number; failedUserIds: string[] }> {
+  const uniqueIds = Array.from(
+    new Set(userIds.filter((id): id is string => Boolean(id && String(id).trim()))),
+  );
+  if (uniqueIds.length === 0) {
+    return { requested: 0, recalculated: 0, failed: 0, failedUserIds: [] };
+  }
+  const concurrency = Math.max(1, opts.concurrency ?? 8);
+  const failedUserIds: string[] = [];
+  let recalculated = 0;
+
+  let cursor = 0;
+  async function worker() {
+    while (cursor < uniqueIds.length) {
+      const uid = uniqueIds[cursor++];
+      try {
+        await recalcUserGrowthStats(uid);
+        recalculated++;
+      } catch (e) {
+        failedUserIds.push(uid);
+        console.warn("[user-growth-stats] batch recalc failed (isolated)", {
+          userId: uid,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, uniqueIds.length) }, () => worker()),
+  );
+
+  return {
+    requested: uniqueIds.length,
+    recalculated,
+    failed: failedUserIds.length,
+    failedUserIds,
+  };
+}

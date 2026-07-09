@@ -18,6 +18,12 @@ import {
 } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { resolveStateScopeFromRequest } from "@/lib/operationalState";
 
+// 검수 완료/실행 취소는 코호트 전원(수십~85명) 카드 snapshot 을 재계산하므로 최대 수십초가 걸린다
+//   (실측 2026-07-09: 85명 concurrency 8 ≈ 75s). 플랫폼 함수 타임아웃을 명시 상향해 중도 절단을
+//   막는다(프론트는 staged progress 로 진행 안내). dynamic: 인증/상태 변경이라 캐시 금지.
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
+
 type Ctx = { params: Promise<{ weekId: string }> };
 
 export async function POST(request: NextRequest, { params }: Ctx) {

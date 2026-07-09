@@ -53,7 +53,12 @@ import {
   type FinalizeUwsResult,
 } from "@/lib/adminWeekUwsFinalize";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
-import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
+import { recalcUserGrowthStatsForUsers } from "@/lib/userGrowthStatsData";
+
+// 검수 완료/실행 취소의 사후 재계산(고객 snapshot·성장 캐시) 동시성 상한.
+//   snapshot 1건 ≈ 5s(실측 2026-07-09) 라 코호트가 크면 concurrency 가 벽시계를 좌우한다.
+//   lib DB 포화 가드 상한(8)과 동일 — 그 이상은 statement timeout/커넥션 포화 위험.
+const REVIEW_RECOMPUTE_CONCURRENCY = 8;
 
 export type WeekActivityStatus = "official_activity" | "official_rest";
 export type ExperienceLineType =
@@ -543,22 +548,18 @@ export async function markTeamPartsWeekReviewed(
   //   affected 를 명시 재계산한다(멱등·best-effort). uws→성장 캐시(누적/졸업)까지 즉시 정합.
   if (uwsFinalize.affectedUserIds.length > 0) {
     try {
-      await recomputeWeeklyCardsSnapshotsForUsers(uwsFinalize.affectedUserIds, { concurrency: 3 });
+      await recomputeWeeklyCardsSnapshotsForUsers(uwsFinalize.affectedUserIds, {
+        concurrency: REVIEW_RECOMPUTE_CONCURRENCY,
+      });
     } catch (e) {
       console.warn("[team-parts/review] affected snapshot 재계산 실패(격리)", {
         message: e instanceof Error ? e.message : String(e),
       });
     }
-    for (const uid of uwsFinalize.affectedUserIds) {
-      try {
-        await recalcUserGrowthStats(uid);
-      } catch (e) {
-        console.warn("[team-parts/review] recalcUserGrowthStats 실패(격리)", {
-          userId: uid,
-          message: e instanceof Error ? e.message : String(e),
-        });
-      }
-    }
+    // 성장 캐시 재계산 — 직렬 for-await(N×100ms 누적) 대신 제한 동시성 병렬(best-effort).
+    await recalcUserGrowthStatsForUsers(uwsFinalize.affectedUserIds, {
+      concurrency: REVIEW_RECOMPUTE_CONCURRENCY,
+    });
   }
 
   // 2) 검수 완료(reviewed) — 공표 선행 완료 상태에서 result_reviewed_at 세팅.
@@ -632,24 +633,23 @@ export async function revertTeamPartsWeekReview(
   });
 
   // 2) 삭제/복원된 uws 사용자의 snapshot + 성장 캐시 재계산 (카드/누적 원복).
+  //   revertWeekUws 가 uws 를 먼저 지우므로 revertWeeklyCardFinalization 의 코호트(=현재 uws 보유자)에는
+  //   이들이 안 잡힌다 → 여기서 명시 재계산해야 카드가 집계중으로 복귀한다(이중 재계산 아님).
+  //   snapshot 1건 ≈ 5s 라 코호트가 크면 여기가 벽시계를 지배 → 제한 동시성 병렬(3→8)로 단축.
   if (uwsRevert.affectedUserIds.length > 0) {
     try {
-      await recomputeWeeklyCardsSnapshotsForUsers(uwsRevert.affectedUserIds, { concurrency: 3 });
+      await recomputeWeeklyCardsSnapshotsForUsers(uwsRevert.affectedUserIds, {
+        concurrency: REVIEW_RECOMPUTE_CONCURRENCY,
+      });
     } catch (e) {
       console.warn("[team-parts/review revert] affected snapshot 재계산 실패(격리)", {
         message: e instanceof Error ? e.message : String(e),
       });
     }
-    for (const uid of uwsRevert.affectedUserIds) {
-      try {
-        await recalcUserGrowthStats(uid);
-      } catch (e) {
-        console.warn("[team-parts/review revert] recalcUserGrowthStats 실패(격리)", {
-          userId: uid,
-          message: e instanceof Error ? e.message : String(e),
-        });
-      }
-    }
+    // 성장 캐시 재계산 — 직렬 for-await 대신 제한 동시성 병렬(best-effort).
+    await recalcUserGrowthStatsForUsers(uwsRevert.affectedUserIds, {
+      concurrency: REVIEW_RECOMPUTE_CONCURRENCY,
+    });
   }
 
   return {
