@@ -2,8 +2,11 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
 import {
   getCurrentActivityDateIso,
+  getSeasonForDate,
   operationalSeasonDbKey,
 } from "@/lib/seasonCalendar";
+import { classLabel } from "@/lib/adminMembersTypes";
+import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 
 // ─────────────────────────────────────────────────────────────────────
 // /admin/rest-management 상단 요약 데이터 소스.
@@ -189,4 +192,350 @@ export async function loadRestManagementOverview(
     : EMPTY_SUMMARY;
 
   return { seasons, seasonKey, summary };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 신청 목록(Table) — org+season 기준 전체 행(요약과 동일 데이터 소스/기준).
+//
+// 한 행 = 1개 주차 + 1명 크루. 정렬 = 주차 최신순 → 같은 주차 내 신청 시점 최신순.
+// 페이지네이션은 클라이언트에서 20개/페이지로 슬라이스(전체 행 반환).
+//
+// 진행 상태(displayStatus):
+//   - 대상 주차가 이미 종료(week_start_date < 이번 주 월요일) → "fulfilled"(휴식 이행)
+//   - 그 외 approved → "approved"(휴식 승인) / pending → "pending"(휴식 신청)
+// 크루/소속 팀/클래스는 /admin/members 와 동일 resolver(현재 소속·등급, mode 무관)로 파생한다.
+// ─────────────────────────────────────────────────────────────────────
+
+export type RestRequestDisplayStatus = "pending" | "approved" | "fulfilled";
+
+export type RestRequestListRow = {
+  id: string;
+  displayStatus: RestRequestDisplayStatus; // 진행 상태
+  ended: boolean; // 대상 주차 종료 여부(이행)
+  weekLabel: string; // 주차 "26년, 여름, 7주차"
+  weekStartDate: string | null;
+  requestType: "normal" | "urgent"; // 분류
+  crewName: string | null; // 크루
+  teamName: string | null; // 소속 팀
+  classLabel: string; // 클래스
+  reason: string | null; // 사유(전체 — 표시 절단은 UI)
+  createdAt: string | null;
+  createdAtLabel: string; // "2026년 7월 14일 오전 9:00"(KST)
+};
+
+export type RestManagementListResult = {
+  rows: RestRequestListRow[];
+  total: number;
+};
+
+const DAY_MS = 86_400_000;
+const WEEK_MS = 7 * DAY_MS;
+
+function isoToUtcMs(iso: string): number {
+  return Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+}
+
+// 시즌 내 상대 주차(1..N). backfill 산식(=(start_date − season_start)/7 + 1)과 동일.
+function weekNumberInSeason(weekStartIso: string): number | null {
+  const season = getSeasonForDate(weekStartIso);
+  if (!season) return null;
+  const n =
+    Math.floor((isoToUtcMs(weekStartIso) - isoToUtcMs(season.startDate)) / WEEK_MS) + 1;
+  return n >= 1 ? n : null;
+}
+
+// "26년, 여름, 7주차" — season_key(연도·시즌명) + week_start_date(상대 주차).
+function restWeekLabel(seasonKey: string | null, weekStartDate: string | null): string {
+  if (!seasonKey || !weekStartDate) return "기간 미상";
+  const [yearStr, code] = seasonKey.split("-");
+  const seasonName = code ? SEASON_CODE_KO[code] : undefined;
+  const year = Number(yearStr);
+  const weekNumber = weekNumberInSeason(weekStartDate);
+  if (!seasonName || !Number.isFinite(year) || weekNumber == null) return "기간 미상";
+  return formatBannerPeriod({ year, seasonName, weekNumber });
+}
+
+// 이번 주 월요일(KST 활동일 기준) ISO. 주차 종료 판정 경계.
+function currentWeekMondayIso(): string {
+  const ms = isoToUtcMs(getCurrentActivityDateIso());
+  const dow = new Date(ms).getUTCDay(); // 0=일 … 6=토
+  const offset = (dow + 6) % 7; // 월요일까지 되돌릴 일수
+  return new Date(ms - offset * DAY_MS).toISOString().slice(0, 10);
+}
+
+// 대상 주차가 이미 종료됐는가(= 대상 월요일이 이번 주 월요일보다 과거). null=판정 불가→미종료.
+function isWeekEnded(weekStartDate: string | null, currentMonday: string): boolean {
+  if (!weekStartDate) return false;
+  return weekStartDate < currentMonday;
+}
+
+// "2026년 7월 14일 오전 9:00" — timestamptz 를 KST 기준으로. (지역 무관 — timeZone 고정)
+const KST_DATETIME_FMT = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+});
+function formatKstDateTime(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : KST_DATETIME_FMT.format(d);
+}
+
+// ── 크루 표시(크루명·소속 팀·클래스) — /admin/members 와 동일 SoT ─────────────
+//   team = user_memberships(pickBestMembership) → user_profiles.current_team_name 폴백.
+//   class = classLabel(user_profiles.role, membership_level). mode 무관(현재 소속/등급).
+type MembershipRow = {
+  user_id: string;
+  team_name: string | null;
+  membership_level: string | null;
+  is_current: boolean | null;
+  updated_at: string | null;
+};
+
+function membershipRank(r: MembershipRow): number {
+  const isCurrent = Boolean(r.is_current);
+  const hasTeam = typeof r.team_name === "string" && r.team_name.trim() !== "";
+  if (isCurrent && hasTeam) return 0;
+  if (hasTeam) return 1;
+  if (isCurrent) return 2;
+  return 3;
+}
+
+function pickBestMembership(rows: MembershipRow[]): MembershipRow | undefined {
+  return [...rows].sort((a, b) => {
+    const d = membershipRank(a) - membershipRank(b);
+    if (d !== 0) return d;
+    return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
+  })[0];
+}
+
+function preferString(...vals: Array<string | null | undefined>): string | null {
+  for (const v of vals) if (typeof v === "string" && v.trim()) return v;
+  return null;
+}
+
+type CrewInfo = { crewName: string | null; teamName: string | null; classLabel: string };
+
+async function resolveCrewInfo(userIds: string[]): Promise<Map<string, CrewInfo>> {
+  const out = new Map<string, CrewInfo>();
+  const unique = [...new Set(userIds.filter(Boolean))];
+  if (unique.length === 0) return out;
+
+  const ID_CHUNK = 100; // IN() URL 길이 방어
+  const profileById = new Map<
+    string,
+    { display_name: string | null; role: string | null; current_team_name: string | null }
+  >();
+  const membershipsByUser = new Map<string, MembershipRow[]>();
+
+  for (let i = 0; i < unique.length; i += ID_CHUNK) {
+    const chunk = unique.slice(i, i + ID_CHUNK);
+    const [pRes, mRes] = await Promise.all([
+      supabaseAdmin
+        .from("user_profiles")
+        .select("user_id,display_name,role,current_team_name")
+        .in("user_id", chunk),
+      supabaseAdmin
+        .from("user_memberships")
+        .select("user_id,team_name,membership_level,is_current,updated_at")
+        .in("user_id", chunk),
+    ]);
+    if (pRes.error) throw new Error(pRes.error.message);
+    if (mRes.error) throw new Error(mRes.error.message);
+    for (const p of (pRes.data ?? []) as Array<{
+      user_id: string;
+      display_name: string | null;
+      role: string | null;
+      current_team_name: string | null;
+    }>) {
+      profileById.set(p.user_id, {
+        display_name: p.display_name,
+        role: p.role,
+        current_team_name: p.current_team_name,
+      });
+    }
+    for (const m of (mRes.data ?? []) as MembershipRow[]) {
+      const arr = membershipsByUser.get(m.user_id) ?? [];
+      arr.push(m);
+      membershipsByUser.set(m.user_id, arr);
+    }
+  }
+
+  for (const uid of unique) {
+    const p = profileById.get(uid);
+    const best = pickBestMembership(membershipsByUser.get(uid) ?? []);
+    out.set(uid, {
+      crewName: p?.display_name ?? null,
+      teamName: preferString(best?.team_name ?? null, p?.current_team_name ?? null),
+      classLabel: classLabel(p?.role ?? null, best?.membership_level ?? null),
+    });
+  }
+  return out;
+}
+
+type VacationListRow = {
+  id: string;
+  user_id: string;
+  season_key: string | null;
+  week_start_date: string | null;
+  reason: string | null;
+  status: string | null;
+  request_type?: string | null;
+  created_at: string | null;
+};
+
+// org+season 전체 행(정렬 적용) — PostgREST 1000행 cap 페이지네이션. request_type 미적용(42703)이면
+//   해당 컬럼 제외로 폴백(전부 normal).
+async function fetchVacationListRows(
+  org: OrganizationSlug,
+  seasonKey: string,
+): Promise<VacationListRow[]> {
+  const PAGE = 1000;
+  const withType =
+    "id,user_id,season_key,week_start_date,reason,status,request_type,created_at";
+  const withoutType =
+    "id,user_id,season_key,week_start_date,reason,status,created_at";
+  const fetchPage = (cols: string, from: number) =>
+    supabaseAdmin
+      .from("vacation_requests")
+      .select(cols)
+      .eq("org", org)
+      .eq("season_key", seasonKey)
+      .order("week_start_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+
+  let hasType = true;
+  const out: VacationListRow[] = [];
+  let from = 0;
+  for (;;) {
+    let res = await fetchPage(hasType ? withType : withoutType, from);
+    if (res.error && hasType && res.error.code === "42703") {
+      hasType = false;
+      res = await fetchPage(withoutType, from);
+    }
+    if (res.error) throw new Error(res.error.message);
+    const batch = (res.data ?? []) as unknown as VacationListRow[];
+    out.push(...batch);
+    if (batch.length < PAGE) break;
+    from += PAGE;
+  }
+  return out;
+}
+
+export async function loadRestManagementList(
+  org: OrganizationSlug,
+  seasonKey: string,
+): Promise<RestManagementListResult> {
+  const raw = await fetchVacationListRows(org, seasonKey);
+  const crews = await resolveCrewInfo(raw.map((r) => r.user_id));
+  const currentMonday = currentWeekMondayIso();
+
+  const rows: RestRequestListRow[] = raw.map((r) => {
+    const ended = isWeekEnded(r.week_start_date, currentMonday);
+    const displayStatus: RestRequestDisplayStatus = ended
+      ? "fulfilled"
+      : r.status === "approved"
+        ? "approved"
+        : "pending";
+    const crew = crews.get(r.user_id);
+    return {
+      id: r.id,
+      displayStatus,
+      ended,
+      weekLabel: restWeekLabel(r.season_key, r.week_start_date),
+      weekStartDate: r.week_start_date,
+      requestType: r.request_type === "urgent" ? "urgent" : "normal",
+      crewName: crew?.crewName ?? null,
+      teamName: crew?.teamName ?? null,
+      classLabel: crew?.classLabel ?? "정규",
+      reason: r.reason ?? null,
+      createdAt: r.created_at,
+      createdAtLabel: formatKstDateTime(r.created_at),
+    };
+  });
+
+  return { rows, total: rows.length };
+}
+
+// ── 승인/삭제/전체승인 ────────────────────────────────────────────────────
+export class RestActionError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "RestActionError";
+    this.status = status;
+  }
+}
+
+type RequestRow = {
+  id: string;
+  status: string | null;
+  week_start_date: string | null;
+  org: string | null;
+  season_key: string | null;
+};
+
+async function fetchRequestById(id: string): Promise<RequestRow | null> {
+  const { data, error } = await supabaseAdmin
+    .from("vacation_requests")
+    .select("id,status,week_start_date,org,season_key")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new RestActionError(500, error.message);
+  return (data as RequestRow | null) ?? null;
+}
+
+// pending → approved. 종료된 주차(이행)/이미 승인은 안내 문구로 차단(서버 최종 방어).
+export async function approveRestRequest(id: string): Promise<void> {
+  const row = await fetchRequestById(id);
+  if (!row) throw new RestActionError(404, "휴식 신청을 찾을 수 없습니다.");
+  if (isWeekEnded(row.week_start_date, currentWeekMondayIso())) {
+    throw new RestActionError(409, "이미 진행된 기간으로서, 처리가 종료되었습니다.");
+  }
+  if (row.status === "approved") {
+    throw new RestActionError(409, "이미 승인된 휴식입니다.");
+  }
+  const { error } = await supabaseAdmin
+    .from("vacation_requests")
+    .update({ status: "approved", updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("status", "pending");
+  if (error) throw new RestActionError(500, error.message);
+}
+
+// pending/approved 삭제 가능. 종료된 주차(이행)는 차단.
+export async function deleteRestRequest(id: string): Promise<void> {
+  const row = await fetchRequestById(id);
+  if (!row) throw new RestActionError(404, "휴식 신청을 찾을 수 없습니다.");
+  if (isWeekEnded(row.week_start_date, currentWeekMondayIso())) {
+    throw new RestActionError(409, "취소할 수 없습니다");
+  }
+  const { error } = await supabaseAdmin
+    .from("vacation_requests")
+    .delete()
+    .eq("id", id);
+  if (error) throw new RestActionError(500, error.message);
+}
+
+// org+season 의 pending 중 종료되지 않은 주차만 일괄 승인(approved/이행은 불변).
+export async function bulkApproveRestRequests(
+  org: OrganizationSlug,
+  seasonKey: string,
+): Promise<{ approved: number }> {
+  const currentMonday = currentWeekMondayIso();
+  const { data, error } = await supabaseAdmin
+    .from("vacation_requests")
+    .update({ status: "approved", updated_at: new Date().toISOString() })
+    .eq("org", org)
+    .eq("season_key", seasonKey)
+    .eq("status", "pending")
+    .gte("week_start_date", currentMonday)
+    .select("id");
+  if (error) throw new RestActionError(500, error.message);
+  return { approved: data?.length ?? 0 };
 }
