@@ -690,6 +690,9 @@ export class WeekResultPublishError extends Error {
 export async function recomputeCohortSnapshots(
   weekStartDate: string | null,
   scope: StateScope = "operating",
+  // 재계산 동시성(기본 3). 검수 완료 단일 패스처럼 벽시계가 중요한 호출부는 8(DB 포화 가드 상한)로
+  //   올릴 수 있다. publishWeekResult 등 기존 호출부는 미지정 → 3 유지(동작 불변).
+  opts: { concurrency?: number } = {},
 ): Promise<{ requested: number; recomputed: number; failed: number }> {
   if (!weekStartDate) return { requested: 0, recomputed: 0, failed: 0 };
   const { data, error } = await supabaseAdmin
@@ -713,7 +716,7 @@ export async function recomputeCohortSnapshots(
     userIds = userIds.filter((id) => testIds.has(id));
   }
   const r = await recomputeWeeklyCardsSnapshotsForUsers(userIds, {
-    concurrency: 3,
+    concurrency: opts.concurrency ?? 3,
   });
   if (r.failed > 0) {
     console.warn("[recomputeCohortSnapshots] partial fail", {

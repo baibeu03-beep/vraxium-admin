@@ -38,7 +38,7 @@ import { listTeams } from "@/lib/adminExperienceLineData";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
-  publishWeekResult,
+  markWeekResultPublished,
   markWeekResultReviewed,
   recomputeCohortSnapshots,
   WeekResultPublishError,
@@ -429,11 +429,13 @@ export type TeamPartsWeekReviewResult = {
 // [검수 완료] — 이 주차의 결과를 "최종 확정"한다(액트 체크/라인 개설 검토 후 크루 결과 반영).
 //
 //   weekly-card-finalization 과 동일 개념·동일 단일 SoT 를 재사용한다(새 기준/새 데이터 없음):
-//     1) 공표(publish)      = weeks.result_published_at (미공표면 publishWeekResult, 이미 공표면 멱등)
+//     1) 공표(publish)      = weeks.result_published_at (미공표면 markWeekResultPublished, 이미 공표면 멱등)
 //                             → 크루 주차 카드가 tallying(집계 중) → user_week_statuses.status 기준
 //                               success(성장 성공)/fail(성장 실패)로 전환된다.
-//     2) 코호트 재계산       = recomputeCohortSnapshots (그 주차 uws 보유자 전원 카드 즉시 재계산)
+//     2) 코호트 재계산       = recomputeCohortSnapshots (그 주차 uws 보유자 전원 카드 1회 재계산, c=8)
 //                             → snapshot-only 조회 구조에서 크루 카드가 즉시 최신 결과를 반영.
+//                             ⚠ 공표 SoT 쓰기와 분리해 코호트를 "단일 패스"로만 재계산한다 — affected
+//                               (uws 생성/갱신)는 이 코호트의 부분집합이라 이중 재계산하지 않는다.
 //     3) 검수 완료(reviewed) = weeks.result_reviewed_at (주차 검수 컬럼·상세 V 신호 + /weekly-ranking 라벨)
 //
 //   불변식:
@@ -513,20 +515,22 @@ export async function markTeamPartsWeekReviewed(
     );
   }
 
-  // 1) 공표(publish) + 코호트 재계산.
+  // 1) 공표(publish) — SoT 쓰기만 하고, 코호트 snapshot 재계산은 아래에서 "단일 패스"로 수행한다.
+  //   ⚠ 이중 재계산 제거(2026-07-09 실측): 종전에는 publishWeekResult 가 코호트 전원을 c=3 로
+  //     재계산하고, 곧바로 1.5) 가 affected(코호트의 부분집합)를 c=8 로 다시 재계산 → 같은 85명을
+  //     두 번 계산했다. 이제 공표 SoT 쓰기(markWeekResultPublished)와 코호트 재계산을 분리해,
+  //     코호트 전원을 c=8 로 한 번만 재계산한다.
   const alreadyPublished = week.result_published_at != null;
   let publishedAt = week.result_published_at;
   let snapshotRecompute = { requested: 0, recomputed: 0, failed: 0 };
   if (!alreadyPublished) {
     try {
-      const r = await publishWeekResult(weekId, scope, actor);
-      publishedAt = r.result_published_at;
-      if (r.snapshot_recompute) snapshotRecompute = r.snapshot_recompute;
+      const pub = await markWeekResultPublished(weekId, scope, actor);
+      publishedAt = pub.row.result_published_at ?? pub.nowIso;
     } catch (e) {
       if (e instanceof WeekResultPublishError) {
-        // 409 = 그 사이 다른 요청이 공표함(race) → 멱등하게 재계산으로 진행.
+        // 409 = 그 사이 다른 요청이 공표함(race) → 최신 공표시각만 재조회하고 아래 단일 재계산으로 진행(멱등).
         if (e.status === 409) {
-          snapshotRecompute = await recomputeCohortSnapshots(week.start_date, scope);
           const { data } = await supabaseAdmin
             .from("weeks").select("result_published_at").eq("id", weekId).maybeSingle();
           publishedAt = (data as { result_published_at: string | null } | null)?.result_published_at ?? publishedAt;
@@ -537,24 +541,34 @@ export async function markTeamPartsWeekReviewed(
         throw e;
       }
     }
+    // 단일 snapshot 패스: 그 주차 uws 보유자(=코호트) 전원을 c=8 로 한 번만 재계산한다.
+    //   공표로 카드가 tallying→success/fail 로 굳으므로 코호트 전원 재계산이 필요하고,
+    //   affectedUserIds(생성/갱신된 uws)는 이 코호트의 부분집합이라 별도 재계산이 불필요하다(이중 제거).
+    //   best-effort — recomputeCohortSnapshots 는 내부에서 실패를 격리(카운트 반환)하고 throw 하지 않는다.
+    snapshotRecompute = await recomputeCohortSnapshots(week.start_date, scope, {
+      concurrency: REVIEW_RECOMPUTE_CONCURRENCY,
+    });
   }
-  // 이미 공표된 주차는 코호트 재계산을 하지 않는다: 공표 시점(publishWeekResult)에 이미 재계산됐고,
-  //   성장 성공/실패 SoT(user_week_statuses)는 검수로 바뀌지 않으므로 크루 카드가 달라질 게 없다.
-  //   (재클릭 = 검수 완료 여부만 멱등 보정.) → 대규모 코호트 재클릭 시 불필요한 재계산 방지.
+  // 이미 공표된 주차(재클릭)는 위 단일 패스를 타지 않는다 — 성장 성공/실패 SoT(user_week_statuses)는
+  //   검수로 바뀌지 않으므로 코호트 전원 재계산이 불필요. 단, uws 가 실제 바뀐 affected 만 아래에서 보정.
 
-  // 1.5) uws 가 실제로 바뀐 사용자(생성/갱신)의 카드 snapshot + 성장 캐시(user_growth_stats) 재계산.
-  //   신규 공표 경로는 publishWeekResult 가 코호트 스냅샷을 이미 재계산하지만,
-  //   ① 이미-공표 재클릭(공표 스킵) 경로와 ② user_growth_stats(공표 경로 미갱신)를 위해
-  //   affected 를 명시 재계산한다(멱등·best-effort). uws→성장 캐시(누적/졸업)까지 즉시 정합.
+  // 1.5) 사후 캐시 재계산.
+  //   - snapshot: 신규 공표(!alreadyPublished)면 위 단일 패스가 코호트 전원(affected 포함)을 이미
+  //     재계산했으므로 여기서 재실행하지 않는다(이중 제거). 재클릭(공표 스킵)일 때만, uws 가 실제
+  //     바뀐 affected 를 재계산해 카드 정합을 맞춘다(공통 케이스는 affected 0 → no-op).
+  //   - user_growth_stats(누적/졸업): 공표/코호트 재계산 경로가 갱신하지 않으므로, uws 가 바뀐
+  //     affected 사용자만 항상 재계산한다(저렴 — 유저당 1 SELECT+1 UPSERT).
   if (uwsFinalize.affectedUserIds.length > 0) {
-    try {
-      await recomputeWeeklyCardsSnapshotsForUsers(uwsFinalize.affectedUserIds, {
-        concurrency: REVIEW_RECOMPUTE_CONCURRENCY,
-      });
-    } catch (e) {
-      console.warn("[team-parts/review] affected snapshot 재계산 실패(격리)", {
-        message: e instanceof Error ? e.message : String(e),
-      });
+    if (alreadyPublished) {
+      try {
+        await recomputeWeeklyCardsSnapshotsForUsers(uwsFinalize.affectedUserIds, {
+          concurrency: REVIEW_RECOMPUTE_CONCURRENCY,
+        });
+      } catch (e) {
+        console.warn("[team-parts/review] affected snapshot 재계산 실패(격리)", {
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
     }
     // 성장 캐시 재계산 — 직렬 for-await(N×100ms 누적) 대신 제한 동시성 병렬(best-effort).
     await recalcUserGrowthStatsForUsers(uwsFinalize.affectedUserIds, {
