@@ -1,25 +1,16 @@
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import AdminHelp from "@/components/admin/AdminHelp";
+import { Suspense } from "react";
+import { requireAdminPage } from "@/lib/adminAuth";
+import RestManagementManager from "@/components/admin/RestManagementManager";
+import { LoadingState } from "@/components/ui/loading-state";
 
-// IA 개편 Phase 1 placeholder — 메뉴 연결 확인용. 실제 기능은 추후 구현.
-// (크루 휴식 "신청" 워크플로 — 기존 시즌 참여/휴식·공식 휴식 관리와는 별개 메뉴)
-export default function RestManagementPage() {
+// 크루 활동 > 휴식 관리 (/admin/rest-management?org=&mode=).
+//   크루 주차 휴식 신청(vacation_requests) 요약 — 클럽 탭 · 시즌 선택 · 정상/긴급/크루 집계.
+//   신청 목록(Table)과 긴급 신청/전체 승인 기능은 후속 작업.
+export default async function RestManagementPage() {
+  await requireAdminPage();
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between gap-3">
-          <CardTitle>휴식 관리</CardTitle>
-          <AdminHelp />
-        </div>
-      </CardHeader>
-      <CardContent className="text-sm text-muted-foreground">
-        크루 휴식 신청 조회 기능은 추후 구현 예정입니다.
-      </CardContent>
-    </Card>
+    <Suspense fallback={<LoadingState active />}>
+      <RestManagementManager />
+    </Suspense>
   );
 }
