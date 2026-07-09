@@ -313,7 +313,7 @@ export default function EnhancementStatusEditModal({
           <div className="flex flex-col gap-0.5">
             <h2 className="text-base font-semibold">강화 상태 수동 수정</h2>
             <p className="text-xs text-muted-foreground">
-              {weekName} · 자동 계산 결과 위에만 적용되며, 저장 즉시 고객 화면에도 동일하게 반영됩니다.
+              {weekName} · 자동 계산 결과 위에만 적용되며, 저장 즉시 크루 화면에도 동일하게 반영됩니다.
             </p>
           </div>
           <button type="button" onClick={onClose} disabled={!!busyKey} className="hover:opacity-70">

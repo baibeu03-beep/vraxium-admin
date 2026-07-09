@@ -105,8 +105,8 @@ export default function TestUsersManager() {
     if (!url) {
       // 운영에서 env 미설정: localhost 로 가지 않고 명시적으로 차단/안내.
       setError(
-        "고객 앱 URL이 설정되지 않았습니다. Vercel 환경변수 NEXT_PUBLIC_CUSTOMER_APP_URL " +
-          "(예: https://<고객앱>.vercel.app)을 설정해 주세요.",
+        "크루 페이지 URL이 설정되지 않았습니다. Vercel 환경변수 NEXT_PUBLIC_CUSTOMER_APP_URL " +
+          "(예: https://<크루앱>.vercel.app)을 설정해 주세요.",
       );
       return;
     }

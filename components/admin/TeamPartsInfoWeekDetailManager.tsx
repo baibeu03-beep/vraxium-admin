@@ -876,7 +876,7 @@ export default function TeamPartsInfoWeekDetailManager({
     // 단계 안내: 성적 확정 → 고객 카드 재계산(snapshot 다건이 벽시계를 지배).
     const stopProgress = startStagedProgress([
       { label: "성적 확정하는 중…", afterMs: 0 },
-      { label: "고객 카드 다시 계산 중…", afterMs: 1200 },
+      { label: "크루 카드 다시 계산 중…", afterMs: 1200 },
     ]);
     try {
       const res = await fetch(
@@ -942,7 +942,7 @@ export default function TeamPartsInfoWeekDetailManager({
     // 단계 안내: 성적 되돌리기(uws/공표·검수 rollback) → 고객 카드 재계산(snapshot 다건).
     const stopProgress = startStagedProgress([
       { label: "성적 되돌리는 중…", afterMs: 0 },
-      { label: "고객 카드 다시 계산 중…", afterMs: 1200 },
+      { label: "크루 카드 다시 계산 중…", afterMs: 1200 },
     ]);
     try {
       const res = await fetch(
@@ -1089,7 +1089,7 @@ export default function TeamPartsInfoWeekDetailManager({
                           <ul className="mt-1 list-disc pl-4">
                             <li>이번 주 활동 결과를 <b>최종 확정</b>합니다.</li>
                             <li>대상자별 결과가 <b>성공 · 실패 · 휴식</b>으로 결정됩니다.</li>
-                            <li>고객 앱에도 <b>확정된 결과가 바로 반영</b>됩니다.</li>
+                            <li>크루 페이지에도 <b>확정된 결과가 바로 반영</b>됩니다.</li>
                             <li>잘못 확정한 경우에는 <b>실행 취소</b>로 이전 상태로 되돌릴 수 있습니다.</li>
                           </ul>
                         </div>
@@ -1179,7 +1179,7 @@ export default function TeamPartsInfoWeekDetailManager({
                       rollbackDisabled={!reviewed}
                       rollbackDisabledReason="주차 검수(확정)된 주차에서만 실행 취소할 수 있습니다."
                       rollbackConfirmDescription={
-                        "이 작업은 주차 검수를 실행하기 전 상태로 되돌립니다.\n변경된 주차 결과와 고객 앱 표시도 함께 이전 상태로 복원됩니다.\n정말 실행하시겠습니까?"
+                        "이 작업은 주차 검수를 실행하기 전 상태로 되돌립니다.\n변경된 주차 결과와 크루 페이지 표시도 함께 이전 상태로 복원됩니다.\n정말 실행하시겠습니까?"
                       }
                       mode={mode === "test" ? "test" : "operating"}
                     />

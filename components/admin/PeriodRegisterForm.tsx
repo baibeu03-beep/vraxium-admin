@@ -642,7 +642,7 @@ export default function PeriodRegisterForm() {
                       ‘업데이트 실행’을 누르세요.
                     </>
                   ) : (
-                    <>반영할 고객이 없습니다. 그대로 실행해도 됩니다.</>
+                    <>반영할 크루가 없습니다. 그대로 실행해도 됩니다.</>
                   )}
                 </p>
                 <div className="flex items-center gap-2">

@@ -526,7 +526,7 @@ export default function CompetencyApplicantSection({
         </div>
         {/* 성장 중단(휴학·중단) 유저는 고객앱에 카드가 노출되지 않아 개설 대상에서 제외됨 — 검색 결과에도 표시되지 않는다. */}
         <p className="text-[11px] text-muted-foreground">
-          ※ 성장 중단(paused/suspended) 유저는 고객앱에 카드가 노출되지 않아 개설 대상에서 제외되며 검색 결과에도 표시되지 않습니다.
+          ※ 성장 중단(paused/suspended) 유저는 크루 페이지에 카드가 노출되지 않아 개설 대상에서 제외되며 검색 결과에도 표시되지 않습니다.
         </p>
 
         {/* 승인 명단 테이블 */}

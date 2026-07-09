@@ -971,7 +971,7 @@ export default function PracticalInfoOpeningForm({
               </div>
             </dl>
             <p className="text-xs text-red-600">
-              주의: 개설 데이터·대상 크루가 삭제되고, 고객 앱에서 해당 라인이 사라집니다.
+              주의: 개설 데이터·대상 크루가 삭제되고, 크루 페이지에서 해당 라인이 사라집니다.
               전체 크루의 해당 라인 상태가 &apos;해당 없음&apos;으로 복귀합니다. (되돌릴 수 없음)
             </p>
             <div className="flex justify-end gap-2 pt-1">

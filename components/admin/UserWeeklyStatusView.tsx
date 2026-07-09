@@ -222,17 +222,17 @@ export default function UserWeeklyStatusView({
                     Check
                   </TableHead>
                   <TableHead
-                    title="받은 방패 원본값 — 내부 집계/검증 전용, 고객 화면에는 노출되지 않습니다."
+                    title="받은 방패 원본값 — 내부 집계/검증 전용, 크루 화면에는 노출되지 않습니다."
                   >
                     Advantage (Raw)
                   </TableHead>
                   <TableHead
-                    title="번개 원본값 — 고객 화면에는 감점(−)으로 표시됩니다."
+                    title="번개 원본값 — 크루 화면에는 감점(−)으로 표시됩니다."
                   >
                     Penalty
                   </TableHead>
                   <TableHead
-                    title="고객 화면 표시 방패 = Advantage(Raw) − Penalty. 고객 화면에 쓰이는 값은 이 값입니다."
+                    title="크루 화면 표시 방패 = Advantage(Raw) − Penalty. 크루 화면에 쓰이는 값은 이 값입니다."
                   >
                     Net Advantage
                   </TableHead>
@@ -260,19 +260,19 @@ export default function UserWeeklyStatusView({
                       {row.weekly_star_count.toLocaleString()}
                     </TableCell>
                     <TableCell
-                      title="원본값 — 내부 전용, 고객 화면 미노출"
+                      title="원본값 — 내부 전용, 크루 화면 미노출"
                       className="tabular-nums text-muted-foreground"
                     >
                       {row.weekly_shield_count.toLocaleString()}
                     </TableCell>
                     <TableCell
-                      title={`고객 화면 표시: ${-row.weekly_lightning_count}`}
+                      title={`크루 화면 표시: ${-row.weekly_lightning_count}`}
                       className="tabular-nums"
                     >
                       {row.weekly_lightning_count.toLocaleString()}
                     </TableCell>
                     <TableCell
-                      title="고객 화면 표시 방패 = Advantage(Raw) − Penalty"
+                      title="크루 화면 표시 방패 = Advantage(Raw) − Penalty"
                       className="font-medium tabular-nums"
                     >
                       {row.weekly_net_shield_count.toLocaleString()}

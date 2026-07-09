@@ -786,7 +786,7 @@ function ReviewWeekModal({
         )}
 
         <p className="text-sm text-muted-foreground">
-          이 주차를 검수 완료하면 고객 <code>/weekly-ranking</code> 카드가
+          이 주차를 검수 완료하면 크루 <code>/weekly-ranking</code> 카드가
           {' "공표 중"에서 "검수 완료"로 전환됩니다. '}
           개인 주차 카드/집계 수치는 변하지 않으며(검수 완료는 랭킹 라벨 신호), 검수 완료는 취소할 수
           없습니다.

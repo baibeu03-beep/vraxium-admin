@@ -204,7 +204,7 @@ export default function CrewDetail({
     });
     if (!url) {
       setError(
-        "고객 앱 URL이 설정되지 않았습니다. 환경변수 NEXT_PUBLIC_CUSTOMER_APP_URL 을 확인해 주세요.",
+        "크루 페이지 URL이 설정되지 않았습니다. 환경변수 NEXT_PUBLIC_CUSTOMER_APP_URL 을 확인해 주세요.",
       );
       return;
     }

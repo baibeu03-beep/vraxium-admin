@@ -327,7 +327,7 @@ export default function ExperienceTeamOverallBoard({
         setBanner({ kind: "error", message: json?.error ?? "개설 검수 저장에 실패했습니다" });
         return;
       }
-      setBanner({ kind: "success", message: "개설 검수 — 임시 저장되었습니다 (고객 미반영)" });
+      setBanner({ kind: "success", message: "개설 검수 — 임시 저장되었습니다 (크루 미반영)" });
       await fetchBoard();
       onActivity?.();
     } catch {

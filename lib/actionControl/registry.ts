@@ -244,7 +244,7 @@ export const ACTION_CONTROL_REGISTRY = {
       method: "result_published_at=NULL + result_reviewed_at=NULL + 코호트 snapshot 재계산 → 카드 tallying 복귀",
       requiresSnapshotRecompute: true,
       // 전 크루·고객 앱 영향 최종 역연산 — 호출부에서 강한 확인 모달 필수.
-      reason: "전 크루·고객 앱에 반영되는 최종 확정입니다. 되돌리면 성장 성공/실패 표시가 ‘집계 중’으로 복원됩니다.",
+      reason: "전 크루·크루 페이지에 반영되는 최종 확정입니다. 되돌리면 성장 성공/실패 표시가 ‘집계 중’으로 복원됩니다.",
     },
   },
 

@@ -689,7 +689,7 @@ export async function deleteManualCompetencyApplication(
   if (!row) throw Object.assign(new Error("항목을 찾을 수 없습니다"), { status: 404 });
   // ⚠ 고객 신청은 X 삭제 금지 — 승인 체크/반려 사유로만 처리.
   if (row.source !== "manual") {
-    throw Object.assign(new Error("고객 신청 항목은 삭제할 수 없습니다"), { status: 403 });
+    throw Object.assign(new Error("크루 신청 항목은 삭제할 수 없습니다"), { status: 403 });
   }
 
   // 개설 완료로 만들어진 라인이 있으면 고객 반영도 정리.

@@ -866,7 +866,7 @@ function WeeklyListCard({
             <span
               title={`raw ${c.advantages} − penalty ${c.penalty} = net ${
                 c.advantages - c.penalty
-              } — 고객 카드에는 net 만 표시됩니다.`}
+              } — 크루 카드에는 net 만 표시됩니다.`}
             >
               <span className="text-muted-foreground">{c.advantages}</span>
               <span className="text-muted-foreground"> → </span>
@@ -874,7 +874,7 @@ function WeeklyListCard({
             </span>
             <span className="text-muted-foreground">·</span>
             <span
-              title={`고객 카드 표시: ${-c.penalty}`}
+              title={`크루 카드 표시: ${-c.penalty}`}
               className={c.penalty < 0 ? "text-red-600" : ""}
             >
               {c.penalty}개

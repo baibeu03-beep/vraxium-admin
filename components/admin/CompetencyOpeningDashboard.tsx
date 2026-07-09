@@ -204,12 +204,12 @@ export default function CompetencyOpeningDashboard() {
       }
       if (
         action === "open" &&
-        !confirm("실무 역량 허브 전체 라인을 개설 완료(고객 반영)하시겠습니까?")
+        !confirm("실무 역량 허브 전체 라인을 개설 완료(크루 반영)하시겠습니까?")
       )
         return;
       if (
         action === "cancel" &&
-        !confirm("실무 역량 허브 전체 개설을 취소(고객 반영 원복)하시겠습니까?")
+        !confirm("실무 역량 허브 전체 개설을 취소(크루 반영 원복)하시겠습니까?")
       )
         return;
       setActing(true);

@@ -442,7 +442,7 @@ export default function PracticalInfoCrewEditModal({
               </div>
             </dl>
             <p className="text-xs text-amber-700">
-              주의: 저장 후 해당 주차/라인의 대상 크루 상태가 변경되고 고객 앱에 반영됩니다.
+              주의: 저장 후 해당 주차/라인의 대상 크루 상태가 변경되고 크루 페이지에 반영됩니다.
             </p>
             <div className="flex justify-end gap-2 pt-1">
               <Button
