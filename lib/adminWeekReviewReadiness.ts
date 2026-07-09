@@ -128,40 +128,40 @@ export async function computeReviewReadiness(
   const items: ReadinessItem[] = [
     {
       key: "accrual",
-      label: "프로세스 체크 포인트 적립 완료",
+      label: "프로세스 활동 점수 확인",
       ok: gate.ok,
       detail: gate.ok
-        ? `적립 기록 ${gate.awardCount}건 · 미완료 체크 0`
-        : gate.reason ?? `미완료 체크 ${gate.pendingChecks + gate.pendingIrregular}건`,
+        ? `활동 점수 ${gate.awardCount}건 반영 완료`
+        : `아직 반영되지 않은 활동이 있습니다 (미완료 ${gate.pendingChecks + gate.pendingIrregular}건)`,
     },
     {
       key: "experienceLines",
-      label: "실무 경험 라인 개설",
+      label: "실무 경험 활동 등록",
       ok: expLineIds.length > 0,
-      detail: expLineIds.length > 0 ? `${expLineIds.length}개 라인 개설됨` : "개설된 실무 경험 라인이 없습니다.",
+      detail: expLineIds.length > 0 ? `${expLineIds.length}개 등록됨` : "등록된 실무 경험 활동이 없습니다.",
     },
     {
       key: "experienceEval",
-      label: "실무 경험 평가 완료",
+      label: "실무 경험 결과 확인",
       ok: targetCount > 0 && unevaluated === 0,
       detail:
         targetCount === 0
-          ? "평가할 대상 라인이 없습니다(라인 개설 필요)."
+          ? "확인할 실무 경험 활동이 없습니다 (먼저 활동을 등록해주세요)."
           : unevaluated === 0
-            ? `대상 ${targetCount}건 모두 평가 완료`
-            : `${targetCount}건 중 ${unevaluated}건 미평가`,
+            ? `대상 ${targetCount}건 모두 결과 확인 완료`
+            : `${targetCount}건 중 ${unevaluated}건 결과 확인 필요`,
     },
     {
       key: "seasonParticipants",
-      label: "시즌 참여자 생성 완료",
+      label: "이번 주 참여 대상자 확인",
       ok: cohort.length > 0,
-      detail: cohort.length > 0 ? `참여자 ${cohort.length}명` : "시즌 참여자가 없습니다.",
+      detail: cohort.length > 0 ? `참여 대상자 ${cohort.length}명` : "이번 주 참여 대상자가 없습니다.",
     },
     {
       key: "noPending",
-      label: "미평가(pending) 없음",
+      label: "추가로 확인할 대상",
       ok: unevaluated === 0,
-      detail: unevaluated === 0 ? "미평가 대상 없음" : `${unevaluated}건이 평가 대기 중입니다.`,
+      detail: unevaluated === 0 ? "없음 (모든 대상자 확인 완료)" : `${unevaluated}건이 결과 확인 대기 중입니다.`,
     },
   ];
 

@@ -1085,14 +1085,13 @@ export default function TeamPartsInfoWeekDetailManager({
 
                       {showReviewHelp && (
                         <div className="mt-3 rounded-md bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
-                          <p className="font-medium text-slate-700">검수 완료 시 수행되는 작업</p>
+                          <p className="font-medium text-slate-700">검수 완료를 하면 어떻게 되나요?</p>
                           <ul className="mt-1 list-disc pl-4">
-                            <li>대상자별 주차 <b>성공/실패</b>를 계산합니다.</li>
-                            <li>결과를 <b>user_week_statuses</b>(주차 성적표)에 저장합니다.</li>
-                            <li>고객 카드 <b>snapshot 을 재생성</b>합니다.</li>
-                            <li>고객 앱 cluster-4의 <b>주차 카드가 확정</b>(성공/실패/휴식)됩니다.</li>
+                            <li>이번 주 활동 결과를 <b>최종 확정</b>합니다.</li>
+                            <li>대상자별 결과가 <b>성공 · 실패 · 휴식</b>으로 결정됩니다.</li>
+                            <li>고객 앱에도 <b>확정된 결과가 바로 반영</b>됩니다.</li>
+                            <li>잘못 확정한 경우에는 <b>실행 취소</b>로 이전 상태로 되돌릴 수 있습니다.</li>
                           </ul>
-                          <p className="mt-1">실행 취소(↩)로 이전 상태로 되돌릴 수 있습니다.</p>
                         </div>
                       )}
 
@@ -1121,7 +1120,8 @@ export default function TeamPartsInfoWeekDetailManager({
                           </ul>
                           {!readiness.ready && (
                             <p className="mt-3 rounded-md bg-rose-50 p-2 text-xs text-rose-700">
-                              부족한 항목(❌)을 완료하면 검수 완료를 진행할 수 있습니다.
+                              아직 검수 완료를 진행할 준비가 되지 않았습니다. ❌ 표시된 항목을 완료한 후
+                              다시 검수 완료를 진행해주세요.
                             </p>
                           )}
                         </>
