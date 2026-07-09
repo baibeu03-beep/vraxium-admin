@@ -18,6 +18,7 @@ import {
   irregularStatusClass,
   type ProcessIrregularActRowDto,
 } from "@/lib/adminProcessIrregularTypes";
+import { getProcessPointLabels } from "@/lib/pointLabels";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -48,6 +49,7 @@ export default function ProcessIrregularReviewDetail({
   const [banner, setBanner] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const isReview = act.kind === "review_request";
+  const po = getProcessPointLabels(organization);
   // 체크 취소(=신청 삭제)는 현재 주차 · 검수 링크 · pending(검수 시점 전) 일 때만.
   //   수동 부여/완료/과거 주차는 취소 불가.
   const cancelable = editable && isReview && act.status === "pending";
@@ -107,7 +109,7 @@ export default function ProcessIrregularReviewDetail({
           <Row label="소요 시간" value={act.durationMinutes != null ? `${act.durationMinutes}분` : "—"} />
           <Row label="사유" value={act.reason || "—"} />
           <Row
-            label="포인트 A/B/C"
+            label={`${po.a} / ${po.b} / ${po.c}`}
             value={`${act.pointA} / ${act.pointB} / ${act.pointC}`}
           />
           <Row label="액트 종류" value={IRREGULAR_CREW_REACTION_LABEL[act.crewReaction]} />

@@ -34,6 +34,7 @@ import {
   ORGANIZATION_LABEL,
   type OrganizationSlug,
 } from "@/lib/organizations";
+import { getProcessPointLabels, type ProcessPointKey } from "@/lib/pointLabels";
 import { classLabel } from "@/lib/adminMembersTypes";
 import {
   BUCKET_LABEL,
@@ -333,6 +334,13 @@ const COLUMN_MAP: Record<ColKey, Column> = Object.fromEntries(
   COLUMNS.map((c) => [c.key, c]),
 ) as Record<ColKey, Column>;
 
+// 컬럼 key → 프로세스 포인트 키(a/b/c). 헤더/도움말 라벨을 조직별로 치환할 때 사용.
+const PO_COLUMN_KEY: Partial<Record<ColKey, ProcessPointKey>> = {
+  poA: "a",
+  poB: "b",
+  poC: "c",
+};
+
 // 기본 정렬 방향 — 숫자=높은 순(desc), 그 외(글자·날짜·품계)=오름차순(asc).
 //   날짜 asc=빠른 순 · 품계 asc=높은 순(정승 먼저) · 글자 asc=가나다순.
 function defaultDir(type: ColType): "asc" | "desc" {
@@ -415,6 +423,10 @@ export default function MembersList({
 
   // 클럽 조건 기본값 — 크루 모드면 고정 org, 아니면 전체.
   const defaultClub: ClubValue = lockedOrg ?? DEFAULT_CLUB;
+
+  // po.A/B/C 컬럼 표시명 — 조직 고정(크루 화면) 시 조직별 명칭, 통합(/admin/members)은 중립.
+  //   통합 목록은 여러 조직의 크루가 섞여 헤더 조직을 특정할 수 없으므로 중립 유지.
+  const poPointLabels = getProcessPointLabels(lockedOrg);
 
   // pending = 입력 중 · applied = 확인으로 적용된 값.
   const [pendingClub, setPendingClub] = useState<ClubValue>(defaultClub);
@@ -790,11 +802,16 @@ export default function MembersList({
                     {COLUMNS.map((c, idx) => {
                       const priority = sortStack.findIndex((s) => s.key === c.key);
                       const entry = priority >= 0 ? sortStack[priority] : null;
+                      // po.A/B/C 헤더는 조직 고정(lockedOrg) 시 조직별 명칭, 통합 시 중립.
+                      const poKey = PO_COLUMN_KEY[c.key];
+                      const label = poKey ? poPointLabels[poKey] : c.label;
+                      const help =
+                        poKey && c.help ? { ...c.help, title: poPointLabels[poKey] } : c.help;
                       return (
                         <SortableHeader
                           key={c.key}
-                          label={c.label}
-                          help={c.help}
+                          label={label}
+                          help={help}
                           dir={entry?.dir ?? null}
                           priority={priority >= 0 ? priority + 1 : null}
                           showPriority={sortStack.length > 1}
@@ -1111,6 +1128,8 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
   const pageRows = weeks.slice(page * WEEKS_PER_PAGE, page * WEEKS_PER_PAGE + WEEKS_PER_PAGE);
   // Po.A/B/C 는 조직별 탭(엥크레/오랑캐/팔랑크스)에서만 노출 — 통합 탭은 미표시.
   const showPoints = org !== "all";
+  // 노출 시 org 는 항상 특정 조직 → 조직별 명칭으로 헤더 표기.
+  const poPointLabels = getProcessPointLabels(org === "all" ? null : org);
 
   return (
     <div className="flex flex-col gap-6">
@@ -1183,8 +1202,10 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
                         "성장 성공율(c)",
                         "주차 성장률(d)",
                         "Oldest",
-                        // 조직별 탭에서만 우측에 Po.A/B/C(최고 포인트 TOP 3).
-                        ...(showPoints ? ["Po.A", "Po.B", "Po.C"] : []),
+                        // 조직별 탭에서만 우측에 po.A/B/C(조직별 명칭, 최고 포인트 TOP 3).
+                        ...(showPoints
+                          ? [poPointLabels.a, poPointLabels.b, poPointLabels.c]
+                          : []),
                       ].map((h) => (
                         <TableHead
                           key={h}

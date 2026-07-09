@@ -21,6 +21,7 @@ import {
   processCheckActStatusLabel,
   type ProcessCheckActRowDto,
 } from "@/lib/adminProcessCheckTypes";
+import { getProcessPointLabels } from "@/lib/pointLabels";
 
 export default function ProcessCheckActTable({
   acts,
@@ -28,6 +29,7 @@ export default function ProcessCheckActTable({
   weekDisabled,
   readOnly = false,
   showScopeColumn = false,
+  orgSlug = null,
   onOpenAct,
   onAutoReview,
   autoReviewingId = null,
@@ -37,6 +39,8 @@ export default function ProcessCheckActTable({
   acts: ProcessCheckActRowDto[];
   loading: boolean;
   weekDisabled: boolean;
+  // po.A/B/C 표시명을 조직별로 치환하기 위한 현재 조직 slug(?org). 없으면 중립 표기.
+  orgSlug?: string | null;
   // 읽기 전용(팀 전체 스코프) — 상태를 버튼이 아닌 비클릭 배지로 표시(체크 신청/취소 불가).
   readOnly?: boolean;
   // "팀 & 파트" 컬럼 표시(experience 만) — 행의 partLabel("팀 총괄"/파트명) 노출.
@@ -56,6 +60,7 @@ export default function ProcessCheckActTable({
   //   체크 완료 = status==="completed" · 체크 필요 = 그 외(needed|pending) · 항목 수 = 전체 row.
   const completedCount = acts.filter((a) => a.status === "completed").length;
   const neededCount = acts.length - completedCount;
+  const poLabels = getProcessPointLabels(orgSlug);
   return (
     <Card>
       <CardContent>
@@ -152,28 +157,28 @@ export default function ProcessCheckActTable({
                   </TableHead>
                   <TableHead>
                     <span className="inline-flex items-center justify-center gap-1">
-                      Po.A
+                      {poLabels.a}
                       <AdminHelpIconButton
                         helpKey="admin.processCheck.actTable.column.poA"
-                        title="Po.A"
+                        title={poLabels.a}
                       />
                     </span>
                   </TableHead>
                   <TableHead>
                     <span className="inline-flex items-center justify-center gap-1">
-                      Po.B
+                      {poLabels.b}
                       <AdminHelpIconButton
                         helpKey="admin.processCheck.actTable.column.poB"
-                        title="Po.B"
+                        title={poLabels.b}
                       />
                     </span>
                   </TableHead>
                   <TableHead>
                     <span className="inline-flex items-center justify-center gap-1">
-                      Po.C
+                      {poLabels.c}
                       <AdminHelpIconButton
                         helpKey="admin.processCheck.actTable.column.poC"
-                        title="Po.C"
+                        title={poLabels.c}
                       />
                     </span>
                   </TableHead>

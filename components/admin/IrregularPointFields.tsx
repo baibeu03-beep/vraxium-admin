@@ -10,6 +10,7 @@
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { IrregularCrewReaction } from "@/lib/adminProcessIrregularTypes";
+import { getProcessPointLabels } from "@/lib/pointLabels";
 
 const POINTS = Array.from({ length: 21 }, (_, i) => i); // 0~20
 
@@ -28,6 +29,7 @@ export function IrregularPointFields({
   pointC,
   setPointC,
   disabled,
+  orgSlug = null,
 }: {
   crewReaction: IrregularCrewReaction;
   pointA: number;
@@ -37,6 +39,8 @@ export function IrregularPointFields({
   pointC: number;
   setPointC: (n: number) => void;
   disabled?: boolean;
+  // po.A/B/C 입력 라벨을 조직별 명칭으로 치환. 없으면 중립("Po.A/B/C").
+  orgSlug?: string | null;
 }) {
   const isPartial = crewReaction === "partial";
   // 부분 — A/B 에 값이 있으면 C 잠금, C 에 값이 있으면 A/B 잠금.
@@ -45,11 +49,12 @@ export function IrregularPointFields({
   const abLocked = isPartial && cHasValue;
   const cLocked = isPartial && abHasValue;
 
+  const po = getProcessPointLabels(orgSlug);
   const fields: Array<readonly [string, number, (n: number) => void, boolean, () => void]> = [
-    ["포인트 A", pointA, setPointA, abLocked, () => setPointA(0)],
-    ["포인트 B", pointB, setPointB, abLocked, () => setPointB(0)],
+    [po.a, pointA, setPointA, abLocked, () => setPointA(0)],
+    [po.b, pointB, setPointB, abLocked, () => setPointB(0)],
     [
-      "포인트 C",
+      po.c,
       pointC,
       setPointC,
       cLocked,
@@ -106,10 +111,10 @@ export function IrregularPointFields({
       {isPartial && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] whitespace-pre-line text-amber-700">
           {cHasValue
-            ? "현재 C 부여 상태입니다.\nC를 초기화(X)해야 포인트 A/B를 입력할 수 있습니다."
+            ? `현재 ${po.c} 부여 상태입니다.\n${po.c}를 초기화(X)해야 ${po.a}/${po.b}를 입력할 수 있습니다.`
             : abHasValue
-              ? "현재 A+B 부여 상태입니다.\nA·B를 모두 초기화(X)해야 포인트 C를 입력할 수 있습니다."
-              : "부분 액트는 A+B 또는 C 중 한쪽만 부여합니다.\n한쪽을 입력하면 다른 쪽은 자동 잠깁니다."}
+              ? `현재 ${po.a}+${po.b} 부여 상태입니다.\n${po.a}·${po.b}를 모두 초기화(X)해야 ${po.c}를 입력할 수 있습니다.`
+              : `부분 액트는 ${po.a}+${po.b} 또는 ${po.c} 중 한쪽만 부여합니다.\n한쪽을 입력하면 다른 쪽은 자동 잠깁니다.`}
         </p>
       )}
     </div>

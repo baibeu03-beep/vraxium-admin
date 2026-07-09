@@ -274,6 +274,7 @@ export default function ProcessIrregularManualGrantDialog({
             pointC={pointC}
             setPointC={setPointC}
             disabled={submitting}
+            orgSlug={organization}
           />
 
           {/* 대상 크루 — 자동완성 검색 + [확인] */}

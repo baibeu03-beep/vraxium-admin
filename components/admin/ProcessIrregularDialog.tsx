@@ -257,6 +257,7 @@ export default function ProcessIrregularDialog({
             pointC={pointC}
             setPointC={setPointC}
             disabled={submitting}
+            orgSlug={organization}
           />
 
           {/* 링크 (필수) */}

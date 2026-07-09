@@ -30,6 +30,7 @@ import {
   type ProcessCheckScopeKind,
 } from "@/lib/adminProcessCheckTypes";
 import ProcessCheckCompletedCrewList from "@/components/admin/ProcessCheckCompletedCrewList";
+import { getProcessPointLabels } from "@/lib/pointLabels";
 
 const POINTS = Array.from({ length: 21 }, (_, i) => i); // 0~20
 const DURATIONS = Array.from({ length: 18 }, (_, i) => (i + 1) * 5); // 5~90, 5분 단위
@@ -73,6 +74,8 @@ export default function ProcessCheckManualGrantDialog({
   const [pointA, setPointA] = useState(0);
   const [pointB, setPointB] = useState(0);
   // 포인트 C — 선별 규칙상 0 고정(상태 없이 상수).
+  // po.A/B/C 표시명 — 조직별 명칭(선별 다이얼로그는 항상 org 컨텍스트가 있음).
+  const po = getProcessPointLabels(organization);
 
   // 대상 크루 — 자동완성 검색/선택 후보 + 명단.
   const [q, setQ] = useState("");
@@ -294,12 +297,12 @@ export default function ProcessCheckManualGrantDialog({
             />
           </div>
 
-          {/* 포인트 A/B/C — 선별 규칙상 C=0 고정·disabled(시각적 비활성) */}
+          {/* po.A/B/C(조직별 명칭) — 선별 규칙상 C=0 고정·disabled(시각적 비활성) */}
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">포인트 A</label>
+              <label className="text-xs text-muted-foreground">{po.a}</label>
               <select
-                aria-label="포인트 A"
+                aria-label={po.a}
                 value={pointA}
                 onChange={(e) => setPointA(Number(e.target.value))}
                 disabled={submitting}
@@ -311,9 +314,9 @@ export default function ProcessCheckManualGrantDialog({
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">포인트 B</label>
+              <label className="text-xs text-muted-foreground">{po.b}</label>
               <select
-                aria-label="포인트 B"
+                aria-label={po.b}
                 value={pointB}
                 onChange={(e) => setPointB(Number(e.target.value))}
                 disabled={submitting}
@@ -325,12 +328,12 @@ export default function ProcessCheckManualGrantDialog({
               </select>
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">포인트 C</label>
+              <label className="text-xs text-muted-foreground">{po.c}</label>
               <select
-                aria-label="포인트 C"
+                aria-label={po.c}
                 value={0}
                 disabled
-                title="‘선별’ 액트는 포인트 C(미이행 페널티)를 부여할 수 없습니다(0 고정)"
+                title={`‘선별’ 액트는 ${po.c}(미이행 페널티)를 부여할 수 없습니다(0 고정)`}
                 className="h-9 w-full cursor-not-allowed rounded-md border border-input bg-muted px-2 text-sm text-muted-foreground opacity-60"
               >
                 <option value={0}>0</option>

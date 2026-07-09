@@ -564,6 +564,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 weekDisabled={teamWeekDisabled}
                 readOnly={scopeReadOnly}
                 showScopeColumn
+                orgSlug={org}
                 onOpenAct={openAct}
                 onAutoReview={handleAutoReview}
                 autoReviewingId={autoReviewingId}
@@ -578,6 +579,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           acts={acts}
           loading={loading}
           weekDisabled={weekDisabled}
+          orgSlug={org}
           onOpenAct={openAct}
           onAutoReview={handleAutoReview}
           autoReviewingId={autoReviewingId}

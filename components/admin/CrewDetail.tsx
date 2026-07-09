@@ -13,6 +13,7 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import { appendModeQuery, type ScopeMode } from "@/lib/userScopeShared";
 import { buildCustomerClusterUrl } from "@/lib/customerAppUrl";
+import { getProcessPointLabels } from "@/lib/pointLabels";
 
 type CrewNote = {
   note: string;
@@ -211,6 +212,10 @@ export default function CrewDetail({
     window.open(url, "_blank", "noopener,noreferrer");
   }, [detail]);
 
+  // po.A/B/C 표시명 — 단일 크루 상세는 query org 무관, 크루의 organizationSlug 기준.
+  //   detail 미로딩 시 중립이지만 아래 블록은 detail 확정 후에만 렌더된다.
+  const poLabels = getProcessPointLabels(detail?.organizationSlug ?? null);
+
   // 내용 폭: 좁은 화면은 full(px-4) 유지, 넓은 화면은 1600px 캡으로 가로 공간 적극 활용.
   //   1920 에선 꽉 차게·2560 에선 좌우 여백 확보(100% 확장 금지). 모바일은 기존 방식.
   return (
@@ -358,9 +363,9 @@ export default function CrewDetail({
                 mono
               />
               <SummaryCell label="성장 성공 주차" value={dashNum(detail.clubSummary.successWeeks)} />
-              <SummaryCell label="포인트 A" value={dashNum(detail.clubSummary.poA)} />
-              <SummaryCell label="포인트 B" value={dashNum(detail.clubSummary.poB)} />
-              <SummaryCell label="포인트 C" value={dashNum(detail.clubSummary.poC)} />
+              <SummaryCell label={poLabels.a} value={dashNum(detail.clubSummary.poA)} />
+              <SummaryCell label={poLabels.b} value={dashNum(detail.clubSummary.poB)} />
+              <SummaryCell label={poLabels.c} value={dashNum(detail.clubSummary.poC)} />
               {/* 2행 */}
               <SummaryCell label="일정 신뢰도" value={dashPct(detail.clubSummary.scheduleReliability)} />
               <SummaryCell label="활동 완료율" value={dashPct(detail.clubSummary.activityCompletion)} />
@@ -389,7 +394,7 @@ export default function CrewDetail({
             </div>
 
             {/* 하단부: 시즌별 결과 표 — 최신순(진행 중 맨 위), 페이지네이션 없음. */}
-            <SeasonResultsTable rows={detail.seasonResults} />
+            <SeasonResultsTable rows={detail.seasonResults} orgSlug={detail.organizationSlug} />
           </CardContent>
         </Card>
 
@@ -421,6 +426,7 @@ export default function CrewDetail({
               rows={detail.weeklyResults}
               userId={detail.userId}
               mode={mode}
+              orgSlug={detail.organizationSlug}
             />
           </CardContent>
         </Card>
@@ -449,8 +455,15 @@ export default function CrewDetail({
   );
 }
 
-// 시즌별 결과 표 — 시즌명/결과/Po.A·B·C/허브 강화율 4종/소속&클래스. 페이지네이션 없음.
-function SeasonResultsTable({ rows }: { rows: CrewSeasonResultRow[] }) {
+// 시즌별 결과 표 — 시즌명/결과/po.A·B·C(조직별 명칭)/허브 강화율 4종/소속&클래스. 페이지네이션 없음.
+function SeasonResultsTable({
+  rows,
+  orgSlug,
+}: {
+  rows: CrewSeasonResultRow[];
+  orgSlug: string | null;
+}) {
+  const poLabels = getProcessPointLabels(orgSlug);
   if (rows.length === 0) {
     return (
       <p className="mt-4 rounded-md border bg-muted/20 px-3 py-4 text-center text-sm text-muted-foreground">
@@ -466,9 +479,9 @@ function SeasonResultsTable({ rows }: { rows: CrewSeasonResultRow[] }) {
           <tr className="border-b text-xs text-muted-foreground">
             <th className="whitespace-nowrap px-2 py-2 text-left font-medium">시즌명</th>
             <th className="whitespace-nowrap px-2 py-2 text-left font-medium">시즌 결과</th>
-            <th className="whitespace-nowrap px-2 py-2 font-medium">Po.A</th>
-            <th className="whitespace-nowrap px-2 py-2 font-medium">Po.B</th>
-            <th className="whitespace-nowrap px-2 py-2 font-medium">Po.C</th>
+            <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.a}</th>
+            <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.b}</th>
+            <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.c}</th>
             <th className="whitespace-nowrap px-2 py-2 font-medium">실무 정보</th>
             <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경험</th>
             <th className="whitespace-nowrap px-2 py-2 font-medium">실무 역량</th>
@@ -540,11 +553,14 @@ function WeeklyResultsTable({
   rows,
   userId,
   mode,
+  orgSlug,
 }: {
   rows: CrewWeeklyResultRow[];
   userId: string;
   mode: ScopeMode;
+  orgSlug: string | null;
 }) {
+  const poLabels = getProcessPointLabels(orgSlug);
   const totalPages = Math.max(1, Math.ceil(rows.length / WEEKLY_PAGE_SIZE));
   // 기본 = 1페이지(최신 주차). rows.length 변화 시 1페이지로 리셋.
   const [page, setPage] = useState(1);
@@ -584,9 +600,9 @@ function WeeklyResultsTable({
               <th className="whitespace-nowrap px-2 py-2 text-left font-medium">팀</th>
               <th className="whitespace-nowrap px-2 py-2 text-left font-medium">파트</th>
               <th className="whitespace-nowrap px-2 py-2 text-left font-medium">클래스</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">Po.A</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">Po.B</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">Po.C</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.a}</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.b}</th>
+              <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.c}</th>
               <th className="whitespace-nowrap px-2 py-2 font-medium">실무 정보</th>
               <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경험</th>
               <th className="whitespace-nowrap px-2 py-2 font-medium">실무 역량</th>
