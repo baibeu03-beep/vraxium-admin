@@ -193,6 +193,69 @@ export function isCheckBeforeOccur(
   );
 }
 
+// ── 신청 시점 → 검수 시점 최소 간격(12시간) 규칙 (서버/클라 공용 SoT) ─────────
+//   시점은 절대 시각이 아니라 상대 스케줄(주차 N/N+1 · 요일 · 30분 시각)이다.
+//   실제 경과(분)를 계산하려면 주차(N→N+1)를 7일 간격으로 환산한다:
+//     절대분 = 주차(0|1)*7*24*60 + 요일(0~6)*24*60 + (시*60+분)
+//   ⚠️ processWhenOrdinal 은 선후 비교 전용(자리수 분리값)이라 실제 간격 계산엔 쓰지 않는다.
+export const PROCESS_MIN_REVIEW_GAP_MINUTES = 12 * 60; // 720분 = 12시간
+
+function processWhenAbsoluteMinutes(
+  week: ProcessWeekRef,
+  dow: number,
+  time: string,
+): number {
+  const weekIndex = week === "N1" ? 1 : 0;
+  const safeDow = Number.isInteger(dow) && dow >= 0 && dow <= 6 ? dow : 0;
+  const [hRaw, mRaw] = typeof time === "string" ? time.split(":") : [];
+  const h = Number(hRaw);
+  const m = Number(mRaw);
+  const minutes =
+    (Number.isFinite(h) ? h : 0) * 60 + (Number.isFinite(m) ? m : 0);
+  return weekIndex * 7 * 24 * 60 + safeDow * 24 * 60 + minutes;
+}
+
+// 검수 시점 - 신청 시점 실제 경과(분). 음수면 검수가 더 이르다.
+export function processReviewGapMinutes(
+  occurWeek: ProcessWeekRef,
+  occurDow: number,
+  occurTime: string,
+  checkWeek: ProcessWeekRef,
+  checkDow: number,
+  checkTime: string,
+): number {
+  return (
+    processWhenAbsoluteMinutes(checkWeek, checkDow, checkTime) -
+    processWhenAbsoluteMinutes(occurWeek, occurDow, occurTime)
+  );
+}
+
+// 검수 시점이 신청 시점 + 12시간 미만이면 true (등록 불가).
+//   정확히 12시간(720분)은 허용, 그 미만(같은 시점·이른 시점 포함)은 불가.
+export function isReviewGapTooShort(
+  occurWeek: ProcessWeekRef,
+  occurDow: number,
+  occurTime: string,
+  checkWeek: ProcessWeekRef,
+  checkDow: number,
+  checkTime: string,
+): boolean {
+  return (
+    processReviewGapMinutes(
+      occurWeek,
+      occurDow,
+      occurTime,
+      checkWeek,
+      checkDow,
+      checkTime,
+    ) < PROCESS_MIN_REVIEW_GAP_MINUTES
+  );
+}
+
+// 12시간 규칙 위반 시 서버/클라 공용 안내 메시지.
+export const PROCESS_REVIEW_GAP_MESSAGE =
+  "검수 시점은 신청 시점보다 최소 12시간 이후여야 합니다.\n신청 시점과 검수 시점을 다시 확인해주세요.";
+
 // ── 프로세스 정보(/admin/processes/info) 요약 ──────────────────────────────
 export type ProcessPointTriplet = { check: number; advantage: number; penalty: number };
 
@@ -306,7 +369,8 @@ export type ProcessActCreateInput = {
   cafe: ProcessCafe;
   checkTarget: ProcessCheckTarget;
   actType: ProcessActType;
-  overview: string | null;
+  // 개요 = 필수 입력 (2026-07 정책). 신규 등록 시 공백만 있는 값도 불가.
+  overview: string;
   remarks: string | null;
 };
 
@@ -413,9 +477,10 @@ export function parseProcessActCreateBody(
     return { ok: false, status: 400, error: "check_time must be a 30분 단위 시각 (06:00~24:00)" };
   }
 
-  // 검수 시점은 신청 시점보다 이전일 수 없다 (프론트 우회·잘못된 요청 차단).
+  // 검수 시점은 신청 시점보다 최소 12시간 이후여야 한다 (프론트 우회·잘못된 요청 차단).
+  //   12시간 규칙이 "이전 불가"를 포함한다(이전·동일·<12시간 모두 차단, 정확히 12시간은 허용).
   if (
-    isCheckBeforeOccur(
+    isReviewGapTooShort(
       body.occur_week,
       occurDow,
       body.occur_time,
@@ -424,7 +489,11 @@ export function parseProcessActCreateBody(
       body.check_time,
     )
   ) {
-    return { ok: false, status: 400, error: "신청 시점보다 이전입니다." };
+    return {
+      ok: false,
+      status: 400,
+      error: "검수 시점은 신청 시점보다 최소 12시간 이후여야 합니다.",
+    };
   }
 
   const pointCheck = Number(body.point_check);
@@ -448,8 +517,11 @@ export function parseProcessActCreateBody(
     };
   }
 
-  const overview = optionalText(body.overview, "overview");
-  if (!overview.ok) return overview;
+  // 개요 = 필수. 공백만 있는 값(trim 후 빈 문자열)도 불가.
+  if (typeof body.overview !== "string" || body.overview.trim().length === 0) {
+    return { ok: false, status: 400, error: "개요를 입력해주세요." };
+  }
+  const overview = body.overview.trim();
   const remarks = optionalText(body.remarks, "remarks");
   if (!remarks.ok) return remarks;
 
@@ -472,7 +544,7 @@ export function parseProcessActCreateBody(
       cafe: body.cafe,
       checkTarget: body.check_target,
       actType: body.act_type as ProcessActType,
-      overview: overview.value,
+      overview,
       remarks: remarks.value,
     },
   };

@@ -10,7 +10,7 @@
 // 조직/모드(demoUserId·mode=test) 구분 없음 — 허브×라인급×액트 전역 1세트(동일 DTO).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,6 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   Table,
   TableBody,
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/table";
 import { SelectBadge } from "@/components/ui/status-badge";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import {
   PROCESS_ACT_TYPE_LABEL,
@@ -52,6 +54,9 @@ import {
   enforcePointC,
   formatProcessWhen,
   isCheckBeforeOccur,
+  isReviewGapTooShort,
+  PROCESS_REVIEW_GAP_MESSAGE,
+  processWhenOrdinal,
   reactionAllowsPointC,
   type ProcessActDto,
   type ProcessActSummary,
@@ -86,8 +91,10 @@ const HUB_PLACEHOLDER = "" as const;
 
 // ── 정렬/필터 (표시용) ─────────────────────────────────────────────────────
 type SortKey = "occur" | "duration";
+// label 만 "신청 시점 순" → "신청 시점(필요)" 로 변경(내부 value=key="occur" 불변).
+//   native <select> 이므로 옵션 목록과 선택 후 트리거 문구가 동일하게 "신청 시점(필요)"로 보인다.
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: "occur", label: "신청 시점 순" },
+  { key: "occur", label: "신청 시점(필요)" },
   { key: "duration", label: "소요 시간 순" },
 ];
 
@@ -126,10 +133,104 @@ function matchFilter(a: ProcessActDto, f: FilterKey): boolean {
 const weekRank = (w: string) => (w === "N" ? 0 : 1);
 const shortActId = (id: string) => id.slice(0, 8);
 
+// ── 통합 표 컬럼 정렬/도움말 정의 (season-weeks/라인 정보 표와 동일 기준) ────────
+//   · 정렬 기준값은 표시 문자열이 아니라 실제 정렬값(허브/종류=순서 인덱스, 시점=ordinal,
+//     소요/포인트=숫자, 그 외=문자열 locale). null/"-" 은 방향 무관 항상 뒤로.
+//   · 정렬 button 과 도움말 button 은 형제(중첩 금지) + 도움말은 stopPropagation → 정렬 비간섭.
+//   · 번호(잘린 id 표시)·삭제(액션)는 정렬 의미 없어 제외(정렬 컨트롤 미노출, 도움말은 유지).
+type ProcColKey =
+  | "number" | "hub" | "actName" | "lineGroup" | "duration"
+  | "occur" | "check" | "pointA" | "pointB" | "pointC"
+  | "actType" | "checkTarget" | "cafe" | "actions";
+type ProcSortValue = number | string | null;
+
+const ACT_TYPE_RANK: Record<string, number> = {
+  required: 0, optional: 1, selection: 2, basic: 3,
+};
+
+type ProcColumnDef = {
+  key: ProcColKey;
+  label: string;
+  helpKey: string;
+  headClass: string;
+  align: "left" | "center";
+  sortable: boolean;
+  sortValue: (a: ProcessActDto) => ProcSortValue;
+};
+
+const PROC_COLUMNS: ProcColumnDef[] = [
+  { key: "number", label: "번호", helpKey: "admin.processes.register.column.number", headClass: "w-[68px]", align: "center", sortable: false, sortValue: () => null },
+  { key: "hub", label: "허브 급", helpKey: "admin.processes.register.column.hub", headClass: "w-[84px]", align: "center", sortable: true, sortValue: (a) => (PROCESS_HUBS as readonly string[]).indexOf(a.hub) },
+  { key: "actName", label: "액트명", helpKey: "admin.processes.register.column.actName", headClass: "min-w-[320px] text-left", align: "left", sortable: true, sortValue: (a) => a.actName },
+  { key: "lineGroup", label: "소속 라인 급", helpKey: "admin.processes.register.column.lineGroup", headClass: "min-w-[150px] text-left", align: "left", sortable: true, sortValue: (a) => a.lineGroupName ?? null },
+  { key: "duration", label: "소요(m)", helpKey: "admin.processes.register.column.duration", headClass: "w-[64px]", align: "center", sortable: true, sortValue: (a) => a.durationMinutes },
+  { key: "occur", label: "신청 시점(필요)", helpKey: "admin.processes.register.column.occurWhen", headClass: "w-[124px]", align: "center", sortable: true, sortValue: (a) => processWhenOrdinal(a.occurWeek, a.occurDow, a.occurTime) },
+  { key: "check", label: "검수 시점(필요)", helpKey: "admin.processes.register.column.checkWhen", headClass: "w-[124px]", align: "center", sortable: true, sortValue: (a) => processWhenOrdinal(a.checkWeek, a.checkDow, a.checkTime) },
+  { key: "pointA", label: "Po.A", helpKey: "admin.processes.register.column.pointA", headClass: "w-[52px]", align: "center", sortable: true, sortValue: (a) => a.pointCheck },
+  { key: "pointB", label: "Po.B", helpKey: "admin.processes.register.column.pointB", headClass: "w-[52px]", align: "center", sortable: true, sortValue: (a) => a.pointAdvantage },
+  { key: "pointC", label: "Po.C", helpKey: "admin.processes.register.column.pointC", headClass: "w-[52px]", align: "center", sortable: true, sortValue: (a) => a.pointPenalty },
+  { key: "actType", label: "액트 종류", helpKey: "admin.processes.register.column.actType", headClass: "w-[96px]", align: "center", sortable: true, sortValue: (a) => ACT_TYPE_RANK[a.actType] ?? 99 },
+  { key: "checkTarget", label: "체크 대상", helpKey: "admin.processes.register.column.checkTarget", headClass: "w-[88px]", align: "center", sortable: true, sortValue: (a) => (a.checkTarget === "check" ? 0 : 1) },
+  { key: "cafe", label: "카페", helpKey: "admin.processes.register.column.cafe", headClass: "w-[72px]", align: "center", sortable: true, sortValue: (a) => (a.cafe === "occur" ? 0 : 1) },
+  { key: "actions", label: "삭제", helpKey: "admin.processes.register.column.actions", headClass: "w-[72px]", align: "center", sortable: false, sortValue: () => null },
+];
+
+// null/빈값/"-" 은 정렬 방향과 무관하게 항상 뒤로. 숫자는 숫자, 문자열은 한글 locale.
+function compareProcValues(a: ProcSortValue, b: ProcSortValue, dir: "asc" | "desc"): number {
+  const aEmpty = a == null || a === "" || a === "-";
+  const bEmpty = b == null || b === "" || b === "-";
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  let c: number;
+  if (typeof a === "number" && typeof b === "number") c = a - b;
+  else c = String(a).localeCompare(String(b), "ko");
+  return dir === "asc" ? c : -c;
+}
+
+// 컬럼 헤더 — 정렬 button(정렬 가능 컬럼만) + 도움말 button 을 형제로 둔다.
+function ProcSortableHeader({
+  col, dir, onSort,
+}: {
+  col: ProcColumnDef;
+  dir: "asc" | "desc" | null;
+  onSort: () => void;
+}) {
+  return (
+    <TableHead
+      className={col.headClass}
+      aria-sort={
+        !col.sortable ? undefined : dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
+      }
+    >
+      <div className={cn("inline-flex items-center gap-1", col.align === "center" && "justify-center")}>
+        {col.sortable ? (
+          <button
+            type="button"
+            onClick={onSort}
+            aria-label={`${col.label} 정렬`}
+            className={cn(
+              "inline-flex items-center gap-1 font-semibold tracking-wide text-muted-foreground hover:text-foreground",
+              dir && "text-foreground",
+            )}
+          >
+            <span>{col.label}</span>
+            {dir === "asc" ? <ArrowUp className="h-3 w-3" /> : dir === "desc" ? <ArrowDown className="h-3 w-3" /> : <ArrowUpDown className="h-3 w-3 opacity-40" />}
+          </button>
+        ) : (
+          <span className="font-semibold tracking-wide text-muted-foreground">{col.label}</span>
+        )}
+        <AdminHelpIconButton helpKey={col.helpKey} title={col.label} size="xs" />
+      </div>
+    </TableHead>
+  );
+}
+
 // A/B/C 를 균등 분산으로 표시 (붙어보이지 않게) — 요약 카드 공용.
 function PointTripletCells({ t }: { t: ProcessPointTriplet }) {
   return (
-    <div className="grid grid-cols-3 gap-x-5 tabular-nums">
+    // min-w 로 좁은 셀에서도 A/B/C 가 줄바꿈·찌그러짐 없이 균등 노출되게 한다.
+    <div className="grid min-w-[132px] grid-cols-3 gap-x-4 tabular-nums">
       {(
         [
           ["A", t.check],
@@ -156,22 +257,26 @@ function pageItems(current: number, total: number): (number | "...")[] {
   return items;
 }
 
-function SummaryRow({ label, value }: { label: string; value: React.ReactNode }) {
+// 독립 통계 셀 — 라벨(좌) + 값(우, 우측정렬). 그리드로 나열해 박스 전체 폭을 균등 분산한다.
+function SummaryCell({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b py-2 last:border-b-0">
+    <div className="flex min-w-0 items-center justify-between gap-4 rounded-md bg-background/50 px-3 py-2">
       <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm font-semibold tabular-nums">{value}</span>
+      <span className="shrink-0 text-sm font-semibold tabular-nums">{value}</span>
     </div>
   );
 }
 
 function FormRow({
   label,
+  helpKey,
   required,
   children,
   alignTop,
 }: {
   label: string;
+  // 지정 시 라벨 오른쪽에 편집형 돋보기 도움말. 라벨 영역(176px 컬럼)에만 배치 → 입력 폭 불변.
+  helpKey?: string;
   required?: boolean;
   children: React.ReactNode;
   alignTop?: boolean;
@@ -179,15 +284,18 @@ function FormRow({
   return (
     <div
       className={cn(
-        // 라벨 컬럼: 커진 폰트에서 "신청 시점(필요)" 등 최장 라벨이 한 줄로 들어오도록 176px 확보.
-        "grid grid-cols-[176px_minmax(0,1fr)] gap-3",
+        // 라벨 컬럼: 커진 폰트에서 "신청 시점(필요)" 등 최장 라벨 + 돋보기가 한 줄로 들어오도록 196px.
+        "grid grid-cols-[196px_minmax(0,1fr)] gap-3",
         alignTop ? "items-start" : "items-center",
       )}
     >
-      <Label className={cn("whitespace-nowrap text-sm text-foreground", alignTop && "pt-2")}>
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </Label>
+      <div className={cn("inline-flex items-center gap-1", alignTop && "pt-2")}>
+        <Label className="whitespace-nowrap text-sm text-foreground">
+          {label}
+          {required && <span className="ml-0.5 text-red-500">*</span>}
+        </Label>
+        {helpKey && <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />}
+      </div>
       <div className="min-w-0">{children}</div>
     </div>
   );
@@ -260,7 +368,17 @@ function WhenInput({
 
 export default function ProcessUnifiedManager() {
   const confirm = useConfirm();
-  const [banner, setBanner] = useState<Banner>(null);
+  // 안내 문구는 문서 흐름 안의 상단 배너가 아니라 화면 하단 고정 토스트로 띄운다.
+  //   기존 호출부(setBanner({ kind, message }))를 그대로 재사용하기 위한 얇은 shim.
+  //   setBanner(null) 은 예전에 "작업 전 배너 지우기" 용도였는데, 토스트는 각자
+  //   자동 닫힘/수동 닫힘을 가지므로 no-op 으로 흘려보낸다.
+  const { toast } = useToast();
+  const setBanner = useCallback(
+    (b: Banner) => {
+      if (b) toast(b.kind, b.message);
+    },
+    [toast],
+  );
 
   // ── 등록 폼 (허브 = 드롭다운, 디폴트 "-") ──
   const [selectedHub, setSelectedHub] = useState<ProcessHub | typeof HUB_PLACEHOLDER>(HUB_PLACEHOLDER);
@@ -297,6 +415,16 @@ export default function ProcessUnifiedManager() {
   const [hubFilter, setHubFilter] = useState<HubFilterKey>("all");
   const [page, setPage] = useState(1);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // 컬럼 헤더 클릭 정렬. null = 기본 순서(상단 정렬 드롭다운 기준).
+  //   클릭 순환: 없음 → 오름차순 → 내림차순 → 기본 복귀.
+  const [columnSort, setColumnSort] = useState<{ key: ProcColKey; dir: "asc" | "desc" } | null>(null);
+  const cycleProcSort = useCallback((key: ProcColKey) => {
+    setColumnSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null; // 내림차순 다음 → 기본 순서 복귀
+    });
+  }, []);
 
   const infoReqRef = useRef(0);
 
@@ -319,7 +447,7 @@ export default function ProcessUnifiedManager() {
     } finally {
       if (myReq === infoReqRef.current) setInfoLoading(false);
     }
-  }, []);
+  }, [setBanner]);
 
   // 선택 허브의 라인급 로드 ("-" 이면 비움).
   const loadGroups = useCallback(async (hub: ProcessHub | typeof HUB_PLACEHOLDER) => {
@@ -344,7 +472,7 @@ export default function ProcessUnifiedManager() {
     } finally {
       setGroupsLoading(false);
     }
-  }, []);
+  }, [setBanner]);
 
   useEffect(() => {
     void loadInfo();
@@ -352,7 +480,7 @@ export default function ProcessUnifiedManager() {
 
   useEffect(() => {
     setPage(1);
-  }, [sortKey, filter, hubFilter]);
+  }, [sortKey, filter, hubFilter, columnSort]);
 
   // 액트 폼만 초기화 — 허브 선택은 유지(연속 등록).
   const resetActForm = useCallback(() => {
@@ -383,7 +511,7 @@ export default function ProcessUnifiedManager() {
       setNewGroupName("");
       void loadGroups(hub);
     },
-    [loadGroups],
+    [loadGroups, setBanner],
   );
 
   // ── 신청/검수 시점 선후 가드 ────────────────────────────────────────────
@@ -458,7 +586,7 @@ export default function ProcessUnifiedManager() {
     } finally {
       setAddingGroup(false);
     }
-  }, [selectedHub, newGroupName, lineGroups.length, loadGroups, loadInfo, confirm]);
+  }, [selectedHub, newGroupName, lineGroups.length, loadGroups, loadInfo, confirm, setBanner]);
 
   const handleDeleteGroup = useCallback(
     async (group: ProcessLineGroupDto) => {
@@ -492,7 +620,7 @@ export default function ProcessUnifiedManager() {
         });
       }
     },
-    [selectedHub, lineGroupId, loadGroups, loadInfo, confirm],
+    [selectedHub, lineGroupId, loadGroups, loadInfo, confirm, setBanner],
   );
 
   const handleSubmitAct = useCallback(async () => {
@@ -512,9 +640,22 @@ export default function ProcessUnifiedManager() {
       setBanner({ kind: "error", message: "액트 종류를 먼저 선택해야 합니다" });
       return;
     }
-    // 방어적 재검증 — 검수 시점이 신청 시점보다 이전이면 등록 차단(백엔드도 동일 검증).
-    if (isCheckBeforeOccur(occurWeek, occurDow, occurTime, checkWeek, checkDow, checkTime)) {
-      window.alert("신청 시점보다 이전입니다.");
+    // 개요 필수 — 공백만 입력도 불가(trim 기준). (백엔드도 동일 검증)
+    if (!overview.trim()) {
+      setBanner({ kind: "error", message: "개요를 입력해주세요." });
+      return;
+    }
+    // 최소 12시간 규칙 — 검수 시점은 신청 시점 + 12시간 이후여야 등록 가능(백엔드도 동일 검증).
+    //   위반 시 저장 요청을 보내지 않고 공통 경고 모달로 차단한다(브라우저 alert 미사용).
+    if (
+      isReviewGapTooShort(occurWeek, occurDow, occurTime, checkWeek, checkDow, checkTime)
+    ) {
+      await confirm({
+        title: "검수 시점 확인",
+        description: PROCESS_REVIEW_GAP_MESSAGE,
+        confirmLabel: "확인",
+        cancelLabel: "닫기",
+      });
       return;
     }
     if (!(await confirm(CONFIRM.save))) return;
@@ -541,7 +682,7 @@ export default function ProcessUnifiedManager() {
           cafe,
           check_target: checkTarget,
           act_type: actType,
-          overview: overview.trim() || null,
+          overview: overview.trim(),
           remarks: remarks.trim() || null,
         }),
       });
@@ -566,7 +707,7 @@ export default function ProcessUnifiedManager() {
   }, [
     selectedHub, actName, lineGroupId, duration, occurWeek, occurDow, occurTime,
     checkWeek, checkDow, checkTime, pointCheck, pointAdvantage, pointPenalty,
-    cafe, checkTarget, actType, overview, remarks, resetActForm, loadGroups, loadInfo, confirm,
+    cafe, checkTarget, actType, overview, remarks, resetActForm, loadGroups, loadInfo, confirm, setBanner,
   ]);
 
   const handleDelete = useCallback(
@@ -588,26 +729,39 @@ export default function ProcessUnifiedManager() {
         setDeletingId(null);
       }
     },
-    [selectedHub, loadGroups, loadInfo, confirm],
+    [selectedHub, loadGroups, loadInfo, confirm, setBanner],
   );
 
   const visibleActs = useMemo(() => {
     const filtered = acts.filter(
       (a) => (hubFilter === "all" || a.hub === hubFilter) && matchFilter(a, filter),
     );
+    // 안정적 표시를 위해 동값일 때 id 로 최종 tiebreak(정렬 의미는 불변, 순서 흔들림만 제거).
     const sorted = [...filtered];
-    if (sortKey === "duration") {
-      sorted.sort((a, b) => a.durationMinutes - b.durationMinutes);
+    // 컬럼 헤더 정렬이 활성이면 그 기준으로, 아니면 상단 정렬 드롭다운(신청 시점/소요 시간) 기본 순서.
+    const col = columnSort ? PROC_COLUMNS.find((c) => c.key === columnSort.key) : null;
+    if (col && col.sortable && columnSort) {
+      sorted.sort(
+        (a, b) =>
+          compareProcValues(col.sortValue(a), col.sortValue(b), columnSort.dir) ||
+          a.id.localeCompare(b.id),
+      );
+    } else if (sortKey === "duration") {
+      sorted.sort(
+        (a, b) =>
+          a.durationMinutes - b.durationMinutes || a.id.localeCompare(b.id),
+      );
     } else {
       sorted.sort(
         (a, b) =>
           weekRank(a.occurWeek) - weekRank(b.occurWeek) ||
           a.occurDow - b.occurDow ||
-          a.occurTime.localeCompare(b.occurTime),
+          a.occurTime.localeCompare(b.occurTime) ||
+          a.id.localeCompare(b.id),
       );
     }
     return sorted;
-  }, [acts, filter, hubFilter, sortKey]);
+  }, [acts, filter, hubFilter, sortKey, columnSort]);
 
   const pageCount = Math.max(1, Math.ceil(visibleActs.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
@@ -625,30 +779,18 @@ export default function ProcessUnifiedManager() {
       <div className="flex justify-end">
         <AdminHelp />
       </div>
-      {banner && (
-        <div
-          className={cn(
-            "flex items-center justify-between rounded-md border px-3 py-2 text-sm",
-            banner.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-rose-200 bg-rose-50 text-rose-800",
-          )}
-        >
-          <span className="whitespace-pre-line">{banner.message}</span>
-          <button type="button" onClick={() => setBanner(null)} className="hover:opacity-70">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+      {/* 안내 문구는 화면 하단 고정 토스트(<ToastViewport /> · Layout 마운트)로 표시.
+          문서 흐름 안 상단 배너 제거 → 페이지 아래쪽에서 작업해도 스크롤 없이 즉시 보인다. */}
 
-      {/* ── 등록 폼 ── 표는 full width, 폼은 가독성 위해 자체 폭 상한(좌측 정렬). */}
-      <Card className="w-full max-w-[1040px]">
+      {/* ── 등록 폼 ── 표는 full width. 폼 카드는 자체 폭 상한 + mx-auto 로 페이지 가로 가운데 정렬
+          (제목/라벨/입력의 내부 정렬은 기존 좌측 유지 — 카드 블록만 중앙에 놓는다). */}
+      <Card className="mx-auto w-full max-w-[1040px]">
         <CardHeader>
           <CardTitle>프로세스 등록</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* [1] 허브 급 — 드롭다운(디폴트 "-"). "-" 상태에서는 등록 불가. */}
-          <FormRow label="허브 급" required>
+          <FormRow label="허브 급" helpKey="admin.processes.register.hub" required>
             <select
               aria-label="허브 급"
               className={cn(SELECT_CLS, "max-w-[240px]")}
@@ -667,7 +809,7 @@ export default function ProcessUnifiedManager() {
           </FormRow>
 
           {/* [2] 액트명 */}
-          <FormRow label="액트명" required>
+          <FormRow label="액트명" helpKey="admin.processes.register.actName" required>
             <Input
               value={actName}
               onChange={(e) => setActName(e.target.value)}
@@ -678,7 +820,7 @@ export default function ProcessUnifiedManager() {
           </FormRow>
 
           {/* [3] 소속 라인급 — 등록 + 칩 목록 */}
-          <FormRow label="소속 라인급" required alignTop>
+          <FormRow label="소속 라인급" helpKey="admin.processes.register.lineGroup" required alignTop>
             {!canSubmit ? (
               <p className="pt-2 text-xs text-muted-foreground">
                 허브 급을 먼저 선택하면 라인급을 등록/선택할 수 있습니다.
@@ -709,6 +851,12 @@ export default function ProcessUnifiedManager() {
                   >
                     등록
                   </Button>
+                  <AdminHelpIconButton
+                    helpKey="admin.processes.register.addLineGroup"
+                    title="라인급 등록"
+                    size="sm"
+                    className="shrink-0 self-center"
+                  />
                 </div>
 
                 {groupsLoading ? (
@@ -755,7 +903,7 @@ export default function ProcessUnifiedManager() {
           </FormRow>
 
           {/* [4] 소요 시간 */}
-          <FormRow label="소요 시간" required>
+          <FormRow label="소요 시간" helpKey="admin.processes.register.duration" required>
             <select
               aria-label="소요 시간"
               className={cn(SELECT_CLS, "max-w-[160px]")}
@@ -771,37 +919,47 @@ export default function ProcessUnifiedManager() {
             </select>
           </FormRow>
 
-          {/* [5] 신청 시점(필요) */}
-          <FormRow label="신청 시점(필요)" required>
-            <WhenInput
-              week={occurWeek}
-              dow={occurDow}
-              time={occurTime}
-              onWeek={(v) => applyOccur(v, occurDow, occurTime)}
-              onDow={(v) => applyOccur(occurWeek, v, occurTime)}
-              onTime={(v) => applyOccur(occurWeek, occurDow, v)}
-              idPrefix="신청"
-              disabled={!canSubmit}
-            />
-          </FormRow>
+          {/* [5][6] 신청/검수 시점 — 넓은 화면에서 두 그룹을 나란히 배치(가로 공간 활용).
+              폭이 좁으면(xl 미만) 그룹 단위로 세로 스택. 안내 문구는 두 필드 하단에 배치. */}
+          <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-x-10 gap-y-4 xl:grid-cols-2">
+              {/* [5] 신청 시점(필요) */}
+              <FormRow label="신청 시점(필요)" helpKey="admin.processes.register.occurWhen" required>
+                <WhenInput
+                  week={occurWeek}
+                  dow={occurDow}
+                  time={occurTime}
+                  onWeek={(v) => applyOccur(v, occurDow, occurTime)}
+                  onDow={(v) => applyOccur(occurWeek, v, occurTime)}
+                  onTime={(v) => applyOccur(occurWeek, occurDow, v)}
+                  idPrefix="신청"
+                  disabled={!canSubmit}
+                />
+              </FormRow>
 
-          {/* [6] 검수 시점(필요) — 신청 시점보다 이전이면 반영 차단(alert). */}
-          <FormRow label="검수 시점(필요)" required>
-            <WhenInput
-              week={checkWeek}
-              dow={checkDow}
-              time={checkTime}
-              onWeek={(v) => guardCheck(v, checkDow, checkTime) && setCheckWeek(v)}
-              onDow={(v) => guardCheck(checkWeek, v, checkTime) && setCheckDow(v)}
-              onTime={(v) => guardCheck(checkWeek, checkDow, v) && setCheckTime(v)}
-              idPrefix="검수"
-              disabled={!canSubmit}
-            />
-          </FormRow>
+              {/* [6] 검수 시점(필요) — 신청 시점보다 이전이면 반영 차단(alert). */}
+              <FormRow label="검수 시점(필요)" helpKey="admin.processes.register.checkWhen" required>
+                <WhenInput
+                  week={checkWeek}
+                  dow={checkDow}
+                  time={checkTime}
+                  onWeek={(v) => guardCheck(v, checkDow, checkTime) && setCheckWeek(v)}
+                  onDow={(v) => guardCheck(checkWeek, v, checkTime) && setCheckDow(v)}
+                  onTime={(v) => guardCheck(checkWeek, checkDow, v) && setCheckTime(v)}
+                  idPrefix="검수"
+                  disabled={!canSubmit}
+                />
+              </FormRow>
+            </div>
+            <p className="text-xs text-amber-600">
+              ※ 신청자가 충분한 시간을 확보할 수 있도록, 검수 시점은 신청 시점보다 최소
+              12시간 이후로 설정해야 합니다.
+            </p>
+          </div>
 
           {/* [7] 액트 종류 | 카페 | 체크 대상 */}
           <div className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-3">
-            <FormRow label="액트 종류" required>
+            <FormRow label="액트 종류" helpKey="admin.processes.register.actType" required>
               <select
                 aria-label="액트 종류"
                 className={SELECT_CLS}
@@ -823,7 +981,7 @@ export default function ProcessUnifiedManager() {
                 ))}
               </select>
             </FormRow>
-            <FormRow label="카페" required>
+            <FormRow label="카페" helpKey="admin.processes.register.cafe" required>
               <select
                 aria-label="카페"
                 className={SELECT_CLS}
@@ -838,7 +996,7 @@ export default function ProcessUnifiedManager() {
                 ))}
               </select>
             </FormRow>
-            <FormRow label="체크 대상" required>
+            <FormRow label="체크 대상" helpKey="admin.processes.register.checkTarget" required>
               <select
                 aria-label="체크 대상"
                 className={SELECT_CLS}
@@ -856,7 +1014,7 @@ export default function ProcessUnifiedManager() {
           </div>
 
           {/* [8] 포인트 — A/B/C (0~20). 미선택 잠금 · '선별'이면 C 고정. */}
-          <FormRow label="포인트" required alignTop>
+          <FormRow label="포인트" helpKey="admin.processes.register.point" required alignTop>
             <div className="space-y-1.5">
               <div className="grid grid-cols-3 gap-x-8 gap-y-2">
                 {(
@@ -931,20 +1089,26 @@ export default function ProcessUnifiedManager() {
             </div>
           </FormRow>
 
-          {/* [9] 개요 */}
-          <FormRow label="개요" alignTop>
+          {/* [9] 개요 — 필수 입력. 공백만 입력은 빈값 처리(trim). */}
+          <FormRow label="개요" helpKey="admin.processes.register.overview" required alignTop>
             <textarea
               aria-label="개요"
-              className="min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              className={cn(
+                "min-h-[96px] w-full rounded-md border bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60",
+                canSubmit && overview.trim().length === 0
+                  ? "border-red-400 focus-visible:ring-red-400"
+                  : "border-input",
+              )}
               value={overview}
               onChange={(e) => setOverview(e.target.value)}
               placeholder="액트 개요 (150자 이상 권장, 제한은 엄격하지 않음)"
               disabled={!canSubmit}
+              aria-invalid={canSubmit && overview.trim().length === 0}
             />
           </FormRow>
 
           {/* [10] 비고 */}
-          <FormRow label="비고" alignTop>
+          <FormRow label="비고" helpKey="admin.processes.register.remarks" alignTop>
             <textarea
               aria-label="비고"
               className="min-h-[96px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
@@ -955,50 +1119,60 @@ export default function ProcessUnifiedManager() {
             />
           </FormRow>
 
-          <div className="flex items-center justify-end gap-2 border-t pt-4">
-            <Button
-              type="button"
-              onClick={() => void handleSubmitAct()}
-              loading={saving}
-              disabled={saving || !canSubmit}
-            >
-              등록
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => void handleResetActForm()}
-              disabled={saving || !canSubmit}
-            >
-              초기화
-            </Button>
+          {/* 버튼 그룹 — 도움말 돋보기는 각 버튼 외부에 배치(클릭이 등록/초기화를 실행하지 않음). */}
+          <div className="flex items-center justify-end gap-4 border-t pt-4">
+            <div className="inline-flex items-center gap-1.5">
+              <Button
+                type="button"
+                onClick={() => void handleSubmitAct()}
+                loading={saving}
+                disabled={saving || !canSubmit}
+              >
+                등록
+              </Button>
+              <AdminHelpIconButton helpKey="admin.processes.register.submit" title="등록" size="sm" />
+            </div>
+            <div className="inline-flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleResetActForm()}
+                disabled={saving || !canSubmit}
+              >
+                초기화
+              </Button>
+              <AdminHelpIconButton helpKey="admin.processes.register.reset" title="초기화" size="sm" />
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* ── 전역 요약 (전체 허브) ── */}
-      <div className="grid grid-cols-1 gap-x-12 rounded-lg border bg-muted/30 px-4 py-2 md:grid-cols-2">
-        <div>
-          <SummaryRow label="전체 액트 수" value={`${summary.actCount}개`} />
-          <SummaryRow label="전체 라인급 수" value={`${summary.lineGroupCount}개`} />
-          <SummaryRow label="총합 소요 시간" value={`${summary.totalDurationMinutes}m`} />
-        </div>
-        <div>
-          <SummaryRow label="필수 포인트 총합" value={<PointTripletCells t={summary.required} />} />
-          <SummaryRow label="우수 포인트 총합" value={<PointTripletCells t={summary.excellent} />} />
-          <SummaryRow label="최대 포인트 총합" value={<PointTripletCells t={summary.max} />} />
-        </div>
+      {/* ── 전역 요약 (전체 허브) ── 6개 통계를 독립 셀로 나열해 박스 전체 폭을 균등 분산.
+          넓은 화면=3열×2행(긴 "…포인트 총합" 라벨 + A/B/C 가 찌그러지지 않게 6열 대신 3열 상한),
+          중간=2열, 좁은 화면=1열. 값·A/B/C 우측 정렬 유지. 계산/포맷/합산 로직 무변경. */}
+      <div className="grid grid-cols-1 gap-x-8 gap-y-2 rounded-lg border bg-muted/30 px-4 py-3 lg:grid-cols-2 xl:grid-cols-3">
+        <SummaryCell label="전체 액트 수" value={`${summary.actCount}개`} />
+        <SummaryCell label="전체 라인급 수" value={`${summary.lineGroupCount}개`} />
+        <SummaryCell label="총합 소요 시간" value={`${summary.totalDurationMinutes}m`} />
+        <SummaryCell label="필수 포인트 총합" value={<PointTripletCells t={summary.required} />} />
+        <SummaryCell label="우수 포인트 총합" value={<PointTripletCells t={summary.excellent} />} />
+        <SummaryCell label="최대 포인트 총합" value={<PointTripletCells t={summary.max} />} />
       </div>
 
       {/* ── 통합 목록 표 (전체 허브) ── */}
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              허브 급
+          {/* 필터 3그룹을 flex-1 grid(sm:3열)로 분산 → 좌측 쏠림 제거·가로 공간 균등 활용.
+              각 그룹은 라벨(+돋보기)과 select 가 한 덩어리로 유지되고, select 는 flex-1 로 넓게. */}
+          <div className="grid w-full grid-cols-1 gap-x-8 gap-y-3 sm:flex-1 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <span className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
+                허브 급
+                <AdminHelpIconButton helpKey="admin.processes.register.filter.hub" title="허브 급 필터" size="xs" />
+              </span>
               <select
                 aria-label="허브 급 필터"
-                className={FILTER_SELECT_CLS}
+                className={cn(FILTER_SELECT_CLS, "min-w-[150px] flex-1")}
                 value={hubFilter}
                 onChange={(e) => setHubFilter(e.target.value as HubFilterKey)}
               >
@@ -1009,12 +1183,15 @@ export default function ProcessUnifiedManager() {
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              정렬
+            </div>
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <span className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
+                정렬
+                <AdminHelpIconButton helpKey="admin.processes.register.filter.sort" title="정렬" size="xs" />
+              </span>
               <select
                 aria-label="정렬"
-                className={FILTER_SELECT_CLS}
+                className={cn(FILTER_SELECT_CLS, "min-w-[190px] flex-1")}
                 value={sortKey}
                 onChange={(e) => setSortKey(e.target.value as SortKey)}
               >
@@ -1024,12 +1201,15 @@ export default function ProcessUnifiedManager() {
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              필터
+            </div>
+            <div className="flex min-w-0 items-center justify-between gap-3">
+              <span className="inline-flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
+                필터
+                <AdminHelpIconButton helpKey="admin.processes.register.filter.actType" title="필터" size="xs" />
+              </span>
               <select
                 aria-label="필터"
-                className={FILTER_SELECT_CLS}
+                className={cn(FILTER_SELECT_CLS, "min-w-[150px] flex-1")}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value as FilterKey)}
               >
@@ -1039,10 +1219,11 @@ export default function ProcessUnifiedManager() {
                   </option>
                 ))}
               </select>
-            </label>
+            </div>
           </div>
-          <span className="text-sm font-medium text-muted-foreground">
+          <span className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-muted-foreground">
             결과 수 {visibleActs.length}개
+            <AdminHelpIconButton helpKey="admin.processes.register.filter.resultCount" title="결과 수" size="xs" />
           </span>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -1059,21 +1240,14 @@ export default function ProcessUnifiedManager() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[68px]">번호</TableHead>
-                    <TableHead className="w-[84px]">허브 급</TableHead>
-                    {/* 액트명 = 이 표의 핵심 텍스트 컬럼. 남는 폭을 우선 배분받도록 넉넉한 min-width. */}
-                    <TableHead className="min-w-[320px] text-left">액트명</TableHead>
-                    <TableHead className="min-w-[150px] text-left">소속 라인 급</TableHead>
-                    <TableHead className="w-[64px]">소요(m)</TableHead>
-                    <TableHead className="w-[124px]">신청 시점(필요)</TableHead>
-                    <TableHead className="w-[124px]">검수 시점(필요)</TableHead>
-                    <TableHead className="w-[52px]">Po.A</TableHead>
-                    <TableHead className="w-[52px]">Po.B</TableHead>
-                    <TableHead className="w-[52px]">Po.C</TableHead>
-                    <TableHead className="w-[96px]">액트 종류</TableHead>
-                    <TableHead className="w-[88px]">체크 대상</TableHead>
-                    <TableHead className="w-[72px]">카페</TableHead>
-                    <TableHead className="w-[72px]">삭제</TableHead>
+                    {PROC_COLUMNS.map((col) => (
+                      <ProcSortableHeader
+                        key={col.key}
+                        col={col}
+                        dir={columnSort?.key === col.key ? columnSort.dir : null}
+                        onSort={() => cycleProcSort(col.key)}
+                      />
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>

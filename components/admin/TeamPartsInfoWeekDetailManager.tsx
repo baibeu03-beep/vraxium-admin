@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { CheckCircle2, AlarmClock } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -15,6 +15,7 @@ import AdminHelp from "@/components/admin/AdminHelp";
 import { ActionControl } from "@/components/admin/ActionControl";
 import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import { LoadingState } from "@/components/ui/loading-state";
+import { useToast } from "@/components/ui/toast";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import type { ReviewReadiness } from "@/lib/adminWeekReviewReadiness";
@@ -694,9 +695,18 @@ export default function TeamPartsInfoWeekDetailManager({
   const [readiness, setReadiness] = useState<ReviewReadiness | null>(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
   const [showReviewHelp, setShowReviewHelp] = useState(false);
-  const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  // 완료/실패 안내는 문서 흐름 배너가 아니라 화면 하단 고정 토스트(<ToastViewport /> · Layout)로.
+  //   기존 호출부(setBanner({ kind, message }))를 그대로 재사용하기 위한 얇은 shim.
+  //   setBanner(null) 은 "작업 전 배너 지우기"였는데 토스트는 각자 자동/수동 닫힘이라 no-op.
+  const { toast } = useToast();
+  const setBanner = useCallback(
+    (b: { kind: "success" | "error"; message: string } | null) => {
+      if (b) toast(b.kind, b.message);
+    },
+    [toast],
+  );
   // 검수 완료/실행 취소 진행 단계 안내(단일 요청 동안 시간 기반 전환). 완료/실패는 요청 resolve
-  //   시점에만 banner 로 표시한다(조기 성공 토스트 금지 — progress 는 "진행 중"만 나타낸다).
+  //   시점에만 토스트로 표시한다(조기 성공 토스트 금지 — progress 는 "진행 중"만 나타낸다).
   const [progress, setProgress] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<"act" | "line">("act");
@@ -1067,16 +1077,9 @@ export default function TeamPartsInfoWeekDetailManager({
             />
             <span>{progress}</span>
           </div>
-        ) : banner ? (
-          <div
-            className={
-              "rounded-md px-3 py-2 text-sm " +
-              (banner.kind === "success" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700")
-            }
-          >
-            {banner.message}
-          </div>
         ) : null}
+        {/* 완료/실패 안내는 하단 고정 토스트로 표시(문서 흐름 인라인 배너 제거).
+            위 progress 는 "진행 중" 인디케이터라 인라인 유지. */}
 
         {error ? (
           <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>

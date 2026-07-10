@@ -5,6 +5,7 @@ import GlobalLoadingBanner from "@/components/admin/GlobalLoadingBanner";
 import { LoadingBannerProvider } from "@/components/admin/loadingBannerContext";
 import { SidebarProvider } from "@/components/admin/sidebarContext";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
+import { ToastViewport } from "@/components/ui/toast";
 import AdminSessionProvider from "@/components/admin/AdminSessionProvider";
 import { requireAdminPage } from "@/lib/adminAuth";
 import { loadAdminDisplayName } from "@/lib/adminMe";
@@ -52,6 +53,10 @@ export default async function PortalLayout({
         {/* 테스트 모드 전환은 URL ?mode=test 로만 진입한다(일반 UI 토글 제거).
             AdminModeProvider 가 ?mode 를 그대로 해석하므로 QA/테스트 동작은 불변. */}
         </LoadingBannerProvider>
+        {/* 전역 토스트 뷰포트 — document.body 포털. 여기 한 곳에만 마운트한다.
+            토스트를 발행하는 페이지가 있을 때만 화면에 나타나므로, 아직 옮기지 않은
+            다른 페이지의 기존 배너 동작에는 영향을 주지 않는다. */}
+        <ToastViewport />
       </ConfirmProvider>
         </SidebarProvider>
         </AdminSessionProvider>
