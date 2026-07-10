@@ -10,9 +10,9 @@
 //
 // 집계·목록은 실제 DB(vacation_requests) 기준. mode 는 로직/모집단을 바꾸지 않는다(URL 보존만).
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { useConfirm, CONFIRM } from "@/components/ui/confirm-dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam, orgHref } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -101,25 +102,211 @@ function truncateReason(reason: string): string {
   return t.length > 50 ? `${t.slice(0, 50)}…` : t;
 }
 
-// 요약 카드 1장. tone=urgent 면 숫자에 강조색(긴급).
+// ── 테이블 컬럼 정의(헤더 라벨 · 도움말 키 · 정렬 기준) ─────────────────────────
+//   · 일반 모드/테스트 모드/모든 org 가 이 단일 배열을 공유한다(mode 분기 없음).
+//   · sortValue 가 있는 컬럼만 정렬 가능. 액션(휴식 승인/삭제) 컬럼은 정렬 제외 —
+//     정렬 의미가 없으나(버튼 전용) 도움말은 부여한다.
+//   · 정렬 기준은 표시 문자열이 아니라 "실제 정렬 가능한 값":
+//       진행상태/분류 = 업무 순서(enum), 주차/신청시점 = 실제 날짜·타임스탬프(ISO),
+//       크루/소속팀/클래스/사유 = 한글 locale-aware 문자열(빈값은 항상 뒤).
+type ColKey =
+  | "status"
+  | "week"
+  | "category"
+  | "crew"
+  | "team"
+  | "class"
+  | "reason"
+  | "requestedAt"
+  | "approve"
+  | "delete";
+type SortValue = number | string | null;
+
+// 진행 상태 업무 순서: 휴식 신청 → 휴식 승인 → 휴식 이행(STATUS_LABEL 과 동일 SoT 순서).
+const STATUS_SORT_ORDER: Record<RestRequestDisplayStatus, number> = {
+  pending: 0,
+  approved: 1,
+  fulfilled: 2,
+};
+// 분류 순서: 정상 → 긴급.
+const TYPE_SORT_ORDER: Record<"normal" | "urgent", number> = {
+  normal: 0,
+  urgent: 1,
+};
+
+// 빈값 규칙: null/undefined/빈문자열/공백/"-" 는 모두 동일한 빈값으로 정규화(→ null).
+function emptyToNull(s: string | null | undefined): string | null {
+  if (s == null) return null;
+  const t = s.trim();
+  return t === "" || t === "-" ? null : t;
+}
+
+type ColumnDef = {
+  key: ColKey;
+  label: string;
+  helpKey: string;
+  // 없으면 정렬 불가(액션 전용 컬럼).
+  sortValue?: (row: RestRequestListRow) => SortValue;
+};
+
+const COLUMNS: ColumnDef[] = [
+  {
+    key: "status",
+    label: "진행 상태",
+    helpKey: "admin.restManagement.column.status",
+    sortValue: (r) => STATUS_SORT_ORDER[r.displayStatus],
+  },
+  {
+    key: "week",
+    label: "주차",
+    helpKey: "admin.restManagement.column.week",
+    // 표시 문자열("26년, 여름, 7주차")이 아니라 실제 주차 시작일(ISO)로 정렬 → 연·시즌·주차 순.
+    sortValue: (r) => r.weekStartDate ?? null,
+  },
+  {
+    key: "category",
+    label: "분류",
+    helpKey: "admin.restManagement.column.category",
+    sortValue: (r) => TYPE_SORT_ORDER[r.requestType],
+  },
+  {
+    key: "crew",
+    label: "크루",
+    helpKey: "admin.restManagement.column.crew",
+    sortValue: (r) => emptyToNull(r.crewName),
+  },
+  {
+    key: "team",
+    label: "소속 팀",
+    helpKey: "admin.restManagement.column.team",
+    sortValue: (r) => emptyToNull(r.teamName),
+  },
+  {
+    key: "class",
+    label: "클래스",
+    helpKey: "admin.restManagement.column.class",
+    sortValue: (r) => emptyToNull(r.classLabel),
+  },
+  {
+    key: "reason",
+    label: "사유",
+    helpKey: "admin.restManagement.column.reason",
+    sortValue: (r) => emptyToNull(r.reason),
+  },
+  {
+    key: "requestedAt",
+    label: "신청 시점",
+    helpKey: "admin.restManagement.column.requestedAt",
+    // 한국어 가공 문자열이 아니라 실제 timestamptz(ISO) 로 정렬.
+    sortValue: (r) => r.createdAt ?? null,
+  },
+  {
+    key: "approve",
+    label: "휴식 승인",
+    helpKey: "admin.restManagement.column.approve",
+  },
+  {
+    key: "delete",
+    label: "삭제",
+    helpKey: "admin.restManagement.column.delete",
+  },
+];
+
+// null/빈값/"-" 은 정렬 방향과 무관하게 항상 뒤로. 숫자는 숫자, 문자열은 한글 locale.
+function compareSortValues(
+  a: SortValue,
+  b: SortValue,
+  dir: "asc" | "desc",
+): number {
+  const aEmpty = a == null || a === "";
+  const bEmpty = b == null || b === "";
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  let c: number;
+  if (typeof a === "number" && typeof b === "number") c = a - b;
+  else c = String(a).localeCompare(String(b), "ko");
+  return dir === "asc" ? c : -c;
+}
+
+// 컬럼 헤더: 정렬 트리거(button)와 도움말(button)을 형제로 둔다(버튼 중첩 방지).
+//   · 도움말은 stopPropagation(AdminHelpIconButton 내부) + 구조 분리로 정렬을 트리거하지 않는다.
+//   · 액션 컬럼(sortValue 없음)은 정렬 트리거 없이 라벨 + 도움말만.
+function ColumnHeader({
+  col,
+  dir,
+  onSort,
+}: {
+  col: ColumnDef;
+  dir: "asc" | "desc" | null;
+  onSort: () => void;
+}) {
+  const sortable = Boolean(col.sortValue);
+  return (
+    <TableHead
+      aria-sort={
+        dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
+      }
+    >
+      <div className="inline-flex items-center justify-center gap-1">
+        {sortable ? (
+          <button
+            type="button"
+            onClick={onSort}
+            aria-label={`${col.label} 정렬`}
+            className={cn(
+              "inline-flex items-center gap-1 text-sm font-semibold tracking-wide text-muted-foreground hover:text-foreground",
+              dir && "text-foreground",
+            )}
+          >
+            <span>{col.label}</span>
+            {dir === "asc" ? (
+              <ArrowUp className="h-3 w-3" />
+            ) : dir === "desc" ? (
+              <ArrowDown className="h-3 w-3" />
+            ) : (
+              <ArrowUpDown className="h-3 w-3 opacity-40" />
+            )}
+          </button>
+        ) : (
+          <span className="text-sm font-semibold tracking-wide text-muted-foreground">
+            {col.label}
+          </span>
+        )}
+        <AdminHelpIconButton helpKey={col.helpKey} title={col.label} size="xs" />
+      </div>
+    </TableHead>
+  );
+}
+
+// 요약 카드 1장. tone=urgent 면 숫자에 강조색(긴급). help 지정 시 라벨 옆 돋보기 도움말.
 function StatCard({
   label,
   value,
   suffix,
   tone = "default",
   loading,
+  help,
 }: {
   label: string;
   value: number;
   suffix?: string;
   tone?: "default" | "urgent";
   loading: boolean;
+  help?: { helpKey: string; title?: string };
 }) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-1.5 py-5">
-        <span className="text-sm font-medium text-muted-foreground">
+        <span className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground">
           {label}
+          {help ? (
+            <AdminHelpIconButton
+              helpKey={help.helpKey}
+              title={help.title ?? label}
+              size="xs"
+            />
+          ) : null}
         </span>
         <span
           className={cn(
@@ -159,6 +346,21 @@ export default function RestManagementManager() {
   const [listLoading, setListLoading] = useState<boolean>(Boolean(org));
   const [listError, setListError] = useState<string | null>(null);
   const [listPage, setListPage] = useState(1);
+  // 컬럼 헤더 클릭 정렬. null = 기본 순서(서버 정렬 = 주차 최신 → 신청 시점 최신).
+  //   클릭 순환: 없음 → 오름차순 → 내림차순 → 기본 복귀.
+  const [columnSort, setColumnSort] = useState<{
+    key: ColKey;
+    dir: "asc" | "desc";
+  } | null>(null);
+
+  const cycleSort = (key: ColKey) => {
+    setColumnSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null; // 내림차순 다음 클릭 → 기본 순서 복귀
+    });
+    setListPage(1); // 정렬 변경 시 1페이지로 복귀
+  };
 
   // 액션(승인/삭제/전체승인) 후 요약·목록 동시 갱신 트리거.
   const [refreshTick, setRefreshTick] = useState(0);
@@ -249,9 +451,25 @@ export default function RestManagementManager() {
 
   const accent = org ? ORG_ACCENT[org] : null;
 
-  const totalPages = Math.max(1, Math.ceil(listRows.length / PAGE_SIZE));
+  // 정렬은 화면에 보이는 행이 아니라 "전체 결과"(listRows: 서버가 전체 행 반환) 기준으로 적용한 뒤
+  //   클라이언트에서 페이지 슬라이스. 원본(listRows)은 mutate 하지 않고 복사본을 정렬한다.
+  //   columnSort=null 이면 서버 기본 정렬 순서(원본)를 그대로 사용.
+  const sortedRows = useMemo(() => {
+    if (!columnSort) return listRows;
+    const col = COLUMNS.find((c) => c.key === columnSort.key);
+    if (!col?.sortValue) return listRows;
+    const sortValue = col.sortValue;
+    return [...listRows].sort((a, b) => {
+      const c = compareSortValues(sortValue(a), sortValue(b), columnSort.dir);
+      if (c !== 0) return c;
+      // 동값 타이브레이크 — 신청 시점 최신(안정적 표시).
+      return (b.createdAt ?? "").localeCompare(a.createdAt ?? "");
+    });
+  }, [listRows, columnSort]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
   const safePage = Math.min(listPage, totalPages);
-  const pageRows = listRows.slice(
+  const pageRows = sortedRows.slice(
     (safePage - 1) * PAGE_SIZE,
     (safePage - 1) * PAGE_SIZE + PAGE_SIZE,
   );
@@ -398,123 +616,183 @@ export default function RestManagementManager() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <AdminHelpIconButton
+                    helpKey="admin.restManagement.filter.season"
+                    title="시즌 선택"
+                    size="sm"
+                  />
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                  <Button
-                    variant="destructive"
-                    onClick={() => window.alert(NEXT_TASK_MSG)}
-                  >
-                    긴급 휴식 신청
-                  </Button>
-                  <Button onClick={approveAll}>전체 승인</Button>
+                  <div className="inline-flex items-center gap-1">
+                    <Button
+                      variant="destructive"
+                      onClick={() => window.alert(NEXT_TASK_MSG)}
+                    >
+                      긴급 휴식 신청
+                    </Button>
+                    <AdminHelpIconButton
+                      helpKey="admin.restManagement.action.urgentRequest"
+                      title="긴급 휴식 신청"
+                      size="sm"
+                    />
+                  </div>
+                  <div className="inline-flex items-center gap-1">
+                    <Button onClick={approveAll}>전체 승인</Button>
+                    <AdminHelpIconButton
+                      helpKey="admin.restManagement.action.approveAll"
+                      title="전체 승인"
+                      size="sm"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* 집계 카드 */}
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <StatCard label="전체" value={summary.total} suffix="건" loading={loading} />
-                <StatCard label="정상" value={summary.normal} suffix="건" loading={loading} />
+                <StatCard
+                  label="전체"
+                  value={summary.total}
+                  suffix="건"
+                  loading={loading}
+                  help={{ helpKey: "admin.restManagement.metric.total" }}
+                />
+                <StatCard
+                  label="정상"
+                  value={summary.normal}
+                  suffix="건"
+                  loading={loading}
+                  help={{ helpKey: "admin.restManagement.metric.normal" }}
+                />
                 <StatCard
                   label="긴급"
                   value={summary.urgent}
                   suffix="건"
                   tone="urgent"
                   loading={loading}
+                  help={{ helpKey: "admin.restManagement.metric.urgent" }}
                 />
-                <StatCard label="크루" value={summary.crews} suffix="명" loading={loading} />
+                <StatCard
+                  label="크루"
+                  value={summary.crews}
+                  suffix="명"
+                  loading={loading}
+                  help={{ helpKey: "admin.restManagement.metric.crews" }}
+                />
               </div>
             </CardContent>
           </Card>
 
-          {/* 신청 목록 */}
+          {/* 신청 목록 — 헤더(정렬 + 도움말)는 로딩/빈 상태에서도 항상 유지. */}
           <Card>
             <CardContent className="pt-6">
               {listError ? (
                 <div className="py-4 text-sm text-destructive">{listError}</div>
-              ) : listLoading ? (
-                <div className="py-12 text-center text-sm text-muted-foreground">
-                  불러오는 중…
-                </div>
-              ) : listRows.length === 0 ? (
-                <div className="py-12 text-center text-sm text-muted-foreground">
-                  신청된 휴식이 없습니다.
-                </div>
               ) : (
                 <div className="flex flex-col gap-3">
                   <div className="overflow-hidden rounded-lg border">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>진행 상태</TableHead>
-                          <TableHead>주차</TableHead>
-                          <TableHead>분류</TableHead>
-                          <TableHead>크루</TableHead>
-                          <TableHead>소속 팀</TableHead>
-                          <TableHead>클래스</TableHead>
-                          <TableHead className="text-left">사유</TableHead>
-                          <TableHead>신청 시점</TableHead>
-                          <TableHead>휴식 승인</TableHead>
-                          <TableHead aria-label="삭제" />
+                          {COLUMNS.map((col) => (
+                            <ColumnHeader
+                              key={col.key}
+                              col={col}
+                              dir={
+                                columnSort?.key === col.key
+                                  ? columnSort.dir
+                                  : null
+                              }
+                              onSort={() => cycleSort(col.key)}
+                            />
+                          ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {pageRows.map((row) => (
-                          <TableRow key={row.id}>
-                            <TableCell>
-                              <Badge tone={STATUS_TONE[row.displayStatus]}>
-                                {STATUS_LABEL[row.displayStatus]}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="font-medium">{row.weekLabel}</TableCell>
-                            <TableCell>
-                              <Badge tone={TYPE_TONE[row.requestType]} appearance="soft">
-                                {TYPE_LABEL[row.requestType]}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{row.crewName ?? "—"}</TableCell>
-                            <TableCell>{row.teamName ?? "—"}</TableCell>
-                            <TableCell>
-                              <Badge tone={classTone(row.classLabel)} appearance="outline">
-                                {row.classLabel}
-                              </Badge>
-                            </TableCell>
+                        {listLoading && listRows.length === 0 ? (
+                          <TableRow>
                             <TableCell
-                              className="max-w-[320px] text-left"
-                              title={row.reason ?? undefined}
+                              colSpan={COLUMNS.length}
+                              className="py-12 text-center text-sm text-muted-foreground"
                             >
-                              {row.reason ? truncateReason(row.reason) : "—"}
-                            </TableCell>
-                            <TableCell className="text-muted-foreground">
-                              {row.createdAtLabel || "—"}
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => approveRow(row)}
-                              >
-                                휴식 승인
-                              </Button>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label="휴식 신청 삭제"
-                                onClick={() => deleteRow(row)}
-                              >
-                                <X className="size-4" />
-                              </Button>
+                              불러오는 중…
                             </TableCell>
                           </TableRow>
-                        ))}
+                        ) : pageRows.length === 0 ? (
+                          <TableRow>
+                            <TableCell
+                              colSpan={COLUMNS.length}
+                              className="py-12 text-center text-sm text-muted-foreground"
+                            >
+                              신청된 휴식이 없습니다.
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          pageRows.map((row) => (
+                            <TableRow key={row.id}>
+                              <TableCell>
+                                <Badge tone={STATUS_TONE[row.displayStatus]}>
+                                  {STATUS_LABEL[row.displayStatus]}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="font-medium">
+                                {row.weekLabel}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  tone={TYPE_TONE[row.requestType]}
+                                  appearance="soft"
+                                >
+                                  {TYPE_LABEL[row.requestType]}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{row.crewName ?? "—"}</TableCell>
+                              <TableCell>{row.teamName ?? "—"}</TableCell>
+                              <TableCell>
+                                <Badge
+                                  tone={classTone(row.classLabel)}
+                                  appearance="outline"
+                                >
+                                  {row.classLabel}
+                                </Badge>
+                              </TableCell>
+                              <TableCell
+                                className="max-w-[320px] text-left"
+                                title={row.reason ?? undefined}
+                              >
+                                {row.reason ? truncateReason(row.reason) : "—"}
+                              </TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {row.createdAtLabel || "—"}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => approveRow(row)}
+                                >
+                                  휴식 승인
+                                </Button>
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label="휴식 신청 삭제"
+                                  onClick={() => deleteRow(row)}
+                                >
+                                  <X className="size-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
                       </TableBody>
                     </Table>
                   </div>
 
                   {/* 21개부터 페이지네이션 */}
-                  {listRows.length > PAGE_SIZE ? (
+                  {sortedRows.length > PAGE_SIZE ? (
                     <div className="flex items-center justify-center gap-3 pt-1">
                       <Button
                         variant="outline"
