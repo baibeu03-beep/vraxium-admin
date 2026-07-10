@@ -13,12 +13,20 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ExternalLink, RefreshCw, RotateCcw } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronDown,
+  ExternalLink,
+  RefreshCw,
+  RotateCcw,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   Table,
   TableBody,
@@ -114,14 +122,205 @@ function normalizeUnitHref(raw: string): string | null {
   return `https://${t}`;
 }
 
-function StatCard({ label, value }: { label: string; value: number | null }) {
+function StatCard({
+  label,
+  value,
+  helpKey,
+}: {
+  label: string;
+  value: number | null;
+  helpKey: string;
+}) {
   return (
     <div className="rounded-lg border bg-card px-4 py-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
+      <div className="inline-flex items-center gap-1">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+      </div>
       <p className="mt-1 text-2xl font-semibold tabular-nums">
         {value === null ? "—" : value.toLocaleString()}
       </p>
     </div>
+  );
+}
+
+// 필터 라벨 + 요소별 편집형 돋보기 도움말. 라벨 영역에만 배치(입력/Select 폭 불변).
+function FilterLabel({ label, helpKey }: { label: string; helpKey: string }) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+      {label}
+      <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+    </span>
+  );
+}
+
+// ── 표 컬럼 정렬/도움말 정의 (season-weeks 표와 동일 기준) ─────────────────────
+//   · 모든 컬럼 정렬 가능. 정렬 기준값은 표시 문자열이 아니라 "실제 정렬 가능한 값"
+//     (허브/라인 종류=고정 순서 인덱스, 유닛=링크 유무 랭크, 그 외=문자열 locale-aware).
+//   · 헤더는 정렬 button 과 도움말 button 을 형제로 두고, 도움말은 stopPropagation(내부)
+//     + 구조 분리로 정렬을 트리거하지 않는다.
+type InfoColKey =
+  | "club"
+  | "lineCode"
+  | "lineName"
+  | "hub"
+  | "lineType"
+  | "mainTitle"
+  | "unit";
+type InfoSortValue = number | string | null;
+
+// 행에서 각 컬럼의 정렬 기준값을 뽑는 함수 묶음(표시 로직과 동일 SoT 헬퍼 사용).
+type InfoColumnDef = {
+  key: InfoColKey;
+  label: string;
+  helpKey: string;
+  center?: boolean;
+  // 정렬 가치가 있는 컬럼만 true(기본). 자유서술/액션 컬럼은 false → 정렬 컨트롤 미노출.
+  //   (도움말 돋보기는 모든 컬럼에 유지 — 정렬만 제거한다.)
+  sortable: boolean;
+  sortValue: (row: LineRegistrationDto) => InfoSortValue;
+};
+
+const INFO_COLUMNS: InfoColumnDef[] = [
+  // ── 정렬 유지: 범주/식별자 컬럼(그룹핑·조회에 유용) ──
+  {
+    key: "club",
+    label: "적용 클럽",
+    helpKey: "admin.lines.info.column.club",
+    sortable: true,
+    sortValue: (row) =>
+      clubKo(
+        lineRegistrationDisplayClub(row.hub, row.lineType, row.organizationSlug),
+      ),
+  },
+  {
+    key: "lineCode",
+    label: "라인 코드",
+    helpKey: "admin.lines.info.column.lineCode",
+    sortable: true,
+    sortValue: (row) => row.lineCode,
+  },
+  {
+    key: "lineName",
+    label: "라인명",
+    helpKey: "admin.lines.info.column.lineName",
+    sortable: true,
+    sortValue: (row) => row.lineName,
+  },
+  {
+    key: "hub",
+    label: "소속 허브",
+    helpKey: "admin.lines.info.column.hub",
+    sortable: true,
+    // 허브 고정 순서(정보→경험→역량). 미지정은 뒤로.
+    sortValue: (row) => HUB_ORDER.get(row.hub) ?? null,
+  },
+  {
+    key: "lineType",
+    label: "라인 종류",
+    helpKey: "admin.lines.info.column.lineType",
+    sortable: true,
+    sortValue: (row) => LINE_TYPE_ORDER.get(row.lineType) ?? null,
+  },
+  // ── 정렬 제거: 자유서술 표시 컬럼(대부분 '-') · 액션 버튼 컬럼 ──
+  //   (정렬 가치가 낮아 컨트롤만 제거 — 도움말 돋보기는 유지.)
+  {
+    key: "mainTitle",
+    label: "메인 타이틀 내용",
+    helpKey: "admin.lines.info.column.mainTitle",
+    sortable: false,
+    sortValue: () => null,
+  },
+  {
+    key: "unit",
+    label: "유닛",
+    helpKey: "admin.lines.info.column.unit",
+    center: true,
+    sortable: false,
+    sortValue: () => null,
+  },
+];
+
+// null/빈값/"-" 은 정렬 방향과 무관하게 항상 뒤로. 숫자는 숫자, 문자열은 한글 locale.
+function compareInfoSortValues(
+  a: InfoSortValue,
+  b: InfoSortValue,
+  dir: "asc" | "desc",
+): number {
+  const aEmpty = a == null || a === "";
+  const bEmpty = b == null || b === "";
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  let c: number;
+  if (typeof a === "number" && typeof b === "number") c = a - b;
+  else c = String(a).localeCompare(String(b), "ko");
+  return dir === "asc" ? c : -c;
+}
+
+// 컬럼 헤더: 컬럼명+정렬 아이콘(button) 과 도움말(button) 을 형제로 둔다(버튼 중첩 방지).
+function InfoSortableHeader({
+  label,
+  helpKey,
+  dir,
+  center,
+  sortable,
+  onSort,
+}: {
+  label: string;
+  helpKey: string;
+  dir: "asc" | "desc" | null;
+  center?: boolean;
+  sortable: boolean;
+  onSort: () => void;
+}) {
+  return (
+    <TableHead
+      className={cn(center && "text-center")}
+      aria-sort={
+        !sortable
+          ? undefined
+          : dir === "asc"
+            ? "ascending"
+            : dir === "desc"
+              ? "descending"
+              : "none"
+      }
+    >
+      <div
+        className={cn(
+          "inline-flex items-center gap-1",
+          center && "justify-center",
+        )}
+      >
+        {sortable ? (
+          <button
+            type="button"
+            onClick={onSort}
+            aria-label={`${label} 정렬`}
+            className={cn(
+              "inline-flex items-center gap-1 font-semibold tracking-wide text-muted-foreground hover:text-foreground",
+              dir && "text-foreground",
+            )}
+          >
+            <span>{label}</span>
+            {dir === "asc" ? (
+              <ArrowUp className="h-3 w-3" />
+            ) : dir === "desc" ? (
+              <ArrowDown className="h-3 w-3" />
+            ) : (
+              <ArrowUpDown className="h-3 w-3 opacity-40" />
+            )}
+          </button>
+        ) : (
+          // 정렬 비대상 컬럼 — 정렬 컨트롤 없이 라벨만(도움말 돋보기는 유지).
+          <span className="font-semibold tracking-wide text-muted-foreground">
+            {label}
+          </span>
+        )}
+        <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+      </div>
+    </TableHead>
   );
 }
 
@@ -137,6 +336,20 @@ export default function LineRegistrationInfoManager() {
   const [pendingHubs, setPendingHubs] = useState<Set<LineRegistrationHub>>(new Set());
   const [appliedHubs, setAppliedHubs] = useState<Set<LineRegistrationHub>>(new Set());
   const [hubMenuOpen, setHubMenuOpen] = useState(false);
+  // 컬럼 헤더 클릭 정렬. null = 기본 순서(허브→라인 종류→라인 코드).
+  //   클릭 순환: 없음 → 오름차순 → 내림차순 → 기본 복귀. (season-weeks 표와 동일)
+  const [columnSort, setColumnSort] = useState<{
+    key: InfoColKey;
+    dir: "asc" | "desc";
+  } | null>(null);
+
+  const cycleSort = useCallback((key: InfoColKey) => {
+    setColumnSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null; // 내림차순 다음 클릭 → 기본 순서 복귀
+    });
+  }, []);
   // 드롭다운은 body 로 portal 된다(필터 Card 의 overflow-hidden·표/카드 stacking 에 가리지 않게).
   //   trigger 버튼 rect 로 위치(fixed)·너비를 잡고, 스크롤/리사이즈 시 재계산한다.
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -243,6 +456,7 @@ export default function LineRegistrationInfoManager() {
     [rows],
   );
 
+  // 필터 + 기본 순서 정렬 + 공통 라인 중복 제거. 결과 건수(=행 수)의 SoT.
   const filtered = useMemo(() => {
     const list = (rows ?? []).filter((r) => {
       const displayClub = lineRegistrationDisplayClub(
@@ -254,7 +468,7 @@ export default function LineRegistrationInfoManager() {
       if (appliedHubs.size > 0 && !appliedHubs.has(r.hub)) return false;
       return true;
     });
-    const sorted = [...list].sort((a, b) => {
+    const defaultSorted = [...list].sort((a, b) => {
       const hub = (HUB_ORDER.get(a.hub) ?? 99) - (HUB_ORDER.get(b.hub) ?? 99);
       if (hub !== 0) return hub;
       const type =
@@ -266,8 +480,28 @@ export default function LineRegistrationInfoManager() {
       return a.id.localeCompare(b.id);
     });
     // 정렬 후 공통 라인 중복 제거 → 클럽 필터(엥크레/오랑캐/팔랑크스/-)와 무관하게 공통 라인은 1행만.
-    return dedupeCommonLines(sorted);
+    return dedupeCommonLines(defaultSorted);
   }, [rows, clubFilter, appliedHubs]);
+
+  // 표 렌더용 — 컬럼 정렬이 활성이면 그 기준으로 재정렬, 아니면 기본 순서(filtered) 유지.
+  //   원본(filtered)을 mutate 하지 않도록 복사본을 정렬한다. 행 집합은 동일(정렬만 변경).
+  const sorted = useMemo(() => {
+    if (!columnSort) return filtered;
+    const col = INFO_COLUMNS.find((c) => c.key === columnSort.key);
+    if (!col || !col.sortable) return filtered;
+    return [...filtered].sort((a, b) => {
+      const c = compareInfoSortValues(
+        col.sortValue(a),
+        col.sortValue(b),
+        columnSort.dir,
+      );
+      if (c !== 0) return c;
+      // 동값 타이브레이크 — 라인 코드 → id(안정적 표시).
+      return (
+        a.lineCode.localeCompare(b.lineCode, "ko") || a.id.localeCompare(b.id)
+      );
+    });
+  }, [filtered, columnSort]);
 
   const togglePendingHub = useCallback((hub: LineRegistrationHub) => {
     setPendingHubs((prev) => {
@@ -288,6 +522,7 @@ export default function LineRegistrationInfoManager() {
     setPendingHubs(new Set());
     setAppliedHubs(new Set());
     setHubMenuOpen(false);
+    setColumnSort(null);
   }, []);
 
   // 허브 드롭다운 버튼 라벨 — 적용된 허브가 없으면 "-".
@@ -304,33 +539,45 @@ export default function LineRegistrationInfoManager() {
     <div className="flex w-full flex-col gap-4">
       {/* ── 상단 통계 ── */}
       <div className="grid grid-cols-2 gap-3 sm:max-w-md">
-        <StatCard label="전체 허브 갯수" value={statsReady ? totalHubs : null} />
-        <StatCard label="전체 라인 갯수" value={statsReady ? totalLines : null} />
+        <StatCard
+          label="전체 허브 갯수"
+          value={statsReady ? totalHubs : null}
+          helpKey="admin.lines.info.stat.totalHubs"
+        />
+        <StatCard
+          label="전체 라인 갯수"
+          value={statsReady ? totalLines : null}
+          helpKey="admin.lines.info.stat.totalLines"
+        />
       </div>
 
-      {/* ── 필터 ── */}
+      {/* ── 필터 ──
+          · 좌측 필터(클럽·허브)는 flex-1 컨테이너에서 넓은 gap 으로 남는 가로 공간을 활용.
+          · 우측 액션(결과 수·초기화·새로고침)은 shrink-0 로 우측 정렬 유지.
+          · 폭이 줄면 그룹 단위(shrink-0)로 줄바꿈, 우측 영역도 다음 행으로. 가로 스크롤 없음. */}
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-x-5 gap-y-3 py-3">
-          {/* 클럽 — 즉시 적용 */}
-          <div className="flex items-center gap-2">
-            <Label className="shrink-0 text-xs text-muted-foreground">클럽</Label>
-            <select
-              aria-label="클럽 필터"
-              className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-              value={clubFilter}
-              onChange={(e) => setClubFilter(e.target.value as ClubFilter)}
-            >
-              {CLUB_FILTER_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <CardContent className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 py-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-10 gap-y-3">
+            {/* 클럽 — 즉시 적용 */}
+            <div className="flex shrink-0 items-center gap-2">
+              <FilterLabel label="클럽" helpKey="admin.lines.info.filter.club" />
+              <select
+                aria-label="클럽 필터"
+                className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+                value={clubFilter}
+                onChange={(e) => setClubFilter(e.target.value as ClubFilter)}
+              >
+                {CLUB_FILTER_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
           {/* 허브 — 다중 선택 후 [확인] 시 적용 */}
-          <div className="flex items-center gap-2">
-            <Label className="shrink-0 text-xs text-muted-foreground">허브</Label>
+          <div className="flex shrink-0 items-center gap-2">
+            <FilterLabel label="허브" helpKey="admin.lines.info.filter.hub" />
             <button
               type="button"
               ref={triggerRef}
@@ -389,31 +636,53 @@ export default function LineRegistrationInfoManager() {
                 </div>,
                 document.body,
               )}
+            </div>
           </div>
 
-          {/* 우측: 결과 갯수 + 초기화 + 새로고침 */}
-          <div className="ml-auto flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">
-              결과{" "}
-              <span className="font-semibold tabular-nums text-foreground">
-                {filtered.length.toLocaleString()}
+          {/* 우측: 결과 수 + 초기화 + 새로고침 (도움말은 각 요소 외부에 배치) */}
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+              <span>
+                결과 수{" "}
+                <span className="font-semibold tabular-nums text-foreground">
+                  {filtered.length.toLocaleString()}
+                </span>
+                건
               </span>
-              건
+              <AdminHelpIconButton
+                helpKey="admin.lines.info.filter.resultCount"
+                title="결과 수"
+                size="xs"
+              />
             </span>
-            <Button type="button" variant="outline" size="sm" onClick={handleReset}>
-              <RotateCcw className="mr-1.5 h-4 w-4" />
-              초기화
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setRefreshTick((n) => n + 1)}
-              disabled={loading}
-            >
-              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-              <span className="ml-1.5">새로고침</span>
-            </Button>
+            <div className="inline-flex items-center gap-1.5">
+              <Button type="button" variant="outline" size="sm" onClick={handleReset}>
+                <RotateCcw className="mr-1.5 h-4 w-4" />
+                초기화
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.lines.info.button.reset"
+                title="초기화"
+                size="xs"
+              />
+            </div>
+            <div className="inline-flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setRefreshTick((n) => n + 1)}
+                disabled={loading}
+              >
+                <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+                <span className="ml-1.5">새로고침</span>
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.lines.info.button.refresh"
+                title="새로고침"
+                size="xs"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -428,19 +697,27 @@ export default function LineRegistrationInfoManager() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>적용 클럽</TableHead>
-                <TableHead>라인 코드</TableHead>
-                <TableHead>라인명</TableHead>
-                <TableHead>소속 허브</TableHead>
-                <TableHead>라인 종류</TableHead>
-                <TableHead>메인 타이틀 내용</TableHead>
-                <TableHead className="text-center">유닛</TableHead>
+                {INFO_COLUMNS.map((col) => (
+                  <InfoSortableHeader
+                    key={col.key}
+                    label={col.label}
+                    helpKey={col.helpKey}
+                    center={col.center}
+                    sortable={col.sortable}
+                    dir={
+                      col.sortable && columnSort?.key === col.key
+                        ? columnSort.dir
+                        : null
+                    }
+                    onSort={() => cycleSort(col.key)}
+                  />
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading && !rows ? (
                 <TableSkeletonRows columns={7} rows={6} />
-              ) : filtered.length === 0 ? (
+              ) : sorted.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={7}
@@ -450,7 +727,7 @@ export default function LineRegistrationInfoManager() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map((row) => {
+                sorted.map((row) => {
                   const displayClub = lineRegistrationDisplayClub(
                     row.hub,
                     row.lineType,

@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { cn } from "@/lib/utils";
 import {
   LINE_REGISTRATION_HUBS,
@@ -52,32 +53,59 @@ function lineTypeOptions(hub: HubSelection): readonly string[] {
 }
 
 // ──────────────────────────────────────────────────────────────
-// 폼 행 — 라벨(좌, 고정폭) + 입력(우). 라벨 세로 정렬 + 간격 통일용 공통 래퍼.
+// 필드 라벨 — 라벨 텍스트 + 요소별 편집형 돋보기 도움말(AdminHelpIconButton).
+//   · 도움말 아이콘은 "라벨 영역에만" 배치 → 아래 입력/Select 폭에 영향 없음.
+//   · helpKey 는 요소마다 고유. 본문은 코드에 하드코딩하지 않고 /api/admin/help 저장소가 SoT.
+// ──────────────────────────────────────────────────────────────
+
+function FieldLabel({
+  label,
+  helpKey,
+  required,
+  muted,
+}: {
+  label: string;
+  helpKey: string;
+  required?: boolean;
+  // 실무 경력 카드처럼 작은 보조 라벨(text-xs text-muted-foreground)로 표시할 때.
+  muted?: boolean;
+}) {
+  return (
+    <div className="inline-flex items-center gap-1">
+      <Label
+        className={cn(
+          "whitespace-nowrap",
+          muted ? "text-xs text-muted-foreground" : "text-sm text-foreground",
+        )}
+      >
+        {label}
+        {required && <span className="ml-0.5 text-red-500">*</span>}
+      </Label>
+      <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// 폼 그룹 — 라벨(+도움말)을 위에, 입력을 아래 전체 폭으로 두는 세로 그룹.
+//   · 라벨↔입력 내부 간격(gap-1.5)은 좁게 유지, 그룹 사이 간격은 부모 grid gap 이 담당.
+//   · min-w-0 로 좁은 화면에서도 그룹 단위로 자연스럽게 줄바꿈.
 // ──────────────────────────────────────────────────────────────
 
 function FormRow({
   label,
+  helpKey,
   required,
   children,
-  alignTop,
 }: {
   label: string;
+  helpKey: string;
   required?: boolean;
   children: React.ReactNode;
-  alignTop?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        // 라벨 컬럼: "메인 타이틀" 등 최장 라벨이 커진 폰트에서 한 줄로 들어오도록 128px 확보.
-        "grid grid-cols-[128px_minmax(0,1fr)] gap-3",
-        alignTop ? "items-start" : "items-center",
-      )}
-    >
-      <Label className={cn("whitespace-nowrap text-sm text-foreground", alignTop && "pt-2")}>
-        {label}
-        {required && <span className="ml-0.5 text-red-500">*</span>}
-      </Label>
+    <div className="flex min-w-0 flex-col gap-1.5">
+      <FieldLabel label={label} helpKey={helpKey} required={required} />
       <div className="min-w-0">{children}</div>
     </div>
   );
@@ -353,7 +381,7 @@ export default function LineRegistrationManager() {
           {/* ── 기본 정보 — 1행 라인명 / 2행 허브·종류 / 3행 코드·유닛 링크 / 4행 메인 타이틀 ── */}
           <div className="space-y-4">
             {/* 1행: 라인명 (전체 폭) */}
-            <FormRow label="라인명" required>
+            <FormRow label="라인명" helpKey="admin.lines.register.lineName" required>
               <Input
                 value={lineName}
                 onChange={(e) => setLineName(e.target.value)}
@@ -363,7 +391,7 @@ export default function LineRegistrationManager() {
 
             {/* 2행: 소속 허브 | 라인 종류 | 소속 조직 */}
             <div className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-3">
-              <FormRow label="소속 허브" required>
+              <FormRow label="소속 허브" helpKey="admin.lines.register.hub" required>
                 <select
                   aria-label="소속 허브"
                   className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
@@ -378,7 +406,7 @@ export default function LineRegistrationManager() {
                   ))}
                 </select>
               </FormRow>
-              <FormRow label="라인 종류" required>
+              <FormRow label="라인 종류" helpKey="admin.lines.register.lineType" required>
                 <select
                   aria-label="라인 종류"
                   className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
@@ -397,7 +425,7 @@ export default function LineRegistrationManager() {
                   )}
                 </select>
               </FormRow>
-              <FormRow label="소속 조직">
+              <FormRow label="소속 조직" helpKey="admin.lines.register.organization">
                 {/* Phase 2C: 미지정('-')도 등록 가능하나 개설 브리지는 조직 지정 행만 가능. */}
                 <select
                   aria-label="소속 조직"
@@ -417,15 +445,14 @@ export default function LineRegistrationManager() {
 
             {/* 3행: 라인 코드 | 유닛 링크 (1:1) */}
             <div className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-2">
-              {/* 유닛 링크 셀(안내 문구 포함)과 입력창 상단 정렬을 맞추기 위해 alignTop */}
-              <FormRow label="라인 코드" required alignTop>
+              <FormRow label="라인 코드" helpKey="admin.lines.register.lineCode" required>
                 <Input
                   value={lineCode}
                   onChange={(e) => setLineCode(e.target.value)}
                   placeholder="예) WCBS-NL0001"
                 />
               </FormRow>
-              <FormRow label="유닛 링크" alignTop>
+              <FormRow label="유닛 링크" helpKey="admin.lines.register.unitLink">
                 <div className="space-y-1.5">
                   <Input
                     value={unitLink}
@@ -441,7 +468,11 @@ export default function LineRegistrationManager() {
             </div>
 
             {/* 4행: 메인 타이틀 (전체 폭) */}
-            <FormRow label="메인 타이틀" required={mainTitleMode === "fixed"} alignTop>
+            <FormRow
+              label="메인 타이틀"
+              helpKey="admin.lines.register.mainTitle"
+              required={mainTitleMode === "fixed"}
+            >
               <div className="space-y-2">
                 <Input
                   value={mainTitle}
@@ -484,9 +515,16 @@ export default function LineRegistrationManager() {
             aria-disabled={!isCareer}
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                실무 경력 전용 입력
-              </h3>
+              <div className="inline-flex items-center gap-1">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  실무 경력 전용 입력
+                </h3>
+                <AdminHelpIconButton
+                  helpKey="admin.lines.register.careerSection"
+                  title="실무 경력 전용 입력"
+                  size="xs"
+                />
+              </div>
               {!isCareer && (
                 <span className="text-xs text-muted-foreground">
                   소속 허브가 &quot;실무 경력&quot;일 때만 활성화됩니다
@@ -497,7 +535,11 @@ export default function LineRegistrationManager() {
               {/* 좌측 열: 제휴/연계사 + 기업 로고 */}
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">제휴/연계사</Label>
+                  <FieldLabel
+                    label="제휴/연계사"
+                    helpKey="admin.lines.register.partnerCompany"
+                    muted
+                  />
                   <Input
                     value={partnerCompany}
                     onChange={(e) => setPartnerCompany(e.target.value)}
@@ -506,7 +548,11 @@ export default function LineRegistrationManager() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">기업 로고</Label>
+                  <FieldLabel
+                    label="기업 로고"
+                    helpKey="admin.lines.register.companyLogo"
+                    muted
+                  />
                   <LogoUploadField
                     value={companyLogo}
                     onChange={setCompanyLogo}
@@ -519,7 +565,11 @@ export default function LineRegistrationManager() {
               {/* 중앙 열: 담당자명 / 직급 / 직무 / 프로필 사진 */}
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">담당자명</Label>
+                  <FieldLabel
+                    label="담당자명"
+                    helpKey="admin.lines.register.managerName"
+                    muted
+                  />
                   <Input
                     value={managerName}
                     onChange={(e) => setManagerName(e.target.value)}
@@ -528,7 +578,11 @@ export default function LineRegistrationManager() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">직급</Label>
+                  <FieldLabel
+                    label="직급"
+                    helpKey="admin.lines.register.managerPosition"
+                    muted
+                  />
                   <Input
                     value={managerPosition}
                     onChange={(e) => setManagerPosition(e.target.value)}
@@ -537,7 +591,11 @@ export default function LineRegistrationManager() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">직무</Label>
+                  <FieldLabel
+                    label="직무"
+                    helpKey="admin.lines.register.managerJob"
+                    muted
+                  />
                   <Input
                     value={managerJob}
                     onChange={(e) => setManagerJob(e.target.value)}
@@ -546,7 +604,11 @@ export default function LineRegistrationManager() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">프로필 사진</Label>
+                  <FieldLabel
+                    label="프로필 사진"
+                    helpKey="admin.lines.register.managerProfile"
+                    muted
+                  />
                   <select
                     aria-label="프로필 사진"
                     className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
@@ -603,14 +665,28 @@ export default function LineRegistrationManager() {
             </div>
           </section>
 
-          {/* ── 버튼 (우측 하단: 등록 · 초기화) ── */}
-          <div className="flex items-center justify-end gap-2 border-t pt-4">
-            <Button type="button" loading={saving} onClick={() => void handleSubmit()}>
-              등록
-            </Button>
-            <Button type="button" variant="outline" onClick={handleReset} disabled={saving}>
-              초기화
-            </Button>
+          {/* ── 버튼 (우측 하단: 등록 · 초기화) — 도움말 아이콘은 버튼 외부에 배치 ── */}
+          <div className="flex items-center justify-end gap-4 border-t pt-4">
+            <div className="inline-flex items-center gap-1.5">
+              <Button type="button" loading={saving} onClick={() => void handleSubmit()}>
+                등록
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.lines.register.submit"
+                title="등록"
+                size="sm"
+              />
+            </div>
+            <div className="inline-flex items-center gap-1.5">
+              <Button type="button" variant="outline" onClick={handleReset} disabled={saving}>
+                초기화
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.lines.register.reset"
+                title="초기화"
+                size="sm"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

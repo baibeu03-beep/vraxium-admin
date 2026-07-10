@@ -28,6 +28,13 @@ import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatClubDate } from "@/lib/clubDate";
+import {
+  itemLabel,
+  seasonOptions,
+  YEAR_OPTIONS,
+  SEASON_LABEL,
+  type SeasonToken,
+} from "@/lib/seasonSelectOptions";
 
 // ── 데이터 타입: /api/admin/season-weeks 응답 DTO 그대로 (수정 금지) ──────────
 type SeasonSummary = {
@@ -83,24 +90,14 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "oldest", label: "오래된 순" },
 ];
 
-// 년도 옵션은 기획 고정값 (데이터 유무와 무관하게 노출). 보이드(-) 아래 최신 년도순.
-const YEAR_OPTIONS = ["2026", "2025", "2024", "2023", "2022"] as const;
-
-type SeasonToken = "spring" | "summer" | "autumn" | "winter";
-
-const SEASON_OPTIONS: { key: SeasonToken; label: string }[] = [
-  { key: "spring", label: "봄" },
-  { key: "summer", label: "여름" },
-  { key: "autumn", label: "가을" },
-  { key: "winter", label: "겨울" },
-];
-
-const SEASON_TOKEN_LABEL: Record<SeasonToken, string> = {
-  spring: "봄",
-  summer: "여름",
-  autumn: "가을",
-  winter: "겨울",
-};
+// 연도(기획 고정값 2022~2026)·계절 label 은 공용 SoT(@/lib/seasonSelectOptions) 재사용.
+//   데이터 유무와 무관하게 노출. 보이드(-) 아래 최신 연도순.
+// 시즌 필터 노출 순서: 봄·여름·가을·겨울. 라벨은 공용 SEASON_LABEL.
+const SEASON_ORDER: SeasonToken[] = ["spring", "summer", "autumn", "winter"];
+const SEASON_OPTIONS = SEASON_ORDER.map((key) => ({
+  key,
+  label: SEASON_LABEL[key],
+}));
 
 type ActivityKey = "official" | "rest";
 
@@ -110,14 +107,12 @@ const ACTIVITY_OPTIONS: { key: ActivityKey; label: string }[] = [
 ];
 
 // base-ui Select 는 items 매핑이 있어야 닫힌 트리거에 라벨(값 아님)을 표시한다.
+// 옵션 목록 렌더와 트리거 라벨 해석이 동일 배열(items SoT)을 쓰도록 한다.
 const SORT_ITEMS = SORT_OPTIONS.map((o) => ({ value: o.key, label: o.label }));
-const YEAR_ITEMS = [
-  { value: ALL, label: "-" },
-  ...YEAR_OPTIONS.map((y) => ({ value: y, label: `${y}년` })),
-];
+const YEAR_ITEMS = [{ value: ALL, label: "-" }, ...YEAR_OPTIONS];
 const SEASON_ITEMS = [
   { value: ALL, label: "-" },
-  ...SEASON_OPTIONS.map((o) => ({ value: o.key, label: o.label })),
+  ...seasonOptions(SEASON_ORDER),
 ];
 const ACTIVITY_ITEMS = [
   { value: ALL, label: "-" },
@@ -175,7 +170,7 @@ function rowSeasonToken(row: SeasonWeekRow): SeasonToken | null {
 function rowSeasonLabel(row: SeasonWeekRow): string {
   if (row.is_transition) return "전환";
   const token = rowSeasonToken(row);
-  return token ? SEASON_TOKEN_LABEL[token] : "-";
+  return token ? SEASON_LABEL[token] : "-";
 }
 
 // 주차 코드의 년도: 시즌 귀속 년도(season_key 의 4자리) 우선, 주차 시작일 폴백.
@@ -213,7 +208,7 @@ function rowRemark(row: SeasonWeekRow): string {
     const next = NEXT_SEASON[token];
     // 겨울 → 봄 전환은 해가 바뀐다.
     const nextYear = token === "winter" ? String(Number(year) + 1) : year;
-    return `${year.slice(2)}년 ${SEASON_TOKEN_LABEL[token]} 시즌 → ${nextYear.slice(2)}년 ${SEASON_TOKEN_LABEL[next]} 시즌으로의 시즌 전환 휴식`;
+    return `${year.slice(2)}년 ${SEASON_LABEL[token]} 시즌 → ${nextYear.slice(2)}년 ${SEASON_LABEL[next]} 시즌으로의 시즌 전환 휴식`;
   }
 
   if (!row.is_official_rest) return "";
@@ -276,7 +271,9 @@ function FilterField({
   children: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
+    // shrink-0: 폭이 줄어도 라벨과 select 가 분리되지 않고 그룹 단위로 줄바꿈되도록.
+    //   라벨↔select 간격(gap-1.5)은 기존 유지.
+    <div className="flex shrink-0 items-center gap-1.5">
       <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
         {label}
         {helpKey && (
@@ -329,7 +326,7 @@ const COLUMNS: ColumnDef[] = [
   },
   {
     key: "year",
-    label: "년도",
+    label: "연도",
     helpKey: "admin.seasonWeeks.column.year",
     sortValue: (row) => {
       const y = rowYear(row);
@@ -621,94 +618,105 @@ export default function SeasonWeeksTable() {
         </div>
       )}
 
-      {/* 필터/정렬 영역 */}
+      {/* 필터/정렬 영역
+          · 좌측 필터 4그룹은 flex-1 컨테이너 안에서 justify-between 으로 남는 가로 공간을
+            고르게 활용(좌측 쏠림 방지). 우측 결과/초기화는 shrink-0 로 우측 정렬 유지.
+          · 폭이 줄면 그룹 단위(FilterField=shrink-0)로 줄바꿈, 우측 영역도 다음 행으로.
+            가로 스크롤은 생기지 않는다(min-w-0 + flex-wrap). */}
       <Card size="sm">
-        <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
-          <FilterField label="정렬" helpKey="admin.seasonWeeks.filter.sort">
-            <Select
-              items={SORT_ITEMS}
-              value={sort}
-              onValueChange={(v) => setSort((v as SortKey) ?? "latest")}
-            >
-              <SelectTrigger className="w-28" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((option) => (
-                  <SelectItem key={option.key} value={option.key}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FilterField>
+        <CardContent className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 py-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-8 gap-y-3">
+            <FilterField label="정렬" helpKey="admin.seasonWeeks.filter.sort">
+              <Select
+                items={SORT_ITEMS}
+                value={sort}
+                onValueChange={(v) => setSort((v as SortKey) ?? "latest")}
+              >
+                <SelectTrigger className="w-28" size="sm">
+                  <SelectValue>
+                    {(v) => itemLabel(SORT_ITEMS, v as string)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {SORT_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FilterField>
 
-          <FilterField label="년도" helpKey="admin.seasonWeeks.filter.year">
-            <Select
-              items={YEAR_ITEMS}
-              value={yearFilter}
-              onValueChange={(v) => setYearFilter(v ?? ALL)}
-            >
-              <SelectTrigger className="w-28" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>-</SelectItem>
-                {YEAR_OPTIONS.map((year) => (
-                  <SelectItem key={year} value={year}>
-                    {year}년
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FilterField>
+            <FilterField label="연도" helpKey="admin.seasonWeeks.filter.year">
+              <Select
+                items={YEAR_ITEMS}
+                value={yearFilter}
+                onValueChange={(v) => setYearFilter(v ?? ALL)}
+              >
+                <SelectTrigger className="w-28" size="sm">
+                  <SelectValue>
+                    {(v) => itemLabel(YEAR_ITEMS, v as string)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {YEAR_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FilterField>
 
-          <FilterField label="시즌" helpKey="admin.seasonWeeks.filter.season">
-            <Select
-              items={SEASON_ITEMS}
-              value={seasonFilter}
-              onValueChange={(v) => setSeasonFilter(v ?? ALL)}
-            >
-              <SelectTrigger className="w-24" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>-</SelectItem>
-                {SEASON_OPTIONS.map((option) => (
-                  <SelectItem key={option.key} value={option.key}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FilterField>
+            <FilterField label="시즌" helpKey="admin.seasonWeeks.filter.season">
+              <Select
+                items={SEASON_ITEMS}
+                value={seasonFilter}
+                onValueChange={(v) => setSeasonFilter(v ?? ALL)}
+              >
+                <SelectTrigger className="w-24" size="sm">
+                  <SelectValue>
+                    {(v) => itemLabel(SEASON_ITEMS, v as string)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {SEASON_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FilterField>
 
-          <FilterField label="활동" helpKey="admin.seasonWeeks.filter.activity">
-            <Select
-              items={ACTIVITY_ITEMS}
-              value={activityFilter}
-              onValueChange={(v) => setActivityFilter(v ?? ALL)}
-            >
-              <SelectTrigger className="w-28" size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>-</SelectItem>
-                {ACTIVITY_OPTIONS.map((option) => (
-                  <SelectItem key={option.key} value={option.key}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FilterField>
+            <FilterField label="활동" helpKey="admin.seasonWeeks.filter.activity">
+              <Select
+                items={ACTIVITY_ITEMS}
+                value={activityFilter}
+                onValueChange={(v) => setActivityFilter(v ?? ALL)}
+              >
+                <SelectTrigger className="w-28" size="sm">
+                  <SelectValue>
+                    {(v) => itemLabel(ACTIVITY_ITEMS, v as string)}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {ACTIVITY_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FilterField>
+          </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <span
               className="text-sm text-muted-foreground tabular-nums"
               data-testid="result-count"
             >
-              결과 {loading ? "-" : filtered.length}건
+              결과 수 {loading ? "-" : filtered.length}건
             </span>
             <Button
               type="button"

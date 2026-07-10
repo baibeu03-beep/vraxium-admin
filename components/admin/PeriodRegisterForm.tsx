@@ -16,6 +16,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatClubDate } from "@/lib/clubDate";
+import {
+  itemLabel,
+  seasonOptions,
+  YEAR_OPTIONS,
+  SEASON_LABEL,
+  type SeasonToken,
+} from "@/lib/seasonSelectOptions";
 
 // ── 데이터 타입: /api/admin/season-weeks 응답 DTO 그대로 (기간 정보와 동일 원천 —
 //    기간 등록 전용 데이터 구조를 만들지 않는다) ─────────────────────────────
@@ -36,18 +43,14 @@ type ApiPayload = {
 const NONE = "__none__";
 const NOTE_MAX_LENGTH = 30;
 
-// 기간 선택.1 / 연도 선택 공통: 2022~2026 (기획 고정값)
-const YEAR_OPTIONS = ["2026", "2025", "2024", "2023", "2022"] as const;
-
-type SeasonToken = "winter" | "spring" | "summer" | "autumn";
-
-// 시즌 선택: 겨울/봄/여름/가을 순 (기획 명세 순서)
-const SEASON_OPTIONS: { key: SeasonToken; label: string }[] = [
-  { key: "winter", label: "겨울" },
-  { key: "spring", label: "봄" },
-  { key: "summer", label: "여름" },
-  { key: "autumn", label: "가을" },
-];
+// 연도(기획 고정값 2022~2026)·계절 label 은 공용 SoT(@/lib/seasonSelectOptions) 재사용.
+//   기간 선택.1 / 연도 선택 = YEAR_OPTIONS.
+// 시즌 선택: 겨울/봄/여름/가을 순 (기획 명세 순서). 라벨은 공용 SEASON_LABEL.
+const SEASON_ORDER: SeasonToken[] = ["winter", "spring", "summer", "autumn"];
+const SEASON_OPTIONS = SEASON_ORDER.map((key) => ({
+  key,
+  label: SEASON_LABEL[key],
+}));
 
 // 주차 선택: 0~18
 const WEEK_OPTIONS = Array.from({ length: 19 }, (_, i) => String(i));
@@ -70,13 +73,11 @@ const SEASON_WEEKS: Record<SeasonToken, number> = {
 };
 
 // base-ui Select 는 items 매핑이 있어야 닫힌 트리거에 라벨을 표시한다.
-const YEAR_ITEMS = [
-  { value: NONE, label: "-" },
-  ...YEAR_OPTIONS.map((y) => ({ value: y, label: `${y}년` })),
-];
+// 옵션 목록 렌더와 트리거 라벨 해석이 동일 배열(items SoT)을 쓰도록 한다.
+const YEAR_ITEMS = [{ value: NONE, label: "-" }, ...YEAR_OPTIONS];
 const SEASON_ITEMS = [
   { value: NONE, label: "-" },
-  ...SEASON_OPTIONS.map((o) => ({ value: o.key, label: o.label })),
+  ...seasonOptions(SEASON_ORDER),
 ];
 const WEEK_ITEMS = [
   { value: NONE, label: "-" },
@@ -86,18 +87,6 @@ const ACTIVITY_ITEMS = [
   { value: NONE, label: "-" },
   ...ACTIVITY_OPTIONS.map((o) => ({ value: o.key, label: o.label })),
 ];
-
-// 닫힌 트리거 표시값 = 옵션 목록과 동일한 items SoT 의 label.
-//   현재 value 에 대응하는 option 을 찾아 그 label 을 반환한다(없으면 value 그대로).
-//   ⚠️ value(저장/전송값)는 불변 — 표시 문구만 정규화한다.
-//   공용 SelectValue 래퍼는 items 라벨을 조회하지 않고 raw value 를 그대로 노출하므로,
-//   base-ui 표준 <Select.Value> children 포매터로 items→label 을 명시 해석한다.
-function itemLabel(
-  items: ReadonlyArray<{ value: string; label: string }>,
-  value: string,
-): string {
-  return items.find((it) => it.value === value)?.label ?? value;
-}
 
 // ── 주차 후보 생성 (월~일, "그 주의 수요일이 속한 년도" 기준) ────────────────
 type WeekCandidate = {
