@@ -656,11 +656,13 @@ export default function MembersList({
           <CardHeader className="flex flex-row items-start justify-between gap-2">
             <div className="space-y-1.5">
               <CardTitle className="text-base">크루 목록</CardTitle>
-              <CardDescription>
-                {lockedOrg ? "필터" : "클럽·필터"}를 고른 뒤 <b>확인</b>을 눌러야 목록에
-                반영됩니다. 검색은 {lockedOrg ? "필터" : "클럽/필터"}와 중첩되지 않습니다.
-                헤더 클릭으로 다중 정렬(클릭 순서 = 우선순위).
-              </CardDescription>
+              {/* 제목 아래 = 전체 현황(전체/활동/휴식/중단)만. 결과 값은 확인 버튼 옆(필터 결과). */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                <span className="whitespace-nowrap">전체 <b className="text-foreground">{total.toLocaleString()}</b></span>
+                <span className="whitespace-nowrap">· 활동 {statusCounts.active.toLocaleString()}</span>
+                <span className="whitespace-nowrap">· 휴식 {statusCounts.rest.toLocaleString()}</span>
+                <span className="whitespace-nowrap">· 중단 {statusCounts.stopped.toLocaleString()}</span>
+              </div>
             </div>
             <Button variant="outline" onClick={reload} disabled={loading}>
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -669,7 +671,7 @@ export default function MembersList({
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {/* 조건 영역 */}
-            <div className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/30 p-3">
+            <div className="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-lg border bg-muted/30 p-3">
               {/* 클럽 드롭다운 — 크루 모드(lockedOrg)는 org 가 고정이라 숨긴다. */}
               {!lockedOrg && (
                 <label className="flex flex-col gap-1 text-xs text-muted-foreground">
@@ -687,7 +689,7 @@ export default function MembersList({
                       lastEditedRef.current = "condition";
                       setPendingClub(e.target.value as ClubValue);
                     }}
-                    className="h-9 w-36 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                    className="h-9 w-48 min-w-[180px] rounded-md border border-input bg-background px-3 text-sm text-foreground"
                   >
                     {CLUB_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
@@ -713,7 +715,7 @@ export default function MembersList({
                     lastEditedRef.current = "condition";
                     setPendingFilter(e.target.value as FilterValue);
                   }}
-                  className="h-9 w-36 rounded-md border border-input bg-background px-3 text-sm text-foreground"
+                  className="h-9 w-48 min-w-[180px] rounded-md border border-input bg-background px-3 text-sm text-foreground"
                 >
                   {FILTER_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -749,24 +751,18 @@ export default function MembersList({
                 </div>
               </label>
 
-              {/* 우측 그룹: [확인] · 결과 값 n · [초기화] */}
+              {/* 우측 그룹: [확인] · 결과 값 n · [초기화] (전체 현황 집계는 카드 헤더로 이동) */}
               <div className="ml-auto flex items-center gap-4">
                 <Button onClick={applyConditions} disabled={loading}>
                   확인
                 </Button>
 
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <span>전체 <b className="text-foreground">{total.toLocaleString()}</b></span>
-                  <span>· 활동 {statusCounts.active.toLocaleString()}</span>
-                  <span>· 휴식 {statusCounts.rest.toLocaleString()}</span>
-                  <span>· 중단 {statusCounts.stopped.toLocaleString()}</span>
-                  <span className="flex items-center gap-2">
-                    결과 값
-                    <span className="rounded-full border border-foreground/20 bg-foreground/5 px-3 py-1 font-mono text-sm text-foreground">
-                      {loading ? "…" : filteredTotal.toLocaleString()}
-                    </span>
+                <span className="flex items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
+                  결과 값
+                  <span className="rounded-full border border-foreground/20 bg-foreground/5 px-3 py-1 font-mono text-sm text-foreground">
+                    {loading ? "…" : filteredTotal.toLocaleString()}
                   </span>
-                </div>
+                </span>
 
                 <Button variant="outline" onClick={resetConditions} disabled={loading}>
                   <RotateCcw className="h-4 w-4" />
