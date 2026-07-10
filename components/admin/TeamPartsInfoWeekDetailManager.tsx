@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
+import OrganizationBadge from "@/components/admin/OrganizationBadge";
 import { ActionControl } from "@/components/admin/ActionControl";
 import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -1055,6 +1056,11 @@ export default function TeamPartsInfoWeekDetailManager({
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <CardTitle>활동 관리</CardTitle>
         <div className="flex items-center gap-3">
+          {/* 현재 조직명(한글) — lib/organizations 단일 SoT(OrganizationBadge) 재사용.
+              이 페이지의 org 컨텍스트(club)를 그대로 사용(별도 재계산·하드코딩 없음)·
+              mode=test/demoUserId 무관 동일 렌더·org 미상이면 미표시. 제목(text-base)보다
+              한 단계 작은 text-sm, 한 줄 유지. */}
+          <OrganizationBadge orgSlug={club} className="text-sm whitespace-nowrap" />
           <Link
             href={listHref}
             className="text-xs text-muted-foreground underline-offset-2 hover:underline"
