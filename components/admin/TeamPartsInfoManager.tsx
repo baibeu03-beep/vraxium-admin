@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -420,9 +421,16 @@ export default function TeamPartsInfoManager() {
 
         {/* ── [섹션.1] 요약 ─────────────────────────────── */}
         <section className="rounded-lg border border-dashed border-red-300 p-4">
-          <div className="mb-3 flex flex-wrap items-center gap-x-8 gap-y-3">
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              <span>● 해당 시기</span>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+            {/* 좌: 조회 조건(해당 시기) */}
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <span className="inline-flex items-center gap-1">
+                <span>● 해당 시기</span>
+                <AdminHelpIconButton
+                  helpKey="admin.teamParts.info.filter.half"
+                  title="해당 시기"
+                />
+              </span>
               <select
                 id="team-parts-half-select"
                 className={SELECT_CLS}
@@ -437,19 +445,30 @@ export default function TeamPartsInfoManager() {
                   </option>
                 ))}
               </select>
-            </label>
-            <span className="text-sm">
-              · 클럽 수{" "}
-              <strong id="team-parts-club-count" className="text-base">
-                {clubCount}
-              </strong>
-            </span>
-            <span className="text-sm">
-              · 전체 팀 수{" "}
-              <strong id="team-parts-total-team-count" className="text-base">
-                {totalTeams}
-              </strong>
-            </span>
+            </div>
+            {/* 우: 요약 지표 */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <span className="inline-flex items-center gap-1 text-sm">
+                · 클럽 수{" "}
+                <strong id="team-parts-club-count" className="text-base">
+                  {clubCount}
+                </strong>
+                <AdminHelpIconButton
+                  helpKey="admin.teamParts.info.summary.clubCount"
+                  title="클럽 수"
+                />
+              </span>
+              <span className="inline-flex items-center gap-1 text-sm">
+                · 전체 팀 수{" "}
+                <strong id="team-parts-total-team-count" className="text-base">
+                  {totalTeams}
+                </strong>
+                <AdminHelpIconButton
+                  helpKey="admin.teamParts.info.summary.totalTeams"
+                  title="전체 팀 수"
+                />
+              </span>
+            </div>
           </div>
 
           {loading ? (
@@ -507,49 +526,72 @@ export default function TeamPartsInfoManager() {
         {/* ── [섹션.2] 조직 탭 + 팀 등록 박스 ── */}
         {!loading && halves.length > 0 ? (
           <section className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex gap-1">
-                {ORGANIZATIONS.map((org) => (
-                  <button
-                    key={org}
-                    type="button"
-                    data-org-tab={org}
-                    onClick={() => onTabChange(org)}
+            <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+              {/* 좌: 조직 선택(탭) */}
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="inline-flex items-center gap-1 text-sm font-semibold">
+                  <span>조직</span>
+                  <AdminHelpIconButton
+                    helpKey="admin.teamParts.info.filter.organization"
+                    title="조직"
+                  />
+                </span>
+                <div className="flex gap-1">
+                  {ORGANIZATIONS.map((org) => (
+                    <button
+                      key={org}
+                      type="button"
+                      data-org-tab={org}
+                      onClick={() => onTabChange(org)}
+                      className={
+                        "rounded-md border px-3 py-1.5 text-sm font-bold " +
+                        (activeOrg === org
+                          ? TAB_ACTIVE_CLS[org]
+                          : "border-input bg-background text-muted-foreground")
+                      }
+                    >
+                      {CLUB_LABEL[org]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* 우: 팀 수 · 반기 편집 상태 */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                <span className="inline-flex items-center gap-1 text-sm">
+                  · 팀 수{" "}
+                  <strong id="team-parts-active-team-count" className="text-base">
+                    {activeTeams.length}
+                  </strong>
+                  <span className="text-muted-foreground">
+                    {" "}
+                    / {MAX_TEAMS_PER_CLUB}
+                  </span>
+                  <AdminHelpIconButton
+                    helpKey="admin.teamParts.info.summary.activeTeamCount"
+                    title="팀 수"
+                  />
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span
                     className={
-                      "rounded-md border px-3 py-1.5 text-sm font-bold " +
-                      (activeOrg === org
-                        ? TAB_ACTIVE_CLS[org]
-                        : "border-input bg-background text-muted-foreground")
+                      "rounded-md px-2 py-1 text-xs " +
+                      (editable
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-muted text-muted-foreground")
                     }
                   >
-                    {CLUB_LABEL[org]}
-                  </button>
-                ))}
-              </div>
-              <span className="text-sm">
-                · 팀 수{" "}
-                <strong id="team-parts-active-team-count" className="text-base">
-                  {activeTeams.length}
-                </strong>
-                <span className="text-muted-foreground">
-                  {" "}
-                  / {MAX_TEAMS_PER_CLUB}
+                    {isCurrentHalf
+                      ? "현재 반기 · 수정 가능"
+                      : editable
+                        ? "다음 반기 · 수정 가능"
+                        : "과거 반기 · 조회 전용"}
+                  </span>
+                  <AdminHelpIconButton
+                    helpKey="admin.teamParts.info.summary.editableStatus"
+                    title="반기 편집 상태"
+                  />
                 </span>
-              </span>
-              <span
-                className={
-                  "rounded-md px-2 py-1 text-xs " +
-                  (editable
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-muted text-muted-foreground")
-                }
-              >
-                {isCurrentHalf
-                  ? "현재 반기 · 수정 가능"
-                  : editable
-                    ? "다음 반기 · 수정 가능"
-                    : "과거 반기 · 조회 전용"}
-              </span>
+              </div>
             </div>
 
             {/* 등록된 팀 box 누적(위) — 시안 [4]. 하단 주차별 내역 영역은 범위 제외. */}
@@ -572,27 +614,39 @@ export default function TeamPartsInfoManager() {
                   <span className="flex-1 rounded-md border border-input bg-muted/30 px-3 py-1.5 text-sm">
                     {dash(t.description)}
                   </span>
-                  <div className="flex shrink-0 gap-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      data-team-edit={t.teamName}
-                      disabled={!editable}
-                      onClick={() => openEditModal(t)}
-                    >
-                      수정
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      data-team-delete={t.teamName}
-                      disabled={!editable}
-                      onClick={() => setDeleteTarget(t)}
-                    >
-                      삭제
-                    </Button>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <span className="inline-flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        data-team-edit={t.teamName}
+                        disabled={!editable}
+                        onClick={() => openEditModal(t)}
+                      >
+                        수정
+                      </Button>
+                      <AdminHelpIconButton
+                        helpKey="admin.teamParts.info.action.edit"
+                        title="팀 수정"
+                      />
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        data-team-delete={t.teamName}
+                        disabled={!editable}
+                        onClick={() => setDeleteTarget(t)}
+                      >
+                        삭제
+                      </Button>
+                      <AdminHelpIconButton
+                        helpKey="admin.teamParts.info.action.delete"
+                        title="팀 삭제"
+                      />
+                    </span>
                   </div>
                 </div>
 
@@ -658,7 +712,13 @@ export default function TeamPartsInfoManager() {
                         <thead>
                           <tr>
                             <th className="sticky left-0 z-10 border-b border-r bg-zinc-50 px-2 py-1 text-left font-semibold whitespace-nowrap">
-                              파트 \ 주차
+                              <span className="inline-flex items-center gap-1">
+                                파트 \ 주차
+                                <AdminHelpIconButton
+                                  helpKey="admin.teamParts.info.column.partWeekMatrix"
+                                  title="파트 × 주차 존재표"
+                                />
+                              </span>
                             </th>
                             {weekColumns.map((c) => (
                               <th
@@ -713,21 +773,30 @@ export default function TeamPartsInfoManager() {
             ))}
 
             {/* 빈 박스 — 클릭 시 팀 등록 팝업(현재·다음 반기). 과거 반기=비활성. */}
-            <button
-              type="button"
-              id="team-parts-register-box"
-              onClick={openModal}
-              disabled={!editable}
-              aria-label="팀 등록"
-              className={
-                "flex min-h-[140px] w-full items-center justify-center rounded-lg border-2 border-dashed text-lg font-bold transition-colors " +
-                (editable
-                  ? "cursor-pointer border-zinc-300 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50"
-                  : "cursor-not-allowed border-zinc-200 text-zinc-300")
-              }
-            >
-              + 팀 등록
-            </button>
+            <div className="relative">
+              <button
+                type="button"
+                id="team-parts-register-box"
+                onClick={openModal}
+                disabled={!editable}
+                aria-label="팀 등록"
+                className={
+                  "flex min-h-[140px] w-full items-center justify-center rounded-lg border-2 border-dashed text-lg font-bold transition-colors " +
+                  (editable
+                    ? "cursor-pointer border-zinc-300 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-50"
+                    : "cursor-not-allowed border-zinc-200 text-zinc-300")
+                }
+              >
+                + 팀 등록
+              </button>
+              <div className="absolute right-2 top-2">
+                <AdminHelpIconButton
+                  helpKey="admin.teamParts.info.action.register"
+                  title="팀 등록"
+                  size="sm"
+                />
+              </div>
+            </div>
           </section>
         ) : null}
       </CardContent>
@@ -744,7 +813,7 @@ export default function TeamPartsInfoManager() {
         >
           <div
             id="team-parts-delete-modal"
-            className="w-full max-w-sm rounded-lg bg-white p-6 shadow-xl"
+            className="modal-w-sm rounded-lg bg-white p-6 shadow-xl"
           >
             <p className="mb-5 text-sm font-medium">이 팀을 삭제하시겠습니까?</p>
             <div className="flex justify-end gap-2">
@@ -783,7 +852,7 @@ export default function TeamPartsInfoManager() {
         >
           <div
             id="team-parts-register-modal"
-            className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-orange-50 p-6 shadow-xl ring-1 ring-foreground/10"
+            className="max-h-[90vh] modal-w-xl overflow-y-auto rounded-xl bg-orange-50 p-6 shadow-xl ring-1 ring-foreground/10"
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold">
@@ -791,20 +860,26 @@ export default function TeamPartsInfoManager() {
                 {half ? formatHalf(half) : ""}
               </h2>
               <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  id="team-parts-register-submit"
-                  onClick={submitTeam}
-                  disabled={!canSubmit}
-                >
-                  {registering
-                    ? isEditMode
-                      ? "확인 중…"
-                      : "등록 중…"
-                    : isEditMode
-                      ? "확인"
-                      : "등록"}
-                </Button>
+                <span className="inline-flex items-center gap-1">
+                  <Button
+                    type="button"
+                    id="team-parts-register-submit"
+                    onClick={submitTeam}
+                    disabled={!canSubmit}
+                  >
+                    {registering
+                      ? isEditMode
+                        ? "확인 중…"
+                        : "등록 중…"
+                      : isEditMode
+                        ? "확인"
+                        : "등록"}
+                  </Button>
+                  <AdminHelpIconButton
+                    helpKey="admin.teamParts.info.action.submit"
+                    title="팀 등록·수정 저장"
+                  />
+                </span>
                 <Button
                   type="button"
                   variant="ghost"
@@ -826,7 +901,13 @@ export default function TeamPartsInfoManager() {
             {/* 팀 명 / 팀 개요 */}
             <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
               <label className="flex flex-col gap-1 text-sm">
-                <span className="font-semibold">● 팀 명</span>
+                <span className="inline-flex items-center gap-1 font-semibold">
+                  ● 팀 명
+                  <AdminHelpIconButton
+                    helpKey="admin.teamParts.info.field.teamName"
+                    title="팀 명"
+                  />
+                </span>
                 <Input
                   id="team-parts-name-input"
                   value={teamName}
@@ -839,7 +920,13 @@ export default function TeamPartsInfoManager() {
                 </span>
               </label>
               <label className="flex flex-col gap-1 text-sm">
-                <span className="font-semibold">● 팀 개요</span>
+                <span className="inline-flex items-center gap-1 font-semibold">
+                  ● 팀 개요
+                  <AdminHelpIconButton
+                    helpKey="admin.teamParts.info.field.description"
+                    title="팀 개요"
+                  />
+                </span>
                 <textarea
                   id="team-parts-desc-input"
                   value={description}
@@ -858,7 +945,13 @@ export default function TeamPartsInfoManager() {
             {/* 팀장 - 크루코드 + 호출 + [6] 크루 정보 */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-[260px_1fr]">
               <div className="flex flex-col gap-2 text-sm">
-                <span className="font-semibold">● 팀장 · 크루 코드</span>
+                <span className="inline-flex items-center gap-1 font-semibold">
+                  ● 팀장 · 크루 코드
+                  <AdminHelpIconButton
+                    helpKey="admin.teamParts.info.field.leaderCrewCode"
+                    title="팀장 · 크루 코드"
+                  />
+                </span>
                 <Input
                   id="team-parts-crewcode-input"
                   value={crewCode}
@@ -871,16 +964,21 @@ export default function TeamPartsInfoManager() {
                   }}
                   placeholder="크루 코드"
                 />
-                <Button
-                  type="button"
-                  id="team-parts-call-button"
-                  variant="outline"
-                  onClick={callCrew}
-                  disabled={lookingUp || !crewCode.trim()}
-                  className="self-start"
-                >
-                  {lookingUp ? "호출 중…" : "호출"}
-                </Button>
+                <div className="inline-flex items-center gap-1 self-start">
+                  <Button
+                    type="button"
+                    id="team-parts-call-button"
+                    variant="outline"
+                    onClick={callCrew}
+                    disabled={lookingUp || !crewCode.trim()}
+                  >
+                    {lookingUp ? "호출 중…" : "호출"}
+                  </Button>
+                  <AdminHelpIconButton
+                    helpKey="admin.teamParts.info.action.lookupCrew"
+                    title="크루 호출"
+                  />
+                </div>
                 {lookupError ? (
                   <span className="text-xs text-red-600">{lookupError}</span>
                 ) : null}
