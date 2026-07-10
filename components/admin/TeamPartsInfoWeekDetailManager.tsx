@@ -1314,7 +1314,7 @@ export default function TeamPartsInfoWeekDetailManager({
           <AdminHelp />
         </div>
       </CardHeader>
-      <CardContent className="space-y-5">
+      <CardContent className="admin-section-stack-lg">
         {progress ? (
           <div
             className="flex items-center gap-2 rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-700"
@@ -1589,7 +1589,7 @@ export default function TeamPartsInfoWeekDetailManager({
               {/* 허브별로 라인 급(체크)→(7) 액트 체크 / 라인(개설)→(8) 라인 개설 을 독립 열로 분리.
                   카드 배경색은 "허브 기준"으로 통일 — 실무 정보=sky · 실무 경험=amber · 실무 역량=violet · 클럽 총괄=emerald.
                   라벨은 카드 밖으로 넘치지 않도록 자연 줄바꿈(break-keep + overflow-wrap:anywhere)·말줄임 없음. */}
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
                 {/* (1) [실무 정보] 라인 급(체크) → 액트 체크 */}
                 <div data-hub="info-act" className={"rounded-md border p-3 " + HUB_CARD_CLASS.info}>
                   <p className={"mb-2 inline-flex items-center gap-1 text-sm font-bold " + HUB_TITLE_CLASS.info}>
@@ -1662,7 +1662,7 @@ export default function TeamPartsInfoWeekDetailManager({
                     <table className="w-full table-fixed text-sm">
                       <thead>
                         <tr className="text-xs text-muted-foreground">
-                          <th className="px-1 py-1 text-left">팀</th>
+                          <th className="px-1 py-1 text-center">팀</th>
                           {(data.openingConfig.actCheck.experience[0]?.lineGroups ?? []).map((g) => (
                             <th key={g.lineGroupId} className="px-1 py-1 text-center font-medium break-keep [overflow-wrap:anywhere]">
                               {g.name}
@@ -1673,7 +1673,7 @@ export default function TeamPartsInfoWeekDetailManager({
                       <tbody>
                         {data.openingConfig.actCheck.experience.map((team) => (
                           <tr key={team.teamId} data-act-exp-team={team.teamId}>
-                            <td className="px-1 py-1 font-medium break-keep [overflow-wrap:anywhere]">{team.teamName}</td>
+                            <td className="px-1 py-1 text-center font-medium break-keep [overflow-wrap:anywhere]">{team.teamName}</td>
                             {team.lineGroups.map((g) => (
                               <td key={g.lineGroupId} className="px-1 py-1 text-center">
                                 <input
@@ -1705,7 +1705,7 @@ export default function TeamPartsInfoWeekDetailManager({
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="text-xs text-muted-foreground">
-                          <th className="px-1 py-1 text-left">팀</th>
+                          <th className="px-1 py-1 text-center">팀</th>
                           {EXP_TYPES.map((t) => (
                             <th key={t} className="px-1 py-1 text-center font-medium">
                               {EXP_TYPE_LABEL[t]}
@@ -1716,7 +1716,7 @@ export default function TeamPartsInfoWeekDetailManager({
                       <tbody>
                         {data.openingConfig.lineOpening.practicalExperience.map((team) => (
                           <tr key={team.teamId} data-line-exp-team={team.teamId}>
-                            <td className="px-1 py-1 font-medium break-keep [overflow-wrap:anywhere]">{team.teamName}</td>
+                            <td className="px-1 py-1 text-center font-medium break-keep [overflow-wrap:anywhere]">{team.teamName}</td>
                             {EXP_TYPES.map((type) => (
                               <td key={type} className="px-1 py-1 text-center">
                                 <input
