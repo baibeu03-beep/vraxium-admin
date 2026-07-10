@@ -1192,7 +1192,7 @@ export default function PracticalInfoManager() {
   return (
     <div
       className={cn(
-        "space-y-6",
+        "admin-section-stack-lg",
         orgScoped ? "w-full min-w-0" : "w-full min-w-0 px-4 py-6",
       )}
     >

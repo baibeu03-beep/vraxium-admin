@@ -637,7 +637,7 @@ export default function MembersList({
   return (
     // 목록 페이지는 전체 너비 사용(18컬럼 표 A 가로 스크롤 방지) — 상세 페이지(CrewDetail)의
     // max-w 와 분리. 좁은 max-w 를 강제하지 않는다(공통 wrapper 미공유).
-    <div className="flex w-full flex-col gap-6 px-4 py-6">
+    <div className="admin-section-stack-lg w-full px-4 py-6">
       <AdminPageHeader
         title={lockedOrg ? `${ORGANIZATION_LABEL[lockedOrg]} 크루` : "크루 관리"}
         tabs={

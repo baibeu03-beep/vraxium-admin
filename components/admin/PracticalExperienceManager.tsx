@@ -1469,7 +1469,7 @@ export default function PracticalExperienceManager() {
     // 넓은 모니터에서 좌우 여백 없이 표가 화면 폭을 최대한 쓰고, 폭 부족 시에만 표 내부 가로 스크롤.
     <div
       className={cn(
-        "space-y-6",
+        "admin-section-stack-lg",
         orgScoped ? "w-full min-w-0" : "w-full min-w-0 px-4 py-6",
       )}
     >

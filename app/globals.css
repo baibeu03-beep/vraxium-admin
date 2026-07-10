@@ -309,6 +309,33 @@
   max-width: min(94vw, 1040px);
 }
 
+/* ── 주요 섹션 세로 리듬 SoT ────────────────────────────────────────────────
+   어드민 페이지의 "독립적인 주요 블록(헤더·안내 섹션·카드·표 묶음)" 사이 세로 간격을
+   한 곳에서 관리하는 단일 출처(정적 @utility → purge 안전). 페이지마다 제각각이던
+   top-level 섹션 wrapper(gap-4 / gap-5 / gap-6 / space-y-*)를 이 두 클래스로 통일한다.
+     - 섹션과 섹션 "사이" 간격만 담당한다(가로 간격·최대 너비·카드 내부 밀도는 무관).
+     - 카드 내부의 제목/버튼/폼 필드/표 행/라벨 간격, CardHeader padding·height 는 불변.
+     - display:flex + column 은 space-y 와 동일한 세로 흐름을 만들되 gap 을 SoT 로 노출한다.
+   반응형: 모바일은 좁게 유지(과확장 방지), 데스크톱(md≥768px)에서 한 단계 넓힌다.
+     기본  = 16px → 20px(md)  ← 일반 주요 섹션 스택
+     lg    = 20px → 24px(md)  ← 페이지 전체를 이루는 큰 섹션 묶음(허브/탭/전체 카드) */
+@utility admin-section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem; /* 16px */
+  @media (min-width: 768px) {
+    gap: 1.25rem; /* 20px */
+  }
+}
+@utility admin-section-stack-lg {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem; /* 20px */
+  @media (min-width: 768px) {
+    gap: 1.5rem; /* 24px */
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

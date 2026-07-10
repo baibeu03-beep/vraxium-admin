@@ -305,7 +305,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   );
 
   return (
-    <div className="flex w-full min-w-0 flex-col gap-4">
+    <div className="admin-section-stack w-full min-w-0">
       <AdminPageHeader
         title={`${hubLabel} 급`}
       />

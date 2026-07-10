@@ -547,7 +547,7 @@ export default function RestManagementManager() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="admin-section-stack">
       <AdminPageHeader title="휴식 관리" tabs={tabs} />
 
       {!org ? (

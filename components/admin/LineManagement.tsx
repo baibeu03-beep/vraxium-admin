@@ -23,7 +23,7 @@ export default function LineManagement() {
   const org = readOrgParam(searchParams);
 
   return (
-    <div className="flex w-full flex-col gap-4">
+    <div className="admin-section-stack w-full">
       <AdminPageHeader
         title={org ? "허브와 라인" : "라인 관리"}
         tabs={buildLineManageTabs(pathname, searchParams, tab)}

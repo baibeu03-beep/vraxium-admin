@@ -23,7 +23,7 @@ export default function CrewOnboarding() {
   const mode = readScopeMode(searchParams);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="admin-section-stack-lg">
       <AdminPageHeader
         title="크루 등록"
         tabs={buildCrewOnboardingTabs(pathname, searchParams, tab)}

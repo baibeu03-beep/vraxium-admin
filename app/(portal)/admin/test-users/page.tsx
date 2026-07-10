@@ -7,7 +7,7 @@ import QaRunNowSnapshotPanels from "@/components/admin/QaRunNowSnapshotPanels";
 // (portal) 레이아웃의 requireAdminPage() 로 어드민 인증이 강제된다.
 export default function TestUsersPage() {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="admin-section-stack">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-semibold">테스트 모드</h1>
         <AdminHelp />
