@@ -357,9 +357,9 @@ export default function RestManagementManager() {
               />
             ) : null}
             <CardContent className="flex flex-col gap-5 pt-6">
-              {/* 시즌 선택(좌) + 액션 버튼(우) */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
+              {/* 시즌 선택(좌) + 액션 버튼(우) — 좌측 필터는 행을 채우고, 우측 액션은 우측 정렬 유지. */}
+              <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-3">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2.5">
                   {accent ? (
                     <span
                       aria-hidden
@@ -378,7 +378,17 @@ export default function RestManagementManager() {
                   >
                     {/* 폭 확대(≈248px) · 모바일은 화면폭 초과 방지. */}
                     <SelectTrigger className="w-[248px] max-w-[calc(100vw-3rem)]">
-                      <SelectValue placeholder="시즌 선택" />
+                      {/* 트리거 표시는 옵션 SoT(seasons)의 season_label 로 — raw season_key 노출 방지.
+                          옵션 목록과 동일한 seasons 를 유일 SoT 로 사용(중복 변환 없음). */}
+                      <SelectValue placeholder="시즌 선택">
+                        {(value: unknown) => {
+                          const key = value == null ? "" : String(value);
+                          return (
+                            seasons.find((s) => s.season_key === key)?.season_label ??
+                            "시즌 선택"
+                          );
+                        }}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       {seasons.map((s) => (
@@ -390,7 +400,7 @@ export default function RestManagementManager() {
                   </Select>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex shrink-0 flex-wrap items-center gap-2">
                   <Button
                     variant="destructive"
                     onClick={() => window.alert(NEXT_TASK_MSG)}
