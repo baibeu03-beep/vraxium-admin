@@ -9,6 +9,27 @@ export const ORGANIZATION_LABEL: Record<OrganizationSlug, string> = {
   phalanx: "Phalanx",
 };
 
+// 조직 한글 표시명(공식) — 단일 SoT. 어드민 배지/탭 등 한글 조직명 표시는 본 상수를 사용한다.
+//   (기존에 여러 컴포넌트가 동일 매핑을 중복 정의하던 것을 여기로 통합.)
+export const ORGANIZATION_LABEL_KO: Record<OrganizationSlug, string> = {
+  encre: "엥크레",
+  oranke: "오랑캐",
+  phalanx: "팔랑크스",
+};
+
+// 조직 대표색(글자색) — 단일 SoT. RestManagementManager 의 조직 액센트(violet/amber/emerald)와
+//   동일 팔레트. 조직명 라벨은 배경/테두리 없이 이 텍스트 색만으로 조직을 구분한다(보조 강조).
+export const ORGANIZATION_TEXT_CLASS: Record<OrganizationSlug, string> = {
+  encre: "text-pink-600",
+  oranke: "text-amber-600",
+  phalanx: "text-emerald-600",
+};
+
+// slug → 한글 표시명. 미매핑/공통은 null(호출부에서 미표시/공통 처리).
+export function organizationLabelKo(slug: string | null | undefined): string | null {
+  return isOrganizationSlug(slug) ? ORGANIZATION_LABEL_KO[slug] : null;
+}
+
 // organization_slug = null 에 대응하는 표시 라벨.
 // 모든 어드민 드롭다운/표 표시는 본 상수를 사용한다 (이전: "선택 안 함"/"소속 없음"/"미지정" 혼재).
 // "공통" 의미: 특정 조직에 소속되지 않음 = 조직 횡단으로 동작.

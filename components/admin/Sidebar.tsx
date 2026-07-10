@@ -27,6 +27,7 @@ import {
   isOrganizationSlug,
 } from "@/lib/organizations";
 import { orgHref, readOrgParam } from "@/lib/adminOrgContext";
+import OrganizationBadge from "@/components/admin/OrganizationBadge";
 import { useSidebar } from "@/components/admin/sidebarContext";
 import { useAdminMode } from "@/components/admin/AdminModeProvider";
 
@@ -492,16 +493,21 @@ export default function Sidebar() {
             </Link>
             {/* HOME 화면(/admin)에서는 배지를 숨기고 HOME 만 노출. */}
             {!navLocked && (
-              <span
-                className={cn(
-                  "rounded-md px-2.5 py-0.5 text-sm font-semibold text-white",
-                  // 배경색도 사이드바 선택 SoT(orgFocus)로 함께 결정:
-                  //   조직 분기 = 진한 파란색 [개별], 통합 검수 시스템 = 진한 빨간색 [통합].
-                  orgFocus ? "bg-blue-600" : "bg-red-600",
-                )}
-              >
-                {orgFocus ? "개별" : "통합"}
-              </span>
+              <>
+                <span
+                  className={cn(
+                    "rounded-md px-2.5 py-0.5 text-sm font-semibold text-white",
+                    // 배경색도 사이드바 선택 SoT(orgFocus)로 함께 결정:
+                    //   조직 분기 = 진한 파란색 [개별], 통합 검수 시스템 = 진한 빨간색 [통합].
+                    orgFocus ? "bg-blue-600" : "bg-red-600",
+                  )}
+                >
+                  {orgFocus ? "개별" : "통합"}
+                </span>
+                {/* 조직명 배지 — 순서: HOME → 개별/통합 → 조직명. orgFocus(어드민 org 컨텍스트 SoT)
+                    가 유효 조직일 때만 노출(통합/미상이면 미표시). 라벨/색은 lib/organizations SoT 재사용. */}
+                <OrganizationBadge orgSlug={orgFocus} />
+              </>
             )}
           </div>
         )}
