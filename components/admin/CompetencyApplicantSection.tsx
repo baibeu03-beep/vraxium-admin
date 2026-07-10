@@ -668,7 +668,7 @@ export default function CompetencyApplicantSection({
           onClick={() => !saving && setAddOpen(false)}
         >
           <div
-            className="w-full max-w-md space-y-4 rounded-lg bg-background p-5 shadow-xl"
+            className="modal-w-md space-y-4 rounded-lg bg-background p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold">수동 추가</h3>
@@ -729,7 +729,7 @@ export default function CompetencyApplicantSection({
           onClick={() => !saving && setRejectApp(null)}
         >
           <div
-            className="w-full max-w-md space-y-4 rounded-lg bg-background p-5 shadow-xl"
+            className="modal-w-md space-y-4 rounded-lg bg-background p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold">반려 사유</h3>
@@ -789,7 +789,7 @@ export default function CompetencyApplicantSection({
           onClick={() => !saving && setDeleteApp(null)}
         >
           <div
-            className="w-full max-w-sm space-y-4 rounded-lg bg-background p-5 shadow-xl"
+            className="modal-w-sm space-y-4 rounded-lg bg-background p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="flex items-center gap-2 text-base font-bold">

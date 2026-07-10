@@ -191,7 +191,7 @@ export default function ProcessCheckActDialog({
         if (e.target === e.currentTarget && !submitting) void requestClose();
       }}
     >
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
+      <div className="max-h-[92vh] modal-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
             액트 체크 ·{" "}

@@ -523,7 +523,7 @@ function SeasonParticipationEditModal({
         role="dialog"
         aria-modal="true"
         aria-label="시즌 상태 수정"
-        className="w-full max-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
+        className="modal-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">

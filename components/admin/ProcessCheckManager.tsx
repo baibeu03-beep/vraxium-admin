@@ -611,7 +611,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
             if (e.target === e.currentTarget) setChoiceAct(null);
           }}
         >
-          <div className="w-full max-w-sm rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
+          <div className="modal-w-sm rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
             <div className="mb-1 flex items-center justify-between">
               <h2 className="text-base font-semibold">선별 액트 체크</h2>
               <button type="button" onClick={() => setChoiceAct(null)} className="hover:opacity-70">

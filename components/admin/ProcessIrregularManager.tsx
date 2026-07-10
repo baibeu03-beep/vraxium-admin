@@ -409,7 +409,7 @@ function PartialChoiceDialog({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-sm rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
+      <div className="modal-w-sm rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-1 flex items-center justify-between">
           <h2 className="text-base font-semibold">
             부분 액트 · <span className="text-orange-700">방식 선택</span>

@@ -1136,7 +1136,7 @@ export default function TeamPartsInfoWeekDetailManager({
                     aria-modal="true"
                     data-review-readiness-modal
                   >
-                    <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-xl">
+                    <div className="modal-w-lg rounded-lg bg-white p-5 shadow-xl">
                       <div className="flex items-center justify-between">
                         <h3 className="text-base font-semibold text-slate-800">검수 준비 상태</h3>
                         <button

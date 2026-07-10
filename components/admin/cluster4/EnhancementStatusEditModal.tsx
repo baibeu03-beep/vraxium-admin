@@ -308,7 +308,7 @@ export default function EnhancementStatusEditModal({
         if (e.target === e.currentTarget && !busyKey) onClose();
       }}
     >
-      <div className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-xl bg-card shadow-xl ring-1 ring-foreground/10">
+      <div className="flex max-h-[85vh] modal-w-lg flex-col rounded-xl bg-card shadow-xl ring-1 ring-foreground/10">
         <div className="flex items-start justify-between gap-2 border-b px-5 py-3">
           <div className="flex flex-col gap-0.5">
             <h2 className="text-base font-semibold">강화 상태 수동 수정</h2>

@@ -854,7 +854,7 @@ export default function PracticalInfoOpeningForm({
           onClick={() => !saving && setConfirmOpen(false)}
         >
           <div
-            className="w-full max-w-md space-y-4 rounded-lg bg-background p-5 shadow-xl"
+            className="modal-w-sm space-y-4 rounded-lg bg-background p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold">라인 개설 확인</h3>
@@ -912,7 +912,7 @@ export default function PracticalInfoOpeningForm({
           onClick={() => setConfirmReset(false)}
         >
           <div
-            className="w-full max-w-sm space-y-4 rounded-lg bg-background p-5 shadow-xl"
+            className="modal-w-sm space-y-4 rounded-lg bg-background p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold">초기화</h3>
@@ -949,7 +949,7 @@ export default function PracticalInfoOpeningForm({
           onClick={() => !saving && setConfirmCancel(false)}
         >
           <div
-            className="w-full max-w-md space-y-4 rounded-lg bg-background p-5 shadow-xl"
+            className="modal-w-sm space-y-4 rounded-lg bg-background p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold">라인 개설 취소 확인</h3>

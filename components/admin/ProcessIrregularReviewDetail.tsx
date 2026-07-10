@@ -83,7 +83,7 @@ export default function ProcessIrregularReviewDetail({
         if (e.target === e.currentTarget && !submitting) onClose();
       }}
     >
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
+      <div className="max-h-[90vh] modal-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
             {act.kindLabel} ·{" "}

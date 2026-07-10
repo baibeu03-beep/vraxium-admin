@@ -220,7 +220,7 @@ export default function ProcessCheckManualGrantDialog({
         if (e.target === e.currentTarget && !submitting) void handleClose();
       }}
     >
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
+      <div className="max-h-[92vh] modal-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
             선별 액트 ·{" "}
@@ -376,9 +376,9 @@ export default function ProcessCheckManualGrantDialog({
                           }}
                           className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
                         >
-                          <span className="w-28 shrink-0 font-mono text-xs text-muted-foreground">{c.crewCode ?? "—"}</span>
-                          <span className="font-medium">{c.name}</span>
-                          <span className="text-xs text-muted-foreground">{c.teamName ?? "-"} · {c.schoolName ?? "-"}</span>
+                          <span className="min-w-[9rem] shrink-0 whitespace-nowrap font-mono text-xs text-muted-foreground">{c.crewCode ?? "—"}</span>
+                          <span className="shrink-0 whitespace-nowrap font-medium">{c.name}</span>
+                          <span className="min-w-0 truncate text-xs text-muted-foreground">{c.teamName ?? "-"} · {c.schoolName ?? "-"}</span>
                         </button>
                       ))
                     )}
@@ -395,7 +395,7 @@ export default function ProcessCheckManualGrantDialog({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>크루 코드</TableHead>
+                    <TableHead className="whitespace-nowrap">크루 코드</TableHead>
                     <TableHead>크루명</TableHead>
                     <TableHead>소속 팀</TableHead>
                     <TableHead>학교</TableHead>
@@ -412,7 +412,7 @@ export default function ProcessCheckManualGrantDialog({
                   ) : (
                     roster.map((c) => (
                       <TableRow key={c.userId}>
-                        <TableCell className="font-mono text-xs">{c.crewCode ?? "—"}</TableCell>
+                        <TableCell className="whitespace-nowrap font-mono text-xs">{c.crewCode ?? "—"}</TableCell>
                         <TableCell className="font-medium">{c.name}</TableCell>
                         <TableCell>{c.teamName ?? "-"}</TableCell>
                         <TableCell>{c.schoolName ?? "-"}</TableCell>

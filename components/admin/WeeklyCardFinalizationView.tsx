@@ -653,7 +653,7 @@ export default function WeeklyCardFinalizationView() {
             role="dialog"
             aria-modal="true"
             aria-label="주차 카드 집계 확정"
-            className="w-full max-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
+            className="modal-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
           >
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold">집계 확정</h2>

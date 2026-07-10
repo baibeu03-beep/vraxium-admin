@@ -881,7 +881,7 @@ function CrewFormModal({
         role="dialog"
         aria-modal="true"
         aria-label={isEdit ? "Edit crew" : "Add crew"}
-        className="w-full max-w-4xl rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
+        className="modal-w-2xl rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">

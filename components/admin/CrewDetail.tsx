@@ -778,7 +778,7 @@ function CrewNoteDialog({
         if (e.target === e.currentTarget && !saving) onClose();
       }}
     >
-      <div className="w-full max-w-md rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
+      <div className="modal-w-md rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">클럽 관리 기록</h2>
           <button type="button" onClick={onClose} disabled={saving} className="hover:opacity-70">

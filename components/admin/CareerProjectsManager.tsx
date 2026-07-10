@@ -653,7 +653,7 @@ function CareerProjectEditor({
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
-        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border bg-background shadow-xl"
+        className="flex max-h-[92vh] modal-w-2xl flex-col overflow-hidden rounded-lg border bg-background shadow-xl"
       >
         <div className="flex items-center justify-between border-b px-5 py-3">
           <div>

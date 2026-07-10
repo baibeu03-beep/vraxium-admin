@@ -131,7 +131,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             role="alertdialog"
             aria-modal="true"
             aria-label={pending.title ?? "확인"}
-            className="w-full max-w-sm rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10"
+            className="modal-w-sm rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10"
           >
             {pending.title && (
               <h2 className="text-base font-semibold">{pending.title}</h2>

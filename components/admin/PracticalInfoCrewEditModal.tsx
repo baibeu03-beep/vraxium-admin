@@ -203,7 +203,7 @@ export default function PracticalInfoCrewEditModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-8">
       <div
-        className="max-h-[90vh] w-full max-w-3xl space-y-5 overflow-y-auto rounded-xl bg-background p-6 shadow-xl ring-1 ring-foreground/10"
+        className="max-h-[90vh] modal-w-xl space-y-5 overflow-y-auto rounded-xl bg-background p-6 shadow-xl ring-1 ring-foreground/10"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -409,7 +409,7 @@ export default function PracticalInfoCrewEditModal({
           onClick={() => !saving && setConfirmOpen(false)}
         >
           <div
-            className="w-full max-w-md space-y-4 rounded-lg bg-background p-5 shadow-xl"
+            className="modal-w-sm space-y-4 rounded-lg bg-background p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-base font-bold">개설 대상 크루 수정 확인</h3>

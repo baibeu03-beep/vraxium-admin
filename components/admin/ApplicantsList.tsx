@@ -635,7 +635,7 @@ function ApproveDialog({
         role="dialog"
         aria-modal="true"
         aria-label="가입 신청 승인"
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
+        className="flex max-h-[90vh] modal-w-xl flex-col rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-4">

@@ -756,7 +756,7 @@ function ReviewWeekModal({
         role="dialog"
         aria-modal="true"
         aria-label="주차 검수 완료"
-        className="w-full max-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
+        className="modal-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -852,7 +852,7 @@ function PublishWeekModal({
         role="dialog"
         aria-modal="true"
         aria-label="주차 결과 확정"
-        className="w-full max-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
+        className="modal-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -1179,7 +1179,7 @@ function WeekRecognitionEditModal({
         role="dialog"
         aria-modal="true"
         aria-label="주차 상태 수정"
-        className="w-full max-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
+        className="modal-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">

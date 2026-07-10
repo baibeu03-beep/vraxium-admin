@@ -123,7 +123,7 @@ export default function AdminHelpModal({ open, onClose, storageKey, title = "관
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-card shadow-xl ring-1 ring-foreground/10"
+        className="flex max-h-[88vh] modal-w-xl flex-col overflow-hidden rounded-xl bg-card shadow-xl ring-1 ring-foreground/10"
       >
         {/* 헤더 바: 제목(좌) + [편집][저장][X](우) */}
         <div className="flex items-start justify-between gap-3 border-b border-border px-6 py-3.5">

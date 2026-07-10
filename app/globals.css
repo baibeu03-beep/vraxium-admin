@@ -279,6 +279,36 @@
   --badge-orange-border: oklch(0.48 0.1 55);
 }
 
+/* ── 모달 패널 폭 SoT ──────────────────────────────────────────────────────
+   어드민 모달은 공통 Dialog 컴포넌트 없이 각자 오버레이+패널을 직접 구현한다.
+   그 "패널 폭"을 한 곳에서 관리하기 위한 단일 출처(정적 @utility → purge 안전).
+   각 모달 패널의 `w-full max-w-Xxl` 을 아래 `modal-w-<size>` 로 교체한다.
+     - width:100% + 반응형 max-width(데스크톱 상한 px, 모바일은 viewport 비율).
+     - 오버레이/ESC/포커스/스크롤락/포털 등 "동작"은 건드리지 않는다(폭만 변경).
+   크기 체계(보수적 — 화면 가득이 아니라 "불필요한 줄바꿈만 방지"할 만큼만):
+     소형확인=sm(거의 유지) · 일반입력/드로어=md(약간) · 검색·선별·수동부여·편집=lg
+     · 승인·도움말·대형상세=xl · 테이블·대형편집=2xl(필요시만 900+). */
+@utility modal-w-sm {
+  width: 100%;
+  max-width: min(92vw, 480px);
+}
+@utility modal-w-md {
+  width: 100%;
+  max-width: min(92vw, 600px);
+}
+@utility modal-w-lg {
+  width: 100%;
+  max-width: min(92vw, 720px);
+}
+@utility modal-w-xl {
+  width: 100%;
+  max-width: min(92vw, 840px);
+}
+@utility modal-w-2xl {
+  width: 100%;
+  max-width: min(94vw, 1040px);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

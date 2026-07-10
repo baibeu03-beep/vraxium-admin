@@ -79,7 +79,7 @@ export function ConfirmModal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
+        className="modal-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">{title}</h2>

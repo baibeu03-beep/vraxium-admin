@@ -167,7 +167,7 @@ export default function ProcessIrregularDialog({
         if (e.target === e.currentTarget && !submitting) void handleClose();
       }}
     >
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
+      <div className="max-h-[90vh] modal-w-lg overflow-y-auto rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
             변동 액트 · <span className="text-purple-700">링크 신청</span>
