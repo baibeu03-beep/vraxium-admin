@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { RefreshCw, RotateCcw } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, RefreshCw, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatClubDate } from "@/lib/clubDate";
 
@@ -266,16 +267,165 @@ function ActivityBadge({
 
 function FilterField({
   label,
+  helpKey,
   children,
 }: {
   label: string;
+  // 지정 시 라벨 오른쪽에 돋보기 도움말 아이콘. 드롭다운 폭/정렬은 건드리지 않는다.
+  helpKey?: string;
   children: ReactNode;
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        {label}
+        {helpKey && (
+          <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+        )}
+      </span>
       {children}
     </div>
+  );
+}
+
+// ── 테이블 컬럼 정렬/도움말 정의 ──────────────────────────────────────────────
+//   · 모든 컬럼이 의미 있는 값을 가지므로 전부 정렬 가능(액션/체크박스/아이콘 전용 컬럼 없음).
+//   · 정렬 기준값은 표시 문자열이 아니라 "실제 정렬 가능한 값"(날짜=ISO, 년도/주차=숫자,
+//     시즌=시즌 순서 인덱스, 활동=구분 랭크). 문자열은 한글 포함 locale-aware.
+type ColKey = "name" | "period" | "year" | "season" | "week" | "activity" | "remark";
+type SortValue = number | string | null;
+
+const SEASON_SORT_ORDER: Record<SeasonToken, number> = {
+  spring: 0,
+  summer: 1,
+  autumn: 2,
+  winter: 3,
+};
+
+type ColumnDef = {
+  key: ColKey;
+  label: string;
+  helpKey: string;
+  sortValue: (row: SeasonWeekRow) => SortValue;
+};
+
+const COLUMNS: ColumnDef[] = [
+  {
+    key: "name",
+    label: "이름",
+    helpKey: "admin.seasonWeeks.column.name",
+    // 주차 코드(문자열). 판별 불가("-")는 빈값 취급 → 항상 뒤로.
+    sortValue: (row) => {
+      const code = rowWeekCode(row);
+      return code === "-" ? null : code;
+    },
+  },
+  {
+    key: "period",
+    label: "기간",
+    helpKey: "admin.seasonWeeks.column.period",
+    // 표시 문자열이 아니라 실제 날짜(주차 시작일 ISO)로 정렬.
+    sortValue: (row) => row.week_start_date ?? null,
+  },
+  {
+    key: "year",
+    label: "년도",
+    helpKey: "admin.seasonWeeks.column.year",
+    sortValue: (row) => {
+      const y = rowYear(row);
+      return y ? Number(y) : null;
+    },
+  },
+  {
+    key: "season",
+    label: "시즌",
+    helpKey: "admin.seasonWeeks.column.season",
+    // 시즌 순서(봄→여름→가을→겨울). 전환 주차는 귀속 시즌 바로 뒤(+0.5).
+    sortValue: (row) => {
+      const token = rowSeasonToken(row);
+      if (!token) return null;
+      return SEASON_SORT_ORDER[token] + (row.is_transition ? 0.5 : 0);
+    },
+  },
+  {
+    key: "week",
+    label: "주차",
+    helpKey: "admin.seasonWeeks.column.week",
+    sortValue: (row) => row.week_number ?? null,
+  },
+  {
+    key: "activity",
+    label: "활동",
+    helpKey: "admin.seasonWeeks.column.activity",
+    // 활동 구분 랭크: 공식 활동(0) → 공식 휴식(1) → 전환 주차(2).
+    sortValue: (row) => (row.is_transition ? 2 : row.is_official_rest ? 1 : 0),
+  },
+  {
+    key: "remark",
+    label: "비고",
+    helpKey: "admin.seasonWeeks.column.remark",
+    sortValue: (row) => rowRemark(row) || null,
+  },
+];
+
+// null/빈값/"-" 은 정렬 방향과 무관하게 항상 뒤로. 숫자는 숫자, 문자열은 한글 locale.
+function compareSortValues(
+  a: SortValue,
+  b: SortValue,
+  dir: "asc" | "desc",
+): number {
+  const aEmpty = a == null || a === "";
+  const bEmpty = b == null || b === "";
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  let c: number;
+  if (typeof a === "number" && typeof b === "number") c = a - b;
+  else c = String(a).localeCompare(String(b), "ko");
+  return dir === "asc" ? c : -c;
+}
+
+// 컬럼 헤더: 컬럼명+정렬 아이콘(button) 과 도움말(button) 을 형제로 둔다(버튼 중첩 방지).
+//   · 도움말 버튼은 stopPropagation(AdminHelpIconButton 내부) + 구조 분리로 정렬을 트리거하지 않는다.
+function SortableHeader({
+  label,
+  helpKey,
+  dir,
+  onSort,
+}: {
+  label: string;
+  helpKey: string;
+  dir: "asc" | "desc" | null;
+  onSort: () => void;
+}) {
+  return (
+    <TableHead
+      aria-sort={
+        dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
+      }
+    >
+      <div className="inline-flex items-center justify-center gap-1">
+        <button
+          type="button"
+          onClick={onSort}
+          aria-label={`${label} 정렬`}
+          className={cn(
+            "inline-flex items-center gap-1 text-sm font-semibold tracking-wide text-muted-foreground hover:text-foreground",
+            dir && "text-foreground",
+          )}
+        >
+          <span>{label}</span>
+          {dir === "asc" ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : dir === "desc" ? (
+            <ArrowDown className="h-3 w-3" />
+          ) : (
+            <ArrowUpDown className="h-3 w-3 opacity-40" />
+          )}
+        </button>
+        <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+      </div>
+    </TableHead>
   );
 }
 
@@ -307,6 +457,20 @@ export default function SeasonWeeksTable() {
   const [seasonFilter, setSeasonFilter] = useState<string>(ALL);
   const [activityFilter, setActivityFilter] = useState<string>(ALL);
   const [page, setPage] = useState(1);
+  // 컬럼 헤더 클릭 정렬. null = 기본 순서(상단 정렬 드롭다운 기준).
+  //   클릭 순환: 없음 → 오름차순 → 내림차순 → 기본 복귀.
+  const [columnSort, setColumnSort] = useState<{
+    key: ColKey;
+    dir: "asc" | "desc";
+  } | null>(null);
+
+  const cycleSort = (key: ColKey) => {
+    setColumnSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null; // 내림차순 다음 클릭 → 기본 순서 복귀
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -349,13 +513,14 @@ export default function SeasonWeeksTable() {
     };
   }, [refreshTick]);
 
-  // 필터 변경 시 1페이지로 복귀.
+  // 필터/정렬 변경 시 1페이지로 복귀.
   useEffect(() => {
     setPage(1);
-  }, [sort, yearFilter, seasonFilter, activityFilter]);
+  }, [sort, yearFilter, seasonFilter, activityFilter, columnSort]);
 
+  // 필터만 적용(정렬 분리). rows.filter 는 새 배열 → 원본 mutate 없음.
   const filtered = useMemo(() => {
-    const list = rows.filter((row) => {
+    return rows.filter((row) => {
       if (yearFilter !== ALL && rowYear(row) !== yearFilter) return false;
       if (seasonFilter !== ALL && rowSeasonToken(row) !== seasonFilter)
         return false;
@@ -366,9 +531,30 @@ export default function SeasonWeeksTable() {
       }
       return true;
     });
+  }, [rows, yearFilter, seasonFilter, activityFilter]);
 
-    // 정렬: 주차 시작일(월요일) 기준. 최신 순=미래가 맨 위(desc). null 은 항상 뒤.
-    return list.sort((a, b) => {
+  // 정렬: 컬럼 정렬이 활성이면 그 기준, 아니면 상단 드롭다운(최신/오래된) 기본 순서.
+  //   원본(filtered) 을 mutate 하지 않도록 복사본을 정렬한다.
+  const sorted = useMemo(() => {
+    const list = [...filtered];
+    if (columnSort) {
+      const col = COLUMNS.find((c) => c.key === columnSort.key);
+      if (col) {
+        list.sort((a, b) => {
+          const c = compareSortValues(
+            col.sortValue(a),
+            col.sortValue(b),
+            columnSort.dir,
+          );
+          if (c !== 0) return c;
+          // 동값 타이브레이크 — 주차 시작일 오름차순(안정적 표시).
+          return (a.week_start_date ?? "").localeCompare(b.week_start_date ?? "");
+        });
+        return list;
+      }
+    }
+    // 기본 순서: 주차 시작일(월요일) 기준. 최신 순=미래가 맨 위(desc). null 은 항상 뒤.
+    list.sort((a, b) => {
       const as = a.week_start_date;
       const bs = b.week_start_date;
       if (as === bs) return (a.week_number ?? 0) - (b.week_number ?? 0);
@@ -376,13 +562,14 @@ export default function SeasonWeeksTable() {
       if (!bs) return -1;
       return sort === "latest" ? bs.localeCompare(as) : as.localeCompare(bs);
     });
-  }, [rows, sort, yearFilter, seasonFilter, activityFilter]);
+    return list;
+  }, [filtered, columnSort, sort]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageRows = useMemo(
-    () => filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [filtered, safePage],
+    () => sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [sorted, safePage],
   );
 
   const resetFilters = () => {
@@ -390,6 +577,7 @@ export default function SeasonWeeksTable() {
     setYearFilter(ALL);
     setSeasonFilter(ALL);
     setActivityFilter(ALL);
+    setColumnSort(null);
     setPage(1);
   };
 
@@ -401,15 +589,22 @@ export default function SeasonWeeksTable() {
           {org ? "주차와 시즌" : "기간 정보"}
         </h1>
         <AdminHelp />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setRefreshTick((value) => value + 1)}
-          disabled={loading}
-        >
-          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-          새로고침
-        </Button>
+        <div className="inline-flex items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setRefreshTick((value) => value + 1)}
+            disabled={loading}
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            새로고침
+          </Button>
+          <AdminHelpIconButton
+            helpKey="admin.seasonWeeks.button.refresh"
+            title="새로고침"
+            size="sm"
+          />
+        </div>
       </div>
 
       {error && (
@@ -429,7 +624,7 @@ export default function SeasonWeeksTable() {
       {/* 필터/정렬 영역 */}
       <Card size="sm">
         <CardContent className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
-          <FilterField label="정렬">
+          <FilterField label="정렬" helpKey="admin.seasonWeeks.filter.sort">
             <Select
               items={SORT_ITEMS}
               value={sort}
@@ -448,7 +643,7 @@ export default function SeasonWeeksTable() {
             </Select>
           </FilterField>
 
-          <FilterField label="년도">
+          <FilterField label="년도" helpKey="admin.seasonWeeks.filter.year">
             <Select
               items={YEAR_ITEMS}
               value={yearFilter}
@@ -468,7 +663,7 @@ export default function SeasonWeeksTable() {
             </Select>
           </FilterField>
 
-          <FilterField label="시즌">
+          <FilterField label="시즌" helpKey="admin.seasonWeeks.filter.season">
             <Select
               items={SEASON_ITEMS}
               value={seasonFilter}
@@ -488,7 +683,7 @@ export default function SeasonWeeksTable() {
             </Select>
           </FilterField>
 
-          <FilterField label="활동">
+          <FilterField label="활동" helpKey="admin.seasonWeeks.filter.activity">
             <Select
               items={ACTIVITY_ITEMS}
               value={activityFilter}
@@ -525,6 +720,11 @@ export default function SeasonWeeksTable() {
               <RotateCcw className="h-3.5 w-3.5" />
               초기화
             </Button>
+            <AdminHelpIconButton
+              helpKey="admin.seasonWeeks.button.reset"
+              title="초기화"
+              size="xs"
+            />
           </div>
         </CardContent>
       </Card>
@@ -536,13 +736,15 @@ export default function SeasonWeeksTable() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>이름</TableHead>
-                <TableHead>기간</TableHead>
-                <TableHead>년도</TableHead>
-                <TableHead>시즌</TableHead>
-                <TableHead>주차</TableHead>
-                <TableHead>활동</TableHead>
-                <TableHead>비고</TableHead>
+                {COLUMNS.map((col) => (
+                  <SortableHeader
+                    key={col.key}
+                    label={col.label}
+                    helpKey={col.helpKey}
+                    dir={columnSort?.key === col.key ? columnSort.dir : null}
+                    onSort={() => cycleSort(col.key)}
+                  />
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -565,13 +767,15 @@ export default function SeasonWeeksTable() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>이름</TableHead>
-                <TableHead>기간</TableHead>
-                <TableHead>년도</TableHead>
-                <TableHead>시즌</TableHead>
-                <TableHead>주차</TableHead>
-                <TableHead>활동</TableHead>
-                <TableHead>비고</TableHead>
+                {COLUMNS.map((col) => (
+                  <SortableHeader
+                    key={col.key}
+                    label={col.label}
+                    helpKey={col.helpKey}
+                    dir={columnSort?.key === col.key ? columnSort.dir : null}
+                    onSort={() => cycleSort(col.key)}
+                  />
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>

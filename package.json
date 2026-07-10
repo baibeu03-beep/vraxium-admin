@@ -30,7 +30,8 @@
     "verify:qa-overlay-http": "tsx --env-file=.env.local scripts/verify-qa-overlay-http.ts",
     "seed:qa-summer-season": "tsx --env-file=.env.local scripts/seed-qa-test-users-summer-season.ts",
     "verify:qa-roster-seed": "tsx --env-file=.env.local scripts/verify-qa-roster-seed.ts",
-    "verify:qa-fixed-scope": "tsx --env-file=.env.local scripts/verify-qa-fixed-scope.ts"
+    "verify:qa-fixed-scope": "tsx --env-file=.env.local scripts/verify-qa-fixed-scope.ts",
+    "verify:periods-seasonweeks-help": "tsx --env-file=.env.local scripts/verify-periods-seasonweeks-help-browser.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
