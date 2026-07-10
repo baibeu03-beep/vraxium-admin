@@ -1018,6 +1018,7 @@ function MembersInfoTab({
                 </Badge>
                 <span className="text-foreground">주차</span>
               </span>
+              <AdminHelpIconButton helpKey={`${INFO_HELP}.section.currentWeek`} title="현재 시즌·주차" />
             </div>
           ) : (
             <div className="py-2 text-sm text-muted-foreground">
@@ -1029,7 +1030,12 @@ function MembersInfoTab({
 
       {/* 클럽 하위 탭 (통합 / 엥크레 / 오랑캐 / 팔랑크스) — 탭 전환은 로컬 state(섹션.0 불변).
           크루 모드(lockedOrg)는 현재 org 하나만 노출(다른 조직 클럽 미노출). */}
-      <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 text-sm font-semibold">
+          <span>클럽</span>
+          <AdminHelpIconButton helpKey={`${INFO_HELP}.filter.club`} title="클럽 선택" />
+        </span>
+        <div className="flex flex-wrap gap-1 rounded-lg border bg-muted/30 p-1">
         {clubTabs.map((t) => (
           <button
             key={t.value}
@@ -1047,6 +1053,7 @@ function MembersInfoTab({
             {t.label}
           </button>
         ))}
+        </div>
       </div>
 
       {/* [섹션.1] 역대 누적 + 주차별 데이터 — 선택 클럽(크루 모드는 org 고정) 스코프. */}
@@ -1065,18 +1072,103 @@ const WEEKS_PER_PAGE = 20;
 const fmtNumCell = (v: number | null): string => (v == null ? "-" : v.toLocaleString());
 const fmtPctCell = (v: number | null): string => (v == null ? "-" : `${v}%`);
 
+// 크루 정보 탭 도움말 help key prefix(org/mode 무관 공통 키).
+const INFO_HELP = "admin.members.info";
+
+// ── 주차별 데이터(1-B) 정렬 — 클라이언트 전량 정렬 ──────────────────────────
+//   info-stats DTO 는 weeks[] 전량을 내려주고(최신 상단) 프론트가 20/page slice 한다
+//   → 서버 페이지네이션이 아니므로 "전체 목록 정렬 후 슬라이스" 가 곧 전체 정렬(정답).
+//   기본(sort=null)은 API 원본 순서(최신 상단)로 복귀. 원본 배열 mutate 금지(복사본 정렬).
+type InfoSortDir = "asc" | "desc";
+type InfoSort = { key: string; dir: InfoSortDir } | null;
+
+// 클럽 상태 업무 순서(활동 → 휴식). enum 라벨 가나다순 금지.
+const CLUB_STATUS_RANK: Record<InfoWeekRow["clubStatus"], number> = {
+  "공식 활동": 0,
+  "공식 휴식": 1,
+};
+
+type InfoCol = {
+  key: string;
+  label: string;
+  helpKey: string;
+  // number = 숫자/순위/시퀀스(빈값 null 최하단), text = 문자/복합(빈값 최하단·locale ko-KR).
+  kind: "number" | "text";
+  num?: (w: InfoWeekRow, seq: number) => number | null;
+  str?: (w: InfoWeekRow) => string;
+};
+
+// 컬럼 정의(헤더 렌더·help key·정렬 필드 매핑 SoT). 셀 렌더는 InfoWeekTableRow 가 동일 순서로 담당.
+//   po.A/B/C 는 조직별 탭에서만(showPoints) 우측 추가 — 정렬은 리더 포인트(숫자) 기준.
+function buildInfoWeekColumns(
+  showPoints: boolean,
+  poLabels: { a: string; b: string; c: string },
+): InfoCol[] {
+  const oldestText = (w: InfoWeekRow): string =>
+    w.oldest ? `${w.oldest.startWeekLabel ?? "-"}, ${w.oldest.name}(${w.oldest.clubLabel})` : "";
+  const cols: InfoCol[] = [
+    { key: "clubStatus", label: "클럽 상태", helpKey: `${INFO_HELP}.column.clubStatus`, kind: "number", num: (w) => CLUB_STATUS_RANK[w.clubStatus] },
+    // 시즌 & 주차 = 연대순. weeks 는 최신 상단이므로 원본 인덱스로 recency seq 부여(desc=최신 먼저=기본).
+    { key: "seasonWeek", label: "시즌 & 주차", helpKey: `${INFO_HELP}.column.seasonWeek`, kind: "number", num: (_w, seq) => seq },
+    { key: "clubCount", label: "클럽 수", helpKey: `${INFO_HELP}.column.clubCount`, kind: "number", num: (w) => w.clubCount },
+    { key: "clubbing", label: "클러빙", helpKey: `${INFO_HELP}.column.clubbing`, kind: "number", num: (w) => w.clubbing },
+    { key: "seasonalRest", label: "시즌 휴식", helpKey: `${INFO_HELP}.column.seasonalRest`, kind: "number", num: (w) => w.seasonalRest },
+    { key: "elite", label: "엘리트", helpKey: `${INFO_HELP}.column.elite`, kind: "number", num: (w) => w.elite },
+    { key: "suspended", label: "활동 중단", helpKey: `${INFO_HELP}.column.suspended`, kind: "number", num: (w) => w.suspended },
+    { key: "weeklyRest", label: "주차 휴식", helpKey: `${INFO_HELP}.column.weeklyRest`, kind: "number", num: (w) => w.weeklyRest },
+    { key: "growthSuccess", label: "성장 성공(a)", helpKey: `${INFO_HELP}.column.growthSuccess`, kind: "number", num: (w) => w.growthSuccess },
+    { key: "growthFail", label: "성장 실패(b)", helpKey: `${INFO_HELP}.column.growthFail`, kind: "number", num: (w) => w.growthFail },
+    { key: "growthSuccessRate", label: "성장 성공율(c)", helpKey: `${INFO_HELP}.column.growthSuccessRate`, kind: "number", num: (w) => w.growthSuccessRate },
+    { key: "weeklyGrowthRate", label: "주차 성장률(d)", helpKey: `${INFO_HELP}.column.weeklyGrowthRate`, kind: "number", num: (w) => w.weeklyGrowthRate },
+    { key: "oldest", label: "Oldest", helpKey: `${INFO_HELP}.column.oldest`, kind: "text", str: oldestText },
+  ];
+  if (showPoints) {
+    cols.push(
+      { key: "poA", label: poLabels.a, helpKey: `${INFO_HELP}.column.poA`, kind: "number", num: (w) => w.weeklyPointLeaders?.poA?.points ?? null },
+      { key: "poB", label: poLabels.b, helpKey: `${INFO_HELP}.column.poB`, kind: "number", num: (w) => w.weeklyPointLeaders?.poB?.points ?? null },
+      { key: "poC", label: poLabels.c, helpKey: `${INFO_HELP}.column.poC`, kind: "number", num: (w) => w.weeklyPointLeaders?.poC?.points ?? null },
+    );
+  }
+  return cols;
+}
+
+function compareInfoWeek(a: InfoWeekRow, seqA: number, b: InfoWeekRow, seqB: number, col: InfoCol, dir: InfoSortDir): number {
+  if (col.kind === "number") {
+    const av = col.num!(a, seqA);
+    const bv = col.num!(b, seqB);
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1; // 빈값은 방향 무관 항상 최하단
+    if (bv == null) return -1;
+    return dir === "asc" ? av - bv : bv - av;
+  }
+  const av = (col.str?.(a) ?? "").trim();
+  const bv = (col.str?.(b) ?? "").trim();
+  const ae = av === "" || av === "-" || av === "—";
+  const be = bv === "" || bv === "-" || bv === "—";
+  if (ae && be) return 0;
+  if (ae) return 1;
+  if (be) return -1;
+  const c = av.localeCompare(bv, "ko-KR", { numeric: true, sensitivity: "base" });
+  return dir === "asc" ? c : -c;
+}
+
 function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "test" }) {
   const [data, setData] = useState<MembersInfoStatsDto | null>(null);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
+  // 주차별 데이터 3단계 정렬(오름 → 내림 → 기본). 기본=API 원본 순서(최신 상단).
+  const [sort, setSort] = useState<InfoSort>(null);
   // (org, mode)별 결과 캐시 — 탭 왕복 시 재조회 방지.
   const cache = useRef<Map<string, MembersInfoStatsDto>>(new Map());
   const cacheKey = `${mode}:${org}`;
 
   useEffect(() => {
     let cancelled = false;
+    // 클럽 탭/모드 전환 시 정렬도 기본으로 초기화(새 데이터셋). 외부(org/mode) 동기화 effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSort(null);
     const cached = cache.current.get(cacheKey);
     if (cached) {
       setData(cached);
@@ -1119,20 +1211,50 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
     };
   }, [cacheKey, org, mode]);
 
-  const weeks = data?.weeks ?? [];
-  const totalPages = Math.max(1, Math.ceil(weeks.length / WEEKS_PER_PAGE));
-  const pageRows = weeks.slice(page * WEEKS_PER_PAGE, page * WEEKS_PER_PAGE + WEEKS_PER_PAGE);
+  const weeks = useMemo(() => data?.weeks ?? [], [data]);
   // Po.A/B/C 는 조직별 탭(엥크레/오랑캐/팔랑크스)에서만 노출 — 통합 탭은 미표시.
   const showPoints = org !== "all";
   // 노출 시 org 는 항상 특정 조직 → 조직별 명칭으로 헤더 표기.
-  const poPointLabels = getProcessPointLabels(org === "all" ? null : org);
+  const poPointLabels = useMemo(() => getProcessPointLabels(org === "all" ? null : org), [org]);
+
+  // 컬럼 정의(헤더/help/정렬 SoT).
+  const columns = useMemo(
+    () => buildInfoWeekColumns(showPoints, poPointLabels),
+    [showPoints, poPointLabels],
+  );
+  // 전체 목록 정렬(복사본) → 슬라이스. seq = 최신 상단 원본 인덱스 기반 recency(높을수록 최신).
+  const sortedWeeks = useMemo(() => {
+    if (!sort) return weeks;
+    const col = columns.find((c) => c.key === sort.key);
+    if (!col) return weeks;
+    const seqOf = new Map(weeks.map((w, i) => [w.weekId, weeks.length - i]));
+    return [...weeks].sort((a, b) =>
+      compareInfoWeek(a, seqOf.get(a.weekId) ?? 0, b, seqOf.get(b.weekId) ?? 0, col, sort.dir),
+    );
+  }, [weeks, sort, columns]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedWeeks.length / WEEKS_PER_PAGE));
+  const pageRows = sortedWeeks.slice(page * WEEKS_PER_PAGE, page * WEEKS_PER_PAGE + WEEKS_PER_PAGE);
+
+  // 3단계 정렬 순환(오름 → 내림 → 기본). 정렬 변경 시 1페이지로.
+  const cycleSort = (key: string) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+    setPage(0);
+  };
 
   return (
     <div className="flex flex-col gap-6">
       {/* [섹션.1-A] 역대 누적 */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">역대 누적</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            역대 누적
+            <AdminHelpIconButton helpKey={`${INFO_HELP}.section.cumulative`} title="역대 누적" size="sm" />
+          </CardTitle>
           <CardDescription>클럽 등록 이력 전체 기준 누적 지표 (역대)</CardDescription>
         </CardHeader>
         <CardContent>
@@ -1144,13 +1266,13 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
             <div className="py-2 text-sm text-muted-foreground">불러오는 중...</div>
           ) : (
             <div className="flex flex-wrap gap-x-8 gap-y-3">
-              <CumulativeStat label="데이터 시작" value={data.cumulative.dataStartWeekLabel} />
+              <CumulativeStat label="데이터 시작" value={data.cumulative.dataStartWeekLabel} helpKey={`${INFO_HELP}.summary.dataStart`} />
               {org === "all" && (
-                <CumulativeStat label="클럽 수" value={data.cumulative.clubCount} />
+                <CumulativeStat label="클럽 수" value={data.cumulative.clubCount} helpKey={`${INFO_HELP}.summary.clubCount`} />
               )}
-              <CumulativeStat label="누적 클러빙" value={data.cumulative.cumulativeClubbing} />
-              <CumulativeStat label="누적 엘리트" value={data.cumulative.cumulativeElite} />
-              <CumulativeStat label="누적 활동 중단" value={data.cumulative.cumulativeSuspended} />
+              <CumulativeStat label="누적 클러빙" value={data.cumulative.cumulativeClubbing} helpKey={`${INFO_HELP}.summary.cumulativeClubbing`} />
+              <CumulativeStat label="누적 엘리트" value={data.cumulative.cumulativeElite} helpKey={`${INFO_HELP}.summary.cumulativeElite`} />
+              <CumulativeStat label="누적 활동 중단" value={data.cumulative.cumulativeSuspended} helpKey={`${INFO_HELP}.summary.cumulativeSuspended`} />
             </div>
           )}
         </CardContent>
@@ -1160,14 +1282,18 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 pb-3">
           <div className="space-y-1.5">
-            <CardTitle className="text-base">주차별 데이터</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              주차별 데이터
+              <AdminHelpIconButton helpKey={`${INFO_HELP}.section.weekly`} title="주차별 데이터" size="sm" />
+            </CardTitle>
             <CardDescription>
               최신 주차 상단 · 페이지당 {WEEKS_PER_PAGE}주차. 미확정(현재/미검수) 주차는 “-”.
             </CardDescription>
           </div>
           {data && data.partialFailure && (
-            <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-800">
+            <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs text-amber-800">
               일부 크루({data.partialFailure.snapshotUnavailable.toLocaleString()}) 스냅샷 미조회 — 집계 누락 가능
+              <AdminHelpIconButton helpKey={`${INFO_HELP}.status.partialFailure`} title="스냅샷 미조회 안내" />
             </span>
           )}
         </CardHeader>
@@ -1184,31 +1310,17 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      {[
-                        "클럽 상태",
-                        "시즌 & 주차",
-                        "클럽 수",
-                        "클러빙",
-                        "시즌 휴식",
-                        "엘리트",
-                        "활동 중단",
-                        "주차 휴식",
-                        "성장 성공(a)",
-                        "성장 실패(b)",
-                        "성장 성공율(c)",
-                        "주차 성장률(d)",
-                        "Oldest",
-                        // 조직별 탭에서만 우측에 po.A/B/C(조직별 명칭, 최고 포인트 TOP 3).
-                        ...(showPoints
-                          ? [poPointLabels.a, poPointLabels.b, poPointLabels.c]
-                          : []),
-                      ].map((h) => (
-                        <TableHead
-                          key={h}
-                          className="whitespace-nowrap text-center align-middle text-xs font-medium tracking-wide text-muted-foreground"
-                        >
-                          {h}
-                        </TableHead>
+                      {columns.map((col) => (
+                        <SortableHeader
+                          key={col.key}
+                          label={col.label}
+                          help={{ helpKey: col.helpKey, title: col.label }}
+                          dir={sort?.key === col.key ? sort.dir : null}
+                          priority={null}
+                          showPriority={false}
+                          onSort={() => cycleSort(col.key)}
+                          className="whitespace-nowrap"
+                        />
                       ))}
                     </TableRow>
                   </TableHeader>
@@ -1229,8 +1341,11 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
 
               {/* 페이지네이션 — 20주차/page */}
               <div className="flex items-center justify-end gap-3 text-sm">
-                <span className="text-muted-foreground">
-                  {weeks.length.toLocaleString()}주차 · {page + 1} / {totalPages}
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <span>
+                    {weeks.length.toLocaleString()}주차 · {page + 1} / {totalPages}
+                  </span>
+                  <AdminHelpIconButton helpKey={`${INFO_HELP}.action.pagination`} title="페이지 이동 · 주차 수" />
                 </span>
                 <Button
                   variant="outline"
@@ -1258,12 +1373,15 @@ function InfoStatsPanel({ org, mode }: { org: InfoClubTab; mode: "operating" | "
 }
 
 // 누적 지표 칸 — 숫자(2xl tabular)·문자(데이터 시작 주차명, lg)·null("-") 모두 지원.
-function CumulativeStat({ label, value }: { label: string; value: string | number | null }) {
+function CumulativeStat({ label, value, helpKey }: { label: string; value: string | number | null; helpKey?: string }) {
   const isNum = typeof value === "number";
   const display = value == null ? "-" : isNum ? value.toLocaleString() : value;
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        <span>{label}</span>
+        {helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} /> : null}
+      </span>
       <span
         className={cn(
           "font-semibold text-foreground",
@@ -1340,14 +1458,18 @@ function SortableHeader({
 }) {
   const active = dir != null;
   return (
-    <TableHead className={cn("text-center align-middle", className)}>
+    <TableHead
+      aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"}
+      className={cn("text-center align-middle", className)}
+    >
       {/* 정렬 트리거(button) 와 도움말(button) 은 형제로 둔다 — 버튼 중첩(무효 HTML) 방지. */}
       <span className="inline-flex w-full items-center justify-center gap-1">
         <button
           type="button"
           onClick={onSort}
+          aria-label={`${label} 기준 정렬`}
           className={cn(
-            "inline-flex items-center justify-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground",
+            "inline-flex cursor-pointer items-center justify-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground",
             active && "text-foreground",
           )}
         >
