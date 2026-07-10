@@ -653,15 +653,16 @@ export default function MembersList({
         <MembersInfoTab lockedOrg={lockedOrg} />
       ) : (
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-2">
-            <div className="space-y-1.5">
+          <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
+            <div className="min-w-0 flex-1 space-y-2">
               <CardTitle className="text-base">크루 목록</CardTitle>
               {/* 제목 아래 = 전체 현황(전체/활동/휴식/중단)만. 결과 값은 확인 버튼 옆(필터 결과). */}
-              <div className="flex flex-wrap items-center gap-x-7 gap-y-3 text-sm text-muted-foreground">
-                <span className="whitespace-nowrap">전체 <b className="text-foreground">{total.toLocaleString()}</b></span>
-                <span className="whitespace-nowrap">· 활동 <b className="text-foreground">{statusCounts.active.toLocaleString()}</b></span>
-                <span className="whitespace-nowrap">· 휴식 <b className="text-foreground">{statusCounts.rest.toLocaleString()}</b></span>
-                <span className="whitespace-nowrap">· 중단 <b className="text-foreground">{statusCounts.stopped.toLocaleString()}</b></span>
+              {/* 데스크톱(sm+): 좌측 가용 폭을 4등분(grid-cols-4)해 균등 배치. 좁은 폭: flex-wrap 로 자연 줄바꿈(셀 overflow·가로 스크롤 없음). */}
+              <div className="flex flex-wrap gap-x-8 gap-y-3 text-base text-muted-foreground sm:grid sm:grid-cols-4">
+                <span className="whitespace-nowrap">전체 <b className="text-foreground text-lg">{total.toLocaleString()}</b></span>
+                <span className="whitespace-nowrap">활동 <b className="text-foreground text-lg">{statusCounts.active.toLocaleString()}</b></span>
+                <span className="whitespace-nowrap">휴식 <b className="text-foreground text-lg">{statusCounts.rest.toLocaleString()}</b></span>
+                <span className="whitespace-nowrap">중단 <b className="text-foreground text-lg">{statusCounts.stopped.toLocaleString()}</b></span>
               </div>
             </div>
             <Button variant="outline" onClick={reload} disabled={loading}>
