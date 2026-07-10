@@ -500,8 +500,8 @@ export default function Sidebar() {
                   className={cn(
                     "rounded-md px-2.5 py-0.5 text-sm font-semibold text-white",
                     // 배경색도 사이드바 선택 SoT(orgFocus)로 함께 결정:
-                    //   조직 분기 = 진한 파란색 [개별], 통합 검수 시스템 = 진한 빨간색 [통합].
-                    orgFocus ? "bg-blue-600" : "bg-red-600",
+                    //   조직 분기 = 회색 [개별], 통합 검수 시스템 = 진한 빨간색 [통합].
+                    orgFocus ? "bg-gray-600" : "bg-red-600",
                   )}
                 >
                   {orgFocus ? "개별" : "통합"}

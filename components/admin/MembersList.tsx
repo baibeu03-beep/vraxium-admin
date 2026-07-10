@@ -657,11 +657,11 @@ export default function MembersList({
             <div className="space-y-1.5">
               <CardTitle className="text-base">크루 목록</CardTitle>
               {/* 제목 아래 = 전체 현황(전체/활동/휴식/중단)만. 결과 값은 확인 버튼 옆(필터 결과). */}
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-7 gap-y-3 text-sm text-muted-foreground">
                 <span className="whitespace-nowrap">전체 <b className="text-foreground">{total.toLocaleString()}</b></span>
-                <span className="whitespace-nowrap">· 활동 {statusCounts.active.toLocaleString()}</span>
-                <span className="whitespace-nowrap">· 휴식 {statusCounts.rest.toLocaleString()}</span>
-                <span className="whitespace-nowrap">· 중단 {statusCounts.stopped.toLocaleString()}</span>
+                <span className="whitespace-nowrap">· 활동 <b className="text-foreground">{statusCounts.active.toLocaleString()}</b></span>
+                <span className="whitespace-nowrap">· 휴식 <b className="text-foreground">{statusCounts.rest.toLocaleString()}</b></span>
+                <span className="whitespace-nowrap">· 중단 <b className="text-foreground">{statusCounts.stopped.toLocaleString()}</b></span>
               </div>
             </div>
             <Button variant="outline" onClick={reload} disabled={loading}>
