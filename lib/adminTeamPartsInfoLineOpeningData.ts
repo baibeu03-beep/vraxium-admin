@@ -102,6 +102,7 @@ export type InfoLineOpeningRowDto = {
   operatorName: string | null; // 라인칸 개설 운영진(미개설=null)
   isOpenThisWeek: boolean; // 오픈 확인된 설정 기준 오픈 대상
   createdAtLabel: string | null; // "26. 07. 13(월) 12:33" (미개설=null)
+  createdAtIso: string | null; // 개설 시점 원본 ISO(정렬용 실제 값·미개설=null). 표시엔 createdAtLabel 사용.
   createdTimingStatus: "ontime" | "late" | null; // 월요일 23:59 기준(미개설=null)
   createdCrewCount: number | null; // 실제 개설 대상 크루(미개설=null)
   eligibleCrewCount: number; // 이 라인을 이행하여 개설 가능했던 크루(=조직 활동 크루 모집단)
@@ -311,6 +312,7 @@ async function loadCompetencyLineOpening(opts: {
       // 개설=오픈(역량은 개설 시점에야 오픈 여부를 앎). 미개설=미오픈.
       isOpenThisWeek: created,
       createdAtLabel: created ? formatCreatedAtKst(agg?.openedAt ?? null) : null,
+      createdAtIso: created ? agg?.openedAt ?? null : null,
       createdTimingStatus: created ? createdTiming(agg?.openedAt ?? null, weekStart) : null,
       createdCrewCount: created ? createdCrewCount : null,
       eligibleCrewCount,
@@ -488,6 +490,7 @@ async function loadExperienceLineOpening(opts: {
         operatorName: created ? operatorName : null,
         isOpenThisWeek,
         createdAtLabel: created ? formatCreatedAtKst(header?.openedAt ?? null) : null,
+        createdAtIso: created ? header?.openedAt ?? null : null,
         createdTimingStatus: created ? createdTiming(header?.openedAt ?? null, weekStart) : null,
         createdCrewCount,
         eligibleCrewCount,
@@ -643,6 +646,7 @@ export async function loadTeamPartsInfoLineOpeningManagement(opts: {
       operatorName: created ? r?.openedByName ?? null : null,
       isOpenThisWeek,
       createdAtLabel: created ? formatCreatedAtKst(r?.openedAt ?? null) : null,
+      createdAtIso: created ? r?.openedAt ?? null : null,
       createdTimingStatus: created ? createdTiming(r?.openedAt ?? null, weekStart) : null,
       createdCrewCount: created ? r?.targetCount ?? 0 : null,
       eligibleCrewCount,

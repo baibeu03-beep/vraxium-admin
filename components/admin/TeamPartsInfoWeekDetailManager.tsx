@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { CheckCircle2, AlarmClock } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { CheckCircle2, AlarmClock, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import OrganizationBadge from "@/components/admin/OrganizationBadge";
 import { ActionControl } from "@/components/admin/ActionControl";
 import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
@@ -34,6 +35,124 @@ import type {
   ActCheckStatus,
 } from "@/lib/adminTeamPartsInfoActCheckData";
 import type { LineOpeningManagementData } from "@/lib/adminTeamPartsInfoLineOpeningData";
+
+// 도움말 help key prefix(요청 네임스페이스). org/mode 로 갈라지지 않는 공통 키.
+const HELP = "admin.teamParts.info.weeks.activity";
+
+// ── 표 정렬 공용(클라이언트 — 이 페이지의 표는 전 행을 한 번에 받으므로 전체 정렬이 곧 정답) ──
+type SortDir = "asc" | "desc";
+type SortState<K extends string> = { key: K; dir: SortDir } | null;
+
+// 한글 포함 locale-aware 비교기(숫자 자연 정렬).
+const collator = new Intl.Collator("ko-KR", { numeric: true, sensitivity: "base" });
+
+// 빈값 정규화: null·undefined·""·공백·"-" = 빈값.
+function isEmptyVal(v: unknown): boolean {
+  if (v === null || v === undefined) return true;
+  if (typeof v === "string") {
+    const t = v.trim();
+    return t === "" || t === "-";
+  }
+  return false;
+}
+
+// 빈값은 방향 무관 항상 마지막. base = 유효값끼리의 비교 결과(오름차순 기준).
+function withEmptyLast(a: unknown, b: unknown, base: number, dir: SortDir): number {
+  const ae = isEmptyVal(a);
+  const be = isEmptyVal(b);
+  if (ae && be) return 0;
+  if (ae) return 1;
+  if (be) return -1;
+  return dir === "asc" ? base : -base;
+}
+function cmpString(a: string | null | undefined, b: string | null | undefined, dir: SortDir): number {
+  return withEmptyLast(a, b, collator.compare(String(a ?? ""), String(b ?? "")), dir);
+}
+function cmpNumber(a: number | null | undefined, b: number | null | undefined, dir: SortDir): number {
+  const base = (a ?? 0) === (b ?? 0) ? 0 : (a ?? 0) < (b ?? 0) ? -1 : 1;
+  return withEmptyLast(a, b, base, dir);
+}
+function cmpDateIso(a: string | null | undefined, b: string | null | undefined, dir: SortDir): number {
+  const av = a ? Date.parse(a) : NaN;
+  const bv = b ? Date.parse(b) : NaN;
+  const ae = Number.isNaN(av);
+  const be = Number.isNaN(bv);
+  const base = av === bv ? 0 : av < bv ? -1 : 1;
+  return withEmptyLast(ae ? null : av, be ? null : bv, base, dir);
+}
+function cmpRank(a: number, b: number, dir: SortDir): number {
+  const base = a === b ? 0 : a < b ? -1 : 1;
+  return dir === "asc" ? base : -base;
+}
+
+// 정렬 상태 아이콘 — 미정렬(중립)/오름/내림.
+function SortIcon({ dir }: { dir: SortDir | null }) {
+  if (dir === "asc") return <ChevronUp className="size-3.5" aria-hidden />;
+  if (dir === "desc") return <ChevronDown className="size-3.5" aria-hidden />;
+  return <ChevronsUpDown className="size-3.5 opacity-40" aria-hidden />;
+}
+
+// 3단계 정렬(오름 → 내림 → 기본) 상태 훅.
+function useTableSort<K extends string>() {
+  const [sort, setSort] = useState<SortState<K>>(null);
+  const onSort = useCallback((key: K) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null; // 3번째 클릭 → 기본 순서 복귀
+    });
+  }, []);
+  return { sort, onSort };
+}
+
+// 정렬 가능 헤더 셀 내용(컬럼명 + 정렬 아이콘 버튼 + 돋보기 — 형제 배치).
+function SortableHeadContent<K extends string>({
+  label,
+  sortKey,
+  sort,
+  onSort,
+  helpKey,
+  justify = "center",
+}: {
+  label: string;
+  sortKey: K;
+  sort: SortState<K>;
+  onSort: (k: K) => void;
+  helpKey: string;
+  justify?: "start" | "center" | "end";
+}) {
+  const active = sort?.key === sortKey;
+  const j = justify === "start" ? "justify-start" : justify === "end" ? "justify-end" : "justify-center";
+  return (
+    <span className={"inline-flex items-center gap-1 " + j}>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        aria-label={`${label} 기준 정렬`}
+        className="inline-flex cursor-pointer items-center gap-1 rounded outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-sky-500/50"
+      >
+        <span className={active ? "font-bold text-foreground" : undefined}>{label}</span>
+        <SortIcon dir={active ? sort!.dir : null} />
+      </button>
+      <AdminHelpIconButton helpKey={helpKey} title={label} />
+    </span>
+  );
+}
+function ariaSort<K extends string>(sort: SortState<K>, key: K): "none" | "ascending" | "descending" {
+  if (sort?.key !== key) return "none";
+  return sort.dir === "asc" ? "ascending" : "descending";
+}
+
+// 라벨 + 돋보기(정렬 없는 헤더/필드/섹션 공용).
+function HeadHelp({ label, helpKey, justify = "center" }: { label: string; helpKey: string; justify?: "start" | "center" | "end" }) {
+  const j = justify === "start" ? "justify-start" : justify === "end" ? "justify-end" : "justify-center";
+  return (
+    <span className={"inline-flex items-center gap-1 " + j}>
+      <span>{label}</span>
+      <AdminHelpIconButton helpKey={helpKey} title={label} />
+    </span>
+  );
+}
 
 const EXP_TYPE_LABEL: Record<ExperienceLineType, string> = {
   derive: "도출",
@@ -115,22 +234,39 @@ const SUMMARY_STYLE: Record<SummaryLevel, { box: string; title: string; num: str
   },
 };
 
-function ActSummaryRow({ title, s, level = 2 }: { title: string; s: ActCheckSummary; level?: SummaryLevel }) {
+// withHelp=true(최상위 주차 전체 요약)일 때만 제목/지표에 돋보기를 부착한다(하위 반복 요약엔 미부착).
+function ActSummaryRow({
+  title,
+  s,
+  level = 2,
+  withHelp = false,
+  titleHelpKey,
+}: {
+  title: string;
+  s: ActCheckSummary;
+  level?: SummaryLevel;
+  withHelp?: boolean;
+  titleHelpKey?: string;
+}) {
   const st = SUMMARY_STYLE[level];
-  const item = (label: string, value: number | string) => (
-    <span className={"whitespace-nowrap " + st.label}>
-      · {label} <strong className={st.num}>{value}</strong>
+  const item = (label: string, value: number | string, helpKey?: string) => (
+    <span className={"inline-flex items-center gap-1 whitespace-nowrap " + st.label}>
+      <span>· {label} <strong className={st.num}>{value}</strong></span>
+      {withHelp && helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} /> : null}
     </span>
   );
   return (
     <div className={"flex flex-wrap items-center gap-x-4 gap-y-1 text-sm " + st.box}>
-      <span className={st.title}>{title}</span>
-      {item("전체", s.totalActs)}
-      {item("가동", s.activeActs)}
-      {item("체크", s.checkedActs)}
-      {item("미체크", s.uncheckedActs)}
-      {item("변동", s.variableActs)}
-      {item("액트 체크율", `${s.actCheckRate}%`)}
+      <span className={"inline-flex items-center gap-1.5 " + st.title}>
+        {title}
+        {withHelp && titleHelpKey ? <AdminHelpIconButton helpKey={titleHelpKey} title={title} size="sm" /> : null}
+      </span>
+      {item("전체", s.totalActs, `${HELP}.summary.total`)}
+      {item("가동", s.activeActs, `${HELP}.summary.operating`)}
+      {item("체크", s.checkedActs, `${HELP}.summary.checked`)}
+      {item("미체크", s.uncheckedActs, `${HELP}.summary.unchecked`)}
+      {item("변동", s.variableActs, `${HELP}.summary.variable`)}
+      {item("액트 체크율", `${s.actCheckRate}%`, `${HELP}.summary.checkRate`)}
     </div>
   );
 }
@@ -140,25 +276,33 @@ function LineSummaryRow({
   title,
   s,
   level = 1,
+  withHelp = false,
+  titleHelpKey,
 }: {
   title: string;
   s: LineOpeningManagementData["summary"];
   level?: SummaryLevel;
+  withHelp?: boolean;
+  titleHelpKey?: string;
 }) {
   const st = SUMMARY_STYLE[level];
-  const item = (label: string, value: number | string) => (
-    <span className={"whitespace-nowrap " + st.label}>
-      · {label} <strong className={st.num}>{value}</strong>
+  const item = (label: string, value: number | string, helpKey?: string) => (
+    <span className={"inline-flex items-center gap-1 whitespace-nowrap " + st.label}>
+      <span>· {label} <strong className={st.num}>{value}</strong></span>
+      {withHelp && helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} /> : null}
     </span>
   );
   return (
     <div className={"flex flex-wrap items-center gap-x-4 gap-y-1 text-sm " + st.box}>
-      <span className={st.title}>{title}</span>
-      {item("전체", s.totalLines)}
-      {item("오픈", s.openLines)}
-      {item("개설", s.createdLines)}
-      {item("미개설", s.notCreatedLines)}
-      {item("라인칸 개설율", `${s.lineOpenRate}%`)}
+      <span className={"inline-flex items-center gap-1.5 " + st.title}>
+        {title}
+        {withHelp && titleHelpKey ? <AdminHelpIconButton helpKey={titleHelpKey} title={title} size="sm" /> : null}
+      </span>
+      {item("전체", s.totalLines, `${HELP}.lineSummary.total`)}
+      {item("오픈", s.openLines, `${HELP}.lineSummary.open`)}
+      {item("개설", s.createdLines, `${HELP}.lineSummary.created`)}
+      {item("미개설", s.notCreatedLines, `${HELP}.lineSummary.notCreated`)}
+      {item("라인칸 개설율", `${s.lineOpenRate}%`, `${HELP}.lineSummary.openRate`)}
     </div>
   );
 }
@@ -175,6 +319,13 @@ const PROGRESS_META: Record<InfoLineRow["progressStatus"], { label: string; cls:
   required: { label: "개설 필요", cls: "bg-orange-500 text-white" },
   crew_submitting: { label: "크루 기입 중", cls: "bg-emerald-600 text-white" },
   crew_submission_closed: { label: "크루 기입 종료", cls: "bg-slate-500 text-white" },
+};
+// 진행 상태 정렬 순위(업무 진행 순: 대상 아님 → 필요 → 기입 중 → 종료). enum 문자열 알파벳순 금지.
+const PROGRESS_RANK: Record<InfoLineRow["progressStatus"], number> = {
+  not_required: 0,
+  required: 1,
+  crew_submitting: 2,
+  crew_submission_closed: 3,
 };
 function ProgressBadge({ status }: { status: InfoLineRow["progressStatus"] }) {
   const m = PROGRESS_META[status];
@@ -222,33 +373,84 @@ function CreatedAtCell({ row }: { row: InfoLineRow }) {
   );
 }
 
+// 라인칸 개설 표 정렬 컬럼 키.
+type LineCol =
+  | "lineName"
+  | "operator"
+  | "operating"
+  | "createdAt"
+  | "createdCrew"
+  | "submittedCrew"
+  | "progressStatus";
+
+function sortLineRows(lines: InfoLineRow[], sort: SortState<LineCol>): InfoLineRow[] {
+  if (!sort) return lines;
+  const { key, dir } = sort;
+  // 원본 mutate 금지 — 복사본 정렬. 동률은 안정 정렬로 원본(API) 순서 유지.
+  return [...lines].sort((a, b) => {
+    switch (key) {
+      case "lineName":
+        return cmpString(a.lineName, b.lineName, dir);
+      case "operator":
+        return cmpString(a.operatorName, b.operatorName, dir);
+      case "operating":
+        // 오픈=0(먼저) / 미오픈=1. 빈값 없음.
+        return cmpRank(a.isOpenThisWeek ? 0 : 1, b.isOpenThisWeek ? 0 : 1, dir);
+      case "createdAt":
+        return cmpDateIso(a.createdAtIso, b.createdAtIso, dir);
+      case "createdCrew":
+        return cmpNumber(a.createdCrewCount, b.createdCrewCount, dir);
+      case "submittedCrew":
+        return cmpNumber(a.submittedCrewCount, b.submittedCrewCount, dir);
+      case "progressStatus":
+        return cmpRank(PROGRESS_RANK[a.progressStatus], PROGRESS_RANK[b.progressStatus], dir);
+      default:
+        return 0;
+    }
+  });
+}
+
 // 라인칸 개설 상태 표(실무 정보·실무 경험 팀 공용) — 7컬럼·상태별 라인명 칩·"-" 정책.
 //   lineAttr = 행 식별 data 속성명(정보=data-info-open-line, 경험=data-exp-open-line).
+//   전 행을 한 번에 받으므로 클라이언트 3단계 정렬이 곧 전체 정렬(안정 id=lineId).
 function LineOpeningTable({ lines, lineAttr }: { lines: InfoLineRow[]; lineAttr: string }) {
   const dash = <span className="text-muted-foreground">-</span>;
+  const { sort, onSort } = useTableSort<LineCol>();
+  const sortedLines = useMemo(() => sortLineRows(lines, sort), [lines, sort]);
+  const th = (label: string, key: LineCol, col: string) => (
+    <th aria-sort={ariaSort(sort, key)} className="border px-2 py-2 font-semibold">
+      <SortableHeadContent
+        label={label}
+        sortKey={key}
+        sort={sort}
+        onSort={onSort}
+        helpKey={`${HELP}.lineOpening.column.${col}`}
+      />
+    </th>
+  );
   return (
     <div className="overflow-x-auto rounded-md border bg-background">
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="bg-zinc-50 text-center">
-            <th className="border px-2 py-2 font-semibold">라인명</th>
-            <th className="border px-2 py-2 font-semibold">운영진</th>
-            <th className="border px-2 py-2 font-semibold">운영</th>
-            <th className="border px-2 py-2 font-semibold">개설 시점</th>
-            <th className="border px-2 py-2 font-semibold">개설 크루</th>
-            <th className="border px-2 py-2 font-semibold">기입 크루</th>
-            <th className="border px-2 py-2 font-semibold">진행 상태</th>
+            {th("라인명", "lineName", "lineName")}
+            {th("운영진", "operator", "operator")}
+            {th("운영", "operating", "operating")}
+            {th("개설 시점", "createdAt", "openedAt")}
+            {th("개설 크루", "createdCrew", "createdCrew")}
+            {th("기입 크루", "submittedCrew", "submittedCrew")}
+            {th("진행 상태", "progressStatus", "progressStatus")}
           </tr>
         </thead>
         <tbody>
-          {lines.length === 0 ? (
+          {sortedLines.length === 0 ? (
             <tr>
               <td colSpan={7} className="border px-2 py-4 text-center text-xs text-muted-foreground">
                 표시할 라인이 없습니다.
               </td>
             </tr>
           ) : (
-            lines.map((l) => {
+            sortedLines.map((l) => {
               const state = resolveInfoLineState(l);
               const created = state === "created_ontime" || state === "created_late";
               return (
@@ -328,7 +530,7 @@ function ExperienceLineOpeningSection({ data }: { data: LineOpeningManagementDat
                 data-exp-team-tab={t.teamId}
                 onClick={() => setTeamId(t.teamId)}
                 className={
-                  "rounded-md border px-3 py-1.5 text-sm font-bold transition-colors " +
+                  "cursor-pointer rounded-md border px-3 py-1.5 text-sm font-bold transition-colors " +
                   (selected?.teamId === t.teamId
                     ? "border-emerald-600 bg-emerald-600 text-white"
                     : "border-input bg-background text-muted-foreground hover:bg-muted")
@@ -494,7 +696,19 @@ function DayHeader({ label, stats }: { label: string; stats: ReturnType<typeof d
 
 // 요일 그룹(월~목 / 금~일) 테이블 — 라인 급 컬럼은 최소폭(colgroup 고정), 요일 컬럼은 넓게 균등 분배.
 //   행 내 셀 높이는 표가 자동 정렬(같은 행 = 가장 많은 액트 요일 높이에 맞춤).
-function ActCheckGroupTable({ lines, variableActsByDay, cols }: { lines: HubLine[]; variableActsByDay: HubVariableByDay; cols: DayCol[] }) {
+function ActCheckGroupTable({
+  lines,
+  variableActsByDay,
+  cols,
+  sort,
+  onSort,
+}: {
+  lines: HubLine[];
+  variableActsByDay: HubVariableByDay;
+  cols: DayCol[];
+  sort: SortState<"lineGrade">;
+  onSort: (k: "lineGrade") => void;
+}) {
   // 요일 칸 수를 4 로 고정 — 부족한 칸은 빈 셀로 채워 두 행의 요일 컬럼 폭을 동일하게 맞춘다.
   const padCount = Math.max(0, DAY_COLS_PER_ROW - cols.length);
   const pads = Array.from({ length: padCount });
@@ -511,7 +725,19 @@ function ActCheckGroupTable({ lines, variableActsByDay, cols }: { lines: HubLine
       </colgroup>
       <thead>
         <tr className="bg-zinc-50">
-          <th className="border px-1.5 py-2 text-center align-middle font-semibold whitespace-nowrap">라인 급</th>
+          {/* 라인 급 = 이 매트릭스에서 유일한 단일값 컬럼 → 3단계 정렬(요일 셀은 다중 카드라 정렬 제외). */}
+          <th
+            aria-sort={ariaSort(sort, "lineGrade")}
+            className="border px-1.5 py-2 text-center align-middle font-semibold whitespace-nowrap"
+          >
+            <SortableHeadContent
+              label="라인 급"
+              sortKey="lineGrade"
+              sort={sort}
+              onSort={onSort}
+              helpKey={`${HELP}.actCheck.column.lineGrade`}
+            />
+          </th>
           {cols.map((d) => (
             <th key={d.key} className="border px-2 py-2 text-left align-middle font-semibold">
               <DayHeader label={d.label} stats={dayStats(lines, variableActsByDay, d.key)} />
@@ -564,7 +790,9 @@ function ActCheckGroupTable({ lines, variableActsByDay, cols }: { lines: HubLine
         )}
         {/* 변동 액트 행 — 항상 존재(요일별 실제 신청분만). */}
         <tr data-variable-row className="align-top">
-          <td className="border bg-orange-50 px-1.5 py-2 text-center text-sm font-bold text-orange-900 whitespace-nowrap">변동 액트</td>
+          <td className="border bg-orange-50 px-1.5 py-2 text-center text-sm font-bold text-orange-900 whitespace-nowrap">
+            <HeadHelp label="변동 액트" helpKey={`${HELP}.actCheck.row.variable`} />
+          </td>
           {cols.map((d) => (
             <td key={d.key} className="border px-1.5 py-1.5 align-top">
               <div className="flex flex-col gap-1">
@@ -586,12 +814,25 @@ function ActCheckGroupTable({ lines, variableActsByDay, cols }: { lines: HubLine
 }
 
 // 허브 액트 표(실무 정보·실무 경험 팀 공용) — 요일 2행(월~목 / 금~일).
+//   정렬 상태를 여기서 소유해 두 행(월~목·금~일)이 라인 급 순서를 함께 따르게 한다.
+//   라인 급 = locale-aware(안정 id=lineId). 요일 셀은 다중 카드 매트릭스라 정렬 제외.
 function HubActTable({ lines, variableActsByDay }: { lines: HubLine[]; variableActsByDay: HubVariableByDay }) {
+  const { sort, onSort } = useTableSort<"lineGrade">();
+  const sortedLines = useMemo(
+    () => (sort ? [...lines].sort((a, b) => cmpString(a.lineName, b.lineName, sort.dir)) : lines),
+    [lines, sort],
+  );
   return (
     <div className="space-y-3">
       {DAY_GROUPS.map((cols, i) => (
         <div key={i} className="overflow-x-auto rounded-md border bg-background" data-day-group={i}>
-          <ActCheckGroupTable lines={lines} variableActsByDay={variableActsByDay} cols={cols} />
+          <ActCheckGroupTable
+            lines={sortedLines}
+            variableActsByDay={variableActsByDay}
+            cols={cols}
+            sort={sort}
+            onSort={onSort}
+          />
         </div>
       ))}
     </div>
@@ -1054,7 +1295,10 @@ export default function TeamPartsInfoWeekDetailManager({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle>활동 관리</CardTitle>
+        <span className="inline-flex items-center gap-1.5">
+          <CardTitle>활동 관리</CardTitle>
+          <AdminHelpIconButton helpKey={`${HELP}.page`} title="활동 관리" size="sm" />
+        </span>
         <div className="flex items-center gap-3">
           {/* 현재 조직명(한글) — lib/organizations 단일 SoT(OrganizationBadge) 재사용.
               이 페이지의 org 컨텍스트(club)를 그대로 사용(별도 재계산·하드코딩 없음)·
@@ -1098,15 +1342,21 @@ export default function TeamPartsInfoWeekDetailManager({
               data-current-week
               className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-dashed border-red-300 px-4 py-3 text-sm"
             >
-              <span>
-                오늘은, <strong className="text-base">{currentWeek?.todayLabel ?? "-"}</strong>
+              <span className="inline-flex items-center gap-1">
+                <span>
+                  오늘은, <strong className="text-base">{currentWeek?.todayLabel ?? "-"}</strong>
+                </span>
+                <AdminHelpIconButton helpKey={`${HELP}.summary.currentWeek`} title="현재 주차" />
               </span>
               <span className="rounded bg-sky-50 px-2 py-0.5 font-semibold text-sky-800">
                 {currentWeek?.seasonWeekName ?? "-"}
                 {currentWeek?.seasonWeekName ? "입니다." : null}
               </span>
               <span className="text-muted-foreground">{currentWeek?.weekRangeLabel ?? "-"}</span>
-              <span className="ml-auto">{statusBadge(currentWeek?.activityStatus ?? null)}</span>
+              <span className="ml-auto inline-flex items-center gap-1">
+                {statusBadge(currentWeek?.activityStatus ?? null)}
+                <AdminHelpIconButton helpKey={`${HELP}.status.activity`} title="클럽 활동 상태" />
+              </span>
             </section>
 
             {/* [2] 관리 주차 카드 + [3] 주차 검수 */}
@@ -1114,7 +1364,10 @@ export default function TeamPartsInfoWeekDetailManager({
               data-managed-week
               className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-sky-50/60 px-4 py-3 text-sm"
             >
-              <span className="font-semibold">▷ 관리 주차</span>
+              <span className="inline-flex items-center gap-1 font-semibold">
+                ▷ 관리 주차
+                <AdminHelpIconButton helpKey={`${HELP}.summary.managedWeek`} title="관리 주차" />
+              </span>
               <span
                 data-managed-week-name
                 className="rounded-md bg-fuchsia-100 px-3 py-1 font-bold text-fuchsia-900"
@@ -1125,15 +1378,18 @@ export default function TeamPartsInfoWeekDetailManager({
               {statusBadge(managedWeek?.activityStatus ?? null)}
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 {/* [주차 검수] — 클릭 시 "검수 준비 상태" 모달을 먼저 연다(바로 확정하지 않음). */}
-                <Button
-                  type="button"
-                  data-review-button
-                  onClick={openReadiness}
-                  disabled={readOnly || reviewing || reviewed}
-                  className="bg-slate-800 text-white hover:bg-slate-700"
-                >
-                  {reviewed ? "검수 완료" : reviewing ? "검수 중…" : "주차 검수"}
-                </Button>
+                <span className="inline-flex items-center gap-1">
+                  <Button
+                    type="button"
+                    data-review-button
+                    onClick={openReadiness}
+                    disabled={readOnly || reviewing || reviewed}
+                    className="cursor-pointer bg-slate-800 text-white hover:bg-slate-700"
+                  >
+                    {reviewed ? "검수 완료" : reviewing ? "검수 중…" : "주차 검수"}
+                  </Button>
+                  <AdminHelpIconButton helpKey={`${HELP}.action.review`} title="주차 검수" />
+                </span>
                 {/* 검수 준비 상태 모달. */}
                 {showReadiness && !readOnly && (
                   <div
@@ -1148,7 +1404,7 @@ export default function TeamPartsInfoWeekDetailManager({
                         <button
                           type="button"
                           onClick={() => setShowReviewHelp((v) => !v)}
-                          className="text-xs text-slate-500 underline hover:text-slate-700"
+                          className="cursor-pointer text-xs text-slate-500 underline hover:text-slate-700"
                         >
                           {showReviewHelp ? "도움말 닫기" : "검수 완료란? (도움말)"}
                         </button>
@@ -1203,7 +1459,7 @@ export default function TeamPartsInfoWeekDetailManager({
                           type="button"
                           onClick={() => setShowReadiness(false)}
                           disabled={reviewing}
-                          className="border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          className="cursor-pointer border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                         >
                           닫기
                         </Button>
@@ -1214,7 +1470,7 @@ export default function TeamPartsInfoWeekDetailManager({
                             data-force-review-confirm
                             onClick={() => onReview(true)}
                             disabled={reviewing}
-                            className="border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                            className="cursor-pointer border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100"
                             title="테스트 데이터가 불완전해도 안전장치를 건너뛰고 검수 완료합니다(테스트 모드 전용)."
                           >
                             {reviewing ? "진행 중…" : "테스트 데이터가 불완전하지만 강제로 검수 완료"}
@@ -1225,7 +1481,7 @@ export default function TeamPartsInfoWeekDetailManager({
                           data-review-confirm
                           onClick={() => onReview(false)}
                           disabled={reviewing || readinessLoading || !readiness?.applicable || !readiness?.ready}
-                          className="bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50"
+                          className="cursor-pointer bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50"
                           title={
                             readiness && readiness.applicable && !readiness.ready
                               ? "부족한 항목을 먼저 완료해주세요."
@@ -1241,7 +1497,7 @@ export default function TeamPartsInfoWeekDetailManager({
                 {/* 공용 수동 실행 — 기존 [주차 검수] 버튼이 이미 즉시 실행 역할을 하므로(중복 방지)
                     ⚡ 즉시 실행은 두지 않고, 옆에 ↩ 실행 취소(검수 실행 직전 복원)만 추가한다. */}
                 {!readOnly && (
-                  <div data-ac-week-review>
+                  <div data-ac-week-review className="inline-flex items-center gap-1">
                     <ActionControl
                       hideInstant
                       onRollback={onReviewRevert}
@@ -1254,6 +1510,7 @@ export default function TeamPartsInfoWeekDetailManager({
                       }
                       mode={mode === "test" ? "test" : "operating"}
                     />
+                    <AdminHelpIconButton helpKey={`${HELP}.action.reviewRevert`} title="검수 실행 취소" />
                   </div>
                 )}
                 {readOnly ? (
@@ -1264,8 +1521,9 @@ export default function TeamPartsInfoWeekDetailManager({
                     dataAttr="data-reviewed"
                   />
                 ) : reviewed ? (
-                  <span data-reviewed="true">
+                  <span className="inline-flex items-center gap-1" data-reviewed="true">
                     <CheckV />
+                    <AdminHelpIconButton helpKey={`${HELP}.status.weekReview`} title="주차 검수 상태" />
                   </span>
                 ) : null}
               </div>
@@ -1275,33 +1533,42 @@ export default function TeamPartsInfoWeekDetailManager({
             <section className="space-y-3 rounded-lg border border-dashed border-red-300 p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <h3 className="rounded bg-cyan-100 px-1 text-lg font-bold"># 이번 주 클럽에서 활동하는 허브와 라인</h3>
+                  <h3 className="inline-flex items-center gap-1.5 rounded bg-cyan-100 px-1 text-lg font-bold">
+                    # 이번 주 클럽에서 활동하는 허브와 라인
+                    <AdminHelpIconButton helpKey={`${HELP}.section.activeHubsAndLines`} title="이번 주 활동 허브·라인" size="sm" />
+                  </h3>
                   <p className="mt-1 text-xs text-muted-foreground">
                     * 여기서 체크된 허브 &amp; 라인 들이, 아래 액트 체크와 라인 개설 여부에 반영됩니다.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {/* 기존 '오픈 확인' 버튼 — 그대로 유지(대체/이름변경 금지). */}
-                  <Button
-                    type="button"
-                    data-open-confirm-button
-                    onClick={onOpenConfirm}
-                    disabled={readOnly || confirming}
-                    className="bg-slate-800 text-white hover:bg-slate-700"
-                  >
-                    {confirming ? "저장 중…" : "오픈 확인"}
-                  </Button>
-                  {/* [초기화] — 상단 허브 선택을 기본값으로 되돌린다(클라이언트 상태만·이후 오픈 확인 시 저장). */}
-                  {!readOnly && (
+                  <span className="inline-flex items-center gap-1">
                     <Button
                       type="button"
-                      data-hub-reset-button
-                      onClick={resetToDefaults}
-                      disabled={confirming}
-                      className="border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                      data-open-confirm-button
+                      onClick={onOpenConfirm}
+                      disabled={readOnly || confirming}
+                      className="cursor-pointer bg-slate-800 text-white hover:bg-slate-700"
                     >
-                      초기화
+                      {confirming ? "저장 중…" : "오픈 확인"}
                     </Button>
+                    <AdminHelpIconButton helpKey={`${HELP}.action.openConfirm`} title="오픈 확인" />
+                  </span>
+                  {/* [초기화] — 상단 허브 선택을 기본값으로 되돌린다(클라이언트 상태만·이후 오픈 확인 시 저장). */}
+                  {!readOnly && (
+                    <span className="inline-flex items-center gap-1">
+                      <Button
+                        type="button"
+                        data-hub-reset-button
+                        onClick={resetToDefaults}
+                        disabled={confirming}
+                        className="cursor-pointer border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                      >
+                        초기화
+                      </Button>
+                      <AdminHelpIconButton helpKey={`${HELP}.action.reset`} title="초기화" />
+                    </span>
                   )}
                   {readOnly ? (
                     <ReadOnlyStatusPill
@@ -1311,8 +1578,9 @@ export default function TeamPartsInfoWeekDetailManager({
                       dataAttr="data-open-confirmed"
                     />
                   ) : openConfirmed ? (
-                    <span data-open-confirmed="true">
+                    <span className="inline-flex items-center gap-1" data-open-confirmed="true">
                       <CheckV />
+                      <AdminHelpIconButton helpKey={`${HELP}.status.openConfirm`} title="오픈 확인 상태" />
                     </span>
                   ) : null}
                 </div>
@@ -1324,7 +1592,10 @@ export default function TeamPartsInfoWeekDetailManager({
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {/* (1) [실무 정보] 라인 급(체크) → 액트 체크 */}
                 <div data-hub="info-act" className={"rounded-md border p-3 " + HUB_CARD_CLASS.info}>
-                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.info}>[실무 정보] 라인 급(체크)</p>
+                  <p className={"mb-2 inline-flex items-center gap-1 text-sm font-bold " + HUB_TITLE_CLASS.info}>
+                    [실무 정보] 라인 급(체크)
+                    <AdminHelpIconButton helpKey={`${HELP}.hub.infoActCheck`} title="[실무 정보] 라인 급(체크)" />
+                  </p>
                   <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 sm:grid-cols-2">
                     {data.openingConfig.actCheck.info.length === 0 ? (
                       <span className="text-xs text-muted-foreground">라인급 없음 (프로세스 등록에서 추가)</span>
@@ -1351,7 +1622,10 @@ export default function TeamPartsInfoWeekDetailManager({
 
                 {/* (2) [실무 정보] 라인(개설) → 라인 개설 */}
                 <div data-hub="info-line" className={"rounded-md border p-3 " + HUB_CARD_CLASS.info}>
-                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.info}>[실무 정보] 라인(개설)</p>
+                  <p className={"mb-2 inline-flex items-center gap-1 text-sm font-bold " + HUB_TITLE_CLASS.info}>
+                    [실무 정보] 라인(개설)
+                    <AdminHelpIconButton helpKey={`${HELP}.hub.infoLineOpening`} title="[실무 정보] 라인(개설)" />
+                  </p>
                   <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 sm:grid-cols-2">
                     {data.openingConfig.lineOpening.practicalInfo.length === 0 ? (
                       <span className="text-xs text-muted-foreground">라인 없음</span>
@@ -1378,7 +1652,10 @@ export default function TeamPartsInfoWeekDetailManager({
 
                 {/* (3) [실무 경험] 라인 급(체크) → 액트 체크 : 팀 × 라인급 매트릭스 */}
                 <div data-hub="exp-act" className={"rounded-md border p-3 " + HUB_CARD_CLASS.experience}>
-                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.experience}>[실무 경험] 라인 급(체크)</p>
+                  <p className={"mb-2 inline-flex items-center gap-1 text-sm font-bold " + HUB_TITLE_CLASS.experience}>
+                    [실무 경험] 라인 급(체크)
+                    <AdminHelpIconButton helpKey={`${HELP}.hub.experienceActCheck`} title="[실무 경험] 라인 급(체크)" />
+                  </p>
                   {data.openingConfig.actCheck.experience.length === 0 ? (
                     <span className="text-xs text-muted-foreground">팀 없음</span>
                   ) : (
@@ -1401,7 +1678,7 @@ export default function TeamPartsInfoWeekDetailManager({
                               <td key={g.lineGroupId} className="px-1 py-1 text-center">
                                 <input
                                   type="checkbox"
-                                  className="h-4 w-4"
+                                  className={"h-4 w-4 " + (readOnly ? "cursor-not-allowed" : "cursor-pointer")}
                                   data-act-exp-cell={`${team.teamId}:${g.lineGroupId}`}
                                   checked={actExpChecked[team.teamId]?.[g.lineGroupId] ?? false}
                                   disabled={readOnly}
@@ -1418,7 +1695,10 @@ export default function TeamPartsInfoWeekDetailManager({
 
                 {/* (4) [실무 경험] 라인(오픈) → 라인 개설 : 팀 × 도출·분석·견문·관리·확장 */}
                 <div data-hub="exp-line" className={"rounded-md border p-3 " + HUB_CARD_CLASS.experience}>
-                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.experience}>[실무 경험] 라인(오픈)</p>
+                  <p className={"mb-2 inline-flex items-center gap-1 text-sm font-bold " + HUB_TITLE_CLASS.experience}>
+                    [실무 경험] 라인(오픈)
+                    <AdminHelpIconButton helpKey={`${HELP}.hub.experienceLineOpening`} title="[실무 경험] 라인(오픈)" />
+                  </p>
                   {data.openingConfig.lineOpening.practicalExperience.length === 0 ? (
                     <span className="text-xs text-muted-foreground">팀 없음</span>
                   ) : (
@@ -1441,7 +1721,7 @@ export default function TeamPartsInfoWeekDetailManager({
                               <td key={type} className="px-1 py-1 text-center">
                                 <input
                                   type="checkbox"
-                                  className="h-4 w-4"
+                                  className={"h-4 w-4 " + (readOnly ? "cursor-not-allowed" : "cursor-pointer")}
                                   data-line-exp-cell={`${team.teamId}:${type}`}
                                   checked={lineExpChecked[team.teamId]?.[type] ?? false}
                                   disabled={readOnly}
@@ -1458,7 +1738,10 @@ export default function TeamPartsInfoWeekDetailManager({
 
                 {/* (5) [실무 역량] 정상 진행 — (7)(8) 공유 (기존 색상 유지) */}
                 <div data-hub="competency" className={"rounded-md border p-3 " + HUB_CARD_CLASS.competency}>
-                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.competency}>[실무 역량] 체크/개설</p>
+                  <p className={"mb-2 inline-flex items-center gap-1 text-sm font-bold " + HUB_TITLE_CLASS.competency}>
+                    [실무 역량] 체크/개설
+                    <AdminHelpIconButton helpKey={`${HELP}.hub.competency`} title="[실무 역량] 체크/개설" />
+                  </p>
                   <label className={"flex min-w-0 items-center gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer")}>
                     <input
                       type="checkbox"
@@ -1474,7 +1757,10 @@ export default function TeamPartsInfoWeekDetailManager({
 
                 {/* (6) [클럽 총괄] 라인 급(체크) → 액트 체크 (기존 색상 유지·라인 개설 없음) */}
                 <div data-hub="club-act" className={"rounded-md border p-3 " + HUB_CARD_CLASS.club}>
-                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.club}>[클럽 총괄] 라인 급(체크)</p>
+                  <p className={"mb-2 inline-flex items-center gap-1 text-sm font-bold " + HUB_TITLE_CLASS.club}>
+                    [클럽 총괄] 라인 급(체크)
+                    <AdminHelpIconButton helpKey={`${HELP}.hub.clubActCheck`} title="[클럽 총괄] 라인 급(체크)" />
+                  </p>
                   <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 sm:grid-cols-2">
                     {data.openingConfig.actCheck.club.length === 0 ? (
                       <span className="text-xs text-muted-foreground">라인급 없음 (프로세스 등록에서 추가)</span>
@@ -1511,7 +1797,7 @@ export default function TeamPartsInfoWeekDetailManager({
                     data-tab={tab}
                     onClick={() => setActiveTab(tab)}
                     className={
-                      "px-4 py-2 text-sm font-bold transition-colors " +
+                      "cursor-pointer px-4 py-2 text-sm font-bold transition-colors " +
                       (activeTab === tab
                         ? "bg-emerald-500 text-white"
                         : "bg-emerald-50 text-emerald-800 hover:bg-emerald-100")
@@ -1532,8 +1818,14 @@ export default function TeamPartsInfoWeekDetailManager({
                     <p className="py-6 text-center text-sm text-red-700">{lineError}</p>
                   ) : lineData ? (
                     <div className="space-y-5" data-line-opening-panel>
-                      {/* [0] 주차 전체 요약 — 최상위 */}
-                      <LineSummaryRow title="# 주차 전체 라인칸 개설 관리" s={lineData.summary} level={1} />
+                      {/* [0] 주차 전체 요약 — 최상위(지표/제목 돋보기는 여기 한 번만) */}
+                      <LineSummaryRow
+                        title="# 주차 전체 라인칸 개설 관리"
+                        s={lineData.summary}
+                        level={1}
+                        withHelp
+                        titleHelpKey={`${HELP}.section.lineOpening`}
+                      />
                       {/* 허브 급 1: 실무 정보 — 요약 + 라인별 표 */}
                       <InfoLineOpeningSection data={lineData.practicalInfo} />
                       {/* 허브 급 2: 실무 경험 — 요약 + 팀 탭 + 선택 팀 라인표 */}
@@ -1550,8 +1842,14 @@ export default function TeamPartsInfoWeekDetailManager({
                   <p className="py-6 text-center text-sm text-red-700">{actError}</p>
                 ) : actData ? (
                   <div className="space-y-5" data-act-check-panel>
-                    {/* [0] 주차 전체 요약 — 최상위 */}
-                    <ActSummaryRow title="# 주차 전체 액트 체크 관리" s={actData.summary} level={1} />
+                    {/* [0] 주차 전체 요약 — 최상위(지표/제목 돋보기는 여기 한 번만) */}
+                    <ActSummaryRow
+                      title="# 주차 전체 액트 체크 관리"
+                      s={actData.summary}
+                      level={1}
+                      withHelp
+                      titleHelpKey={`${HELP}.section.actCheck`}
+                    />
 
                     {/* 허브 급 0: 클럽 총괄 — 실무 정보와 동일 UI(허브 요약 + 라인급/요일 액트). */}
                     <div className="space-y-3" data-hub-section="club">
@@ -1595,7 +1893,7 @@ export default function TeamPartsInfoWeekDetailManager({
                                     data-exp-team-tab={t.teamId}
                                     onClick={() => setExpTeamId(t.teamId)}
                                     className={
-                                      "rounded-md border px-3 py-1.5 text-sm font-bold transition-colors " +
+                                      "cursor-pointer rounded-md border px-3 py-1.5 text-sm font-bold transition-colors " +
                                       (selected?.teamId === t.teamId
                                         ? "border-emerald-600 bg-emerald-600 text-white"
                                         : "border-input bg-background text-muted-foreground hover:bg-muted")
