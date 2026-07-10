@@ -167,15 +167,17 @@ const MENU_INTEGRATED: MenuItem[] = [
     matchPaths: [
       "/admin/members",
       "/admin/rest-management",
-      "/admin/season-participations",
-      "/admin/official-rest-periods",
+      // 임시 비노출(페이지/API/로직 유지 — 메뉴만 숨김). 재활성화 시 아래 2줄 주석 해제.
+      // "/admin/season-participations",
+      // "/admin/official-rest-periods",
       "/admin/communications",
     ],
     children: [
       { label: "크루 관리", href: "/admin/members" },
       { label: "휴식 관리", href: "/admin/rest-management" },
-      { label: "시즌 참여/휴식", href: "/admin/season-participations" },
-      { label: "공식 휴식 관리", href: "/admin/official-rest-periods" },
+      // 임시 비노출(페이지/API/로직 유지 — 메뉴만 숨김). 재활성화 시 아래 2줄 주석 해제.
+      // { label: "시즌 참여/휴식", href: "/admin/season-participations" },
+      // { label: "공식 휴식 관리", href: "/admin/official-rest-periods" },
       { label: "커뮤니케이션", href: "/admin/communications" },
     ],
   },
