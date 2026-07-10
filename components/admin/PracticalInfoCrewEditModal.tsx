@@ -267,7 +267,7 @@ export default function PracticalInfoCrewEditModal({
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted/60">
                   <tr className="border-b text-left text-xs text-muted-foreground">
-                    <th className="px-2 py-1.5">크루 번호</th>
+                    <th className="px-2 py-1.5">크루 코드</th>
                     <th className="px-2 py-1.5">이름</th>
                     <th className="px-2 py-1.5">팀 · 파트</th>
                     <th className="px-2 py-1.5">학교 · 전공</th>
@@ -285,7 +285,7 @@ export default function PracticalInfoCrewEditModal({
                           removed && "bg-red-50/60 text-muted-foreground line-through",
                         )}
                       >
-                        <td className="px-2 py-1.5 font-mono text-xs">{e.crewNo ?? "-"}</td>
+                        <td className="px-2 py-1.5 font-mono text-xs">{e.crewCode ?? "-"}</td>
                         <td className="px-2 py-1.5 font-medium">{e.name || "-"}</td>
                         <td className="px-2 py-1.5 text-xs">
                           {(e.teamName ?? "-") + " · " + (e.partName ?? "-")}

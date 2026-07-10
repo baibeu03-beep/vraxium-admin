@@ -87,6 +87,7 @@ export async function GET(request: NextRequest) {
         crewById.get(id) ?? {
           userId: id,
           crewNo: null,
+          crewCode: null,
           name: "(알 수 없음)",
           teamName: null,
           partName: null,

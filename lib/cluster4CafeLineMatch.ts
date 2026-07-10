@@ -16,10 +16,14 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchCrewNoMap } from "@/lib/adminCrewNo";
+import { fetchCrewCodeMap } from "@/lib/adminCrewCode";
 
 export type CrewRecord = {
   userId: string;
+  // 4자리 일련번호(user_profiles.crew_no) — 내부 보조 키. 표시 식별자는 crewCode 로 대체됐다.
   crewNo: number | null;
+  // 13자리 운영 식별자(user_profiles.crew_code) 예) 036003-1254053. 미생성이면 null → 화면 "-".
+  crewCode: string | null;
   name: string;
   teamName: string | null;
   partName: string | null;
@@ -338,6 +342,7 @@ async function enrichCrewProfiles(
   }
 
   const crewNoMap = await fetchCrewNoMap(userIds);
+  const crewCodeMap = await fetchCrewCodeMap(userIds);
 
   const pick = (...vals: Array<string | null | undefined>): string | null => {
     for (const v of vals) {
@@ -352,6 +357,7 @@ async function enrichCrewProfiles(
     return {
       userId: p.user_id,
       crewNo: crewNoMap.get(p.user_id) ?? null,
+      crewCode: crewCodeMap.get(p.user_id) ?? null,
       name: p.display_name?.trim() ?? "",
       teamName: pick(mem?.team_name, p.current_team_name),
       partName: pick(mem?.part_name, p.current_part_name),
@@ -362,7 +368,8 @@ async function enrichCrewProfiles(
   });
 }
 
-// 매칭/수동추가 검색용 — q(이름/학교/팀/전공/crew_no) 부분일치 필터.
+// 매칭/수동추가 검색용 — q(이름/학교/팀/전공/크루 코드/crew_no) 부분일치 필터.
+//   crewCode(13자리 표시 식별자) 검색을 추가하되, 기존 crew_no 검색도 보존(회귀 방지 — 별개 보조 키).
 export function filterCrewRecords(crews: CrewRecord[], q: string): CrewRecord[] {
   const needle = q.trim().toLowerCase();
   if (!needle) return [];
@@ -372,6 +379,7 @@ export function filterCrewRecords(crews: CrewRecord[], q: string): CrewRecord[] 
       (c.schoolName ?? "").toLowerCase().includes(needle) ||
       (c.teamName ?? "").toLowerCase().includes(needle) ||
       (c.majorName ?? "").toLowerCase().includes(needle) ||
+      (c.crewCode ?? "").toLowerCase().includes(needle) ||
       (c.crewNo != null && String(c.crewNo).includes(needle))
     );
   });

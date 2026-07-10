@@ -30,6 +30,7 @@ type ApplicationDto = {
   id: string;
   targetUserId: string;
   crewNo: number | null;
+  crewCode: string | null;
   displayName: string;
   teamName: string | null;
   schoolName: string | null;
@@ -60,6 +61,7 @@ type Summary = {
 type CrewSearchItem = {
   userId: string;
   crewNo: number | null;
+  crewCode: string | null;
   name: string;
   teamName: string | null;
   schoolName: string | null;
@@ -317,8 +319,8 @@ export default function CompetencyApplicantSection({
 
   const pickCrew = useCallback((c: CrewSearchItem) => {
     setSelectedCrew(c);
-    const no = c.crewNo != null ? String(c.crewNo).padStart(4, "0") : "----";
-    setQ(`${no} - ${c.name}`);
+    const code = c.crewCode?.trim() || "-";
+    setQ(`${code} - ${c.name}`);
     setMenuOpen(false);
   }, []);
 
@@ -476,7 +478,7 @@ export default function CompetencyApplicantSection({
         {/* 수동 추가 — 자동완성 검색 + [추가] */}
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-[260px] flex-1 space-y-1">
-            <Label className="text-xs text-muted-foreground">수동 추가 (크루 번호 + 이름 검색)</Label>
+            <Label className="text-xs text-muted-foreground">수동 추가 (크루 코드 + 이름 검색)</Label>
             <div className="relative" ref={searchRef}>
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -507,7 +509,7 @@ export default function CompetencyApplicantSection({
                         className="block w-full px-3 py-1.5 text-left text-sm hover:bg-muted"
                       >
                         <span className="font-mono text-xs text-muted-foreground">
-                          {c.crewNo != null ? String(c.crewNo).padStart(4, "0") : "----"}
+                          {c.crewCode ?? "-"}
                         </span>{" "}
                         <span className="font-medium">{c.name}</span>{" "}
                         <span className="text-xs text-muted-foreground">
@@ -671,7 +673,7 @@ export default function CompetencyApplicantSection({
           >
             <h3 className="text-base font-bold">수동 추가</h3>
             <p className="text-sm text-muted-foreground">
-              {selectedCrew.crewNo != null ? String(selectedCrew.crewNo).padStart(4, "0") : "----"} -{" "}
+              {selectedCrew.crewCode ?? "-"} -{" "}
               {selectedCrew.name}
               {selectedCrew.teamName ? ` - ${selectedCrew.teamName}` : ""}
             </p>

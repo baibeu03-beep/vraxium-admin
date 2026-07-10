@@ -43,6 +43,7 @@ const EMPTY: Summary = {
 type CrewResult = {
   userId: string;
   crewNo: number | null;
+  crewCode: string | null;
   displayName: string;
   teamName: string | null;
   schoolName: string | null;
@@ -255,7 +256,7 @@ export default function CompetencyLineManageBoard({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">크루 번호</th>
+                  <th className="px-3 py-2 font-medium">크루 코드</th>
                   <th className="px-3 py-2 font-medium">크루명</th>
                   <th className="px-3 py-2 font-medium">소속 팀</th>
                   <th className="px-3 py-2 font-medium">학교</th>
@@ -268,7 +269,7 @@ export default function CompetencyLineManageBoard({
                 {results.map((r) => (
                   <tr key={r.userId} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-muted-foreground">
-                      {r.crewNo != null ? String(r.crewNo).padStart(4, "0") : "-"}
+                      {r.crewCode ?? "-"}
                     </td>
                     <td className="whitespace-nowrap px-3 py-2 font-medium">{r.displayName}</td>
                     <td className="whitespace-nowrap px-3 py-2">{r.teamName ?? "-"}</td>

@@ -23,10 +23,11 @@ export type CompetencyApplicationDto = {
   id: string;
   targetUserId: string;
   crewNo: number | null;
+  crewCode: string | null;
   displayName: string;
   teamName: string | null;
   schoolName: string | null;
-  // "0030 - 홍길동 - 콘텐츠 팀 - 한국대"
+  // "036003-1254053 - 홍길동 - 콘텐츠 팀 - 한국대" (식별자 = 크루 코드, 미생성이면 "-")
   crewLabel: string;
   competencyLineMasterId: string | null;
   lineCode: string | null;
@@ -73,13 +74,14 @@ type AppRow = {
 };
 
 function crewLabel(r: {
-  crewNo: number | null;
+  crewCode: string | null;
   name: string;
   teamName: string | null;
   schoolName: string | null;
 }): string {
-  const no = r.crewNo != null ? String(r.crewNo).padStart(4, "0") : "----";
-  return [no, r.name || "-", r.teamName ?? "-", r.schoolName ?? "-"].join(" - ");
+  // 식별자 = 크루 코드(13자리). 미생성이면 "-" — 4자리 crew_no 로 폴백하지 않는다.
+  const code = r.crewCode?.trim() || "-";
+  return [code, r.name || "-", r.teamName ?? "-", r.schoolName ?? "-"].join(" - ");
 }
 
 // best-effort: 테이블 미적용(마이그 전) 등 실패 시 빈 배열.
@@ -128,12 +130,13 @@ export async function listCompetencyApplications(
       id: r.id,
       targetUserId: r.target_user_id,
       crewNo: rec?.crewNo ?? null,
+      crewCode: rec?.crewCode ?? null,
       displayName: rec?.name ?? "(이름 없음)",
       teamName: rec?.teamName ?? null,
       schoolName: rec?.schoolName ?? null,
       crewLabel: rec
         ? crewLabel(rec)
-        : ["----", "(이름 없음)", "-", "-"].join(" - "),
+        : ["-", "(이름 없음)", "-", "-"].join(" - "),
       competencyLineMasterId: r.competency_line_master_id,
       lineCode: r.line_code,
       lineName: r.line_name,
@@ -225,6 +228,7 @@ export async function getCompetencyApplicationSummary(
 export type CompetencyLineResultDto = {
   userId: string;
   crewNo: number | null;
+  crewCode: string | null;
   displayName: string;
   teamName: string | null;
   schoolName: string | null;
@@ -280,6 +284,7 @@ export async function getCompetencyLineResults(
     return {
       userId: c.userId,
       crewNo: rec?.crewNo ?? c.crewNo ?? null,
+      crewCode: rec?.crewCode ?? null,
       displayName: rec?.name ?? c.displayName ?? "(이름 없음)",
       teamName: rec?.teamName ?? c.teamName ?? null,
       schoolName: rec?.schoolName ?? null,

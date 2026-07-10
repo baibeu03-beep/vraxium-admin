@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 export type CafeCrew = {
   userId: string;
   crewNo: number | null;
+  crewCode: string | null;
   name: string;
   teamName: string | null;
   partName: string | null;
@@ -275,7 +276,7 @@ export default function CafeCrewPicker({
                   >
                     <span className="min-w-0 truncate">
                       <span className="font-mono text-xs text-muted-foreground">
-                        {c.crewNo ?? "-"}
+                        {c.crewCode ?? "-"}
                       </span>{" "}
                       <span className="font-medium">{c.name || "-"}</span>{" "}
                       <span className="text-xs text-muted-foreground">
@@ -333,7 +334,7 @@ export default function CafeCrewPicker({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="px-2 py-1.5">크루 번호</th>
+                  <th className="px-2 py-1.5">크루 코드</th>
                   <th className="px-2 py-1.5">이름</th>
                   <th className="px-2 py-1.5">팀명</th>
                   <th className="px-2 py-1.5">파트명</th>
@@ -345,7 +346,7 @@ export default function CafeCrewPicker({
               <tbody>
                 {candidates.map((c) => (
                   <tr key={c.userId} className="border-b last:border-0">
-                    <td className="px-2 py-1.5 font-mono text-xs">{c.crewNo ?? "-"}</td>
+                    <td className="px-2 py-1.5 font-mono text-xs">{c.crewCode ?? "-"}</td>
                     <td className="px-2 py-1.5 font-medium">{c.name || "-"}</td>
                     <td className="px-2 py-1.5 text-xs">{c.teamName ?? "-"}</td>
                     <td className="px-2 py-1.5 text-xs">{c.partName ?? "-"}</td>

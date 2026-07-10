@@ -39,6 +39,7 @@ const DURATIONS = Array.from({ length: 18 }, (_, i) => (i + 1) * 5); // 5~90, 5�
 type Crew = {
   userId: string;
   crewNo: number | null;
+  crewCode: string | null;
   name: string;
   teamName: string | null;
   schoolName: string | null;
@@ -137,6 +138,7 @@ export default function ProcessCheckManualGrantDialog({
           crews.map((c) => ({
             userId: String(c.userId),
             crewNo: (c.crewNo as number | null) ?? null,
+            crewCode: (c.crewCode as string | null) ?? null,
             name: String(c.name ?? ""),
             teamName: (c.teamName as string | null) ?? null,
             schoolName: (c.schoolName as string | null) ?? null,
@@ -349,7 +351,7 @@ export default function ProcessCheckManualGrantDialog({
             <div className="flex items-start gap-2">
               <div className="relative flex-1">
                 <Input
-                  value={candidate ? `${candidate.name}${candidate.crewNo != null ? ` (#${candidate.crewNo})` : ""}` : q}
+                  value={candidate ? `${candidate.name}${candidate.crewCode ? ` (${candidate.crewCode})` : ""}` : q}
                   onChange={(e) => {
                     setCandidate(null);
                     setQ(e.target.value);
@@ -374,7 +376,7 @@ export default function ProcessCheckManualGrantDialog({
                           }}
                           className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
                         >
-                          <span className="w-12 shrink-0 tabular-nums text-muted-foreground">{c.crewNo ?? "—"}</span>
+                          <span className="w-28 shrink-0 font-mono text-xs text-muted-foreground">{c.crewCode ?? "—"}</span>
                           <span className="font-medium">{c.name}</span>
                           <span className="text-xs text-muted-foreground">{c.teamName ?? "-"} · {c.schoolName ?? "-"}</span>
                         </button>
@@ -393,7 +395,7 @@ export default function ProcessCheckManualGrantDialog({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>크루 번호</TableHead>
+                    <TableHead>크루 코드</TableHead>
                     <TableHead>크루명</TableHead>
                     <TableHead>소속 팀</TableHead>
                     <TableHead>학교</TableHead>
@@ -410,7 +412,7 @@ export default function ProcessCheckManualGrantDialog({
                   ) : (
                     roster.map((c) => (
                       <TableRow key={c.userId}>
-                        <TableCell className="tabular-nums">{c.crewNo ?? "—"}</TableCell>
+                        <TableCell className="font-mono text-xs">{c.crewCode ?? "—"}</TableCell>
                         <TableCell className="font-medium">{c.name}</TableCell>
                         <TableCell>{c.teamName ?? "-"}</TableCell>
                         <TableCell>{c.schoolName ?? "-"}</TableCell>
