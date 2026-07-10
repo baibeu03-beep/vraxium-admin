@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -19,6 +20,8 @@ import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
 import type {
   TeamPartsInfoWeeksData,
   TeamPartsInfoWeekItem,
+  WeeksSort,
+  WeeksSortKey,
 } from "@/lib/adminTeamPartsInfoWeeksData";
 
 const PAGE_SIZE = 20;
@@ -59,6 +62,67 @@ function statusBadge(status: TeamPartsInfoWeekItem["clubActivityStatus"]) {
   );
 }
 
+// 정렬 상태 아이콘 — 기본(중립) / 오름 / 내림.
+function SortIcon({ dir }: { dir: "asc" | "desc" | null }) {
+  if (dir === "asc") return <ChevronUp className="size-3.5" aria-hidden />;
+  if (dir === "desc") return <ChevronDown className="size-3.5" aria-hidden />;
+  return <ChevronsUpDown className="size-3.5 opacity-40" aria-hidden />;
+}
+
+type ColAlign = "left" | "center" | "right";
+
+// 테이블 헤더 셀 — sortKey 있으면 3단계 정렬 버튼(오름→내림→기본), 없으면 라벨만.
+//   정렬 버튼과 돋보기 도움말 버튼은 "형제"로 분리 → 도움말 클릭이 정렬을 실행하지 않는다.
+function WeekTh({
+  label,
+  helpKey,
+  align,
+  sortKey,
+  sort,
+  onSort,
+}: {
+  label: string;
+  helpKey: string;
+  align: ColAlign;
+  sortKey?: WeeksSortKey;
+  sort: WeeksSort | null;
+  onSort: (key: WeeksSortKey) => void;
+}) {
+  const justify =
+    align === "left" ? "justify-start" : align === "right" ? "justify-end" : "justify-center";
+  const textAlign =
+    align === "left" ? "text-left" : align === "right" ? "text-right" : "text-center";
+  const active = sortKey != null && sort?.key === sortKey;
+  const ariaSort: "none" | "ascending" | "descending" = active
+    ? sort!.dir === "asc"
+      ? "ascending"
+      : "descending"
+    : "none";
+  return (
+    <th
+      aria-sort={sortKey ? ariaSort : undefined}
+      className={"border-b px-3 py-2 font-semibold whitespace-nowrap " + textAlign}
+    >
+      <span className={"inline-flex items-center gap-1 " + justify}>
+        {sortKey ? (
+          <button
+            type="button"
+            onClick={() => onSort(sortKey)}
+            aria-label={`${label} 기준 정렬`}
+            className="inline-flex items-center gap-1 rounded outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-sky-500/50"
+          >
+            <span className={active ? "font-bold text-foreground" : undefined}>{label}</span>
+            <SortIcon dir={active ? sort!.dir : null} />
+          </button>
+        ) : (
+          <span>{label}</span>
+        )}
+        <AdminHelpIconButton helpKey={helpKey} title={label} />
+      </span>
+    </th>
+  );
+}
+
 export default function TeamPartsInfoWeeksManager({
   scoped = false,
   detailBasePath = "/admin/team-parts/info/weeks",
@@ -79,6 +143,8 @@ export default function TeamPartsInfoWeeksManager({
 
   const [activeTab, setActiveTab] = useState<TabKey>("encre");
   const [page, setPage] = useState(1);
+  // 서버사이드 정렬 상태(전체 목록 기준). null = 기본순(최신 주차 최상단).
+  const [sort, setSort] = useState<WeeksSort | null>(null);
   const [data, setData] = useState<TeamPartsInfoWeeksData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +155,7 @@ export default function TeamPartsInfoWeeksManager({
   const isIntegrated = effectiveTab === "integrated";
 
   const load = useCallback(
-    async (club: OrganizationSlug, pageNum: number) => {
+    async (club: OrganizationSlug, pageNum: number, sortState: WeeksSort | null) => {
       setLoading(true);
       setError(null);
       try {
@@ -99,6 +165,11 @@ export default function TeamPartsInfoWeeksManager({
           pageSize: String(PAGE_SIZE),
         });
         if (mode === "test") params.set("mode", "test");
+        // 서버사이드 정렬 — semantic 키/방향만 전달(DB 컬럼명 아님). null=기본순.
+        if (sortState) {
+          params.set("sort", sortState.key);
+          params.set("dir", sortState.dir);
+        }
         const res = await fetch(
           `/api/admin/team-parts/info/weeks?${params.toString()}`,
           { cache: "no-store" },
@@ -122,13 +193,24 @@ export default function TeamPartsInfoWeeksManager({
     // 통합 탭은 준비 중(자체 안내 블록 렌더) → API 호출/상태 갱신 없음.
     //   이전 클럽 데이터는 state 에 남아 있어도 통합 화면에선 렌더되지 않는다.
     if (isIntegrated || scopedMissing) return;
-    // 탭/페이지 변경 시 외부(API)와 동기화하는 정석 effect — load 내부 setState 는 의도된 동작.
+    // 탭/페이지/정렬 변경 시 외부(API)와 동기화하는 정석 effect — load 내부 setState 는 의도된 동작.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load(effectiveTab as OrganizationSlug, page);
-  }, [effectiveTab, page, isIntegrated, scopedMissing, load]);
+    void load(effectiveTab as OrganizationSlug, page, sort);
+  }, [effectiveTab, page, sort, isIntegrated, scopedMissing, load]);
 
   const onTabChange = (tab: TabKey) => {
     setActiveTab(tab);
+    setPage(1);
+  };
+
+  // 컬럼 헤더 3단계 정렬 순환: 오름 → 내림 → 기본(원본 순서). 다른 컬럼이면 그 컬럼 오름차순.
+  //   정렬은 서버사이드(전체 목록 기준) → 변경 시 1페이지로 이동.
+  const onSort = (key: WeeksSortKey) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null; // 3번째 클릭 → 기본 순서 복귀
+    });
     setPage(1);
   };
 
@@ -187,10 +269,18 @@ export default function TeamPartsInfoWeeksManager({
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
-        {/* ── 클럽 탭 ─────────────────────────────── */}
+        {/* ── 클럽 탭(유일한 상단 필터) ─────────────────────────────── */}
         {/* scoped(개별 조직)는 자기 조직 탭만 고정 노출(비활성). 통합은 4개 탭. */}
-        <div className="flex flex-wrap gap-1" role="tablist" aria-label="클럽 선택">
-          {(scoped ? [effectiveTab] : TABS).map((tab) => (
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+          <span className="inline-flex items-center gap-1 text-sm font-semibold">
+            <span>클럽</span>
+            <AdminHelpIconButton
+              helpKey="admin.teamPartsInfoWeeks.filter.club"
+              title="클럽"
+            />
+          </span>
+          <div className="flex flex-wrap gap-1" role="tablist" aria-label="클럽 선택">
+            {(scoped ? [effectiveTab] : TABS).map((tab) => (
             <button
               key={tab}
               type="button"
@@ -209,7 +299,8 @@ export default function TeamPartsInfoWeeksManager({
             >
               {TAB_LABEL[tab]}
             </button>
-          ))}
+            ))}
+          </div>
         </div>
 
         {/* ── 통합 탭: 준비 중 ─────────────────────── */}
@@ -227,11 +318,17 @@ export default function TeamPartsInfoWeeksManager({
               data-current-week
               className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-dashed border-red-300 px-4 py-3 text-sm"
             >
-              <span>
-                오늘은,{" "}
-                <strong data-cw-today className="text-base">
-                  {currentWeek?.todayLabel ?? "-"}
-                </strong>
+              <span className="inline-flex items-center gap-1">
+                <span>
+                  오늘은,{" "}
+                  <strong data-cw-today className="text-base">
+                    {currentWeek?.todayLabel ?? "-"}
+                  </strong>
+                </span>
+                <AdminHelpIconButton
+                  helpKey="admin.teamPartsInfoWeeks.summary.currentWeek"
+                  title="현재 주차 안내"
+                />
               </span>
               <span className="rounded bg-sky-50 px-2 py-0.5 font-semibold text-sky-800">
                 <span data-cw-season>{currentWeek?.seasonWeekName ?? "-"}</span>
@@ -241,18 +338,24 @@ export default function TeamPartsInfoWeeksManager({
                 {currentWeek?.weekRangeLabel ?? "-"}
               </span>
               {currentWeek?.clubActivityStatus ? (
-                <span
-                  data-cw-status={currentWeek.clubActivityStatus}
-                  className={
-                    "ml-auto rounded-md px-3 py-1 text-sm font-bold " +
-                    (currentWeek.clubActivityStatus === "official_rest"
-                      ? "bg-zinc-200 text-zinc-700"
-                      : "bg-fuchsia-200 text-fuchsia-900")
-                  }
-                >
-                  {currentWeek.clubActivityStatus === "official_rest"
-                    ? "공식 휴식"
-                    : "공식 활동"}
+                <span className="ml-auto inline-flex items-center gap-1">
+                  <span
+                    data-cw-status={currentWeek.clubActivityStatus}
+                    className={
+                      "rounded-md px-3 py-1 text-sm font-bold " +
+                      (currentWeek.clubActivityStatus === "official_rest"
+                        ? "bg-zinc-200 text-zinc-700"
+                        : "bg-fuchsia-200 text-fuchsia-900")
+                    }
+                  >
+                    {currentWeek.clubActivityStatus === "official_rest"
+                      ? "공식 휴식"
+                      : "공식 활동"}
+                  </span>
+                  <AdminHelpIconButton
+                    helpKey="admin.teamPartsInfoWeeks.status.clubActivity"
+                    title="클럽 활동 상태"
+                  />
                 </span>
               ) : null}
             </section>
@@ -271,96 +374,86 @@ export default function TeamPartsInfoWeeksManager({
                 <table className="w-full border-collapse text-sm" data-weeks-table>
                   <thead>
                     <tr className="bg-zinc-50 text-xs text-muted-foreground">
-                      <th className="border-b px-3 py-2 text-left font-semibold whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1">
-                          주차명
-                          <AdminHelpIconButton
-                            helpKey="admin.teamParts.info.weeks.column.weekName"
-                            title="주차명"
-                          />
-                        </span>
-                      </th>
-                      <th className="border-b px-3 py-2 text-center font-semibold whitespace-nowrap">
-                        <span className="inline-flex items-center justify-center gap-1">
-                          클럽 활동
-                          <AdminHelpIconButton
-                            helpKey="admin.teamParts.info.weeks.column.clubActivity"
-                            title="클럽 활동"
-                          />
-                        </span>
-                      </th>
-                      <th className="border-b px-3 py-2 text-center font-semibold whitespace-nowrap">
-                        <span className="inline-flex items-center justify-center gap-1">
-                          활동 관리
-                          <AdminHelpIconButton
-                            helpKey="admin.teamParts.info.weeks.column.activityManage"
-                            title="활동 관리"
-                          />
-                        </span>
-                      </th>
-                      <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        <span className="inline-flex items-center justify-end gap-1">
-                          액트 체크율
-                          <AdminHelpIconButton
-                            helpKey="admin.teamParts.info.weeks.column.actCheckRate"
-                            title="액트 체크율"
-                          />
-                        </span>
-                      </th>
-                      <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        <span className="inline-flex items-center justify-end gap-1">
-                          전체 액트
-                          <AdminHelpIconButton
-                            helpKey="admin.teamParts.info.weeks.column.totalActs"
-                            title="전체 액트"
-                          />
-                        </span>
-                      </th>
-                      <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        <span className="inline-flex items-center justify-end gap-1">
-                          가동 액트
-                          <AdminHelpIconButton
-                            helpKey="admin.teamParts.info.weeks.column.activeActs"
-                            title="가동 액트"
-                          />
-                        </span>
-                      </th>
-                      <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        <span className="inline-flex items-center justify-end gap-1">
-                          라인칸 개설율
-                          <AdminHelpIconButton
-                            helpKey="admin.teamParts.info.weeks.column.lineOpenRate"
-                            title="라인칸 개설율"
-                          />
-                        </span>
-                      </th>
-                      <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        <span className="inline-flex items-center justify-end gap-1">
-                          전체 라인
-                          <AdminHelpIconButton
-                            helpKey="admin.teamParts.info.weeks.column.totalLines"
-                            title="전체 라인"
-                          />
-                        </span>
-                      </th>
-                      <th className="border-b px-3 py-2 text-right font-semibold whitespace-nowrap">
-                        <span className="inline-flex items-center justify-end gap-1">
-                          오픈 라인
-                          <AdminHelpIconButton
-                            helpKey="admin.teamParts.info.weeks.column.openLines"
-                            title="오픈 라인"
-                          />
-                        </span>
-                      </th>
-                      <th className="border-b px-3 py-2 text-center font-semibold whitespace-nowrap">
-                        <span className="inline-flex items-center justify-center gap-1">
-                          주차 검수
-                          <AdminHelpIconButton
-                            helpKey="admin.teamParts.info.weeks.column.weekReview"
-                            title="주차 검수"
-                          />
-                        </span>
-                      </th>
+                      <WeekTh
+                        label="주차명"
+                        helpKey="admin.teamPartsInfoWeeks.column.weekName"
+                        align="left"
+                        sortKey="weekName"
+                        sort={sort}
+                        onSort={onSort}
+                      />
+                      <WeekTh
+                        label="클럽 활동"
+                        helpKey="admin.teamPartsInfoWeeks.column.clubActivity"
+                        align="center"
+                        sortKey="clubActivityStatus"
+                        sort={sort}
+                        onSort={onSort}
+                      />
+                      {/* 활동 관리 = 액션 버튼 전용 컬럼 → 정렬 제외(정렬 의미 없음). */}
+                      <WeekTh
+                        label="활동 관리"
+                        helpKey="admin.teamPartsInfoWeeks.column.activityManage"
+                        align="center"
+                        sort={sort}
+                        onSort={onSort}
+                      />
+                      <WeekTh
+                        label="액트 체크율"
+                        helpKey="admin.teamPartsInfoWeeks.column.actCheckRate"
+                        align="right"
+                        sortKey="actCheckRate"
+                        sort={sort}
+                        onSort={onSort}
+                      />
+                      {/* 전체 액트 = 전 주차 동일(액트 카탈로그 크기) → 정렬 제외(재정렬 무의미). */}
+                      <WeekTh
+                        label="전체 액트"
+                        helpKey="admin.teamPartsInfoWeeks.column.totalActs"
+                        align="right"
+                        sort={sort}
+                        onSort={onSort}
+                      />
+                      {/* 가동 액트 = 전 주차 동일(체크 대상 액트 수) → 정렬 제외. */}
+                      <WeekTh
+                        label="가동 액트"
+                        helpKey="admin.teamPartsInfoWeeks.column.activeActs"
+                        align="right"
+                        sort={sort}
+                        onSort={onSort}
+                      />
+                      <WeekTh
+                        label="라인칸 개설율"
+                        helpKey="admin.teamPartsInfoWeeks.column.lineOpenRate"
+                        align="right"
+                        sortKey="lineOpenRate"
+                        sort={sort}
+                        onSort={onSort}
+                      />
+                      {/* 전체 라인 = 조직별 카탈로그 크기(전 주차 동일) → 정렬 제외. */}
+                      <WeekTh
+                        label="전체 라인"
+                        helpKey="admin.teamPartsInfoWeeks.column.totalLines"
+                        align="right"
+                        sort={sort}
+                        onSort={onSort}
+                      />
+                      <WeekTh
+                        label="오픈 라인"
+                        helpKey="admin.teamPartsInfoWeeks.column.openLines"
+                        align="right"
+                        sortKey="openLines"
+                        sort={sort}
+                        onSort={onSort}
+                      />
+                      <WeekTh
+                        label="주차 검수"
+                        helpKey="admin.teamPartsInfoWeeks.column.weekReview"
+                        align="center"
+                        sortKey="weekReviewed"
+                        sort={sort}
+                        onSort={onSort}
+                      />
                     </tr>
                   </thead>
                   <tbody>
@@ -449,9 +542,15 @@ export default function TeamPartsInfoWeeksManager({
             {/* ── 페이지네이션 ── */}
             {pagination && pagination.totalCount > 0 ? (
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  전체 {pagination.totalCount}개 · {pagination.page}/{totalPages}
-                  페이지
+                <span className="inline-flex items-center gap-1 text-muted-foreground">
+                  <span>
+                    전체 {pagination.totalCount}개 · {pagination.page}/{totalPages}
+                    페이지
+                  </span>
+                  <AdminHelpIconButton
+                    helpKey="admin.teamPartsInfoWeeks.action.pagination"
+                    title="페이지 이동 · 결과 건수"
+                  />
                 </span>
                 <div className="flex gap-1">
                   <Button

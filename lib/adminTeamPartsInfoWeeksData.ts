@@ -82,6 +82,64 @@ export type TeamPartsInfoWeeksData = {
 export const DEFAULT_WEEKS_PAGE_SIZE = 20;
 const MAX_WEEKS_PAGE_SIZE = 100;
 
+// ── 정렬(서버사이드) ─────────────────────────────────────────────────────────
+// 이 목록은 서버사이드 페이지네이션(162주차/9페이지)이라 "현재 페이지"만 정렬하면
+// 전체 목록 기준이 아니다 → 전체 주차를 정렬한 뒤 페이지를 나눈다.
+//   · meta 키(주차명·클럽활동)   = loadSeasonWeeks 로 이미 전량 확보 → 저비용 전체 정렬.
+//   · aggregate 키(체크율·개설율·오픈라인·검수) = 주차별 집계 필요 → 전 주차 집계 후 정렬(cap-safe).
+//   · 상수 컬럼(전체 액트·가동 액트·전체 라인)은 전 주차 동일값(카탈로그 크기)이라 정렬 무의미 → 제외.
+// 클라이언트 입력은 semantic 키만 허용(whitelist). DB 컬럼명을 그대로 받지 않는다.
+export type WeeksSortKey =
+  | "weekName"
+  | "clubActivityStatus"
+  | "actCheckRate"
+  | "lineOpenRate"
+  | "openLines"
+  | "weekReviewed";
+export type WeeksSortDir = "asc" | "desc";
+export type WeeksSort = { key: WeeksSortKey; dir: WeeksSortDir };
+
+export const WEEKS_SORTABLE_KEYS: readonly WeeksSortKey[] = [
+  "weekName",
+  "clubActivityStatus",
+  "actCheckRate",
+  "lineOpenRate",
+  "openLines",
+  "weekReviewed",
+];
+export function isWeeksSortKey(v: string): v is WeeksSortKey {
+  return (WEEKS_SORTABLE_KEYS as readonly string[]).includes(v);
+}
+// meta 키만 이 집합. 나머지 sortable 키는 aggregate(전 주차 집계 필요).
+const META_SORT_KEYS: ReadonlySet<WeeksSortKey> = new Set<WeeksSortKey>([
+  "weekName",
+  "clubActivityStatus",
+]);
+
+// 클럽 활동 상태 업무 순서(공식 활동 → 공식 휴식). 오름차순 기준 인덱스.
+const CLUB_ACTIVITY_ORDER: Record<ClubActivityStatus, number> = {
+  official_activity: 0,
+  official_rest: 1,
+};
+
+// PostgREST 1000행 cap 회피: order + range 로 전량 페이징(전 주차 집계 시 필수).
+const PG_RANGE = 1000;
+async function selectAllPaged<T>(
+  makeOrderedQuery: () => {
+    range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+  },
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PG_RANGE) {
+    const { data, error } = await makeOrderedQuery().range(from, from + PG_RANGE - 1);
+    if (error) throw new Error(error.message);
+    const chunk = data ?? [];
+    out.push(...chunk);
+    if (chunk.length < PG_RANGE) break;
+  }
+  return out;
+}
+
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
 
 // season_key("2026-summer") → 한글 시즌명("여름"). cluster4PeriodLabel 미러.
@@ -225,20 +283,30 @@ async function loadCompletedActsByWeek(
   activeActIds: Set<string>,
 ): Promise<Map<string, number>> {
   if (weekIds.length === 0) return new Map();
-  const { data, error } = await supabaseAdmin
-    .from("process_check_statuses")
-    .select("week_id,act_id")
-    .eq("organization_slug", organization)
-    .in("hub", LINE_HUBS as unknown as string[])
-    .eq("status", "completed")
-    .in("week_id", weekIds);
-  if (error) {
+  let data: Array<{ week_id: string | null; act_id: string | null }>;
+  try {
+    // cap-safe: 전 주차 집계(정렬) 시 1000행 초과 가능 → order+range 페이징.
+    data = await selectAllPaged<{ week_id: string | null; act_id: string | null }>(() =>
+      supabaseAdmin
+        .from("process_check_statuses")
+        .select("week_id,act_id")
+        .eq("organization_slug", organization)
+        .in("hub", LINE_HUBS as unknown as string[])
+        .eq("status", "completed")
+        .in("week_id", weekIds)
+        .order("week_id")
+        .order("act_id"),
+    );
+  } catch (error) {
     // 마이그레이션 미적용 등 → 빈 집계로 graceful degrade(전부 0%).
-    console.warn("[team-parts/info/weeks] process_check_statuses read unavailable:", error.message);
+    console.warn(
+      "[team-parts/info/weeks] process_check_statuses read unavailable:",
+      error instanceof Error ? error.message : error,
+    );
     return new Map();
   }
   const perWeek = new Map<string, Set<string>>();
-  for (const row of (data ?? []) as Array<{ week_id: string | null; act_id: string | null }>) {
+  for (const row of data as Array<{ week_id: string | null; act_id: string | null }>) {
     if (!row.week_id || !row.act_id) continue;
     if (!activeActIds.has(row.act_id)) continue;
     if (!perWeek.has(row.week_id)) perWeek.set(row.week_id, new Set());
@@ -301,39 +369,56 @@ async function loadOpenLinesByWeek(
   const LINE_SELECT =
     "id,part_type,line_code,activity_type_id,experience_line_master_id,competency_line_master_id,is_active";
 
-  // 1) 타깃(week_id) → 라인 (info·experience·competency 전부).
-  const { data: tRows, error: tErr } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select(`week_id,cluster4_lines!inner(${LINE_SELECT})`)
-    .in("week_id", weekIds)
-    .eq("cluster4_lines.is_active", true)
-    .in("cluster4_lines.part_type", LINE_HUBS as unknown as string[]);
-  if (tErr) {
-    console.warn("[team-parts/info/weeks] cluster4_line_targets read unavailable:", tErr.message);
-  } else {
-    for (const row of (tRows ?? []) as unknown as Array<{
+  // 1) 타깃(week_id) → 라인 (info·experience·competency 전부). cap-safe 페이징.
+  try {
+    const tRows = await selectAllPaged<{
       week_id: string | null;
       cluster4_lines: OpenLineRow | null;
-    }>) {
+    }>(() =>
+      supabaseAdmin
+        .from("cluster4_line_targets")
+        .select(`week_id,cluster4_lines!inner(${LINE_SELECT})`)
+        .in("week_id", weekIds)
+        .eq("cluster4_lines.is_active", true)
+        .in("cluster4_lines.part_type", LINE_HUBS as unknown as string[])
+        .order("week_id") as unknown as {
+        range: (from: number, to: number) => PromiseLike<{
+          data: Array<{ week_id: string | null; cluster4_lines: OpenLineRow | null }> | null;
+          error: { message: string } | null;
+        }>;
+      },
+    );
+    for (const row of tRows) {
       if (!row.week_id || !row.cluster4_lines) continue;
       rows.push({ weekId: row.week_id, line: row.cluster4_lines });
     }
+  } catch (tErr) {
+    console.warn(
+      "[team-parts/info/weeks] cluster4_line_targets read unavailable:",
+      tErr instanceof Error ? tErr.message : tErr,
+    );
   }
 
   // 2) 타깃 없는 info 라인 대비 — cluster4_lines.week_id union(info 전용; 타 허브는 week_id NULL).
-  const { data: lRows, error: lErr } = await supabaseAdmin
-    .from("cluster4_lines")
-    .select("part_type,line_code,activity_type_id,experience_line_master_id,competency_line_master_id,week_id")
-    .eq("part_type", "info")
-    .eq("is_active", true)
-    .in("week_id", weekIds);
-  if (lErr) {
-    console.warn("[team-parts/info/weeks] cluster4_lines read unavailable:", lErr.message);
-  } else {
-    for (const line of (lRows ?? []) as Array<OpenLineRow & { week_id: string | null }>) {
+  try {
+    const lRows = await selectAllPaged<OpenLineRow & { week_id: string | null }>(() =>
+      supabaseAdmin
+        .from("cluster4_lines")
+        .select("part_type,line_code,activity_type_id,experience_line_master_id,competency_line_master_id,week_id")
+        .eq("part_type", "info")
+        .eq("is_active", true)
+        .in("week_id", weekIds)
+        .order("week_id"),
+    );
+    for (const line of lRows) {
       if (!line.week_id) continue;
       rows.push({ weekId: line.week_id, line });
     }
+  } catch (lErr) {
+    console.warn(
+      "[team-parts/info/weeks] cluster4_lines read unavailable:",
+      lErr instanceof Error ? lErr.message : lErr,
+    );
   }
 
   // 마스터 org 벌크 조회(exp·comp).
@@ -385,33 +470,13 @@ async function loadWeekReviewed(weekIds: string[]): Promise<Map<string, boolean>
   return map;
 }
 
-// ── 메인 로더 ────────────────────────────────────────────────────────────────
-
-export async function loadTeamPartsInfoWeeks(opts: {
-  organization: OrganizationSlug;
-  page: number;
-  pageSize: number;
-  // 검증용 오늘 고정 훅(미지정 시 서버 활동 기준일).
-  today?: string;
-}): Promise<TeamPartsInfoWeeksData> {
-  const { organization, today } = opts;
-  const page = Math.max(1, Math.floor(opts.page) || 1);
-  const pageSize = Math.min(
-    MAX_WEEKS_PAGE_SIZE,
-    Math.max(1, Math.floor(opts.pageSize) || DEFAULT_WEEKS_PAGE_SIZE),
-  );
-
-  // 1) 전 주차 목록(전역) — 최신 주차 최상단.
-  const { rows } = await loadSeasonWeeks(today);
-  const sorted = [...rows].sort(cmpWeekStartDesc);
-
-  const totalCount = sorted.length;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const startIdx = (page - 1) * pageSize;
-  const pageRows = sorted.slice(startIdx, startIdx + pageSize);
-  const weekIds = pageRows.map((r) => r.week_id);
-
-  // 2) 전역 카탈로그 + 주차별 집계(페이지 주차만).
+// 주차 메타 rows(페이지 또는 전체)에 대해 집계 아이템을 만든다.
+//   전역 카탈로그(액트·전체 라인)는 주차와 무관, 주차별 집계(체크율·오픈라인·검수)는 weekIds 기준.
+async function buildItems(
+  organization: OrganizationSlug,
+  metaRows: SeasonWeekDto[],
+): Promise<TeamPartsInfoWeekItem[]> {
+  const weekIds = metaRows.map((r) => r.week_id);
   const actCatalog = await loadActCatalog();
   const totalActs = actCatalog.totalActs;
   const activeActs = actCatalog.activeActIds.size;
@@ -423,7 +488,7 @@ export async function loadTeamPartsInfoWeeks(opts: {
       loadWeekReviewed(weekIds),
     ]);
 
-  const items: TeamPartsInfoWeekItem[] = pageRows.map((r) => {
+  return metaRows.map((r) => {
     const completed = completedByWeek.get(r.week_id) ?? 0;
     const openLines = openLinesByWeek.get(r.week_id) ?? 0;
     return {
@@ -440,6 +505,112 @@ export async function loadTeamPartsInfoWeeks(opts: {
       isCurrentWeek: r.is_current_week,
     };
   });
+}
+
+// 빈값(방향 무관 최하단) 처리 후 base 비교값에 방향 적용.
+function directionWithEmptyLast(
+  aEmpty: boolean,
+  bEmpty: boolean,
+  base: number,
+  dir: WeeksSortDir,
+): number {
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  return dir === "asc" ? base : -base;
+}
+
+// meta 정렬(전 주차) — 주차명=시작일 기준 연대순(주차/연도 숫자 정합), 클럽활동=업무 순서.
+//   동률은 기본순(최신 최상단)으로 안정화.
+function sortMeta(metaRows: SeasonWeekDto[], sort: WeeksSort): SeasonWeekDto[] {
+  const arr = [...metaRows];
+  arr.sort((a, b) => {
+    if (sort.key === "weekName") {
+      const av = a.week_start_date;
+      const bv = b.week_start_date;
+      const base = av === bv ? 0 : (av ?? "") < (bv ?? "") ? -1 : 1;
+      const r = directionWithEmptyLast(!av, !bv, base, sort.dir);
+      return r !== 0 ? r : cmpWeekStartDesc(a, b);
+    }
+    // clubActivityStatus — CLUB_ACTIVITY_ORDER(활동 → 휴식).
+    const ao = a.is_official_rest ? CLUB_ACTIVITY_ORDER.official_rest : CLUB_ACTIVITY_ORDER.official_activity;
+    const bo = b.is_official_rest ? CLUB_ACTIVITY_ORDER.official_rest : CLUB_ACTIVITY_ORDER.official_activity;
+    const base = ao - bo;
+    const r = sort.dir === "asc" ? base : -base;
+    return r !== 0 ? r : cmpWeekStartDesc(a, b);
+  });
+  return arr;
+}
+
+// aggregate 정렬(전 주차 집계 아이템) — 숫자/불리언 실제 값 기준, 빈값 최하단, 동률=기본순 안정.
+function sortAggregateItems(
+  items: TeamPartsInfoWeekItem[],
+  sort: WeeksSort,
+): TeamPartsInfoWeekItem[] {
+  const valueOf = (it: TeamPartsInfoWeekItem): number | null => {
+    switch (sort.key) {
+      case "actCheckRate":
+        return it.actCheckRate;
+      case "lineOpenRate":
+        return it.lineOpenRate;
+      case "openLines":
+        return it.openLines;
+      case "weekReviewed":
+        return it.weekReviewed ? 1 : 0;
+      default:
+        return null;
+    }
+  };
+  // items 는 이미 기본순(최신 최상단) — 안정 정렬이라 동률은 기본순 유지.
+  const arr = [...items];
+  arr.sort((a, b) => {
+    const av = valueOf(a);
+    const bv = valueOf(b);
+    const base = (av ?? 0) === (bv ?? 0) ? 0 : (av ?? 0) < (bv ?? 0) ? -1 : 1;
+    return directionWithEmptyLast(av == null, bv == null, base, sort.dir);
+  });
+  return arr;
+}
+
+// ── 메인 로더 ────────────────────────────────────────────────────────────────
+
+export async function loadTeamPartsInfoWeeks(opts: {
+  organization: OrganizationSlug;
+  page: number;
+  pageSize: number;
+  // 서버사이드 정렬(전체 목록 기준). 미지정 시 기본순(최신 주차 최상단).
+  sort?: WeeksSort | null;
+  // 검증용 오늘 고정 훅(미지정 시 서버 활동 기준일).
+  today?: string;
+}): Promise<TeamPartsInfoWeeksData> {
+  const { organization, today } = opts;
+  const sort = opts.sort ?? null;
+  const page = Math.max(1, Math.floor(opts.page) || 1);
+  const pageSize = Math.min(
+    MAX_WEEKS_PAGE_SIZE,
+    Math.max(1, Math.floor(opts.pageSize) || DEFAULT_WEEKS_PAGE_SIZE),
+  );
+
+  // 1) 전 주차 목록(전역) — 기본순 = 최신 주차 최상단.
+  const { rows } = await loadSeasonWeeks(today);
+  const defaultOrdered = [...rows].sort(cmpWeekStartDesc);
+
+  const totalCount = defaultOrdered.length;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const startIdx = (page - 1) * pageSize;
+
+  // 2) 정렬 방식 분기 — 전체 목록 기준으로 정렬한 뒤 페이지를 나눈다.
+  let items: TeamPartsInfoWeekItem[];
+  if (sort && !META_SORT_KEYS.has(sort.key)) {
+    // aggregate 키: 전 주차 집계 → 정렬 → 페이지 슬라이스(집계 cap-safe).
+    const allItems = await buildItems(organization, defaultOrdered);
+    items = sortAggregateItems(allItems, sort).slice(startIdx, startIdx + pageSize);
+  } else {
+    // 기본/meta 키: meta 전체 정렬 → 페이지 슬라이스 → 페이지 주차만 집계(기존 저비용 경로).
+    const orderedMeta = sort ? sortMeta(defaultOrdered, sort) : defaultOrdered;
+    const pageRows = orderedMeta.slice(startIdx, startIdx + pageSize);
+    items = await buildItems(organization, pageRows);
+  }
 
   // 3) 현재 주차 배너 — is_current_week 행(전역).
   const currentRow = rows.find((r) => r.is_current_week) ?? null;

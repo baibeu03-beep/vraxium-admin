@@ -8,6 +8,8 @@ import { isOrganizationSlug } from "@/lib/organizations";
 import {
   loadTeamPartsInfoWeeks,
   DEFAULT_WEEKS_PAGE_SIZE,
+  isWeeksSortKey,
+  type WeeksSort,
 } from "@/lib/adminTeamPartsInfoWeeksData";
 
 // 클럽 정보 > 주차 내역 (read-only).
@@ -51,11 +53,20 @@ export async function GET(request: NextRequest) {
     10,
   );
 
+  // 서버사이드 정렬 — semantic 키만 whitelist 통과(DB 컬럼명 직접 수용 금지). 무효값은 무시(기본순).
+  const sortKeyRaw = params.get("sort")?.trim() ?? "";
+  const dirRaw = params.get("dir")?.trim() ?? "";
+  let sort: WeeksSort | null = null;
+  if (isWeeksSortKey(sortKeyRaw) && (dirRaw === "asc" || dirRaw === "desc")) {
+    sort = { key: sortKeyRaw, dir: dirRaw };
+  }
+
   try {
     const data = await loadTeamPartsInfoWeeks({
       organization: club,
       page: Number.isFinite(page) ? page : 1,
       pageSize: Number.isFinite(pageSize) ? pageSize : DEFAULT_WEEKS_PAGE_SIZE,
+      sort,
     });
     return Response.json({ success: true, data });
   } catch (error) {
