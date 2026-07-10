@@ -6,6 +6,7 @@ import { CalendarPlus, RefreshCw, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -86,6 +87,18 @@ const ACTIVITY_ITEMS = [
   ...ACTIVITY_OPTIONS.map((o) => ({ value: o.key, label: o.label })),
 ];
 
+// 닫힌 트리거 표시값 = 옵션 목록과 동일한 items SoT 의 label.
+//   현재 value 에 대응하는 option 을 찾아 그 label 을 반환한다(없으면 value 그대로).
+//   ⚠️ value(저장/전송값)는 불변 — 표시 문구만 정규화한다.
+//   공용 SelectValue 래퍼는 items 라벨을 조회하지 않고 raw value 를 그대로 노출하므로,
+//   base-ui 표준 <Select.Value> children 포매터로 items→label 을 명시 해석한다.
+function itemLabel(
+  items: ReadonlyArray<{ value: string; label: string }>,
+  value: string,
+): string {
+  return items.find((it) => it.value === value)?.label ?? value;
+}
+
 // ── 주차 후보 생성 (월~일, "그 주의 수요일이 속한 년도" 기준) ────────────────
 type WeekCandidate = {
   start: string; // 월요일 YYYY-MM-DD
@@ -125,18 +138,27 @@ function weekCandidatesOfYear(year: number): WeekCandidate[] {
 
 function FormField({
   label,
+  helpKey,
   hint,
   className,
   children,
 }: {
   label: string;
+  // 요소 단위 도움말 키(고유). 지정 시 라벨 오른쪽에 돋보기 도움말 아이콘을 붙인다.
+  //   · inline-flex 로 라벨 영역만 감싸 select/input 폭·정렬을 건드리지 않는다.
+  helpKey?: string;
   hint?: string;
   className?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className={`flex flex-col gap-1.5 ${className ?? ""}`}>
-      <span className="text-sm font-medium text-foreground">{label}</span>
+      <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground">
+        {label}
+        {helpKey && (
+          <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+        )}
+      </span>
       {children}
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
     </div>
@@ -448,27 +470,36 @@ export default function PeriodRegisterForm() {
         <CardContent className="flex flex-col gap-5 py-5">
           {/* 1행: 기간 선택.1/.2 + 연도/시즌/주차/활동 — 가로 배치, 폭 부족 시에만 줄바꿈 */}
           <div className="flex flex-wrap items-end gap-x-3 gap-y-4">
-            <FormField label="기간 선택.1" className="w-32">
+            <FormField
+              label="기간 선택.1"
+              helpKey="admin.periods.register.periodType1"
+              className="w-32"
+            >
               <Select
                 items={YEAR_ITEMS}
                 value={candidateYear}
                 onValueChange={handleCandidateYearChange}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {(v) => itemLabel(YEAR_ITEMS, v as string)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>-</SelectItem>
-                  {YEAR_OPTIONS.map((year) => (
-                    <SelectItem key={year} value={year}>
-                      {year}년
+                  {YEAR_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </FormField>
 
-            <FormField label="기간 선택.2" className="w-72">
+            <FormField
+              label="기간 선택.2"
+              helpKey="admin.periods.register.periodType2"
+              className="w-72"
+            >
               <Select
                 items={candidateItems}
                 value={periodStart}
@@ -476,94 +507,115 @@ export default function PeriodRegisterForm() {
                 disabled={candidateYear === NONE}
               >
                 <SelectTrigger className="w-full" disabled={candidateYear === NONE}>
-                  <SelectValue />
+                  <SelectValue>
+                    {(v) => itemLabel(candidateItems, v as string)}
+                  </SelectValue>
                 </SelectTrigger>
                 {/* 한 번에 10개 정도 노출 — 항목 높이(28px)×10 + 패딩 */}
                 <SelectContent className="max-h-80" alignItemWithTrigger={false}>
-                  <SelectItem value={NONE}>-</SelectItem>
-                  {candidates.map((candidate) => (
-                    <SelectItem key={candidate.start} value={candidate.start}>
-                      {candidate.label}
+                  {candidateItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </FormField>
 
-            <FormField label="연도 선택" className="w-32">
+            <FormField
+              label="연도 선택"
+              helpKey="admin.periods.register.year"
+              className="w-32"
+            >
               <Select
                 items={YEAR_ITEMS}
                 value={regYear}
                 onValueChange={(v) => setRegYear(v ?? NONE)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {(v) => itemLabel(YEAR_ITEMS, v as string)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>-</SelectItem>
-                  {YEAR_OPTIONS.map((year) => (
-                    <SelectItem key={year} value={year}>
-                      {year}년
+                  {YEAR_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </FormField>
 
-            <FormField label="시즌 선택" className="w-28">
+            <FormField
+              label="시즌 선택"
+              helpKey="admin.periods.register.season"
+              className="w-28"
+            >
               <Select
                 items={SEASON_ITEMS}
                 value={regSeason}
                 onValueChange={(v) => setRegSeason(v ?? NONE)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {(v) => itemLabel(SEASON_ITEMS, v as string)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>-</SelectItem>
-                  {SEASON_OPTIONS.map((option) => (
-                    <SelectItem key={option.key} value={option.key}>
-                      {option.label}
+                  {SEASON_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </FormField>
 
-            <FormField label="주차 선택" className="w-28">
+            <FormField
+              label="주차 선택"
+              helpKey="admin.periods.register.week"
+              className="w-28"
+            >
               <Select
                 items={WEEK_ITEMS}
                 value={regWeek}
                 onValueChange={(v) => setRegWeek(v ?? NONE)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {(v) => itemLabel(WEEK_ITEMS, v as string)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="max-h-80" alignItemWithTrigger={false}>
-                  <SelectItem value={NONE}>-</SelectItem>
-                  {WEEK_OPTIONS.map((week) => (
-                    <SelectItem key={week} value={week}>
-                      {week}주차
+                  {WEEK_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </FormField>
 
-            <FormField label="활동 선택" className="w-32">
+            <FormField
+              label="활동 선택"
+              helpKey="admin.periods.register.activity"
+              className="w-32"
+            >
               <Select
                 items={ACTIVITY_ITEMS}
                 value={activity}
                 onValueChange={(v) => setActivity(v ?? NONE)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue>
+                    {(v) => itemLabel(ACTIVITY_ITEMS, v as string)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NONE}>-</SelectItem>
-                  {ACTIVITY_OPTIONS.map((option) => (
-                    <SelectItem key={option.key} value={option.key}>
-                      {option.label}
+                  {ACTIVITY_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -571,7 +623,11 @@ export default function PeriodRegisterForm() {
             </FormField>
           </div>
 
-          <FormField label="비고" hint={`최대 ${NOTE_MAX_LENGTH}자 (선택 입력)`}>
+          <FormField
+            label="비고"
+            helpKey="admin.periods.register.note"
+            hint={`최대 ${NOTE_MAX_LENGTH}자 (선택 입력)`}
+          >
             <Input
               value={note}
               maxLength={NOTE_MAX_LENGTH}
@@ -580,21 +636,36 @@ export default function PeriodRegisterForm() {
             />
           </FormField>
 
-          {/* 3행: 우측 버튼 — 등록 / 취소(입력값 초기화) */}
+          {/* 3행: 우측 버튼 — 등록 / 취소(입력값 초기화).
+              도움말 돋보기는 버튼 내부 텍스트가 아니라 각 버튼 바로 바깥쪽에 둔다. */}
           <div className="flex items-center justify-end gap-2">
-            <Button type="button" onClick={handleSubmit} loading={submitting}>
-              <CalendarPlus className="h-4 w-4" />
-              등록
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={resetForm}
-              disabled={submitting}
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              취소
-            </Button>
+            <div className="inline-flex items-center gap-1">
+              <Button type="button" onClick={handleSubmit} loading={submitting}>
+                <CalendarPlus className="h-4 w-4" />
+                등록
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.periods.register.submit"
+                title="등록"
+                size="sm"
+              />
+            </div>
+            <div className="inline-flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={resetForm}
+                disabled={submitting}
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                취소
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.periods.register.cancel"
+                title="취소"
+                size="sm"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
