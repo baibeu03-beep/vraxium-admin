@@ -345,6 +345,67 @@ input[type="radio"]:disabled,
 }
 
 /* ───────────────────────────────────────────────────────────────────────────
+   Interactive cursor baseline (project-wide, single source).
+   실제로 "클릭 가능한" UI 요소에 hover 시 손모양(pointer) 커서를 준다. mode=test 를
+   포함한 모든 경로가 이 전역 스타일 하나만 타므로, 페이지별 임시 패치가 필요 없다.
+
+   설계:
+   - 양성 목록은 :where() 로 감싸 특이도 0 → Tailwind cursor-* 유틸/컴포넌트가 필요 시
+     그대로 덮어쓸 수 있게 한다(레이아웃/hover 색상/접근성 속성 불변).
+   - 뒤의 :not(...) 가드가 disabled 상태(:disabled / aria-disabled / data-disabled)를
+     통째로 제외 → 위 not-allowed 규칙이 항상 이기고, 비활성 요소는 pointer 가 안 붙는다.
+   - 텍스트 입력(input[type=text] 등)·textarea·contenteditable 는 목록에 없어 제외된다
+     (텍스트 캐럿 유지). 체크박스·라디오·submit 등 "누르는" input 타입만 포함.
+
+   Unlayered — disabled baseline 과 동일하게 유틸 레이어 위에서 안정적으로 동작한다.
+   대부분의 Radix/shadcn 트리거(Select/Tabs/Accordion/Switch/Checkbox/DropdownItem 등)는
+   내부적으로 <button> 또는 role 을 가지므로 아래 button/role 목록으로 함께 커버된다.
+   ─────────────────────────────────────────────────────────────────────────── */
+:where(
+    button,
+    a[href],
+    label:has(input[type="checkbox"]:not(:disabled)),
+    label:has(input[type="radio"]:not(:disabled)),
+    summary,
+    select,
+    input[type="checkbox"],
+    input[type="radio"],
+    input[type="submit"],
+    input[type="button"],
+    input[type="reset"],
+    input[type="file"],
+    input[type="range"],
+    input[type="color"],
+    [role="button"],
+    [role="link"],
+    [role="tab"],
+    [role="menuitem"],
+    [role="menuitemcheckbox"],
+    [role="menuitemradio"],
+    [role="option"],
+    [role="checkbox"],
+    [role="radio"],
+    [role="switch"],
+    [data-slot="select-trigger"],
+    [data-slot="dropdown-menu-trigger"],
+    [data-slot="dropdown-menu-item"],
+    [data-slot="tabs-trigger"],
+    [data-slot="accordion-trigger"],
+    [data-slot="switch"],
+    [data-slot="checkbox"],
+    [data-slot="radio-group-item"],
+    [data-slot="toggle"],
+    [data-slot="toggle-group-item"],
+    [data-slot="command-item"],
+    [data-slot="sidebar-menu-button"],
+    [data-slot="pagination-link"]
+  ):not(:disabled):not([aria-disabled="true"]):not(
+    [data-disabled]:not([data-disabled="false"])
+  ) {
+  cursor: pointer;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
    Global navigation / loading feedback (project-wide, single source).
    Driven by components/admin/NavProgress.tsx + the `loading` prop on <Button>.
    Unlayered so it reliably overrides utility/disabled rules above.
