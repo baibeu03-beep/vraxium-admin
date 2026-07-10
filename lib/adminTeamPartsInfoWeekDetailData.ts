@@ -77,6 +77,8 @@ export const EXPERIENCE_LINE_TYPES: ExperienceLineType[] = [
   "expansion",
 ];
 
+// ── 라인 개설(8) 선택 — 실제 라인 목록 ──────────────────────────────────────
+//   정보 = activity_types 키(개설 판정 회로 불변) + line_registrations(info) 명칭/순서 미러링.
 export type OpeningInfoLine = { lineId: string; lineName: string; checked: boolean };
 export type OpeningExperienceLine = { type: ExperienceLineType; checked: boolean };
 export type OpeningExperienceTeam = {
@@ -85,6 +87,15 @@ export type OpeningExperienceTeam = {
   lines: OpeningExperienceLine[];
 };
 export type OpeningCompetency = { checked: boolean };
+
+// ── 액트 체크(7) 선택 — 라인급(체크) = process_line_groups 단일 SoT ──────────
+//   프로세스 등록(소속 라인급)·활동관리 라인급(체크)·액트 체크 분류가 모두 이 line_group_id 를 공유.
+export type ActCheckLineGroup = { lineGroupId: string; name: string; checked: boolean };
+export type ActCheckExperienceTeam = {
+  teamId: string;
+  teamName: string;
+  lineGroups: ActCheckLineGroup[];
+};
 
 export type TeamPartsInfoWeekDetailData = {
   currentWeek: {
@@ -101,10 +112,23 @@ export type TeamPartsInfoWeekDetailData = {
     reviewed: boolean;
     // [오픈 확인] 저장 여부(주차×클럽). GET 시 V 표시 복원용.
     openConfirmed: boolean;
+    // 확장 주차 여부 — [초기화] 시 실무 경험 라인(개설) 확장 기본값 복원용(도출/분석/견문/관리=true·확장=isExpansionWeek).
+    isExpansionWeek: boolean;
   };
   openingConfig: {
-    practicalInfo: OpeningInfoLine[];
-    practicalExperience: OpeningExperienceTeam[];
+    // (1)(3)(6) 라인급(체크) — process_line_groups 기반. (7) 액트 체크 관리에만 반영.
+    actCheck: {
+      info: ActCheckLineGroup[];
+      experience: ActCheckExperienceTeam[];
+      club: ActCheckLineGroup[];
+      // competency 는 practicalCompetency.checked 를 공유(별도 라인급 체크 없음).
+    };
+    // (2)(4) 라인(개설) — 실제 라인 목록. (8) 라인 개설 관리에만 반영.
+    lineOpening: {
+      practicalInfo: OpeningInfoLine[];
+      practicalExperience: OpeningExperienceTeam[];
+    };
+    // (5) 실무 역량 정상 진행 — (7)(8) 양쪽에 반영(공유).
     practicalCompetency: OpeningCompetency;
   };
 };
@@ -134,10 +158,17 @@ function activityStatusOf(r: SeasonWeekDto): WeekActivityStatus {
 }
 
 // 저장된 오픈 설정(config jsonb) + open_confirmed. 테이블 미적용/행 없음 → null(정책 기본값).
+//   practicalInfo/practicalExperience = 라인 개설(8) 선택(기존 키 그대로 — 하위호환·통계 불변).
+//   practicalCompetency = (5) 공유. actCheck = 액트 체크(7) 선택(신설, process_line_groups id 기반).
 export type SavedConfig = {
   practicalInfo?: Record<string, boolean>;
   practicalExperience?: Record<string, Partial<Record<ExperienceLineType, boolean>>>;
   practicalCompetency?: { checked?: boolean };
+  actCheck?: {
+    info?: Record<string, boolean>;
+    experience?: Record<string, Record<string, boolean>>;
+    club?: Record<string, boolean>;
+  };
 };
 // 액트 체크 관리 등 다른 조회에서도 오픈 설정을 읽을 수 있게 export.
 export async function loadWeekOpeningConfig(
@@ -195,24 +226,60 @@ async function loadIsExpansionWeek(
   }
 }
 
-// 실무 정보 라인 카탈로그(순서 정렬). checked 는 호출부에서 저장값으로 병합(기본 unchecked).
+// 실무 정보 라인 개설(8) 카탈로그 — 키=activity_type id(개설 판정 회로 cluster4_lines.activity_type_id
+//   와 조인·불변), 표시명/순서=line_registrations(hub='info') 미러링(실제 등록 라인 명칭). 동일 9종을
+//   순서(activity_type INFO_PREFERRED_ORDER ↔ line_registrations line_code)로 위치 매칭한다.
 async function loadInfoLineCatalog(): Promise<Array<{ lineId: string; lineName: string }>> {
-  const { data, error } = await supabaseAdmin
-    .from("activity_types")
-    .select("id,name")
-    .eq("cluster_id", "practical_info")
-    .eq("is_active", true);
-  if (error) {
-    console.warn("[team-parts/info/weeks/detail] activity_types read unavailable:", error.message);
+  const [{ data: atData, error: atErr }, { data: lrData }] = await Promise.all([
+    supabaseAdmin.from("activity_types").select("id,name").eq("cluster_id", "practical_info").eq("is_active", true),
+    supabaseAdmin.from("line_registrations").select("line_name,line_code").eq("hub", "info").eq("is_active", true),
+  ]);
+  if (atErr) {
+    console.warn("[team-parts/info/weeks/detail] activity_types read unavailable:", atErr.message);
     return [];
   }
-  const rows = (data ?? []) as Array<{ id: string; name: string | null }>;
   const orderIdx = (id: string) => {
     const i = INFO_PREFERRED_ORDER.indexOf(id);
     return i < 0 ? INFO_PREFERRED_ORDER.length : i;
   };
-  rows.sort((a, b) => orderIdx(a.id) - orderIdx(b.id) || a.id.localeCompare(b.id));
-  return rows.map((r) => ({ lineId: r.id, lineName: r.name ?? r.id }));
+  const ats = ((atData ?? []) as Array<{ id: string; name: string | null }>)
+    .sort((a, b) => orderIdx(a.id) - orderIdx(b.id) || a.id.localeCompare(b.id));
+  // line_registrations(info) 를 line_code 순으로 — activity_type 순서와 위치 대응(둘 다 동일 9종).
+  const regs = ((lrData ?? []) as Array<{ line_name: string | null; line_code: string | null }>)
+    .sort((a, b) => (a.line_code ?? "").localeCompare(b.line_code ?? ""));
+  return ats.map((a, i) => ({ lineId: a.id, lineName: regs[i]?.line_name ?? a.name ?? a.id }));
+}
+
+// 라인급(체크) SoT — process_line_groups(hub, is_active). 프로세스 등록 소속 라인급과 동일 목록.
+//   sort_order → created_at 순(register 목록과 동일 정렬). 미적용/오류 시 빈 배열(구조 유지).
+export async function loadProcessLineGroups(
+  hub: "info" | "experience" | "competency" | "club",
+): Promise<Array<{ id: string; name: string }>> {
+  const { data, error } = await supabaseAdmin
+    .from("process_line_groups")
+    .select("id,name,sort_order,created_at")
+    .eq("hub", hub)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.warn(`[team-parts/info/weeks/detail] process_line_groups(${hub}) read unavailable:`, error.message);
+    return [];
+  }
+  return ((data ?? []) as Array<{ id: string; name: string | null }>).map((r) => ({ id: r.id, name: r.name ?? r.id }));
+}
+
+// 액트 체크(7) 라인급 기본값 = 전체 체크(§4 경험 명시 규칙을 info/club 에도 통일 적용).
+//   저장값(actCheck.<hub>[id]) 이 boolean 이면 우선. 액트 체크는 읽기전용 모니터링 → 결과/포인트/snapshot 무영향.
+function mergeActCheck(
+  groups: Array<{ id: string; name: string }>,
+  saved: Record<string, boolean> | undefined,
+): ActCheckLineGroup[] {
+  return groups.map((g) => ({
+    lineGroupId: g.id,
+    name: g.name,
+    checked: typeof saved?.[g.id] === "boolean" ? saved![g.id] : true,
+  }));
 }
 
 export async function loadTeamPartsInfoWeekDetail(opts: {
@@ -228,31 +295,42 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
   if (!managedRow) throw new WeekDetailNotFoundError();
   const currentRow = rows.find((r) => r.is_current_week) ?? null;
 
-  const [{ config: saved, openConfirmed }, reviewed, isExpansionWeek, infoCatalog, teams] =
-    await Promise.all([
-      loadWeekOpeningConfig(weekId, organization),
-      loadReviewed(weekId),
-      loadIsExpansionWeek(organization, managedRow.week_start_date, managedRow.week_end_date),
-      loadInfoLineCatalog(),
-      listTeams(organization, mode),
-    ]);
+  const [
+    { config: saved, openConfirmed },
+    reviewed,
+    isExpansionWeek,
+    infoCatalog,
+    teams,
+    infoLineGroups,
+    expLineGroups,
+    clubLineGroups,
+  ] = await Promise.all([
+    loadWeekOpeningConfig(weekId, organization),
+    loadReviewed(weekId),
+    loadIsExpansionWeek(organization, managedRow.week_start_date, managedRow.week_end_date),
+    loadInfoLineCatalog(),
+    listTeams(organization, mode),
+    loadProcessLineGroups("info"),
+    loadProcessLineGroups("experience"),
+    loadProcessLineGroups("club"),
+  ]);
 
-  // 실무 정보: 기본 unchecked, 저장값이 있으면 덮어씀.
+  // ── (2) 라인 개설(8) — 실무 정보: 기본 unchecked, 저장값(practicalInfo) 우선(기존 동작 불변). ──
   const savedInfo = saved?.practicalInfo ?? {};
-  const practicalInfo: OpeningInfoLine[] = infoCatalog.map((l) => ({
+  const lineOpeningInfo: OpeningInfoLine[] = infoCatalog.map((l) => ({
     lineId: l.lineId,
     lineName: l.lineName,
     checked: savedInfo[l.lineId] === true,
   }));
 
+  // ── (4) 라인 개설(8) — 실무 경험: 기존 5카테고리·기본값(도출/분석/견문/관리=true·확장=isExpansionWeek). ──
   const savedExp = saved?.practicalExperience ?? {};
-  const practicalExperience: OpeningExperienceTeam[] = teams.map((t) => {
+  const lineOpeningExperience: OpeningExperienceTeam[] = teams.map((t) => {
     const savedTeam = savedExp[t.id] ?? {};
     return {
       teamId: t.id,
       teamName: t.teamName,
       lines: EXPERIENCE_LINE_TYPES.map((type) => {
-        // 기본값: 도출·분석·견문·관리 = true, 확장 = isExpansionWeek.
         const def = type === "expansion" ? isExpansionWeek : true;
         const savedVal = savedTeam[type];
         return { type, checked: typeof savedVal === "boolean" ? savedVal : def };
@@ -260,8 +338,18 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
     };
   });
 
+  // ── (1)(3)(6) 라인급(체크) → 액트 체크(7). process_line_groups + config.actCheck(기본 전체 체크). ──
+  const savedAct = saved?.actCheck ?? {};
+  const actCheckInfo = mergeActCheck(infoLineGroups, savedAct.info);
+  const actCheckExperience: ActCheckExperienceTeam[] = teams.map((t) => ({
+    teamId: t.id,
+    teamName: t.teamName,
+    lineGroups: mergeActCheck(expLineGroups, savedAct.experience?.[t.id]),
+  }));
+  const actCheckClub = mergeActCheck(clubLineGroups, savedAct.club);
+
+  // ── (5) 실무 역량 — 정상 진행(공유·기본 checked). ──
   const practicalCompetency: OpeningCompetency = {
-    // 기본값: 항상 checked.
     checked:
       typeof saved?.practicalCompetency?.checked === "boolean"
         ? saved.practicalCompetency.checked
@@ -284,8 +372,13 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
       activityStatus: activityStatusOf(managedRow),
       reviewed,
       openConfirmed,
+      isExpansionWeek,
     },
-    openingConfig: { practicalInfo, practicalExperience, practicalCompetency },
+    openingConfig: {
+      actCheck: { info: actCheckInfo, experience: actCheckExperience, club: actCheckClub },
+      lineOpening: { practicalInfo: lineOpeningInfo, practicalExperience: lineOpeningExperience },
+      practicalCompetency,
+    },
   };
 }
 
@@ -329,6 +422,26 @@ function normalizeConfig(input: unknown): SavedConfig {
   const comp = src.practicalCompetency;
   if (comp && typeof comp === "object") {
     out.practicalCompetency = { checked: (comp as Record<string, unknown>).checked === true };
+  }
+
+  // 액트 체크(7) 선택 — actCheck.{info,club} = {lineGroupId:bool}, actCheck.experience = {teamId:{lineGroupId:bool}}.
+  const act = src.actCheck;
+  if (act && typeof act === "object") {
+    const a = act as Record<string, unknown>;
+    const boolMap = (v: unknown): Record<string, boolean> => {
+      const m: Record<string, boolean> = {};
+      if (v && typeof v === "object") for (const [k, val] of Object.entries(v as Record<string, unknown>)) m[k] = val === true;
+      return m;
+    };
+    const outAct: NonNullable<SavedConfig["actCheck"]> = {};
+    if (a.info && typeof a.info === "object") outAct.info = boolMap(a.info);
+    if (a.club && typeof a.club === "object") outAct.club = boolMap(a.club);
+    if (a.experience && typeof a.experience === "object") {
+      const m: Record<string, Record<string, boolean>> = {};
+      for (const [teamId, lg] of Object.entries(a.experience as Record<string, unknown>)) m[teamId] = boolMap(lg);
+      outAct.experience = m;
+    }
+    out.actCheck = outAct;
   }
 
   return out;

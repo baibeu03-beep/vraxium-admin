@@ -2,17 +2,16 @@
 //
 // 라우트와 검증 스크립트가 동일 함수를 호출해 "direct == HTTP" 를 보장한다.
 //
-// 이번 범위: 주차 전체 집계 + 실무 정보 허브 집계 + 실무 정보 산하 라인별 정규 액트 목록 + 요일별 변동 액트.
-//   (실무 경험/역량 상세 UI 제외 — 단, 주차 전체 집계에는 허브 오픈 여부로 포함/제외됨.)
-//   집계 산식(summary 6필드)은 이전과 동일 — UI 레이아웃 지원용 표시 필드만 추가.
+// 허브: 클럽 총괄(0)·실무 정보(1)·실무 경험(2, 팀 탭)·실무 역량(3). 각 허브 요약 + 라인급별 요일 액트.
 //
 // 데이터 원천(전부 live 조회 — 고객 weekly-card snapshot 무접촉):
-//   · 정규 액트          = process_acts (hub ∈ LINE_HUBS, is_active) — 전역 카탈로그(org 무관)
-//   · 정규 액트 ↔ 라인   = process_line_groups.name == activity_types(practical_info).name (info)
+//   · 라인급(체크) SoT   = process_line_groups(hub, is_active) — 프로세스 등록 "소속 라인급"과 동일 line_group_id
+//   · 정규 액트          = process_acts (hub ∈ ACT_HUBS, is_active) — line_group_id 로 직접 분류(이름매칭 없음)
 //   · 요일               = process_acts.occur_dow (0=일 … 6=토)
 //   · 체크/신청시점/담당자 = process_check_statuses(org, hub, week) 의 status·requested_at·completed_at·scheduled_check_at·requested_by
-//   · 변동 액트          = process_irregular_acts(org, week_id, scope_mode=mode) — scheduled_check_at 요일로 배치
-//   · "가동"(오픈) 판정  = cluster4_week_opening_configs 의 open_confirmed + 체크된 라인/허브 설정
+//   · 변동 액트          = process_irregular_acts(org, week_id, scope_mode=mode) — scheduled_check_at 요일로 배치(info 귀속)
+//   · "가동"(오픈) 판정  = open_confirmed && 라인급 체크(config.actCheck.{info,experience,club}·competency=practicalCompetency.checked)
+//     · config.actCheck 부재(과거 확정 주차) 시 라인급 기본 전체 체크(읽기전용 표시만 — 결과/포인트/snapshot 무영향)
 //
 // 신청 시점(scheduledLabel): 정규 = 상태행 scheduled_check_at ?? 액트 check 요일/시각(주차 기준 파생). 변동 = scheduled_check_at.
 // 체크 상태(checkStatus): 신청됨일 때만 — 실제 신청(completed_at ?? requested_at) ≤ 신청 시점 → 'ontime'(🔴), 초과 → 'late'(🔵).
@@ -25,11 +24,19 @@ import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 
-const LINE_HUBS = ["info", "experience", "competency"] as const;
-const INFO_PREFERRED_ORDER = [
-  "wisdom", "essay", "infodesk", "calendar", "forum",
-  "session", "practical_lecture", "community", "etc_a",
-];
+// 액트 체크(7) 대상 허브. 라인급(체크) SoT = process_line_groups(hub, is_active) — 프로세스 등록의
+//   "소속 라인급"·활동관리 "라인 급(체크)"·여기 액트 분류가 모두 동일 line_group_id 를 공유한다(이름
+//   매칭·activity_types 매핑 없음). info/experience/club = config.actCheck 게이트, competency =
+//   practicalCompetency.checked(공유) 게이트. 신규 라인급을 프로세스 등록에서 추가하면 자동 노출된다.
+const ACT_HUBS = ["info", "experience", "competency", "club"] as const;
+
+// [클럽 총괄] 초기 정규 라인급 시드(2종) — scripts/seed-club-overall-act-check-lines.ts 참조용.
+//   ⚠ allowlist 아님: 액트 체크 관리는 hub='club' 활성 라인급 "전체"를 노출한다(프로세스 등록 추가분 자동 반영).
+//   시드는 "최소 2종 보장"일 뿐이며 스코프 필터로 쓰지 않는다.
+export const CLUB_ACT_CHECK_LINE_SEED = [
+  { id: "0c1b0000-0000-4000-8000-000000000001", name: "클럽 전체 가이드" },
+  { id: "0c1b0000-0000-4000-8000-000000000002", name: "행정 보안 검수" },
+] as const;
 
 // occur_dow(0=일 … 6=토) → 요일 키.
 const DOW_KEY = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
@@ -88,6 +95,13 @@ export type ActCheckManagementData = {
   weekId: string;
   club: OrganizationSlug;
   summary: ActCheckSummary;
+  // 허브 급 0: 클럽 총괄 — 실무 정보와 동일 구조(허브 요약 + 라인급/요일 액트). 라인=고정 카탈로그 2종.
+  //   가동/체크 = 허브 단위(clubOpen = openConfirmed). 변동 액트는 info 허브 귀속 → 클럽 총괄 변동=0.
+  clubOverall: {
+    summary: ActCheckSummary;
+    lines: ActCheckInfoLineDto[];
+    variableActsByDay: Record<DayKey, ActCheckVariableActDto[]>;
+  };
   practicalInfo: {
     summary: ActCheckSummary;
     lines: ActCheckInfoLineDto[];
@@ -180,45 +194,50 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     weekStart = (data as { start_date: string | null } | null)?.start_date ?? null;
   }
 
-  // 1) 오픈 설정(오픈 확인 기준). open_confirmed=false → 아무 것도 가동 아님.
+  // 1) 오픈 확인 + 액트 체크(7) 라인급 선택(config.actCheck). open_confirmed=false → 아무 것도 가동 아님.
+  //    라인급(체크) SoT = process_line_groups(hub, is_active). 액트는 line_group_id 로 직접 분류(이름매칭 없음).
+  //    체크 기본값 = 전체 체크(§4 통일) — actCheck 없는 과거 확정 주차는 전 라인급 체크로 간주(읽기전용 표시만).
   const { config, openConfirmed } = await loadWeekOpeningConfig(weekId, organization);
-  const infoOpenSet = new Set<string>();
-  let expOpen = false;
-  let compOpen = false;
-  if (openConfirmed && config) {
-    for (const [lineId, on] of Object.entries(config.practicalInfo ?? {})) if (on === true) infoOpenSet.add(lineId);
-    expOpen = Object.values(config.practicalExperience ?? {}).some((team) => Object.values(team ?? {}).some((v) => v === true));
-    compOpen = config.practicalCompetency?.checked === true;
-  }
+  const actCfg = config?.actCheck ?? {};
+  const infoChecked = (lgId: string | null): boolean => (lgId != null ? actCfg.info?.[lgId] ?? true : false);
+  const clubChecked = (lgId: string | null): boolean => (lgId != null ? actCfg.club?.[lgId] ?? true : false);
+  const expChecked = (teamId: string, lgId: string | null): boolean =>
+    lgId != null ? actCfg.experience?.[teamId]?.[lgId] ?? true : false;
+  const compChecked = config?.practicalCompetency?.checked === true;
 
-  // 2) 정규 액트 카탈로그(전 라인 허브).
+  // 2) 라인급(체크) 카탈로그 = process_line_groups(hub, is_active). sort_order → created_at 순(register 동일).
+  const loadLineGroups = async (hub: string): Promise<Array<{ id: string; name: string }>> => {
+    const { data, error } = await supabaseAdmin
+      .from("process_line_groups")
+      .select("id,name,sort_order,created_at")
+      .eq("hub", hub)
+      .eq("is_active", true);
+    if (error) { console.warn(`[act-check-management] process_line_groups(${hub}) unavailable:`, error.message); return []; }
+    return ((data ?? []) as Array<{ id: string; name: string | null; sort_order: number | null; created_at: string | null }>)
+      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.created_at ?? "").localeCompare(b.created_at ?? ""))
+      .map((r) => ({ id: r.id, name: r.name ?? r.id }));
+  };
+  const [infoLineGroups, expLineGroups, clubLineGroups, compLineGroups] = await Promise.all([
+    loadLineGroups("info"), loadLineGroups("experience"), loadLineGroups("club"), loadLineGroups("competency"),
+  ]);
+  const activeLgIds = new Set<string>(
+    [...infoLineGroups, ...expLineGroups, ...clubLineGroups, ...compLineGroups].map((g) => g.id),
+  );
+
+  // 3) 정규 액트 — hub∈ACT_HUBS·is_active·활성 라인급 소속만(비활성/미등록 라인그룹 액트 제외).
   const { data: actData, error: actErr } = await supabaseAdmin
     .from("process_acts")
     .select("id,line_group_id,hub,act_name,occur_dow,check_week,check_dow,check_time,check_target")
-    .in("hub", LINE_HUBS as unknown as string[])
+    .in("hub", ACT_HUBS as unknown as string[])
     .eq("is_active", true);
   if (actErr) throw new Error(actErr.message);
-  const acts = (actData ?? []) as ActRow[];
+  const allActs = ((actData ?? []) as ActRow[]).filter((a) => a.line_group_id != null && activeLgIds.has(a.line_group_id));
+  const infoActs = allActs.filter((a) => a.hub === "info");
+  const expActs = allActs.filter((a) => a.hub === "experience");
+  const compActs = allActs.filter((a) => a.hub === "competency");
+  const clubActs = allActs.filter((a) => a.hub === "club");
 
-  // 3) 라인그룹 id→name, 실무 정보 활동유형.
-  const lineGroupIds = Array.from(new Set(acts.map((a) => a.line_group_id).filter((v): v is string => !!v)));
-  const lgNameById = new Map<string, string>();
-  if (lineGroupIds.length) {
-    const { data: lg } = await supabaseAdmin.from("process_line_groups").select("id,name").in("id", lineGroupIds);
-    for (const r of (lg ?? []) as Array<{ id: string; name: string | null }>) if (r.name) lgNameById.set(r.id, r.name);
-  }
-  const { data: atData } = await supabaseAdmin
-    .from("activity_types").select("id,name").eq("cluster_id", "practical_info").eq("is_active", true);
-  const infoTypes = (atData ?? []) as Array<{ id: string; name: string | null }>;
-  const infoTypeIdByName = new Map<string, string>();
-  for (const t of infoTypes) if (t.name) infoTypeIdByName.set(t.name, t.id);
-  const infoLineIdOfAct = (a: ActRow): string | null => {
-    if (a.hub !== "info" || !a.line_group_id) return null;
-    const lgName = lgNameById.get(a.line_group_id);
-    return lgName ? infoTypeIdByName.get(lgName) ?? null : null;
-  };
-
-  // 4) 체크 상태행. info/competency = act_id 단위(team_id null), experience = (act_id, team_id) 단위.
+  // 4) 체크 상태행. info/competency/club = act_id 단위(team_id null), experience = (act_id, team_id) 단위.
   const statusByAct = new Map<string, StatusRow>();
   const appliedActIds = new Set<string>();
   const expStatusByActTeam = new Map<string, StatusRow>();
@@ -230,7 +249,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       .from("process_check_statuses")
       .select("act_id,hub,team_id,status,requested_at,completed_at,scheduled_check_at,requested_by")
       .eq("organization_slug", organization)
-      .in("hub", LINE_HUBS as unknown as string[])
+      .in("hub", ACT_HUBS as unknown as string[])
       .eq("week_id", weekId);
     if (error) {
       console.warn("[act-check-management] check_statuses read unavailable:", error.message);
@@ -335,10 +354,15 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     });
   }
 
-  // 7) 정규 액트 → 카드 필드 계산.
+  // 7) 정규 액트 → 카드 필드 계산. info/competency/club 전용(experience 는 expCardOf 별도).
+  //    가동 = openConfirmed && 라인급 체크(info=infoChecked·competency=compChecked·club=clubChecked).
   const cardOf = (a: ActRow): ActCheckActDto => {
-    const lineId = infoLineIdOfAct(a);
-    const isActive = a.hub === "info" ? lineId != null && infoOpenSet.has(lineId) : a.hub === "experience" ? expOpen : a.hub === "competency" ? compOpen : false;
+    const isActive = openConfirmed && (
+      a.hub === "info" ? infoChecked(a.line_group_id)
+      : a.hub === "competency" ? compChecked
+      : a.hub === "club" ? clubChecked(a.line_group_id)
+      : false
+    );
     const st = statusByAct.get(a.id) ?? null;
     const applied = st != null && (st.status === "pending" || st.status === "completed");
     // 신청 시점: 상태행 scheduled_check_at 우선, 없으면 act check 요일/시각(주차 기준 파생).
@@ -364,37 +388,23 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     };
   };
 
-  // 8) 실무 정보 라인별 목록(활동유형 9종, 표시 순서).
-  const infoActs = acts.filter((a) => a.hub === "info");
-  const orderIdx = (id: string) => {
-    const i = INFO_PREFERRED_ORDER.indexOf(id);
-    return i < 0 ? INFO_PREFERRED_ORDER.length : i;
-  };
-  const sortedTypes = [...infoTypes].sort((a, b) => orderIdx(a.id) - orderIdx(b.id) || a.id.localeCompare(b.id));
-  const lines: ActCheckInfoLineDto[] = sortedTypes.map((t) => {
+  // 8) 실무 정보 라인급별 목록 — process_line_groups(hub=info). 액트는 line_group_id 로 직접 매칭.
+  const lines: ActCheckInfoLineDto[] = infoLineGroups.map((lg) => {
     const byDay = emptyByDay<ActCheckActDto>();
     for (const a of infoActs) {
-      if (infoLineIdOfAct(a) !== t.id) continue;
+      if (a.line_group_id !== lg.id) continue;
       const d = a.occur_dow;
       const key: DayKey | null = d != null && d >= 0 && d <= 6 ? DOW_KEY[d] : null;
       if (!key) continue;
       byDay[key].push(cardOf(a));
     }
-    return { lineId: t.id, lineName: t.name ?? t.id, isOpenThisWeek: infoOpenSet.has(t.id), regularActsByDay: byDay };
+    return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: openConfirmed && infoChecked(lg.id), regularActsByDay: byDay };
   });
 
-  // 8b) 실무 경험 — 팀 탭 × 라인급(라인그룹) × 요일. 가동/체크는 팀별.
-  //   가동(팀) = open_confirmed && 해당 팀의 실무경험 오픈설정 중 하나라도 체크. 체크 = (act, team) 상태행 신청됨.
-  //   변동 액트는 팀 귀속 불가(process_irregular_acts 팀 컬럼 없음) → 경험 팀/허브 변동=0.
+  // 8b) 실무 경험 — 팀 × 라인급(process_line_groups hub=experience) × 요일. 가동 = openConfirmed && 팀별 라인급 체크.
+  //   체크 = (act, team) 상태행 신청됨. 변동 액트는 팀 귀속 불가 → 경험 팀/허브 변동=0.
   const teams = await listTeams(organization, mode);
-  const { data: expLgData } = await supabaseAdmin
-    .from("process_line_groups").select("id,name,sort_order").eq("hub", "experience").eq("is_active", true);
-  const expLineGroups = ((expLgData ?? []) as Array<{ id: string; name: string | null; sort_order: number | null }>)
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""));
-  const expActs = acts.filter((a) => a.hub === "experience");
-  const teamOpenOf = (teamId: string): boolean =>
-    openConfirmed && Object.values(config?.practicalExperience?.[teamId] ?? {}).some((v) => v === true);
-  const expCardOf = (a: ActRow, teamId: string, teamOpen: boolean): ActCheckActDto => {
+  const expCardOf = (a: ActRow, teamId: string, lineOpen: boolean): ActCheckActDto => {
     const st = expStatusByActTeam.get(`${a.id}::${teamId}`) ?? null;
     const applied = st != null && (st.status === "pending" || st.status === "completed");
     const derivedDate = dateForDow(weekStart, a.check_dow, a.check_week);
@@ -409,24 +419,24 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       checkStatus = timingOf(st?.completed_at ?? st?.requested_at ?? null, Number.isNaN(deadlineMs as number) ? null : deadlineMs);
     }
     return {
-      actId: a.id, actName: a.act_name, isActiveThisWeek: teamOpen, isChecked: applied,
+      actId: a.id, actName: a.act_name, isActiveThisWeek: lineOpen, isChecked: applied,
       scheduledLabel, checkStatus, requesterLabel: regularRequesterLabel(st?.requested_by ?? null),
     };
   };
   const expTeams: ActCheckHubTeam[] = teams.map((t) => {
-    const teamOpen = teamOpenOf(t.id);
     const teamLines: ActCheckInfoLineDto[] = expLineGroups.map((lg) => {
+      const lineOpen = openConfirmed && expChecked(t.id, lg.id);
       const byDay = emptyByDay<ActCheckActDto>();
       for (const a of expActs) {
         if (a.line_group_id !== lg.id) continue;
         const d = a.occur_dow;
         const key: DayKey | null = d != null && d >= 0 && d <= 6 ? DOW_KEY[d] : null;
         if (!key) continue;
-        byDay[key].push(expCardOf(a, t.id, teamOpen));
+        byDay[key].push(expCardOf(a, t.id, lineOpen));
       }
-      return { lineId: lg.id, lineName: lg.name ?? lg.id, isOpenThisWeek: teamOpen, regularActsByDay: byDay };
+      return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: lineOpen, regularActsByDay: byDay };
     });
-    const active = expActs.filter((a) => a.check_target === "check" && teamOpen);
+    const active = expActs.filter((a) => a.check_target === "check" && openConfirmed && expChecked(t.id, a.line_group_id));
     const activeActs = active.length;
     const checkedActs = active.filter((a) => appliedExpSet.has(`${a.id}::${t.id}`)).length;
     return {
@@ -444,11 +454,11 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       variableActsByDay: emptyByDay<ActCheckVariableActDto>(),
     };
   });
-  // 허브 요약 — 팀별 합산이 아니라 "대표로 1번"(distinct 액트) 집계. 모든 팀은 동일한 액트 카탈로그를
-  //   공유하므로 팀 수만큼 곱하지 않는다. 전체=distinct 경험 액트, 가동=check 대상(허브 오픈=expOpen 기준·
-  //   info/역량 buildSummary 와 동일), 체크=어느 팀이든 체크된 액트(1회). 변동=0(경험 변동 액트 없음).
-  const expHubActive = expActs.filter((a) => a.check_target === "check" && expOpen);
-  const expHubChecked = expHubActive.filter((a) => expTeams.some((t) => appliedExpSet.has(`${a.id}::${t.teamId}`)));
+  // 허브 요약 — distinct(팀 합 아님). 가동 = openConfirmed && 어느 팀이든 라인급 체크. 체크 = 어느 팀이든 신청됨.
+  const expHubActive = expActs.filter(
+    (a) => a.check_target === "check" && openConfirmed && teams.some((t) => expChecked(t.id, a.line_group_id)),
+  );
+  const expHubChecked = expHubActive.filter((a) => teams.some((t) => appliedExpSet.has(`${a.id}::${t.id}`)));
   const expHubSummary: ActCheckSummary = {
     totalActs: expActs.length,
     activeActs: expHubActive.length,
@@ -458,14 +468,8 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     actCheckRate: rate(expHubActive.length, expHubChecked.length),
   };
 
-  // 8c) 실무 역량 — 실무 정보와 동일 구조(라인급 × 요일). 가동/체크 = 허브 단위(compOpen).
-  //   라인급 = process_line_groups(hub='competency'). 현재 라인 1개. 카드는 cardOf(competency 분기) 재사용.
-  //   변동 액트는 info 허브(실무 정보)에 귀속되므로 역량 변동=0(경험과 동일).
-  const { data: compLgData } = await supabaseAdmin
-    .from("process_line_groups").select("id,name,sort_order").eq("hub", "competency").eq("is_active", true);
-  const compLineGroups = ((compLgData ?? []) as Array<{ id: string; name: string | null; sort_order: number | null }>)
-    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || (a.name ?? "").localeCompare(b.name ?? ""));
-  const compActs = acts.filter((a) => a.hub === "competency");
+  // 8c) 실무 역량 — process_line_groups(hub=competency). 가동/체크 = 공유 게이트(compChecked, (5) 정상 진행).
+  //   변동 액트는 info 허브에 귀속 → 역량 변동=0(경험과 동일).
   const compLines: ActCheckInfoLineDto[] = compLineGroups.map((lg) => {
     const byDay = emptyByDay<ActCheckActDto>();
     for (const a of compActs) {
@@ -475,26 +479,45 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       if (!key) continue;
       byDay[key].push(cardOf(a));
     }
-    return { lineId: lg.id, lineName: lg.name ?? lg.id, isOpenThisWeek: compOpen, regularActsByDay: byDay };
+    return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: openConfirmed && compChecked, regularActsByDay: byDay };
   });
 
-  // 9) 집계(이전 산식 동일). activeActs = check_target='check' && 가동.
+  // 8d) 클럽 총괄 — process_line_groups(hub=club) 활성 전체(고정 UUID allowlist 제거·프로세스 등록 추가분 자동 노출).
+  //   변동 액트는 info 허브 귀속 → 클럽 총괄 변동=0(경험/역량과 동일).
+  const clubLines: ActCheckInfoLineDto[] = clubLineGroups.map((lg) => {
+    const byDay = emptyByDay<ActCheckActDto>();
+    for (const a of clubActs) {
+      if (a.line_group_id !== lg.id) continue;
+      const d = a.occur_dow;
+      const key: DayKey | null = d != null && d >= 0 && d <= 6 ? DOW_KEY[d] : null;
+      if (!key) continue;
+      byDay[key].push(cardOf(a));
+    }
+    return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: openConfirmed && clubChecked(lg.id), regularActsByDay: byDay };
+  });
+
+  // 9) 집계. 가동 = check_target='check' && openConfirmed && 라인급 체크. 허브별 distinct(1회) 판정.
   const isActActive = (a: ActRow): boolean => {
-    if (a.hub === "info") { const l = infoLineIdOfAct(a); return l != null && infoOpenSet.has(l); }
-    if (a.hub === "experience") return expOpen;
-    if (a.hub === "competency") return compOpen;
+    if (!openConfirmed) return false;
+    if (a.hub === "info") return infoChecked(a.line_group_id);
+    if (a.hub === "experience") return teams.some((t) => expChecked(t.id, a.line_group_id));
+    if (a.hub === "competency") return compChecked;
+    if (a.hub === "club") return clubChecked(a.line_group_id);
     return false;
   };
-  const buildSummary = (scope: ActRow[]): ActCheckSummary => {
+  const isActChecked = (a: ActRow): boolean =>
+    a.hub === "experience" ? teams.some((t) => appliedExpSet.has(`${a.id}::${t.id}`)) : appliedActIds.has(a.id);
+  // withVariable=true 는 변동 액트(info 귀속)를 total/variable 에 포함 — 주차 전체·실무 정보에만 적용.
+  const summarize = (scope: ActRow[], withVariable: boolean): ActCheckSummary => {
     const active = scope.filter((a) => a.check_target === "check" && isActActive(a));
     const activeActs = active.length;
-    const checkedActs = active.filter((a) => appliedActIds.has(a.id)).length;
+    const checkedActs = active.filter(isActChecked).length;
     return {
-      totalActs: scope.length + variableCount,
+      totalActs: scope.length + (withVariable ? variableCount : 0),
       activeActs,
       checkedActs,
       uncheckedActs: activeActs - checkedActs,
-      variableActs: variableCount,
+      variableActs: withVariable ? variableCount : 0,
       actCheckRate: rate(activeActs, checkedActs),
     };
   };
@@ -502,9 +525,15 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   return {
     weekId,
     club: organization,
-    summary: buildSummary(acts),
+    // 주차 전체 = 클럽 총괄 + 정보 + 경험 + 역량 정규 액트 + 변동(info 귀속).
+    summary: summarize(allActs, true),
+    clubOverall: {
+      summary: summarize(clubActs, false),
+      lines: clubLines,
+      variableActsByDay: emptyByDay<ActCheckVariableActDto>(),
+    },
     practicalInfo: {
-      summary: buildSummary(infoActs),
+      summary: summarize(infoActs, true),
       lines,
       variableActsByDay,
     },
@@ -513,20 +542,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       teams: expTeams,
     },
     practicalCompetency: {
-      // 역량 변동 액트=0 → totalActs 는 정규 액트만(buildSummary 의 +variableCount 미포함).
-      summary: (() => {
-        const active = compActs.filter((a) => a.check_target === "check" && isActActive(a));
-        const activeActs = active.length;
-        const checkedActs = active.filter((a) => appliedActIds.has(a.id)).length;
-        return {
-          totalActs: compActs.length,
-          activeActs,
-          checkedActs,
-          uncheckedActs: activeActs - checkedActs,
-          variableActs: 0,
-          actCheckRate: rate(activeActs, checkedActs),
-        };
-      })(),
+      summary: summarize(compActs, false),
       lines: compLines,
       variableActsByDay: emptyByDay<ActCheckVariableActDto>(),
     },

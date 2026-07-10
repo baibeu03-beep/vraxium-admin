@@ -48,8 +48,26 @@ const EXP_TYPES: ExperienceLineType[] = [
   "expansion",
 ];
 
-type InfoChecked = Record<string, boolean>;
+// 허브별 카드 색상(기존 팔레트 재사용·신규 색 없음) — 실무 정보=sky · 실무 경험=amber · 실무 역량=violet · 클럽 총괄=emerald.
+//   같은 허브의 라인급(체크)·라인(개설) 카드는 동일 색을 공유한다.
+const HUB_CARD_CLASS = {
+  info: "border-sky-200 bg-sky-50/50",
+  experience: "border-amber-200 bg-amber-50/50",
+  competency: "border-violet-200 bg-violet-50/50",
+  club: "border-emerald-200 bg-emerald-50/40",
+} as const;
+const HUB_TITLE_CLASS = {
+  info: "text-sky-900",
+  experience: "text-amber-900",
+  competency: "text-violet-900",
+  club: "text-emerald-900",
+} as const;
+
+type BoolMap = Record<string, boolean>;
+// 라인 개설(4) — 팀 × 5카테고리(도출·분석·견문·관리·확장).
 type ExpChecked = Record<string, Record<ExperienceLineType, boolean>>;
+// 액트 체크(3) — 팀 × 라인급(process_line_groups id).
+type TeamGroupChecked = Record<string, Record<string, boolean>>;
 
 type DayKey = keyof ActCheckManagementData["practicalInfo"]["lines"][number]["regularActsByDay"];
 type DayCol = { key: DayKey; label: string };
@@ -343,13 +361,13 @@ function CompetencyLineOpeningSection({ data }: { data: LineOpeningManagementDat
   );
 }
 
-// 카드 한 줄 렌더 — 존재하는 항목만 " │ " 구분자로 이어 붙인다.
+// 카드 한 줄 렌더 — 존재하는 항목만 " │ " 구분자로 이어 붙인다. 각 항목은 min-w-0 로 셀 폭 안에서 줄바꿈.
 function CardRow({ parts }: { parts: ReactNode[] }) {
   return (
     <>
       {parts.map((node, i) => (
-        <span key={i} className="flex items-center gap-x-2 whitespace-nowrap">
-          {i > 0 ? <span className="text-muted-foreground/30">│</span> : null}
+        <span key={i} className="flex min-w-0 items-center gap-x-2">
+          {i > 0 ? <span className="shrink-0 text-muted-foreground/30">│</span> : null}
           {node}
         </span>
       ))}
@@ -393,17 +411,19 @@ function StateCard({
   dataAttrs: Record<string, string>;
   tag?: ReactNode;
 }) {
-  const parts: ReactNode[] = [<span key="n" className="font-semibold">{actName}</span>];
+  // 액트명·신청시점·담당자 모두 셀 폭 안에서 줄바꿈(말줄임 없음·무공백 롱토큰도 강제 줄바꿈).
+  const wrapCls = "min-w-0 break-keep [overflow-wrap:anywhere]";
+  const parts: ReactNode[] = [<span key="n" className={"font-semibold " + wrapCls}>{actName}</span>];
   if (state !== "inactive") {
-    if (scheduledLabel) parts.push(<span key="s" className="text-muted-foreground">{scheduledLabel}</span>);
+    if (scheduledLabel) parts.push(<span key="s" className={"text-muted-foreground " + wrapCls}>{scheduledLabel}</span>);
     if (state === "done_ontime" || state === "done_late") parts.push(<StateIcon key="i" state={state} />);
-    if (requesterLabel) parts.push(<span key="r" className="text-muted-foreground">{requesterLabel}</span>);
+    if (requesterLabel) parts.push(<span key="r" className={"text-muted-foreground " + wrapCls}>{requesterLabel}</span>);
   }
   return (
     <div
       {...dataAttrs}
       data-card-state={state}
-      className={"flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded border px-2 py-1.5 text-sm " + CARD_STATE_CLASS[state]}
+      className={"flex w-full min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded border px-2 py-1.5 text-sm " + CARD_STATE_CLASS[state]}
     >
       <CardRow parts={parts} />
       {tag}
@@ -479,8 +499,10 @@ function ActCheckGroupTable({ lines, variableActsByDay, cols }: { lines: HubLine
   return (
     <table className="w-full table-fixed border-collapse text-sm">
       <colgroup>
-        {/* 라인 급 컬럼 고정 폭(7rem=112px) — 긴 라인명이 요일 컬럼을 침범하지 못하게 고정. */}
-        <col style={{ width: "7rem" }} />
+        {/* 라인 급 컬럼 고정 폭 — 라인명이 말줄임 없이 보이도록 충분히 확대(10rem=160px). 넘치면
+            셀 안에서 줄바꿈(break-keep)으로 흐르되 텍스트는 생략하지 않는다. table-fixed + w-full 이라
+            요일 컬럼이 남는 폭을 균등 분배 → 페이지 가로 스크롤이 생기지 않는다. */}
+        <col style={{ width: "10rem" }} />
         {Array.from({ length: DAY_COLS_PER_ROW }).map((_, i) => (
           <col key={i} />
         ))}
@@ -508,13 +530,13 @@ function ActCheckGroupTable({ lines, variableActsByDay, cols }: { lines: HubLine
         ) : (
           lines.map((line) => (
             <tr key={line.lineId} data-info-line-row={line.lineId} className="align-top">
-              {/* 라인 급 셀 — overflow-hidden 으로 셀 밖 침범 차단. 배지는 max-w-full + truncate(nowrap+ellipsis)
-                  로 셀 안에서만 표시하고 넘치면 말줄임(…). 전체 이름은 title 툴팁으로. */}
-              <td className="overflow-hidden border px-1.5 py-2 text-center font-bold">
+              {/* 라인 급 셀 — 라인명은 말줄임 없이 전부 노출한다. 한 줄 우선, 부족하면 셀 안에서
+                  줄바꿈(break-keep=한글 단어 단위)으로 흐른다. truncate/overflow-hidden 미사용. */}
+              <td className="border px-1.5 py-2 text-center font-bold">
                 <span
                   title={line.lineName}
                   className={
-                    "inline-block max-w-full truncate rounded px-1.5 py-0.5 align-middle text-sm " +
+                    "inline-block rounded px-1.5 py-0.5 align-middle text-sm leading-snug break-keep whitespace-normal " +
                     (line.isOpenThisWeek ? "bg-amber-200 text-amber-900" : "bg-zinc-100 text-zinc-500")
                   }
                 >
@@ -523,7 +545,7 @@ function ActCheckGroupTable({ lines, variableActsByDay, cols }: { lines: HubLine
               </td>
               {cols.map((d) => (
                 <td key={d.key} className="border px-1.5 py-1.5 align-top">
-                  <div className="flex flex-col gap-1">
+                  <div className="flex min-w-0 flex-col gap-1">
                     {line.regularActsByDay[d.key].length === 0 ? (
                       <span className="text-xs text-muted-foreground/40">–</span>
                     ) : (
@@ -653,10 +675,14 @@ export default function TeamPartsInfoWeekDetailManager({
   const [error, setError] = useState<string | null>(null);
   useReportLoading(loading);
 
-  // 편집 가능한 체크 상태(로드 시 DTO 로 초기화).
-  const [infoChecked, setInfoChecked] = useState<InfoChecked>({});
-  const [expChecked, setExpChecked] = useState<ExpChecked>({});
-  const [compChecked, setCompChecked] = useState(true);
+  // 편집 가능한 체크 상태(로드 시 DTO 로 초기화). 액트 체크(7)와 라인 개설(8)은 독립 상태다.
+  //   액트 체크(1)(3)(6) = 라인급(process_line_groups) 선택 · 라인 개설(2)(4) = 실제 라인 선택.
+  const [actInfoChecked, setActInfoChecked] = useState<BoolMap>({}); // (1)
+  const [actExpChecked, setActExpChecked] = useState<TeamGroupChecked>({}); // (3)
+  const [actClubChecked, setActClubChecked] = useState<BoolMap>({}); // (6)
+  const [lineInfoChecked, setLineInfoChecked] = useState<BoolMap>({}); // (2)
+  const [lineExpChecked, setLineExpChecked] = useState<ExpChecked>({}); // (4)
+  const [compChecked, setCompChecked] = useState(true); // (5) 공유
 
   const [reviewed, setReviewed] = useState(false);
   const [openConfirmed, setOpenConfirmed] = useState(false);
@@ -718,21 +744,27 @@ export default function TeamPartsInfoWeekDetailManager({
         if (cancelled) return;
         const dto = json.data as TeamPartsInfoWeekDetailData;
         setData(dto);
-        setInfoChecked(
-          Object.fromEntries(dto.openingConfig.practicalInfo.map((l) => [l.lineId, l.checked])),
-        );
-        setExpChecked(
+        const oc = dto.openingConfig;
+        setActInfoChecked(Object.fromEntries(oc.actCheck.info.map((g) => [g.lineGroupId, g.checked])));
+        setActExpChecked(
           Object.fromEntries(
-            dto.openingConfig.practicalExperience.map((t) => [
+            oc.actCheck.experience.map((t) => [
               t.teamId,
-              Object.fromEntries(t.lines.map((l) => [l.type, l.checked])) as Record<
-                ExperienceLineType,
-                boolean
-              >,
+              Object.fromEntries(t.lineGroups.map((g) => [g.lineGroupId, g.checked])),
             ]),
           ),
         );
-        setCompChecked(dto.openingConfig.practicalCompetency.checked);
+        setActClubChecked(Object.fromEntries(oc.actCheck.club.map((g) => [g.lineGroupId, g.checked])));
+        setLineInfoChecked(Object.fromEntries(oc.lineOpening.practicalInfo.map((l) => [l.lineId, l.checked])));
+        setLineExpChecked(
+          Object.fromEntries(
+            oc.lineOpening.practicalExperience.map((t) => [
+              t.teamId,
+              Object.fromEntries(t.lines.map((l) => [l.type, l.checked])) as Record<ExperienceLineType, boolean>,
+            ]),
+          ),
+        );
+        setCompChecked(oc.practicalCompetency.checked);
         setReviewed(dto.managedWeek.reviewed);
         setOpenConfirmed(dto.managedWeek.openConfirmed);
       } catch (e) {
@@ -803,10 +835,17 @@ export default function TeamPartsInfoWeekDetailManager({
     return () => { cancelled = true; };
   }, [activeTab, club, mode, weekId, actRefresh]);
 
+  // 저장 payload — 라인 개설(8) = practical* (기존 키·기존 동작 불변), 액트 체크(7) = actCheck(신설).
+  //   두 선택은 서로 독립. competency(정상 진행) 는 (7)(8) 공유.
   const buildConfig = () => ({
-    practicalInfo: infoChecked,
-    practicalExperience: expChecked,
+    practicalInfo: lineInfoChecked,
+    practicalExperience: lineExpChecked,
     practicalCompetency: { checked: compChecked },
+    actCheck: {
+      info: actInfoChecked,
+      experience: actExpChecked,
+      club: actClubChecked,
+    },
   });
 
   const onOpenConfirm = async () => {
@@ -835,20 +874,32 @@ export default function TeamPartsInfoWeekDetailManager({
     }
   };
 
-  // ↩ 실행 취소 — 직전 단계("오픈 확인 전") 복원. open_confirmed=false(config 보존)·snapshot 무접촉.
-  const onOpenConfirmRevert = async () => {
-    if (!club || readOnly) return;
-    setBanner(null);
-    const res = await fetch(
-      appendModeQuery(`/api/admin/team-parts/info/weeks/${weekId}/open-confirm?club=${club}`, mode),
-      { method: "DELETE" },
+  // [초기화] — 상단 허브 선택 상태를 기본값으로 되돌린다(클라이언트 편집 상태만·서버 write 없음).
+  //   실무 정보(라인급/라인)·실무 역량·클럽 총괄 = 전부 미선택 / 실무 경험 라인급 = 전체 체크 /
+  //   실무 경험 라인(개설) = 현재 주차 기본값(도출·분석·견문·관리=true·확장=isExpansionWeek).
+  //   저장 전 상태를 기본값으로 복원 → 이후 [오픈 확인] 을 누르면 이 기본값이 그대로 저장된다.
+  const resetToDefaults = () => {
+    if (!data || readOnly) return;
+    const oc = data.openingConfig;
+    setActInfoChecked(Object.fromEntries(oc.actCheck.info.map((g) => [g.lineGroupId, false])));
+    setLineInfoChecked(Object.fromEntries(oc.lineOpening.practicalInfo.map((l) => [l.lineId, false])));
+    setActExpChecked(
+      Object.fromEntries(
+        oc.actCheck.experience.map((t) => [t.teamId, Object.fromEntries(t.lineGroups.map((g) => [g.lineGroupId, true]))]),
+      ),
     );
-    const json = await res.json();
-    if (!res.ok || !json.success) throw new Error(json?.error ?? `취소 실패 (${res.status})`);
-    setOpenConfirmed(false);
-    setBanner({ kind: "success", message: "오픈 확인이 취소되었습니다(‘오픈 확인 전’ 상태)." });
-    // 액트 체크 관리 탭 "가동" 상태가 오픈 설정 기준으로 갱신되도록 재조회 트리거.
-    setActRefresh((n) => n + 1);
+    setActClubChecked(Object.fromEntries(oc.actCheck.club.map((g) => [g.lineGroupId, false])));
+    const expDef = data.managedWeek.isExpansionWeek;
+    setLineExpChecked(
+      Object.fromEntries(
+        oc.lineOpening.practicalExperience.map((t) => [
+          t.teamId,
+          Object.fromEntries(EXP_TYPES.map((ty) => [ty, ty === "expansion" ? expDef : true])) as Record<ExperienceLineType, boolean>,
+        ]),
+      ),
+    );
+    setCompChecked(false);
+    setBanner({ kind: "success", message: "허브 선택을 기본값으로 초기화했습니다. [오픈 확인]을 눌러 저장하세요." });
   };
 
   // 단일 요청(검수 완료/실행 취소) 동안 단계 안내를 시간 기반으로 전환한다. 서버 처리 순서
@@ -967,10 +1018,21 @@ export default function TeamPartsInfoWeekDetailManager({
     }
   };
 
-  const toggleInfo = (lineId: string) =>
-    setInfoChecked((p) => ({ ...p, [lineId]: !p[lineId] }));
-  const toggleExp = (teamId: string, type: ExperienceLineType) =>
-    setExpChecked((p) => ({
+  // 액트 체크(7) 토글 — (1) 정보 라인급 · (3) 경험 팀×라인급 · (6) 클럽 라인급.
+  const toggleActInfo = (lineGroupId: string) =>
+    setActInfoChecked((p) => ({ ...p, [lineGroupId]: !p[lineGroupId] }));
+  const toggleActExp = (teamId: string, lineGroupId: string) =>
+    setActExpChecked((p) => ({
+      ...p,
+      [teamId]: { ...p[teamId], [lineGroupId]: !p[teamId]?.[lineGroupId] },
+    }));
+  const toggleActClub = (lineGroupId: string) =>
+    setActClubChecked((p) => ({ ...p, [lineGroupId]: !p[lineGroupId] }));
+  // 라인 개설(8) 토글 — (2) 정보 라인 · (4) 경험 팀×카테고리.
+  const toggleLineInfo = (lineId: string) =>
+    setLineInfoChecked((p) => ({ ...p, [lineId]: !p[lineId] }));
+  const toggleLineExp = (teamId: string, type: ExperienceLineType) =>
+    setLineExpChecked((p) => ({
       ...p,
       [teamId]: { ...p[teamId], [type]: !p[teamId]?.[type] },
     }));
@@ -1220,19 +1282,17 @@ export default function TeamPartsInfoWeekDetailManager({
                   >
                     {confirming ? "저장 중…" : "오픈 확인"}
                   </Button>
-                  {/* 공용 수동 실행 — 기존 [오픈 확인] 버튼이 이미 즉시 실행 역할을 하므로(중복 방지)
-                      ⚡ 즉시 실행은 두지 않고, 옆에 ↩ 실행 취소(직전 단계 복원)만 추가한다. */}
+                  {/* [초기화] — 상단 허브 선택을 기본값으로 되돌린다(클라이언트 상태만·이후 오픈 확인 시 저장). */}
                   {!readOnly && (
-                    <div data-ac-open-confirm>
-                      <ActionControl
-                        hideInstant
-                        onRollback={onOpenConfirmRevert}
-                        rollbackClass={ACTION_CONTROL_REGISTRY.weekOpenConfirm.rollback.class}
-                        rollbackDisabled={!openConfirmed}
-                        rollbackDisabledReason="아직 오픈 확인되지 않았습니다."
-                        mode={mode === "test" ? "test" : "operating"}
-                      />
-                    </div>
+                    <Button
+                      type="button"
+                      data-hub-reset-button
+                      onClick={resetToDefaults}
+                      disabled={confirming}
+                      className="border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    >
+                      초기화
+                    </Button>
                   )}
                   {readOnly ? (
                     <ReadOnlyStatusPill
@@ -1249,59 +1309,94 @@ export default function TeamPartsInfoWeekDetailManager({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(220px,1fr)_minmax(320px,1.4fr)_minmax(160px,0.7fr)_minmax(180px,0.8fr)]">
-                {/* [5] 실무 정보 */}
-                <div data-hub="info" className="rounded-md border border-sky-200 bg-sky-50/50 p-3">
-                  <p className="mb-2 font-bold">[실무 정보]</p>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                    {data.openingConfig.practicalInfo.map((l) => (
-                      <label key={l.lineId} className="flex items-center gap-2 text-sm" data-info-line={l.lineId}>
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4"
-                          checked={infoChecked[l.lineId] ?? false}
-                          disabled={readOnly}
-                          onChange={() => toggleInfo(l.lineId)}
-                        />
-                        <span className="truncate">{l.lineName}</span>
-                      </label>
-                    ))}
-                    {data.openingConfig.practicalInfo.length === 0 ? (
-                      <span className="text-xs text-muted-foreground">라인 없음</span>
-                    ) : null}
+              {/* 허브별로 라인 급(체크)→(7) 액트 체크 / 라인(개설)→(8) 라인 개설 을 독립 열로 분리.
+                  카드 배경색은 "허브 기준"으로 통일 — 실무 정보=sky · 실무 경험=amber · 실무 역량=violet · 클럽 총괄=emerald.
+                  라벨은 카드 밖으로 넘치지 않도록 자연 줄바꿈(break-keep + overflow-wrap:anywhere)·말줄임 없음. */}
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {/* (1) [실무 정보] 라인 급(체크) → 액트 체크 */}
+                <div data-hub="info-act" className={"rounded-md border p-3 " + HUB_CARD_CLASS.info}>
+                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.info}>[실무 정보] 라인 급(체크)</p>
+                  <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 sm:grid-cols-2">
+                    {data.openingConfig.actCheck.info.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">라인급 없음 (프로세스 등록에서 추가)</span>
+                    ) : (
+                      data.openingConfig.actCheck.info.map((g) => (
+                        <label
+                          key={g.lineGroupId}
+                          data-act-info-line={g.lineGroupId}
+                          className={"flex min-w-0 items-start gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer")}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 shrink-0"
+                            checked={actInfoChecked[g.lineGroupId] ?? false}
+                            disabled={readOnly}
+                            onChange={() => toggleActInfo(g.lineGroupId)}
+                          />
+                          <span className="min-w-0 break-keep [overflow-wrap:anywhere]">{g.name}</span>
+                        </label>
+                      ))
+                    )}
                   </div>
                 </div>
 
-                {/* [6] 실무 경험 */}
-                <div data-hub="experience" className="overflow-x-auto rounded-md border border-sky-200 bg-sky-50/50 p-3">
-                  <p className="mb-2 font-bold">[실무 경험]</p>
-                  {data.openingConfig.practicalExperience.length === 0 ? (
+                {/* (2) [실무 정보] 라인(개설) → 라인 개설 */}
+                <div data-hub="info-line" className={"rounded-md border p-3 " + HUB_CARD_CLASS.info}>
+                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.info}>[실무 정보] 라인(개설)</p>
+                  <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 sm:grid-cols-2">
+                    {data.openingConfig.lineOpening.practicalInfo.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">라인 없음</span>
+                    ) : (
+                      data.openingConfig.lineOpening.practicalInfo.map((l) => (
+                        <label
+                          key={l.lineId}
+                          data-line-info-line={l.lineId}
+                          className={"flex min-w-0 items-start gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer")}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 shrink-0"
+                            checked={lineInfoChecked[l.lineId] ?? false}
+                            disabled={readOnly}
+                            onChange={() => toggleLineInfo(l.lineId)}
+                          />
+                          <span className="min-w-0 break-keep [overflow-wrap:anywhere]">{l.lineName}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* (3) [실무 경험] 라인 급(체크) → 액트 체크 : 팀 × 라인급 매트릭스 */}
+                <div data-hub="exp-act" className={"rounded-md border p-3 " + HUB_CARD_CLASS.experience}>
+                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.experience}>[실무 경험] 라인 급(체크)</p>
+                  {data.openingConfig.actCheck.experience.length === 0 ? (
                     <span className="text-xs text-muted-foreground">팀 없음</span>
                   ) : (
-                    <table className="text-sm">
+                    <table className="w-full table-fixed text-sm">
                       <thead>
                         <tr className="text-xs text-muted-foreground">
-                          <th className="px-2 py-1 text-left">팀</th>
-                          {EXP_TYPES.map((t) => (
-                            <th key={t} className="px-2 py-1 text-center font-medium">
-                              {EXP_TYPE_LABEL[t]}
+                          <th className="px-1 py-1 text-left">팀</th>
+                          {(data.openingConfig.actCheck.experience[0]?.lineGroups ?? []).map((g) => (
+                            <th key={g.lineGroupId} className="px-1 py-1 text-center font-medium break-keep [overflow-wrap:anywhere]">
+                              {g.name}
                             </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {data.openingConfig.practicalExperience.map((team) => (
-                          <tr key={team.teamId} data-exp-team={team.teamId}>
-                            <td className="whitespace-nowrap px-2 py-1 font-medium">{team.teamName}</td>
-                            {EXP_TYPES.map((type) => (
-                              <td key={type} className="px-2 py-1 text-center">
+                        {data.openingConfig.actCheck.experience.map((team) => (
+                          <tr key={team.teamId} data-act-exp-team={team.teamId}>
+                            <td className="px-1 py-1 font-medium break-keep [overflow-wrap:anywhere]">{team.teamName}</td>
+                            {team.lineGroups.map((g) => (
+                              <td key={g.lineGroupId} className="px-1 py-1 text-center">
                                 <input
                                   type="checkbox"
                                   className="h-4 w-4"
-                                  data-exp-cell={`${team.teamId}:${type}`}
-                                  checked={expChecked[team.teamId]?.[type] ?? false}
+                                  data-act-exp-cell={`${team.teamId}:${g.lineGroupId}`}
+                                  checked={actExpChecked[team.teamId]?.[g.lineGroupId] ?? false}
                                   disabled={readOnly}
-                                  onChange={() => toggleExp(team.teamId, type)}
+                                  onChange={() => toggleActExp(team.teamId, g.lineGroupId)}
                                 />
                               </td>
                             ))}
@@ -1312,28 +1407,87 @@ export default function TeamPartsInfoWeekDetailManager({
                   )}
                 </div>
 
-                {/* [7] 실무 역량 */}
-                <div data-hub="competency" className="rounded-md border border-sky-200 bg-sky-50/50 p-3">
-                  <p className="mb-2 font-bold">[실무 역량]</p>
-                  <label className="flex items-center gap-2 text-sm">
+                {/* (4) [실무 경험] 라인(오픈) → 라인 개설 : 팀 × 도출·분석·견문·관리·확장 */}
+                <div data-hub="exp-line" className={"rounded-md border p-3 " + HUB_CARD_CLASS.experience}>
+                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.experience}>[실무 경험] 라인(오픈)</p>
+                  {data.openingConfig.lineOpening.practicalExperience.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">팀 없음</span>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-xs text-muted-foreground">
+                          <th className="px-1 py-1 text-left">팀</th>
+                          {EXP_TYPES.map((t) => (
+                            <th key={t} className="px-1 py-1 text-center font-medium">
+                              {EXP_TYPE_LABEL[t]}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.openingConfig.lineOpening.practicalExperience.map((team) => (
+                          <tr key={team.teamId} data-line-exp-team={team.teamId}>
+                            <td className="px-1 py-1 font-medium break-keep [overflow-wrap:anywhere]">{team.teamName}</td>
+                            {EXP_TYPES.map((type) => (
+                              <td key={type} className="px-1 py-1 text-center">
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4"
+                                  data-line-exp-cell={`${team.teamId}:${type}`}
+                                  checked={lineExpChecked[team.teamId]?.[type] ?? false}
+                                  disabled={readOnly}
+                                  onChange={() => toggleLineExp(team.teamId, type)}
+                                />
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* (5) [실무 역량] 정상 진행 — (7)(8) 공유 (기존 색상 유지) */}
+                <div data-hub="competency" className={"rounded-md border p-3 " + HUB_CARD_CLASS.competency}>
+                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.competency}>[실무 역량] 체크/개설</p>
+                  <label className={"flex min-w-0 items-center gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer")}>
                     <input
                       type="checkbox"
-                      className="h-4 w-4"
+                      className="h-4 w-4 shrink-0"
                       data-competency-checkbox
                       checked={compChecked}
                       disabled={readOnly}
                       onChange={() => setCompChecked((v) => !v)}
                     />
-                    <span>정상 진행</span>
+                    <span className="min-w-0 break-keep [overflow-wrap:anywhere]">정상 진행</span>
                   </label>
                 </div>
 
-                {/* [8] 실무 경력 */}
-                <div data-hub="career" className="rounded-md border border-sky-200 bg-sky-50/50 p-3">
-                  <p className="mb-2 font-bold">[실무 경력]</p>
-                  <p className="text-xs text-muted-foreground">
-                    [실무 경력] 산하 라인들은 별도 페이지에서 관리합니다.
-                  </p>
+                {/* (6) [클럽 총괄] 라인 급(체크) → 액트 체크 (기존 색상 유지·라인 개설 없음) */}
+                <div data-hub="club-act" className={"rounded-md border p-3 " + HUB_CARD_CLASS.club}>
+                  <p className={"mb-2 text-sm font-bold " + HUB_TITLE_CLASS.club}>[클럽 총괄] 라인 급(체크)</p>
+                  <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 sm:grid-cols-2">
+                    {data.openingConfig.actCheck.club.length === 0 ? (
+                      <span className="text-xs text-muted-foreground">라인급 없음 (프로세스 등록에서 추가)</span>
+                    ) : (
+                      data.openingConfig.actCheck.club.map((g) => (
+                        <label
+                          key={g.lineGroupId}
+                          data-act-club-line={g.lineGroupId}
+                          className={"flex min-w-0 items-start gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer")}
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-0.5 h-4 w-4 shrink-0"
+                            checked={actClubChecked[g.lineGroupId] ?? false}
+                            disabled={readOnly}
+                            onChange={() => toggleActClub(g.lineGroupId)}
+                          />
+                          <span className="min-w-0 break-keep [overflow-wrap:anywhere]">{g.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             </section>
@@ -1389,6 +1543,15 @@ export default function TeamPartsInfoWeekDetailManager({
                   <div className="space-y-5" data-act-check-panel>
                     {/* [0] 주차 전체 요약 — 최상위 */}
                     <ActSummaryRow title="# 주차 전체 액트 체크 관리" s={actData.summary} level={1} />
+
+                    {/* 허브 급 0: 클럽 총괄 — 실무 정보와 동일 UI(허브 요약 + 라인급/요일 액트). */}
+                    <div className="space-y-3" data-hub-section="club">
+                      <ActSummaryRow title="허브 급 0 : [클럽 총괄]" s={actData.clubOverall.summary} level={2} />
+                      <HubActTable
+                        lines={actData.clubOverall.lines}
+                        variableActsByDay={actData.clubOverall.variableActsByDay}
+                      />
+                    </div>
 
                     {/* 허브 급 1: 실무 정보 — 중위 */}
                     <div className="space-y-3" data-hub-section="info">

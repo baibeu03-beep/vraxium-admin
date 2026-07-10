@@ -103,11 +103,13 @@ async function main() {
       const pe = direct.practicalExperience;
       invariants(`[${org}/${mode}] exp`, pe.summary);
       check(`[${org}/${mode}] exp.teams 배열`, Array.isArray(pe.teams));
-      // 허브 요약 = 팀 합.
+      // 허브 요약은 "팀 합"이 아니라 distinct(대표 1번) — 모든 팀이 동일 카테고리(5종) 공유(lib 주석 참조).
+      //   전체=카테고리 수(=단일 팀 totalLines), 오픈/개설=distinct(팀 합 이하). 팀 수만큼 곱하지 않는다.
       const sumF = (k: "totalLines" | "openLines" | "createdLines") => pe.teams.reduce((n, t) => n + (t.summary as any)[k], 0);
-      check(`[${org}/${mode}] exp 허브 요약 = 팀 합`,
-        pe.summary.totalLines === sumF("totalLines") && pe.summary.openLines === sumF("openLines") && pe.summary.createdLines === sumF("createdLines"),
-        { hub: pe.summary });
+      check(`[${org}/${mode}] exp 허브 요약 = distinct(팀 합 아님)`,
+        pe.summary.totalLines === (pe.teams[0]?.summary.totalLines ?? 0) &&
+        pe.summary.openLines <= sumF("openLines") && pe.summary.createdLines <= sumF("createdLines"),
+        { hub: pe.summary, teamsTotalSum: sumF("totalLines") });
       const EXP_LABELS = ["도출", "분석", "견문", "관리", "확장"];
       for (const t of pe.teams) {
         invariants(`[${org}/${mode}] exp team ${t.teamName}`, t.summary);

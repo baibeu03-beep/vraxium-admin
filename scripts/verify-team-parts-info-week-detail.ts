@@ -75,17 +75,21 @@ async function main() {
 
     // 기본 정책(저장 config 없을 때).
     const oc = direct.openingConfig;
-    check(`[${org}] 실무정보 기본 전부 unchecked`, oc.practicalInfo.every((l) => l.checked === false), { infoLines: oc.practicalInfo.length });
-    check(`[${org}] 실무역량 기본 checked`, oc.practicalCompetency.checked === true);
-    const expOk = oc.practicalExperience.every((t) => {
+    // 라인 개설(8) 기본(불변): 정보 전부 unchecked · 역량 checked · 경험 도출/분석/견문/관리=true.
+    check(`[${org}] 라인개설 정보 기본 전부 unchecked`, oc.lineOpening.practicalInfo.every((l) => l.checked === false), { infoLines: oc.lineOpening.practicalInfo.length });
+    check(`[${org}] 역량 기본 checked`, oc.practicalCompetency.checked === true);
+    const expOk = oc.lineOpening.practicalExperience.every((t) => {
       const m = Object.fromEntries(t.lines.map((l) => [l.type, l.checked]));
       return m.derive === true && m.analysis === true && m.research === true && m.management === true;
     });
-    check(`[${org}] 실무경험 도출·분석·견문·관리 기본 checked`, oc.practicalExperience.length === 0 || expOk, { teams: oc.practicalExperience.length });
-    // 확장 = isExpansionWeek (활동 주차·확장기간 밖이면 전부 false 일 것).
-    const expansionVals = oc.practicalExperience.map((t) => t.lines.find((l) => l.type === "expansion")?.checked);
+    check(`[${org}] 라인개설 경험 도출·분석·견문·관리 기본 checked`, oc.lineOpening.practicalExperience.length === 0 || expOk, { teams: oc.lineOpening.practicalExperience.length });
+    const expansionVals = oc.lineOpening.practicalExperience.map((t) => t.lines.find((l) => l.type === "expansion")?.checked);
     const uniformExpansion = expansionVals.every((v) => v === expansionVals[0]);
-    check(`[${org}] 확장 기본값이 팀 전체 동일(=isExpansionWeek)`, oc.practicalExperience.length === 0 || uniformExpansion, { expansion: expansionVals[0] });
+    check(`[${org}] 확장 기본값 팀 전체 동일(=isExpansionWeek)`, oc.lineOpening.practicalExperience.length === 0 || uniformExpansion, { expansion: expansionVals[0] });
+    // 액트 체크(7) 라인급 기본: 전부 checked(§4 통일). SoT = process_line_groups.
+    check(`[${org}] 액트체크 정보 라인급 기본 전부 checked`, oc.actCheck.info.every((g) => g.checked === true), { n: oc.actCheck.info.length });
+    check(`[${org}] 액트체크 클럽 라인급 기본 전부 checked`, oc.actCheck.club.every((g) => g.checked === true), { n: oc.actCheck.club.length });
+    check(`[${org}] 액트체크 경험 라인급 기본 전부 checked`, oc.actCheck.experience.every((t) => t.lineGroups.every((g) => g.checked === true)));
   }
 
   // DTO 키 형상.
@@ -94,7 +98,7 @@ async function main() {
     const json: any = await res.json();
     const d = json.data;
     check("DTO top keys", JSON.stringify(Object.keys(d).sort()) === JSON.stringify(["currentWeek", "managedWeek", "openingConfig"]), { keys: Object.keys(d) });
-    check("openingConfig keys", JSON.stringify(Object.keys(d.openingConfig).sort()) === JSON.stringify(["practicalCompetency", "practicalExperience", "practicalInfo"]));
+    check("openingConfig keys", JSON.stringify(Object.keys(d.openingConfig).sort()) === JSON.stringify(["actCheck", "lineOpening", "practicalCompetency"]));
     check("managedWeek.weekId 일치", d.managedWeek.weekId === weekId);
   }
 
@@ -149,11 +153,16 @@ async function main() {
       !tableProbe.error ||
       !/schema cache|does not exist|could not find the table/i.test(tableProbe.error.message);
     console.log(`   cluster4_week_opening_configs 존재: ${tableExists}`);
+    // 라인 개설(8)=practicalInfo(activity_type id) · 액트 체크(7)=actCheck.info(line_group id) 독립 저장.
+    const dirNow = await loadTeamPartsInfoWeekDetail({ weekId, organization: "encre", mode: "operating" });
+    const lineInfoId = dirNow.openingConfig.lineOpening.practicalInfo[0]?.lineId;
+    const actLgId = dirNow.openingConfig.actCheck.info[0]?.lineGroupId;
     const body = JSON.stringify({
       config: {
-        practicalInfo: { wisdom: true },
+        practicalInfo: lineInfoId ? { [lineInfoId]: true } : {},
         practicalExperience: {},
         practicalCompetency: { checked: false },
+        actCheck: { info: actLgId ? { [actLgId]: false } : {}, experience: {}, club: {} },
       },
     });
     const res = await fetch(`${BASE}/api/admin/team-parts/info/weeks/${weekId}/open-confirm?club=encre`, {
@@ -162,11 +171,13 @@ async function main() {
     const json: any = await res.json();
     if (tableExists) {
       check("open-confirm POST 성공", res.ok && json?.success === true && json?.data?.openConfirmed === true, { status: res.status });
-      // GET 반영(저장 config 우선).
+      // GET 반영(저장 config 우선) — 두 네임스페이스 독립.
       const g = await fetch(`${BASE}/api/admin/team-parts/info/weeks/${weekId}?club=encre`, { headers: { cookie } });
       const gj: any = await g.json();
-      const wisdom = gj?.data?.openingConfig?.practicalInfo?.find((l: any) => l.lineId === "wisdom");
-      check("open-confirm 후 GET: wisdom checked=true", wisdom?.checked === true, { wisdom });
+      const li = gj?.data?.openingConfig?.lineOpening?.practicalInfo?.find((l: any) => l.lineId === lineInfoId);
+      check("open-confirm 후 GET: 라인개설 정보 저장값 우선(true)", !lineInfoId || li?.checked === true, { li });
+      const ai = gj?.data?.openingConfig?.actCheck?.info?.find((g2: any) => g2.lineGroupId === actLgId);
+      check("open-confirm 후 GET: 액트체크 정보 저장값 우선(false)", !actLgId || ai?.checked === false, { ai });
       check("open-confirm 후 GET: competency checked=false(저장값 우선)", gj?.data?.openingConfig?.practicalCompetency?.checked === false);
       check("open-confirm 후 GET: managedWeek.openConfirmed=true", gj?.data?.managedWeek?.openConfirmed === true);
       // 정리(테스트 config 삭제).

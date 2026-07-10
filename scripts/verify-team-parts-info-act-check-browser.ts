@@ -76,7 +76,7 @@ async function main() {
   ck("[정보] 그룹0 = 월·화·수·목", ["월", "화", "수", "목"].every((d) => g0.includes(d)) && !g0.includes("금"));
   ck("[정보] 그룹1 = 금·토·일", ["금", "토", "일"].every((d) => g1.includes(d)));
   ck("[정보] 요일 헤더 전체/가동/체크/변동", ["전체", "가동", "체크", "변동"].every((k) => g0.includes(k)));
-  ck("[정보] 위즈덤 라인 행", !!(await page.$('[data-hub-section="info"] [data-info-line-row="wisdom"]')));
+  ck("[정보] 라인급 행 존재(process_line_groups)", (await page.$$('[data-hub-section="info"] [data-info-line-row]')).length >= 1);
   const varCards = await page.$$('[data-hub-section="info"] [data-variable-act]');
   if (expectVariable) ck("[정보] 변동 액트 카드 렌더", varCards.length >= 1, { varCards: varCards.length });
   else console.log(`   (이 주차 변동 액트 없음, cards=${varCards.length})`);
