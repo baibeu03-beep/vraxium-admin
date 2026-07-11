@@ -23,6 +23,12 @@ import type { ActionRollbackClass } from "@/lib/actionControl/registry";
 export const ACTION_INSTANT_LABEL = "즉시 실행";
 export const ACTION_ROLLBACK_LABEL = "실행 취소";
 
+// '즉시 검수'(보라) 버튼 색상 클래스 — 크기/여백/높이/라운드는 공용 <Button size="xs">
+//   (= '실행 취소' 버튼과 동일 토큰)로 재사용하고, 색만 이 클래스로 덮는다. 프로세스 체크/변동
+//   두 페이지의 '즉시 검수' 버튼이 한 곳에서 함께 유지되도록 공용화(mode/org 무관 동일).
+export const INSTANT_REVIEW_BUTTON_CLASS =
+  "border-purple-300 bg-white text-purple-700 hover:bg-purple-50 hover:text-purple-700 dark:border-purple-300 dark:bg-white dark:hover:bg-purple-50 dark:hover:text-purple-700";
+
 export type ActionControlMode = "operating" | "test";
 
 export type ActionControlProps = {

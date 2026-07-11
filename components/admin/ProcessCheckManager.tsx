@@ -38,6 +38,13 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { useToast } from "@/components/ui/toast";
+
+// 장시간 작업(즉시 검수/실행 취소) 진행 중 문구 — 성공·실패 토스트와 같은 하단 영역에 지속 표시.
+const PC_LOADING_MSG = {
+  autoReview: "주차 검수를 진행하고 있습니다. 완료될 때까지 잠시 기다려주세요.",
+  rollback: "검수 결과를 되돌리고 있습니다. 완료될 때까지 잠시 기다려주세요.",
+} as const;
 
 function Red({ children }: { children: React.ReactNode }) {
   return <span className="font-semibold text-red-600">{children}</span>;
@@ -75,6 +82,8 @@ const PROCESS_CHECK_LOG_CHIP_CLASS: Record<string, string> = {
 export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   const hubLabel = PROCESS_HUB_LABEL[hub];
   const confirm = useConfirm();
+  // 진행 중/완료/실패 안내는 모두 화면 하단 고정 토스트로(문서 흐름 인라인 배너 대신).
+  const { toast, loading: toastLoading, dismiss: toastDismiss } = useToast();
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
   // 팀 목록(섹션.1 팀 탭) 스코프 — operating=운영 팀만 / test=(T) 팀만. 토글 보존(appendModeQuery).
@@ -95,9 +104,12 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   // 선별 액트 "체크 필요" 클릭 시 [검수 링크]/[수동 입력] 선택 모달 + 수동 입력 모달.
   const [choiceAct, setChoiceAct] = useState<ProcessCheckActRowDto | null>(null);
   const [manualGrantAct, setManualGrantAct] = useState<ProcessCheckActRowDto | null>(null);
-  // QA 자동 검수(행 단위) — 실행 중 행 id(스피너/중복방지) + 결과 배너.
+  // QA 자동 검수(행 단위) — 실행 중 행 id(스피너/중복방지). 결과/진행 안내는 하단 토스트로.
   const [autoReviewingId, setAutoReviewingId] = useState<string | null>(null);
-  const [autoReviewBanner, setAutoReviewBanner] = useState<{ kind: "success" | "info"; message: string } | null>(null);
+  // ↩ 실행 취소 실행 중 행 id — 즉시 검수와 상충하지 않도록 전역 busy 판정에 함께 쓴다.
+  const [rollingBackId, setRollingBackId] = useState<string | null>(null);
+  // 어떤 검수/실행 취소든 진행 중이면 관련 버튼을 함께 비활성화(상충 요청 차단).
+  const anyActionBusy = autoReviewingId !== null || rollingBackId !== null;
 
   // 액트 상태 버튼 클릭 — 팝업 라우팅:
   //   needed + 선별         → 선택 모달([검수 링크]/[수동 입력])
@@ -244,7 +256,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   //   검수 예정 시각 전이라도 실행되며(서버가 시각 조건만 우회), 기존 자동 스케줄은 그대로다.
   const handleAutoReview = useCallback(
     async (act: ProcessCheckActRowDto) => {
-      if (!act.checkStatusId || autoReviewingId) return; // 중복 클릭/대상 없음 가드
+      if (!act.checkStatusId || anyActionBusy) return; // 중복 클릭/상충/대상 없음 가드
       const ok = await confirm({
         title: "즉시 검수",
         description: "이 항목을 지금 바로 검수하시겠습니까?",
@@ -252,7 +264,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
       });
       if (!ok) return;
       setAutoReviewingId(act.checkStatusId);
-      setAutoReviewBanner(null);
+      // 클릭 직후 하단 고정 로딩 토스트 — HTTP 응답 완료(refreshAfterAction 포함)까지 유지.
+      const loadingId = toastLoading(PC_LOADING_MSG.autoReview);
       try {
         const res = await fetch("/api/admin/qa/run-now/process-check-row", {
           method: "POST",
@@ -261,27 +274,36 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           body: JSON.stringify({ statusId: act.checkStatusId, source: "regular" }),
         });
         const json = await res.json().catch(() => ({}));
-        // 즉시 검수는 크롤 결과와 무관하게 항상 '체크 완료' — code 는 크롤 결과(메시지)만 구분.
-        if (!res.ok || !json?.success || json?.data?.status !== "completed") {
-          setAutoReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
-        } else {
-          const code: string = json?.data?.code ?? "not_found";
-          const COPY: Record<string, { kind: "success" | "info"; message: string }> = {
-            confirmed: { kind: "success", message: "인증 내용을 확인했습니다. 체크 완료로 처리했습니다." },
-            no_match: { kind: "info", message: "인증 댓글은 있었지만 대상자를 찾지 못했습니다. 체크 완료로 처리했습니다." },
-            not_found: { kind: "info", message: "인증 내용을 찾지 못했습니다. 체크 완료로 처리했습니다." },
-          };
-          setAutoReviewBanner(COPY[code] ?? COPY.not_found);
-        }
         // 상태가 바뀌었을 수 있으니 보드를 새로고침(완료면 '체크 완료'로 보이고 버튼이 사라진다).
         await refreshAfterAction();
+        // 즉시 검수는 크롤 결과(confirmed/no_match/not_found)와 무관하게 항상 '체크 완료' 처리된다.
+        //   → 성공 토스트에는 내부 크롤 판단 사유를 노출하지 않고 결과(완료)만 간결히 알린다.
+        //   status!=='completed' 만 실제 이상 상황(운영행 보호·DB 실패 등)으로 오류 안내.
+        if (!res.ok || !json?.success || json?.data?.status !== "completed") {
+          console.warn("[process-check][즉시 검수] 완료되지 않음", {
+            statusId: act.checkStatusId,
+            status: json?.data?.status ?? null,
+            code: json?.data?.code ?? null,
+            error: json?.error ?? null,
+          });
+          toast("info", "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        } else {
+          // 내부 크롤 판단 사유(code)는 UI 가 아니라 콘솔 로그로만 남긴다.
+          console.info("[process-check][즉시 검수] 완료", {
+            statusId: act.checkStatusId,
+            code: json?.data?.code ?? null,
+          });
+          toast("success", "즉시 검수가 완료되었습니다.");
+        }
       } catch {
-        setAutoReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
+        toast("info", "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
       } finally {
+        // 성공/실패/예외 무관 — 로딩 토스트·busy 상태를 반드시 정리.
+        toastDismiss(loadingId);
         setAutoReviewingId(null);
       }
     },
-    [autoReviewingId, confirm, refreshAfterAction],
+    [anyActionBusy, confirm, refreshAfterAction, toast, toastLoading, toastDismiss],
   );
 
   // ↩ 실행 취소(행 단위) — 완료된 체크를 직전 단계(pending)로 되돌린다: 포인트 회수 + 대상자
@@ -289,8 +311,10 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
   //   ActionControl 이 담당하므로 여기서는 별도 confirm 없이 요청만 보낸다.
   const handleRollback = useCallback(
     async (act: ProcessCheckActRowDto) => {
-      if (!act.checkStatusId) return;
-      setAutoReviewBanner(null);
+      if (!act.checkStatusId || anyActionBusy) return; // 중복/상충 요청 차단
+      setRollingBackId(act.checkStatusId);
+      // 클릭 직후 하단 고정 로딩 토스트 — 포인트 회수·카드 재계산까지 응답 완료 전 유지.
+      const loadingId = toastLoading(PC_LOADING_MSG.rollback);
       try {
         const res = await fetch("/api/admin/processes/check/rollback", {
           method: "POST",
@@ -299,20 +323,23 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           body: JSON.stringify({ statusId: act.checkStatusId }),
         });
         const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json?.success) {
-          setAutoReviewBanner({ kind: "info", message: json?.error ?? "실행 취소를 처리하지 못했습니다." });
-        } else {
-          setAutoReviewBanner({
-            kind: "success",
-            message: "체크 완료를 취소했습니다(‘체크 완료 전’ 상태·포인트 회수·카드 재계산).",
-          });
-        }
         await refreshAfterAction();
+        if (!res.ok || !json?.success) {
+          toast("info", json?.error ?? "실행 취소를 처리하지 못했습니다.");
+        } else {
+          // 내부 처리 과정(‘체크 완료 전’ 상태·포인트 회수·카드 재계산)은 콘솔 로그로만 남기고,
+          //   관리자 UI 에는 결과만 간결히 안내한다.
+          console.info("[process-check][실행 취소] 완료", { statusId: act.checkStatusId });
+          toast("success", "실행 취소가 완료되었습니다.");
+        }
       } catch {
-        setAutoReviewBanner({ kind: "info", message: "실행 취소를 처리하지 못했습니다." });
+        toast("info", "실행 취소를 처리하지 못했습니다.");
+      } finally {
+        toastDismiss(loadingId);
+        setRollingBackId(null);
       }
     },
-    [refreshAfterAction],
+    [anyActionBusy, refreshAfterAction, toast, toastLoading, toastDismiss],
   );
 
   return (
@@ -336,22 +363,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         </div>
       )}
 
-      {/* QA 자동 검수 결과 배너 — 행 단위 즉시 검수 후 완료/실패 메시지. */}
-      {autoReviewBanner && (
-        <div
-          className={cn(
-            "flex items-center justify-between rounded-md border px-3 py-2 text-sm",
-            autoReviewBanner.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-amber-200 bg-amber-50 text-amber-800",
-          )}
-        >
-          <span className="whitespace-pre-line">{autoReviewBanner.message}</span>
-          <button type="button" onClick={() => setAutoReviewBanner(null)} className="hover:opacity-70">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+      {/* 즉시 검수/실행 취소의 진행 중·완료·실패 안내는 모두 하단 고정 토스트로 표시(인라인 배너 제거). */}
 
       {/* ════ [섹션.0] 액트 관리 — 전체 팀 고정 ════ */}
       <SectionTitle helpKey={PROCESS_CHECK_HELP_KEYS.sectionActManagement} helpTitle="액트 관리">
@@ -605,6 +617,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 onAutoReview={handleAutoReview}
                 autoReviewingId={autoReviewingId}
                 onRollback={handleRollback}
+                rollbackingId={rollingBackId}
+                actionBusy={anyActionBusy}
                 rollbackMode={mode === "test" ? "test" : "operating"}
               />
             </>
@@ -620,6 +634,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           onAutoReview={handleAutoReview}
           autoReviewingId={autoReviewingId}
           onRollback={handleRollback}
+          rollbackingId={rollingBackId}
+          actionBusy={anyActionBusy}
           rollbackMode={mode === "test" ? "test" : "operating"}
         />
       )}

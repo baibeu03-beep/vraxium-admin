@@ -10,6 +10,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -21,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { SelectBadge, StatusBadge } from "@/components/ui/status-badge";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
-import { ActionControl } from "@/components/admin/ActionControl";
+import { ActionControl, INSTANT_REVIEW_BUTTON_CLASS } from "@/components/admin/ActionControl";
 import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import {
   PROCESS_CHECK_HELP_KEYS,
@@ -124,6 +125,8 @@ export default function ProcessCheckActTable({
   onAutoReview,
   autoReviewingId = null,
   onRollback,
+  rollbackingId = null,
+  actionBusy = false,
   rollbackMode = "operating",
 }: {
   acts: ProcessCheckActRowDto[];
@@ -142,6 +145,10 @@ export default function ProcessCheckActTable({
   autoReviewingId?: string | null;
   // ↩ 실행 취소(행 단위) — '체크 완료' 행을 직전 단계(pending)로 되돌린다. 미전달이면 버튼 미노출.
   onRollback?: (act: ProcessCheckActRowDto) => void | Promise<void>;
+  // 현재 실행 취소 중인 행의 checkStatusId(스피너/중복방지). 없으면 null.
+  rollbackingId?: string | null;
+  // 즉시 검수/실행 취소 중 하나라도 진행 중이면 true — 관련 버튼을 함께 비활성화(상충 요청 차단).
+  actionBusy?: boolean;
   // 실행 취소 확인 모달의 운영/테스트 표기.
   rollbackMode?: "operating" | "test";
 }) {
@@ -363,15 +370,21 @@ export default function ProcessCheckActTable({
                     {(onAutoReview || onRollback) && (
                       <TableCell className="text-center">
                         {!readOnly && onAutoReview && a.isCheckTarget && a.status === "pending" && a.checkStatusId ? (
-                          <button
+                          // 크기/여백/높이/라운드는 '실행 취소'(ActionControl size="xs")와 동일한 공용
+                          //   Button size="xs" 토큰을 재사용하고, 색만 보라 유지(INSTANT_REVIEW_BUTTON_CLASS).
+                          //   loading=진행 중(스피너+자동 비활성) · disabled=다른 검수/취소 진행 중(상충 차단).
+                          <Button
                             type="button"
+                            size="xs"
+                            variant="outline"
                             onClick={() => onAutoReview(a)}
-                            disabled={weekDisabled || autoReviewingId === a.checkStatusId}
-                            className="rounded-md border border-purple-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-50"
+                            loading={autoReviewingId === a.checkStatusId}
+                            disabled={weekDisabled || actionBusy}
+                            className={INSTANT_REVIEW_BUTTON_CLASS}
                             title="검수 시점 전이라도 지금 바로 검수합니다."
                           >
                             {autoReviewingId === a.checkStatusId ? "검수 중…" : "즉시 검수"}
-                          </button>
+                          </Button>
                         ) : !readOnly && onRollback && a.status === "completed" && a.checkStatusId ? (
                           <div className="inline-flex justify-center" data-pc-rollback={a.checkStatusId}>
                             <ActionControl
@@ -380,6 +393,10 @@ export default function ProcessCheckActTable({
                               rollbackClass={ACTION_CONTROL_REGISTRY.processCheckComplete.rollback.class}
                               mode={rollbackMode}
                               onRollback={() => onRollback(a)}
+                              rollbackBusy={rollbackingId === a.checkStatusId}
+                              // 다른 행이 진행 중이면 함께 비활성화(상충 요청 차단). 자신이 진행 중이면
+                              //   rollbackBusy(스피너)로 표현되므로 disabled 로 이중 처리하지 않는다.
+                              disabled={actionBusy && rollbackingId !== a.checkStatusId}
                             />
                           </div>
                         ) : (

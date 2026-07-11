@@ -19,6 +19,7 @@ import { useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp, ChevronsUpDown, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import {
   Table,
   TableBody,
@@ -40,7 +41,7 @@ import ProcessIrregularDialog from "@/components/admin/ProcessIrregularDialog";
 import ProcessIrregularManualGrantDialog from "@/components/admin/ProcessIrregularManualGrantDialog";
 import ProcessIrregularReviewDetail from "@/components/admin/ProcessIrregularReviewDetail";
 import { WeekSelectRow } from "@/components/admin/WeekSelectRow";
-import { ActionControl } from "@/components/admin/ActionControl";
+import { ActionControl, INSTANT_REVIEW_BUTTON_CLASS } from "@/components/admin/ActionControl";
 import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
@@ -247,11 +248,15 @@ export default function ProcessIrregularManager() {
 
   // 즉시 검수(행 단위) — '체크 대기' 링크 신청 행을 검수 시점 전이라도 지금 바로 검수.
   const confirm = useConfirm();
+  // 진행 중/완료/실패 안내는 모두 화면 하단 고정 토스트로(문서 흐름 인라인 배너 대신).
+  const { toast, loading: toastLoading, dismiss: toastDismiss } = useToast();
   const [reviewingId, setReviewingId] = useState<string | null>(null);
-  const [reviewBanner, setReviewBanner] = useState<{ kind: "success" | "info"; message: string } | null>(null);
+  const [rollingBackId, setRollingBackId] = useState<string | null>(null);
+  // 즉시 검수/실행 취소 중 하나라도 진행 중이면 관련 버튼을 함께 비활성화(상충 요청 차단).
+  const anyActionBusy = reviewingId !== null || rollingBackId !== null;
   const handleImmediateReview = useCallback(
     async (act: ProcessIrregularActRowDto) => {
-      if (reviewingId) return;
+      if (anyActionBusy) return; // 중복/상충 요청 차단
       const ok = await confirm({
         title: "즉시 검수",
         description: "이 항목을 지금 바로 검수하시겠습니까?",
@@ -259,7 +264,8 @@ export default function ProcessIrregularManager() {
       });
       if (!ok) return;
       setReviewingId(act.id);
-      setReviewBanner(null);
+      // 클릭 직후 하단 고정 로딩 토스트 — HTTP 응답 완료(보드 갱신 포함)까지 유지.
+      const loadingId = toastLoading("주차 검수를 진행하고 있습니다. 완료될 때까지 잠시 기다려주세요.");
       try {
         const res = await fetch("/api/admin/qa/run-now/process-check-row", {
           method: "POST",
@@ -268,37 +274,45 @@ export default function ProcessIrregularManager() {
           body: JSON.stringify({ statusId: act.id, source: "irregular" }),
         });
         const json = await res.json().catch(() => ({}));
-        // 즉시 검수는 크롤 결과와 무관하게 항상 '체크 완료' — code 는 크롤 결과(메시지)만 구분.
-        if (!res.ok || !json?.success || json?.data?.status !== "completed") {
-          setReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
-        } else {
-          const code: string = json?.data?.code ?? "not_found";
-          const COPY: Record<string, { kind: "success" | "info"; message: string }> = {
-            confirmed: { kind: "success", message: "인증 내용을 확인했습니다. 체크 완료로 처리했습니다." },
-            no_match: { kind: "info", message: "인증 댓글은 있었지만 대상자를 찾지 못했습니다. 체크 완료로 처리했습니다." },
-            not_found: { kind: "info", message: "인증 내용을 찾지 못했습니다. 체크 완료로 처리했습니다." },
-          };
-          setReviewBanner(COPY[code] ?? COPY.not_found);
-        }
         await loadBoard();
+        // 즉시 검수는 크롤 결과(confirmed/no_match/not_found)와 무관하게 항상 '체크 완료' 처리된다.
+        //   → 성공 토스트에는 내부 크롤 판단 사유를 노출하지 않고 결과(완료)만 간결히 알린다.
+        //   status!=='completed' 만 실제 이상 상황으로 오류 안내.
+        if (!res.ok || !json?.success || json?.data?.status !== "completed") {
+          console.warn("[process-irregular][즉시 검수] 완료되지 않음", {
+            statusId: act.id,
+            status: json?.data?.status ?? null,
+            code: json?.data?.code ?? null,
+            error: json?.error ?? null,
+          });
+          toast("info", "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        } else {
+          // 내부 크롤 판단 사유(code)는 UI 가 아니라 콘솔 로그로만 남긴다.
+          console.info("[process-irregular][즉시 검수] 완료", {
+            statusId: act.id,
+            code: json?.data?.code ?? null,
+          });
+          toast("success", "즉시 검수가 완료되었습니다.");
+        }
       } catch {
-        setReviewBanner({ kind: "info", message: "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요." });
+        toast("info", "요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.");
       } finally {
+        toastDismiss(loadingId);
         setReviewingId(null);
       }
     },
-    [confirm, reviewingId, loadBoard],
+    [confirm, anyActionBusy, loadBoard, toast, toastLoading, toastDismiss],
   );
 
   // ↩ 실행 취소(행 단위) — 완료된 액트를 '실행 전' 상태로 복원(다시 검수/부여 가능).
   //   링크 신청 → 체크 대기(행 유지·재검수) · 수동 부여 → 행 삭제. 공통 포인트 회수 + snapshot 재계산.
   //   확인 모달은 ActionControl 이 담당하므로 여기서는 별도 confirm 없이 요청만 보낸다. org/mode 무관.
-  const [rollingBackId, setRollingBackId] = useState<string | null>(null);
   const handleRollback = useCallback(
     async (act: ProcessIrregularActRowDto) => {
-      if (!org || rollingBackId) return;
+      if (!org || anyActionBusy) return; // 중복/상충 요청 차단
       setRollingBackId(act.id);
-      setReviewBanner(null);
+      // 클릭 직후 하단 고정 로딩 토스트 — 항목 삭제/포인트 회수·카드 재계산까지 응답 완료 전 유지.
+      const loadingId = toastLoading("검수 결과를 되돌리고 있습니다. 완료될 때까지 잠시 기다려주세요.");
       try {
         const res = await fetch("/api/admin/processes/check/irregular/rollback", {
           method: "POST",
@@ -307,25 +321,23 @@ export default function ProcessIrregularManager() {
           body: JSON.stringify({ id: act.id, organization: org, ...(mode === "test" ? { mode: "test" } : {}) }),
         });
         const json = await res.json().catch(() => ({}));
-        if (!res.ok || !json?.success) {
-          setReviewBanner({ kind: "info", message: json?.error ?? "실행 취소를 처리하지 못했습니다." });
-        } else {
-          setReviewBanner({
-            kind: "success",
-            message:
-              act.kind === "manual_grant"
-                ? "수동 부여를 실행 전(부여 없음) 상태로 되돌렸습니다(항목 삭제·포인트 회수·카드 재계산)."
-                : "검수를 취소하고 ‘체크 대기(검수 전)’ 상태로 되돌렸습니다(포인트 회수·카드 재계산·재검수 가능).",
-          });
-        }
         await loadBoard();
+        if (!res.ok || !json?.success) {
+          toast("info", json?.error ?? "실행 취소를 처리하지 못했습니다.");
+        } else {
+          // 내부 처리 과정(항목 삭제·포인트 회수·카드 재계산·상태 복원 등)은 콘솔 로그로만 남기고,
+          //   관리자 UI 에는 결과만 간결히 안내한다.
+          console.info("[process-irregular][실행 취소] 완료", { statusId: act.id, kind: act.kind });
+          toast("success", "실행 취소가 완료되었습니다.");
+        }
       } catch {
-        setReviewBanner({ kind: "info", message: "실행 취소를 처리하지 못했습니다." });
+        toast("info", "실행 취소를 처리하지 못했습니다.");
       } finally {
+        toastDismiss(loadingId);
         setRollingBackId(null);
       }
     },
-    [org, mode, rollingBackId, loadBoard],
+    [org, mode, anyActionBusy, loadBoard, toast, toastLoading, toastDismiss],
   );
 
   const { weeks, selectedWeekId, editable, summary, acts } = board;
@@ -428,22 +440,7 @@ export default function ProcessIrregularManager() {
         </div>
       )}
 
-      {/* 즉시 검수 결과 배너 — 검수 완료 / 카페에서 인증 내용을 찾지 못했습니다. */}
-      {reviewBanner && (
-        <div
-          className={cn(
-            "flex items-center justify-between rounded-md border px-3 py-2 text-sm",
-            reviewBanner.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-amber-200 bg-amber-50 text-amber-800",
-          )}
-        >
-          <span>{reviewBanner.message}</span>
-          <button type="button" onClick={() => setReviewBanner(null)} className="hover:opacity-70">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
+      {/* 즉시 검수/실행 취소의 진행 중·완료·실패 안내는 모두 하단 고정 토스트로 표시(인라인 배너 제거). */}
 
       {/* 주차 선택 — 공용 WeekSelectRow(프로세스 체크와 동일 SoT). */}
       <WeekSelectRow
@@ -507,6 +504,7 @@ export default function ProcessIrregularManager() {
                       onRollback={() => handleRollback(a)}
                       rollbackMode={mode === "test" ? "test" : "operating"}
                       rollingBack={rollingBackId === a.id}
+                      actionBusy={anyActionBusy}
                       editable={editable}
                     />
                   ))}
@@ -633,6 +631,7 @@ function IrregularRow({
   onRollback,
   rollbackMode,
   rollingBack,
+  actionBusy,
   editable,
 }: {
   act: ProcessIrregularActRowDto;
@@ -642,6 +641,8 @@ function IrregularRow({
   onRollback: () => void;
   rollbackMode: "operating" | "test";
   rollingBack: boolean;
+  // 즉시 검수/실행 취소 중 하나라도 진행 중이면 이 행 버튼도 함께 비활성화(상충 요청 차단).
+  actionBusy: boolean;
   editable: boolean;
 }) {
   // 즉시 검수 = '체크 대기'(pending) 링크 신청(review_request) + 검수 링크가 있는 행만.
@@ -697,15 +698,21 @@ function IrregularRow({
       {/* '즉시 검수' 전용 컬럼 — 대기(pending)=⚡즉시 검수 / 완료(completed)=↩실행 취소(실행 전 복원). */}
       <TableCell className="text-center">
         {canReviewNow ? (
-          <button
+          // 크기/여백/높이/라운드는 '실행 취소'(ActionControl size="xs")와 동일한 공용 Button size="xs"
+          //   토큰을 재사용하고, 색만 보라 유지(INSTANT_REVIEW_BUTTON_CLASS).
+          //   loading=진행 중(스피너+자동 비활성) · disabled=다른 검수/취소 진행 중(상충 차단).
+          <Button
             type="button"
+            size="xs"
+            variant="outline"
             onClick={onImmediateReview}
-            disabled={reviewing}
-            className="rounded-md border border-purple-300 bg-white px-2.5 py-0.5 text-[11px] font-medium text-purple-700 hover:bg-purple-50 disabled:opacity-50"
+            loading={reviewing}
+            disabled={actionBusy}
+            className={INSTANT_REVIEW_BUTTON_CLASS}
             title="검수 시점 전이라도 지금 바로 검수합니다."
           >
             {reviewing ? "검수 중…" : "즉시 검수"}
-          </button>
+          </Button>
         ) : canRollback || rollbackBlocked ? (
           <div className="inline-flex justify-center" data-ir-rollback={act.id}>
             <ActionControl
@@ -715,6 +722,8 @@ function IrregularRow({
               mode={rollbackMode}
               onRollback={onRollback}
               rollbackBusy={rollingBack}
+              // 다른 행이 진행 중이면 함께 비활성화(상충 요청 차단). 자신이 진행 중이면 rollbackBusy(스피너)로 표현.
+              disabled={actionBusy && !rollingBack}
               rollbackDisabled={rollbackBlocked}
               rollbackDisabledReason={
                 rollbackBlocked

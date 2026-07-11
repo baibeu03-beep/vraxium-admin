@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CheckCircle2, AlarmClock, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -947,16 +947,19 @@ export default function TeamPartsInfoWeekDetailManager({
   // 완료/실패 안내는 문서 흐름 배너가 아니라 화면 하단 고정 토스트(<ToastViewport /> · Layout)로.
   //   기존 호출부(setBanner({ kind, message }))를 그대로 재사용하기 위한 얇은 shim.
   //   setBanner(null) 은 "작업 전 배너 지우기"였는데 토스트는 각자 자동/수동 닫힘이라 no-op.
-  const { toast } = useToast();
+  const { toast, loading: toastLoading, update: toastUpdate, dismiss: toastDismiss } = useToast();
   const setBanner = useCallback(
     (b: { kind: "success" | "error"; message: string } | null) => {
       if (b) toast(b.kind, b.message);
     },
     [toast],
   );
-  // 검수 완료/실행 취소 진행 단계 안내(단일 요청 동안 시간 기반 전환). 완료/실패는 요청 resolve
-  //   시점에만 토스트로 표시한다(조기 성공 토스트 금지 — progress 는 "진행 중"만 나타낸다).
-  const [progress, setProgress] = useState<string | null>(null);
+  // 검수 완료/실행 취소 진행 상태는 화면 하단 고정 "로딩 토스트"(성공·실패 토스트와 동일 영역)로
+  //   지속 표시한다 — 문서 흐름 인라인 스피너가 아니라 스크롤 위치와 무관하게 항상 보이도록.
+  //   중복 실행(더블클릭) 차단용 in-flight ref — state 는 재렌더 뒤에야 disabled 를 반영하므로
+  //   같은 프레임의 연속 클릭까지 막으려면 동기 ref 가드가 필요하다.
+  const reviewInFlight = useRef(false);
+  const revertInFlight = useRef(false);
 
   const [activeTab, setActiveTab] = useState<"act" | "line">("act");
   // 실무 경험 선택 팀(탭). null 이면 렌더 시 첫 팀으로 폴백.
@@ -1169,19 +1172,20 @@ export default function TeamPartsInfoWeekDetailManager({
     setBanner({ kind: "success", message: "허브 선택을 기본값으로 초기화했습니다. [오픈 확인]을 눌러 저장하세요." });
   };
 
-  // 단일 요청(검수 완료/실행 취소) 동안 단계 안내를 시간 기반으로 전환한다. 서버 처리 순서
-  //   (성적 rollback/확정 → 고객 카드 snapshot 재계산)를 반영하되, 실제 완료는 요청 resolve
-  //   시점에만 banner 로 표시한다(조기 성공 토스트 금지). 반환한 stop() 을 finally 에서 호출해
-  //   타이머를 정리하고 progress 를 반드시 해제한다(로딩 state 가 남지 않도록).
+  // 단일 요청(검수 완료/실행 취소) 동안 진행 상태를 하단 고정 "로딩 토스트"로 지속 표시한다.
+  //   첫 문구는 즉시(클릭 직후) 뜨고, 이후 서버 처리 순서(성적 확정/되돌리기 → 고객 카드 snapshot
+  //   재계산)를 반영해 같은 토스트의 문구만 갱신한다. 실제 완료/실패는 요청 resolve 시점에만
+  //   성공·오류 토스트로 표시(조기 성공 금지). 반환한 stop() 을 finally 에서 호출해 타이머를
+  //   정리하고 로딩 토스트를 반드시 제거한다(성공/실패/예외 무관 — 로딩 UI 잔존 방지).
   const startStagedProgress = (stages: { label: string; afterMs: number }[]): (() => void) => {
+    const id = toastLoading(stages[0]?.label ?? "처리하고 있습니다. 완료될 때까지 잠시 기다려주세요.");
     const timers: ReturnType<typeof setTimeout>[] = [];
     for (const s of stages) {
-      if (s.afterMs <= 0) setProgress(s.label);
-      else timers.push(setTimeout(() => setProgress(s.label), s.afterMs));
+      if (s.afterMs > 0) timers.push(setTimeout(() => toastUpdate(id, s.label), s.afterMs));
     }
     return () => {
       for (const t of timers) clearTimeout(t);
-      setProgress(null);
+      toastDismiss(id);
     };
   };
 
@@ -1189,12 +1193,14 @@ export default function TeamPartsInfoWeekDetailManager({
   //   operating 실유저 경로에서는 무시된다(플래그를 보내도 거부). mode=test(QA)에서만 실효.
   const onReview = async (force = false) => {
     if (!club || readOnly) return;
+    if (reviewInFlight.current || reverting) return; // 중복/상충 요청 차단(동기 가드)
+    reviewInFlight.current = true;
     setReviewing(true);
     setBanner(null);
-    // 단계 안내: 성적 확정 → 고객 카드 재계산(snapshot 다건이 벽시계를 지배).
+    // 진행 상태: 권장 문구(클릭 직후) → 크루 카드 재계산 안내(snapshot 다건이 벽시계를 지배).
     const stopProgress = startStagedProgress([
-      { label: "성적 확정하는 중…", afterMs: 0 },
-      { label: "크루 카드 다시 계산 중…", afterMs: 1200 },
+      { label: "주차 검수를 진행하고 있습니다. 완료될 때까지 잠시 기다려주세요.", afterMs: 0 },
+      { label: "거의 다 됐습니다. 크루 카드를 다시 계산하고 있습니다…", afterMs: 1500 },
     ]);
     try {
       const res = await fetch(
@@ -1220,9 +1226,10 @@ export default function TeamPartsInfoWeekDetailManager({
     } catch (e) {
       setBanner({ kind: "error", message: e instanceof Error ? e.message : "주차 검수 실패" });
     } finally {
-      // 성공/실패/예외 무관하게 progress·loading state 를 반드시 해제한다.
+      // 성공/실패/예외 무관하게 로딩 토스트·loading state·in-flight 가드를 반드시 해제한다.
       stopProgress();
       setReviewing(false);
+      reviewInFlight.current = false;
     }
   };
 
@@ -1255,12 +1262,14 @@ export default function TeamPartsInfoWeekDetailManager({
   //   확인 모달은 공용 ActionControl 이 담당(강한 확인 문구).
   const onReviewRevert = async () => {
     if (!club || readOnly) return;
+    if (revertInFlight.current || reviewing) return; // 중복/상충 요청 차단(동기 가드)
+    revertInFlight.current = true;
     setReverting(true);
     setBanner(null);
-    // 단계 안내: 성적 되돌리기(uws/공표·검수 rollback) → 고객 카드 재계산(snapshot 다건).
+    // 진행 상태: 권장 문구(클릭 직후) → 크루 카드 재계산 안내(snapshot 다건).
     const stopProgress = startStagedProgress([
-      { label: "성적 되돌리는 중…", afterMs: 0 },
-      { label: "크루 카드 다시 계산 중…", afterMs: 1200 },
+      { label: "검수 결과를 되돌리고 있습니다. 완료될 때까지 잠시 기다려주세요.", afterMs: 0 },
+      { label: "거의 다 됐습니다. 크루 카드를 다시 계산하고 있습니다…", afterMs: 1500 },
     ]);
     try {
       const res = await fetch(
@@ -1270,18 +1279,22 @@ export default function TeamPartsInfoWeekDetailManager({
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json?.error ?? `실행 취소 실패 (${res.status})`);
       setReviewed(false);
+      // 내부 복원 상태(‘검수 전·집계 중’ 상태로 복원 등)는 콘솔 로그로만 — 관리자 UI 엔 결과만.
+      const reverted = Boolean(json.data?.reverted);
+      console.info("[team-parts][주차 검수 실행 취소] 완료", { weekId, club, reverted });
       setBanner({
         kind: "success",
-        message: json.data?.reverted
-          ? "주차 검수를 실행 취소했습니다(‘검수 전·집계 중’ 상태로 복원). (완료)"
-          : "이미 미확정(집계 중) 상태입니다. (완료)",
+        message: reverted
+          ? "주차 검수 실행 취소가 완료되었습니다."
+          : "이미 실행 취소된 상태입니다.",
       });
     } catch (e) {
       setBanner({ kind: "error", message: e instanceof Error ? e.message : "실행 취소 실패" });
     } finally {
-      // 성공/실패/예외 무관하게 progress·loading state 를 반드시 해제한다.
+      // 성공/실패/예외 무관하게 로딩 토스트·loading state·in-flight 가드를 반드시 해제한다.
       stopProgress();
       setReverting(false);
+      revertInFlight.current = false;
     }
   };
 
@@ -1333,22 +1346,8 @@ export default function TeamPartsInfoWeekDetailManager({
         </div>
       </CardHeader>
       <CardContent className="admin-section-stack-lg">
-        {progress ? (
-          <div
-            className="flex items-center gap-2 rounded-md bg-sky-50 px-3 py-2 text-sm text-sky-700"
-            role="status"
-            aria-live="polite"
-          >
-            <span
-              className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-sky-300 border-t-sky-600"
-              aria-hidden
-            />
-            <span>{progress}</span>
-          </div>
-        ) : null}
-        {/* 완료/실패 안내는 하단 고정 토스트로 표시(문서 흐름 인라인 배너 제거).
-            위 progress 는 "진행 중" 인디케이터라 인라인 유지. */}
-
+        {/* 진행 중(검수/실행 취소)·완료·실패 안내는 모두 화면 하단 고정 토스트로 표시한다
+            (문서 흐름 인라인 배너 없음 — 스크롤 위치와 무관하게 같은 영역에서 상태 전환). */}
         {error ? (
           <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
         ) : loading ? (
@@ -1379,7 +1378,7 @@ export default function TeamPartsInfoWeekDetailManager({
                     type="button"
                     data-review-button
                     onClick={openReadiness}
-                    disabled={readOnly || reviewing || reviewed}
+                    disabled={readOnly || reviewing || reverting || reviewed}
                     className="cursor-pointer bg-slate-800 text-white hover:bg-slate-700"
                   >
                     {reviewed ? "검수 완료" : reviewing ? "검수 중…" : "주차 검수"}
@@ -1465,7 +1464,8 @@ export default function TeamPartsInfoWeekDetailManager({
                             type="button"
                             data-force-review-confirm
                             onClick={() => onReview(true)}
-                            disabled={reviewing}
+                            loading={reviewing}
+                            disabled={reviewing || reverting}
                             className="cursor-pointer border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100"
                             title="테스트 데이터가 불완전해도 안전장치를 건너뛰고 검수 완료합니다(테스트 모드 전용)."
                           >
@@ -1476,7 +1476,8 @@ export default function TeamPartsInfoWeekDetailManager({
                           type="button"
                           data-review-confirm
                           onClick={() => onReview(false)}
-                          disabled={reviewing || readinessLoading || !readiness?.applicable || !readiness?.ready}
+                          loading={reviewing}
+                          disabled={reviewing || reverting || readinessLoading || !readiness?.applicable || !readiness?.ready}
                           className="cursor-pointer bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50"
                           title={
                             readiness && readiness.applicable && !readiness.ready

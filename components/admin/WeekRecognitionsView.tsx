@@ -315,8 +315,10 @@ export default function WeekRecognitionsView() {
               message: `${updatedName ?? "사용자"} 주차 상태는 저장됐지만 요약 캐시(승인/누적 주차) 동기화에 실패했습니다. 값이 어긋날 수 있습니다.`,
             }
           : {
+              // 내부 처리(요약 캐시 동기화)는 UI 에 노출하지 않고 결과만 간결히. 실패 시(위 error 분기)에만
+              //   값 불일치 가능성을 안내한다.
               kind: "success",
-              message: `${updatedName ?? "사용자"} 주차 상태를 저장하고 요약 캐시를 동기화했습니다.`,
+              message: `${updatedName ?? "사용자"} 주차 상태를 저장했습니다.`,
             },
       );
       // 현재 필터 조건 그대로 목록 재조회.

@@ -22,7 +22,7 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/admin/sidebarContext";
 
@@ -34,6 +34,14 @@ export type ToastItem = {
   message: string;
   /** 자동 닫힘까지의 시간(ms). 0/음수면 자동 닫힘 없음(수동 닫기). */
   duration: number;
+  /**
+   * 로딩 토스트 여부 — 장시간 작업(검수/실행 취소 등)의 "진행 중" 상태를 성공·실패 토스트와
+   * 같은 영역(화면 하단 고정)에 지속적으로 표시하기 위한 플래그. loading=true 면:
+   *   · 스피너를 표시하고 자동 닫힘 없이(duration=0) 요청이 끝날 때까지 유지된다.
+   *   · 닫기(X) 버튼을 두지 않는다 — 사용자가 실수로 닫아 진행 상태가 사라지지 않도록.
+   *     (실제 요청 상태는 호출부의 finally 에서 dismissToast(id) 로만 정리한다.)
+   */
+  loading?: boolean;
 };
 
 // 화면에 동시에 쌓이는 토스트 최대 개수(초과 시 오래된 것부터 제거).
@@ -115,6 +123,29 @@ export function dismissAllToasts() {
 }
 
 /**
+ * 로딩(진행 중) 토스트 발행. 반환값(id)을 요청 완료 시 dismissToast(id) 로 정리한다.
+ *
+ * 자동 닫힘 없음(duration=0)·스피너·닫기 버튼 없음 → 요청이 resolve 될 때까지 화면 하단에
+ * 그대로 유지된다. 재렌더/데이터 갱신/router.refresh 와 무관(모듈 레벨 store).
+ * 중복 합치기(merge)를 적용하지 않아 성공/실패 토스트와 섞이지 않는다.
+ */
+export function pushLoadingToast(message: string): string {
+  const next: ToastItem = { id: `t${++counter}`, kind: "info", message, duration: 0, loading: true };
+  items = [...items, next];
+  if (items.length > MAX_TOASTS) items = items.slice(items.length - MAX_TOASTS);
+  emit();
+  return next.id;
+}
+
+/** 이미 떠 있는 토스트의 문구를 갱신(로딩 단계 안내 전환용). 없거나 동일 문구면 no-op. */
+export function updateToastMessage(id: string, message: string) {
+  const idx = items.findIndex((t) => t.id === id);
+  if (idx === -1 || items[idx].message === message) return;
+  items = items.map((t) => (t.id === id ? { ...t, message } : t));
+  emit();
+}
+
+/**
  * 컴포넌트에서 토스트를 띄우는 훅.
  *   const { toast } = useToast();
  *   toast("success", "저장되었습니다");
@@ -125,8 +156,12 @@ export function useToast() {
       pushToast(kind, message, duration),
     [],
   );
+  // 진행 중(로딩) 토스트를 띄운다. 반환한 id 를 요청 finally 에서 dismiss(id) 로 정리한다.
+  const loading = useCallback((message: string) => pushLoadingToast(message), []);
+  // 진행 중 토스트의 문구를 갱신(단계 안내 전환).
+  const update = useCallback((id: string, message: string) => updateToastMessage(id, message), []);
   const dismiss = useCallback((id: string) => dismissToast(id), []);
-  return { toast, dismiss, dismissAll: dismissAllToasts };
+  return { toast, loading, update, dismiss, dismissAll: dismissAllToasts };
 }
 
 // ── 개별 토스트 ────────────────────────────────────────────────────────────
@@ -136,24 +171,27 @@ const KIND_STYLES: Record<ToastKind, string> = {
   warning: "border-amber-200 bg-amber-50 text-amber-800",
   info: "border-blue-200 bg-blue-50 text-blue-800",
 };
+// 로딩(진행 중) 토스트 색 — 성공/실패와 구분되는 중립 톤(슬레이트).
+const LOADING_STYLE = "border-slate-200 bg-slate-50 text-slate-700";
 
 function Toast({ item, onClose }: { item: ToastItem; onClose: () => void }) {
   const [paused, setPaused] = useState(false);
 
-  // 자동 닫힘 — hover/focus 중에는 일시정지(paused). duration<=0 이면 자동 닫힘 없음.
+  // 자동 닫힘 — hover/focus 중에는 일시정지(paused). duration<=0(로딩 포함)이면 자동 닫힘 없음.
   useEffect(() => {
     if (paused || item.duration <= 0) return;
     const timer = window.setTimeout(onClose, item.duration);
     return () => window.clearTimeout(timer);
   }, [paused, item.duration, onClose]);
 
-  // 오류는 assertive(즉시 읽기), 나머지는 polite.
+  // 오류는 assertive(즉시 읽기), 나머지(로딩 포함)는 polite.
   const assertive = item.kind === "error";
 
   return (
     <div
       role={assertive ? "alert" : "status"}
       aria-live={assertive ? "assertive" : "polite"}
+      aria-busy={item.loading || undefined}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       onFocusCapture={() => setPaused(true)}
@@ -164,22 +202,31 @@ function Toast({ item, onClose }: { item: ToastItem; onClose: () => void }) {
         // line-height 32px 내장 — leading 별도 지정 금지) 로 한 줄/여러 줄 모두 답답하지 않게.
         // 폭은 컨테이너(max 520)가 잡는다(w-full 로 채움).
         "pointer-events-auto flex w-full min-h-[52px] items-start justify-between gap-3 rounded-lg border px-4 py-3.5 text-base shadow-lg",
-        KIND_STYLES[item.kind],
+        item.loading ? LOADING_STYLE : KIND_STYLES[item.kind],
       )}
     >
-      {/* min-w-0 + break: 긴 문구/공백없는 특수문자 문자열도 말줄임 없이 자연 줄바꿈. */}
-      <span className="min-w-0 whitespace-pre-line break-words [overflow-wrap:anywhere]">
-        {item.message}
+      <span className="flex min-w-0 items-start gap-2.5">
+        {/* 로딩 토스트 — 스피너로 "진행 중"을 명확히 표시. shrink-0 로 여러 줄에서도 유지. */}
+        {item.loading ? (
+          <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-slate-500" aria-hidden />
+        ) : null}
+        {/* min-w-0 + break: 긴 문구/공백없는 특수문자 문자열도 말줄임 없이 자연 줄바꿈. */}
+        <span className="min-w-0 whitespace-pre-line break-words [overflow-wrap:anywhere]">
+          {item.message}
+        </span>
       </span>
-      {/* 클릭영역 36×36(h-9 w-9), 아이콘 h-5 w-5. 여러 줄이어도 shrink-0 로 안 줄어듦. */}
-      <button
-        type="button"
-        aria-label="알림 닫기"
-        onClick={onClose}
-        className="-mr-1.5 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md opacity-60 transition hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
-      >
-        <X className="h-5 w-5" />
-      </button>
+      {/* 로딩 토스트는 닫기 버튼을 두지 않는다(진행 상태를 실수로 닫지 못하게 — 요청 완료 시
+          호출부 finally 에서만 제거). 일반 토스트만 닫기(36×36) 노출. */}
+      {item.loading ? null : (
+        <button
+          type="button"
+          aria-label="알림 닫기"
+          onClick={onClose}
+          className="-mr-1.5 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md opacity-60 transition hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      )}
     </div>
   );
 }

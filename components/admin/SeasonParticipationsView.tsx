@@ -243,9 +243,10 @@ export default function SeasonParticipationsView() {
 
   const handleSaved = useCallback((updatedName: string | null) => {
     setEditing(null);
+    // 내부 스키마명(user_week_statuses)은 관리자 UI 에 노출하지 않는다 — 결과 + 유의사항만 간결히.
     setBanner({
       kind: "success",
-      message: `${updatedName ?? "사용자"} 시즌 상태만 수정되었고, 주차 상태(user_week_statuses)는 자동 변경되지 않았습니다.`,
+      message: `${updatedName ?? "사용자"} 시즌 상태를 수정했습니다. 주차 상태는 자동으로 변경되지 않습니다.`,
     });
     // 현재 필터 조건 그대로 목록 재조회.
     setRefreshTick((n) => n + 1);
