@@ -325,11 +325,18 @@ function InfoSortableHeader({
   );
 }
 
-export default function LineRegistrationInfoManager({ org }: { org: OrganizationSlug }) {
-  // '-'도 현재 URL org로 이미 스코프된 응답 전체를 뜻한다.
-  const clubFilterOptions = CLUB_FILTER_OPTIONS.filter(
-    (option) => option.value === "-" || option.value === org,
-  );
+export default function LineRegistrationInfoManager({
+  org,
+}: {
+  // org optional — 없으면(null/undefined) 통합(전체 조직) 컨텍스트, 있으면 해당 조직 스코프.
+  org?: OrganizationSlug | null;
+}) {
+  // 클럽 필터 옵션:
+  //   · 조직 스코프(org 있음) → "-"(스코프 전체) + 해당 org 만(타 조직 옵션 숨김).
+  //   · 통합(org 없음)        → 전체 옵션(-, 엥크레/오랑캐/팔랑크스, 공통).
+  const clubFilterOptions = org
+    ? CLUB_FILTER_OPTIONS.filter((option) => option.value === "-" || option.value === org)
+    : CLUB_FILTER_OPTIONS;
 
   const [rows, setRows] = useState<LineRegistrationDto[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -417,11 +424,14 @@ export default function LineRegistrationInfoManager({ org }: { org: Organization
       setLoading(true);
       setError(null);
       try {
-        // 실무 경력(career) 제외 → 3허브를 각각 조회(허브당 200 cap 내). org 스코프 미적용(모든 클럽).
+        // 실무 경력(career) 제외 → 3허브를 각각 조회(허브당 200 cap 내).
+        //   org 있음 → &organization= 로 조직 스코프 · org 없음 → 파라미터 생략 = 통합(전체 조직).
+        //   (서버가 organization 미지정을 통합으로 해석하고 권한/스코프를 적용한다 — 클라 합산 아님.)
+        const orgQuery = org ? `&organization=${org}` : "";
         const results = await Promise.all(
           INFO_HUBS.map(async (h) => {
             const res = await fetch(
-              `/api/admin/lines/registrations?hub=${h}&limit=200&organization=${org}`,
+              `/api/admin/lines/registrations?hub=${h}&limit=200${orgQuery}`,
               { cache: "no-store" },
             );
             const json = await res.json();
@@ -541,6 +551,10 @@ export default function LineRegistrationInfoManager({ org }: { org: Organization
 
   const statsReady = rows !== null;
 
+  // 주의: 아래 `true ? … : null` 은 의도적 React Compiler 억제다. 이 컴포넌트의 일부 수동
+  //   memoization(openHubMenu 등)이 preserve-manual-memoization 규칙과 불일치해, 평범한
+  //   `return (…)` 로 바꾸면 빌드가 깨진다. 상수 조건 삼항이 컴파일러 최적화를 건너뛰게 해 통과시킨다.
+  //   (근본 해결 = memoization 정리 → 별도 작업. 여기서 임의로 "정리"하지 말 것.)
   return true ? (
     <div className="flex w-full flex-col gap-4">
       {/* ── 상단 통계 ── */}

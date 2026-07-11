@@ -17,8 +17,18 @@ import LineRegistrationInfoManager from "@/components/admin/LineRegistrationInfo
 export default function LineManagement() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  // 탭 기본값은 "경로 기반" — /admin/lines/register 로 들어오면 등록 탭, /admin/lines/info 면 정보 탭.
+  //   (기존엔 경로와 무관하게 항상 info 가 기본이라, 조직 미지정 통합 진입 시 /register 가 빈 화면이었다.)
+  //   ?tab 이 명시되면 그 값이 우선한다(정보 ↔ 등록 상호 이동 유지·URL 불변).
+  const explicitTab = searchParams?.get("tab");
   const tab: "info" | "register" =
-    searchParams?.get("tab") === "register" ? "register" : "info";
+    explicitTab === "register"
+      ? "register"
+      : explicitTab === "info"
+        ? "info"
+        : pathname.endsWith("/register")
+          ? "register"
+          : "info";
   // 사이드바 메뉴명과 페이지 제목 정합: 통합 모드 = "라인 관리", 조직 모드(?org) = "허브와 라인".
   const org = readOrgParam(searchParams);
 
@@ -30,10 +40,10 @@ export default function LineManagement() {
       />
       {tab === "register" ? (
         <LineRegistrationManager />
-      ) : org ? (
-        <LineRegistrationInfoManager org={org} />
       ) : (
-        null
+        // 라인 정보 탭 — org optional: org 없으면 통합(전체 조직) 화면, org 있으면 해당 조직 화면.
+        //   데이터 스코프/권한은 API(resolveAdminOrgAccess)가 담당한다. (안내 박스 폐지)
+        <LineRegistrationInfoManager org={org} />
       )}
     </div>
   );

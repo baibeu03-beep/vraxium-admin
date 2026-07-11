@@ -61,9 +61,10 @@ export function buildCrewOnboardingTabs(
   ];
 }
 
-// 라인 관리(/admin/lines/*) 공통 2탭: 라인 정보(기본) / 라인 등록(?tab=register).
-//   - 기본(쿼리 없음) = 라인 정보 → /admin/lines/register 로 들어와도 라인 정보가 먼저 보인다.
-//   - 기존 두 라우트(/admin/lines/register · /admin/lines/info)는 그대로 동작(둘 다 기본=정보).
+// 라인 관리(/admin/lines/*) 공통 2탭: 라인 정보 / 라인 등록.
+//   - 탭 기본값은 "경로 기반"(LineManagement): /admin/lines/register→등록, /admin/lines/info→정보.
+//   - 따라서 두 탭 모두 ?tab 을 "명시적으로" 설정한다(정보=tab=info · 등록=tab=register). 정보 탭을
+//     ?tab 삭제(default)로 두면 /register 경로에서 다시 등록 탭으로 판정돼 클릭이 먹지 않는다.
 //   - 현재 경로(pathname)를 유지한 채 ?tab 만 토글 → org 등 다른 쿼리도 보존된다.
 export function buildLineManageTabs(
   pathname: string,
@@ -73,7 +74,9 @@ export function buildLineManageTabs(
   return [
     {
       label: "라인 정보",
-      href: tabHref(pathname, searchParams, "tab", "register", true),
+      // org·mode 등 현재 쿼리를 그대로 보존하고 ?tab=info 만 토글한다(통합↔조직 상태 불변).
+      //   org 없음 = 통합 컨텍스트 유지(기본 org 를 새로 붙이지 않는다) · org 있음 = 그 org 보존.
+      href: tabHref(pathname, searchParams, "tab", "info", false),
       active: current === "info",
     },
     {

@@ -15,7 +15,9 @@
 //   - 하단 "등록된 라인" 목록은 /admin/lines/info 로 이동 (2026-06-07) — 이 화면은 등록 폼만.
 
 import { useCallback, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, Trash2, Upload, X } from "lucide-react";
+import { readOrgParam } from "@/lib/adminOrgContext";
 import {
   Card,
   CardContent,
@@ -236,6 +238,15 @@ function LogoUploadField({
 // ──────────────────────────────────────────────────────────────
 
 export default function LineRegistrationManager() {
+  const searchParams = useSearchParams();
+  // URL org 컨텍스트(분기 등록). 유효 slug 가 있으면 소속 조직을 그 org 로 고정하고 드롭다운을 숨긴다.
+  //   · scopedOrg(유효) → 소속 조직 select 숨김 + payload 는 URL org 로 고정.
+  //   · org 파라미터가 있지만 무효(hasInvalidOrg) → 통합으로 조용히 fallback 하지 않고 안내 + 등록 차단.
+  //   · org 없음 → 기존처럼 소속 조직 select 표시(통합 등록).
+  const scopedOrg = readOrgParam(searchParams); // OrganizationSlug | null
+  const rawOrgParam = (searchParams?.get("org") ?? "").trim();
+  const hasInvalidOrg = rawOrgParam !== "" && scopedOrg === null;
+
   const [banner, setBanner] = useState<Banner>(null);
   const [saving, setSaving] = useState(false);
 
@@ -301,6 +312,14 @@ export default function LineRegistrationManager() {
   }, []);
 
   const handleSubmit = useCallback(async () => {
+    // URL org 파라미터가 무효면 등록하지 않는다(무효값을 payload 에 쓰지 않음·통합 조용한 fallback 금지).
+    if (hasInvalidOrg) {
+      setBanner({
+        kind: "error",
+        message: `유효하지 않은 조직입니다 (?org=${rawOrgParam}). 통합 등록은 조직 지정 없이 접근하세요.`,
+      });
+      return;
+    }
     if (!lineName.trim()) {
       setBanner({ kind: "error", message: "라인명을 입력해주세요" });
       return;
@@ -335,8 +354,9 @@ export default function LineRegistrationManager() {
         main_title: mainTitleMode === "fixed" ? mainTitle.trim() : null,
         // 유닛 링크 — 단일 텍스트. 미입력/공백은 서버가 '-' 로 저장.
         unit_link: unitLink.trim() || null,
-        // 소속 조직 — 미지정이면 null (개설 브리지 불가 상태로 저장).
-        organization_slug: orgSlug || null,
+        // 소속 조직 — URL org(분기)가 있으면 그 값으로 고정, 없으면 select 값(미지정이면 null).
+        //   숨겨진 select 의 stale orgSlug 는 scopedOrg 가 있을 때 사용되지 않는다.
+        organization_slug: scopedOrg ?? (orgSlug || null),
         // 강화 시 포인트 — 미설정("")은 null. 서버가 config_key 도출 후 함께 저장(설정값만).
         point_a: pointA === "" ? null : Number(pointA),
         point_b: pointB === "" ? null : Number(pointB),
@@ -387,6 +407,7 @@ export default function LineRegistrationManager() {
       setSaving(false);
     }
   }, [
+    hasInvalidOrg, rawOrgParam, scopedOrg,
     lineName, hub, lineType, lineCode, orgSlug, mainTitleMode, mainTitle, unitLink,
     pointA, pointB, infoActivityTypeId,
     partnerCompany, companyLogo, managerName, managerPosition, managerJob,
@@ -465,22 +486,34 @@ export default function LineRegistrationManager() {
                   )}
                 </select>
               </FormRow>
-              <FormRow label="소속 조직" helpKey="admin.lines.register.organization">
-                {/* Phase 2C: 미지정('-')도 등록 가능하나 개설 브리지는 조직 지정 행만 가능. */}
-                <select
-                  aria-label="소속 조직"
-                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={orgSlug}
-                  onChange={(e) => setOrgSlug(e.target.value)}
-                >
-                  <option value="">-</option>
-                  {LINE_REGISTRATION_ORGS.map((o) => (
-                    <option key={o} value={o}>
-                      {LINE_REGISTRATION_ORG_LABEL[o]}
-                    </option>
-                  ))}
-                </select>
-              </FormRow>
+              {/* 소속 조직 — 분기(URL org) 진입 시 드롭다운을 숨기고 URL org 로 고정한다.
+                  · scopedOrg → 렌더 안 함(payload 는 handleSubmit 이 URL org 로 고정).
+                  · hasInvalidOrg → 통합으로 조용히 fallback 하지 않고 안내(등록은 handleSubmit 이 차단).
+                  · org 없음 → 기존 통합 드롭다운. */}
+              {scopedOrg ? null : (
+                <FormRow label="소속 조직" helpKey="admin.lines.register.organization">
+                  {hasInvalidOrg ? (
+                    <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                      유효하지 않은 조직입니다 (?org={rawOrgParam}). 통합 등록은 조직 지정 없이 접근하세요.
+                    </p>
+                  ) : (
+                    // Phase 2C: 미지정('-')도 등록 가능하나 개설 브리지는 조직 지정 행만 가능.
+                    <select
+                      aria-label="소속 조직"
+                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={orgSlug}
+                      onChange={(e) => setOrgSlug(e.target.value)}
+                    >
+                      <option value="">-</option>
+                      {LINE_REGISTRATION_ORGS.map((o) => (
+                        <option key={o} value={o}>
+                          {LINE_REGISTRATION_ORG_LABEL[o]}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </FormRow>
+              )}
             </div>
 
             {/* 3행: 라인 코드 | 유닛 링크 (1:1) */}
