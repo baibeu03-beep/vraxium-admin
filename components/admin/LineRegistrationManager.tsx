@@ -52,6 +52,22 @@ function lineTypeOptions(hub: HubSelection): readonly string[] {
   return LINE_REGISTRATION_LINE_TYPES[hub];
 }
 
+// 강화 시 포인트(Point.A/B) — 0~20 정수 + 미설정(""). Point.C 는 라인에 두지 않는다.
+const POINT_SELECT_OPTIONS: string[] = ["", ...Array.from({ length: 21 }, (_, i) => String(i))];
+
+// 실무 정보 포인트 대상 활동유형 — config_key = activity_types.id(표시명/순서로 조인하지 않음).
+const INFO_ACTIVITY_TYPES: ReadonlyArray<{ id: string; label: string }> = [
+  { id: "wisdom", label: "위즈덤" },
+  { id: "essay", label: "에세이" },
+  { id: "infodesk", label: "인포데스크" },
+  { id: "calendar", label: "캘린더" },
+  { id: "forum", label: "포럼" },
+  { id: "session", label: "세션" },
+  { id: "practical_lecture", label: "아카데미" },
+  { id: "community", label: "커뮤니티" },
+  { id: "etc_a", label: "기타A" },
+];
+
 // ──────────────────────────────────────────────────────────────
 // 필드 라벨 — 라벨 텍스트 + 요소별 편집형 돋보기 도움말(AdminHelpIconButton).
 //   · 도움말 아이콘은 "라벨 영역에만" 배치 → 아래 입력/Select 폭에 영향 없음.
@@ -239,6 +255,12 @@ export default function LineRegistrationManager() {
   // ── 유닛 링크 (단일 텍스트 — 형식 강제 없음, 미입력 시 '-') ──
   const [unitLink, setUnitLink] = useState("");
 
+  // ── 강화 시 포인트 (라인과 함께 저장 → cluster4_line_point_configs) ──
+  const [pointA, setPointA] = useState(""); // "" = 미설정
+  const [pointB, setPointB] = useState("");
+  // 실무 정보 포인트 대상 활동유형(config_key). info 일 때만 사용.
+  const [infoActivityTypeId, setInfoActivityTypeId] = useState("");
+
   // ── 실무 경력 전용 ──
   const [partnerCompany, setPartnerCompany] = useState("");
   const [companyLogo, setCompanyLogo] = useState("");
@@ -266,6 +288,9 @@ export default function LineRegistrationManager() {
     setMainTitleMode("fixed");
     setMainTitle("");
     setUnitLink("");
+    setPointA("");
+    setPointB("");
+    setInfoActivityTypeId("");
     setPartnerCompany("");
     setCompanyLogo("");
     setManagerName("");
@@ -312,7 +337,12 @@ export default function LineRegistrationManager() {
         unit_link: unitLink.trim() || null,
         // 소속 조직 — 미지정이면 null (개설 브리지 불가 상태로 저장).
         organization_slug: orgSlug || null,
+        // 강화 시 포인트 — 미설정("")은 null. 서버가 config_key 도출 후 함께 저장(설정값만).
+        point_a: pointA === "" ? null : Number(pointA),
+        point_b: pointB === "" ? null : Number(pointB),
       };
+      // 실무 정보 포인트는 활동유형(activity_types.id) 기준 — 서버가 config_key 로 사용.
+      if (hub === "info") payload.point_activity_type_id = infoActivityTypeId || null;
       if (hub === "career") {
         payload.partner_company = partnerCompany.trim() || null;
         payload.company_logo_url = companyLogo.trim() || null;
@@ -333,11 +363,20 @@ export default function LineRegistrationManager() {
         throw new Error(message);
       }
       const saved = json.data as LineRegistrationDto;
+      const pc = json.pointConfig as { saved: boolean; reason?: string } | undefined;
+      // 포인트 입력 여부는 리셋 전에 판단(handleReset 이 상태를 비움).
+      const enteredPoints = pointA !== "" || pointB !== "";
+      let pointSuffix = "";
+      if (enteredPoints) {
+        pointSuffix = pc?.saved
+          ? " · 강화 포인트 저장됨"
+          : ` · ⚠ 강화 포인트 미저장${pc?.reason ? ` (${pc.reason})` : ""}`;
+      }
       // handleReset 이 banner 를 지우므로 리셋 후에 성공 안내를 띄운다.
       handleReset();
       setBanner({
-        kind: "success",
-        message: `라인이 등록되었습니다 (${saved.hubLabel} · ${saved.lineName} · ${saved.lineCode}) — 목록은 라인 정보 페이지에서 확인하세요.`,
+        kind: enteredPoints && !pc?.saved ? "error" : "success",
+        message: `라인이 등록되었습니다 (${saved.hubLabel} · ${saved.lineName} · ${saved.lineCode})${pointSuffix} — 목록은 라인 정보 페이지에서 확인하세요.`,
       });
     } catch (err) {
       setBanner({
@@ -349,6 +388,7 @@ export default function LineRegistrationManager() {
     }
   }, [
     lineName, hub, lineType, lineCode, orgSlug, mainTitleMode, mainTitle, unitLink,
+    pointA, pointB, infoActivityTypeId,
     partnerCompany, companyLogo, managerName, managerPosition, managerJob,
     managerProfileKey, handleReset,
   ]);
@@ -507,6 +547,68 @@ export default function LineRegistrationManager() {
                 )}
               </div>
             </FormRow>
+          </div>
+
+          {/* ── 강화 시 포인트 (Point.A / Point.B) — 라인과 함께 저장(cluster4_line_point_configs) ── */}
+          <div className="space-y-4" data-point-fields>
+            <div className="inline-flex items-center gap-1">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                강화 시 포인트
+              </h3>
+              <AdminHelpIconButton helpKey="admin.lines.register.pointSection" title="강화 시 포인트" size="xs" />
+            </div>
+            {/* 실무 정보는 활동유형(activity_types.id)을 config_key 로 사용 — 표시명/순서 조인 금지. */}
+            {hub === "info" && (
+              <FormRow label="포인트 대상 활동유형" helpKey="admin.lines.register.pointActivityType">
+                <select
+                  aria-label="포인트 대상 활동유형"
+                  data-point-activity-type
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={infoActivityTypeId}
+                  onChange={(e) => setInfoActivityTypeId(e.target.value)}
+                >
+                  <option value="">-</option>
+                  {INFO_ACTIVITY_TYPES.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.label} ({a.id})
+                    </option>
+                  ))}
+                </select>
+              </FormRow>
+            )}
+            <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
+              <FormRow label="Point.A" helpKey="admin.lines.register.pointA">
+                <select
+                  aria-label="Point.A"
+                  data-point-a
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  value={pointA}
+                  onChange={(e) => setPointA(e.target.value)}
+                  disabled={hub === HUB_UNSELECTED || isCareer}
+                >
+                  {POINT_SELECT_OPTIONS.map((v) => (
+                    <option key={v} value={v}>{v === "" ? "-" : v}</option>
+                  ))}
+                </select>
+              </FormRow>
+              <FormRow label="Point.B" helpKey="admin.lines.register.pointB">
+                <select
+                  aria-label="Point.B"
+                  data-point-b
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                  value={pointB}
+                  onChange={(e) => setPointB(e.target.value)}
+                  disabled={hub === HUB_UNSELECTED || isCareer}
+                >
+                  {POINT_SELECT_OPTIONS.map((v) => (
+                    <option key={v} value={v}>{v === "" ? "-" : v}</option>
+                  ))}
+                </select>
+              </FormRow>
+            </div>
+            {isCareer && (
+              <p className="text-xs text-muted-foreground">실무 경력은 강화 포인트 설정 대상이 아닙니다.</p>
+            )}
           </div>
 
           {/* ── 실무 경력 전용 카드 (3열) ── */}

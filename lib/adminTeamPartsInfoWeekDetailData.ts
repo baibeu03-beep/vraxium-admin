@@ -54,6 +54,13 @@ import {
 } from "@/lib/adminWeekUwsFinalize";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { recalcUserGrowthStatsForUsers } from "@/lib/userGrowthStatsData";
+import {
+  prepareWeekRecognition,
+  recognitionUpsertFields,
+  formatMissingPointConfigMessage,
+  clearWeekRecognition,
+  loadWeekRecognitionCount,
+} from "@/lib/weekRecognitionResolve";
 
 // 검수 완료/실행 취소의 사후 재계산(고객 snapshot·성장 캐시) 동시성 상한.
 //   snapshot 1건 ≈ 5s(실측 2026-07-09) 라 코호트가 크면 concurrency 가 벽시계를 좌우한다.
@@ -114,6 +121,9 @@ export type TeamPartsInfoWeekDetailData = {
     openConfirmed: boolean;
     // 확장 주차 여부 — [초기화] 시 실무 경험 라인(개설) 확장 기본값 복원용(도출/분석/견문/관리=true·확장=isExpansionWeek).
     isExpansionWeek: boolean;
+    // 주차별 활동 인정 개수 N(오픈확인 시점 확정 저장값). 인정 컬럼 미적용/미계산이면 null →
+    //   프론트가 Phase1 기본값(DEFAULT_WEEK_RECOGNITION_COUNT)으로 폴백.
+    weekRecognitionCount: number | null;
   };
   openingConfig: {
     // (1)(3)(6) 라인급(체크) — process_line_groups 기반. (7) 액트 체크 관리에만 반영.
@@ -304,6 +314,7 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
     infoLineGroups,
     expLineGroups,
     clubLineGroups,
+    weekRecognitionCount,
   ] = await Promise.all([
     loadWeekOpeningConfig(weekId, organization),
     loadReviewed(weekId),
@@ -313,6 +324,7 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
     loadProcessLineGroups("info"),
     loadProcessLineGroups("experience"),
     loadProcessLineGroups("club"),
+    loadWeekRecognitionCount(weekId, organization),
   ]);
 
   // ── (2) 라인 개설(8) — 실무 정보: 기본 unchecked, 저장값(practicalInfo) 우선(기존 동작 불변). ──
@@ -373,6 +385,7 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
       reviewed,
       openConfirmed,
       isExpansionWeek,
+      weekRecognitionCount,
     },
     openingConfig: {
       actCheck: { info: actCheckInfo, experience: actCheckExperience, club: actCheckClub },
@@ -454,7 +467,7 @@ export async function saveWeekOpenConfirm(opts: {
   organization: OrganizationSlug;
   config: unknown;
   actorId?: string | null;
-}): Promise<{ openConfirmed: true }> {
+}): Promise<{ openConfirmed: true; weekRecognitionCount: number | null }> {
   const { weekId, organization, config, actorId } = opts;
 
   // 관리 주차 존재 확인.
@@ -467,24 +480,38 @@ export async function saveWeekOpenConfirm(opts: {
   if (!wk) throw new WeekDetailWriteError(404, "주차를 찾을 수 없습니다.");
 
   const normalized = normalizeConfig(config);
+
+  // [주차별 인정 개수 N] — §4 원자성: 모든 DB write 전에 조회·미설정 검증·계산을 먼저 끝낸다.
+  //   featureAvailable(포인트 config 테이블 && recognition 컬럼 둘 다 적용)일 때만:
+  //     · 오픈 라인 중 미설정(config row 부재/NULL) 항목이 있으면 fail-closed(422) → 아무것도 저장 안 함.
+  //     · A/B/N 을 오픈확인 config 와 동일 upsert 에 병합 → 단일 원자 write("오픈확인 성공+N 실패" 반쪽 방지).
+  //   미적용(마이그 전)이면 A/B/N 필드를 생략 → 기존 오픈확인 흐름 유지(무회귀). snapshot 무접촉.
+  const recognition = await prepareWeekRecognition({ weekId, organization, config: normalized });
+  if (recognition.featureAvailable && recognition.missing.length > 0) {
+    throw new WeekDetailWriteError(422, formatMissingPointConfigMessage(recognition.missing));
+  }
+
+  const upsertRow: Record<string, unknown> = {
+    week_id: weekId,
+    organization_slug: organization,
+    config: normalized as unknown as Record<string, unknown>,
+    open_confirmed: true,
+    open_confirmed_at: new Date().toISOString(),
+    open_confirmed_by: actorId ?? null,
+    ...(recognition.featureAvailable ? recognitionUpsertFields(recognition.result) : {}),
+  };
   const { error } = await supabaseAdmin
     .from("cluster4_week_opening_configs")
-    .upsert(
-      {
-        week_id: weekId,
-        organization_slug: organization,
-        config: normalized as unknown as Record<string, unknown>,
-        open_confirmed: true,
-        open_confirmed_at: new Date().toISOString(),
-        open_confirmed_by: actorId ?? null,
-      },
-      { onConflict: "week_id,organization_slug" },
-    );
+    .upsert(upsertRow, { onConflict: "week_id,organization_slug" });
   if (error) {
     // 테이블 미적용(마이그레이션 필요) 등.
     throw new WeekDetailWriteError(500, `오픈 설정 저장 실패: ${error.message}`);
   }
-  return { openConfirmed: true };
+  // 화면 즉시 갱신용 — featureAvailable 이면 방금 확정된 N, 미적용이면 null(UI 는 기본값 폴백).
+  return {
+    openConfirmed: true,
+    weekRecognitionCount: recognition.featureAvailable ? recognition.result.recognitionCountN : null,
+  };
 }
 
 // [오픈 확인 취소] — ↩ 실행 취소 = 직전 단계("오픈 확인 전") 복원.
@@ -521,6 +548,8 @@ export async function revertWeekOpenConfirm(opts: {
   if (error) {
     throw new WeekDetailWriteError(500, `오픈 확인 취소 실패: ${error.message}`);
   }
+  // 인정 개수 N 무효화(오픈확인 row 와 동일 생명주기). 컬럼 미적용이면 조용히 skip.
+  await clearWeekRecognition({ weekId, organization });
   return { openConfirmed: false, reverted: (data ?? []).length > 0 };
 }
 

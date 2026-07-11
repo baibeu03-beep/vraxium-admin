@@ -39,6 +39,13 @@ import type { LineOpeningManagementData } from "@/lib/adminTeamPartsInfoLineOpen
 // 도움말 help key prefix(요청 네임스페이스). org/mode 로 갈라지지 않는 공통 키.
 const HELP = "admin.teamParts.info.weeks.activity";
 
+// [임시·Phase 1] 주차별 활동 인정 개수 N.
+//   최종 계산(오픈 확인 시점의 확정 설정으로 A·B 집계 → N = A + 0.4×(B−A))은 Phase 3 에서 도입한다.
+//   현재는 계산 로직/저장을 연결하지 않고 기존 정책의 임시 기본값(30)만 표시한다. DTO/DB 에
+//   아직 주차별 인정 개수 필드가 없으므로 이 단일 상수를 표시값 SoT 로 둔다(JSX 하드코딩 금지).
+//   Phase 3 에서 DTO 에 인정 개수 필드가 추가되면 `dto.… ?? DEFAULT_WEEK_RECOGNITION_COUNT` 로 폴백한다.
+const DEFAULT_WEEK_RECOGNITION_COUNT = 30;
+
 // ── 표 정렬 공용(클라이언트 — 이 페이지의 표는 전 행을 한 번에 받으므로 전체 정렬이 곧 정답) ──
 type SortDir = "asc" | "desc";
 type SortState<K extends string> = { key: K; dir: SortDir } | null;
@@ -1116,6 +1123,14 @@ export default function TeamPartsInfoWeekDetailManager({
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json?.error ?? `저장 실패 (${res.status})`);
       setOpenConfirmed(true);
+      // [인정 개수 N] 오픈 확인 응답의 확정 N 으로 화면 즉시 갱신(managedWeek.weekRecognitionCount).
+      //   featureAvailable 아니면 null → recognitionCount 는 기본값(30) 폴백 유지.
+      const confirmedN = (json.data?.weekRecognitionCount ?? null) as number | null;
+      setData((prev) =>
+        prev
+          ? { ...prev, managedWeek: { ...prev.managedWeek, openConfirmed: true, weekRecognitionCount: confirmedN } }
+          : prev,
+      );
       setBanner({ kind: "success", message: "오픈 설정이 저장되었습니다." });
       // 액트 체크 관리 탭 "가동" 상태가 오픈 설정 기준으로 갱신되도록 재조회 트리거.
       setActRefresh((n) => n + 1);
@@ -1291,6 +1306,9 @@ export default function TeamPartsInfoWeekDetailManager({
 
   const currentWeek = data?.currentWeek ?? null;
   const managedWeek = data?.managedWeek ?? null;
+  // 인정 개수 표시값 — 오픈확인 시점 확정 계산값(managedWeek.weekRecognitionCount) 우선,
+  //   인정 컬럼 미적용/미계산(null)일 때만 Phase1 기본값으로 폴백.
+  const recognitionCount = managedWeek?.weekRecognitionCount ?? DEFAULT_WEEK_RECOGNITION_COUNT;
 
   return (
     <Card>
@@ -1337,29 +1355,7 @@ export default function TeamPartsInfoWeekDetailManager({
           <LoadingState active />
         ) : data ? (
           <>
-            {/* [1] 현재 주차 배너 */}
-            <section
-              data-current-week
-              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-dashed border-red-300 px-4 py-3 text-sm"
-            >
-              <span className="inline-flex items-center gap-1">
-                <span>
-                  오늘은, <strong className="text-base">{currentWeek?.todayLabel ?? "-"}</strong>
-                </span>
-                <AdminHelpIconButton helpKey={`${HELP}.summary.currentWeek`} title="현재 주차" />
-              </span>
-              <span className="rounded bg-sky-50 px-2 py-0.5 font-semibold text-sky-800">
-                {currentWeek?.seasonWeekName ?? "-"}
-                {currentWeek?.seasonWeekName ? "입니다." : null}
-              </span>
-              <span className="text-muted-foreground">{currentWeek?.weekRangeLabel ?? "-"}</span>
-              <span className="ml-auto inline-flex items-center gap-1">
-                {statusBadge(currentWeek?.activityStatus ?? null)}
-                <AdminHelpIconButton helpKey={`${HELP}.status.activity`} title="클럽 활동 상태" />
-              </span>
-            </section>
-
-            {/* [2] 관리 주차 카드 + [3] 주차 검수 */}
+            {/* [1] 관리 주차 카드 + 주차 검수 (현재 주차 배너보다 위) */}
             <section
               data-managed-week
               className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-sky-50/60 px-4 py-3 text-sm"
@@ -1529,6 +1525,28 @@ export default function TeamPartsInfoWeekDetailManager({
               </div>
             </section>
 
+            {/* [2] 현재 주차 배너 (관리 주차 아래) */}
+            <section
+              data-current-week
+              className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-dashed border-red-300 px-4 py-3 text-sm"
+            >
+              <span className="inline-flex items-center gap-1">
+                <span>
+                  오늘은, <strong className="text-base">{currentWeek?.todayLabel ?? "-"}</strong>
+                </span>
+                <AdminHelpIconButton helpKey={`${HELP}.summary.currentWeek`} title="현재 주차" />
+              </span>
+              <span className="rounded bg-sky-50 px-2 py-0.5 font-semibold text-sky-800">
+                {currentWeek?.seasonWeekName ?? "-"}
+                {currentWeek?.seasonWeekName ? "입니다." : null}
+              </span>
+              <span className="text-muted-foreground">{currentWeek?.weekRangeLabel ?? "-"}</span>
+              <span className="ml-auto inline-flex items-center gap-1">
+                {statusBadge(currentWeek?.activityStatus ?? null)}
+                <AdminHelpIconButton helpKey={`${HELP}.status.activity`} title="클럽 활동 상태" />
+              </span>
+            </section>
+
             {/* [4] 허브/라인 오픈 설정 + [9] 오픈 확인 */}
             <section className="space-y-3 rounded-lg border border-dashed border-red-300 p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
@@ -1585,6 +1603,25 @@ export default function TeamPartsInfoWeekDetailManager({
                   ) : null}
                 </div>
               </div>
+
+              {/* 이번 주 활동 인정 개수 — 헤더 아래 별도의 보조 안내 행(큰 배지/별도 카드 아님).
+                  숫자 N 만 강조. 값은 [임시] 기본값(recognitionCount) — 계산 연결은 Phase 3. */}
+              <p className="inline-flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
+                <span>
+                  이번 주 활동 인정 개수는{" "}
+                  <strong
+                    data-week-recognition-count="true"
+                    className="font-extrabold text-foreground"
+                  >
+                    {recognitionCount}
+                  </strong>
+                  개입니다.
+                </span>
+                <AdminHelpIconButton
+                  helpKey={`${HELP}.section.recognitionCount`}
+                  title="이번 주 활동 인정 개수"
+                />
+              </p>
 
               {/* 허브별로 라인 급(체크)→(7) 액트 체크 / 라인(개설)→(8) 라인 개설 을 독립 열로 분리.
                   카드 배경색은 "허브 기준"으로 통일 — 실무 정보=sky · 실무 경험=amber · 실무 역량=violet · 클럽 총괄=emerald.
