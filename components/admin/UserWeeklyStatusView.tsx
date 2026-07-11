@@ -22,6 +22,7 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import type {
   UserWeeklyStatusDto,
   UserWeeklyStatusRow,
@@ -91,16 +92,21 @@ function SummaryCard({
   value,
   tone = "default",
   loading,
+  helpKey,
 }: {
   label: string;
   value: number | null;
   tone?: "default" | "success" | "fail" | "rest" | "official";
   loading: boolean;
+  helpKey?: string;
 }) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-1 py-4">
-        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          {label}
+          {helpKey && <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />}
+        </span>
         <span
           className={cn(
             "text-2xl font-semibold tabular-nums",
@@ -192,19 +198,26 @@ export default function UserWeeklyStatusView({
 
       {/* 요약 카드 */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-        <SummaryCard label="전체 주차" value={summary?.total_weeks ?? null} loading={loading} />
-        <SummaryCard label="성공 주차" value={summary?.success_weeks ?? null} tone="success" loading={loading} />
-        <SummaryCard label="실패 주차" value={summary?.fail_weeks ?? null} tone="fail" loading={loading} />
-        <SummaryCard label="개인 휴식" value={summary?.personal_rest_weeks ?? null} tone="rest" loading={loading} />
-        <SummaryCard label="공식 휴식" value={summary?.official_rest_weeks ?? null} tone="official" loading={loading} />
-        <SummaryCard label="승인 주차" value={summary?.approved_weeks ?? null} loading={loading} />
-        <SummaryCard label="누적 주차" value={summary?.cumulative_weeks ?? null} loading={loading} />
+        <SummaryCard label="전체 주차" value={summary?.total_weeks ?? null} loading={loading} helpKey="admin.members.weeklyStatus.stat.totalWeeks" />
+        <SummaryCard label="성공 주차" value={summary?.success_weeks ?? null} tone="success" loading={loading} helpKey="admin.members.weeklyStatus.stat.successWeeks" />
+        <SummaryCard label="실패 주차" value={summary?.fail_weeks ?? null} tone="fail" loading={loading} helpKey="admin.members.weeklyStatus.stat.failWeeks" />
+        <SummaryCard label="개인 휴식" value={summary?.personal_rest_weeks ?? null} tone="rest" loading={loading} helpKey="admin.members.weeklyStatus.stat.personalRestWeeks" />
+        <SummaryCard label="공식 휴식" value={summary?.official_rest_weeks ?? null} tone="official" loading={loading} helpKey="admin.members.weeklyStatus.stat.officialRestWeeks" />
+        <SummaryCard label="승인 주차" value={summary?.approved_weeks ?? null} loading={loading} helpKey="admin.members.weeklyStatus.stat.approvedWeeks" />
+        <SummaryCard label="누적 주차" value={summary?.cumulative_weeks ?? null} loading={loading} helpKey="admin.members.weeklyStatus.stat.cumulativeWeeks" />
       </div>
 
       {/* 주차별 테이블 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">주차별 상태</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            주차별 상태
+            <AdminHelpIconButton
+              helpKey="admin.members.weeklyStatus.section.weeklyTable"
+              title="주차별 상태"
+              size="sm"
+            />
+          </CardTitle>
           <CardDescription>
             사용자별 주차 인정 상태를 기준으로 시즌·주차 정보와 포인트·평판·동료 값을 조합했습니다.
           </CardDescription>
@@ -214,31 +227,78 @@ export default function UserWeeklyStatusView({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>시즌</TableHead>
-                  <TableHead>주차</TableHead>
-                  <TableHead>주차 기간</TableHead>
-                  <TableHead>상태</TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>시즌</span>
+                      <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.season" title="시즌" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>주차</span>
+                      <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.week" title="주차" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>주차 기간</span>
+                      <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.period" title="주차 기간" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>상태</span>
+                      <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.status" title="상태" size="xs" />
+                    </span>
+                  </TableHead>
                   <TableHead title="별 개수 = 획득한 체크 수">
-                    Check
+                    <span className="inline-flex items-center gap-1">
+                      <span>Check</span>
+                      <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.check" title="Check" size="xs" />
+                    </span>
                   </TableHead>
                   <TableHead
                     title="받은 방패 원본값 — 내부 집계/검증 전용, 크루 화면에는 노출되지 않습니다."
                   >
-                    Advantage (Raw)
+                    <span className="inline-flex items-center gap-1">
+                      <span>Advantage (Raw)</span>
+                      <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.advantageRaw" title="Advantage (Raw)" size="xs" />
+                    </span>
                   </TableHead>
                   <TableHead
                     title="번개 원본값 — 크루 화면에는 감점(−)으로 표시됩니다."
                   >
-                    Penalty
+                    <span className="inline-flex items-center gap-1">
+                      <span>Penalty</span>
+                      <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.penalty" title="Penalty" size="xs" />
+                    </span>
                   </TableHead>
                   <TableHead
                     title="크루 화면 표시 방패 = Advantage(Raw) − Penalty. 크루 화면에 쓰이는 값은 이 값입니다."
                   >
-                    Net Advantage
+                    <span className="inline-flex items-center gap-1">
+                      <span>Net Advantage</span>
+                      <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.netAdvantage" title="Net Advantage" size="xs" />
+                    </span>
                   </TableHead>
-                  <TableHead>평판</TableHead>
-                  <TableHead>동료 수</TableHead>
-                  <TableHead>실패 사유</TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>평판</span>
+                      <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.reputation" title="평판" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>동료 수</span>
+                      <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.colleagueCount" title="동료 수" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>실패 사유</span>
+                      <AdminHelpIconButton helpKey="admin.members.weeklyStatus.column.failureReason" title="실패 사유" size="xs" />
+                    </span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

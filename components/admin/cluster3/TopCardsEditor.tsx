@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { FieldCell, type FieldDef } from "@/components/admin/fieldKit";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -99,25 +100,61 @@ function operatorizeFields(
 }
 
 const TEXT_FIELDS: readonly FieldDef[] = [
-  { key: "main_title", label: "main_title", type: "textarea", full: true },
-  { key: "sub_title", label: "sub_title", type: "textarea", full: true },
+  {
+    key: "main_title",
+    label: "main_title",
+    type: "textarea",
+    full: true,
+    helpKey: "admin.crews.cluster3.topCard.field.mainTitle",
+  },
+  {
+    key: "sub_title",
+    label: "sub_title",
+    type: "textarea",
+    full: true,
+    helpKey: "admin.crews.cluster3.topCard.field.subTitle",
+  },
   {
     key: "role_description",
     label: "role_description",
     type: "textarea",
     full: true,
+    helpKey: "admin.crews.cluster3.topCard.field.roleDescription",
   },
-  { key: "report", label: "report", type: "textarea", full: true },
-  { key: "insight", label: "insight", type: "textarea", full: true },
-  { key: "main_image_caption", label: "main_image_caption", type: "text" },
+  {
+    key: "report",
+    label: "report",
+    type: "textarea",
+    full: true,
+    helpKey: "admin.crews.cluster3.topCard.field.report",
+  },
+  {
+    key: "insight",
+    label: "insight",
+    type: "textarea",
+    full: true,
+    helpKey: "admin.crews.cluster3.topCard.field.insight",
+  },
+  {
+    key: "main_image_caption",
+    label: "main_image_caption",
+    type: "text",
+    helpKey: "admin.crews.cluster3.topCard.field.mainImageCaption",
+  },
 ];
 
 const NUMBER_FIELDS: readonly FieldDef[] = [
-  { key: "contribution", label: "contribution (smallint)", type: "number" },
+  {
+    key: "contribution",
+    label: "contribution (smallint)",
+    type: "number",
+    helpKey: "admin.crews.cluster3.topCard.field.contribution",
+  },
   {
     key: "period_start_year",
     label: "period_start_year (YYYY)",
     type: "number",
+    helpKey: "admin.crews.cluster3.topCard.field.periodStartYear",
   },
   {
     key: "period_start_month",
@@ -125,6 +162,7 @@ const NUMBER_FIELDS: readonly FieldDef[] = [
     type: "number",
     min: 1,
     max: 12,
+    helpKey: "admin.crews.cluster3.topCard.field.periodStartMonth",
   },
   {
     key: "period_start_day",
@@ -132,14 +170,21 @@ const NUMBER_FIELDS: readonly FieldDef[] = [
     type: "number",
     min: 1,
     max: 31,
+    helpKey: "admin.crews.cluster3.topCard.field.periodStartDay",
   },
-  { key: "period_end_year", label: "period_end_year (YYYY)", type: "number" },
+  {
+    key: "period_end_year",
+    label: "period_end_year (YYYY)",
+    type: "number",
+    helpKey: "admin.crews.cluster3.topCard.field.periodEndYear",
+  },
   {
     key: "period_end_month",
     label: "period_end_month",
     type: "number",
     min: 1,
     max: 12,
+    helpKey: "admin.crews.cluster3.topCard.field.periodEndMonth",
   },
   {
     key: "period_end_day",
@@ -147,6 +192,7 @@ const NUMBER_FIELDS: readonly FieldDef[] = [
     type: "number",
     min: 1,
     max: 31,
+    helpKey: "admin.crews.cluster3.topCard.field.periodEndDay",
   },
 ];
 
@@ -211,6 +257,7 @@ function ImagePreview({
 // ─────────────────────────────────────────────────────────────────────
 function MultiSelectChips({
   label,
+  helpKey,
   options,
   selectedKeys,
   onChange,
@@ -219,6 +266,7 @@ function MultiSelectChips({
   devMode = false,
 }: {
   label: string;
+  helpKey?: string;
   options: readonly Cluster3KeyLabel[];
   selectedKeys: string[];
   onChange: (next: string[]) => void;
@@ -238,8 +286,11 @@ function MultiSelectChips({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs">
-        {label}{" "}
+      <Label className="inline-flex items-center gap-1 text-xs">
+        {label}
+        {helpKey && (
+          <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+        )}{" "}
         <span className="font-normal text-muted-foreground">
           {devMode
             ? `(selected ${selectedKeys.length})`
@@ -304,6 +355,7 @@ function MultiSelectChips({
 
 function SlotInputRow({
   label,
+  helpKey,
   values,
   onChange,
   inputType,
@@ -311,6 +363,7 @@ function SlotInputRow({
   disabled,
 }: {
   label: string;
+  helpKey?: string;
   values: string[];
   onChange: (index: number, next: string) => void;
   inputType: "text" | "url";
@@ -319,8 +372,13 @@ function SlotInputRow({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs">
-        {label} (length {values.length})
+      <Label className="inline-flex items-center gap-1 text-xs">
+        <span>
+          {label} (length {values.length})
+        </span>
+        {helpKey && (
+          <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+        )}
       </Label>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {values.map((v, i) => (
@@ -399,12 +457,14 @@ function TopCardSlotEditor({
         label: platformLabel,
         type: "select",
         options: [...PLATFORM_OPTIONS, platformValue],
+        helpKey: "admin.crews.cluster3.topCard.field.platform",
       }
     : {
         key: "platform",
         label: platformLabel,
         type: "select",
         options: PLATFORM_OPTIONS,
+        helpKey: "admin.crews.cluster3.topCard.field.platform",
       };
 
   const setField = (key: keyof TopCardFormCard, value: unknown) => {
@@ -509,10 +569,15 @@ function TopCardSlotEditor({
 
       {/* main_image_url + preview (URL sanitize 대상) */}
       <div className="flex flex-col gap-1.5">
-        <Label className="text-xs">
+        <Label className="inline-flex items-center gap-1 text-xs">
           {devMode
             ? "main_image_url (URL — blob:/data:/file: 정규화)"
             : "대표 이미지 URL"}
+          <AdminHelpIconButton
+            helpKey="admin.crews.cluster3.topCard.field.mainImageUrl"
+            title="대표 이미지 URL"
+            size="xs"
+          />
         </Label>
         <Input
           type="url"
@@ -540,6 +605,7 @@ function TopCardSlotEditor({
       {/* roles / tools — multi-select (DB 저장은 ROLE_OPTIONS / TOOL_OPTIONS 의 key) */}
       <MultiSelectChips
         label={devMode ? "roles (multi-select · ROLE_OPTIONS key)" : "역할"}
+        helpKey="admin.crews.cluster3.topCard.field.roles"
         options={ROLE_OPTIONS}
         selectedKeys={card.roles}
         onChange={(next) => setField("roles", next)}
@@ -549,6 +615,7 @@ function TopCardSlotEditor({
       />
       <MultiSelectChips
         label={devMode ? "tools (multi-select · TOOL_OPTIONS key)" : "사용 도구"}
+        helpKey="admin.crews.cluster3.topCard.field.tools"
         options={TOOL_OPTIONS}
         selectedKeys={card.tools}
         onChange={(next) => setField("tools", next)}
@@ -579,6 +646,7 @@ function TopCardSlotEditor({
             ? `sub_image_urls (text[]) · 최대 ${TOP_CARD_SUB_IMAGE_SLOTS} 슬롯 · blob:/data:/file: 정규화`
             : `추가 이미지 URL · 최대 ${TOP_CARD_SUB_IMAGE_SLOTS} 개`
         }
+        helpKey="admin.crews.cluster3.topCard.field.subImageUrls"
         values={card.sub_image_urls}
         onChange={(i, next) => setArraySlot("sub_image_urls", i, next)}
         inputType="url"
@@ -593,6 +661,7 @@ function TopCardSlotEditor({
             ? `sub_image_captions (text[]) · 최대 ${TOP_CARD_SUB_IMAGE_CAPTION_SLOTS} 슬롯`
             : `추가 이미지 설명 · 최대 ${TOP_CARD_SUB_IMAGE_CAPTION_SLOTS} 개`
         }
+        helpKey="admin.crews.cluster3.topCard.field.subImageCaptions"
         values={card.sub_image_captions}
         onChange={(i, next) => setArraySlot("sub_image_captions", i, next)}
         inputType="text"
@@ -606,6 +675,7 @@ function TopCardSlotEditor({
             ? `metrics (text[]) · 최대 ${TOP_CARD_METRIC_SLOTS} 슬롯`
             : `성과 지표 · 최대 ${TOP_CARD_METRIC_SLOTS} 개`
         }
+        helpKey="admin.crews.cluster3.topCard.field.metrics"
         values={card.metrics}
         onChange={(i, next) => setArraySlot("metrics", i, next)}
         inputType="text"
@@ -619,6 +689,7 @@ function TopCardSlotEditor({
             ? `links (text[]) · 최대 ${TOP_CARD_LINK_SLOTS} 슬롯`
             : `링크 · 최대 ${TOP_CARD_LINK_SLOTS} 개`
         }
+        helpKey="admin.crews.cluster3.topCard.field.links"
         values={card.links}
         onChange={(i, next) => setArraySlot("links", i, next)}
         inputType="url"
@@ -659,6 +730,7 @@ export default function TopCardsEditor({
   disabled,
   editable = true,
   title,
+  titleHelpKey,
   slotCount,
   headerExtras,
   devMode = false,
@@ -670,6 +742,8 @@ export default function TopCardsEditor({
   disabled?: boolean;
   editable?: boolean;
   title?: string;
+  // 선택: 섹션 제목(title) 옆에 요소별 돋보기 도움말을 붙일 helpKey.
+  titleHelpKey?: string;
   slotCount?: number;
   // 섹션 헤더 우측 영역에 끼워 넣을 추가 액션 (예: "작성 기간 관리" 버튼).
   // title 이 있을 때만 렌더된다 (header 가 렌더되는 조건).
@@ -695,7 +769,16 @@ export default function TopCardsEditor({
       {title && (
         <header className="flex flex-wrap items-start justify-between gap-2">
           <div className="flex flex-col gap-0.5">
-            <h2 className="text-base font-semibold">{title}</h2>
+            <h2 className="inline-flex items-center gap-1.5 text-base font-semibold">
+              {title}
+              {titleHelpKey && (
+                <AdminHelpIconButton
+                  helpKey={titleHelpKey}
+                  title={title}
+                  size="sm"
+                />
+              )}
+            </h2>
             {devMode ? (
               <p className="text-xs text-muted-foreground">
                 portfolio_top_cards · card_type=&apos;{cardType}&apos; ·

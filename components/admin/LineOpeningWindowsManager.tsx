@@ -15,6 +15,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { formatClubDate } from "@/lib/clubDate";
@@ -297,6 +298,11 @@ export default function LineOpeningWindowsManager() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <CalendarClock className="h-4 w-4" /> 현재 자동 정책 상태
+            <AdminHelpIconButton
+              helpKey="admin.settings.lineOpeningWindows.section.autoPolicy"
+              title="현재 자동 정책 상태"
+              size="sm"
+            />
           </CardTitle>
           <CardDescription>
             아래 주차는 예외 없이도 항상 개설 가능합니다.
@@ -305,7 +311,14 @@ export default function LineOpeningWindowsManager() {
         <CardContent className="space-y-3">
           {autoWeek ? (
             <div className="rounded-md border border-input bg-muted/30 px-4 py-3">
-              <p className="text-xs text-muted-foreground">현재 자동 개설 대상</p>
+              <div className="inline-flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">현재 자동 개설 대상</span>
+                <AdminHelpIconButton
+                  helpKey="admin.settings.lineOpeningWindows.label.autoTarget"
+                  title="현재 자동 개설 대상"
+                  size="xs"
+                />
+              </div>
               <p className="text-lg font-bold text-foreground">
                 {autoWeek.year}년 {autoWeek.seasonName} {autoWeek.weekNumber}주차
               </p>
@@ -323,7 +336,14 @@ export default function LineOpeningWindowsManager() {
           )}
 
           <div className="rounded-md border border-dashed px-4 py-3 text-sm">
-            <p className="mb-1 font-semibold text-foreground">계산 규칙 (금요일 경계)</p>
+            <div className="mb-1 inline-flex items-center gap-1">
+              <span className="font-semibold text-foreground">계산 규칙 (금요일 경계)</span>
+              <AdminHelpIconButton
+                helpKey="admin.settings.lineOpeningWindows.label.calcRule"
+                title="계산 규칙 (금요일 경계)"
+                size="xs"
+              />
+            </div>
             <ul className="space-y-0.5 text-muted-foreground">
               <li>· 월 · 화 · 수 · 목 → 지난 주차 (N-1)</li>
               <li>· 금 · 토 · 일 → 이번 주차 (N)</li>
@@ -337,6 +357,11 @@ export default function LineOpeningWindowsManager() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Plus className="h-4 w-4" /> 예외 추가
+            <AdminHelpIconButton
+              helpKey="admin.settings.lineOpeningWindows.section.addException"
+              title="예외 추가"
+              size="sm"
+            />
           </CardTitle>
           <CardDescription>
             선택한 주차를 (선택한 조직·라인 종류 범위에서) 추가 개설 가능 상태로 엽니다.
@@ -345,8 +370,16 @@ export default function LineOpeningWindowsManager() {
         <CardContent className="space-y-4">
           {/* 주차 선택 */}
           <div className="space-y-1">
-            <Label htmlFor="low-week" className="text-sm font-semibold">
+            <Label
+              htmlFor="low-week"
+              className="inline-flex items-center gap-1 text-sm font-semibold"
+            >
               주차 선택
+              <AdminHelpIconButton
+                helpKey="admin.settings.lineOpeningWindows.input.week"
+                title="주차 선택"
+                size="xs"
+              />
             </Label>
             <select
               id="low-week"
@@ -369,8 +402,16 @@ export default function LineOpeningWindowsManager() {
           {/* 조직 범위 / 라인 종류 */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="low-org" className="text-sm font-semibold">
+              <Label
+                htmlFor="low-org"
+                className="inline-flex items-center gap-1 text-sm font-semibold"
+              >
                 조직 범위
+                <AdminHelpIconButton
+                  helpKey="admin.settings.lineOpeningWindows.input.org"
+                  title="조직 범위"
+                  size="xs"
+                />
               </Label>
               <select
                 id="low-org"
@@ -386,8 +427,16 @@ export default function LineOpeningWindowsManager() {
               </select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="low-hub" className="text-sm font-semibold">
+              <Label
+                htmlFor="low-hub"
+                className="inline-flex items-center gap-1 text-sm font-semibold"
+              >
                 라인 종류
+                <AdminHelpIconButton
+                  helpKey="admin.settings.lineOpeningWindows.input.hub"
+                  title="라인 종류"
+                  size="xs"
+                />
               </Label>
               <select
                 id="low-hub"
@@ -413,7 +462,19 @@ export default function LineOpeningWindowsManager() {
       {/* ── 화면3: 등록된 예외 목록 ── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">등록된 예외 목록</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            등록된 예외 목록
+            <AdminHelpIconButton
+              helpKey="admin.settings.lineOpeningWindows.section.exceptionList"
+              title="등록된 예외 목록"
+              size="sm"
+            />
+            <AdminHelpIconButton
+              helpKey="admin.settings.lineOpeningWindows.badge.status"
+              title="활성 상태"
+              size="sm"
+            />
+          </CardTitle>
           <CardDescription>
             총 {windows.length}건 · 활성 {windows.filter((w) => w.isActive).length}건
           </CardDescription>

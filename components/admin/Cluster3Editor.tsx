@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { CalendarClock, RefreshCw, Save } from "lucide-react";
 import {
@@ -16,6 +16,7 @@ import {
   type OrganizationSlug,
 } from "@/lib/organizations";
 import { DebugSection, fmt } from "@/components/admin/fieldKit";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   useAdminDevMode,
@@ -325,6 +326,29 @@ function buildPatchBody(form: FormState): {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// 요소별 돋보기 도움말 라벨 — 지표/통계 라벨 옆에 AdminHelpIconButton(형제) 배치.
+//   블록 라벨을 inline-flex 로만 바꿔 아이콘을 형제로 두고, 값 블록은 그대로 아래로 흐른다.
+// ─────────────────────────────────────────────────────────────────────
+function MetricLabelHelp({
+  helpKey,
+  title,
+  className,
+  children,
+}: {
+  helpKey: string;
+  title: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("inline-flex items-center gap-1", className)}>
+      {children}
+      <AdminHelpIconButton helpKey={helpKey} title={title} size="xs" />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Component
 // ─────────────────────────────────────────────────────────────────────
 
@@ -560,10 +584,11 @@ export default function Cluster3Editor({
   );
   const anyDirty = channelDirty || outputDirty || detailDirty;
 
-  const TABS: { key: TabKey; label: string; dirty: boolean }[] = [
-    { key: "channel", label: devMode ? "Channel Cards" : "채널 카드", dirty: channelDirty },
-    { key: "output", label: devMode ? "Top 5" : "대표 카드 (5장)", dirty: outputDirty },
-    { key: "detail", label: devMode ? "Detail 10" : "상세 카드 (10장)", dirty: detailDirty },
+  // 인바디 탭(콘텐츠 모드 전환) — 화면 내부 탭이라 요소별 돋보기 도움말 대상(디버그 탭 제외).
+  const TABS: { key: TabKey; label: string; dirty: boolean; helpKey?: string }[] = [
+    { key: "channel", label: devMode ? "Channel Cards" : "채널 카드", dirty: channelDirty, helpKey: "admin.crews.cluster3.tab.channel" },
+    { key: "output", label: devMode ? "Top 5" : "대표 카드 (5장)", dirty: outputDirty, helpKey: "admin.crews.cluster3.tab.output" },
+    { key: "detail", label: devMode ? "Detail 10" : "상세 카드 (10장)", dirty: detailDirty, helpKey: "admin.crews.cluster3.tab.detail" },
     ...(devMode
       ? [
           {
@@ -690,8 +715,13 @@ export default function Cluster3Editor({
       {growth && (
         <div className="rounded-md border bg-background">
           <div className="border-b px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
               성장 지표 · Growth Indicators
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster3.section.growth"
+                title="성장 지표"
+                size="sm"
+              />
             </div>
           </div>
           {/* 오버라이드 ≠ 자동 계산 경고.
@@ -716,7 +746,13 @@ export default function Cluster3Editor({
           <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4 lg:grid-cols-6">
             {/* Process */}
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">상태(최종)</div>
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.growthStatus"
+                title="상태(최종)"
+              >
+                상태(최종)
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">
                 {growth.process.growthStatusDisplay}
               </div>
@@ -725,7 +761,13 @@ export default function Cluster3Editor({
               </div>
             </div>
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">자동 계산</div>
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.autoStatus"
+                title="자동 계산"
+              >
+                자동 계산
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">
                 {growth.process.autoGrowthStatusDisplay}
               </div>
@@ -734,7 +776,13 @@ export default function Cluster3Editor({
               </div>
             </div>
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">오버라이드</div>
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.override"
+                title="오버라이드"
+              >
+                오버라이드
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">
                 {growth.process.manualOverrideStatus ?? "-"}
               </div>
@@ -750,13 +798,25 @@ export default function Cluster3Editor({
               )}
             </div>
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">성장 시작</div>
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.growthStart"
+                title="성장 시작"
+              >
+                성장 시작
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">
                 {growth.process.activityStartedAtDisplay}
               </div>
             </div>
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">성장 종료</div>
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.growthEnd"
+                title="성장 종료"
+              >
+                성장 종료
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">
                 {growth.process.activityEndedAtDisplay}
               </div>
@@ -764,43 +824,87 @@ export default function Cluster3Editor({
 
             {/* Period — 주차 */}
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">성장(성공) 주차 · a</div>
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.weeksA"
+                title="성장(성공) 주차 · a"
+              >
+                성장(성공) 주차 · a
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">{growth.period.a}</div>
             </div>
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">성장(실패) 주차 · b</div>
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.weeksB"
+                title="성장(실패) 주차 · b"
+              >
+                성장(실패) 주차 · b
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">{growth.period.b}</div>
             </div>
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">휴식(개인) 주차 · c</div>
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.weeksC"
+                title="휴식(개인) 주차 · c"
+              >
+                휴식(개인) 주차 · c
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">{growth.period.c}</div>
             </div>
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">휴식(공식) 주차 · d</div>
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.weeksD"
+                title="휴식(공식) 주차 · d"
+              >
+                휴식(공식) 주차 · d
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">{growth.period.d}</div>
             </div>
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">성장 가능 주차 · e</div>
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.weeksE"
+                title="성장 가능 주차 · e"
+              >
+                성장 가능 주차 · e
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">{growth.period.e}</div>
             </div>
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">물리적 주차 · h</div>
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.weeksH"
+                title="물리적 주차 · h"
+              >
+                물리적 주차 · h
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">{growth.period.h}</div>
             </div>
 
             {/* Period — 시즌 (핵심 지표) */}
             <div className="bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
-              <div className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+              <MetricLabelHelp
+                className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400"
+                helpKey="admin.crews.cluster3.metric.seasonF"
+                title="성장 휴식 시즌 · f"
+              >
                 성장 휴식 시즌 · f
-              </div>
+              </MetricLabelHelp>
               <div className="mt-0.5 text-lg font-bold text-emerald-800 dark:text-emerald-300">
                 {growth.period.f}
               </div>
             </div>
             <div className="bg-emerald-50 px-3 py-2 dark:bg-emerald-950/30">
-              <div className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+              <MetricLabelHelp
+                className="text-[10px] font-medium text-emerald-700 dark:text-emerald-400"
+                helpKey="admin.crews.cluster3.metric.seasonG"
+                title="성장(성공) 시즌 · g"
+              >
                 성장(성공) 시즌 · g
-              </div>
+              </MetricLabelHelp>
               <div className="mt-0.5 text-lg font-bold text-emerald-800 dark:text-emerald-300">
                 {growth.period.g}
               </div>
@@ -808,18 +912,26 @@ export default function Cluster3Editor({
 
             {/* Point */}
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.points"
+                title={growth.point.pointsLabel}
+              >
                 {growth.point.pointsLabel}
-              </div>
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">
                 {growth.point.points}개
               </div>
             </div>
             {/* 방패: 큰 숫자 = netAdvantages(패널티 적용 후), 보조 = rawAdvantages(순) */}
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.advantages"
+                title={growth.point.advantagesLabel}
+              >
                 {growth.point.advantagesLabel}
-              </div>
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">
                 {growth.point.netAdvantages}개
               </div>
@@ -829,9 +941,13 @@ export default function Cluster3Editor({
             </div>
             {/* 번개: 패널티 */}
             <div className="bg-background px-3 py-2">
-              <div className="text-[10px] text-muted-foreground">
+              <MetricLabelHelp
+                className="text-[10px] text-muted-foreground"
+                helpKey="admin.crews.cluster3.metric.penalty"
+                title={growth.point.penaltyLabel}
+              >
                 {growth.point.penaltyLabel}
-              </div>
+              </MetricLabelHelp>
               <div className="mt-0.5 text-sm font-medium">
                 -{growth.point.penalty}개
               </div>
@@ -849,15 +965,24 @@ export default function Cluster3Editor({
       {clubRank && (
         <div className="rounded-md border bg-background">
           <div className="border-b px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
               클럽 강화 품계{clubRank.isFrozen ? " · 고정" : ""}
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster3.section.clubRank"
+                title="클럽 강화 품계"
+                size="sm"
+              />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-px bg-border">
             <div className="bg-amber-50 px-4 py-3 dark:bg-amber-950/30">
-              <div className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+              <MetricLabelHelp
+                className="text-[10px] font-medium text-amber-700 dark:text-amber-400"
+                helpKey="admin.crews.cluster3.metric.rankGrade"
+                title="종합 품계"
+              >
                 종합 품계
-              </div>
+              </MetricLabelHelp>
               <div className="mt-1 text-2xl font-bold text-amber-800 dark:text-amber-300">
                 {clubRank.rankGrade ?? "—"}
               </div>
@@ -866,9 +991,13 @@ export default function Cluster3Editor({
               )}
             </div>
             <div className="bg-amber-50 px-4 py-3 dark:bg-amber-950/30">
-              <div className="text-[10px] font-medium text-amber-700 dark:text-amber-400">
+              <MetricLabelHelp
+                className="text-[10px] font-medium text-amber-700 dark:text-amber-400"
+                helpKey="admin.crews.cluster3.metric.avgPercentile"
+                title="주차 평균 백분위"
+              >
                 주차 평균 백분위
-              </div>
+              </MetricLabelHelp>
               <div className="mt-1 text-2xl font-bold text-amber-800 dark:text-amber-300">
                 {clubRank.avgPercentileDisplay}
               </div>
@@ -883,11 +1012,56 @@ export default function Cluster3Editor({
                 <table className="w-full text-[10px]">
                   <thead>
                     <tr className="text-left text-muted-foreground">
-                      <th className="px-1 py-0.5">주차</th>
-                      <th className="px-1 py-0.5">점수</th>
-                      <th className="px-1 py-0.5">등수</th>
-                      <th className="px-1 py-0.5">참가자</th>
-                      <th className="px-1 py-0.5">백분위</th>
+                      <th className="px-1 py-0.5">
+                        <span className="inline-flex items-center gap-1">
+                          주차
+                          <AdminHelpIconButton
+                            helpKey="admin.crews.cluster3.column.week"
+                            title="주차"
+                            size="xs"
+                          />
+                        </span>
+                      </th>
+                      <th className="px-1 py-0.5">
+                        <span className="inline-flex items-center gap-1">
+                          점수
+                          <AdminHelpIconButton
+                            helpKey="admin.crews.cluster3.column.score"
+                            title="점수"
+                            size="xs"
+                          />
+                        </span>
+                      </th>
+                      <th className="px-1 py-0.5">
+                        <span className="inline-flex items-center gap-1">
+                          등수
+                          <AdminHelpIconButton
+                            helpKey="admin.crews.cluster3.column.rank"
+                            title="등수"
+                            size="xs"
+                          />
+                        </span>
+                      </th>
+                      <th className="px-1 py-0.5">
+                        <span className="inline-flex items-center gap-1">
+                          참가자
+                          <AdminHelpIconButton
+                            helpKey="admin.crews.cluster3.column.participants"
+                            title="참가자"
+                            size="xs"
+                          />
+                        </span>
+                      </th>
+                      <th className="px-1 py-0.5">
+                        <span className="inline-flex items-center gap-1">
+                          백분위
+                          <AdminHelpIconButton
+                            helpKey="admin.crews.cluster3.column.percentile"
+                            title="백분위"
+                            size="xs"
+                          />
+                        </span>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -918,8 +1092,13 @@ export default function Cluster3Editor({
           detail latestUpdatedAt 은 Phase 3 회귀 게이트라 편집 중에도 노출. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-md border bg-background px-3 py-2 text-xs">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             {devMode ? "Channel cards · editable" : "채널 카드"}
+            <AdminHelpIconButton
+              helpKey="admin.crews.cluster3.stat.channelCount"
+              title="채널 카드"
+              size="xs"
+            />
           </div>
           <div className="mt-1 text-sm">
             {channelFilled} / {CHANNEL_CARD_SLOT_COUNT}{" "}
@@ -932,8 +1111,13 @@ export default function Cluster3Editor({
           </div>
         </div>
         <div className="rounded-md border bg-background px-3 py-2 text-xs">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             {devMode ? "Top cards · output · editable" : "포트폴리오 대표 카드"}
+            <AdminHelpIconButton
+              helpKey="admin.crews.cluster3.stat.outputCount"
+              title="포트폴리오 대표 카드"
+              size="xs"
+            />
           </div>
           <div className="mt-1 text-sm">
             {outputFilled} / {OUTPUT_CARD_SLOT_COUNT}{" "}
@@ -954,8 +1138,13 @@ export default function Cluster3Editor({
           )}
         </div>
         <div className="rounded-md border bg-background px-3 py-2 text-xs">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             {devMode ? "Top cards · detail · editable" : "포트폴리오 상세 카드"}
+            <AdminHelpIconButton
+              helpKey="admin.crews.cluster3.stat.detailCount"
+              title="포트폴리오 상세 카드"
+              size="xs"
+            />
           </div>
           <div className="mt-1 text-sm">
             {detailFilled} / {DETAIL_CARD_SLOT_COUNT}{" "}
@@ -1018,28 +1207,32 @@ export default function Cluster3Editor({
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "relative -mb-px rounded-t-md border border-b-0 px-3 py-1.5 text-xs",
-                isActive
-                  ? "border-foreground bg-background font-semibold text-foreground"
-                  : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted",
+            <span key={tab.key} className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "relative -mb-px rounded-t-md border border-b-0 px-3 py-1.5 text-xs",
+                  isActive
+                    ? "border-foreground bg-background font-semibold text-foreground"
+                    : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted",
+                )}
+                aria-pressed={isActive}
+              >
+                {tab.label}
+                {tab.dirty && (
+                  <span
+                    className="ml-1 text-amber-600"
+                    title="저장되지 않은 변경 사항"
+                  >
+                    *
+                  </span>
+                )}
+              </button>
+              {tab.helpKey && (
+                <AdminHelpIconButton helpKey={tab.helpKey} title={tab.label} size="xs" />
               )}
-              aria-pressed={isActive}
-            >
-              {tab.label}
-              {tab.dirty && (
-                <span
-                  className="ml-1 text-amber-600"
-                  title="저장되지 않은 변경 사항"
-                >
-                  *
-                </span>
-              )}
-            </button>
+            </span>
           );
         })}
       </div>
@@ -1051,6 +1244,12 @@ export default function Cluster3Editor({
             <CardTitle className="text-base">
               {devMode ? "Channel Cards (16)" : "채널 카드 (16장)"}
               {devMode && " · portfolio_channel_cards · editable"}
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster3.section.channelCards"
+                title="채널 카드"
+                size="sm"
+                className="ml-1.5 align-middle"
+              />
               {channelDirty && (
                 <span className="ml-2 text-xs text-amber-600">
                   {devMode ? "* unsaved" : "* 저장 안 됨"}
@@ -1092,6 +1291,7 @@ export default function Cluster3Editor({
                 ? "포트폴리오 대표 카드 5장 * 저장 안 됨"
                 : "포트폴리오 대표 카드 5장"
           }
+          titleHelpKey="admin.crews.cluster3.section.outputCards"
           cardType="output"
           slotCount={OUTPUT_CARD_SLOT_COUNT}
           editable
@@ -1121,6 +1321,7 @@ export default function Cluster3Editor({
                 ? "포트폴리오 상세 카드 10장 * 저장 안 됨"
                 : "포트폴리오 상세 카드 10장"
           }
+          titleHelpKey="admin.crews.cluster3.section.detailCards"
           cardType="detail"
           slotCount={DETAIL_CARD_SLOT_COUNT}
           editable

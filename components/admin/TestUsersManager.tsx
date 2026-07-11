@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { buildCustomerClusterUrl } from "@/lib/customerAppUrl";
 
 // GET /api/admin/test-users 응답 row (lib/testUsers.ts TestUserDto 와 동일 shape).
@@ -132,7 +133,14 @@ export default function TestUsersManager() {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle>테스트 유저 (데모 미리보기)</CardTitle>
+        <CardTitle className="inline-flex items-center gap-1.5">
+          테스트 유저 (데모 미리보기)
+          <AdminHelpIconButton
+            helpKey="admin.testUsers.section.list"
+            title="테스트 유저 (데모 미리보기)"
+            size="sm"
+          />
+        </CardTitle>
         <Button
           variant="outline"
           size="sm"
@@ -154,16 +162,106 @@ export default function TestUsersManager() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>이름</TableHead>
-                <TableHead>이메일</TableHead>
-                <TableHead>조직</TableHead>
-                <TableHead>시즌</TableHead>
-                <TableHead>팀</TableHead>
-                <TableHead>파트</TableHead>
-                <TableHead>역할</TableHead>
-                <TableHead>등급</TableHead>
-                <TableHead>성장 상태</TableHead>
-                <TableHead>동작</TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>이름</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.testUsers.column.name"
+                      title="이름"
+                      size="xs"
+                    />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>이메일</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.testUsers.column.email"
+                      title="이메일"
+                      size="xs"
+                    />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>조직</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.testUsers.column.organization"
+                      title="조직"
+                      size="xs"
+                    />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>시즌</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.testUsers.column.season"
+                      title="시즌"
+                      size="xs"
+                    />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>팀</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.testUsers.column.team"
+                      title="팀"
+                      size="xs"
+                    />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>파트</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.testUsers.column.part"
+                      title="파트"
+                      size="xs"
+                    />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>역할</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.testUsers.column.role"
+                      title="역할"
+                      size="xs"
+                    />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>등급</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.testUsers.column.grade"
+                      title="등급"
+                      size="xs"
+                    />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>성장 상태</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.testUsers.column.growthStatus"
+                      title="성장 상태"
+                      size="xs"
+                    />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>동작</span>
+                    <AdminHelpIconButton
+                      helpKey="admin.testUsers.column.action"
+                      title="동작"
+                      size="xs"
+                    />
+                  </span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

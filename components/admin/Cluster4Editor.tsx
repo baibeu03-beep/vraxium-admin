@@ -21,6 +21,7 @@ import {
 import { DebugSection } from "@/components/admin/fieldKit";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import ActivityTab from "@/components/admin/cluster4/ActivityTab";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import type {
   Cluster4ApplySummary,
@@ -63,14 +64,15 @@ type TabKey =
   | "activities"
   | "debug";
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "weekly_growth", label: "주간 성장" },
-  { key: "season_review", label: "시즌 리뷰" },
-  { key: "season_reputation", label: "받은 시즌 평판" },
-  { key: "weekly_reputation", label: "위클리 평판" },
-  { key: "weekly_review", label: "위클리 리뷰" },
-  { key: "weekly_colleague", label: "위클리 연계동료" },
-  { key: "activities", label: "활동" },
+// 인바디 탭(콘텐츠 모드 전환) — 화면 내부 탭이라 요소별 돋보기 도움말 대상(디버그 탭만 제외).
+const TABS: { key: TabKey; label: string; helpKey?: string }[] = [
+  { key: "weekly_growth", label: "주간 성장", helpKey: "admin.crews.cluster4.tab.weeklyGrowth" },
+  { key: "season_review", label: "시즌 리뷰", helpKey: "admin.crews.cluster4.tab.seasonReview" },
+  { key: "season_reputation", label: "받은 시즌 평판", helpKey: "admin.crews.cluster4.tab.seasonReputation" },
+  { key: "weekly_reputation", label: "위클리 평판", helpKey: "admin.crews.cluster4.tab.weeklyReputation" },
+  { key: "weekly_review", label: "위클리 리뷰", helpKey: "admin.crews.cluster4.tab.weeklyReview" },
+  { key: "weekly_colleague", label: "위클리 연계동료", helpKey: "admin.crews.cluster4.tab.weeklyColleague" },
+  { key: "activities", label: "활동", helpKey: "admin.crews.cluster4.tab.activities" },
   { key: "debug", label: "디버그" },
 ];
 
@@ -610,10 +612,17 @@ function RowCard({
   );
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function FieldLabel({
+  children,
+  helpKey,
+}: {
+  children: React.ReactNode;
+  helpKey?: string;
+}) {
   return (
-    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
       {children}
+      {helpKey && <AdminHelpIconButton helpKey={helpKey} size="xs" />}
     </div>
   );
 }
@@ -673,8 +682,12 @@ function WeeklyReviewWeekStatus({
   return (
     <div className="rounded-lg border bg-muted/10">
       <div className="border-b px-4 py-2.5">
-        <div className="text-sm font-semibold text-foreground">
+        <div className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
           주차별 제출 현황 · 작성 기간
+          <AdminHelpIconButton
+            helpKey="admin.crews.cluster4.section.weeklyReviewStatus"
+            size="sm"
+          />
         </div>
         <p className="text-[11px] text-muted-foreground">
           주차별 위클리 리뷰 제출 여부와 수정 가능 여부를 확인하고, 작성 기간을
@@ -825,8 +838,12 @@ function WeeklyListCard({
       <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3 sm:grid-cols-3 lg:grid-cols-4">
         {/* 활동 누적 주차 */}
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             활동 누적 주차
+            <AdminHelpIconButton
+              helpKey="admin.crews.cluster4.metric.accWeeks"
+              size="xs"
+            />
           </div>
           <div className="mt-0.5 text-sm font-medium tabular-nums">
             {c.accumulatedApprovedWeeks}{" "}
@@ -836,16 +853,24 @@ function WeeklyListCard({
 
         {/* 활동 상태 */}
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             활동 상태
+            <AdminHelpIconButton
+              helpKey="admin.crews.cluster4.metric.activityStatus"
+              size="xs"
+            />
           </div>
           <div className="mt-0.5 text-sm font-medium">{c.activityStatus}</div>
         </div>
 
         {/* 활동 소속 */}
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             활동 소속
+            <AdminHelpIconButton
+              helpKey="admin.crews.cluster4.metric.activityOrg"
+              size="xs"
+            />
           </div>
           <div className="mt-0.5 text-sm font-medium">
             <span className="text-muted-foreground">[팀]</span> {c.teamLabel}{" "}
@@ -857,8 +882,30 @@ function WeeklyListCard({
             포인트 표시 정책(2026-06-04): 고객 카드 방패 = net(advantage − penalty),
             번개 = −penalty. raw 는 내부 검증용으로만 표시한다. */}
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            {pl.points} · {pl.advantages}(raw → net) · {pl.penalty}
+          <div className="inline-flex flex-wrap items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              {pl.points}
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster4.metric.points"
+                size="xs"
+              />
+            </span>
+            <span>·</span>
+            <span className="inline-flex items-center gap-1">
+              {pl.advantages}(raw → net)
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster4.metric.advantages"
+                size="xs"
+              />
+            </span>
+            <span>·</span>
+            <span className="inline-flex items-center gap-1">
+              {pl.penalty}
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster4.metric.penalty"
+                size="xs"
+              />
+            </span>
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-sm font-medium tabular-nums">
             <span title={`${pl.points} = check`}>{c.points}개</span>
@@ -884,8 +931,12 @@ function WeeklyListCard({
 
         {/* 주차 평판 */}
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             주차 평판
+            <AdminHelpIconButton
+              helpKey="admin.crews.cluster4.metric.weeklyReputation"
+              size="xs"
+            />
           </div>
           <div className="mt-0.5 text-sm font-medium tabular-nums">
             {c.weeklyReputationCount}개
@@ -895,8 +946,12 @@ function WeeklyListCard({
 
         {/* 명성도(FM) */}
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             명성도(FM)
+            <AdminHelpIconButton
+              helpKey="admin.crews.cluster4.metric.fame"
+              size="xs"
+            />
           </div>
           <div className="mt-0.5 text-sm font-medium tabular-nums">
             {c.totalFmScore}
@@ -905,8 +960,12 @@ function WeeklyListCard({
 
         {/* 위클리 연계동료 */}
         <div>
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             위클리 연계동료
+            <AdminHelpIconButton
+              helpKey="admin.crews.cluster4.metric.weeklyColleague"
+              size="xs"
+            />
           </div>
           <div className="mt-0.5 text-sm font-medium tabular-nums">
             {c.linkedCrewCount}명
@@ -916,8 +975,12 @@ function WeeklyListCard({
 
         {/* 주차 성장률 */}
         <div className="col-span-2 sm:col-span-3 lg:col-span-4">
-          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             주차 성장률
+            <AdminHelpIconButton
+              helpKey="admin.crews.cluster4.metric.growthRate"
+              size="xs"
+            />
           </div>
           {isRest ? (
             <div className="mt-0.5 text-sm text-muted-foreground">
@@ -936,18 +999,35 @@ function WeeklyListCard({
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                 {(
                   [
-                    ["실무 정보", c.lineBreakdown.info],
-                    ["실무 역량", c.lineBreakdown.ability],
-                    ["실무 경험", c.lineBreakdown.experience],
-                    ["실무 경력", c.lineBreakdown.career],
+                    [
+                      "실무 정보",
+                      c.lineBreakdown.info,
+                      "admin.crews.cluster4.metric.infoCount",
+                    ],
+                    [
+                      "실무 역량",
+                      c.lineBreakdown.ability,
+                      "admin.crews.cluster4.metric.abilityCount",
+                    ],
+                    [
+                      "실무 경험",
+                      c.lineBreakdown.experience,
+                      "admin.crews.cluster4.metric.experienceCount",
+                    ],
+                    [
+                      "실무 경력",
+                      c.lineBreakdown.career,
+                      "admin.crews.cluster4.metric.careerCount",
+                    ],
                   ] as const
-                ).map(([label, line]) => (
+                ).map(([label, line, helpKey]) => (
                   <div
                     key={label}
                     className="rounded-md border bg-muted/30 px-2 py-1"
                   >
-                    <div className="text-[10px] text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
                       {label}
+                      <AdminHelpIconButton helpKey={helpKey} size="xs" />
                     </div>
                     <div className="text-xs font-medium tabular-nums">
                       {line.completed} / {line.available}
@@ -1560,21 +1640,25 @@ export default function Cluster4Editor({
             }
           })();
           return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "relative -mb-px rounded-t-md border border-b-0 px-3 py-1.5 text-xs",
-                isActive
-                  ? "border-foreground bg-background font-semibold text-foreground"
-                  : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted",
+            <span key={tab.key} className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "relative -mb-px rounded-t-md border border-b-0 px-3 py-1.5 text-xs",
+                  isActive
+                    ? "border-foreground bg-background font-semibold text-foreground"
+                    : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted",
+                )}
+                aria-pressed={isActive}
+              >
+                {tab.label}
+                {isDirty && <span className="ml-1 text-amber-600">*</span>}
+              </button>
+              {tab.helpKey && (
+                <AdminHelpIconButton helpKey={tab.helpKey} title={tab.label} size="xs" />
               )}
-              aria-pressed={isActive}
-            >
-              {tab.label}
-              {isDirty && <span className="ml-1 text-amber-600">*</span>}
-            </button>
+            </span>
           );
         })}
       </div>
@@ -1584,8 +1668,12 @@ export default function Cluster4Editor({
         <>
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
               {devMode ? "Weekly Growth" : "주간 성장"}
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster4.section.weeklyGrowth"
+                size="sm"
+              />
             </CardTitle>
             {devMode && (
               <p className="text-xs text-muted-foreground">
@@ -1669,8 +1757,12 @@ export default function Cluster4Editor({
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {/* 1. 성장 시작 주차 */}
                   <div className="rounded-md border bg-muted/30 px-3 py-2">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
                       {devMode ? "1. 성장 시작 주차 (startWeekDisplay)" : "성장 시작 주차"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.cluster4.metric.startWeek"
+                        size="xs"
+                      />
                     </div>
                     <div className="mt-0.5 text-sm font-medium">
                       {weeklyGrowth.growthSummary.startWeekDisplay}
@@ -1679,10 +1771,14 @@ export default function Cluster4Editor({
 
                   {/* 2. 성장 가능 주차 */}
                   <div className="rounded-md border bg-muted/30 px-3 py-2">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
                       {devMode
                         ? "2. 성장 가능 주차 (availableWeeks)"
                         : "성장 가능 주차"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.cluster4.metric.availableWeeks"
+                        size="xs"
+                      />
                     </div>
                     <div className="mt-0.5 text-sm font-medium tabular-nums">
                       {weeklyGrowth.growthSummary.availableWeeks}개 주차
@@ -1698,10 +1794,14 @@ export default function Cluster4Editor({
 
                   {/* 3. 성장 성공 주차 */}
                   <div className="rounded-md border bg-muted/30 px-3 py-2">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
                       {devMode
                         ? "3. 성장 성공 주차 (approvedWeeks)"
                         : "성장 성공 주차"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.cluster4.metric.approvedWeeks"
+                        size="xs"
+                      />
                     </div>
                     <div className="mt-0.5 text-sm font-medium tabular-nums">
                       {weeklyGrowth.growthSummary.approvedWeeks}개 주차
@@ -1710,10 +1810,14 @@ export default function Cluster4Editor({
 
                   {/* 4. 성장 실패 주차 */}
                   <div className="rounded-md border bg-muted/30 px-3 py-2">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
                       {devMode
                         ? "4. 성장 실패 주차 (failedWeeks)"
                         : "성장 실패 주차"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.cluster4.metric.failedWeeks"
+                        size="xs"
+                      />
                     </div>
                     <div className="mt-0.5 text-sm font-medium tabular-nums">
                       {weeklyGrowth.growthSummary.failedWeeks}개 주차
@@ -1722,10 +1826,14 @@ export default function Cluster4Editor({
 
                   {/* 5. 성장 휴식 주차 */}
                   <div className="rounded-md border bg-muted/30 px-3 py-2">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
                       {devMode
                         ? "5. 성장 휴식 주차 (restWeeks)"
                         : "성장 휴식 주차"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.cluster4.metric.restWeeks"
+                        size="xs"
+                      />
                     </div>
                     <div className="mt-0.5 text-sm font-medium tabular-nums">
                       {weeklyGrowth.growthSummary.restSeasonCount > 0
@@ -1742,10 +1850,14 @@ export default function Cluster4Editor({
 
                   {/* 6. 성장 종료 주차 */}
                   <div className="rounded-md border bg-muted/30 px-3 py-2">
-                    <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
                       {devMode
                         ? "6. 성장 종료 주차 (endWeekDisplay)"
                         : "성장 종료 주차"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.cluster4.metric.endWeek"
+                        size="xs"
+                      />
                     </div>
                     <div
                       className={cn(
@@ -1775,8 +1887,12 @@ export default function Cluster4Editor({
         {/* ───────────── 주차 리스트 (WEEKLY LIST) ───────────── */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
               {devMode ? "Weekly List" : "주차 리스트"}
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster4.section.weeklyList"
+                size="sm"
+              />
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -1798,6 +1914,10 @@ export default function Cluster4Editor({
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                   역대 시즌
                 </span>
+                <AdminHelpIconButton
+                  helpKey="admin.crews.cluster4.filter.season"
+                  size="xs"
+                />
                 <select
                   value={wlSeason}
                   onChange={(e) => {
@@ -1818,6 +1938,10 @@ export default function Cluster4Editor({
                 <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                   주차 결과
                 </span>
+                <AdminHelpIconButton
+                  helpKey="admin.crews.cluster4.filter.result"
+                  size="xs"
+                />
                 <select
                   value={wlResult}
                   onChange={(e) => {
@@ -1904,7 +2028,13 @@ export default function Cluster4Editor({
       {activeTab === "season_review" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">시즌 리뷰</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              시즌 리뷰
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster4.section.seasonReview"
+                size="sm"
+              />
+            </CardTitle>
             <p className="text-xs text-muted-foreground">
               <code className="font-mono">user_season_histories.rating</code>{" "}
               (0~10 정수) · <code className="font-mono">review</code> 본인이 작성한 시즌 총평.
@@ -1933,7 +2063,9 @@ export default function Cluster4Editor({
                   }
                 >
                   <div className="flex flex-col gap-1.5 sm:col-span-1">
-                    <FieldLabel>평점 (0~10)</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.field.seasonReviewRating">
+                      평점 (0~10)
+                    </FieldLabel>
                     <Input
                       type="number"
                       min={0}
@@ -1949,7 +2081,9 @@ export default function Cluster4Editor({
                     />
                   </div>
                   <div className="flex flex-col gap-1.5 sm:col-span-2">
-                    <FieldLabel>총평</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.field.seasonReviewText">
+                      총평
+                    </FieldLabel>
                     <textarea
                       value={row.review}
                       onChange={(event) =>
@@ -1971,7 +2105,13 @@ export default function Cluster4Editor({
       {activeTab === "season_reputation" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">받은 시즌 평판</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              받은 시즌 평판
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster4.section.seasonReputation"
+                size="sm"
+              />
+            </CardTitle>
             <p className="text-xs text-muted-foreground">
               타인이 이 사용자(target_user_id)에 대해 남긴 시즌 평판. 운영자는 점수 / 본문 /
               키워드를 수정·삭제할 수 있습니다. 작성 기간 gate 는 적용되지 않습니다.
@@ -2023,7 +2163,9 @@ export default function Cluster4Editor({
                   deleteDisabled={saveDisabled}
                 >
                   <div className="flex flex-col gap-1.5 sm:col-span-1">
-                    <FieldLabel>평점 (1~10, 0.5 단위)</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.field.seasonRepRating">
+                      평점 (1~10, 0.5 단위)
+                    </FieldLabel>
                     <Input
                       type="number"
                       min={1}
@@ -2041,7 +2183,9 @@ export default function Cluster4Editor({
                     />
                   </div>
                   <div className="flex flex-col gap-1.5 sm:col-span-2">
-                    <FieldLabel>본문 (1~300자)</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.field.seasonRepContent">
+                      본문 (1~300자)
+                    </FieldLabel>
                     <textarea
                       value={row.content}
                       onChange={(event) =>
@@ -2057,7 +2201,9 @@ export default function Cluster4Editor({
                     <CharCounter current={row.content.trim().length} max={300} />
                   </div>
                   <div className="flex flex-col gap-1.5 sm:col-span-2">
-                    <FieldLabel>키워드 1 / 2 / 3 (각 1~10자, 모두 달라야 함)</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.field.seasonRepKeywords">
+                      키워드 1 / 2 / 3 (각 1~10자, 모두 달라야 함)
+                    </FieldLabel>
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                       <Input
                         value={row.keyword_1}
@@ -2108,7 +2254,13 @@ export default function Cluster4Editor({
       {activeTab === "weekly_reputation" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">받은 위클리 평판</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              받은 위클리 평판
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster4.section.weeklyReputation"
+                size="sm"
+              />
+            </CardTitle>
             <p className="text-xs text-muted-foreground">
               타인이 이 사용자(target_user_id)에 대해 남긴 위클리 평판(peer-review row).
               운영자는 점수 / 본문 / 키워드를 수정·삭제할 수 있습니다.
@@ -2157,7 +2309,9 @@ export default function Cluster4Editor({
                   deleteDisabled={saveDisabled}
                 >
                   <div className="flex flex-col gap-1.5 sm:col-span-1">
-                    <FieldLabel>평점 (0~10, 0.5 단위)</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.field.weeklyRepRating">
+                      평점 (0~10, 0.5 단위)
+                    </FieldLabel>
                     <Input
                       type="number"
                       min={0}
@@ -2175,7 +2329,9 @@ export default function Cluster4Editor({
                     />
                   </div>
                   <div className="flex flex-col gap-1.5 sm:col-span-1">
-                    <FieldLabel>키워드 (1~30자)</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.field.weeklyRepKeyword">
+                      키워드 (1~30자)
+                    </FieldLabel>
                     <Input
                       value={row.keyword}
                       onChange={(event) =>
@@ -2189,7 +2345,9 @@ export default function Cluster4Editor({
                     />
                   </div>
                   <div className="flex flex-col gap-1.5 sm:col-span-2">
-                    <FieldLabel>본문 (1~100자)</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.field.weeklyRepContent">
+                      본문 (1~100자)
+                    </FieldLabel>
                     <textarea
                       value={row.content}
                       onChange={(event) =>
@@ -2215,7 +2373,13 @@ export default function Cluster4Editor({
       {activeTab === "weekly_review" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">위클리 리뷰</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              위클리 리뷰
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster4.section.weeklyReview"
+                size="sm"
+              />
+            </CardTitle>
             <p className="text-xs text-muted-foreground">
               본인이 한 주차에 작성한 위클리 리뷰(<code className="font-mono">weekly_reviews</code>).
               운영자는 평점(1~10 정수) / 내용(1~200자)을 수정·삭제할 수 있습니다.
@@ -2256,7 +2420,9 @@ export default function Cluster4Editor({
                   deleteDisabled={saveDisabled}
                 >
                   <div className="flex flex-col gap-1.5 sm:col-span-1">
-                    <FieldLabel>평점 (1~10 정수)</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.field.weeklyReviewRating">
+                      평점 (1~10 정수)
+                    </FieldLabel>
                     <Input
                       type="number"
                       min={1}
@@ -2272,7 +2438,9 @@ export default function Cluster4Editor({
                     />
                   </div>
                   <div className="flex flex-col gap-1.5 sm:col-span-2">
-                    <FieldLabel>위클리 리뷰 내용 (1~200자)</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.field.weeklyReviewContent">
+                      위클리 리뷰 내용 (1~200자)
+                    </FieldLabel>
                     <textarea
                       value={row.content}
                       onChange={(event) =>
@@ -2298,7 +2466,13 @@ export default function Cluster4Editor({
       {activeTab === "weekly_colleague" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">위클리 연계동료</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              위클리 연계동료
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster4.section.weeklyColleague"
+                size="sm"
+              />
+            </CardTitle>
             <p className="text-xs text-muted-foreground">
               한 주차에 함께한 동료(<code className="font-mono">weekly_colleagues</code>).
               운영자는 한 줄 코멘트를 수정·삭제할 수 있습니다. 동료 변경은 삭제 후 사용자
@@ -2345,7 +2519,9 @@ export default function Cluster4Editor({
                   deleteDisabled={saveDisabled}
                 >
                   <div className="flex flex-col gap-1.5 sm:col-span-2">
-                    <FieldLabel>한 줄 코멘트 (선택, 1~200자)</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.field.colleagueMessage">
+                      한 줄 코멘트 (선택, 1~200자)
+                    </FieldLabel>
                     <textarea
                       value={row.message}
                       onChange={(event) =>

@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   ORGANIZATION_LABEL,
   type OrganizationSlug,
@@ -126,6 +127,7 @@ const SLOGAN_GROUPS: readonly SloganGroup[] = [1, 2, 3].map((i) => ({
     label: `Text (slogan_${i})`,
     type: "textarea",
     full: true,
+    helpKey: `admin.crews.cluster2.field.slogan${i}Text`,
   },
   // options 는 render 시점에 legacy 값을 fallback 으로 합쳐서 다시 주입한다.
   // canonical 목록은 lib/cluster2SloganOptions.ts (front 와 mirror).
@@ -134,6 +136,7 @@ const SLOGAN_GROUPS: readonly SloganGroup[] = [1, 2, 3].map((i) => ({
     label: `Tag (slogan_${i}_tag)`,
     type: "select",
     options: CLUSTER2_SLOGAN_OPTIONS,
+    helpKey: `admin.crews.cluster2.field.slogan${i}Tag`,
   },
   rating: {
     key: `slogan_${i}_rating`,
@@ -143,6 +146,7 @@ const SLOGAN_GROUPS: readonly SloganGroup[] = [1, 2, 3].map((i) => ({
     max: 10,
     step: 1,
     placeholder: "0–10 정수",
+    helpKey: `admin.crews.cluster2.field.slogan${i}Rating`,
   },
 }));
 
@@ -160,6 +164,7 @@ const VIDEO_FIELDS: readonly FieldDef[] = [
     type: "url",
     full: true,
     placeholder: "https://youtu.be/...",
+    helpKey: "admin.crews.cluster2.field.videoUrl1",
   },
   {
     key: "video_url_2",
@@ -167,6 +172,7 @@ const VIDEO_FIELDS: readonly FieldDef[] = [
     type: "url",
     full: true,
     placeholder: "https://youtu.be/...",
+    helpKey: "admin.crews.cluster2.field.videoUrl2",
   },
   {
     key: "video_url_3",
@@ -174,6 +180,7 @@ const VIDEO_FIELDS: readonly FieldDef[] = [
     type: "url",
     full: true,
     placeholder: "https://youtu.be/...",
+    helpKey: "admin.crews.cluster2.field.videoUrl3",
   },
 ];
 
@@ -188,6 +195,7 @@ const INTRODUCTION_FIELDS: readonly FieldDef[] = [
     type: "textarea",
     full: true,
     maxLength: INTRODUCTION_MAX_LENGTH,
+    helpKey: "admin.crews.cluster2.field.growthStory",
   },
   {
     key: "social_experience",
@@ -195,6 +203,7 @@ const INTRODUCTION_FIELDS: readonly FieldDef[] = [
     type: "textarea",
     full: true,
     maxLength: INTRODUCTION_MAX_LENGTH,
+    helpKey: "admin.crews.cluster2.field.socialExperience",
   },
   {
     key: "career_direction",
@@ -202,6 +211,7 @@ const INTRODUCTION_FIELDS: readonly FieldDef[] = [
     type: "textarea",
     full: true,
     maxLength: INTRODUCTION_MAX_LENGTH,
+    helpKey: "admin.crews.cluster2.field.careerDirection",
   },
   {
     key: "work_style",
@@ -209,6 +219,7 @@ const INTRODUCTION_FIELDS: readonly FieldDef[] = [
     type: "textarea",
     full: true,
     maxLength: INTRODUCTION_MAX_LENGTH,
+    helpKey: "admin.crews.cluster2.field.workStyle",
   },
   {
     key: "personal_story",
@@ -216,6 +227,7 @@ const INTRODUCTION_FIELDS: readonly FieldDef[] = [
     type: "textarea",
     full: true,
     maxLength: INTRODUCTION_MAX_LENGTH,
+    helpKey: "admin.crews.cluster2.field.personalStory",
   },
 ];
 
@@ -629,13 +641,15 @@ export default function Cluster2Editor({
     | "review_link"
     | "debug";
   const [activeTab, setActiveTab] = useState<TabKey>("photos");
-  const TABS: { key: TabKey; label: string }[] = [
-    { key: "photos", label: devMode ? "Photos" : "사진" },
-    { key: "slogans", label: devMode ? "Slogans" : "슬로건" },
-    { key: "videos", label: devMode ? "Videos" : "영상" },
-    { key: "educations", label: devMode ? "Educations" : "학력" },
-    { key: "introductions", label: devMode ? "Introductions" : "자기소개서" },
-    { key: "review_link", label: devMode ? "Review Link" : "리뷰 링크" },
+  // 인바디 탭(콘텐츠 모드 전환) — 페이지 헤더 nav 가 아니라 이 화면 내부 탭이므로
+  //   요소별 돋보기 도움말 대상(devMode 전용 디버그 탭만 제외).
+  const TABS: { key: TabKey; label: string; helpKey?: string }[] = [
+    { key: "photos", label: devMode ? "Photos" : "사진", helpKey: "admin.crews.cluster2.tab.photos" },
+    { key: "slogans", label: devMode ? "Slogans" : "슬로건", helpKey: "admin.crews.cluster2.tab.slogans" },
+    { key: "videos", label: devMode ? "Videos" : "영상", helpKey: "admin.crews.cluster2.tab.videos" },
+    { key: "educations", label: devMode ? "Educations" : "학력", helpKey: "admin.crews.cluster2.tab.educations" },
+    { key: "introductions", label: devMode ? "Introductions" : "자기소개서", helpKey: "admin.crews.cluster2.tab.introductions" },
+    { key: "review_link", label: devMode ? "Review Link" : "리뷰 링크", helpKey: "admin.crews.cluster2.tab.reviewLink" },
     ...(devMode
       ? [{ key: "debug" as TabKey, label: "Preview / Debug" }]
       : []),
@@ -750,20 +764,24 @@ export default function Cluster2Editor({
         {TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "relative -mb-px rounded-t-md border border-b-0 px-3 py-1.5 text-xs",
-                isActive
-                  ? "border-foreground bg-background font-semibold text-foreground"
-                  : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted",
+            <span key={tab.key} className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "relative -mb-px rounded-t-md border border-b-0 px-3 py-1.5 text-xs",
+                  isActive
+                    ? "border-foreground bg-background font-semibold text-foreground"
+                    : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted",
+                )}
+                aria-pressed={isActive}
+              >
+                {tab.label}
+              </button>
+              {tab.helpKey && (
+                <AdminHelpIconButton helpKey={tab.helpKey} title={tab.label} size="xs" />
               )}
-              aria-pressed={isActive}
-            >
-              {tab.label}
-            </button>
+            </span>
           );
         })}
       </div>
@@ -772,7 +790,14 @@ export default function Cluster2Editor({
       {activeTab === "photos" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{devMode ? "Photos" : "사진"}</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              {devMode ? "Photos" : "사진"}
+              <AdminHelpIconButton
+                helpKey="admin.crews.cluster2.section.photos"
+                title="사진"
+                size="sm"
+              />
+            </CardTitle>
             {devMode && (
               <p className="text-xs text-muted-foreground">
                 sidebar = user_profiles.profile_photo_url · main+sub =
@@ -795,7 +820,14 @@ export default function Cluster2Editor({
       {activeTab === "slogans" && (
         <Card>
             <CardHeader>
-              <CardTitle className="text-base">{devMode ? "Slogans" : "슬로건"}</CardTitle>
+              <CardTitle className="inline-flex items-center gap-1.5 text-base">
+                {devMode ? "Slogans" : "슬로건"}
+                <AdminHelpIconButton
+                  helpKey="admin.crews.cluster2.section.slogans"
+                  title="슬로건"
+                  size="sm"
+                />
+              </CardTitle>
               {devMode && (
                 <p className="text-xs text-muted-foreground">
                   user_introductions.slogan_{`{1,2,3}`} · _tag · _rating (0–10
@@ -832,8 +864,13 @@ export default function Cluster2Editor({
                         group.index > 1 && "border-t pt-6",
                       )}
                     >
-                      <div className="text-sm font-medium">
+                      <div className="inline-flex items-center gap-1.5 text-sm font-medium">
                         {devMode ? `Slogan ${group.index}` : `슬로건 ${group.index}`}
+                        <AdminHelpIconButton
+                          helpKey={`admin.crews.cluster2.section.slogan${group.index}`}
+                          title={`슬로건 ${group.index}`}
+                          size="sm"
+                        />
                       </div>
                       <FieldCell
                         field={textField}
@@ -876,7 +913,14 @@ export default function Cluster2Editor({
       {activeTab === "videos" && (
         <Card>
             <CardHeader>
-              <CardTitle className="text-base">{devMode ? "Videos" : "영상"}</CardTitle>
+              <CardTitle className="inline-flex items-center gap-1.5 text-base">
+                {devMode ? "Videos" : "영상"}
+                <AdminHelpIconButton
+                  helpKey="admin.crews.cluster2.section.videos"
+                  title="영상"
+                  size="sm"
+                />
+              </CardTitle>
               {devMode ? (
                 <p className="text-xs text-muted-foreground">
                   user_introductions.video_url_{`{1,2,3}`} · 썸네일은 자동
@@ -930,7 +974,14 @@ export default function Cluster2Editor({
       {activeTab === "educations" && (
         <Card>
             <CardHeader>
-              <CardTitle className="text-base">{devMode ? "Educations" : "학력"}</CardTitle>
+              <CardTitle className="inline-flex items-center gap-1.5 text-base">
+                {devMode ? "Educations" : "학력"}
+                <AdminHelpIconButton
+                  helpKey="admin.crews.cluster2.section.educations"
+                  title="학력"
+                  size="sm"
+                />
+              </CardTitle>
               {devMode ? (
                 <p className="text-xs text-muted-foreground">
                   user_educations · 저장 시 user_id 전체 삭제+재삽입 ·
@@ -960,7 +1011,14 @@ export default function Cluster2Editor({
       {activeTab === "introductions" && (
         <Card>
             <CardHeader>
-              <CardTitle className="text-base">{devMode ? "Introductions" : "자기소개서"}</CardTitle>
+              <CardTitle className="inline-flex items-center gap-1.5 text-base">
+                {devMode ? "Introductions" : "자기소개서"}
+                <AdminHelpIconButton
+                  helpKey="admin.crews.cluster2.section.introductions"
+                  title="자기소개서"
+                  size="sm"
+                />
+              </CardTitle>
               {devMode ? (
                 <p className="text-xs text-muted-foreground">
                   user_cluster2 · 5 문항 · 각 항목{" "}
@@ -994,11 +1052,16 @@ export default function Cluster2Editor({
         <Card>
             <CardHeader>
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <CardTitle className="text-base">
+                <CardTitle className="inline-flex items-center gap-1.5 text-base">
                   {devMode ? "Review Link" : "리뷰 링크"}{" "}
                   <span className="text-xs font-normal text-muted-foreground">
                     {devMode ? "(readonly)" : "(읽기 전용)"}
                   </span>
+                  <AdminHelpIconButton
+                    helpKey="admin.crews.cluster2.section.reviewLink"
+                    title="리뷰 링크"
+                    size="sm"
+                  />
                 </CardTitle>
                 <Button
                   type="button"

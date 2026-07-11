@@ -23,6 +23,7 @@ import {
   normalizeForPatch,
   type FieldDef,
 } from "@/components/admin/fieldKit";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import type { Cluster1ResumeDto } from "@/lib/cluster1ResumeTypes";
@@ -99,20 +100,58 @@ type FormState = Record<Section, Record<string, unknown>>;
 // 제거됨: eng_name, phone, email, bio — DB 컬럼 미존재로 PATCH 500 유발
 // dual-write 정리 (2026-05-13): profile_photo_url 제거 — Cluster 2 → Photos 가 canonical writer.
 const PROFILE_FIELDS: readonly FieldDef[] = [
-  { key: "display_name", label: "이름 (display_name)", type: "text" },
-  { key: "gender", label: "성별 (gender)", type: "text" },
-  { key: "birth_date", label: "생년월일 (birth_date)", type: "date" },
-  { key: "address", label: "주소 (address)", type: "text", full: true },
-  { key: "contact_phone", label: "Phone (contact_phone)", type: "text" },
-  { key: "contact_email", label: "Email (contact_email)", type: "text" },
+  {
+    key: "display_name",
+    label: "이름 (display_name)",
+    type: "text",
+    helpKey: "admin.crews.resume.field.displayName",
+  },
+  {
+    key: "gender",
+    label: "성별 (gender)",
+    type: "text",
+    helpKey: "admin.crews.resume.field.gender",
+  },
+  {
+    key: "birth_date",
+    label: "생년월일 (birth_date)",
+    type: "date",
+    helpKey: "admin.crews.resume.field.birthDate",
+  },
+  {
+    key: "address",
+    label: "주소 (address)",
+    type: "text",
+    full: true,
+    helpKey: "admin.crews.resume.field.address",
+  },
+  {
+    key: "contact_phone",
+    label: "Phone (contact_phone)",
+    type: "text",
+    helpKey: "admin.crews.resume.field.contactPhone",
+  },
+  {
+    key: "contact_email",
+    label: "Email (contact_email)",
+    type: "text",
+    helpKey: "admin.crews.resume.field.contactEmail",
+  },
   {
     key: "contact_available",
     label: "연락 가능 시간대/코멘트 (contact_available)",
     type: "textarea",
     full: true,
     placeholder: "예: 평일 19~22시 / 또는 user-app이 저장한 JSON 문자열 그대로",
+    helpKey: "admin.crews.resume.field.contactAvailable",
   },
-  { key: "vision", label: "Vision", type: "textarea", full: true },
+  {
+    key: "vision",
+    label: "Vision",
+    type: "textarea",
+    full: true,
+    helpKey: "admin.crews.resume.field.vision",
+  },
   {
     key: "status",
     label: "Status",
@@ -124,6 +163,7 @@ const PROFILE_FIELDS: readonly FieldDef[] = [
       "graduated",
       "suspended",
     ],
+    helpKey: "admin.crews.resume.field.status",
   },
 ];
 
@@ -132,32 +172,73 @@ const PROFILE_FIELDS: readonly FieldDef[] = [
 // Cluster1 는 GET 응답을 읽기 전용으로 표시한다.
 
 const MEMBERSHIP_FIELDS: readonly FieldDef[] = [
-  { key: "team_name", label: "팀 (team_name)", type: "text" },
-  { key: "part_name", label: "파트 (part_name)", type: "text" },
-  { key: "membership_level", label: "단계 (membership_level)", type: "text" },
-  { key: "membership_state", label: "상태 (membership_state)", type: "text" },
+  {
+    key: "team_name",
+    label: "팀 (team_name)",
+    type: "text",
+    helpKey: "admin.crews.resume.field.teamName",
+  },
+  {
+    key: "part_name",
+    label: "파트 (part_name)",
+    type: "text",
+    helpKey: "admin.crews.resume.field.partName",
+  },
+  {
+    key: "membership_level",
+    label: "단계 (membership_level)",
+    type: "text",
+    helpKey: "admin.crews.resume.field.membershipLevel",
+  },
+  {
+    key: "membership_state",
+    label: "상태 (membership_state)",
+    type: "text",
+    helpKey: "admin.crews.resume.field.membershipState",
+  },
   {
     key: "is_current",
     label: "is_current (현재 활성)",
     type: "checkbox",
     full: true,
+    helpKey: "admin.crews.resume.field.isCurrent",
   },
 ];
 
 const RESUME_CARD_SETTINGS_FIELDS: readonly FieldDef[] = [
-  { key: "hexagon_link_1", label: "Hexagon 1 URL", type: "url", full: true },
-  { key: "hexagon_link_2", label: "Hexagon 2 URL", type: "url", full: true },
-  { key: "hexagon_link_3", label: "Hexagon 3 URL", type: "url", full: true },
+  {
+    key: "hexagon_link_1",
+    label: "Hexagon 1 URL",
+    type: "url",
+    full: true,
+    helpKey: "admin.crews.resume.field.hexagonLink1",
+  },
+  {
+    key: "hexagon_link_2",
+    label: "Hexagon 2 URL",
+    type: "url",
+    full: true,
+    helpKey: "admin.crews.resume.field.hexagonLink2",
+  },
+  {
+    key: "hexagon_link_3",
+    label: "Hexagon 3 URL",
+    type: "url",
+    full: true,
+    helpKey: "admin.crews.resume.field.hexagonLink3",
+  },
   {
     key: "help_tooltip_text",
     label: "Help Tooltip Text",
     type: "textarea",
     full: true,
+    helpKey: "admin.crews.resume.field.helpTooltipText",
   },
   {
     key: "medal_week_override",
     label: "Medal Week Override (비우면 approved_weeks 사용)",
     type: "number",
+    helpKey: "admin.crews.resume.field.medalWeekOverride",
   },
 ];
 
@@ -167,6 +248,7 @@ const SECTION_DEFS: Record<
     label: string;
     operatorLabel: string;
     description: string;
+    titleHelpKey: string;
     fields: readonly FieldDef[];
   }
 > = {
@@ -174,18 +256,21 @@ const SECTION_DEFS: Record<
     label: "Profile",
     operatorLabel: "기본 정보",
     description: "user_profiles · 1:1",
+    titleHelpKey: "admin.crews.resume.section.profile",
     fields: PROFILE_FIELDS,
   },
   membership: {
     label: "Membership",
     operatorLabel: "활동 정보",
     description: "user_memberships · is_current = true",
+    titleHelpKey: "admin.crews.resume.section.membership",
     fields: MEMBERSHIP_FIELDS,
   },
   resumeCardSettings: {
     label: "Cluster1 Settings",
     operatorLabel: "이력 카드 설정",
     description: "user_resume_card_settings",
+    titleHelpKey: "admin.crews.resume.section.settings",
     fields: RESUME_CARD_SETTINGS_FIELDS,
   },
 };
@@ -532,8 +617,13 @@ export default function ResumeCardEditor({
             return (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">
+                  <CardTitle className="inline-flex items-center gap-1.5 text-base">
                     {devMode ? def.label : def.operatorLabel}
+                    <AdminHelpIconButton
+                      helpKey={def.titleHelpKey}
+                      title={def.operatorLabel}
+                      size="sm"
+                    />
                   </CardTitle>
                   {devMode && (
                     <p className="text-xs text-muted-foreground">
@@ -581,11 +671,18 @@ export default function ResumeCardEditor({
           {/* Education (readonly) — Cluster 2 → Educations 가 canonical writer */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">
-                {devMode ? "Education" : "학력"}{" "}
-                <span className="text-xs font-normal text-muted-foreground">
-                  {devMode ? "(readonly)" : "(읽기 전용)"}
+              <CardTitle className="inline-flex items-center gap-1.5 text-base">
+                <span>
+                  {devMode ? "Education" : "학력"}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {devMode ? "(readonly)" : "(읽기 전용)"}
+                  </span>
                 </span>
+                <AdminHelpIconButton
+                  helpKey="admin.crews.resume.section.education"
+                  title="학력"
+                  size="sm"
+                />
               </CardTitle>
               {devMode && (
                 <p className="text-xs text-muted-foreground">
@@ -636,8 +733,13 @@ export default function ResumeCardEditor({
             return (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">
+                  <CardTitle className="inline-flex items-center gap-1.5 text-base">
                     {devMode ? def.label : def.operatorLabel}
+                    <AdminHelpIconButton
+                      helpKey={def.titleHelpKey}
+                      title={def.operatorLabel}
+                      size="sm"
+                    />
                   </CardTitle>
                   {devMode && (
                     <p className="text-xs text-muted-foreground">
@@ -667,11 +769,18 @@ export default function ResumeCardEditor({
           {/* Introduction (readonly) — Cluster 2 → Slogans 가 canonical writer */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">
-                {devMode ? "Introduction" : "슬로건"}{" "}
-                <span className="text-xs font-normal text-muted-foreground">
-                  {devMode ? "(readonly)" : "(읽기 전용)"}
+              <CardTitle className="inline-flex items-center gap-1.5 text-base">
+                <span>
+                  {devMode ? "Introduction" : "슬로건"}{" "}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {devMode ? "(readonly)" : "(읽기 전용)"}
+                  </span>
                 </span>
+                <AdminHelpIconButton
+                  helpKey="admin.crews.resume.section.introduction"
+                  title="슬로건"
+                  size="sm"
+                />
               </CardTitle>
               {devMode && (
                 <p className="text-xs text-muted-foreground">
@@ -705,8 +814,13 @@ export default function ResumeCardEditor({
             return (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">
+                  <CardTitle className="inline-flex items-center gap-1.5 text-base">
                     {devMode ? def.label : def.operatorLabel}
+                    <AdminHelpIconButton
+                      helpKey={def.titleHelpKey}
+                      title={def.operatorLabel}
+                      size="sm"
+                    />
                   </CardTitle>
                   {devMode && (
                     <p className="text-xs text-muted-foreground">
@@ -739,8 +853,13 @@ export default function ResumeCardEditor({
           {resume && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">
+                <CardTitle className="inline-flex items-center gap-1.5 text-base">
                   {devMode ? "Resume Status Badge" : "이력 상태 배지"}
+                  <AdminHelpIconButton
+                    helpKey="admin.crews.resume.badge.status"
+                    title="이력 상태 배지"
+                    size="sm"
+                  />
                 </CardTitle>
                 {devMode && (
                   <p className="text-xs text-muted-foreground">
@@ -787,8 +906,13 @@ export default function ResumeCardEditor({
           {resume && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">
+                <CardTitle className="inline-flex items-center gap-1.5 text-base">
                   {devMode ? "Schedule Reliability" : "일정 신뢰도"}
+                  <AdminHelpIconButton
+                    helpKey="admin.crews.resume.section.reliability"
+                    title="일정 신뢰도"
+                    size="sm"
+                  />
                 </CardTitle>
                 {devMode && (
                   <p className="text-xs text-muted-foreground">
@@ -805,40 +929,65 @@ export default function ResumeCardEditor({
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="rounded-md border bg-muted/30 px-2 py-1.5">
-                    <div className="text-[10px] uppercase text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
                       {devMode ? "a · 물리 주차" : "물리 주차"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.resume.metric.physicalWeeks"
+                        title="물리 주차"
+                        size="xs"
+                      />
                     </div>
                     <div className="font-medium tabular-nums">
                       {resume.scheduleReliability.physicalWeeks}
                     </div>
                   </div>
                   <div className="rounded-md border bg-muted/30 px-2 py-1.5">
-                    <div className="text-[10px] uppercase text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
                       {devMode ? "b · 사전 휴식" : "사전 휴식"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.resume.metric.preRestWeeks"
+                        title="사전 휴식"
+                        size="xs"
+                      />
                     </div>
                     <div className="font-medium tabular-nums">
                       {resume.scheduleReliability.preRestWeeks}
                     </div>
                   </div>
                   <div className="rounded-md border bg-muted/30 px-2 py-1.5">
-                    <div className="text-[10px] uppercase text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
                       {devMode ? "c · 미인정" : "미인정"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.resume.metric.unapprovedWeeks"
+                        title="미인정"
+                        size="xs"
+                      />
                     </div>
                     <div className="font-medium tabular-nums">
                       {resume.scheduleReliability.unapprovedActiveWeeks}
                     </div>
                   </div>
                   <div className="rounded-md border bg-muted/30 px-2 py-1.5">
-                    <div className="text-[10px] uppercase text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
                       {devMode ? "d · 인정" : "인정"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.resume.metric.approvedWeeks"
+                        title="인정"
+                        size="xs"
+                      />
                     </div>
                     <div className="font-medium tabular-nums">
                       {resume.scheduleReliability.approvedActiveWeeks}
                     </div>
                   </div>
                   <div className="rounded-md border bg-muted/30 px-2 py-1.5 col-span-2">
-                    <div className="text-[10px] uppercase text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
                       {devMode ? "e · 공식 휴식" : "공식 휴식"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.resume.metric.officialRestWeeks"
+                        title="공식 휴식"
+                        size="xs"
+                      />
                     </div>
                     <div className="font-medium tabular-nums">
                       {resume.scheduleReliability.officialRestWeeks}
@@ -853,8 +1002,13 @@ export default function ResumeCardEditor({
           {resume && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">
+                <CardTitle className="inline-flex items-center gap-1.5 text-base">
                   {devMode ? "Activity Completion" : "활동 완료율"}
+                  <AdminHelpIconButton
+                    helpKey="admin.crews.resume.section.completion"
+                    title="활동 완료율"
+                    size="sm"
+                  />
                 </CardTitle>
                 {devMode && (
                   <p className="text-xs text-muted-foreground">
@@ -871,16 +1025,26 @@ export default function ResumeCardEditor({
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="rounded-md border bg-muted/30 px-2 py-1.5">
-                    <div className="text-[10px] uppercase text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
                       {devMode ? "p · 가능 활동" : "가능 활동"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.resume.metric.availableActivities"
+                        title="가능 활동"
+                        size="xs"
+                      />
                     </div>
                     <div className="font-medium tabular-nums">
                       {resume.activityCompletion.availableActivities}
                     </div>
                   </div>
                   <div className="rounded-md border bg-muted/30 px-2 py-1.5">
-                    <div className="text-[10px] uppercase text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
                       {devMode ? "r · 이행 활동" : "이행 활동"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.resume.metric.completedActivities"
+                        title="이행 활동"
+                        size="xs"
+                      />
                     </div>
                     <div className="font-medium tabular-nums">
                       {resume.activityCompletion.completedActivities}
@@ -903,8 +1067,13 @@ export default function ResumeCardEditor({
           {resume && resume.seasonRecords.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">
+                <CardTitle className="inline-flex items-center gap-1.5 text-base">
                   {devMode ? "Season Records" : "진행 시즌 리스트"}
+                  <AdminHelpIconButton
+                    helpKey="admin.crews.resume.section.seasons"
+                    title="진행 시즌"
+                    size="sm"
+                  />
                 </CardTitle>
                 {devMode && (
                   <p className="text-xs text-muted-foreground">
@@ -918,22 +1087,64 @@ export default function ResumeCardEditor({
                     <thead>
                       <tr className="border-b text-left text-muted-foreground">
                         <th className="pb-1.5 pr-2 font-medium">
-                          {devMode ? "Year" : "년도"}
+                          <span className="inline-flex items-center gap-1">
+                            {devMode ? "Year" : "년도"}
+                            <AdminHelpIconButton
+                              helpKey="admin.crews.resume.column.year"
+                              title="년도"
+                              size="xs"
+                            />
+                          </span>
                         </th>
                         <th className="pb-1.5 pr-2 font-medium">
-                          {devMode ? "Season" : "시즌"}
+                          <span className="inline-flex items-center gap-1">
+                            {devMode ? "Season" : "시즌"}
+                            <AdminHelpIconButton
+                              helpKey="admin.crews.resume.column.season"
+                              title="시즌"
+                              size="xs"
+                            />
+                          </span>
                         </th>
                         <th className="pb-1.5 pr-2 font-medium">
-                          {devMode ? "Position" : "포지션"}
+                          <span className="inline-flex items-center gap-1">
+                            {devMode ? "Position" : "포지션"}
+                            <AdminHelpIconButton
+                              helpKey="admin.crews.resume.column.position"
+                              title="포지션"
+                              size="xs"
+                            />
+                          </span>
                         </th>
                         <th className="pb-1.5 pr-2 font-medium">
-                          {devMode ? "Status" : "상태"}
+                          <span className="inline-flex items-center gap-1">
+                            {devMode ? "Status" : "상태"}
+                            <AdminHelpIconButton
+                              helpKey="admin.crews.resume.column.status"
+                              title="상태"
+                              size="xs"
+                            />
+                          </span>
                         </th>
                         <th className="pb-1.5 pr-2 font-medium">
-                          {devMode ? "Weeks" : "주차"}
+                          <span className="inline-flex items-center gap-1">
+                            {devMode ? "Weeks" : "주차"}
+                            <AdminHelpIconButton
+                              helpKey="admin.crews.resume.column.weeks"
+                              title="주차"
+                              size="xs"
+                            />
+                          </span>
                         </th>
                         <th className="pb-1.5 font-medium">
-                          {devMode ? "Review" : "검수"}
+                          <span className="inline-flex items-center gap-1">
+                            {devMode ? "Review" : "검수"}
+                            <AdminHelpIconButton
+                              helpKey="admin.crews.resume.column.review"
+                              title="검수"
+                              size="xs"
+                            />
+                          </span>
                         </th>
                       </tr>
                     </thead>
@@ -999,8 +1210,13 @@ export default function ResumeCardEditor({
           {resume && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">
+                <CardTitle className="inline-flex items-center gap-1.5 text-base">
                   {devMode ? "Practical Stats" : "실무 성적 요약"}
+                  <AdminHelpIconButton
+                    helpKey="admin.crews.resume.section.stats"
+                    title="실무 성적"
+                    size="sm"
+                  />
                 </CardTitle>
                 {devMode && (
                   <p className="text-xs text-muted-foreground">
@@ -1011,10 +1227,15 @@ export default function ResumeCardEditor({
               <CardContent>
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="rounded-md border bg-muted/30 px-2 py-2">
-                    <div className="text-[10px] uppercase text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
                       {devMode
                         ? "실무 정보 습득 (infoCount)"
                         : "실무 정보 습득"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.resume.metric.infoCount"
+                        title="실무 정보 습득"
+                        size="xs"
+                      />
                     </div>
                     <div className="mt-0.5 font-semibold tabular-nums">
                       {resume.practicalStats.infoCount}
@@ -1024,10 +1245,15 @@ export default function ResumeCardEditor({
                     </div>
                   </div>
                   <div className="rounded-md border bg-muted/30 px-2 py-2">
-                    <div className="text-[10px] uppercase text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
                       {devMode
                         ? "실무 경험 축적 (experienceCount)"
                         : "실무 경험 축적"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.resume.metric.experienceCount"
+                        title="실무 경험 축적"
+                        size="xs"
+                      />
                     </div>
                     <div className="mt-0.5 font-semibold tabular-nums">
                       {resume.practicalStats.experienceCount}
@@ -1037,10 +1263,15 @@ export default function ResumeCardEditor({
                     </div>
                   </div>
                   <div className="rounded-md border bg-muted/30 px-2 py-2">
-                    <div className="text-[10px] uppercase text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
                       {devMode
                         ? "실무 역량 성장 (abilityUnitCount)"
                         : "실무 역량 성장"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.resume.metric.abilityUnitCount"
+                        title="실무 역량 성장"
+                        size="xs"
+                      />
                     </div>
                     <div className="mt-0.5 font-semibold tabular-nums">
                       {resume.practicalStats.abilityUnitCount}
@@ -1050,10 +1281,15 @@ export default function ResumeCardEditor({
                     </div>
                   </div>
                   <div className="rounded-md border bg-muted/30 px-2 py-2">
-                    <div className="text-[10px] uppercase text-muted-foreground">
+                    <div className="inline-flex items-center gap-1 text-[10px] uppercase text-muted-foreground">
                       {devMode
                         ? "실무 경력 누적 (careerProjectCount)"
                         : "실무 경력 누적"}
+                      <AdminHelpIconButton
+                        helpKey="admin.crews.resume.metric.careerProjectCount"
+                        title="실무 경력 누적"
+                        size="xs"
+                      />
                     </div>
                     <div className="mt-0.5 font-semibold tabular-nums">
                       {resume.practicalStats.careerProjectCount}

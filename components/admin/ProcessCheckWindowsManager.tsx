@@ -14,6 +14,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { formatClubDate } from "@/lib/clubDate";
@@ -272,6 +273,11 @@ export default function ProcessCheckWindowsManager() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <CalendarClock className="h-4 w-4" /> 현재 기본 정책 상태
+            <AdminHelpIconButton
+              helpKey="admin.settings.processCheckWindows.section.basePolicy"
+              title="현재 기본 정책 상태"
+              size="sm"
+            />
           </CardTitle>
           <CardDescription>
             아래 주차는 예외 없이도 항상 선택·편집 가능합니다. 예외는 이 정책을{" "}
@@ -281,7 +287,16 @@ export default function ProcessCheckWindowsManager() {
         <CardContent className="space-y-3">
           {currentWeek ? (
             <div className="rounded-md border border-input bg-muted/30 px-4 py-3">
-              <p className="text-xs text-muted-foreground">현재 기본 선택(편집 가능) 주차</p>
+              <div className="inline-flex items-center gap-1">
+                <span className="text-xs text-muted-foreground">
+                  현재 기본 선택(편집 가능) 주차
+                </span>
+                <AdminHelpIconButton
+                  helpKey="admin.settings.processCheckWindows.label.currentWeek"
+                  title="현재 기본 선택(편집 가능) 주차"
+                  size="xs"
+                />
+              </div>
               <p className="text-lg font-bold text-foreground">
                 {currentWeek.year}년 {currentWeek.seasonName} {currentWeek.weekNumber}주차
               </p>
@@ -297,7 +312,14 @@ export default function ProcessCheckWindowsManager() {
           )}
 
           <div className="rounded-md border border-dashed px-4 py-3 text-sm">
-            <p className="mb-1 font-semibold text-foreground">기본 정책</p>
+            <div className="mb-1 inline-flex items-center gap-1">
+              <span className="font-semibold text-foreground">기본 정책</span>
+              <AdminHelpIconButton
+                helpKey="admin.settings.processCheckWindows.label.basePolicy"
+                title="기본 정책"
+                size="xs"
+              />
+            </div>
             <ul className="space-y-0.5 text-muted-foreground">
               <li>· 드롭다운 기본 노출 = 현재 시즌 1주차 ~ 현재 주차 (미래 주차 미노출)</li>
               <li>· 편집 가능 = 현재 주차만 (과거 주차 = 조회 전용)</li>
@@ -312,6 +334,11 @@ export default function ProcessCheckWindowsManager() {
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Plus className="h-4 w-4" /> 예외 추가
+            <AdminHelpIconButton
+              helpKey="admin.settings.processCheckWindows.section.addException"
+              title="예외 추가"
+              size="sm"
+            />
           </CardTitle>
           <CardDescription>
             선택한 주차를 (선택한 조직·허브 범위에서) 프로세스 체크 드롭다운에서 추가로 선택·편집 가능하게 엽니다.
@@ -320,8 +347,16 @@ export default function ProcessCheckWindowsManager() {
         <CardContent className="space-y-4">
           {/* 주차 선택 */}
           <div className="space-y-1">
-            <Label htmlFor="pcw-week" className="text-sm font-semibold">
+            <Label
+              htmlFor="pcw-week"
+              className="inline-flex items-center gap-1 text-sm font-semibold"
+            >
               주차 선택
+              <AdminHelpIconButton
+                helpKey="admin.settings.processCheckWindows.input.week"
+                title="주차 선택"
+                size="xs"
+              />
             </Label>
             <select
               id="pcw-week"
@@ -343,8 +378,16 @@ export default function ProcessCheckWindowsManager() {
           {/* 조직 / 허브 범위 */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="pcw-org" className="text-sm font-semibold">
+              <Label
+                htmlFor="pcw-org"
+                className="inline-flex items-center gap-1 text-sm font-semibold"
+              >
                 조직 범위
+                <AdminHelpIconButton
+                  helpKey="admin.settings.processCheckWindows.input.org"
+                  title="조직 범위"
+                  size="xs"
+                />
               </Label>
               <select
                 id="pcw-org"
@@ -360,8 +403,16 @@ export default function ProcessCheckWindowsManager() {
               </select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="pcw-hub" className="text-sm font-semibold">
+              <Label
+                htmlFor="pcw-hub"
+                className="inline-flex items-center gap-1 text-sm font-semibold"
+              >
                 프로세스 허브 범위
+                <AdminHelpIconButton
+                  helpKey="admin.settings.processCheckWindows.input.hub"
+                  title="프로세스 허브 범위"
+                  size="xs"
+                />
               </Label>
               <select
                 id="pcw-hub"
@@ -387,7 +438,19 @@ export default function ProcessCheckWindowsManager() {
       {/* ── 화면3: 등록된 예외 목록 ── */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">등록된 예외 목록</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            등록된 예외 목록
+            <AdminHelpIconButton
+              helpKey="admin.settings.processCheckWindows.section.exceptionList"
+              title="등록된 예외 목록"
+              size="sm"
+            />
+            <AdminHelpIconButton
+              helpKey="admin.settings.processCheckWindows.badge.status"
+              title="활성 상태"
+              size="sm"
+            />
+          </CardTitle>
           <CardDescription>
             총 {windows.length}건 · 활성 {windows.filter((w) => w.isActive).length}건
           </CardDescription>

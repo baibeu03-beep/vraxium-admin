@@ -34,6 +34,7 @@ import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   ORGANIZATIONS,
   ORGANIZATION_COMMON_LABEL,
@@ -54,8 +55,8 @@ const ALL = "__all__";
 
 // 상단 탭 — 인정 결과 목록과 check 기준 관리를 동시에 노출하지 않는다.
 const VIEW_TABS = [
-  { key: "recognitions", label: "주차 인정 결과" },
-  { key: "check_threshold", label: "check 기준 관리" },
+  { key: "recognitions", label: "주차 인정 결과", helpKey: "admin.weekRecognitions.tab.recognitions" },
+  { key: "check_threshold", label: "check 기준 관리", helpKey: "admin.weekRecognitions.tab.checkThreshold" },
 ] as const;
 type ViewTabKey = (typeof VIEW_TABS)[number]["key"];
 
@@ -186,16 +187,25 @@ function SummaryCard({
   value,
   tone = "default",
   loading,
+  helpKey,
 }: {
   label: string;
   value: number | null;
   tone?: "default" | "success" | "fail" | "rest" | "official";
   loading: boolean;
+  helpKey?: string;
 }) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-1 py-4">
-        <span className="text-xs text-muted-foreground">{label}</span>
+        {helpKey ? (
+          <span className="inline-flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">{label}</span>
+            <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">{label}</span>
+        )}
         <span
           className={cn(
             "text-2xl font-semibold tabular-nums",
@@ -401,21 +411,23 @@ export default function WeekRecognitionsView() {
         {VIEW_TABS.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "relative -mb-px rounded-t-md border border-b-0 px-3 py-1.5 text-sm",
-                isActive
-                  ? "border-foreground bg-background font-semibold text-foreground"
-                  : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted",
-              )}
-            >
-              {tab.label}
-            </button>
+            <span key={tab.key} className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "relative -mb-px rounded-t-md border border-b-0 px-3 py-1.5 text-sm",
+                  isActive
+                    ? "border-foreground bg-background font-semibold text-foreground"
+                    : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted",
+                )}
+              >
+                {tab.label}
+              </button>
+              <AdminHelpIconButton helpKey={tab.helpKey} title={tab.label} size="xs" />
+            </span>
           );
         })}
       </div>
@@ -427,16 +439,23 @@ export default function WeekRecognitionsView() {
           activeTab !== "recognitions" && "hidden",
         )}
       >
-        <SummaryCard label="전체" value={summary?.total_count ?? null} loading={loading} />
-        <SummaryCard label="인정" value={summary?.success_count ?? null} tone="success" loading={loading} />
-        <SummaryCard label="미인정" value={summary?.fail_count ?? null} tone="fail" loading={loading} />
-        <SummaryCard label="개인 휴식" value={summary?.personal_rest_count ?? null} tone="rest" loading={loading} />
-        <SummaryCard label="공식 휴식" value={summary?.official_rest_count ?? null} tone="official" loading={loading} />
+        <SummaryCard label="전체" value={summary?.total_count ?? null} loading={loading} helpKey="admin.weekRecognitions.stat.total" />
+        <SummaryCard label="인정" value={summary?.success_count ?? null} tone="success" loading={loading} helpKey="admin.weekRecognitions.stat.success" />
+        <SummaryCard label="미인정" value={summary?.fail_count ?? null} tone="fail" loading={loading} helpKey="admin.weekRecognitions.stat.fail" />
+        <SummaryCard label="개인 휴식" value={summary?.personal_rest_count ?? null} tone="rest" loading={loading} helpKey="admin.weekRecognitions.stat.personalRest" />
+        <SummaryCard label="공식 휴식" value={summary?.official_rest_count ?? null} tone="official" loading={loading} helpKey="admin.weekRecognitions.stat.officialRest" />
       </div>
 
       <Card className={cn(activeTab !== "recognitions" && "hidden")}>
         <CardHeader>
-          <CardTitle className="text-base">인정 결과 목록</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            인정 결과 목록
+            <AdminHelpIconButton
+              helpKey="admin.weekRecognitions.section.resultList"
+              title="인정 결과 목록"
+              size="sm"
+            />
+          </CardTitle>
           <CardDescription>
             사용자별 주차 인정 상태를 기준으로 시즌·주차 정보와 이름·조직을 조합했습니다.
             {data?.truncated && " (결과가 많아 일부만 표시됩니다.)"}
@@ -445,70 +464,105 @@ export default function WeekRecognitionsView() {
         <CardContent className="flex flex-col gap-4">
           {/* 필터 */}
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={seasonKey} onValueChange={(v) => setSeasonKey(v ?? ALL)}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="전체 시즌" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>전체 시즌</SelectItem>
-                {seasons.map((s) => (
-                  <SelectItem key={s.season_key} value={s.season_key}>
-                    {s.season_label ?? s.season_key}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="inline-flex items-center gap-1">
+              <Select value={seasonKey} onValueChange={(v) => setSeasonKey(v ?? ALL)}>
+                <SelectTrigger className="w-44">
+                  <SelectValue placeholder="전체 시즌" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>전체 시즌</SelectItem>
+                  {seasons.map((s) => (
+                    <SelectItem key={s.season_key} value={s.season_key}>
+                      {s.season_label ?? s.season_key}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <AdminHelpIconButton
+                helpKey="admin.weekRecognitions.filter.season"
+                title="시즌"
+                size="xs"
+              />
+            </div>
 
-            <Select value={weekId} onValueChange={(v) => setWeekId(v ?? ALL)}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="전체 주차" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>전체 주차</SelectItem>
-                {weekOptions.map((w) => (
-                  <SelectItem key={w.week_id} value={w.week_id}>
-                    {w.week_label}
-                    {w.week_start_date ? ` · ${formatClubDate(w.week_start_date)}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="inline-flex items-center gap-1">
+              <Select value={weekId} onValueChange={(v) => setWeekId(v ?? ALL)}>
+                <SelectTrigger className="w-44">
+                  <SelectValue placeholder="전체 주차" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>전체 주차</SelectItem>
+                  {weekOptions.map((w) => (
+                    <SelectItem key={w.week_id} value={w.week_id}>
+                      {w.week_label}
+                      {w.week_start_date ? ` · ${formatClubDate(w.week_start_date)}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <AdminHelpIconButton
+                helpKey="admin.weekRecognitions.filter.week"
+                title="주차"
+                size="xs"
+              />
+            </div>
 
-            <Select value={organization} onValueChange={(v) => setOrganization(v ?? ALL)}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="전체 조직" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>전체 조직</SelectItem>
-                {ORGANIZATIONS.map((slug) => (
-                  <SelectItem key={slug} value={slug}>
-                    {ORGANIZATION_LABEL[slug]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="inline-flex items-center gap-1">
+              <Select value={organization} onValueChange={(v) => setOrganization(v ?? ALL)}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="전체 조직" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>전체 조직</SelectItem>
+                  {ORGANIZATIONS.map((slug) => (
+                    <SelectItem key={slug} value={slug}>
+                      {ORGANIZATION_LABEL[slug]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <AdminHelpIconButton
+                helpKey="admin.weekRecognitions.filter.organization"
+                title="조직"
+                size="xs"
+              />
+            </div>
 
-            <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="전체 상태" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>전체 상태</SelectItem>
-                {WEEK_RECOGNITION_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {statusLabel(s)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="inline-flex items-center gap-1">
+              <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="전체 상태" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>전체 상태</SelectItem>
+                  {WEEK_RECOGNITION_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {statusLabel(s)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <AdminHelpIconButton
+                helpKey="admin.weekRecognitions.filter.status"
+                title="상태"
+                size="xs"
+              />
+            </div>
 
-            <div className="relative w-full sm:w-56">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="이름으로 검색"
-                className="pl-8"
+            <div className="inline-flex items-center gap-1">
+              <div className="relative w-full sm:w-56">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="이름으로 검색"
+                  className="pl-8"
+                />
+              </div>
+              <AdminHelpIconButton
+                helpKey="admin.weekRecognitions.filter.search"
+                title="이름 검색"
+                size="xs"
               />
             </div>
           </div>
@@ -573,17 +627,72 @@ export default function WeekRecognitionsView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>이름</TableHead>
-                  <TableHead>조직</TableHead>
-                  <TableHead>시즌</TableHead>
-                  <TableHead>주차</TableHead>
-                  <TableHead>기간</TableHead>
-                  <TableHead>상태</TableHead>
-                  <TableHead>확정</TableHead>
-                  <TableHead>공식 휴식 인정</TableHead>
-                  <TableHead>메모</TableHead>
-                  <TableHead>수정일</TableHead>
-                  <TableHead>관리</TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>이름</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.name" title="이름" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>조직</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.organization" title="조직" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>시즌</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.season" title="시즌" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>주차</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.week" title="주차" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>기간</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.period" title="기간" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>상태</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.status" title="상태" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>확정</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.confirm" title="확정" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>공식 휴식 인정</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.officialRestOverride" title="공식 휴식 인정" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>메모</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.note" title="메모" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>수정일</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.updatedAt" title="수정일" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>관리</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.manage" title="관리" size="xs" />
+                    </span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -931,7 +1040,14 @@ function CheckThresholdManager({
   return (
     <Card id="check-threshold">
       <CardHeader>
-        <CardTitle className="text-base">주차 인정 체크 기준 관리</CardTitle>
+        <CardTitle className="inline-flex items-center gap-1.5 text-base">
+          주차 인정 체크 기준 관리
+          <AdminHelpIconButton
+            helpKey="admin.weekRecognitions.section.checkThreshold"
+            title="주차 인정 체크 기준 관리"
+            size="sm"
+          />
+        </CardTitle>
         <CardDescription>
           주차 성공 판정에 필요한 체크 개수 기준입니다. 주차 성공 = [실무 경험]
           통합 라인 평점 4점 이상(강화 성공) <span className="font-medium">그리고</span> 체크
@@ -944,12 +1060,42 @@ function CheckThresholdManager({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>시즌</TableHead>
-                <TableHead>주차</TableHead>
-                <TableHead>기간</TableHead>
-                <TableHead>공표 상태</TableHead>
-                <TableHead>check 인정 기준</TableHead>
-                <TableHead className="w-56">수정</TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>시즌</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.checkThreshold.column.season" title="시즌" size="xs" />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>주차</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.checkThreshold.column.week" title="주차" size="xs" />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>기간</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.checkThreshold.column.period" title="기간" size="xs" />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>공표 상태</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.checkThreshold.column.publishStatus" title="공표 상태" size="xs" />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>check 인정 기준</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.checkThreshold.column.threshold" title="check 인정 기준" size="xs" />
+                  </span>
+                </TableHead>
+                <TableHead className="w-56">
+                  <span className="inline-flex items-center gap-1">
+                    <span>수정</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.checkThreshold.column.edit" title="수정" size="xs" />
+                  </span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1211,7 +1357,10 @@ function WeekRecognitionEditModal({
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">상태</span>
+            <span className="inline-flex items-center gap-1 text-sm font-medium">
+              상태
+              <AdminHelpIconButton helpKey="admin.weekRecognitions.field.status" title="상태" size="xs" />
+            </span>
             <Select
               value={status}
               onValueChange={(v) =>
@@ -1232,7 +1381,10 @@ function WeekRecognitionEditModal({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">메모</span>
+            <span className="inline-flex items-center gap-1 text-sm font-medium">
+              메모
+              <AdminHelpIconButton helpKey="admin.weekRecognitions.field.note" title="메모" size="xs" />
+            </span>
             <textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}
@@ -1242,14 +1394,17 @@ function WeekRecognitionEditModal({
             />
           </div>
 
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={override}
-              onChange={(event) => setOverride(event.target.checked)}
-            />
-            공식 휴식 인정 override
-          </label>
+          <div className="inline-flex items-center gap-1">
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={override}
+                onChange={(event) => setOverride(event.target.checked)}
+              />
+              공식 휴식 인정 override
+            </label>
+            <AdminHelpIconButton helpKey="admin.weekRecognitions.field.officialRestOverride" title="공식 휴식 인정" size="xs" />
+          </div>
         </div>
 
         <div className="mt-5 flex justify-end gap-2">

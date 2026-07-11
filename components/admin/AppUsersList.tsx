@@ -13,6 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   Select,
   SelectContent,
@@ -288,41 +289,62 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">사용자 목록</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            사용자 목록
+            <AdminHelpIconButton
+              helpKey="admin.users.appUsers.section.list"
+              title="사용자 목록"
+              size="sm"
+            />
+          </CardTitle>
           <CardDescription>{summary}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={
-                  devMode
-                    ? "이름, contact_email, auth_email, organization, user_id 검색"
-                    : "이름, 이메일, 소속, 회원 ID로 검색"
-                }
-                className="pl-9"
+            <div className="inline-flex flex-1 items-center gap-1">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={
+                    devMode
+                      ? "이름, contact_email, auth_email, organization, user_id 검색"
+                      : "이름, 이메일, 소속, 회원 ID로 검색"
+                  }
+                  className="pl-9"
+                />
+              </div>
+              <AdminHelpIconButton
+                helpKey="admin.users.appUsers.filter.search"
+                title="사용자 검색"
+                size="xs"
               />
             </div>
-            <div className="w-full sm:w-56">
-              <Select
-                value={status}
-                onValueChange={(v) => setStatus(v ?? STATUS_ALL)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="상태 필터" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={STATUS_ALL}>전체 상태</SelectItem>
-                  {ACCOUNT_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="inline-flex w-full items-center gap-1 sm:w-56">
+              <div className="flex-1">
+                <Select
+                  value={status}
+                  onValueChange={(v) => setStatus(v ?? STATUS_ALL)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="상태 필터" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={STATUS_ALL}>전체 상태</SelectItem>
+                    {ACCOUNT_STATUSES.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <AdminHelpIconButton
+                helpKey="admin.users.appUsers.filter.status"
+                title="상태 필터"
+                size="xs"
+              />
             </div>
           </div>
 
@@ -336,14 +358,86 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="sticky left-0 z-20 bg-card border-r">이름</TableHead>
-                  <TableHead>연락 이메일</TableHead>
-                  <TableHead>로그인 이메일</TableHead>
-                  <TableHead className="w-[200px]">소속</TableHead>
-                  <TableHead>상태</TableHead>
-                  <TableHead>가입일</TableHead>
-                  <TableHead>최근 수정</TableHead>
-                  <TableHead className="w-[200px]">관리</TableHead>
+                  <TableHead className="sticky left-0 z-20 bg-card border-r">
+                    <span className="inline-flex items-center gap-1">
+                      <span>이름</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.users.appUsers.column.name"
+                        title="이름"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>연락 이메일</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.users.appUsers.column.contactEmail"
+                        title="연락 이메일"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>로그인 이메일</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.users.appUsers.column.loginEmail"
+                        title="로그인 이메일"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead className="w-[200px]">
+                    <span className="inline-flex items-center gap-1">
+                      <span>소속</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.users.appUsers.column.organization"
+                        title="소속"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>상태</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.users.appUsers.column.status"
+                        title="상태"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>가입일</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.users.appUsers.column.createdAt"
+                        title="가입일"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>최근 수정</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.users.appUsers.column.updatedAt"
+                        title="최근 수정"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead className="w-[200px]">
+                    <span className="inline-flex items-center gap-1">
+                      <span>관리</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.users.appUsers.column.manage"
+                        title="관리"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

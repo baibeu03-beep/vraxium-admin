@@ -33,6 +33,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   ORGANIZATIONS,
   ORGANIZATION_COMMON_LABEL,
@@ -130,16 +131,25 @@ function SummaryCard({
   value,
   tone = "default",
   loading,
+  helpKey,
 }: {
   label: string;
   value: number | null;
   tone?: "default" | "active" | "rest" | "stopped" | "completed" | "unknown";
   loading: boolean;
+  helpKey?: string;
 }) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-1 py-4">
-        <span className="text-xs text-muted-foreground">{label}</span>
+        {helpKey ? (
+          <span className="inline-flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">{label}</span>
+            <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">{label}</span>
+        )}
         <span
           className={cn(
             "text-2xl font-semibold tabular-nums",
@@ -282,17 +292,24 @@ export default function SeasonParticipationsView() {
 
       {/* 요약 카드 */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <SummaryCard label="전체" value={summary?.total_count ?? null} loading={loading} />
-        <SummaryCard label="참여 중" value={summary?.active_count ?? null} tone="active" loading={loading} />
-        <SummaryCard label="휴식" value={summary?.rest_count ?? null} tone="rest" loading={loading} />
-        <SummaryCard label="중단" value={summary?.stopped_count ?? null} tone="stopped" loading={loading} />
-        <SummaryCard label="완료" value={summary?.completed_count ?? null} tone="completed" loading={loading} />
-        <SummaryCard label="기타/미확인" value={summary?.unknown_count ?? null} tone="unknown" loading={loading} />
+        <SummaryCard label="전체" value={summary?.total_count ?? null} loading={loading} helpKey="admin.seasonParticipations.stat.total" />
+        <SummaryCard label="참여 중" value={summary?.active_count ?? null} tone="active" loading={loading} helpKey="admin.seasonParticipations.stat.active" />
+        <SummaryCard label="휴식" value={summary?.rest_count ?? null} tone="rest" loading={loading} helpKey="admin.seasonParticipations.stat.rest" />
+        <SummaryCard label="중단" value={summary?.stopped_count ?? null} tone="stopped" loading={loading} helpKey="admin.seasonParticipations.stat.stopped" />
+        <SummaryCard label="완료" value={summary?.completed_count ?? null} tone="completed" loading={loading} helpKey="admin.seasonParticipations.stat.completed" />
+        <SummaryCard label="기타/미확인" value={summary?.unknown_count ?? null} tone="unknown" loading={loading} helpKey="admin.seasonParticipations.stat.unknown" />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">시즌 참여 목록</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            시즌 참여 목록
+            <AdminHelpIconButton
+              helpKey="admin.seasonParticipations.section.list"
+              title="시즌 참여 목록"
+              size="sm"
+            />
+          </CardTitle>
           <CardDescription>
             user_season_statuses 를 기준으로 시즌 정보·이름·조직과 시즌별 주차 상태 집계를 조합했습니다.
             {data?.truncated && " (결과가 많아 일부만 표시됩니다.)"}
@@ -301,55 +318,83 @@ export default function SeasonParticipationsView() {
         <CardContent className="flex flex-col gap-4">
           {/* 필터 */}
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={seasonKey} onValueChange={(v) => setSeasonKey(v ?? ALL)}>
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="전체 시즌" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>전체 시즌</SelectItem>
-                {seasons.map((s) => (
-                  <SelectItem key={s.season_key} value={s.season_key}>
-                    {s.season_label ?? s.season_key}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="inline-flex items-center gap-1">
+              <Select value={seasonKey} onValueChange={(v) => setSeasonKey(v ?? ALL)}>
+                <SelectTrigger className="w-44">
+                  <SelectValue placeholder="전체 시즌" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>전체 시즌</SelectItem>
+                  {seasons.map((s) => (
+                    <SelectItem key={s.season_key} value={s.season_key}>
+                      {s.season_label ?? s.season_key}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <AdminHelpIconButton
+                helpKey="admin.seasonParticipations.filter.season"
+                title="시즌"
+                size="xs"
+              />
+            </div>
 
-            <Select value={organization} onValueChange={(v) => setOrganization(v ?? ALL)}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="전체 조직" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>전체 조직</SelectItem>
-                {ORGANIZATIONS.map((slug) => (
-                  <SelectItem key={slug} value={slug}>
-                    {ORGANIZATION_LABEL[slug]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="inline-flex items-center gap-1">
+              <Select value={organization} onValueChange={(v) => setOrganization(v ?? ALL)}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="전체 조직" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>전체 조직</SelectItem>
+                  {ORGANIZATIONS.map((slug) => (
+                    <SelectItem key={slug} value={slug}>
+                      {ORGANIZATION_LABEL[slug]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <AdminHelpIconButton
+                helpKey="admin.seasonParticipations.filter.organization"
+                title="조직"
+                size="xs"
+              />
+            </div>
 
-            <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder="전체 상태" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>전체 상태</SelectItem>
-                {SEASON_PARTICIPATION_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {STATUS_FILTER_LABEL[s] ?? s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="inline-flex items-center gap-1">
+              <Select value={status} onValueChange={(v) => setStatus(v ?? ALL)}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="전체 상태" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>전체 상태</SelectItem>
+                  {SEASON_PARTICIPATION_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {STATUS_FILTER_LABEL[s] ?? s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <AdminHelpIconButton
+                helpKey="admin.seasonParticipations.filter.status"
+                title="상태"
+                size="xs"
+              />
+            </div>
 
-            <div className="relative w-full sm:w-56">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="이름으로 검색"
-                className="pl-8"
+            <div className="inline-flex items-center gap-1">
+              <div className="relative w-full sm:w-56">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="이름으로 검색"
+                  className="pl-8"
+                />
+              </div>
+              <AdminHelpIconButton
+                helpKey="admin.seasonParticipations.filter.search"
+                title="이름 검색"
+                size="xs"
               />
             </div>
           </div>
@@ -358,18 +403,78 @@ export default function SeasonParticipationsView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>이름</TableHead>
-                  <TableHead>조직</TableHead>
-                  <TableHead>시즌</TableHead>
-                  <TableHead>시즌 기간</TableHead>
-                  <TableHead>시즌 상태</TableHead>
-                  <TableHead>성공 주차</TableHead>
-                  <TableHead>실패 주차</TableHead>
-                  <TableHead>개인 휴식</TableHead>
-                  <TableHead>공식 휴식</TableHead>
-                  <TableHead>메모</TableHead>
-                  <TableHead>수정일</TableHead>
-                  <TableHead>관리</TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>이름</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.name" title="이름" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>조직</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.organization" title="조직" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>시즌</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.season" title="시즌" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>시즌 기간</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.seasonPeriod" title="시즌 기간" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>시즌 상태</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.seasonStatus" title="시즌 상태" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>성공 주차</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.successWeeks" title="성공 주차" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>실패 주차</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.failWeeks" title="실패 주차" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>개인 휴식</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.personalRestWeeks" title="개인 휴식" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>공식 휴식</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.officialRestWeeks" title="공식 휴식" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>메모</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.note" title="메모" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>수정일</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.updatedAt" title="수정일" size="xs" />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>관리</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.manage" title="관리" size="xs" />
+                    </span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -561,7 +666,10 @@ function SeasonParticipationEditModal({
 
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">상태</span>
+            <span className="inline-flex items-center gap-1 text-sm font-medium">
+              상태
+              <AdminHelpIconButton helpKey="admin.seasonParticipations.field.status" title="상태" size="xs" />
+            </span>
             <Select
               value={status}
               onValueChange={(v) =>
@@ -582,7 +690,10 @@ function SeasonParticipationEditModal({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium">메모</span>
+            <span className="inline-flex items-center gap-1 text-sm font-medium">
+              메모
+              <AdminHelpIconButton helpKey="admin.seasonParticipations.field.note" title="메모" size="xs" />
+            </span>
             <textarea
               value={note}
               onChange={(event) => setNote(event.target.value)}

@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   ConfirmModal,
   FreshnessLine,
@@ -101,6 +102,11 @@ function SnapshotBatchPanel() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           [QA] snapshot 배치 재계산 (테스트 전수)
+          <AdminHelpIconButton
+            helpKey="admin.testUsers.section.snapshotBatch"
+            title="[QA] snapshot 배치 재계산 (테스트 전수)"
+            size="sm"
+          />
           <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
             테스트 한정
           </span>
@@ -230,6 +236,11 @@ function UserSnapshotPanel() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           [QA] 선택한 테스트 유저 snapshot 재계산
+          <AdminHelpIconButton
+            helpKey="admin.testUsers.section.userSnapshot"
+            title="[QA] 선택한 테스트 유저 snapshot 재계산"
+            size="sm"
+          />
           <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
             테스트 한정
           </span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { FieldCell, type FieldDef } from "@/components/admin/fieldKit";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -68,15 +69,68 @@ function operatorizeFields(
 }
 
 const CHANNEL_CARD_TEXT_FIELDS: readonly FieldDef[] = [
-  { key: "channel_name", label: "channel_name", type: "text", full: true },
-  { key: "start_year", label: "start_year", type: "text", placeholder: "YYYY" },
-  { key: "start_month", label: "start_month", type: "text", placeholder: "MM" },
-  { key: "start_day", label: "start_day", type: "text", placeholder: "DD" },
-  { key: "rating", label: "rating", type: "text" },
-  { key: "link", label: "link", type: "url", full: true },
-  { key: "insight", label: "insight", type: "textarea", full: true },
-  { key: "experience", label: "experience", type: "textarea", full: true },
-  { key: "metrics", label: "metrics (text)", type: "textarea", full: true },
+  {
+    key: "channel_name",
+    label: "channel_name",
+    type: "text",
+    full: true,
+    helpKey: "admin.crews.cluster3.channel.field.channelName",
+  },
+  {
+    key: "start_year",
+    label: "start_year",
+    type: "text",
+    placeholder: "YYYY",
+    helpKey: "admin.crews.cluster3.channel.field.startYear",
+  },
+  {
+    key: "start_month",
+    label: "start_month",
+    type: "text",
+    placeholder: "MM",
+    helpKey: "admin.crews.cluster3.channel.field.startMonth",
+  },
+  {
+    key: "start_day",
+    label: "start_day",
+    type: "text",
+    placeholder: "DD",
+    helpKey: "admin.crews.cluster3.channel.field.startDay",
+  },
+  {
+    key: "rating",
+    label: "rating",
+    type: "text",
+    helpKey: "admin.crews.cluster3.channel.field.rating",
+  },
+  {
+    key: "link",
+    label: "link",
+    type: "url",
+    full: true,
+    helpKey: "admin.crews.cluster3.channel.field.link",
+  },
+  {
+    key: "insight",
+    label: "insight",
+    type: "textarea",
+    full: true,
+    helpKey: "admin.crews.cluster3.channel.field.insight",
+  },
+  {
+    key: "experience",
+    label: "experience",
+    type: "textarea",
+    full: true,
+    helpKey: "admin.crews.cluster3.channel.field.experience",
+  },
+  {
+    key: "metrics",
+    label: "metrics (text)",
+    type: "textarea",
+    full: true,
+    helpKey: "admin.crews.cluster3.channel.field.metrics",
+  },
 ];
 
 function isRenderableImageUrl(value: string | null | undefined): boolean {
@@ -208,6 +262,8 @@ function ChannelSlotCard({
       label,
       type: "select",
       options: isLegacy ? [...options, trimmed] : options,
+      // key(platform/management/status) 는 이미 camelCase 단일 leaf 라 그대로 사용.
+      helpKey: `admin.crews.cluster3.channel.field.${key}`,
     };
     return { field, isLegacy, legacyValue: trimmed };
   };
@@ -318,10 +374,15 @@ function ChannelSlotCard({
 
       {/* image_urls slots */}
       <div className="mt-1">
-        <div className="mb-1 text-[10px] font-medium text-muted-foreground">
+        <div className="mb-1 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
           {devMode
             ? `image_urls (text[]) · 최대 ${CHANNEL_CARD_IMAGE_URL_SLOTS} 슬롯`
             : `채널 이미지 · 최대 ${CHANNEL_CARD_IMAGE_URL_SLOTS}개`}
+          <AdminHelpIconButton
+            helpKey="admin.crews.cluster3.channel.field.imageUrls"
+            title="채널 이미지"
+            size="xs"
+          />
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           {card.image_urls.map((url, i) => (

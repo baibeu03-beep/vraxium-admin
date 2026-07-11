@@ -57,23 +57,94 @@ export type EducationDto = {
 // Cluster2Editor 의 buildPatchBody 가 이 list 를 돌면서 normalizeForPatch 호출.
 // sort_order / is_primary 는 Cluster2Editor 측에서 별도 처리하므로 여기 포함하지 않는다.
 const EDUCATION_CORE_TEXT_FIELDS: readonly FieldDef[] = [
-  { key: "school_name", label: "학교 (school_name)", type: "text" },
-  { key: "major_name_1", label: "전공 (major_name_1)", type: "text" },
+  {
+    key: "school_name",
+    label: "학교 (school_name)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.schoolName",
+  },
+  {
+    key: "major_name_1",
+    label: "전공 (major_name_1)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.majorName1",
+  },
 ];
 
 const EDUCATION_EXTRA_FIELDS: readonly FieldDef[] = [
-  { key: "education_level", label: "학력 구분 (education_level)", type: "text" },
-  { key: "status", label: "재학/졸업 상태 (status)", type: "text" },
-  { key: "major_category", label: "전공 카테고리 (major_category)", type: "text" },
-  { key: "major_name_2", label: "복수전공 (major_name_2)", type: "text" },
-  { key: "major_name_3", label: "부전공 (major_name_3)", type: "text" },
-  { key: "admission_year", label: "입학 연도 (admission_year, text)", type: "text" },
-  { key: "admission_month", label: "입학 월 (admission_month, text)", type: "text" },
-  { key: "graduation_year", label: "졸업 연도 (graduation_year, text)", type: "text" },
-  { key: "graduation_month", label: "졸업 월 (graduation_month, text)", type: "text" },
-  { key: "grade_max_type", label: "성적 만점 기준 (grade_max_type)", type: "text" },
-  { key: "grade_value", label: "성적 (grade_value, text)", type: "text" },
-  { key: "note", label: "비고 (note)", type: "textarea", full: true },
+  {
+    key: "education_level",
+    label: "학력 구분 (education_level)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.educationLevel",
+  },
+  {
+    key: "status",
+    label: "재학/졸업 상태 (status)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.status",
+  },
+  {
+    key: "major_category",
+    label: "전공 카테고리 (major_category)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.majorCategory",
+  },
+  {
+    key: "major_name_2",
+    label: "복수전공 (major_name_2)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.majorName2",
+  },
+  {
+    key: "major_name_3",
+    label: "부전공 (major_name_3)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.majorName3",
+  },
+  {
+    key: "admission_year",
+    label: "입학 연도 (admission_year, text)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.admissionYear",
+  },
+  {
+    key: "admission_month",
+    label: "입학 월 (admission_month, text)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.admissionMonth",
+  },
+  {
+    key: "graduation_year",
+    label: "졸업 연도 (graduation_year, text)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.graduationYear",
+  },
+  {
+    key: "graduation_month",
+    label: "졸업 월 (graduation_month, text)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.graduationMonth",
+  },
+  {
+    key: "grade_max_type",
+    label: "성적 만점 기준 (grade_max_type)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.gradeMaxType",
+  },
+  {
+    key: "grade_value",
+    label: "성적 (grade_value, text)",
+    type: "text",
+    helpKey: "admin.crews.cluster2.education.field.gradeValue",
+  },
+  {
+    key: "note",
+    label: "비고 (note)",
+    type: "textarea",
+    full: true,
+    helpKey: "admin.crews.cluster2.education.field.note",
+  },
 ];
 
 export const EDUCATION_FIELD_DEFS: readonly FieldDef[] = [

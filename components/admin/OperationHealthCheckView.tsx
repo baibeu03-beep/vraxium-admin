@@ -23,6 +23,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   ORGANIZATION_COMMON_LABEL,
   ORGANIZATION_LABEL,
@@ -90,16 +91,25 @@ function SummaryCard({
   value,
   tone = "default",
   loading,
+  helpKey,
 }: {
   label: string;
   value: number | null;
   tone?: "default" | "total" | "warning" | "error";
   loading: boolean;
+  helpKey?: string;
 }) {
   return (
     <Card>
       <CardContent className="flex flex-col gap-1 py-4">
-        <span className="text-xs text-muted-foreground">{label}</span>
+        {helpKey ? (
+          <span className="inline-flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">{label}</span>
+            <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">{label}</span>
+        )}
         <span
           className={cn(
             "text-2xl font-semibold tabular-nums",
@@ -281,36 +291,48 @@ export default function OperationHealthCheckView() {
           value={summary?.total_issues ?? null}
           tone="total"
           loading={loading}
+          helpKey="admin.operationHealthCheck.stat.totalIssues"
         />
         <SummaryCard
           label="성장 통계 불일치"
           value={summary?.growth_stats_mismatch_count ?? null}
           tone="warning"
           loading={loading}
+          helpKey="admin.operationHealthCheck.stat.growthStatsMismatch"
         />
         <SummaryCard
           label="시즌 휴식 불일치"
           value={summary?.season_rest_mismatch_count ?? null}
           tone="warning"
           loading={loading}
+          helpKey="admin.operationHealthCheck.stat.seasonRestMismatch"
         />
         <SummaryCard
           label="시즌 key 불일치"
           value={summary?.season_key_mismatch_count ?? null}
           tone="error"
           loading={loading}
+          helpKey="admin.operationHealthCheck.stat.seasonKeyMismatch"
         />
         <SummaryCard
           label="주차 매핑 불일치"
           value={summary?.week_mapping_mismatch_count ?? null}
           tone="error"
           loading={loading}
+          helpKey="admin.operationHealthCheck.stat.weekMappingMismatch"
         />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">정합성 이슈 목록</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            정합성 이슈 목록
+            <AdminHelpIconButton
+              helpKey="admin.operationHealthCheck.section.issueList"
+              title="정합성 이슈 목록"
+              size="sm"
+            />
+          </CardTitle>
           <CardDescription>
             성장 통계 · 주차 인정 상태 · 시즌 상태 · 주차 · 시즌 정의 데이터를 대조해
             발견한 정합성 문제입니다. 자동 수정은 제공하지
@@ -324,16 +346,106 @@ export default function OperationHealthCheckView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>심각도</TableHead>
-                  <TableHead>이슈 유형</TableHead>
-                  <TableHead>사용자</TableHead>
-                  <TableHead>조직</TableHead>
-                  <TableHead>시즌</TableHead>
-                  <TableHead>주차</TableHead>
-                  <TableHead>메시지</TableHead>
-                  <TableHead>기대값</TableHead>
-                  <TableHead>실제값</TableHead>
-                  <TableHead>관리</TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>심각도</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.operationHealthCheck.column.severity"
+                        title="심각도"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>이슈 유형</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.operationHealthCheck.column.issueType"
+                        title="이슈 유형"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>사용자</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.operationHealthCheck.column.user"
+                        title="사용자"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>조직</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.operationHealthCheck.column.organization"
+                        title="조직"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>시즌</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.operationHealthCheck.column.season"
+                        title="시즌"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>주차</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.operationHealthCheck.column.week"
+                        title="주차"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>메시지</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.operationHealthCheck.column.message"
+                        title="메시지"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>기대값</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.operationHealthCheck.column.expected"
+                        title="기대값"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>실제값</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.operationHealthCheck.column.actual"
+                        title="실제값"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>관리</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.operationHealthCheck.column.manage"
+                        title="관리"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

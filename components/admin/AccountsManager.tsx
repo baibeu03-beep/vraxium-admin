@@ -44,6 +44,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
@@ -507,7 +508,14 @@ export default function AccountsManager() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">운영 계정 목록</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            운영 계정 목록
+            <AdminHelpIconButton
+              helpKey="admin.settings.accounts.section.list"
+              title="운영 계정 목록"
+              size="sm"
+            />
+          </CardTitle>
           <CardDescription>
             {loading
               ? "불러오는 중..."
@@ -518,50 +526,75 @@ export default function AccountsManager() {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="grid gap-3 sm:grid-cols-[1fr_180px_160px]">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="이메일, user_id 로 검색"
-                className="pl-9"
+            <div className="flex items-center gap-1">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="이메일, user_id 로 검색"
+                  className="pl-9"
+                />
+              </div>
+              <AdminHelpIconButton
+                helpKey="admin.settings.accounts.filter.search"
+                title="검색"
+                size="xs"
               />
             </div>
-            <Select
-              value={roleFilter}
-              onValueChange={(v: string | null) => {
-                setRoleFilter(v ?? ROLE_ALL);
-                setOffset(0);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="역할 필터" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ROLE_ALL}>전체 역할</SelectItem>
-                {ADMIN_USERS_ROLES.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {ADMIN_USERS_ROLE_LABELS[r]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={activeFilter}
-              onValueChange={(v: string | null) => {
-                setActiveFilter(v ?? ACTIVE_ALL);
-                setOffset(0);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="상태 필터" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ACTIVE_ALL}>전체 상태</SelectItem>
-                <SelectItem value="true">활성</SelectItem>
-                <SelectItem value="false">비활성</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-1">
+              <div className="flex-1">
+                <Select
+                  value={roleFilter}
+                  onValueChange={(v: string | null) => {
+                    setRoleFilter(v ?? ROLE_ALL);
+                    setOffset(0);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="역할 필터" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ROLE_ALL}>전체 역할</SelectItem>
+                    {ADMIN_USERS_ROLES.map((r) => (
+                      <SelectItem key={r} value={r}>
+                        {ADMIN_USERS_ROLE_LABELS[r]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <AdminHelpIconButton
+                helpKey="admin.settings.accounts.filter.role"
+                title="역할 필터"
+                size="xs"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <div className="flex-1">
+                <Select
+                  value={activeFilter}
+                  onValueChange={(v: string | null) => {
+                    setActiveFilter(v ?? ACTIVE_ALL);
+                    setOffset(0);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="상태 필터" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ACTIVE_ALL}>전체 상태</SelectItem>
+                    <SelectItem value="true">활성</SelectItem>
+                    <SelectItem value="false">비활성</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <AdminHelpIconButton
+                helpKey="admin.settings.accounts.filter.active"
+                title="상태 필터"
+                size="xs"
+              />
+            </div>
           </div>
 
           {error && (
@@ -575,14 +608,75 @@ export default function AccountsManager() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="sticky left-0 z-20 bg-card border-r min-w-[220px]">
-                    이름
+                    <span className="inline-flex items-center gap-1">
+                      <span>이름</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.accounts.column.name"
+                        title="이름"
+                        size="xs"
+                      />
+                    </span>
                   </TableHead>
-                  <TableHead className="min-w-[220px]">이메일</TableHead>
-                  <TableHead className="min-w-[140px]">조직</TableHead>
-                  <TableHead className="min-w-[160px]">역할</TableHead>
-                  <TableHead className="min-w-[140px]">상태</TableHead>
-                  <TableHead>생성일</TableHead>
-                  <TableHead>액션</TableHead>
+                  <TableHead className="min-w-[220px]">
+                    <span className="inline-flex items-center gap-1">
+                      <span>이메일</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.accounts.column.email"
+                        title="이메일"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead className="min-w-[140px]">
+                    <span className="inline-flex items-center gap-1">
+                      <span>조직</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.accounts.column.organization"
+                        title="조직"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead className="min-w-[160px]">
+                    <span className="inline-flex items-center gap-1">
+                      <span>역할</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.accounts.column.role"
+                        title="역할"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead className="min-w-[140px]">
+                    <span className="inline-flex items-center gap-1">
+                      <span>상태</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.accounts.column.status"
+                        title="상태"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>생성일</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.accounts.column.createdAt"
+                        title="생성일"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>액션</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.accounts.column.action"
+                        title="액션"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -957,7 +1051,14 @@ function CreateAccountDrawerInner({
       <div className="absolute inset-0 bg-foreground/40" />
       <div className="relative ml-auto flex h-full modal-w-md flex-col bg-background shadow-xl">
         <header className="flex items-center justify-between border-b px-5 py-4">
-          <h3 className="text-base font-semibold">새 운영 계정 만들기</h3>
+          <h3 className="inline-flex items-center gap-1.5 text-base font-semibold">
+            새 운영 계정 만들기
+            <AdminHelpIconButton
+              helpKey="admin.settings.accounts.section.createAccount"
+              title="새 운영 계정 만들기"
+              size="sm"
+            />
+          </h3>
           <button
             type="button"
             onClick={onClose}
@@ -972,7 +1073,17 @@ function CreateAccountDrawerInner({
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-y-auto">
           <div className="flex flex-1 flex-col gap-4 px-5 py-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="create-name">이름</Label>
+              <Label
+                htmlFor="create-name"
+                className="inline-flex items-center gap-1"
+              >
+                이름
+                <AdminHelpIconButton
+                  helpKey="admin.settings.accounts.field.name"
+                  title="이름"
+                  size="xs"
+                />
+              </Label>
               <Input
                 id="create-name"
                 value={displayName}
@@ -984,7 +1095,17 @@ function CreateAccountDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="create-email">이메일</Label>
+              <Label
+                htmlFor="create-email"
+                className="inline-flex items-center gap-1"
+              >
+                이메일
+                <AdminHelpIconButton
+                  helpKey="admin.settings.accounts.field.email"
+                  title="이메일"
+                  size="xs"
+                />
+              </Label>
               <Input
                 id="create-email"
                 type="email"
@@ -999,7 +1120,17 @@ function CreateAccountDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="create-org">조직</Label>
+              <Label
+                htmlFor="create-org"
+                className="inline-flex items-center gap-1"
+              >
+                조직
+                <AdminHelpIconButton
+                  helpKey="admin.settings.accounts.field.organization"
+                  title="조직"
+                  size="xs"
+                />
+              </Label>
               <Select
                 value={organizationSlug}
                 onValueChange={(v: string | null) =>
@@ -1032,7 +1163,17 @@ function CreateAccountDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="create-role">역할</Label>
+              <Label
+                htmlFor="create-role"
+                className="inline-flex items-center gap-1"
+              >
+                역할
+                <AdminHelpIconButton
+                  helpKey="admin.settings.accounts.field.role"
+                  title="역할"
+                  size="xs"
+                />
+              </Label>
               <Select
                 value={adminRole}
                 onValueChange={(v: string | null) => {
@@ -1068,7 +1209,14 @@ function CreateAccountDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label>상태</Label>
+              <Label className="inline-flex items-center gap-1">
+                상태
+                <AdminHelpIconButton
+                  helpKey="admin.settings.accounts.field.status"
+                  title="상태"
+                  size="xs"
+                />
+              </Label>
               <Select
                 value={isActive ? "true" : "false"}
                 onValueChange={(v: string | null) => {
@@ -1086,6 +1234,13 @@ function CreateAccountDrawerInner({
             </div>
 
             <div className="flex flex-col gap-2 rounded-md border bg-muted/30 px-3 py-3">
+              <div className="flex justify-end">
+                <AdminHelpIconButton
+                  helpKey="admin.settings.accounts.field.issueMethod"
+                  title="발급 방식"
+                  size="xs"
+                />
+              </div>
               <label className="flex items-start gap-2 text-sm">
                 <input
                   type="checkbox"

@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import {
   CAREER_ENHANCEMENT_STATUSES,
@@ -115,6 +116,15 @@ const PART_TYPE_BY_TAB: Record<SubmissionTabKey, Cluster4LinePartType> = {
   work_exp: "experience",
   work_ability: "competency",
   work_career: "career",
+};
+
+// 요소별 도움말 네임스페이스 — 허브(파트 타입)별로 갈라 각 편집기 필드가 고유 키를 갖게 한다.
+//   admin.crews.cluster4.activity.<info|experience|ability|career>.field.*
+const ACTIVITY_HELP_NS: Record<Cluster4LinePartType, string> = {
+  info: "admin.crews.cluster4.activity.info",
+  experience: "admin.crews.cluster4.activity.experience",
+  competency: "admin.crews.cluster4.activity.ability",
+  career: "admin.crews.cluster4.activity.career",
 };
 
 const TAB_LABEL: Record<SubmissionTabKey, string> = {
@@ -508,7 +518,13 @@ export default function ActivityTab({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">활동</CardTitle>
+        <CardTitle className="inline-flex items-center gap-1.5 text-base">
+          활동
+          <AdminHelpIconButton
+            helpKey="admin.crews.cluster4.activity.section.overview"
+            size="sm"
+          />
+        </CardTitle>
         <p className="text-xs text-muted-foreground">
           Cluster4-card 4개 허브(Work Info / Ability / Exp / Career)의 운영 편집 영역입니다.
           개설·배정된 라인(line target) 슬롯의 제출값을 편집하며, 운영자는 작성기간과
@@ -564,11 +580,15 @@ export default function ActivityTab({
         ) : (
           <div className="flex flex-col gap-6">
             <section className="flex flex-col gap-2">
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
                 카드 내용{" "}
                 <span className="font-mono text-xs text-muted-foreground">
                   cluster4_line_submissions
                 </span>
+                <AdminHelpIconButton
+                  helpKey="admin.crews.cluster4.activity.career.section.cardContent"
+                  size="sm"
+                />
               </h3>
               <SubmissionSubPane
                 key="work_career_submissions"
@@ -595,11 +615,15 @@ export default function ActivityTab({
             </section>
 
             <section className="flex flex-col gap-2">
-              <h3 className="text-sm font-semibold text-foreground">
+              <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
                 프로젝트 기록{" "}
                 <span className="font-mono text-xs text-muted-foreground">
                   career_records
                 </span>
+                <AdminHelpIconButton
+                  helpKey="admin.crews.cluster4.activity.career.section.projectRecords"
+                  size="sm"
+                />
               </h3>
               <CareerSubPane
                 rows={visibleCareerRows}
@@ -846,6 +870,8 @@ function SubmissionSlotCard({
   const isSubmitted = row.submissionId !== null;
   const updated = row.updatedAt ? row.updatedAt.slice(0, 10) : null;
   const headerTitle = `${row.mainTitle} · ${getWeekLabel(row.weekId)}`;
+  // 허브(파트 타입)별 도움말 네임스페이스 — 공용 슬롯 카드가 편집기별 고유 키를 갖게 한다.
+  const helpNs = ACTIVITY_HELP_NS[row.partType];
 
   return (
     <div
@@ -927,7 +953,7 @@ function SubmissionSlotCard({
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <FieldLabel>subtitle</FieldLabel>
+              <FieldLabel helpKey={`${helpNs}.field.subtitle`}>subtitle</FieldLabel>
               <textarea
                 value={row.subtitle}
                 onChange={(event) =>
@@ -944,7 +970,7 @@ function SubmissionSlotCard({
             </div>
 
             <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <FieldLabel>growthPoint</FieldLabel>
+              <FieldLabel helpKey={`${helpNs}.field.growthPoint`}>growthPoint</FieldLabel>
               <textarea
                 value={row.growth_point}
                 onChange={(event) =>
@@ -964,6 +990,7 @@ function SubmissionSlotCard({
               <OutputLinksEditor
                 links={row.outputLinks}
                 disabled={rowDisabled}
+                helpKey={`${helpNs}.field.outputLinks`}
                 onChange={(next) =>
                   onChange(row.lineTargetId, { outputLinks: next })
                 }
@@ -974,6 +1001,7 @@ function SubmissionSlotCard({
               <OutputImagesEditor
                 images={row.outputImages}
                 disabled={rowDisabled}
+                helpKey={`${helpNs}.field.outputImages`}
                 onChange={(next) =>
                   onChange(row.lineTargetId, { outputImages: next })
                 }
@@ -993,10 +1021,12 @@ function SubmissionSlotCard({
 function OutputLinksEditor({
   links,
   disabled,
+  helpKey,
   onChange,
 }: {
   links: Cluster4OutputLink[];
   disabled: boolean;
+  helpKey?: string;
   onChange: (next: Cluster4OutputLink[]) => void;
 }) {
   const update = (idx: number, patch: Partial<Cluster4OutputLink>) =>
@@ -1007,7 +1037,7 @@ function OutputLinksEditor({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <FieldLabel>
+        <FieldLabel helpKey={helpKey}>
           outputLinks{" "}
           <span className="font-mono normal-case text-muted-foreground">
             [{links.length}] {`{url, label}`}
@@ -1117,10 +1147,12 @@ function OutputLinksEditor({
 function OutputImagesEditor({
   images,
   disabled,
+  helpKey,
   onChange,
 }: {
   images: Cluster4OutputImage[];
   disabled: boolean;
+  helpKey?: string;
   onChange: (next: Cluster4OutputImage[]) => void;
 }) {
   const update = (idx: number, patch: Partial<Cluster4OutputImage>) =>
@@ -1131,7 +1163,7 @@ function OutputImagesEditor({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
-        <FieldLabel>
+        <FieldLabel helpKey={helpKey}>
           outputImages{" "}
           <span className="font-mono normal-case text-muted-foreground">
             [{images.length}] {`{url, caption}`}
@@ -1426,7 +1458,9 @@ function CareerSubPane({
               {isDraft && (
                 <>
                   <div className="flex flex-col gap-1.5">
-                    <FieldLabel>week (작성 주차)</FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.activity.career.record.field.week">
+                      week (작성 주차)
+                    </FieldLabel>
                     <Select
                       value={row.week_id || "__none__"}
                       onValueChange={(value: string | null) =>
@@ -1450,7 +1484,7 @@ function CareerSubPane({
                     </Select>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <FieldLabel>
+                    <FieldLabel helpKey="admin.crews.cluster4.activity.career.record.field.projectId">
                       {devMode
                         ? "project_id (career_projects.id, UUID)"
                         : "실무 경력 프로젝트 식별값"}
@@ -1474,7 +1508,9 @@ function CareerSubPane({
 
               {!isDraft && project && (
                 <div className="flex flex-col gap-1 sm:col-span-2">
-                  <FieldLabel>프로젝트 정보 (read-only)</FieldLabel>
+                  <FieldLabel helpKey="admin.crews.cluster4.activity.career.record.field.projectInfo">
+                    프로젝트 정보 (read-only)
+                  </FieldLabel>
                   <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs">
                     <div>
                       <span className="text-muted-foreground">company</span>{" "}
@@ -1504,7 +1540,9 @@ function CareerSubPane({
               )}
 
               <div className="flex flex-col gap-1.5">
-                <FieldLabel>enhancement_status</FieldLabel>
+                <FieldLabel helpKey="admin.crews.cluster4.activity.career.record.field.enhancementStatus">
+                  enhancement_status
+                </FieldLabel>
                 <Select
                   value={row.enhancement_status || "__none__"}
                   onValueChange={(value: string | null) =>
@@ -1529,7 +1567,9 @@ function CareerSubPane({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <FieldLabel>grade</FieldLabel>
+                <FieldLabel helpKey="admin.crews.cluster4.activity.career.record.field.grade">
+                  grade
+                </FieldLabel>
                 <Select
                   value={row.grade || "__none__"}
                   onValueChange={(value: string | null) =>
@@ -1554,7 +1594,9 @@ function CareerSubPane({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <FieldLabel>grade_points</FieldLabel>
+                <FieldLabel helpKey="admin.crews.cluster4.activity.career.record.field.gradePoints">
+                  grade_points
+                </FieldLabel>
                 <Input
                   type="number"
                   min={0}
@@ -1570,7 +1612,9 @@ function CareerSubPane({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <FieldLabel>career_code</FieldLabel>
+                <FieldLabel helpKey="admin.crews.cluster4.activity.career.record.field.careerCode">
+                  career_code
+                </FieldLabel>
                 <Input
                   value={row.career_code}
                   onChange={(event) =>
@@ -1589,10 +1633,17 @@ function CareerSubPane({
   );
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function FieldLabel({
+  children,
+  helpKey,
+}: {
+  children: React.ReactNode;
+  helpKey?: string;
+}) {
   return (
-    <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
       {children}
+      {helpKey && <AdminHelpIconButton helpKey={helpKey} size="xs" />}
     </div>
   );
 }

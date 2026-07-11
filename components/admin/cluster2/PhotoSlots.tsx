@@ -2,6 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { cn } from "@/lib/utils";
 
 // 사진 6 슬롯 URL 편집 + 썸네일 미리보기.
@@ -44,6 +45,7 @@ type SlotDef = {
   hint: string;
   kind: SlotKey;
   subIndex?: number; // sub 슬롯만 사용
+  helpKey: string; // 요소별 돋보기 도움말 키
 };
 
 const SLOT_DEFS: readonly SlotDef[] = [
@@ -53,6 +55,7 @@ const SLOT_DEFS: readonly SlotDef[] = [
     operatorLabel: "프로필 사진",
     hint: "user_profiles.profile_photo_url",
     kind: "sidebar",
+    helpKey: "admin.crews.cluster2.photo.field.sidebar",
   },
   {
     key: "main",
@@ -60,6 +63,7 @@ const SLOT_DEFS: readonly SlotDef[] = [
     operatorLabel: "대표 사진",
     hint: "user_introductions.sub_photo_5",
     kind: "main",
+    helpKey: "admin.crews.cluster2.photo.field.main",
   },
   {
     key: "sub_1",
@@ -68,6 +72,7 @@ const SLOT_DEFS: readonly SlotDef[] = [
     hint: "user_introductions.sub_photo_1",
     kind: "sub",
     subIndex: 0,
+    helpKey: "admin.crews.cluster2.photo.field.sub1",
   },
   {
     key: "sub_2",
@@ -76,6 +81,7 @@ const SLOT_DEFS: readonly SlotDef[] = [
     hint: "user_introductions.sub_photo_2",
     kind: "sub",
     subIndex: 1,
+    helpKey: "admin.crews.cluster2.photo.field.sub2",
   },
   {
     key: "sub_3",
@@ -84,6 +90,7 @@ const SLOT_DEFS: readonly SlotDef[] = [
     hint: "user_introductions.sub_photo_3",
     kind: "sub",
     subIndex: 2,
+    helpKey: "admin.crews.cluster2.photo.field.sub3",
   },
   {
     key: "sub_4",
@@ -92,6 +99,7 @@ const SLOT_DEFS: readonly SlotDef[] = [
     hint: "user_introductions.sub_photo_4",
     kind: "sub",
     subIndex: 3,
+    helpKey: "admin.crews.cluster2.photo.field.sub4",
   },
 ];
 
@@ -134,8 +142,13 @@ export default function PhotoSlots({
         const current = readSlot(slot);
         return (
           <div key={slot.key} className="flex flex-col gap-1.5">
-            <Label className="text-xs">
+            <Label className="inline-flex items-center gap-1 text-xs">
               {devMode ? slot.label : slot.operatorLabel}
+              <AdminHelpIconButton
+                helpKey={slot.helpKey}
+                title={slot.operatorLabel}
+                size="xs"
+              />
             </Label>
             <Input
               type="url"

@@ -258,10 +258,21 @@ function pageItems(current: number, total: number): (number | "...")[] {
 }
 
 // 독립 통계 셀 — 라벨(좌) + 값(우, 우측정렬). 그리드로 나열해 박스 전체 폭을 균등 분산한다.
-function SummaryCell({ label, value }: { label: string; value: React.ReactNode }) {
+function SummaryCell({
+  label,
+  value,
+  helpKey,
+}: {
+  label: string;
+  value: React.ReactNode;
+  helpKey?: string;
+}) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-4 rounded-md bg-background/50 px-3 py-2">
-      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+        {label}
+        {helpKey && <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />}
+      </span>
       <span className="shrink-0 text-sm font-semibold tabular-nums">{value}</span>
     </div>
   );
@@ -786,7 +797,14 @@ export default function ProcessUnifiedManager() {
           (제목/라벨/입력의 내부 정렬은 기존 좌측 유지 — 카드 블록만 중앙에 놓는다). */}
       <Card className="mx-auto w-full max-w-[1040px]">
         <CardHeader>
-          <CardTitle>프로세스 등록</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5">
+            프로세스 등록
+            <AdminHelpIconButton
+              helpKey="admin.processes.register.section.registerForm"
+              title="프로세스 등록"
+              size="sm"
+            />
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* [1] 허브 급 — 드롭다운(디폴트 "-"). "-" 상태에서는 등록 불가. */}
@@ -1151,12 +1169,12 @@ export default function ProcessUnifiedManager() {
           넓은 화면=3열×2행(긴 "…포인트 총합" 라벨 + A/B/C 가 찌그러지지 않게 6열 대신 3열 상한),
           중간=2열, 좁은 화면=1열. 값·A/B/C 우측 정렬 유지. 계산/포맷/합산 로직 무변경. */}
       <div className="grid grid-cols-1 gap-x-8 gap-y-2 rounded-lg border bg-muted/30 px-4 py-3 lg:grid-cols-2 xl:grid-cols-3">
-        <SummaryCell label="전체 액트 수" value={`${summary.actCount}개`} />
-        <SummaryCell label="전체 라인급 수" value={`${summary.lineGroupCount}개`} />
-        <SummaryCell label="총합 소요 시간" value={`${summary.totalDurationMinutes}m`} />
-        <SummaryCell label="필수 포인트 총합" value={<PointTripletCells t={summary.required} />} />
-        <SummaryCell label="우수 포인트 총합" value={<PointTripletCells t={summary.excellent} />} />
-        <SummaryCell label="최대 포인트 총합" value={<PointTripletCells t={summary.max} />} />
+        <SummaryCell label="전체 액트 수" value={`${summary.actCount}개`} helpKey="admin.processes.register.stat.actCount" />
+        <SummaryCell label="전체 라인급 수" value={`${summary.lineGroupCount}개`} helpKey="admin.processes.register.stat.lineGroupCount" />
+        <SummaryCell label="총합 소요 시간" value={`${summary.totalDurationMinutes}m`} helpKey="admin.processes.register.stat.totalDuration" />
+        <SummaryCell label="필수 포인트 총합" value={<PointTripletCells t={summary.required} />} helpKey="admin.processes.register.stat.requiredPoint" />
+        <SummaryCell label="우수 포인트 총합" value={<PointTripletCells t={summary.excellent} />} helpKey="admin.processes.register.stat.excellentPoint" />
+        <SummaryCell label="최대 포인트 총합" value={<PointTripletCells t={summary.max} />} helpKey="admin.processes.register.stat.maxPoint" />
       </div>
 
       {/* ── 통합 목록 표 (전체 허브) ── */}

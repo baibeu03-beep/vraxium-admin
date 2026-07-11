@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { cn } from "@/lib/utils";
 
 // Admin editor 공용 field 정의 + 렌더링 부품.
@@ -38,6 +39,9 @@ export type FieldDef = {
   // text/textarea 에 적용. 지정 시 native maxLength + 카운터(`현재/최대`) 표시.
   // 카운터 색상: 0~maxLength-100 normal, ~-1 warning, maxLength reached.
   maxLength?: number;
+  // 선택: 필드 라벨 옆에 요소별 돋보기 도움말(AdminHelpIconButton)을 붙일 helpKey.
+  //   지정 시에만 아이콘 노출 — 미지정 caller 는 영향 없음(비파괴적).
+  helpKey?: string;
 };
 
 // PATCH body 로 보내기 전 값 정규화.
@@ -90,7 +94,18 @@ export function FieldCell({
 
   return (
     <div className={cn("flex flex-col gap-1.5", field.full && "sm:col-span-2")}>
-      <Label className="text-xs">{field.label}</Label>
+      {field.helpKey ? (
+        <Label className="inline-flex items-center gap-1 text-xs">
+          {field.label}
+          <AdminHelpIconButton
+            helpKey={field.helpKey}
+            title={field.label}
+            size="xs"
+          />
+        </Label>
+      ) : (
+        <Label className="text-xs">{field.label}</Label>
+      )}
       <FieldInput
         field={field}
         value={value}

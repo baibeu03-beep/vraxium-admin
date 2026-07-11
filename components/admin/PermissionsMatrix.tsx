@@ -30,6 +30,7 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   USER_FACING_ROLES,
   type PermissionDto,
@@ -253,7 +254,14 @@ export default function PermissionsMatrix() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">역할별 권한</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            역할별 권한
+            <AdminHelpIconButton
+              helpKey="admin.settings.permissions.section.matrix"
+              title="역할별 권한"
+              size="sm"
+            />
+          </CardTitle>
           <CardDescription>
             오른쪽 스위치를 눌러 허용/차단을 바꿉니다. 시계 아이콘이 붙은 권한은 별도로 작성 기간을 열어줘야 실제로 동작합니다.
           </CardDescription>
@@ -261,7 +269,17 @@ export default function PermissionsMatrix() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="cluster-filter">Cluster 필터</Label>
+              <Label
+                htmlFor="cluster-filter"
+                className="inline-flex items-center gap-1"
+              >
+                Cluster 필터
+                <AdminHelpIconButton
+                  helpKey="admin.settings.permissions.filter.cluster"
+                  title="Cluster 필터"
+                  size="xs"
+                />
+              </Label>
               <Select
                 value={clusterFilter}
                 onValueChange={(value: string | null) =>
@@ -288,6 +306,11 @@ export default function PermissionsMatrix() {
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Timer className="h-3.5 w-3.5 text-amber-600" />
               <span>= 작성 기간을 별도로 열어줘야 동작</span>
+              <AdminHelpIconButton
+                helpKey="admin.settings.permissions.badge.editWindow"
+                title="작성 기간 필요 표시"
+                size="xs"
+              />
             </div>
           </div>
 
@@ -302,14 +325,30 @@ export default function PermissionsMatrix() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="sticky left-0 z-20 bg-card min-w-[280px]">
-                    권한
+                    <span className="inline-flex items-center gap-1">
+                      <span>권한</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.permissions.column.permission"
+                        title="권한"
+                        size="xs"
+                      />
+                    </span>
                   </TableHead>
                   {USER_FACING_ROLES.map((role) => (
                     <TableHead
                       key={role}
                       className="whitespace-nowrap text-center"
                     >
-                      {ROLE_LABELS[role]}
+                      <span className="inline-flex items-center gap-1">
+                        <span>{ROLE_LABELS[role]}</span>
+                        {role === "crew" && (
+                          <AdminHelpIconButton
+                            helpKey="admin.settings.permissions.column.role"
+                            title="역할별 허용"
+                            size="xs"
+                          />
+                        )}
+                      </span>
                     </TableHead>
                   ))}
                 </TableRow>

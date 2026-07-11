@@ -32,6 +32,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 import {
   DEFAULT_RESOURCE_KEY,
@@ -479,7 +480,14 @@ export default function EditWindowsManager() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
             <div className="flex flex-col gap-1.5 sm:w-[260px]">
-              <Label htmlFor="resource-key">{devMode ? "리소스" : "작성 항목"}</Label>
+              <Label htmlFor="resource-key" className="inline-flex items-center gap-1">
+                {devMode ? "리소스" : "작성 항목"}
+                <AdminHelpIconButton
+                  helpKey="admin.settings.editWindows.filter.resource"
+                  title="작성 항목"
+                  size="xs"
+                />
+              </Label>
               <Select
                 value={resourceKey}
                 onValueChange={(value: string | null) => {
@@ -505,7 +513,14 @@ export default function EditWindowsManager() {
             </div>
             {weekScoped && (
               <div className="flex flex-col gap-1.5 sm:w-[260px]">
-                <Label htmlFor="week-select">{devMode ? "주차 (week_id)" : "주차"}</Label>
+                <Label htmlFor="week-select" className="inline-flex items-center gap-1">
+                  {devMode ? "주차 (week_id)" : "주차"}
+                  <AdminHelpIconButton
+                    helpKey="admin.settings.editWindows.filter.week"
+                    title="주차"
+                    size="xs"
+                  />
+                </Label>
                 <Select
                   value={selectedWeekId ?? ""}
                   onValueChange={(value: string | null) => {
@@ -541,7 +556,14 @@ export default function EditWindowsManager() {
               </div>
             )}
             <div className="flex flex-col gap-1.5 sm:flex-1">
-              <Label htmlFor="user-search">{devMode ? "사용자 검색" : "회원 검색"}</Label>
+              <Label htmlFor="user-search" className="inline-flex items-center gap-1">
+                {devMode ? "사용자 검색" : "회원 검색"}
+                <AdminHelpIconButton
+                  helpKey="admin.settings.editWindows.filter.search"
+                  title="회원 검색"
+                  size="xs"
+                />
+              </Label>
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -662,15 +684,85 @@ export default function EditWindowsManager() {
                     <span className="sr-only">선택</span>
                   </TableHead>
                   <TableHead className="sticky left-10 z-20 bg-card border-r">
-                    {devMode ? "이름 / user_id" : "이름"}
+                    <span className="inline-flex items-center gap-1">
+                      <span>{devMode ? "이름 / user_id" : "이름"}</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.editWindows.column.name"
+                        title="이름"
+                        size="xs"
+                      />
+                    </span>
                   </TableHead>
-                  <TableHead>{devMode ? "auth_email" : "로그인 이메일"}</TableHead>
-                  <TableHead>소속</TableHead>
-                  <TableHead>상태</TableHead>
-                  <TableHead>기간</TableHead>
-                  <TableHead className="w-[320px]">액션</TableHead>
-                  <TableHead>수정자</TableHead>
-                  <TableHead>수정일시</TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>{devMode ? "auth_email" : "로그인 이메일"}</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.editWindows.column.email"
+                        title="로그인 이메일"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>소속</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.editWindows.column.organization"
+                        title="소속"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>상태</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.editWindows.column.status"
+                        title="작성 상태"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>기간</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.editWindows.column.period"
+                        title="작성 기간"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead className="w-[320px]">
+                    <span className="inline-flex items-center gap-1">
+                      <span>액션</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.editWindows.column.action"
+                        title="액션"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>수정자</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.editWindows.column.editor"
+                        title="수정자"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      <span>수정일시</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.settings.editWindows.column.updatedAt"
+                        title="수정일시"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1148,8 +1240,13 @@ function EditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="window-opened">
+              <Label htmlFor="window-opened" className="inline-flex items-center gap-1">
                 {devMode ? "시작 (opened_at)" : "시작 시각"}
+                <AdminHelpIconButton
+                  helpKey="admin.settings.editWindows.field.openedAt"
+                  title="시작 시각"
+                  size="xs"
+                />
               </Label>
               <Input
                 id="window-opened"
@@ -1160,8 +1257,13 @@ function EditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="window-expires">
+              <Label htmlFor="window-expires" className="inline-flex items-center gap-1">
                 {devMode ? "종료 (expires_at)" : "종료 시각"}
+                <AdminHelpIconButton
+                  helpKey="admin.settings.editWindows.field.expiresAt"
+                  title="종료 시각"
+                  size="xs"
+                />
               </Label>
               <Input
                 id="window-expires"
@@ -1172,8 +1274,13 @@ function EditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="window-note">
+              <Label htmlFor="window-note" className="inline-flex items-center gap-1">
                 {devMode ? "메모 (note)" : "메모"}
+                <AdminHelpIconButton
+                  helpKey="admin.settings.editWindows.field.note"
+                  title="메모"
+                  size="xs"
+                />
               </Label>
               <Input
                 id="window-note"
@@ -1393,8 +1500,13 @@ function BulkEditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bulk-window-opened">
+              <Label htmlFor="bulk-window-opened" className="inline-flex items-center gap-1">
                 {devMode ? "시작 (opened_at)" : "시작 시각"}
+                <AdminHelpIconButton
+                  helpKey="admin.settings.editWindows.field.bulkOpenedAt"
+                  title="시작 시각"
+                  size="xs"
+                />
               </Label>
               <Input
                 id="bulk-window-opened"
@@ -1405,8 +1517,13 @@ function BulkEditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bulk-window-expires">
+              <Label htmlFor="bulk-window-expires" className="inline-flex items-center gap-1">
                 {devMode ? "종료 (expires_at)" : "종료 시각"}
+                <AdminHelpIconButton
+                  helpKey="admin.settings.editWindows.field.bulkExpiresAt"
+                  title="종료 시각"
+                  size="xs"
+                />
               </Label>
               <Input
                 id="bulk-window-expires"
@@ -1417,8 +1534,13 @@ function BulkEditWindowDrawerInner({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bulk-window-note">
+              <Label htmlFor="bulk-window-note" className="inline-flex items-center gap-1">
                 {devMode ? "메모 (note)" : "메모"}
+                <AdminHelpIconButton
+                  helpKey="admin.settings.editWindows.field.bulkNote"
+                  title="메모"
+                  size="xs"
+                />
               </Label>
               <Input
                 id="bulk-window-note"

@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   Table,
   TableBody,
@@ -415,12 +416,42 @@ export default function CareerProjectsManager() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[36%]">회사 · 프로젝트 · 직무</TableHead>
-                    <TableHead>라인</TableHead>
-                    <TableHead>주차</TableHead>
-                    <TableHead>생성</TableHead>
-                    <TableHead>수정</TableHead>
-                    <TableHead>액션</TableHead>
+                    <TableHead className="w-[36%]">
+                      <span className="inline-flex items-center gap-1">
+                        <span>회사 · 프로젝트 · 직무</span>
+                        <AdminHelpIconButton helpKey="admin.careerProjects.column.company" title="회사 · 프로젝트 · 직무" size="xs" />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        <span>라인</span>
+                        <AdminHelpIconButton helpKey="admin.careerProjects.column.line" title="라인" size="xs" />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        <span>주차</span>
+                        <AdminHelpIconButton helpKey="admin.careerProjects.column.weeks" title="주차" size="xs" />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        <span>생성</span>
+                        <AdminHelpIconButton helpKey="admin.careerProjects.column.createdAt" title="생성일" size="xs" />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        <span>수정</span>
+                        <AdminHelpIconButton helpKey="admin.careerProjects.column.updatedAt" title="수정일" size="xs" />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        <span>액션</span>
+                        <AdminHelpIconButton helpKey="admin.careerProjects.column.actions" title="액션" size="xs" />
+                      </span>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -736,8 +767,9 @@ function ProjectForm({ form, onChange, readOnly }: FormProps) {
   return (
     <div className="flex flex-col gap-5">
       <section className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           회사 · 직무
+          <AdminHelpIconButton helpKey="admin.careerProjects.section.company" title="회사 · 직무" size="sm" />
         </h3>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Field
@@ -745,6 +777,7 @@ function ProjectForm({ form, onChange, readOnly }: FormProps) {
             value={form.companyName}
             onChange={(value) => onChange("companyName", value)}
             disabled={readOnly}
+            helpKey="admin.careerProjects.field.companyName"
           />
           <Field
             label="회사 로고 URL"
@@ -752,19 +785,22 @@ function ProjectForm({ form, onChange, readOnly }: FormProps) {
             onChange={(value) => onChange("companyLogoUrl", value)}
             disabled={readOnly}
             placeholder="https://…"
+            helpKey="admin.careerProjects.field.companyLogoUrl"
           />
           <Field
             label="직무"
             value={form.jobPosition}
             onChange={(value) => onChange("jobPosition", value)}
             disabled={readOnly}
+            helpKey="admin.careerProjects.field.jobPosition"
           />
         </div>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           프로젝트
+          <AdminHelpIconButton helpKey="admin.careerProjects.section.project" title="프로젝트" size="sm" />
         </h3>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Field
@@ -772,18 +808,21 @@ function ProjectForm({ form, onChange, readOnly }: FormProps) {
             value={form.projectName}
             onChange={(value) => onChange("projectName", value)}
             disabled={readOnly}
+            helpKey="admin.careerProjects.field.projectName"
           />
           <Field
             label="라인 코드"
             value={form.lineCode}
             onChange={(value) => onChange("lineCode", value)}
             disabled={readOnly}
+            helpKey="admin.careerProjects.field.lineCode"
           />
           <Field
             label="라인명"
             value={form.lineName}
             onChange={(value) => onChange("lineName", value)}
             disabled={readOnly}
+            helpKey="admin.careerProjects.field.lineName"
           />
           <Field
             label="2차 정보 마감(secondary_info_deadline)"
@@ -791,6 +830,7 @@ function ProjectForm({ form, onChange, readOnly }: FormProps) {
             onChange={(value) => onChange("secondaryInfoDeadline", value)}
             disabled={readOnly}
             type="datetime-local"
+            helpKey="admin.careerProjects.field.secondaryInfoDeadline"
           />
         </div>
         <TextareaField
@@ -799,12 +839,14 @@ function ProjectForm({ form, onChange, readOnly }: FormProps) {
           onChange={(value) => onChange("projectDescription", value)}
           disabled={readOnly}
           rows={3}
+          helpKey="admin.careerProjects.field.projectDescription"
         />
       </section>
 
       <section className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           슈퍼바이저
+          <AdminHelpIconButton helpKey="admin.careerProjects.section.supervisor" title="슈퍼바이저" size="sm" />
         </h3>
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Field
@@ -812,24 +854,28 @@ function ProjectForm({ form, onChange, readOnly }: FormProps) {
             value={form.supervisorName}
             onChange={(value) => onChange("supervisorName", value)}
             disabled={readOnly}
+            helpKey="admin.careerProjects.field.supervisorName"
           />
           <Field
             label="직책"
             value={form.supervisorPosition}
             onChange={(value) => onChange("supervisorPosition", value)}
             disabled={readOnly}
+            helpKey="admin.careerProjects.field.supervisorPosition"
           />
           <Field
             label="부서"
             value={form.supervisorDepartment}
             onChange={(value) => onChange("supervisorDepartment", value)}
             disabled={readOnly}
+            helpKey="admin.careerProjects.field.supervisorDepartment"
           />
           <Field
             label="회사"
             value={form.supervisorCompany}
             onChange={(value) => onChange("supervisorCompany", value)}
             disabled={readOnly}
+            helpKey="admin.careerProjects.field.supervisorCompany"
           />
           <Field
             label="프로필 이미지 URL"
@@ -837,13 +883,15 @@ function ProjectForm({ form, onChange, readOnly }: FormProps) {
             onChange={(value) => onChange("supervisorProfileImg", value)}
             disabled={readOnly}
             placeholder="https://…"
+            helpKey="admin.careerProjects.field.supervisorProfileImg"
           />
         </div>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <h3 className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           2차 정보 (JSON)
+          <AdminHelpIconButton helpKey="admin.careerProjects.section.secondaryInfo" title="2차 정보 (JSON)" size="sm" />
         </h3>
         <p className="text-xs text-muted-foreground">
           각 필드는 유효한 JSON 문자열이어야 합니다. 비우면 빈 배열로 저장됩니다.
@@ -855,6 +903,7 @@ function ProjectForm({ form, onChange, readOnly }: FormProps) {
           disabled={readOnly}
           rows={4}
           mono
+          helpKey="admin.careerProjects.field.outputLinks"
         />
         <TextareaField
           label="output_images"
@@ -863,6 +912,7 @@ function ProjectForm({ form, onChange, readOnly }: FormProps) {
           disabled={readOnly}
           rows={4}
           mono
+          helpKey="admin.careerProjects.field.outputImages"
         />
         <TextareaField
           label="company_homepage_links"
@@ -871,6 +921,7 @@ function ProjectForm({ form, onChange, readOnly }: FormProps) {
           disabled={readOnly}
           rows={4}
           mono
+          helpKey="admin.careerProjects.field.companyHomepageLinks"
         />
       </section>
     </div>
@@ -884,6 +935,7 @@ function Field({
   disabled,
   placeholder,
   type = "text",
+  helpKey,
 }: {
   label: string;
   value: string;
@@ -891,10 +943,14 @@ function Field({
   disabled?: boolean;
   placeholder?: string;
   type?: string;
+  helpKey?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs">{label}</Label>
+      <Label className="inline-flex items-center gap-1 text-xs">
+        {label}
+        {helpKey && <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />}
+      </Label>
       <Input
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -913,6 +969,7 @@ function TextareaField({
   disabled,
   rows = 3,
   mono = false,
+  helpKey,
 }: {
   label: string;
   value: string;
@@ -920,10 +977,14 @@ function TextareaField({
   disabled?: boolean;
   rows?: number;
   mono?: boolean;
+  helpKey?: string;
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <Label className="text-xs">{label}</Label>
+      <Label className="inline-flex items-center gap-1 text-xs">
+        {label}
+        {helpKey && <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />}
+      </Label>
       <textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -1041,13 +1102,22 @@ function WeekScheduler({
   return (
     <div className="flex h-full max-h-[80vh] flex-col">
       <div className="border-b px-5 py-3">
-        <h3 className="text-sm font-semibold">주차 스케줄</h3>
+        <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold">
+          주차 스케줄
+          <AdminHelpIconButton helpKey="admin.careerProjects.section.weekSchedule" title="주차 스케줄" size="sm" />
+        </h3>
         <p className="text-xs text-muted-foreground">
           전체 주차 위에 연결/활성 상태를 토글합니다. 연결: 행 존재, 활성: is_active=true.
         </p>
         <div className="mt-2 flex gap-3 text-xs text-muted-foreground">
-          <span>연결 {attachedCount}</span>
-          <span>활성 {activeCount}</span>
+          <span className="inline-flex items-center gap-1">
+            연결 {attachedCount}
+            <AdminHelpIconButton helpKey="admin.careerProjects.stat.attached" title="연결" size="xs" />
+          </span>
+          <span className="inline-flex items-center gap-1">
+            활성 {activeCount}
+            <AdminHelpIconButton helpKey="admin.careerProjects.stat.active" title="활성" size="xs" />
+          </span>
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-3">
