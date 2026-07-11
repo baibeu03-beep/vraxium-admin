@@ -5,6 +5,7 @@
 // 깨지지 않게 한다. SoT 는 user_id(UUID) — crew_no 는 표시/검색 보조 키.
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { IN_FILTER_ID_CHUNK } from "@/lib/supabaseInChunk";
 
 function isMissingColumn(error: { code?: string; message?: string }): boolean {
   const msg = error.message ?? "";
@@ -15,7 +16,8 @@ function isMissingColumn(error: { code?: string; message?: string }): boolean {
   );
 }
 
-// userId → crew_no 맵. 미적용/오류 시 빈 맵(graceful). PostgREST .in() 1000행 cap 대비 청크 순회.
+// userId → crew_no 맵. 미적용/오류 시 빈 맵(graceful).
+//   청크: 요청 URL 길이 상한(IN_FILTER_ID_CHUNK) — 500개 .in() 은 URL ~18KB 로 fetch 실패/30s 지연.
 export async function fetchCrewNoMap(
   userIds: string[],
 ): Promise<Map<string, number>> {
@@ -23,7 +25,7 @@ export async function fetchCrewNoMap(
   const ids = Array.from(new Set(userIds.filter(Boolean)));
   if (ids.length === 0) return map;
 
-  const CHUNK = 500;
+  const CHUNK = IN_FILTER_ID_CHUNK;
   for (let i = 0; i < ids.length; i += CHUNK) {
     const slice = ids.slice(i, i + CHUNK);
     const { data, error } = await supabaseAdmin

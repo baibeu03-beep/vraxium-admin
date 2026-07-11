@@ -7,6 +7,7 @@
 //   crew_no(4자리 일련번호)와는 별개 컬럼 — 서로 대체하지 않는다([[project_english-name-column]] 유사 패턴).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { IN_FILTER_ID_CHUNK } from "@/lib/supabaseInChunk";
 
 function isMissingColumn(error: { code?: string; message?: string }): boolean {
   const msg = error.message ?? "";
@@ -17,7 +18,8 @@ function isMissingColumn(error: { code?: string; message?: string }): boolean {
   );
 }
 
-// userId → crew_code 맵. 미적용/오류 시 빈 맵(graceful). PostgREST .in() 1000행 cap 대비 청크 순회.
+// userId → crew_code 맵. 미적용/오류 시 빈 맵(graceful).
+//   청크: 요청 URL 길이 상한(IN_FILTER_ID_CHUNK) — 500개 .in() 은 URL ~18KB 로 fetch 실패/30s 지연.
 //   crew_code 가 NULL 인(미생성) 행은 맵에 넣지 않는다 → 호출부는 crewCode=null 로 "-" 표시.
 export async function fetchCrewCodeMap(
   userIds: string[],
@@ -26,7 +28,7 @@ export async function fetchCrewCodeMap(
   const ids = Array.from(new Set(userIds.filter(Boolean)));
   if (ids.length === 0) return map;
 
-  const CHUNK = 500;
+  const CHUNK = IN_FILTER_ID_CHUNK;
   for (let i = 0; i < ids.length; i += CHUNK) {
     const slice = ids.slice(i, i + CHUNK);
     const { data, error } = await supabaseAdmin

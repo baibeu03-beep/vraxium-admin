@@ -17,6 +17,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchCrewNoMap } from "@/lib/adminCrewNo";
 import { fetchCrewCodeMap } from "@/lib/adminCrewCode";
+import { IN_FILTER_ID_CHUNK } from "@/lib/supabaseInChunk";
 
 export type CrewRecord = {
   userId: string;
@@ -252,8 +253,8 @@ export async function loadCrewRecordsByUserIds(
   const ids = Array.from(new Set(userIds.filter((id) => id)));
   if (ids.length === 0) return [];
   const rows: CrewProfileRow[] = [];
-  for (let i = 0; i < ids.length; i += 500) {
-    const slice = ids.slice(i, i + 500);
+  for (let i = 0; i < ids.length; i += IN_FILTER_ID_CHUNK) {
+    const slice = ids.slice(i, i + IN_FILTER_ID_CHUNK);
     const { data, error } = await supabaseAdmin
       .from("user_profiles")
       .select(
@@ -289,8 +290,8 @@ async function enrichCrewProfiles(
     string,
     { team_name: string | null; part_name: string | null }
   >();
-  for (let i = 0; i < userIds.length; i += 500) {
-    const slice = userIds.slice(i, i + 500);
+  for (let i = 0; i < userIds.length; i += IN_FILTER_ID_CHUNK) {
+    const slice = userIds.slice(i, i + IN_FILTER_ID_CHUNK);
     const { data } = await supabaseAdmin
       .from("user_memberships")
       .select("user_id,team_name,part_name,is_current")
@@ -314,8 +315,8 @@ async function enrichCrewProfiles(
     { school_name: string | null; major_name_1: string | null }
   >();
   try {
-    for (let i = 0; i < userIds.length; i += 500) {
-      const slice = userIds.slice(i, i + 500);
+    for (let i = 0; i < userIds.length; i += IN_FILTER_ID_CHUNK) {
+      const slice = userIds.slice(i, i + IN_FILTER_ID_CHUNK);
       const { data, error } = await supabaseAdmin
         .from("user_educations")
         .select("user_id,school_name,major_name_1,is_primary,sort_order")

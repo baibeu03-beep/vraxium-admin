@@ -116,14 +116,15 @@ async function loadApplicationRows(
 const lineKey = (r: { competency_line_master_id: string | null; line_name: string }) =>
   r.competency_line_master_id ?? `name:${r.line_name.trim()}`;
 
-export async function listCompetencyApplications(
-  org: OrganizationSlug,
-  weekId: string,
-): Promise<CompetencyApplicationDto[]> {
-  const rows = await loadApplicationRows(org, weekId);
-  if (rows.length === 0) return [];
-  const records = await loadCrewRecords();
-  const byUser = new Map(records.map((r) => [r.userId, r]));
+// 크루 레코드(userId→record) 맵. 표시값(크루명/팀/학교/코드) resolve 용 — org 스코프면 그 조직 크루만.
+type CrewRecordMap = Map<string, Awaited<ReturnType<typeof loadCrewRecords>>[number]>;
+
+// ── 순수 빌더(공통) — 이미 로드한 rows/records/activeList 로만 DTO 를 만든다(추가 DB 호출 없음) ──
+//   list/summary/results 가 같은 원천을 3중 조회하던 것을 번들에서 1회 로드 후 이 빌더들로 합류시킨다.
+function buildApplicationDtos(
+  rows: AppRow[],
+  byUser: CrewRecordMap,
+): CompetencyApplicationDto[] {
   return rows.map((r) => {
     const rec = byUser.get(r.target_user_id) ?? null;
     return {
@@ -149,6 +150,19 @@ export async function listCompetencyApplications(
       createdAt: r.created_at,
     };
   });
+}
+
+export async function listCompetencyApplications(
+  org: OrganizationSlug,
+  weekId: string,
+): Promise<CompetencyApplicationDto[]> {
+  const rows = await loadApplicationRows(org, weekId);
+  if (rows.length === 0) return [];
+  // org 스코프 — rows 는 organization_slug=org 로 필터되어 target_user_id 전원이 이 조직 소속.
+  //   전 org 스캔(loadCrewRecords()) 대신 조직 크루만 로드해 불필요한 전체 조회를 제거한다.
+  const records = await loadCrewRecords(org);
+  const byUser: CrewRecordMap = new Map(records.map((r) => [r.userId, r]));
+  return buildApplicationDtos(rows, byUser);
 }
 
 // 신청 명단 기반 개설(resolution='opened')이 1건이라도 있으면 true — 상태창 opened·개설 취소 enable 에 사용.
@@ -184,6 +198,14 @@ export async function getCompetencyApplicationSummary(
       mode,
     }).catch(() => []),
   ]);
+  return buildSummary(rows, activeList);
+}
+
+// 순수 요약 빌더 — 이미 로드한 rows/activeList 로만 계산(추가 DB 호출 없음).
+function buildSummary(
+  rows: AppRow[],
+  activeList: Array<{ userId: string }>,
+): CompetencyApplicationSummary {
   // 활동 크루 = 휴식 제외 + 현재 모드 모집단. 강화 결과 분모 = 활동 크루(미신청 포함).
   const activeIds = new Set(activeList.map((c) => c.userId));
   const activeCrews = activeIds.size;
@@ -252,9 +274,24 @@ export async function getCompetencyLineResults(
       status: "active",
       mode,
     }).catch(() => []),
-    loadCrewRecords().catch(() => []),
+    // org 스코프 — 활동 크루/신청자 전원이 이 조직 소속. 전 org 스캔 대신 조직 크루만 로드.
+    loadCrewRecords(org).catch(() => []),
   ]);
-  const byUser = new Map(records.map((r) => [r.userId, r]));
+  const byUser: CrewRecordMap = new Map(records.map((r) => [r.userId, r]));
+  return buildResults(rows, activeList, byUser);
+}
+
+// 순수 결과 빌더 — 이미 로드한 rows/activeList/records 로만 계산(추가 DB 호출 없음).
+function buildResults(
+  rows: AppRow[],
+  activeList: Array<{
+    userId: string;
+    crewNo?: number | null;
+    displayName?: string | null;
+    teamName?: string | null;
+  }>,
+  byUser: CrewRecordMap,
+): CompetencyLineResultDto[] {
   // 활동 대상 크루 = 휴식 제외 + 현재 모드 모집단 (집계 카드 분모와 동일).
   const activeCrew = activeList;
 
@@ -304,6 +341,36 @@ export async function getCompetencyLineResults(
     return a.displayName.localeCompare(b.displayName, "ko");
   });
   return results;
+}
+
+// ── 라인 개설 화면 단일 조회(번들) ─────────────────────────────────────────────
+// GET /api/admin/cluster4/competency/applications 는 applications/summary/results 를 함께 반환한다.
+// 세 값은 모두 같은 원천(신청 rows + 활동 크루 명부 + 크루 레코드)에서 나오므로, 예전처럼 3함수를
+// 각각 호출하면 loadApplicationRows ×3 · listCrewsForTargetSelection ×2 · loadCrewRecords ×2(전 org 스캔)
+// 로 동일 데이터를 동시 중복 조회했다(커넥션 포화 → fetch 실패 · 지연). 여기서 각 원천을 1회만 로드해
+// 순수 빌더로 합류시킨다 — 운영/테스트 동일 경로·동일 DTO(입력 mode 만 다름), 결과는 3함수 개별 호출과 동일.
+export async function getCompetencyApplicationsBundle(
+  org: OrganizationSlug,
+  weekId: string,
+  mode: ScopeMode = "operating",
+): Promise<{
+  applications: CompetencyApplicationDto[];
+  summary: CompetencyApplicationSummary;
+  results: CompetencyLineResultDto[];
+}> {
+  const [rows, activeList, records] = await Promise.all([
+    loadApplicationRows(org, weekId),
+    // 활동 크루 모집단 = QA_HIDE_REAL_USERS 스위치 기준(operating=실사용자 / test=test_user_markers).
+    listCrewsForTargetSelection({ organization: org, status: "active", mode }).catch(() => []),
+    // org 스코프 — rows(organization_slug=org)·activeList 모두 이 조직 소속이라 조직 크루만 로드하면 충분.
+    loadCrewRecords(org).catch(() => []),
+  ]);
+  const byUser: CrewRecordMap = new Map(records.map((r) => [r.userId, r]));
+  return {
+    applications: rows.length === 0 ? [] : buildApplicationDtos(rows, byUser),
+    summary: buildSummary(rows, activeList),
+    results: buildResults(rows, activeList, byUser),
+  };
 }
 
 // 운영자 수동 추가(고객 신청 누락 보완) — source='manual', 라인명/제출 링크 직접 입력.

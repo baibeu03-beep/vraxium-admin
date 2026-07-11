@@ -22,9 +22,7 @@ import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { resolveCluster4TestOpenableWeekStartMs } from "@/lib/cluster4TestWeekPolicy";
 import {
   addManualCompetencyApplication,
-  getCompetencyApplicationSummary,
-  getCompetencyLineResults,
-  listCompetencyApplications,
+  getCompetencyApplicationsBundle,
 } from "@/lib/adminCompetencyApplications";
 import { resolveEffectiveWeek } from "@/lib/adminCompetencyLineOpening";
 import { deriveEndStatus } from "@/lib/growthCore";
@@ -99,11 +97,13 @@ export async function GET(request: NextRequest) {
         },
       });
     }
-    const [applications, summary, results] = await Promise.all([
-      listCompetencyApplications(org, weekId),
-      getCompetencyApplicationSummary(org, weekId, mode),
-      getCompetencyLineResults(org, weekId, mode),
-    ]);
+    // 단일 조회(번들) — applications/summary/results 를 같은 원천에서 1회만 로드해 만든다.
+    //   (기존 3함수 개별 호출의 중복 조회/커넥션 포화 제거. 결과 DTO 는 동일.)
+    const { applications, summary, results } = await getCompetencyApplicationsBundle(
+      org,
+      weekId,
+      mode,
+    );
     return Response.json({ success: true, data: { applications, summary, results, weekId } });
   } catch (error) {
     console.error("[admin/cluster4/competency/applications GET]", error);

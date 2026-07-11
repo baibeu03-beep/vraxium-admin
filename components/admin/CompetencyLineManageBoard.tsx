@@ -272,6 +272,10 @@ export default function CompetencyLineManageBoard({
   // 선택 주차 기준 집계 조회 — 라인 개설 탭과 동일 endpoint/DTO(week_id 만 추가).
   useEffect(() => {
     if (!org || !weeksReady) return;
+    // 주차 옵션이 있으면 기본 선택(defaultWeekId)이 적용될 때까지 대기 — selectedWeekId 가 아직 ""
+    //   인 채로 먼저 조회하면 "week_id 없음"으로 한 번, 직후 defaultWeekId 로 또 한 번(중복 2회) 나간다.
+    //   옵션이 아예 없을 때만 빈 주차로 1회 조회(서버가 개설 대상 주차로 fallback).
+    if (!selectedWeekId && weekOptions.length > 0) return;
     let cancelled = false;
     void (async () => {
       if (!cancelled) setLoading(true);
@@ -298,7 +302,7 @@ export default function CompetencyLineManageBoard({
     return () => {
       cancelled = true;
     };
-  }, [org, mode, selectedWeekId, weeksReady, refreshKey]);
+  }, [org, mode, selectedWeekId, weeksReady, weekOptions.length, refreshKey]);
 
   const selectedWeek = weekOptions.find((w) => w.id === selectedWeekId) ?? null;
 
