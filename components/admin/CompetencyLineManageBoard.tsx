@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatClubDateTime } from "@/lib/clubDate";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -15,6 +15,7 @@ import {
 import PracticalInfoCurrentSituation from "@/components/admin/PracticalInfoCurrentSituation";
 import { useLineManageWeekOptions } from "@/lib/lineManageWeekOptions";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 
 // 실무 역량 [라인 관리] 탭 — 상단 보드.
 //   "[실무 역량] Hub" 제목 + 현재 상황(오늘/개설 필요/개설 이행 기간, practical-info 공용) +
@@ -58,14 +59,155 @@ function formatAppliedAt(iso: string | null): string {
   return formatClubDateTime(iso);
 }
 
+// ── 테이블 컬럼 정의(헤더 라벨 · 도움말 키 · 정렬 기준) — RestManagementManager 와 동일 패턴 ──
+//   · 모든 org / mode=test 가 이 단일 배열을 공유(모드 분기 없음).
+//   · 정렬 기준은 표시 문자열이 아니라 실제 값: 라인 결과=업무 순서(enum), 신청 시간=timestamp(ISO),
+//     크루/팀/학교/진행 라인=한글 locale 문자열(빈값은 방향 무관 항상 뒤).
+type ColKey =
+  | "crewCode"
+  | "crewName"
+  | "team"
+  | "school"
+  | "progressLine"
+  | "result"
+  | "appliedAt";
+type SortValue = number | string | null;
+
+// 라인 결과 업무 순서: 강화 성공 → 강화 실패.
+const RESULT_SORT_ORDER: Record<"success" | "fail", number> = {
+  success: 0,
+  fail: 1,
+};
+
+// 빈값 규칙: null/undefined/빈문자열/공백/"-" → null(항상 뒤).
+function emptyToNull(s: string | null | undefined): string | null {
+  if (s == null) return null;
+  const t = s.trim();
+  return t === "" || t === "-" ? null : t;
+}
+
+type ColumnDef = {
+  key: ColKey;
+  label: string;
+  helpKey: string;
+  sortValue: (row: CrewResult) => SortValue;
+};
+
+const COLUMNS: ColumnDef[] = [
+  {
+    key: "crewCode",
+    label: "크루 코드",
+    helpKey: "admin.lineOpening.competency.manage.column.crewCode",
+    sortValue: (r) => emptyToNull(r.crewCode),
+  },
+  {
+    key: "crewName",
+    label: "크루명",
+    helpKey: "admin.lineOpening.competency.manage.column.crewName",
+    sortValue: (r) => emptyToNull(r.displayName),
+  },
+  {
+    key: "team",
+    label: "소속 팀",
+    helpKey: "admin.lineOpening.competency.manage.column.team",
+    sortValue: (r) => emptyToNull(r.teamName),
+  },
+  {
+    key: "school",
+    label: "학교",
+    helpKey: "admin.lineOpening.competency.manage.column.school",
+    sortValue: (r) => emptyToNull(r.schoolName),
+  },
+  {
+    key: "progressLine",
+    label: "진행 라인",
+    helpKey: "admin.lineOpening.competency.manage.column.progressLine",
+    sortValue: (r) => emptyToNull(r.progressLine),
+  },
+  {
+    key: "result",
+    label: "라인 결과",
+    helpKey: "admin.lineOpening.competency.manage.column.result",
+    sortValue: (r) => RESULT_SORT_ORDER[r.result],
+  },
+  {
+    key: "appliedAt",
+    label: "신청 시간",
+    helpKey: "admin.lineOpening.competency.manage.column.appliedAt",
+    // 표시 문자열이 아니라 실제 timestamp(ISO)로 정렬.
+    sortValue: (r) => r.appliedAt ?? null,
+  },
+];
+
+// null/빈값/"-" 은 방향 무관 항상 뒤. 숫자는 숫자, 문자열은 한글 locale.
+function compareSortValues(
+  a: SortValue,
+  b: SortValue,
+  dir: "asc" | "desc",
+): number {
+  const aEmpty = a == null || a === "";
+  const bEmpty = b == null || b === "";
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  let c: number;
+  if (typeof a === "number" && typeof b === "number") c = a - b;
+  else c = String(a).localeCompare(String(b), "ko");
+  return dir === "asc" ? c : -c;
+}
+
+// 컬럼 헤더(plain <th>): 정렬 트리거(button)와 도움말(button)을 형제로 둔다(버튼 중첩 방지).
+function ColumnHeader({
+  col,
+  dir,
+  onSort,
+}: {
+  col: ColumnDef;
+  dir: "asc" | "desc" | null;
+  onSort: () => void;
+}) {
+  return (
+    <th
+      className="px-3 py-2 font-medium"
+      aria-sort={
+        dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
+      }
+    >
+      <div className="inline-flex items-center gap-1">
+        <button
+          type="button"
+          onClick={onSort}
+          aria-label={`${col.label} 정렬`}
+          className={cn(
+            "inline-flex items-center gap-1 hover:text-foreground",
+            dir && "text-foreground",
+          )}
+        >
+          <span>{col.label}</span>
+          {dir === "asc" ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : dir === "desc" ? (
+            <ArrowDown className="h-3 w-3" />
+          ) : (
+            <ArrowUpDown className="h-3 w-3 opacity-40" />
+          )}
+        </button>
+        <AdminHelpIconButton helpKey={col.helpKey} title={col.label} size="xs" />
+      </div>
+    </th>
+  );
+}
+
 function StatCard({
   label,
   value,
   tone,
+  helpKey,
 }: {
   label: string;
   value: number;
   tone?: "default" | "info" | "success" | "error";
+  helpKey?: string;
 }) {
   return (
     <div
@@ -78,7 +220,12 @@ function StatCard({
       )}
     >
       <p className="text-xl font-bold leading-none">{value}</p>
-      <p className="mt-1 text-[11px] text-muted-foreground">{label}</p>
+      <p className="mt-1 inline-flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
+        {label}
+        {helpKey ? (
+          <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+        ) : null}
+      </p>
     </div>
   );
 }
@@ -155,15 +302,46 @@ export default function CompetencyLineManageBoard({
 
   const selectedWeek = weekOptions.find((w) => w.id === selectedWeekId) ?? null;
 
+  // 컬럼 헤더 클릭 정렬. null = 서버 기본 순서. 클릭 순환: 없음 → 오름차순 → 내림차순 → 기본.
+  const [columnSort, setColumnSort] = useState<{
+    key: ColKey;
+    dir: "asc" | "desc";
+  } | null>(null);
+  const cycleSort = (key: ColKey) =>
+    setColumnSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+
+  // 원본(results)은 mutate 하지 않고 복사본을 정렬. columnSort=null 이면 원본 순서 그대로.
+  const sortedResults = useMemo(() => {
+    if (!columnSort) return results;
+    const col = COLUMNS.find((c) => c.key === columnSort.key);
+    if (!col) return results;
+    const sv = col.sortValue;
+    return [...results].sort((a, b) =>
+      compareSortValues(sv(a), sv(b), columnSort.dir),
+    );
+  }, [results, columnSort]);
+
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">[실무 역량] Hub</h1>
+      <h1 className="inline-flex items-center gap-2 text-2xl font-bold">
+        [실무 역량] Hub
+        <AdminHelpIconButton
+          helpKey="admin.lineOpening.competency.title.hub"
+          title="[실무 역량] Hub"
+          size="sm"
+        />
+      </h1>
 
       {/* 오늘 날짜 / 개설 필요 기간 / 개설 이행 기간 (practical-info 공용·동일 SoT) */}
       <PracticalInfoCurrentSituation />
 
       {/* 주차 선택(좌) + 6 집계 카드(우) — 한 행 */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+        <div className="flex items-center gap-2">
         <div className="relative" ref={menuRef}>
           <button
             type="button"
@@ -216,18 +394,53 @@ export default function CompetencyLineManageBoard({
             </div>
           )}
         </div>
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.competency.filter.week"
+            title="주차 선택"
+            size="sm"
+          />
+        </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {loading ? (
             <LoadingState active variant="inline" />
           ) : (
             <>
-              <StatCard label="활동 크루" value={summary.activeCrews} />
-              <StatCard label="신청 크루" value={summary.appliedCrews} tone="info" />
-              <StatCard label="개설 크루" value={summary.openedCrews} tone="success" />
-              <StatCard label="반려 크루" value={summary.rejectedCrews} tone="error" />
-              <StatCard label="신청 라인" value={summary.appliedLines} tone="info" />
-              <StatCard label="개설 라인" value={summary.openedLines} tone="success" />
+              <StatCard
+                label="활동 크루"
+                value={summary.activeCrews}
+                helpKey="admin.lineOpening.competency.stat.activeCrews"
+              />
+              <StatCard
+                label="신청 크루"
+                value={summary.appliedCrews}
+                tone="info"
+                helpKey="admin.lineOpening.competency.stat.appliedCrews"
+              />
+              <StatCard
+                label="개설 크루"
+                value={summary.openedCrews}
+                tone="success"
+                helpKey="admin.lineOpening.competency.stat.openedCrews"
+              />
+              <StatCard
+                label="반려 크루"
+                value={summary.rejectedCrews}
+                tone="error"
+                helpKey="admin.lineOpening.competency.stat.rejectedCrews"
+              />
+              <StatCard
+                label="신청 라인"
+                value={summary.appliedLines}
+                tone="info"
+                helpKey="admin.lineOpening.competency.stat.appliedLines"
+              />
+              <StatCard
+                label="개설 라인"
+                value={summary.openedLines}
+                tone="success"
+                helpKey="admin.lineOpening.competency.stat.openedLines"
+              />
             </>
           )}
         </div>
@@ -235,15 +448,22 @@ export default function CompetencyLineManageBoard({
 
       {/* 선택 주차의 [실무 역량] 크루별 라인 개설 결과 표 (집계 카드와 동일 DTO 의 results) */}
       <div className="rounded-lg border">
-        <div className="border-b bg-muted/30 px-4 py-2 text-sm font-semibold">
-          크루별 라인 개설 결과
-          {selectedWeek
-            ? ` — ${formatBannerPeriod({
-                year: selectedWeek.year,
-                seasonName: selectedWeek.seasonName,
-                weekNumber: selectedWeek.weekNumber,
-              })}`
-            : ""}
+        <div className="flex items-center gap-1 border-b bg-muted/30 px-4 py-2 text-sm font-semibold">
+          <span>
+            크루별 라인 개설 결과
+            {selectedWeek
+              ? ` — ${formatBannerPeriod({
+                  year: selectedWeek.year,
+                  seasonName: selectedWeek.seasonName,
+                  weekNumber: selectedWeek.weekNumber,
+                })}`
+              : ""}
+          </span>
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.competency.title.manageTable"
+            title="크루별 라인 개설 결과"
+            size="xs"
+          />
         </div>
         {loading ? (
           <LoadingState active />
@@ -256,17 +476,18 @@ export default function CompetencyLineManageBoard({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">크루 코드</th>
-                  <th className="px-3 py-2 font-medium">크루명</th>
-                  <th className="px-3 py-2 font-medium">소속 팀</th>
-                  <th className="px-3 py-2 font-medium">학교</th>
-                  <th className="px-3 py-2 font-medium">진행 라인</th>
-                  <th className="px-3 py-2 font-medium">라인 결과</th>
-                  <th className="px-3 py-2 font-medium">신청 시간</th>
+                  {COLUMNS.map((col) => (
+                    <ColumnHeader
+                      key={col.key}
+                      col={col}
+                      dir={columnSort?.key === col.key ? columnSort.dir : null}
+                      onSort={() => cycleSort(col.key)}
+                    />
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {results.map((r) => (
+                {sortedResults.map((r) => (
                   <tr key={r.userId} className="border-b last:border-0 hover:bg-muted/30">
                     <td className="whitespace-nowrap px-3 py-2 font-mono text-xs text-muted-foreground">
                       {r.crewCode ?? "-"}

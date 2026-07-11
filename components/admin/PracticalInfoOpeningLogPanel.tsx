@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { LoadingState } from "@/components/ui/loading-state";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import {
   formatLogDateTime,
@@ -71,7 +72,14 @@ export default function PracticalInfoOpeningLogPanel({
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">로그창</CardTitle>
+        <CardTitle className="flex items-center gap-1 text-base">
+          로그창
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.info.section.openingLog"
+            title="로그창"
+            size="xs"
+          />
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 space-y-1.5 overflow-y-auto text-sm">
         {loading ? (

@@ -294,30 +294,37 @@ export default function ExperienceLineManageBoard({
         <>
           {/* 주차/요약 행 — 왼쪽: 선택 주차 드롭다운 / 오른쪽: 팀 수·개설 완료·개설 필요. */}
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-            {weekOptions.length > 0 ? (
-              <select
-                className="rounded-md border border-input bg-background px-3 py-2 text-base font-semibold"
-                value={selectedWeekId}
-                onChange={(e) => setSelectedWeekId(e.target.value)}
-                aria-label="주차 선택"
-              >
-                {weekOptions.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {formatBannerPeriod({
-                      year: w.year,
-                      seasonName: w.seasonName,
-                      weekNumber: w.weekNumber,
-                    })}
-                    {w.isOpenTarget ? " · 개설대상" : ""}
-                    {!w.canOpen ? " · 휴식" : ""}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="text-base font-semibold">
-                {weekLabel ?? "주차 정보 없음"}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              {weekOptions.length > 0 ? (
+                <select
+                  className="rounded-md border border-input bg-background px-3 py-2 text-base font-semibold"
+                  value={selectedWeekId}
+                  onChange={(e) => setSelectedWeekId(e.target.value)}
+                  aria-label="주차 선택"
+                >
+                  {weekOptions.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {formatBannerPeriod({
+                        year: w.year,
+                        seasonName: w.seasonName,
+                        weekNumber: w.weekNumber,
+                      })}
+                      {w.isOpenTarget ? " · 개설대상" : ""}
+                      {!w.canOpen ? " · 휴식" : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-base font-semibold">
+                  {weekLabel ?? "주차 정보 없음"}
+                </span>
+              )}
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.experience.filter.week"
+                title="주차 선택"
+                size="xs"
+              />
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <CountBadge label="팀 수" value={data.totals.teamCount} />
               <CountBadge

@@ -43,6 +43,7 @@ import PracticalInfoCurrentSituation from "@/components/admin/PracticalInfoCurre
 import PracticalInfoWeekResults, {
   type SelectedInfoWeekMeta,
 } from "@/components/admin/PracticalInfoWeekResults";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import type { Cluster4InfoLineDetail } from "@/lib/adminCluster4LinesTypes";
 import {
   buildOutputLinksFromForm,
@@ -1720,7 +1721,7 @@ export default function PracticalInfoManager() {
       {mainTab === "open" && (
         <div className="space-y-6">
           {/* 활동 유형 탭 (라인 개설 탭 — 섹션0 대상 활동유형 선택, activeTypeId 공유) */}
-          <div className="flex flex-wrap gap-2 border-b pb-px">
+          <div className="flex flex-wrap items-center gap-2 border-b pb-px">
             {orderedTypes.map((t) => (
               <button
                 key={t.id}
@@ -1736,6 +1737,12 @@ export default function PracticalInfoManager() {
                 {t.name}
               </button>
             ))}
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.info.section.activityTypes"
+              title="활동 유형 탭"
+              size="xs"
+              className="ml-1 mb-1"
+            />
           </div>
 
           {/* [섹션 0] 상태창 + 개설/검수 기록 + 실제 개설 폼.

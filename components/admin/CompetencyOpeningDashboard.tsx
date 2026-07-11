@@ -310,9 +310,19 @@ export default function CompetencyOpeningDashboard() {
             >
               개설
             </Button>
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.competency.action.open"
+              title="개설"
+              size="sm"
+            />
             <Button variant="outline" onClick={handleReset} disabled={acting}>
               초기화
             </Button>
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.competency.action.reset"
+              title="초기화"
+              size="sm"
+            />
             <Button
               variant="outline"
               className="border-red-300 text-red-700 hover:bg-red-50"
@@ -323,6 +333,11 @@ export default function CompetencyOpeningDashboard() {
             >
               개설 취소
             </Button>
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.competency.action.cancel"
+              title="개설 취소"
+              size="sm"
+            />
           </div>
           {!org && (
             <p className="text-sm text-muted-foreground">

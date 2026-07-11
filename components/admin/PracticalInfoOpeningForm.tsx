@@ -19,6 +19,7 @@ import CafeCrewPicker, {
   type CafeCrew,
   type CafeCrewMeta,
 } from "@/components/admin/CafeCrewPicker";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 
 // 실무 정보 라인 개설 폼 — [섹션 0] 하단 실제 개설 영역.
 //   (1) 개설할 주차: getOpenableWeekStartMs(금요일 경계 규칙)로 자동 고정 + disabled.
@@ -555,7 +556,14 @@ export default function PracticalInfoOpeningForm({
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">라인 개설</CardTitle>
+        <CardTitle className="inline-flex items-center gap-1.5 text-base">
+          라인 개설
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.info.title.openingForm"
+            title="라인 개설"
+            size="xs"
+          />
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {banner && (
@@ -578,37 +586,58 @@ export default function PracticalInfoOpeningForm({
 
         {/* 개설 액션 (폼 최상단 · 왼쪽 정렬) — [개설] [초기화] [개설 취소] */}
         <div className="space-y-2 border-b pb-4">
-          <div className="flex flex-wrap justify-start gap-2">
-            <Button
-              type="button"
-              onClick={handleOpenClick}
-              disabled={saving || !canOpen}
-              loading={saving}
-            >
-              개설
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setConfirmReset(true)}
-              disabled={saving}
-            >
-              초기화
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCancelClick}
-              disabled={saving || !openedLine}
-              className="text-red-600 hover:text-red-700"
-              title={
-                openedLine
-                  ? "개설된 라인을 취소(되돌리기)합니다"
-                  : "이 주차·라인에 개설된 라인이 없습니다"
-              }
-            >
-              개설 취소
-            </Button>
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                onClick={handleOpenClick}
+                disabled={saving || !canOpen}
+                loading={saving}
+              >
+                개설
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.info.action.open"
+                title="개설"
+                size="xs"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setConfirmReset(true)}
+                disabled={saving}
+              >
+                초기화
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.info.action.reset"
+                title="초기화"
+                size="xs"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCancelClick}
+                disabled={saving || !openedLine}
+                className="text-red-600 hover:text-red-700"
+                title={
+                  openedLine
+                    ? "개설된 라인을 취소(되돌리기)합니다"
+                    : "이 주차·라인에 개설된 라인이 없습니다"
+                }
+              >
+                개설 취소
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.info.action.cancelOpen"
+                title="개설 취소"
+                size="xs"
+              />
+            </div>
           </div>
           {/* 개설 비활성 사유(복수). 개설 크루 0명은 사유 아님. */}
           {!canOpen && (
@@ -623,9 +652,16 @@ export default function PracticalInfoOpeningForm({
         {/* 1. 개설할 주차 */}
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-semibold">
-              개설 주차 <span className="text-red-500">*</span>
-            </Label>
+            <div className="flex items-center gap-1">
+              <Label className="text-sm font-semibold">
+                개설 주차 <span className="text-red-500">*</span>
+              </Label>
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.info.filter.openingWeek"
+                title="개설 주차"
+                size="xs"
+              />
+            </div>
             {devMode && (
               <label className="flex cursor-pointer items-center gap-1.5 text-xs text-amber-700">
                 <input
@@ -714,9 +750,16 @@ export default function PracticalInfoOpeningForm({
 
         {/* 2. 라인명 — 상단 활동유형 탭에서 선택된 유형의 라인만 후보로 노출(Manager 가 필터). */}
         <section className="space-y-2">
-          <Label className="text-sm font-semibold">
-            라인명 <span className="text-red-500">*</span>
-          </Label>
+          <div className="flex items-center gap-1">
+            <Label className="text-sm font-semibold">
+              라인명 <span className="text-red-500">*</span>
+            </Label>
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.info.filter.lineName"
+              title="라인명"
+              size="xs"
+            />
+          </div>
           <select
             aria-label="라인명"
             className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"

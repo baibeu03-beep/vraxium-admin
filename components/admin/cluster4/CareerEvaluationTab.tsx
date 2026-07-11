@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -44,6 +46,146 @@ const RATING_STATUS_LABEL: Record<
   fail: "강화 실패",
 };
 
+// ── 테이블 컬럼 정의(헤더 라벨 · 도움말 키 · 정렬 기준) ─────────────────────────
+//   · sortValue 가 있는 컬럼만 정렬 가능. 저장(액션) 컬럼은 정렬 제외(도움말만).
+//   · 정렬 기준은 표시 문자열이 아니라 "실제 정렬 가능한 값":
+//       대상자 = 한글 locale 문자열, 등급 = 업무 순서(S>A>B>C>D) enum,
+//       점수 = 숫자(환산 점수), 강화 상태 = 업무 순서 enum. 빈값(미입력)은 항상 뒤.
+type ColKey = "target" | "grade" | "score" | "status" | "save";
+type SortValue = number | string | null;
+
+// 등급 업무 순서: S → A → B → C → D (S 가 최상위).
+const GRADE_SORT_ORDER: Record<CareerGrade, number> = {
+  S: 0,
+  A: 1,
+  B: 2,
+  C: 3,
+  D: 4,
+};
+// 강화 상태 순서: 미평가 → 강화 성공 → 강화 실패.
+const RATING_STATUS_SORT_ORDER: Record<
+  CareerEvaluationTargetDto["ratingStatus"],
+  number
+> = {
+  unevaluated: 0,
+  success: 1,
+  fail: 2,
+};
+
+// 빈값 규칙: null/undefined/빈문자열/공백/"-" 는 모두 동일한 빈값으로 정규화(→ null).
+function emptyToNull(s: string | null | undefined): string | null {
+  if (s == null) return null;
+  const t = s.trim();
+  return t === "" || t === "-" ? null : t;
+}
+
+type ColumnDef = {
+  key: ColKey;
+  label: string;
+  helpKey: string;
+  // 없으면 정렬 불가(액션 전용 컬럼).
+  sortValue?: (row: CareerEvaluationTargetDto) => SortValue;
+};
+
+const COLUMNS: ColumnDef[] = [
+  {
+    key: "target",
+    label: "대상자",
+    helpKey: "admin.career.evaluation.column.target",
+    // 표시와 동일하게 이름(없으면 userId)으로 정렬 — 한글 locale.
+    sortValue: (r) => emptyToNull(r.displayName ?? r.userId),
+  },
+  {
+    key: "grade",
+    label: "등급",
+    helpKey: "admin.career.evaluation.column.grade",
+    sortValue: (r) => (r.grade ? GRADE_SORT_ORDER[r.grade] : null),
+  },
+  {
+    key: "score",
+    label: "점수",
+    helpKey: "admin.career.evaluation.column.score",
+    sortValue: (r) => r.gradePoints ?? null,
+  },
+  {
+    key: "status",
+    label: "강화 상태",
+    helpKey: "admin.career.evaluation.column.enhancementStatus",
+    sortValue: (r) => RATING_STATUS_SORT_ORDER[r.ratingStatus],
+  },
+  {
+    key: "save",
+    label: "저장",
+    helpKey: "admin.career.evaluation.action.save",
+  },
+];
+
+// null/빈값/"-" 은 정렬 방향과 무관하게 항상 뒤로. 숫자는 숫자, 문자열은 한글 locale.
+function compareSortValues(
+  a: SortValue,
+  b: SortValue,
+  dir: "asc" | "desc",
+): number {
+  const aEmpty = a == null || a === "";
+  const bEmpty = b == null || b === "";
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  let c: number;
+  if (typeof a === "number" && typeof b === "number") c = a - b;
+  else c = String(a).localeCompare(String(b), "ko");
+  return dir === "asc" ? c : -c;
+}
+
+// 컬럼 헤더: 정렬 트리거(button)와 도움말(button)을 형제로 둔다(버튼 중첩 방지).
+//   · 액션 컬럼(sortValue 없음)은 정렬 트리거 없이 라벨 + 도움말만.
+function ColumnHeader({
+  col,
+  dir,
+  onSort,
+}: {
+  col: ColumnDef;
+  dir: "asc" | "desc" | null;
+  onSort: () => void;
+}) {
+  const sortable = Boolean(col.sortValue);
+  return (
+    <TableHead
+      aria-sort={
+        dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
+      }
+    >
+      <span className="inline-flex items-center justify-center gap-1">
+        {sortable ? (
+          <button
+            type="button"
+            onClick={onSort}
+            aria-label={`${col.label} 정렬`}
+            className={cn(
+              "inline-flex items-center gap-1 text-sm font-semibold tracking-wide text-muted-foreground hover:text-foreground",
+              dir && "text-foreground",
+            )}
+          >
+            <span>{col.label}</span>
+            {dir === "asc" ? (
+              <ArrowUp className="h-3 w-3" />
+            ) : dir === "desc" ? (
+              <ArrowDown className="h-3 w-3" />
+            ) : (
+              <ArrowUpDown className="h-3 w-3 opacity-40" />
+            )}
+          </button>
+        ) : (
+          <span className="text-sm font-semibold tracking-wide text-muted-foreground">
+            {col.label}
+          </span>
+        )}
+        <AdminHelpIconButton helpKey={col.helpKey} title={col.label} size="xs" />
+      </span>
+    </TableHead>
+  );
+}
+
 // 운영자 평가는 작성기간과 무관(지난 주차도 입력/수정 가능). D(2점)=강화 실패.
 export default function CareerEvaluationTab({
   lines,
@@ -57,6 +199,30 @@ export default function CareerEvaluationTab({
   const [banner, setBanner] = useState<Banner>(null);
   // 행별 grade 선택 임시값 (저장 전).
   const [draftGrade, setDraftGrade] = useState<Record<string, CareerGrade | "">>({});
+  // 컬럼 헤더 클릭 정렬. null = 기본(서버) 순서. 클릭 순환: 없음 → asc → desc → 기본.
+  const [columnSort, setColumnSort] = useState<{
+    key: ColKey;
+    dir: "asc" | "desc";
+  } | null>(null);
+
+  const cycleSort = (key: ColKey) => {
+    setColumnSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null; // 내림차순 다음 클릭 → 기본 순서 복귀
+    });
+  };
+
+  // 원본(targets)은 mutate 하지 않고 복사본을 정렬. columnSort=null 이면 원본 순서 그대로.
+  const sortedTargets = useMemo(() => {
+    if (!columnSort) return targets;
+    const col = COLUMNS.find((c) => c.key === columnSort.key);
+    if (!col?.sortValue) return targets;
+    const sortValue = col.sortValue;
+    return [...targets].sort((a, b) =>
+      compareSortValues(sortValue(a), sortValue(b), columnSort.dir),
+    );
+  }, [targets, columnSort]);
 
   const loadTargets = useCallback(async (lineId: string) => {
     if (!lineId) {
@@ -145,7 +311,14 @@ export default function CareerEvaluationTab({
     <div className="space-y-4">
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">경력 라인 평가</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            경력 라인 평가
+            <AdminHelpIconButton
+              helpKey="admin.career.evaluation.title.card"
+              title="경력 라인 평가"
+              size="xs"
+            />
+          </CardTitle>
           <CardDescription>
             개설된 실무 경력 라인의 대상자별 평점(S/A/B/C/D)을 입력합니다. 점수 환산 S=10·A=8·B=6·C=4·D=2,
             D(2점)는 강화 실패로 처리됩니다. 운영자 평가는 작성기간과 무관하게 입력·수정할 수 있습니다.
@@ -202,39 +375,18 @@ export default function CareerEvaluationTab({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>대상자</TableHead>
-                    <TableHead>
-                      <span className="inline-flex items-center justify-center gap-1">
-                        등급
-                        <AdminHelpIconButton
-                          helpKey="admin.career.evaluation.column.grade"
-                          title="등급 (S/A/B/C/D)"
-                        />
-                      </span>
-                    </TableHead>
-                    <TableHead>
-                      <span className="inline-flex items-center justify-center gap-1">
-                        점수
-                        <AdminHelpIconButton
-                          helpKey="admin.career.evaluation.column.score"
-                          title="점수 (환산)"
-                        />
-                      </span>
-                    </TableHead>
-                    <TableHead>
-                      <span className="inline-flex items-center justify-center gap-1">
-                        강화 상태
-                        <AdminHelpIconButton
-                          helpKey="admin.career.evaluation.column.enhancementStatus"
-                          title="강화 상태"
-                        />
-                      </span>
-                    </TableHead>
-                    <TableHead>저장</TableHead>
+                    {COLUMNS.map((col) => (
+                      <ColumnHeader
+                        key={col.key}
+                        col={col}
+                        dir={columnSort?.key === col.key ? columnSort.dir : null}
+                        onSort={() => cycleSort(col.key)}
+                      />
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {targets.map((t) => {
+                  {sortedTargets.map((t) => {
                     const draft = draftGrade[t.lineTargetId] ?? "";
                     return (
                       <TableRow key={t.lineTargetId}>

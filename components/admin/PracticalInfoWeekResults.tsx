@@ -37,6 +37,7 @@ import {
   isInfoCrewEditableWeek,
 } from "@/lib/cluster4InfoCrewEditWindow";
 import PracticalInfoCrewEditModal from "@/components/admin/PracticalInfoCrewEditModal";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 
 // 실무 정보 — "주차별 개설 결과" (표시 전용 · read-only API).
 //   주차 드롭다운(미래 주차 제외, 기본값=개설 필요 기간) + 요약 카운트 + 라인별 개설 상황 카드.
@@ -208,25 +209,44 @@ export default function PracticalInfoWeekResults({
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 pb-3">
         <div>
-          <CardTitle className="text-lg">주차별 개설 결과</CardTitle>
-          <CardDescription>
+          <CardTitle className="inline-flex items-center gap-1.5 text-lg">
+            주차별 개설 결과
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.info.title.weekResults"
+              title="주차별 개설 결과"
+              size="xs"
+            />
+          </CardTitle>
+          <CardDescription className="inline-flex flex-wrap items-center gap-1">
             선택 주차의 실무 정보 라인 개설 상황. (미래 주차 제외 · 기본값=개설 필요 기간)
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.info.badge.openStatus"
+              title="개설 상태 배지 (개설 완료 · 개설 필요 · 오픈 없음)"
+              size="xs"
+            />
           </CardDescription>
         </div>
-        <select
-          aria-label="개설 결과 주차 선택"
-          className="rounded-md border border-input bg-background px-3 py-2 text-base"
-          value={selectedWeekId}
-          onChange={(e) => onSelectWeek(e.target.value)}
-          disabled={!weeks || options.length === 0}
-        >
-          {options.length === 0 && <option value="">주차 없음</option>}
-          {options.map((w) => (
-            <option key={w.week_id} value={w.week_id}>
-              {weekName(w)} ({weekRange(w)})
-            </option>
-          ))}
-        </select>
+        <div className="flex shrink-0 items-center gap-1">
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.info.filter.weekResults"
+            title="개설 결과 주차 선택"
+            size="xs"
+          />
+          <select
+            aria-label="개설 결과 주차 선택"
+            className="rounded-md border border-input bg-background px-3 py-2 text-base"
+            value={selectedWeekId}
+            onChange={(e) => onSelectWeek(e.target.value)}
+            disabled={!weeks || options.length === 0}
+          >
+            {options.length === 0 && <option value="">주차 없음</option>}
+            {options.map((w) => (
+              <option key={w.week_id} value={w.week_id}>
+                {weekName(w)} ({weekRange(w)})
+              </option>
+            ))}
+          </select>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {weeksError ? (
@@ -304,17 +324,24 @@ export default function PracticalInfoWeekResults({
                           </dl>
                           {/* 개설 대상 크루 수정 — 허용 범위 주차 + lineId 존재 시에만 노출. */}
                           {l.lineId && weekEditable && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="mt-1 w-full"
-                              onClick={() => {
-                                setSavedBanner(null);
-                                setEditTarget(l);
-                              }}
-                            >
-                              <Users className="mr-1.5 h-3.5 w-3.5" /> 개설 대상 크루 수정
-                            </Button>
+                            <div className="mt-1 flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="flex-1"
+                                onClick={() => {
+                                  setSavedBanner(null);
+                                  setEditTarget(l);
+                                }}
+                              >
+                                <Users className="mr-1.5 h-3.5 w-3.5" /> 개설 대상 크루 수정
+                              </Button>
+                              <AdminHelpIconButton
+                                helpKey="admin.lineOpening.info.action.editCrew"
+                                title="개설 대상 크루 수정"
+                                size="xs"
+                              />
+                            </div>
                           )}
                         </>
                       ) : (

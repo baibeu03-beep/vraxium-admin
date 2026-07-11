@@ -2,7 +2,17 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, Search, Plus, X, ExternalLink, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  Search,
+  Plus,
+  X,
+  ExternalLink,
+  Trash2,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +30,7 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatLogPeriodLabel } from "@/lib/practicalInfoSection0Format";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 
 // 실무 역량 [라인 개설] — [해당 크루] 영역.
 //   상단: 요약(활동/신청/개설/반려/신청 라인/개설 라인) + 수동 추가(자동완성 + 추가).
@@ -101,7 +112,7 @@ const EMPTY_SUMMARY: Summary = {
   enhanceFail: 0,
 };
 
-function SummaryChip({ label, value, tone }: { label: string; value: number; tone?: "default" | "success" | "error" | "info" }) {
+function SummaryChip({ label, value, tone, helpKey }: { label: string; value: number; tone?: "default" | "success" | "error" | "info"; helpKey?: string }) {
   return (
     <div
       className={cn(
@@ -113,8 +124,154 @@ function SummaryChip({ label, value, tone }: { label: string; value: number; ton
       )}
     >
       <p className="text-lg font-bold leading-none">{value}</p>
-      <p className="mt-1 text-[11px] text-muted-foreground">{label}</p>
+      <p className="mt-1 inline-flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
+        {label}
+        {helpKey ? (
+          <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
+        ) : null}
+      </p>
     </div>
+  );
+}
+
+// ── 승인 명단 컬럼 정의(라벨 · 도움말 키 · 정렬 기준) — RestManagementManager 와 동일 패턴 ──
+//   · 모든 org / mode=test 공유(모드 분기 없음).
+//   · 승인 명단은 "주차 헤더 + 그 주차 크루"로 그룹핑되므로 정렬은 각 주차 그룹 "내부"에서만 적용
+//     (그룹 순서 보존, stable). 정렬 가능 = 크루명/라인명(한글 locale 문자열, 빈값 항상 뒤).
+//   · 제출 링크(url)·카페/승인(checkbox)·반려 사유/삭제(action)는 정렬 의미가 없어 제외 —
+//     하지만 도움말은 7개 컬럼 전부 부여.
+type AppColKey =
+  | "crew"
+  | "line"
+  | "link"
+  | "cafe"
+  | "approve"
+  | "reject"
+  | "delete";
+type AppSortValue = string | null;
+
+function emptyToNull(s: string | null | undefined): string | null {
+  if (s == null) return null;
+  const t = s.trim();
+  return t === "" || t === "-" ? null : t;
+}
+
+type AppColumnDef = {
+  key: AppColKey;
+  label: string;
+  helpKey: string;
+  headClassName?: string;
+  // 없으면 정렬 불가(정렬 트리거 없이 라벨 + 도움말만).
+  sortValue?: (row: ApplicationDto) => AppSortValue;
+};
+
+const APP_COLUMNS: AppColumnDef[] = [
+  {
+    key: "crew",
+    label: "크루명",
+    helpKey: "admin.lineOpening.competency.applicants.column.crew",
+    sortValue: (a) => emptyToNull(a.crewLabel),
+  },
+  {
+    key: "line",
+    label: "라인명",
+    helpKey: "admin.lineOpening.competency.applicants.column.line",
+    sortValue: (a) => emptyToNull(a.lineName),
+  },
+  {
+    key: "link",
+    label: "제출 링크",
+    helpKey: "admin.lineOpening.competency.applicants.column.submissionLink",
+  },
+  {
+    key: "cafe",
+    label: "카페",
+    helpKey: "admin.lineOpening.competency.applicants.column.cafe",
+    headClassName: "text-center",
+  },
+  {
+    key: "approve",
+    label: "승인",
+    helpKey: "admin.lineOpening.competency.applicants.column.approve",
+    headClassName: "text-center",
+  },
+  {
+    key: "reject",
+    label: "반려 사유",
+    helpKey: "admin.lineOpening.competency.applicants.column.reject",
+  },
+  {
+    key: "delete",
+    label: "삭제",
+    helpKey: "admin.lineOpening.competency.applicants.column.delete",
+    headClassName: "text-center",
+  },
+];
+
+// null/빈값/"-" 은 방향 무관 항상 뒤. 문자열은 한글 locale.
+function compareAppSortValues(
+  a: AppSortValue,
+  b: AppSortValue,
+  dir: "asc" | "desc",
+): number {
+  const aEmpty = a == null || a === "";
+  const bEmpty = b == null || b === "";
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  const c = String(a).localeCompare(String(b), "ko");
+  return dir === "asc" ? c : -c;
+}
+
+// 컬럼 헤더: 정렬 트리거(button)와 도움말(button)을 형제로. 정렬 없는 컬럼은 라벨 + 도움말만.
+function AppColumnHeader({
+  col,
+  dir,
+  onSort,
+}: {
+  col: AppColumnDef;
+  dir: "asc" | "desc" | null;
+  onSort: () => void;
+}) {
+  const sortable = Boolean(col.sortValue);
+  return (
+    <TableHead
+      className={col.headClassName}
+      aria-sort={
+        dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
+      }
+    >
+      <div
+        className={cn(
+          "inline-flex items-center gap-1",
+          col.headClassName === "text-center" && "justify-center",
+        )}
+      >
+        {sortable ? (
+          <button
+            type="button"
+            onClick={onSort}
+            aria-label={`${col.label} 정렬`}
+            className={cn(
+              "inline-flex items-center gap-1 hover:text-foreground",
+              dir && "text-foreground",
+            )}
+          >
+            <span>{col.label}</span>
+            {dir === "asc" ? (
+              <ArrowUp className="h-3 w-3" />
+            ) : dir === "desc" ? (
+              <ArrowDown className="h-3 w-3" />
+            ) : (
+              <ArrowUpDown className="h-3 w-3 opacity-40" />
+            )}
+          </button>
+        ) : (
+          <span>{col.label}</span>
+        )}
+        <AdminHelpIconButton helpKey={col.helpKey} title={col.label} size="xs" />
+      </div>
+    </TableHead>
   );
 }
 
@@ -271,6 +428,32 @@ export default function CompetencyApplicantSection({
       apps: list,
     }));
   }, [apps, weekId, weekMetaById]);
+
+  // 컬럼 헤더 클릭 정렬(크루명/라인명). null = 서버 순서. 클릭 순환: 없음 → 오름 → 내림 → 기본.
+  const [columnSort, setColumnSort] = useState<{
+    key: AppColKey;
+    dir: "asc" | "desc";
+  } | null>(null);
+  const cycleSort = (key: AppColKey) =>
+    setColumnSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+
+  // 정렬은 각 주차 그룹 "내부"에서만(그룹 순서·경계 보존). 원본 apps 는 mutate 하지 않고 복사본 정렬.
+  const sortedWeekGroups = useMemo(() => {
+    if (!columnSort) return weekGroups;
+    const col = APP_COLUMNS.find((c) => c.key === columnSort.key);
+    if (!col?.sortValue) return weekGroups;
+    const sv = col.sortValue;
+    return weekGroups.map((g) => ({
+      ...g,
+      apps: [...g.apps].sort((a, b) =>
+        compareAppSortValues(sv(a), sv(b), columnSort.dir),
+      ),
+    }));
+  }, [weekGroups, columnSort]);
 
   // 자동완성 검색(디바운스). cafe-line-crew GET 재사용 — 크루 번호+이름+학교 반환.
   useEffect(() => {
@@ -442,19 +625,26 @@ export default function CompetencyApplicantSection({
         {/* 헤더: 제목 + 요약 + 수동 추가 (우측 같은 행, 좁으면 wrap) */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-base">해당 크루</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              해당 크루
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.competency.title.applicants"
+                title="해당 크루"
+                size="xs"
+              />
+            </CardTitle>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <SummaryChip label="활동 크루" value={summary.activeCrews} />
-            <SummaryChip label="신청 크루" value={summary.appliedCrews} tone="info" />
-            <SummaryChip label="개설 크루" value={summary.openedCrews} tone="success" />
-            <SummaryChip label="반려 크루" value={summary.rejectedCrews} tone="error" />
-            <SummaryChip label="신청 라인" value={summary.appliedLines} tone="info" />
-            <SummaryChip label="개설 라인" value={summary.openedLines} tone="success" />
+            <SummaryChip label="활동 크루" value={summary.activeCrews} helpKey="admin.lineOpening.competency.stat.activeCrews" />
+            <SummaryChip label="신청 크루" value={summary.appliedCrews} tone="info" helpKey="admin.lineOpening.competency.stat.appliedCrews" />
+            <SummaryChip label="개설 크루" value={summary.openedCrews} tone="success" helpKey="admin.lineOpening.competency.stat.openedCrews" />
+            <SummaryChip label="반려 크루" value={summary.rejectedCrews} tone="error" helpKey="admin.lineOpening.competency.stat.rejectedCrews" />
+            <SummaryChip label="신청 라인" value={summary.appliedLines} tone="info" helpKey="admin.lineOpening.competency.stat.appliedLines" />
+            <SummaryChip label="개설 라인" value={summary.openedLines} tone="success" helpKey="admin.lineOpening.competency.stat.openedLines" />
             {/* 강화 결과(분모=활동 크루, 미신청 포함). 성공=개설 대상, 실패=활동−성공(반려+미신청). */}
             <span className="mx-1 h-8 w-px bg-border" aria-hidden />
-            <SummaryChip label="강화 성공" value={summary.enhanceSuccess} tone="success" />
-            <SummaryChip label="강화 실패" value={summary.enhanceFail} tone="error" />
+            <SummaryChip label="강화 성공" value={summary.enhanceSuccess} tone="success" helpKey="admin.lineOpening.competency.stat.enhanceSuccess" />
+            <SummaryChip label="강화 실패" value={summary.enhanceFail} tone="error" helpKey="admin.lineOpening.competency.stat.enhanceFail" />
           </div>
         </div>
       </CardHeader>
@@ -478,7 +668,14 @@ export default function CompetencyApplicantSection({
         {/* 수동 추가 — 자동완성 검색 + [추가] */}
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-[260px] flex-1 space-y-1">
-            <Label className="text-xs text-muted-foreground">수동 추가 (크루 코드 + 이름 검색)</Label>
+            <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              수동 추가 (크루 코드 + 이름 검색)
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.competency.filter.crewSearch"
+                title="수동 추가 크루 검색"
+                size="xs"
+              />
+            </Label>
             <div className="relative" ref={searchRef}>
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -525,6 +722,11 @@ export default function CompetencyApplicantSection({
           <Button type="button" onClick={openAddPopup} disabled={!selectedCrew || !org}>
             <Plus className="mr-1 h-4 w-4" /> 추가
           </Button>
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.competency.action.add"
+            title="수동 추가"
+            size="sm"
+          />
         </div>
         {/* 성장 중단(휴학·중단) 유저는 고객앱에 카드가 노출되지 않아 개설 대상에서 제외됨 — 검색 결과에도 표시되지 않는다. */}
         <p className="text-[11px] text-muted-foreground">
@@ -543,17 +745,18 @@ export default function CompetencyApplicantSection({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>크루명</TableHead>
-                  <TableHead>라인명</TableHead>
-                  <TableHead>제출 링크</TableHead>
-                  <TableHead className="text-center">카페</TableHead>
-                  <TableHead className="text-center">승인</TableHead>
-                  <TableHead>반려 사유</TableHead>
-                  <TableHead className="w-10" />
+                  {APP_COLUMNS.map((col) => (
+                    <AppColumnHeader
+                      key={col.key}
+                      col={col}
+                      dir={columnSort?.key === col.key ? columnSort.dir : null}
+                      onSort={() => cycleSort(col.key)}
+                    />
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {weekGroups.map((g) => (
+                {sortedWeekGroups.map((g) => (
                   <Fragment key={g.weekId}>
                     {/* 주차 헤더 — "26년 여름 시즌 N주차" + 그 주차 크루 수. 아래에 해당 주차 크루만 표시. */}
                     <TableRow className="bg-muted/40 hover:bg-muted/40">

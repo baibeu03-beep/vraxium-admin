@@ -5,7 +5,7 @@
 // 데이터는 GET /api/admin/cluster4/lines?partType=&detailed=1 (append-only) 로 자체 조회.
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, X, Search, ChevronDown, ChevronRight, Pencil, Upload, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Check, X, Search, ChevronDown, ChevronRight, Pencil, Upload, Trash2 } from "lucide-react";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   Card,
@@ -46,8 +46,208 @@ import {
 } from "@/components/admin/cluster4/enhancementBadges";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 
 type StatusFilter = "all" | "active" | "inactive";
+
+// ── 테이블 컬럼 정의(헤더 라벨 · 도움말 키 · 정렬 기준) ─────────────────────────
+//   · sortValue 가 있는 컬럼만 정렬 가능. 펼침(expander)/동작(action) 컬럼은 정렬 제외(도움말만).
+//   · 정렬 기준은 표시 문자열이 아니라 "실제 정렬 가능한 값":
+//       주차 = weekLabel 문자열(정렬용 실제 주차 시작일 필드가 행에 없어 라벨 locale 정렬),
+//       강화 상태 = 업무 순서 enum(대표 대상자=첫 행), 대상/기입/편집가능 = 숫자,
+//       기입 기간/생성일 = 실제 ISO 타임스탬프, 활성 = boolean. 빈값은 항상 뒤.
+type ColKey =
+  | "expander"
+  | "week"
+  | "name"
+  | "enhancement"
+  | "target"
+  | "submitted"
+  | "canEdit"
+  | "submissionWindow"
+  | "active"
+  | "createdAt"
+  | "action";
+type SortValue = number | string | null;
+
+// 강화 상태 업무 순서: 대기 → 성공 → 실패 → 해당 없음.
+const ENHANCEMENT_STATUS_SORT_ORDER: Record<
+  Cluster4LineDetail["targets"][number]["enhancementStatus"],
+  number
+> = {
+  pending: 0,
+  success: 1,
+  fail: 2,
+  not_applicable: 3,
+};
+
+// 빈값 규칙: null/undefined/빈문자열/공백/"-" 는 모두 동일한 빈값으로 정규화(→ null).
+function emptyToNullSort(s: string | null | undefined): string | null {
+  if (s == null) return null;
+  const t = s.trim();
+  return t === "" || t === "-" ? null : t;
+}
+
+type LineColumnDef = {
+  key: ColKey;
+  label: string;
+  helpKey: string;
+  headClassName?: string;
+  // 없으면 정렬 불가(펼침/액션 전용 컬럼).
+  sortValue?: (row: Cluster4LineDetail) => SortValue;
+};
+
+// nameColumnLabel(라인명 컬럼 라벨)은 호출부 prop 이므로 함수로 주입.
+function buildLineColumns(nameColumnLabel: string): LineColumnDef[] {
+  return [
+    {
+      key: "expander",
+      label: "펼치기",
+      helpKey: "admin.lineOpening.career.opening.column.expander",
+      headClassName: "w-8",
+    },
+    {
+      key: "week",
+      label: "주차",
+      helpKey: "admin.lineOpening.career.opening.column.week",
+      // 행에 주차 시작일 필드가 없어 표시 라벨(weekLabel)로 한글 locale 정렬.
+      sortValue: (r) => emptyToNullSort(r.weekLabel),
+    },
+    {
+      key: "name",
+      label: nameColumnLabel,
+      helpKey: "admin.lineOpening.career.opening.column.name",
+      sortValue: (r) => emptyToNullSort(r.mainTitle),
+    },
+    {
+      key: "enhancement",
+      label: "강화 상태",
+      helpKey: "admin.lineOpening.career.opening.column.enhancement",
+      headClassName: "text-center",
+      // 라인 단위 강화 상태 = 대표 대상자(첫 행). 대상자 0명이면 빈값(뒤).
+      sortValue: (r) =>
+        r.targets[0]
+          ? ENHANCEMENT_STATUS_SORT_ORDER[r.targets[0].enhancementStatus]
+          : null,
+    },
+    {
+      key: "target",
+      label: "대상",
+      helpKey: "admin.lineOpening.career.opening.column.target",
+      headClassName: "text-center",
+      sortValue: (r) => r.targetCount,
+    },
+    {
+      key: "submitted",
+      label: "기입/미기입",
+      helpKey: "admin.lineOpening.career.opening.column.submitted",
+      headClassName: "text-center",
+      // 기입 인원(submittedCount) 기준 정렬.
+      sortValue: (r) => r.submittedCount,
+    },
+    {
+      key: "canEdit",
+      label: "편집가능",
+      helpKey: "admin.lineOpening.career.opening.column.canEdit",
+      headClassName: "text-center",
+      sortValue: (r) => r.canEditCount,
+    },
+    {
+      key: "submissionWindow",
+      label: "기입 기간",
+      helpKey: "admin.lineOpening.career.opening.column.submissionWindow",
+      headClassName: "whitespace-nowrap",
+      // 실제 기입 시작 타임스탬프(ISO)로 정렬.
+      sortValue: (r) => r.submissionOpensAt ?? null,
+    },
+    {
+      key: "active",
+      label: "활성",
+      helpKey: "admin.lineOpening.career.opening.column.active",
+      headClassName: "text-center",
+      sortValue: (r) => (r.isActive ? 1 : 0),
+    },
+    {
+      key: "createdAt",
+      label: "생성일",
+      helpKey: "admin.lineOpening.career.opening.column.createdAt",
+      headClassName: "whitespace-nowrap",
+      sortValue: (r) => r.createdAt ?? null,
+    },
+    {
+      key: "action",
+      label: "동작",
+      helpKey: "admin.lineOpening.career.opening.column.action",
+    },
+  ];
+}
+
+// null/빈값/"-" 은 정렬 방향과 무관하게 항상 뒤로. 숫자는 숫자, 문자열은 한글 locale.
+function compareLineSortValues(
+  a: SortValue,
+  b: SortValue,
+  dir: "asc" | "desc",
+): number {
+  const aEmpty = a == null || a === "";
+  const bEmpty = b == null || b === "";
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  let c: number;
+  if (typeof a === "number" && typeof b === "number") c = a - b;
+  else c = String(a).localeCompare(String(b), "ko");
+  return dir === "asc" ? c : -c;
+}
+
+// 컬럼 헤더: 정렬 트리거(button)와 도움말(button)을 형제로 둔다(버튼 중첩 방지).
+//   · 펼침/동작 컬럼(sortValue 없음)은 정렬 트리거 없이 라벨 + 도움말만.
+function LineColumnHeader({
+  col,
+  dir,
+  onSort,
+}: {
+  col: LineColumnDef;
+  dir: "asc" | "desc" | null;
+  onSort: () => void;
+}) {
+  const sortable = Boolean(col.sortValue);
+  return (
+    <TableHead
+      className={col.headClassName}
+      aria-sort={
+        dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
+      }
+    >
+      <span className="inline-flex items-center justify-center gap-1">
+        {sortable ? (
+          <button
+            type="button"
+            onClick={onSort}
+            aria-label={`${col.label} 정렬`}
+            className={cn(
+              "inline-flex items-center gap-1 text-sm font-semibold tracking-wide text-muted-foreground hover:text-foreground",
+              dir && "text-foreground",
+            )}
+          >
+            <span>{col.label}</span>
+            {dir === "asc" ? (
+              <ArrowUp className="h-3 w-3" />
+            ) : dir === "desc" ? (
+              <ArrowDown className="h-3 w-3" />
+            ) : (
+              <ArrowUpDown className="h-3 w-3 opacity-40" />
+            )}
+          </button>
+        ) : (
+          <span className="text-sm font-semibold tracking-wide text-muted-foreground">
+            {col.label}
+          </span>
+        )}
+        <AdminHelpIconButton helpKey={col.helpKey} title={col.label} size="xs" />
+      </span>
+    </TableHead>
+  );
+}
 
 const EDIT_REASON_LABEL: Record<string, string> = {
   ok: "편집 가능",
@@ -272,7 +472,14 @@ function LineWorkflowSection({
   return (
     <section className="space-y-3 rounded-md border bg-muted/30 p-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold">라인 개설 진행 상태</h3>
+        <h3 className="inline-flex items-center gap-1 text-sm font-semibold">
+          라인 개설 진행 상태
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.career.opening.title.workflowStatus"
+            title="라인 개설 진행 상태"
+            size="xs"
+          />
+        </h3>
         <p className="text-xs text-muted-foreground">
           입력자 : {stageState.input.actor ?? "-"}
           {"  ·  "}검수자 : {stageState.review.actor ?? "-"}
@@ -845,6 +1052,19 @@ export default function Cluster4LineTable({
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  // 컬럼 헤더 클릭 정렬. null = 기본(서버/필터) 순서. 클릭 순환: 없음 → asc → desc → 기본.
+  const [columnSort, setColumnSort] = useState<{
+    key: ColKey;
+    dir: "asc" | "desc";
+  } | null>(null);
+
+  const cycleSort = (key: ColKey) => {
+    setColumnSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null; // 내림차순 다음 클릭 → 기본 순서 복귀
+    });
+  };
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
@@ -947,6 +1167,23 @@ export default function Cluster4LineTable({
     });
   }, [rows, statusFilter, enhancementFilter, weekFilter, orgFilter, nameQuery, targetQuery]);
 
+  const lineColumns = useMemo(
+    () => buildLineColumns(nameColumnLabel),
+    [nameColumnLabel],
+  );
+
+  // 정렬은 필터 결과(filteredRows) 기준. 원본은 mutate 하지 않고 복사본 정렬.
+  //   columnSort=null 이면 필터 기본 순서 그대로 사용.
+  const sortedRows = useMemo(() => {
+    if (!columnSort) return filteredRows;
+    const col = lineColumns.find((c) => c.key === columnSort.key);
+    if (!col?.sortValue) return filteredRows;
+    const sortValue = col.sortValue;
+    return [...filteredRows].sort((a, b) =>
+      compareLineSortValues(sortValue(a), sortValue(b), columnSort.dir),
+    );
+  }, [filteredRows, columnSort, lineColumns]);
+
   const detailLine = useMemo(
     () => rows.find((r) => r.id === detailId) ?? null,
     [rows, detailId],
@@ -972,7 +1209,14 @@ export default function Cluster4LineTable({
   return (
     <Card className="min-w-0">
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle className="inline-flex items-center gap-1.5 text-base">
+          {title}
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.career.opening.title.table"
+            title={title}
+            size="xs"
+          />
+        </CardTitle>
         <CardDescription>
           {loading ? (
             <LoadingState active variant="inline" />
@@ -985,7 +1229,14 @@ export default function Cluster4LineTable({
         {/* Filter bar */}
         <div className="grid gap-3 rounded-md border bg-muted/30 p-3 md:grid-cols-2 xl:grid-cols-3">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">조직</Label>
+            <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              조직
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.filter.org"
+                title="조직"
+                size="xs"
+              />
+            </Label>
             <select
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={orgFilter}
@@ -1001,7 +1252,14 @@ export default function Cluster4LineTable({
           </div>
           {!weekId && (
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">주차</Label>
+              <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                주차
+                <AdminHelpIconButton
+                  helpKey="admin.lineOpening.career.filter.week"
+                  title="주차"
+                  size="xs"
+                />
+              </Label>
               <select
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={weekFilter}
@@ -1017,7 +1275,14 @@ export default function Cluster4LineTable({
             </div>
           )}
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">상태</Label>
+            <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              상태
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.filter.status"
+                title="상태"
+                size="xs"
+              />
+            </Label>
             <select
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={statusFilter}
@@ -1029,7 +1294,14 @@ export default function Cluster4LineTable({
             </select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">강화 상태</Label>
+            <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              강화 상태
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.filter.enhancement"
+                title="강화 상태"
+                size="xs"
+              />
+            </Label>
             <select
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               value={enhancementFilter}
@@ -1045,7 +1317,14 @@ export default function Cluster4LineTable({
             </select>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{nameColumnLabel} 검색</Label>
+            <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              {nameColumnLabel} 검색
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.filter.nameSearch"
+                title={`${nameColumnLabel} 검색`}
+                size="xs"
+              />
+            </Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -1057,7 +1336,14 @@ export default function Cluster4LineTable({
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">대상자 검색</Label>
+            <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              대상자 검색
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.filter.targetSearch"
+                title="대상자 검색"
+                size="xs"
+              />
+            </Label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -1068,7 +1354,7 @@ export default function Cluster4LineTable({
               />
             </div>
           </div>
-          <div className="flex items-end">
+          <div className="flex items-end gap-1">
             <Button
               variant="outline"
               size="sm"
@@ -1077,6 +1363,11 @@ export default function Cluster4LineTable({
             >
               필터 초기화
             </Button>
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.career.action.resetFilters"
+              title="필터 초기화"
+              size="xs"
+            />
           </div>
         </div>
 
@@ -1097,21 +1388,18 @@ export default function Cluster4LineTable({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-8" />
-                  <TableHead>주차</TableHead>
-                  <TableHead>{nameColumnLabel}</TableHead>
-                  <TableHead className="text-center">강화 상태</TableHead>
-                  <TableHead className="text-center">대상</TableHead>
-                  <TableHead className="text-center">기입/미기입</TableHead>
-                  <TableHead className="text-center">편집가능</TableHead>
-                  <TableHead className="whitespace-nowrap">기입 기간</TableHead>
-                  <TableHead className="text-center">활성</TableHead>
-                  <TableHead className="whitespace-nowrap">생성일</TableHead>
-                  <TableHead>동작</TableHead>
+                  {lineColumns.map((col) => (
+                    <LineColumnHeader
+                      key={col.key}
+                      col={col}
+                      dir={columnSort?.key === col.key ? columnSort.dir : null}
+                      onSort={() => cycleSort(col.key)}
+                    />
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRows.map((line) => {
+                {sortedRows.map((line) => {
                   const expanded = expandedId === line.id;
                   const names = line.targets.map((t) => t.displayName);
                   const preview = names.slice(0, 3).join(", ");

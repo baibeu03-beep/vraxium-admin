@@ -9,6 +9,9 @@ import {
   Upload,
   Trash2,
   Pencil,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from "lucide-react";
 import { LoadingState } from "@/components/ui/loading-state";
 import {
@@ -32,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import Cluster4LineTable from "@/components/admin/cluster4/Cluster4LineTable";
 import CareerEvaluationTab from "@/components/admin/cluster4/CareerEvaluationTab";
@@ -159,6 +163,153 @@ type UploadedImage = {
 };
 
 type TabKey = "registration" | "opening" | "evaluation";
+
+// ──────────────────────────────────────────────────────────────
+// "등록된 경력 라인" 테이블 컬럼 정의(헤더 라벨 · 도움말 키 · 정렬 기준)
+//   · sortValue 가 있는 컬럼만 정렬 가능. 동작(수정/삭제) 컬럼은 정렬 제외(도움말만).
+//   · 정렬 기준은 표시 문자열이 아니라 "실제 정렬 가능한 값":
+//       라인 코드/라인명/기업/담당자 = 한글 locale 문자열(빈값 뒤),
+//       크루 = 인원수(숫자), 기간 = 실제 시작일(ISO). 빈값은 항상 뒤.
+// ──────────────────────────────────────────────────────────────
+type RegColKey =
+  | "lineCode"
+  | "lineName"
+  | "companyName"
+  | "supervisorName"
+  | "crew"
+  | "period"
+  | "action";
+type RegSortValue = number | string | null;
+
+// 빈값 규칙: null/undefined/빈문자열/공백/"-" 는 모두 동일한 빈값으로 정규화(→ null).
+function regEmptyToNull(s: string | null | undefined): string | null {
+  if (s == null) return null;
+  const t = s.trim();
+  return t === "" || t === "-" ? null : t;
+}
+
+type RegColumnDef = {
+  key: RegColKey;
+  label: string;
+  helpKey: string;
+  headClassName?: string;
+  // 없으면 정렬 불가(동작 전용 컬럼).
+  sortValue?: (row: CareerProjectDto) => RegSortValue;
+};
+
+const REG_COLUMNS: RegColumnDef[] = [
+  {
+    key: "lineCode",
+    label: "라인 코드",
+    helpKey: "admin.lineOpening.career.registration.column.lineCode",
+    sortValue: (p) => regEmptyToNull(p.lineCode),
+  },
+  {
+    key: "lineName",
+    label: "라인명",
+    helpKey: "admin.lineOpening.career.registration.column.lineName",
+    sortValue: (p) => regEmptyToNull(p.lineName),
+  },
+  {
+    key: "companyName",
+    label: "기업",
+    helpKey: "admin.lineOpening.career.registration.column.company",
+    sortValue: (p) => regEmptyToNull(p.companyName),
+  },
+  {
+    key: "supervisorName",
+    label: "담당자",
+    helpKey: "admin.lineOpening.career.registration.column.supervisor",
+    sortValue: (p) => regEmptyToNull(p.supervisorName),
+  },
+  {
+    key: "crew",
+    label: "크루",
+    helpKey: "admin.lineOpening.career.registration.column.crew",
+    headClassName: "text-center",
+    sortValue: (p) => p.defaultTargetUserIds.length,
+  },
+  {
+    key: "period",
+    label: "기간",
+    helpKey: "admin.lineOpening.career.registration.column.period",
+    // 실제 시작일(ISO)로 정렬. 미설정이면 빈값(뒤).
+    sortValue: (p) => p.startDate ?? null,
+  },
+  {
+    key: "action",
+    label: "동작",
+    helpKey: "admin.lineOpening.career.registration.column.action",
+    headClassName: "w-20",
+  },
+];
+
+// null/빈값/"-" 은 정렬 방향과 무관하게 항상 뒤로. 숫자는 숫자, 문자열은 한글 locale.
+function compareRegSortValues(
+  a: RegSortValue,
+  b: RegSortValue,
+  dir: "asc" | "desc",
+): number {
+  const aEmpty = a == null || a === "";
+  const bEmpty = b == null || b === "";
+  if (aEmpty && bEmpty) return 0;
+  if (aEmpty) return 1;
+  if (bEmpty) return -1;
+  let c: number;
+  if (typeof a === "number" && typeof b === "number") c = a - b;
+  else c = String(a).localeCompare(String(b), "ko");
+  return dir === "asc" ? c : -c;
+}
+
+// 컬럼 헤더: 정렬 트리거(button)와 도움말(button)을 형제로 둔다(버튼 중첩 방지).
+//   · 동작 컬럼(sortValue 없음)은 정렬 트리거 없이 라벨 + 도움말만.
+function RegColumnHeader({
+  col,
+  dir,
+  onSort,
+}: {
+  col: RegColumnDef;
+  dir: "asc" | "desc" | null;
+  onSort: () => void;
+}) {
+  const sortable = Boolean(col.sortValue);
+  return (
+    <TableHead
+      className={col.headClassName}
+      aria-sort={
+        dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"
+      }
+    >
+      <span className="inline-flex items-center justify-center gap-1">
+        {sortable ? (
+          <button
+            type="button"
+            onClick={onSort}
+            aria-label={`${col.label} 정렬`}
+            className={cn(
+              "inline-flex items-center gap-1 text-sm font-semibold tracking-wide text-muted-foreground hover:text-foreground",
+              dir && "text-foreground",
+            )}
+          >
+            <span>{col.label}</span>
+            {dir === "asc" ? (
+              <ArrowUp className="h-3 w-3" />
+            ) : dir === "desc" ? (
+              <ArrowDown className="h-3 w-3" />
+            ) : (
+              <ArrowUpDown className="h-3 w-3 opacity-40" />
+            )}
+          </button>
+        ) : (
+          <span className="text-sm font-semibold tracking-wide text-muted-foreground">
+            {col.label}
+          </span>
+        )}
+        <AdminHelpIconButton helpKey={col.helpKey} title={col.label} size="xs" />
+      </span>
+    </TableHead>
+  );
+}
 
 // ──────────────────────────────────────────────────────────────
 // Date formatting
@@ -442,6 +593,11 @@ export default function PracticalCareerManager() {
   const [teams, setTeams] = useState<TeamItem[]>([]);
   const [crews, setCrews] = useState<CrewItem[]>([]);
   const [projects, setProjects] = useState<CareerProjectDto[]>([]);
+  // "등록된 경력 라인" 테이블 컬럼 정렬. null = 기본(조회) 순서. 클릭 순환: 없음 → asc → desc → 기본.
+  const [projectSort, setProjectSort] = useState<{
+    key: RegColKey;
+    dir: "asc" | "desc";
+  } | null>(null);
   const [careerOptions, setCareerOptions] = useState<CareerProjectOption[]>([]);
   const [currentWeek, setCurrentWeek] = useState<CurrentWeekData | null>(null);
   const [weekOptions, setWeekOptions] = useState<WeekOption[]>([]);
@@ -453,6 +609,30 @@ export default function PracticalCareerManager() {
   useReportLoading(loading);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
+
+  const cycleProjectSort = (key: RegColKey) => {
+    setProjectSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null; // 내림차순 다음 클릭 → 기본 순서 복귀
+    });
+  };
+
+  // "등록된 경력 라인" 표시 행 = lineCode 있는 프로젝트. 원본은 mutate 하지 않고 복사본 정렬.
+  //   projectSort=null 이면 조회 기본 순서 그대로 사용.
+  const registeredProjects = useMemo(
+    () => projects.filter((p) => p.lineCode),
+    [projects],
+  );
+  const sortedRegisteredProjects = useMemo(() => {
+    if (!projectSort) return registeredProjects;
+    const col = REG_COLUMNS.find((c) => c.key === projectSort.key);
+    if (!col?.sortValue) return registeredProjects;
+    const sortValue = col.sortValue;
+    return [...registeredProjects].sort((a, b) =>
+      compareRegSortValues(sortValue(a), sortValue(b), projectSort.dir),
+    );
+  }, [registeredProjects, projectSort]);
 
   // ── Registration form state ──
   const [regFormOpen, setRegFormOpen] = useState(false);
@@ -1017,59 +1197,109 @@ export default function PracticalCareerManager() {
     return (
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label>
+          <Label className="inline-flex items-center gap-1">
             크루 선택 <span className="text-red-500">*</span>
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.career.filter.crewSelect"
+              title="크루 선택"
+              size="xs"
+            />
           </Label>
           <span className="text-xs text-muted-foreground">
             선택됨: {selectedIds.size}명
           </span>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <select
-            className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-            value={filterTeam}
-            onChange={(e) => setFilterTeam(e.target.value)}
-          >
-            <option value="">전체 팀</option>
-            {teamList.map((t) => (
-              <option key={t.id} value={t.teamName}>{t.teamName}</option>
-            ))}
-          </select>
-          <select
-            className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-            value={filterPart}
-            onChange={(e) => setFilterPart(e.target.value)}
-          >
-            <option value="">전체 파트</option>
-            {uniqueParts.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-          <select
-            className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-            value={filterLevel}
-            onChange={(e) => setFilterLevel(e.target.value)}
-          >
-            <option value="">전체 레벨</option>
-            {uniqueLevels.map((l) => (
-              <option key={l} value={l}>{l}</option>
-            ))}
-          </select>
-          <select
-            className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="active">활동중</option>
-            <option value="rest">휴식중</option>
-            <option value="">전체</option>
-          </select>
+          <div className="space-y-1">
+            <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              팀
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.filter.crewTeam"
+                title="팀"
+                size="xs"
+              />
+            </Label>
+            <select
+              className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+              value={filterTeam}
+              onChange={(e) => setFilterTeam(e.target.value)}
+            >
+              <option value="">전체 팀</option>
+              {teamList.map((t) => (
+                <option key={t.id} value={t.teamName}>{t.teamName}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              파트
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.filter.crewPart"
+                title="파트"
+                size="xs"
+              />
+            </Label>
+            <select
+              className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+              value={filterPart}
+              onChange={(e) => setFilterPart(e.target.value)}
+            >
+              <option value="">전체 파트</option>
+              {uniqueParts.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              레벨
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.filter.crewLevel"
+                title="레벨"
+                size="xs"
+              />
+            </Label>
+            <select
+              className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+              value={filterLevel}
+              onChange={(e) => setFilterLevel(e.target.value)}
+            >
+              <option value="">전체 레벨</option>
+              {uniqueLevels.map((l) => (
+                <option key={l} value={l}>{l}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+              상태
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.filter.crewStatus"
+                title="상태"
+                size="xs"
+              />
+            </Label>
+            <select
+              className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="active">활동중</option>
+              <option value="rest">휴식중</option>
+              <option value="">전체</option>
+            </select>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input className="pl-9" placeholder="이름 검색..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.career.filter.crewNameSearch"
+            title="이름 검색"
+            size="xs"
+          />
           <Button variant="outline" size="sm" onClick={onSelectAll}>전체 선택</Button>
           <Button variant="outline" size="sm" onClick={onDeselectAll}>선택 해제</Button>
         </div>
@@ -1115,7 +1345,14 @@ export default function PracticalCareerManager() {
   return (
     <div className="w-full min-w-0 space-y-6 px-4 py-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">라인 개설 [실무 경력]</h1>
+        <h1 className="inline-flex items-center gap-2 text-2xl font-bold">
+          라인 개설 [실무 경력]
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.career.title.page"
+            title="라인 개설 [실무 경력]"
+            size="sm"
+          />
+        </h1>
         <AdminHelp />
       </div>
 
@@ -1169,21 +1406,35 @@ export default function PracticalCareerManager() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-base">등록된 경력 라인</CardTitle>
+                  <CardTitle className="inline-flex items-center gap-1.5 text-base">
+                    등록된 경력 라인
+                    <AdminHelpIconButton
+                      helpKey="admin.lineOpening.career.title.registeredLines"
+                      title="등록된 경력 라인"
+                      size="xs"
+                    />
+                  </CardTitle>
                   <CardDescription>
-                    총 {projects.filter((p) => p.lineCode).length}개
+                    총 {registeredProjects.length}개
                     {adminOrg && <span className="ml-1">({adminOrg})</span>}
                   </CardDescription>
                 </div>
                 {!regFormOpen && (
-                  <Button size="sm" onClick={() => setRegFormOpen(true)}>
-                    <Plus className="mr-1 h-4 w-4" /> 새 경력 라인
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <AdminHelpIconButton
+                      helpKey="admin.lineOpening.career.action.newProject"
+                      title="새 경력 라인"
+                      size="xs"
+                    />
+                    <Button size="sm" onClick={() => setRegFormOpen(true)}>
+                      <Plus className="mr-1 h-4 w-4" /> 새 경력 라인
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardHeader>
             <CardContent>
-              {projects.filter((p) => p.lineCode).length === 0 ? (
+              {registeredProjects.length === 0 ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">
                   등록된 경력 라인이 없습니다
                 </p>
@@ -1191,19 +1442,20 @@ export default function PracticalCareerManager() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>라인 코드</TableHead>
-                      <TableHead>라인명</TableHead>
-                      <TableHead>기업</TableHead>
-                      <TableHead>담당자</TableHead>
-                      <TableHead className="text-center">크루</TableHead>
-                      <TableHead>기간</TableHead>
-                      <TableHead className="w-20" />
+                      {REG_COLUMNS.map((col) => (
+                        <RegColumnHeader
+                          key={col.key}
+                          col={col}
+                          dir={
+                            projectSort?.key === col.key ? projectSort.dir : null
+                          }
+                          onSort={() => cycleProjectSort(col.key)}
+                        />
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {projects
-                      .filter((p) => p.lineCode)
-                      .map((p) => (
+                    {sortedRegisteredProjects.map((p) => (
                         <TableRow key={p.id}>
                           <TableCell className="font-mono text-xs">{p.lineCode}</TableCell>
                           <TableCell className="font-medium">{p.lineName ?? "-"}</TableCell>
@@ -1244,8 +1496,13 @@ export default function PracticalCareerManager() {
           {regFormOpen && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="text-base">
+                <CardTitle className="inline-flex items-center gap-1.5 text-base">
                   {editingProjectId ? "경력 라인 수정" : "새 경력 라인 등록"}
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.career.title.registerForm"
+                    title="경력 라인 등록/수정"
+                    size="xs"
+                  />
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -1404,13 +1661,27 @@ export default function PracticalCareerManager() {
           {/* Current Week + Week Selector */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">라인 개설 대상 주차</CardTitle>
+              <CardTitle className="inline-flex items-center gap-1.5 text-base">
+                라인 개설 대상 주차
+                <AdminHelpIconButton
+                  helpKey="admin.lineOpening.career.title.openTargetWeek"
+                  title="라인 개설 대상 주차"
+                  size="xs"
+                />
+              </CardTitle>
               <CardDescription>운영 기본값은 현재 주차이며, 테스트/검증 목적으로 직전 주차도 선택할 수 있습니다.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {weekOptions.length > 0 && (
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">대상 주차</Label>
+                  <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    대상 주차
+                    <AdminHelpIconButton
+                      helpKey="admin.lineOpening.career.filter.targetWeek"
+                      title="대상 주차"
+                      size="xs"
+                    />
+                  </Label>
                   <select
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={selectedWeekId}
@@ -1472,16 +1743,30 @@ export default function PracticalCareerManager() {
 
           {/* New line button */}
           {!lineFormOpen && canOpenSelected && (
-            <Button onClick={() => setLineFormOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" /> 새 실무 경력 라인 개설
-            </Button>
+            <div className="flex items-center gap-1">
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.action.openLine"
+                title="새 실무 경력 라인 개설"
+                size="xs"
+              />
+              <Button onClick={() => setLineFormOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" /> 새 실무 경력 라인 개설
+              </Button>
+            </div>
           )}
 
           {/* New line form */}
           {lineFormOpen && canOpenSelected && (selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">새 실무 경력 라인</CardTitle>
+                <CardTitle className="inline-flex items-center gap-1.5 text-base">
+                  새 실무 경력 라인
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.career.title.openForm"
+                    title="새 실무 경력 라인"
+                    size="xs"
+                  />
+                </CardTitle>
                 <CardDescription>
                   기입 마감: {fmtDateTimeWithDay((selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string)}
                 </CardDescription>

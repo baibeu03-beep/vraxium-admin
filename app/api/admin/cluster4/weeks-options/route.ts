@@ -213,7 +213,7 @@ export async function GET(request: NextRequest) {
         : null;
       return {
         id: row.id,
-        label: `${info.year}년도 ${info.seasonName} ${info.weekNumber}w`,
+        label: `${info.year}년 ${info.seasonName} ${info.weekNumber}w`,
         weekId: row.id, // legacy alias
         seasonKey: info.seasonKey,
         seasonName: info.seasonName,

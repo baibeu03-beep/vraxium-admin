@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
@@ -576,7 +577,14 @@ export default function ExperiencePartLeadInput({
     return (
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">파트장 입력</CardTitle>
+          <CardTitle className="inline-flex items-center gap-1.5 text-base">
+            파트장 입력
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.experience.title.partLeadInput"
+              title="파트장 입력"
+              size="xs"
+            />
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
@@ -625,12 +633,25 @@ export default function ExperiencePartLeadInput({
                   );
                 })
               )}
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.experience.filter.team"
+                title="팀 선택"
+                size="xs"
+                className="ml-auto self-center"
+              />
             </div>
 
             {/* 개설 주차 + 파트 선택 */}
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">개설 주차</Label>
+                <div className="flex items-center gap-1">
+                  <Label className="text-xs text-muted-foreground">개설 주차</Label>
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.experience.filter.week"
+                    title="개설 주차"
+                    size="xs"
+                  />
+                </div>
                 <select
                   className="w-64 rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={selectedWeekId}
@@ -638,7 +659,7 @@ export default function ExperiencePartLeadInput({
                 >
                   {weekOptions.map((w) => (
                     <option key={w.id} value={w.id} disabled={!w.canOpen}>
-                      {w.year} {w.seasonName} W{w.weekNumber}
+                      {w.year}년 {w.seasonName} W{w.weekNumber}
                       {w.isOpenTarget ? " · 개설대상" : ""}
                       {w.isCurrent ? " · 현재" : ""}
                       {!w.canOpen ? " · 휴식" : ""}
@@ -647,7 +668,14 @@ export default function ExperiencePartLeadInput({
                 </select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">파트</Label>
+                <div className="flex items-center gap-1">
+                  <Label className="text-xs text-muted-foreground">파트</Label>
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.experience.filter.part"
+                    title="파트"
+                    size="xs"
+                  />
+                </div>
                 <select
                   className="w-56 rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={part}
@@ -768,12 +796,46 @@ function PartGrid({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>이름</TableHead>
-              <TableHead>파트명</TableHead>
-              <TableHead>크루 상태</TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  이름
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.experience.partGrid.column.name"
+                    title="이름"
+                    size="xs"
+                  />
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  파트명
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.experience.partGrid.column.part"
+                    title="파트명"
+                    size="xs"
+                  />
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  크루 상태
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.experience.partGrid.column.crewStatus"
+                    title="크루 상태"
+                    size="xs"
+                  />
+                </span>
+              </TableHead>
               {EXPERIENCE_PART_LINE_TYPES.map((l) => (
                 <TableHead key={l.key} className="text-center">
-                  {l.label}
+                  <span className="inline-flex items-center justify-center gap-1">
+                    {l.label}
+                    <AdminHelpIconButton
+                      helpKey={`admin.lineOpening.experience.partGrid.column.${l.key}`}
+                      title={l.label}
+                      size="xs"
+                    />
+                  </span>
                 </TableHead>
               ))}
             </TableRow>
@@ -844,6 +906,14 @@ function PartGrid({
         {/* 액션 버튼 — 데스크톱: 그리드 오른쪽 세로 컬럼(고정), 모바일: 하단 stack.
             3행 1열·동일 width·좁은 간격. 동작/상태 로직은 그대로(배치만 변경). */}
         <div className="flex flex-col gap-2 lg:w-36 lg:shrink-0 lg:self-start lg:border-l lg:pl-3">
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-xs font-medium text-muted-foreground">초기화</span>
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.experience.action.reset"
+              title="초기화"
+              size="xs"
+            />
+          </div>
           <Button
             variant="outline"
             className="w-full justify-center"
@@ -852,6 +922,14 @@ function PartGrid({
           >
             <RotateCcw className="mr-1.5 h-4 w-4" /> 초기화
           </Button>
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-xs font-medium text-muted-foreground">개설 신청</span>
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.experience.action.submit"
+              title="개설 신청"
+              size="xs"
+            />
+          </div>
           <Button
             className="w-full justify-center"
             onClick={onSubmit}
@@ -861,6 +939,14 @@ function PartGrid({
             <Send className="mr-1.5 h-4 w-4" />
             개설 신청
           </Button>
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-xs font-medium text-muted-foreground">신청 취소</span>
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.experience.action.cancel"
+              title="신청 취소"
+              size="xs"
+            />
+          </div>
           <Button
             variant="outline"
             className="w-full justify-center border-red-300 text-red-700 hover:bg-red-50"

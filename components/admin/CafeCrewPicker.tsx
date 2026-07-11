@@ -5,6 +5,7 @@ import { Loader2, Search, Users, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 
 // 라인 개설 크루 선택기 — 네이버 카페 댓글 검수(자동 매칭) + 수동 추가/삭제/초기화.
 //   "라인 개설" 폼과 "개설 대상 크루 수정" 모달이 공유하는 단일 UI/로직(SoT). 두 경로가
@@ -197,7 +198,14 @@ export default function CafeCrewPicker({
 
       {/* 카페 링크 검수 */}
       <div className="space-y-2 rounded-md border p-3">
-        <p className="text-xs font-medium text-muted-foreground">카페 링크 검수</p>
+        <div className="flex items-center gap-1">
+          <p className="text-xs font-medium text-muted-foreground">카페 링크 검수</p>
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.info.filter.cafeUrl"
+            title="카페 게시물 링크"
+            size="xs"
+          />
+        </div>
         <div className="flex items-center gap-2">
           <Input
             value={cafeUrl}
@@ -219,6 +227,11 @@ export default function CafeCrewPicker({
             <Search className="mr-2 h-4 w-4" />
             검수
           </Button>
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.info.action.verifyCafe"
+            title="검수(매칭)"
+            size="xs"
+          />
         </div>
         {cafeError && <p className="text-sm text-red-600">{cafeError}</p>}
         {cafeMeta && (
@@ -246,6 +259,16 @@ export default function CafeCrewPicker({
           >
             초기화
           </Button>
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.info.action.clearCrew"
+            title="개설 크루 초기화"
+            size="xs"
+          />
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.info.filter.manualSearch"
+            title="크루 수동 추가 검색"
+            size="xs"
+          />
           <div className="relative min-w-[200px] flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -334,13 +357,40 @@ export default function CafeCrewPicker({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="px-2 py-1.5">크루 코드</th>
-                  <th className="px-2 py-1.5">이름</th>
+                  <th className="px-2 py-1.5">
+                    <span className="inline-flex items-center gap-1">
+                      크루 코드
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.info.cafe.column.crewCode"
+                        title="크루 코드"
+                        size="xs"
+                      />
+                    </span>
+                  </th>
+                  <th className="px-2 py-1.5">
+                    <span className="inline-flex items-center gap-1">
+                      이름
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.info.cafe.column.name"
+                        title="이름"
+                        size="xs"
+                      />
+                    </span>
+                  </th>
                   <th className="px-2 py-1.5">팀명</th>
                   <th className="px-2 py-1.5">파트명</th>
                   <th className="px-2 py-1.5">학교명</th>
                   <th className="px-2 py-1.5">전공명</th>
-                  <th className="px-2 py-1.5">삭제</th>
+                  <th className="px-2 py-1.5">
+                    <span className="inline-flex items-center gap-1">
+                      삭제
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.info.cafe.column.remove"
+                        title="삭제"
+                        size="xs"
+                      />
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
