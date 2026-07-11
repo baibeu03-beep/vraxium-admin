@@ -35,9 +35,8 @@ import { useConfirm, CONFIRM } from "@/components/ui/confirm-dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
-import { readOrgParam, orgHref } from "@/lib/adminOrgContext";
-import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
-import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
+import { readOrgParam } from "@/lib/adminOrgContext";
+import { type OrganizationSlug } from "@/lib/organizations";
 import {
   getCurrentActivityDateIso,
   operationalSeasonDbKey,
@@ -329,7 +328,6 @@ function StatCard({
 export default function RestManagementManager() {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
-  const mode = readScopeMode(searchParams);
   const confirm = useConfirm();
 
   const [seasons, setSeasons] = useState<RestManagementSeasonOption[]>([]);
@@ -443,11 +441,10 @@ export default function RestManagementManager() {
     };
   }, [org, selectedSeason, refreshTick]);
 
-  const tabs = ORGANIZATIONS.map((slug) => ({
-    label: CLUB_LABEL_KO[slug],
-    href: appendModeQuery(orgHref(BASE_PATH, slug), mode),
-    active: org === slug,
-  }));
+  // 이 화면의 조직 범위는 관리자 권한이 아니라 현재 URL의 org 하나로 고정한다.
+  const tabs = org
+    ? [{ label: CLUB_LABEL_KO[org], href: `${BASE_PATH}?${searchParams.toString()}`, active: true }]
+    : [];
 
   const accent = org ? ORG_ACCENT[org] : null;
 

@@ -30,8 +30,10 @@ export default function LineManagement() {
       />
       {tab === "register" ? (
         <LineRegistrationManager />
+      ) : org ? (
+        <LineRegistrationInfoManager org={org} />
       ) : (
-        <LineRegistrationInfoManager />
+        null
       )}
     </div>
   );

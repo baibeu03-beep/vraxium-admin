@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -18,7 +18,6 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
-  ORGANIZATIONS,
   type OrganizationSlug,
 } from "@/lib/organizations";
 import { parseHalfKey } from "@/lib/teamHalf";
@@ -133,6 +132,10 @@ export default function TeamPartsInfoManager() {
   const orgFromUrl = readOrgParam(searchParams);
   // QA 모드(?mode=test) — 팀 정보 조회에 전파(백엔드 filterTeamsByScope 와 정합: 테스트 (T)팀만).
   const mode = readScopeMode(searchParams);
+  const visibleOrgs = useMemo(
+    () => (orgFromUrl ? [orgFromUrl] : []),
+    [orgFromUrl],
+  );
 
   const [half, setHalf] = useState<string | null>(null);
   const [halves, setHalves] = useState<HalfOption[]>([]);
@@ -143,9 +146,8 @@ export default function TeamPartsInfoManager() {
   useReportLoading(loading);
   const [banner, setBanner] = useState<Banner>(null);
 
-  const [activeOrg, setActiveOrg] = useState<OrganizationSlug>(
-    orgFromUrl ?? ORGANIZATIONS[0],
-  );
+  // 페이지 진입점에서 org 누락/무효를 교정하므로 UI와 API는 이 값 하나만 사용한다.
+  const activeOrg = orgFromUrl ?? ("encre" satisfies OrganizationSlug);
 
   // 팀 등록/수정 팝업(같은 컴포넌트, editingTeam 으로 모드 구분).
   const [modalOpen, setModalOpen] = useState(false);
@@ -166,11 +168,16 @@ export default function TeamPartsInfoManager() {
 
   const load = useCallback(
     async (halfKey: string | null, focusOrg: OrganizationSlug) => {
+      if (visibleOrgs.length === 0) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       setBanner(null);
       try {
+        // 현재 URL의 조직 하나만 조회한다.
         const results = await Promise.all(
-          ORGANIZATIONS.map(async (org) => {
+          visibleOrgs.map(async (org) => {
             const params = new URLSearchParams({ organization: org });
             if (halfKey) params.set("half", halfKey);
             if (mode === "test") params.set("mode", "test");
@@ -193,7 +200,7 @@ export default function TeamPartsInfoManager() {
 
         const map: Record<string, TeamDto[]> = {};
         const colsByOrg: Record<string, PartWeekColumn[]> = {};
-        ORGANIZATIONS.forEach((org, i) => {
+        visibleOrgs.forEach((org, i) => {
           map[org] = results[i].teams;
           colsByOrg[org] = results[i].weekColumns ?? [];
         });
@@ -202,7 +209,7 @@ export default function TeamPartsInfoManager() {
         setWeekColumns(
           colsByOrg[focusOrg]?.length
             ? colsByOrg[focusOrg]
-            : (ORGANIZATIONS.map((o) => colsByOrg[o]).find(
+            : (visibleOrgs.map((o) => colsByOrg[o]).find(
                 (c) => c && c.length,
               ) ?? []),
         );
@@ -218,24 +225,19 @@ export default function TeamPartsInfoManager() {
         setLoading(false);
       }
     },
-    [mode],
+    [mode, visibleOrgs],
   );
 
   useEffect(() => {
+    // URL 조직이 바뀔 때 해당 조직 데이터를 다시 동기화한다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(null, activeOrg);
-    // 최초 1회만.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [load, activeOrg]);
 
   const onHalfChange = (value: string) => {
     setHalf(value);
     void load(value, activeOrg);
   };
-  const onTabChange = (org: OrganizationSlug) => {
-    setActiveOrg(org);
-    setBanner(null);
-  };
-
   // 편집 가능 = 백엔드 권위(halves[].editable: 현재 OR 다음 반기). 프론트가 재정의하지 않는다.
   const selectedHalfOption = useMemo(
     () => halves.find((h) => h.halfKey === half) ?? null,
@@ -245,12 +247,12 @@ export default function TeamPartsInfoManager() {
   const isCurrentHalf = half != null && half === currentHalfKey;
 
   const clubCount = useMemo(
-    () => ORGANIZATIONS.filter((o) => (byOrg[o]?.length ?? 0) > 0).length,
-    [byOrg],
+    () => visibleOrgs.filter((o) => (byOrg[o]?.length ?? 0) > 0).length,
+    [byOrg, visibleOrgs],
   );
   const totalTeams = useMemo(
-    () => ORGANIZATIONS.reduce((sum, o) => sum + (byOrg[o]?.length ?? 0), 0),
-    [byOrg],
+    () => visibleOrgs.reduce((sum, o) => sum + (byOrg[o]?.length ?? 0), 0),
+    [byOrg, visibleOrgs],
   );
   const activeTeams = byOrg[activeOrg] ?? [];
   const atLimit = activeTeams.length >= MAX_TEAMS_PER_CLUB;
@@ -479,7 +481,7 @@ export default function TeamPartsInfoManager() {
             </p>
           ) : (
             <div className="space-y-4 rounded-md bg-sky-50 p-4">
-              {ORGANIZATIONS.map((org) => {
+              {visibleOrgs.map((org) => {
                 const teams = byOrg[org] ?? [];
                 return (
                   <div
@@ -537,12 +539,11 @@ export default function TeamPartsInfoManager() {
                   />
                 </span>
                 <div className="flex gap-1">
-                  {ORGANIZATIONS.map((org) => (
+                  {visibleOrgs.map((org) => (
                     <button
                       key={org}
                       type="button"
                       data-org-tab={org}
-                      onClick={() => onTabChange(org)}
                       className={
                         "rounded-md border px-3 py-1.5 text-sm font-bold " +
                         (activeOrg === org

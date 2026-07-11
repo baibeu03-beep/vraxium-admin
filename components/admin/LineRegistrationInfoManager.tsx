@@ -46,6 +46,7 @@ import {
   type LineRegistrationHub,
   type ListLineRegistrationsResult,
 } from "@/lib/adminLineRegistrationsTypes";
+import type { OrganizationSlug } from "@/lib/organizations";
 
 // 이 화면이 다루는 허브 — 실무 경력(career)은 제외.
 const INFO_HUBS = LINE_REGISTRATION_HUBS.filter(
@@ -324,7 +325,12 @@ function InfoSortableHeader({
   );
 }
 
-export default function LineRegistrationInfoManager() {
+export default function LineRegistrationInfoManager({ org }: { org: OrganizationSlug }) {
+  // '-'도 현재 URL org로 이미 스코프된 응답 전체를 뜻한다.
+  const clubFilterOptions = CLUB_FILTER_OPTIONS.filter(
+    (option) => option.value === "-" || option.value === org,
+  );
+
   const [rows, setRows] = useState<LineRegistrationDto[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -415,7 +421,7 @@ export default function LineRegistrationInfoManager() {
         const results = await Promise.all(
           INFO_HUBS.map(async (h) => {
             const res = await fetch(
-              `/api/admin/lines/registrations?hub=${h}&limit=200`,
+              `/api/admin/lines/registrations?hub=${h}&limit=200&organization=${org}`,
               { cache: "no-store" },
             );
             const json = await res.json();
@@ -443,7 +449,7 @@ export default function LineRegistrationInfoManager() {
     return () => {
       cancelled = true;
     };
-  }, [refreshTick]);
+  }, [refreshTick, org]);
 
   // 통계 — 전체 허브 갯수(데이터에 존재하는 비-career 허브 종류 수) · 전체 라인 갯수.
   //   전체 라인 갯수는 공통 라인 중복을 제거한 "구분되는 라인 수"로 센다(클럽별 복제 제외).
@@ -535,7 +541,7 @@ export default function LineRegistrationInfoManager() {
 
   const statsReady = rows !== null;
 
-  return (
+  return true ? (
     <div className="flex w-full flex-col gap-4">
       {/* ── 상단 통계 ── */}
       <div className="grid grid-cols-2 gap-3 sm:max-w-md">
@@ -567,7 +573,7 @@ export default function LineRegistrationInfoManager() {
                 value={clubFilter}
                 onChange={(e) => setClubFilter(e.target.value as ClubFilter)}
               >
-                {CLUB_FILTER_OPTIONS.map((o) => (
+                {clubFilterOptions.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
@@ -790,5 +796,5 @@ export default function LineRegistrationInfoManager() {
         </div>
       )}
     </div>
-  );
+  ) : null;
 }
