@@ -278,7 +278,7 @@ export default function ProcessIrregularDialog({
             <label className="text-xs text-muted-foreground">
               검수 시점 <span className="text-red-500">*</span>
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
               <input
                 type="date"
                 value={date}
@@ -286,9 +286,9 @@ export default function ProcessIrregularDialog({
                 max={maxDate}
                 onChange={(e) => setDate(e.target.value)}
                 disabled={submitting}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                className="h-9 min-w-[9rem] shrink-0 rounded-md border border-input bg-background px-2 text-sm"
               />
-              <span className="w-8 text-center text-sm text-muted-foreground">
+              <span className="w-9 shrink-0 whitespace-nowrap text-center text-sm text-muted-foreground">
                 {date ? `(${dowOf(date)})` : "(–)"}
               </span>
               <select
@@ -296,7 +296,7 @@ export default function ProcessIrregularDialog({
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
                 disabled={submitting}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                className="h-9 min-w-[5.5rem] shrink-0 rounded-md border border-input bg-background px-2 text-sm"
               >
                 <option value="">시간</option>
                 {TIME_SLOTS.map((t) => (

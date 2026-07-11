@@ -107,6 +107,27 @@ export default function ProcessCheckActDialog({
     return Number.isNaN(d.getTime()) ? null : d.toISOString();
   }, [date, time]);
 
+  // 즉시 검증(클라) — 날짜+시간이 완성돼 timestamp 가 나오는 즉시 신청 시점(nowMs) 기준 12시간 규칙을 판정.
+  //   기준 시각 = 화면이 신청 시점으로 쓰는 nowMs(팝업 오픈 시점 고정, min·max 와 동일 축). 서버는 실제 요청
+  //   시각으로 재검증(공통 validateScheduledCheckAt SoT). 미완성(날짜만/시간만)은 판정 보류(null).
+  const scheduleValidation = useMemo(
+    () => (scheduledIso ? validateScheduledCheckAt(scheduledIso, nowMs) : null),
+    [scheduledIso, nowMs],
+  );
+  const scheduleInvalid = scheduleValidation !== null && !scheduleValidation.ok;
+  const scheduleError = scheduleValidation && !scheduleValidation.ok ? scheduleValidation.error : null;
+
+  // 날짜/시간 변경으로 완성된 timestamp 가 12시간 규칙 위반이면 공통 팝업으로 즉시 안내.
+  //   onChange(사용자 행위) 에서만 호출 → 렌더/state update 마다 반복 팝업하지 않는다. 미완성은 보류,
+  //   새로운 잘못된 값을 다시 고르면 다시 안내된다. 잘못된 값의 최종 차단은 disabled + submit 재검증이 담당.
+  const warnIfScheduleInvalid = (nextDate: string, nextTime: string) => {
+    if (!nextDate || !nextTime) return;
+    const d = new Date(`${nextDate}T${nextTime}:00`);
+    if (Number.isNaN(d.getTime())) return;
+    const v = validateScheduledCheckAt(d.toISOString(), nowMs);
+    if (!v.ok) void confirm({ title: "검수 시점 확인", description: v.error, confirmLabel: "확인" });
+  };
+
   // pending: 검수 시점 전이어야 취소 가능.
   const cancelable =
     status === "pending" &&
@@ -224,7 +245,7 @@ export default function ProcessCheckActDialog({
           {status === "needed" ? (
             <>
               <label className="text-xs text-muted-foreground">
-                링크 <span className="text-red-500">*</span> (네이버 카페 게시물 링크)
+                검수 링크 <span className="text-red-500">*</span>
               </label>
               <Input
                 value={reviewLink}
@@ -234,7 +255,7 @@ export default function ProcessCheckActDialog({
               />
             </>
           ) : (
-            <Field label="링크">
+            <Field label="검수 링크">
               {act.reviewLink ? (
                 <a href={act.reviewLink} target="_blank" rel="noreferrer" className="text-blue-600 underline">
                   {act.reviewLink}
@@ -246,32 +267,44 @@ export default function ProcessCheckActDialog({
           )}
         </div>
 
-        {/* (3) 1행 2열 — 검수 시점 / 체크 크루 인원수 */}
+        {/* (3) 검수 시점 / 체크 크루 인원수 — needed 는 입력 그룹을 전폭으로(한 행 유지), 그 외는 1행 2열 */}
         <div className="mt-3 grid grid-cols-2 gap-3">
           {status === "needed" ? (
-            <div className="space-y-1">
+            <div className="col-span-2 space-y-1">
               <label className="text-xs text-muted-foreground">
-                검수 시점 <span className="text-red-500">*</span> (24시간 · now 이후 ~ +7일)
+                검수 시점 <span className="text-red-500">*</span>
               </label>
-              <div className="flex flex-wrap items-center gap-1.5">
+              {/* 날짜 · (요일) · 시간을 한 행에 고정 — flex-nowrap + 요일은 shrink-0/whitespace-nowrap.
+                  좁은 화면에서도 요일 괄호가 단독 줄바꿈되지 않도록 그룹 단위로 가로 스크롤 처리한다. */}
+              <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto">
                 <input
                   type="date"
                   value={date}
                   min={minDate}
                   max={maxDate}
-                  onChange={(e) => setDate(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setDate(v);
+                    warnIfScheduleInvalid(v, time); // 시간이 이미 있으면 날짜 변경만으로도 즉시 판정
+                  }}
                   disabled={submitting}
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  aria-invalid={scheduleInvalid}
+                  className="h-9 min-w-[9rem] shrink-0 rounded-md border border-input bg-background px-2 text-sm aria-[invalid=true]:border-rose-400"
                 />
-                <span className="w-8 text-center text-sm text-muted-foreground">
+                <span className="w-9 shrink-0 whitespace-nowrap text-center text-sm text-muted-foreground">
                   {date ? `(${dowOf(date)})` : "(–)"}
                 </span>
                 <select
                   aria-label="검수 시각"
                   value={time}
-                  onChange={(e) => setTime(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setTime(v);
+                    warnIfScheduleInvalid(date, v); // 날짜가 이미 있으면 시간 선택으로 timestamp 완성 → 즉시 판정
+                  }}
                   disabled={submitting}
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  aria-invalid={scheduleInvalid}
+                  className="h-9 min-w-[5.5rem] shrink-0 rounded-md border border-input bg-background px-2 text-sm aria-[invalid=true]:border-rose-400"
                 >
                   <option value="">시간</option>
                   {TIME_SLOTS.map((t) => (
@@ -281,16 +314,22 @@ export default function ProcessCheckActDialog({
                   ))}
                 </select>
               </div>
-              {scheduledIso && (
+              {/* 유효(12h 이후)면 확정 미리보기 · 위반이면 즉시 경고 문구(신청 버튼도 비활성). */}
+              {scheduledIso && !scheduleInvalid && (
                 <p className="text-[11px] text-muted-foreground">→ {formatCheckDateTimeKo(scheduledIso)}</p>
+              )}
+              {scheduleError && (
+                <p className="text-[11px] font-medium text-rose-600">{scheduleError}</p>
               )}
             </div>
           ) : (
-            <Field label="검수 시점">{act.scheduledCheckAt ? formatCheckDateTimeKo(act.scheduledCheckAt) : "-"}</Field>
+            <>
+              <Field label="검수 시점">{act.scheduledCheckAt ? formatCheckDateTimeKo(act.scheduledCheckAt) : "-"}</Field>
+              <Field label="체크 크루 인원수">
+                {status === "completed" ? `${act.checkedCrewCount ?? act.completedCrewList.length}명` : "-"}
+              </Field>
+            </>
           )}
-          <Field label="체크 크루 인원수">
-            {status === "completed" ? `${act.checkedCrewCount ?? act.completedCrewList.length}명` : "-"}
-          </Field>
         </div>
 
         {/* 완료 부가 정보(신청/완료 시점) — completed 만 */}
@@ -341,7 +380,8 @@ export default function ProcessCheckActDialog({
             type="button"
             size="sm"
             loading={submitting && status === "needed"}
-            disabled={status !== "needed" || submitting}
+            // 12h 규칙 위반(scheduleInvalid) 이면 신청 불가. 미완성 값은 submit 이 "날짜·시간 선택" 으로 안내.
+            disabled={status !== "needed" || submitting || scheduleInvalid}
             onClick={() => void submit("request")}
           >
             체크 신청

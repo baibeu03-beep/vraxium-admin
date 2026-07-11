@@ -53,7 +53,7 @@ export default function ProcessCheckProgress({
                   title={`체크 대상 액트 ${g.appliedActCount}/${g.targetActCount} 신청완료`}
                   className={cn(
                     "rounded-full border px-3 py-1 text-xs font-medium",
-                    g.hasApplied
+                    g.isCompleted
                       ? "border-emerald-300 bg-emerald-100 text-emerald-800"
                       : "border-border bg-background text-muted-foreground",
                   )}

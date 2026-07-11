@@ -157,7 +157,8 @@ try {
   await page.waitForTimeout(500);
   {
     const dlg = (await page.locator("body").textContent()) ?? "";
-    const isManualDialog = dlg.includes("수동 부여 완료");
+    // 수동 입력 팝업 식별 = 제목 "선별 액트"(링크 팝업은 "액트 체크"). 완료 상태 표기는 "체크 완료"로 통일됨.
+    const isManualDialog = dlg.includes("선별 액트");
     const hasHeaders = ["이름", "소속 팀", "소속 파트", "클래스"].every((h) => dlg.includes(h));
     const cancelBtn = page.getByRole("button", { name: "체크 취소" });
     const cancelDisabled = (await cancelBtn.count()) > 0 ? await cancelBtn.first().isDisabled() : false;

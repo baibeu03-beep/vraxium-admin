@@ -248,6 +248,29 @@ export default function ProcessCheckActTable({
             <Table>
               <TableHeader>
                 <TableRow>
+                  {/* 전체 1~4열 고정: 신청 시점(필요) · 검수 시점(필요) · 상태 · 수동 실행.
+                      팀 & 파트(experience)·나머지 열은 그 뒤로. 정렬키/도움말/액션 동작 불변. */}
+                  {renderHead({
+                    label: "신청 시점(필요)",
+                    helpKey: "admin.processCheck.actTable.column.applyTimeRequired",
+                    sortKey: "occurWhen",
+                  })}
+                  {renderHead({
+                    label: "검수 시점(필요)",
+                    helpKey: "admin.processCheck.actTable.column.reviewTimeRequired",
+                    sortKey: "checkWhen",
+                  })}
+                  {renderHead({
+                    label: "상태",
+                    helpKey: "admin.processCheck.actTable.column.status",
+                    sortKey: "status",
+                  })}
+                  {(onAutoReview || onRollback) &&
+                    renderHead({
+                      label: "수동 실행",
+                      helpKey: "admin.processCheck.actTable.column.manualAction",
+                      className: "text-center",
+                    })}
                   {showScopeColumn &&
                     renderHead({
                       label: "팀 & 파트",
@@ -268,16 +291,6 @@ export default function ProcessCheckActTable({
                     label: "소요(m)",
                     helpKey: "admin.processCheck.actTable.column.duration",
                     sortKey: "durationMinutes",
-                  })}
-                  {renderHead({
-                    label: "신청 시점(필요)",
-                    helpKey: "admin.processCheck.actTable.column.applyTimeRequired",
-                    sortKey: "occurWhen",
-                  })}
-                  {renderHead({
-                    label: "검수 시점(필요)",
-                    helpKey: "admin.processCheck.actTable.column.reviewTimeRequired",
-                    sortKey: "checkWhen",
                   })}
                   {renderHead({
                     label: poLabels.a,
@@ -314,57 +327,15 @@ export default function ProcessCheckActTable({
                     helpKey: "admin.processCheck.actTable.column.reviewTimeActual",
                     sortKey: "scheduledCheckAt",
                   })}
-                  {renderHead({
-                    label: "상태",
-                    helpKey: "admin.processCheck.actTable.column.status",
-                    sortKey: "status",
-                  })}
-                  {(onAutoReview || onRollback) &&
-                    renderHead({
-                      label: "수동 실행",
-                      helpKey: "admin.processCheck.actTable.column.manualAction",
-                      className: "text-center",
-                    })}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {displayActs.map((a) => (
                   <TableRow key={`${a.actId}|${a.partLabel}`}>
-                    {showScopeColumn && (
-                      <TableCell className="whitespace-nowrap font-medium text-muted-foreground">
-                        {a.partLabel}
-                      </TableCell>
-                    )}
-                    <TableCell className="font-medium">{a.actName}</TableCell>
-                    {/* 소속 라인 급 — experience(showScopeColumn) 만 명시적으로 작은 폰트(text-[11px])로 강제.
-                        base TableCell 의 whitespace-nowrap 이 남으면 긴 라인명이 옆 컬럼을 침범하므로
-                        whitespace-normal 로 override + break-keep(한글 단어 유지·가능하면 한 줄) + max-w 로 셀 안에 가둠.
-                        info 는 기존 크기(text-sm·nowrap) 유지. */}
-                    <TableCell
-                      className={
-                        showScopeColumn
-                          ? "max-w-[9rem] whitespace-normal break-keep px-2 text-[11px] leading-tight"
-                          : undefined
-                      }
-                    >
-                      {a.lineGroupName}
-                    </TableCell>
-                    <TableCell className="tabular-nums">{a.durationMinutes}</TableCell>
+                    {/* 1열 신청 시점(필요) · 2열 검수 시점(필요) — 헤더와 동일 순서. */}
                     <TableCell className="whitespace-nowrap">{a.occurWhen}</TableCell>
                     <TableCell className="whitespace-nowrap">{a.checkWhen}</TableCell>
-                    <TableCell className="tabular-nums">{a.pointCheck}</TableCell>
-                    <TableCell className="tabular-nums">{a.pointAdvantage}</TableCell>
-                    <TableCell className="tabular-nums">{a.pointPenalty}</TableCell>
-                    <TableCell className="text-center">
-                      <SelectBadge label={a.crewReactionLabel} size="sm" />
-                    </TableCell>
-                    <TableCell>{a.cafeLabel}</TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {a.requestedAt ? formatCheckDateTimeKo(a.requestedAt) : "—"}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-muted-foreground">
-                      {a.scheduledCheckAt ? formatCheckDateTimeKo(a.scheduledCheckAt) : "—"}
-                    </TableCell>
+                    {/* 3열 상태 — 클릭/읽기전용/도움말 동작 불변. */}
                     <TableCell className="text-center">
                       {a.isCheckTarget ? (
                         readOnly ? (
@@ -388,7 +359,7 @@ export default function ProcessCheckActTable({
                         <span className="text-xs text-muted-foreground">체크 대상 아님</span>
                       )}
                     </TableCell>
-                    {/* '수동 실행' 컬럼 — 대기(pending)=⚡즉시 검수 / 완료(completed)=↩실행 취소(직전 단계 복원). */}
+                    {/* 4열 '수동 실행' — 대기(pending)=⚡즉시 검수 / 완료(completed)=↩실행 취소(직전 단계 복원). */}
                     {(onAutoReview || onRollback) && (
                       <TableCell className="text-center">
                         {!readOnly && onAutoReview && a.isCheckTarget && a.status === "pending" && a.checkStatusId ? (
@@ -416,6 +387,40 @@ export default function ProcessCheckActTable({
                         )}
                       </TableCell>
                     )}
+                    {/* 5열~ 팀 & 파트(experience) · 나머지 열. */}
+                    {showScopeColumn && (
+                      <TableCell className="whitespace-nowrap font-medium text-muted-foreground">
+                        {a.partLabel}
+                      </TableCell>
+                    )}
+                    <TableCell className="font-medium">{a.actName}</TableCell>
+                    {/* 소속 라인 급 — experience(showScopeColumn) 만 명시적으로 작은 폰트(text-[11px])로 강제.
+                        base TableCell 의 whitespace-nowrap 이 남으면 긴 라인명이 옆 컬럼을 침범하므로
+                        whitespace-normal 로 override + break-keep(한글 단어 유지·가능하면 한 줄) + max-w 로 셀 안에 가둠.
+                        info 는 기존 크기(text-sm·nowrap) 유지. */}
+                    <TableCell
+                      className={
+                        showScopeColumn
+                          ? "max-w-[9rem] whitespace-normal break-keep px-2 text-[11px] leading-tight"
+                          : undefined
+                      }
+                    >
+                      {a.lineGroupName}
+                    </TableCell>
+                    <TableCell className="tabular-nums">{a.durationMinutes}</TableCell>
+                    <TableCell className="tabular-nums">{a.pointCheck}</TableCell>
+                    <TableCell className="tabular-nums">{a.pointAdvantage}</TableCell>
+                    <TableCell className="tabular-nums">{a.pointPenalty}</TableCell>
+                    <TableCell className="text-center">
+                      <SelectBadge label={a.crewReactionLabel} size="sm" />
+                    </TableCell>
+                    <TableCell>{a.cafeLabel}</TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {a.requestedAt ? formatCheckDateTimeKo(a.requestedAt) : "—"}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {a.scheduledCheckAt ? formatCheckDateTimeKo(a.scheduledCheckAt) : "—"}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

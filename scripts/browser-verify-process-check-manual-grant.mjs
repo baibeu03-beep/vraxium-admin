@@ -144,7 +144,7 @@ try {
         await page.waitForTimeout(1200);
         const selRowAfter = page.locator(`tr:has-text("${TAG}selection")`).first();
         const label = await selRowAfter.innerText().catch(() => "");
-        ck("[7] 저장 후 행 '수동 부여 완료' 표시", label.includes("수동 부여 완료"), label.replace(/\s+/g, " ").slice(0, 80));
+        ck("[7] 저장 후 행 '체크 완료' 표시(수동/자동 통일)", label.includes("체크 완료"), label.replace(/\s+/g, " ").slice(0, 80));
       } else {
         ck("[7] 저장 — 검색 결과 없음(스킵)", true, "자동완성 옵션 미노출");
       }

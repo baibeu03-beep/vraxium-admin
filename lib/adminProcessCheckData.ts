@@ -893,7 +893,8 @@ export async function getProcessCheckBoard(
       name: g.name,
       targetActCount: targets.length,
       appliedActCount: appliedCount,
-      hasApplied: appliedCount > 0,
+      // 완료 = 산하 체크 대상 전부 신청완료(대상 0개는 완료 아님). 일부 완료(appliedCount>0)는 미완료.
+      isCompleted: targets.length > 0 && appliedCount === targets.length,
     });
   }
 
@@ -903,7 +904,8 @@ export async function getProcessCheckBoard(
   const actCompleted = targetActs.filter((x) => x.status === "completed").length;
   const summary: ProcessCheckSummary = {
     lineGroupTotal: lineGroups.length,
-    lineGroupApplied: lineGroups.filter((g) => g.hasApplied).length,
+    // "N개 중 M개 체크 신청 완료" — 배지 완료 색상과 동일 기준(산하 체크 대상 전부 신청완료인 라인급 수).
+    lineGroupApplied: lineGroups.filter((g) => g.isCompleted).length,
     actTotal,
     actApplied,
     actCompleted,

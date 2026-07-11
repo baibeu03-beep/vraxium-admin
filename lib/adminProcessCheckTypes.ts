@@ -67,13 +67,14 @@ export function isSelectionActType(actType: ProcessActType | string | null | und
   return actType === "selection";
 }
 
-// 액트 행 상태 라벨 — 완료가 수동 부여면 "수동 부여 완료", 그 외는 기본 라벨.
-//   (UI 용어 통일 SoT: '링크 신청'/'수동 부여' — 저장값 enum 은 manual_grant 유지.)
+// 액트 행 상태 라벨 — 자동/수동 완료 모두 사용자 화면에서는 "체크 완료"로 통일한다.
+//   (내부 completionable enum(manual_grant/null)·이력 타입·rollback 판정은 불변 — 표시 문구만 통일.)
 export function processCheckActStatusLabel(
   status: ProcessCheckStatus,
   completionType: "manual_grant" | null,
 ): string {
-  if (status === "completed" && completionType === "manual_grant") return "수동 부여 완료";
+  // 수동 부여 완료도 사용자에겐 "체크 완료"(자동 완료와 동일 표기). completionType 은 분기 없이 무시.
+  if (status === "completed" && completionType === "manual_grant") return "체크 완료";
   return processCheckButtonLabel(status);
 }
 
@@ -98,15 +99,22 @@ export function isPartLineGroupName(name: string | null | undefined): boolean {
   return (name ?? "").includes("파트");
 }
 
-// ── 검수 시점 검증 (now < scheduled ≤ now+7d) — 서버/클라 공용 SoT ──────────────
+// ── 검수 시점 검증 (신청 시점 + 최소 12시간 ≤ scheduled ≤ 신청 시점 + 7일) — 서버/클라 공용 SoT ──
+//   검수 시점은 신청 시점보다 최소 12시간 이후여야 한다(정확히 12시간 정각=허용 · 과거/동일/12h 미만=차단).
+//   상한(신청 시점 +7일)은 기존 서버 정책 그대로 유지 — 화면에서는 보조 설명 문구만 제거한다.
 export const CHECK_SCHEDULE_MAX_DAYS = 7;
+export const CHECK_SCHEDULE_MIN_HOURS = 12;
 const DAY_MS = 86_400_000;
+const HOUR_MS = 3_600_000;
 export type ScheduleValidation = { ok: true } | { ok: false; error: string };
-// nowMs = 신청 시점(서버 기준). scheduledIso = 사용자가 고른 검수 예정 시각(ISO).
+// nowMs = 신청 시점(서버 기준). scheduledIso = 사용자가 고른 검수 예정 시각(ISO). 날짜만이 아닌 timestamp 로 비교.
 export function validateScheduledCheckAt(scheduledIso: string, nowMs: number): ScheduleValidation {
   const t = Date.parse(scheduledIso);
   if (Number.isNaN(t)) return { ok: false, error: "검수 시점 형식이 올바르지 않습니다" };
-  if (t <= nowMs) return { ok: false, error: "검수 시점은 현재 시간 이후여야 합니다" };
+  // 최소 12시간 — 과거·동일 시점 및 12시간 미만은 모두 차단(t - now === 12h 인 경계값은 허용).
+  if (t - nowMs < CHECK_SCHEDULE_MIN_HOURS * HOUR_MS) {
+    return { ok: false, error: "검수 시점은 신청 시점으로부터 최소 12시간 이후로 설정해주세요." };
+  }
   if (t > nowMs + CHECK_SCHEDULE_MAX_DAYS * DAY_MS) {
     return { ok: false, error: `검수 시점은 신청 시점 기준 ${CHECK_SCHEDULE_MAX_DAYS}일 이내여야 합니다` };
   }
@@ -230,9 +238,11 @@ export type ProcessCheckActRowDto = {
 export type ProcessCheckLineGroupDto = {
   lineGroupId: string;
   name: string;
-  targetActCount: number; // 산하 체크 대상 액트 수
+  targetActCount: number; // 산하 체크 대상 액트 수(현재 주차·현재 스코프의 실제 체크 대상만)
   appliedActCount: number; // 그 중 신청완료(pending|completed) 수
-  hasApplied: boolean;
+  // 완료 색상 판정 — 산하 체크 대상 액트가 1개 이상이고 그 전부가 신청완료일 때만 true.
+  //   (일부만 신청완료면 false — appliedActCount > 0 같은 느슨한 조건 금지.)
+  isCompleted: boolean;
 };
 
 export type ProcessCheckSummary = {

@@ -472,7 +472,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 >
                   <span
                     className={cn(
-                      "mt-0.5 inline-flex shrink-0 items-center rounded border px-1.5 py-0.5 text-[11px] font-semibold",
+                      "mt-0.5 inline-flex shrink-0 items-center rounded border px-2 py-0.5 text-xs font-semibold leading-tight",
                       PROCESS_CHECK_LOG_CHIP_CLASS[l.action],
                     )}
                   >

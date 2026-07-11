@@ -224,12 +224,13 @@ export default function ProcessCheckManualGrantDialog({
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold">
             선별 액트 ·{" "}
-            <span className="text-green-700">{isCompleted ? "수동 부여 완료" : "수동 부여"}</span>
+            {/* 완료 상태는 사용자 표기 "체크 완료"로 통일(입력 모드는 동작 "수동 부여" 유지). */}
+            <span className="text-green-700">{isCompleted ? "체크 완료" : "수동 부여"}</span>
             <span className="ml-2 text-xs font-normal text-muted-foreground">({act.lineGroupName})</span>
           </h2>
-          {/* 우측 상단 인원 수 — 완료=체크 완료 크루 수 / 입력=선택 중인 대상 수 */}
+          {/* 우측 상단 인원 수 — 완료=체크 크루 수 / 입력=선택 중인 대상 수 */}
           <span className="text-sm font-medium text-muted-foreground">
-            {isCompleted ? `체크 완료 크루 ${act.checkedCrewCount ?? 0}명` : `대상 크루 ${roster.length}명`}
+            {isCompleted ? `체크 크루 ${act.checkedCrewCount ?? 0}명` : `대상 크루 ${roster.length}명`}
           </span>
         </div>
 
@@ -436,7 +437,7 @@ export default function ProcessCheckManualGrantDialog({
           </div>
 
           <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[11px] text-green-700">
-            수동 부여는 즉시 ‘수동 부여 완료’로 처리됩니다(체크 대기 없음). 같은 액트·주차에 이미 부여된 크루는 중복 저장되지 않습니다.
+            수동 부여는 즉시 ‘체크 완료’로 처리됩니다(체크 대기 없음). 같은 액트·주차에 이미 부여된 크루는 중복 저장되지 않습니다.
           </p>
         </div>
         )}

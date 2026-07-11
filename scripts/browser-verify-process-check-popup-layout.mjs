@@ -112,7 +112,7 @@ try {
   ck("[5] 체크 크루 명단 헤더(이름/소속 팀/소속 파트/클래스)", hasCrewHeaders);
 
   // 6) 크루 없으면 안내 문구.
-  ck("[6] 빈 명단 안내 문구", ptxt.includes("아직 체크 완료된 크루가 없습니다."));
+  ck("[6] 빈 명단 안내 문구", ptxt.includes("아직 체크된 크루가 없습니다."));
 
   // 8) 기존 버튼 유지(초기화/체크 신청/체크 취소/닫기).
   const btn = (n) => panel().getByRole("button", { name: n });

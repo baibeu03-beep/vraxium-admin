@@ -22,7 +22,7 @@ export default function ProcessCheckCompletedCrewList({
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground">체크 완료 크루</span>
+        <span className="text-xs font-medium text-muted-foreground">체크 크루</span>
         <span className="text-xs font-semibold tabular-nums text-foreground">{crews.length}명</span>
       </div>
       <div className="overflow-x-auto rounded-md border">
@@ -39,7 +39,7 @@ export default function ProcessCheckCompletedCrewList({
             {crews.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="py-4 text-center text-xs text-muted-foreground">
-                  아직 체크 완료된 크루가 없습니다.
+                  아직 체크된 크루가 없습니다.
                 </TableCell>
               </TableRow>
             ) : (
