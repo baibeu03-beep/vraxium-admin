@@ -24,6 +24,8 @@ import { EXPERIENCE_LINE_TYPES } from "@/lib/adminTeamPartsInfoWeekDetailData";
 const args = process.argv.slice(2);
 const APPLY = args.includes("--apply");
 const rollbackArg = args.find((a) => a.startsWith("--rollback="))?.split("=")[1] ?? null;
+// 배정 수량 상한(1~MAX). 기본 20. 테스트 N 축소용으로 --max=2 등. 버킷/시드는 불변(수량만 스케일).
+const MAX = Math.max(1, parseInt(args.find((a) => a.startsWith("--max="))?.split("=")[1] ?? "20", 10) || 20);
 const MANIFEST = "claudedocs/line-point-backfill-manifest.json";
 
 type Target = { organization: string; hub: string; configKey: string; pointA: number; pointB: number; bucket: string };
@@ -96,14 +98,14 @@ async function main() {
   let skipped = 0;
   for (const k of keys) {
     if (existing.has(`${k.organization}:${k.hub}:${k.configKey}`)) { skipped++; continue; }
-    const a = assignLinePoints(`${k.organization}:${k.hub}:${k.configKey}`);
+    const a = assignLinePoints(`${k.organization}:${k.hub}:${k.configKey}`, "line-point-v1", MAX);
     targets.push({ ...k, pointA: a.pointA, pointB: a.pointB, bucket: a.bucket });
   }
 
   const dist = { a_only: 0, b_only: 0, both: 0 } as Record<string, number>;
   const byHub: Record<string, number> = {};
   for (const t of targets) { dist[t.bucket]++; byHub[t.hub] = (byHub[t.hub] ?? 0) + 1; }
-  console.log(`\n전체 config_key: ${keys.length} · 기존값 skip: ${skipped} · 배정 대상: ${targets.length}`);
+  console.log(`\n수량 범위: 1~${MAX} · 전체 config_key: ${keys.length} · 기존값 skip: ${skipped} · 배정 대상: ${targets.length}`);
   console.log(`허브 분포:`, byHub);
   console.log(`버킷 분포: A만=${dist.a_only} · B만=${dist.b_only} · 둘다=${dist.both} (목표 0.3/0.3/0.4)`);
   console.log("샘플(최대 12):");

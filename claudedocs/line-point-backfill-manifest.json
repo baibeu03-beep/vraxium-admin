@@ -3,16 +3,16 @@
     "organization": "common",
     "hub": "info",
     "configKey": "wisdom",
-    "pointA": 16,
-    "pointB": 7,
+    "pointA": 2,
+    "pointB": 1,
     "bucket": "both"
   },
   {
     "organization": "common",
     "hub": "info",
     "configKey": "essay",
-    "pointA": 8,
-    "pointB": 5,
+    "pointA": 1,
+    "pointB": 1,
     "bucket": "both"
   },
   {
@@ -20,7 +20,7 @@
     "hub": "info",
     "configKey": "infodesk",
     "pointA": 0,
-    "pointB": 20,
+    "pointB": 2,
     "bucket": "b_only"
   },
   {
@@ -35,7 +35,7 @@
     "organization": "common",
     "hub": "info",
     "configKey": "forum",
-    "pointA": 5,
+    "pointA": 1,
     "pointB": 0,
     "bucket": "a_only"
   },
@@ -43,7 +43,7 @@
     "organization": "common",
     "hub": "info",
     "configKey": "session",
-    "pointA": 10,
+    "pointA": 1,
     "pointB": 0,
     "bucket": "a_only"
   },
@@ -51,7 +51,7 @@
     "organization": "common",
     "hub": "info",
     "configKey": "practical_lecture",
-    "pointA": 11,
+    "pointA": 2,
     "pointB": 0,
     "bucket": "a_only"
   },
@@ -59,8 +59,8 @@
     "organization": "common",
     "hub": "info",
     "configKey": "community",
-    "pointA": 8,
-    "pointB": 4,
+    "pointA": 1,
+    "pointB": 1,
     "bucket": "both"
   },
   {
@@ -68,7 +68,7 @@
     "hub": "info",
     "configKey": "etc_a",
     "pointA": 0,
-    "pointB": 3,
+    "pointB": 1,
     "bucket": "b_only"
   },
   {
@@ -76,7 +76,7 @@
     "hub": "experience",
     "configKey": "derive",
     "pointA": 0,
-    "pointB": 9,
+    "pointB": 1,
     "bucket": "b_only"
   },
   {
@@ -84,7 +84,7 @@
     "hub": "experience",
     "configKey": "analysis",
     "pointA": 0,
-    "pointB": 20,
+    "pointB": 2,
     "bucket": "b_only"
   },
   {
@@ -92,15 +92,15 @@
     "hub": "experience",
     "configKey": "research",
     "pointA": 0,
-    "pointB": 4,
+    "pointB": 1,
     "bucket": "b_only"
   },
   {
     "organization": "phalanx",
     "hub": "experience",
     "configKey": "management",
-    "pointA": 13,
-    "pointB": 4,
+    "pointA": 2,
+    "pointB": 1,
     "bucket": "both"
   },
   {
@@ -108,7 +108,7 @@
     "hub": "experience",
     "configKey": "expansion",
     "pointA": 0,
-    "pointB": 8,
+    "pointB": 1,
     "bucket": "b_only"
   },
   {
@@ -123,7 +123,7 @@
     "organization": "oranke",
     "hub": "experience",
     "configKey": "analysis",
-    "pointA": 14,
+    "pointA": 2,
     "pointB": 0,
     "bucket": "a_only"
   },
@@ -132,15 +132,15 @@
     "hub": "experience",
     "configKey": "research",
     "pointA": 0,
-    "pointB": 7,
+    "pointB": 1,
     "bucket": "b_only"
   },
   {
     "organization": "oranke",
     "hub": "experience",
     "configKey": "management",
-    "pointA": 10,
-    "pointB": 19,
+    "pointA": 1,
+    "pointB": 2,
     "bucket": "both"
   },
   {
@@ -148,15 +148,15 @@
     "hub": "experience",
     "configKey": "expansion",
     "pointA": 0,
-    "pointB": 10,
+    "pointB": 1,
     "bucket": "b_only"
   },
   {
     "organization": "encre",
     "hub": "experience",
     "configKey": "derive",
-    "pointA": 7,
-    "pointB": 16,
+    "pointA": 1,
+    "pointB": 2,
     "bucket": "both"
   },
   {
@@ -164,7 +164,7 @@
     "hub": "experience",
     "configKey": "analysis",
     "pointA": 0,
-    "pointB": 17,
+    "pointB": 2,
     "bucket": "b_only"
   },
   {
@@ -172,30 +172,30 @@
     "hub": "experience",
     "configKey": "research",
     "pointA": 0,
-    "pointB": 15,
+    "pointB": 2,
     "bucket": "b_only"
   },
   {
     "organization": "encre",
     "hub": "experience",
     "configKey": "management",
-    "pointA": 11,
-    "pointB": 20,
+    "pointA": 2,
+    "pointB": 2,
     "bucket": "both"
   },
   {
     "organization": "encre",
     "hub": "experience",
     "configKey": "expansion",
-    "pointA": 20,
-    "pointB": 3,
+    "pointA": 2,
+    "pointB": 1,
     "bucket": "both"
   },
   {
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0001",
-    "pointA": 12,
+    "pointA": 2,
     "pointB": 0,
     "bucket": "a_only"
   },
@@ -203,8 +203,8 @@
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0002",
-    "pointA": 10,
-    "pointB": 7,
+    "pointA": 1,
+    "pointB": 1,
     "bucket": "both"
   },
   {
@@ -212,14 +212,14 @@
     "hub": "competency",
     "configKey": "CPBS-NN0003",
     "pointA": 0,
-    "pointB": 20,
+    "pointB": 2,
     "bucket": "b_only"
   },
   {
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0004",
-    "pointA": 5,
+    "pointA": 1,
     "pointB": 0,
     "bucket": "a_only"
   },
@@ -227,8 +227,8 @@
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0005",
-    "pointA": 2,
-    "pointB": 3,
+    "pointA": 1,
+    "pointB": 1,
     "bucket": "both"
   },
   {
@@ -236,15 +236,15 @@
     "hub": "competency",
     "configKey": "CPBS-NN0006",
     "pointA": 0,
-    "pointB": 13,
+    "pointB": 2,
     "bucket": "b_only"
   },
   {
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0007",
-    "pointA": 8,
-    "pointB": 12,
+    "pointA": 1,
+    "pointB": 2,
     "bucket": "both"
   },
   {
@@ -252,15 +252,15 @@
     "hub": "competency",
     "configKey": "CPBS-NN0008",
     "pointA": 0,
-    "pointB": 20,
+    "pointB": 2,
     "bucket": "b_only"
   },
   {
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0009",
-    "pointA": 4,
-    "pointB": 7,
+    "pointA": 1,
+    "pointB": 1,
     "bucket": "both"
   },
   {
@@ -268,46 +268,46 @@
     "hub": "competency",
     "configKey": "CPBS-NN0010",
     "pointA": 0,
-    "pointB": 17,
+    "pointB": 2,
     "bucket": "b_only"
   },
   {
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0011",
-    "pointA": 12,
-    "pointB": 19,
-    "bucket": "both"
-  },
-  {
-    "organization": "common",
-    "hub": "competency",
-    "configKey": "CPBS-NN0012",
     "pointA": 2,
-    "pointB": 3,
-    "bucket": "both"
-  },
-  {
-    "organization": "common",
-    "hub": "competency",
-    "configKey": "CPBS-NN0013",
-    "pointA": 10,
     "pointB": 2,
     "bucket": "both"
   },
   {
     "organization": "common",
     "hub": "competency",
+    "configKey": "CPBS-NN0012",
+    "pointA": 1,
+    "pointB": 1,
+    "bucket": "both"
+  },
+  {
+    "organization": "common",
+    "hub": "competency",
+    "configKey": "CPBS-NN0013",
+    "pointA": 1,
+    "pointB": 1,
+    "bucket": "both"
+  },
+  {
+    "organization": "common",
+    "hub": "competency",
     "configKey": "CPBS-NN0014",
-    "pointA": 9,
-    "pointB": 3,
+    "pointA": 1,
+    "pointB": 1,
     "bucket": "both"
   },
   {
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0015",
-    "pointA": 13,
+    "pointA": 2,
     "pointB": 0,
     "bucket": "a_only"
   },
@@ -315,7 +315,7 @@
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0016",
-    "pointA": 18,
+    "pointA": 2,
     "pointB": 1,
     "bucket": "both"
   },
@@ -323,7 +323,7 @@
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0017",
-    "pointA": 13,
+    "pointA": 2,
     "pointB": 1,
     "bucket": "both"
   },
@@ -331,16 +331,16 @@
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0018",
-    "pointA": 16,
-    "pointB": 5,
+    "pointA": 2,
+    "pointB": 1,
     "bucket": "both"
   },
   {
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0019",
-    "pointA": 11,
-    "pointB": 16,
+    "pointA": 2,
+    "pointB": 2,
     "bucket": "both"
   },
   {
@@ -348,7 +348,7 @@
     "hub": "competency",
     "configKey": "CPBS-NN0020",
     "pointA": 0,
-    "pointB": 2,
+    "pointB": 1,
     "bucket": "b_only"
   },
   {
@@ -356,23 +356,23 @@
     "hub": "competency",
     "configKey": "CPBS-NN0021",
     "pointA": 0,
-    "pointB": 18,
+    "pointB": 2,
     "bucket": "b_only"
   },
   {
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0022",
-    "pointA": 3,
-    "pointB": 3,
+    "pointA": 1,
+    "pointB": 1,
     "bucket": "both"
   },
   {
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0023",
-    "pointA": 19,
-    "pointB": 8,
+    "pointA": 2,
+    "pointB": 1,
     "bucket": "both"
   },
   {
@@ -380,7 +380,7 @@
     "hub": "competency",
     "configKey": "CPBS-NN0024",
     "pointA": 0,
-    "pointB": 17,
+    "pointB": 2,
     "bucket": "b_only"
   },
   {
@@ -388,7 +388,7 @@
     "hub": "competency",
     "configKey": "CPBS-NN0025",
     "pointA": 0,
-    "pointB": 17,
+    "pointB": 2,
     "bucket": "b_only"
   },
   {
@@ -411,7 +411,7 @@
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0028",
-    "pointA": 12,
+    "pointA": 2,
     "pointB": 1,
     "bucket": "both"
   },
@@ -419,15 +419,15 @@
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0029",
-    "pointA": 5,
-    "pointB": 7,
+    "pointA": 1,
+    "pointB": 1,
     "bucket": "both"
   },
   {
     "organization": "common",
     "hub": "competency",
     "configKey": "CPBS-NN0030",
-    "pointA": 2,
+    "pointA": 1,
     "pointB": 0,
     "bucket": "a_only"
   }

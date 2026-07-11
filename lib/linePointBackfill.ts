@@ -50,28 +50,37 @@ export type LinePointAssignment = {
 const A_ONLY_MAX = 0.3;
 const B_ONLY_MAX = 0.6; // 0.3 + 0.3
 
-// 배정 수량: 1~20 (배정되는 포인트는 최소 1 — 0 배정은 의미가 없어 제외). 미배정 쪽은 0.
-function draw1to20(rng: () => number): number {
-  return 1 + Math.floor(rng() * 20); // floor([0,1)*20)=0..19 → 1..20
+// 기본 배정 수량 상한(1~20). 테스트 값이 커 N 이 과대해지면 --max 로 낮춘다(버킷/시드 불변·수량만 스케일).
+export const DEFAULT_MAX_AMOUNT = 20;
+
+// 배정 수량: 1~max (배정되는 포인트는 최소 1 — 0 배정은 의미가 없어 제외). 미배정 쪽은 0.
+function drawAmount(rng: () => number, max: number): number {
+  return 1 + Math.floor(rng() * max); // floor([0,1)*max)=0..max-1 → 1..max
 }
 
 /**
  * 라인 식별자로부터 결정론적으로 Point.A / Point.B 를 배정한다.
- * 같은 lineId + 같은 salt → 항상 같은 결과.
+ * 같은 lineId + 같은 salt + 같은 maxAmount → 항상 같은 결과.
+ * 버킷 결정(roll)은 maxAmount 와 무관(첫 rng)·수량만 max 로 스케일 → 범위를 바꿔도 A만/B만/둘다 분포 동일.
  * @param salt 산식 버전/재현 컨텍스트 분리용(기본 고정). 바꾸면 전체 배정이 달라지므로 신중히.
+ * @param maxAmount 배정 수량 상한(1~maxAmount). 기본 20. 테스트 N 축소용으로 3/2 등 사용.
  */
-export function assignLinePoints(lineId: string, salt = "line-point-v1"): LinePointAssignment {
+export function assignLinePoints(
+  lineId: string,
+  salt = "line-point-v1",
+  maxAmount = DEFAULT_MAX_AMOUNT,
+): LinePointAssignment {
   const seed = xmur3(`${salt}:${lineId}`)();
   const rng = mulberry32(seed);
-  const roll = rng(); // 버킷 결정
+  const roll = rng(); // 버킷 결정(maxAmount 무관 — 범위 바꿔도 버킷 동일)
   let bucket: LinePointBucket;
   if (roll < A_ONLY_MAX) bucket = "a_only";
   else if (roll < B_ONLY_MAX) bucket = "b_only";
   else bucket = "both";
 
   // 버킷 결정 후 동일 rng 스트림에서 수량을 뽑는다(결정론 유지).
-  const amtA = draw1to20(rng);
-  const amtB = draw1to20(rng);
+  const amtA = drawAmount(rng, maxAmount);
+  const amtB = drawAmount(rng, maxAmount);
   return {
     bucket,
     pointA: bucket === "a_only" || bucket === "both" ? amtA : 0,
