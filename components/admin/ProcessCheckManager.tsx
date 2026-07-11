@@ -24,6 +24,7 @@ import ProcessCheckManualGrantDialog from "@/components/admin/ProcessCheckManual
 import ProcessCheckProgress from "@/components/admin/ProcessCheckProgress";
 import { WeekSelectRow } from "@/components/admin/WeekSelectRow";
 import {
+  PROCESS_CHECK_HELP_KEYS,
   PROCESS_CHECK_LOG_ACTION_LABEL,
   emptyProcessCheckBoard,
   formatCheckTodayCompact,
@@ -44,11 +45,21 @@ function Red({ children }: { children: React.ReactNode }) {
 
 // 어드민 공통 섹션 타이틀 — 모든 허브(info/experience/competency/club)가 공유.
 //   좌측 액센트 바로 섹션 경계를 명확히(디자인 톤 정리 — 데이터/구조 무변).
-function SectionTitle({ children }: { children: React.ReactNode }) {
+//   helpKey 전달 시(club 전용) 제목 옆 돋보기 도움말 — 미전달이면 미노출(기존 허브 동작 불변).
+function SectionTitle({
+  children,
+  helpKey,
+  helpTitle,
+}: {
+  children: React.ReactNode;
+  helpKey?: string;
+  helpTitle?: string;
+}) {
   return (
     <h2 className="mt-1 mb-3 flex items-center gap-2 text-base font-semibold tracking-tight text-foreground">
       <span aria-hidden className="h-4 w-1 rounded-full bg-primary" />
       {children}
+      {helpKey && <AdminHelpIconButton helpKey={helpKey} title={helpTitle} size="sm" />}
     </h2>
   );
 }
@@ -343,7 +354,9 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
       )}
 
       {/* ════ [섹션.0] 액트 관리 — 전체 팀 고정 ════ */}
-      <SectionTitle>[액트 관리]</SectionTitle>
+      <SectionTitle helpKey={PROCESS_CHECK_HELP_KEYS.sectionActManagement} helpTitle="액트 관리">
+        [액트 관리]
+      </SectionTitle>
       {/* 주차 선택 — 공용 WeekSelectRow(현재 기본·미래 숨김·날짜·상태·과거 조회전용). */}
       <WeekSelectRow
         weeks={weeks}
@@ -353,13 +366,23 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         onChange={setWeekParam}
         disabled={!org}
         selectId={`process-check-week-select-${hub}`}
+        helpKey={PROCESS_CHECK_HELP_KEYS.filterWeek}
       />
 
       {/* 상태창1 (좌) + 로그창 (우) */}
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">상태창</CardTitle>
+            <CardTitle className="text-base">
+              <span className="inline-flex items-center gap-1">
+                상태창
+                <AdminHelpIconButton
+                  helpKey={PROCESS_CHECK_HELP_KEYS.sectionStatusBoard}
+                  title="상태창"
+                  size="sm"
+                />
+              </span>
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <p className="rounded-md border border-border bg-muted/40 px-3 py-2">
@@ -422,7 +445,16 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
 
         <Card className="flex h-full flex-col">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">로그창</CardTitle>
+            <CardTitle className="text-base">
+              <span className="inline-flex items-center gap-1">
+                로그창
+                <AdminHelpIconButton
+                  helpKey={PROCESS_CHECK_HELP_KEYS.sectionLogBoard}
+                  title="로그창"
+                  size="sm"
+                />
+              </span>
+            </CardTitle>
           </CardHeader>
           <CardContent
             ref={logScrollRef}
@@ -465,11 +497,14 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           title="상태창 2 · 이번 주 체크 진행 현황"
           summary={summary}
           lineGroups={board.lineGroups}
+          helpKey={PROCESS_CHECK_HELP_KEYS.progressSummary}
         />
       )}
 
       {/* ════ [섹션.1] 액트 체크 ════ */}
-      <SectionTitle>[액트 체크]</SectionTitle>
+      <SectionTitle helpKey={PROCESS_CHECK_HELP_KEYS.sectionActCheck} helpTitle="액트 체크">
+        [액트 체크]
+      </SectionTitle>
       {teamMode ? (
         <div className="flex flex-col gap-4">
           {/* 팀 탭 — org 동적, 첫 팀 기본 선택. */}
@@ -507,6 +542,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                     title={`상태창 2 · ${effectiveTeamName ?? "선택 팀"} 팀 · ${scopeLabel}`}
                     summary={teamBoard.summary}
                     lineGroups={teamBoard.lineGroups}
+                    helpKey={PROCESS_CHECK_HELP_KEYS.progressSummary}
                   />
                 </div>
                 <div className="lg:w-72 lg:shrink-0">

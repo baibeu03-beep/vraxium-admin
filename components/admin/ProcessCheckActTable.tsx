@@ -1,8 +1,15 @@
 "use client";
 
-// [섹션.1] 액트 목록 테이블 — info/experience 공용. 신청 시점(필요) 순(서버 정렬) · 13컬럼.
+// [섹션.1] 액트 목록 테이블 — info/experience/competency/club 공용. 13컬럼(+수동실행).
 //   상태 버튼 클릭 → onOpenAct(act)로 팝업 위임. 실제 시점 = requested_at / scheduled_check_at.
+//
+//   정렬(3단계): 모든 허브 공통 활성. 헤더 클릭 asc → desc → 기본(서버 순서 복귀).
+//     원본 acts 는 mutate 하지 않고 파생 복사본만 정렬. 빈값(null/""/"-"/공백)은 오름/내림 모두 마지막.
+//     동값은 원본(서버) 순서 유지(안정 정렬). 정렬 아이콘 클릭 = 정렬만 · 돋보기 클릭 = 도움말만(stopPropagation).
+//   ⚠ 정렬은 화면 표시 순서만 바꾼다 — 수동 실행/검수/저장 대상은 항상 stable id(a.checkStatusId)로 처리.
 
+import { useCallback, useMemo, useState } from "react";
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -17,11 +24,94 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ActionControl } from "@/components/admin/ActionControl";
 import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import {
+  PROCESS_CHECK_HELP_KEYS,
   formatCheckDateTimeKo,
   processCheckActStatusLabel,
   type ProcessCheckActRowDto,
+  type ProcessCheckStatus,
 } from "@/lib/adminProcessCheckTypes";
 import { getProcessPointLabels } from "@/lib/pointLabels";
+
+// ── 정렬 메타(순수) — 컬럼 key ↔ 값 추출 + 데이터 타입. 표시 문자열이 아니라 원본 필드를 기준한다. ──
+type ActSortKey =
+  | "partLabel"
+  | "actName"
+  | "lineGroupName"
+  | "durationMinutes"
+  | "occurWhen"
+  | "checkWhen"
+  | "pointCheck"
+  | "pointAdvantage"
+  | "pointPenalty"
+  | "kind"
+  | "cafeLabel"
+  | "requestedAt"
+  | "scheduledCheckAt"
+  | "status";
+type ActSortDir = "asc" | "desc";
+type ActSortType = "string" | "number" | "date" | "status";
+
+// 상태 업무 순서 — 체크 필요(needed) → 체크 대기(pending) → 체크 완료(completed).
+const ACT_STATUS_ORDER: Record<ProcessCheckStatus, number> = { needed: 0, pending: 1, completed: 2 };
+
+const ACT_SORT_META: Record<
+  ActSortKey,
+  { type: ActSortType; get: (a: ProcessCheckActRowDto) => string | number | null }
+> = {
+  partLabel: { type: "string", get: (a) => a.partLabel },
+  actName: { type: "string", get: (a) => a.actName },
+  lineGroupName: { type: "string", get: (a) => a.lineGroupName },
+  durationMinutes: { type: "number", get: (a) => a.durationMinutes },
+  occurWhen: { type: "string", get: (a) => a.occurWhen },
+  checkWhen: { type: "string", get: (a) => a.checkWhen },
+  pointCheck: { type: "number", get: (a) => a.pointCheck },
+  pointAdvantage: { type: "number", get: (a) => a.pointAdvantage },
+  pointPenalty: { type: "number", get: (a) => a.pointPenalty },
+  kind: { type: "string", get: (a) => a.crewReactionLabel },
+  cafeLabel: { type: "string", get: (a) => a.cafeLabel },
+  requestedAt: { type: "date", get: (a) => a.requestedAt },
+  scheduledCheckAt: { type: "date", get: (a) => a.scheduledCheckAt },
+  status: { type: "status", get: (a) => a.status },
+};
+
+// 빈값 판정 — null/undefined/""/공백/"-" · 숫자 NaN · 날짜 파싱 불가. (숫자 0 은 유효값)
+function actValueIsEmpty(type: ActSortType, raw: string | number | null): boolean {
+  if (raw === null || raw === undefined) return true;
+  if (type === "number") return Number.isNaN(raw as number);
+  if (type === "date") return Number.isNaN(Date.parse(String(raw)));
+  const s = String(raw).trim();
+  return s === "" || s === "-";
+}
+
+// 두 행 비교 — 빈값은 방향 무관 항상 마지막. 그 외는 타입별 비교 후 방향 반영.
+function compareActRows(
+  key: ActSortKey,
+  dir: ActSortDir,
+  x: ProcessCheckActRowDto,
+  y: ProcessCheckActRowDto,
+): number {
+  const meta = ACT_SORT_META[key];
+  const rawA = meta.get(x);
+  const rawB = meta.get(y);
+  const emptyA = actValueIsEmpty(meta.type, rawA);
+  const emptyB = actValueIsEmpty(meta.type, rawB);
+  if (emptyA && emptyB) return 0;
+  if (emptyA) return 1; // 빈값 → 항상 마지막
+  if (emptyB) return -1;
+  let c = 0;
+  if (meta.type === "number") c = (rawA as number) - (rawB as number);
+  else if (meta.type === "date") c = Date.parse(String(rawA)) - Date.parse(String(rawB));
+  else if (meta.type === "status")
+    c = ACT_STATUS_ORDER[rawA as ProcessCheckStatus] - ACT_STATUS_ORDER[rawB as ProcessCheckStatus];
+  else c = String(rawA).localeCompare(String(rawB), "ko-KR", { numeric: true, sensitivity: "base" });
+  return dir === "asc" ? c : -c;
+}
+
+function ActSortIcon({ dir }: { dir: ActSortDir | null }) {
+  if (dir === "asc") return <ChevronUp className="h-3.5 w-3.5" aria-hidden />;
+  if (dir === "desc") return <ChevronDown className="h-3.5 w-3.5" aria-hidden />;
+  return <ChevronsUpDown className="h-3.5 w-3.5 opacity-40" aria-hidden />;
+}
 
 export default function ProcessCheckActTable({
   acts,
@@ -55,12 +145,67 @@ export default function ProcessCheckActTable({
   // 실행 취소 확인 모달의 운영/테스트 표기.
   rollbackMode?: "operating" | "test";
 }) {
-  // 카드 제목/설명(CardHeader) 제거 — 액트 목록(CardContent)만 렌더(info/experience 공용).
+  // 카드 제목/설명(CardHeader) 제거 — 액트 목록(CardContent)만 렌더(공용).
   // 요약 — 현재 표시되는 acts(필터/팀/탭 적용 후) 기준 프론트 집계. DB/DTO 무변경.
   //   체크 완료 = status==="completed" · 체크 필요 = 그 외(needed|pending) · 항목 수 = 전체 row.
   const completedCount = acts.filter((a) => a.status === "completed").length;
   const neededCount = acts.length - completedCount;
   const poLabels = getProcessPointLabels(orgSlug);
+
+  // 정렬 상태 — null = 서버 기본 순서(신청 시점 필요 순). 모든 허브 공통 활성.
+  const [sort, setSort] = useState<{ key: ActSortKey; dir: ActSortDir } | null>(null);
+  const cycleSort = useCallback((key: ActSortKey) => {
+    // 3단계 순환: 없음/타열 → asc → desc → 기본(null) 복귀.
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  }, []);
+
+  // 파생 표시 행 — 정렬 없으면 서버 원본 순서 그대로. 원본 acts 는 절대 mutate 하지 않는다.
+  const displayActs = useMemo(() => {
+    if (!sort) return acts;
+    const indexed = acts.map((a, i) => ({ a, i }));
+    indexed.sort((p, q) => {
+      const c = compareActRows(sort.key, sort.dir, p.a, q.a);
+      return c !== 0 ? c : p.i - q.i; // 동값 = 원본(서버) 순서 유지(안정 정렬)
+    });
+    return indexed.map((p) => p.a);
+  }, [acts, sort]);
+
+  // 헤더 셀 — sortKey 가 있으면 라벨을 정렬 버튼으로(모든 허브), 없으면 정적 라벨로 렌더.
+  //   돋보기(AdminHelpIconButton)는 항상 정렬 버튼 바깥 — 클릭 영역이 겹치지 않는다.
+  const renderHead = (opts: {
+    label: string;
+    helpKey: string;
+    sortKey?: ActSortKey;
+    className?: string;
+  }) => {
+    const canSort = Boolean(opts.sortKey);
+    const activeDir = sort && opts.sortKey === sort.key ? sort.dir : null;
+    return (
+      <TableHead className={opts.className}>
+        <span className="inline-flex items-center justify-center gap-1">
+          {canSort ? (
+            <button
+              type="button"
+              onClick={() => cycleSort(opts.sortKey!)}
+              aria-label={`${opts.label} 정렬`}
+              className="inline-flex cursor-pointer items-center gap-1 rounded outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-sky-500/40"
+            >
+              <span>{opts.label}</span>
+              <ActSortIcon dir={activeDir} />
+            </button>
+          ) : (
+            <span>{opts.label}</span>
+          )}
+          <AdminHelpIconButton helpKey={opts.helpKey} title={opts.label} />
+        </span>
+      </TableHead>
+    );
+  };
+
   return (
     <Card>
       <CardContent>
@@ -81,167 +226,109 @@ export default function ProcessCheckActTable({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            {/* 액트 목록 요약 — 테이블 바로 위 스탯 칩(체크 필요·체크 완료·항목 수). 집계 로직 무변. */}
+            {/* 액트 목록 요약 — 테이블 바로 위 스탯 칩(체크 필요·체크 완료·항목 수). 집계 로직 무변.
+                통계 라벨 돋보기는 라벨 1회(반복 행 아님) — 4개 허브 공용 key. */}
             <div className="mb-3 flex flex-wrap items-center gap-2 text-sm">
               <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1">
                 체크 필요
+                <AdminHelpIconButton helpKey={PROCESS_CHECK_HELP_KEYS.statNeeded} title="체크 필요" />
                 <span className="font-semibold tabular-nums text-amber-700">{neededCount}</span>
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1">
                 체크 완료
+                <AdminHelpIconButton helpKey={PROCESS_CHECK_HELP_KEYS.statCompleted} title="체크 완료" />
                 <span className="font-semibold tabular-nums text-green-700">{completedCount}</span>
               </span>
               <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2.5 py-1">
                 항목 수
+                <AdminHelpIconButton helpKey={PROCESS_CHECK_HELP_KEYS.statTotal} title="항목 수" />
                 <span className="font-semibold tabular-nums text-foreground">{acts.length}</span>
               </span>
             </div>
             <Table>
               <TableHeader>
                 <TableRow>
-                  {showScopeColumn && (
-                    <TableHead>
-                      <span className="inline-flex items-center justify-center gap-1">
-                        팀 &amp; 파트
-                        <AdminHelpIconButton
-                          helpKey="admin.processCheck.actTable.column.teamPart"
-                          title="팀 & 파트"
-                        />
-                      </span>
-                    </TableHead>
-                  )}
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      액트명
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.actName"
-                        title="액트명"
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      소속 라인 급
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.lineGroup"
-                        title="소속 라인 급"
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      소요(m)
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.duration"
-                        title="소요(m)"
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      신청 시점(필요)
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.applyTimeRequired"
-                        title="신청 시점(필요)"
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      검수 시점(필요)
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.reviewTimeRequired"
-                        title="검수 시점(필요)"
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      {poLabels.a}
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.poA"
-                        title={poLabels.a}
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      {poLabels.b}
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.poB"
-                        title={poLabels.b}
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      {poLabels.c}
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.poC"
-                        title={poLabels.c}
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      종류
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.kind"
-                        title="종류"
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      카페
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.cafe"
-                        title="카페"
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      신청 시점(실제)
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.applyTimeActual"
-                        title="신청 시점(실제)"
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      검수 시점(실제)
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.reviewTimeActual"
-                        title="검수 시점(실제)"
-                      />
-                    </span>
-                  </TableHead>
-                  <TableHead>
-                    <span className="inline-flex items-center justify-center gap-1">
-                      상태
-                      <AdminHelpIconButton
-                        helpKey="admin.processCheck.actTable.column.status"
-                        title="상태"
-                      />
-                    </span>
-                  </TableHead>
-                  {(onAutoReview || onRollback) && (
-                    <TableHead className="text-center">
-                      <span className="inline-flex items-center justify-center gap-1">
-                        수동 실행
-                        <AdminHelpIconButton
-                          helpKey="admin.processCheck.actTable.column.manualAction"
-                          title="수동 실행"
-                        />
-                      </span>
-                    </TableHead>
-                  )}
+                  {showScopeColumn &&
+                    renderHead({
+                      label: "팀 & 파트",
+                      helpKey: "admin.processCheck.actTable.column.teamPart",
+                      sortKey: "partLabel",
+                    })}
+                  {renderHead({
+                    label: "액트명",
+                    helpKey: "admin.processCheck.actTable.column.actName",
+                    sortKey: "actName",
+                  })}
+                  {renderHead({
+                    label: "소속 라인 급",
+                    helpKey: "admin.processCheck.actTable.column.lineGroup",
+                    sortKey: "lineGroupName",
+                  })}
+                  {renderHead({
+                    label: "소요(m)",
+                    helpKey: "admin.processCheck.actTable.column.duration",
+                    sortKey: "durationMinutes",
+                  })}
+                  {renderHead({
+                    label: "신청 시점(필요)",
+                    helpKey: "admin.processCheck.actTable.column.applyTimeRequired",
+                    sortKey: "occurWhen",
+                  })}
+                  {renderHead({
+                    label: "검수 시점(필요)",
+                    helpKey: "admin.processCheck.actTable.column.reviewTimeRequired",
+                    sortKey: "checkWhen",
+                  })}
+                  {renderHead({
+                    label: poLabels.a,
+                    helpKey: "admin.processCheck.actTable.column.poA",
+                    sortKey: "pointCheck",
+                  })}
+                  {renderHead({
+                    label: poLabels.b,
+                    helpKey: "admin.processCheck.actTable.column.poB",
+                    sortKey: "pointAdvantage",
+                  })}
+                  {renderHead({
+                    label: poLabels.c,
+                    helpKey: "admin.processCheck.actTable.column.poC",
+                    sortKey: "pointPenalty",
+                  })}
+                  {renderHead({
+                    label: "종류",
+                    helpKey: "admin.processCheck.actTable.column.kind",
+                    sortKey: "kind",
+                  })}
+                  {renderHead({
+                    label: "카페",
+                    helpKey: "admin.processCheck.actTable.column.cafe",
+                    sortKey: "cafeLabel",
+                  })}
+                  {renderHead({
+                    label: "신청 시점(실제)",
+                    helpKey: "admin.processCheck.actTable.column.applyTimeActual",
+                    sortKey: "requestedAt",
+                  })}
+                  {renderHead({
+                    label: "검수 시점(실제)",
+                    helpKey: "admin.processCheck.actTable.column.reviewTimeActual",
+                    sortKey: "scheduledCheckAt",
+                  })}
+                  {renderHead({
+                    label: "상태",
+                    helpKey: "admin.processCheck.actTable.column.status",
+                    sortKey: "status",
+                  })}
+                  {(onAutoReview || onRollback) &&
+                    renderHead({
+                      label: "수동 실행",
+                      helpKey: "admin.processCheck.actTable.column.manualAction",
+                      className: "text-center",
+                    })}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {acts.map((a) => (
+                {displayActs.map((a) => (
                   <TableRow key={`${a.actId}|${a.partLabel}`}>
                     {showScopeColumn && (
                       <TableCell className="whitespace-nowrap font-medium text-muted-foreground">

@@ -5,6 +5,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import type {
   ProcessCheckLineGroupDto,
   ProcessCheckSummary,
@@ -18,15 +19,23 @@ export default function ProcessCheckProgress({
   title,
   summary,
   lineGroups,
+  helpKey,
 }: {
   title: string;
   summary: ProcessCheckSummary;
   lineGroups: ProcessCheckLineGroupDto[];
+  // 선택: 카드 제목 옆 돋보기 도움말 key(호출부가 허브별로 결정). 미전달이면 미노출(기존 동작).
+  helpKey?: string;
 }) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle className="text-base">
+          <span className="inline-flex items-center gap-1">
+            {title}
+            {helpKey && <AdminHelpIconButton helpKey={helpKey} title={title} size="sm" />}
+          </span>
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="space-y-2">

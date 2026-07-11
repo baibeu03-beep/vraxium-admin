@@ -300,6 +300,23 @@ export function isTeamBasedProcessHub(hub: ProcessHub): boolean {
   return PROCESS_CHECK_TEAM_BASED_HUBS.includes(hub);
 }
 
+// ── 화면 도움말 key(공용) ─────────────────────────────────────────────────────
+//   프로세스 체크 화면(info/experience/competency/club)은 공유 컴포넌트를 쓰며, 섹션 제목·주차 라벨·
+//   상태/로그창 제목·진행 요약·통계 라벨은 4개 허브에서 문구·의미가 동일하다 → 허브별로 복제하지 않고
+//   단일 공용 key(admin.processCheck.*)로 관리한다(기존 컬럼 key admin.processCheck.actTable.column.* 와 동일 네임스페이스).
+//   ⚠ org/mode 로는 분기하지 않는다 — 순수 표시 전용.
+export const PROCESS_CHECK_HELP_KEYS = {
+  sectionActManagement: "admin.processCheck.section.actManagement",
+  sectionActCheck: "admin.processCheck.section.actCheck",
+  sectionStatusBoard: "admin.processCheck.section.statusBoard",
+  sectionLogBoard: "admin.processCheck.section.logBoard",
+  filterWeek: "admin.processCheck.filter.week",
+  progressSummary: "admin.processCheck.progress.summary",
+  statNeeded: "admin.processCheck.stat.needed",
+  statCompleted: "admin.processCheck.stat.completed",
+  statTotal: "admin.processCheck.stat.total",
+} as const;
+
 export type ProcessCheckBoardDto = {
   hub: ProcessHub;
   hubLabel: string;

@@ -18,6 +18,38 @@ export {
   validateScheduledCheckAt,
 } from "@/lib/adminProcessCheckTypes";
 
+// ── 화면 도움말 key ─────────────────────────────────────────────────────────────
+//   /admin/processes/check/irregular 는 별도 화면(ProcessIrregularManager)이라 검수 링크/수동 부여·
+//   전원/부분·통계 7칸 등 이 페이지 고유 요소가 많다 → 프로세스 체크(admin.processCheck.*)와 섞지 않고
+//   irregular 전용 네임스페이스로 관리한다. org/mode 로는 분기하지 않는다(순수 표시 전용).
+//   ⚠ 이 페이지에 없는 요소(상태창/로그창/진행요약/액트관리 섹션)는 key 를 만들지 않는다.
+export const PROCESS_IRREGULAR_HELP_KEYS = {
+  pageTitle: "admin.processes.check.irregular.page.title",
+  buttonReviewAll: "admin.processes.check.irregular.button.reviewAll",
+  buttonPartial: "admin.processes.check.irregular.button.partial",
+  filterWeek: "admin.processes.check.irregular.filter.week",
+  statTotal: "admin.processes.check.irregular.stat.total",
+  statReviewRequest: "admin.processes.check.irregular.stat.reviewRequest",
+  statManualGrant: "admin.processes.check.irregular.stat.manualGrant",
+  statCompleted: "admin.processes.check.irregular.stat.completed",
+  statPending: "admin.processes.check.irregular.stat.pending",
+  statAll: "admin.processes.check.irregular.stat.all",
+  statPartial: "admin.processes.check.irregular.stat.partial",
+  columnKind: "admin.processes.check.irregular.column.kind",
+  columnActType: "admin.processes.check.irregular.column.actType",
+  columnActName: "admin.processes.check.irregular.column.actName",
+  columnApplicant: "admin.processes.check.irregular.column.applicant",
+  columnDuration: "admin.processes.check.irregular.column.duration",
+  columnReason: "admin.processes.check.irregular.column.reason",
+  columnPoA: "admin.processes.check.irregular.column.poA",
+  columnPoB: "admin.processes.check.irregular.column.poB",
+  columnPoC: "admin.processes.check.irregular.column.poC",
+  columnApplyTimeActual: "admin.processes.check.irregular.column.applyTimeActual",
+  columnReviewTimeActual: "admin.processes.check.irregular.column.reviewTimeActual",
+  columnStatus: "admin.processes.check.irregular.column.status",
+  columnManualAction: "admin.processes.check.irregular.column.manualAction",
+} as const;
+
 // ── 종류 (검수 링크 / 수동 입력) ───────────────────────────────────────────────
 export type IrregularKind = "review_request" | "manual_grant";
 export const IRREGULAR_KINDS = ["review_request", "manual_grant"] as const;

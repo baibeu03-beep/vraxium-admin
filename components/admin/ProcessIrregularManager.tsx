@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { X } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,6 +32,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { statusTone } from "@/lib/statusBadge";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -44,9 +45,11 @@ import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
   IRREGULAR_STATUS_LABEL,
+  PROCESS_IRREGULAR_HELP_KEYS,
   emptyProcessIrregularBoard,
   formatCheckDateTimeKo,
   type IrregularCrewReaction,
+  type IrregularStatus,
   type ProcessIrregularActRowDto,
   type ProcessIrregularBoardDto,
 } from "@/lib/adminProcessIrregularTypes";
@@ -54,11 +57,141 @@ import {
 // 다이얼로그 모드 — null | 전원(검수·all) | 부분 선택 | 부분 검수(partial) | 수동 부여.
 type DialogMode = "review-all" | "partial-choice" | "review-partial" | "manual";
 
-// 요약 1칸 — 칸막이(divide-x) 형태의 간단 표기.
-function SummaryCell({ label, value, accent }: { label: string; value: number; accent?: string }) {
+// ── 정렬(3단계) 메타(순수) — 컬럼 key ↔ 값 추출 + 타입. 표시 문자열이 아니라 원본 필드를 기준한다. ──
+type IrregularSortKey =
+  | "kind"
+  | "crewReaction"
+  | "actName"
+  | "applicant"
+  | "duration"
+  | "reason"
+  | "pointA"
+  | "pointB"
+  | "pointC"
+  | "createdAt"
+  | "scheduledCheckAt"
+  | "status";
+type IrregularSortDir = "asc" | "desc";
+type IrregularSortType = "string" | "number" | "date" | "status";
+
+// 상태 업무 순서 — 체크 대기(pending) → 체크 완료(completed).
+const IRREGULAR_STATUS_ORDER: Record<IrregularStatus, number> = { pending: 0, completed: 1 };
+
+const IRREGULAR_SORT_META: Record<
+  IrregularSortKey,
+  { type: IrregularSortType; get: (a: ProcessIrregularActRowDto) => string | number | null }
+> = {
+  kind: { type: "string", get: (a) => a.kindLabel },
+  crewReaction: { type: "string", get: (a) => a.crewReactionLabel },
+  actName: { type: "string", get: (a) => a.actName },
+  applicant: { type: "string", get: (a) => a.applicantAdminName },
+  duration: { type: "number", get: (a) => a.durationMinutes },
+  reason: { type: "string", get: (a) => a.reason },
+  pointA: { type: "number", get: (a) => a.pointA },
+  pointB: { type: "number", get: (a) => a.pointB },
+  pointC: { type: "number", get: (a) => a.pointC },
+  createdAt: { type: "date", get: (a) => a.createdAt },
+  scheduledCheckAt: { type: "date", get: (a) => a.scheduledCheckAt },
+  status: { type: "status", get: (a) => a.status },
+};
+
+// 빈값 판정 — null/undefined/""/공백/"-" · 숫자 NaN · 날짜 파싱 불가. (숫자 0 은 유효값)
+function irregularValueIsEmpty(type: IrregularSortType, raw: string | number | null): boolean {
+  if (raw === null || raw === undefined) return true;
+  if (type === "number") return Number.isNaN(raw as number);
+  if (type === "date") return Number.isNaN(Date.parse(String(raw)));
+  const s = String(raw).trim();
+  return s === "" || s === "-";
+}
+
+// 두 행 비교 — 빈값은 방향 무관 항상 마지막. 그 외는 타입별 비교 후 방향 반영.
+function compareIrregularRows(
+  key: IrregularSortKey,
+  dir: IrregularSortDir,
+  x: ProcessIrregularActRowDto,
+  y: ProcessIrregularActRowDto,
+): number {
+  const meta = IRREGULAR_SORT_META[key];
+  const rawA = meta.get(x);
+  const rawB = meta.get(y);
+  const emptyA = irregularValueIsEmpty(meta.type, rawA);
+  const emptyB = irregularValueIsEmpty(meta.type, rawB);
+  if (emptyA && emptyB) return 0;
+  if (emptyA) return 1; // 빈값 → 항상 마지막
+  if (emptyB) return -1;
+  let c = 0;
+  if (meta.type === "number") c = (rawA as number) - (rawB as number);
+  else if (meta.type === "date") c = Date.parse(String(rawA)) - Date.parse(String(rawB));
+  else if (meta.type === "status")
+    c = IRREGULAR_STATUS_ORDER[rawA as IrregularStatus] - IRREGULAR_STATUS_ORDER[rawB as IrregularStatus];
+  else c = String(rawA).localeCompare(String(rawB), "ko-KR", { numeric: true, sensitivity: "base" });
+  return dir === "asc" ? c : -c;
+}
+
+function IrregularSortIcon({ dir }: { dir: IrregularSortDir | null }) {
+  if (dir === "asc") return <ChevronUp className="h-3.5 w-3.5" aria-hidden />;
+  if (dir === "desc") return <ChevronDown className="h-3.5 w-3.5" aria-hidden />;
+  return <ChevronsUpDown className="h-3.5 w-3.5 opacity-40" aria-hidden />;
+}
+
+// 테이블 헤더 셀 — 컬럼명(정렬 버튼)·정렬 아이콘·돋보기 도움말을 분리. 돋보기는 정렬 버튼 바깥.
+//   sortKey/onSort 전달 시 정렬 가능(버튼). 미전달이면 정적 라벨(액션 컬럼). 헤더 높이/폭 증가 없이 인라인.
+function HeadCell({
+  label,
+  helpKey,
+  className,
+  sortKey,
+  activeDir,
+  onSort,
+}: {
+  label: string;
+  helpKey: string;
+  className?: string;
+  sortKey?: IrregularSortKey;
+  activeDir?: IrregularSortDir | null;
+  onSort?: (key: IrregularSortKey) => void;
+}) {
+  const canSort = Boolean(sortKey && onSort);
+  return (
+    <TableHead className={className}>
+      <span className="inline-flex items-center justify-center gap-1">
+        {canSort ? (
+          <button
+            type="button"
+            onClick={() => onSort!(sortKey!)}
+            aria-label={`${label} 정렬`}
+            className="inline-flex cursor-pointer items-center gap-1 rounded outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-sky-500/40"
+          >
+            <span>{label}</span>
+            <IrregularSortIcon dir={activeDir ?? null} />
+          </button>
+        ) : (
+          <span>{label}</span>
+        )}
+        <AdminHelpIconButton helpKey={helpKey} title={label} />
+      </span>
+    </TableHead>
+  );
+}
+
+// 요약 1칸 — 칸막이(divide-x) 형태의 간단 표기. helpKey 전달 시 라벨 옆 돋보기(값에는 미적용).
+function SummaryCell({
+  label,
+  value,
+  accent,
+  helpKey,
+}: {
+  label: string;
+  value: number;
+  accent?: string;
+  helpKey?: string;
+}) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-2 py-2">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        {label}
+        {helpKey && <AdminHelpIconButton helpKey={helpKey} title={label} />}
+      </span>
       <span className={cn("text-lg font-semibold tabular-nums", accent)}>{value}</span>
     </div>
   );
@@ -107,7 +240,9 @@ export default function ProcessIrregularManager() {
   }, [org, mode, weekParam]);
 
   useEffect(() => {
-    void loadBoard();
+    void (async () => {
+      await loadBoard();
+    })();
   }, [loadBoard]);
 
   // 즉시 검수(행 단위) — '체크 대기' 링크 신청 행을 검수 시점 전이라도 지금 바로 검수.
@@ -198,15 +333,45 @@ export default function ProcessIrregularManager() {
   // 현재 select 표시값 — 사용자가 막 고른 값(weekParam) 우선, 없으면 서버 선택값.
   const selValue = weekParam ?? selectedWeekId ?? "";
 
+  // 3단계 정렬 상태 — null = 서버 기본 순서(최신순/생성 역순). 원본 acts 는 mutate 하지 않는다.
+  const [sort, setSort] = useState<{ key: IrregularSortKey; dir: IrregularSortDir } | null>(null);
+  const cycleSort = useCallback((key: IrregularSortKey) => {
+    // asc → desc → 기본(null·서버 순서 복귀).
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  }, []);
+  // 정렬 헤더에 넘길 props 헬퍼(중복 축소).
+  const headSort = useCallback(
+    (key: IrregularSortKey) => ({
+      sortKey: key,
+      activeDir: sort && sort.key === key ? sort.dir : null,
+      onSort: cycleSort,
+    }),
+    [sort, cycleSort],
+  );
+  // 파생 표시 행 — 정렬 없으면 서버 원본 순서 그대로. 동값은 원본 순서 유지(안정 정렬).
+  const displayActs = useMemo(() => {
+    if (!sort) return acts;
+    const indexed = acts.map((a, i) => ({ a, i }));
+    indexed.sort((p, q) => {
+      const c = compareIrregularRows(sort.key, sort.dir, p.a, q.a);
+      return c !== 0 ? c : p.i - q.i;
+    });
+    return indexed.map((p) => p.a);
+  }, [acts, sort]);
+
   const summaryCells = useMemo(
     () => [
-      { label: "전체 갯수", value: summary.total },
-      { label: "링크 신청", value: summary.reviewRequest, accent: "text-purple-700" },
-      { label: "수동 부여", value: summary.manualGrant, accent: "text-green-700" },
-      { label: "체크 완료", value: summary.completed, accent: "text-green-700" },
-      { label: "체크 대기", value: summary.pending, accent: "text-amber-700" },
-      { label: "전원", value: summary.all, accent: "text-blue-700" },
-      { label: "부분", value: summary.partial, accent: "text-orange-700" },
+      { label: "전체 갯수", value: summary.total, helpKey: PROCESS_IRREGULAR_HELP_KEYS.statTotal },
+      { label: "링크 신청", value: summary.reviewRequest, accent: "text-purple-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statReviewRequest },
+      { label: "수동 부여", value: summary.manualGrant, accent: "text-green-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statManualGrant },
+      { label: "체크 완료", value: summary.completed, accent: "text-green-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statCompleted },
+      { label: "체크 대기", value: summary.pending, accent: "text-amber-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statPending },
+      { label: "전원", value: summary.all, accent: "text-blue-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statAll },
+      { label: "부분", value: summary.partial, accent: "text-orange-700", helpKey: PROCESS_IRREGULAR_HELP_KEYS.statPartial },
     ],
     [summary],
   );
@@ -216,26 +381,35 @@ export default function ProcessIrregularManager() {
   return (
     <div className="flex w-full min-w-0 flex-col gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-lg font-semibold">변동 액트</h1>
+        <h1 className="mr-auto inline-flex items-center gap-1 text-lg font-semibold">
+          변동 액트
+          <AdminHelpIconButton helpKey={PROCESS_IRREGULAR_HELP_KEYS.pageTitle} title="변동 액트" size="sm" />
+        </h1>
         <AdminHelp />
-        {/* 우측 상단 버튼 — [전원] [부분]. 과거 주차(조회 전용)에서는 비활성. */}
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            disabled={!canAct}
-            onClick={() => setDialog("review-all")}
-            className="rounded-md border border-blue-300 bg-blue-50 px-5 py-2 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            전원
-          </button>
-          <button
-            type="button"
-            disabled={!canAct}
-            onClick={() => setDialog("partial-choice")}
-            className="rounded-md border border-orange-300 bg-orange-50 px-5 py-2 text-sm font-medium text-orange-800 transition-colors hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            부분
-          </button>
+        {/* 우측 상단 버튼 — [전원] [부분]. 과거 주차(조회 전용)에서는 비활성. 도움말은 버튼 바깥. */}
+        <div className="flex items-center gap-2">
+          <div className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              disabled={!canAct}
+              onClick={() => setDialog("review-all")}
+              className="rounded-md border border-blue-300 bg-blue-50 px-5 py-2 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              전원
+            </button>
+            <AdminHelpIconButton helpKey={PROCESS_IRREGULAR_HELP_KEYS.buttonReviewAll} title="전원" />
+          </div>
+          <div className="inline-flex items-center gap-1">
+            <button
+              type="button"
+              disabled={!canAct}
+              onClick={() => setDialog("partial-choice")}
+              className="rounded-md border border-orange-300 bg-orange-50 px-5 py-2 text-sm font-medium text-orange-800 transition-colors hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              부분
+            </button>
+            <AdminHelpIconButton helpKey={PROCESS_IRREGULAR_HELP_KEYS.buttonPartial} title="부분" />
+          </div>
         </div>
       </div>
 
@@ -280,12 +454,13 @@ export default function ProcessIrregularManager() {
         onChange={setWeekParam}
         disabled={!org}
         selectId="irregular-week-select"
+        helpKey={PROCESS_IRREGULAR_HELP_KEYS.filterWeek}
       />
 
       {/* 통계 7칸 — 1행 7열 칸막이 */}
       <div className="flex divide-x rounded-md border bg-card">
         {summaryCells.map((c) => (
-          <SummaryCell key={c.label} label={c.label} value={c.value} accent={c.accent} />
+          <SummaryCell key={c.label} label={c.label} value={c.value} accent={c.accent} helpKey={c.helpKey} />
         ))}
       </div>
 
@@ -301,23 +476,28 @@ export default function ProcessIrregularManager() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>종류</TableHead>
-                    <TableHead>액트 종류</TableHead>
-                    <TableHead>액트명(비정규)</TableHead>
-                    <TableHead>신청자</TableHead>
-                    <TableHead>소요 시간(m)</TableHead>
-                    <TableHead>액트 신청 사유</TableHead>
-                    <TableHead>po A</TableHead>
-                    <TableHead>po B</TableHead>
-                    <TableHead>po C</TableHead>
-                    <TableHead>신청 시점(실제)</TableHead>
-                    <TableHead>검수 시점(실제)</TableHead>
-                    <TableHead>체크 상태</TableHead>
-                    <TableHead className="text-center">즉시 검수</TableHead>
+                    <HeadCell label="종류" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnKind} {...headSort("kind")} />
+                    <HeadCell label="액트 종류" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnActType} {...headSort("crewReaction")} />
+                    <HeadCell label="액트명(비정규)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnActName} {...headSort("actName")} />
+                    <HeadCell label="신청자" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnApplicant} {...headSort("applicant")} />
+                    <HeadCell label="소요 시간(m)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnDuration} {...headSort("duration")} />
+                    <HeadCell label="액트 신청 사유" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnReason} {...headSort("reason")} />
+                    <HeadCell label="po A" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoA} {...headSort("pointA")} />
+                    <HeadCell label="po B" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoB} {...headSort("pointB")} />
+                    <HeadCell label="po C" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnPoC} {...headSort("pointC")} />
+                    <HeadCell label="신청 시점(실제)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnApplyTimeActual} {...headSort("createdAt")} />
+                    <HeadCell label="검수 시점(실제)" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnReviewTimeActual} {...headSort("scheduledCheckAt")} />
+                    <HeadCell label="체크 상태" helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnStatus} {...headSort("status")} />
+                    {/* 즉시 검수 = 액션 컬럼(정렬 제외) — 도움말만. */}
+                    <HeadCell
+                      label="즉시 검수"
+                      helpKey={PROCESS_IRREGULAR_HELP_KEYS.columnManualAction}
+                      className="text-center"
+                    />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {acts.map((a) => (
+                  {displayActs.map((a) => (
                     <IrregularRow
                       key={a.id}
                       act={a}

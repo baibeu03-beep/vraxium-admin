@@ -9,6 +9,7 @@
 
 import { cn } from "@/lib/utils";
 import { formatClubDate } from "@/lib/clubDate";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import type { ProcessWeekOptionDto } from "@/lib/adminProcessCheckTypes";
 
 export function WeekSelectRow({
@@ -19,6 +20,7 @@ export function WeekSelectRow({
   onChange,
   disabled,
   selectId = "week-select",
+  helpKey,
 }: {
   weeks: ProcessWeekOptionDto[];
   selectedWeekId: string | null;
@@ -27,12 +29,15 @@ export function WeekSelectRow({
   onChange: (weekId: string | null) => void;
   disabled?: boolean; // 예: org 미지정
   selectId?: string; // 페이지별 고유 id
+  // 선택: '주차 선택' 라벨 옆 돋보기 도움말 key(호출부가 허브별로 결정). 미전달이면 미노출(기존 동작).
+  helpKey?: string;
 }) {
   const selectedOption = weeks.find((w) => w.weekId && w.weekId === selectedWeekId) ?? null;
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <label htmlFor={selectId} className="shrink-0 text-xs text-muted-foreground">
+      <label htmlFor={selectId} className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
         주차 선택
+        {helpKey && <AdminHelpIconButton helpKey={helpKey} title="주차 선택" />}
       </label>
       <select
         id={selectId}
