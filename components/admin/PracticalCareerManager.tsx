@@ -341,6 +341,7 @@ function ImageUploadSlot({
   onRemove,
   onCaptionChange,
   disabled,
+  helpKey,
 }: {
   label: string;
   image: UploadedImage | null;
@@ -351,6 +352,8 @@ function ImageUploadSlot({
   // 제공 시 캡션 입력 UI 노출 (라인 개설 output_images 전용). 미제공 시 캡션 미노출.
   onCaptionChange?: (caption: string) => void;
   disabled: boolean;
+  // 제공 시 라벨 옆 돋보기 도움말 노출(요소별 인라인 도움말). 미제공 시 미노출.
+  helpKey?: string;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -385,7 +388,10 @@ function ImageUploadSlot({
 
   return (
     <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        {label}
+        {helpKey && <AdminHelpIconButton size="xs" helpKey={helpKey} title={label} />}
+      </Label>
       {image ? (
         <div className="flex items-center gap-3 rounded-md border p-2">
           <img
@@ -452,6 +458,7 @@ function LogoUploadField({
   required = true,
   altText = "기업 로고",
   emptyButtonLabel = "로고 이미지 업로드",
+  helpKey,
 }: {
   value: string;
   onChange: (url: string) => void;
@@ -462,6 +469,8 @@ function LogoUploadField({
   required?: boolean;
   altText?: string;
   emptyButtonLabel?: string;
+  // 제공 시 라벨 옆 돋보기 도움말 노출(요소별 인라인 도움말). 미제공 시 미노출.
+  helpKey?: string;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -496,7 +505,10 @@ function LogoUploadField({
 
   return (
     <div className="space-y-1">
-      <Label>{label} {required && <span className="text-red-500">*</span>}</Label>
+      <Label className="inline-flex items-center gap-1">
+        {label} {required && <span className="text-red-500">*</span>}
+        {helpKey && <AdminHelpIconButton size="xs" helpKey={helpKey} title={label} />}
+      </Label>
       <input
         ref={fileRef}
         type="file"
@@ -1374,21 +1386,42 @@ export default function PracticalCareerManager() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">
-        <TabButton
-          label="라인 등록"
-          active={activeTab === "registration"}
-          onClick={() => setActiveTab("registration")}
-        />
-        <TabButton
-          label="경력 라인 개설"
-          active={activeTab === "opening"}
-          onClick={() => setActiveTab("opening")}
-        />
-        <TabButton
-          label="경력 기록/평가 관리"
-          active={activeTab === "evaluation"}
-          onClick={() => setActiveTab("evaluation")}
-        />
+        <span className="inline-flex items-center gap-1">
+          <TabButton
+            label="라인 등록"
+            active={activeTab === "registration"}
+            onClick={() => setActiveTab("registration")}
+          />
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.career.tab.registration"
+            title="라인 등록"
+            size="xs"
+          />
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <TabButton
+            label="경력 라인 개설"
+            active={activeTab === "opening"}
+            onClick={() => setActiveTab("opening")}
+          />
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.career.tab.opening"
+            title="경력 라인 개설"
+            size="xs"
+          />
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <TabButton
+            label="경력 기록/평가 관리"
+            active={activeTab === "evaluation"}
+            onClick={() => setActiveTab("evaluation")}
+          />
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.career.tab.evaluation"
+            title="경력 기록/평가 관리"
+            size="xs"
+          />
+        </span>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════ */}
@@ -1398,7 +1431,13 @@ export default function PracticalCareerManager() {
         <div className="space-y-4">
           {/* 2E-2 soft 안내 — career 는 기존 경로 유지(차단 없음), 통합 등록 경로 권장만. */}
           <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
-            안내: 라인 정의 통합(2E) 진행 중입니다. 신규 경력 라인은{" "}
+            안내: 라인 정의 통합(2E) 진행 중입니다.
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.career.notice.integration"
+              title="라인 정의 통합 안내"
+              size="xs"
+            />
+            {" "}신규 경력 라인은{" "}
             <a href="/admin/lines/register" className="font-semibold underline underline-offset-2">통합 라인 등록</a>
             {" "}경로 사용을 권장합니다. 이 화면의 기존 등록/수정 기능은 그대로 사용할 수 있습니다.
           </div>
@@ -1414,9 +1453,14 @@ export default function PracticalCareerManager() {
                       size="xs"
                     />
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="inline-flex flex-wrap items-center gap-1">
                     총 {registeredProjects.length}개
                     {adminOrg && <span className="ml-1">({adminOrg})</span>}
+                    <AdminHelpIconButton
+                      helpKey="admin.lineOpening.career.desc.registeredLines"
+                      title="등록된 경력 라인 개수"
+                      size="xs"
+                    />
                   </CardDescription>
                 </div>
                 {!regFormOpen && (
@@ -1509,11 +1553,11 @@ export default function PracticalCareerManager() {
                 {/* 기본 정보 */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>라인 코드 <span className="text-red-500">*</span></Label>
+                    <Label className="inline-flex items-center gap-1">라인 코드 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.lineCode" title="라인 코드" /></Label>
                     <Input value={rfLineCode} onChange={(e) => setRfLineCode(e.target.value)} placeholder="CP-001" />
                   </div>
                   <div className="space-y-2">
-                    <Label>라인명 <span className="text-red-500">*</span></Label>
+                    <Label className="inline-flex items-center gap-1">라인명 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.lineName" title="라인명" /></Label>
                     <Input value={rfLineName} onChange={(e) => setRfLineName(e.target.value)} placeholder="마케팅 전략 프로젝트" />
                   </div>
                 </div>
@@ -1521,11 +1565,11 @@ export default function PracticalCareerManager() {
                 {/* 기간 */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>시작일 <span className="text-red-500">*</span></Label>
+                    <Label className="inline-flex items-center gap-1">시작일 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.startDate" title="시작일" /></Label>
                     <Input type="date" value={rfStartDate} onChange={(e) => setRfStartDate(e.target.value)} />
                   </div>
                   <div className="space-y-2">
-                    <Label>종료일 <span className="text-red-500">*</span></Label>
+                    <Label className="inline-flex items-center gap-1">종료일 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.endDate" title="종료일" /></Label>
                     <Input type="date" value={rfEndDate} onChange={(e) => setRfEndDate(e.target.value)} />
                   </div>
                 </div>
@@ -1533,7 +1577,7 @@ export default function PracticalCareerManager() {
                 {/* 기업 정보 */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>기업명 <span className="text-red-500">*</span></Label>
+                    <Label className="inline-flex items-center gap-1">기업명 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.companyName" title="기업명" /></Label>
                     <Input value={rfCompanyName} onChange={(e) => setRfCompanyName(e.target.value)} placeholder="브랙시움" />
                   </div>
                   <div className="space-y-2">
@@ -1542,6 +1586,7 @@ export default function PracticalCareerManager() {
                       onChange={setRfCompanyLogo}
                       onRemove={() => setRfCompanyLogo("")}
                       disabled={saving}
+                      helpKey="admin.lineOpening.career.registration.field.companyLogo"
                     />
                   </div>
                 </div>
@@ -1549,15 +1594,15 @@ export default function PracticalCareerManager() {
                 {/* 감독자 정보 */}
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label>감독자명 <span className="text-red-500">*</span></Label>
+                    <Label className="inline-flex items-center gap-1">감독자명 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.supervisorName" title="감독자명" /></Label>
                     <Input value={rfSupervisorName} onChange={(e) => setRfSupervisorName(e.target.value)} placeholder="김담당" />
                   </div>
                   <div className="space-y-2">
-                    <Label>감독자 부서 (선택)</Label>
+                    <Label className="inline-flex items-center gap-1">감독자 부서 (선택)<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.supervisorDepartment" title="감독자 부서 (선택)" /></Label>
                     <Input value={rfSupervisorDepartment} onChange={(e) => setRfSupervisorDepartment(e.target.value)} placeholder="마케팅팀" />
                   </div>
                   <div className="space-y-2">
-                    <Label>감독자 직책 (선택)</Label>
+                    <Label className="inline-flex items-center gap-1">감독자 직책 (선택)<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.supervisorPosition" title="감독자 직책 (선택)" /></Label>
                     <Input value={rfSupervisorPosition} onChange={(e) => setRfSupervisorPosition(e.target.value)} placeholder="팀장" />
                   </div>
                 </div>
@@ -1574,31 +1619,32 @@ export default function PracticalCareerManager() {
                       required={false}
                       altText="감독자 사진"
                       emptyButtonLabel="감독자 사진 업로드"
+                      helpKey="admin.lineOpening.career.registration.field.supervisorPhoto"
                     />
                   </div>
                 </div>
 
                 {/* 선택 입력 */}
                 <div className="space-y-2">
-                  <Label>메인 타이틀 (선택)</Label>
+                  <Label className="inline-flex items-center gap-1">메인 타이틀 (선택)<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.defaultTitle" title="메인 타이틀 (선택)" /></Label>
                   <Input value={rfDefaultTitle} onChange={(e) => setRfDefaultTitle(e.target.value)} placeholder="미입력 시 개설 때 라인명 사용" />
                 </div>
 
                 {/* Output Assets */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label>Output Asset (선택)</Label>
+                    <Label className="inline-flex items-center gap-1">Output Asset (선택)<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.outputAsset" title="Output Asset (선택)" /></Label>
                     <span className={cn("text-xs", rfAssetCount <= 2 ? "text-muted-foreground" : "text-red-500")}>
                       {rfAssetCount}/2 (최대 2)
                     </span>
                   </div>
                   <div className="grid gap-3">
                     <div className="space-y-1">
-                      <Label htmlFor="rfLink1" className="text-xs text-muted-foreground">Link 1</Label>
+                      <Label htmlFor="rfLink1" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 1<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.outputLink1" title="Link 1" /></Label>
                       <Input id="rfLink1" value={rfOutputLink1} onChange={(e) => setRfOutputLink1(e.target.value)} placeholder="https://..." disabled={!rfOutputLink1.trim() && rfAssetCount >= 2} />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="rfLink2" className="text-xs text-muted-foreground">Link 2</Label>
+                      <Label htmlFor="rfLink2" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 2<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.field.outputLink2" title="Link 2" /></Label>
                       <Input id="rfLink2" value={rfOutputLink2} onChange={(e) => setRfOutputLink2(e.target.value)} placeholder="https://..." disabled={!rfOutputLink2.trim() && rfAssetCount >= 2} />
                     </div>
                     <ImageUploadSlot
@@ -1607,6 +1653,7 @@ export default function PracticalCareerManager() {
                       onUpload={setRfOutputImage}
                       onRemove={() => setRfOutputImage(null)}
                       disabled={!rfOutputImage && rfAssetCount >= 2}
+                      helpKey="admin.lineOpening.career.registration.field.outputImage"
                     />
                   </div>
                 </div>
@@ -1643,9 +1690,12 @@ export default function PracticalCareerManager() {
                 {/* Actions */}
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="outline" onClick={resetRegForm} disabled={saving}>취소</Button>
-                  <Button onClick={handleSaveProject} loading={saving}>
-                    {editingProjectId ? "수정" : "등록"}
-                  </Button>
+                  <span className="inline-flex items-center gap-1">
+                    <Button onClick={handleSaveProject} loading={saving}>
+                      {editingProjectId ? "수정" : "등록"}
+                    </Button>
+                    <AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.registration.action.saveProject" title="경력 라인 등록/수정" />
+                  </span>
                 </div>
               </CardContent>
             </Card>
@@ -1669,7 +1719,14 @@ export default function PracticalCareerManager() {
                   size="xs"
                 />
               </CardTitle>
-              <CardDescription>운영 기본값은 현재 주차이며, 테스트/검증 목적으로 직전 주차도 선택할 수 있습니다.</CardDescription>
+              <CardDescription className="inline-flex flex-wrap items-center gap-1">
+                운영 기본값은 현재 주차이며, 테스트/검증 목적으로 직전 주차도 선택할 수 있습니다.
+                <AdminHelpIconButton
+                  helpKey="admin.lineOpening.career.desc.openTargetWeek"
+                  title="라인 개설 대상 주차 안내"
+                  size="xs"
+                />
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {weekOptions.length > 0 && (
@@ -1767,14 +1824,19 @@ export default function PracticalCareerManager() {
                     size="xs"
                   />
                 </CardTitle>
-                <CardDescription>
+                <CardDescription className="inline-flex flex-wrap items-center gap-1">
                   기입 마감: {fmtDateTimeWithDay((selectedWeek?.submissionClosesAt ?? currentWeek?.submissionClosesAt) as string)}
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.career.desc.openForm"
+                    title="새 실무 경력 라인 기입 마감 안내"
+                    size="xs"
+                  />
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 {/* Project selection */}
                 <div className="space-y-2">
-                  <Label>경력 라인 <span className="text-red-500">*</span></Label>
+                  <Label className="inline-flex items-center gap-1">경력 라인 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.field.careerLine" title="경력 라인" /></Label>
                   <select
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={selectedProjectId}
@@ -1795,12 +1857,12 @@ export default function PracticalCareerManager() {
                   <div className="space-y-4 rounded-md border bg-muted/30 p-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">라인 코드</Label>
+                        <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">라인 코드<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.info.lineCode" title="라인 코드" /></Label>
                         <p className="font-mono text-sm">{selectedOption.lineCode}</p>
                       </div>
                       {selectedOption.startDate && selectedOption.endDate && (
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">프로젝트 기간</Label>
+                          <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">프로젝트 기간<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.info.projectPeriod" title="프로젝트 기간" /></Label>
                           <p className="text-sm">{formatClubDate(selectedOption.startDate)} ~ {formatClubDate(selectedOption.endDate)}</p>
                         </div>
                       )}
@@ -1809,7 +1871,7 @@ export default function PracticalCareerManager() {
                     {/* 기업 정보 (편집) */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <Label className="text-xs">기업명 <span className="text-red-500">*</span></Label>
+                        <Label className="inline-flex items-center gap-1 text-xs">기업명 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.field.companyName" title="기업명" /></Label>
                         <Input value={loCompanyName} onChange={(e) => setLoCompanyName(e.target.value)} placeholder="기업명" />
                       </div>
                       <LogoUploadField
@@ -1817,21 +1879,22 @@ export default function PracticalCareerManager() {
                         onChange={setLoCompanyLogo}
                         onRemove={() => setLoCompanyLogo("")}
                         disabled={saving}
+                        helpKey="admin.lineOpening.career.opening.field.companyLogo"
                       />
                     </div>
 
                     {/* 감독자 정보 (편집) */}
                     <div className="grid grid-cols-3 gap-4">
                       <div className="space-y-1">
-                        <Label className="text-xs">감독자명</Label>
+                        <Label className="inline-flex items-center gap-1 text-xs">감독자명<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.field.supervisorName" title="감독자명" /></Label>
                         <Input value={loSupervisorName} onChange={(e) => setLoSupervisorName(e.target.value)} placeholder="김담당" />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">감독자 부서</Label>
+                        <Label className="inline-flex items-center gap-1 text-xs">감독자 부서<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.field.supervisorDepartment" title="감독자 부서" /></Label>
                         <Input value={loSupervisorDept} onChange={(e) => setLoSupervisorDept(e.target.value)} placeholder="마케팅팀" />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">감독자 직책</Label>
+                        <Label className="inline-flex items-center gap-1 text-xs">감독자 직책<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.field.supervisorPosition" title="감독자 직책" /></Label>
                         <Input value={loSupervisorPos} onChange={(e) => setLoSupervisorPos(e.target.value)} placeholder="팀장" />
                       </div>
                     </div>
@@ -1845,17 +1908,23 @@ export default function PracticalCareerManager() {
                         required={false}
                         altText="감독자 사진"
                         emptyButtonLabel="감독자 사진 업로드"
+                        helpKey="admin.lineOpening.career.opening.field.supervisorPhoto"
                       />
                     </div>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="inline-flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
                       기업/감독자 정보는 연결된 경력 프로젝트에 저장됩니다(개설 시 함께 반영).
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.career.desc.sponsorNote"
+                        title="기업·감독자 정보 저장 안내"
+                        size="xs"
+                      />
                     </p>
                   </div>
                 )}
 
                 {/* Editable main title */}
                 <div className="space-y-2">
-                  <Label>메인 타이틀 <span className="text-red-500">*</span></Label>
+                  <Label className="inline-flex items-center gap-1">메인 타이틀 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.field.mainTitle" title="메인 타이틀" /></Label>
                   <Input
                     value={lineMainTitle}
                     onChange={(e) => setLineMainTitle(e.target.value)}
@@ -1866,7 +1935,7 @@ export default function PracticalCareerManager() {
                 {/* Output Assets */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label>Output Asset <span className="text-red-500">*</span></Label>
+                    <Label className="inline-flex items-center gap-1">Output Asset <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.field.output" title="Output Asset" /></Label>
                     <span className={cn(
                       "text-xs",
                       lineAssetCount === 0 ? "text-red-500" : lineAssetCount <= 2 ? "text-green-600" : "text-red-500",
@@ -1876,12 +1945,12 @@ export default function PracticalCareerManager() {
                   </div>
                   <div className="grid gap-3">
                     <div className="space-y-1">
-                      <Label htmlFor="careerLink1" className="text-xs text-muted-foreground">Link 1 URL</Label>
+                      <Label htmlFor="careerLink1" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 1 URL<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.field.outputLink" title="Link 1 URL" /></Label>
                       <Input id="careerLink1" value={lineLink1} onChange={(e) => setLineLink1(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink1.trim() && lineAssetCount >= 2} />
                       <Input id="careerLabel1" value={lineLabel1} onChange={(e) => setLineLabel1(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 1 설명" maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH} />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="careerLink2" className="text-xs text-muted-foreground">Link 2 URL</Label>
+                      <Label htmlFor="careerLink2" className="inline-flex items-center gap-1 text-xs text-muted-foreground">Link 2 URL<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.field.outputLink2" title="Link 2 URL" /></Label>
                       <Input id="careerLink2" value={lineLink2} onChange={(e) => setLineLink2(e.target.value)} placeholder={OUTPUT_LINK_URL_PLACEHOLDER} disabled={!lineLink2.trim() && lineAssetCount >= 2} />
                       <Input id="careerLabel2" value={lineLabel2} onChange={(e) => setLineLabel2(e.target.value)} placeholder={OUTPUT_LINK_LABEL_PLACEHOLDER} aria-label="Link 2 설명" maxLength={OUTPUT_LINK_LABEL_MAX_LENGTH} />
                     </div>
@@ -1893,6 +1962,7 @@ export default function PracticalCareerManager() {
                       onRemove={() => { setLineImage1(null); setLineCaption1(""); }}
                       onCaptionChange={setLineCaption1}
                       disabled={!lineImage1 && lineAssetCount >= 2}
+                      helpKey="admin.lineOpening.career.opening.field.outputImage1"
                     />
                     <ImageUploadSlot
                       label="Image 2"
@@ -1902,6 +1972,7 @@ export default function PracticalCareerManager() {
                       onRemove={() => { setLineImage2(null); setLineCaption2(""); }}
                       onCaptionChange={setLineCaption2}
                       disabled={!lineImage2 && lineAssetCount >= 2}
+                      helpKey="admin.lineOpening.career.opening.field.outputImage2"
                     />
                   </div>
                 </div>
@@ -1938,9 +2009,12 @@ export default function PracticalCareerManager() {
                 {/* Actions */}
                 <div className="flex justify-end gap-3 pt-2">
                   <Button variant="outline" onClick={resetLineForm} disabled={saving}>취소</Button>
-                  <Button onClick={handleSaveLine} loading={saving}>
-                    개설
-                  </Button>
+                  <span className="inline-flex items-center gap-1">
+                    <Button onClick={handleSaveLine} loading={saving}>
+                      개설
+                    </Button>
+                    <AdminHelpIconButton size="xs" helpKey="admin.lineOpening.career.opening.action.submitOpen" title="실무 경력 라인 개설" />
+                  </span>
                 </div>
               </CardContent>
             </Card>

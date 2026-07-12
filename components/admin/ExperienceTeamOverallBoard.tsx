@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RotateCcw, Eye, CheckCircle2, XCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,6 +40,16 @@ type Banner = { kind: "success" | "error"; message: string } | null;
 
 const leaderKey = (userId: string, category: ExperienceOverallCategory) =>
   `${userId}::${category}`;
+
+// 카테고리 열 헤더 도움말 키 — 카테고리의 안정적 id(key)로 매핑(배열 인덱스 금지).
+//   도출/분석/견문/관리/확장. helpKey 는 helpKey SoT 로 절대 변경 금지.
+const OVERALL_CATEGORY_HELP_KEY: Record<ExperienceOverallCategory, string> = {
+  derivation: "admin.lineOpening.experience.overallColumn.derivation",
+  analysis: "admin.lineOpening.experience.overallColumn.analysis",
+  evaluation: "admin.lineOpening.experience.overallColumn.evaluation",
+  management: "admin.lineOpening.experience.overallColumn.management",
+  extension: "admin.lineOpening.experience.overallColumn.extension",
+};
 
 // 표 컬럼 폭 — table-layout: fixed 와 함께 헤더/바디 폭을 정확히 고정한다.
 //   이름 = 20%(나머지의 약 1.75배), 파트·상태·도출·분석·견문·관리·확장 = 80%/7 = 11.4286% 동일.
@@ -468,12 +479,46 @@ export default function ExperienceTeamOverallBoard({
             <BoardColgroup />
             <TableHeader>
               <TableRow>
-                <TableHead>이름</TableHead>
-                <TableHead>파트</TableHead>
-                <TableHead>크루 상태</TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    이름
+                    <AdminHelpIconButton
+                      size="xs"
+                      helpKey="admin.lineOpening.experience.overallColumn.name"
+                      title="이름"
+                    />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    파트
+                    <AdminHelpIconButton
+                      size="xs"
+                      helpKey="admin.lineOpening.experience.overallColumn.part"
+                      title="파트"
+                    />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    크루 상태
+                    <AdminHelpIconButton
+                      size="xs"
+                      helpKey="admin.lineOpening.experience.overallColumn.crewStatus"
+                      title="크루 상태"
+                    />
+                  </span>
+                </TableHead>
                 {EXPERIENCE_OVERALL_CATEGORIES.map((c) => (
                   <TableHead key={c.key} className="text-center">
-                    {c.label}
+                    <span className="inline-flex items-center gap-1">
+                      {c.label}
+                      <AdminHelpIconButton
+                        size="xs"
+                        helpKey={OVERALL_CATEGORY_HELP_KEY[c.key]}
+                        title={c.label}
+                      />
+                    </span>
                   </TableHead>
                 ))}
               </TableRow>
@@ -591,7 +636,14 @@ export default function ExperienceTeamOverallBoard({
 
       {/* 아웃풋 링크 & 이미지 — 카테고리별 [○○ 류] 라인명 + (링크 6 : 설명 4) 한 줄 입력 */}
       <div className="space-y-4 rounded-md border p-3">
-        <p className="text-sm font-semibold">아웃풋 링크 &amp; 이미지</p>
+        <p className="inline-flex items-center gap-1 text-sm font-semibold">
+          아웃풋 링크 &amp; 이미지
+          <AdminHelpIconButton
+            size="sm"
+            helpKey="admin.lineOpening.experience.section.outputLinks"
+            title="아웃풋 링크 & 이미지"
+          />
+        </p>
         {EXPERIENCE_OVERALL_CATEGORIES.map((c) => {
           const o = getOutput(c.key);
           const disabled = opened || saving || (c.key === "extension" && !extensionActive);
@@ -611,8 +663,13 @@ export default function ExperienceTeamOverallBoard({
               </p>
               {/* [링크1][URL 입력][설명1][설명 입력] — 한 행 가로 배치, 라벨 80px·입력칸 flex-1 */}
               <div className="flex w-full items-center gap-2">
-                <Label className="w-28 shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground">
+                <Label className="inline-flex w-28 shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-muted-foreground">
                   링크1
+                  <AdminHelpIconButton
+                    size="xs"
+                    helpKey="admin.lineOpening.field.outputLink"
+                    title="링크1"
+                  />
                 </Label>
                 <Input
                   className="min-w-0 flex-1"
@@ -621,8 +678,13 @@ export default function ExperienceTeamOverallBoard({
                   placeholder="URL 입력"
                   onChange={(e) => setOutput(c.key, { link: e.target.value })}
                 />
-                <Label className="w-28 shrink-0 whitespace-nowrap text-xs font-medium text-muted-foreground">
+                <Label className="inline-flex w-28 shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-muted-foreground">
                   설명1
+                  <AdminHelpIconButton
+                    size="xs"
+                    helpKey="admin.lineOpening.field.outputLinkDescription"
+                    title="설명1"
+                  />
                 </Label>
                 <Input
                   className="min-w-0 flex-1"
@@ -643,7 +705,15 @@ export default function ExperienceTeamOverallBoard({
           {/* 권장 다음 액션 안내(업무 흐름) — 현재 상태 기준. 권한 제한이 아니라 UX 힌트. */}
           {!opened && (
             <p className="text-[11px] leading-tight text-muted-foreground">
-              권장 다음 단계:{" "}
+              <span className="inline-flex items-center gap-1">
+                권장 다음 단계
+                <AdminHelpIconButton
+                  size="xs"
+                  helpKey="admin.lineOpening.experience.info.recommendedNext"
+                  title="권장 다음 단계"
+                />
+              </span>
+              {": "}
               <span className="font-semibold text-foreground">
                 {recommendedNext === "open" ? "개설 완료" : "개설 검수"}
               </span>
@@ -653,56 +723,84 @@ export default function ExperienceTeamOverallBoard({
               검수=agent/team_leader · 개설/취소=team_leader 만. 서버 가드(403)가 실제 권한 경계.
               variant(강조)는 "권장 다음 액션"에 따라 동적 — 권한/활성 여부와는 별개(팀장은 상태 무관 가능). */}
           {(!actorMemberRole || actorMemberRole === "agent" || actorMemberRole === "team_leader") && (
-            <Button
-              variant={recommendedNext === "review" ? "default" : "outline"}
-              className="w-full justify-center"
-              onClick={onReview}
-              loading={saving}
-              disabled={saving || opened}
-            >
-              <Eye className="mr-1.5 h-4 w-4" />
-              개설 검수
-            </Button>
+            <span className="inline-flex items-center gap-1">
+              <Button
+                variant={recommendedNext === "review" ? "default" : "outline"}
+                className="w-full justify-center"
+                onClick={onReview}
+                loading={saving}
+                disabled={saving || opened}
+              >
+                <Eye className="mr-1.5 h-4 w-4" />
+                개설 검수
+              </Button>
+              <AdminHelpIconButton
+                size="xs"
+                helpKey="admin.lineOpening.experience.action.overallReview"
+                title="개설 검수"
+              />
+            </span>
           )}
-          <Button
-            variant="outline"
-            className="w-full justify-center"
-            onClick={onReset}
-            disabled={saving || opened}
-          >
-            <RotateCcw className="mr-1.5 h-4 w-4" /> 초기화
-          </Button>
-          {(!actorMemberRole || actorMemberRole === "team_leader") && (
-            <Button
-              // 팀장(최고 권한)은 status 와 무관하게 개설 완료 가능 — 검수 전(none)이라도 활성.
-              //   status 로 막지 않는다(이미 완료된 opened 만 제외). "권장 순서"는 variant 강조로만 안내.
-              variant={recommendedNext === "open" ? "default" : "outline"}
-              className="w-full justify-center"
-              onClick={onOpen}
-              loading={saving}
-              disabled={saving || opened}
-              title={
-                opened
-                  ? "이미 개설 완료됨 — 수정하려면 [개설 취소] 후 진행하세요."
-                  : board.status !== "reviewed"
-                    ? "권장 순서는 에이전트 [개설 검수] 후이지만, 팀장은 바로 개설 완료할 수 있습니다."
-                    : undefined
-              }
-            >
-              <CheckCircle2 className="mr-1.5 h-4 w-4" /> 개설 완료
-            </Button>
-          )}
-          {(!actorMemberRole || actorMemberRole === "team_leader") && (
+          <span className="inline-flex items-center gap-1">
             <Button
               variant="outline"
-              className="w-full justify-center border-red-300 text-red-700 hover:bg-red-50"
-              onClick={onCancel}
-              loading={saving}
-              disabled={saving || !opened}
-              title={!opened ? "개설 완료 후에만 취소할 수 있습니다" : undefined}
+              className="w-full justify-center"
+              onClick={onReset}
+              disabled={saving || opened}
             >
-              <XCircle className="mr-1.5 h-4 w-4" /> 개설 취소
+              <RotateCcw className="mr-1.5 h-4 w-4" /> 초기화
             </Button>
+            <AdminHelpIconButton
+              size="xs"
+              helpKey="admin.lineOpening.experience.action.overallReset"
+              title="초기화"
+            />
+          </span>
+          {(!actorMemberRole || actorMemberRole === "team_leader") && (
+            <span className="inline-flex items-center gap-1">
+              <Button
+                // 팀장(최고 권한)은 status 와 무관하게 개설 완료 가능 — 검수 전(none)이라도 활성.
+                //   status 로 막지 않는다(이미 완료된 opened 만 제외). "권장 순서"는 variant 강조로만 안내.
+                variant={recommendedNext === "open" ? "default" : "outline"}
+                className="w-full justify-center"
+                onClick={onOpen}
+                loading={saving}
+                disabled={saving || opened}
+                title={
+                  opened
+                    ? "이미 개설 완료됨 — 수정하려면 [개설 취소] 후 진행하세요."
+                    : board.status !== "reviewed"
+                      ? "권장 순서는 에이전트 [개설 검수] 후이지만, 팀장은 바로 개설 완료할 수 있습니다."
+                      : undefined
+                }
+              >
+                <CheckCircle2 className="mr-1.5 h-4 w-4" /> 개설 완료
+              </Button>
+              <AdminHelpIconButton
+                size="xs"
+                helpKey="admin.lineOpening.experience.action.overallOpen"
+                title="개설 완료"
+              />
+            </span>
+          )}
+          {(!actorMemberRole || actorMemberRole === "team_leader") && (
+            <span className="inline-flex items-center gap-1">
+              <Button
+                variant="outline"
+                className="w-full justify-center border-red-300 text-red-700 hover:bg-red-50"
+                onClick={onCancel}
+                loading={saving}
+                disabled={saving || !opened}
+                title={!opened ? "개설 완료 후에만 취소할 수 있습니다" : undefined}
+              >
+                <XCircle className="mr-1.5 h-4 w-4" /> 개설 취소
+              </Button>
+              <AdminHelpIconButton
+                size="xs"
+                helpKey="admin.lineOpening.experience.action.overallCancel"
+                title="개설 취소"
+              />
+            </span>
           )}
         </div>
       </div>

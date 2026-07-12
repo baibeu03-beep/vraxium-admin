@@ -132,8 +132,8 @@ function OpeningImageSlot({
 
       {/* 1행: "이미지 1" 라벨 + 미리보기 공간(우측 상단 업로드/삭제 2행 1열) */}
       <div className="flex items-start gap-2">
-        <Label className="w-20 shrink-0 pt-1 whitespace-nowrap text-xs text-muted-foreground">
-          이미지 1
+        <Label className="inline-flex w-20 shrink-0 items-center gap-1 pt-1 whitespace-nowrap text-xs text-muted-foreground">
+          이미지 1<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.field.outputImage1" title="이미지 1" />
         </Label>
         <div className="relative">
           {image ? (
@@ -191,7 +191,7 @@ function OpeningImageSlot({
 
       {/* 2행: "설명 1" 라벨 + 이미지 설명 입력 */}
       <div className="flex items-center gap-2">
-        <Label className="w-20 shrink-0 whitespace-nowrap text-xs text-muted-foreground">설명 1</Label>
+        <Label className="inline-flex w-20 shrink-0 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">설명 1<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.field.outputImage1Desc" title="설명 1" /></Label>
         <Input
           value={caption}
           onChange={(e) => onCaptionChange(e.target.value)}
@@ -778,18 +778,21 @@ export default function PracticalInfoOpeningForm({
         {/* 3. 메인 타이틀 + "일반" */}
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label htmlFor="opening-main-title" className="text-sm font-semibold">
-              메인 타이틀 <span className="text-red-500">*</span>
+            <Label htmlFor="opening-main-title" className="inline-flex items-center gap-1 text-sm font-semibold">
+              메인 타이틀 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.field.mainTitle" title="메인 타이틀" />
             </Label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setMainTitle(GENERAL_MAIN_TITLE)}
-              title="고정 문구를 입력란에 불러옵니다"
-            >
-              일반
-            </Button>
+            <span className="inline-flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setMainTitle(GENERAL_MAIN_TITLE)}
+                title="고정 문구를 입력란에 불러옵니다"
+              >
+                일반
+              </Button>
+              <AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.action.generalTitle" title="일반" />
+            </span>
           </div>
           <textarea
             id="opening-main-title"
@@ -803,16 +806,16 @@ export default function PracticalInfoOpeningForm({
 
         {/* 4. 아웃풋 — 2행 1열(링크 행 / 이미지 행) */}
         <section className="space-y-4">
-          <Label className="text-sm font-semibold">
-            아웃풋 <span className="text-red-500">*</span>
+          <Label className="inline-flex items-center gap-1 text-sm font-semibold">
+            아웃풋 <span className="text-red-500">*</span><AdminHelpIconButton size="xs" helpKey="admin.lineOpening.field.output" title="아웃풋" />
           </Label>
           <div className="grid grid-cols-1 gap-4">
             {/* 아웃풋 링크 — "링크 1" / "설명 1" 각각 한 줄 */}
             <div className="space-y-2 rounded-md border p-3">
-              <p className="text-xs font-medium text-muted-foreground">아웃풋 링크</p>
+              <p className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">아웃풋 링크<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.field.outputLink" title="아웃풋 링크" /></p>
               <div className="flex items-center gap-2">
-                <Label className="w-20 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-                  링크 1
+                <Label className="inline-flex w-20 shrink-0 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
+                  링크 1<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.field.outputLink" title="링크 1" />
                 </Label>
                 <Input
                   value={linkUrl}
@@ -822,8 +825,8 @@ export default function PracticalInfoOpeningForm({
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Label className="w-20 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-                  설명 1
+                <Label className="inline-flex w-20 shrink-0 items-center gap-1 whitespace-nowrap text-xs text-muted-foreground">
+                  설명 1<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.field.outputLinkDescription" title="설명 1" />
                 </Label>
                 <Input
                   value={linkDesc}
@@ -835,7 +838,7 @@ export default function PracticalInfoOpeningForm({
             </div>
             {/* 아웃풋 이미지 — "이미지 1"(미리보기+업로드/삭제) / "설명 1" 각각 한 줄 */}
             <div className="space-y-2 rounded-md border p-3">
-              <p className="text-xs font-medium text-muted-foreground">아웃풋 이미지</p>
+              <p className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">아웃풋 이미지<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.field.outputImage" title="아웃풋 이미지" /></p>
               <OpeningImageSlot
                 image={image}
                 caption={imageDesc}
