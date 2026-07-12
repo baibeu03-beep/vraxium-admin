@@ -39,6 +39,7 @@ import {
 import { useConfirm, CONFIRM } from "@/components/ui/confirm-dialog";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import EmergencyRestModal from "@/components/admin/EmergencyRestModal";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
@@ -76,8 +77,6 @@ const EMPTY_SUMMARY: RestManagementSummary = {
   urgent: 0,
   crews: 0,
 };
-
-const NEXT_TASK_MSG = "다음 작업에서 구현됩니다.";
 
 // 진행 상태 · 분류 표기/색.
 const STATUS_LABEL: Record<RestRequestDisplayStatus, string> = {
@@ -378,6 +377,9 @@ export default function RestManagementManager() {
   // 액션(승인/삭제/전체승인) 후 요약·목록 동시 갱신 트리거.
   const [refreshTick, setRefreshTick] = useState(0);
   const refresh = useCallback(() => setRefreshTick((t) => t + 1), []);
+
+  // 긴급 휴식 신청 모달.
+  const [emergencyOpen, setEmergencyOpen] = useState(false);
 
   useReportLoading(loading || listLoading);
 
@@ -683,7 +685,7 @@ export default function RestManagementManager() {
                   <div className="inline-flex items-center gap-1">
                     <Button
                       variant="destructive"
-                      onClick={() => window.alert(NEXT_TASK_MSG)}
+                      onClick={() => setEmergencyOpen(true)}
                     >
                       긴급 휴식 신청
                     </Button>
@@ -875,6 +877,15 @@ export default function RestManagementManager() {
               )}
             </CardContent>
           </Card>
+
+          {/* 긴급 휴식 신청 모달 — 성공 시 요약+목록 재조회(refresh). activeOrg 는 이 분기에서 항상 존재. */}
+          {emergencyOpen ? (
+            <EmergencyRestModal
+              org={activeOrg}
+              onClose={() => setEmergencyOpen(false)}
+              onCreated={refresh}
+            />
+          ) : null}
         </>
       )}
     </div>

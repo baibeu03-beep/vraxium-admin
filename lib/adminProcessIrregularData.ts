@@ -255,16 +255,31 @@ export async function getIrregularBoard(
 
   // 스코프 분기 = 행에 기록된 scope_mode(operating/test). review_request 는 대상자 미선택(null)
   //   이라 target 기준 필터 불가 → 생성 시 보드 모드를 그대로 박은 scope_mode 로 분리한다.
-  const { data, error } = await supabaseAdmin
-    .from("process_irregular_acts")
-    .select(ROW_SELECT)
-    .eq("organization_slug", organization)
-    .eq("week_id", effectiveWeekId)
-    .eq("scope_mode", mode)
-    .order("created_at", { ascending: false });
-  if (error) throw migrationHint(error) ?? new ProcessMasterError(500, error.message);
+  //   ⚠ origin='emergency_rest'(긴급 휴식 Po.C 지급용 내부 액트)는 이 보드에서 숨긴다 — 크루
+  //     Detail Log/주간 포인트(process_point_awards 원장)엔 정상 반영되며, 여기서만 제외한다.
+  //     origin 컬럼 미적용(42703) 환경에선 필터 없이 조회(그 땐 긴급 액트 자체가 없다).
+  const runQuery = (cols: string) =>
+    supabaseAdmin
+      .from("process_irregular_acts")
+      .select(cols)
+      .eq("organization_slug", organization)
+      .eq("week_id", effectiveWeekId)
+      .eq("scope_mode", mode)
+      .order("created_at", { ascending: false });
+  let hasOrigin = true;
+  let res = await runQuery(ROW_SELECT + ",origin");
+  if (res.error && res.error.code === "42703") {
+    hasOrigin = false;
+    res = await runQuery(ROW_SELECT);
+  }
+  if (res.error) throw migrationHint(res.error) ?? new ProcessMasterError(500, res.error.message);
 
-  const rows = (data ?? []) as IrregularRow[];
+  const rawRows = (res.data ?? []) as unknown as Array<
+    IrregularRow & { origin?: string | null }
+  >;
+  const rows: IrregularRow[] = hasOrigin
+    ? rawRows.filter((r) => r.origin !== "emergency_rest")
+    : rawRows;
   const recipients = await loadRecipientsByRef(rows.map((r) => r.id));
   const acts = rows.map((r) => toRowDto(r, recipients, nowMs));
 

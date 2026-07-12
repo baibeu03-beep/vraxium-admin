@@ -5,8 +5,9 @@ import {
   getSeasonForDate,
   operationalSeasonDbKey,
 } from "@/lib/seasonCalendar";
-import { classLabel } from "@/lib/adminMembersTypes";
+import { classLabel, memberStatusLabel } from "@/lib/adminMembersTypes";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
+import { revokeForAct } from "@/lib/processPointAccrual";
 
 // ─────────────────────────────────────────────────────────────────────
 // /admin/rest-management 상단 요약 데이터 소스.
@@ -219,6 +220,9 @@ export type RestRequestListRow = {
   teamName: string | null; // 소속 팀
   classLabel: string; // 클래스
   reason: string | null; // 사유(전체 — 표시 절단은 UI)
+  // 긴급 휴식을 대신 신청한 운영진(requested_by_user_id). 일반 신청은 null.
+  requestedByName: string | null;
+  requestedByRoleLabel: string | null; // 팀장/앰배서더/관리자
   createdAt: string | null;
   createdAtLabel: string; // "2026년 7월 14일 오전 9:00"(KST)
 };
@@ -385,20 +389,27 @@ type VacationListRow = {
   reason: string | null;
   status: string | null;
   request_type?: string | null;
+  requested_by_user_id?: string | null;
   created_at: string | null;
 };
 
-// org+season 전체 행(정렬 적용) — PostgREST 1000행 cap 페이지네이션. request_type 미적용(42703)이면
-//   해당 컬럼 제외로 폴백(전부 normal).
+// org+season 전체 행(정렬 적용) — PostgREST 1000행 cap 페이지네이션.
+//   3단계 컬럼 폴백: full(request_type+requested_by_user_id) → type(request_type만) → base.
+//   미적용 컬럼(42703)이 섞여 있어도 페이지가 깨지지 않게 각 컬럼을 독립적으로 강등한다
+//   (2026-07-09 request_type · 2026-07-12 requested_by_user_id 각각 별개 마이그레이션).
+const REST_COLS_FULL =
+  "id,user_id,season_key,week_start_date,reason,status,request_type,requested_by_user_id,created_at";
+const REST_COLS_TYPE =
+  "id,user_id,season_key,week_start_date,reason,status,request_type,created_at";
+const REST_COLS_BASE =
+  "id,user_id,season_key,week_start_date,reason,status,created_at";
+
 async function fetchVacationListRows(
   org: OrganizationSlug,
   seasonKey: string,
 ): Promise<VacationListRow[]> {
   const PAGE = 1000;
-  const withType =
-    "id,user_id,season_key,week_start_date,reason,status,request_type,created_at";
-  const withoutType =
-    "id,user_id,season_key,week_start_date,reason,status,created_at";
+  const tiers = [REST_COLS_FULL, REST_COLS_TYPE, REST_COLS_BASE];
   const fetchPage = (cols: string, from: number) =>
     supabaseAdmin
       .from("vacation_requests")
@@ -409,14 +420,15 @@ async function fetchVacationListRows(
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
 
-  let hasType = true;
+  let tier = 0;
   const out: VacationListRow[] = [];
   let from = 0;
   for (;;) {
-    let res = await fetchPage(hasType ? withType : withoutType, from);
-    if (res.error && hasType && res.error.code === "42703") {
-      hasType = false;
-      res = await fetchPage(withoutType, from);
+    let res = await fetchPage(tiers[tier], from);
+    // 미존재 컬럼(42703)이면 다음 단계로 강등하고 같은 페이지를 재시도.
+    while (res.error && res.error.code === "42703" && tier < tiers.length - 1) {
+      tier += 1;
+      res = await fetchPage(tiers[tier], from);
     }
     if (res.error) throw new Error(res.error.message);
     const batch = (res.data ?? []) as unknown as VacationListRow[];
@@ -427,33 +439,106 @@ async function fetchVacationListRows(
   return out;
 }
 
+// 신청자(requested_by_user_id) 표시 정보 — 이름 + 역할 라벨(팀장/앰배서더/관리자).
+//   등급 SoT = user_memberships.membership_level, 역할 = user_profiles.role(memberStatusLabel).
+type RequesterInfo = { name: string | null; roleLabel: string | null };
+
+async function resolveRequesterInfo(
+  userIds: string[],
+): Promise<Map<string, RequesterInfo>> {
+  const out = new Map<string, RequesterInfo>();
+  const unique = [...new Set(userIds.filter(Boolean))];
+  if (unique.length === 0) return out;
+
+  const ID_CHUNK = 100;
+  const profileById = new Map<string, { display_name: string | null; role: string | null }>();
+  const membershipsByUser = new Map<string, MembershipRow[]>();
+
+  for (let i = 0; i < unique.length; i += ID_CHUNK) {
+    const chunk = unique.slice(i, i + ID_CHUNK);
+    const [pRes, mRes] = await Promise.all([
+      supabaseAdmin
+        .from("user_profiles")
+        .select("user_id,display_name,role")
+        .in("user_id", chunk),
+      supabaseAdmin
+        .from("user_memberships")
+        .select("user_id,team_name,membership_level,is_current,updated_at")
+        .in("user_id", chunk),
+    ]);
+    if (pRes.error) throw new Error(pRes.error.message);
+    if (mRes.error) throw new Error(mRes.error.message);
+    for (const p of (pRes.data ?? []) as Array<{
+      user_id: string;
+      display_name: string | null;
+      role: string | null;
+    }>) {
+      profileById.set(p.user_id, { display_name: p.display_name, role: p.role });
+    }
+    for (const m of (mRes.data ?? []) as MembershipRow[]) {
+      const arr = membershipsByUser.get(m.user_id) ?? [];
+      arr.push(m);
+      membershipsByUser.set(m.user_id, arr);
+    }
+  }
+
+  for (const uid of unique) {
+    const p = profileById.get(uid);
+    const best = pickBestMembership(membershipsByUser.get(uid) ?? []);
+    out.set(uid, {
+      name: p?.display_name?.trim() || null,
+      roleLabel: memberStatusLabel(p?.role ?? null, best?.membership_level ?? null),
+    });
+  }
+  return out;
+}
+
 export async function loadRestManagementList(
   org: OrganizationSlug,
   seasonKey: string,
 ): Promise<RestManagementListResult> {
   const raw = await fetchVacationListRows(org, seasonKey);
   const crews = await resolveCrewInfo(raw.map((r) => r.user_id));
+  // 긴급 신청자(대신 신청한 운영진) — urgent 행의 requested_by_user_id 만 조회.
+  const requesters = await resolveRequesterInfo(
+    raw
+      .filter((r) => r.request_type === "urgent" && r.requested_by_user_id)
+      .map((r) => r.requested_by_user_id as string),
+  );
   const currentMonday = currentWeekMondayIso();
 
   const rows: RestRequestListRow[] = raw.map((r) => {
-    const ended = isWeekEnded(r.week_start_date, currentMonday);
+    const isUrgent = r.request_type === "urgent";
+    // 진행 상태 경계 — 일반과 긴급이 다르다(스펙):
+    //   · 일반: 대상 주차가 "종료(과거)"돼야 이행(week_start_date < 이번주 월요일).
+    //   · 긴급: 대상 주차가 "시작(현재 또는 과거)"되면 즉시 이행(<=). 미래(다음 주차)=승인.
+    //     긴급은 항상 status='approved' 로 생성되므로 pending 으로는 표기되지 않는다.
+    const ended = isUrgent
+      ? r.week_start_date != null && r.week_start_date <= currentMonday
+      : isWeekEnded(r.week_start_date, currentMonday);
     const displayStatus: RestRequestDisplayStatus = ended
       ? "fulfilled"
       : r.status === "approved"
         ? "approved"
         : "pending";
     const crew = crews.get(r.user_id);
+    const requester =
+      isUrgent && r.requested_by_user_id
+        ? requesters.get(r.requested_by_user_id)
+        : undefined;
     return {
       id: r.id,
       displayStatus,
       ended,
       weekLabel: restWeekLabel(r.season_key, r.week_start_date),
       weekStartDate: r.week_start_date,
-      requestType: r.request_type === "urgent" ? "urgent" : "normal",
+      requestType: isUrgent ? "urgent" : "normal",
       crewName: crew?.crewName ?? null,
       teamName: crew?.teamName ?? null,
       classLabel: crew?.classLabel ?? "정규",
       reason: r.reason ?? null,
+      requestedByName: requester?.name ?? null,
+      requestedByRoleLabel: requester?.roleLabel ?? null,
       createdAt: r.created_at,
       createdAtLabel: formatKstDateTime(r.created_at),
     };
@@ -478,16 +563,28 @@ type RequestRow = {
   week_start_date: string | null;
   org: string | null;
   season_key: string | null;
+  request_type?: string | null;
+  po_c_act_id?: string | null;
 };
 
 async function fetchRequestById(id: string): Promise<RequestRow | null> {
-  const { data, error } = await supabaseAdmin
+  // full(긴급 추적 컬럼 포함) → base 폴백(2026-07-12 마이그레이션 미적용 환경 대비).
+  const full = await supabaseAdmin
     .from("vacation_requests")
-    .select("id,status,week_start_date,org,season_key")
+    .select("id,status,week_start_date,org,season_key,request_type,po_c_act_id")
     .eq("id", id)
     .maybeSingle();
-  if (error) throw new RestActionError(500, error.message);
-  return (data as RequestRow | null) ?? null;
+  if (full.error && full.error.code === "42703") {
+    const base = await supabaseAdmin
+      .from("vacation_requests")
+      .select("id,status,week_start_date,org,season_key")
+      .eq("id", id)
+      .maybeSingle();
+    if (base.error) throw new RestActionError(500, base.error.message);
+    return (base.data as RequestRow | null) ?? null;
+  }
+  if (full.error) throw new RestActionError(500, full.error.message);
+  return (full.data as RequestRow | null) ?? null;
 }
 
 // 대상 행의 org 가 관리자 허용 조직에 속하는지 검증(허용 목록을 넘긴 경우에만). 403 fail-closed.
@@ -535,6 +632,28 @@ export async function deleteRestRequest(
   assertRowOrgAllowed(row.org, allowedOrgs);
   if (isWeekEnded(row.week_start_date, currentWeekMondayIso())) {
     throw new RestActionError(409, "취소할 수 없습니다");
+  }
+  // 긴급 휴식(urgent)은 생성 시 대상 크루에 Po.C ×2 를 지급했으므로, 삭제 시 그 지급도 회수한다
+  //   (부분 상태 방지 — 휴식은 지웠는데 포인트만 남는 것 금지). 일반 휴식은 무영향.
+  //   현재/과거 주차 긴급은 위 isWeekEnded(urgent 는 시작=이행) 로 이미 차단되므로, 여기 도달하는
+  //   urgent 는 "다음 주차(미시작)" 뿐이다. revoke = 원장 삭제 + 재계산 + snapshot 무효화(best-effort).
+  if (row.request_type === "urgent" && row.po_c_act_id) {
+    const actId = row.po_c_act_id;
+    try {
+      await revokeForAct("irregular", actId);
+    } catch (e) {
+      console.warn("[emergency-rest] 삭제 시 Po.C 회수 실패(격리)", {
+        actId,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+    // recipients + 변동 액트 행도 정리(보드 잔존/재계산 오염 방지).
+    await supabaseAdmin
+      .from("process_check_review_recipients")
+      .delete()
+      .eq("source", "irregular")
+      .eq("ref_id", actId);
+    await supabaseAdmin.from("process_irregular_acts").delete().eq("id", actId);
   }
   const { error } = await supabaseAdmin
     .from("vacation_requests")
