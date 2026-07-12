@@ -2,13 +2,18 @@
 
 // /admin/rest-management — 크루 휴식 신청 관리.
 //
-//   [0] 클럽 탭(엥크레/오랑캐/팔랑크스) — ?org 전환. mode=test 보존.
+//   [0] 조직 탭 — 노출 규칙이 URL 스코프(?org)로 갈린다:
+//       · 통합 경로(?org 없음): [통합]+엥크레/오랑캐/팔랑크스 4탭. 페이지 내부 상태(selectedOrg)
+//         전환·라우팅 없음(URL·사이드바 배지 불변). [통합] = 빈 본문(list/summary 미호출).
+//       · 개별 경로(?org={slug}): 자기 조직 탭 1개만 렌더(고정 active). 다른 조직 탭은 DOM 부재 →
+//         내부 상태로도 전환 불가. 조회/액션 스코프 = URL org 로 고정(activeOrg = urlOrg).
 //   [1] 시즌 드롭다운 — 현재(운영) 시즌 기본. 시즌 1개씩만 조회("전체 시즌" 없음).
 //   [2~5] 요약 카드 — 전체 / 정상 / 긴급 / 크루(distinct user_id).
 //   [6] [긴급 휴식 신청] — 배치만(후속 작업). [7] [전체 승인] — pending 일괄 승인.
-//   [표] 신청 목록 — org+시즌 기준. 20개/페이지(21개부터 페이지네이션). 승인/삭제.
+//   [표] 신청 목록 — 선택 조직+시즌 기준. 20개/페이지(21개부터 페이지네이션). 승인/삭제.
 //
-// 집계·목록은 실제 DB(vacation_requests) 기준. mode 는 로직/모집단을 바꾸지 않는다(URL 보존만).
+// 집계·목록은 실제 DB(vacation_requests) 기준. mode·일반 모드·actAsTestUserId 는 동일 DTO·동일
+//   조회 흐름을 타며 로직/모집단을 바꾸지 않는다(URL 보존만).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -50,7 +55,6 @@ import type {
   RestRequestListRow,
 } from "@/lib/adminRestManagementData";
 
-const BASE_PATH = "/admin/rest-management";
 const PAGE_SIZE = 20;
 
 const CLUB_LABEL_KO: Record<OrganizationSlug, string> = {
@@ -327,8 +331,19 @@ function StatCard({
 
 export default function RestManagementManager() {
   const searchParams = useSearchParams();
-  const org = readOrgParam(searchParams);
+  // URL 의 ?org = 이 페이지의 "고정 스코프" 여부만 판정한다(값 자체가 스코프).
+  //   · urlOrg 있음(개별 경로): 조직 고정 — 탭 1개(자기 조직)만·내부 전환 불가.
+  //   · urlOrg 없음(통합 경로): 통합 컨텍스트 — 4탭·selectedOrg 내부 상태 전환.
+  const urlOrg = readOrgParam(searchParams);
   const confirm = useConfirm();
+
+  // 통합 경로의 선택 조직 탭 = 페이지 내부 상태. null = [통합](빈 본문·API 미호출).
+  //   개별 경로(urlOrg 있음)에서는 이 상태를 쓰지 않는다(activeOrg 가 urlOrg 로 고정).
+  const [selectedOrg, setSelectedOrg] = useState<OrganizationSlug | null>(null);
+
+  // 실제 조회/액션 스코프 = 개별 경로면 URL org 고정, 통합 경로면 내부 선택(null=통합).
+  //   데이터·조직별 캐시 key·승인/삭제/전체승인 대상 = 모두 activeOrg(개별=URL org 항상 일치).
+  const activeOrg: OrganizationSlug | null = urlOrg ?? selectedOrg;
 
   const [seasons, setSeasons] = useState<RestManagementSeasonOption[]>([]);
   // selectedSeason: 드롭다운 선택 시즌. 초기값 = 현재(운영) 시즌(seasonCalendar 는 browser-safe).
@@ -336,12 +351,12 @@ export default function RestManagementManager() {
     () => operationalSeasonDbKey(getCurrentActivityDateIso()) ?? "",
   );
   const [summary, setSummary] = useState<RestManagementSummary>(EMPTY_SUMMARY);
-  const [loading, setLoading] = useState<boolean>(Boolean(org));
+  const [loading, setLoading] = useState<boolean>(Boolean(urlOrg));
   const [error, setError] = useState<string | null>(null);
 
   // 목록(테이블) — 전체 행을 받아 클라이언트에서 20개/페이지 슬라이스.
   const [listRows, setListRows] = useState<RestRequestListRow[]>([]);
-  const [listLoading, setListLoading] = useState<boolean>(Boolean(org));
+  const [listLoading, setListLoading] = useState<boolean>(Boolean(urlOrg));
   const [listError, setListError] = useState<string | null>(null);
   const [listPage, setListPage] = useState(1);
   // 컬럼 헤더 클릭 정렬. null = 기본 순서(서버 정렬 = 주차 최신 → 신청 시점 최신).
@@ -368,15 +383,17 @@ export default function RestManagementManager() {
 
   const listViewKeyRef = useRef("");
 
-  // 요약 조회 — org/시즌/refreshTick(액션 후) 변경 시 재조회.
+  // 요약 조회 — 활성 조직(activeOrg)/시즌/refreshTick(액션 후) 변경 시 재조회.
+  //   [통합](activeOrg=null)에서는 조회하지 않는다(빈 본문). API 에는 개별=URL org, 통합=내부
+  //   탭 상태를 organization 으로 명시 전달한다(개별 경로는 항상 URL org 와 일치·브라우저 URL 불변).
   useEffect(() => {
-    if (!org) return;
+    if (!activeOrg) return;
     let cancelled = false;
     const run = async () => {
       setLoading(true);
       setError(null);
       try {
-        const qs = new URLSearchParams({ organization: org });
+        const qs = new URLSearchParams({ organization: activeOrg });
         if (selectedSeason) qs.set("season_key", selectedSeason);
         const res = await fetch(
           `/api/admin/rest-management/summary?${qs.toString()}`,
@@ -401,20 +418,21 @@ export default function RestManagementManager() {
     return () => {
       cancelled = true;
     };
-  }, [org, selectedSeason, refreshTick]);
+  }, [activeOrg, selectedSeason, refreshTick]);
 
-  // 목록 조회 — org/시즌 변경 시 첫 페이지로 리셋(listViewKeyRef), 액션 재조회 시 페이지 유지.
+  // 목록 조회 — 활성 조직/시즌 변경 시 첫 페이지로 리셋(listViewKeyRef), 액션 재조회 시 페이지 유지.
+  //   viewKey 에 activeOrg 를 포함해 조직별 조회가 섞이지 않도록 한다(탭 전환 = 새 view).
   useEffect(() => {
-    if (!org) return;
+    if (!activeOrg) return;
     let cancelled = false;
-    const viewKey = `${org}|${selectedSeason}`;
+    const viewKey = `${activeOrg}|${selectedSeason}`;
     const isNewView = listViewKeyRef.current !== viewKey;
     listViewKeyRef.current = viewKey;
     const run = async () => {
       setListLoading(true);
       setListError(null);
       try {
-        const qs = new URLSearchParams({ organization: org });
+        const qs = new URLSearchParams({ organization: activeOrg });
         if (selectedSeason) qs.set("season_key", selectedSeason);
         const res = await fetch(
           `/api/admin/rest-management/list?${qs.toString()}`,
@@ -439,33 +457,50 @@ export default function RestManagementManager() {
     return () => {
       cancelled = true;
     };
-  }, [org, selectedSeason, refreshTick]);
+  }, [activeOrg, selectedSeason, refreshTick]);
 
-  // 상단 조직 탭: [통합] + 엥크레/오랑캐/팔랑크스. 조직 범위는 URL의 org 하나로 고정한다.
-  //   · [통합] = org 없는 통합 경로(BASE_PATH). 조직 탭 = ?org={slug}.
-  //   · 탭 이동 시 mode 등 기존 쿼리는 보존하고 org 만 설정/제거한다(통합 탭은 org 제거).
-  const tabHref = (targetOrg: OrganizationSlug | null): string => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (targetOrg) params.set("org", targetOrg);
-    else params.delete("org");
-    const qs = params.toString();
-    return qs ? `${BASE_PATH}?${qs}` : BASE_PATH;
-  };
-  //   · 통합 경로(org 없음): [통합]+엥크레/오랑캐/팔랑크스 전체 노출(통합 active) — 여기서만 조직 전환.
-  //   · 개별 경로(?org={slug}): 현재 조직 탭 1개만 노출(고정 선택). [통합]·타 조직 탭은 숨겨
-  //     탭으로 다른 조직/통합 경로로 전환할 수 없다(조직 전환은 통합 경로에서만).
-  const tabs = org
-    ? [{ label: CLUB_LABEL_KO[org], href: tabHref(org), active: true }]
+  // 통합 경로의 조직 탭 전환 = 페이지 내부 상태만 변경(URL 불변·라우팅 없음).
+  //   · 개별 경로(urlOrg 고정)에서는 호출하지 않는다(탭 1개·no-op) — 조직 전환 불가.
+  //   · 같은 탭 재클릭은 무시. 다른 탭이면 이전 조직 데이터/페이지/정렬/오류를 즉시 초기화해
+  //     이전 조직 데이터가 잠깐 노출되지 않도록 하고, 실 조직 탭이면 로딩 상태로 진입시킨다.
+  const selectOrg = useCallback(
+    (targetOrg: OrganizationSlug | null) => {
+      if (urlOrg || targetOrg === selectedOrg) return;
+      setListRows([]);
+      setSummary(EMPTY_SUMMARY);
+      setSeasons([]);
+      setError(null);
+      setListError(null);
+      setColumnSort(null);
+      setListPage(1);
+      setLoading(Boolean(targetOrg));
+      setListLoading(Boolean(targetOrg));
+      setSelectedOrg(targetOrg);
+    },
+    [urlOrg, selectedOrg],
+  );
+
+  // 상단 조직 탭 — URL 스코프로 노출 규칙이 갈린다:
+  //   · 개별 경로(urlOrg 있음): 자기 조직 탭 1개만 렌더(고정 active·no-op onSelect). 통합·타 조직
+  //     탭은 DOM 에 렌더하지 않는다 → 다른 조직으로 전환 불가.
+  //   · 통합 경로(urlOrg 없음): [통합]+엥크레/오랑캐/팔랑크스 4개. onSelect 로 내부 상태(selectedOrg)만
+  //     전환한다(AdminPageHeader 가 button 으로 렌더·URL/사이드바 배지 불변).
+  const tabs = urlOrg
+    ? [{ label: CLUB_LABEL_KO[urlOrg], active: true, onSelect: () => {} }]
     : [
-        { label: "통합", href: tabHref(null), active: true },
+        {
+          label: "통합",
+          active: selectedOrg === null,
+          onSelect: () => selectOrg(null),
+        },
         ...ORGANIZATIONS.map((o) => ({
           label: CLUB_LABEL_KO[o],
-          href: tabHref(o),
-          active: false,
+          active: selectedOrg === o,
+          onSelect: () => selectOrg(o),
         })),
       ];
 
-  const accent = org ? ORG_ACCENT[org] : null;
+  const accent = activeOrg ? ORG_ACCENT[activeOrg] : null;
 
   // 정렬은 화면에 보이는 행이 아니라 "전체 결과"(listRows: 서버가 전체 행 반환) 기준으로 적용한 뒤
   //   클라이언트에서 페이지 슬라이스. 원본(listRows)은 mutate 하지 않고 복사본을 정렬한다.
@@ -540,7 +575,7 @@ export default function RestManagementManager() {
   }
 
   async function approveAll() {
-    if (!org || !selectedSeason) return;
+    if (!activeOrg || !selectedSeason) return;
     const ok = await confirm({
       title: "전체 승인",
       description:
@@ -551,7 +586,10 @@ export default function RestManagementManager() {
     const res = await fetch(`/api/admin/rest-management/approve-all`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organization: org, season_key: selectedSeason }),
+      body: JSON.stringify({
+        organization: activeOrg,
+        season_key: selectedSeason,
+      }),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json?.success) {
@@ -563,10 +601,14 @@ export default function RestManagementManager() {
   }
 
   return (
-    <div className="admin-section-stack">
+    // data-active-org = 현재 활성 조직 스코프(개별=URL org, 통합=내부 선택·통합=integrated). 테스트/디버그 훅.
+    <div
+      className="admin-section-stack"
+      data-active-org={activeOrg ?? "integrated"}
+    >
       <AdminPageHeader title="휴식 관리" tabs={tabs} />
 
-      {!org ? (
+      {!activeOrg ? (
         // [통합] 탭 — 조직 횡단 집계는 아직 없다(list/summary API 미호출). 오류/로딩이 아니라
         //   데이터 없는 정상 통합 화면으로서 본문을 비워 둔다.
         null
@@ -599,7 +641,7 @@ export default function RestManagementManager() {
                     />
                   ) : null}
                   <span className="text-base font-semibold text-foreground">
-                    {CLUB_LABEL_KO[org]}
+                    {CLUB_LABEL_KO[activeOrg]}
                   </span>
                   <Select
                     value={selectedSeason}
