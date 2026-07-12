@@ -6,6 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import {
+  sortCafeCrews,
+  CREW_SORT_OPTIONS,
+  type CafeCrew,
+  type CrewSortKey,
+} from "@/lib/cafeCrewSort";
 
 // 라인 개설 크루 선택기 — 네이버 카페 댓글 검수(자동 매칭) + 수동 추가/삭제/초기화.
 //   "라인 개설" 폼과 "개설 대상 크루 수정" 모달이 공유하는 단일 UI/로직(SoT). 두 경로가
@@ -18,17 +24,9 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 //   - org + mode 는 window.location.search(?org, ?mode)에서 읽어 cafe-line-crew 모집단을 좁힌다
 //     (PracticalInfoOpeningForm 기존 동작과 동일 — 조직/운영·테스트 경계 밖 동명이인 제외).
 
-export type CafeCrew = {
-  userId: string;
-  crewNo: number | null;
-  crewCode: string | null;
-  name: string;
-  teamName: string | null;
-  partName: string | null;
-  schoolName: string | null;
-  majorName: string | null;
-  organization: string | null;
-};
+// CafeCrew 타입 + 표시 정렬 로직은 React 무의존 순수 모듈로 분리(단위 테스트 가능).
+//   기존 import 경로 호환을 위해 CafeCrew 는 이 파일에서 그대로 재노출한다.
+export type { CafeCrew } from "@/lib/cafeCrewSort";
 
 export type CafeCrewMeta = {
   cafeUrl: string;
@@ -62,6 +60,15 @@ export default function CafeCrewPicker({
   const [manualQ, setManualQ] = useState("");
   const [manualResults, setManualResults] = useState<CafeCrew[]>([]);
   const [manualSearching, setManualSearching] = useState(false);
+  // 검수 크루 목록 표시 정렬(클라이언트 전용). 기본 = 댓글 시간순(원본 순서).
+  const [sortKey, setSortKey] = useState<CrewSortKey>("comment");
+
+  // 표시용 정렬 뷰 — candidates(SoT)는 mutate 하지 않고 순수 helper 로 복사본만 정렬한다.
+  //   추가/제거/저장은 여전히 candidates 로 동작(표시 순서만 변경).
+  const sortedCandidates = useMemo(
+    () => sortCafeCrews(candidates, sortKey),
+    [candidates, sortKey],
+  );
 
   const existingSet = useMemo(
     () => new Set(existingMemberIds),
@@ -189,7 +196,14 @@ export default function CafeCrewPicker({
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <Label className="text-sm font-semibold">라인 개설 크루</Label>
+        <Label className="inline-flex items-center gap-1.5 text-sm font-semibold">
+          라인 개설 크루
+          <AdminHelpIconButton
+            size="sm"
+            helpKey="admin.lineOpening.info.section.openingCrew"
+            title="라인 개설 크루"
+          />
+        </Label>
         <span className="text-xs text-muted-foreground">
           <Users className="mr-1 inline h-3 w-3" />
           {candidates.length}명
@@ -345,11 +359,27 @@ export default function CafeCrewPicker({
         </div>
       )}
 
-      {/* 검수 크루 목록 — 댓글 시간순 */}
+      {/* 검수 크루 목록 — 표시 정렬(클라이언트 전용, DTO/저장 불변) */}
       <div className="space-y-2 rounded-md border p-3">
-        <p className="text-xs font-medium text-muted-foreground">
-          검수 크루 목록 · 댓글 시간순
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-medium text-muted-foreground">검수 크루 목록</p>
+          <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            정렬
+            <select
+              className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as CrewSortKey)}
+              aria-label="검수 크루 목록 정렬"
+              disabled={disabled}
+            >
+              {CREW_SORT_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         {candidates.length === 0 ? (
           <p className="py-3 text-center text-sm text-muted-foreground">후보가 없습니다.</p>
         ) : (
@@ -377,10 +407,46 @@ export default function CafeCrewPicker({
                       />
                     </span>
                   </th>
-                  <th className="px-2 py-1.5">팀명</th>
-                  <th className="px-2 py-1.5">파트명</th>
-                  <th className="px-2 py-1.5">학교명</th>
-                  <th className="px-2 py-1.5">전공명</th>
+                  <th className="px-2 py-1.5">
+                    <span className="inline-flex items-center gap-1">
+                      팀명
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.info.cafe.column.teamName"
+                        title="팀명"
+                        size="xs"
+                      />
+                    </span>
+                  </th>
+                  <th className="px-2 py-1.5">
+                    <span className="inline-flex items-center gap-1">
+                      파트명
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.info.cafe.column.partName"
+                        title="파트명"
+                        size="xs"
+                      />
+                    </span>
+                  </th>
+                  <th className="px-2 py-1.5">
+                    <span className="inline-flex items-center gap-1">
+                      학교명
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.info.cafe.column.schoolName"
+                        title="학교명"
+                        size="xs"
+                      />
+                    </span>
+                  </th>
+                  <th className="px-2 py-1.5">
+                    <span className="inline-flex items-center gap-1">
+                      전공명
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.info.cafe.column.majorName"
+                        title="전공명"
+                        size="xs"
+                      />
+                    </span>
+                  </th>
                   <th className="px-2 py-1.5">
                     <span className="inline-flex items-center gap-1">
                       삭제
@@ -394,7 +460,7 @@ export default function CafeCrewPicker({
                 </tr>
               </thead>
               <tbody>
-                {candidates.map((c) => (
+                {sortedCandidates.map((c) => (
                   <tr key={c.userId} className="border-b last:border-0">
                     <td className="px-2 py-1.5 font-mono text-xs">{c.crewCode ?? "-"}</td>
                     <td className="px-2 py-1.5 font-medium">{c.name || "-"}</td>
