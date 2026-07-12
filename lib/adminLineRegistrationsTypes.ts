@@ -241,6 +241,13 @@ export type LineRegistrationDto = {
   // 소속 조직 — null = 미지정 (개설 브리지 불가).
   organizationSlug: LineRegistrationOrg | null;
   organizationLabel: string | null;
+  // 라인 강화 Point.A/B 연결 키 — info 허브 전용(=activity_types.id, cluster_id='practical_info').
+  //   experience/competency 는 line_type/line_code 로 config_key 를 도출하므로 null. career 무관.
+  pointActivityTypeId: string | null;
+  // 라인 강화 Point.A/B — cluster4_line_point_configs 조회값(오픈확인 A/B/N 과 동일 SoT).
+  //   숫자 = 설정값(0 포함) · null = 미설정/미연결(목록에서 '-'). 화면 계산·하드코딩 아님(조회값).
+  pointA: number | null;
+  pointB: number | null;
   // 브리지 추적 — find-or-create 된 허브 마스터(career 는 career_projects) id / 수행 시각.
   bridgedMasterId: string | null;
   bridgedAt: string | null;
@@ -273,6 +280,8 @@ export type LineRegistrationCreateInput = {
   mainTitle: string;
   unitLink: string;
   organizationSlug: LineRegistrationOrg | null;
+  // info 허브 강화 포인트 연결 키(activity_types.id). 비-info 는 null 강제.
+  pointActivityTypeId: string | null;
   partnerCompany: string | null;
   companyLogoUrl: string | null;
   managerName: string | null;
@@ -292,6 +301,8 @@ export type LineRegistrationPatchInput = {
   mainTitle?: string;
   unitLink?: string;
   organizationSlug?: LineRegistrationOrg | null;
+  // info 강화 포인트 연결 키. null = 연결 해제. 비-info 행에서의 지정은 데이터 레이어에서 무시.
+  pointActivityTypeId?: string | null;
   partnerCompany?: string | null;
   companyLogoUrl?: string | null;
   managerName?: string | null;
@@ -421,6 +432,15 @@ export function parseLineRegistrationCreateBody(
   }
   const organizationSlug = orgParsed.value as LineRegistrationOrg | null;
 
+  // info 강화 포인트 연결 키(activity_types.id) — info 허브에서만 의미. 비-info 는 null 강제.
+  //   값 자체는 config 조회 키일 뿐(존재하지 않는 키는 조회 시 미설정 처리) → 형식만 검증(공백/문자열).
+  let pointActivityTypeId: string | null = null;
+  if (hub === "info") {
+    const pat = optionalText(body.point_activity_type_id, "point_activity_type_id");
+    if (!pat.ok) return pat;
+    pointActivityTypeId = pat.value;
+  }
+
   // career 전용 필드 — 비career 허브는 전부 null 강제.
   let partnerCompany: string | null = null;
   let companyLogoUrl: string | null = null;
@@ -470,6 +490,7 @@ export function parseLineRegistrationCreateBody(
       mainTitle,
       unitLink,
       organizationSlug,
+      pointActivityTypeId,
       partnerCompany,
       companyLogoUrl,
       managerName,
@@ -550,6 +571,13 @@ export function parseLineRegistrationPatchBody(
       };
     }
     patch.organizationSlug = r.value as LineRegistrationOrg | null;
+  }
+
+  // info 강화 포인트 연결 키 — 부분 수정 허용(null = 연결 해제). info 여부/무시 판정은 데이터 레이어.
+  if (body.point_activity_type_id !== undefined) {
+    const r = optionalText(body.point_activity_type_id, "point_activity_type_id");
+    if (!r.ok) return r;
+    patch.pointActivityTypeId = r.value;
   }
 
   for (const [bodyKey, patchKey] of [

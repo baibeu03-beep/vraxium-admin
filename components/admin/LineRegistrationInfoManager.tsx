@@ -166,6 +166,8 @@ type InfoColKey =
   | "lineName"
   | "hub"
   | "lineType"
+  | "pointA"
+  | "pointB"
   | "mainTitle"
   | "unit";
 type InfoSortValue = number | string | null;
@@ -222,6 +224,24 @@ const INFO_COLUMNS: InfoColumnDef[] = [
     helpKey: "admin.lines.info.column.lineType",
     sortable: true,
     sortValue: (row) => LINE_TYPE_ORDER.get(row.lineType) ?? null,
+  },
+  // ── 라인 강화 Point.A/B — cluster4_line_point_configs 조회값(오픈확인 A/B/N 과 동일 SoT).
+  //    숫자(0 포함) 표시 · null(미설정/미연결)은 compareInfoSortValues 가 항상 뒤로 보낸다. ──
+  {
+    key: "pointA",
+    label: "Point A",
+    helpKey: "admin.lines.info.column.pointA",
+    center: true,
+    sortable: true,
+    sortValue: (row) => row.pointA,
+  },
+  {
+    key: "pointB",
+    label: "Point B",
+    helpKey: "admin.lines.info.column.pointB",
+    center: true,
+    sortable: true,
+    sortValue: (row) => row.pointB,
   },
   // ── 정렬 제거: 자유서술 표시 컬럼(대부분 '-') · 액션 버튼 컬럼 ──
   //   (정렬 가치가 낮아 컨트롤만 제거 — 도움말 돋보기는 유지.)
@@ -736,11 +756,11 @@ export default function LineRegistrationInfoManager({
             </TableHeader>
             <TableBody>
               {loading && !rows ? (
-                <TableSkeletonRows columns={7} rows={6} />
+                <TableSkeletonRows columns={INFO_COLUMNS.length} rows={6} />
               ) : sorted.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={INFO_COLUMNS.length}
                     className="py-8 text-center text-muted-foreground"
                   >
                     조회 결과가 없습니다.
@@ -770,6 +790,21 @@ export default function LineRegistrationInfoManager({
                       </TableCell>
                       <TableCell>{row.hubLabel}</TableCell>
                       <TableCell>{row.lineType}</TableCell>
+                      {/* Point.A / Point.B — 0 은 0, 미설정/미연결(null)은 '-'(회색). */}
+                      <TableCell className="text-center tabular-nums">
+                        {row.pointA === null ? (
+                          <span className="text-muted-foreground">-</span>
+                        ) : (
+                          row.pointA
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center tabular-nums">
+                        {row.pointB === null ? (
+                          <span className="text-muted-foreground">-</span>
+                        ) : (
+                          row.pointB
+                        )}
+                      </TableCell>
                       <TableCell className="max-w-72">
                         <span className="block truncate" title={mainTitle}>
                           {mainTitle}

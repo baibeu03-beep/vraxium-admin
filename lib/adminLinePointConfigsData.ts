@@ -107,6 +107,60 @@ async function listAvailableKeys(
   return rows;
 }
 
+// ── 목록 표시용 전-조직 조회 ──────────────────────────────────────────────
+//   라인 정보 목록은 통합(여러 org)일 수 있어, 행마다 org 를 달리 해석해야 한다.
+//   loadLinePointConfigs(org)(오픈확인 경로)와 동일한 우선순위 규칙을 org 무관 룩업으로 확장:
+//     · get(rowOrg, hub, key) = (rowOrg ?? 'common') 우선 → 없으면 'common' 폴백.
+//   이는 오픈확인 resolveRecognitionInputs 가 loadLinePointConfigs(org).get(hub,key) 로 얻는 값과
+//   동일 SoT·동일 규칙이다(목록 표시값 == 오픈확인 A/B/N 입력값 보장).
+export type LinePointLookup = {
+  available: boolean; // 테이블 적용 여부(false = 마이그 전 · 전부 null 취급)
+  // 숫자 = 설정값(0 포함) · null = 미설정/미연결. configKey null 이면 미연결 → {null,null}.
+  get(
+    rowOrg: string | null,
+    hub: LinePointHub,
+    configKey: string | null,
+  ): { pointA: number | null; pointB: number | null };
+};
+
+const NULL_POINT = { pointA: null, pointB: null } as const;
+
+export async function loadLinePointLookupAllOrgs(): Promise<LinePointLookup> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_line_point_configs")
+    .select("organization_slug, hub, config_key, point_a, point_b");
+  if (error) {
+    // 42703/PGRST205 = 테이블 미적용. 그 외 오류도 fail-open(전부 null) — 목록 조회를 막지 않는다.
+    console.warn("[adminLinePointConfigsData] lookup unavailable:", error.message);
+    return { available: false, get: () => ({ ...NULL_POINT }) };
+  }
+  const map = new Map<string, { pointA: number | null; pointB: number | null }>();
+  for (const r of (data ?? []) as Array<{
+    organization_slug: string;
+    hub: string;
+    config_key: string;
+    point_a: number | null;
+    point_b: number | null;
+  }>) {
+    map.set(`${r.organization_slug}:${r.hub}:${r.config_key}`, {
+      pointA: r.point_a,
+      pointB: r.point_b,
+    });
+  }
+  return {
+    available: true,
+    get(rowOrg, hub, configKey) {
+      if (!configKey) return { ...NULL_POINT }; // 미연결(info 링크 없음 등)
+      const org = rowOrg ?? "common";
+      return (
+        map.get(`${org}:${hub}:${configKey}`) ??
+        map.get(`common:${hub}:${configKey}`) ?? // org row 없을 때만 common 폴백
+        { ...NULL_POINT }
+      );
+    },
+  };
+}
+
 export async function listLinePointConfigs(
   organization: OrganizationSlug | "common",
 ): Promise<LinePointConfigList> {
