@@ -36,7 +36,7 @@ import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
-import { type OrganizationSlug } from "@/lib/organizations";
+import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
 import {
   getCurrentActivityDateIso,
   operationalSeasonDbKey,
@@ -441,10 +441,29 @@ export default function RestManagementManager() {
     };
   }, [org, selectedSeason, refreshTick]);
 
-  // 이 화면의 조직 범위는 관리자 권한이 아니라 현재 URL의 org 하나로 고정한다.
+  // 상단 조직 탭: [통합] + 엥크레/오랑캐/팔랑크스. 조직 범위는 URL의 org 하나로 고정한다.
+  //   · [통합] = org 없는 통합 경로(BASE_PATH). 조직 탭 = ?org={slug}.
+  //   · 탭 이동 시 mode 등 기존 쿼리는 보존하고 org 만 설정/제거한다(통합 탭은 org 제거).
+  const tabHref = (targetOrg: OrganizationSlug | null): string => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (targetOrg) params.set("org", targetOrg);
+    else params.delete("org");
+    const qs = params.toString();
+    return qs ? `${BASE_PATH}?${qs}` : BASE_PATH;
+  };
+  //   · 통합 경로(org 없음): [통합]+엥크레/오랑캐/팔랑크스 전체 노출(통합 active) — 여기서만 조직 전환.
+  //   · 개별 경로(?org={slug}): 현재 조직 탭 1개만 노출(고정 선택). [통합]·타 조직 탭은 숨겨
+  //     탭으로 다른 조직/통합 경로로 전환할 수 없다(조직 전환은 통합 경로에서만).
   const tabs = org
-    ? [{ label: CLUB_LABEL_KO[org], href: `${BASE_PATH}?${searchParams.toString()}`, active: true }]
-    : [];
+    ? [{ label: CLUB_LABEL_KO[org], href: tabHref(org), active: true }]
+    : [
+        { label: "통합", href: tabHref(null), active: true },
+        ...ORGANIZATIONS.map((o) => ({
+          label: CLUB_LABEL_KO[o],
+          href: tabHref(o),
+          active: false,
+        })),
+      ];
 
   const accent = org ? ORG_ACCENT[org] : null;
 
@@ -548,11 +567,9 @@ export default function RestManagementManager() {
       <AdminPageHeader title="휴식 관리" tabs={tabs} />
 
       {!org ? (
-        <Card>
-          <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            상단 탭에서 클럽(엥크레 · 오랑캐 · 팔랑크스)을 선택하세요.
-          </CardContent>
-        </Card>
+        // [통합] 탭 — 조직 횡단 집계는 아직 없다(list/summary API 미호출). 오류/로딩이 아니라
+        //   데이터 없는 정상 통합 화면으로서 본문을 비워 둔다.
+        null
       ) : (
         <>
           {error ? (
