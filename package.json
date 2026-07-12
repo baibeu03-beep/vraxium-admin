@@ -10,6 +10,8 @@
     "sync:schools": "tsx --env-file=.env.local scripts/sync-schools.ts",
     "sync:grade-stats": "tsx --env-file=.env.local scripts/sync-grade-stats.ts",
     "verify:grade-stats-sync": "tsx --env-file=.env.local scripts/verify-grade-stats-sync.ts",
+    "verify:team-parts-weeks-org-scope": "tsx --env-file=.env.local scripts/verify-team-parts-weeks-org-scope-direct.ts",
+    "verify:team-parts-weeks-org-scope-http": "node scripts/browser-verify-team-parts-weeks-org-scope-http.mjs",
     "verify:batch-saturation-guard": "tsx --env-file=.env.local scripts/verify-batch-saturation-guard.ts",
     "verify:cluster4-submission-fields": "tsx --env-file=.env.local scripts/verify-cluster4-submission-fields.ts",
     "backfill:weekly-card-snapshots": "tsx --env-file=.env.local scripts/backfill-weekly-card-snapshots.ts",
@@ -31,7 +33,8 @@
     "seed:qa-summer-season": "tsx --env-file=.env.local scripts/seed-qa-test-users-summer-season.ts",
     "verify:qa-roster-seed": "tsx --env-file=.env.local scripts/verify-qa-roster-seed.ts",
     "verify:qa-fixed-scope": "tsx --env-file=.env.local scripts/verify-qa-fixed-scope.ts",
-    "verify:periods-seasonweeks-help": "tsx --env-file=.env.local scripts/verify-periods-seasonweeks-help-browser.ts"
+    "verify:periods-seasonweeks-help": "tsx --env-file=.env.local scripts/verify-periods-seasonweeks-help-browser.ts",
+    "verify:line-opening-help": "tsx --env-file=.env.local scripts/verify-line-opening-help-browser.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

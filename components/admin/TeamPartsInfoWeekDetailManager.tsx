@@ -900,7 +900,7 @@ function ReadOnlyStatusPill({
 
 export default function TeamPartsInfoWeekDetailManager({
   weekId,
-  readOnly = false,
+  readOnly: readOnlyProp = false,
   listHrefBase = "/admin/team-parts/info/weeks",
 }: {
   weekId: string;
@@ -913,11 +913,17 @@ export default function TeamPartsInfoWeekDetailManager({
 }) {
   const searchParams = useSearchParams();
   const mode = readScopeMode(searchParams);
+  // 통합/개별 판정 SoT = URL 의 유효한 org 유무(org-optional 정책 [[project_admin-org-optional-url-policy]]).
+  //   개별(조직 컨텍스트=?org 존재)에서는 이 상세를 조회 전용으로 연다 — 통합 어드민(?org 없음)은
+  //   readOnly=false 로 기존 편집 동작을 그대로 유지한다. mode=test/일반 분기 없음(URL org 만 판정).
+  const orgFocus = readOrgParam(searchParams);
+  const isIndividual = isOrganizationSlug(orgFocus);
+  const readOnly = readOnlyProp || isIndividual;
   const clubParam = searchParams.get("club");
   const club: OrganizationSlug | null = isOrganizationSlug(clubParam)
     ? clubParam
-    : isOrganizationSlug(readOrgParam(searchParams))
-      ? (readOrgParam(searchParams) as OrganizationSlug)
+    : isOrganizationSlug(orgFocus)
+      ? (orgFocus as OrganizationSlug)
       : null;
 
   const [data, setData] = useState<TeamPartsInfoWeekDetailData | null>(null);
@@ -939,6 +945,8 @@ export default function TeamPartsInfoWeekDetailManager({
   const [reviewing, setReviewing] = useState(false);
   const [reverting, setReverting] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // 과거(종료된) 주차에서 [오픈 확인] 을 누를 때 뜨는 재확인 모달. 취소 시 API 미전송.
+  const [showPastOpenConfirm, setShowPastOpenConfirm] = useState(false);
   // 검수 준비 상태 모달.
   const [showReadiness, setShowReadiness] = useState(false);
   const [readiness, setReadiness] = useState<ReviewReadiness | null>(null);
@@ -976,8 +984,11 @@ export default function TeamPartsInfoWeekDetailManager({
   const [lineLoading, setLineLoading] = useState(false);
   const [lineError, setLineError] = useState<string | null>(null);
 
+  // 뒤로가기(← 주차 내역)는 진입 컨텍스트를 그대로 보존한다: 개별(?org)이면 ?org 유지(사이드바
+  //   [개별] 유지), 통합(?org 없음)이면 org 없는 통합 목록으로. club(?club) 로 ?org 를 만들면
+  //   통합 상세에서 개별로 새는 문제가 생기므로 orgFocus 를 SoT 로 쓴다.
   const listHref = appendModeQuery(
-    club ? `${listHrefBase}?org=${club}` : listHrefBase,
+    isIndividual ? `${listHrefBase}?org=${orgFocus}` : listHrefBase,
     mode,
   );
 
@@ -1142,6 +1153,17 @@ export default function TeamPartsInfoWeekDetailManager({
     } finally {
       setConfirming(false);
     }
+  };
+
+  // [오픈 확인] 버튼 클릭 게이트 — 과거(종료된) 주차면 바로 저장하지 않고 재확인 모달을 먼저 연다.
+  //   현재/미래 주차는 기존 동작 그대로(모달 없이 즉시 onOpenConfirm). 저장 로직·API·DTO 는 무변경.
+  const handleOpenConfirmClick = () => {
+    if (!club || readOnly || confirming) return;
+    if (data?.managedWeek.weekPhase === "past") {
+      setShowPastOpenConfirm(true);
+      return;
+    }
+    void onOpenConfirm();
   };
 
   // [초기화] — 상단 허브 선택 상태를 기본값으로 되돌린다(클라이언트 편집 상태만·서버 write 없음).
@@ -1379,6 +1401,7 @@ export default function TeamPartsInfoWeekDetailManager({
                     data-review-button
                     onClick={openReadiness}
                     disabled={readOnly || reviewing || reverting || reviewed}
+                    title={isIndividual ? "주차 검수는 통합 관리자만 실행할 수 있습니다." : undefined}
                     className="cursor-pointer bg-slate-800 text-white hover:bg-slate-700"
                   >
                     {reviewed ? "검수 완료" : reviewing ? "검수 중…" : "주차 검수"}
@@ -1559,6 +1582,14 @@ export default function TeamPartsInfoWeekDetailManager({
                   <p className="mt-1 text-xs text-muted-foreground">
                     * 여기서 체크된 허브 &amp; 라인 들이, 아래 액트 체크와 라인 개설 여부에 반영됩니다.
                   </p>
+                  {isIndividual && (
+                    <p
+                      className="mt-1 text-xs font-medium text-amber-700"
+                      data-hub-line-readonly-notice
+                    >
+                      이번 주 활동 허브와 라인은 통합 관리자가 설정합니다.
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {/* 기존 '오픈 확인' 버튼 — 그대로 유지(대체/이름변경 금지). */}
@@ -1566,7 +1597,7 @@ export default function TeamPartsInfoWeekDetailManager({
                     <Button
                       type="button"
                       data-open-confirm-button
-                      onClick={onOpenConfirm}
+                      onClick={handleOpenConfirmClick}
                       disabled={readOnly || confirming}
                       className="cursor-pointer bg-slate-800 text-white hover:bg-slate-700"
                     >
@@ -1574,6 +1605,77 @@ export default function TeamPartsInfoWeekDetailManager({
                     </Button>
                     <AdminHelpIconButton helpKey={`${HELP}.action.openConfirm`} title="오픈 확인" />
                   </span>
+
+                  {/* 과거(종료된) 주차 [오픈 확인] 재확인 모달 — 취소 시 API 미전송·기존 상태 유지.
+                      실제 영향(코드 기준): 오픈확인 ON/OFF 는 cluster4_week_opening_configs(오픈 설정 +
+                      활동 인정 개수 N)만 다시 쓴다. 확정된 검수 결과·포인트·크루(고객) 카드/snapshot 은
+                      건드리지 않는다(그건 별도 [주차 검수] 소관). 그래서 문구를 과장하지 않는다. */}
+                  {showPastOpenConfirm && !readOnly && (
+                    <div
+                      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                      role="dialog"
+                      aria-modal="true"
+                      data-past-open-confirm-modal
+                    >
+                      <div className="modal-w-lg rounded-lg bg-white p-5 shadow-xl">
+                        <h3 className="text-base font-semibold text-slate-800">
+                          지난 주차의 오픈 상태를 변경하시겠습니까?
+                        </h3>
+                        {reviewed ? (
+                          <div className="mt-3 space-y-2 text-sm leading-relaxed text-slate-600">
+                            <p className="rounded-md bg-rose-50 px-3 py-2 font-medium text-rose-700">
+                              이미 검수가 완료된 주차입니다.
+                            </p>
+                            <p>
+                              오픈 상태를 변경해도 이미 확정된{" "}
+                              <b>검수 결과 · 포인트 · 크루(고객) 카드</b>는 바뀌지 않습니다. 다만 이 주차의{" "}
+                              <b>오픈 설정</b>과 <b>활동 인정 개수(N)</b> 가 지금 선택한 내용을 기준으로 다시
+                              계산됩니다.
+                            </p>
+                            <p>변경이 꼭 필요한 경우에만 진행해주세요.</p>
+                          </div>
+                        ) : (
+                          <div className="mt-3 space-y-2 text-sm leading-relaxed text-slate-600">
+                            <p className="rounded-md bg-amber-50 px-3 py-2 font-medium text-amber-800">
+                              이미 종료된 주차입니다.
+                            </p>
+                            <p>
+                              오픈 상태를 변경하면 이 주차의 <b>오픈 설정</b>과 <b>활동 인정 개수(N)</b> 가 지금
+                              선택한 내용을 기준으로 다시 계산됩니다.
+                            </p>
+                            <p>
+                              이미 확정된 <b>검수 결과 · 포인트 · 크루 카드</b>에는 영향을 주지 않습니다. 계속
+                              하시겠습니까?
+                            </p>
+                          </div>
+                        )}
+                        <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+                          <Button
+                            type="button"
+                            data-past-open-confirm-cancel
+                            onClick={() => setShowPastOpenConfirm(false)}
+                            disabled={confirming}
+                            className="cursor-pointer border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          >
+                            취소
+                          </Button>
+                          <Button
+                            type="button"
+                            data-past-open-confirm-proceed
+                            onClick={() => {
+                              setShowPastOpenConfirm(false);
+                              void onOpenConfirm();
+                            }}
+                            loading={confirming}
+                            disabled={confirming}
+                            className="cursor-pointer bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-50"
+                          >
+                            {confirming ? "저장 중…" : "그래도 변경"}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   {/* [초기화] — 상단 허브 선택을 기본값으로 되돌린다(클라이언트 상태만·이후 오픈 확인 시 저장). */}
                   {!readOnly && (
                     <span className="inline-flex items-center gap-1">

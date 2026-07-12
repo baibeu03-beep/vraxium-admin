@@ -13,7 +13,7 @@ import {
   PanelLeft,
   PanelLeftClose,
   Sun,
-  // TrendingUp, // [클럽 진행] 메뉴 비노출로 미사용 — 재활성화 시 함께 주석 해제
+  TrendingUp,
   UserPlus,
   Users,
   Workflow,
@@ -246,18 +246,17 @@ const MENU_ORG: MenuItem[] = [
       { label: "변동 액트", href: "/admin/processes/check/irregular" },
     ],
   },
-  // 3) 클럽 진행 — 메뉴 비노출(주석 처리). /admin/club-progress/* 라우트/코드는 유지.
-  //   재활성화하려면 아래 블록의 주석을 해제하세요.
-  // {
-  //   kind: "branch",
-  //   label: "클럽 진행",
-  //   icon: TrendingUp,
-  //   basePath: "/admin/club-progress",
-  //   children: [
-  //     { label: "주차 내역", href: "/admin/club-progress/weekly" },
-  //     { label: "시즌 내역", href: "/admin/club-progress/seasons" },
-  //   ],
-  // },
+  // 3) 클럽 진행 — 개별 조직 운영진의 주차 진행 조회. 통합 어드민이 설정한 이번 주 활동 허브·라인,
+  //   파생 액트/개설 라인, 검수 상태를 자기 조직(?org) 스코프로 조회 전용 열람한다. 주차 검수·오픈
+  //   설정 변경은 통합 전용(서버 403). 통합 트리(MENU_INTEGRATED)는 기존 "클럽 정보 > 주차 내역" 유지.
+  {
+    kind: "branch",
+    label: "클럽 진행",
+    icon: TrendingUp,
+    basePath: "/admin/team-parts/info/weeks",
+    matchPaths: ["/admin/team-parts/info/weeks"],
+    children: [{ label: "주차 내역", href: "/admin/team-parts/info/weeks" }],
+  },
   // 4) 크루 활동 — 크루 관리(해당 조직 목록), 휴식 관리, 커뮤니케이션.
   {
     kind: "branch",
@@ -310,11 +309,6 @@ function isLeafActive(pathname: string, href: string) {
 
 function isUnderBase(pathname: string, basePath: string) {
   return pathname === basePath || pathname.startsWith(basePath + "/");
-}
-
-function isUnderAnyBase(pathname: string, item: BranchItem) {
-  const paths = item.matchPaths ?? [item.basePath];
-  return paths.some((p) => isUnderBase(pathname, p));
 }
 
 // 사이드바 최하단 설정 영역 — 라이트/다크 테마 전환. 네비게이션과 분리(상단 border-t).
@@ -429,6 +423,25 @@ export default function Sidebar() {
 
   // 노출 메뉴 트리: 조직 분기 모드면 신규 5대분류, 통합 모드면 기존(원본) 메뉴.
   const menu = orgFocus ? MENU_ORG : MENU_INTEGRATED;
+
+  // 한 경로가 여러 branch 의 matchPaths(접두)에 동시에 걸릴 때 가장 구체적인(최장 일치) branch
+  //   하나만 활성 표시한다. 예: /admin/team-parts/info/weeks 는 "클럽 정보"(/admin/team-parts)와
+  //   "클럽 진행"(/admin/team-parts/info/weeks) 양쪽에 걸리지만 후자만 하이라이트한다(이중 강조 방지).
+  const activeBranchBasePath = (() => {
+    let best: string | null = null;
+    let bestLen = -1;
+    for (const item of menu) {
+      if (item.kind !== "branch" || !isItemVisible(item)) continue;
+      const paths = item.matchPaths ?? [item.basePath];
+      for (const p of paths) {
+        if (isUnderBase(pathname, p) && p.length > bestLen) {
+          best = item.basePath;
+          bestLen = p.length;
+        }
+      }
+    }
+    return best;
+  })();
 
   // 조직 모드에서 공유 페이지 링크에 ?org 를 부착(조직 컨텍스트 유지).
   //   - /admin/crews/{org}: path 기반 → 그대로(부착 안 함)
@@ -570,7 +583,9 @@ export default function Sidebar() {
           }
 
           const Icon = item.icon;
-          const inSection = isUnderAnyBase(pathname, item);
+          // 최장 일치 branch 하나만 활성(활성 branch basePath 와 동일할 때만). isUnderAnyBase 접두
+          //   매칭이 겹치는 weeks 경로에서 "클럽 정보"·"클럽 진행" 이중 강조되는 것을 막는다.
+          const inSection = item.basePath === activeBranchBasePath;
           // 기본 펼침: 미설정(신규 노출된 분기 등)은 열림으로 폴백한다.
           //   사용자가 접으면 false 가 기록되어 그 값이 우선한다.
           const branchOpen = openBranches[item.basePath] ?? true;

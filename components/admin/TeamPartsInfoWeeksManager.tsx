@@ -16,7 +16,11 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { readOrgParam } from "@/lib/adminOrgContext";
-import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
+import { ORGANIZATIONS, isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
+import {
+  useAdminOrgAccess,
+  AdminNoOrgAccess,
+} from "@/components/admin/AdminOrgAccessProvider";
 import type {
   TeamPartsInfoWeeksData,
   TeamPartsInfoWeekItem,
@@ -124,12 +128,12 @@ function WeekTh({
 }
 
 export default function TeamPartsInfoWeeksManager({
-  scoped = false,
+  scoped: scopedProp = false,
   detailBasePath = "/admin/team-parts/info/weeks",
 }: {
-  // scoped=true(클럽 진행 · 개별 조직 운영진): URL ?org 로 조직 1개에 고정하고
-  //   통합 탭을 숨긴다(조회 전용). 통합 어드민(/admin/team-parts/info/weeks)은 scoped=false
-  //   기본값으로 기존 동작이 그대로 유지된다.
+  // scoped=true(개별 조직 운영진): URL ?org 로 조직 1개에 고정하고 통합 탭을 숨긴다(조회 전용).
+  //   기본은 URL 의 유효한 org 유무로 자동 판정한다(org-optional 정책 [[project_admin-org-optional-url-policy]]):
+  //   개별(?org 존재)=scoped · 통합(?org 없음)=전체 탭. prop 은 강제 override 용(현재 미사용).
   // detailBasePath: [활동 관리] 이동 및 상세 back-link 의 기준 경로.
   scoped?: boolean;
   detailBasePath?: string;
@@ -137,11 +141,26 @@ export default function TeamPartsInfoWeeksManager({
   const router = useRouter();
   const searchParams = useSearchParams();
   const mode = readScopeMode(searchParams);
+  // 통합/개별 판정 SoT = URL 의 유효한 org 유무. ?org 있으면 개별(scoped)로 자동 진입 —
+  //   사이드바 [개별] 배지·MENU_ORG 와 동일한 org-focus 컨텍스트를 목록/상세에서도 유지한다.
+  const orgFocus = readOrgParam(searchParams);
+  const scoped = scopedProp || isOrganizationSlug(orgFocus);
+  // 허용 조직 게이트 — 통합 탭은 전체 허용(owner/공통)일 때만, 조직 탭은 허용 목록만 노출.
+  const { allowedOrgs, isAllOrgs } = useAdminOrgAccess();
+  const visibleTabs: TabKey[] = TABS.filter((t) =>
+    t === "integrated" ? isAllOrgs : allowedOrgs.includes(t),
+  );
   // scoped 모드에서는 URL ?org 로 조직을 고정한다. 미지정/무효면 안내만 표시.
-  const scopedOrg = scoped ? readOrgParam(searchParams) : null;
+  const scopedOrg = scoped ? orgFocus : null;
   const scopedMissing = scoped && !scopedOrg;
+  // 권한 없음: 허용 조직 0개, 또는 scoped 인데 지정 org 가 허용 목록에 없음.
+  const noAccess =
+    allowedOrgs.length === 0 ||
+    (scoped && scopedOrg != null && !allowedOrgs.includes(scopedOrg));
 
-  const [activeTab, setActiveTab] = useState<TabKey>("encre");
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    () => allowedOrgs[0] ?? "integrated",
+  );
   const [page, setPage] = useState(1);
   // 서버사이드 정렬 상태(전체 목록 기준). null = 기본순(최신 주차 최상단).
   const [sort, setSort] = useState<WeeksSort | null>(null);
@@ -192,11 +211,12 @@ export default function TeamPartsInfoWeeksManager({
   useEffect(() => {
     // 통합 탭은 준비 중(자체 안내 블록 렌더) → API 호출/상태 갱신 없음.
     //   이전 클럽 데이터는 state 에 남아 있어도 통합 화면에선 렌더되지 않는다.
-    if (isIntegrated || scopedMissing) return;
+    //   권한 없음(허용 조직 0개/scoped 불일치)도 조회하지 않는다.
+    if (isIntegrated || scopedMissing || noAccess) return;
     // 탭/페이지/정렬 변경 시 외부(API)와 동기화하는 정석 effect — load 내부 setState 는 의도된 동작.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(effectiveTab as OrganizationSlug, page, sort);
-  }, [effectiveTab, page, sort, isIntegrated, scopedMissing, load]);
+  }, [effectiveTab, page, sort, isIntegrated, scopedMissing, noAccess, load]);
 
   const onTabChange = (tab: TabKey) => {
     setActiveTab(tab);
@@ -232,6 +252,11 @@ export default function TeamPartsInfoWeeksManager({
   const pagination = data?.pagination ?? null;
   const totalPages = pagination?.totalPages ?? 1;
   const currentWeek = data?.currentWeek ?? null;
+
+  // 허용 조직 없음(또는 scoped 불일치) → 권한 없음 안내(조회/임의 org 접근 없음). 모든 훅 이후.
+  if (noAccess) {
+    return <AdminNoOrgAccess title="주차 내역" />;
+  }
 
   // scoped 모드에서 URL org 가 없거나 무효면 안내만 표시(조회 전용 · 데이터 로드 없음).
   if (scopedMissing) {
@@ -280,7 +305,7 @@ export default function TeamPartsInfoWeeksManager({
             />
           </span>
           <div className="flex flex-wrap gap-1" role="tablist" aria-label="클럽 선택">
-            {(scoped ? [effectiveTab] : TABS).map((tab) => (
+            {(scoped ? [effectiveTab] : visibleTabs).map((tab) => (
             <button
               key={tab}
               type="button"

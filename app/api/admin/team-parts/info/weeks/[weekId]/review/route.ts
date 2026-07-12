@@ -9,8 +9,30 @@ import {
   ADMIN_WRITE_ROLES,
   requireAdmin,
   toAdminErrorResponse,
+  type AdminContext,
 } from "@/lib/adminAuth";
+import { resolveAdminOrgAccess } from "@/lib/adminOrgAccess";
+import { isOrganizationSlug } from "@/lib/organizations";
 import { isUuid } from "@/lib/isUuid";
+
+// 통합 전용 게이트 — 개별(조직 컨텍스트=유효한 ?org)이거나 단일 조직 어드민(!isAllOrgs)이면 차단.
+//   통합/개별 SoT = URL 의 유효한 org 유무(org-optional 정책). 통합 검수 요청은 ?org 없이(=?club) 오고,
+//   개별 컨텍스트 요청은 ?org 를 달고 온다 → 통합만 통과. 현재 어드민 전원 owner 라 !isAllOrgs 는
+//   실사용상 미발동(향후 단일 조직 계정 대비 보존).
+async function assertIntegratedWriter(
+  request: NextRequest,
+  admin: AdminContext,
+): Promise<Response | null> {
+  const orgFocused = isOrganizationSlug(request.nextUrl.searchParams.get("org")?.trim() ?? "");
+  const access = await resolveAdminOrgAccess(admin);
+  if (orgFocused || !access.isAllOrgs) {
+    return Response.json(
+      { success: false, error: "주차 검수는 통합 관리자만 실행할 수 있습니다." },
+      { status: 403 },
+    );
+  }
+  return null;
+}
 import {
   markTeamPartsWeekReviewed,
   revertTeamPartsWeekReview,
@@ -27,15 +49,17 @@ export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ weekId: string }> };
 
 export async function POST(request: NextRequest, { params }: Ctx) {
-  let actorId: string | null = null;
+  let admin: AdminContext;
   try {
-    const admin = await requireAdmin(ADMIN_WRITE_ROLES);
-    actorId = (admin as { id?: string } | null)?.id ?? null;
+    admin = await requireAdmin(ADMIN_WRITE_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
     throw error;
   }
+  const denied = await assertIntegratedWriter(request, admin);
+  if (denied) return denied;
+  const actorId = admin.userId;
 
   const { weekId } = await params;
   if (!isUuid(weekId)) {
@@ -84,15 +108,18 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 //   result_published_at=NULL + result_reviewed_at=NULL + 코호트 재계산 → 카드 success/fail→tallying.
 //   ?mode=test → scope=qa(qa_weeks_state·테스트 코호트·안전). 기본 operating. 강한 확인 모달은 UI 책임.
 export async function DELETE(request: NextRequest, { params }: Ctx) {
-  let actorId: string | null = null;
+  let admin: AdminContext;
   try {
-    const admin = await requireAdmin(ADMIN_WRITE_ROLES);
-    actorId = (admin as { id?: string } | null)?.id ?? null;
+    admin = await requireAdmin(ADMIN_WRITE_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
     throw error;
   }
+  // 실행 취소도 통합 전용 — POST 와 동일 게이트(개별 컨텍스트/단일 조직 어드민 403).
+  const denied = await assertIntegratedWriter(request, admin);
+  if (denied) return denied;
+  const actorId = admin.userId;
 
   const { weekId } = await params;
   if (!isUuid(weekId)) {
