@@ -8,7 +8,9 @@ import {
   ADMIN_READ_ROLES,
   requireAdmin,
   toAdminErrorResponse,
+  type AdminContext,
 } from "@/lib/adminAuth";
+import { guardAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { isUuid } from "@/lib/isUuid";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { readScopeMode } from "@/lib/userScopeShared";
@@ -17,8 +19,9 @@ import { loadTeamPartsInfoLineOpeningManagement } from "@/lib/adminTeamPartsInfo
 type Ctx = { params: Promise<{ weekId: string }> };
 
 export async function GET(request: NextRequest, { params }: Ctx) {
+  let admin: AdminContext;
   try {
-    await requireAdmin(ADMIN_READ_ROLES);
+    admin = await requireAdmin(ADMIN_READ_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -40,6 +43,8 @@ export async function GET(request: NextRequest, { params }: Ctx) {
       { status: 400 },
     );
   }
+  const denied = await guardAdminOrgAccess(admin, club);
+  if (denied) return denied;
 
   const mode = readScopeMode(request.nextUrl.searchParams);
 

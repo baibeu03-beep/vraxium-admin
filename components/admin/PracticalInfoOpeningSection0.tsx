@@ -19,6 +19,7 @@ import {
   formatBannerPeriod,
   formatToday,
 } from "@/lib/practicalInfoSection0Format";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 
 // 실무 정보 라인 개설 [섹션 0] — 상황 통제 영역.
 //   상태창: 오늘/이번 주 + 지난 주(개설 대상 N-1) 라인 개설 필요/완료 안내.
@@ -141,7 +142,14 @@ export default function PracticalInfoOpeningSection0({
         {/* ── 좌열: 상태창 ── */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">상태창</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              상태창
+              <AdminHelpIconButton
+                size="sm"
+                helpKey="admin.lineOpening.info.section.statusBoard"
+                title="상태창"
+              />
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
             {/* 문구1: 오늘 + 이번 주 */}

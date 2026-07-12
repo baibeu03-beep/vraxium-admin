@@ -4,7 +4,9 @@ import {
   ADMIN_WRITE_ROLES,
   requireAdmin,
   toAdminErrorResponse,
+  type AdminContext,
 } from "@/lib/adminAuth";
+import { guardAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { readScopeMode } from "@/lib/userScopeShared";
 import {
@@ -22,8 +24,9 @@ import {
 //   DELETE { organization, halfKey, teamHalfId } → 삭제 대기(is_active=false, 하드삭제 아님).
 
 export async function GET(request: NextRequest) {
+  let admin: AdminContext;
   try {
-    await requireAdmin(ADMIN_READ_ROLES);
+    admin = await requireAdmin(ADMIN_READ_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -37,6 +40,8 @@ export async function GET(request: NextRequest) {
       { status: 400 },
     );
   }
+  const denied = await guardAdminOrgAccess(admin, organization);
+  if (denied) return denied;
 
   const half = request.nextUrl.searchParams.get("half")?.trim() || null;
   // ?mode=test → QA(테스트 (T)팀만). 미지정 = operating(운영 팀만). QA 누수 차단.
@@ -59,8 +64,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  let admin: AdminContext;
   try {
-    await requireAdmin(ADMIN_WRITE_ROLES);
+    admin = await requireAdmin(ADMIN_WRITE_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -92,6 +98,8 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+  const denied = await guardAdminOrgAccess(admin, organization);
+  if (denied) return denied;
   if (typeof halfKey !== "string") {
     return Response.json(
       { success: false, error: "halfKey 가 필요합니다." },
@@ -138,8 +146,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  let admin: AdminContext;
   try {
-    await requireAdmin(ADMIN_WRITE_ROLES);
+    admin = await requireAdmin(ADMIN_WRITE_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -172,6 +181,8 @@ export async function PUT(request: NextRequest) {
       { status: 400 },
     );
   }
+  const denied = await guardAdminOrgAccess(admin, organization);
+  if (denied) return denied;
   if (typeof halfKey !== "string") {
     return Response.json(
       { success: false, error: "halfKey 가 필요합니다." },
@@ -219,8 +230,9 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  let admin: AdminContext;
   try {
-    await requireAdmin(ADMIN_WRITE_ROLES);
+    admin = await requireAdmin(ADMIN_WRITE_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -249,6 +261,8 @@ export async function DELETE(request: NextRequest) {
       { status: 400 },
     );
   }
+  const denied = await guardAdminOrgAccess(admin, organization);
+  if (denied) return denied;
   if (typeof halfKey !== "string" || typeof teamHalfId !== "string") {
     return Response.json(
       { success: false, error: "halfKey · teamHalfId 가 필요합니다." },

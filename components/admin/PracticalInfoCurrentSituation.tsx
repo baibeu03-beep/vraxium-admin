@@ -13,6 +13,7 @@ import {
   weekFull,
   type SeasonWeekRow,
 } from "@/lib/practicalInfoSeasonWeeks";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 
 // 실무 정보 라인 개설 — 상단 "현재 상황" 안내(표시 전용).
 //   오늘 날짜/요일 + 개설 필요 기간 + 개설 이행 기간 (금요일 경계, lib/practicalInfoSeasonWeeks).
@@ -48,7 +49,14 @@ export default function PracticalInfoCurrentSituation() {
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">현재 상황</CardTitle>
+        <CardTitle className="inline-flex items-center gap-1.5 text-lg">
+          현재 상황
+          <AdminHelpIconButton
+            size="sm"
+            helpKey="admin.lineOpening.currentSituation.title.card"
+            title="현재 상황"
+          />
+        </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-base">
         {error ? (
@@ -58,15 +66,15 @@ export default function PracticalInfoCurrentSituation() {
         ) : (
           <>
             <div className="flex gap-3">
-              <span className="w-40 shrink-0 whitespace-nowrap text-muted-foreground">오늘 날짜</span>
+              <span className="inline-flex w-40 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">오늘 날짜<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.currentSituation.info.today" title="오늘 날짜" /></span>
               <span className="font-semibold">{computed.todayLabel}</span>
             </div>
             <div className="flex gap-3">
-              <span className="w-40 shrink-0 whitespace-nowrap text-muted-foreground">개설 필요 기간</span>
+              <span className="inline-flex w-40 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">개설 필요 기간<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.currentSituation.info.needPeriod" title="개설 필요 기간" /></span>
               <span className="font-semibold">{weekFull(computed.need)}</span>
             </div>
             <div className="flex gap-3">
-              <span className="w-40 shrink-0 whitespace-nowrap text-muted-foreground">개설 이행 기간</span>
+              <span className="inline-flex w-40 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">개설 이행 기간<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.currentSituation.info.fulfilPeriod" title="개설 이행 기간" /></span>
               <span className="font-semibold">{weekFull(computed.fulfil)}</span>
             </div>
             {!computed.current && (

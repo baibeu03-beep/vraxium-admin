@@ -3,7 +3,9 @@ import {
   ADMIN_WRITE_ROLES,
   requireAdmin,
   toAdminErrorResponse,
+  type AdminContext,
 } from "@/lib/adminAuth";
+import { resolveAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { isUuid } from "@/lib/isUuid";
 import {
   RestActionError,
@@ -29,8 +31,9 @@ function restErrorResponse(error: unknown, label: string) {
 }
 
 export async function PATCH(request: NextRequest, { params }: Ctx) {
+  let admin: AdminContext;
   try {
-    await requireAdmin(ADMIN_WRITE_ROLES);
+    admin = await requireAdmin(ADMIN_WRITE_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -54,7 +57,9 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
   }
 
   try {
-    await approveRestRequest(id);
+    // 이 라우트는 org 파라미터가 없다 → 대상 행의 org 로 허용 조직을 검증(403).
+    const { allowedOrgs } = await resolveAdminOrgAccess(admin);
+    await approveRestRequest(id, allowedOrgs);
     return Response.json({ success: true, data: { id, status: "approved" } });
   } catch (error) {
     return restErrorResponse(error, "[admin/rest-management/:id PATCH]");
@@ -62,8 +67,9 @@ export async function PATCH(request: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(_request: NextRequest, { params }: Ctx) {
+  let admin: AdminContext;
   try {
-    await requireAdmin(ADMIN_WRITE_ROLES);
+    admin = await requireAdmin(ADMIN_WRITE_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -76,7 +82,9 @@ export async function DELETE(_request: NextRequest, { params }: Ctx) {
   }
 
   try {
-    await deleteRestRequest(id);
+    // org 파라미터 없음 → 대상 행의 org 로 허용 조직 검증(403).
+    const { allowedOrgs } = await resolveAdminOrgAccess(admin);
+    await deleteRestRequest(id, allowedOrgs);
     return Response.json({ success: true, data: { id } });
   } catch (error) {
     return restErrorResponse(error, "[admin/rest-management/:id DELETE]");

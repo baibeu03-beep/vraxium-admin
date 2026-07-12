@@ -3,7 +3,9 @@ import {
   ADMIN_WRITE_ROLES,
   requireAdmin,
   toAdminErrorResponse,
+  type AdminContext,
 } from "@/lib/adminAuth";
+import { assertAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { isOrganizationSlug } from "@/lib/organizations";
 import {
   RestActionError,
@@ -13,8 +15,9 @@ import {
 // POST /api/admin/rest-management/approve-all  { organization, season_key }
 //   현재 org+season 의 pending(종료되지 않은 주차)만 일괄 승인. approved/이행은 불변.
 export async function POST(request: NextRequest) {
+  let admin: AdminContext;
   try {
-    await requireAdmin(ADMIN_WRITE_ROLES);
+    admin = await requireAdmin(ADMIN_WRITE_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -34,6 +37,14 @@ export async function POST(request: NextRequest) {
   }
   if (typeof seasonKey !== "string" || !seasonKey.trim()) {
     return Response.json({ success: false, error: "season_key required" }, { status: 400 });
+  }
+  // 허용 조직 검증 — 허용되지 않은 org 일괄 승인 차단(403).
+  try {
+    await assertAdminOrgAccess(admin, org);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
 
   try {

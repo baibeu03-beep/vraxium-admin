@@ -3,7 +3,9 @@ import {
   ADMIN_READ_ROLES,
   requireAdmin,
   toAdminErrorResponse,
+  type AdminContext,
 } from "@/lib/adminAuth";
+import { assertAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { isOrganizationSlug } from "@/lib/organizations";
 import {
   loadRestManagementList,
@@ -17,8 +19,9 @@ import { observeApiRoute } from "@/lib/apiObservability";
 // 전체 행 반환(정렬: 주차 최신 → 신청 시점 최신) — 페이지네이션은 클라이언트에서 20개/페이지.
 //   summary API 와 동일 데이터 소스/기준. mode 는 집계 모집단을 바꾸지 않으므로 받지 않는다.
 export async function GET(request: NextRequest) {
+  let admin: AdminContext;
   try {
-    await requireAdmin(ADMIN_READ_ROLES);
+    admin = await requireAdmin(ADMIN_READ_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -32,6 +35,14 @@ export async function GET(request: NextRequest) {
       { success: false, error: `Unknown organization: ${orgParam ?? ""}` },
       { status: 400 },
     );
+  }
+  // 허용 조직 검증 — 허용되지 않은 org 목록 조회 차단(403).
+  try {
+    await assertAdminOrgAccess(admin, orgParam);
+  } catch (error) {
+    const response = toAdminErrorResponse(error);
+    if (response) return response;
+    throw error;
   }
   const seasonKeyParam = params.get("season_key")?.trim() || null;
 

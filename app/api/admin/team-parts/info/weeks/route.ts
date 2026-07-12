@@ -3,7 +3,9 @@ import {
   ADMIN_READ_ROLES,
   requireAdmin,
   toAdminErrorResponse,
+  type AdminContext,
 } from "@/lib/adminAuth";
+import { guardAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { isOrganizationSlug } from "@/lib/organizations";
 import {
   loadTeamPartsInfoWeeks,
@@ -23,8 +25,9 @@ import {
 //   사용자 모집단과 무관). 링크 컨텍스트 유지용으로만 허용하며 값 파리티가 유지된다.
 
 export async function GET(request: NextRequest) {
+  let admin: AdminContext;
   try {
-    await requireAdmin(ADMIN_READ_ROLES);
+    admin = await requireAdmin(ADMIN_READ_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -46,6 +49,8 @@ export async function GET(request: NextRequest) {
       { status: 400 },
     );
   }
+  const denied = await guardAdminOrgAccess(admin, club);
+  if (denied) return denied;
 
   const page = Number.parseInt(params.get("page") ?? "1", 10);
   const pageSize = Number.parseInt(
