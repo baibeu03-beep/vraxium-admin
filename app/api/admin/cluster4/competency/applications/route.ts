@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
   const orgRaw = typeof b.organization === "string" ? b.organization.trim() : "";
   if (!isOrganizationSlug(orgRaw)) {
     return Response.json(
-      { success: false, error: "organization 은 유효한 조직이어야 합니다" },
+      { success: false, error: "organization 은 유효한 클럽이어야 합니다" },
       { status: 400 },
     );
   }
@@ -197,7 +197,7 @@ export async function POST(request: NextRequest) {
       return Response.json(
         {
           success: false,
-          error: `현재 조직(${orgRaw}) 소속이 아닌 사용자는 추가할 수 없습니다.`,
+          error: `현재 클럽(${orgRaw}) 소속이 아닌 사용자는 추가할 수 없습니다.`,
         },
         { status: 422 },
       );

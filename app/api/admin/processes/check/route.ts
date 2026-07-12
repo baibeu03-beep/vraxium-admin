@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
   const orgRaw = request.nextUrl.searchParams.get("org")?.trim() || null;
   if (!isOrganizationSlug(orgRaw)) {
     return Response.json(
-      { success: false, error: "org 은 유효한 조직(encre|oranke|phalanx)이어야 합니다" },
+      { success: false, error: "org 은 유효한 클럽(encre|oranke|phalanx)이어야 합니다" },
       { status: 400 },
     );
   }
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     );
   }
   if (!isOrganizationSlug(orgRaw)) {
-    return Response.json({ success: false, error: "organization 은 유효한 조직이어야 합니다" }, { status: 400 });
+    return Response.json({ success: false, error: "organization 은 유효한 클럽이어야 합니다" }, { status: 400 });
   }
   if (!actId) {
     return Response.json({ success: false, error: "act_id is required" }, { status: 400 });

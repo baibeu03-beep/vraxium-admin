@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
   const orgRaw = request.nextUrl.searchParams.get("org")?.trim() || null;
   if (!isOrganizationSlug(orgRaw)) {
     return Response.json(
-      { success: false, error: "org 은 유효한 조직(encre|oranke|phalanx)이어야 합니다" },
+      { success: false, error: "org 은 유효한 클럽(encre|oranke|phalanx)이어야 합니다" },
       { status: 400 },
     );
   }
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
 
   const orgRaw = typeof b.organization === "string" ? b.organization.trim() : "";
   if (!isOrganizationSlug(orgRaw)) {
-    return Response.json({ success: false, error: "organization 은 유효한 조직이어야 합니다" }, { status: 400 });
+    return Response.json({ success: false, error: "organization 은 유효한 클럽이어야 합니다" }, { status: 400 });
   }
   const mode = parseScopeMode(typeof b.mode === "string" ? b.mode : null);
   // 선택 주차(weeks.id) — 현재와 다르면 데이터레이어가 활성 예외("irregular")일 때만 허용. 미부착=현재 주차.
@@ -177,7 +177,7 @@ export async function PATCH(request: NextRequest) {
     return Response.json({ success: false, error: "id 형식이 올바르지 않습니다" }, { status: 400 });
   }
   if (!isOrganizationSlug(orgRaw)) {
-    return Response.json({ success: false, error: "organization 은 유효한 조직이어야 합니다" }, { status: 400 });
+    return Response.json({ success: false, error: "organization 은 유효한 클럽이어야 합니다" }, { status: 400 });
   }
   if (b.action !== "complete" && b.action !== "set_crew_reaction") {
     return Response.json(
@@ -225,7 +225,7 @@ export async function DELETE(request: NextRequest) {
     return Response.json({ success: false, error: "id 형식이 올바르지 않습니다" }, { status: 400 });
   }
   if (!isOrganizationSlug(orgRaw)) {
-    return Response.json({ success: false, error: "organization 은 유효한 조직이어야 합니다" }, { status: 400 });
+    return Response.json({ success: false, error: "organization 은 유효한 클럽이어야 합니다" }, { status: 400 });
   }
 
   try {

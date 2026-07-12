@@ -588,7 +588,7 @@ export default function ExperiencePartLeadInput({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            조직 분기 모드(?org)에서만 표시됩니다.
+            클럽 분기 모드(?org)에서만 표시됩니다.
           </p>
         </CardContent>
       </Card>
@@ -701,7 +701,15 @@ export default function ExperiencePartLeadInput({
                 <div className="inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
                   <User className="h-3.5 w-3.5 shrink-0" />
                   <span>
-                    팀 활동 책임 / 관리 :{" "}
+                    <span className="inline-flex items-center gap-1">
+                      팀 활동 책임 / 관리
+                      <AdminHelpIconButton
+                        size="xs"
+                        helpKey="admin.lineOpening.experience.info.teamLeader"
+                        title="팀 활동 책임 / 관리"
+                      />
+                    </span>
+                    {" : "}
                     <span className="font-medium text-foreground">
                       {selectedLeaderText}
                     </span>

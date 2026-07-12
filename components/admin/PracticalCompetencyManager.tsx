@@ -344,7 +344,7 @@ export default function PracticalCompetencyManager() {
 
   const handleSaveMaster = useCallback(async () => {
     const orgSlug = (mfOrgSlug || adminOrg || "").trim();
-    if (!orgSlug) { setBanner({ kind: "error", message: "조직은 필수입니다" }); return; }
+    if (!orgSlug) { setBanner({ kind: "error", message: "클럽은 필수입니다" }); return; }
     if (!mfLineCode.trim() || !mfLineName.trim()) { setBanner({ kind: "error", message: "라인 코드와 라인명은 필수입니다" }); return; }
     setSaving(true); setBanner(null);
     try {
@@ -659,8 +659,8 @@ export default function PracticalCompetencyManager() {
                   <TableHeader><TableRow>
                     <TableHead>
                       <span className="inline-flex items-center gap-1">
-                        조직
-                        <AdminHelpIconButton helpKey="admin.competency.manager.master.org" title="조직" />
+                        클럽
+                        <AdminHelpIconButton helpKey="admin.competency.manager.master.org" title="클럽" />
                       </span>
                     </TableHead>
                     <TableHead>
@@ -720,9 +720,9 @@ export default function PracticalCompetencyManager() {
               <CardHeader className="pb-3"><CardTitle className="text-base">{editingMasterId ? "라인 등록 수정" : "새 라인 등록"}</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>조직 <span className="text-red-500">*</span></Label>
+                  <Label>클럽 <span className="text-red-500">*</span></Label>
                   <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={mfOrgSlug} onChange={(e) => setMfOrgSlug(e.target.value)}>
-                    <option value="">조직을 선택하세요</option>
+                    <option value="">클럽을 선택하세요</option>
                     {ORG_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </div>

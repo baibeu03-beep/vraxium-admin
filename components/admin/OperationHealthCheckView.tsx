@@ -378,10 +378,10 @@ export default function OperationHealthCheckView() {
                   </TableHead>
                   <TableHead>
                     <span className="inline-flex items-center gap-1">
-                      <span>조직</span>
+                      <span>클럽</span>
                       <AdminHelpIconButton
                         helpKey="admin.operationHealthCheck.column.organization"
-                        title="조직"
+                        title="클럽"
                         size="xs"
                       />
                     </span>

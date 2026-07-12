@@ -360,7 +360,7 @@ export async function finalizeWeekUws(
     if (missingOrgs.length > 0) {
       throw new UwsFinalizeBlockedError(
         `오픈 확인을 먼저 완료해주세요. 주차 성공 기준(인정 개수 N)이 확정되어야 검수할 수 있습니다. ` +
-          `(오픈 확인 미완료 조직: ${missingOrgs.join(", ")})`,
+          `(오픈 확인 미완료 클럽: ${missingOrgs.join(", ")})`,
         "recognition_missing",
       );
     }

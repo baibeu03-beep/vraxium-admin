@@ -459,7 +459,7 @@ export default function WeekRecognitionsView() {
             />
           </CardTitle>
           <CardDescription>
-            사용자별 주차 인정 상태를 기준으로 시즌·주차 정보와 이름·조직을 조합했습니다.
+            사용자별 주차 인정 상태를 기준으로 시즌·주차 정보와 이름·클럽을 조합했습니다.
             {data?.truncated && " (결과가 많아 일부만 표시됩니다.)"}
           </CardDescription>
         </CardHeader>
@@ -512,10 +512,10 @@ export default function WeekRecognitionsView() {
             <div className="inline-flex items-center gap-1">
               <Select value={organization} onValueChange={(v) => setOrganization(v ?? ALL)}>
                 <SelectTrigger className="w-36">
-                  <SelectValue placeholder="전체 조직" />
+                  <SelectValue placeholder="전체 클럽" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL}>전체 조직</SelectItem>
+                  <SelectItem value={ALL}>전체 클럽</SelectItem>
                   {ORGANIZATIONS.map((slug) => (
                     <SelectItem key={slug} value={slug}>
                       {ORGANIZATION_LABEL[slug]}
@@ -525,7 +525,7 @@ export default function WeekRecognitionsView() {
               </Select>
               <AdminHelpIconButton
                 helpKey="admin.weekRecognitions.filter.organization"
-                title="조직"
+                title="클럽"
                 size="xs"
               />
             </div>
@@ -637,8 +637,8 @@ export default function WeekRecognitionsView() {
                   </TableHead>
                   <TableHead>
                     <span className="inline-flex items-center gap-1">
-                      <span>조직</span>
-                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.organization" title="조직" size="xs" />
+                      <span>클럽</span>
+                      <AdminHelpIconButton helpKey="admin.weekRecognitions.column.organization" title="클럽" size="xs" />
                     </span>
                   </TableHead>
                   <TableHead>

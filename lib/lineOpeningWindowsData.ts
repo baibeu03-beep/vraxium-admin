@@ -72,7 +72,7 @@ type WindowRow = {
 export type LineOpeningWindowDto = {
   id: string;
   weekId: string;
-  organizationSlug: string | null; // null = 전체 조직
+  organizationSlug: string | null; // null = 전체 클럽
   hub: string | null; // null = 전체 라인 종류
   activityTypeId: string | null;
   allowOpening: boolean;

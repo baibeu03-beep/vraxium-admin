@@ -173,7 +173,7 @@ export async function bridgeLineRegistration(
   if (!reg.organizationSlug) {
     throw new LineBridgeError(
       400,
-      "소속 조직이 미지정입니다 — 조직(encre/oranke/phalanx/common)을 지정해야 개설 브리지가 가능합니다.",
+      "소속 클럽이 미지정입니다 — 클럽(encre/oranke/phalanx/common)을 지정해야 개설 브리지가 가능합니다.",
     );
   }
 

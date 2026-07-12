@@ -34,7 +34,7 @@ const ANON = get("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 const SERVICE = get("SUPABASE_SERVICE_ROLE_KEY");
 const sb = createClient(URL_, SERVICE);
 const brow = createClient(URL_, ANON);
-const OWNER_EMAIL = "vanuatu.golden@gmail.com"; // owner(전체 조직 허용)
+const OWNER_EMAIL = "vanuatu.golden@gmail.com"; // owner(전체 클럽 허용)
 
 let fail = 0;
 const ck = (l, ok, d = "") => {

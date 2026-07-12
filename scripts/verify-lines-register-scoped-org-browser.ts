@@ -58,7 +58,7 @@ function installPostInterceptor(context: BrowserContext, capture: { last: any })
   });
 }
 
-const orgSelect = 'select[aria-label="소속 조직"]';
+const orgSelect = 'select[aria-label="소속 클럽"]';
 
 async function isOrgDropdownVisible(page: Page): Promise<boolean> {
   return (await page.locator(orgSelect).count()) > 0;
@@ -129,7 +129,7 @@ async function main() {
     await page.goto(baseUrl + c.path, { waitUntil: "networkidle" });
     await page.waitForTimeout(500);
     const visible = await isOrgDropdownVisible(page);
-    const noticeShown = (await page.locator("text=유효하지 않은 조직입니다").count()) > 0;
+    const noticeShown = (await page.locator("text=유효하지 않은 클럽입니다").count()) > 0;
     let ok = visible === c.expectVisible;
     if (c.expectNotice) ok = ok && noticeShown;
     log(ok, c.name, `visible=${visible} notice=${noticeShown}`);
@@ -177,7 +177,7 @@ async function main() {
     await page.goto(`${baseUrl}/admin/lines/register?org=bogus&tab=register`, { waitUntil: "networkidle" });
     await page.waitForTimeout(400);
     const payload = await fillMinimalAndSubmit(page); // 검증에 막혀 null 이어야 함
-    const banner = (await page.locator("text=유효하지 않은 조직입니다").count()) > 0;
+    const banner = (await page.locator("text=유효하지 않은 클럽입니다").count()) > 0;
     log(payload === null && banner, "무효 org → 등록 차단(POST 없음)+안내", `posted=${payload !== null} banner=${banner}`);
     await page.close();
   }

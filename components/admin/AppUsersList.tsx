@@ -283,7 +283,7 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
 
       {organizationsError && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          조직 목록을 불러오지 못했습니다: {organizationsError}
+          클럽 목록을 불러오지 못했습니다: {organizationsError}
         </div>
       )}
 
@@ -572,7 +572,7 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
               <>
                 소속을 변경하면 즉시{" "}
                 <code className="font-mono">user_profiles.organization_slug</code>{" "}
-                컬럼이 업데이트됩니다. 신규/무소속 사용자의 최초 조직 배정은 이
+                컬럼이 업데이트됩니다. 신규/무소속 사용자의 최초 클럽 배정은 이
                 화면에서 진행합니다.
               </>
             ) : (

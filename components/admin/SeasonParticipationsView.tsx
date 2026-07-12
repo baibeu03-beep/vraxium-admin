@@ -312,7 +312,7 @@ export default function SeasonParticipationsView() {
             />
           </CardTitle>
           <CardDescription>
-            user_season_statuses 를 기준으로 시즌 정보·이름·조직과 시즌별 주차 상태 집계를 조합했습니다.
+            user_season_statuses 를 기준으로 시즌 정보·이름·클럽과 시즌별 주차 상태 집계를 조합했습니다.
             {data?.truncated && " (결과가 많아 일부만 표시됩니다.)"}
           </CardDescription>
         </CardHeader>
@@ -343,10 +343,10 @@ export default function SeasonParticipationsView() {
             <div className="inline-flex items-center gap-1">
               <Select value={organization} onValueChange={(v) => setOrganization(v ?? ALL)}>
                 <SelectTrigger className="w-36">
-                  <SelectValue placeholder="전체 조직" />
+                  <SelectValue placeholder="전체 클럽" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={ALL}>전체 조직</SelectItem>
+                  <SelectItem value={ALL}>전체 클럽</SelectItem>
                   {ORGANIZATIONS.map((slug) => (
                     <SelectItem key={slug} value={slug}>
                       {ORGANIZATION_LABEL[slug]}
@@ -356,7 +356,7 @@ export default function SeasonParticipationsView() {
               </Select>
               <AdminHelpIconButton
                 helpKey="admin.seasonParticipations.filter.organization"
-                title="조직"
+                title="클럽"
                 size="xs"
               />
             </div>
@@ -412,8 +412,8 @@ export default function SeasonParticipationsView() {
                   </TableHead>
                   <TableHead>
                     <span className="inline-flex items-center gap-1">
-                      <span>조직</span>
-                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.organization" title="조직" size="xs" />
+                      <span>클럽</span>
+                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.organization" title="클럽" size="xs" />
                     </span>
                   </TableHead>
                   <TableHead>

@@ -69,7 +69,7 @@ async function makeAdminCookies() {
   }));
 }
 
-const PLACEHOLDER = "조직을 선택하면 라인 정보가 표시됩니다";
+const PLACEHOLDER = "클럽을 선택하면 라인 정보가 표시됩니다";
 
 type Probe = {
   name: string;

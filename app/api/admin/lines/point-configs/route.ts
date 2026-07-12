@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     return Response.json({ success: true, data: { organization: "common", available: false, rows: [] } });
   }
   if (requested && !access.allowedOrgs.includes(requested)) {
-    return Response.json({ success: false, error: "이 조직에 접근할 권한이 없습니다." }, { status: 403 });
+    return Response.json({ success: false, error: "이 클럽에 접근할 권한이 없습니다." }, { status: 403 });
   }
   // 단일 허용 org → 그 org. 전체 허용 + 미지정 → common(전 조직 공유 기본).
   const organization = requested ?? (access.isAllOrgs ? "common" : access.allowedOrgs[0]);
@@ -78,7 +78,7 @@ export async function PUT(request: NextRequest) {
   const access = await resolveAdminOrgAccess(admin);
   const orgAllowed = organization !== "common" && access.allowedOrgs.includes(organization);
   if (!access.isAllOrgs && !orgAllowed) {
-    return Response.json({ success: false, error: "이 조직에 포인트를 설정할 권한이 없습니다." }, { status: 403 });
+    return Response.json({ success: false, error: "이 클럽에 포인트를 설정할 권한이 없습니다." }, { status: 403 });
   }
 
   const toPoint = (v: unknown): number | null => (v === null || v === undefined || v === "" ? null : Number(v));

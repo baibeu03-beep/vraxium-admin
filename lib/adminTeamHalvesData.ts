@@ -885,7 +885,7 @@ export async function registerTeamHalf(
   const leaderCrewCode = String(input.leaderCrewCode ?? "").trim();
 
   if (!isOrganizationSlug(organization)) {
-    throw new TeamHalfWriteError(400, "유효한 조직이 필요합니다.");
+    throw new TeamHalfWriteError(400, "유효한 클럽이 필요합니다.");
   }
   if (!isHalfKey(halfKey)) {
     throw new TeamHalfWriteError(400, "유효하지 않은 반기 키입니다.");
@@ -1041,7 +1041,7 @@ export async function updateTeamHalf(
   const leaderCrewCode = String(input.leaderCrewCode ?? "").trim();
 
   if (!isOrganizationSlug(organization)) {
-    throw new TeamHalfWriteError(400, "유효한 조직이 필요합니다.");
+    throw new TeamHalfWriteError(400, "유효한 클럽이 필요합니다.");
   }
   if (!isHalfKey(halfKey)) {
     throw new TeamHalfWriteError(400, "유효하지 않은 반기 키입니다.");
@@ -1161,7 +1161,7 @@ export async function markTeamHalfDeletionPending(
   const id = String(teamHalfId ?? "").trim();
 
   if (!isOrganizationSlug(org)) {
-    throw new TeamHalfWriteError(400, "유효한 조직이 필요합니다.");
+    throw new TeamHalfWriteError(400, "유효한 클럽이 필요합니다.");
   }
   if (!isHalfKey(half)) {
     throw new TeamHalfWriteError(400, "유효하지 않은 반기 키입니다.");

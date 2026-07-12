@@ -293,6 +293,7 @@ function MetaImageUploadField({
   rounded = "rounded",
   emptyButtonLabel = "이미지 업로드",
   altText = "이미지",
+  helpKey,
 }: {
   label: string;
   value: string;
@@ -302,6 +303,7 @@ function MetaImageUploadField({
   rounded?: "rounded" | "rounded-full";
   emptyButtonLabel?: string;
   altText?: string;
+  helpKey?: string;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -336,7 +338,10 @@ function MetaImageUploadField({
 
   return (
     <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        {label}
+        {helpKey && <AdminHelpIconButton size="xs" helpKey={helpKey} title={label} />}
+      </Label>
       <input
         ref={fileRef}
         type="file"
@@ -480,10 +485,15 @@ function LineWorkflowSection({
             size="xs"
           />
         </h3>
-        <p className="text-xs text-muted-foreground">
+        <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
           입력자 : {stageState.input.actor ?? "-"}
           {"  ·  "}검수자 : {stageState.review.actor ?? "-"}
           {"  ·  "}개설자 : {stageState.open.actor ?? "-"}
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.career.opening.detail.info.workflowActors"
+            title="담당자"
+            size="xs"
+          />
         </p>
       </div>
 
@@ -499,8 +509,13 @@ function LineWorkflowSection({
           return (
             <div key={cfg.key} className="space-y-2 rounded-md border bg-background p-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold">
                   {cfg.role} · {cfg.title}
+                  <AdminHelpIconButton
+                    helpKey={`admin.lineOpening.career.opening.detail.stage.${cfg.key}`}
+                    title={`${cfg.role} · ${cfg.title}`}
+                    size="xs"
+                  />
                 </span>
                 <span
                   className={cn(
@@ -532,8 +547,13 @@ function LineWorkflowSection({
           );
         })}
       </div>
-      <p className="text-[11px] text-muted-foreground">
+      <p className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
         ※ 안내 문구는 권장 기한일 뿐 시간/순서/권한 제한은 없습니다. 마감 후에도 모든 단계 처리가 가능하며, 입력자와 검수자가 같아도 됩니다.
+        <AdminHelpIconButton
+          helpKey="admin.lineOpening.career.opening.notice.workflowGuide"
+          title="워크플로 안내"
+          size="xs"
+        />
       </p>
     </section>
   );
@@ -723,15 +743,25 @@ function LineDetailModal({
             editable 이면 input/upload 로 직접 수정 가능 — 저장 시 career_projects PATCH. */}
         {isCareerLine && (
           <section className="space-y-3 rounded-md border bg-muted/30 p-4">
-            <h3 className="text-sm font-semibold">
+            <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold">
               기업 · 감독자 정보 {editable ? "(편집)" : "(읽기 전용)"}
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.opening.detail.section.sponsorMeta"
+                title="기업 · 감독자 정보"
+                size="sm"
+              />
             </h3>
             {editable ? (
               <>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-1">
-                    <Label htmlFor="cm-company" className="text-xs text-muted-foreground">
+                    <Label htmlFor="cm-company" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                       기업명 <span className="text-red-500">*</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.career.opening.detail.field.companyName"
+                        title="기업명"
+                        size="xs"
+                      />
                     </Label>
                     <Input
                       id="cm-company"
@@ -748,19 +778,41 @@ function LineDetailModal({
                     disabled={saving}
                     emptyButtonLabel="로고 이미지 업로드"
                     altText="기업 로고"
+                    helpKey="admin.lineOpening.career.opening.detail.field.companyLogo"
                   />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-1">
-                    <Label htmlFor="cm-sup-name" className="text-xs text-muted-foreground">감독자명</Label>
+                    <Label htmlFor="cm-sup-name" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      감독자명
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.career.opening.detail.field.supervisorName"
+                        title="감독자명"
+                        size="xs"
+                      />
+                    </Label>
                     <Input id="cm-sup-name" value={supervisorName} onChange={(e) => setSupervisorName(e.target.value)} placeholder="김담당" />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="cm-sup-dept" className="text-xs text-muted-foreground">감독자 부서</Label>
+                    <Label htmlFor="cm-sup-dept" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      감독자 부서
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.career.opening.detail.field.supervisorDepartment"
+                        title="감독자 부서"
+                        size="xs"
+                      />
+                    </Label>
                     <Input id="cm-sup-dept" value={supervisorDepartment} onChange={(e) => setSupervisorDepartment(e.target.value)} placeholder="마케팅팀" />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="cm-sup-pos" className="text-xs text-muted-foreground">감독자 직책</Label>
+                    <Label htmlFor="cm-sup-pos" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      감독자 직책
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.career.opening.detail.field.supervisorPosition"
+                        title="감독자 직책"
+                        size="xs"
+                      />
+                    </Label>
                     <Input id="cm-sup-pos" value={supervisorPosition} onChange={(e) => setSupervisorPosition(e.target.value)} placeholder="팀장" />
                   </div>
                 </div>
@@ -774,6 +826,7 @@ function LineDetailModal({
                     rounded="rounded-full"
                     emptyButtonLabel="감독자 사진 업로드"
                     altText="감독자 사진"
+                    helpKey="admin.lineOpening.career.opening.detail.field.supervisorPhoto"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
@@ -783,7 +836,14 @@ function LineDetailModal({
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">기업</Label>
+                  <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    기업
+                    <AdminHelpIconButton
+                      helpKey="admin.lineOpening.career.opening.detail.info.company"
+                      title="기업"
+                      size="xs"
+                    />
+                  </Label>
                   <div className="flex items-center gap-2">
                     {companyLogoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -793,7 +853,14 @@ function LineDetailModal({
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">감독자</Label>
+                  <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    감독자
+                    <AdminHelpIconButton
+                      helpKey="admin.lineOpening.career.opening.detail.info.supervisor"
+                      title="감독자"
+                      size="xs"
+                    />
+                  </Label>
                   <div className="flex items-center gap-2">
                     {supervisorPhotoUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -816,11 +883,23 @@ function LineDetailModal({
         )}
 
         <section className="space-y-4">
-          <h3 className="text-sm font-semibold">
+          <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold">
             라인 기본 정보 {editable ? "(편집)" : "(읽기 전용)"}
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.career.opening.detail.section.lineBasicInfo"
+              title="라인 기본 정보"
+              size="sm"
+            />
           </h3>
           <div className="space-y-2">
-            <Label htmlFor="d-title">메인 타이틀</Label>
+            <Label htmlFor="d-title" className="inline-flex items-center gap-1">
+              메인 타이틀
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.opening.detail.field.mainTitle"
+                title="메인 타이틀"
+                size="xs"
+              />
+            </Label>
             <Input
               id="d-title"
               value={mainTitle}
@@ -831,8 +910,13 @@ function LineDetailModal({
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
               <div className="space-y-1">
-                <Label htmlFor="d-link1" className="text-xs text-muted-foreground">
+                <Label htmlFor="d-link1" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   Output Link 1 URL
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.career.opening.detail.field.outputLink1"
+                    title="Output Link 1 URL"
+                    size="xs"
+                  />
                 </Label>
                 <Input
                   id="d-link1"
@@ -843,8 +927,13 @@ function LineDetailModal({
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="d-label1" className="text-xs text-muted-foreground">
+                <Label htmlFor="d-label1" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   Link 1 설명
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.career.opening.detail.field.outputLink1Desc"
+                    title="Link 1 설명"
+                    size="xs"
+                  />
                 </Label>
                 <Input
                   id="d-label1"
@@ -857,8 +946,13 @@ function LineDetailModal({
             </div>
             <div className="space-y-2">
               <div className="space-y-1">
-                <Label htmlFor="d-link2" className="text-xs text-muted-foreground">
+                <Label htmlFor="d-link2" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   Output Link 2 URL
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.career.opening.detail.field.outputLink2"
+                    title="Output Link 2 URL"
+                    size="xs"
+                  />
                 </Label>
                 <Input
                   id="d-link2"
@@ -869,8 +963,13 @@ function LineDetailModal({
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="d-label2" className="text-xs text-muted-foreground">
+                <Label htmlFor="d-label2" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                   Link 2 설명
+                  <AdminHelpIconButton
+                    helpKey="admin.lineOpening.career.opening.detail.field.outputLink2Desc"
+                    title="Link 2 설명"
+                    size="xs"
+                  />
                 </Label>
                 <Input
                   id="d-label2"
@@ -884,8 +983,13 @@ function LineDetailModal({
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="d-opens" className="text-xs text-muted-foreground">
+              <Label htmlFor="d-opens" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 기입 시작
+                <AdminHelpIconButton
+                  helpKey="admin.lineOpening.career.opening.detail.field.submissionOpens"
+                  title="기입 시작"
+                  size="xs"
+                />
               </Label>
               <Input
                 id="d-opens"
@@ -896,8 +1000,13 @@ function LineDetailModal({
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="d-closes" className="text-xs text-muted-foreground">
+              <Label htmlFor="d-closes" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 기입 마감
+                <AdminHelpIconButton
+                  helpKey="admin.lineOpening.career.opening.detail.field.submissionCloses"
+                  title="기입 마감"
+                  size="xs"
+                />
               </Label>
               <Input
                 id="d-closes"
@@ -917,12 +1026,22 @@ function LineDetailModal({
               disabled={!editable}
             />
             활성 라인 (is_active)
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.career.opening.detail.field.isActive"
+              title="활성 라인 (is_active)"
+              size="xs"
+            />
           </label>
 
           {line.outputImages.length > 0 && (
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">
+              <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 Output 이미지 (읽기 전용)
+                <AdminHelpIconButton
+                  helpKey="admin.lineOpening.career.opening.detail.field.outputImages"
+                  title="Output 이미지 (읽기 전용)"
+                  size="xs"
+                />
               </Label>
               <div className="flex flex-wrap gap-2">
                 {line.outputImages.map((url) => (
@@ -941,9 +1060,14 @@ function LineDetailModal({
 
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">
+            <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold">
               대상자 ({line.targets.length}명) · 기입 {line.submittedCount} / 미기입{" "}
               {line.pendingCount} · 편집가능 {line.canEditCount}
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.opening.detail.section.targets"
+                title="대상자"
+                size="sm"
+              />
             </h3>
             <span className="text-xs text-muted-foreground">
               대상 추가/제거는 안전을 위해 읽기 전용입니다
@@ -953,11 +1077,56 @@ function LineDetailModal({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>이름</TableHead>
-                  <TableHead>조직</TableHead>
-                  <TableHead className="text-center">강화 상태</TableHead>
-                  <TableHead className="text-center">라인칸 기입 상태</TableHead>
-                  <TableHead>{devMode ? "canEdit" : "수정 가능 여부"}</TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      이름
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.career.opening.detail.column.name"
+                        title="이름"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      클럽
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.career.opening.detail.column.org"
+                        title="클럽"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <span className="inline-flex items-center gap-1">
+                      강화 상태
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.career.opening.detail.column.enhancement"
+                        title="강화 상태"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <span className="inline-flex items-center gap-1">
+                      라인칸 기입 상태
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.career.opening.detail.column.submission"
+                        title="라인칸 기입 상태"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                  <TableHead>
+                    <span className="inline-flex items-center gap-1">
+                      {devMode ? "canEdit" : "수정 가능 여부"}
+                      <AdminHelpIconButton
+                        helpKey="admin.lineOpening.career.opening.detail.column.canEdit"
+                        title="수정 가능 여부"
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
                   {devMode && <TableHead>lineTargetId / submissionId</TableHead>}
                 </TableRow>
               </TableHeader>
@@ -1003,9 +1172,16 @@ function LineDetailModal({
             닫기
           </Button>
           {editable && (
-            <Button onClick={handleSave} loading={saving} disabled={saving}>
-              라인 정보 저장
-            </Button>
+            <span className="inline-flex items-center gap-1">
+              <Button onClick={handleSave} loading={saving} disabled={saving}>
+                라인 정보 저장
+              </Button>
+              <AdminHelpIconButton
+                helpKey="admin.lineOpening.career.opening.detail.action.save"
+                title="라인 정보 저장"
+                size="xs"
+              />
+            </span>
           )}
         </div>
       </div>
@@ -1230,10 +1406,10 @@ export default function Cluster4LineTable({
         <div className="grid gap-3 rounded-md border bg-muted/30 p-3 md:grid-cols-2 xl:grid-cols-3">
           <div className="space-y-1">
             <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              조직
+              클럽
               <AdminHelpIconButton
                 helpKey="admin.lineOpening.career.filter.org"
-                title="조직"
+                title="클럽"
                 size="xs"
               />
             </Label>
@@ -1242,7 +1418,7 @@ export default function Cluster4LineTable({
               value={orgFilter}
               onChange={(e) => setOrgFilter(e.target.value)}
             >
-              <option value="">전체 조직</option>
+              <option value="">전체 클럽</option>
               {orgOptions.map((o) => (
                 <option key={o.slug} value={o.slug}>
                   {o.name}

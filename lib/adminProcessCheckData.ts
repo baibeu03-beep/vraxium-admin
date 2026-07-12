@@ -1046,7 +1046,7 @@ export async function applyProcessCheckAction(input: {
       .eq("is_active", true)
       .maybeSingle();
     if (teamErr) throw new ProcessMasterError(500, teamErr.message);
-    if (!teamRow) throw new ProcessMasterError(400, "조직에 속한 활성 팀이 아닙니다");
+    if (!teamRow) throw new ProcessMasterError(400, "클럽에 속한 활성 팀이 아닙니다");
     teamName = (teamRow as { team_name: string }).team_name;
     // 모드 일치 재검증 — read 목록(filterTeamsByScope)과 동일 축으로 write 도 가드한다.
     //   test=(T)테스트 팀만 / operating=운영 팀만. 클라이언트가 mode 와 어긋나는 team_id 를
@@ -1121,7 +1121,7 @@ export async function applyProcessCheckAction(input: {
         ? await listTeamParts(organization, teamName, input.mode ?? "operating")
         : [];
       if (!parts.includes(claimedPart)) {
-        throw new ProcessMasterError(422, "선택한 파트가 이 팀(현재 모드/조직)의 파트가 아닙니다");
+        throw new ProcessMasterError(422, "선택한 파트가 이 팀(현재 모드/클럽)의 파트가 아닙니다");
       }
       // 파트별 독립 체크는 part_name 컬럼(v4) 필요 — 미적용이면 fail-closed.
       if (!(await partNameColumnAvailable())) {
@@ -1649,7 +1649,7 @@ export async function applyProcessManualGrant(input: {
       .eq("is_active", true)
       .maybeSingle();
     if (teamErr) throw new ProcessMasterError(500, teamErr.message);
-    if (!teamRow) throw new ProcessMasterError(400, "조직에 속한 활성 팀이 아닙니다");
+    if (!teamRow) throw new ProcessMasterError(400, "클럽에 속한 활성 팀이 아닙니다");
     teamName = (teamRow as { team_name: string }).team_name;
     if ((mode === "test") !== isTestTeam(organization, teamName)) {
       throw new ProcessMasterError(
@@ -1707,7 +1707,7 @@ export async function applyProcessManualGrant(input: {
       if (!claimedPart) throw new ProcessMasterError(422, "파트(part_name)가 필요합니다");
       const parts = teamName ? await listTeamParts(organization, teamName, mode) : [];
       if (!parts.includes(claimedPart)) {
-        throw new ProcessMasterError(422, "선택한 파트가 이 팀(현재 모드/조직)의 파트가 아닙니다");
+        throw new ProcessMasterError(422, "선택한 파트가 이 팀(현재 모드/클럽)의 파트가 아닙니다");
       }
       if (!(await partNameColumnAvailable())) throw new ProcessMasterError(500, PART_MIGRATION_HINT);
       partNameToStore = claimedPart;
@@ -1761,7 +1761,7 @@ export async function applyProcessManualGrant(input: {
     const p = byId.get(id);
     if (!p) throw new ProcessMasterError(404, "대상 크루(user_profiles)를 찾을 수 없습니다");
     if (p.organization_slug !== organization) {
-      throw new ProcessMasterError(422, "대상 크루가 해당 조직(org) 소속이 아닙니다");
+      throw new ProcessMasterError(422, "대상 크루가 해당 클럽(org) 소속이 아닙니다");
     }
   }
 

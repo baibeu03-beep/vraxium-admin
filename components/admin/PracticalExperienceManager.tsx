@@ -955,7 +955,7 @@ export default function PracticalExperienceManager() {
   const handleSaveMaster = useCallback(async () => {
     const orgSlug = (mfOrgSlug || adminOrg || "").trim();
     if (!orgSlug) {
-      setBanner({ kind: "error", message: "조직은 필수입니다" });
+      setBanner({ kind: "error", message: "클럽은 필수입니다" });
       return;
     }
     if (!mfLineCode.trim() || !mfLineName.trim()) {
@@ -1484,29 +1484,43 @@ export default function PracticalExperienceManager() {
 
       <div className="flex items-center justify-end gap-3">
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleSyncExperienceGrowth("test")}
-            loading={syncing}
-            title="테스트 계정만 대상으로 성장 상태 동기화 (성공→실패 단방향)"
-          >
-            성장 동기화(테스트)
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => handleSyncExperienceGrowth("all")}
-            loading={syncing}
-            disabled={devMode}
-            title={
-              devMode
-                ? "개발자 모드(ON)에서는 운영 전체 동기화가 비활성화됩니다. ?dev=true 를 끄면 dry-run→confirm 흐름으로 사용할 수 있습니다."
-                : "운영 전체(실사용자 포함). dry-run 후 confirm 시 반영 — success→fail 단방향, 되돌리기 주의"
-            }
-          >
-            전체 동기화(운영)
-          </Button>
+          <span className="inline-flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSyncExperienceGrowth("test")}
+              loading={syncing}
+              title="테스트 계정만 대상으로 성장 상태 동기화 (성공→실패 단방향)"
+            >
+              성장 동기화(테스트)
+            </Button>
+            <AdminHelpIconButton
+              size="xs"
+              helpKey="admin.lineOpening.experience.action.syncGrowthTest"
+              title="성장 동기화(테스트)"
+            />
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => handleSyncExperienceGrowth("all")}
+              loading={syncing}
+              disabled={devMode}
+              title={
+                devMode
+                  ? "개발자 모드(ON)에서는 운영 전체 동기화가 비활성화됩니다. ?dev=true 를 끄면 dry-run→confirm 흐름으로 사용할 수 있습니다."
+                  : "운영 전체(실사용자 포함). dry-run 후 confirm 시 반영 — success→fail 단방향, 되돌리기 주의"
+              }
+            >
+              전체 동기화(운영)
+            </Button>
+            <AdminHelpIconButton
+              size="xs"
+              helpKey="admin.lineOpening.experience.action.syncGrowthAll"
+              title="전체 동기화(운영)"
+            />
+          </span>
         </div>
       </div>
 
@@ -1600,10 +1614,10 @@ export default function PracticalExperienceManager() {
                     <TableRow>
                       <TableHead>
                         <span className="inline-flex items-center justify-center gap-1">
-                          조직
+                          클럽
                           <AdminHelpIconButton
                             helpKey="admin.experience.manager.lines.column.org"
-                            title="조직"
+                            title="클럽"
                           />
                         </span>
                       </TableHead>
@@ -1712,14 +1726,14 @@ export default function PracticalExperienceManager() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>
-                    조직 <span className="text-red-500">*</span>
+                    클럽 <span className="text-red-500">*</span>
                   </Label>
                   <select
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     value={mfOrgSlug}
                     onChange={(e) => setMfOrgSlug(e.target.value)}
                   >
-                    <option value="">조직을 선택하세요</option>
+                    <option value="">클럽을 선택하세요</option>
                     {ORG_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.label}
@@ -1882,7 +1896,7 @@ export default function PracticalExperienceManager() {
                     value={inputFilterOrg}
                     onChange={(e) => setInputFilterOrg(e.target.value)}
                   >
-                    <option value="">전체 조직</option>
+                    <option value="">전체 클럽</option>
                     {uniqueOrgs.map((o) => (
                       <option key={o} value={o}>
                         {o}

@@ -10,16 +10,20 @@ import {
   ADMIN_WRITE_ROLES,
   requireAdmin,
   toAdminErrorResponse,
+  type AdminContext,
 } from "@/lib/adminAuth";
+import { resolveAdminOrgAccess, isRowOrgAllowed } from "@/lib/adminOrgAccess";
 import { isUuid } from "@/lib/isUuid";
+import { getLineRegistration } from "@/lib/adminLineRegistrationsData";
 import { LineBridgeError, bridgeLineRegistration } from "@/lib/adminLineBridgeData";
 
 export async function POST(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
+  let admin: AdminContext;
   try {
-    await requireAdmin(ADMIN_WRITE_ROLES);
+    admin = await requireAdmin(ADMIN_WRITE_ROLES);
   } catch (error) {
     const response = toAdminErrorResponse(error);
     if (response) return response;
@@ -35,6 +39,15 @@ export async function POST(
   }
 
   try {
+    // 대상 행의 org 가 허용되지 않으면 브리지(개설 연결) 차단(403).
+    const access = await resolveAdminOrgAccess(admin);
+    const registration = await getLineRegistration(id);
+    if (!isRowOrgAllowed(access, registration.organizationSlug)) {
+      return Response.json(
+        { success: false, error: "이 클럽의 라인 등록을 브리지할 권한이 없습니다." },
+        { status: 403 },
+      );
+    }
     const result = await bridgeLineRegistration(id);
     return Response.json({ success: true, data: result });
   } catch (error) {

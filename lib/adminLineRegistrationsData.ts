@@ -380,7 +380,7 @@ export async function updateLineRegistration(
   if (gateTouched && current.openedLineCount > 0) {
     throw new LineRegistrationError(
       409,
-      `이미 개설된 라인이 ${current.openedLineCount}건 있어 라인 코드/소속 조직/경험 라인 종류는 수정할 수 없습니다 (비활성화 후 신규 등록을 사용하세요)`,
+      `이미 개설된 라인이 ${current.openedLineCount}건 있어 라인 코드/소속 클럽/경험 라인 종류는 수정할 수 없습니다 (비활성화 후 신규 등록을 사용하세요)`,
     );
   }
 
@@ -391,7 +391,7 @@ export async function updateLineRegistration(
   ) {
     throw new LineRegistrationError(
       400,
-      "개설 연결된 등록은 소속 조직을 미지정(-)으로 되돌릴 수 없습니다",
+      "개설 연결된 등록은 소속 클럽을 미지정(-)으로 되돌릴 수 없습니다",
     );
   }
 
@@ -421,7 +421,7 @@ export async function updateLineRegistration(
     if (dup) {
       throw new LineRegistrationError(
         409,
-        `동일 허브/조직에 같은 라인 코드(${nextCode})의 등록이 이미 있습니다`,
+        `동일 허브/클럽에 같은 라인 코드(${nextCode})의 등록이 이미 있습니다`,
       );
     }
   }

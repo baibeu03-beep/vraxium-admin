@@ -404,9 +404,9 @@ export default function WeeklyCardFinalizationView() {
       {/* 선택 */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">시즌 · 주차 · 조직 선택</CardTitle>
+          <CardTitle className="text-base">시즌 · 주차 · 클럽 선택</CardTitle>
           <CardDescription>
-            조직은 집계 표시 범위이며, 확정/업데이트는 주차 전체 인원에 적용됩니다.
+            클럽은 집계 표시 범위이며, 확정/업데이트는 주차 전체 인원에 적용됩니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -474,10 +474,10 @@ export default function WeeklyCardFinalizationView() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">조직</label>
+              <label className="text-xs font-medium text-muted-foreground">클럽</label>
               <Select value={org} onValueChange={(v) => setOrg(v ?? ALL)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="조직">
+                  <SelectValue placeholder="클럽">
                     {(v: string | null) =>
                       !v || v === ALL
                         ? "전체"
@@ -534,7 +534,7 @@ export default function WeeklyCardFinalizationView() {
                   {target.weekLabel}
                 </CardTitle>
                 <CardDescription>
-                  {formatClubDate(target.startDate)} ~ {formatClubDate(target.endDate)} · 조직{" "}
+                  {formatClubDate(target.startDate)} ~ {formatClubDate(target.endDate)} · 클럽{" "}
                   {org === ALL ? "전체" : ORGANIZATION_LABEL[org as keyof typeof ORGANIZATION_LABEL] ?? org}
                 </CardDescription>
               </div>
@@ -578,7 +578,7 @@ export default function WeeklyCardFinalizationView() {
             )}
             <p className="text-xs text-muted-foreground">
               집계 기준은 사용자별 주차 인정 상태입니다. 단, PMS 활동 인정 데이터가 있는
-              조직·주차는 주간 랭킹과 동일한 PMS 기준(별점 4점 이상 + 확인 별점)으로 산출합니다.
+              클럽·주차는 주간 랭킹과 동일한 PMS 기준(별점 4점 이상 + 확인 별점)으로 산출합니다.
               테스트 계정은 집계 대상에서 제외됩니다. "미확정 인원"은 현재 집계 중으로 표시되는
               인원이며, 확정하면 0이 됩니다.
             </p>

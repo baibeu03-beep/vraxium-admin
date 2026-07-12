@@ -67,12 +67,12 @@ async function main() {
     );
     const page = await ctx.newPage();
 
-    console.log("=== A) 등록 — 소속 조직(Encre) 지정 ===");
+    console.log("=== A) 등록 — 소속 클럽(Encre) 지정 ===");
     await page.goto(`${baseUrl}/admin/lines/register`, { waitUntil: "networkidle" });
     await page.getByPlaceholder("예) 마케팅 전략 라인").fill(`2C브라우저 역량 ${stamp}`);
     await page.getByLabel("소속 허브").selectOption("competency");
     await page.getByLabel("라인 종류").selectOption("관점");
-    await page.getByLabel("소속 조직").selectOption("encre");
+    await page.getByLabel("소속 클럽").selectOption("encre");
     await page.getByPlaceholder("예) WCBS-NL0001").fill(`CPBW-${stamp}`);
     await page.getByPlaceholder("메인 타이틀을 입력하세요").fill("2C 브라우저 타이틀");
     await page.getByRole("button", { name: "등록", exact: true }).click();

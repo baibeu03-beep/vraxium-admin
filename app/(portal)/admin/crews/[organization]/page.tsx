@@ -27,7 +27,7 @@ export default async function CrewOrganizationPage({
           className="inline-flex items-center gap-1 hover:text-foreground"
         >
           <ChevronLeft className="h-4 w-4" />
-          조직 선택
+          클럽 선택
         </Link>
         <span>/</span>
         <span className="text-foreground">

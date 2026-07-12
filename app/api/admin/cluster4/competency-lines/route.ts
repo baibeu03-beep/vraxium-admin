@@ -284,7 +284,7 @@ export async function POST(request: NextRequest) {
       return Response.json(
         {
           success: false,
-          error: `현재 조직(${scopeOrg}) 소속이 아닌 사용자 ${orgOffenders.length}명이 포함되어 처리를 중단했습니다.`,
+          error: `현재 클럽(${scopeOrg}) 소속이 아닌 사용자 ${orgOffenders.length}명이 포함되어 처리를 중단했습니다.`,
         },
         { status: 422 },
       );

@@ -490,10 +490,26 @@ async function fetchRequestById(id: string): Promise<RequestRow | null> {
   return (data as RequestRow | null) ?? null;
 }
 
+// 대상 행의 org 가 관리자 허용 조직에 속하는지 검증(허용 목록을 넘긴 경우에만). 403 fail-closed.
+function assertRowOrgAllowed(
+  rowOrg: string | null,
+  allowedOrgs?: readonly OrganizationSlug[],
+): void {
+  if (!allowedOrgs) return; // 허용 목록 미지정(레거시 호출) = 검사 생략.
+  if (!rowOrg || !(allowedOrgs as readonly string[]).includes(rowOrg)) {
+    throw new RestActionError(403, "이 클럽의 휴식 신청에 접근할 권한이 없습니다.");
+  }
+}
+
 // pending → approved. 종료된 주차(이행)/이미 승인은 안내 문구로 차단(서버 최종 방어).
-export async function approveRestRequest(id: string): Promise<void> {
+//   allowedOrgs 를 넘기면 대상 행의 org 가 허용 조직인지 먼저 검증한다(403).
+export async function approveRestRequest(
+  id: string,
+  allowedOrgs?: readonly OrganizationSlug[],
+): Promise<void> {
   const row = await fetchRequestById(id);
   if (!row) throw new RestActionError(404, "휴식 신청을 찾을 수 없습니다.");
+  assertRowOrgAllowed(row.org, allowedOrgs);
   if (isWeekEnded(row.week_start_date, currentWeekMondayIso())) {
     throw new RestActionError(409, "이미 진행된 기간으로서, 처리가 종료되었습니다.");
   }
@@ -509,9 +525,14 @@ export async function approveRestRequest(id: string): Promise<void> {
 }
 
 // pending/approved 삭제 가능. 종료된 주차(이행)는 차단.
-export async function deleteRestRequest(id: string): Promise<void> {
+//   allowedOrgs 를 넘기면 대상 행의 org 가 허용 조직인지 먼저 검증한다(403).
+export async function deleteRestRequest(
+  id: string,
+  allowedOrgs?: readonly OrganizationSlug[],
+): Promise<void> {
   const row = await fetchRequestById(id);
   if (!row) throw new RestActionError(404, "휴식 신청을 찾을 수 없습니다.");
+  assertRowOrgAllowed(row.org, allowedOrgs);
   if (isWeekEnded(row.week_start_date, currentWeekMondayIso())) {
     throw new RestActionError(409, "취소할 수 없습니다");
   }

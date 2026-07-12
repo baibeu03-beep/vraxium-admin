@@ -72,10 +72,10 @@ try {
   await page.waitForTimeout(800);
   ck("[설정] 제목 '프로세스 체크 예외 주차'", ((await page.locator("body").textContent()) ?? "").includes("프로세스 체크 예외 주차"));
   ck("[설정] 주차 선택 드롭다운(#pcw-week)", (await page.locator("#pcw-week").count()) > 0);
-  ck("[설정] 조직 범위 드롭다운(#pcw-org)", (await page.locator("#pcw-org").count()) > 0);
+  ck("[설정] 클럽 범위 드롭다운(#pcw-org)", (await page.locator("#pcw-org").count()) > 0);
   ck("[설정] 프로세스 허브 드롭다운(#pcw-hub)", (await page.locator("#pcw-hub").count()) > 0);
   const orgOpts = (await page.locator("#pcw-org option").allTextContents()).map((t) => t.trim());
-  ck("[설정] 조직 옵션(전체/Encre/Oranke/Phalanx)", ["전체 조직", "Encre", "Oranke", "Phalanx"].every((o) => orgOpts.includes(o)), JSON.stringify(orgOpts));
+  ck("[설정] 조직 옵션(전체/Encre/Oranke/Phalanx)", ["전체 클럽", "Encre", "Oranke", "Phalanx"].every((o) => orgOpts.includes(o)), JSON.stringify(orgOpts));
   const hubOpts = (await page.locator("#pcw-hub option").allTextContents()).map((t) => t.trim());
   ck("[설정] 허브 옵션(전체/클럽/실무정보/실무경험/역량…)", hubOpts.some((o) => o.includes("클럽")) && hubOpts.some((o) => o.includes("실무 정보")) && hubOpts.some((o) => o.includes("실무 경험")) && hubOpts.some((o) => o.includes("역량")), `${hubOpts.length}개`);
   await page.screenshot({ path: resolve(adminRoot, "claudedocs", "process-check-windows-settings.png"), fullPage: true });

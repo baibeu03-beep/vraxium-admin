@@ -26,7 +26,7 @@ function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
 const SELECT_VALUE_SENTINEL_LABELS: Record<string, string> = {
   __all__: "전체",
   all: "전체",
-  all_orgs: "전체 조직",
+  all_orgs: "전체 클럽",
   all_parts: "전체 파트",
   all_teams: "전체 팀",
   __none__: "-", // 미선택 sentinel — 닫힌 트리거에 원문 "__none__" 노출 방지

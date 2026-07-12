@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
   if (orgRaw && orgRaw !== "all") {
     if (!isOrganizationSlug(orgRaw)) {
       return Response.json(
-        { success: false, error: "organization_slug 은 유효한 조직(encre|oranke|phalanx)이어야 합니다" },
+        { success: false, error: "organization_slug 은 유효한 클럽(encre|oranke|phalanx)이어야 합니다" },
         { status: 400 },
       );
     }

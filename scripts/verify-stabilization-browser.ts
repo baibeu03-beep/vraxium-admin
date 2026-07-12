@@ -53,7 +53,7 @@ async function main() {
 
     console.log("=== A) 라인 등록 화면 (등록 폼 전용) ===");
     await page.goto(`${baseUrl}/admin/lines/register`, { waitUntil: "networkidle" });
-    check("등록 폼 렌더 (라인명/허브/조직/유닛 링크)", (await page.getByLabel("소속 허브").count()) === 1 && (await page.getByLabel("소속 조직").count()) === 1 && (await page.getByLabel("유닛 링크").count()) === 1);
+    check("등록 폼 렌더 (라인명/허브/조직/유닛 링크)", (await page.getByLabel("소속 허브").count()) === 1 && (await page.getByLabel("소속 클럽").count()) === 1 && (await page.getByLabel("유닛 링크").count()) === 1);
     check("등록된 라인 목록은 분리됨 (이 화면에 테이블 없음)", (await page.locator("tbody tr").count()) === 0);
 
     console.log("\n=== B) 라인 정보 (registrations 전용) ===");

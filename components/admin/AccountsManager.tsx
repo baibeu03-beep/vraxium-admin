@@ -333,7 +333,7 @@ export default function AccountsManager() {
           kind: "success",
           message:
             (account.displayName ?? account.email ?? account.userId) +
-            " 조직: " +
+            " 클럽: " +
             label,
         });
       } catch (err) {
@@ -629,10 +629,10 @@ export default function AccountsManager() {
                   </TableHead>
                   <TableHead className="min-w-[140px]">
                     <span className="inline-flex items-center gap-1">
-                      <span>조직</span>
+                      <span>클럽</span>
                       <AdminHelpIconButton
                         helpKey="admin.settings.accounts.column.organization"
-                        title="조직"
+                        title="클럽"
                         size="xs"
                       />
                     </span>
@@ -1124,10 +1124,10 @@ function CreateAccountDrawerInner({
                 htmlFor="create-org"
                 className="inline-flex items-center gap-1"
               >
-                조직
+                클럽
                 <AdminHelpIconButton
                   helpKey="admin.settings.accounts.field.organization"
-                  title="조직"
+                  title="클럽"
                   size="xs"
                 />
               </Label>
@@ -1158,7 +1158,7 @@ function CreateAccountDrawerInner({
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-muted-foreground">
-                {ORGANIZATION_COMMON_LABEL} 을 선택하면 특정 조직에 속하지 않는 공용 계정으로 저장합니다 (조직 횡단).
+                {ORGANIZATION_COMMON_LABEL} 을 선택하면 특정 클럽에 속하지 않는 공용 계정으로 저장합니다 (클럽 횡단).
               </p>
             </div>
 

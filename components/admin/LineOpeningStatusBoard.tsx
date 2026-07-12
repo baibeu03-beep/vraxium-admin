@@ -212,14 +212,19 @@ export default function LineOpeningStatusBoard({
 
                 {/* 블록3 — 팀별 개설 현황 */}
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground">
+                  <p className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
                     팀별 개설 현황
+                    <AdminHelpIconButton
+                      size="xs"
+                      helpKey="admin.lineOpening.statusBoard.section.teamOpenStatus"
+                      title="팀별 개설 현황"
+                    />
                   </p>
                   {status.block3.length === 0 ? (
                     <p className="text-muted-foreground">
                       {org
-                        ? "이 조직에 등록된 팀이 없습니다."
-                        : "조직(?org)이 지정되지 않았습니다."}
+                        ? "이 클럽에 등록된 팀이 없습니다."
+                        : "클럽(?org)이 지정되지 않았습니다."}
                     </p>
                   ) : (
                     status.block3.map((line) => (

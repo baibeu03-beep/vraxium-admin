@@ -108,7 +108,7 @@ export async function assertAdminOrgAccess(
   if (!access.allowedOrgs.includes(org)) {
     throw new AdminAuthError(
       403,
-      "이 조직에 접근할 권한이 없습니다.",
+      "이 클럽에 접근할 권한이 없습니다.",
     );
   }
   return access;

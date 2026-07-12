@@ -500,7 +500,7 @@ export async function createManualGrant(input: {
     const p = byId.get(id);
     if (!p) throw new ProcessMasterError(404, "대상 크루(user_profiles)를 찾을 수 없습니다");
     if (p.organization_slug !== organization) {
-      throw new ProcessMasterError(422, "대상 크루가 해당 조직(org) 소속이 아닙니다");
+      throw new ProcessMasterError(422, "대상 크루가 해당 클럽(org) 소속이 아닙니다");
     }
   }
 

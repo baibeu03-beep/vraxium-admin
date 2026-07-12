@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   }
   if (!isOrganizationSlug(orgRaw)) {
     return Response.json(
-      { success: false, error: "organization 은 유효한 조직이어야 합니다" },
+      { success: false, error: "organization 은 유효한 클럽이어야 합니다" },
       { status: 400, headers: NO_STORE_HEADERS },
     );
   }

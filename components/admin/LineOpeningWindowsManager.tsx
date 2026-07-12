@@ -31,7 +31,7 @@ import { formatClubDate } from "@/lib/clubDate";
 const ALL = "all";
 
 const ORG_OPTIONS = [
-  { value: ALL, label: "전체 조직" },
+  { value: ALL, label: "전체 클럽" },
   { value: "encre", label: "Encre" },
   { value: "oranke", label: "Oranke" },
   { value: "phalanx", label: "Phalanx" },
@@ -46,7 +46,7 @@ const HUB_OPTIONS = [
 ];
 
 function orgLabel(org: string | null): string {
-  if (org === null) return "전체 조직";
+  if (org === null) return "전체 클럽";
   return ORG_OPTIONS.find((o) => o.value === org)?.label ?? org;
 }
 function hubLabel(hub: string | null): string {
@@ -184,7 +184,7 @@ export default function LineOpeningWindowsManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           week_id: formWeekId,
-          organization_slug: formOrg, // "all" = 전체 조직(서버가 null 로 변환)
+          organization_slug: formOrg, // "all" = 전체 클럽(서버가 null 로 변환)
           hub: formHub, // "all" = 전체 라인 종류
         }),
       });
@@ -364,7 +364,7 @@ export default function LineOpeningWindowsManager() {
             />
           </CardTitle>
           <CardDescription>
-            선택한 주차를 (선택한 조직·라인 종류 범위에서) 추가 개설 가능 상태로 엽니다.
+            선택한 주차를 (선택한 클럽·라인 종류 범위에서) 추가 개설 가능 상태로 엽니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -406,10 +406,10 @@ export default function LineOpeningWindowsManager() {
                 htmlFor="low-org"
                 className="inline-flex items-center gap-1 text-sm font-semibold"
               >
-                조직 범위
+                클럽 범위
                 <AdminHelpIconButton
                   helpKey="admin.settings.lineOpeningWindows.input.org"
-                  title="조직 범위"
+                  title="클럽 범위"
                   size="xs"
                 />
               </Label>

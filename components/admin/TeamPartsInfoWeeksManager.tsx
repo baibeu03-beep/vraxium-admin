@@ -270,7 +270,7 @@ export default function TeamPartsInfoWeeksManager({
         </CardHeader>
         <CardContent>
           <div className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            유효한 org 파라미터가 필요합니다. (사이드바에서 조직을 선택해 진입해 주세요.)
+            유효한 org 파라미터가 필요합니다. (사이드바에서 클럽을 선택해 진입해 주세요.)
           </div>
         </CardContent>
       </Card>

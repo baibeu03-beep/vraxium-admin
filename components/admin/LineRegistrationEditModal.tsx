@@ -250,7 +250,7 @@ export default function LineRegistrationEditModal({
 
         {gateLocked ? (
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            이미 개설된 라인이 {opened}건 있어 라인 코드 · 소속 조직
+            이미 개설된 라인이 {opened}건 있어 라인 코드 · 소속 클럽
             {isExperience ? " · 라인 종류" : ""}는 수정할 수 없습니다(비활성화 후 신규 등록).
           </div>
         ) : null}
@@ -298,9 +298,9 @@ export default function LineRegistrationEditModal({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>소속 조직</Label>
+              <Label>소속 클럽</Label>
               <select
-                aria-label="소속 조직"
+                aria-label="소속 클럽"
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                 value={orgSlug}
                 onChange={(e) => setOrgSlug(e.target.value)}
@@ -420,7 +420,7 @@ export default function LineRegistrationEditModal({
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">
-              Point.A/B 는 (조직·허브·유형) 공유 설정입니다 — 같은 유형의 다른 라인과 오픈 확인 계산에도 동일 값이 적용됩니다.
+              Point.A/B 는 (클럽·허브·유형) 공유 설정입니다 — 같은 유형의 다른 라인과 오픈 확인 계산에도 동일 값이 적용됩니다.
             </p>
           </div>
 

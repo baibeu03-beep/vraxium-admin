@@ -350,7 +350,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
 
       {!org && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          조직이 지정되어야 합니다. 주소 끝에 조직 코드를 붙여 다시 열어주세요. (예: ?org=oranke)
+          클럽이 지정되어야 합니다. 주소 끝에 클럽 코드를 붙여 다시 열어주세요. (예: ?org=oranke)
         </div>
       )}
 
@@ -404,7 +404,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
             {teamMode ? (
               teams.length === 0 ? (
                 <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-muted-foreground">
-                  이 조직에 등록된 팀이 없습니다.
+                  이 클럽에 등록된 팀이 없습니다.
                 </p>
               ) : (
                 teams.map((tm) => (

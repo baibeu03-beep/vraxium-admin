@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   const orgRaw = request.nextUrl.searchParams.get("org")?.trim() || null;
   if (!isOrganizationSlug(orgRaw)) {
     return Response.json(
-      { success: false, error: "org 은 유효한 조직(encre|oranke|phalanx)이어야 합니다" },
+      { success: false, error: "org 은 유효한 클럽(encre|oranke|phalanx)이어야 합니다" },
       { status: 400 },
     );
   }

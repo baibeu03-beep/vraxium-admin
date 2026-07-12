@@ -30,7 +30,7 @@ import { formatClubDate } from "@/lib/clubDate";
 const ALL = "all";
 
 const ORG_OPTIONS = [
-  { value: ALL, label: "전체 조직" },
+  { value: ALL, label: "전체 클럽" },
   { value: "encre", label: "Encre" },
   { value: "oranke", label: "Oranke" },
   { value: "phalanx", label: "Phalanx" },
@@ -51,7 +51,7 @@ function hubLabel(hub: string | null): string {
   return HUB_OPTIONS.find((o) => o.value === hub)?.label ?? hub;
 }
 function orgLabel(org: string | null): string {
-  if (org === null) return "전체 조직";
+  if (org === null) return "전체 클럽";
   return ORG_OPTIONS.find((o) => o.value === org)?.label ?? org;
 }
 
@@ -154,7 +154,7 @@ export default function ProcessCheckWindowsManager() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           week_id: formWeekId,
-          organization_slug: formOrg, // "all" = 전체 조직(서버가 null 로 변환)
+          organization_slug: formOrg, // "all" = 전체 클럽(서버가 null 로 변환)
           hub: formHub, // "all" = 전체 허브
         }),
       });
@@ -341,7 +341,7 @@ export default function ProcessCheckWindowsManager() {
             />
           </CardTitle>
           <CardDescription>
-            선택한 주차를 (선택한 조직·허브 범위에서) 프로세스 체크 드롭다운에서 추가로 선택·편집 가능하게 엽니다.
+            선택한 주차를 (선택한 클럽·허브 범위에서) 프로세스 체크 드롭다운에서 추가로 선택·편집 가능하게 엽니다.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -382,10 +382,10 @@ export default function ProcessCheckWindowsManager() {
                 htmlFor="pcw-org"
                 className="inline-flex items-center gap-1 text-sm font-semibold"
               >
-                조직 범위
+                클럽 범위
                 <AdminHelpIconButton
                   helpKey="admin.settings.processCheckWindows.input.org"
-                  title="조직 범위"
+                  title="클럽 범위"
                   size="xs"
                 />
               </Label>

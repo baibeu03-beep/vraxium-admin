@@ -199,7 +199,7 @@ export default function CompetencyOpeningDashboard() {
   const runAction = useCallback(
     async (action: "open" | "cancel") => {
       if (!org) {
-        setBanner({ kind: "error", message: "조직(?org)이 지정되지 않았습니다" });
+        setBanner({ kind: "error", message: "클럽(?org)이 지정되지 않았습니다" });
         return;
       }
       if (
@@ -341,7 +341,7 @@ export default function CompetencyOpeningDashboard() {
           </div>
           {!org && (
             <p className="text-sm text-muted-foreground">
-              조직(?org)이 지정되어야 개설/취소할 수 있습니다.
+              클럽(?org)이 지정되어야 개설/취소할 수 있습니다.
             </p>
           )}
 

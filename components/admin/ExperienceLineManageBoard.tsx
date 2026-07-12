@@ -259,7 +259,7 @@ export default function ExperienceLineManageBoard({
       <Card>
         <CardContent className="py-6">
           <p className="text-sm text-muted-foreground">
-            조직 분기 모드(?org)에서만 표시됩니다.
+            클럽 분기 모드(?org)에서만 표시됩니다.
           </p>
         </CardContent>
       </Card>
@@ -347,7 +347,7 @@ export default function ExperienceLineManageBoard({
           {/* 팀별 카드. */}
           {data.teams.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              이 조직에 등록된 팀이 없습니다.
+              이 클럽에 등록된 팀이 없습니다.
             </p>
           ) : (
             <div className="grid gap-4 xl:grid-cols-2">

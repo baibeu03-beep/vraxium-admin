@@ -75,7 +75,7 @@ async function main() {
     await checkSelect("소속 허브", 0);      // 실무 정보 (value=info)
     // 허브 선택 후 라인 종류 활성화됨
     await checkSelect("라인 종류", 0);
-    await checkSelect("소속 조직", 0);      // Encre (value=encre)
+    await checkSelect("소속 클럽", 0);      // Encre (value=encre)
     // career 허브로 바꾸면 프로필 사진 select 활성화 — 확인
     await page.locator('select[aria-label="소속 허브"]').selectOption("career");
     await checkSelect("프로필 사진", 0);    // 잔다르크

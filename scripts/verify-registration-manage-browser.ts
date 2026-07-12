@@ -116,7 +116,7 @@ async function main() {
       "개설 보유 행 — 잠금 안내 + 코드/조직/종류 비활성",
       (await page.getByText(/개설 라인 \d+건/).isVisible()) &&
         (await page.getByLabel("라인 코드 수정").isDisabled()) &&
-        (await page.getByLabel("소속 조직 수정").isDisabled()) &&
+        (await page.getByLabel("소속 클럽 수정").isDisabled()) &&
         (await page.getByLabel("라인 종류 수정").isDisabled()),
     );
     await page.screenshot({ path: "claudedocs/browser-registration-manage-locked.png", fullPage: true });

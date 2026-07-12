@@ -111,8 +111,8 @@ export function AdminNoOrgAccess({
       <CardContent className="py-10 text-center text-sm text-muted-foreground">
         <p className="font-medium text-foreground">{title}</p>
         <p className="mt-1">
-          현재 계정에 허용된 조직이 없습니다. 조직 접근이 필요하면 관리자에게 계정
-          소속(조직) 설정을 요청하세요.
+          현재 계정에 허용된 클럽이 없습니다. 클럽 접근이 필요하면 관리자에게 계정
+          소속(클럽) 설정을 요청하세요.
         </p>
       </CardContent>
     </Card>

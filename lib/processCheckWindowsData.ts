@@ -68,7 +68,7 @@ type WindowRow = {
 export type ProcessCheckWindowDto = {
   id: string;
   weekId: string;
-  organizationSlug: string | null; // null = 전체 조직
+  organizationSlug: string | null; // null = 전체 클럽
   hub: string | null; // null = 전체 허브
   allowSelection: boolean;
   isActive: boolean;
@@ -267,7 +267,7 @@ function rowToDto(
 
 export async function createProcessCheckWindow(input: {
   weekId: string;
-  organizationSlug: string | null; // null = 전체 조직
+  organizationSlug: string | null; // null = 전체 클럽
   hub: string | null; // null = 전체 허브
   createdBy: string | null;
 }): Promise<ProcessCheckWindowDto> {

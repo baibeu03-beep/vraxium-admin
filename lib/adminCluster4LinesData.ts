@@ -1099,7 +1099,7 @@ export async function editInfoLineCrew(opts: {
       lineCode: line.line_code,
     });
     if (!isLineScopeVisibleForOrg(lineScope, organization, { allowUnknown: false })) {
-      throw new Cluster4LineError(403, "현재 조직에서 수정할 수 없는 라인입니다");
+      throw new Cluster4LineError(403, "현재 클럽에서 수정할 수 없는 라인입니다");
     }
   }
 
