@@ -612,13 +612,26 @@ export async function loadTeamPartsInfo(
   const currentHalfKey = await resolveCurrentHalfKey(today);
   const halves = await listAvailableHalves(organization, currentHalfKey);
 
+  // 선택 반기: 유효한 반기 키면 그대로 조회한다(해당 시기 드롭다운의 고정 옵션 중 데이터가 없는
+  //   과거/미래 반기도 빈 목록으로 조회 — 현재 반기로 폴백하지 않는다). 미지정/무효일 때만 현재 반기.
   let selected: string | null = null;
-  if (selectedHalfKey && halves.some((h) => h.halfKey === selectedHalfKey)) {
+  if (selectedHalfKey && isHalfKey(selectedHalfKey)) {
     selected = selectedHalfKey;
-  } else if (currentHalfKey && halves.some((h) => h.halfKey === currentHalfKey)) {
+  } else if (currentHalfKey) {
     selected = currentHalfKey;
   } else if (halves.length > 0) {
     selected = halves[0].halfKey;
+  }
+  // 선택 반기가 옵션 목록에 없으면 추가해 응답을 자기완결적으로 유지(editable=isEditableHalf SoT).
+  if (selected && !halves.some((h) => h.halfKey === selected)) {
+    halves.push({
+      halfKey: selected,
+      label: halfLabel(selected),
+      lastSeasonKey: halfKeyToLastSeasonKey(selected),
+      isCurrent: selected === currentHalfKey,
+      editable: isEditableHalf(selected, currentHalfKey),
+    });
+    halves.sort((a, b) => compareHalfKeyDesc(a.halfKey, b.halfKey));
   }
 
   // 팀 목록 스코프 단일 SoT(filterTeamsByScope) — operating/test 분기. 매트릭스 계산 전에 적용해
