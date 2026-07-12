@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
-import { CheckCircle2, Loader2, RefreshCw, X } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -136,7 +137,6 @@ export default function WeeklyCardFinalizationView() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 
   // 확정 후 자가 검증(데모/일반 동일 DTO 사용하는 실 주차 카드 API 재호출).
@@ -302,7 +302,6 @@ export default function WeeklyCardFinalizationView() {
       }
       const data = json.data as WeeklyCardFinalizationResult;
       applyResultPayload(data);
-      setConfirmOpen(false);
       const already = data.published?.alreadyFinalized;
       setBanner({
         kind: "success",
@@ -370,6 +369,36 @@ export default function WeeklyCardFinalizationView() {
     for (const s of seasons) m.set(s.seasonKey, s.seasonLabel);
     return m;
   }, [seasons]);
+
+  // 집계 확정 전 확인 — 공통 adminDialog(success variant). 확인 시 runFinalize 실행(로딩 스피너).
+  const confirmFinalize = useCallback(() => {
+    if (!target) return;
+    return adminDialog.confirm({
+      variant: "success",
+      title: "집계 확정",
+      confirmLabel: target.isFinalized ? "카드 정보 업데이트" : "집계 확정",
+      description: (
+        <div className="flex flex-col gap-3">
+          <div className="rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+            <div className="font-medium">
+              {seasonLabelByKey.get(target.seasonKey ?? "") ?? target.seasonKey} ·{" "}
+              {target.weekLabel}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {formatClubDate(target.startDate)} ~ {formatClubDate(target.endDate)}
+            </div>
+          </div>
+          <p>
+            이 주차를 확정하면 크루 페이지의 해당 주차 카드가 &quot;성장(집계 중)&quot;에서
+            사용자별 성공/실패 상태로 전환되고, 대상 인원 전체의 카드 정보가 최신 상태로
+            업데이트됩니다. 사용자별 인정 상태 자체는 변경되지 않습니다.
+            {target.isFinalized && " (이미 확정된 주차 — 카드 정보 업데이트만 수행됩니다.)"}
+          </p>
+        </div>
+      ),
+      onConfirm: runFinalize,
+    });
+  }, [target, seasonLabelByKey, runFinalize]);
 
   return (
     <div className="space-y-6 p-6">
@@ -514,7 +543,7 @@ export default function WeeklyCardFinalizationView() {
               type="button"
               variant="default"
               className="bg-emerald-600 hover:bg-emerald-700"
-              onClick={() => setConfirmOpen(true)}
+              onClick={() => void confirmFinalize()}
               disabled={!canQuery || finalizing || !target}
             >
               집계 확정
@@ -646,64 +675,6 @@ export default function WeeklyCardFinalizationView() {
         </Card>
       )}
 
-      {/* 확정 확인 모달 */}
-      {confirmOpen && target && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="주차 카드 집계 확정"
-            className="modal-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-base font-semibold">집계 확정</h2>
-              <button
-                type="button"
-                onClick={() => setConfirmOpen(false)}
-                disabled={finalizing}
-                aria-label="닫기"
-                className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-50"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="mb-4 rounded-lg border bg-muted/20 px-3 py-2 text-sm">
-              <div className="font-medium">
-                {seasonLabelByKey.get(target.seasonKey ?? "") ?? target.seasonKey} ·{" "}
-                {target.weekLabel}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {formatClubDate(target.startDate)} ~ {formatClubDate(target.endDate)}
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              이 주차를 확정하면 크루 페이지의 해당 주차 카드가 "성장(집계 중)"에서 사용자별
-              성공/실패 상태로 전환되고, 대상 인원 전체의 카드 정보가 최신 상태로 업데이트됩니다.
-              사용자별 인정 상태 자체는 변경되지 않습니다.
-              {target.isFinalized && " (이미 확정된 주차 — 카드 정보 업데이트만 수행됩니다.)"}
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setConfirmOpen(false)}
-                disabled={finalizing}
-              >
-                취소
-              </Button>
-              <Button
-                type="button"
-                className="bg-emerald-600 hover:bg-emerald-700"
-                onClick={() => void runFinalize()}
-                disabled={finalizing}
-              >
-                {finalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {target.isFinalized ? "카드 정보 업데이트" : "집계 확정"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

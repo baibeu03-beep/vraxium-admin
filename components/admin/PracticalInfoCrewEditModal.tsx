@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import CafeCrewPicker, {
@@ -10,6 +11,8 @@ import CafeCrewPicker, {
   type CafeCrewMeta,
 } from "@/components/admin/CafeCrewPicker";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 
 // 실무 정보 — "개설 대상 크루 수정" 모달.
 //   이미 개설된 (과거) 라인의 개설 대상 크루를 카페 검수 UI(CafeCrewPicker)로 사후 수정한다.
@@ -53,7 +56,6 @@ export default function PracticalInfoCrewEditModal({
   const [pendingRemovals, setPendingRemovals] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
 
   // 현재 대상자 조회 — info-lines/crew GET(line_id + week_id + org + mode, enriched DTO).
   useEffect(() => {
@@ -192,13 +194,56 @@ export default function PracticalInfoCrewEditModal({
       setError("수정 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
-      setConfirmOpen(false);
     }
   }, [lineId, weekId, editMode, candidates, finalUserIds, pendingRemovals, onSaved]);
 
   const canSave = !saving && !loadingExisting;
   const hasChanges =
     candidates.length > 0 || pendingRemovals.size > 0 || editMode === "replace";
+
+  // 저장 전 확인(공통 adminDialog·warning) — 요약 + 주의 문구. 확인 시 handleSave 실행.
+  const requestSave = () =>
+    adminDialog.confirm({
+      variant: "warning",
+      title: "개설 대상 크루 수정 확인",
+      confirmLabel: "저장",
+      description: (
+        <div className="space-y-3">
+          <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+            <div className="flex gap-2">
+              <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">주차</dt>
+              <dd className="font-medium">{weekLabel}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">라인</dt>
+              <dd className="font-medium">{lineName}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">반영 방식</dt>
+              <dd className="font-medium">
+                {editMode === "add" ? "기존 유지 + 추가" : "전체 교체"}
+              </dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">검수 크루</dt>
+              <dd className="font-medium">{candidates.length}명</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">제외</dt>
+              <dd className="font-medium text-red-600">{removalPreview.length}명</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">저장 후 대상</dt>
+              <dd className="font-medium">{finalUserIds.length}명</dd>
+            </div>
+          </dl>
+          <p className="text-xs text-amber-700 dark:text-amber-500">
+            주의: 저장 후 해당 주차/라인의 대상 크루 상태가 변경되고 크루 페이지에 반영됩니다.
+          </p>
+        </div>
+      ),
+      onConfirm: handleSave,
+    });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-8">
@@ -236,8 +281,14 @@ export default function PracticalInfoCrewEditModal({
         {/* 현재 개설 대상 크루 (이름/팀·파트/학교·전공 + [제외] pending) */}
         <div className="space-y-2 rounded-md border p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold">
-              현재 개설 대상 크루{" "}
+            <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
+              현재 개설 대상 크루
+              <AdminHelpIconButton
+                size="sm"
+                helpKey="admin.lineOpening.info.crewEdit.section.currentCrew"
+                title="현재 개설 대상 크루"
+              />
+              {" "}
               <span className="text-muted-foreground">
                 {loadingExisting ? "…" : `${existing.length}명`}
               </span>
@@ -267,11 +318,56 @@ export default function PracticalInfoCrewEditModal({
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted/60">
                   <tr className="border-b text-left text-xs text-muted-foreground">
-                    <th className="px-2 py-1.5">크루 코드</th>
-                    <th className="px-2 py-1.5">이름</th>
-                    <th className="px-2 py-1.5">팀 · 파트</th>
-                    <th className="px-2 py-1.5">학교 · 전공</th>
-                    <th className="px-2 py-1.5 text-right">제외</th>
+                    <th className="px-2 py-1.5">
+                      <span className="inline-flex items-center gap-1">
+                        크루 코드
+                        <AdminHelpIconButton
+                          helpKey={ADMIN_SHARED_HELP_KEYS.crew.code}
+                          title="크루 코드"
+                          size="xs"
+                        />
+                      </span>
+                    </th>
+                    <th className="px-2 py-1.5">
+                      <span className="inline-flex items-center gap-1">
+                        이름
+                        <AdminHelpIconButton
+                          helpKey={ADMIN_SHARED_HELP_KEYS.crew.name}
+                          title="이름"
+                          size="xs"
+                        />
+                      </span>
+                    </th>
+                    <th className="px-2 py-1.5">
+                      <span className="inline-flex items-center gap-1">
+                        팀 · 파트
+                        <AdminHelpIconButton
+                          helpKey="admin.lineOpening.info.crewEdit.column.teamPart"
+                          title="팀 · 파트"
+                          size="xs"
+                        />
+                      </span>
+                    </th>
+                    <th className="px-2 py-1.5">
+                      <span className="inline-flex items-center gap-1">
+                        학교 · 전공
+                        <AdminHelpIconButton
+                          helpKey="admin.lineOpening.info.crewEdit.column.schoolMajor"
+                          title="학교 · 전공"
+                          size="xs"
+                        />
+                      </span>
+                    </th>
+                    <th className="px-2 py-1.5 text-right">
+                      <span className="inline-flex items-center gap-1">
+                        제외
+                        <AdminHelpIconButton
+                          helpKey="admin.lineOpening.info.crewEdit.column.remove"
+                          title="제외"
+                          size="xs"
+                        />
+                      </span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -332,7 +428,14 @@ export default function PracticalInfoCrewEditModal({
 
         {/* 반영 방식 — add(기본) / replace */}
         <div className="space-y-2 rounded-md border p-3">
-          <p className="text-sm font-semibold">반영 방식</p>
+          <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
+            반영 방식
+            <AdminHelpIconButton
+              size="sm"
+              helpKey="admin.lineOpening.info.crewEdit.section.applyMode"
+              title="반영 방식"
+            />
+          </p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -392,7 +495,7 @@ export default function PracticalInfoCrewEditModal({
               닫기
             </Button>
             <Button
-              onClick={() => setConfirmOpen(true)}
+              onClick={() => void requestSave()}
               disabled={!canSave || !hasChanges}
               loading={saving}
             >
@@ -402,63 +505,7 @@ export default function PracticalInfoCrewEditModal({
         </div>
       </div>
 
-      {/* 확인 모달 */}
-      {confirmOpen && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
-          onClick={() => !saving && setConfirmOpen(false)}
-        >
-          <div
-            className="modal-w-sm space-y-4 rounded-lg bg-background p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-base font-bold">개설 대상 크루 수정 확인</h3>
-            <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-              <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">주차</dt>
-                <dd className="font-medium">{weekLabel}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">라인</dt>
-                <dd className="font-medium">{lineName}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">반영 방식</dt>
-                <dd className="font-medium">
-                  {editMode === "add" ? "기존 유지 + 추가" : "전체 교체"}
-                </dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">검수 크루</dt>
-                <dd className="font-medium">{candidates.length}명</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">제외</dt>
-                <dd className="font-medium text-red-600">{removalPreview.length}명</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="w-32 shrink-0 whitespace-nowrap text-muted-foreground">저장 후 대상</dt>
-                <dd className="font-medium">{finalUserIds.length}명</dd>
-              </div>
-            </dl>
-            <p className="text-xs text-amber-700">
-              주의: 저장 후 해당 주차/라인의 대상 크루 상태가 변경되고 크루 페이지에 반영됩니다.
-            </p>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button
-                variant="outline"
-                onClick={() => setConfirmOpen(false)}
-                disabled={saving}
-              >
-                취소
-              </Button>
-              <Button onClick={handleSave} loading={saving}>
-                확인
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 저장 확인은 공통 adminDialog(warning)로 대체됨(requestSave). */}
     </div>
   );
 }

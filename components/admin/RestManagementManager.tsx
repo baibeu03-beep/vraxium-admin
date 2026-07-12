@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ArrowDown, ArrowUp, ArrowUpDown, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import {
@@ -530,11 +531,11 @@ export default function RestManagementManager() {
   // ── 액션 ────────────────────────────────────────────────────────────────
   async function approveRow(row: RestRequestListRow) {
     if (row.ended) {
-      window.alert("이미 진행된 기간으로서, 처리가 종료되었습니다.");
+      void adminDialog.alert({ variant: "warning", title: "처리 종료", description: "이미 진행된 기간으로서, 처리가 종료되었습니다." });
       return;
     }
     if (row.displayStatus === "approved") {
-      window.alert("이미 승인된 휴식입니다.");
+      void adminDialog.alert({ variant: "info", title: "이미 승인됨", description: "이미 승인된 휴식입니다." });
       return;
     }
     const ok = await confirm({
@@ -550,14 +551,14 @@ export default function RestManagementManager() {
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json?.success) {
-      window.alert(json?.error ?? "승인에 실패했습니다.");
+      void adminDialog.alert({ variant: "danger", title: "승인 실패", description: json?.error ?? "승인에 실패했습니다." });
     }
     refresh();
   }
 
   async function deleteRow(row: RestRequestListRow) {
     if (row.ended) {
-      window.alert("취소할 수 없습니다");
+      void adminDialog.alert({ variant: "warning", title: "취소 불가", description: "취소할 수 없습니다." });
       return;
     }
     const ok = await confirm({
@@ -571,7 +572,7 @@ export default function RestManagementManager() {
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json?.success) {
-      window.alert(json?.error ?? "삭제에 실패했습니다.");
+      void adminDialog.alert({ variant: "danger", title: "삭제 실패", description: json?.error ?? "삭제에 실패했습니다." });
     }
     refresh();
   }
@@ -595,9 +596,9 @@ export default function RestManagementManager() {
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || !json?.success) {
-      window.alert(json?.error ?? "일괄 승인에 실패했습니다.");
+      void adminDialog.alert({ variant: "danger", title: "일괄 승인 실패", description: json?.error ?? "일괄 승인에 실패했습니다." });
     } else {
-      window.alert(`${(json.approved ?? 0).toLocaleString()}건을 승인했습니다.`);
+      void adminDialog.alert({ variant: "success", title: "일괄 승인 완료", description: `${(json.approved ?? 0).toLocaleString()}건을 승인했습니다.` });
     }
     refresh();
   }

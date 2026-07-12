@@ -79,32 +79,32 @@ async function main() {
   await gotoWeek(past.week_id, "oranke");
   await page.click("[data-open-confirm-button]");
   await page.waitForTimeout(300);
-  ck("[과거] 클릭 시 모달 표시", !!(await page.$("[data-past-open-confirm-modal]")));
-  const title = await page.$eval("[data-past-open-confirm-modal] h3", (e: any) => e.textContent).catch(() => null);
+  ck("[과거] 클릭 시 모달 표시", !!(await page.$("[data-admin-dialog]")));
+  const title = await page.$eval("[data-admin-dialog] h2", (e: any) => e.textContent).catch(() => null);
   ck("[과거] 모달 제목 '지난 주차의 오픈 상태를 변경하시겠습니까?'", (title ?? "").includes("지난 주차의 오픈 상태를 변경"), { title });
   ck("[과거] 모달 표시 시점 요청 0", calls.length === 0, { calls: calls.length });
 
   // 취소 → 모달 닫힘·요청 0
-  await page.click("[data-past-open-confirm-cancel]");
+  await page.click("[data-admin-dialog-cancel]");
   await page.waitForTimeout(400);
-  ck("[과거] 취소 시 모달 닫힘", !(await page.$("[data-past-open-confirm-modal]")));
+  ck("[과거] 취소 시 모달 닫힘", !(await page.$("[data-admin-dialog]")));
   ck("[과거] 취소 시 HTTP 미전송(요청 0)", calls.length === 0, { calls });
 
   // 다시 클릭 → 그래도 변경 → 요청 1회
   await page.click("[data-open-confirm-button]");
-  await page.waitForSelector("[data-past-open-confirm-proceed]", { timeout: 5000 });
-  await page.click("[data-past-open-confirm-proceed]");
+  await page.waitForSelector("[data-admin-dialog-confirm]", { timeout: 5000 });
+  await page.click("[data-admin-dialog-confirm]");
   await page.waitForTimeout(800);
   ck("[과거] '그래도 변경' 시 요청 정확히 1회", calls.length === 1, { calls });
   ck("[과거] 요청 method=POST", calls[0]?.method === "POST", { method: calls[0]?.method });
-  ck("[과거] 확인 후 모달 닫힘", !(await page.$("[data-past-open-confirm-modal]")));
+  ck("[과거] 확인 후 모달 닫힘", !(await page.$("[data-admin-dialog]")));
 
   // ── (4) 미래 주차 — 모달 없이 즉시 요청 ──
   if (future) {
     await gotoWeek(future.week_id, "oranke");
     await page.click("[data-open-confirm-button]");
     await page.waitForTimeout(700);
-    ck("[미래] 모달 미표시(기존 동작 유지)", !(await page.$("[data-past-open-confirm-modal]")));
+    ck("[미래] 모달 미표시(기존 동작 유지)", !(await page.$("[data-admin-dialog]")));
     ck("[미래] 즉시 요청 1회", calls.length === 1, { calls });
   } else {
     console.log("   (future 주차 없음 — 미래 케이스 스킵)");
@@ -114,8 +114,8 @@ async function main() {
   await gotoWeek(past.week_id, "oranke", "test");
   await page.click("[data-open-confirm-button]");
   await page.waitForTimeout(300);
-  ck("[과거/test] 모달 표시(동일 게이트)", !!(await page.$("[data-past-open-confirm-modal]")));
-  await page.click("[data-past-open-confirm-proceed]");
+  ck("[과거/test] 모달 표시(동일 게이트)", !!(await page.$("[data-admin-dialog]")));
+  await page.click("[data-admin-dialog-confirm]");
   await page.waitForTimeout(800);
   ck("[과거/test] 요청 1회·POST·URL 에 mode=test", calls.length === 1 && calls[0]?.method === "POST" && /mode=test/.test(calls[0]?.url ?? ""), { calls });
 

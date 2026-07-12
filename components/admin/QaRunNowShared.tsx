@@ -5,7 +5,6 @@
 //   본 컴포넌트는 표시/입구일 뿐 — 자동 로직을 직접 호출하지 않는다.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export type RunOutcome = "success" | "partial" | "failed";
@@ -54,58 +53,7 @@ export function useRunNow<T = unknown>(endpoint: string) {
   return { run, busy, result, error, ranAt };
 }
 
-// ── 확인 모달 — 실제 실행(execute) 전 1회 확인(요구사항 1). ─────────────
-export function ConfirmModal({
-  open,
-  title,
-  body,
-  confirmLabel,
-  busy,
-  onConfirm,
-  onCancel,
-}: {
-  open: boolean;
-  title: string;
-  body: React.ReactNode;
-  confirmLabel: string;
-  busy: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}) {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="modal-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold">{title}</h2>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            className="text-muted-foreground hover:text-foreground disabled:opacity-50"
-            aria-label="닫기"
-          >
-            ✕
-          </button>
-        </div>
-        <div className="mb-4 text-sm text-muted-foreground">{body}</div>
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onCancel} disabled={busy}>
-            취소
-          </Button>
-          <Button onClick={onConfirm} disabled={busy}>
-            {busy ? "실행 중…" : confirmLabel}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// (확인 모달은 공통 adminDialog.confirm 로 대체됨 — components/ui/admin-dialog.tsx)
 
 const OUTCOME_META: Record<RunOutcome, { label: string; className: string }> = {
   success: { label: "성공", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },

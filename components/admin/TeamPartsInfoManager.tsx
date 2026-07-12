@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -179,8 +180,6 @@ export default function TeamPartsInfoManager() {
   const [registering, setRegistering] = useState(false);
 
   // 삭제 확인 팝업(삭제 대기 전환 대상).
-  const [deleteTarget, setDeleteTarget] = useState<TeamDto | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   const isEditMode = editingTeam != null;
 
@@ -382,9 +381,8 @@ export default function TeamPartsInfoManager() {
   };
 
   // [삭제] 확인 → 삭제 대기(is_active=false) 전환.
-  const confirmDelete = async () => {
-    if (!half || !deleteTarget) return;
-    setDeleting(true);
+  const confirmDelete = async (target: TeamDto) => {
+    if (!half) return;
     setBanner(null);
     try {
       const res = await fetch(
@@ -395,7 +393,7 @@ export default function TeamPartsInfoManager() {
           body: JSON.stringify({
             organization: activeOrg,
             halfKey: half,
-            teamHalfId: deleteTarget.teamHalfId,
+            teamHalfId: target.teamHalfId,
           }),
         },
       );
@@ -407,18 +405,24 @@ export default function TeamPartsInfoManager() {
         kind: "success",
         message: "팀이 삭제 대기 상태로 전환되었습니다.",
       });
-      setDeleteTarget(null);
       await load(half);
     } catch (e) {
       setBanner({
         kind: "error",
         message: e instanceof Error ? e.message : "삭제 실패",
       });
-      setDeleteTarget(null);
-    } finally {
-      setDeleting(false);
     }
   };
+
+  // 삭제 확인 팝업(공통 adminDialog·danger) → 확인 시 confirmDelete 실행.
+  const requestDelete = (target: TeamDto) =>
+    adminDialog.confirm({
+      variant: "danger",
+      title: "팀 삭제",
+      description: `이 팀(${target.teamName})을 삭제하시겠습니까?`,
+      confirmLabel: "삭제",
+      onConfirm: () => confirmDelete(target),
+    });
 
   return (
     <Card>
@@ -663,7 +667,7 @@ export default function TeamPartsInfoManager() {
                         size="sm"
                         data-team-delete={t.teamName}
                         disabled={!editable}
-                        onClick={() => setDeleteTarget(t)}
+                        onClick={() => void requestDelete(t)}
                       >
                         삭제
                       </Button>
@@ -832,47 +836,7 @@ export default function TeamPartsInfoManager() {
         ) : null}
       </CardContent>
 
-      {/* ── 삭제 확인 팝업 ─────────────────────────────────── */}
-      {deleteTarget ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          role="dialog"
-          aria-modal="true"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget && !deleting)
-              setDeleteTarget(null);
-          }}
-        >
-          <div
-            id="team-parts-delete-modal"
-            className="modal-w-sm rounded-lg bg-white p-6 shadow-xl"
-          >
-            <p className="mb-5 text-sm font-medium">
-              이 팀을 삭제하시겠습니까?
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={deleting}
-                onClick={() => setDeleteTarget(null)}
-              >
-                취소
-              </Button>
-              <Button
-                type="button"
-                id="team-parts-delete-confirm"
-                size="sm"
-                disabled={deleting}
-                onClick={confirmDelete}
-              >
-                {deleting ? "삭제 중…" : "확인"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      {/* 팀 삭제 확인은 공통 adminDialog(danger)로 대체됨(requestDelete). */}
 
       {/* ── 팀 등록/수정 팝업 ─────────────────────────────── */}
       {modalOpen ? (

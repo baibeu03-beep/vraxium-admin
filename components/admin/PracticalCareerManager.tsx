@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import {
   Table,
   TableBody,
@@ -372,12 +373,12 @@ function ImageUploadSlot({
         });
         const json = await res.json();
         if (!json.success) {
-          alert(json.error || "업로드에 실패했습니다");
+          void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다" });
           return;
         }
         onUpload({ url: json.data.url, name: file.name });
       } catch {
-        alert("업로드 중 오류가 발생했습니다");
+        void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다" });
       } finally {
         setUploading(false);
         if (fileRef.current) fileRef.current.value = "";
@@ -489,12 +490,12 @@ function LogoUploadField({
         });
         const json = await res.json();
         if (!json.success) {
-          alert(json.error || "업로드에 실패했습니다");
+          void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다" });
           return;
         }
         onChange(json.data.url);
       } catch {
-        alert("업로드 중 오류가 발생했습니다");
+        void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다" });
       } finally {
         setUploading(false);
         if (fileRef.current) fileRef.current.value = "";
@@ -978,7 +979,7 @@ export default function PracticalCareerManager() {
   ]);
 
   const handleDeleteProject = useCallback(async (id: string) => {
-    if (!confirm("이 경력 라인을 삭제하시겠습니까?")) return;
+    if (!(await adminDialog.confirm({ variant: "danger", title: "경력 라인 삭제", description: "이 경력 라인을 삭제하시겠습니까?", confirmLabel: "삭제" }))) return;
     try {
       const res = await fetch(`/api/admin/career-projects/${id}`, { method: "DELETE" });
       const json = await res.json();

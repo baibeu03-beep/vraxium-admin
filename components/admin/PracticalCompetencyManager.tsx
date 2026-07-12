@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
@@ -144,9 +145,9 @@ function ImageUploadSlot({ label, image, caption, onUpload, onRemove, onCaptionC
       const fd = new FormData(); fd.append("file", file);
       const res = await fetch("/api/admin/cluster4/upload-image", { method: "POST", body: fd });
       const json = await res.json();
-      if (!json.success) { alert(json.error || "업로드 실패"); return; }
+      if (!json.success) { void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다." }); return; }
       onUpload({ url: json.data.url, name: file.name });
-    } catch { alert("업로드 중 오류"); } finally { setUploading(false); if (fileRef.current) fileRef.current.value = ""; }
+    } catch { void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다." }); } finally { setUploading(false); if (fileRef.current) fileRef.current.value = ""; }
   }, [onUpload]);
 
   return (
@@ -359,7 +360,7 @@ export default function PracticalCompetencyManager() {
   }, [mfOrgSlug, mfLineCode, mfLineName, mfMainTitle, mfSourceFile, adminOrg, editingMasterId, resetMasterForm, fetchInitialData]);
 
   const handleDeleteMaster = useCallback(async (id: string) => {
-    if (!confirm("이 라인을 삭제하시겠습니까?")) return;
+    if (!(await adminDialog.confirm({ variant: "danger", title: "라인 삭제", description: "이 라인을 삭제하시겠습니까?", confirmLabel: "삭제" }))) return;
     try { const res = await fetch(`/api/admin/cluster4/competency-line-masters/${id}`, { method: "DELETE" }); const json = await res.json(); if (!json.success) { setBanner({ kind: "error", message: json.error ?? "삭제 실패" }); return; } setBanner({ kind: "success", message: "삭제되었습니다" }); await fetchInitialData(); } catch { setBanner({ kind: "error", message: "삭제 중 오류" }); }
   }, [fetchInitialData]);
 

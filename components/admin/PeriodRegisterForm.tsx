@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CalendarPlus, RefreshCw, RotateCcw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -254,28 +255,28 @@ export default function PeriodRegisterForm() {
     setSuccessMessage(null);
 
     if (candidateYear === NONE || !selectedCandidate) {
-      alert("기간(월~일 주차)을 선택해 주세요.");
+      void adminDialog.alert({ variant: "warning", title: "입력 확인", description: "기간(월~일 주차)을 선택해 주세요." });
       return;
     }
     if (regYear === NONE) {
-      alert("연도를 선택해 주세요.");
+      void adminDialog.alert({ variant: "warning", title: "입력 확인", description: "연도를 선택해 주세요." });
       return;
     }
     if (regSeason === NONE) {
-      alert("시즌을 선택해 주세요.");
+      void adminDialog.alert({ variant: "warning", title: "입력 확인", description: "시즌을 선택해 주세요." });
       return;
     }
     if (regWeek === NONE) {
-      alert("주차를 선택해 주세요.");
+      void adminDialog.alert({ variant: "warning", title: "입력 확인", description: "주차를 선택해 주세요." });
       return;
     }
     if (activity === NONE) {
-      alert("활동 구분을 선택해 주세요.");
+      void adminDialog.alert({ variant: "warning", title: "입력 확인", description: "활동 구분을 선택해 주세요." });
       return;
     }
     const trimmedNote = note.trim();
     if (trimmedNote.length > NOTE_MAX_LENGTH) {
-      alert(`비고는 최대 ${NOTE_MAX_LENGTH}자까지 입력할 수 있습니다.`);
+      void adminDialog.alert({ variant: "warning", title: "입력 확인", description: `비고는 최대 ${NOTE_MAX_LENGTH}자까지 입력할 수 있습니다.` });
       return;
     }
 
@@ -290,7 +291,7 @@ export default function PeriodRegisterForm() {
       ((weekNumber >= 6 && weekNumber <= 8) ||
         (weekNumber >= 14 && weekNumber <= 16));
     if (activity === "official" && isExamRestWeek) {
-      alert("해당 주차는 시험기간 공식 휴식 주차입니다.");
+      void adminDialog.alert({ variant: "warning", title: "등록 불가", description: "해당 주차는 시험기간 공식 휴식 주차입니다." });
       return;
     }
 
@@ -303,7 +304,7 @@ export default function PeriodRegisterForm() {
       if (weekNumber !== expectedWeek) {
         const seasonLabel =
           SEASON_OPTIONS.find((o) => o.key === regSeason)?.label ?? regSeason;
-        alert(`전환 주차는 ${seasonLabel} 시즌 ${expectedWeek}주차여야 합니다.`);
+        void adminDialog.alert({ variant: "warning", title: "전환 주차 확인", description: `전환 주차는 ${seasonLabel} 시즌 ${expectedWeek}주차여야 합니다.` });
         return;
       }
     }
@@ -314,7 +315,7 @@ export default function PeriodRegisterForm() {
       (row) => row.season_key === seasonKey && row.week_number === weekNumber,
     );
     if (duplicated) {
-      alert("동일한 주차 정보를 가진 기간이 있습니다.");
+      void adminDialog.alert({ variant: "warning", title: "중복 확인", description: "동일한 주차 정보를 가진 기간이 있습니다." });
       return;
     }
 
@@ -338,7 +339,7 @@ export default function PeriodRegisterForm() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        alert(json?.error ?? "등록에 실패했습니다.");
+        void adminDialog.alert({ variant: "danger", title: "등록 실패", description: json?.error ?? "등록에 실패했습니다." });
         return;
       }
 
@@ -359,7 +360,7 @@ export default function PeriodRegisterForm() {
       // 기간 정보와 동일 원천 재조회 — 다음 중복 검증에 신규 등록분 즉시 반영.
       setRefreshTick((v) => v + 1);
     } catch {
-      alert("등록 중 오류가 발생했습니다.");
+      void adminDialog.alert({ variant: "danger", title: "등록 오류", description: "등록 중 오류가 발생했습니다." });
     } finally {
       setSubmitting(false);
     }

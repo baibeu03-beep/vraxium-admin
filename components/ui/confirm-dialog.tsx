@@ -1,26 +1,16 @@
 "use client";
 
-// 공통 확인(Confirm) UI — 데이터가 바뀌는 의사결정 버튼(초기화/저장/완료/삭제/닫기 등)에
-//   "한 번 더 확인" 단계를 붙이기 위한 재사용 인프라.
+// 공통 확인(Confirm) — 하위호환 얇은 어댑터.
 //
-//   사용법(명령형 Promise API — 기존 onClick 핸들러에 그대로 끼워넣기 좋음):
-//     const confirm = useConfirm();
-//     const ok = await confirm(CONFIRM.reset);     // 또는 직접 { title, description, ... }
-//     if (!ok) return;                              // 취소 → 입력값 그대로 유지
-//     await actuallyDoTheThing();                   // 확인 → 실제 동작
+//   이 파일은 이제 자체 다이얼로그를 렌더하지 않는다. 실제 구현은 어드민 전역 단일 인프라
+//   components/ui/admin-dialog.tsx(adminDialog store + <AdminDialogViewport/>)로 수렴했다.
+//   기존 21개 파일이 쓰던 useConfirm()/CONFIRM/ConfirmOptions API 를 그대로 유지하기 위해
+//   adminDialog.confirm 에 위임하는 shim 만 남긴다(tone → variant 매핑).
 //
-//   - window.confirm() 직접 호출을 대체합니다.
-//   - 확인 다이얼로그는 기존 모달(z-50) 위에 떠야 하므로 z-[60].
-//   - 단순 조회/열기 버튼에는 쓰지 마세요. 실제 데이터가 바뀌는 버튼에만.
+//   신규 코드는 adminDialog.{alert,confirm,prompt,open} 을 직접 사용하세요.
+//   (이 shim 은 기존 호출부 무수정 유지를 위한 것.)
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 
 export type ConfirmTone = "default" | "destructive";
 
@@ -39,13 +29,8 @@ export type ConfirmOptions = {
 
 type ConfirmFn = (opts: ConfirmOptions) => Promise<boolean>;
 
-type Pending = ConfirmOptions & { resolve: (result: boolean) => void };
-
-const ConfirmContext = createContext<ConfirmFn | null>(null);
-
 /**
  * 버튼별 표준 안내 문구 프리셋.
- * 동작 라벨이 바뀌어야 하면 confirmLabel/title 을 spread 로 덮어쓰면 됩니다.
  *   await confirm({ ...CONFIRM.complete, confirmLabel: "검수 신청 완료" })
  */
 export const CONFIRM = {
@@ -85,94 +70,25 @@ export const CONFIRM = {
   },
 } satisfies Record<string, ConfirmOptions>;
 
+/**
+ * ConfirmProvider — 하위호환 passthrough. 실제 렌더는 <AdminDialogViewport/> 가 담당하므로
+ * 여기서는 자식만 그대로 렌더한다(layout 의 기존 import/JSX 무수정 유지용).
+ */
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
-  const [pending, setPending] = useState<Pending | null>(null);
-
-  const confirm = useCallback<ConfirmFn>((opts) => {
-    return new Promise<boolean>((resolve) => {
-      setPending({ ...opts, resolve });
-    });
-  }, []);
-
-  const settle = useCallback((result: boolean) => {
-    setPending((cur) => {
-      cur?.resolve(result);
-      return null;
-    });
-  }, []);
-
-  // 키보드: Esc = 취소, Enter = 확인.
-  useEffect(() => {
-    if (!pending) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        settle(false);
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        settle(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [pending, settle]);
-
-  return (
-    <ConfirmContext.Provider value={confirm}>
-      {children}
-      {pending && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) settle(false);
-          }}
-        >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-label={pending.title ?? "확인"}
-            className="modal-w-sm rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10"
-          >
-            {pending.title && (
-              <h2 className="text-base font-semibold">{pending.title}</h2>
-            )}
-            <div className="mt-1.5 text-sm whitespace-pre-line text-muted-foreground">
-              {pending.description}
-            </div>
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => settle(false)}
-              >
-                {pending.cancelLabel ?? "취소"}
-              </Button>
-              <Button
-                type="button"
-                variant={pending.tone === "destructive" ? "destructive" : "default"}
-                size="sm"
-                autoFocus
-                onClick={() => settle(true)}
-              >
-                {pending.confirmLabel ?? "확인"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </ConfirmContext.Provider>
-  );
+  return <>{children}</>;
 }
 
 /**
- * 확인 다이얼로그를 띄우는 명령형 함수를 반환.
- * resolve(true) = 확인, resolve(false) = 취소/바깥클릭/Esc.
+ * 확인 다이얼로그를 띄우는 명령형 함수를 반환. resolve(true)=확인, resolve(false)=취소/ESC/바깥.
+ * 내부적으로 adminDialog.confirm 에 위임한다(tone:"destructive" → variant:"danger").
  */
 export function useConfirm(): ConfirmFn {
-  const ctx = useContext(ConfirmContext);
-  if (!ctx) {
-    throw new Error("useConfirm must be used inside <ConfirmProvider>");
-  }
-  return ctx;
+  return (opts: ConfirmOptions) =>
+    adminDialog.confirm({
+      variant: opts.tone === "destructive" ? "danger" : "default",
+      title: opts.title,
+      description: opts.description,
+      confirmLabel: opts.confirmLabel,
+      cancelLabel: opts.cancelLabel,
+    });
 }

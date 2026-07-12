@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -237,9 +238,12 @@ export default function TeamPartsInfoWeeksManager({
   // [활동 관리] — 공식 휴식이면 이동 금지 + 안내, 공식 활동이면 상세 페이지 A 로 이동(라우팅만 준비).
   const onManageActivity = (item: TeamPartsInfoWeekItem, club: OrganizationSlug) => {
     if (item.clubActivityStatus === "official_rest") {
-      window.alert(
-        "[공식 휴식] 주차로서, 아무런 라인과 그에 수반되는 액트가 체크되지 않습니다.",
-      );
+      void adminDialog.alert({
+        variant: "info",
+        title: "공식 휴식 주차",
+        description:
+          "[공식 휴식] 주차로서, 아무런 라인과 그에 수반되는 액트가 체크되지 않습니다.",
+      });
       return;
     }
     // scoped(클럽 진행)는 ?org, 통합 어드민은 기존 ?club 컨텍스트를 유지한다.

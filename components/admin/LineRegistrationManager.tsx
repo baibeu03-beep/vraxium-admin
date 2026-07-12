@@ -24,6 +24,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -161,12 +162,12 @@ function LogoUploadField({
         });
         const json = await res.json();
         if (!json.success) {
-          alert(json.error || "업로드에 실패했습니다");
+          void adminDialog.alert({ variant: "danger", title: "업로드 실패", description: json.error || "업로드에 실패했습니다" });
           return;
         }
         onChange(json.data.url);
       } catch {
-        alert("업로드 중 오류가 발생했습니다");
+        void adminDialog.alert({ variant: "danger", title: "업로드 오류", description: "업로드 중 오류가 발생했습니다" });
       } finally {
         setUploading(false);
         if (fileRef.current) fileRef.current.value = "";

@@ -8,7 +8,6 @@ import {
   Plus,
   X,
   ExternalLink,
-  Trash2,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
@@ -17,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import {
   Table,
   TableBody,
@@ -319,7 +319,6 @@ export default function CompetencyApplicantSection({
   const [rejectDraft, setRejectDraft] = useState("");
 
   // 수동 추가 항목 삭제 확인 팝업(source='manual' 만).
-  const [deleteApp, setDeleteApp] = useState<ApplicationDto | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -584,12 +583,11 @@ export default function CompetencyApplicantSection({
   );
 
   // 수동 추가 항목 삭제(고객 신청은 X 버튼 자체가 없음 + 서버 source 게이트로 이중 차단).
-  const submitDelete = useCallback(async () => {
-    if (!deleteApp) return;
+  const submitDelete = useCallback(async (app: ApplicationDto) => {
     setSaving(true);
     setBanner(null);
     try {
-      const res = await fetch(`/api/admin/cluster4/competency/applications/${deleteApp.id}`, {
+      const res = await fetch(`/api/admin/cluster4/competency/applications/${app.id}`, {
         method: "DELETE",
       });
       const json = await res.json();
@@ -598,14 +596,40 @@ export default function CompetencyApplicantSection({
         return;
       }
       setBanner({ kind: "success", message: "수동 추가 항목이 삭제되었습니다" });
-      setDeleteApp(null);
       await fetchData();
     } catch {
       setBanner({ kind: "error", message: "삭제 중 오류" });
     } finally {
       setSaving(false);
     }
-  }, [deleteApp, fetchData]);
+  }, [fetchData]);
+
+  // 수동 추가 삭제 확인(공통 adminDialog·danger) → 확인 시 submitDelete 실행.
+  const requestDelete = useCallback(
+    (app: ApplicationDto) =>
+      adminDialog.confirm({
+        variant: "danger",
+        title: "수동 추가 삭제",
+        confirmLabel: "삭제",
+        description: (
+          <div className="space-y-3">
+            <p>아래 수동 추가 항목을 승인 명단에서 삭제하시겠습니까? (되돌릴 수 없음)</p>
+            <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              <div className="flex gap-2">
+                <dt className="w-24 shrink-0 text-muted-foreground">크루명</dt>
+                <dd className="min-w-0 break-words font-medium">{app.crewLabel}</dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-24 shrink-0 text-muted-foreground">라인명</dt>
+                <dd className="font-medium">{app.lineName}</dd>
+              </div>
+            </dl>
+          </div>
+        ),
+        onConfirm: () => submitDelete(app),
+      }),
+    [submitDelete],
+  );
 
   const submitReject = useCallback(async () => {
     if (!rejectApp) return;
@@ -846,7 +870,7 @@ export default function CompetencyApplicantSection({
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7"
-                          onClick={() => setDeleteApp(a)}
+                          onClick={() => void requestDelete(a)}
                           aria-label={`${a.displayName} 수동 추가 삭제`}
                           title="수동 추가 항목 삭제"
                         >
@@ -874,15 +898,27 @@ export default function CompetencyApplicantSection({
             className="modal-w-md space-y-4 rounded-lg bg-background p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-bold">수동 추가</h3>
+            <h3 className="inline-flex items-center gap-1 text-base font-bold">
+              수동 추가
+              <AdminHelpIconButton
+                size="xs"
+                helpKey="admin.lineOpening.competency.section.manualAdd"
+                title="수동 추가"
+              />
+            </h3>
             <p className="text-sm text-muted-foreground">
               {selectedCrew.crewCode ?? "-"} -{" "}
               {selectedCrew.name}
               {selectedCrew.teamName ? ` - ${selectedCrew.teamName}` : ""}
             </p>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">
+              <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 라인명 <span className="text-red-500">*</span>
+                <AdminHelpIconButton
+                  size="xs"
+                  helpKey="admin.lineOpening.competency.field.manualLineName"
+                  title="라인명"
+                />
               </Label>
               {/* 자유 입력 금지 — 개설 가능한 competency master line 드롭다운에서만 선택(오타/미존재 방지). */}
               <select
@@ -905,7 +941,14 @@ export default function CompetencyApplicantSection({
               )}
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">제출 링크</Label>
+              <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                제출 링크
+                <AdminHelpIconButton
+                  size="xs"
+                  helpKey="admin.lineOpening.competency.field.manualSubmissionLink"
+                  title="제출 링크"
+                />
+              </Label>
               <Input
                 value={addLink}
                 onChange={(e) => setAddLink(e.target.value)}
@@ -935,18 +978,46 @@ export default function CompetencyApplicantSection({
             className="modal-w-md space-y-4 rounded-lg bg-background p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-base font-bold">반려 사유</h3>
+            <h3 className="inline-flex items-center gap-1 text-base font-bold">
+              반려 사유
+              <AdminHelpIconButton
+                size="xs"
+                helpKey="admin.lineOpening.competency.section.rejectReason"
+                title="반려 사유"
+              />
+            </h3>
             <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-24 shrink-0 whitespace-nowrap text-muted-foreground">크루명</dt>
+                <dt className="inline-flex w-24 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">
+                  크루명
+                  <AdminHelpIconButton
+                    size="xs"
+                    helpKey="admin.lineOpening.competency.applicants.column.crew"
+                    title="크루명"
+                  />
+                </dt>
                 <dd className="min-w-0 break-words font-medium">{rejectApp.crewLabel}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-24 shrink-0 whitespace-nowrap text-muted-foreground">라인명</dt>
+                <dt className="inline-flex w-24 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">
+                  라인명
+                  <AdminHelpIconButton
+                    size="xs"
+                    helpKey="admin.lineOpening.competency.applicants.column.line"
+                    title="라인명"
+                  />
+                </dt>
                 <dd className="font-medium">{rejectApp.lineName}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-24 shrink-0 whitespace-nowrap text-muted-foreground">제출 링크</dt>
+                <dt className="inline-flex w-24 shrink-0 items-center gap-1 whitespace-nowrap text-muted-foreground">
+                  제출 링크
+                  <AdminHelpIconButton
+                    size="xs"
+                    helpKey="admin.lineOpening.competency.applicants.column.submissionLink"
+                    title="제출 링크"
+                  />
+                </dt>
                 <dd className="min-w-0 break-all">
                   {rejectApp.submissionLink ? (
                     <a
@@ -964,7 +1035,14 @@ export default function CompetencyApplicantSection({
               </div>
             </dl>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">반려 사유</Label>
+              <Label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                반려 사유
+                <AdminHelpIconButton
+                  size="xs"
+                  helpKey="admin.lineOpening.competency.field.rejectReason"
+                  title="반려 사유"
+                />
+              </Label>
               <textarea
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 rows={4}
@@ -986,47 +1064,7 @@ export default function CompetencyApplicantSection({
       )}
 
       {/* 수동 추가 삭제 확인 팝업 */}
-      {deleteApp && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => !saving && setDeleteApp(null)}
-        >
-          <div
-            className="modal-w-sm space-y-4 rounded-lg bg-background p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="flex items-center gap-2 text-base font-bold">
-              <Trash2 className="h-4 w-4 text-red-500" /> 수동 추가 삭제
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              아래 수동 추가 항목을 승인 명단에서 삭제하시겠습니까? (되돌릴 수 없음)
-            </p>
-            <dl className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-              <div className="flex gap-2">
-                <dt className="w-24 shrink-0 whitespace-nowrap text-muted-foreground">크루명</dt>
-                <dd className="min-w-0 break-words font-medium">{deleteApp.crewLabel}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="w-24 shrink-0 whitespace-nowrap text-muted-foreground">라인명</dt>
-                <dd className="font-medium">{deleteApp.lineName}</dd>
-              </div>
-            </dl>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button variant="outline" onClick={() => setDeleteApp(null)} disabled={saving}>
-                취소
-              </Button>
-              <Button
-                onClick={submitDelete}
-                loading={saving}
-                disabled={saving}
-                className="bg-red-600 text-white hover:bg-red-700"
-              >
-                삭제
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 수동 추가 삭제 확인은 공통 adminDialog(danger)로 대체됨(requestDelete). */}
     </Card>
   );
 }

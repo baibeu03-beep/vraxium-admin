@@ -15,9 +15,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
-  ConfirmModal,
   FreshnessLine,
   OutcomeBadge,
   QaRunNowLogList,
@@ -64,17 +64,26 @@ function SnapshotBatchPanel() {
   const { run, busy, result, error, ranAt } = useRunNow<BatchResult>(
     "/api/admin/qa/run-now/snapshot-batch",
   );
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [logKey, setLogKey] = useState(0);
 
   const runDry = async () => {
     if (await run({ mode: "dry_run" })) setLogKey((n) => n + 1);
   };
   const runExec = async () => {
-    const ok = await run({ mode: "execute" });
-    setConfirmOpen(false);
-    if (ok) setLogKey((n) => n + 1);
+    if (await run({ mode: "execute" })) setLogKey((n) => n + 1);
   };
+  const confirmExec = () =>
+    adminDialog.confirm({
+      title: "테스트 유저 snapshot 전수 재계산",
+      confirmLabel: "재계산",
+      description: (
+        <p>
+          test_user_markers 에 등재된 <b>모든 테스트 사용자</b>의 주차 카드 snapshot 을 지금
+          재계산합니다. 멱등 — 여러 번 실행해도 안전합니다.
+        </p>
+      ),
+      onConfirm: runExec,
+    });
 
   const r = result;
   const summary =
@@ -122,28 +131,13 @@ function SnapshotBatchPanel() {
           <Button variant="outline" onClick={runDry} disabled={busy}>
             {busy ? "확인 중…" : "미리보기 (변경 없음)"}
           </Button>
-          <Button onClick={() => setConfirmOpen(true)} disabled={busy}>
+          <Button onClick={confirmExec} disabled={busy}>
             지금 재계산 (테스트 전수)
           </Button>
         </div>
         <ResultView result={result} error={error} summary={summary} />
         <QaRunNowLogList action="snapshot_batch" refreshKey={logKey + ranAt} />
       </CardContent>
-
-      <ConfirmModal
-        open={confirmOpen}
-        title="테스트 유저 snapshot 전수 재계산"
-        confirmLabel="재계산"
-        busy={busy}
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={runExec}
-        body={
-          <p>
-            test_user_markers 에 등재된 <b>모든 테스트 사용자</b>의 주차 카드 snapshot 을 지금
-            재계산합니다. 멱등 — 여러 번 실행해도 안전합니다.
-          </p>
-        }
-      />
     </Card>
   );
 }
@@ -153,7 +147,6 @@ function UserSnapshotPanel() {
   const { run, busy, result, error, ranAt } = useRunNow<UserResult>(
     "/api/admin/qa/run-now/user-snapshot",
   );
-  const [confirmOpen, setConfirmOpen] = useState(false);
   const [logKey, setLogKey] = useState(0);
 
   const [users, setUsers] = useState<TestUserRow[]>([]);
@@ -205,10 +198,20 @@ function UserSnapshotPanel() {
     if (await run({ mode: "dry_run", userIds: selectedIds })) setLogKey((n) => n + 1);
   };
   const runExec = async () => {
-    const ok = await run({ mode: "execute", userIds: selectedIds });
-    setConfirmOpen(false);
-    if (ok) setLogKey((n) => n + 1);
+    if (await run({ mode: "execute", userIds: selectedIds })) setLogKey((n) => n + 1);
   };
+  const confirmExec = () =>
+    adminDialog.confirm({
+      title: "선택한 테스트 유저 snapshot 재계산",
+      confirmLabel: "재계산",
+      description: (
+        <p>
+          선택한 <b>{selectedIds.length}명</b>의 주차 카드 snapshot 을 재계산합니다. 실유저가
+          포함되면 전체가 거절됩니다(test_user_markers 검증). 멱등.
+        </p>
+      ),
+      onConfirm: runExec,
+    });
 
   const r = result;
   const summary =
@@ -301,7 +304,7 @@ function UserSnapshotPanel() {
           >
             {busy ? "확인 중…" : "미리보기 (변경 없음)"}
           </Button>
-          <Button onClick={() => setConfirmOpen(true)} disabled={busy || selectedIds.length === 0}>
+          <Button onClick={confirmExec} disabled={busy || selectedIds.length === 0}>
             선택 재계산
           </Button>
         </div>
@@ -309,21 +312,6 @@ function UserSnapshotPanel() {
         <ResultView result={result} error={error} summary={summary} />
         <QaRunNowLogList action="user_snapshot" refreshKey={logKey + ranAt} />
       </CardContent>
-
-      <ConfirmModal
-        open={confirmOpen}
-        title="선택한 테스트 유저 snapshot 재계산"
-        confirmLabel="재계산"
-        busy={busy}
-        onCancel={() => setConfirmOpen(false)}
-        onConfirm={runExec}
-        body={
-          <p>
-            선택한 <b>{selectedIds.length}명</b>의 주차 카드 snapshot 을 재계산합니다. 실유저가
-            포함되면 전체가 거절됩니다(test_user_markers 검증). 멱등.
-          </p>
-        }
-      />
     </Card>
   );
 }

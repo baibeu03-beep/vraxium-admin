@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -410,9 +411,11 @@ export default function ExperiencePartLeadInput({
     (teamId: string) => {
       const target = teams.find((t) => t.id === teamId);
       if (target && !teamAllowed(target.teamName)) {
-        if (typeof window !== "undefined") {
-          window.alert("해당 팀 입장 권한이 없습니다.");
-        }
+        void adminDialog.alert({
+          variant: "warning",
+          title: "입장 권한 없음",
+          description: "해당 팀 입장 권한이 없습니다.",
+        });
         return; // 차단 — 팀 전환하지 않음.
       }
       setSelectedTeamId(teamId);

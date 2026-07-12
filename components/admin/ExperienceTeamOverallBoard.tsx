@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RotateCcw, Eye, CheckCircle2, XCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -366,7 +367,14 @@ export default function ExperienceTeamOverallBoard({
   }, [allCrews]);
 
   const onOpen = useCallback(async () => {
-    if (!confirm("현재 입력값으로 개설 완료하시겠습니까? 크루 페이지에 실제 반영됩니다.")) return;
+    if (
+      !(await adminDialog.confirm({
+        title: "개설 완료",
+        description: "현재 입력값으로 개설 완료하시겠습니까?\n크루 페이지에 실제 반영됩니다.",
+        confirmLabel: "개설 완료",
+      }))
+    )
+      return;
     setSaving(true);
     setBanner(null);
     try {
@@ -394,7 +402,15 @@ export default function ExperienceTeamOverallBoard({
   }, [post, fetchBoard, onActivity]);
 
   const onCancel = useCallback(async () => {
-    if (!confirm("이미 개설 완료된 정보를 모두 취소하고 크루 페이지 반영을 원복하시겠습니까?")) return;
+    if (
+      !(await adminDialog.confirm({
+        variant: "warning",
+        title: "개설 취소",
+        description: "이미 개설 완료된 정보를 모두 취소하고 크루 페이지 반영을 원복하시겠습니까?",
+        confirmLabel: "개설 취소",
+      }))
+    )
+      return;
     setSaving(true);
     setBanner(null);
     try {

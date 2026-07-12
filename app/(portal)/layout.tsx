@@ -5,11 +5,14 @@ import GlobalLoadingBanner from "@/components/admin/GlobalLoadingBanner";
 import { LoadingBannerProvider } from "@/components/admin/loadingBannerContext";
 import { SidebarProvider } from "@/components/admin/sidebarContext";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
+import { AdminDialogViewport } from "@/components/ui/admin-dialog";
 import { ToastViewport } from "@/components/ui/toast";
 import AdminSessionProvider from "@/components/admin/AdminSessionProvider";
 import { requireAdminPage } from "@/lib/adminAuth";
 import { loadAdminDisplayName } from "@/lib/adminMe";
+import { resolveAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { AdminModeProvider } from "@/components/admin/AdminModeProvider";
+import { AdminOrgAccessProvider } from "@/components/admin/AdminOrgAccessProvider";
 import { Suspense } from "react";
 
 export default async function PortalLayout({
@@ -20,10 +23,15 @@ export default async function PortalLayout({
   const admin = await requireAdminPage();
   // 헤더 우측 관리자 정보 표시용(이름 SoT = user_profiles.display_name).
   const adminDisplayName = await loadAdminDisplayName(admin.userId);
+  // 관리자별 허용 조직(SoT = role + user_profiles.organization_slug). 조직 탭/필터 게이트용으로
+  // 하위 클라이언트 트리에 주입한다(서버 계산 → 클라 fetch/로딩 없음). 서버 API 는 별도 재검증.
+  const orgAccess = await resolveAdminOrgAccess(admin);
 
   return (
     <Suspense fallback={null}>
       <AdminModeProvider>
+        {/* 관리자별 허용 조직 컨텍스트 — 조직 탭/필터 게이트(휴식 관리·라인 정보·팀/파트 정보). */}
+        <AdminOrgAccessProvider value={orgAccess}>
         {/* 표준 쿠키 세션 관리(단일 SoT): 미사용 자동 로그아웃 + 탭 간 즉시 로그아웃 +
             헤더 카운트다운 공급. Header 가 소비할 수 있도록 하위 트리를 감싼다. */}
         <AdminSessionProvider>
@@ -57,9 +65,14 @@ export default async function PortalLayout({
             토스트를 발행하는 페이지가 있을 때만 화면에 나타나므로, 아직 옮기지 않은
             다른 페이지의 기존 배너 동작에는 영향을 주지 않는다. */}
         <ToastViewport />
+        {/* 전역 커스텀 다이얼로그 뷰포트 — document.body 포털. 여기 한 곳에만 마운트한다
+            (adminDialog store 싱글턴). 시스템 팝업(alert/confirm/prompt)과 페이지별 임시
+            확인창을 대체한다. */}
+        <AdminDialogViewport />
       </ConfirmProvider>
         </SidebarProvider>
         </AdminSessionProvider>
+        </AdminOrgAccessProvider>
       </AdminModeProvider>
     </Suspense>
   );

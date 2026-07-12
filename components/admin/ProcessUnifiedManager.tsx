@@ -17,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -544,7 +545,7 @@ export default function ProcessUnifiedManager() {
   const guardCheck = useCallback(
     (nextWeek: ProcessWeekRef, nextDow: number, nextTime: string): boolean => {
       if (isCheckBeforeOccur(occurWeek, occurDow, occurTime, nextWeek, nextDow, nextTime)) {
-        window.alert("신청 시점보다 이전입니다.");
+        void adminDialog.alert({ variant: "warning", title: "검수 시점 오류", description: "신청 시점보다 이전입니다." });
         return false;
       }
       return true;
@@ -602,9 +603,12 @@ export default function ProcessUnifiedManager() {
   const handleDeleteGroup = useCallback(
     async (group: ProcessLineGroupDto) => {
       if (group.actCount > 0) {
-        window.alert(
-          "산하 등록된 액트가 존재합니다.\n\n산하 등록된 액트가 없어야, 이 라인 급을 삭제할 수 있습니다.\n\n액트 삭제는 아래 통합 목록 표에서 진행해주세요.",
-        );
+        void adminDialog.alert({
+          variant: "warning",
+          title: "라인급 삭제 불가",
+          description:
+            "산하 등록된 액트가 존재합니다.\n\n산하 등록된 액트가 없어야, 이 라인 급을 삭제할 수 있습니다.\n\n액트 삭제는 아래 통합 목록 표에서 진행해주세요.",
+        });
         return;
       }
       if (!(await confirm({ ...CONFIRM.delete, description: `라인급 "${group.name}" 을(를) 삭제할까요?` }))) return;
@@ -614,7 +618,7 @@ export default function ProcessUnifiedManager() {
         const json = await res.json().catch(() => ({}));
         if (!res.ok || !json.success) {
           if (res.status === 409) {
-            window.alert(json.error || "산하 액트가 존재하여 삭제할 수 없습니다");
+            void adminDialog.alert({ variant: "danger", title: "삭제 불가", description: json.error || "산하 액트가 존재하여 삭제할 수 없습니다" });
             if (selectedHub) await loadGroups(selectedHub);
             return;
           }

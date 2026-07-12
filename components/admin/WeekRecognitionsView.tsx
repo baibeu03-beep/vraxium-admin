@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import {
   Select,
   SelectContent,
@@ -239,10 +240,6 @@ export default function WeekRecognitionsView() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [editing, setEditing] = useState<WeekRecognitionRow | null>(null);
-  const [publishTarget, setPublishTarget] =
-    useState<WeekRecognitionWeekOption | null>(null);
-  const [reviewTarget, setReviewTarget] =
-    useState<WeekRecognitionWeekOption | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
 
   useEffect(() => {
@@ -329,7 +326,6 @@ export default function WeekRecognitionsView() {
   );
 
   const handlePublished = useCallback((label: string) => {
-    setPublishTarget(null);
     setBanner({
       kind: "success",
       message: `${label} 결과를 확정했습니다. 크루 페이지에서 이 주차 카드가 성공/실패 상태로 전환됩니다.`,
@@ -338,13 +334,104 @@ export default function WeekRecognitionsView() {
   }, []);
 
   const handleReviewed = useCallback((label: string) => {
-    setReviewTarget(null);
     setBanner({
       kind: "success",
       message: `${label} 검수를 완료했습니다. /weekly-ranking 에서 이 주차 카드가 "검수 완료"로 표시됩니다.`,
     });
     setRefreshTick((n) => n + 1);
   }, []);
+
+  // 주차 결과 확정 — 공통 adminDialog(확인 시 publish-result, 비가역). 실패는 배너로 안내.
+  const publishWeek = useCallback(
+    (week: WeekRecognitionWeekOption) =>
+      adminDialog.confirm({
+        title: "주차 결과 확정",
+        confirmLabel: "결과 확정",
+        description: (
+          <div className="flex flex-col gap-3">
+            <div className="rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+              <div className="font-medium">{week.week_label}</div>
+              <div className="text-xs text-muted-foreground">
+                {formatRange(week.week_start_date, week.week_end_date)}
+              </div>
+            </div>
+            <p>
+              이 주차 결과를 확정하면 크루 페이지에서 해당 주차 카드가 &quot;성장(집계 중)&quot;에서
+              사용자별 성공/실패 상태로 전환됩니다. 사용자별 인정 상태(성공/실패/휴식) 자체는
+              변경되지 않으며, 결과 확정은 취소할 수 없습니다.
+            </p>
+          </div>
+        ),
+        onConfirm: async () => {
+          try {
+            const res = await fetch(
+              appendModeQuery(
+                `/api/admin/weeks/${encodeURIComponent(week.week_id)}/publish-result`,
+                mode,
+              ),
+              { method: "PATCH" },
+            );
+            const json = await res.json();
+            if (!res.ok || !json.success) {
+              throw new Error(json?.error ?? "결과 확정에 실패했습니다.");
+            }
+            handlePublished(week.week_label);
+          } catch (err) {
+            setBanner({
+              kind: "error",
+              message: err instanceof Error ? err.message : "결과 확정에 실패했습니다.",
+            });
+          }
+        },
+      }),
+    [mode, handlePublished],
+  );
+
+  // 주차 검수 완료 — 공통 adminDialog(확인 시 review-result, 비가역). 실패는 배너로 안내.
+  const reviewWeek = useCallback(
+    (week: WeekRecognitionWeekOption) =>
+      adminDialog.confirm({
+        title: "주차 검수 완료",
+        confirmLabel: "검수 완료",
+        description: (
+          <div className="flex flex-col gap-3">
+            <div className="rounded-lg border bg-muted/20 px-3 py-2 text-sm">
+              <div className="font-medium">{week.week_label}</div>
+              <div className="text-xs text-muted-foreground">
+                {formatRange(week.week_start_date, week.week_end_date)}
+              </div>
+            </div>
+            <p>
+              이 주차를 검수 완료하면 크루 <code>/weekly-ranking</code> 카드가 &quot;공표
+              중&quot;에서 &quot;검수 완료&quot;로 전환됩니다. 개인 주차 카드/집계 수치는 변하지
+              않으며(검수 완료는 랭킹 라벨 신호), 검수 완료는 취소할 수 없습니다.
+            </p>
+          </div>
+        ),
+        onConfirm: async () => {
+          try {
+            const res = await fetch(
+              appendModeQuery(
+                `/api/admin/weeks/${encodeURIComponent(week.week_id)}/review-result`,
+                mode,
+              ),
+              { method: "PATCH" },
+            );
+            const json = await res.json();
+            if (!res.ok || !json.success) {
+              throw new Error(json?.error ?? "검수 완료에 실패했습니다.");
+            }
+            handleReviewed(week.week_label);
+          } catch (err) {
+            setBanner({
+              kind: "error",
+              message: err instanceof Error ? err.message : "검수 완료에 실패했습니다.",
+            });
+          }
+        },
+      }),
+    [mode, handleReviewed],
+  );
 
   const seasons = data?.seasons ?? [];
   const allWeeks = data?.weeks ?? [];
@@ -608,7 +695,7 @@ export default function WeekRecognitionsView() {
                   <div className="flex items-center gap-2">
                     <Button
                       type="button"
-                      onClick={() => setPublishTarget(selectedWeek)}
+                      onClick={() => void publishWeek(selectedWeek)}
                       disabled={!canConfirm}
                     >
                       {confirmed ? "공표 완료" : "이 주차 결과 공표"}
@@ -616,7 +703,7 @@ export default function WeekRecognitionsView() {
                     <Button
                       type="button"
                       variant={canReview ? "default" : "ghost"}
-                      onClick={() => setReviewTarget(selectedWeek)}
+                      onClick={() => void reviewWeek(selectedWeek)}
                       disabled={!canReview}
                     >
                       {reviewed ? "검수 완료됨" : "검수 완료"}
@@ -801,217 +888,10 @@ export default function WeekRecognitionsView() {
           onSaved={handleSaved}
         />
       )}
-
-      {publishTarget && (
-        <PublishWeekModal
-          week={publishTarget}
-          onClose={() => setPublishTarget(null)}
-          onPublished={handlePublished}
-        />
-      )}
-
-      {reviewTarget && (
-        <ReviewWeekModal
-          week={reviewTarget}
-          onClose={() => setReviewTarget(null)}
-          onReviewed={handleReviewed}
-        />
-      )}
     </div>
   );
 }
 
-// 검수 완료 모달 — 공표된 주차의 weeks.result_reviewed_at 을 세팅한다(PublishWeekModal 미러).
-//   개인 카드/스냅샷 무영향 — /weekly-ranking 라벨만 '공표 중' → '검수 완료'.
-function ReviewWeekModal({
-  week,
-  onClose,
-  onReviewed,
-}: {
-  week: WeekRecognitionWeekOption;
-  onClose: () => void;
-  onReviewed: (label: string) => void;
-}) {
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const mode = readScopeMode(useSearchParams());
-
-  const submit = async () => {
-    if (saving) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        appendModeQuery(
-          `/api/admin/weeks/${encodeURIComponent(week.week_id)}/review-result`,
-          mode,
-        ),
-        { method: "PATCH" },
-      );
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to mark week result reviewed.");
-      }
-      onReviewed(week.week_label);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to mark week result reviewed.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="주차 검수 완료"
-        className="modal-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold">주차 검수 완료</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            aria-label="닫기"
-            className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-50"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="mb-4 rounded-lg border bg-muted/20 px-3 py-2 text-sm">
-          <div className="font-medium">{week.week_label}</div>
-          <div className="text-xs text-muted-foreground">
-            {formatRange(week.week_start_date, week.week_end_date)}
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <p className="text-sm text-muted-foreground">
-          이 주차를 검수 완료하면 크루 <code>/weekly-ranking</code> 카드가
-          {' "공표 중"에서 "검수 완료"로 전환됩니다. '}
-          개인 주차 카드/집계 수치는 변하지 않으며(검수 완료는 랭킹 라벨 신호), 검수 완료는 취소할 수
-          없습니다.
-        </p>
-
-        <div className="mt-5 flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
-            취소
-          </Button>
-          <Button type="button" onClick={submit} loading={saving}>
-            검수 완료
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PublishWeekModal({
-  week,
-  onClose,
-  onPublished,
-}: {
-  week: WeekRecognitionWeekOption;
-  onClose: () => void;
-  onPublished: (label: string) => void;
-}) {
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const mode = readScopeMode(useSearchParams());
-
-  const submit = async () => {
-    if (saving) return;
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        appendModeQuery(
-          `/api/admin/weeks/${encodeURIComponent(week.week_id)}/publish-result`,
-          mode,
-        ),
-        { method: "PATCH" },
-      );
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "Failed to publish week result.");
-      }
-      onPublished(week.week_label);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to publish week result.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="주차 결과 확정"
-        className="modal-w-md rounded-xl bg-background p-5 shadow-lg ring-1 ring-foreground/10"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold">주차 결과 확정</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            aria-label="닫기"
-            className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-50"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="mb-4 rounded-lg border bg-muted/20 px-3 py-2 text-sm">
-          <div className="font-medium">{week.week_label}</div>
-          <div className="text-xs text-muted-foreground">
-            {formatRange(week.week_start_date, week.week_end_date)}
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        <p className="text-sm text-muted-foreground">
-          이 주차 결과를 확정하면 크루 페이지에서 해당 주차 카드가
-          {' "성장(집계 중)"에서 사용자별 성공/실패 상태로 전환됩니다. '}
-          사용자별 인정 상태(성공/실패/휴식) 자체는 변경되지 않으며, 결과 확정은 취소할 수
-          없습니다.
-        </p>
-
-        <div className="mt-5 flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>
-            취소
-          </Button>
-          <Button type="button" onClick={submit} loading={saving}>
-            결과 확정
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── 주차 인정 check 기준 관리 ────────────────────────────────────────
 // 주차별 "주차 인정 point.check 기준값"(weeks.check_threshold) 표시/수정.

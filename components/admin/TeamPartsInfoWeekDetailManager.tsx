@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import OrganizationBadge from "@/components/admin/OrganizationBadge";
@@ -946,7 +947,6 @@ export default function TeamPartsInfoWeekDetailManager({
   const [reverting, setReverting] = useState(false);
   const [confirming, setConfirming] = useState(false);
   // 과거(종료된) 주차에서 [오픈 확인] 을 누를 때 뜨는 재확인 모달. 취소 시 API 미전송.
-  const [showPastOpenConfirm, setShowPastOpenConfirm] = useState(false);
   // 검수 준비 상태 모달.
   const [showReadiness, setShowReadiness] = useState(false);
   const [readiness, setReadiness] = useState<ReviewReadiness | null>(null);
@@ -1160,7 +1160,40 @@ export default function TeamPartsInfoWeekDetailManager({
   const handleOpenConfirmClick = () => {
     if (!club || readOnly || confirming) return;
     if (data?.managedWeek.weekPhase === "past") {
-      setShowPastOpenConfirm(true);
+      // 과거(종료된) 주차 — 공통 adminDialog(danger)로 재확인. 확인 시에만 저장(onOpenConfirm).
+      void adminDialog.confirm({
+        variant: "danger",
+        title: "지난 주차의 오픈 상태를 변경하시겠습니까?",
+        confirmLabel: "그래도 변경",
+        description: reviewed ? (
+          <div className="space-y-2 leading-relaxed">
+            <p className="rounded-md bg-rose-50 px-3 py-2 font-medium text-rose-700 dark:bg-rose-500/10 dark:text-rose-400">
+              이미 검수가 완료된 주차입니다.
+            </p>
+            <p>
+              오픈 확인을 다시 진행한 뒤 <b>주차 검수를 다시 실행</b>하면 최신{" "}
+              <b>주차 성공 기준(N)</b>으로 재판정되어 기존 <b>성공·실패 결과와 포인트</b>가 달라질
+              수 있습니다.
+            </p>
+            <p>변경이 꼭 필요한 경우에만 진행해주세요.</p>
+          </div>
+        ) : (
+          <div className="space-y-2 leading-relaxed">
+            <p className="rounded-md bg-amber-50 px-3 py-2 font-medium text-amber-800 dark:bg-amber-500/10 dark:text-amber-400">
+              이미 종료된 주차입니다.
+            </p>
+            <p>
+              오픈 확인을 다시 진행하면 이 주차의 <b>주차 성공 기준(활동 인정 개수 N)</b>이 새로
+              계산됩니다.
+            </p>
+            <p>
+              이후 <b>주차 검수를 다시 실행</b>하면 기존 <b>성공·실패 결과와 포인트</b>가 달라질 수
+              있습니다. 계속하시겠습니까?
+            </p>
+          </div>
+        ),
+        onConfirm: onOpenConfirm,
+      });
       return;
     }
     void onOpenConfirm();
@@ -1610,71 +1643,7 @@ export default function TeamPartsInfoWeekDetailManager({
                       실제 영향(2026-07-12 정책): 오픈 확인은 주차 성공 기준(활동 인정 개수 N)을 새로 산정한다.
                       오픈 확인만으로 기존 성공/실패가 즉시 바뀌지는 않지만, 이후 [주차 검수]를 다시 실행하면
                       최신 N을 기준으로 재판정되어 기존 성공·실패·포인트가 달라질 수 있다. */}
-                  {showPastOpenConfirm && !readOnly && (
-                    <div
-                      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-                      role="dialog"
-                      aria-modal="true"
-                      data-past-open-confirm-modal
-                    >
-                      <div className="modal-w-lg rounded-lg bg-white p-5 shadow-xl">
-                        <h3 className="text-base font-semibold text-slate-800">
-                          지난 주차의 오픈 상태를 변경하시겠습니까?
-                        </h3>
-                        {reviewed ? (
-                          <div className="mt-3 space-y-2 text-sm leading-relaxed text-slate-600">
-                            <p className="rounded-md bg-rose-50 px-3 py-2 font-medium text-rose-700">
-                              이미 검수가 완료된 주차입니다.
-                            </p>
-                            <p>
-                              오픈 확인을 다시 진행한 뒤 <b>주차 검수를 다시 실행</b>하면 최신{" "}
-                              <b>주차 성공 기준(N)</b>으로 재판정되어 기존 <b>성공·실패 결과와 포인트</b>가
-                              달라질 수 있습니다.
-                            </p>
-                            <p>변경이 꼭 필요한 경우에만 진행해주세요.</p>
-                          </div>
-                        ) : (
-                          <div className="mt-3 space-y-2 text-sm leading-relaxed text-slate-600">
-                            <p className="rounded-md bg-amber-50 px-3 py-2 font-medium text-amber-800">
-                              이미 종료된 주차입니다.
-                            </p>
-                            <p>
-                              오픈 확인을 다시 진행하면 이 주차의 <b>주차 성공 기준(활동 인정 개수 N)</b>이 새로
-                              계산됩니다.
-                            </p>
-                            <p>
-                              이후 <b>주차 검수를 다시 실행</b>하면 기존 <b>성공·실패 결과와 포인트</b>가 달라질 수
-                              있습니다. 계속하시겠습니까?
-                            </p>
-                          </div>
-                        )}
-                        <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-                          <Button
-                            type="button"
-                            data-past-open-confirm-cancel
-                            onClick={() => setShowPastOpenConfirm(false)}
-                            disabled={confirming}
-                            className="cursor-pointer border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
-                          >
-                            취소
-                          </Button>
-                          <Button
-                            type="button"
-                            data-past-open-confirm-proceed
-                            onClick={() => {
-                              setShowPastOpenConfirm(false);
-                              void onOpenConfirm();
-                            }}
-                            loading={confirming}
-                            disabled={confirming}
-                            className="cursor-pointer bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-50"
-                          >
-                            {confirming ? "저장 중…" : "그래도 변경"}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  {/* 과거 주차 오픈 재확인은 공통 adminDialog(danger)로 대체됨(handleOpenConfirmClick). */}
                   {/* [초기화] — 상단 허브 선택을 기본값으로 되돌린다(클라이언트 상태만·이후 오픈 확인 시 저장). */}
                   {!readOnly && (
                     <span className="inline-flex items-center gap-1">

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { adminDialog } from "@/components/ui/admin-dialog";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -202,16 +203,23 @@ export default function CompetencyOpeningDashboard() {
         setBanner({ kind: "error", message: "클럽(?org)이 지정되지 않았습니다" });
         return;
       }
-      if (
-        action === "open" &&
-        !confirm("실무 역량 허브 전체 라인을 개설 완료(크루 반영)하시겠습니까?")
-      )
-        return;
-      if (
-        action === "cancel" &&
-        !confirm("실무 역량 허브 전체 개설을 취소(크루 반영 원복)하시겠습니까?")
-      )
-        return;
+      if (action === "open") {
+        const ok = await adminDialog.confirm({
+          title: "실무 역량 허브 개설 완료",
+          description: "실무 역량 허브 전체 라인을 개설 완료(크루 반영)하시겠습니까?",
+          confirmLabel: "개설 완료",
+        });
+        if (!ok) return;
+      }
+      if (action === "cancel") {
+        const ok = await adminDialog.confirm({
+          variant: "warning",
+          title: "개설 취소",
+          description: "실무 역량 허브 전체 개설을 취소(크루 반영 원복)하시겠습니까?",
+          confirmLabel: "개설 취소",
+        });
+        if (!ok) return;
+      }
       setActing(true);
       setBanner(null);
       try {
