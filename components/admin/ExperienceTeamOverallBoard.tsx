@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RotateCcw, Eye, CheckCircle2, XCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -484,7 +485,7 @@ export default function ExperienceTeamOverallBoard({
                     이름
                     <AdminHelpIconButton
                       size="xs"
-                      helpKey="admin.lineOpening.experience.overallColumn.name"
+                      helpKey={ADMIN_SHARED_HELP_KEYS.crew.name}
                       title="이름"
                     />
                   </span>

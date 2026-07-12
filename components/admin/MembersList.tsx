@@ -29,6 +29,7 @@ import { classTone, rankTone } from "@/lib/statusBadge";
 import { cn } from "@/lib/utils";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { buildCrewsTabs, buildMembersTabs } from "@/lib/adminHeaderTabs";
 import {
   ORGANIZATION_LABEL,
@@ -679,7 +680,7 @@ export default function MembersList({
                   <span className="inline-flex items-center gap-1">
                     클럽
                     <AdminHelpIconButton
-                      helpKey="admin.members.filter.club"
+                      helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization}
                       title="클럽"
                       size="xs"
                     />

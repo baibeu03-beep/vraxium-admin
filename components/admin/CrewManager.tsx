@@ -38,6 +38,7 @@ import {
 } from "@/lib/organizations";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { formatDepartmentName } from "@/components/admin/fieldKit";
 import MemberEditDrawer, {
@@ -556,7 +557,7 @@ export default function CrewManager({
                     <span className="inline-flex items-center justify-center gap-1">
                       {devMode ? "Organization" : "소속"}
                       <AdminHelpIconButton
-                        helpKey="admin.crews.manager.column.organization"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization}
                         title="소속"
                         size="xs"
                       />

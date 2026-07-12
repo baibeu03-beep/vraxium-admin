@@ -67,9 +67,12 @@ async function makeSession(email: string) {
   });
   return captured;
 }
+// 쿠키 도메인/secure 를 대상 baseUrl 에서 파생 → 로컬(localhost/http) · Vercel(https) 모두 대응.
+const baseHost = new URL(baseUrl).hostname;
+const baseSecure = new URL(baseUrl).protocol === "https:";
 function toPlaywrightCookies(captured: Array<{ name: string; value: string }>) {
   return captured.map(({ name, value }) => ({
-    name, value, domain: "localhost", path: "/", httpOnly: false, secure: false, sameSite: "Lax" as const,
+    name, value, domain: baseHost, path: "/", httpOnly: false, secure: baseSecure, sameSite: "Lax" as const,
   }));
 }
 function toCookieHeader(captured: Array<{ name: string; value: string }>) {
@@ -150,10 +153,9 @@ async function main() {
     //  → 총 개수 동치가 유효한 파리티 지표.
     // (info/experience 는 라인/주차 데이터에 따라 per-line 도움말이 늘고 줄어 총 개수가 data-gated →
     //  아래 A2/B 에서 별도 방식으로 검증.)
-    console.log("── A) chrome-stable 파리티 (career/competency) ──");
+    console.log("── A) chrome-stable 파리티 (career) ──");
     const staticTargets: Array<[string, string, string]> = [
       ["career", RT.career, `${RT.career}?mode=test`],
-      ["competency", `${RT.competency}?org=${org}`, `${RT.competency}?org=${org}&mode=test`],
     ];
     for (const [key, normal, test] of staticTargets) {
       await gotoStable(page, `${baseUrl}${normal}`);
@@ -163,14 +165,21 @@ async function main() {
       check(`[${key}] 로드 OK · 돋보기 normal==test`, n === t && n > 0, { normal: n, test: t });
     }
 
-    // ══ A2) info(data-gated) — 양 모드 로드 OK + 도움말 존재(개수는 라인수에 비례) ══
-    console.log("\n── A2) info(data-gated) — 로드 OK · 도움말 존재 ──");
-    await gotoStable(page, `${baseUrl}${RT.info}`);
-    const infoN = await helpCount(page);
-    await gotoStable(page, `${baseUrl}${RT.info}?mode=test`);
-    const infoT = await helpCount(page);
-    check("[info] normal/test 모두 로드 OK · 도움말 존재(>0)", infoN > 0 && infoT > 0, { normal: infoN, test: infoT });
-    note("info 총 개수는 개설 라인 수(per-line '개설 대상 크루 수정' 도움말)에 비례 → data-gated(내 변경과 무관).");
+    // ══ A2) data-gated 페이지(info/competency) — 양 모드 로드 OK + 도움말 존재 ══
+    //   info/competency 는 라인/크루/신청 데이터에 비례하는 per-row 도움말이 있어 총 개수가
+    //   population(운영 vs test)에 따라 달라진다 → 총개수 파리티 대신 "로드 OK·도움말 존재" 로 검증.
+    console.log("\n── A2) data-gated(info/competency) — 로드 OK · 도움말 존재 ──");
+    for (const [key, normal, test] of [
+      ["info", RT.info, `${RT.info}?mode=test`],
+      ["competency", `${RT.competency}?org=${org}`, `${RT.competency}?org=${org}&mode=test`],
+    ] as Array<[string, string, string]>) {
+      await gotoStable(page, `${baseUrl}${normal}`);
+      const n = await helpCount(page);
+      await gotoStable(page, `${baseUrl}${test}`);
+      const t = await helpCount(page);
+      check(`[${key}] normal/test 모두 로드 OK · 도움말 존재(>0)`, n > 0 && t > 0, { normal: n, test: t });
+    }
+    note("info/competency 총 개수는 라인/크루 수(per-row 도움말)에 비례 → data-gated(내 변경과 무관).");
 
     // ══ B) experience(데이터 게이팅) — "렌더되는 곳의 도움말 구조 불변" ═════════
     //   experience 상태창/입력 보드는 org·주차에 운영 데이터가 있을 때만 렌더된다(사전 존재 동작).
@@ -242,6 +251,43 @@ async function main() {
       note(`${key} :: plain=${plain.status} test=${test.status} org=${otherOrg.status} content동일=${a === b && b === c}`);
     }
     check("신규 8종: 도움말 본문이 mode/org 변주와 무관(path-only 공통)", neutralAll);
+
+    // ══ E) 아이콘 present vs 기본문구(콘텐츠 부재) 구분 + 기존 키(#6) ════════════
+    console.log("\n── E) route 서빙 + 콘텐츠(등록 도움말) 유무 (#6/#7/#8) ──");
+    const EXISTING_KEYS = [
+      "admin.lineOpening.career.opening.field.mainTitle",   // 메인 타이틀(경력 개설 폼)
+      "admin.lineOpening.career.opening.field.outputAsset", // 아웃풋(경력 개설 폼)
+      "admin.lineOpening.info.field.mainTitle",             // 메인 타이틀(정보 개설 폼)
+      "admin.lineOpening.info.field.output",                // 아웃풋(정보 개설 폼)
+    ];
+    let routeOkAll = true;
+    for (const key of [...NEW_KEYS, ...EXISTING_KEYS]) {
+      const r = await getHelp(key, "");
+      const len = String(r.body?.data?.content ?? "").length;
+      if (!(r.ok && r.body?.success === true)) routeOkAll = false;
+      note(`${key} :: route=${r.status} contentLen=${len} ${len > 0 ? "(콘텐츠 있음)" : "(기본문구=미작성)"}`);
+    }
+    check("전 키(신규8+기존4): 프로덕션 /api/admin/help 200 서빙", routeOkAll);
+    note("아이콘 렌더=코드 배포 여부 / 기본문구=DB admin_page_help_contents 미작성(정상, 모달로 작성). 원 증상은 아이콘(코드) 배포 gap.");
+
+    // ══ E2) 경력 개설 폼 브라우저 렌더(#6 메인타이틀/아웃풋 + 심층 신규) best-effort ══
+    console.log("\n── E2) 경력 개설 폼 실제 DOM 렌더 (#6 + 심층 신규) best-effort ──");
+    await gotoStable(page, `${baseUrl}${RT.career}`);
+    await clickTab(/^경력 라인 개설$/);
+    await page.getByRole("button", { name: /새 실무 경력 라인 개설/ }).first().click({ timeout: 5000 }).catch(() => {});
+    await page.waitForTimeout(1600);
+    const deep = new Map<string, HelpReq>();
+    async function tryDeep(label: string, needle: string, expected: string) {
+      const r = await clickHelpNextTo(page, sink, needle);
+      const ok = r?.path === expected;
+      if (ok) deep.set(expected, r!);
+      note(`${ok ? "✅" : "·"} ${label} → ${expected} ${ok ? "(실제 DOM 렌더 확인)" : "(미도달: 개설 가능 폼 미노출)"}`);
+    }
+    await tryDeep("메인 타이틀(기존)", "메인 타이틀", "admin.lineOpening.career.opening.field.mainTitle");
+    await tryDeep("Output Asset(기존)", "Output Asset", "admin.lineOpening.career.opening.field.outputAsset");
+    await tryDeep("기입 마감 설명(신규)", "기입 마감", "admin.lineOpening.career.desc.openForm");
+    await tryDeep("기업·감독자 저장 안내(신규)", "연결된 경력 프로젝트에 저장", "admin.lineOpening.career.desc.sponsorNote");
+    note(`경력 개설 폼 심층 DOM 렌더 확인: ${deep.size}건 (0건=개설 가능 주차/폼 미노출; 코드는 배포 커밋에 포함).`);
   } finally {
     await ctx.close();
     await browser.close();

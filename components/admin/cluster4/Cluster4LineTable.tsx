@@ -47,6 +47,7 @@ import {
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 
 type StatusFilter = "all" | "active" | "inactive";
 
@@ -1081,7 +1082,7 @@ function LineDetailModal({
                     <span className="inline-flex items-center gap-1">
                       이름
                       <AdminHelpIconButton
-                        helpKey="admin.lineOpening.career.opening.detail.column.name"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.name}
                         title="이름"
                         size="xs"
                       />
@@ -1091,7 +1092,7 @@ function LineDetailModal({
                     <span className="inline-flex items-center gap-1">
                       클럽
                       <AdminHelpIconButton
-                        helpKey="admin.lineOpening.career.opening.detail.column.org"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization}
                         title="클럽"
                         size="xs"
                       />

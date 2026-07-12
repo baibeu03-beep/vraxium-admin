@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
@@ -808,7 +809,7 @@ function PartGrid({
                 <span className="inline-flex items-center gap-1">
                   이름
                   <AdminHelpIconButton
-                    helpKey="admin.lineOpening.experience.partGrid.column.name"
+                    helpKey={ADMIN_SHARED_HELP_KEYS.crew.name}
                     title="이름"
                     size="xs"
                   />

@@ -16,6 +16,7 @@ import PracticalInfoCurrentSituation from "@/components/admin/PracticalInfoCurre
 import { useLineManageWeekOptions } from "@/lib/lineManageWeekOptions";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 
 // 실무 역량 [라인 관리] 탭 — 상단 보드.
 //   "[실무 역량] Hub" 제목 + 현재 상황(오늘/개설 필요/개설 이행 기간, practical-info 공용) +
@@ -97,13 +98,13 @@ const COLUMNS: ColumnDef[] = [
   {
     key: "crewCode",
     label: "크루 코드",
-    helpKey: "admin.lineOpening.competency.manage.column.crewCode",
+    helpKey: ADMIN_SHARED_HELP_KEYS.crew.code,
     sortValue: (r) => emptyToNull(r.crewCode),
   },
   {
     key: "crewName",
     label: "크루명",
-    helpKey: "admin.lineOpening.competency.manage.column.crewName",
+    helpKey: ADMIN_SHARED_HELP_KEYS.crew.name,
     sortValue: (r) => emptyToNull(r.displayName),
   },
   {

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import {
   sortCafeCrews,
   CREW_SORT_OPTIONS,
@@ -398,7 +399,7 @@ export default function CafeCrewPicker({
                     <span className="inline-flex items-center gap-1">
                       크루 코드
                       <AdminHelpIconButton
-                        helpKey="admin.lineOpening.info.cafe.column.crewCode"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.code}
                         title="크루 코드"
                         size="xs"
                       />
@@ -408,7 +409,7 @@ export default function CafeCrewPicker({
                     <span className="inline-flex items-center gap-1">
                       이름
                       <AdminHelpIconButton
-                        helpKey="admin.lineOpening.info.cafe.column.name"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.name}
                         title="이름"
                         size="xs"
                       />

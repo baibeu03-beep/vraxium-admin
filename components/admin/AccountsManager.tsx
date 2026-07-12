@@ -45,6 +45,7 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
@@ -621,7 +622,7 @@ export default function AccountsManager() {
                     <span className="inline-flex items-center gap-1">
                       <span>이메일</span>
                       <AdminHelpIconButton
-                        helpKey="admin.settings.accounts.column.email"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.loginEmail}
                         title="이메일"
                         size="xs"
                       />
@@ -1101,7 +1102,7 @@ function CreateAccountDrawerInner({
               >
                 이메일
                 <AdminHelpIconButton
-                  helpKey="admin.settings.accounts.field.email"
+                  helpKey={ADMIN_SHARED_HELP_KEYS.crew.loginEmail}
                   title="이메일"
                   size="xs"
                 />

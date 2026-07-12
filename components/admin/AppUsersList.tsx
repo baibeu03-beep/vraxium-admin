@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import {
   Select,
   SelectContent,
@@ -362,7 +363,7 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
                     <span className="inline-flex items-center gap-1">
                       <span>이름</span>
                       <AdminHelpIconButton
-                        helpKey="admin.users.appUsers.column.name"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.name}
                         title="이름"
                         size="xs"
                       />
@@ -392,7 +393,7 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
                     <span className="inline-flex items-center gap-1">
                       <span>소속</span>
                       <AdminHelpIconButton
-                        helpKey="admin.users.appUsers.column.organization"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization}
                         title="소속"
                         size="xs"
                       />

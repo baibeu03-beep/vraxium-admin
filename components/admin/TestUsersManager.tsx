@@ -21,6 +21,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { buildCustomerClusterUrl } from "@/lib/customerAppUrl";
 
 // GET /api/admin/test-users 응답 row (lib/testUsers.ts TestUserDto 와 동일 shape).
@@ -166,7 +167,7 @@ export default function TestUsersManager() {
                   <span className="inline-flex items-center gap-1">
                     <span>이름</span>
                     <AdminHelpIconButton
-                      helpKey="admin.testUsers.column.name"
+                      helpKey={ADMIN_SHARED_HELP_KEYS.crew.name}
                       title="이름"
                       size="xs"
                     />
@@ -176,7 +177,7 @@ export default function TestUsersManager() {
                   <span className="inline-flex items-center gap-1">
                     <span>이메일</span>
                     <AdminHelpIconButton
-                      helpKey="admin.testUsers.column.email"
+                      helpKey={ADMIN_SHARED_HELP_KEYS.crew.loginEmail}
                       title="이메일"
                       size="xs"
                     />
@@ -186,7 +187,7 @@ export default function TestUsersManager() {
                   <span className="inline-flex items-center gap-1">
                     <span>클럽</span>
                     <AdminHelpIconButton
-                      helpKey="admin.testUsers.column.organization"
+                      helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization}
                       title="클럽"
                       size="xs"
                     />

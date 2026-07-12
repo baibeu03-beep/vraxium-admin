@@ -24,6 +24,7 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import {
   ORGANIZATION_COMMON_LABEL,
   ORGANIZATION_LABEL,
@@ -380,7 +381,7 @@ export default function OperationHealthCheckView() {
                     <span className="inline-flex items-center gap-1">
                       <span>클럽</span>
                       <AdminHelpIconButton
-                        helpKey="admin.operationHealthCheck.column.organization"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization}
                         title="클럽"
                         size="xs"
                       />

@@ -34,6 +34,7 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import {
   ORGANIZATIONS,
   ORGANIZATION_COMMON_LABEL,
@@ -355,7 +356,7 @@ export default function SeasonParticipationsView() {
                 </SelectContent>
               </Select>
               <AdminHelpIconButton
-                helpKey="admin.seasonParticipations.filter.organization"
+                helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization}
                 title="클럽"
                 size="xs"
               />
@@ -407,13 +408,13 @@ export default function SeasonParticipationsView() {
                   <TableHead>
                     <span className="inline-flex items-center gap-1">
                       <span>이름</span>
-                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.name" title="이름" size="xs" />
+                      <AdminHelpIconButton helpKey={ADMIN_SHARED_HELP_KEYS.crew.name} title="이름" size="xs" />
                     </span>
                   </TableHead>
                   <TableHead>
                     <span className="inline-flex items-center gap-1">
                       <span>클럽</span>
-                      <AdminHelpIconButton helpKey="admin.seasonParticipations.column.organization" title="클럽" size="xs" />
+                      <AdminHelpIconButton helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization} title="클럽" size="xs" />
                     </span>
                   </TableHead>
                   <TableHead>

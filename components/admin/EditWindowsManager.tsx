@@ -33,6 +33,7 @@ import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { ORGANIZATION_LABEL, isOrganizationSlug } from "@/lib/organizations";
 import {
   DEFAULT_RESOURCE_KEY,
@@ -687,7 +688,7 @@ export default function EditWindowsManager() {
                     <span className="inline-flex items-center gap-1">
                       <span>{devMode ? "이름 / user_id" : "이름"}</span>
                       <AdminHelpIconButton
-                        helpKey="admin.settings.editWindows.column.name"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.name}
                         title="이름"
                         size="xs"
                       />
@@ -697,7 +698,7 @@ export default function EditWindowsManager() {
                     <span className="inline-flex items-center gap-1">
                       <span>{devMode ? "auth_email" : "로그인 이메일"}</span>
                       <AdminHelpIconButton
-                        helpKey="admin.settings.editWindows.column.email"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.loginEmail}
                         title="로그인 이메일"
                         size="xs"
                       />
@@ -707,7 +708,7 @@ export default function EditWindowsManager() {
                     <span className="inline-flex items-center gap-1">
                       <span>소속</span>
                       <AdminHelpIconButton
-                        helpKey="admin.settings.editWindows.column.organization"
+                        helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization}
                         title="소속"
                         size="xs"
                       />
