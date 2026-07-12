@@ -319,9 +319,14 @@ export default function CareerEvaluationTab({
               size="xs"
             />
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="inline-flex flex-wrap items-center gap-1">
             개설된 실무 경력 라인의 대상자별 평점(S/A/B/C/D)을 입력합니다. 점수 환산 S=10·A=8·B=6·C=4·D=2,
             D(2점)는 강화 실패로 처리됩니다. 운영자 평가는 작성기간과 무관하게 입력·수정할 수 있습니다.
+            <AdminHelpIconButton
+              helpKey="admin.career.evaluation.desc.card"
+              title="경력 라인 평가 기준"
+              size="xs"
+            />
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

@@ -362,7 +362,14 @@ export default function CafeCrewPicker({
       {/* 검수 크루 목록 — 표시 정렬(클라이언트 전용, DTO/저장 불변) */}
       <div className="space-y-2 rounded-md border p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs font-medium text-muted-foreground">검수 크루 목록</p>
+          <div className="inline-flex items-center gap-1">
+            <p className="text-xs font-medium text-muted-foreground">검수 크루 목록</p>
+            <AdminHelpIconButton
+              helpKey="admin.lineOpening.info.section.reviewCrewList"
+              title="검수 크루 목록"
+              size="xs"
+            />
+          </div>
           <label className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             정렬
             <select

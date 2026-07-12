@@ -167,8 +167,13 @@ export default function LineOpeningStatusBoard({
           />
         </CardTitle>
         {variant !== "hub" && (
-          <CardDescription>
+          <CardDescription className="inline-flex flex-wrap items-center gap-1">
             이번 주 {hubLabel} 라인 개설 운영 현황 (표시 전용)
+            <AdminHelpIconButton
+              size="xs"
+              helpKey="admin.lineOpening.statusBoard.desc.board"
+              title="라인 개설 상태창 안내"
+            />
           </CardDescription>
         )}
       </CardHeader>

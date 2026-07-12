@@ -1393,12 +1393,17 @@ export default function Cluster4LineTable({
             size="xs"
           />
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="inline-flex flex-wrap items-center gap-1">
           {loading ? (
             <LoadingState active variant="inline" />
           ) : (
             `총 ${rows.length}개 · 필터 결과 ${filteredRows.length}개`
           )}
+          <AdminHelpIconButton
+            helpKey="admin.lineOpening.career.opening.desc.tableCount"
+            title="개설된 라인 개수 · 필터 결과"
+            size="xs"
+          />
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
