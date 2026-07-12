@@ -211,6 +211,17 @@
   --badge-orange-fg: oklch(0.55 0.16 50);
   --badge-orange-bg: oklch(0.96 0.06 55);
   --badge-orange-border: oklch(0.87 0.1 55);
+  /* 공통 드롭다운(커스텀 Select/Combobox 등) 목록 높이 — 어드민 전역 단일 SoT.
+     최대 표시 행 수 × 한 행 높이 = 펼친 목록의 최대 높이(≈280px). 초과분은 내부 세로 스크롤.
+     · row-height(40px)는 실측 한 행 높이(~38px)보다 약간 여유 → 7행은 스크롤 없음, 8행부터 스크롤.
+     · min(--available-height …): base-ui 가 트리거~뷰포트 사이로 채워주는 값. 모바일/짧은 뷰포트에서
+       화면 밖으로 잘리지 않도록 280px 와 함께 하한을 잡는다(미정의 컨텍스트 폴백 100vh). */
+  --admin-dropdown-visible-rows: 7;
+  --admin-dropdown-row-height: 2.5rem; /* 40px — 실측 행 높이 ~38px */
+  --admin-dropdown-max-height: min(
+    var(--available-height, 100vh),
+    calc(var(--admin-dropdown-visible-rows) * var(--admin-dropdown-row-height))
+  );
 }
 
 .dark {

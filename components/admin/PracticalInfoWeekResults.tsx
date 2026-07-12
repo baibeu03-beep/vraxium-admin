@@ -6,11 +6,17 @@ import { LoadingState } from "@/components/ui/loading-state";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { formatClubDateTime } from "@/lib/clubDate";
 import {
@@ -217,14 +223,6 @@ export default function PracticalInfoWeekResults({
               size="xs"
             />
           </CardTitle>
-          <CardDescription className="inline-flex flex-wrap items-center gap-1">
-            선택 주차의 실무 정보 라인 개설 상황. (미래 주차 제외 · 기본값=개설 필요 기간)
-            <AdminHelpIconButton
-              helpKey="admin.lineOpening.info.badge.openStatus"
-              title="개설 상태 배지 (개설 완료 · 개설 필요 · 오픈 없음)"
-              size="xs"
-            />
-          </CardDescription>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <AdminHelpIconButton
@@ -232,20 +230,30 @@ export default function PracticalInfoWeekResults({
             title="개설 결과 주차 선택"
             size="xs"
           />
-          <select
-            aria-label="개설 결과 주차 선택"
-            className="rounded-md border border-input bg-background px-3 py-2 text-base"
+          {/* 네이티브 <select> → 공용 커스텀 Select 로 교체(목록 최대 7행 + 내부 스크롤 전역 적용).
+              선택값/onChange/기본값/disabled/aria-label/API 파라미터/주차 정렬은 모두 불변. */}
+          <Select
             value={selectedWeekId}
-            onChange={(e) => onSelectWeek(e.target.value)}
+            onValueChange={(v) => onSelectWeek(v ?? "")}
             disabled={!weeks || options.length === 0}
           >
-            {options.length === 0 && <option value="">주차 없음</option>}
-            {options.map((w) => (
-              <option key={w.week_id} value={w.week_id}>
-                {weekName(w)} ({weekRange(w)})
-              </option>
-            ))}
-          </select>
+            <SelectTrigger aria-label="개설 결과 주차 선택" className="text-base">
+              <SelectValue placeholder="주차 없음">
+                {(value: unknown) => {
+                  const id = value == null ? "" : String(value);
+                  const w = options.find((o) => o.week_id === id);
+                  return w ? `${weekName(w)} (${weekRange(w)})` : "주차 없음";
+                }}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((w) => (
+                <SelectItem key={w.week_id} value={w.week_id}>
+                  {weekName(w)} ({weekRange(w)})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -258,11 +266,11 @@ export default function PracticalInfoWeekResults({
             {/* 요약 카운트 */}
             <div className="flex flex-wrap gap-3">
               <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
-                <span className="text-muted-foreground">오픈 라인</span>{" "}
+                <span className="inline-flex items-center gap-1 text-muted-foreground">오픈 라인<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.stat.openLineCount" title="오픈 라인" /></span>{" "}
                 <span className="font-semibold">{results?.openLineCount ?? "-"}</span>
               </div>
               <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
-                <span className="text-muted-foreground">개설 라인</span>{" "}
+                <span className="inline-flex items-center gap-1 text-muted-foreground">개설 라인<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.stat.openedLineCount" title="개설 라인" /></span>{" "}
                 <span className="font-semibold">{results?.openedLineCount ?? "-"}</span>
               </div>
             </div>
