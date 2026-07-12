@@ -1,15 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Card,
-  CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { LoadingState } from "@/components/ui/loading-state";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import OpeningLogScrollContent from "@/components/admin/OpeningLogScrollContent";
+import { logChangeKey, orderLogsOldestFirst } from "@/lib/openingLogView";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import {
   formatLogDateTime,
@@ -69,8 +70,12 @@ export default function PracticalInfoOpeningLogPanel({
     load();
   }, [load, refreshKey]);
 
+  // 표시 순서: 오래된 로그가 위 · 최신이 아래(서버 최신순 → 표시용으로만 뒤집음).
+  const orderedLogs = useMemo(() => orderLogsOldestFirst(logs), [logs]);
+  const changeKey = useMemo(() => logChangeKey(logs), [logs]);
+
   return (
-    <Card className="flex h-full flex-col">
+    <Card className="flex flex-col">
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-1 text-base">
           로그창
@@ -81,7 +86,10 @@ export default function PracticalInfoOpeningLogPanel({
           />
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex-1 space-y-1.5 overflow-y-auto text-sm">
+      <OpeningLogScrollContent
+        count={loading ? 0 : logs.length}
+        changeKey={changeKey}
+      >
         {loading ? (
           <LoadingState active variant="inline" />
         ) : logs.length === 0 ? (
@@ -91,8 +99,8 @@ export default function PracticalInfoOpeningLogPanel({
               : "활동 유형을 선택해주세요."}
           </p>
         ) : (
-          logs.map((l) => (
-            <p key={l.id} className="text-xs leading-relaxed">
+          orderedLogs.map((l) => (
+            <p key={l.id} className="text-xs leading-relaxed break-words">
               <span
                 className={cn(
                   "font-semibold",
@@ -106,7 +114,7 @@ export default function PracticalInfoOpeningLogPanel({
             </p>
           ))
         )}
-      </CardContent>
+      </OpeningLogScrollContent>
     </Card>
   );
 }

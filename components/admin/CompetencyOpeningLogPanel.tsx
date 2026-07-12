@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import OpeningLogScrollContent from "@/components/admin/OpeningLogScrollContent";
+import { logChangeKey, orderLogsOldestFirst } from "@/lib/openingLogView";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -73,8 +74,12 @@ export default function CompetencyOpeningLogPanel({
     };
   }, [org, weekId, refreshKey]);
 
+  // 표시 순서: 오래된 로그가 위 · 최신이 아래(서버 최신순 → 표시용으로만 뒤집음).
+  const orderedLogs = useMemo(() => orderLogsOldestFirst(logs), [logs]);
+  const changeKey = useMemo(() => logChangeKey(logs), [logs]);
+
   return (
-    <Card className="flex h-full flex-col">
+    <Card className="flex flex-col">
       <CardHeader className="pb-2">
         <CardTitle className="inline-flex items-center gap-1.5 text-base">
           로그창
@@ -92,7 +97,10 @@ export default function CompetencyOpeningLogPanel({
           />
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-1 space-y-1.5 overflow-y-auto text-sm">
+      <OpeningLogScrollContent
+        count={loading ? 0 : logs.length}
+        changeKey={changeKey}
+      >
         {loading ? (
           <LoadingState active variant="inline" />
         ) : logs.length === 0 ? (
@@ -100,8 +108,8 @@ export default function CompetencyOpeningLogPanel({
             아직 기록된 개설 로그가 없습니다.
           </p>
         ) : (
-          logs.map((l) => (
-            <p key={l.id} className="text-xs leading-relaxed">
+          orderedLogs.map((l) => (
+            <p key={l.id} className="text-xs leading-relaxed break-words">
               <span
                 className={cn(
                   "font-semibold",
@@ -115,7 +123,7 @@ export default function CompetencyOpeningLogPanel({
             </p>
           ))
         )}
-      </CardContent>
+      </OpeningLogScrollContent>
     </Card>
   );
 }
