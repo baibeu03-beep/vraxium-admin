@@ -30,6 +30,7 @@ import { classLabel, memberStatusLabel } from "@/lib/adminMembersTypes";
 import { formatClubDate } from "@/lib/clubDate";
 import {
   getCurrentActivityDateIso,
+  hasWeekStartedKst,
   operationalSeasonDbKey,
 } from "@/lib/seasonCalendar";
 import {
@@ -266,17 +267,16 @@ async function teamsByName(
 }
 
 // ── 신청 가능 주차(현재·다음 − 공식 휴식) ──────────────────────────────────
-async function loadEligibleWeeks(): Promise<EmergencyWeekOptionDto[]> {
-  const todayIso = getCurrentActivityDateIso();
+async function loadEligibleWeeks(nowMs: number = Date.now()): Promise<EmergencyWeekOptionDto[]> {
+  const todayIso = getCurrentActivityDateIso(nowMs);
   const { rows } = await loadSeasonWeeks(todayIso);
   const current = rows.find((r) => r.is_current_week) ?? null;
   const out: EmergencyWeekOptionDto[] = [];
 
-  const toOption = (
-    r: (typeof rows)[number],
-    isCurrent: boolean,
-  ): EmergencyWeekOptionDto | null => {
+  const toOption = (r: (typeof rows)[number]): EmergencyWeekOptionDto | null => {
     if (!r.week_start_date || !r.week_end_date || r.is_official_rest) return null;
+    // 상태 = 실제 타임스탬프 비교(now vs 주 월요일 00:01 KST) — 생성/조회 공통 SoT.
+    const started = hasWeekStartedKst(r.week_start_date, nowMs);
     return {
       weekId: r.week_id,
       seasonKey: r.season_key,
@@ -284,18 +284,18 @@ async function loadEligibleWeeks(): Promise<EmergencyWeekOptionDto[]> {
       weekEndDate: r.week_end_date,
       weekLabel: `${r.season_name ?? ""} ${r.week_number ?? "?"}주차`.trim(),
       dateRangeLabel: `${formatClubDate(r.week_start_date)} ~ ${formatClubDate(r.week_end_date)}`,
-      isCurrent,
-      resultingStatus: isCurrent ? "fulfilled" : "approved",
+      isCurrent: started,
+      resultingStatus: started ? "fulfilled" : "approved",
     };
   };
 
   if (current) {
-    const opt = toOption(current, true);
+    const opt = toOption(current);
     if (opt) out.push(opt);
     const nextStart = addDaysIso(current.week_start_date ?? todayIso, 7);
     const next = rows.find((r) => r.week_start_date === nextStart) ?? null;
     if (next) {
-      const nopt = toOption(next, false);
+      const nopt = toOption(next);
       if (nopt) out.push(nopt);
     }
   }

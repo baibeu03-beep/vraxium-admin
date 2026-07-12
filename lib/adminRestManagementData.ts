@@ -3,6 +3,7 @@ import type { OrganizationSlug } from "@/lib/organizations";
 import {
   getCurrentActivityDateIso,
   getSeasonForDate,
+  hasWeekStartedKst,
   operationalSeasonDbKey,
 } from "@/lib/seasonCalendar";
 import { classLabel, memberStatusLabel } from "@/lib/adminMembersTypes";
@@ -506,15 +507,18 @@ export async function loadRestManagementList(
       .map((r) => r.requested_by_user_id as string),
   );
   const currentMonday = currentWeekMondayIso();
+  const nowMs = Date.now();
 
   const rows: RestRequestListRow[] = raw.map((r) => {
     const isUrgent = r.request_type === "urgent";
     // 진행 상태 경계 — 일반과 긴급이 다르다(스펙):
-    //   · 일반: 대상 주차가 "종료(과거)"돼야 이행(week_start_date < 이번주 월요일).
-    //   · 긴급: 대상 주차가 "시작(현재 또는 과거)"되면 즉시 이행(<=). 미래(다음 주차)=승인.
-    //     긴급은 항상 status='approved' 로 생성되므로 pending 으로는 표기되지 않는다.
+    //   · 일반: 대상 주차가 "종료(과거)"돼야 이행(week_start_date < 이번주 월요일, 문자열 경계).
+    //   · 긴급: 선택 주차가 "시작(같음 포함)"되면 즉시 이행 — **실제 타임스탬프 비교**
+    //     (hasWeekStartedKst: now ms >= 그 주 월요일 00:01 KST). 미래(다음 주차)=승인.
+    //     생성 경로(loadEligibleWeeks.resultingStatus)와 **동일 함수**로 판정 → 생성 응답==목록.
+    //     긴급은 항상 status='approved' 로 생성되므로 pending 으로 표기되지 않는다.
     const ended = isUrgent
-      ? r.week_start_date != null && r.week_start_date <= currentMonday
+      ? hasWeekStartedKst(r.week_start_date, nowMs)
       : isWeekEnded(r.week_start_date, currentMonday);
     const displayStatus: RestRequestDisplayStatus = ended
       ? "fulfilled"

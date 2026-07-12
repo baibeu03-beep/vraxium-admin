@@ -83,6 +83,25 @@ export function weekStartToBoundaryMs(weekStartMs: number): number {
   return weekStartMs - KST_OFFSET_MS + WEEK_BOUNDARY_KST_MS;
 }
 
+// 주어진 주차(week_start_date = 월요일 "YYYY-MM-DD")가 현재 시각 기준 이미 "시작"됐는가.
+//   경계 = 그 주 월요일 00:01 KST(weekStartToBoundaryMs). **실제 타임스탬프(절대 ms) 비교** —
+//   문자열/주차번호 비교가 아니라 now(ms) >= 그 주 경계(ms). 절대 시각 비교라 서버/화면·TZ 무관.
+//   긴급 휴식 상태 판정(이행/승인)의 단일 SoT: 시작 이후(같음 포함)=이행, 이전=승인.
+//     const started = nowMs >= weekStartToBoundaryMs(weekStartMs);  // KST 00:01 경계
+export function hasWeekStartedKst(
+  weekStartDateIso: string | null | undefined,
+  nowMs: number = Date.now(),
+): boolean {
+  if (!weekStartDateIso) return false;
+  const weekStartMs = Date.UTC(
+    +weekStartDateIso.slice(0, 4),
+    +weekStartDateIso.slice(5, 7) - 1,
+    +weekStartDateIso.slice(8, 10),
+  );
+  if (Number.isNaN(weekStartMs)) return false;
+  return nowMs >= weekStartToBoundaryMs(weekStartMs);
+}
+
 export function getSeasonCalendar(year: number): Season[] {
   const yearOffset = year - 2023;
   let cursor = ANCHOR_MS + yearOffset * 364 * DAY_MS;
