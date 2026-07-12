@@ -5,13 +5,8 @@ import {
 } from "@/lib/lineRegistrationLookup";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import {
-  resolveStateScopeForUser,
-  fetchQaWeekCheckThresholdMap,
-} from "@/lib/operationalState";
-import {
   computeCluster4Enhancement,
   EXPERIENCE_RATING_FAIL_THRESHOLD,
-  DEFAULT_WEEK_CHECK_THRESHOLD,
 } from "@/lib/cluster4Enhancement";
 import type {
   Cluster4EnhancementStatus,
@@ -1135,13 +1130,12 @@ export type LegacyUnifiedWeekState = {
   hasTarget: boolean; // 본인 user 타깃 존재
   deadlinePassed: boolean; // 통합 라인 마감(submission_closes_at) 경과
   rating: number | null; // 본인 평점 (cluster4_experience_line_evaluations)
-  // ── 주차 인정 check 게이트 입력 (2026-06-05 정책 정정) ──
+  // ── 주차 인정 check 게이트 입력 ([2026-07-12] 기준값 SoT = 오픈확인 N) ──
   checkCount: number; // 본인 point.check (user_weekly_points.points, 행 없으면 0)
-  checkThreshold: number; // 적용 기준값 (weeks.check_threshold ?? DEFAULT_WEEK_CHECK_THRESHOLD)
-  // 이 (사용자, 주차) 행의 check 가 정식 이관된 값인가 = user_weekly_points.checks_migrated.
-  // 행 부재/false = 미이관 → 게이트 미강제(기존 결과 보존, fail-safe). 크기 추론 아님 —
-  // 행 단위 provenance 라 일부 사용자/일부 시즌만 이관돼도 정확히 그 범위에만 적용된다.
-  checkDataMigrated: boolean;
+  checkThreshold: number; // 적용 기준값 = recognition_count_n[주차, 조직] (없으면 0·hasRecognition=false)
+  // 기준값 N 이 존재하는가(cluster4_week_opening_configs). false = 미오픈확인 → 게이트 미강제
+  //   (과거 확정 결과 보존·기본값 30 폴백 금지). 종전 checks_migrated 대체.
+  hasRecognition: boolean;
 };
 
 // 사용자 organization_slug 단건 조회 (org_week_thresholds 해석용).
@@ -1204,8 +1198,8 @@ export async function fetchLegacyUnifiedExperienceByWeek(
         deadlinePassed: false,
         rating: null,
         checkCount: 0,
-        checkThreshold: DEFAULT_WEEK_CHECK_THRESHOLD,
-        checkDataMigrated: false,
+        checkThreshold: 0,
+        hasRecognition: false,
       };
       result.set(week, s);
     }
@@ -1275,147 +1269,57 @@ export async function fetchLegacyUnifiedExperienceByWeek(
   //   weeks.check_threshold(NULL=기본값) + user_weekly_points.points(ISO year/week 매칭).
   //   상태가 만들어진 주차(개설 주차)에만 채운다 — 미개설(not_applicable) 주차는 게이트 미적용.
   if (result.size > 0) {
-    type WeekMetaRow = {
-      id: string;
-      iso_year: number | null;
-      iso_week: number | null;
-      check_threshold?: number | null;
-    };
-    let weekMeta: WeekMetaRow[] = [];
-    {
-      // check_threshold 컬럼 미적용 DB(마이그레이션 전) 방어: 실패 시 컬럼 없이 재조회.
-      const ids = [...result.keys()];
-      const { data, error } = await supabaseAdmin
-        .from("weeks")
-        .select("id,iso_year,iso_week,check_threshold")
-        .in("id", ids);
-      if (error) {
-        console.warn(
-          "[lineAvailability] weeks.check_threshold select failed — fallback to default threshold",
-          { message: error.message },
-        );
-        const { data: fallback } = await supabaseAdmin
-          .from("weeks")
-          .select("id,iso_year,iso_week")
-          .in("id", ids);
-        weekMeta = (fallback ?? []) as WeekMetaRow[];
-      } else {
-        weekMeta = (data ?? []) as WeekMetaRow[];
-      }
-    }
+    const ids = [...result.keys()];
 
+    // iso(earned 매칭용) — check_threshold 는 더 이상 기준값이 아니므로 조회하지 않는다.
     const isoByWeekId = new Map<string, { year: number; week: number }>();
-    for (const w of weekMeta) {
-      const s = result.get(w.id);
-      if (!s) continue;
-      s.checkThreshold =
-        w.check_threshold != null && w.check_threshold >= 0
-          ? w.check_threshold
-          : DEFAULT_WEEK_CHECK_THRESHOLD;
-      if (w.iso_year != null && w.iso_week != null) {
-        isoByWeekId.set(w.id, { year: w.iso_year, week: w.iso_week });
+    {
+      const { data } = await supabaseAdmin
+        .from("weeks")
+        .select("id,iso_year,iso_week")
+        .in("id", ids);
+      for (const w of (data ?? []) as { id: string; iso_year: number | null; iso_week: number | null }[]) {
+        if (w.iso_year != null && w.iso_week != null) isoByWeekId.set(w.id, { year: w.iso_year, week: w.iso_week });
       }
     }
 
-    // ── 조직별 기준값 오버라이드 (2026-06-07 B안 — org_week_thresholds) ──
-    //   해석 순서: org_week_thresholds(week_id, org) → weeks.check_threshold → 기본값(30).
-    //   org = user_profiles.organization_slug (source_system 매핑 SoT — Team 파생 금지).
-    //   org null/미등록 slug·테이블 미생성(마이그레이션 전)·조회 실패 = 오버라이드 없음
-    //   (fail-open — 위에서 채운 공통 폴백 체인 그대로). enforce 여부(checks_migrated)는
-    //   본 오버라이드와 무관 — 기준값만 바뀐다.
+    // [2026-07-12] 기준값 SoT = recognition_count_n[주차, 사용자 조직]. 없으면 hasRecognition=false
+    //   → reduceLegacyUnifiedVerdict 가 강등하지 않음(과거 결과 보존·30 폴백 금지).
     {
       const orgSlug =
         opts.organizationSlug !== undefined
           ? opts.organizationSlug
           : await fetchUserOrganizationSlug(userId);
-      if (orgSlug && isOrganizationSlug(orgSlug)) {
-        const { data: orgRows, error: orgErr } = await supabaseAdmin
-          .from("org_week_thresholds")
-          .select("week_id,check_threshold")
-          .eq("organization_slug", orgSlug)
-          .in("week_id", [...result.keys()]);
-        if (orgErr) {
-          console.warn(
-            "[lineAvailability] org_week_thresholds select failed — fallback to common threshold",
-            { message: orgErr.message },
-          );
-        } else {
-          for (const r of (orgRows ?? []) as {
-            week_id: string;
-            check_threshold: number;
-          }[]) {
-            const s = result.get(r.week_id);
-            if (s && r.check_threshold >= 0) s.checkThreshold = r.check_threshold;
-          }
-        }
-      }
-    }
-
-    // ── QA 오버레이 (테스트 유저 한정) — qa_weeks_state.check_threshold 최우선 override ──
-    //   COALESCE(qa, 운영 baseline[org→weeks→30]): qa 값이 있으면 덮어쓰고, 없으면 위 체인 유지.
-    //   실유저(operating) → fetchQaWeekCheckThresholdMap 빈 맵(무조회) → 경로 불변.
-    {
-      const qaScope = await resolveStateScopeForUser(userId);
-      const qaThresholds = await fetchQaWeekCheckThresholdMap(
-        [...result.keys()],
-        qaScope,
+      const nByWeek = await fetchWeekRecognitionRequiredByOrg(
+        ids,
+        orgSlug && isOrganizationSlug(orgSlug) ? orgSlug : null,
       );
-      for (const [wid, thr] of qaThresholds) {
-        const s = result.get(wid);
-        if (s) s.checkThreshold = thr;
+      for (const [weekId, n] of nByWeek) {
+        const s = result.get(weekId);
+        if (!s) continue;
+        s.checkThreshold = n ?? 0;
+        s.hasRecognition = n != null;
       }
     }
 
+    // earned = user_weekly_points.points (ISO year/week 매칭).
     if (isoByWeekId.size > 0) {
       const years = [...new Set([...isoByWeekId.values()].map((v) => v.year))];
-      type PointsRow = {
-        year: number;
-        week_number: number;
-        points: number;
-        checks_migrated?: boolean | null;
-      };
-      let pointRows: PointsRow[] | null = null;
-      {
-        const { data, error } = await supabaseAdmin
-          .from("user_weekly_points")
-          .select("year,week_number,points,checks_migrated")
-          .eq("user_id", userId)
-          .in("year", years);
-        if (!error) {
-          pointRows = (data ?? []) as PointsRow[];
-        } else {
-          // checks_migrated 컬럼 미적용 DB 방어: 컬럼 없이 재조회 — 전 행 "미이관" 취급
-          // (게이트 미강제 = 기존 결과 보존, fail-safe).
-          console.warn(
-            "[lineAvailability] user_weekly_points.checks_migrated select failed — fallback (gate not enforced)",
-            { message: error.message },
-          );
-          const { data: fallback, error: fallbackErr } = await supabaseAdmin
-            .from("user_weekly_points")
-            .select("year,week_number,points")
-            .eq("user_id", userId)
-            .in("year", years);
-          if (fallbackErr) {
-            console.warn("[lineAvailability] user_weekly_points fetch failed", {
-              message: fallbackErr.message,
-            });
-          } else {
-            pointRows = (fallback ?? []) as PointsRow[];
-          }
+      const { data, error } = await supabaseAdmin
+        .from("user_weekly_points")
+        .select("year,week_number,points")
+        .eq("user_id", userId)
+        .in("year", years);
+      if (error) {
+        console.warn("[lineAvailability] user_weekly_points fetch failed", { message: error.message });
+      } else {
+        const byIso = new Map<string, number>();
+        for (const p of (data ?? []) as { year: number; week_number: number; points: number }[]) {
+          byIso.set(`${p.year}-${p.week_number}`, p.points);
         }
-      }
-      if (pointRows) {
-        const rowByIso = new Map<string, PointsRow>();
-        for (const p of pointRows) {
-          rowByIso.set(`${p.year}-${p.week_number}`, p);
-        }
-        // 행 단위 이관 플래그(checks_migrated) 직독 — 행 부재/false = 미이관(보존).
         for (const [weekId, iso] of isoByWeekId) {
           const s = result.get(weekId);
-          if (!s) continue;
-          const row = rowByIso.get(`${iso.year}-${iso.week}`);
-          s.checkCount = row?.points ?? 0;
-          s.checkDataMigrated = row?.checks_migrated === true;
+          if (s) s.checkCount = byIso.get(`${iso.year}-${iso.week}`) ?? 0;
         }
       }
     }
@@ -1467,10 +1371,10 @@ export function reduceLegacyUnifiedVerdict(
   //   강등하지 않고 기존 결과를 보존한다. 이관 행(true) 은 별도 작업 없이 자동 강등 적용.
   if (enhancementStatus === "success") {
     const gate: WeekCheckGate = {
-      required: state.checkThreshold,
+      required: state.checkThreshold, // = recognition_count_n[주차, 조직]
       earned: state.checkCount,
       passed: state.checkCount >= state.checkThreshold,
-      enforced: state.checkDataMigrated,
+      enforced: state.hasRecognition, // N 있을 때만 강등(없으면 과거 결과 보존)
     };
     return {
       ...verdict,
@@ -1494,88 +1398,47 @@ export function reduceLegacyUnifiedVerdict(
 //   expectedWhenMissing=true → 본인 타깃 없으면 fail. 집합 밖 주차는 기존 기준(그 주차에
 //   슬롯 라인이 실제 개설됐을 때만 fail) 유지. 호출부가 effectiveFrom(
 //   CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM 이후 주차)·공표 여부로 집합을 구성한다.
-// 신정책(2026-summer W1+) 주차 인정 check 게이트 입력 — 레거시와 동일 SoT(읽기 전용·테이블 재사용).
-//   해석 순서: org_week_thresholds(week_id, org) → weeks.check_threshold → DEFAULT 30.
-//   earned = user_weekly_points.points (ISO year/week 매칭, 행 없으면 0).
-//   ⚠ 레거시(fetchLegacyUnifiedExperienceByWeek)는 절대 미변경 — 본 함수는 신정책 전용 독립 리더.
-//     enforced 는 호출부에서 true 고정(checks_migrated 미참조 — "포인트 미달 = 실패" 정책).
+// [2026-07-12 정책 전환] 주차 성공 기준값(required) SoT = 오픈확인 인정 개수 N
+//   (cluster4_week_opening_configs.recognition_count_n[주차, 사용자 조직]).
+//   · 종전(threshold 계열: org_week_thresholds → weeks.check_threshold → qa → 30)은 verdict 에서 제거.
+//     그 컬럼들은 주간 리그 등 다른 소비처를 위해 존치하되, 성공/실패 판정 기준으로는 더 이상 쓰지 않는다.
+//   · required = N. earned = user_weekly_points.points (ISO year/week, 행 없으면 0).
+//   · hasRequired = N 존재 여부. N 없으면 enforced=false(호출부) → read-time 표시에서 강등 안 함
+//     (과거 확정 결과 보존·기본값 30 폴백 금지). 새 검수는 finalize 단계에서 N 부재 시 차단한다.
+//   · org/mode/test/demo 무분기 — 동일 lib·동일 조회. organizationSlug = 사용자 조직(호출부 전달).
 async function fetchNewPolicyCheckGateInputs(
   userId: string,
   weekIds: string[],
   organizationSlug: OrganizationSlug | null | undefined,
-): Promise<Map<string, { threshold: number; earned: number }>> {
-  const out = new Map<string, { threshold: number; earned: number }>();
+): Promise<Map<string, { required: number; earned: number; hasRequired: boolean }>> {
+  const out = new Map<string, { required: number; earned: number; hasRequired: boolean }>();
   if (weekIds.length === 0) return out;
 
-  // 1) weeks.check_threshold + iso (컬럼 미적용 DB 방어: 실패 시 컬럼 없이 재조회)
-  type WeekMetaRow = {
-    id: string;
-    iso_year: number | null;
-    iso_week: number | null;
-    check_threshold?: number | null;
-  };
-  let weekMeta: WeekMetaRow[] = [];
-  {
-    const { data, error } = await supabaseAdmin
-      .from("weeks")
-      .select("id,iso_year,iso_week,check_threshold")
-      .in("id", weekIds);
-    if (error) {
-      const { data: fb } = await supabaseAdmin
-        .from("weeks")
-        .select("id,iso_year,iso_week")
-        .in("id", weekIds);
-      weekMeta = (fb ?? []) as WeekMetaRow[];
-    } else {
-      weekMeta = (data ?? []) as WeekMetaRow[];
-    }
-  }
+  // 1) iso(earned 매칭용) — check_threshold 는 더 이상 verdict 기준이 아니므로 조회하지 않는다.
   const isoByWeekId = new Map<string, { year: number; week: number }>();
-  for (const w of weekMeta) {
-    out.set(w.id, {
-      threshold:
-        w.check_threshold != null && w.check_threshold >= 0
-          ? w.check_threshold
-          : DEFAULT_WEEK_CHECK_THRESHOLD,
-      earned: 0,
-    });
-    if (w.iso_year != null && w.iso_week != null) {
-      isoByWeekId.set(w.id, { year: w.iso_year, week: w.iso_week });
+  {
+    const { data } = await supabaseAdmin
+      .from("weeks")
+      .select("id,iso_year,iso_week")
+      .in("id", weekIds);
+    for (const w of (data ?? []) as { id: string; iso_year: number | null; iso_week: number | null }[]) {
+      out.set(w.id, { required: 0, earned: 0, hasRequired: false });
+      if (w.iso_year != null && w.iso_week != null) isoByWeekId.set(w.id, { year: w.iso_year, week: w.iso_week });
     }
   }
 
-  // 2) 조직별 기준값 오버라이드 (org_week_thresholds) — 레거시와 동일 우선순위
-  {
-    const orgSlug =
-      organizationSlug !== undefined
-        ? organizationSlug
-        : await fetchUserOrganizationSlug(userId);
-    if (orgSlug && isOrganizationSlug(orgSlug)) {
-      const { data: orgRows, error } = await supabaseAdmin
-        .from("org_week_thresholds")
-        .select("week_id,check_threshold")
-        .eq("organization_slug", orgSlug)
-        .in("week_id", weekIds);
-      if (!error) {
-        for (const r of (orgRows ?? []) as {
-          week_id: string;
-          check_threshold: number;
-        }[]) {
-          const g = out.get(r.week_id);
-          if (g && r.check_threshold >= 0) g.threshold = r.check_threshold;
-        }
-      }
-    }
-  }
-
-  // 2-QA) QA 오버레이 (테스트 유저 한정) — qa_weeks_state.check_threshold 최우선 override.
-  //   COALESCE(qa, 운영 baseline[org→weeks→30]). 실유저(operating) → 빈 맵(무조회) → 경로 불변.
-  {
-    const qaScope = await resolveStateScopeForUser(userId);
-    const qaThresholds = await fetchQaWeekCheckThresholdMap(weekIds, qaScope);
-    for (const [wid, thr] of qaThresholds) {
-      const g = out.get(wid);
-      if (g) g.threshold = thr;
+  // 2) required = recognition_count_n[주차, 사용자 조직]. org null → N 없음(hasRequired=false).
+  const orgSlug =
+    organizationSlug !== undefined ? organizationSlug : await fetchUserOrganizationSlug(userId);
+  const nByWeek = await fetchWeekRecognitionRequiredByOrg(
+    weekIds,
+    orgSlug && isOrganizationSlug(orgSlug) ? orgSlug : null,
+  );
+  for (const [weekId, n] of nByWeek) {
+    const g = out.get(weekId);
+    if (g && n != null) {
+      g.required = n;
+      g.hasRequired = true;
     }
   }
 
@@ -1603,6 +1466,30 @@ async function fetchNewPolicyCheckGateInputs(
     }
   }
 
+  return out;
+}
+
+// [주차 성공 기준값 SoT] recognition_count_n[주차, 조직] 조회. 값 없음/미오픈확인 = null(기준값 없음).
+//   verdict(신정책·레거시)·finalize 차단 검사 공용. org null = 전부 null.
+export async function fetchWeekRecognitionRequiredByOrg(
+  weekIds: string[],
+  orgSlug: OrganizationSlug | null,
+): Promise<Map<string, number | null>> {
+  const out = new Map<string, number | null>();
+  for (const w of weekIds) out.set(w, null);
+  if (weekIds.length === 0 || !orgSlug) return out;
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_week_opening_configs")
+    .select("week_id,recognition_count_n")
+    .eq("organization_slug", orgSlug)
+    .in("week_id", weekIds);
+  if (error) {
+    console.warn("[lineAvailability] recognition_count_n 조회 실패 — 기준값 없음 처리", { message: error.message });
+    return out;
+  }
+  for (const r of (data ?? []) as { week_id: string; recognition_count_n: number | null }[]) {
+    if (r.recognition_count_n != null) out.set(r.week_id, r.recognition_count_n);
+  }
   return out;
 }
 
@@ -1853,16 +1740,14 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
     for (const w of currentWeekIds) {
       const verdict = result.get(w);
       if (!verdict) continue;
-      const gi = gateInputs.get(w) ?? {
-        threshold: DEFAULT_WEEK_CHECK_THRESHOLD,
-        earned: 0,
-      };
+      const gi = gateInputs.get(w) ?? { required: 0, earned: 0, hasRequired: false };
       result.set(
         w,
         applyExperienceCheckGate(verdict, {
-          required: gi.threshold,
+          required: gi.required,
           earned: gi.earned,
-          enforced: true, // 신정책 고정 — checks_migrated 무관(포인트 미달=실패)
+          // 기준값 N 이 있을 때만 강등 적용. N 없음(미오픈확인) → 강등 안 함(과거 결과 보존·30 폴백 금지).
+          enforced: gi.hasRequired,
         }),
       );
     }

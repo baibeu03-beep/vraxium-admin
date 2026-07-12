@@ -20,6 +20,7 @@ import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import {
   fetchExperienceRequiredSlotStatusByWeek,
+  fetchWeekRecognitionRequiredByOrg,
   CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM,
 } from "@/lib/lineAvailability";
 import { deriveEndStatus } from "@/lib/growthCore";
@@ -278,11 +279,11 @@ export type FinalizeUwsResult = {
 
 export class UwsFinalizeBlockedError extends Error {
   status = 422;
-  code: "accrual_incomplete" | "pending_evaluation";
+  code: "accrual_incomplete" | "pending_evaluation" | "recognition_missing";
   pendingUserIds: string[];
   constructor(
     message: string,
-    code: "accrual_incomplete" | "pending_evaluation",
+    code: "accrual_incomplete" | "pending_evaluation" | "recognition_missing",
     pendingUserIds: string[] = [],
   ) {
     super(message);
@@ -337,6 +338,34 @@ export async function finalizeWeekUws(
     return empty("current_or_future_week");
   }
 
+  const cohort = await loadFinalizeCohort(week.season_key, scope);
+  if (cohort.length === 0) return empty("empty_cohort");
+
+  // [2026-07-12 정책] 주차 성공 기준값 SoT = 오픈확인 N(recognition_count_n[주차, 조직]).
+  //   코호트에 참여하는 조직 중 N 미확정(미오픈확인)이 하나라도 있으면 검수를 차단한다.
+  //   기본값(30)·기존 threshold 폴백 금지 — "오픈 확인을 먼저 완료해주세요".
+  //   ⚠ 적립 완료 검사보다 먼저 — 기준값(N)이 없으면 판정 자체가 불가능한 필수 선행조건이다.
+  //   force(allowIncompleteTestData) 로도 우회 불가(mass-fail 안전장치가 아님·op/test 동일 규칙).
+  {
+    const cohortOrgs = [
+      ...new Set(cohort.map((m) => m.org).filter((o): o is OrganizationSlug => !!o)),
+    ];
+    const nChecks = await Promise.all(
+      cohortOrgs.map(async (org) => ({
+        org,
+        n: (await fetchWeekRecognitionRequiredByOrg([week.id], org)).get(week.id) ?? null,
+      })),
+    );
+    const missingOrgs = nChecks.filter((x) => x.n == null).map((x) => x.org);
+    if (missingOrgs.length > 0) {
+      throw new UwsFinalizeBlockedError(
+        `오픈 확인을 먼저 완료해주세요. 주차 성공 기준(인정 개수 N)이 확정되어야 검수할 수 있습니다. ` +
+          `(오픈 확인 미완료 조직: ${missingOrgs.join(", ")})`,
+        "recognition_missing",
+      );
+    }
+  }
+
   // 안전장치: 이 주차의 프로세스 포인트 적립이 끝났는지. 미완료면 차단(전원 0점 fail 방지).
   //   실제 uws 생성 대상 주차(레거시·공식휴식·현재미래 게이트 통과)에서만 검사한다.
   //   bypass(test/QA + 명시 플래그) 시에는 건너뛴다(불완전 테스트 데이터 흐름 검증).
@@ -346,9 +375,6 @@ export async function finalizeWeekUws(
       throw new UwsFinalizeBlockedError(gate.reason ?? "적립이 완료되지 않았습니다.", "accrual_incomplete");
     }
   }
-
-  const cohort = await loadFinalizeCohort(week.season_key, scope);
-  if (cohort.length === 0) return empty("empty_cohort");
 
   const weekEnd =
     week.end_date ?? new Date(weekStartMs + 6 * 86_400_000).toISOString().slice(0, 10);

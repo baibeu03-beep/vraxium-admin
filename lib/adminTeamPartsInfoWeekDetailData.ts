@@ -119,6 +119,9 @@ export type TeamPartsInfoWeekDetailData = {
     reviewed: boolean;
     // [오픈 확인] 저장 여부(주차×클럽). GET 시 V 표시 복원용.
     openConfirmed: boolean;
+    // 주차 진행 단계(과거/현재/미래) — 프로젝트 공통 주차 판정 재사용(loadSeasonWeeks 의 is_current_week +
+    //   동일 today/날짜 비교). 과거 주차 오픈 상태 변경 시 확인 모달을 띄우는 UI 게이트용(로직 무영향·표시 힌트).
+    weekPhase: "past" | "current" | "future";
     // 확장 주차 여부 — [초기화] 시 실무 경험 라인(개설) 확장 기본값 복원용(도출/분석/견문/관리=true·확장=isExpansionWeek).
     isExpansionWeek: boolean;
     // 주차별 활동 인정 개수 N(오픈확인 시점 확정 저장값). 인정 컬럼 미적용/미계산이면 null →
@@ -370,6 +373,15 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
 
   const todayIso = today ?? getCurrentActivityDateIso();
 
+  // 주차 진행 단계 — 공통 판정 재사용(별도 날짜식 신설 금지):
+  //   현재 = loadSeasonWeeks 가 이미 계산한 managedRow.is_current_week(isCurrentWeek, 동일 todayIso).
+  //   과거 = 현재 아님 && 관리 주차 종료일 < 오늘. 그 외(종료일 미래/미상) = 미래.
+  const weekPhase: "past" | "current" | "future" = managedRow.is_current_week
+    ? "current"
+    : managedRow.week_end_date != null && managedRow.week_end_date < todayIso
+      ? "past"
+      : "future";
+
   return {
     currentWeek: {
       todayLabel: formatTodayLabel(todayIso),
@@ -384,6 +396,7 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
       activityStatus: activityStatusOf(managedRow),
       reviewed,
       openConfirmed,
+      weekPhase,
       isExpansionWeek,
       weekRecognitionCount,
     },
