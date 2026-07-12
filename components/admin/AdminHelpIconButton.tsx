@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Search } from "lucide-react";
 import AdminHelpModal from "@/components/admin/AdminHelpModal";
+import { resolveHelpTooltip } from "@/lib/helpTooltip";
 import { cn } from "@/lib/utils";
 
 // 어드민 UI 요소(표 헤더/필터/입력창/카드 지표/배지/로그 등) 옆에 붙이는 인라인 도움말 트리거.
@@ -12,6 +13,11 @@ import { cn } from "@/lib/utils";
 //   · helpKey 는 요소마다 고유해야 한다. 예: "admin.teamParts.info.weeks.column.actCheckRate".
 //   · org/mode/test 로 갈라지지 않는 공통 키(키 문자열에 org/mode 를 넣지 않는다).
 //   · 표 셀 안에서도 행 높이/컬럼 폭이 늘어나지 않도록 인라인(align-middle) + 아주 작은 크기.
+//
+// hover 툴팁: 저장된 도움말 내용이 있으면 앞부분 미리보기(정리+말줄임표), 없으면 fallback 라벨.
+//   · 조회는 도움말 모달과 "같은" GET /api/admin/help(같은 DTO) — org/mode/test 로 갈라지지 않는다.
+//   · 페이지 mount 마다 모든 아이콘이 일제히 조회하지 않도록, hover/focus 시점에 lazy 로 1회만 조회하고
+//     helpKey 단위 모듈 캐시로 재사용한다(같은 세션 내 재렌더/네비게이션에서도 재조회 없음).
 
 type HelpSize = "xs" | "sm";
 
@@ -25,7 +31,7 @@ export type AdminHelpIconButtonProps = {
   title?: string;
   /** 트리거 크기. 기본 xs(표/배지용). 여유 있는 곳은 sm. */
   size?: HelpSize;
-  /** 접근성 라벨/툴팁. 기본 "이 항목 도움말". */
+  /** 접근성 라벨/툴팁 fallback. 도움말 내용이 없을 때 표시. 기본 "이 항목 도움말". */
   label?: string;
   /** 트리거 배치/여백 조정용. */
   className?: string;
@@ -37,6 +43,40 @@ const TRIGGER_SIZE: Record<HelpSize, string> = {
   sm: "size-[22px] [&_svg]:size-3.5",
 };
 
+// helpKey → 저장된 도움말 원문 캐시(모듈 스코프, 세션 지속).
+//   · 값이 undefined = 아직 미조회, string = 조회 완료(빈 문자열 포함).
+//   · in-flight Promise 를 함께 저장해 동시 hover 중복 요청을 dedup 한다.
+const helpContentCache = new Map<string, string>();
+const helpContentInflight = new Map<string, Promise<string>>();
+
+async function fetchHelpContent(helpKey: string): Promise<string> {
+  const cached = helpContentCache.get(helpKey);
+  if (cached !== undefined) return cached;
+
+  const existing = helpContentInflight.get(helpKey);
+  if (existing) return existing;
+
+  const p = (async () => {
+    try {
+      const res = await fetch(`/api/admin/help?path=${encodeURIComponent(helpKey)}`, {
+        cache: "no-store",
+      });
+      const json = await res.json();
+      const content =
+        res.ok && json?.success && typeof json.data?.content === "string" ? json.data.content : "";
+      helpContentCache.set(helpKey, content);
+      return content;
+    } catch {
+      // 조회 실패는 조용히 fallback 라벨로 — 툴팁이 기능을 막지 않는다. (캐시엔 남기지 않아 재시도 허용)
+      return "";
+    } finally {
+      helpContentInflight.delete(helpKey);
+    }
+  })();
+  helpContentInflight.set(helpKey, p);
+  return p;
+}
+
 export default function AdminHelpIconButton({
   helpKey,
   title,
@@ -45,6 +85,34 @@ export default function AdminHelpIconButton({
   className,
 }: AdminHelpIconButtonProps) {
   const [open, setOpen] = React.useState(false);
+  // 저장된 도움말 원문(미조회=undefined). 툴팁 미리보기 계산에만 쓰인다.
+  const [helpContent, setHelpContent] = React.useState<string | undefined>(() =>
+    helpContentCache.get(helpKey),
+  );
+
+  // hover/focus 시 lazy 조회(모듈 캐시 재사용). 언마운트 후 setState 방지.
+  const primeTooltip = React.useCallback(() => {
+    if (helpContentCache.has(helpKey)) {
+      setHelpContent(helpContentCache.get(helpKey));
+      return;
+    }
+    let alive = true;
+    void fetchHelpContent(helpKey).then((c) => {
+      if (alive) setHelpContent(c);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [helpKey]);
+
+  // 저장(모달에서 편집) 후 다시 열렸다 닫히면 캐시가 stale 일 수 있으니, 닫힐 때 캐시를 비우고 다음 hover 에 재조회.
+  const handleClose = React.useCallback(() => {
+    setOpen(false);
+    helpContentCache.delete(helpKey);
+    setHelpContent(undefined);
+  }, [helpKey]);
+
+  const tooltip = resolveHelpTooltip(helpContent, label);
 
   return (
     <>
@@ -55,9 +123,11 @@ export default function AdminHelpIconButton({
           e.stopPropagation();
           setOpen(true);
         }}
+        onMouseEnter={primeTooltip}
+        onFocus={primeTooltip}
         aria-haspopup="dialog"
-        aria-label={label}
-        title={label}
+        aria-label={tooltip}
+        title={tooltip}
         className={cn(
           "inline-flex shrink-0 cursor-help items-center justify-center rounded-full align-middle",
           "text-muted-foreground/70 outline-none transition-colors",
@@ -73,7 +143,7 @@ export default function AdminHelpIconButton({
 
       <AdminHelpModal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleClose}
         storageKey={helpKey}
         title={title ?? "항목 도움말"}
       />
