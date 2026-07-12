@@ -27,6 +27,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import LineRegistrationEditModal from "@/components/admin/LineRegistrationEditModal";
 import {
   Table,
   TableBody,
@@ -169,7 +170,8 @@ type InfoColKey =
   | "pointA"
   | "pointB"
   | "mainTitle"
-  | "unit";
+  | "unit"
+  | "edit";
 type InfoSortValue = number | string | null;
 
 // 행에서 각 컬럼의 정렬 기준값을 뽑는 함수 묶음(표시 로직과 동일 SoT 헬퍼 사용).
@@ -256,6 +258,15 @@ const INFO_COLUMNS: InfoColumnDef[] = [
     key: "unit",
     label: "유닛",
     helpKey: "admin.lines.info.column.unit",
+    center: true,
+    sortable: false,
+    sortValue: () => null,
+  },
+  // 수정 — 기존 편집 흐름(PATCH /[id] + point-configs PUT) 진입 버튼. 정렬 없음.
+  {
+    key: "edit",
+    label: "수정",
+    helpKey: "admin.lines.info.column.edit",
     center: true,
     sortable: false,
     sortValue: () => null,
@@ -362,6 +373,8 @@ export default function LineRegistrationInfoManager({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  // 수정 모달 — 편집 대상 행(null = 닫힘). 저장 성공 시 목록 재조회로 즉시 반영.
+  const [editingRow, setEditingRow] = useState<LineRegistrationDto | null>(null);
   useReportLoading(loading);
 
   // 클럽 필터(즉시 적용) · 허브 필터(보류 → [확인] 시 적용).
@@ -836,6 +849,18 @@ export default function LineRegistrationInfoManager({
                           </Button>
                         )}
                       </TableCell>
+                      {/* 수정 — 기존 편집 흐름(모달) 진입. 공용 outline/sm 버튼 스타일 재사용. */}
+                      <TableCell className="text-center">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setEditingRow(row)}
+                          title="라인 수정"
+                        >
+                          수정
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })
@@ -844,6 +869,18 @@ export default function LineRegistrationInfoManager({
           </Table>
         </div>
       )}
+
+      {/* 수정 모달 — 기존 PATCH /[id] + point-configs PUT 재사용. 저장 성공 시 목록 재조회. */}
+      {editingRow ? (
+        <LineRegistrationEditModal
+          row={editingRow}
+          onClose={() => setEditingRow(null)}
+          onSaved={() => {
+            setEditingRow(null);
+            setRefreshTick((n) => n + 1);
+          }}
+        />
+      ) : null}
     </div>
   ) : null;
 }
