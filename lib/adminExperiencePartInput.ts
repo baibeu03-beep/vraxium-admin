@@ -51,7 +51,7 @@ function crewDisplayStatus(
 
 // (org, teamName) 의 활동 크루 행 — user_profiles(role) + user_memberships(현재행) join.
 //   모집단 = mode 스코프(operating=실사용자만 / test=test_user_markers 만). 단일 SoT: lib/userScope.
-async function loadTeamCrewRows(
+export async function loadTeamCrewRows(
   organization: string,
   teamName: string,
   mode: ScopeMode = "operating",
@@ -183,6 +183,31 @@ export async function listPartCrews(
     if (r.partName !== part) continue;
     const status = crewDisplayStatus(r.role, r.membershipLevel);
     if (!status) continue; // 파트장/팀장 등 제외
+    out.push({
+      userId: r.userId,
+      displayName: r.displayName,
+      partName: r.partName,
+      statusLabel: status,
+    });
+  }
+  return out;
+}
+
+// 팀 전체(모든 파트 합집합)의 평가 대상 크루 — listPartCrews 와 동일 판정(파트장/팀장·휴식·미배정 제외).
+//   팀 총괄(part_name=NULL) 스코프의 "체크 대상자 로스터" 로 쓴다. 파트 필터만 없앤 형태.
+export async function listTeamCrews(
+  organization: string,
+  teamName: string,
+  mode: ScopeMode = "operating",
+): Promise<PartInputCrew[]> {
+  const rows = await loadTeamCrewRows(organization, teamName, mode);
+  const out: PartInputCrew[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) {
+    const status = crewDisplayStatus(r.role, r.membershipLevel);
+    if (!status) continue; // 파트장/팀장 등 제외
+    if (seen.has(r.userId)) continue;
+    seen.add(r.userId);
     out.push({
       userId: r.userId,
       displayName: r.displayName,
