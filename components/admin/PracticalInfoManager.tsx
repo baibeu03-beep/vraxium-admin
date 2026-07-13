@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import { formatAdminDateWithWeekday } from "@/lib/adminDateTime";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
@@ -179,8 +180,6 @@ const EDIT_REASON_LABEL: Record<string, string> = {
 //   fmtDateShort 는 메타(라인 생성일)용으로만 남겨둔 기존 표기다.
 // ──────────────────────────────────────────────────────────────
 
-const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
-
 // 클럽 일정 날짜(시각 없음) — "YY - MM - DD (요일)".
 function fmtDateWithDay(iso: string): string {
   return formatClubDate(iso);
@@ -191,15 +190,9 @@ function fmtDateTimeWithDay(iso: string): string {
   return formatClubDateTime(iso);
 }
 
-// 메타(라인 생성일) 전용 — 기존 표기 유지(클럽 일정 통일 대상 아님).
+// 메타(라인 생성일) 전용 — 기존 표기 유지 + 서울 표준시(KST) 고정.
 function fmtDateShort(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const y = d.getFullYear();
-  const m = d.getMonth() + 1;
-  const day = d.getDate();
-  const dow = DAY_NAMES[d.getDay()];
-  return `${y}. ${m}. ${day}. (${dow})`;
+  return formatAdminDateWithWeekday(iso, iso);
 }
 
 // ISO ↔ <input type="datetime-local"> 변환 (로컬 타임존 기준).

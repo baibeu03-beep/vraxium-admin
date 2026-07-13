@@ -23,6 +23,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
 
 type Applicant = {
   id: string;
@@ -47,14 +48,9 @@ function fmt(value: string | null | undefined) {
   return value?.trim() ? value : "-";
 }
 
+// createdAt 등 메타 시각 — 항상 서울 표준시(KST) "YYYY-MM-DD HH:mm:ss".
 function fmtDate(value: string | null | undefined) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatAdminDateTime(value, { fallback: "-" });
 }
 
 export default function ApplicantManager() {

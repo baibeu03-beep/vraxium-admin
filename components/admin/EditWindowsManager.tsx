@@ -55,6 +55,7 @@ import {
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { formatClubDateTime } from "@/lib/clubDate";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
 
 const PAGE_SIZE = 50;
 const RESOURCE_OPTIONS = [...EDITABLE_RESOURCES].sort((a, b) => a.order - b.order);
@@ -65,14 +66,9 @@ function fmt(value: string | null | undefined) {
   return value?.trim() ? value : "-";
 }
 
+// updatedAt 등 메타 시각 — 항상 서울 표준시(KST) "YYYY-MM-DD HH:mm:ss".
 function fmtDate(value: string | null | undefined) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatAdminDateTime(value, { fallback: "-" });
 }
 
 function orgLabel(slug: string | null) {

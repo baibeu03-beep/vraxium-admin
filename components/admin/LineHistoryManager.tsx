@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatClubDate } from "@/lib/clubDate";
+import { formatAdminDate } from "@/lib/adminDateTime";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
@@ -52,14 +53,9 @@ const HUB_OPTIONS: { value: "" | Cluster4LinePartType; label: string }[] = [
 
 const PAGE_SIZE = 50;
 
+// 라인 생성일(createdAt) 메타 날짜 — 항상 서울 표준시(KST) "YYYY-MM-DD".
 function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return formatAdminDate(iso, "—");
 }
 
 function StatusBadge({ status }: { status: Cluster4OpenedLineDto["status"] }) {

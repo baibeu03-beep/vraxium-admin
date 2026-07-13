@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Star, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FieldCell, fmt, type FieldDef } from "@/components/admin/fieldKit";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
 
 // "학교 (school_name)" → "학교" (운영자 친화)
 // 라벨 끝 괄호가 영문/언더스코어 (= column name) 일 때만 제거한다.
@@ -395,11 +396,11 @@ export default function EducationsList({
                 </div>
                 <div className="flex gap-1">
                   <dt className="font-medium">created_at:</dt>
-                  <dd>{fmt(row.created_at)}</dd>
+                  <dd>{formatAdminDateTime(row.created_at)}</dd>
                 </div>
                 <div className="flex gap-1">
                   <dt className="font-medium">updated_at:</dt>
-                  <dd>{fmt(row.updated_at)}</dd>
+                  <dd>{formatAdminDateTime(row.updated_at)}</dd>
                 </div>
               </dl>
             )}

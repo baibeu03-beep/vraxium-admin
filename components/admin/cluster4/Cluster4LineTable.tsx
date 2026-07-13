@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import { formatAdminDateWithWeekday } from "@/lib/adminDateTime";
 import type {
   Cluster4LineDetail,
   Cluster4LinePartType,
@@ -262,12 +263,9 @@ const EDIT_REASON_LABEL: Record<string, string> = {
   unsupported_target_mode: "rule 대상",
 };
 
-const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"] as const;
-
+// 라인 생성일 등 메타 날짜 — 항상 서울 표준시(KST) "YYYY. M. D. (요일)".
 function fmtDateShort(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${DAY_NAMES[d.getDay()]})`;
+  return formatAdminDateWithWeekday(iso, iso);
 }
 
 function isoToLocalInput(iso: string): string {

@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
@@ -91,14 +92,9 @@ function fmt(value: string | null | undefined) {
   return value?.trim() ? value : "—";
 }
 
+// createdAt·updatedAt 등 메타 시각 — 항상 서울 표준시(KST) "YYYY-MM-DD HH:mm:ss".
 function fmtDate(value: string | null | undefined) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatAdminDateTime(value, { fallback: "—" });
 }
 
 function orgLabel(slug: string | null) {

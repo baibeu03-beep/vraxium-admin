@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
 import {
   ORGANIZATION_LABEL,
   type OrganizationSlug,
@@ -531,7 +532,9 @@ export default function ResumeCardEditor({
               <>
                 {" "}
                 · {devMode ? "last saved" : "최근 저장"}:{" "}
-                <code className="font-mono">{lastSavedAt}</code>
+                <code className="font-mono">
+                  {formatAdminDateTime(lastSavedAt)}
+                </code>
               </>
             )}
           </div>

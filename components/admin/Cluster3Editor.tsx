@@ -11,11 +11,12 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
 import {
   ORGANIZATION_LABEL,
   type OrganizationSlug,
 } from "@/lib/organizations";
-import { DebugSection, fmt } from "@/components/admin/fieldKit";
+import { DebugSection } from "@/components/admin/fieldKit";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import {
@@ -634,14 +635,18 @@ export default function Cluster3Editor({
               <>
                 {" "}
                 · last loaded:{" "}
-                <code className="font-mono">{lastLoadedAt}</code>
+                <code className="font-mono">
+                  {formatAdminDateTime(lastLoadedAt)}
+                </code>
               </>
             )}
             {lastSavedAt && (
               <>
                 {" "}
                 · {devMode ? "last saved" : "최근 저장"}:{" "}
-                <code className="font-mono">{lastSavedAt}</code>
+                <code className="font-mono">
+                  {formatAdminDateTime(lastSavedAt)}
+                </code>
               </>
             )}
           </div>
@@ -1132,7 +1137,7 @@ export default function Cluster3Editor({
             <div className="mt-0.5 text-[10px] text-muted-foreground">
               latest updated_at:{" "}
               <code className="font-mono">
-                {fmt(outputSnapshot.latestUpdatedAt)}
+                {formatAdminDateTime(outputSnapshot.latestUpdatedAt)}
               </code>
             </div>
           )}
@@ -1159,7 +1164,7 @@ export default function Cluster3Editor({
             <div className="mt-0.5 text-[10px] text-muted-foreground">
               latest updated_at:{" "}
               <code className="font-mono">
-                {fmt(detailSnapshot.latestUpdatedAt)}
+                {formatAdminDateTime(detailSnapshot.latestUpdatedAt)}
               </code>
             </div>
           )}

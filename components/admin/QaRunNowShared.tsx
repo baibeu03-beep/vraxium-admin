@@ -6,6 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
 
 export type RunOutcome = "success" | "partial" | "failed";
 
@@ -192,7 +193,7 @@ export function QaRunNowLogList({
                 <span className="text-muted-foreground">{r.actor ?? "—"}</span>
               </span>
               <span className="tabular-nums text-muted-foreground">
-                {new Date(r.created_at).toLocaleString("ko-KR", { hour12: false })}
+                {formatAdminDateTime(r.created_at)}
               </span>
             </li>
           ))}

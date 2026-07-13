@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
 import { formatClubDate } from "@/lib/clubDate";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import {
   ORGANIZATION_LABEL,
@@ -515,11 +516,9 @@ function buildWeeklyColleaguePatch(form: FormState): Cluster4PatchBody {
 // Misc display helpers
 // ─────────────────────────────────────────────────────────────
 
+// 작성/수정 시각(created_at·updated_at) 등 메타 타임스탬프 — 항상 서울 표준시(KST) 표시.
 function formatTimestamp(value: string | null): string {
-  if (!value) return "-";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString();
+  return formatAdminDateTime(value);
 }
 
 function formatReviewerOrganization(slug: string | null): string {
@@ -1540,12 +1539,18 @@ export default function Cluster4Editor({
             )}
             {devMode && lastLoadedAt && (
               <>
-                {" "}· last loaded: <code className="font-mono">{lastLoadedAt}</code>
+                {" "}· last loaded:{" "}
+                <code className="font-mono">
+                  {formatAdminDateTime(lastLoadedAt)}
+                </code>
               </>
             )}
             {devMode && lastSavedAt && (
               <>
-                {" "}· last saved: <code className="font-mono">{lastSavedAt}</code>
+                {" "}· last saved:{" "}
+                <code className="font-mono">
+                  {formatAdminDateTime(lastSavedAt)}
+                </code>
               </>
             )}
           </div>

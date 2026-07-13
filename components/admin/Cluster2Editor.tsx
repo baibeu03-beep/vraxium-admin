@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import {
   ORGANIZATION_LABEL,
@@ -344,21 +345,9 @@ function getYouTubeThumbnail(url: string | null | undefined): string | null {
   return m ? `https://img.youtube.com/vi/${m[1]}/maxresdefault.jpg` : null;
 }
 
+// 리뷰 링크 편집창 openedAt 등 메타 시각 — 항상 서울 표준시(KST) "YYYY-MM-DD HH:mm".
 function formatWindowDate(value: string | null | undefined): string {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  const parts = new Intl.DateTimeFormat("sv-SE", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
-  const get = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}`;
+  return formatAdminDateTime(value, { withSeconds: false, fallback: "-" });
 }
 
 function ReviewLinkWindowNotice({
@@ -684,7 +673,9 @@ export default function Cluster2Editor({
               <>
                 {" "}
                 · {devMode ? "last saved" : "최근 저장"}:{" "}
-                <code className="font-mono">{lastSavedAt}</code>
+                <code className="font-mono">
+                  {formatAdminDateTime(lastSavedAt)}
+                </code>
               </>
             )}
           </div>

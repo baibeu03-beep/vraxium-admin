@@ -49,6 +49,7 @@ import {
   type SeasonPhase,
 } from "@/lib/adminSeasonParticipationsTypes";
 import { formatClubDate } from "@/lib/clubDate";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
 
 const ALL = "__all__";
 
@@ -97,14 +98,9 @@ function formatRange(start: string | null, end: string | null) {
   return formatDate(start ?? end);
 }
 
+// updated_at 등 메타 시각 — 항상 서울 표준시(KST) "YYYY-MM-DD HH:mm:ss".
 function formatDateTime(value: string | null | undefined) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("ko-KR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date);
+  return formatAdminDateTime(value, { fallback: "—" });
 }
 
 function orgLabel(slug: string | null | undefined) {
