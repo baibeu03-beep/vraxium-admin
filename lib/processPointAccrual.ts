@@ -411,6 +411,144 @@ export async function previewRegularAccrual(statusId: string): Promise<RegularAc
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Point C 비대상자 소급 지급(1회성 backfill) — 과거 버그로 누락된 C 만 보완.
+//   ⚠ 정책: 순수 additive — 기존 A/B 원장 무변경 · 삭제 없음 · 이미 지급(원장 존재)분 dedup 스킵.
+//   판정 로직은 전방(forward) 적립과 100% 동일(computeDesiredAwards) — operating/test 공통.
+//   era 미허용/파C 미설정 체크는 스킵(전방과 동일 — 그런 체크는 A/B 도 적립 안 됨).
+// ─────────────────────────────────────────────────────────────────────
+export type RegularUnselectedCBackfill =
+  | { ok: true; skipped: true; reason: string }
+  | {
+      ok: true;
+      skipped?: false;
+      statusId: string;
+      org: OrganizationSlug | null;
+      mode: ScopeMode;
+      hub: ProcessHub | null;
+      partName: string | null;
+      week: WeekRow;
+      pointPenalty: number;
+      effectivePenaltyUnselected: number;
+      rosterCount: number;
+      performerCount: number;
+      unselectedCount: number;
+      // 비대상자 중 원장에 C 가 이미 있어 건너뛴 수(중복 방지).
+      alreadyLedgeredCount: number;
+      // 실제로 신규 지급될(원장에 없는) 비대상자 userId — dry-run/apply 공통.
+      missingCUserIds: string[];
+    };
+
+// 소급 지급 계획(read-only) — dry-run 과 apply 가 공유(미리보기==실행).
+export async function computeRegularUnselectedCBackfill(statusId: string): Promise<RegularUnselectedCBackfill> {
+  const built = await buildRegularAwardInput(statusId);
+  if ("skipped" in built) return { ok: true, skipped: true, reason: built.reason };
+  const { input } = built;
+  if (!isAccrualAllowedWeek(input.mode, input.week)) {
+    return { ok: true, skipped: true, reason: `era_blocked(${input.mode},${input.week.season_key} W${input.week.week_number})` };
+  }
+  if ((input.pointPenalty ?? 0) <= 0) return { ok: true, skipped: true, reason: "no_penalty_configured" };
+  if (input.week.iso_year == null || input.week.iso_week == null) return { ok: true, skipped: true, reason: "week_iso_missing" };
+
+  const plan = await computeDesiredAwards(input);
+  if (plan.effectivePenaltyUnselected <= 0) return { ok: true, skipped: true, reason: "penalty_zero_after_policy" };
+
+  // 기존 원장 대상자(이 ref) — 이미 지급된(A/B 이행자 + 혹시 있을 C) 사용자. dedup 기준.
+  const { data: existing, error } = await supabaseAdmin
+    .from("process_point_awards")
+    .select("user_id")
+    .eq("source", "regular")
+    .eq("ref_id", statusId);
+  if (error) throw error;
+  const existingSet = new Set(((existing ?? []) as { user_id: string | null }[]).map((r) => r.user_id).filter((id): id is string => Boolean(id)));
+
+  const missingCUserIds = plan.unselected.filter((u) => !existingSet.has(u));
+  const alreadyLedgeredCount = plan.unselected.length - missingCUserIds.length;
+
+  return {
+    ok: true,
+    statusId,
+    org: input.org,
+    mode: input.mode,
+    hub: input.hub,
+    partName: input.partName,
+    week: input.week,
+    pointPenalty: input.pointPenalty,
+    effectivePenaltyUnselected: plan.effectivePenaltyUnselected,
+    rosterCount: plan.rosterCount,
+    performerCount: plan.performers.length,
+    unselectedCount: plan.unselected.length,
+    alreadyLedgeredCount,
+    missingCUserIds,
+  };
+}
+
+export type BackfillApplyResult = {
+  ok: true;
+  statusId: string;
+  weekId: string;
+  inserted: number;               // 신규 생성된 C 원장 수
+  skippedDuplicate: number;       // 중복(원장 존재)으로 건너뛴 수
+  affectedUserIds: string[];      // uwp 재계산·snapshot 무효화 대상
+  insertedRows: Array<{ user_id: string; year: number; week_number: number; point_penalty: number }>; // 롤백 백업용
+};
+
+// 롤백/외부 재계산용 — 지정 사용자들의 (해당 주차) uwp 를 원장 합으로 재계산 + 등급 + snapshot 무효화.
+export async function recomputeWeeklyPointsForUsers(userIds: string[], weekId: string): Promise<void> {
+  if (!userIds.length) return;
+  const week = await loadWeek(weekId);
+  if (!week) return;
+  await settleAffectedUsers(Array.from(new Set(userIds)), week);
+}
+
+// 소급 지급 실행(additive) — 누락 C 만 insert(ignoreDuplicates) + uwp 재계산 + snapshot 무효화.
+//   기존 A/B 원장 무변경 · 삭제 없음. 전방 적립과 동일 판정(computeRegularUnselectedCBackfill).
+export async function applyRegularUnselectedCBackfill(statusId: string): Promise<BackfillApplyResult | { ok: true; skipped: true; reason: string }> {
+  if (!ACCRUAL_ENABLED) return { ok: true, skipped: true, reason: "accrual_disabled" };
+  const plan = await computeRegularUnselectedCBackfill(statusId);
+  if (plan.skipped) return plan;
+  if (plan.missingCUserIds.length === 0) {
+    return { ok: true, statusId, weekId: plan.week.id, inserted: 0, skippedDuplicate: plan.alreadyLedgeredCount, affectedUserIds: [], insertedRows: [] };
+  }
+
+  // 스코프 재검증(fail-closed) — 비대상자 전원이 (mode,org) 스코프여야. 위반 시 throw(422).
+  const scope = await resolveUserScope(plan.mode, plan.org);
+  assertUserIdsInScope(scope, plan.missingCUserIds);
+
+  const year = plan.week.iso_year as number;
+  const wk = plan.week.iso_week as number;
+  const nowIso = new Date().toISOString();
+  const rows = plan.missingCUserIds.map((uid) => ({
+    source: "regular" as const,
+    ref_id: statusId,
+    user_id: uid,
+    year,
+    week_number: wk,
+    point_check: 0,
+    point_advantage: 0,
+    point_penalty: plan.effectivePenaltyUnselected,
+    organization_slug: plan.org,
+    scope_mode: plan.mode,
+    updated_at: nowIso,
+  }));
+  // additive + dedup — 이미 있는 (source,ref_id,user_id)는 건드리지 않음(A/B·기존 C 보존).
+  const { error } = await supabaseAdmin
+    .from("process_point_awards")
+    .upsert(rows, { onConflict: "source,ref_id,user_id", ignoreDuplicates: true });
+  if (error) throw error;
+
+  await settleAffectedUsers(plan.missingCUserIds, plan.week);
+  return {
+    ok: true,
+    statusId,
+    weekId: plan.week.id,
+    inserted: plan.missingCUserIds.length,
+    skippedDuplicate: plan.alreadyLedgeredCount,
+    affectedUserIds: plan.missingCUserIds,
+    insertedRows: rows.map((r) => ({ user_id: r.user_id, year: r.year, week_number: r.week_number, point_penalty: r.point_penalty })),
+  };
+}
+
 // 등급(user_grade_stats) 당사자 즉시 갱신 — 포인트 변경 사용자 본인만(getClubRank 단일 스캔).
 //   ⚠ 타 사용자 전체 재계산(syncAllGradeStats)은 하지 않는다 — 전역 정합은 별도 배치/후속 1-pass Phase.
 //   best-effort: 등급 갱신 실패는 warning 처리하고 포인트 적립은 유지(등급은 파생 캐시 — SoT 아님).
