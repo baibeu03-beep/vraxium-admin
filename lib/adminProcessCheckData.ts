@@ -38,7 +38,7 @@ import {
 } from "@/lib/processCheckWindowsData";
 import { isUuid } from "@/lib/isUuid";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
-import { listTeamParts, listPartCrews } from "@/lib/adminExperiencePartInput";
+import { listTeamParts, listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   processCheckLogPeriodLabel,
@@ -664,13 +664,16 @@ async function loadRecipientData(statusRowIds: string[]): Promise<RecipientData>
 }
 
 // 액트 행 1건의 검수 크루 진단 산출 — recipients(있으면 우선) + status/last_error 파생.
+//   matchedCountOverride: 팀 구분 허브(experience)에서 "카페 매칭 ∩ 선택 팀/파트 실제 소속자"로
+//   교집합한 매칭 수(호출부가 로스터로 산출). null 이면 기존 파생(비팀 허브·회귀 금지).
 function buildReviewerDebug(
   st: StatusState,
   recipients: Map<string, RecipientAgg>,
+  matchedCountOverride: number | null = null,
 ): ProcessCheckReviewerDebug {
   const rec = st.statusRowId ? recipients.get(st.statusRowId) : undefined;
-  // 매칭 수 — recipients 가 있으면 그 matched, 없으면 checked_crew_count 폴백(completed 시).
-  const matchedCount = rec ? rec.matched : st.checkedCrewCount ?? 0;
+  // 매칭 수 — 소속 교집합 override 가 있으면 우선, 없으면 recipients matched, 없으면 checked_crew_count 폴백.
+  const matchedCount = matchedCountOverride != null ? matchedCountOverride : rec ? rec.matched : st.checkedCrewCount ?? 0;
   const unmatchedCommentAuthors = rec ? rec.unmatchedAuthors : [];
   const reviewCount = unmatchedCommentAuthors.length;
   return {
@@ -765,6 +768,25 @@ export async function getProcessCheckBoard(
   const teamName = teamBased && teamId ? await resolveTeamName(teamId, organization) : null;
   const teamParts = teamName ? await listTeamParts(organization, teamName, mode) : [];
 
+  // ── 체크 대상자 로스터(선택 팀/파트 실제 소속자) — 팀 구분 허브(experience)만 산출 ─────────────
+  //   체크 완료 명단/매칭 수를 "카페 링크 집계 ∩ 실제 팀/파트 소속자"로 교집합할 때 쓴다(UI 숨김이 아닌
+  //   서버 산정 단계 필터). key: 파트명 · "" = 팀 총괄(part_name NULL).
+  //   ⚠ 적립(computeDesiredAwards)이 쓰는 resolveCheckScopeRoster 와 동일 원천(loadTeamCrewRows):
+  //     rosterByPart.get(part) === listPartCrews(part), rosterByPart.get("") === listTeamCrews.
+  //     한 번의 listTeamCrews 로 파트별 로스터까지 파생해(동치) 조회를 줄인다 → 명단·인원·적립이 항상 일치.
+  const rosterByPart = new Map<string, Set<string>>();
+  if (teamBased && teamId && teamName) {
+    const teamCrews = await listTeamCrews(organization, teamName, mode);
+    rosterByPart.set("", new Set(teamCrews.map((c) => c.userId)));
+    for (const part of teamParts) {
+      rosterByPart.set(part, new Set(teamCrews.filter((c) => c.partName === part).map((c) => c.userId)));
+    }
+  }
+  // 이 행(파트 스코프)의 로스터 집합 — 팀 구분 허브만. 비팀/미선택은 null(필터 no-op).
+  //   미해소 파트는 빈 집합(fail-closed: 타 팀/타 파트/미소속 전면 제외).
+  const rosterForPart = (partForRoster: string | null): Set<string> | null =>
+    teamBased && teamId ? rosterByPart.get(partForRoster ?? "") ?? new Set<string>() : null;
+
   // 유효 스코프 — 팀 선택(experience)일 때만. 기본 team_all. part 인데 partName 이 팀 파트가 아니면 team_all 폴백.
   const partAvail = teamBased && teamId ? await partNameColumnAvailable() : false;
   let effScope: ProcessCheckScopeKind | null = null;
@@ -823,35 +845,54 @@ export async function getProcessCheckBoard(
       a.created_at.localeCompare(b.created_at),
   );
   // 한 액트 + 상태 + 파트라벨 → 행 DTO. (정적 필드 공통)
-  const buildRow = (a: ActRow, lineGroupName: string, st: StatusState, partLabel: string): ProcessCheckActRowDto => ({
-    actId: a.id,
-    lineGroupId: a.line_group_id,
-    lineGroupName,
-    partLabel,
-    actName: a.act_name,
-    durationMinutes: a.duration_minutes,
-    occurWhen: formatProcessWhen(a.occur_week as ProcessWeekRef, a.occur_dow, a.occur_time),
-    checkWhen: formatProcessWhen(a.check_week as ProcessWeekRef, a.check_dow, a.check_time),
-    pointCheck: a.point_check,
-    pointAdvantage: a.point_advantage,
-    pointPenalty: a.point_penalty,
-    actType: a.act_type as ProcessActType,
-    crewReactionLabel: PROCESS_ACT_TYPE_LABEL[a.act_type as ProcessActType] ?? a.act_type,
-    cafeLabel: PROCESS_CAFE_LABEL[a.cafe as ProcessCafe] ?? a.cafe,
-    isCheckTarget: a.check_target === "check",
-    checkStatusId: st.statusRowId,
-    status: st.status,
-    completionType: st.completionType,
-    reviewLink: st.reviewLink,
-    scheduledCheckAt: st.scheduledCheckAt,
-    requestedAt: st.requestedAt,
-    completedAt: st.completedAt,
-    checkedCrewCount: st.checkedCrewCount,
-    // 체크 완료 명단 — completed 행만(상태행 id 로 매핑). 그 외는 빈 배열.
-    completedCrewList:
-      st.status === "completed" && st.statusRowId ? crewLists.get(st.statusRowId) ?? [] : [],
-    reviewerDebug: buildReviewerDebug(st, recipients),
-  });
+  //   partForRoster: 이 행의 파트 스코프(파트명 · null=팀 총괄). 팀 구분 허브에서 "체크 완료 명단/매칭 수"를
+  //   카페 링크 집계 ∩ 실제 팀/파트 소속자로 교집합하는 데 쓴다(비팀 허브는 roster=null → 필터 no-op).
+  const buildRow = (
+    a: ActRow,
+    lineGroupName: string,
+    st: StatusState,
+    partLabel: string,
+    partForRoster: string | null,
+  ): ProcessCheckActRowDto => {
+    const roster = rosterForPart(partForRoster);
+    // 카페 매칭 명단(상태행 id 로 매핑) — 팀 구분 허브면 실제 소속 로스터로 교집합.
+    const rawMatchedList = st.statusRowId ? crewLists.get(st.statusRowId) ?? [] : [];
+    const scopedMatchedList = roster
+      ? rawMatchedList.filter((c) => c.userId != null && roster.has(c.userId))
+      : rawMatchedList;
+    const completedCrewList = st.status === "completed" ? scopedMatchedList : [];
+    return {
+      actId: a.id,
+      lineGroupId: a.line_group_id,
+      lineGroupName,
+      partLabel,
+      actName: a.act_name,
+      durationMinutes: a.duration_minutes,
+      occurWhen: formatProcessWhen(a.occur_week as ProcessWeekRef, a.occur_dow, a.occur_time),
+      checkWhen: formatProcessWhen(a.check_week as ProcessWeekRef, a.check_dow, a.check_time),
+      pointCheck: a.point_check,
+      pointAdvantage: a.point_advantage,
+      pointPenalty: a.point_penalty,
+      actType: a.act_type as ProcessActType,
+      crewReactionLabel: PROCESS_ACT_TYPE_LABEL[a.act_type as ProcessActType] ?? a.act_type,
+      cafeLabel: PROCESS_CAFE_LABEL[a.cafe as ProcessCafe] ?? a.cafe,
+      isCheckTarget: a.check_target === "check",
+      checkStatusId: st.statusRowId,
+      status: st.status,
+      completionType: st.completionType,
+      reviewLink: st.reviewLink,
+      scheduledCheckAt: st.scheduledCheckAt,
+      requestedAt: st.requestedAt,
+      completedAt: st.completedAt,
+      // "체크 완료 N명" = 교집합된 명단 크기(팀 구분 허브·completed). 비팀/그 외는 저장값(불변).
+      checkedCrewCount:
+        roster && st.status === "completed" ? completedCrewList.length : st.checkedCrewCount,
+      // 체크 완료 명단 — completed 행만. 팀 구분 허브면 실제 소속자로 교집합된 목록.
+      completedCrewList,
+      // 매칭 수도 동일 교집합 반영(비팀 허브는 override=null → 기존 파생).
+      reviewerDebug: buildReviewerDebug(st, recipients, roster ? scopedMatchedList.length : null),
+    };
+  };
 
   // 행 생성 — partLabel("팀 총괄"/파트명) 부여. 팀 전체(team_all)의 파트 액트는 팀 파트마다 1행으로 펼친다
   //   (액트가 특정 파트에 묶이지 않으므로, 각 파트의 독립 상태를 그대로 노출 — "팀 전체"는 값으로 안 씀).
@@ -862,22 +903,23 @@ export async function getProcessCheckBoard(
     const isPart = isPartLineGroupName(lineGroupName);
 
     if (effScope === "part") {
-      // 선택 파트만 — partLabel = 선택 파트명, 상태 = 그 파트 행.
-      flatActs.push(buildRow(a, lineGroupName, perActPerPart.get(a.id)?.get(effPart!) ?? NEEDED, effPart!));
+      // 선택 파트만 — partLabel = 선택 파트명, 상태 = 그 파트 행. 로스터 = 그 파트 소속자.
+      flatActs.push(buildRow(a, lineGroupName, perActPerPart.get(a.id)?.get(effPart!) ?? NEEDED, effPart!, effPart));
     } else if (effScope === "team_overall") {
-      flatActs.push(buildRow(a, lineGroupName, nullMap.get(a.id) ?? NEEDED, TEAM_OVERALL_LABEL));
+      // 팀 총괄 — 로스터 = 팀 전체 소속자(part=null).
+      flatActs.push(buildRow(a, lineGroupName, nullMap.get(a.id) ?? NEEDED, TEAM_OVERALL_LABEL, null));
     } else if (effScope === "team_all" && isPart) {
-      // 팀 전체 — 파트 액트는 팀 파트마다 펼침(각 파트 독립 상태). 파트 없으면 1행(미배정).
+      // 팀 전체 — 파트 액트는 팀 파트마다 펼침(각 파트 독립 상태·로스터). 파트 없으면 1행(미배정).
       if (teamParts.length === 0) {
-        flatActs.push(buildRow(a, lineGroupName, NEEDED, "파트(미배정)"));
+        flatActs.push(buildRow(a, lineGroupName, NEEDED, "파트(미배정)", null));
       } else {
         for (const part of teamParts) {
-          flatActs.push(buildRow(a, lineGroupName, perActPerPart.get(a.id)?.get(part) ?? NEEDED, part));
+          flatActs.push(buildRow(a, lineGroupName, perActPerPart.get(a.id)?.get(part) ?? NEEDED, part, part));
         }
       }
     } else {
-      // team_all 의 총괄 액트 · 비팀(info)/섹션.0 → part_name NULL 행. (info 는 컬럼 미표시)
-      flatActs.push(buildRow(a, lineGroupName, nullMap.get(a.id) ?? NEEDED, isPart ? "파트" : TEAM_OVERALL_LABEL));
+      // team_all 의 총괄 액트 · 비팀(info)/섹션.0 → part_name NULL 행. (info 는 컬럼 미표시·roster=null no-op)
+      flatActs.push(buildRow(a, lineGroupName, nullMap.get(a.id) ?? NEEDED, isPart ? "파트" : TEAM_OVERALL_LABEL, null));
     }
   }
 
