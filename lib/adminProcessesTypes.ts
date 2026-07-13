@@ -256,6 +256,13 @@ export function isReviewGapTooShort(
 export const PROCESS_REVIEW_GAP_MESSAGE =
   "검수 시점은 신청 시점보다 최소 12시간 이후여야 합니다.\n신청 시점과 검수 시점을 다시 확인해주세요.";
 
+// ── 즉시 팝업/필드 오류 공용 문구 (신청→검수 순서·12시간 규칙, 클라 SoT) ────────
+// 신청 시점을 먼저 선택하지 않고 검수 시점을 건드릴 때.
+export const PROCESS_OCCUR_FIRST_MESSAGE = "신청 시점을 먼저 선택해주세요.";
+// 12시간 미만 검수 시점을 선택하는 즉시(등록 전) 띄우는 짧은 안내.
+export const PROCESS_REVIEW_GAP_IMMEDIATE_MESSAGE =
+  "검수 시점은 신청 시점보다 최소 12시간 이후로 설정해주세요.";
+
 // ── 프로세스 정보(/admin/processes/info) 요약 ──────────────────────────────
 export type ProcessPointTriplet = { check: number; advantage: number; penalty: number };
 

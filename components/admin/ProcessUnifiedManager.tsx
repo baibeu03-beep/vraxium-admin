@@ -54,9 +54,10 @@ import {
   PROCESS_WEEK_REF_LABEL,
   enforcePointC,
   formatProcessWhen,
-  isCheckBeforeOccur,
   isReviewGapTooShort,
   PROCESS_REVIEW_GAP_MESSAGE,
+  PROCESS_OCCUR_FIRST_MESSAGE,
+  PROCESS_REVIEW_GAP_IMMEDIATE_MESSAGE,
   processWhenOrdinal,
   reactionAllowsPointC,
   type ProcessActDto,
@@ -331,6 +332,10 @@ function FormRow({
 }
 
 // 주/요일/시간 3종 묶음 입력 (신청 시점 · 검수 시점 공용).
+//   각 select 는 선두에 "-"(미선택, value="") 옵션을 두고 기본값을 미선택으로 둔다.
+//   week=""/dow=""/time="" 셋 모두 채워졌을 때만 "시점 선택 완료"로 취급한다(호출부 판정).
+//   intercept: 열기 직전 가로채기(mousedown/keydown). true 반환 시 드롭다운을 열지 않는다
+//     — 검수 시점을 "신청 시점 미선택" 상태에서 조작하려 할 때 팝업만 띄우고 값 변경을 막는 용도.
 function WhenInput({
   week,
   dow,
@@ -340,25 +345,43 @@ function WhenInput({
   onTime,
   disabled,
   idPrefix,
+  intercept,
 }: {
-  week: ProcessWeekRef;
-  dow: number;
+  week: ProcessWeekRef | "";
+  dow: number | "";
   time: string;
-  onWeek: (v: ProcessWeekRef) => void;
-  onDow: (v: number) => void;
+  onWeek: (v: ProcessWeekRef | "") => void;
+  onDow: (v: number | "") => void;
   onTime: (v: string) => void;
   disabled?: boolean;
   idPrefix: string;
+  intercept?: () => boolean;
 }) {
+  // 클릭 가로채기 — 드롭다운을 열지 않는다.
+  const guardMouse = intercept
+    ? (e: React.MouseEvent) => {
+        if (intercept()) e.preventDefault();
+      }
+    : undefined;
+  // 키보드 가로채기 — 열기/이동 키만 차단하고 Tab/Escape 등 포커스 이동은 통과시킨다.
+  const guardKey = intercept
+    ? (e: React.KeyboardEvent) => {
+        if (e.key === "Tab" || e.key === "Escape") return;
+        if (intercept()) e.preventDefault();
+      }
+    : undefined;
   return (
     <div className="grid grid-cols-3 gap-2">
       <select
         aria-label={`${idPrefix} 주`}
         className={SELECT_CLS}
         value={week}
-        onChange={(e) => onWeek(e.target.value as ProcessWeekRef)}
+        onChange={(e) => onWeek(e.target.value as ProcessWeekRef | "")}
+        onMouseDown={guardMouse}
+        onKeyDown={guardKey}
         disabled={disabled}
       >
+        <option value="">-</option>
         {PROCESS_WEEK_REFS.map((w) => (
           <option key={w} value={w}>
             {PROCESS_WEEK_REF_LABEL[w]}
@@ -368,10 +391,13 @@ function WhenInput({
       <select
         aria-label={`${idPrefix} 요일`}
         className={SELECT_CLS}
-        value={dow}
-        onChange={(e) => onDow(Number(e.target.value))}
+        value={dow === "" ? "" : String(dow)}
+        onChange={(e) => onDow(e.target.value === "" ? "" : Number(e.target.value))}
+        onMouseDown={guardMouse}
+        onKeyDown={guardKey}
         disabled={disabled}
       >
+        <option value="">-</option>
         {PROCESS_DOW_LABELS.map((d, i) => (
           <option key={i} value={i}>
             {d}
@@ -383,8 +409,11 @@ function WhenInput({
         className={SELECT_CLS}
         value={time}
         onChange={(e) => onTime(e.target.value)}
+        onMouseDown={guardMouse}
+        onKeyDown={guardKey}
         disabled={disabled}
       >
+        <option value="">-</option>
         {PROCESS_TIME_OPTIONS.map((t) => (
           <option key={t} value={t}>
             {t}
@@ -419,12 +448,13 @@ export default function ProcessUnifiedManager() {
   const [actName, setActName] = useState("");
   const [lineGroupId, setLineGroupId] = useState<string>("");
   const [duration, setDuration] = useState<number>(PROCESS_DURATION_OPTIONS[0]);
-  const [occurWeek, setOccurWeek] = useState<ProcessWeekRef>("N");
-  const [occurDow, setOccurDow] = useState(0);
-  const [occurTime, setOccurTime] = useState(PROCESS_TIME_OPTIONS[0]);
-  const [checkWeek, setCheckWeek] = useState<ProcessWeekRef>("N");
-  const [checkDow, setCheckDow] = useState(0);
-  const [checkTime, setCheckTime] = useState(PROCESS_TIME_OPTIONS[0]);
+  // 신청/검수 시점 — 신규 진입 시 자동 선택 없이 미선택("-"). "" = 미선택 sentinel.
+  const [occurWeek, setOccurWeek] = useState<ProcessWeekRef | "">("");
+  const [occurDow, setOccurDow] = useState<number | "">("");
+  const [occurTime, setOccurTime] = useState<string>("");
+  const [checkWeek, setCheckWeek] = useState<ProcessWeekRef | "">("");
+  const [checkDow, setCheckDow] = useState<number | "">("");
+  const [checkTime, setCheckTime] = useState<string>("");
   const [pointCheck, setPointCheck] = useState(0);
   const [pointAdvantage, setPointAdvantage] = useState(0);
   const [pointPenalty, setPointPenalty] = useState(0);
@@ -516,12 +546,12 @@ export default function ProcessUnifiedManager() {
     setActName("");
     setLineGroupId("");
     setDuration(PROCESS_DURATION_OPTIONS[0]);
-    setOccurWeek("N");
-    setOccurDow(0);
-    setOccurTime(PROCESS_TIME_OPTIONS[0]);
-    setCheckWeek("N");
-    setCheckDow(0);
-    setCheckTime(PROCESS_TIME_OPTIONS[0]);
+    setOccurWeek("");
+    setOccurDow("");
+    setOccurTime("");
+    setCheckWeek("");
+    setCheckDow("");
+    setCheckTime("");
     setPointCheck(0);
     setPointAdvantage(0);
     setPointPenalty(0);
@@ -543,31 +573,80 @@ export default function ProcessUnifiedManager() {
     [loadGroups, setBanner],
   );
 
-  // ── 신청/검수 시점 선후 가드 ────────────────────────────────────────────
-  // 신청 시점 변경 시: 검수 시점이 이전이 되면 신청 시점으로 끌어올린다(불변식 유지).
-  const applyOccur = useCallback(
-    (nextWeek: ProcessWeekRef, nextDow: number, nextTime: string) => {
+  // ── 신청/검수 시점: 미선택("-") · 순서 강제 · 12시간 규칙 즉시 검증 ──────────
+  // 시점은 (주·요일·시각) 3종이 모두 채워져야 "선택 완료"다.
+  const occurComplete = occurWeek !== "" && occurDow !== "" && occurTime !== "";
+  const checkComplete = checkWeek !== "" && checkDow !== "" && checkTime !== "";
+
+  // 동일 오류 팝업 중복 스택 방지 — 하나가 열려 있으면 새로 띄우지 않는다.
+  const popupOpenRef = useRef(false);
+  const notify = useCallback((title: string, description: string) => {
+    if (popupOpenRef.current) return;
+    popupOpenRef.current = true;
+    void adminDialog
+      .alert({ variant: "warning", title, description })
+      .finally(() => {
+        popupOpenRef.current = false;
+      });
+  }, []);
+
+  // 신청 시점 변경: 값 반영 후, 기존 검수 시점이 새 신청 기준 12시간 미만이 되면 즉시 초기화 + 팝업.
+  const changeOccur = useCallback(
+    (nextWeek: ProcessWeekRef | "", nextDow: number | "", nextTime: string) => {
+      setBanner(null);
       setOccurWeek(nextWeek);
       setOccurDow(nextDow);
       setOccurTime(nextTime);
-      if (isCheckBeforeOccur(nextWeek, nextDow, nextTime, checkWeek, checkDow, checkTime)) {
+      const occurNow = nextWeek !== "" && nextDow !== "" && nextTime !== "";
+      const checkNow = checkWeek !== "" && checkDow !== "" && checkTime !== "";
+      if (
+        occurNow &&
+        checkNow &&
+        isReviewGapTooShort(
+          nextWeek as ProcessWeekRef, nextDow as number, nextTime,
+          checkWeek as ProcessWeekRef, checkDow as number, checkTime,
+        )
+      ) {
+        setCheckWeek("");
+        setCheckDow("");
+        setCheckTime("");
+        notify("검수 시점 확인", PROCESS_REVIEW_GAP_IMMEDIATE_MESSAGE);
+      }
+    },
+    [checkWeek, checkDow, checkTime, notify, setBanner],
+  );
+
+  // 검수 시점 변경: 신청 미완성이면 팝업만(값 불변). 완성 후 12시간 미만이면 반영 거부 + 팝업 + 필드오류.
+  const changeCheck = useCallback(
+    (nextWeek: ProcessWeekRef | "", nextDow: number | "", nextTime: string) => {
+      setBanner(null);
+      if (!(occurWeek !== "" && occurDow !== "" && occurTime !== "")) {
+        notify("신청 시점 확인", PROCESS_OCCUR_FIRST_MESSAGE);
+        return;
+      }
+      const nextComplete = nextWeek !== "" && nextDow !== "" && nextTime !== "";
+      if (!nextComplete) {
+        // 부분 선택 — 간격 판정 불가, 값만 반영.
         setCheckWeek(nextWeek);
         setCheckDow(nextDow);
         setCheckTime(nextTime);
+        return;
       }
-    },
-    [checkWeek, checkDow, checkTime],
-  );
-  // 검수 시점 변경 시: 신청 시점보다 이전이면 반영하지 않고 alert.
-  const guardCheck = useCallback(
-    (nextWeek: ProcessWeekRef, nextDow: number, nextTime: string): boolean => {
-      if (isCheckBeforeOccur(occurWeek, occurDow, occurTime, nextWeek, nextDow, nextTime)) {
-        void adminDialog.alert({ variant: "warning", title: "검수 시점 오류", description: "신청 시점보다 이전입니다." });
-        return false;
+      if (
+        isReviewGapTooShort(
+          occurWeek as ProcessWeekRef, occurDow as number, occurTime,
+          nextWeek as ProcessWeekRef, nextDow as number, nextTime,
+        )
+      ) {
+        // 잘못된 검수 시점 — 저장하지 않고 기존값 유지 + 즉시 팝업(인라인 오류는 미표시).
+        notify("검수 시점 확인", PROCESS_REVIEW_GAP_IMMEDIATE_MESSAGE);
+        return;
       }
-      return true;
+      setCheckWeek(nextWeek);
+      setCheckDow(nextDow);
+      setCheckTime(nextTime);
     },
-    [occurWeek, occurDow, occurTime],
+    [occurWeek, occurDow, occurTime, notify, setBanner],
   );
 
   const handleResetActForm = useCallback(async () => {
@@ -583,6 +662,11 @@ export default function ProcessUnifiedManager() {
     const name = newGroupName.trim();
     if (!name) {
       setBanner({ kind: "error", message: "라인급명을 입력해주세요" });
+      return;
+    }
+    // 소속 라인급명 최대 30자 — 입력 maxLength 로도 막지만 최종 방어(백엔드도 동일).
+    if (name.length > PROCESS_NAME_MAX) {
+      setBanner({ kind: "error", message: `라인급명은 최대 ${PROCESS_NAME_MAX}자까지 입력할 수 있습니다` });
       return;
     }
     if (lineGroups.length >= PROCESS_LINE_GROUP_MAX) {
@@ -664,6 +748,11 @@ export default function ProcessUnifiedManager() {
       setBanner({ kind: "error", message: "액트명을 입력해주세요" });
       return;
     }
+    // 액트명 최대 30자 — 입력 maxLength 로도 막지만, 붙여넣기·우회 대비 최종 방어(백엔드도 동일).
+    if (actName.trim().length > PROCESS_NAME_MAX) {
+      setBanner({ kind: "error", message: `액트명은 최대 ${PROCESS_NAME_MAX}자까지 입력할 수 있습니다` });
+      return;
+    }
     if (!lineGroupId) {
       setBanner({ kind: "error", message: "소속 라인급을 선택해주세요" });
       return;
@@ -677,10 +766,22 @@ export default function ProcessUnifiedManager() {
       setBanner({ kind: "error", message: "개요를 입력해주세요." });
       return;
     }
+    // 신청/검수 시점 필수 — 3종(주·요일·시각)이 모두 선택되어야 한다.
+    if (!occurComplete) {
+      notify("신청 시점 확인", "신청 시점(주·요일·시각)을 모두 선택해주세요.");
+      return;
+    }
+    if (!checkComplete) {
+      notify("검수 시점 확인", "검수 시점(주·요일·시각)을 모두 선택해주세요.");
+      return;
+    }
     // 최소 12시간 규칙 — 검수 시점은 신청 시점 + 12시간 이후여야 등록 가능(백엔드도 동일 검증).
     //   위반 시 저장 요청을 보내지 않고 공통 경고 모달로 차단한다(브라우저 alert 미사용).
     if (
-      isReviewGapTooShort(occurWeek, occurDow, occurTime, checkWeek, checkDow, checkTime)
+      isReviewGapTooShort(
+        occurWeek as ProcessWeekRef, occurDow as number, occurTime,
+        checkWeek as ProcessWeekRef, checkDow as number, checkTime,
+      )
     ) {
       await confirm({
         title: "검수 시점 확인",
@@ -702,11 +803,11 @@ export default function ProcessUnifiedManager() {
           hub: selectedHub,
           act_name: actName.trim(),
           duration_minutes: duration,
-          occur_week: occurWeek,
-          occur_dow: occurDow,
+          occur_week: occurWeek as ProcessWeekRef,
+          occur_dow: occurDow as number,
           occur_time: occurTime,
-          check_week: checkWeek,
-          check_dow: checkDow,
+          check_week: checkWeek as ProcessWeekRef,
+          check_dow: checkDow as number,
           check_time: checkTime,
           point_check: pointCheck,
           point_advantage: pointAdvantage,
@@ -738,7 +839,8 @@ export default function ProcessUnifiedManager() {
     }
   }, [
     selectedHub, actName, lineGroupId, duration, occurWeek, occurDow, occurTime,
-    checkWeek, checkDow, checkTime, pointCheck, pointAdvantage, pointPenalty,
+    checkWeek, checkDow, checkTime, occurComplete, checkComplete, notify,
+    pointCheck, pointAdvantage, pointPenalty,
     cafe, checkTarget, actType, overview, remarks, resetActForm, loadGroups, loadInfo, confirm, setBanner,
   ]);
 
@@ -847,15 +949,21 @@ export default function ProcessUnifiedManager() {
             </select>
           </FormRow>
 
-          {/* [2] 액트명 */}
-          <FormRow label="액트명" helpKey="admin.processes.register.actName" required>
-            <Input
-              value={actName}
-              onChange={(e) => setActName(e.target.value)}
-              maxLength={PROCESS_NAME_MAX}
-              placeholder="예) [브리핑] 클럽 시작"
-              disabled={!canSubmit}
-            />
+          {/* [2] 액트명 — 최대 30자(maxLength 로 입력 차단, 등록/서버에서도 재검증). */}
+          <FormRow label="액트명" helpKey="admin.processes.register.actName" required alignTop>
+            <div className="space-y-1">
+              <Input
+                value={actName}
+                onChange={(e) => setActName(e.target.value)}
+                maxLength={PROCESS_NAME_MAX}
+                placeholder="예) [브리핑] 클럽 시작"
+                disabled={!canSubmit}
+              />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>최대 {PROCESS_NAME_MAX}자까지 입력할 수 있습니다.</span>
+                <span className="tabular-nums">현재 글자 수 {actName.length} / {PROCESS_NAME_MAX}</span>
+              </div>
+            </div>
           </FormRow>
 
           {/* [3] 소속 라인급 — 등록 + 칩 목록 */}
@@ -896,6 +1004,11 @@ export default function ProcessUnifiedManager() {
                     size="sm"
                     className="shrink-0 self-center"
                   />
+                </div>
+                {/* 라인급명(소속 라인급) 최대 30자 안내 — 액트명과 동일 컴포넌트/스타일. */}
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>최대 {PROCESS_NAME_MAX}자까지 입력할 수 있습니다.</span>
+                  <span className="tabular-nums">현재 글자 수 {newGroupName.length} / {PROCESS_NAME_MAX}</span>
                 </div>
 
                 {groupsLoading ? (
@@ -962,32 +1075,46 @@ export default function ProcessUnifiedManager() {
               폭이 좁으면(xl 미만) 그룹 단위로 세로 스택. 안내 문구는 두 필드 하단에 배치. */}
           <div className="space-y-2">
             <div className="grid grid-cols-1 gap-x-10 gap-y-4 xl:grid-cols-2">
-              {/* [5] 신청 시점(필요) */}
+              {/* [5] 신청 시점(필요) — 기본 미선택("-"). */}
               <FormRow label="신청 시점(필요)" helpKey="admin.processes.register.occurWhen" required>
                 <WhenInput
                   week={occurWeek}
                   dow={occurDow}
                   time={occurTime}
-                  onWeek={(v) => applyOccur(v, occurDow, occurTime)}
-                  onDow={(v) => applyOccur(occurWeek, v, occurTime)}
-                  onTime={(v) => applyOccur(occurWeek, occurDow, v)}
+                  onWeek={(v) => changeOccur(v, occurDow, occurTime)}
+                  onDow={(v) => changeOccur(occurWeek, v, occurTime)}
+                  onTime={(v) => changeOccur(occurWeek, occurDow, v)}
                   idPrefix="신청"
                   disabled={!canSubmit}
                 />
               </FormRow>
 
-              {/* [6] 검수 시점(필요) — 신청 시점보다 이전이면 반영 차단(alert). */}
-              <FormRow label="검수 시점(필요)" helpKey="admin.processes.register.checkWhen" required>
-                <WhenInput
-                  week={checkWeek}
-                  dow={checkDow}
-                  time={checkTime}
-                  onWeek={(v) => guardCheck(v, checkDow, checkTime) && setCheckWeek(v)}
-                  onDow={(v) => guardCheck(checkWeek, v, checkTime) && setCheckDow(v)}
-                  onTime={(v) => guardCheck(checkWeek, checkDow, v) && setCheckTime(v)}
-                  idPrefix="검수"
-                  disabled={!canSubmit}
-                />
+              {/* [6] 검수 시점(필요) — 신청 시점 미선택 시 조작 차단(팝업). 12시간 미만 선택 즉시 팝업+오류. */}
+              <FormRow label="검수 시점(필요)" helpKey="admin.processes.register.checkWhen" required alignTop>
+                <div className="space-y-1">
+                  <WhenInput
+                    week={checkWeek}
+                    dow={checkDow}
+                    time={checkTime}
+                    onWeek={(v) => changeCheck(v, checkDow, checkTime)}
+                    onDow={(v) => changeCheck(checkWeek, v, checkTime)}
+                    onTime={(v) => changeCheck(checkWeek, checkDow, v)}
+                    idPrefix="검수"
+                    disabled={!canSubmit}
+                    intercept={() => {
+                      if (!occurComplete) {
+                        notify("신청 시점 확인", PROCESS_OCCUR_FIRST_MESSAGE);
+                        return true;
+                      }
+                      return false;
+                    }}
+                  />
+                  {canSubmit && !occurComplete && (
+                    <p className="text-xs text-muted-foreground">
+                      {PROCESS_OCCUR_FIRST_MESSAGE}
+                    </p>
+                  )}
+                </div>
               </FormRow>
             </div>
             <p className="text-xs text-amber-600">
