@@ -704,7 +704,7 @@ function Field({
 }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-1", className)}>
-      <dt className="text-[11px] font-medium text-muted-foreground">{label}</dt>
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
       <dd
         className={cn(
           "flex min-h-[2.25rem] items-center break-words rounded-md border bg-muted/40 px-2.5 py-1.5 text-sm text-foreground",
