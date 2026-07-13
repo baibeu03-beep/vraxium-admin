@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -134,6 +134,102 @@ function dash(v: string | number | null | undefined): string {
 function formatBirth6(b: string | null): string {
   if (!b || b.length < 6) return "-";
   return `${b.slice(0, 2)}. ${b.slice(2, 4)}. ${b.slice(4, 6)}`;
+}
+
+// 팀장 메타 정보 행 — 표시 가능한 항목만 배열로 모아 "항목 사이에만" | 구분자를 렌더한다.
+//   · 값 없는 항목은 배열에서 제외 → 앞뒤 불필요한 구분자·연속 || · 첫/끝 구분자 없음.
+//   · 각 (구분자+항목)을 inline-flex 단위로 감싸 모바일 줄바꿈 시 구분자가 단독 고립되지 않게 함.
+//   · 구분자는 text-muted-foreground/50(본문보다 약함)·aria-hidden.
+//   · data-team-leader-*, data-team-partcount, data-team-parts 유지. 표현만 변경(데이터 로직 불변).
+//   · mode/org 분기 없음 — 모든 조직·모드가 이 공통 경로를 그대로 사용.
+function TeamLeaderMeta({ team }: { team: TeamDto }) {
+  const schoolMajor = team.leaderSchool
+    ? team.leaderMajor
+      ? `${team.leaderSchool}, ${team.leaderMajor}`
+      : team.leaderSchool
+    : null;
+  const birth =
+    team.leaderBirth6 && team.leaderBirth6.length >= 6
+      ? formatBirth6(team.leaderBirth6)
+      : null;
+
+  const items: { key: string; node: ReactNode }[] = [];
+  // 이름 배지(앵커 — 항상 표시).
+  items.push({
+    key: "name",
+    node: (
+      <span
+        data-team-leader-name={team.teamName}
+        className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-medium"
+      >
+        {dash(team.leaderName)}
+      </span>
+    ),
+  });
+  const pushText = (
+    key: string,
+    value: string | null,
+    dataAttr?: Record<string, string>,
+  ) => {
+    if (!value) return; // 값 없는 항목은 렌더링하지 않음(구분자도 함께 생략).
+    items.push({
+      key,
+      node: (
+        <span className="text-muted-foreground" {...dataAttr}>
+          {value}
+        </span>
+      ),
+    });
+  };
+  pushText("birth", birth);
+  pushText("gender", team.leaderGender);
+  pushText("school", schoolMajor);
+  pushText("residence", team.leaderResidence);
+  pushText("class", team.leaderClassLabel, { "data-team-leader-class": team.teamName });
+  pushText("grade", team.leaderGradeLabel, { "data-team-leader-grade": team.teamName });
+  // 파트 수(선행 "·" 제거 — 구분자 체계로 대체).
+  items.push({
+    key: "partcount",
+    node: (
+      <span className="text-muted-foreground">
+        파트 수{" "}
+        <strong data-team-partcount={team.teamName} className="text-foreground">
+          {team.partCount}
+        </strong>
+      </span>
+    ),
+  });
+  // 파트 배지 묶음(앞에 구분자 1개 · 배지 내부엔 구분자 없음).
+  items.push({
+    key: "parts",
+    node: (
+      <span className="flex flex-wrap gap-1" data-team-parts={team.teamName}>
+        {team.partNames.map((p) => (
+          <span
+            key={p}
+            className="rounded-md border border-input bg-background px-2 py-0.5 text-xs font-medium"
+          >
+            {p}
+          </span>
+        ))}
+      </span>
+    ),
+  });
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+      {items.map((item, i) => (
+        <span key={item.key} className="inline-flex items-center gap-2">
+          {i > 0 ? (
+            <span aria-hidden className="select-none text-muted-foreground/50">
+              |
+            </span>
+          ) : null}
+          {item.node}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function TeamPartsInfoManager() {
@@ -679,59 +775,8 @@ export default function TeamPartsInfoManager() {
                   </div>
                 </div>
 
-                {/* Row 2: 팀장 기본정보 · 파트 수 · 파트 칩 */}
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <span
-                    data-team-leader-name={t.teamName}
-                    className="rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-medium"
-                  >
-                    {dash(t.leaderName)}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {formatBirth6(t.leaderBirth6)}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {dash(t.leaderGender)}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {dash(t.leaderSchool)}
-                    {t.leaderMajor ? `, ${t.leaderMajor}` : ""}
-                  </span>
-                  <span className="text-muted-foreground">
-                    {dash(t.leaderResidence)}
-                  </span>
-                  <span
-                    data-team-leader-class={t.teamName}
-                    className="text-muted-foreground"
-                  >
-                    {dash(t.leaderClassLabel)}
-                  </span>
-                  <span
-                    data-team-leader-grade={t.teamName}
-                    className="text-muted-foreground"
-                  >
-                    {dash(t.leaderGradeLabel)}
-                  </span>
-                  <span className="ml-2">
-                    · 파트 수{" "}
-                    <strong data-team-partcount={t.teamName}>
-                      {t.partCount}
-                    </strong>
-                  </span>
-                  <span
-                    className="flex flex-wrap gap-1"
-                    data-team-parts={t.teamName}
-                  >
-                    {t.partNames.map((p) => (
-                      <span
-                        key={p}
-                        className="rounded-md border border-input bg-background px-2 py-0.5 text-xs font-medium"
-                      >
-                        {p}
-                      </span>
-                    ))}
-                  </span>
-                </div>
+                {/* Row 2: 팀장 기본정보 · 파트 수 · 파트 칩 — 공통 항목배열+구분자 렌더 */}
+                <TeamLeaderMeta team={t} />
 
                 {/* Row 3: 파트 × 주차 존재표 — 시안 [5]. 가로 스크롤. */}
                 {t.partWeekMatrix && weekColumns.length > 0 ? (

@@ -434,10 +434,61 @@ export async function listHalfTeams(
 //   셀 = 그 주에 그 파트 소속 크루 ≥1(존재). UPH 무접촉·read 전용 → snapshot 영향 없음.
 const stripParen = (s: string): string => s.replace(/\(.*?\)/g, "").trim();
 
+// 현재 팀·파트 배정(user_memberships) — 팀별 점유 파트 집합(org 매칭·is_current·비휴식).
+//   진행 중 반기의 미확정 주차 폴백 SoT(사용자 화면과 동일 원천). 현재 멤버가 없는 팀은 미포함
+//   (빈 팀 false-fill 방지).
+//   ⚠ part_name = null/빈문자 = "파트 미배정"(팀장 정책) — "일반"으로 변환하지 않고 제외한다.
+//     따라서 팀장은 어떤 파트 셀/인원에도 포함되지 않는다(팀 전체 인원엔 별도 경로로 포함).
+//     실제 저장값이 "일반"인 사용자만 "일반" 파트로 집계된다.
+async function currentMembershipPartsByTeam(
+  organization: string,
+  teamNames: string[],
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (teamNames.length === 0) return out;
+  const { data: mems, error } = await supabaseAdmin
+    .from("user_memberships")
+    .select("user_id,team_name,part_name,is_current,membership_state")
+    .in("team_name", teamNames)
+    .eq("is_current", true);
+  if (error) throw new Error(error.message);
+  const rows = ((mems ?? []) as Array<{
+    user_id: string;
+    team_name: string | null;
+    part_name: string | null;
+    membership_state: string | null;
+  }>).filter((m) => m.membership_state !== "rest");
+  const uids = Array.from(new Set(rows.map((r) => r.user_id)));
+  const orgByUser = new Map<string, string | null>();
+  if (uids.length > 0) {
+    const { data: profs, error: pErr } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,organization_slug")
+      .in("user_id", uids);
+    if (pErr) throw new Error(pErr.message);
+    for (const p of (profs ?? []) as Array<{ user_id: string; organization_slug: string | null }>)
+      orgByUser.set(p.user_id, p.organization_slug);
+  }
+  for (const r of rows) {
+    if (orgByUser.get(r.user_id) !== organization) continue;
+    if (!r.team_name) continue;
+    const part = (r.part_name ?? "").trim();
+    if (!part) continue; // 파트 미배정(팀장) — 일반 변환 없이 제외.
+    const list = out.get(r.team_name) ?? [];
+    if (!list.includes(part)) list.push(part);
+    out.set(r.team_name, list);
+  }
+  return out;
+}
+
 async function computePartWeekData(
   organization: string,
   halfKey: string,
   teams: Array<{ teamHalfId: string; teamName: string }>,
+  // 진행 중 반기(=현재 반기)일 때만 true. UPH 없는 "진행 대상(경과) 주차"에 한해
+  //   현재 팀·파트 배정(user_memberships)으로 셀을 폴백한다(UPH·과거 반기는 불변).
+  applyMembershipFallback = false,
+  todayIso?: string,
 ): Promise<{
   weekColumns: PartWeekColumnDto[];
   byTeam: Map<string, PartWeekMatrixDto>;
@@ -546,6 +597,43 @@ async function computePartWeekData(
     firstSeen.set(team, fm);
   }
 
+  // 4b) 진행 중 반기 폴백 — UPH가 없는 "진행 대상(경과) 주차"에 한해 현재 팀·파트 배정
+  //     (user_memberships, 사용자 화면과 동일 SoT)으로 셀을 채운다.
+  //     · UPH가 있는 주차는 항상 UPH 우선(그 주차는 폴백 제외).
+  //     · 시작일 > 오늘(미래·미도래) 주차는 채우지 않음(전체 무조건 채움 금지).
+  //     · 현재 멤버 없는 팀은 폴백 없음. mode/org 분기 없음·user_week_statuses 미생성.
+  if (applyMembershipFallback) {
+    const cutoff = todayIso ?? getCurrentActivityDateIso();
+    const memberParts = await currentMembershipPartsByTeam(
+      organization,
+      teams.map((t) => t.teamName),
+    );
+    for (const t of teams) {
+      const parts = memberParts.get(t.teamName);
+      if (!parts || parts.length === 0) continue;
+      const pm = presence.get(t.teamName) ?? new Map<string, Set<number>>();
+      // 이 팀에 UPH가 이미 있는 주차 = UPH 우선(폴백 제외).
+      const uphWeeks = new Set<number>();
+      for (const s of pm.values()) for (const wi of s) uphWeeks.add(wi);
+      // 진행 대상 주차 = 시작일 <= 오늘 && UPH 미보유.
+      const elapsed = weekColumns
+        .map((c, wi) => ({ start: c.weekStartDate, wi }))
+        .filter(({ start, wi }) => start <= cutoff && !uphWeeks.has(wi))
+        .map(({ wi }) => wi);
+      if (elapsed.length === 0) continue;
+      const fm = firstSeen.get(t.teamName) ?? new Map<string, number>();
+      const minWi = Math.min(...elapsed);
+      for (const part of parts) {
+        const set = pm.get(part) ?? new Set<number>();
+        for (const wi of elapsed) set.add(wi);
+        pm.set(part, set);
+        if (!fm.has(part) || minWi < (fm.get(part) ?? Infinity)) fm.set(part, minWi);
+      }
+      presence.set(t.teamName, pm);
+      firstSeen.set(t.teamName, fm);
+    }
+  }
+
   // 5) 팀별 matrix 조립. y축 = ["일반", 카탈로그 비-일반(순서), UPH-only(최초주차→이름)].
   for (const t of teams) {
     const seen = presence.get(t.teamName) ?? new Map<string, Set<number>>();
@@ -610,6 +698,7 @@ export async function loadTeamPartsInfo(
   mode: ScopeMode = "operating",
 ): Promise<TeamPartsInfoDto> {
   const currentHalfKey = await resolveCurrentHalfKey(today);
+  const todayIso = today ?? getCurrentActivityDateIso();
   const halves = await listAvailableHalves(organization, currentHalfKey);
 
   // 선택 반기: 유효한 반기 키면 그대로 조회한다(해당 시기 드롭다운의 고정 옵션 중 데이터가 없는
@@ -643,11 +732,15 @@ export async function loadTeamPartsInfo(
 
   // 파트×주차 존재표(선택 반기). 팀별 matrix 를 teams 에 병합 + x축 weekColumns.
   let weekColumns: PartWeekColumnDto[] = [];
+  // 진행 중 반기(=현재 반기)에서만 미확정 주차를 현재 배정으로 폴백한다(과거 반기 불변).
+  const applyMembershipFallback = selected != null && selected === currentHalfKey;
   if (selected && teams.length > 0) {
     const { weekColumns: cols, byTeam } = await computePartWeekData(
       organization,
       selected,
       teams.map((t) => ({ teamHalfId: t.teamHalfId, teamName: t.teamName })),
+      applyMembershipFallback,
+      todayIso,
     );
     weekColumns = cols;
     // ① 팀정보 ② 파트 수/파트명 ③ 존재표 — 모두 선택 반기 마지막 활동 주차로 통일.
