@@ -450,7 +450,7 @@ export default function LineRegistrationEditModal({
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Point.A/B 는 (클럽·허브·유형) 공유 설정입니다 — 같은 유형의 다른 라인과 오픈 확인 계산에도 동일 값이 적용됩니다.
+              Point.A/B는 (클럽·허브·유형) 공유 설정입니다.
             </p>
           </div>
 
@@ -462,7 +462,7 @@ export default function LineRegistrationEditModal({
               onChange={(e) => setIsActive(e.target.checked)}
               disabled={saving}
             />
-            활성(체크 해제 시 비활성 — 개설 검증에서 제외)
+            활성(체크 해제 시 비활성)
           </label>
         </div>
 
