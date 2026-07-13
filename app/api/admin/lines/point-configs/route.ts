@@ -19,6 +19,7 @@ import {
   listLinePointConfigs,
   upsertLinePointConfig,
 } from "@/lib/adminLinePointConfigsData";
+import { reconcileLinePayoutsForConfig } from "@/lib/processPointAccrual";
 
 export async function GET(request: NextRequest) {
   let admin: AdminContext;
@@ -72,7 +73,7 @@ export async function PUT(request: NextRequest) {
   const orgRaw = typeof b.organization === "string" ? b.organization.trim() : null;
   const organization = orgRaw === "common" ? "common" : isOrganizationSlug(orgRaw) ? orgRaw : null;
   if (!organization) return Response.json({ success: false, error: "organization required (org slug or 'common')" }, { status: 400 });
-  if (!isLinePointHub(b.hub)) return Response.json({ success: false, error: "hub must be info|experience|competency" }, { status: 400 });
+  if (!isLinePointHub(b.hub)) return Response.json({ success: false, error: "hub must be info|experience|competency|career" }, { status: 400 });
 
   // 허용 조직 검증 — 전체 허용이 아니면 common/타org 쓰기 차단.
   const access = await resolveAdminOrgAccess(admin);
@@ -91,6 +92,12 @@ export async function PUT(request: NextRequest) {
       pointB: toPoint(b.point_b),
       actorId: admin.userId,
     });
+    // 포인트 설정 변경 → 현재 개설된 해당 (hub, config_key) 라인들의 지급값 재정합(멱등). best-effort.
+    try {
+      await reconcileLinePayoutsForConfig(b.hub, typeof b.config_key === "string" ? b.config_key : "");
+    } catch (payoutErr) {
+      console.warn("[lines/point-configs PUT] line payout reconcile failed", payoutErr);
+    }
     return Response.json({ success: true, data: row });
   } catch (error) {
     const status = error instanceof LinePointConfigError ? error.status : 500;

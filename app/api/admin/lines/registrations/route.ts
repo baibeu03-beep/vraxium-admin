@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
       infoActivityTypeId,
     });
     if (!derived) {
-      pointConfig = { saved: false, configKey: null, reason: registration.hub === "info" ? "info 는 포인트 대상 활동유형을 선택해야 저장됩니다." : registration.hub === "career" ? "실무 경력은 포인트 설정 대상이 아닙니다." : "포인트 config_key 를 도출할 수 없습니다." };
+      pointConfig = { saved: false, configKey: null, reason: registration.hub === "info" ? "info 는 포인트 대상 활동유형을 선택해야 저장됩니다." : "포인트 config_key 를 도출할 수 없습니다." };
     } else {
       try {
         await upsertLinePointConfig({

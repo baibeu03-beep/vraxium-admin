@@ -35,6 +35,47 @@ export const LINE_REGISTRATION_LINE_TYPES: Record<LineRegistrationHub, readonly 
   career: ["일반"],
 };
 
+// ── 실무 경험 강화 포인트 활동유형 SoT (browser-safe 단일 정의) ─────────────────
+//   experience 라인의 Point.A/B config_key 는 line_type 에서 도출된다(별도 저장 필드 없음).
+//   서버(deriveLineConfigKey/listAvailableKeys)와 편집 모달이 이 정의를 재사용한다 — UI 별도
+//   하드코딩 금지. config_key 열거·순서는 EXPERIENCE_LINE_TYPES(서버)와 동일(도출·분석·견문·관리·확장).
+export const EXPERIENCE_CONFIG_KEYS = [
+  "derive",
+  "analysis",
+  "research",
+  "management",
+  "expansion",
+] as const;
+export type ExperienceConfigKey = (typeof EXPERIENCE_CONFIG_KEYS)[number];
+
+// config_key → 표시 라벨(활동유형). 라인 종류 "평가" = 견문(research) 라벨.
+export const EXPERIENCE_CONFIG_KEY_LABEL: Record<ExperienceConfigKey, string> = {
+  derive: "도출",
+  analysis: "분석",
+  research: "견문",
+  management: "관리",
+  expansion: "확장",
+};
+
+// 라인 등록 line_type(한글) → experience config_key. deriveLineConfigKey(서버)와 동일 규칙.
+export const EXPERIENCE_LINETYPE_TO_CONFIG_KEY: Record<string, ExperienceConfigKey> = {
+  도출: "derive",
+  분석: "analysis",
+  평가: "research",
+  관리: "management",
+  확장: "expansion",
+};
+
+// experience 라인 종류(한글) → 강화 포인트 대상 활동유형(config_key + 라벨). 미매핑=null.
+//   이 값은 저장되지 않고 line_type 에서 파생된다(등록/조회 모두 line_type 이 SoT).
+export function experienceActivityTypeForLineType(
+  lineType: string,
+): { configKey: ExperienceConfigKey; label: string } | null {
+  const configKey = EXPERIENCE_LINETYPE_TO_CONFIG_KEY[lineType];
+  if (!configKey) return null;
+  return { configKey, label: EXPERIENCE_CONFIG_KEY_LABEL[configKey] };
+}
+
 // 프로필 사진 토큰 — DB(manager_profile_key) 저장값. 표시 이미지는 아래 매핑 참조.
 export const LINE_REGISTRATION_PROFILE_KEYS = [
   "잔다르크",
@@ -420,17 +461,21 @@ export function parseLineRegistrationCreateBody(
   if (!unitLinkParsed.ok) return unitLinkParsed;
   const unitLink = unitLinkParsed.value ?? EMPTY_UNIT_LINK_SENTINEL;
 
-  // 소속 조직 — 미지정(null) 허용. 지정 시 enum 검증 (브리지 가능 조건).
+  // 소속 조직 — 신규 등록은 필수(2026-07-13). 빈문자열/null/undefined 전부 거부 후 enum 검증.
+  //   (기존 미지정 null 행은 보존·조회 가능 — 여기 CREATE 경로에서만 필수 강제.)
   const orgParsed = optionalText(body.organization_slug, "organization_slug");
   if (!orgParsed.ok) return orgParsed;
-  if (orgParsed.value !== null && !isLineRegistrationOrg(orgParsed.value)) {
+  if (orgParsed.value === null) {
+    return { ok: false, status: 400, error: "소속 클럽을 선택해주세요 (organization_slug 는 필수입니다)" };
+  }
+  if (!isLineRegistrationOrg(orgParsed.value)) {
     return {
       ok: false,
       status: 400,
       error: "organization_slug must be one of encre|oranke|phalanx|common",
     };
   }
-  const organizationSlug = orgParsed.value as LineRegistrationOrg | null;
+  const organizationSlug = orgParsed.value;
 
   // info 강화 포인트 연결 키(activity_types.id) — info 허브에서만 의미. 비-info 는 null 강제.
   //   값 자체는 config 조회 키일 뿐(존재하지 않는 키는 조회 시 미설정 처리) → 형식만 검증(공백/문자열).
@@ -560,17 +605,23 @@ export function parseLineRegistrationPatchBody(
     patch.unitLink = r.value ?? EMPTY_UNIT_LINK_SENTINEL;
   }
 
+  // 소속 조직 수정 — 보낼 경우 필수(2026-07-13): null/빈문자열로의 변경(연결 해제)은 거부.
+  //   (미전송이면 기존값 보존 → 레거시 null 행도 다른 필드만 수정 가능. null 강제 승격은 데이터 레이어가 아닌
+  //    편집 UI 가 저장 전 유효 org 를 요구하도록 처리.)
   if (body.organization_slug !== undefined) {
     const r = optionalText(body.organization_slug, "organization_slug");
     if (!r.ok) return r;
-    if (r.value !== null && !isLineRegistrationOrg(r.value)) {
+    if (r.value === null) {
+      return { ok: false, status: 400, error: "소속 클럽은 비울 수 없습니다 (organization_slug 는 필수입니다)" };
+    }
+    if (!isLineRegistrationOrg(r.value)) {
       return {
         ok: false,
         status: 400,
         error: "organization_slug must be one of encre|oranke|phalanx|common",
       };
     }
-    patch.organizationSlug = r.value as LineRegistrationOrg | null;
+    patch.organizationSlug = r.value;
   }
 
   // info 강화 포인트 연결 키 — 부분 수정 허용(null = 연결 해제). info 여부/무시 판정은 데이터 레이어.

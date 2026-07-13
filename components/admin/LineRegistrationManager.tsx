@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { cn } from "@/lib/utils";
 import {
+  experienceActivityTypeForLineType,
   LINE_REGISTRATION_HUBS,
   LINE_REGISTRATION_HUB_LABEL,
   LINE_REGISTRATION_LINE_TYPES,
@@ -256,8 +257,10 @@ export default function LineRegistrationManager() {
   const [hub, setHub] = useState<HubSelection>(HUB_UNSELECTED);
   const [lineType, setLineType] = useState("-");
   const [lineCode, setLineCode] = useState("");
-  // 소속 조직 — "" = 미지정('-'). 미지정 등록은 허용되나 개설 브리지는 불가 (Phase 2C).
+  // 소속 조직 — "" = 미선택. 신규 등록은 필수(2026-07-13): 미선택 시 등록 차단·오류 표시·포커스.
   const [orgSlug, setOrgSlug] = useState("");
+  const [orgError, setOrgError] = useState(false);
+  const orgSelectRef = useRef<HTMLSelectElement>(null);
 
   // ── 메인 타이틀 (고정/변동) ──
   const [mainTitleMode, setMainTitleMode] =
@@ -297,6 +300,7 @@ export default function LineRegistrationManager() {
     setLineType("-");
     setLineCode("");
     setOrgSlug("");
+    setOrgError(false);
     setMainTitleMode("fixed");
     setMainTitle("");
     setUnitLink("");
@@ -339,6 +343,15 @@ export default function LineRegistrationManager() {
     }
     if (mainTitleMode === "fixed" && !mainTitle.trim()) {
       setBanner({ kind: "error", message: "메인 타이틀을 입력해주세요 (변동이면 '변동'을 선택)" });
+      return;
+    }
+    // 소속 클럽 필수 — select 가 보이는 경우(통합 등록·scopedOrg 없음)에만 사용자가 선택해야 한다.
+    //   scopedOrg(분기 URL)면 org 는 URL 값으로 고정되어 항상 유효하므로 검사 불필요.
+    if (!scopedOrg && !orgSlug) {
+      setOrgError(true);
+      setBanner({ kind: "error", message: "소속 클럽을 선택해주세요" });
+      orgSelectRef.current?.focus();
+      orgSelectRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
       return;
     }
 
@@ -492,26 +505,42 @@ export default function LineRegistrationManager() {
                   · hasInvalidOrg → 통합으로 조용히 fallback 하지 않고 안내(등록은 handleSubmit 이 차단).
                   · org 없음 → 기존 통합 드롭다운. */}
               {scopedOrg ? null : (
-                <FormRow label="소속 클럽" helpKey="admin.lines.register.organization">
+                <FormRow label="소속 클럽" helpKey="admin.lines.register.organization" required>
                   {hasInvalidOrg ? (
                     <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
                       유효하지 않은 클럽입니다 (?org={rawOrgParam}). 통합 등록은 클럽 지정 없이 접근하세요.
                     </p>
                   ) : (
-                    // Phase 2C: 미지정('-')도 등록 가능하나 개설 브리지는 조직 지정 행만 가능.
-                    <select
-                      aria-label="소속 클럽"
-                      className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      value={orgSlug}
-                      onChange={(e) => setOrgSlug(e.target.value)}
-                    >
-                      <option value="">-</option>
-                      {LINE_REGISTRATION_ORGS.map((o) => (
-                        <option key={o} value={o}>
-                          {LINE_REGISTRATION_ORG_LABEL[o]}
-                        </option>
-                      ))}
-                    </select>
+                    // 신규 등록 필수(2026-07-13): 미선택 시 등록 차단. 오류 시 붉은 테두리+안내 문구.
+                    <>
+                      <select
+                        ref={orgSelectRef}
+                        aria-label="소속 클럽"
+                        aria-invalid={orgError}
+                        aria-describedby={orgError ? "org-required-error" : undefined}
+                        className={cn(
+                          "h-9 w-full rounded-md border bg-background px-3 text-sm",
+                          orgError ? "border-rose-400 ring-1 ring-rose-300" : "border-input",
+                        )}
+                        value={orgSlug}
+                        onChange={(e) => {
+                          setOrgSlug(e.target.value);
+                          if (e.target.value) setOrgError(false);
+                        }}
+                      >
+                        <option value="">-</option>
+                        {LINE_REGISTRATION_ORGS.map((o) => (
+                          <option key={o} value={o}>
+                            {LINE_REGISTRATION_ORG_LABEL[o]}
+                          </option>
+                        ))}
+                      </select>
+                      {orgError && (
+                        <p id="org-required-error" className="mt-1 text-xs text-rose-600">
+                          소속 클럽을 선택해주세요 (필수)
+                        </p>
+                      )}
+                    </>
                   )}
                 </FormRow>
               )}
@@ -586,7 +615,7 @@ export default function LineRegistrationManager() {
           {/* ── 강화 시 포인트 (Point.A / Point.B) — 라인과 함께 저장(cluster4_line_point_configs) ── */}
           <div className="space-y-4" data-point-fields>
             <div className="inline-flex items-center gap-1">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <h3 className="text-base font-semibold tracking-wide text-foreground">
                 강화 시 포인트
               </h3>
               <AdminHelpIconButton helpKey="admin.lines.register.pointSection" title="강화 시 포인트" size="xs" />
@@ -610,6 +639,28 @@ export default function LineRegistrationManager() {
                 </select>
               </FormRow>
             )}
+            {/* 실무 경험 활동유형 — config_key 는 line_type 에서 파생(별도 저장 필드 없음)이므로
+                선택이 아닌 파생 표시. 라벨/매핑 SoT = adminLineRegistrationsTypes(서버 deriveLineConfigKey 미러). */}
+            {hub === "experience" && (() => {
+              const at = experienceActivityTypeForLineType(lineType);
+              return (
+                <FormRow label="포인트 대상 활동유형" helpKey="admin.lines.register.pointActivityType">
+                  <div className="space-y-1">
+                    <div
+                      aria-label="포인트 대상 활동유형"
+                      data-point-activity-type
+                      data-experience-config-key={at?.configKey ?? ""}
+                      className="flex h-9 w-full items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground"
+                    >
+                      {at ? `${at.label} (${at.configKey})` : "-"}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      라인 종류에 따라 자동 결정됩니다 — 이 활동유형 기준으로 Point.A/B 가 저장·조회됩니다.
+                    </p>
+                  </div>
+                </FormRow>
+              );
+            })()}
             <div className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2">
               <FormRow label="Point.A" helpKey="admin.lines.register.pointA">
                 <select
@@ -618,7 +669,7 @@ export default function LineRegistrationManager() {
                   className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                   value={pointA}
                   onChange={(e) => setPointA(e.target.value)}
-                  disabled={hub === HUB_UNSELECTED || isCareer}
+                  disabled={hub === HUB_UNSELECTED}
                 >
                   {POINT_SELECT_OPTIONS.map((v) => (
                     <option key={v} value={v}>{v === "" ? "-" : v}</option>
@@ -632,7 +683,7 @@ export default function LineRegistrationManager() {
                   className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                   value={pointB}
                   onChange={(e) => setPointB(e.target.value)}
-                  disabled={hub === HUB_UNSELECTED || isCareer}
+                  disabled={hub === HUB_UNSELECTED}
                 >
                   {POINT_SELECT_OPTIONS.map((v) => (
                     <option key={v} value={v}>{v === "" ? "-" : v}</option>
@@ -641,7 +692,9 @@ export default function LineRegistrationManager() {
               </FormRow>
             </div>
             {isCareer && (
-              <p className="text-xs text-muted-foreground">실무 경력은 강화 포인트 설정 대상이 아닙니다.</p>
+              <p className="text-xs text-muted-foreground">
+                실무 경력은 라인 코드 기준으로 Point.A/B 가 저장·지급됩니다 (미설정 항목은 지급 제외).
+              </p>
             )}
           </div>
 

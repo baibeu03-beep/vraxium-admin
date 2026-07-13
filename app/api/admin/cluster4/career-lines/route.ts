@@ -22,6 +22,7 @@ import {
   parseOutputImagesInput,
 } from "@/lib/cluster4OutputImages";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { reconcileLineOpenAward } from "@/lib/processPointAccrual";
 
 type CareerLineCreateBody = {
   career_project_id: string;
@@ -441,6 +442,13 @@ export async function POST(request: NextRequest) {
     // 실제 데이터로 바로 내려오도록). ≤10명 즉시 recompute / >10명 stale+after 백그라운드.
     // best-effort — 실패는 격리되어 라인 개설 응답은 정상 반환(cron 이 보정).
     await invalidateWeeklyCardsForUsers(input.target_user_ids);
+
+    // 라인 개설 포인트 지급(source='line') — 대상자에게 라인 Point.A/B 적립(멱등). best-effort(개설 응답 무영향).
+    try {
+      await reconcileLineOpenAward(lineRow.id);
+    } catch (payoutErr) {
+      console.warn("[career-lines POST] line payout reconcile failed", payoutErr);
+    }
 
     return Response.json(
       { success: true, data: { line: lineRow, targets: targets ?? [], targetCount: input.target_user_ids.length } },

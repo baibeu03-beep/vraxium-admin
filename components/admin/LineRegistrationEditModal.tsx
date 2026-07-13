@@ -14,7 +14,10 @@ import { Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
+  experienceActivityTypeForLineType,
+  EXPERIENCE_LINETYPE_TO_CONFIG_KEY,
   LINE_REGISTRATION_HUB_LABEL,
   LINE_REGISTRATION_LINE_TYPES,
   LINE_REGISTRATION_ORGS,
@@ -40,17 +43,9 @@ const INFO_ACTIVITY_TYPES: ReadonlyArray<{ id: string; label: string }> = [
   { id: "etc_a", label: "기타A" },
 ];
 
-// 라인 등록 line_type(한글) → experience config_key(카테고리 enum). adminLinePointConfigsData 와 동일 SoT.
-const EXP_LINETYPE_TO_KEY: Record<string, string> = {
-  도출: "derive",
-  분석: "analysis",
-  평가: "research",
-  관리: "management",
-  확장: "expansion",
-};
-
 // 라인 1건 → Point config_key 도출(deriveLineConfigKey 와 동일 규칙 — 서버 SoT 미러).
 //   info=활동유형 id · experience=line_type→카테고리 · competency=line_code · career=null.
+//   experience 매핑 SoT = adminLineRegistrationsTypes.EXPERIENCE_LINETYPE_TO_CONFIG_KEY.
 function deriveConfigKey(
   hub: LineRegistrationDto["hub"],
   lineType: string,
@@ -58,7 +53,8 @@ function deriveConfigKey(
   pointActivityTypeId: string,
 ): string | null {
   if (hub === "competency") return lineCode.trim() || null;
-  if (hub === "experience") return EXP_LINETYPE_TO_KEY[lineType] ?? null;
+  if (hub === "career") return lineCode.trim() || null; // career=line_code(역량과 동일, 2026-07-13)
+  if (hub === "experience") return EXPERIENCE_LINETYPE_TO_CONFIG_KEY[lineType] ?? null;
   if (hub === "info") return pointActivityTypeId.trim() || null;
   return null;
 }
@@ -139,6 +135,11 @@ export default function LineRegistrationEditModal({
     }
     if (mainTitleMode === "fixed" && !mainTitle.trim()) {
       setError("메인 타이틀을 입력해주세요 (변동이면 '변동'을 선택)");
+      return;
+    }
+    // 소속 클럽 필수(2026-07-13) — 레거시 null 행도 조회/진입은 되지만 저장 시 유효 org 를 요구.
+    if (!orgSlug) {
+      setError("소속 클럽을 선택해주세요 (필수)");
       return;
     }
 
@@ -298,10 +299,17 @@ export default function LineRegistrationEditModal({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>소속 클럽</Label>
+              <Label>
+                소속 클럽 <span className="text-red-500" aria-hidden="true">*</span>
+              </Label>
               <select
                 aria-label="소속 클럽"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                aria-required="true"
+                aria-invalid={!orgSlug}
+                className={cn(
+                  "h-9 w-full rounded-md border bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60",
+                  !orgSlug ? "border-rose-400" : "border-input",
+                )}
                 value={orgSlug}
                 onChange={(e) => setOrgSlug(e.target.value)}
                 disabled={saving || gateLocked}
@@ -313,6 +321,9 @@ export default function LineRegistrationEditModal({
                   </option>
                 ))}
               </select>
+              {!orgSlug && (
+                <p className="text-xs text-rose-600">소속 클럽을 선택해야 저장할 수 있습니다.</p>
+              )}
             </div>
           </div>
 
@@ -365,7 +376,7 @@ export default function LineRegistrationEditModal({
 
           {/* 강화 시 포인트 (Point.A / Point.B) — 기존 point-configs SoT */}
           <div className="space-y-3 rounded-lg border bg-muted/20 p-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">강화 시 포인트</h3>
+            <h3 className="text-base font-semibold tracking-wide text-foreground">강화 시 포인트</h3>
             {isInfo && (
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">포인트 대상 활동유형</Label>
@@ -385,6 +396,25 @@ export default function LineRegistrationEditModal({
                 </select>
               </div>
             )}
+            {/* 실무 경험 활동유형 — line_type 에서 파생(별도 저장 없음). 라인 종류 변경 시 즉시 반영. */}
+            {isExperience && (() => {
+              const at = experienceActivityTypeForLineType(lineType);
+              return (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">포인트 대상 활동유형</Label>
+                  <div
+                    aria-label="포인트 대상 활동유형"
+                    data-experience-config-key={at?.configKey ?? ""}
+                    className="flex h-9 w-full items-center rounded-md border border-input bg-muted/40 px-3 text-sm text-muted-foreground"
+                  >
+                    {at ? `${at.label} (${at.configKey})` : "-"}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    라인 종류에 따라 자동 결정됩니다.
+                  </p>
+                </div>
+              );
+            })()}
             <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Point.A</Label>

@@ -28,6 +28,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM } from "@/lib/lineAvailability";
+import { resolveLineScope } from "@/lib/lineScope";
 import {
   assertUserIdsInScope,
   resolveUserScope,
@@ -42,7 +43,7 @@ import { resolveCheckScopeRoster } from "@/lib/processCheckScopeRoster";
 import { isTeamBasedProcessHub } from "@/lib/adminProcessCheckTypes";
 import type { ProcessHub } from "@/lib/adminProcessesTypes";
 
-export type AccrualSource = "regular" | "irregular";
+export type AccrualSource = "regular" | "irregular" | "line";
 
 // 적립 기능 kill-switch(운영 비활성 — 코드 무수정 롤백). 기본 활성.
 const ACCRUAL_ENABLED = process.env.PROCESS_ACCRUAL_ENABLED !== "0";
@@ -270,7 +271,47 @@ async function applyAward(input: AwardInput): Promise<AccrualResult> {
   }
 
   const plan = await computeDesiredAwards(input);
-  const desiredIds = plan.desired.map((d) => d.userId);
+
+  if ((input.pointPenalty ?? 0) > 0) {
+    console.warn("[accrual] Po.C(penalty) 분배 — 이행자→A/B(C=0)·비대상자→C", {
+      source,
+      refId,
+      autoMatched: input.autoMatched,
+      requestedPenalty: input.pointPenalty,
+      performers: plan.performers.length,
+      unselected: plan.unselected.length,
+      rosterCount: plan.rosterCount,
+      effectivePenaltyPerformer: plan.effectivePenaltyPerformer,
+      effectivePenaltyUnselected: plan.effectivePenaltyUnselected,
+    });
+  }
+
+  return reconcileAwards({ source, refId, week, org, mode, desired: plan.desired });
+}
+
+// 공통 원장 정합 코어 — desired 집합을 받아 (source,ref_id) 원장을 정합한다.
+//   desired 에 없는 기존 행은 삭제(회수), desired 행은 멱등 upsert(UNIQUE source,ref_id,user_id) →
+//   user_weekly_points 재합산 + 등급 + snapshot 무효화. regular/irregular(applyAward) 와
+//   line(reconcileLineOpenAward) 이 공유한다 — 동일 멱등/회수/재합산 보장.
+async function reconcileAwards(params: {
+  source: AccrualSource;
+  refId: string;
+  week: WeekRow;
+  org: OrganizationSlug | null;
+  mode: ScopeMode;
+  desired: DesiredAward[];
+}): Promise<AccrualResult> {
+  const { source, refId, week, org, mode, desired } = params;
+  if (!ACCRUAL_ENABLED) return { ok: true, skipped: true, reason: "accrual_disabled", accruedUserIds: [] };
+  // era 경계(방어적 2차 가드 — line 경로 진입점) · iso 없으면 스킵.
+  if (!isAccrualAllowedWeek(mode, week)) {
+    return { ok: true, skipped: true, reason: `era_blocked(${mode},${week.season_key} W${week.week_number})`, accruedUserIds: [] };
+  }
+  if (week.iso_year == null || week.iso_week == null) {
+    return { ok: true, skipped: true, reason: "week_iso_missing", accruedUserIds: [] };
+  }
+
+  const desiredIds = desired.map((d) => d.userId);
 
   // 기존 원장 대상자(정합 전) — 이번에 desired 에서 빠진 사용자를 회수 대상으로 포함하기 위해 로드.
   const { data: existingRows, error: existErr } = await supabaseAdmin
@@ -292,30 +333,15 @@ async function applyAward(input: AwardInput): Promise<AccrualResult> {
   }
 
   // 스코프 재검증(fail-closed) — test=test_user_markers만 / operating=실사용자만. 위반 시 throw(422).
-  //   이행자·비대상자 모두 검증(비대상자도 org+mode 로스터 태생이라 통과가 정상 — 방어적 2차 가드).
   const scope = await resolveUserScope(mode, org);
   assertUserIdsInScope(scope, desiredIds);
 
   const year = week.iso_year;
   const wk = week.iso_week;
 
-  if ((input.pointPenalty ?? 0) > 0) {
-    console.warn("[accrual] Po.C(penalty) 분배 — 이행자→A/B(C=0)·비대상자→C", {
-      source,
-      refId,
-      autoMatched: input.autoMatched,
-      requestedPenalty: input.pointPenalty,
-      performers: plan.performers.length,
-      unselected: plan.unselected.length,
-      rosterCount: plan.rosterCount,
-      effectivePenaltyPerformer: plan.effectivePenaltyPerformer,
-      effectivePenaltyUnselected: plan.effectivePenaltyUnselected,
-    });
-  }
-
   const nowIso = new Date().toISOString();
   // 원장 멱등 upsert(UNIQUE source,ref_id,user_id).
-  const ledgerRows = plan.desired.map((d) => ({
+  const ledgerRows = desired.map((d) => ({
     source,
     ref_id: refId,
     user_id: d.userId,
@@ -333,7 +359,7 @@ async function applyAward(input: AwardInput): Promise<AccrualResult> {
     .upsert(ledgerRows, { onConflict: "source,ref_id,user_id" });
   if (ledgerErr) throw ledgerErr;
 
-  // 정합 — desired 에서 빠진 기존 원장 행 삭제(대상자↔비대상자 이동/이탈 회수).
+  // 정합 — desired 에서 빠진 기존 원장 행 삭제(대상자 이동/이탈 회수).
   const desiredSet = new Set(desiredIds);
   const staleIds = existingIds.filter((id) => !desiredSet.has(id));
   if (staleIds.length) {
@@ -766,4 +792,214 @@ export async function revokeForAct(source: AccrualSource, refId: string): Promis
   await syncGradesBestEffort(userIds);
   await invalidateWeeklyCardsForUsers(userIds);
   return { revokedUserIds: userIds };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 라인 개설 포인트 지급 (source='line') — 2026-07-13
+//   트리거 = 라인 개설(cluster4_line_targets 생성). 대상자 = (line_id, week_id, target_mode='user').
+//   지급값 = cluster4_line_point_configs(org, hub, config_key) 의 per-field nullability:
+//     point_a≠null → point_check=point_a · point_b≠null → point_advantage=point_b · 둘 다 null → 미지급.
+//   멱등키 = (source='line', ref_id=line_id, user_id). 라인 1건은 단일 주차(실측 검증) → ref_id=line_id 로 충분.
+//   회수/재지급 = reconcileLineOpenAward 재실행(대상자 정합) 또는 revokeLineOpenAward(취소/삭제).
+//   info/experience/competency/career 4허브 공통 경로. N 계산·주차 verdict·강화 override 는 무접촉.
+// ────────────────────────────────────────────────────────────────────────────
+
+type LineRowForPayout = {
+  id: string;
+  part_type: string;
+  line_code: string | null;
+  activity_type_id: string | null;
+  experience_line_master_id: string | null;
+  competency_line_master_id: string | null;
+  career_project_id: string | null;
+  is_qa_test: boolean | null;
+};
+
+const LINE_PAYOUT_SELECT =
+  "id,part_type,line_code,activity_type_id,experience_line_master_id,competency_line_master_id,career_project_id,is_qa_test";
+
+// experience 마스터 카테고리 → 포인트 config_key(견문=research 등). resolveRecognitionInputs SoT 미러.
+const EXP_CATEGORY_TO_CONFIG_KEY: Record<string, string> = {
+  derivation: "derive",
+  analysis: "analysis",
+  evaluation: "research",
+  extension: "expansion",
+  management: "management",
+};
+const CONFIG_KEY_TO_EXP_CATEGORY: Record<string, string> = Object.fromEntries(
+  Object.entries(EXP_CATEGORY_TO_CONFIG_KEY).map(([k, v]) => [v, k]),
+);
+
+// cluster4_lines 1행 → 포인트 config_key(허브별). info=activity_type_id · career=line_code ·
+//   competency=master.line_code · experience=master.experience_category→enum. 없으면 null.
+async function resolveLineConfigKey(row: LineRowForPayout): Promise<string | null> {
+  const hub = row.part_type;
+  if (hub === "info") return row.activity_type_id?.trim() || null;
+  if (hub === "career") return row.line_code?.trim() || null;
+  if (hub === "competency") {
+    if (!row.competency_line_master_id) return null;
+    const { data } = await supabaseAdmin
+      .from("cluster4_competency_line_masters")
+      .select("line_code")
+      .eq("id", row.competency_line_master_id)
+      .maybeSingle();
+    return (data as { line_code: string | null } | null)?.line_code?.trim() || null;
+  }
+  if (hub === "experience") {
+    if (!row.experience_line_master_id) return null;
+    const { data } = await supabaseAdmin
+      .from("cluster4_experience_line_masters")
+      .select("experience_category")
+      .eq("id", row.experience_line_master_id)
+      .maybeSingle();
+    const cat = (data as { experience_category: string | null } | null)?.experience_category ?? null;
+    return cat ? EXP_CATEGORY_TO_CONFIG_KEY[cat] ?? null : null;
+  }
+  return null;
+}
+
+// (org, hub, config_key) 포인트 설정 조회 — per-field null 보존(null=미지급, 0 포함 숫자=지급).
+//   org 우선 → common 폴백(loadLinePointLookupAllOrgs 와 동일 규칙). 미적용/미존재 = {null,null}.
+async function loadLinePointForConfig(
+  configOrg: string | null,
+  hub: string,
+  configKey: string,
+): Promise<{ pointA: number | null; pointB: number | null }> {
+  const orgsToQuery = configOrg && configOrg !== "common" ? [configOrg, "common"] : ["common"];
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_line_point_configs")
+    .select("organization_slug, point_a, point_b")
+    .eq("hub", hub)
+    .eq("config_key", configKey)
+    .in("organization_slug", orgsToQuery);
+  if (error) {
+    console.warn("[lineOpenAward] point config lookup failed → 미지급 처리", { hub, configKey, message: error.message });
+    return { pointA: null, pointB: null };
+  }
+  const rows = (data ?? []) as Array<{ organization_slug: string; point_a: number | null; point_b: number | null }>;
+  const orgRow = configOrg && configOrg !== "common" ? rows.find((r) => r.organization_slug === configOrg) : undefined;
+  const commonRow = rows.find((r) => r.organization_slug === "common");
+  const row = orgRow ?? commonRow ?? null;
+  return row ? { pointA: row.point_a, pointB: row.point_b } : { pointA: null, pointB: null };
+}
+
+// 라인 개설 포인트 지급 정합(멱등) — 라인의 현재 대상자/설정값에 맞춰 원장을 정합한다.
+//   대상자 없음 · config 없음 · 지급 설정 없음(둘 다 null) → 기존 line award 회수(revoke).
+export async function reconcileLineOpenAward(lineId: string): Promise<AccrualResult> {
+  if (!ACCRUAL_ENABLED) return { ok: true, skipped: true, reason: "accrual_disabled", accruedUserIds: [] };
+
+  const { data: lineData } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select(LINE_PAYOUT_SELECT)
+    .eq("id", lineId)
+    .maybeSingle();
+  if (!lineData) return { ok: true, skipped: true, reason: "line_not_found", accruedUserIds: [] };
+  const row = lineData as LineRowForPayout;
+
+  // 대상자 + 주차(라인은 단일 주차 — 실측 검증).
+  const { data: tgtData } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("target_user_id, week_id")
+    .eq("line_id", lineId)
+    .eq("target_mode", "user");
+  const targets = (tgtData ?? []) as Array<{ target_user_id: string | null; week_id: string | null }>;
+  const userIds = Array.from(new Set(targets.map((t) => t.target_user_id).filter((x): x is string => Boolean(x))));
+  const weekIds = Array.from(new Set(targets.map((t) => t.week_id).filter((x): x is string => Boolean(x))));
+
+  const configKey = await resolveLineConfigKey(row);
+
+  // 대상자/주차/설정 미비 → 지급 없음. 기존 line award 가 있으면 회수(정합).
+  if (userIds.length === 0 || weekIds.length === 0 || !configKey) {
+    await revokeLineOpenAward(lineId);
+    return { ok: true, accruedUserIds: [] };
+  }
+  if (weekIds.length > 1) {
+    console.warn("[lineOpenAward] line spans multiple weeks — skip payout", { lineId, weekIds });
+    return { ok: true, skipped: true, reason: "multi_week_line", accruedUserIds: [] };
+  }
+
+  const week = await loadWeek(weekIds[0]);
+  if (!week) {
+    await revokeLineOpenAward(lineId);
+    return { ok: true, accruedUserIds: [] };
+  }
+
+  const lineOrg = (await resolveLineScope(row)).org; // slug | "common" | null
+  const { pointA, pointB } = await loadLinePointForConfig(lineOrg, row.part_type, configKey);
+  const aEnabled = pointA !== null;
+  const bEnabled = pointB !== null;
+  if (!aEnabled && !bEnabled) {
+    // 지급 설정 없음(A·B 모두 null) → 미지급. 기존 있으면 회수.
+    await revokeLineOpenAward(lineId);
+    return { ok: true, accruedUserIds: [] };
+  }
+
+  // common/미상 라인은 org 제약 없이 mode 스코프만 검증(award org=null). 특정 org 라인은 그 org.
+  const scopeOrg: OrganizationSlug | null = lineOrg && lineOrg !== "common" && isOrganizationSlug(lineOrg) ? lineOrg : null;
+  const mode: ScopeMode = row.is_qa_test ? "test" : "operating";
+  const desired: DesiredAward[] = userIds.map((uid) => ({
+    userId: uid,
+    pointCheck: aEnabled ? (pointA as number) : 0,
+    pointAdvantage: bEnabled ? (pointB as number) : 0,
+    pointPenalty: 0,
+    bucket: "performer",
+  }));
+
+  return reconcileAwards({ source: "line", refId: lineId, week, org: scopeOrg, mode, desired });
+}
+
+// 라인 개설 포인트 회수 — 라인 취소/삭제 시 해당 line award 전량 제거 + 재합산.
+export async function revokeLineOpenAward(lineId: string): Promise<{ revokedUserIds: string[] }> {
+  return revokeForAct("line", lineId);
+}
+
+// 포인트 설정 변경 시 — 해당 (hub, config_key) 에 연결된 현재 개설(active) 라인들의 지급값 재정합.
+//   각 라인은 자기 org/설정을 독립 해석해 지급하므로 org 무관하게 매칭 라인 전체를 재실행한다(best-effort).
+export async function reconcileLinePayoutsForConfig(
+  hub: string,
+  configKey: string,
+): Promise<{ lineIds: string[] }> {
+  if (!ACCRUAL_ENABLED) return { lineIds: [] };
+  const idsOf = (d: unknown) => ((d ?? []) as Array<{ id: string }>).map((r) => r.id);
+  let lineIds: string[] = [];
+
+  if (hub === "info") {
+    const { data } = await supabaseAdmin
+      .from("cluster4_lines").select("id").eq("part_type", "info").eq("activity_type_id", configKey).eq("is_active", true);
+    lineIds = idsOf(data);
+  } else if (hub === "career") {
+    const { data } = await supabaseAdmin
+      .from("cluster4_lines").select("id").eq("part_type", "career").eq("line_code", configKey).eq("is_active", true);
+    lineIds = idsOf(data);
+  } else if (hub === "competency") {
+    const { data: masters } = await supabaseAdmin
+      .from("cluster4_competency_line_masters").select("id").eq("line_code", configKey);
+    const mids = idsOf(masters);
+    if (mids.length) {
+      const { data } = await supabaseAdmin
+        .from("cluster4_lines").select("id").eq("part_type", "competency").in("competency_line_master_id", mids).eq("is_active", true);
+      lineIds = idsOf(data);
+    }
+  } else if (hub === "experience") {
+    const cat = CONFIG_KEY_TO_EXP_CATEGORY[configKey];
+    if (cat) {
+      const { data: masters } = await supabaseAdmin
+        .from("cluster4_experience_line_masters").select("id").eq("experience_category", cat);
+      const mids = idsOf(masters);
+      if (mids.length) {
+        const { data } = await supabaseAdmin
+          .from("cluster4_lines").select("id").eq("part_type", "experience").in("experience_line_master_id", mids).eq("is_active", true);
+        lineIds = idsOf(data);
+      }
+    }
+  }
+
+  for (const id of lineIds) {
+    try {
+      await reconcileLineOpenAward(id);
+    } catch (err) {
+      console.warn("[lineOpenAward] reconcile-on-config-edit failed", { lineId: id, hub, configKey, message: err instanceof Error ? err.message : String(err) });
+    }
+  }
+  return { lineIds };
 }

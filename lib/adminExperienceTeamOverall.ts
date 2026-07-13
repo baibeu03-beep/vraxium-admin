@@ -20,6 +20,7 @@ import {
   type ScopeMode,
 } from "@/lib/userScope";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { reconcileLineOpenAward, revokeLineOpenAward } from "@/lib/processPointAccrual";
 import { invalidateWeeklyCardsForLineOpen } from "@/lib/adminCluster4LinesData";
 import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
@@ -1033,6 +1034,15 @@ export async function openTeamOverall(input: {
     }
   }
 
+  // 라인 개설 포인트 지급(source='line') — 생성된 각 experience 라인의 대상자에게 Point.A/B 적립(멱등). best-effort.
+  for (const lineId of createdLineIds) {
+    try {
+      await reconcileLineOpenAward(lineId);
+    } catch (payoutErr) {
+      console.warn("[openTeamOverall] line payout reconcile failed", { lineId, message: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) });
+    }
+  }
+
   await insertExperienceOpeningLog({
     action: "open",
     weekId: input.weekId,
@@ -1126,6 +1136,14 @@ export async function cancelTeamOverall(input: {
 // 라인 id 집합의 평가→타깃→라인을 역순 삭제(best-effort).
 async function rollbackLines(lineIds: string[]): Promise<void> {
   if (lineIds.length === 0) return;
+  // 라인 개설 포인트 지급(source='line') 회수 — 라인/타깃 삭제 전에 원장 회수(멱등). best-effort.
+  for (const lineId of lineIds) {
+    try {
+      await revokeLineOpenAward(lineId);
+    } catch (payoutErr) {
+      console.warn("[team-overall rollback] line payout 회수 실패", { lineId, message: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) });
+    }
+  }
   const { data: tgts } = await supabaseAdmin
     .from("cluster4_line_targets")
     .select("id")

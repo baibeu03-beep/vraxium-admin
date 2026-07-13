@@ -6,25 +6,27 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { EXPERIENCE_LINE_TYPES } from "@/lib/adminTeamPartsInfoWeekDetailData";
+// 실무 경험 활동유형 라벨/매핑 SoT (browser-safe 단일 정의) — 라인 등록 폼/편집 모달과 동일 원천.
+import {
+  EXPERIENCE_CONFIG_KEY_LABEL,
+  EXPERIENCE_LINETYPE_TO_CONFIG_KEY,
+} from "@/lib/adminLineRegistrationsTypes";
 
-export type LinePointHub = "info" | "experience" | "competency";
-export const LINE_POINT_HUBS: LinePointHub[] = ["info", "experience", "competency"];
+// career 포함(2026-07-13) — 라인 개설 포인트 지급이 4허브 공통. career config_key = line_code(역량과 동일).
+//   ⚠ N 계산 파이프라인(lib/weekRecognitionConfig.ts)의 LinePointHub 는 career 를 포함하지 않는다
+//     (주차 인정 개수 N 은 career 제외 정책 유지). 이 타입은 "설정/지급/표시" 경로 전용.
+export type LinePointHub = "info" | "experience" | "competency" | "career";
+export const LINE_POINT_HUBS: LinePointHub[] = ["info", "experience", "competency", "career"];
 export function isLinePointHub(v: unknown): v is LinePointHub {
   return typeof v === "string" && (LINE_POINT_HUBS as string[]).includes(v);
 }
 
-const EXP_LABEL: Record<string, string> = {
-  derive: "도출", analysis: "분석", research: "견문", management: "관리", expansion: "확장",
-};
+// experience config_key → 표시 라벨. SoT = adminLineRegistrationsTypes.EXPERIENCE_CONFIG_KEY_LABEL.
+const EXP_LABEL: Record<string, string> = EXPERIENCE_CONFIG_KEY_LABEL;
 
 // 라인 등록 line_type(한글) → experience config_key(카테고리 enum). 평가=evaluation=research(견문) 매핑.
-export const EXPERIENCE_LINETYPE_TO_CONFIG_KEY: Record<string, string> = {
-  도출: "derive",
-  분석: "analysis",
-  평가: "research",
-  관리: "management",
-  확장: "expansion",
-};
+//   SoT = adminLineRegistrationsTypes.EXPERIENCE_LINETYPE_TO_CONFIG_KEY (여기서 re-export).
+export { EXPERIENCE_LINETYPE_TO_CONFIG_KEY };
 
 // 라인 등록 1건 → point config_key 도출(확정 정책).
 //   info=activity_types.id(등록 폼에서 전달) · experience=line_type→카테고리 enum · competency=line_code.
@@ -37,6 +39,7 @@ export function deriveLineConfigKey(opts: {
 }): { hub: LinePointHub; configKey: string } | null {
   const { hub, lineType, lineCode, infoActivityTypeId } = opts;
   if (hub === "competency") return { hub, configKey: lineCode };
+  if (hub === "career") return { hub, configKey: lineCode }; // career=line_code(역량과 동일 단위, 2026-07-13)
   if (hub === "experience") {
     const key = EXPERIENCE_LINETYPE_TO_CONFIG_KEY[lineType];
     return key ? { hub, configKey: key } : null;
@@ -44,7 +47,7 @@ export function deriveLineConfigKey(opts: {
   if (hub === "info") {
     return infoActivityTypeId && infoActivityTypeId.trim() ? { hub, configKey: infoActivityTypeId.trim() } : null;
   }
-  return null; // career
+  return null;
 }
 
 export class LinePointConfigError extends Error {
