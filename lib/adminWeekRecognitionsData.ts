@@ -15,6 +15,11 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isTransitionWeekStart } from "@/lib/seasonCalendar";
 import { fetchOperationalSeasonParticipants } from "@/lib/operationalSeasonParticipants";
+import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
+// [2026-07-12 정책] 실제 주차 성공 기준값 SoT = recognition_count_n[week_id, org].
+//   verdict(신정책·레거시)·finalize 차단 검사가 읽는 바로 그 함수를 재사용한다 —
+//   "주차 인정 기준 (N)" 탭 표시값이 판정값과 절대 달라지지 않도록(단일 조회 원천).
+import { fetchWeekRecognitionRequiredByOrg } from "@/lib/lineAvailability";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { isWeekRecognitionStatus } from "@/lib/adminWeekRecognitionsTypes";
 import type {
@@ -211,6 +216,52 @@ function toWeekOptionsLatestFirst(weeks: WeekRow[]) {
   return [...weeks].sort((a, b) => weekStartMs(b) - weekStartMs(a)).map(weekOptionOf);
 }
 
+// 주차 옵션에 조직별 인정 개수 N(recognition_count_n)을 부착한다.
+//   verdict/finalize 가 읽는 fetchWeekRecognitionRequiredByOrg 를 조직별로 그대로 호출 —
+//   화면 표시값과 실제 판정 기준값이 단일 원천이라 절대 어긋나지 않는다. null = 미설정(미오픈확인).
+//   org/mode/test/demo 무분기(판정과 동일하게 mode 를 타지 않는다 — recognition_count_n 은 QA 오버레이 없음).
+async function buildWeekOptionsWithRecognition(
+  weeks: WeekRow[],
+): Promise<WeekRecognitionsDto["weeks"]> {
+  const base = toWeekOptionsLatestFirst(weeks);
+  const weekIds = base.map((w) => w.week_id);
+  const emptyByOrg = (): Record<OrganizationSlug, number | null> =>
+    ORGANIZATIONS.reduce(
+      (acc, org) => ((acc[org] = null), acc),
+      {} as Record<OrganizationSlug, number | null>,
+    );
+  if (weekIds.length === 0) {
+    return base.map((w) => ({
+      ...w,
+      recognition_n_by_org: emptyByOrg(),
+      recognition_all_orgs_set: false,
+      recognition_missing_org_count: ORGANIZATIONS.length,
+    }));
+  }
+  // 조직별 N 맵(주차 → N|null). 3개 조직 병렬 조회(각각 verdict 가 쓰는 동일 함수·동일 필터).
+  const perOrg = {} as Record<OrganizationSlug, Map<string, number | null>>;
+  await Promise.all(
+    ORGANIZATIONS.map(async (org) => {
+      perOrg[org] = await fetchWeekRecognitionRequiredByOrg(weekIds, org);
+    }),
+  );
+  return base.map((w) => {
+    const byOrg = emptyByOrg();
+    let missing = 0;
+    for (const org of ORGANIZATIONS) {
+      const n = perOrg[org]?.get(w.week_id) ?? null;
+      byOrg[org] = n;
+      if (n == null) missing += 1;
+    }
+    return {
+      ...w,
+      recognition_n_by_org: byOrg,
+      recognition_all_orgs_set: missing === 0,
+      recognition_missing_org_count: missing,
+    };
+  });
+}
+
 export async function getWeekRecognitions(
   options: WeekRecognitionFilterOptions,
 ): Promise<WeekRecognitionsDto> {
@@ -233,6 +284,11 @@ export async function getWeekRecognitions(
 
   const seasons = (seasonRes.data ?? []) as SeasonDefinitionRow[];
 
+  // 드롭다운/기준(N) 탭 옵션 — 조직별 N 부착까지 한 번만 계산해 모든 반환 경로에서 재사용.
+  //   (조기 반환(emptyResult)·최종 반환이 동일 배열을 공유 → 표시값 단일 원천.)
+  const seasonOptions = toSeasonOptionsLatestFirst(seasons);
+  const weekOptions = await buildWeekOptionsWithRecognition(weeks);
+
   const seasonByKey = new Map<string, SeasonDefinitionRow>();
   for (const s of seasons) seasonByKey.set(s.season_key, s);
 
@@ -248,13 +304,13 @@ export async function getWeekRecognitions(
   const targetWeek = weekId ? weekById.get(weekId) ?? null : null;
   // weekId 가 주어졌는데 매칭 weeks 가 없으면 결과 없음.
   if (weekId && !targetWeek) {
-    return emptyResult(seasons, weeks);
+    return emptyResult(seasonOptions, weekOptions);
   }
 
   const season = seasonKey ? seasonByKey.get(seasonKey) ?? null : null;
   // season_key 가 주어졌는데 정의가 없으면 결과 없음.
   if (seasonKey && !season) {
-    return emptyResult(seasons, weeks);
+    return emptyResult(seasonOptions, weekOptions);
   }
 
   // season 날짜창이 없을 때만 사용하는 iso 집합 폴백.
@@ -288,7 +344,7 @@ export async function getWeekRecognitions(
 
   // opSeasonKey 가 해소됐는데 참여자가 0명이면(시즌 참여행 미구성) 빈 목록.
   if (opSeasonKey && participantIds && participantIds.length === 0) {
-    return emptyResult(seasons, weeks);
+    return emptyResult(seasonOptions, weekOptions);
   }
 
   // restrictUserIds: 참여자 집합(미해소면 null=전수 폴백). org/search 가 있으면 교집합.
@@ -316,7 +372,7 @@ export async function getWeekRecognitions(
       restrictUserIds = filteredIds;
     }
     if (restrictUserIds.length === 0) {
-      return emptyResult(seasons, weeks);
+      return emptyResult(seasonOptions, weekOptions);
     }
   }
 
@@ -325,7 +381,7 @@ export async function getWeekRecognitions(
   if (restrictUserIds) {
     restrictUserIds = restrictUserIds.filter((id) => scope.includes(id));
     if (restrictUserIds.length === 0) {
-      return emptyResult(seasons, weeks);
+      return emptyResult(seasonOptions, weekOptions);
     }
   }
 
@@ -489,9 +545,10 @@ export async function getWeekRecognitions(
   return {
     rows,
     summary,
-    // 시즌/주차 옵션은 최신순(start_date desc) — 드롭다운·check 기준 관리 탭 목록 최신 우선.
-    seasons: toSeasonOptionsLatestFirst(seasons),
-    weeks: toWeekOptionsLatestFirst(weeks),
+    // 시즌/주차 옵션은 최신순(start_date desc) — 드롭다운·기준(N) 탭 목록 최신 우선.
+    //   조기 반환과 동일한 precomputed 배열(조직별 N 부착 포함)을 사용한다.
+    seasons: seasonOptions,
+    weeks: weekOptions,
     truncated,
     generated_at: new Date().toISOString(),
   };
@@ -1148,8 +1205,8 @@ export async function updateWeekCheckThreshold(
 }
 
 function emptyResult(
-  seasons: SeasonDefinitionRow[],
-  weeks: WeekRow[],
+  seasonOptions: WeekRecognitionsDto["seasons"],
+  weekOptions: WeekRecognitionsDto["weeks"],
 ): WeekRecognitionsDto {
   return {
     rows: [],
@@ -1160,8 +1217,8 @@ function emptyResult(
       personal_rest_count: 0,
       official_rest_count: 0,
     },
-    seasons: toSeasonOptionsLatestFirst(seasons),
-    weeks: toWeekOptionsLatestFirst(weeks),
+    seasons: seasonOptions,
+    weeks: weekOptions,
     truncated: false,
     generated_at: new Date().toISOString(),
   };

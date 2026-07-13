@@ -41,6 +41,7 @@ import {
   ORGANIZATIONS,
   ORGANIZATION_COMMON_LABEL,
   ORGANIZATION_LABEL,
+  ORGANIZATION_LABEL_KO,
   isOrganizationSlug,
 } from "@/lib/organizations";
 import {
@@ -56,10 +57,12 @@ import { formatAdminDateTime } from "@/lib/adminDateTime";
 
 const ALL = "__all__";
 
-// 상단 탭 — 인정 결과 목록과 check 기준 관리를 동시에 노출하지 않는다.
+// 상단 탭 — 인정 결과 목록과 주차 인정 기준(N)을 동시에 노출하지 않는다.
+//   "주차 인정 기준 (N)" = 실제 verdict/finalize 가 읽는 조직별 recognition_count_n 표시(읽기 전용).
+//   레거시 weeks.check_threshold 관리는 그 탭 안 별도(접힘) 섹션으로 분리(판정 미사용).
 const VIEW_TABS = [
   { key: "recognitions", label: "주차 인정 결과", helpKey: "admin.weekRecognitions.tab.recognitions" },
-  { key: "check_threshold", label: "check 기준 관리", helpKey: "admin.weekRecognitions.tab.checkThreshold" },
+  { key: "recognition_n", label: "주차 인정 기준 (N)", helpKey: "admin.weekRecognitions.tab.recognitionN" },
 ] as const;
 type ViewTabKey = (typeof VIEW_TABS)[number]["key"];
 
@@ -863,18 +866,39 @@ export default function WeekRecognitionsView() {
         </CardContent>
       </Card>
 
-      {/* check 기준 관리 탭 — 수정 중 입력 유지를 위해 hidden 전환 */}
-      <div className={cn(activeTab !== "check_threshold" && "hidden")}>
-        <CheckThresholdManager
+      {/* 주차 인정 기준(N) 탭 — 수정 중 입력 유지를 위해 hidden 전환 */}
+      <div className={cn("flex flex-col gap-6", activeTab !== "recognition_n" && "hidden")}>
+        {/* 실제 판정 기준: 조직별 인정 개수 N (읽기 전용) */}
+        <RecognitionCriteriaManager
           weeks={weekOptions}
           seasons={seasons}
           loading={loading}
-          onSaved={(message) => {
-            setBanner({ kind: "success", message });
-            setRefreshTick((n) => n + 1);
-          }}
-          onError={(message) => setBanner({ kind: "error", message })}
+          mode={mode}
         />
+
+        {/* 레거시 check 기준값 — 현재 주차 판정에 사용되지 않음(별도 접힘 섹션으로 분리) */}
+        <details className="rounded-lg border bg-muted/10">
+          <summary className="cursor-pointer select-none px-4 py-3 text-sm font-medium text-muted-foreground">
+            레거시 check 기준값 관리 (현재 주차 판정에 사용되지 않음)
+          </summary>
+          <div className="border-t px-4 py-4">
+            <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              이 값(<code>weeks.check_threshold</code>)은 <strong>더 이상 주차 성공/실패 판정에 사용되지 않습니다.</strong>{" "}
+              실제 판정 기준은 위 &ldquo;주차 인정 기준 (N)&rdquo; 표의 조직별 N 입니다. 이 섹션은 과거 호환/참고용이며,
+              값을 바꿔도 주차 인정 결과는 달라지지 않습니다.
+            </div>
+            <CheckThresholdManager
+              weeks={weekOptions}
+              seasons={seasons}
+              loading={loading}
+              onSaved={(message) => {
+                setBanner({ kind: "success", message });
+                setRefreshTick((n) => n + 1);
+              }}
+              onError={(message) => setBanner({ kind: "error", message })}
+            />
+          </div>
+        </details>
       </div>
 
       {editing && (
@@ -885,6 +909,211 @@ export default function WeekRecognitionsView() {
         />
       )}
     </div>
+  );
+}
+
+
+// ─── 주차 인정 기준 (N) — 조직별 인정 개수 표시(읽기 전용) ──────────────
+// 실제 주차 성공/실패 verdict 가 읽는 기준값 SoT = recognition_count_n[week_id, organization_slug].
+//   · 데이터 원천 = 서버 DTO(getWeekRecognitions)가 verdict/finalize 와 동일한
+//     fetchWeekRecognitionRequiredByOrg 로 채운 weekOption.recognition_n_by_org — 화면값 == 판정값.
+//   · 값 없음(null) = 해당 조직 미오픈확인 → "미설정". verdict enforced=false(과거 결과 보존)·
+//     검수(finalize) 시 recognition_missing 422 차단.
+//   · 수정은 하지 않는다(읽기 전용). N 은 계산값이라 직접 입력 대상이 아니며, 값 변경은 각 주차의
+//     [오픈 확인] 화면(/admin/team-parts/info/weeks/[weekId])에서만 이뤄진다 → 중복 관리 화면 방지.
+
+function RecognitionNCell({ value }: { value: number | null }) {
+  if (value == null) {
+    return (
+      <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+        미설정
+      </span>
+    );
+  }
+  return <span className="font-semibold tabular-nums">{value.toLocaleString()}</span>;
+}
+
+function RecognitionSetStatusBadge({
+  missing,
+  total,
+}: {
+  missing: number;
+  total: number;
+}) {
+  if (missing === 0) {
+    return (
+      <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
+        모두 설정
+      </span>
+    );
+  }
+  if (missing >= total) {
+    return (
+      <span className="inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-medium text-red-700">
+        전체 미설정
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+      일부 미설정 {missing}/{total}
+    </span>
+  );
+}
+
+function RecognitionCriteriaManager({
+  weeks,
+  seasons,
+  loading,
+  mode,
+}: {
+  weeks: WeekRecognitionWeekOption[];
+  seasons: { season_key: string; season_label: string | null }[];
+  loading: boolean;
+  mode: "operating" | "test";
+}) {
+  const seasonLabelByKey = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of seasons) m.set(s.season_key, s.season_label ?? s.season_key);
+    return m;
+  }, [seasons]);
+
+  return (
+    <Card id="recognition-n">
+      <CardHeader>
+        <CardTitle className="inline-flex items-center gap-1.5 text-base">
+          주차 인정 기준 (N) — 조직별 인정 개수
+          <AdminHelpIconButton
+            helpKey="admin.weekRecognitions.section.recognitionN"
+            title="주차 인정 기준 (N)"
+            size="sm"
+          />
+        </CardTitle>
+        <CardDescription>
+          주차 성공/실패 판정에 실제로 사용되는 기준값입니다. 주차 성공 = 필수 슬롯 통과{" "}
+          <span className="font-medium">그리고</span> 본인 획득 포인트(check) ≥ 소속 조직의 인정 개수 N.
+          여기 표시되는 값은 실제 판정 로직이 읽는 값과 동일하며(단일 조회 원천), 이 화면에서는{" "}
+          <span className="font-medium">수정하지 않습니다</span> — N 은 각 주차의 [오픈 확인]에서
+          설정됩니다. <span className="font-medium">미설정</span> 조직은 그 주차 검수(확정)가 차단됩니다.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>시즌</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.recognitionN.column.season" title="시즌" size="xs" />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>주차</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.recognitionN.column.week" title="주차" size="xs" />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>기간</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.recognitionN.column.period" title="기간" size="xs" />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>공표 상태</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.recognitionN.column.publishStatus" title="공표 상태" size="xs" />
+                  </span>
+                </TableHead>
+                {ORGANIZATIONS.map((org) => (
+                  <TableHead key={org} className="text-center">
+                    <span className="inline-flex items-center gap-1">
+                      <span>{ORGANIZATION_LABEL_KO[org]} N</span>
+                      <AdminHelpIconButton
+                        helpKey="admin.weekRecognitions.recognitionN.column.orgN"
+                        title={`${ORGANIZATION_LABEL_KO[org]} 인정 개수 N`}
+                        size="xs"
+                      />
+                    </span>
+                  </TableHead>
+                ))}
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>설정 상태</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.recognitionN.column.setStatus" title="설정 상태" size="xs" />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    <span>설정</span>
+                    <AdminHelpIconButton helpKey="admin.weekRecognitions.recognitionN.column.openConfirm" title="오픈 확인에서 설정" size="xs" />
+                  </span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {weeks.map((w) => (
+                <TableRow key={w.week_id}>
+                  <TableCell className="whitespace-nowrap">
+                    {w.season_key
+                      ? seasonLabelByKey.get(w.season_key) ?? w.season_key
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap font-medium">
+                    {w.week_label}
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                    {formatRange(w.week_start_date, w.week_end_date)}
+                  </TableCell>
+                  <TableCell>
+                    <ConfirmStatusBadge
+                      endDate={w.week_end_date}
+                      at={w.result_published_at}
+                    />
+                  </TableCell>
+                  {ORGANIZATIONS.map((org) => (
+                    <TableCell key={org} className="text-center">
+                      <RecognitionNCell value={w.recognition_n_by_org[org]} />
+                    </TableCell>
+                  ))}
+                  <TableCell>
+                    <RecognitionSetStatusBadge
+                      missing={w.recognition_missing_org_count}
+                      total={ORGANIZATIONS.length}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <a
+                      href={appendModeQuery(
+                        `/admin/team-parts/info/weeks/${encodeURIComponent(w.week_id)}`,
+                        mode,
+                      )}
+                      className="inline-flex items-center rounded-md border px-2 py-1 text-xs hover:bg-muted"
+                    >
+                      오픈 확인
+                    </a>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!loading && weeks.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={4 + ORGANIZATIONS.length + 2}
+                    className="py-10 text-center text-muted-foreground"
+                  >
+                    표시할 주차가 없습니다.
+                  </TableCell>
+                </TableRow>
+              )}
+              {loading && weeks.length === 0 && (
+                <TableSkeletonRows columns={4 + ORGANIZATIONS.length + 2} rows={6} />
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -920,18 +1149,18 @@ function CheckThresholdManager({
     <Card id="check-threshold">
       <CardHeader>
         <CardTitle className="inline-flex items-center gap-1.5 text-base">
-          주차 인정 체크 기준 관리
+          레거시 check 기준값 (weeks.check_threshold)
           <AdminHelpIconButton
             helpKey="admin.weekRecognitions.section.checkThreshold"
-            title="주차 인정 체크 기준 관리"
+            title="레거시 check 기준값"
             size="sm"
           />
         </CardTitle>
         <CardDescription>
-          주차 성공 판정에 필요한 체크 개수 기준입니다. 주차 성공 = [실무 경험]
-          통합 라인 평점 4점 이상(강화 성공) <span className="font-medium">그리고</span> 체크
-          획득 수가 이 기준 이상. 가산점 / 감점은 판정에 사용하지 않습니다.
-          비워 두면 기본값 {DEFAULT_WEEK_CHECK_THRESHOLD}개가 적용됩니다.
+          <span className="font-medium text-amber-700">현재 주차 성공/실패 판정에는 사용되지 않는 레거시 값입니다.</span>{" "}
+          실제 판정 기준은 위 &ldquo;주차 인정 기준 (N)&rdquo; 표의 조직별 인정 개수 N 입니다.
+          이 값(<code>weeks.check_threshold</code>)은 과거 통합 라인 정책의 잔여 컬럼이며, 변경해도 주차 인정 결과는
+          달라지지 않습니다. 비워 두면 기본값 {DEFAULT_WEEK_CHECK_THRESHOLD}개로 표시됩니다.
         </CardDescription>
       </CardHeader>
       <CardContent>

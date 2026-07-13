@@ -4,6 +4,8 @@
 // user_profiles 를 조합해 "특정 주차 또는 시즌 기준 사용자별 주차 인정 상태" 목록을
 // 만든다. 기존 계산 로직은 변경하지 않는다.
 
+import type { OrganizationSlug } from "@/lib/organizations";
+
 export const WEEK_RECOGNITION_STATUSES = [
   "success",
   "fail",
@@ -74,7 +76,19 @@ export type WeekRecognitionWeekOption = {
   // 실제 판정에 적용되는 값 = check_threshold ?? DEFAULT_WEEK_CHECK_THRESHOLD(30).
   effective_check_threshold: number;
   // 기본값이 적용 중인지 (check_threshold == null) — UI "기본값 적용" 표시용.
+  //   ⚠ 레거시: 이 값은 현재 주차 성공/실패 verdict 에 사용되지 않는다(아래 recognition_n_by_org 참조).
+  //     weeks.check_threshold 컬럼/PATCH 는 존치하되 판정 기준은 아니다("check 기준 관리" 탭 = 레거시 섹션).
   check_threshold_is_default: boolean;
+
+  // ── 실제 주차 성공 기준값 SoT (2026-07-12 정책 전환) ─────────────────────────
+  // recognition_count_n[week_id, organization_slug] — verdict(fetchWeekRecognitionRequiredByOrg)·
+  //   finalize 가 읽는 동일 원천을 그대로 재사용해 채운다. "화면에 보이는 값 == 판정에 쓰는 값" 보장.
+  //   각 값 null = 미설정(해당 조직 미오픈확인) → verdict enforced=false(과거 결과 보존)·finalize 시 차단.
+  recognition_n_by_org: Record<OrganizationSlug, number | null>;
+  // 세 조직 모두 N 이 설정됐는지(전부 non-null). "완전 설정" 한눈 표시용.
+  recognition_all_orgs_set: boolean;
+  // 미설정(N 없음) 조직 수(0~3). 설정 상태 배지("일부 미설정 N/3") 표시용.
+  recognition_missing_org_count: number;
 };
 
 export type WeekRecognitionFilterOptions = {
