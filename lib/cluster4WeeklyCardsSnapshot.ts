@@ -345,7 +345,15 @@ async function writeRosterCardStats(
 //   개설 0건=모두 0/0, 첫 개설 시 대상자만 0/1(→완료 1/1)·비대상자 0/0. 개설/완료판정/포인트 로직 불변,
 //   표시(분모 생성) 기준만 변경. 역량 A/B 가 달라지므로 v35 snapshot 을 stale(version_mismatch) 처리해
 //   재계산. (파생 캐시 재생성 — DB 백필 아님. info/experience/career 무영향.)
-export const WEEKLY_CARDS_DTO_VERSION = 36;
+// v37 (2026-07-13 v2): 실무 역량 표시 정책 재정정 — 분모 게이트를 "본인 대상 여부"가 아니라 "주차 단위
+//   개설 존재 여부"(hasCompetencyOpeningForWeek)로 변경. v36 은 비대상자를 0/0 으로 내렸으나, 올바른
+//   정책은 "그 주차에 org-visible 역량 라인이 하나라도 개설되면 분모 1을 전 크루 공통 활성화"다:
+//     · 개설 0건        → 전원 not_applicable(0/0)
+//     · 개설 있음+비대상 → placeholder(미확정=대기/확정=실패) = 0/1  ← v36 에서 잘못 0/0 이던 것
+//     · 개설 있음+대상   → 본인 라인 fold = 0/1(미완료) 또는 1/1(완료)
+//   대상 여부는 분자(성공) 기준일 뿐 분모 생성 기준이 아니다. competency A/B 가 달라지므로 v36 snapshot 을
+//   stale(version_mismatch) 처리해 재계산. (파생 캐시 재생성 — DB 백필 아님. info/experience/career·포인트 무영향.)
+export const WEEKLY_CARDS_DTO_VERSION = 37;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

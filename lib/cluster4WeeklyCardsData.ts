@@ -391,10 +391,36 @@ function experienceSlotPlaceholderLine(
   };
 }
 
-// (2026-07-13) 역량 placeholder(competencyPendingPlaceholderLine·competencyFailPlaceholderLine)는
-//   폐지됐다. 역량 분모(1)는 "이 주차에 실제 개설된 역량 라인의 대상자"에게만 생성하므로,
-//   라인 0개 주차(개설 0건 또는 비대상자)는 합성 칸을 만들지 않고 Step 3 not_applicable(0/0)로
-//   표시한다. 구 정책(비휴식 주차=항상 분모 A=1, 미확정=대기/확정=실패 합성)은 폐기.
+// 실무 역량 "강화 대기" placeholder (비대상자 공통 분모 셀 — 2026-07-13 v2 주차-게이트 정책).
+//   역량 분모(1)는 "그 주차에 org-visible 역량 라인이 하나라도 개설됐는가"(hasCompetencyOpeningForWeek)로
+//   결정한다. 개설이 있는 주차의 비대상자(본인 라인 0개)는 이 보이드 셀(status="void", 내용 없음)에
+//   enhancementStatus="pending"("강화 대기")을 실어 분모 A=1·분자 0(= 0/1)을 공통 활성화한다.
+//   ⚠ 미확정(running/tallying) 주차 전용 — 확정(공표) 주차는 competencyFailPlaceholderLine 사용.
+//   (개설 0건 주차·휴식/전환 주차는 이 placeholder 를 만들지 않는다 → Step 3 not_applicable=0/0.)
+function competencyPendingPlaceholderLine(
+  weekId: string | null,
+): Cluster4LineDetailDto {
+  return {
+    ...emptyLine("competency", weekId, false),
+    enhancementStatus: "pending",
+    submissionStatus: "not_submitted",
+    enhancementReason: "competency_optional_pending",
+  };
+}
+
+// 실무 역량 확정(공표) 주차 placeholder (비대상자 공통 분모 셀).
+//   개설이 있는 주차가 확정(result_published_at)되면 비대상자(미수행)는 "강화 실패"다.
+//   status="void" 유지(보이드 표시축) + enhancementStatus="fail"(판정축) → 분모 A=1·분자 0(= 0/1).
+function competencyFailPlaceholderLine(
+  weekId: string | null,
+): Cluster4LineDetailDto {
+  return {
+    ...emptyLine("competency", weekId, false),
+    enhancementStatus: "fail",
+    submissionStatus: "not_submitted",
+    enhancementReason: "competency_optional_unfulfilled_confirmed",
+  };
+}
 
 // 개설됐지만 본인이 미배정인 info/experience 라인의 "강화 실패" DTO (2026-06-02).
 //   - 정책: info/experience 의 미배정 fail 은 보이드가 아니라 개설된 라인 내용을 노출한다.
@@ -2156,11 +2182,10 @@ async function fetchLineDetailsByWeek(
           }
           const publicPart = toPublicPart(dbPart);
           if (publicPart === "competency") {
-            // 2026-07-13 표시 정책: 실무 역량 비대상자는 "해당 없음"(0/0)으로 표시한다.
-            //   개설됐지만 본인 미배정인 역량 라인은 더 이상 synthetic fail(분모=1)로 노출하지 않는다 —
-            //   분모(1)는 실제 개설된 역량 라인의 대상자(Step 1)에게만 생성한다. 여기서 아무 칸도
-            //   추가하지 않으면 아래 2.7 fold(compLines 0개)를 건너뛰고 Step 3 not_applicable
-            //   placeholder(0/0)로 채워진다 — 개설 0건 케이스와 동일한 "해당 없음" 표시.
+            // 2026-07-13 v2 정책: 역량 비대상자의 공통 분모 셀은 여기(라인별 Step 2)가 아니라 아래 2.7
+            //   에서 주차 단위 게이트(hasCompetencyOpeningForWeek)로 단 1칸만 만든다. 라인별로 넣으면
+            //   1인·1주차 1칸 원칙을 깨고 fold 로 접어야 하므로, 여기선 아무 칸도 추가하지 않고 skip 한다.
+            //   (openedByWeek 는 그대로 유지 — 2.7 게이트가 이 집합에서 org-visible 역량 개설을 판정한다.)
             continue;
           } else if (publicPart === "career") {
             // career 미선발 = not_applicable 유지 + 개설 라인 content 노출.
@@ -2327,14 +2352,24 @@ async function fetchLineDetailsByWeek(
     //   - 휴식/전환 주차(restWeek)는 기존 na placeholder 유지(분모 제외) — step 3 에서 채움.
     if (!restWeek) {
       const compLines = lines.filter((l) => l.partType === "competency");
-      // 2026-07-13 표시 정책: 역량 분모(1)는 "이 주차에 실제 개설된 역량 라인의 대상자"에게만 생성한다.
-      //   compLines 는 이제 대상자(Step 1) 라인만 담는다(Step 2 비대상 synthetic fail 제거). 따라서:
-      //     · 라인 0개(개설 0건 이거나 비대상자) → placeholder 를 합성하지 않는다. Step 3 가
-      //       not_applicable(0/0)로 채운다. (구 정책의 미확정=대기/확정=실패 합성 폐기.)
-      //     · 라인 ≥1개(대상자) → 1인·1주차 정확히 1칸으로 fold: success > pending > fail 우선.
-      //   이로써 개설 0건=모두 0/0, 첫 개설 시 대상자만 0/1(→완료 1/1)·비대상자 0/0 이 성립한다.
-      //   (레거시 주차도 동일 — 역량 라인 실보유 시에만 fold, 합성 금지: 기존 Phase 3 정책과 정합.)
+      // 2026-07-13 v2 표시 정책(주차 단위 게이트): 역량 분모(1)는 "본인이 대상자인가"가 아니라
+      //   "그 주차에 org-visible 역량 라인이 하나라도 개설됐는가"(hasCompetencyOpeningForWeek)로
+      //   결정한다. 대상 여부는 분자(성공)의 기준일 뿐 분모 생성 기준이 아니다.
+      //     · 개설 없음(0건)          → 합성 없음 → Step 3 not_applicable(0/0). 전원 동일.
+      //     · 개설 있음 + 대상자        → 본인 라인 1칸으로 fold(success>pending>fail): 0/1 또는 1/1.
+      //     · 개설 있음 + 비대상자      → placeholder 1칸(미확정=대기/확정=실패): 0/1. 분모 공통 활성화.
+      //   개설 판정 원천 = openedByWeek(그 주차 active·QA필터된 타깃 보유 라인) 중 org-visible 역량.
+      //   (레거시 주차도 동일 — 실제 개설이 있어야만 셀 생성, 무조건 합성 금지: Phase 3 정책과 정합.)
+      const weekOpenedComp = openedByWeek.get(weekId);
+      const hasCompetencyOpeningForWeek = weekOpenedComp
+        ? [...weekOpenedComp.values()].some(
+            ({ dbPart, line }) =>
+              toPublicPart(dbPart) === "competency" &&
+              isLineVisibleForUserOrg(lineOrgById.get(line.id) ?? null, userOrg),
+          )
+        : false;
       if (compLines.length > 0) {
+        // 대상자: 본인 역량 라인(들)을 1칸으로 fold. 개설 신호는 본인 라인 존재로 이미 충족.
         const fold =
           compLines.find((l) => l.enhancementStatus === "success") ??
           compLines.find((l) => l.enhancementStatus === "pending") ??
@@ -2347,7 +2382,16 @@ async function fetchLineDetailsByWeek(
           lines.push(fold);
         }
         partsPresent.add("competency");
+      } else if (hasCompetencyOpeningForWeek) {
+        // 비대상자 + 주차 개설 있음: 공통 분모 셀(0/1). 미확정=대기, 확정=실패.
+        lines.push(
+          confirmedWeekIds.has(weekId)
+            ? competencyFailPlaceholderLine(weekId)
+            : competencyPendingPlaceholderLine(weekId),
+        );
+        partsPresent.add("competency");
       }
+      // else: 개설 0건 → 합성 없음 → Step 3 not_applicable(0/0).
     }
 
     // 3. 라인이 전혀 없는 part → not_applicable placeholder (UI 완결성; 미개설·휴식주차).
