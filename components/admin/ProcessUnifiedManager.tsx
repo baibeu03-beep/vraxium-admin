@@ -230,8 +230,9 @@ function ProcSortableHeader({
 // A/B/C 를 균등 분산으로 표시 (붙어보이지 않게) — 요약 카드 공용.
 function PointTripletCells({ t }: { t: ProcessPointTriplet }) {
   return (
-    // min-w 로 좁은 셀에서도 A/B/C 가 줄바꿈·찌그러짐 없이 균등 노출되게 한다.
-    <div className="grid min-w-[132px] grid-cols-3 gap-x-4 tabular-nums">
+    // 3열 균등(grid-cols-3)·넓은 간격(gap-x-6)·flex-1 로 값 컨테이너의 남는 폭을 모두 채운다.
+    // 부모 값 컨테이너(SummaryCell growValue)가 flex 로 확장되므로 고정 min-w 대신 가변 폭.
+    <div className="grid flex-1 grid-cols-3 gap-x-6 tabular-nums">
       {(
         [
           ["A", t.check],
@@ -263,18 +264,34 @@ function SummaryCell({
   label,
   value,
   helpKey,
+  growValue = false,
 }: {
   label: string;
   value: React.ReactNode;
   helpKey?: string;
+  // A/B/C 삼중값처럼 값 영역이 남는 가로 폭을 모두 채워야 할 때 true.
+  growValue?: boolean;
 }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-4 rounded-md bg-background/50 px-3 py-2">
-      <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+      {/* growValue 시 라벨은 고정폭(shrink-0)·줄바꿈 금지로 유지해 값 영역에 남는 폭을 넘긴다. */}
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 text-sm text-muted-foreground",
+          growValue && "shrink-0 whitespace-nowrap",
+        )}
+      >
         {label}
         {helpKey && <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />}
       </span>
-      <span className="shrink-0 text-sm font-semibold tabular-nums">{value}</span>
+      <span
+        className={cn(
+          "text-sm font-semibold tabular-nums",
+          growValue ? "flex min-w-0 flex-1" : "shrink-0",
+        )}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -1176,9 +1193,9 @@ export default function ProcessUnifiedManager() {
         <SummaryCell label="전체 액트 수" value={`${summary.actCount}개`} helpKey="admin.processes.register.stat.actCount" />
         <SummaryCell label="전체 라인급 수" value={`${summary.lineGroupCount}개`} helpKey="admin.processes.register.stat.lineGroupCount" />
         <SummaryCell label="총합 소요 시간" value={`${summary.totalDurationMinutes}m`} helpKey="admin.processes.register.stat.totalDuration" />
-        <SummaryCell label="필수 포인트 총합" value={<PointTripletCells t={summary.required} />} helpKey="admin.processes.register.stat.requiredPoint" />
-        <SummaryCell label="우수 포인트 총합" value={<PointTripletCells t={summary.excellent} />} helpKey="admin.processes.register.stat.excellentPoint" />
-        <SummaryCell label="최대 포인트 총합" value={<PointTripletCells t={summary.max} />} helpKey="admin.processes.register.stat.maxPoint" />
+        <SummaryCell label="필수 포인트 총합" value={<PointTripletCells t={summary.required} />} helpKey="admin.processes.register.stat.requiredPoint" growValue />
+        <SummaryCell label="우수 포인트 총합" value={<PointTripletCells t={summary.excellent} />} helpKey="admin.processes.register.stat.excellentPoint" growValue />
+        <SummaryCell label="최대 포인트 총합" value={<PointTripletCells t={summary.max} />} helpKey="admin.processes.register.stat.maxPoint" growValue />
       </div>
 
       {/* ── 통합 목록 표 (전체 허브) ── */}
