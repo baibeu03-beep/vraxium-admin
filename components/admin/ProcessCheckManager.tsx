@@ -590,7 +590,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                         <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       </div>
                       {teamParts.length === 0 && (
-                        <p className="text-[11px] text-amber-600">
+                        <p className="text-xs text-amber-600">
                           이 팀(현재 모드)에 등록된 파트가 없습니다. (팀 총괄만 사용)
                         </p>
                       )}
@@ -676,7 +676,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 className="rounded-md border border-purple-300 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-800 transition-colors hover:bg-purple-100"
               >
                 링크 신청
-                <span className="mt-0.5 block text-[11px] font-normal text-purple-600">카페 글 기반 · worker 검수</span>
+                <span className="mt-0.5 block text-xs font-normal text-purple-600">카페 글 기반 · worker 검수</span>
               </button>
               <button
                 type="button"
@@ -687,7 +687,7 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 className="rounded-md border border-green-300 bg-green-50 px-4 py-3 text-sm font-medium text-green-800 transition-colors hover:bg-green-100"
               >
                 수동 부여
-                <span className="mt-0.5 block text-[11px] font-normal text-green-600">대상 크루 · 포인트 직접 입력</span>
+                <span className="mt-0.5 block text-xs font-normal text-green-600">대상 크루 · 포인트 직접 입력</span>
               </button>
             </div>
           </div>

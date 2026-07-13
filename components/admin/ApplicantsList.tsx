@@ -800,7 +800,7 @@ function ApproveDialog({
 
         {selectedUser && (
           <div className="mt-4 rounded-lg border bg-muted/20 px-4 py-3 text-sm">
-            <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               선택된 사용자
             </div>
             <div className="mt-1 font-medium">
@@ -856,7 +856,7 @@ function Detail({
 }) {
   return (
     <div>
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div className="mt-1 text-sm font-medium">{fmt(value)}</div>

@@ -436,7 +436,7 @@ export default function ProcessCheckManualGrantDialog({
             </div>
           </div>
 
-          <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[11px] text-green-700">
+          <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
             수동 부여는 즉시 ‘체크 완료’로 처리됩니다(체크 대기 없음). 같은 액트·주차에 이미 부여된 크루는 중복 저장되지 않습니다.
           </p>
         </div>

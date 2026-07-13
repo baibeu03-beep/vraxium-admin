@@ -267,7 +267,7 @@ export default function LineRegistrationEditModal({
             <div className="space-y-1.5">
               <Label>소속 허브</Label>
               <Input value={LINE_REGISTRATION_HUB_LABEL[row.hub]} disabled readOnly />
-              <p className="text-[11px] text-muted-foreground">허브는 수정할 수 없습니다.</p>
+              <p className="text-xs text-muted-foreground">허브는 수정할 수 없습니다.</p>
             </div>
             <div className="space-y-1.5">
               <Label>라인 종류</Label>
@@ -419,7 +419,7 @@ export default function LineRegistrationEditModal({
                 </select>
               </div>
             </div>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Point.A/B 는 (클럽·허브·유형) 공유 설정입니다 — 같은 유형의 다른 라인과 오픈 확인 계산에도 동일 값이 적용됩니다.
             </p>
           </div>

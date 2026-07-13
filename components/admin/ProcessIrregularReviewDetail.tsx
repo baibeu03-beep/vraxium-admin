@@ -165,7 +165,7 @@ export default function ProcessIrregularReviewDetail({
         )}
 
         {act.lastError && cancelable && (
-          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
             자동 검수 시도 {act.attemptCount}회 실패: {act.lastError}
           </p>
         )}
@@ -228,7 +228,7 @@ export default function ProcessIrregularReviewDetail({
           </Button>
         </div>
         {isReview && !cancelable && (
-          <p className="mt-2 text-right text-[11px] text-muted-foreground">
+          <p className="mt-2 text-right text-xs text-muted-foreground">
             {!editable
               ? "과거 주차는 조회 전용입니다(체크 취소 불가)."
               : "검수 시점이 지났거나 완료된 신청은 취소할 수 없습니다."}

@@ -221,7 +221,7 @@ function StatCard({
       )}
     >
       <p className="text-xl font-bold leading-none">{value}</p>
-      <p className="mt-1 inline-flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
+      <p className="mt-1 inline-flex items-center justify-center gap-1 text-xs text-muted-foreground">
         {label}
         {helpKey ? (
           <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />

@@ -1196,7 +1196,7 @@ function EditWindowDrawerInner({
                 </span>
               )}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               {devMode ? (
                 <>
                   리소스 <code className="font-mono">{resourceKey}</code>
@@ -1206,7 +1206,7 @@ function EditWindowDrawerInner({
               )}
             </p>
             {weekLabel && (
-              <p className="mt-0.5 text-[11px] font-medium text-emerald-700">
+              <p className="mt-0.5 text-xs font-medium text-emerald-700">
                 주차: {weekLabel}
               </p>
             )}
@@ -1456,7 +1456,7 @@ function BulkEditWindowDrawerInner({
             <p className="text-xs text-muted-foreground">
               선택된 {selectedCount.toLocaleString()}명
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               {devMode ? (
                 <>
                   리소스 <code className="font-mono">{resourceKey}</code>
@@ -1466,7 +1466,7 @@ function BulkEditWindowDrawerInner({
               )}
             </p>
             {weekLabel && (
-              <p className="mt-0.5 text-[11px] font-medium text-emerald-700">
+              <p className="mt-0.5 text-xs font-medium text-emerald-700">
                 주차: {weekLabel}
               </p>
             )}

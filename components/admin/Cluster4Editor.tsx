@@ -586,7 +586,7 @@ function RowCard({
         <div className="flex flex-col gap-1">
           <div className="text-sm font-semibold text-foreground">{title}</div>
           {meta && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
               {meta}
             </div>
           )}
@@ -620,7 +620,7 @@ function FieldLabel({
   helpKey?: string;
 }) {
   return (
-    <div className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
       {children}
       {helpKey && <AdminHelpIconButton helpKey={helpKey} size="xs" />}
     </div>
@@ -689,7 +689,7 @@ function WeeklyReviewWeekStatus({
             size="sm"
           />
         </div>
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           주차별 위클리 리뷰 제출 여부와 수정 가능 여부를 확인하고, 작성 기간을
           열고 닫습니다. (자원{" "}
           <code className="font-mono">cluster4.weekly_reviews</code> · 운영관리

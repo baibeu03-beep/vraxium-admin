@@ -490,7 +490,7 @@ function TopCardSlotEditor({
       )}
     >
       <div className="flex items-center justify-between">
-        <div className="text-[11px] font-semibold">
+        <div className="text-xs font-semibold">
           {devMode
             ? `${cardType === "output" ? "Output" : "Detail"} #${cardIndex}`
             : `${cardType === "output" ? "대표 카드" : "상세 카드"} ${cardIndex}`}

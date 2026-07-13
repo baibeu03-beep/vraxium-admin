@@ -316,10 +316,10 @@ export default function ProcessCheckActDialog({
               </div>
               {/* 유효(12h 이후)면 확정 미리보기 · 위반이면 즉시 경고 문구(신청 버튼도 비활성). */}
               {scheduledIso && !scheduleInvalid && (
-                <p className="text-[11px] text-muted-foreground">→ {formatCheckDateTimeKo(scheduledIso)}</p>
+                <p className="text-xs text-muted-foreground">→ {formatCheckDateTimeKo(scheduledIso)}</p>
               )}
               {scheduleError && (
-                <p className="text-[11px] font-medium text-rose-600">{scheduleError}</p>
+                <p className="text-xs font-medium text-rose-600">{scheduleError}</p>
               )}
             </div>
           ) : (
@@ -347,7 +347,7 @@ export default function ProcessCheckActDialog({
 
         {/* 검수 크루 식별 진단(테스트/관리자용) — "검수 크루 0명"의 원인 분리. needed 는 의미 없음(생략). */}
         {status !== "needed" && act.reviewerDebug && (
-          <div className="mt-3 rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+          <div className="mt-3 rounded-md border border-dashed border-muted-foreground/30 bg-muted/20 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
             <p className="font-semibold">검수 진단</p>
             <p>
               원인: <span className="font-medium text-foreground">{REVIEWER_RESOLUTION_LABEL[act.reviewerDebug.resolutionStatus]}</span>
@@ -402,7 +402,7 @@ export default function ProcessCheckActDialog({
           </Button>
         </div>
         {status === "pending" && !cancelable && (
-          <p className="mt-2 text-right text-[11px] text-amber-700">
+          <p className="mt-2 text-right text-xs text-amber-700">
             검수 시점이 지나 취소할 수 없습니다.
           </p>
         )}

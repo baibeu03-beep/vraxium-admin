@@ -546,7 +546,7 @@ export default function ExperienceTeamOverallBoard({
                   <TableCell className="font-medium whitespace-normal break-words">
                     {crew.displayName}
                     {crew.isPartLeader && (
-                      <span className="ml-1 text-[11px] text-sky-700">(파트장)</span>
+                      <span className="ml-1 text-xs text-sky-700">(파트장)</span>
                     )}
                   </TableCell>
                   <TableCell className="whitespace-normal break-words text-xs text-muted-foreground">
@@ -675,7 +675,7 @@ export default function ExperienceTeamOverallBoard({
                   <span className="text-muted-foreground">— 연결된 라인 없음</span>
                 )}
                 {c.key === "extension" && !extensionActive && (
-                  <span className="ml-1 text-[11px] text-muted-foreground">(확장 주간 외)</span>
+                  <span className="ml-1 text-xs text-muted-foreground">(확장 주간 외)</span>
                 )}
               </p>
               {/* [링크1][URL 입력][설명1][설명 입력] — 한 행 가로 배치, 라벨 80px·입력칸 flex-1 */}
@@ -721,7 +721,7 @@ export default function ExperienceTeamOverallBoard({
         <div className="flex flex-col gap-2 lg:w-36 lg:shrink-0 lg:self-start lg:border-l lg:pl-3">
           {/* 권장 다음 액션 안내(업무 흐름) — 현재 상태 기준. 권한 제한이 아니라 UX 힌트. */}
           {!opened && (
-            <p className="text-[11px] leading-tight text-muted-foreground">
+            <p className="text-xs leading-tight text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 권장 다음 단계
                 <AdminHelpIconButton

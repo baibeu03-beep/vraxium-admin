@@ -804,7 +804,7 @@ function SubmissionSubPane({
               <span className="text-sm font-semibold text-foreground">
                 {group.label}
               </span>
-              <span className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="rounded bg-muted px-2 py-0.5">
                   총 {group.total}
                 </span>
@@ -907,7 +907,7 @@ function SubmissionSlotCard({
             [{row.activityTypeId}]
           </span>
         )}
-        <span className="ml-auto text-[11px] text-muted-foreground">
+        <span className="ml-auto text-xs text-muted-foreground">
           {updated ? `수정 ${updated}` : "—"}
         </span>
       </button>
@@ -1068,7 +1068,7 @@ function OutputLinksEditor({
               className="rounded-md border bg-muted/20 px-3 py-2.5"
             >
               <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-foreground">
+                <span className="text-xs font-semibold text-foreground">
                   결과물 {idx + 1}
                 </span>
                 <Button
@@ -1129,7 +1129,7 @@ function OutputLinksEditor({
                       href={link.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="truncate text-[11px] text-blue-600 underline-offset-2 hover:underline"
+                      className="truncate text-xs text-blue-600 underline-offset-2 hover:underline"
                     >
                       {link.url}
                     </a>
@@ -1194,7 +1194,7 @@ function OutputImagesEditor({
               className="rounded-md border bg-muted/20 px-3 py-2.5"
             >
               <div className="mb-1.5 flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-foreground">
+                <span className="text-xs font-semibold text-foreground">
                   이미지 {idx + 1}
                 </span>
                 <Button
@@ -1276,7 +1276,7 @@ function OutputImagesEditor({
                         href={image.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="truncate text-[11px] text-blue-600 underline-offset-2 hover:underline"
+                        className="truncate text-xs text-blue-600 underline-offset-2 hover:underline"
                       >
                         {image.url}
                       </a>
@@ -1399,7 +1399,7 @@ function CareerSubPane({
                   <span>{projectLabel}</span>
                 </div>
                 {!isDraft && (
-                  <div className="text-[11px] text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     {getWeekLabel(row.week_id)}
                     {project?.line_code && (
                       <span className="ml-2 font-mono">[{project.line_code}]</span>
@@ -1641,7 +1641,7 @@ function FieldLabel({
   helpKey?: string;
 }) {
   return (
-    <div className="inline-flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
       {children}
       {helpKey && <AdminHelpIconButton helpKey={helpKey} size="xs" />}
     </div>

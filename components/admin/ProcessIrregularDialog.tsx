@@ -307,11 +307,11 @@ export default function ProcessIrregularDialog({
               </select>
             </div>
             {scheduledIso && (
-              <p className="text-[11px] text-muted-foreground">→ {formatCheckDateTimeKo(scheduledIso)}</p>
+              <p className="text-xs text-muted-foreground">→ {formatCheckDateTimeKo(scheduledIso)}</p>
             )}
           </div>
 
-          <p className="rounded-md border border-purple-200 bg-purple-50 px-3 py-2 text-[11px] text-purple-700">
+          <p className="rounded-md border border-purple-200 bg-purple-50 px-3 py-2 text-xs text-purple-700">
             링크 신청 후 ‘체크 대기’ 상태가 되며, 검수 시점이 지나면 자동으로 ‘체크 완료’ 됩니다.
           </p>
         </div>

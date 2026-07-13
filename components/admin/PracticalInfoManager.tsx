@@ -652,7 +652,7 @@ function LineDetailModal({
                     <TableCell className="text-center">
                       <SubmissionStatusBadge status={t.submissionStatus} />
                       {t.submitted && t.submittedAt ? (
-                        <span className="ml-1 text-[11px] text-muted-foreground">
+                        <span className="ml-1 text-xs text-muted-foreground">
                           · {formatClubDateTime(t.submittedAt)}
                         </span>
                       ) : null}
@@ -1459,7 +1459,7 @@ export default function PracticalInfoManager() {
                             <span className="text-orange-600">{line.pendingCount}</span>
                           </TableCell>
                           <TableCell className="text-center">{line.canEditCount}</TableCell>
-                          <TableCell className="whitespace-nowrap text-[11px] text-muted-foreground">
+                          <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                             {formatClubDate(line.submissionOpensAt)}
                             <br />~ {formatClubDate(line.submissionClosesAt)}
                           </TableCell>

@@ -476,7 +476,7 @@ function MemberEditDrawerInner({
                     )}
                 </SelectContent>
               </Select>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 오버라이드 3종(졸업/중단/유보) 외 상태는 자동 계산됩니다. 졸업
                 절차 중(graduating)은 29주차 승인 완료 시 자동 표시 — 수동 지정
                 불가.
@@ -541,12 +541,12 @@ function MemberEditDrawerInner({
                         )}
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     이 멤버의 확정 주차 카드 목록입니다. 중단이 적용된 주차를 고르면 그 카드만 "성장 중단"으로
                     표시되고, 이전 성공/실패/휴식 주차는 그대로 유지됩니다.
                   </p>
                   {weeksError && (
-                    <p className="text-[11px] text-red-600">{weeksError}</p>
+                    <p className="text-xs text-red-600">{weeksError}</p>
                   )}
                 </div>
               )}

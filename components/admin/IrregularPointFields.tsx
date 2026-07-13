@@ -109,7 +109,7 @@ export function IrregularPointFields({
       </div>
 
       {isPartial && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] whitespace-pre-line text-amber-700">
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs whitespace-pre-line text-amber-700">
           {cHasValue
             ? `현재 ${po.c} 부여 상태입니다.\n${po.c}를 초기화(X)해야 ${po.a}/${po.b}를 입력할 수 있습니다.`
             : abHasValue

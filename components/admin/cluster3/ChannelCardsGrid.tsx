@@ -295,7 +295,7 @@ function ChannelSlotCard({
       )}
     >
       <div className="flex items-center justify-between">
-        <div className="text-[11px] font-semibold">
+        <div className="text-xs font-semibold">
           {devMode ? `card_index ${cardIndex}` : `채널 카드 ${cardIndex}`}
           {devMode && (
             <span className="ml-1 font-normal text-muted-foreground">

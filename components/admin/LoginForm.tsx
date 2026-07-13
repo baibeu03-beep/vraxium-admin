@@ -262,7 +262,7 @@ export default function LoginForm() {
           >
             {kakaoLoading ? "카카오로 이동 중..." : "카카오로 로그인"}
           </Button>
-          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
             처음 카카오 로그인 시에는 가입 신청이 접수되며, 관리자의 승인 후
             이용할 수 있습니다.
           </p>

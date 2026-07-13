@@ -416,7 +416,7 @@ export default function CompetencyOpeningDashboard() {
                   </div>
                 )}
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 오늘 기준 개설 대상 주차로 자동 고정 · 허용된 예외 주차(설정 &gt; 라인 개설 기간)만
                 추가 선택 가능
               </p>

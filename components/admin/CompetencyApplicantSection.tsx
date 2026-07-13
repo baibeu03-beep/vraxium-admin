@@ -124,7 +124,7 @@ function SummaryChip({ label, value, tone, helpKey }: { label: string; value: nu
       )}
     >
       <p className="text-lg font-bold leading-none">{value}</p>
-      <p className="mt-1 inline-flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
+      <p className="mt-1 inline-flex items-center justify-center gap-1 text-xs text-muted-foreground">
         {label}
         {helpKey ? (
           <AdminHelpIconButton helpKey={helpKey} title={label} size="xs" />
@@ -753,7 +753,7 @@ export default function CompetencyApplicantSection({
           />
         </div>
         {/* 성장 중단(휴학·중단) 유저는 고객앱에 카드가 노출되지 않아 개설 대상에서 제외됨 — 검색 결과에도 표시되지 않는다. */}
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           ※ 성장 중단(paused/suspended) 유저는 크루 페이지에 카드가 노출되지 않아 개설 대상에서 제외되며 검색 결과에도 표시되지 않습니다.
         </p>
 
@@ -935,7 +935,7 @@ export default function CompetencyApplicantSection({
                 ))}
               </select>
               {masters.length === 0 && (
-                <p className="text-[11px] text-amber-600">
+                <p className="text-xs text-amber-600">
                   선택 가능한 실무 역량 라인이 없습니다. (라인 등록 확인 필요)
                 </p>
               )}

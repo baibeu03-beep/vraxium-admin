@@ -369,7 +369,7 @@ export default function ProcessIrregularManualGrantDialog({
             </div>
           </div>
 
-          <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-[11px] text-green-700">
+          <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
             수동 부여는 이미 검수가 끝난 상태입니다. [체크 완료] 시 즉시 ‘체크 완료’로 생성됩니다(체크 대기 없음).
           </p>
         </div>

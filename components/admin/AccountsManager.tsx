@@ -1115,7 +1115,7 @@ function CreateAccountDrawerInner({
                 placeholder="hong@example.com"
                 required
               />
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 어드민 로그인용 이메일. 이미 등록된 이메일은 사용할 수 없습니다.
               </p>
             </div>
@@ -1158,7 +1158,7 @@ function CreateAccountDrawerInner({
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {ORGANIZATION_COMMON_LABEL} 을 선택하면 특정 클럽에 속하지 않는 공용 계정으로 저장합니다 (클럽 횡단).
               </p>
             </div>
@@ -1198,12 +1198,12 @@ function CreateAccountDrawerInner({
                 </SelectContent>
               </Select>
               {adminRole === "owner" && (
-                <p className="text-[11px] text-amber-700">
+                <p className="text-xs text-amber-700">
                   ⚠ 최고 관리자는 권한 매트릭스 변경, 다른 운영 계정 생성/변경 등 모든 권한을 가집니다.
                 </p>
               )}
               {adminRole === "viewer" && (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   조회자는 어드민 페이지의 조회만 가능합니다.
                 </p>
               )}
@@ -1251,7 +1251,7 @@ function CreateAccountDrawerInner({
                 />
                 <span>
                   <span className="font-medium">임시 비밀번호 즉시 발급</span>
-                  <span className="block text-[11px] text-muted-foreground">
+                  <span className="block text-xs text-muted-foreground">
                     생성 직후 1회만 표시되며, 사용자에게 안전한 채널로 직접 전달합니다.
                   </span>
                 </span>
@@ -1265,7 +1265,7 @@ function CreateAccountDrawerInner({
                 />
                 <span>
                   <span className="font-medium">초대 메일 발송</span>
-                  <span className="block text-[11px] text-muted-foreground">
+                  <span className="block text-xs text-muted-foreground">
                     Supabase 가 초대 링크를 메일로 보냅니다. SMTP 미구성 환경에선 실패할 수 있습니다.
                   </span>
                 </span>
@@ -1356,9 +1356,9 @@ function TempPasswordModal({
             복사 후 사용자에게 안전한 채널(대면, 1:1 메신저 등)로 전달하세요.
           </p>
           <div className="rounded-md border bg-muted/30 px-3 py-2">
-            <div className="text-[11px] text-muted-foreground">대상</div>
+            <div className="text-xs text-muted-foreground">대상</div>
             <div className="text-sm font-medium">{data.label}</div>
-            <div className="text-[11px] text-muted-foreground">{data.email}</div>
+            <div className="text-xs text-muted-foreground">{data.email}</div>
           </div>
           <div className="flex items-center gap-2">
             <Input
@@ -1373,7 +1373,7 @@ function TempPasswordModal({
               {copied ? "복사됨" : "복사"}
             </Button>
           </div>
-          <p className="text-[11px] leading-relaxed text-amber-700">
+          <p className="text-xs leading-relaxed text-amber-700">
             ⚠ 첫 로그인 후 사용자 본인이 비밀번호를 변경하도록 안내하세요.
           </p>
         </div>

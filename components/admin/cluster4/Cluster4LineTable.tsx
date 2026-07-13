@@ -530,8 +530,8 @@ function LineWorkflowSection({
                   {st.done ? cfg.doneLabel : cfg.pendingLabel}
                 </span>
               </div>
-              <p className="text-[11px] text-muted-foreground">{cfg.guide}</p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">{cfg.guide}</p>
+              <p className="text-xs text-muted-foreground">
                 {cfg.actorLabel} : {st.actor ?? "-"}
                 {st.at ? ` · ${fmtDateTime(st.at)}` : ""}
               </p>
@@ -549,7 +549,7 @@ function LineWorkflowSection({
           );
         })}
       </div>
-      <p className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+      <p className="inline-flex items-center gap-1 text-xs text-muted-foreground">
         ※ 안내 문구는 권장 기한일 뿐 시간/순서/권한 제한은 없습니다. 마감 후에도 모든 단계 처리가 가능하며, 입력자와 검수자가 같아도 됩니다.
         <AdminHelpIconButton
           helpKey="admin.lineOpening.career.opening.notice.workflowGuide"
@@ -1148,7 +1148,7 @@ function LineDetailModal({
                     <TableCell className="text-center">
                       <SubmissionStatusBadge status={t.submissionStatus} />
                       {t.submitted && t.submittedAt ? (
-                        <span className="ml-1 text-[11px] text-muted-foreground">
+                        <span className="ml-1 text-xs text-muted-foreground">
                           · {formatClubDate(t.submittedAt)}
                         </span>
                       ) : null}
@@ -1628,7 +1628,7 @@ export default function Cluster4LineTable({
                           <span className="text-orange-600">{line.pendingCount}</span>
                         </TableCell>
                         <TableCell className="text-center">{line.canEditCount}</TableCell>
-                        <TableCell className="whitespace-nowrap text-[11px] text-muted-foreground">
+                        <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                           {formatClubDate(line.submissionOpensAt)}
                           <br />~ {formatClubDate(line.submissionClosesAt)}
                         </TableCell>

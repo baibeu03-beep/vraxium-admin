@@ -115,7 +115,7 @@ function TopSlotCard({
       )}
     >
       <div className="flex items-center justify-between">
-        <div className="text-[11px] font-semibold">
+        <div className="text-xs font-semibold">
           {cardType === "output" ? "Output" : "Detail"} #{slot.cardIndex}
           <span className="ml-1 font-normal text-muted-foreground">
             (card_type={cardType})
@@ -140,7 +140,7 @@ function TopSlotCard({
       )}
 
       {empty ? (
-        <div className="text-[11px] text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           portfolio_top_cards row 없음 (card_type=&apos;{cardType}&apos;,
           card_index={slot.cardIndex})
         </div>
