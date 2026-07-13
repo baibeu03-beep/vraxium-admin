@@ -387,10 +387,10 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
           <CardHeader className="pb-2">
             <CardTitle className="text-base">
               <span className="inline-flex items-center gap-1">
-                상태창
+                상태창 1
                 <AdminHelpIconButton
                   helpKey={PROCESS_CHECK_HELP_KEYS.sectionStatusBoard}
-                  title="상태창"
+                  title="상태창 1"
                   size="sm"
                 />
               </span>
@@ -560,16 +560,18 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 <div className="lg:w-72 lg:shrink-0">
                   <Card className="h-full">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-base">팀 &amp; 파트</CardTitle>
+                      <CardTitle className="text-base">
+                        <span className="inline-flex items-center gap-1">
+                          팀 전체 &amp; 파트 개별
+                          <AdminHelpIconButton
+                            helpKey={PROCESS_CHECK_HELP_KEYS.teamPartScope}
+                            title="팀 전체 & 파트 개별"
+                            size="sm"
+                          />
+                        </span>
+                      </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                      <label className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                        체크 범위 선택
-                        <AdminHelpIconButton
-                          helpKey="admin.processCheck.manager.filter.scope"
-                          title="체크 범위 선택"
-                        />
-                      </label>
                       <div className="relative">
                         <select
                           aria-label="팀 & 파트 범위"
@@ -587,15 +589,6 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                         </select>
                         <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       </div>
-                      <p className="text-[11px] leading-relaxed text-muted-foreground">
-                        {scopeReadOnly
-                          ? "‘팀 전체’는 팀 총괄 + 모든 파트 액트를 보여주는 읽기 전용 목록입니다."
-                          : scopeKind === "team_overall"
-                            ? "‘팀 총괄’ 범위 액트만 표시 — 팀 총괄 대상 크루로 체크할 수 있습니다."
-                            : `이 파트 액트만 표시 — 해당 파트 소속 크루${
-                                teamBoard.selectedPart ? ` ${teamBoard.selectedPart.crewCount}명` : ""
-                              }로만 체크할 수 있습니다.`}
-                      </p>
                       {teamParts.length === 0 && (
                         <p className="text-[11px] text-amber-600">
                           이 팀(현재 모드)에 등록된 파트가 없습니다. (팀 총괄만 사용)

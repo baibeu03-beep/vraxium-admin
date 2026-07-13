@@ -69,9 +69,6 @@ export default function ProcessCheckProgress({
             이번 주 체크 필요 [액트] 프로세스 <Red>{summary.actTotal}</Red>개 중{" "}
             <Red>{summary.actApplied}</Red>개 체크 신청 완료
           </p>
-          <p className="text-xs text-muted-foreground">
-            (체크 완료 {summary.actCompleted}개 · 신청완료 = 체크 신청 또는 체크 완료)
-          </p>
         </div>
       </CardContent>
     </Card>

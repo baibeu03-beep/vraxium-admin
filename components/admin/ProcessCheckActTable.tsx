@@ -216,15 +216,6 @@ export default function ProcessCheckActTable({
   return (
     <Card>
       <CardContent>
-        {/* 즉시 검수 안내 — 버튼이 제공될 때만(운영자용 한 줄 설명). 가로 스크롤 밖 고정. */}
-        {onAutoReview && (
-          <div className="mb-3 rounded-md border bg-muted/30 px-3 py-2">
-            <div className="text-sm font-medium">즉시 검수</div>
-            <div className="text-xs text-muted-foreground">
-              검수 시점을 기다리지 않고 ‘체크 대기’ 행을 지금 바로 검수할 수 있습니다.
-            </div>
-          </div>
-        )}
         {loading ? (
           <p className="py-8 text-center text-sm text-muted-foreground">불러오는 중…</p>
         ) : acts.length === 0 ? (

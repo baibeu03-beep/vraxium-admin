@@ -321,6 +321,9 @@ export const PROCESS_CHECK_HELP_KEYS = {
   sectionStatusBoard: "admin.processCheck.section.statusBoard",
   sectionLogBoard: "admin.processCheck.section.logBoard",
   filterWeek: "admin.processCheck.filter.week",
+  // 「팀 전체 & 파트 개별」 카드(experience) 제목 도움말 — 기존 범위 선택 도움말 경로를
+  //   재사용(팀 전체/팀 총괄/파트 스코프 선택을 동일하게 설명). 리터럴을 컴포넌트에 중복하지 않도록 여기서 관리.
+  teamPartScope: "admin.processCheck.manager.filter.scope",
   progressSummary: "admin.processCheck.progress.summary",
   statNeeded: "admin.processCheck.stat.needed",
   statCompleted: "admin.processCheck.stat.completed",
