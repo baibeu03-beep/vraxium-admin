@@ -6,7 +6,46 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
-const Select = SelectPrimitive.Root
+// 닫힌 트리거가 "가장 긴 옵션"까지 한 줄로 수용하는 min-width 를 자동 확보하기 위해,
+// Root 의 items 라벨을 트리거로 전달한다. items 를 주지 않는 Select 는 [] → 기존 w-fit
+// (선택값 폭)만큼만. 여기서 폭만 예약할 뿐 value/onValueChange/필터 로직은 불변.
+const SelectSizerLabelsContext = React.createContext<string[]>([])
+
+function collectSelectLabels(
+  items: SelectPrimitive.Root.Props<unknown>["items"],
+): string[] {
+  if (!items) return []
+  const out: string[] = []
+  const push = (label: unknown) => {
+    if (typeof label === "string") out.push(label)
+    else if (typeof label === "number") out.push(String(label))
+  }
+  if (Array.isArray(items)) {
+    for (const it of items) {
+      // { value, label } 또는 { items: Group } — 문자열 라벨만 sizer 대상.
+      if (it && typeof it === "object" && "label" in it) {
+        push((it as { label: unknown }).label)
+      }
+    }
+  } else {
+    for (const label of Object.values(items as Record<string, unknown>)) {
+      push(label)
+    }
+  }
+  return out
+}
+
+function Select<Value, Multiple extends boolean | undefined = false>({
+  items,
+  ...props
+}: SelectPrimitive.Root.Props<Value, Multiple>) {
+  const labels = React.useMemo(() => collectSelectLabels(items), [items])
+  return (
+    <SelectSizerLabelsContext.Provider value={labels}>
+      <SelectPrimitive.Root items={items} {...props} />
+    </SelectSizerLabelsContext.Provider>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
@@ -57,6 +96,26 @@ function SelectValue({
   )
 }
 
+// 숨김 sizer: 모든 옵션 라벨을 0-높이 block 으로 겹쳐 렌더 → grid 칸의 폭이 "가장 긴
+// 옵션"만큼 확보된다(화면을 과도하게 넓히지 않고 최소폭만 예약). items 미제공 Select 는
+// 라벨이 없어 null → 기존 w-fit(선택값 폭) 동작 그대로.
+function SelectTriggerSizer() {
+  const labels = React.useContext(SelectSizerLabelsContext)
+  if (labels.length === 0) return null
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none invisible col-start-1 row-start-1 h-0 overflow-hidden select-none"
+    >
+      {labels.map((label, index) => (
+        <span key={index} className="block whitespace-nowrap">
+          {label}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 function SelectTrigger({
   className,
   size = "default",
@@ -70,12 +129,17 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-fit items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-9 data-[size=sm]:h-8 data-[size=sm]:rounded-[min(var(--radius-md),10px)] *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-1.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "flex w-fit items-center justify-between gap-1.5 rounded-lg border border-input bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-placeholder:text-muted-foreground data-[size=default]:h-9 data-[size=sm]:h-8 data-[size=sm]:rounded-[min(var(--radius-md),10px)] dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       {...props}
     >
-      {children}
+      {/* 선택값과 숨김 sizer 를 같은 grid 칸에 겹쳐, 칸 폭 = max(선택값, 가장 긴 옵션).
+          value 자체 스타일(line-clamp/flex)은 여기서 자식 셀렉터로 상속시킨다. */}
+      <span className="grid min-w-0 flex-1 text-left [&_[data-slot=select-value]]:col-start-1 [&_[data-slot=select-value]]:row-start-1 [&_[data-slot=select-value]]:line-clamp-1 [&_[data-slot=select-value]]:flex [&_[data-slot=select-value]]:min-w-0 [&_[data-slot=select-value]]:items-center [&_[data-slot=select-value]]:gap-1.5">
+        <SelectTriggerSizer />
+        {children}
+      </span>
       <SelectPrimitive.Icon
         render={
           <ChevronDownIcon className="pointer-events-none size-4 text-muted-foreground" />
@@ -112,7 +176,7 @@ function SelectContent({
         <SelectPrimitive.Popup
           data-slot="select-content"
           data-align-trigger={alignItemWithTrigger}
-          className={cn("relative isolate z-50 max-h-(--admin-dropdown-max-height) w-max min-w-(--anchor-width) max-w-[min(90vw,42rem)] origin-(--transform-origin) overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
+          className={cn("relative isolate z-50 max-h-(--admin-dropdown-max-height) w-max min-w-(--anchor-width) max-w-[calc(100vw-2rem)] origin-(--transform-origin) overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 duration-100 data-[align-trigger=true]:animate-none data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95", className )}
           {...props}
         >
           <SelectScrollUpButton />
@@ -151,7 +215,7 @@ function SelectItem({
       )}
       {...props}
     >
-      <SelectPrimitive.ItemText className="flex flex-1 shrink-0 gap-2 whitespace-nowrap">
+      <SelectPrimitive.ItemText className="flex flex-1 gap-2 whitespace-normal break-words">
         {children}
       </SelectPrimitive.ItemText>
       <SelectPrimitive.ItemIndicator

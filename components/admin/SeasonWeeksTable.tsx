@@ -28,6 +28,7 @@ import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { formatClubDate } from "@/lib/clubDate";
+import { formatAdminDateTime } from "@/lib/adminDateTime";
 import {
   itemLabel,
   seasonOptions,
@@ -47,6 +48,22 @@ type SeasonSummary = {
 
 type OfficialRestSource = "season_rule" | "date_period" | "legacy_iso_week";
 
+// 실무 경험 <확장> 류 라인 진행 방식. 서버 DTO(experienceExpansionLineMode)와 동일 union.
+type ExperienceExpansionLineMode = "none" | "online" | "offline";
+
+const EXPANSION_LINE_MODE_LABEL: Record<ExperienceExpansionLineMode, string> = {
+  none: "진행 없음",
+  online: "온라인",
+  offline: "오프라인",
+} as const;
+
+// null/undefined/알 수 없는 값은 방어적으로 "진행 없음". 정상 응답은 항상 세 값 중 하나.
+function expansionLineModeLabel(value: unknown): string {
+  return value === "online" || value === "offline"
+    ? EXPANSION_LINE_MODE_LABEL[value]
+    : EXPANSION_LINE_MODE_LABEL.none;
+}
+
 type SeasonWeekRow = SeasonSummary & {
   week_id: string;
   week_number: number | null;
@@ -60,22 +77,15 @@ type SeasonWeekRow = SeasonSummary & {
   is_transition?: boolean;
   // 사용자 노출용 비고(휴식명/설명) — weeks.holiday_name. 구형 응답 호환 optional.
   holiday_name?: string | null;
-};
-
-type SeasonWeekConflict = {
-  season_key: string;
-  week_id: string;
-  week_number: number | null;
-  week_start_date: string | null;
-  resolved_is_official_rest: boolean;
-  legacy_is_official_rest: boolean;
-  reason: string;
+  // 실무 경험 확장 류 라인 진행 방식. 구형 응답 호환 optional(누락 시 "none" 취급).
+  experienceExpansionLineMode?: ExperienceExpansionLineMode;
 };
 
 type ApiPayload = {
   seasons?: SeasonSummary[];
   rows?: SeasonWeekRow[];
-  conflicts?: SeasonWeekConflict[];
+  // conflicts(공식 판정 vs legacy 불일치)는 진단 전용 필드로, 렌더에 사용하지 않는다.
+  // API 는 계속 반환하지만(원장·정합성 로직 불변) UI 는 공식 판정값만 표시한다.
   generatedAt?: string;
 };
 
@@ -289,7 +299,15 @@ function FilterField({
 //   · 모든 컬럼이 의미 있는 값을 가지므로 전부 정렬 가능(액션/체크박스/아이콘 전용 컬럼 없음).
 //   · 정렬 기준값은 표시 문자열이 아니라 "실제 정렬 가능한 값"(날짜=ISO, 년도/주차=숫자,
 //     시즌=시즌 순서 인덱스, 활동=구분 랭크). 문자열은 한글 포함 locale-aware.
-type ColKey = "name" | "period" | "year" | "season" | "week" | "activity" | "remark";
+type ColKey =
+  | "name"
+  | "period"
+  | "year"
+  | "season"
+  | "week"
+  | "activity"
+  | "remark"
+  | "expansionLine";
 type SortValue = number | string | null;
 
 const SEASON_SORT_ORDER: Record<SeasonToken, number> = {
@@ -309,7 +327,7 @@ type ColumnDef = {
 const COLUMNS: ColumnDef[] = [
   {
     key: "name",
-    label: "이름",
+    label: "주차 코드",
     helpKey: "admin.seasonWeeks.column.name",
     // 주차 코드(문자열). 판별 불가("-")는 빈값 취급 → 항상 뒤로.
     sortValue: (row) => {
@@ -362,6 +380,16 @@ const COLUMNS: ColumnDef[] = [
     label: "비고",
     helpKey: "admin.seasonWeeks.column.remark",
     sortValue: (row) => rowRemark(row) || null,
+  },
+  {
+    key: "expansionLine",
+    label: "[실무 경험] > 확장 류 라인",
+    helpKey: "admin.seasonWeeks.column.expansionLine",
+    // 진행 방식 랭크: 진행 없음(0) → 온라인(1) → 오프라인(2). "none" 은 빈값 취급 없이 최하 랭크.
+    sortValue: (row) => {
+      const mode = row.experienceExpansionLineMode;
+      return mode === "offline" ? 2 : mode === "online" ? 1 : 0;
+    },
   },
 ];
 
@@ -441,7 +469,6 @@ export default function SeasonWeeksTable() {
   // 사이드바 메뉴명과 페이지 제목 정합: 통합 모드 = "기간 정보", 조직 모드(?org) = "주차와 시즌".
   const org = readOrgParam(useSearchParams());
   const [rows, setRows] = useState<SeasonWeekRow[]>([]);
-  const [conflicts, setConflicts] = useState<SeasonWeekConflict[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading); // 전역 로딩 배너 보고
@@ -488,14 +515,12 @@ export default function SeasonWeeksTable() {
         const data = (json.data ?? {}) as ApiPayload;
         if (!cancelled) {
           setRows(data.rows ?? []);
-          setConflicts(data.conflicts ?? []);
           setGeneratedAt(data.generatedAt ?? null);
         }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load.");
           setRows([]);
-          setConflicts([]);
           setGeneratedAt(null);
         }
       } finally {
@@ -610,13 +635,6 @@ export default function SeasonWeeksTable() {
         </div>
       )}
 
-      {/* 규칙 충돌 안내(정합 점검용) — 데이터 자체는 그대로 노출 */}
-      {!loading && conflicts.length > 0 && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-          공식 휴식 판정과 legacy 값이 어긋나는 주차 {conflicts.length}건이
-          감지되었습니다.
-        </div>
-      )}
 
       {/* 필터/정렬 영역
           · 좌측 필터 4그룹은 flex-1 컨테이너 안에서 justify-between 으로 남는 가로 공간을
@@ -632,7 +650,7 @@ export default function SeasonWeeksTable() {
                 value={sort}
                 onValueChange={(v) => setSort((v as SortKey) ?? "latest")}
               >
-                <SelectTrigger className="w-28" size="sm">
+                <SelectTrigger size="sm">
                   <SelectValue>
                     {(v) => itemLabel(SORT_ITEMS, v as string)}
                   </SelectValue>
@@ -653,7 +671,7 @@ export default function SeasonWeeksTable() {
                 value={yearFilter}
                 onValueChange={(v) => setYearFilter(v ?? ALL)}
               >
-                <SelectTrigger className="w-28" size="sm">
+                <SelectTrigger size="sm">
                   <SelectValue>
                     {(v) => itemLabel(YEAR_ITEMS, v as string)}
                   </SelectValue>
@@ -674,7 +692,7 @@ export default function SeasonWeeksTable() {
                 value={seasonFilter}
                 onValueChange={(v) => setSeasonFilter(v ?? ALL)}
               >
-                <SelectTrigger className="w-24" size="sm">
+                <SelectTrigger size="sm">
                   <SelectValue>
                     {(v) => itemLabel(SEASON_ITEMS, v as string)}
                   </SelectValue>
@@ -695,7 +713,7 @@ export default function SeasonWeeksTable() {
                 value={activityFilter}
                 onValueChange={(v) => setActivityFilter(v ?? ALL)}
               >
-                <SelectTrigger className="w-28" size="sm">
+                <SelectTrigger size="sm">
                   <SelectValue>
                     {(v) => itemLabel(ACTIVITY_ITEMS, v as string)}
                   </SelectValue>
@@ -756,7 +774,7 @@ export default function SeasonWeeksTable() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableSkeletonRows columns={7} rows={8} />
+              <TableSkeletonRows columns={COLUMNS.length} rows={8} />
             </TableBody>
           </Table>
         </div>
@@ -814,6 +832,9 @@ export default function SeasonWeeksTable() {
                     <TableCell className="text-muted-foreground">
                       {rowRemark(row)}
                     </TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {expansionLineModeLabel(row.experienceExpansionLineMode)}
+                    </TableCell>
                   </TableRow>
                 );
               })}
@@ -862,7 +883,9 @@ export default function SeasonWeeksTable() {
       )}
 
       {generatedAt && (
-        <p className="text-xs text-muted-foreground">조회 시각 {generatedAt}</p>
+        <p className="text-xs text-muted-foreground">
+          조회 시각 {formatAdminDateTime(generatedAt)}
+        </p>
       )}
     </div>
   );
