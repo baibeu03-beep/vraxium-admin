@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
 import OrganizationBadge from "@/components/admin/OrganizationBadge";
 import { ActionControl } from "@/components/admin/ActionControl";
 import { ACTION_CONTROL_REGISTRY } from "@/lib/actionControl/registry";
@@ -1409,6 +1410,12 @@ export default function TeamPartsInfoWeekDetailManager({
   const recognitionCount = managedWeek?.weekRecognitionCount ?? DEFAULT_WEEK_RECOGNITION_COUNT;
 
   return (
+    <>
+      {/* 전역 헤더 경로에 주차 표시명 공급 — 내부 코드가 아닌 배너 포맷("26년 여름 시즌 8주차",
+          weekBannerName SoT). 이미 조회한 DTO 재사용(중복 조회 없음)·로딩 중="불러오는 중". */}
+      <AdminDetailTitle
+        title={loading ? "불러오는 중" : data?.managedWeek.weekBannerName ?? undefined}
+      />
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5">
@@ -2076,5 +2083,6 @@ export default function TeamPartsInfoWeekDetailManager({
         ) : null}
       </CardContent>
     </Card>
+    </>
   );
 }

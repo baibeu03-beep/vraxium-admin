@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import AdminHelp from "@/components/admin/AdminHelp";
+import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
 import ResumeCardEditor from "@/components/admin/ResumeCardEditor";
 import { getMemberDisplayName } from "@/lib/adminCrewData";
 import { isOrganizationSlug, ORGANIZATION_LABEL } from "@/lib/organizations";
@@ -26,6 +27,8 @@ export default async function CrewResumeCardPage({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* 전역 헤더 경로에 실제 회원 표시명 공급(이미 조회한 memberName 재사용, 중복 조회 없음). */}
+      <AdminDetailTitle title={memberName ?? undefined} />
       <div className="flex justify-end">
         <AdminHelp />
       </div>

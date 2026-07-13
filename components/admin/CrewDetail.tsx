@@ -6,11 +6,13 @@ import { ArrowLeft, ExternalLink, NotebookPen, User, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
+import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
 import EnhancementStatusEditModal from "@/components/admin/cluster4/EnhancementStatusEditModal";
 import { LoadingState } from "@/components/ui/loading-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import { pointColorClass } from "@/components/ui/point-value";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import {
   buildAdminContextHref,
@@ -233,6 +235,10 @@ export default function CrewDetail({
   //   1920 에선 꽉 차게·2560 에선 좌우 여백 확보(100% 확장 금지). 모바일은 기존 방식.
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 px-4 py-6 sm:px-6">
+      {/* 전역 헤더 경로에 실제 회원 표시명 공급(중복 조회 없음) — 이름 > 크루 코드 순, 로딩 중="불러오는 중". */}
+      <AdminDetailTitle
+        title={loading ? "불러오는 중" : detail?.displayName?.trim() || detail?.crewCode || undefined}
+      />
       <div className="flex justify-end">
         <AdminHelp />
       </div>
@@ -634,9 +640,9 @@ function WeeklyResultsTable({
                 <td className="max-w-[120px] truncate px-2 py-2" title={r.teamName ?? "-"}>{r.teamName ?? "-"}</td>
                 <td className="max-w-[120px] truncate px-2 py-2" title={r.partName ?? "-"}>{r.partName ?? "-"}</td>
                 <td className="max-w-[120px] truncate px-2 py-2" title={r.classLabel}>{r.classLabel || "-"}</td>
-                <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.points.poA}</td>
-                <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.points.poB}</td>
-                <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.points.poC}</td>
+                <td className={cn("whitespace-nowrap px-2 py-2 tabular-nums", pointColorClass("a"))}>{r.points.poA}</td>
+                <td className={cn("whitespace-nowrap px-2 py-2 tabular-nums", pointColorClass("b"))}>{r.points.poB}</td>
+                <td className={cn("whitespace-nowrap px-2 py-2 tabular-nums", pointColorClass("c"))}>{r.points.poC}</td>
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.info)}</td>
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.experience)}</td>
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.ability)}</td>

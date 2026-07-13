@@ -8,6 +8,8 @@ import {
   useAdminDevMode,
 } from "@/components/admin/useAdminDevMode";
 import SessionCountdown from "@/components/admin/SessionCountdown";
+import { resolveAdminBreadcrumb } from "@/lib/adminMenuTree";
+import { useAdminRouteTitleForPath } from "@/components/admin/AdminRouteTitleProvider";
 import { cn } from "@/lib/utils";
 
 // 개발자 표시 토글 버튼 노출 여부.
@@ -32,6 +34,19 @@ export default function Header({
   const router = useRouter();
   const searchParams = useSearchParams();
   const devMode = useAdminDevMode();
+
+  // 헤더 좌측 현재 위치 표시("상위 메뉴 - 현재 페이지") — 사이드바와 동일한 메뉴명 SoT
+  //   (lib/adminMenuTree.resolveAdminBreadcrumb). pathname 만 사용 → org/mode(?org·mode=test·
+  //   actAsTestUserId·demoUserId) 와 무관, ID/UUID/slug 는 노출하지 않는다.
+  const baseBreadcrumb = resolveAdminBreadcrumb(pathname);
+  // 상세 페이지가 공급한 실제 표시명(이유나·26년 여름 시즌 8주차 …)이 있으면 마지막(현재 페이지)
+  //   문구를 그것으로 교체한다. 없으면 고정 폴백("회원 상세" 등) 유지. — 중복 조회 없이 페이지가
+  //   이미 가진 상세 DTO 표시명을 재사용(AdminRouteTitleProvider).
+  const detailTitle = useAdminRouteTitleForPath(pathname);
+  const breadcrumb =
+    detailTitle && baseBreadcrumb.length > 0
+      ? [...baseBreadcrumb.slice(0, -1), detailTitle]
+      : baseBreadcrumb;
 
   // 사이드바 최하단에 있던 기존 로그아웃 로직을 그대로 이동 (auth/세션 로직 수정 없음).
   const handleLogout = async () => {
@@ -94,14 +109,40 @@ export default function Header({
     </div>
   );
 
-  // 페이지 제목(h1)은 글로벌 헤더에서 제거 — 본문 제목이 단일 소스. 헤더는 우측 사용자
-  // 영역만 담당하므로 모든 페이지(HOME 포함)에서 동일하게 justify-end 로 정렬한다.
+  // 페이지 제목(h1)은 본문(AdminPageHeader)이 단일 소스로 유지 — 헤더 좌측 경로는 현재 위치를
+  //   보여주는 보조 내비게이션(본문 제목은 제거하지 않는다). 헤더 우측은 기존 사용자 영역 그대로.
   // 고정 h-32 — 4행 사용자 정보(로그아웃/환영/이름·이메일/카운트다운)가 잘리지 않고
   //   하단 border 와 여유(약 7px)가 생기는 높이. 사이드바 HOME 영역과 동일 높이(기준=Header).
   return (
-    <header className="flex h-32 items-center justify-end gap-3 border-b border-border bg-background px-4 sm:gap-4 sm:px-6">
-      {/* min-w-0(shrink-0 제거): 좁은 폭에서 userArea 의 이메일 줄이 truncate 되며 함께 줄어든다 */}
-      <div className="flex min-w-0 items-center gap-2">
+    <header className="flex h-32 items-center justify-between gap-3 border-b border-border bg-background px-4 sm:gap-4 sm:px-6">
+      {/* 좌측: 현재 위치 경로("상위 메뉴 - 현재 페이지"). 한 줄 truncate 로 우측 영역을 밀지 않는다.
+          상위 계층=muted, 현재 페이지=semibold/foreground 로 시각 위계를 나눈다(구분자 "-"). */}
+      <div className="min-w-0 flex-1">
+        <p
+          className="truncate text-sm text-muted-foreground sm:text-base"
+          aria-label="현재 위치"
+        >
+          {breadcrumb.map((part, i) => {
+            const isCurrent = i === breadcrumb.length - 1;
+            return (
+              <span key={i}>
+                {i > 0 && (
+                  <span aria-hidden="true" className="mx-1.5 text-muted-foreground">
+                    -
+                  </span>
+                )}
+                <span className={cn(isCurrent && "font-semibold text-foreground")}>
+                  {part}
+                </span>
+              </span>
+            );
+          })}
+        </p>
+      </div>
+
+      {/* 우측: 기존 로그아웃·사용자 정보·자동 로그아웃 카운트다운(구조/동작 무변경).
+          이메일 줄이 max-w+truncate 로 폭이 제한되므로 shrink-0 으로 좌측 경로에 밀리지 않는다. */}
+      <div className="flex min-w-0 shrink-0 items-center gap-2">
         {/* 개발자 표시 토글 — SHOW_DEV_TOGGLE=false 로 화면에서만 숨김 (기능/로직 유지) */}
         {SHOW_DEV_TOGGLE && (
           <Button

@@ -114,6 +114,9 @@ export type TeamPartsInfoWeekDetailData = {
   managedWeek: {
     weekId: string;
     weekName: string;
+    // 사람이 읽는 주차 표시명("26년 여름 시즌 8주차") — 전역 헤더 경로 표시용(내부 코드 미노출).
+    //   표 표기(weekName=weekTableName "26 - 여름 - 8")와 별개로 배너 포맷 SoT(weekBannerName) 재사용.
+    weekBannerName: string;
     weekRangeLabel: string;
     activityStatus: WeekActivityStatus;
     reviewed: boolean;
@@ -392,6 +395,7 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
     managedWeek: {
       weekId,
       weekName: weekTableName(managedRow),
+      weekBannerName: weekBannerName(managedRow),
       weekRangeLabel: weekRangeLabel(managedRow),
       activityStatus: activityStatusOf(managedRow),
       reviewed,

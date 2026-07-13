@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import AdminHelp from "@/components/admin/AdminHelp";
+import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
 import Cluster3Editor from "@/components/admin/Cluster3Editor";
 import { getMemberDisplayName } from "@/lib/adminCrewData";
 import { isOrganizationSlug, ORGANIZATION_LABEL } from "@/lib/organizations";
@@ -26,6 +27,7 @@ export default async function CrewCluster3Page({
 
   return (
     <div className="flex flex-col gap-4">
+      <AdminDetailTitle title={memberName ?? undefined} />
       <div className="flex justify-end">
         <AdminHelp />
       </div>

@@ -4,6 +4,7 @@ import NavProgress from "@/components/admin/NavProgress";
 import GlobalLoadingBanner from "@/components/admin/GlobalLoadingBanner";
 import { LoadingBannerProvider } from "@/components/admin/loadingBannerContext";
 import { SidebarProvider } from "@/components/admin/sidebarContext";
+import { AdminRouteTitleProvider } from "@/components/admin/AdminRouteTitleProvider";
 import { ConfirmProvider } from "@/components/ui/confirm-dialog";
 import { AdminDialogViewport } from "@/components/ui/admin-dialog";
 import { ToastViewport } from "@/components/ui/toast";
@@ -43,6 +44,9 @@ export default async function PortalLayout({
         {/* 전역 네비게이션 진행 표시(상단 Progress Bar + 클릭 피드백 + cursor:progress).
             Layout 한 곳에만 마운트 → 어드민 전체 공통 적용. */}
         <NavProgress />
+        {/* 상세 페이지 표시명 공급(공통 route-title) — Header 와 main 을 함께 감싼다.
+            상세 페이지가 이미 조회한 이름/주차명을 헤더 좌측 경로에 반영(중복 조회 없음). */}
+        <AdminRouteTitleProvider>
         <div className="flex flex-1 min-h-screen bg-muted/40">
           <Sidebar />
           {/* min-w-0 lets this flex child shrink below intrinsic content width so
@@ -58,6 +62,7 @@ export default async function PortalLayout({
             <main className="flex-1 min-w-0 p-6">{children}</main>
           </div>
         </div>
+        </AdminRouteTitleProvider>
         {/* 테스트 모드 전환은 URL ?mode=test 로만 진입한다(일반 UI 토글 제거).
             AdminModeProvider 가 ?mode 를 그대로 해석하므로 QA/테스트 동작은 불변. */}
         </LoadingBannerProvider>
