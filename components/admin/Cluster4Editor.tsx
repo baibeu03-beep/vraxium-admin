@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
+import { pointColorClass } from "@/components/ui/point-value";
 import { formatClubDate } from "@/lib/clubDate";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
@@ -898,7 +899,7 @@ function WeeklyListCard({
               />
             </span>
             <span>·</span>
-            <span className="inline-flex items-center gap-1">
+            <span className={cn("inline-flex items-center gap-1", pointColorClass("c"))}>
               {pl.penalty}
               <AdminHelpIconButton
                 helpKey="admin.crews.cluster4.metric.penalty"
@@ -907,7 +908,9 @@ function WeeklyListCard({
             </span>
           </div>
           <div className="mt-0.5 flex items-center gap-2 text-sm font-medium tabular-nums">
-            <span title={`${pl.points} = check`}>{c.points}개</span>
+            <span title={`${pl.points} = check`} className={pointColorClass("a")}>
+              {c.points}개
+            </span>
             <span className="text-muted-foreground">·</span>
             <span
               title={`raw ${c.advantages} − penalty ${c.penalty} = net ${
@@ -916,12 +919,12 @@ function WeeklyListCard({
             >
               <span className="text-muted-foreground">{c.advantages}</span>
               <span className="text-muted-foreground"> → </span>
-              {c.advantages - c.penalty}개
+              <span className={pointColorClass("b")}>{c.advantages - c.penalty}개</span>
             </span>
             <span className="text-muted-foreground">·</span>
             <span
-              title={`크루 카드 표시: ${-c.penalty}`}
-              className={c.penalty < 0 ? "text-red-600" : ""}
+              title={`크루 카드 표시 포인트 C: ${c.penalty}`}
+              className={pointColorClass("c")}
             >
               {c.penalty}개
             </span>

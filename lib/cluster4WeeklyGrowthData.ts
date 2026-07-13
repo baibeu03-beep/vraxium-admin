@@ -1153,7 +1153,7 @@ function computeSeasonPointSummary(
       pen += c.penaltyRaw ?? 0;
     }
   }
-  return { star, shield: advRaw - pen, lightning: -pen };
+  return { star, shield: advRaw - pen, pointC: pen, lightning: -pen };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -1548,7 +1548,7 @@ export async function getWeeklyGrowth(
       weeklyCards: [],
       seasonGrowthRates: [],
       seasonSummary,
-      seasonPointSummary: { star: 0, shield: 0, lightning: 0 },
+      seasonPointSummary: { star: 0, shield: 0, pointC: 0, lightning: 0 },
       seasonActivityStatuses: [],
     };
   }

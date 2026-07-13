@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { pointColorClass } from "@/components/ui/point-value";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import {
   ORGANIZATION_LABEL,
@@ -58,6 +59,7 @@ type Bundle = {
     cumulativeWeeks: number | null;
     totalStars: number | null;
     totalShields: number | null;
+    totalPointC: number | null;
     totalLightnings: number | null;
   };
 };
@@ -1359,9 +1361,10 @@ export default function ResumeCardEditor({
               <PreviewBlock title="Stats (read-only)">
                 approved/cumulative: {fmt(bundle?.computed.approvedWeeks)} /{" "}
                 {fmt(bundle?.computed.cumulativeWeeks)}
-                <br />⭐ {fmt(bundle?.computed.totalStars)} 🛡{" "}
-                {fmt(bundle?.computed.totalShields)} ⚡{" "}
-                {fmt(bundle?.computed.totalLightnings)}
+                <br />⭐{" "}
+                <span className={pointColorClass("a")}>{fmt(bundle?.computed.totalStars)}</span> 🛡{" "}
+                <span className={pointColorClass("b")}>{fmt(bundle?.computed.totalShields)}</span>{" "}
+                <span className={pointColorClass("c")}>{fmt(bundle?.computed.totalPointC)}</span>
               </PreviewBlock>
               <PreviewBlock title="Status (medal text)">
                 {fmt(form.profile.status)}

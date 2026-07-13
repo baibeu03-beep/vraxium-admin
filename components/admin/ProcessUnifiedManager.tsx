@@ -35,6 +35,7 @@ import { SelectBadge } from "@/components/ui/status-badge";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { pointColorClass } from "@/components/ui/point-value";
 import {
   PROCESS_ACT_TYPE_LABEL,
   PROCESS_ACT_TYPE_OPTIONS,
@@ -1433,9 +1434,9 @@ export default function ProcessUnifiedManager() {
                       <TableCell className="tabular-nums">{a.durationMinutes}</TableCell>
                       <TableCell className="whitespace-nowrap">{formatProcessWhen(a.occurWeek, a.occurDow, a.occurTime)}</TableCell>
                       <TableCell className="whitespace-nowrap">{formatProcessWhen(a.checkWeek, a.checkDow, a.checkTime)}</TableCell>
-                      <TableCell className="tabular-nums">{a.pointCheck}</TableCell>
-                      <TableCell className="tabular-nums">{a.pointAdvantage}</TableCell>
-                      <TableCell className="tabular-nums">{a.pointPenalty}</TableCell>
+                      <TableCell className={cn("tabular-nums", pointColorClass("a"))}>{a.pointCheck}</TableCell>
+                      <TableCell className={cn("tabular-nums", pointColorClass("b"))}>{a.pointAdvantage}</TableCell>
+                      <TableCell className={cn("tabular-nums", pointColorClass("c"))}>{a.pointPenalty}</TableCell>
                       <TableCell className="text-center">
                         <SelectBadge label={PROCESS_ACT_TYPE_LABEL[a.actType]} size="sm" />
                       </TableCell>

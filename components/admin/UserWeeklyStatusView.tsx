@@ -21,6 +21,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import { pointColorClass } from "@/components/ui/point-value";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import type {
@@ -266,7 +267,7 @@ export default function UserWeeklyStatusView({
                     </span>
                   </TableHead>
                   <TableHead
-                    title="번개 원본값 — 크루 화면에는 감점(−)으로 표시됩니다."
+                    title="포인트 C(패널티) 값 — 크루 화면에는 포인트 C(빨간색, 양수)로 표시됩니다."
                   >
                     <span className="inline-flex items-center gap-1">
                       <span>Penalty</span>
@@ -316,24 +317,24 @@ export default function UserWeeklyStatusView({
                     <TableCell>
                       <StatusBadge row={row} />
                     </TableCell>
-                    <TableCell className="tabular-nums">
+                    <TableCell className={cn("tabular-nums", pointColorClass("a"))}>
                       {row.weekly_star_count.toLocaleString()}
                     </TableCell>
                     <TableCell
                       title="원본값 — 내부 전용, 크루 화면 미노출"
-                      className="tabular-nums text-muted-foreground"
+                      className={cn("tabular-nums", pointColorClass("b"))}
                     >
                       {row.weekly_shield_count.toLocaleString()}
                     </TableCell>
                     <TableCell
-                      title={`크루 화면 표시: ${-row.weekly_lightning_count}`}
-                      className="tabular-nums"
+                      title={`크루 화면 표시 포인트 C: ${row.weekly_lightning_count}`}
+                      className={cn("tabular-nums", pointColorClass("c"))}
                     >
                       {row.weekly_lightning_count.toLocaleString()}
                     </TableCell>
                     <TableCell
                       title="크루 화면 표시 방패 = Advantage(Raw) − Penalty"
-                      className="font-medium tabular-nums"
+                      className={cn("font-medium tabular-nums", pointColorClass("b"))}
                     >
                       {row.weekly_net_shield_count.toLocaleString()}
                     </TableCell>

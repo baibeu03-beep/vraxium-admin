@@ -10,6 +10,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
+import { pointColorClass } from "@/components/ui/point-value";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import {
   IRREGULAR_CREW_REACTION_LABEL,
@@ -110,7 +111,15 @@ export default function ProcessIrregularReviewDetail({
           <Row label="사유" value={act.reason || "—"} />
           <Row
             label={`${po.a} / ${po.b} / ${po.c}`}
-            value={`${act.pointA} / ${act.pointB} / ${act.pointC}`}
+            value={
+              <span className="tabular-nums">
+                <span className={pointColorClass("a")}>{act.pointA}</span>
+                {" / "}
+                <span className={pointColorClass("b")}>{act.pointB}</span>
+                {" / "}
+                <span className={pointColorClass("c")}>{act.pointC}</span>
+              </span>
+            }
           />
           <Row label="액트 종류" value={IRREGULAR_CREW_REACTION_LABEL[act.crewReaction]} />
           <Row

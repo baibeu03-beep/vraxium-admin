@@ -32,6 +32,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
+import { pointColorClass } from "@/components/ui/point-value";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { statusTone } from "@/lib/statusBadge";
@@ -676,9 +677,9 @@ function IrregularRow({
       <TableCell className="max-w-[280px] truncate" title={act.reason ?? ""}>
         {act.reason || "—"}
       </TableCell>
-      <TableCell className="tabular-nums">{act.pointA}</TableCell>
-      <TableCell className="tabular-nums">{act.pointB}</TableCell>
-      <TableCell className="tabular-nums">{act.pointC}</TableCell>
+      <TableCell className={cn("tabular-nums", pointColorClass("a"))}>{act.pointA}</TableCell>
+      <TableCell className={cn("tabular-nums", pointColorClass("b"))}>{act.pointB}</TableCell>
+      <TableCell className={cn("tabular-nums", pointColorClass("c"))}>{act.pointC}</TableCell>
       <TableCell className="whitespace-nowrap text-muted-foreground">
         {act.createdAt ? formatCheckDateTimeKo(act.createdAt) : "—"}
       </TableCell>

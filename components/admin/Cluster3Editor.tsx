@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { pointColorClass } from "@/components/ui/point-value";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import {
   ORGANIZATION_LABEL,
@@ -924,7 +925,7 @@ export default function Cluster3Editor({
               >
                 {growth.point.pointsLabel}
               </MetricLabelHelp>
-              <div className="mt-0.5 text-sm font-medium">
+              <div className={cn("mt-0.5 text-sm font-medium tabular-nums", pointColorClass("a"))}>
                 {growth.point.points}개
               </div>
             </div>
@@ -937,7 +938,7 @@ export default function Cluster3Editor({
               >
                 {growth.point.advantagesLabel}
               </MetricLabelHelp>
-              <div className="mt-0.5 text-sm font-medium">
+              <div className={cn("mt-0.5 text-sm font-medium tabular-nums", pointColorClass("b"))}>
                 {growth.point.netAdvantages}개
               </div>
               <div className="mt-0.5 text-[10px] text-muted-foreground">
@@ -953,8 +954,8 @@ export default function Cluster3Editor({
               >
                 {growth.point.penaltyLabel}
               </MetricLabelHelp>
-              <div className="mt-0.5 text-sm font-medium">
-                -{growth.point.penalty}개
+              <div className={cn("mt-0.5 text-sm font-medium tabular-nums", pointColorClass("c"))}>
+                {growth.point.penalty}개
               </div>
             </div>
           </div>

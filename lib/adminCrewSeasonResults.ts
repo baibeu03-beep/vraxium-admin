@@ -47,7 +47,7 @@ export type CrewSeasonResultRow = {
   seasonNameShort: string; // "26-봄"
   seasonResultLabel: "진행 중" | "시즌 성공" | "시즌 휴식" | "시즌 중단";
   poA: number; // Σ points (시즌 단위)
-  poB: number; // Σ advantages
+  poB: number; // 최종 B = Σ advantages − Σ penalty (음수 가능)
   poC: number; // Σ penalty
   hubRates: {
     info: number | null; // 실무 정보 강화율(%) — 데이터 없음 null
@@ -301,7 +301,7 @@ export async function getCrewSeasonResults(
         seasonNameShort: seasonKeyToShort(seasonKey),
         seasonResultLabel: toAdminLabel(customerLabel),
         poA: pts.poA,
-        poB: pts.poB,
+        poB: pts.poB - pts.poC, // 최종 B(= Σadvantages − Σpenalty, 음수 가능) — 시즌 단위 (2026-07-13)
         poC: pts.poC,
         hubRates: {
           info: rate("practical_info"),

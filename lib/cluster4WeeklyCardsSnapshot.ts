@@ -353,7 +353,11 @@ async function writeRosterCardStats(
 //     · 개설 있음+대상   → 본인 라인 fold = 0/1(미완료) 또는 1/1(완료)
 //   대상 여부는 분자(성공) 기준일 뿐 분모 생성 기준이 아니다. competency A/B 가 달라지므로 v36 snapshot 을
 //   stale(version_mismatch) 처리해 재계산. (파생 캐시 재생성 — DB 백필 아님. info/experience/career·포인트 무영향.)
-export const WEEKLY_CARDS_DTO_VERSION = 37;
+// v38 (2026-07-13): 포인트 C 부호 정규화 — points 에 pointC(penalty magnitude, ≥0 양수) 필드 추가.
+//   방패(shield)=최종 Point B(advantages−pointC)로 의미 불변. lightning(=−pointC)은 하위호환용
+//   deprecated 로 병기(고객 앱 소비처 pointC 이전 후 별도 정리로 제거 예정). 새 필드가 생겨
+//   기존 v37 snapshot 을 stale(version_mismatch) 처리해 재계산(pointC 채움)한다. 값(방패/별)은 불변.
+export const WEEKLY_CARDS_DTO_VERSION = 38;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

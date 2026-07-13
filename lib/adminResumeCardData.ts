@@ -152,6 +152,9 @@ export type ResumeCardBundle = {
     cumulativeWeeks: number | null;
     totalStars: number | null;
     totalShields: number | null;
+    /** Point C(penalty) 총합 magnitude(≥0, 양수). 표기·색상(빨강) SoT. */
+    totalPointC: number | null;
+    /** @deprecated 2026-07-13 — 신규 소비처는 totalPointC(양수) 사용. −Σpenalty(음수) 하위호환. */
     totalLightnings: number | null;
   };
 };
@@ -190,6 +193,7 @@ export async function getResumeCardForCrew(
         cumulativeWeeks: crew.cumulativeWeeks,
         totalStars: null,
         totalShields: null,
+        totalPointC: null,
         totalLightnings: null,
       },
     };
@@ -322,6 +326,7 @@ export async function getResumeCardForCrew(
       cumulativeWeeks: growth?.cumulative_weeks ?? crew.cumulativeWeeks ?? null,
       totalStars: points?.total_checks ?? null,
       totalShields: points?.total_advantages ?? null,
+      totalPointC: points ? sumPenalty : null,
       totalLightnings: points?.total_penalties ?? null,
     },
   };

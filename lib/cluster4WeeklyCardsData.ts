@@ -1234,16 +1234,18 @@ function toWeeklyCardDto(
     roleLabel: card.roleLabelRaw,
     membershipStatusLabel: card.membershipStatusLabelRaw,
 
-    // 포인트 표시 정책(2026-06-04 통일): 고객 노출 DTO 는 표시 최종값만 담는다.
-    //   별 = check(points) · 방패 = net(advantages−penalty) · 번개 = −penalty.
+    // 포인트 표시 정책(2026-07-13 통일): 포인트 C 는 항상 0 이상(양수)으로 담는다.
+    //   별 = check(points) · 방패 = 최종 Point B(= advantages − pointC) · pointC = penalty magnitude(≥0).
     //   raw advantage 는 DB/내부 집계 전용 — 고객 DTO 로 내보내지 않는다.
-    //   null 시멘틱 유지: 원천 row 부재 시 null (별/방패/번개 동일).
+    //   null 시멘틱 유지: 원천 row 부재 시 null (별/방패/pointC 동일).
+    //   lightning(= −pointC)은 하위호환용 deprecated 필드(전환 기간만 병기).
     points: {
       star: card.pointsRaw,
       shield:
         card.advantagesRaw === null && card.penaltyRaw === null
           ? null
           : (card.advantagesRaw ?? 0) - (card.penaltyRaw ?? 0),
+      pointC: card.penaltyRaw === null ? null : card.penaltyRaw,
       lightning: card.penaltyRaw === null ? null : -card.penaltyRaw,
     },
     cumulativeInjeolmi: card.cumulativeAdvantages,
