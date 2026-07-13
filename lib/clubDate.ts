@@ -113,6 +113,32 @@ export function formatClubDateTime(
 }
 
 /**
+ * 시각을 "(요일) HH:mm" 형식으로 변환한다(요일·시각은 KST 기준). 날짜(YY-MM-DD)는 생략하고
+ * 요일과 시각만 보여줄 때 쓴다(예: 액트 카드 "[필요] (목) 14:00"). date-only 문자열처럼
+ * 시각이 없는 입력이면 시각 없이 "(요일)" 만 반환한다. invalid 면 fallback.
+ */
+export function formatClubWeekdayTime(
+  input: string | number | Date | null | undefined,
+  fallback = "-",
+): string {
+  const parts = toYmd(input);
+  if (!parts) return fallback;
+  const { y, m, d } = parts;
+  const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+
+  // date-only 문자열은 시각이 없음 → 요일만.
+  if (typeof input === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.trim())) {
+    return `(${weekday})`;
+  }
+  const date = input instanceof Date ? input : new Date(input as string | number);
+  if (Number.isNaN(date.getTime())) return `(${weekday})`;
+  const kst = new Date(date.getTime() + KST_OFFSET_MS);
+  const hh = String(kst.getUTCHours()).padStart(2, "0");
+  const mi = String(kst.getUTCMinutes()).padStart(2, "0");
+  return `(${weekday})${NB}${hh}:${mi}`;
+}
+
+/**
  * 기간(시작~종료)을 "YY - MM - DD (요일) {sep} YY - MM - DD (요일)" 로 변환한다.
  * 각 날짜는 한 덩어리(NBSP)이고, 구분자(기본 " → ")는 일반 공백이라 두 날짜
  * 사이에서만 줄바꿈된다. 한쪽만 있으면 그 한쪽만, 둘 다 없으면 fallback 을 반환한다.

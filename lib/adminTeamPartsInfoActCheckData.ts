@@ -19,7 +19,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { listTeams } from "@/lib/adminExperienceLineData";
-import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import { formatClubDate, formatClubDateTime, formatClubWeekdayTime } from "@/lib/clubDate";
+import { resolveActCardState, type ActCardState } from "@/lib/actCardState";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
@@ -61,18 +62,32 @@ export type ActCheckActDto = {
   actName: string;
   isActiveThisWeek: boolean;
   isChecked: boolean;
-  // UI 카드 표시용(표시 전용).
-  scheduledLabel: string | null; // 신청 시점 "26 - 07 - 14 (화) 14:30"
-  checkStatus: ActCheckStatus; // 🔴 ontime / 🔵 late / null(미신청)
+  // 카드 상태 5종(서버 판정 — 원본 timestamp 로만 비교). 색상/표시의 단일 SoT.
+  cardState: ActCardState;
+  // 원본 timestamp(ISO·KST 비교용·표시 아님) — 일반/테스트 모드 동일 구조 검증용으로 노출.
+  requiredCheckedAt: string | null; // 필요 시점(체크 신청 마감)
+  actualCheckedAt: string | null; // 실제 체크 신청 시점(미신청 null)
+  // 표시 라벨(모든 상태에서 1번째 줄에 "액트명 | [필요] (요일) HH:mm").
+  requiredLabel: string | null; // "(목) 14:00"
+  // 완료 상태 2번째 줄 "[신청 시점(실제)] YY - MM - DD (요일) HH:mm".
+  actualLabel: string | null;
   requesterLabel: string | null; // "홍길동 님(앰배서더)"
+  // (호환) 요약/요일 통계용. 표시 로직은 cardState 사용.
+  scheduledLabel: string | null; // 신청 시점 "26 - 07 - 14 (화) 14:30"
+  checkStatus: ActCheckStatus; // ontime / late / null(미신청)
 };
 
 export type ActCheckVariableActDto = {
   id: string;
   actName: string;
+  cardState: ActCardState;
+  requiredCheckedAt: string | null;
+  actualCheckedAt: string | null;
+  requiredLabel: string | null;
+  actualLabel: string | null;
+  requesterLabel: string | null;
   scheduledLabel: string | null;
   checkStatus: ActCheckStatus;
-  requesterLabel: string | null;
 };
 
 export type ActCheckInfoLineDto = {
@@ -180,12 +195,77 @@ function rate(active: number, checked: number): number {
   return active > 0 ? Math.round((checked / active) * 100) : 0;
 }
 
+// 카드 표시/상태 필드 단일 빌더 — 정규/변동·정보/경험 전부 동일 판정을 쓴다.
+//   필요 시점(required)·실제 신청(actual)은 원본 timestamp(epoch ms)로만 비교(문자열 재비교 금지).
+//   cardState 는 resolveActCardState(공용 함수) 로 서버에서 확정 → 서버/클라 시간대 판정 불일치 없음.
+function buildActCardFields(o: {
+  isActive: boolean;
+  scheduledCheckAt: string | null; // 상태행 예약 검수시각(있으면 필요 시점 우선)
+  derivedDate: string | null; // 없을 때 act check 요일에서 파생한 날짜(ISO date)
+  checkTime: string | null; // act check_time("HH:mm[:ss]")
+  applied: boolean; // 체크 신청 기록 존재(pending|completed)
+  actualIso: string | null; // 실제 신청 시점(completed_at ?? requested_at)
+  nowMs: number;
+}): {
+  cardState: ActCardState;
+  requiredCheckedAt: string | null;
+  actualCheckedAt: string | null;
+  requiredLabel: string | null;
+  actualLabel: string | null;
+  scheduledLabel: string | null;
+  checkStatus: ActCheckStatus;
+} {
+  const timeStr = hhmm(o.checkTime);
+
+  // 필요 시점(required) — 원본 ISO·라벨·epoch ms.
+  let requiredCheckedAt: string | null = null;
+  let requiredLabel: string | null = null;
+  let requiredMs: number | null = null;
+  if (o.scheduledCheckAt) {
+    requiredCheckedAt = o.scheduledCheckAt;
+    requiredLabel = formatClubWeekdayTime(o.scheduledCheckAt);
+    const ms = Date.parse(o.scheduledCheckAt);
+    requiredMs = Number.isNaN(ms) ? null : ms;
+  } else if (o.derivedDate) {
+    const iso = timeStr ? `${o.derivedDate}T${timeStr}:00+09:00` : o.derivedDate;
+    requiredCheckedAt = iso;
+    requiredLabel = formatClubWeekdayTime(iso);
+    requiredMs = deadlineMsKst(o.derivedDate, o.checkTime);
+  }
+
+  // 표시용 full 라벨(기존 scheduledLabel 의미 유지 = 필요 시점 full date-time).
+  const scheduledLabel = o.scheduledCheckAt
+    ? formatClubDateTime(o.scheduledCheckAt)
+    : o.derivedDate
+      ? `${formatClubDate(o.derivedDate)}${timeStr ? ` ${timeStr}` : ""}`
+      : null;
+
+  // 실제 신청 시점(actual).
+  const actualCheckedAt = o.applied ? o.actualIso : null;
+  const actualMsRaw = actualCheckedAt ? Date.parse(actualCheckedAt) : NaN;
+  const actualMs = Number.isNaN(actualMsRaw) ? null : actualMsRaw;
+  const actualLabel = actualCheckedAt ? formatClubDateTime(actualCheckedAt) : null;
+
+  const checkStatus: ActCheckStatus = o.applied ? timingOf(o.actualIso, requiredMs) : null;
+  const cardState = resolveActCardState({
+    isActive: o.isActive,
+    requiredCheckedAtMs: requiredMs,
+    check: o.applied ? { actualCheckedAtMs: actualMs } : null,
+    nowMs: o.nowMs,
+  });
+
+  return { cardState, requiredCheckedAt, actualCheckedAt, requiredLabel, actualLabel, scheduledLabel, checkStatus };
+}
+
 export async function loadTeamPartsInfoActCheckManagement(opts: {
   weekId: string;
   organization: OrganizationSlug;
   mode: ScopeMode;
 }): Promise<ActCheckManagementData> {
   const { weekId, organization, mode } = opts;
+
+  // 카드 pending/overdue 판정 기준 현재 시각 — 한 응답 내 모든 카드가 동일 now 를 쓴다(서버 확정).
+  const nowMs = Date.now();
 
   // 0) 주차 시작일(신청 시점 파생용).
   let weekStart: string | null = null;
@@ -341,16 +421,24 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     const dow = kstDow(anchor);
     const key: DayKey | null = dow != null && dow >= 0 && dow <= 6 ? DOW_KEY[dow] : null;
     if (!key) continue;
-    const deadline = r.scheduled_check_at ? Date.parse(r.scheduled_check_at) : null;
     const info = r.applicant_admin_id ? requesterInfoById.get(r.applicant_admin_id) : null;
     const name = r.applicant_admin_name?.trim() || info?.name || null;
     const role = info?.role ?? "관리자"; // 변동 액트 신청자 = 운영진(admin) → 기본 "관리자".
+    // 변동 액트: 항상 가동. 필요 시점 = scheduled_check_at, 실제 = completed_at(있으면 신청 기록).
+    const fields = buildActCardFields({
+      isActive: true,
+      scheduledCheckAt: r.scheduled_check_at ?? null,
+      derivedDate: null,
+      checkTime: null,
+      applied: r.completed_at != null,
+      actualIso: r.completed_at ?? null,
+      nowMs,
+    });
     variableActsByDay[key].push({
       id: r.id,
       actName: r.act_name ?? "(변동 액트)",
-      scheduledLabel: r.scheduled_check_at ? formatClubDateTime(r.scheduled_check_at) : null,
-      checkStatus: r.completed_at ? timingOf(r.completed_at, Number.isNaN(deadline as number) ? null : deadline) : null,
       requesterLabel: name ? `${name} 님(${role})` : null,
+      ...fields,
     });
   }
 
@@ -365,26 +453,24 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     );
     const st = statusByAct.get(a.id) ?? null;
     const applied = st != null && (st.status === "pending" || st.status === "completed");
-    // 신청 시점: 상태행 scheduled_check_at 우선, 없으면 act check 요일/시각(주차 기준 파생).
+    // 필요 시점: 상태행 scheduled_check_at 우선, 없으면 act check 요일/시각(주차 기준 파생).
     const derivedDate = dateForDow(weekStart, a.check_dow, a.check_week);
-    const scheduledLabel = st?.scheduled_check_at
-      ? formatClubDateTime(st.scheduled_check_at)
-      : derivedDate
-        ? `${formatClubDate(derivedDate)}${hhmm(a.check_time) ? ` ${hhmm(a.check_time)}` : ""}`
-        : null;
-    let checkStatus: ActCheckStatus = null;
-    if (applied) {
-      const deadlineMs = st?.scheduled_check_at ? Date.parse(st.scheduled_check_at) : deadlineMsKst(derivedDate, a.check_time);
-      checkStatus = timingOf(st?.completed_at ?? st?.requested_at ?? null, Number.isNaN(deadlineMs as number) ? null : deadlineMs);
-    }
+    const fields = buildActCardFields({
+      isActive,
+      scheduledCheckAt: st?.scheduled_check_at ?? null,
+      derivedDate,
+      checkTime: a.check_time,
+      applied,
+      actualIso: st?.completed_at ?? st?.requested_at ?? null,
+      nowMs,
+    });
     return {
       actId: a.id,
       actName: a.act_name,
       isActiveThisWeek: isActive,
       isChecked: applied,
-      scheduledLabel,
-      checkStatus,
       requesterLabel: regularRequesterLabel(st?.requested_by ?? null),
+      ...fields,
     };
   };
 
@@ -408,19 +494,19 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     const st = expStatusByActTeam.get(`${a.id}::${teamId}`) ?? null;
     const applied = st != null && (st.status === "pending" || st.status === "completed");
     const derivedDate = dateForDow(weekStart, a.check_dow, a.check_week);
-    const scheduledLabel = st?.scheduled_check_at
-      ? formatClubDateTime(st.scheduled_check_at)
-      : derivedDate
-        ? `${formatClubDate(derivedDate)}${hhmm(a.check_time) ? ` ${hhmm(a.check_time)}` : ""}`
-        : null;
-    let checkStatus: ActCheckStatus = null;
-    if (applied) {
-      const deadlineMs = st?.scheduled_check_at ? Date.parse(st.scheduled_check_at) : deadlineMsKst(derivedDate, a.check_time);
-      checkStatus = timingOf(st?.completed_at ?? st?.requested_at ?? null, Number.isNaN(deadlineMs as number) ? null : deadlineMs);
-    }
+    const fields = buildActCardFields({
+      isActive: lineOpen,
+      scheduledCheckAt: st?.scheduled_check_at ?? null,
+      derivedDate,
+      checkTime: a.check_time,
+      applied,
+      actualIso: st?.completed_at ?? st?.requested_at ?? null,
+      nowMs,
+    });
     return {
       actId: a.id, actName: a.act_name, isActiveThisWeek: lineOpen, isChecked: applied,
-      scheduledLabel, checkStatus, requesterLabel: regularRequesterLabel(st?.requested_by ?? null),
+      requesterLabel: regularRequesterLabel(st?.requested_by ?? null),
+      ...fields,
     };
   };
   const expTeams: ActCheckHubTeam[] = teams.map((t) => {

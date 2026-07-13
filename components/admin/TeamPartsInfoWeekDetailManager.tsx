@@ -33,8 +33,12 @@ import type {
   ActCheckSummary,
   ActCheckActDto,
   ActCheckVariableActDto,
-  ActCheckStatus,
 } from "@/lib/adminTeamPartsInfoActCheckData";
+import {
+  actCardActiveAttr,
+  isCompletedCardState,
+  type ActCardState,
+} from "@/lib/actCardState";
 import type { LineOpeningManagementData } from "@/lib/adminTeamPartsInfoLineOpeningData";
 
 // 도움말 help key prefix(요청 네임스페이스). org/mode 로 갈라지지 않는 공통 키.
@@ -587,84 +591,110 @@ function CardRow({ parts }: { parts: ReactNode[] }) {
   );
 }
 
-// 액트 카드 4상태(현재 상태값만으로 표현 — 데이터/판정 로직 불변):
-//   inactive    = 이번 주 가동 대상 아님   → 회색(빛바랜)·액트명만
-//   pending     = 가동 대상·아직 미신청     → 기본색·신청시점/담당자·아이콘 없음
-//   done_ontime = 제시간 체크 완료          → 초록·✔ 아이콘
-//   done_late   = 지연 체크 완료            → 초록·⏰ 아이콘
-type CardState = "inactive" | "pending" | "done_ontime" | "done_late";
-function resolveCardState(active: boolean, checked: boolean, status: ActCheckStatus): CardState {
-  if (!active) return "inactive";
-  if (!checked) return "pending";
-  return status === "late" ? "done_late" : "done_ontime";
-}
-const CARD_STATE_CLASS: Record<CardState, string> = {
+// 액트 카드 5상태(색상/표시의 단일 SoT = 서버 lib/actCardState.resolveActCardState). 판정은 원본
+// timestamp 로만 하며(문자열 재비교 금지), 서버에서 cardState 를 확정해 내려주므로 서버/클라 시간대
+// 판정 불일치가 없다. 모든 상태 1번째 줄에 "액트명 │ [필요] (요일) HH:mm" 를 항상 표시한다.
+//   inactive          = 가동 대상 아님 + 미신청                    → 회색
+//   pending           = 가동 + 미신청 + now ≤ 필요 시점            → 노랑
+//   overdue           = 가동 + 미신청 + now > 필요 시점            → 빨강
+//   completed-on-time = 신청 기록 + 실제 ≤ 필요 시점               → 초록(+ 2번째 줄·✓)
+//   completed-late    = 신청 기록 + 실제 > 필요 시점               → 파랑(+ 2번째 줄·✓)
+const CARD_STATE_CLASS: Record<ActCardState, string> = {
   inactive: "border-zinc-200 bg-zinc-100 text-zinc-400",
-  pending: "border-zinc-300 bg-white",
-  done_ontime: "border-emerald-300 bg-emerald-50",
-  done_late: "border-emerald-300 bg-emerald-50",
+  pending: "border-amber-300 bg-amber-50 text-amber-950",
+  overdue: "border-red-400 bg-red-50 text-red-900",
+  "completed-on-time": "border-emerald-300 bg-emerald-50 text-emerald-950",
+  "completed-late": "border-sky-400 bg-sky-50 text-sky-950",
 };
-function StateIcon({ state }: { state: CardState }) {
-  if (state === "done_ontime")
-    return <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" aria-label="제시간 체크 완료" />;
-  if (state === "done_late")
-    return <AlarmClock className="h-4 w-4 shrink-0 text-amber-500" aria-label="지연 체크 완료" />;
-  return null;
+// 완료 상태 ✓ 아이콘 색(온타임=초록·지연=파랑).
+const CHECK_ICON_CLASS: Record<"completed-on-time" | "completed-late", string> = {
+  "completed-on-time": "text-emerald-600",
+  "completed-late": "text-sky-600",
+};
+
+// 필요 시점 칩 — "[필요] (요일) HH:mm". 액트명과 시각적으로 구분(칩+시각).
+function RequiredChip({ label }: { label: string }) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
+      <span className="rounded bg-black/[0.06] px-1 py-px text-xs font-medium">필요</span>
+      <span className="tabular-nums">{label}</span>
+    </span>
+  );
 }
 
 // 정규/변동 공용 상태 카드.
 function StateCard({
-  state, actName, scheduledLabel, requesterLabel, dataAttrs, tag,
+  state, actName, requiredLabel, actualLabel, requesterLabel, dataAttrs, tag,
 }: {
-  state: CardState;
+  state: ActCardState;
   actName: string;
-  scheduledLabel: string | null;
+  requiredLabel: string | null;
+  actualLabel: string | null;
   requesterLabel: string | null;
   dataAttrs: Record<string, string>;
   tag?: ReactNode;
 }) {
   // 액트명·신청시점·담당자 모두 셀 폭 안에서 줄바꿈(말줄임 없음·무공백 롱토큰도 강제 줄바꿈).
   const wrapCls = "min-w-0 break-keep [overflow-wrap:anywhere]";
-  const parts: ReactNode[] = [<span key="n" className={"font-semibold " + wrapCls}>{actName}</span>];
-  if (state !== "inactive") {
-    if (scheduledLabel) parts.push(<span key="s" className={"text-muted-foreground " + wrapCls}>{scheduledLabel}</span>);
-    if (state === "done_ontime" || state === "done_late") parts.push(<StateIcon key="i" state={state} />);
-    if (requesterLabel) parts.push(<span key="r" className={"text-muted-foreground " + wrapCls}>{requesterLabel}</span>);
-  }
+  const completed = isCompletedCardState(state);
+  // 1번째 줄: 액트명 │ [필요] (요일) HH:mm — 필요 시점은 항상(모든 상태) 표시.
+  const line1: ReactNode[] = [<span key="n" className={"font-semibold " + wrapCls}>{actName}</span>];
+  if (requiredLabel) line1.push(<RequiredChip key="req" label={requiredLabel} />);
   return (
     <div
       {...dataAttrs}
       data-card-state={state}
-      className={"flex w-full min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded border px-2 py-1.5 text-sm " + CARD_STATE_CLASS[state]}
+      data-act-active={actCardActiveAttr(state)}
+      className={"flex w-full min-w-0 max-w-full flex-col gap-y-0.5 rounded border px-2 py-1.5 text-sm " + CARD_STATE_CLASS[state]}
     >
-      <CardRow parts={parts} />
-      {tag}
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+        <CardRow parts={line1} />
+        {tag}
+      </div>
+      {completed ? (
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+          {actualLabel ? (
+            <span className={wrapCls}>
+              <span className="opacity-70">[신청 시점(실제)]</span> {actualLabel}
+            </span>
+          ) : null}
+          {requesterLabel ? <span className={"opacity-80 " + wrapCls}>{requesterLabel}</span> : null}
+          <span
+            className={
+              "ml-auto inline-flex shrink-0 items-center " +
+              CHECK_ICON_CLASS[state as "completed-on-time" | "completed-late"]
+            }
+          >
+            <CheckCircle2 className="h-4 w-4" aria-label="체크 신청 완료" />
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
 
-// 정규 액트 카드.
+// 정규 액트 카드 — 상태/표시 필드는 전부 서버 DTO(cardState 등)에서 온다.
 function ActCard({ act }: { act: ActCheckActDto }) {
-  const state = resolveCardState(act.isActiveThisWeek, act.isChecked, act.checkStatus);
   return (
     <StateCard
-      state={state}
+      state={act.cardState}
       actName={act.actName}
-      scheduledLabel={act.scheduledLabel}
+      requiredLabel={act.requiredLabel}
+      actualLabel={act.actualLabel}
       requesterLabel={act.requesterLabel}
-      dataAttrs={{ "data-act": act.actId, "data-act-active": act.isActiveThisWeek ? "1" : "0" }}
+      dataAttrs={{ "data-act": act.actId }}
     />
   );
 }
 
-// 변동 액트 카드 — 항상 신청분(가동), 완료 여부로 상태 결정 + "변동" 배지.
+// 변동 액트 카드 — 항상 가동, 완료 여부/시각으로 상태 결정 + "변동" 배지.
 function VariableCard({ act }: { act: ActCheckVariableActDto }) {
-  const state = resolveCardState(true, act.checkStatus != null, act.checkStatus);
   return (
     <StateCard
-      state={state}
+      state={act.cardState}
       actName={act.actName}
-      scheduledLabel={act.scheduledLabel}
+      requiredLabel={act.requiredLabel}
+      actualLabel={act.actualLabel}
       requesterLabel={act.requesterLabel}
       dataAttrs={{ "data-variable-act": act.id }}
       tag={<span className="ml-auto shrink-0 rounded bg-orange-400 px-1.5 py-0.5 text-xs font-bold text-white">변동</span>}
