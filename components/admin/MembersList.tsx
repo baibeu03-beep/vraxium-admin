@@ -43,6 +43,7 @@ import {
   type MemberStatusBucket,
 } from "@/lib/memberStatusBucket";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
+import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import {
   resolveMembersInfoSection0,
   type MembersInfoSection0,
@@ -837,11 +838,20 @@ export default function MembersList({
                             )}
                           >
                             {c.key === "name" ? (
-                              // 이름 — 클릭 시 상세 페이지 진입([이동] 컬럼 대체). 현재 모집단 모드 유지.
+                              // 이름 — 클릭 시 상세 페이지 진입([이동] 컬럼 대체). 현재 어드민 컨텍스트
+                              //   (통합/개별 org·모집단 모드·테스트 대행/데모)를 그대로 전달한다. 크루 모드
+                              //   (/admin/crews/{org})는 org 가 path 라 상세 경로(/admin/members/{id})에
+                              //   ?org 로 승격돼야 [개별] 컨텍스트가 유지된다(수동 문자열 연결 대신 공통 유틸).
                               <button
                                 type="button"
                                 onClick={() =>
-                                  router.push(appendModeQuery(`/admin/members/${m.userId}`, mode))
+                                  router.push(
+                                    buildAdminContextHref({
+                                      targetPath: `/admin/members/${m.userId}`,
+                                      pathname,
+                                      searchParams,
+                                    }),
+                                  )
                                 }
                                 className="cursor-pointer underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
                               >

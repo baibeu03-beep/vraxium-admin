@@ -34,7 +34,8 @@
     "verify:qa-roster-seed": "tsx --env-file=.env.local scripts/verify-qa-roster-seed.ts",
     "verify:qa-fixed-scope": "tsx --env-file=.env.local scripts/verify-qa-fixed-scope.ts",
     "verify:periods-seasonweeks-help": "tsx --env-file=.env.local scripts/verify-periods-seasonweeks-help-browser.ts",
-    "verify:line-opening-help": "tsx --env-file=.env.local scripts/verify-line-opening-help-browser.ts"
+    "verify:line-opening-help": "tsx --env-file=.env.local scripts/verify-line-opening-help-browser.ts",
+    "verify:admin-context-href": "tsx scripts/verify-admin-context-href.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

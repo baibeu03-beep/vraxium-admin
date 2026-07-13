@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ExternalLink, NotebookPen, User, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,11 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
-import { appendModeQuery, type ScopeMode } from "@/lib/userScopeShared";
+import { type ScopeMode } from "@/lib/userScopeShared";
+import {
+  buildAdminContextHref,
+  resolveAdminOrgFocus,
+} from "@/lib/adminOrgContext";
 import { buildCustomerClusterUrl } from "@/lib/customerAppUrl";
 import { getProcessPointLabels } from "@/lib/pointLabels";
 
@@ -153,6 +157,11 @@ export default function CrewDetail({
   mode: ScopeMode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // 진입 컨텍스트(통합/개별) — URL 의 ?org(크루 목록에서 승격돼 넘어온 값)로 판정한다.
+  //   상세 경로(/admin/members/{id})에는 org path 세그먼트가 없으므로 ?org 가 SoT.
+  const orgFocus = resolveAdminOrgFocus(pathname, searchParams);
   const [detail, setDetail] = useState<CrewDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
@@ -188,10 +197,14 @@ export default function CrewDetail({
   }, [load]);
 
   const goBack = useCallback(() => {
-    // 목록 조건(클럽/필터/검색/정렬)은 MembersList 가 sessionStorage 로 복원한다.
-    // 모집단 모드만 URL 로 유지(operating 은 쿼리 생략).
-    router.push(appendModeQuery("/admin/members", mode));
-  }, [router, mode]);
+    // 진입 컨텍스트로 정확히 복귀한다:
+    //   · 개별(orgFocus 있음) → 그 조직 크루 목록 /admin/crews/{org} (사이드바 [개별] 유지,
+    //     MembersList sessionStorage 키 members-list-state:{org}:{mode} 와도 일치해 조건/정렬 복원).
+    //   · 통합(orgFocus 없음) → /admin/members (기존 동작 그대로).
+    // 모집단 모드·테스트 대행/데모 등 컨텍스트 파라미터는 공통 유틸이 함께 유지한다(operating=쿼리 생략).
+    const targetPath = orgFocus ? `/admin/crews/${orgFocus}` : "/admin/members";
+    router.push(buildAdminContextHref({ targetPath, pathname, searchParams }));
+  }, [router, orgFocus, pathname, searchParams]);
 
   const openCareerResume = useCallback(() => {
     if (!detail) return;

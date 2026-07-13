@@ -22,11 +22,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/components/theme/ThemeProvider";
-import {
-  ORGANIZATIONS,
-  isOrganizationSlug,
-} from "@/lib/organizations";
-import { orgHref, readOrgParam } from "@/lib/adminOrgContext";
+import { ORGANIZATIONS } from "@/lib/organizations";
+import { orgHref, resolveAdminOrgFocus } from "@/lib/adminOrgContext";
 import OrganizationBadge from "@/components/admin/OrganizationBadge";
 import { useSidebar } from "@/components/admin/sidebarContext";
 import { useAdminMode } from "@/components/admin/AdminModeProvider";
@@ -393,14 +390,12 @@ export default function Sidebar() {
   // (다른 하위 페이지에서는 기존대로 동작, 사이드바 접기/펼치기는 항상 가능)
   const navLocked = pathname === "/admin";
 
-  // 조직 컨텍스트(orgFocus):
-  //   1) /admin/crews/{org} (크루 목록은 path 기반 — 기존 진입 정책 유지)
-  //   2) 그 외 공유 페이지는 ?org={slug} (사이드바가 부착, 어드민 org 컨텍스트 단일 출처)
-  // path 가 우선. 둘 다 없으면 null = 통합 모드(통합 검수 시스템).
-  const crewsMatch = pathname.match(/^\/admin\/crews\/([^/]+)/);
-  const pathOrg =
-    crewsMatch && isOrganizationSlug(crewsMatch[1]) ? crewsMatch[1] : null;
-  const orgFocus = pathOrg ?? readOrgParam(searchParams);
+  // 조직 컨텍스트(orgFocus) — 어드민 org 컨텍스트 단일 출처(resolveAdminOrgFocus):
+  //   1) /admin/crews/{org} (크루 목록은 path 기반 — 기존 진입 정책 유지, path 우선)
+  //   2) 그 외 공유 페이지는 ?org={slug}
+  // 둘 다 없으면 null = 통합 모드(통합 검수 시스템). 링크 이동 시 컨텍스트 전달(buildAdminContextHref)과
+  //   동일한 SoT 를 사용해 "상세로 이동하면 [통합]으로 새는" 유형의 불일치를 원천 차단한다.
+  const orgFocus = resolveAdminOrgFocus(pathname, searchParams);
 
   // 대분류(leaf/branch) 노출 분기: integratedOnly=통합 모드만, orgOnly=조직 모드만.
   const isItemVisible = (item: MenuItem) => {
