@@ -31,6 +31,11 @@
   --color-tone-accent: var(--tone-accent);
   --color-tone-accent-bg: var(--tone-accent-bg);
   --color-surface-subtle: var(--surface-subtle);
+  /* Point value colors — 어드민 전역 단일 SoT.
+     A/B(항상 양수·좋은 의미)=연두(good), C(항상 양수·차감 경고)=빨강(danger).
+     text-point-good / text-point-danger 유틸로 사용. 부호가 아니라 "포인트 종류"로 색을 정한다. */
+  --color-point-good: var(--point-good);
+  --color-point-danger: var(--point-danger);
   /* Badge palette — single source for status/select color grouping.
      Each tone has fg(text) / bg(surface) / border. Theme-aware via vars below.
      Drives <Badge tone="…"> and the label→tone registry (lib/statusBadge). */
@@ -189,6 +194,9 @@
   --tone-accent: oklch(0.55 0.05 75);
   --tone-accent-bg: oklch(0.96 0.02 75);
   --surface-subtle: oklch(0.975 0 0);
+  /* Point value colors (light) — A/B=연두(good), C=빨강(danger). */
+  --point-good: oklch(0.6 0.16 145);
+  --point-danger: oklch(0.577 0.245 27.325);
   /* Badge palette (light) — tinted surface + saturated text, distinct hues. */
   --badge-success-fg: oklch(0.45 0.12 150);
   --badge-success-bg: oklch(0.95 0.05 150);
@@ -266,6 +274,9 @@
   --tone-accent: oklch(0.78 0.05 75);
   --tone-accent-bg: oklch(0.27 0.02 75);
   --surface-subtle: oklch(0.22 0 0);
+  /* Point value colors (dark) — A/B=연두(good), C=빨강(danger), 어두운 배경 대비 상향. */
+  --point-good: oklch(0.82 0.17 145);
+  --point-danger: oklch(0.704 0.191 22.216);
   /* Badge palette (dark) — dark tinted surface + bright text, same hues. */
   --badge-success-fg: oklch(0.85 0.13 150);
   --badge-success-bg: oklch(0.32 0.06 150);

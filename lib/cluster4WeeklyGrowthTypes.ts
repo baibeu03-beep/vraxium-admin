@@ -204,12 +204,14 @@ export type SeasonSummary = {
   endDate: string; // 시즌 정규 마지막 주 일요일 (전환주차 제외, YYYY-MM-DD)
 };
 
-// 포인트 표시 정책(2026-06-04 통일): 고객 노출 값은 표시 최종값.
-//   방패 = net(Σadvantages−Σpenalty), 번개 = −Σpenalty (음수 표기). raw advantage 미노출.
+// 포인트 표시 정책(2026-07-13 통일): 포인트 C 는 항상 0 이상(양수)으로 표현.
+//   방패 = 최종 Point B(Σadvantages−ΣpointC), pointC = Σpenalty magnitude(≥0). raw advantage 미노출.
 export type SeasonPointSummary = {
-  star: number; // sum(user_weekly_points.points) — 전환주차 제외
-  shield: number; // net = sum(advantages) − sum(penalty) — 전환주차 제외
-  lightning: number; // −sum(penalty) (음수 표기) — 전환주차 제외
+  star: number; // sum(user_weekly_points.points) — 전환주차 제외 (Point A)
+  shield: number; // 최종 Point B = sum(advantages) − sum(pointC) — 전환주차 제외 (음수 가능)
+  pointC: number; // sum(penalty) magnitude (≥0, 양수) — 전환주차 제외 (Point C)
+  /** @deprecated 2026-07-13 — 신규 소비처는 pointC(양수) 사용. −sum(penalty) 하위호환용. */
+  lightning: number; // = −pointC (음수 표기) — deprecated
 };
 
 // ─────────────────────────────────────────────────────────────────────

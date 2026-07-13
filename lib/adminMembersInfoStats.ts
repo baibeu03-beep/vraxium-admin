@@ -609,12 +609,12 @@ export async function loadMembersInfoStats(opts: {
           }
         }
       }
-      // Po.A/B/C — 종류별 1위 크루 갱신. per-crew: A=star · Advantage=shield−lightning · Penalty=−lightning.
-      //   (snapshot points 그대로. null 은 0 취급 후 value>0 만 후보.)
+      // Po.A/B/C — 종류별 1위 크루 갱신. per-crew: A=star · Po.B=최종 B(=shield=net) · Penalty=−lightning.
+      //   (snapshot points 그대로. null 은 0 취급 후 value>0 만 후보 — 리더보드는 양의 최종 B 상위.) (2026-07-13)
       const pts = card.points as { star?: number | null; shield?: number | null; lightning?: number | null } | undefined;
       const crewName = meta?.name ?? "-";
       const aPoint = pts?.star ?? 0;
-      const advPoint = (pts?.shield ?? 0) - (pts?.lightning ?? 0);
+      const advPoint = pts?.shield ?? 0; // 최종 B(net = advantages − penalty). raw advantage 아님.
       const penPoint = -(pts?.lightning ?? 0);
       acc.leaderA = considerLeader(acc.leaderA, crewName, aPoint);
       acc.leaderB = considerLeader(acc.leaderB, crewName, advPoint);

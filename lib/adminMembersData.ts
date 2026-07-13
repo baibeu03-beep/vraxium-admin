@@ -508,7 +508,8 @@ export type MemberRosterRow = {
   rankGradeLabel: string | null;
   successWeeks: number | null; // 성장(성공) 주차 = period.a
   growableWeeks: number | null; // 성장 가능 주차 = period.e(a+b+c)
-  // Po.A/B/C = 누적 총합 포인트(SUM). check(A)/advantage(B)/penalty(C) — 프로세스 적립 합산 SoT.
+  // Po.A/B/C = 누적 총합 포인트(SUM). (2026-07-13) Po.B = 최종 B(= Σadvantage − Σpenalty, 음수 가능).
+  //   Po.A=check · Po.B=최종 B(net) · Po.C=penalty(≥0). raw advantage 는 별도 노출 안 함(= Po.B+Po.C 파생).
   poA: number;
   poB: number;
   poC: number;
@@ -618,7 +619,8 @@ export async function getRosterPointsScheduleFast(
       out.set(uid, {
         scheduleReliability: s.schedule_rate,
         poA: s.po_a,
-        poB: s.po_b,
+        // Po.B = 최종 B(= raw advantage − penalty). 고객 방패와 동일 의미. 음수 가능. (2026-07-13)
+        poB: s.po_b - s.po_c,
         poC: s.po_c,
       });
     } else {
@@ -637,7 +639,8 @@ export async function getRosterPointsScheduleFast(
       out.set(uid, {
         scheduleReliability: scheduleRate.get(uid) ?? null,
         poA: pts.checkPoints,
-        poB: pts.advantagePoints,
+        // Po.B = 최종 B(= raw advantage − penalty = netAdvantagePoints). 음수 가능. (2026-07-13)
+        poB: pts.netAdvantagePoints,
         poC: pts.penaltyPoints,
       });
     }

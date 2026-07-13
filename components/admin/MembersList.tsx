@@ -27,6 +27,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { classTone, rankTone } from "@/lib/statusBadge";
 import { cn } from "@/lib/utils";
+import { pointColorClass } from "@/components/ui/point-value";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
@@ -210,6 +211,8 @@ type Column = {
   clamp?: string;
   // 컬럼 헤더 옆 인라인 도움말(돋보기). 지정한 컬럼에만 표시(의미가 모호한 지표 위주).
   help?: { helpKey: string; title?: string };
+  // 셀 값 색상 등 컬럼별 추가 className(포인트 종류별 색상 SoT 적용용).
+  cellClassName?: string;
   text: (m: Member) => string; // 표시 + 검색
   num?: (m: Member) => number | null; // number/rank 정렬값
   date?: (m: Member) => number | null; // date 정렬값(ms)
@@ -291,6 +294,7 @@ const COLUMNS: Column[] = [
     type: "number",
     align: "right",
     help: { helpKey: "admin.members.column.poA", title: "Po.A" },
+    cellClassName: pointColorClass("a"),
     text: (m) => fmtNum(m.poA),
     num: (m) => m.poA,
   },
@@ -300,6 +304,7 @@ const COLUMNS: Column[] = [
     type: "number",
     align: "right",
     help: { helpKey: "admin.members.column.poB", title: "Po.B" },
+    cellClassName: pointColorClass("b"),
     text: (m) => fmtNum(m.poB),
     num: (m) => m.poB,
   },
@@ -309,6 +314,7 @@ const COLUMNS: Column[] = [
     type: "number",
     align: "right",
     help: { helpKey: "admin.members.column.poC", title: "Po.C" },
+    cellClassName: pointColorClass("c"),
     text: (m) => fmtNum(m.poC),
     num: (m) => m.poC,
   },
@@ -834,6 +840,7 @@ export default function MembersList({
                             className={cn(
                               "whitespace-nowrap text-center align-middle",
                               c.align === "right" && "tabular-nums",
+                              c.cellClassName,
                               idx === 0 && "sticky left-0 z-10 bg-card border-r font-medium",
                             )}
                           >
@@ -1442,9 +1449,9 @@ function InfoWeekTableRow({ w, showPoints }: { w: InfoWeekRow; showPoints: boole
       <TableCell className="whitespace-nowrap text-center align-middle">{oldest}</TableCell>
       {showPoints && (
         <>
-          <TableCell className="whitespace-nowrap text-center align-middle">{fmtPointLeader(pl?.poA)}</TableCell>
-          <TableCell className="whitespace-nowrap text-center align-middle">{fmtPointLeader(pl?.poB)}</TableCell>
-          <TableCell className="whitespace-nowrap text-center align-middle">{fmtPointLeader(pl?.poC)}</TableCell>
+          <TableCell className={cn("whitespace-nowrap text-center align-middle", pointColorClass("a"))}>{fmtPointLeader(pl?.poA)}</TableCell>
+          <TableCell className={cn("whitespace-nowrap text-center align-middle", pointColorClass("b"))}>{fmtPointLeader(pl?.poB)}</TableCell>
+          <TableCell className={cn("whitespace-nowrap text-center align-middle", pointColorClass("c"))}>{fmtPointLeader(pl?.poC)}</TableCell>
         </>
       )}
     </TableRow>

@@ -49,7 +49,7 @@ export type CrewWeeklyResultRow = {
   teamName: string | null;
   partName: string | null;
   classLabel: string; // 주차 클래스(card.roleLabel)
-  points: { poA: number; poB: number; poC: number }; // 주차 단위(비누적)
+  points: { poA: number; poB: number; poC: number }; // 주차 단위(비누적). poB=최종 B(adv−pen), poC=penalty
   hubRates: {
     info: number | null;
     experience: number | null;
@@ -156,7 +156,8 @@ export async function getCrewWeeklyResults(userId: string): Promise<CrewWeeklyRe
       // 클래스 = 어드민 단일 SoT classLabel(role, level) — 5종. card.roleLabel(등급 raw "일반"/"심화")
       //   을 그대로 쓰지 않는다("일반"→"정규" 통일).
       classLabel: classLabel(currentRole, card.roleLabel),
-      points: { poA: pt?.points ?? 0, poB: pt?.advantages ?? 0, poC: pt?.penalty ?? 0 },
+      // Po.B = 최종 B(= advantages − penalty, 음수 가능). 주차 단위. (2026-07-13)
+      points: { poA: pt?.points ?? 0, poB: (pt?.advantages ?? 0) - (pt?.penalty ?? 0), poC: pt?.penalty ?? 0 },
       hubRates: {
         info: rate("practical_info"),
         experience: rate("practical_experience"),

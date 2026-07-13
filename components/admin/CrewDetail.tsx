@@ -382,9 +382,9 @@ export default function CrewDetail({
                 mono
               />
               <SummaryCell label="성장 성공 주차" value={dashNum(detail.clubSummary.successWeeks)} />
-              <SummaryCell label={poLabels.a} value={dashNum(detail.clubSummary.poA)} />
-              <SummaryCell label={poLabels.b} value={dashNum(detail.clubSummary.poB)} />
-              <SummaryCell label={poLabels.c} value={dashNum(detail.clubSummary.poC)} />
+              <SummaryCell label={poLabels.a} value={dashNum(detail.clubSummary.poA)} valueClassName={pointColorClass("a")} />
+              <SummaryCell label={poLabels.b} value={dashNum(detail.clubSummary.poB)} valueClassName={pointColorClass("b")} />
+              <SummaryCell label={poLabels.c} value={dashNum(detail.clubSummary.poC)} valueClassName={pointColorClass("c")} />
               {/* 2행 */}
               <SummaryCell label="일정 신뢰도" value={dashPct(detail.clubSummary.scheduleReliability)} />
               <SummaryCell label="활동 완료율" value={dashPct(detail.clubSummary.activityCompletion)} />
@@ -515,9 +515,9 @@ function SeasonResultsTable({
               <td className="whitespace-nowrap px-2 py-2">
                 <StatusBadge label={r.seasonResultLabel} size="sm" />
               </td>
-              <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.poA}</td>
-              <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.poB}</td>
-              <td className="whitespace-nowrap px-2 py-2 tabular-nums">{r.poC}</td>
+              <td className={cn("whitespace-nowrap px-2 py-2 tabular-nums", pointColorClass("a"))}>{r.poA}</td>
+              <td className={cn("whitespace-nowrap px-2 py-2 tabular-nums", pointColorClass("b"))}>{r.poB}</td>
+              <td className={cn("whitespace-nowrap px-2 py-2 tabular-nums", pointColorClass("c"))}>{r.poC}</td>
               <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.info)}</td>
               <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.experience)}</td>
               <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.ability)}</td>
@@ -728,10 +728,12 @@ function SummaryCell({
   label,
   value,
   mono = false,
+  valueClassName,
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  valueClassName?: string;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -740,6 +742,7 @@ function SummaryCell({
         className={cn(
           "flex h-9 items-center justify-center rounded-md border bg-muted/30 px-2 text-sm font-medium text-foreground",
           mono && "font-mono",
+          valueClassName,
         )}
       >
         {value}

@@ -118,7 +118,7 @@ export type CrewDetailData = {
 export type CrewClubSummary = {
   successWeeks: number | null; // 성장 성공 주차 = 표 A successWeeks(period.a)
   poA: number; // 포인트 A = SUM(points) — 표 A Po.A
-  poB: number; // 포인트 B = SUM(advantages) — 표 A Po.B
+  poB: number; // 포인트 B = 최종 B(= SUM(advantages) − SUM(penalty), 음수 가능) — 표 A Po.B
   poC: number; // 포인트 C = SUM(penalty) — 표 A Po.C
   scheduleReliability: number | null; // 일정 신뢰도(%) — 고객 cluster.1 동일 산식
   activityCompletion: number | null; // 활동 완료율(%) — 고객 cluster.1 동일 산식
@@ -500,7 +500,8 @@ export async function getCrewDetailDto(
   const clubSummary: CrewClubSummary = {
     successWeeks: growth?.successWeeks ?? null,
     poA: pts?.checkPoints ?? 0,
-    poB: pts?.advantagePoints ?? 0,
+    // Po.B = 최종 B(= Σadvantage − Σpenalty). 음수 가능. raw advantage 는 노출 안 함. (2026-07-13)
+    poB: (pts?.advantagePoints ?? 0) - (pts?.penaltyPoints ?? 0),
     poC: pts?.penaltyPoints ?? 0,
     scheduleReliability: resume?.scheduleReliability.rate ?? null,
     activityCompletion: resume?.activityCompletion.rate ?? null,

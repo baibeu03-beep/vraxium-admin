@@ -292,13 +292,18 @@ export type Cluster4LineDetailDto = Cluster4VisibleLineDto & {
   editReason: Cluster4LineEditReason;
 };
 
-// 포인트 표시 정책(2026-06-04 통일): 고객 노출 값은 표시 최종값.
-//   별 = check · 방패 = net(advantages−penalty) · 번개 = −penalty (음수 표기).
+// 포인트 표시 정책(2026-07-13 통일): 포인트 C 는 항상 0 이상(양수 개념)으로 표현한다.
+//   별  = check (Point A, ≥0)
+//   방패 = 최종 Point B = advantages − pointC (per-week, 음수 가능 — 유일하게 음수 될 수 있는 값)
+//   pointC = penalty magnitude (Point C, ≥0). 표기(빨간색)·정렬·집계 SoT.
 //   raw advantage(user_weekly_points.advantages)는 내부 집계 전용 — 고객 DTO 미노출.
 export type Cluster4WeeklyPointsDto = {
-  star: number | null;       // user_weekly_points.points
-  shield: number | null;     // net = advantages − penalty (per-week)
-  lightning: number | null;  // −penalty (음수 표기, per-week)
+  star: number | null;       // user_weekly_points.points (Point A)
+  shield: number | null;     // 최종 Point B = advantages − pointC (per-week)
+  pointC: number | null;     // Point C = penalty magnitude (≥0, 양수)
+  /** @deprecated 2026-07-13 — 신규 소비처는 pointC(양수)를 사용한다. −penalty(음수 표기) 하위호환용.
+   *  전환 기간 동안만 함께 제공하며, 고객 앱 소비처 이전 완료 후 별도 정리(버전 bump)로 제거한다. */
+  lightning: number | null;  // = −pointC (음수 표기, per-week) — deprecated
 };
 
 // status-badge 아이콘 키 — Cluster4UserWeekStatus 와 1:1 동일.
