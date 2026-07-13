@@ -10,8 +10,8 @@
  * competency SoT (computeCluster4Enhancement, careerGradeVerdict/experienceRatingVerdict 미전달):
  *   - 배정(lineTargetId != null) + 마감 후 = success  (제출 무관)
  *   - 배정 + 마감 전                    = pending
- *   - 미배정 + 개설                     = fail  (openedCompetencyFailLineDetail, lineTargetId=null)
- *   - 미개설 placeholder(expectedWhenMissing) = fail (lineTargetId=null)  또는 not_applicable
+ *   - 미배정/미개설(비대상자)           = not_applicable (0/0)  ← 2026-07-13 정책: synthetic fail·
+ *       합성 placeholder 폐지. 분모(1)는 개설 라인의 대상자에게만 생성.
  *   → 배정된(lineTargetId != null) competency 라인이 enhancementStatus="fail" 이면 결함 신호.
  */
 import { config } from "dotenv";

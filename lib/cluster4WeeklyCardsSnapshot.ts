@@ -338,7 +338,14 @@ async function writeRosterCardStats(
 //   조합이 스냅샷에 저장(T안건우 봄 W10 EXOK-EN0002~0004). experience 를 override 에서 제외 → 경험은 평점이 SoT
 //   (rating<=3 fail / >=4 success / 미평가 pending). experience fail↔success 표시가 달라지므로 v34 snapshot 을
 //   stale(version_mismatch) 처리해 재계산. (파생 캐시 재생성 — DB 백필 아님.)
-export const WEEKLY_CARDS_DTO_VERSION = 35;
+// v36 (2026-07-13): 실무 역량(competency) 표시 정책 — 분모(1)는 "이 주차에 실제 개설된 역량 라인의
+//   대상자"에게만 생성한다. (A) 비휴식·비레거시 주차에 무조건 붙던 합성 placeholder(미확정=대기/확정=실패,
+//   분모 A=1)를 폐지 → 라인 0개(개설 0건 또는 비대상자)는 not_applicable(0/0). (B) Step 2 의 개설+본인
+//   미배정 역량 synthetic fail(openedCompetencyFailLineDetail, 분모 A 포함)도 폐지 → 비대상자 0/0. 결과:
+//   개설 0건=모두 0/0, 첫 개설 시 대상자만 0/1(→완료 1/1)·비대상자 0/0. 개설/완료판정/포인트 로직 불변,
+//   표시(분모 생성) 기준만 변경. 역량 A/B 가 달라지므로 v35 snapshot 을 stale(version_mismatch) 처리해
+//   재계산. (파생 캐시 재생성 — DB 백필 아님. info/experience/career 무영향.)
+export const WEEKLY_CARDS_DTO_VERSION = 36;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

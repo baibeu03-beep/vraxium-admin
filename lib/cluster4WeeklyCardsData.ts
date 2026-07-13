@@ -391,38 +391,10 @@ function experienceSlotPlaceholderLine(
   };
 }
 
-// 실무 역량 "강화 대기" placeholder (2026-06-04 v14 단일 정규화).
-//   역량은 선택 과제 — 1인·1주차 항상 1칸이며 해당 없음(not_applicable)이 존재할 수 없다.
-//   라인이 0개(미개설 포함)면 보이드 칸(status="void", 내용 없음)에 enhancementStatus="pending"
-//   ("강화 대기")을 실어 분모 A=1 을 유지한다. (휴식/전환 주차는 기존 na placeholder — 집계 제외.)
-//   ⚠ 미확정(running/tallying) 주차 전용 — 확정(공표) 주차는 competencyFailPlaceholderLine 사용.
-function competencyPendingPlaceholderLine(
-  weekId: string | null,
-): Cluster4LineDetailDto {
-  return {
-    ...emptyLine("competency", weekId, false),
-    enhancementStatus: "pending",
-    submissionStatus: "not_submitted",
-    enhancementReason: "competency_optional_pending",
-  };
-}
-
-// 실무 역량 확정(공표) 주차 placeholder (2026-06-04 v14.1 보정).
-//   "강화 대기"는 미확정(running/tallying) 주차에서만 가능 — result_published_at 이 찍힌
-//   확정 주차에서 선택 과제 미수행(라인 0개)은 더 이상 수행할 수 없으므로 "강화 실패"다.
-//   den 정합: growth 경로 abilityNormalized 는 비휴식 주차 A=1·B=0(성공 없음)으로 이미
-//   미수행=미완료로 집계하므로, fail(분모 포함) 표시가 den/num 수식과 1:1 — 수식 무변경.
-//   표시: competency fail=보이드(v11) — status="void" 유지, 배지만 강화 실패.
-function competencyFailPlaceholderLine(
-  weekId: string | null,
-): Cluster4LineDetailDto {
-  return {
-    ...emptyLine("competency", weekId, false),
-    enhancementStatus: "fail",
-    submissionStatus: "not_submitted",
-    enhancementReason: "competency_optional_unfulfilled_confirmed",
-  };
-}
+// (2026-07-13) 역량 placeholder(competencyPendingPlaceholderLine·competencyFailPlaceholderLine)는
+//   폐지됐다. 역량 분모(1)는 "이 주차에 실제 개설된 역량 라인의 대상자"에게만 생성하므로,
+//   라인 0개 주차(개설 0건 또는 비대상자)는 합성 칸을 만들지 않고 Step 3 not_applicable(0/0)로
+//   표시한다. 구 정책(비휴식 주차=항상 분모 A=1, 미확정=대기/확정=실패 합성)은 폐기.
 
 // 개설됐지만 본인이 미배정인 info/experience 라인의 "강화 실패" DTO (2026-06-02).
 //   - 정책: info/experience 의 미배정 fail 은 보이드가 아니라 개설된 라인 내용을 노출한다.
@@ -620,89 +592,10 @@ function openedCareerLineDetail(
   };
 }
 
-// 개설됐지만 본인 미배정인 competency 라인의 "강화 실패(보이드 표시)" DTO.
-//   - 2026-06-04 정책 재개정: competency 강화 실패는 보이드로 표시한다 —
-//     status="void"(보이드/미개설 표시축) + enhancementStatus="fail"(판정축).
-//     (2026-06-02 의 "fail + content 노출" 재개정을 되돌림. 판정축 fail 은 유지되므로
-//      강화율 분모 A 에는 그대로 포함된다 — 보이드 '표시'이지 해당 없음이 아니다.)
-//   - lineTargetId=null (본인 타깃 없음) → canEdit=false / editReason="target_missing" 고정 → 읽기 전용.
-//   - content(lineName/lineCode/mainTitle/output_*)는 진단/어드민 활용을 위해 계속 채워 내려준다.
-//     프론트는 status="void" 기준으로 빈 칸(보이드)을 렌더한다.
-function openedCompetencyFailLineDetail(
-  line: NonNullable<TargetWithLineRow["cluster4_lines"]>,
-  weekId: string,
-  competencyMasterMetaById: Map<string, CompetencyMasterMeta>,
-): Cluster4LineDetailDto {
-  const enhancement = computeCluster4Enhancement({
-    hasTarget: false,
-    deadlinePassed: false,
-    hasSubmission: false,
-    isCareer: false,
-    expectedWhenMissing: true, // 개설됨 + 미배정 → fail
-  });
-  const competencyLineMasterId = line.competency_line_master_id;
-  const adminOutputLinks = resolveOutputLinks(line.output_links, [line.output_link_1]);
-  const adminOutputImageItems = normalizeOutputImages(line.output_images);
-  const adminOutputImages = adminOutputImageItems.map((i) => i.url);
-  const adminOutputImageCaptions = adminOutputImageItems.map((i) => i.caption);
-  return {
-    partType: "competency",
-    // 표시축 = 보이드(2026-06-04). 판정축(enhancementStatus)은 fail 그대로.
-    status: "void",
-    statusLabel: lineStatusLabel("void"),
-    enhancementStatus: enhancement.enhancementStatus,
-    submissionStatus: enhancement.submissionStatus,
-    enhancementReason: enhancement.enhancementReason,
-    lineId: line.id,
-    lineTargetId: null,
-    targetMode: null,
-    lineName: competencyLineMasterId
-      ? competencyMasterMetaById.get(competencyLineMasterId)?.lineName ?? null
-      : null,
-    mainTitle: line.main_title,
-    infoSubtitle: null,
-    infoGrowthPoint: null,
-    outputLink1: line.output_link_1,
-    outputLinks: adminOutputLinks,
-    outputImages: adminOutputImages,
-    outputImageCaptions: adminOutputImageCaptions,
-    adminOutputLinkCount: adminOutputLinks.length,
-    adminOutputImageCount: adminOutputImages.length,
-    submissionOpensAt: line.submission_opens_at,
-    submissionClosesAt: line.submission_closes_at,
-    weekId,
-    activityTypeId: null,
-    activityTypeKey: null,
-    activityTypeName: null,
-    competencyLineMasterId,
-    experienceLineMasterId: null,
-    experienceRating: null,
-    experienceCategory: null,
-    experienceSlotOrder: null,
-    careerProjectId: null,
-    careerGrade: null,
-    careerGradePoints: null,
-    careerRatingStatus: null,
-    lineCode: line.line_code,
-    // 고객 표시용 공식 코드 — competency 마스터 메타(registration 우선). 미상이면 null(숨김).
-    displayLineCode: competencyLineMasterId
-      ? competencyMasterMetaById.get(competencyLineMasterId)?.displayLineCode ?? null
-      : null,
-    projectCode: null,
-    companyName: null,
-    companyLogoUrl: null,
-    supervisorName: null,
-    supervisorDepartment: null,
-    supervisorPosition: null,
-    supervisorPhotoUrl: null,
-    submission: null,
-    numerator: null,
-    denominator: null,
-    rate: null,
-    canEdit: false,
-    editReason: "target_missing",
-  };
-}
+// (2026-07-13) openedCompetencyFailLineDetail(개설+본인 미배정 역량 = synthetic fail, 분모 A 포함)은
+//   폐지됐다. 역량 비대상자는 "해당 없음"(0/0)으로 표시하므로 Step 2 에서 competency 는 미배정 라인에
+//   대해 아무 칸도 추가하지 않고, Step 3 not_applicable placeholder 로 채운다. 분모(1)는 대상자(Step 1)
+//   전용. (career 미선발과 달리 content 노출도 하지 않는다 — 비대상자에겐 역량 자체가 해당 없음.)
 
 function toSubmissionDto(row: SubmissionRow): Cluster4LineSubmissionDto {
   const images = normalizeOutputImages(row.output_images);
@@ -1966,9 +1859,8 @@ async function fetchLineDetailsByWeek(
     await fetchExperienceMasterMetaByIds(experienceMasterIds);
 
   // competency sub-line 라인명 (competency_line_master_id → line_name) 일괄 룩업.
-  // 미배정 competency 도 이제 개설 라인 content(lineName 포함)를 노출하므로
-  // (openedCompetencyFailLineDetail), experience/career 와 동일하게 targetRows(전 유저) 기준으로
-  // 넓혀 본인 미배정 라인의 master line_name 까지 매핑한다.
+  //   대상자(Step 1) 역량 라인의 master line_name/displayLineCode 표시용. (2026-07-13 정책으로
+  //   비대상자 synthetic fail 은 폐지됐으나, targetRows 는 전 유저 기준이라 룩업 대상은 그대로 유지.)
   const competencyMasterIds = Array.from(
     new Set(
       targetRows
@@ -2264,10 +2156,12 @@ async function fetchLineDetailsByWeek(
           }
           const publicPart = toPublicPart(dbPart);
           if (publicPart === "competency") {
-            // 개설됨 + 본인 미배정 → fail + 개설 라인 content 노출(읽기 전용). emptyLine(보이드) 폐기.
-            lines.push(
-              openedCompetencyFailLineDetail(line, weekId, competencyMasterMetaById),
-            );
+            // 2026-07-13 표시 정책: 실무 역량 비대상자는 "해당 없음"(0/0)으로 표시한다.
+            //   개설됐지만 본인 미배정인 역량 라인은 더 이상 synthetic fail(분모=1)로 노출하지 않는다 —
+            //   분모(1)는 실제 개설된 역량 라인의 대상자(Step 1)에게만 생성한다. 여기서 아무 칸도
+            //   추가하지 않으면 아래 2.7 fold(compLines 0개)를 건너뛰고 Step 3 not_applicable
+            //   placeholder(0/0)로 채워진다 — 개설 0건 케이스와 동일한 "해당 없음" 표시.
+            continue;
           } else if (publicPart === "career") {
             // career 미선발 = not_applicable 유지 + 개설 라인 content 노출.
             lines.push(openedCareerLineDetail(line, weekId, careerProjectMetaById));
@@ -2433,30 +2327,27 @@ async function fetchLineDetailsByWeek(
     //   - 휴식/전환 주차(restWeek)는 기존 na placeholder 유지(분모 제외) — step 3 에서 채움.
     if (!restWeek) {
       const compLines = lines.filter((l) => l.partType === "competency");
-      if (!isLegacyWeek || compLines.length > 0) {
-      const fold =
-        compLines.find((l) => l.enhancementStatus === "success") ??
-        compLines.find((l) => l.enhancementStatus === "pending") ??
-        compLines.find((l) => l.enhancementStatus === "fail") ??
-        null;
-      if (compLines.length !== 1 || !fold) {
-        for (let i = lines.length - 1; i >= 0; i--) {
-          if (lines[i].partType === "competency") lines.splice(i, 1);
+      // 2026-07-13 표시 정책: 역량 분모(1)는 "이 주차에 실제 개설된 역량 라인의 대상자"에게만 생성한다.
+      //   compLines 는 이제 대상자(Step 1) 라인만 담는다(Step 2 비대상 synthetic fail 제거). 따라서:
+      //     · 라인 0개(개설 0건 이거나 비대상자) → placeholder 를 합성하지 않는다. Step 3 가
+      //       not_applicable(0/0)로 채운다. (구 정책의 미확정=대기/확정=실패 합성 폐기.)
+      //     · 라인 ≥1개(대상자) → 1인·1주차 정확히 1칸으로 fold: success > pending > fail 우선.
+      //   이로써 개설 0건=모두 0/0, 첫 개설 시 대상자만 0/1(→완료 1/1)·비대상자 0/0 이 성립한다.
+      //   (레거시 주차도 동일 — 역량 라인 실보유 시에만 fold, 합성 금지: 기존 Phase 3 정책과 정합.)
+      if (compLines.length > 0) {
+        const fold =
+          compLines.find((l) => l.enhancementStatus === "success") ??
+          compLines.find((l) => l.enhancementStatus === "pending") ??
+          compLines.find((l) => l.enhancementStatus === "fail") ??
+          compLines[0];
+        if (compLines.length !== 1) {
+          for (let i = lines.length - 1; i >= 0; i--) {
+            if (lines[i].partType === "competency") lines.splice(i, 1);
+          }
+          lines.push(fold);
         }
-        lines.push(
-          fold ??
-            (confirmedWeekIds.has(weekId)
-              ? competencyFailPlaceholderLine(weekId)
-              : competencyPendingPlaceholderLine(weekId)),
-        );
-      } else if (fold !== compLines[0]) {
-        // 단일 라인이지만 대표가 아닌 경우는 구조상 없음(방어) — fold 만 남긴다.
-        for (let i = lines.length - 1; i >= 0; i--) {
-          if (lines[i].partType === "competency" && lines[i] !== fold) lines.splice(i, 1);
-        }
+        partsPresent.add("competency");
       }
-      partsPresent.add("competency");
-      } // 레거시=역량 라인 보유 시에만 fold(합성 금지)
     }
 
     // 3. 라인이 전혀 없는 part → not_applicable placeholder (UI 완결성; 미개설·휴식주차).
