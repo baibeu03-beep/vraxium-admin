@@ -370,7 +370,13 @@ export default function TeamPartsInfoManager() {
     setLookupError(null);
   };
   // 크루코드로 팀장 정보 호출. 인자 code 우선(수정 모드 프리필), 없으면 입력값.
-  const lookupCrew = async (code: string): Promise<LeaderCandidate | null> => {
+  //   organization = 활성 조직(개별=URL org·통합=선택 탭). 서버가 org·mode 스코프를 검증하므로
+  //   타 조직/타 모드 크루는 4xx → 사용자 정보를 표시하지 않는다(setLeader(null) 유지).
+  //   notifyOnFail=true(명시적 [호출] 버튼)일 때만 커스텀 팝업으로 사유를 안내(프리필은 조용히).
+  const lookupCrew = async (
+    code: string,
+    notifyOnFail = false,
+  ): Promise<LeaderCandidate | null> => {
     const c = code.trim();
     if (!c) return null;
     setLookingUp(true);
@@ -379,7 +385,7 @@ export default function TeamPartsInfoManager() {
     try {
       const res = await fetch(
         appendModeQuery(
-          `/api/admin/team-parts/crew-lookup?code=${encodeURIComponent(c)}`,
+          `/api/admin/team-parts/crew-lookup?code=${encodeURIComponent(c)}&organization=${encodeURIComponent(activeOrg)}`,
           mode,
         ),
         { cache: "no-store" },
@@ -393,13 +399,21 @@ export default function TeamPartsInfoManager() {
       return cand;
     } catch (e) {
       setLeader(null);
-      setLookupError(e instanceof Error ? e.message : "크루 조회 실패");
+      const message = e instanceof Error ? e.message : "크루 조회 실패";
+      setLookupError(message);
+      if (notifyOnFail) {
+        void adminDialog.alert({
+          variant: "warning",
+          title: "크루 호출 불가",
+          description: message,
+        });
+      }
       return null;
     } finally {
       setLookingUp(false);
     }
   };
-  const callCrew = () => lookupCrew(crewCode);
+  const callCrew = () => lookupCrew(crewCode, true);
 
   const openModal = () => {
     if (!editable) return;

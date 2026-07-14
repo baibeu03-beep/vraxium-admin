@@ -26,6 +26,16 @@ export function isTestTeam(organization: string, teamName: string): boolean {
   return set ? set.has((teamName ?? "").trim()) : false;
 }
 
+// 팀/사용자 스코프의 "실효 모드" 단일 SoT.
+// ─────────────────────────────────────────────────────────────────────
+// QA 기간(QA_HIDE_REAL_USERS=true)에는 전달 mode 와 무관하게 test 모집단으로 고정한다.
+//   읽기(filterTeamsByScope)와 쓰기(팀 등록·수정·삭제 스코프 가드)가 반드시 이 함수 하나를 거쳐
+//   동일한 실효 모드를 쓴다 → 쓰기는 operating 으로 허용되고 읽기는 test 로 숨기던 분기(등록 성공
+//   후 목록에서 사라짐)를 원천 차단한다. QA 종료 시 false 로 두 축이 함께 operating 으로 복귀.
+export function resolveEffectiveScopeMode(mode: ScopeMode): ScopeMode {
+  return QA_HIDE_REAL_USERS ? "test" : mode;
+}
+
 // 팀 목록 스코프 단일 helper — userScope(사용자 포함/제외)의 팀 버전.
 // ─────────────────────────────────────────────────────────────────────
 // 정책(userScope 와 동일 축):
@@ -48,7 +58,7 @@ export function filterTeamsByScope<
   organization: string | null,
   mode: ScopeMode,
 ): T[] {
-  const effectiveMode: ScopeMode = QA_HIDE_REAL_USERS ? "test" : mode;
+  const effectiveMode = resolveEffectiveScopeMode(mode);
   return teams.filter((team) => {
     const org = (organization ?? team.organizationSlug ?? "").trim();
     const isTest = isTestTeam(org, team.teamName);
