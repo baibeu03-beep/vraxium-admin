@@ -66,6 +66,7 @@ import { foldGrowthMetrics, deriveEndStatus } from "@/lib/growthCore";
 import { recalcUserGrowthStats } from "@/lib/userGrowthStatsData";
 import { loadGrowthInput } from "@/lib/growthLoader";
 import { buildResolvedWeeks } from "@/lib/growthResolve";
+import { getApprovedRestWeekStarts } from "@/lib/approvedRestWeeks";
 
 // ─────────────────────────────────────────────────────────────────────
 // Date/week utilities
@@ -413,6 +414,23 @@ async function computeWeeklyCards(
   // 공식 휴식 재판정용 — 활성 official_rest_periods 를 1회 prefetch 하여
   // 루프 안에서 주차별로 seasonCalendar rule ∨ 날짜 overlap 으로 판정한다.
   const activeRestPeriods = await fetchActiveRestPeriods();
+
+  // 승인된 개인 휴식 주차(week_start_date 집합) — vacation_requests.status='approved' 공통 SoT.
+  //   buildResolvedWeeks 가 이 주차의 활동주차를 휴식(개인)으로 강제(공식휴식/전환 제외).
+  //   기존 user_week_statuses.status='personal_rest' 레거시 값은 getUwsStatus 경로에서 이미
+  //   personal_rest 로 판정되므로 여기선 union 만 추가한다(이중 SoT 없음). 조회 실패는 격리(빈 집합).
+  let approvedRestStarts = new Set<string>();
+  try {
+    approvedRestStarts = await getApprovedRestWeekStarts({
+      userId,
+      organizationSlug: organization,
+    });
+  } catch (e) {
+    console.warn("[cluster4] 승인된 휴식 조회 실패(격리)", {
+      userId,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
 
   // 3. 카드 대상 weeks 범위: [가장 이른 uws 주차, 현재 주차]. 현재 주차가 없으면 최신 uws 까지.
   //    미래 주차(현재 주차 이후)는 제외한다.
@@ -880,6 +898,7 @@ async function computeWeeklyCards(
       isCurrentWeekStart,
       isWeekPublished,
       isCurrentSeasonRestWeek: (s) => currentSeasonRestStarts.has(s),
+      isApprovedPersonalRestWeek: (s) => approvedRestStarts.has(s),
     },
   );
 

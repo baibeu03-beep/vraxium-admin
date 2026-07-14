@@ -9,6 +9,7 @@ import {
 import { classLabel, memberStatusLabel } from "@/lib/adminMembersTypes";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { revokeForAct } from "@/lib/processPointAccrual";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 
 // ─────────────────────────────────────────────────────────────────────
 // /admin/rest-management 상단 요약 데이터 소스.
@@ -563,6 +564,7 @@ export class RestActionError extends Error {
 
 type RequestRow = {
   id: string;
+  user_id: string | null;
   status: string | null;
   week_start_date: string | null;
   org: string | null;
@@ -571,17 +573,34 @@ type RequestRow = {
   po_c_act_id?: string | null;
 };
 
+// 휴식 유효 상태(승인/삭제/일괄승인) 변경 후 해당 크루 cluster4 스냅샷을 타깃 무효화한다.
+//   승인된 휴식 주차는 판정에서 personal_rest 로 강제되므로(공통 SoT loader), 캐시된 카드 스냅샷도
+//   즉시 수렴해야 실시간 조회(admin crew live)와 스냅샷 조회(front weekly-cards)가 일치한다.
+//   best-effort(격리) — 무효화 실패가 승인/삭제 자체를 롤백하지 않는다(daily cron 이 복구).
+async function invalidateRestUserSnapshots(userIds: Array<string | null | undefined>): Promise<void> {
+  const ids = Array.from(new Set(userIds.filter((u): u is string => Boolean(u))));
+  if (ids.length === 0) return;
+  try {
+    await invalidateWeeklyCardsForUsers(ids);
+  } catch (e) {
+    console.warn("[rest-management] 스냅샷 무효화 실패(격리)", {
+      userIds: ids,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+}
+
 async function fetchRequestById(id: string): Promise<RequestRow | null> {
   // full(긴급 추적 컬럼 포함) → base 폴백(2026-07-12 마이그레이션 미적용 환경 대비).
   const full = await supabaseAdmin
     .from("vacation_requests")
-    .select("id,status,week_start_date,org,season_key,request_type,po_c_act_id")
+    .select("id,user_id,status,week_start_date,org,season_key,request_type,po_c_act_id")
     .eq("id", id)
     .maybeSingle();
   if (full.error && full.error.code === "42703") {
     const base = await supabaseAdmin
       .from("vacation_requests")
-      .select("id,status,week_start_date,org,season_key")
+      .select("id,user_id,status,week_start_date,org,season_key")
       .eq("id", id)
       .maybeSingle();
     if (base.error) throw new RestActionError(500, base.error.message);
@@ -623,6 +642,8 @@ export async function approveRestRequest(
     .eq("id", id)
     .eq("status", "pending");
   if (error) throw new RestActionError(500, error.message);
+  // 승인 → 해당 주차가 personal_rest 로 판정되므로 크루 스냅샷을 즉시 무효화(재계산).
+  await invalidateRestUserSnapshots([row.user_id]);
 }
 
 // pending/approved 삭제 가능. 종료된 주차(이행)는 차단.
@@ -664,6 +685,8 @@ export async function deleteRestRequest(
     .delete()
     .eq("id", id);
   if (error) throw new RestActionError(500, error.message);
+  // 삭제(승인 취소/반려) → 그 주차의 personal_rest 강제가 사라지므로 크루 스냅샷을 즉시 무효화.
+  await invalidateRestUserSnapshots([row.user_id]);
 }
 
 // org+season 의 pending 중 종료되지 않은 주차만 일괄 승인(approved/이행은 불변).
@@ -679,7 +702,10 @@ export async function bulkApproveRestRequests(
     .eq("season_key", seasonKey)
     .eq("status", "pending")
     .gte("week_start_date", currentMonday)
-    .select("id");
+    .select("id,user_id");
   if (error) throw new RestActionError(500, error.message);
-  return { approved: data?.length ?? 0 };
+  const rows = (data ?? []) as Array<{ id: string; user_id: string | null }>;
+  // 일괄 승인된 크루들의 스냅샷을 타깃 무효화(distinct user). 10명 초과면 백그라운드 재계산으로 강등.
+  await invalidateRestUserSnapshots(rows.map((r) => r.user_id));
+  return { approved: rows.length };
 }

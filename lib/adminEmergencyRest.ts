@@ -25,6 +25,7 @@ import { loadSeasonWeeks } from "@/lib/adminSeasonWeeksData";
 import { isWeekOfficialRestById } from "@/lib/cluster4OfficialRestWeek";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
 import { accrueForCompletedIrregular, revokeForAct } from "@/lib/processPointAccrual";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { fetchCrewCodeMap } from "@/lib/adminCrewCode";
 import { classLabel, memberStatusLabel } from "@/lib/adminMembersTypes";
 import { formatClubDate } from "@/lib/clubDate";
@@ -619,6 +620,18 @@ export async function createEmergencyRest(input: {
       500,
       err instanceof Error ? err.message : "긴급 휴식 신청 처리에 실패했습니다.",
     );
+  }
+
+  // 긴급 휴식 승인 주차가 personal_rest 로 판정되도록 크루 스냅샷을 타깃 무효화(재계산).
+  //   Po.C 적립(accrueForCompletedIrregular)도 스냅샷을 무효화하지만, 포인트 델타와 무관하게
+  //   휴식 판정 반영을 보장하기 위해 명시적으로 한 번 더 무효화한다(멱등·격리).
+  try {
+    await invalidateWeeklyCardsForUsers([crewUserId]);
+  } catch (e) {
+    console.warn("[emergency-rest] 스냅샷 무효화 실패(격리)", {
+      crewUserId,
+      message: e instanceof Error ? e.message : String(e),
+    });
   }
 
   return { id: restId, poCActId: actId, resultingStatus: week.resultingStatus };

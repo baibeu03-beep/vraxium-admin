@@ -357,7 +357,17 @@ async function writeRosterCardStats(
 //   방패(shield)=최종 Point B(advantages−pointC)로 의미 불변. lightning(=−pointC)은 하위호환용
 //   deprecated 로 병기(고객 앱 소비처 pointC 이전 후 별도 정리로 제거 예정). 새 필드가 생겨
 //   기존 v37 snapshot 을 stale(version_mismatch) 처리해 재계산(pointC 채움)한다. 값(방패/별)은 불변.
-export const WEEKLY_CARDS_DTO_VERSION = 38;
+// v39 (2026-07-14): 승인된 개인 휴식(vacation_requests.status='approved')을 주차 판정에 연결.
+//   그동안 /admin/rest-management 승인은 vacation_requests 만 갱신하고 cluster4 판정 입력엔
+//   아무것도 쓰지 않아, 승인된 휴식 주차가 카드/성장/스냅샷 어디에도 반영되지 않았다(통신 끊김).
+//   공통 SoT loader(lib/approvedRestWeeks.getApprovedRestWeekStarts)를 buildResolvedWeeks 에
+//   주입해, 승인된 휴식 주차의 활동주차를 기존 personal_rest 파이프라인(휴식(개인) 배지·void·
+//   게이지0·강화 해당없음)으로 강제한다(공식휴식/전환 제외·기존 user_week_statuses personal_rest
+//   와 union). 승인된 주차의 resultStatus(→userWeekStatus/statusLabel) 및 강화/성장률 분모가
+//   달라지므로 기존 v38 snapshot 전량을 stale(version_mismatch) 처리해 재계산한다. 이후 개별
+//   승인/승인취소/반려 시엔 해당 유저 snapshot 만 타깃 무효화(invalidateWeeklyCardsForUsers).
+//   (파생 캐시 재생성 — DB 백필 아님. 미승인 유저·비휴식 주차 값 불변.)
+export const WEEKLY_CARDS_DTO_VERSION = 39;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

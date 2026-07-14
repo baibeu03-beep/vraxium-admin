@@ -47,6 +47,11 @@ export type BuildResolvedWeeksDeps<W> = {
   //   true 면 그 시즌의 활동주차(비공식휴식·비전환)를 휴식(개인)으로 채운다.
   //   미지정 시 false — 비휴식 회원·과거 시즌은 영향 없음(기존 동작 불변).
   isCurrentSeasonRestWeek?: (start: string) => boolean;
+  // 그 주차가 "승인된 개인 휴식"(vacation_requests.status='approved')인가.
+  //   SoT = lib/approvedRestWeeks.getApprovedRestWeekStarts. true 면 활동주차를 휴식(개인)으로
+  //   강제(공식휴식/전환 제외). 시즌 휴식(isCurrentSeasonRestWeek)과 union — 둘 중 하나라도
+  //   해당하면 personal_rest. 미지정 시 false(기존 동작 불변).
+  isApprovedPersonalRestWeek?: (start: string) => boolean;
 };
 
 export function buildResolvedWeeks<W extends ResolvableWeek>(
@@ -78,16 +83,21 @@ export function buildResolvedWeeks<W extends ResolvableWeek>(
       weekIsOfficialRest,
       experienceVerdictStatus: deps.getVerdictStatus(weekId),
     });
-    // ── 현재 휴식 시즌(seasonal_rest)의 활동주차 → 휴식(개인) 채움 ──
-    //   공식 휴식 주차(official_rest)·전환 주차는 제외(기존 매핑 유지). no_data(uws 없음)로
-    //   사라질 활동주차도 personal_rest 카드로 생성한다(공백 화면 방지). 별도 카드 상태는 만들지 않음.
+    // ── 개인 휴식(휴식 시즌 ∨ 승인된 휴식 주차)의 활동주차 → 휴식(개인) 채움 ──
+    //   두 출처의 union:
+    //     · isCurrentSeasonRestWeek : 현재 시즌 자체가 시즌 휴식(seasonal_rest)인 회원(기존).
+    //     · isApprovedPersonalRestWeek : vacation_requests.status='approved' 주차(신규 SoT).
+    //   공식 휴식 주차(official_rest)·전환 주차는 제외(기존 매핑 유지 — 공식 휴식이 개인보다 우선).
+    //   no_data(uws 없음)로 사라질 활동주차도 personal_rest 카드로 생성한다(공백 화면 방지).
+    //   별도 카드 상태는 만들지 않고 기존 personal_rest 파이프라인(void/게이지0/휴식 배지)을 재사용.
     //   누적 성장주차(success 집계)에는 personal_rest 가 포함되지 않으므로 정책 6 자동 충족.
     let resultStatus = resolved.status;
-    if (
-      (deps.isCurrentSeasonRestWeek?.(startDate) ?? false) &&
+    const forcePersonalRest =
+      ((deps.isCurrentSeasonRestWeek?.(startDate) ?? false) ||
+        (deps.isApprovedPersonalRestWeek?.(startDate) ?? false)) &&
       !weekIsOfficialRest &&
-      !isTransitionWeekStart(startDate)
-    ) {
+      !isTransitionWeekStart(startDate);
+    if (forcePersonalRest) {
       resultStatus = "personal_rest";
     }
     if (resultStatus === null) continue; // no_data → 카드 미생성
