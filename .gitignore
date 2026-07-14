@@ -52,3 +52,8 @@ yarn-error.log*
 next-env.d.ts
 .env*.local
 screenshots-select/
+
+# claude 작업 산출물(QA 스크린샷·감사 출력물 등 — 로컬 scratch, 필요분만 개별 강제 add)
+claudedocs/
+# 루트 임시 patch 파일
+/*.patch
