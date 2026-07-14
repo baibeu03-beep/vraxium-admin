@@ -21,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
 import { classTone } from "@/lib/statusBadge";
+import { getProcessPointLabels } from "@/lib/pointLabels";
 import type { OrganizationSlug } from "@/lib/organizations";
 
 type WeekOption = {
@@ -71,14 +72,22 @@ function modeParams(): URLSearchParams {
 
 export default function EmergencyRestModal({
   org,
+  labelOrg,
   onClose,
   onCreated,
 }: {
   org: OrganizationSlug;
+  // po.C 표시명 스코프 — [개별] 경로에서만 조직 slug 를 전달해 조직별 명칭(번개/어흥/화살…)으로
+  //   표시하고, [통합] 경로(특정 조직 탭 선택 포함)에서는 null 을 전달해 중립 "Po.C" 를 유지한다.
+  //   조회/생성 스코프(org)와 분리한 표시 전용 prop(로직·모집단 불변).
+  labelOrg: OrganizationSlug | null;
   onClose: () => void;
   onCreated: () => void;
 }) {
   const { toast } = useToast();
+
+  // po.C 표시명: labelOrg 있으면 조직별 명칭, 없으면(통합) 중립 "Po.C"(getProcessPointLabels fail-safe).
+  const poCLabel = getProcessPointLabels(labelOrg).c;
 
   const [context, setContext] = useState<ContextDto | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
@@ -262,7 +271,7 @@ export default function EmergencyRestModal({
           <div className="min-w-0">
             <h2 className="text-lg font-bold">긴급 휴식 신청</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              대상 크루에게 즉시 <span className="font-semibold text-rose-600">Po.C ×2</span> 가 부여됩니다.
+              대상 크루에게 즉시 <span className="font-semibold text-rose-600">{poCLabel} ×2</span> 가 부여됩니다.
             </p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} disabled={submitting}>

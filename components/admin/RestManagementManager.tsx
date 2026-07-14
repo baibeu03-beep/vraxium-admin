@@ -883,6 +883,9 @@ export default function RestManagementManager() {
           {emergencyOpen ? (
             <EmergencyRestModal
               org={activeOrg}
+              // po.C 표시명 스코프: 개별 경로(urlOrg 있음)에서만 조직별 명칭, 통합 경로(특정 조직
+              //   탭 선택 포함)에서는 null → 중립 "Po.C" 유지. 조회/액션 스코프(org=activeOrg)와 분리.
+              labelOrg={urlOrg ? activeOrg : null}
               onClose={() => setEmergencyOpen(false)}
               onCreated={refresh}
             />
