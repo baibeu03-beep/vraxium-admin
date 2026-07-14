@@ -1,7 +1,8 @@
 "use client";
 
+import { Fragment } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { LogOut, Wrench } from "lucide-react";
+import { ChevronRight, LogOut, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   toggleDevQuery,
@@ -35,7 +36,7 @@ export default function Header({
   const searchParams = useSearchParams();
   const devMode = useAdminDevMode();
 
-  // 헤더 좌측 현재 위치 표시("상위 메뉴 - 현재 페이지") — 사이드바와 동일한 메뉴명 SoT
+  // 헤더 좌측 현재 위치 표시("상위 메뉴 > 현재 페이지") — 사이드바와 동일한 메뉴명 SoT
   //   (lib/adminMenuTree.resolveAdminBreadcrumb). pathname 만 사용 → org/mode(?org·mode=test·
   //   actAsTestUserId·demoUserId) 와 무관, ID/UUID/slug 는 노출하지 않는다.
   const baseBreadcrumb = resolveAdminBreadcrumb(pathname);
@@ -115,29 +116,39 @@ export default function Header({
   //   하단 border 와 여유(약 7px)가 생기는 높이. 사이드바 HOME 영역과 동일 높이(기준=Header).
   return (
     <header className="flex h-32 items-center justify-between gap-3 border-b border-border bg-background px-4 sm:gap-4 sm:px-6">
-      {/* 좌측: 현재 위치 경로("상위 메뉴 - 현재 페이지"). 한 줄 truncate 로 우측 영역을 밀지 않는다.
-          상위 계층=muted, 현재 페이지=semibold/foreground 로 시각 위계를 나눈다(구분자 "-"). */}
+      {/* 좌측: 현재 위치 경로("상위 메뉴 > 현재 페이지"). 각 항목은 의미상 분리된 요소로 렌더링하고,
+          단계 사이 구분자는 ChevronRight 아이콘(aria-hidden — 스크린리더가 읽지 않음)으로 표시한다.
+          상위 계층=muted, 현재 페이지=semibold/foreground 로 시각 위계를 나눈다. 긴 경로는 각 항목의
+          truncate 로 좁은 폭에서 줄어들어 우측 영역을 밀지 않는다(기존 반응형 동작 유지). */}
       <div className="min-w-0 flex-1">
-        <p
-          className="truncate text-sm text-muted-foreground sm:text-base"
+        <nav
           aria-label="현재 위치"
+          className="flex min-w-0 items-center gap-1.5"
         >
           {breadcrumb.map((part, i) => {
             const isCurrent = i === breadcrumb.length - 1;
             return (
-              <span key={i}>
+              <Fragment key={i}>
                 {i > 0 && (
-                  <span aria-hidden="true" className="mx-1.5 text-muted-foreground">
-                    -
-                  </span>
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-muted-foreground"
+                  />
                 )}
-                <span className={cn(isCurrent && "font-semibold text-foreground")}>
+                <span
+                  className={cn(
+                    "truncate text-sm sm:text-base",
+                    isCurrent
+                      ? "font-semibold text-foreground"
+                      : "text-muted-foreground",
+                  )}
+                >
                   {part}
                 </span>
-              </span>
+              </Fragment>
             );
           })}
-        </p>
+        </nav>
       </div>
 
       {/* 우측: 기존 로그아웃·사용자 정보·자동 로그아웃 카운트다운(구조/동작 무변경).

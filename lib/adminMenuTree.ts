@@ -2,7 +2,8 @@
 // (components/admin/Header.tsx)가 **동일한 한글 메뉴명**을 공유하도록 이 파일 한 곳에 모은다.
 //
 // 여기서 export 하는 MENU_INTEGRATED/MENU_ORG 는 사이드바가 그대로 렌더에 사용하고,
-// resolveAdminBreadcrumb() 는 pathname → 한글 경로("상위 메뉴 - 현재 페이지")로 변환한다.
+// resolveAdminBreadcrumb() 는 pathname → 한글 경로 배열(string[])로 변환한다. 표시 구분자(">")는
+// SoT 가 아니라 헤더 렌더러(components/admin/Header.tsx)에서 항목 사이에 넣는다.
 // 헤더 경로 표시는 org/mode(?org·mode=test·actAsTestUserId·demoUserId) 쿼리와 무관하게
 // pathname 만으로 결정된다 — 같은 pathname 은 언제나 같은 한글 경로.
 
