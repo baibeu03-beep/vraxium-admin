@@ -1174,6 +1174,20 @@ type HeaderExtras = {
   isOnboarding: boolean;
 };
 
+// section1-header 보강 3필드(generation / managedTeamName / isOnboarding)의 SoT 는
+//   과거 스키마 `user_team_parts`(generation·joined_at·left_at·managed_team_id) 와
+//   `user_profiles.onboarding_week_id` 였다. 두 스키마는 현재 운영 DB 에서 제거됐고
+//   대체 SoT 도 없다(cluster4_team_halves/cluster4_team_parts 는 팀·파트 카탈로그로,
+//   사용자 기수/온보딩 주차/관리팀 윈도를 담지 않는다 — 동명 우연·무관 테이블).
+//   따라서 이 3필드는 스키마 제거 시점부터 이미 항상 null/false 였다(조회는 error→catch→
+//   fallback). 죽은 조회를 매 recompute 마다 실행해 로그만 남기던 것을 제거하고, 동일한
+//   최종값(null/false)을 상수로 고정한다. DTO shape 은 그대로 유지(프론트 카드 계약 불변).
+const LEGACY_HEADER_EXTRAS: HeaderExtras = {
+  generation: null,
+  managedTeamName: null,
+  isOnboarding: false,
+};
+
 function toWeeklyCardDto(
   card: WeeklyCardDto,
   lines: Cluster4LineDetailDto[],
@@ -2411,117 +2425,11 @@ async function fetchLineDetailsByWeek(
   return result;
 }
 
-// ── section1-header 보강용 사용자 단위 스냅샷 ──
-// user_team_parts 의 (joined_at, left_at) 윈도 안에 카드의 week_start_date 가 들어가는 row 1건을
-// 선택하고, 같은 row 의 generation + (managed_team_id → teams.name) 을 카드별로 노출한다.
-// onboardingWeekId 는 user_profiles.onboarding_week_id 그대로 — 카드별 weekId 비교 1회.
-type UserTeamPartRow = {
-  generation: number | null;
-  joined_at: string;
-  left_at: string | null;
-  managed_team_id: string | null;
-};
-
-type HeaderExtrasSnapshot = {
-  teamParts: UserTeamPartRow[];
-  managedTeamNameById: Map<string, string>;
-  onboardingWeekId: string | null;
-};
-
-async function fetchHeaderExtrasSnapshot(
-  profileUserId: string,
-): Promise<HeaderExtrasSnapshot> {
-  // 카드 보강용 보조 데이터 — 실패해도 weekly-cards 본 흐름을 깨뜨리지 않는다 (null/empty 폴백).
-  const [teamPartsRes, profileRes] = await Promise.all([
-    supabaseAdmin
-      .from("user_team_parts")
-      .select("generation,joined_at,left_at,managed_team_id")
-      .eq("user_id", profileUserId),
-    supabaseAdmin
-      .from("user_profiles")
-      .select("onboarding_week_id")
-      .eq("user_id", profileUserId)
-      .maybeSingle(),
-  ]);
-
-  if (teamPartsRes.error) {
-    console.warn("[cluster4/weekly-cards] user_team_parts lookup failed", {
-      message: teamPartsRes.error.message,
-    });
-  }
-  if (profileRes.error) {
-    console.warn("[cluster4/weekly-cards] user_profiles lookup failed", {
-      message: profileRes.error.message,
-    });
-  }
-
-  const teamParts = ((teamPartsRes.data ?? []) as UserTeamPartRow[]).filter(
-    (row) => Boolean(row.joined_at),
-  );
-
-  const managedTeamIds = Array.from(
-    new Set(
-      teamParts
-        .map((row) => row.managed_team_id)
-        .filter((id): id is string => Boolean(id)),
-    ),
-  );
-  const managedTeamNameById = new Map<string, string>();
-  if (managedTeamIds.length > 0) {
-    const { data: teamsData, error: teamsError } = await supabaseAdmin
-      .from("teams")
-      .select("id,name")
-      .in("id", managedTeamIds);
-    if (teamsError) {
-      console.warn("[cluster4/weekly-cards] teams lookup failed", {
-        message: teamsError.message,
-      });
-    } else if (teamsData) {
-      for (const row of teamsData as { id: string; name: string | null }[]) {
-        if (row.id && row.name) managedTeamNameById.set(row.id, row.name);
-      }
-    }
-  }
-
-  const onboardingWeekId =
-    (profileRes.data as { onboarding_week_id: string | null } | null)
-      ?.onboarding_week_id ?? null;
-
-  return { teamParts, managedTeamNameById, onboardingWeekId };
-}
-
-function resolveHeaderExtras(
-  card: WeeklyCardDto,
-  snapshot: HeaderExtrasSnapshot,
-): HeaderExtras {
-  // joined_at <= weekStart 이고 (left_at IS NULL OR left_at > weekStart) 인 row.
-  // 프론트(Cluster4CardContent.tsx) 의 윈도 매칭 규칙과 동일.
-  const weekStart = card.startDate;
-  const matched = weekStart
-    ? snapshot.teamParts.find((row) => {
-        if (!row.joined_at) return false;
-        if (row.joined_at > weekStart) return false;
-        if (row.left_at && row.left_at <= weekStart) return false;
-        return true;
-      }) ?? null
-    : null;
-
-  const managedTeamName = matched?.managed_team_id
-    ? snapshot.managedTeamNameById.get(matched.managed_team_id) ?? null
-    : null;
-
-  const isOnboarding = Boolean(
-    snapshot.onboardingWeekId &&
-      card.weekId &&
-      snapshot.onboardingWeekId === card.weekId,
-  );
-
-  return {
-    generation: matched?.generation ?? null,
-    managedTeamName,
-    isOnboarding,
-  };
-}
+// (레거시 조회 제거) section1-header 보강 3필드는 이제 LEGACY_HEADER_EXTRAS 상수로 고정한다.
+//   과거 fetchHeaderExtrasSnapshot/resolveHeaderExtras 는 운영 DB 에서 제거된 스키마
+//   (public.user_team_parts / user_profiles.onboarding_week_id) 를 매 recompute(snapshot
+//   baking) 마다 조회했고, 두 조회는 항상 error→catch→null/false 폴백으로만 끝나 순수
+//   로그 노이즈였다. 조회를 삭제한다 — 근거·대체 SoT 부재는 LEGACY_HEADER_EXTRAS 주석 참고.
 
 // 주차 분류(라인 렌더 입력) — 단일 출처.
 //   카드 경로(getCluster4WeeklyCardsFor*)와 성장 통일 경로(getUnifiedWeeklyGrowth)가 동일한
@@ -2582,16 +2490,15 @@ export async function getCluster4WeeklyCardsForAuthUser(
   // 관리(5) 슬롯 게이트: membership_level 심화/운영진만 개방 — 잠금 사용자는 분모 제외(해당 없음).
   const managementSlotOpen = await fetchManagementSlotOpen(profileUserId);
   const tLinesStart = Date.now();
-  const [lineMap, headerSnapshot, peopleMap, actLogsByWeek] = await Promise.all([
+  const [lineMap, peopleMap, actLogsByWeek] = await Promise.all([
     fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds, legacyWeekIds),
-    fetchHeaderExtrasSnapshot(profileUserId),
     // 위클리 평판/연계동료 + 인적사항 (주차별). 실패해도 빈 맵 폴백 → 카드 보호.
     fetchWeeklyPeopleByWeek(profileUserId, weekIds),
     // Detail Log 액트 내역(적립 원장 → startDate 버킷). 실패 시 빈 맵(카드 보호). (append-only, v30)
     loadActLogsByStartDate(profileUserId),
   ]);
   console.log(
-    "[weekly-cards][timing] lineDetails+headerExtras",
+    "[weekly-cards][timing] lineDetails",
     `${Date.now() - tLinesStart}ms`,
     `| weeks=${weekIds.length}`,
   );
@@ -2611,7 +2518,7 @@ export async function getCluster4WeeklyCardsForAuthUser(
       ...toWeeklyCardDto(
         card,
         lines,
-        resolveHeaderExtras(card, headerSnapshot),
+        LEGACY_HEADER_EXTRAS,
         people,
       ),
       actLogs,
@@ -2745,16 +2652,15 @@ export async function getCluster4WeeklyCardsForProfileUser(
   // 관리(5) 슬롯 게이트: membership_level 심화/운영진만 개방 — 잠금 사용자는 분모 제외(해당 없음).
   const managementSlotOpen = await fetchManagementSlotOpen(profileUserId);
   const tLinesStart = Date.now();
-  const [lineMap, headerSnapshot, peopleMap, actLogsByWeek] = await Promise.all([
+  const [lineMap, peopleMap, actLogsByWeek] = await Promise.all([
     fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds, legacyWeekIds),
-    fetchHeaderExtrasSnapshot(profileUserId),
     // 위클리 평판/연계동료 + 인적사항 (주차별). 실패해도 빈 맵 폴백 → 카드 보호.
     fetchWeeklyPeopleByWeek(profileUserId, weekIds),
     // Detail Log 액트 내역(적립 원장 → startDate 버킷). 실패 시 빈 맵(카드 보호). (append-only, v30)
     loadActLogsByStartDate(profileUserId),
   ]);
   console.log(
-    "[weekly-cards][timing] lineDetails+headerExtras",
+    "[weekly-cards][timing] lineDetails",
     `${Date.now() - tLinesStart}ms`,
     `| weeks=${weekIds.length}`,
   );
@@ -2774,7 +2680,7 @@ export async function getCluster4WeeklyCardsForProfileUser(
       ...toWeeklyCardDto(
         card,
         lines,
-        resolveHeaderExtras(card, headerSnapshot),
+        LEGACY_HEADER_EXTRAS,
         people,
       ),
       actLogs,
