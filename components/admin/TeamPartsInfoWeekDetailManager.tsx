@@ -255,7 +255,8 @@ function ActSummaryRow({
   withHelp = false,
   titleHelpKey,
 }: {
-  title: string;
+  // title 미전달(undefined) 시 제목 span 자체를 렌더하지 않는다(요약 지표/카드는 그대로 유지).
+  title?: string;
   s: ActCheckSummary;
   level?: SummaryLevel;
   withHelp?: boolean;
@@ -272,10 +273,12 @@ function ActSummaryRow({
   );
   return (
     <div className={"flex flex-wrap items-center gap-x-4 gap-y-1 text-sm " + st.box}>
-      <span className={"inline-flex items-center gap-1.5 " + st.title}>
-        {title}
-        {withHelp && titleHelpKey ? <AdminHelpIconButton helpKey={titleHelpKey} title={title} size="sm" onDark={onDark} /> : null}
-      </span>
+      {title ? (
+        <span className={"inline-flex items-center gap-1.5 " + st.title}>
+          {title}
+          {withHelp && titleHelpKey ? <AdminHelpIconButton helpKey={titleHelpKey} title={title} size="sm" onDark={onDark} /> : null}
+        </span>
+      ) : null}
       {item("전체", s.totalActs, `${HELP}.summary.total`)}
       {item("가동", s.activeActs, `${HELP}.summary.operating`)}
       {item("체크", s.checkedActs, `${HELP}.summary.checked`)}
@@ -1966,7 +1969,7 @@ export default function TeamPartsInfoWeekDetailManager({
                   ) : lineError ? (
                     <p className="py-6 text-center text-sm text-red-700">{lineError}</p>
                   ) : lineData ? (
-                    <div className="space-y-5" data-line-opening-panel>
+                    <div className="space-y-10" data-line-opening-panel>
                       {/* [0] 주차 전체 요약 — 최상위(지표/제목 돋보기는 여기 한 번만) */}
                       <LineSummaryRow
                         title="# 주차 전체 라인칸 개설 관리"
@@ -1990,7 +1993,7 @@ export default function TeamPartsInfoWeekDetailManager({
                 ) : actError ? (
                   <p className="py-6 text-center text-sm text-red-700">{actError}</p>
                 ) : actData ? (
-                  <div className="space-y-5" data-act-check-panel>
+                  <div className="space-y-10" data-act-check-panel>
                     {/* [0] 주차 전체 요약 — 최상위(지표/제목 돋보기는 여기 한 번만) */}
                     <ActSummaryRow
                       title="# 주차 전체 액트 체크 관리"
@@ -2054,8 +2057,8 @@ export default function TeamPartsInfoWeekDetailManager({
                               </div>
                               {selected ? (
                                 <>
-                                  {/* 선택 팀 요약 — 하위 */}
-                                  <ActSummaryRow title={`[${selected.teamName}] 팀 요약`} s={selected.summary} level={3} />
+                                  {/* 선택 팀 요약 — 하위(제목 미표기: "[팀명] 팀 요약" 제거, 지표 카드만 유지) */}
+                                  <ActSummaryRow s={selected.summary} level={3} />
                                   {/* 선택 팀 라인급 × 요일 액트 */}
                                   <HubActTable
                                     lines={selected.lines}

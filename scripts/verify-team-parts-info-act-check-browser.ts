@@ -89,14 +89,22 @@ async function main() {
   const expText = await page.$eval('[data-hub-section="experience"]', (e: any) => e.textContent);
   ck("[경험] 허브 요약 제목", /허브 급 2 : \[실무 경험\]/.test(expText));
   ck("[경험] 라인급(조직 관리) 행", /조직 관리/.test(expText), { has: /조직 관리/.test(expText) });
-  // 팀 탭 전환 시 팀 요약 제목이 바뀐다.
+  // "[팀명] 팀 요약" 하위 제목은 제거됨 — 어떤 탭에서도 표시되지 않아야 한다(요약 지표 카드는 유지).
+  ck("[경험] 팀 요약 제목 제거", !/팀 요약/.test(expText), { has: /팀 요약/.test(expText) });
+  // 팀 탭 전환 시 aria-selected 가 이동한다(제목 텍스트가 아닌 탭 상태로 검증).
   if (expTabs.length >= 2) {
-    const before = await page.$eval('[data-hub-section="experience"]', (e: any) => e.textContent);
     await expTabs[1].click();
     await page.waitForTimeout(500);
-    const after = await page.$eval('[data-hub-section="experience"]', (e: any) => e.textContent);
-    ck("[경험] 팀 탭 전환 시 팀 요약 변경", before !== after);
+    const sel1 = await expTabs[1].getAttribute("aria-selected");
+    const sel0 = await expTabs[0].getAttribute("aria-selected");
+    ck("[경험] 팀 탭 전환 시 선택 상태 이동", sel1 === "true" && sel0 !== "true", { sel0, sel1 });
+    const stillNoTitle = await page.$eval('[data-hub-section="experience"]', (e: any) => e.textContent);
+    ck("[경험] 탭 전환 후에도 팀 요약 제목 없음", !/팀 요약/.test(stillNoTitle));
   }
+
+  // 허브 급 섹션 간 여백(space-y-10) 적용 확인 — 패널 공통 spacing.
+  const panelCls = await page.$eval("[data-act-check-panel]", (e: any) => e.className);
+  ck("액트 패널 space-y-10 적용", /\bspace-y-10\b/.test(panelCls), { panelCls });
 
   // ── 실무 역량 허브(실무 정보와 동일 UI) ──
   const compGroups = await page.$$('[data-hub-section="competency"] [data-day-group]');
@@ -106,6 +114,12 @@ async function main() {
   ck("[역량] 요일 헤더 전체/가동/체크/변동", ["전체", "가동", "체크", "변동"].every((k) => compText.includes(k)));
 
   await page.screenshot({ path: "claudedocs/qa-team-parts-act-check.png", fullPage: true });
+
+  // 라인 개설 관리 탭도 동일한 세로 리듬(space-y-10) 사용 — 두 탭 파리티(act 탭 검증 완료 후 전환).
+  await page.click('[data-tab="line"]');
+  await page.waitForTimeout(2500);
+  const lineCls = await page.$eval("[data-line-opening-panel]", (e: any) => e.className);
+  ck("라인 개설 패널 space-y-10 적용", /\bspace-y-10\b/.test(lineCls), { lineCls });
   await ctx.browser()?.close?.();
   console.log(failed === 0 ? "\n✅ ALL PASS" : `\n❌ ${failed} FAIL`);
   process.exit(failed ? 1 : 0);
