@@ -350,20 +350,37 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   }
 
   // 5) 변동 액트 원본 로드(org, week, scope_mode=mode) — 담당자 해석 후 카드화(7).
+  //    ⚠ origin='emergency_rest'(긴급 휴식 Po.C 지급용 내부 액트)는 액트가 아니므로 활동 관리
+  //      목록·집계(변동/전체/체크율)에서 제외한다 — 변동 액트 보드(adminProcessIrregularData)와 동일 정책.
+  //      휴식 포인트는 process_point_awards 원장(Detail Log·주간 포인트·snapshot)으로만 반영되며,
+  //      제외는 title 문자열이 아니라 origin 필드로 판정한다. origin 컬럼 미적용(42703) 환경에선
+  //      필터 없이 조회(그 땐 긴급 액트 자체가 없다).
   type IrrRow = {
     id: string; act_name: string | null; applicant_admin_id: string | null; applicant_admin_name: string | null;
     scheduled_check_at: string | null; completed_at: string | null; created_at: string | null; status: string | null;
   };
   let irr: IrrRow[] = [];
   {
-    const { data, error } = await supabaseAdmin
-      .from("process_irregular_acts")
-      .select("id,act_name,applicant_admin_id,applicant_admin_name,scheduled_check_at,completed_at,created_at,status")
-      .eq("organization_slug", organization)
-      .eq("week_id", weekId)
-      .eq("scope_mode", mode);
-    if (error) console.warn("[act-check-management] irregular acts read unavailable:", error.message);
-    else irr = (data ?? []) as IrrRow[];
+    const IRR_COLS =
+      "id,act_name,applicant_admin_id,applicant_admin_name,scheduled_check_at,completed_at,created_at,status";
+    const runIrrQuery = (cols: string) =>
+      supabaseAdmin
+        .from("process_irregular_acts")
+        .select(cols)
+        .eq("organization_slug", organization)
+        .eq("week_id", weekId)
+        .eq("scope_mode", mode);
+    let hasOrigin = true;
+    let res = await runIrrQuery(IRR_COLS + ",origin");
+    if (res.error && res.error.code === "42703") {
+      hasOrigin = false;
+      res = await runIrrQuery(IRR_COLS);
+    }
+    if (res.error) console.warn("[act-check-management] irregular acts read unavailable:", res.error.message);
+    else {
+      const rawRows = (res.data ?? []) as unknown as Array<IrrRow & { origin?: string | null }>;
+      irr = hasOrigin ? rawRows.filter((r) => r.origin !== "emergency_rest") : rawRows;
+    }
   }
   const variableCount = irr.length;
 
