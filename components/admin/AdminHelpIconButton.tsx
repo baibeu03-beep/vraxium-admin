@@ -38,6 +38,14 @@ export type AdminHelpIconButtonProps = {
   size?: HelpSize;
   /** 접근성 라벨 + 도움말 내용이 없을 때 툴팁 fallback. 기본 "이 항목 도움말". */
   label?: string;
+  /**
+   * 어두운/진한 배경(bg-emerald-600, bg-blue-600, bg-slate-700 …) 위에 놓일 때 true.
+   *   · 기본 회색(text-muted-foreground/70)은 진한 배경과 대비가 낮아 아이콘이 파묻힌다.
+   *   · true 면 흰색 계열로 렌더 + hover/focus 대비도 흰색 기준으로 전환한다.
+   *   · 색만 바뀌고 hover 배경/focus ring/모달 호출/접근성 동작은 동일하게 유지된다.
+   *   · org/mode/test 로 갈라지지 않는다 — 배경 밝기만으로 부모가 결정해 전달한다.
+   */
+  onDark?: boolean;
   /** 트리거 배치/여백 조정용. */
   className?: string;
 };
@@ -94,6 +102,7 @@ export default function AdminHelpIconButton({
   title,
   size = "xs",
   label = "이 항목 도움말",
+  onDark = false,
   className,
 }: AdminHelpIconButtonProps) {
   const [open, setOpen] = React.useState(false);
@@ -145,10 +154,20 @@ export default function AdminHelpIconButton({
           aria-label={label}
           className={cn(
             "inline-flex shrink-0 cursor-help items-center justify-center rounded-full align-middle",
-            "text-muted-foreground/70 outline-none transition-colors",
-            // hover/focus 시 "설명이 있다"는 느낌 — 배경/색 강조.
-            "hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-400",
-            "focus-visible:ring-2 focus-visible:ring-sky-500/50",
+            "outline-none transition-colors",
+            onDark
+              ? // 진한 배경: 흰색 아이콘 + 흰색 기준 hover/focus 대비(라이트/다크 무관 — 배경이 이미 진함).
+                [
+                  "text-white/90",
+                  "hover:bg-white/20 hover:text-white",
+                  "focus-visible:ring-2 focus-visible:ring-white/70",
+                ]
+              : // 밝은 배경: 기존 회색 아이콘 + sky 강조(라이트/다크 대응) — 변경 없음.
+                [
+                  "text-muted-foreground/70",
+                  "hover:bg-sky-500/10 hover:text-sky-600 dark:hover:text-sky-400",
+                  "focus-visible:ring-2 focus-visible:ring-sky-500/50",
+                ],
             TRIGGER_SIZE[size],
             className,
           )}

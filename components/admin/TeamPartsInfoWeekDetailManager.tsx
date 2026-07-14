@@ -262,17 +262,19 @@ function ActSummaryRow({
   titleHelpKey?: string;
 }) {
   const st = SUMMARY_STYLE[level];
+  // level 1 = 진한 emerald 배경(SUMMARY_STYLE[1].box) → 돋보기 흰색. 2·3은 밝은 배경 → 기존 색.
+  const onDark = level === 1;
   const item = (label: string, value: number | string, helpKey?: string) => (
     <span className={"inline-flex items-center gap-1 whitespace-nowrap " + st.label}>
       <span>· {label} <strong className={st.num}>{value}</strong></span>
-      {withHelp && helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} /> : null}
+      {withHelp && helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} onDark={onDark} /> : null}
     </span>
   );
   return (
     <div className={"flex flex-wrap items-center gap-x-4 gap-y-1 text-sm " + st.box}>
       <span className={"inline-flex items-center gap-1.5 " + st.title}>
         {title}
-        {withHelp && titleHelpKey ? <AdminHelpIconButton helpKey={titleHelpKey} title={title} size="sm" /> : null}
+        {withHelp && titleHelpKey ? <AdminHelpIconButton helpKey={titleHelpKey} title={title} size="sm" onDark={onDark} /> : null}
       </span>
       {item("전체", s.totalActs, `${HELP}.summary.total`)}
       {item("가동", s.activeActs, `${HELP}.summary.operating`)}
@@ -299,17 +301,19 @@ function LineSummaryRow({
   titleHelpKey?: string;
 }) {
   const st = SUMMARY_STYLE[level];
+  // level 1 = 진한 emerald 배경(SUMMARY_STYLE[1].box) → 돋보기 흰색. 2·3은 밝은 배경 → 기존 색.
+  const onDark = level === 1;
   const item = (label: string, value: number | string, helpKey?: string) => (
     <span className={"inline-flex items-center gap-1 whitespace-nowrap " + st.label}>
       <span>· {label} <strong className={st.num}>{value}</strong></span>
-      {withHelp && helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} /> : null}
+      {withHelp && helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} onDark={onDark} /> : null}
     </span>
   );
   return (
     <div className={"flex flex-wrap items-center gap-x-4 gap-y-1 text-sm " + st.box}>
       <span className={"inline-flex items-center gap-1.5 " + st.title}>
         {title}
-        {withHelp && titleHelpKey ? <AdminHelpIconButton helpKey={titleHelpKey} title={title} size="sm" /> : null}
+        {withHelp && titleHelpKey ? <AdminHelpIconButton helpKey={titleHelpKey} title={title} size="sm" onDark={onDark} /> : null}
       </span>
       {item("전체", s.totalLines, `${HELP}.lineSummary.total`)}
       {item("오픈", s.openLines, `${HELP}.lineSummary.open`)}
