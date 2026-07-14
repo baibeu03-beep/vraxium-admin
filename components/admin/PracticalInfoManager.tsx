@@ -708,6 +708,9 @@ export default function PracticalInfoManager() {
   // 탭 dot 계산용 — 선택 주차(selectedWeekId)의 모든 활동 유형 라인. activeTypeId 와
   // 무관하게 주차 전체를 받아 (weekId + activityTypeId) 조합으로 dot 을 산정한다.
   const [weekLines, setWeekLines] = useState<Cluster4InfoLineDetail[]>([]);
+  // 라인 개설 탭(tab=open) — 개설 대상 주차 기준 활동유형별 "오픈(개설 대상)" 여부 맵.
+  //   판정 = 서버 isInfoLineOpenForWeek(개설 저장 API·개설 폼과 동일 SoT). false = 미오픈(탭 배지·어둠).
+  const [openByActivityType, setOpenByActivityType] = useState<Record<string, boolean>>({});
 
   const [loading, setLoading] = useState(true);
   // 전역 로딩 배너 보고 — 최초 로딩 + 라인 재조회(필터 변경).
@@ -769,6 +772,41 @@ export default function PracticalInfoManager() {
     () => orderedTypes.find((t) => t.id === activeTypeId) ?? null,
     [orderedTypes, activeTypeId],
   );
+
+  // 개설 대상 주차(isOpenTarget, 금요일 경계) — 라인 개설 탭 활동유형별 오픈 여부 판정 기준 주차.
+  const openableWeekId = useMemo(
+    () => weekOptions.find((o) => o.isOpenTarget)?.id ?? null,
+    [weekOptions],
+  );
+
+  // 라인 개설 탭 진입 시 — 개설 대상 주차 기준 활동유형별 오픈(개설 대상) 맵 조회(미오픈 탭 배지/어둠용).
+  //   서버 isInfoLineOpenForWeek 단일 SoT. org/mode 로 판정 분기 없음(mode 는 전달만, 결과 불변).
+  useEffect(() => {
+    // 라인 개설 탭 + 개설 대상 주차가 있을 때만 조회. 그 외에는 갱신하지 않는다(탭 미표시 = 무해).
+    if (mainTab !== "open" || !openableWeekId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const org = readOrgParam(new URLSearchParams(window.location.search));
+        const qs = new URLSearchParams({ week_id: openableWeekId });
+        if (org) qs.set("organization", org);
+        const res = await fetch(
+          appendModeQuery(
+            `/api/admin/cluster4/info-line-open-status?${qs.toString()}`,
+            readScopeMode(new URLSearchParams(window.location.search)),
+          ),
+        );
+        const json = await res.json();
+        if (cancelled) return;
+        setOpenByActivityType(json?.success ? (json.data?.openByActivityType ?? {}) : {});
+      } catch {
+        if (!cancelled) setOpenByActivityType({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mainTab, openableWeekId]);
 
   // ── 탭 dot 산정 — (weekId + activityTypeId) 조합 ──
   // dot 은 activityTypeId 단독이 아니라 "선택 주차에 그 활동 유형의 활성 라인이 있는지"로
@@ -1716,21 +1754,36 @@ export default function PracticalInfoManager() {
         <div className="space-y-6">
           {/* 활동 유형 탭 (라인 개설 탭 — 섹션0 대상 활동유형 선택, activeTypeId 공유) */}
           <div className="flex flex-wrap items-center gap-2 border-b pb-px">
-            {orderedTypes.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => switchTab(t.id)}
-                className={cn(
-                  "relative -mb-px rounded-t-md border border-b-0 px-4 py-2 text-sm font-medium transition-colors",
-                  activeTypeId === t.id
-                    ? "border-input bg-background text-foreground"
-                    : "border-transparent bg-muted/40 text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {t.name}
-              </button>
-            ))}
+            {orderedTypes.map((t) => {
+              // 미오픈 = 이번 주 개설 대상 아님. 탭은 목록에 남기되(숨기지 않음) 배지+어둡게 처리.
+              //   클릭은 허용(선택 가능) — 선택 시 개설 폼이 차단 화면을 표시한다.
+              const notOpen = openByActivityType[t.id] === false;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => switchTab(t.id)}
+                  title={notOpen ? "이번 주 개설 대상이 아닙니다(미오픈)" : undefined}
+                  className={cn(
+                    "relative -mb-px inline-flex items-center gap-1.5 rounded-t-md border border-b-0 px-4 py-2 text-sm font-medium transition-colors",
+                    activeTypeId === t.id
+                      ? notOpen
+                        ? "border-zinc-400 bg-zinc-200 text-zinc-700 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200"
+                        : "border-input bg-background text-foreground"
+                      : notOpen
+                        ? "border-transparent bg-zinc-200/70 text-zinc-500 hover:text-zinc-600 dark:bg-zinc-800/70 dark:text-zinc-500"
+                        : "border-transparent bg-muted/40 text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {t.name}
+                  {notOpen && (
+                    <span className="rounded-full border border-zinc-400 bg-zinc-100 px-1.5 py-0.5 text-2xs font-semibold text-zinc-600 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">
+                      미오픈
+                    </span>
+                  )}
+                </button>
+              );
+            })}
             <AdminHelpIconButton
               helpKey="admin.lineOpening.info.section.activityTypes"
               title="활동 유형 탭"

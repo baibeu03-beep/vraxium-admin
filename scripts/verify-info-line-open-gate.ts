@@ -146,6 +146,19 @@ async function main() {
   ck("GET isOpenThisWeek: encre wisdom(체크) = true", (await getOpen(CFG_ORG, CFG_WEEK, "wisdom")) === true);
   ck("GET isOpenThisWeek: encre essay(미체크) = false", (await getOpen(CFG_ORG, CFG_WEEK, "essay")) === false);
 
+  // ── 6) info-line-open-status(라인 개설 탭 활동유형별 오픈맵) — 운영/테스트 동일 ─────────────
+  const openStatus = async (org: string, week: string, mode: string) => {
+    const r = await fetch(`${BASE}/api/admin/cluster4/info-line-open-status?week_id=${week}&organization=${org}&mode=${mode}`, { headers: { cookie }, cache: "no-store" });
+    return ((await r.json().catch(() => ({}))) as any)?.data?.openByActivityType ?? {};
+  };
+  const osOp = await openStatus(CFG_ORG, CFG_WEEK, "operating");
+  const osTe = await openStatus(CFG_ORG, CFG_WEEK, "test");
+  ck("open-status: encre essay=false·wisdom=true", osOp.essay === false && osOp.wisdom === true, { essay: osOp.essay, wisdom: osOp.wisdom });
+  ck("open-status: 운영/테스트 맵 동일", JSON.stringify(osOp) === JSON.stringify(osTe));
+  const osOranke = await openStatus("oranke", CFG_WEEK, "operating");
+  const ov = Object.values(osOranke);
+  ck("open-status: oranke(설정없음) 전 활동유형 미오픈", ov.length > 0 && ov.every((v) => v === false), { n: ov.length });
+
   console.log(failed === 0 ? "\n✅ ALL PASS" : `\n❌ ${failed} FAILED`);
   process.exit(failed === 0 ? 0 : 1);
 }

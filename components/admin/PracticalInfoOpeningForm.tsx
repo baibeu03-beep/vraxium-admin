@@ -586,6 +586,27 @@ export default function PracticalInfoOpeningForm({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
+        {openThisWeek === false ? (
+          // 미오픈 라인 — 이번 주 개설 대상이 아님. 폼 본문 대신 차단 패널(어둡게)만 표시(개설 불가).
+          //   판정 = 서버 isInfoLineOpenForWeek(개설 저장 API 와 동일). URL 직접 선택도 동일 차단.
+          <div className="rounded-md border border-zinc-300 bg-zinc-100 p-8 text-center dark:border-zinc-700 dark:bg-zinc-800/60">
+            <span className="mb-3 inline-flex items-center rounded-full border border-zinc-400 bg-zinc-200 px-2.5 py-0.5 text-sm font-semibold text-zinc-700 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200">
+              미오픈
+            </span>
+            <p className="text-sm font-medium text-foreground">
+              이 라인은 이번 주에 개설 대상이 아닙니다.
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              활동 관리에서 오픈 설정(오픈 확인)된 라인만 개설할 수 있습니다.
+            </p>
+            <div className="mt-5">
+              <Button type="button" disabled title="이번 주에 오픈되지 않은 라인입니다.">
+                개설
+              </Button>
+            </div>
+          </div>
+        ) : (
+        <>
         {banner && (
           <div
             className={cn(
@@ -884,6 +905,8 @@ export default function PracticalInfoOpeningForm({
           onMetaChange={setCafeMeta}
           disabled={saving}
         />
+        </>
+        )}
       </CardContent>
 
       {/* 이미지 확대 모달 */}
