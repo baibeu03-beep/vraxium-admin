@@ -260,6 +260,9 @@ export default function PracticalInfoOpeningForm({
   const [confirmCancel, setConfirmCancel] = useState(false);
   // 현재 (선택 주차 + 선택 라인) 에 이미 개설된 활성 라인 — [개설 취소] 대상.
   const [openedLine, setOpenedLine] = useState<{ id: string; mainTitle: string } | null>(null);
+  // 이번 주 (선택 주차+라인) 오픈(개설 대상) 여부 — info-lines GET(isOpenThisWeek). false=미오픈(개설 차단).
+  //   null = 미상(통합/미조회) → 게이트 미적용(개설 서버 강제로 최종 차단).
+  const [openThisWeek, setOpenThisWeek] = useState<boolean | null>(null);
   // 개설/취소 후 openedLine 재조회 트리거.
   const [refreshTick, setRefreshTick] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -331,7 +334,10 @@ export default function PracticalInfoOpeningForm({
     let cancelled = false;
     const t = setTimeout(async () => {
       if (!effectiveWeekId || !lineId) {
-        if (!cancelled) setOpenedLine(null);
+        if (!cancelled) {
+          setOpenedLine(null);
+          setOpenThisWeek(null);
+        }
         return;
       }
       try {
@@ -354,8 +360,17 @@ export default function PracticalInfoOpeningForm({
           ? (json.data?.rows ?? []).find((r: { isActive: boolean }) => r.isActive)
           : null;
         setOpenedLine(row ? { id: row.id, mainTitle: row.mainTitle } : null);
+        // 이번 주 오픈(개설 대상) 여부 — 서버(weekOpenGate) 판정. boolean 이 아니면 미상(null).
+        setOpenThisWeek(
+          json?.success && typeof json.data?.isOpenThisWeek === "boolean"
+            ? json.data.isOpenThisWeek
+            : null,
+        );
       } catch {
-        if (!cancelled) setOpenedLine(null);
+        if (!cancelled) {
+          setOpenedLine(null);
+          setOpenThisWeek(null);
+        }
       }
     }, 0);
     return () => {
@@ -392,6 +407,9 @@ export default function PracticalInfoOpeningForm({
     else if (!effectiveWeek.submissionOpensAt || !effectiveWeek.submissionClosesAt)
       r.push("선택한 주차의 기입 기간을 확인할 수 없습니다.");
     if (!lineId) r.push("라인명을 선택해주세요.");
+    // 미오픈 라인(오픈 설정 미포함) — 개설 차단(서버 강제와 동일 사유). null(미상)은 서버가 최종 판정.
+    if (openThisWeek === false)
+      r.push("이번 주에 오픈되지 않은 라인입니다.");
     if (lineNotAllowedForException)
       r.push("이 예외 허용 주차는 선택한 라인의 개설을 허용하지 않습니다.");
     if (!mainTitle.trim()) r.push("메인 타이틀이 필요합니다.");
@@ -412,6 +430,7 @@ export default function PracticalInfoOpeningForm({
     image,
     imageDesc,
     openedLine,
+    openThisWeek,
   ]);
 
   const canOpen = missingReasons.length === 0;

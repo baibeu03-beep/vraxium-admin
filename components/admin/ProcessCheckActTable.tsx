@@ -154,9 +154,11 @@ export default function ProcessCheckActTable({
 }) {
   // 카드 제목/설명(CardHeader) 제거 — 액트 목록(CardContent)만 렌더(공용).
   // 요약 — 현재 표시되는 acts(필터/팀/탭 적용 후) 기준 프론트 집계. DB/DTO 무변경.
-  //   체크 완료 = status==="completed" · 체크 필요 = 그 외(needed|pending) · 항목 수 = 전체 row.
-  const completedCount = acts.filter((a) => a.status === "completed").length;
-  const neededCount = acts.length - completedCount;
+  //   ⚠ 미가동(!isOpenThisWeek) 액트는 이번 주 오픈 대상이 아니므로 체크 필요/체크 완료 집계에서 제외한다.
+  //     (목록에는 계속 표시되지만 집계 대상이 아니다 — 서버 요약과 동일 기준.) 항목 수 = 전체 표시 row.
+  const openTargets = acts.filter((a) => a.isOpenThisWeek && a.isCheckTarget);
+  const completedCount = openTargets.filter((a) => a.status === "completed").length;
+  const neededCount = openTargets.length - completedCount;
   const poLabels = getProcessPointLabels(orgSlug);
 
   // 정렬 상태 — null = 서버 기본 순서(신청 시점 필요 순). 모든 허브 공통 활성.
@@ -329,13 +331,29 @@ export default function ProcessCheckActTable({
               </TableHeader>
               <TableBody>
                 {displayActs.map((a) => (
-                  <TableRow key={`${a.actId}|${a.partLabel}`}>
+                  // 미가동(!isOpenThisWeek) 행은 이번 주 오픈 대상이 아님 — 확실히 어둡게 처리(조작 차단).
+                  <TableRow
+                    key={`${a.actId}|${a.partLabel}`}
+                    className={
+                      a.isOpenThisWeek
+                        ? undefined
+                        : "bg-muted/60 text-muted-foreground [&>td]:opacity-70"
+                    }
+                  >
                     {/* 1열 신청 시점(필요) · 2열 검수 시점(필요) — 헤더와 동일 순서. */}
                     <TableCell className="whitespace-nowrap">{a.occurWhen}</TableCell>
                     <TableCell className="whitespace-nowrap">{a.checkWhen}</TableCell>
-                    {/* 3열 상태 — 클릭/읽기전용/도움말 동작 불변. */}
+                    {/* 3열 상태 — 미가동이면 '미가동' 배지(클릭 불가). 그 외는 클릭/읽기전용/도움말 동작 불변. */}
                     <TableCell className="text-center">
-                      {a.isCheckTarget ? (
+                      {!a.isOpenThisWeek ? (
+                        <StatusBadge
+                          label="미가동"
+                          tone="neutral"
+                          size="sm"
+                          className="opacity-80"
+                          title="이번 주 오픈 대상이 아닙니다(오픈 설정 미포함). 활동 관리에서 오픈된 액트만 체크할 수 있습니다."
+                        />
+                      ) : a.isCheckTarget ? (
                         readOnly ? (
                           // 팀 전체 스코프 — 읽기 전용 배지(클릭 불가).
                           <StatusBadge
@@ -360,7 +378,10 @@ export default function ProcessCheckActTable({
                     {/* 4열 '수동 실행' — 대기(pending)=⚡즉시 검수 / 완료(completed)=↩실행 취소(직전 단계 복원). */}
                     {(onAutoReview || onRollback) && (
                       <TableCell className="text-center">
-                        {!readOnly && onAutoReview && a.isCheckTarget && a.status === "pending" && a.checkStatusId ? (
+                        {/* 미가동 액트는 즉시 검수/실행 취소 등 수동 실행을 노출하지 않는다(조작 차단). */}
+                        {!a.isOpenThisWeek ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : !readOnly && onAutoReview && a.isCheckTarget && a.status === "pending" && a.checkStatusId ? (
                           // 크기/여백/높이/라운드는 '실행 취소'(ActionControl size="xs")와 동일한 공용
                           //   Button size="xs" 토큰을 재사용하고, 색만 보라 유지(INSTANT_REVIEW_BUTTON_CLASS).
                           //   loading=진행 중(스피너+자동 비활성) · disabled=다른 검수/취소 진행 중(상충 차단).

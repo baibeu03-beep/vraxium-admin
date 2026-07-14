@@ -37,6 +37,8 @@ import {
   hasActiveProcessCheckException,
 } from "@/lib/processCheckWindowsData";
 import { isUuid } from "@/lib/isUuid";
+import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
+import { isActOpenForWeek } from "@/lib/weekOpenGate";
 import { filterTeamsByScope, isTestTeam } from "@/lib/cluster4ExperienceTestScope";
 import { listTeamParts, listPartCrews, listTeamCrews } from "@/lib/adminExperiencePartInput";
 import type { ScopeMode } from "@/lib/userScopeShared";
@@ -761,6 +763,13 @@ export async function getProcessCheckBoard(
   const { groups, acts } = await loadActiveMaster(hub);
   const teamBased = isTeamBasedProcessHub(hub);
 
+  // 오픈 설정(가동 판정 SoT) — 선택 주차 × 클럽. open_confirmed=false 면 아무 액트도 가동 아님.
+  //   활동 관리·라인 관리와 동일 원천(loadWeekOpeningConfig)·동일 판정 함수(isActOpenForWeek).
+  //   mode(operating/test)로 분기하지 않는다 — 스코프 확정 후에는 동일 config 를 읽는다.
+  const { config: openConfig, openConfirmed } = effectiveWeekId
+    ? await loadWeekOpeningConfig(effectiveWeekId, organization as OrganizationSlug)
+    : { config: null, openConfirmed: false };
+
   // 팀 구분 허브면 org 팀 동적 조회(상태창1 팀별 문장 + 섹션.1 탭). 그 외는 빈 배열(허브 전체 1문장).
   const teams = teamBased ? await loadProcessCheckTeams(organization, mode) : [];
 
@@ -877,6 +886,14 @@ export async function getProcessCheckBoard(
       crewReactionLabel: PROCESS_ACT_TYPE_LABEL[a.act_type as ProcessActType] ?? a.act_type,
       cafeLabel: PROCESS_CAFE_LABEL[a.cafe as ProcessCafe] ?? a.cafe,
       isCheckTarget: a.check_target === "check",
+      // 이번 주 가동 여부 — 오픈 확인 + 소속 라인급(체크) 선택(weekOpenGate SoT). experience 는 선택 팀 기준.
+      isOpenThisWeek: isActOpenForWeek({
+        hub,
+        openConfirmed,
+        config: openConfig,
+        lineGroupId: a.line_group_id,
+        teamId,
+      }),
       checkStatusId: st.statusRowId,
       status: st.status,
       completionType: st.completionType,
@@ -924,10 +941,12 @@ export async function getProcessCheckBoard(
   }
 
   // 라인급 칩 — 체크 대상 ≥1 라인급. 신청완료 = pending|completed.
+  //   ⚠ 미가동(!isOpenThisWeek) 액트는 이번 주 오픈 대상이 아니므로 라인급 칩·요약 집계에서 제외한다.
+  //     (전 산하 액트가 미가동인 라인급은 칩에 나타나지 않는다 — "체크 필요/집계 제외" 요구.)
   const applied = (s: ProcessCheckStatus) => s === "pending" || s === "completed";
   const lineGroups: ProcessCheckLineGroupDto[] = [];
   for (const g of groups) {
-    const targets = flatActs.filter((x) => x.lineGroupId === g.id && x.isCheckTarget);
+    const targets = flatActs.filter((x) => x.lineGroupId === g.id && x.isCheckTarget && x.isOpenThisWeek);
     if (targets.length === 0) continue;
     const appliedCount = targets.filter((x) => applied(x.status)).length;
     lineGroups.push({
@@ -940,7 +959,8 @@ export async function getProcessCheckBoard(
     });
   }
 
-  const targetActs = flatActs.filter((x) => x.isCheckTarget);
+  // 요약 집계 대상 = 체크 대상 ∩ 이번 주 가동 액트(미가동 제외).
+  const targetActs = flatActs.filter((x) => x.isCheckTarget && x.isOpenThisWeek);
   const actTotal = targetActs.length;
   const actApplied = targetActs.filter((x) => applied(x.status)).length;
   const actCompleted = targetActs.filter((x) => x.status === "completed").length;
@@ -1129,6 +1149,28 @@ export async function applyProcessCheckAction(input: {
     .eq("id", act.line_group_id)
     .maybeSingle();
   const lineGroupName = (groupData as { name: string } | null)?.name ?? "-";
+
+  // 이번 주 가동 여부(오픈 설정 SoT) — 활동 관리·보드와 동일 판정 함수(isActOpenForWeek). 미가동 액트는
+  //   체크 신청 불가(서버 강제 — 프론트 숨김에 의존하지 않는다). mode 로 분기하지 않는다.
+  //   ⚠ cancel(대기 해제)은 미가동이어도 허용한다 — 오픈 설정이 도중에 바뀌어 남은 '체크 대기'를
+  //     정리(미체크 상태로 되돌림)할 수 있어야 잔여 대기가 고착되지 않는다(미체크로의 이동은 정합).
+  const { config: openConfig, openConfirmed } = await loadWeekOpeningConfig(
+    weekId,
+    organization as OrganizationSlug,
+  );
+  const openThisWeek = isActOpenForWeek({
+    hub,
+    openConfirmed,
+    config: openConfig,
+    lineGroupId: act.line_group_id,
+    teamId,
+  });
+  if (action === "request" && !openThisWeek) {
+    throw new ProcessMasterError(
+      409,
+      "이번 주 미가동(오픈 설정 미포함) 액트입니다. 오픈된 액트만 체크할 수 있습니다.",
+    );
+  }
 
   // 팀·파트 스코프 검증 — 팀 구분 허브(experience)만. 프론트 숨김에 의존하지 않고 서버에서
   //   강제 POST(다른 팀/파트/org/mode 범위)를 fail-closed(422)로 차단한다.
@@ -1319,6 +1361,7 @@ export async function applyProcessCheckAction(input: {
     crewReactionLabel: PROCESS_ACT_TYPE_LABEL[act.act_type as ProcessActType] ?? act.act_type,
     cafeLabel: PROCESS_CAFE_LABEL[act.cafe as ProcessCafe] ?? act.cafe,
     isCheckTarget: true,
+    isOpenThisWeek: openThisWeek,
     status: st.status,
     completionType: null, // 신청/취소는 수동 부여가 아님
     reviewLink: st.review_link,
@@ -1730,6 +1773,25 @@ export async function applyProcessManualGrant(input: {
     .maybeSingle();
   const lineGroupName = (groupData as { name: string } | null)?.name ?? "-";
 
+  // 이번 주 가동 여부(오픈 설정 SoT) — 미가동 액트는 수동 부여 불가(서버 강제). 보드·활동 관리와 동일 판정.
+  const { config: openConfig, openConfirmed } = await loadWeekOpeningConfig(
+    weekId,
+    organization as OrganizationSlug,
+  );
+  const openThisWeek = isActOpenForWeek({
+    hub,
+    openConfirmed,
+    config: openConfig,
+    lineGroupId: act.line_group_id,
+    teamId,
+  });
+  if (!openThisWeek) {
+    throw new ProcessMasterError(
+      409,
+      "이번 주 미가동(오픈 설정 미포함) 액트입니다. 오픈된 액트만 수동 부여할 수 있습니다.",
+    );
+  }
+
   // 팀·파트 스코프(experience) — part_name 저장값 결정(applyProcessCheckAction 과 동일 가드).
   let partNameToStore: string | null = null;
   if (teamBased) {
@@ -1965,6 +2027,7 @@ export async function applyProcessManualGrant(input: {
     crewReactionLabel: PROCESS_ACT_TYPE_LABEL["selection"],
     cafeLabel: PROCESS_CAFE_LABEL[act.cafe as ProcessCafe] ?? act.cafe,
     isCheckTarget: true,
+    isOpenThisWeek: openThisWeek,
     status: "completed",
     completionType: "manual_grant",
     reviewLink: null,

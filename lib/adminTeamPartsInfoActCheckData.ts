@@ -18,6 +18,7 @@
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
+import { isActOpenForWeek } from "@/lib/weekOpenGate";
 import { listTeams } from "@/lib/adminExperienceLineData";
 import { formatClubDate, formatClubDateTime, formatClubWeekdayTime } from "@/lib/clubDate";
 import { resolveActCardState, type ActCardState } from "@/lib/actCardState";
@@ -184,6 +185,11 @@ function kstDow(iso: string | null): number | null {
   if (Number.isNaN(ms)) return null;
   return new Date(ms + 9 * 3600 * 1000).getUTCDay();
 }
+// epoch ms → KST 날짜 ISO("YYYY-MM-DD").
+function kstDateIso(ms: number | null): string | null {
+  if (ms == null || Number.isNaN(ms)) return null;
+  return new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
 // 신청됨(actual) vs 신청 시점(deadline) → ontime/late.
 function timingOf(actualIso: string | null, deadlineMs: number | null): ActCheckStatus {
   if (!actualIso) return "ontime"; // 신청됨이나 시각 정보 없음 → 정시로 간주
@@ -206,6 +212,7 @@ function buildActCardFields(o: {
   applied: boolean; // 체크 신청 기록 존재(pending|completed)
   actualIso: string | null; // 실제 신청 시점(completed_at ?? requested_at)
   nowMs: number;
+  weekStart: string | null; // 조회 중인 주차 시작일(월요일 ISO) — 필요 시점 주차 밖 판정용
 }): {
   cardState: ActCardState;
   requiredCheckedAt: string | null;
@@ -217,20 +224,31 @@ function buildActCardFields(o: {
 } {
   const timeStr = hhmm(o.checkTime);
 
-  // 필요 시점(required) — 원본 ISO·라벨·epoch ms.
+  // 필요 시점(required) — 원본 ISO·epoch ms.
   let requiredCheckedAt: string | null = null;
-  let requiredLabel: string | null = null;
   let requiredMs: number | null = null;
   if (o.scheduledCheckAt) {
     requiredCheckedAt = o.scheduledCheckAt;
-    requiredLabel = formatClubWeekdayTime(o.scheduledCheckAt);
     const ms = Date.parse(o.scheduledCheckAt);
     requiredMs = Number.isNaN(ms) ? null : ms;
   } else if (o.derivedDate) {
     const iso = timeStr ? `${o.derivedDate}T${timeStr}:00+09:00` : o.derivedDate;
     requiredCheckedAt = iso;
-    requiredLabel = formatClubWeekdayTime(iso);
     requiredMs = deadlineMsKst(o.derivedDate, o.checkTime);
+  }
+
+  // 필요 시점 칩 라벨 — 기본은 "(요일) HH:mm"(간결). 단, 필요 시점이 "조회 중인 주차 밖"이면
+  //   날짜를 숨긴 요일칩이 다른 주(예: 다음 주 토요일)를 마치 지난 요일처럼 보이게 하므로,
+  //   그 경우엔 full 날짜("YY - MM - DD (요일) HH:mm")로 표기해 오해를 없앤다. (변동 액트가
+  //   자기 주차 범위 밖 날짜로 검수 예약된 경우가 대표 케이스.)
+  const requiredDateIso = kstDateIso(requiredMs);
+  const weekEnd = o.weekStart ? addDaysIso(o.weekStart, 6) : null;
+  const outOfWeek =
+    requiredDateIso != null &&
+    (o.weekStart == null || weekEnd == null || requiredDateIso < o.weekStart || requiredDateIso > weekEnd);
+  let requiredLabel: string | null = null;
+  if (requiredCheckedAt != null) {
+    requiredLabel = outOfWeek ? formatClubDateTime(requiredCheckedAt) : formatClubWeekdayTime(requiredCheckedAt);
   }
 
   // 표시용 full 라벨(기존 scheduledLabel 의미 유지 = 필요 시점 full date-time).
@@ -278,12 +296,16 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   //    라인급(체크) SoT = process_line_groups(hub, is_active). 액트는 line_group_id 로 직접 분류(이름매칭 없음).
   //    체크 기본값 = 전체 체크(§4 통일) — actCheck 없는 과거 확정 주차는 전 라인급 체크로 간주(읽기전용 표시만).
   const { config, openConfirmed } = await loadWeekOpeningConfig(weekId, organization);
-  const actCfg = config?.actCheck ?? {};
-  const infoChecked = (lgId: string | null): boolean => (lgId != null ? actCfg.info?.[lgId] ?? true : false);
-  const clubChecked = (lgId: string | null): boolean => (lgId != null ? actCfg.club?.[lgId] ?? true : false);
-  const expChecked = (teamId: string, lgId: string | null): boolean =>
-    lgId != null ? actCfg.experience?.[teamId]?.[lgId] ?? true : false;
-  const compChecked = config?.practicalCompetency?.checked === true;
+  // 가동(오픈) 판정 = weekOpenGate.isActOpenForWeek 단일 SoT(프로세스 체크 보드·서버 강제와 동일 함수).
+  //   아래 헬퍼는 openConfirmed 를 포함한 "가동 여부"를 그대로 반환한다(callsite 에서 openConfirmed 재적용 불필요).
+  const infoOpen = (lgId: string | null): boolean =>
+    isActOpenForWeek({ hub: "info", openConfirmed, config, lineGroupId: lgId });
+  const clubOpen = (lgId: string | null): boolean =>
+    isActOpenForWeek({ hub: "club", openConfirmed, config, lineGroupId: lgId });
+  const expOpen = (teamId: string, lgId: string | null): boolean =>
+    isActOpenForWeek({ hub: "experience", openConfirmed, config, lineGroupId: lgId, teamId });
+  const compOpen = (): boolean =>
+    isActOpenForWeek({ hub: "competency", openConfirmed, config, lineGroupId: null });
 
   // 2) 라인급(체크) 카탈로그 = process_line_groups(hub, is_active). sort_order → created_at 순(register 동일).
   const loadLineGroups = async (hub: string): Promise<Array<{ id: string; name: string }>> => {
@@ -450,6 +472,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       applied: r.completed_at != null,
       actualIso: r.completed_at ?? null,
       nowMs,
+      weekStart,
     });
     variableActsByDay[key].push({
       id: r.id,
@@ -460,14 +483,13 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   }
 
   // 7) 정규 액트 → 카드 필드 계산. info/competency/club 전용(experience 는 expCardOf 별도).
-  //    가동 = openConfirmed && 라인급 체크(info=infoChecked·competency=compChecked·club=clubChecked).
+  //    가동 = isActOpenForWeek(info/competency/club). experience 는 expCardOf 별도(teamId 필요).
   const cardOf = (a: ActRow): ActCheckActDto => {
-    const isActive = openConfirmed && (
-      a.hub === "info" ? infoChecked(a.line_group_id)
-      : a.hub === "competency" ? compChecked
-      : a.hub === "club" ? clubChecked(a.line_group_id)
-      : false
-    );
+    const isActive =
+      a.hub === "info" ? infoOpen(a.line_group_id)
+      : a.hub === "competency" ? compOpen()
+      : a.hub === "club" ? clubOpen(a.line_group_id)
+      : false;
     const st = statusByAct.get(a.id) ?? null;
     const applied = st != null && (st.status === "pending" || st.status === "completed");
     // 필요 시점: 상태행 scheduled_check_at 우선, 없으면 act check 요일/시각(주차 기준 파생).
@@ -480,6 +502,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       applied,
       actualIso: st?.completed_at ?? st?.requested_at ?? null,
       nowMs,
+      weekStart,
     });
     return {
       actId: a.id,
@@ -501,7 +524,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       if (!key) continue;
       byDay[key].push(cardOf(a));
     }
-    return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: openConfirmed && infoChecked(lg.id), regularActsByDay: byDay };
+    return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: infoOpen(lg.id), regularActsByDay: byDay };
   });
 
   // 8b) 실무 경험 — 팀 × 라인급(process_line_groups hub=experience) × 요일. 가동 = openConfirmed && 팀별 라인급 체크.
@@ -519,6 +542,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       applied,
       actualIso: st?.completed_at ?? st?.requested_at ?? null,
       nowMs,
+      weekStart,
     });
     return {
       actId: a.id, actName: a.act_name, isActiveThisWeek: lineOpen, isChecked: applied,
@@ -528,7 +552,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   };
   const expTeams: ActCheckHubTeam[] = teams.map((t) => {
     const teamLines: ActCheckInfoLineDto[] = expLineGroups.map((lg) => {
-      const lineOpen = openConfirmed && expChecked(t.id, lg.id);
+      const lineOpen = expOpen(t.id, lg.id);
       const byDay = emptyByDay<ActCheckActDto>();
       for (const a of expActs) {
         if (a.line_group_id !== lg.id) continue;
@@ -539,7 +563,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       }
       return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: lineOpen, regularActsByDay: byDay };
     });
-    const active = expActs.filter((a) => a.check_target === "check" && openConfirmed && expChecked(t.id, a.line_group_id));
+    const active = expActs.filter((a) => a.check_target === "check" && expOpen(t.id, a.line_group_id));
     const activeActs = active.length;
     const checkedActs = active.filter((a) => appliedExpSet.has(`${a.id}::${t.id}`)).length;
     return {
@@ -559,7 +583,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   });
   // 허브 요약 — distinct(팀 합 아님). 가동 = openConfirmed && 어느 팀이든 라인급 체크. 체크 = 어느 팀이든 신청됨.
   const expHubActive = expActs.filter(
-    (a) => a.check_target === "check" && openConfirmed && teams.some((t) => expChecked(t.id, a.line_group_id)),
+    (a) => a.check_target === "check" && teams.some((t) => expOpen(t.id, a.line_group_id)),
   );
   const expHubChecked = expHubActive.filter((a) => teams.some((t) => appliedExpSet.has(`${a.id}::${t.id}`)));
   const expHubSummary: ActCheckSummary = {
@@ -582,7 +606,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       if (!key) continue;
       byDay[key].push(cardOf(a));
     }
-    return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: openConfirmed && compChecked, regularActsByDay: byDay };
+    return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: compOpen(), regularActsByDay: byDay };
   });
 
   // 8d) 클럽 총괄 — process_line_groups(hub=club) 활성 전체(고정 UUID allowlist 제거·프로세스 등록 추가분 자동 노출).
@@ -596,17 +620,13 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       if (!key) continue;
       byDay[key].push(cardOf(a));
     }
-    return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: openConfirmed && clubChecked(lg.id), regularActsByDay: byDay };
+    return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: clubOpen(lg.id), regularActsByDay: byDay };
   });
 
   // 9) 집계. 가동 = check_target='check' && openConfirmed && 라인급 체크. 허브별 distinct(1회) 판정.
   const isActActive = (a: ActRow): boolean => {
-    if (!openConfirmed) return false;
-    if (a.hub === "info") return infoChecked(a.line_group_id);
-    if (a.hub === "experience") return teams.some((t) => expChecked(t.id, a.line_group_id));
-    if (a.hub === "competency") return compChecked;
-    if (a.hub === "club") return clubChecked(a.line_group_id);
-    return false;
+    if (a.hub === "experience") return teams.some((t) => expOpen(t.id, a.line_group_id));
+    return isActOpenForWeek({ hub: a.hub, openConfirmed, config, lineGroupId: a.line_group_id });
   };
   const isActChecked = (a: ActRow): boolean =>
     a.hub === "experience" ? teams.some((t) => appliedExpSet.has(`${a.id}::${t.id}`)) : appliedActIds.has(a.id);

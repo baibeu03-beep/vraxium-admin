@@ -216,6 +216,10 @@ export type ProcessCheckActRowDto = {
   crewReactionLabel: string; // 종류(= act_type 라벨: 필수/선별 …)
   cafeLabel: string; // 카페(발생/미발생)
   isCheckTarget: boolean;
+  // 이번 주 "가동" 대상인가 — 오픈 확인(open_confirmed) + 소속 라인급(체크) 선택(weekOpenGate SoT).
+  //   false = 미가동(이번 주 오픈 대상 아님) → 어둡게 표시·집계 제외·체크/수동 부여 차단(서버 강제).
+  //   오픈 설정 미대상 허브(career 등)는 항상 true(기존 동작 불변).
+  isOpenThisWeek: boolean;
   // 이 행에 대응하는 process_check_statuses.id — needed(상태 행 없음)면 null.
   //   QA "자동 검수" 버튼이 이 행만 즉시 검수할 때 대상 식별자로 쓴다.
   checkStatusId: string | null;

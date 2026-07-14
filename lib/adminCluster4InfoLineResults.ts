@@ -19,6 +19,7 @@ import { resolveCluster4LineOrgScope } from "@/lib/adminCluster4LinesData";
 import { isLineVisibleForUserOrg } from "@/lib/cluster4LineOrg";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
+import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 
 export type InfoLineResultStatus = "opened" | "needs_opening" | "not_open";
 
@@ -28,6 +29,9 @@ export type InfoLineResultDto = {
   // 개설된(opened) 라인의 cluster4_lines.id — "개설 대상 크루 수정" 진입에 사용. 미개설이면 null.
   lineId: string | null;
   status: InfoLineResultStatus;
+  // 이번 주 "오픈(개설 대상)" 여부 — 오픈 확인 + practicalInfo[activityTypeId] 체크(weekOpenGate SoT).
+  //   false = 미오픈(status='not_open') → 개설 완료 여부와 무관하게 어둡게 표시·집계 제외·개설 차단.
+  isOpenThisWeek: boolean;
   openedAt: string | null; // opened_at ?? created_at (개설 완료일 때)
   mainTitle: string | null;
   openedByName: string | null; // 개설자(관리자 display_name ?? email)
@@ -42,8 +46,11 @@ export type InfoLineResultsDto = {
   // 주차 시작/종료일(date-only ISO) — "개설 대상 크루 수정" 허용 범위 판정에 사용(클라이언트 게이트).
   weekStartDate: string | null;
   weekEndDate: string | null;
-  openLineCount: number; // 오픈 라인(임시 = 오픈 대상 라인 수 = status!=not_open). 추후 정의.
-  openedLineCount: number; // 개설 라인(실제 개설된 활성 라인 수)
+  totalLineCount: number; // 전체 라인(활동유형 9종)
+  openLineCount: number; // 오픈 라인 = 이번 주 개설 대상(status != not_open)
+  openedLineCount: number; // 개설 라인(실제 개설된 활성 라인 수 = status 'opened')
+  needsOpeningCount: number; // 개설 필요(오픈 대상이나 미개설 = status 'needs_opening')
+  notOpenCount: number; // 미오픈(이번 주 개설 대상 아님 = status 'not_open')
   lines: InfoLineResultDto[];
 };
 
@@ -101,6 +108,18 @@ export async function getInfoLineResultsForWeek(opts: {
 }): Promise<InfoLineResultsDto> {
   const { weekId, organization = null, mode } = opts;
   if (!isUuid(weekId)) throw new Error("week_id must be a UUID");
+
+  // 미오픈 판정(주차별 개설 결과 = 이력 조회 뷰) — "오픈 설정이 실제로 존재하고 확인된(open_confirmed=true)"
+  //   주차에서만 적용한다(정책 결정 2026-07-14). 오픈 설정이 없는(open_confirmed=false) 과거 주차는
+  //   기존 동작을 보존해 개설 이력/결과가 그대로 보이게 한다(과거 111주차 미오픈 뒤집힘 방지).
+  //   ⚠ 이 히스토리 보존은 "조회 뷰" 한정이다 — 실제 라인 개설(POST/폼)은 strict isInfoLineOpenForWeek 로
+  //     open_confirmed=true + practicalInfo 체크된 라인만 개설 허용한다(별도, 강제). 통합(org=null)=미적용.
+  const { config: openConfig, openConfirmed } = organization
+    ? await loadWeekOpeningConfig(weekId, organization)
+    : { config: null, openConfirmed: false };
+  const gateActive = organization != null && openConfirmed === true;
+  const lineOpenThisWeek = (activityTypeId: string): boolean =>
+    gateActive ? openConfig?.practicalInfo?.[activityTypeId] === true : true;
 
   // 조직 지정 시 라인 1건이 그 조직에 노출되는지 — resolveCluster4LineOrgScope(단일 SoT) 로 판정.
   // 후보 라인은 전부 part_type='info' 이므로 line_code 만으로 동기 판정(추가 DB 조회 없음).
@@ -276,14 +295,32 @@ export async function getInfoLineResultsForWeek(opts: {
   }
 
   // 6. 활동유형별 라인 결과 조립.
+  //    미오픈(!isOpenThisWeek) 이면 개설 완료 여부와 무관하게 status='not_open'(미오픈 우선 표시).
   const lines: InfoLineResultDto[] = typeRows.map((t) => {
+    const isOpenThisWeek = lineOpenThisWeek(t.id);
     const line = lineByActivity.get(t.id);
+    // 미오픈 — 이번 주 개설 대상이 아님. 물리 라인이 있어도 not_open 우선(개설 정보는 노출하지 않음).
+    if (!isOpenThisWeek) {
+      return {
+        activityTypeId: t.id,
+        lineName: t.name ?? t.id,
+        lineId: line?.id ?? null,
+        status: "not_open",
+        isOpenThisWeek: false,
+        openedAt: null,
+        mainTitle: null,
+        openedByName: null,
+        targetCount: null,
+        secondInputCount: null,
+      };
+    }
     if (!line) {
       return {
         activityTypeId: t.id,
         lineName: t.name ?? t.id,
         lineId: null,
         status: "needs_opening",
+        isOpenThisWeek: true,
         openedAt: null,
         mainTitle: null,
         openedByName: null,
@@ -301,6 +338,7 @@ export async function getInfoLineResultsForWeek(opts: {
       lineName: t.name ?? t.id,
       lineId: line.id,
       status: "opened",
+      isOpenThisWeek: true,
       openedAt: line.opened_at ?? line.created_at,
       mainTitle: line.main_title ?? null,
       openedByName: openerId ? nameById.get(openerId) ?? "관리자" : null,
@@ -310,7 +348,9 @@ export async function getInfoLineResultsForWeek(opts: {
   });
 
   const openedLineCount = lines.filter((l) => l.status === "opened").length;
-  // 오픈 라인(임시): 오픈 대상 라인 수 = not_open 아닌 라인. 현재 전 활동유형 오픈 대상이라 = lines.length.
+  const needsOpeningCount = lines.filter((l) => l.status === "needs_opening").length;
+  const notOpenCount = lines.filter((l) => l.status === "not_open").length;
+  // 오픈 라인 = 이번 주 개설 대상(미오픈 제외). = 개설 + 개설 필요.
   const openLineCount = lines.filter((l) => l.status !== "not_open").length;
 
   return {
@@ -319,8 +359,11 @@ export async function getInfoLineResultsForWeek(opts: {
     weekPeriod,
     weekStartDate: w.start_date,
     weekEndDate: w.end_date,
+    totalLineCount: lines.length,
     openLineCount,
     openedLineCount,
+    needsOpeningCount,
+    notOpenCount,
     lines,
   };
 }

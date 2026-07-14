@@ -56,6 +56,8 @@ import {
   readScopeMode,
   assertUserIdsInScope,
 } from "@/lib/userScope";
+import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
+import { isInfoLineOpenForWeek } from "@/lib/weekOpenGate";
 
 // GET /api/admin/cluster4/info-lines?week_id=&activity_type_id=
 // 실무 정보(part_type='info') 라인을 활동 유형 탭별/주차별로 운영하기 위한
@@ -93,7 +95,14 @@ export async function GET(request: NextRequest) {
       organization,
       mode,
     });
-    return Response.json({ success: true, data });
+    // 이번 주 "오픈(개설 대상)" 여부 — 실제 개설 게이트와 동일 판정(weekOpenGate). 개설 폼이 미오픈 라인을
+    //   차단하는 데 쓴다. week+activityType+org 가 모두 있을 때만 산정(통합/미지정=null=게이트 미적용).
+    let isOpenThisWeek: boolean | null = null;
+    if (weekId && activityTypeId && organization) {
+      const { config, openConfirmed } = await loadWeekOpeningConfig(weekId, organization);
+      isOpenThisWeek = isInfoLineOpenForWeek({ openConfirmed, config, activityTypeId });
+    }
+    return Response.json({ success: true, data: { ...data, isOpenThisWeek } });
   } catch (error) {
     if (error instanceof Cluster4LineError) {
       return Response.json(
@@ -482,6 +491,20 @@ export async function POST(request: NextRequest) {
           { status: 409 },
         );
       }
+    }
+  }
+
+  // ── 라인 개설 오픈 게이트 (강제) ─────────────────────────────────────────────
+  //   open_confirmed=true + practicalInfo[activityType] 체크된 "오픈 라인"만 개설 허용한다.
+  //   활동 관리·주차별 개설 결과·개설 폼과 동일 판정 함수(isInfoLineOpenForWeek) — 미오픈이면 409 차단.
+  //   org-scoped 개설에만 적용(통합=단일 config 없음). URL/HTTP/dev 조작으로 우회 불가(서버 강제).
+  if (scopeOrg) {
+    const { config: openCfg, openConfirmed } = await loadWeekOpeningConfig(effectiveWeekId, scopeOrg);
+    if (!isInfoLineOpenForWeek({ openConfirmed, config: openCfg, activityTypeId: input.activity_type_id })) {
+      return Response.json(
+        { success: false, error: "이번 주에 오픈되지 않은 라인입니다." },
+        { status: 409 },
+      );
     }
   }
 

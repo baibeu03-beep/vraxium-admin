@@ -54,6 +54,7 @@ type LineResult = {
   lineName: string;
   lineId: string | null;
   status: LineStatus;
+  isOpenThisWeek: boolean;
   openedAt: string | null;
   mainTitle: string | null;
   openedByName: string | null;
@@ -66,8 +67,11 @@ type Results = {
   weekPeriod: string;
   weekStartDate: string | null;
   weekEndDate: string | null;
+  totalLineCount: number;
   openLineCount: number;
   openedLineCount: number;
+  needsOpeningCount: number;
+  notOpenCount: number;
   lines: LineResult[];
 };
 
@@ -82,7 +86,8 @@ const STATUS_META: Record<
 > = {
   opened: { label: "개설 완료", cls: "border-green-300 bg-green-50 text-green-800" },
   needs_opening: { label: "개설 필요", cls: "border-amber-300 bg-amber-50 text-amber-800" },
-  not_open: { label: "오픈 없음", cls: "border-border bg-muted text-muted-foreground" },
+  // 미오픈 — 이번 주 개설 대상 아님. 배지를 확실히 어둡게(진한 중립).
+  not_open: { label: "미오픈", cls: "border-zinc-400 bg-zinc-200 text-zinc-700 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200" },
 };
 
 export default function PracticalInfoWeekResults({
@@ -263,8 +268,12 @@ export default function PracticalInfoWeekResults({
           <LoadingState active />
         ) : (
           <>
-            {/* 요약 카운트 */}
+            {/* 요약 카운트 — 전체 / 오픈(개설 대상) / 개설 / 개설 필요 / 미오픈. 미오픈은 오픈·개설필요 집계에서 제외. */}
             <div className="flex flex-wrap gap-3">
+              <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
+                <span className="text-muted-foreground">전체 라인</span>{" "}
+                <span className="font-semibold">{results?.totalLineCount ?? "-"}</span>
+              </div>
               <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
                 <span className="inline-flex items-center gap-1 text-muted-foreground">오픈 라인<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.stat.openLineCount" title="오픈 라인" /></span>{" "}
                 <span className="font-semibold">{results?.openLineCount ?? "-"}</span>
@@ -272,6 +281,14 @@ export default function PracticalInfoWeekResults({
               <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
                 <span className="inline-flex items-center gap-1 text-muted-foreground">개설 라인<AdminHelpIconButton size="xs" helpKey="admin.lineOpening.info.stat.openedLineCount" title="개설 라인" /></span>{" "}
                 <span className="font-semibold">{results?.openedLineCount ?? "-"}</span>
+              </div>
+              <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
+                <span className="text-muted-foreground">개설 필요</span>{" "}
+                <span className="font-semibold text-amber-700">{results?.needsOpeningCount ?? "-"}</span>
+              </div>
+              <div className="rounded-md border bg-muted/30 px-3 py-2 text-base">
+                <span className="text-muted-foreground">미오픈</span>{" "}
+                <span className="font-semibold text-zinc-500">{results?.notOpenCount ?? "-"}</span>
               </div>
             </div>
 
@@ -305,10 +322,15 @@ export default function PracticalInfoWeekResults({
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {results.lines.map((l) => {
                   const meta = STATUS_META[l.status];
+                  const notOpen = l.status === "not_open";
                   return (
                     <div
                       key={l.activityTypeId}
-                      className="space-y-2 rounded-md border p-3"
+                      className={cn(
+                        "space-y-2 rounded-md border p-3",
+                        // 미오픈 카드는 확실히 어둡게 처리(이번 주 개설 대상 아님).
+                        notOpen && "border-zinc-300 bg-zinc-100 opacity-80 dark:border-zinc-700 dark:bg-zinc-800/60",
+                      )}
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-base font-semibold">{l.lineName}</span>
@@ -356,7 +378,7 @@ export default function PracticalInfoWeekResults({
                         <p className="text-sm text-muted-foreground">
                           {l.status === "needs_opening"
                             ? "아직 개설되지 않았습니다."
-                            : "이번 주차 오픈 대상이 아닙니다."}
+                            : "이 라인은 이번 주에 개설 대상이 아닙니다."}
                         </p>
                       )}
                     </div>
