@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronUp, ChevronsUpDown, X } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import {
@@ -393,38 +393,69 @@ export default function ProcessIrregularManager() {
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto inline-flex items-center gap-1 text-lg font-semibold">
-          변동 액트
-          <AdminHelpIconButton helpKey={PROCESS_IRREGULAR_HELP_KEYS.pageTitle} title="변동 액트" size="sm" />
-        </h1>
-        <AdminHelp />
-        {/* 우측 상단 버튼 — [전원] [부분]. 과거 주차(조회 전용)에서는 비활성. 도움말은 버튼 바깥. */}
-        <div className="flex items-center gap-2">
-          <div className="inline-flex items-center gap-1">
-            <button
-              type="button"
-              disabled={!canAct}
-              onClick={() => setDialog("review-all")}
-              className="rounded-md border border-blue-300 bg-blue-50 px-5 py-2 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              전원
-            </button>
-            <AdminHelpIconButton helpKey={PROCESS_IRREGULAR_HELP_KEYS.buttonReviewAll} title="전원" />
+      {/* 상단 안내 섹션 — 제목 + 설명 + [전원][부분] 신청 버튼(설명 아래 배치).
+          기능(onClick·disabled·색상)·Help Key(pageTitle/buttonReviewAll/buttonPartial)는 그대로 유지. org/mode 무관. */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <CardTitle className="text-base">
+              <span className="inline-flex items-center gap-1">
+                변동 액트 가동 · 신청
+                <AdminHelpIconButton
+                  helpKey={PROCESS_IRREGULAR_HELP_KEYS.pageTitle}
+                  title="변동 액트 가동 · 신청"
+                  size="sm"
+                />
+              </span>
+            </CardTitle>
+            <AdminHelp />
           </div>
-          <div className="inline-flex items-center gap-1">
-            <button
-              type="button"
-              disabled={!canAct}
-              onClick={() => setDialog("partial-choice")}
-              className="rounded-md border border-orange-300 bg-orange-50 px-5 py-2 text-sm font-medium text-orange-800 transition-colors hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              부분
-            </button>
-            <AdminHelpIconButton helpKey={PROCESS_IRREGULAR_HELP_KEYS.buttonPartial} title="부분" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* 설명 문구 — 일반 본문 크기. "링크 신청" 표기 사용(구 "링크 검수" 표현 폐기). */}
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p>
+              <span className="font-medium text-foreground">&lt;변동 액트&gt;</span> 는
+            </p>
+            <ul className="space-y-1 pl-1">
+              <li>
+                - [<span className="font-medium text-blue-700">전원</span>] 을 대상으로 할 경우,{" "}
+                <span className="font-medium text-foreground">&lt;링크 신청&gt;</span> 으로만 신청이 가능합니다.
+              </li>
+              <li>
+                - [<span className="font-medium text-orange-700">부분</span>] 을 대상으로 할 경우,{" "}
+                <span className="font-medium text-foreground">&lt;링크 신청&gt;</span> 또는{" "}
+                <span className="font-medium text-foreground">&lt;수동 부여&gt;</span> 로 모두 신청이 가능합니다.
+              </li>
+            </ul>
           </div>
-        </div>
-      </div>
+          {/* 신청 버튼 — [전원](파랑) [부분](주황). 과거 주차(조회 전용)에서는 비활성. 도움말은 버튼 바깥. */}
+          <div className="flex items-center gap-2">
+            <div className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                disabled={!canAct}
+                onClick={() => setDialog("review-all")}
+                className="rounded-md border border-blue-300 bg-blue-50 px-5 py-2 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                전원
+              </button>
+              <AdminHelpIconButton helpKey={PROCESS_IRREGULAR_HELP_KEYS.buttonReviewAll} title="전원" />
+            </div>
+            <div className="inline-flex items-center gap-1">
+              <button
+                type="button"
+                disabled={!canAct}
+                onClick={() => setDialog("partial-choice")}
+                className="rounded-md border border-orange-300 bg-orange-50 px-5 py-2 text-sm font-medium text-orange-800 transition-colors hover:bg-orange-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                부분
+              </button>
+              <AdminHelpIconButton helpKey={PROCESS_IRREGULAR_HELP_KEYS.buttonPartial} title="부분" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {!org && (
         <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
