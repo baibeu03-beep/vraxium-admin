@@ -1119,6 +1119,47 @@ export default function TeamPartsInfoWeekDetailManager({
     return () => { cancelled = true; };
   }, [activeTab, club, mode, weekId, actRefresh]);
 
+  // [액트 체크 관리] 무음 백그라운드 새로고침 — 페이지를 열어둔 채 체크 기한이 지나면 카드가
+  //   pending(노랑) → overdue(빨강) 로 바뀌어야 한다. 카드 상태(cardState) 판정 SoT 는 서버이며
+  //   (응답당 nowMs=Date.now() 1회로 확정) 클라에서 색만 덮으면 서버/클라 시간대·시계 불일치가
+  //   생기므로, 클라는 재판정하지 않고 서버 DTO 를 주기적으로 다시 받아 렌더한다. 로딩 스피너를
+  //   띄우지 않고(표 유지) actData 만 조용히 교체하며, 무음 새로고침 실패는 기존 표를 지우지 않는다.
+  const refreshActCheckSilently = useCallback(async () => {
+    if (!club) return;
+    try {
+      const params = new URLSearchParams({ club });
+      if (mode === "test") params.set("mode", "test");
+      const res = await fetch(
+        `/api/admin/team-parts/info/weeks/${weekId}/act-check-management?${params.toString()}`,
+        { cache: "no-store" },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.success) return; // 무음: 실패 시 기존 데이터 유지(에러 배너로 덮지 않음)
+      setActData(json.data as ActCheckManagementData);
+    } catch {
+      // 무음 새로고침 실패는 무시 — 다음 주기에 재시도.
+    }
+  }, [club, mode, weekId, setActData]);
+
+  // 액트 탭이 보이는 동안 60초마다 무음 재조회 + 탭이 다시 보이면 즉시 1회 재조회.
+  //   초 단위 갱신은 불필요하나, 기한 경과 후 합리적 시간(≤60초) 내 overdue 로 전환되게 한다.
+  //   문서가 숨겨진 동안(백그라운드 탭)에는 폴링을 건너뛰어 불필요한 요청을 줄인다.
+  useEffect(() => {
+    if (activeTab !== "act" || !club) return;
+    const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      void refreshActCheckSilently();
+    }, 60_000);
+    const onVisible = () => {
+      if (typeof document !== "undefined" && !document.hidden) void refreshActCheckSilently();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [activeTab, club, refreshActCheckSilently]);
+
   // [라인 개설 관리] 탭 활성 시(또는 오픈 확인 후) line-opening-management 요약 조회.
   useEffect(() => {
     if (activeTab !== "line" || !club) return;
