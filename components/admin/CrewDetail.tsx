@@ -1,11 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, ExternalLink, NotebookPen, User, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  ArrowUpDown,
+  ExternalLink,
+  NotebookPen,
+  User,
+  X,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AdminHelp from "@/components/admin/AdminHelp";
+import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
 import EnhancementStatusEditModal from "@/components/admin/cluster4/EnhancementStatusEditModal";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -151,6 +162,158 @@ function dashPct(value: number | null | undefined): string {
 
 const WEEKLY_PAGE_SIZE = 15;
 
+// ── 요소 단위 도움말 키(org/mode/test 무관 공통) ──────────────────────────────
+//   · SoT 는 admin_page_help_contents(page_path=키, content) — 여기선 "키 문자열"만 중앙화.
+//   · 크루(회원) 정체성 항목(이름/코드/클럽)은 전 어드민 공용 레지스트리(ADMIN_SHARED_HELP_KEYS)
+//     를 재사용해 다른 페이지와 같은 도움말 레코드를 공유한다.
+//   · 상세 전용(섹션/시즌·주차 표 컬럼)은 admin.members.detail.* 로 페이지 스코프를 둔다.
+//   · 키 형식 /^admin(\.[a-zA-Z0-9]+)+$/ — 하이픈 금지, camelCase 세그먼트만.
+const DETAIL_HELP = {
+  section: {
+    personalInfo: "admin.members.detail.section.personalInfo",
+    clubAffiliation: "admin.members.detail.section.clubAffiliation",
+    clubSummary: "admin.members.detail.section.clubSummary",
+    seasonResults: "admin.members.detail.section.seasonResults",
+    weeklyResults: "admin.members.detail.section.weeklyResults",
+  },
+  // 시즌 표·주차 표가 공유하는 지표 컬럼(같은 의미=같은 도움말).
+  metric: {
+    poA: "admin.members.detail.metric.poA",
+    poB: "admin.members.detail.metric.poB",
+    poC: "admin.members.detail.metric.poC",
+    hubInfo: "admin.members.detail.metric.hubInfo",
+    hubExperience: "admin.members.detail.metric.hubExperience",
+    hubAbility: "admin.members.detail.metric.hubAbility",
+    hubCareer: "admin.members.detail.metric.hubCareer",
+    team: "admin.members.detail.metric.team",
+    part: "admin.members.detail.metric.part",
+    classLabel: "admin.members.detail.metric.classLabel",
+  },
+  // 클럽 결과(종합) 지표 칸.
+  summary: {
+    successWeeks: "admin.members.detail.summary.successWeeks",
+    scheduleReliability: "admin.members.detail.summary.scheduleReliability",
+    activityCompletion: "admin.members.detail.summary.activityCompletion",
+    infoCount: "admin.members.detail.summary.infoCount",
+    experienceCount: "admin.members.detail.summary.experienceCount",
+    abilityUnitCount: "admin.members.detail.summary.abilityUnitCount",
+    careerProjectCount: "admin.members.detail.summary.careerProjectCount",
+  },
+  // 클럽 결과(시즌) 상단 요약 6칸.
+  seasonSummary: {
+    startSeason: "admin.members.detail.seasonSummary.startSeason",
+    endSeason: "admin.members.detail.seasonSummary.endSeason",
+    currentSeason: "admin.members.detail.seasonSummary.currentSeason",
+    availableSeasons: "admin.members.detail.seasonSummary.availableSeasons",
+    successSeasons: "admin.members.detail.seasonSummary.successSeasons",
+    restSeasons: "admin.members.detail.seasonSummary.restSeasons",
+  },
+  // 클럽 결과(주차) 상단 요약 7칸.
+  weekSummary: {
+    startWeek: "admin.members.detail.weekSummary.startWeek",
+    endWeek: "admin.members.detail.weekSummary.endWeek",
+    currentWeek: "admin.members.detail.weekSummary.currentWeek",
+    availableWeeks: "admin.members.detail.weekSummary.availableWeeks",
+    successWeeks: "admin.members.detail.weekSummary.successWeeks",
+    restWeeks: "admin.members.detail.weekSummary.restWeeks",
+    failWeeks: "admin.members.detail.weekSummary.failWeeks",
+  },
+  season: {
+    name: "admin.members.detail.season.name",
+    result: "admin.members.detail.season.result",
+    membership: "admin.members.detail.season.membership",
+  },
+  week: {
+    name: "admin.members.detail.week.name",
+    growthResult: "admin.members.detail.week.growthResult",
+    cumulativeSuccess: "admin.members.detail.week.cumulativeSuccess",
+    enhancementStatus: "admin.members.detail.week.enhancementStatus",
+  },
+} as const;
+
+// ── 공통 3단계 정렬(오름 → 내림 → 기본=원본 표시 순서) ─────────────────────────
+//   다른 어드민 표(MembersList 주차별 데이터 등)와 동일한 UX·비교 규칙(빈값 최하단·ko-KR numeric).
+type SortDir = "asc" | "desc";
+
+// 숫자 비교 — null(미확정/미집계)은 방향 무관 항상 최하단.
+function cmpNum(a: number | null, b: number | null, dir: SortDir): number {
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;
+  if (b == null) return -1;
+  return dir === "asc" ? a - b : b - a;
+}
+
+// 문자 비교 — 빈값("", "-", "—")은 방향 무관 항상 최하단. ko-KR + numeric(주차/시즌명 자연 정렬).
+function cmpText(a: string, b: string, dir: SortDir): number {
+  const ae = !a || a === "-" || a === "—";
+  const be = !b || b === "-" || b === "—";
+  if (ae && be) return 0;
+  if (ae) return 1;
+  if (be) return -1;
+  const c = a.localeCompare(b, "ko-KR", { numeric: true, sensitivity: "base" });
+  return dir === "asc" ? c : -c;
+}
+
+// 정렬 가능한 <th> — 정렬 버튼 + 도움말 아이콘(형제). onSort 미지정 = 정렬 불가(라벨+도움말만).
+//   버튼 중첩(무효 HTML) 방지를 위해 정렬 버튼과 도움말 버튼을 형제로 둔다.
+function SortTh({
+  label,
+  help,
+  dir,
+  onSort,
+  align = "center",
+  className,
+}: {
+  label: string;
+  help: string;
+  dir: SortDir | null;
+  onSort?: () => void;
+  align?: "left" | "center";
+  className?: string;
+}) {
+  return (
+    <th
+      aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"}
+      className={cn(
+        "px-2 py-2 font-medium",
+        align === "left" ? "text-left" : "text-center",
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          "inline-flex items-center gap-1",
+          align === "left" ? "justify-start" : "w-full justify-center",
+        )}
+      >
+        {onSort ? (
+          <button
+            type="button"
+            onClick={onSort}
+            aria-label={`${label} 기준 정렬`}
+            className={cn(
+              "inline-flex cursor-pointer items-center gap-1 hover:text-foreground",
+              dir && "text-foreground",
+            )}
+          >
+            <span>{label}</span>
+            {dir === "asc" ? (
+              <ArrowUp className="h-3 w-3" />
+            ) : dir === "desc" ? (
+              <ArrowDown className="h-3 w-3" />
+            ) : (
+              <ArrowUpDown className="h-3 w-3 opacity-40" />
+            )}
+          </button>
+        ) : (
+          <span>{label}</span>
+        )}
+        <AdminHelpIconButton helpKey={help} title={label} />
+      </span>
+    </th>
+  );
+}
+
 export default function CrewDetail({
   userId,
   mode,
@@ -287,7 +450,10 @@ export default function CrewDetail({
           {/* 인적사항 — [사진][이름·성별·생년월일 / 거주지 / 연락처·메일 / 학교·전공·입학시기] */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">인적사항</CardTitle>
+              <CardTitle className="inline-flex items-center gap-1.5 text-base">
+                인적사항
+                <AdminHelpIconButton helpKey={DETAIL_HELP.section.personalInfo} title="인적사항" size="sm" />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex gap-5">
@@ -311,7 +477,9 @@ export default function CrewDetail({
                 </div>
                 {/* 인적 정보 — 와이어프레임 행/열 그리드(3열 기준, 좁으면 1열). */}
                 <dl className="grid min-w-0 flex-1 grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-3">
-                  <Field label="이름">{dash(detail.displayName)}</Field>
+                  <Field label="이름" helpKey={ADMIN_SHARED_HELP_KEYS.crew.name}>
+                    {dash(detail.displayName)}
+                  </Field>
                   <Field label="성별">{dash(detail.gender)}</Field>
                   <Field label="생년월일">
                     {detail.birthDate
@@ -322,7 +490,11 @@ export default function CrewDetail({
                     {dash(detail.address)}
                   </Field>
                   <Field label="연락처">{dash(detail.contactPhone)}</Field>
-                  <Field label="메일" className="sm:col-span-2">
+                  <Field
+                    label="메일"
+                    className="sm:col-span-2"
+                    helpKey="admin.members.detail.field.contactEmail"
+                  >
                     {dash(detail.contactEmail)}
                   </Field>
                   <Field label="학교">{dash(detail.schoolName)}</Field>
@@ -336,16 +508,19 @@ export default function CrewDetail({
           {/* 클럽 소속 — [크루코드·클럽명·상태 / 활동시작일·시작주차 / 활동종료일·종료주차 / 클래스·소속팀·파트] */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">클럽 소속</CardTitle>
+              <CardTitle className="inline-flex items-center gap-1.5 text-base">
+                클럽 소속
+                <AdminHelpIconButton helpKey={DETAIL_HELP.section.clubAffiliation} title="클럽 소속" size="sm" />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <dl className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-3">
-                <Field label="크루 코드" mono>
+                <Field label="크루 코드" mono helpKey={ADMIN_SHARED_HELP_KEYS.crew.code}>
                   {detail.crewCode ?? (
                     <span className="font-sans text-muted-foreground">미생성</span>
                   )}
                 </Field>
-                <Field label="클럽명">
+                <Field label="클럽명" helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization}>
                   {detail.organizationSlug
                     ? CLUB_LABEL_KO[detail.organizationSlug] ?? detail.organizationSlug
                     : "공통"}
@@ -370,28 +545,32 @@ export default function CrewDetail({
         {/* 클럽 결과(종합) — 인적사항/클럽 소속 바로 아래. 라벨/값 칸 그리드(2행×6열). */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">클럽 결과(종합)</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              클럽 결과(종합)
+              <AdminHelpIconButton helpKey={DETAIL_HELP.section.clubSummary} title="클럽 결과(종합)" size="sm" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
               {/* 1행 */}
-              <SummaryCell label="이름" value={dash(detail.displayName)} />
+              <SummaryCell label="이름" value={dash(detail.displayName)} helpKey={ADMIN_SHARED_HELP_KEYS.crew.name} />
               <SummaryCell
                 label="크루 코드"
                 value={detail.crewCode ?? "-"}
                 mono
+                helpKey={ADMIN_SHARED_HELP_KEYS.crew.code}
               />
-              <SummaryCell label="성장 성공 주차" value={dashNum(detail.clubSummary.successWeeks)} />
-              <SummaryCell label={poLabels.a} value={dashNum(detail.clubSummary.poA)} valueClassName={pointColorClass("a")} />
-              <SummaryCell label={poLabels.b} value={dashNum(detail.clubSummary.poB)} valueClassName={pointColorClass("b")} />
-              <SummaryCell label={poLabels.c} value={dashNum(detail.clubSummary.poC)} valueClassName={pointColorClass("c")} />
+              <SummaryCell label="성장 성공 주차" value={dashNum(detail.clubSummary.successWeeks)} helpKey={DETAIL_HELP.summary.successWeeks} />
+              <SummaryCell label={poLabels.a} value={dashNum(detail.clubSummary.poA)} valueClassName={pointColorClass("a")} helpKey={DETAIL_HELP.metric.poA} />
+              <SummaryCell label={poLabels.b} value={dashNum(detail.clubSummary.poB)} valueClassName={pointColorClass("b")} helpKey={DETAIL_HELP.metric.poB} />
+              <SummaryCell label={poLabels.c} value={dashNum(detail.clubSummary.poC)} valueClassName={pointColorClass("c")} helpKey={DETAIL_HELP.metric.poC} />
               {/* 2행 */}
-              <SummaryCell label="일정 신뢰도" value={dashPct(detail.clubSummary.scheduleReliability)} />
-              <SummaryCell label="활동 완료율" value={dashPct(detail.clubSummary.activityCompletion)} />
-              <SummaryCell label="실무 정보" value={dashNum(detail.clubSummary.infoCount)} />
-              <SummaryCell label="실무 경험" value={dashNum(detail.clubSummary.experienceCount)} />
-              <SummaryCell label="실무 역량" value={dashNum(detail.clubSummary.abilityUnitCount)} />
-              <SummaryCell label="실무 경력" value={dashNum(detail.clubSummary.careerProjectCount)} />
+              <SummaryCell label="일정 신뢰도" value={dashPct(detail.clubSummary.scheduleReliability)} helpKey={DETAIL_HELP.summary.scheduleReliability} />
+              <SummaryCell label="활동 완료율" value={dashPct(detail.clubSummary.activityCompletion)} helpKey={DETAIL_HELP.summary.activityCompletion} />
+              <SummaryCell label="실무 정보" value={dashNum(detail.clubSummary.infoCount)} helpKey={DETAIL_HELP.summary.infoCount} />
+              <SummaryCell label="실무 경험" value={dashNum(detail.clubSummary.experienceCount)} helpKey={DETAIL_HELP.summary.experienceCount} />
+              <SummaryCell label="실무 역량" value={dashNum(detail.clubSummary.abilityUnitCount)} helpKey={DETAIL_HELP.summary.abilityUnitCount} />
+              <SummaryCell label="실무 경력" value={dashNum(detail.clubSummary.careerProjectCount)} helpKey={DETAIL_HELP.summary.careerProjectCount} />
             </div>
           </CardContent>
         </Card>
@@ -399,17 +578,20 @@ export default function CrewDetail({
         {/* 클럽 결과(시즌) — 클럽 결과(종합) 아래. 상단부=시즌 요약(2열 그리드). */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">클럽 결과(시즌)</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              클럽 결과(시즌)
+              <AdminHelpIconButton helpKey={DETAIL_HELP.section.seasonResults} title="클럽 결과(시즌)" size="sm" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {/* 상단부: 시즌 요약 — 좌(시작/종료/현재) · 우(가능/성공/휴식). */}
             <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-              <Field label="성장 시작 시즌">{detail.seasonSummary.startSeason}</Field>
-              <Field label="성장 가능 시즌">{`${detail.seasonSummary.availableSeasons}개 시즌`}</Field>
-              <Field label="성장 종료 시즌">{detail.seasonSummary.endSeason}</Field>
-              <Field label="성장 성공 시즌">{`${detail.seasonSummary.successSeasons}개 시즌`}</Field>
-              <Field label="현재 시즌">{detail.seasonSummary.currentSeason}</Field>
-              <Field label="성장 휴식 시즌">{`${detail.seasonSummary.restSeasons}개 시즌`}</Field>
+              <Field label="성장 시작 시즌" helpKey={DETAIL_HELP.seasonSummary.startSeason}>{detail.seasonSummary.startSeason}</Field>
+              <Field label="성장 가능 시즌" helpKey={DETAIL_HELP.seasonSummary.availableSeasons}>{`${detail.seasonSummary.availableSeasons}개 시즌`}</Field>
+              <Field label="성장 종료 시즌" helpKey={DETAIL_HELP.seasonSummary.endSeason}>{detail.seasonSummary.endSeason}</Field>
+              <Field label="성장 성공 시즌" helpKey={DETAIL_HELP.seasonSummary.successSeasons}>{`${detail.seasonSummary.successSeasons}개 시즌`}</Field>
+              <Field label="현재 시즌" helpKey={DETAIL_HELP.seasonSummary.currentSeason}>{detail.seasonSummary.currentSeason}</Field>
+              <Field label="성장 휴식 시즌" helpKey={DETAIL_HELP.seasonSummary.restSeasons}>{`${detail.seasonSummary.restSeasons}개 시즌`}</Field>
             </div>
 
             {/* 하단부: 시즌별 결과 표 — 최신순(진행 중 맨 위), 페이지네이션 없음. */}
@@ -420,22 +602,25 @@ export default function CrewDetail({
         {/* 클럽 결과(주차) — 클럽 결과(시즌) 아래. 상단부=주차 요약(2열: 좌 시작/종료/현재·우 가능/성공/휴식/실패). */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">클럽 결과(주차)</CardTitle>
+            <CardTitle className="inline-flex items-center gap-1.5 text-base">
+              클럽 결과(주차)
+              <AdminHelpIconButton helpKey={DETAIL_HELP.section.weeklyResults} title="클럽 결과(주차)" size="sm" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
               {/* 좌: 시작/종료/현재 주차 */}
               <div className="flex flex-col gap-3">
-                <Field label="성장 시작 주차">{detail.weekSummary.startWeek}</Field>
-                <Field label="성장 종료 주차">{detail.weekSummary.endWeek}</Field>
-                <Field label="현재 주차">{detail.weekSummary.currentWeek}</Field>
+                <Field label="성장 시작 주차" helpKey={DETAIL_HELP.weekSummary.startWeek}>{detail.weekSummary.startWeek}</Field>
+                <Field label="성장 종료 주차" helpKey={DETAIL_HELP.weekSummary.endWeek}>{detail.weekSummary.endWeek}</Field>
+                <Field label="현재 주차" helpKey={DETAIL_HELP.weekSummary.currentWeek}>{detail.weekSummary.currentWeek}</Field>
               </div>
               {/* 우: 가능/성공/휴식/실패 주차 */}
               <div className="flex flex-col gap-3">
-                <Field label="성장 가능 주차">{`${detail.weekSummary.availableWeeks}개 주차`}</Field>
-                <Field label="성장 성공 주차">{`${detail.weekSummary.successWeeks}개 주차`}</Field>
-                <Field label="성장 휴식 주차">{`${detail.weekSummary.restWeeks}개 주차`}</Field>
-                <Field label="성장 실패 주차">{`${detail.weekSummary.failWeeks}개 주차`}</Field>
+                <Field label="성장 가능 주차" helpKey={DETAIL_HELP.weekSummary.availableWeeks}>{`${detail.weekSummary.availableWeeks}개 주차`}</Field>
+                <Field label="성장 성공 주차" helpKey={DETAIL_HELP.weekSummary.successWeeks}>{`${detail.weekSummary.successWeeks}개 주차`}</Field>
+                <Field label="성장 휴식 주차" helpKey={DETAIL_HELP.weekSummary.restWeeks}>{`${detail.weekSummary.restWeeks}개 주차`}</Field>
+                <Field label="성장 실패 주차" helpKey={DETAIL_HELP.weekSummary.failWeeks}>{`${detail.weekSummary.failWeeks}개 주차`}</Field>
               </div>
             </div>
 
@@ -474,7 +659,55 @@ export default function CrewDetail({
   );
 }
 
+// 시즌 결과 배지 업무 순서(진행 → 성공 → 휴식 → 중단). enum 라벨 가나다순 금지.
+const SEASON_RESULT_RANK: Record<CrewSeasonResultRow["seasonResultLabel"], number> = {
+  "진행 중": 0,
+  "시즌 성공": 1,
+  "시즌 휴식": 2,
+  "시즌 중단": 3,
+};
+
+type SeasonSortKey =
+  | "seasonName"
+  | "result"
+  | "poA"
+  | "poB"
+  | "poC"
+  | "info"
+  | "experience"
+  | "ability"
+  | "career";
+
+function compareSeason(
+  a: CrewSeasonResultRow,
+  b: CrewSeasonResultRow,
+  key: SeasonSortKey,
+  dir: SortDir,
+): number {
+  switch (key) {
+    case "seasonName":
+      return cmpText(a.seasonNameShort, b.seasonNameShort, dir);
+    case "result":
+      return cmpNum(SEASON_RESULT_RANK[a.seasonResultLabel], SEASON_RESULT_RANK[b.seasonResultLabel], dir);
+    case "poA":
+      return cmpNum(a.poA, b.poA, dir);
+    case "poB":
+      return cmpNum(a.poB, b.poB, dir);
+    case "poC":
+      return cmpNum(a.poC, b.poC, dir);
+    case "info":
+      return cmpNum(a.hubRates.info, b.hubRates.info, dir);
+    case "experience":
+      return cmpNum(a.hubRates.experience, b.hubRates.experience, dir);
+    case "ability":
+      return cmpNum(a.hubRates.ability, b.hubRates.ability, dir);
+    case "career":
+      return cmpNum(a.hubRates.career, b.hubRates.career, dir);
+  }
+}
+
 // 시즌별 결과 표 — 시즌명/결과/po.A·B·C(조직별 명칭)/허브 강화율 4종/소속&클래스. 페이지네이션 없음.
+//   헤더 클릭 3단계 정렬(오름 → 내림 → 기본=최신순). "소속 & 클래스"는 복합 셀이라 정렬 제외(도움말만).
 function SeasonResultsTable({
   rows,
   orgSlug,
@@ -483,6 +716,21 @@ function SeasonResultsTable({
   orgSlug: string | null;
 }) {
   const poLabels = getProcessPointLabels(orgSlug);
+  const [sort, setSort] = useState<{ key: SeasonSortKey; dir: SortDir } | null>(null);
+  const cycleSort = useCallback((key: SeasonSortKey) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  }, []);
+  // 기본(sort=null) = API 원본 순서(최신순, 진행 중 맨 위). 원본 배열 mutate 금지(복사본 정렬).
+  const sortedRows = useMemo(
+    () => (sort ? [...rows].sort((a, b) => compareSeason(a, b, sort.key, sort.dir)) : rows),
+    [rows, sort],
+  );
+  const dirOf = (key: SeasonSortKey): SortDir | null => (sort?.key === key ? sort.dir : null);
+
   if (rows.length === 0) {
     return (
       <p className="mt-4 rounded-md border bg-muted/20 px-3 py-4 text-center text-sm text-muted-foreground">
@@ -496,20 +744,20 @@ function SeasonResultsTable({
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b text-xs text-muted-foreground">
-            <th className="whitespace-nowrap px-2 py-2 text-left font-medium">시즌명</th>
-            <th className="whitespace-nowrap px-2 py-2 text-left font-medium">시즌 결과</th>
-            <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.a}</th>
-            <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.b}</th>
-            <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.c}</th>
-            <th className="whitespace-nowrap px-2 py-2 font-medium">실무 정보</th>
-            <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경험</th>
-            <th className="whitespace-nowrap px-2 py-2 font-medium">실무 역량</th>
-            <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경력</th>
-            <th className="whitespace-nowrap px-2 py-2 text-left font-medium">소속 &amp; 클래스</th>
+            <SortTh label="시즌명" help={DETAIL_HELP.season.name} align="left" dir={dirOf("seasonName")} onSort={() => cycleSort("seasonName")} className="whitespace-nowrap" />
+            <SortTh label="시즌 결과" help={DETAIL_HELP.season.result} align="left" dir={dirOf("result")} onSort={() => cycleSort("result")} className="whitespace-nowrap" />
+            <SortTh label={poLabels.a} help={DETAIL_HELP.metric.poA} dir={dirOf("poA")} onSort={() => cycleSort("poA")} className="whitespace-nowrap" />
+            <SortTh label={poLabels.b} help={DETAIL_HELP.metric.poB} dir={dirOf("poB")} onSort={() => cycleSort("poB")} className="whitespace-nowrap" />
+            <SortTh label={poLabels.c} help={DETAIL_HELP.metric.poC} dir={dirOf("poC")} onSort={() => cycleSort("poC")} className="whitespace-nowrap" />
+            <SortTh label="실무 정보" help={DETAIL_HELP.metric.hubInfo} dir={dirOf("info")} onSort={() => cycleSort("info")} className="whitespace-nowrap" />
+            <SortTh label="실무 경험" help={DETAIL_HELP.metric.hubExperience} dir={dirOf("experience")} onSort={() => cycleSort("experience")} className="whitespace-nowrap" />
+            <SortTh label="실무 역량" help={DETAIL_HELP.metric.hubAbility} dir={dirOf("ability")} onSort={() => cycleSort("ability")} className="whitespace-nowrap" />
+            <SortTh label="실무 경력" help={DETAIL_HELP.metric.hubCareer} dir={dirOf("career")} onSort={() => cycleSort("career")} className="whitespace-nowrap" />
+            <SortTh label="소속 & 클래스" help={DETAIL_HELP.season.membership} align="left" dir={null} className="whitespace-nowrap" />
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {sortedRows.map((r) => (
             <tr key={r.seasonKey} className="border-b align-top last:border-0">
               <td className="whitespace-nowrap px-2 py-2 font-medium">{r.seasonNameShort}</td>
               <td className="whitespace-nowrap px-2 py-2">
@@ -566,7 +814,59 @@ function SeasonMembershipCell({
   );
 }
 
+type WeekSortKey =
+  | "weekName"
+  | "growthResult"
+  | "cumulativeSuccess"
+  | "team"
+  | "part"
+  | "classLabel"
+  | "poA"
+  | "poB"
+  | "poC"
+  | "info"
+  | "experience"
+  | "ability"
+  | "career";
+
+function compareWeek(
+  a: CrewWeeklyResultRow,
+  b: CrewWeeklyResultRow,
+  key: WeekSortKey,
+  dir: SortDir,
+): number {
+  switch (key) {
+    case "weekName":
+      return cmpText(a.weekName, b.weekName, dir);
+    case "growthResult":
+      return cmpText(a.growthResultLabel, b.growthResultLabel, dir);
+    case "cumulativeSuccess":
+      return cmpNum(a.cumulativeSuccessWeeks, b.cumulativeSuccessWeeks, dir);
+    case "team":
+      return cmpText(a.teamName ?? "", b.teamName ?? "", dir);
+    case "part":
+      return cmpText(a.partName ?? "", b.partName ?? "", dir);
+    case "classLabel":
+      return cmpText(a.classLabel, b.classLabel, dir);
+    case "poA":
+      return cmpNum(a.points.poA, b.points.poA, dir);
+    case "poB":
+      return cmpNum(a.points.poB, b.points.poB, dir);
+    case "poC":
+      return cmpNum(a.points.poC, b.points.poC, dir);
+    case "info":
+      return cmpNum(a.hubRates.info, b.hubRates.info, dir);
+    case "experience":
+      return cmpNum(a.hubRates.experience, b.hubRates.experience, dir);
+    case "ability":
+      return cmpNum(a.hubRates.ability, b.hubRates.ability, dir);
+    case "career":
+      return cmpNum(a.hubRates.career, b.hubRates.career, dir);
+  }
+}
+
 // 주차 결과 표 — 최신→오래된 표시(맨 위=가장 최신), 15개/페이지·기본 1페이지.
+//   헤더 클릭 3단계 정렬(오름 → 내림 → 기본=최신순). "강화 상태"(수정 버튼)는 정렬 제외(도움말만).
 //   맨 오른쪽 "강화 상태" 열의 [수정] 으로 그 주차 라인 강화 상태를 수동 수정한다(모달).
 function WeeklyResultsTable({
   rows,
@@ -583,12 +883,30 @@ function WeeklyResultsTable({
   const totalPages = Math.max(1, Math.ceil(rows.length / WEEKLY_PAGE_SIZE));
   // 기본 = 1페이지(최신 주차). rows.length 변화 시 1페이지로 리셋.
   const [page, setPage] = useState(1);
+  // 헤더 클릭 정렬(오름 → 내림 → 기본=최신순). 정렬 변경 시 1페이지로.
+  const [sort, setSort] = useState<{ key: WeekSortKey; dir: SortDir } | null>(null);
+  const cycleSort = useCallback((key: WeekSortKey) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+    setPage(1);
+  }, []);
+  const dirOf = (key: WeekSortKey): SortDir | null => (sort?.key === key ? sort.dir : null);
   // 강화 상태 수정 모달 대상 주차.
   const [editWeek, setEditWeek] = useState<{ weekId: string; weekName: string } | null>(null);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [totalPages]);
+
+  // 백엔드 배열은 오래된→최신(누적 계산순). 표시 기본은 최신→오래된 — reverse.
+  //   정렬 지정 시 그 복사본을 비교기로 정렬(원본 mutate 금지). 1페이지 = 상단 15.
+  const displayRows = useMemo(() => {
+    const base = [...rows].reverse();
+    return sort ? base.sort((a, b) => compareWeek(a, b, sort.key, sort.dir)) : base;
+  }, [rows, sort]);
 
   if (rows.length === 0) {
     return (
@@ -598,9 +916,6 @@ function WeeklyResultsTable({
     );
   }
 
-  // 백엔드 배열은 오래된→최신(누적 계산순). 표시는 최신→오래된 — reverse 후 15개씩.
-  //   1페이지 = 최신 15(맨 위 = 가장 최신 주차). 진행/집계 중 주차는 최신이라 1페이지 맨 위.
-  const displayRows = [...rows].reverse();
   const safePage = Math.min(Math.max(page, 1), totalPages);
   const start = (safePage - 1) * WEEKLY_PAGE_SIZE;
   const pageRows = displayRows.slice(start, start + WEEKLY_PAGE_SIZE);
@@ -613,20 +928,20 @@ function WeeklyResultsTable({
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b text-xs text-muted-foreground">
-              <th className="whitespace-nowrap px-2 py-2 text-left font-medium">주차명</th>
-              <th className="whitespace-nowrap px-2 py-2 text-left font-medium">성장 결과</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">성장 성공 주차</th>
-              <th className="whitespace-nowrap px-2 py-2 text-left font-medium">팀</th>
-              <th className="whitespace-nowrap px-2 py-2 text-left font-medium">파트</th>
-              <th className="whitespace-nowrap px-2 py-2 text-left font-medium">클래스</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.a}</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.b}</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">{poLabels.c}</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">실무 정보</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경험</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">실무 역량</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">실무 경력</th>
-              <th className="whitespace-nowrap px-2 py-2 font-medium">강화 상태</th>
+              <SortTh label="주차명" help={DETAIL_HELP.week.name} align="left" dir={dirOf("weekName")} onSort={() => cycleSort("weekName")} className="whitespace-nowrap" />
+              <SortTh label="성장 결과" help={DETAIL_HELP.week.growthResult} align="left" dir={dirOf("growthResult")} onSort={() => cycleSort("growthResult")} className="whitespace-nowrap" />
+              <SortTh label="성장 성공 주차" help={DETAIL_HELP.week.cumulativeSuccess} dir={dirOf("cumulativeSuccess")} onSort={() => cycleSort("cumulativeSuccess")} className="whitespace-nowrap" />
+              <SortTh label="팀" help={DETAIL_HELP.metric.team} align="left" dir={dirOf("team")} onSort={() => cycleSort("team")} className="whitespace-nowrap" />
+              <SortTh label="파트" help={DETAIL_HELP.metric.part} align="left" dir={dirOf("part")} onSort={() => cycleSort("part")} className="whitespace-nowrap" />
+              <SortTh label="클래스" help={DETAIL_HELP.metric.classLabel} align="left" dir={dirOf("classLabel")} onSort={() => cycleSort("classLabel")} className="whitespace-nowrap" />
+              <SortTh label={poLabels.a} help={DETAIL_HELP.metric.poA} dir={dirOf("poA")} onSort={() => cycleSort("poA")} className="whitespace-nowrap" />
+              <SortTh label={poLabels.b} help={DETAIL_HELP.metric.poB} dir={dirOf("poB")} onSort={() => cycleSort("poB")} className="whitespace-nowrap" />
+              <SortTh label={poLabels.c} help={DETAIL_HELP.metric.poC} dir={dirOf("poC")} onSort={() => cycleSort("poC")} className="whitespace-nowrap" />
+              <SortTh label="실무 정보" help={DETAIL_HELP.metric.hubInfo} dir={dirOf("info")} onSort={() => cycleSort("info")} className="whitespace-nowrap" />
+              <SortTh label="실무 경험" help={DETAIL_HELP.metric.hubExperience} dir={dirOf("experience")} onSort={() => cycleSort("experience")} className="whitespace-nowrap" />
+              <SortTh label="실무 역량" help={DETAIL_HELP.metric.hubAbility} dir={dirOf("ability")} onSort={() => cycleSort("ability")} className="whitespace-nowrap" />
+              <SortTh label="실무 경력" help={DETAIL_HELP.metric.hubCareer} dir={dirOf("career")} onSort={() => cycleSort("career")} className="whitespace-nowrap" />
+              <SortTh label="강화 상태" help={DETAIL_HELP.week.enhancementStatus} dir={null} className="whitespace-nowrap" />
             </tr>
           </thead>
           <tbody>
@@ -702,15 +1017,20 @@ function Field({
   children,
   className,
   mono,
+  helpKey,
 }: {
   label: string;
   children: React.ReactNode;
   className?: string;
   mono?: boolean;
+  helpKey?: string;
 }) {
   return (
     <div className={cn("flex min-w-0 flex-col gap-1", className)}>
-      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dt className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+        <span>{label}</span>
+        {helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} /> : null}
+      </dt>
       <dd
         className={cn(
           "flex min-h-[2.25rem] items-center break-words rounded-md border bg-muted/40 px-2.5 py-1.5 text-sm text-foreground",
@@ -729,15 +1049,20 @@ function SummaryCell({
   value,
   mono = false,
   valueClassName,
+  helpKey,
 }: {
   label: string;
   value: string;
   mono?: boolean;
   valueClassName?: string;
+  helpKey?: string;
 }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        <span>{label}</span>
+        {helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} /> : null}
+      </span>
       <span
         className={cn(
           "flex h-9 items-center justify-center rounded-md border bg-muted/30 px-2 text-sm font-medium text-foreground",
