@@ -719,9 +719,7 @@ export default function ExperienceTeamOverallBoard({
                               options={lineOptions[partLineType]}
                               onChange={(id) => setLineSel(crew.userId, c.key, id)}
                               disabled={lineDisabled}
-                              ariaLabel={`${crew.displayName} ${c.label} 라인명`}
-                              triggerClassName="min-w-[7rem] max-w-[12rem]"
-                            />
+                              ariaLabel={`${crew.displayName} ${c.label} 라인명`}                            />
                           </div>
                         </TableCell>
                       );
@@ -799,9 +797,7 @@ export default function ExperienceTeamOverallBoard({
                             options={lineOptions[c.key]}
                             onChange={(id) => setLineSel(crew.userId, c.key, id)}
                             disabled={lineDisabled}
-                            ariaLabel={`${crew.displayName} ${c.label} 라인명`}
-                            triggerClassName="min-w-[7rem] max-w-[12rem]"
-                          />
+                            ariaLabel={`${crew.displayName} ${c.label} 라인명`}                          />
                         </div>
                       </TableCell>
                     );

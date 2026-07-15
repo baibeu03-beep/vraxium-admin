@@ -979,9 +979,7 @@ function PartGrid({
                             options={lineOptions[line.key]}
                             onChange={(id) => setLine(crew.userId, line.key, id, cell)}
                             disabled={lineDisabled}
-                            ariaLabel={`${crew.displayName} ${line.label} 라인명`}
-                            triggerClassName="min-w-[7rem] max-w-[12rem]"
-                          />
+                            ariaLabel={`${crew.displayName} ${line.label} 라인명`}                          />
                         </div>
                       </TableCell>
                     );
