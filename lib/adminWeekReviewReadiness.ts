@@ -98,7 +98,7 @@ export async function computeReviewReadiness(
   // 3) 실무 경험 라인/타깃/평가 (주차 전역).
   //   ⚠ experience 라인은 개설 UI 에서 cluster4_lines.week_id 를 세팅하지 않는다(NULL) — 주차 앵커는
   //     cluster4_line_targets.week_id. 공통 SoT(loadExperienceLineWeekScope)로 라인 개설 페이지와 동일 조회.
-  const { lineIds: expLineIds, targetIds } = await loadExperienceLineWeekScope(weekId, organization);
+  const { lineIds: expLineIds, targetIds } = await loadExperienceLineWeekScope(weekId, organization, scope);
 
   let targetCount = 0;
   let evaluatedCount = 0;

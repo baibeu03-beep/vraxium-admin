@@ -28,6 +28,7 @@ import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import type { StateScope } from "@/lib/operationalState";
+import { resolveUserScope } from "@/lib/userScope";
 import { isActOpenForWeek } from "@/lib/weekOpenGate";
 // ⚠ 타입만 import(런타임 순환 방지 — adminTeamPartsInfoWeekDetailData 는 이 모듈을 런타임 import 한다).
 import type { SavedConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
@@ -242,25 +243,47 @@ export async function assertWeekAccrualComplete(
 export async function loadExperienceLineWeekScope(
   weekId: string,
   organization?: OrganizationSlug,
+  scope: StateScope = "operating",
 ): Promise<{ lineIds: string[]; targetIds: string[] }> {
   const { data: tg } = await supabaseAdmin
     .from("cluster4_line_targets")
-    .select("id,line_id")
+    .select("id,line_id,target_user_id")
     .eq("week_id", weekId);
-  const tgRows = (tg ?? []) as Array<{ id: string; line_id: string | null }>;
+  let tgRows = (tg ?? []) as Array<{ id: string; line_id: string | null; target_user_id: string | null }>;
+  if (tgRows.length === 0) return { lineIds: [], targetIds: [] };
+
+  // 개설 경로와 동일한 귀속 SoT: experience line 행은 org를 저장하지 않고,
+  // target_user_id → user_profiles.organization_slug로 조직을 판정한다. mode는 공통
+  // resolveUserScope(test_user_markers SoT)로 적용한다. 라인 행 organization_slug 직접 필터 금지.
+  if (organization) {
+    const targetUserIds = [...new Set(tgRows.map((row) => row.target_user_id).filter((id): id is string => !!id))];
+    const orgUserIds = new Set<string>();
+    const CHUNK = 300;
+    for (let i = 0; i < targetUserIds.length; i += CHUNK) {
+      const { data: profiles } = await supabaseAdmin
+        .from("user_profiles")
+        .select("user_id")
+        .in("user_id", targetUserIds.slice(i, i + CHUNK))
+        .eq("organization_slug", organization);
+      for (const profile of (profiles ?? []) as Array<{ user_id: string }>) orgUserIds.add(profile.user_id);
+    }
+    const userScope = await resolveUserScope(scope === "qa" ? "test" : "operating", organization);
+    tgRows = tgRows.filter((row) =>
+      row.target_user_id != null && orgUserIds.has(row.target_user_id) && userScope.includes(row.target_user_id),
+    );
+  }
   if (tgRows.length === 0) return { lineIds: [], targetIds: [] };
   const candidateLineIds = [...new Set(tgRows.map((r) => r.line_id).filter((x): x is string => !!x))];
   const expLineIds = new Set<string>();
   const CHUNK = 200;
   for (let i = 0; i < candidateLineIds.length; i += CHUNK) {
     const chunk = candidateLineIds.slice(i, i + CHUNK);
-    let lineQuery = supabaseAdmin
+    const { data } = await supabaseAdmin
       .from("cluster4_lines")
       .select("id")
       .in("id", chunk)
-      .eq("part_type", "experience");
-    if (organization) lineQuery = lineQuery.eq("organization_slug", organization);
-    const { data } = await lineQuery;
+      .eq("part_type", "experience")
+      .eq("is_active", true);
     for (const l of (data ?? []) as { id: string }[]) expLineIds.add(l.id);
   }
   const targetIds = tgRows.filter((r) => r.line_id != null && expLineIds.has(r.line_id)).map((r) => r.id);
@@ -568,7 +591,7 @@ export async function finalizeWeekUws(
   //   bypass(test/QA + 명시 플래그) 시에는 이 가드를 건너뛴다 — 불완전 테스트 데이터로 fail 저장 흐름 검증.
   if (!bypass) {
     // ⚠ experience 라인 주차 앵커 = cluster4_line_targets.week_id(라인 week_id=NULL). 공통 SoT 사용.
-    const { lineIds: expLineIds } = await loadExperienceLineWeekScope(week.id, opts.organization);
+    const { lineIds: expLineIds } = await loadExperienceLineWeekScope(week.id, opts.organization, scope);
     const expLineCount = expLineIds.length;
     const nonRest = verdicts.filter((v) => !(v.kind === "status" && v.status === "personal_rest"));
     const allFail =
