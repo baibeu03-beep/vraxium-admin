@@ -741,6 +741,59 @@ const NEEDED: StatusState = {
   lastError: null,
 };
 
+// 상태창1(팀별) 완료 판정 — 요약(summary.isAllCompleted)과 "동일 SoT"를 팀 단위로 적용한다.
+//   한 팀의 team_all 롤업: 체크 대상(check_target='check') ∩ 이번 주 가동(isActOpenForWeek) 액트가
+//   전부 completed 인가. 파트 액트는 팀 파트별로 펼치고(미배정=1행·미완료), 팀 총괄 액트는 1행.
+//   → 아래 flatActs(team_all 분기) + summary 집계와 정확히 같은 술어(isCheckTarget·isOpenThisWeek·
+//     status==="completed")를 쓴다(DOM 재계산 아님·서버 데이터 판정). operating/test·전 org 공통.
+async function computeTeamAllCompleted(params: {
+  hub: ProcessHub;
+  organization: string;
+  weekId: string;
+  team: ProcessCheckTeamDto;
+  mode: ScopeMode;
+  acts: ActRow[];
+  groupNameById: Map<string, string>;
+  openConfig: Parameters<typeof isActOpenForWeek>[0]["config"];
+  openConfirmed: boolean;
+  partAvail: boolean;
+  completionAvail: boolean;
+}): Promise<boolean> {
+  const { hub, organization, weekId, team, mode, acts, groupNameById, openConfig, openConfirmed, partAvail, completionAvail } = params;
+  const [teamParts, rows] = await Promise.all([
+    listTeamParts(organization, team.teamName, mode),
+    loadStatusRows(organization, hub, weekId, team.teamId, partAvail, completionAvail),
+  ]);
+  const nullMap = new Map<string, StatusState>();
+  const perActPerPart = new Map<string, Map<string, StatusState>>();
+  for (const r of rows) {
+    if (r.partName == null) nullMap.set(r.actId, r.state);
+    else {
+      let m = perActPerPart.get(r.actId);
+      if (!m) perActPerPart.set(r.actId, (m = new Map()));
+      m.set(r.partName, r.state);
+    }
+  }
+  let total = 0;
+  let completed = 0;
+  for (const a of acts) {
+    if (a.check_target !== "check") continue; // = isCheckTarget
+    if (!isActOpenForWeek({ hub, openConfirmed, config: openConfig, lineGroupId: a.line_group_id, teamId: team.teamId })) continue; // = isOpenThisWeek
+    const groupName = groupNameById.get(a.line_group_id) ?? "-";
+    if (isPartLineGroupName(groupName)) {
+      if (teamParts.length === 0) { total++; continue; } // 파트(미배정) 1행 = NEEDED(미완료)
+      for (const part of teamParts) {
+        total++;
+        if (perActPerPart.get(a.id)?.get(part)?.status === "completed") completed++;
+      }
+    } else {
+      total++;
+      if (nullMap.get(a.id)?.status === "completed") completed++;
+    }
+  }
+  return total > 0 && completed === total;
+}
+
 // ── 보드 조회 ─────────────────────────────────────────────────────────────────
 export async function getProcessCheckBoard(
   hub: ProcessHub,
@@ -771,7 +824,8 @@ export async function getProcessCheckBoard(
     : { config: null, openConfirmed: false };
 
   // 팀 구분 허브면 org 팀 동적 조회(상태창1 팀별 문장 + 섹션.1 탭). 그 외는 빈 배열(허브 전체 1문장).
-  const teams = teamBased ? await loadProcessCheckTeams(organization, mode) : [];
+  //   isAllCompleted 는 아래에서 실제 체크 데이터로 재산정한다(loadProcessCheckTeams 는 목록만).
+  let teams = teamBased ? await loadProcessCheckTeams(organization, mode) : [];
 
   // 실제 팀 파트 목록(드롭다운) — user_memberships(part_name) · org+mode 스코프. 팀 선택 시에만.
   const teamName = teamBased && teamId ? await resolveTeamName(teamId, organization) : null;
@@ -797,7 +851,9 @@ export async function getProcessCheckBoard(
     teamBased && teamId ? rosterByPart.get(partForRoster ?? "") ?? new Set<string>() : null;
 
   // 유효 스코프 — 팀 선택(experience)일 때만. 기본 team_all. part 인데 partName 이 팀 파트가 아니면 team_all 폴백.
-  const partAvail = teamBased && teamId ? await partNameColumnAvailable() : false;
+  // part_name 컬럼 존재 여부(스키마 프로브) — teamId 무관. 선택 팀 로딩(partAvail)과 팀별 상태창 산정 공용.
+  const partColAvail = teamBased ? await partNameColumnAvailable() : false;
+  const partAvail = teamBased && teamId ? partColAvail : false;
   let effScope: ProcessCheckScopeKind | null = null;
   let effPart: string | null = null;
   if (teamBased && teamId) {
@@ -840,6 +896,30 @@ export async function getProcessCheckBoard(
   for (const g of groups) {
     groupNameById.set(g.id, g.name);
     groupSort.set(g.id, g.sort_order);
+  }
+
+  // 상태창1(팀별) 완료 판정 — 하드코딩 false 제거. 실제 체크 데이터로 팀마다 산정(summary 와 동일 SoT).
+  //   teamBased 이고 가동 주차일 때만. 미가동/비체크 대상/타 팀/타 주차는 술어에서 자동 제외된다.
+  if (teamBased && effectiveWeekId && teams.length > 0) {
+    const eff = effectiveWeekId;
+    teams = await Promise.all(
+      teams.map(async (t) => ({
+        ...t,
+        isAllCompleted: await computeTeamAllCompleted({
+          hub,
+          organization,
+          weekId: eff,
+          team: t,
+          mode,
+          acts,
+          groupNameById,
+          openConfig,
+          openConfirmed,
+          partAvail: partColAvail,
+          completionAvail,
+        }),
+      })),
+    );
   }
 
   // [섹션.1] 액트 목록 — 신청 시점(필요) 순: occur_week(N→N+1) → occur_dow(일~토) →

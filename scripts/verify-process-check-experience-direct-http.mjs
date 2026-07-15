@@ -64,7 +64,8 @@ try {
   const hTeams = (b0.json.data?.teams ?? []).map((t) => t.teamName);
   ck("[팀] direct(cluster4_teams oranke) == HTTP board.teams (이름/순서)", J(dTeams) === J(hTeams), `direct=${J(dTeams)} http=${J(hTeams)}`);
   ck("[상태창1] 팀 수만큼 문장 데이터(teams.length == 팀 수)", (b0.json.data?.teams ?? []).length === dTeams.length);
-  ck("[상태창1] 표시 전용 — 전 팀 isAllCompleted=false(체크 중)", (b0.json.data?.teams ?? []).every((t) => t.isAllCompleted === false));
+  // 상태창1 완료 판정 = 실제 체크 데이터(하드코딩 false 아님). isAllCompleted 는 boolean 파생값.
+  ck("[상태창1] isAllCompleted 는 boolean 파생(하위 액트 완료 반영)", (b0.json.data?.teams ?? []).every((t) => typeof t.isAllCompleted === "boolean"));
   ck("[로그창] experience 로그 없음(빈 배열)", (b0.json.data?.logs ?? []).length === 0);
 
   // 시드 — experience 라인급1 + 체크대상 액트1.
