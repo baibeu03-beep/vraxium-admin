@@ -40,6 +40,19 @@ export const WEEK_RESULT_LABELS: Record<WeekResultStatusKey, string> = {
   official_rest: "휴식(공식)",
 };
 
+// ─── 크루 개인 주차 데이터 수정 가능 여부 (단일 SoT) ──────────────────────────
+//   "성장 결과가 확정된 주차"만 개인 데이터(라인 강화 상태 등) 수정을 허용한다.
+//   - running(진행 중) · tallying(집계 중) = 아직 미확정 → 수정 금지.
+//   - success / fail / personal_rest / official_rest(DB 저장 4종) = 확정 → 수정 허용.
+//   fail-closed: 위 4종이 아닌 값(미상/null)은 수정 불가로 본다.
+//   프론트(잠금 배너·[수정] 비활성)와 서버(쓰기 API 403 가드)가 모두 이 함수를 SoT 로 사용해
+//   "같은 상태 = 같은 판정"을 보장한다. browser-safe(계산 없음, 순수 함수).
+export function isCrewWeekEditable(
+  status: WeekResultStatusKey | string | null | undefined,
+): boolean {
+  return (WEEK_DB_STATUSES as readonly string[]).includes(status ?? "");
+}
+
 // ─── 성장 상태 10종 ─────────────────────────────────────────────────
 //
 // DB growth_status 와 1:1 이 아님. 일부는 계산 상태(DB + Period 조합)로 도출.

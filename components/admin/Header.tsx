@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronRight, LogOut, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import {
 import SessionCountdown from "@/components/admin/SessionCountdown";
 import { resolveAdminBreadcrumb } from "@/lib/adminMenuTree";
 import { useAdminRouteTitleForPath } from "@/components/admin/AdminRouteTitleProvider";
+import { buildAdminContextHref } from "@/lib/adminOrgContext";
 import { cn } from "@/lib/utils";
 
 // 개발자 표시 토글 버튼 노출 여부.
@@ -40,13 +42,16 @@ export default function Header({
   //   (lib/adminMenuTree.resolveAdminBreadcrumb). pathname 만 사용 → org/mode(?org·mode=test·
   //   actAsTestUserId·demoUserId) 와 무관, ID/UUID/slug 는 노출하지 않는다.
   const baseBreadcrumb = resolveAdminBreadcrumb(pathname);
-  // 상세 페이지가 공급한 실제 표시명(이유나·26년 여름 시즌 8주차 …)이 있으면 마지막(현재 페이지)
-  //   문구를 그것으로 교체한다. 없으면 고정 폴백("회원 상세" 등) 유지. — 중복 조회 없이 페이지가
-  //   이미 가진 상세 DTO 표시명을 재사용(AdminRouteTitleProvider).
-  const detailTitle = useAdminRouteTitleForPath(pathname);
+  // 상세 페이지가 공급한 실제 표시명(이유나 · 26년 여름 시즌 8주차 …)이 있으면 브레드크럼 "끝에서부터"
+  //   그 항목 수만큼 교체한다. 회원 상세=[회원명] 1칸, 주차 상세=[회원명(→회원상세 링크), 주차명] 2칸.
+  //   없으면 고정 폴백("회원 상세" 등) 유지 — 중복 조회 없이 페이지가 이미 가진 상세 DTO 표시명을 재사용.
+  const detailItems = useAdminRouteTitleForPath(pathname);
   const breadcrumb =
-    detailTitle && baseBreadcrumb.length > 0
-      ? [...baseBreadcrumb.slice(0, -1), detailTitle]
+    detailItems && detailItems.length > 0 && baseBreadcrumb.length > 0
+      ? [
+          ...baseBreadcrumb.slice(0, Math.max(0, baseBreadcrumb.length - detailItems.length)),
+          ...detailItems,
+        ]
       : baseBreadcrumb;
 
   // 사이드바 최하단에 있던 기존 로그아웃 로직을 그대로 이동 (auth/세션 로직 수정 없음).
@@ -127,6 +132,12 @@ export default function Header({
         >
           {breadcrumb.map((part, i) => {
             const isCurrent = i === breadcrumb.length - 1;
+            // 현재(마지막) 항목은 링크 아님(강조만). 그 외 항목은 href 가 있으면 링크 —
+            //   진입 컨텍스트(?org·mode·test·demo)를 buildAdminContextHref 로 보존해 이동한다.
+            const linkHref =
+              !isCurrent && part.href
+                ? buildAdminContextHref({ targetPath: part.href, pathname, searchParams })
+                : null;
             return (
               <Fragment key={i}>
                 {i > 0 && (
@@ -135,16 +146,25 @@ export default function Header({
                     className="size-4 shrink-0 text-muted-foreground"
                   />
                 )}
-                <span
-                  className={cn(
-                    "truncate text-sm sm:text-base",
-                    isCurrent
-                      ? "font-semibold text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {part}
-                </span>
+                {linkHref ? (
+                  <Link
+                    href={linkHref}
+                    className="truncate rounded-sm text-sm text-muted-foreground underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring sm:text-base"
+                  >
+                    {part.label}
+                  </Link>
+                ) : (
+                  <span
+                    className={cn(
+                      "truncate text-sm sm:text-base",
+                      isCurrent
+                        ? "font-semibold text-foreground"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {part.label}
+                  </span>
+                )}
               </Fragment>
             );
           })}

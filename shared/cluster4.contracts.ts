@@ -421,6 +421,13 @@ export type Cluster4ActLogDto = {
   // regular: process_acts.act_type ("required"|"selection"|레거시 "optional"|"basic")
   // irregular: process_irregular_acts.crew_reaction ("all"|"partial")
   kind: string;
+  // 안정 식별자 = process_point_awards.id(그 크루·그 액트 원장 행). 행 key·관리자 취소 대상 지정용.
+  //   (append-only) 고객 앱은 사용하지 않으며, 관리자 액트 탭이 취소 API 대상으로 쓴다.
+  awardId: string;
+  // 소프트 취소 상태(관리자가 무효화한 액트). cancelled=true 행은 포인트 합산에서 제외되며,
+  //   고객 조회(loadActLogsByStartDate 기본값)에선 목록에서 빠진다. 관리자 탭만 "취소됨"으로 노출.
+  cancelled: boolean;
+  cancelReason: string | null;
 };
 
 export type Cluster4WeeklyCardDto = {

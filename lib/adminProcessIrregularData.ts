@@ -19,7 +19,11 @@ import {
   hasActiveProcessCheckException,
 } from "@/lib/processCheckWindowsData";
 import { resolveUserScope, assertUserIdsInScope } from "@/lib/userScope";
-import { accrueForCompletedIrregular, revokeForAct } from "@/lib/processPointAccrual";
+import {
+  accrueForCompletedIrregular,
+  isAccrualAllowedWeek,
+  revokeForAct,
+} from "@/lib/processPointAccrual";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
@@ -582,6 +586,180 @@ export async function createManualGrant(input: {
 
   const recipients = await loadRecipientsByRef([act.id]);
   return toRowDto(act, recipients);
+}
+
+// ── 액트 보완(admin 회원 주차 상세) — 단일 크루·단일 주차 변동 액트 즉시 부여 ──────────────
+//   수동 부여(createManualGrant)와 동일한 원장·적립 SoT(accrueForCompletedIrregular)를 재사용하되:
+//     · 주차 게이트가 다르다 — createManualGrant 는 resolveIrregularWriteWeek(현재주/예외주만)라 과거
+//       확정 주차를 막는다. 액트 보완은 과거 확정 주차가 주 대상이므로 상위 라우트의 isCrewWeekEditable
+//       (running/tallying 잠금)로 게이트하고, 여기선 지정 weekId 를 직접 사용한다(적립 era 만 방어).
+//     · origin=ACT_SUPPLEMENT_ORIGIN 으로 출처를 남긴다(감사/추적·향후 필터 가능).
+//     · 무-트랜잭션 보상: 이후 단계 실패 시 앞서 만든 행을 되돌린다(orphan act/award 방지).
+//     · 결정적 snapshot 재생성(recomputeWeeklyCardsSnapshotsForUsers)으로 즉시 반영.
+export const ACT_SUPPLEMENT_ORIGIN = "act_supplement" as const;
+
+async function findAwardId(source: string, refId: string, userId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from("process_point_awards")
+    .select("id")
+    .eq("source", source)
+    .eq("ref_id", refId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return (data as { id: string } | null)?.id ?? null;
+}
+
+export async function createActSupplement(input: {
+  organization: string;
+  mode: ScopeMode;
+  adminId: string;
+  userId: string; // 대상 크루 user_profiles.user_id (단일)
+  weekId: string; // weeks.id (실제 주차 — 상위 라우트가 카드 startDate 로 되짚은 값)
+  actName: unknown;
+  reason?: unknown;
+  pointA?: unknown;
+  pointB?: unknown;
+  pointC?: unknown;
+}): Promise<{ actId: string; awardId: string | null; deduped: boolean }> {
+  const { organization, mode, adminId, userId, weekId } = input;
+
+  // 부분 액트 — 포인트 방식은 값에서 파생(C>0 → "c" else "ab"). 정규화·상호배타는 parseCommonFields(SoT).
+  const pointMode = Number(input.pointC ?? 0) > 0 ? "c" : "ab";
+  const common = parseCommonFields({
+    ...input,
+    durationMinutes: null,
+    crewReaction: "partial",
+    pointMode,
+  });
+  if (common.pointA <= 0 && common.pointB <= 0 && common.pointC <= 0) {
+    throw new ProcessMasterError(400, "포인트를 1점 이상 부여해야 합니다");
+  }
+
+  // 대상 크루 스코프+소속 검증(fail-closed).
+  const scope = await resolveUserScope(mode, organization as OrganizationSlug);
+  assertUserIdsInScope(scope, [userId]);
+  const { data: prof, error: pErr } = await supabaseAdmin
+    .from("user_profiles")
+    .select("user_id,display_name,organization_slug")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (pErr) throw new ProcessMasterError(500, pErr.message);
+  const p = prof as { user_id: string; display_name: string | null; organization_slug: string | null } | null;
+  if (!p) throw new ProcessMasterError(404, "대상 크루(user_profiles)를 찾을 수 없습니다");
+  if (p.organization_slug !== organization) {
+    throw new ProcessMasterError(422, "대상 크루가 해당 클럽(org) 소속이 아닙니다");
+  }
+
+  // 주차(weeks) — 지정 weekId 직접 사용(과거 확정 주차 대상). 적립 era 만 방어(이전 주차=적립 대상 아님).
+  const { data: wk } = await supabaseAdmin
+    .from("weeks")
+    .select("id,start_date,season_key,week_number,iso_year,iso_week")
+    .eq("id", weekId)
+    .maybeSingle();
+  const week = wk as {
+    id: string; start_date: string; season_key: string | null; week_number: number | null;
+    iso_year: number | null; iso_week: number | null;
+  } | null;
+  if (!week) throw new ProcessMasterError(404, "주차(weeks 행)를 찾을 수 없습니다");
+  if (!isAccrualAllowedWeek(mode, week)) {
+    throw new ProcessMasterError(422, "포인트 적립 대상 주차가 아닙니다(적립 시작 주차 이전)");
+  }
+
+  // 중복 제출 방지(콘텐츠+시간창 20초) — 더블클릭/재시도 멱등. 동일 admin·주차·액트명·포인트로 최근
+  //   생성된 보완 액트가 같은 크루에게 있으면 신규 생성 대신 그 액트 반환.
+  const dupWindowIso = new Date(Date.now() - 20_000).toISOString();
+  const { data: recentActs } = await supabaseAdmin
+    .from("process_irregular_acts")
+    .select("id")
+    .eq("origin", ACT_SUPPLEMENT_ORIGIN)
+    .eq("week_id", weekId)
+    .eq("applicant_admin_id", adminId)
+    .eq("act_name", common.actName)
+    .eq("point_a", common.pointA)
+    .eq("point_b", common.pointB)
+    .eq("point_c", common.pointC)
+    .gte("created_at", dupWindowIso);
+  const recentIds = ((recentActs ?? []) as { id: string }[]).map((r) => r.id);
+  if (recentIds.length) {
+    const { data: rec } = await supabaseAdmin
+      .from("process_check_review_recipients")
+      .select("ref_id")
+      .eq("source", "irregular")
+      .eq("user_id", userId)
+      .in("ref_id", recentIds)
+      .limit(1);
+    const dupRef = ((rec ?? []) as { ref_id: string }[])[0]?.ref_id;
+    if (dupRef) {
+      return { actId: dupRef, awardId: await findAwardId("irregular", dupRef, userId), deduped: true };
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const applicantAdminName = await resolveAdminName(adminId);
+  const { data: inserted, error: insErr } = await supabaseAdmin
+    .from("process_irregular_acts")
+    .insert({
+      organization_slug: organization,
+      week_id: weekId,
+      kind: "manual_grant",
+      act_name: common.actName,
+      applicant_admin_id: adminId,
+      applicant_admin_name: applicantAdminName,
+      target_user_id: null,
+      target_user_name: null,
+      scope_mode: mode,
+      duration_minutes: null,
+      reason: common.reason,
+      point_a: common.pointA,
+      point_b: common.pointB,
+      point_c: common.pointC,
+      crew_reaction: "partial",
+      review_link: null,
+      scheduled_check_at: nowIso, // 신청 == 검수 완료 시점(개념)
+      status: "completed",
+      completed_at: nowIso,
+      origin: ACT_SUPPLEMENT_ORIGIN,
+    })
+    .select("id")
+    .single();
+  if (insErr) throw migrationHint(insErr) ?? new ProcessMasterError(500, insErr.message);
+  const actId = (inserted as { id: string }).id;
+
+  // recipients(matched) — 단일 대상.
+  const { error: recErr } = await supabaseAdmin.from("process_check_review_recipients").insert({
+    source: "irregular",
+    ref_id: actId,
+    organization_slug: organization,
+    scope_mode: mode,
+    user_id: userId,
+    nickname: p.display_name?.trim() || "(이름 없음)",
+    match_type: "matched",
+    match_reason: "supplement",
+  });
+  if (recErr) {
+    await supabaseAdmin.from("process_irregular_acts").delete().eq("id", actId); // 보상
+    throw migrationHint(recErr) ?? new ProcessMasterError(500, recErr.message);
+  }
+
+  // 즉시 적립. 스킵/실패 시 보상(act·recipients 삭제)로 orphan 방지.
+  try {
+    const acc = await accrueForCompletedIrregular(actId);
+    if ("skipped" in acc && acc.skipped) {
+      await supabaseAdmin.from("process_check_review_recipients").delete().eq("source", "irregular").eq("ref_id", actId);
+      await supabaseAdmin.from("process_irregular_acts").delete().eq("id", actId);
+      throw new ProcessMasterError(422, `포인트 적립이 스킵되었습니다(${acc.reason})`);
+    }
+  } catch (e) {
+    if (e instanceof ProcessMasterError) throw e;
+    await supabaseAdmin.from("process_check_review_recipients").delete().eq("source", "irregular").eq("ref_id", actId);
+    await supabaseAdmin.from("process_irregular_acts").delete().eq("id", actId);
+    throw new ProcessMasterError(500, e instanceof Error ? e.message : "포인트 적립에 실패했습니다");
+  }
+
+  // 결정적 snapshot 재생성(HTTP==직접호출 즉시 반영).
+  await recomputeWeeklyCardsSnapshotsForUsers([userId], { concurrency: 4 });
+
+  return { actId, awardId: await findAwardId("irregular", actId, userId), deduped: false };
 }
 
 // 과거 주차 행은 조회 전용 — 현재 주차가 아니면 변경/취소 차단(fail-closed).

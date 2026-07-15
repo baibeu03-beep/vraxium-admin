@@ -304,22 +304,94 @@ export function isUnderBase(pathname: string, basePath: string) {
 // pathname → 한글 breadcrumb parts(["상위 메뉴", "현재 페이지"]). 표시 전용.
 // org/mode 쿼리와 무관(pathname 만 사용). ID/UUID/slug 원문은 절대 노출하지 않는다.
 
+// 브레드크럼 1항목 — 한글 라벨 + (선택) 이동 href. 마지막(현재 페이지) 항목은 Header 가 링크로
+//   만들지 않고 강조만 한다. 중간 항목은 href 가 있으면 Header 가 링크로 렌더한다(관리자 전역 공통
+//   UX — 이 페이지만의 예외 없음). href 는 컨텍스트(?org·mode 등) 미포함 순수 경로 — Header 가
+//   buildAdminContextHref 로 진입 컨텍스트를 얹어 준다(org/mode/test/demo 보존).
+export type AdminBreadcrumbItem = { label: string; href?: string };
+
+// override.parts 는 정적 배열 또는 "매칭된 path 로 href 를 계산하는 함수"(크루 상세처럼 org 를 path
+//   에서 뽑아야 하는 경우)일 수 있다.
+type OverrideParts = AdminBreadcrumbItem[] | ((path: string) => AdminBreadcrumbItem[]);
+
 // 동적/상세 라우트 override — 사이드바 메뉴에 없는 상세 페이지를 안정적인 한글명으로 매핑한다.
 //   구조적 매칭보다 먼저 검사한다(상세 명칭 우선). 상위 계층은 사이드바 라벨을 그대로 재사용.
-const BREADCRUMB_OVERRIDES: { test: RegExp; parts: string[] }[] = [
-  { test: /^\/admin\/?$/, parts: ["관리자 홈"] },
-  // 회원(크루) 상세 — /admin/members/{userId}[/weekly-status]
-  { test: /^\/admin\/members\/[^/]+\/weekly-status\/?$/, parts: ["크루 활동", "크루 관리", "주차 현황"] },
-  { test: /^\/admin\/members\/[^/]+\/?$/, parts: ["크루 활동", "크루 관리", "회원 상세"] },
-  // 조직 크루 목록/상세 — /admin/crews/{org}[/{userId}[/cluster*]]
-  { test: /^\/admin\/crews\/[^/]+\/[^/]+(\/[^/]+)?\/?$/, parts: ["크루 활동", "크루 관리", "크루 상세"] },
-  { test: /^\/admin\/crews(\/[^/]+)?\/?$/, parts: ["크루 활동", "크루 관리"] },
+const BREADCRUMB_OVERRIDES: { test: RegExp; parts: OverrideParts }[] = [
+  { test: /^\/admin\/?$/, parts: [{ label: "관리자 홈" }] },
+  // 회원(크루) 상세 — /admin/members/{userId}[/weeks/{weekId}|/weekly-status]
+  //   주차 상세: 회원명·주차명 두 동적 세그먼트는 페이지가 provider(AdminDetailTitle items)로
+  //   실제 표시명 + 회원 상세 href 를 공급해 마지막 2칸을 교체한다(여기선 placeholder + 상위 href).
+  {
+    test: /^\/admin\/members\/[^/]+\/weeks\/[^/]+\/?$/,
+    parts: [
+      { label: "크루 활동", href: "/admin/members" },
+      { label: "크루 관리", href: "/admin/members" },
+      { label: "회원 상세" },
+      { label: "주차 상세" },
+    ],
+  },
+  {
+    test: /^\/admin\/members\/[^/]+\/weekly-status\/?$/,
+    parts: [
+      { label: "크루 활동", href: "/admin/members" },
+      { label: "크루 관리", href: "/admin/members" },
+      { label: "주차 현황" },
+    ],
+  },
+  {
+    test: /^\/admin\/members\/[^/]+\/?$/,
+    parts: [
+      { label: "크루 활동", href: "/admin/members" },
+      { label: "크루 관리", href: "/admin/members" },
+      { label: "회원 상세" },
+    ],
+  },
+  // 조직 크루 목록/상세 — /admin/crews/{org}[/{userId}[/cluster*]]. "크루 관리"는 org 목록(path 기반).
+  {
+    test: /^\/admin\/crews\/[^/]+\/[^/]+(\/[^/]+)?\/?$/,
+    parts: (p) => {
+      const org = p.match(/^\/admin\/crews\/([^/]+)/)?.[1] ?? null;
+      const listHref = org ? `/admin/crews/${org}` : "/admin/members";
+      return [
+        { label: "크루 활동", href: listHref },
+        { label: "크루 관리", href: listHref },
+        { label: "크루 상세" },
+      ];
+    },
+  },
+  {
+    test: /^\/admin\/crews(\/[^/]+)?\/?$/,
+    parts: (p) => {
+      const org = p.match(/^\/admin\/crews\/([^/]+)/)?.[1] ?? null;
+      const listHref = org ? `/admin/crews/${org}` : "/admin/members";
+      return [{ label: "크루 활동", href: listHref }, { label: "크루 관리" }];
+    },
+  },
   // 주차 상세 — /admin/team-parts/info/weeks/{weekId}
-  { test: /^\/admin\/team-parts\/info\/weeks\/[^/]+\/?$/, parts: ["클럽 정보", "주차 내역", "주차 상세"] },
+  {
+    test: /^\/admin\/team-parts\/info\/weeks\/[^/]+\/?$/,
+    parts: [
+      { label: "클럽 정보", href: "/admin/team-parts/info" },
+      { label: "주차 내역", href: "/admin/team-parts/info/weeks" },
+      { label: "주차 상세" },
+    ],
+  },
   // 라인 관리(등록/정보 탭 공용) — 통합 사이드바 정본 라벨로 고정(두 트리 중복 경로 정본화).
-  { test: /^\/admin\/lines(\/.*)?$/, parts: ["허브와 라인", "라인 관리"] },
+  {
+    test: /^\/admin\/lines(\/.*)?$/,
+    parts: [
+      { label: "허브와 라인", href: "/admin/line-opening" },
+      { label: "라인 관리", href: "/admin/lines/register" },
+    ],
+  },
   // 크루 온보딩 탭들(가입 대기자/가입된 사용자/어드민 사용자) — 모두 "크루 등록" 하위.
-  { test: /^\/admin\/(users(\/[^/]+)?|applicants)\/?$/, parts: ["크루 온보딩", "크루 등록"] },
+  {
+    test: /^\/admin\/(users(\/[^/]+)?|applicants)\/?$/,
+    parts: [
+      { label: "크루 온보딩", href: "/admin/users/applicants" },
+      { label: "크루 등록", href: "/admin/users/applicants" },
+    ],
+  },
 ];
 
 // 사이드바 메뉴에 없는 마지막 세그먼트를 안전한 한글명으로 매핑(비노출/레거시 라우트 대비).
@@ -346,18 +418,21 @@ function matchLength(pathname: string, paths: string[], exactHref: string | null
  * 우선순위: 1) 동적/상세 override → 2) 메뉴 트리 최장 일치(통합·조직 공통) → 3) 세그먼트 폴백 → 4) "관리자 페이지".
  * org/mode 쿼리는 관여하지 않는다(같은 pathname = 같은 결과). ID/UUID/slug 는 노출하지 않는다.
  */
-export function resolveAdminBreadcrumb(pathname: string): string[] {
+export function resolveAdminBreadcrumb(pathname: string): AdminBreadcrumbItem[] {
   const path = pathname.replace(/\/+$/, "") || "/admin";
 
   // 1) 동적/상세 override 우선.
   for (const o of BREADCRUMB_OVERRIDES) {
-    if (o.test.test(pathname) || o.test.test(path)) return o.parts;
+    if (o.test.test(pathname) || o.test.test(path)) {
+      return typeof o.parts === "function" ? o.parts(path) : o.parts;
+    }
   }
 
   // 2) 메뉴 트리 최장 일치(통합→조직 순, 길이 동률이면 통합 우선).
-  let best: string[] | null = null;
+  //   중간(그룹/부모) 항목의 href = 그 그룹의 첫 자식 href(항상 실재 라우트). 리프/자식은 자기 href.
+  let best: AdminBreadcrumbItem[] | null = null;
   let bestLen = -1;
-  const consider = (parts: string[], len: number) => {
+  const consider = (parts: AdminBreadcrumbItem[], len: number) => {
     if (len > bestLen) {
       best = parts;
       bestLen = len;
@@ -367,18 +442,28 @@ export function resolveAdminBreadcrumb(pathname: string): string[] {
     for (const item of tree) {
       if (item.kind === "leaf") {
         const len = matchLength(path, [item.href], null);
-        if (len >= 0) consider([item.label], len);
+        if (len >= 0) consider([{ label: item.label, href: item.href }], len);
         continue;
       }
+      // 그룹(부모) href = 첫 자식 href(basePath 는 실 페이지가 아닐 수 있어 회피).
+      const groupHref = item.children[0]?.href ?? item.basePath;
       for (const child of item.children) {
         const paths = child.matchPaths ?? [child.href];
         const exactHref = child.exact && !child.matchPaths ? child.href : null;
         const len = matchLength(path, paths, exactHref);
-        if (len >= 0) consider([item.label, child.label], len);
+        if (len >= 0) {
+          consider(
+            [
+              { label: item.label, href: groupHref },
+              { label: child.label, href: child.href },
+            ],
+            len,
+          );
+        }
       }
       // child 매칭이 없을 때를 대비한 branch 자체 매칭(하위 계층 미상 → 상위 메뉴만).
       const branchLen = matchLength(path, item.matchPaths ?? [item.basePath], null);
-      if (branchLen >= 0) consider([item.label], branchLen);
+      if (branchLen >= 0) consider([{ label: item.label, href: groupHref }], branchLen);
     }
   }
   if (best) return best;
@@ -387,9 +472,9 @@ export function resolveAdminBreadcrumb(pathname: string): string[] {
   const segs = path.split("/").filter(Boolean); // ["admin", ...]
   for (let i = segs.length - 1; i >= 1; i--) {
     const label = SEGMENT_FALLBACK_LABELS[segs[i]];
-    if (label) return [label];
+    if (label) return [{ label }];
   }
 
   // 4) 최종 폴백.
-  return ["관리자 페이지"];
+  return [{ label: "관리자 페이지" }];
 }

@@ -8,6 +8,7 @@ import {
   recomputeAndStoreWeeklyCardsSnapshot,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { loadEnhancementOverridesForUser } from "@/lib/cluster4EnhancementOverride";
+import { isCrewWeekEditable } from "@/shared/growth.contracts";
 import type {
   Cluster4EnhancementStatus,
   Cluster4LinePartType,
@@ -102,6 +103,32 @@ async function loadRawCards(userId: string): Promise<Cluster4WeeklyCardDto[]> {
   if (snap.status === "hit" || snap.status === "stale") return snap.cards;
   // miss/error: raw 계산·저장(override 는 여기 반영되지 않는다 — snapshot 은 raw).
   return await recomputeAndStoreWeeklyCardsSnapshot(userId);
+}
+
+// 개인 주차 데이터 수정 잠금 가드 — 성장 결과가 확정된 주차만 강화 상태 override 를 허용한다.
+//   진행 중(running)·집계 중(tallying) = 미확정 → 403(프론트 [수정] 비활성과 동일 판정, 서버가
+//   최종 방어). enhancement override 는 라인 강화 상태만 바꾸고 주차 status 는 바꾸지 않으므로
+//   raw snapshot 의 card.userWeekStatus 로 판정하면 충분하다. 카드에 그 주차가 없으면 404.
+async function assertWeekEditable(userId: string, weekId: string): Promise<Response | null> {
+  const cards = await loadRawCards(userId);
+  const card = cards.find((c) => c.weekId === weekId);
+  if (!card) {
+    return Response.json(
+      { success: false, error: "week not found for this crew" },
+      { status: 404 },
+    );
+  }
+  if (!isCrewWeekEditable(card.userWeekStatus)) {
+    return Response.json(
+      {
+        success: false,
+        error: "성장 결과가 진행 중/집계 중인 주차는 수정할 수 없습니다(확정 이후 수정 가능).",
+        code: "WEEK_NOT_EDITABLE",
+      },
+      { status: 403 },
+    );
+  }
+  return null;
 }
 
 // GET ?user_id=<uuid>
@@ -214,6 +241,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // 수정 잠금 가드(서버 최종 방어) — 진행 중/집계 중 주차는 개인 데이터 수정 거부(403).
+  const lock = await assertWeekEditable(userId, weekId);
+  if (lock) return lock;
+
   try {
     // 동일 식별(user_id, week_id, part_type, target/line/code)의 기존 행을 찾아 update, 없으면 insert.
     //   (unique 인덱스가 COALESCE 표현식이라 upsert onConflict 대신 find-then-write 로 처리.)
@@ -295,7 +326,7 @@ export async function DELETE(request: NextRequest) {
     // 스코프 게이트: 삭제 대상 override 의 소유 user_id 가 요청 스코프 내인지 확인(fail-closed).
     const { data: row, error: readErr } = await supabaseAdmin
       .from(TABLE)
-      .select("id,user_id")
+      .select("id,user_id,week_id")
       .eq("id", id)
       .maybeSingle();
     if (readErr) throw new Error(readErr.message);
@@ -309,6 +340,12 @@ export async function DELETE(request: NextRequest) {
         { success: false, error: error instanceof Error ? error.message : "Scope violation" },
         { status: (error as { status?: number }).status ?? 422 },
       );
+    }
+
+    // 수정 잠금 가드 — 진행 중/집계 중 주차의 override 해제(복귀)도 거부(수정=쓰기 경계 일관).
+    if (row.week_id) {
+      const lock = await assertWeekEditable(row.user_id, row.week_id);
+      if (lock) return lock;
     }
 
     const { error } = await supabaseAdmin.from(TABLE).delete().eq("id", id);

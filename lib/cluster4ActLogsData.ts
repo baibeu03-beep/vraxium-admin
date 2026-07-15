@@ -18,12 +18,14 @@
 // ─────────────────────────────────────────────────────────────────────
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { processPointAwardsHasCancelColumns } from "@/lib/processPointAwardsCancelState";
 import type {
   Cluster4ActLogDto,
   Cluster4ActLogSource,
 } from "@/shared/cluster4.contracts";
 
 type AwardRow = {
+  id: string;
   source: string;
   ref_id: string;
   year: number;
@@ -31,18 +33,31 @@ type AwardRow = {
   point_check: number;
   point_advantage: number;
   point_penalty: number;
+  cancelled_at?: string | null;
+  cancel_reason?: string | null;
 };
 
 // userId 의 적립 원장 → startDate(YYYY-MM-DD) 버킷 actLogs 맵. 실패/미적용 시 빈 맵(카드 보호).
 //   호출부는 card.startDate 로 조회해 카드에 배분한다(weekId 아님 — 위 주차 매핑 주석 참고).
+//   opts.includeCancelled(기본 false): 소프트 취소된 원장 행을 목록에 포함할지.
+//     · 고객/snapshot 경로 = false → 취소 액트는 목록에서 빠진다(포인트는 이미 합산 제외).
+//     · 관리자 액트 탭    = true  → 취소 액트도 cancelled=true 로 노출("취소됨" 표시).
 export async function loadActLogsByStartDate(
   profileUserId: string,
+  opts?: { includeCancelled?: boolean },
 ): Promise<Map<string, Cluster4ActLogDto[]>> {
+  const includeCancelled = opts?.includeCancelled ?? false;
   const empty = new Map<string, Cluster4ActLogDto[]>();
+
+  // id(PK)는 항상 존재. cancelled_at/cancel_reason 은 마이그레이션 적용 시에만 조회(미적용 시 42703 회귀 방지).
+  const hasCancel = await processPointAwardsHasCancelColumns();
+  const selectCols = hasCancel
+    ? "id,source,ref_id,year,week_number,point_check,point_advantage,point_penalty,cancelled_at,cancel_reason"
+    : "id,source,ref_id,year,week_number,point_check,point_advantage,point_penalty";
 
   const awardsRes = await supabaseAdmin
     .from("process_point_awards")
-    .select("source,ref_id,year,week_number,point_check,point_advantage,point_penalty")
+    .select(selectCols)
     .eq("user_id", profileUserId);
   if (awardsRes.error) {
     // 미적용(PGRST205)·일시 오류 — 빈 맵(카드 보호). 무거운 폴백 없음.
@@ -52,7 +67,10 @@ export async function loadActLogsByStartDate(
     });
     return empty;
   }
-  const awards = (awardsRes.data ?? []) as AwardRow[];
+  // 동적 select 문자열은 supabase 타입 파서가 추론하지 못하므로 unknown 경유 캐스팅.
+  let awards = (awardsRes.data ?? []) as unknown as AwardRow[];
+  // 취소 행 제외(기본) — 고객 목록에서 취소 액트를 숨긴다. 관리자 탭(includeCancelled)만 유지.
+  if (!includeCancelled) awards = awards.filter((a) => !a.cancelled_at);
   if (awards.length === 0) return empty;
 
   const regularRefIds = [
@@ -209,6 +227,9 @@ export async function loadActLogsByStartDate(
       pointC: a.point_penalty ?? 0,
       source,
       kind,
+      awardId: a.id,
+      cancelled: Boolean(a.cancelled_at),
+      cancelReason: a.cancel_reason ?? null,
     };
     const list = out.get(week.startDate);
     if (list) list.push(row);

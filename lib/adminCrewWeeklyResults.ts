@@ -41,9 +41,19 @@ const STATUS_LABEL: Record<string, string> = {
   tallying: "집계 중",
 };
 
+// card.userWeekStatus(raw) → 어드민 성장 결과 라벨. 회원 상세 표·주차 상세 페이지가 동일 라벨을
+//   쓰도록 단일 SoT 로 export(라벨 문자열은 StatusBadge 레지스트리 색 매핑 키이기도 하다).
+export function adminWeekStatusLabel(status: string | null | undefined): string {
+  return STATUS_LABEL[status ?? ""] ?? status ?? "-";
+}
+
 export type CrewWeeklyResultRow = {
   weekId: string | null;
   weekName: string; // "2026년, 봄 시즌, 13주차"
+  // 카드 원본 상태 코드(success/fail/personal_rest/official_rest/running/tallying). 라벨이 아닌
+  //   raw 코드 — 프론트가 isCrewWeekEditable(수정 잠금) 판정에 사용. 활동 중단 override 와 무관하게
+  //   "그 주차 성장 결과의 확정 여부"는 이 코드로 판정한다.
+  userWeekStatus: string;
   growthResultLabel: string; // 성장 성공/실패/개인 휴식/공식 휴식/진행 중/집계 중/활동 중단
   cumulativeSuccessWeeks: number | null; // 누적 성장 성공 주차(진행/집계 중 = null)
   teamName: string | null;
@@ -59,7 +69,8 @@ export type CrewWeeklyResultRow = {
 };
 
 // season_key + 시즌상대 week_number → "2026년, 봄 시즌, 13주차". 파싱 불가 null.
-function formatWeekFull(seasonKey: string | null, weekNumber: number | null): string | null {
+//   회원 상세 표·주차 상세 페이지·breadcrumb 가 동일 주차명을 쓰도록 export(단일 SoT).
+export function formatWeekFull(seasonKey: string | null, weekNumber: number | null): string | null {
   if (!seasonKey || weekNumber == null) return null;
   const m = seasonKey.toLowerCase().match(/^(\d{4})-(winter|spring|summer|autumn|fall)$/);
   if (!m) return null;
@@ -149,6 +160,7 @@ export async function getCrewWeeklyResults(userId: string): Promise<CrewWeeklyRe
     return {
       weekId: card.weekId,
       weekName: formatWeekFull(card.seasonKey, card.weekNumber) ?? card.weekLabel ?? "-",
+      userWeekStatus: card.userWeekStatus,
       growthResultLabel: label,
       cumulativeSuccessWeeks,
       teamName: card.teamName,

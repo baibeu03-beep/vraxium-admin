@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDown,
@@ -9,8 +10,6 @@ import {
   ArrowUpDown,
   ExternalLink,
   NotebookPen,
-  User,
-  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,12 +30,13 @@ import {
 } from "@/lib/adminOrgContext";
 import { buildCustomerClusterUrl } from "@/lib/customerAppUrl";
 import { getProcessPointLabels } from "@/lib/pointLabels";
-
-type CrewNote = {
-  note: string;
-  updatedAt: string | null;
-  updatedBy: string | null;
-};
+import {
+  CrewIdentityCards,
+  Field,
+  dash,
+} from "@/components/admin/crew/CrewIdentityCards";
+import { CrewNoteDialog, type CrewNote } from "@/components/admin/crew/CrewNoteDialog";
+import { isCrewWeekEditable } from "@/shared/growth.contracts";
 
 type CrewDetailDto = {
   userId: string;
@@ -75,6 +75,7 @@ type CrewDetailDto = {
 type CrewWeeklyResultRow = {
   weekId: string | null;
   weekName: string;
+  userWeekStatus: string;
   growthResultLabel: string;
   cumulativeSuccessWeeks: number | null;
   teamName: string | null;
@@ -136,16 +137,6 @@ type CrewWeekSummary = {
   failWeeks: number;
   restWeeks: number;
 };
-
-const CLUB_LABEL_KO: Record<string, string> = {
-  encre: "엥크레",
-  oranke: "오랑캐",
-  phalanx: "팔랑크스",
-};
-
-function dash(value: string | null | undefined): string {
-  return value && value.trim() ? value : "-";
-}
 
 // 숫자 — null/undefined 만 "-"(0 은 실값으로 표기). 이력서 카드 skill-num/포인트는 0 도 의미값.
 function dashNum(value: number | null | undefined): string {
@@ -331,8 +322,6 @@ export default function CrewDetail({
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
-  // 프로필 사진 로드 실패 시 placeholder 폴백(크루 전환마다 재시도하도록 load 에서 리셋).
-  const [photoError, setPhotoError] = useState(false);
 
   // 클럽 관리 기록 모달.
   const [noteOpen, setNoteOpen] = useState(false);
@@ -340,7 +329,6 @@ export default function CrewDetail({
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setPhotoError(false);
     try {
       const res = await fetch(`/api/admin/members/${userId}`, { cache: "no-store" });
       const json = await res.json();
@@ -370,6 +358,18 @@ export default function CrewDetail({
     const targetPath = orgFocus ? `/admin/crews/${orgFocus}` : "/admin/members";
     router.push(buildAdminContextHref({ targetPath, pathname, searchParams }));
   }, [router, orgFocus, pathname, searchParams]);
+
+  // 주차 결과 표의 주차명 → 회원별·주차별 상세(관리) 페이지 링크. URL 의 userId 는 이 페이지 진입
+  //   식별자(레거시 route param)를 그대로 이어붙이고, 진입 컨텍스트(org/mode/test/demo)를 보존한다.
+  const weekDetailHref = useCallback(
+    (weekId: string) =>
+      buildAdminContextHref({
+        targetPath: `/admin/members/${userId}/weeks/${weekId}`,
+        pathname,
+        searchParams,
+      }),
+    [userId, pathname, searchParams],
+  );
 
   const openCareerResume = useCallback(() => {
     if (!detail) return;
@@ -445,102 +445,8 @@ export default function CrewDetail({
         </Card>
       ) : detail ? (
         <>
-        {/* 1행 2열 그리드 — 왼쪽: 인적사항(넓음) / 오른쪽: 클럽 소속(보조 패널). 좁은 화면 1열. */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.5fr)_minmax(360px,1fr)]">
-          {/* 인적사항 — [사진][이름·성별·생년월일 / 거주지 / 연락처·메일 / 학교·전공·입학시기] */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="inline-flex items-center gap-1.5 text-base">
-                인적사항
-                <AdminHelpIconButton helpKey={DETAIL_HELP.section.personalInfo} title="인적사항" size="sm" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-5">
-                {/* 프로필 사진 — Cluster2 첫 번째 슬롯. URL 은 백엔드(resolveProfilePhotoUrl)가
-                    고객 앱 절대 경로로 정규화해 내려준다. 그래도 로드 실패(404/깨짐)하면
-                    onError 로 placeholder(이니셜 아이콘)로 안정 폴백한다. */}
-                <div className="shrink-0">
-                  {detail.profilePhotoUrl && !photoError ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={detail.profilePhotoUrl}
-                      alt={`${dash(detail.displayName)} 프로필 사진`}
-                      className="h-36 w-28 rounded-lg object-cover ring-1 ring-foreground/10"
-                      onError={() => setPhotoError(true)}
-                    />
-                  ) : (
-                    <div className="flex h-36 w-28 items-center justify-center rounded-lg bg-muted ring-1 ring-foreground/10">
-                      <User className="h-10 w-10 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-                {/* 인적 정보 — 와이어프레임 행/열 그리드(3열 기준, 좁으면 1열). */}
-                <dl className="grid min-w-0 flex-1 grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-3">
-                  <Field label="이름" helpKey={ADMIN_SHARED_HELP_KEYS.crew.name}>
-                    {dash(detail.displayName)}
-                  </Field>
-                  <Field label="성별">{dash(detail.gender)}</Field>
-                  <Field label="생년월일">
-                    {detail.birthDate
-                      ? `${detail.birthDate}${detail.age != null ? ` (만 ${detail.age})` : ""}`
-                      : "-"}
-                  </Field>
-                  <Field label="거주지" className="sm:col-span-3">
-                    {dash(detail.address)}
-                  </Field>
-                  <Field label="연락처">{dash(detail.contactPhone)}</Field>
-                  <Field
-                    label="메일"
-                    className="sm:col-span-2"
-                    helpKey="admin.members.detail.field.contactEmail"
-                  >
-                    {dash(detail.contactEmail)}
-                  </Field>
-                  <Field label="학교">{dash(detail.schoolName)}</Field>
-                  <Field label="전공">{dash(detail.departmentName)}</Field>
-                  <Field label="입학 시기">{dash(detail.admissionPeriod)}</Field>
-                </dl>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 클럽 소속 — [크루코드·클럽명·상태 / 활동시작일·시작주차 / 활동종료일·종료주차 / 클래스·소속팀·파트] */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="inline-flex items-center gap-1.5 text-base">
-                클럽 소속
-                <AdminHelpIconButton helpKey={DETAIL_HELP.section.clubAffiliation} title="클럽 소속" size="sm" />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-1 gap-x-3 gap-y-3 sm:grid-cols-3">
-                <Field label="크루 코드" mono helpKey={ADMIN_SHARED_HELP_KEYS.crew.code}>
-                  {detail.crewCode ?? (
-                    <span className="font-sans text-muted-foreground">미생성</span>
-                  )}
-                </Field>
-                <Field label="클럽명" helpKey={ADMIN_SHARED_HELP_KEYS.crew.organization}>
-                  {detail.organizationSlug
-                    ? CLUB_LABEL_KO[detail.organizationSlug] ?? detail.organizationSlug
-                    : "공통"}
-                </Field>
-                <Field label="상태">{dash(detail.statusLabel)}</Field>
-                <Field label="활동 시작일">{detail.activityStartDate}</Field>
-                <Field label="활동 시작 주차" className="sm:col-span-2">
-                  {detail.activityStartWeek}
-                </Field>
-                <Field label="활동 종료일">{detail.activityEndDate}</Field>
-                <Field label="활동 종료 주차" className="sm:col-span-2">
-                  {detail.activityEndWeek}
-                </Field>
-                <Field label="클래스">{dash(detail.classLabel)}</Field>
-                <Field label="소속 팀">{dash(detail.teamName)}</Field>
-                <Field label="파트">{dash(detail.partName)}</Field>
-              </dl>
-            </CardContent>
-          </Card>
-        </div>
+        {/* 상단 공통 카드(인적사항 · 클럽 소속) — 회원 상세/주차 상세가 동일 컴포넌트를 소비한다. */}
+        <CrewIdentityCards member={detail} />
 
         {/* 클럽 결과(종합) — 인적사항/클럽 소속 바로 아래. 라벨/값 칸 그리드(2행×6열). */}
         <Card>
@@ -631,6 +537,7 @@ export default function CrewDetail({
               userId={detail.userId}
               mode={mode}
               orgSlug={detail.organizationSlug}
+              weekDetailHref={weekDetailHref}
             />
           </CardContent>
         </Card>
@@ -873,11 +780,13 @@ function WeeklyResultsTable({
   userId,
   mode,
   orgSlug,
+  weekDetailHref,
 }: {
   rows: CrewWeeklyResultRow[];
   userId: string;
   mode: ScopeMode;
   orgSlug: string | null;
+  weekDetailHref: (weekId: string) => string;
 }) {
   const poLabels = getProcessPointLabels(orgSlug);
   const totalPages = Math.max(1, Math.ceil(rows.length / WEEKLY_PAGE_SIZE));
@@ -947,7 +856,20 @@ function WeeklyResultsTable({
           <tbody>
             {pageRows.map((r, i) => (
               <tr key={r.weekId ?? `${r.weekName}-${start + i}`} className="border-b last:border-0">
-                <td className="whitespace-nowrap px-2 py-2 font-medium">{r.weekName}</td>
+                <td className="whitespace-nowrap px-2 py-2 font-medium">
+                  {/* 주차명 클릭 → 회원별·주차별 상세(관리) 페이지. 텍스트만 클릭(행 전체 아님).
+                      키보드 포커스·hover/focus-visible 표시. weekId 없으면 링크 없이 텍스트만. */}
+                  {r.weekId ? (
+                    <Link
+                      href={weekDetailHref(r.weekId)}
+                      className="rounded-sm underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {r.weekName}
+                    </Link>
+                  ) : (
+                    r.weekName
+                  )}
+                </td>
                 <td className="whitespace-nowrap px-2 py-2">
                   <StatusBadge label={r.growthResultLabel} size="sm" />
                 </td>
@@ -963,19 +885,32 @@ function WeeklyResultsTable({
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.ability)}</td>
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.career)}</td>
                 <td className="whitespace-nowrap px-2 py-2 text-center">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={!r.weekId}
-                    onClick={() =>
-                      r.weekId &&
-                      setEditWeek({ weekId: r.weekId, weekName: r.weekName })
-                    }
-                    className="h-7 px-2 text-xs"
-                  >
-                    수정
-                  </Button>
+                  {/* 성장 결과가 확정된 주차만 강화 상태 수정 허용(SoT=isCrewWeekEditable).
+                      진행 중/집계 중(미확정)은 비활성 — 서버 쓰기 API 도 동일 판정으로 403 거부한다. */}
+                  {(() => {
+                    const editable = isCrewWeekEditable(r.userWeekStatus);
+                    return (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={!r.weekId || !editable}
+                        title={
+                          !editable
+                            ? "성장 결과가 확정된 이후에 수정할 수 있습니다(진행 중/집계 중 잠금)."
+                            : undefined
+                        }
+                        onClick={() =>
+                          r.weekId &&
+                          editable &&
+                          setEditWeek({ weekId: r.weekId, weekName: r.weekName })
+                        }
+                        className="h-7 px-2 text-xs"
+                      >
+                        수정
+                      </Button>
+                    );
+                  })()}
                 </td>
               </tr>
             ))}
@@ -1007,38 +942,6 @@ function WeeklyResultsTable({
           onClose={() => setEditWeek(null)}
         />
       )}
-    </div>
-  );
-}
-
-// 와이어프레임 필드 — 라벨 + bordered 값 박스(input 느낌). col-span 등은 className 으로.
-function Field({
-  label,
-  children,
-  className,
-  mono,
-  helpKey,
-}: {
-  label: string;
-  children: React.ReactNode;
-  className?: string;
-  mono?: boolean;
-  helpKey?: string;
-}) {
-  return (
-    <div className={cn("flex min-w-0 flex-col gap-1", className)}>
-      <dt className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
-        <span>{label}</span>
-        {helpKey ? <AdminHelpIconButton helpKey={helpKey} title={label} /> : null}
-      </dt>
-      <dd
-        className={cn(
-          "flex min-h-[2.25rem] items-center break-words rounded-md border bg-muted/40 px-2.5 py-1.5 text-sm text-foreground",
-          mono && "font-mono",
-        )}
-      >
-        {children}
-      </dd>
     </div>
   );
 }
@@ -1076,100 +979,3 @@ function SummaryCell({
   );
 }
 
-// 클럽 관리 기록 모달 — 이름·크루 코드 표시 + 관리자 메모(취소/저장). autosave 없음.
-function CrewNoteDialog({
-  userId,
-  displayName,
-  crewCode,
-  initialNote,
-  onClose,
-  onSaved,
-}: {
-  userId: string;
-  displayName: string | null;
-  crewCode: string | null;
-  initialNote: CrewNote;
-  onClose: () => void;
-  onSaved: (saved: CrewNote) => void;
-}) {
-  const [note, setNote] = useState(initialNote.note);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const save = useCallback(async () => {
-    setSaving(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/members/${userId}/note`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ note }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "메모를 저장하지 못했습니다.");
-      }
-      onSaved(json.data as CrewNote);
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "메모를 저장하지 못했습니다.");
-    } finally {
-      setSaving(false);
-    }
-  }, [userId, note, onSaved, onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !saving) onClose();
-      }}
-    >
-      <div className="modal-w-md rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold">클럽 관리 기록</h2>
-          <button type="button" onClick={onClose} disabled={saving} className="hover:opacity-70">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-          <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground">이름</span>
-            <span className="font-medium">{dash(displayName)}</span>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-muted-foreground">크루 코드</span>
-            <span className="font-mono">{crewCode ?? "미생성"}</span>
-          </div>
-        </div>
-
-        <label className="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">
-          관리자 메모
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            rows={6}
-            placeholder="관리 메모를 입력하세요."
-            className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-          />
-        </label>
-
-        {error && (
-          <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="mt-4 flex justify-end gap-2">
-          <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onClose}>
-            취소
-          </Button>
-          <Button type="button" size="sm" loading={saving} disabled={saving} onClick={save}>
-            저장
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}

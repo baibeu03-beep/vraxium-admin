@@ -34,7 +34,11 @@ import {
   resolveUserScope,
   type ScopeMode,
 } from "@/lib/userScope";
-import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import {
+  invalidateWeeklyCardsForUsers,
+  recomputeWeeklyCardsSnapshotsForUsers,
+} from "@/lib/cluster4WeeklyCardsSnapshot";
+import { processPointAwardsHasCancelColumns } from "@/lib/processPointAwardsCancelState";
 import { isCluster4TestExceptionWeek } from "@/lib/cluster4TestWeekPolicy";
 import { syncGradeStats } from "@/lib/cluster3ClubRankData";
 import type { OrganizationSlug } from "@/lib/organizations";
@@ -47,6 +51,9 @@ export type AccrualSource = "regular" | "irregular" | "line";
 
 // 적립 기능 kill-switch(운영 비활성 — 코드 무수정 롤백). 기본 활성.
 const ACCRUAL_ENABLED = process.env.PROCESS_ACCRUAL_ENABLED !== "0";
+
+// 소프트 취소 컬럼 적용 여부 프로브는 순환 import 회피를 위해 전용 얇은 모듈에 둔다(재-export).
+export { processPointAwardsHasCancelColumns };
 
 type WeekRow = {
   id: string;
@@ -129,14 +136,20 @@ async function loadMatchedUserIds(source: AccrualSource, refId: string): Promise
 }
 
 // 영향 (user, year, week) 의 user_weekly_points 를 원장 합으로 재계산(증분 금지).
+//   ⚠ 포인트 합산의 단일 공통 레이어 — 소프트 취소(cancelled_at IS NOT NULL) 행은 여기서 제외한다.
+//   user_weekly_points 가 모든 표면(카드/Detail Log/회원 상세/snapshot)의 포인트 SoT 이므로,
+//   이 한 곳에서 제외하면 전 표면·전 모드(operating/test/actAs/demo)가 동일하게 취소분을 뺀다.
 async function recomputeWeeklyPoints(pairs: Array<{ userId: string; year: number; week: number; weekStartDate: string }>): Promise<void> {
+  const hasCancel = await processPointAwardsHasCancelColumns();
   for (const p of pairs) {
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from("process_point_awards")
       .select("point_check,point_advantage,point_penalty")
       .eq("user_id", p.userId)
       .eq("year", p.year)
       .eq("week_number", p.week);
+    if (hasCancel) query = query.is("cancelled_at", null); // 취소 행 제외(공통 레이어)
+    const { data, error } = await query;
     if (error) throw error;
     const rows = (data ?? []) as { point_check: number; point_advantage: number; point_penalty: number }[];
     const points = rows.reduce((s, r) => s + (r.point_check || 0), 0);
@@ -303,6 +316,8 @@ async function reconcileAwards(params: {
 }): Promise<AccrualResult> {
   const { source, refId, week, org, mode, desired } = params;
   if (!ACCRUAL_ENABLED) return { ok: true, skipped: true, reason: "accrual_disabled", accruedUserIds: [] };
+  // 회수(delete) 시 소프트 취소된 행은 보존한다 — 삭제하면 취소 기록이 사라져 재실행 시 부활할 수 있다.
+  const hasCancel = await processPointAwardsHasCancelColumns();
   // era 경계(방어적 2차 가드 — line 경로 진입점) · iso 없으면 스킵.
   if (!isAccrualAllowedWeek(mode, week)) {
     return { ok: true, skipped: true, reason: `era_blocked(${mode},${week.season_key} W${week.week_number})`, accruedUserIds: [] };
@@ -327,7 +342,12 @@ async function reconcileAwards(params: {
   if (desiredIds.length === 0) {
     // 지급 대상 없음 — 기존 원장이 있으면 정합상 전량 회수(재실행으로 대상 0 이 된 경우).
     if (existingIds.length === 0) return { ok: true, accruedUserIds: [] };
-    await supabaseAdmin.from("process_point_awards").delete().eq("source", source).eq("ref_id", refId);
+    {
+      let del = supabaseAdmin.from("process_point_awards").delete().eq("source", source).eq("ref_id", refId);
+      if (hasCancel) del = del.is("cancelled_at", null); // 취소 행 보존
+      const { error: delAllErr } = await del;
+      if (delAllErr) throw delAllErr;
+    }
     await settleAffectedUsers(existingIds, week);
     return { ok: true, accruedUserIds: [] };
   }
@@ -363,12 +383,14 @@ async function reconcileAwards(params: {
   const desiredSet = new Set(desiredIds);
   const staleIds = existingIds.filter((id) => !desiredSet.has(id));
   if (staleIds.length) {
-    const { error: delErr } = await supabaseAdmin
+    let del = supabaseAdmin
       .from("process_point_awards")
       .delete()
       .eq("source", source)
       .eq("ref_id", refId)
       .in("user_id", staleIds);
+    if (hasCancel) del = del.is("cancelled_at", null); // 취소 행 보존(부활 방지)
+    const { error: delErr } = await del;
     if (delErr) throw delErr;
   }
 
@@ -792,6 +814,82 @@ export async function revokeForAct(source: AccrualSource, refId: string): Promis
   await syncGradesBestEffort(userIds);
   await invalidateWeeklyCardsForUsers(userIds);
   return { revokedUserIds: userIds };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// 개별 원장 행(id) 단위 소프트 취소 — 관리자 "액트 취소".
+//   · (source,ref_id) 코호트 전체 취소(revokeForAct)와 달리, 지정한 크루(userId)의 특정 원장 행만
+//     cancelled_at 로 무효화한다(행 삭제 아님 — 감사 추적 보존).
+//   · 취소 후 recomputeWeeklyPointsForUsers(공통 합산: 취소 행 제외) → 최종 Point B 복원·Point C 감소가
+//     자동 반영. 이어 snapshot 재생성으로 4개 표면(카드/Detail Log/회원 상세/snapshot) 수렴.
+//   · 멱등: 이미 취소된 행은 건너뛴다(cancelled_at IS NULL 조건). 전량 이미 취소면 재집계 없이 0 반환.
+//   · 검증: 대상 id 는 반드시 그 크루(userId) 소유여야 하며, 소유 아닌 id 가 섞이면 전체 거부(422).
+export async function softCancelActAwards(params: {
+  awardIds: string[];
+  userId: string; // 실제 user_profiles.user_id (= process_point_awards.user_id)
+  weekId: string; // 재집계 대상 주차(weeks.id)
+  cancelledBy: string; // 취소 수행 관리자 user id
+  reason: string | null;
+}): Promise<{ cancelledCount: number; affectedUserId: string }> {
+  const { awardIds, userId, weekId, cancelledBy, reason } = params;
+
+  const hasCancel = await processPointAwardsHasCancelColumns();
+  if (!hasCancel) {
+    const e = new Error(
+      "액트 취소 컬럼이 아직 적용되지 않았습니다(마이그레이션 2026-07-15_process_point_awards_soft_cancel 필요).",
+    ) as Error & { status?: number; code?: string };
+    e.status = 503;
+    e.code = "SOFT_CANCEL_NOT_MIGRATED";
+    throw e;
+  }
+
+  const ids = Array.from(new Set(awardIds)).filter((v) => typeof v === "string" && v);
+  if (ids.length === 0) return { cancelledCount: 0, affectedUserId: userId };
+
+  // 대상 행 로드 + 소유 검증(fail-closed) — 존재/소유/취소 상태 확인.
+  const { data: rows, error: readErr } = await supabaseAdmin
+    .from("process_point_awards")
+    .select("id,user_id,cancelled_at")
+    .in("id", ids);
+  if (readErr) throw readErr;
+  const found = (rows ?? []) as { id: string; user_id: string; cancelled_at: string | null }[];
+  if (found.length !== ids.length) {
+    const e = new Error("존재하지 않는 액트가 포함되어 있습니다.") as Error & { status?: number };
+    e.status = 404;
+    throw e;
+  }
+  if (found.some((r) => r.user_id !== userId)) {
+    const e = new Error("다른 크루의 액트가 포함되어 요청을 거부합니다.") as Error & { status?: number };
+    e.status = 422;
+    throw e;
+  }
+
+  const toCancel = found.filter((r) => !r.cancelled_at).map((r) => r.id);
+  if (toCancel.length === 0) {
+    // 전량 이미 취소됨 — 멱등 성공(중복 차감 없음). 합계 불변이므로 재집계 불필요.
+    return { cancelledCount: 0, affectedUserId: userId };
+  }
+
+  const nowIso = new Date().toISOString();
+  const { error: upErr } = await supabaseAdmin
+    .from("process_point_awards")
+    .update({
+      cancelled_at: nowIso,
+      cancelled_by: cancelledBy,
+      cancel_reason: reason,
+      updated_at: nowIso,
+    })
+    .in("id", toCancel)
+    .eq("user_id", userId)
+    .is("cancelled_at", null); // 멱등 — 경합 시 이미 취소된 행은 건너뜀
+  if (upErr) throw upErr;
+
+  // 재집계(공통 합산: 취소 행 제외 → 최종 B 복원·C 감소) + 등급 + snapshot 무효화.
+  await recomputeWeeklyPointsForUsers([userId], weekId);
+  // HTTP==직접호출 결정성(즉시 반영) — rollback 경로와 동일하게 명시 재생성.
+  await recomputeWeeklyCardsSnapshotsForUsers([userId], { concurrency: 4 });
+
+  return { cancelledCount: toCancel.length, affectedUserId: userId };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
