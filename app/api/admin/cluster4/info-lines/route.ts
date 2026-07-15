@@ -17,7 +17,7 @@ import {
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
-import { reconcileLineOpenAward } from "@/lib/processPointAccrual";
+import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import { isUuid } from "@/lib/isUuid";
 import {
   type Cluster4OutputLink,
@@ -745,11 +745,11 @@ export async function POST(request: NextRequest) {
     //   (교차 모드 실유저 무접촉). 과거 targets-only(+미배정 lazy 수렴) 드리프트 제거.
     await invalidateWeeklyCardsForLineOpen(createdLine.id, input.target_user_ids, scopeMode);
 
-    // 라인 개설 포인트 지급(source='line') — 대상자에게 라인 Point.A/B 적립(멱등). best-effort.
+    // 라인 개설 대상자 등록 → Point A·B 즉시 지급(source='line', pay-once). 공통 SoT. best-effort.
     try {
-      await reconcileLineOpenAward(createdLine.id);
+      await payLineOpenTargetsOnce(createdLine.id);
     } catch (payoutErr) {
-      console.warn("[info-lines POST] line payout reconcile failed", payoutErr);
+      console.warn("[info-lines POST] line payout failed", payoutErr);
     }
 
     // [섹션 0] 로그창: 개설 = [개설 완료] 로그. best-effort(snapshot 무관, 본 동작과 분리).

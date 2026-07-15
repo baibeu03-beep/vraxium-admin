@@ -7,6 +7,7 @@ import { isUuid } from "@/lib/isUuid";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { assertUserIdsInScope, resolveUserScope, readScopeMode } from "@/lib/userScope";
 import { invalidateWeeklyCardsForLineOpen } from "@/lib/adminCluster4LinesData";
+import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import { getRegistrationByBridgedMasterId } from "@/lib/lineRegistrationLookup";
 import {
   type Cluster4OutputLink,
@@ -334,6 +335,13 @@ export async function POST(request: NextRequest) {
     //   배정 타깃(즉시 재계산 → 개설 크루 바로 반영) + org audience 분모 A(stale→lazy 수렴).
     //   스코프는 헬퍼가 mode 로 적용(교차 모드 실유저 무접촉 — 과거 experience 는 스코프 미적용이었음).
     await invalidateWeeklyCardsForLineOpen(lineRow.id, input.target_user_ids, scopeMode);
+
+    // 라인 개설 대상자 등록 → Point A·B 즉시 지급(source='line', pay-once). 공통 SoT. best-effort.
+    try {
+      await payLineOpenTargetsOnce(lineRow.id);
+    } catch (payoutErr) {
+      console.warn("[experience-lines POST] line payout failed", payoutErr);
+    }
 
     return Response.json(
       {

@@ -43,7 +43,7 @@ import {
 import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
 import { type LineOrgScope } from "@/lib/cluster4LineOrg";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
-import { reconcileLineOpenAward, revokeLineOpenAward } from "@/lib/processPointAccrual";
+import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import {
   isLineScopeVisibleForOrg,
   resolveLineScopeFromValues,
@@ -1222,11 +1222,12 @@ export async function editInfoLineCrew(opts: {
   //    (sentinel 전이 시에도 audience 전원의 분모가 바뀌므로 audience 를 포함한다.)
   await invalidateWeeklyCardsForLineChange(lineId, [...toAdd, ...toRemove], scopeMode);
 
-  // 10. 라인 개설 포인트 지급 정합(source='line') — 추가=증분 지급 / 제외=회수. 멱등. best-effort.
+  // 10. 라인 개설 대상자 등록 → Point A·B 즉시 지급(source='line', pay-once). 추가 대상자만 신규 지급,
+  //     제외 대상자는 회수하지 않음(기존 지급 유지). 공통 SoT. best-effort.
   try {
-    await reconcileLineOpenAward(lineId);
+    await payLineOpenTargetsOnce(lineId);
   } catch (payoutErr) {
-    console.warn("[editInfoLineCrew] line payout reconcile failed", {
+    console.warn("[editInfoLineCrew] line payout failed", {
       lineId,
       message: payoutErr instanceof Error ? payoutErr.message : String(payoutErr),
     });
@@ -1280,16 +1281,8 @@ export async function deleteCluster4Line(
       message: appResetErr.message,
     });
   }
-  // 라인 삭제 → 해당 라인의 개설 포인트 지급(source='line') 회수 + user_weekly_points 재합산. best-effort.
-  //   (info/experience/competency/career 공통 삭제 경로 — 이 라인의 line award 전량 제거.)
-  try {
-    await revokeLineOpenAward(id);
-  } catch (payoutErr) {
-    console.warn("[cluster4/lines] 라인 삭제 후 line payout 회수 실패", {
-      lineId: id,
-      message: payoutErr instanceof Error ? payoutErr.message : String(payoutErr),
-    });
-  }
+  // 회수 정책(2026-07-15): 라인 삭제 시에도 개설 지급 포인트(source='line')는 유지한다(회수 없음).
+  //   (info/experience/competency/career 공통 삭제 경로 — 원장은 pay-once 로 보존.)
 
   // 라인 삭제 = 배정자 카드에서 라인 제거 + org audience 의 분모 A(synthetic fail) 제거 →
   // 배정자 + org audience 전원 즉시 재계산(placeholder/분모 복귀 반영).

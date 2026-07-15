@@ -19,7 +19,6 @@ import {
   listLinePointConfigs,
   upsertLinePointConfig,
 } from "@/lib/adminLinePointConfigsData";
-import { reconcileLinePayoutsForConfig } from "@/lib/processPointAccrual";
 
 export async function GET(request: NextRequest) {
   let admin: AdminContext;
@@ -92,12 +91,8 @@ export async function PUT(request: NextRequest) {
       pointB: toPoint(b.point_b),
       actorId: admin.userId,
     });
-    // 포인트 설정 변경 → 현재 개설된 해당 (hub, config_key) 라인들의 지급값 재정합(멱등). best-effort.
-    try {
-      await reconcileLinePayoutsForConfig(b.hub, typeof b.config_key === "string" ? b.config_key : "");
-    } catch (payoutErr) {
-      console.warn("[lines/point-configs PUT] line payout reconcile failed", payoutErr);
-    }
+    // 지급 정책(2026-07-15): 포인트 지급은 "대상자 등록 시점"에만 발생한다. 설정값 변경은 이후
+    //   새로 등록되는 대상자에게만 반영되며, 이미 지급된 원장은 pay-once 로 변경/재정합하지 않는다.
     return Response.json({ success: true, data: row });
   } catch (error) {
     const status = error instanceof LinePointConfigError ? error.status : 500;

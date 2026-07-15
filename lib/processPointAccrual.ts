@@ -1051,6 +1051,113 @@ export async function revokeLineOpenAward(lineId: string): Promise<{ revokedUser
   return revokeForAct("line", lineId);
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// 라인 개설 대상자 등록 시 Point A·B 즉시 지급 (source='line') — 2026-07-15 정책.
+//   트리거 = "사용자가 해당 라인의 개설 대상자로 최초 등록되는 순간"(cluster4_line_targets 생성).
+//   강화 성공/평가/마감과 완전 무관하게, 대상자로 등록되면 즉시 Point A·B 를 지급한다.
+//   지급값 = /admin/lines/register 설정 SoT(cluster4_line_point_configs, org·hub·config_key).
+//
+//   ⚠ reconcileLineOpenAward(정합·회수형)와 달리 이 함수는 **순수 additive·pay-once** 다:
+//     · 원장 UNIQUE (source='line', ref_id=line_id, user_id) → (라인,유저)당 평생 1행.
+//     · 이미 지급된 유저는 절대 재지급/덮어쓰기 안 함(upsert ignoreDuplicates + 신규만 선별).
+//     · 대상자 제외·라인 삭제·config 변경으로도 **회수하지 않는다**(이 함수는 삭제/revoke 무수행).
+//     · 재호출·새로고침·재시도·snapshot 재생성·재개설·재등록 → 신규 유저 0 이면 no-op(멱등).
+//   모드 중립: mode=is_qa_test?test:operating, org=resolveLineScope — 호출자(일반/test/actAs/demo)
+//     와 무관하게 동일 DTO·동일 지급 경로. snapshot 은 write 시점 무효화만(조회 경로 지급 없음).
+// ────────────────────────────────────────────────────────────────────────────
+export async function payLineOpenTargetsOnce(lineId: string): Promise<AccrualResult> {
+  if (!ACCRUAL_ENABLED) return { ok: true, skipped: true, reason: "accrual_disabled", accruedUserIds: [] };
+
+  const { data: lineData } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select(LINE_PAYOUT_SELECT)
+    .eq("id", lineId)
+    .maybeSingle();
+  if (!lineData) return { ok: true, skipped: true, reason: "line_not_found", accruedUserIds: [] };
+  const row = lineData as LineRowForPayout;
+
+  // 개설 대상자(user 타깃) + 주차(라인=단일 주차).
+  const { data: tgtData } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("target_user_id, week_id")
+    .eq("line_id", lineId)
+    .eq("target_mode", "user");
+  const targets = (tgtData ?? []) as Array<{ target_user_id: string | null; week_id: string | null }>;
+  const userIds = Array.from(new Set(targets.map((t) => t.target_user_id).filter((x): x is string => Boolean(x))));
+  const weekIds = Array.from(new Set(targets.map((t) => t.week_id).filter((x): x is string => Boolean(x))));
+
+  const configKey = await resolveLineConfigKey(row);
+  // 대상자/주차/설정 식별자 미비 → 지급 없음(회수 없음 — pay-once additive).
+  if (userIds.length === 0 || weekIds.length === 0 || !configKey) {
+    return { ok: true, accruedUserIds: [] };
+  }
+  if (weekIds.length > 1) {
+    console.warn("[payLineOpenTargetsOnce] line spans multiple weeks — skip payout", { lineId, weekIds });
+    return { ok: true, skipped: true, reason: "multi_week_line", accruedUserIds: [] };
+  }
+
+  const week = await loadWeek(weekIds[0]);
+  if (!week) return { ok: true, accruedUserIds: [] };
+
+  const mode: ScopeMode = row.is_qa_test ? "test" : "operating";
+  // era 경계 — 미허용 주차(레거시)는 원장 미생성(과거 데이터 무접촉).
+  if (!isAccrualAllowedWeek(mode, week)) {
+    return { ok: true, skipped: true, reason: `era_blocked(${mode},${week.season_key} W${week.week_number})`, accruedUserIds: [] };
+  }
+  if (week.iso_year == null || week.iso_week == null) {
+    return { ok: true, skipped: true, reason: "week_iso_missing", accruedUserIds: [] };
+  }
+
+  const lineOrg = (await resolveLineScope(row)).org; // slug | "common" | null
+  const { pointA, pointB } = await loadLinePointForConfig(lineOrg, row.part_type, configKey);
+  const payCheck = pointA ?? 0;
+  const payAdvantage = pointB ?? 0;
+  // 지급 없음 → 원장 미생성(회수 없음). A·B 모두 미설정(null) 또는 실질 0(불필요한 0/0 원장 방지).
+  if (payCheck <= 0 && payAdvantage <= 0) return { ok: true, accruedUserIds: [] };
+
+  // pay-once: 이 라인에 이미 지급된 유저는 제외하고 "신규 대상자"에게만 지급한다.
+  const { data: existingRows, error: existErr } = await supabaseAdmin
+    .from("process_point_awards")
+    .select("user_id")
+    .eq("source", "line")
+    .eq("ref_id", lineId);
+  if (existErr) throw existErr;
+  const alreadyPaid = new Set(
+    ((existingRows ?? []) as { user_id: string | null }[]).map((r) => r.user_id).filter((id): id is string => Boolean(id)),
+  );
+  const newUsers = userIds.filter((u) => !alreadyPaid.has(u));
+  if (newUsers.length === 0) return { ok: true, accruedUserIds: [] }; // 멱등 no-op(전원 이미 지급).
+
+  // 스코프 재검증(fail-closed) — 신규 대상자 전원이 (mode,org) 모집단이어야. 위반 시 throw(422).
+  const scopeOrg: OrganizationSlug | null = lineOrg && lineOrg !== "common" && isOrganizationSlug(lineOrg) ? lineOrg : null;
+  const scope = await resolveUserScope(mode, scopeOrg);
+  assertUserIdsInScope(scope, newUsers);
+
+  const nowIso = new Date().toISOString();
+  const ledgerRows = newUsers.map((uid) => ({
+    source: "line" as const,
+    ref_id: lineId,
+    user_id: uid,
+    year: week.iso_year as number,
+    week_number: week.iso_week as number,
+    point_check: payCheck,
+    point_advantage: payAdvantage,
+    point_penalty: 0,
+    organization_slug: scopeOrg,
+    scope_mode: mode,
+    updated_at: nowIso,
+  }));
+  // additive + dedup — 기존 (source,ref_id,user_id) 행은 절대 건드리지 않음(경합·중복 요청 안전).
+  const { error: ledgerErr } = await supabaseAdmin
+    .from("process_point_awards")
+    .upsert(ledgerRows, { onConflict: "source,ref_id,user_id", ignoreDuplicates: true });
+  if (ledgerErr) throw ledgerErr;
+
+  // 신규 지급 유저만 재합산 + 등급 + snapshot 무효화(write 시점 — 조회 경로 무관).
+  await settleAffectedUsers(newUsers, week);
+  return { ok: true, accruedUserIds: newUsers };
+}
+
 // 포인트 설정 변경 시 — 해당 (hub, config_key) 에 연결된 현재 개설(active) 라인들의 지급값 재정합.
 //   각 라인은 자기 org/설정을 독립 해석해 지급하므로 org 무관하게 매칭 라인 전체를 재실행한다(best-effort).
 export async function reconcileLinePayoutsForConfig(

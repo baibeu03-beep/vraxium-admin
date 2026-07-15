@@ -17,6 +17,7 @@ import {
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { collectLineOrgAudience } from "@/lib/adminCluster4LinesData";
+import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 
 // ── Row → DTO mapping ─────────────────────────────────────
 
@@ -669,6 +670,16 @@ export async function openExperienceDrafts(
     }
   }
   await invalidateWeeklyCardsForUsers(Array.from(affectedUsers));
+
+  // 라인 개설 대상자 등록 → Point A·B 즉시 지급(source='line', pay-once). 공통 SoT. best-effort.
+  //   experience 는 그룹당 1라인·다수 대상자를 생성하므로 createdLineIds 를 순회한다.
+  for (const lineId of createdLineIds) {
+    try {
+      await payLineOpenTargetsOnce(lineId);
+    } catch (payoutErr) {
+      console.warn("[openExperienceDrafts] line payout failed", { lineId, message: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) });
+    }
+  }
 
   // 행동 이력: 개설된 draft 마다 [개설 완료] 로그(재완료 시 행 추가 = 덮어쓰기 금지). best-effort.
   const draftById = new Map(drafts.map((d) => [d.id, d]));

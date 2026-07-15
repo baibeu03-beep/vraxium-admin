@@ -4,6 +4,7 @@ import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import { isUuid } from "@/lib/isUuid";
 import { isOrganizationSlug } from "@/lib/organizations";
 import {
@@ -469,6 +470,13 @@ export async function POST(request: NextRequest) {
     // 대상자 weekly-cards snapshot 즉시 재계산 → 고객 앱에 실제 라인이 바로 내려오게 한다.
     // (cron 축소로 stale-only 는 미반영) ≤10명 즉시 / >10명 백그라운드. best-effort.
     await invalidateWeeklyCardsForUsers(input.target_user_ids);
+
+    // 라인 개설 대상자 등록 → Point A·B 즉시 지급(source='line', pay-once). 공통 SoT. best-effort.
+    try {
+      await payLineOpenTargetsOnce(lineRow.id);
+    } catch (payoutErr) {
+      console.warn("[competency-lines POST] line payout failed", payoutErr);
+    }
 
     return Response.json(
       { success: true, data: { line: lineRow, targets: targets ?? [], targetCount: input.target_user_ids.length } },

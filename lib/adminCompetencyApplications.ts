@@ -11,7 +11,7 @@ import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { loadCrewRecords } from "@/lib/cluster4CafeLineMatch";
 import { listCrewsForTargetSelection } from "@/lib/adminExperienceLineData";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
-import { reconcileLineOpenAward, revokeLineOpenAward } from "@/lib/processPointAccrual";
+import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import { filterGrowthStoppedUserIds } from "@/lib/cluster4GrowthStopPolicy";
 import {
   assertUserIdsInScope,
@@ -651,12 +651,12 @@ export async function openApprovedApplications(input: {
     openedLineKeys.add(lineKey(r));
   }
 
-  // 라인 개설 포인트 지급(source='line') — 생성된 각 competency 라인의 대상자에게 Point.A/B 적립(멱등). best-effort.
+  // 라인 개설 대상자 등록 → Point A·B 즉시 지급(source='line', pay-once). 공통 SoT. best-effort.
   for (const lineId of openedLineIds) {
     try {
-      await reconcileLineOpenAward(lineId);
+      await payLineOpenTargetsOnce(lineId);
     } catch (payoutErr) {
-      console.warn("[competency open] line payout reconcile failed", { lineId, message: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) });
+      console.warn("[competency open] line payout failed", { lineId, message: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) });
     }
   }
 
@@ -730,14 +730,7 @@ export async function cancelOpenedApplications(input: {
     new Set(opened.map((r) => r.opened_line_id).filter((id): id is string => !!id)),
   );
   if (lineIds.length > 0) {
-    // 라인 개설 포인트 지급(source='line') 회수 — 라인/타깃 삭제 전에 원장 회수(멱등). best-effort.
-    for (const lineId of lineIds) {
-      try {
-        await revokeLineOpenAward(lineId);
-      } catch (payoutErr) {
-        console.warn("[competency cancel] line payout 회수 실패", { lineId, message: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) });
-      }
-    }
+    // 회수 정책(2026-07-15): 개설 취소/라인 삭제 시에도 기존 지급 포인트는 유지한다(회수 없음).
     await supabaseAdmin.from("cluster4_line_targets").delete().in("line_id", lineIds);
     await supabaseAdmin.from("cluster4_lines").delete().in("id", lineIds);
   }
@@ -784,12 +777,7 @@ export async function deleteManualCompetencyApplication(
 
   // 개설 완료로 만들어진 라인이 있으면 고객 반영도 정리.
   if (row.opened_line_id) {
-    // 라인 개설 포인트 지급(source='line') 회수 — 삭제 전 원장 회수(멱등). best-effort.
-    try {
-      await revokeLineOpenAward(row.opened_line_id);
-    } catch (payoutErr) {
-      console.warn("[competency delete] line payout 회수 실패", { lineId: row.opened_line_id, message: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) });
-    }
+    // 회수 정책(2026-07-15): 라인 삭제 시에도 기존 지급 포인트는 유지한다(회수 없음).
     await supabaseAdmin
       .from("cluster4_line_targets")
       .delete()
