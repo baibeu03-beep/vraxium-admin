@@ -200,12 +200,13 @@ export default function LineHistoryManager() {
                 <button
                   key={tab.value}
                   type="button"
+                  aria-pressed={status === tab.value}
                   onClick={() => resetAndSet(setStatus, tab.value)}
                   className={cn(
                     "rounded px-3 py-1 text-sm transition-colors",
                     status === tab.value
-                      ? "bg-primary text-primary-foreground font-medium"
-                      : "text-muted-foreground hover:text-foreground",
+                      ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                      : "font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                   )}
                 >
                   {tab.label}

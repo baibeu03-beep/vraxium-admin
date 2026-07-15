@@ -529,15 +529,18 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
                 <button
                   key={tm.teamId}
                   type="button"
+                  role="tab"
+                  aria-selected={effectiveTeamId === tm.teamId}
                   onClick={() => {
                     setSelectedTeamId(tm.teamId);
                     setScopeValue("all"); // 팀 전환 시 팀 전체(읽기전용)로 초기화
                   }}
                   className={cn(
-                    "rounded-t-md px-4 py-2 text-sm font-medium transition-colors",
+                    // 비선택도 border-b-2(투명) 유지 → 선택 전환 시 레이아웃 시프트 없음.
+                    "rounded-t-md border-b-2 px-4 py-2 text-sm transition-colors",
                     effectiveTeamId === tm.teamId
-                      ? "border-b-2 border-primary text-primary"
-                      : "text-muted-foreground hover:text-foreground",
+                      ? "border-primary bg-primary/10 font-semibold text-primary"
+                      : "border-transparent font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                   )}
                 >
                   {tm.teamName} 팀

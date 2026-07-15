@@ -439,24 +439,26 @@ export default function PracticalInfoCrewEditModal({
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
+              aria-pressed={editMode === "add"}
               onClick={() => switchMode("add")}
               className={cn(
-                "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+                "rounded-md border px-3 py-1.5 text-sm transition-colors",
                 editMode === "add"
-                  ? "border-primary bg-primary/10 text-foreground"
-                  : "border-input bg-background text-muted-foreground hover:text-foreground",
+                  ? "border-primary bg-primary/10 font-semibold text-primary"
+                  : "border-input bg-background font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
             >
               기존 유지 + 추가 (기본)
             </button>
             <button
               type="button"
+              aria-pressed={editMode === "replace"}
               onClick={() => switchMode("replace")}
               className={cn(
-                "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+                "rounded-md border px-3 py-1.5 text-sm transition-colors",
                 editMode === "replace"
-                  ? "border-red-400 bg-red-50 text-red-700"
-                  : "border-input bg-background text-muted-foreground hover:text-foreground",
+                  ? "border-red-500 bg-red-50 font-semibold text-red-700 dark:bg-red-950/40 dark:text-red-300"
+                  : "border-input bg-background font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground",
               )}
             >
               전체 교체

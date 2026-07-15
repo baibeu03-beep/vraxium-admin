@@ -37,6 +37,7 @@ import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import TabButton from "@/components/admin/AdminSubTab";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import Cluster4LineTable from "@/components/admin/cluster4/Cluster4LineTable";
 import CareerEvaluationTab from "@/components/admin/cluster4/CareerEvaluationTab";
@@ -569,33 +570,7 @@ function LogoUploadField({
 // Tab Button
 // ──────────────────────────────────────────────────────────────
 
-function TabButton({
-  label,
-  active,
-  onClick,
-  disabled,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      className={cn(
-        "rounded-t-md px-4 py-2 text-sm font-medium transition-colors",
-        active
-          ? "border-b-2 border-primary bg-background text-primary"
-          : "text-muted-foreground hover:text-foreground",
-        disabled && "cursor-not-allowed opacity-50",
-      )}
-      onClick={onClick}
-      disabled={disabled}
-    >
-      {label}
-    </button>
-  );
-}
+// 하위 탭 버튼 — 선택/비선택 대비 공통 컴포넌트(components/admin/AdminSubTab)로 통일.
 
 // ──────────────────────────────────────────────────────────────
 // Main Component

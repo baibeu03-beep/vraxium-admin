@@ -16,6 +16,7 @@ import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import TabButton from "@/components/admin/AdminSubTab";
 import { buildLineOpeningTabs } from "@/lib/adminHeaderTabs";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
@@ -179,13 +180,7 @@ function ImageUploadSlot({ label, image, caption, onUpload, onRemove, onCaptionC
   );
 }
 
-function TabButton({ label, active, onClick, disabled }: { label: string; active: boolean; onClick: () => void; disabled?: boolean }) {
-  return (
-    <button className={cn("rounded-t-md px-4 py-2 text-sm font-medium transition-colors", active ? "border-b-2 border-primary bg-background text-primary" : "text-muted-foreground hover:text-foreground", disabled && "cursor-not-allowed opacity-50")} onClick={onClick} disabled={disabled}>
-      {label}
-    </button>
-  );
-}
+// 하위 탭 버튼 — 선택/비선택 대비 공통 컴포넌트(components/admin/AdminSubTab)로 통일.
 
 export default function PracticalCompetencyManager() {
   // 헤더 [라인 관리]/[라인 개설] 2탭 — **조직 분기 모드(?org 있음)** 에서만 적용(실무 정보/경험과 동일 UX).

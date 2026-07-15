@@ -1326,16 +1326,19 @@ export default function PracticalInfoManager() {
       {SHOW_MANAGE_LINE_SECTIONS && (
         <>
       {/* Activity-type tabs */}
-      <div className="flex flex-wrap gap-2 border-b pb-px">
+      <div role="tablist" className="flex flex-wrap gap-2 border-b pb-px">
         {orderedTypes.map((t) => (
           <button
             key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTypeId === t.id}
             onClick={() => switchTab(t.id)}
             className={cn(
-              "relative -mb-px rounded-t-md border border-b-0 px-4 py-2 text-sm font-medium transition-colors",
+              "relative -mb-px rounded-t-md border border-b-0 px-4 py-2 text-sm transition-colors",
               activeTypeId === t.id
-                ? "border-input bg-background text-foreground"
-                : "border-transparent bg-muted/40 text-muted-foreground hover:text-foreground",
+                ? "border-primary bg-primary/10 font-semibold text-primary"
+                : "border-transparent bg-muted/40 font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
             {t.name}
@@ -1738,7 +1741,7 @@ export default function PracticalInfoManager() {
       {mainTab === "open" && (
         <div className="space-y-6">
           {/* 활동 유형 탭 (라인 개설 탭 — 섹션0 대상 활동유형 선택, activeTypeId 공유) */}
-          <div className="flex flex-wrap items-center gap-2 border-b pb-px">
+          <div role="tablist" className="flex flex-wrap items-center gap-2 border-b pb-px">
             {orderedTypes.map((t) => {
               // 미오픈 = 이번 주 개설 대상 아님. 탭은 목록에 남기되(숨기지 않음) 배지+어둡게 처리.
               //   클릭은 허용(선택 가능) — 선택 시 개설 폼이 차단 화면을 표시한다.
@@ -1747,17 +1750,20 @@ export default function PracticalInfoManager() {
                 <button
                   key={t.id}
                   type="button"
+                  role="tab"
+                  aria-selected={activeTypeId === t.id}
                   onClick={() => switchTab(t.id)}
                   title={notOpen ? "이번 주 개설 대상이 아닙니다(미오픈)" : undefined}
                   className={cn(
-                    "relative -mb-px inline-flex items-center gap-1.5 rounded-t-md border border-b-0 px-4 py-2 text-sm font-medium transition-colors",
+                    "relative -mb-px inline-flex items-center gap-1.5 rounded-t-md border border-b-0 px-4 py-2 text-sm transition-colors",
                     activeTypeId === t.id
                       ? notOpen
-                        ? "border-zinc-400 bg-zinc-200 text-zinc-700 dark:border-zinc-600 dark:bg-zinc-700 dark:text-zinc-200"
-                        : "border-input bg-background text-foreground"
+                        ? // 미오픈(데이터 상태)이라 zinc 로 어둡게 유지하되, 선택은 굵기+진한 테두리로 구분.
+                          "border-zinc-500 bg-zinc-200 font-semibold text-zinc-800 dark:border-zinc-400 dark:bg-zinc-700 dark:text-zinc-100"
+                        : "border-primary bg-primary/10 font-semibold text-primary"
                       : notOpen
-                        ? "border-transparent bg-zinc-200/70 text-zinc-500 hover:text-zinc-600 dark:bg-zinc-800/70 dark:text-zinc-500"
-                        : "border-transparent bg-muted/40 text-muted-foreground hover:text-foreground",
+                        ? "border-transparent bg-zinc-200/70 font-medium text-zinc-500 hover:bg-zinc-200 hover:text-zinc-600 dark:bg-zinc-800/70 dark:text-zinc-500"
+                        : "border-transparent bg-muted/40 font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   {t.name}

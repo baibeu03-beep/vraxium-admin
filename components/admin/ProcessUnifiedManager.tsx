@@ -1032,8 +1032,10 @@ export default function ProcessUnifiedManager() {
                         <div
                           key={g.id}
                           className={cn(
-                            "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
-                            selected ? "border-primary bg-primary/10" : "border-border bg-background",
+                            "flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                            selected
+                              ? "border-primary bg-primary/10 font-semibold text-primary"
+                              : "border-border bg-background font-medium text-muted-foreground",
                           )}
                         >
                           <input

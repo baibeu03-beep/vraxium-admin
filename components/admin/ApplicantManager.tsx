@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link2, Search, UserX } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import {
   Card,
@@ -239,7 +240,14 @@ export default function ApplicantManager() {
                     <TableRow
                       key={applicant.id}
                       data-state={active ? "selected" : undefined}
-                      className="cursor-pointer"
+                      aria-selected={active}
+                      className={cn(
+                        // 현재 선택(조회 중) 행 = 왼쪽 primary 강조선 + primary 연한 배경(hover 보다 우선).
+                        //   비선택 행은 border-l-transparent 로 두께만 예약(선택 전환 시 레이아웃 시프트 없음).
+                        "cursor-pointer border-l-2 border-l-transparent",
+                        active &&
+                          "border-l-primary bg-primary/10 hover:bg-primary/10",
+                      )}
                       onClick={() => {
                         setSelectedId(applicant.id);
                         setQuery(applicant.name?.trim() || applicant.email?.trim() || "");
