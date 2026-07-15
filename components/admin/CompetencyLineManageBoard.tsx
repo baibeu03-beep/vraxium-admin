@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { ChevronDown, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CUSTOM_DROPDOWN_POPUP_CLASS } from "@/lib/customDropdownStyles";
 import { formatClubDateTime } from "@/lib/clubDate";
 import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -367,7 +368,7 @@ export default function CompetencyLineManageBoard({
             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
           </button>
           {menuOpen && weekOptions.length > 0 && (
-            <div className="absolute z-20 mt-1 max-h-72 w-[280px] overflow-y-auto rounded-md border bg-background py-1 shadow-md">
+            <div className={CUSTOM_DROPDOWN_POPUP_CLASS}>
               {weekOptions.map((w) => (
                 <button
                   key={w.id}
