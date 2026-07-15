@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedRowClass } from "@/components/ui/checkbox";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   EXPERIENCE_OVERALL_CATEGORIES,
@@ -680,11 +681,14 @@ export default function ExperienceTeamOverallBoard({
                               : fail
                                 ? "border-red-400 bg-red-50"
                                 : "border-input bg-background",
+                            checkedRowClass(
+                              cell.checked &&
+                                !fail &&
+                                !(disabled && c.key === "extension" && !extensionActive),
+                            ),
                           )}
                         >
-                          <input
-                            type="checkbox"
-                            className="rounded border-input"
+                          <Checkbox
                             checked={cell.checked}
                             disabled={disabled}
                             onChange={() => toggleLeaderCheck(crew.userId, c.key)}

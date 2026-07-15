@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { pointColorClass } from "@/components/ui/point-value";
 import { getProcessPointLabels } from "@/lib/pointLabels";
@@ -74,11 +75,6 @@ export default function CrewWeekActHistory({
   );
   const allSelected = cancellableIds.length > 0 && cancellableIds.every((id) => selected.has(id));
   const someSelected = cancellableIds.some((id) => selected.has(id));
-
-  const headerCbRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (headerCbRef.current) headerCbRef.current.indeterminate = someSelected && !allSelected;
-  }, [someSelected, allSelected]);
 
   const toggleAll = useCallback(() => {
     setSelected((prev) => {
@@ -201,9 +197,8 @@ export default function CrewWeekActHistory({
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
                 <th className="px-2 py-2 text-center">
-                  <input
-                    ref={headerCbRef}
-                    type="checkbox"
+                  <Checkbox
+                    indeterminate={someSelected && !allSelected}
                     aria-label="취소 가능 액트 전체 선택"
                     checked={allSelected}
                     disabled={!editable || cancellableIds.length === 0}
@@ -311,10 +306,9 @@ function ActRowView({
 }) {
   const disabled = !editable || !row.cancellable;
   return (
-    <tr className={cn("border-b last:border-0", row.cancelled && "opacity-50")}>
+    <tr className={cn("border-b last:border-0", checkedRowClass(checked), row.cancelled && "opacity-50")}>
       <td className="px-2 py-2 text-center">
-        <input
-          type="checkbox"
+        <Checkbox
           aria-label={`${row.actName} 선택`}
           checked={checked}
           disabled={disabled}
@@ -332,7 +326,7 @@ function ActRowView({
           </span>
         )}
       </td>
-      <td className={cn("max-w-[220px] truncate px-2 py-2", row.cancelled && "line-through")} title={row.actName}>
+      <td className={cn("max-w-[220px] truncate px-2 py-2", checkedTextClass(checked), row.cancelled && "line-through")} title={row.actName}>
         {row.actName}
       </td>
       <td className="whitespace-nowrap px-2 py-2">

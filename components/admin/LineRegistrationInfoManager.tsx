@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import {
   COMMON_CLUB_LABEL,
   LINE_REGISTRATION_HUBS,
@@ -660,18 +661,20 @@ export default function LineRegistrationInfoManager({
                   className="max-h-[60vh] overflow-auto rounded-md border bg-background p-2 shadow-lg"
                 >
                   <ul className="space-y-1">
-                    {INFO_HUBS.map((h) => (
-                      <li key={h}>
+                    {INFO_HUBS.map((h) => {
+                      const sel = pendingHubs.has(h);
+                      return (
+                      <li key={h} className={cn(checkedRowClass(sel))}>
                         <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-muted">
-                          <input
-                            type="checkbox"
-                            checked={pendingHubs.has(h)}
+                          <Checkbox
+                            checked={sel}
                             onChange={() => togglePendingHub(h)}
                           />
-                          {LINE_REGISTRATION_HUB_LABEL[h]}
+                          <span className={cn(checkedTextClass(sel))}>{LINE_REGISTRATION_HUB_LABEL[h]}</span>
                         </label>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                   <div className="mt-2 flex justify-end gap-1.5 border-t pt-2">
                     <Button

@@ -6,6 +6,7 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import TopCardsList from "@/components/admin/cluster3/TopCardsList";
 import {
   TOP_CARD_LINK_SLOTS,
@@ -311,13 +312,12 @@ function MultiSelectChips({
                 disabled && "cursor-not-allowed opacity-60",
               )}
             >
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={checked}
                 onChange={(e) => toggle(opt.key, e.target.checked)}
                 disabled={disabled}
               />
-              <span className="flex-1">{opt.label}</span>
+              <span className={cn("flex-1", checkedTextClass(checked))}>{opt.label}</span>
               {devMode && (
                 <code className="text-[9px] text-muted-foreground">{opt.key}</code>
               )}
@@ -337,9 +337,8 @@ function MultiSelectChips({
                 key={k}
                 className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-100 px-2 py-0.5"
               >
-                <input
-                  type="checkbox"
-                  checked={true}
+                <Checkbox
+                  checked
                   onChange={(e) => toggle(k, e.target.checked)}
                   disabled={disabled}
                 />

@@ -30,6 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
+import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -559,13 +560,12 @@ export default function EditWindowsManager() {
           <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-wrap items-center gap-3 text-sm">
               <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={pageAllSelected}
                   onChange={(e) => handleTogglePage(e.target.checked)}
                   aria-label="현재 페이지 전체 선택"
                 />
-                현재 페이지 전체 선택
+                <span className={cn(checkedTextClass(pageAllSelected))}>현재 페이지 전체 선택</span>
               </label>
               <button
                 type="button"
@@ -723,15 +723,13 @@ export default function EditWindowsManager() {
               <TableBody>
                 {rows.map((row) => {
                   const status = computeEditWindowStatus(row.window);
+                  const rowChecked =
+                    allMatchingSelected || selectedUserIds.has(row.userId);
                   return (
-                    <TableRow key={row.userId}>
+                    <TableRow key={row.userId} className={cn(checkedRowClass(rowChecked))}>
                       <TableCell className="sticky left-0 z-10 bg-card w-10">
-                        <input
-                          type="checkbox"
-                          checked={
-                            allMatchingSelected ||
-                            selectedUserIds.has(row.userId)
-                          }
+                        <Checkbox
+                          checked={rowChecked}
                           onChange={(e) =>
                             handleToggleUser(row.userId, e.target.checked)
                           }
@@ -739,7 +737,7 @@ export default function EditWindowsManager() {
                         />
                       </TableCell>
                       <TableCell className="sticky left-10 z-10 bg-card border-r max-w-[220px]">
-                        <div className="truncate font-medium">{fmt(row.displayName)}</div>
+                        <div className={cn("truncate font-medium", checkedTextClass(rowChecked))}>{fmt(row.displayName)}</div>
                         {devMode && (
                           <div className="truncate font-mono text-[10px] text-muted-foreground">
                             {row.userId}

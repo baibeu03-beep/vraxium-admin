@@ -35,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { formatAdminDateWithWeekday } from "@/lib/adminDateTime";
@@ -569,13 +570,11 @@ function LineDetailModal({
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="rounded border-input"
+            <Checkbox
               checked={isActive}
               onChange={(e) => setIsActive(e.target.checked)}
             />
-            활성 라인 (is_active)
+            <span className={cn(checkedTextClass(isActive))}>활성 라인 (is_active)</span>
           </label>
 
           {/* Output images — read-only */}
@@ -1675,23 +1674,24 @@ export default function PracticalInfoManager() {
                     </p>
                   ) : (
                     <div className="grid grid-cols-2 gap-1">
-                      {filteredUsers.map((user) => (
+                      {filteredUsers.map((user) => {
+                        const sel = selectedUserIds.has(user.userId);
+                        return (
                         <label
                           key={user.userId}
                           className={cn(
                             "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted",
-                            selectedUserIds.has(user.userId) && "bg-muted",
+                            checkedRowClass(sel),
                           )}
                         >
-                          <input
-                            type="checkbox"
-                            className="rounded border-input"
-                            checked={selectedUserIds.has(user.userId)}
+                          <Checkbox
+                            checked={sel}
                             onChange={() => toggleUser(user.userId)}
                           />
-                          <span className="truncate">{user.displayName}</span>
+                          <span className={cn("truncate", checkedTextClass(sel))}>{user.displayName}</span>
                         </label>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

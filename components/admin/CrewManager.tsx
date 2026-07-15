@@ -31,6 +31,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import {
   ORGANIZATIONS,
   ORGANIZATION_LABEL,
@@ -1026,8 +1027,7 @@ function CrewFormModal({
 
             <Field label={devMode ? "Visibility" : "공개 여부"}>
               <label className="mt-1 inline-flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={form.is_visible}
                   onChange={(event) =>
                     setForm((current) => ({
@@ -1036,7 +1036,9 @@ function CrewFormModal({
                     }))
                   }
                 />
-                {devMode ? "Expose on user app `/crews`" : "회원 앱의 '크루' 페이지에 공개"}
+                <span className={checkedTextClass(form.is_visible)}>
+                  {devMode ? "Expose on user app `/crews`" : "회원 앱의 '크루' 페이지에 공개"}
+                </span>
               </label>
             </Field>
           </div>

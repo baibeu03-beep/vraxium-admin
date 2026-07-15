@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 
 // Admin editor 공용 field 정의 + 렌더링 부품.
 // resume-card editor 에서 추출한 패턴이며, cluster2 등 다른 editor 도 재사용한다.
@@ -167,13 +168,12 @@ export function FieldInput({
   if (field.type === "checkbox") {
     return (
       <label className="mt-1 inline-flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
+        <Checkbox
           checked={Boolean(value)}
           onChange={(e) => onChange(e.target.checked)}
           disabled={disabled}
         />
-        <span className="text-muted-foreground">
+        <span className={cn("text-muted-foreground", checkedTextClass(Boolean(value)))}>
           {Boolean(value) ? "true" : "false"}
         </span>
       </label>

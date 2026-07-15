@@ -31,6 +31,13 @@
   --color-tone-accent: var(--tone-accent);
   --color-tone-accent-bg: var(--tone-accent-bg);
   --color-surface-subtle: var(--surface-subtle);
+  /* Checkbox / selection accent — 어드민 전역 체크 상태 단일 SoT.
+     체크박스 채움(accent) + 체크 항목의 인덱스·라벨 텍스트(accent-text) + 옅은 행 배경(accent-row).
+     중립 --primary(≈foreground)로는 라벨 강조 시 색 대비가 없어 별도 색상 계열을 둔다. */
+  --color-checkbox-accent: var(--checkbox-accent);
+  --color-checkbox-accent-contrast: var(--checkbox-accent-contrast);
+  --color-checkbox-accent-text: var(--checkbox-accent-text);
+  --color-checkbox-accent-row: var(--checkbox-accent-row);
   /* Point value colors — 어드민 전역 단일 SoT.
      A/B(항상 양수·좋은 의미)=연두(good), C(항상 양수·차감 경고)=빨강(danger).
      text-point-good / text-point-danger 유틸로 사용. 부호가 아니라 "포인트 종류"로 색을 정한다. */
@@ -194,6 +201,12 @@
   --tone-accent: oklch(0.55 0.05 75);
   --tone-accent-bg: oklch(0.96 0.02 75);
   --surface-subtle: oklch(0.975 0 0);
+  /* Checkbox / selection accent (light) — 파랑 계열(보편적 "선택" 관례),
+     info/sidebar 토큰과 hue(255) 정렬. desaturated 콘솔 톤에 맞춰 채도 절제. */
+  --checkbox-accent: oklch(0.55 0.16 255);
+  --checkbox-accent-contrast: oklch(0.99 0 0);
+  --checkbox-accent-text: oklch(0.48 0.17 255);
+  --checkbox-accent-row: oklch(0.965 0.025 255);
   /* Point value colors (light) — A/B=연두(good), C=빨강(danger). */
   --point-good: oklch(0.6 0.16 145);
   --point-danger: oklch(0.577 0.245 27.325);
@@ -274,6 +287,11 @@
   --tone-accent: oklch(0.78 0.05 75);
   --tone-accent-bg: oklch(0.27 0.02 75);
   --surface-subtle: oklch(0.22 0 0);
+  /* Checkbox / selection accent (dark) — 밝기 상향으로 어두운 배경 대비 확보. */
+  --checkbox-accent: oklch(0.62 0.16 255);
+  --checkbox-accent-contrast: oklch(0.99 0 0);
+  --checkbox-accent-text: oklch(0.78 0.15 255);
+  --checkbox-accent-row: oklch(0.30 0.06 255);
   /* Point value colors (dark) — A/B=연두(good), C=빨강(danger), 어두운 배경 대비 상향. */
   --point-good: oklch(0.82 0.17 145);
   --point-danger: oklch(0.704 0.191 22.216);
@@ -421,6 +439,106 @@ input[type="radio"]:disabled,
 [data-disabled]:not([data-disabled="false"]) {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Checkbox — 어드민 전역 단일 SoT (components/ui/checkbox.tsx 의 `.admin-checkbox`).
+   네이티브 <input type="checkbox"> 를 appearance:none 으로 커스텀 렌더해 체크/미체크가
+   즉시 구분되도록 한다. 강조색 = --checkbox-accent(파랑 계열, theme-aware).
+   라벨·인덱스 강조와 행 배경은 컴포넌트가 노출하는 checkedTextClass()/checkedRowClass()
+   헬퍼(text-checkbox-accent-text·bg-checkbox-accent-row)가 담당한다.
+
+   상태 표현(혼동 방지):
+   · 미체크 = 중립 테두리(빈 상자)          · 체크 = accent 채움 + 흰 체크마크
+   · indeterminate = accent 채움 + 가로 막대(체크마크와 모양으로 구분)
+   · readonly = 점선·muted(채움/강조색 제거) → "완료 체크"와 구분
+   · disabled = 위 전역 baseline(opacity .6 + not-allowed)에 얹혀 흐려짐
+   Unlayered — Tailwind 유틸 레이어보다 우선 적용.
+   ─────────────────────────────────────────────────────────────────────────── */
+.admin-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid var(--input);
+  border-radius: 0.3rem;
+  background-color: var(--background);
+  display: inline-grid;
+  place-content: center;
+  vertical-align: middle;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+/* 미체크 hover — 테두리 진하게(클릭 가능 인지). */
+.admin-checkbox:hover:not(:checked):not(:indeterminate):not(:disabled):not(
+    [data-readonly="true"]
+  ) {
+  border-color: var(--muted-foreground);
+}
+
+.admin-checkbox:focus-visible {
+  outline: none;
+  border-color: var(--checkbox-accent);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--checkbox-accent) 40%, transparent);
+}
+
+/* 체크됨 — accent 채움 + 흰 체크마크(::after 를 rotate 한 border 로 그림). */
+.admin-checkbox:checked {
+  background-color: var(--checkbox-accent);
+  border-color: var(--checkbox-accent);
+}
+.admin-checkbox:checked::after {
+  content: "";
+  width: 0.3rem;
+  height: 0.55rem;
+  margin-top: -0.06rem;
+  border: solid var(--checkbox-accent-contrast);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* indeterminate — accent 채움 + 가로 막대(체크마크와 명확히 다른 모양). checked 보다
+   뒤에 선언해 두 상태가 겹칠 때 막대가 이긴다. */
+.admin-checkbox:indeterminate {
+  background-color: var(--checkbox-accent);
+  border-color: var(--checkbox-accent);
+}
+.admin-checkbox:indeterminate::after {
+  content: "";
+  width: 0.55rem;
+  height: 2px;
+  border-radius: 1px;
+  background-color: var(--checkbox-accent-contrast);
+  transform: none;
+}
+
+/* readonly — 편집 불가. 채움/강조색을 걷어내고 점선 muted 로 낮춰 "완료 체크"와 혼동 방지.
+   조합 선택자를 마지막에 두어 checked/indeterminate 위를 덮는다. */
+.admin-checkbox[data-readonly="true"],
+.admin-checkbox[data-readonly="true"]:checked,
+.admin-checkbox[data-readonly="true"]:indeterminate {
+  cursor: default;
+  background-color: var(--muted);
+  border-color: var(--border);
+  border-style: dashed;
+}
+.admin-checkbox[data-readonly="true"]:checked::after {
+  border-color: var(--muted-foreground);
+}
+.admin-checkbox[data-readonly="true"]:indeterminate::after {
+  background-color: var(--muted-foreground);
+}
+
+/* disabled — 전역 baseline(opacity/커서)에 더해 강조 테두리를 중립으로 낮춘다. */
+.admin-checkbox:disabled:not(:checked):not(:indeterminate) {
+  border-color: var(--border);
 }
 
 /* ───────────────────────────────────────────────────────────────────────────

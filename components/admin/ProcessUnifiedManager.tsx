@@ -35,6 +35,7 @@ import { SelectBadge } from "@/components/ui/status-badge";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import { pointColorClass } from "@/components/ui/point-value";
 import {
   PROCESS_ACT_TYPE_LABEL,
@@ -1038,13 +1039,12 @@ export default function ProcessUnifiedManager() {
                               : "border-border bg-background font-medium text-muted-foreground",
                           )}
                         >
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             aria-label={`${g.name} 선택`}
                             checked={selected}
                             onChange={() => setLineGroupId(selected ? "" : g.id)}
                           />
-                          <span>{g.name}</span>
+                          <span className={checkedTextClass(selected)}>{g.name}</span>
                           <span className="text-xs text-muted-foreground">(액트 {g.actCount})</span>
                           <button
                             type="button"

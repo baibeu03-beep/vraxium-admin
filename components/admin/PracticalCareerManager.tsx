@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import AdminHelp from "@/components/admin/AdminHelp";
@@ -1295,26 +1296,27 @@ export default function PracticalCareerManager() {
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-              {filtered.map((crew) => (
+              {filtered.map((crew) => {
+                const sel = selectedIds.has(crew.userId);
+                return (
                 <label
                   key={crew.userId}
                   className={cn(
                     "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted",
-                    selectedIds.has(crew.userId) && "bg-muted",
+                    checkedRowClass(sel),
                   )}
                 >
-                  <input
-                    type="checkbox"
-                    className="rounded border-input"
-                    checked={selectedIds.has(crew.userId)}
+                  <Checkbox
+                    checked={sel}
                     onChange={() => onToggle(crew.userId)}
                   />
-                  <span className="truncate">{crew.displayName}</span>
+                  <span className={cn("truncate", checkedTextClass(sel))}>{crew.displayName}</span>
                   <span className="ml-auto text-xs text-muted-foreground">
                     {[crew.teamName, crew.partName].filter(Boolean).join(" / ") || ""}
                   </span>
                 </label>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

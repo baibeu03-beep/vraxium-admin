@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -1195,28 +1196,26 @@ function CreateAccountDrawerInner({
                 />
               </div>
               <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={!sendInviteEmail}
                   onChange={(e) => setSendInviteEmail(!e.target.checked)}
                   className="mt-0.5"
                 />
                 <span>
-                  <span className="font-medium">임시 비밀번호 즉시 발급</span>
+                  <span className={cn("font-medium", checkedTextClass(!sendInviteEmail))}>임시 비밀번호 즉시 발급</span>
                   <span className="block text-xs text-muted-foreground">
                     생성 직후 1회만 표시되며, 사용자에게 안전한 채널로 직접 전달합니다.
                   </span>
                 </span>
               </label>
               <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={sendInviteEmail}
                   onChange={(e) => setSendInviteEmail(e.target.checked)}
                   className="mt-0.5"
                 />
                 <span>
-                  <span className="font-medium">초대 메일 발송</span>
+                  <span className={cn("font-medium", checkedTextClass(sendInviteEmail))}>초대 메일 발송</span>
                   <span className="block text-xs text-muted-foreground">
                     Supabase 가 초대 링크를 메일로 보냅니다. SMTP 미구성 환경에선 실패할 수 있습니다.
                   </span>

@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
@@ -2708,18 +2709,17 @@ export default function PracticalExperienceManager() {
                   <TableBody>
                     {openDrafts.map((d) => {
                       const opened = d.openStatus === "opened";
+                      const sel = openSelectedIds.has(d.id);
                       return (
-                        <TableRow key={d.id} className={cn(opened && "opacity-70")}>
+                        <TableRow key={d.id} className={cn(opened && "opacity-70", checkedRowClass(sel))}>
                           <TableCell>
-                            <input
-                              type="checkbox"
-                              className="rounded border-input"
-                              checked={openSelectedIds.has(d.id)}
+                            <Checkbox
+                              checked={sel}
                               disabled={opened || saving}
                               onChange={() => toggleOpenSelect(d.id)}
                             />
                           </TableCell>
-                          <TableCell className="font-medium">
+                          <TableCell className={cn("font-medium", checkedTextClass(sel))}>
                             {d.targetUserName ?? "-"}
                           </TableCell>
                           <TableCell>{d.teamName ?? "-"}</TableCell>

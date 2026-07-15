@@ -13,6 +13,7 @@ import { adminDialog } from "@/components/ui/admin-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { formatClubDate } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
@@ -685,9 +686,7 @@ export default function PracticalInfoOpeningForm({
             </div>
             {devMode && (
               <label className="flex cursor-pointer items-center gap-1.5 text-xs text-amber-700">
-                <input
-                  type="checkbox"
-                  className="rounded border-input"
+                <Checkbox
                   checked={adminUnlock}
                   onChange={(e) => {
                     setAdminUnlock(e.target.checked);
@@ -700,7 +699,9 @@ export default function PracticalInfoOpeningForm({
                 ) : (
                   <Lock className="h-3.5 w-3.5" />
                 )}
-                관리자 강제 선택(잠금 해제 · dev)
+                <span className={cn(checkedTextClass(adminUnlock))}>
+                  관리자 강제 선택(잠금 해제 · dev)
+                </span>
               </label>
             )}
           </div>

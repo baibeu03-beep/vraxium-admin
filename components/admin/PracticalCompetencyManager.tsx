@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { readOrgParam } from "@/lib/adminOrgContext";
@@ -606,13 +607,16 @@ export default function PracticalCompetencyManager() {
                   <div className="max-h-60 overflow-y-auto rounded-md border p-2">
                     {filteredCrews.length === 0 ? <p className="py-4 text-center text-sm text-muted-foreground">{crews.length === 0 ? "등록된 크루가 없습니다" : "검색 결과가 없습니다"}</p> : (
                       <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-                        {filteredCrews.map((c) => (
-                          <label key={c.userId} className={cn("flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted", selectedUserIds.has(c.userId) && "bg-muted")}>
-                            <input type="checkbox" className="rounded border-input" checked={selectedUserIds.has(c.userId)} onChange={() => toggleUser(c.userId)} />
-                            <span className="truncate">{c.displayName}</span>
+                        {filteredCrews.map((c) => {
+                          const sel = selectedUserIds.has(c.userId);
+                          return (
+                          <label key={c.userId} className={cn("flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-muted", checkedRowClass(sel))}>
+                            <Checkbox checked={sel} onChange={() => toggleUser(c.userId)} />
+                            <span className={cn("truncate", checkedTextClass(sel))}>{c.displayName}</span>
                             <span className="ml-auto text-xs text-muted-foreground">{[c.teamName, c.partName].filter(Boolean).join(" / ")}</span>
                           </label>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

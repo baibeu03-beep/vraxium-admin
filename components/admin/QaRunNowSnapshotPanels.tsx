@@ -17,6 +17,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import {
   FreshnessLine,
   OutcomeBadge,
@@ -276,22 +278,24 @@ function UserSnapshotPanel() {
             </div>
           ) : (
             <ul className="divide-y text-sm">
-              {users.map((u) => (
-                <li key={u.userId}>
+              {users.map((u) => {
+                const sel = selected.has(u.userId);
+                return (
+                <li key={u.userId} className={cn(checkedRowClass(sel))}>
                   <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-muted/40">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(u.userId)}
+                    <Checkbox
+                      checked={sel}
                       onChange={() => toggle(u.userId)}
                       disabled={busy}
                     />
-                    <span className="font-medium">{u.name}</span>
+                    <span className={cn("font-medium", checkedTextClass(sel))}>{u.name}</span>
                     <span className="text-xs text-muted-foreground">
                       {[u.organizationName, u.teamName].filter(Boolean).join(" · ") || "—"}
                     </span>
                   </label>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </div>

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Plus, Star, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import { FieldCell, fmt, type FieldDef } from "@/components/admin/fieldKit";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 
@@ -338,12 +339,11 @@ export default function EducationsList({
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label className="text-xs">
+                <Label className={cn("text-xs", checkedTextClass(row.is_primary))}>
                   {devMode ? "is_primary (대표 여부)" : "대표학력"}
                 </Label>
                 <label className="mt-1 inline-flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={row.is_primary}
                     onChange={(e) =>
                       e.target.checked

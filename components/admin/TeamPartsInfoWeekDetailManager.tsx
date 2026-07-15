@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -1801,16 +1802,15 @@ export default function TeamPartsInfoWeekDetailManager({
                         <label
                           key={g.lineGroupId}
                           data-act-info-line={g.lineGroupId}
-                          className={"flex min-w-0 items-start gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer")}
+                          className={"flex min-w-0 items-start gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer") + " " + checkedRowClass(actInfoChecked[g.lineGroupId] ?? false)}
                         >
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4 shrink-0"
+                          <Checkbox
+                            className="mt-0.5 shrink-0"
                             checked={actInfoChecked[g.lineGroupId] ?? false}
                             disabled={readOnly}
                             onChange={() => toggleActInfo(g.lineGroupId)}
                           />
-                          <span className="min-w-0 break-keep [overflow-wrap:anywhere]">{g.name}</span>
+                          <span className={"min-w-0 break-keep [overflow-wrap:anywhere] " + checkedTextClass(actInfoChecked[g.lineGroupId] ?? false)}>{g.name}</span>
                         </label>
                       ))
                     )}
@@ -1831,16 +1831,15 @@ export default function TeamPartsInfoWeekDetailManager({
                         <label
                           key={l.lineId}
                           data-line-info-line={l.lineId}
-                          className={"flex min-w-0 items-start gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer")}
+                          className={"flex min-w-0 items-start gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer") + " " + checkedRowClass(lineInfoChecked[l.lineId] ?? false)}
                         >
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4 shrink-0"
+                          <Checkbox
+                            className="mt-0.5 shrink-0"
                             checked={lineInfoChecked[l.lineId] ?? false}
                             disabled={readOnly}
                             onChange={() => toggleLineInfo(l.lineId)}
                           />
-                          <span className="min-w-0 break-keep [overflow-wrap:anywhere]">{l.lineName}</span>
+                          <span className={"min-w-0 break-keep [overflow-wrap:anywhere] " + checkedTextClass(lineInfoChecked[l.lineId] ?? false)}>{l.lineName}</span>
                         </label>
                       ))
                     )}
@@ -1872,10 +1871,8 @@ export default function TeamPartsInfoWeekDetailManager({
                           <tr key={team.teamId} data-act-exp-team={team.teamId}>
                             <td className="px-1 py-1 text-center font-medium break-keep [overflow-wrap:anywhere]">{team.teamName}</td>
                             {team.lineGroups.map((g) => (
-                              <td key={g.lineGroupId} className="px-1 py-1 text-center">
-                                <input
-                                  type="checkbox"
-                                  className={"h-4 w-4 " + (readOnly ? "cursor-not-allowed" : "cursor-pointer")}
+                              <td key={g.lineGroupId} className={"px-1 py-1 text-center " + checkedRowClass(actExpChecked[team.teamId]?.[g.lineGroupId] ?? false)}>
+                                <Checkbox
                                   data-act-exp-cell={`${team.teamId}:${g.lineGroupId}`}
                                   checked={actExpChecked[team.teamId]?.[g.lineGroupId] ?? false}
                                   disabled={readOnly}
@@ -1915,10 +1912,8 @@ export default function TeamPartsInfoWeekDetailManager({
                           <tr key={team.teamId} data-line-exp-team={team.teamId}>
                             <td className="px-1 py-1 text-center font-medium break-keep [overflow-wrap:anywhere]">{team.teamName}</td>
                             {EXP_TYPES.map((type) => (
-                              <td key={type} className="px-1 py-1 text-center">
-                                <input
-                                  type="checkbox"
-                                  className={"h-4 w-4 " + (readOnly ? "cursor-not-allowed" : "cursor-pointer")}
+                              <td key={type} className={"px-1 py-1 text-center " + checkedRowClass(lineExpChecked[team.teamId]?.[type] ?? false)}>
+                                <Checkbox
                                   data-line-exp-cell={`${team.teamId}:${type}`}
                                   checked={lineExpChecked[team.teamId]?.[type] ?? false}
                                   disabled={readOnly}
@@ -1940,15 +1935,14 @@ export default function TeamPartsInfoWeekDetailManager({
                     <AdminHelpIconButton helpKey={`${HELP}.hub.competency`} title="[실무 역량] 체크/개설" />
                   </p>
                   <label className={"flex min-w-0 items-center gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer")}>
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 shrink-0"
+                    <Checkbox
+                      className="shrink-0"
                       data-competency-checkbox
                       checked={compChecked}
                       disabled={readOnly}
                       onChange={() => setCompChecked((v) => !v)}
                     />
-                    <span className="min-w-0 break-keep [overflow-wrap:anywhere]">정상 진행</span>
+                    <span className={"min-w-0 break-keep [overflow-wrap:anywhere] " + checkedTextClass(compChecked)}>정상 진행</span>
                   </label>
                 </div>
 
@@ -1966,16 +1960,15 @@ export default function TeamPartsInfoWeekDetailManager({
                         <label
                           key={g.lineGroupId}
                           data-act-club-line={g.lineGroupId}
-                          className={"flex min-w-0 items-start gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer")}
+                          className={"flex min-w-0 items-start gap-2 text-sm " + (readOnly ? "cursor-not-allowed opacity-70" : "cursor-pointer") + " " + checkedRowClass(actClubChecked[g.lineGroupId] ?? false)}
                         >
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 h-4 w-4 shrink-0"
+                          <Checkbox
+                            className="mt-0.5 shrink-0"
                             checked={actClubChecked[g.lineGroupId] ?? false}
                             disabled={readOnly}
                             onChange={() => toggleActClub(g.lineGroupId)}
                           />
-                          <span className="min-w-0 break-keep [overflow-wrap:anywhere]">{g.name}</span>
+                          <span className={"min-w-0 break-keep [overflow-wrap:anywhere] " + checkedTextClass(actClubChecked[g.lineGroupId] ?? false)}>{g.name}</span>
                         </label>
                       ))
                     )}

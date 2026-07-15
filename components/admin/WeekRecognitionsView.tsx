@@ -34,6 +34,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
@@ -1485,12 +1486,11 @@ function WeekRecognitionEditModal({
 
           <div className="inline-flex items-center gap-1">
             <label className="inline-flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={override}
                 onChange={(event) => setOverride(event.target.checked)}
               />
-              공식 휴식 인정 override
+              <span className={checkedTextClass(override)}>공식 휴식 인정 override</span>
             </label>
             <AdminHelpIconButton helpKey="admin.weekRecognitions.field.officialRestOverride" title="공식 휴식 인정" size="xs" />
           </div>

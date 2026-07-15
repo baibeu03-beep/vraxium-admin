@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
@@ -793,9 +794,9 @@ export default function CompetencyApplicantSection({
                       </TableCell>
                     </TableRow>
                     {g.apps.map((a) => (
-                  <TableRow key={a.id}>
+                  <TableRow key={a.id} className={cn(checkedRowClass(a.approvalChecked))}>
                     <TableCell className="whitespace-nowrap font-medium">
-                      {a.crewLabel}
+                      <span className={cn(checkedTextClass(a.approvalChecked))}>{a.crewLabel}</span>
                       {a.source === "manual" && (
                         <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
                           수동
@@ -824,18 +825,14 @@ export default function CompetencyApplicantSection({
                       )}
                     </TableCell>
                     <TableCell className="text-center">
-                      <input
-                        type="checkbox"
-                        className="rounded border-input"
+                      <Checkbox
                         checked={a.cafeChecked}
                         onChange={(e) => patchApp(a.id, { cafe_checked: e.target.checked })}
                         aria-label={`${a.displayName} 카페 체크`}
                       />
                     </TableCell>
                     <TableCell className="text-center">
-                      <input
-                        type="checkbox"
-                        className="rounded border-input"
+                      <Checkbox
                         checked={a.approvalChecked}
                         onChange={(e) => patchApp(a.id, { approval_checked: e.target.checked })}
                         aria-label={`${a.displayName} 승인 체크`}

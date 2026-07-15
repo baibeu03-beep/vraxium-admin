@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedRowClass } from "@/components/ui/checkbox";
 import { useToast } from "@/components/ui/toast";
 import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -873,11 +874,10 @@ function PartGrid({
                             fail
                               ? "border-red-400 bg-red-50"
                               : "border-input bg-background",
+                            checkedRowClass(cell.checked && !fail),
                           )}
                         >
-                          <input
-                            type="checkbox"
-                            className="rounded border-input"
+                          <Checkbox
                             checked={cell.checked}
                             onChange={() => toggleCheck(crew.userId, line.key, cell)}
                             aria-label={`${crew.displayName} ${line.label} 체크`}

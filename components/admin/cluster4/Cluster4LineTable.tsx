@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatAdminDateWithWeekday } from "@/lib/adminDateTime";
 import type {
@@ -1018,14 +1019,12 @@ function LineDetailModal({
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="rounded border-input"
+            <Checkbox
               checked={isActive}
               onChange={(e) => setIsActive(e.target.checked)}
               disabled={!editable}
             />
-            활성 라인 (is_active)
+            <span className={checkedTextClass(isActive)}>활성 라인 (is_active)</span>
             <AdminHelpIconButton
               helpKey="admin.lineOpening.career.opening.detail.field.isActive"
               title="활성 라인 (is_active)"
