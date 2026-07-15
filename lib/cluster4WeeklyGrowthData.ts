@@ -1,8 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import {
-  isTestUser as isMarkedTestUser,
-  fetchTestUserMarkerIds,
-} from "@/lib/testUsers";
+import { isTestUser as isMarkedTestUser } from "@/lib/testUsers";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import {
@@ -1894,76 +1891,4 @@ export async function syncExperienceGrowthForCrew(
   });
 
   return { userId: crew.userId, displayName, isTestUser, mode, reason, result };
-}
-
-export type ExperienceGrowthSyncAllResult = {
-  scope: "all" | "test"; // 운영 전체 vs 테스트 사용자(test_user_markers 등재)만
-  dryRun: boolean; // true 면 DB write 없이 변경 예정만 계산
-  usersScanned: number; // 이 scope 에서 success 보유 대상 사용자 수
-  usersFlipped: number; // 1건 이상 fail 전환(예정)된 사용자 수
-  totalFlippedToFail: number; // 전체 success→fail 전환(예정) 주차 수
-  // (v11) 실사용자 과거(effectiveFrom 이전) 보호로 update 가 차단된 주차 총수 — 관찰값.
-  totalProtected: number;
-  results: ExperienceGrowthSyncResult[]; // 변경(예정) 또는 보호 발생한 사용자만
-};
-
-// status='success' 보유 사용자 distinct.
-async function fetchUsersWithSuccessWeeks(): Promise<string[]> {
-  const { data, error } = await supabaseAdmin
-    .from("user_week_statuses")
-    .select("user_id")
-    .eq("status", "success");
-  if (error || !data) return [];
-  return [...new Set((data as { user_id: string }[]).map((r) => r.user_id))];
-}
-
-async function syncExperienceGrowthForUserIds(
-  scope: "all" | "test",
-  userIds: string[],
-  opts: { now?: number; dryRun?: boolean } = {},
-): Promise<ExperienceGrowthSyncAllResult> {
-  const dryRun = opts.dryRun ?? false;
-  const results: ExperienceGrowthSyncResult[] = [];
-  let totalFlippedToFail = 0;
-  let totalProtected = 0;
-  let usersFlipped = 0;
-  for (const uid of userIds) {
-    const r = await syncExperienceGrowthWeekStatuses(uid, { now: opts.now, dryRun });
-    totalProtected += r.protectedWeekKeys.length;
-    if (r.flippedToFail > 0) usersFlipped += 1;
-    // 변경(예정) 또는 과거 보호 발생 사용자만 상세 수집 (no-op 사용자는 생략).
-    if (r.flippedToFail > 0 || r.protectedWeekKeys.length > 0) {
-      results.push(r);
-      totalFlippedToFail += r.flippedToFail;
-    }
-  }
-  return {
-    scope,
-    dryRun,
-    usersScanned: userIds.length,
-    usersFlipped,
-    totalFlippedToFail,
-    totalProtected,
-    results,
-  };
-}
-
-// 운영용: 전체 사용자(실사용자 포함) 대상. dryRun=false(실반영)는 confirm 흐름을 거친 뒤에만 호출.
-export async function syncAllExperienceGrowthWeekStatuses(
-  opts: { now?: number; dryRun?: boolean } = {},
-): Promise<ExperienceGrowthSyncAllResult> {
-  const userIds = await fetchUsersWithSuccessWeeks();
-  return syncExperienceGrowthForUserIds("all", userIds, opts);
-}
-
-// 테스트용: test_user_markers 등재 테스트 사용자만 대상 (실사용자 오적용 방지·SoT 일치).
-export async function syncTestExperienceGrowthWeekStatuses(
-  opts: { now?: number; dryRun?: boolean } = {},
-): Promise<ExperienceGrowthSyncAllResult> {
-  const [successIds, testIds] = await Promise.all([
-    fetchUsersWithSuccessWeeks(),
-    fetchTestUserMarkerIds(),
-  ]);
-  const userIds = successIds.filter((id) => testIds.has(id));
-  return syncExperienceGrowthForUserIds("test", userIds, opts);
 }

@@ -563,7 +563,6 @@ export default function PracticalExperienceManager() {
   useReportLoading(loading);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
 
   // ── Master form state ──
@@ -1376,95 +1375,6 @@ export default function PracticalExperienceManager() {
 
   const weekAvailable = !!currentWeek?.weekId;
 
-  // 실무경험 성장 상태 동기화 (success → fail 단방향). 서버 sync 가 DB SoT 를 확정한다.
-  //
-  // 개발자 모드 기준 (devMode = ?dev=true):
-  //   - devMode=ON  → 서버가 scope 를 강제로 test 로 (테스트 사용자 %T% 만, 실사용자 보호).
-  //   - devMode=OFF → 운영 모드. scope="all"(실사용자 포함)은 dry-run → confirm=true 흐름 필수.
-  type SyncAllData = {
-    usersScanned: number;
-    usersFlipped: number;
-    totalFlippedToFail: number;
-    dryRun?: boolean;
-  };
-
-  const postSync = async (body: {
-    devMode: boolean;
-    scope: "test" | "all";
-    confirm?: boolean;
-  }) => {
-    const res = await fetch("/api/admin/sync/experience-growth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    return (await res.json()) as {
-      success: boolean;
-      error?: string;
-      scope?: "test" | "all";
-      dryRun?: boolean;
-      data?: SyncAllData;
-    };
-  };
-
-  const handleSyncExperienceGrowth = async (scope: "test" | "all") => {
-    setSyncing(true);
-    setBanner(null);
-    try {
-      // 운영 전체(실사용자 포함): devMode=OFF + scope=all → 1) dry-run 으로 영향 범위 확인.
-      if (scope === "all" && !devMode) {
-        const dry = await postSync({ devMode, scope: "all", confirm: false });
-        if (!dry.success || !dry.data) {
-          setBanner({ kind: "error", message: dry.error ?? "dry-run 실패" });
-          return;
-        }
-        const d = dry.data;
-        const ok = await confirm({
-          ...CONFIRM.save,
-          description: `운영 전체 동기화 — dry-run 결과\n\n대상 ${d.usersScanned}명 중 ${d.usersFlipped}명, ${d.totalFlippedToFail}개 주차가 성장(실패)로 변경됩니다.\n실사용자가 포함되며 되돌리기 어렵습니다.\n\n실제로 DB에 반영하시겠습니까?`,
-        });
-        if (!ok) {
-          setBanner({
-            kind: "success",
-            message: `[dry-run · 미반영] 운영 전체 예상 변경 — 대상 ${d.usersScanned}명 중 ${d.usersFlipped}명, ${d.totalFlippedToFail}개 주차 (DB 변경 없음).`,
-          });
-          return;
-        }
-        // 2) confirm=true → 실제 반영.
-        const real = await postSync({ devMode, scope: "all", confirm: true });
-        if (!real.success || !real.data) {
-          setBanner({ kind: "error", message: real.error ?? "동기화 실패" });
-          return;
-        }
-        const r = real.data;
-        setBanner({
-          kind: "success",
-          message: `[운영 전체 · 반영 완료] 대상 ${r.usersScanned}명 중 ${r.usersFlipped}명, ${r.totalFlippedToFail}개 주차를 성장(실패)로 반영했습니다.`,
-        });
-        return;
-      }
-
-      // 테스트 sync (devMode 무관, 서버가 test 로 처리). devMode=ON 에서 scope=all 도 서버가 test 강제.
-      const json = await postSync({ devMode, scope });
-      if (!json.success || !json.data) {
-        setBanner({ kind: "error", message: json.error ?? "동기화 실패" });
-        return;
-      }
-      const d = json.data;
-      const label =
-        json.scope === "all" ? "[운영 전체]" : "[테스트 사용자]";
-      const dryNote = json.dryRun ? " (dry-run · DB 미반영)" : "";
-      setBanner({
-        kind: "success",
-        message: `${label} 실무경험 성장 상태 동기화 완료${dryNote} — 대상 ${d.usersScanned}명 중 ${d.usersFlipped}명, ${d.totalFlippedToFail}개 주차.`,
-      });
-    } catch {
-      setBanner({ kind: "error", message: "동기화 중 오류가 발생했습니다" });
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   return (
     // 본문 폭: org/mode 무관 사이드바 제외 main 전체 폭 사용(중앙 고정 캡 제거 — practical-info 미러).
     // 넓은 모니터에서 좌우 여백 없이 표가 화면 폭을 최대한 쓰고, 폭 부족 시에만 표 내부 가로 스크롤.
@@ -1482,48 +1392,6 @@ export default function PracticalExperienceManager() {
             : undefined
         }
       />
-
-      <div className="flex items-center justify-end gap-3">
-        <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleSyncExperienceGrowth("test")}
-              loading={syncing}
-              title="테스트 계정만 대상으로 성장 상태 동기화 (성공→실패 단방향)"
-            >
-              성장 동기화(테스트)
-            </Button>
-            <AdminHelpIconButton
-              size="xs"
-              helpKey="admin.lineOpening.experience.action.syncGrowthTest"
-              title="성장 동기화(테스트)"
-            />
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => handleSyncExperienceGrowth("all")}
-              loading={syncing}
-              disabled={devMode}
-              title={
-                devMode
-                  ? "개발자 모드(ON)에서는 운영 전체 동기화가 비활성화됩니다. ?dev=true 를 끄면 dry-run→confirm 흐름으로 사용할 수 있습니다."
-                  : "운영 전체(실사용자 포함). dry-run 후 confirm 시 반영 — success→fail 단방향, 되돌리기 주의"
-              }
-            >
-              전체 동기화(운영)
-            </Button>
-            <AdminHelpIconButton
-              size="xs"
-              helpKey="admin.lineOpening.experience.action.syncGrowthAll"
-              title="전체 동기화(운영)"
-            />
-          </span>
-        </div>
-      </div>
 
       {banner && (
         <div
