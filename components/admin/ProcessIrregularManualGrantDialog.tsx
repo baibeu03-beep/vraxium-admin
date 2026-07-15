@@ -6,7 +6,8 @@
 //   대상 크루 = 자동완성 검색(org+mode 스코프, cafe-line-crew GET 재사용) → [확인] → 명단 추가.
 //   ⚠ user_weekly_points·snapshot 무접촉.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
@@ -124,6 +125,13 @@ export default function ProcessIrregularManualGrantDialog({
     }, 250);
     return () => clearTimeout(t);
   }, [q, organization, mode]);
+
+  // 검색 결과에서 이미 명단(roster)에 있는 크루는 완전 제외(userId 기준·공통 SoT).
+  // roster 변화 시 재계산 → 추가 즉시 사라지고 삭제하면 다시 나타난다. mode/test/demo 무관.
+  const visibleResults = useMemo(
+    () => excludeAddedByUserId(results, roster, (c) => c.userId),
+    [results, roster],
+  );
 
   const addCandidate = () => {
     if (!candidate) return;
@@ -293,14 +301,14 @@ export default function ProcessIrregularManualGrantDialog({
                   placeholder="이름으로 검색"
                   disabled={submitting}
                 />
-                {!candidate && q.trim() && (searching || results.length > 0) && (
+                {!candidate && q.trim() && (searching || visibleResults.length > 0) && (
                   <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border bg-card shadow-lg">
                     {searching ? (
                       <p className="px-3 py-2 text-xs text-muted-foreground">검색 중…</p>
-                    ) : results.length === 0 ? (
+                    ) : visibleResults.length === 0 ? (
                       <p className="px-3 py-2 text-xs text-muted-foreground">스코프 내 결과 없음</p>
                     ) : (
-                      results.map((c) => (
+                      visibleResults.map((c) => (
                         <button
                           key={c.userId}
                           type="button"

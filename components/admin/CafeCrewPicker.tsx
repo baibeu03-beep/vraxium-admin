@@ -13,6 +13,7 @@ import {
   type CafeCrew,
   type CrewSortKey,
 } from "@/lib/cafeCrewSort";
+import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 
 // 라인 개설 크루 선택기 — 네이버 카페 댓글 검수(자동 매칭) + 수동 추가/삭제/초기화.
 //   "라인 개설" 폼과 "개설 대상 크루 수정" 모달이 공유하는 단일 UI/로직(SoT). 두 경로가
@@ -78,6 +79,18 @@ export default function CafeCrewPicker({
   const candidateIds = useMemo(
     () => new Set(candidates.map((c) => c.userId)),
     [candidates],
+  );
+  // 이미 추가된(대상자 or 후보) userId — 검색 결과에서 완전 제외할 집합(공통 SoT).
+  const addedForSearch = useMemo(() => {
+    const s = new Set<string>(candidateIds);
+    for (const id of existingSet) s.add(id);
+    return s;
+  }, [candidateIds, existingSet]);
+  // 수동 검색 결과: 이미 추가된 크루는 목록에서 완전히 제외(userId 기준). 추가 즉시 사라지고,
+  // 삭제하면 addedForSearch 가 줄어 다시 나타난다. org/mode/test/demo 무관 — 순수 필터.
+  const visibleManualResults = useMemo(
+    () => excludeAddedByUserId(manualResults, addedForSearch, (c) => c.userId),
+    [manualResults, addedForSearch],
   );
 
   const addCandidate = useCallback(
@@ -302,41 +315,34 @@ export default function CafeCrewPicker({
               <p className="flex items-center gap-1.5 px-3 py-3 text-sm text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> 검색 중…
               </p>
-            ) : manualResults.length === 0 ? (
+            ) : visibleManualResults.length === 0 ? (
               <p className="px-3 py-3 text-sm text-muted-foreground">검색 결과가 없습니다</p>
             ) : (
-              manualResults.map((c) => {
-                const already = candidateIds.has(c.userId) || existingSet.has(c.userId);
-                return (
-                  <div
-                    key={c.userId}
-                    className="flex items-center justify-between gap-2 border-b px-3 py-2 text-sm last:border-0"
-                  >
-                    <span className="min-w-0 truncate">
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {c.crewCode ?? "-"}
-                      </span>{" "}
-                      <span className="font-medium">{c.name || "-"}</span>{" "}
-                      <span className="text-xs text-muted-foreground">
-                        {c.teamName ?? "-"} · {c.schoolName ?? "-"} · {c.majorName ?? "-"}
-                      </span>
+              visibleManualResults.map((c) => (
+                <div
+                  key={c.userId}
+                  className="flex items-center justify-between gap-2 border-b px-3 py-2 text-sm last:border-0"
+                >
+                  <span className="min-w-0 truncate">
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {c.crewCode ?? "-"}
+                    </span>{" "}
+                    <span className="font-medium">{c.name || "-"}</span>{" "}
+                    <span className="text-xs text-muted-foreground">
+                      {c.teamName ?? "-"} · {c.schoolName ?? "-"} · {c.majorName ?? "-"}
                     </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={disabled || already}
-                      onClick={() => addCandidate(c)}
-                    >
-                      {existingSet.has(c.userId)
-                        ? "이미 추가됨"
-                        : candidateIds.has(c.userId)
-                          ? "추가됨"
-                          : "추가"}
-                    </Button>
-                  </div>
-                );
-              })
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={disabled}
+                    onClick={() => addCandidate(c)}
+                  >
+                    추가
+                  </Button>
+                </div>
+              ))
             )}
           </div>
         )}

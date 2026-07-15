@@ -29,6 +29,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import { readOrgParam } from "@/lib/adminOrgContext";
+import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import { formatLogPeriodLabel } from "@/lib/practicalInfoSection0Format";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 
@@ -304,6 +305,20 @@ export default function CompetencyApplicantSection({
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedCrew, setSelectedCrew] = useState<CrewSearchItem | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // 검색 결과에서 이미 승인 명단(apps)에 있는 크루는 완전 제외(공통 SoT). 결과는 userId,
+  // apps 는 targetUserId 로 대상자를 보관 → 두 키를 각각 뽑아 비교. apps 변화 시 재계산:
+  // 추가 즉시 사라지고, 삭제하면 다시 나타난다. org/mode/test/demo 무관 — 순수 필터.
+  const visibleResults = useMemo(
+    () =>
+      excludeAddedByUserId(
+        results,
+        apps,
+        (c) => c.userId,
+        (a) => a.targetUserId,
+      ),
+    [results, apps],
+  );
 
   // 수동 추가 팝업.
   const [addOpen, setAddOpen] = useState(false);
@@ -710,7 +725,7 @@ export default function CompetencyApplicantSection({
                   setQ(e.target.value);
                   setSelectedCrew(null);
                 }}
-                onFocus={() => results.length > 0 && setMenuOpen(true)}
+                onFocus={() => visibleResults.length > 0 && setMenuOpen(true)}
                 aria-label="수동 추가 크루 검색"
               />
               {menuOpen && (
@@ -719,10 +734,10 @@ export default function CompetencyApplicantSection({
                     <p className="flex items-center gap-1.5 px-3 py-2 text-sm text-muted-foreground">
                       <Loader2 className="h-3.5 w-3.5 animate-spin" /> 검색 중…
                     </p>
-                  ) : results.length === 0 ? (
+                  ) : visibleResults.length === 0 ? (
                     <p className="px-3 py-2 text-sm text-muted-foreground">검색 결과가 없습니다</p>
                   ) : (
-                    results.map((c) => (
+                    visibleResults.map((c) => (
                       <button
                         key={c.userId}
                         type="button"
