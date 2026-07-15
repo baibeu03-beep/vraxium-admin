@@ -23,6 +23,7 @@ import {
   readWeeklyCardsSnapshot,
   recomputeAndStoreWeeklyCardsSnapshot,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { recomputeDerivedAfterActMutation } from "@/lib/crewWeekGrowthRejudge";
 import { loadActLogsByStartDate } from "@/lib/cluster4ActLogsData";
 
 type Award = {
@@ -165,7 +166,8 @@ async function main() {
     .update({ cancelled_at: null, cancelled_by: null, cancel_reason: null, updated_at: new Date().toISOString() })
     .eq("id", award.id);
   await recomputeWeeklyPointsForUsers([userId], weekId);
-  await recomputeAndStoreWeeklyCardsSnapshot(userId);
+  // 파생(성장 결과 재판정·카드 snapshot·성장 통계·품계)도 원복 — 취소가 이들을 바꿨을 수 있으므로 무손실.
+  await recomputeDerivedAfterActMutation({ userId, weekId });
   const restored = await uwp(userId, year, wk);
   const custRestored = await customerHasAward(userId, startDate, award.id);
   check("6", restored.a === before.a && restored.b === before.b && restored.c === before.c && custRestored === custBefore,

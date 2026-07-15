@@ -6,6 +6,8 @@ import {
   getCrewWeekActDetail,
 } from "@/lib/adminCrewWeekActDetail";
 import { softCancelActAwards } from "@/lib/processPointAccrual";
+import { previewCrewWeekMutationImpact } from "@/lib/crewWeekMutationImpact";
+import type { OrganizationSlug } from "@/lib/organizations";
 
 type Ctx = { params: Promise<{ user_id: string; week_id: string }> };
 
@@ -99,6 +101,22 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     );
   }
 
+  // 저장 전 영향도 재검증 — 취소로 성장 결과가 바뀌는데(성공→실패) 확인 전이면 409 로 재확인 요구.
+  //   ⚠ softCancelActAwards(쓰기) 이전에 계산 — 확인 없이는 취소가 반영되지 않는다.
+  const impact = await previewCrewWeekMutationImpact({
+    userId: ctx.userId,
+    weekId: ctx.realWeekId,
+    organizationSlug: (ctx.organizationSlug ?? null) as OrganizationSlug | null,
+    currentStatus: ctx.card.userWeekStatus,
+    mutation: { kind: "cancel", awardIds },
+  });
+  if (impact.confirmationRequired && b.confirmGrowthFlip !== true) {
+    return Response.json(
+      { success: false, code: "GROWTH_STATUS_WILL_CHANGE", impact },
+      { status: 409 },
+    );
+  }
+
   try {
     const { cancelledCount } = await softCancelActAwards({
       awardIds,
@@ -112,7 +130,16 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     const refreshed = await getCrewWeekActDetail(user_id, week_id);
     const weekDetail = refreshed.ok ? refreshed.data : null;
 
-    return Response.json({ success: true, data: { cancelledCount, weekDetail } });
+    return Response.json({
+      success: true,
+      data: {
+        cancelledCount,
+        growthStatusChanged: impact.growthStatusChanged,
+        before: impact.before,
+        after: impact.after,
+        weekDetail,
+      },
+    });
   } catch (error) {
     const status = (error as { status?: number }).status;
     const code = (error as { code?: string }).code;

@@ -6,6 +6,8 @@ import {
   getCrewWeekActDetail,
 } from "@/lib/adminCrewWeekActDetail";
 import { createActSupplement } from "@/lib/adminProcessIrregularData";
+import { previewCrewWeekMutationImpact } from "@/lib/crewWeekMutationImpact";
+import type { OrganizationSlug } from "@/lib/organizations";
 
 type Ctx = { params: Promise<{ user_id: string; week_id: string }> };
 
@@ -115,6 +117,22 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   const modeRaw = typeof b.mode === "string" ? b.mode : request.nextUrl.searchParams.get("mode");
   const mode = modeRaw === "test" ? "test" : "operating";
 
+  // 저장 전 영향도 재검증(커밋 시점 최신 원장 기준). 성장 결과가 바뀌는데 확인 전이면 409 로 재확인 요구.
+  //   ⚠ createActSupplement(쓰기) 이전에 계산 — 확인 없이는 원장이 생성되지 않는다.
+  const impact = await previewCrewWeekMutationImpact({
+    userId: ctx.userId,
+    weekId: ctx.realWeekId,
+    organizationSlug: ctx.organizationSlug as OrganizationSlug,
+    currentStatus: ctx.card.userWeekStatus,
+    mutation: { kind: "supplement", pointA, pointB, pointC },
+  });
+  if (impact.confirmationRequired && b.confirmGrowthFlip !== true) {
+    return Response.json(
+      { success: false, code: "GROWTH_STATUS_WILL_CHANGE", impact },
+      { status: 409 },
+    );
+  }
+
   try {
     const { actId, awardId } = await createActSupplement({
       organization: ctx.organizationSlug,
@@ -134,7 +152,15 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 
     return Response.json({
       success: true,
-      data: { createdActId: actId, createdAwardId: awardId, weekDetail },
+      data: {
+        createdActId: actId,
+        createdAwardId: awardId,
+        // 실제 변경 결과(성장 결과·별 전후) — 미리보기==커밋 파리티로 impact 가 실제와 일치.
+        growthStatusChanged: impact.growthStatusChanged,
+        before: impact.before,
+        after: impact.after,
+        weekDetail,
+      },
     });
   } catch (error) {
     const status = (error as { status?: number }).status;

@@ -12,7 +12,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM } from "@/lib/lineAvailability";
 import { createActSupplement } from "@/lib/adminProcessIrregularData";
 import { recomputeWeeklyPointsForUsers } from "@/lib/processPointAccrual";
-import { recomputeAndStoreWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { recomputeDerivedAfterActMutation } from "@/lib/crewWeekGrowthRejudge";
 import { loadActLogsByStartDate } from "@/lib/cluster4ActLogsData";
 
 const out: Array<{ id: string; pass: boolean; d: string }> = [];
@@ -62,7 +62,8 @@ async function cleanup(actIds: string[], userId: string, weekId: string) {
     await supabaseAdmin.from("process_irregular_acts").delete().eq("id", id);
   }
   await recomputeWeeklyPointsForUsers([userId], weekId);
-  await recomputeAndStoreWeeklyCardsSnapshot(userId);
+  // 파생(성장 결과 재판정·카드 snapshot·성장 통계·품계)도 원복 — 보완이 이들을 바꿨을 수 있으므로 무손실.
+  await recomputeDerivedAfterActMutation({ userId, weekId });
 }
 
 async function main() {

@@ -21,6 +21,7 @@ import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import {
   fetchExperienceRequiredSlotStatusByWeek,
   fetchWeekRecognitionRequiredByOrg,
+  mapExperienceVerdictToWeekStatus,
   CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM,
 } from "@/lib/lineAvailability";
 import { deriveEndStatus } from "@/lib/growthCore";
@@ -433,14 +434,14 @@ async function computeUserVerdicts(
           organizationSlug: m.org,
         });
         const v = vmap.get(weekId);
-        if (!v || v.status === "not_applicable") {
+        // verdict → uws 상태 매핑은 공용 SoT(mapExperienceVerdictToWeekStatus) 사용 — 단건 재판정과 동일.
+        const mapped = v ? mapExperienceVerdictToWeekStatus(v.status) : "skip";
+        if (mapped === "skip") {
           results[idx] = { userId: m.userId, kind: "skip", reason: "not_applicable" };
-        } else if (v.status === "pending") {
+        } else if (mapped === "block") {
           results[idx] = { userId: m.userId, kind: "pending" };
-        } else if (v.status === "pass") {
-          results[idx] = { userId: m.userId, kind: "status", status: "success" };
         } else {
-          results[idx] = { userId: m.userId, kind: "status", status: "fail" };
+          results[idx] = { userId: m.userId, kind: "status", status: mapped };
         }
       } catch (e) {
         // verdict 계산 실패 = 확정 불가 → skip(안전). 로그만.

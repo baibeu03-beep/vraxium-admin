@@ -34,13 +34,11 @@ import {
   resolveUserScope,
   type ScopeMode,
 } from "@/lib/userScope";
-import {
-  invalidateWeeklyCardsForUsers,
-  recomputeWeeklyCardsSnapshotsForUsers,
-} from "@/lib/cluster4WeeklyCardsSnapshot";
+import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { processPointAwardsHasCancelColumns } from "@/lib/processPointAwardsCancelState";
 import { isCluster4TestExceptionWeek } from "@/lib/cluster4TestWeekPolicy";
 import { syncGradeStats } from "@/lib/cluster3ClubRankData";
+import type { RejudgeResult } from "@/lib/crewWeekGrowthRejudge";
 import type { OrganizationSlug } from "@/lib/organizations";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { resolveCheckScopeRoster } from "@/lib/processCheckScopeRoster";
@@ -830,7 +828,7 @@ export async function softCancelActAwards(params: {
   weekId: string; // 재집계 대상 주차(weeks.id)
   cancelledBy: string; // 취소 수행 관리자 user id
   reason: string | null;
-}): Promise<{ cancelledCount: number; affectedUserId: string }> {
+}): Promise<{ cancelledCount: number; affectedUserId: string; growth: RejudgeResult | null }> {
   const { awardIds, userId, weekId, cancelledBy, reason } = params;
 
   const hasCancel = await processPointAwardsHasCancelColumns();
@@ -866,8 +864,8 @@ export async function softCancelActAwards(params: {
 
   const toCancel = found.filter((r) => !r.cancelled_at).map((r) => r.id);
   if (toCancel.length === 0) {
-    // 전량 이미 취소됨 — 멱등 성공(중복 차감 없음). 합계 불변이므로 재집계 불필요.
-    return { cancelledCount: 0, affectedUserId: userId };
+    // 전량 이미 취소됨 — 멱등 성공(중복 차감 없음). 합계 불변이므로 재집계·재판정 불필요.
+    return { cancelledCount: 0, affectedUserId: userId, growth: null };
   }
 
   const nowIso = new Date().toISOString();
@@ -886,10 +884,12 @@ export async function softCancelActAwards(params: {
 
   // 재집계(공통 합산: 취소 행 제외 → 최종 B 복원·C 감소) + 등급 + snapshot 무효화.
   await recomputeWeeklyPointsForUsers([userId], weekId);
-  // HTTP==직접호출 결정성(즉시 반영) — rollback 경로와 동일하게 명시 재생성.
-  await recomputeWeeklyCardsSnapshotsForUsers([userId], { concurrency: 4 });
+  // 파생 재계산: 성장 결과(uws) 재판정 → 카드 snapshot 재생성 → 성장 통계 → 품계(주차 참여자).
+  //   uwp 는 위에서 이미 재집계됨(rejudge earned 최신 보장). 순환 import 회피용 동적 import.
+  const { recomputeDerivedAfterActMutation } = await import("@/lib/crewWeekGrowthRejudge");
+  const growth = await recomputeDerivedAfterActMutation({ userId, weekId });
 
-  return { cancelledCount: toCancel.length, affectedUserId: userId };
+  return { cancelledCount: toCancel.length, affectedUserId: userId, growth };
 }
 
 // ────────────────────────────────────────────────────────────────────────────

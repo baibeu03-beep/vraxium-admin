@@ -25,6 +25,10 @@ import {
   revokeForAct,
 } from "@/lib/processPointAccrual";
 import { recomputeWeeklyCardsSnapshotsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
+import {
+  recomputeDerivedAfterActMutation,
+  type RejudgeResult,
+} from "@/lib/crewWeekGrowthRejudge";
 import type { OrganizationSlug } from "@/lib/organizations";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
@@ -620,7 +624,7 @@ export async function createActSupplement(input: {
   pointA?: unknown;
   pointB?: unknown;
   pointC?: unknown;
-}): Promise<{ actId: string; awardId: string | null; deduped: boolean }> {
+}): Promise<{ actId: string; awardId: string | null; deduped: boolean; growth: RejudgeResult | null }> {
   const { organization, mode, adminId, userId, weekId } = input;
 
   // 부분 액트 — 포인트 방식은 값에서 파생(C>0 → "c" else "ab"). 정규화·상호배타는 parseCommonFields(SoT).
@@ -690,7 +694,8 @@ export async function createActSupplement(input: {
       .limit(1);
     const dupRef = ((rec ?? []) as { ref_id: string }[])[0]?.ref_id;
     if (dupRef) {
-      return { actId: dupRef, awardId: await findAwardId("irregular", dupRef, userId), deduped: true };
+      // 멱등 재시도 — 신규 생성/재집계 없음(성장 결과 변동 없음).
+      return { actId: dupRef, awardId: await findAwardId("irregular", dupRef, userId), deduped: true, growth: null };
     }
   }
 
@@ -756,10 +761,15 @@ export async function createActSupplement(input: {
     throw new ProcessMasterError(500, e instanceof Error ? e.message : "포인트 적립에 실패했습니다");
   }
 
-  // 결정적 snapshot 재생성(HTTP==직접호출 즉시 반영).
-  await recomputeWeeklyCardsSnapshotsForUsers([userId], { concurrency: 4 });
+  // 파생 재계산: 성장 결과(uws) 재판정 → 카드 snapshot 재생성 → 성장 통계 → 품계(주차 참여자).
+  //   uwp 는 accrueForCompletedIrregular 안에서 이미 재집계됨(rejudge earned 최신 보장).
+  const growth = await recomputeDerivedAfterActMutation({
+    userId,
+    weekId,
+    organizationSlug: organization as OrganizationSlug,
+  });
 
-  return { actId, awardId: await findAwardId("irregular", actId, userId), deduped: false };
+  return { actId, awardId: await findAwardId("irregular", actId, userId), deduped: false, growth };
 }
 
 // 과거 주차 행은 조회 전용 — 현재 주차가 아니면 변경/취소 차단(fail-closed).

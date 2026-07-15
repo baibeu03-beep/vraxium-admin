@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Ban, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { pointColorClass } from "@/components/ui/point-value";
@@ -11,6 +12,10 @@ import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import ActSupplementDialog from "@/components/admin/ActSupplementDialog";
 import type { CrewWeekActDetailDto, CrewWeekActRow } from "@/lib/adminCrewWeekActDetail";
+
+// 성장 결과 변경 미리보기(서버 409 impact) — 취소 시 성공→실패 확인 팝업에 표시할 전후 값.
+type ImpactSide = { growthStatus: string; growthStatusLabel: string; pointA: number };
+type GrowthFlip = { before: ImpactSide; after: ImpactSide };
 
 // 회원별·주차별 상세 "액트 체크 내역" 탭 — 목록 표 + 체크박스 + 액트 취소(소프트 취소).
 //   · 요약 지표(활동 완료율·체크 성공/실패·획득/가능 포인트)는 고객 Detail Log 공식 확정 후 제공(보류).
@@ -40,6 +45,8 @@ export default function CrewWeekActHistory({
   const [cancelling, setCancelling] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [supplementOpen, setSupplementOpen] = useState(false);
+  const [cancelFlip, setCancelFlip] = useState<GrowthFlip | null>(null);
+  const toast = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -95,34 +102,60 @@ export default function CrewWeekActHistory({
   const selectedCount = selected.size;
   const canCancel = editable && selectedCount > 0;
 
-  const doCancel = useCallback(async () => {
-    setCancelling(true);
-    setActionError(null);
-    try {
-      const res = await fetch(
-        `/api/admin/members/${userId}/weeks/${weekId}/acts/cancel`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ awardIds: Array.from(selected), mode }),
-        },
-      );
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error ?? "액트 취소에 실패했습니다.");
+  // confirmGrowthFlip=false: 최초 시도(성장 결과가 성공→실패로 바뀌면 서버가 409 로 확인 요구).
+  // confirmGrowthFlip=true: 성장 결과 변경 확인 팝업에서 "그래도 취소" 승인 후 실제 취소.
+  const doCancel = useCallback(
+    async (confirmGrowthFlip: boolean) => {
+      setCancelling(true);
+      setActionError(null);
+      try {
+        const res = await fetch(
+          `/api/admin/members/${userId}/weeks/${weekId}/acts/cancel`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ awardIds: Array.from(selected), mode, confirmGrowthFlip }),
+          },
+        );
+        const json = await res.json();
+        // 성장 결과가 바뀜 — 저장 전 확인 팝업 표시(아직 취소 미반영).
+        if (res.status === 409 && json?.code === "GROWTH_STATUS_WILL_CHANGE") {
+          setConfirmOpen(false);
+          setCancelFlip(json.impact as GrowthFlip);
+          return;
+        }
+        if (!res.ok || !json.success) {
+          throw new Error(json?.error ?? "액트 취소에 실패했습니다.");
+        }
+        const d = json.data as {
+          weekDetail?: CrewWeekActDetailDto;
+          growthStatusChanged?: boolean;
+          before?: ImpactSide;
+          after?: ImpactSide;
+        };
+        // 서버가 반환한 최신 DTO 로 전체 교체(optimistic 없음).
+        if (d?.weekDetail) setDetail(d.weekDetail);
+        else await load();
+        setSelected(new Set());
+        setConfirmOpen(false);
+        setCancelFlip(null);
+        if (d?.growthStatusChanged && d.before && d.after) {
+          toast(
+            "success",
+            `액트 취소 완료 — 성장 결과: ${d.before.growthStatusLabel} → ${d.after.growthStatusLabel}`,
+          );
+        } else {
+          toast("success", "선택한 액트를 취소했습니다.");
+        }
+        onChanged(); // 상위 주차 요약(별/방패/번개/성장률) + 타 표면 갱신
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : "액트 취소에 실패했습니다.");
+      } finally {
+        setCancelling(false);
       }
-      // 서버가 반환한 최신 DTO 로 전체 교체(optimistic 없음).
-      if (json.data?.weekDetail) setDetail(json.data.weekDetail as CrewWeekActDetailDto);
-      else await load();
-      setSelected(new Set());
-      setConfirmOpen(false);
-      onChanged(); // 상위 주차 요약(별/방패/번개/성장률) + 타 표면 갱신
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "액트 취소에 실패했습니다.");
-    } finally {
-      setCancelling(false);
-    }
-  }, [userId, weekId, selected, mode, load, onChanged]);
+    },
+    [userId, weekId, selected, mode, load, onChanged, toast],
+  );
 
   if (loading) {
     return <p className="py-8 text-center text-sm text-muted-foreground">불러오는 중…</p>;
@@ -264,8 +297,51 @@ export default function CrewWeekActHistory({
               >
                 닫기
               </Button>
-              <Button type="button" size="sm" loading={cancelling} disabled={cancelling} onClick={doCancel}>
+              <Button type="button" size="sm" loading={cancelling} disabled={cancelling} onClick={() => void doCancel(false)}>
                 액트 취소
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 성장 결과 변경 확인(취소로 성공→실패) — 저장 전(취소 미반영). "그래도 취소" 시에만 실제 반영. */}
+      {cancelFlip && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="modal-w-md rounded-xl bg-card p-5 shadow-xl ring-1 ring-foreground/10">
+            <h2 className="text-base font-semibold">성장 결과 변경 확인</h2>
+            <p className="mt-3 text-sm text-foreground">
+              {detail?.weekLabel ?? "이 주차"} 결과가{" "}
+              <b>‘{cancelFlip.before.growthStatusLabel}’</b>에서{" "}
+              <b>‘{cancelFlip.after.growthStatusLabel}’</b>(으)로 변경됩니다. 선택한 액트를 취소하시겠습니까?
+            </p>
+            <dl className="mt-3 space-y-1 rounded-md border bg-muted/20 px-3 py-2 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">성장 결과</dt>
+                <dd className="tabular-nums">
+                  {cancelFlip.before.growthStatusLabel} → {cancelFlip.after.growthStatusLabel}
+                </dd>
+              </div>
+              {cancelFlip.before.pointA !== cancelFlip.after.pointA && (
+                <div className="flex justify-between">
+                  <dt className="text-muted-foreground">별</dt>
+                  <dd className="tabular-nums">
+                    {cancelFlip.before.pointA} → {cancelFlip.after.pointA}
+                  </dd>
+                </div>
+              )}
+            </dl>
+            {actionError && (
+              <div className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                {actionError}
+              </div>
+            )}
+            <div className="mt-4 flex justify-end gap-2">
+              <Button type="button" variant="ghost" size="sm" disabled={cancelling} onClick={() => setCancelFlip(null)}>
+                취소
+              </Button>
+              <Button type="button" size="sm" loading={cancelling} disabled={cancelling} onClick={() => void doCancel(true)}>
+                그래도 취소
               </Button>
             </div>
           </div>

@@ -1086,6 +1086,20 @@ export function applyExperienceCheckGate(
   };
 }
 
+// ExperienceGrowthVerdict.status → uws 확정 상태 매핑 (단일 SoT).
+//   finalizeWeekUws(computeUserVerdicts)·단건 재판정(rejudgeWeekStatusForUser)·미리보기가 공유해
+//   "판정 → 상태" 규칙이 한 곳에서만 정의되게 한다(새 판정 로직 생성 금지·기존 규칙 그대로).
+//   pass→success · fail→fail · pending→block(확정 불가) · not_applicable→skip(uws 미생성).
+export type VerdictWeekStatus = "success" | "fail" | "skip" | "block";
+export function mapExperienceVerdictToWeekStatus(
+  status: ExperienceGrowthVerdictStatus,
+): VerdictWeekStatus {
+  if (status === "not_applicable") return "skip";
+  if (status === "pending") return "block";
+  if (status === "pass") return "success";
+  return "fail";
+}
+
 // verdict 가 주차 성장 상태(resultStatus)에 fail 로 반영되어야 하는가.
 //   - verdict.status === "fail" 일 때만
 //   - 휴식(personal/official_rest)·진행(running)·집계(tallying = 현재 주차) 주차는 제외
@@ -1507,6 +1521,10 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
     // 레거시 경계 오버라이드(테스트 시즌 시뮬레이션). 기본=CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM.
     //   과거 날짜를 주면 전 주차가 비레거시(여름)로 판정 → 5슬롯 verdict 로 계산.
     effectiveFrom?: string;
+    // 주차 인정 check 게이트의 earned(=Point A) 를 DB 값 대신 가상값으로 대체(주차별).
+    //   액트 보완/취소 "미리보기"가 원장 쓰기 없이 "이 포인트면 성공/실패가 어떻게 되나"를 계산할 때만 사용.
+    //   커밋 경로는 미전달 → DB 실값으로 판정(미리보기==실제 파리티는 이 seam 하나로 보장).
+    earnedOverride?: ReadonlyMap<string, number>;
   } = {},
 ): Promise<Map<string, ExperienceGrowthVerdict>> {
   const alwaysOpenWeekIds = opts.alwaysOpenWeekIds ?? new Set<string>();
@@ -1741,11 +1759,13 @@ export async function fetchExperienceRequiredSlotStatusByWeek(
       const verdict = result.get(w);
       if (!verdict) continue;
       const gi = gateInputs.get(w) ?? { required: 0, earned: 0, hasRequired: false };
+      // earned 가상 대체(미리보기 전용) — has() 로 0 도 유효 오버라이드로 취급(??-falsy 함정 회피).
+      const earned = opts.earnedOverride?.has(w) ? opts.earnedOverride.get(w)! : gi.earned;
       result.set(
         w,
         applyExperienceCheckGate(verdict, {
           required: gi.required,
-          earned: gi.earned,
+          earned,
           // 기준값 N 이 있을 때만 강등 적용. N 없음(미오픈확인) → 강등 안 함(과거 결과 보존·30 폴백 금지).
           enforced: gi.hasRequired,
         }),
