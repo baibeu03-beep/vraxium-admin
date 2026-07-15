@@ -37,6 +37,7 @@ import type {
   LineManageTeamLeader,
 } from "@/lib/experienceLineManageTypes";
 import {
+  EMPTY_PART_INPUT_LINE_OPTIONS,
   EXPERIENCE_PART_LINE_TYPES,
   PART_CELL_DEFAULT,
   TEAM_OVERALL,
@@ -47,7 +48,9 @@ import {
   type PartInputCell,
   type PartInputCellDto,
   type PartInputGetData,
+  type PartInputLineOptions,
 } from "@/lib/experiencePartInputTypes";
+import ExperienceLineSelect from "@/components/admin/cluster4/ExperienceLineSelect";
 
 // 실무 경험 [라인 개설] — 파트장 입력 그리드(additive).
 //   팀 탭(동적) + 개설 주차(openable) + 파트 드롭다운(팀 총괄+parts) + 크루×라인 체크/점수 + 신청/취소.
@@ -381,6 +384,7 @@ export default function ExperiencePartLeadInput({
           saved.set(cellKey(c.crewUserId, c.lineType), {
             checked: c.checked,
             score: c.score,
+            selectedLineId: c.selectedLineId ?? null,
           });
         }
         const next = new Map<string, PartInputCell>();
@@ -477,8 +481,13 @@ export default function ExperiencePartLeadInput({
           confirmLabel: "확인",
           cancelLabel: "취소",
         }))
-      ) return;
-      updateCell(crewUserId, lineType, { checked: nextChecked, score: nextScore });
+      ) return; // 취소 시 updateCell 미호출 → 기존 체크·점수·라인명 원상 복구.
+      // 체크 해제 → 점수 0 + 라인 '-'(null). 재체크는 기존 라인 유지(해제 시 이미 null).
+      updateCell(crewUserId, lineType, {
+        checked: nextChecked,
+        score: nextScore,
+        selectedLineId: nextChecked ? cur.selectedLineId : null,
+      });
     },
     [updateCell],
   );
@@ -489,6 +498,7 @@ export default function ExperiencePartLeadInput({
       crewName: string,
       lineType: ExperiencePartLineType,
       score: number,
+      cur: PartInputCell,
     ) => {
       // 점수 선택 → 체크 자동 ON.
       const next = experienceScoreState(score);
@@ -500,8 +510,26 @@ export default function ExperiencePartLeadInput({
           confirmLabel: "확인",
           cancelLabel: "취소",
         }))
-      ) return;
-      updateCell(crewUserId, lineType, { checked: next.checked, score: next.score });
+      ) return; // 취소 시 updateCell 미호출 → 기존 체크·점수·라인명 원상 복구.
+      // 0점 → 라인 '-'(null). 1점 이상(1~3 강화실패 포함)은 선택 라인 유지(§4).
+      updateCell(crewUserId, lineType, {
+        checked: next.checked,
+        score: next.score,
+        selectedLineId: next.score >= 1 ? cur.selectedLineId : null,
+      });
+    },
+    [updateCell],
+  );
+
+  // 라인명만 변경 — 체크/점수는 보존.
+  const setLine = useCallback(
+    (
+      crewUserId: string,
+      lineType: ExperiencePartLineType,
+      selectedLineId: string | null,
+      cur: PartInputCell,
+    ) => {
+      updateCell(crewUserId, lineType, { ...cur, selectedLineId });
     },
     [updateCell],
   );
@@ -538,6 +566,7 @@ export default function ExperiencePartLeadInput({
             lineType: line.key,
             checked: c.checked,
             score: c.score,
+            selectedLineId: c.selectedLineId,
           });
         }
       }
@@ -786,6 +815,8 @@ export default function ExperiencePartLeadInput({
                 getCell={getCell}
                 toggleCheck={toggleCheck}
                 setScore={setScore}
+                setLine={setLine}
+                lineOptions={data?.lineOptions ?? EMPTY_PART_INPUT_LINE_OPTIONS}
                 saving={saving}
                 submitted={submitted}
                 onReset={resetLocal}
@@ -806,6 +837,8 @@ function PartGrid({
   getCell,
   toggleCheck,
   setScore,
+  setLine,
+  lineOptions,
   saving,
   submitted,
   onReset,
@@ -815,7 +848,9 @@ function PartGrid({
   data: PartInputGetData | null;
   getCell: (u: string, l: ExperiencePartLineType) => PartInputCell;
   toggleCheck: (u: string, name: string, l: ExperiencePartLineType, cur: PartInputCell) => void;
-  setScore: (u: string, name: string, l: ExperiencePartLineType, score: number) => void;
+  setScore: (u: string, name: string, l: ExperiencePartLineType, score: number, cur: PartInputCell) => void;
+  setLine: (u: string, l: ExperiencePartLineType, id: string | null, cur: PartInputCell) => void;
+  lineOptions: PartInputLineOptions;
   saving: boolean;
   submitted: boolean;
   onReset: () => void;
@@ -896,43 +931,57 @@ function PartGrid({
                   {EXPERIENCE_PART_LINE_TYPES.map((line) => {
                     const cell = getCell(crew.userId, line.key);
                     const fail = isPartCellFail(cell);
+                    // 라인명은 체크&1점 이상에서만 편집 가능(0점/미체크 = 강화 실패 → '-' 고정).
+                    const lineDisabled = !cell.checked || cell.score < 1;
                     return (
-                      <TableCell key={line.key} className="text-center">
-                        <div
-                          className={cn(
-                            "inline-flex items-center gap-2 rounded-md border px-2 py-1.5",
-                            fail
-                              ? "border-red-400 bg-red-50"
-                              : "border-input bg-background",
-                            checkedRowClass(cell.checked && !fail),
-                          )}
-                        >
-                          <Checkbox
-                            checked={cell.checked}
-                            onChange={() =>
-                              toggleCheck(crew.userId, crew.displayName, line.key, cell)
-                            }
-                            aria-label={`${crew.displayName} ${line.label} 체크`}
-                          />
-                          <select
-                            className="rounded border border-input bg-background px-1.5 py-0.5 text-sm"
-                            value={cell.score}
-                            onChange={(e) =>
-                              setScore(
-                                crew.userId,
-                                crew.displayName,
-                                line.key,
-                                Number(e.target.value),
-                              )
-                            }
-                            aria-label={`${crew.displayName} ${line.label} 점수`}
+                      <TableCell key={line.key} className="text-center align-top">
+                        <div className="flex flex-col items-center gap-1">
+                          <div
+                            className={cn(
+                              "inline-flex items-center gap-2 rounded-md border px-2 py-1.5",
+                              fail
+                                ? "border-red-400 bg-red-50"
+                                : "border-input bg-background",
+                              checkedRowClass(cell.checked && !fail),
+                            )}
                           >
-                            {Array.from({ length: 11 }, (_, i) => i).map((n) => (
-                              <option key={n} value={n}>
-                                {n}
-                              </option>
-                            ))}
-                          </select>
+                            <Checkbox
+                              checked={cell.checked}
+                              onChange={() =>
+                                toggleCheck(crew.userId, crew.displayName, line.key, cell)
+                              }
+                              aria-label={`${crew.displayName} ${line.label} 체크`}
+                            />
+                            <select
+                              className="rounded border border-input bg-background px-1.5 py-0.5 text-sm"
+                              value={cell.score}
+                              onChange={(e) =>
+                                setScore(
+                                  crew.userId,
+                                  crew.displayName,
+                                  line.key,
+                                  Number(e.target.value),
+                                  cell,
+                                )
+                              }
+                              aria-label={`${crew.displayName} ${line.label} 점수`}
+                            >
+                              {Array.from({ length: 11 }, (_, i) => i).map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {/* 라인명 드롭다운 — 체크박스·점수 바로 아래. 유형(도출/분석/견문)별 옵션. */}
+                          <ExperienceLineSelect
+                            value={cell.selectedLineId}
+                            options={lineOptions[line.key]}
+                            onChange={(id) => setLine(crew.userId, line.key, id, cell)}
+                            disabled={lineDisabled}
+                            ariaLabel={`${crew.displayName} ${line.label} 라인명`}
+                            triggerClassName="min-w-[7rem] max-w-[12rem]"
+                          />
                         </div>
                       </TableCell>
                     );

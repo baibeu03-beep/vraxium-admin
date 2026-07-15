@@ -6,6 +6,7 @@ import {
   toAdminErrorResponse,
 } from "@/lib/adminAuth";
 import {
+  EMPTY_PART_INPUT_LINE_OPTIONS,
   EXPERIENCE_PART_LINE_TYPES,
   TEAM_OVERALL,
   isExperiencePartLineType,
@@ -22,6 +23,7 @@ import {
   resolveActorContext,
   savePartSubmission,
 } from "@/lib/adminExperiencePartInput";
+import { listExperienceLineOptions } from "@/lib/adminExperienceLineData";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
 import { parseScopeMode } from "@/lib/userScope";
 import {
@@ -84,13 +86,18 @@ export async function GET(request: NextRequest) {
         parts: [],
         crews: [],
         cells: [],
+        lineOptions: EMPTY_PART_INPUT_LINE_OPTIONS,
         submitted: false,
         aggregate: null,
       };
       return Response.json({ success: true, data });
     }
 
-    const parts = await listTeamParts(organization, teamName, mode);
+    // 라인명 드롭다운 옵션(유형별) — org+공통 활성 라인. 개설신청/검수/검증 공용 단일 원천.
+    const [parts, lineOptions] = await Promise.all([
+      listTeamParts(organization, teamName, mode),
+      listExperienceLineOptions(organization),
+    ]);
 
     // 팀 총괄(집계, 읽기 전용).
     if (part === TEAM_OVERALL) {
@@ -104,6 +111,7 @@ export async function GET(request: NextRequest) {
         parts,
         crews: [],
         cells: [],
+        lineOptions,
         submitted: false,
         aggregate,
       };
@@ -122,6 +130,7 @@ export async function GET(request: NextRequest) {
       parts,
       crews,
       cells: sub.cells,
+      lineOptions,
       submitted: sub.submitted,
       aggregate: null,
     };
@@ -185,7 +194,18 @@ export async function POST(request: NextRequest) {
     const lineType = cell.lineType;
     if (!crewUserId || !isExperiencePartLineType(lineType)) continue;
     const scoreState = experienceScoreState(cell.score);
-    cells.push({ crewUserId, lineType, checked: scoreState.checked, score: scoreState.score });
+    // 선택 라인 ID(빈 문자열/미지정 = null). 보이드 규칙/유형 검증은 savePartSubmission 이 담당.
+    const selectedLineId =
+      typeof cell.selectedLineId === "string" && cell.selectedLineId.trim()
+        ? cell.selectedLineId.trim()
+        : null;
+    cells.push({
+      crewUserId,
+      lineType,
+      checked: scoreState.checked,
+      score: scoreState.score,
+      selectedLineId,
+    });
   }
 
   try {

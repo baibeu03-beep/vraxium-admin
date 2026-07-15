@@ -23,15 +23,23 @@ export function isExperiencePartLineType(
   return typeof v === "string" && (EXPERIENCE_PART_LINE_KEYS as string[]).includes(v);
 }
 
-// 기본값: 최초 진입/초기화 시 모든 체크=true, 점수=7.
-export const PART_CELL_DEFAULT = { checked: true, score: 7 } as const;
+// 기본값: 최초 진입/초기화 시 모든 체크=true, 점수=7, 라인 미선택('-').
+export const PART_CELL_DEFAULT = { checked: true, score: 7, selectedLineId: null } as const;
 
 // 팀 총괄(집계) 선택값 — 실제 파트가 아님.
 export const TEAM_OVERALL = "__overall__";
 
-export type PartInputCell = { checked: boolean; score: number };
+// 셀 상태 — 체크/점수 + 선택 라인(안정적 라인 ID). 미선택 = null('-').
+export type PartInputCell = {
+  checked: boolean;
+  score: number;
+  selectedLineId: string | null;
+};
 
-export type ExperienceScoreState = PartInputCell & {
+// 점수 파생 상태(라인 선택과 무관) — checked/score + 제출·강화 판정.
+export type ExperienceScoreState = {
+  checked: boolean;
+  score: number;
   isSubmitted: boolean;
   isReinforcementSuccess: boolean;
 };
@@ -53,7 +61,12 @@ export function experienceScoreState(scoreInput: unknown): ExperienceScoreState 
 }
 
 export function normalizePartInputCell<T extends PartInputCell>(cell: T): T {
-  return { ...cell, ...experienceScoreState(cell.score) };
+  const state = experienceScoreState(cell.score);
+  // 보이드 규칙(SoT): 미체크 또는 0점 = 강화 실패 → 라인 미선택('-', null).
+  //   score 1~3(체크 유지·강화 실패)에서는 선택 라인을 유지한다(요구사항 §4).
+  const selectedLineId =
+    state.checked && state.score >= 1 ? cell.selectedLineId ?? null : null;
+  return { ...cell, ...state, selectedLineId };
 }
 
 // 강화 실패 판정 = 체크 해제 OR 점수<=3. (표시/저장만 — snapshot 계산과 무관)
@@ -75,6 +88,28 @@ export type PartInputCellDto = {
   lineType: ExperiencePartLineType;
   checked: boolean;
   score: number;
+  // 선택 라인의 안정적 ID(line_registrations.bridged_master_id). 미선택/강화실패 = null('-').
+  selectedLineId: string | null;
+};
+
+// 라인명 드롭다운 옵션(카테고리별). value=id(안정적 라인 ID), label=lineName.
+//   개설 신청/검수/서버 검증이 동일 옵션 원천(listExperienceLineOptions)을 공유한다.
+export type PartInputLineOption = {
+  id: string; // line_registrations.bridged_master_id
+  lineName: string; // 표시명(드롭다운 라벨)
+  lineCode: string | null;
+};
+
+// 라인 유형(도출/분석/견문) → 옵션 목록. 등록 원장에서 유형이 일치하는 활성 라인만.
+export type PartInputLineOptions = Record<
+  ExperiencePartLineType,
+  PartInputLineOption[]
+>;
+
+export const EMPTY_PART_INPUT_LINE_OPTIONS: PartInputLineOptions = {
+  derivation: [],
+  analysis: [],
+  evaluation: [],
 };
 
 export type PartInputActor = {
@@ -107,6 +142,8 @@ export type PartInputGetData = {
   parts: string[];
   crews: PartInputCrew[]; // 파트 모드 — 평가 대상 크루(파트장 제외)
   cells: PartInputCellDto[]; // 저장된 셀(없으면 빈 배열 → client 기본값)
+  // 라인명 드롭다운 옵션(유형별) — 등록 원장에서 유형이 일치하는 활성 라인. org+공통.
+  lineOptions: PartInputLineOptions;
   submitted: boolean;
   aggregate: PartOverallAggregate | null; // 팀 총괄 모드일 때만
 };

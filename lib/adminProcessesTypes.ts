@@ -32,6 +32,14 @@ export function isProcessHub(value: unknown): value is ProcessHub {
   return typeof value === "string" && (PROCESS_HUBS as readonly string[]).includes(value);
 }
 
+// 허브 enum(process_acts.hub 등) → 한글 표시명. **표시 전용** 포맷터 — DB 저장값/DTO/API 무변경.
+//   PROCESS_HUB_LABEL(허브명 SoT)을 재사용한다(신규 매핑 금지). null/미지정 → "-",
+//   알 수 없는 값은 원문 보존(방어적). 어드민/크루 페이지의 영문 허브 노출 제거에 공통 사용.
+export function formatProcessHubLabel(hub: string | null | undefined): string {
+  if (!hub) return "-";
+  return isProcessHub(hub) ? PROCESS_HUB_LABEL[hub] : hub;
+}
+
 // ── 발생/체크 주차 (N | N+1) ───────────────────────────────────────────────
 export type ProcessWeekRef = "N" | "N1";
 export const PROCESS_WEEK_REFS = ["N", "N1"] as const;

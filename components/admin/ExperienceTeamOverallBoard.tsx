@@ -30,6 +30,8 @@ import {
   OVERALL_NO_TARGET_PARTS_MESSAGE,
   OVERALL_CELL_DEFAULT,
   OVERALL_LEADER_CATEGORIES,
+  OVERALL_PART_CATEGORIES,
+  EMPTY_OVERALL_LINE_OPTIONS,
   canEditOverallManagement,
   isOverallCellFail,
   resolveOverallApplicationReadiness,
@@ -38,7 +40,10 @@ import {
   type OverallBoardCrew,
   type OverallCell,
   type OverallLeaderCellDto,
+  type OverallLineSelectionDto,
 } from "@/lib/experienceTeamOverallTypes";
+import { type ExperiencePartLineType } from "@/lib/experiencePartInputTypes";
+import ExperienceLineSelect from "@/components/admin/cluster4/ExperienceLineSelect";
 
 // 실무 경험 [팀 총괄] — 개설 검수/완료/취소 편집 보드.
 //   행=전 파트 크루(+파트장), 열=도출/분석/견문(파트신청 라이브, 읽기전용) + 관리/확장(팀장 입력).
@@ -114,6 +119,10 @@ export default function ExperienceTeamOverallBoard({
   const [outputs, setOutputs] = useState<
     Map<ExperienceOverallCategory, { link: string; description: string }>
   >(new Map());
+  // 도출/분석/견문 라인명 로컬 편집값 — key=`crewUserId::category`(part 카테고리만). 저장=파트 신청 셀 SoT.
+  const [lineSelections, setLineSelections] = useState<Map<string, string | null>>(
+    new Map(),
+  );
 
   // 카테고리별 "연결된 라인명" 표시용 — 기존 라인 등록 조회(experience-line-masters) 재사용(읽기 전용).
   //   ⚠ 팀 총괄 API/DTO/저장구조 무변경. 표시 라벨만 보강한다.
@@ -125,6 +134,9 @@ export default function ExperienceTeamOverallBoard({
     () => (board?.parts ?? []).flatMap((p) => p.crews),
     [board],
   );
+
+  // 라인명 드롭다운 옵션(5카테고리) — 개설 신청과 동일 원천(board.lineOptions).
+  const lineOptions = board?.lineOptions ?? EMPTY_OVERALL_LINE_OPTIONS;
 
   // 카테고리 → 연결 라인명. 같은 카테고리 후보 다수면 org 우선, 확장은 활성 종류(온/오프) 우선, 그 외 첫 라인.
   const lineNameByCategory = useMemo(() => {
@@ -179,14 +191,20 @@ export default function ExperienceTeamOverallBoard({
   // 보드를 로컬 편집 state 로 흡수(저장값/기본값).
   const hydrate = useCallback((b: BoardDto) => {
     const lc = new Map<string, OverallCell>();
+    const ls = new Map<string, string | null>();
     for (const part of b.parts) {
       for (const crew of part.crews) {
         for (const cat of OVERALL_LEADER_CATEGORIES) {
           lc.set(leaderKey(crew.userId, cat), { ...crew.cells[cat] });
         }
+        // 선택 라인 — 5카테고리 전부 초기화(도출/분석/견문=파트 셀, 관리/확장=팀장 셀 미러).
+        for (const cat of EXPERIENCE_OVERALL_CATEGORIES) {
+          ls.set(leaderKey(crew.userId, cat.key), crew.cells[cat.key]?.selectedLineId ?? null);
+        }
       }
     }
     setLeaderCells(lc);
+    setLineSelections(ls);
     const out = new Map<ExperienceOverallCategory, { link: string; description: string }>();
     for (const o of b.outputs) {
       out.set(o.category, { link: o.link, description: o.description });
@@ -292,6 +310,24 @@ export default function ExperienceTeamOverallBoard({
     [setLeaderCell],
   );
 
+  // ── 라인명(도출/분석/견문) 편집 — 파트 신청 셀 SoT 로 write-back(저장 시) ──
+  const getLineSel = useCallback(
+    (userId: string, category: ExperienceOverallCategory): string | null =>
+      lineSelections.get(leaderKey(userId, category)) ?? null,
+    [lineSelections],
+  );
+
+  const setLineSel = useCallback(
+    (userId: string, category: ExperienceOverallCategory, id: string | null) => {
+      setLineSelections((prev) => {
+        const m = new Map(prev);
+        m.set(leaderKey(userId, category), id);
+        return m;
+      });
+    },
+    [],
+  );
+
   const getOutput = useCallback(
     (category: ExperienceOverallCategory) =>
       outputs.get(category) ?? { link: "", description: "" },
@@ -325,6 +361,8 @@ export default function ExperienceTeamOverallBoard({
           category: cat as "management" | "extension",
           checked: c.checked,
           score: c.score,
+          // 관리/확장 라인명 — 팀장 셀 SoT(team_overall_cells)에 함께 저장. 서버가 보이드/유형 검증.
+          selectedLineId: getLineSel(crew.userId, cat),
         });
       }
     }
@@ -334,12 +372,23 @@ export default function ExperienceTeamOverallBoard({
       const o = getOutput(c.key);
       return { category: c.key, link: o.link, description: o.description };
     });
-    return { cells, outs };
-  }, [allCrews, extensionActive, getLeaderCell, getOutput]);
+    // 도출/분석/견문 라인명 편집값 — 파트 카테고리 전 크루. 서버가 보이드/유형 검증·null 정규화.
+    const lineSels: OverallLineSelectionDto[] = [];
+    for (const crew of allCrews) {
+      for (const cat of OVERALL_PART_CATEGORIES) {
+        lineSels.push({
+          crewUserId: crew.userId,
+          lineType: cat as ExperiencePartLineType,
+          selectedLineId: getLineSel(crew.userId, cat),
+        });
+      }
+    }
+    return { cells, outs, lineSels };
+  }, [allCrews, extensionActive, getLeaderCell, getOutput, getLineSel]);
 
   const post = useCallback(
     async (action: "review" | "open" | "cancel") => {
-      const { cells, outs } = buildPayload();
+      const { cells, outs, lineSels } = buildPayload();
       const res = await fetch("/api/admin/cluster4/experience/team-overall", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -351,6 +400,7 @@ export default function ExperienceTeamOverallBoard({
           team_name: teamName,
           leaderCells: action === "cancel" ? [] : cells,
           outputs: action === "cancel" ? [] : outs,
+          lineSelections: action === "cancel" ? [] : lineSels,
           mode,
           // 임퍼소네이션 write 가드 활성용(서버가 mode=test+test_user_markers 검증).
           ...(actAsTestUserId ? { actAsTestUserId } : {}),
@@ -425,12 +475,18 @@ export default function ExperienceTeamOverallBoard({
   const onReset = useCallback(() => {
     // DB 통신 없음 — 프론트 화면 입력값만 기본값으로 복원.
     const lc = new Map<string, OverallCell>();
+    const ls = new Map<string, string | null>();
     for (const crew of allCrews) {
       for (const cat of OVERALL_LEADER_CATEGORIES) {
         lc.set(leaderKey(crew.userId, cat), { ...OVERALL_CELL_DEFAULT });
       }
+      // 라인명은 5카테고리 전부 로드된 값(미러)으로 되돌린다 — 선택 유실 방지.
+      for (const cat of EXPERIENCE_OVERALL_CATEGORIES) {
+        ls.set(leaderKey(crew.userId, cat.key), crew.cells[cat.key]?.selectedLineId ?? null);
+      }
     }
     setLeaderCells(lc);
+    setLineSelections(ls);
     setOutputs(new Map());
     toast("success", LINE_OPENING_RESULT.resetSuccess);
   }, [allCrews, toast]);
@@ -631,23 +687,42 @@ export default function ExperienceTeamOverallBoard({
                       c.key,
                     );
                     if (!isLeader) {
-                      // 도출/분석/견문 — 파트신청 라이브, 읽기 전용 표시.
+                      // 도출/분석/견문 — 체크/점수는 파트신청 라이브(읽기 전용), 라인명은 검수에서 편집.
                       const cell = crew.cells[c.key];
                       const fail = isOverallCellFail(cell);
+                      const partLineType = c.key as ExperiencePartLineType;
+                      // 라인명은 체크&1점 이상에서만 편집(0점/미체크=강화 실패 → '-'). 미개설/개설완료도 잠금.
+                      const lineDisabled =
+                        opened ||
+                        saving ||
+                        partInactive ||
+                        !cell.checked ||
+                        cell.score < 1;
                       return (
-                        <TableCell key={c.key} className="text-center">
-                          <span
-                            className={cn(
-                              "inline-block rounded-md border px-2 py-1 text-xs",
-                              fail
-                                ? "border-red-400 bg-red-50 text-red-700"
-                                : "border-green-300 bg-green-50 text-green-800",
-                            )}
-                          >
-                            {cell.checked && cell.score >= 1
-                              ? `✓ ${cell.score}`
-                              : "✕ -"}
-                          </span>
+                        <TableCell key={c.key} className="text-center align-top">
+                          <div className="flex flex-col items-center gap-1">
+                            <span
+                              className={cn(
+                                "inline-block rounded-md border px-2 py-1 text-xs",
+                                fail
+                                  ? "border-red-400 bg-red-50 text-red-700"
+                                  : "border-green-300 bg-green-50 text-green-800",
+                              )}
+                            >
+                              {cell.checked && cell.score >= 1
+                                ? `✓ ${cell.score}`
+                                : "✕ -"}
+                            </span>
+                            {/* 라인명 드롭다운 — 검수 편집(파트 신청 셀 SoT 로 write-back). */}
+                            <ExperienceLineSelect
+                              value={getLineSel(crew.userId, c.key)}
+                              options={lineOptions[partLineType]}
+                              onChange={(id) => setLineSel(crew.userId, c.key, id)}
+                              disabled={lineDisabled}
+                              ariaLabel={`${crew.displayName} ${c.label} 라인명`}
+                              triggerClassName="min-w-[7rem] max-w-[12rem]"
+                            />
+                          </div>
                         </TableCell>
                       );
                     }
@@ -671,49 +746,62 @@ export default function ExperienceTeamOverallBoard({
                     const fail = isOverallCellFail(cell);
                     const disabled =
                       opened || saving || (c.key === "extension" && !extensionActive);
+                    // 라인명은 체크&1점 이상에서만 편집(0점/미체크=강화 실패 → '-'). 점수 disabled 조건도 상속.
+                    const lineDisabled = disabled || !cell.checked || cell.score < 1;
                     return (
-                      <TableCell key={c.key} className="text-center">
-                        <div
-                          className={cn(
-                            "inline-flex items-center gap-2 rounded-md border px-2 py-1.5",
-                            disabled && c.key === "extension" && !extensionActive
-                              ? "border-dashed border-input bg-muted/40 opacity-60"
-                              : fail
-                                ? "border-red-400 bg-red-50"
-                                : "border-input bg-background",
-                            checkedRowClass(
-                              cell.checked &&
-                                !fail &&
-                                !(disabled && c.key === "extension" && !extensionActive),
-                            ),
-                          )}
-                        >
-                          <Checkbox
-                            checked={cell.checked}
-                            disabled={disabled}
-                            onChange={() => toggleLeaderCheck(crew.userId, c.key)}
-                            aria-label={`${crew.displayName} ${c.label} 체크`}
-                          />
-                          <select
-                            className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
-                            // 점수는 1~10만 유효. 미체크(=미평가)면 '-' 표시(0='0점'과 혼동 방지).
-                            //   0 은 selectable 점수가 아니다 — 미평가 placeholder 는 rating=0/evaluated_by=null 로만 존재.
-                            value={cell.checked && cell.score >= 1 ? String(cell.score) : ""}
-                            disabled={disabled}
-                            onChange={(e) =>
-                              setLeaderScore(crew.userId, c.key, Number(e.target.value))
-                            }
-                            aria-label={`${crew.displayName} ${c.label} 점수`}
+                      <TableCell key={c.key} className="text-center align-top">
+                        <div className="flex flex-col items-center gap-1">
+                          <div
+                            className={cn(
+                              "inline-flex items-center gap-2 rounded-md border px-2 py-1.5",
+                              disabled && c.key === "extension" && !extensionActive
+                                ? "border-dashed border-input bg-muted/40 opacity-60"
+                                : fail
+                                  ? "border-red-400 bg-red-50"
+                                  : "border-input bg-background",
+                              checkedRowClass(
+                                cell.checked &&
+                                  !fail &&
+                                  !(disabled && c.key === "extension" && !extensionActive),
+                              ),
+                            )}
                           >
-                            <option value="" disabled>
-                              -
-                            </option>
-                            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                              <option key={n} value={n}>
-                                {n}
+                            <Checkbox
+                              checked={cell.checked}
+                              disabled={disabled}
+                              onChange={() => toggleLeaderCheck(crew.userId, c.key)}
+                              aria-label={`${crew.displayName} ${c.label} 체크`}
+                            />
+                            <select
+                              className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
+                              // 점수는 1~10만 유효. 미체크(=미평가)면 '-' 표시(0='0점'과 혼동 방지).
+                              //   0 은 selectable 점수가 아니다 — 미평가 placeholder 는 rating=0/evaluated_by=null 로만 존재.
+                              value={cell.checked && cell.score >= 1 ? String(cell.score) : ""}
+                              disabled={disabled}
+                              onChange={(e) =>
+                                setLeaderScore(crew.userId, c.key, Number(e.target.value))
+                              }
+                              aria-label={`${crew.displayName} ${c.label} 점수`}
+                            >
+                              <option value="" disabled>
+                                -
                               </option>
-                            ))}
-                          </select>
+                              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {/* 라인명 드롭다운 — 관리/확장도 동일 구조(팀장 셀 SoT 로 저장). */}
+                          <ExperienceLineSelect
+                            value={getLineSel(crew.userId, c.key)}
+                            options={lineOptions[c.key]}
+                            onChange={(id) => setLineSel(crew.userId, c.key, id)}
+                            disabled={lineDisabled}
+                            ariaLabel={`${crew.displayName} ${c.label} 라인명`}
+                            triggerClassName="min-w-[7rem] max-w-[12rem]"
+                          />
                         </div>
                       </TableCell>
                     );

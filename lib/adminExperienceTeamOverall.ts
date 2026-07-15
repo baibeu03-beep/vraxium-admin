@@ -43,8 +43,14 @@ import {
   type OverallBoardPart,
   type OverallCell,
   type OverallLeaderCellDto,
+  type OverallLineSelectionDto,
   type OverallOutput,
 } from "@/lib/experienceTeamOverallTypes";
+import {
+  buildLineIdCategoryMap,
+  listExperienceOverallLineOptions,
+} from "@/lib/adminExperienceLineData";
+import { updateOverallPartCellLines } from "@/lib/adminExperiencePartInput";
 
 // part_submissions line_type(도출/분석/견문) ↔ overall category 동일 키.
 type PartLineType = "derivation" | "analysis" | "evaluation";
@@ -166,17 +172,19 @@ async function loadPartSubmissionCells(
   const headerIds = headerRows.map((h) => h.id);
   const { data: cellRows } = await supabaseAdmin
     .from("cluster4_experience_part_submission_cells")
-    .select("crew_user_id,line_type,checked,score")
+    .select("crew_user_id,line_type,checked,score,selected_line_id")
     .in("submission_id", headerIds);
   for (const c of (cellRows ?? []) as Array<{
     crew_user_id: string;
     line_type: PartLineType;
     checked: boolean;
     score: number;
+    selected_line_id: string | null;
   }>) {
     cells.set(`${c.crew_user_id}::${c.line_type}`, {
       checked: c.checked,
       score: c.score,
+      selectedLineId: c.selected_line_id ?? null,
     });
   }
   return { cells, submittedParts };
@@ -220,17 +228,19 @@ async function loadOverallStored(
   const leaderCells = new Map<string, OverallCell>();
   const { data: cellRows } = await supabaseAdmin
     .from("cluster4_experience_team_overall_cells")
-    .select("crew_user_id,category,checked,score")
+    .select("crew_user_id,category,checked,score,selected_line_id")
     .eq("overall_id", h.id);
   for (const c of (cellRows ?? []) as Array<{
     crew_user_id: string;
     category: "management" | "extension";
     checked: boolean;
     score: number;
+    selected_line_id: string | null;
   }>) {
     leaderCells.set(`${c.crew_user_id}::${c.category}`, {
       checked: c.checked,
       score: c.score,
+      selectedLineId: c.selected_line_id ?? null,
     });
   }
 
@@ -321,11 +331,13 @@ export async function getTeamOverallBoard(
   teamName: string,
   mode: ScopeMode = "operating",
 ): Promise<ExperienceTeamOverallBoard> {
-  const [members, partCellsData, stored, weekDates] = await Promise.all([
+  const [members, partCellsData, stored, weekDates, lineOptions] = await Promise.all([
     loadTeamMembersWithLeaders(organization, teamName, mode),
     loadPartSubmissionCells(organization, weekId, teamId),
     loadOverallStored(organization, weekId, teamId),
     loadWeekDates(weekId),
+    // 라인명 드롭다운 옵션(5카테고리) — 개설 신청과 동일 원천(org+공통 활성 라인).
+    listExperienceOverallLineOptions(organization),
   ]);
 
   const extension = weekDates
@@ -386,6 +398,7 @@ export async function getTeamOverallBoard(
     // 대상 파트 신청 완료 판정 — 프론트가 그대로 소비(버튼 게이팅). 서버 가드와 동일 순수 함수 사용.
     application: resolveOverallApplicationReadiness(parts),
     outputs,
+    lineOptions,
     reviewedAt: stored.reviewedAt,
     openedAt: stored.openedAt,
   };
@@ -460,17 +473,35 @@ async function persistReviewState(input: {
     (OVERALL_LEADER_CATEGORIES as string[]).includes(c.category),
   );
   if (validCells.length > 0) {
+    // 관리/확장 라인명 정합성 — 선택 라인 유형은 반드시 셀 카테고리(관리/확장)와 일치(요구사항 §7).
+    //   옵션 원천 = 개설 신청/검수/검증 공용 5카테고리 옵션(org+공통).
+    const lineIdCategory = buildLineIdCategoryMap(
+      await listExperienceOverallLineOptions(input.organization),
+    );
+    const rows = validCells.map((c) => {
+      const score = Math.max(0, Math.min(10, Math.round(c.score)));
+      // 보이드 규칙: 미체크/0점 = 강화 실패 → 라인 미선택(null).
+      const selectedLineId = c.checked && score >= 1 ? c.selectedLineId ?? null : null;
+      if (selectedLineId && lineIdCategory.get(selectedLineId) !== c.category) {
+        throw Object.assign(
+          new Error(
+            "선택한 라인의 유형이 해당 평가 열과 일치하지 않습니다. 잘못된 라인 선택입니다.",
+          ),
+          { status: 422 },
+        );
+      }
+      return {
+        overall_id: overallId,
+        crew_user_id: c.crewUserId,
+        category: c.category,
+        checked: c.checked,
+        score,
+        selected_line_id: selectedLineId,
+      };
+    });
     const { error: insCellErr } = await supabaseAdmin
       .from("cluster4_experience_team_overall_cells")
-      .insert(
-        validCells.map((c) => ({
-          overall_id: overallId,
-          crew_user_id: c.crewUserId,
-          category: c.category,
-          checked: c.checked,
-          score: Math.max(0, Math.min(10, Math.round(c.score))),
-        })),
-      );
+      .insert(rows);
     if (insCellErr) throw new Error(insCellErr.message);
   }
 
@@ -541,6 +572,8 @@ export async function saveTeamOverallReview(input: {
   teamName: string;
   leaderCells: OverallLeaderCellDto[];
   outputs: OverallOutput[];
+  // 도출/분석/견문 라인명 편집 → 파트 신청 셀 write-back(단일 SoT). 미지정 시 라인 변경 없음.
+  lineSelections?: OverallLineSelectionDto[];
   adminId: string | null;
   // 로그 실행자(임퍼소네이션 유효 시 그 테스트 유저=에이전트/팀장, 아니면 실 admin). 미지정 시 adminId.
   actorId?: string | null;
@@ -590,6 +623,17 @@ export async function saveTeamOverallReview(input: {
     input.mode ?? "operating",
     input.leaderCells,
   );
+
+  // 도출/분석/견문 라인명 편집 → 파트 신청 셀 write-back. 유형 불일치는 422 로 여기서 중단.
+  //   (persist 이전에 검증/적용 — 라인 유형 오류 시 검수 헤더가 남지 않게.)
+  if (input.lineSelections && input.lineSelections.length > 0) {
+    await updateOverallPartCellLines({
+      organization: input.organization,
+      weekId: input.weekId,
+      teamId: input.teamId,
+      selections: input.lineSelections,
+    });
+  }
 
   await persistReviewState({ ...input, status: "reviewed" });
   await insertExperienceOpeningLog({
@@ -858,6 +902,8 @@ export async function openTeamOverall(input: {
   teamName: string;
   leaderCells: OverallLeaderCellDto[];
   outputs: OverallOutput[];
+  // 도출/분석/견문 라인명 편집 → 파트 신청 셀 write-back(단일 SoT). 미지정 시 라인 변경 없음.
+  lineSelections?: OverallLineSelectionDto[];
   adminId: string | null;
   // 로그 실행자(임퍼소네이션 유효 시 그 테스트 유저=팀장, 아니면 실 admin). 미지정 시 adminId.
   actorId?: string | null;
@@ -879,6 +925,26 @@ export async function openTeamOverall(input: {
   //   개설 완료할 수 있어야 한다. 순서 강제(status 하드 블록)를 두지 않는다. 역할 제한(파트장=신청만·
   //   에이전트=검수만·개설은 팀장/owner)은 라우트의 assertImpersonationCapability 가 이미 담당한다.
   //   "권장 다음 액션" 안내는 프론트에서 시각적 강조로만 처리(하드 블록 아님).
+
+  // 관리 류 자격 가드(일반 크루 차단) — 검수 경로(saveTeamOverallReview)와 동일 기준을 개설 완료에도
+  //   적용한다. UI 우회/변조로 일반 크루의 관리 셀(checked/score/selected_line_id)이 섞여 들어와도
+  //   write(팀장 셀 저장 + 고객 라인 생성) 이전에 fail-closed(422). "검수/완료 동일 권한 판정".
+  await assertNoIneligibleManagementCells(
+    input.organization,
+    input.teamName,
+    mode,
+    input.leaderCells,
+  );
+
+  // 0) 도출/분석/견문 라인명 편집 → 파트 신청 셀 write-back(유형 불일치 422 → 여기서 중단).
+  if (input.lineSelections && input.lineSelections.length > 0) {
+    await updateOverallPartCellLines({
+      organization: input.organization,
+      weekId: input.weekId,
+      teamId: input.teamId,
+      selections: input.lineSelections,
+    });
+  }
 
   // 1) 입력값 저장(status 는 일단 reviewed 로 보존 — 반영 성공 후 opened 로 승격).
   const overallId = await persistReviewState({

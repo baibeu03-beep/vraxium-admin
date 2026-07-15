@@ -8,6 +8,7 @@ import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/che
 import { cn } from "@/lib/utils";
 import { pointColorClass } from "@/components/ui/point-value";
 import { getProcessPointLabels } from "@/lib/pointLabels";
+import { formatProcessHubLabel } from "@/lib/adminProcessesTypes";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import ActSupplementDialog from "@/components/admin/ActSupplementDialog";
@@ -408,7 +409,8 @@ function ActRowView({
       <td className="whitespace-nowrap px-2 py-2">
         {formatAdminDateTime(row.occurredAt, { withSeconds: false })}
       </td>
-      <td className="max-w-[120px] truncate px-2 py-2" title={row.hubName ?? "-"}>{row.hubName ?? "-"}</td>
+      {/* 소속 허브 — enum(experience/info/…) 을 한글 표시명으로. 저장값/DTO 무변경(표시 전용). */}
+      <td className="max-w-[120px] truncate px-2 py-2" title={formatProcessHubLabel(row.hubName)}>{formatProcessHubLabel(row.hubName)}</td>
       <td className="max-w-[160px] truncate px-2 py-2" title={row.lineName ?? "-"}>{row.lineName ?? "-"}</td>
       <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{row.durationMinutes}m</td>
       <td className={cn("whitespace-nowrap px-2 py-2 text-right tabular-nums", pointColorClass("a"))}>{row.pointA}</td>

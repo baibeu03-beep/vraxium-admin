@@ -11,6 +11,14 @@ import type {
   ExperienceLineMasterPatchInput,
   CrewItemDto,
 } from "@/lib/adminExperienceLineTypes";
+import type {
+  PartInputLineOption,
+  PartInputLineOptions,
+} from "@/lib/experiencePartInputTypes";
+import type {
+  ExperienceOverallCategory,
+  OverallLineOptions,
+} from "@/lib/experienceTeamOverallTypes";
 
 // ── Experience Line Masters ─────────────────────────────────
 
@@ -169,6 +177,101 @@ export async function listExperienceLineMasters(
   if (error) throw new Error(error.message);
 
   return { rows: ((data ?? []) as unknown as MasterRow[]).map(toMasterDto) };
+}
+
+// ── 라인명 드롭다운 옵션(유형별) — 개설 신청/검수/서버 검증 공용 단일 원천 ─────────
+// /admin/lines/register 원장(line_registrations, hub=experience)에서 유형이 일치하는
+// 활성 라인만 5카테고리(도출/분석/견문/확장/관리)별로 그룹핑한다. value=bridged_master_id.
+//   · org 전용 + 공통(org NULL) 둘 다 포함(개설 완료 loadRegLinesByCategory 와 동일 스코프).
+//   · 화면 텍스트가 아닌 실제 line_type 코드로 매칭(요구사항 §2).
+//   · 반환 구조/필드는 org·mode 무관 동일(모든 경로가 이 함수만 사용 → DTO 이원화 금지).
+const KO_LINE_TYPE_TO_CATEGORY: Record<string, ExperienceOverallCategory> = {
+  도출: "derivation",
+  분석: "analysis",
+  평가: "evaluation", // 표시 라벨은 '견문'. 원장 line_type 코드는 '평가'.
+  확장: "extension",
+  관리: "management",
+};
+
+// 5카테고리 전체 옵션 로드(내부 공용).
+async function loadExperienceLineOptionsAllCategories(
+  organizationSlug?: string | null,
+): Promise<OverallLineOptions> {
+  const out: OverallLineOptions = {
+    derivation: [],
+    analysis: [],
+    evaluation: [],
+    extension: [],
+    management: [],
+  };
+
+  let query = supabaseAdmin
+    .from("line_registrations")
+    .select("line_code,line_name,line_type,organization_slug,is_active,bridged_master_id")
+    .eq("hub", "experience")
+    .eq("is_active", true)
+    .not("bridged_master_id", "is", null)
+    .order("line_code", { ascending: true });
+  query = organizationSlug
+    ? query.or(`organization_slug.is.null,organization_slug.eq.${organizationSlug}`)
+    : query.is("organization_slug", null);
+
+  const { data, error } = await query;
+  if (error) {
+    console.warn("[experience line-options] registrations 조회 실패", error.message);
+    return out;
+  }
+
+  const seen = new Set<string>(); // (category::id) 중복 방지(org+공통 중복 라인).
+  for (const r of (data ?? []) as Array<{
+    line_code: string;
+    line_name: string;
+    line_type: string;
+    bridged_master_id: string;
+  }>) {
+    const category = KO_LINE_TYPE_TO_CATEGORY[r.line_type];
+    if (!category) continue;
+    const key = `${category}::${r.bridged_master_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out[category].push({
+      id: r.bridged_master_id,
+      lineName: r.line_name,
+      lineCode: r.line_code,
+    });
+  }
+  return out;
+}
+
+// 개설 신청 그리드용 3카테고리(도출/분석/견문).
+export async function listExperienceLineOptions(
+  organizationSlug?: string | null,
+): Promise<PartInputLineOptions> {
+  const all = await loadExperienceLineOptionsAllCategories(organizationSlug);
+  return {
+    derivation: all.derivation,
+    analysis: all.analysis,
+    evaluation: all.evaluation,
+  };
+}
+
+// 팀 총괄(검수/완료)용 5카테고리(도출/분석/견문/확장/관리).
+export async function listExperienceOverallLineOptions(
+  organizationSlug?: string | null,
+): Promise<OverallLineOptions> {
+  return loadExperienceLineOptionsAllCategories(organizationSlug);
+}
+
+// 옵션 → (id → category) 맵. 서버 저장 시 "선택 라인 유형 == 셀 카테고리" 검증에 쓴다.
+//   제네릭 — 3카테고리(part) / 5카테고리(overall) 공용.
+export function buildLineIdCategoryMap<K extends string>(
+  options: Record<K, PartInputLineOption[]>,
+): Map<string, K> {
+  const map = new Map<string, K>();
+  (Object.keys(options) as K[]).forEach((category) => {
+    for (const opt of options[category]) map.set(opt.id, category);
+  });
+  return map;
 }
 
 export async function getExperienceLineMaster(

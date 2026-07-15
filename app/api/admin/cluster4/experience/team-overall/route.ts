@@ -8,9 +8,11 @@ import {
 import {
   isExperienceOverallCategory,
   type OverallLeaderCellDto,
+  type OverallLineSelectionDto,
   type OverallOutput,
   type OverallSaveAction,
 } from "@/lib/experienceTeamOverallTypes";
+import { isExperiencePartLineType } from "@/lib/experiencePartInputTypes";
 import {
   cancelTeamOverall,
   getTeamOverallBoard,
@@ -98,12 +100,35 @@ function parseLeaderCells(raw: unknown): OverallLeaderCellDto[] {
     const score = Number.isFinite(scoreNum)
       ? Math.max(0, Math.min(10, Math.round(scoreNum)))
       : 0;
+    const selectedLineId =
+      typeof cell.selectedLineId === "string" && cell.selectedLineId.trim()
+        ? cell.selectedLineId.trim()
+        : null;
     out.push({
       crewUserId,
       category,
       checked: Boolean(cell.checked),
       score,
+      selectedLineId,
     });
+  }
+  return out;
+}
+
+// 도출/분석/견문 라인명 편집 payload — part-derived 유형만 통과. selectedLineId 빈값=null.
+function parseLineSelections(raw: unknown): OverallLineSelectionDto[] {
+  const out: OverallLineSelectionDto[] = [];
+  if (!Array.isArray(raw)) return out;
+  for (const s of raw) {
+    const row = s as Record<string, unknown>;
+    const crewUserId = typeof row.crewUserId === "string" ? row.crewUserId : null;
+    const lineType = row.lineType;
+    if (!crewUserId || !isExperiencePartLineType(lineType)) continue;
+    const selectedLineId =
+      typeof row.selectedLineId === "string" && row.selectedLineId.trim()
+        ? row.selectedLineId.trim()
+        : null;
+    out.push({ crewUserId, lineType, selectedLineId });
   }
   return out;
 }
@@ -201,6 +226,7 @@ export async function POST(request: NextRequest) {
 
     const leaderCells = parseLeaderCells(b.leaderCells);
     const outputs = parseOutputs(b.outputs);
+    const lineSelections = parseLineSelections(b.lineSelections);
 
     if (action === "review") {
       const data = await saveTeamOverallReview({
@@ -210,6 +236,7 @@ export async function POST(request: NextRequest) {
         teamName,
         leaderCells,
         outputs,
+        lineSelections,
         adminId: admin.userId,
         actorId,
         mode,
@@ -225,6 +252,7 @@ export async function POST(request: NextRequest) {
       teamName,
       leaderCells,
       outputs,
+      lineSelections,
       adminId: admin.userId,
       actorId,
       mode,

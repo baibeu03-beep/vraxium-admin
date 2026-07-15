@@ -1,5 +1,10 @@
 // 실무 경험 [팀 총괄] 화면 — 공용 상수/타입(browser-safe, DB 무관).
 // 컴포넌트/데이터레이어/API/검증 스크립트가 공유한다.
+
+import type {
+  ExperiencePartLineType,
+  PartInputLineOption,
+} from "@/lib/experiencePartInputTypes";
 //
 // 그리드 모델: 크루 행 × 5열(도출/분석/견문/관리/확장).
 //   - 도출/분석/견문(part-derived): 파트장 신청(cluster4_experience_part_submissions)에서 라이브로 채운다.
@@ -46,6 +51,20 @@ export const OVERALL_LEADER_CATEGORIES: ReadonlyArray<ExperienceOverallCategory>
 export const EXPERIENCE_OVERALL_CATEGORY_KEYS: ReadonlyArray<ExperienceOverallCategory> =
   EXPERIENCE_OVERALL_CATEGORIES.map((c) => c.key);
 
+// 팀 총괄 5카테고리(도출/분석/견문/확장/관리) 라인명 옵션 — 개설 신청과 동일 원천.
+export type OverallLineOptions = Record<
+  ExperienceOverallCategory,
+  PartInputLineOption[]
+>;
+
+export const EMPTY_OVERALL_LINE_OPTIONS: OverallLineOptions = {
+  derivation: [],
+  analysis: [],
+  evaluation: [],
+  extension: [],
+  management: [],
+};
+
 export function isExperienceOverallCategory(
   v: unknown,
 ): v is ExperienceOverallCategory {
@@ -70,10 +89,16 @@ export function canEditOverallManagement(crew: {
   return crew.isPartLeader || crew.statusLabel === "에이전트";
 }
 
-// 기본값: 최초 진입/초기화 시 모든 체크=true, 점수=7.
+// 기본값: 최초 진입/초기화 시 모든 체크=true, 점수=7, 라인 미선택.
 export const OVERALL_CELL_DEFAULT = { checked: true, score: 7 } as const;
 
-export type OverallCell = { checked: boolean; score: number };
+// selectedLineId 는 도출/분석/견문(part-derived) 셀에서만 의미(파트 신청 셀 SoT 미러/편집).
+//   관리/확장(leader) 셀은 이번 기능 대상 아님 → 항상 미지정(undefined→null).
+export type OverallCell = {
+  checked: boolean;
+  score: number;
+  selectedLineId?: string | null;
+};
 
 // 강화 실패 판정 = 체크 해제 OR 점수<=3. (표시/반영용 — snapshot 계산과 무관)
 export function isOverallCellFail(cell: OverallCell): boolean {
@@ -147,8 +172,18 @@ export type ExperienceTeamOverallBoard = {
   // 대상 파트 신청 완료 판정(parts 파생) — 프론트 [개설 검수] 버튼 게이팅/서버 가드 공용.
   application: OverallApplicationReadiness;
   outputs: OverallOutput[]; // 카테고리별 0~5건(저장된 것만).
+  // 라인명 드롭다운 옵션(5카테고리) — 개설 신청과 동일 원천. 도출/분석/견문/확장/관리.
+  lineOptions: OverallLineOptions;
   reviewedAt: string | null;
   openedAt: string | null;
+};
+
+// ── 라인 선택 저장 payload(도출/분석/견문) — 검수 화면 편집 → 파트 신청 셀 write-back ──
+export type OverallLineSelectionDto = {
+  crewUserId: string;
+  // part-derived 카테고리만(도출/분석/견문). 관리/확장은 대상 아님.
+  lineType: ExperiencePartLineType;
+  selectedLineId: string | null;
 };
 
 // ── 저장 payload (POST) ──
@@ -158,6 +193,8 @@ export type OverallLeaderCellDto = {
   category: "management" | "extension";
   checked: boolean;
   score: number;
+  // 선택 라인 ID(관리/확장 라인명). 미선택/강화실패 = null. 저장=team_overall_cells.selected_line_id.
+  selectedLineId: string | null;
 };
 
 export type OverallSaveAction = "review" | "open" | "cancel";

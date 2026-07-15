@@ -23,6 +23,10 @@ import {
   type PartInputCrew,
   type PartOverallAggregate,
 } from "@/lib/experiencePartInputTypes";
+import {
+  buildLineIdCategoryMap,
+  listExperienceLineOptions,
+} from "@/lib/adminExperienceLineData";
 
 // ── 크루 행(팀 기준 enriched) ──
 
@@ -241,18 +245,20 @@ async function findHeaderId(
 async function fetchCells(submissionId: string): Promise<PartInputCellDto[]> {
   const { data } = await supabaseAdmin
     .from("cluster4_experience_part_submission_cells")
-    .select("crew_user_id,line_type,checked,score")
+    .select("crew_user_id,line_type,checked,score,selected_line_id")
     .eq("submission_id", submissionId);
   return ((data ?? []) as Array<{
     crew_user_id: string;
     line_type: ExperiencePartLineType;
     checked: boolean;
     score: number;
+    selected_line_id: string | null;
   }>).map((c) => normalizePartInputCell({
     crewUserId: c.crew_user_id,
     lineType: c.line_type,
     checked: c.checked,
     score: c.score,
+    selectedLineId: c.selected_line_id ?? null,
   }));
 }
 
@@ -288,7 +294,7 @@ export async function getTeamOverall(
   const headerIds = headerRows.map((h) => h.id);
   const { data: cellRows } = await supabaseAdmin
     .from("cluster4_experience_part_submission_cells")
-    .select("submission_id,crew_user_id,line_type,checked,score")
+    .select("submission_id,crew_user_id,line_type,checked,score,selected_line_id")
     .in("submission_id", headerIds);
   const cells = (cellRows ?? []) as Array<{
     submission_id: string;
@@ -296,6 +302,7 @@ export async function getTeamOverall(
     line_type: ExperiencePartLineType;
     checked: boolean;
     score: number;
+    selected_line_id: string | null;
   }>;
 
   // 크루 표시 정보(이름/상태) — 팀 단위 1회 조회 후 맵.
@@ -321,6 +328,7 @@ export async function getTeamOverall(
           lineType: c.line_type,
           checked: c.checked,
           score: c.score,
+          selectedLineId: c.selected_line_id ?? null,
         }));
         byCrew.set(c.crew_user_id, list);
       }
@@ -389,9 +397,28 @@ export async function savePartSubmission(input: {
     .eq("submission_id", submissionId);
   if (delError) throw new Error(delError.message);
 
+  // normalizePartInputCell 이 보이드 규칙(미체크/0점 → selectedLineId=null)을 이미 적용한다.
   const valid = input.cells
     .filter((c) => (EXPERIENCE_PART_LINE_KEYS as string[]).includes(c.lineType))
     .map(normalizePartInputCell);
+
+  // 라인 유형 정합성 — 선택 라인은 반드시 그 셀 line_type 과 같은 유형이어야 한다(요구사항 §7).
+  //   옵션 원천 = 개설 신청/검수/검증 공용 listExperienceLineOptions(org+공통).
+  const lineIdCategory = buildLineIdCategoryMap(
+    await listExperienceLineOptions(input.organization),
+  );
+  for (const c of valid) {
+    if (!c.selectedLineId) continue; // 미선택('-') — 검증 불필요.
+    if (lineIdCategory.get(c.selectedLineId) !== c.lineType) {
+      throw Object.assign(
+        new Error(
+          "선택한 라인의 유형이 해당 평가 열과 일치하지 않습니다. 잘못된 라인 선택입니다.",
+        ),
+        { status: 422 },
+      );
+    }
+  }
+
   if (valid.length > 0) {
     const { error: insError } = await supabaseAdmin
       .from("cluster4_experience_part_submission_cells")
@@ -402,12 +429,94 @@ export async function savePartSubmission(input: {
           line_type: c.lineType,
           checked: c.checked,
           score: Math.max(0, Math.min(10, Math.round(c.score))),
+          selected_line_id: c.selectedLineId ?? null,
         })),
       );
     if (insError) throw new Error(insError.message);
   }
 
   return { submitted: true };
+}
+
+// ── [검수] 팀 총괄 보드에서 도출/분석/견문 라인 선택 편집 → 파트 신청 셀에 write-back ──
+// 라인명 SoT 는 파트 신청 셀(selected_line_id) 하나뿐이므로, 검수 화면 편집도 같은 셀을 갱신한다.
+//   · checked/score 는 건드리지 않는다(도출/분석/견문 점수는 파트장 소유·검수는 라인명만 편집).
+//   · 보이드 규칙: 대상 셀이 강화 실패(미체크/0점)면 라인 부착 불가 → null 강제.
+//   · 유형 정합성: 선택 라인 유형 == 셀 line_type 아니면 422.
+//   · 파트 미신청(셀 없음) 크루는 스킵(부착할 셀이 없음).
+export async function updateOverallPartCellLines(input: {
+  organization: string;
+  weekId: string;
+  teamId: string;
+  selections: Array<{
+    crewUserId: string;
+    lineType: ExperiencePartLineType;
+    selectedLineId: string | null;
+  }>;
+}): Promise<void> {
+  const selections = input.selections.filter((s) =>
+    (EXPERIENCE_PART_LINE_KEYS as string[]).includes(s.lineType),
+  );
+  if (selections.length === 0) return;
+
+  // 대상 팀·주차의 신청 헤더 → 셀(도출/분석/견문) 조회. (crew::lineType) → 셀 메타 맵.
+  const { data: headers } = await supabaseAdmin
+    .from("cluster4_experience_part_submissions")
+    .select("id")
+    .eq("organization_slug", input.organization)
+    .eq("week_id", input.weekId)
+    .eq("team_id", input.teamId);
+  const headerIds = ((headers ?? []) as Array<{ id: string }>).map((h) => h.id);
+  if (headerIds.length === 0) return;
+
+  const { data: cellRows } = await supabaseAdmin
+    .from("cluster4_experience_part_submission_cells")
+    .select("id,crew_user_id,line_type,checked,score")
+    .in("submission_id", headerIds);
+  const cellMap = new Map<
+    string,
+    { id: string; checked: boolean; score: number }
+  >();
+  for (const c of (cellRows ?? []) as Array<{
+    id: string;
+    crew_user_id: string;
+    line_type: ExperiencePartLineType;
+    checked: boolean;
+    score: number;
+  }>) {
+    cellMap.set(`${c.crew_user_id}::${c.line_type}`, {
+      id: c.id,
+      checked: c.checked,
+      score: c.score,
+    });
+  }
+
+  const lineIdCategory = buildLineIdCategoryMap(
+    await listExperienceLineOptions(input.organization),
+  );
+
+  for (const sel of selections) {
+    const cell = cellMap.get(`${sel.crewUserId}::${sel.lineType}`);
+    if (!cell) continue; // 파트 미신청 크루 — 부착할 셀 없음.
+    // 보이드 규칙: 강화 실패 셀(미체크/0점)엔 라인 부착 불가.
+    const cellPasses = cell.checked && cell.score >= 1;
+    const nextId: string | null = cellPasses ? sel.selectedLineId ?? null : null;
+    if (nextId) {
+      if (lineIdCategory.get(nextId) !== sel.lineType) {
+        throw Object.assign(
+          new Error(
+            "선택한 라인의 유형이 해당 평가 열과 일치하지 않습니다. 잘못된 라인 선택입니다.",
+          ),
+          { status: 422 },
+        );
+      }
+    }
+    const { error } = await supabaseAdmin
+      .from("cluster4_experience_part_submission_cells")
+      .update({ selected_line_id: nextId })
+      .eq("id", cell.id);
+    if (error) throw new Error(error.message);
+  }
 }
 
 export async function deletePartSubmission(
