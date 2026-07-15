@@ -9,7 +9,6 @@
 //     → 상태 행 completed+manual_grant + recipients(중복 스킵) + 포인트 적립(snapshot 무효화).
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
@@ -32,6 +31,8 @@ import {
 } from "@/lib/adminProcessCheckTypes";
 import ProcessCheckCompletedCrewList from "@/components/admin/ProcessCheckCompletedCrewList";
 import { getProcessPointLabels } from "@/lib/pointLabels";
+import { useActionToast } from "@/lib/actionToast";
+import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 
 const POINTS = Array.from({ length: 21 }, (_, i) => i); // 0~20
 const DURATIONS = Array.from({ length: 18 }, (_, i) => (i + 1) * 5); // 5~90, 5분 단위
@@ -90,6 +91,7 @@ export default function ProcessCheckManualGrantDialog({
   const [submitting, setSubmitting] = useState(false);
   const searchReq = useRef(0);
   const confirm = useConfirm();
+  const t = useActionToast();
 
   // 수동 입력 팝업의 상태별 모드 —
   //   needed   : 입력 폼(대상 크루/포인트). 버튼 [초기화]·[체크 신청] 활성 · [체크 취소] 항상 비활성.
@@ -212,10 +214,12 @@ export default function ProcessCheckManualGrantDialog({
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      t.success("review");
       onDone();
       onClose();
     } catch (err) {
-      setBanner(err instanceof Error ? err.message : "처리에 실패했습니다");
+      console.error("[ProcessCheckManualGrantDialog] manual grant failed", err);
+      t.error("review");
     } finally {
       setSubmitting(false);
     }

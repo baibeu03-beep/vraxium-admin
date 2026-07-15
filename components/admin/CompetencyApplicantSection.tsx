@@ -32,6 +32,7 @@ import { readOrgParam } from "@/lib/adminOrgContext";
 import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import { formatLogPeriodLabel } from "@/lib/practicalInfoSection0Format";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { useToast } from "@/components/ui/toast";
 
 // 실무 역량 [라인 개설] — [해당 크루] 영역.
 //   상단: 요약(활동/신청/개설/반려/신청 라인/개설 라인) + 수동 추가(자동완성 + 추가).
@@ -287,6 +288,7 @@ export default function CompetencyApplicantSection({
 }) {
   const searchParams = useSearchParams();
   const org = readOrgParam(searchParams);
+  const { toast } = useToast();
 
   const [apps, setApps] = useState<ApplicationDto[]>([]);
   const [summary, setSummary] = useState<Summary>(EMPTY_SUMMARY);
@@ -296,7 +298,6 @@ export default function CompetencyApplicantSection({
   const [weekMetaById, setWeekMetaById] = useState<Map<string, WeekMeta>>(new Map());
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
-  const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
 
   // 수동 추가 자동완성.
   const [q, setQ] = useState("");
@@ -523,7 +524,7 @@ export default function CompetencyApplicantSection({
 
   const openAddPopup = useCallback(() => {
     if (!selectedCrew) {
-      setBanner({ kind: "error", message: "추가할 크루를 검색해 선택해주세요" });
+      toast("error", "추가할 크루를 검색해 선택해주세요");
       return;
     }
     setAddMasterId("");
@@ -535,11 +536,10 @@ export default function CompetencyApplicantSection({
     if (!org || !selectedCrew) return;
     const master = masters.find((m) => m.id === addMasterId);
     if (!master) {
-      setBanner({ kind: "error", message: "라인을 드롭다운에서 선택해주세요" });
+      toast("error", "라인을 드롭다운에서 선택해주세요");
       return;
     }
     setSaving(true);
-    setBanner(null);
     try {
       // 서버 스코프 가드(QA_HIDE_REAL_USERS 기준 모집단 혼입 422)가 화면과 동일 축으로 판정.
       const res = await fetch("/api/admin/cluster4/competency/applications", {
@@ -559,16 +559,16 @@ export default function CompetencyApplicantSection({
       });
       const json = await res.json();
       if (!json.success) {
-        setBanner({ kind: "error", message: json.error ?? "수동 추가 실패" });
+        toast("error", "수동 추가 실패");
         return;
       }
-      setBanner({ kind: "success", message: "승인 명단에 추가되었습니다" });
+      toast("success", "승인 명단에 추가되었습니다");
       setAddOpen(false);
       setSelectedCrew(null);
       setQ("");
       await fetchData();
     } catch {
-      setBanner({ kind: "error", message: "수동 추가 중 오류" });
+      toast("error", "수동 추가 중 오류");
     } finally {
       setSaving(false);
     }
@@ -584,13 +584,13 @@ export default function CompetencyApplicantSection({
         });
         const json = await res.json();
         if (!json.success) {
-          setBanner({ kind: "error", message: json.error ?? "변경 실패" });
+          toast("error", "변경 실패");
           return false;
         }
         await fetchData();
         return true;
       } catch {
-        setBanner({ kind: "error", message: "변경 중 오류" });
+        toast("error", "변경 중 오류");
         return false;
       }
     },
@@ -600,20 +600,19 @@ export default function CompetencyApplicantSection({
   // 수동 추가 항목 삭제(고객 신청은 X 버튼 자체가 없음 + 서버 source 게이트로 이중 차단).
   const submitDelete = useCallback(async (app: ApplicationDto) => {
     setSaving(true);
-    setBanner(null);
     try {
       const res = await fetch(`/api/admin/cluster4/competency/applications/${app.id}`, {
         method: "DELETE",
       });
       const json = await res.json();
       if (!json.success) {
-        setBanner({ kind: "error", message: json.error ?? "삭제 실패" });
+        toast("error", "삭제 실패");
         return;
       }
-      setBanner({ kind: "success", message: "수동 추가 항목이 삭제되었습니다" });
+      toast("success", "수동 추가 항목이 삭제되었습니다");
       await fetchData();
     } catch {
-      setBanner({ kind: "error", message: "삭제 중 오류" });
+      toast("error", "삭제 중 오류");
     } finally {
       setSaving(false);
     }
@@ -652,7 +651,7 @@ export default function CompetencyApplicantSection({
     const ok = await patchApp(rejectApp.id, { rejection_reason: rejectDraft.trim() || null });
     setSaving(false);
     if (ok) {
-      setBanner({ kind: "success", message: "반려 사유가 저장되었습니다" });
+      toast("success", "반려 사유가 저장되었습니다");
       setRejectApp(null);
       setRejectDraft("");
     }
@@ -688,22 +687,6 @@ export default function CompetencyApplicantSection({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {banner && (
-          <div
-            className={cn(
-              "flex items-start justify-between gap-2 rounded-md border px-3 py-2 text-sm",
-              banner.kind === "success"
-                ? "border-green-300 bg-green-50 text-green-800"
-                : "border-red-300 bg-red-50 text-red-800",
-            )}
-          >
-            <span>{banner.message}</span>
-            <button onClick={() => setBanner(null)}>
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
         {/* 수동 추가 — 자동완성 검색 + [추가] */}
         <div className="flex flex-wrap items-end gap-2">
           <div className="min-w-[260px] flex-1 space-y-1">

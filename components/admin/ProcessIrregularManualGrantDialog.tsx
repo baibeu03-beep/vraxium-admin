@@ -7,7 +7,6 @@
 //   ⚠ user_weekly_points·snapshot 무접촉.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
@@ -21,6 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { type ScopeMode, appendModeQuery } from "@/lib/userScopeShared";
+import { useActionToast } from "@/lib/actionToast";
+import { excludeAddedByUserId } from "@/lib/crewSearchExclude";
 import { IrregularPointFields, derivePartialPointMode } from "@/components/admin/IrregularPointFields";
 import { irregularCafeLabel } from "@/lib/adminProcessIrregularTypes";
 
@@ -70,6 +71,7 @@ export default function ProcessIrregularManualGrantDialog({
   const [submitting, setSubmitting] = useState(false);
   const searchReq = useRef(0);
   const confirm = useConfirm();
+  const t = useActionToast();
 
   // 입력값이 하나라도 있으면 dirty(닫기 시 확인 문구 노출 판단).
   const dirty =
@@ -135,7 +137,7 @@ export default function ProcessIrregularManualGrantDialog({
 
   const addCandidate = () => {
     if (!candidate) return;
-    // 이미 명단에 있으면 추가하지 않고 안내 팝업.
+    // 이미 명단에 있으면 추가하지 않고 안내 팝업(방어적 — 정상 경로에선 검색결과에서 이미 제외됨).
     if (roster.some((c) => c.userId === candidate.userId)) {
       void confirm({
         title: "이미 추가된 크루",
@@ -194,10 +196,12 @@ export default function ProcessIrregularManualGrantDialog({
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      t.success("review");
       onDone();
       onClose();
     } catch (err) {
-      setBanner(err instanceof Error ? err.message : "처리에 실패했습니다");
+      console.error("[ProcessIrregularManualGrantDialog] manual grant failed", err);
+      t.error("review");
     } finally {
       setSubmitting(false);
     }
