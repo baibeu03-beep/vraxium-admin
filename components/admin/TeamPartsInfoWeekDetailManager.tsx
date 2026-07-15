@@ -455,7 +455,7 @@ function LineOpeningTable({ lines, lineAttr }: { lines: InfoLineRow[]; lineAttr:
         <thead>
           <tr className="bg-zinc-50 text-center">
             {th("라인명", "lineName", "lineName")}
-            {th("운영진", "operator", "operator")}
+            {th("담당 운영진", "operator", "operator")}
             {th("운영", "operating", "operating")}
             {th("개설 시점", "createdAt", "openedAt")}
             {th("개설 크루", "createdCrew", "createdCrew")}
@@ -625,7 +625,7 @@ const CHECK_ICON_CLASS: Record<"completed-on-time" | "completed-late", string> =
 function RequiredChip({ label }: { label: string }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap">
-      <span className="rounded bg-black/[0.06] px-1 py-px text-xs font-medium">필요</span>
+      <span className="rounded bg-black/[0.06] px-1 py-px text-xs font-medium">체크 필요</span>
       <span className="tabular-nums">{label}</span>
     </span>
   );
