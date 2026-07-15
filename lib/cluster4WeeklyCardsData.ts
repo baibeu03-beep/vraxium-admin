@@ -43,6 +43,7 @@ import {
   computeCluster4Enhancement,
   EXPERIENCE_RATING_FAIL_THRESHOLD,
 } from "@/lib/cluster4Enhancement";
+import { experienceScoreState } from "@/lib/experiencePartInputTypes";
 import {
   type CareerGrade,
   careerRatingStatusFromGrade,
@@ -759,10 +760,16 @@ function toLineDetail(
         : experienceEval.rating <= EXPERIENCE_RATING_FAIL_THRESHOLD
           ? "fail"
           : "pass";
+  const experienceScore = experienceEval == null
+    ? null
+    : experienceScoreState(experienceEval.rating);
   const enhancement = computeCluster4Enhancement({
     hasTarget: true,
     deadlinePassed,
-    hasSubmission: Boolean(submission),
+    hasSubmission:
+      partType === "experience" && experienceScore
+        ? experienceScore.isSubmitted
+        : Boolean(submission),
     isCareer: partType === "career",
     // career 만 평점 verdict 를 전달한다. 비career 는 undefined → 기존 동작(마감 후 success).
     careerGradeVerdict: partType === "career" ? careerRatingStatus : undefined,

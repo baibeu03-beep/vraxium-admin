@@ -367,7 +367,7 @@ async function writeRosterCardStats(
 //   달라지므로 기존 v38 snapshot 전량을 stale(version_mismatch) 처리해 재계산한다. 이후 개별
 //   승인/승인취소/반려 시엔 해당 유저 snapshot 만 타깃 무효화(invalidateWeeklyCardsForUsers).
 //   (파생 캐시 재생성 — DB 백필 아님. 미승인 유저·비휴식 주차 값 불변.)
-export const WEEKLY_CARDS_DTO_VERSION = 39;
+export const WEEKLY_CARDS_DTO_VERSION = 40;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

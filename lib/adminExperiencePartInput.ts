@@ -17,6 +17,7 @@ import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
 import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
 import {
   EXPERIENCE_PART_LINE_KEYS,
+  normalizePartInputCell,
   type ExperiencePartLineType,
   type PartInputCellDto,
   type PartInputCrew,
@@ -247,7 +248,7 @@ async function fetchCells(submissionId: string): Promise<PartInputCellDto[]> {
     line_type: ExperiencePartLineType;
     checked: boolean;
     score: number;
-  }>).map((c) => ({
+  }>).map((c) => normalizePartInputCell({
     crewUserId: c.crew_user_id,
     lineType: c.line_type,
     checked: c.checked,
@@ -315,12 +316,12 @@ export async function getTeamOverall(
       const byCrew = new Map<string, PartInputCellDto[]>();
       for (const c of partCells) {
         const list = byCrew.get(c.crew_user_id) ?? [];
-        list.push({
+        list.push(normalizePartInputCell({
           crewUserId: c.crew_user_id,
           lineType: c.line_type,
           checked: c.checked,
           score: c.score,
-        });
+        }));
         byCrew.set(c.crew_user_id, list);
       }
       const crews = Array.from(byCrew.entries()).map(([userId, cs]) => {
@@ -388,9 +389,9 @@ export async function savePartSubmission(input: {
     .eq("submission_id", submissionId);
   if (delError) throw new Error(delError.message);
 
-  const valid = input.cells.filter((c) =>
-    (EXPERIENCE_PART_LINE_KEYS as string[]).includes(c.lineType),
-  );
+  const valid = input.cells
+    .filter((c) => (EXPERIENCE_PART_LINE_KEYS as string[]).includes(c.lineType))
+    .map(normalizePartInputCell);
   if (valid.length > 0) {
     const { error: insError } = await supabaseAdmin
       .from("cluster4_experience_part_submission_cells")

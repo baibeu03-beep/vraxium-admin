@@ -9,6 +9,7 @@ import {
   EXPERIENCE_PART_LINE_TYPES,
   TEAM_OVERALL,
   isExperiencePartLineType,
+  experienceScoreState,
   type PartInputCellDto,
   type PartInputGetData,
 } from "@/lib/experiencePartInputTypes";
@@ -183,12 +184,8 @@ export async function POST(request: NextRequest) {
     const crewUserId = typeof cell.crewUserId === "string" ? cell.crewUserId : null;
     const lineType = cell.lineType;
     if (!crewUserId || !isExperiencePartLineType(lineType)) continue;
-    const checked = Boolean(cell.checked);
-    const scoreNum = Number(cell.score);
-    const score = Number.isFinite(scoreNum)
-      ? Math.max(0, Math.min(10, Math.round(scoreNum)))
-      : 0;
-    cells.push({ crewUserId, lineType, checked, score });
+    const scoreState = experienceScoreState(cell.score);
+    cells.push({ crewUserId, lineType, checked: scoreState.checked, score: scoreState.score });
   }
 
   try {

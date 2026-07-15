@@ -132,27 +132,37 @@ export function computeCluster4Enhancement(
     ? "submitted"
     : "not_submitted";
 
+  // Experience ratings are fixed during line opening. The rating is the SoT
+  // for submission and reinforcement in every read mode/path.
+  if (input.experienceRatingVerdict === "fail") {
+    return {
+      enhancementStatus: "fail",
+      submissionStatus,
+      enhancementReason: "experience_rating_fail",
+    };
+  }
+  if (input.experienceRatingVerdict === "pass") {
+    return {
+      enhancementStatus: "success",
+      submissionStatus,
+      enhancementReason: "target_exists_after_deadline",
+    };
+  }
+  if (input.experienceRatingVerdict === "unevaluated") {
+    return {
+      enhancementStatus: "pending",
+      submissionStatus,
+      enhancementReason: "experience_unevaluated_after_deadline",
+    };
+  }
+
   if (deadlinePassed) {
     // experience 평점 반영. experienceRatingVerdict 미전달(undefined)인 비experience 경로는
     // 이 분기를 건너뛴다. career 와 상호배타이므로 순서 무관.
-    if (input.experienceRatingVerdict === "fail") {
-      return {
-        enhancementStatus: "fail",
-        submissionStatus,
-        enhancementReason: "experience_rating_fail",
-      };
-    }
     // 미평가(rating 미입력 = placeholder 0) → 아직 평가 전이므로 '강화 대기'.
     //   대상자로 선정됐으나 (소급 개설 등으로) 평점이 아직 입력되지 않은 경우, 마감이 지났다는
     //   이유만으로 즉시 강화 실패/성공으로 확정하지 않는다. 실제 평점 입력(별도 마감/확정 처리) 후에만
     //   rating 1~3 → fail, 4점 이상 → success 로 전환된다.
-    if (input.experienceRatingVerdict === "unevaluated") {
-      return {
-        enhancementStatus: "pending",
-        submissionStatus,
-        enhancementReason: "experience_unevaluated_after_deadline",
-      };
-    }
     // career 평점 반영 (P0). careerGradeVerdict 미전달(undefined)인 비career 경로는
     // 아래 분기를 모두 건너뛰고 기존대로 success 를 반환한다.
     const careerGradeVerdict = input.careerGradeVerdict ?? null;

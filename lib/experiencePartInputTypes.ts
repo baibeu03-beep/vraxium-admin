@@ -31,6 +31,31 @@ export const TEAM_OVERALL = "__overall__";
 
 export type PartInputCell = { checked: boolean; score: number };
 
+export type ExperienceScoreState = PartInputCell & {
+  isSubmitted: boolean;
+  isReinforcementSuccess: boolean;
+};
+
+// Experience line-opening score policy SoT.  UI, API validation/assembly, and
+// downstream customer DTOs must all preserve this invariant.
+export function experienceScoreState(scoreInput: unknown): ExperienceScoreState {
+  const numeric = Number(scoreInput);
+  const score = Number.isFinite(numeric)
+    ? Math.max(0, Math.min(10, Math.round(numeric)))
+    : 0;
+  const isSubmitted = score >= 1;
+  return {
+    score,
+    checked: isSubmitted,
+    isSubmitted,
+    isReinforcementSuccess: score >= 4,
+  };
+}
+
+export function normalizePartInputCell<T extends PartInputCell>(cell: T): T {
+  return { ...cell, ...experienceScoreState(cell.score) };
+}
+
 // 강화 실패 판정 = 체크 해제 OR 점수<=3. (표시/저장만 — snapshot 계산과 무관)
 export function isPartCellFail(cell: PartInputCell): boolean {
   return !cell.checked || cell.score <= 3;

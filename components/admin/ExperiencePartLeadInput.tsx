@@ -41,6 +41,7 @@ import {
   PART_CELL_DEFAULT,
   TEAM_OVERALL,
   isPartCellFail,
+  experienceScoreState,
   type ExperiencePartLineType,
   type PartInputActor,
   type PartInputCell,
@@ -459,19 +460,48 @@ export default function ExperiencePartLeadInput({
   );
 
   const toggleCheck = useCallback(
-    (crewUserId: string, lineType: ExperiencePartLineType, cur: PartInputCell) => {
+    async (
+      crewUserId: string,
+      crewName: string,
+      lineType: ExperiencePartLineType,
+      cur: PartInputCell,
+    ) => {
       // 체크 해제 → 점수 0. 재체크(점수 0이었으면) → 기본 7.
       const nextChecked = !cur.checked;
       const nextScore = nextChecked ? (cur.score === 0 ? 7 : cur.score) : 0;
+      if (
+        !nextChecked &&
+        !(await adminDialog.confirm({
+          title: "강화 실패 확인",
+          description: `${crewName} 크루의 해당 라인이 <강화 실패>가 됩니다.\n이상이 없으신가요?`,
+          confirmLabel: "확인",
+          cancelLabel: "취소",
+        }))
+      ) return;
       updateCell(crewUserId, lineType, { checked: nextChecked, score: nextScore });
     },
     [updateCell],
   );
 
   const setScore = useCallback(
-    (crewUserId: string, lineType: ExperiencePartLineType, score: number) => {
+    async (
+      crewUserId: string,
+      crewName: string,
+      lineType: ExperiencePartLineType,
+      score: number,
+    ) => {
       // 점수 선택 → 체크 자동 ON.
-      updateCell(crewUserId, lineType, { checked: true, score });
+      const next = experienceScoreState(score);
+      if (
+        !next.isReinforcementSuccess &&
+        !(await adminDialog.confirm({
+          title: "강화 실패 확인",
+          description: `${crewName} 크루의 해당 라인이 <강화 실패>가 됩니다.\n이상이 없으신가요?`,
+          confirmLabel: "확인",
+          cancelLabel: "취소",
+        }))
+      ) return;
+      updateCell(crewUserId, lineType, { checked: next.checked, score: next.score });
     },
     [updateCell],
   );
@@ -784,8 +814,8 @@ function PartGrid({
 }: {
   data: PartInputGetData | null;
   getCell: (u: string, l: ExperiencePartLineType) => PartInputCell;
-  toggleCheck: (u: string, l: ExperiencePartLineType, cur: PartInputCell) => void;
-  setScore: (u: string, l: ExperiencePartLineType, score: number) => void;
+  toggleCheck: (u: string, name: string, l: ExperiencePartLineType, cur: PartInputCell) => void;
+  setScore: (u: string, name: string, l: ExperiencePartLineType, score: number) => void;
   saving: boolean;
   submitted: boolean;
   onReset: () => void;
@@ -879,14 +909,21 @@ function PartGrid({
                         >
                           <Checkbox
                             checked={cell.checked}
-                            onChange={() => toggleCheck(crew.userId, line.key, cell)}
+                            onChange={() =>
+                              toggleCheck(crew.userId, crew.displayName, line.key, cell)
+                            }
                             aria-label={`${crew.displayName} ${line.label} 체크`}
                           />
                           <select
                             className="rounded border border-input bg-background px-1.5 py-0.5 text-sm"
                             value={cell.score}
                             onChange={(e) =>
-                              setScore(crew.userId, line.key, Number(e.target.value))
+                              setScore(
+                                crew.userId,
+                                crew.displayName,
+                                line.key,
+                                Number(e.target.value),
+                              )
                             }
                             aria-label={`${crew.displayName} ${line.label} 점수`}
                           >
