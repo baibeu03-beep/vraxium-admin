@@ -33,6 +33,9 @@ import {
   OUTPUT_LINK_LABEL_MAX_LENGTH,
 } from "@/lib/cluster4OutputLinks";
 import { OUTPUT_IMAGE_CAPTION_MAX_LENGTH } from "@/lib/cluster4OutputImages";
+import { useToast } from "@/components/ui/toast";
+import { useActionToast } from "@/lib/actionToast";
+import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   ...ORGANIZATIONS.map((slug) => ({ value: slug, label: ORGANIZATION_LABEL[slug] })),
@@ -50,7 +53,6 @@ function formatOrgLabel(slug: string | null | undefined): string {
   return (ORGANIZATION_LABEL as Record<string, string>)[slug] ?? slug;
 }
 
-type Banner = { kind: "success" | "error"; message: string } | null;
 type TabKey = "opening" | "masters" | "cafe";
 
 type CurrentWeekData = {
@@ -208,7 +210,8 @@ export default function PracticalCompetencyManager() {
   // 레거시 섹션 숨김 시 manager 레벨 초기 로딩 불필요(보드는 자체 로딩) → 즉시 렌더.
   const [loading, setLoading] = useState(SHOW_LEGACY_SECTIONS);
   const [saving, setSaving] = useState(false);
-  const [banner, setBanner] = useState<Banner>(null);
+  const { toast } = useToast();
+  const t = useActionToast();
 
   // Master form
   const [masterFormOpen, setMasterFormOpen] = useState(false);
@@ -322,7 +325,7 @@ export default function PracticalCompetencyManager() {
       const mastersJson = await mastersRes.json(); if (mastersJson.success) setMasters(mastersJson.data);
       const linesJson = await linesRes.json(); if (linesJson.success) setExistingLines(linesJson.data?.rows ?? linesJson.data ?? []);
       const crewsJson = await crewsRes.json(); if (crewsJson.success) setCrews(crewsJson.data);
-    } catch { setBanner({ kind: "error", message: "데이터를 불러오는데 실패했습니다" }); } finally { setLoading(false); }
+    } catch { toast("error", "데이터를 불러오는데 실패했습니다"); } finally { setLoading(false); }
   }, []);
 
   // 레거시 3섹션 전용 초기 데이터(admin-org·teams·masters·lines·crews 등) — 숨김 phase 에선 호출 중단.
@@ -346,23 +349,23 @@ export default function PracticalCompetencyManager() {
 
   const handleSaveMaster = useCallback(async () => {
     const orgSlug = (mfOrgSlug || adminOrg || "").trim();
-    if (!orgSlug) { setBanner({ kind: "error", message: "클럽은 필수입니다" }); return; }
-    if (!mfLineCode.trim() || !mfLineName.trim()) { setBanner({ kind: "error", message: "라인 코드와 라인명은 필수입니다" }); return; }
-    setSaving(true); setBanner(null);
+    if (!orgSlug) { toast("error", "클럽은 필수입니다"); return; }
+    if (!mfLineCode.trim() || !mfLineName.trim()) { toast("error", "라인 코드와 라인명은 필수입니다"); return; }
+    setSaving(true);
     try {
       const payload: Record<string, unknown> = { organization_slug: orgSlug, line_code: mfLineCode.trim(), line_name: mfLineName.trim(), main_title: mfMainTitle.trim() || null, source_file_name: mfSourceFile.trim() || null };
       const url = editingMasterId ? `/api/admin/cluster4/competency-line-masters/${editingMasterId}` : "/api/admin/cluster4/competency-line-masters";
       const res = await fetch(url, { method: editingMasterId ? "PATCH" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       const json = await res.json();
-      if (!json.success) { setBanner({ kind: "error", message: json.error ?? "저장 실패" }); return; }
-      setBanner({ kind: "success", message: editingMasterId ? "라인이 수정되었습니다" : "라인이 등록되었습니다" });
+      if (!json.success) { console.error("[competency] save failed", json?.error); t.error("save", { status: res.status }); return; }
+      toast("success", editingMasterId ? "라인이 수정되었습니다" : "라인이 등록되었습니다");
       resetMasterForm(); await fetchInitialData();
-    } catch { setBanner({ kind: "error", message: "저장 중 오류가 발생했습니다" }); } finally { setSaving(false); }
+    } catch { toast("error", "저장 중 오류가 발생했습니다"); } finally { setSaving(false); }
   }, [mfOrgSlug, mfLineCode, mfLineName, mfMainTitle, mfSourceFile, adminOrg, editingMasterId, resetMasterForm, fetchInitialData]);
 
   const handleDeleteMaster = useCallback(async (id: string) => {
     if (!(await adminDialog.confirm({ variant: "danger", title: "라인 삭제", description: "이 라인을 삭제하시겠습니까?", confirmLabel: "삭제" }))) return;
-    try { const res = await fetch(`/api/admin/cluster4/competency-line-masters/${id}`, { method: "DELETE" }); const json = await res.json(); if (!json.success) { setBanner({ kind: "error", message: json.error ?? "삭제 실패" }); return; } setBanner({ kind: "success", message: "삭제되었습니다" }); await fetchInitialData(); } catch { setBanner({ kind: "error", message: "삭제 중 오류" }); }
+    try { const res = await fetch(`/api/admin/cluster4/competency-line-masters/${id}`, { method: "DELETE" }); const json = await res.json(); if (!json.success) { console.error("[competency] delete failed", json?.error); t.error("delete", { status: res.status }); return; } toast("success", "삭제되었습니다"); await fetchInitialData(); } catch { toast("error", "삭제 중 오류"); }
   }, [fetchInitialData]);
 
   // Line opening
@@ -382,21 +385,21 @@ export default function PracticalCompetencyManager() {
   }, [selectedWeek, currentWeek]);
 
   const handleSaveLine = useCallback(async () => {
-    if (!selectedWeekId) { setBanner({ kind: "error", message: "주차를 선택해주세요" }); return; }
+    if (!selectedWeekId) { toast("error", "주차를 선택해주세요"); return; }
     const targetWeekId = selectedWeek?.id ?? null;
-    if (!targetWeekId) { setBanner({ kind: "error", message: "선택한 주차 정보를 확인할 수 없습니다" }); return; }
-    if (!selectedWeek?.canOpen) { setBanner({ kind: "error", message: "선택한 주차는 라인 개설이 불가합니다" }); return; }
-    if (!selectedMaster) { setBanner({ kind: "error", message: "라인을 선택해주세요" }); return; }
-    if (!lineAssetValid) { setBanner({ kind: "error", message: lineAssetCount < 1 ? "Output을 최소 1개 입력해주세요" : "Output은 최대 2개까지 입력 가능합니다" }); return; }
-    if (selectedUserIds.size === 0) { setBanner({ kind: "error", message: "개설 대상을 최소 1명 이상 선택해주세요" }); return; }
+    if (!targetWeekId) { toast("error", "선택한 주차 정보를 확인할 수 없습니다"); return; }
+    if (!selectedWeek?.canOpen) { toast("error", "선택한 주차는 라인 개설이 불가합니다"); return; }
+    if (!selectedMaster) { toast("error", "라인을 선택해주세요"); return; }
+    if (!lineAssetValid) { toast("error", lineAssetCount < 1 ? "Output을 최소 1개 입력해주세요" : "Output은 최대 2개까지 입력 가능합니다"); return; }
+    if (selectedUserIds.size === 0) { toast("error", "개설 대상을 최소 1명 이상 선택해주세요"); return; }
     const built = buildOutputLinksFromForm([
       { url: lineLink1, label: lineLabel1 },
       { url: lineLink2, label: lineLabel2 },
     ]);
-    if (!built.ok) { setBanner({ kind: "error", message: built.error }); return; }
+    if (!built.ok) { toast("error", built.error); return; }
     const outputLinks = built.value;
 
-    setSaving(true); setBanner(null);
+    setSaving(true);
     try {
       // output_images = [{url, caption}] — 이미지 있는 항목만 포함. 캡션 비우면 null.
       const imgs: { url: string; caption: string | null }[] = [];
@@ -429,10 +432,11 @@ export default function PracticalCompetencyManager() {
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (!json.success) { setBanner({ kind: "error", message: json.error ?? "저장 실패" }); return; }
-      setBanner({ kind: "success", message: `실무 역량 라인이 생성되었습니다 (대상: ${json.data?.targetCount ?? 0}명)` });
+      if (!json.success) { console.error("[competency] open failed", json?.error); t.error("open", { status: res.status }); return; }
+      console.warn("[line-opening] competency create", { targetCount: json.data?.targetCount ?? 0 });
+      toast("success", LINE_OPENING_RESULT.openSuccess);
       resetLineForm(); setLineRefreshKey((k) => k + 1); await fetchInitialData();
-    } catch { setBanner({ kind: "error", message: "저장 중 오류" }); } finally { setSaving(false); }
+    } catch { toast("error", "저장 중 오류"); } finally { setSaving(false); }
   }, [currentWeek, selectedWeek, selectedWeekId, canOpenSelected, selectedMaster, lineAssetValid, lineAssetCount, lineLink1, lineLabel1, lineLink2, lineLabel2, lineImage1, lineImage2, lineCaption1, lineCaption2, selectedUserIds, resetLineForm, fetchInitialData]);
 
   // 카페 댓글 닉네임 수집 (Phase 1 — read-only, DB/snapshot 미관여)
@@ -462,13 +466,6 @@ export default function PracticalCompetencyManager() {
             : undefined
         }
       />
-
-      {banner && (
-        <div className={cn("rounded-md border px-4 py-3 text-sm", banner.kind === "success" ? "border-green-300 bg-green-50 text-green-800" : "border-red-300 bg-red-50 text-red-800")}>
-          {banner.message}
-          <button className="float-right" onClick={() => setBanner(null)}><X className="h-4 w-4" /></button>
-        </div>
-      )}
 
       {/* 헤더 [라인 관리]/[라인 개설] 2탭은 상단 Header title 영역에서 구동(본문엔 두지 않음).
           [라인 관리] = 기존 실무 역량 화면(아래 내부 탭 3종) 그대로 — 미수정. */}

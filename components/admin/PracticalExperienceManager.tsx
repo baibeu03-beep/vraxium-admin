@@ -71,6 +71,9 @@ import ExperienceOpeningLogPanel from "@/components/admin/ExperienceOpeningLogPa
 import ExperiencePartLeadInput from "@/components/admin/ExperiencePartLeadInput";
 import ExperienceLineManageBoard from "@/components/admin/ExperienceLineManageBoard";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { useToast } from "@/components/ui/toast";
+import { useActionToast } from "@/lib/actionToast";
+import { lineOpenSuccessMessage } from "@/lib/lineOpeningResultMessages";
 
 const ORG_OPTIONS: Array<{ value: string; label: string }> = [
   ...ORGANIZATIONS.map((slug) => ({ value: slug, label: ORGANIZATION_LABEL[slug] })),
@@ -86,8 +89,6 @@ function formatOrgLabel(slug: string | null | undefined): string {
 // ──────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────
-
-type Banner = { kind: "success" | "error"; message: string } | null;
 
 type CurrentWeekData = {
   weekId: string | null;
@@ -538,6 +539,8 @@ export default function PracticalExperienceManager() {
   // 일반 모드: 주차 선택 UI 미렌더 + 정책 주차(현재 주차) 강제. 실무 정보(info) 와 동일 정책.
   const devMode = useAdminDevMode();
   const confirm = useConfirm();
+  const { toast } = useToast();
+  const t = useActionToast();
 
   // 헤더 [라인 관리]/[라인 개설] 2탭은 **조직 분기 모드(?org 있음)** 에서만 적용한다 (실무 정보와 동일 UX).
   // 통합 검수 시스템(원본, ?org 없음)에서는 기존 단일 화면 그대로 — 헤더 탭/분기 없음.
@@ -564,7 +567,6 @@ export default function PracticalExperienceManager() {
   useReportLoading(loading);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [banner, setBanner] = useState<Banner>(null);
 
   // ── Master form state ──
   const [masterFormOpen, setMasterFormOpen] = useState(false);
@@ -886,11 +888,11 @@ export default function PracticalExperienceManager() {
       }
     } catch (error) {
       console.error("Failed to fetch data", error);
-      setBanner({ kind: "error", message: "데이터를 불러오는데 실패했습니다" });
+      toast("error", "데이터를 불러오는데 실패했습니다");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   const refetchDrafts = useCallback(async () => {
     const targetWeekId = activeWeekId || currentWeek?.weekId || null;
@@ -956,15 +958,14 @@ export default function PracticalExperienceManager() {
   const handleSaveMaster = useCallback(async () => {
     const orgSlug = (mfOrgSlug || adminOrg || "").trim();
     if (!orgSlug) {
-      setBanner({ kind: "error", message: "클럽은 필수입니다" });
+      toast("error", "클럽은 필수입니다");
       return;
     }
     if (!mfLineCode.trim() || !mfLineName.trim()) {
-      setBanner({ kind: "error", message: "라인 코드와 라인명은 필수입니다" });
+      toast("error", "라인 코드와 라인명은 필수입니다");
       return;
     }
     setSaving(true);
-    setBanner(null);
     try {
       const payload: Record<string, unknown> = {
         organization_slug: orgSlug,
@@ -985,19 +986,18 @@ export default function PracticalExperienceManager() {
       });
       const json = await res.json();
       if (!json.success) {
-        setBanner({ kind: "error", message: json.error ?? "저장 실패" });
+        console.error("[experience] save failed", json?.error);
+        t.error("save", { status: res.status });
         return;
       }
-      setBanner({
-        kind: "success",
-        message: editingMasterId
-          ? "라인이 수정되었습니다"
-          : "라인이 등록되었습니다",
-      });
+      toast(
+        "success",
+        editingMasterId ? "라인이 수정되었습니다" : "라인이 등록되었습니다",
+      );
       resetMasterForm();
       await fetchInitialData();
     } catch {
-      setBanner({ kind: "error", message: "저장 중 오류가 발생했습니다" });
+      toast("error", "저장 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
@@ -1012,6 +1012,7 @@ export default function PracticalExperienceManager() {
     adminOrg,
     resetMasterForm,
     fetchInitialData,
+    toast,
   ]);
 
   const handleDeleteMaster = useCallback(
@@ -1023,16 +1024,17 @@ export default function PracticalExperienceManager() {
         });
         const json = await res.json();
         if (!json.success) {
-          setBanner({ kind: "error", message: json.error ?? "삭제 실패" });
+          console.error("[experience] delete failed", json?.error);
+          t.error("delete", { status: res.status });
           return;
         }
-        setBanner({ kind: "success", message: "삭제되었습니다" });
+        toast("success", "삭제되었습니다");
         await fetchInitialData();
       } catch {
-        setBanner({ kind: "error", message: "삭제 중 오류가 발생했습니다" });
+        toast("error", "삭제 중 오류가 발생했습니다");
       }
     },
-    [fetchInitialData, confirm],
+    [fetchInitialData, confirm, toast],
   );
 
   // ──────────────────────────────────────────────────────────────
@@ -1090,39 +1092,39 @@ export default function PracticalExperienceManager() {
         ? null
         : activeWeekId || currentWeek?.weekId || null;
       if (!isPatch && !targetWeekId) {
-        setBanner({ kind: "error", message: devMode ? "주차를 선택해주세요" : "현재 주차 정보를 확인할 수 없습니다" });
+        toast("error", devMode ? "주차를 선택해주세요" : "현재 주차 정보를 확인할 수 없습니다");
         return;
       }
       if (!editingDraftId && !dfTargetUserId) {
-        setBanner({ kind: "error", message: "대상 사용자를 선택해주세요" });
+        toast("error", "대상 사용자를 선택해주세요");
         return;
       }
       if (!dfMasterId) {
-        setBanner({ kind: "error", message: "라인을 선택해주세요" });
+        toast("error", "라인을 선택해주세요");
         return;
       }
       if (asSubmit) {
         if (dfAssetCount < 1) {
-          setBanner({ kind: "error", message: "Output을 최소 1개 입력해주세요" });
+          toast("error", "Output을 최소 1개 입력해주세요");
           return;
         }
         if (dfAssetCount > 2) {
-          setBanner({ kind: "error", message: "Output은 최대 2개까지 입력 가능합니다" });
+          toast("error", "Output은 최대 2개까지 입력 가능합니다");
           return;
         }
         if (dfRating === "") {
-          setBanner({ kind: "error", message: "제출 시 평점은 필수입니다" });
+          toast("error", "제출 시 평점은 필수입니다");
           return;
         }
       }
       if (dfAssetCount > 2) {
-        setBanner({ kind: "error", message: "Output은 최대 2개까지 입력 가능합니다" });
+        toast("error", "Output은 최대 2개까지 입력 가능합니다");
         return;
       }
 
       const master = selectedDraftMaster;
       if (!master) {
-        setBanner({ kind: "error", message: "유효하지 않은 라인입니다" });
+        toast("error", "유효하지 않은 라인입니다");
         return;
       }
 
@@ -1131,7 +1133,7 @@ export default function PracticalExperienceManager() {
         { url: dfLink2, label: dfLabel2 },
       ]);
       if (!built.ok) {
-        setBanner({ kind: "error", message: built.error });
+        toast("error", built.error);
         return;
       }
       const outputLinks = built.value;
@@ -1151,7 +1153,6 @@ export default function PracticalExperienceManager() {
       const rating = dfRating === "" ? null : Number(dfRating);
 
       setSaving(true);
-      setBanner(null);
       try {
         if (editingDraftId) {
           const patch: Record<string, unknown> = {
@@ -1177,13 +1178,11 @@ export default function PracticalExperienceManager() {
           );
           const json = await res.json();
           if (!json.success) {
-            setBanner({ kind: "error", message: json.error ?? "저장 실패" });
+            console.error("[experience] save failed", json?.error);
+            t.error("save", { status: res.status });
             return;
           }
-          setBanner({
-            kind: "success",
-            message: asSubmit ? "제출되었습니다" : "임시 저장되었습니다",
-          });
+          toast("success", asSubmit ? "제출되었습니다" : "임시 저장되었습니다");
         } else {
           const crew = crews.find((c) => c.userId === dfTargetUserId);
           const team = teams.find((t) => t.teamName === crew?.teamName);
@@ -1217,18 +1216,16 @@ export default function PracticalExperienceManager() {
           });
           const json = await res.json();
           if (!json.success) {
-            setBanner({ kind: "error", message: json.error ?? "저장 실패" });
+            console.error("[experience] save failed", json?.error);
+            t.error("save", { status: res.status });
             return;
           }
-          setBanner({
-            kind: "success",
-            message: asSubmit ? "제출되었습니다" : "임시 저장되었습니다",
-          });
+          toast("success", asSubmit ? "제출되었습니다" : "임시 저장되었습니다");
         }
         resetDraftForm();
         await refetchDrafts();
       } catch {
-        setBanner({ kind: "error", message: "저장 중 오류가 발생했습니다" });
+        toast("error", "저장 중 오류가 발생했습니다");
       } finally {
         setSaving(false);
       }
@@ -1259,6 +1256,7 @@ export default function PracticalExperienceManager() {
       adminOrg,
       resetDraftForm,
       refetchDrafts,
+      toast,
     ],
   );
 
@@ -1280,11 +1278,10 @@ export default function PracticalExperienceManager() {
     async (decision: "approved" | "rejected") => {
       if (!reviewingDraftId) return;
       if (decision === "rejected" && !rejectionReason.trim()) {
-        setBanner({ kind: "error", message: "반려 시 사유는 필수입니다" });
+        toast("error", "반려 시 사유는 필수입니다");
         return;
       }
       setSaving(true);
-      setBanner(null);
       try {
         const res = await fetch(
           `/api/admin/cluster4/experience-drafts/${reviewingDraftId}/review`,
@@ -1299,22 +1296,20 @@ export default function PracticalExperienceManager() {
         );
         const json = await res.json();
         if (!json.success) {
-          setBanner({ kind: "error", message: json.error ?? "검수 실패" });
+          console.error("[experience] review failed", json?.error);
+          t.error("review", { status: res.status });
           return;
         }
-        setBanner({
-          kind: "success",
-          message: decision === "approved" ? "승인되었습니다" : "반려되었습니다",
-        });
+        toast("success", decision === "approved" ? "승인되었습니다" : "반려되었습니다");
         closeReviewDetail();
         await refetchDrafts();
       } catch {
-        setBanner({ kind: "error", message: "검수 중 오류가 발생했습니다" });
+        toast("error", "검수 중 오류가 발생했습니다");
       } finally {
         setSaving(false);
       }
     },
-    [reviewingDraftId, rejectionReason, closeReviewDetail, refetchDrafts],
+    [reviewingDraftId, rejectionReason, closeReviewDetail, refetchDrafts, toast],
   );
 
   // ──────────────────────────────────────────────────────────────
@@ -1334,7 +1329,6 @@ export default function PracticalExperienceManager() {
     if (openSelectedIds.size === 0) return;
     if (!(await confirm({ ...CONFIRM.complete, description: `선택한 ${openSelectedIds.size}건을 최종 개설하시겠습니까?`, confirmLabel: "최종 개설" }))) return;
     setSaving(true);
-    setBanner(null);
     try {
       const res = await fetch("/api/admin/cluster4/experience-drafts/open", {
         method: "POST",
@@ -1343,24 +1337,28 @@ export default function PracticalExperienceManager() {
       });
       const json = await res.json();
       if (!json.success) {
-        setBanner({ kind: "error", message: json.error ?? "개설 실패" });
+        console.error("[experience] open failed", json?.error);
+        t.error("open", { status: res.status });
         return;
       }
       const data = json.data;
       const warnings: string[] = json.warnings ?? data?.warnings ?? [];
-      let msg = `${data.openedCount}건 개설 완료 (라인 ${data.linesCreated}개, 대상 ${data.targetsCreated}명, 평가 ${data.evaluationsCreated}건)`;
-      if (warnings.length > 0) {
-        msg += ` · 경고 ${warnings.length}건: ${warnings.join(" / ")}`;
-      }
-      setBanner({ kind: warnings.length > 0 ? "error" : "success", message: msg });
+      console.warn("[line-opening] open result", {
+        openedCount: data.openedCount,
+        linesCreated: data.linesCreated,
+        targetsCreated: data.targetsCreated,
+        evaluationsCreated: data.evaluationsCreated,
+        warnings,
+      });
+      toast("success", lineOpenSuccessMessage(warnings.length > 0));
       setOpenSelectedIds(new Set());
       await refetchDrafts();
     } catch {
-      setBanner({ kind: "error", message: "개설 중 오류가 발생했습니다" });
+      toast("error", "개설 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
-  }, [openSelectedIds, refetchDrafts, confirm]);
+  }, [openSelectedIds, refetchDrafts, confirm, toast]);
 
   // ──────────────────────────────────────────────────────────────
   // Render
@@ -1393,22 +1391,6 @@ export default function PracticalExperienceManager() {
             : undefined
         }
       />
-
-      {banner && (
-        <div
-          className={cn(
-            "whitespace-pre-wrap rounded-md border px-4 py-3 text-sm",
-            banner.kind === "success"
-              ? "border-green-300 bg-green-50 text-green-800"
-              : "border-red-300 bg-red-50 text-red-800",
-          )}
-        >
-          {banner.message}
-          <button className="float-right" onClick={() => setBanner(null)}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
 
       {/* 헤더 2탭(라인 관리/라인 개설)은 상단 Header title 영역으로 이동 — 본문에는 두지 않는다.
           [라인 관리] = 기존 실무 경험 워크플로우 화면(아래 내부 탭 4종) 그대로. */}

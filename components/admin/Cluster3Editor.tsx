@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useActionToast } from "@/lib/actionToast";
 import { pointColorClass } from "@/components/ui/point-value";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import {
@@ -365,6 +366,7 @@ export default function Cluster3Editor({
 }) {
   const devMode = useAdminDevMode();
   const withDev = useWithDevQuery();
+  const t = useActionToast();
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const [saving, setSaving] = useState(false);
@@ -440,12 +442,6 @@ export default function Cluster3Editor({
     return () => window.clearTimeout(timeoutId);
   }, [loadAll]);
 
-  useEffect(() => {
-    if (!banner || banner.kind !== "success") return;
-    const timer = window.setTimeout(() => setBanner(null), 4000);
-    return () => window.clearTimeout(timer);
-  }, [banner]);
-
   const handleSave = async () => {
     if (saving || !bundle.userId) return;
     setSaving(true);
@@ -472,15 +468,10 @@ export default function Cluster3Editor({
         (json.applied ?? null) as Cluster3ApplySummary | null,
       );
       setLastSavedAt(new Date().toISOString());
-      setBanner({
-        kind: "success",
-        message: "Saved. Form resynced from PATCH response.",
-      });
+      t.success("save");
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message: err instanceof Error ? err.message : "Failed to save.",
-      });
+      console.error("[Cluster3Editor] save failed", err);
+      t.error("save");
     } finally {
       setSaving(false);
     }

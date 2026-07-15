@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { DAY_NAMES } from "@/lib/practicalInfoSection0Format";
 import { type ProcessHub } from "@/lib/adminProcessesTypes";
 import { type ScopeMode } from "@/lib/userScopeShared";
+import { useActionToast } from "@/lib/actionToast";
 import {
   formatCheckDateTimeKo,
   validateReviewLink,
@@ -84,6 +85,7 @@ export default function ProcessCheckActDialog({
   onDone: () => void; // 성공 후 보드/로그/상태창 재조회
 }) {
   const confirm = useConfirm();
+  const t = useActionToast();
   const [reviewLink, setReviewLink] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -196,10 +198,12 @@ export default function ProcessCheckActDialog({
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      t.success(action === "request" ? "submit" : "cancel");
       onDone();
       onClose();
     } catch (err) {
-      setBanner({ kind: "error", message: err instanceof Error ? err.message : "처리에 실패했습니다" });
+      console.error("[ProcessCheckActDialog] check submit failed", err);
+      t.error(action === "request" ? "submit" : "cancel");
     } finally {
       setSubmitting(false);
     }

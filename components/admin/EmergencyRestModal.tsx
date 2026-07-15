@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/toast";
+import { useActionToast } from "@/lib/actionToast";
 import { classTone } from "@/lib/statusBadge";
 import { getProcessPointLabels } from "@/lib/pointLabels";
 import type { OrganizationSlug } from "@/lib/organizations";
@@ -85,6 +86,7 @@ export default function EmergencyRestModal({
   onCreated: () => void;
 }) {
   const { toast } = useToast();
+  const t = useActionToast();
 
   // po.C 표시명: labelOrg 있으면 조직별 명칭, 없으면(통합) 중립 "Po.C"(getProcessPointLabels fail-safe).
   const poCLabel = getProcessPointLabels(labelOrg).c;
@@ -241,18 +243,20 @@ export default function EmergencyRestModal({
       );
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.success) {
-        setBanner(json?.error ?? `신청에 실패했습니다 (HTTP ${res.status}).`);
+        console.error("emergency rest submit failed", res.status, json?.error);
+        t.error("submit", { status: res.status });
         return;
       }
       toast("success", "긴급 휴식 신청이 완료되었습니다.");
       onCreated();
       onClose();
-    } catch {
-      setBanner("신청 중 오류가 발생했습니다.");
+    } catch (err) {
+      console.error("emergency rest submit error", err);
+      t.error("submit");
     } finally {
       setSubmitting(false);
     }
-  }, [org, teamId, crewUserId, weekId, reason, reasonLen, onCreated, onClose, toast]);
+  }, [org, teamId, crewUserId, weekId, reason, reasonLen, onCreated, onClose, toast, t]);
 
   const canSubmit =
     !submitting && !loadingContext && !noWeeks && Boolean(teamId && crewUserId && weekId && reasonLen >= 1 && reasonLen <= REASON_MAX);

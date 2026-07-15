@@ -54,6 +54,7 @@ import {
 import { DEFAULT_WEEK_CHECK_THRESHOLD } from "@/lib/cluster4Enhancement";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
+import { useActionToast } from "@/lib/actionToast";
 
 const ALL = "__all__";
 
@@ -65,8 +66,6 @@ const VIEW_TABS = [
   { key: "recognition_n", label: "주차 인정 기준 (N)", helpKey: "admin.weekRecognitions.tab.recognitionN" },
 ] as const;
 type ViewTabKey = (typeof VIEW_TABS)[number]["key"];
-
-type Banner = { kind: "success" | "error"; message: string } | null;
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   success: {
@@ -239,13 +238,9 @@ export default function WeekRecognitionsView() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [editing, setEditing] = useState<WeekRecognitionRow | null>(null);
-  const [banner, setBanner] = useState<Banner>(null);
-
-  useEffect(() => {
-    if (!banner) return;
-    const t = window.setTimeout(() => setBanner(null), 4500);
-    return () => window.clearTimeout(t);
-  }, [banner]);
+  // 액션 결과(저장/확정/검수 성공·실패)는 하단 공통 토스트로 안내한다.
+  //   데이터 조회 실패(error)는 지속 상태이므로 아래 인라인 배너로 유지.
+  const t = useActionToast();
 
   // 검색어 디바운스.
   useEffect(() => {
@@ -303,41 +298,41 @@ export default function WeekRecognitionsView() {
   const reload = useCallback(() => setRefreshTick((n) => n + 1), []);
 
   const handleSaved = useCallback(
-    (updatedName: string | null, recalcSkipped: boolean) => {
+    (_updatedName: string | null, recalcSkipped: boolean) => {
       setEditing(null);
-      setBanner(
-        recalcSkipped
-          ? {
-              kind: "error",
-              message: `${updatedName ?? "사용자"} 주차 상태는 저장됐지만 요약 캐시(승인/누적 주차) 동기화에 실패했습니다. 값이 어긋날 수 있습니다.`,
-            }
-          : {
-              // 내부 처리(요약 캐시 동기화)는 UI 에 노출하지 않고 결과만 간결히. 실패 시(위 error 분기)에만
-              //   값 불일치 가능성을 안내한다.
-              kind: "success",
-              message: `${updatedName ?? "사용자"} 주차 상태를 저장했습니다.`,
-            },
-      );
+      // 내부 처리(요약 캐시 동기화)는 UI 에 노출하지 않고 결과만 간결히. 실패 시에만
+      //   값 불일치 가능성을 경고 토스트로 안내한다.
+      if (recalcSkipped) {
+        t.raw(
+          "warning",
+          "주차 상태는 저장됐지만 요약 캐시(승인/누적 주차) 동기화에 실패했습니다. 값이 어긋날 수 있습니다.",
+        );
+      } else {
+        t.success("save", "주차 상태를 저장했습니다.");
+      }
       // 현재 필터 조건 그대로 목록 재조회.
       setRefreshTick((n) => n + 1);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
-  const handlePublished = useCallback((label: string) => {
-    setBanner({
-      kind: "success",
-      message: `${label} 결과를 확정했습니다. 크루 페이지에서 이 주차 카드가 성공/실패 상태로 전환됩니다.`,
-    });
+  const handlePublished = useCallback(() => {
+    t.success(
+      "save",
+      "이 주차 결과를 확정했습니다. 크루 페이지에서 이 주차 카드가 성공/실패 상태로 전환됩니다.",
+    );
     setRefreshTick((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleReviewed = useCallback((label: string) => {
-    setBanner({
-      kind: "success",
-      message: `${label} 검수를 완료했습니다. /weekly-ranking 에서 이 주차 카드가 "검수 완료"로 표시됩니다.`,
-    });
+  const handleReviewed = useCallback(() => {
+    t.success(
+      "review",
+      '이 주차 검수를 완료했습니다. /weekly-ranking 에서 이 주차 카드가 "검수 완료"로 표시됩니다.',
+    );
     setRefreshTick((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 주차 결과 확정 — 공통 adminDialog(확인 시 publish-result, 비가역). 실패는 배너로 안내.
@@ -374,15 +369,14 @@ export default function WeekRecognitionsView() {
             if (!res.ok || !json.success) {
               throw new Error(json?.error ?? "결과 확정에 실패했습니다.");
             }
-            handlePublished(week.week_label);
+            handlePublished();
           } catch (err) {
-            setBanner({
-              kind: "error",
-              message: err instanceof Error ? err.message : "결과 확정에 실패했습니다.",
-            });
+            console.error("[week-recognitions] 결과 확정 실패", err);
+            t.error("save", { message: "결과 확정에 실패했습니다." });
           }
         },
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [mode, handlePublished],
   );
 
@@ -420,15 +414,14 @@ export default function WeekRecognitionsView() {
             if (!res.ok || !json.success) {
               throw new Error(json?.error ?? "검수 완료에 실패했습니다.");
             }
-            handleReviewed(week.week_label);
+            handleReviewed();
           } catch (err) {
-            setBanner({
-              kind: "error",
-              message: err instanceof Error ? err.message : "검수 완료에 실패했습니다.",
-            });
+            console.error("[week-recognitions] 검수 완료 실패", err);
+            t.error("review", { message: "검수 완료에 실패했습니다." });
           }
         },
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [mode, handleReviewed],
   );
 
@@ -479,19 +472,6 @@ export default function WeekRecognitionsView() {
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-        </div>
-      )}
-
-      {banner && (
-        <div
-          className={cn(
-            "rounded-lg border px-4 py-3 text-sm",
-            banner.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700",
-          )}
-        >
-          {banner.message}
         </div>
       )}
 
@@ -891,11 +871,12 @@ export default function WeekRecognitionsView() {
               weeks={weekOptions}
               seasons={seasons}
               loading={loading}
-              onSaved={(message) => {
-                setBanner({ kind: "success", message });
+              onSaved={() => {
+                // 저장 결과만 간결히(주차 라벨/카드 갱신 수치 등 상세는 토스트에 노출하지 않음).
+                t.success("save");
                 setRefreshTick((n) => n + 1);
               }}
-              onError={(message) => setBanner({ kind: "error", message })}
+              onError={() => t.error("save")}
             />
           </div>
         </details>

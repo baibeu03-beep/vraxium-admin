@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { useActionToast } from "@/lib/actionToast";
 import { CAREER_GRADES, CAREER_GRADE_POINTS } from "@/lib/careerGrade";
 import type {
   CareerEvaluationTargetDto,
@@ -192,6 +193,7 @@ export default function CareerEvaluationTab({
 }: {
   lines: CareerLineOption[];
 }) {
+  const t = useActionToast();
   const [selectedLineId, setSelectedLineId] = useState<string>("");
   const [targets, setTargets] = useState<CareerEvaluationTargetDto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -250,12 +252,13 @@ export default function CareerEvaluationTab({
         Object.fromEntries(rows.map((r) => [r.lineTargetId, r.grade ?? ""])),
       );
     } catch (e) {
-      setBanner({ kind: "error", message: e instanceof Error ? e.message : String(e) });
+      console.error("career evaluations load failed", e);
+      t.raw("error", "대상자 평가를 불러오지 못했습니다.");
       setTargets([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadTargets(selectedLineId);
@@ -269,6 +272,7 @@ export default function CareerEvaluationTab({
     }
     setSavingTargetId(target.lineTargetId);
     setBanner(null);
+    let status = 0;
     try {
       const res = await fetch("/api/admin/cluster4/career-evaluations", {
         method: "POST",
@@ -279,29 +283,31 @@ export default function CareerEvaluationTab({
           grade,
         }),
       });
+      status = res.status;
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error ?? "평가 저장에 실패했습니다.");
       }
       // 로컬 상태 갱신 (재조회 없이 즉시 반영).
       setTargets((prev) =>
-        prev.map((t) =>
-          t.lineTargetId === target.lineTargetId
+        prev.map((row) =>
+          row.lineTargetId === target.lineTargetId
             ? {
-                ...t,
+                ...row,
                 grade,
                 gradePoints: CAREER_GRADE_POINTS[grade],
                 ratingStatus: CAREER_GRADE_POINTS[grade] <= 3 ? "fail" : "success",
               }
-            : t,
+            : row,
         ),
       );
-      setBanner({
-        kind: "success",
-        message: `${target.displayName ?? target.userId} 평가 저장 완료 (${grade} = ${CAREER_GRADE_POINTS[grade]}점)`,
-      });
+      console.warn(
+        `career evaluation saved: user=${target.userId} grade=${grade} (${CAREER_GRADE_POINTS[grade]}pt)`,
+      );
+      t.success("save");
     } catch (e) {
-      setBanner({ kind: "error", message: e instanceof Error ? e.message : String(e) });
+      console.error("career evaluation save failed", e);
+      t.error("save", status ? { status } : undefined);
     } finally {
       setSavingTargetId(null);
     }

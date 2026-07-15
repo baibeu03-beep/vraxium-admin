@@ -50,10 +50,9 @@ import {
 } from "@/lib/adminSeasonParticipationsTypes";
 import { formatClubDate } from "@/lib/clubDate";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
+import { useActionToast } from "@/lib/actionToast";
 
 const ALL = "__all__";
-
-type Banner = { kind: "success" | "error"; message: string } | null;
 
 // user_season_statuses.status 원본값(success/rest/stopped) 필터 라벨.
 const STATUS_FILTER_LABEL: Record<string, string> = {
@@ -180,13 +179,9 @@ export default function SeasonParticipationsView() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
   const [editing, setEditing] = useState<SeasonParticipationRow | null>(null);
-  const [banner, setBanner] = useState<Banner>(null);
-
-  useEffect(() => {
-    if (!banner) return;
-    const t = window.setTimeout(() => setBanner(null), 6000);
-    return () => window.clearTimeout(t);
-  }, [banner]);
+  // 시즌 상태 수정 결과는 하단 공통 토스트로 안내한다.
+  //   데이터 조회 실패(error)는 지속 상태이므로 아래 인라인 배너로 유지.
+  const t = useActionToast();
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -238,15 +233,16 @@ export default function SeasonParticipationsView() {
 
   const reload = useCallback(() => setRefreshTick((n) => n + 1), []);
 
-  const handleSaved = useCallback((updatedName: string | null) => {
+  const handleSaved = useCallback((_updatedName: string | null) => {
     setEditing(null);
     // 내부 스키마명(user_week_statuses)은 관리자 UI 에 노출하지 않는다 — 결과 + 유의사항만 간결히.
-    setBanner({
-      kind: "success",
-      message: `${updatedName ?? "사용자"} 시즌 상태를 수정했습니다. 주차 상태는 자동으로 변경되지 않습니다.`,
-    });
+    t.success(
+      "update",
+      "시즌 상태를 수정했습니다. 주차 상태는 자동으로 변경되지 않습니다.",
+    );
     // 현재 필터 조건 그대로 목록 재조회.
     setRefreshTick((n) => n + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const seasons = data?.seasons ?? [];
@@ -272,19 +268,6 @@ export default function SeasonParticipationsView() {
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-        </div>
-      )}
-
-      {banner && (
-        <div
-          className={cn(
-            "rounded-lg border px-4 py-3 text-sm",
-            banner.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700",
-          )}
-        >
-          {banner.message}
         </div>
       )}
 

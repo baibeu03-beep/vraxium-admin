@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { useActionToast } from "@/lib/actionToast";
 import {
   stringifyJsonField,
   type CareerProjectDto,
@@ -48,8 +49,6 @@ import {
 } from "@/lib/adminCareerProjectsTypes";
 
 const PAGE_SIZE = 50;
-
-type Banner = { kind: "success" | "error"; message: string } | null;
 
 type ListResponseData = {
   rows: CareerProjectDto[];
@@ -211,7 +210,7 @@ export default function CareerProjectsManager() {
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
-  const [banner, setBanner] = useState<Banner>(null);
+  const t = useActionToast();
   const [refreshTick, setRefreshTick] = useState(0);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -298,21 +297,16 @@ export default function CareerProjectsManager() {
             `HTTP ${res.status}`;
           throw new Error(message);
         }
-        setBanner({
-          kind: "success",
-          message: `실무 경력 항목이 삭제되었습니다.`,
-        });
+        t.success("delete", "실무 경력 항목이 삭제되었습니다.");
         refresh();
       } catch (err) {
-        setBanner({
-          kind: "error",
-          message: err instanceof Error ? err.message : "삭제에 실패했습니다",
-        });
+        console.error(err);
+        t.error("delete");
       } finally {
         setDeletingId(null);
       }
     },
-    [confirm, refresh],
+    [confirm, refresh, t],
   );
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -382,26 +376,6 @@ export default function CareerProjectsManager() {
               )}
             </div>
           </div>
-
-          {banner && (
-            <div
-              className={cn(
-                "flex items-center justify-between rounded-md border px-3 py-2 text-sm",
-                banner.kind === "success"
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                  : "border-rose-200 bg-rose-50 text-rose-800",
-              )}
-            >
-              <span>{banner.message}</span>
-              <button
-                type="button"
-                onClick={() => setBanner(null)}
-                className="text-current hover:opacity-70"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          )}
 
           {error ? (
             <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
@@ -586,10 +560,13 @@ export default function CareerProjectsManager() {
           isSuperAdmin={isSuperAdmin}
           onClose={() => setEditor(null)}
           onSaved={(message) => {
-            setBanner({ kind: "success", message });
+            t.success("save", message);
             refresh();
           }}
-          onError={(message) => setBanner({ kind: "error", message })}
+          onError={(message) => {
+            console.error(message);
+            t.error("save");
+          }}
         />
       )}
     </div>

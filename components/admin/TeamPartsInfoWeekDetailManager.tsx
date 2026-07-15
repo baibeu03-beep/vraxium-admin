@@ -1228,7 +1228,8 @@ export default function TeamPartsInfoWeekDetailManager({
       // 액트 체크 관리 탭 "가동" 상태가 오픈 설정 기준으로 갱신되도록 재조회 트리거.
       setActRefresh((n) => n + 1);
     } catch (e) {
-      setBanner({ kind: "error", message: e instanceof Error ? e.message : "오픈 확인 실패" });
+      console.error("[team-parts] open-confirm failed", e);
+      setBanner({ kind: "error", message: "오픈 확인 실패" });
     } finally {
       setConfirming(false);
     }
@@ -1358,7 +1359,8 @@ export default function TeamPartsInfoWeekDetailManager({
           : "주차 검수가 완료되었습니다. (완료)",
       });
     } catch (e) {
-      setBanner({ kind: "error", message: e instanceof Error ? e.message : "주차 검수 실패" });
+      console.error("[team-parts] week-review failed", e);
+      setBanner({ kind: "error", message: "주차 검수 실패" });
     } finally {
       // 성공/실패/예외 무관하게 로딩 토스트·loading state·in-flight 가드를 반드시 해제한다.
       stopProgress();
@@ -1385,7 +1387,8 @@ export default function TeamPartsInfoWeekDetailManager({
       if (!res.ok || !json.success) throw new Error(json?.error ?? `준비 상태 조회 실패 (${res.status})`);
       setReadiness(json.data as ReviewReadiness);
     } catch (e) {
-      setBanner({ kind: "error", message: e instanceof Error ? e.message : "준비 상태 조회 실패" });
+      console.error("[team-parts] review-readiness failed", e);
+      setBanner({ kind: "error", message: "준비 상태 조회 실패" });
       setShowReadiness(false);
     } finally {
       setReadinessLoading(false);
@@ -1423,7 +1426,8 @@ export default function TeamPartsInfoWeekDetailManager({
           : "이미 실행 취소된 상태입니다.",
       });
     } catch (e) {
-      setBanner({ kind: "error", message: e instanceof Error ? e.message : "실행 취소 실패" });
+      console.error("[team-parts] review-revert failed", e);
+      setBanner({ kind: "error", message: "실행 취소 실패" });
     } finally {
       // 성공/실패/예외 무관하게 로딩 토스트·loading state·in-flight 가드를 반드시 해제한다.
       stopProgress();

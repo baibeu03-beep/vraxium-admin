@@ -503,7 +503,8 @@ export default function ProcessUnifiedManager() {
       if (myReq !== infoReqRef.current) return;
       setActs([]);
       setSummary(EMPTY_SUMMARY);
-      setBanner({ kind: "error", message: err instanceof Error ? err.message : "조회에 실패했습니다" });
+      console.error("[processes] info load failed", err);
+      setBanner({ kind: "error", message: "조회에 실패했습니다" });
     } finally {
       if (myReq === infoReqRef.current) setInfoLoading(false);
     }
@@ -525,9 +526,10 @@ export default function ProcessUnifiedManager() {
       setLineGroups((json.data ?? []) as ProcessLineGroupDto[]);
     } catch (err) {
       setLineGroups([]);
+      console.error("[processes] line-groups load failed", err);
       setBanner({
         kind: "error",
-        message: err instanceof Error ? err.message : "라인급 조회에 실패했습니다",
+        message: "라인급 조회에 실패했습니다",
       });
     } finally {
       setGroupsLoading(false);
@@ -693,9 +695,10 @@ export default function ProcessUnifiedManager() {
       await loadInfo();
       setBanner({ kind: "success", message: `라인급 "${name}" 이(가) 등록되었습니다` });
     } catch (err) {
+      console.error("[processes] line-group create failed", err);
       setBanner({
         kind: "error",
-        message: err instanceof Error ? err.message : "라인급 등록에 실패했습니다",
+        message: "라인급 등록에 실패했습니다",
       });
     } finally {
       setAddingGroup(false);
@@ -731,9 +734,10 @@ export default function ProcessUnifiedManager() {
         await loadInfo();
         setBanner({ kind: "success", message: `라인급 "${group.name}" 이(가) 삭제되었습니다` });
       } catch (err) {
+        console.error("[processes] line-group delete failed", err);
         setBanner({
           kind: "error",
-          message: err instanceof Error ? err.message : "라인급 삭제에 실패했습니다",
+          message: "라인급 삭제에 실패했습니다",
         });
       }
     },
@@ -831,9 +835,10 @@ export default function ProcessUnifiedManager() {
         message: `액트가 등록되었습니다 (${saved.hubLabel} · ${saved.lineGroupName ?? "-"} · ${saved.actName})`,
       });
     } catch (err) {
+      console.error("[processes] act create failed", err);
       setBanner({
         kind: "error",
-        message: err instanceof Error ? err.message : "액트 등록에 실패했습니다",
+        message: "액트 등록에 실패했습니다",
       });
     } finally {
       setSaving(false);
@@ -859,7 +864,8 @@ export default function ProcessUnifiedManager() {
         if (selectedHub && act.hub === selectedHub) await loadGroups(selectedHub);
         setBanner({ kind: "success", message: `액트가 삭제되었습니다 (${act.actName})` });
       } catch (err) {
-        setBanner({ kind: "error", message: err instanceof Error ? err.message : "삭제에 실패했습니다" });
+        console.error("[processes] act delete failed", err);
+        setBanner({ kind: "error", message: "삭제에 실패했습니다" });
       } finally {
         setDeletingId(null);
       }

@@ -11,6 +11,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/ui/loading-state";
+import { useActionToast } from "@/lib/actionToast";
 import { cn } from "@/lib/utils";
 import type {
   Cluster4EnhancementStatus,
@@ -130,11 +131,11 @@ export default function EnhancementStatusEditModal({
   weekName: string;
   onClose: () => void;
 }) {
+  const t = useActionToast();
   const modeQuery = mode ? `&mode=${encodeURIComponent(mode)}` : "";
   const [loading, setLoading] = useState(true);
   const [lines, setLines] = useState<FlatLine[]>([]);
   const [overrides, setOverrides] = useState<OverrideRow[]>([]);
-  const [banner, setBanner] = useState<{ kind: "success" | "error"; message: string } | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, DraftValue>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -198,16 +199,13 @@ export default function EnhancementStatusEditModal({
       }
       setDrafts(nextDrafts);
       setNotes(nextNotes);
-      setBanner(null);
     } catch (error) {
-      setBanner({
-        kind: "error",
-        message: error instanceof Error ? error.message : "불러오기에 실패했습니다.",
-      });
+      console.error("enhancement-overrides load failed", error);
+      t.raw("error", "불러오기에 실패했습니다.");
     } finally {
       setLoading(false);
     }
-  }, [userId, modeQuery, weekId]);
+  }, [userId, modeQuery, weekId, t]);
 
   useEffect(() => {
     const t = window.setTimeout(() => void load(), 0);
@@ -220,6 +218,7 @@ export default function EnhancementStatusEditModal({
       const draft = drafts[key] ?? "auto";
       const existing = overrideByKey.get(key) ?? null;
       setBusyKey(key);
+      let status = 0;
       try {
         if (draft === "auto") {
           if (existing) {
@@ -227,10 +226,11 @@ export default function EnhancementStatusEditModal({
               `/api/admin/cluster4/enhancement-overrides?id=${encodeURIComponent(existing.id)}${modeQuery}`,
               { method: "DELETE" },
             );
+            status = res.status;
             const json = await res.json();
             if (!res.ok || !json.success) throw new Error(json?.error ?? "해제에 실패했습니다.");
           }
-          setBanner({ kind: "success", message: "자동 계산값으로 되돌렸습니다." });
+          t.success("reset", "자동 계산값으로 되돌렸습니다.");
         } else {
           const hasIdentity =
             line.lineTargetId != null || line.lineId != null || line.lineCode != null;
@@ -251,21 +251,20 @@ export default function EnhancementStatusEditModal({
               mode: mode ?? undefined,
             }),
           });
+          status = res.status;
           const json = await res.json();
           if (!res.ok || !json.success) throw new Error(json?.error ?? "저장에 실패했습니다.");
-          setBanner({ kind: "success", message: "강화 상태를 저장했습니다." });
+          t.success("save");
         }
         await load();
       } catch (error) {
-        setBanner({
-          kind: "error",
-          message: error instanceof Error ? error.message : "저장에 실패했습니다.",
-        });
+        console.error("enhancement-override save failed", error);
+        t.error("save", status ? { status } : undefined);
       } finally {
         setBusyKey(null);
       }
     },
-    [userId, mode, modeQuery, drafts, notes, overrideByKey, load],
+    [userId, mode, modeQuery, drafts, notes, overrideByKey, load, t],
   );
 
   // 허브 고정 순서(정보→경험→역량→경력)로 표시 정렬. 같은 허브 안은 원본 ordinal 순.
@@ -320,20 +319,6 @@ export default function EnhancementStatusEditModal({
             <X className="h-4 w-4" />
           </button>
         </div>
-
-        {banner && (
-          <div
-            role="status"
-            className={cn(
-              "mx-5 mt-3 rounded-md border px-3 py-2 text-sm",
-              banner.kind === "success"
-                ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-                : "border-destructive/40 bg-destructive/10 text-destructive",
-            )}
-          >
-            {banner.message}
-          </div>
-        )}
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-3">
           {loading ? (

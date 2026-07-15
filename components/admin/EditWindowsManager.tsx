@@ -56,11 +56,10 @@ import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { formatClubDateTime } from "@/lib/clubDate";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
+import { useActionToast } from "@/lib/actionToast";
 
 const PAGE_SIZE = 50;
 const RESOURCE_OPTIONS = [...EDITABLE_RESOURCES].sort((a, b) => a.order - b.order);
-
-type Banner = { kind: "success" | "error"; message: string } | null;
 
 function fmt(value: string | null | undefined) {
   return value?.trim() ? value : "-";
@@ -138,7 +137,7 @@ export default function EditWindowsManager() {
   useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
-  const [banner, setBanner] = useState<Banner>(null);
+  const t = useActionToast();
   const [editing, setEditing] = useState<EditWindowUserRow | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(
     () => new Set(),
@@ -230,12 +229,6 @@ export default function EditWindowsManager() {
     };
   }, [resourceKey, debouncedQuery, offset, refreshTick, weekScoped, selectedWeekId]);
 
-  useEffect(() => {
-    if (!banner) return;
-    const t = window.setTimeout(() => setBanner(null), 4500);
-    return () => window.clearTimeout(t);
-  }, [banner]);
-
   const reload = () => setRefreshTick((n) => n + 1);
 
   const selectedCount = allMatchingSelected ? total : selectedUserIds.size;
@@ -287,20 +280,14 @@ export default function EditWindowsManager() {
         },
         effectiveWeekId,
       )
-        .then((count) => {
+        .then(() => {
           clearSelection();
           reload();
-          setBanner({
-            kind: "success",
-            message:
-              String(count) +
-              "명에게 " +
-              getResourceLabel(resourceKey, devMode) +
-              " 권한을 부여했습니다.",
-          });
+          t.success("open", "권한을 부여했습니다.");
         })
         .catch((err: Error) => {
-          setBanner({ kind: "error", message: err.message });
+          console.error(err);
+          t.error("open");
         });
     },
     [
@@ -311,6 +298,7 @@ export default function EditWindowsManager() {
       resourceKey,
       selectedUserIds,
       effectiveWeekId,
+      t,
     ],
   );
 
@@ -325,20 +313,14 @@ export default function EditWindowsManager() {
       },
       effectiveWeekId,
     )
-      .then((count) => {
+      .then(() => {
         clearSelection();
         reload();
-        setBanner({
-          kind: "success",
-          message:
-            String(count) +
-            "명의 " +
-            getResourceLabel(resourceKey, devMode) +
-            " 권한을 닫았습니다.",
-        });
+        t.success("cancel", "권한을 닫았습니다.");
       })
       .catch((err: Error) => {
-        setBanner({ kind: "error", message: err.message });
+        console.error(err);
+        t.error("cancel");
       });
   }, [
     allMatchingSelected,
@@ -348,6 +330,7 @@ export default function EditWindowsManager() {
     resourceKey,
     selectedUserIds,
     effectiveWeekId,
+    t,
   ]);
 
   const applyWindowToRow = useCallback(
@@ -377,20 +360,14 @@ export default function EditWindowsManager() {
         .then((win) => {
           applyWindowToRow(row.userId, win);
           reload();
-          setBanner({
-            kind: "success",
-            message:
-              (row.displayName ?? row.userId) +
-              " · " +
-              getResourceLabel(resourceKey, devMode) +
-              " 권한을 열었습니다.",
-          });
+          t.success("open", "권한을 열었습니다.");
         })
         .catch((err: Error) => {
-          setBanner({ kind: "error", message: err.message });
+          console.error(err);
+          t.error("open");
         });
     },
-    [applyWindowToRow, devMode, resourceKey, effectiveWeekId],
+    [applyWindowToRow, devMode, resourceKey, effectiveWeekId, t],
   );
 
   const handleClose = useCallback(
@@ -406,20 +383,14 @@ export default function EditWindowsManager() {
         .then((win) => {
           applyWindowToRow(row.userId, win);
           reload();
-          setBanner({
-            kind: "success",
-            message:
-              (row.displayName ?? row.userId) +
-              " · " +
-              getResourceLabel(resourceKey, devMode) +
-              " 권한을 닫았습니다.",
-          });
+          t.success("cancel", "권한을 닫았습니다.");
         })
         .catch((err: Error) => {
-          setBanner({ kind: "error", message: err.message });
+          console.error(err);
+          t.error("cancel");
         });
     },
-    [applyWindowToRow, devMode, resourceKey, effectiveWeekId],
+    [applyWindowToRow, devMode, resourceKey, effectiveWeekId, t],
   );
 
   const pageEnd = offset + rows.length;
@@ -449,19 +420,6 @@ export default function EditWindowsManager() {
           새로고침
         </Button>
       </div>
-
-      {banner && (
-        <div
-          className={cn(
-            "rounded-lg border px-4 py-3 text-sm",
-            banner.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700",
-          )}
-        >
-          {banner.message}
-        </div>
-      )}
 
       <Card>
         <CardHeader>
@@ -947,10 +905,7 @@ export default function EditWindowsManager() {
           applyWindowToRow(userId, window);
           reload();
           setEditing(null);
-          setBanner({
-            kind: "success",
-            message: getResourceLabel(resourceKey, devMode) + " 기간이 저장되었습니다.",
-          });
+          t.success("save", "작성 기간이 저장되었습니다.");
         }}
       />
       <BulkEditWindowDrawer
@@ -961,18 +916,11 @@ export default function EditWindowsManager() {
         selectedCount={selectedCount}
         devMode={devMode}
         onClose={() => setBulkEditing(false)}
-        onSaved={(count) => {
+        onSaved={() => {
           setBulkEditing(false);
           clearSelection();
           reload();
-          setBanner({
-            kind: "success",
-            message:
-              String(count) +
-              "명에게 " +
-              getResourceLabel(resourceKey, devMode) +
-              " 기간을 저장했습니다.",
-          });
+          t.success("save", "작성 기간이 저장되었습니다.");
         }}
         getPayloadBase={() => ({
           user_ids: Array.from(selectedUserIds),

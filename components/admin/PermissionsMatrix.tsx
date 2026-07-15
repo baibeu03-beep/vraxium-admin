@@ -31,6 +31,7 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { useActionToast } from "@/lib/actionToast";
 import {
   USER_FACING_ROLES,
   type PermissionDto,
@@ -62,8 +63,6 @@ const CLUSTER_LABELS: Record<string, string> = {
   cluster3: "Cluster 3",
 };
 
-type Banner = { kind: "success" | "error"; message: string } | null;
-
 function cellKey(role: UserFacingRole, permissionKey: string) {
   return role + ":" + permissionKey;
 }
@@ -79,10 +78,10 @@ export default function PermissionsMatrix() {
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const [error, setError] = useState<string | null>(null);
-  const [banner, setBanner] = useState<Banner>(null);
   const [clusterFilter, setClusterFilter] = useState<string>("all");
   const [pending, setPending] = useState<Set<string>>(() => new Set());
   const [refreshTick, setRefreshTick] = useState(0);
+  const t = useActionToast();
 
   // ── load ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -114,13 +113,6 @@ export default function PermissionsMatrix() {
       cancelled = true;
     };
   }, [refreshTick]);
-
-  // ── banner auto-dismiss ─────────────────────────────────────────
-  useEffect(() => {
-    if (!banner) return;
-    const t = window.setTimeout(() => setBanner(null), 4500);
-    return () => window.clearTimeout(t);
-  }, [banner]);
 
   // ── derive ──────────────────────────────────────────────────────
   const clusterOptions = useMemo(() => {
@@ -179,16 +171,8 @@ export default function PermissionsMatrix() {
         if (!res.ok || !json.success) {
           throw new Error(json?.error ?? "Failed to save");
         }
-        setBanner({
-          kind: "success",
-          message:
-            permission.label +
-            " · " +
-            ROLE_LABELS[role] +
-            ": " +
-            (newValue ? "허용" : "차단"),
-        });
-      } catch (err) {
+        t.success("save");
+      } catch {
         // revert
         setMatrix((prev) => ({
           ...prev,
@@ -197,10 +181,7 @@ export default function PermissionsMatrix() {
             [role]: prevValue,
           },
         }));
-        setBanner({
-          kind: "error",
-          message: err instanceof Error ? err.message : "Failed to save",
-        });
+        t.error("save");
       } finally {
         setPending((prev) => {
           const next = new Set(prev);
@@ -236,19 +217,6 @@ export default function PermissionsMatrix() {
       {!loading && !isSuperAdmin && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           🔒 조회 전용 — 권한 설정 변경은 최고 관리자만 가능합니다.
-        </div>
-      )}
-
-      {banner && (
-        <div
-          className={cn(
-            "rounded-lg border px-4 py-3 text-sm",
-            banner.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700",
-          )}
-        >
-          {banner.message}
         </div>
       )}
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { X, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,9 @@ import LineOpeningStatusBoard from "@/components/admin/LineOpeningStatusBoard";
 import CompetencyOpeningLogPanel from "@/components/admin/CompetencyOpeningLogPanel";
 import CompetencyApplicantSection from "@/components/admin/CompetencyApplicantSection";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { useToast } from "@/components/ui/toast";
+import { useActionToast } from "@/lib/actionToast";
+import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
 
 // 실무 역량 [라인 개설] 탭 — 운영 대시보드.
 //   상태창(허브 전체 1문장) + 로그창 + [개설 주차 | 아웃풋 링크 1 | 설명 1] 입력행 + [개설 완료]/[개설 취소].
@@ -27,8 +30,6 @@ import { useReportLoading } from "@/components/admin/loadingBannerContext";
 //   (링크/설명)을 모든 라인칸에 반영 + snapshot markStale. 개설 취소 = 비활성 + 아웃풋 원복.
 //   파트장 신청/검수 단계 없음 — 허브 전체 1회. snapshot 생성/조회·기존 라인 생성 흐름 무변경.
 //   ⚠ 아웃풋 이미지는 여기서 입력하지 않는다(이미지 UI 없음).
-
-type Banner = { kind: "success" | "error"; message: string } | null;
 
 type WeekOption = {
   id: string;
@@ -59,13 +60,14 @@ export default function CompetencyOpeningDashboard() {
   const router = useRouter();
   const pathname = usePathname();
   const org = readOrgParam(searchParams);
+  const { toast } = useToast();
+  const t = useActionToast();
   // 운영/테스트 모드 — 개설 완료 시 라인 타깃 생성 가드(서버)와 같은 모드로 판정되도록 보존.
 
   const [opened, setOpened] = useState<boolean | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
   useReportLoading(loadingStatus);
   const [acting, setActing] = useState(false);
-  const [banner, setBanner] = useState<Banner>(null);
   // 상태창·로그창 재조회 신호 — 개설 완료/취소 직후 증가.
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -195,13 +197,12 @@ export default function CompetencyOpeningDashboard() {
     setLinkUrl(initialLink);
     setLinkDesc(initialDesc);
     setWeekMenuOpen(false);
-    setBanner(null);
   }, [initialLink, initialDesc]);
 
   const runAction = useCallback(
     async (action: "open" | "cancel") => {
       if (!org) {
-        setBanner({ kind: "error", message: "클럽(?org)이 지정되지 않았습니다" });
+        toast("error", "클럽(?org)이 지정되지 않았습니다");
         return;
       }
       if (action === "open") {
@@ -222,7 +223,6 @@ export default function CompetencyOpeningDashboard() {
         if (!ok) return;
       }
       setActing(true);
-      setBanner(null);
       try {
         const body: Record<string, unknown> = { action, organization: org };
         // 선택한 개설 주차(허용 예외 포함) 전달 — 서버가 정규 대상/예외 주차만 허용(fail-closed).
@@ -241,7 +241,8 @@ export default function CompetencyOpeningDashboard() {
         );
         const json = await res.json();
         if (!json.success) {
-          setBanner({ kind: "error", message: json.error ?? "처리에 실패했습니다" });
+          console.error("[competency] open/cancel failed", json?.error);
+          t.error(action === "cancel" ? "cancel" : "open", { status: res.status });
           return;
         }
         const d = json.data ?? {};
@@ -252,44 +253,31 @@ export default function CompetencyOpeningDashboard() {
         const reflectedLines =
           d.reflectedLines ?? (d.openedCrews ?? 0) + (d.linesChanged ?? 0);
         const reflectedCrews = d.reflectedCrews ?? d.openedCrews ?? 0;
-        setBanner({
-          kind: "success",
-          message:
-            action === "open"
-              ? `개설 완료 — 역량 라인 ${reflectedLines}개 반영` +
-                (reflectedCrews ? ` (크루 ${reflectedCrews}명)` : "") +
-                (d.rejectedCrews ? ` · 반려 ${d.rejectedCrews}명` : "")
-              : `개설 취소 — 역량 라인 ${reflectedLines}개 원복`,
+        console.warn("[line-opening] competency open/cancel", {
+          reflectedLines,
+          reflectedCrews,
+          rejectedCrews: d.rejectedCrews,
+          action,
         });
+        toast(
+          "success",
+          action === "cancel"
+            ? LINE_OPENING_RESULT.cancelSuccess
+            : LINE_OPENING_RESULT.openSuccess,
+        );
         setRefreshKey((k) => k + 1);
         await fetchStatus();
       } catch {
-        setBanner({ kind: "error", message: "처리 중 오류가 발생했습니다" });
+        toast("error", "처리 중 오류가 발생했습니다");
       } finally {
         setActing(false);
       }
     },
-    [org, linkUrl, linkDesc, fetchStatus, openTargetWeek],
+    [org, linkUrl, linkDesc, fetchStatus, openTargetWeek, toast],
   );
 
   return (
     <div className="space-y-4">
-      {banner && (
-        <div
-          className={cn(
-            "rounded-md border px-4 py-3 text-sm",
-            banner.kind === "success"
-              ? "border-green-300 bg-green-50 text-green-800"
-              : "border-red-300 bg-red-50 text-red-800",
-          )}
-        >
-          {banner.message}
-          <button className="float-right" onClick={() => setBanner(null)}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-
       <div className="grid items-start gap-4 lg:grid-cols-2">
         <LineOpeningStatusBoard hub="competency" refreshKey={refreshKey} />
         <CompetencyOpeningLogPanel refreshKey={refreshKey} />

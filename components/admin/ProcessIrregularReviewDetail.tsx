@@ -9,6 +9,7 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
+import { useActionToast } from "@/lib/actionToast";
 import { cn } from "@/lib/utils";
 import { pointColorClass } from "@/components/ui/point-value";
 import { type ScopeMode } from "@/lib/userScopeShared";
@@ -47,7 +48,7 @@ export default function ProcessIrregularReviewDetail({
   onDone: () => void;
 }) {
   const confirm = useConfirm();
-  const [banner, setBanner] = useState<string | null>(null);
+  const t = useActionToast();
   const [submitting, setSubmitting] = useState(false);
   const isReview = act.kind === "review_request";
   const po = getProcessPointLabels(organization);
@@ -58,20 +59,22 @@ export default function ProcessIrregularReviewDetail({
   // 체크 취소 = 신청 삭제(pending 에서만). 완료 후에는 취소 불가.
   //   호출 측에서 한 번 더 확인을 끝낸 뒤 실제 DELETE 만 수행.
   const cancel = async () => {
-    setBanner(null);
     setSubmitting(true);
+    let status = 0;
     try {
       const res = await fetch("/api/admin/processes/check/irregular", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: act.id, organization, ...(mode === "test" ? { mode: "test" } : {}) }),
       });
+      status = res.status;
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
       onDone();
       onClose();
     } catch (err) {
-      setBanner(err instanceof Error ? err.message : "체크 취소에 실패했습니다");
+      console.error("irregular check cancel failed", err);
+      t.error("cancel", status ? { status } : undefined);
     } finally {
       setSubmitting(false);
     }
@@ -176,12 +179,6 @@ export default function ProcessIrregularReviewDetail({
         {act.lastError && cancelable && (
           <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
             자동 검수 시도 {act.attemptCount}회 실패: {act.lastError}
-          </p>
-        )}
-
-        {banner && (
-          <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-            {banner}
           </p>
         )}
 

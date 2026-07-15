@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { useActionToast } from "@/lib/actionToast";
 import { cn } from "@/lib/utils";
 import {
   experienceActivityTypeForLineType,
@@ -40,7 +41,6 @@ import {
   LINE_REGISTRATION_PROFILE_KEYS,
   lineRegistrationProfileImage,
   VARIABLE_MAIN_TITLE_NOTICE,
-  type LineRegistrationDto,
   type LineRegistrationHub,
   type LineRegistrationMainTitleMode,
 } from "@/lib/adminLineRegistrationsTypes";
@@ -250,6 +250,7 @@ export default function LineRegistrationManager() {
   const hasInvalidOrg = rawOrgParam !== "" && scopedOrg === null;
 
   const [banner, setBanner] = useState<Banner>(null);
+  const t = useActionToast();
   const [saving, setSaving] = useState(false);
 
   // ── 기본 정보 ──
@@ -396,27 +397,21 @@ export default function LineRegistrationManager() {
           (json && typeof json.error === "string" && json.error) || `HTTP ${res.status}`;
         throw new Error(message);
       }
-      const saved = json.data as LineRegistrationDto;
       const pc = json.pointConfig as { saved: boolean; reason?: string } | undefined;
       // 포인트 입력 여부는 리셋 전에 판단(handleReset 이 상태를 비움).
       const enteredPoints = pointA !== "" || pointB !== "";
-      let pointSuffix = "";
-      if (enteredPoints) {
-        pointSuffix = pc?.saved
-          ? " · 강화 포인트 저장됨"
-          : ` · ⚠ 강화 포인트 미저장${pc?.reason ? ` (${pc.reason})` : ""}`;
-      }
-      // handleReset 이 banner 를 지우므로 리셋 후에 성공 안내를 띄운다.
+      // handleReset 이 인라인 검증 banner 를 지우므로 리셋 후에 결과 토스트를 띄운다.
       handleReset();
-      setBanner({
-        kind: enteredPoints && !pc?.saved ? "error" : "success",
-        message: `라인이 등록되었습니다 (${saved.hubLabel} · ${saved.lineName} · ${saved.lineCode})${pointSuffix} — 목록은 라인 정보 페이지에서 확인하세요.`,
-      });
+      if (enteredPoints && !pc?.saved) {
+        // 라인은 등록됐지만 강화 포인트 저장은 실패 — 상세 사유는 콘솔에만.
+        console.warn("line registered but point config not saved", pc?.reason);
+        t.raw("warning", "라인은 등록되었지만 강화 포인트는 저장되지 않았습니다. 다시 시도해주세요.");
+      } else {
+        t.success("create", "라인이 등록되었습니다. 목록은 라인 정보 페이지에서 확인하세요.");
+      }
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message: err instanceof Error ? err.message : "저장에 실패했습니다",
-      });
+      console.error(err);
+      t.error("create");
     } finally {
       setSaving(false);
     }
@@ -425,7 +420,7 @@ export default function LineRegistrationManager() {
     lineName, hub, lineType, lineCode, orgSlug, mainTitleMode, mainTitle, unitLink,
     pointA, pointB, infoActivityTypeId,
     partnerCompany, companyLogo, managerName, managerPosition, managerJob,
-    managerProfileKey, handleReset,
+    managerProfileKey, handleReset, t,
   ]);
 
   return (

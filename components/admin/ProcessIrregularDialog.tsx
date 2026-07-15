@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { DAY_NAMES } from "@/lib/practicalInfoSection0Format";
 import { type ScopeMode } from "@/lib/userScopeShared";
+import { useActionToast } from "@/lib/actionToast";
 import { IrregularPointFields, derivePartialPointMode } from "@/components/admin/IrregularPointFields";
 import {
   IRREGULAR_CREW_REACTION_LABEL,
@@ -74,6 +75,7 @@ export default function ProcessIrregularDialog({
   const [banner, setBanner] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const confirm = useConfirm();
+  const t = useActionToast();
 
   const dirty =
     actName.trim() !== "" ||
@@ -151,10 +153,12 @@ export default function ProcessIrregularDialog({
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || `HTTP ${res.status}`);
+      t.success("submit");
       onDone();
       onClose();
     } catch (err) {
-      setBanner(err instanceof Error ? err.message : "처리에 실패했습니다");
+      console.error("[ProcessIrregularDialog] review request failed", err);
+      t.error("submit");
     } finally {
       setSubmitting(false);
     }

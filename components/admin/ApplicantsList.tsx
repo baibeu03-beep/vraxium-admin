@@ -41,6 +41,7 @@ import { APPLICANT_STATUSES } from "@/lib/adminApplicantTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { useActionToast } from "@/lib/actionToast";
 import type { ScopeMode } from "@/lib/userScopeShared";
 
 type Applicant = {
@@ -105,6 +106,7 @@ function statusBadgeClass(status: Applicant["status"]) {
 
 export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
   const confirm = useConfirm();
+  const t = useActionToast();
   const devMode = useAdminDevMode();
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,17 +202,11 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
       if (!res.ok || !json.success) {
         throw new Error(json?.error ?? "Failed to reject applicant.");
       }
-      setBanner({
-        kind: "success",
-        message: `${applicant.name ?? applicant.email ?? "신청자"} 가입을 거절했습니다.`,
-      });
+      t.success("reject", "가입을 거절했습니다.");
       setRefreshTick((n) => n + 1);
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message:
-          err instanceof Error ? err.message : "Failed to reject applicant.",
-      });
+      console.error(err);
+      t.error("reject");
     } finally {
       setRejectingId(null);
     }
@@ -237,7 +233,6 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
     if (!confirmed) return;
 
     setApprovingAll(true);
-    setBanner(null);
     try {
       const res = await fetch(
         `/api/admin/applicants/approve-all${mode === "test" ? "?mode=test" : ""}`,
@@ -251,28 +246,23 @@ export default function ApplicantsList({ mode }: { mode: ScopeMode }) {
         succeeded?: number;
         failed?: number;
       };
-      setBanner({
-        kind: failed > 0 ? "error" : "success",
-        message: `전체 승인 완료 — 성공 ${succeeded}명 / 실패 ${failed}명`,
-      });
+      if (failed > 0) {
+        console.warn(`approve-all: succeeded ${succeeded}, failed ${failed}`);
+        t.raw("warning", "일부 지원자를 승인하지 못했습니다. 목록을 확인해주세요.");
+      } else {
+        t.success("approve");
+      }
       setRefreshTick((n) => n + 1);
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message: err instanceof Error ? err.message : "전체 승인에 실패했습니다.",
-      });
+      console.error(err);
+      t.error("approve");
     } finally {
       setApprovingAll(false);
     }
   };
 
-  const handleApproveSuccess = (linkedDisplayName: string | null) => {
-    setBanner({
-      kind: "success",
-      message: linkedDisplayName
-        ? `${linkedDisplayName} 계정과 연결하여 승인했습니다.`
-        : "가입 요청을 승인했습니다.",
-    });
+  const handleApproveSuccess = (_linkedDisplayName: string | null) => {
+    t.success("approve", "가입 요청을 승인했습니다.");
     setApproveTarget(null);
     setRefreshTick((n) => n + 1);
   };
@@ -530,6 +520,7 @@ function ApproveDialog({
   const [searching, setSearching] = useState(false);
   const [approving, setApproving] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const t = useActionToast();
   const trimmedQuery = searchQuery.trim();
 
   const handleSearch = async () => {
@@ -555,9 +546,8 @@ function ApproveDialog({
       setUserResults((json.users ?? []) as UserProfileCandidate[]);
       setHasSearched(true);
     } catch (err) {
-      onError(
-        err instanceof Error ? err.message : "Failed to search user profiles.",
-      );
+      console.error(err);
+      t.raw("error", "검색하지 못했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       setSearching(false);
     }
@@ -590,9 +580,8 @@ function ApproveDialog({
           selectedUser.userId,
       );
     } catch (err) {
-      onError(
-        err instanceof Error ? err.message : "Failed to approve applicant.",
-      );
+      console.error(err);
+      t.error("approve");
     } finally {
       setApproving(false);
     }
@@ -613,11 +602,8 @@ function ApproveDialog({
       }
       onApproved(null);
     } catch (err) {
-      onError(
-        err instanceof Error
-          ? err.message
-          : "Failed to create user and approve.",
-      );
+      console.error(err);
+      t.error("approve");
     } finally {
       setApproving(false);
     }

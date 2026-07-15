@@ -15,6 +15,7 @@ import { readOrgParam } from "@/lib/adminOrgContext";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
 import { ORGANIZATIONS, type OrganizationSlug } from "@/lib/organizations";
 import { parseHalfKey } from "@/lib/teamHalf";
+import { useActionToast } from "@/lib/actionToast";
 
 const MAX_TEAMS_PER_CLUB = 10;
 const MAX_TEAM_NAME = 12;
@@ -262,7 +263,10 @@ export default function TeamPartsInfoManager() {
   );
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
+  // 데이터 조회 실패(뷰 비움)만 인라인 배너로 유지한다 — 지속 상태.
+  //   등록/수정/삭제 등 액션 결과는 하단 공통 토스트(useActionToast)로 안내한다.
   const [banner, setBanner] = useState<Banner>(null);
+  const t = useActionToast();
 
   // 팀 등록/수정 팝업(같은 컴포넌트, editingTeam 으로 모드 구분).
   const [modalOpen, setModalOpen] = useState(false);
@@ -451,7 +455,6 @@ export default function TeamPartsInfoManager() {
   const submitTeam = async () => {
     if (!half || !leader) return;
     setRegistering(true);
-    setBanner(null);
     try {
       const res = await fetch(
         appendModeQuery(`/api/admin/team-parts/info`, mode),
@@ -474,10 +477,10 @@ export default function TeamPartsInfoManager() {
           json?.error ?? `${isEditMode ? "수정" : "등록"} 실패 (${res.status})`,
         );
       }
-      setBanner({
-        kind: "success",
-        message: isEditMode ? "팀이 수정되었습니다." : "팀이 등록되었습니다.",
-      });
+      t.success(
+        isEditMode ? "update" : "create",
+        isEditMode ? "팀이 수정되었습니다." : "팀이 등록되었습니다.",
+      );
       closeModal();
       await load(half);
     } catch (e) {
@@ -493,7 +496,6 @@ export default function TeamPartsInfoManager() {
   // [삭제] 확인 → 삭제 대기(is_active=false) 전환.
   const confirmDelete = async (target: TeamDto) => {
     if (!half) return;
-    setBanner(null);
     try {
       const res = await fetch(
         appendModeQuery(`/api/admin/team-parts/info`, mode),
@@ -511,16 +513,11 @@ export default function TeamPartsInfoManager() {
       if (!res.ok || !json.success) {
         throw new Error(json?.error ?? `삭제 실패 (${res.status})`);
       }
-      setBanner({
-        kind: "success",
-        message: "팀이 삭제 대기 상태로 전환되었습니다.",
-      });
+      t.success("delete", "팀이 삭제 대기 상태로 전환되었습니다.");
       await load(half);
     } catch (e) {
-      setBanner({
-        kind: "error",
-        message: e instanceof Error ? e.message : "삭제 실패",
-      });
+      console.error("[team-parts/info] 팀 삭제 실패", e);
+      t.error("delete");
     }
   };
 

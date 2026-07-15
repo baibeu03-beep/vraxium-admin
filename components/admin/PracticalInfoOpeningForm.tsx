@@ -22,6 +22,9 @@ import CafeCrewPicker, {
   type CafeCrewMeta,
 } from "@/components/admin/CafeCrewPicker";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
+import { useToast } from "@/components/ui/toast";
+import { useActionToast } from "@/lib/actionToast";
+import { LINE_OPENING_RESULT, lineOpenSuccessMessage } from "@/lib/lineOpeningResultMessages";
 
 // 실무 정보 라인 개설 폼 — [섹션 0] 하단 실제 개설 영역.
 //   (1) 개설할 주차: getOpenableWeekStartMs(금요일 경계 규칙)로 자동 고정 + disabled.
@@ -61,8 +64,6 @@ export type ExceptionFormWeek = OpeningFormWeek & {
 type ActivityTypeOption = { id: string; name: string };
 
 type UploadedImage = { url: string; name: string };
-
-type Banner = { kind: "success" | "error" | "info"; message: string } | null;
 
 // "26년, 여름 시즌, 3주차" — 시즌·주차 공통 포맷(formatBannerPeriod SoT).
 function weekTitle(w: OpeningFormWeek): string {
@@ -230,6 +231,8 @@ export default function PracticalInfoOpeningForm({
   onOpened: () => void;
 }) {
   const devMode = useAdminDevMode();
+  const { toast } = useToast();
+  const t = useActionToast();
 
   const [adminUnlock, setAdminUnlock] = useState(false);
   const [forcedWeekId, setForcedWeekId] = useState<string>("");
@@ -272,7 +275,6 @@ export default function PracticalInfoOpeningForm({
   // 개설/취소 후 openedLine 재조회 트리거.
   const [refreshTick, setRefreshTick] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [banner, setBanner] = useState<Banner>(null);
 
   const unlocked = devMode && adminUnlock;
 
@@ -450,14 +452,12 @@ export default function PracticalInfoOpeningForm({
   // [개설] 클릭 → 즉시 저장하지 않고 확인 모달을 띄운다. (버튼이 disabled 라 사실상 canOpen 일 때만)
   const handleOpenClick = useCallback(() => {
     if (!canOpen) return;
-    setBanner(null);
     setConfirmOpen(true);
   }, [canOpen]);
 
   // [개설 취소] 클릭 → 취소 확인 모달. (openedLine 있을 때만 활성)
   const handleCancelClick = useCallback(() => {
     if (!openedLine) return;
-    setBanner(null);
     setConfirmCancel(true);
   }, [openedLine]);
 
@@ -465,7 +465,6 @@ export default function PracticalInfoOpeningForm({
   const executeCancel = useCallback(async () => {
     if (!openedLine || !effectiveWeek || !lineId) return;
     setSaving(true);
-    setBanner(null);
     try {
       const org = new URLSearchParams(window.location.search).get("org");
       const qs = new URLSearchParams({
@@ -480,33 +479,27 @@ export default function PracticalInfoOpeningForm({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setBanner({
-          kind: "error",
-          message: json?.error ?? `개설 취소에 실패했습니다 (HTTP ${res.status})`,
-        });
+        console.error("[info] open-cancel failed", json?.error);
+        t.error("cancel", { status: res.status });
         return;
       }
-      setBanner({
-        kind: "success",
-        message: "라인 개설이 취소되었습니다. (해당 주차/라인이 전체 크루에게 '해당 없음'으로 복귀)",
-      });
+      toast("success", LINE_OPENING_RESULT.cancelSuccess);
       setOpenedLine(null);
       setRefreshTick((t) => t + 1);
       onOpened();
     } catch {
-      setBanner({ kind: "error", message: "개설 취소 중 오류가 발생했습니다" });
+      toast("error", "개설 취소 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
       setConfirmCancel(false);
     }
-  }, [openedLine, effectiveWeek, lineId, onOpened]);
+  }, [openedLine, effectiveWeek, lineId, onOpened, toast]);
 
   // 확인 모달 [확인] → 실제 API 저장 실행.
   const executeOpen = useCallback(async () => {
     if (!canOpen || !effectiveWeek) return;
     const week = effectiveWeek;
     setSaving(true);
-    setBanner(null);
     try {
       const payload = {
         activity_type_id: lineId,
@@ -543,21 +536,19 @@ export default function PracticalInfoOpeningForm({
       );
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setBanner({
-          kind: "error",
-          message: json?.error ?? `개설에 실패했습니다 (HTTP ${res.status})`,
-        });
+        console.error("[info] open failed", json?.error);
+        t.error("open", { status: res.status });
         return;
       }
-      setBanner({
-        kind: "success",
-        message: `라인이 개설되었습니다 (개설 크루: ${json.data?.targetCount ?? candidates.length}명)`,
+      console.warn("[line-opening] info form open result", {
+        targetCount: json.data?.targetCount ?? candidates.length,
       });
+      toast("success", lineOpenSuccessMessage(false));
       resetForm();
       setRefreshTick((t) => t + 1);
       onOpened();
     } catch {
-      setBanner({ kind: "error", message: "개설 중 오류가 발생했습니다" });
+      toast("error", "개설 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
       // 성공·실패·오류 어느 경우든 확인 모달은 닫는다(결과는 상단 배너로 노출).
@@ -577,6 +568,7 @@ export default function PracticalInfoOpeningForm({
     unlocked,
     resetForm,
     onOpened,
+    toast,
   ]);
 
   return (
@@ -613,24 +605,6 @@ export default function PracticalInfoOpeningForm({
           </div>
         ) : (
         <>
-        {banner && (
-          <div
-            className={cn(
-              "flex items-start justify-between gap-2 rounded-md border px-3 py-2 text-sm",
-              banner.kind === "success"
-                ? "border-green-300 bg-green-50 text-green-800"
-                : banner.kind === "info"
-                  ? "border-sky-300 bg-sky-50 text-sky-800"
-                  : "border-red-300 bg-red-50 text-red-800",
-            )}
-          >
-            <span>{banner.message}</span>
-            <button type="button" onClick={() => setBanner(null)}>
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
-
         {/* 개설 액션 (폼 최상단 · 왼쪽 정렬) — [개설] [초기화] [개설 취소] */}
         <div className="space-y-2 border-b pb-4">
           <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
@@ -1026,7 +1000,6 @@ export default function PracticalInfoOpeningForm({
                 type="button"
                 onClick={() => {
                   resetForm();
-                  setBanner(null);
                   setConfirmReset(false);
                 }}
               >

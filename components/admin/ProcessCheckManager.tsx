@@ -325,7 +325,8 @@ export default function ProcessCheckManager({ hub }: { hub: ProcessHub }) {
         const json = await res.json().catch(() => ({}));
         await refreshAfterAction();
         if (!res.ok || !json?.success) {
-          toast("info", json?.error ?? "실행 취소를 처리하지 못했습니다.");
+          console.warn("[process] revert failed", json?.error);
+          toast("info", "실행 취소를 처리하지 못했습니다.");
         } else {
           // 내부 처리 과정(‘체크 완료 전’ 상태·포인트 회수·카드 재계산)은 콘솔 로그로만 남기고,
           //   관리자 UI 에는 결과만 간결히 안내한다.

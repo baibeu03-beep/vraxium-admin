@@ -40,6 +40,7 @@ import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
+import { useActionToast } from "@/lib/actionToast";
 import { formatDepartmentName } from "@/components/admin/fieldKit";
 import MemberEditDrawer, {
   type EditableMember,
@@ -146,6 +147,7 @@ export default function CrewManager({
   const [team, setTeam] = useState<string>(ALL);
   const [part, setPart] = useState<string>(ALL);
   const [visibility, setVisibility] = useState<string>(ALL);
+  const t = useActionToast();
   const [banner, setBanner] = useState<Banner>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Crew | null>(null);
@@ -283,21 +285,13 @@ export default function CrewManager({
         throw new Error(json?.error ?? "Failed to save crew.");
       }
 
-      setBanner({
-        kind: "success",
-        message: json.warning
-          ? `${editing ? "Updated" : "Created"}. ${json.warning}`
-          : editing
-            ? "Updated."
-            : "Created.",
-      });
+      if (json.warning) console.warn(json.warning);
+      t.success(editing ? "update" : "create");
       setModalOpen(false);
       await refresh(organization);
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message: err instanceof Error ? err.message : "Failed to save crew.",
-      });
+      console.error(err);
+      t.error(editing ? "update" : "create");
     } finally {
       setSubmitting(false);
     }
@@ -318,31 +312,20 @@ export default function CrewManager({
       if (!res.ok || !json.success) {
         throw new Error(json?.error ?? "Failed to change visibility.");
       }
-      setBanner({
-        kind: "success",
-        message: next ? "Marked visible." : "Marked hidden.",
-      });
+      t.success("update");
       await refresh(organization);
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message:
-          err instanceof Error ? err.message : "Failed to change visibility.",
-      });
+      console.error(err);
+      t.error("update");
     }
   };
 
   // 멤버 정보 수정(MemberEditDrawer)은 /admin/members 와 동일한 흐름.
   // PATCH /api/admin/members/:userId 로 user_profiles 를 수정하므로
   // 저장 후에는 crew 목록을 다시 불러와 organization/연락처 변경을 반영한다.
-  const handleMemberSaved = (updated: EditableMember) => {
+  const handleMemberSaved = (_updated: EditableMember) => {
     setEditingMember(null);
-    setBanner({
-      kind: "success",
-      message: `${updated.displayName ?? updated.userId} ${
-        devMode ? "updated." : "정보가 저장되었습니다."
-      }`,
-    });
+    t.success("save");
     void refresh(organization);
   };
 

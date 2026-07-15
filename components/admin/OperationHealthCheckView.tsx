@@ -21,6 +21,7 @@ import {
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { useActionToast } from "@/lib/actionToast";
 import { cn } from "@/lib/utils";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -37,8 +38,6 @@ import {
   type OperationHealthCheckDto,
   type RecalcGrowthStatsResult,
 } from "@/lib/adminOperationHealthCheckTypes";
-
-type Banner = { kind: "success" | "error"; message: string } | null;
 
 // 성장 통계 캐시(user_growth_stats)만 복구 가능한 이슈 유형.
 const GROWTH_RECALC_ISSUE_TYPES = new Set<HealthIssue["issue_type"]>([
@@ -133,15 +132,9 @@ export default function OperationHealthCheckView() {
   const [error, setError] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
-  const [banner, setBanner] = useState<Banner>(null);
   // 재집계 진행 중인 키: 단건이면 user_id, 전체면 "__all__". 없으면 null.
   const [processing, setProcessing] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!banner) return;
-    const t = window.setTimeout(() => setBanner(null), 6000);
-    return () => window.clearTimeout(t);
-  }, [banner]);
+  const t = useActionToast();
 
   useEffect(() => {
     let cancelled = false;
@@ -183,7 +176,6 @@ export default function OperationHealthCheckView() {
       if (processing) return;
       const key = mode === "all_mismatched" ? "__all__" : userId ?? "";
       setProcessing(key);
-      setBanner(null);
       try {
         const res = await fetch(RECALC_ENDPOINT, {
           method: "POST",
@@ -197,27 +189,19 @@ export default function OperationHealthCheckView() {
           throw new Error(json?.error ?? "Failed to recalculate growth stats.");
         }
         const result = json.data as RecalcGrowthStatsResult;
-        const parts = [`성공 ${result.processed_count}건`];
-        if (result.failed_count > 0) parts.push(`실패 ${result.failed_count}건`);
-        if (result.skipped_count > 0)
-          parts.push(`미처리 ${result.skipped_count}건(100명 초과)`);
-        setBanner({
-          kind:
-            result.failed_count > 0 || result.skipped_count > 0
-              ? "error"
-              : "success",
-          message: `성장 통계 재집계 완료 — ${parts.join(", ")}.`,
-        });
+        const hadIssue = result.failed_count > 0 || result.skipped_count > 0;
+        if (hadIssue) {
+          t.raw(
+            "error",
+            "성장 통계 재집계 중 일부 항목이 처리되지 않았습니다. 다시 시도해주세요.",
+          );
+        } else {
+          t.raw("success", "성장 통계 재집계가 완료되었습니다.");
+        }
         // 처리 후 현재 목록 재조회.
         setRefreshTick((n) => n + 1);
-      } catch (err) {
-        setBanner({
-          kind: "error",
-          message:
-            err instanceof Error
-              ? err.message
-              : "Failed to recalculate growth stats.",
-        });
+      } catch {
+        t.raw("error", "성장 통계 재집계에 실패했습니다. 다시 시도해주세요.");
       } finally {
         setProcessing(null);
       }
@@ -269,19 +253,6 @@ export default function OperationHealthCheckView() {
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
-        </div>
-      )}
-
-      {banner && (
-        <div
-          className={cn(
-            "rounded-lg border px-4 py-3 text-sm",
-            banner.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700",
-          )}
-        >
-          {banner.message}
         </div>
       )}
 

@@ -18,6 +18,7 @@ import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { useActionToast } from "@/lib/actionToast";
 import { formatClubDate } from "@/lib/clubDate";
 
 // /admin/settings/line-opening-windows — "라인 개설 기간(예외)" 관리.
@@ -111,6 +112,7 @@ export default function LineOpeningWindowsManager() {
   useReportLoading(loading);
   const [banner, setBanner] = useState<Banner>(null);
   const confirm = useConfirm();
+  const t = useActionToast();
 
   // 화면1 — 자동 정책
   const [autoWeek, setAutoWeek] = useState<AutoWeek | null>(null);
@@ -190,13 +192,13 @@ export default function LineOpeningWindowsManager() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setBanner({ kind: "error", message: json.error ?? "예외 등록에 실패했습니다" });
+        t.error("create", { status: res.status });
         return;
       }
-      setBanner({ kind: "success", message: "예외가 등록되었습니다" });
+      t.success("create", "예외가 등록되었습니다.");
       await fetchWindows();
     } catch {
-      setBanner({ kind: "error", message: "예외 등록 중 오류가 발생했습니다" });
+      t.error("create");
     } finally {
       setSubmitting(false);
     }
@@ -205,7 +207,6 @@ export default function LineOpeningWindowsManager() {
   const handleToggle = useCallback(
     async (w: ExceptionWindow) => {
       setBusyId(w.id);
-      setBanner(null);
       try {
         const res = await fetch(`/api/admin/line-opening-windows/${w.id}`, {
           method: "PATCH",
@@ -214,12 +215,12 @@ export default function LineOpeningWindowsManager() {
         });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          setBanner({ kind: "error", message: json.error ?? "상태 변경 실패" });
+          t.error("update", { status: res.status });
           return;
         }
         await fetchWindows();
       } catch {
-        setBanner({ kind: "error", message: "상태 변경 중 오류가 발생했습니다" });
+        t.error("update");
       } finally {
         setBusyId(null);
       }
@@ -238,20 +239,19 @@ export default function LineOpeningWindowsManager() {
         return;
       }
       setBusyId(w.id);
-      setBanner(null);
       try {
         const res = await fetch(`/api/admin/line-opening-windows/${w.id}`, {
           method: "DELETE",
         });
         const json = await res.json();
         if (!res.ok || !json.success) {
-          setBanner({ kind: "error", message: json.error ?? "삭제 실패" });
+          t.error("delete", { status: res.status });
           return;
         }
-        setBanner({ kind: "success", message: "예외가 삭제되었습니다" });
+        t.success("delete", "예외가 삭제되었습니다.");
         await fetchWindows();
       } catch {
-        setBanner({ kind: "error", message: "삭제 중 오류가 발생했습니다" });
+        t.error("delete");
       } finally {
         setBusyId(null);
       }

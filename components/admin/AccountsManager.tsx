@@ -49,6 +49,7 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { useActionToast } from "@/lib/actionToast";
 import {
   ORGANIZATIONS,
   ORGANIZATION_COMMON_LABEL,
@@ -105,6 +106,7 @@ function orgLabel(slug: string | null) {
 
 export default function AccountsManager() {
   const confirm = useConfirm();
+  const t = useActionToast();
   const [accounts, setAccounts] = useState<AccountDto[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -135,14 +137,14 @@ export default function AccountsManager() {
 
   // ── debounce search ───────────────────────────────────────────────
   useEffect(() => {
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       setDebouncedQuery((prev) => {
         const next = query.trim();
         if (prev !== next) setOffset(0);
         return next;
       });
     }, 250);
-    return () => window.clearTimeout(t);
+    return () => window.clearTimeout(timer);
   }, [query]);
 
   // ── load ──────────────────────────────────────────────────────────
@@ -189,8 +191,8 @@ export default function AccountsManager() {
   // ── banner auto-dismiss ───────────────────────────────────────────
   useEffect(() => {
     if (!banner) return;
-    const t = window.setTimeout(() => setBanner(null), 4500);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setBanner(null), 4500);
+    return () => window.clearTimeout(timer);
   }, [banner]);
 
   const reload = useCallback(() => setRefreshTick((n) => n + 1), []);
@@ -234,24 +236,16 @@ export default function AccountsManager() {
           throw new Error(json?.error ?? "Failed to update role");
         }
         applyAccount(json.data.account as AccountDto);
-        setBanner({
-          kind: "success",
-          message:
-            (account.displayName ?? account.email ?? account.userId) +
-            " 역할: " +
-            ADMIN_USERS_ROLE_LABELS[newAdminRole],
-        });
+        t.success("update");
       } catch (err) {
         applyAccount({ ...account, adminRole: prevRole });
-        setBanner({
-          kind: "error",
-          message: err instanceof Error ? err.message : "Failed to update role",
-        });
+        console.error(err);
+        t.error("update");
       } finally {
         markPending(account.userId, false);
       }
     },
-    [applyAccount, isSuperAdmin, markPending],
+    [applyAccount, isSuperAdmin, markPending, t],
   );
 
   const handleActiveChange = useCallback(
@@ -277,25 +271,16 @@ export default function AccountsManager() {
           throw new Error(json?.error ?? "Failed to update active status");
         }
         applyAccount(json.data.account as AccountDto);
-        setBanner({
-          kind: "success",
-          message:
-            (account.displayName ?? account.email ?? account.userId) +
-            " 상태: " +
-            (newIsActive ? "활성" : "비활성"),
-        });
+        t.success("update");
       } catch (err) {
         applyAccount({ ...account, isActive: prev });
-        setBanner({
-          kind: "error",
-          message:
-            err instanceof Error ? err.message : "Failed to update active status",
-        });
+        console.error(err);
+        t.error("update");
       } finally {
         markPending(account.userId, false);
       }
     },
-    [applyAccount, isSuperAdmin, markPending],
+    [applyAccount, isSuperAdmin, markPending, t],
   );
 
   const handleOrgChange = useCallback(
@@ -321,30 +306,16 @@ export default function AccountsManager() {
           throw new Error(json?.error ?? "Failed to update organization");
         }
         applyAccount(json.data.account as AccountDto);
-        const label = newOrgSlug
-          ? isOrganizationSlug(newOrgSlug)
-            ? ORGANIZATION_LABEL[newOrgSlug]
-            : newOrgSlug
-          : ORGANIZATION_COMMON_LABEL;
-        setBanner({
-          kind: "success",
-          message:
-            (account.displayName ?? account.email ?? account.userId) +
-            " 클럽: " +
-            label,
-        });
+        t.success("update");
       } catch (err) {
         applyAccount({ ...account, organizationSlug: current });
-        setBanner({
-          kind: "error",
-          message:
-            err instanceof Error ? err.message : "Failed to update organization",
-        });
+        console.error(err);
+        t.error("update");
       } finally {
         markPending(account.userId, false);
       }
     },
-    [applyAccount, isSuperAdmin, markPending],
+    [applyAccount, isSuperAdmin, markPending, t],
   );
 
   const startNameEdit = useCallback((account: AccountDto) => {
@@ -393,24 +364,15 @@ export default function AccountsManager() {
         }
         applyAccount(json.data.account as AccountDto);
         cancelNameEdit();
-        setBanner({
-          kind: "success",
-          message:
-            (account.displayName ?? account.email ?? account.userId) +
-            " 이름 변경: " +
-            trimmed,
-        });
+        t.success("update");
       } catch (err) {
-        setBanner({
-          kind: "error",
-          message:
-            err instanceof Error ? err.message : "Failed to update display name",
-        });
+        console.error(err);
+        t.error("update");
       } finally {
         markPending(account.userId, false);
       }
     },
-    [applyAccount, cancelNameEdit, editingName, isSuperAdmin, markPending],
+    [applyAccount, cancelNameEdit, editingName, isSuperAdmin, markPending, t],
   );
 
   const handleResetPassword = useCallback(
@@ -444,15 +406,13 @@ export default function AccountsManager() {
           password: json.data.temporary_password as string,
         });
       } catch (err) {
-        setBanner({
-          kind: "error",
-          message: err instanceof Error ? err.message : "Failed to reset password",
-        });
+        console.error(err);
+        t.error("reset");
       } finally {
         markPending(account.userId, false);
       }
     },
-    [confirm, isSuperAdmin, markPending],
+    [confirm, isSuperAdmin, markPending, t],
   );
 
   // ── derived ───────────────────────────────────────────────────────
@@ -948,11 +908,7 @@ export default function AccountsManager() {
               password: result.temporary_password,
             });
           } else {
-            setBanner({
-              kind: "success",
-              message:
-                "초대 메일을 발송했습니다: " + (result.account.email ?? ""),
-            });
+            t.success("create", "초대 메일을 발송했습니다.");
           }
         }}
       />

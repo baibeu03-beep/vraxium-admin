@@ -5,7 +5,6 @@ import {
   Plus,
   Search,
   Check,
-  X,
   Upload,
   Trash2,
   Pencil,
@@ -49,12 +48,13 @@ import {
   OUTPUT_LINK_LABEL_MAX_LENGTH,
 } from "@/lib/cluster4OutputLinks";
 import { OUTPUT_IMAGE_CAPTION_MAX_LENGTH } from "@/lib/cluster4OutputImages";
+import { useToast } from "@/components/ui/toast";
+import { useActionToast } from "@/lib/actionToast";
+import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
 
 // ──────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────
-
-type Banner = { kind: "success" | "error"; message: string } | null;
 
 type TeamItem = {
   id: string;
@@ -622,7 +622,8 @@ export default function PracticalCareerManager() {
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const [saving, setSaving] = useState(false);
-  const [banner, setBanner] = useState<Banner>(null);
+  const { toast } = useToast();
+  const t = useActionToast();
 
   const cycleProjectSort = (key: RegColKey) => {
     setProjectSort((prev) => {
@@ -827,7 +828,7 @@ export default function PracticalCareerManager() {
       if (crewsJson.success) setCrews(crewsJson.data);
     } catch (error) {
       console.error("Failed to fetch data", error);
-      setBanner({ kind: "error", message: "데이터를 불러오는데 실패했습니다" });
+      toast("error", "데이터를 불러오는데 실패했습니다");
     } finally {
       setLoading(false);
     }
@@ -907,19 +908,18 @@ export default function PracticalCareerManager() {
   }, []);
 
   const handleSaveProject = useCallback(async () => {
-    if (!rfLineCode.trim()) { setBanner({ kind: "error", message: "라인 코드를 입력해주세요" }); return; }
-    if (!rfLineName.trim()) { setBanner({ kind: "error", message: "라인명을 입력해주세요" }); return; }
-    if (!rfStartDate) { setBanner({ kind: "error", message: "시작일을 입력해주세요" }); return; }
-    if (!rfEndDate) { setBanner({ kind: "error", message: "종료일을 입력해주세요" }); return; }
-    if (rfEndDate < rfStartDate) { setBanner({ kind: "error", message: "종료일은 시작일 이후여야 합니다" }); return; }
-    if (!rfCompanyName.trim()) { setBanner({ kind: "error", message: "기업명을 입력해주세요" }); return; }
-    if (!rfCompanyLogo.trim()) { setBanner({ kind: "error", message: "기업 로고를 등록해주세요" }); return; }
-    if (!rfSupervisorName.trim()) { setBanner({ kind: "error", message: "담당자명을 입력해주세요" }); return; }
-    if (rfSelectedUserIds.size === 0) { setBanner({ kind: "error", message: "선발 크루를 최소 1명 이상 선택해주세요" }); return; }
-    if (rfAssetCount > 2) { setBanner({ kind: "error", message: "Output은 최대 2개까지 입력 가능합니다" }); return; }
+    if (!rfLineCode.trim()) { toast("error", "라인 코드를 입력해주세요"); return; }
+    if (!rfLineName.trim()) { toast("error", "라인명을 입력해주세요"); return; }
+    if (!rfStartDate) { toast("error", "시작일을 입력해주세요"); return; }
+    if (!rfEndDate) { toast("error", "종료일을 입력해주세요"); return; }
+    if (rfEndDate < rfStartDate) { toast("error", "종료일은 시작일 이후여야 합니다"); return; }
+    if (!rfCompanyName.trim()) { toast("error", "기업명을 입력해주세요"); return; }
+    if (!rfCompanyLogo.trim()) { toast("error", "기업 로고를 등록해주세요"); return; }
+    if (!rfSupervisorName.trim()) { toast("error", "담당자명을 입력해주세요"); return; }
+    if (rfSelectedUserIds.size === 0) { toast("error", "선발 크루를 최소 1명 이상 선택해주세요"); return; }
+    if (rfAssetCount > 2) { toast("error", "Output은 최대 2개까지 입력 가능합니다"); return; }
 
     setSaving(true);
-    setBanner(null);
     try {
       const defaultOutputImages: string[] = [];
       if (rfOutputImage) defaultOutputImages.push(rfOutputImage.url);
@@ -956,17 +956,15 @@ export default function PracticalCareerManager() {
       });
       const json = await res.json();
       if (!json.success && !json.data) {
-        setBanner({ kind: "error", message: json.error ?? "저장 실패" });
+        console.error("[career] save failed", json?.error);
+        t.error("save", { status: res.status });
         return;
       }
-      setBanner({
-        kind: "success",
-        message: editingProjectId ? "경력 라인이 수정되었습니다" : "경력 라인이 등록되었습니다",
-      });
+      toast("success", editingProjectId ? "경력 라인이 수정되었습니다" : "경력 라인이 등록되었습니다");
       resetRegForm();
       await fetchInitialData();
     } catch {
-      setBanner({ kind: "error", message: "저장 중 오류가 발생했습니다" });
+      toast("error", "저장 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
@@ -984,11 +982,11 @@ export default function PracticalCareerManager() {
     try {
       const res = await fetch(`/api/admin/career-projects/${id}`, { method: "DELETE" });
       const json = await res.json();
-      if (!json.success) { setBanner({ kind: "error", message: json.error ?? "삭제 실패" }); return; }
-      setBanner({ kind: "success", message: "삭제되었습니다" });
+      if (!json.success) { console.error("[career] delete failed", json?.error); t.error("delete", { status: res.status }); return; }
+      toast("success", "삭제되었습니다");
       await fetchInitialData();
     } catch {
-      setBanner({ kind: "error", message: "삭제 중 오류가 발생했습니다" });
+      toast("error", "삭제 중 오류가 발생했습니다");
     }
   }, [fetchInitialData]);
 
@@ -1054,32 +1052,31 @@ export default function PracticalCareerManager() {
   const canOpenSelected = selectedWeek ? selectedWeek.canOpen : !!currentWeek?.weekId;
 
   const handleSaveLine = useCallback(async () => {
-    if (!selectedWeekId) { setBanner({ kind: "error", message: "주차를 선택해주세요" }); return; }
+    if (!selectedWeekId) { toast("error", "주차를 선택해주세요"); return; }
     const targetWeekId = selectedWeek?.id ?? null;
-    if (!targetWeekId) { setBanner({ kind: "error", message: "선택한 주차 정보를 확인할 수 없습니다" }); return; }
-    if (!selectedWeek?.canOpen) { setBanner({ kind: "error", message: "선택한 주차는 라인 개설이 불가합니다" }); return; }
-    if (!selectedOption) { setBanner({ kind: "error", message: "경력 라인을 선택해주세요" }); return; }
-    if (!lineMainTitle.trim()) { setBanner({ kind: "error", message: "메인 타이틀을 입력해주세요" }); return; }
+    if (!targetWeekId) { toast("error", "선택한 주차 정보를 확인할 수 없습니다"); return; }
+    if (!selectedWeek?.canOpen) { toast("error", "선택한 주차는 라인 개설이 불가합니다"); return; }
+    if (!selectedOption) { toast("error", "경력 라인을 선택해주세요"); return; }
+    if (!lineMainTitle.trim()) { toast("error", "메인 타이틀을 입력해주세요"); return; }
     if (!lineAssetValid) {
-      setBanner({
-        kind: "error",
-        message: lineAssetCount < 1
+      toast(
+        "error",
+        lineAssetCount < 1
           ? "Output을 최소 1개 입력해주세요"
           : "Output은 최대 2개까지 입력 가능합니다",
-      });
+      );
       return;
     }
-    if (lineSelectedUserIds.size === 0) { setBanner({ kind: "error", message: "개설 대상을 최소 1명 이상 선택해주세요" }); return; }
-    if (!loCompanyName.trim()) { setBanner({ kind: "error", message: "기업명을 입력해주세요" }); return; }
+    if (lineSelectedUserIds.size === 0) { toast("error", "개설 대상을 최소 1명 이상 선택해주세요"); return; }
+    if (!loCompanyName.trim()) { toast("error", "기업명을 입력해주세요"); return; }
     const built = buildOutputLinksFromForm([
       { url: lineLink1, label: lineLabel1 },
       { url: lineLink2, label: lineLabel2 },
     ]);
-    if (!built.ok) { setBanner({ kind: "error", message: built.error }); return; }
+    if (!built.ok) { toast("error", built.error); return; }
     const outputLinks = built.value;
 
     setSaving(true);
-    setBanner(null);
     try {
       // 1) 기업/감독자(sponsor-card) 6필드를 연결된 career_project 에 먼저 PATCH.
       //    target/line 생성 로직은 아래에서 기존대로 수행한다(분리 유지).
@@ -1101,7 +1098,8 @@ export default function PracticalCareerManager() {
       );
       const metaJson = await metaRes.json();
       if (!metaJson.success) {
-        setBanner({ kind: "error", message: metaJson.error ?? "기업/감독자 정보 저장에 실패했습니다" });
+        console.error("[career] sponsor-meta save failed", metaJson?.error);
+        t.error("save", { status: metaRes.status });
         return;
       }
       // output_images = [{url, caption}] — 이미지 있는 항목만 포함. 캡션 비우면 null.
@@ -1145,16 +1143,14 @@ export default function PracticalCareerManager() {
       });
 
       const json = await res.json();
-      if (!json.success) { setBanner({ kind: "error", message: json.error ?? "저장에 실패했습니다" }); return; }
-      setBanner({
-        kind: "success",
-        message: `실무 경력 라인이 개설되었습니다 (대상: ${json.data?.targetCount ?? 0}명)`,
-      });
+      if (!json.success) { console.error("[career] open failed", json?.error); t.error("open", { status: res.status }); return; }
+      console.warn("[line-opening] career open result", { targetCount: json.data?.targetCount ?? 0 });
+      toast("success", LINE_OPENING_RESULT.openSuccess);
       resetLineForm();
       setLineRefreshKey((k) => k + 1);
       await fetchInitialData();
     } catch {
-      setBanner({ kind: "error", message: "저장 중 오류가 발생했습니다" });
+      toast("error", "저장 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
@@ -1369,22 +1365,6 @@ export default function PracticalCareerManager() {
         </h1>
         <AdminHelp />
       </div>
-
-      {banner && (
-        <div
-          className={cn(
-            "rounded-md border px-4 py-3 text-sm",
-            banner.kind === "success"
-              ? "border-green-300 bg-green-50 text-green-800"
-              : "border-red-300 bg-red-50 text-red-800",
-          )}
-        >
-          {banner.message}
-          <button className="float-right" onClick={() => setBanner(null)}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b">

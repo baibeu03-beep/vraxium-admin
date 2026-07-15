@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { LoadingState } from "@/components/ui/loading-state";
 import { cn } from "@/lib/utils";
+import { useActionToast } from "@/lib/actionToast";
 import { pointColorClass } from "@/components/ui/point-value";
 import { formatClubDate } from "@/lib/clubDate";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
@@ -1060,6 +1061,7 @@ export default function Cluster4Editor({
 }) {
   const devMode = useAdminDevMode();
   const confirm = useConfirm();
+  const t = useActionToast();
   const [activeTab, setActiveTab] = useState<TabKey>("weekly_growth");
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
@@ -1167,12 +1169,6 @@ export default function Cluster4Editor({
     return () => window.clearTimeout(timeoutId);
   }, [loadAll]);
 
-  useEffect(() => {
-    if (!banner || banner.kind !== "success") return;
-    const timer = window.setTimeout(() => setBanner(null), 4000);
-    return () => window.clearTimeout(timer);
-  }, [banner]);
-
   const savedForm = useMemo(() => syncFormFromBundle(bundle), [bundle]);
   const weekLabels = useMemo(() => buildWeekLabelMap(bundle.weeks), [bundle.weeks]);
   const getWeekLabel = useCallback(
@@ -1254,27 +1250,21 @@ export default function Cluster4Editor({
         if (!res.ok || !json.success) {
           throw new Error(json?.error ?? "작성 기간 변경에 실패했습니다.");
         }
-        setBanner({
-          kind: "success",
-          message:
-            action === "close"
-              ? "위클리 리뷰 작성 기간을 닫았습니다."
-              : "위클리 리뷰 작성 기간을 열었습니다.",
-        });
+        t.raw(
+          "success",
+          action === "close"
+            ? "위클리 리뷰 작성 기간을 닫았습니다."
+            : "위클리 리뷰 작성 기간을 열었습니다.",
+        );
         await loadAll();
       } catch (error) {
-        setBanner({
-          kind: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "작성 기간 변경에 실패했습니다.",
-        });
+        console.error("[Cluster4Editor] edit-window change failed", error);
+        t.error("update", { message: "작성 기간 변경에 실패했습니다." });
       } finally {
         setWindowBusyWeek(null);
       }
     },
-    [bundle.userId, loadAll],
+    [bundle.userId, loadAll, t],
   );
 
   const dirty = useMemo(() => {
@@ -1366,12 +1356,10 @@ export default function Cluster4Editor({
       setWarnings(Array.isArray(json.warnings) ? json.warnings : []);
       setLastApplied((json.applied ?? null) as Cluster4ApplySummary | null);
       setLastSavedAt(new Date().toISOString());
-      setBanner({ kind: "success", message: "저장되었습니다." });
+      t.success("save");
     } catch (error) {
-      setBanner({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Failed to save.",
-      });
+      console.error("[Cluster4Editor] save failed", error);
+      t.error("save");
     } finally {
       setSaving(false);
     }
@@ -1417,12 +1405,10 @@ export default function Cluster4Editor({
       setForm(syncFormFromBundle(nextBundle));
       setLastSavedAt(new Date().toISOString());
       setLastApplied(null);
-      setBanner({ kind: "success", message: "삭제되었습니다." });
+      t.success("delete");
     } catch (error) {
-      setBanner({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Failed to delete.",
-      });
+      console.error("[Cluster4Editor] delete failed", error);
+      t.error("delete");
     } finally {
       setSaving(false);
     }

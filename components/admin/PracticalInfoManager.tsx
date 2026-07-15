@@ -63,12 +63,13 @@ import {
   type EnhancementFilter,
 } from "@/components/admin/cluster4/enhancementBadges";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
+import { useToast } from "@/components/ui/toast";
+import { useActionToast } from "@/lib/actionToast";
+import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
 
 // ──────────────────────────────────────────────────────────────
 // Types
 // ──────────────────────────────────────────────────────────────
-
-type Banner = { kind: "success" | "error"; message: string } | null;
 
 type CurrentWeekData = {
   weekId: string | null;
@@ -717,7 +718,8 @@ export default function PracticalInfoManager() {
   // 전역 로딩 배너 보고 — 최초 로딩 + 라인 재조회(필터 변경).
   useReportLoading(loading || linesLoading);
   const [saving, setSaving] = useState(false);
-  const [banner, setBanner] = useState<Banner>(null);
+  const { toast } = useToast();
+  const t = useActionToast();
 
   // Form state
   const [showForm, setShowForm] = useState(false);
@@ -909,7 +911,7 @@ export default function PracticalInfoManager() {
       if (usersJson.success) setUsers(usersJson.data);
     } catch (error) {
       console.error("Failed to fetch meta", error);
-      setBanner({ kind: "error", message: "데이터를 불러오는데 실패했습니다" });
+      toast("error", "데이터를 불러오는데 실패했습니다");
     }
   }, []);
 
@@ -939,7 +941,8 @@ export default function PracticalInfoManager() {
         setDetailLines(json.data.rows ?? []);
       } else {
         setDetailLines([]);
-        setBanner({ kind: "error", message: json.error ?? "라인 목록을 불러오지 못했습니다" });
+        console.error("[info] line list load failed", json?.error);
+        toast("error", "라인 목록을 불러오지 못했습니다");
       }
     } catch (error) {
       console.error("Failed to fetch lines", error);
@@ -1016,7 +1019,6 @@ export default function PracticalInfoManager() {
       setActiveTypeId(typeId);
       setShowForm(false);
       resetForm();
-      setBanner(null);
     },
     [resetForm],
   );
@@ -1057,40 +1059,39 @@ export default function PracticalInfoManager() {
   // ── Save (신규 라인 개설) — 활동 유형은 현재 탭으로 고정 ──
   const handleSave = useCallback(async () => {
     if (!activeTypeId) {
-      setBanner({ kind: "error", message: "활동 유형 탭을 선택해주세요" });
+      toast("error", "활동 유형 탭을 선택해주세요");
       return;
     }
     if (!selectedWeekId) {
-      setBanner({ kind: "error", message: "주차를 선택해주세요" });
+      toast("error", "주차를 선택해주세요");
       return;
     }
     const targetWeekId = selectedWeek?.id ?? null;
     const targetOpens = selectedWeek?.submissionOpensAt ?? null;
     const targetCloses = selectedWeek?.submissionClosesAt ?? null;
     if (!targetWeekId || !targetOpens || !targetCloses) {
-      setBanner({ kind: "error", message: "선택한 주차 정보를 확인할 수 없습니다" });
+      toast("error", "선택한 주차 정보를 확인할 수 없습니다");
       return;
     }
     if (!selectedWeek?.canOpen) {
-      setBanner({ kind: "error", message: "선택한 주차는 라인 개설이 불가합니다" });
+      toast("error", "선택한 주차는 라인 개설이 불가합니다");
       return;
     }
     if (!mainTitle.trim()) {
-      setBanner({ kind: "error", message: "메인 타이틀을 입력해주세요" });
+      toast("error", "메인 타이틀을 입력해주세요");
       return;
     }
     if (!assetValid) {
-      setBanner({
-        kind: "error",
-        message:
-          assetCount < 1
-            ? "Output을 최소 1개 입력해주세요"
-            : "Output은 최대 2개까지 입력 가능합니다",
-      });
+      toast(
+        "error",
+        assetCount < 1
+          ? "Output을 최소 1개 입력해주세요"
+          : "Output은 최대 2개까지 입력 가능합니다",
+      );
       return;
     }
     if (selectedUserIds.size === 0) {
-      setBanner({ kind: "error", message: "개설 대상을 최소 1명 이상 선택해주세요" });
+      toast("error", "개설 대상을 최소 1명 이상 선택해주세요");
       return;
     }
     const built = buildOutputLinksFromForm([
@@ -1098,13 +1099,12 @@ export default function PracticalInfoManager() {
       { url: outputLink2, label: outputLabel2 },
     ]);
     if (!built.ok) {
-      setBanner({ kind: "error", message: built.error });
+      toast("error", built.error);
       return;
     }
     const outputLinks = built.value;
 
     setSaving(true);
-    setBanner(null);
 
     try {
       // output_images = [{url, caption}] — 이미지 있는 항목만 포함. 캡션 비우면 null.
@@ -1152,14 +1152,15 @@ export default function PracticalInfoManager() {
       const json = await res.json();
 
       if (!json.success) {
-        setBanner({ kind: "error", message: json.error ?? "저장에 실패했습니다" });
+        console.error("[info] open failed", json?.error);
+        t.error("open", { status: res.status });
         return;
       }
 
-      setBanner({
-        kind: "success",
-        message: `라인이 생성되었습니다 (대상: ${json.data?.targetCount ?? 0}명)`,
+      console.warn("[line-opening] info open result", {
+        targetCount: json.data?.targetCount ?? 0,
       });
+      toast("success", LINE_OPENING_RESULT.openSuccess);
       resetForm();
       setShowForm(false);
       await fetchMeta();
@@ -1167,7 +1168,7 @@ export default function PracticalInfoManager() {
       await fetchWeekLines(selectedWeekId);
     } catch (error) {
       console.error("Save failed", error);
-      setBanner({ kind: "error", message: "저장 중 오류가 발생했습니다" });
+      toast("error", "저장 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
@@ -1283,23 +1284,6 @@ export default function PracticalInfoManager() {
         onSelectWeek={setSelectedWeekId}
         onWeekMetaResolved={setSelectedWeekMeta}
       />
-
-      {/* Banner */}
-      {banner && (
-        <div
-          className={cn(
-            "rounded-md border px-4 py-3 text-sm",
-            banner.kind === "success"
-              ? "border-green-300 bg-green-50 text-green-800"
-              : "border-red-300 bg-red-50 text-red-800",
-          )}
-        >
-          {banner.message}
-          <button className="float-right" onClick={() => setBanner(null)}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
 
       {/* Selected week summary("신규 개설 주차: …" + 기입 기간) — 신규 라인 개설 대상 주차를
           안내하던 개설 컨텍스트 문구. 라인 개설이 '라인 개설' 탭(?tab=open)으로 이관되어
@@ -1738,7 +1722,7 @@ export default function PracticalInfoManager() {
           activityTypeName={detailLine.activityTypeName ?? activeType?.name ?? "-"}
           onClose={() => setDetailLineId(null)}
           onSaved={(message) => {
-            setBanner({ kind: "success", message });
+            toast("success", message);
             setDetailLineId(null);
             fetchLines(activeTypeId, selectedWeekId);
             fetchWeekLines(selectedWeekId);

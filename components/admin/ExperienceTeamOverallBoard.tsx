@@ -1,16 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RotateCcw, Eye, CheckCircle2, XCircle, X } from "lucide-react";
+import { RotateCcw, Eye, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { useToast } from "@/components/ui/toast";
+import { useActionToast } from "@/lib/actionToast";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { LoadingState } from "@/components/ui/loading-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { LINE_OPENING_RESULT, lineOpenSuccessMessage } from "@/lib/lineOpeningResultMessages";
 import {
   Table,
   TableBody,
@@ -41,8 +43,6 @@ import {
 //   행=전 파트 크루(+파트장), 열=도출/분석/견문(파트신청 라이브, 읽기전용) + 관리/확장(팀장 입력).
 //   확장은 확장 주간에만 활성. 카테고리별 아웃풋 링크/설명 입력(이미지는 라인 등록값 자동).
 //   버튼 4종: [개설 검수](에이전트 임시저장) · [초기화](프론트 전용) · [개설 완료](팀장, 고객 반영) · [개설 취소](완료 원복).
-
-type Banner = { kind: "success" | "error"; message: string } | null;
 
 const leaderKey = (userId: string, category: ExperienceOverallCategory) =>
   `${userId}::${category}`;
@@ -103,9 +103,9 @@ export default function ExperienceTeamOverallBoard({
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
   const [saving, setSaving] = useState(false);
-  const [banner, setBanner] = useState<Banner>(null);
   // 검수 차단(미신청 파트 등) 안내는 화면 하단 고정 Toast(<ToastViewport /> · Layout)로 표시.
   const { toast } = useToast();
+  const t = useActionToast();
 
   // 팀장 직접 입력(관리/확장) 로컬 편집값.
   const [leaderCells, setLeaderCells] = useState<Map<string, OverallCell>>(new Map());
@@ -217,15 +217,16 @@ export default function ExperienceTeamOverallBoard({
         hydrate(b);
       } else {
         setBoard(null);
-        setBanner({ kind: "error", message: json?.error ?? "팀 총괄 데이터를 불러오지 못했습니다" });
+        console.error("[experience] team-overall load failed", json?.error);
+        toast("error", "팀 총괄 데이터를 불러오지 못했습니다");
       }
     } catch {
       setBoard(null);
-      setBanner({ kind: "error", message: "팀 총괄 데이터를 불러오지 못했습니다" });
+      toast("error", "팀 총괄 데이터를 불러오지 못했습니다");
     } finally {
       setLoading(false);
     }
-  }, [organization, teamId, teamName, weekId, mode, hydrate]);
+  }, [organization, teamId, teamName, weekId, mode, hydrate, toast]);
 
   useEffect(() => {
     // setState 는 effect 본문이 아닌 async 콜백 안에서 호출(동기 cascading 렌더 방지 — 프로젝트 표준 패턴).
@@ -362,22 +363,25 @@ export default function ExperienceTeamOverallBoard({
   // ── 버튼 핸들러 ──
   const onReview = useCallback(async () => {
     setSaving(true);
-    setBanner(null);
     try {
       const json = await post("review");
       if (!json?.success) {
-        const message = typeof json?.error === "string" ? json.error : "개설 검수 저장에 실패했습니다";
+        const rawError = typeof json?.error === "string" ? json.error : "";
+        console.error("[experience] team-overall review failed", json?.error);
         // 미신청 파트 등 검수 차단 사유는 하단 고정 Toast 로 안내(파트명만·UUID 없음).
         //   미신청/대상없음(정상 사용자 안내) = warning, 그 외 오류 = error. 상시 인라인 경고/모달 없음.
-        const isGuidance =
-          message.startsWith(OVERALL_APPLICATION_INCOMPLETE_MESSAGE) ||
-          message.startsWith(OVERALL_NO_TARGET_PARTS_MESSAGE);
-        toast(isGuidance ? "warning" : "error", message);
+        if (rawError.startsWith(OVERALL_NO_TARGET_PARTS_MESSAGE)) {
+          toast("warning", OVERALL_NO_TARGET_PARTS_MESSAGE);
+        } else if (rawError.startsWith(OVERALL_APPLICATION_INCOMPLETE_MESSAGE)) {
+          toast("warning", OVERALL_APPLICATION_INCOMPLETE_MESSAGE);
+        } else {
+          t.error("review");
+        }
         return;
       }
       // 성공 안내는 하단 고정 Toast 로만(성공 배너/카드 추가 금지). 검수=임시저장(크루 미반영)이라
       //   "N명 반영" 문구는 붙이지 않는다(실제 반영은 팀장 [개설 완료] 단계).
-      toast("success", "개설 검수가 완료되었습니다.");
+      toast("success", LINE_OPENING_RESULT.reviewSuccess);
       await fetchBoard();
       onActivity?.();
     } catch {
@@ -427,11 +431,8 @@ export default function ExperienceTeamOverallBoard({
     }
     setLeaderCells(lc);
     setOutputs(new Map());
-    setBanner({
-      kind: "success",
-      message: "입력값을 기본값으로 초기화했습니다 (저장 안 됨 — 개설 검수/완료 시 저장)",
-    });
-  }, [allCrews]);
+    toast("success", LINE_OPENING_RESULT.resetSuccess);
+  }, [allCrews, toast]);
 
   const onOpen = useCallback(async () => {
     if (
@@ -443,11 +444,11 @@ export default function ExperienceTeamOverallBoard({
     )
       return;
     setSaving(true);
-    setBanner(null);
     try {
       const json = await post("open");
       if (!json?.success) {
-        setBanner({ kind: "error", message: json?.error ?? "개설 완료에 실패했습니다" });
+        console.error("[experience] team-overall open failed", json?.error);
+        t.error("open");
         return;
       }
       const d = json.data as {
@@ -456,17 +457,16 @@ export default function ExperienceTeamOverallBoard({
         evaluationsCreated: number;
       };
       const warnings: string[] = json.warnings ?? [];
-      let msg = `개설 완료 — 라인 ${d.linesCreated}개, 대상 ${d.targetsCreated}명, 평가 ${d.evaluationsCreated}건 (크루 페이지 반영)`;
-      if (warnings.length > 0) msg += ` · 경고 ${warnings.length}건: ${warnings.join(" / ")}`;
-      setBanner({ kind: warnings.length > 0 ? "error" : "success", message: msg });
+      console.warn("[line-opening] open result", { linesCreated: d.linesCreated, targetsCreated: d.targetsCreated, evaluationsCreated: d.evaluationsCreated, warnings });
+      toast("success", lineOpenSuccessMessage(warnings.length > 0));
       await fetchBoard();
       onActivity?.();
     } catch {
-      setBanner({ kind: "error", message: "개설 완료 중 오류가 발생했습니다" });
+      toast("error", "개설 완료 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
-  }, [post, fetchBoard, onActivity]);
+  }, [post, fetchBoard, onActivity, toast]);
 
   const onCancel = useCallback(async () => {
     if (
@@ -479,26 +479,24 @@ export default function ExperienceTeamOverallBoard({
     )
       return;
     setSaving(true);
-    setBanner(null);
     try {
       const json = await post("cancel");
       if (!json?.success) {
-        setBanner({ kind: "error", message: json?.error ?? "개설 취소에 실패했습니다" });
+        console.error("[experience] team-overall cancel failed", json?.error);
+        t.error("cancel");
         return;
       }
       const d = json.data as { linesRemoved: number };
-      setBanner({
-        kind: "success",
-        message: `개설 취소 — 라인 ${d.linesRemoved}개 원복되었습니다 (크루 페이지 원복)`,
-      });
+      console.warn("[line-opening] cancel result", { linesRemoved: d.linesRemoved });
+      toast("success", LINE_OPENING_RESULT.cancelSuccess);
       await fetchBoard();
       onActivity?.();
     } catch {
-      setBanner({ kind: "error", message: "개설 취소 중 오류가 발생했습니다" });
+      toast("error", "개설 취소 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
-  }, [post, fetchBoard, onActivity]);
+  }, [post, fetchBoard, onActivity, toast]);
 
   if (loading) {
     return <LoadingState active />;
@@ -531,22 +529,6 @@ export default function ExperienceTeamOverallBoard({
           </span>
         )}
       </div>
-
-      {banner && (
-        <div
-          className={cn(
-            "whitespace-pre-wrap rounded-md border px-3 py-2 text-sm",
-            banner.kind === "success"
-              ? "border-green-300 bg-green-50 text-green-800"
-              : "border-red-300 bg-red-50 text-red-800",
-          )}
-        >
-          {banner.message}
-          <button className="float-right" onClick={() => setBanner(null)}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      )}
 
       {/* 데스크톱(lg+): 좌측 콘텐츠(그리드+아웃풋) + 우측 고정 액션 컬럼. 모바일: 세로 stack.
           파트 선택(PartGrid) 화면의 우측 액션 영역과 동일 구조. */}

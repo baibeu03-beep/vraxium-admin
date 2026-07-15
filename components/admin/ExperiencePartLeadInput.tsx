@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { RotateCcw, Send, User, X } from "lucide-react";
+import { RotateCcw, Send, User } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,6 +21,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/components/ui/toast";
+import { LINE_OPENING_RESULT } from "@/lib/lineOpeningResultMessages";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -62,7 +64,6 @@ type WeekOption = {
   isCurrent: boolean;
   isOpenTarget: boolean;
 };
-type Banner = { kind: "success" | "error"; message: string } | null;
 
 const cellKey = (crewUserId: string, lineType: ExperiencePartLineType) =>
   `${crewUserId}:${lineType}`;
@@ -73,6 +74,7 @@ export default function ExperiencePartLeadInput({
   // 신청/취소·팀총괄 검수/완료/취소 직후 상위(상태창·로그창) 갱신 신호.
   onActivity?: () => void;
 } = {}) {
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -107,7 +109,6 @@ export default function ExperiencePartLeadInput({
   const [partsLoading, setPartsLoading] = useState(false);
   const [gridLoading, setGridLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [banner, setBanner] = useState<Banner>(null);
 
   const selectedTeam = useMemo(
     () => teams.find((t) => t.id === selectedTeamId) ?? null,
@@ -273,7 +274,7 @@ export default function ExperiencePartLeadInput({
           teamList.find((t) => t.teamName === actorData?.teamName) ?? teamList[0];
         setSelectedTeamId((prev) => prev || (defaultTeam?.id ?? ""));
       } catch {
-        if (!cancelled) setBanner({ kind: "error", message: "초기 데이터를 불러오지 못했습니다" });
+        if (!cancelled) toast("error", "초기 데이터를 불러오지 못했습니다");
       } finally {
         if (!cancelled) setBootLoading(false);
       }
@@ -393,7 +394,7 @@ export default function ExperiencePartLeadInput({
       }
     } catch {
       setData(null);
-      setBanner({ kind: "error", message: "그리드 데이터를 불러오지 못했습니다" });
+      toast("error", "그리드 데이터를 불러오지 못했습니다");
     } finally {
       setGridLoading(false);
     }
@@ -421,14 +422,12 @@ export default function ExperiencePartLeadInput({
         return; // 차단 — 팀 전환하지 않음.
       }
       setSelectedTeamId(teamId);
-      setBanner(null);
     },
     [teams, teamAllowed],
   );
 
   const onSelectPart = useCallback((p: string) => {
     setPart(p);
-    setBanner(null);
   }, []);
 
   // 주차 변경 — 상태 + URL(?week) 동기화. URL 을 SoT 로 삼아 (a) 새로고침 후 선택 주차 유지,
@@ -437,7 +436,6 @@ export default function ExperiencePartLeadInput({
   const onSelectWeek = useCallback(
     (weekId: string) => {
       setSelectedWeekId(weekId);
-      setBanner(null);
       const params = new URLSearchParams(searchParams?.toString() ?? "");
       if (weekId) params.set("week", weekId);
       else params.delete("week");
@@ -493,13 +491,12 @@ export default function ExperiencePartLeadInput({
       }
     }
     setLocalCells(next);
-    setBanner({ kind: "success", message: "입력값을 기본값으로 초기화했습니다 (저장 안 됨)" });
+    toast("success", LINE_OPENING_RESULT.resetSuccess);
   }, [data]);
 
   const submit = useCallback(async () => {
     if (!selectedTeam || !selectedWeekId || part === TEAM_OVERALL) return;
     setSaving(true);
-    setBanner(null);
     try {
       const cells: PartInputCellDto[] = [];
       for (const crew of data?.crews ?? []) {
@@ -530,14 +527,14 @@ export default function ExperiencePartLeadInput({
       });
       const json = await res.json();
       if (!json?.success) {
-        setBanner({ kind: "error", message: json?.error ?? "신청에 실패했습니다" });
+        toast("error", "신청에 실패했습니다");
         return;
       }
-      setBanner({ kind: "success", message: "개설 신청이 완료되었습니다" });
+      toast("success", LINE_OPENING_RESULT.applySuccess);
       await fetchGrid();
       onActivity?.();
     } catch {
-      setBanner({ kind: "error", message: "신청 중 오류가 발생했습니다" });
+      toast("error", "신청 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
@@ -547,7 +544,6 @@ export default function ExperiencePartLeadInput({
     if (!selectedTeam || !selectedWeekId || part === TEAM_OVERALL) return;
     if (!data?.submitted) return; // 연속 2회 취소 방지(신청 상태에서만 가능)
     setSaving(true);
-    setBanner(null);
     try {
       const qs = new URLSearchParams();
       if (org) qs.set("organization", org);
@@ -563,14 +559,14 @@ export default function ExperiencePartLeadInput({
       );
       const json = await res.json();
       if (!json?.success) {
-        setBanner({ kind: "error", message: json?.error ?? "신청 취소에 실패했습니다" });
+        toast("error", "신청 취소에 실패했습니다");
         return;
       }
-      setBanner({ kind: "success", message: "신청이 취소되었습니다" });
+      toast("success", LINE_OPENING_RESULT.applyCancelSuccess);
       await fetchGrid();
       onActivity?.();
     } catch {
-      setBanner({ kind: "error", message: "취소 중 오류가 발생했습니다" });
+      toast("error", "취소 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
@@ -733,22 +729,6 @@ export default function ExperiencePartLeadInput({
                 </div>
               </div>
             </div>
-
-            {banner && (
-              <div
-                className={cn(
-                  "rounded-md border px-3 py-2 text-sm",
-                  banner.kind === "success"
-                    ? "border-green-300 bg-green-50 text-green-800"
-                    : "border-red-300 bg-red-50 text-red-800",
-                )}
-              >
-                {banner.message}
-                <button className="float-right" onClick={() => setBanner(null)}>
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            )}
 
             {gridLoading || partsLoading ? (
               <LoadingState active />

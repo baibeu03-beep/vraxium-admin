@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
+import { useActionToast } from "@/lib/actionToast";
 import {
   CAREER_ENHANCEMENT_STATUSES,
   CAREER_GRADES,
@@ -238,6 +239,7 @@ export default function ActivityTab({
   onBanner,
   devMode,
 }: Props) {
+  const t = useActionToast();
   const [activeSub, setActiveSub] = useState<SubmissionTabKey>("work_info");
   // 미저장 편집: submission 은 lineTargetId 별, career 는 row id 별 patch 로 보관.
   const [submissionEdits, setSubmissionEdits] = useState<
@@ -396,12 +398,10 @@ export default function ActivityTab({
       }
       onBundleUpdate(json.data as Cluster4Bundle);
       clearSubmissionEdits(lineTargetId);
-      onBanner({ kind: "success", message: "저장되었습니다." });
+      t.success("save");
     } catch (error) {
-      onBanner({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Failed to save.",
-      });
+      console.error("[cluster4 activity] submission save failed", error);
+      t.error("save");
     } finally {
       setSavingRowId(null);
     }
@@ -453,17 +453,10 @@ export default function ActivityTab({
       } else {
         clearCareerEdits(rowId);
       }
-      onBanner({
-        kind: "success",
-        message: isDraft
-          ? "신규 Career Record 가 추가되었습니다."
-          : "저장되었습니다.",
-      });
+      t.success(isDraft ? "create" : "save");
     } catch (error) {
-      onBanner({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Failed to save.",
-      });
+      console.error("[cluster4 activity] career save failed", error);
+      t.error("save");
     } finally {
       setSavingRowId(null);
     }
@@ -504,12 +497,10 @@ export default function ActivityTab({
         throw new Error(json?.error ?? "Failed to delete.");
       }
       onBundleUpdate(json.data as Cluster4Bundle);
-      onBanner({ kind: "success", message: "삭제되었습니다." });
+      t.success("delete");
     } catch (error) {
-      onBanner({
-        kind: "error",
-        message: error instanceof Error ? error.message : "Failed to delete.",
-      });
+      console.error("[cluster4 activity] delete failed", error);
+      t.error("delete");
     } finally {
       setSavingRowId(null);
     }

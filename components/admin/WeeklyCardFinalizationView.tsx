@@ -33,10 +33,9 @@ import type {
   WeeklyCardFinalizationResult,
 } from "@/lib/adminWeeklyCardFinalizationTypes";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import { useActionToast } from "@/lib/actionToast";
 
 const ALL = "__all__";
-
-type Banner = { kind: "success" | "error" | "info"; message: string } | null;
 
 function formatDateTime(value: string | null | undefined) {
   return formatClubDateTime(value, "—");
@@ -137,7 +136,8 @@ export default function WeeklyCardFinalizationView() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [recomputing, setRecomputing] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
-  const [banner, setBanner] = useState<Banner>(null);
+  // 미리보기/업데이트/확정/검증의 액션 결과는 하단 공통 토스트로 안내한다.
+  const t = useActionToast();
 
   // 확정 후 자가 검증(데모/일반 동일 DTO 사용하는 실 주차 카드 API 재호출).
   const [demoUserId, setDemoUserId] = useState("");
@@ -152,12 +152,6 @@ export default function WeeklyCardFinalizationView() {
   // QA 모드(?mode=test) — 미리보기/확정 모두에 전파해야 백엔드 scope(테스트 코호트·qa_weeks_state)와
   //   정합한다. 미전파 시 테스트 모드 화면에서 확정 버튼이 운영 공표(실사용자 재계산)로 새는 위험.
   const mode = readScopeMode(useSearchParams());
-
-  useEffect(() => {
-    if (!banner) return;
-    const t = window.setTimeout(() => setBanner(null), 5000);
-    return () => window.clearTimeout(t);
-  }, [banner]);
 
   // 옵션(시즌/주차) 로드.
   const loadOptions = useCallback(async () => {
@@ -175,13 +169,12 @@ export default function WeeklyCardFinalizationView() {
       setSeasons(data.seasons);
       setWeeks(data.weeks);
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message: err instanceof Error ? err.message : "옵션 로드 실패",
-      });
+      console.error("[weekly-card-finalization] 옵션 로드 실패", err);
+      t.raw("error", "옵션을 불러오지 못했습니다.");
     } finally {
       setOptionsLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
   useEffect(() => {
@@ -239,15 +232,14 @@ export default function WeeklyCardFinalizationView() {
       applyResultPayload(data);
       // 옵션이 비어 있었으면 같이 갱신.
       if (data.weeks.length) setWeeks(data.weeks);
-      setBanner({ kind: "info", message: "집계 미리보기를 불러왔습니다." });
+      t.raw("info", "집계 미리보기를 불러왔습니다.");
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message: err instanceof Error ? err.message : "미리보기 실패",
-      });
+      console.error("[weekly-card-finalization] 미리보기 실패", err);
+      t.raw("error", "집계 미리보기를 불러오지 못했습니다.");
     } finally {
       setPreviewLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canQuery, seasonKey, weekNumber, org, mode]);
 
   // 2) snapshot 재계산(확정 플래그 불변).
@@ -269,18 +261,14 @@ export default function WeeklyCardFinalizationView() {
       }
       const data = json.data as WeeklyCardFinalizationResult;
       applyResultPayload(data);
-      setBanner({
-        kind: "success",
-        message: `카드 정보 업데이트 완료 (요청 ${data.snapshotRecompute.requested} · 성공 ${data.snapshotRecompute.recomputed} · 실패 ${data.snapshotRecompute.failed}).`,
-      });
+      t.success("save", "카드 정보 업데이트를 완료했습니다.");
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message: err instanceof Error ? err.message : "카드 정보 업데이트 실패",
-      });
+      console.error("[weekly-card-finalization] 카드 정보 업데이트 실패", err);
+      t.raw("error", "카드 정보 업데이트에 실패했습니다.");
     } finally {
       setRecomputing(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canQuery, buildBody, mode]);
 
   // 3) 집계 확정(공표 + 코호트 재계산).
@@ -303,20 +291,19 @@ export default function WeeklyCardFinalizationView() {
       const data = json.data as WeeklyCardFinalizationResult;
       applyResultPayload(data);
       const already = data.published?.alreadyFinalized;
-      setBanner({
-        kind: "success",
-        message: already
-          ? `이미 확정된 주차입니다. 대상 인원의 카드 정보를 업데이트했습니다 (성공 ${data.snapshotRecompute.recomputed}).`
-          : `집계 확정 완료. 대상 인원의 카드 정보를 업데이트했습니다 (성공 ${data.snapshotRecompute.recomputed} · 실패 ${data.snapshotRecompute.failed}).`,
-      });
+      t.success(
+        "save",
+        already
+          ? "이미 확정된 주차입니다. 대상 인원의 카드 정보를 업데이트했습니다."
+          : "집계 확정을 완료했습니다. 대상 인원의 카드 정보를 업데이트했습니다.",
+      );
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message: err instanceof Error ? err.message : "확정 실패",
-      });
+      console.error("[weekly-card-finalization] 집계 확정 실패", err);
+      t.raw("error", "집계 확정에 실패했습니다.");
     } finally {
       setFinalizing(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canQuery, buildBody, mode]);
 
   // 확정 후 검증: 실제 주차 카드 API 를 demoUserId 로 재호출해 해당 주차가 더 이상
@@ -355,13 +342,12 @@ export default function WeeklyCardFinalizationView() {
         });
       }
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message: err instanceof Error ? err.message : "검증 실패",
-      });
+      console.error("[weekly-card-finalization] 주차 카드 재조회 실패", err);
+      t.raw("error", "주차 카드 재조회에 실패했습니다.");
     } finally {
       setVerifying(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, demoUserId]);
 
   const seasonLabelByKey = useMemo(() => {
@@ -416,19 +402,6 @@ export default function WeeklyCardFinalizationView() {
           옵션 새로고침
         </Button>
       </div>
-
-      {banner && (
-        <div
-          className={cn(
-            "rounded-md border px-3 py-2 text-sm",
-            banner.kind === "success" && "border-emerald-200 bg-emerald-50 text-emerald-700",
-            banner.kind === "error" && "border-red-200 bg-red-50 text-red-700",
-            banner.kind === "info" && "border-sky-200 bg-sky-50 text-sky-700",
-          )}
-        >
-          {banner.message}
-        </div>
-      )}
 
       {/* 선택 */}
       <Card>

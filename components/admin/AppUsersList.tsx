@@ -37,6 +37,7 @@ import { ORGANIZATION_COMMON_LABEL } from "@/lib/organizations";
 import { ACCOUNT_STATUSES } from "@/lib/adminAppUsersTypes";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
+import { useActionToast } from "@/lib/actionToast";
 import type { ScopeMode } from "@/lib/userScopeShared";
 
 type AppUser = {
@@ -56,8 +57,6 @@ type OrganizationOption = {
   type: string | null;
 };
 
-type Banner = { kind: "success" | "error"; message: string } | null;
-
 const STATUS_ALL = "__all__";
 const ORG_NONE = "__none__";
 
@@ -72,6 +71,7 @@ function fmtDate(value: string | null | undefined) {
 
 export default function AppUsersList({ mode }: { mode: ScopeMode }) {
   const devMode = useAdminDevMode();
+  const t = useActionToast();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [total, setTotal] = useState(0);
   const [displayedCount, setDisplayedCount] = useState(0);
@@ -87,7 +87,6 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
     null,
   );
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
-  const [banner, setBanner] = useState<Banner>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedQuery(query.trim()), 250);
@@ -162,12 +161,6 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (!banner) return;
-    const timer = window.setTimeout(() => setBanner(null), 4500);
-    return () => window.clearTimeout(timer);
-  }, [banner]);
-
   const summary = useMemo(() => {
     if (loading) return "불러오는 중...";
     return total === displayedCount
@@ -223,16 +216,10 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
       const label = updatedSlug
         ? orgLookup.get(updatedSlug)?.name ?? updatedSlug
         : ORGANIZATION_COMMON_LABEL;
-      setBanner({
-        kind: "success",
-        message: `${user.displayName ?? user.userId} 소속을 ${label}(으)로 변경했습니다.`,
-      });
+      t.success("update", `소속을 ${label}(으)로 변경했습니다.`);
     } catch (err) {
-      setBanner({
-        kind: "error",
-        message:
-          err instanceof Error ? err.message : "Failed to update organization.",
-      });
+      console.error(err);
+      t.error("update");
     } finally {
       setSavingUserId(null);
     }
@@ -264,19 +251,6 @@ export default function AppUsersList({ mode }: { mode: ScopeMode }) {
           새로고침
         </Button>
       </div>
-
-      {banner && (
-        <div
-          className={cn(
-            "rounded-lg border px-4 py-3 text-sm",
-            banner.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700",
-          )}
-        >
-          {banner.message}
-        </div>
-      )}
 
       {organizationsError && (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

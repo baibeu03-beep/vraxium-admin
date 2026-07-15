@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { TableSkeletonRows } from "@/components/ui/table-skeleton";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
-import { cn } from "@/lib/utils";
+import { useActionToast } from "@/lib/actionToast";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 
 type Applicant = {
@@ -42,8 +42,6 @@ type UserProfileCandidate = {
   organizationSlug: string | null;
 };
 
-type Banner = { kind: "success" | "error"; message: string } | null;
-
 function fmt(value: string | null | undefined) {
   return value?.trim() ? value : "-";
 }
@@ -57,7 +55,7 @@ export default function ApplicantManager() {
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [loading, setLoading] = useState(true);
   useReportLoading(loading);
-  const [banner, setBanner] = useState<Banner>(null);
+  const t = useActionToast();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
@@ -92,11 +90,8 @@ export default function ApplicantManager() {
       setSelectedId(preferredApplicant?.id ?? null);
       setQuery(preferredApplicant?.name?.trim() || preferredApplicant?.email?.trim() || "");
     } catch (error) {
-      setBanner({
-        kind: "error",
-        message:
-          error instanceof Error ? error.message : "Failed to load applicants.",
-      });
+      console.error(error);
+      t.raw("error", "목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       setLoading(false);
     }
@@ -108,12 +103,6 @@ export default function ApplicantManager() {
     }, 0);
     return () => window.clearTimeout(timeoutId);
   }, []);
-
-  useEffect(() => {
-    if (!banner) return;
-    const timer = window.setTimeout(() => setBanner(null), 4500);
-    return () => window.clearTimeout(timer);
-  }, [banner]);
 
   useEffect(() => {
     if (!selected) return;
@@ -137,13 +126,8 @@ export default function ApplicantManager() {
         }
         setResults((json.data ?? []) as UserProfileCandidate[]);
       } catch (error) {
-        setBanner({
-          kind: "error",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Failed to search user_profiles.",
-        });
+        console.error(error);
+        t.raw("error", "검색하지 못했습니다. 잠시 후 다시 시도해주세요.");
       } finally {
         setSearchLoading(false);
       }
@@ -171,19 +155,12 @@ export default function ApplicantManager() {
         throw new Error(json?.error ?? "Failed to link applicant.");
       }
 
-      const profile = json.data?.profile as UserProfileCandidate | undefined;
-      setBanner({
-        kind: "success",
-        message: `Linked to ${profile?.displayName ?? profile?.userId ?? userId}.`,
-      });
+      t.raw("success", "회원 계정과 연결했습니다.");
       setResults([]);
       await refreshApplicants(selected.id);
     } catch (error) {
-      setBanner({
-        kind: "error",
-        message:
-          error instanceof Error ? error.message : "Failed to link applicant.",
-      });
+      console.error(error);
+      t.raw("error", "연결하지 못했습니다. 잠시 후 다시 시도해주세요.");
     } finally {
       setActing(false);
       setLinkingUserId(null);
@@ -204,18 +181,12 @@ export default function ApplicantManager() {
         throw new Error(json?.error ?? "Failed to reject applicant.");
       }
 
-      setBanner({
-        kind: "success",
-        message: `${selected.name ?? selected.email ?? "Applicant"} was rejected.`,
-      });
+      t.success("reject", "가입을 거절했습니다.");
       setResults([]);
       await refreshApplicants(selected.id);
     } catch (error) {
-      setBanner({
-        kind: "error",
-        message:
-          error instanceof Error ? error.message : "Failed to reject applicant.",
-      });
+      console.error(error);
+      t.error("reject");
     } finally {
       setActing(false);
     }
@@ -239,19 +210,6 @@ export default function ApplicantManager() {
           Refresh
         </Button>
       </div>
-
-      {banner && (
-        <div
-          className={cn(
-            "rounded-lg border px-4 py-3 text-sm",
-            banner.kind === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700",
-          )}
-        >
-          {banner.message}
-        </div>
-      )}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)]">
         <Card>
