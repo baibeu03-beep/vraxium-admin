@@ -2,7 +2,7 @@
 //   POST → 이 주차 결과를 최종 확정한다(액트 체크/라인 개설 검토 후 크루 결과 반영):
 //     ① 공표(weeks.result_published_at) + ② 코호트 weekly-cards snapshot 재계산
 //     + ③ 검수 완료(weeks.result_reviewed_at). weekly-card-finalization 과 동일 SoT·멱등.
-//   주차 전역(org 무관) — 목록/상세의 "주차 검수" V 컬럼과 동일 신호(weeks 직접 읽기).
+//   요청 club + mode 코호트만 확정한다. 다른 조직의 선행조건은 이 요청을 차단하지 않는다.
 
 import { NextRequest } from "next/server";
 import {
@@ -11,28 +11,10 @@ import {
   toAdminErrorResponse,
   type AdminContext,
 } from "@/lib/adminAuth";
-import { resolveAdminOrgAccess } from "@/lib/adminOrgAccess";
+import { guardAdminOrgAccess } from "@/lib/adminOrgAccess";
 import { isOrganizationSlug } from "@/lib/organizations";
 import { isUuid } from "@/lib/isUuid";
 
-// 통합 전용 게이트 — 개별(조직 컨텍스트=유효한 ?org)이거나 단일 조직 어드민(!isAllOrgs)이면 차단.
-//   통합/개별 SoT = URL 의 유효한 org 유무(org-optional 정책). 통합 검수 요청은 ?org 없이(=?club) 오고,
-//   개별 컨텍스트 요청은 ?org 를 달고 온다 → 통합만 통과. 현재 어드민 전원 owner 라 !isAllOrgs 는
-//   실사용상 미발동(향후 단일 조직 계정 대비 보존).
-async function assertIntegratedWriter(
-  request: NextRequest,
-  admin: AdminContext,
-): Promise<Response | null> {
-  const orgFocused = isOrganizationSlug(request.nextUrl.searchParams.get("org")?.trim() ?? "");
-  const access = await resolveAdminOrgAccess(admin);
-  if (orgFocused || !access.isAllOrgs) {
-    return Response.json(
-      { success: false, error: "주차 검수는 통합 관리자만 실행할 수 있습니다." },
-      { status: 403 },
-    );
-  }
-  return null;
-}
 import {
   markTeamPartsWeekReviewed,
   revertTeamPartsWeekReview,
@@ -57,7 +39,11 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     if (response) return response;
     throw error;
   }
-  const denied = await assertIntegratedWriter(request, admin);
+  const clubRaw = request.nextUrl.searchParams.get("club")?.trim() ?? "";
+  if (!isOrganizationSlug(clubRaw)) {
+    return Response.json({ success: false, error: "club must be a valid organization slug" }, { status: 400 });
+  }
+  const denied = await guardAdminOrgAccess(admin, clubRaw);
   if (denied) return denied;
   const actorId = admin.userId;
 
@@ -81,6 +67,7 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   try {
     const result = await markTeamPartsWeekReviewed(weekId, actorId, {
       scope,
+      organization: clubRaw,
       allowIncompleteTestData,
     });
     // DTO: { ok, weekId, reviewed, reviewedAt } (+ 확정 상세). success 래퍼는 프론트 호환 유지.
@@ -90,6 +77,8 @@ export async function POST(request: NextRequest, { params }: Ctx) {
       weekId: result.weekId,
       reviewed: result.reviewed,
       reviewedAt: result.reviewedAt,
+      organization: clubRaw,
+      mode: scope === "qa" ? "test" : "operating",
       data: result,
     });
   } catch (error) {
@@ -117,7 +106,11 @@ export async function DELETE(request: NextRequest, { params }: Ctx) {
     throw error;
   }
   // 실행 취소도 통합 전용 — POST 와 동일 게이트(개별 컨텍스트/단일 조직 어드민 403).
-  const denied = await assertIntegratedWriter(request, admin);
+  const clubRaw = request.nextUrl.searchParams.get("club")?.trim() ?? "";
+  if (!isOrganizationSlug(clubRaw)) {
+    return Response.json({ success: false, error: "club must be a valid organization slug" }, { status: 400 });
+  }
+  const denied = await guardAdminOrgAccess(admin, clubRaw);
   if (denied) return denied;
   const actorId = admin.userId;
 
@@ -128,7 +121,7 @@ export async function DELETE(request: NextRequest, { params }: Ctx) {
   const scope = resolveStateScopeFromRequest(request);
 
   try {
-    const result = await revertTeamPartsWeekReview(weekId, scope, actorId);
+    const result = await revertTeamPartsWeekReview(weekId, scope, actorId, clubRaw);
     return Response.json({ success: true, data: result });
   } catch (error) {
     if (error instanceof WeekDetailWriteError) {

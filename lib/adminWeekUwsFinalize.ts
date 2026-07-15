@@ -82,20 +82,26 @@ async function loadOpeningConfigForOrg(
 async function countValidOpenCheckStatuses(
   week: FinalizeWeekRow,
   effMode: "operating" | "test",
+  organization?: OrganizationSlug,
 ): Promise<{ pending: number; total: number }> {
   const weekId = week.id;
-  const { data: rows, error } = await supabaseAdmin
+  let rowsQuery = supabaseAdmin
     .from("process_check_statuses")
     .select("id,organization_slug,hub,line_group_id,act_id,team_id,status,scope_mode")
     .eq("week_id", weekId)
     .eq("scope_mode", effMode);
+  if (organization) rowsQuery = rowsQuery.eq("organization_slug", organization);
+  const { data: rows, error } = await rowsQuery;
   if (error) {
-    // 조회 실패 시 안전하게 raw count 로 폴백(과소차단보다 과대차단이 안전).
+    // 조회 실패 시에도 동일 org/mode scope를 유지한 raw count로 폴백한다.
     console.warn("[uws-finalize] 체크 상태 조회 실패 — raw count 폴백", { weekId, message: error.message });
-    const [{ count: p }, { count: t }] = await Promise.all([
-      supabaseAdmin.from("process_check_statuses").select("id", { count: "exact", head: true }).eq("week_id", weekId).eq("scope_mode", effMode).eq("status", "pending"),
-      supabaseAdmin.from("process_check_statuses").select("id", { count: "exact", head: true }).eq("week_id", weekId).eq("scope_mode", effMode),
-    ]);
+    let pendingQuery = supabaseAdmin.from("process_check_statuses").select("id", { count: "exact", head: true }).eq("week_id", weekId).eq("scope_mode", effMode).eq("status", "pending");
+    let totalQuery = supabaseAdmin.from("process_check_statuses").select("id", { count: "exact", head: true }).eq("week_id", weekId).eq("scope_mode", effMode);
+    if (organization) {
+      pendingQuery = pendingQuery.eq("organization_slug", organization);
+      totalQuery = totalQuery.eq("organization_slug", organization);
+    }
+    const [{ count: p }, { count: t }] = await Promise.all([pendingQuery, totalQuery]);
     return { pending: p ?? 0, total: t ?? 0 };
   }
   const statusRows = (rows ?? []) as Array<{
@@ -167,27 +173,32 @@ async function countValidOpenCheckStatuses(
 export async function assertWeekAccrualComplete(
   week: FinalizeWeekRow,
   scope: StateScope = "operating",
+  organization?: OrganizationSlug,
 ): Promise<AccrualGateResult> {
   const weekId = week.id;
   const effMode: "operating" | "test" =
     QA_HIDE_REAL_USERS || scope === "qa" ? "test" : "operating";
+  let irregularQuery = supabaseAdmin
+    .from("process_irregular_acts")
+    .select("id", { count: "exact", head: true })
+    .eq("week_id", weekId)
+    .eq("kind", "review_request")
+    .eq("status", "pending")
+    .eq("scope_mode", effMode);
+  if (organization) irregularQuery = irregularQuery.eq("organization_slug", organization);
+  let awardsQuery = week.iso_year != null && week.iso_week != null
+    ? supabaseAdmin
+        .from("process_point_awards")
+        .select("id", { count: "exact", head: true })
+        .eq("year", week.iso_year)
+        .eq("week_number", week.iso_week)
+        .eq("scope_mode", effMode)
+    : null;
+  if (organization && awardsQuery) awardsQuery = awardsQuery.eq("organization_slug", organization);
   const [validStatuses, pendIrr, awardCount] = await Promise.all([
-    countValidOpenCheckStatuses(week, effMode),
-    supabaseAdmin
-      .from("process_irregular_acts")
-      .select("id", { count: "exact", head: true })
-      .eq("week_id", weekId)
-      .eq("kind", "review_request")
-      .eq("status", "pending")
-      .eq("scope_mode", effMode),
-    week.iso_year != null && week.iso_week != null
-      ? supabaseAdmin
-          .from("process_point_awards")
-          .select("id", { count: "exact", head: true })
-          .eq("year", week.iso_year)
-          .eq("week_number", week.iso_week)
-          .eq("scope_mode", effMode)
-      : Promise.resolve({ count: 0 } as { count: number | null }),
+    countValidOpenCheckStatuses(week, effMode, organization),
+    irregularQuery,
+    awardsQuery ?? Promise.resolve({ count: 0 } as { count: number | null }),
   ]);
 
   const pendingChecks = validStatuses.pending;
@@ -230,6 +241,7 @@ export async function assertWeekAccrualComplete(
 //   readiness("실무 경험 활동 등록/결과 확인")와 finalize mass-fail 가드가 **동일 함수**를 공유한다.
 export async function loadExperienceLineWeekScope(
   weekId: string,
+  organization?: OrganizationSlug,
 ): Promise<{ lineIds: string[]; targetIds: string[] }> {
   const { data: tg } = await supabaseAdmin
     .from("cluster4_line_targets")
@@ -242,11 +254,13 @@ export async function loadExperienceLineWeekScope(
   const CHUNK = 200;
   for (let i = 0; i < candidateLineIds.length; i += CHUNK) {
     const chunk = candidateLineIds.slice(i, i + CHUNK);
-    const { data } = await supabaseAdmin
+    let lineQuery = supabaseAdmin
       .from("cluster4_lines")
       .select("id")
       .in("id", chunk)
       .eq("part_type", "experience");
+    if (organization) lineQuery = lineQuery.eq("organization_slug", organization);
+    const { data } = await lineQuery;
     for (const l of (data ?? []) as { id: string }[]) expLineIds.add(l.id);
   }
   const targetIds = tgRows.filter((r) => r.line_id != null && expLineIds.has(r.line_id)).map((r) => r.id);
@@ -262,6 +276,7 @@ type CohortMember = { userId: string; org: OrganizationSlug | null; seasonRest: 
 export async function loadFinalizeCohort(
   seasonKey: string,
   scope: StateScope,
+  organization?: OrganizationSlug,
 ): Promise<CohortMember[]> {
   const [{ data: ussData, error: ussErr }, testIds] = await Promise.all([
     supabaseAdmin
@@ -311,7 +326,9 @@ export async function loadFinalizeCohort(
   const out: CohortMember[] = [];
   for (const [userId, meta] of byUser) {
     if (stopped.has(userId)) continue;
-    out.push({ userId, org: orgByUser.get(userId) ?? null, seasonRest: meta.seasonRest });
+    const org = orgByUser.get(userId) ?? null;
+    if (organization && org !== organization) continue;
+    out.push({ userId, org, seasonRest: meta.seasonRest });
   }
   return out;
 }
@@ -348,6 +365,21 @@ export type UserVerdict =
   | { userId: string; kind: "status"; status: UwsStatusValue }
   | { userId: string; kind: "pending" } // 평가 미입력 → 검수 완료 차단 사유
   | { userId: string; kind: "skip"; reason: string }; // not_applicable / no-verdict → uws 미생성
+
+export async function resolveWeekReviewRecognitionScope(
+  weekId: string,
+  seasonKey: string,
+  scope: StateScope,
+  organization: OrganizationSlug,
+): Promise<{ cohort: CohortMember[]; organizations: OrganizationSlug[]; missingOrganizations: OrganizationSlug[] }> {
+  const cohort = await loadFinalizeCohort(seasonKey, scope, organization);
+  const organizations = [...new Set(cohort.map((m) => m.org).filter((o): o is OrganizationSlug => !!o))];
+  const checks = await Promise.all(organizations.map(async (org) => ({
+    org,
+    n: (await fetchWeekRecognitionRequiredByOrg([weekId], org)).get(weekId) ?? null,
+  })));
+  return { cohort, organizations, missingOrganizations: checks.filter((x) => x.n == null).map((x) => x.org) };
+}
 
 // 코호트 각 유저의 그 주차 verdict 를 계산한다(기존 엔진 재사용, 새 공식 없음).
 async function computeUserVerdicts(
@@ -439,7 +471,7 @@ export async function finalizeWeekUws(
   week: FinalizeWeekRow,
   scope: StateScope,
   actor: string | null,
-  opts: { allowIncompleteTestData?: boolean } = {},
+  opts: { allowIncompleteTestData?: boolean; organization?: OrganizationSlug } = {},
 ): Promise<FinalizeUwsResult> {
   // ⚠ 안전장치 bypass 는 test/QA 스코프에서만 허용한다. operating 실유저 경로에서는 플래그가
   //   있어도 무시(guard 유지) — 실유저 mass-fail 사고 절대 방지. 코호트도 scope 로 test-only 로 좁혀진다.
@@ -477,7 +509,10 @@ export async function finalizeWeekUws(
     return empty("current_or_future_week");
   }
 
-  const cohort = await loadFinalizeCohort(week.season_key, scope);
+  const reviewScope = opts.organization
+    ? await resolveWeekReviewRecognitionScope(week.id, week.season_key, scope, opts.organization)
+    : null;
+  const cohort = reviewScope?.cohort ?? await loadFinalizeCohort(week.season_key, scope);
   if (cohort.length === 0) return empty("empty_cohort");
 
   // [2026-07-12 정책] 주차 성공 기준값 SoT = 오픈확인 N(recognition_count_n[주차, 조직]).
@@ -486,7 +521,7 @@ export async function finalizeWeekUws(
   //   ⚠ 적립 완료 검사보다 먼저 — 기준값(N)이 없으면 판정 자체가 불가능한 필수 선행조건이다.
   //   force(allowIncompleteTestData) 로도 우회 불가(mass-fail 안전장치가 아님·op/test 동일 규칙).
   {
-    const cohortOrgs = [
+    const cohortOrgs = reviewScope?.organizations ?? [
       ...new Set(cohort.map((m) => m.org).filter((o): o is OrganizationSlug => !!o)),
     ];
     const nChecks = await Promise.all(
@@ -495,7 +530,7 @@ export async function finalizeWeekUws(
         n: (await fetchWeekRecognitionRequiredByOrg([week.id], org)).get(week.id) ?? null,
       })),
     );
-    const missingOrgs = nChecks.filter((x) => x.n == null).map((x) => x.org);
+    const missingOrgs = reviewScope?.missingOrganizations ?? nChecks.filter((x) => x.n == null).map((x) => x.org);
     if (missingOrgs.length > 0) {
       throw new UwsFinalizeBlockedError(
         `오픈 확인을 먼저 완료해주세요. 주차 성공 기준(인정 개수 N)이 확정되어야 검수할 수 있습니다. ` +
@@ -509,7 +544,7 @@ export async function finalizeWeekUws(
   //   실제 uws 생성 대상 주차(레거시·공식휴식·현재미래 게이트 통과)에서만 검사한다.
   //   bypass(test/QA + 명시 플래그) 시에는 건너뛴다(불완전 테스트 데이터 흐름 검증).
   if (!bypass) {
-    const gate = await assertWeekAccrualComplete(week, scope);
+    const gate = await assertWeekAccrualComplete(week, scope, opts.organization);
     if (!gate.ok) {
       throw new UwsFinalizeBlockedError(gate.reason ?? "적립이 완료되지 않았습니다.", "accrual_incomplete");
     }
@@ -533,7 +568,7 @@ export async function finalizeWeekUws(
   //   bypass(test/QA + 명시 플래그) 시에는 이 가드를 건너뛴다 — 불완전 테스트 데이터로 fail 저장 흐름 검증.
   if (!bypass) {
     // ⚠ experience 라인 주차 앵커 = cluster4_line_targets.week_id(라인 week_id=NULL). 공통 SoT 사용.
-    const { lineIds: expLineIds } = await loadExperienceLineWeekScope(week.id);
+    const { lineIds: expLineIds } = await loadExperienceLineWeekScope(week.id, opts.organization);
     const expLineCount = expLineIds.length;
     const nonRest = verdicts.filter((v) => !(v.kind === "status" && v.status === "personal_rest"));
     const allFail =

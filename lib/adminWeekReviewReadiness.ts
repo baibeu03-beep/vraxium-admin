@@ -10,10 +10,11 @@ import { CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM } from "@/lib/lineAvailability";
 import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
 import type { StateScope } from "@/lib/operationalState";
+import type { OrganizationSlug } from "@/lib/organizations";
 import {
   assertWeekAccrualComplete,
-  loadFinalizeCohort,
   loadExperienceLineWeekScope,
+  resolveWeekReviewRecognitionScope,
   type FinalizeWeekRow,
 } from "@/lib/adminWeekUwsFinalize";
 
@@ -23,7 +24,8 @@ export type ReadinessItem = {
     | "experienceLines"
     | "experienceEval"
     | "seasonParticipants"
-    | "noPending";
+    | "noPending"
+    | "recognition";
   label: string;
   ok: boolean;
   detail: string; // 부족/충족 설명(관리자용)
@@ -53,6 +55,7 @@ async function loadWeek(weekId: string): Promise<
 
 export async function computeReviewReadiness(
   weekId: string,
+  organization: OrganizationSlug,
   scope: StateScope = "operating",
 ): Promise<ReviewReadiness> {
   const scopeIsTest = scope === "qa" || QA_HIDE_REAL_USERS;
@@ -81,15 +84,21 @@ export async function computeReviewReadiness(
 
   // ── 판정 재료(read-only) ────────────────────────────────────────────────
   // 1) 적립 완료(안전장치와 동일 함수).
-  const gate = await assertWeekAccrualComplete(week, scope);
+  const gate = await assertWeekAccrualComplete(week, scope, organization);
 
   // 2) 시즌 참여자(코호트, scope 반영).
-  const cohort = await loadFinalizeCohort(week.season_key, scope);
+  const recognitionScope = await resolveWeekReviewRecognitionScope(
+    weekId,
+    week.season_key,
+    scope,
+    organization,
+  );
+  const cohort = recognitionScope.cohort;
 
   // 3) 실무 경험 라인/타깃/평가 (주차 전역).
   //   ⚠ experience 라인은 개설 UI 에서 cluster4_lines.week_id 를 세팅하지 않는다(NULL) — 주차 앵커는
   //     cluster4_line_targets.week_id. 공통 SoT(loadExperienceLineWeekScope)로 라인 개설 페이지와 동일 조회.
-  const { lineIds: expLineIds, targetIds } = await loadExperienceLineWeekScope(weekId);
+  const { lineIds: expLineIds, targetIds } = await loadExperienceLineWeekScope(weekId, organization);
 
   let targetCount = 0;
   let evaluatedCount = 0;
@@ -119,6 +128,14 @@ export async function computeReviewReadiness(
   const unevaluated = Math.max(0, targetCount - evaluatedCount);
 
   const items: ReadinessItem[] = [
+    {
+      key: "recognition",
+      label: "오픈 확인 및 주차 성공 기준",
+      ok: recognitionScope.missingOrganizations.length === 0,
+      detail: recognitionScope.missingOrganizations.length === 0
+        ? `${organization} 주차 성공 기준(N) 확정 완료`
+        : `오픈 확인 미완료: ${recognitionScope.missingOrganizations.join(", ")}`,
+    },
     {
       key: "accrual",
       label: "프로세스 활동 점수 확인",

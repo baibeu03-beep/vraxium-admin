@@ -606,7 +606,7 @@ export type TeamPartsWeekReviewResult = {
 export async function markTeamPartsWeekReviewed(
   weekId: string,
   actor: string | null = null,
-  opts: { scope?: StateScope; allowIncompleteTestData?: boolean } = {},
+  opts: { scope?: StateScope; organization: OrganizationSlug; allowIncompleteTestData?: boolean },
 ): Promise<TeamPartsWeekReviewResult> {
   // scope: operating(기본, 실유저·운영 weeks) / qa(mode=test·테스트 코호트·qa_weeks_state).
   //   allowIncompleteTestData 는 finalizeWeekUws 내부에서 test/QA 스코프일 때만 안전장치를 bypass 한다.
@@ -651,7 +651,7 @@ export async function markTeamPartsWeekReviewed(
       },
       scope,
       actor,
-      { allowIncompleteTestData: opts.allowIncompleteTestData },
+      { allowIncompleteTestData: opts.allowIncompleteTestData, organization: opts.organization },
     );
   } catch (e) {
     if (e instanceof UwsFinalizeBlockedError) {
@@ -706,6 +706,7 @@ export async function markTeamPartsWeekReviewed(
     //   best-effort — recomputeCohortSnapshots 는 내부에서 실패를 격리(카운트 반환)하고 throw 하지 않는다.
     snapshotRecompute = await recomputeCohortSnapshots(week.start_date, scope, {
       concurrency: REVIEW_RECOMPUTE_CONCURRENCY,
+      organization: opts.organization,
     });
   }
   // 이미 공표된 주차(재클릭)는 위 단일 패스를 타지 않는다 — 성장 성공/실패 SoT(user_week_statuses)는
@@ -778,6 +779,7 @@ export async function revertTeamPartsWeekReview(
   weekId: string,
   scope: StateScope = "operating",
   actor: string | null = null,
+  organization?: OrganizationSlug,
 ): Promise<{ weekId: string; reverted: boolean; publishedAt: string | null; reviewedAt: string | null; snapshotRecompute: { requested: number; recomputed: number; failed: number }; uwsRevert: Awaited<ReturnType<typeof revertWeekUws>> }> {
   const { data: wk, error: wkErr } = await supabaseAdmin
     .from("weeks")
@@ -800,7 +802,7 @@ export async function revertTeamPartsWeekReview(
   const r = await revertWeeklyCardFinalization({
     seasonKey: w.season_key,
     weekNumber: w.week_number,
-    org: null,
+    org: organization ?? null,
     scope,
     actor,
   });

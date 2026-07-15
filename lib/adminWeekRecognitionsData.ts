@@ -750,7 +750,7 @@ export async function recomputeCohortSnapshots(
   scope: StateScope = "operating",
   // 재계산 동시성(기본 3). 검수 완료 단일 패스처럼 벽시계가 중요한 호출부는 8(DB 포화 가드 상한)로
   //   올릴 수 있다. publishWeekResult 등 기존 호출부는 미지정 → 3 유지(동작 불변).
-  opts: { concurrency?: number } = {},
+  opts: { concurrency?: number; organization?: OrganizationSlug } = {},
 ): Promise<{ requested: number; recomputed: number; failed: number }> {
   if (!weekStartDate) return { requested: 0, recomputed: 0, failed: 0 };
   const { data, error } = await supabaseAdmin
@@ -772,6 +772,15 @@ export async function recomputeCohortSnapshots(
   if (QA_HIDE_REAL_USERS || scope === "qa") {
     const testIds = await fetchTestUserMarkerIds();
     userIds = userIds.filter((id) => testIds.has(id));
+  }
+  if (opts.organization && userIds.length > 0) {
+    const { data: profiles } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id")
+      .in("user_id", userIds)
+      .eq("organization_slug", opts.organization);
+    const orgIds = new Set(((profiles ?? []) as { user_id: string }[]).map((row) => row.user_id));
+    userIds = userIds.filter((id) => orgIds.has(id));
   }
   const r = await recomputeWeeklyCardsSnapshotsForUsers(userIds, {
     concurrency: opts.concurrency ?? 3,

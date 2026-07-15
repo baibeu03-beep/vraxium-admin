@@ -12,6 +12,7 @@ import {
 import { isUuid } from "@/lib/isUuid";
 import { computeReviewReadiness } from "@/lib/adminWeekReviewReadiness";
 import { resolveStateScopeFromRequest } from "@/lib/operationalState";
+import { isOrganizationSlug } from "@/lib/organizations";
 
 type Ctx = { params: Promise<{ weekId: string }> };
 
@@ -30,9 +31,13 @@ export async function GET(request: NextRequest, { params }: Ctx) {
   }
   // ?mode=test → scope=qa(테스트 코호트). 기본 operating.
   const scope = resolveStateScopeFromRequest(request);
+  const club = request.nextUrl.searchParams.get("club")?.trim() ?? "";
+  if (!isOrganizationSlug(club)) {
+    return Response.json({ success: false, error: "club must be a valid organization slug" }, { status: 400 });
+  }
 
   try {
-    const readiness = await computeReviewReadiness(weekId, scope);
+    const readiness = await computeReviewReadiness(weekId, club, scope);
     return Response.json({ success: true, data: readiness });
   } catch (error) {
     console.error("[admin/team-parts/info/weeks/[weekId]/review-readiness GET]", error);
