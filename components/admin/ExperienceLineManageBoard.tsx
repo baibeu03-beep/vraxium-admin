@@ -14,7 +14,7 @@ import { LoadingState } from "@/components/ui/loading-state";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
-import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
+import { formatBannerPeriod, formatSeasonWeekLabel } from "@/lib/practicalInfoSection0Format";
 import { useLineManageWeekOptions } from "@/lib/lineManageWeekOptions";
 import {
   formatTeamLeader,
@@ -304,13 +304,13 @@ export default function ExperienceLineManageBoard({
                 >
                   {weekOptions.map((w) => (
                     <option key={w.id} value={w.id}>
-                      {formatBannerPeriod({
+                      {formatSeasonWeekLabel({
                         year: w.year,
                         seasonName: w.seasonName,
                         weekNumber: w.weekNumber,
+                        isOpenTarget: w.isOpenTarget,
+                        isRest: !w.canOpen,
                       })}
-                      {w.isOpenTarget ? " · 개설대상" : ""}
-                      {!w.canOpen ? " · 휴식" : ""}
                     </option>
                   ))}
                 </select>

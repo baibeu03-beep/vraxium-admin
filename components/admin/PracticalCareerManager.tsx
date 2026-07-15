@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { appendModeQuery, readScopeMode } from "@/lib/userScopeShared";
@@ -1748,7 +1749,7 @@ export default function PracticalCareerManager() {
                     <option value="">주차를 선택해주세요</option>
                     {weekOptions.map((w) => (
                       <option key={w.id} value={w.id} disabled={!w.canOpen}>
-                        {w.label} ({formatClubDate(w.startDate)} ~ {formatClubDate(w.endDate)})
+                        {formatBannerPeriod({ year: w.year, seasonName: w.seasonName, weekNumber: w.weekNumber })} ({formatClubDate(w.startDate)} ~ {formatClubDate(w.endDate)})
                         {w.isCurrent ? " · 현재" : ""}
                         {!w.canOpen ? " · 휴식" : ""}
                       </option>
@@ -1759,7 +1760,7 @@ export default function PracticalCareerManager() {
               {selectedWeek ? (
                 <div className="space-y-1 text-sm">
                   <p>
-                    <span className="font-medium">{selectedWeek.year} {selectedWeek.seasonName} W{selectedWeek.weekNumber}</span>{" "}
+                    <span className="font-medium">{formatBannerPeriod({ year: selectedWeek.year, seasonName: selectedWeek.seasonName, weekNumber: selectedWeek.weekNumber })}</span>{" "}
                     ({fmtDateWithDay(selectedWeek.startDate)} ~ {fmtDateWithDay(selectedWeek.endDate)})
                   </p>
                   {/* 기입 기간 = 귀속 주차의 "다음 주"(주차정책 공통 helper). selectedWeek 가 이미 다음 주 기간을 담는다. */}

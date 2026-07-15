@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { formatAdminDateWithWeekday } from "@/lib/adminDateTime";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -1256,7 +1257,7 @@ export default function PracticalInfoManager() {
               {weekOptions.map((w) => (
                 <option key={w.id} value={w.id} disabled={!w.canOpen}>
                   {w.label} ({formatClubDate(w.startDate)} ~ {formatClubDate(w.endDate)})
-                  {w.isOpenTarget ? " · 개설대상" : ""}
+                  {w.isOpenTarget ? " · 개설 대상" : ""}
                   {w.isCurrent ? " · 현재(N)" : ""}
                   {!w.canOpen ? " · 휴식" : ""}
                 </option>
@@ -1308,7 +1309,7 @@ export default function PracticalInfoManager() {
         const label =
           selectedWeekMeta?.label ??
           (selectedWeek
-            ? `${selectedWeek.year} ${selectedWeek.seasonName} W${selectedWeek.weekNumber}`
+            ? formatBannerPeriod({ year: selectedWeek.year, seasonName: selectedWeek.seasonName, weekNumber: selectedWeek.weekNumber })
             : null);
         const startDate = selectedWeekMeta?.startDate ?? selectedWeek?.startDate ?? null;
         const endDate = selectedWeekMeta?.endDate ?? selectedWeek?.endDate ?? null;

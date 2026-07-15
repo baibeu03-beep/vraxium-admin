@@ -26,6 +26,8 @@ import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { LoadingState } from "@/components/ui/loading-state";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
+import { formatSeasonWeekLabel } from "@/lib/practicalInfoSection0Format";
+import { formatTeamTabLabel } from "@/lib/teamLabel";
 import ExperienceTeamOverallBoard from "@/components/admin/ExperienceTeamOverallBoard";
 import type {
   ExperienceLineManageSummary,
@@ -607,7 +609,7 @@ export default function ExperiencePartLeadInput({
         ) : (
           <>
             {/* 팀 탭(동적) */}
-            <div className="flex flex-wrap gap-2 border-b pb-px">
+            <div role="tablist" className="flex flex-wrap gap-2 border-b pb-px">
               {teams.length === 0 ? (
                 <span className="text-sm text-muted-foreground">
                   등록된 팀이 없습니다.
@@ -616,22 +618,27 @@ export default function ExperiencePartLeadInput({
                 teams.map((t) => {
                   // 임퍼소네이션 중 자기 팀 외 탭은 잠금 표시(클릭 시 팝업 후 차단).
                   const locked = !teamAllowed(t.teamName);
+                  const selected = selectedTeamId === t.id;
                   return (
                     <button
                       key={t.id}
                       type="button"
+                      role="tab"
                       onClick={() => onSelectTeam(t.id)}
-                      aria-disabled={locked}
+                      aria-selected={selected}
+                      aria-disabled={locked || undefined}
                       title={locked ? "해당 팀 입장 권한이 없습니다." : undefined}
                       className={cn(
-                        "relative -mb-px rounded-t-md border border-b-0 px-4 py-2 text-sm font-medium transition-colors",
-                        selectedTeamId === t.id
-                          ? "border-input bg-background text-foreground"
-                          : "border-transparent bg-muted/40 text-muted-foreground hover:text-foreground",
+                        "relative -mb-px rounded-t-md border border-b-0 px-4 py-2 text-sm transition-colors",
+                        selected
+                          ? // 선택 탭: 강조 배경 + 강조 테두리/글자색 + 굵기 + 하단 강조선(비선택과 명확히 구분, 다크 대응).
+                            "border-primary bg-primary/10 font-semibold text-primary shadow-sm after:absolute after:inset-x-0 after:-bottom-px after:h-0.5 after:rounded-full after:bg-primary"
+                          : // 비선택 탭: 기존 muted 유지.
+                            "border-transparent bg-muted/40 font-medium text-muted-foreground hover:bg-muted hover:text-foreground",
                         locked && "cursor-not-allowed opacity-40",
                       )}
                     >
-                      {t.teamName}
+                      {formatTeamTabLabel(t.teamName)}
                       {locked && " 🔒"}
                     </button>
                   );
@@ -656,17 +663,22 @@ export default function ExperiencePartLeadInput({
                     size="xs"
                   />
                 </div>
+                {/* 고정 w-64 대신 내용에 맞는 폭(w-auto)+min/max — 선택 문구가 끝까지 보이도록. */}
                 <select
-                  className="w-64 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="w-auto min-w-[16rem] max-w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={selectedWeekId}
                   onChange={(e) => onSelectWeek(e.target.value)}
                 >
                   {weekOptions.map((w) => (
                     <option key={w.id} value={w.id} disabled={!w.canOpen}>
-                      {w.year}년 {w.seasonName} W{w.weekNumber}
-                      {w.isOpenTarget ? " · 개설대상" : ""}
-                      {w.isCurrent ? " · 현재" : ""}
-                      {!w.canOpen ? " · 휴식" : ""}
+                      {formatSeasonWeekLabel({
+                        year: w.year,
+                        seasonName: w.seasonName,
+                        weekNumber: w.weekNumber,
+                        isOpenTarget: w.isOpenTarget,
+                        isCurrent: w.isCurrent,
+                        isRest: !w.canOpen,
+                      })}
                     </option>
                   ))}
                 </select>
@@ -946,7 +958,14 @@ function PartGrid({
             className="w-full justify-center"
             onClick={onSubmit}
             loading={saving}
-            disabled={saving || crews.length === 0}
+            // 이미 [개설 신청]된 파트는 재신청 불가(중복 방지) — 수정하려면 [신청 취소] 후 다시 신청.
+            //   서버는 upsert(멱등)라 재요청이 중복 행을 만들지 않지만, UI 에서도 재신청을 막는다.
+            disabled={saving || crews.length === 0 || submitted}
+            title={
+              submitted
+                ? "이미 개설 신청이 완료된 파트입니다. 수정하려면 [신청 취소] 후 다시 신청하세요."
+                : undefined
+            }
           >
             <Send className="mr-1.5 h-4 w-4" />
             개설 신청

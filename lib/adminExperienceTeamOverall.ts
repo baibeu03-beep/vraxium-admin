@@ -30,6 +30,7 @@ import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
 import {
   EXPERIENCE_OVERALL_CATEGORIES,
   OVERALL_APPLICATION_INCOMPLETE_MESSAGE,
+  OVERALL_NO_TARGET_PARTS_MESSAGE,
   OVERALL_CELL_DEFAULT,
   OVERALL_LEADER_CATEGORIES,
   OVERALL_PART_CATEGORIES,
@@ -567,6 +568,10 @@ export async function saveTeamOverallReview(input: {
     input.teamName,
     input.mode ?? "operating",
   );
+  if (readiness.totalPartCount === 0) {
+    // 대상 파트 0개 = 신청 대상 자체가 없음 — "모든 파트 신청 완료"로 오인 금지(별도 문구).
+    throw Object.assign(new Error(OVERALL_NO_TARGET_PARTS_MESSAGE), { status: 409 });
+  }
   if (!readiness.allPartsApplied) {
     const detail =
       readiness.unappliedParts.length > 0

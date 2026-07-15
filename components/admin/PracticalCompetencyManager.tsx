@@ -12,6 +12,7 @@ import { adminDialog } from "@/components/ui/admin-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
@@ -522,7 +523,7 @@ export default function PracticalCompetencyManager() {
               )}
               {selectedWeek ? (
                 <div className="space-y-1 text-sm">
-                  <p><span className="font-medium">{selectedWeek.year} {selectedWeek.seasonName} W{selectedWeek.weekNumber}</span>{" "}({fmtDateWithDay(selectedWeek.startDate)} ~ {fmtDateWithDay(selectedWeek.endDate)})</p>
+                  <p><span className="font-medium">{formatBannerPeriod({ year: selectedWeek.year, seasonName: selectedWeek.seasonName, weekNumber: selectedWeek.weekNumber })}</span>{" "}({fmtDateWithDay(selectedWeek.startDate)} ~ {fmtDateWithDay(selectedWeek.endDate)})</p>
                   {selectedWeek.canOpen && selectedWeek.submissionOpensAt && selectedWeek.submissionClosesAt && (
                     <p className="text-muted-foreground">기입 기간: {fmtDateTimeWithDay(selectedWeek.submissionOpensAt)} ~ {fmtDateTimeWithDay(selectedWeek.submissionClosesAt)}</p>
                   )}
@@ -530,7 +531,7 @@ export default function PracticalCompetencyManager() {
                 </div>
               ) : currentWeek ? (
                 <div className="space-y-1 text-sm">
-                  <p><span className="font-medium">{currentWeek.year} {currentWeek.seasonName} W{currentWeek.weekNumber}</span>{" "}({fmtDateWithDay(currentWeek.startDate)} ~ {fmtDateWithDay(currentWeek.endDate)})</p>
+                  <p><span className="font-medium">{formatBannerPeriod({ year: currentWeek.year, seasonName: currentWeek.seasonName, weekNumber: currentWeek.weekNumber })}</span>{" "}({fmtDateWithDay(currentWeek.startDate)} ~ {fmtDateWithDay(currentWeek.endDate)})</p>
                   {!currentWeek.canOpen && <p className="font-medium text-orange-600">{currentWeek.isOfficialRest ? "이번 주는 공식 휴식 주차입니다." : "현재 주차 데이터가 없습니다."}</p>}
                 </div>
               ) : <p className="text-sm text-muted-foreground">주차 정보를 불러올 수 없습니다.</p>}

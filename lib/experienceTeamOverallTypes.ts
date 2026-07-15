@@ -126,6 +126,10 @@ export function resolveOverallApplicationReadiness(
 export const OVERALL_APPLICATION_INCOMPLETE_MESSAGE =
   "아직 모든 파트의 [개설 신청]이 완료되지 않았습니다.";
 
+// 대상 파트가 0개일 때(신청 대상 자체가 없음) — allPartsApplied=false 를 "완료"로 오인하지 않도록
+//   별도 문구로 구분한다(프론트 toast·서버 거부 공용). resolveOverallApplicationReadiness 참고.
+export const OVERALL_NO_TARGET_PARTS_MESSAGE = "개설 신청 대상 파트가 없습니다.";
+
 export type OverallOutput = {
   category: ExperienceOverallCategory;
   link: string;

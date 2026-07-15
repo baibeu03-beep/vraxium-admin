@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RotateCcw, Eye, CheckCircle2, XCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminDialog } from "@/components/ui/admin-dialog";
+import { useToast } from "@/components/ui/toast";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { LoadingState } from "@/components/ui/loading-state";
@@ -23,6 +24,7 @@ import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   EXPERIENCE_OVERALL_CATEGORIES,
   OVERALL_APPLICATION_INCOMPLETE_MESSAGE,
+  OVERALL_NO_TARGET_PARTS_MESSAGE,
   OVERALL_CELL_DEFAULT,
   OVERALL_LEADER_CATEGORIES,
   canEditOverallManagement,
@@ -102,6 +104,8 @@ export default function ExperienceTeamOverallBoard({
   useReportLoading(loading);
   const [saving, setSaving] = useState(false);
   const [banner, setBanner] = useState<Banner>(null);
+  // 검수 차단(미신청 파트 등) 안내는 화면 하단 고정 Toast(<ToastViewport /> · Layout)로 표시.
+  const { toast } = useToast();
 
   // 팀장 직접 입력(관리/확장) 로컬 편집값.
   const [leaderCells, setLeaderCells] = useState<Map<string, OverallCell>>(new Map());
@@ -141,17 +145,21 @@ export default function ExperienceTeamOverallBoard({
 
   const opened = board?.status === "opened";
   const extensionActive = board?.extensionActive ?? false;
+  // 개설 검수 이미 완료(임시저장 reviewed 또는 개설완료 opened) — 재실행 방지(멱등 안내).
+  const reviewCompleted = board?.status === "reviewed" || board?.status === "opened";
 
-  // [개설 검수] 사전조건 — 대상 파트 전체가 [개설 신청]을 완료했는지.
-  //   화면 카드 수가 아니라 DTO 판정(board.application)을 소비. 구버전 응답 대비 parts 파생 폴백.
+  // [개설 검수] 사전조건 — 공통 SoT(board.application)만 소비. 프론트가 카드 수/파트명 문자열을
+  //   자체 집계하지 않는다. 구버전 응답 대비 parts 파생 폴백(신규 서버는 항상 application 제공).
+  //   필드: totalPartCount(대상 파트 수) · appliedPartCount(신청 완료) · unappliedParts(미신청명) ·
+  //         allPartsApplied(대상>=1 && 전부 신청). 대상 0개면 allPartsApplied=false.
   const application = useMemo(
     () =>
-      board
-        ? (board.application ?? resolveOverallApplicationReadiness(board.parts))
-        : null,
+      board ? board.application ?? resolveOverallApplicationReadiness(board.parts) : null,
     [board],
   );
   const allPartsApplied = application?.allPartsApplied ?? false;
+  // 버튼 비활성(시각) 기준 — 개설완료·검수완료·미신청/대상0(=!allPartsApplied) 중 하나라도면 disabled.
+  const reviewBlocked = opened || reviewCompleted || !allPartsApplied;
 
   // 미개설(=[개설 신청] 미완료) 파트 집합 — 공통 SoT(board.parts[].submitted)로만 판정.
   //   파트명 문자열이 아니라 DTO 의 파트별 submitted 플래그 기준(개설된 파트=활성 유지, 미개설=행 시각 비활성).
@@ -353,34 +361,61 @@ export default function ExperienceTeamOverallBoard({
 
   // ── 버튼 핸들러 ──
   const onReview = useCallback(async () => {
-    // 비활성 조건 방어 — 직접 이벤트 호출/키보드 실행도 여기서 차단(버튼 disabled 와 동일 기준).
-    if (opened || !allPartsApplied) {
-      setBanner({
-        kind: "error",
-        message:
-          application && application.unappliedParts.length > 0
-            ? `${OVERALL_APPLICATION_INCOMPLETE_MESSAGE}\n미신청 파트: ${application.unappliedParts.join(", ")}`
-            : OVERALL_APPLICATION_INCOMPLETE_MESSAGE,
-      });
-      return;
-    }
     setSaving(true);
     setBanner(null);
     try {
       const json = await post("review");
       if (!json?.success) {
-        setBanner({ kind: "error", message: json?.error ?? "개설 검수 저장에 실패했습니다" });
+        const message = typeof json?.error === "string" ? json.error : "개설 검수 저장에 실패했습니다";
+        // 미신청 파트 등 검수 차단 사유는 하단 고정 Toast 로 안내(파트명만·UUID 없음).
+        //   미신청/대상없음(정상 사용자 안내) = warning, 그 외 오류 = error. 상시 인라인 경고/모달 없음.
+        const isGuidance =
+          message.startsWith(OVERALL_APPLICATION_INCOMPLETE_MESSAGE) ||
+          message.startsWith(OVERALL_NO_TARGET_PARTS_MESSAGE);
+        toast(isGuidance ? "warning" : "error", message);
         return;
       }
-      setBanner({ kind: "success", message: "개설 검수 — 임시 저장되었습니다 (크루 미반영)" });
+      // 성공 안내는 하단 고정 Toast 로만(성공 배너/카드 추가 금지). 검수=임시저장(크루 미반영)이라
+      //   "N명 반영" 문구는 붙이지 않는다(실제 반영은 팀장 [개설 완료] 단계).
+      toast("success", "개설 검수가 완료되었습니다.");
       await fetchBoard();
       onActivity?.();
     } catch {
-      setBanner({ kind: "error", message: "개설 검수 중 오류가 발생했습니다" });
+      toast("error", "개설 검수 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
-  }, [post, fetchBoard, onActivity, opened, allPartsApplied, application]);
+  }, [post, fetchBoard, onActivity, toast]);
+
+  // [개설 검수] 버튼 클릭 라우터 — 버튼이 disabled(시각)여도 wrapper 클릭으로 여기 진입한다.
+  //   비활성 사유별 하단 Toast 안내(실행 차단), 진행 가능 상태에서만 실제 검수(onReview) 실행.
+  //   키보드/직접 이벤트 호출도 이 라우터를 통과해야 하며, 최종 방어선은 서버 가드(409/422/403).
+  const handleReviewClick = useCallback(() => {
+    if (saving) return;
+    if (opened) {
+      toast("warning", "이미 개설 완료된 상태입니다. [개설 취소] 후 다시 검수할 수 있습니다.");
+      return;
+    }
+    if (reviewCompleted) {
+      toast("warning", "이미 개설 검수가 완료된 상태입니다.");
+      return;
+    }
+    if ((application?.totalPartCount ?? 0) === 0) {
+      toast("warning", OVERALL_NO_TARGET_PARTS_MESSAGE);
+      return;
+    }
+    if (!allPartsApplied) {
+      const n = application?.unappliedParts.length ?? 0;
+      toast(
+        "warning",
+        n > 0
+          ? `아직 ${n}개 파트의 개설 신청이 필요합니다.`
+          : OVERALL_APPLICATION_INCOMPLETE_MESSAGE,
+      );
+      return;
+    }
+    void onReview();
+  }, [saving, opened, reviewCompleted, application, allPartsApplied, onReview, toast]);
 
   const onReset = useCallback(() => {
     // DB 통신 없음 — 프론트 화면 입력값만 기본값으로 복원.
@@ -772,7 +807,7 @@ export default function ExperienceTeamOverallBoard({
         </div>
         {/* 우측 고정 액션 컬럼(lg+) — 1열 4행 세로 버튼 그룹. 모바일: 콘텐츠 하단 stack.
             파트 선택 화면의 우측 액션 영역과 동일 구조. 동작/색상/disabled 조건 무변경. */}
-        <div className="flex flex-col gap-2 lg:w-36 lg:shrink-0 lg:self-start lg:border-l lg:pl-3">
+        <div className="flex flex-col gap-2 lg:w-44 lg:shrink-0 lg:self-start lg:border-l lg:pl-3">
           {/* 권장 다음 액션 안내(업무 흐름) — 현재 상태 기준. 권한 제한이 아니라 UX 힌트. */}
           {!opened && (
             <p className="text-xs leading-tight text-muted-foreground">
@@ -794,48 +829,50 @@ export default function ExperienceTeamOverallBoard({
               검수=agent/team_leader · 개설/취소=team_leader 만. 서버 가드(403)가 실제 권한 경계.
               variant(강조)는 "권장 다음 액션"에 따라 동적 — 권한/활성 여부와는 별개(팀장은 상태 무관 가능). */}
           {(!actorMemberRole || actorMemberRole === "agent" || actorMemberRole === "team_leader") && (
-            <>
-              <span className="inline-flex items-center gap-1">
+            <span className="flex w-full items-center gap-1">
+              {/* 비활성 상태에서도 실행 시도 시 하단 Toast 안내가 필요하므로 wrapper 클릭 패턴 사용:
+                  버튼은 native disabled(시각 비활성·pointer-events-none)로 두고, 감싼 span 이 클릭을
+                  받아 handleReviewClick 로 라우팅한다(비활성이면 Toast, 활성이면 실제 검수). */}
+              <span
+                className="flex min-w-0 flex-1"
+                onClick={handleReviewClick}
+                title={
+                  reviewBlocked
+                    ? opened
+                      ? "이미 개설 완료됨 — [개설 취소] 후 검수할 수 있습니다."
+                      : reviewCompleted
+                        ? "이미 개설 검수가 완료된 상태입니다."
+                        : (application?.totalPartCount ?? 0) === 0
+                          ? OVERALL_NO_TARGET_PARTS_MESSAGE
+                          : OVERALL_APPLICATION_INCOMPLETE_MESSAGE
+                    : undefined
+                }
+              >
                 <Button
                   variant={recommendedNext === "review" ? "default" : "outline"}
                   className="w-full justify-center"
-                  onClick={onReview}
                   loading={saving}
-                  // 대상 파트 전체 [개설 신청] 완료 전에는 비활성(클릭/키보드 차단). 서버 가드(409)와 동일 기준.
-                  disabled={saving || opened || !allPartsApplied}
-                  title={
-                    !opened && !allPartsApplied
-                      ? OVERALL_APPLICATION_INCOMPLETE_MESSAGE
-                      : undefined
-                  }
+                  // 미신청/대상없음/검수완료/개설완료면 시각적 비활성(native disabled).
+                  //   클릭은 wrapper span 이 받아 사유별 Toast 로 안내(레이아웃 불변·경고 패널 없음).
+                  disabled={saving || reviewBlocked}
+                  aria-disabled={reviewBlocked || undefined}
                 >
                   <Eye className="mr-1.5 h-4 w-4" />
                   개설 검수
                 </Button>
-                <AdminHelpIconButton
-                  size="xs"
-                  helpKey="admin.lineOpening.experience.action.overallReview"
-                  title="개설 검수"
-                />
               </span>
-              {/* 검수 영역 안내 — 미신청 파트가 있으면 사유+미신청 파트 목록 표시. */}
-              {!opened && !allPartsApplied && (
-                <p className="text-xs leading-tight text-amber-700 dark:text-amber-400">
-                  {OVERALL_APPLICATION_INCOMPLETE_MESSAGE}
-                  {application && application.unappliedParts.length > 0 && (
-                    <>
-                      <br />
-                      미신청 파트: {application.unappliedParts.join(", ")}
-                    </>
-                  )}
-                </p>
-              )}
-            </>
+              <AdminHelpIconButton
+                size="xs"
+                className="shrink-0"
+                helpKey="admin.lineOpening.experience.action.overallReview"
+                title="개설 검수"
+              />
+            </span>
           )}
-          <span className="inline-flex items-center gap-1">
+          <span className="flex w-full items-center gap-1">
             <Button
               variant="outline"
-              className="w-full justify-center"
+              className="min-w-0 flex-1 justify-center"
               onClick={onReset}
               disabled={saving || opened}
             >
@@ -843,17 +880,18 @@ export default function ExperienceTeamOverallBoard({
             </Button>
             <AdminHelpIconButton
               size="xs"
+              className="shrink-0"
               helpKey="admin.lineOpening.experience.action.overallReset"
               title="초기화"
             />
           </span>
           {(!actorMemberRole || actorMemberRole === "team_leader") && (
-            <span className="inline-flex items-center gap-1">
+            <span className="flex w-full items-center gap-1">
               <Button
                 // 팀장(최고 권한)은 status 와 무관하게 개설 완료 가능 — 검수 전(none)이라도 활성.
                 //   status 로 막지 않는다(이미 완료된 opened 만 제외). "권장 순서"는 variant 강조로만 안내.
                 variant={recommendedNext === "open" ? "default" : "outline"}
-                className="w-full justify-center"
+                className="min-w-0 flex-1 justify-center"
                 onClick={onOpen}
                 loading={saving}
                 disabled={saving || opened}
@@ -869,16 +907,17 @@ export default function ExperienceTeamOverallBoard({
               </Button>
               <AdminHelpIconButton
                 size="xs"
+                className="shrink-0"
                 helpKey="admin.lineOpening.experience.action.overallOpen"
                 title="개설 완료"
               />
             </span>
           )}
           {(!actorMemberRole || actorMemberRole === "team_leader") && (
-            <span className="inline-flex items-center gap-1">
+            <span className="flex w-full items-center gap-1">
               <Button
                 variant="outline"
-                className="w-full justify-center border-red-300 text-red-700 hover:bg-red-50"
+                className="min-w-0 flex-1 justify-center border-red-300 text-red-700 hover:bg-red-50"
                 onClick={onCancel}
                 loading={saving}
                 disabled={saving || !opened}
@@ -888,6 +927,7 @@ export default function ExperienceTeamOverallBoard({
               </Button>
               <AdminHelpIconButton
                 size="xs"
+                className="shrink-0"
                 helpKey="admin.lineOpening.experience.action.overallCancel"
                 title="개설 취소"
               />

@@ -10,6 +10,7 @@ import { readOrgParam } from "@/lib/adminOrgContext";
 import { readScopeMode } from "@/lib/userScopeShared";
 import {
   formatBannerPeriod,
+  formatSeasonWeekLabel,
   formatFullDateRangeKo,
 } from "@/lib/practicalInfoSection0Format";
 import PracticalInfoCurrentSituation from "@/components/admin/PracticalInfoCurrentSituation";
@@ -381,13 +382,13 @@ export default function CompetencyLineManageBoard({
                   )}
                 >
                   <div className="text-sm font-medium">
-                    {formatBannerPeriod({
+                    {formatSeasonWeekLabel({
                       year: w.year,
                       seasonName: w.seasonName,
                       weekNumber: w.weekNumber,
+                      isOpenTarget: w.isOpenTarget,
+                      isCurrent: w.isCurrent,
                     })}
-                    {w.isOpenTarget ? " · 개설대상" : ""}
-                    {w.isCurrent ? " · 현재" : ""}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {w.startDate && w.endDate

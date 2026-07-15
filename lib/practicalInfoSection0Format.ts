@@ -20,6 +20,25 @@ export function formatBannerPeriod(input: {
   return `${yy}년, ${input.seasonName}, ${input.weekNumber}주차`;
 }
 
+// "26년, 여름 시즌, 2주차 · 개설 대상" — 시즌·주차 라벨 + 상태 suffix 공통 포맷(단일 SoT).
+//   base = formatBannerPeriod. 드롭다운/옵션에서 페이지마다 문자열을 직접 조합하지 않도록,
+//   라인 개설(line-opening) 하위 전 화면이 이 함수로 라벨을 만든다.
+//   suffix 순서(고정) = 개설 대상 → 현재 → 휴식. 상태 의미(개설 대상/현재)는 그대로 유지한다.
+export function formatSeasonWeekLabel(input: {
+  year: number;
+  seasonName: string;
+  weekNumber: number;
+  isOpenTarget?: boolean;
+  isCurrent?: boolean;
+  isRest?: boolean;
+}): string {
+  let label = formatBannerPeriod(input);
+  if (input.isOpenTarget) label += " · 개설 대상";
+  if (input.isCurrent) label += " · 현재";
+  if (input.isRest) label += " · 휴식";
+  return label;
+}
+
 // "26 - 06 - 29 (월)" — 주차 시작/종료일 풀 표기. 클럽 일정 공통 표기(formatClubDate SoT).
 export function formatFullDateKo(iso: string): string {
   return formatClubDate(iso, iso);

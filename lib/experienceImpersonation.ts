@@ -70,7 +70,7 @@ export async function resolveEffectiveActorUserId(
 // 임퍼소네이션 액터(멤버 역할/팀/파트) 기준으로 write 액션 허용 여부 검사.
 //   · team_leader : 자기 팀 범위(part_save/open/cancel/review) 전부 허용
 //   · part_leader : 자기 팀 + 자기 파트의 part_save 만 허용(open/cancel/review 불가)
-//   · agent       : 자기 팀의 review(검수) 만 허용(part_save/open/cancel 불가)
+//   · agent       : 자기 팀의 part_save(모든 대상 파트) + review(검수) 허용(open/cancel 불가)
 //   · member 등   : 전부 불가
 // 위반 시 403 throw(write 전 차단). 권한 상승 아님 — 좁히기 전용.
 
@@ -109,8 +109,11 @@ export function assertImpersonationCapability(input: {
         deny403("파트장 권한: 자기 파트만 저장할 수 있습니다.");
       return;
     case "agent":
-      if (action !== "review") deny403("에이전트 권한: 검수만 가능합니다.");
-      if (!sameTeam) deny403("에이전트 권한: 자기 팀 범위만 검수할 수 있습니다.");
+      // 에이전트: 자기 팀의 모든 대상 파트 [개설 신청](part_save) + [개설 검수](review) 가능.
+      //   파트장과 달리 파트 제한 없음(자기 팀 범위면 어느 파트든 신청). open/cancel 은 팀장 전용.
+      if (action !== "review" && action !== "part_save")
+        deny403("에이전트 권한: 개설 신청·검수만 가능합니다.");
+      if (!sameTeam) deny403("에이전트 권한: 자기 팀 범위만 가능합니다.");
       return;
     default:
       deny403("해당 작업 권한이 없습니다.");

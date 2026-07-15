@@ -403,7 +403,7 @@ export default function CompetencyOpeningDashboard() {
                         >
                           <div className="text-sm">
                             {weekMainLabel(w)}
-                            {w.isOpenTarget ? " · 개설대상" : ""}
+                            {w.isOpenTarget ? " · 개설 대상" : ""}
                             {w.hasOpeningException ? " · 허용 주차" : ""}
                             {w.isCurrent ? " · 현재" : ""}
                           </div>

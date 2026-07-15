@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatClubDate } from "@/lib/clubDate";
+import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { useAdminDevMode } from "@/components/admin/useAdminDevMode";
 import CafeCrewPicker, {
   type CafeCrew,
@@ -63,8 +64,13 @@ type UploadedImage = { url: string; name: string };
 
 type Banner = { kind: "success" | "error" | "info"; message: string } | null;
 
+// "26년, 여름 시즌, 3주차" — 시즌·주차 공통 포맷(formatBannerPeriod SoT).
 function weekTitle(w: OpeningFormWeek): string {
-  return `${w.year}년 ${w.seasonName} ${w.weekNumber}주차`;
+  return formatBannerPeriod({
+    year: w.year,
+    seasonName: w.seasonName,
+    weekNumber: w.weekNumber,
+  });
 }
 function weekRange(w: OpeningFormWeek): string {
   return `${formatClubDate(w.startDate)} ~ ${formatClubDate(w.endDate)}`;
@@ -745,7 +751,7 @@ export default function PracticalInfoOpeningForm({
               ? weekOptions.map((w) => (
                   <option key={w.id} value={w.id} disabled={!w.canOpen}>
                     {weekTitle(w)} · {weekRange(w)}
-                    {w.isOpenTarget ? " · 개설대상" : ""}
+                    {w.isOpenTarget ? " · 개설 대상" : ""}
                     {w.isCurrent ? " · 현재" : ""}
                     {!w.canOpen ? " · 휴식" : ""}
                   </option>

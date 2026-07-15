@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
+import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -1707,7 +1708,7 @@ export default function PracticalExperienceManager() {
                 <>
                   <p>
                     <span className="font-medium">
-                      {currentWeek.year} {currentWeek.seasonName} W{currentWeek.weekNumber}
+                      {formatBannerPeriod({ year: currentWeek.year, seasonName: currentWeek.seasonName, weekNumber: currentWeek.weekNumber })}
                     </span>{" "}
                     ({fmtDateWithDay(currentWeek.startDate)} ~{" "}
                     {fmtDateWithDay(currentWeek.endDate)})
@@ -2237,7 +2238,7 @@ export default function PracticalExperienceManager() {
               {currentWeek && (
                 <p>
                   <span className="font-medium">
-                    {currentWeek.year} {currentWeek.seasonName} W{currentWeek.weekNumber}
+                    {formatBannerPeriod({ year: currentWeek.year, seasonName: currentWeek.seasonName, weekNumber: currentWeek.weekNumber })}
                   </span>{" "}
                   ({fmtDateWithDay(currentWeek.startDate)} ~{" "}
                   {fmtDateWithDay(currentWeek.endDate)})
@@ -2591,7 +2592,7 @@ export default function PracticalExperienceManager() {
               {currentWeek && (
                 <p>
                   <span className="font-medium">
-                    {currentWeek.year} {currentWeek.seasonName} W{currentWeek.weekNumber}
+                    {formatBannerPeriod({ year: currentWeek.year, seasonName: currentWeek.seasonName, weekNumber: currentWeek.weekNumber })}
                   </span>{" "}
                   ({fmtDateWithDay(currentWeek.startDate)} ~{" "}
                   {fmtDateWithDay(currentWeek.endDate)})
