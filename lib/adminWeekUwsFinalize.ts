@@ -28,6 +28,9 @@ import { getCurrentActivityDateIso } from "@/lib/seasonCalendar";
 import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import type { StateScope } from "@/lib/operationalState";
+import { isActOpenForWeek } from "@/lib/weekOpenGate";
+// ⚠ 타입만 import(런타임 순환 방지 — adminTeamPartsInfoWeekDetailData 는 이 모듈을 런타임 import 한다).
+import type { SavedConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 
 const RUN_LOG_TABLE = "cluster4_week_finalize_runs";
 
@@ -50,43 +53,146 @@ export type AccrualGateResult = {
   awardCount: number;
 };
 
+// 주차별·org별 오픈 설정 캐시 로더 — cluster4_week_opening_configs(loadWeekOpeningConfig 와 동일 SoT).
+//   ⚠ 순환 import 방지로 직접 조회(adminTeamPartsInfoWeekDetailData 를 런타임 import 하지 않는다).
+async function loadOpeningConfigForOrg(
+  weekId: string,
+  organization: string,
+): Promise<{ config: SavedConfig | null; openConfirmed: boolean }> {
+  const { data, error } = await supabaseAdmin
+    .from("cluster4_week_opening_configs")
+    .select("config,open_confirmed")
+    .eq("week_id", weekId)
+    .eq("organization_slug", organization)
+    .maybeSingle();
+  if (error) {
+    // config 조회 불가 → openConfirmed=false(미가동 간주). weekOpenGate 와 동일 fail-closed.
+    console.warn("[uws-finalize] opening config 조회 실패(미가동 간주)", { weekId, organization, message: error.message });
+    return { config: null, openConfirmed: false };
+  }
+  const row = data as { config: SavedConfig | null; open_confirmed: boolean } | null;
+  return { config: row?.config ?? null, openConfirmed: row?.open_confirmed === true };
+}
+
+// 그 주차의 정규 체크 상태를 /admin/processes/check 와 **동일한 유효 체크 대상 기준**으로 집계한다.
+//   유효 = act.is_active && act.check_target==='check' && isActOpenForWeek(오픈확인+라인급/팀 선택)
+//          && scope_mode===effMode(검수 코호트와 동일 모드).
+//   반환: { pending: 유효+status='pending' 수, total: 유효 상태행 수(모든 status) }.
+//   비활성·none·미가동·타모드 액트의 잔존 상태행은 pending/total 어디에도 포함하지 않는다(체크 페이지·코호트와 정합).
+async function countValidOpenCheckStatuses(
+  week: FinalizeWeekRow,
+  effMode: "operating" | "test",
+): Promise<{ pending: number; total: number }> {
+  const weekId = week.id;
+  const { data: rows, error } = await supabaseAdmin
+    .from("process_check_statuses")
+    .select("id,organization_slug,hub,line_group_id,act_id,team_id,status,scope_mode")
+    .eq("week_id", weekId)
+    .eq("scope_mode", effMode);
+  if (error) {
+    // 조회 실패 시 안전하게 raw count 로 폴백(과소차단보다 과대차단이 안전).
+    console.warn("[uws-finalize] 체크 상태 조회 실패 — raw count 폴백", { weekId, message: error.message });
+    const [{ count: p }, { count: t }] = await Promise.all([
+      supabaseAdmin.from("process_check_statuses").select("id", { count: "exact", head: true }).eq("week_id", weekId).eq("scope_mode", effMode).eq("status", "pending"),
+      supabaseAdmin.from("process_check_statuses").select("id", { count: "exact", head: true }).eq("week_id", weekId).eq("scope_mode", effMode),
+    ]);
+    return { pending: p ?? 0, total: t ?? 0 };
+  }
+  const statusRows = (rows ?? []) as Array<{
+    id: string;
+    organization_slug: string;
+    hub: string;
+    line_group_id: string | null;
+    act_id: string;
+    team_id: string | null;
+    status: string;
+  }>;
+  if (statusRows.length === 0) return { pending: 0, total: 0 };
+
+  // 액트 마스터(is_active·check_target·line_group_id) 배치 조회.
+  const actIds = [...new Set(statusRows.map((r) => r.act_id))];
+  const actById = new Map<string, { is_active: boolean; check_target: string; line_group_id: string | null }>();
+  const ACT_CHUNK = 300;
+  for (let i = 0; i < actIds.length; i += ACT_CHUNK) {
+    const chunk = actIds.slice(i, i + ACT_CHUNK);
+    const { data: acts } = await supabaseAdmin
+      .from("process_acts")
+      .select("id,is_active,check_target,line_group_id")
+      .in("id", chunk);
+    for (const a of (acts ?? []) as Array<{ id: string; is_active: boolean; check_target: string; line_group_id: string | null }>) {
+      actById.set(a.id, { is_active: a.is_active, check_target: a.check_target, line_group_id: a.line_group_id });
+    }
+  }
+
+  // org 별 오픈 설정 1회 로드(캐시).
+  const orgs = [...new Set(statusRows.map((r) => r.organization_slug))];
+  const cfgByOrg = new Map<string, { config: SavedConfig | null; openConfirmed: boolean }>();
+  for (const org of orgs) cfgByOrg.set(org, await loadOpeningConfigForOrg(weekId, org));
+
+  let pending = 0;
+  let total = 0;
+  for (const r of statusRows) {
+    const act = actById.get(r.act_id);
+    if (!act) continue; // 액트 마스터 부재(고아) → 유효 대상 아님.
+    if (act.is_active !== true) continue; // 비활성 → 제외.
+    if (act.check_target !== "check") continue; // 체크 대상 아님(none) → 제외.
+    const cfg = cfgByOrg.get(r.organization_slug) ?? { config: null, openConfirmed: false };
+    const open = isActOpenForWeek({
+      hub: r.hub,
+      openConfirmed: cfg.openConfirmed,
+      config: cfg.config,
+      lineGroupId: act.line_group_id, // 체크 보드와 동일하게 액트 마스터의 라인급 사용.
+      teamId: r.team_id,
+    });
+    if (!open) continue; // 미가동(미오픈) → 제외.
+    total++;
+    if (r.status === "pending") pending++;
+  }
+  return { pending, total };
+}
+
 // 그 주차의 프로세스 체크 적립이 끝났는지 검사한다.
 //   check 게이트는 user_weekly_points.points(행 없으면 0)를 읽으므로, 적립 전에 검수 완료하면
 //   전원 earned=0 → 전원 fail 확정 사고가 난다. 이를 막는다.
 //   차단 조건: (1) 미완료(pending) 정규 체크 존재  (2) 미완료 변동 review_request 존재
-//             (3) 적립 기록 0 인데 그 주차에 체크 상태가 존재(적립 미실행 의심).
+//             (3) 적립 기록 0 인데 그 주차에 유효 체크 대상이 존재(적립 미실행 의심).
+//   ⚠ 정규 체크 pending/집계는 /admin/processes/check 와 **동일한 유효 체크 대상 SoT** 로 좁힌다:
+//     act.is_active && check_target='check' && isActOpenForWeek(오픈확인+소속 라인급/팀 선택).
+//     비활성·체크대상아님(none)·미가동(미오픈) 액트의 잔존 pending 행은 분모·미완료 수에서 제외한다
+//     (체크 페이지가 targetActs 에서 제외하는 것과 정합 — 유령 pending 오차단 방지).
+//   ⚠ 변동(review_request)은 액트 마스터/오픈 게이트 개념이 없으므로 pending 을 그대로 센다(단, 모드 스코프 적용).
+//   ⚠ 모드 스코프: 검수 코호트(loadFinalizeCohort)와 **동일 기준**으로 effMode 를 정해 그 모드의 체크/변동/적립만
+//     센다. 코호트는 `QA_HIDE_REAL_USERS || scope==='qa'` 이면 test 유저만 → effMode='test'. 그래야 test 코호트
+//     검수가 operating 실유저의 pending 에 막히지(그 반대도) 않는다(scope_mode 컬럼으로 격리·읽기==쓰기 모드).
 export async function assertWeekAccrualComplete(
   week: FinalizeWeekRow,
+  scope: StateScope = "operating",
 ): Promise<AccrualGateResult> {
   const weekId = week.id;
-  const [pendReg, pendIrr, statusCount, awardCount] = await Promise.all([
-    supabaseAdmin
-      .from("process_check_statuses")
-      .select("id", { count: "exact", head: true })
-      .eq("week_id", weekId)
-      .eq("status", "pending"),
+  const effMode: "operating" | "test" =
+    QA_HIDE_REAL_USERS || scope === "qa" ? "test" : "operating";
+  const [validStatuses, pendIrr, awardCount] = await Promise.all([
+    countValidOpenCheckStatuses(week, effMode),
     supabaseAdmin
       .from("process_irregular_acts")
       .select("id", { count: "exact", head: true })
       .eq("week_id", weekId)
       .eq("kind", "review_request")
-      .eq("status", "pending"),
-    supabaseAdmin
-      .from("process_check_statuses")
-      .select("id", { count: "exact", head: true })
-      .eq("week_id", weekId),
+      .eq("status", "pending")
+      .eq("scope_mode", effMode),
     week.iso_year != null && week.iso_week != null
       ? supabaseAdmin
           .from("process_point_awards")
           .select("id", { count: "exact", head: true })
           .eq("year", week.iso_year)
           .eq("week_number", week.iso_week)
+          .eq("scope_mode", effMode)
       : Promise.resolve({ count: 0 } as { count: number | null }),
   ]);
 
-  const pendingChecks = pendReg.count ?? 0;
+  const pendingChecks = validStatuses.pending;
   const pendingIrregular = pendIrr.count ?? 0;
-  const totalStatuses = statusCount.count ?? 0;
+  const totalStatuses = validStatuses.total; // 유효 체크 대상 기준(비대상 잔존행 제외).
   const awards = (awardCount as { count: number | null }).count ?? 0;
 
   if (pendingChecks > 0 || pendingIrregular > 0) {
@@ -112,6 +218,39 @@ export async function assertWeekAccrualComplete(
     };
   }
   return { ok: true, reason: null, pendingChecks, pendingIrregular, awardCount: awards };
+}
+
+// ── 실무 경험 라인 주차 스코프(공통 SoT) ─────────────────────────────────────
+// 그 주차의 실무 경험 라인 id + 타깃 id 를 조회한다.
+//   ⚠ 실무 경험 라인(cluster4_lines part_type='experience')은 라인 개설 UI(팀 총괄 개설 완료,
+//     adminExperienceTeamOverall)에서 **cluster4_lines.week_id 를 세팅하지 않는다(NULL)**.
+//     주차 앵커는 cluster4_line_targets.week_id 에 있으므로(개설 시 타깃에 week_id 기록),
+//     타깃→라인 역참조로 그 주차의 experience 라인을 찾는다. (cluster4_lines.week_id 직접 필터 금지 —
+//     week_id 를 세팅하는 마이그레이션 생성분도 타깃 week_id 를 갖고 있어 이 경로가 상위집합.)
+//   readiness("실무 경험 활동 등록/결과 확인")와 finalize mass-fail 가드가 **동일 함수**를 공유한다.
+export async function loadExperienceLineWeekScope(
+  weekId: string,
+): Promise<{ lineIds: string[]; targetIds: string[] }> {
+  const { data: tg } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("id,line_id")
+    .eq("week_id", weekId);
+  const tgRows = (tg ?? []) as Array<{ id: string; line_id: string | null }>;
+  if (tgRows.length === 0) return { lineIds: [], targetIds: [] };
+  const candidateLineIds = [...new Set(tgRows.map((r) => r.line_id).filter((x): x is string => !!x))];
+  const expLineIds = new Set<string>();
+  const CHUNK = 200;
+  for (let i = 0; i < candidateLineIds.length; i += CHUNK) {
+    const chunk = candidateLineIds.slice(i, i + CHUNK);
+    const { data } = await supabaseAdmin
+      .from("cluster4_lines")
+      .select("id")
+      .in("id", chunk)
+      .eq("part_type", "experience");
+    for (const l of (data ?? []) as { id: string }[]) expLineIds.add(l.id);
+  }
+  const targetIds = tgRows.filter((r) => r.line_id != null && expLineIds.has(r.line_id)).map((r) => r.id);
+  return { lineIds: [...expLineIds], targetIds };
 }
 
 // ── 코호트: 그 주차 시즌 참여자(전 org) — roster 기반(uws 기반 아님) ──────────
@@ -370,7 +509,7 @@ export async function finalizeWeekUws(
   //   실제 uws 생성 대상 주차(레거시·공식휴식·현재미래 게이트 통과)에서만 검사한다.
   //   bypass(test/QA + 명시 플래그) 시에는 건너뛴다(불완전 테스트 데이터 흐름 검증).
   if (!bypass) {
-    const gate = await assertWeekAccrualComplete(week);
+    const gate = await assertWeekAccrualComplete(week, scope);
     if (!gate.ok) {
       throw new UwsFinalizeBlockedError(gate.reason ?? "적립이 완료되지 않았습니다.", "accrual_incomplete");
     }
@@ -393,16 +532,14 @@ export async function finalizeWeekUws(
   //     "성공 0 · 휴식 제외 전원 fail" 이면 확정을 차단한다(라인 개설·결과 입력 후 재검수 유도).
   //   bypass(test/QA + 명시 플래그) 시에는 이 가드를 건너뛴다 — 불완전 테스트 데이터로 fail 저장 흐름 검증.
   if (!bypass) {
-    const { count: expLineCount } = await supabaseAdmin
-      .from("cluster4_lines")
-      .select("id", { count: "exact", head: true })
-      .eq("week_id", week.id)
-      .eq("part_type", "experience");
+    // ⚠ experience 라인 주차 앵커 = cluster4_line_targets.week_id(라인 week_id=NULL). 공통 SoT 사용.
+    const { lineIds: expLineIds } = await loadExperienceLineWeekScope(week.id);
+    const expLineCount = expLineIds.length;
     const nonRest = verdicts.filter((v) => !(v.kind === "status" && v.status === "personal_rest"));
     const allFail =
       nonRest.length > 0 &&
       nonRest.every((v) => v.kind === "status" && v.status === "fail");
-    if ((expLineCount ?? 0) === 0 && allFail) {
+    if (expLineCount === 0 && allFail) {
       throw new UwsFinalizeBlockedError(
         "이 주차에 실무 경험 라인이 개설되지 않아 대상자 전원이 '성장 실패'로 확정될 수 있습니다. " +
           "라인 개설·결과 입력을 완료한 뒤 검수 완료를 진행해주세요.",

@@ -13,6 +13,7 @@ import type { StateScope } from "@/lib/operationalState";
 import {
   assertWeekAccrualComplete,
   loadFinalizeCohort,
+  loadExperienceLineWeekScope,
   type FinalizeWeekRow,
 } from "@/lib/adminWeekUwsFinalize";
 
@@ -80,27 +81,19 @@ export async function computeReviewReadiness(
 
   // ── 판정 재료(read-only) ────────────────────────────────────────────────
   // 1) 적립 완료(안전장치와 동일 함수).
-  const gate = await assertWeekAccrualComplete(week);
+  const gate = await assertWeekAccrualComplete(week, scope);
 
   // 2) 시즌 참여자(코호트, scope 반영).
   const cohort = await loadFinalizeCohort(week.season_key, scope);
 
   // 3) 실무 경험 라인/타깃/평가 (주차 전역).
-  const { data: expLines } = await supabaseAdmin
-    .from("cluster4_lines")
-    .select("id")
-    .eq("week_id", weekId)
-    .eq("part_type", "experience");
-  const expLineIds = ((expLines ?? []) as { id: string }[]).map((l) => l.id);
+  //   ⚠ experience 라인은 개설 UI 에서 cluster4_lines.week_id 를 세팅하지 않는다(NULL) — 주차 앵커는
+  //     cluster4_line_targets.week_id. 공통 SoT(loadExperienceLineWeekScope)로 라인 개설 페이지와 동일 조회.
+  const { lineIds: expLineIds, targetIds } = await loadExperienceLineWeekScope(weekId);
 
   let targetCount = 0;
   let evaluatedCount = 0;
-  if (expLineIds.length > 0) {
-    const { data: targets } = await supabaseAdmin
-      .from("cluster4_line_targets")
-      .select("id")
-      .in("line_id", expLineIds);
-    const targetIds = ((targets ?? []) as { id: string }[]).map((t) => t.id);
+  {
     targetCount = targetIds.length;
     if (targetIds.length > 0) {
       // 평가 완료 = rating>0 이거나 evaluated_by 세팅(팀장이 실제 평가). rating=0 & evaluated_by=null = 미평가.
