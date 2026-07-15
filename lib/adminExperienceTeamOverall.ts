@@ -29,12 +29,15 @@ import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
 import { getCurrentSeasonRestUserIds } from "@/lib/currentSeasonRest";
 import {
   EXPERIENCE_OVERALL_CATEGORIES,
+  OVERALL_APPLICATION_INCOMPLETE_MESSAGE,
   OVERALL_CELL_DEFAULT,
   OVERALL_LEADER_CATEGORIES,
   OVERALL_PART_CATEGORIES,
   canEditOverallManagement,
+  resolveOverallApplicationReadiness,
   type ExperienceOverallCategory,
   type ExperienceTeamOverallBoard,
+  type OverallApplicationReadiness,
   type OverallBoardCrew,
   type OverallBoardPart,
   type OverallCell,
@@ -379,10 +382,37 @@ export async function getTeamOverallBoard(
     extensionActive: extension.active,
     extensionKind: extension.kind,
     parts,
+    // 대상 파트 신청 완료 판정 — 프론트가 그대로 소비(버튼 게이팅). 서버 가드와 동일 순수 함수 사용.
+    application: resolveOverallApplicationReadiness(parts),
     outputs,
     reviewedAt: stored.reviewedAt,
     openedAt: stored.openedAt,
   };
+}
+
+// ── [개설 검수] 사전조건(대상 파트 신청 완료) 서버 판정 ──
+//   getTeamOverallBoard.parts 와 동일 소스(loadTeamMembersWithLeaders + loadPartSubmissionCells)로
+//   대상 파트 집합을 만든 뒤 board 와 같은 순수 함수(resolveOverallApplicationReadiness)로 판정한다.
+//   → 프론트(board.application)와 서버 가드가 기준이 갈라지지 않는다.
+export async function loadOverallApplicationReadiness(
+  organization: string,
+  weekId: string,
+  teamId: string,
+  teamName: string,
+  mode: ScopeMode = "operating",
+): Promise<OverallApplicationReadiness> {
+  const [members, partCellsData] = await Promise.all([
+    loadTeamMembersWithLeaders(organization, teamName, mode),
+    loadPartSubmissionCells(organization, weekId, teamId),
+  ]);
+  const partNames = Array.from(new Set(members.map((m) => m.partName))).sort(
+    (a, b) => a.localeCompare(b),
+  );
+  const parts = partNames.map((partName) => ({
+    partName,
+    submitted: partCellsData.submittedParts.has(partName),
+  }));
+  return resolveOverallApplicationReadiness(parts);
 }
 
 // ── 헤더 upsert + 팀장 셀/아웃풋 저장(replace) ──
@@ -524,6 +554,26 @@ export async function saveTeamOverallReview(input: {
   if (existing.status === "opened") {
     throw Object.assign(
       new Error("이미 개설 완료된 팀입니다. [개설 취소] 후 다시 검수해주세요."),
+      { status: 409 },
+    );
+  }
+
+  // 모든 대상 파트의 [개설 신청] 완료 전에는 검수 불가 — 프론트 버튼 disable 과 동일 기준(공용 판정).
+  //   UI 우회(직접 API 호출)도 여기서 fail-closed(persist 이전·DB write 금지).
+  const readiness = await loadOverallApplicationReadiness(
+    input.organization,
+    input.weekId,
+    input.teamId,
+    input.teamName,
+    input.mode ?? "operating",
+  );
+  if (!readiness.allPartsApplied) {
+    const detail =
+      readiness.unappliedParts.length > 0
+        ? `\n미신청 파트: ${readiness.unappliedParts.join(", ")}`
+        : "";
+    throw Object.assign(
+      new Error(`${OVERALL_APPLICATION_INCOMPLETE_MESSAGE}${detail}`),
       { status: 409 },
     );
   }

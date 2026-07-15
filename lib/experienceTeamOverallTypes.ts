@@ -98,6 +98,34 @@ export type OverallBoardPart = {
   crews: OverallBoardCrew[];
 };
 
+// ── [개설 검수] 사전조건: 대상 파트 신청 완료 판정(프론트/백엔드 공용 SoT) ──
+//   화면 카드 수/프론트 상태가 아니라 board.parts(대상 파트 목록 + 파트별 신청 상태)로 판정한다.
+//   제외/비활성/휴식 파트는 이미 board.parts 조립 단계에서 빠져 있으므로 여기서 다시 거르지 않는다.
+export type OverallApplicationReadiness = {
+  totalPartCount: number; // 대상 파트 전체 수.
+  appliedPartCount: number; // [개설 신청] 완료 파트 수.
+  unappliedParts: string[]; // 미신청 파트명(board.parts 정렬 유지).
+  allPartsApplied: boolean; // 모든 대상 파트 신청 완료 여부(대상 0개면 false).
+};
+
+// 프론트 disable/안내 + 서버 검수 가드가 공유하는 순수 판정 함수(기준 불일치 방지).
+export function resolveOverallApplicationReadiness(
+  parts: ReadonlyArray<Pick<OverallBoardPart, "partName" | "submitted">>,
+): OverallApplicationReadiness {
+  const unappliedParts = parts.filter((p) => !p.submitted).map((p) => p.partName);
+  return {
+    totalPartCount: parts.length,
+    appliedPartCount: parts.length - unappliedParts.length,
+    unappliedParts,
+    // 대상 파트가 하나도 없으면 검수 불가(개설할 신청 자체가 없음).
+    allPartsApplied: parts.length > 0 && unappliedParts.length === 0,
+  };
+}
+
+// 검수 차단 안내/오류 문구 — 프론트 안내와 서버 409 오류가 동일 문구를 쓴다.
+export const OVERALL_APPLICATION_INCOMPLETE_MESSAGE =
+  "아직 모든 파트의 [개설 신청]이 완료되지 않았습니다.";
+
 export type OverallOutput = {
   category: ExperienceOverallCategory;
   link: string;
@@ -112,6 +140,8 @@ export type ExperienceTeamOverallBoard = {
   extensionActive: boolean;
   extensionKind: "online" | "offline" | null;
   parts: OverallBoardPart[];
+  // 대상 파트 신청 완료 판정(parts 파생) — 프론트 [개설 검수] 버튼 게이팅/서버 가드 공용.
+  application: OverallApplicationReadiness;
   outputs: OverallOutput[]; // 카테고리별 0~5건(저장된 것만).
   reviewedAt: string | null;
   openedAt: string | null;

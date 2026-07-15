@@ -22,10 +22,12 @@ import { cn } from "@/lib/utils";
 import type { ScopeMode } from "@/lib/userScopeShared";
 import {
   EXPERIENCE_OVERALL_CATEGORIES,
+  OVERALL_APPLICATION_INCOMPLETE_MESSAGE,
   OVERALL_CELL_DEFAULT,
   OVERALL_LEADER_CATEGORIES,
   canEditOverallManagement,
   isOverallCellFail,
+  resolveOverallApplicationReadiness,
   type ExperienceOverallCategory,
   type ExperienceTeamOverallBoard as BoardDto,
   type OverallBoardCrew,
@@ -139,6 +141,25 @@ export default function ExperienceTeamOverallBoard({
 
   const opened = board?.status === "opened";
   const extensionActive = board?.extensionActive ?? false;
+
+  // [개설 검수] 사전조건 — 대상 파트 전체가 [개설 신청]을 완료했는지.
+  //   화면 카드 수가 아니라 DTO 판정(board.application)을 소비. 구버전 응답 대비 parts 파생 폴백.
+  const application = useMemo(
+    () =>
+      board
+        ? (board.application ?? resolveOverallApplicationReadiness(board.parts))
+        : null,
+    [board],
+  );
+  const allPartsApplied = application?.allPartsApplied ?? false;
+
+  // 미개설(=[개설 신청] 미완료) 파트 집합 — 공통 SoT(board.parts[].submitted)로만 판정.
+  //   파트명 문자열이 아니라 DTO 의 파트별 submitted 플래그 기준(개설된 파트=활성 유지, 미개설=행 시각 비활성).
+  const inactivePartNames = useMemo(() => {
+    const s = new Set<string>();
+    for (const p of board?.parts ?? []) if (!p.submitted) s.add(p.partName);
+    return s;
+  }, [board]);
 
   // 업무 흐름(Process)상 "현재 상태에서 권장되는 다음 액션" — 시각적 강조(안내)용일 뿐, 권한을 막지 않는다.
   //   none(검수 전) → 개설 검수, reviewed(검수 완료) → 개설 완료, opened(완료) → 없음.
@@ -332,6 +353,17 @@ export default function ExperienceTeamOverallBoard({
 
   // ── 버튼 핸들러 ──
   const onReview = useCallback(async () => {
+    // 비활성 조건 방어 — 직접 이벤트 호출/키보드 실행도 여기서 차단(버튼 disabled 와 동일 기준).
+    if (opened || !allPartsApplied) {
+      setBanner({
+        kind: "error",
+        message:
+          application && application.unappliedParts.length > 0
+            ? `${OVERALL_APPLICATION_INCOMPLETE_MESSAGE}\n미신청 파트: ${application.unappliedParts.join(", ")}`
+            : OVERALL_APPLICATION_INCOMPLETE_MESSAGE,
+      });
+      return;
+    }
     setSaving(true);
     setBanner(null);
     try {
@@ -348,7 +380,7 @@ export default function ExperienceTeamOverallBoard({
     } finally {
       setSaving(false);
     }
-  }, [post, fetchBoard, onActivity]);
+  }, [post, fetchBoard, onActivity, opened, allPartsApplied, application]);
 
   const onReset = useCallback(() => {
     // DB 통신 없음 — 프론트 화면 입력값만 기본값으로 복원.
@@ -541,8 +573,29 @@ export default function ExperienceTeamOverallBoard({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {allCrews.map((crew) => (
-                <TableRow key={crew.userId}>
+              {allCrews.map((crew) => {
+                // 미개설 파트 행 = 시각적 비활성(데이터/편집 로직은 불변, 표현만 변경).
+                const partInactive =
+                  crew.partName != null && inactivePartNames.has(crew.partName);
+                return (
+                <TableRow
+                  key={crew.userId}
+                  aria-disabled={partInactive || undefined}
+                  title={
+                    partInactive
+                      ? "아직 [개설 신청]이 완료되지 않은 파트입니다"
+                      : undefined
+                  }
+                  className={cn(
+                    partInactive
+                      ? // 미개설 비활성 행: muted 배경 + muted 텍스트 + hover 제거 + 컨트롤 not-allowed 커서.
+                        //   행 opacity(0.6)·행 not-allowed 커서는 전역 [aria-disabled="true"] 플로어(globals.css)가 부여.
+                        "text-muted-foreground hover:bg-transparent [&>td]:bg-muted/60 [&_input]:cursor-not-allowed [&_select]:cursor-not-allowed"
+                      : // 활성 행: 테이블 기본 배경 유지 — 장식용 zebra/hover 배경 제거(상태 오인 방지).
+                        //   (전역 table.tsx 는 그대로 두고 이 표에서만 무력화: td 에 기본 배경을 덧칠.)
+                        "hover:bg-transparent [&>td]:bg-background",
+                  )}
+                >
                   <TableCell className="font-medium whitespace-normal break-words">
                     {crew.displayName}
                     {crew.isPartLeader && (
@@ -645,7 +698,8 @@ export default function ExperienceTeamOverallBoard({
                     );
                   })}
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -740,23 +794,43 @@ export default function ExperienceTeamOverallBoard({
               검수=agent/team_leader · 개설/취소=team_leader 만. 서버 가드(403)가 실제 권한 경계.
               variant(강조)는 "권장 다음 액션"에 따라 동적 — 권한/활성 여부와는 별개(팀장은 상태 무관 가능). */}
           {(!actorMemberRole || actorMemberRole === "agent" || actorMemberRole === "team_leader") && (
-            <span className="inline-flex items-center gap-1">
-              <Button
-                variant={recommendedNext === "review" ? "default" : "outline"}
-                className="w-full justify-center"
-                onClick={onReview}
-                loading={saving}
-                disabled={saving || opened}
-              >
-                <Eye className="mr-1.5 h-4 w-4" />
-                개설 검수
-              </Button>
-              <AdminHelpIconButton
-                size="xs"
-                helpKey="admin.lineOpening.experience.action.overallReview"
-                title="개설 검수"
-              />
-            </span>
+            <>
+              <span className="inline-flex items-center gap-1">
+                <Button
+                  variant={recommendedNext === "review" ? "default" : "outline"}
+                  className="w-full justify-center"
+                  onClick={onReview}
+                  loading={saving}
+                  // 대상 파트 전체 [개설 신청] 완료 전에는 비활성(클릭/키보드 차단). 서버 가드(409)와 동일 기준.
+                  disabled={saving || opened || !allPartsApplied}
+                  title={
+                    !opened && !allPartsApplied
+                      ? OVERALL_APPLICATION_INCOMPLETE_MESSAGE
+                      : undefined
+                  }
+                >
+                  <Eye className="mr-1.5 h-4 w-4" />
+                  개설 검수
+                </Button>
+                <AdminHelpIconButton
+                  size="xs"
+                  helpKey="admin.lineOpening.experience.action.overallReview"
+                  title="개설 검수"
+                />
+              </span>
+              {/* 검수 영역 안내 — 미신청 파트가 있으면 사유+미신청 파트 목록 표시. */}
+              {!opened && !allPartsApplied && (
+                <p className="text-xs leading-tight text-amber-700 dark:text-amber-400">
+                  {OVERALL_APPLICATION_INCOMPLETE_MESSAGE}
+                  {application && application.unappliedParts.length > 0 && (
+                    <>
+                      <br />
+                      미신청 파트: {application.unappliedParts.join(", ")}
+                    </>
+                  )}
+                </p>
+              )}
+            </>
           )}
           <span className="inline-flex items-center gap-1">
             <Button
