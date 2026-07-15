@@ -44,7 +44,7 @@ export default function ActSupplementDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [flip, setFlip] = useState<GrowthFlip | null>(null);
-  const toast = useToast();
+  const { toast } = useToast();
 
   const hasPoint = pointA > 0 || pointB > 0 || pointC > 0;
   const canSubmit = actName.trim().length > 0 && hasPoint && !submitting;

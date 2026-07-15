@@ -842,7 +842,7 @@ export async function softCancelActAwards(params: {
   }
 
   const ids = Array.from(new Set(awardIds)).filter((v) => typeof v === "string" && v);
-  if (ids.length === 0) return { cancelledCount: 0, affectedUserId: userId };
+  if (ids.length === 0) return { cancelledCount: 0, affectedUserId: userId, growth: null };
 
   // 대상 행 로드 + 소유 검증(fail-closed) — 존재/소유/취소 상태 확인.
   const { data: rows, error: readErr } = await supabaseAdmin

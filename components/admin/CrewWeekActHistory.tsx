@@ -47,7 +47,7 @@ export default function CrewWeekActHistory({
   const [actionError, setActionError] = useState<string | null>(null);
   const [supplementOpen, setSupplementOpen] = useState(false);
   const [cancelFlip, setCancelFlip] = useState<GrowthFlip | null>(null);
-  const toast = useToast();
+  const { toast } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
