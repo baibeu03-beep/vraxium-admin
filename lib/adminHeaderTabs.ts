@@ -104,7 +104,7 @@ export function buildCrewsTabs(
       active: current === "list",
     },
     {
-      label: "크루 관리",
+      label: "크루 정보",
       href: tabHref(pathname, searchParams, "tab", "manage", false),
       active: current === "manage",
     },
