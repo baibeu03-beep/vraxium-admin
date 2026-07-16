@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Card,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -89,13 +88,6 @@ export default function CompetencyOpeningLogPanel({
             title="라인 개설 로그창"
           />
         </CardTitle>
-        <CardDescription className="inline-flex items-center gap-1">
-          라인 개설·취소 행동 이력 (최신순)
-          <AdminHelpIconButton
-            helpKey="admin.competency.log.section.itemFormat"
-            title="로그 항목 형식"
-          />
-        </CardDescription>
       </CardHeader>
       <OpeningLogScrollContent
         count={loading ? 0 : logs.length}

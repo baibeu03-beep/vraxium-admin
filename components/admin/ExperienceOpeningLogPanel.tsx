@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Card,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -92,16 +91,6 @@ export default function ExperienceOpeningLogPanel({
             title="라인 개설 로그창"
           />
         </CardTitle>
-        <CardDescription className="inline-flex items-center gap-1">
-          {weekId
-            ? "선택한 주차 라인 개설 행동 이력 (최신순)"
-            : "이번 주(개설 대상) 라인 개설 행동 이력 (최신순)"}
-          <AdminHelpIconButton
-            size="xs"
-            helpKey="admin.experience.log.section.itemFormat"
-            title="로그 항목 형식"
-          />
-        </CardDescription>
       </CardHeader>
       <OpeningLogScrollContent
         count={loading ? 0 : logs.length}

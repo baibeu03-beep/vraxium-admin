@@ -185,6 +185,8 @@ const APP_COLUMNS: AppColumnDef[] = [
     key: "link",
     label: "제출 링크",
     helpKey: "admin.lineOpening.competency.applicants.column.submissionLink",
+    // 폭은 colgroup(30%)이 결정. 헤더는 가운데 정렬 + 필요 시 줄바꿈 허용(전역 whitespace-nowrap 덮음).
+    headClassName: "text-center whitespace-normal break-words align-middle",
   },
   {
     key: "cafe",
@@ -247,7 +249,7 @@ function AppColumnHeader({
       <div
         className={cn(
           "inline-flex items-center gap-1",
-          col.headClassName === "text-center" && "justify-center",
+          col.headClassName?.includes("text-center") && "justify-center",
         )}
       >
         {sortable ? (
@@ -751,10 +753,6 @@ export default function CompetencyApplicantSection({
             size="sm"
           />
         </div>
-        {/* 성장 중단(휴학·중단) 유저는 고객앱에 카드가 노출되지 않아 개설 대상에서 제외됨 — 검색 결과에도 표시되지 않는다. */}
-        <p className="text-xs text-muted-foreground">
-          ※ 성장 중단(paused/suspended) 유저는 크루 페이지에 카드가 노출되지 않아 개설 대상에서 제외되며 검색 결과에도 표시되지 않습니다.
-        </p>
 
         {/* 승인 명단 테이블 */}
         {loading ? (
@@ -765,7 +763,18 @@ export default function CompetencyApplicantSection({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <Table>
+            {/* table-fixed + colgroup 로 컬럼 폭을 명시 배분 — 크루명은 좁히고 제출 링크는 넓혀
+                URL 을 말줄임(...) 없이 2~3줄 줄바꿈으로 끝까지 노출한다(폭 %는 컨테이너 기준 반응형). */}
+            <Table className="table-fixed">
+              <colgroup>
+                <col style={{ width: "17%" }} />{/* 크루명(축소) */}
+                <col style={{ width: "15%" }} />{/* 라인명 */}
+                <col style={{ width: "30%" }} />{/* 제출 링크(확대 — URL 줄바꿈 노출) */}
+                <col style={{ width: "7%" }} />{/* 카페 */}
+                <col style={{ width: "7%" }} />{/* 승인 */}
+                <col style={{ width: "14%" }} />{/* 반려 사유 */}
+                <col style={{ width: "10%" }} />{/* 삭제 */}
+              </colgroup>
               <TableHeader>
                 <TableRow>
                   {APP_COLUMNS.map((col) => (
@@ -795,7 +804,8 @@ export default function CompetencyApplicantSection({
                     </TableRow>
                     {g.apps.map((a) => (
                   <TableRow key={a.id} className={cn(checkedRowClass(a.approvalChecked))}>
-                    <TableCell className="whitespace-nowrap font-medium">
+                    {/* 크루명 — 좁아진 컬럼(colgroup 17%)에서 자연 줄바꿈 허용(전역 whitespace-nowrap 덮음). */}
+                    <TableCell className="align-top whitespace-normal break-words font-medium">
                       <span className={cn(checkedTextClass(a.approvalChecked))}>{a.crewLabel}</span>
                       {a.source === "manual" && (
                         <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
@@ -803,22 +813,25 @@ export default function CompetencyApplicantSection({
                         </span>
                       )}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="align-top whitespace-normal break-words">
                       <div className="font-medium">{a.lineName}</div>
                       {a.lineCode && (
                         <div className="font-mono text-[10px] text-muted-foreground">{a.lineCode}</div>
                       )}
                     </TableCell>
-                    <TableCell className="max-w-[220px]">
+                    {/* 제출 링크 — 넓은 컬럼(colgroup 30%). URL 은 truncate(...) 대신 줄바꿈(break-all,
+                        whitespace-normal)해 말줄임 없이 끝까지 노출한다. 여러 줄이면 행 높이가 자연히 늘어난다.
+                        colgroup 이 폭을 고정하므로 옆 [카페] 컬럼을 침범하지 않는다. */}
+                    <TableCell className="align-top text-center whitespace-normal break-words">
                       {a.submissionLink ? (
                         <a
                           href={a.submissionLink}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 truncate text-sky-700 underline underline-offset-2 hover:text-sky-900"
+                          className="flex items-start justify-center gap-1 text-sky-700 underline underline-offset-2 hover:text-sky-900"
                         >
-                          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{a.submissionLink}</span>
+                          <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span className="min-w-0 break-all text-center">{a.submissionLink}</span>
                         </a>
                       ) : (
                         <span className="text-muted-foreground">-</span>
