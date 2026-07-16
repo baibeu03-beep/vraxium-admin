@@ -79,7 +79,13 @@ export type CrewWeekLineDetailRow = {
   hubLabel: string; // "실무 정보" 등
   lineName: string;
   displayLineCode: string | null;
-  clubOpen: boolean; // 클럽 오픈 = lineId != null (개설된 실제 라인). placeholder=미오픈.
+  // 클럽 오픈 = 개설된 실제 라인. 일반 허브 = lineId != null. **실무 역량은 예외**: 해당 주차에
+  //   역량 개설이 있으면(대상자 존재 → 카드가 placeholder 를 fail/pending 으로 생성) lineId=null 이어도
+  //   오픈으로 본다(미개설=not_applicable 만 미오픈). placeholder 의 lineId=null 만 보고 미오픈 판정 금지.
+  clubOpen: boolean;
+  // 실무 역량 placeholder 행 여부(개설됐으나 이 크루가 아직 대상자 아님 → 라인명 "-"). 성공 전환 시
+  //   라인 선택이 필요한 특수 행. 프론트가 이 행 클릭 시 라인 선택 팝업을 연다.
+  isCompetencyPlaceholder: boolean;
   enhancementStatus: Cluster4EnhancementStatus;
   enhancementLabel: string; // 강화 성공/실패/해당 없음/집계 전(pending)
   enhancementReason: Cluster4EnhancementReason;
@@ -138,6 +144,12 @@ export async function getCrewWeekLineSummary(
     if (r.week_id === card.weekId) overrideAllowedByLine.set(r.line_id, r.allowed);
   }
 
+  // 실무 역량 개설 판정: 카드는 개설된 주차에만 역량 placeholder 를 not_applicable 이 아닌
+  //   fail/pending 으로 만든다(미개설 = not_applicable). 그래서 competency 는 lineId 유무와 무관하게
+  //   "not_applicable 이 아니면 개설"이다. 실 대상자 라인은 lineId != null 로 이미 개설.
+  const isCompetencyOpen = (line: (typeof lines)[number]): boolean =>
+    line.partType === "competency" && line.enhancementStatus !== "not_applicable";
+
   const lineDetails: CrewWeekLineDetailRow[] = lines.map((line) => {
     const hubKey = line.partType === "information" ? "info" : line.partType;
     const earned = line.lineId != null ? earnedByLine.get(line.lineId) : undefined;
@@ -152,7 +164,9 @@ export async function getCrewWeekLineSummary(
         line.displayLineCode?.trim() ||
         "(이름 없음)",
       displayLineCode: line.displayLineCode,
-      clubOpen: line.lineId != null,
+      clubOpen: line.lineId != null || isCompetencyOpen(line),
+      isCompetencyPlaceholder:
+        line.partType === "competency" && line.lineId == null && isCompetencyOpen(line),
       enhancementStatus: line.enhancementStatus,
       enhancementLabel: formatEnhancementStatusLabel(line.enhancementStatus),
       enhancementReason: line.enhancementReason,
