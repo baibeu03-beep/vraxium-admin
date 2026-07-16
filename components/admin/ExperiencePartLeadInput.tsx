@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import ExperienceOpeningStatus from "@/components/admin/ExperienceOpeningStatus";
+import ExperienceOpeningProgressSteps from "@/components/admin/ExperienceOpeningProgressSteps";
 import {
   resolveExperienceOpeningProgress,
   type ExperienceOpeningProgress,
@@ -955,17 +955,6 @@ export default function ExperiencePartLeadInput({
                 </Select>
               </div>
 
-              {/* 현재 선택(팀 총괄/파트)의 개설 신청 상태 — 파트 드롭다운과 같은 행/같은 Y.
-                  pill 자체를 h-9(=주차·파트 드롭다운 높이)로 만들어 입력 컨트롤 상/하단선을 정확히 일치시킨다.
-                  행이 items-end 라 라벨 없는 이 pill 의 하단선이 드롭다운 하단선과 맞고, 높이가 같아 상단선도 맞음.
-                  파트: 개설 신청 필요/완료 · 팀 총괄: 개설 필요/개설 완료(status==="opened"). */}
-              {part && (
-                <ExperienceOpeningStatus
-                  progress={currentProgress}
-                  className="h-9"
-                />
-              )}
-
               {/* 팀 활동 책임자(팀장) — 같은 행 우측 정렬(ml-auto). 모바일에선 아래 줄로 wrap.
                   선택 팀 기준(direct DTO teamLeader), 팀 탭 변경 시 자동 갱신. */}
               <div className="ml-auto self-center">
@@ -988,6 +977,11 @@ export default function ExperiencePartLeadInput({
                 </div>
               </div>
             </div>
+
+            {/* 개설 진행 단계 — 4단계 전체를 항상 노출하고 현재 도달 단계만 강조(단일 pill 대체).
+                SoT=currentProgress(서버 team-overall 상태). 파트 선택 시엔 신청까지만 도달, 이후 단계는
+                비활성 유지. 팀 총괄 선택 시 4단계 전체를 팀 상태 기준으로 판정. */}
+            {part && <ExperienceOpeningProgressSteps progress={currentProgress} />}
 
             {gridLoading || partsLoading ? (
               <LoadingState active />
