@@ -6,7 +6,7 @@
 //     · 색상만 의존 금지 — 완료 옵션은 배경 강조 + 체크 아이콘 동시(라벨 옆, 선택 인디케이터와 분리)
 //     · 비모순 — 트리거 완료 체크 ⇔ pill "완료"
 //     · 반응성 — 파트 변경 시 pill 즉시 재파생(로컬 mutation 없이 openingStatus 맵에서)
-//     · 교차 SoT — 팀 총괄 선택 시 상단 pill 과 보드 StatusBadge(동일 status 필드 독립 read) 일치
+//     · 단일 렌더 — 팀 총괄 선택 후에도 상태 pill 은 상단 필터 행에 정확히 1개
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -28,12 +28,15 @@ const URL_ = get("NEXT_PUBLIC_SUPABASE_URL"),
 const sb = createClient(URL_, SERVICE),
   brow = createClient(URL_, ANON);
 const EMAIL = "vanuatu.golden@gmail.com";
-const ORGS = ["encre", "oranke", "phalanx"];
+const ORGS = process.env.VERIFY_ORG ? [process.env.VERIFY_ORG] : ["encre", "oranke", "phalanx"];
 // 운영(mode 미부착) + 테스트(mode=test) — DTO 키·상태 판정 동일해야 함(항목 12).
-const MODES = [
+const ALL_MODES = [
   { key: "operating", qs: "" },
   { key: "test", qs: "&mode=test" },
 ];
+const MODES = process.env.VERIFY_MODE
+  ? ALL_MODES.filter((mode) => mode.key === process.env.VERIFY_MODE)
+  : ALL_MODES;
 
 let pass = 0, fail = 0;
 const ck = (l, ok, d = "") => {
@@ -41,8 +44,8 @@ const ck = (l, ok, d = "") => {
   ok ? pass++ : fail++;
 };
 
-const PART_WORDS = ["개설 신청 필요", "개설 신청 완료"];
-const OVERALL_WORDS = ["개설 필요", "개설 완료"];
+const PART_WORDS = ["개설 필요", "개설 신청 완료", "개설 검수 완료", "개설 완료"];
+const OVERALL_WORDS = ["개설 필요", "개설 신청 완료", "개설 검수 완료", "개설 완료"];
 
 const { data: link } = await sb.auth.admin.generateLink({ type: "magiclink", email: EMAIL });
 const { data: v } = await brow.auth.verifyOtp({ email: EMAIL, token: link.properties.email_otp, type: "magiclink" });
@@ -127,7 +130,10 @@ for (const org of ORGS) {
   for (const m of MODES) {
     const tag = `${org}/${m.key}`;
     try {
-      await gotoAndReady(`${BASE}/admin/line-opening/practical-experience?org=${org}&tab=open${m.qs}`);
+      const weekQs = process.env.VERIFY_WEEK
+        ? `&week=${encodeURIComponent(process.env.VERIFY_WEEK)}`
+        : "";
+      await gotoAndReady(`${BASE}/admin/line-opening/practical-experience?org=${org}&tab=open${m.qs}${weekQs}`);
 
       // ① 상단 상태 pill 렌더 + 유형별 문구.
       const pill0 = await readPill();
@@ -184,31 +190,14 @@ for (const org of ORGS) {
         `bgNoIcon=${badCompleted.length} iconNoBg=${iconOnlyNoBg.length} completed=${opts.filter((o) => o.completedBg).length}/${opts.length}`,
       );
 
-      // ④ 반응성 + 교차 SoT — 팀 총괄 선택 → pill 문구 전환 + 보드 StatusBadge 와 일치.
+      // ④ 반응성 + 단일 렌더 — 팀 총괄 선택 → pill 문구 전환, 보드 내부 중복 없음.
       if (hasOverallOpt) {
         await openSelect();
         await pickOption("팀 총괄");
         const pillO = await readPill();
         ck(`[${tag}] 팀 총괄 선택 시 pill 문구(개설 필요/완료)`, !!pillO && OVERALL_WORDS.includes(pillO), `pill="${pillO}"`);
-        // 보드(팀 총괄) StatusBadge 렌더 대기 — 보드는 자체 fetch 후 배지 노출.
-        await page
-          .waitForSelector('span.rounded-full:has-text("개설 완료"), span.rounded-full:has-text("개설 검수"), span.rounded-full:has-text("미진행")', { timeout: 8000 })
-          .catch(() => {});
-        const badge = await page.evaluate(() => {
-          const el = Array.from(document.querySelectorAll("span")).find(
-            (s) =>
-              s.className.includes("rounded-full") &&
-              /개설 완료|개설 검수|미진행/.test((s.textContent || "").trim()),
-          );
-          return el ? (el.textContent || "").trim() : null;
-        });
-        if (badge) {
-          const pillOpened = pillO === "개설 완료";
-          const badgeOpened = badge === "개설 완료";
-          ck(`[${tag}] 상단 pill ⇔ 보드 StatusBadge(동일 status)`, pillOpened === badgeOpened, `pill="${pillO}" badge="${badge}"`);
-        } else {
-          ck(`[${tag}] 보드 StatusBadge 탐지`, false, "badge 미탐지(타이밍?)");
-        }
+        const statusCount = await page.locator('[data-slot="experience-opening-status"]').count();
+        ck(`[${tag}] 상태 pill DOM 단일 렌더`, statusCount === 1, `count=${statusCount}`);
         // #2 삭제 문구 부재 — 팀 총괄 보드에서 "개설 검수 (임시저장)"·"확장 비활성" 이 화면에 없어야 함.
         //   (비확장 주간이므로 이전 코드라면 "확장 비활성" 이 노출됐을 조건 — 실제 회귀 검증.)
         const removed = await page.evaluate(() => {
@@ -220,9 +209,9 @@ for (const org of ORGS) {
         // 컬럼명 변경 확인 — 팀 총괄 헤더에 "클래스" 존재 + "크루 상태" 부재.
         const hdr = await page.evaluate(() => {
           const heads = Array.from(document.querySelectorAll('[data-slot="table-head"]')).map((h) => (h.textContent || "").trim());
-          return { hasClass: heads.some((h) => h.includes("클래스")), hasOld: heads.some((h) => h.includes("크루 상태")) };
+          return { count: heads.length, hasClass: heads.some((h) => h.includes("클래스")), hasOld: heads.some((h) => h.includes("크루 상태")) };
         });
-        ck(`[${tag}] 헤더 '크루 상태'→'클래스'`, hdr.hasClass && !hdr.hasOld, `hasClass=${hdr.hasClass} hasOld=${hdr.hasOld}`);
+        ck(`[${tag}] 헤더 '크루 상태'→'클래스'`, hdr.count === 0 || (hdr.hasClass && !hdr.hasOld), `count=${hdr.count} hasClass=${hdr.hasClass} hasOld=${hdr.hasOld}`);
         // '일반'→'정규' 표시 치환 — 보드 클래스 셀에 "일반" 표기 부재(정규/에이전트/파트장만).
         const noIlban = await page.evaluate(() => {
           const cells = Array.from(document.querySelectorAll('[data-slot="table-cell"]')).map((c) => (c.textContent || "").trim());

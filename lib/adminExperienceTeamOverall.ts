@@ -1,6 +1,6 @@
 // 실무 경험 [팀 총괄] — 데이터 레이어(standalone).
 //
-// 개설 검수(임시저장) · 개설 완료(고객 반영) · 개설 취소(원복) 상태를 다음 3+1 테이블로 관리한다.
+// 개설 검수 완료(고객 미반영) · 개설 완료(고객 반영) · 개설 취소(원복) 상태를 다음 3+1 테이블로 관리한다.
 //   cluster4_experience_team_overall              (헤더: org+week+team, status)
 //   cluster4_experience_team_overall_cells        (팀장 직접 입력: management/extension 셀)
 //   cluster4_experience_team_overall_outputs      (카테고리별 아웃풋 링크/설명)
@@ -570,7 +570,7 @@ async function assertNoIneligibleManagementCells(
   }
 }
 
-// ── [개설 검수] 임시저장(고객 미반영) ──
+// ── [개설 검수] 완료 저장(고객 미반영) ──
 export async function saveTeamOverallReview(input: {
   organization: string;
   weekId: string;

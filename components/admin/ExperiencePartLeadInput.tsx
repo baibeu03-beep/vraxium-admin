@@ -21,6 +21,10 @@ import {
 } from "@/components/ui/select";
 import ExperienceOpeningStatus from "@/components/admin/ExperienceOpeningStatus";
 import {
+  resolveExperienceOpeningProgress,
+  type ExperienceOpeningProgress,
+} from "@/lib/experienceOpeningProgress";
+import {
   Table,
   TableBody,
   TableCell,
@@ -159,7 +163,8 @@ export default function ExperiencePartLeadInput({
   //   신청/완료/취소 API 성공(onActivity) 후 statusKey 를 올려 서버에서 재조회한다(낙관적 갱신 금지).
   const [openingStatus, setOpeningStatus] = useState<{
     partSubmitted: Record<string, boolean>;
-    opened: boolean;
+    boardStatus: OverallBoardDto["status"];
+    allPartsApplied: boolean;
   } | null>(null);
   const [statusKey, setStatusKey] = useState(0);
   // 신청/취소·검수/완료/취소 직후: 상단 상태 재조회(statusKey) + 상위(상태창/로그) 갱신.
@@ -363,6 +368,7 @@ export default function ExperiencePartLeadInput({
         qs.set("team_id", team.id);
         qs.set("team_name", team.teamName);
         if (mode === "test") qs.set("mode", "test");
+        if (actAsTestUserId) qs.set("actAsTestUserId", actAsTestUserId);
         const res = await fetch(
           `/api/admin/cluster4/experience/part-input?${qs.toString()}`,
         );
@@ -497,7 +503,11 @@ export default function ExperiencePartLeadInput({
           const b = json.data as OverallBoardDto;
           const map: Record<string, boolean> = {};
           for (const p of b.parts ?? []) map[p.partName] = p.submitted;
-          setOpeningStatus({ partSubmitted: map, opened: b.status === "opened" });
+          setOpeningStatus({
+            partSubmitted: map,
+            boardStatus: b.status,
+            allPartsApplied: b.application.allPartsApplied,
+          });
         } else {
           setOpeningStatus(null);
         }
@@ -509,7 +519,7 @@ export default function ExperiencePartLeadInput({
     return () => {
       cancelled = true;
     };
-  }, [bootLoading, org, mode, selectedTeam, selectedWeekId, statusKey]);
+  }, [bootLoading, org, mode, actAsTestUserId, selectedTeam, selectedWeekId, statusKey]);
 
   // 팀 변경 — parts 효과가 그 팀의 기본 파트(실제 파트 우선)를 다시 정한다.
   //   임퍼소네이션 중에는 자기 팀 외 탭 클릭 시 팝업 후 차단(이동 안 함).
@@ -733,13 +743,22 @@ export default function ExperiencePartLeadInput({
   const submitted = data?.submitted ?? false;
 
   // 개설 신청 상태 파생(SoT = openingStatus) — 상단 UI + 드롭다운 체크 공용.
-  const overallCompleted = openingStatus?.opened ?? false;
+  const overallCompleted = openingStatus?.boardStatus === "opened";
   const isPartCompleted = useCallback(
     (partName: string) => openingStatus?.partSubmitted[partName] ?? false,
     [openingStatus],
   );
   // 현재 선택(팀 총괄/파트)의 완료 여부 → 상단 상태 UI state.
-  const currentCompleted = isOverall ? overallCompleted : isPartCompleted(part);
+  const currentProgress: ExperienceOpeningProgress = resolveExperienceOpeningProgress({
+    // Team progress belongs to the team-overall tab only. A part remains at its
+    // own submitted/not-submitted stage even after the team is reviewed/opened.
+    opened: isOverall && openingStatus?.boardStatus === "opened",
+    reviewCompleted: isOverall && openingStatus?.boardStatus === "reviewed",
+    applicationCompleted: isOverall
+      ? openingStatus?.allPartsApplied ?? false
+      : isPartCompleted(part),
+  });
+  const currentCompleted = currentProgress !== "required";
 
   // 개설 주차 라벨(트리거/옵션 공유) — 공통 Select 로 파트 드롭다운과 동일 높이 규칙(h-9) 적용.
   const renderWeekLabel = useCallback(
@@ -942,9 +961,7 @@ export default function ExperiencePartLeadInput({
                   파트: 개설 신청 필요/완료 · 팀 총괄: 개설 필요/개설 완료(status==="opened"). */}
               {part && (
                 <ExperienceOpeningStatus
-                  state={currentCompleted ? "completed" : "required"}
-                  requiredLabel={isOverall ? "개설 필요" : "개설 신청 필요"}
-                  completedLabel={isOverall ? "개설 완료" : "개설 신청 완료"}
+                  progress={currentProgress}
                   className="h-9"
                 />
               )}

@@ -51,7 +51,7 @@ import ExperienceLineSelect from "@/components/admin/cluster4/ExperienceLineSele
 // 실무 경험 [팀 총괄] — 개설 검수/완료/취소 편집 보드.
 //   행=전 파트 크루(+파트장), 열=도출/분석/견문(파트신청 라이브, 읽기전용) + 관리/확장(팀장 입력).
 //   확장은 확장 주간에만 활성. 카테고리별 아웃풋 링크/설명 입력(이미지는 라인 등록값 자동).
-//   버튼 4종: [개설 검수](에이전트 임시저장) · [초기화](프론트 전용) · [개설 완료](팀장, 고객 반영) · [개설 취소](완료 원복).
+//   버튼 4종: [개설 검수](검수 완료, 고객 미반영) · [초기화](프론트 전용) · [개설 완료](팀장, 고객 반영) · [개설 취소](완료 원복).
 
 const leaderKey = (userId: string, category: ExperienceOverallCategory) =>
   `${userId}::${category}`;
@@ -163,7 +163,7 @@ export default function ExperienceTeamOverallBoard({
 
   const opened = board?.status === "opened";
   const extensionActive = board?.extensionActive ?? false;
-  // 개설 검수 이미 완료(임시저장 reviewed 또는 개설완료 opened) — 재실행 방지(멱등 안내).
+  // 개설 검수 이미 완료(reviewed 또는 opened) — 재실행 방지(멱등 안내).
   const reviewCompleted = board?.status === "reviewed" || board?.status === "opened";
 
   // [개설 검수] 사전조건 — 공통 SoT(board.application)만 소비. 프론트가 카드 수/파트명 문자열을
@@ -435,7 +435,7 @@ export default function ExperienceTeamOverallBoard({
         }
         return;
       }
-      // 성공 안내는 하단 고정 Toast 로만(성공 배너/카드 추가 금지). 검수=임시저장(크루 미반영)이라
+      // 성공 안내는 하단 고정 Toast 로만(성공 배너/카드 추가 금지). 검수 완료는 크루 미반영이라
       //   "N명 반영" 문구는 붙이지 않는다(실제 반영은 팀장 [개설 완료] 단계).
       toast("success", LINE_OPENING_RESULT.reviewSuccess);
       await fetchBoard();
@@ -575,7 +575,6 @@ export default function ExperienceTeamOverallBoard({
     <div className="space-y-4">
       {/* 상태 헤더 */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
-        <StatusBadge status={board.status} />
         {/* 확장 주간일 때만 안내(확장 비활성 배지는 노이즈라 제거 — 대체 문구/placeholder 없음). */}
         {extensionActive && (
           <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
@@ -1072,23 +1071,5 @@ function OutputImageInput({ value, disabled, onChange }: { value: string; disabl
       )}
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: BoardDto["status"] }) {
-  if (status === "opened") {
-    return (
-      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">
-        개설 완료
-      </span>
-    );
-  }
-  // 개설 검수(reviewed) = 임시저장 중간 상태 — 별도 배지/문구 미표시(요구사항: "개설 검수 (임시저장)" 제거).
-  //   상단 상태 pill 이 개설 필요/완료로 대표하므로 대체 문구/placeholder 없이 아무것도 렌더하지 않는다.
-  if (status === "reviewed") return null;
-  return (
-    <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
-      미진행
-    </span>
   );
 }
