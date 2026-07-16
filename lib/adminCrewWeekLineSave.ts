@@ -368,20 +368,27 @@ export async function saveCrewWeekLineDetail(
   }
 
   // ── 3. 제출 데이터 — 최종 결과가 success 이고 실제 변경이 있을 때만(A 보존) ──
+  //   ⚠ 변경 판정 기준 = **표시값(고객과 동일)** = per-user submission 우선, 없으면 라인 레벨 콘텐츠
+  //   (cluster4_lines.output_links/output_images/info_subtitle…). 팝업이 라인 레벨 값을 보여주고 있으므로,
+  //   이 기준을 안 쓰면 값을 안 바꿨는데도 라인 콘텐츠를 per-user submission 으로 **복사**하게 된다(금지).
   const curSub = line.submission;
-  const curImages = (curSub?.outputImages ?? []).map((url, i) => ({
-    url,
-    caption: curSub?.outputImageCaptions?.[i] ?? null,
-  }));
+  const effSubtitle = curSub?.subtitle ?? line.infoSubtitle ?? null;
+  const effGrowth = curSub?.growthPoint ?? line.infoGrowthPoint ?? null;
+  const hasSubLinks = (curSub?.outputLinks?.length ?? 0) > 0;
+  const hasSubImages = (curSub?.outputImages?.length ?? 0) > 0;
+  const effLinks: Cluster4OutputLink[] = hasSubLinks ? curSub!.outputLinks : (line.outputLinks ?? []);
+  const effImageUrls = hasSubImages ? curSub!.outputImages : (line.outputImages ?? []);
+  const effImageCaptions = hasSubImages ? curSub!.outputImageCaptions : (line.outputImageCaptions ?? []);
+  const curImages = effImageUrls.map((url, i) => ({ url, caption: effImageCaptions?.[i] ?? null }));
   const images = (input.statusData.images ?? curImages)
     .filter((im) => im.url && im.url.trim())
     .slice(0, 4)
     .map((im) => ({ url: im.url.trim(), caption: im.caption?.trim() || null }));
   const imagesChanged = JSON.stringify(images) !== JSON.stringify(curImages);
   const submissionChanged =
-    subTitle !== (curSub?.subtitle ?? null) ||
-    growthPoint !== (curSub?.growthPoint ?? null) ||
-    !linksEqual(links, curSub?.outputLinks ?? []) ||
+    subTitle !== effSubtitle ||
+    growthPoint !== effGrowth ||
+    !linksEqual(links, effLinks) ||
     imagesChanged;
   if (desired === "success" && submissionChanged && currentTargetId) {
     const [link2, link3, link4, link5] = outputLinksToLegacySlots(links, 4);

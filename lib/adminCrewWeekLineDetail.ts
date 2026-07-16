@@ -76,6 +76,17 @@ export async function getCrewWeekLineDetail(
   const isCareer = line.partType === "career";
   const sub = line.submission;
 
+  // 아웃풋 링크·이미지·서브타이틀·그로스포인트의 SoT = **라인 레벨 콘텐츠(cluster4_lines)** 이며,
+  //   고객 앱 라인 모달이 렌더링하는 카드 DTO top-level(line.outputLinks/outputImages/infoSubtitle…)과
+  //   동일한 값이다. per-user 제출 원장(cluster4_line_submissions)은 현재 전 행 비어 있어(9166행 0건)
+  //   거기에만 의존하면 고객엔 보이는 값이 관리자 팝업엔 안 보였다(이번 버그). submission 이 존재하면
+  //   우선(향후 2차 기입 편집분), 없으면 라인 레벨로 폴백 → 고객 앱과 동일 노출.
+  const hasSubLinks = (sub?.outputLinks?.length ?? 0) > 0;
+  const hasSubImages = (sub?.outputImages?.length ?? 0) > 0;
+  const outLinks = hasSubLinks ? sub!.outputLinks : line.outputLinks;
+  const outImages = hasSubImages ? sub!.outputImages : line.outputImages;
+  const outCaptions = hasSubImages ? sub!.outputImageCaptions : line.outputImageCaptions;
+
   return {
     ok: true,
     data: {
@@ -116,11 +127,11 @@ export async function getCrewWeekLineDetail(
           }
         : null,
       submission: {
-        subTitle: sub?.subtitle ?? null,
-        growthPoint: sub?.growthPoint ?? null,
-        outputLinks: sub?.outputLinks ?? [],
-        outputImages: sub?.outputImages ?? [],
-        outputImageCaptions: sub?.outputImageCaptions ?? [],
+        subTitle: sub?.subtitle ?? line.infoSubtitle ?? null,
+        growthPoint: sub?.growthPoint ?? line.infoGrowthPoint ?? null,
+        outputLinks: outLinks ?? [],
+        outputImages: outImages ?? [],
+        outputImageCaptions: outCaptions ?? [],
       },
     },
   };
