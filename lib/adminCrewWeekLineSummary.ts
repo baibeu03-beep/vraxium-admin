@@ -22,10 +22,15 @@ import type {
 // 회원별·주차별 상세 "라인 강화 내역" 탭 — 상단 요약 영역 loader (조회 전용).
 //
 // 핵심 불변식: 크루 페이지(/cluster-4-card)와 동일한 계산 SoT만 표현한다(별도 재추정 금지).
-//   · 카드 해석  = resolveCrewWeekCard(액트 탭과 공유) → card.lines / card.weeklyGrowthRate / card.points.
+//   · 카드 해석  = resolveCrewWeekCard(액트 탭과 공유) → card.lines / card.points.
 //   · 라인 수·결과 = card.lines 를 raw(원소 1개=1라인)로 집계. enhancementStatus 를 그대로 버킷팅.
-//   · 주차 성장률  = card.weeklyGrowthRate 그대로 통과(반올림·산식은 고객 카드 SoT). 재계산하지 않는다.
-//   · 오픈 여부   = line.lineTargetId != null(1차 라인 제출 대상자). 화면 문구 비교 금지.
+//   · 전체/오픈/미오픈 = **하단 상세 표와 동일한 raw 라인 행 기준**(lineDetails). 오픈=clubOpen.
+//       ⚠ 허브별 breakdown(정보/경험…) 집계나 lineTargetId(대상자) 로 세지 않는다 — 상단 요약과
+//       표의 오픈 라인 수가 반드시 일치해야 한다(허브 개수 ≠ 라인 개수).
+//   · 주차 성장률  = 이 화면 전용 rawOpenLineGrowthRate(오픈 라인 중 강화 성공 비율, raw 행 기준).
+//       ⚠ card.weeklyGrowthRate(breakdownFromLines·허브 SoT)는 정보 허브를 활동유형으로 중복제거해
+//       이 표의 오픈 라인 수와 분모가 달라진다. 이 화면은 표와 숫자가 일치해야 하므로 쓰지 않는다.
+//   · 오픈 여부   = clubOpen(실제 개설 라인: lineId != null 또는 역량 개설 placeholder). lineTargetId 아님.
 //   · 포인트 A/B  = earned(라인 개설 지급 원장 source='line' 합) / possible(이 주차 클럽에서 오픈된
 //                  모든 라인의 설정 point_a/point_b 합 — 상세 표의 clubOpen 행과 동일 집합).
 //                  ⚠ possible 은 대상자/강화 성공 여부와 무관한 "획득 가능 총합"이다(대상·성공 라인만
@@ -42,16 +47,17 @@ export type CrewWeekLinePointPair = {
 
 export type CrewWeekLineSummaryDto = {
   organizationSlug: string | null;
-  // 주차 성장률 = card.weeklyGrowthRate 그대로(고객 카드와 동일 값·동일 반올림).
+  // 주차 성장률 = rawOpenLineGrowthRate(오픈 라인 중 강화 성공 비율, raw 라인 행 기준).
+  //   하단 표의 오픈 라인 수와 분모가 일치한다(허브 SoT card.weeklyGrowthRate 와 의미가 다름).
   weeklyGrowthRate: number;
   // 결과 확정 여부(미확정=집계 전). 미확정 주차엔 pending 라인이 남아 성공+실패+해당없음≠전체가
   //   되므로, 결과 카운트(성공/실패/해당없음)는 확정 주차에서만 노출한다(UI 게이트).
   confirmed: boolean;
   isRestWeek: boolean;
   lines: {
-    total: number; // card.lines.length (raw)
-    open: number; // lineTargetId != null
-    unopened: number; // total - open
+    total: number; // lineDetails.length (raw 라인 행 수)
+    open: number; // lineDetails.filter(clubOpen === true)
+    unopened: number; // lineDetails.filter(clubOpen === false) (= total - open)
   };
   results: {
     success: number; // enhancementStatus === "success"
@@ -107,6 +113,21 @@ export type CrewWeekLineSummaryResult =
   | { ok: true; data: CrewWeekLineSummaryDto }
   | { ok: false; reason: "member_not_found" | "week_not_found" };
 
+// 이 화면(라인 강화 내역) 전용 주차 성장률 — **실제 오픈된 라인 행 기준**.
+//   분모 = clubOpen 인 raw 라인 행 수(허브 집계·활동유형 중복제거 없음, 미오픈/해당없음 제외),
+//   분자 = 그중 강화 성공(enhancementStatus === "success") 행 수. 오픈 0 이면 0%.
+//   ⚠ card.weeklyGrowthRate(breakdownFromLines·허브 SoT)와 의미가 다르다: 그쪽은 정보 허브를 활동
+//     유형으로 중복제거하지만, 이 화면은 상단 요약과 하단 표의 "오픈 라인 수"가 일치해야 하므로
+//     표와 동일한 raw 행으로 재계산한다. 같은 의미가 다른 화면에도 필요하면 이 helper 를 재사용한다.
+export function rawOpenLineGrowthRate(rows: readonly CrewWeekLineDetailRow[]): number {
+  const openCount = rows.filter((r) => r.clubOpen).length;
+  if (openCount === 0) return 0;
+  const successCount = rows.filter(
+    (r) => r.clubOpen && r.enhancementStatus === "success",
+  ).length;
+  return Math.round((successCount / openCount) * 100);
+}
+
 export async function getCrewWeekLineSummary(
   legacyUserId: string,
   weekId: string,
@@ -116,15 +137,6 @@ export async function getCrewWeekLineSummary(
   const { crew, card } = resolved;
 
   const lines = card.lines;
-  const total = lines.length;
-  const open = lines.filter((l) => l.lineTargetId != null).length;
-  const unopened = total - open;
-
-  const success = lines.filter((l) => l.enhancementStatus === "success").length;
-  const failure = lines.filter((l) => l.enhancementStatus === "fail").length;
-  const notApplicable = lines.filter((l) => l.enhancementStatus === "not_applicable").length;
-  const pending = lines.filter((l) => l.enhancementStatus === "pending").length;
-
   const confirmed = isCrewWeekEditable(card.userWeekStatus);
 
   // 라인 개설 지급 포인트(A/B만) — 원장 earned + 오픈 라인 설정 possible.
@@ -183,6 +195,21 @@ export async function getCrewWeekLineSummary(
     };
   });
 
+  // 전체/오픈/미오픈 — 하단 상세 표(lineDetails)와 **동일한 raw 라인 행** 기준. clubOpen 이 SoT.
+  //   허브 breakdown·lineTargetId 로 세지 않는다(허브 개수 ≠ 라인 개수). 오픈+미오픈 == 전체 불변식 성립.
+  const total = lineDetails.length;
+  const open = lineDetails.filter((r) => r.clubOpen).length;
+  const unopened = total - open;
+
+  // 결과 버킷도 동일 raw 행 기준(enhancementStatus). 성공/실패/해당없음/집계전.
+  const success = lineDetails.filter((r) => r.enhancementStatus === "success").length;
+  const failure = lineDetails.filter((r) => r.enhancementStatus === "fail").length;
+  const notApplicable = lineDetails.filter((r) => r.enhancementStatus === "not_applicable").length;
+  const pending = lineDetails.filter((r) => r.enhancementStatus === "pending").length;
+
+  // 주차 성장률 = 오픈 라인 중 강화 성공 비율(raw 행). 상단 요약과 하단 표가 항상 일치한다.
+  const weeklyGrowthRate = rawOpenLineGrowthRate(lineDetails);
+
   // 불변식 검증 — 깨지면 숫자를 보정하지 않고 어떤 라인 상태가 누락됐는지 로그로 보고한다.
   if (total !== open + unopened) {
     console.warn("[crewWeekLineSummary] 불변식 위반: total ≠ open + unopened", {
@@ -209,7 +236,7 @@ export async function getCrewWeekLineSummary(
     ok: true,
     data: {
       organizationSlug: crew.organizationSlug,
-      weeklyGrowthRate: card.weeklyGrowthRate,
+      weeklyGrowthRate,
       confirmed,
       isRestWeek: card.isRestWeek,
       lines: { total, open, unopened },
