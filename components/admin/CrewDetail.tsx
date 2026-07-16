@@ -17,7 +17,6 @@ import AdminHelp from "@/components/admin/AdminHelp";
 import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 import { AdminDetailTitle } from "@/components/admin/AdminRouteTitleProvider";
-import EnhancementStatusEditModal from "@/components/admin/cluster4/EnhancementStatusEditModal";
 import { LoadingState } from "@/components/ui/loading-state";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { useReportLoading } from "@/components/admin/loadingBannerContext";
@@ -36,7 +35,6 @@ import {
   dash,
 } from "@/components/admin/crew/CrewIdentityCards";
 import { CrewNoteDialog, type CrewNote } from "@/components/admin/crew/CrewNoteDialog";
-import { isCrewWeekEditable } from "@/shared/growth.contracts";
 
 type CrewDetailDto = {
   userId: string;
@@ -307,10 +305,10 @@ function SortTh({
 
 export default function CrewDetail({
   userId,
-  mode,
 }: {
   userId: string;
-  mode: ScopeMode;
+  // 진입 컨텍스트(스코프)용 — 페이지 계약 유지. 현재 본문에서 직접 사용하는 곳은 없음.
+  mode?: ScopeMode;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -531,11 +529,9 @@ export default function CrewDetail({
             </div>
 
             {/* 하단부: 주차 결과 표 — 최신→오래된, 15개/페이지·기본 1페이지(최신).
-                각 주차 행의 실무 4허브 옆 "수정"으로 그 주차 라인 강화 상태를 수동 수정한다. */}
+                주차명 클릭 → 주차 상세(라인 강화 내역 탭)에서 라인별 강화 결과·제출을 수정한다. */}
             <WeeklyResultsTable
               rows={detail.weeklyResults}
-              userId={detail.userId}
-              mode={mode}
               orgSlug={detail.organizationSlug}
               weekDetailHref={weekDetailHref}
             />
@@ -774,18 +770,14 @@ function compareWeek(
 }
 
 // 주차 결과 표 — 최신→오래된 표시(맨 위=가장 최신), 15개/페이지·기본 1페이지.
-//   헤더 클릭 3단계 정렬(오름 → 내림 → 기본=최신순). "강화 상태"(수정 버튼)는 정렬 제외(도움말만).
-//   맨 오른쪽 "강화 상태" 열의 [수정] 으로 그 주차 라인 강화 상태를 수동 수정한다(모달).
+//   헤더 클릭 3단계 정렬(오름 → 내림 → 기본=최신순). 라인별 강화 결과·제출 수정은 주차 상세의
+//   "라인 강화 내역" 탭 팝업으로 이동(구 주차 단위 "강화 상태 수정" 버튼/모달 제거 — 2026-07).
 function WeeklyResultsTable({
   rows,
-  userId,
-  mode,
   orgSlug,
   weekDetailHref,
 }: {
   rows: CrewWeeklyResultRow[];
-  userId: string;
-  mode: ScopeMode;
   orgSlug: string | null;
   weekDetailHref: (weekId: string) => string;
 }) {
@@ -804,8 +796,6 @@ function WeeklyResultsTable({
     setPage(1);
   }, []);
   const dirOf = (key: WeekSortKey): SortDir | null => (sort?.key === key ? sort.dir : null);
-  // 강화 상태 수정 모달 대상 주차.
-  const [editWeek, setEditWeek] = useState<{ weekId: string; weekName: string } | null>(null);
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
@@ -852,7 +842,6 @@ function WeeklyResultsTable({
               <SortTh label="실무 경험" help={DETAIL_HELP.metric.hubExperience} dir={dirOf("experience")} onSort={() => cycleSort("experience")} className="whitespace-nowrap" />
               <SortTh label="실무 역량" help={DETAIL_HELP.metric.hubAbility} dir={dirOf("ability")} onSort={() => cycleSort("ability")} className="whitespace-nowrap" />
               <SortTh label="실무 경력" help={DETAIL_HELP.metric.hubCareer} dir={dirOf("career")} onSort={() => cycleSort("career")} className="whitespace-nowrap" />
-              <SortTh label="강화 상태" help={DETAIL_HELP.week.enhancementStatus} dir={null} className="whitespace-nowrap" />
             </tr>
           </thead>
           <tbody>
@@ -886,34 +875,6 @@ function WeeklyResultsTable({
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.experience)}</td>
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.ability)}</td>
                 <td className="whitespace-nowrap px-2 py-2 tabular-nums">{pct(r.hubRates.career)}</td>
-                <td className="whitespace-nowrap px-2 py-2 text-center">
-                  {/* 성장 결과가 확정된 주차만 강화 상태 수정 허용(SoT=isCrewWeekEditable).
-                      진행 중/집계 중(미확정)은 비활성 — 서버 쓰기 API 도 동일 판정으로 403 거부한다. */}
-                  {(() => {
-                    const editable = isCrewWeekEditable(r.userWeekStatus);
-                    return (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={!r.weekId || !editable}
-                        title={
-                          !editable
-                            ? "성장 결과가 확정된 이후에 수정할 수 있습니다(진행 중/집계 중 잠금)."
-                            : undefined
-                        }
-                        onClick={() =>
-                          r.weekId &&
-                          editable &&
-                          setEditWeek({ weekId: r.weekId, weekName: r.weekName })
-                        }
-                        className="h-7 px-2 text-xs"
-                      >
-                        수정
-                      </Button>
-                    );
-                  })()}
-                </td>
               </tr>
             ))}
           </tbody>
@@ -933,16 +894,6 @@ function WeeklyResultsTable({
             다음
           </Button>
         </div>
-      )}
-
-      {editWeek && (
-        <EnhancementStatusEditModal
-          userId={userId}
-          mode={mode}
-          weekId={editWeek.weekId}
-          weekName={editWeek.weekName}
-          onClose={() => setEditWeek(null)}
-        />
       )}
     </div>
   );

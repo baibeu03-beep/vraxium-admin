@@ -38,6 +38,7 @@ import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { type StateScope, readQaWeekState, writeQaWeekState, setWeekAutoPublishHold } from "@/lib/operationalState";
 import { computeWeeklyLeagueAggregation } from "@/lib/weeklyLeaguePmsAggregation";
+import { reconcileLineAwardsForWeek } from "@/lib/lineResultAwardReconcile";
 import type {
   FinalizationAggregation,
   FinalizationMode,
@@ -510,6 +511,25 @@ export async function runWeeklyCardFinalization(opts: {
     const r = await recomputeWeeklyCardsSnapshotsForUsers(cohortIds, { concurrency: 3 });
     return { requested: r.requested, recomputed: r.recomputed, failed: r.failed };
   };
+  // 라인 결과 지급 정합(A/B): 집계 확정으로 배정 라인 결과가 확정되므로 성공→지급/실패→회수.
+  //   snapshot 재계산(recompute) 이전에 실행 → 원장·포인트가 갱신된 상태로 snapshot 을 굽는다.
+  //   best-effort — 실패해도 확정/재계산은 진행(로그만). cohortIds 는 이미 scope 필터 반영됨.
+  const reconcileLineAwards = async () => {
+    if (!targetRow.start_date || cohortIds.length === 0) return;
+    try {
+      await reconcileLineAwardsForWeek({
+        weekId: targetRow.id,
+        weekStartDate: targetRow.start_date,
+        actor,
+        cohortUserIds: cohortIds,
+      });
+    } catch (e) {
+      console.warn("[weekly-card-finalization] line award reconcile failed (kept)", {
+        weekId: targetRow.id,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  };
 
   // 공표 선행상태: operating=운영 weeks · qa=overlay(qa ?? 운영 baseline).
   const qaPrev = scope === "qa" ? await readQaWeekState(targetRow.id) : null;
@@ -526,6 +546,7 @@ export async function runWeeklyCardFinalization(opts: {
     if (effectivePublishedAt) {
       // 이미 확정됨 — 멱등하게 코호트 스냅샷만 재계산(재확정 효과). 공표값은 보존.
       published = { resultPublishedAt: effectivePublishedAt, alreadyFinalized: true };
+      await reconcileLineAwards();
       snapshotRecompute = await recompute();
     } else {
       // 미확정 → 공표 SoT 쓰기(단일 공표 진입점 markWeekResultPublished, scope 분기) + 코호트 재계산.
@@ -535,6 +556,7 @@ export async function runWeeklyCardFinalization(opts: {
       published = { resultPublishedAt: row.result_published_at, alreadyFinalized: false };
       resolvedPublishedAt = row.result_published_at;
       if (scope === "operating") targetRow.result_published_at = row.result_published_at;
+      await reconcileLineAwards();
       snapshotRecompute = await recompute();
     }
   } else {

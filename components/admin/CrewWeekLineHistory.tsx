@@ -11,6 +11,8 @@ import { pointColorClass } from "@/components/ui/point-value";
 import { getProcessPointLabels } from "@/lib/pointLabels";
 import { enhancementStatusTone } from "@/lib/cluster4EnhancementLabels";
 import { type ScopeMode } from "@/lib/userScopeShared";
+import { type CrewIdentity } from "@/components/admin/crew/CrewIdentityCards";
+import CrewWeekLineDetailDialog from "@/components/admin/CrewWeekLineDetailDialog";
 import type { BadgeTone } from "@/components/ui/badge";
 import type {
   CrewWeekLineDetailRow,
@@ -36,11 +38,15 @@ export default function CrewWeekLineHistory({
   weekId,
   mode,
   orgSlug,
+  member,
+  onChanged,
 }: {
   userId: string;
   weekId: string;
   mode: ScopeMode;
   orgSlug: string | null;
+  member: CrewIdentity | null;
+  onChanged?: () => void;
 }) {
   const t = useActionToast();
   const [summary, setSummary] = useState<CrewWeekLineSummaryDto | null>(null);
@@ -106,13 +112,16 @@ export default function CrewWeekLineHistory({
       const nextAllowed = !row.overrideAllowed;
 
       if (nextAllowed && !row.eligible) {
-        // 자격 미충족 — 변경하지 않고 안내만(§10). 미오픈 vs 오픈-비성공 구분.
+        // 자격 미충족 — 변경하지 않고 안내만(§10). 대상자 아님 > 미오픈 > 오픈-비성공 순으로 이유 구분.
         await adminDialog.alert({
           variant: "warning",
           title: "2차 기입을 허용할 수 없습니다",
-          description: row.clubOpen
-            ? "오픈되었지만, 강화 성공한 라인이 아니므로 2차 기입을 허용할 수 없습니다."
-            : "오픈된 라인이 아니므로, 2차 기입을 허용할 수 없습니다.",
+          description:
+            row.lineTargetId == null
+              ? "이 크루가 대상자로 배정된 라인이 아니므로(대상자 아님) 2차 기입을 허용할 수 없습니다."
+              : !row.clubOpen
+                ? "오픈된 라인이 아니므로, 2차 기입을 허용할 수 없습니다."
+                : "오픈되었지만, 강화 성공한 라인이 아니므로 2차 기입을 허용할 수 없습니다.",
         });
         return;
       }
@@ -227,16 +236,11 @@ export default function CrewWeekLineHistory({
     }
   }, [userId, weekId, mode, canManage, anyBusy, allowedCount, t, load]);
 
-  const openLineDetail = useCallback(
-    (row: CrewWeekLineDetailRow) => {
-      void adminDialog.open({
-        variant: "custom",
-        width: "lg",
-        content: <LineDetailContent row={row} poLabelA={poLabels.a} poLabelB={poLabels.b} />,
-      });
-    },
-    [poLabels.a, poLabels.b],
-  );
+  // 라인명 클릭 → 관리자 라인 상세·수정 팝업(실제 라인만; placeholder 는 상세 없음).
+  const [detailLineId, setDetailLineId] = useState<string | null>(null);
+  const openLineDetail = useCallback((row: CrewWeekLineDetailRow) => {
+    if (row.lineId) setDetailLineId(row.lineId);
+  }, []);
 
   if (loading && !summary) {
     return <p className="py-8 text-sm text-muted-foreground">라인 강화 내역을 불러오는 중…</p>;
@@ -284,7 +288,7 @@ export default function CrewWeekLineHistory({
         </div>
       )}
 
-      {/* 세 번째 줄 — 라인 강화 결과 획득 포인트(획득 / 획득 가능). */}
+      {/* 세 번째 줄 — 라인 강화 결과 획득 포인트(획득 / 획득 가능). A/B만(라인 정책상 Point C 없음). */}
       <div className="flex flex-wrap items-center gap-x-8 gap-y-2 rounded-md border bg-muted/20 px-4 py-3">
         <PointMetric
           label={`획득 ${poLabels.a}`}
@@ -297,12 +301,6 @@ export default function CrewWeekLineHistory({
           earned={points.pointB.earned}
           possible={points.pointB.possible}
           colorClass={pointColorClass("b")}
-        />
-        <PointMetric
-          label={`획득 ${poLabels.c}`}
-          earned={points.pointC.earned}
-          possible={points.pointC.possible}
-          colorClass={pointColorClass("c")}
         />
       </div>
 
@@ -458,6 +456,21 @@ export default function CrewWeekLineHistory({
           </p>
         )}
       </div>
+
+      {detailLineId ? (
+        <CrewWeekLineDetailDialog
+          userId={userId}
+          weekId={weekId}
+          lineId={detailLineId}
+          mode={mode}
+          member={member}
+          onClose={() => setDetailLineId(null)}
+          onSaved={() => {
+            void load();
+            onChanged?.();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -535,7 +548,9 @@ function SecondEntrySwitch({
             ? "클릭하면 2차 기입을 닫습니다(불가)."
             : row.eligible
               ? "클릭하면 2차 기입을 허용합니다."
-              : "오픈·강화 성공 라인만 허용할 수 있습니다."
+              : row.lineTargetId == null
+                ? "대상자로 배정된 라인이 아니어서 허용할 수 없습니다(대상자 아님)."
+                : "오픈·강화 성공 라인만 허용할 수 있습니다."
       }
       className={cn(
         "inline-flex items-center gap-2 rounded-md px-1 py-0.5 outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -544,75 +559,11 @@ function SecondEntrySwitch({
     >
       <SwitchTrack tone={trackTone} on={allowed} pulse={busy} />
       <span className={cn("text-sm font-medium", labelColor)}>{busy ? "처리 중…" : label}</span>
+      {locked && !busy && row.lineTargetId == null && (
+        <span className="text-[11px] text-muted-foreground">대상자 아님</span>
+      )}
       {locked && <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />}
     </button>
-  );
-}
-
-// 라인 상세 팝업(조회 전용) — 기존 라인 DTO 로 확인 가능한 값만 표시.
-function LineDetailContent({
-  row,
-  poLabelA,
-  poLabelB,
-}: {
-  row: CrewWeekLineDetailRow;
-  poLabelA: string;
-  poLabelB: string;
-}) {
-  const sub = row.submission;
-  return (
-    <div className="flex flex-col gap-4 px-5 py-5">
-      <h2 className="pr-8 text-base font-semibold text-foreground">{row.lineName}</h2>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-        <DRow label="허브" value={row.hubLabel} />
-        <DRow label="라인 코드" value={row.displayLineCode ?? "-"} />
-        <DRow label="클럽 오픈" value={row.clubOpen ? "오픈" : "미오픈"} />
-        <DRow label="강화 결과" value={row.enhancementLabel} />
-        <DRow label="판정 근거" value={row.enhancementReason} mono />
-        <DRow label="제출 상태" value={row.submissionStatus} mono />
-        <DRow label="평점" value={row.rating == null ? "-" : String(row.rating)} />
-        <DRow label={`획득 ${poLabelA}`} value={String(row.earnedA)} />
-        <DRow label={`획득 ${poLabelB}`} value={String(row.earnedB)} />
-        <DRow
-          label="2차 기입"
-          value={
-            (row.overrideAllowed ? "허용(수동)" : "불가") +
-            (row.effectiveCanEdit ? " · 현재 편집 가능" : " · 현재 편집 불가")
-          }
-        />
-        <DRow label="기입 시작" value={fmtTime(row.submissionOpensAt)} />
-        <DRow label="기입 마감" value={fmtTime(row.submissionClosesAt)} />
-      </dl>
-
-      {sub && (
-        <div className="flex flex-col gap-2 rounded-md border bg-muted/20 px-3 py-2.5">
-          <span className="text-xs font-semibold text-muted-foreground">기존 2차 기입 내용</span>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
-            <DRow label="소제목" value={sub.subtitle?.trim() || "-"} />
-            <DRow label="그로스 포인트" value={sub.growthPoint?.trim() || "-"} />
-            <DRow label="산출 링크" value={`${sub.outputLinks.length}개`} />
-            <DRow label="산출 이미지" value={`${sub.outputImages.length}개`} />
-            <DRow label="제출 시각" value={fmtTime(sub.submittedAt)} />
-            <DRow label="수정 시각" value={fmtTime(sub.updatedAt)} />
-          </dl>
-        </div>
-      )}
-
-      <p className="text-xs text-muted-foreground">
-        조회 전용입니다. 라인 오픈 여부·강화 결과·포인트는 이 창에서 변경할 수 없습니다.
-      </p>
-    </div>
-  );
-}
-
-function DRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <>
-      <dt className="whitespace-nowrap text-muted-foreground">{label}</dt>
-      <dd className={cn("min-w-0 break-words text-foreground", mono && "font-mono text-xs")}>
-        {value}
-      </dd>
-    </>
   );
 }
 
@@ -645,12 +596,4 @@ function PointMetric({
       </span>
     </span>
   );
-}
-
-// ISO → "YYYY-MM-DD HH:mm". 파싱 불가/없음 → "-".
-function fmtTime(iso: string | null): string {
-  if (!iso) return "-";
-  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(iso);
-  if (!m) return iso;
-  return `${m[1]}-${m[2]}-${m[3]} ${m[4]}:${m[5]}`;
 }

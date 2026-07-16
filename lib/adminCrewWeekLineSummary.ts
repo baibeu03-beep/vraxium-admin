@@ -57,10 +57,10 @@ export type CrewWeekLineSummaryDto = {
     notApplicable: number; // === "not_applicable"
     pending: number; // === "pending" (미확정 주차 미판정)
   };
+  // 라인 강화 결과 포인트 — A/B만. Point C(번개)는 라인 개설 지급 정책에 없어 다루지 않는다(확정 2026-07).
   points: {
     pointA: CrewWeekLinePointPair;
     pointB: CrewWeekLinePointPair;
-    pointC: CrewWeekLinePointPair; // 라인 정책상 항상 { earned: 0, possible: 0 }
   };
   // 하단 상세 표(전체 라인 raw). 2차 기입 override 관리 대상.
   lineDetails: CrewWeekLineDetailRow[];
@@ -119,7 +119,7 @@ export async function getCrewWeekLineSummary(
 
   const confirmed = isCrewWeekEditable(card.userWeekStatus);
 
-  // 라인 개설 지급 포인트(A/B) — 원장 earned + 대상 라인 설정 possible. C 는 원천 없음 → 0/0.
+  // 라인 개설 지급 포인트(A/B만) — 원장 earned + 대상 라인 설정 possible.
   //   라인별 earned(ref_id=line_id) 와 2차 기입 override 는 상세 표용으로 병렬 로드.
   const [linePoints, earnedByLine, overrideRows] = await Promise.all([
     loadLinePointSummaryForCrewWeek(crew.userId, card.weekId),
@@ -196,7 +196,6 @@ export async function getCrewWeekLineSummary(
       points: {
         pointA: { earned: linePoints.earnedA, possible: linePoints.possibleA },
         pointB: { earned: linePoints.earnedB, possible: linePoints.possibleB },
-        pointC: { earned: 0, possible: 0 },
       },
       lineDetails,
       canManageSecondEntry: confirmed,

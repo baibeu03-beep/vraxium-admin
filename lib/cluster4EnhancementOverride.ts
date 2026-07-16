@@ -27,6 +27,69 @@ import type {
 
 const TABLE = "cluster4_line_enhancement_overrides";
 
+// 강화 상태 override 기록(find-then-write) — enhancement-overrides POST 라우트와 동일 규칙.
+//   info/competency 처럼 "표시 override" 가 결과 레버인 허브의 강화 결과 변경에 사용한다.
+//   part_type 은 long form('information'|'experience'|'competency'|'career'). identity = target > id > code.
+//   COALESCE 유니크 인덱스라 upsert onConflict 대신 find-then-write. 읽기 overlay 라 snapshot 무효화 불필요.
+export async function setEnhancementOverrideStatus(params: {
+  userId: string;
+  weekId: string;
+  partType: string;
+  lineTargetId: string | null;
+  lineId: string | null;
+  lineCode: string | null;
+  overrideStatus: Cluster4EnhancementStatus;
+  adminUserId: string | null;
+  note?: string | null;
+}): Promise<{ changed: boolean }> {
+  const { userId, weekId, partType, lineTargetId, lineId, lineCode, overrideStatus, adminUserId, note } =
+    params;
+  let findQ = supabaseAdmin
+    .from(TABLE)
+    .select("id,override_status")
+    .eq("user_id", userId)
+    .eq("week_id", weekId)
+    .eq("part_type", partType);
+  findQ = lineTargetId ? findQ.eq("line_target_id", lineTargetId) : findQ.is("line_target_id", null);
+  findQ = lineId ? findQ.eq("line_id", lineId) : findQ.is("line_id", null);
+  findQ = lineCode ? findQ.eq("line_code", lineCode) : findQ.is("line_code", null);
+  findQ = findQ.is("line_ordinal", null);
+  const { data: existing, error: findErr } = await findQ.maybeSingle();
+  if (findErr) throw findErr;
+  const row = existing as { id: string; override_status: string } | null;
+  const nowIso = new Date().toISOString();
+  if (row) {
+    if (row.override_status === overrideStatus) return { changed: false };
+    const { error } = await supabaseAdmin
+      .from(TABLE)
+      .update({
+        override_status: overrideStatus,
+        note: note ?? null,
+        source: "admin_manual",
+        created_by: adminUserId,
+        updated_at: nowIso,
+      })
+      .eq("id", row.id);
+    if (error) throw error;
+    return { changed: true };
+  }
+  const { error } = await supabaseAdmin.from(TABLE).insert({
+    user_id: userId,
+    week_id: weekId,
+    part_type: partType,
+    line_target_id: lineTargetId,
+    line_id: lineId,
+    line_code: lineCode,
+    line_ordinal: null,
+    override_status: overrideStatus,
+    source: "admin_manual",
+    note: note ?? null,
+    created_by: adminUserId,
+  });
+  if (error) throw error;
+  return { changed: true };
+}
+
 export type Cluster4LineEnhancementOverrideRow = {
   id: string;
   user_id: string;

@@ -350,6 +350,12 @@ export default function CrewWeekDetail({
                   weekId={weekId}
                   mode={mode}
                   orgSlug={week.member.organizationSlug}
+                  member={member}
+                  onChanged={() => {
+                    // 라인 상세 저장 반영 — 주차 요약 재조회 + 타 표면 revalidate.
+                    void load();
+                    router.refresh();
+                  }}
                 />
               )}
             </CardContent>

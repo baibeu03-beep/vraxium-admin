@@ -42,6 +42,7 @@ import {
 } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { fetchTestUserMarkerIds } from "@/lib/testUsers";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
+import { reconcileLineAwardsForWeek } from "@/lib/lineResultAwardReconcile";
 import {
   type StateScope,
   readQaWeekState,
@@ -794,6 +795,24 @@ export async function recomputeCohortSnapshots(
   return { requested: r.requested, recomputed: r.recomputed, failed: r.failed };
 }
 
+// 공표/정합 코호트 = recomputeCohortSnapshots 와 동일 모집단(user_week_statuses.week_start_date).
+//   scope=qa 또는 QA_HIDE_REAL_USERS → 테스트 유저로 좁힘(실유저 원장/snapshot 무접촉).
+async function resolveCohortUserIdsForScope(
+  weekStartDate: string,
+  scope: StateScope,
+): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from("user_week_statuses")
+    .select("user_id")
+    .eq("week_start_date", weekStartDate);
+  let userIds = Array.from(new Set(((data ?? []) as { user_id: string }[]).map((p) => p.user_id)));
+  if (QA_HIDE_REAL_USERS || scope === "qa") {
+    const testIds = await fetchTestUserMarkerIds();
+    userIds = userIds.filter((id) => testIds.has(id));
+  }
+  return userIds;
+}
+
 type PublishWeekRow = {
   id: string;
   week_number: number | null;
@@ -898,6 +917,29 @@ export async function publishWeekResult(
 ): Promise<WeekResultPublishResult> {
   // 1~2) 공표 SoT 쓰기(가드/멱등)는 공통 진입점에 위임. scope=qa 면 qa_weeks_state 에만 기록.
   const { row, label, nowIso } = await markWeekResultPublished(weekId, scope, actor);
+
+  // 라인 결과 지급 정합(A/B): 공표로 배정 라인의 강화 결과가 확정되므로, 성공→A/B 지급 /
+  //   실패·해당없음·비대상→회수 를 결과에 맞춰 정합화한다(관리자 수동 저장과 동일 SoT).
+  //   snapshot 재계산 이전에 실행 → 원장/포인트가 갱신된 상태로 snapshot 이 구워진다.
+  //   scope=qa → 테스트 유저 코호트만(실유저 원장 무접촉). best-effort — 실패해도 공표 유지.
+  try {
+    if (row.start_date) {
+      const cohort = await resolveCohortUserIdsForScope(row.start_date, scope);
+      if (cohort.length > 0) {
+        await reconcileLineAwardsForWeek({
+          weekId: row.id,
+          weekStartDate: row.start_date,
+          actor,
+          cohortUserIds: cohort,
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("[publish-result] line award reconcile hook failed (publish kept)", {
+      weekId: row.id,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
 
   // 쓰기 시점 snapshot 갱신: 공표로 해당 주차 카드가 tallying→success/fail 로 전환되므로,
   // 그 주차 참여자(user_week_statuses 보유) 전원의 snapshot 을 즉시 재계산한다.
