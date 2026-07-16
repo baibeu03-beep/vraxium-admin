@@ -758,7 +758,12 @@ export default function ExperiencePartLeadInput({
       ? openingStatus?.allPartsApplied ?? false
       : isPartCompleted(part),
   });
-  const currentCompleted = currentProgress !== "required";
+  // 트리거의 "업무 완료" 체크 — 드롭다운 옵션과 동일한 완료 기준을 사용한다(진행 단계 ≠ 완료).
+  //   · 팀 총괄: 최종 [개설 완료] 성공(boardStatus === "opened")일 때만. 신청 완료/검수 완료/임시저장은 완료 아님.
+  //   · 개별 파트: 해당 파트 [개설 신청] 완료(submitted).
+  //   ⚠ currentProgress(신청/검수 단계 포함)로 판정하면 팀 총괄을 "선택"만 해도 체크가 붙어 혼동 → 금지.
+  //     상단 진행 단계(ExperienceOpeningProgressSteps)는 currentProgress 를 그대로 쓰되, 여기 완료 체크는 분리한다.
+  const selectionCompleted = isOverall ? overallCompleted : isPartCompleted(part);
 
   // 개설 주차 라벨(트리거/옵션 공유) — 공통 Select 로 파트 드롭다운과 동일 높이 규칙(h-9) 적용.
   const renderWeekLabel = useCallback(
@@ -911,7 +916,7 @@ export default function ExperiencePartLeadInput({
                     <SelectValue placeholder="파트 선택">
                       {part ? (
                         <span className="inline-flex min-w-0 items-center gap-1.5">
-                          {currentCompleted && (
+                          {selectionCompleted && (
                             <Check
                               aria-hidden
                               className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
