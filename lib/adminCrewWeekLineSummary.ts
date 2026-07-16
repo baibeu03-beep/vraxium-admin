@@ -26,8 +26,10 @@ import type {
 //   · 라인 수·결과 = card.lines 를 raw(원소 1개=1라인)로 집계. enhancementStatus 를 그대로 버킷팅.
 //   · 주차 성장률  = card.weeklyGrowthRate 그대로 통과(반올림·산식은 고객 카드 SoT). 재계산하지 않는다.
 //   · 오픈 여부   = line.lineTargetId != null(1차 라인 제출 대상자). 화면 문구 비교 금지.
-//   · 포인트 A/B  = 라인 개설 지급 원장(source='line') earned + 대상 라인 설정 possible
-//                  (loadLinePointSummaryForCrewWeek). 액트/프로세스/수동 포인트는 제외.
+//   · 포인트 A/B  = earned(라인 개설 지급 원장 source='line' 합) / possible(이 주차 클럽에서 오픈된
+//                  모든 라인의 설정 point_a/point_b 합 — 상세 표의 clubOpen 행과 동일 집합).
+//                  ⚠ possible 은 대상자/강화 성공 여부와 무관한 "획득 가능 총합"이다(대상·성공 라인만
+//                  합산하면 earned 와 같아져 분모가 무의미). 액트/프로세스/수동/Point C 는 제외.
 //   · 포인트 C    = 라인 정책상 지급 원천이 없어 항상 0/0(추정 금지 — 구조만 A/B/C 동형 유지).
 //
 // 이 페이지는 클럽/주차 공통 데이터(라인 오픈 여부 등)를 조회 근거로만 쓰고 절대 변경하지 않는다.
@@ -119,10 +121,15 @@ export async function getCrewWeekLineSummary(
 
   const confirmed = isCrewWeekEditable(card.userWeekStatus);
 
-  // 라인 개설 지급 포인트(A/B만) — 원장 earned + 대상 라인 설정 possible.
+  // 라인 개설 지급 포인트(A/B만) — 원장 earned + 오픈 라인 설정 possible.
+  //   possible 분모 = 이 주차 클럽에서 오픈된 모든 라인(card.lines 중 lineId != null = clubOpen).
+  //     상세 표의 "오픈" 행과 동일 집합이라 상단 요약과 표 합계가 일치한다. 대상자/성공 여부 무관.
   //   라인별 earned(ref_id=line_id) 와 2차 기입 override 는 상세 표용으로 병렬 로드.
+  const openLineIds = Array.from(
+    new Set(lines.map((l) => l.lineId).filter((x): x is string => Boolean(x))),
+  );
   const [linePoints, earnedByLine, overrideRows] = await Promise.all([
-    loadLinePointSummaryForCrewWeek(crew.userId, card.weekId),
+    loadLinePointSummaryForCrewWeek(crew.userId, card.weekId, openLineIds),
     loadLineEarnedByRefForCrewWeek(crew.userId, card.weekId),
     loadSecondEntryOverridesForUser(crew.userId),
   ]);

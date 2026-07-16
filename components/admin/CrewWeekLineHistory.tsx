@@ -363,15 +363,16 @@ export default function CrewWeekLineHistory({
                   key={row.lineId ?? `ph-${idx}`}
                   className="border-b align-middle last:border-b-0 hover:bg-muted/20"
                 >
-                  <td className="px-3 py-2 text-center">
-                    {/* 셀 폭 전체 사용 — 중앙 정렬, 부모 가용 폭까지 채우고 정말 넘칠 때만 말줄임. */}
+                  <td className="px-3 py-2 text-left">
+                    {/* 라인명 본문만 좌측 정렬(헤더는 중앙 유지). 클릭 영역은 셀 폭 전체 사용,
+                        부모 가용 폭까지 채우고 정말 넘칠 때만 말줄임(tooltip 유지). */}
                     <button
                       type="button"
                       onClick={() => openLineDetail(row)}
-                      className="mx-auto block w-full min-w-0 text-center font-medium text-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+                      className="block w-full min-w-0 text-left font-medium text-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
                       title={row.lineName}
                     >
-                      <span className="block truncate text-center">{row.lineName}</span>
+                      <span className="block truncate text-left">{row.lineName}</span>
                     </button>
                   </td>
                   <td className="truncate px-3 py-2 text-center text-muted-foreground">

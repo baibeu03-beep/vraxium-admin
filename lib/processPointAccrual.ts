@@ -985,12 +985,14 @@ export async function loadLinePointForConfig(
 // 라인 강화(개설) 포인트 요약 — 회원 1명·주차 1개 기준 (조회 전용; 관리 회원 상세 "라인 강화 내역" 탭 SoT).
 //   earned  = process_point_awards(source='line') 원장 합(취소분 제외) — 실제 지급 실측값.
 //             Point A=point_check · Point B=point_advantage. year+week_number(iso) 키.
-//   possible = 이 회원이 대상자(target_mode='user')인 이 주차 라인들의 지급 설정 합.
-//             cluster4_line_point_configs(org→common) 의 point_a/point_b (null=미지급→가능치 0).
+//   possible = 이 주차에 "클럽에서 오픈된 모든 라인"(openLineIds)의 지급 설정 합 — 획득 "가능" 최대치.
+//             호출부가 넘기는 openLineIds = 크루 카드(card.lines)의 clubOpen(lineId != null) 라인 =
+//             상세 표의 "오픈" 행과 동일 집합. ⚠ 대상자 여부·강화 성공 여부와 무관하게 포함한다
+//             (대상 라인만·성공 라인만 합산 금지 — 그러면 earned 와 같아져 분모가 무의미해진다).
+//             cluster4_line_point_configs(크루 소속 org→common) 의 point_a/point_b (null=미지급→가능치 0).
 //   ⚠ 라인 정책상 Point C(번개/penalty)는 지급 원천 자체가 없다 → earned/possible 항상 0/0(추정 금지).
 //     DTO 구조는 A/B/C 동형 유지 — 향후 라인 C 지급 정책이 생기면 여기 원천만 연결한다(구조는 열어둠).
-//   지급 트리거 = 대상자 등록(pay-once, verdict 불변) — 강화 성공/실패와 무관. reconcile/pay-once 두 경로가
-//     모두 동일 (source='line', ref_id=line_id, user_id) 키로 기록되므로 원장 합은 경로와 무관하게 일관.
+//   지급 트리거(earned) = 강화 성공 시 지급(결과 종속). possible 은 그와 독립적으로 오픈 라인 설정 총합.
 // ────────────────────────────────────────────────────────────────────────────
 export type LinePointSummary = {
   earnedA: number;
@@ -1002,6 +1004,7 @@ export type LinePointSummary = {
 export async function loadLinePointSummaryForCrewWeek(
   realUserId: string,
   weekId: string,
+  openLineIds: string[],
 ): Promise<LinePointSummary> {
   const empty: LinePointSummary = { earnedA: 0, earnedB: 0, possibleA: 0, possibleB: 0 };
 
@@ -1024,20 +1027,9 @@ export async function loadLinePointSummaryForCrewWeek(
   const earnedA = awards.reduce((s, r) => s + (r.point_check || 0), 0);
   const earnedB = awards.reduce((s, r) => s + (r.point_advantage || 0), 0);
 
-  // possible: 이 회원이 대상자인 이 주차 라인들의 설정값 합(개설 지급 SoT 미러).
-  const { data: tgtRows } = await supabaseAdmin
-    .from("cluster4_line_targets")
-    .select("line_id")
-    .eq("target_user_id", realUserId)
-    .eq("week_id", weekId)
-    .eq("target_mode", "user");
-  const lineIds = Array.from(
-    new Set(
-      ((tgtRows ?? []) as Array<{ line_id: string | null }>)
-        .map((t) => t.line_id)
-        .filter((x): x is string => Boolean(x)),
-    ),
-  );
+  // possible: 이 주차에 클럽에서 오픈된 모든 라인의 설정값 합(획득 가능 최대치).
+  //   openLineIds = 호출부(card.lines clubOpen) 가 넘긴 실제 개설 라인 집합. 대상자/성공 여부와 무관.
+  const lineIds = Array.from(new Set(openLineIds.filter((x): x is string => Boolean(x))));
 
   let possibleA = 0;
   let possibleB = 0;
