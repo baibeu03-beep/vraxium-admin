@@ -74,6 +74,20 @@ const PART_COL_W = "7%";
 const CLASS_COL_W = "8%";
 const CAT_COL_W = "15.2%";
 
+// 평가 셀 공통 2단 레이아웃 SoT — 5개 컬럼(도출/분석/견문/관리/확장) 라인명 드롭다운의
+//   시작 Y좌표를 한 행 안에서 모두 일치시키기 위한 공통 상수.
+//   · 1단(점수/상태 슬롯): 내용이 배지(도출/분석/견문)든, 체크박스+점수 박스(관리/확장)든,
+//     "파트장/에이전트 전용" 안내(일반 크루 관리)든 관계없이 동일한 최소 높이를 확보한다.
+//     가장 큰 컨텐츠(체크박스+점수 select 박스 = 실측 47px)를 감싸도록 min-h-[48px] 로 통일 —
+//     이 값 미만이면 관리/확장의 점수 박스가 슬롯을 밀어올려 배지 컬럼(도출/분석/견문)보다 아래에서
+//     라인명이 시작한다(회귀 원인). 브라우저 실측(Δ≤2px)으로 검증.
+//   · 2단(라인명 슬롯): 1단 바로 아래 고정 간격(mt-2). 라인명 자체에 개별 margin 을 주지 않는다.
+//   ⚠ 관리·확장만 translateY 로 보정하거나 Select 별 margin-top 을 다르게 주지 말 것 — 정렬은
+//     오로지 1단 슬롯 높이 통일로만 달성한다(라인명 2~3줄 줄바꿈에 따른 셀 높이 증가는 허용).
+const OVERALL_CELL_TOP_SLOT_CLASS =
+  "flex min-h-[48px] w-full items-center justify-center";
+const OVERALL_CELL_LINE_SLOT_CLASS = "mt-2 w-full";
+
 function BoardColgroup() {
   return (
     <colgroup>
@@ -129,12 +143,6 @@ export default function ExperienceTeamOverallBoard({
     new Map(),
   );
 
-  // 카테고리별 "연결된 라인명" 표시용 — 기존 라인 등록 조회(experience-line-masters) 재사용(읽기 전용).
-  //   ⚠ 팀 총괄 API/DTO/저장구조 무변경. 표시 라벨만 보강한다.
-  const [masters, setMasters] = useState<
-    Array<{ experienceCategory: ExperienceOverallCategory | null; lineName: string; lineCode: string; organizationSlug: string; isActive: boolean }>
-  >([]);
-
   const allCrews = useMemo<OverallBoardCrew[]>(
     () => (board?.parts ?? []).flatMap((p) => p.crews),
     [board],
@@ -142,24 +150,6 @@ export default function ExperienceTeamOverallBoard({
 
   // 라인명 드롭다운 옵션(5카테고리) — 개설 신청과 동일 원천(board.lineOptions).
   const lineOptions = board?.lineOptions ?? EMPTY_OVERALL_LINE_OPTIONS;
-
-  // 카테고리 → 연결 라인명. 같은 카테고리 후보 다수면 org 우선, 확장은 활성 종류(온/오프) 우선, 그 외 첫 라인.
-  const lineNameByCategory = useMemo(() => {
-    const out: Partial<Record<ExperienceOverallCategory, string>> = {};
-    for (const c of EXPERIENCE_OVERALL_CATEGORIES) {
-      const cands = masters.filter((m) => m.isActive && m.experienceCategory === c.key);
-      if (cands.length === 0) continue;
-      const orgCands = cands.filter((m) => m.organizationSlug === organization);
-      const pool = orgCands.length ? orgCands : cands;
-      let chosen = pool[0];
-      if (c.key === "extension" && board?.extensionKind) {
-        const want = board.extensionKind === "online" ? "온라인" : "오프라인";
-        chosen = pool.find((m) => m.lineName.includes(want) || m.lineCode.includes(want)) ?? pool[0];
-      }
-      out[c.key] = chosen.lineName;
-    }
-    return out;
-  }, [masters, organization, board]);
 
   const opened = board?.status === "opened";
   const extensionActive = board?.extensionActive ?? false;
@@ -258,25 +248,6 @@ export default function ExperienceTeamOverallBoard({
       await fetchBoard();
     })();
   }, [fetchBoard]);
-
-  // 연결 라인명 — 기존 라인 등록 목록 1회 조회(표시 전용, 팀 총괄 API 무관).
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        // org 필터 없이 전체 조회 후 클라에서 org 우선 매칭(공통/타 org 라인 누락 방지) — 매니저와 동일 정책.
-        const res = await fetch(`/api/admin/cluster4/experience-line-masters`);
-        const json = await res.json();
-        if (cancelled) return;
-        setMasters(json?.success ? (json.data ?? []) : []);
-      } catch {
-        if (!cancelled) setMasters([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [organization]);
 
   // ── 셀 편집(관리/확장) — 체크/점수 연동 ──
   const getLeaderCell = useCallback(
@@ -703,26 +674,32 @@ export default function ExperienceTeamOverallBoard({
                         cell.score < 1;
                       return (
                         <TableCell key={c.key} className="text-center align-top">
-                          <div className="flex flex-col items-center gap-1">
-                            <span
-                              className={cn(
-                                "inline-block rounded-md border px-2 py-1 text-xs",
-                                fail
-                                  ? "border-red-400 bg-red-50 text-red-700"
-                                  : "border-green-300 bg-green-50 text-green-800",
-                              )}
-                            >
-                              {cell.checked && cell.score >= 1
-                                ? `✓ ${cell.score}`
-                                : "✕ -"}
-                            </span>
-                            {/* 라인명 드롭다운 — 검수 편집(파트 신청 셀 SoT 로 write-back). */}
-                            <ExperienceLineSelect
-                              value={getLineSel(crew.userId, c.key)}
-                              options={lineOptions[partLineType]}
-                              onChange={(id) => setLineSel(crew.userId, c.key, id)}
-                              disabled={lineDisabled}
-                              ariaLabel={`${crew.displayName} ${c.label} 라인명`}                            />
+                          <div className="flex flex-col items-center">
+                            {/* 1단: 점수/상태 슬롯(공통 높이). */}
+                            <div className={OVERALL_CELL_TOP_SLOT_CLASS}>
+                              <span
+                                className={cn(
+                                  "inline-block rounded-md border px-2 py-1 text-xs",
+                                  fail
+                                    ? "border-red-400 bg-red-50 text-red-700"
+                                    : "border-green-300 bg-green-50 text-green-800",
+                                )}
+                              >
+                                {cell.checked && cell.score >= 1
+                                  ? `✓ ${cell.score}`
+                                  : "✕ -"}
+                              </span>
+                            </div>
+                            {/* 2단: 라인명 드롭다운 — 검수 편집(파트 신청 셀 SoT 로 write-back). */}
+                            <div className={OVERALL_CELL_LINE_SLOT_CLASS}>
+                              <ExperienceLineSelect
+                                value={getLineSel(crew.userId, c.key)}
+                                options={lineOptions[partLineType]}
+                                onChange={(id) => setLineSel(crew.userId, c.key, id)}
+                                disabled={lineDisabled}
+                                ariaLabel={`${crew.displayName} ${c.label} 라인명`}
+                              />
+                            </div>
                           </div>
                         </TableCell>
                       );
@@ -732,14 +709,22 @@ export default function ExperienceTeamOverallBoard({
                     const mgmtLocked =
                       c.key === "management" && !canEditOverallManagement(crew);
                     if (mgmtLocked) {
+                      // 일반 크루 관리 셀 — 점수/라인명 없이 안내 배지 하나뿐. 다른 셀은 상단 정렬(2단 구조)이지만
+                      //   이 셀은 배지를 셀(행) 세로 중앙에 둔다: table-cell vertical-align(align-middle)로 중앙 정렬해
+                      //   같은 행 다른 컬럼의 체크박스·점수+라인명 묶음의 중심선과 시각적으로 맞춘다.
+                      //   ⚠ margin/translateY 로 억지 이동하지 않는다 — 셀 자체 정렬만으로 달성.
                       return (
-                        <TableCell key={c.key} className="text-center">
-                          <span
-                            className="inline-block rounded-md border border-dashed border-input bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground opacity-70"
-                            title="관리 류는 파트장/에이전트 전용입니다 (일반 크루 비활성)"
-                          >
-                            파트장/에이전트 전용
-                          </span>
+                        <TableCell key={c.key} className="text-center align-middle">
+                          <div className="flex items-center justify-center">
+                            <span
+                              // 비활성 안내지만 읽히도록 — text-xs(다른 안내 배지와 동일 가독성).
+                              //   과도한 축소·흐림 없이 muted 색으로만 비활성 표현.
+                              className="inline-block rounded-md border border-dashed border-input bg-muted/40 px-2 py-1 text-xs text-muted-foreground"
+                              title="관리 류는 파트장/에이전트 전용입니다 (일반 크루 비활성)"
+                            >
+                              파트장/에이전트 전용
+                            </span>
+                          </div>
                         </TableCell>
                       );
                     }
@@ -751,56 +736,62 @@ export default function ExperienceTeamOverallBoard({
                     const lineDisabled = disabled || !cell.checked || cell.score < 1;
                     return (
                       <TableCell key={c.key} className="text-center align-top">
-                        <div className="flex flex-col items-center gap-1">
-                          <div
-                            className={cn(
-                              "inline-flex items-center gap-2 rounded-md border px-2 py-1.5",
-                              disabled && c.key === "extension" && !extensionActive
-                                ? "border-dashed border-input bg-muted/40 opacity-60"
-                                : fail
-                                  ? "border-red-400 bg-red-50"
-                                  : "border-input bg-background",
-                              checkedRowClass(
-                                cell.checked &&
-                                  !fail &&
-                                  !(disabled && c.key === "extension" && !extensionActive),
-                              ),
-                            )}
-                          >
-                            <Checkbox
-                              checked={cell.checked}
-                              disabled={disabled}
-                              onChange={() => toggleLeaderCheck(crew.userId, c.key)}
-                              aria-label={`${crew.displayName} ${c.label} 체크`}
-                            />
-                            <select
-                              className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
-                              // 점수는 1~10만 유효. 미체크(=미평가)면 '-' 표시(0='0점'과 혼동 방지).
-                              //   0 은 selectable 점수가 아니다 — 미평가 placeholder 는 rating=0/evaluated_by=null 로만 존재.
-                              value={cell.checked && cell.score >= 1 ? String(cell.score) : ""}
-                              disabled={disabled}
-                              onChange={(e) =>
-                                setLeaderScore(crew.userId, c.key, Number(e.target.value))
-                              }
-                              aria-label={`${crew.displayName} ${c.label} 점수`}
+                        <div className="flex flex-col items-center">
+                          {/* 1단: 체크박스+점수 박스(공통 높이 슬롯). */}
+                          <div className={OVERALL_CELL_TOP_SLOT_CLASS}>
+                            <div
+                              className={cn(
+                                "inline-flex items-center gap-2 rounded-md border px-2 py-1.5",
+                                disabled && c.key === "extension" && !extensionActive
+                                  ? "border-dashed border-input bg-muted/40 opacity-60"
+                                  : fail
+                                    ? "border-red-400 bg-red-50"
+                                    : "border-input bg-background",
+                                checkedRowClass(
+                                  cell.checked &&
+                                    !fail &&
+                                    !(disabled && c.key === "extension" && !extensionActive),
+                                ),
+                              )}
                             >
-                              <option value="" disabled>
-                                -
-                              </option>
-                              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
-                                <option key={n} value={n}>
-                                  {n}
+                              <Checkbox
+                                checked={cell.checked}
+                                disabled={disabled}
+                                onChange={() => toggleLeaderCheck(crew.userId, c.key)}
+                                aria-label={`${crew.displayName} ${c.label} 체크`}
+                              />
+                              <select
+                                className="rounded border border-input bg-background px-1.5 py-0.5 text-sm disabled:opacity-60"
+                                // 점수는 1~10만 유효. 미체크(=미평가)면 '-' 표시(0='0점'과 혼동 방지).
+                                //   0 은 selectable 점수가 아니다 — 미평가 placeholder 는 rating=0/evaluated_by=null 로만 존재.
+                                value={cell.checked && cell.score >= 1 ? String(cell.score) : ""}
+                                disabled={disabled}
+                                onChange={(e) =>
+                                  setLeaderScore(crew.userId, c.key, Number(e.target.value))
+                                }
+                                aria-label={`${crew.displayName} ${c.label} 점수`}
+                              >
+                                <option value="" disabled>
+                                  -
                                 </option>
-                              ))}
-                            </select>
+                                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                                  <option key={n} value={n}>
+                                    {n}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
-                          {/* 라인명 드롭다운 — 관리/확장도 동일 구조(팀장 셀 SoT 로 저장). */}
-                          <ExperienceLineSelect
-                            value={getLineSel(crew.userId, c.key)}
-                            options={lineOptions[c.key]}
-                            onChange={(id) => setLineSel(crew.userId, c.key, id)}
-                            disabled={lineDisabled}
-                            ariaLabel={`${crew.displayName} ${c.label} 라인명`}                          />
+                          {/* 2단: 라인명 드롭다운 — 관리/확장도 동일 구조(팀장 셀 SoT 로 저장). */}
+                          <div className={OVERALL_CELL_LINE_SLOT_CLASS}>
+                            <ExperienceLineSelect
+                              value={getLineSel(crew.userId, c.key)}
+                              options={lineOptions[c.key]}
+                              onChange={(id) => setLineSel(crew.userId, c.key, id)}
+                              disabled={lineDisabled}
+                              ariaLabel={`${crew.displayName} ${c.label} 라인명`}
+                            />
+                          </div>
                         </div>
                       </TableCell>
                     );
@@ -826,59 +817,64 @@ export default function ExperienceTeamOverallBoard({
         {EXPERIENCE_OVERALL_CATEGORIES.map((c) => {
           const o = getOutput(c.key);
           const disabled = opened || saving || (c.key === "extension" && !extensionActive);
-          const lineName = lineNameByCategory[c.key];
           return (
             <div key={c.key} className="space-y-1.5">
+              {/* 라인 종류 제목만 유지 — 선택된 라인명(예: "[실무 기획] 니즈의 파악 (1/4)") 설명 문구는 표시하지 않는다. */}
               <p className="text-sm font-medium">
-                <span className="text-muted-foreground">[{c.label} 류]</span>{" "}
-                {lineName ? (
-                  <span>{lineName}</span>
-                ) : (
-                  <span className="text-muted-foreground">— 연결된 라인 없음</span>
-                )}
+                <span className="text-muted-foreground">[{c.label} 류]</span>
                 {c.key === "extension" && !extensionActive && (
                   <span className="ml-1 text-xs text-muted-foreground">(확장 주간 외)</span>
                 )}
               </p>
-              {/* [링크1][URL 입력][설명1][설명 입력] — 한 행 가로 배치, 라벨 80px·입력칸 flex-1 */}
-              <div className="flex w-full items-center gap-2">
-                <Label className="inline-flex w-28 shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-muted-foreground">
-                  링크1
-                  <AdminHelpIconButton
-                    size="xs"
-                    helpKey="admin.lineOpening.field.outputLink"
-                    title="링크1"
+              {/* [아웃풋 링크][링크 설명][아웃풋 이미지][이미지 설명] — 한 행 4열(데스크톱), 태블릿 2열, 모바일 1열.
+                  이미지 열은 fr(늘어나는 비율)이 아니라 콘텐츠 폭 고정 — 미리보기 박스(w-40=160px) + gap(8) +
+                  아이콘 버튼열(size-8=32px) = 200px 만 차지한다. 이렇게 하면 이미지와 이미지 설명 사이의 큰 빈 공간이
+                  사라지고, 남는 폭은 이미지 설명 열(1.6fr, 최소 320px)로 넘어가 textarea 가 넓어진다.
+                  링크(1.1fr)·링크 설명(1fr)은 충분한 입력 폭 유지. 상단 정렬(items-start)로 시작선 통일. */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-[minmax(240px,1.1fr)_minmax(220px,1fr)_minmax(200px,auto)_minmax(320px,1.6fr)] lg:items-start">
+                {/* 아웃풋 링크 */}
+                <div className="space-y-1.5">
+                  <Label className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-muted-foreground">
+                    링크1
+                    <AdminHelpIconButton
+                      size="xs"
+                      helpKey="admin.lineOpening.field.outputLink"
+                      title="링크1"
+                    />
+                  </Label>
+                  <Input
+                    className="w-full"
+                    value={o.link}
+                    disabled={disabled}
+                    placeholder="URL 입력"
+                    onChange={(e) => setOutput(c.key, { link: e.target.value })}
                   />
-                </Label>
-                <Input
-                  className="min-w-0 flex-1"
-                  value={o.link}
-                  disabled={disabled}
-                  placeholder="URL 입력"
-                  onChange={(e) => setOutput(c.key, { link: e.target.value })}
-                />
-                <Label className="inline-flex w-28 shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium text-muted-foreground">
-                  설명1
-                  <AdminHelpIconButton
-                    size="xs"
-                    helpKey="admin.lineOpening.field.outputLinkDescription"
-                    title="설명1"
+                </div>
+                {/* 링크 설명 */}
+                <div className="space-y-1.5">
+                  <Label className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-muted-foreground">
+                    설명1
+                    <AdminHelpIconButton
+                      size="xs"
+                      helpKey="admin.lineOpening.field.outputLinkDescription"
+                      title="설명1"
+                    />
+                  </Label>
+                  <Input
+                    className="w-full"
+                    value={o.description}
+                    disabled={disabled}
+                    placeholder="설명 입력"
+                    onChange={(e) => setOutput(c.key, { description: e.target.value })}
                   />
-                </Label>
-                <Input
-                  className="min-w-0 flex-1"
-                  value={o.description}
-                  disabled={disabled}
-                  placeholder="설명 입력"
-                  onChange={(e) => setOutput(c.key, { description: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-4 border-t pt-4 lg:grid-cols-2">
+                </div>
+                {/* 아웃풋 이미지(자체 라벨 포함) */}
                 <OutputImageInput
                   value={o.imageUrl}
                   disabled={disabled}
                   onChange={(imageUrl) => setOutput(c.key, { imageUrl })}
                 />
+                {/* 이미지 설명 */}
                 <div className="space-y-1.5">
                   <Label>아웃풋 이미지 1 설명</Label>
                   <textarea
@@ -1058,17 +1054,60 @@ function OutputImageInput({ value, disabled, onChange }: { value: string; disabl
     <div className="space-y-1.5">
       <Label>아웃풋 이미지 1</Label>
       <input ref={fileRef} className="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={disabled || uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
-      {value ? (
-        <div className="flex items-center gap-3 rounded-md border bg-background p-2">
-          <img src={value} alt="아웃풋 이미지 미리보기" className="h-24 w-24 rounded object-cover" />
-          <div className="flex flex-1 flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" disabled={disabled || uploading} onClick={() => fileRef.current?.click()}><Upload className="mr-1 h-4 w-4" />교체</Button>
-            <Button type="button" variant="outline" size="sm" disabled={disabled || uploading} onClick={() => onChange("")}><Trash2 className="mr-1 h-4 w-4" />제거</Button>
-          </div>
+      {/* 미리보기 박스(좌) + 업로드/제거 버튼 스택(우, 2행 1열 그리드) — 한 행 가로 배치.
+          박스: 항상 정사각형(aspect-square w-40). 클릭=업로드/교체(기존 hidden input 로직 재사용).
+            이미지 없음=점선 "미리보기", 있음=동일 박스 안 object-cover(기존 정책 유지).
+          버튼: [업로드/교체][제거] 세로 2행. 클릭 로직은 기존 그대로(fileRef.click / onChange("")).
+          업로드 API·저장·disabled·확장 잠금 로직은 무변경 — 이미지 입력 UI만 변경. */}
+      <div className="flex items-start gap-2">
+        <button
+          type="button"
+          disabled={disabled || uploading}
+          onClick={() => fileRef.current?.click()}
+          aria-label={value ? "아웃풋 이미지 교체" : "아웃풋 이미지 업로드"}
+          className={cn(
+            "flex aspect-square w-40 shrink-0 items-center justify-center overflow-hidden rounded-md border text-xs text-muted-foreground transition-colors",
+            "hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60",
+            value ? "border-solid bg-background p-1" : "border-dashed",
+          )}
+        >
+          {value ? (
+            <img src={value} alt="아웃풋 이미지 미리보기" className="h-full w-full rounded object-cover" />
+          ) : uploading ? (
+            "업로드 중…"
+          ) : (
+            "미리보기"
+          )}
+        </button>
+        {/* 우측 업로드/제거 — 2행 1열 그리드. 아이콘 전용(텍스트 없음), 접근성은 aria-label/title 로. */}
+        <div className="grid grid-cols-1 grid-rows-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            loading={uploading}
+            disabled={disabled || uploading}
+            onClick={() => fileRef.current?.click()}
+            aria-label={value ? "이미지 교체" : "이미지 업로드"}
+            title={value ? "이미지 교체" : "이미지 업로드"}
+          >
+            <Upload className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            // 제거 로직(onChange(""))은 기존 그대로. 이미지 없음/비활성/업로드중이면 비활성.
+            disabled={disabled || uploading || !value}
+            onClick={() => onChange("")}
+            aria-label="이미지 제거"
+            title="이미지 제거"
+          >
+            {/* 휴지통 아이콘은 빨간색(파괴적 동작 시각화). disabled 시 Button opacity 로 톤다운. */}
+            <Trash2 className="h-4 w-4 text-red-600" />
+          </Button>
         </div>
-      ) : (
-        <Button type="button" variant="outline" className="w-full" loading={uploading} disabled={disabled || uploading} onClick={() => fileRef.current?.click()}><Upload className="mr-1 h-4 w-4" />이미지 업로드</Button>
-      )}
+      </div>
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     </div>
   );
