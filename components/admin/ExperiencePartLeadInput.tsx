@@ -49,6 +49,7 @@ import {
   EXPERIENCE_PART_LINE_TYPES,
   PART_CELL_DEFAULT,
   TEAM_OVERALL,
+  displayCrewStatusLabel,
   isPartCellFail,
   experienceScoreState,
   type ExperiencePartLineType,
@@ -1044,7 +1045,17 @@ function PartGrid({
       {/* 데스크톱: [그리드][오른쪽 세로 액션 컬럼] / 모바일: 세로 stack */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1 overflow-x-auto">
-        <Table>
+        {/* 좌측(이름/파트명/클래스) 축소 + 라인 컬럼(도출/분석/견문) 확대 — 라인명 드롭다운(트리거=열폭 채움)
+            을 넓게 확보. 합 = 10 + 8 + 10 + 24×3 = 100%. table-fixed 로 col 폭 고정(보드와 동일 규칙). */}
+        <Table className="min-w-[900px] table-fixed">
+          <colgroup>
+            <col style={{ width: "10%" }} />{/* 이름 */}
+            <col style={{ width: "8%" }} />{/* 파트명 */}
+            <col style={{ width: "10%" }} />{/* 클래스(구 '크루 상태') */}
+            {EXPERIENCE_PART_LINE_TYPES.map((l) => (
+              <col key={l.key} style={{ width: "24%" }} />
+            ))}
+          </colgroup>
           <TableHeader>
             <TableRow>
               <TableHead>
@@ -1069,10 +1080,10 @@ function PartGrid({
               </TableHead>
               <TableHead>
                 <span className="inline-flex items-center gap-1">
-                  크루 상태
+                  클래스
                   <AdminHelpIconButton
                     helpKey="admin.lineOpening.experience.partGrid.column.crewStatus"
-                    title="크루 상태"
+                    title="클래스"
                     size="xs"
                   />
                 </span>
@@ -1105,11 +1116,15 @@ function PartGrid({
               crews.map((crew) => (
                 // 행 세로 여백 확대(라인명 드롭다운 위아래 숨통) — 모든 셀 py 동시 확대(className).
                 <TableRow key={crew.userId} className="[&>td]:py-4">
-                  <TableCell className="font-medium">{crew.displayName}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell className="whitespace-normal break-words font-medium">
+                    {crew.displayName}
+                  </TableCell>
+                  <TableCell className="whitespace-normal break-words text-xs text-muted-foreground">
                     {crew.partName ?? "-"}
                   </TableCell>
-                  <TableCell className="text-xs">{crew.statusLabel}</TableCell>
+                  <TableCell className="whitespace-normal break-words text-xs">
+                    {displayCrewStatusLabel(crew.statusLabel)}
+                  </TableCell>
                   {EXPERIENCE_PART_LINE_TYPES.map((line) => {
                     const cell = getCell(crew.userId, line.key);
                     const fail = isPartCellFail(cell);

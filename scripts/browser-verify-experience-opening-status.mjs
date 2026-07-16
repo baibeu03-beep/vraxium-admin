@@ -216,6 +216,26 @@ for (const org of ORGS) {
           return { tempSave: t.includes("개설 검수 (임시저장)"), extInactive: t.includes("확장 비활성") };
         });
         ck(`[${tag}] 삭제 문구 부재(임시저장/확장비활성)`, !removed.tempSave && !removed.extInactive, `tempSave=${removed.tempSave} extInactive=${removed.extInactive}`);
+
+        // 컬럼명 변경 확인 — 팀 총괄 헤더에 "클래스" 존재 + "크루 상태" 부재.
+        const hdr = await page.evaluate(() => {
+          const heads = Array.from(document.querySelectorAll('[data-slot="table-head"]')).map((h) => (h.textContent || "").trim());
+          return { hasClass: heads.some((h) => h.includes("클래스")), hasOld: heads.some((h) => h.includes("크루 상태")) };
+        });
+        ck(`[${tag}] 헤더 '크루 상태'→'클래스'`, hdr.hasClass && !hdr.hasOld, `hasClass=${hdr.hasClass} hasOld=${hdr.hasOld}`);
+        // '일반'→'정규' 표시 치환 — 보드 클래스 셀에 "일반" 표기 부재(정규/에이전트/파트장만).
+        const noIlban = await page.evaluate(() => {
+          const cells = Array.from(document.querySelectorAll('[data-slot="table-cell"]')).map((c) => (c.textContent || "").trim());
+          return !cells.some((c) => c === "일반");
+        });
+        ck(`[${tag}] 클래스값 '일반' 미표기(정규 치환)`, noIlban, `noIlban=${noIlban}`);
+        // 보드 그리드(라인명 드롭다운 열) 스크린샷 — 표를 뷰포트로 스크롤 후 촬영(컬럼 폭 육안 확인).
+        await page.evaluate(() => {
+          const tbl = document.querySelector('[data-slot="table"]') || document.querySelector("table");
+          if (tbl) tbl.scrollIntoView({ block: "center" });
+        }).catch(() => {});
+        await page.waitForTimeout(500);
+        await page.screenshot({ path: resolve(adminRoot, "claudedocs", `exp-board-${org}-${m.key}.png`), fullPage: false }).catch(() => {});
       }
 
       // ⑤ 반응성 — 실제 파트 선택 시 pill 이 그 파트 상태로 재파생(옵션 체크와 일치).

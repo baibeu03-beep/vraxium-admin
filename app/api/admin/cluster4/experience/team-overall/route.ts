@@ -144,6 +144,8 @@ function parseOutputs(raw: unknown): OverallOutput[] {
       category,
       link: typeof row.link === "string" ? row.link : "",
       description: typeof row.description === "string" ? row.description : "",
+      imageUrl: typeof row.imageUrl === "string" ? row.imageUrl : "",
+      imageDescription: typeof row.imageDescription === "string" ? row.imageDescription : "",
     });
   }
   return out;

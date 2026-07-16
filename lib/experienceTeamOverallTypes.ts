@@ -159,6 +159,8 @@ export type OverallOutput = {
   category: ExperienceOverallCategory;
   link: string;
   description: string;
+  imageUrl: string;
+  imageDescription: string;
 };
 
 export type OverallBoardStatus = "none" | "reviewed" | "opened";

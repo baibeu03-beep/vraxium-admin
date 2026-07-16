@@ -197,7 +197,7 @@ type OverallStored = {
   reviewedAt: string | null;
   openedAt: string | null;
   leaderCells: Map<string, OverallCell>; // key = crewUserId::category(management|extension)
-  outputs: Map<ExperienceOverallCategory, { link: string; description: string }>;
+  outputs: Map<ExperienceOverallCategory, { link: string; description: string; imageUrl: string; imageDescription: string }>;
 };
 
 async function loadOverallStored(
@@ -244,19 +244,23 @@ async function loadOverallStored(
     });
   }
 
-  const outputs = new Map<ExperienceOverallCategory, { link: string; description: string }>();
+  const outputs = new Map<ExperienceOverallCategory, { link: string; description: string; imageUrl: string; imageDescription: string }>();
   const { data: outRows } = await supabaseAdmin
     .from("cluster4_experience_team_overall_outputs")
-    .select("category,output_link,output_description")
+    .select("category,output_link,output_description,output_image_url,output_image_description")
     .eq("overall_id", h.id);
   for (const o of (outRows ?? []) as Array<{
     category: ExperienceOverallCategory;
     output_link: string | null;
     output_description: string | null;
+    output_image_url: string | null;
+    output_image_description: string | null;
   }>) {
     outputs.set(o.category, {
       link: o.output_link ?? "",
       description: o.output_description ?? "",
+      imageUrl: o.output_image_url ?? "",
+      imageDescription: o.output_image_description ?? "",
     });
   }
 
@@ -387,7 +391,7 @@ export async function getTeamOverallBoard(
     .sort((a, b) => a.partName.localeCompare(b.partName));
 
   const outputs: OverallOutput[] = Array.from(stored.outputs.entries()).map(
-    ([category, v]) => ({ category, link: v.link, description: v.description }),
+    ([category, v]) => ({ category, link: v.link, description: v.description, imageUrl: v.imageUrl, imageDescription: v.imageDescription }),
   );
 
   return {
@@ -512,7 +516,7 @@ async function persistReviewState(input: {
     .eq("overall_id", overallId);
   if (delOutErr) throw new Error(delOutErr.message);
   const validOutputs = input.outputs.filter(
-    (o) => o.link.trim() || o.description.trim(),
+    (o) => o.link.trim() || o.description.trim() || o.imageUrl.trim() || o.imageDescription.trim(),
   );
   if (validOutputs.length > 0) {
     const { error: insOutErr } = await supabaseAdmin
@@ -523,6 +527,8 @@ async function persistReviewState(input: {
           category: o.category,
           output_link: o.link.trim() || null,
           output_description: o.description.trim() || null,
+          output_image_url: o.imageUrl.trim() || null,
+          output_image_description: o.imageDescription.trim() || null,
         })),
       );
     if (insOutErr) throw new Error(insOutErr.message);
@@ -984,7 +990,7 @@ export async function openTeamOverall(input: {
         // 확장은 확장 주간에만 반영.
         if (cat.key === "extension" && !board.extensionActive) continue;
         const cell = crew.cells[cat.key];
-        if (!cell.checked) continue; // 미체크 = 해당 라인 비대상.
+        if (!cell.checked || cell.score <= 0 || !cell.selectedLineId) continue;
         const list = crewsByCat.get(cat.key) ?? [];
         list.push({
           userId: crew.userId,
@@ -1035,6 +1041,8 @@ export async function openTeamOverall(input: {
         const screenOut = outputByCat.get(cat.key);
         const screenLink = screenOut?.link.trim() || null;
         const screenDesc = screenOut?.description.trim() || "";
+        const screenImageUrl = screenOut?.imageUrl.trim() || null;
+        const screenImageDescription = screenOut?.imageDescription.trim() || "";
         const outputLinks = screenLink
           ? [{ url: screenLink, label: screenDesc }]
           : resolveOutputLinks(reg.outputLinks, [null, null]);
@@ -1051,7 +1059,9 @@ export async function openTeamOverall(input: {
             output_link_2: null,
             output_links: outputLinks,
             // 아웃풋 이미지 = 라인 등록값 자동 반영(입력 UI 없음).
-            output_images: reg.outputImages,
+            output_images: screenImageUrl
+              ? [{ url: screenImageUrl, caption: screenImageDescription || null }]
+              : [],
             submission_opens_at: submissionOpensAt,
             submission_closes_at: submissionClosesAt,
             is_active: true,

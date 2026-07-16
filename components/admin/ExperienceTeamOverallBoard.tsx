@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { RotateCcw, Eye, CheckCircle2, XCircle } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RotateCcw, Eye, CheckCircle2, XCircle, Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { useToast } from "@/components/ui/toast";
@@ -42,7 +42,10 @@ import {
   type OverallLeaderCellDto,
   type OverallLineSelectionDto,
 } from "@/lib/experienceTeamOverallTypes";
-import { type ExperiencePartLineType } from "@/lib/experiencePartInputTypes";
+import {
+  displayCrewStatusLabel,
+  type ExperiencePartLineType,
+} from "@/lib/experiencePartInputTypes";
 import ExperienceLineSelect from "@/components/admin/cluster4/ExperienceLineSelect";
 
 // 실무 경험 [팀 총괄] — 개설 검수/완료/취소 편집 보드.
@@ -64,19 +67,21 @@ const OVERALL_CATEGORY_HELP_KEY: Record<ExperienceOverallCategory, string> = {
 };
 
 // 표 컬럼 폭 — table-layout: fixed 와 함께 헤더/바디 폭을 정확히 고정한다.
-//   이름 = 20%(나머지의 약 1.75배), 파트·상태·도출·분석·견문·관리·확장 = 80%/7 = 11.4286% 동일.
-//   8개 컬럼 합 = 20 + 7×11.4286 ≈ 100%. min-width 로 데스크톱에서 컨트롤이 찌그러지지 않게 한다.
-const NAME_COL_W = "20%";
-const EQUAL_COL_W = "11.4286%";
+//   좌측(이름/파트/클래스)은 텍스트 길이에 맞게 축소하고, 남는 폭을 5개 평가 컬럼(도출/분석/견문/관리/확장)에
+//   배분해 라인명 드롭다운(트리거=열폭 채움)이 더 넓게 보이도록 한다. 합 = 9 + 7 + 8 + 15.2×5 = 100%.
+const NAME_COL_W = "9%";
+const PART_COL_W = "7%";
+const CLASS_COL_W = "8%";
+const CAT_COL_W = "15.2%";
 
 function BoardColgroup() {
   return (
     <colgroup>
       <col style={{ width: NAME_COL_W }} />
-      <col style={{ width: EQUAL_COL_W }} />{/* 파트 */}
-      <col style={{ width: EQUAL_COL_W }} />{/* 크루 상태 */}
+      <col style={{ width: PART_COL_W }} />{/* 파트 */}
+      <col style={{ width: CLASS_COL_W }} />{/* 클래스(구 '크루 상태') */}
       {EXPERIENCE_OVERALL_CATEGORIES.map((c) => (
-        <col key={c.key} style={{ width: EQUAL_COL_W }} />
+        <col key={c.key} style={{ width: CAT_COL_W }} />
       ))}
     </colgroup>
   );
@@ -117,7 +122,7 @@ export default function ExperienceTeamOverallBoard({
   const [leaderCells, setLeaderCells] = useState<Map<string, OverallCell>>(new Map());
   // 카테고리별 아웃풋 링크/설명 로컬 편집값.
   const [outputs, setOutputs] = useState<
-    Map<ExperienceOverallCategory, { link: string; description: string }>
+    Map<ExperienceOverallCategory, { link: string; description: string; imageUrl: string; imageDescription: string }>
   >(new Map());
   // 도출/분석/견문 라인명 로컬 편집값 — key=`crewUserId::category`(part 카테고리만). 저장=파트 신청 셀 SoT.
   const [lineSelections, setLineSelections] = useState<Map<string, string | null>>(
@@ -205,9 +210,9 @@ export default function ExperienceTeamOverallBoard({
     }
     setLeaderCells(lc);
     setLineSelections(ls);
-    const out = new Map<ExperienceOverallCategory, { link: string; description: string }>();
+    const out = new Map<ExperienceOverallCategory, { link: string; description: string; imageUrl: string; imageDescription: string }>();
     for (const o of b.outputs) {
-      out.set(o.category, { link: o.link, description: o.description });
+      out.set(o.category, { link: o.link, description: o.description, imageUrl: o.imageUrl, imageDescription: o.imageDescription });
     }
     setOutputs(out);
   }, []);
@@ -330,15 +335,15 @@ export default function ExperienceTeamOverallBoard({
 
   const getOutput = useCallback(
     (category: ExperienceOverallCategory) =>
-      outputs.get(category) ?? { link: "", description: "" },
+      outputs.get(category) ?? { link: "", description: "", imageUrl: "", imageDescription: "" },
     [outputs],
   );
 
   const setOutput = useCallback(
-    (category: ExperienceOverallCategory, patch: { link?: string; description?: string }) => {
+    (category: ExperienceOverallCategory, patch: { link?: string; description?: string; imageUrl?: string; imageDescription?: string }) => {
       setOutputs((prev) => {
         const m = new Map(prev);
-        const cur = m.get(category) ?? { link: "", description: "" };
+        const cur = m.get(category) ?? { link: "", description: "", imageUrl: "", imageDescription: "" };
         m.set(category, { ...cur, ...patch });
         return m;
       });
@@ -370,7 +375,7 @@ export default function ExperienceTeamOverallBoard({
       (c) => !(c.key === "extension" && !extensionActive),
     ).map((c) => {
       const o = getOutput(c.key);
-      return { category: c.key, link: o.link, description: o.description };
+      return { category: c.key, link: o.link, description: o.description, imageUrl: o.imageUrl, imageDescription: o.imageDescription };
     });
     // 도출/분석/견문 라인명 편집값 — 파트 카테고리 전 크루. 서버가 보이드/유형 검증·null 정규화.
     const lineSels: OverallLineSelectionDto[] = [];
@@ -595,7 +600,7 @@ export default function ExperienceTeamOverallBoard({
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <Table className="min-w-[1000px] table-fixed">
+          <Table className="min-w-[1340px] table-fixed">
             <BoardColgroup />
             <TableHeader>
               <TableRow>
@@ -621,11 +626,11 @@ export default function ExperienceTeamOverallBoard({
                 </TableHead>
                 <TableHead>
                   <span className="inline-flex items-center gap-1">
-                    크루 상태
+                    클래스
                     <AdminHelpIconButton
                       size="xs"
                       helpKey="admin.lineOpening.experience.overallColumn.crewStatus"
-                      title="크루 상태"
+                      title="클래스"
                     />
                   </span>
                 </TableHead>
@@ -679,7 +684,7 @@ export default function ExperienceTeamOverallBoard({
                     {crew.partName ?? "-"}
                   </TableCell>
                   <TableCell className="whitespace-normal break-words text-xs">
-                    {crew.statusLabel}
+                    {displayCrewStatusLabel(crew.statusLabel)}
                   </TableCell>
                   {EXPERIENCE_OVERALL_CATEGORIES.map((c) => {
                     const isLeader = (OVERALL_LEADER_CATEGORIES as string[]).includes(
@@ -869,6 +874,23 @@ export default function ExperienceTeamOverallBoard({
                   onChange={(e) => setOutput(c.key, { description: e.target.value })}
                 />
               </div>
+              <div className="grid gap-4 border-t pt-4 lg:grid-cols-2">
+                <OutputImageInput
+                  value={o.imageUrl}
+                  disabled={disabled}
+                  onChange={(imageUrl) => setOutput(c.key, { imageUrl })}
+                />
+                <div className="space-y-1.5">
+                  <Label>아웃풋 이미지 1 설명</Label>
+                  <textarea
+                    className="flex min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                    rows={3}
+                    value={o.imageDescription}
+                    disabled={disabled}
+                    onChange={(e) => setOutput(c.key, { imageDescription: e.target.value })}
+                  />
+                </div>
+              </div>
             </div>
           );
         })}
@@ -1004,6 +1026,51 @@ export default function ExperienceTeamOverallBoard({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function OutputImageInput({ value, disabled, onChange }: { value: string; disabled: boolean; onChange: (url: string) => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  const upload = async (file: File) => {
+    setUploading(true);
+    setError("");
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const response = await fetch("/api/admin/cluster4/upload-image", { method: "POST", body });
+      const json = await response.json();
+      if (!response.ok || !json?.success || typeof json?.data?.url !== "string") {
+        throw new Error(json?.error || "이미지 업로드에 실패했습니다.");
+      }
+      onChange(json.data.url);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "이미지 업로드에 실패했습니다.");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <Label>아웃풋 이미지 1</Label>
+      <input ref={fileRef} className="hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={disabled || uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} />
+      {value ? (
+        <div className="flex items-center gap-3 rounded-md border bg-background p-2">
+          <img src={value} alt="아웃풋 이미지 미리보기" className="h-24 w-24 rounded object-cover" />
+          <div className="flex flex-1 flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" disabled={disabled || uploading} onClick={() => fileRef.current?.click()}><Upload className="mr-1 h-4 w-4" />교체</Button>
+            <Button type="button" variant="outline" size="sm" disabled={disabled || uploading} onClick={() => onChange("")}><Trash2 className="mr-1 h-4 w-4" />제거</Button>
+          </div>
+        </div>
+      ) : (
+        <Button type="button" variant="outline" className="w-full" loading={uploading} disabled={disabled || uploading} onClick={() => fileRef.current?.click()}><Upload className="mr-1 h-4 w-4" />이미지 업로드</Button>
+      )}
+      {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

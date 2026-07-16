@@ -29,6 +29,13 @@ export const PART_CELL_DEFAULT = { checked: true, score: 7, selectedLineId: null
 // 팀 총괄(집계) 선택값 — 실제 파트가 아님.
 export const TEAM_OVERALL = "__overall__";
 
+// 크루 상태(=클래스) 표시 라벨만 치환 — "일반"→"정규".
+//   ⚠ UI 텍스트 전용. 내부 statusLabel 값("일반")·Enum·DTO·DB·권한/로직(canEditOverallManagement 등)은 불변.
+//   개설 검수/완료 테이블 공통 사용(프론트 표시 SoT).
+export function displayCrewStatusLabel(statusLabel: string): string {
+  return statusLabel === "일반" ? "정규" : statusLabel;
+}
+
 // 셀 상태 — 체크/점수 + 선택 라인(안정적 라인 ID). 미선택 = null('-').
 export type PartInputCell = {
   checked: boolean;

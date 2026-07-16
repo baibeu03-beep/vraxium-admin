@@ -21,11 +21,11 @@ import type { PartInputLineOption } from "@/lib/experiencePartInputTypes";
 const VOID = "__none__"; // 보이드 sentinel(→ 저장 null). 공통 Select 가 라벨을 '-' 로 표시.
 
 // 라인명 Select 트리거 폭 SoT(개설 신청·검수·완료 공용, 이후 다른 관리자 화면도 재사용).
-//   · 닫힌 트리거는 컴팩트한 고정 폭(180px) — 도출/분석/견문/관리/확장 전 열이 동일 폭으로 정렬되고
-//     열끼리 붙어 보이지 않는다. 긴 라인명은 셀을 넓히지 않고 최대 3줄로 줄바꿈(아래 VALUE_MULTILINE).
-//   · 셀 전체를 채우는 w-full 대신 고정 폭 — 표가 불필요하게 가로로 커지지 않는다.
-//   · 개별 호출에서 triggerClassName 으로 덮어쓸 수 있으나(공통 cn=twMerge), 기본은 이 값.
-export const EXPERIENCE_LINE_SELECT_WIDTH = "w-[180px] min-w-[180px] max-w-[180px]";
+//   · 트리거는 셀(열) 폭을 가득 채운다(w-full) — 표는 table-fixed + colgroup 으로 열폭이 고정돼 있어
+//     트리거가 표를 넓히지 않으며, 재조정한 열폭만큼 라인명이 더 넓게(3줄 클램프) 보인다.
+//   · 긴 라인명은 최대 3줄로 줄바꿈(아래 VALUE_MULTILINE) — 셀 밖으로 넘치지 않고 행 높이도 과하지 않다.
+//   · 개별 호출에서 triggerClassName 으로 덮어쓸 수 있다(공통 cn=twMerge).
+export const EXPERIENCE_LINE_SELECT_WIDTH = "w-full min-w-0";
 
 // 라인명 Select 펼친 목록(팝업) 폭 SoT.
 //   · 트리거는 좁혀도(180px) 목록은 넓게(min 280px) 유지해 긴 라인명을 읽기 좋게 한다.
