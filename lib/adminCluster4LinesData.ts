@@ -44,6 +44,7 @@ import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
 import { type LineOrgScope } from "@/lib/cluster4LineOrg";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
+import { convergeLineChangeForUsers } from "@/lib/lineChangeDerivation";
 import {
   isLineScopeVisibleForOrg,
   resolveLineScopeFromValues,
@@ -1358,6 +1359,17 @@ export async function createCluster4LineTarget(
     input.targetMode === "user" ? [input.targetUserId] : [],
     mode,
   );
+  // 정본 저장 경로(saveCrewWeekLineDetail)와 동일 파생 수렴 — 우회 문(직접 target 개설)도
+  //   라인 A/B 지급·회수 → uwp 재집계 → uws 재판정 → snapshot → 성장통계 → 품계 를 함께 수행한다.
+  //   (과거: snapshot 무효화만 → uws/원장/품계 stale). best-effort.
+  if (input.targetMode === "user" && input.targetUserId) {
+    await convergeLineChangeForUsers({
+      weekId: input.weekId,
+      userIds: [input.targetUserId],
+      actor: actorAdminId,
+      orphanLineId: lineId,
+    });
+  }
   return toTargetDto(data as unknown as Cluster4LineTargetRow, 0);
 }
 
@@ -1427,6 +1439,22 @@ export async function updateCluster4LineTarget(
     existingRow.target_user_id,
     nextMode === "user" ? nextUserId : null,
   ], mode);
+  // 정본과 동일 파생 수렴 — 이전/이후 대상자 각각. 주차가 바뀌면 두 주차 모두 수렴한다.
+  //   (이전 대상자는 orphanLineId 로 지급 회수, 이후 대상자는 재도출 지급.) best-effort.
+  await convergeLineChangeForUsers({
+    weekId: existingRow.week_id,
+    userIds: [existingRow.target_user_id, nextMode === "user" ? nextUserId : null],
+    actor: actorAdminId,
+    orphanLineId: existingRow.line_id,
+  });
+  if (nextWeekId !== existingRow.week_id) {
+    await convergeLineChangeForUsers({
+      weekId: nextWeekId,
+      userIds: [existingRow.target_user_id, nextMode === "user" ? nextUserId : null],
+      actor: actorAdminId,
+      orphanLineId: existingRow.line_id,
+    });
+  }
   const submissionCounts = await fetchSubmissionCountsByTargetIds([targetId]);
   return toTargetDto(
     data as unknown as Cluster4LineTargetRow,
@@ -1443,7 +1471,7 @@ export async function deleteCluster4LineTarget(
   }
   const { data: existing, error: existingError } = await supabaseAdmin
     .from("cluster4_line_targets")
-    .select("id,line_id,target_user_id")
+    .select("id,line_id,week_id,target_user_id")
     .eq("id", targetId)
     .maybeSingle();
   if (existingError) {
@@ -1458,12 +1486,20 @@ export async function deleteCluster4LineTarget(
   }
   // 타깃 해제는 해제 대상자의 가용 라인을 줄이고, 그것이 그 라인의 마지막 타깃이면 org audience 의
   // 분모 A(synthetic fail)도 사라진다 → 해제 대상자 + 라인 org audience 전원 재계산.
-  const removed = existing as { line_id: string; target_user_id: string | null };
+  const removed = existing as { line_id: string; week_id: string; target_user_id: string | null };
   await invalidateWeeklyCardsForLineChange(
     removed.line_id,
     [removed.target_user_id],
     mode,
   );
+  // 정본과 동일 파생 수렴 — 해제 대상자의 라인 A/B 지급을 회수(orphanLineId)하고 uws/성장/품계 재판정.
+  //   (과거: snapshot 무효화만 → 성공 라인이 실패/해제됐는데 A/B 원장·uws·품계가 stale.) best-effort.
+  await convergeLineChangeForUsers({
+    weekId: removed.week_id,
+    userIds: [removed.target_user_id],
+    actor: null,
+    orphanLineId: removed.line_id,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────

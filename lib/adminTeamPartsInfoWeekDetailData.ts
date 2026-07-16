@@ -47,9 +47,11 @@ import {
   markWeekResultPublished,
   markWeekResultReviewed,
   recomputeCohortSnapshots,
+  resolveCohortUserIdsForScope,
   WeekResultPublishError,
   WeekResultReviewError,
 } from "@/lib/adminWeekRecognitionsData";
+import { reconcileLineAwardsForWeek } from "@/lib/lineResultAwardReconcile";
 import { revertWeeklyCardFinalization } from "@/lib/adminWeeklyCardFinalizationData";
 import type { StateScope } from "@/lib/operationalState";
 import {
@@ -680,6 +682,31 @@ export async function markTeamPartsWeekReviewed(
         throw e;
       }
     }
+    // 라인 결과 지급 정합(A/B) — publish/finalize 문(door)과 동일한 공통 SoT 안전망.
+    //   검수 완료 = 라인 강화 결과 최종 확정 시점이므로, 배정 라인의 성공→A/B 지급 / 비성공→회수 를
+    //   원장에 한 번 더 정합화한다(멱등 · 별도 계산식 없음 = reconcileLineAwardsForWeek 재사용).
+    //   ⚠ 반드시 snapshot 재계산 전 — 원장/포인트가 갱신된 상태로 카드가 구워지게. best-effort.
+    //   (평상시 per-user 저장 시점 settle 로 orphan 0 이나, 우회 문으로 바뀐 라인의 예방용 안전망.)
+    try {
+      const reviewWeekStart = week.start_date;
+      const cohortIds = reviewWeekStart
+        ? await resolveCohortUserIdsForScope(reviewWeekStart, scope)
+        : [];
+      if (reviewWeekStart && cohortIds.length > 0) {
+        await reconcileLineAwardsForWeek({
+          weekId,
+          weekStartDate: reviewWeekStart,
+          actor,
+          cohortUserIds: cohortIds,
+        });
+      }
+    } catch (e) {
+      console.warn("[team-parts/review] line award reconcile 실패(검수 유지)", {
+        weekId,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+
     // 단일 snapshot 패스: 그 주차 uws 보유자(=코호트) 전원을 c=8 로 한 번만 재계산한다.
     //   공표로 카드가 tallying→success/fail 로 굳으므로 코호트 전원 재계산이 필요하고,
     //   affectedUserIds(생성/갱신된 uws)는 이 코호트의 부분집합이라 별도 재계산이 불필요하다(이중 제거).

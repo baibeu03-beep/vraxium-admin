@@ -18,6 +18,7 @@ import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
 import { collectLineOrgAudience } from "@/lib/adminCluster4LinesData";
 import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
+import { convergeLineChangeForUsers } from "@/lib/lineChangeDerivation";
 
 // ── Row → DTO mapping ─────────────────────────────────────
 
@@ -678,6 +679,23 @@ export async function openExperienceDrafts(
       await payLineOpenTargetsOnce(lineId);
     } catch (payoutErr) {
       console.warn("[openExperienceDrafts] line payout failed", { lineId, message: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) });
+    }
+  }
+
+  // 정본 저장 경로와 동일 파생 수렴 — 개설+평점으로 강화 결과가 즉시 결정되는 배정 크루(draft 대상자)에
+  //   대해 라인 A/B 지급·회수 → uwp → uws 재판정 → snapshot → 성장통계 → 품계 수렴.
+  //   draft 는 주차가 섞일 수 있으므로 week_id 별로 묶어 수렴한다(개설 = additive → orphanLineId 미지정).
+  {
+    const openedDraftIds = new Set(results.map((r) => r.draftId));
+    const usersByWeek = new Map<string, Set<string>>();
+    for (const d of drafts) {
+      if (!openedDraftIds.has(d.id) || !d.week_id || !d.target_user_id) continue;
+      const set = usersByWeek.get(d.week_id) ?? new Set<string>();
+      set.add(d.target_user_id);
+      usersByWeek.set(d.week_id, set);
+    }
+    for (const [weekId, users] of usersByWeek) {
+      await convergeLineChangeForUsers({ weekId, userIds: Array.from(users), actor: adminId });
     }
   }
 

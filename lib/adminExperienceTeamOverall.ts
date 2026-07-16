@@ -21,6 +21,7 @@ import {
 } from "@/lib/userScope";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
+import { convergeLineChangeForUsers } from "@/lib/lineChangeDerivation";
 import { invalidateWeeklyCardsForLineOpen } from "@/lib/adminCluster4LinesData";
 import { assertWeekOpenable } from "@/lib/cluster4OfficialRestWeek";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
@@ -1320,6 +1321,18 @@ export async function openTeamOverall(input: {
     } catch (payoutErr) {
       console.warn("[openTeamOverall] line payout failed", { lineId, message: payoutErr instanceof Error ? payoutErr.message : String(payoutErr) });
     }
+  }
+
+  // 정본 저장 경로와 동일 파생 수렴 — 개설+평점으로 강화 결과(success/fail)가 즉시 결정되는
+  //   배정 크루 전원에 대해 라인 A/B 지급·회수 → uwp 재집계 → uws 재판정 → snapshot → 성장통계 →
+  //   품계 를 수행한다(payLineOpenTargetsOnce 는 폐기 no-op 이라 이 경로가 실제 지급/판정을 담당).
+  //   개설은 additive(회수 없음) → orphanLineId 미지정. best-effort.
+  if (affectedUserIds.size > 0) {
+    await convergeLineChangeForUsers({
+      weekId: input.weekId,
+      userIds: Array.from(affectedUserIds),
+      actor: input.actorId ?? input.adminId ?? null,
+    });
   }
 
   await insertExperienceOpeningLog({

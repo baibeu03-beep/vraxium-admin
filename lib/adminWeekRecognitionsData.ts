@@ -797,7 +797,7 @@ export async function recomputeCohortSnapshots(
 
 // 공표/정합 코호트 = recomputeCohortSnapshots 와 동일 모집단(user_week_statuses.week_start_date).
 //   scope=qa 또는 QA_HIDE_REAL_USERS → 테스트 유저로 좁힘(실유저 원장/snapshot 무접촉).
-async function resolveCohortUserIdsForScope(
+export async function resolveCohortUserIdsForScope(
   weekStartDate: string,
   scope: StateScope,
 ): Promise<string[]> {
