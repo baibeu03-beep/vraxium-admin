@@ -12,6 +12,7 @@ import { formatProcessHubLabel } from "@/lib/adminProcessesTypes";
 import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import ActSupplementDialog from "@/components/admin/ActSupplementDialog";
+import WeekTallyingNotice from "@/components/admin/WeekTallyingNotice";
 import type { CrewWeekActDetailDto, CrewWeekActRow } from "@/lib/adminCrewWeekActDetail";
 
 // 성장 결과 변경 미리보기(서버 409 impact) — 취소 시 성공→실패 확인 팝업에 표시할 전후 값.
@@ -171,6 +172,9 @@ export default function CrewWeekActHistory({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* 집계 중(미확정) 주차 — 조회 전용 안내(라인 강화 내역과 동일 컴포넌트·조건). editable = confirmed. */}
+      <WeekTallyingNotice confirmed={editable} />
+
       {/* 버튼 영역 — [액트 보완] / [액트 취소] */}
       <div className="flex flex-wrap items-center justify-end gap-2">
         {selectedCount > 0 && (

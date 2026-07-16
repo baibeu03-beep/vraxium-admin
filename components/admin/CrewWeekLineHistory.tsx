@@ -13,7 +13,7 @@ import { enhancementStatusTone } from "@/lib/cluster4EnhancementLabels";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import { type CrewIdentity } from "@/components/admin/crew/CrewIdentityCards";
 import CrewWeekLineDetailDialog from "@/components/admin/CrewWeekLineDetailDialog";
-import CompetencyLineSelectDialog from "@/components/admin/CompetencyLineSelectDialog";
+import WeekTallyingNotice from "@/components/admin/WeekTallyingNotice";
 import type { BadgeTone } from "@/components/ui/badge";
 import type {
   CrewWeekLineDetailRow,
@@ -287,11 +287,11 @@ export default function CrewWeekLineHistory({
           <Metric label="해당 없음" value={results.notApplicable} />
         </div>
       ) : (
-        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-          성장 결과가 확정(집계 완료)된 이후 라인별 강화 성공/실패/해당 없음 집계와 2차 기입 관리를
-          표시합니다.
-          {results.pending > 0 ? ` 현재 미판정 라인 ${results.pending}개.` : ""}
-        </div>
+        <WeekTallyingNotice confirmed={confirmed}>
+          {results.pending > 0 ? (
+            <p className="mt-1">{`현재 미판정 라인 ${results.pending}개.`}</p>
+          ) : null}
+        </WeekTallyingNotice>
       )}
 
       {/* 세 번째 줄 — 라인 강화 결과 획득 포인트(획득 / 획득 가능). A/B만(라인 정책상 Point C 없음). */}
@@ -482,10 +482,14 @@ export default function CrewWeekLineHistory({
       ) : null}
 
       {compSelectOpen ? (
-        <CompetencyLineSelectDialog
+        <CrewWeekLineDetailDialog
           userId={userId}
           weekId={weekId}
+          lineId={null}
+          competencyPlaceholder
+          placeholderEditable={canManage}
           weekLabel={weekLabel ?? null}
+          orgSlug={summary?.organizationSlug ?? orgSlug}
           mode={mode}
           member={member}
           onClose={() => setCompSelectOpen(false)}
