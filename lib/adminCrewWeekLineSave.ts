@@ -15,6 +15,7 @@ import {
   reconcileLineResultAwardForUser,
   recomputeWeeklyPointsForUsers,
 } from "@/lib/processPointAccrual";
+import { recomputeDerivedAfterActMutation } from "@/lib/crewWeekGrowthRejudge";
 import { adminWeekStatusLabel } from "@/lib/adminCrewWeeklyResults";
 import { isCrewWeekEditable } from "@/shared/growth.contracts";
 import type { CareerGrade } from "@/lib/careerGrade";
@@ -64,7 +65,9 @@ export type SaveLineDetailInput = {
 };
 
 export type SaveLineDetailResult =
-  | { ok: true; data: AdminCrewWeekLineDetailDto }
+  // data=null: 실무 역량 성공→실패처럼 저장 후 그 라인이 이 크루 카드에서 사라진 경우(대상자 해제 +
+  //   관리자 생성 인스턴스 정리). 저장은 성공이며 프론트는 요약을 재조회한다.
+  | { ok: true; data: AdminCrewWeekLineDetailDto | null }
   | {
       ok: false;
       code: 400 | 404 | 409 | 422;
@@ -340,6 +343,8 @@ export async function saveCrewWeekLineDetail(
       await clearOverridesOnly(userId, weekId, lineId, part, lineCode);
     } else {
       // 실패 = 대상자 해제(+종속 eval/submission 삭제) + override 제거.
+      //   ⚠ 인스턴스(cluster4_lines) 삭제는 여기서 하지 않는다 — 뒤의 reconcile(회수)·재조회가 라인을
+      //   참조하므로, 관리자 생성 역량 인스턴스 고아 정리는 회수·수렴 이후 맨 끝에서 수행한다.
       await clearLineState(userId, weekId, lineId, part, lineCode);
       currentTargetId = null;
     }
@@ -430,6 +435,24 @@ export async function saveCrewWeekLineDetail(
     /* best-effort — 실패해도 cron 재계산 */
   }
 
+  // ── 5.5. 주차 성장 결과(user_week_statuses) 재판정 — 라인 결과 변경을 실제 주차 결과로 커밋 ──
+  //   ⚠ 순서 계약: 반드시 uwp 재집계(§5) "후" 호출해야 최신 earned(Point A) 로 판정한다
+  //     (crewWeekGrowthRejudge 헤더 계약). 액트 보완/취소와 동일한 파생 체인을 재사용:
+  //       rejudgeWeekStatusForUser(uws 1행) → snapshot 재생성 → 성장 통계 → 품계(주차 참여자).
+  //   이 커밋으로 raw user_week_statuses 가 강화 결과 변경을 반영하므로, 이를 라이브로 읽는
+  //   크루 페이지 이력서 카드(누적 성장 주차)·위클리 랭킹·cluster-4-ranking 과 파생 카드/품계가
+  //   모두 동일 최신값으로 수렴한다. rejudge 는 레거시/휴식/공식휴식/not_applicable/pending 을
+  //   스킵하고 대상 상태가 실제로 바뀔 때만 1행을 쓴다(타 크루·타 주차 불변). best-effort.
+  try {
+    await recomputeDerivedAfterActMutation({ userId, weekId });
+  } catch (e) {
+    console.warn("[crewWeekLineSave] uws 재판정/파생 재계산 실패(best-effort)", {
+      userId,
+      weekId,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   // ── 6. 결과가 success 가 아니게 되면 2차 기입 수동 허용 자동 회수(§) ──
   if (desired !== "success") {
     try {
@@ -449,9 +472,39 @@ export async function saveCrewWeekLineDetail(
     }
   }
 
+  // 실무 역량 성공→실패: 대상자 해제로 이 크루 카드에서 라인이 사라진다. 관리자 생성 인스턴스(신청 개설분
+  //   아님·잔여 대상자 없음)는 회수·수렴을 끝낸 지금 정리한다(고아 방지). 잔여 대상자/신청분은 보존.
+  if (part === "competency" && desired === "fail") {
+    await deleteOrphanCompetencyLineIfAdminCreated(lineId);
+  }
+
   const fresh = await getCrewWeekLineDetail(legacyUserId, weekId, lineId);
-  if (!fresh.ok) return { ok: false, code: 404, error: "저장 후 재조회에 실패했습니다." };
+  if (!fresh.ok) {
+    // 실패 저장 후 라인이 카드에서 사라진 정상 케이스(역량 인스턴스 정리 등) → 저장 성공(데이터 없음).
+    if (desired === "fail") return { ok: true, data: null };
+    return { ok: false, code: 404, error: "저장 후 재조회에 실패했습니다." };
+  }
   return { ok: true, data: fresh.data };
+}
+
+// 실무 역량 관리자 생성 인스턴스(신청 개설분 아님) 고아 정리: 대상자 0 && 신청 미참조면 라인 삭제.
+async function deleteOrphanCompetencyLineIfAdminCreated(lineId: string): Promise<void> {
+  const { data: tgts } = await supabaseAdmin
+    .from(TARGET_TABLE)
+    .select("id")
+    .eq("line_id", lineId)
+    .eq("target_mode", "user")
+    .limit(1);
+  if (((tgts ?? []) as Array<{ id: string }>).length > 0) return; // 잔여 대상자 있음 → 보존.
+  const { data: apps } = await supabaseAdmin
+    .from("cluster4_competency_applications")
+    .select("id")
+    .eq("opened_line_id", lineId)
+    .limit(1);
+  if (((apps ?? []) as Array<{ id: string }>).length > 0) return; // 신청 개설분 → 보존(참조 무결성).
+  // 대상자·제출은 clearLineState 가 이미 정리함(FK 종속행 없음). 회수된(취소) 라인 원장 + 인스턴스 제거.
+  await supabaseAdmin.from("process_point_awards").delete().eq("source", "line").eq("ref_id", lineId);
+  await supabaseAdmin.from("cluster4_lines").delete().eq("id", lineId);
 }
 
 // 표시 override 만 제거(대상자/평가/제출은 건드리지 않음) — 성공 경로에서 overlay 잔존 정리용.

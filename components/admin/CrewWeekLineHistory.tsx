@@ -13,6 +13,7 @@ import { enhancementStatusTone } from "@/lib/cluster4EnhancementLabels";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import { type CrewIdentity } from "@/components/admin/crew/CrewIdentityCards";
 import CrewWeekLineDetailDialog from "@/components/admin/CrewWeekLineDetailDialog";
+import CompetencyLineSelectDialog from "@/components/admin/CompetencyLineSelectDialog";
 import type { BadgeTone } from "@/components/ui/badge";
 import type {
   CrewWeekLineDetailRow,
@@ -36,6 +37,7 @@ const ENHANCEMENT_TONE: Record<"success" | "danger" | "neutral", BadgeTone> = {
 export default function CrewWeekLineHistory({
   userId,
   weekId,
+  weekLabel,
   mode,
   orgSlug,
   member,
@@ -43,6 +45,7 @@ export default function CrewWeekLineHistory({
 }: {
   userId: string;
   weekId: string;
+  weekLabel?: string | null;
   mode: ScopeMode;
   orgSlug: string | null;
   member: CrewIdentity | null;
@@ -236,10 +239,13 @@ export default function CrewWeekLineHistory({
     }
   }, [userId, weekId, mode, canManage, anyBusy, allowedCount, t, load]);
 
-  // 라인명 클릭 → 관리자 라인 상세·수정 팝업(실제 라인만; placeholder 는 상세 없음).
+  // 라인명 클릭 → 상세 팝업. 실제 라인 = 라인 상세·수정 팝업. 실무 역량 placeholder(라인명 -)
+  //   = 라인 선택(강화 성공 전환) 팝업. 그 외 placeholder 는 상세 없음.
   const [detailLineId, setDetailLineId] = useState<string | null>(null);
+  const [compSelectOpen, setCompSelectOpen] = useState(false);
   const openLineDetail = useCallback((row: CrewWeekLineDetailRow) => {
-    if (row.lineId) setDetailLineId(row.lineId);
+    if (row.isCompetencyPlaceholder) setCompSelectOpen(true);
+    else if (row.lineId) setDetailLineId(row.lineId);
   }, []);
 
   if (loading && !summary) {
@@ -370,9 +376,11 @@ export default function CrewWeekLineHistory({
                       type="button"
                       onClick={() => openLineDetail(row)}
                       className="block w-full min-w-0 text-left font-medium text-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
-                      title={row.lineName}
+                      title={row.isCompetencyPlaceholder ? "실무 역량 라인 선택" : row.lineName}
                     >
-                      <span className="block truncate text-left">{row.lineName}</span>
+                      <span className="block truncate text-left">
+                        {row.isCompetencyPlaceholder ? "-" : row.lineName}
+                      </span>
                     </button>
                   </td>
                   <td className="truncate px-3 py-2 text-center text-muted-foreground">
@@ -466,6 +474,21 @@ export default function CrewWeekLineHistory({
           mode={mode}
           member={member}
           onClose={() => setDetailLineId(null)}
+          onSaved={() => {
+            void load();
+            onChanged?.();
+          }}
+        />
+      ) : null}
+
+      {compSelectOpen ? (
+        <CompetencyLineSelectDialog
+          userId={userId}
+          weekId={weekId}
+          weekLabel={weekLabel ?? null}
+          mode={mode}
+          member={member}
+          onClose={() => setCompSelectOpen(false)}
           onSaved={() => {
             void load();
             onChanged?.();

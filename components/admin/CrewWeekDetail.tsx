@@ -348,6 +348,7 @@ export default function CrewWeekDetail({
                 <CrewWeekLineHistory
                   userId={userId}
                   weekId={weekId}
+                  weekLabel={week.week.label}
                   mode={mode}
                   orgSlug={week.member.organizationSlug}
                   member={member}
