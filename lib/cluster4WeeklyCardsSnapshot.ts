@@ -367,7 +367,12 @@ async function writeRosterCardStats(
 //   달라지므로 기존 v38 snapshot 전량을 stale(version_mismatch) 처리해 재계산한다. 이후 개별
 //   승인/승인취소/반려 시엔 해당 유저 snapshot 만 타깃 무효화(invalidateWeeklyCardsForUsers).
 //   (파생 캐시 재생성 — DB 백필 아님. 미승인 유저·비휴식 주차 값 불변.)
-export const WEEKLY_CARDS_DTO_VERSION = 40;
+// v41(2026-07-17): 실무 경험 강화율 산식 변경 — breakdownFromLines 가 "본인 배정 오픈 라인"만
+//   집계(개설됐으나 본인 미배정=타인 라인은 분모/실패 제외). 사용자별로 카테고리에 서로 다른 라인이
+//   개설되면 기존 v40 은 타인 라인까지 분모에 세어 강화율이 희석됐다(예: 도출 4라인 중 1배정인데 n/4).
+//   experience 분모/분자가 달라지므로 v40 snapshot 전량을 stale(version_mismatch)로 재계산한다.
+//   (파생 캐시 재생성 — uws 판정/원장 불변. 단일라인 카테고리·미개설 유저 값 불변.)
+export const WEEKLY_CARDS_DTO_VERSION = 41;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

@@ -904,6 +904,21 @@ export function breakdownFromLines(
   // 모델이 달라 불변. activityTypeKey 부재(비정상) info 라인은 dedupe 불가 → 기존대로 개별 집계(회귀 방지).
   const seenInfoTypes = new Set<string>();
   for (const line of lines) {
+    // 실무 경험 강화율(2026-07-17): "현재 사용자에게 실제 배정된 오픈 라인" 기준.
+    //   같은 카테고리에 사용자별로 서로 다른 라인이 개설되면(도출/분석/견문/관리/확장), 본인에게
+    //   배정되지 않은 라인(다른 사용자 라인)이 openedFailLineDetail 로 카드에 fail 로 실려 분모를
+    //   부풀렸다(예: 도출 4라인 중 본인 1 배정인데 4/n 로 집계 → 강화율 희석). 이를 제거한다:
+    //     · 배정 라인(lineTargetId != null)  → 집계(성공/실패 그대로). 복수 배정도 각각 집계(슬롯 수 아님).
+    //     · 개설됐으나 본인 미배정(lineId != null && lineTargetId == null = 타인 라인) → 분모/실패에서 제외.
+    //     · 필수 슬롯 placeholder(lineId == null, 본인 슬롯) → 그대로 유지(required_fail 표시 보존).
+    //   uws 판정(fetchExperienceRequiredSlotStatusByWeek)은 별도 경로라 무영향(표시 강화율만 변경).
+    if (
+      line.partType === "experience" &&
+      line.lineId != null &&
+      line.lineTargetId == null
+    ) {
+      continue;
+    }
     if (line.partType === "information") {
       const typeKey = (line.activityTypeKey ?? line.activityTypeId ?? null) as string | null;
       if (typeKey) {
