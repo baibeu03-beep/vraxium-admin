@@ -3,6 +3,7 @@ import { getExperienceCategorySlotByMasterIdRegFirst } from "@/lib/lineRegistrat
 import { isUuid } from "@/lib/isUuid";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
 import { refreshWeeklyCardsSnapshotSafe } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { isSecondEntryOverrideAllowed } from "@/lib/cluster4SecondEntryOverride";
 import type {
   Cluster4ExperienceCategory,
   Cluster4LineDetailDto,
@@ -433,6 +434,16 @@ async function requireEditableTarget(
     profileUserId,
   });
   if (!decision.canEdit) {
+    // 관리자 per-line 2차 기입 수동 override(force-open). 소유·활성 라인이 "시간창"으로만 막혔을 때만
+    //   허용한다 — not_owner/line_inactive(미오픈)는 override 로 우회하지 않는다(공용 엔진 무수정).
+    const timeBlocked =
+      decision.reason === "window_closed" || decision.reason === "window_not_open";
+    if (
+      timeBlocked &&
+      (await isSecondEntryOverrideAllowed(profileUserId, row.week_id, row.line_id))
+    ) {
+      return row;
+    }
     const http = hubReasonToHttp(decision.reason);
     throw new Cluster4PublicLineError(http.status, http.message);
   }

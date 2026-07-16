@@ -14,6 +14,7 @@ import {
   recomputeAndStoreWeeklyCardsSnapshot,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { applyEnhancementOverridesToCards } from "@/lib/cluster4EnhancementOverride";
+import { applySecondEntryOverridesToCards } from "@/lib/cluster4SecondEntryOverride";
 import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
 import {
   loadGrowthStopInfo,
@@ -244,12 +245,14 @@ function scheduleVersionMismatchRecompute(profileUserId: string): void {
 async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
   const result = await loadWeeklyCardsRaw(profileUserId);
   try {
-    const cards = await applyEnhancementOverridesToCards(profileUserId, result.cards);
-    // applyEnhancementOverridesToCards 는 override 없음/무변경 시 동일 배열 참조를 반환한다.
+    // ① 강화 상태 overlay → ② 2차 기입 편집권 overlay. 둘 다 read-time(굽지 않음), 키=user_id(mode 무관).
+    //   각 overlay 는 매칭 없음 시 동일 배열 참조 반환 → 참조 비교로 no-op 판정.
+    const afterEnh = await applyEnhancementOverridesToCards(profileUserId, result.cards);
+    const cards = await applySecondEntryOverridesToCards(profileUserId, afterEnh);
     return cards === result.cards ? result : { ...result, cards };
   } catch (e) {
     // overlay 실패는 격리한다 — override 때문에 조회가 깨지면 안 되므로 raw 결과로 폴백.
-    console.warn("[weekly-cards] enhancement override overlay failed → raw fallback", {
+    console.warn("[weekly-cards] override overlay failed → raw fallback", {
       profileUserId,
       message: e instanceof Error ? e.message : String(e),
     });

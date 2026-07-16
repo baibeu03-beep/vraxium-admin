@@ -648,11 +648,12 @@ function SeasonResultsTable({
   const pct = (v: number | null) => (v == null ? "-" : `${v}%`);
   return (
     <div className="mt-4 overflow-x-auto">
-      <table className="w-full border-collapse text-sm">
+      {/* 헤더·셀 전부 가운데 정렬(예외 없음) — table text-center 상속, 셀은 override 금지. */}
+      <table className="w-full border-collapse text-center text-sm">
         <thead>
           <tr className="border-b text-xs text-muted-foreground">
-            <SortTh label="시즌명" help={DETAIL_HELP.season.name} align="left" dir={dirOf("seasonName")} onSort={() => cycleSort("seasonName")} className="whitespace-nowrap" />
-            <SortTh label="시즌 결과" help={DETAIL_HELP.season.result} align="left" dir={dirOf("result")} onSort={() => cycleSort("result")} className="whitespace-nowrap" />
+            <SortTh label="시즌명" help={DETAIL_HELP.season.name} dir={dirOf("seasonName")} onSort={() => cycleSort("seasonName")} className="whitespace-nowrap" />
+            <SortTh label="시즌 결과" help={DETAIL_HELP.season.result} dir={dirOf("result")} onSort={() => cycleSort("result")} className="whitespace-nowrap" />
             <SortTh label={poLabels.a} help={DETAIL_HELP.metric.poA} dir={dirOf("poA")} onSort={() => cycleSort("poA")} className="whitespace-nowrap" />
             <SortTh label={poLabels.b} help={DETAIL_HELP.metric.poB} dir={dirOf("poB")} onSort={() => cycleSort("poB")} className="whitespace-nowrap" />
             <SortTh label={poLabels.c} help={DETAIL_HELP.metric.poC} dir={dirOf("poC")} onSort={() => cycleSort("poC")} className="whitespace-nowrap" />
@@ -660,7 +661,7 @@ function SeasonResultsTable({
             <SortTh label="실무 경험" help={DETAIL_HELP.metric.hubExperience} dir={dirOf("experience")} onSort={() => cycleSort("experience")} className="whitespace-nowrap" />
             <SortTh label="실무 역량" help={DETAIL_HELP.metric.hubAbility} dir={dirOf("ability")} onSort={() => cycleSort("ability")} className="whitespace-nowrap" />
             <SortTh label="실무 경력" help={DETAIL_HELP.metric.hubCareer} dir={dirOf("career")} onSort={() => cycleSort("career")} className="whitespace-nowrap" />
-            <SortTh label="소속 & 클래스" help={DETAIL_HELP.season.membership} align="left" dir={null} className="whitespace-nowrap" />
+            <SortTh label="소속 & 클래스" help={DETAIL_HELP.season.membership} dir={null} className="whitespace-nowrap" />
           </tr>
         </thead>
         <tbody>
@@ -834,15 +835,16 @@ function WeeklyResultsTable({
   return (
     <div className="mt-4">
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
+        {/* 헤더·셀 전부 가운데 정렬(예외 없음) — table text-center 상속, 셀은 override 금지. */}
+        <table className="w-full border-collapse text-center text-sm">
           <thead>
             <tr className="border-b text-xs text-muted-foreground">
-              <SortTh label="주차명" help={DETAIL_HELP.week.name} align="left" dir={dirOf("weekName")} onSort={() => cycleSort("weekName")} className="whitespace-nowrap" />
-              <SortTh label="성장 결과" help={DETAIL_HELP.week.growthResult} align="left" dir={dirOf("growthResult")} onSort={() => cycleSort("growthResult")} className="whitespace-nowrap" />
+              <SortTh label="주차명" help={DETAIL_HELP.week.name} dir={dirOf("weekName")} onSort={() => cycleSort("weekName")} className="whitespace-nowrap" />
+              <SortTh label="성장 결과" help={DETAIL_HELP.week.growthResult} dir={dirOf("growthResult")} onSort={() => cycleSort("growthResult")} className="whitespace-nowrap" />
               <SortTh label="성장 성공 주차" help={DETAIL_HELP.week.cumulativeSuccess} dir={dirOf("cumulativeSuccess")} onSort={() => cycleSort("cumulativeSuccess")} className="whitespace-nowrap" />
-              <SortTh label="팀" help={DETAIL_HELP.metric.team} align="left" dir={dirOf("team")} onSort={() => cycleSort("team")} className="whitespace-nowrap" />
-              <SortTh label="파트" help={DETAIL_HELP.metric.part} align="left" dir={dirOf("part")} onSort={() => cycleSort("part")} className="whitespace-nowrap" />
-              <SortTh label="클래스" help={DETAIL_HELP.metric.classLabel} align="left" dir={dirOf("classLabel")} onSort={() => cycleSort("classLabel")} className="whitespace-nowrap" />
+              <SortTh label="팀" help={DETAIL_HELP.metric.team} dir={dirOf("team")} onSort={() => cycleSort("team")} className="whitespace-nowrap" />
+              <SortTh label="파트" help={DETAIL_HELP.metric.part} dir={dirOf("part")} onSort={() => cycleSort("part")} className="whitespace-nowrap" />
+              <SortTh label="클래스" help={DETAIL_HELP.metric.classLabel} dir={dirOf("classLabel")} onSort={() => cycleSort("classLabel")} className="whitespace-nowrap" />
               <SortTh label={poLabels.a} help={DETAIL_HELP.metric.poA} dir={dirOf("poA")} onSort={() => cycleSort("poA")} className="whitespace-nowrap" />
               <SortTh label={poLabels.b} help={DETAIL_HELP.metric.poB} dir={dirOf("poB")} onSort={() => cycleSort("poB")} className="whitespace-nowrap" />
               <SortTh label={poLabels.c} help={DETAIL_HELP.metric.poC} dir={dirOf("poC")} onSort={() => cycleSort("poC")} className="whitespace-nowrap" />

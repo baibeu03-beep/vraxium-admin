@@ -227,7 +227,8 @@ export default function CrewWeekActHistory({
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-sm">
+          {/* 헤더·셀 전부 가운데 정렬(예외 없음) — table text-center 상속, 셀은 override 금지. */}
+          <table className="w-full border-collapse text-center text-sm">
             <thead>
               <tr className="border-b text-xs text-muted-foreground">
                 <th className="px-2 py-2 text-center">
@@ -239,17 +240,17 @@ export default function CrewWeekActHistory({
                     onChange={toggleAll}
                   />
                 </th>
-                <th className="whitespace-nowrap px-2 py-2 text-left">결과</th>
-                <th className="whitespace-nowrap px-2 py-2 text-left">액트명</th>
-                <th className="whitespace-nowrap px-2 py-2 text-left">발생 시점</th>
-                <th className="whitespace-nowrap px-2 py-2 text-left">소속 허브</th>
-                <th className="whitespace-nowrap px-2 py-2 text-left">소속 라인</th>
-                <th className="whitespace-nowrap px-2 py-2 text-right">소요 시간</th>
-                <th className="whitespace-nowrap px-2 py-2 text-right">{poLabels.a}</th>
-                <th className="whitespace-nowrap px-2 py-2 text-right">{poLabels.b}</th>
-                <th className="whitespace-nowrap px-2 py-2 text-right">{poLabels.c}</th>
-                <th className="whitespace-nowrap px-2 py-2 text-center">구분</th>
-                <th className="whitespace-nowrap px-2 py-2 text-center">종류</th>
+                <th className="whitespace-nowrap px-2 py-2">결과</th>
+                <th className="whitespace-nowrap px-2 py-2">액트명</th>
+                <th className="whitespace-nowrap px-2 py-2">발생 시점</th>
+                <th className="whitespace-nowrap px-2 py-2">소속 허브</th>
+                <th className="whitespace-nowrap px-2 py-2">소속 라인</th>
+                <th className="whitespace-nowrap px-2 py-2">소요 시간</th>
+                <th className="whitespace-nowrap px-2 py-2">{poLabels.a}</th>
+                <th className="whitespace-nowrap px-2 py-2">{poLabels.b}</th>
+                <th className="whitespace-nowrap px-2 py-2">{poLabels.c}</th>
+                <th className="whitespace-nowrap px-2 py-2">구분</th>
+                <th className="whitespace-nowrap px-2 py-2">종류</th>
               </tr>
             </thead>
             <tbody>
@@ -412,10 +413,10 @@ function ActRowView({
       {/* 소속 허브 — enum(experience/info/…) 을 한글 표시명으로. 저장값/DTO 무변경(표시 전용). */}
       <td className="max-w-[120px] truncate px-2 py-2" title={formatProcessHubLabel(row.hubName)}>{formatProcessHubLabel(row.hubName)}</td>
       <td className="max-w-[160px] truncate px-2 py-2" title={row.lineName ?? "-"}>{row.lineName ?? "-"}</td>
-      <td className="whitespace-nowrap px-2 py-2 text-right tabular-nums">{row.durationMinutes}m</td>
-      <td className={cn("whitespace-nowrap px-2 py-2 text-right tabular-nums", pointColorClass("a"))}>{row.pointA}</td>
-      <td className={cn("whitespace-nowrap px-2 py-2 text-right tabular-nums", pointColorClass("b"))}>{row.pointB}</td>
-      <td className={cn("whitespace-nowrap px-2 py-2 text-right tabular-nums", pointColorClass("c"))}>
+      <td className="whitespace-nowrap px-2 py-2 tabular-nums">{row.durationMinutes}m</td>
+      <td className={cn("whitespace-nowrap px-2 py-2 tabular-nums", pointColorClass("a"))}>{row.pointA}</td>
+      <td className={cn("whitespace-nowrap px-2 py-2 tabular-nums", pointColorClass("b"))}>{row.pointB}</td>
+      <td className={cn("whitespace-nowrap px-2 py-2 tabular-nums", pointColorClass("c"))}>
         {row.pointC > 0 ? `-${row.pointC}` : 0}
       </td>
       <td className="whitespace-nowrap px-2 py-2 text-center">{row.actKindLabel}</td>

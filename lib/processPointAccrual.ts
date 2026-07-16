@@ -981,6 +981,115 @@ async function loadLinePointForConfig(
   return row ? { pointA: row.point_a, pointB: row.point_b } : { pointA: null, pointB: null };
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// 라인 강화(개설) 포인트 요약 — 회원 1명·주차 1개 기준 (조회 전용; 관리 회원 상세 "라인 강화 내역" 탭 SoT).
+//   earned  = process_point_awards(source='line') 원장 합(취소분 제외) — 실제 지급 실측값.
+//             Point A=point_check · Point B=point_advantage. year+week_number(iso) 키.
+//   possible = 이 회원이 대상자(target_mode='user')인 이 주차 라인들의 지급 설정 합.
+//             cluster4_line_point_configs(org→common) 의 point_a/point_b (null=미지급→가능치 0).
+//   ⚠ 라인 정책상 Point C(번개/penalty)는 지급 원천 자체가 없다 → earned/possible 항상 0/0(추정 금지).
+//     DTO 구조는 A/B/C 동형 유지 — 향후 라인 C 지급 정책이 생기면 여기 원천만 연결한다(구조는 열어둠).
+//   지급 트리거 = 대상자 등록(pay-once, verdict 불변) — 강화 성공/실패와 무관. reconcile/pay-once 두 경로가
+//     모두 동일 (source='line', ref_id=line_id, user_id) 키로 기록되므로 원장 합은 경로와 무관하게 일관.
+// ────────────────────────────────────────────────────────────────────────────
+export type LinePointSummary = {
+  earnedA: number;
+  earnedB: number;
+  possibleA: number;
+  possibleB: number;
+};
+
+export async function loadLinePointSummaryForCrewWeek(
+  realUserId: string,
+  weekId: string,
+): Promise<LinePointSummary> {
+  const empty: LinePointSummary = { earnedA: 0, earnedB: 0, possibleA: 0, possibleB: 0 };
+
+  const week = await loadWeek(weekId);
+  if (!week || week.iso_year == null || week.iso_week == null) return empty;
+
+  // earned: 원장(source='line') — 카드/Detail Log 포인트 합산과 동일하게 취소분(cancelled_at) 제외.
+  const hasCancel = await processPointAwardsHasCancelColumns();
+  let earnedQ = supabaseAdmin
+    .from("process_point_awards")
+    .select("point_check,point_advantage")
+    .eq("user_id", realUserId)
+    .eq("source", "line")
+    .eq("year", week.iso_year)
+    .eq("week_number", week.iso_week);
+  if (hasCancel) earnedQ = earnedQ.is("cancelled_at", null);
+  const { data: awardRows, error: awardErr } = await earnedQ;
+  if (awardErr) throw awardErr;
+  const awards = (awardRows ?? []) as Array<{ point_check: number | null; point_advantage: number | null }>;
+  const earnedA = awards.reduce((s, r) => s + (r.point_check || 0), 0);
+  const earnedB = awards.reduce((s, r) => s + (r.point_advantage || 0), 0);
+
+  // possible: 이 회원이 대상자인 이 주차 라인들의 설정값 합(개설 지급 SoT 미러).
+  const { data: tgtRows } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("line_id")
+    .eq("target_user_id", realUserId)
+    .eq("week_id", weekId)
+    .eq("target_mode", "user");
+  const lineIds = Array.from(
+    new Set(
+      ((tgtRows ?? []) as Array<{ line_id: string | null }>)
+        .map((t) => t.line_id)
+        .filter((x): x is string => Boolean(x)),
+    ),
+  );
+
+  let possibleA = 0;
+  let possibleB = 0;
+  if (lineIds.length > 0) {
+    const { data: lineRows } = await supabaseAdmin
+      .from("cluster4_lines")
+      .select(LINE_PAYOUT_SELECT)
+      .in("id", lineIds);
+    for (const row of (lineRows ?? []) as LineRowForPayout[]) {
+      const configKey = await resolveLineConfigKey(row);
+      if (!configKey) continue;
+      const lineOrg = (await resolveLineScope(row)).org; // slug | "common" | null
+      const { pointA, pointB } = await loadLinePointForConfig(lineOrg, row.part_type, configKey);
+      possibleA += pointA ?? 0; // null=미지급 → 가능치 0
+      possibleB += pointB ?? 0;
+    }
+  }
+
+  return { earnedA, earnedB, possibleA, possibleB };
+}
+
+// 라인별 획득 포인트(A/B) — (user, week) 의 source='line' 원장을 ref_id(=line_id) 로 그룹핑.
+//   관리 라인 상세 표의 "획득 별/방패" 컬럼 SoT. 취소분 제외. 배열 순서/라인명이 아니라 ref_id 로 매핑.
+export async function loadLineEarnedByRefForCrewWeek(
+  realUserId: string,
+  weekId: string,
+): Promise<Map<string, { earnedA: number; earnedB: number }>> {
+  const byLine = new Map<string, { earnedA: number; earnedB: number }>();
+  const week = await loadWeek(weekId);
+  if (!week || week.iso_year == null || week.iso_week == null) return byLine;
+
+  const hasCancel = await processPointAwardsHasCancelColumns();
+  let q = supabaseAdmin
+    .from("process_point_awards")
+    .select("ref_id,point_check,point_advantage")
+    .eq("user_id", realUserId)
+    .eq("source", "line")
+    .eq("year", week.iso_year)
+    .eq("week_number", week.iso_week);
+  if (hasCancel) q = q.is("cancelled_at", null);
+  const { data, error } = await q;
+  if (error) throw error;
+  for (const r of (data ?? []) as Array<{ ref_id: string | null; point_check: number | null; point_advantage: number | null }>) {
+    if (!r.ref_id) continue;
+    const cur = byLine.get(r.ref_id) ?? { earnedA: 0, earnedB: 0 };
+    cur.earnedA += r.point_check || 0;
+    cur.earnedB += r.point_advantage || 0;
+    byLine.set(r.ref_id, cur);
+  }
+  return byLine;
+}
+
 // 라인 개설 포인트 지급 정합(멱등) — 라인의 현재 대상자/설정값에 맞춰 원장을 정합한다.
 //   대상자 없음 · config 없음 · 지급 설정 없음(둘 다 null) → 기존 line award 회수(revoke).
 export async function reconcileLineOpenAward(lineId: string): Promise<AccrualResult> {

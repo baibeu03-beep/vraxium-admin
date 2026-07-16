@@ -4,6 +4,7 @@ import {
   recomputeAndStoreWeeklyCardsSnapshot,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { applyEnhancementOverridesToCards } from "@/lib/cluster4EnhancementOverride";
+import { applySecondEntryOverridesToCards } from "@/lib/cluster4SecondEntryOverride";
 import { breakdownFromLines, emptyBreakdown } from "@/lib/cluster4WeeklyCardsData";
 import { classLabel } from "@/lib/adminMembersTypes";
 import { roundGrowthRate } from "@/lib/lineAvailability";
@@ -100,30 +101,50 @@ async function loadOverlaidCards(userId: string): Promise<Cluster4WeeklyCardDto[
       ? snap.cards
       : await recomputeAndStoreWeeklyCardsSnapshot(userId);
   // 고객 조회와 동일하게 read-time override overlay 적용(overlay 실패는 raw 폴백).
+  //   ① 강화 상태 overlay → ② 2차 기입 편집권 overlay. 고객 weekly-cards 경로와 동일 순서.
   try {
-    return await applyEnhancementOverridesToCards(userId, raw);
+    const afterEnh = await applyEnhancementOverridesToCards(userId, raw);
+    return await applySecondEntryOverridesToCards(userId, afterEnh);
   } catch {
     return raw;
   }
 }
 
-/**
- * 회원(legacyUserId)의 특정 주차(weekId) 상세 DTO를 조립한다.
- *   - member_not_found: legacyUserId 로 크루를 못 찾음 → 라우트 404.
- *   - week_not_found: 그 크루의 스냅샷 카드에 weekId 가 없음(= 그 회원에게 귀속되지 않은 주차/오입력)
- *     → 라우트 404. URL 의 weekId 를 그대로 신뢰하지 않고 반드시 소유를 검증한다(다른 회원/조직 데이터
- *     노출 방지). 조직 격리는 상위 라우트의 requireAdmin + 스코프 게이트가 담당한다.
- */
-export async function getCrewWeekDetail(
+type ResolvedCrew = NonNullable<Awaited<ReturnType<typeof getAdminCrewDtoByLegacyUserId>>>;
+
+// 회원별·주차별 상세의 "카드 1건" 단일 해석기 — 액트/라인 탭 등 모든 하위 loader 가 공유한다(드리프트 0).
+//   member_not_found: legacyUserId 로 크루를 못 찾음. week_not_found: 그 크루 스냅샷 카드에 weekId 없음
+//   (= 그 회원에게 귀속되지 않은 주차/오입력). URL weekId 를 그대로 신뢰하지 않고 소유를 검증한다.
+export type CrewWeekCardResolution =
+  | { ok: true; crew: ResolvedCrew; card: Cluster4WeeklyCardDto & { weekId: string } }
+  | { ok: false; reason: "member_not_found" | "week_not_found" };
+
+export async function resolveCrewWeekCard(
   legacyUserId: string,
   weekId: string,
-): Promise<CrewWeekDetailResult> {
+): Promise<CrewWeekCardResolution> {
   const crew = await getAdminCrewDtoByLegacyUserId(legacyUserId);
   if (!crew) return { ok: false, reason: "member_not_found" };
 
   const cards = await loadOverlaidCards(crew.userId);
   const card = cards.find((c) => c.weekId === weekId);
   if (!card || !card.weekId) return { ok: false, reason: "week_not_found" };
+
+  return { ok: true, crew, card: card as Cluster4WeeklyCardDto & { weekId: string } };
+}
+
+/**
+ * 회원(legacyUserId)의 특정 주차(weekId) 상세 DTO를 조립한다.
+ *   - member_not_found / week_not_found → 라우트 404. 조직 격리는 상위 라우트의 requireAdmin +
+ *     스코프 게이트가 담당한다. 카드 해석은 resolveCrewWeekCard(공유 SoT) 위임.
+ */
+export async function getCrewWeekDetail(
+  legacyUserId: string,
+  weekId: string,
+): Promise<CrewWeekDetailResult> {
+  const resolved = await resolveCrewWeekCard(legacyUserId, weekId);
+  if (!resolved.ok) return { ok: false, reason: resolved.reason };
+  const { crew, card } = resolved;
 
   const rest = card.isRestWeek;
   const b = rest ? emptyBreakdown() : breakdownFromLines(card.lines);

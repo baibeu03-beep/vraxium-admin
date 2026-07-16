@@ -22,6 +22,7 @@ import {
 } from "@/components/admin/crew/CrewIdentityCards";
 import { CrewNoteDialog, type CrewNote } from "@/components/admin/crew/CrewNoteDialog";
 import CrewWeekActHistory from "@/components/admin/CrewWeekActHistory";
+import CrewWeekLineHistory from "@/components/admin/CrewWeekLineHistory";
 import type { CrewWeekDetailDto } from "@/lib/adminCrewWeekDetail";
 
 // ─────────────────────────────────────────────────────────────────────
@@ -29,7 +30,7 @@ import type { CrewWeekDetailDto } from "@/lib/adminCrewWeekDetail";
 //   · 상단 공통(도움말 · 바로가기 3버튼 · 인적사항/클럽 소속)은 회원 상세와 "동일 컴포넌트" 재사용.
 //   · 주차 요약 + 4허브 요약 = 크루 페이지(/cluster-4-card)와 동일 SoT DTO(서버 loader) 조회만.
 //   · 성장 결과가 진행 중/집계 중이면 수정 잠금 안내(이번 단계는 조회 전용 — 편집 UI 없음).
-//   · 탭(액트 체크 내역 / 라인 강화 내역)은 골격 + placeholder(후속 구현 경계).
+//   · 탭 = 액트 체크 내역 / 라인 강화 내역(상단 요약 — 하단 라인 상세 표/편집은 후속 단계).
 //
 // 회원 기본 정보는 회원 상세 API(/api/admin/members/[userId])를 그대로 재사용 → 두 페이지 헤더가
 //   바이트 단위로 동일. 주차 데이터는 /api/admin/members/[userId]/weeks/[weekId] 단건 조회.
@@ -344,7 +345,12 @@ export default function CrewWeekDetail({
                   }}
                 />
               ) : (
-                <CrewWeekLineHistoryPlaceholder />
+                <CrewWeekLineHistory
+                  userId={userId}
+                  weekId={weekId}
+                  mode={mode}
+                  orgSlug={week.member.organizationSlug}
+                />
               )}
             </CardContent>
           </Card>
@@ -406,16 +412,5 @@ function Meta({
       <span className="text-xs text-muted-foreground">{label}</span>
       <span className={cn("font-medium text-foreground", valueClassName)}>{value}</span>
     </span>
-  );
-}
-
-// ── 후속 구현 경계(placeholder) ──────────────────────────────────────────────
-// 실제 상세 표/편집 UI 는 후속 단계에서 이 컴포넌트 자리에 삽입한다(컴포넌트 경계 고정).
-
-export function CrewWeekLineHistoryPlaceholder() {
-  return (
-    <div className="rounded-md border border-dashed bg-muted/10 px-4 py-10 text-center text-sm text-muted-foreground">
-      라인 강화 내역 상세는 후속 구현 예정입니다.
-    </div>
   );
 }
