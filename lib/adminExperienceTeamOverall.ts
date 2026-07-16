@@ -570,6 +570,135 @@ async function assertNoIneligibleManagementCells(
   }
 }
 
+// ── 파트장 도출/분석/견문 라인 선택 저장(셀 find-or-create) ──
+// 파트장(심화(파트장))은 파트 신청 그리드에서 구조적으로 제외되어 part_submission_cells 셀이 없다.
+//   그래서 팀 총괄 보드에서 파트장 행의 도출/분석/견문 라인명을 골라도
+//   updateOverallPartCellLines(기존 셀만 갱신)가 스킵 → 선택 미저장(완료 후 화면 초기화) →
+//   개설 완료 시 대상자(cluster4_line_targets) 미생성 → 강화 실패로 표시되던 버그.
+//   → 선택 라인이 있는 "파트장"에 한해 그 파트의 신청 헤더를 find-or-create 하고 셀을 생성해
+//     일반 크루와 동일한 단일 SoT(part_submission_cells.selected_line_id)로 수렴시킨다.
+//   기본 checked=true/score=7 = 보드가 파트장 행에 쓰는 기본값과 동일(별도 임의 판정 아님).
+//   일반/에이전트는 이미 셀을 가지므로 여기서 손대지 않는다(updateOverallPartCellLines 담당).
+async function materializePartLeaderPartCells(input: {
+  organization: string;
+  weekId: string;
+  teamId: string;
+  teamName: string;
+  mode: ScopeMode;
+  selections: OverallLineSelectionDto[];
+}): Promise<void> {
+  // 라인이 선택된 도출/분석/견문 선택만(미선택=셀 생성 불필요 — 미배정 유지).
+  const partSelections = input.selections.filter(
+    (s) =>
+      (OVERALL_PART_CATEGORIES as readonly string[]).includes(s.lineType) &&
+      s.selectedLineId,
+  );
+  if (partSelections.length === 0) return;
+
+  // 대상 = 현재 모드 스코프의 파트장만. userId → partName.
+  const members = await loadTeamMembersWithLeaders(
+    input.organization,
+    input.teamName,
+    input.mode,
+  );
+  const leaderPartByUser = new Map<string, string>();
+  for (const m of members) if (m.isPartLeader) leaderPartByUser.set(m.userId, m.partName);
+  const leaderSelections = partSelections.filter((s) =>
+    leaderPartByUser.has(s.crewUserId),
+  );
+  if (leaderSelections.length === 0) return;
+
+  // 스코프 방어선(셀/헤더 write 전) — 대상 파트장 전원 현재 모드 스코프 부합.
+  const scope = await resolveUserScope(input.mode, null);
+  assertUserIdsInScope(
+    scope,
+    leaderSelections.map((s) => s.crewUserId),
+  );
+
+  // 유형 정합성(선택 라인 유형 == 셀 line_type) — 개설신청/검수/검증 공용 옵션 원천.
+  const lineIdCategory = buildLineIdCategoryMap(
+    await listExperienceOverallLineOptions(input.organization),
+  );
+
+  // 팀·주차 신청 헤더 + 기존 셀 키(이미 있는 셀은 updateOverallPartCellLines 가 갱신 → 여기선 스킵).
+  const { data: headers } = await supabaseAdmin
+    .from("cluster4_experience_part_submissions")
+    .select("id,part_name")
+    .eq("organization_slug", input.organization)
+    .eq("week_id", input.weekId)
+    .eq("team_id", input.teamId);
+  const headerIdByPart = new Map<string, string>();
+  for (const h of (headers ?? []) as Array<{ id: string; part_name: string }>) {
+    headerIdByPart.set(h.part_name, h.id);
+  }
+  const existingCellKeys = new Set<string>();
+  const headerIds = Array.from(headerIdByPart.values());
+  if (headerIds.length > 0) {
+    const { data: cells } = await supabaseAdmin
+      .from("cluster4_experience_part_submission_cells")
+      .select("crew_user_id,line_type")
+      .in("submission_id", headerIds);
+    for (const c of (cells ?? []) as Array<{ crew_user_id: string; line_type: string }>) {
+      existingCellKeys.add(`${c.crew_user_id}::${c.line_type}`);
+    }
+  }
+
+  const now = new Date().toISOString();
+  for (const sel of leaderSelections) {
+    // 이미 셀 존재 → 갱신은 updateOverallPartCellLines(중복 write 회피).
+    if (existingCellKeys.has(`${sel.crewUserId}::${sel.lineType}`)) continue;
+    if (lineIdCategory.get(sel.selectedLineId as string) !== sel.lineType) {
+      throw Object.assign(
+        new Error(
+          "선택한 라인의 유형이 해당 평가 열과 일치하지 않습니다. 잘못된 라인 선택입니다.",
+        ),
+        { status: 422 },
+      );
+    }
+    const partName = leaderPartByUser.get(sel.crewUserId) as string;
+    // 파트 신청 헤더 find-or-create(파트장 단독 파트 등 헤더가 없을 수 있음).
+    let headerId = headerIdByPart.get(partName);
+    if (!headerId) {
+      const { data: hdr, error: hdrErr } = await supabaseAdmin
+        .from("cluster4_experience_part_submissions")
+        .upsert(
+          {
+            organization_slug: input.organization,
+            week_id: input.weekId,
+            team_id: input.teamId,
+            part_name: partName,
+            submitted_by: null,
+            submitted_at: now,
+          },
+          { onConflict: "organization_slug,week_id,team_id,part_name" },
+        )
+        .select("id")
+        .single();
+      if (hdrErr || !hdr) {
+        throw new Error(hdrErr?.message ?? "파트장 신청 헤더 생성 실패");
+      }
+      headerId = (hdr as { id: string }).id;
+      headerIdByPart.set(partName, headerId);
+    }
+    // 파트장 셀 생성 — 기본 checked=true/score=7(보드 파트장 행 기본값) + 선택 라인.
+    const { error: cellErr } = await supabaseAdmin
+      .from("cluster4_experience_part_submission_cells")
+      .upsert(
+        {
+          submission_id: headerId,
+          crew_user_id: sel.crewUserId,
+          line_type: sel.lineType,
+          checked: true,
+          score: 7,
+          selected_line_id: sel.selectedLineId,
+        },
+        { onConflict: "submission_id,crew_user_id,line_type" },
+      );
+    if (cellErr) throw new Error(cellErr.message);
+    existingCellKeys.add(`${sel.crewUserId}::${sel.lineType}`);
+  }
+}
+
 // ── [개설 검수] 완료 저장(고객 미반영) ──
 export async function saveTeamOverallReview(input: {
   organization: string;
@@ -633,6 +762,15 @@ export async function saveTeamOverallReview(input: {
   // 도출/분석/견문 라인명 편집 → 파트 신청 셀 write-back. 유형 불일치는 422 로 여기서 중단.
   //   (persist 이전에 검증/적용 — 라인 유형 오류 시 검수 헤더가 남지 않게.)
   if (input.lineSelections && input.lineSelections.length > 0) {
+    // 파트장(셀 없음)은 헤더/셀 find-or-create 로 먼저 물질화 → 아래 write-back 이 동일 SoT 로 갱신.
+    await materializePartLeaderPartCells({
+      organization: input.organization,
+      weekId: input.weekId,
+      teamId: input.teamId,
+      teamName: input.teamName,
+      mode: input.mode ?? "operating",
+      selections: input.lineSelections,
+    });
     await updateOverallPartCellLines({
       organization: input.organization,
       weekId: input.weekId,
@@ -944,6 +1082,16 @@ export async function openTeamOverall(input: {
 
   // 0) 도출/분석/견문 라인명 편집 → 파트 신청 셀 write-back(유형 불일치 422 → 여기서 중단).
   if (input.lineSelections && input.lineSelections.length > 0) {
+    // 파트장(셀 없음)은 헤더/셀 find-or-create 로 먼저 물질화 → 완료 시 대상자(cluster4_line_targets)
+    //   생성 경로(getTeamOverallBoard 재조립)가 파트장 도출/분석/견문 라인을 정상 수집한다.
+    await materializePartLeaderPartCells({
+      organization: input.organization,
+      weekId: input.weekId,
+      teamId: input.teamId,
+      teamName: input.teamName,
+      mode,
+      selections: input.lineSelections,
+    });
     await updateOverallPartCellLines({
       organization: input.organization,
       weekId: input.weekId,
