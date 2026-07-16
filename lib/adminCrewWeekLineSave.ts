@@ -4,7 +4,6 @@ import {
   getCrewWeekLineDetail,
   type AdminCrewWeekLineDetailDto,
 } from "@/lib/adminCrewWeekLineDetail";
-import { setEnhancementOverrideStatus } from "@/lib/cluster4EnhancementOverride";
 import {
   writeSecondEntryOverride,
   isSecondEntryOverrideAllowed,
@@ -22,22 +21,38 @@ import type { CareerGrade } from "@/lib/careerGrade";
 import type { Cluster4EnhancementStatus, Cluster4OutputLink } from "@/shared/cluster4.contracts";
 
 // ─────────────────────────────────────────────────────────────────────
-// 관리자 라인 상세 저장. 원칙:
-//   · 쓰기 대상 4종뿐 — submissions / experience evals / career evals / enhancement overrides.
-//     Main Title·허브·라인명·라인코드·실무자·라인마스터는 절대 쓰지 않는다(allowlist).
-//   · 강화 결과 레버: 경험=rating, 경력=grade(둘 다 verdict 로 흐름), 정보/역량=표시 override(verdict 무관).
-//   · 성공 상태의 제출 데이터(A)는 결과가 실패/해당없음이면 "쓰지 않음"으로 보존(삭제/빈값 금지).
-//   · 성장 결과 변경 미리보기: rating/grade 는 snapshot 재계산 시 verdict 로 흐르므로 별도 투영 훅이 없다.
-//     그래서 "쓰기 → 재계산 → 주차 성장 결과 flip 확인 → 미확인이면 롤백 후 409" 로 정확히 판정한다
-//     (실제 재계산 로직 그대로 재사용 — 분기 없는 정확성). 확인(confirmGrowthFlip) 시 유지.
-//   · 결과가 success 가 아니게 되면 이 라인의 2차 기입 수동 허용 override 를 자동 회수(§23).
+// 관리자 라인 상세 저장. 판정 정책(2026-07-16 확정):
+//   클럽 오픈 + 대상자        = 강화 성공
+//   클럽 오픈 + 대상자 아님    = 강화 실패
+//   클럽 미오픈               = 해당 없음  (← 클럽 전체 데이터, 이 화면에서 변경 불가)
+//
+// 따라서 강화 결과 레버 = **실제 cluster4_line_targets 배정 상태**(표시 override 아님):
+//   · 실패 → 성공: 해당 회원의 target(target_mode='user') 을 생성(배정).
+//   · 성공 → 실패: 해당 회원의 target 을 해제(+ 종속 eval/submission 삭제).
+//   · 경험=평점, 경력=등급은 성공 시 대상자 배정과 함께 파생값이 성공이 되도록 함께 저장한다.
+//   · info/competency 는 배정 자체가 성공 신호 — 별도 표시 override 를 만들지 않는다(기존 경로 제거).
+//
+// 원칙:
+//   · 쓰기 대상 = targets / experience evals / career evals / submissions.  Main Title·허브·라인명·
+//     라인코드·실무자·라인마스터는 절대 쓰지 않는다(allowlist). 클럽 오픈 여부(라인 존재)도 안 바꾼다.
+//   · 성공 상태의 제출 데이터(A)는 결과가 실패면 "쓰지 않음"으로 보존(삭제/빈값 금지).
+//   · 성장 결과 변경 미리보기: 레버 쓰기 → 재계산 → 주차 성장 결과 flip 확인 → 미확인이면 전체 롤백 후
+//     409(실제 재계산 로직 그대로 재사용 — 분기 없는 정확성). 확인(confirmGrowthFlip) 시 유지.
+//   · 결과가 success 가 아니게 되면 이 라인의 2차 기입 수동 허용 override 를 자동 회수(§5).
+//   · 저장 후 lineTargetId·enhancementStatus·라인 A/B·2차 기입 자격·성공/실패 집계·주차 성장률/결과·
+//     주차 포인트/품계·위클리 랭킹·snapshot·DTO 가 단일 수렴(recomputeWeeklyPointsForUsers)으로 정합.
 // ─────────────────────────────────────────────────────────────────────
 
 const MAX_LINKS = 5;
 const HTTP_RE = /^https?:\/\//i;
+const OVERRIDE_TABLE = "cluster4_line_enhancement_overrides";
+const EXP_EVAL_TABLE = "cluster4_experience_line_evaluations";
+const CAREER_EVAL_TABLE = "cluster4_career_line_evaluations";
+const SUBMISSION_TABLE = "cluster4_line_submissions";
+const TARGET_TABLE = "cluster4_line_targets";
 
 export type SaveLineDetailInput = {
-  enhancementStatus: Cluster4EnhancementStatus; // 정보/역량 레버(그 외 허브는 rating/grade 로 파생)
+  enhancementStatus: Cluster4EnhancementStatus; // 드롭다운 결과 레버(모든 허브 공통 SoT)
   statusData: {
     subTitle: string | null;
     growthPoint: string | null;
@@ -72,6 +87,119 @@ function isGrowthFlip(a: string, b: string): boolean {
   return (a === "success" || a === "fail") && (b === "success" || b === "fail") && a !== b;
 }
 
+type Row = Record<string, unknown>;
+type LineStateSnapshot = {
+  target: Row | null;
+  expEvals: Row[];
+  careerEvals: Row[];
+  submission: Row | null;
+  overrides: Row[];
+};
+
+// 라인 결과 레버가 건드리는 모든 행(대상자·평가·제출·표시 override)을 캡처한다(롤백/복원용).
+async function captureLineState(
+  userId: string,
+  weekId: string,
+  lineId: string,
+  partType: string,
+  lineCode: string | null,
+): Promise<LineStateSnapshot> {
+  const { data: tRows } = await supabaseAdmin
+    .from(TARGET_TABLE)
+    .select("*")
+    .eq("line_id", lineId)
+    .eq("target_user_id", userId)
+    .eq("target_mode", "user");
+  const target = ((tRows ?? []) as Row[])[0] ?? null;
+  const tid = target ? (target.id as string) : null;
+
+  let expEvals: Row[] = [];
+  let careerEvals: Row[] = [];
+  let submission: Row | null = null;
+  if (tid) {
+    const [ev, cv, sub] = await Promise.all([
+      supabaseAdmin.from(EXP_EVAL_TABLE).select("*").eq("line_target_id", tid).eq("user_id", userId),
+      supabaseAdmin.from(CAREER_EVAL_TABLE).select("*").eq("line_target_id", tid).eq("user_id", userId),
+      supabaseAdmin.from(SUBMISSION_TABLE).select("*").eq("line_target_id", tid).eq("user_id", userId).maybeSingle(),
+    ]);
+    expEvals = (ev.data ?? []) as Row[];
+    careerEvals = (cv.data ?? []) as Row[];
+    submission = (sub.data as Row | null) ?? null;
+  }
+
+  // 표시 override(구 경로 잔존분) — line_id / line_code / line_target_id 어느 키로든 이 라인에 걸린 것.
+  const { data: ov } = await supabaseAdmin
+    .from(OVERRIDE_TABLE)
+    .select("*")
+    .eq("user_id", userId)
+    .eq("week_id", weekId)
+    .eq("part_type", partType);
+  const overrides = ((ov ?? []) as Row[]).filter(
+    (o) =>
+      o.line_id === lineId ||
+      (lineCode != null && o.line_code === lineCode) ||
+      (tid != null && o.line_target_id === tid),
+  );
+
+  return { target, expEvals, careerEvals, submission, overrides };
+}
+
+// 이 라인·회원의 대상자(+종속 eval/submission) 와 표시 override 를 전부 제거한다(멱등).
+async function clearLineState(
+  userId: string,
+  weekId: string,
+  lineId: string,
+  partType: string,
+  lineCode: string | null,
+): Promise<void> {
+  const { data: tRows } = await supabaseAdmin
+    .from(TARGET_TABLE)
+    .select("id")
+    .eq("line_id", lineId)
+    .eq("target_user_id", userId)
+    .eq("target_mode", "user");
+  const ids = ((tRows ?? []) as Array<{ id: string }>).map((t) => t.id);
+  if (ids.length > 0) {
+    // FK(RESTRICT) 순서: 종속행 먼저 삭제 후 target.
+    await supabaseAdmin.from(EXP_EVAL_TABLE).delete().in("line_target_id", ids);
+    await supabaseAdmin.from(CAREER_EVAL_TABLE).delete().in("line_target_id", ids);
+    await supabaseAdmin.from(SUBMISSION_TABLE).delete().in("line_target_id", ids);
+    await supabaseAdmin.from(TARGET_TABLE).delete().in("id", ids);
+  }
+  // 표시 override 제거 — 대상자 배정 상태를 SoT 로 쓰므로 overlay 잔존을 남기지 않는다.
+  let delQ = supabaseAdmin.from(OVERRIDE_TABLE).delete().eq("user_id", userId).eq("week_id", weekId).eq("part_type", partType);
+  delQ = delQ.eq("line_id", lineId);
+  await delQ;
+  if (lineCode != null) {
+    await supabaseAdmin
+      .from(OVERRIDE_TABLE)
+      .delete()
+      .eq("user_id", userId)
+      .eq("week_id", weekId)
+      .eq("part_type", partType)
+      .eq("line_code", lineCode);
+  }
+}
+
+// 캡처 스냅샷으로 정확히 복원한다(현재 상태를 지우고 원본 재삽입).
+async function restoreLineState(
+  userId: string,
+  weekId: string,
+  lineId: string,
+  partType: string,
+  lineCode: string | null,
+  snap: LineStateSnapshot,
+): Promise<void> {
+  await clearLineState(userId, weekId, lineId, partType, lineCode);
+  if (snap.target) {
+    await supabaseAdmin.from(TARGET_TABLE).insert(snap.target);
+    if (snap.expEvals.length > 0) await supabaseAdmin.from(EXP_EVAL_TABLE).insert(snap.expEvals);
+    if (snap.careerEvals.length > 0) await supabaseAdmin.from(CAREER_EVAL_TABLE).insert(snap.careerEvals);
+    if (snap.submission) await supabaseAdmin.from(SUBMISSION_TABLE).insert(snap.submission);
+  }
+  if (snap.overrides.length > 0) await supabaseAdmin.from(OVERRIDE_TABLE).insert(snap.overrides);
+}
+
 export async function saveCrewWeekLineDetail(
   legacyUserId: string,
   weekId: string,
@@ -101,10 +229,22 @@ export async function saveCrewWeekLineDetail(
   const part = line.partType;
   const isExperience = part === "experience";
   const isCareer = part === "career";
-  const lineTargetId = line.lineTargetId;
+  const lineCode = line.lineCode ?? null;
   const beforeStatus = card.userWeekStatus;
 
-  // ── 검증(쓰기 전 전부) ──
+  // ── 결과 레버 값 검증 ──
+  //   이 화면(오픈 라인 개인 상세)에서는 강화 성공/실패만 설정한다. 해당 없음(미오픈)·집계 전(pending)은
+  //   클럽 전체/시점 상태라 여기서 만들 수 없다(오픈된 라인을 해당 없음으로 못 바꾸고, 미오픈은 이 경로 불가).
+  const desired = input.enhancementStatus;
+  if (desired !== "success" && desired !== "fail") {
+    return {
+      ok: false,
+      code: 422,
+      error: "오픈된 라인에서는 강화 성공 또는 강화 실패만 설정할 수 있습니다(해당 없음/집계 전은 이 화면에서 변경 불가).",
+    };
+  }
+
+  // ── 제출 데이터 검증(쓰기 전 전부) ──
   for (const l of input.statusData.outputLinks) {
     if (l.url && l.url.trim() && !HTTP_RE.test(l.url.trim())) {
       return { ok: false, code: 422, error: "링크 URL 은 http(s):// 로 시작해야 합니다." };
@@ -123,21 +263,20 @@ export async function saveCrewWeekLineDetail(
   if (isExperience && rating != null && (!Number.isInteger(rating) || rating < 0 || rating > 10)) {
     return { ok: false, code: 422, error: "평점은 0~10 정수여야 합니다." };
   }
+  if (isExperience && desired === "success" && rating != null && rating < 4) {
+    return { ok: false, code: 422, error: "강화 성공이면 평점은 4점 이상이어야 합니다." };
+  }
   const grade = input.statusData.grade ?? null;
+  if (isCareer && desired === "success" && grade === "D") {
+    return { ok: false, code: 422, error: "강화 성공이면 등급은 D 가 될 수 없습니다." };
+  }
 
-  const resultingStatus: Cluster4EnhancementStatus = isExperience
-    ? rating == null
-      ? line.enhancementStatus
-      : rating >= 4
-        ? "success"
-        : "fail"
-    : isCareer
-      ? grade == null
-        ? line.enhancementStatus
-        : grade === "D"
-          ? "fail"
-          : "success"
-      : input.enhancementStatus;
+  const statusChanging = desired !== line.enhancementStatus;
+
+  // ── 롤백 스냅샷 캡처(레버 쓰기 전) ──
+  const snap = await captureLineState(userId, weekId, lineId, part, lineCode);
+  const targetExists = snap.target != null;
+  let currentTargetId: string | null = targetExists ? (snap.target!.id as string) : null;
 
   const recomputeAndReadStatus = async (): Promise<string> => {
     try {
@@ -149,116 +288,86 @@ export async function saveCrewWeekLineDetail(
     return re.ok ? re.card.userWeekStatus : beforeStatus;
   };
 
-  // ── 1. 결과 레버 ──
-  if (isExperience) {
-    const cur = line.experienceRating;
-    if (rating !== cur) {
-      if (rating != null && !lineTargetId) {
-        return { ok: false, code: 422, error: "배정된 라인이 아니어서 평점을 저장할 수 없습니다." };
-      }
-      // 롤백용 원본 평가 캡처.
-      type ExpEvalRow = { rating: number; evaluated_by: string | null; evaluated_at: string | null };
-      let orig: ExpEvalRow | null = null;
-      if (lineTargetId) {
-        const { data } = await supabaseAdmin
-          .from("cluster4_experience_line_evaluations")
-          .select("rating,evaluated_by,evaluated_at")
-          .eq("line_target_id", lineTargetId)
-          .eq("user_id", userId)
-          .maybeSingle();
-        orig = (data as ExpEvalRow | null) ?? null;
-      }
-      // 쓰기.
-      if (rating == null) {
-        if (lineTargetId) {
-          const { error } = await supabaseAdmin
-            .from("cluster4_experience_line_evaluations")
-            .delete()
-            .eq("line_target_id", lineTargetId)
-            .eq("user_id", userId);
-          if (error) return { ok: false, code: 422, error: "평점 삭제에 실패했습니다." };
+  // ── 1. 결과 레버 = 대상자 배정 상태 ──
+  try {
+    if (desired === "success") {
+      // 성공 = 대상자 배정. 없으면 생성.
+      if (!currentTargetId) {
+        const { data: created, error: cErr } = await supabaseAdmin
+          .from(TARGET_TABLE)
+          .insert({
+            line_id: lineId,
+            week_id: weekId,
+            target_mode: "user",
+            target_user_id: userId,
+            target_rule: {},
+            created_by: adminUserId,
+            updated_by: adminUserId,
+          })
+          .select("id")
+          .single();
+        if (cErr || !created) {
+          await restoreLineState(userId, weekId, lineId, part, lineCode, snap);
+          return { ok: false, code: 422, error: "대상자 배정에 실패했습니다." };
         }
-      } else {
+        currentTargetId = (created as { id: string }).id;
+      }
+      // 경험 평점 / 경력 등급을 성공값으로 함께 저장(파생 강화 결과가 성공이 되도록).
+      if (isExperience && rating != null) {
         const { error } = await supabaseAdmin
-          .from("cluster4_experience_line_evaluations")
+          .from(EXP_EVAL_TABLE)
           .upsert(
-            {
-              line_target_id: lineTargetId,
-              user_id: userId,
-              rating,
-              evaluated_by: adminUserId,
-              evaluated_at: new Date().toISOString(),
-            },
+            { line_target_id: currentTargetId, user_id: userId, rating, evaluated_by: adminUserId, evaluated_at: new Date().toISOString() },
             { onConflict: "line_target_id,user_id" },
           );
-        if (error) return { ok: false, code: 422, error: "평점 저장에 실패했습니다." };
-      }
-      // 재계산 + flip 판정(제출 쓰기 전이라 롤백 시 부분 저장 없음).
-      const afterStatus = await recomputeAndReadStatus();
-      if (isGrowthFlip(beforeStatus, afterStatus) && !confirmGrowthFlip) {
-        if (lineTargetId) {
-          if (orig) {
-            await supabaseAdmin
-              .from("cluster4_experience_line_evaluations")
-              .upsert(
-                {
-                  line_target_id: lineTargetId,
-                  user_id: userId,
-                  rating: orig.rating,
-                  evaluated_by: orig.evaluated_by,
-                  evaluated_at: orig.evaluated_at,
-                },
-                { onConflict: "line_target_id,user_id" },
-              );
-          } else {
-            await supabaseAdmin
-              .from("cluster4_experience_line_evaluations")
-              .delete()
-              .eq("line_target_id", lineTargetId)
-              .eq("user_id", userId);
-          }
-          try {
-            await refreshWeeklyCardsSnapshotSafe(userId);
-          } catch {
-            /* best-effort */
-          }
+        if (error) {
+          await restoreLineState(userId, weekId, lineId, part, lineCode, snap);
+          return { ok: false, code: 422, error: "평점 저장에 실패했습니다." };
         }
-        return {
-          ok: false,
-          code: 409,
-          error: "GROWTH_STATUS_WILL_CHANGE",
-          growth: { beforeLabel: adminWeekStatusLabel(beforeStatus), afterLabel: adminWeekStatusLabel(afterStatus) },
-        };
+      } else if (isExperience) {
+        // 성공인데 평점 미입력 → 실패 평점 잔존 시 제거(대상자+마감 후 = 성공 기본).
+        await supabaseAdmin.from(EXP_EVAL_TABLE).delete().eq("line_target_id", currentTargetId).eq("user_id", userId);
       }
-      // 유지 — 재계산 이미 수행됨.
+      if (isCareer && grade != null) {
+        try {
+          await upsertCareerEvaluation({ lineTargetId: currentTargetId, userId, grade }, adminUserId, new Date().toISOString());
+        } catch (e) {
+          await restoreLineState(userId, weekId, lineId, part, lineCode, snap);
+          return { ok: false, code: 422, error: e instanceof Error ? e.message : "등급 저장에 실패했습니다." };
+        }
+      }
+      // 표시 override 잔존 제거(대상자 배정 상태를 SoT 로).
+      await clearOverridesOnly(userId, weekId, lineId, part, lineCode);
+    } else {
+      // 실패 = 대상자 해제(+종속 eval/submission 삭제) + override 제거.
+      await clearLineState(userId, weekId, lineId, part, lineCode);
+      currentTargetId = null;
     }
-  } else if (isCareer) {
-    if (grade != null && resultingStatus !== line.enhancementStatus) {
-      if (!lineTargetId) return { ok: false, code: 422, error: "배정된 라인이 아니어서 등급을 저장할 수 없습니다." };
+  } catch (e) {
+    await restoreLineState(userId, weekId, lineId, part, lineCode, snap);
+    return { ok: false, code: 422, error: e instanceof Error ? e.message : "결과 저장에 실패했습니다." };
+  }
+
+  // ── 2. 성장 결과 flip 미리보기(상태가 실제로 바뀔 때만) ──
+  if (statusChanging) {
+    const afterStatus = await recomputeAndReadStatus();
+    if (isGrowthFlip(beforeStatus, afterStatus) && !confirmGrowthFlip) {
+      await restoreLineState(userId, weekId, lineId, part, lineCode, snap);
       try {
-        await upsertCareerEvaluation({ lineTargetId, userId, grade }, adminUserId, new Date().toISOString());
-      } catch (e) {
-        return { ok: false, code: 422, error: e instanceof Error ? e.message : "등급 저장에 실패했습니다." };
+        await refreshWeeklyCardsSnapshotSafe(userId);
+      } catch {
+        /* best-effort */
       }
-      // 경력 등급도 verdict 로 흐르지만 이번 팝업엔 grade UI 가 없어 flip 미리보기는 후속(§UI). 재계산은 헬퍼가 수행.
-    }
-  } else {
-    // 정보/역량 — 표시 override(verdict 무관, read-time overlay). 재계산 불필요.
-    if (resultingStatus !== line.enhancementStatus) {
-      await setEnhancementOverrideStatus({
-        userId,
-        weekId,
-        partType: part,
-        lineTargetId,
-        lineId,
-        lineCode: line.lineCode ?? null,
-        overrideStatus: resultingStatus,
-        adminUserId,
-      });
+      return {
+        ok: false,
+        code: 409,
+        error: "GROWTH_STATUS_WILL_CHANGE",
+        growth: { beforeLabel: adminWeekStatusLabel(beforeStatus), afterLabel: adminWeekStatusLabel(afterStatus) },
+      };
     }
   }
 
-  // ── 2. 제출 데이터 — 최종 결과가 success 이고 실제 변경이 있을 때만(A 보존) ──
+  // ── 3. 제출 데이터 — 최종 결과가 success 이고 실제 변경이 있을 때만(A 보존) ──
   const curSub = line.submission;
   const curImages = (curSub?.outputImages ?? []).map((url, i) => ({
     url,
@@ -274,12 +383,11 @@ export async function saveCrewWeekLineDetail(
     growthPoint !== (curSub?.growthPoint ?? null) ||
     !linksEqual(links, curSub?.outputLinks ?? []) ||
     imagesChanged;
-  if (resultingStatus === "success" && submissionChanged) {
-    if (!lineTargetId) return { ok: false, code: 422, error: "배정된 라인이 아니어서 제출 내용을 저장할 수 없습니다." };
+  if (desired === "success" && submissionChanged && currentTargetId) {
     const [link2, link3, link4, link5] = outputLinksToLegacySlots(links, 4);
-    const { error } = await supabaseAdmin.from("cluster4_line_submissions").upsert(
+    const { error } = await supabaseAdmin.from(SUBMISSION_TABLE).upsert(
       {
-        line_target_id: lineTargetId,
+        line_target_id: currentTargetId,
         user_id: userId,
         subtitle: subTitle,
         growth_point: growthPoint,
@@ -295,10 +403,9 @@ export async function saveCrewWeekLineDetail(
     if (error) return { ok: false, code: 422, error: "제출 내용 저장에 실패했습니다." };
   }
 
-  // ── 3. 라인 지급 원장 결과 기준 reconcile (라인 A/B = 강화 성공 시 지급) ──
-  //   성공→config point_a/b 지급, 실패/해당없음→회수(soft-cancel). 대상자 등록 payout 과 별개(결과 종속).
+  // ── 4. 라인 지급 원장 결과 기준 reconcile (라인 A/B = 대상자 + 강화 성공 시 지급) ──
   try {
-    await reconcileLineResultAwardForUser(userId, lineId, weekId, resultingStatus === "success", adminUserId);
+    await reconcileLineResultAwardForUser(userId, lineId, weekId, desired === "success", adminUserId);
   } catch (e) {
     console.warn("[crewWeekLineSave] 라인 지급 reconcile 실패(격리)", {
       userId,
@@ -307,16 +414,17 @@ export async function saveCrewWeekLineDetail(
     });
   }
 
-  // ── 4. 최종 수렴 — uwp 합산(취소분 제외)→등급→snapshot→카드→크루페이지 1회 수렴 ──
-  //   (라인 지급/평점/제출 변경 모두 반영: 획득 A/B·상단 포인트 합계·성공/실패 집계·2차 기입 자격).
+  // ── 5. 최종 수렴 — uwp 합산(취소분 제외)→등급→snapshot→카드→크루페이지 1회 수렴 ──
+  //   (대상자 배정/평점/제출 변경 모두 반영: lineTargetId·강화 결과·획득 A/B·상단 포인트 합계·
+  //    성공/실패 집계·2차 기입 자격·주차 성장률/결과·품계·위클리 랭킹·snapshot).
   try {
     await recomputeWeeklyPointsForUsers([userId], weekId);
   } catch {
     /* best-effort — 실패해도 cron 재계산 */
   }
 
-  // ── 5. 결과가 success 가 아니게 되면 2차 기입 수동 허용 자동 회수(§23) ──
-  if (resultingStatus !== "success") {
+  // ── 6. 결과가 success 가 아니게 되면 2차 기입 수동 허용 자동 회수(§) ──
+  if (desired !== "success") {
     try {
       if (await isSecondEntryOverrideAllowed(userId, weekId, lineId)) {
         await writeSecondEntryOverride({
@@ -337,4 +445,30 @@ export async function saveCrewWeekLineDetail(
   const fresh = await getCrewWeekLineDetail(legacyUserId, weekId, lineId);
   if (!fresh.ok) return { ok: false, code: 404, error: "저장 후 재조회에 실패했습니다." };
   return { ok: true, data: fresh.data };
+}
+
+// 표시 override 만 제거(대상자/평가/제출은 건드리지 않음) — 성공 경로에서 overlay 잔존 정리용.
+async function clearOverridesOnly(
+  userId: string,
+  weekId: string,
+  lineId: string,
+  partType: string,
+  lineCode: string | null,
+): Promise<void> {
+  await supabaseAdmin
+    .from(OVERRIDE_TABLE)
+    .delete()
+    .eq("user_id", userId)
+    .eq("week_id", weekId)
+    .eq("part_type", partType)
+    .eq("line_id", lineId);
+  if (lineCode != null) {
+    await supabaseAdmin
+      .from(OVERRIDE_TABLE)
+      .delete()
+      .eq("user_id", userId)
+      .eq("week_id", weekId)
+      .eq("part_type", partType)
+      .eq("line_code", lineCode);
+  }
 }

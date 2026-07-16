@@ -23,10 +23,12 @@ import type { CareerGrade } from "@/lib/careerGrade";
 //   · 저장 전까지 draft 만 유지, 저장은 원자적(부분 저장 방지). 이미지 편집은 인터페이스만(업로드 후속).
 // ─────────────────────────────────────────────────────────────────────
 
+// 오픈된 라인의 개인 결과는 강화 성공/실패만 설정한다(정책 2026-07-16):
+//   오픈 + 대상자 = 성공 / 오픈 + 대상자 아님 = 실패 / 미오픈 = 해당 없음(클럽 전체 데이터, 이 화면 변경 불가).
+//   이 팝업은 오픈 라인(lineId 보유)만 열리므로 "해당 없음"은 선택지에서 제외한다.
 const RESULT_OPTIONS: { value: Cluster4EnhancementStatus; label: string }[] = [
   { value: "success", label: "강화 성공" },
   { value: "fail", label: "강화 실패" },
-  { value: "not_applicable", label: "해당 없음" },
 ];
 const MAX_LINKS = 5;
 const MAX_IMAGES = 4;
@@ -36,20 +38,18 @@ const GROWTHPOINT_MAX = 200;
 type LinkDraft = { url: string; label: string };
 type ImgSlot = { url: string; caption: string };
 
-// 경험: 평점(0~10)에서 강화 결과 파생(rating>=4 성공, 1~3 실패, null 해당없음). 서버가 최종 권위.
+// 경험: 평점(0~10)에서 강화 결과 파생(rating>=4 성공, 그 외 실패). 오픈 라인은 해당없음이 될 수 없다.
+//   미책정(null)은 "성공 아님" = 실패로 본다(저장 시 대상자 해제). 서버가 최종 권위.
 function deriveExperienceStatus(rating: number | null): Cluster4EnhancementStatus {
-  if (rating == null) return "not_applicable";
-  return rating >= 4 ? "success" : "fail";
+  return rating != null && rating >= 4 ? "success" : "fail";
 }
 // 드롭다운 → 경험 평점 canonical(현재 값이 그 결과를 이미 만들면 유지, 아니면 대표값). 관리자는 이후 미세조정.
 function canonicalRatingFor(status: Cluster4EnhancementStatus, cur: number | null): number | null {
-  if (status === "not_applicable") return null;
   if (status === "success") return cur != null && cur >= 4 ? cur : 4;
   return cur != null && cur <= 3 ? cur : 3; // fail
 }
 // 드롭다운 → 경력 grade canonical.
 function canonicalGradeFor(status: Cluster4EnhancementStatus, cur: CareerGrade | null): CareerGrade | null {
-  if (status === "not_applicable") return null;
   if (status === "success") return cur && cur !== "D" ? cur : "A";
   return "D"; // fail
 }
@@ -82,7 +82,7 @@ export default function CrewWeekLineDetailDialog({
   const [saving, setSaving] = useState(false);
 
   // ── draft 상태 ── (resultStatus = 강화 결과 단일 소스, 허브별 rating/grade 와 동기화)
-  const [resultStatus, setResultStatus] = useState<Cluster4EnhancementStatus>("not_applicable");
+  const [resultStatus, setResultStatus] = useState<Cluster4EnhancementStatus>("fail");
   const [subTitle, setSubTitle] = useState("");
   const [growthPoint, setGrowthPoint] = useState("");
   const [links, setLinks] = useState<LinkDraft[]>([]);
@@ -96,11 +96,8 @@ export default function CrewWeekLineDetailDialog({
   const ctxQuery = mode === "test" ? "?mode=test" : "";
 
   const applyDetailToDraft = useCallback((d: AdminCrewWeekLineDetailDto) => {
-    setResultStatus(
-      d.currentStatus === "success" || d.currentStatus === "fail" || d.currentStatus === "not_applicable"
-        ? d.currentStatus
-        : "not_applicable",
-    );
+    // 오픈 라인 개인 결과는 성공/실패만. 현재 성공이면 성공, 그 외(실패/해당없음/집계전)는 실패로 표시.
+    setResultStatus(d.currentStatus === "success" ? "success" : "fail");
     setSubTitle(d.submission.subTitle ?? "");
     setGrowthPoint(d.submission.growthPoint ?? "");
     setLinks(d.submission.outputLinks.map((l) => ({ url: l.url ?? "", label: l.label ?? "" })));
