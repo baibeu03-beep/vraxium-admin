@@ -58,23 +58,43 @@ function padSlots(urls: string[], captions: (string | null)[]): ImgSlot[] {
   return Array.from({ length: MAX_IMAGES }, (_, i) => ({ url: urls[i] ?? "", caption: captions[i] ?? "" }));
 }
 
+// 실무 역량 placeholder(라인 선택) 모드에서 드롭다운에 뿌리는 마스터 옵션.
+type CompetencyMasterOption = {
+  masterId: string;
+  lineCode: string | null;
+  lineName: string;
+  mainTitle: string | null;
+  previewLink: string | null;
+  previewImage: string | null;
+};
+
 export default function CrewWeekLineDetailDialog({
   userId,
   weekId,
   lineId,
   mode,
   member,
+  weekLabel,
+  competencyPlaceholder,
+  placeholderEditable,
+  orgSlug,
   onClose,
   onSaved,
 }: {
   userId: string;
   weekId: string;
-  lineId: string;
+  lineId: string | null; // null = 실무 역량 placeholder(라인 선택 모드)
   mode: ScopeMode;
   member: CrewIdentity | null;
+  weekLabel?: string | null; // placeholder 헤더 주차명(상세 GET 없이 표시)
+  competencyPlaceholder?: boolean; // true = 라인 선택 후 강화 성공 생성 모드
+  placeholderEditable?: boolean; // placeholder 편집 가능(확정 주차)
+  orgSlug?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
+  // 실무 역량 placeholder(-) 모드: lineId 없음. 공통 상세 팝업 UI 를 그대로 쓰되 "라인 선택" 필드만 추가.
+  const isPlaceholder = competencyPlaceholder === true;
   const t = useActionToast();
   const [detail, setDetail] = useState<AdminCrewWeekLineDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -92,6 +112,9 @@ export default function CrewWeekLineDetailDialog({
   const [editingSub, setEditingSub] = useState(false);
   const [editingGrowth, setEditingGrowth] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  // placeholder(라인 선택) 모드 전용 상태.
+  const [options, setOptions] = useState<CompetencyMasterOption[] | null>(null);
+  const [selectedMasterId, setSelectedMasterId] = useState("");
 
   const ctxQuery = mode === "test" ? "?mode=test" : "";
 
@@ -108,10 +131,56 @@ export default function CrewWeekLineDetailDialog({
     setEditingGrowth(false);
   }, []);
 
+  // placeholder 모드의 합성 detail — 선택 마스터를 반영해 Main Title/링크/이미지 영역이 공통 UI 로 채워진다.
+  const buildPlaceholderDetail = useCallback(
+    (opt: CompetencyMasterOption | null): AdminCrewWeekLineDetailDto => ({
+      identity: {
+        lineId: "",
+        lineTargetId: null,
+        lineCode: opt?.lineCode ?? null,
+        lineName: opt?.lineName ?? "라인명 미정",
+        partType: "competency",
+        hubLabel: "실무 역량",
+        mainTitle: opt?.mainTitle ?? null,
+      },
+      week: { id: weekId, label: weekLabel ?? "-", startDate: "", endDate: "" },
+      organizationSlug: orgSlug ?? null,
+      clubOpen: true,
+      currentStatus: "fail",
+      editable: placeholderEditable === true,
+      rating: { supported: false, value: null },
+      careerGrade: null,
+      practitioner: null,
+      submission: {
+        subTitle: null,
+        growthPoint: null,
+        outputLinks: opt?.previewLink ? [{ url: opt.previewLink, label: null }] : [],
+        outputImages: opt?.previewImage ? [opt.previewImage] : [],
+        outputImageCaptions: opt?.previewImage ? [null] : [],
+      },
+    }),
+    [weekId, weekLabel, orgSlug, placeholderEditable],
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      if (isPlaceholder) {
+        // 라인 선택 모드 — 상세 GET 없이 마스터 옵션을 불러오고 합성 detail(강화 실패·미선택)로 시작.
+        const res = await fetch(
+          `/api/admin/members/${userId}/weeks/${weekId}/competency-lines${ctxQuery}`,
+          { cache: "no-store" },
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json?.error ?? "실무 역량 라인 목록을 불러오지 못했습니다.");
+        setOptions((json.data.options ?? []) as CompetencyMasterOption[]);
+        const base = buildPlaceholderDetail(null);
+        setDetail(base);
+        applyDetailToDraft(base);
+        setSelectedMasterId("");
+        return;
+      }
       const res = await fetch(
         `/api/admin/members/${userId}/weeks/${weekId}/lines/${lineId}${ctxQuery}`,
         { cache: "no-store" },
@@ -126,12 +195,24 @@ export default function CrewWeekLineDetailDialog({
     } finally {
       setLoading(false);
     }
-  }, [userId, weekId, lineId, ctxQuery, applyDetailToDraft]);
+  }, [userId, weekId, lineId, ctxQuery, applyDetailToDraft, isPlaceholder, buildPlaceholderDetail]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  // placeholder 모드에서 마스터 선택이 바뀌면 합성 detail 을 갱신해 Main Title/링크/이미지 영역을 채운다.
+  const onSelectMaster = useCallback(
+    (masterId: string) => {
+      setSelectedMasterId(masterId);
+      const opt = options?.find((o) => o.masterId === masterId) ?? null;
+      const d = buildPlaceholderDetail(opt);
+      setDetail(d);
+      applyDetailToDraft(d);
+    },
+    [options, buildPlaceholderDetail, applyDetailToDraft],
+  );
 
   const partType = detail?.identity.partType;
   const isExperience = partType === "experience";
@@ -156,9 +237,12 @@ export default function CrewWeekLineDetailDialog({
   }, []);
 
   const editable = detail?.editable === true;
-  const submissionEditable = editable && effectiveStatus === "success";
+  // placeholder 모드: 제출 필드는 선택 라인 미리보기(조회 전용). 실제 제출 편집은 라인 생성 후 일반 팝업.
+  const submissionEditable = !isPlaceholder && editable && effectiveStatus === "success";
 
   const dirty = useMemo(() => {
+    // placeholder: 강화 성공 + 라인 선택 시에만 저장 가능(변경).
+    if (isPlaceholder) return effectiveStatus === "success" && selectedMasterId !== "";
     const b = detail;
     if (!b) return false;
     if (effectiveStatus !== b.currentStatus) return true;
@@ -176,7 +260,7 @@ export default function CrewWeekLineDetailDialog({
     const draftImgs = images.filter((im) => im.url.trim()).map((im) => `${im.url}|${im.caption}`).join("~");
     if (baseImgs !== draftImgs) return true;
     return false;
-  }, [effectiveStatus, subTitle, growthPoint, rating, grade, links, images, detail]);
+  }, [effectiveStatus, subTitle, growthPoint, rating, grade, links, images, detail, isPlaceholder, selectedMasterId]);
 
   const reset = useCallback(() => {
     if (detail) applyDetailToDraft(detail);
@@ -198,6 +282,16 @@ export default function CrewWeekLineDetailDialog({
 
   const submit = useCallback(
     async (confirmGrowthFlip: boolean) => {
+      if (isPlaceholder) {
+        // 라인 선택 모드: 선택 마스터로 이 크루 전용 역량 라인 인스턴스 + 대상자 생성(강화 성공).
+        const res = await fetch(`/api/admin/members/${userId}/weeks/${weekId}/competency-lines`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ masterId: selectedMasterId, confirmGrowthFlip, mode }),
+        });
+        const json = await res.json().catch(() => ({}));
+        return { status: res.status, ok: res.ok, json };
+      }
       const body = {
         enhancementStatus: effectiveStatus,
         statusData: {
@@ -225,7 +319,7 @@ export default function CrewWeekLineDetailDialog({
       const json = await res.json().catch(() => ({}));
       return { status: res.status, ok: res.ok, json };
     },
-    [effectiveStatus, subTitle, growthPoint, links, images, rating, grade, isExperience, isCareer, mode, userId, weekId, lineId],
+    [isPlaceholder, selectedMasterId, effectiveStatus, subTitle, growthPoint, links, images, rating, grade, isExperience, isCareer, mode, userId, weekId, lineId],
   );
 
   const doSave = useCallback(async () => {
@@ -292,9 +386,11 @@ export default function CrewWeekLineDetailDialog({
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
                   <span className="font-medium text-foreground">{detail.week.label}</span>
-                  <span>
-                    {detail.week.startDate} ~ {detail.week.endDate}
-                  </span>
+                  {detail.week.startDate ? (
+                    <span>
+                      {detail.week.startDate} ~ {detail.week.endDate}
+                    </span>
+                  ) : null}
                 </div>
               </>
             ) : null}
@@ -365,6 +461,45 @@ export default function CrewWeekLineDetailDialog({
                 </div>
               )}
 
+              {/* 실무 역량 placeholder 전용 — 공통 UI 에 "라인 선택" 필드 1개만 추가. 강화 성공 시 노출. */}
+              {isPlaceholder ? (
+                effectiveStatus === "success" ? (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-sm font-semibold text-muted-foreground">실무 역량 라인 선택</label>
+                    {options && options.length > 0 ? (
+                      <select
+                        value={selectedMasterId}
+                        disabled={!editable || saving}
+                        onChange={(e) => onSelectMaster(e.target.value)}
+                        className="rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                      >
+                        <option value="">라인 선택…</option>
+                        {options.map((o) => (
+                          <option key={o.masterId} value={o.masterId}>
+                            {o.lineCode ? `[${o.lineCode}] ` : ""}
+                            {o.lineName}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+                        이 조직에서 선택 가능한(아직 배정되지 않은) 실무 역량 라인이 없습니다.
+                      </div>
+                    )}
+                    {!selectedMasterId ? (
+                      <span className="text-xs text-muted-foreground">
+                        강화 성공으로 저장하려면 실무 역량 라인을 선택해주세요.
+                      </span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="rounded-md border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                    이 회원은 아직 실무 역량 대상자가 아닙니다(강화 실패). 강화 성공으로 인정하려면 상단에서
+                    <b className="text-foreground"> 강화 성공</b>을 선택하고 실무 역량 라인을 지정해주세요.
+                  </div>
+                )
+              ) : null}
+
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
                 {/* 좌: 제출 텍스트 */}
                 <div className="flex flex-col gap-4">
@@ -414,7 +549,7 @@ export default function CrewWeekLineDetailDialog({
                   <ImagesEditor
                     userId={userId}
                     weekId={weekId}
-                    lineId={lineId}
+                    lineId={lineId ?? ""}
                     mode={mode}
                     images={images}
                     setImages={setImages}

@@ -51,17 +51,34 @@ async function resolveCrewOrg(userId: string): Promise<string | null> {
   return (data as { organization_slug: string | null } | null)?.organization_slug ?? null;
 }
 
-// 이 (주차, org)에 개설된 역량 라인 하나에서 주차 공용 콘텐츠(링크·이미지·제출 창)를 가져온다.
-//   승인 개설이 만든 라인들은 output_link_1(카페 공용글)·제출 창을 공유하므로 표본 1개로 충분하다.
-async function loadWeekCommonContent(
-  weekId: string,
-  openedLineIds: string[],
-): Promise<WeekCommonContent> {
-  if (openedLineIds.length === 0) return { link: null, image: null, opensAt: null, closesAt: null };
+// 검증/테스트용 역량 마스터(line_code VTEST* — 예: "[검증] 역량배선")는 운영 선택지에서 제외한다.
+function isRealCompetencyMaster(lineCode: string | null): boolean {
+  return !/^VTEST/i.test((lineCode ?? "").trim());
+}
+// 마스터가 이 크루 org 에 적용되는가. 마스터는 대개 org='common'(공용). 특정 org 전용이면 그 org 만.
+function isMasterOrgVisible(masterOrg: string | null, crewOrg: string | null): boolean {
+  if (masterOrg == null || masterOrg === "common") return true;
+  return masterOrg === crewOrg;
+}
+
+// 이 주차에 개설된 아무 역량 라인에서 주차 공용 콘텐츠(카페 공용 링크·이미지·제출 창)를 가져온다.
+//   역량 라인들은 output_link_1·제출 창을 주차 단위로 공유하므로 표본 1개면 충분하다. 아직 아무
+//   마스터도 개설 안 된 주차엔 placeholder 자체가 안 뜨므로(개설 SoT) 여기 도달 시 대개 표본이 있다.
+async function loadWeekCommonContent(weekId: string): Promise<WeekCommonContent> {
+  const { data: tgts } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("line_id")
+    .eq("week_id", weekId)
+    .eq("target_mode", "user");
+  const lineIds = Array.from(
+    new Set(((tgts ?? []) as Array<{ line_id: string }>).map((t) => t.line_id)),
+  );
+  if (lineIds.length === 0) return { link: null, image: null, opensAt: null, closesAt: null };
   const { data } = await supabaseAdmin
     .from("cluster4_lines")
     .select("output_link_1,output_images,submission_opens_at,submission_closes_at")
-    .in("id", openedLineIds)
+    .in("id", lineIds)
+    .eq("part_type", "competency")
     .eq("is_active", true)
     .limit(50);
   const rows = (data ?? []) as Array<{
@@ -74,39 +91,13 @@ async function loadWeekCommonContent(
   const firstImg = rows
     .map((r) => (Array.isArray(r.output_images) ? r.output_images[0] : null))
     .find(Boolean) as { url?: string } | string | null | undefined;
-  const image =
-    typeof firstImg === "string" ? firstImg : (firstImg && firstImg.url) || null;
+  const image = typeof firstImg === "string" ? firstImg : (firstImg && firstImg.url) || null;
   return {
     link: withLink?.output_link_1 ?? null,
     image: image ?? null,
     opensAt: withLink?.submission_opens_at ?? null,
     closesAt: withLink?.submission_closes_at ?? null,
   };
-}
-
-// (주차, org) 에 개설된 역량 활동 마스터 id 집합 + 그 개설 라인 id 들. applications(opened) SoT.
-async function loadOpenedCompetencyMasters(
-  weekId: string,
-  org: string | null,
-): Promise<{ masterIds: string[]; openedLineIds: string[] }> {
-  let q = supabaseAdmin
-    .from("cluster4_competency_applications")
-    .select("competency_line_master_id,opened_line_id")
-    .eq("resolution", "opened")
-    .eq("week_id", weekId);
-  if (org) q = q.eq("organization_slug", org);
-  const { data } = await q;
-  const rows = (data ?? []) as Array<{
-    competency_line_master_id: string | null;
-    opened_line_id: string | null;
-  }>;
-  const masterIds = Array.from(
-    new Set(rows.map((r) => r.competency_line_master_id).filter((x): x is string => Boolean(x))),
-  );
-  const openedLineIds = Array.from(
-    new Set(rows.map((r) => r.opened_line_id).filter((x): x is string => Boolean(x))),
-  );
-  return { masterIds, openedLineIds };
 }
 
 // 이 크루가 이 주차에 이미 배정된 역량 마스터 집합(중복 배정 제외용).
@@ -135,7 +126,10 @@ export type CompetencyOptionsResult =
   | { ok: true; options: CompetencyMasterOption[] }
   | { ok: false; reason: "member_not_found" | "week_not_found" };
 
-// 드롭다운 옵션: (주차, org) 개설된 역량 활동 마스터 − 이미 배정된 것. 각 옵션에 미리보기 콘텐츠 부착.
+// 드롭다운 옵션 = 선택 가능한 **활성 실무 역량 마스터 전체**(해당 org 적용분).
+//   목록 포함 조건은 "마스터가 유효한가"뿐 — 과거/현재 개설 이력이나 타인 배정 여부는 조건이 아니다.
+//   제외: 비활성 마스터 · 타 조직 전용 마스터 · 검증/테스트 마스터(VTEST*) · 이 회원·주차 이미 배정분.
+//   미리보기(메인타이틀=마스터, 링크/이미지=주차 공용)는 아직 미개설 마스터라도 채워질 수 있다(주차 공용).
 export async function listCompetencyMasterOptionsForWeek(
   legacyUserId: string,
   weekId: string,
@@ -145,16 +139,13 @@ export async function listCompetencyMasterOptionsForWeek(
   const { crew } = resolved;
   const org = await resolveCrewOrg(crew.userId);
 
-  const { masterIds, openedLineIds } = await loadOpenedCompetencyMasters(weekId, org);
-  if (masterIds.length === 0) return { ok: true, options: [] };
-
   const [{ data: masters }, assigned, common] = await Promise.all([
     supabaseAdmin
       .from("cluster4_competency_line_masters")
-      .select("id,line_code,line_name,main_title,is_active")
-      .in("id", masterIds),
+      .select("id,line_code,line_name,main_title,is_active,organization_slug")
+      .eq("is_active", true),
     loadCrewAssignedCompetencyMasters(crew.userId, weekId),
-    loadWeekCommonContent(weekId, openedLineIds),
+    loadWeekCommonContent(weekId),
   ]);
 
   const options: CompetencyMasterOption[] = ((masters ?? []) as Array<{
@@ -163,8 +154,15 @@ export async function listCompetencyMasterOptionsForWeek(
     line_name: string;
     main_title: string | null;
     is_active: boolean;
+    organization_slug: string | null;
   }>)
-    .filter((m) => m.is_active && !assigned.has(m.id))
+    .filter(
+      (m) =>
+        m.is_active &&
+        isRealCompetencyMaster(m.line_code) &&
+        isMasterOrgVisible(m.organization_slug, org) &&
+        !assigned.has(m.id),
+    )
     .map((m) => ({
       masterId: m.id,
       lineCode: m.line_code,
@@ -213,18 +211,10 @@ export async function createCompetencySuccessLine(
   }
 
   const org = await resolveCrewOrg(userId);
-  const { masterIds, openedLineIds } = await loadOpenedCompetencyMasters(weekId, org);
-  if (!masterIds.includes(masterId)) {
-    return { ok: false, code: 422, error: "이 주차·조직에서 개설된 실무 역량 라인이 아닙니다." };
-  }
-  const assigned = await loadCrewAssignedCompetencyMasters(userId, weekId);
-  if (assigned.has(masterId)) {
-    return { ok: false, code: 409, error: "이미 이 회원에게 배정된 실무 역량 라인입니다." };
-  }
-
+  // 선택 대상 = 활성·org 적용·비테스트 마스터면 충분(개설 이력 무관). 이미 배정분만 중복 거절.
   const { data: masterRow } = await supabaseAdmin
     .from("cluster4_competency_line_masters")
-    .select("id,line_code,line_name,main_title,is_active")
+    .select("id,line_code,line_name,main_title,is_active,organization_slug")
     .eq("id", masterId)
     .maybeSingle();
   const master = masterRow as {
@@ -233,12 +223,23 @@ export async function createCompetencySuccessLine(
     line_name: string;
     main_title: string | null;
     is_active: boolean;
+    organization_slug: string | null;
   } | null;
   if (!master || !master.is_active) {
     return { ok: false, code: 422, error: "비활성이거나 존재하지 않는 실무 역량 라인입니다." };
   }
+  if (!isRealCompetencyMaster(master.line_code)) {
+    return { ok: false, code: 422, error: "선택할 수 없는 실무 역량 라인입니다(검증/테스트 마스터)." };
+  }
+  if (!isMasterOrgVisible(master.organization_slug, org)) {
+    return { ok: false, code: 422, error: "이 조직에 적용되지 않는 실무 역량 라인입니다." };
+  }
+  const assigned = await loadCrewAssignedCompetencyMasters(userId, weekId);
+  if (assigned.has(masterId)) {
+    return { ok: false, code: 409, error: "이미 이 회원에게 배정된 실무 역량 라인입니다." };
+  }
 
-  const common = await loadWeekCommonContent(weekId, openedLineIds);
+  const common = await loadWeekCommonContent(weekId);
   const mainTitle = master.main_title?.trim() || master.line_name.trim() || master.line_name;
   const nowIso = new Date().toISOString();
   const outputLinks = common.link ? [{ url: common.link, label: "" }] : [];
@@ -255,8 +256,9 @@ export async function createCompetencySuccessLine(
       output_link_2: null,
       output_links: outputLinks,
       output_images: [],
-      submission_opens_at: common.opensAt ?? nowIso,
-      submission_closes_at: common.closesAt ?? nowIso,
+      submission_opens_at: common.opensAt ?? card.startDate ?? nowIso,
+      // 마감은 반드시 과거여야 대상자+마감 후 = 성공으로 파생된다(확정 주차라 주차 시작일은 과거).
+      submission_closes_at: common.closesAt ?? card.startDate ?? nowIso,
       is_active: true,
       is_qa_test: QA_HIDE_REAL_USERS,
       created_by: adminUserId,
