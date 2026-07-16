@@ -11,14 +11,20 @@
 //   · 오픈 설정/오픈확인          = cluster4_week_opening_configs (주차×클럽). 없으면 정책 기본값.
 //   · 실무 정보 라인              = activity_types(cluster_id='practical_info', 활성)
 //   · 실무 경험 팀                = listTeams(org, mode) (cluster4_teams, (T) 스코프)
-//   · 확장 주차 판정              = cluster4_experience_extension_periods 기간 겹침(미적용 시 false)
 //
 // 기본 체크 정책:
 //   · 실무 정보  : 전부 unchecked
-//   · 실무 경험  : 도출·분석·견문·관리 checked, 확장 = isExpansionWeek
+//   · 실무 경험  : 도출·분석·견문·관리 checked, 확장 = unchecked(false)
 //   · 실무 역량  : 항상 checked
 //   · 실무 경력  : 데이터 없음(DTO 미포함)
 //   저장된 config 가 있으면 해당 값으로 덮어쓴다(없는 키는 기본값 유지).
+//
+// ⚠ 확장(expansion) 라인의 단일 SoT = 관리자가 이 화면에서 저장한 명시적 값
+//   (cluster4_week_opening_configs.config.practicalExperience.<teamId>.expansion) 뿐이다.
+//   과거에는 저장값이 없을 때 cluster4_experience_extension_periods(= /admin/season-weeks 의
+//   [실무 경험] > 확장 류 라인 과 동일 원장) 기간 겹침으로 확장을 자동 체크했으나, 이 자동 파생
+//   경로를 제거했다 — season-weeks 확장 기간이 바뀌어도 이 화면의 확장 체크에는 영향이 없다.
+//   저장값이 없는 주차의 확장 기본값은 항상 미체크(false).
 //
 // mode(operating/test): 실무 경험 팀 목록만 스코프(운영 팀 vs (T) 팀)가 달라진다. DTO 구조는 동일.
 
@@ -125,8 +131,6 @@ export type TeamPartsInfoWeekDetailData = {
     // 주차 진행 단계(과거/현재/미래) — 프로젝트 공통 주차 판정 재사용(loadSeasonWeeks 의 is_current_week +
     //   동일 today/날짜 비교). 과거 주차 오픈 상태 변경 시 확인 모달을 띄우는 UI 게이트용(로직 무영향·표시 힌트).
     weekPhase: "past" | "current" | "future";
-    // 확장 주차 여부 — [초기화] 시 실무 경험 라인(개설) 확장 기본값 복원용(도출/분석/견문/관리=true·확장=isExpansionWeek).
-    isExpansionWeek: boolean;
     // 주차별 활동 인정 개수 N(오픈확인 시점 확정 저장값). 인정 컬럼 미적용/미계산이면 null →
     //   프론트가 Phase1 기본값(DEFAULT_WEEK_RECOGNITION_COUNT)으로 폴백.
     weekRecognitionCount: number | null;
@@ -219,29 +223,6 @@ async function loadReviewed(weekId: string): Promise<boolean> {
   return (data as { result_reviewed_at: string | null } | null)?.result_reviewed_at != null;
 }
 
-// 확장 주차 = 활성 experience 확장기간(org-특정 ∨ 공통) 중 관리 주차 기간과 겹치는 것이 있는가.
-//   원천: cluster4_experience_extension_periods. 미적용/오류 → false(fail-closed, expansion/opening-status 미러).
-async function loadIsExpansionWeek(
-  organization: OrganizationSlug,
-  weekStart: string | null,
-  weekEnd: string | null,
-): Promise<boolean> {
-  if (!weekStart || !weekEnd) return false;
-  try {
-    const { data, error } = await supabaseAdmin
-      .from("cluster4_experience_extension_periods")
-      .select("start_date,end_date,organization_slug")
-      .eq("is_active", true)
-      .or(`organization_slug.is.null,organization_slug.eq.${organization}`);
-    if (error) return false;
-    return ((data ?? []) as Array<{ start_date: string | null; end_date: string | null }>).some(
-      (p) => p.start_date != null && p.end_date != null && p.start_date <= weekEnd && p.end_date >= weekStart,
-    );
-  } catch {
-    return false;
-  }
-}
-
 // 실무 정보 라인 개설(8) 카탈로그 — 키=activity_type id(개설 판정 회로 cluster4_lines.activity_type_id
 //   와 조인·불변), 표시명/순서=line_registrations(hub='info') 미러링(실제 등록 라인 명칭). 동일 9종을
 //   순서(activity_type INFO_PREFERRED_ORDER ↔ line_registrations line_code)로 위치 매칭한다.
@@ -314,7 +295,6 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
   const [
     { config: saved, openConfirmed },
     reviewed,
-    isExpansionWeek,
     infoCatalog,
     teams,
     infoLineGroups,
@@ -324,7 +304,6 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
   ] = await Promise.all([
     loadWeekOpeningConfig(weekId, organization),
     loadReviewed(weekId),
-    loadIsExpansionWeek(organization, managedRow.week_start_date, managedRow.week_end_date),
     loadInfoLineCatalog(),
     listTeams(organization, mode),
     loadProcessLineGroups("info"),
@@ -341,7 +320,9 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
     checked: savedInfo[l.lineId] === true,
   }));
 
-  // ── (4) 라인 개설(8) — 실무 경험: 기존 5카테고리·기본값(도출/분석/견문/관리=true·확장=isExpansionWeek). ──
+  // ── (4) 라인 개설(8) — 실무 경험: 기존 5카테고리. ──
+  //   기본값(저장값 없을 때): 도출/분석/견문/관리=true, 확장=false(미체크).
+  //   확장은 season-weeks 확장 기간을 더 이상 참조하지 않는다 — 저장된 명시값만이 SoT.
   const savedExp = saved?.practicalExperience ?? {};
   const lineOpeningExperience: OpeningExperienceTeam[] = teams.map((t) => {
     const savedTeam = savedExp[t.id] ?? {};
@@ -349,7 +330,7 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
       teamId: t.id,
       teamName: t.teamName,
       lines: EXPERIENCE_LINE_TYPES.map((type) => {
-        const def = type === "expansion" ? isExpansionWeek : true;
+        const def = type === "expansion" ? false : true;
         const savedVal = savedTeam[type];
         return { type, checked: typeof savedVal === "boolean" ? savedVal : def };
       }),
@@ -401,7 +382,6 @@ export async function loadTeamPartsInfoWeekDetail(opts: {
       reviewed,
       openConfirmed,
       weekPhase,
-      isExpansionWeek,
       weekRecognitionCount,
     },
     openingConfig: {

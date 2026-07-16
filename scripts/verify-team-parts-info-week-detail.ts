@@ -83,9 +83,12 @@ async function main() {
       return m.derive === true && m.analysis === true && m.research === true && m.management === true;
     });
     check(`[${org}] 라인개설 경험 도출·분석·견문·관리 기본 checked`, oc.lineOpening.practicalExperience.length === 0 || expOk, { teams: oc.lineOpening.practicalExperience.length });
-    const expansionVals = oc.lineOpening.practicalExperience.map((t) => t.lines.find((l) => l.type === "expansion")?.checked);
-    const uniformExpansion = expansionVals.every((v) => v === expansionVals[0]);
-    check(`[${org}] 확장 기본값 팀 전체 동일(=isExpansionWeek)`, oc.lineOpening.practicalExperience.length === 0 || uniformExpansion, { expansion: expansionVals[0] });
+    // 확장 기본값(저장 config 없을 때) = 항상 false(미체크). season-weeks 확장 기간에 더 이상 의존하지 않는다.
+    //   저장 config 가 있는 주차(openConfirmed)는 저장값을 반영하므로 이 strict 기본값 체크에서 제외한다.
+    //   "저장값 부재 시 false" 및 "저장 후 유지" 는 아래 expansion 라운드트립에서 명시 검증한다.
+    const expansionAllFalse = oc.lineOpening.practicalExperience.every((t) => t.lines.find((l) => l.type === "expansion")?.checked === false);
+    const hasSavedConfig = direct.managedWeek.openConfirmed === true;
+    check(`[${org}] 확장 기본값 미체크(저장값 없을 때 전부 false)`, hasSavedConfig || oc.lineOpening.practicalExperience.length === 0 || expansionAllFalse, { hasSavedConfig, expansions: oc.lineOpening.practicalExperience.map((t) => t.lines.find((l) => l.type === "expansion")?.checked) });
     // 액트 체크(7) 라인급 기본: 전부 checked(§4 통일). SoT = process_line_groups.
     check(`[${org}] 액트체크 정보 라인급 기본 전부 checked`, oc.actCheck.info.every((g) => g.checked === true), { n: oc.actCheck.info.length });
     check(`[${org}] 액트체크 클럽 라인급 기본 전부 checked`, oc.actCheck.club.every((g) => g.checked === true), { n: oc.actCheck.club.length });
@@ -157,10 +160,12 @@ async function main() {
     const dirNow = await loadTeamPartsInfoWeekDetail({ weekId, organization: "encre", mode: "operating" });
     const lineInfoId = dirNow.openingConfig.lineOpening.practicalInfo[0]?.lineId;
     const actLgId = dirNow.openingConfig.actCheck.info[0]?.lineGroupId;
+    // 확장 라운드트립용 — 첫 실무 경험 팀에 expansion=true 를 명시 저장한다(기본값 false 를 덮어씀).
+    const expTeamId = dirNow.openingConfig.lineOpening.practicalExperience[0]?.teamId;
     const body = JSON.stringify({
       config: {
         practicalInfo: lineInfoId ? { [lineInfoId]: true } : {},
-        practicalExperience: {},
+        practicalExperience: expTeamId ? { [expTeamId]: { expansion: true } } : {},
         practicalCompetency: { checked: false },
         actCheck: { info: actLgId ? { [actLgId]: false } : {}, experience: {}, club: {} },
       },
@@ -180,9 +185,29 @@ async function main() {
       check("open-confirm 후 GET: 액트체크 정보 저장값 우선(false)", !actLgId || ai?.checked === false, { ai });
       check("open-confirm 후 GET: competency checked=false(저장값 우선)", gj?.data?.openingConfig?.practicalCompetency?.checked === false);
       check("open-confirm 후 GET: managedWeek.openConfirmed=true", gj?.data?.managedWeek?.openConfirmed === true);
+      // [확장 SoT] 저장값(expansion=true) 이 GET 에 그대로 반영되는지(명시 저장 우선).
+      const expTeam = gj?.data?.openingConfig?.lineOpening?.practicalExperience?.find((t: any) => t.teamId === expTeamId);
+      const expVal = expTeam?.lines?.find((l: any) => l.type === "expansion")?.checked;
+      check("open-confirm 후 GET: 확장 저장값 우선(true)", !expTeamId || expVal === true, { expVal });
+      // [확장 독립성] 같은 주차라도 season-weeks 의 확장 류 라인 값과 무관하게 저장값이 유지된다.
+      //   season-weeks 는 확장 기간 원장(experienceExpansionLineMode)을 보여주지만 주차 상세 확장 판정은 저장값만 SoT.
+      const sw = await fetch(`${BASE}/api/admin/season-weeks`, { headers: { cookie } });
+      const swj: any = await sw.json();
+      const swRow = (swj?.data?.rows ?? []).find((r: any) => r.week_id === weekId);
+      check("season-weeks 확장 값과 무관하게 주차 상세 저장값 유지(true)", !expTeamId || expVal === true, { seasonWeeksMode: swRow?.experienceExpansionLineMode, detailExpansion: expVal });
       // 정리(테스트 config 삭제).
       await supabaseAdmin.from("cluster4_week_opening_configs").delete().eq("week_id", weekId).eq("organization_slug", "encre");
       console.log("   (테스트 open-config 정리 완료)");
+      // [확장 기본값] config 삭제(저장값 부재) 후 재조회 → 확장 전부 미체크(false). season-weeks 값과 무관.
+      const g2 = await fetch(`${BASE}/api/admin/team-parts/info/weeks/${weekId}?club=encre`, { headers: { cookie } });
+      const g2j: any = await g2.json();
+      const expAllFalseAfter = (g2j?.data?.openingConfig?.lineOpening?.practicalExperience ?? []).every(
+        (t: any) => t.lines.find((l: any) => l.type === "expansion")?.checked === false,
+      );
+      check("config 삭제 후 GET: 확장 기본값 전부 false(자동 파생 없음)", expAllFalseAfter, {
+        seasonWeeksMode: swRow?.experienceExpansionLineMode,
+        expansions: (g2j?.data?.openingConfig?.lineOpening?.practicalExperience ?? []).map((t: any) => t.lines.find((l: any) => l.type === "expansion")?.checked),
+      });
     } else {
       check("open-confirm 테이블 미적용 시 controlled 500", res.status === 500 && json?.success === false, { status: res.status, error: json?.error });
       console.log("   ⚠ cluster4_week_opening_configs 마이그레이션 미적용 — open-confirm 해피패스는 적용 후 검증.");

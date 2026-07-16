@@ -1282,7 +1282,9 @@ export default function TeamPartsInfoWeekDetailManager({
 
   // [초기화] — 상단 허브 선택 상태를 기본값으로 되돌린다(클라이언트 편집 상태만·서버 write 없음).
   //   실무 정보(라인급/라인)·실무 역량·클럽 총괄 = 전부 미선택 / 실무 경험 라인급 = 전체 체크 /
-  //   실무 경험 라인(개설) = 현재 주차 기본값(도출·분석·견문·관리=true·확장=isExpansionWeek).
+  //   실무 경험 라인(개설) = 현재 주차 기본값(도출·분석·견문·관리=true·확장=false 미체크).
+  //   ⚠ 확장은 season-weeks 확장 기간(cluster4_experience_extension_periods)을 참조하지 않는다 —
+  //     초기화 기본값은 항상 미체크(false)이며, 확장 체크는 관리자의 명시적 저장으로만 유지된다.
   //   저장 전 상태를 기본값으로 복원 → 이후 [오픈 확인] 을 누르면 이 기본값이 그대로 저장된다.
   const resetToDefaults = () => {
     if (!data || readOnly) return;
@@ -1295,12 +1297,11 @@ export default function TeamPartsInfoWeekDetailManager({
       ),
     );
     setActClubChecked(Object.fromEntries(oc.actCheck.club.map((g) => [g.lineGroupId, false])));
-    const expDef = data.managedWeek.isExpansionWeek;
     setLineExpChecked(
       Object.fromEntries(
         oc.lineOpening.practicalExperience.map((t) => [
           t.teamId,
-          Object.fromEntries(EXP_TYPES.map((ty) => [ty, ty === "expansion" ? expDef : true])) as Record<ExperienceLineType, boolean>,
+          Object.fromEntries(EXP_TYPES.map((ty) => [ty, ty === "expansion" ? false : true])) as Record<ExperienceLineType, boolean>,
         ]),
       ),
     );

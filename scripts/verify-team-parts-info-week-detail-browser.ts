@@ -74,8 +74,8 @@ async function main() {
   const firstTeam = await page.$('[data-exp-team]');
   if (firstTeam) {
     const cells = await firstTeam.$$eval("input[type=checkbox]", (els: any[]) => els.map((e) => e.checked));
-    // 순서: 도출·분석·견문·관리·확장.
-    ck("실무 경험 도출~관리 기본 checked·확장 unchecked(활동주차)", cells.length === 5 && cells[0] && cells[1] && cells[2] && cells[3] && cells[4] === false, { cells });
+    // 순서: 도출·분석·견문·관리·확장. 확장은 저장값 없으면 항상 미체크(season-weeks 확장 기간 무관).
+    ck("실무 경험 도출~관리 기본 checked·확장 미체크(저장값 없음)", cells.length === 5 && cells[0] && cells[1] && cells[2] && cells[3] && cells[4] === false, { cells });
   } else {
     console.log("⚠ 경험 팀 행 없음 — 경험 체크 검증 생략.");
   }

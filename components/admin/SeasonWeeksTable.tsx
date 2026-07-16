@@ -49,20 +49,9 @@ type SeasonSummary = {
 type OfficialRestSource = "season_rule" | "date_period" | "legacy_iso_week";
 
 // 실무 경험 <확장> 류 라인 진행 방식. 서버 DTO(experienceExpansionLineMode)와 동일 union.
+//   표 컬럼은 2026-07-16 제거됐으나(확장 SoT 를 주차 상세 저장값으로 일원화), DTO 호환을 위해
+//   응답 필드 형상만 유지한다 — 렌더/정렬에는 사용하지 않는다.
 type ExperienceExpansionLineMode = "none" | "online" | "offline";
-
-const EXPANSION_LINE_MODE_LABEL: Record<ExperienceExpansionLineMode, string> = {
-  none: "진행 없음",
-  online: "온라인",
-  offline: "오프라인",
-} as const;
-
-// null/undefined/알 수 없는 값은 방어적으로 "진행 없음". 정상 응답은 항상 세 값 중 하나.
-function expansionLineModeLabel(value: unknown): string {
-  return value === "online" || value === "offline"
-    ? EXPANSION_LINE_MODE_LABEL[value]
-    : EXPANSION_LINE_MODE_LABEL.none;
-}
 
 type SeasonWeekRow = SeasonSummary & {
   week_id: string;
@@ -306,8 +295,7 @@ type ColKey =
   | "season"
   | "week"
   | "activity"
-  | "remark"
-  | "expansionLine";
+  | "remark";
 type SortValue = number | string | null;
 
 const SEASON_SORT_ORDER: Record<SeasonToken, number> = {
@@ -381,16 +369,11 @@ const COLUMNS: ColumnDef[] = [
     helpKey: "admin.seasonWeeks.column.remark",
     sortValue: (row) => rowRemark(row) || null,
   },
-  {
-    key: "expansionLine",
-    label: "[실무 경험] > 확장 류 라인",
-    helpKey: "admin.seasonWeeks.column.expansionLine",
-    // 진행 방식 랭크: 진행 없음(0) → 온라인(1) → 오프라인(2). "none" 은 빈값 취급 없이 최하 랭크.
-    sortValue: (row) => {
-      const mode = row.experienceExpansionLineMode;
-      return mode === "offline" ? 2 : mode === "online" ? 1 : 0;
-    },
-  },
+  // [제거됨 2026-07-16] `[실무 경험] > 확장 류 라인` 컬럼은 더 이상 사용하지 않는다.
+  //   이 컬럼은 cluster4_experience_extension_periods(확장 기간 원장)를 표시했으나, 확장 여부의
+  //   단일 SoT 를 /admin/team-parts/info/weeks/[주차 상세] 의 관리자 저장값으로 일원화하면서
+  //   혼동을 피하기 위해 표에서 내렸다. 서버 DTO(experienceExpansionLineMode)는 API 호환을 위해
+  //   유지되지만 여기서 렌더하지 않는다(주차 상세의 확장 판정과는 무관·독립).
 ];
 
 // null/빈값/"-" 은 정렬 방향과 무관하게 항상 뒤로. 숫자는 숫자, 문자열은 한글 locale.
@@ -831,9 +814,6 @@ export default function SeasonWeeksTable() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {rowRemark(row)}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {expansionLineModeLabel(row.experienceExpansionLineMode)}
                     </TableCell>
                   </TableRow>
                 );
