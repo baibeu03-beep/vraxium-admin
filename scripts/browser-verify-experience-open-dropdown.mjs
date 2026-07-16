@@ -53,16 +53,23 @@ try {
     );
     ck(`[${org}] 팀 탭에 (T) 테스트 팀 노출`, teamTabs.length >= 1, `tabs=[${teamTabs.join(", ")}]`);
 
-    // ② 파트 드롭다운(<select>) 옵션 — "팀 총괄" 외 실제 파트 존재.
-    const partOpts = await page.evaluate(() => {
-      const sels = Array.from(document.querySelectorAll("select"));
-      for (const s of sels) {
-        const opts = Array.from(s.options).map((o) => o.textContent.trim());
-        if (opts.includes("팀 총괄")) return opts.filter((o) => o !== "팀 총괄");
-      }
-      return [];
-    });
-    ck(`[${org}] 파트 드롭다운 실제 파트 옵션 존재`, partOpts.length >= 1, `parts=[${partOpts.join(", ")}]`);
+    // ② 파트 드롭다운(커스텀 Select) 옵션 — "팀 총괄" 외 실제 파트 존재.
+    //    native <select> → base-ui Select 전환(개설 신청 상태 체크 표시). 트리거 클릭 후 popup 옵션 확인.
+    const partTrigger = page.locator('[data-slot="select-trigger"].w-56').first();
+    await partTrigger.click();
+    await page.waitForTimeout(400);
+    const partOpts = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[data-slot="select-item"]')).map((e) =>
+        (e.textContent || "").trim(),
+      ),
+    );
+    await page.keyboard.press("Escape");
+    await page.waitForTimeout(200);
+    ck(
+      `[${org}] 파트 드롭다운 실제 파트 옵션 존재`,
+      partOpts.includes("팀 총괄") && partOpts.filter((o) => o !== "팀 총괄").length >= 1,
+      `parts=[${partOpts.join(", ")}]`,
+    );
 
     // ③ 크루 그리드 — "평가 대상 크루가 없습니다" 문구 부재(= 크루 렌더).
     const emptyMsg = await page.evaluate(() =>

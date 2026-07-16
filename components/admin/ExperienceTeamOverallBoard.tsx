@@ -571,13 +571,10 @@ export default function ExperienceTeamOverallBoard({
       {/* 상태 헤더 */}
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <StatusBadge status={board.status} />
-        {extensionActive ? (
+        {/* 확장 주간일 때만 안내(확장 비활성 배지는 노이즈라 제거 — 대체 문구/placeholder 없음). */}
+        {extensionActive && (
           <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
             확장 주간 · {board.extensionKind === "online" ? "온라인" : "오프라인"}
-          </span>
-        ) : (
-          <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-            확장 비활성 (확장 라인 입력 잠금)
           </span>
         )}
         {opened && (
@@ -661,6 +658,8 @@ export default function ExperienceTeamOverallBoard({
                       : undefined
                   }
                   className={cn(
+                    // 행 세로 여백 확대(라인명 드롭다운 위아래 숨통) — 모든 셀 py 동시 확대.
+                    "[&>td]:py-4",
                     partInactive
                       ? // 미개설 비활성 행: muted 배경 + muted 텍스트 + hover 제거 + 컨트롤 not-allowed 커서.
                         //   행 opacity(0.6)·행 not-allowed 커서는 전역 [aria-disabled="true"] 플로어(globals.css)가 부여.
@@ -1017,13 +1016,9 @@ function StatusBadge({ status }: { status: BoardDto["status"] }) {
       </span>
     );
   }
-  if (status === "reviewed") {
-    return (
-      <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-        개설 검수 (임시저장)
-      </span>
-    );
-  }
+  // 개설 검수(reviewed) = 임시저장 중간 상태 — 별도 배지/문구 미표시(요구사항: "개설 검수 (임시저장)" 제거).
+  //   상단 상태 pill 이 개설 필요/완료로 대표하므로 대체 문구/placeholder 없이 아무것도 렌더하지 않는다.
+  if (status === "reviewed") return null;
   return (
     <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
       미진행

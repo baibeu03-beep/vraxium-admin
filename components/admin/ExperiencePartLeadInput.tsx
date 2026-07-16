@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { RotateCcw, Send, User } from "lucide-react";
+import { Check, RotateCcw, Send, User } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -12,6 +12,14 @@ import {
 import { adminDialog } from "@/components/ui/admin-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import ExperienceOpeningStatus from "@/components/admin/ExperienceOpeningStatus";
 import {
   Table,
   TableBody,
@@ -51,6 +59,7 @@ import {
   type PartInputLineOptions,
 } from "@/lib/experiencePartInputTypes";
 import ExperienceLineSelect from "@/components/admin/cluster4/ExperienceLineSelect";
+import type { ExperienceTeamOverallBoard as OverallBoardDto } from "@/lib/experienceTeamOverallTypes";
 
 // 실무 경험 [라인 개설] — 파트장 입력 그리드(additive).
 //   팀 탭(동적) + 개설 주차(openable) + 파트 드롭다운(팀 총괄+parts) + 크루×라인 체크/점수 + 신청/취소.
@@ -72,6 +81,32 @@ type WeekOption = {
 
 const cellKey = (crewUserId: string, lineType: ExperiencePartLineType) =>
   `${crewUserId}:${lineType}`;
+
+// 완료 옵션 배경 강조. focus/hover(bg-accent)는 pseudo-class 우선순위로 이 위를 덮으므로
+//   완료 배경과 현재 hover/선택 강조가 서로 잡아먹지 않는다(색상만 의존 금지 → 체크 아이콘 병기).
+const COMPLETED_ITEM_CLS = "bg-emerald-50 dark:bg-emerald-950/30";
+
+// 파트 드롭다운 옵션 라벨 — 완료 시 라벨 좌측에 체크(현재 선택 체크와 위치 분리).
+//   체크는 aria-hidden(색상 무의존) — 접근성 문구는 SelectItem aria-label 로 전달한다.
+function PartOptionLabel({
+  label,
+  completed,
+}: {
+  label: string;
+  completed: boolean;
+}) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      {completed && (
+        <Check
+          aria-hidden
+          className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+        />
+      )}
+      <span className="min-w-0 break-words">{label}</span>
+    </span>
+  );
+}
 
 export default function ExperiencePartLeadInput({
   onActivity,
@@ -114,6 +149,23 @@ export default function ExperiencePartLeadInput({
   const [partsLoading, setPartsLoading] = useState(false);
   const [gridLoading, setGridLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // ── 개설 신청 상태(SoT = team-overall 서버 응답) ──
+  //   상단 상태 UI + 파트 드롭다운 체크가 공유하는 단일 원천. (org, team, week) 스코프이며
+  //   part/모드/임퍼소네이션과 무관하게 동일 — 운영/테스트/actAs 경로가 같은 값을 본다.
+  //     · partSubmitted[partName] = 해당 파트 [개설 신청] 완료 여부(OverallBoardPart.submitted).
+  //     · opened                  = 팀 총괄 최종 [개설 완료] 여부(board.status === "opened").
+  //   신청/완료/취소 API 성공(onActivity) 후 statusKey 를 올려 서버에서 재조회한다(낙관적 갱신 금지).
+  const [openingStatus, setOpeningStatus] = useState<{
+    partSubmitted: Record<string, boolean>;
+    opened: boolean;
+  } | null>(null);
+  const [statusKey, setStatusKey] = useState(0);
+  // 신청/취소·검수/완료/취소 직후: 상단 상태 재조회(statusKey) + 상위(상태창/로그) 갱신.
+  const handleActivity = useCallback(() => {
+    setStatusKey((k) => k + 1);
+    onActivity?.();
+  }, [onActivity]);
 
   const selectedTeam = useMemo(
     () => teams.find((t) => t.id === selectedTeamId) ?? null,
@@ -414,6 +466,50 @@ export default function ExperiencePartLeadInput({
     })();
   }, [bootLoading, fetchGrid]);
 
+  // ── 개설 신청 상태 조회: (org, team, week) — part 무관 ──
+  //   team-overall GET 을 SoT 로 재사용(추가 API/DTO 없음). 파트별 submitted + 팀총괄 opened 를 한 번에.
+  //   GET 은 org/team/week 스코프라 mode=test/actAsTestUserId 여부와 무관하게 동일값 → 경로 공용 SoT.
+  //   팀/주차 변경 시 자동 재조회(deps), 신청/완료/취소 성공 시 statusKey 로 재조회.
+  useEffect(() => {
+    if (bootLoading) return;
+    let cancelled = false;
+    // setState 는 effect 본문이 아닌 async 콜백 안에서 호출(동기 cascading 렌더 방지 — 파일 표준 패턴).
+    void (async () => {
+      if (!org || !selectedTeam || !selectedWeekId) {
+        if (!cancelled) setOpeningStatus(null);
+        return;
+      }
+      try {
+        const qs = new URLSearchParams({
+          organization: org,
+          week_id: selectedWeekId,
+          team_id: selectedTeam.id,
+          team_name: selectedTeam.teamName,
+        });
+        if (mode === "test") qs.set("mode", "test");
+        const res = await fetch(
+          `/api/admin/cluster4/experience/team-overall?${qs.toString()}`,
+        );
+        const json = await res.json();
+        if (cancelled) return;
+        if (json?.success) {
+          const b = json.data as OverallBoardDto;
+          const map: Record<string, boolean> = {};
+          for (const p of b.parts ?? []) map[p.partName] = p.submitted;
+          setOpeningStatus({ partSubmitted: map, opened: b.status === "opened" });
+        } else {
+          setOpeningStatus(null);
+        }
+      } catch {
+        // 조회 실패 — 상태 미표시(낙관적 완료 금지). 다음 조회에서 복구.
+        if (!cancelled) setOpeningStatus(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [bootLoading, org, mode, selectedTeam, selectedWeekId, statusKey]);
+
   // 팀 변경 — parts 효과가 그 팀의 기본 파트(실제 파트 우선)를 다시 정한다.
   //   임퍼소네이션 중에는 자기 팀 외 탭 클릭 시 팝업 후 차단(이동 안 함).
   const onSelectTeam = useCallback(
@@ -592,13 +688,13 @@ export default function ExperiencePartLeadInput({
       }
       toast("success", LINE_OPENING_RESULT.applySuccess);
       await fetchGrid();
-      onActivity?.();
+      handleActivity();
     } catch {
       toast("error", "신청 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
-  }, [selectedTeam, selectedWeekId, part, data, getCell, org, mode, actAsTestUserId, fetchGrid, onActivity]);
+  }, [selectedTeam, selectedWeekId, part, data, getCell, org, mode, actAsTestUserId, fetchGrid, handleActivity]);
 
   const cancelSubmission = useCallback(async () => {
     if (!selectedTeam || !selectedWeekId || part === TEAM_OVERALL) return;
@@ -624,16 +720,43 @@ export default function ExperiencePartLeadInput({
       }
       toast("success", LINE_OPENING_RESULT.applyCancelSuccess);
       await fetchGrid();
-      onActivity?.();
+      handleActivity();
     } catch {
       toast("error", "취소 중 오류가 발생했습니다");
     } finally {
       setSaving(false);
     }
-  }, [selectedTeam, selectedWeekId, part, data, org, mode, actAsTestUserId, fetchGrid, onActivity]);
+  }, [selectedTeam, selectedWeekId, part, data, org, mode, actAsTestUserId, fetchGrid, handleActivity]);
 
   const isOverall = part === TEAM_OVERALL;
   const submitted = data?.submitted ?? false;
+
+  // 개설 신청 상태 파생(SoT = openingStatus) — 상단 UI + 드롭다운 체크 공용.
+  const overallCompleted = openingStatus?.opened ?? false;
+  const isPartCompleted = useCallback(
+    (partName: string) => openingStatus?.partSubmitted[partName] ?? false,
+    [openingStatus],
+  );
+  // 현재 선택(팀 총괄/파트)의 완료 여부 → 상단 상태 UI state.
+  const currentCompleted = isOverall ? overallCompleted : isPartCompleted(part);
+
+  // 개설 주차 라벨(트리거/옵션 공유) — 공통 Select 로 파트 드롭다운과 동일 높이 규칙(h-9) 적용.
+  const renderWeekLabel = useCallback(
+    (w: WeekOption) =>
+      formatSeasonWeekLabel({
+        year: w.year,
+        seasonName: w.seasonName,
+        weekNumber: w.weekNumber,
+        isOpenTarget: w.isOpenTarget,
+        isCurrent: w.isCurrent,
+        isRest: !w.canOpen,
+      }),
+    [],
+  );
+  const selectedWeekOption = useMemo(
+    () => weekOptions.find((w) => w.id === selectedWeekId) ?? null,
+    [weekOptions, selectedWeekId],
+  );
 
   if (!org) {
     return (
@@ -719,25 +842,31 @@ export default function ExperiencePartLeadInput({
                     size="xs"
                   />
                 </div>
-                {/* 고정 w-64 대신 내용에 맞는 폭(w-auto)+min/max — 선택 문구가 끝까지 보이도록. */}
-                <select
-                  className="w-auto min-w-[16rem] max-w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                {/* 파트 드롭다운과 동일한 공통 Select(base-ui) — h-9 flex 세로중앙 규칙 공유(텍스트 잘림 방지).
+                    native select + 고정 높이는 content-box 압축으로 하단 잘림이 생겨 공통 컴포넌트로 통일. */}
+                <Select
                   value={selectedWeekId}
-                  onChange={(e) => onSelectWeek(e.target.value)}
+                  onValueChange={(v: string | null) => {
+                    if (v) onSelectWeek(v);
+                  }}
                 >
-                  {weekOptions.map((w) => (
-                    <option key={w.id} value={w.id} disabled={!w.canOpen}>
-                      {formatSeasonWeekLabel({
-                        year: w.year,
-                        seasonName: w.seasonName,
-                        weekNumber: w.weekNumber,
-                        isOpenTarget: w.isOpenTarget,
-                        isCurrent: w.isCurrent,
-                        isRest: !w.canOpen,
-                      })}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="min-w-[16rem] max-w-full">
+                    <SelectValue placeholder="개설 주차 선택">
+                      {selectedWeekOption ? (
+                        <span className="line-clamp-1">
+                          {renderWeekLabel(selectedWeekOption)}
+                        </span>
+                      ) : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weekOptions.map((w) => (
+                      <SelectItem key={w.id} value={w.id} disabled={!w.canOpen}>
+                        {renderWeekLabel(w)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-1">
@@ -748,24 +877,76 @@ export default function ExperiencePartLeadInput({
                     size="xs"
                   />
                 </div>
-                <select
-                  className="w-56 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                {/* 파트별 [개설 신청]/[개설 완료] 상태를 옵션에 표시(체크+배경) — SoT=openingStatus.
+                    현재 선택 체크(우측, base-ui 기본)와 완료 체크(라벨 옆)는 위치가 달라 혼동되지 않는다. */}
+                <Select
                   value={part}
-                  onChange={(e) => onSelectPart(e.target.value)}
+                  onValueChange={(v: string | null) => {
+                    if (v) onSelectPart(v);
+                  }}
                   // part_leader 임퍼소네이션은 자기 파트로 고정(드롭다운 disable).
                   disabled={Boolean(lockedPartName)}
                 >
-                  {/* part_leader 고정 시 팀 총괄 옵션 숨김(자기 파트만). */}
-                  {!lockedPartName && <option value={TEAM_OVERALL}>팀 총괄</option>}
-                  {(lockedPartName ? parts.filter((p) => p === lockedPartName) : parts).map(
-                    (p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ),
-                  )}
-                </select>
+                  <SelectTrigger className="w-56">
+                    <SelectValue placeholder="파트 선택">
+                      {part ? (
+                        <span className="inline-flex min-w-0 items-center gap-1.5">
+                          {currentCompleted && (
+                            <Check
+                              aria-hidden
+                              className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                            />
+                          )}
+                          <span className="line-clamp-1">
+                            {isOverall ? "팀 총괄" : part}
+                          </span>
+                        </span>
+                      ) : undefined}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* part_leader 고정 시 팀 총괄 옵션 숨김(자기 파트만). */}
+                    {!lockedPartName && (
+                      <SelectItem
+                        value={TEAM_OVERALL}
+                        aria-label={overallCompleted ? "팀 총괄, 완료" : "팀 총괄"}
+                        className={overallCompleted ? COMPLETED_ITEM_CLS : undefined}
+                      >
+                        <PartOptionLabel label="팀 총괄" completed={overallCompleted} />
+                      </SelectItem>
+                    )}
+                    {(lockedPartName
+                      ? parts.filter((p) => p === lockedPartName)
+                      : parts
+                    ).map((p) => {
+                      const done = isPartCompleted(p);
+                      return (
+                        <SelectItem
+                          key={p}
+                          value={p}
+                          aria-label={done ? `${p}, 완료` : p}
+                          className={done ? COMPLETED_ITEM_CLS : undefined}
+                        >
+                          <PartOptionLabel label={p} completed={done} />
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
+
+              {/* 현재 선택(팀 총괄/파트)의 개설 신청 상태 — 파트 드롭다운과 같은 행/같은 Y.
+                  pill 자체를 h-9(=주차·파트 드롭다운 높이)로 만들어 입력 컨트롤 상/하단선을 정확히 일치시킨다.
+                  행이 items-end 라 라벨 없는 이 pill 의 하단선이 드롭다운 하단선과 맞고, 높이가 같아 상단선도 맞음.
+                  파트: 개설 신청 필요/완료 · 팀 총괄: 개설 필요/개설 완료(status==="opened"). */}
+              {part && (
+                <ExperienceOpeningStatus
+                  state={currentCompleted ? "completed" : "required"}
+                  requiredLabel={isOverall ? "개설 필요" : "개설 신청 필요"}
+                  completedLabel={isOverall ? "개설 완료" : "개설 신청 완료"}
+                  className="h-9"
+                />
+              )}
 
               {/* 팀 활동 책임자(팀장) — 같은 행 우측 정렬(ml-auto). 모바일에선 아래 줄로 wrap.
                   선택 팀 기준(direct DTO teamLeader), 팀 탭 변경 시 자동 갱신. */}
@@ -802,7 +983,7 @@ export default function ExperiencePartLeadInput({
                   mode={mode}
                   actAsTestUserId={actAsTestUserId}
                   actorMemberRole={actorMemberRole}
-                  onActivity={onActivity}
+                  onActivity={handleActivity}
                 />
               ) : (
                 <p className="py-8 text-center text-sm text-muted-foreground">
@@ -922,7 +1103,8 @@ function PartGrid({
               </TableRow>
             ) : (
               crews.map((crew) => (
-                <TableRow key={crew.userId}>
+                // 행 세로 여백 확대(라인명 드롭다운 위아래 숨통) — 모든 셀 py 동시 확대(className).
+                <TableRow key={crew.userId} className="[&>td]:py-4">
                   <TableCell className="font-medium">{crew.displayName}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {crew.partName ?? "-"}
