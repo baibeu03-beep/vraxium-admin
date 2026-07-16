@@ -897,6 +897,11 @@ export type RoutingTarget = {
   isPartLeader: boolean;
   statusLabel: string; // "일반" | "에이전트" | "파트장"
   cumulativeWeeks: number;
+  // 사용자별 선택 라인 = cluster4_experience_part_submission_cells.selected_line_id
+  //   (= line_registrations.bridged_master_id = RegLine.bridgedMasterId). 개설 완료 시 이 값으로
+  //   라인을 그룹핑해 "사용자별 배정 라인"을 보존한다 — 크루 페이지 lineName 의 실질 SoT
+  //   (cluster4_lines.experience_line_master_id → master.line_name). 수집 게이트에서 non-null 보장.
+  selectedLineId: string;
 };
 
 // 매칭은 line_code 우선 + raw line_name 토큰 fallback. line_code 앵커(EN0001/EN0004)를
@@ -947,6 +952,56 @@ async function loadCumulativeWeeks(
   return map;
 }
 
+// ── [2026-07-16] 사용자별 선택 라인(selected_line_id) 기준 그룹핑 ──
+// 크루 페이지 라인명 = cluster4_lines.experience_line_master_id → master.line_name 이라,
+//   같은 카테고리라도 사용자가 서로 다른 라인을 골랐다면 라인을 분리 생성해야 각자의 선택이 보존된다.
+//   (구 resolveCategoryLineGroups 는 도출/분석=candidates[0](첫 라인), 견문=누적주차 분기, 관리=역할
+//    분기로 카테고리를 1~2개 라인으로 축약 → 사용자별 selected_line_id 를 유실했다. 이 함수가 대체.)
+//   매칭: selected_line_id 값 == line_registrations.bridged_master_id(= RegLine.bridgedMasterId) 1:1.
+//   옵션 원천(listExperienceOverallLineOptions)과 등록 라인 원천(loadRegLinesByCategory)은 동일 쿼리
+//   (hub=experience·is_active·org+공통)라 유효 선택값은 항상 매칭된다. 미매칭(비활성화 등)은 경고 후
+//   제외 — 임의 첫 라인으로 폴백하지 않는다(요구사항: 미배정/오류 사용자를 타인의 라인으로 대체 금지).
+export function resolveSelectedLineGroups(
+  category: ExperienceOverallCategory,
+  candidates: RegLine[] | undefined,
+  targets: RoutingTarget[],
+  warnings: string[],
+): Array<{ reg: RegLine; targets: RoutingTarget[] }> {
+  const label =
+    EXPERIENCE_OVERALL_CATEGORIES.find((c) => c.key === category)?.label ?? category;
+  const regByMaster = new Map((candidates ?? []).map((r) => [r.bridgedMasterId, r]));
+
+  // 선택 라인(bridged_master_id)별 그룹 — 입력(파트/이름) 순서 보존.
+  const order: string[] = [];
+  const byLine = new Map<string, RoutingTarget[]>();
+  for (const t of targets) {
+    const list = byLine.get(t.selectedLineId);
+    if (list) {
+      list.push(t);
+    } else {
+      byLine.set(t.selectedLineId, [t]);
+      order.push(t.selectedLineId);
+    }
+  }
+
+  const groups: Array<{ reg: RegLine; targets: RoutingTarget[] }> = [];
+  for (const masterId of order) {
+    const groupTargets = byLine.get(masterId) ?? [];
+    const reg = regByMaster.get(masterId);
+    if (!reg) {
+      warnings.push(
+        `'${label}' 선택 라인(${masterId})의 등록을 찾지 못해 ${groupTargets.length}명을 개설하지 못했습니다.`,
+      );
+      continue;
+    }
+    groups.push({ reg, targets: groupTargets });
+  }
+  return groups;
+}
+
+// [superseded 2026-07-16] 개설 완료 경로는 resolveSelectedLineGroups(사용자별 selected_line_id)로
+//   전환됨. 이 함수는 누적주차/역할 자동분기의 순수 단위 검증(verify-experience-conditional-line-
+//   routing)용으로만 유지 — 실제 개설엔 사용하지 않는다.
 // 카테고리 → [{선택 라인, 그 라인의 대상 크루들}] 그룹. 분기 라인 미식별 시 단일 라인 폴백.
 export function resolveCategoryLineGroups(
   category: ExperienceOverallCategory,
@@ -1147,6 +1202,8 @@ export async function openTeamOverall(input: {
           isPartLeader: crew.isPartLeader,
           statusLabel: crew.statusLabel,
           cumulativeWeeks,
+          // 게이트(위 조건)에서 non-null 보장 — 사용자별 배정 라인 보존 키.
+          selectedLineId: cell.selectedLineId,
         });
         crewsByCat.set(cat.key, list);
       }
@@ -1175,12 +1232,12 @@ export async function openTeamOverall(input: {
     for (const cat of EXPERIENCE_OVERALL_CATEGORIES) {
       const targets = crewsByCat.get(cat.key) ?? [];
       if (targets.length === 0) continue;
-      // 견문/관리 = 크루별 조건부 라우팅(라인 1+개), 그 외 = 단일 라인.
-      const groups = resolveCategoryLineGroups(
+      // 사용자별 선택 라인(selected_line_id) 기준 그룹핑 — 도출/분석/견문/관리/확장 전 카테고리에서
+      //   각자 고른 라인을 분리 생성해 배정 라인을 보존한다(크루 페이지 lineName SoT 정합).
+      const groups = resolveSelectedLineGroups(
         cat.key,
         byCategory.get(cat.key),
         targets,
-        board.extensionKind,
         warnings,
       );
 
