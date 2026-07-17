@@ -5,6 +5,7 @@ import { deriveRosterCardStats } from "@/lib/rosterCardStats";
 import { computeScheduleReliabilityFromRows } from "@/lib/scheduleReliabilityCore";
 import { tickTimeout } from "@/lib/supabaseQueryMeter";
 import { runWithCohortRequestCache } from "@/lib/cohortRequestCache";
+import { traceSpan } from "@/lib/perfTrace";
 
 const ROSTER_STATS_TABLE = "cluster4_roster_card_stats";
 
@@ -523,19 +524,23 @@ export async function readWeeklyCardsSnapshotBatch(
 export async function recomputeAndStoreWeeklyCardsSnapshot(
   profileUserId: string,
 ): Promise<Cluster4WeeklyCardDto[]> {
-  const cards = await getCluster4WeeklyCardsForProfileUser(profileUserId);
+  const cards = await traceSpan("getCluster4WeeklyCardsForProfileUser", () =>
+    getCluster4WeeklyCardsForProfileUser(profileUserId),
+  );
 
   const computedAt = new Date().toISOString();
-  const { error } = await supabaseAdmin.from(TABLE).upsert(
-    {
-      user_id: profileUserId,
-      cards,
-      card_count: cards.length,
-      dto_version: WEEKLY_CARDS_DTO_VERSION,
-      is_stale: false,
-      computed_at: computedAt,
-    },
-    { onConflict: "user_id" },
+  const { error } = await traceSpan("snapshot.upsert", async () =>
+    supabaseAdmin.from(TABLE).upsert(
+      {
+        user_id: profileUserId,
+        cards,
+        card_count: cards.length,
+        dto_version: WEEKLY_CARDS_DTO_VERSION,
+        is_stale: false,
+        computed_at: computedAt,
+      },
+      { onConflict: "user_id" },
+    ),
   );
 
   if (error) {
@@ -546,7 +551,9 @@ export async function recomputeAndStoreWeeklyCardsSnapshot(
     });
   } else {
     // roster slim 캐시 동기(같은 computed_at). best-effort — 실패해도 본 쓰기 영향 없음.
-    await writeRosterCardStats(profileUserId, cards, computedAt);
+    await traceSpan("writeRosterCardStats", () =>
+      writeRosterCardStats(profileUserId, cards, computedAt),
+    );
   }
 
   return cards;

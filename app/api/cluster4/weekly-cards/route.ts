@@ -32,6 +32,12 @@ import {
   currentQueryCount,
   runWithQueryMeter,
 } from "@/lib/supabaseQueryMeter";
+import {
+  formatTrace,
+  runWithPerfTrace,
+  traceSpan,
+  traceSyncSpan,
+} from "@/lib/perfTrace";
 import type {
   Cluster4AreaSixCirclesDto,
   Cluster4SeasonAreaProgressDto,
@@ -91,18 +97,20 @@ function seasonCircleMaps(cards: Cluster4WeeklyCardDto[]): {
   seasonAreaProgressBySeason: Record<string, Cluster4SeasonAreaProgressDto>;
   seasonActivityStatusesBySeason: Record<string, SeasonActivityStatus[]>;
 } {
-  const seasonKeys = Array.from(
-    new Set(cards.map((c) => c.seasonKey).filter((k): k is string => !!k)),
-  );
-  const areaSixCirclesBySeason: Record<string, Cluster4AreaSixCirclesDto> = {};
-  const seasonAreaProgressBySeason: Record<string, Cluster4SeasonAreaProgressDto> = {};
-  for (const sk of seasonKeys) {
-    areaSixCirclesBySeason[sk] = computeAreaSixCircles(cards, sk);
-    seasonAreaProgressBySeason[sk] = computeSeasonAreaProgress(cards, sk);
-  }
-  // area-8 시즌 상태(시즌별 상태 구간) — 카드 roleLabel SoT(= cluster-4-card 배지 동일). 한 번에 전 시즌.
-  const seasonActivityStatusesBySeason = computeSeasonActivityStatusesFromCards(cards);
-  return { areaSixCirclesBySeason, seasonAreaProgressBySeason, seasonActivityStatusesBySeason };
+  return traceSyncSpan("seasonCircleMaps", () => {
+    const seasonKeys = Array.from(
+      new Set(cards.map((c) => c.seasonKey).filter((k): k is string => !!k)),
+    );
+    const areaSixCirclesBySeason: Record<string, Cluster4AreaSixCirclesDto> = {};
+    const seasonAreaProgressBySeason: Record<string, Cluster4SeasonAreaProgressDto> = {};
+    for (const sk of seasonKeys) {
+      areaSixCirclesBySeason[sk] = computeAreaSixCircles(cards, sk);
+      seasonAreaProgressBySeason[sk] = computeSeasonAreaProgress(cards, sk);
+    }
+    // area-8 시즌 상태(시즌별 상태 구간) — 카드 roleLabel SoT(= cluster-4-card 배지 동일). 한 번에 전 시즌.
+    const seasonActivityStatusesBySeason = computeSeasonActivityStatusesFromCards(cards);
+    return { areaSixCirclesBySeason, seasonAreaProgressBySeason, seasonActivityStatusesBySeason };
+  });
 }
 
 // growthInfo: 성장 배지(성장 중단/완료/휴식/진행) 단일 출처 — 데모·일반 동일 응답 필드.
@@ -115,17 +123,19 @@ function ok(
 ) {
   const { areaSixCirclesBySeason, seasonAreaProgressBySeason, seasonActivityStatusesBySeason } =
     seasonCircleMaps(data);
-  return Response.json({
-    success: true,
-    data,
-    areaSixCircles,
-    seasonAreaProgress,
-    areaSixCirclesBySeason,
-    seasonAreaProgressBySeason,
-    seasonActivityStatusesBySeason,
-    growthInfo,
-    error: null,
-  });
+  return traceSyncSpan("serialize(Response.json)", () =>
+    Response.json({
+      success: true,
+      data,
+      areaSixCircles,
+      seasonAreaProgress,
+      areaSixCirclesBySeason,
+      seasonAreaProgressBySeason,
+      seasonActivityStatusesBySeason,
+      growthInfo,
+      error: null,
+    }),
+  );
 }
 function fail(status: number, message: string, code: string) {
   return Response.json(
@@ -162,11 +172,15 @@ async function finalizeOk(
   label: string,
   meta: ({ userId: string } & LoadResult) | null,
 ): Promise<Response> {
-  const growthInfo = await loadGrowthStopInfo(userId);
+  const growthInfo = await traceSpan("loadGrowthStopInfo", () =>
+    loadGrowthStopInfo(userId),
+  );
   const cards = truncateCardsForGrowthStop(rawCards, growthInfo.isStopped);
   const seasonKey = currentSeasonKey();
-  const circles = computeAreaSixCircles(cards, seasonKey);
-  const areaProgress = computeSeasonAreaProgress(cards, seasonKey);
+  const { circles, areaProgress } = traceSyncSpan("computeArea6+7(current)", () => ({
+    circles: computeAreaSixCircles(cards, seasonKey),
+    areaProgress: computeSeasonAreaProgress(cards, seasonKey),
+  }));
   return done(
     ok(cards, circles, areaProgress, growthInfo),
     label,
@@ -243,12 +257,18 @@ function scheduleVersionMismatchRecompute(profileUserId: string): void {
 //   - demo(mode=test/demoUserId) 와 session 경로가 모두 이 함수를 통과하므로 동일 DTO·동일 overlay
 //     를 탄다(override 키 = user_id, mode 무관).
 async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
-  const result = await loadWeeklyCardsRaw(profileUserId);
+  const result = await traceSpan("loadWeeklyCardsRaw", () =>
+    loadWeeklyCardsRaw(profileUserId),
+  );
   try {
     // ① 강화 상태 overlay → ② 2차 기입 편집권 overlay. 둘 다 read-time(굽지 않음), 키=user_id(mode 무관).
     //   각 overlay 는 매칭 없음 시 동일 배열 참조 반환 → 참조 비교로 no-op 판정.
-    const afterEnh = await applyEnhancementOverridesToCards(profileUserId, result.cards);
-    const cards = await applySecondEntryOverridesToCards(profileUserId, afterEnh);
+    const afterEnh = await traceSpan("applyEnhancementOverridesToCards", () =>
+      applyEnhancementOverridesToCards(profileUserId, result.cards),
+    );
+    const cards = await traceSpan("applySecondEntryOverridesToCards", () =>
+      applySecondEntryOverridesToCards(profileUserId, afterEnh),
+    );
     return cards === result.cards ? result : { ...result, cards };
   } catch (e) {
     // overlay 실패는 격리한다 — override 때문에 조회가 깨지면 안 되므로 raw 결과로 폴백.
@@ -269,7 +289,9 @@ async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
 //   - miss(행 없음, 신규 유저)                 → 단건 재계산·저장 → 최신 반환. 실패 시 빈 배열.
 //   - error(조회 실패)                         → 빈 배열. 일시 오류에 계산 폭증 방지 — 절대 계산 안 함.
 async function loadWeeklyCardsRaw(profileUserId: string): Promise<LoadResult> {
-  const snap = await readWeeklyCardsSnapshot(profileUserId);
+  const snap = await traceSpan("readWeeklyCardsSnapshot", () =>
+    readWeeklyCardsSnapshot(profileUserId),
+  );
 
   // 현재 주차 경계 시각(월요일 00:01 KST) — computed_at 이 이보다 과거면 주차 경계를 지난
   // snapshot(boundary-stale). 현재 주차 선택은 00:01 KST 에 넘어가는 활동 날짜로 하고,
@@ -282,7 +304,9 @@ async function loadWeeklyCardsRaw(profileUserId: string): Promise<LoadResult> {
   // 단건 lazy 재계산 — 실패해도 throw 하지 않고 null 반환(호출부가 구 값으로 폴백).
   const lazyRecompute = async (): Promise<Cluster4WeeklyCardDto[] | null> => {
     try {
-      return await recomputeAndStoreWeeklyCardsSnapshot(profileUserId);
+      return await traceSpan("lazyRecompute(recomputeAndStoreWeeklyCardsSnapshot)", () =>
+        recomputeAndStoreWeeklyCardsSnapshot(profileUserId),
+      );
     } catch (e) {
       console.warn("[weekly-cards] lazy recompute failed → 기존 저장본 폴백", {
         profileUserId,
@@ -394,8 +418,19 @@ async function logWeekComparison(
   }
 }
 
+// 성능 트레이스 게이트: 로컬/조사용에서만 WEEKLY_CARDS_TRACE=1 로 켠다(운영 미설정 → no-op).
+//   켜져 있어도 응답 본문/상태는 완전히 동일하며, 콘솔에 span/query 분해만 추가 출력한다.
+const TRACE_ENABLED = process.env.WEEKLY_CARDS_TRACE === "1";
+
 export async function GET(request: NextRequest) {
-  return runWithQueryMeter("[weekly-cards]", () => handleGet(request));
+  if (!TRACE_ENABLED) {
+    return runWithQueryMeter("[weekly-cards]", () => handleGet(request));
+  }
+  const { result, trace } = await runWithPerfTrace("[weekly-cards]", () =>
+    runWithQueryMeter("[weekly-cards]", () => handleGet(request)),
+  );
+  console.log(`\n${formatTrace(trace)}\n`);
+  return result;
 }
 
 async function handleGet(request: NextRequest): Promise<Response> {
@@ -422,7 +457,9 @@ async function handleGet(request: NextRequest): Promise<Response> {
   // 데모 모드: demoUserId 가 유효한 테스트 유저면 세션 인증 대신 그 유저 데이터를 반환.
   // (DTO shape 은 일반 경로와 동일 — 프론트 컴포넌트 재사용 가능)
   try {
-    const requestScope = await resolveRequestScope(request);
+    const requestScope = await traceSpan("resolveRequestScope", () =>
+      resolveRequestScope(request),
+    );
     if (requestScope.demoUserId) {
       // 데모(테스트유저) 인증은 demoUserId 로 통과하되, 카드 조회 대상은 userId(페이지 주인)가
       // 있으면 그것을 우선한다. foreign viewer(테스트유저 demoUserId 가 다른 유저 userId 페이지를
@@ -493,11 +530,14 @@ async function handleGet(request: NextRequest): Promise<Response> {
     null;
 
   if (!internalAuthAccepted) {
-    const supabase = await getSupabaseServerClient();
+    const authed = await traceSpan("supabase.auth.getUser", async () => {
+      const supabase = await getSupabaseServerClient();
+      return supabase.auth.getUser();
+    });
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser();
+    } = authed;
 
     if (authError || !user) {
       return done(fail(401, "Authentication required.", "unauthenticated"), "auth");
@@ -520,18 +560,16 @@ async function handleGet(request: NextRequest): Promise<Response> {
       }
       profileUserId = requestedUserId;
     } else if (requestedUserId) {
-      const ownProfileUserId = await resolveProfileUserId(
-        sessionUser!.id,
-        sessionUser!.email,
+      const ownProfileUserId = await traceSpan("resolveProfileUserId", () =>
+        resolveProfileUserId(sessionUser!.id, sessionUser!.email),
       );
       if (requestedUserId !== ownProfileUserId) {
-        await requireAdmin(ADMIN_READ_ROLES);
+        await traceSpan("requireAdmin", () => requireAdmin(ADMIN_READ_ROLES));
       }
       profileUserId = requestedUserId;
     } else {
-      const ownProfileUserId = await resolveProfileUserId(
-        sessionUser!.id,
-        sessionUser!.email,
+      const ownProfileUserId = await traceSpan("resolveProfileUserId", () =>
+        resolveProfileUserId(sessionUser!.id, sessionUser!.email),
       );
       if (!ownProfileUserId) {
         return done(fail(404, "User profile not found.", "profile_not_found"), "no-profile");
@@ -540,16 +578,20 @@ async function handleGet(request: NextRequest): Promise<Response> {
     }
 
     // 페이지 slug ↔ 실제 org 접근 게이트(세션/internal 경로 동일 적용 — 요구사항 #4).
-    await assertPageAccessBySlug({
-      userId: profileUserId,
-      pageType: "cluster4",
-      requestedSlug: readPageSlug(request),
-    });
+    await traceSpan("assertPageAccessBySlug", () =>
+      assertPageAccessBySlug({
+        userId: profileUserId,
+        pageType: "cluster4",
+        requestedSlug: readPageSlug(request),
+      }),
+    );
 
     // 진입경로 일관성(2026-06-16): mode 파라미터는 weekly-cards DTO 계산에 영향을 주지 않는다.
     //   세션/internal 경로도 snapshot-only 로더만 사용 — 테스트 유저든 실유저든 동일 userId 면
     //   동일 snapshot row 를 반환한다(데모 경로와 정합).
-    const result = await loadWeeklyCards(profileUserId);
+    const result = await traceSpan("loadWeeklyCards", () =>
+      loadWeeklyCards(profileUserId),
+    );
 
     // 디버그 비교 로그는 getWeeklyGrowth 를 2차로 다시 호출(요청 비용 약 2배) → 기본 OFF.
     if (DEBUG_COMPARE) {

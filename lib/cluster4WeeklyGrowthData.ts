@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { traceSpan } from "@/lib/perfTrace";
 import {
   getCachedSelfProfile,
   getCachedSelfMemberships,
@@ -1552,11 +1553,15 @@ export async function getWeeklyGrowth(
   opts: { effectiveFromOverride?: string } = {},
 ): Promise<WeeklyGrowthDto | null> {
   const t0 = Date.now();
-  const crew = await getAdminCrewDtoByLegacyUserId(legacyUserId);
+  const crew = await traceSpan("getAdminCrewDtoByLegacyUserId", () =>
+    getAdminCrewDtoByLegacyUserId(legacyUserId),
+  );
   if (!crew) return null;
   const tCrew = Date.now();
 
-  const currentWeekInfo = await computeCurrentWeekInfo();
+  const currentWeekInfo = await traceSpan("computeCurrentWeekInfo", () =>
+    computeCurrentWeekInfo(),
+  );
 
   // 진입 화면 시즌 요약 — 현재 시즌(달력) 단일 정보. 사용자 데이터와 무관하게 항상 산출.
   const todayIso = getCurrentActivityDateIso();
@@ -1581,23 +1586,27 @@ export async function getWeeklyGrowth(
   const tCurrentWeek = Date.now();
   // 클린 파이프라인: 카드(resolved)를 먼저 만든 뒤 그 카드로 요약을 fold 한다.
   //   → growthSummary 와 weeklyCards 가 동일 ResolvedWeek 소스를 공유(수동 보정 불필요).
-  const weeklyResult = await computeWeeklyCards(
-    crew.userId,
-    (crew.organizationSlug as OrganizationSlug) ?? null,
-    {
-      teamLabel: crew.teamName ?? "-",
-      partLabel: crew.partName ?? "-",
-      activityStatus: crew.membershipLevel ?? "일반",
-      teamNameRaw: crew.teamName ?? null,
-      partNameRaw: crew.partName ?? null,
-      roleLabelRaw: crew.membershipLevel ?? null,
-      membershipStatusLabelRaw: crew.membershipState ?? null,
-      organizationSlug: crew.organizationSlug ?? null,
-    },
-    { effectiveFrom: opts.effectiveFromOverride },
+  const weeklyResult = await traceSpan("computeWeeklyCards", () =>
+    computeWeeklyCards(
+      crew.userId,
+      (crew.organizationSlug as OrganizationSlug) ?? null,
+      {
+        teamLabel: crew.teamName ?? "-",
+        partLabel: crew.partName ?? "-",
+        activityStatus: crew.membershipLevel ?? "일반",
+        teamNameRaw: crew.teamName ?? null,
+        partNameRaw: crew.partName ?? null,
+        roleLabelRaw: crew.membershipLevel ?? null,
+        membershipStatusLabelRaw: crew.membershipState ?? null,
+        organizationSlug: crew.organizationSlug ?? null,
+      },
+      { effectiveFrom: opts.effectiveFromOverride },
+    ),
   );
   const weeklyCards = weeklyResult.cards;
-  const growthSummary = await computeGrowthSummary(crew.userId, weeklyCards);
+  const growthSummary = await traceSpan("computeGrowthSummary", () =>
+    computeGrowthSummary(crew.userId, weeklyCards),
+  );
   const tCards = Date.now();
   console.log(
     "[weekly-cards][timing] getWeeklyGrowth",
@@ -1614,9 +1623,8 @@ export async function getWeeklyGrowth(
   );
   // area-8-season-status(현재 시즌 단건) — SoT = user_position_histories(주차단위) 구간 산정.
   //   시즌별 맵(선택 시즌 연동)은 weekly-cards 라우트가 스냅샷 카드에서 제공한다(카드 roleLabel 공유).
-  const seasonActivityStatuses = await computeSeasonActivityStatuses(
-    crew.userId,
-    currentSeason,
+  const seasonActivityStatuses = await traceSpan("computeSeasonActivityStatuses", () =>
+    computeSeasonActivityStatuses(crew.userId, currentSeason),
   );
 
   return {

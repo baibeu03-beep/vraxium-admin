@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { traceSpan } from "@/lib/perfTrace";
 import {
   runWithSelfIdentityCache,
   getCachedSelfProfile,
@@ -2683,9 +2684,11 @@ async function getCluster4WeeklyCardsForProfileUserImpl(
   const effectiveFrom =
     opts.effectiveFromOverride ?? CLUSTER4_SLOT_POLICY_EFFECTIVE_FROM;
   const tGrowthStart = Date.now();
-  const weeklyGrowth = await getWeeklyGrowth(profileUserId, {
-    effectiveFromOverride: opts.effectiveFromOverride,
-  });
+  const weeklyGrowth = await traceSpan("getWeeklyGrowth", () =>
+    getWeeklyGrowth(profileUserId, {
+      effectiveFromOverride: opts.effectiveFromOverride,
+    }),
+  );
   console.log(
     "[weekly-cards][timing] getWeeklyGrowth(profileUser)",
     `${Date.now() - tGrowthStart}ms`,
@@ -2697,14 +2700,20 @@ async function getCluster4WeeklyCardsForProfileUserImpl(
   const { weekIds, restWeekIds, slotFailWeekIds, legacyWeekIds, confirmedWeekIds } =
     deriveWeekClassification(weeklyGrowth.weeklyCards, effectiveFrom);
   // 관리(5) 슬롯 게이트: membership_level 심화/운영진만 개방 — 잠금 사용자는 분모 제외(해당 없음).
-  const managementSlotOpen = await fetchManagementSlotOpen(profileUserId);
+  const managementSlotOpen = await traceSpan("fetchManagementSlotOpen", () =>
+    fetchManagementSlotOpen(profileUserId),
+  );
   const tLinesStart = Date.now();
   const [lineMap, peopleMap, actLogsByWeek] = await Promise.all([
-    fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds, legacyWeekIds),
+    traceSpan("fetchLineDetailsByWeek", () =>
+      fetchLineDetailsByWeek(profileUserId, weekIds, restWeekIds, slotFailWeekIds, managementSlotOpen, confirmedWeekIds, legacyWeekIds),
+    ),
     // 위클리 평판/연계동료 + 인적사항 (주차별). 실패해도 빈 맵 폴백 → 카드 보호.
-    fetchWeeklyPeopleByWeek(profileUserId, weekIds),
+    traceSpan("fetchWeeklyPeopleByWeek", () =>
+      fetchWeeklyPeopleByWeek(profileUserId, weekIds),
+    ),
     // Detail Log 액트 내역(적립 원장 → startDate 버킷). 실패 시 빈 맵(카드 보호). (append-only, v30)
-    loadActLogsByStartDate(profileUserId),
+    traceSpan("loadActLogsByStartDate", () => loadActLogsByStartDate(profileUserId)),
   ]);
   console.log(
     "[weekly-cards][timing] lineDetails",
