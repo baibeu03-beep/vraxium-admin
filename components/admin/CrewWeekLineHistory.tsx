@@ -48,28 +48,28 @@ const HUB_GROUPS: {
   {
     partType: "information",
     label: "실무 정보",
-    header:
-      "border-emerald-300 bg-emerald-50/70 dark:border-emerald-500/40 dark:bg-emerald-500/10",
-    name: "text-emerald-800 dark:text-emerald-300",
+    header: "border-red-300 bg-red-50/70 dark:border-red-500/40 dark:bg-red-500/10",
+    name: "text-red-800 dark:text-red-300",
   },
   {
     partType: "experience",
     label: "실무 경험",
-    header: "border-sky-300 bg-sky-50/70 dark:border-sky-500/40 dark:bg-sky-500/10",
-    name: "text-sky-800 dark:text-sky-300",
+    header:
+      "border-yellow-300 bg-yellow-50/70 dark:border-yellow-500/40 dark:bg-yellow-500/10",
+    name: "text-yellow-800 dark:text-yellow-300",
   },
   {
     partType: "competency",
     label: "실무 역량",
     header:
-      "border-violet-300 bg-violet-50/70 dark:border-violet-500/40 dark:bg-violet-500/10",
-    name: "text-violet-800 dark:text-violet-300",
+      "border-emerald-300 bg-emerald-50/70 dark:border-emerald-500/40 dark:bg-emerald-500/10",
+    name: "text-emerald-800 dark:text-emerald-300",
   },
   {
     partType: "career",
     label: "실무 경력",
-    header: "border-amber-300 bg-amber-50/70 dark:border-amber-500/40 dark:bg-amber-500/10",
-    name: "text-amber-800 dark:text-amber-300",
+    header: "border-sky-300 bg-sky-50/70 dark:border-sky-500/40 dark:bg-sky-500/10",
+    name: "text-sky-800 dark:text-sky-300",
   },
 ];
 
