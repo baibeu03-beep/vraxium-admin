@@ -20,6 +20,7 @@ import {
   recomputeWeeklyPointsForUsers,
 } from "@/lib/processPointAccrual";
 import { refreshWeeklyCardsSnapshotSafe } from "@/lib/cluster4WeeklyCardsSnapshot";
+import { loadCompetencyLineTypeByMasterIds } from "@/lib/adminLineHistoryType";
 import { recomputeDerivedAfterActMutation } from "@/lib/crewWeekGrowthRejudge";
 import { adminWeekStatusLabel } from "@/lib/adminCrewWeeklyResults";
 import { isCrewWeekEditable } from "@/shared/growth.contracts";
@@ -29,6 +30,8 @@ export type CompetencyMasterOption = {
   masterId: string;
   lineCode: string | null;
   lineName: string;
+  // 유형(원리/기술/관점/자원) = register 원장 line_type(브리지). 미매칭=null → UI "-".
+  lineType: string | null;
   mainTitle: string | null;
   // 선택 시 미리보기(선택한 라인 기존 원천 — 새로 추정/복제 아님).
   previewLink: string | null; // 주차 공용 링크(개설된 라인 output_link_1)
@@ -148,25 +151,30 @@ export async function listCompetencyMasterOptionsForWeek(
     loadWeekCommonContent(weekId),
   ]);
 
-  const options: CompetencyMasterOption[] = ((masters ?? []) as Array<{
+  const selectable = ((masters ?? []) as Array<{
     id: string;
     line_code: string | null;
     line_name: string;
     main_title: string | null;
     is_active: boolean;
     organization_slug: string | null;
-  }>)
-    .filter(
-      (m) =>
-        m.is_active &&
-        isRealCompetencyMaster(m.line_code) &&
-        isMasterOrgVisible(m.organization_slug, org) &&
-        !assigned.has(m.id),
-    )
+  }>).filter(
+    (m) =>
+      m.is_active &&
+      isRealCompetencyMaster(m.line_code) &&
+      isMasterOrgVisible(m.organization_slug, org) &&
+      !assigned.has(m.id),
+  );
+
+  // 유형(원리/기술/관점/자원) = 표/팝업과 동일 SoT(register line_type 브리지).
+  const typeByMaster = await loadCompetencyLineTypeByMasterIds(selectable.map((m) => m.id));
+
+  const options: CompetencyMasterOption[] = selectable
     .map((m) => ({
       masterId: m.id,
       lineCode: m.line_code,
       lineName: m.line_name,
+      lineType: typeByMaster.get(m.id) ?? null,
       mainTitle: m.main_title,
       previewLink: common.link,
       previewImage: common.image,

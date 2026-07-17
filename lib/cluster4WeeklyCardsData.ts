@@ -29,6 +29,7 @@ import {
   roundGrowthRate,
 } from "@/lib/lineAvailability";
 import { normalizeOutputImages } from "@/lib/cluster4OutputImages";
+import { experienceBreakdownFromFold } from "@/lib/experienceSlotFold";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import {
   CLUSTER4_HUB_EDIT_WINDOW_KEYS,
@@ -904,21 +905,9 @@ export function breakdownFromLines(
   // 모델이 달라 불변. activityTypeKey 부재(비정상) info 라인은 dedupe 불가 → 기존대로 개별 집계(회귀 방지).
   const seenInfoTypes = new Set<string>();
   for (const line of lines) {
-    // 실무 경험 강화율(2026-07-17): "현재 사용자에게 실제 배정된 오픈 라인" 기준.
-    //   같은 카테고리에 사용자별로 서로 다른 라인이 개설되면(도출/분석/견문/관리/확장), 본인에게
-    //   배정되지 않은 라인(다른 사용자 라인)이 openedFailLineDetail 로 카드에 fail 로 실려 분모를
-    //   부풀렸다(예: 도출 4라인 중 본인 1 배정인데 4/n 로 집계 → 강화율 희석). 이를 제거한다:
-    //     · 배정 라인(lineTargetId != null)  → 집계(성공/실패 그대로). 복수 배정도 각각 집계(슬롯 수 아님).
-    //     · 개설됐으나 본인 미배정(lineId != null && lineTargetId == null = 타인 라인) → 분모/실패에서 제외.
-    //     · 필수 슬롯 placeholder(lineId == null, 본인 슬롯) → 그대로 유지(required_fail 표시 보존).
-    //   uws 판정(fetchExperienceRequiredSlotStatusByWeek)은 별도 경로라 무영향(표시 강화율만 변경).
-    if (
-      line.partType === "experience" &&
-      line.lineId != null &&
-      line.lineTargetId == null
-    ) {
-      continue;
-    }
+    // 실무 경험은 이 라인별 루프에서 집계하지 않는다 — 아래에서 **유형 슬롯 폴딩**으로 별도 집계.
+    //   (관리자 라인 강화 내역 표·크루 카드 배지와 동일한 단일 resolver 를 써서 화면 간 모순 제거.)
+    if (line.partType === "experience") continue;
     if (line.partType === "information") {
       const typeKey = (line.activityTypeKey ?? line.activityTypeId ?? null) as string | null;
       if (typeKey) {
@@ -931,6 +920,14 @@ export function breakdownFromLines(
     detail.available += 1;
     if (line.enhancementStatus === "success") detail.completed += 1;
   }
+  // 실무 경험 강화율(2026-07-17 확정): "유형 슬롯" 기준(도출/분석/견문/관리/확장).
+  //   분모 = 그 주차에 오픈된 경험 유형 수(오픈+대상=성공 / 오픈+비대상=실패 / 미오픈=제외).
+  //   분자 = 그중 본인 배정·성공 유형 수. 같은 유형 다중 라인은 1칸으로 접어 희석 제거,
+  //          본인 미배정(타인 라인)도 유형이 오픈됐으면 실패로 분모 포함(요구: 배지↔강화율 정합).
+  //   uws 판정(fetchExperienceRequiredSlotStatusByWeek)은 별도 경로라 무영향(표시 강화율만 변경).
+  const expFold = experienceBreakdownFromFold(lines);
+  breakdown.experience.available = expFold.available;
+  breakdown.experience.completed = expFold.completed;
   return breakdown;
 }
 

@@ -9,7 +9,19 @@ import {
 } from "@/lib/cluster4SecondEntryOverride";
 import { formatEnhancementStatusLabel } from "@/lib/cluster4EnhancementLabels";
 import { formatProcessHubLabel } from "@/lib/adminProcessesTypes";
+import {
+  INFO_LINE_TYPE_LABEL,
+  experienceTypeDisplayOrder,
+  loadCompetencyLineTypeByMasterIds,
+  loadInfoLineCatalog,
+  resolveLineTypeLabel,
+  type InfoLineCatalogEntry,
+} from "@/lib/adminLineHistoryType";
+import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
+import { foldExperienceSlots } from "@/lib/experienceSlotFold";
+import { rawOpenLineGrowthRate } from "@/lib/lineHistoryGrowthRate";
 import { isCrewWeekEditable } from "@/shared/growth.contracts";
+import type { Cluster4LineDetailDto } from "@/shared/cluster4.contracts";
 import type {
   Cluster4EnhancementReason,
   Cluster4EnhancementStatus,
@@ -82,6 +94,9 @@ export type CrewWeekLineDetailRow = {
   lineId: string | null; // cluster4_lines.id — override/팝업 키. placeholder 라인은 null.
   lineTargetId: string | null;
   partType: Cluster4LinePartType;
+  // 유형(도출/분석/견문/관리/확장·원리/기술/관점/자원·일반) — adminLineHistoryType 단일 SoT.
+  //   register 원장(line_registrations.line_type) 기준. 미해석(브리지 없음 등)=null → UI "-".
+  type: string | null;
   hubLabel: string; // "실무 정보" 등
   lineName: string;
   displayLineCode: string | null;
@@ -113,20 +128,9 @@ export type CrewWeekLineSummaryResult =
   | { ok: true; data: CrewWeekLineSummaryDto }
   | { ok: false; reason: "member_not_found" | "week_not_found" };
 
-// 이 화면(라인 강화 내역) 전용 주차 성장률 — **실제 오픈된 라인 행 기준**.
-//   분모 = clubOpen 인 raw 라인 행 수(허브 집계·활동유형 중복제거 없음, 미오픈/해당없음 제외),
-//   분자 = 그중 강화 성공(enhancementStatus === "success") 행 수. 오픈 0 이면 0%.
-//   ⚠ card.weeklyGrowthRate(breakdownFromLines·허브 SoT)와 의미가 다르다: 그쪽은 정보 허브를 활동
-//     유형으로 중복제거하지만, 이 화면은 상단 요약과 하단 표의 "오픈 라인 수"가 일치해야 하므로
-//     표와 동일한 raw 행으로 재계산한다. 같은 의미가 다른 화면에도 필요하면 이 helper 를 재사용한다.
-export function rawOpenLineGrowthRate(rows: readonly CrewWeekLineDetailRow[]): number {
-  const openCount = rows.filter((r) => r.clubOpen).length;
-  if (openCount === 0) return 0;
-  const successCount = rows.filter(
-    (r) => r.clubOpen && r.enhancementStatus === "success",
-  ).length;
-  return Math.round((successCount / openCount) * 100);
-}
+// 이 화면(라인 강화 내역) 전용 주차/허브 성장률 — 순수 함수라 client-safe 모듈로 분리했다
+//   (클라이언트 컴포넌트가 서버 전용 체인 supabaseAdmin 을 번들하지 않도록). 기존 import 경로 호환 재노출.
+export { rawOpenLineGrowthRate };
 
 export async function getCrewWeekLineSummary(
   legacyUserId: string,
@@ -139,18 +143,50 @@ export async function getCrewWeekLineSummary(
   const lines = card.lines;
   const confirmed = isCrewWeekEditable(card.userWeekStatus);
 
+  // 휴식 주차(개인/공식) — 기존 카드 정책과 동일하게 라인 목록을 생성하지 않는다(요구: 휴식주는
+  //   일반 주차와 달리 정보 8행·경험 5행 같은 라인 목록을 만들지 않고 조회 전용 휴식 상태만 표시).
+  //   카드 자체가 breakdown 을 비우고(emptyBreakdown) cardMessage 로 휴식을 알리는 정책과 정합.
+  if (card.isRestWeek) {
+    return {
+      ok: true,
+      data: {
+        organizationSlug: crew.organizationSlug,
+        weeklyGrowthRate: 0,
+        confirmed,
+        isRestWeek: true,
+        lines: { total: 0, open: 0, unopened: 0 },
+        results: { success: 0, failure: 0, notApplicable: 0, pending: 0 },
+        points: {
+          pointA: { earned: 0, possible: 0 },
+          pointB: { earned: 0, possible: 0 },
+        },
+        lineDetails: [],
+        canManageSecondEntry: false,
+      },
+    };
+  }
+
   // 라인 개설 지급 포인트(A/B만) — 원장 earned + 오픈 라인 설정 possible.
-  //   possible 분모 = 이 주차 클럽에서 오픈된 모든 라인(card.lines 중 lineId != null = clubOpen).
-  //     상세 표의 "오픈" 행과 동일 집합이라 상단 요약과 표 합계가 일치한다. 대상자/성공 여부 무관.
+  //   possible 분모 = 이 주차 클럽에서 오픈된 모든 라인(**원본** card.lines 중 lineId != null = clubOpen).
+  //     ⚠ 표시용 lineDetails 는 아래에서 경험 유령행 제거·정보 8행 enumerate 로 재구성되지만, 포인트
+  //       획득 가능 총합(possible)은 배정/표시와 무관한 "클럽 오픈 라인 전체"이므로 원본에서 뽑는다.
   //   라인별 earned(ref_id=line_id) 와 2차 기입 override 는 상세 표용으로 병렬 로드.
   const openLineIds = Array.from(
     new Set(lines.map((l) => l.lineId).filter((x): x is string => Boolean(x))),
   );
-  const [linePoints, earnedByLine, overrideRows] = await Promise.all([
-    loadLinePointSummaryForCrewWeek(crew.userId, card.weekId, openLineIds),
-    loadLineEarnedByRefForCrewWeek(crew.userId, card.weekId),
-    loadSecondEntryOverridesForUser(crew.userId),
-  ]);
+  // 역량 유형(원리/기술/관점/자원) = register 원장 line_type. competency master 브리지로 일괄 조회.
+  const competencyMasterIds = lines
+    .filter((l) => l.partType === "competency" && l.competencyLineMasterId)
+    .map((l) => l.competencyLineMasterId as string);
+
+  const [linePoints, earnedByLine, overrideRows, competencyTypeByMaster, infoCatalog] =
+    await Promise.all([
+      loadLinePointSummaryForCrewWeek(crew.userId, card.weekId, openLineIds),
+      loadLineEarnedByRefForCrewWeek(crew.userId, card.weekId),
+      loadSecondEntryOverridesForUser(crew.userId),
+      loadCompetencyLineTypeByMasterIds(competencyMasterIds),
+      loadInfoLineCatalog(crew.organizationSlug),
+    ]);
   const overrideAllowedByLine = new Map<string, boolean>();
   for (const r of overrideRows) {
     if (r.week_id === card.weekId) overrideAllowedByLine.set(r.line_id, r.allowed);
@@ -159,23 +195,26 @@ export async function getCrewWeekLineSummary(
   // 실무 역량 개설 판정: 카드는 개설된 주차에만 역량 placeholder 를 not_applicable 이 아닌
   //   fail/pending 으로 만든다(미개설 = not_applicable). 그래서 competency 는 lineId 유무와 무관하게
   //   "not_applicable 이 아니면 개설"이다. 실 대상자 라인은 lineId != null 로 이미 개설.
-  const isCompetencyOpen = (line: (typeof lines)[number]): boolean =>
+  const isCompetencyOpen = (line: Cluster4LineDetailDto): boolean =>
     line.partType === "competency" && line.enhancementStatus !== "not_applicable";
 
-  const lineDetails: CrewWeekLineDetailRow[] = lines.map((line) => {
-    const hubKey = line.partType === "information" ? "info" : line.partType;
+  // 카드 라인 1건 → 표 1행. 유형/표시 라인명은 호출부가 결정(정보=원장 카탈로그명, 그 외=마스터명).
+  //   ⚠ 표와 팝업은 유형을 각자 계산하지 않는다 — resolveLineTypeLabel(단일 SoT)만 쓴다(요구 §5).
+  const toRow = (
+    line: Cluster4LineDetailDto,
+    opts: { type: string | null; displayName: string; displayLineCode?: string | null },
+  ): CrewWeekLineDetailRow => {
     const earned = line.lineId != null ? earnedByLine.get(line.lineId) : undefined;
     return {
       lineId: line.lineId,
       lineTargetId: line.lineTargetId,
       partType: line.partType,
-      hubLabel: formatProcessHubLabel(hubKey),
-      lineName:
-        line.lineName?.trim() ||
-        line.mainTitle?.trim() ||
-        line.displayLineCode?.trim() ||
-        "(이름 없음)",
-      displayLineCode: line.displayLineCode,
+      type: opts.type,
+      hubLabel: formatProcessHubLabel(
+        line.partType === "information" ? "info" : line.partType,
+      ),
+      lineName: opts.displayName,
+      displayLineCode: opts.displayLineCode ?? line.displayLineCode,
       clubOpen: line.lineId != null || isCompetencyOpen(line),
       isCompetencyPlaceholder:
         line.partType === "competency" && line.lineId == null && isCompetencyOpen(line),
@@ -193,7 +232,149 @@ export async function getCrewWeekLineSummary(
       submissionOpensAt: line.submissionOpensAt,
       submissionClosesAt: line.submissionClosesAt,
     };
+  };
+
+  // 개설된 실제 라인만 마스터 라인명, placeholder(lineId 없음)는 "-"(선택된 라인 없음).
+  const masterDisplayName = (line: Cluster4LineDetailDto): string =>
+    line.lineId != null
+      ? line.lineName?.trim() ||
+        line.mainTitle?.trim() ||
+        line.displayLineCode?.trim() ||
+        "(이름 없음)"
+      : "-";
+
+  // 정보 미오픈(이 주차 미개설) 정식 라인 행 — 항상 8행 표시(요구 §3-1). clubOpen=false, 해당 없음.
+  const infoUnopenedRow = (entry: InfoLineCatalogEntry): CrewWeekLineDetailRow => {
+    const enh = computeCluster4Enhancement({
+      hasTarget: false,
+      deadlinePassed: false,
+      hasSubmission: false,
+      isCareer: false,
+      expectedWhenMissing: false,
+    });
+    return {
+      lineId: null,
+      lineTargetId: null,
+      partType: "information",
+      type: INFO_LINE_TYPE_LABEL,
+      hubLabel: formatProcessHubLabel("info"),
+      lineName: entry.lineName,
+      displayLineCode: entry.displayLineCode,
+      clubOpen: false,
+      isCompetencyPlaceholder: false,
+      enhancementStatus: enh.enhancementStatus,
+      enhancementLabel: formatEnhancementStatusLabel(enh.enhancementStatus),
+      enhancementReason: enh.enhancementReason,
+      submissionStatus: enh.submissionStatus,
+      rating: null,
+      earnedA: 0,
+      earnedB: 0,
+      overrideAllowed: false,
+      eligible: false,
+      effectiveCanEdit: false,
+      submission: null,
+      submissionOpensAt: null,
+      submissionClosesAt: null,
+    };
+  };
+
+  // ── 정보(§3-1): 기타A 제외 정식 8라인 항상 표시. 카드 정보행과 활동유형으로 매칭해 상태 부여 ──
+  //   라인명 = 원장(line_registrations) 정식 라인명(Main Title/공표글 제목 아님). 유형 = 일반.
+  const infoRows: CrewWeekLineDetailRow[] = infoCatalog.map((entry) => {
+    const candidates = lines.filter(
+      (l) =>
+        l.partType === "information" &&
+        (l.activityTypeId === entry.activityTypeId ||
+          l.activityTypeKey === entry.activityTypeId),
+    );
+    // 대표 = 본인 배정 > 오픈(타인) > 첫 카드행. 없으면 미오픈 합성 행.
+    const pick =
+      candidates.find((l) => l.lineId != null && l.lineTargetId != null) ??
+      candidates.find((l) => l.lineId != null) ??
+      candidates[0] ??
+      null;
+    return pick
+      ? toRow(pick, {
+          type: INFO_LINE_TYPE_LABEL,
+          displayName: entry.lineName,
+          displayLineCode: entry.displayLineCode,
+        })
+      : infoUnopenedRow(entry);
   });
+
+  // ── 경험(§3-2 정정): 유형 슬롯 폴딩 — 유형(도출/분석/견문/관리/확장) 슬롯당 1행. 슬롯 자체는 제거하지
+  //   않고, 다른 사용자에게 선택된 실제 라인명만 숨긴다("-"). 오픈된 비대상 슬롯의 강화 실패는 유지한다.
+  //     · 본인 배정(lineTargetId!=null)              → 실제 라인명 · 오픈 · 본인 강화 결과(성공/실패).
+  //     · 오픈+본인 비대상(타인 라인/required_fail)  → "-" · 오픈 · 강화 실패. lineId/target 숨김 →
+  //       팝업이 타인 라인을 열거나 2차 기입/earned 가 본인 것처럼 잡히지 않게 한다(§6).
+  //     · 미오픈(not_opened/na placeholder)          → "-" · 미오픈 · 해당 없음.
+  //   클럽 오픈 여부 = enhancementStatus !== "not_applicable"(요구 정책). ⚠ 성장률 집계
+  //   (breakdownFromLines)와 "같은 배열 필터"로 처리하지 않는다 — 표는 슬롯을 유지하고, 성장률은
+  //   별도 정책이다(관리자 표는 자체 폴딩으로 배지↔허브요약 내부 일관, 고객 카드 성장률과의 정합은 감사·보고).
+  const buildExperienceRow = (rep: Cluster4LineDetailDto): CrewWeekLineDetailRow => {
+    const isOwn = rep.lineTargetId != null; // 본인에게 실제 배정(선택)된 라인
+    const opened = rep.enhancementStatus !== "not_applicable";
+    const earned = isOwn && rep.lineId != null ? earnedByLine.get(rep.lineId) : undefined;
+    return {
+      lineId: isOwn ? rep.lineId : null, // 비대상/placeholder = 팝업·2차기입 차단(타인 라인 노출 금지)
+      lineTargetId: isOwn ? rep.lineTargetId : null,
+      partType: "experience",
+      type: resolveLineTypeLabel(rep, competencyTypeByMaster),
+      hubLabel: formatProcessHubLabel("experience"),
+      lineName: isOwn ? masterDisplayName(rep) : "-", // 타인 선택 라인명 미노출
+      displayLineCode: isOwn ? rep.displayLineCode : null,
+      clubOpen: opened,
+      isCompetencyPlaceholder: false,
+      enhancementStatus: rep.enhancementStatus,
+      enhancementLabel: formatEnhancementStatusLabel(rep.enhancementStatus),
+      enhancementReason: rep.enhancementReason,
+      submissionStatus: rep.submissionStatus,
+      rating: isOwn ? rep.experienceRating : null,
+      earnedA: earned?.earnedA ?? 0,
+      earnedB: earned?.earnedB ?? 0,
+      overrideAllowed:
+        isOwn && rep.lineId != null && overrideAllowedByLine.get(rep.lineId) === true,
+      eligible: isOwn ? isSecondEntryEligibleLine(rep) : false,
+      effectiveCanEdit: isOwn ? rep.canEdit : false,
+      submission: isOwn ? rep.submission : null,
+      submissionOpensAt: isOwn ? rep.submissionOpensAt : null,
+      submissionClosesAt: isOwn ? rep.submissionClosesAt : null,
+    };
+  };
+  // 유형 슬롯 폴딩 = **성장률/크루 카드와 동일한 공통 resolver**(foldExperienceSlots). 슬롯당 1행.
+  //   화면별 별도 계산 금지 — 관리자 표의 오픈/성공 집계가 breakdownFromLines(experienceBreakdownFromFold)와
+  //   구조적으로 일치한다(3/4 = 75% 동일). 레거시/휴식은 슬롯 모델이 없어 카드가 주는 만큼만 접힌다.
+  const experienceRows: CrewWeekLineDetailRow[] = foldExperienceSlots(lines)
+    .map((s) => buildExperienceRow(s.rep))
+    .sort((a, b) => experienceTypeDisplayOrder(a.type) - experienceTypeDisplayOrder(b.type));
+
+  // ── 역량(§3-3): 카드가 1인·1주차 1칸으로 fold(2.7). 그대로 1행. 유형=원장 line_type, 미선택=-. ──
+  const competencyRows: CrewWeekLineDetailRow[] = lines
+    .filter((l) => l.partType === "competency")
+    .map((l) =>
+      toRow(l, {
+        type: resolveLineTypeLabel(l, competencyTypeByMaster),
+        displayName: masterDisplayName(l),
+      }),
+    );
+
+  // ── 경력(§3-4): 실제 오픈된 라인만 표시(미오픈 void 패딩 제외). 유형=일반. ──
+  const careerRows: CrewWeekLineDetailRow[] = lines
+    .filter((l) => l.partType === "career" && l.lineId != null)
+    .map((l) =>
+      toRow(l, {
+        type: resolveLineTypeLabel(l, competencyTypeByMaster),
+        displayName: masterDisplayName(l),
+      }),
+    );
+
+  // 표시 순서 = 정보(카탈로그) → 경험(슬롯) → 역량 → 경력(오픈). 결정적 순서로 안정 렌더.
+  const lineDetails: CrewWeekLineDetailRow[] = [
+    ...infoRows,
+    ...experienceRows,
+    ...competencyRows,
+    ...careerRows,
+  ];
 
   // 전체/오픈/미오픈 — 하단 상세 표(lineDetails)와 **동일한 raw 라인 행** 기준. clubOpen 이 SoT.
   //   허브 breakdown·lineTargetId 로 세지 않는다(허브 개수 ≠ 라인 개수). 오픈+미오픈 == 전체 불변식 성립.

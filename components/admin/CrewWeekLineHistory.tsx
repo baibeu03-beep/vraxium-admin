@@ -15,10 +15,12 @@ import { type CrewIdentity } from "@/components/admin/crew/CrewIdentityCards";
 import CrewWeekLineDetailDialog from "@/components/admin/CrewWeekLineDetailDialog";
 import WeekTallyingNotice from "@/components/admin/WeekTallyingNotice";
 import type { BadgeTone } from "@/components/ui/badge";
+import { rawOpenLineGrowthRate } from "@/lib/lineHistoryGrowthRate";
 import type {
   CrewWeekLineDetailRow,
   CrewWeekLineSummaryDto,
 } from "@/lib/adminCrewWeekLineSummary";
+import type { Cluster4LinePartType } from "@/shared/cluster4.contracts";
 
 // ─────────────────────────────────────────────────────────────────────
 // "라인 강화 내역" 탭 — 상단 요약 + 하단 라인 상세 표 + 2차 기입 허용/불가.
@@ -33,6 +35,69 @@ const ENHANCEMENT_TONE: Record<"success" | "danger" | "neutral", BadgeTone> = {
   danger: "danger",
   neutral: "neutral",
 };
+
+// 허브별 그룹 정의 — 표시 순서(정보→경험→역량→경력)와 색 계열. partType 이 그룹 키(SoT).
+//   색은 허브 구분 보조 수단이며, 라인 텍스트(허브명)로도 반드시 명확히 보이게 한다(요구 §3).
+//   다크 모드 대비 유지: 헤더=옅은 tint + 테두리, 허브명=진한 텍스트.
+const HUB_GROUPS: {
+  partType: Cluster4LinePartType;
+  label: string;
+  header: string;
+  name: string;
+}[] = [
+  {
+    partType: "information",
+    label: "실무 정보",
+    header:
+      "border-emerald-300 bg-emerald-50/70 dark:border-emerald-500/40 dark:bg-emerald-500/10",
+    name: "text-emerald-800 dark:text-emerald-300",
+  },
+  {
+    partType: "experience",
+    label: "실무 경험",
+    header: "border-sky-300 bg-sky-50/70 dark:border-sky-500/40 dark:bg-sky-500/10",
+    name: "text-sky-800 dark:text-sky-300",
+  },
+  {
+    partType: "competency",
+    label: "실무 역량",
+    header:
+      "border-violet-300 bg-violet-50/70 dark:border-violet-500/40 dark:bg-violet-500/10",
+    name: "text-violet-800 dark:text-violet-300",
+  },
+  {
+    partType: "career",
+    label: "실무 경력",
+    header: "border-amber-300 bg-amber-50/70 dark:border-amber-500/40 dark:bg-amber-500/10",
+    name: "text-amber-800 dark:text-amber-300",
+  },
+];
+
+// 허브 그룹 요약 카운트 — 상단 전체 요약과 동일한 raw 라인 행 기준(clubOpen / enhancementStatus).
+//   강화율 = rawOpenLineGrowthRate(단일 SoT 재사용) — 오픈 라인 중 강화 성공 비율(raw 행).
+type HubStats = {
+  total: number;
+  open: number;
+  unopened: number;
+  success: number;
+  failure: number;
+  notApplicable: number;
+  growthRate: number;
+};
+
+function computeHubStats(rows: readonly CrewWeekLineDetailRow[]): HubStats {
+  const total = rows.length;
+  const open = rows.filter((r) => r.clubOpen).length;
+  return {
+    total,
+    open,
+    unopened: total - open,
+    success: rows.filter((r) => r.enhancementStatus === "success").length,
+    failure: rows.filter((r) => r.enhancementStatus === "fail").length,
+    notApplicable: rows.filter((r) => r.enhancementStatus === "not_applicable").length,
+    growthRate: rawOpenLineGrowthRate(rows),
+  };
+}
 
 export default function CrewWeekLineHistory({
   userId,
@@ -264,6 +329,15 @@ export default function CrewWeekLineHistory({
 
   const { lines, results, points, weeklyGrowthRate, confirmed, lineDetails } = summary;
 
+  // 휴식 주차 — 일반 주차와 달리 라인 목록(정보 8행·경험 5행 등)을 만들지 않고 조회 전용 휴식 상태만.
+  if (summary.isRestWeek) {
+    return (
+      <div className="rounded-md border bg-muted/20 px-4 py-6 text-center text-sm text-muted-foreground">
+        휴식 주차입니다. 이 주차에는 라인 강화 내역이 없습니다.
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* 첫 줄 — 전체/오픈/미오픈 + 우측 주차 성장률. */}
@@ -337,103 +411,33 @@ export default function CrewWeekLineHistory({
           </Button>
         </div>
 
-        <div className="overflow-x-auto rounded-md border">
-          {/* table-fixed + colgroup: 헤더/바디 동일 폭. 라인명은 가장 넓게(long-text=좌측),
-              나머지 상태·숫자 컬럼은 가운데 정렬. 좁은 화면은 min-w 로 가로 스크롤 유지. */}
-          <table className="w-full min-w-[56rem] table-fixed border-collapse text-sm">
-            <colgroup>
-              <col style={{ width: "32%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "9%" }} />
-              <col style={{ width: "12%" }} />
-              <col style={{ width: "7%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "10%" }} />
-            </colgroup>
-            <thead>
-              <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
-                <th className="px-3 py-2 text-center font-medium">라인명</th>
-                <th className="px-3 py-2 text-center font-medium">허브</th>
-                <th className="px-3 py-2 text-center font-medium">클럽 오픈</th>
-                <th className="px-3 py-2 text-center font-medium">강화 결과</th>
-                <th className="px-3 py-2 text-center font-medium">평점</th>
-                <th className="px-3 py-2 text-center font-medium">획득 {poLabels.a}</th>
-                <th className="px-3 py-2 text-center font-medium">획득 {poLabels.b}</th>
-                <th className="px-3 py-2 text-center font-medium">2차 기입</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lineDetails.map((row, idx) => (
-                <tr
-                  key={row.lineId ?? `ph-${idx}`}
-                  className="border-b align-middle last:border-b-0 hover:bg-muted/20"
-                >
-                  <td className="px-3 py-2 text-left">
-                    {/* 라인명 본문만 좌측 정렬(헤더는 중앙 유지). 클릭 영역은 셀 폭 전체 사용,
-                        부모 가용 폭까지 채우고 정말 넘칠 때만 말줄임(tooltip 유지). */}
-                    <button
-                      type="button"
-                      onClick={() => openLineDetail(row)}
-                      className="block w-full min-w-0 text-left font-medium text-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
-                      title={row.isCompetencyPlaceholder ? "실무 역량 라인 선택" : row.lineName}
-                    >
-                      <span className="block truncate text-left">
-                        {row.isCompetencyPlaceholder ? "-" : row.lineName}
-                      </span>
-                    </button>
-                  </td>
-                  <td className="truncate px-3 py-2 text-center text-muted-foreground">
-                    {row.hubLabel}
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    <StatusBadge
-                      label={row.clubOpen ? "오픈" : "미오픈"}
-                      tone={row.clubOpen ? "info" : "neutral"}
-                      size="sm"
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    <StatusBadge
-                      label={row.enhancementLabel}
-                      tone={ENHANCEMENT_TONE[enhancementStatusTone(row.enhancementStatus)]}
-                      size="sm"
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-center tabular-nums text-foreground">
-                    {row.rating == null ? "-" : row.rating}
-                  </td>
-                  <td
-                    className={cn(
-                      "px-3 py-2 text-center tabular-nums",
-                      row.earnedA > 0 ? pointColorClass("a") : "text-muted-foreground",
-                    )}
-                  >
-                    {row.earnedA}
-                  </td>
-                  <td
-                    className={cn(
-                      "px-3 py-2 text-center tabular-nums",
-                      row.earnedB > 0 ? pointColorClass("b") : "text-muted-foreground",
-                    )}
-                  >
-                    {row.earnedB}
-                  </td>
-                  <td className="px-3 py-2 text-center">
-                    <div className="flex justify-center">
-                      <SecondEntrySwitch
-                        row={row}
-                        canManage={canManage}
-                        busy={row.lineId ? busyLines.has(row.lineId) : false}
-                        anyBusy={anyBusy}
-                        onToggle={() => toggleLine(row)}
-                      />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* ── 허브별 그룹: [요약 헤더 + 해당 허브 라인 테이블] 한 세트를 4개 허브로 반복 ──
+            하나의 긴 혼합 테이블 대신, 허브별 별도 섹션/테이블로 분리(요구 §1). 그룹 간 간격 space-y-5. */}
+        <div className="flex flex-col gap-5">
+          {HUB_GROUPS.map((group) => {
+            const rows = lineDetails.filter((r) => r.partType === group.partType);
+            const stats = computeHubStats(rows);
+            return (
+              <section key={group.partType} className="flex flex-col gap-2">
+                <HubSummaryHeader group={group} stats={stats} confirmed={confirmed} />
+                {rows.length === 0 ? (
+                  <div className="rounded-md border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+                    이 주차에 오픈된 {group.label} 라인이 없습니다.
+                  </div>
+                ) : (
+                  <HubLineTable
+                    rows={rows}
+                    poLabels={poLabels}
+                    canManage={canManage}
+                    busyLines={busyLines}
+                    anyBusy={anyBusy}
+                    onToggle={toggleLine}
+                    onOpenDetail={openLineDetail}
+                  />
+                )}
+              </section>
+            );
+          })}
         </div>
 
         {/* 범례 — 스위치 상태 의미(보자마자 이해). */}
@@ -499,6 +503,176 @@ export default function CrewWeekLineHistory({
           }}
         />
       ) : null}
+    </div>
+  );
+}
+
+// 허브 요약 헤더 — 허브명(색 계열) + 전체/오픈/미오픈/성공/실패/해당없음/강화율. flex-wrap 유지.
+//   진행·집계 중 주차(미확정)면 성공/실패/해당없음/강화율 대신 "집계 전"만 표시(기존 정책·요구 §2).
+function HubSummaryHeader({
+  group,
+  stats,
+  confirmed,
+}: {
+  group: (typeof HUB_GROUPS)[number];
+  stats: HubStats;
+  confirmed: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-4 py-2.5 text-sm",
+        group.header,
+      )}
+    >
+      <span className={cn("inline-flex items-center gap-1.5 text-base font-bold", group.name)}>
+        {group.label}
+      </span>
+      <HubStat label="전체" value={stats.total} />
+      <HubStat label="오픈" value={stats.open} />
+      <HubStat label="미오픈" value={stats.unopened} />
+      {confirmed ? (
+        <>
+          <HubStat label="강화 성공" value={stats.success} />
+          <HubStat label="강화 실패" value={stats.failure} />
+          <HubStat label="해당 없음" value={stats.notApplicable} />
+          <HubStat label="허브 강화율" value={`${stats.growthRate}%`} />
+        </>
+      ) : (
+        <span className="text-muted-foreground">
+          · <span className="font-semibold text-foreground">집계 전</span>
+        </span>
+      )}
+    </div>
+  );
+}
+
+function HubStat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <span className="whitespace-nowrap text-muted-foreground">
+      · {label}{" "}
+      <strong className="font-semibold tabular-nums text-foreground">{value}</strong>
+    </span>
+  );
+}
+
+// 허브 그룹 1개의 라인 테이블 — 허브 컬럼 제거(그룹으로 이미 분리, 요구 §4). 라인명만 좌측 정렬,
+//   나머지 컬럼 중앙 정렬. 독립 rounded border 컨테이너 + 자체 overflow-x-auto(그룹별 가로 스크롤).
+function HubLineTable({
+  rows,
+  poLabels,
+  canManage,
+  busyLines,
+  anyBusy,
+  onToggle,
+  onOpenDetail,
+}: {
+  rows: CrewWeekLineDetailRow[];
+  poLabels: ReturnType<typeof getProcessPointLabels>;
+  canManage: boolean;
+  busyLines: Set<string>;
+  anyBusy: boolean;
+  onToggle: (row: CrewWeekLineDetailRow) => void;
+  onOpenDetail: (row: CrewWeekLineDetailRow) => void;
+}) {
+  return (
+    <div className="overflow-x-auto rounded-md border">
+      {/* table-fixed + colgroup: 헤더/바디 동일 폭. 허브 컬럼 제거로 라인명 폭 확보(좌측 정렬),
+          나머지 상태·숫자 컬럼은 가운데 정렬. 좁은 화면은 min-w 로 가로 스크롤 유지. */}
+      <table className="w-full min-w-[56rem] table-fixed border-collapse text-sm">
+        <colgroup>
+          <col style={{ width: "8%" }} />
+          <col style={{ width: "32%" }} />
+          <col style={{ width: "9%" }} />
+          <col style={{ width: "12%" }} />
+          <col style={{ width: "7%" }} />
+          <col style={{ width: "10%" }} />
+          <col style={{ width: "10%" }} />
+          <col style={{ width: "12%" }} />
+        </colgroup>
+        <thead>
+          <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
+            <th className="px-3 py-2 text-center font-medium">유형</th>
+            <th className="px-3 py-2 text-center font-medium">라인명</th>
+            <th className="px-3 py-2 text-center font-medium">클럽 오픈</th>
+            <th className="px-3 py-2 text-center font-medium">강화 결과</th>
+            <th className="px-3 py-2 text-center font-medium">평점</th>
+            <th className="px-3 py-2 text-center font-medium">획득 {poLabels.a}</th>
+            <th className="px-3 py-2 text-center font-medium">획득 {poLabels.b}</th>
+            <th className="px-3 py-2 text-center font-medium">2차 기입</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, idx) => (
+            <tr
+              key={row.lineId ?? `ph-${idx}`}
+              className="border-b align-middle last:border-b-0 hover:bg-muted/20"
+            >
+              <td className="truncate px-3 py-2 text-center text-muted-foreground">
+                {row.type ?? "-"}
+              </td>
+              <td className="px-3 py-2 text-left">
+                {/* 라인명 본문만 좌측 정렬(헤더는 중앙 유지). 클릭 영역은 셀 폭 전체 사용,
+                    부모 가용 폭까지 채우고 정말 넘칠 때만 말줄임(tooltip 유지). */}
+                <button
+                  type="button"
+                  onClick={() => onOpenDetail(row)}
+                  className="block w-full min-w-0 text-left font-medium text-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+                  title={row.isCompetencyPlaceholder ? "실무 역량 라인 선택" : row.lineName}
+                >
+                  <span className="block truncate text-left">
+                    {row.isCompetencyPlaceholder ? "-" : row.lineName}
+                  </span>
+                </button>
+              </td>
+              <td className="px-3 py-2 text-center">
+                <StatusBadge
+                  label={row.clubOpen ? "오픈" : "미오픈"}
+                  tone={row.clubOpen ? "info" : "neutral"}
+                  size="sm"
+                />
+              </td>
+              <td className="px-3 py-2 text-center">
+                <StatusBadge
+                  label={row.enhancementLabel}
+                  tone={ENHANCEMENT_TONE[enhancementStatusTone(row.enhancementStatus)]}
+                  size="sm"
+                />
+              </td>
+              <td className="px-3 py-2 text-center tabular-nums text-foreground">
+                {row.rating == null ? "-" : row.rating}
+              </td>
+              <td
+                className={cn(
+                  "px-3 py-2 text-center tabular-nums",
+                  row.earnedA > 0 ? pointColorClass("a") : "text-muted-foreground",
+                )}
+              >
+                {row.earnedA}
+              </td>
+              <td
+                className={cn(
+                  "px-3 py-2 text-center tabular-nums",
+                  row.earnedB > 0 ? pointColorClass("b") : "text-muted-foreground",
+                )}
+              >
+                {row.earnedB}
+              </td>
+              <td className="px-3 py-2 text-center">
+                <div className="flex justify-center">
+                  <SecondEntrySwitch
+                    row={row}
+                    canManage={canManage}
+                    busy={row.lineId ? busyLines.has(row.lineId) : false}
+                    anyBusy={anyBusy}
+                    onToggle={() => onToggle(row)}
+                  />
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

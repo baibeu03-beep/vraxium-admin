@@ -372,7 +372,14 @@ async function writeRosterCardStats(
 //   개설되면 기존 v40 은 타인 라인까지 분모에 세어 강화율이 희석됐다(예: 도출 4라인 중 1배정인데 n/4).
 //   experience 분모/분자가 달라지므로 v40 snapshot 전량을 stale(version_mismatch)로 재계산한다.
 //   (파생 캐시 재생성 — uws 판정/원장 불변. 단일라인 카테고리·미개설 유저 값 불변.)
-export const WEEKLY_CARDS_DTO_VERSION = 41;
+// v42(2026-07-17): 실무 경험 강화율을 "유형 슬롯" 기준으로 재정의(공통 resolver experienceSlotFold).
+//   v41 은 비배정 오픈 유형을 분모에서 "제외"했으나, 요구 정책은 오픈+비대상=강화 실패(분모 포함).
+//   분모 = 오픈된 경험 유형 수(오픈+대상=성공/오픈+비대상=실패/미오픈=제외), 분자 = 본인 배정·성공 유형 수.
+//   같은 유형 다중 라인은 1칸으로 접어 희석 제거. 예: 도출/견문/관리 성공 + 분석 오픈·비대상 실패 +
+//   확장 미오픈 → 3/4 = 75%(관리자 라인 강화 내역·크루 카드 배지·허브 강화율 모두 동일). experience
+//   분모/분자가 달라지므로 v41 snapshot 전량을 stale(version_mismatch)로 재계산한다(백필 필요).
+//   (파생 캐시 재생성 — uws 판정/포인트/원장 불변.)
+export const WEEKLY_CARDS_DTO_VERSION = 42;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

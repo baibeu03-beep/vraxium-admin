@@ -63,6 +63,7 @@ type CompetencyMasterOption = {
   masterId: string;
   lineCode: string | null;
   lineName: string;
+  lineType: string | null; // 유형(원리/기술/관점/자원) — 선택 시 상단 유형 표시.
   mainTitle: string | null;
   previewLink: string | null;
   previewImage: string | null;
@@ -140,6 +141,7 @@ export default function CrewWeekLineDetailDialog({
         lineCode: opt?.lineCode ?? null,
         lineName: opt?.lineName ?? "라인명 미정",
         partType: "competency",
+        type: opt?.lineType ?? null,
         hubLabel: "실무 역량",
         mainTitle: opt?.mainTitle ?? null,
       },
@@ -395,39 +397,50 @@ export default function CrewWeekLineDetailDialog({
               </>
             ) : null}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-start gap-3">
             {detail ? (
-              <div className="flex items-center gap-2">
-                <span className="whitespace-nowrap text-sm font-medium text-muted-foreground">
-                  강화 결과
-                </span>
-                {/* 모든 허브 동일하게 드롭다운. 저장 시 경험=평점·경력=grade·정보/역량=override 로 반영. */}
-                <select
-                  value={effectiveStatus}
-                  disabled={!editable || saving}
-                  onChange={(e) => onResultChange(e.target.value as Cluster4EnhancementStatus)}
-                  className={cn(
-                    "rounded-md border bg-background px-2.5 py-1.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
-                    effectiveStatus === "success"
-                      ? "border-emerald-500/50 text-emerald-700 dark:text-emerald-400"
-                      : effectiveStatus === "fail"
-                        ? "border-red-500/50 text-red-600 dark:text-red-400"
-                        : "border-input text-muted-foreground",
-                  )}
-                  title={
-                    isExperience
-                      ? "선택 시 평점이 대표값으로 조정됩니다(평점으로 세부 조정 가능)."
-                      : isCareer
-                        ? "선택 시 등급이 대표값으로 조정됩니다."
-                        : undefined
-                  }
-                >
-                  {RESULT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="whitespace-nowrap text-sm font-medium text-muted-foreground">
+                    강화 결과
+                  </span>
+                  {/* 모든 허브 동일하게 드롭다운. 저장 시 경험=평점·경력=grade·정보/역량=override 로 반영. */}
+                  <select
+                    value={effectiveStatus}
+                    disabled={!editable || saving}
+                    onChange={(e) => onResultChange(e.target.value as Cluster4EnhancementStatus)}
+                    className={cn(
+                      "rounded-md border bg-background px-2.5 py-1.5 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
+                      effectiveStatus === "success"
+                        ? "border-emerald-500/50 text-emerald-700 dark:text-emerald-400"
+                        : effectiveStatus === "fail"
+                          ? "border-red-500/50 text-red-600 dark:text-red-400"
+                          : "border-input text-muted-foreground",
+                    )}
+                    title={
+                      isExperience
+                        ? "선택 시 평점이 대표값으로 조정됩니다(평점으로 세부 조정 가능)."
+                        : isCareer
+                          ? "선택 시 등급이 대표값으로 조정됩니다."
+                          : undefined
+                    }
+                  >
+                    {RESULT_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {/* 유형 — 조회 전용(표 row 와 동일 SoT, 팝업이 따로 계산하지 않음). 미해석=-. */}
+                <div className="flex items-center gap-2">
+                  <span className="whitespace-nowrap text-sm font-medium text-muted-foreground">
+                    유형
+                  </span>
+                  <span className="rounded-md border bg-muted/40 px-2.5 py-1 text-sm font-medium text-foreground">
+                    {detail.identity.type ?? "-"}
+                  </span>
+                </div>
               </div>
             ) : null}
             <button

@@ -1,5 +1,9 @@
 import { resolveCrewWeekCard } from "@/lib/adminCrewWeekDetail";
 import { formatProcessHubLabel } from "@/lib/adminProcessesTypes";
+import {
+  loadCompetencyLineTypeByMasterIds,
+  resolveLineTypeLabel,
+} from "@/lib/adminLineHistoryType";
 import { formatWeekFull } from "@/lib/adminCrewWeeklyResults";
 import { isCrewWeekEditable } from "@/shared/growth.contracts";
 import type {
@@ -33,6 +37,8 @@ export type AdminCrewWeekLineDetailDto = {
     lineCode: string | null; // 표시용 라인코드(displayLineCode)
     lineName: string;
     partType: Cluster4LinePartType;
+    // 유형 — 표와 동일 SoT(resolveLineTypeLabel). 정보/경력=일반·경험=도출/…/견문·역량=원리/…/자원. 미해석=null.
+    type: string | null;
     hubLabel: string; // "실무 경험" 등
     mainTitle: string | null; // 클럽 공통 마스터 — 조회 전용
   };
@@ -76,6 +82,13 @@ export async function getCrewWeekLineDetail(
   const isCareer = line.partType === "career";
   const sub = line.submission;
 
+  // 유형 = 표와 동일 SoT. 역량만 register 원장(line_type) 브리지 조회 필요.
+  const competencyTypeByMaster =
+    line.partType === "competency" && line.competencyLineMasterId
+      ? await loadCompetencyLineTypeByMasterIds([line.competencyLineMasterId])
+      : new Map<string, string>();
+  const lineType = resolveLineTypeLabel(line, competencyTypeByMaster);
+
   // 아웃풋 링크·이미지·서브타이틀·그로스포인트의 SoT = **라인 레벨 콘텐츠(cluster4_lines)** 이며,
   //   고객 앱 라인 모달이 렌더링하는 카드 DTO top-level(line.outputLinks/outputImages/infoSubtitle…)과
   //   동일한 값이다. per-user 제출 원장(cluster4_line_submissions)은 현재 전 행 비어 있어(9166행 0건)
@@ -100,6 +113,7 @@ export async function getCrewWeekLineDetail(
           line.displayLineCode?.trim() ||
           "(이름 없음)",
         partType: line.partType,
+        type: lineType,
         hubLabel: formatProcessHubLabel(hubKey),
         mainTitle: line.mainTitle,
       },
