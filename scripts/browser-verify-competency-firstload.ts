@@ -64,8 +64,10 @@ async function main() {
   const browser = await chromium.launch({ headless: true });
 
   const scenarios = [
-    { tag: "manage/operating", path: "/admin/line-opening/practical-competency?org=encre", expect: "[실무 역량] Hub" },
-    { tag: "manage/test", path: "/admin/line-opening/practical-competency?org=encre&mode=test", expect: "[실무 역량] Hub" },
+    // 렌더 완료 sentinel — [라인 관리] 보드의 "현재 상황" 고정 라벨.
+    //   ("[실무 역량] Hub" 제목은 제거됨 → 상시 렌더되는 라벨로 교체. 상단 보드 자체의 등장 신호는 동일.)
+    { tag: "manage/operating", path: "/admin/line-opening/practical-competency?org=encre", expect: "개설 이행 기간" },
+    { tag: "manage/test", path: "/admin/line-opening/practical-competency?org=encre&mode=test", expect: "개설 이행 기간" },
     { tag: "open/operating", path: "/admin/line-opening/practical-competency?org=encre&tab=open", expect: "라인 개설" },
   ];
 

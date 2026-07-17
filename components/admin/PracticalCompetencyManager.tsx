@@ -473,7 +473,7 @@ export default function PracticalCompetencyManager() {
           [라인 관리] = 기존 실무 역량 화면(아래 내부 탭 3종) 그대로 — 미수정. */}
       {mainTab === "manage" && (
         <>
-      {/* [라인 관리] 상단 보드 — [실무 역량] Hub 제목 + 현재 상황(기간) + 주차 드롭다운 + 6 집계 카드.
+      {/* [라인 관리] 상단 보드 — 현재 상황(기간) + 주차 드롭다운 + 6 집계 카드.
           조직 분기 모드(?org)에서만. 집계는 라인 개설 탭과 동일 DTO(주차만 선택). 아래 기존 화면은 무수정. */}
       {orgScoped && <CompetencyLineManageBoard />}
 

@@ -21,7 +21,7 @@ import AdminHelpIconButton from "@/components/admin/AdminHelpIconButton";
 import { ADMIN_SHARED_HELP_KEYS } from "@/lib/adminSharedHelpKeys";
 
 // 실무 역량 [라인 관리] 탭 — 상단 보드.
-//   "[실무 역량] Hub" 제목 + 현재 상황(오늘/개설 필요/개설 이행 기간, practical-info 공용) +
+//   현재 상황(오늘/개설 필요/개설 이행 기간, practical-info 공용) +
 //   주차 드롭다운(좌) + 6 집계 카드(우). 집계는 라인 개설 탭과 동일 DTO(competency/applications)
 //   를 주차만 바꿔(week_id) 조회 → 같은 주차면 값 일치. snapshot 무관(읽기 전용).
 
@@ -334,15 +334,6 @@ export default function CompetencyLineManageBoard({
 
   return (
     <div className="space-y-4">
-      <h1 className="inline-flex items-center gap-2 text-2xl font-bold">
-        [실무 역량] Hub
-        <AdminHelpIconButton
-          helpKey="admin.lineOpening.competency.title.hub"
-          title="[실무 역량] Hub"
-          size="sm"
-        />
-      </h1>
-
       {/* 오늘 날짜 / 개설 필요 기간 / 개설 이행 기간 (practical-info 공용·동일 SoT) */}
       <PracticalInfoCurrentSituation />
 
