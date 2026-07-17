@@ -1,6 +1,5 @@
 import {
   enhancementStatusTone,
-  formatEnhancementStatusLabel,
   type EnhancementBadgeTone,
 } from "@/lib/cluster4EnhancementLabels";
 import type {
@@ -19,25 +18,33 @@ import type {
 // 입력 = getCrewWeekLineSummary()(관리자 라인 강화 내역 SoT) 결과 **그대로**.
 //   이 모듈은 판정/집계를 다시 하지 않는다 — 강화 결과(enhancementStatus)·평점·유형·허브·
 //   포인트(earned/possible)는 전부 admin SoT 값을 옮겨 담기만 한다(재계산 금지).
-//   유일한 "변환"은 아래 2가지이며 둘 다 요구사항에 명시된 표시 정책이다:
+//   유일한 "변환"은 행 범위(①) 하나뿐이다 — 실린 행의 결과·라벨·톤은 admin 값을 그대로 옮긴다(②).
 //
 //   ① 행 범위: 클럽 오픈 라인만(clubOpen === true). 미오픈 master/카탈로그 행은 제외한다.
-//      → rows.length === clubOpenCount 불변식 성립. (관리자 표는 미오픈 정보 8행도 함께
-//        보여주지만, 크루 표는 "이번 주 클럽이 오픈한 라인"만 다룬다 — 요구 §6.)
+//      → rows.length === clubOpenCount 불변식 성립. (관리자 표는 미오픈 카탈로그 행도 함께
+//        보여주지만, 크루 표는 "이번 주 클럽이 오픈한 라인"만 다룬다.)
+//      ⚠ 이 필터로 인해 **요약의 "해당 없음"만** admin 과 다를 수 있다 — admin 은 미오픈 행을
+//        not_applicable 로 세는 반면 크루는 그 행 자체를 싣지 않는다(실측: admin 6 / 크루 0).
+//        행 범위 축의 의도된 차이이며, **실려 있는 행의 결과값은 admin 과 100% 동일**하다.
 //
-//   ② 결과 분할: 크루 배정 여부(lineTargetId)로 해당 없음을 분리한다 — 요구 §4.
-//        · lineTargetId != null (배정)      → admin enhancementStatus 그대로 매핑.
-//        · lineTargetId == null (비배정)    → "해당 없음"(not_applicable).
-//      ⚠ admin 화면은 이 "클럽 오픈 + 비배정" 행을 강화 실패(fail)로 표기한다
-//        (computeCluster4Enhancement: !hasTarget && expectedWhenMissing → fail).
-//        크루 표는 요구 정의(해당 없음 = 클럽 오픈 − 크루 오픈)를 따르므로 같은 행이
-//        admin=강화 실패 / 크루=해당 없음 으로 보인다. 원천 데이터는 동일하며(같은
-//        getCrewWeekLineSummary 호출) 표시 분할만 다르다 — 의도된 문서화 차이.
+//   ② 결과/라벨/톤: admin enhancementStatus · enhancementLabel 을 **그대로** 옮긴다(재판정 금지).
+//      ⚠ 2026-07-17 수정 — 이전 버전은 lineTargetId == null 이면 admin 이 fail 로 판정한 행까지
+//        "해당 없음"으로 재분류했다. admin 표(CrewWeekLineHistory)는 enhancementStatus 만 보고
+//        그리므로 같은 행이 admin=강화 실패 / 크루=해당 없음 으로 갈렸다
+//        (실측: 정보 "인포데스크", reason=target_missing_required, ltid=null).
+//        배정 여부는 결과의 입력이 아니라 **admin 판정이 이미 반영한 내부 근거**다
+//        (computeCluster4Enhancement: !hasTarget && expectedWhenMissing → fail). 여기서 다시 보지 않는다.
+//      ⚠ 미제출(submissionStatus)·포인트 0·평점 없음도 결과 재분류 근거가 **아니다**. 정보/경험은
+//        미기입이어도 마감 후 성공 처리될 수 있다(실측: "위즈덤" submissionStatus=not_submitted
+//        이지만 admin=success → 크루도 success). submissionStatus 와 강화 결과를 혼동하지 말 것.
 //
 // 불변식(전부 이 함수 안에서 by construction 성립 — 호출부 보정 금지):
 //   clubOpenCount = rows.length = success + failure + notApplicable + pending
 //   crewOpenCount = success + failure + pending        (확정 주차엔 pending=0 → = success + failure)
+//     = admin 이 이 크루에게 실제 판정을 내린 행. 비배정이어도 admin 이 fail 로 판정했으면 포함된다
+//       (배정 여부로 세지 않는다 — ② 참조).
 //   notApplicableCount = clubOpenCount − crewOpenCount
+//     = 클럽 오픈 행 중 admin enhancementStatus 가 not_applicable 인 행(파생값 — 재판정 아님).
 //   enhancementRate = round(success / crewOpen × 100), 분모 0 → 0 (100% 처리 금지)
 //   summary.point{A,B,C}.{earned,available} = Σ rows.point{A,B,C}.{earned,available}
 //
@@ -54,7 +61,11 @@ import type {
 
 // DTO 버전 — 크루 응답 계약이 바뀌면 bump(프론트 호환 분기용).
 //   v2 (2026-07-17): estimatedDurationMinutes · pointC · career 평점(careerGradePoints) 추가 — additive.
-export const CREW_LINE_ENHANCEMENT_DTO_VERSION = 2;
+//   v3 (2026-07-17): result 가 admin enhancementStatus 와 완전 일치(lineTargetId 재분류 제거).
+//     shape 불변·값 변경 — 같은 행이 not_applicable → failure 로 바뀔 수 있다. weekly-cards snapshot 에
+//     실리지 않는 lazy endpoint 전용 DTO 라 저장된 캐시가 없어 **백필/재계산 불필요**(요청마다 live 계산).
+//     프론트 캐시는 (userId, weekId) 메모리 캐시뿐이라 새로고침이면 즉시 수렴한다.
+export const CREW_LINE_ENHANCEMENT_DTO_VERSION = 3;
 
 export type CrewLineEnhancementResult =
   | "success"
@@ -128,13 +139,15 @@ const HUB_BY_PART_TYPE: Record<Cluster4LinePartType, CrewLineEnhancementHub> = {
   career: "practical_career",
 };
 
-// 크루 result → admin enhancementStatus (라벨/톤 SoT 재사용 목적의 역매핑).
-const RESULT_TO_ENHANCEMENT_STATUS: Record<
-  CrewLineEnhancementResult,
-  Cluster4EnhancementStatus
+// admin enhancementStatus → 크루 result 축. **순수 개명(rename)이며 판정이 아니다** —
+//   admin 의 "fail" 을 크루 계약 이름 "failure" 로 부르는 것 외의 의미 변화가 없다.
+//   Record 로 두어 Cluster4EnhancementStatus 가 늘어나면 컴파일이 깨지게 한다(조용한 not_applicable 폴백 금지).
+const ENHANCEMENT_STATUS_TO_RESULT: Record<
+  Cluster4EnhancementStatus,
+  CrewLineEnhancementResult
 > = {
   success: "success",
-  failure: "fail",
+  fail: "failure",
   not_applicable: "not_applicable",
   pending: "pending",
 };
@@ -166,24 +179,13 @@ export function resolveCrewRowRating(
   }
 }
 
-// 행 결과 — 배정(lineTargetId) 여부로 해당 없음을 분리한 뒤, 배정 행만 admin 판정을 매핑한다.
-//   ⚠ 여기서 성공/실패를 새로 판정하지 않는다(admin enhancementStatus 를 옮기기만 함).
+// 행 결과 = admin enhancementStatus 개명. 판정·분기 없음(요구: 크루는 admin 값을 재해석하지 않는다).
+//   ⚠ lineTargetId(배정 여부)·submissionStatus(제출 여부)·포인트·평점을 보지 말 것 — 전부 admin 이
+//     이미 판정에 반영한 입력이다. 여기서 다시 보면 admin=강화 실패 행이 크루=해당 없음 으로 갈린다.
 export function resolveCrewRowResult(
-  row: Pick<CrewWeekLineDetailRow, "lineTargetId" | "enhancementStatus">,
+  row: Pick<CrewWeekLineDetailRow, "enhancementStatus">,
 ): CrewLineEnhancementResult {
-  if (row.lineTargetId == null) return "not_applicable"; // 클럽 오픈 + 이 크루 비대상
-  switch (row.enhancementStatus) {
-    case "success":
-      return "success";
-    case "fail":
-      return "failure";
-    case "pending":
-      return "pending";
-    case "not_applicable":
-      return "not_applicable";
-    default:
-      return "not_applicable";
-  }
+  return ENHANCEMENT_STATUS_TO_RESULT[row.enhancementStatus];
 }
 
 export function projectCrewLineEnhancement(args: {
@@ -198,14 +200,15 @@ export function projectCrewLineEnhancement(args: {
   const openRows = summary.lineDetails.filter((row) => row.clubOpen);
 
   const rows: CrewWeekLineEnhancementRowDto[] = openRows.map((row, idx) => {
-    const result = resolveCrewRowResult(row);
-    const status = RESULT_TO_ENHANCEMENT_STATUS[result];
     return {
       // partType + 표시 순번 = 응답 내 안정·결정적. 내부 mutation 키 미노출.
       stableKey: `${row.partType}:${idx}`,
-      result,
-      resultLabel: formatEnhancementStatusLabel(status),
-      resultTone: enhancementStatusTone(status),
+      result: resolveCrewRowResult(row),
+      // 라벨/톤 = admin 표(CrewWeekLineHistory)가 렌더하는 값 **그 자체**.
+      //   enhancementLabel 은 이미 formatEnhancementStatusLabel(enhancementStatus) 결과라 재포맷하면
+      //   presenter 가 이중화된다 — admin 이 만든 문자열을 그대로 옮겨 byte 동일을 보장한다.
+      resultLabel: row.enhancementLabel,
+      resultTone: enhancementStatusTone(row.enhancementStatus),
       lineName: row.lineName,
       hub: HUB_BY_PART_TYPE[row.partType],
       hubLabel: row.hubLabel,
