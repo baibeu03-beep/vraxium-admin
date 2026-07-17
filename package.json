@@ -43,6 +43,8 @@
     "verify:weekly-cards-dto-parity": "tsx --env-file=.env.local scripts/verify-weekly-cards-dto-parity.ts",
     "verify:act-check-application-rate": "tsx --env-file=.env.local scripts/verify-act-check-application-rate.ts",
     "verify:act-check-application-rate-browser": "tsx --env-file=.env.local scripts/browser-verify-act-check-application-rate.ts",
+    "verify:crew-act-summary-parity": "tsx --env-file=.env.local scripts/verify-crew-act-summary-parity.ts",
+    "verify:crew-act-summary-browser": "tsx --env-file=.env.local scripts/browser-verify-crew-act-summary.ts",
     "verify:line-history-type": "tsx --env-file=.env.local scripts/verify-line-history-type-and-shape.ts",
     "verify:line-audience-cache": "tsx --env-file=.env.local scripts/verify-line-audience-cache.ts"
   },

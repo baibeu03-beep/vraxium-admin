@@ -4,14 +4,25 @@ import { readWeeklyCardsSnapshot } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { loadActLogsByStartDate } from "@/lib/cluster4ActLogsData";
 import { formatWeekFull } from "@/lib/adminCrewWeeklyResults";
 import { isCrewWeekEditable } from "@/shared/growth.contracts";
+import {
+  buildCrewActSummary,
+  resolveCrewActKind,
+  type CrewActSummary,
+  type CrewActSummaryRow,
+} from "@/shared/crewActSummary";
 import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 
 // ─────────────────────────────────────────────────────────────────────
 // 회원별·주차별 상세 "액트 체크 내역" 탭의 서버 DTO/loader.
 //   · 액트 목록 = 고객 Detail Log 와 동일 SoT(loadActLogsByStartDate = process_point_awards 원장).
 //     관리자 탭은 includeCancelled=true 로 취소된 액트도 "취소됨" 으로 노출한다.
-//   · 요약 지표(활동 완료율/체크 성공·실패/획득·가능 포인트)는 고객 레포에 계산 공식이 있어
-//     이 단계에선 보류(summary=null) — 임의 공식으로 고객 수치와 드리프트 내지 않는다.
+//   · 요약 = **크루 페이지와 동일한 공통 per-user 빌더**(shared/crewActSummary.buildCrewActSummary).
+//     두 repo 가 같은 파일을 미러링해 쓰므로 산식이 갈라지지 않는다(관리자 전용 공식 금지).
+//     ⚠ org × week 지표인 ActCheckApplicationSummary(액트 체크 신청율)와 혼동 금지 — 단위가 다르다
+//       (신청율은 전 크루 동일값 / 이 요약은 크루마다 다름).
+//   · **취소 액트**: 표에는 "취소됨" 으로 남기되 **요약 입력에서는 제외**한다. 크루 페이지가
+//     includeCancelled=false 로 취소 행을 애초에 목록에서 빼기 때문 — 동일 수치를 맞추려면 요약도 제외해야
+//     한다(포인트 합산도 recomputeWeeklyPoints 가 cancelled_at IS NULL 로 이미 제외). 신규 정책 아님.
 //   · weekId 는 카드 식별자(합성일 수 있음). 재집계는 (iso_year,iso_week) 축이라 카드 startDate 로
 //     실제 weeks 행을 되짚어 realWeekId 를 확보한다(합성 weekId 로 재집계 no-op 되는 것 방지).
 // ─────────────────────────────────────────────────────────────────────
@@ -38,8 +49,8 @@ export type CrewWeekActDetailDto = {
   weekId: string; // URL 카드 weekId 그대로 echo
   weekLabel: string;
   editable: boolean; // isCrewWeekEditable(주차 성장 상태)
-  // 요약 지표는 후속(고객 공식 확보 후). 현재는 null 로 명시(placeholder 노출).
-  summary: null;
+  // 요약(per-user) = 크루 페이지와 동일 빌더·동일 값. 취소 액트는 입력에서 제외(위 주석 참고).
+  summary: CrewActSummary;
   acts: CrewWeekActRow[];
 };
 
@@ -94,12 +105,13 @@ export async function resolveCrewWeekContext(
   };
 }
 
-// 정규 act_type → 종류 라벨(필수/선별). 레거시(optional/basic)·변동은 "-".
+// 표 "종류" 컬럼 — 정규만 필수/선별 표기(기존 관리자 표 동작 유지). 변동은 "-".
+//   ⚠ 판정 자체는 공통 resolveCrewActKind(크루 페이지와 동일 SoT) 재사용 — 자체 매핑 금지.
+//   (크루 페이지 표는 변동을 전원/부분으로 표기하지만, 관리자 표의 이 컬럼은 기존대로 "-" 를 유지한다.
+//    요약의 필수/선별은 정규 행만 세므로 이 표기 차이가 요약 수치에 영향을 주지 않는다.)
 function requirementLabel(source: string, kind: string): string {
   if (source !== "regular") return "-";
-  if (kind === "required") return "필수";
-  if (kind === "selection") return "선별";
-  return "-";
+  return resolveCrewActKind(source, kind).label;
 }
 
 export type CrewWeekActDetailResult =
@@ -143,13 +155,28 @@ export async function getCrewWeekActDetail(
   const weekLabel =
     formatWeekFull(ctx.card.seasonKey, ctx.card.weekNumber) ?? ctx.card.weekLabel ?? "-";
 
+  // ── 요약(per-user) — 크루 페이지와 동일 빌더/동일 입력 ──────────────────────
+  //   입력 = 크루 페이지가 보는 행과 동일 집합: 원장 actLogs 중 **취소 제외**(includeCancelled=false 등가).
+  //   ⚠ 표(acts)는 취소 행을 포함하지만 요약은 제외한다 → 같은 user/week 에서 크루 페이지와 수치 일치.
+  //   available* 는 DTO 에 원천이 없어 빌더가 earned 로 폴백한다(크루 페이지 현행과 동일 — 별도 이슈).
+  const summaryRows: CrewActSummaryRow[] = logs
+    .filter((l) => (l.source === "regular" || l.source === "irregular") && !l.cancelled)
+    .map((l) => ({
+      result: l.result === "checked" ? "checked" : "miss",
+      source: l.source === "irregular" ? "irregular" : "regular",
+      kindKey: resolveCrewActKind(l.source, l.kind).key,
+      pointA: l.pointA,
+      pointB: l.pointB,
+      pointC: l.pointC,
+    }));
+
   return {
     ok: true,
     data: {
       weekId: urlWeekId,
       weekLabel,
       editable: ctx.editable,
-      summary: null,
+      summary: buildCrewActSummary(summaryRows),
       acts,
     },
   };
