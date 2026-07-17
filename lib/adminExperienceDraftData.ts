@@ -16,7 +16,10 @@ import {
 } from "@/lib/cluster4OutputImages";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
 import { resolveUserScope, type ScopeMode } from "@/lib/userScope";
-import { collectLineOrgAudience } from "@/lib/adminCluster4LinesData";
+import {
+  collectLineOrgAudience,
+  runWithLineOrgAudienceCache,
+} from "@/lib/adminCluster4LinesData";
 import { payLineOpenTargetsOnce } from "@/lib/processPointAccrual";
 import { convergeLineChangeForUsers } from "@/lib/lineChangeDerivation";
 
@@ -440,7 +443,17 @@ type DraftForOpen = {
   entered_at: string | null;
 };
 
-export async function openExperienceDrafts(
+// 일괄 개설: 드래프트 N개 개설 시 라인별 org audience 산정의 스냅샷 모집단 전수 스캔을
+//   요청 캐시로 1회만 실행·공유한다(결과 동일 — 개설 mutation 은 모집단·org 를 바꾸지 않음).
+export function openExperienceDrafts(
+  draftIds: string[],
+  adminId: string,
+): Promise<OpenResult> {
+  return runWithLineOrgAudienceCache(() =>
+    openExperienceDraftsImpl(draftIds, adminId),
+  );
+}
+async function openExperienceDraftsImpl(
   draftIds: string[],
   adminId: string,
 ): Promise<OpenResult> {

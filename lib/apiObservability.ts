@@ -22,6 +22,15 @@ export type ApiObservation = {
   processed?: number;
   // 일부 실패(예: snapshot status:"error")로 제외/폴백된 건수. 핸들러가 채운다(선택).
   partialFailures?: number;
+  // ── mutation 관측(선택) — 로그 전용, 응답 DTO 미변경 ──
+  // 수행한 작업명(예: "competency.open", "week.review"). 계측 로그 분류용.
+  operation?: string;
+  // actor 컨텍스트 모드(operating|test|demo 등) — 일반/테스트/데모 경로 구분(로그).
+  actorMode?: string;
+  // 이 mutation 이 실제로 영향(재계산/무효화)을 준 사용자 수.
+  affectedUserCount?: number;
+  // 이 mutation 이 생성/변경한 라인 수.
+  affectedLineCount?: number;
 };
 
 export async function observeApiRoute<T>(
@@ -46,6 +55,15 @@ export async function observeApiRoute<T>(
         queries: meter.count,
         timeouts: meter.timeouts,
         partialFailures: obs.partialFailures ?? 0,
+        // mutation 관측(있을 때만) — 로그 전용.
+        ...(obs.operation ? { operation: obs.operation } : {}),
+        ...(obs.actorMode ? { actorMode: obs.actorMode } : {}),
+        ...(obs.affectedUserCount != null
+          ? { affectedUserCount: obs.affectedUserCount }
+          : {}),
+        ...(obs.affectedLineCount != null
+          ? { affectedLineCount: obs.affectedLineCount }
+          : {}),
       };
       if (elapsedMs >= SLOW_API_MS || meter.timeouts > 0) {
         console.warn(`${label} SLOW/timeout`, summary);

@@ -9,6 +9,7 @@ import {
   cancelCompetencyHub,
   openCompetencyHub,
 } from "@/lib/adminCompetencyLineOpening";
+import { observeApiRoute } from "@/lib/apiObservability";
 
 // 실무 역량 [라인 개설] — 허브 전체 개설 완료/취소.
 //   POST { action: 'open'|'cancel', organization, output_link_1?, output_description? }
@@ -63,28 +64,35 @@ export async function POST(request: NextRequest) {
   // 운영/테스트 모드 — 개설 완료 시 신청/승인 명단 기반 라인 타깃 생성 가드로 전달.
   const mode = "operating";
 
-  try {
-    const data =
-      action === "open"
-        ? await openCompetencyHub({
-            organization: orgRaw,
-            outputLink1,
-            description: outputDescription,
-            adminId: admin.userId,
-            mode,
-            weekId,
-          })
-        : await cancelCompetencyHub({ organization: orgRaw, adminId: admin.userId, mode, weekId });
-    return Response.json({ success: true, data }, { status: 201 });
-  } catch (error) {
-    const status = (error as { status?: number }).status ?? 500;
-    console.error("[admin/cluster4/competency/opening POST]", error);
-    return Response.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "처리에 실패했습니다",
-      },
-      { status },
-    );
-  }
+  // 순수 계측(로그 전용, 응답 DTO 미변경): elapsed·supabase 쿼리수·operation·actorMode·영향 라인/크루.
+  return observeApiRoute("[admin/cluster4/competency/opening POST]", async (obs) => {
+    obs.operation = `competency.${action}`;
+    obs.actorMode = mode;
+    try {
+      const data =
+        action === "open"
+          ? await openCompetencyHub({
+              organization: orgRaw,
+              outputLink1,
+              description: outputDescription,
+              adminId: admin.userId,
+              mode,
+              weekId,
+            })
+          : await cancelCompetencyHub({ organization: orgRaw, adminId: admin.userId, mode, weekId });
+      obs.affectedLineCount = data.reflectedLines;
+      obs.affectedUserCount = data.reflectedCrews;
+      return Response.json({ success: true, data }, { status: 201 });
+    } catch (error) {
+      const status = (error as { status?: number }).status ?? 500;
+      console.error("[admin/cluster4/competency/opening POST]", error);
+      return Response.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "처리에 실패했습니다",
+        },
+        { status },
+      );
+    }
+  });
 }

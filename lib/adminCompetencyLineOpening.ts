@@ -28,6 +28,7 @@ import {
   collectLineOrgAudience,
   resolveCluster4LineOrgScope,
   invalidateWeeklyCardsForLineOpen,
+  runWithLineOrgAudienceCache,
 } from "@/lib/adminCluster4LinesData";
 import { invalidateWeeklyCardsForUsers } from "@/lib/cluster4WeeklyCardsSnapshot";
 import { insertCompetencyOpeningLog } from "@/lib/adminCompetencyOpeningLogs";
@@ -378,7 +379,13 @@ export type CompetencyOpeningActionResult = {
 
 // ── [개설 완료] 허브 전체 역량 라인 is_active=true + 주차 공통 아웃풋(링크/설명) 반영 + markStale + 로그 ──
 //   outputLink1 이 비어 있으면 라인 아웃풋은 건드리지 않고 활성화만 한다(설명만 있으면 무시).
-export async function openCompetencyHub(input: {
+// 일괄 개설: 라인 N개 무효화에서 스냅샷 모집단 전수 스캔이 라인마다 반복되지 않도록 요청 캐시로 감싼다.
+export function openCompetencyHub(
+  input: Parameters<typeof openCompetencyHubImpl>[0],
+): Promise<CompetencyOpeningActionResult> {
+  return runWithLineOrgAudienceCache(() => openCompetencyHubImpl(input));
+}
+async function openCompetencyHubImpl(input: {
   organization: OrganizationSlug;
   outputLink1?: string | null;
   description?: string | null;
@@ -522,7 +529,13 @@ export async function openCompetencyHub(input: {
 
 // ── [개설 취소] 허브 전체 역량 라인 is_active=false + 아웃풋 원복 + markStale + 로그 ──
 //   prior 스냅샷이 있으면 라인별 직전 아웃풋으로 복원, 없으면 적용했던 공통 아웃풋을 제거(원복).
-export async function cancelCompetencyHub(input: {
+// 일괄 취소: 라인 N개 audience 산정에서 모집단 전수 스캔이 반복되지 않도록 요청 캐시로 감싼다.
+export function cancelCompetencyHub(
+  input: Parameters<typeof cancelCompetencyHubImpl>[0],
+): Promise<CompetencyOpeningActionResult> {
+  return runWithLineOrgAudienceCache(() => cancelCompetencyHubImpl(input));
+}
+async function cancelCompetencyHubImpl(input: {
   organization: OrganizationSlug;
   adminId: string | null;
   // 운영/테스트 모드 — 개설(open)과 동일 주차를 대상으로 취소하도록 전달(테스트 모드 W13 예외 정합).

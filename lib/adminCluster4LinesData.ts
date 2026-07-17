@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { isUuid } from "@/lib/isUuid";
@@ -414,6 +415,59 @@ async function filterLineIdsByOrg(opts: {
 //   - lineOrg=null(판정 불가)   → audience 없음(Step 2 숨김, fail-closed). 배정자(Step 1)는 호출부 union.
 //   - career part             → 미선발/미배정 = not_applicable(분모 무변) → org audience 없음(배정자만).
 // (2E-3) export — org 판정 등가성 검증 스크립트에서 직접 호출하기 위함. 동작 변경 없음.
+// ── 스냅샷 모집단→org 맵 요청 단위 캐시 ────────────────────────────────────
+// collectLineOrgAudience 는 라인마다 "cluster4_weekly_card_snapshots 전수 + user_profiles.org"
+// 를 다시 조회한다(라인별 lineScope 만 다르고 모집단·org 맵은 요청 내 불변). 다건 라인 개설/취소
+// (역량 허브 일괄 개설·경험 드래프트 일괄 개설·취소)에서 라인 N개면 이 전수 스캔이 N회 반복된다.
+//   · 라인 개설/취소 mutation 은 스냅샷 행을 추가하거나 user_profiles.org 를 바꾸지 않으므로,
+//     한 요청 안에서 이 맵은 불변 → 1회만 로드해 공유해도 라인별 audience 결과가 byte-identical.
+//   · 스코프 밖(단건 호출·미래핑)에서는 store 없음 → 종전처럼 매번 직접 로드(동작 불변).
+type LineOrgPopulation = {
+  userIds: string[];
+  orgByUser: Map<string, OrganizationSlug | null>;
+};
+const lineOrgPopulationALS = new AsyncLocalStorage<{
+  pop: Promise<LineOrgPopulation> | null;
+}>();
+
+// 다건 라인 무효화 경로(일괄 개설/취소)를 이 스코프로 감싸면 그 안의 collectLineOrgAudience 들이
+// 스냅샷 모집단 전수 스캔을 1회만 실행·공유한다. 그 밖에서는 no-op(기존 per-line 로드 유지).
+export function runWithLineOrgAudienceCache<T>(fn: () => Promise<T>): Promise<T> {
+  return lineOrgPopulationALS.run({ pop: null }, fn);
+}
+
+async function loadLineOrgPopulation(): Promise<LineOrgPopulation> {
+  const { data: snaps } = await supabaseAdmin
+    .from("cluster4_weekly_card_snapshots")
+    .select("user_id");
+  const userIds = ((snaps ?? []) as { user_id: string }[]).map((r) => r.user_id);
+  const orgByUser = new Map<string, OrganizationSlug | null>();
+  if (userIds.length > 0) {
+    const { data: profs } = await supabaseAdmin
+      .from("user_profiles")
+      .select("user_id,organization_slug")
+      .in("user_id", userIds);
+    for (const p of (profs ?? []) as {
+      user_id: string;
+      organization_slug: string | null;
+    }[]) {
+      orgByUser.set(
+        p.user_id,
+        isOrganizationSlug(p.organization_slug) ? p.organization_slug : null,
+      );
+    }
+  }
+  return { userIds, orgByUser };
+}
+
+// 요청 캐시가 활성이면 그 안의 memoized promise 를 공유, 아니면 직접 로드(기존 동작).
+function getLineOrgPopulation(): Promise<LineOrgPopulation> {
+  const store = lineOrgPopulationALS.getStore();
+  if (!store) return loadLineOrgPopulation();
+  if (!store.pop) store.pop = loadLineOrgPopulation();
+  return store.pop;
+}
+
 export async function collectLineOrgAudience(lineId: string): Promise<string[]> {
   const { data: line } = await supabaseAdmin
     .from("cluster4_lines")
@@ -439,26 +493,9 @@ export async function collectLineOrgAudience(lineId: string): Promise<string[]> 
   if (lineScope.unknown) return [];
 
   // 스냅샷 보유 사용자 + org → Step 2 노출 필터(allowUnknown=false)로 audience 산정.
-  const { data: snaps } = await supabaseAdmin
-    .from("cluster4_weekly_card_snapshots")
-    .select("user_id");
-  const userIds = ((snaps ?? []) as { user_id: string }[]).map((r) => r.user_id);
+  //   모집단·org 맵은 요청 단위 캐시에서 공유(라인별 재조회 제거, 결과 동일).
+  const { userIds, orgByUser } = await getLineOrgPopulation();
   if (userIds.length === 0) return [];
-
-  const orgByUser = new Map<string, OrganizationSlug | null>();
-  const { data: profs } = await supabaseAdmin
-    .from("user_profiles")
-    .select("user_id,organization_slug")
-    .in("user_id", userIds);
-  for (const p of (profs ?? []) as {
-    user_id: string;
-    organization_slug: string | null;
-  }[]) {
-    orgByUser.set(
-      p.user_id,
-      isOrganizationSlug(p.organization_slug) ? p.organization_slug : null,
-    );
-  }
 
   return userIds.filter((uid) =>
     isLineScopeVisibleForOrg(lineScope, orgByUser.get(uid) ?? null),

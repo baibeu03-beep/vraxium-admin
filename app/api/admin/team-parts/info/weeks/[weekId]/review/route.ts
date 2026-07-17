@@ -21,6 +21,7 @@ import {
   WeekDetailWriteError,
 } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { resolveStateScopeFromRequest } from "@/lib/operationalState";
+import { observeApiRoute } from "@/lib/apiObservability";
 
 // 검수 완료/실행 취소는 코호트 전원(수십~85명) 카드 snapshot 을 재계산하므로 최대 수십초가 걸린다
 //   (실측 2026-07-09: 85명 concurrency 8 ≈ 75s). 플랫폼 함수 타임아웃을 명시 상향해 중도 절단을
@@ -64,33 +65,39 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     // body 없음(기존 호출 호환) → false.
   }
 
-  try {
-    const result = await markTeamPartsWeekReviewed(weekId, actorId, {
-      scope,
-      organization: clubRaw,
-      allowIncompleteTestData,
-    });
-    // DTO: { ok, weekId, reviewed, reviewedAt } (+ 확정 상세). success 래퍼는 프론트 호환 유지.
-    return Response.json({
-      success: true,
-      ok: true,
-      weekId: result.weekId,
-      reviewed: result.reviewed,
-      reviewedAt: result.reviewedAt,
-      organization: clubRaw,
-      mode: scope === "qa" ? "test" : "operating",
-      data: result,
-    });
-  } catch (error) {
-    if (error instanceof WeekDetailWriteError) {
-      return Response.json({ success: false, error: error.message }, { status: error.status });
+  // 순수 계측(로그 전용, 응답 DTO 미변경): 검수 완료의 elapsed·supabase 쿼리수·operation·actorMode.
+  //   코호트 전원 재계산 병목의 실측 근거를 서버 로그로 남긴다(SLOW_API_MS 초과 시 warn 승격).
+  return observeApiRoute("[admin/team-parts/info/weeks/[weekId]/review POST]", async (obs) => {
+    obs.operation = "week.review";
+    obs.actorMode = scope === "qa" ? "test" : "operating";
+    try {
+      const result = await markTeamPartsWeekReviewed(weekId, actorId, {
+        scope,
+        organization: clubRaw,
+        allowIncompleteTestData,
+      });
+      // DTO: { ok, weekId, reviewed, reviewedAt } (+ 확정 상세). success 래퍼는 프론트 호환 유지.
+      return Response.json({
+        success: true,
+        ok: true,
+        weekId: result.weekId,
+        reviewed: result.reviewed,
+        reviewedAt: result.reviewedAt,
+        organization: clubRaw,
+        mode: scope === "qa" ? "test" : "operating",
+        data: result,
+      });
+    } catch (error) {
+      if (error instanceof WeekDetailWriteError) {
+        return Response.json({ success: false, error: error.message }, { status: error.status });
+      }
+      console.error("[admin/team-parts/info/weeks/[weekId]/review POST]", error);
+      return Response.json(
+        { success: false, error: error instanceof Error ? error.message : "검수 완료에 실패했습니다." },
+        { status: 500 },
+      );
     }
-    console.error("[admin/team-parts/info/weeks/[weekId]/review POST]", error);
-    return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "검수 완료에 실패했습니다." },
-      { status: 500 },
-    );
-  }
+  });
 }
 
 // DELETE — ↩ 실행 취소: 주차 검수(공표+검수) 실행 직전 상태로 복원.
