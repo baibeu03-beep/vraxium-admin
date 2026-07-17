@@ -379,7 +379,17 @@ async function writeRosterCardStats(
 //   확장 미오픈 → 3/4 = 75%(관리자 라인 강화 내역·크루 카드 배지·허브 강화율 모두 동일). experience
 //   분모/분자가 달라지므로 v41 snapshot 전량을 stale(version_mismatch)로 재계산한다(백필 필요).
 //   (파생 캐시 재생성 — uws 판정/포인트/원장 불변.)
-export const WEEKLY_CARDS_DTO_VERSION = 42;
+// v43(2026-07-17): actLogs 에서 라인 강화 지급 원장(source='line') 제외 — 액트 체크 기록만 남긴다.
+//   loadActLogsByStartDate 가 user_id 로만 필터해 2026-07-13 도입된 source='line' 원장까지 읽었고,
+//   그 행은 irregular 로 오인돼 ref_id(=line_id) JOIN 실패 → actName/kind="" · occurredAt=null 인
+//   빈 행이 되어 Detail Log 액트 탭에 "-" 로 노출됐다(실측: 한 사용자 24행 중 8행). 이 행들은
+//   "라인 강화 내역" 탭(getCrewWeekLineSummary)이 다루는 데이터다.
+//   ⚠ **bump 필수** — 기존 v42 snapshot 의 cards[].actLogs 에 그 빈 행이 이미 baking 되어 있어,
+//   코드만 고치면 재계산 전까지 계속 보인다(shape 이 아니라 내용이 바뀌는 경우라 boundary-stale 로는
+//   부족하다). v42 전량 stale(version_mismatch) → cron/lazy 재계산으로 수렴.
+//   (파생 캐시 재생성 — 원장/포인트 합계/uws 판정 불변. 액트 탭 목록에서 빈 행만 사라진다.
+//    포인트 카드 합계는 user_weekly_points SoT 라 actLogs 필터와 무관 — 값 변화 없음.)
+export const WEEKLY_CARDS_DTO_VERSION = 43;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

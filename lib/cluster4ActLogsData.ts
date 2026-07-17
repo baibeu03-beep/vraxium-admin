@@ -37,6 +37,28 @@ type AwardRow = {
   cancel_reason?: string | null;
 };
 
+// ── 액트 체크 기록 판별 (원장 source 축 — 단일 SoT) ───────────────────────────
+//   process_point_awards.source = AccrualSource("regular" | "irregular" | "line") — 원장 자신의
+//   생성 경로 필드다(processPointAccrual 이 적립 시 기록). 이게 액트와 라인 강화를 가르는 **유일한**
+//   안정 기준이다 — 라벨/이름/포인트 0 여부 같은 표시값으로 추정하지 않는다.
+//
+//   · regular   = 정규 액트 체크(process_check_statuses → process_acts)   → 액트 내역 ✅
+//   · irregular = 변동 액트(process_irregular_acts)                        → 액트 내역 ✅
+//   · line      = **라인 개설/강화 지급**(ref_id = cluster4_lines.id, 2026-07-13 도입) → 제외 ❌
+//                 이 행은 "라인 강화 내역" 탭(getCrewWeekLineSummary)이 담당한다.
+//
+//   ⚠ 버그 이력(2026-07-17 수정): 이 로더가 user_id 로만 필터해 line 원장까지 읽었다. line 행은
+//     아래 분기에서 irregular 로 취급돼 ref_id(=line_id)로 process_irregular_acts 를 조회 →
+//     매칭 실패 → actName/kind="" · occurredAt=null 인 빈 행이 되어 화면에 "-" 로 노출됐다
+//     (실측: 한 사용자 24행 중 8행). DTO 의 source 타입에 "line" 이 없는데도 캐스팅이 이를 가렸다.
+//   ⚠ 미래 방어: source 에 새 값이 추가되면 **액트로 자동 편입되지 않는다**(allowlist 방식).
+//     새 지급 경로는 여기 명시적으로 넣어야 액트 내역에 나타난다.
+const ACT_CHECK_SOURCES: readonly Cluster4ActLogSource[] = ["regular", "irregular"];
+
+export function isActualActCheckLog(row: { source: string }): boolean {
+  return (ACT_CHECK_SOURCES as readonly string[]).includes(row.source);
+}
+
 // userId 의 적립 원장 → startDate(YYYY-MM-DD) 버킷 actLogs 맵. 실패/미적용 시 빈 맵(카드 보호).
 //   호출부는 card.startDate 로 조회해 카드에 배분한다(weekId 아님 — 위 주차 매핑 주석 참고).
 //   opts.includeCancelled(기본 false): 소프트 취소된 원장 행을 목록에 포함할지.
@@ -55,10 +77,13 @@ export async function loadActLogsByStartDate(
     ? "id,source,ref_id,year,week_number,point_check,point_advantage,point_penalty,cancelled_at,cancel_reason"
     : "id,source,ref_id,year,week_number,point_check,point_advantage,point_penalty";
 
+  // ⚠ source 필터 필수 — user_id 만으로 필터하면 라인 강화 지급(source='line') 원장까지 딸려온다.
+  //   DB 단에서 거른다(가져와서 버리지 않는다): 아래 ref JOIN·주차 매핑도 액트 행만 대상으로 돈다.
   const awardsRes = await supabaseAdmin
     .from("process_point_awards")
     .select(selectCols)
-    .eq("user_id", profileUserId);
+    .eq("user_id", profileUserId)
+    .in("source", ACT_CHECK_SOURCES as readonly string[]);
   if (awardsRes.error) {
     // 미적용(PGRST205)·일시 오류 — 빈 맵(카드 보호). 무거운 폴백 없음.
     console.warn("[actLogs] process_point_awards 조회 실패(빈 맵 폴백)", {
@@ -69,6 +94,9 @@ export async function loadActLogsByStartDate(
   }
   // 동적 select 문자열은 supabase 타입 파서가 추론하지 못하므로 unknown 경유 캐스팅.
   let awards = (awardsRes.data ?? []) as unknown as AwardRow[];
+  // 2차 방어 — DB 필터가 (쿼리 수정 등으로) 뚫려도 액트 아닌 원장이 DTO 에 닿지 못하게 한다.
+  //   source 타입이 "regular"|"irregular" 인데 캐스팅으로 'line' 이 새던 게 원래 버그였다.
+  awards = awards.filter(isActualActCheckLog);
   // 취소 행 제외(기본) — 고객 목록에서 취소 액트를 숨긴다. 관리자 탭(includeCancelled)만 유지.
   if (!includeCancelled) awards = awards.filter((a) => !a.cancelled_at);
   if (awards.length === 0) return empty;
@@ -179,7 +207,9 @@ export async function loadActLogsByStartDate(
     const week = weekByIso.get(`${a.year}-${a.week_number}`);
     if (!week) continue; // 카드에 붙일 startDate 미해석 → 스킵(소비처 없음).
 
-    const source = a.source as Cluster4ActLogSource;
+    // isActualActCheckLog 통과 행만 남았으므로 여기서 source 는 실제로 regular|irregular 다
+    //   (그 보장 없이 캐스팅하던 것이 'line' 행을 irregular 로 오인하게 만든 원인).
+    const source: Cluster4ActLogSource = a.source === "regular" ? "regular" : "irregular";
     let actName = "";
     let hub: string | null = null;
     let lineGroupName: string | null = null;
