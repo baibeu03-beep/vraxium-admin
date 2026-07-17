@@ -319,6 +319,51 @@ async function loadWeekDates(
   return w ? { startDate: w.start_date, endDate: w.end_date } : null;
 }
 
+// ── 실제 배정·개설된 experience 라인(line_targets SoT) → user::category → 배정 라인 id(bridged_master_id) ──
+//   팀 총괄 화면 라인명 표시 fallback 원천. 셀의 selected_line_id 가 없어도(구 개설 데이터·미러 누락)
+//   실제 개설된 라인명을 트리거에 그대로 노출하기 위한 것. **표시 전용** — 개설/검수 판정엔 쓰지 않는다.
+//   · 매핑 = cluster4_line_targets(week, target_user) → cluster4_lines(experience, team) →
+//            experience_line_master_id(= line_registrations.bridged_master_id = 옵션 id).
+//   · 카테고리(도출/분석/견문/관리/확장)는 옵션 역맵(lineIdCategory)으로 판정 — 옵션에 있는 라인만
+//     매핑해 트리거가 반드시 라인명으로 해석되도록 보장(옵션 밖 raw id 노출 방지).
+//   · org/mode 무관: (week, team) 스코프 + 대상 crew userId 교집합으로만 좁힌다(대상=이미 스코프 필터됨).
+export async function loadOpenedLineMasterByUserCategory(
+  weekId: string,
+  teamId: string,
+  lineIdCategory: Map<string, ExperienceOverallCategory>,
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  // 이 팀의 활성 experience 라인 → master id.
+  const { data: lineRows } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id,experience_line_master_id")
+    .eq("part_type", "experience")
+    .eq("team_id", teamId)
+    .eq("is_active", true)
+    .not("experience_line_master_id", "is", null);
+  const lines = (lineRows ?? []) as Array<{ id: string; experience_line_master_id: string }>;
+  if (lines.length === 0) return map;
+  const masterByLine = new Map(lines.map((l) => [l.id, l.experience_line_master_id]));
+
+  // 대상 주차의 사용자 대상자.
+  const { data: targetRows } = await supabaseAdmin
+    .from("cluster4_line_targets")
+    .select("line_id,target_user_id")
+    .eq("week_id", weekId)
+    .eq("target_mode", "user")
+    .in("line_id", Array.from(masterByLine.keys()));
+  for (const t of (targetRows ?? []) as Array<{ line_id: string; target_user_id: string | null }>) {
+    if (!t.target_user_id) continue;
+    const masterId = masterByLine.get(t.line_id);
+    if (!masterId) continue;
+    // 옵션에 존재하는 라인만(=트리거가 라인명으로 해석 가능) + 카테고리 판정.
+    const category = lineIdCategory.get(masterId);
+    if (!category) continue;
+    map.set(`${t.target_user_id}::${category}`, masterId);
+  }
+  return map;
+}
+
 // 빈 5-카테고리 셀(기본값).
 function defaultCells(): Record<ExperienceOverallCategory, OverallCell> {
   const out = {} as Record<ExperienceOverallCategory, OverallCell>;
@@ -335,6 +380,10 @@ export async function getTeamOverallBoard(
   teamId: string,
   teamName: string,
   mode: ScopeMode = "operating",
+  // 표시 전용 fallback: 셀 selected_line_id 가 없을 때 실제 배정·개설된 라인(line_targets)으로 라인명을
+  //   채운다. 개설/검수 판정(openTeamOverall 의 board 재조립)은 저장값만 써야 하므로 기본 false.
+  //   화면 조회(GET route)만 true 로 켜 "이미 개설된 실제 라인명"이 트리거에 뜨게 한다(요구 §3·§6).
+  resolveAssignedLineFallback = false,
 ): Promise<ExperienceTeamOverallBoard> {
   const [members, partCellsData, stored, weekDates, lineOptions] = await Promise.all([
     loadTeamMembersWithLeaders(organization, teamName, mode),
@@ -349,6 +398,27 @@ export async function getTeamOverallBoard(
     ? await resolveExtension(organization, weekDates.startDate, weekDates.endDate)
     : { active: false, kind: null as "online" | "offline" | null };
 
+  // 표시 전용: 실제 배정·개설된 라인(line_targets) → user::category → 라인 id. 셀에 selected_line_id 가
+  //   비어도 "이미 개설된 라인명"을 표시하기 위한 fallback 원천(옵션 역맵으로 카테고리 판정·옵션 라인만).
+  const assignedLineByUserCat = resolveAssignedLineFallback
+    ? await loadOpenedLineMasterByUserCategory(
+        weekId,
+        teamId,
+        buildLineIdCategoryMap(lineOptions),
+      )
+    : new Map<string, string>();
+
+  // 셀 selected_line_id 를 우선 보존하고, 없을 때만 실제 배정 라인으로 채운다(요구 §4 — 기존 선택 무시 금지).
+  const withAssignedFallback = (
+    userId: string,
+    category: ExperienceOverallCategory,
+    cell: OverallCell,
+  ): OverallCell => {
+    if (cell.selectedLineId) return cell; // 저장된 선택값 우선.
+    const assigned = assignedLineByUserCat.get(`${userId}::${category}`);
+    return assigned ? { ...cell, selectedLineId: assigned } : cell;
+  };
+
   // 파트별 그룹.
   const partMap = new Map<string, OverallBoardCrew[]>();
   for (const m of members) {
@@ -357,11 +427,13 @@ export async function getTeamOverallBoard(
     for (const cat of OVERALL_PART_CATEGORIES) {
       const saved = partCellsData.cells.get(`${m.userId}::${cat}`);
       if (saved) cells[cat] = saved;
+      cells[cat] = withAssignedFallback(m.userId, cat, cells[cat]);
     }
     // 관리/확장 = 팀장 저장 셀(없으면 기본값).
     for (const cat of OVERALL_LEADER_CATEGORIES) {
       const saved = stored.leaderCells.get(`${m.userId}::${cat}`);
       if (saved) cells[cat] = saved;
+      cells[cat] = withAssignedFallback(m.userId, cat, cells[cat]);
     }
     const crew: OverallBoardCrew = {
       userId: m.userId,

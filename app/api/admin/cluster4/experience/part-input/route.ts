@@ -23,7 +23,8 @@ import {
   resolveActorContext,
   savePartSubmission,
 } from "@/lib/adminExperiencePartInput";
-import { listExperienceLineOptions } from "@/lib/adminExperienceLineData";
+import { buildLineIdCategoryMap, listExperienceLineOptions } from "@/lib/adminExperienceLineData";
+import { loadOpenedLineMasterByUserCategory } from "@/lib/adminExperienceTeamOverall";
 import { insertExperienceOpeningLog } from "@/lib/adminExperienceOpeningLogs";
 import { parseScopeMode } from "@/lib/userScope";
 import {
@@ -124,12 +125,30 @@ export async function GET(request: NextRequest) {
       part && weekId && teamId
         ? await getPartSubmission(organization, weekId, teamId, part)
         : { submitted: false, cells: [] };
+    // 표시 전용 fallback(팀 총괄 보드와 동일 로직 공유) — 셀 selected_line_id 가 없을 때 실제 배정·개설된
+    //   라인(line_targets)으로 라인명을 채운다. 저장값 우선(미덮음). 개설 전 주차는 배정 라인이 없어 no-op.
+    //   저장·신청 저장/개설 판정과 무관(GET 조회 표시만). operating/test·org 동일 경로.
+    let cells = sub.cells;
+    if (weekId && teamId && sub.cells.length > 0) {
+      const assigned = await loadOpenedLineMasterByUserCategory(
+        weekId,
+        teamId,
+        buildLineIdCategoryMap(lineOptions),
+      );
+      if (assigned.size > 0) {
+        cells = sub.cells.map((c) => {
+          if (c.selectedLineId) return c; // 저장된 선택값 우선.
+          const fallback = assigned.get(`${c.crewUserId}::${c.lineType}`);
+          return fallback ? { ...c, selectedLineId: fallback } : c;
+        });
+      }
+    }
     const data: PartInputGetData = {
       actor,
       lines: EXPERIENCE_PART_LINE_TYPES,
       parts,
       crews,
-      cells: sub.cells,
+      cells,
       lineOptions,
       submitted: sub.submitted,
       aggregate: null,

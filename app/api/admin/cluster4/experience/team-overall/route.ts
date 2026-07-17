@@ -73,7 +73,16 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const data = await getTeamOverallBoard(organization, weekId, teamId, teamName, mode);
+    // 화면 조회 — 표시 전용 fallback ON: 셀 selected_line_id 가 없어도 실제 배정·개설된 라인명을
+    //   트리거에 그대로 노출한다(개설/검수 판정은 이 플래그 없이 저장값만 쓰는 openTeamOverall 경로).
+    const data = await getTeamOverallBoard(
+      organization,
+      weekId,
+      teamId,
+      teamName,
+      mode,
+      true,
+    );
     return Response.json({ success: true, data });
   } catch (error) {
     console.error("[admin/cluster4/experience/team-overall GET]", error);
