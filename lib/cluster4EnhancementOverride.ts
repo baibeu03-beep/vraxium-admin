@@ -161,13 +161,17 @@ function overrideMatchesLine(
 
 // read-time overlay: override 를 적용하고, 바뀐 카드만 강화율을 재파생해 반환한다.
 //   override 없음 / 매칭 라인 없음 / 값 동일(no-op) → 입력 cards 를 동일 참조로 반환(100% 동일).
+// preloadedRows: 호출부가 이미 시작해 둔 loadEnhancementOverridesForUser(userId) 결과 promise.
+//   I/O 시작 시점만 앞당기기 위한 것 — 넘기지 않으면 기존과 100% 동일하게 여기서 조회한다.
+//   ⚠ 반드시 "같은 userId 의 같은 조회" 결과여야 한다(호출부 책임). 적용 로직·순서·단축 판정 불변.
 export async function applyEnhancementOverridesToCards(
   userId: string,
   cards: Cluster4WeeklyCardDto[],
+  preloadedRows?: Promise<Cluster4LineEnhancementOverrideRow[]>,
 ): Promise<Cluster4WeeklyCardDto[]> {
   if (!userId || !Array.isArray(cards) || cards.length === 0) return cards;
 
-  const rows = await loadEnhancementOverridesForUser(userId);
+  const rows = await (preloadedRows ?? loadEnhancementOverridesForUser(userId));
   if (rows.length === 0) return cards;
 
   let anyCardChanged = false;

@@ -69,13 +69,19 @@ export async function loadSecondEntryOverridesForUser(
 
 // read-time overlay: 자격 있는(클럽오픈+배정+성공) 라인에 allowed=true override 가 있으면 canEdit=true 로.
 //   이미 편집 가능(자동 기간)한 라인은 그대로. override/매칭 없음 → 입력 cards 동일 참조 반환(회귀 0).
+// preloadedRows: 호출부가 이미 시작해 둔 loadSecondEntryOverridesForUser(userId) 결과 promise.
+//   I/O 시작 시점만 앞당기기 위한 것 — 넘기지 않으면 기존과 100% 동일하게 여기서 조회한다.
+//   ⚠ 반드시 "같은 userId 의 같은 조회" 결과여야 한다(호출부 책임). allowed 필터·적용 순서 불변.
 export async function applySecondEntryOverridesToCards(
   userId: string,
   cards: Cluster4WeeklyCardDto[],
+  preloadedRows?: Promise<Cluster4LineSecondEntryOverrideRow[]>,
 ): Promise<Cluster4WeeklyCardDto[]> {
   if (!userId || !Array.isArray(cards) || cards.length === 0) return cards;
 
-  const rows = (await loadSecondEntryOverridesForUser(userId)).filter((r) => r.allowed);
+  const rows = (
+    await (preloadedRows ?? loadSecondEntryOverridesForUser(userId))
+  ).filter((r) => r.allowed);
   if (rows.length === 0) return cards;
 
   let anyCardChanged = false;

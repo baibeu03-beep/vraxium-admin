@@ -13,8 +13,16 @@ import {
   readWeeklyCardsSnapshot,
   recomputeAndStoreWeeklyCardsSnapshot,
 } from "@/lib/cluster4WeeklyCardsSnapshot";
-import { applyEnhancementOverridesToCards } from "@/lib/cluster4EnhancementOverride";
-import { applySecondEntryOverridesToCards } from "@/lib/cluster4SecondEntryOverride";
+import {
+  applyEnhancementOverridesToCards,
+  loadEnhancementOverridesForUser,
+  type Cluster4LineEnhancementOverrideRow,
+} from "@/lib/cluster4EnhancementOverride";
+import {
+  applySecondEntryOverridesToCards,
+  loadSecondEntryOverridesForUser,
+  type Cluster4LineSecondEntryOverrideRow,
+} from "@/lib/cluster4SecondEntryOverride";
 import { getCurrentWeekStartMs } from "@/lib/cluster4WeekPolicy";
 import {
   loadGrowthStopInfo,
@@ -171,10 +179,11 @@ async function finalizeOk(
   rawCards: Cluster4WeeklyCardDto[],
   label: string,
   meta: ({ userId: string } & LoadResult) | null,
+  preload: SubjectPreload,
 ): Promise<Response> {
-  const growthInfo = await traceSpan("loadGrowthStopInfo", () =>
-    loadGrowthStopInfo(userId),
-  );
+  // preload 로 이미 시작된 동일 조회(user_profiles status,growth_status .eq(user_id)) 를 여기서 await.
+  //   await 위치·적용 순서(배지 → truncation → area 재집계)는 기존과 동일.
+  const growthInfo = await traceSpan("loadGrowthStopInfo", () => preload.growthStop);
   const cards = truncateCardsForGrowthStop(rawCards, growthInfo.isStopped);
   const seasonKey = currentSeasonKey();
   const { circles, areaProgress } = traceSyncSpan("computeArea6+7(current)", () => ({
@@ -197,6 +206,46 @@ function currentSeasonKey(): string | null {
 
 function emptyAreaSixCircles(): Cluster4AreaSixCirclesDto {
   return computeAreaSixCircles([], currentSeasonKey());
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// 주체(profileUserId) 확정 후 시작할 수 있는 "독립 조회" preload.
+//
+// 의존관계 실측·정독 결과(2026-07-17):
+//   ① scope 결과가 먼저 필요한 것 : resolveRequestScope(데모 판정·주체 결정) → 주체 확정 전제
+//   ② userId 만 알면 되는 것      : snapshot / 강화 override / 2차기입 override / growth stop
+//                                   → 서로 의존 없음. 넷 다 .eq(user_id) 단건 조회.
+//   ③ HIT 여부 확정 후에만 필요   : (없음 — override·growthStop 은 cards 내용과 무관하게 user_id 키)
+//   ④ 재계산 경로 영향            : (없음 — 재계산은 snapshot 계열만 건드리고 override 표는 안 읽음)
+//   ⑤ 에러 우선순위/HTTP status   : 아래 3종은 전부 loader 내부에서 fail-open(로그+기본값)이라
+//                                   status 에 영향을 주지 않는다. snapshot 오류만 outcome=error 로
+//                                   기존과 동일하게 처리된다.
+//
+// 그래서 ②의 3종만 여기서 "시작"하고, await 는 기존 위치·기존 순서 그대로 둔다(I/O 시작 시점만 이동).
+//   · 각 promise 는 loader 와 동일한 fail-open 기본값으로 .catch 를 달아 절대 reject 하지 않는다
+//     → 조기 return(예: outcome=error) 으로 소비되지 않아도 unhandledRejection 이 생기지 않는다.
+//   · snapshot 조회는 loadWeeklyCardsRaw 가 호출 즉시 시작하므로 별도 preload 불필요(같이 in-flight).
+//
+// ⚠ 관측 가능한 유일한 차이: cards 가 빈 배열이라 apply*() 가 조기 return 하는 희귀 경로에서도
+//   override 조회 2건이 실제로 발행된다(기존엔 미발행). 응답 본문·status 는 동일하며 결과는 버려진다.
+type SubjectPreload = {
+  enhancementRows: Promise<Cluster4LineEnhancementOverrideRow[]>;
+  secondEntryRows: Promise<Cluster4LineSecondEntryOverrideRow[]>;
+  growthStop: Promise<GrowthStopInfo>;
+};
+
+function startSubjectPreload(userId: string): SubjectPreload {
+  return {
+    enhancementRows: traceSpan("preload:enhancementOverrides", () =>
+      loadEnhancementOverridesForUser(userId),
+    ).catch(() => [] as Cluster4LineEnhancementOverrideRow[]),
+    secondEntryRows: traceSpan("preload:secondEntryOverrides", () =>
+      loadSecondEntryOverridesForUser(userId),
+    ).catch(() => [] as Cluster4LineSecondEntryOverrideRow[]),
+    growthStop: traceSpan("preload:growthStopInfo", () =>
+      loadGrowthStopInfo(userId),
+    ).catch(() => ({ status: null, growthStatus: null, isStopped: false })),
+  };
 }
 
 type LoadOutcome = "hit" | "stale" | "miss" | "error";
@@ -256,18 +305,30 @@ function scheduleVersionMismatchRecompute(profileUserId: string): void {
 //   - override 행이 없거나 매칭 라인이 없으면 raw 결과를 그대로 반환 → 기존 응답과 100% 동일.
 //   - demo(mode=test/demoUserId) 와 session 경로가 모두 이 함수를 통과하므로 동일 DTO·동일 overlay
 //     를 탄다(override 키 = user_id, mode 무관).
-async function loadWeeklyCards(profileUserId: string): Promise<LoadResult> {
+async function loadWeeklyCards(
+  profileUserId: string,
+  preload: SubjectPreload,
+): Promise<LoadResult> {
   const result = await traceSpan("loadWeeklyCardsRaw", () =>
     loadWeeklyCardsRaw(profileUserId),
   );
   try {
     // ① 강화 상태 overlay → ② 2차 기입 편집권 overlay. 둘 다 read-time(굽지 않음), 키=user_id(mode 무관).
     //   각 overlay 는 매칭 없음 시 동일 배열 참조 반환 → 참조 비교로 no-op 판정.
+    //   조회는 preload 로 이미 시작돼 있고(같은 user_id·같은 쿼리), 적용 순서는 기존과 동일하다.
     const afterEnh = await traceSpan("applyEnhancementOverridesToCards", () =>
-      applyEnhancementOverridesToCards(profileUserId, result.cards),
+      applyEnhancementOverridesToCards(
+        profileUserId,
+        result.cards,
+        preload.enhancementRows,
+      ),
     );
     const cards = await traceSpan("applySecondEntryOverridesToCards", () =>
-      applySecondEntryOverridesToCards(profileUserId, afterEnh),
+      applySecondEntryOverridesToCards(
+        profileUserId,
+        afterEnh,
+        preload.secondEntryRows,
+      ),
     );
     return cards === result.cards ? result : { ...result, cards };
   } catch (e) {
@@ -483,13 +544,19 @@ async function handleGet(request: NextRequest): Promise<Response> {
       //   → /admin/test-users(데모, mode=test) 경유와 실제 직접 로그인(세션, mode 없음) 경로가
       //     동일 snapshot row 를 읽어 같은 카드 값을 반환한다. ENABLE_DEMO_MODE 게이트는 데모 경로의
       //     "진입 가능 여부"만 가르며, 진입한 뒤 반환하는 DTO 는 일반 경로와 동일하다.
-      const result = await loadWeeklyCards(cardTargetUserId);
+      // 주체(cardTargetUserId) 확정 + 접근 게이트 통과 후에만 독립 조회를 시작한다(권한 이전 조회 없음).
+      const preload = startSubjectPreload(cardTargetUserId);
+      const result = await loadWeeklyCards(cardTargetUserId, preload);
       if (DEBUG_COMPARE) await logWeekComparison(cardTargetUserId, result.cards);
       // area-6/area-7 + 성장 중단 정책(배지·미확정 카드 truncation)을 finalizeOk 에서 일관 적용.
-      return finalizeOk(done, cardTargetUserId, result.cards, "demo", {
-        userId: cardTargetUserId,
-        ...result,
-      });
+      return finalizeOk(
+        done,
+        cardTargetUserId,
+        result.cards,
+        "demo",
+        { userId: cardTargetUserId, ...result },
+        preload,
+      );
     }
   } catch (error) {
     if (error instanceof DemoModeError) {
@@ -589,8 +656,10 @@ async function handleGet(request: NextRequest): Promise<Response> {
     // 진입경로 일관성(2026-06-16): mode 파라미터는 weekly-cards DTO 계산에 영향을 주지 않는다.
     //   세션/internal 경로도 snapshot-only 로더만 사용 — 테스트 유저든 실유저든 동일 userId 면
     //   동일 snapshot row 를 반환한다(데모 경로와 정합).
+    // 주체(profileUserId) 확정 + 권한 검사(requireAdmin) + 접근 게이트 통과 후에만 시작한다.
+    const preload = startSubjectPreload(profileUserId);
     const result = await traceSpan("loadWeeklyCards", () =>
-      loadWeeklyCards(profileUserId),
+      loadWeeklyCards(profileUserId, preload),
     );
 
     // 디버그 비교 로그는 getWeeklyGrowth 를 2차로 다시 호출(요청 비용 약 2배) → 기본 OFF.
@@ -623,10 +692,14 @@ async function handleGet(request: NextRequest): Promise<Response> {
     }
 
     // area-6/area-7 + 성장 중단 정책(배지·미확정 카드 truncation)을 finalizeOk 에서 일관 적용.
-    return finalizeOk(done, profileUserId, result.cards, "ok", {
-      userId: profileUserId,
-      ...result,
-    });
+    return finalizeOk(
+      done,
+      profileUserId,
+      result.cards,
+      "ok",
+      { userId: profileUserId, ...result },
+      preload,
+    );
   } catch (error) {
     if (error instanceof AdminAuthError) {
       return done(fail(error.status, error.message, "forbidden"), "admin-error");
