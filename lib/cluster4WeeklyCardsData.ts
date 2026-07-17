@@ -1,4 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  runWithSelfIdentityCache,
+  getCachedSelfProfile,
+  getCachedSelfMemberships,
+} from "@/lib/weeklyCardsIdentityCache";
 import { QA_HIDE_REAL_USERS } from "@/lib/qaFixedScope";
 import { loadActLogsByStartDate } from "@/lib/cluster4ActLogsData";
 import {
@@ -1566,15 +1571,22 @@ async function fetchHubEditWindows(
 async function fetchUserTeamAndRole(
   profileUserId: string,
 ): Promise<{ teamId: string | null; isPartLeader: boolean; isAgent: boolean }> {
-  const { data: prof } = await supabaseAdmin
-    .from("user_profiles")
-    .select("role,organization_slug")
-    .eq("user_id", profileUserId)
-    .maybeSingle();
-  const { data: mems } = await supabaseAdmin
-    .from("user_memberships")
-    .select("team_name,membership_level,is_current")
-    .eq("user_id", profileUserId);
+  // 본인 identity 요청 캐시 우선(superset), 없으면 기존 쿼리. 이후 선택/판정 로직 동일.
+  const cachedProf = getCachedSelfProfile(profileUserId);
+  const cachedMem = getCachedSelfMemberships(profileUserId);
+  const { data: prof } = cachedProf
+    ? await cachedProf
+    : await supabaseAdmin
+        .from("user_profiles")
+        .select("role,organization_slug")
+        .eq("user_id", profileUserId)
+        .maybeSingle();
+  const { data: mems } = cachedMem
+    ? await cachedMem
+    : await supabaseAdmin
+        .from("user_memberships")
+        .select("team_name,membership_level,is_current")
+        .eq("user_id", profileUserId);
   const memRows = (mems ?? []) as Array<{
     team_name: string | null;
     membership_level: string | null;
@@ -2646,7 +2658,23 @@ export async function getUnifiedWeeklyGrowthByUserId(
   );
 }
 
-export async function getCluster4WeeklyCardsForProfileUser(
+// 본인 identity(user_profiles·user_memberships) 반복조회를 요청 단위로 1회 공유하도록 스코프로 감싼다.
+//   하위 helper 들은 캐시가 있으면 superset raw 결과를 재사용, 없으면 기존 쿼리(스코프 밖 동작 불변).
+//   결과(카드 DTO·growth·snapshot)는 byte-identical (verify:weekly-cards-parity 로 검증).
+export function getCluster4WeeklyCardsForProfileUser(
+  profileUserId: string,
+  opts: { effectiveFromOverride?: string; __disableSelfIdentityCache?: boolean } = {},
+): Promise<Cluster4WeeklyCardDto[]> {
+  // __disableSelfIdentityCache: 회귀 A/B 검증 전용(같은 프로세스에서 캐시 on/off 비교). 운영 미사용.
+  if (opts.__disableSelfIdentityCache) {
+    return getCluster4WeeklyCardsForProfileUserImpl(profileUserId, opts);
+  }
+  return runWithSelfIdentityCache(profileUserId, () =>
+    getCluster4WeeklyCardsForProfileUserImpl(profileUserId, opts),
+  );
+}
+
+async function getCluster4WeeklyCardsForProfileUserImpl(
   profileUserId: string,
   opts: { effectiveFromOverride?: string } = {},
 ): Promise<Cluster4WeeklyCardDto[]> {

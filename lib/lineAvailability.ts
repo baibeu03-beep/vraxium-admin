@@ -1,5 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
+  getCachedSelfProfile,
+  getCachedSelfMemberships,
+} from "@/lib/weeklyCardsIdentityCache";
+import {
   findExperienceMasterIdByLineNameRegFirst,
   getExperienceSlotsByMasterIdsRegFirst,
 } from "@/lib/lineRegistrationLookup";
@@ -164,18 +168,24 @@ export async function fetchManagementSlotOpen(
 ): Promise<boolean> {
   // membership_level(등급) + user_profiles.role(운영진 정체성)을 함께 조회한다.
   // 운영진(팀장/앰배서더)은 level="일반" 이어도 관리 슬롯 개방이어야 하므로 role 병합 필수.
+  // 본인 identity 요청 캐시가 있으면 공유 superset(raw { data, error })을 사용, 없으면 기존 쿼리.
+  //   에러/null/정렬/선택 로직은 아래 그대로 — superset 이 이 select 컬럼을 모두 포함해 값·에러 동일.
+  const cachedMem = getCachedSelfMemberships(profileUserId);
+  const cachedProf = getCachedSelfProfile(profileUserId);
   const [{ data, error }, { data: profile, error: profileError }] =
-    await Promise.all([
-      supabaseAdmin
-        .from("user_memberships")
-        .select("membership_level,team_name,is_current,updated_at")
-        .eq("user_id", profileUserId),
-      supabaseAdmin
-        .from("user_profiles")
-        .select("role")
-        .eq("user_id", profileUserId)
-        .maybeSingle(),
-    ]);
+    cachedMem && cachedProf
+      ? [await cachedMem, await cachedProf]
+      : await Promise.all([
+          supabaseAdmin
+            .from("user_memberships")
+            .select("membership_level,team_name,is_current,updated_at")
+            .eq("user_id", profileUserId),
+          supabaseAdmin
+            .from("user_profiles")
+            .select("role")
+            .eq("user_id", profileUserId)
+            .maybeSingle(),
+        ]);
   if (error) {
     console.warn("[cluster4/lineAvailability] user_memberships lookup failed", {
       message: error.message,

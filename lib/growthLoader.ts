@@ -16,6 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getCachedSelfProfile } from "@/lib/weeklyCardsIdentityCache";
 import { fetchActiveRestPeriods } from "@/lib/officialRestPeriodsData";
 import type { OfficialRestPeriodDto } from "@/lib/officialRestPeriodsTypes";
 import {
@@ -91,6 +92,9 @@ export async function loadGrowthInput(
   userId: string,
   opts: LoadGrowthInputOptions = {},
 ): Promise<GrowthInput> {
+  // profile 은 본인 identity 요청 캐시(superset) 우선, 없으면 기존 쿼리(둘 다 { data, error } 동일).
+  //   uws/season 은 그대로 병렬 조회. 이후 에러/null 처리 로직 무변경.
+  const cachedProf = getCachedSelfProfile(userId);
   const [weekRes, profileRes, seasonRes] = await Promise.all([
     supabaseAdmin
       .from("user_week_statuses")
@@ -100,13 +104,14 @@ export async function loadGrowthInput(
       .eq("user_id", userId)
       .order("year", { ascending: true })
       .order("week_number", { ascending: true }),
-    supabaseAdmin
-      .from("user_profiles")
-      .select(
-        "growth_status,status,activity_started_at,activity_ended_at,organization_slug",
-      )
-      .eq("user_id", userId)
-      .maybeSingle(),
+    cachedProf ??
+      supabaseAdmin
+        .from("user_profiles")
+        .select(
+          "growth_status,status,activity_started_at,activity_ended_at,organization_slug",
+        )
+        .eq("user_id", userId)
+        .maybeSingle(),
     supabaseAdmin
       .from("user_season_statuses")
       .select("status,season_key,requested_at")

@@ -1,4 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  getCachedSelfProfile,
+  getCachedSelfMemberships,
+} from "@/lib/weeklyCardsIdentityCache";
 import { isTestUser as isMarkedTestUser } from "@/lib/testUsers";
 import { getAdminCrewDtoByLegacyUserId } from "@/lib/adminCrewData";
 import { resolveProfileUserId } from "@/lib/resolveProfileUserId";
@@ -1358,16 +1362,21 @@ type CurrentActivityFallback = {
 async function fetchCurrentActivityFallback(
   userId: string,
 ): Promise<CurrentActivityFallback> {
+  // 본인 identity 요청 캐시(superset) 우선, 없으면 기존 쿼리. 이후 정렬/선택/폴백 로직 무변경.
+  const cachedMem = getCachedSelfMemberships(userId);
+  const cachedProf = getCachedSelfProfile(userId);
   const [membershipRes, profileRes] = await Promise.all([
-    supabaseAdmin
-      .from("user_memberships")
-      .select("team_name,part_name,membership_level,is_current,updated_at")
-      .eq("user_id", userId),
-    supabaseAdmin
-      .from("user_profiles")
-      .select("role,current_team_name,current_part_name")
-      .eq("user_id", userId)
-      .maybeSingle(),
+    cachedMem ??
+      supabaseAdmin
+        .from("user_memberships")
+        .select("team_name,part_name,membership_level,is_current,updated_at")
+        .eq("user_id", userId),
+    cachedProf ??
+      supabaseAdmin
+        .from("user_profiles")
+        .select("role,current_team_name,current_part_name")
+        .eq("user_id", userId)
+        .maybeSingle(),
   ]);
   type MemRow = {
     team_name: string | null;

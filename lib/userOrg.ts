@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { getCachedSelfProfile } from "@/lib/weeklyCardsIdentityCache";
 import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 
 // 조회 대상 사용자의 조직(org)을 user_profiles.organization_slug 에서 읽는다.
@@ -12,11 +13,16 @@ import { isOrganizationSlug, type OrganizationSlug } from "@/lib/organizations";
 export async function fetchUserOrganizationSlug(
   profileUserId: string,
 ): Promise<OrganizationSlug | null> {
-  const { data, error } = await supabaseAdmin
-    .from("user_profiles")
-    .select("organization_slug")
-    .eq("user_id", profileUserId)
-    .maybeSingle();
+  // 본인 identity 요청 캐시(superset) 우선, 없으면 기존 쿼리. 이후 fail-open 처리 동일.
+  //   (snapshot 조회/페이지 게이트 경로는 캐시 스코프 밖 → 기존 쿼리 그대로)
+  const cachedProf = getCachedSelfProfile(profileUserId);
+  const { data, error } = cachedProf
+    ? await cachedProf
+    : await supabaseAdmin
+        .from("user_profiles")
+        .select("organization_slug")
+        .eq("user_id", profileUserId)
+        .maybeSingle();
   if (error) {
     console.warn("[userOrg] user org lookup failed (fail-open)", {
       profileUserId,
