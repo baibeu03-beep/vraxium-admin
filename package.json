@@ -40,6 +40,7 @@
     "verify:crew-week-act-cancel": "tsx --env-file=.env.local scripts/verify-crew-week-act-cancel.ts",
     "verify:act-cancel-e2e": "tsx --env-file=.env.local scripts/verify-act-cancel-e2e.ts",
     "verify:act-supplement-e2e": "tsx --env-file=.env.local scripts/verify-act-supplement-e2e.ts",
+    "verify:weekly-cards-dto-parity": "tsx --env-file=.env.local scripts/verify-weekly-cards-dto-parity.ts",
     "verify:line-history-type": "tsx --env-file=.env.local scripts/verify-line-history-type-and-shape.ts",
     "verify:line-audience-cache": "tsx --env-file=.env.local scripts/verify-line-audience-cache.ts"
   },
