@@ -1,6 +1,7 @@
 // Browser-safe types for competency line master admin APIs.
 
 import { CLUSTER4_LINE_WRITE_ROLES } from "@/lib/adminCluster4LinesTypes";
+import type { LineDurationMinutes } from "@/lib/adminLineRegistrationsTypes";
 
 export { CLUSTER4_LINE_WRITE_ROLES as COMPETENCY_LINE_WRITE_ROLES };
 
@@ -12,6 +13,10 @@ export type CompetencyLineMasterDto = {
   mainTitle: string | null;
   sourceFileName: string | null;
   isActive: boolean;
+  // 예상 소요 시간(분) — SoT = line_registrations.estimated_duration_minutes (마스터 속성).
+  //   여기서는 조회만 한다(이 화면은 소요 시간을 쓰지 않는다 — 편집은 /admin/lines 등록·수정).
+  //   레거시 마스터 fallback 경로 · 마이그 전에는 null. DTO 필드명은 라인 등록과 동일하게 유지.
+  estimatedDurationMinutes: LineDurationMinutes | null;
   createdAt: string;
   updatedAt: string;
 };

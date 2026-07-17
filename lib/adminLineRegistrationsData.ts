@@ -12,11 +12,13 @@ import {
   LINE_REGISTRATION_HUB_LABEL,
   LINE_REGISTRATION_ORG_LABEL,
   EMPTY_UNIT_LINK_SENTINEL,
+  type LineDurationMinutes,
   type LineRegistrationCreateInput,
   type LineRegistrationDto,
   type LineRegistrationHub,
   type LineRegistrationMainTitleMode,
   type ListLineRegistrationsResult,
+  isLineDurationMinutes,
   isLineRegistrationHub,
   isLineRegistrationOrg,
 } from "@/lib/adminLineRegistrationsTypes";
@@ -58,23 +60,150 @@ type RegistrationRow = {
   updated_at: string;
   // info 강화 포인트 연결 키(마이그 전이면 select 에서 제외되어 undefined).
   point_activity_type_id?: string | null;
+  // 예상 소요 시간(분) — 30|60|90|120. NULL = 미설정. 마이그 전이면 select 제외 → undefined.
+  estimated_duration_minutes?: number | null;
 };
 
 const REGISTRATION_SELECT_BASE =
   "id,line_name,hub,line_type,line_code,main_title_mode,main_title,unit_link,organization_slug,bridged_master_id,bridged_at,partner_company,company_logo_url,manager_name,manager_position,manager_job,manager_profile_key,is_active,created_by,created_at,updated_at";
 
-// point_activity_type_id 컬럼 적용 여부 캐시 — 마이그 전(42703)이면 base select 로 폴백해
-//   목록/상세 조회가 절대 깨지지 않게 한다(graceful degradation·무회귀). 한 번 확인하면 재사용.
-let pointActivityColumn: "unknown" | "present" | "absent" = "unknown";
+// ── 선택적(마이그레이션 의존) 컬럼 ────────────────────────────────────────────
+// 두 컬럼은 서로 다른 마이그레이션에서 왔으므로 상태를 독립적으로 추적한다.
+// 미적용(42703)이면 select 에서 빼고 재시도해 목록/상세 조회가 절대 깨지지 않게 한다.
+// 한 번 확인하면 프로세스 수명 동안 재사용.
+const OPTIONAL_COLUMNS = ["point_activity_type_id", "estimated_duration_minutes"] as const;
+type OptionalColumn = (typeof OPTIONAL_COLUMNS)[number];
+type ColumnState = "unknown" | "present" | "absent";
+
+const optionalColumnState: Record<OptionalColumn, ColumnState> = {
+  point_activity_type_id: "unknown",
+  estimated_duration_minutes: "unknown",
+};
+
 function registrationSelect(): string {
-  return pointActivityColumn === "absent"
-    ? REGISTRATION_SELECT_BASE
-    : `${REGISTRATION_SELECT_BASE},point_activity_type_id`;
+  const cols = [REGISTRATION_SELECT_BASE];
+  for (const c of OPTIONAL_COLUMNS) {
+    if (optionalColumnState[c] !== "absent") cols.push(c);
+  }
+  return cols.join(",");
 }
+
+// 컬럼 부재 에러(42703/PGRST204) 판정 + 메시지가 지목한 컬럼 추출.
+//   PostgREST 는 두 코드 모두 메시지에 컬럼명을 담으므로("column ... does not exist" /
+//   "Could not find the 'x' column") 메시지 매칭이 1차 근거다.
+//   PGRST205(테이블 미존재)는 폴백 대상이 아니라 진짜 에러이므로 여기서 제외한다.
+function columnErrorNames(error: { code?: string; message?: string } | null): {
+  isColumnError: boolean;
+  named: OptionalColumn[];
+} {
+  const message = error?.message ?? "";
+  const named = OPTIONAL_COLUMNS.filter((c) => message.includes(c));
+  const isColumnError =
+    error?.code === "42703" || error?.code === "PGRST204" || named.length > 0;
+  return { isColumnError, named };
+}
+
+// 소요 시간(필수 입력) 컬럼 부재 — 메시지가 이 컬럼을 명시적으로 지목할 때만 참.
+//   모호하면 거짓 → 추측으로 "마이그레이션 적용하세요" 오안내를 내보내지 않는다.
+function isMissingDurationColumn(error: { code?: string; message?: string } | null): boolean {
+  const { isColumnError, named } = columnErrorNames(error);
+  return isColumnError && named.includes("estimated_duration_minutes");
+}
+
+// point_activity_type_id(선택 입력) 컬럼 부재 — 모호(컬럼명 미특정)해도 참으로 본다.
+//   빼고 재시도하면 그만이라 기존의 무회귀 저장 동작을 그대로 유지한다.
 function isMissingPointColumn(error: { code?: string; message?: string } | null): boolean {
-  if (!error) return false;
-  if (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205") return true;
-  return /point_activity_type_id/.test(error.message ?? "");
+  const { isColumnError, named } = columnErrorNames(error);
+  if (!isColumnError) return false;
+  return named.length === 0 || named.includes("point_activity_type_id");
+}
+
+// 컬럼 부재면 해당 컬럼을 absent 로 낮춘다(조회 경로 전용).
+//   메시지가 컬럼을 특정하면 그 컬럼만, 특정하지 못하면 남은 선택 컬럼 전부를 낮춘다
+//   (보수적 폴백 — 조회를 실패시키는 것보다 값을 '-' 로 보여주는 쪽이 안전).
+//   반환값 true = 상태를 낮췄으니 재시도할 가치가 있음.
+function degradeOptionalColumns(error: { code?: string; message?: string } | null): boolean {
+  const { isColumnError, named } = columnErrorNames(error);
+  if (!isColumnError) return false;
+
+  const targets: readonly OptionalColumn[] = named.length > 0 ? named : OPTIONAL_COLUMNS;
+  let degraded = false;
+  for (const c of targets) {
+    if (optionalColumnState[c] !== "absent") {
+      optionalColumnState[c] = "absent";
+      degraded = true;
+    }
+  }
+  return degraded;
+}
+
+function markOptionalColumnsPresent(): void {
+  for (const c of OPTIONAL_COLUMNS) {
+    if (optionalColumnState[c] === "unknown") optionalColumnState[c] = "present";
+  }
+}
+
+type SupabaseResult<T> = {
+  data: T | null;
+  error: { code?: string; message?: string } | null;
+  count?: number | null;
+};
+
+// supabase-js 의 쿼리 빌더는 진짜 Promise 가 아니라 thenable 이라 PromiseLike 로 받는다.
+type SupabaseRunner<T> = (selectStr: string) => PromiseLike<SupabaseResult<T>>;
+
+// select 문자열을 받아 쿼리를 실행하고, 컬럼 부재면 낮춰서 재시도한다.
+//   선택 컬럼이 2개라 최대 2회까지 낮춰질 수 있으므로 시도 횟수를 여유있게 둔다.
+async function runWithColumnFallback<T>(
+  run: SupabaseRunner<T>,
+): Promise<SupabaseResult<T>> {
+  let last: SupabaseResult<T> = await run(registrationSelect());
+  for (let attempt = 0; attempt < OPTIONAL_COLUMNS.length; attempt++) {
+    if (!last.error) {
+      markOptionalColumnsPresent();
+      return last;
+    }
+    if (!degradeOptionalColumns(last.error)) return last;
+    last = await run(registrationSelect());
+  }
+  if (!last.error) markOptionalColumnsPresent();
+  return last;
+}
+
+// 소요 시간 정규화 — DB CHECK 로 이미 보장되지만, 마이그 전/오염 값이 DTO 타입을 뚫지 않게 막는다.
+//   registrations 를 읽는 다른 허브 목록(experience/competency)도 이 함수로 값을 정규화한다.
+export function toLineDurationDto(raw: number | null | undefined): LineDurationMinutes | null {
+  return isLineDurationMinutes(raw) ? raw : null;
+}
+const toDurationDto = toLineDurationDto;
+
+// line_registrations 를 "registrations-first" 로 읽는 다른 허브 목록(experience/competency)이
+//   소요 시간을 함께 select 할 때 쓰는 헬퍼.
+//
+//   이 헬퍼가 필요한 이유: 두 목록은 registrations 조회가 실패하면 레거시 마스터로 fallback 한다.
+//   마이그 전이라 컬럼이 없다는 이유로 그 fallback 이 발동하면 SoT 가 통째로 바뀌어버린다
+//   (2E-6 registrations-first 전환의 회귀). 그래서 컬럼 부재만은 조용히 빼고 재시도해
+//   registrations 경로를 유지하고, 값만 null 로 내린다.
+export async function selectRegistrationsWithDuration<T>(
+  build: SupabaseRunner<T>,
+  baseSelect: string,
+): Promise<SupabaseResult<T> & { durationAvailable: boolean }> {
+  if (optionalColumnState.estimated_duration_minutes !== "absent") {
+    const withDuration = await build(`${baseSelect},estimated_duration_minutes`);
+    if (!withDuration.error) {
+      if (optionalColumnState.estimated_duration_minutes === "unknown") {
+        optionalColumnState.estimated_duration_minutes = "present";
+      }
+      return { ...withDuration, durationAvailable: true };
+    }
+    // 소요 시간 컬럼 부재가 아니면 진짜 에러 — 호출부의 기존 fallback 판단에 그대로 넘긴다.
+    if (!isMissingDurationColumn(withDuration.error)) {
+      return { ...withDuration, durationAvailable: true };
+    }
+    optionalColumnState.estimated_duration_minutes = "absent";
+  }
+  const without = await build(baseSelect);
+  return { ...without, durationAvailable: false };
 }
 
 // 라인 → 강화 Point.A/B config 조회값. 오픈확인(weekRecognitionResolve)과 동일 key 도출·동일 SoT.
@@ -112,6 +241,7 @@ function toDto(
         : "fixed",
     mainTitle: row.main_title,
     unitLink: row.unit_link?.trim() ? row.unit_link : EMPTY_UNIT_LINK_SENTINEL,
+    estimatedDurationMinutes: toDurationDto(row.estimated_duration_minutes),
     organizationSlug: isLineRegistrationOrg(row.organization_slug)
       ? row.organization_slug
       : null,
@@ -169,16 +299,10 @@ export async function listLineRegistrations(
     return query;
   };
 
-  let { data, error, count } = await run(registrationSelect());
-  // 마이그 전(point_activity_type_id 컬럼 부재) → base select 로 1회 폴백(목록 무회귀).
-  if (error && pointActivityColumn !== "absent" && isMissingPointColumn(error)) {
-    pointActivityColumn = "absent";
-    ({ data, error, count } = await run(REGISTRATION_SELECT_BASE));
-  } else if (!error && pointActivityColumn === "unknown") {
-    pointActivityColumn = "present";
-  }
+  // 마이그 전(선택 컬럼 부재) → 해당 컬럼을 빼고 폴백(목록 무회귀 · 값은 DTO 에서 null).
+  const { data, error, count } = await runWithColumnFallback(run);
   if (error) {
-    throw new LineRegistrationError(500, error.message);
+    throw new LineRegistrationError(500, error.message ?? "Failed to list line registrations");
   }
 
   // 강화 Point.A/B 조회(오픈확인과 동일 SoT·규칙). 테이블 미적용이면 전부 null.
@@ -201,15 +325,9 @@ export async function getLineRegistration(id: string): Promise<LineRegistrationD
       .eq("id", id)
       .maybeSingle();
 
-  let { data, error } = await run(registrationSelect());
-  if (error && pointActivityColumn !== "absent" && isMissingPointColumn(error)) {
-    pointActivityColumn = "absent";
-    ({ data, error } = await run(REGISTRATION_SELECT_BASE));
-  } else if (!error && pointActivityColumn === "unknown") {
-    pointActivityColumn = "present";
-  }
+  const { data, error } = await runWithColumnFallback(run);
   if (error) {
-    throw new LineRegistrationError(500, error.message);
+    throw new LineRegistrationError(500, error.message ?? "Failed to load line registration");
   }
   if (!data) {
     throw new LineRegistrationError(404, "line registration not found");
@@ -239,29 +357,46 @@ export async function createLineRegistration(
     manager_job: input.managerJob,
     manager_profile_key: input.managerProfileKey,
     created_by: actorAdminId,
+    // 소요 시간은 신규 등록 필수 — point_activity_type_id 와 달리 컬럼 부재 시 조용히 빼지 않는다
+    //   (필수 입력값을 소리 없이 버리면 사용자는 저장됐다고 믿는다). 아래에서 명시적으로 실패시킨다.
+    estimated_duration_minutes: input.estimatedDurationMinutes,
   };
 
   const insert = (payload: Record<string, unknown>, selectStr: string) =>
     supabaseAdmin.from("line_registrations").insert(payload).select(selectStr).single();
 
-  // point_activity_type_id 컬럼이 적용돼 있으면 함께 저장(info 만 값·비-info 는 파서가 null 강제).
-  const withPoint = pointActivityColumn !== "absent";
-  let { data, error } = await insert(
-    withPoint
-      ? { ...basePayload, point_activity_type_id: input.pointActivityTypeId ?? null }
-      : basePayload,
-    withPoint ? registrationSelect() : REGISTRATION_SELECT_BASE,
-  );
-  // point 컬럼 미적용 → 컬럼 제거 후 base 로 재시도(등록 자체는 무회귀로 성공시킨다).
-  if (error && pointActivityColumn !== "absent" && isMissingPointColumn(error)) {
-    pointActivityColumn = "absent";
-    ({ data, error } = await insert(basePayload, REGISTRATION_SELECT_BASE));
-  } else if (!error && pointActivityColumn === "unknown") {
-    pointActivityColumn = "present";
+  const withPoint = optionalColumnState.point_activity_type_id !== "absent";
+  const payload = withPoint
+    ? { ...basePayload, point_activity_type_id: input.pointActivityTypeId ?? null }
+    : basePayload;
+
+  let { data, error } = await insert(payload, registrationSelect());
+
+  // 소요 시간 컬럼 미적용 → 필수값을 버리고 성공시키지 않는다. 마이그레이션 안내로 즉시 실패.
+  if (error && isMissingDurationColumn(error)) {
+    optionalColumnState.estimated_duration_minutes = "absent";
+    throw new LineRegistrationError(
+      500,
+      "line_registrations.estimated_duration_minutes 컬럼이 없습니다. db/migrations/2026-07-17_line_registrations_estimated_duration.sql 을 SQL Editor 에서 적용해주세요.",
+    );
   }
+  // point 컬럼 미적용 → 컬럼 제거 후 재시도(선택 입력이라 기존처럼 무회귀 저장).
+  if (error && withPoint && isMissingPointColumn(error)) {
+    optionalColumnState.point_activity_type_id = "absent";
+    ({ data, error } = await insert(basePayload, registrationSelect()));
+  }
+  if (!error) markOptionalColumnsPresent();
+
   if (error || !data) {
+    // 23514 = CHECK 위반. 파서가 이미 막지만 DB 가 최종 게이트 — 값 도메인 위반을 400 으로 되돌린다.
+    if (error?.code === "23514" && /estimated_duration_minutes/.test(error.message ?? "")) {
+      throw new LineRegistrationError(
+        400,
+        "소요 시간은 30 | 60 | 90 | 120 분 중 하나여야 합니다",
+      );
+    }
     // PGRST205 = 테이블 미존재 — 마이그레이션 미적용 안내를 명확히 한다.
-    const code = (error as { code?: string } | null)?.code;
+    const code = error?.code;
     if (code === "PGRST205" || code === "PGRST204") {
       throw new LineRegistrationError(
         500,
@@ -434,6 +569,11 @@ export async function updateLineRegistration(
   if (patch.mainTitleMode !== undefined) payload.main_title_mode = patch.mainTitleMode;
   if (patch.mainTitle !== undefined) payload.main_title = patch.mainTitle;
   if (patch.unitLink !== undefined) payload.unit_link = patch.unitLink;
+  // 소요 시간 — 허브/개설 게이트와 무관하게 언제나 수정 가능(마스터 메타 · 개설 결과에 영향 없음).
+  //   레거시 NULL 행을 값 있는 상태로 올리는 유일한 경로다.
+  if (patch.estimatedDurationMinutes !== undefined) {
+    payload.estimated_duration_minutes = patch.estimatedDurationMinutes;
+  }
   if (patch.organizationSlug !== undefined) payload.organization_slug = patch.organizationSlug;
   if (patch.partnerCompany !== undefined) payload.partner_company = patch.partnerCompany;
   if (patch.companyLogoUrl !== undefined) payload.company_logo_url = patch.companyLogoUrl;
@@ -447,7 +587,7 @@ export async function updateLineRegistration(
   if (
     patch.pointActivityTypeId !== undefined &&
     current.hub === "info" &&
-    pointActivityColumn === "present"
+    optionalColumnState.point_activity_type_id === "present"
   ) {
     payload.point_activity_type_id = patch.pointActivityTypeId;
   }
@@ -464,6 +604,23 @@ export async function updateLineRegistration(
     .update(payload)
     .eq("id", id);
   if (updateError) {
+    // 소요 시간은 등록과 동일하게 조용히 버리지 않는다 — 사용자가 고른 값이 사라지면 안 된다.
+    if (isMissingDurationColumn(updateError)) {
+      optionalColumnState.estimated_duration_minutes = "absent";
+      throw new LineRegistrationError(
+        500,
+        "line_registrations.estimated_duration_minutes 컬럼이 없습니다. db/migrations/2026-07-17_line_registrations_estimated_duration.sql 을 SQL Editor 에서 적용해주세요.",
+      );
+    }
+    if (
+      updateError.code === "23514" &&
+      /estimated_duration_minutes/.test(updateError.message ?? "")
+    ) {
+      throw new LineRegistrationError(
+        400,
+        "소요 시간은 30 | 60 | 90 | 120 분 중 하나여야 합니다",
+      );
+    }
     throw new LineRegistrationError(500, updateError.message);
   }
 

@@ -39,6 +39,10 @@ import { cn } from "@/lib/utils";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import { formatClubDate, formatClubDateTime } from "@/lib/clubDate";
 import { formatBannerPeriod } from "@/lib/practicalInfoSection0Format";
+import {
+  formatLineDuration,
+  type LineDurationMinutes,
+} from "@/lib/adminLineRegistrationsTypes";
 import { CONFIRM, useConfirm } from "@/components/ui/confirm-dialog";
 import { readOrgParam } from "@/lib/adminOrgContext";
 import AdminPageHeader from "@/components/admin/AdminPageHeader";
@@ -149,6 +153,8 @@ type LineMasterItem = {
   // 5슬롯 분류 (표시 전용). 미분류면 null.
   experienceCategory: ExperienceCategory | null;
   experienceSlotOrder: number | null;
+  // 소요 시간(분) — SoT = line_registrations. 이 화면은 표시만 하고 편집하지 않는다.
+  estimatedDurationMinutes: LineDurationMinutes | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -1500,6 +1506,15 @@ export default function PracticalExperienceManager() {
                       </TableHead>
                       <TableHead className="text-center">
                         <span className="inline-flex items-center justify-center gap-1">
+                          소요 시간
+                          <AdminHelpIconButton
+                            helpKey="admin.experience.manager.lines.column.duration"
+                            title="소요 시간"
+                          />
+                        </span>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <span className="inline-flex items-center justify-center gap-1">
                           활성
                           <AdminHelpIconButton
                             helpKey="admin.experience.manager.lines.column.active"
@@ -1523,6 +1538,14 @@ export default function PracticalExperienceManager() {
                           {m.mainTitle ?? "-"}
                         </TableCell>
                         <TableCell>{m.teamName ?? "-"}</TableCell>
+                        {/* 소요 시간 — 읽기 전용(SoT=line_registrations). 공통 formatter · 미설정은 '-'. */}
+                        <TableCell className="text-center tabular-nums">
+                          {m.estimatedDurationMinutes === null ? (
+                            <span className="text-muted-foreground">{formatLineDuration(null)}</span>
+                          ) : (
+                            formatLineDuration(m.estimatedDurationMinutes)
+                          )}
+                        </TableCell>
                         <TableCell className="text-center">
                           {m.isActive ? (
                             <Check className="mx-auto h-4 w-4 text-green-600" />

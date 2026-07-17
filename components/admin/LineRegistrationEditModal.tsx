@@ -19,6 +19,9 @@ import { Checkbox, checkedTextClass } from "@/components/ui/checkbox";
 import {
   experienceActivityTypeForLineType,
   EXPERIENCE_LINETYPE_TO_CONFIG_KEY,
+  LINE_DURATION_OPTIONS,
+  LINE_DURATION_PLACEHOLDER,
+  LINE_DURATION_UNSET_LABEL,
   LINE_REGISTRATION_HUB_LABEL,
   LINE_REGISTRATION_LINE_TYPES,
   LINE_REGISTRATION_ORGS,
@@ -88,6 +91,11 @@ export default function LineRegistrationEditModal({
   const [lineCode, setLineCode] = useState(row.lineCode);
   const [orgSlug, setOrgSlug] = useState(row.organizationSlug ?? "");
   const [unitLink, setUnitLink] = useState(row.unitLink === "-" ? "" : row.unitLink);
+  // 소요 시간 — 기존값 프리필. "" = 미설정(레거시 NULL 행) → placeholder + "미설정" 안내.
+  //   네 값 중 하나로 변경만 가능(미설정으로 되돌리기는 서버 파서가 거부).
+  const [durationMinutes, setDurationMinutes] = useState(
+    row.estimatedDurationMinutes === null ? "" : String(row.estimatedDurationMinutes),
+  );
   const [mainTitleMode, setMainTitleMode] = useState<LineRegistrationMainTitleMode>(row.mainTitleMode);
   const [mainTitle, setMainTitle] = useState(row.mainTitle === "-" ? "" : row.mainTitle);
   const [isActive, setIsActive] = useState(row.isActive);
@@ -154,6 +162,13 @@ export default function LineRegistrationEditModal({
     const nextUnit = unitLink.trim();
     const curUnit = row.unitLink === "-" ? "" : row.unitLink;
     if (nextUnit !== curUnit) patch.unit_link = nextUnit || null;
+    // 소요 시간 — 값이 실제로 바뀐 경우에만 전송. 미설정("")은 전송하지 않아 기존 NULL 이 보존된다
+    //   (레거시 행에서 다른 필드만 수정하는 흐름을 막지 않는다).
+    const curDuration =
+      row.estimatedDurationMinutes === null ? "" : String(row.estimatedDurationMinutes);
+    if (durationMinutes && durationMinutes !== curDuration) {
+      patch.estimated_duration_minutes = Number(durationMinutes);
+    }
     if (mainTitleMode !== row.mainTitleMode) {
       patch.main_title_mode = mainTitleMode;
       if (mainTitleMode === "fixed") patch.main_title = mainTitle.trim();
@@ -225,7 +240,7 @@ export default function LineRegistrationEditModal({
       setSaving(false);
     }
   }, [
-    row, isInfo, isCareer, lineName, lineType, lineCode, orgSlug, unitLink,
+    row, isInfo, isCareer, lineName, lineType, lineCode, orgSlug, unitLink, durationMinutes,
     mainTitleMode, mainTitle, isActive, pointActivityTypeId, pointA, pointB, onSaved,
   ]);
 
@@ -328,15 +343,42 @@ export default function LineRegistrationEditModal({
             </div>
           </div>
 
-          {/* 유닛 링크 */}
-          <div className="space-y-1.5">
-            <Label>유닛 링크</Label>
-            <Input
-              value={unitLink}
-              onChange={(e) => setUnitLink(e.target.value)}
-              placeholder="유닛 링크를 입력하세요 (미입력 시 '-')"
-              disabled={saving}
-            />
+          {/* 유닛 링크 · 소요 시간 */}
+          <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>유닛 링크</Label>
+              <Input
+                value={unitLink}
+                onChange={(e) => setUnitLink(e.target.value)}
+                placeholder="유닛 링크를 입력하세요 (미입력 시 '-')"
+                disabled={saving}
+              />
+            </div>
+            {/* 소요 시간 — 개설 게이트와 무관하게 항상 수정 가능(마스터 메타).
+                레거시 NULL 행은 "미설정" 안내와 함께 placeholder 로 열린다. */}
+            <div className="space-y-1.5">
+              <Label>소요 시간</Label>
+              <select
+                aria-label="소요 시간"
+                data-duration-minutes
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(e.target.value)}
+                disabled={saving}
+              >
+                <option value="">{LINE_DURATION_PLACEHOLDER}</option>
+                {LINE_DURATION_OPTIONS.map((o) => (
+                  <option key={o.value} value={String(o.value)}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+              {row.estimatedDurationMinutes === null && (
+                <p className="text-xs text-muted-foreground">
+                  현재 {LINE_DURATION_UNSET_LABEL} — 값을 고르면 저장됩니다(되돌릴 수 없음).
+                </p>
+              )}
+            </div>
           </div>
 
           {/* 메인 타이틀 (고정/변동) */}

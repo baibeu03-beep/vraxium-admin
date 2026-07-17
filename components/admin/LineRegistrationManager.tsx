@@ -33,6 +33,8 @@ import { useActionToast } from "@/lib/actionToast";
 import { cn } from "@/lib/utils";
 import {
   experienceActivityTypeForLineType,
+  LINE_DURATION_OPTIONS,
+  LINE_DURATION_PLACEHOLDER,
   LINE_REGISTRATION_HUBS,
   LINE_REGISTRATION_HUB_LABEL,
   LINE_REGISTRATION_LINE_TYPES,
@@ -271,6 +273,12 @@ export default function LineRegistrationManager() {
   // ── 유닛 링크 (단일 텍스트 — 형식 강제 없음, 미입력 시 '-') ──
   const [unitLink, setUnitLink] = useState("");
 
+  // ── 소요 시간 (필수) — "" = 미선택 placeholder. 임의 기본값(1h)을 미리 고르지 않는다.
+  //    저장 시 분 단위 정수(30|60|90|120)로 전송. 소속 클럽과 동일한 필수 검증 패턴.
+  const [durationMinutes, setDurationMinutes] = useState("");
+  const [durationError, setDurationError] = useState(false);
+  const durationSelectRef = useRef<HTMLSelectElement>(null);
+
   // ── 강화 시 포인트 (라인과 함께 저장 → cluster4_line_point_configs) ──
   const [pointA, setPointA] = useState(""); // "" = 미설정
   const [pointB, setPointB] = useState("");
@@ -305,6 +313,8 @@ export default function LineRegistrationManager() {
     setMainTitleMode("fixed");
     setMainTitle("");
     setUnitLink("");
+    setDurationMinutes("");
+    setDurationError(false);
     setPointA("");
     setPointB("");
     setInfoActivityTypeId("");
@@ -355,6 +365,14 @@ export default function LineRegistrationManager() {
       orgSelectRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
       return;
     }
+    // 소요 시간 필수 — 미선택(placeholder) 상태로는 등록할 수 없다(허브 무관·전 경로 동일).
+    if (!durationMinutes) {
+      setDurationError(true);
+      setBanner({ kind: "error", message: "소요 시간을 선택해주세요" });
+      durationSelectRef.current?.focus();
+      durationSelectRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+      return;
+    }
 
     setSaving(true);
     setBanner(null);
@@ -369,6 +387,8 @@ export default function LineRegistrationManager() {
         main_title: mainTitleMode === "fixed" ? mainTitle.trim() : null,
         // 유닛 링크 — 단일 텍스트. 미입력/공백은 서버가 '-' 로 저장.
         unit_link: unitLink.trim() || null,
+        // 소요 시간 — 분 단위 정수로 전송(서버가 30|60|90|120 외 값을 400 으로 거부).
+        estimated_duration_minutes: Number(durationMinutes),
         // 소속 조직 — URL org(분기)가 있으면 그 값으로 고정, 없으면 select 값(미지정이면 null).
         //   숨겨진 select 의 stale orgSlug 는 scopedOrg 가 있을 때 사용되지 않는다.
         organization_slug: scopedOrg ?? (orgSlug || null),
@@ -418,7 +438,7 @@ export default function LineRegistrationManager() {
   }, [
     hasInvalidOrg, rawOrgParam, scopedOrg,
     lineName, hub, lineType, lineCode, orgSlug, mainTitleMode, mainTitle, unitLink,
-    pointA, pointB, infoActivityTypeId,
+    durationMinutes, pointA, pointB, infoActivityTypeId,
     partnerCompany, companyLogo, managerName, managerPosition, managerJob,
     managerProfileKey, handleReset, t,
   ]);
@@ -541,14 +561,48 @@ export default function LineRegistrationManager() {
               )}
             </div>
 
-            {/* 3행: 라인 코드 | 유닛 링크 (1:1) */}
-            <div className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-2">
+            {/* 3행: 라인 코드 | 소요 시간 | 유닛 링크 */}
+            <div className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-3">
               <FormRow label="라인 코드" helpKey="admin.lines.register.lineCode" required>
                 <Input
                   value={lineCode}
                   onChange={(e) => setLineCode(e.target.value)}
                   placeholder="예) WCBS-NL0001"
                 />
+              </FormRow>
+              {/* 소요 시간 — 필수. 미선택 placeholder 를 먼저 보여주고(임의 기본값 금지),
+                  옵션 라벨은 목록 표시와 동일한 formatLineDuration 결과(LINE_DURATION_OPTIONS)를 쓴다. */}
+              <FormRow label="소요 시간" helpKey="admin.lines.register.duration" required>
+                <>
+                  <select
+                    ref={durationSelectRef}
+                    aria-label="소요 시간"
+                    aria-invalid={durationError}
+                    aria-describedby={durationError ? "duration-required-error" : undefined}
+                    data-duration-minutes
+                    className={cn(
+                      "h-9 w-full rounded-md border bg-background px-3 text-sm",
+                      durationError ? "border-rose-400 ring-1 ring-rose-300" : "border-input",
+                    )}
+                    value={durationMinutes}
+                    onChange={(e) => {
+                      setDurationMinutes(e.target.value);
+                      if (e.target.value) setDurationError(false);
+                    }}
+                  >
+                    <option value="">{LINE_DURATION_PLACEHOLDER}</option>
+                    {LINE_DURATION_OPTIONS.map((o) => (
+                      <option key={o.value} value={String(o.value)}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  {durationError && (
+                    <p id="duration-required-error" className="mt-1 text-xs text-rose-600">
+                      소요 시간을 선택해주세요 (필수)
+                    </p>
+                  )}
+                </>
               </FormRow>
               <FormRow label="유닛 링크" helpKey="admin.lines.register.unitLink">
                 <div className="space-y-1.5">

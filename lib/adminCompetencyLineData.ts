@@ -1,4 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import {
+  selectRegistrationsWithDuration,
+  toLineDurationDto,
+} from "@/lib/adminLineRegistrationsData";
 import type {
   CompetencyLineMasterDto,
   CompetencyLineMasterCreateInput,
@@ -26,6 +30,8 @@ function toDto(row: MasterRow): CompetencyLineMasterDto {
     mainTitle: row.main_title,
     sourceFileName: row.source_file_name,
     isActive: row.is_active,
+    // 레거시 마스터 테이블에는 소요 시간 컬럼이 없다 — fallback 경로는 항상 미설정(null → '-').
+    estimatedDurationMinutes: null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -38,16 +44,25 @@ function toDto(row: MasterRow): CompetencyLineMasterDto {
 export async function listCompetencyLineMasters(
   organizationSlug?: string | null,
 ): Promise<{ rows: CompetencyLineMasterDto[] }> {
-  let regQuery = supabaseAdmin
-    .from("line_registrations")
-    .select("line_code,line_name,main_title,main_title_mode,organization_slug,is_active,bridged_master_id")
-    .eq("hub", "competency")
-    .not("bridged_master_id", "is", null)
-    .order("line_code", { ascending: true });
-  if (organizationSlug) {
-    regQuery = regQuery.eq("organization_slug", organizationSlug);
-  }
-  const { data: regs, error: regError } = await regQuery;
+  // 소요 시간은 registrations 에서 함께 읽는다. 컬럼이 없는 환경(마이그 전)에서도 레거시 마스터
+  //   fallback 으로 떨어지지 않도록 selectRegistrationsWithDuration 이 컬럼만 빼고 재시도한다.
+  const COMP_REG_SELECT =
+    "line_code,line_name,main_title,main_title_mode,organization_slug,is_active,bridged_master_id";
+  const { data: regs, error: regError } = await selectRegistrationsWithDuration(
+    (selectStr) => {
+      let q = supabaseAdmin
+        .from("line_registrations")
+        .select(selectStr)
+        .eq("hub", "competency")
+        .not("bridged_master_id", "is", null)
+        .order("line_code", { ascending: true });
+      if (organizationSlug) {
+        q = q.eq("organization_slug", organizationSlug);
+      }
+      return q;
+    },
+    COMP_REG_SELECT,
+  );
 
   if (!regError) {
     type RegRow = {
@@ -58,8 +73,10 @@ export async function listCompetencyLineMasters(
       organization_slug: string | null;
       is_active: boolean;
       bridged_master_id: string;
+      estimated_duration_minutes?: number | null;
     };
-    const regRows = (regs ?? []) as RegRow[];
+    // select 문자열이 동적이라 supabase-js 가 행 타입을 추론하지 못한다(adminLineRegistrationsData 와 동일 관례).
+    const regRows = (regs ?? []) as unknown as RegRow[];
     const masterIds = regRows.map((r) => r.bridged_master_id);
     const legacyById = new Map<
       string,
@@ -97,6 +114,7 @@ export async function listCompetencyLineMasters(
         mainTitle: r.main_title_mode === "fixed" && r.main_title.trim() ? r.main_title : null,
         sourceFileName: legacy?.source_file_name ?? null,
         isActive: r.is_active,
+        estimatedDurationMinutes: toLineDurationDto(r.estimated_duration_minutes),
         createdAt: legacy?.created_at ?? "",
         updatedAt: legacy?.updated_at ?? "",
       };

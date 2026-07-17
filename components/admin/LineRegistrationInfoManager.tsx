@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox, checkedTextClass, checkedRowClass } from "@/components/ui/checkbox";
 import {
   COMMON_CLUB_LABEL,
+  formatLineDuration,
   LINE_REGISTRATION_HUBS,
   LINE_REGISTRATION_HUB_LABEL,
   lineRegistrationDisplayClub,
@@ -168,6 +169,7 @@ type InfoColKey =
   | "lineName"
   | "hub"
   | "lineType"
+  | "duration"
   | "pointA"
   | "pointB"
   | "mainTitle"
@@ -227,6 +229,17 @@ const INFO_COLUMNS: InfoColumnDef[] = [
     helpKey: "admin.lines.info.column.lineType",
     sortable: true,
     sortValue: (row) => LINE_TYPE_ORDER.get(row.lineType) ?? null,
+  },
+  // ── 소요 시간 — line_registrations.estimated_duration_minutes(마스터 속성) 조회값.
+  //    정렬은 표시 문자열("0.5 h")이 아니라 분(30/60/90/120) 기준 — 문자열 정렬이면 "1 h" < "0.5 h"
+  //    같은 오답이 나온다. null(미설정)은 compareInfoSortValues 가 항상 뒤로 보낸다. ──
+  {
+    key: "duration",
+    label: "소요 시간",
+    helpKey: "admin.lines.info.column.duration",
+    center: true,
+    sortable: true,
+    sortValue: (row) => row.estimatedDurationMinutes,
   },
   // ── 라인 강화 Point.A/B — cluster4_line_point_configs 조회값(오픈확인 A/B/N 과 동일 SoT).
   //    숫자(0 포함) 표시 · null(미설정/미연결)은 compareInfoSortValues 가 항상 뒤로 보낸다. ──
@@ -806,6 +819,16 @@ export default function LineRegistrationInfoManager({
                       </TableCell>
                       <TableCell>{row.hubLabel}</TableCell>
                       <TableCell>{row.lineType}</TableCell>
+                      {/* 소요 시간 — 공통 formatter 단일 SoT. 미설정(null)은 '-'(회색). */}
+                      <TableCell className="text-center tabular-nums">
+                        {row.estimatedDurationMinutes === null ? (
+                          <span className="text-muted-foreground">
+                            {formatLineDuration(null)}
+                          </span>
+                        ) : (
+                          formatLineDuration(row.estimatedDurationMinutes)
+                        )}
+                      </TableCell>
                       {/* Point.A / Point.B — 0 은 0, 미설정/미연결(null)은 '-'(회색). */}
                       <TableCell className="text-center tabular-nums">
                         {row.pointA === null ? (

@@ -268,6 +268,54 @@ export const VARIABLE_MAIN_TITLE_NOTICE =
 // 유닛 링크 미입력 시 DB 저장값.
 export const EMPTY_UNIT_LINK_SENTINEL = "-";
 
+// ── 라인 소요 시간 (2026-07-17) — 분 단위 정수 SoT ─────────────────────────────
+//   DB(line_registrations.estimated_duration_minutes) 는 smallint 로 30|60|90|120 만 저장한다
+//   (부동소수점 시간 금지 — 0.5/1.5 는 표시 전용). NULL = 미설정(레거시 행 · 표시 '-').
+//   허용 목록은 DB CHECK 제약과 동일해야 한다 — 값을 늘릴 때 마이그레이션도 함께 수정할 것.
+export const LINE_DURATION_MINUTES = [30, 60, 90, 120] as const;
+
+export type LineDurationMinutes = (typeof LINE_DURATION_MINUTES)[number];
+
+export function isLineDurationMinutes(value: unknown): value is LineDurationMinutes {
+  return (
+    typeof value === "number" &&
+    (LINE_DURATION_MINUTES as readonly number[]).includes(value)
+  );
+}
+
+// 미설정(NULL) 표시값 — 목록/상세 공통. 화면별로 다른 문구를 쓰지 말 것.
+export const EMPTY_LINE_DURATION_LABEL = "-";
+
+// 분 → 표시 문자열. 등록 드롭다운·목록·수정 모달이 전부 이 함수만 사용한다(화면별 포맷 금지).
+export function formatLineDuration(
+  value: LineDurationMinutes | number | null | undefined,
+): string {
+  switch (value) {
+    case 30:
+      return "0.5 h";
+    case 60:
+      return "1 h";
+    case 90:
+      return "1.5 h";
+    case 120:
+      return "2 h";
+    default:
+      return EMPTY_LINE_DURATION_LABEL;
+  }
+}
+
+// 드롭다운 옵션 — 값(분)과 라벨을 같은 formatter 로 생성해 목록 표시와 항상 일치시킨다.
+export const LINE_DURATION_OPTIONS: ReadonlyArray<{
+  value: LineDurationMinutes;
+  label: string;
+}> = LINE_DURATION_MINUTES.map((m) => ({ value: m, label: formatLineDuration(m) }));
+
+// 등록/수정 드롭다운의 미선택 placeholder — 임의 기본값(1h) 대신 이 상태를 먼저 보여준다.
+export const LINE_DURATION_PLACEHOLDER = "소요 시간을 선택하세요";
+
+// 기존 NULL 행을 수정 화면에서 표시할 때의 상태 문구.
+export const LINE_DURATION_UNSET_LABEL = "미설정";
+
 export type LineRegistrationDto = {
   id: string;
   lineName: string;
@@ -279,6 +327,9 @@ export type LineRegistrationDto = {
   mainTitle: string;
   // 유닛 링크 — 단일 텍스트 (URL 형식 강제 없음). 미입력이면 '-'.
   unitLink: string;
+  // 예상 소요 시간(분) — 30|60|90|120. null = 미설정(레거시 행 · 마이그 전 DB).
+  //   모든 화면이 이 필드명 하나만 쓴다(화면별 별칭 금지). 표시는 formatLineDuration.
+  estimatedDurationMinutes: LineDurationMinutes | null;
   // 소속 조직 — null = 미지정 (개설 브리지 불가).
   organizationSlug: LineRegistrationOrg | null;
   organizationLabel: string | null;
@@ -320,6 +371,8 @@ export type LineRegistrationCreateInput = {
   mainTitleMode: LineRegistrationMainTitleMode;
   mainTitle: string;
   unitLink: string;
+  // 예상 소요 시간(분) — 신규 등록 필수(파서가 미선택을 400 으로 거부하므로 null 이 될 수 없다).
+  estimatedDurationMinutes: LineDurationMinutes;
   organizationSlug: LineRegistrationOrg | null;
   // info 허브 강화 포인트 연결 키(activity_types.id). 비-info 는 null 강제.
   pointActivityTypeId: string | null;
@@ -341,6 +394,9 @@ export type LineRegistrationPatchInput = {
   mainTitleMode?: LineRegistrationMainTitleMode;
   mainTitle?: string;
   unitLink?: string;
+  // 예상 소요 시간(분) — 수정에서는 부분 수정. 미전송이면 기존값 보존(레거시 NULL 행도 다른
+  //   필드만 수정 가능). 전송 시 30|60|90|120 필수 — null 로의 되돌림(미설정 복귀)은 거부한다.
+  estimatedDurationMinutes?: LineDurationMinutes;
   organizationSlug?: LineRegistrationOrg | null;
   // info 강화 포인트 연결 키. null = 연결 해제. 비-info 행에서의 지정은 데이터 레이어에서 무시.
   pointActivityTypeId?: string | null;
@@ -394,6 +450,21 @@ function lineCodeText(raw: unknown): ParseBodyResult<string> {
     };
   }
   return { ok: true, value: r.value };
+}
+
+// 소요 시간 파서 — 허용 값(30|60|90|120) 외는 전부 거부한다.
+//   클라이언트 검증과 무관한 서버 단독 게이트: 45/0/180/"60"/1.5/null 등을 여기서 막는다.
+//   (JSON 숫자만 허용 — 문자열 "60" 도 거부해 타입 혼입을 차단한다.)
+const LINE_DURATION_ALLOWED_TEXT = LINE_DURATION_MINUTES.join(" | ");
+function durationMinutes(raw: unknown): ParseBodyResult<LineDurationMinutes> {
+  if (!isLineDurationMinutes(raw)) {
+    return {
+      ok: false,
+      status: 400,
+      error: `estimated_duration_minutes 는 ${LINE_DURATION_ALLOWED_TEXT} 중 하나여야 합니다 (소요 시간을 선택해주세요)`,
+    };
+  }
+  return { ok: true, value: raw };
 }
 
 function optionalText(raw: unknown, field: string): ParseBodyResult<string | null> {
@@ -460,6 +531,12 @@ export function parseLineRegistrationCreateBody(
   const unitLinkParsed = optionalText(body.unit_link, "unit_link");
   if (!unitLinkParsed.ok) return unitLinkParsed;
   const unitLink = unitLinkParsed.value ?? EMPTY_UNIT_LINK_SENTINEL;
+
+  // 소요 시간 — 신규 등록 필수(2026-07-17). 미선택/미전송은 400.
+  //   기존 행의 NULL 보존과는 무관 — CREATE 경로에서만 필수를 강제한다(org 필수와 동일한 구조).
+  const durationParsed = durationMinutes(body.estimated_duration_minutes);
+  if (!durationParsed.ok) return durationParsed;
+  const estimatedDurationMinutes = durationParsed.value;
 
   // 소속 조직 — 신규 등록은 필수(2026-07-13). 빈문자열/null/undefined 전부 거부 후 enum 검증.
   //   (기존 미지정 null 행은 보존·조회 가능 — 여기 CREATE 경로에서만 필수 강제.)
@@ -534,6 +611,7 @@ export function parseLineRegistrationCreateBody(
       mainTitleMode,
       mainTitle,
       unitLink,
+      estimatedDurationMinutes,
       organizationSlug,
       pointActivityTypeId,
       partnerCompany,
@@ -603,6 +681,15 @@ export function parseLineRegistrationPatchBody(
     const r = optionalText(body.unit_link, "unit_link");
     if (!r.ok) return r;
     patch.unitLink = r.value ?? EMPTY_UNIT_LINK_SENTINEL;
+  }
+
+  // 소요 시간 수정 — 보낼 경우 허용 값 필수. null/미설정으로의 되돌림은 거부한다
+  //   (미설정은 레거시 행의 보존 상태일 뿐, 새로 만들 수 있는 상태가 아니다).
+  //   미전송이면 기존값 보존 → 레거시 NULL 행도 다른 필드만 수정할 수 있다.
+  if (body.estimated_duration_minutes !== undefined) {
+    const r = durationMinutes(body.estimated_duration_minutes);
+    if (!r.ok) return r;
+    patch.estimatedDurationMinutes = r.value;
   }
 
   // 소속 조직 수정 — 보낼 경우 필수(2026-07-13): null/빈문자열로의 변경(연결 해제)은 거부.
