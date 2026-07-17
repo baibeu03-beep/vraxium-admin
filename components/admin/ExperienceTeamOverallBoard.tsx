@@ -647,7 +647,12 @@ export default function ExperienceTeamOverallBoard({
                   <TableCell className="font-medium whitespace-normal break-words">
                     {crew.displayName}
                     {crew.isPartLeader && (
-                      <span className="ml-1 text-xs text-sky-700">(파트장)</span>
+                      // 역할 라벨은 이름 아래 줄에 표기(block = 항상 자기 줄 차지) —
+                      //   이름 길이·칸 폭과 무관하게 "이름 / 파트장" 2줄 고정.
+                      //   ml-1(가로 공백)은 인라인 표기용이라 줄을 나눈 뒤엔 불필요하며,
+                      //   셀이 text-center 라 4px 만큼 라벨이 이름보다 우측으로 밀린다(실측 60.3 vs 62.3)
+                      //   → 제거해 이름과 중심을 맞춘다. block 이라 단어 중간 끊김(keep-all)도 없다.
+                      <span className="block text-xs text-sky-700">파트장</span>
                     )}
                   </TableCell>
                   <TableCell className="whitespace-normal break-words text-xs text-muted-foreground">
