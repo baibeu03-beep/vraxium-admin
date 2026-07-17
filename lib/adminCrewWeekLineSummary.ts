@@ -2,6 +2,7 @@ import { resolveCrewWeekCard } from "@/lib/adminCrewWeekDetail";
 import {
   loadLinePointSummaryForCrewWeek,
   loadLineEarnedByRefForCrewWeek,
+  loadLinePossibleByRefForCrewWeek,
 } from "@/lib/processPointAccrual";
 import {
   isSecondEntryEligibleLine,
@@ -20,6 +21,8 @@ import {
 import { computeCluster4Enhancement } from "@/lib/cluster4Enhancement";
 import { foldExperienceSlots } from "@/lib/experienceSlotFold";
 import { rawOpenLineGrowthRate } from "@/lib/lineHistoryGrowthRate";
+import { loadLineDurationResolver } from "@/lib/adminLineDurationBridge";
+import type { LineDurationMinutes } from "@/lib/adminLineRegistrationsTypes";
 import { isCrewWeekEditable } from "@/shared/growth.contracts";
 import type { Cluster4LineDetailDto } from "@/shared/cluster4.contracts";
 import type {
@@ -46,8 +49,12 @@ import type {
 //   · 포인트 A/B  = earned(라인 개설 지급 원장 source='line' 합) / possible(이 주차 클럽에서 오픈된
 //                  모든 라인의 설정 point_a/point_b 합 — 상세 표의 clubOpen 행과 동일 집합).
 //                  ⚠ possible 은 대상자/강화 성공 여부와 무관한 "획득 가능 총합"이다(대상·성공 라인만
-//                  합산하면 earned 와 같아져 분모가 무의미). 액트/프로세스/수동/Point C 는 제외.
-//   · 포인트 C    = 라인 정책상 지급 원천이 없어 항상 0/0(추정 금지 — 구조만 A/B/C 동형 유지).
+//                  합산하면 earned 와 같아져 분모가 무의미). 액트/프로세스/수동은 제외.
+//   · 포인트 C    = A/B 와 **동일 SoT 경로**로 조회(2026-07-17 원천 연결): earned=원장 point_penalty,
+//                  possible=config point_c(컬럼 부재 시 0). 하드코딩 0 이 아니라 조회 결과가 0 이다 —
+//                  라인 C 지급 규칙이 생기면 코드 수정 없이 값이 흐른다.
+//   · 소요 시간   = line_registrations.estimated_duration_minutes(원장 직조회, adminLineDurationBridge).
+//                  인스턴스/snapshot 에 복제하지 않는다. career 는 브리지 미연결 → 항상 null("-").
 //
 // 이 페이지는 클럽/주차 공통 데이터(라인 오픈 여부 등)를 조회 근거로만 쓰고 절대 변경하지 않는다.
 // ─────────────────────────────────────────────────────────────────────
@@ -77,10 +84,11 @@ export type CrewWeekLineSummaryDto = {
     notApplicable: number; // === "not_applicable"
     pending: number; // === "pending" (미확정 주차 미판정)
   };
-  // 라인 강화 결과 포인트 — A/B만. Point C(번개)는 라인 개설 지급 정책에 없어 다루지 않는다(확정 2026-07).
+  // 라인 강화 결과 포인트 — A/B/C 동형. C 는 원장/설정 SoT 조회값(현재 원천상 0/0, 추정 아님).
   points: {
     pointA: CrewWeekLinePointPair;
     pointB: CrewWeekLinePointPair;
+    pointC: CrewWeekLinePointPair;
   };
   // 하단 상세 표(전체 라인 raw). 2차 기입 override 관리 대상.
   lineDetails: CrewWeekLineDetailRow[];
@@ -117,8 +125,23 @@ export type CrewWeekLineDetailRow = {
   enhancementReason: Cluster4EnhancementReason;
   submissionStatus: Cluster4SubmissionStatus;
   rating: number | null; // 실무 경험 평점(0~10). 그 외 유형/미책정=null → UI "-". 0 과 null 구분.
+  // 실무 경력 평점 — cluster4_career_line_evaluations.grade_points(S=10/A=8/B=6/C=4/D=2) SoT 그대로.
+  //   경험 rating 과 **같은 0~10 축**(강화 실패 임계도 동일하게 ≤3)이지만 원천 테이블이 달라 별도 필드다.
+  //   career 외 허브/미평가 = null. ⚠ rating 과 합치지 않는다 — 어드민 표의 기존 "평점" 열(경험 전용)
+  //   표시가 바뀌면 안 되므로, 허브별 어느 원천을 쓸지는 소비처(크루 projection)가 정한다.
+  careerGradePoints: number | null;
+  // 예상 소요 시간(분) — line_registrations.estimated_duration_minutes SoT. null=미설정/브리지없음 → "-".
+  estimatedDurationMinutes: LineDurationMinutes | null;
   earnedA: number; // 라인 원장(source='line', ref_id=line_id) point_check
   earnedB: number; // 라인 원장 point_advantage
+  earnedC: number; // 라인 원장 point_penalty (Point C = 번개, ≥0 표기 축)
+  // 획득 "가능"(최대) 포인트 — loadLinePossibleByRefForCrewWeek(요약 possible 과 동일 SoT: 라인
+  //   config point_a/point_b, null=미지급→0). 대상자/성공 여부와 무관한 라인 자체의 최대치이므로
+  //   비대상(해당 없음) 행도 클럽 오픈이면 값이 존재한다 → 표시 "0 / N". 미오픈 행 = 0.
+  //   ⚠ earned 역산·성공 행만 합산 금지. 요약(points.*.possible) 산출 경로는 불변(순수 추가 필드).
+  possibleA: number;
+  possibleB: number;
+  possibleC: number; // config point_c (현재 컬럼 부재 → 0). A/B 와 동일 규칙.
   // 2차 기입 — 관리자 수동 override 상태 + 편집권.
   overrideAllowed: boolean; // allowed=true override 존재(수동 허용)
   eligible: boolean; // 허용 전환 가능(클럽오픈 && 본인배정 && 강화성공)
@@ -164,6 +187,7 @@ export async function getCrewWeekLineSummary(
         points: {
           pointA: { earned: 0, possible: 0 },
           pointB: { earned: 0, possible: 0 },
+          pointC: { earned: 0, possible: 0 },
         },
         lineDetails: [],
         canManageSecondEntry: false,
@@ -184,14 +208,27 @@ export async function getCrewWeekLineSummary(
     .filter((l) => l.partType === "competency" && l.competencyLineMasterId)
     .map((l) => l.competencyLineMasterId as string);
 
-  const [linePoints, earnedByLine, overrideRows, competencyTypeByMaster, infoCatalog] =
-    await Promise.all([
-      loadLinePointSummaryForCrewWeek(crew.userId, card.weekId, openLineIds),
-      loadLineEarnedByRefForCrewWeek(crew.userId, card.weekId),
-      loadSecondEntryOverridesForUser(crew.userId),
-      loadCompetencyLineTypeByMasterIds(competencyMasterIds),
-      loadInfoLineCatalog(crew.organizationSlug),
-    ]);
+  const [
+    linePoints,
+    earnedByLine,
+    possibleByLine,
+    overrideRows,
+    competencyTypeByMaster,
+    infoCatalog,
+    durationOf,
+  ] = await Promise.all([
+    loadLinePointSummaryForCrewWeek(crew.userId, card.weekId, openLineIds),
+    loadLineEarnedByRefForCrewWeek(crew.userId, card.weekId),
+    // 행별 "가능" 분모 — 요약 possible 과 동일 SoT/동일 openLineIds 집합.
+    loadLinePossibleByRefForCrewWeek(crew.userId, openLineIds),
+    loadSecondEntryOverridesForUser(crew.userId),
+    loadCompetencyLineTypeByMasterIds(competencyMasterIds),
+    loadInfoLineCatalog(crew.organizationSlug),
+    // 소요 시간 원장 브리지 — 주차당 1회 로드 후 라인별 조회(N+1 회피).
+    //   org 필수: info 는 활동유형 키로 매칭하는데 그 키에 유니크 제약이 없어, org 스코프 없이
+    //   맵을 만들면 다른 org 의 소요 시간이 조용히 선택된다(형제 loadInfoLineCatalog 와 동일 스코프).
+    loadLineDurationResolver(crew.organizationSlug),
+  ]);
   const overrideAllowedByLine = new Map<string, boolean>();
   for (const r of overrideRows) {
     if (r.week_id === card.weekId) overrideAllowedByLine.set(r.line_id, r.allowed);
@@ -210,6 +247,8 @@ export async function getCrewWeekLineSummary(
     opts: { type: string | null; displayName: string; displayLineCode?: string | null },
   ): CrewWeekLineDetailRow => {
     const earned = line.lineId != null ? earnedByLine.get(line.lineId) : undefined;
+    // 가능치는 "라인 자체"의 최대 지급값 — 대상자/성공 여부와 무관하게 클럽 오픈 라인이면 존재한다.
+    const possible = line.lineId != null ? possibleByLine.get(line.lineId) : undefined;
     return {
       lineId: line.lineId,
       lineTargetId: line.lineTargetId,
@@ -230,8 +269,14 @@ export async function getCrewWeekLineSummary(
       enhancementReason: line.enhancementReason,
       submissionStatus: line.submissionStatus,
       rating: line.experienceRating,
+      careerGradePoints: line.careerGradePoints,
+      estimatedDurationMinutes: durationOf(line),
       earnedA: earned?.earnedA ?? 0,
       earnedB: earned?.earnedB ?? 0,
+      earnedC: earned?.earnedC ?? 0,
+      possibleA: possible?.possibleA ?? 0,
+      possibleB: possible?.possibleB ?? 0,
+      possibleC: possible?.possibleC ?? 0,
       overrideAllowed: line.lineId != null && overrideAllowedByLine.get(line.lineId) === true,
       eligible: isSecondEntryEligibleLine(line),
       effectiveCanEdit: line.canEdit,
@@ -276,8 +321,21 @@ export async function getCrewWeekLineSummary(
       enhancementReason: enh.enhancementReason,
       submissionStatus: enh.submissionStatus,
       rating: null,
+      careerGradePoints: null,
+      // 미개설 행이지만 소요 시간은 "라인 마스터" 속성이라 개설 여부와 무관하게 원장 값이 존재한다
+      //   (개설되지 않았을 뿐 라인 자체는 등록돼 있음) → 활동유형 키로 원장에서 조회.
+      estimatedDurationMinutes: durationOf({
+        partType: "information",
+        activityTypeId: entry.activityTypeId,
+        activityTypeKey: entry.activityTypeId,
+      }),
       earnedA: 0,
       earnedB: 0,
+      earnedC: 0,
+      // 미오픈(이 주차 미개설) 라인 = 지급 원천 자체가 없다 → 가능치 0(추정 금지).
+      possibleA: 0,
+      possibleB: 0,
+      possibleC: 0,
       overrideAllowed: false,
       eligible: false,
       effectiveCanEdit: false,
@@ -324,6 +382,10 @@ export async function getCrewWeekLineSummary(
     const isOwn = rep.lineTargetId != null; // 본인에게 실제 배정(선택)된 라인
     const opened = rep.enhancementStatus !== "not_applicable";
     const earned = isOwn && rep.lineId != null ? earnedByLine.get(rep.lineId) : undefined;
+    // ⚠ 가능치는 earned 와 달리 **본인 배정 여부와 무관**하다 — 클럽이 오픈한 라인 자체의 최대
+    //   지급값이므로 비대상(해당 없음) 슬롯도 rep.lineId 로 조회해 "0 / N" 을 표시한다.
+    //   (row.lineId 는 타인 라인 노출 방지로 null 처리되지만, 가능치 조회는 내부 rep.lineId 사용.)
+    const possible = rep.lineId != null ? possibleByLine.get(rep.lineId) : undefined;
     return {
       lineId: isOwn ? rep.lineId : null, // 비대상/placeholder = 팝업·2차기입 차단(타인 라인 노출 금지)
       lineTargetId: isOwn ? rep.lineTargetId : null,
@@ -342,8 +404,16 @@ export async function getCrewWeekLineSummary(
       enhancementReason: rep.enhancementReason,
       submissionStatus: rep.submissionStatus,
       rating: isOwn ? rep.experienceRating : null,
+      careerGradePoints: null, // 경험 슬롯 — career 원천 없음
+      // ⚠ 소요 시간은 라인 마스터 속성이라 **본인 배정 여부와 무관**하다(earned 와 다름).
+      //   비대상 슬롯도 클럽이 오픈한 라인의 소요 시간은 표시한다(라인명만 "-"로 가림).
+      estimatedDurationMinutes: durationOf(rep),
       earnedA: earned?.earnedA ?? 0,
       earnedB: earned?.earnedB ?? 0,
+      earnedC: earned?.earnedC ?? 0,
+      possibleA: possible?.possibleA ?? 0,
+      possibleB: possible?.possibleB ?? 0,
+      possibleC: possible?.possibleC ?? 0,
       overrideAllowed:
         isOwn && rep.lineId != null && overrideAllowedByLine.get(rep.lineId) === true,
       eligible: isOwn ? isSecondEntryEligibleLine(rep) : false,
@@ -437,6 +507,8 @@ export async function getCrewWeekLineSummary(
       points: {
         pointA: { earned: linePoints.earnedA, possible: linePoints.possibleA },
         pointB: { earned: linePoints.earnedB, possible: linePoints.possibleB },
+        // C = 원장 point_penalty / config point_c. 현재 원천상 0/0 이지만 조회 결과이지 하드코딩이 아니다.
+        pointC: { earned: linePoints.earnedC, possible: linePoints.possibleC },
       },
       lineDetails,
       canManageSecondEntry: confirmed,

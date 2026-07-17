@@ -956,29 +956,63 @@ export async function resolveLineConfigKey(row: LineRowForPayout): Promise<strin
   return null;
 }
 
+// ── cluster4_line_point_configs.point_c 컬럼 적용 여부 — 1회 프로브 후 캐시 ──────────────
+//   라인 C(번개) 지급 설정 컬럼은 아직 없다(2026-07-17 실측: 42703). 그런데 select 목록에 point_c 를
+//   그냥 넣으면 A/B 조회까지 통째로 42703 으로 깨진다 → 실재할 때만 읽고, 미적용이면 null(=가능치 0).
+//   ⚠ C 를 화면/DTO 에서 하드코딩 0 으로 막지 않는 이유: 향후 point_c 컬럼이 생기면 **코드 수정 없이**
+//     설정값이 그대로 흐르게 하기 위해서다(요구: DTO·UI 불변, 값만 반영). 지금은 원천 부재 → 0.
+//   duration 조회의 "컬럼 빼고 재시도 degrade"(commit 2ac9bbf)와 동일 원칙.
+let _hasLinePointC: boolean | null = null;
+
+export async function linePointConfigsHasPointC(): Promise<boolean> {
+  if (_hasLinePointC !== null) return _hasLinePointC;
+  const res = await supabaseAdmin
+    .from("cluster4_line_point_configs")
+    .select("point_c")
+    .limit(1);
+  if (!res.error) {
+    _hasLinePointC = true;
+    return true;
+  }
+  if ((res.error as { code?: string }).code === "42703") {
+    _hasLinePointC = false; // 컬럼 부재 확정 — 캐시
+    return false;
+  }
+  return false; // 일시 오류 — 캐시하지 않고 보수적으로 미적용 취급
+}
+
 // (org, hub, config_key) 포인트 설정 조회 — per-field null 보존(null=미지급, 0 포함 숫자=지급).
-//   org 우선 → common 폴백(loadLinePointLookupAllOrgs 와 동일 규칙). 미적용/미존재 = {null,null}.
+//   org 우선 → common 폴백(loadLinePointLookupAllOrgs 와 동일 규칙). 미적용/미존재 = {null,null,null}.
+//   pointC = 컬럼 실재 시 설정값, 컬럼 부재 시 null(→ 호출부에서 가능치 0). 추정/하드코딩 아님.
 export async function loadLinePointForConfig(
   configOrg: string | null,
   hub: string,
   configKey: string,
-): Promise<{ pointA: number | null; pointB: number | null }> {
+): Promise<{ pointA: number | null; pointB: number | null; pointC: number | null }> {
   const orgsToQuery = configOrg && configOrg !== "common" ? [configOrg, "common"] : ["common"];
+  const hasC = await linePointConfigsHasPointC();
   const { data, error } = await supabaseAdmin
     .from("cluster4_line_point_configs")
-    .select("organization_slug, point_a, point_b")
+    .select(hasC ? "organization_slug, point_a, point_b, point_c" : "organization_slug, point_a, point_b")
     .eq("hub", hub)
     .eq("config_key", configKey)
     .in("organization_slug", orgsToQuery);
   if (error) {
     console.warn("[lineOpenAward] point config lookup failed → 미지급 처리", { hub, configKey, message: error.message });
-    return { pointA: null, pointB: null };
+    return { pointA: null, pointB: null, pointC: null };
   }
-  const rows = (data ?? []) as Array<{ organization_slug: string; point_a: number | null; point_b: number | null }>;
+  const rows = (data ?? []) as unknown as Array<{
+    organization_slug: string;
+    point_a: number | null;
+    point_b: number | null;
+    point_c?: number | null;
+  }>;
   const orgRow = configOrg && configOrg !== "common" ? rows.find((r) => r.organization_slug === configOrg) : undefined;
   const commonRow = rows.find((r) => r.organization_slug === "common");
   const row = orgRow ?? commonRow ?? null;
-  return row ? { pointA: row.point_a, pointB: row.point_b } : { pointA: null, pointB: null };
+  return row
+    ? { pointA: row.point_a, pointB: row.point_b, pointC: row.point_c ?? null }
+    : { pointA: null, pointB: null, pointC: null };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -990,15 +1024,20 @@ export async function loadLinePointForConfig(
 //             상세 표의 "오픈" 행과 동일 집합. ⚠ 대상자 여부·강화 성공 여부와 무관하게 포함한다
 //             (대상 라인만·성공 라인만 합산 금지 — 그러면 earned 와 같아져 분모가 무의미해진다).
 //             cluster4_line_point_configs(크루 소속 org→common) 의 point_a/point_b (null=미지급→가능치 0).
-//   ⚠ 라인 정책상 Point C(번개/penalty)는 지급 원천 자체가 없다 → earned/possible 항상 0/0(추정 금지).
-//     DTO 구조는 A/B/C 동형 유지 — 향후 라인 C 지급 정책이 생기면 여기 원천만 연결한다(구조는 열어둠).
+//   Point C(번개/penalty) — 2026-07-17 원천 연결(기존 "항상 0/0 하드코딩" 대체):
+//     earned C  = 원장 point_penalty (A/B 와 동일 행·동일 필터). 컬럼 실재 → 실측값이 그대로 흐른다.
+//                 (2026-07-17 실측: source='line' 154행 전부 point_penalty=0 → 현재 합계 0. 값이 0인 것과
+//                  원천이 없는 것은 다르다 — 라인 C 지급 규칙이 생기면 이 경로로 자동 반영된다.)
+//     possible C = config point_c. **컬럼 미적용(42703)** → null → 0. 컬럼 추가 시 코드 수정 없이 반영.
 //   지급 트리거(earned) = 강화 성공 시 지급(결과 종속). possible 은 그와 독립적으로 오픈 라인 설정 총합.
 // ────────────────────────────────────────────────────────────────────────────
 export type LinePointSummary = {
   earnedA: number;
   earnedB: number;
+  earnedC: number;
   possibleA: number;
   possibleB: number;
+  possibleC: number;
 };
 
 export async function loadLinePointSummaryForCrewWeek(
@@ -1006,7 +1045,14 @@ export async function loadLinePointSummaryForCrewWeek(
   weekId: string,
   openLineIds: string[],
 ): Promise<LinePointSummary> {
-  const empty: LinePointSummary = { earnedA: 0, earnedB: 0, possibleA: 0, possibleB: 0 };
+  const empty: LinePointSummary = {
+    earnedA: 0,
+    earnedB: 0,
+    earnedC: 0,
+    possibleA: 0,
+    possibleB: 0,
+    possibleC: 0,
+  };
 
   const week = await loadWeek(weekId);
   if (!week || week.iso_year == null || week.iso_week == null) return empty;
@@ -1015,7 +1061,7 @@ export async function loadLinePointSummaryForCrewWeek(
   const hasCancel = await processPointAwardsHasCancelColumns();
   let earnedQ = supabaseAdmin
     .from("process_point_awards")
-    .select("point_check,point_advantage")
+    .select("point_check,point_advantage,point_penalty")
     .eq("user_id", realUserId)
     .eq("source", "line")
     .eq("year", week.iso_year)
@@ -1023,9 +1069,15 @@ export async function loadLinePointSummaryForCrewWeek(
   if (hasCancel) earnedQ = earnedQ.is("cancelled_at", null);
   const { data: awardRows, error: awardErr } = await earnedQ;
   if (awardErr) throw awardErr;
-  const awards = (awardRows ?? []) as Array<{ point_check: number | null; point_advantage: number | null }>;
+  const awards = (awardRows ?? []) as Array<{
+    point_check: number | null;
+    point_advantage: number | null;
+    point_penalty: number | null;
+  }>;
   const earnedA = awards.reduce((s, r) => s + (r.point_check || 0), 0);
   const earnedB = awards.reduce((s, r) => s + (r.point_advantage || 0), 0);
+  // C = penalty magnitude(≥0 표기 정책, Cluster4WeeklyPointsDto.pointC 와 동일 축).
+  const earnedC = awards.reduce((s, r) => s + (r.point_penalty || 0), 0);
 
   // possible: 이 주차에 클럽에서 오픈된 모든 라인의 설정값 합(획득 가능 최대치).
   //   openLineIds = 호출부(card.lines clubOpen) 가 넘긴 실제 개설 라인 집합. 대상자/성공 여부와 무관.
@@ -1033,6 +1085,7 @@ export async function loadLinePointSummaryForCrewWeek(
 
   let possibleA = 0;
   let possibleB = 0;
+  let possibleC = 0;
   if (lineIds.length > 0) {
     // 지급액은 크루 소속 org config 기준(공통 라인 템플릿이라도 org 별 지급액이 다름 — earned 지급과 동일 규칙).
     const { data: prof } = await supabaseAdmin
@@ -1048,29 +1101,32 @@ export async function loadLinePointSummaryForCrewWeek(
     for (const row of (lineRows ?? []) as LineRowForPayout[]) {
       const configKey = await resolveLineConfigKey(row);
       if (!configKey) continue;
-      const { pointA, pointB } = await loadLinePointForConfig(crewOrg, row.part_type, configKey);
+      const { pointA, pointB, pointC } = await loadLinePointForConfig(crewOrg, row.part_type, configKey);
       possibleA += pointA ?? 0; // null=미지급 → 가능치 0
       possibleB += pointB ?? 0;
+      possibleC += pointC ?? 0; // 현재 point_c 컬럼 부재 → 항상 0(원천 연결만 되어 있음)
     }
   }
 
-  return { earnedA, earnedB, possibleA, possibleB };
+  return { earnedA, earnedB, earnedC, possibleA, possibleB, possibleC };
 }
 
-// 라인별 획득 포인트(A/B) — (user, week) 의 source='line' 원장을 ref_id(=line_id) 로 그룹핑.
-//   관리 라인 상세 표의 "획득 별/방패" 컬럼 SoT. 취소분 제외. 배열 순서/라인명이 아니라 ref_id 로 매핑.
+// 라인별 획득 포인트(A/B/C) — (user, week) 의 source='line' 원장을 ref_id(=line_id) 로 그룹핑.
+//   관리 라인 상세 표의 "획득 별/방패/번개" 컬럼 SoT. 취소분 제외. 배열 순서/라인명이 아니라 ref_id 로 매핑.
+//   ⚠ 요약(loadLinePointSummaryForCrewWeek)과 **동일 행·동일 필터**를 쓴다 → Σ 행 = 요약 불변식이
+//     구조적으로 성립한다(각자 다른 질의로 세지 말 것).
 export async function loadLineEarnedByRefForCrewWeek(
   realUserId: string,
   weekId: string,
-): Promise<Map<string, { earnedA: number; earnedB: number }>> {
-  const byLine = new Map<string, { earnedA: number; earnedB: number }>();
+): Promise<Map<string, { earnedA: number; earnedB: number; earnedC: number }>> {
+  const byLine = new Map<string, { earnedA: number; earnedB: number; earnedC: number }>();
   const week = await loadWeek(weekId);
   if (!week || week.iso_year == null || week.iso_week == null) return byLine;
 
   const hasCancel = await processPointAwardsHasCancelColumns();
   let q = supabaseAdmin
     .from("process_point_awards")
-    .select("ref_id,point_check,point_advantage")
+    .select("ref_id,point_check,point_advantage,point_penalty")
     .eq("user_id", realUserId)
     .eq("source", "line")
     .eq("year", week.iso_year)
@@ -1078,12 +1134,57 @@ export async function loadLineEarnedByRefForCrewWeek(
   if (hasCancel) q = q.is("cancelled_at", null);
   const { data, error } = await q;
   if (error) throw error;
-  for (const r of (data ?? []) as Array<{ ref_id: string | null; point_check: number | null; point_advantage: number | null }>) {
+  for (const r of (data ?? []) as Array<{
+    ref_id: string | null;
+    point_check: number | null;
+    point_advantage: number | null;
+    point_penalty: number | null;
+  }>) {
     if (!r.ref_id) continue;
-    const cur = byLine.get(r.ref_id) ?? { earnedA: 0, earnedB: 0 };
+    const cur = byLine.get(r.ref_id) ?? { earnedA: 0, earnedB: 0, earnedC: 0 };
     cur.earnedA += r.point_check || 0;
     cur.earnedB += r.point_advantage || 0;
+    cur.earnedC += r.point_penalty || 0;
     byLine.set(r.ref_id, cur);
+  }
+  return byLine;
+}
+
+// 라인별 획득 "가능"(최대) 포인트(A/B/C) — loadLinePointSummaryForCrewWeek 의 possible 집계를
+//   합계가 아니라 line_id 별 맵으로 돌려주는 형태. **동일 SoT·동일 규칙**을 쓴다(별도 산식 금지):
+//     config_key = resolveLineConfigKey(row) · 지급값 = loadLinePointForConfig(크루 org → common)
+//     null(미지급/컬럼부재) = 가능치 0. 대상자/강화 성공 여부와 무관(오픈 라인 자체의 최대 가능치).
+//   용도 = 라인 강화 내역 표의 행별 "획득 / 가능" 분모(Σ 행 = 요약과 정합). 요약(summary)의
+//   possible 산출 경로는 건드리지 않는다 — 이 함수는 순수 추가(admin 기존 표시값 불변).
+//   ⚠ 비대상(해당 없음) 행도 클럽 오픈 라인이면 possible 이 존재한다 → 호출부가 earned=0 과 조합해
+//     "0 / N" 을 표시한다(획득값 역산·성공 행만 합산 금지).
+export async function loadLinePossibleByRefForCrewWeek(
+  realUserId: string,
+  openLineIds: string[],
+): Promise<Map<string, { possibleA: number; possibleB: number; possibleC: number }>> {
+  const byLine = new Map<string, { possibleA: number; possibleB: number; possibleC: number }>();
+  const lineIds = Array.from(new Set(openLineIds.filter((x): x is string => Boolean(x))));
+  if (lineIds.length === 0) return byLine;
+
+  // 지급액은 크루 소속 org config 기준 — loadLinePointSummaryForCrewWeek 와 동일 규칙.
+  const { data: prof } = await supabaseAdmin
+    .from("user_profiles")
+    .select("organization_slug")
+    .eq("user_id", realUserId)
+    .maybeSingle();
+  const crewOrg = (prof as { organization_slug: string | null } | null)?.organization_slug ?? null;
+
+  const { data: lineRows } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select(LINE_PAYOUT_SELECT)
+    .in("id", lineIds);
+
+  for (const row of (lineRows ?? []) as LineRowForPayout[]) {
+    const configKey = await resolveLineConfigKey(row);
+    if (!configKey) continue;
+    const { pointA, pointB, pointC } = await loadLinePointForConfig(crewOrg, row.part_type, configKey);
+    // null=미지급(또는 point_c 컬럼 부재) → 0
+    byLine.set(row.id, { possibleA: pointA ?? 0, possibleB: pointB ?? 0, possibleC: pointC ?? 0 });
   }
   return byLine;
 }
