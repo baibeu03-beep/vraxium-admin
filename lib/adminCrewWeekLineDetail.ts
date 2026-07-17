@@ -41,6 +41,9 @@ export type AdminCrewWeekLineDetailDto = {
     type: string | null;
     hubLabel: string; // "실무 경험" 등
     mainTitle: string | null; // 클럽 공통 마스터 — 조회 전용
+    // 실무 역량 라인의 현재 마스터 id(competency_line_master_id). 라인명/코드/유형의 파생 원천이자
+    //   팝업의 "라인명 변경(repoint)" 드롭다운 기본 선택값. 그 외 허브는 null.
+    competencyLineMasterId: string | null;
   };
   week: { id: string; label: string; startDate: string; endDate: string };
   organizationSlug: string | null;
@@ -116,6 +119,8 @@ export async function getCrewWeekLineDetail(
         type: lineType,
         hubLabel: formatProcessHubLabel(hubKey),
         mainTitle: line.mainTitle,
+        competencyLineMasterId:
+          line.partType === "competency" ? line.competencyLineMasterId : null,
       },
       week: {
         id: card.weekId,

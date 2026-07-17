@@ -308,8 +308,11 @@ export default function CrewWeekLineHistory({
   //   = 라인 선택(강화 성공 전환) 팝업. 그 외 placeholder 는 상세 없음.
   const [detailLineId, setDetailLineId] = useState<string | null>(null);
   const [compSelectOpen, setCompSelectOpen] = useState(false);
+  // 실무 경험 오픈+비대상(강화 실패) 슬롯 = 라인 선택(강화 성공 전환) 팝업. lineId 가 없어도 유형으로 연다.
+  const [expSelectRow, setExpSelectRow] = useState<CrewWeekLineDetailRow | null>(null);
   const openLineDetail = useCallback((row: CrewWeekLineDetailRow) => {
     if (row.isCompetencyPlaceholder) setCompSelectOpen(true);
+    else if (row.isExperiencePlaceholder) setExpSelectRow(row);
     else if (row.lineId) setDetailLineId(row.lineId);
   }, []);
 
@@ -503,6 +506,27 @@ export default function CrewWeekLineHistory({
           }}
         />
       ) : null}
+
+      {expSelectRow ? (
+        <CrewWeekLineDetailDialog
+          userId={userId}
+          weekId={weekId}
+          lineId={null}
+          experiencePlaceholder
+          experienceCategory={expSelectRow.experienceCategory}
+          experienceCategoryLabel={expSelectRow.type}
+          placeholderEditable={canManage}
+          weekLabel={weekLabel ?? null}
+          orgSlug={summary?.organizationSlug ?? orgSlug}
+          mode={mode}
+          member={member}
+          onClose={() => setExpSelectRow(null)}
+          onSaved={() => {
+            void load();
+            onChanged?.();
+          }}
+        />
+      ) : null}
     </div>
   );
 }
@@ -618,7 +642,13 @@ function HubLineTable({
                   type="button"
                   onClick={() => onOpenDetail(row)}
                   className="block w-full min-w-0 text-left font-medium text-foreground underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
-                  title={row.isCompetencyPlaceholder ? "실무 역량 라인 선택" : row.lineName}
+                  title={
+                    row.isCompetencyPlaceholder
+                      ? "실무 역량 라인 선택"
+                      : row.isExperiencePlaceholder
+                        ? "실무 경험 라인 선택(강화 성공 전환)"
+                        : row.lineName
+                  }
                 >
                   <span className="block truncate text-left">
                     {row.isCompetencyPlaceholder ? "-" : row.lineName}

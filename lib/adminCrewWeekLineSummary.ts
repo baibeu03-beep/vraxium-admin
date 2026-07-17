@@ -107,6 +107,11 @@ export type CrewWeekLineDetailRow = {
   // 실무 역량 placeholder 행 여부(개설됐으나 이 크루가 아직 대상자 아님 → 라인명 "-"). 성공 전환 시
   //   라인 선택이 필요한 특수 행. 프론트가 이 행 클릭 시 라인 선택 팝업을 연다.
   isCompetencyPlaceholder: boolean;
+  // 실무 경험 비대상(오픈+강화 실패) 슬롯 — 본인 라인이 없어 lineId=null. 팝업에서 강화 결과를 성공으로
+  //   바꾸면 이 유형의 라인 선택 드롭다운을 노출하고, 선택·저장 시 실제 line/target 을 생성해 성공 수렴한다
+  //   (역량 placeholder 아날로그). 타인 라인 인스턴스를 대표로 쓰지 않는다.
+  isExperiencePlaceholder: boolean;
+  experienceCategory: string | null; // 경험 유형 코드(derivation/analysis/…) — 라인 선택 스코프.
   enhancementStatus: Cluster4EnhancementStatus;
   enhancementLabel: string; // 강화 성공/실패/해당 없음/집계 전(pending)
   enhancementReason: Cluster4EnhancementReason;
@@ -218,6 +223,8 @@ export async function getCrewWeekLineSummary(
       clubOpen: line.lineId != null || isCompetencyOpen(line),
       isCompetencyPlaceholder:
         line.partType === "competency" && line.lineId == null && isCompetencyOpen(line),
+      isExperiencePlaceholder: false, // 경험 슬롯은 buildExperienceRow 에서만 설정
+      experienceCategory: null,
       enhancementStatus: line.enhancementStatus,
       enhancementLabel: formatEnhancementStatusLabel(line.enhancementStatus),
       enhancementReason: line.enhancementReason,
@@ -262,6 +269,8 @@ export async function getCrewWeekLineSummary(
       displayLineCode: entry.displayLineCode,
       clubOpen: false,
       isCompetencyPlaceholder: false,
+      isExperiencePlaceholder: false,
+      experienceCategory: null,
       enhancementStatus: enh.enhancementStatus,
       enhancementLabel: formatEnhancementStatusLabel(enh.enhancementStatus),
       enhancementReason: enh.enhancementReason,
@@ -325,6 +334,9 @@ export async function getCrewWeekLineSummary(
       displayLineCode: isOwn ? rep.displayLineCode : null,
       clubOpen: opened,
       isCompetencyPlaceholder: false,
+      // 오픈+비대상(강화 실패) 슬롯 = 경험 placeholder(팝업에서 라인 선택→성공 전환 가능). 미오픈은 제외.
+      isExperiencePlaceholder: !isOwn && opened,
+      experienceCategory: rep.experienceCategory,
       enhancementStatus: rep.enhancementStatus,
       enhancementLabel: formatEnhancementStatusLabel(rep.enhancementStatus),
       enhancementReason: rep.enhancementReason,

@@ -7,14 +7,14 @@ import {
 } from "@/lib/adminAuth";
 import { assertUserInRequestScope } from "@/lib/userScope";
 import {
-  listCompetencyMasterOptionsForWeek,
-  createCompetencySuccessLine,
-} from "@/lib/adminCompetencyLineSelect";
+  listExperienceLineOptionsForCategory,
+  createExperienceSuccessLine,
+} from "@/lib/adminExperienceLineSelect";
 
 type Ctx = { params: Promise<{ user_id: string; week_id: string }> };
 
-// GET /api/admin/members/[user_id]/weeks/[week_id]/competency-lines
-//   실무 역량 강화 성공 전환 시 선택 가능한 역량 활동 마스터 옵션(주차·조직 개설분, 이미 배정분 제외).
+// GET /api/admin/members/[user_id]/weeks/[week_id]/experience-lines?category=<code>
+//   오픈+비대상(강화 실패) 실무 경험 슬롯을 강화 성공으로 전환 시 선택 가능한 라인 옵션(유형 스코프).
 export async function GET(request: NextRequest, { params }: Ctx) {
   try {
     await requireAdmin(ADMIN_READ_ROLES);
@@ -25,6 +25,7 @@ export async function GET(request: NextRequest, { params }: Ctx) {
   }
 
   const { user_id, week_id } = await params;
+  const category = request.nextUrl.searchParams.get("category")?.trim() ?? "";
 
   try {
     await assertUserInRequestScope(request, user_id);
@@ -36,31 +37,30 @@ export async function GET(request: NextRequest, { params }: Ctx) {
   }
 
   try {
-    // lineId 지정 = 이미 개설된 역량 라인의 "라인명 변경(repoint)" 옵션(현재 마스터 포함·다른 라인 중복 제외).
-    //   미지정 = 강화 실패 placeholder → 성공 전환용 옵션(기존 동작).
-    const lineId = request.nextUrl.searchParams.get("lineId")?.trim() || undefined;
-    const result = await listCompetencyMasterOptionsForWeek(
-      user_id,
-      week_id,
-      lineId ? { excludeLineId: lineId } : undefined,
-    );
+    const result = await listExperienceLineOptionsForCategory(user_id, week_id, category);
     if (!result.ok) {
+      if (result.reason === "invalid_category") {
+        return Response.json({ success: false, error: "알 수 없는 실무 경험 유형입니다." }, { status: 422 });
+      }
       const message = result.reason === "member_not_found" ? "Crew not found" : "Week not found for this crew";
       return Response.json({ success: false, error: message }, { status: 404 });
     }
-    return Response.json({ success: true, data: { options: result.options } });
+    return Response.json({
+      success: true,
+      data: { category: result.category, label: result.label, options: result.options },
+    });
   } catch (error) {
-    console.error("[admin/.../competency-lines GET]", error);
+    console.error("[admin/.../experience-lines GET]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to load competency options" },
+      { success: false, error: error instanceof Error ? error.message : "Failed to load experience options" },
       { status: 500 },
     );
   }
 }
 
-// POST /api/admin/members/[user_id]/weeks/[week_id]/competency-lines
-//   { masterId, confirmGrowthFlip, mode } → 선택한 역량 마스터로 이 크루 전용 라인 인스턴스 + 대상자 생성
-//   = 강화 성공. 지급/집계/2차 기입/snapshot 수렴은 라인 저장과 동일 SoT.
+// POST /api/admin/members/[user_id]/weeks/[week_id]/experience-lines
+//   { masterId, category, confirmGrowthFlip, mode } → 선택 라인으로 이 크루 전용 경험 라인 인스턴스 +
+//   대상자 + 평점(>=4) 생성 = 강화 성공. 지급/집계/snapshot 수렴은 라인 저장과 동일 SoT.
 export async function POST(request: NextRequest, { params }: Ctx) {
   let admin;
   try {
@@ -84,9 +84,10 @@ export async function POST(request: NextRequest, { params }: Ctx) {
   }
   const b = body as Record<string, unknown>;
   const masterId = typeof b.masterId === "string" ? b.masterId.trim() : "";
+  const category = typeof b.category === "string" ? b.category.trim() : "";
   if (!masterId) {
     return Response.json(
-      { success: false, error: "강화 성공으로 저장하려면 실무 역량 라인을 선택해주세요." },
+      { success: false, error: "강화 성공으로 저장하려면 실무 경험 라인을 선택해주세요." },
       { status: 422 },
     );
   }
@@ -102,7 +103,14 @@ export async function POST(request: NextRequest, { params }: Ctx) {
 
   try {
     const confirmGrowthFlip = b.confirmGrowthFlip === true;
-    const result = await createCompetencySuccessLine(user_id, week_id, masterId, admin.userId, confirmGrowthFlip);
+    const result = await createExperienceSuccessLine(
+      user_id,
+      week_id,
+      masterId,
+      category,
+      admin.userId,
+      confirmGrowthFlip,
+    );
     if (!result.ok) {
       return Response.json(
         { success: false, error: result.error, growth: result.growth },
@@ -111,9 +119,9 @@ export async function POST(request: NextRequest, { params }: Ctx) {
     }
     return Response.json({ success: true, data: { lineId: result.lineId, lineTargetId: result.lineTargetId } });
   } catch (error) {
-    console.error("[admin/.../competency-lines POST]", error);
+    console.error("[admin/.../experience-lines POST]", error);
     return Response.json(
-      { success: false, error: error instanceof Error ? error.message : "Failed to create competency line" },
+      { success: false, error: error instanceof Error ? error.message : "Failed to create experience line" },
       { status: 500 },
     );
   }

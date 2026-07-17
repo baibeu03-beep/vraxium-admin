@@ -16,6 +16,7 @@ import {
   recomputeWeeklyPointsForUsers,
 } from "@/lib/processPointAccrual";
 import { recomputeDerivedAfterActMutation } from "@/lib/crewWeekGrowthRejudge";
+import { repointCompetencyLineMaster } from "@/lib/adminCompetencyLineSelect";
 import { adminWeekStatusLabel } from "@/lib/adminCrewWeeklyResults";
 import { isCrewWeekEditable } from "@/shared/growth.contracts";
 import type { CareerGrade } from "@/lib/careerGrade";
@@ -54,6 +55,10 @@ const TARGET_TABLE = "cluster4_line_targets";
 
 export type SaveLineDetailInput = {
   enhancementStatus: Cluster4EnhancementStatus; // 드롭다운 결과 레버(모든 허브 공통 SoT)
+  // 실무 역량 전용 — 라인명 변경(마스터 repoint). 지정 시 강화 성공 상태에서 이 라인의 마스터를 교체한다.
+  //   그 외 허브/미지정/현재값과 동일 시 무시. 라인 identity(라인명/코드/유형)만 마스터에서 파생 갱신하고
+  //   제출/평점/아웃풋/성장 포인트/지급 등 나머지 값은 그대로 보존한다.
+  competencyMasterId?: string | null;
   statusData: {
     subTitle: string | null;
     growthPoint: string | null;
@@ -245,6 +250,17 @@ export async function saveCrewWeekLineDetail(
       code: 422,
       error: "오픈된 라인에서는 강화 성공 또는 강화 실패만 설정할 수 있습니다(해당 없음/집계 전은 이 화면에서 변경 불가).",
     };
+  }
+
+  // ── 실무 역량 라인명 변경(마스터 repoint) — 강화 성공 상태에서만, identity 만 갱신(제출/평점/지급 보존) ──
+  //   같은 라인 행 유지 → 대상자/제출/평가/지급 전부 보존. 라인명/코드/유형은 마스터 파생이라 아래 최종
+  //   수렴(§5 recompute → snapshot 재생성)에서 카드/snapshot 이 새 라인으로 자동 반영된다. 강화 결과·평점·
+  //   아웃풋·성장 포인트는 이 단계에서 건드리지 않는다. 실패로 바꾸는 경우엔 라인이 제거되므로 repoint 무의미(스킵).
+  const wantMasterId =
+    typeof input.competencyMasterId === "string" ? input.competencyMasterId.trim() : "";
+  if (part === "competency" && desired === "success" && wantMasterId && wantMasterId !== line.competencyLineMasterId) {
+    const rep = await repointCompetencyLineMaster(userId, weekId, lineId, wantMasterId, adminUserId);
+    if (!rep.ok) return { ok: false, code: rep.code, error: rep.error };
   }
 
   // ── 제출 데이터 검증(쓰기 전 전부) ──

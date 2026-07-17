@@ -104,14 +104,22 @@ async function loadWeekCommonContent(weekId: string): Promise<WeekCommonContent>
 }
 
 // 이 크루가 이 주차에 이미 배정된 역량 마스터 집합(중복 배정 제외용).
-async function loadCrewAssignedCompetencyMasters(userId: string, weekId: string): Promise<Set<string>> {
+//   excludeLineId 지정 시 그 라인은 집계에서 제외한다(라인명 변경(repoint)에서 현재 라인 자신의
+//   마스터를 "이미 배정"으로 보지 않도록 — 자기 자신은 옵션에 남기고 다른 라인 중복만 거른다).
+async function loadCrewAssignedCompetencyMasters(
+  userId: string,
+  weekId: string,
+  excludeLineId?: string,
+): Promise<Set<string>> {
   const { data: tgts } = await supabaseAdmin
     .from("cluster4_line_targets")
     .select("line_id")
     .eq("week_id", weekId)
     .eq("target_user_id", userId)
     .eq("target_mode", "user");
-  const lineIds = ((tgts ?? []) as Array<{ line_id: string }>).map((t) => t.line_id);
+  const lineIds = ((tgts ?? []) as Array<{ line_id: string }>)
+    .map((t) => t.line_id)
+    .filter((id) => id !== excludeLineId);
   if (lineIds.length === 0) return new Set();
   const { data: lines } = await supabaseAdmin
     .from("cluster4_lines")
@@ -136,6 +144,9 @@ export type CompetencyOptionsResult =
 export async function listCompetencyMasterOptionsForWeek(
   legacyUserId: string,
   weekId: string,
+  // excludeLineId 지정 = 이미 개설된 역량 라인의 "라인명 변경(repoint)" 옵션. 그 라인 자신의 현재
+  //   마스터는 제외하지 않아 옵션에 남고(기본 선택값), 다른 라인에 배정된 마스터만 중복으로 거른다.
+  opts?: { excludeLineId?: string },
 ): Promise<CompetencyOptionsResult> {
   const resolved = await resolveCrewWeekCard(legacyUserId, weekId);
   if (!resolved.ok) return { ok: false, reason: resolved.reason };
@@ -147,7 +158,7 @@ export async function listCompetencyMasterOptionsForWeek(
       .from("cluster4_competency_line_masters")
       .select("id,line_code,line_name,main_title,is_active,organization_slug")
       .eq("is_active", true),
-    loadCrewAssignedCompetencyMasters(crew.userId, weekId),
+    loadCrewAssignedCompetencyMasters(crew.userId, weekId, opts?.excludeLineId),
     loadWeekCommonContent(weekId),
   ]);
 
@@ -365,4 +376,99 @@ export async function createCompetencySuccessLine(
   }
 
   return { ok: true, lineId, lineTargetId };
+}
+
+export type RepointCompetencyLineResult =
+  | { ok: true; changed: boolean }
+  | { ok: false; code: 400 | 404 | 409 | 422; error: string };
+
+// 이미 개설된 실무 역량 라인(크루별 인스턴스)의 마스터를 다른 마스터로 교체(repoint) — 라인명 변경.
+//   같은 cluster4_lines 행을 유지하고 competency_line_master_id/line_code/main_title 만 갱신하므로
+//   대상자·제출·평가·지급 원장이 전부 보존된다(강화 결과·평점·아웃풋·성장 포인트 불변). 라인명/코드/유형은
+//   마스터에서 파생(competencyMasterMetaById)이라 카드/snapshot 이 새 라인으로 자동 수렴한다.
+//   ⚠ snapshot 재생성/재계산은 호출부(saveCrewWeekLineDetail)의 최종 수렴 단계가 담당(여기선 라인 행만 갱신).
+//   신청 개설분(opened_line_id=lineId)이면 개설 대시보드 명단 표시값도 함께 동기화한다.
+//   검증(옵션 로더와 동일 SoT): 활성·org 적용·비VTEST 마스터 + 이 크루·주차의 다른 라인 미배정(중복 방지).
+export async function repointCompetencyLineMaster(
+  userId: string, // 실제 크루 userId
+  weekId: string,
+  lineId: string,
+  masterId: string,
+  adminUserId: string,
+): Promise<RepointCompetencyLineResult> {
+  const { data: lineRow } = await supabaseAdmin
+    .from("cluster4_lines")
+    .select("id,part_type,competency_line_master_id")
+    .eq("id", lineId)
+    .maybeSingle();
+  const line = lineRow as {
+    id: string;
+    part_type: string;
+    competency_line_master_id: string | null;
+  } | null;
+  if (!line || line.part_type !== "competency") {
+    return { ok: false, code: 404, error: "실무 역량 라인을 찾을 수 없습니다." };
+  }
+  if (line.competency_line_master_id === masterId) return { ok: true, changed: false }; // 멱등.
+
+  const org = await resolveCrewOrg(userId);
+  const { data: masterRow } = await supabaseAdmin
+    .from("cluster4_competency_line_masters")
+    .select("id,line_code,line_name,main_title,is_active,organization_slug")
+    .eq("id", masterId)
+    .maybeSingle();
+  const master = masterRow as {
+    id: string;
+    line_code: string | null;
+    line_name: string;
+    main_title: string | null;
+    is_active: boolean;
+    organization_slug: string | null;
+  } | null;
+  if (!master || !master.is_active) {
+    return { ok: false, code: 422, error: "비활성이거나 존재하지 않는 실무 역량 라인입니다." };
+  }
+  if (!isRealCompetencyMaster(master.line_code)) {
+    return { ok: false, code: 422, error: "선택할 수 없는 실무 역량 라인입니다(검증/테스트 마스터)." };
+  }
+  if (!isMasterOrgVisible(master.organization_slug, org)) {
+    return { ok: false, code: 422, error: "이 조직에 적용되지 않는 실무 역량 라인입니다." };
+  }
+  // 이 크루·주차의 "다른" 라인에 이미 배정된 마스터면 중복(자기 자신은 제외).
+  const assignedOther = await loadCrewAssignedCompetencyMasters(userId, weekId, lineId);
+  if (assignedOther.has(masterId)) {
+    return { ok: false, code: 409, error: "이미 이 회원에게 배정된 다른 실무 역량 라인입니다." };
+  }
+
+  const mainTitle = master.main_title?.trim() || master.line_name.trim() || master.line_name;
+  const { error: updErr } = await supabaseAdmin
+    .from("cluster4_lines")
+    .update({
+      competency_line_master_id: master.id,
+      line_code: master.line_code,
+      main_title: mainTitle,
+      updated_by: adminUserId,
+    })
+    .eq("id", lineId);
+  if (updErr) return { ok: false, code: 422, error: "실무 역량 라인 변경에 실패했습니다." };
+
+  // 신청 개설분이면 개설 대시보드 명단 표시값(마스터/코드/라인명)도 동기화. best-effort(정합성 보조).
+  try {
+    await supabaseAdmin
+      .from("cluster4_competency_applications")
+      .update({
+        competency_line_master_id: master.id,
+        line_code: master.line_code,
+        line_name: master.line_name,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("opened_line_id", lineId);
+  } catch (e) {
+    console.warn("[competencyLineSelect] application 명단 동기화 실패(best-effort)", {
+      lineId,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  return { ok: true, changed: true };
 }

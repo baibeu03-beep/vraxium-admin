@@ -126,6 +126,9 @@ export async function PUT(request: NextRequest, { params }: Ctx) {
 
   const input: SaveLineDetailInput = {
     enhancementStatus: enhancementStatus as Cluster4EnhancementStatus,
+    // 실무 역량 라인명 변경(마스터 repoint) — identity 만 갱신, 나머지 필드는 보존(서버가 허브/상태 게이트).
+    //   line_name/line_code 등 고정 필드가 아니라 마스터 id 이므로 FORBIDDEN_KEYS 대상이 아니다.
+    competencyMasterId: typeof b.competencyMasterId === "string" ? b.competencyMasterId : null,
     statusData: {
       subTitle: typeof s.subTitle === "string" ? s.subTitle : null,
       growthPoint: typeof s.growthPoint === "string" ? s.growthPoint : null,

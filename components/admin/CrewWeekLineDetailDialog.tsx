@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ExternalLink, ImageIcon, Lock, Plus, Trash2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -58,15 +58,16 @@ function padSlots(urls: string[], captions: (string | null)[]): ImgSlot[] {
   return Array.from({ length: MAX_IMAGES }, (_, i) => ({ url: urls[i] ?? "", caption: captions[i] ?? "" }));
 }
 
-// 실무 역량 placeholder(라인 선택) 모드에서 드롭다운에 뿌리는 마스터 옵션.
-type CompetencyMasterOption = {
+// placeholder(라인 선택) 모드에서 드롭다운에 뿌리는 마스터 옵션. 역량/경험 공용.
+//   경험 옵션은 lineType/mainTitle/preview 가 없어 optional.
+type PlaceholderMasterOption = {
   masterId: string;
   lineCode: string | null;
   lineName: string;
-  lineType: string | null; // 유형(원리/기술/관점/자원) — 선택 시 상단 유형 표시.
-  mainTitle: string | null;
-  previewLink: string | null;
-  previewImage: string | null;
+  lineType?: string | null; // 역량=유형(원리/기술/관점/자원). 경험=미제공(상단 유형은 슬롯 유형 사용).
+  mainTitle?: string | null;
+  previewLink?: string | null;
+  previewImage?: string | null;
 };
 
 export default function CrewWeekLineDetailDialog({
@@ -77,6 +78,9 @@ export default function CrewWeekLineDetailDialog({
   member,
   weekLabel,
   competencyPlaceholder,
+  experiencePlaceholder,
+  experienceCategory,
+  experienceCategoryLabel,
   placeholderEditable,
   orgSlug,
   onClose,
@@ -84,18 +88,28 @@ export default function CrewWeekLineDetailDialog({
 }: {
   userId: string;
   weekId: string;
-  lineId: string | null; // null = 실무 역량 placeholder(라인 선택 모드)
+  lineId: string | null; // null = placeholder(라인 선택 모드)
   mode: ScopeMode;
   member: CrewIdentity | null;
   weekLabel?: string | null; // placeholder 헤더 주차명(상세 GET 없이 표시)
-  competencyPlaceholder?: boolean; // true = 라인 선택 후 강화 성공 생성 모드
+  competencyPlaceholder?: boolean; // true = 실무 역량 라인 선택 후 강화 성공 생성 모드
+  experiencePlaceholder?: boolean; // true = 실무 경험(오픈+비대상) 라인 선택 후 강화 성공 생성 모드
+  experienceCategory?: string | null; // 경험 유형 코드(derivation 등) — 옵션 스코프
+  experienceCategoryLabel?: string | null; // 경험 유형 KO 라벨(도출 등) — 상단 유형 표시
   placeholderEditable?: boolean; // placeholder 편집 가능(확정 주차)
   orgSlug?: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  // 실무 역량 placeholder(-) 모드: lineId 없음. 공통 상세 팝업 UI 를 그대로 쓰되 "라인 선택" 필드만 추가.
-  const isPlaceholder = competencyPlaceholder === true;
+  // placeholder(-) 모드: lineId 없음. 공통 상세 팝업 UI 를 그대로 쓰되 "라인 선택" 필드만 추가.
+  //   역량(competency) / 경험(experience, 오픈+비대상 슬롯) 공용. 어느 허브인지로 옵션/생성 엔드포인트 분기.
+  const placeholderHub: "competency" | "experience" | null = competencyPlaceholder
+    ? "competency"
+    : experiencePlaceholder
+      ? "experience"
+      : null;
+  const isPlaceholder = placeholderHub != null;
+  const placeholderHubLabel = placeholderHub === "experience" ? "실무 경험" : "실무 역량";
   const t = useActionToast();
   const [detail, setDetail] = useState<AdminCrewWeekLineDetailDto | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,36 +128,51 @@ export default function CrewWeekLineDetailDialog({
   const [editingGrowth, setEditingGrowth] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   // placeholder(라인 선택) 모드 전용 상태.
-  const [options, setOptions] = useState<CompetencyMasterOption[] | null>(null);
+  const [options, setOptions] = useState<PlaceholderMasterOption[] | null>(null);
   const [selectedMasterId, setSelectedMasterId] = useState("");
 
   const ctxQuery = mode === "test" ? "?mode=test" : "";
 
-  const applyDetailToDraft = useCallback((d: AdminCrewWeekLineDetailDto) => {
-    // 오픈 라인 개인 결과는 성공/실패만. 현재 성공이면 성공, 그 외(실패/해당없음/집계전)는 실패로 표시.
-    setResultStatus(d.currentStatus === "success" ? "success" : "fail");
-    setSubTitle(d.submission.subTitle ?? "");
-    setGrowthPoint(d.submission.growthPoint ?? "");
-    setLinks(d.submission.outputLinks.map((l) => ({ url: l.url ?? "", label: l.label ?? "" })));
-    setImages(padSlots(d.submission.outputImages, d.submission.outputImageCaptions));
-    setRating(d.rating.value);
-    setGrade(d.careerGrade);
-    setEditingSub(false);
-    setEditingGrowth(false);
-  }, []);
+  // preserveResult=true: 강화 결과 레버(resultStatus/rating/grade)는 건드리지 않고 미리보기 파생값만 갱신.
+  //   placeholder 모드에서 라인만 바꿀 때 사용 — 사용자가 이미 고른 강화 성공을 서버 원본(항상 fail)으로 되돌리지 않는다.
+  const applyDetailToDraft = useCallback(
+    (d: AdminCrewWeekLineDetailDto, opts?: { preserveResult?: boolean }) => {
+      if (!opts?.preserveResult) {
+        // 오픈 라인 개인 결과는 성공/실패만. 현재 성공이면 성공, 그 외(실패/해당없음/집계전)는 실패로 표시.
+        setResultStatus(d.currentStatus === "success" ? "success" : "fail");
+        setRating(d.rating.value);
+        setGrade(d.careerGrade);
+        // 실무 역량 실제 라인 = 헤더 라인명 변경(repoint) 드롭다운 기본 선택 = 현재 마스터.
+        //   (placeholder 는 lineId 가 빈 문자열이라 여기서 건드리지 않는다 — load 가 별도로 "" 세팅.)
+        if (d.identity.partType === "competency" && d.identity.lineId) {
+          setSelectedMasterId(d.identity.competencyLineMasterId ?? "");
+        }
+      }
+      setSubTitle(d.submission.subTitle ?? "");
+      setGrowthPoint(d.submission.growthPoint ?? "");
+      setLinks(d.submission.outputLinks.map((l) => ({ url: l.url ?? "", label: l.label ?? "" })));
+      setImages(padSlots(d.submission.outputImages, d.submission.outputImageCaptions));
+      setEditingSub(false);
+      setEditingGrowth(false);
+    },
+    [],
+  );
 
   // placeholder 모드의 합성 detail — 선택 마스터를 반영해 Main Title/링크/이미지 영역이 공통 UI 로 채워진다.
   const buildPlaceholderDetail = useCallback(
-    (opt: CompetencyMasterOption | null): AdminCrewWeekLineDetailDto => ({
+    (opt: PlaceholderMasterOption | null): AdminCrewWeekLineDetailDto => ({
       identity: {
         lineId: "",
         lineTargetId: null,
         lineCode: opt?.lineCode ?? null,
-        lineName: opt?.lineName ?? "라인명 미정",
-        partType: "competency",
-        type: opt?.lineType ?? null,
-        hubLabel: "실무 역량",
+        // 미선택 시 라인명 "-"(타인 라인 미노출), 선택 시 선택 라인명.
+        lineName: opt?.lineName ?? "-",
+        partType: placeholderHub === "experience" ? "experience" : "competency",
+        // 유형 = 경험은 슬롯 유형(도출 등), 역량은 선택 옵션의 line_type.
+        type: placeholderHub === "experience" ? experienceCategoryLabel ?? null : opt?.lineType ?? null,
+        hubLabel: placeholderHubLabel,
         mainTitle: opt?.mainTitle ?? null,
+        competencyLineMasterId: null, // placeholder 는 아직 인스턴스 없음(생성 후 일반 팝업에서 노출)
       },
       week: { id: weekId, label: weekLabel ?? "-", startDate: "", endDate: "" },
       organizationSlug: orgSlug ?? null,
@@ -161,7 +190,7 @@ export default function CrewWeekLineDetailDialog({
         outputImageCaptions: opt?.previewImage ? [null] : [],
       },
     }),
-    [weekId, weekLabel, orgSlug, placeholderEditable],
+    [weekId, weekLabel, orgSlug, placeholderEditable, placeholderHub, placeholderHubLabel, experienceCategoryLabel],
   );
 
   const load = useCallback(async () => {
@@ -170,13 +199,15 @@ export default function CrewWeekLineDetailDialog({
     try {
       if (isPlaceholder) {
         // 라인 선택 모드 — 상세 GET 없이 마스터 옵션을 불러오고 합성 detail(강화 실패·미선택)로 시작.
-        const res = await fetch(
-          `/api/admin/members/${userId}/weeks/${weekId}/competency-lines${ctxQuery}`,
-          { cache: "no-store" },
-        );
+        const endpoint =
+          placeholderHub === "experience"
+            ? `/api/admin/members/${userId}/weeks/${weekId}/experience-lines?category=${encodeURIComponent(experienceCategory ?? "")}${mode === "test" ? "&mode=test" : ""}`
+            : `/api/admin/members/${userId}/weeks/${weekId}/competency-lines${ctxQuery}`;
+        const res = await fetch(endpoint, { cache: "no-store" });
         const json = await res.json();
-        if (!res.ok || !json.success) throw new Error(json?.error ?? "실무 역량 라인 목록을 불러오지 못했습니다.");
-        setOptions((json.data.options ?? []) as CompetencyMasterOption[]);
+        if (!res.ok || !json.success)
+          throw new Error(json?.error ?? `${placeholderHubLabel} 라인 목록을 불러오지 못했습니다.`);
+        setOptions((json.data.options ?? []) as PlaceholderMasterOption[]);
         const base = buildPlaceholderDetail(null);
         setDetail(base);
         applyDetailToDraft(base);
@@ -192,12 +223,28 @@ export default function CrewWeekLineDetailDialog({
       const d = json.data as AdminCrewWeekLineDetailDto;
       setDetail(d);
       applyDetailToDraft(d);
+      // 실무 역량 실제 라인 = 헤더 "라인명 변경(repoint)" 드롭다운 옵션 로드(현재 마스터 포함·다른 라인
+      //   중복 제외 = ?lineId). 실패해도 라인 상세는 그대로 조회 전용 폴백(옵션 없으면 정적 라인명).
+      if (d.identity.partType === "competency" && lineId) {
+        try {
+          const optRes = await fetch(
+            `/api/admin/members/${userId}/weeks/${weekId}/competency-lines?lineId=${encodeURIComponent(lineId)}${mode === "test" ? "&mode=test" : ""}`,
+            { cache: "no-store" },
+          );
+          const optJson = await optRes.json().catch(() => ({}));
+          if (optRes.ok && optJson.success) {
+            setOptions((optJson.data.options ?? []) as PlaceholderMasterOption[]);
+          }
+        } catch {
+          /* best-effort — 옵션 로드 실패 시 라인명 변경 없이 조회만 가능 */
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "라인 상세를 불러오지 못했습니다.");
     } finally {
       setLoading(false);
     }
-  }, [userId, weekId, lineId, ctxQuery, applyDetailToDraft, isPlaceholder, buildPlaceholderDetail]);
+  }, [userId, weekId, lineId, ctxQuery, mode, applyDetailToDraft, isPlaceholder, placeholderHub, placeholderHubLabel, experienceCategory, buildPlaceholderDetail]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -211,7 +258,8 @@ export default function CrewWeekLineDetailDialog({
       const opt = options?.find((o) => o.masterId === masterId) ?? null;
       const d = buildPlaceholderDetail(opt);
       setDetail(d);
-      applyDetailToDraft(d);
+      // 라인 선택은 미리보기(Main Title/링크/이미지)만 갱신 — 사용자가 고른 강화 결과는 보존.
+      applyDetailToDraft(d, { preserveResult: true });
     },
     [options, buildPlaceholderDetail, applyDetailToDraft],
   );
@@ -219,6 +267,7 @@ export default function CrewWeekLineDetailDialog({
   const partType = detail?.identity.partType;
   const isExperience = partType === "experience";
   const isCareer = partType === "career";
+  const isCompetency = partType === "competency";
 
   // 강화 결과 단일 소스 = resultStatus(모든 허브 드롭다운). 허브별 레버(rating/grade)와 양방향 동기화.
   const effectiveStatus = resultStatus;
@@ -242,11 +291,80 @@ export default function CrewWeekLineDetailDialog({
   // placeholder 모드: 제출 필드는 선택 라인 미리보기(조회 전용). 실제 제출 편집은 라인 생성 후 일반 팝업.
   const submissionEditable = !isPlaceholder && editable && effectiveStatus === "success";
 
+  // ── 실무 역량 헤더 라인명 변경(repoint) ── 실제 라인 + 확정 주차 + 강화 성공일 때만 드롭다운.
+  //   같은 라인 인스턴스의 마스터만 교체(제출/평점/이미지/링크/포인트 보존). 저장은 competencyMasterId.
+  const canRepointCompetency = isCompetency && !isPlaceholder && editable && effectiveStatus === "success";
+  // 헤더 드롭다운 옵션 — 현재 마스터가 옵션에 없으면(비활성 등) 조회 전용 현재 항목을 앞에 보강(기본 선택 유지).
+  const headerCompetencyOptions = useMemo<PlaceholderMasterOption[]>(() => {
+    if (!isCompetency || isPlaceholder) return [];
+    const list = options ?? [];
+    const curId = detail?.identity.competencyLineMasterId ?? "";
+    if (curId && detail && !list.some((o) => o.masterId === curId)) {
+      return [
+        {
+          masterId: curId,
+          lineCode: detail.identity.lineCode,
+          lineName: detail.identity.lineName,
+          lineType: detail.identity.type,
+          mainTitle: detail.identity.mainTitle,
+        },
+        ...list,
+      ];
+    }
+    return list;
+  }, [isCompetency, isPlaceholder, options, detail]);
+  const selectedCompetencyOption =
+    isCompetency && !isPlaceholder
+      ? headerCompetencyOptions.find((o) => o.masterId === selectedMasterId) ?? null
+      : null;
+  // 헤더/Main Title/유형 표시값 — 역량 라인명 변경 중이면 선택 옵션 미리보기, 그 외엔 detail SoT.
+  const dispLineName = selectedCompetencyOption?.lineName ?? detail?.identity.lineName ?? "";
+  const dispLineCode = selectedCompetencyOption?.lineCode ?? detail?.identity.lineCode ?? null;
+  const dispType = selectedCompetencyOption?.lineType ?? detail?.identity.type ?? null;
+  const dispMainTitle = selectedCompetencyOption?.mainTitle ?? detail?.identity.mainTitle ?? null;
+
+  // ── 역량 라인명 드롭다운 너비 = 가장 긴 옵션 텍스트에 맞춤(잘림 방지) ──
+  //   고정 max-width 대신 canvas.measureText 로 실제 렌더 폭을 측정(한글/영문/기호 정확). 옵션이 추가돼
+  //   더 긴 이름이 생겨도 자동으로 맞춰진다. 이 드롭다운(실무 역량 헤더)에만 적용 — 다른 Select 무영향.
+  const competencyOptionLabel = useCallback(
+    (o: PlaceholderMasterOption) => `${o.lineCode ? `[${o.lineCode}] ` : ""}${o.lineName}`,
+    [],
+  );
+  const repointSelectRef = useRef<HTMLSelectElement>(null);
+  const measureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [repointSelectWidth, setRepointSelectWidth] = useState<number | null>(null);
+  const measureRepointWidth = useCallback(() => {
+    const el = repointSelectRef.current;
+    if (!el || headerCompetencyOptions.length === 0) return;
+    const cs = window.getComputedStyle(el);
+    const canvas = (measureCanvasRef.current ??= document.createElement("canvas"));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    let max = 0;
+    for (const o of headerCompetencyOptions) {
+      max = Math.max(max, ctx.measureText(competencyOptionLabel(o)).width);
+    }
+    // 텍스트 폭 + select 좌우 패딩(px-2.5≈20px) + 드롭다운 화살표 영역(≈28px) 여유.
+    setRepointSelectWidth(Math.ceil(max) + 48);
+  }, [headerCompetencyOptions, competencyOptionLabel]);
+  useEffect(() => {
+    if (!canRepointCompetency) return;
+    // 렌더(select 마운트/옵션 로드) 이후 폰트가 확정되면 측정 — 옵션 변경 시 재측정.
+    //   DOM 측정 → 사이징(measure-then-size) 패턴이라 1회 추가 렌더는 의도적(캐스케이드 아님).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    measureRepointWidth();
+  }, [canRepointCompetency, measureRepointWidth]);
+
   const dirty = useMemo(() => {
     // placeholder: 강화 성공 + 라인 선택 시에만 저장 가능(변경).
     if (isPlaceholder) return effectiveStatus === "success" && selectedMasterId !== "";
     const b = detail;
     if (!b) return false;
+    // 실무 역량 라인명 변경(repoint) — 선택 마스터가 현재와 다르면 변경(강화 성공 상태에서만 의미).
+    if (isCompetency && effectiveStatus === "success" && selectedMasterId !== (b.identity.competencyLineMasterId ?? "")) {
+      return true;
+    }
     if (effectiveStatus !== b.currentStatus) return true;
     if ((subTitle.trim() || null) !== (b.submission.subTitle ?? null)) return true;
     if ((growthPoint.trim() || null) !== (b.submission.growthPoint ?? null)) return true;
@@ -262,7 +380,7 @@ export default function CrewWeekLineDetailDialog({
     const draftImgs = images.filter((im) => im.url.trim()).map((im) => `${im.url}|${im.caption}`).join("~");
     if (baseImgs !== draftImgs) return true;
     return false;
-  }, [effectiveStatus, subTitle, growthPoint, rating, grade, links, images, detail, isPlaceholder, selectedMasterId]);
+  }, [effectiveStatus, subTitle, growthPoint, rating, grade, links, images, detail, isPlaceholder, isCompetency, selectedMasterId]);
 
   const reset = useCallback(() => {
     if (detail) applyDetailToDraft(detail);
@@ -285,17 +403,28 @@ export default function CrewWeekLineDetailDialog({
   const submit = useCallback(
     async (confirmGrowthFlip: boolean) => {
       if (isPlaceholder) {
-        // 라인 선택 모드: 선택 마스터로 이 크루 전용 역량 라인 인스턴스 + 대상자 생성(강화 성공).
-        const res = await fetch(`/api/admin/members/${userId}/weeks/${weekId}/competency-lines`, {
+        // 라인 선택 모드: 선택 마스터로 이 크루 전용 라인 인스턴스 + 대상자 생성(강화 성공).
+        //   역량 = /competency-lines, 경험(오픈+비대상 슬롯) = /experience-lines(category 포함).
+        const endpoint =
+          placeholderHub === "experience" ? "experience-lines" : "competency-lines";
+        const res = await fetch(`/api/admin/members/${userId}/weeks/${weekId}/${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ masterId: selectedMasterId, confirmGrowthFlip, mode }),
+          body: JSON.stringify(
+            placeholderHub === "experience"
+              ? { masterId: selectedMasterId, category: experienceCategory ?? "", confirmGrowthFlip, mode }
+              : { masterId: selectedMasterId, confirmGrowthFlip, mode },
+          ),
         });
         const json = await res.json().catch(() => ({}));
         return { status: res.status, ok: res.ok, json };
       }
       const body = {
         enhancementStatus: effectiveStatus,
+        // 실무 역량 라인명 변경(repoint) — 강화 성공일 때만 선택 마스터 전송. 서버가 현재와 같으면 무시.
+        //   그 외 허브/실패는 undefined(직렬화 시 제외) → 기존 저장 동작 불변.
+        competencyMasterId:
+          isCompetency && effectiveStatus === "success" ? selectedMasterId || null : undefined,
         statusData: {
           subTitle: subTitle.trim() || null,
           growthPoint: growthPoint.trim() || null,
@@ -321,7 +450,7 @@ export default function CrewWeekLineDetailDialog({
       const json = await res.json().catch(() => ({}));
       return { status: res.status, ok: res.ok, json };
     },
-    [isPlaceholder, selectedMasterId, effectiveStatus, subTitle, growthPoint, links, images, rating, grade, isExperience, isCareer, mode, userId, weekId, lineId],
+    [isPlaceholder, placeholderHub, experienceCategory, selectedMasterId, effectiveStatus, subTitle, growthPoint, links, images, rating, grade, isExperience, isCareer, isCompetency, mode, userId, weekId, lineId],
   );
 
   const doSave = useCallback(async () => {
@@ -379,10 +508,34 @@ export default function CrewWeekLineDetailDialog({
                   <span className="text-sm font-semibold text-muted-foreground">
                     {detail.identity.hubLabel}
                   </span>
-                  <span className="text-lg font-bold text-foreground">{detail.identity.lineName}</span>
-                  {detail.identity.lineCode ? (
+                  {/* 실무 역량 + 실제 라인 + 확정 주차 + 강화 성공 → 라인명 변경(repoint) 드롭다운.
+                      그 외(다른 허브/실패/조회 전용/placeholder)는 기존과 동일하게 정적 라인명. */}
+                  {canRepointCompetency ? (
+                    <select
+                      ref={repointSelectRef}
+                      value={selectedMasterId}
+                      disabled={saving}
+                      onChange={(e) => setSelectedMasterId(e.target.value)}
+                      title="실무 역량 라인명 변경 — 저장 시 이 라인의 마스터가 선택한 라인으로 교체됩니다(제출·평점·이미지·포인트는 유지)."
+                      // 너비 = 가장 긴 옵션 기준(measureRepointWidth). 안전상 뷰포트 초과만 방지(현실 라인명은 그 전에 전부 표시).
+                      style={{
+                        width: repointSelectWidth ? `${repointSelectWidth}px` : undefined,
+                        maxWidth: "min(90vw, 48rem)",
+                      }}
+                      className="truncate rounded-md border border-violet-500/50 bg-background px-2.5 py-1 text-base font-bold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                    >
+                      {headerCompetencyOptions.map((o) => (
+                        <option key={o.masterId} value={o.masterId}>
+                          {competencyOptionLabel(o)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="text-lg font-bold text-foreground">{dispLineName}</span>
+                  )}
+                  {dispLineCode ? (
                     <span className="font-mono text-xs text-muted-foreground">
-                      {detail.identity.lineCode}
+                      {dispLineCode}
                     </span>
                   ) : null}
                 </div>
@@ -438,7 +591,7 @@ export default function CrewWeekLineDetailDialog({
                     유형
                   </span>
                   <span className="rounded-md border bg-muted/40 px-2.5 py-1 text-sm font-medium text-foreground">
-                    {detail.identity.type ?? "-"}
+                    {dispType ?? "-"}
                   </span>
                 </div>
               </div>
@@ -474,11 +627,18 @@ export default function CrewWeekLineDetailDialog({
                 </div>
               )}
 
-              {/* 실무 역량 placeholder 전용 — 공통 UI 에 "라인 선택" 필드 1개만 추가. 강화 성공 시 노출. */}
+              {/* placeholder 전용(역량/경험 공용) — 공통 UI 에 "라인 선택" 필드 1개만 추가. 강화 성공 시 노출.
+                  경험은 유형(도출 등) 스코프의 라인만, 역량은 org 개설 마스터. 선택·저장 시 실제 line/target 생성. */}
               {isPlaceholder ? (
                 effectiveStatus === "success" ? (
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-sm font-semibold text-muted-foreground">실무 역량 라인 선택</label>
+                    <label className="text-sm font-semibold text-muted-foreground">
+                      {placeholderHubLabel}
+                      {placeholderHub === "experience" && experienceCategoryLabel
+                        ? ` (${experienceCategoryLabel})`
+                        : ""}{" "}
+                      라인 선택
+                    </label>
                     {options && options.length > 0 ? (
                       <select
                         value={selectedMasterId}
@@ -496,19 +656,23 @@ export default function CrewWeekLineDetailDialog({
                       </select>
                     ) : (
                       <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
-                        이 조직에서 선택 가능한(아직 배정되지 않은) 실무 역량 라인이 없습니다.
+                        이 조직에서 선택 가능한(아직 배정되지 않은) {placeholderHubLabel} 라인이 없습니다.
                       </div>
                     )}
                     {!selectedMasterId ? (
                       <span className="text-xs text-muted-foreground">
-                        강화 성공으로 저장하려면 실무 역량 라인을 선택해주세요.
+                        강화 성공으로 저장하려면 {placeholderHubLabel} 라인을 선택해주세요.
                       </span>
                     ) : null}
                   </div>
                 ) : (
                   <div className="rounded-md border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                    이 회원은 아직 실무 역량 대상자가 아닙니다(강화 실패). 강화 성공으로 인정하려면 상단에서
-                    <b className="text-foreground"> 강화 성공</b>을 선택하고 실무 역량 라인을 지정해주세요.
+                    이 회원은 이 {placeholderHubLabel}
+                    {placeholderHub === "experience" && experienceCategoryLabel
+                      ? ` 유형(${experienceCategoryLabel})`
+                      : ""}{" "}
+                    대상자가 아닙니다(강화 실패). 강화 성공으로 인정하려면 상단에서
+                    <b className="text-foreground"> 강화 성공</b>을 선택하고 {placeholderHubLabel} 라인을 지정해주세요.
                   </div>
                 )
               ) : null}
@@ -516,8 +680,8 @@ export default function CrewWeekLineDetailDialog({
               <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
                 {/* 좌: 제출 텍스트 */}
                 <div className="flex flex-col gap-4">
-                  {/* Main Title — 조회 전용 */}
-                  <ReadOnlyBox label="Main Title" value={detail.identity.mainTitle} />
+                  {/* Main Title — 조회 전용(역량 라인명 변경 시 선택 마스터의 Main Title 미리보기) */}
+                  <ReadOnlyBox label="Main Title" value={dispMainTitle} />
 
                   {/* Sub Title — 수정 가능(성공 상태에서만) */}
                   <EditableBox
@@ -544,7 +708,7 @@ export default function CrewWeekLineDetailDialog({
                   />
 
                   {/* 평점(경험) / 실무자(경력) */}
-                  {isExperience ? (
+                  {isExperience && !isPlaceholder ? (
                     <RatingField rating={rating} onChange={onRatingChange} disabled={!editable || saving} />
                   ) : null}
                   {isCareer && detail.practitioner ? (
@@ -672,11 +836,9 @@ function EditableBox({
           </span>
         ) : null}
       </div>
-      {disabled ? (
-        <div className="min-h-[3rem] rounded-md border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-          -
-        </div>
-      ) : editing ? (
+      {/* visible = 데이터 존재, editable = 성공 상태(disabled=편집 불가). 편집 불가(실패/해당없음)여도
+          DTO 에 값이 있으면 조회 전용으로 표시한다(실패라서 데이터가 없는 것처럼 보이던 문제 해결). */}
+      {!disabled && editing ? (
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -911,20 +1073,44 @@ function ImagesEditor({
   const setCaption = (i: number, caption: string) =>
     setImages(slots.map((s, idx) => (idx === i ? { ...s, caption } : s)));
 
+  // 편집 불가(실패/해당없음)여도 이미지 데이터가 있으면 조회 전용 썸네일로 표시(클릭 확대만, 편집 X).
+  //   visible = 데이터 존재 / editable = 성공 상태. "실패라서 이미지가 없는 것처럼" 보이던 문제 해결.
   if (disabled) {
+    const filled = slots.filter((s) => s.url.trim());
     return (
       <div className="flex flex-col gap-2">
         <span className="text-xs font-semibold text-muted-foreground">아웃풋 이미지</span>
-        <div className="grid grid-cols-2 gap-3">
-          {Array.from({ length: MAX_IMAGES }, (_, i) => (
-            <div
-              key={i}
-              className="flex aspect-square items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground"
-            >
-              -
-            </div>
-          ))}
-        </div>
+        {filled.length === 0 ? (
+          <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: MAX_IMAGES }, (_, i) => (
+              <div
+                key={i}
+                className="flex aspect-square items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground"
+              >
+                -
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {filled.map((im, i) => (
+              <div key={i} className="flex flex-col gap-1 rounded-md border bg-muted/20 p-1.5">
+                <button
+                  type="button"
+                  onClick={() => onOpen(im.url)}
+                  className="relative block aspect-square overflow-hidden rounded bg-muted"
+                  title="확대"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={im.url} alt={im.caption || `이미지 ${i + 1}`} className="h-full w-full object-cover" />
+                </button>
+                {im.caption ? (
+                  <span className="truncate px-0.5 text-xs text-muted-foreground">{im.caption}</span>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
