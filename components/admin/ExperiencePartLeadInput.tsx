@@ -1062,14 +1062,22 @@ function PartGrid({
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
         <div className="min-w-0 flex-1 overflow-x-auto">
         {/* 좌측(이름/파트명/클래스) 축소 + 라인 컬럼(도출/분석/견문) 확대 — 라인명 드롭다운(트리거=열폭 채움)
-            을 넓게 확보. 합 = 10 + 8 + 10 + 24×3 = 100%. table-fixed 로 col 폭 고정(보드와 동일 규칙). */}
+            을 넓게 확보. 합 = 9.1 + 8 + 10 + 24.3×3 = 100%. table-fixed 로 col 폭 고정(보드와 동일 규칙).
+            ⚠ 축소 하한(floor) — 표 폭 1124px 기준 브라우저 실측값. 이 아래로 줄이면 레이아웃이 깨진다:
+              · 이름   100px(8.90%) — 본문 최장 이름("T이채성" 68px) + 셀 padding 32px. 미만이면 이름이 2줄로 접힌다.
+              · 파트명 111px(9.88%) — 헤더 "파트명"+도움말 아이콘(nowrap). 현재 8%(90px)로 이미 floor 미달이라
+                더 줄이면 옆 칸 침범이 악화된다 → 유지.
+              · 클래스 111px(9.88%) — 헤더 "클래스"+도움말 아이콘(nowrap). 현재 10%(112px)로 floor 바로 위 → 유지.
+            → 실질 여유가 있는 이름만 10%→9.1%(102.3px)로 축소하고 확보한 0.9% 를 라인 3열에 균등 배분(24%→24.3%).
+            ⚠ 폰트 스케일(표 텍스트 21px)이 바뀌면 floor 도 바뀐다 —
+              scripts/browser-verify-experience-name-col-widths.mjs 로 재측정할 것. */}
         <Table className="min-w-[900px] table-fixed">
           <colgroup>
-            <col style={{ width: "10%" }} />{/* 이름 */}
+            <col style={{ width: "9.1%" }} />{/* 이름 */}
             <col style={{ width: "8%" }} />{/* 파트명 */}
             <col style={{ width: "10%" }} />{/* 클래스(구 '크루 상태') */}
             {EXPERIENCE_PART_LINE_TYPES.map((l) => (
-              <col key={l.key} style={{ width: "24%" }} />
+              <col key={l.key} style={{ width: "24.3%" }} />
             ))}
           </colgroup>
           <TableHeader>

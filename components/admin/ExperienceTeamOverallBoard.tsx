@@ -68,11 +68,21 @@ const OVERALL_CATEGORY_HELP_KEY: Record<ExperienceOverallCategory, string> = {
 
 // 표 컬럼 폭 — table-layout: fixed 와 함께 헤더/바디 폭을 정확히 고정한다.
 //   좌측(이름/파트/클래스)은 텍스트 길이에 맞게 축소하고, 남는 폭을 5개 평가 컬럼(도출/분석/견문/관리/확장)에
-//   배분해 라인명 드롭다운(트리거=열폭 채움)이 더 넓게 보이도록 한다. 합 = 9 + 7 + 8 + 15.2×5 = 100%.
-const NAME_COL_W = "9%";
+//   배분해 라인명 드롭다운(트리거=열폭 채움)이 더 넓게 보이도록 한다. 합 = 7.5 + 7 + 8 + 15.5×5 = 100%.
+//
+//   ⚠ 축소 하한(floor) — 표 폭 1340px(min-w) 기준 브라우저 실측값. 이 아래로 줄이면 레이아웃이 깨진다:
+//     · 이름   100px(7.46%) — 본문 최장 이름("T강민지" 68px) + 셀 padding 32px. 미만이면 이름이 2줄로 접힌다.
+//     · 파트    92px(6.87%) — 헤더 "파트"+도움말 아이콘(nowrap) 60px + padding 32px. 미만이면 헤더가 옆 칸을 침범.
+//     · 클래스 111px(8.28%) — 헤더 "클래스"+도움말 아이콘(nowrap) 79px + padding 32px.
+//   → 파트/클래스는 자기 헤더가 하한이라 더 줄일 수 없다(클래스는 8%=107px 로 이미 floor 미달 = 4px 침범 상태.
+//     더 줄이면 악화되므로 유지). 실질 여유가 있는 이름만 9%→7.5%(100.5px, floor 바로 위)로 축소하고
+//     확보한 1.5% 를 평가 5열에 균등 배분(15.2%→15.5%)했다.
+//   ⚠ 폰트 스케일(표 텍스트 21px)이 바뀌면 위 floor 도 함께 바뀐다 —
+//     scripts/browser-verify-experience-name-col-widths.mjs 로 재측정할 것.
+const NAME_COL_W = "7.5%";
 const PART_COL_W = "7%";
 const CLASS_COL_W = "8%";
-const CAT_COL_W = "15.2%";
+const CAT_COL_W = "15.5%";
 
 // 평가 셀 공통 2단 레이아웃 SoT — 5개 컬럼(도출/분석/견문/관리/확장) 라인명 드롭다운의
 //   시작 Y좌표를 한 행 안에서 모두 일치시키기 위한 공통 상수.
@@ -644,16 +654,10 @@ export default function ExperienceTeamOverallBoard({
                         "hover:bg-transparent [&>td]:bg-background",
                   )}
                 >
+                  {/* 이름 열은 이름만 표기 — 역할(파트장)은 [클래스] 열이 단일 표기처이므로 중복 표기하지 않는다.
+                      (crew.isPartLeader 는 DTO 에 그대로 존재 — 표시에서만 쓰지 않는다.) */}
                   <TableCell className="font-medium whitespace-normal break-words">
                     {crew.displayName}
-                    {crew.isPartLeader && (
-                      // 역할 라벨은 이름 아래 줄에 표기(block = 항상 자기 줄 차지) —
-                      //   이름 길이·칸 폭과 무관하게 "이름 / 파트장" 2줄 고정.
-                      //   ml-1(가로 공백)은 인라인 표기용이라 줄을 나눈 뒤엔 불필요하며,
-                      //   셀이 text-center 라 4px 만큼 라벨이 이름보다 우측으로 밀린다(실측 60.3 vs 62.3)
-                      //   → 제거해 이름과 중심을 맞춘다. block 이라 단어 중간 끊김(keep-all)도 없다.
-                      <span className="block text-xs text-sky-700">파트장</span>
-                    )}
                   </TableCell>
                   <TableCell className="whitespace-normal break-words text-xs text-muted-foreground">
                     {crew.partName ?? "-"}
