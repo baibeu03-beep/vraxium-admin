@@ -8,10 +8,15 @@
 //
 // 데이터 원천(전부 live 조회 — 고객 weekly-card snapshot 무접촉):
 //   · 주차/시즌/공식휴식/현재주차 = loadSeasonWeeks (season_definitions + weeks + official_rest_periods)
-//   · 전체 액트 / 가동 액트        = process_acts (hub ∈ LINE_HUBS) 카탈로그 (전역 상수·org 무관)
-//   · 액트 체크율                  = process_check_statuses(org, hub ∈ LINE_HUBS, week) 의
-//                                     COUNT(DISTINCT act_id, status=completed ∩ 가동 액트) / 가동 액트
-//                                     (experience 는 팀/파트별 다중행 → DISTINCT act_id 로 ≤100% 보장)
+//   · 액트 전체/가동/체크/미체크/변동/**액트 체크 신청율**
+//       = `loadActCheckApplicationInputsByWeek` + `buildActCheckApplicationSummary`
+//         (= 상세 [액트 체크 관리] 탭과 **완전히 동일한 로더·빌더** — 목록 전용 산식 금지).
+//     ⚠ 2026-07-17 개정 전 이 화면은 상세와 다른 산식을 써서 구조적으로 발산했다(실측):
+//         ① 허브 범위 : LINE_HUBS(info/exp/comp) → club 누락 → 전체 11 vs 상세 19
+//         ② 가동      : check_target='check' 카탈로그 상수(주차 무관) → 가동 11 vs 상세 0
+//         ③ 체크      : status='completed' 만 → "완료율"이었음(신청율 아님). pending 은 미집계
+//         ④ 변동 액트 : 전혀 미포함
+//       → 위 4건 모두 공통 SoT 로 흡수. 상세와 동일 값이 보장된다.
 //   · 전체 라인(라인칸)            = 허브별 카탈로그 합(org):
 //                                     info=activity_types(practical_info, 공통 9)
 //                                     + experience=cluster4_experience_line_masters(org)
@@ -22,9 +27,13 @@
 //                                     org 노출 = info: line_code 토큰 / exp·comp: 마스터 organization_slug
 //   · 주차 검수                    = weeks.result_reviewed_at != null (주차 전역 — org 무관)
 //
-// mode(operating/test)는 이 메타/카탈로그 집계에 영향을 주지 않는다:
-//   주차·시즌·액트 카탈로그·라인칸·개설 라인 목록·검수 여부는 사용자 모집단과 무관하므로,
-//   operating 과 test 는 구조뿐 아니라 값까지 동일한 DTO 를 돌려준다(요구사항: 두 경로 동일 DTO).
+// mode(operating/test):
+//   주차·시즌·라인칸·개설 라인 목록·검수 여부·정규 액트 카탈로그는 사용자 모집단과 무관해 mode 불변이다.
+//   ⚠ 단 **변동 액트는 scope_mode 로 갈린다**(process_irregular_acts.scope_mode) → 액트 요약(전체/가동/
+//     체크/미체크/변동/신청율)은 mode 에 따라 값이 달라질 수 있다. 이는 상세 화면과 동일한 스코프 규칙이며
+//     (상세도 scope_mode=mode 로 변동을 필터), 목록==상세 파리티를 위해 필수다.
+//     산식·DTO 구조는 두 모드가 완전히 동일하다(스코프 어댑터만 다름 — 요구).
+//     2026-07-17 이전엔 변동을 아예 안 세어 "값까지 동일"했다(= 변동 누락 버그의 부작용).
 
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadSeasonWeeks, type SeasonWeekDto } from "@/lib/adminSeasonWeeksData";
@@ -36,9 +45,16 @@ import {
   isLineVisibleForUserOrg,
   type LineOrgScope,
 } from "@/lib/cluster4LineOrg";
+import {
+  buildActCheckApplicationSummary,
+  type ActCheckApplicationSummary,
+} from "@/lib/actCheckApplicationSummary";
+import { loadActCheckApplicationInputsByWeek } from "@/lib/adminActCheckApplicationInputs";
 import type { OrganizationSlug } from "@/lib/organizations";
+import type { ScopeMode } from "@/lib/userScopeShared";
 
-// 라인 허브 = cluster4_lines.part_type 중 운영 라인 3종(career 제외). 액트/라인 집계 공통 축.
+// 라인 허브 = cluster4_lines.part_type 중 운영 라인 3종(career 제외). **라인(라인칸) 집계 전용 축**.
+//   ⚠ 액트 집계에는 쓰지 않는다 — 액트 허브 범위는 상세 기준(ACT_CHECK_HUBS, club 포함)으로 통일했다.
 const LINE_HUBS = ["info", "experience", "competency"] as const;
 
 export type ClubActivityStatus = "official_activity" | "official_rest";
@@ -47,9 +63,10 @@ export type TeamPartsInfoWeekItem = {
   weekId: string;
   weekName: string;
   clubActivityStatus: ClubActivityStatus;
-  actCheckRate: number; // 0~100 (%)
-  totalActs: number;
-  activeActs: number;
+  // 액트 체크 신청 요약 — 상세 탭과 동일 타입/동일 빌더 산출값(원본 count 포함).
+  //   구 평면 필드(actCheckRate/totalActs/activeActs)는 제거했다(어드민 내부 전용 API·외부 소비자 없음).
+  //   프론트는 이미 반올림된 값을 재계산하지 말고 이 DTO 값을 그대로 표시한다.
+  actCheck: ActCheckApplicationSummary;
   lineOpenRate: number; // 0~100 (%)
   totalLines: number;
   openLines: number;
@@ -92,7 +109,7 @@ const MAX_WEEKS_PAGE_SIZE = 100;
 export type WeeksSortKey =
   | "weekName"
   | "clubActivityStatus"
-  | "actCheckRate"
+  | "actCheckApplicationRate"
   | "lineOpenRate"
   | "openLines"
   | "weekReviewed";
@@ -102,7 +119,7 @@ export type WeeksSort = { key: WeeksSortKey; dir: WeeksSortDir };
 export const WEEKS_SORTABLE_KEYS: readonly WeeksSortKey[] = [
   "weekName",
   "clubActivityStatus",
-  "actCheckRate",
+  "actCheckApplicationRate",
   "lineOpenRate",
   "openLines",
   "weekReviewed",
@@ -209,22 +226,9 @@ function cmpWeekStartDesc(a: SeasonWeekDto, b: SeasonWeekDto): number {
 }
 
 // ── 전역 카탈로그 ────────────────────────────────────────────────────────────
-
-// 액트 카탈로그(전 라인 허브·org 무관 상수).
-//   totalActs = 활성 액트, activeActIds = 그중 체크 대상(check_target='check') id 집합.
-async function loadActCatalog(): Promise<{ totalActs: number; activeActIds: Set<string> }> {
-  const { data, error } = await supabaseAdmin
-    .from("process_acts")
-    .select("id,check_target")
-    .in("hub", LINE_HUBS as unknown as string[])
-    .eq("is_active", true);
-  if (error) throw new Error(error.message);
-  const rows = (data ?? []) as Array<{ id: string; check_target: string | null }>;
-  const activeActIds = new Set(
-    rows.filter((r) => r.check_target === "check").map((r) => r.id),
-  );
-  return { totalActs: rows.length, activeActIds };
-}
+//
+// (구 loadActCatalog 제거 — 액트 전체/가동은 더 이상 "org·주차 무관 카탈로그 상수"가 아니다.
+//  주차별 오픈 게이트 + 변동 액트가 반영되므로 공통 로더(loadActCheckApplicationInputsByWeek)가 산출한다.)
 
 // 전체 라인(라인칸) = 허브별 카탈로그 합(org 기준).
 //   info=activity_types(practical_info, 공통) + experience/competency 마스터(organization_slug=org).
@@ -274,48 +278,8 @@ async function loadMasterOrgs(
 
 // ── 주차별 집계(페이지 주차만) ────────────────────────────────────────────────
 
-// 주차별 완료(completed) 액트 수 — (org, hub ∈ LINE_HUBS, week) 상태행 기준.
-//   experience 는 팀/파트별 다중행이라 COUNT(DISTINCT act_id) 로 접는다(정보/역량은 단일행이라 no-op).
-//   가동 액트(activeActIds)와 교집합만 세어 체크율 ≤100% 를 보장한다.
-async function loadCompletedActsByWeek(
-  organization: OrganizationSlug,
-  weekIds: string[],
-  activeActIds: Set<string>,
-): Promise<Map<string, number>> {
-  if (weekIds.length === 0) return new Map();
-  let data: Array<{ week_id: string | null; act_id: string | null }>;
-  try {
-    // cap-safe: 전 주차 집계(정렬) 시 1000행 초과 가능 → order+range 페이징.
-    data = await selectAllPaged<{ week_id: string | null; act_id: string | null }>(() =>
-      supabaseAdmin
-        .from("process_check_statuses")
-        .select("week_id,act_id")
-        .eq("organization_slug", organization)
-        .in("hub", LINE_HUBS as unknown as string[])
-        .eq("status", "completed")
-        .in("week_id", weekIds)
-        .order("week_id")
-        .order("act_id"),
-    );
-  } catch (error) {
-    // 마이그레이션 미적용 등 → 빈 집계로 graceful degrade(전부 0%).
-    console.warn(
-      "[team-parts/info/weeks] process_check_statuses read unavailable:",
-      error instanceof Error ? error.message : error,
-    );
-    return new Map();
-  }
-  const perWeek = new Map<string, Set<string>>();
-  for (const row of data as Array<{ week_id: string | null; act_id: string | null }>) {
-    if (!row.week_id || !row.act_id) continue;
-    if (!activeActIds.has(row.act_id)) continue;
-    if (!perWeek.has(row.week_id)) perWeek.set(row.week_id, new Set());
-    perWeek.get(row.week_id)!.add(row.act_id);
-  }
-  const counts = new Map<string, number>();
-  for (const [weekId, set] of perWeek) counts.set(weekId, set.size);
-  return counts;
-}
+// (구 loadCompletedActsByWeek 제거 — status='completed' 만 세던 "완료율" 산식이었다.
+//  신청율 = status ∈ {pending, completed} 이며, 판정·집계는 공통 로더/빌더가 담당한다.)
 
 type OpenLineRow = {
   part_type: string | null;
@@ -475,29 +439,27 @@ async function loadWeekReviewed(weekIds: string[]): Promise<Map<string, boolean>
 async function buildItems(
   organization: OrganizationSlug,
   metaRows: SeasonWeekDto[],
+  mode: ScopeMode,
 ): Promise<TeamPartsInfoWeekItem[]> {
   const weekIds = metaRows.map((r) => r.week_id);
-  const actCatalog = await loadActCatalog();
-  const totalActs = actCatalog.totalActs;
-  const activeActs = actCatalog.activeActIds.size;
-  const [totalLines, completedByWeek, openLinesByWeek, reviewedByWeek] =
-    await Promise.all([
-      loadTotalLines(organization),
-      loadCompletedActsByWeek(organization, weekIds, actCatalog.activeActIds),
-      loadOpenLinesByWeek(organization, weekIds),
-      loadWeekReviewed(weekIds),
-    ]);
+  // 액트 요약 = 상세와 동일한 공통 로더(주차별 오픈 게이트·신청 판정·변동 포함)를 1회 벌크 호출.
+  //   ⚠ 액트 카탈로그/상태행/변동/오픈설정은 로더가 한 번에 모아 오므로 주차 수만큼 N+1 이 생기지 않는다.
+  const [totalLines, actInputsByWeek, openLinesByWeek, reviewedByWeek] = await Promise.all([
+    loadTotalLines(organization),
+    loadActCheckApplicationInputsByWeek({ weekIds, organization, mode }),
+    loadOpenLinesByWeek(organization, weekIds),
+    loadWeekReviewed(weekIds),
+  ]);
 
   return metaRows.map((r) => {
-    const completed = completedByWeek.get(r.week_id) ?? 0;
     const openLines = openLinesByWeek.get(r.week_id) ?? 0;
+    const inputs = actInputsByWeek.get(r.week_id) ?? { regular: [], variable: [] };
     return {
       weekId: r.week_id,
       weekName: weekTableName(r),
       clubActivityStatus: r.is_official_rest ? "official_rest" : "official_activity",
-      actCheckRate: activeActs > 0 ? Math.round((completed / activeActs) * 100) : 0,
-      totalActs,
-      activeActs,
+      // 목록 전용 산식 금지 — 상세와 동일 빌더.
+      actCheck: buildActCheckApplicationSummary(inputs.regular, inputs.variable),
       lineOpenRate: totalLines > 0 ? Math.round((openLines / totalLines) * 100) : 0,
       totalLines,
       openLines,
@@ -549,8 +511,8 @@ function sortAggregateItems(
 ): TeamPartsInfoWeekItem[] {
   const valueOf = (it: TeamPartsInfoWeekItem): number | null => {
     switch (sort.key) {
-      case "actCheckRate":
-        return it.actCheckRate;
+      case "actCheckApplicationRate":
+        return it.actCheck.applicationRate;
       case "lineOpenRate":
         return it.lineOpenRate;
       case "openLines":
@@ -578,12 +540,16 @@ export async function loadTeamPartsInfoWeeks(opts: {
   organization: OrganizationSlug;
   page: number;
   pageSize: number;
+  // 변동 액트 스코프(process_irregular_acts.scope_mode). 상세와 동일 규칙 — 미지정 시 operating.
+  //   ⚠ 액트 요약만 mode 스코프를 탄다(정규 카탈로그·라인·검수 메타는 mode 불변).
+  mode?: ScopeMode;
   // 서버사이드 정렬(전체 목록 기준). 미지정 시 기본순(최신 주차 최상단).
   sort?: WeeksSort | null;
   // 검증용 오늘 고정 훅(미지정 시 서버 활동 기준일).
   today?: string;
 }): Promise<TeamPartsInfoWeeksData> {
   const { organization, today } = opts;
+  const mode: ScopeMode = opts.mode ?? "operating";
   const sort = opts.sort ?? null;
   const page = Math.max(1, Math.floor(opts.page) || 1);
   const pageSize = Math.min(
@@ -603,13 +569,13 @@ export async function loadTeamPartsInfoWeeks(opts: {
   let items: TeamPartsInfoWeekItem[];
   if (sort && !META_SORT_KEYS.has(sort.key)) {
     // aggregate 키: 전 주차 집계 → 정렬 → 페이지 슬라이스(집계 cap-safe).
-    const allItems = await buildItems(organization, defaultOrdered);
+    const allItems = await buildItems(organization, defaultOrdered, mode);
     items = sortAggregateItems(allItems, sort).slice(startIdx, startIdx + pageSize);
   } else {
     // 기본/meta 키: meta 전체 정렬 → 페이지 슬라이스 → 페이지 주차만 집계(기존 저비용 경로).
     const orderedMeta = sort ? sortMeta(defaultOrdered, sort) : defaultOrdered;
     const pageRows = orderedMeta.slice(startIdx, startIdx + pageSize);
-    items = await buildItems(organization, pageRows);
+    items = await buildItems(organization, pageRows, mode);
   }
 
   // 3) 현재 주차 배너 — is_current_week 행(전역).

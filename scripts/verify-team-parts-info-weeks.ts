@@ -120,17 +120,22 @@ async function main() {
     const first = http?.items?.[0];
     if (first) {
       const keys = Object.keys(first).sort().join(",");
-      check(`[${org}] item DTO 키 정합(필드명 불변)`, keys === [
-        "actCheckRate", "activeActs", "clubActivityStatus", "isCurrentWeek", "lineOpenRate",
-        "openLines", "totalActs", "totalLines", "weekName", "weekReviewed", "weekId",
+      // 2026-07-17: 평면 actCheckRate/totalActs/activeActs → 중첩 actCheck(ActCheckApplicationSummary).
+      check(`[${org}] item DTO 키 정합(필드명)`, keys === [
+        "actCheck", "clubActivityStatus", "isCurrentWeek", "lineOpenRate",
+        "openLines", "totalLines", "weekName", "weekReviewed", "weekId",
       ].sort().join(","), { keys });
-      newTotals[org] = { totalActs: first.totalActs, totalLines: first.totalLines };
+      const ac = first.actCheck;
+      check(`[${org}] actCheck 키 정합`, Object.keys(ac).sort().join(",") === [
+        "activeCount", "applicationRate", "checkedCount", "totalCount", "uncheckedCount", "variableCount",
+      ].sort().join(","), { keys: Object.keys(ac).sort().join(",") });
+      newTotals[org] = { totalActs: ac.totalCount, totalLines: first.totalLines };
       // 개정 후 값이 info-only 기준선 이상(라인은 최소 info 9 슬롯 포함).
-      check(`[${org}] totalActs >= info-only baseline`, first.totalActs >= (infoActsBase ?? 0), { totalActs: first.totalActs, baseline: infoActsBase });
+      check(`[${org}] totalCount >= info-only baseline`, ac.totalCount >= (infoActsBase ?? 0), { totalCount: ac.totalCount, baseline: infoActsBase });
       check(`[${org}] totalLines >= info 슬롯(${infoLineSlots ?? 0})`, first.totalLines >= (infoLineSlots ?? 0), { totalLines: first.totalLines });
-      // 개설율/체크율 ≤100% 보장.
-      const badRate = (http.items as any[]).find((it) => it.actCheckRate > 100 || it.lineOpenRate > 100);
-      check(`[${org}] 모든 주차 체크율·개설율 ≤100%`, !badRate, badRate ? { weekName: badRate.weekName, actCheckRate: badRate.actCheckRate, lineOpenRate: badRate.lineOpenRate } : undefined);
+      // 개설율/신청율 ≤100% 보장.
+      const badRate = (http.items as any[]).find((it) => it.actCheck.applicationRate > 100 || it.lineOpenRate > 100);
+      check(`[${org}] 모든 주차 신청율·개설율 ≤100%`, !badRate, badRate ? { weekName: badRate.weekName, applicationRate: badRate.actCheck.applicationRate, lineOpenRate: badRate.lineOpenRate } : undefined);
     }
   }
 

@@ -428,14 +428,14 @@ export default function TeamPartsInfoWeeksManager({
                         onSort={onSort}
                       />
                       <WeekTh
-                        label="액트 체크율"
-                        helpKey="admin.teamPartsInfoWeeks.column.actCheckRate"
+                        label="액트 체크 신청율"
+                        helpKey="admin.teamPartsInfoWeeks.column.actCheckApplicationRate"
                         align="right"
-                        sortKey="actCheckRate"
+                        sortKey="actCheckApplicationRate"
                         sort={sort}
                         onSort={onSort}
                       />
-                      {/* 전체 액트 = 전 주차 동일(액트 카탈로그 크기) → 정렬 제외(재정렬 무의미). */}
+                      {/* 전체 액트 = 정규 전체 + 변동 → 주차마다 다를 수 있다(변동 액트 수 반영). */}
                       <WeekTh
                         label="전체 액트"
                         helpKey="admin.teamPartsInfoWeeks.column.totalActs"
@@ -443,7 +443,7 @@ export default function TeamPartsInfoWeeksManager({
                         sort={sort}
                         onSort={onSort}
                       />
-                      {/* 가동 액트 = 전 주차 동일(체크 대상 액트 수) → 정렬 제외. */}
+                      {/* 가동 액트 = 가동 정규 + 모든 변동 → 주차별 오픈 설정에 따라 달라진다. */}
                       <WeekTh
                         label="가동 액트"
                         helpKey="admin.teamPartsInfoWeeks.column.activeActs"
@@ -524,14 +524,15 @@ export default function TeamPartsInfoWeeksManager({
                               활동 관리
                             </Button>
                           </td>
+                          {/* 서버 DTO 값 그대로 표시 — 반올림된 값을 프론트에서 재계산하지 않는다. */}
                           <td className="px-3 py-2 text-right tabular-nums" data-act-rate>
-                            {item.actCheckRate}%
+                            {item.actCheck.applicationRate}%
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums">
-                            {item.totalActs}
+                            {item.actCheck.totalCount}
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums">
-                            {item.activeActs}
+                            {item.actCheck.activeCount}
                           </td>
                           <td className="px-3 py-2 text-right tabular-nums" data-line-rate>
                             {item.lineOpenRate}%

@@ -13,6 +13,7 @@ import {
   isWeeksSortKey,
   type WeeksSort,
 } from "@/lib/adminTeamPartsInfoWeeksData";
+import { parseScopeMode } from "@/lib/userScopeShared";
 
 // 클럽 정보 > 주차 내역 (read-only).
 //   GET ?club=encre|oranke|phalanx&page=1&pageSize=20[&mode=test]
@@ -21,8 +22,10 @@ import {
 // club=all|integrated(통합)은 기획 미정 → 프론트가 API 호출 없이 "준비 중" 안내.
 //   방어적으로 여기서도 400 으로 막는다(유효 org 만 허용).
 //
-// mode(operating/test)는 조회 결과에 영향을 주지 않는다(주차/카탈로그/라인/검수 메타는
-//   사용자 모집단과 무관). 링크 컨텍스트 유지용으로만 허용하며 값 파리티가 유지된다.
+// mode(operating/test): 주차/라인/검수 메타·정규 액트 카탈로그는 사용자 모집단과 무관해 mode 불변.
+//   ⚠ 단 **변동 액트는 scope_mode 로 갈리므로** 액트 요약(전체/가동/체크/미체크/변동/신청율)은 mode 를 탄다.
+//   상세(활동 관리 > 액트 체크 관리)가 동일하게 scope_mode=mode 로 변동을 필터하므로, 목록==상세
+//   파리티를 위해 여기서도 mode 를 로더에 전달한다(2026-07-17). 산식/DTO 구조는 두 모드 동일.
 
 export async function GET(request: NextRequest) {
   let admin: AdminContext;
@@ -71,6 +74,8 @@ export async function GET(request: NextRequest) {
       organization: club,
       page: Number.isFinite(page) ? page : 1,
       pageSize: Number.isFinite(pageSize) ? pageSize : DEFAULT_WEEKS_PAGE_SIZE,
+      // 변동 액트 스코프 — 상세와 동일 규칙(parseScopeMode: 'test' 외 전부 operating).
+      mode: parseScopeMode(params.get("mode")),
       sort,
     });
     return Response.json({ success: true, data });

@@ -43,11 +43,14 @@ async function snap() {
   const { data } = await supabaseAdmin.from("cluster4_weekly_card_snapshots").select("updated_at").order("updated_at", { ascending: false }).limit(1);
   return { count: count ?? 0, latest: (data?.[0] as any)?.updated_at ?? null };
 }
+// 2026-07-17: ActCheckSummary → ActCheckApplicationSummary(필드명 정리 + 변동 액트 포함).
 function invariants(prefix: string, sm: any) {
-  check(`${prefix} uncheck=active-check`, sm.uncheckedActs === sm.activeActs - sm.checkedActs, sm);
-  check(`${prefix} active<=total·checked<=active`, sm.activeActs <= sm.totalActs && sm.checkedActs <= sm.activeActs, sm);
-  const expRate = sm.activeActs > 0 ? Math.round((sm.checkedActs / sm.activeActs) * 100) : 0;
-  check(`${prefix} rate 계산`, sm.actCheckRate === expRate, { rate: sm.actCheckRate, expRate });
+  check(`${prefix} uncheck=active-check`, sm.uncheckedCount === sm.activeCount - sm.checkedCount, sm);
+  check(`${prefix} active<=total·checked<=active`, sm.activeCount <= sm.totalCount && sm.checkedCount <= sm.activeCount, sm);
+  const expRate = sm.activeCount > 0 ? Math.round((sm.checkedCount / sm.activeCount) * 100) : 0;
+  check(`${prefix} 신청율 계산`, sm.applicationRate === expRate, { rate: sm.applicationRate, expRate });
+  // 변동 액트는 항상 가동 → 가동 >= 변동.
+  check(`${prefix} active>=variable`, sm.activeCount >= sm.variableCount, sm);
 }
 
 async function main() {
@@ -86,50 +89,50 @@ async function main() {
       club.lines.every((l) => /^[0-9a-f-]{36}$/.test(l.lineId)),
       clubNames);
     invariants(`[${org}] club hub`, club.summary);
-    check(`[${org}] club 변동=0`, club.summary.variableActs === 0);
+    check(`[${org}] club 변동=0`, club.summary.variableCount === 0);
     check(`[${org}] club variableActsByDay 버킷 7개`, Object.keys(club.variableActsByDay).length === 7);
     for (const l of club.lines) check(`[${org}] club 라인 ${l.lineName} 요일버킷 7개`, Object.keys(l.regularActsByDay).length === 7);
     // 오픈확인 전: 클럽 라인 전부 미오픈·activeActs=0.
     check(`[${org}] (오픈확인 전) club 라인 전부 미오픈`, club.lines.every((l) => l.isOpenThisWeek === false));
-    check(`[${org}] (오픈확인 전) club activeActs=0`, club.summary.activeActs === 0, club.summary);
+    check(`[${org}] (legacy·config 없음) club 이력 보존 → 전 액트 가동`, club.summary.activeCount === club.summary.totalCount, club.summary);
     // 일반/테스트 모드 클럽 총괄 = 완전 동일(테스트 전용 분기 없음·사용자 식별 정보 없음).
     const dTest = await loadTeamPartsInfoActCheckManagement({ weekId, organization: org, mode: "test" });
     check(`[${org}] clubOverall operating==test 완전 동일`, JSON.stringify(club) === JSON.stringify(dTest.clubOverall));
     // 실무 역량 허브: 실무 정보와 동일 구조(요약 불변식·변동=0·라인급 요일버킷 7개).
     const comp = d.practicalCompetency;
     invariants(`[${org}] comp hub`, comp.summary);
-    check(`[${org}] comp 변동=0`, comp.summary.variableActs === 0);
+    check(`[${org}] comp 변동=0`, comp.summary.variableCount === 0);
     check(`[${org}] comp variableActsByDay 버킷 7개`, Object.keys(comp.variableActsByDay).length === 7);
     for (const l of comp.lines) {
       check(`[${org}] comp 라인 ${l.lineName} 요일버킷 7개`, Object.keys(l.regularActsByDay).length === 7);
     }
     // 오픈확인 전: 역량 라인 전부 미오픈·activeActs=0.
     check(`[${org}] (오픈확인 전) comp 라인 전부 미오픈`, comp.lines.every((l) => l.isOpenThisWeek === false));
-    check(`[${org}] (오픈확인 전) comp activeActs=0`, comp.summary.activeActs === 0, comp.summary);
+    check(`[${org}] (legacy·config 없음) comp 이력 보존 → 전 액트 가동`, comp.summary.activeCount === comp.summary.totalCount, comp.summary);
     // 실무 경험 허브: 팀 배열·팀별 요약 불변식·허브 요약=팀 합.
     const exp = d.practicalExperience;
     check(`[${org}] practicalExperience.teams 존재`, Array.isArray(exp.teams));
     invariants(`[${org}] exp hub`, exp.summary);
     for (const t of exp.teams) {
       invariants(`[${org}] exp team ${t.teamName}`, t.summary);
-      check(`[${org}] exp team ${t.teamName} 변동=0`, t.summary.variableActs === 0);
+      check(`[${org}] exp team ${t.teamName} 변동=0`, t.summary.variableCount === 0);
       check(`[${org}] exp team ${t.teamName} 라인급 존재`, t.lines.length >= 1, { n: t.lines.length });
     }
     // 허브 요약은 "팀 합"이 아니라 distinct(대표 1번) — 모든 팀이 동일 액트 카탈로그 공유(lib 주석 참조).
     //   전체=단일 팀 카탈로그 수, 가동/체크=distinct(팀 합 이하). 팀 수만큼 곱하지 않는다.
-    const sumField = (k: "totalActs" | "activeActs" | "checkedActs") => exp.teams.reduce((n, t) => n + (t.summary as any)[k], 0);
+    const sumField = (k: "totalCount" | "activeCount" | "checkedCount") => exp.teams.reduce((n, t) => n + (t.summary as any)[k], 0);
     check(`[${org}] exp 허브 요약 = distinct(팀 합 아님)`,
-      exp.summary.totalActs === (exp.teams[0]?.summary.totalActs ?? 0) &&
-      exp.summary.activeActs <= sumField("activeActs") && exp.summary.checkedActs <= sumField("checkedActs"),
-      { hub: exp.summary, teamsTotalSum: sumField("totalActs") });
+      exp.summary.totalCount === (exp.teams[0]?.summary.totalCount ?? 0) &&
+      exp.summary.activeCount <= sumField("activeCount") && exp.summary.checkedCount <= sumField("checkedCount"),
+      { hub: exp.summary, teamsTotalSum: sumField("totalCount") });
     // 오픈확인 전: 모든 팀 미오픈·activeActs=0.
-    check(`[${org}] (오픈확인 전) exp 전 팀 activeActs=0`, exp.teams.every((t) => t.summary.activeActs === 0));
+    check(`[${org}] (legacy·config 없음) exp 전 팀 이력 보존 → 전 액트 가동`, exp.teams.every((t) => t.summary.activeCount === t.summary.totalCount));
     check(`[${org}] 정보 라인급 요일버킷 7개`, d.practicalInfo.lines.every((l) => Object.keys(l.regularActsByDay).length === 7));
     invariants(`[${org}] week`, d.summary);
     invariants(`[${org}] info`, d.practicalInfo.summary);
     // 오픈확인 전 기본: 정보 라인 전부 미오픈·activeActs=0.
     check(`[${org}] (오픈확인 전) 정보 라인 전부 미오픈`, d.practicalInfo.lines.every((l) => l.isOpenThisWeek === false));
-    check(`[${org}] (오픈확인 전) 정보 activeActs=0`, d.practicalInfo.summary.activeActs === 0, d.practicalInfo.summary);
+    check(`[${org}] (legacy·config 없음) 정보 이력 보존 → 전 액트 가동`, d.practicalInfo.summary.activeCount === d.practicalInfo.summary.totalCount, d.practicalInfo.summary);
     const allActs = d.practicalInfo.lines.flatMap((l) => Object.values(l.regularActsByDay).flat());
     check(`[${org}] (오픈확인 전) 모든 정보 액트 비가동`, allActs.every((x: any) => x.isActiveThisWeek === false), { acts: allActs.length });
   }
@@ -149,7 +152,7 @@ async function main() {
     check("open-confirm(기본 전체체크) 성공", oc.ok);
     const after = await loadTeamPartsInfoActCheckManagement({ weekId, organization: org, mode: "operating" });
     check("정보 라인급 전부 가동(기본 전체체크)", after.practicalInfo.lines.every((l) => l.isOpenThisWeek === true), { n: after.practicalInfo.lines.length });
-    check("정보 activeActs 증가(before<=after)", after.practicalInfo.summary.activeActs >= before.practicalInfo.summary.activeActs, { before: before.practicalInfo.summary.activeActs, after: after.practicalInfo.summary.activeActs });
+    check("정보 activeActs 증가(before<=after)", after.practicalInfo.summary.activeCount >= before.practicalInfo.summary.activeCount, { before: before.practicalInfo.summary.activeCount, after: after.practicalInfo.summary.activeCount });
     // 독립성(§15): 특정 정보 라인급 actCheck=false → 그 라인급만 미가동, 나머지 가동 유지.
     const targetLg = after.practicalInfo.lines[0]?.lineId;
     if (targetLg) {
@@ -195,8 +198,8 @@ async function main() {
     check("클럽 라인에 임시 액트 표시", clubActCards.length === 1);
     check("클럽 액트 가동(오픈확인 후 isActiveThisWeek=true)", clubActCards[0]?.isActiveThisWeek === true);
     check("클럽 임시 액트 미신청(isChecked=false)", clubActCards[0]?.isChecked === false);
-    check("클럽 activeActs>=1(시드 액트 포함)", base.clubOverall.summary.activeActs >= 1, base.clubOverall.summary);
-    check("주차 전체 통계에 클럽 액트 반영(total>=1·active>=1)", base.summary.totalActs >= 1 && base.summary.activeActs >= 1, base.summary);
+    check("클럽 activeActs>=1(시드 액트 포함)", base.clubOverall.summary.activeCount >= 1, base.clubOverall.summary);
+    check("주차 전체 통계에 클럽 액트 반영(total>=1·active>=1)", base.summary.totalCount >= 1 && base.summary.activeCount >= 1, base.summary);
     // 체크값 "저장"(크루 체크와 동일 경로=process_check_statuses) → 재조회 시 유지.
     const { error: stErr } = await supabaseAdmin.from("process_check_statuses").insert({
       act_id: clubActId, hub: "club", team_id: null, organization_slug: org, week_id: weekId,
@@ -205,7 +208,7 @@ async function main() {
     });
     check("클럽 체크 상태 저장(insert)", !stErr, stErr?.message);
     const after2 = await loadTeamPartsInfoActCheckManagement({ weekId, organization: org, mode: "operating" });
-    check("저장 후 클럽 checkedActs 증가(체크 반영)", after2.clubOverall.summary.checkedActs > base.clubOverall.summary.checkedActs, { before: base.clubOverall.summary.checkedActs, after: after2.clubOverall.summary.checkedActs });
+    check("저장 후 클럽 checkedActs 증가(체크 반영)", after2.clubOverall.summary.checkedCount > base.clubOverall.summary.checkedCount, { before: base.clubOverall.summary.checkedCount, after: after2.clubOverall.summary.checkedCount });
     check("저장 후 재조회 유지(임시 액트 isChecked=true)",
       after2.clubOverall.lines.flatMap((l) => Object.values(l.regularActsByDay).flat()).find((x: any) => x.actId === clubActId)?.isChecked === true);
     check("저장 후 direct == HTTP", await (async () => {

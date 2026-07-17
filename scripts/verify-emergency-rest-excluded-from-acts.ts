@@ -88,20 +88,28 @@ async function main() {
 
     // 집계 델타: 정상 1건만 반영(+1), 긴급 휴식은 미반영.
     check("주차 전체 변동 수 델타=+1(정상만)",
-      after.summary.variableActs - before.summary.variableActs === 1,
-      { before: before.summary.variableActs, after: after.summary.variableActs });
+      after.summary.variableCount - before.summary.variableCount === 1,
+      { before: before.summary.variableCount, after: after.summary.variableCount });
     check("주차 전체 액트 수 델타=+1(정상만)",
-      after.summary.totalActs - before.summary.totalActs === 1,
-      { before: before.summary.totalActs, after: after.summary.totalActs });
+      after.summary.totalCount - before.summary.totalCount === 1,
+      { before: before.summary.totalCount, after: after.summary.totalCount });
     check("실무 정보 변동 수 델타=+1(정상만)",
-      after.practicalInfo.summary.variableActs - before.practicalInfo.summary.variableActs === 1,
-      { before: before.practicalInfo.summary.variableActs, after: after.practicalInfo.summary.variableActs });
+      after.practicalInfo.summary.variableCount - before.practicalInfo.summary.variableCount === 1,
+      { before: before.practicalInfo.summary.variableCount, after: after.practicalInfo.summary.variableCount });
 
-    // 체크율/가동은 정규 액트(process_acts) 기준 — 변동 액트 유무와 무관해야 함(회귀 방지).
-    check("가동 수 불변(변동 액트는 체크율/가동 무관)",
-      after.practicalInfo.summary.activeActs === before.practicalInfo.summary.activeActs);
-    check("체크율 불변(변동 액트는 체크율/가동 무관)",
-      after.practicalInfo.summary.actCheckRate === before.practicalInfo.summary.actCheckRate);
+    // 2026-07-17 정책 전환: 변동 액트는 **항상 가동**이며 신청율 분모/분자에 포함된다.
+    //   (구 검증은 "변동은 체크율/가동 무관"을 단언했으나 그 전제가 반전됨.)
+    //   시드 = manual_grant + status=completed → effectiveIrregularStatus='completed' → 체크.
+    check("가동 델타=+1(정상 변동은 항상 가동)",
+      after.practicalInfo.summary.activeCount - before.practicalInfo.summary.activeCount === 1,
+      { before: before.practicalInfo.summary.activeCount, after: after.practicalInfo.summary.activeCount });
+    check("체크 델타=+1(manual_grant=생성 즉시 completed)",
+      after.practicalInfo.summary.checkedCount - before.practicalInfo.summary.checkedCount === 1,
+      { before: before.practicalInfo.summary.checkedCount, after: after.practicalInfo.summary.checkedCount });
+    // 긴급 휴식은 어디에도 반영 안 됨 → **정규** 가동은 불변이어야 한다(변동분만 증가).
+    check("정규 가동 불변(변동분만 증가·긴급휴식 미반영)",
+      after.practicalInfo.summary.activeCount - after.practicalInfo.summary.variableCount ===
+        before.practicalInfo.summary.activeCount - before.practicalInfo.summary.variableCount);
 
     // 일반/테스트 모드 동일 DTO 형상(테스트 모드에도 긴급 휴식 미유입 — 시드는 operating 스코프라 test 는 0).
     const afterTest = await loadTeamPartsInfoActCheckManagement({ weekId, organization: org, mode: "test" });

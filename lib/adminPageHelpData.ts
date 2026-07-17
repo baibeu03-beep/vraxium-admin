@@ -13,7 +13,7 @@ export const HELP_CONTENT_MAX = 20000;
 
 // 요소 단위 도움말 키: 점(.) 구분 네임스페이스. "admin." 으로 시작.
 //   · 슬래시 경로("/admin/...")와 문자셋이 겹치지 않아 충돌하지 않는다.
-//   · 소문자/숫자/점만 허용해 키 오염을 막는다. 예: admin.teamParts.info.weeks.column.actCheckRate
+//   · 소문자/숫자/점만 허용해 키 오염을 막는다. 예: admin.teamPartsInfoWeeks.column.actCheckApplicationRate
 const HELP_ELEMENT_KEY_RE = /^admin(\.[a-zA-Z0-9]+)+$/;
 
 export class AdminHelpError extends Error {

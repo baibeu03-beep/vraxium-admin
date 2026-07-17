@@ -32,7 +32,7 @@ import type {
 } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import type {
   ActCheckManagementData,
-  ActCheckSummary,
+  ActCheckApplicationSummary,
   ActCheckActDto,
   ActCheckVariableActDto,
 } from "@/lib/adminTeamPartsInfoActCheckData";
@@ -258,7 +258,7 @@ function ActSummaryRow({
 }: {
   // title 미전달(undefined) 시 제목 span 자체를 렌더하지 않는다(요약 지표/카드는 그대로 유지).
   title?: string;
-  s: ActCheckSummary;
+  s: ActCheckApplicationSummary;
   level?: SummaryLevel;
   withHelp?: boolean;
   titleHelpKey?: string;
@@ -280,12 +280,12 @@ function ActSummaryRow({
           {withHelp && titleHelpKey ? <AdminHelpIconButton helpKey={titleHelpKey} title={title} size="sm" onDark={onDark} /> : null}
         </span>
       ) : null}
-      {item("전체", s.totalActs, `${HELP}.summary.total`)}
-      {item("가동", s.activeActs, `${HELP}.summary.operating`)}
-      {item("체크", s.checkedActs, `${HELP}.summary.checked`)}
-      {item("미체크", s.uncheckedActs, `${HELP}.summary.unchecked`)}
-      {item("변동", s.variableActs, `${HELP}.summary.variable`)}
-      {item("액트 체크율", `${s.actCheckRate}%`, `${HELP}.summary.checkRate`)}
+      {item("전체", s.totalCount, `${HELP}.summary.total`)}
+      {item("가동", s.activeCount, `${HELP}.summary.operating`)}
+      {item("체크", s.checkedCount, `${HELP}.summary.checked`)}
+      {item("미체크", s.uncheckedCount, `${HELP}.summary.unchecked`)}
+      {item("변동", s.variableCount, `${HELP}.summary.variable`)}
+      {item("액트 체크 신청율", `${s.applicationRate}%`, `${HELP}.summary.checkApplicationRate`)}
     </div>
   );
 }

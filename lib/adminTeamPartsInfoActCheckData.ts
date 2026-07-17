@@ -20,6 +20,15 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { loadWeekOpeningConfig } from "@/lib/adminTeamPartsInfoWeekDetailData";
 import { isActOpenForWeek } from "@/lib/weekOpenGate";
 import { listTeams } from "@/lib/adminExperienceLineData";
+import {
+  buildActCheckApplicationSummary,
+  type ActCheckApplicationSummary,
+  type ActCheckRegularInput,
+} from "@/lib/actCheckApplicationSummary";
+import {
+  loadActCheckApplicationInputsByWeek,
+  resolveActCheckGateActive,
+} from "@/lib/adminActCheckApplicationInputs";
 import { formatClubDate, formatClubDateTime, formatClubWeekdayTime } from "@/lib/clubDate";
 import { resolveActCardState, type ActCardState } from "@/lib/actCardState";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
@@ -49,14 +58,10 @@ function emptyByDay<T>(): Record<DayKey, T[]> {
 
 export type ActCheckStatus = "ontime" | "late" | null;
 
-export type ActCheckSummary = {
-  totalActs: number;
-  activeActs: number;
-  checkedActs: number;
-  uncheckedActs: number;
-  variableActs: number;
-  actCheckRate: number;
-};
+// 액트 체크 신청 요약 — 목록(/admin/team-parts/info/weeks)과 **동일 타입·동일 빌더**.
+//   (구 ActCheckSummary{totalActs,activeActs,checkedActs,uncheckedActs,variableActs,actCheckRate} 대체.
+//    이 API 는 어드민 내부 전용이라 외부 소비자가 없어 필드명을 정리했다 — deprecated alias 미유지.)
+export type { ActCheckApplicationSummary } from "@/lib/actCheckApplicationSummary";
 
 export type ActCheckActDto = {
   actId: string;
@@ -102,7 +107,7 @@ export type ActCheckInfoLineDto = {
 export type ActCheckHubTeam = {
   teamId: string;
   teamName: string;
-  summary: ActCheckSummary;
+  summary: ActCheckApplicationSummary;
   lines: ActCheckInfoLineDto[];
   variableActsByDay: Record<DayKey, ActCheckVariableActDto[]>;
 };
@@ -110,28 +115,28 @@ export type ActCheckHubTeam = {
 export type ActCheckManagementData = {
   weekId: string;
   club: OrganizationSlug;
-  summary: ActCheckSummary;
+  summary: ActCheckApplicationSummary;
   // 허브 급 0: 클럽 총괄 — 실무 정보와 동일 구조(허브 요약 + 라인급/요일 액트). 라인=고정 카탈로그 2종.
   //   가동/체크 = 허브 단위(clubOpen = openConfirmed). 변동 액트는 info 허브 귀속 → 클럽 총괄 변동=0.
   clubOverall: {
-    summary: ActCheckSummary;
+    summary: ActCheckApplicationSummary;
     lines: ActCheckInfoLineDto[];
     variableActsByDay: Record<DayKey, ActCheckVariableActDto[]>;
   };
   practicalInfo: {
-    summary: ActCheckSummary;
+    summary: ActCheckApplicationSummary;
     lines: ActCheckInfoLineDto[];
     // 요일별 변동 액트(정규 액트 아래 "변동 액트" 행에 표시).
     variableActsByDay: Record<DayKey, ActCheckVariableActDto[]>;
   };
   // 실무 경험 — 허브 요약 + 팀 탭(팀별 요약/라인급/요일 액트).
   practicalExperience: {
-    summary: ActCheckSummary;
+    summary: ActCheckApplicationSummary;
     teams: ActCheckHubTeam[];
   };
   // 실무 역량 — 실무 정보와 동일 구조(허브 요약 + 라인급/요일 액트). 현재 라인 1개.
   practicalCompetency: {
-    summary: ActCheckSummary;
+    summary: ActCheckApplicationSummary;
     lines: ActCheckInfoLineDto[];
     variableActsByDay: Record<DayKey, ActCheckVariableActDto[]>;
   };
@@ -197,9 +202,7 @@ function timingOf(actualIso: string | null, deadlineMs: number | null): ActCheck
   if (Number.isNaN(a) || deadlineMs == null) return "ontime";
   return a <= deadlineMs ? "ontime" : "late";
 }
-function rate(active: number, checked: number): number {
-  return active > 0 ? Math.round((checked / active) * 100) : 0;
-}
+// (구 rate() 제거 — 신청율 산식은 buildActCheckApplicationSummary 단일 SoT.)
 
 // 카드 표시/상태 필드 단일 빌더 — 정규/변동·정보/경험 전부 동일 판정을 쓴다.
 //   필요 시점(required)·실제 신청(actual)은 원본 timestamp(epoch ms)로만 비교(문자열 재비교 금지).
@@ -304,6 +307,13 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
     isActOpenForWeek({ hub: "club", openConfirmed, config, lineGroupId: lgId });
   const expOpen = (teamId: string, lgId: string | null): boolean =>
     isActOpenForWeek({ hub: "experience", openConfirmed, config, lineGroupId: lgId, teamId });
+  // 액트 **가동 집계** 전용 게이트 스위치 — 이력 보존(legacy·config 없음) 시 게이트 미적용.
+  //   ⚠ 라인 행 isOpenThisWeek(표시)에는 쓰지 않는다 — legacy 라인은 기존대로 "미오픈" 표시 유지.
+  //   허브/주차 요약은 공통 로더가 이미 같은 규칙을 쓰므로, 팀 요약도 여기서 동일하게 맞춘다
+  //   (안 맞추면 허브 가동 3 vs 팀 가동 0 처럼 내부 발산 — 실측으로 잡힌 케이스).
+  const gateActive = await resolveActCheckGateActive(weekId, organization);
+  const expActiveForSummary = (teamId: string, lgId: string | null): boolean =>
+    !gateActive || expOpen(teamId, lgId);
   const compOpen = (): boolean =>
     isActOpenForWeek({ hub: "competency", openConfirmed, config, lineGroupId: null });
 
@@ -341,7 +351,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
 
   // 4) 체크 상태행. info/competency/club = act_id 단위(team_id null), experience = (act_id, team_id) 단위.
   const statusByAct = new Map<string, StatusRow>();
-  const appliedActIds = new Set<string>();
+  // (구 appliedActIds 제거 — 비팀 허브 신청 판정은 공통 로더가 담당. 여기 상태행은 카드 표시 전용.)
   const expStatusByActTeam = new Map<string, StatusRow>();
   const appliedExpSet = new Set<string>();
   const preferApplied = (prev: StatusRow | undefined, applied: boolean) =>
@@ -364,7 +374,6 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
           if (applied) appliedExpSet.add(key);
           if (preferApplied(expStatusByActTeam.get(key), applied)) expStatusByActTeam.set(key, r);
         } else {
-          if (applied) appliedActIds.add(r.act_id);
           if (preferApplied(statusByAct.get(r.act_id), applied)) statusByAct.set(r.act_id, r);
         }
       }
@@ -404,7 +413,7 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       irr = hasOrigin ? rawRows.filter((r) => r.origin !== "emergency_rest") : rawRows;
     }
   }
-  const variableCount = irr.length;
+  // (구 variableCount 제거 — 변동 집계는 공통 로더/빌더가 담당. irr 은 요일별 카드 표시 전용.)
 
   // 6) 담당자 이름 + 역할 해석 — 정규(requested_by) ∪ 변동(applicant_admin_id).
   //    역할 = memberStatusLabel(user_profiles.role, membership_level)(앰배서더/팀장/파트장/에이전트/…).
@@ -563,37 +572,22 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
       }
       return { lineId: lg.id, lineName: lg.name, isOpenThisWeek: lineOpen, regularActsByDay: byDay };
     });
-    const active = expActs.filter((a) => a.check_target === "check" && expOpen(t.id, a.line_group_id));
-    const activeActs = active.length;
-    const checkedActs = active.filter((a) => appliedExpSet.has(`${a.id}::${t.id}`)).length;
+    // 팀 스코프 요약 — 입력만 팀으로 좁히고 산식은 공통 빌더(자체 계산 금지). 변동은 팀 귀속 불가 → [].
+    //   ⚠ 팀별 가동/신청은 팀 스코프라 공통 로더(액트 단위 any-team 판정)로 대체할 수 없다 → 여기서 구성.
+    const teamRegular: ActCheckRegularInput[] = expActs.map((a) => ({
+      actId: a.id,
+      hub: "experience",
+      isActive: a.check_target === "check" && expActiveForSummary(t.id, a.line_group_id),
+      isApplied: appliedExpSet.has(`${a.id}::${t.id}`),
+    }));
     return {
       teamId: t.id,
       teamName: t.teamName,
-      summary: {
-        totalActs: expActs.length,
-        activeActs,
-        checkedActs,
-        uncheckedActs: activeActs - checkedActs,
-        variableActs: 0,
-        actCheckRate: rate(activeActs, checkedActs),
-      },
+      summary: buildActCheckApplicationSummary(teamRegular, []),
       lines: teamLines,
       variableActsByDay: emptyByDay<ActCheckVariableActDto>(),
     };
   });
-  // 허브 요약 — distinct(팀 합 아님). 가동 = openConfirmed && 어느 팀이든 라인급 체크. 체크 = 어느 팀이든 신청됨.
-  const expHubActive = expActs.filter(
-    (a) => a.check_target === "check" && teams.some((t) => expOpen(t.id, a.line_group_id)),
-  );
-  const expHubChecked = expHubActive.filter((a) => teams.some((t) => appliedExpSet.has(`${a.id}::${t.id}`)));
-  const expHubSummary: ActCheckSummary = {
-    totalActs: expActs.length,
-    activeActs: expHubActive.length,
-    checkedActs: expHubChecked.length,
-    uncheckedActs: expHubActive.length - expHubChecked.length,
-    variableActs: 0,
-    actCheckRate: rate(expHubActive.length, expHubChecked.length),
-  };
 
   // 8c) 실무 역량 — process_line_groups(hub=competency). 가동/체크 = 공유 게이트(compChecked, (5) 정상 진행).
   //   변동 액트는 info 허브에 귀속 → 역량 변동=0(경험과 동일).
@@ -624,48 +618,41 @@ export async function loadTeamPartsInfoActCheckManagement(opts: {
   });
 
   // 9) 집계. 가동 = check_target='check' && openConfirmed && 라인급 체크. 허브별 distinct(1회) 판정.
-  const isActActive = (a: ActRow): boolean => {
-    if (a.hub === "experience") return teams.some((t) => expOpen(t.id, a.line_group_id));
-    return isActOpenForWeek({ hub: a.hub, openConfirmed, config, lineGroupId: a.line_group_id });
-  };
-  const isActChecked = (a: ActRow): boolean =>
-    a.hub === "experience" ? teams.some((t) => appliedExpSet.has(`${a.id}::${t.id}`)) : appliedActIds.has(a.id);
-  // withVariable=true 는 변동 액트(info 귀속)를 total/variable 에 포함 — 주차 전체·실무 정보에만 적용.
-  const summarize = (scope: ActRow[], withVariable: boolean): ActCheckSummary => {
-    const active = scope.filter((a) => a.check_target === "check" && isActActive(a));
-    const activeActs = active.length;
-    const checkedActs = active.filter(isActChecked).length;
-    return {
-      totalActs: scope.length + (withVariable ? variableCount : 0),
-      activeActs,
-      checkedActs,
-      uncheckedActs: activeActs - checkedActs,
-      variableActs: withVariable ? variableCount : 0,
-      actCheckRate: rate(activeActs, checkedActs),
-    };
-  };
+  // ── 9) 요약 = **목록과 동일한 공통 로더 + 공통 빌더** ───────────────────────────
+  //   ⚠ 여기서 자체 산식을 만들지 않는다. 목록(/admin/team-parts/info/weeks)이 같은 함수를 호출하므로
+  //     "목록 == 상세" 가 구조적으로 보장된다(과거엔 서로 다른 산식이라 전체 11 vs 19·가동 11 vs 0 발산).
+  //   변동 액트는 info 허브 귀속(기존 정책) → 주차 전체·실무 정보 요약에만 포함, 그 외 허브는 [].
+  const inputsByWeek = await loadActCheckApplicationInputsByWeek({
+    weekIds: [weekId],
+    organization,
+    mode,
+    nowMs,
+  });
+  const inputs = inputsByWeek.get(weekId) ?? { regular: [], variable: [] };
+  const regularOf = (hub: string): ActCheckRegularInput[] =>
+    inputs.regular.filter((r) => r.hub === hub);
 
   return {
     weekId,
     club: organization,
     // 주차 전체 = 클럽 총괄 + 정보 + 경험 + 역량 정규 액트 + 변동(info 귀속).
-    summary: summarize(allActs, true),
+    summary: buildActCheckApplicationSummary(inputs.regular, inputs.variable),
     clubOverall: {
-      summary: summarize(clubActs, false),
+      summary: buildActCheckApplicationSummary(regularOf("club"), []),
       lines: clubLines,
       variableActsByDay: emptyByDay<ActCheckVariableActDto>(),
     },
     practicalInfo: {
-      summary: summarize(infoActs, true),
+      summary: buildActCheckApplicationSummary(regularOf("info"), inputs.variable),
       lines,
       variableActsByDay,
     },
     practicalExperience: {
-      summary: expHubSummary,
+      summary: buildActCheckApplicationSummary(regularOf("experience"), []),
       teams: expTeams,
     },
     practicalCompetency: {
-      summary: summarize(compActs, false),
+      summary: buildActCheckApplicationSummary(regularOf("competency"), []),
       lines: compLines,
       variableActsByDay: emptyByDay<ActCheckVariableActDto>(),
     },

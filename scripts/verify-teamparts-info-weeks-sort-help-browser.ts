@@ -69,7 +69,7 @@ type Item = {
   weekId: string;
   weekName: string;
   clubActivityStatus: "official_activity" | "official_rest";
-  actCheckRate: number;
+  actCheck: { applicationRate: number };
   lineOpenRate: number;
   openLines: number;
   weekReviewed: boolean;
@@ -151,7 +151,7 @@ async function main() {
 
     // aggregate: asc 비감소 / desc 비증가 (전 페이지 연결 기준)
     const aggKeys: Array<{ k: string; get: (i: Item) => number }> = [
-      { k: "actCheckRate", get: (i) => i.actCheckRate },
+      { k: "actCheckApplicationRate", get: (i) => i.actCheck.applicationRate },
       { k: "lineOpenRate", get: (i) => i.lineOpenRate },
       { k: "openLines", get: (i) => i.openLines },
       { k: "weekReviewed", get: (i) => (i.weekReviewed ? 1 : 0) },
@@ -171,7 +171,7 @@ async function main() {
     // 무효 sort 키 = 무시(기본순)
     const bogus = await fetchAll(api, { sort: "weekName; DROP", dir: "asc" });
     assert(ids(bogus) === ids(base), "무효 sort 키가 기본순으로 폴백되지 않음");
-    const bogusDir = await fetchAll(api, { sort: "actCheckRate", dir: "sideways" });
+    const bogusDir = await fetchAll(api, { sort: "actCheckApplicationRate", dir: "sideways" });
     assert(ids(bogusDir) === ids(base), "무효 dir 이 기본순으로 폴백되지 않음");
     console.log("PASS 무효 sort/dir = 기본순 폴백(whitelist)");
 
