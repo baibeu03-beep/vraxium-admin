@@ -21,7 +21,7 @@ export type PositionCode =
 
 // position_code → 클래스 라벨. admin lib/positionHistory.ts POSITION_CODE_TO_LABEL 와 동일 문구.
 export const POSITION_CODE_TO_CLASS_LABEL: Record<PositionCode, string> = {
-  regular: "일반(정규)",
+  regular: "정규",
   advanced_agent: "심화(에이전트)",
   advanced_part_leader: "심화(파트장)",
   operating_team_leader: "운영진(팀장)",

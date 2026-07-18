@@ -24,7 +24,7 @@ import type { SeasonActivityStatus } from "@/lib/cluster4WeeklyGrowthTypes";
 // area-8-season-status 시즌별 맵 — 순수 함수(browser-safe). 단일 출처(SoT) = weekly-cards 스냅샷
 // cards 의 주차별 roleLabel(= cluster-4-card 역할 배지와 동일 값·동일 라벨, user_position_histories
 // 기반 v26). 한 시즌의 카드를 시작일 순으로 정렬해 연속 동일 roleLabel 을 한 구간으로 병합한다
-// (상태가 바뀌면 별도 행 — 예: W1~3 일반(정규) → W4~ 심화(에이전트) = 2행). 최신 상태로 덮어쓰지 않는다.
+// (상태가 바뀌면 별도 행 — 예: W1~3 정규 → W4~ 심화(에이전트) = 2행). 최신 상태로 덮어쓰지 않는다.
 //   · 카드 기반이라 area-8 == 카드 배지(같은 시즌/주차) 정합이 구조적으로 보장된다.
 //   · demoUserId/일반 모드가 같은 스냅샷 cards 를 읽으면 같은 결과(분기 없음).
 //   · teamLabel/partLabel = 카드의 teamName/partName(없으면 "-"). 빈 roleLabel 카드는 스킵.
