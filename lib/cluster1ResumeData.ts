@@ -250,7 +250,7 @@ const POSITION_RANK: Record<string, number> = {
   "운영진(팀장)": 4,
   "심화(파트장)": 3,
   "심화(에이전트)": 2,
-  "일반(정규)": 1,
+  "정규": 1,
 };
 
 const SEASON_LABEL_MAP: Record<string, string> = {
@@ -562,9 +562,9 @@ export async function computeSeasonRecords(
 // /admin/members memberStatusLabel · cluster4 buildActivityLabels 와 동일 정책).
 //   - 운영진 role(team_leader/ambassador) → 등급 체계 밖, 운영진 라벨 (기존 정책 유지)
 //   - 심화 + part_leader → "심화(파트장)" / 심화 + 그 외 role → "심화(에이전트)"
-//   - 일반(또는 등급 미보유/미확정) → "일반(정규)" — role 단독으로 직책을 만들지 않는다.
+//   - 일반(또는 등급 미보유/미확정) → "정규" — role 단독으로 직책을 만들지 않는다.
 // 종전 구현은 POSITION_RANK 의 풀라벨 키("심화(파트장)" 등)만 인정해 실제 DB 값
-// "심화"가 전부 "일반(정규)"으로 떨어지는 결함이 있었다(심화 멤버 전원 오표기).
+// "심화"가 전부 "정규"로 떨어지는 결함이 있었다(심화 멤버 전원 오표기).
 function resolvePosition(
   memberships: Array<Record<string, unknown>>,
   role: string | null,
@@ -583,7 +583,7 @@ function resolvePosition(
   if (level.startsWith("심화")) {
     return role === "part_leader" ? "심화(파트장)" : "심화(에이전트)";
   }
-  return "일반(정규)";
+  return "정규";
 }
 
 function dummySeasonRecords(): SeasonRecord[] {
@@ -600,7 +600,7 @@ function dummySeasonRecords(): SeasonRecord[] {
     {
       year: "25",
       seasonName: "봄 시즌",
-      position: "일반(정규)",
+      position: "정규",
       progressStatus: "정상 완료",
       approvedWeeks: 11,
       totalWeeks: 12,
@@ -609,7 +609,7 @@ function dummySeasonRecords(): SeasonRecord[] {
     {
       year: "24",
       seasonName: "겨울 시즌",
-      position: "일반(정규)",
+      position: "정규",
       progressStatus: "정상 졸업",
       approvedWeeks: 12,
       totalWeeks: 12,

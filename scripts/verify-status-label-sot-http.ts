@@ -5,7 +5,7 @@
  *     - GET /api/admin/crews/{id}/cluster4/weekly-growth → seasonActivityStatuses[].statusLabel (area-8)
  *     - GET /api/admin/crews/{id}/resume-card/resume     → seasonRecords[].position (이력서 시즌 직책)
  *   케이스:
- *     1) T최수빈 role=part_leader, level=일반  → 일반 / 일반 / 일반(정규)
+ *     1) T최수빈 role=part_leader, level=일반  → 일반(멤버십 상태) / 정규 / 정규(클래스)
  *     2) T임시우 role=part_leader, level=심화  → 심화(파트장) ×3
  *     3) 심화 agent 1명 (DB 에서 자동 선정)    → 심화(에이전트) ×3
  *
@@ -117,8 +117,8 @@ async function main() {
       name: "T최수빈",
       userId: "36138fb1-6fea-4b22-b6d2-9c46cba47314",
       expectMembers: "일반",
-      expectArea8: "일반",
-      expectResume: "일반(정규)",
+      expectArea8: "정규",
+      expectResume: "정규",
     },
     {
       name: "T임시우",

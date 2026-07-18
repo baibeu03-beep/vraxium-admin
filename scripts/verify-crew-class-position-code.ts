@@ -6,9 +6,9 @@ import { getCluster4WeeklyCardsForProfileUser } from "@/lib/cluster4WeeklyCardsD
 import { positionCodeToClassLabel } from "@/shared/crewClassPosition";
 
 const USERS: Array<{ id: string; name: string; expect: string }> = [
-  { id: "e318c666-b5f4-4508-916b-a228995baf15", name: "전성은(team_leader, 일반등급)", expect: "2025=일반(정규) / 2026=운영진(팀장)" },
+  { id: "e318c666-b5f4-4508-916b-a228995baf15", name: "전성은(team_leader, 일반등급)", expect: "2025=정규 / 2026=운영진(팀장)" },
   { id: "16000b1f-30ad-4187-9754-11199a577a09", name: "유재희(team_leader, 심화등급)", expect: "과거=이력값 / native=운영진(팀장)" },
-  { id: "40b2e0a5-016e-4559-8508-3861deb81065", name: "추가현(crew, 일반등급)", expect: "일반(정규)" },
+  { id: "40b2e0a5-016e-4559-8508-3861deb81065", name: "추가현(crew, 일반등급)", expect: "정규" },
 ];
 
 async function main() {

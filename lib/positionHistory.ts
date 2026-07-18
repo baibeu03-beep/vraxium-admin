@@ -28,7 +28,7 @@ export const POSITION_RANK: Record<PositionCode, number> = {
 };
 
 export const POSITION_CODE_TO_LABEL: Record<PositionCode, PositionLabel> = {
-  regular: "일반(정규)",
+  regular: "정규",
   advanced_agent: "심화(에이전트)",
   advanced_part_leader: "심화(파트장)",
   operating_team_leader: "운영진(팀장)",
@@ -38,7 +38,7 @@ export const POSITION_CODE_TO_LABEL: Record<PositionCode, PositionLabel> = {
 
 // PositionLabel → PositionCode (현재 membership/role fallback 경로에서 역매핑).
 export const LABEL_TO_POSITION_CODE: Record<PositionLabel, PositionCode> = {
-  "일반(정규)": "regular",
+  "정규": "regular",
   "심화(에이전트)": "advanced_agent",
   "심화(파트장)": "advanced_part_leader",
   "운영진(팀장)": "operating_team_leader",

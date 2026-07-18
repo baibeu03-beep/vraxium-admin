@@ -37,7 +37,7 @@ export type ActivityCompletion = {
 };
 
 export type PositionLabel =
-  | "일반(정규)"
+  | "정규"
   | "심화(에이전트)"
   | "심화(파트장)"
   | "운영진(팀장)"
