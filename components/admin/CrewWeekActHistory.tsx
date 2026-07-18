@@ -508,8 +508,17 @@ function ActRowView({
           <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground" title={row.cancelReason ?? undefined}>
             취소됨
           </span>
-        ) : (
+        ) : row.resultTone === "fail" ? (
+          // 미스(Point.C) — 빨강. 원장 result 필드가 아니라 크루 기준 판정(resolveCrewActResult)에서 옴.
+          <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700 dark:bg-red-500/15 dark:text-red-300">
+            {row.resultLabel}
+          </span>
+        ) : row.resultTone === "success" ? (
           <span className="rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+            {row.resultLabel}
+          </span>
+        ) : (
+          <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             {row.resultLabel}
           </span>
         )}

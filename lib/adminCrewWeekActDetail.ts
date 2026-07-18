@@ -7,6 +7,7 @@ import { isCrewWeekEditable } from "@/shared/growth.contracts";
 import {
   buildCrewActSummary,
   resolveCrewActKind,
+  resolveCrewActResult,
   type CrewActSummary,
   type CrewActSummaryRow,
 } from "@/shared/crewActSummary";
@@ -29,7 +30,10 @@ import type { Cluster4WeeklyCardDto } from "@/shared/cluster4.contracts";
 
 export type CrewWeekActRow = {
   awardId: string; // 안정 식별자(process_point_awards.id) — 취소 대상 지정용
-  resultLabel: string; // "체크 성공" | "취소됨"(soft-cancel)
+  // 결과 = 크루 기준 판정(공통 resolveCrewActResult, 적립 포인트 파생). 원장 result 필드 아님.
+  //   "체크 성공"(A/B 획득·무포인트 이행) | "체크 실패"(Point.C 미스) | "취소됨"(soft-cancel).
+  resultLabel: string;
+  resultTone: "success" | "fail" | "neutral"; // 배지 색(성공=초록·실패=빨강·취소=중립)
   actName: string;
   occurredAt: string | null;
   hubName: string | null;
@@ -133,9 +137,28 @@ export async function getCrewWeekActDetail(
   const acts: CrewWeekActRow[] = logs
     // 라인 개설 페이백(source='line') 누출 행 제외 — 액트 체크 목록은 정규/변동만.
     .filter((l) => l.source === "regular" || l.source === "irregular")
-    .map((l) => ({
+    .map((l) => {
+      // 결과 = 크루 기준 판정(취소가 아니면 적립 포인트에서 파생). 원장 result 필드(항상 "checked")를
+      //   그대로 "체크 성공"으로 쓰던 것이 Point.C(미스) 행까지 성공으로 표기하던 버그였다.
+      const crewResult = resolveCrewActResult({ pointA: l.pointA, pointB: l.pointB, pointC: l.pointC });
+      const resultLabel = l.cancelled
+        ? "취소됨"
+        : crewResult === "fail"
+          ? "체크 실패"
+          : crewResult === "pending"
+            ? "미판정"
+            : "체크 성공";
+      const resultTone: "success" | "fail" | "neutral" = l.cancelled
+        ? "neutral"
+        : crewResult === "fail"
+          ? "fail"
+          : crewResult === "pending"
+            ? "neutral"
+            : "success";
+      return {
       awardId: l.awardId,
-      resultLabel: l.cancelled ? "취소됨" : "체크 성공",
+      resultLabel,
+      resultTone,
       actName: l.actName || "(액트)",
       occurredAt: l.occurredAt,
       hubName: l.hub,
@@ -150,7 +173,8 @@ export async function getCrewWeekActDetail(
       // 취소 가능 = 주차 수정 가능 + 미취소 + 안정 식별자 보유(마이그레이션 적용 후에만 awardId 유효).
       cancellable: ctx.editable && !l.cancelled && Boolean(l.awardId),
       cancelReason: l.cancelReason,
-    }));
+      };
+    });
 
   const weekLabel =
     formatWeekFull(ctx.card.seasonKey, ctx.card.weekNumber) ?? ctx.card.weekLabel ?? "-";
