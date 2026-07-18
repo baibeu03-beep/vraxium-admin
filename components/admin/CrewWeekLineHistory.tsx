@@ -17,6 +17,14 @@ import WeekTallyingNotice from "@/components/admin/WeekTallyingNotice";
 import type { BadgeTone } from "@/components/ui/badge";
 import { rawOpenLineGrowthRate } from "@/lib/lineHistoryGrowthRate";
 import { formatLineDuration } from "@/lib/adminLineRegistrationsTypes";
+import { SortableTh } from "@/components/admin/SortableTh";
+import {
+  cycleSort,
+  sortLineRows,
+  type LineSortKey,
+  type LineSortRow,
+  type LineSortState,
+} from "@/shared/detailLogSort";
 import type {
   CrewWeekLineDetailRow,
   CrewWeekLineSummaryDto,
@@ -100,6 +108,26 @@ function computeHubStats(rows: readonly CrewWeekLineDetailRow[]): HubStats {
   };
 }
 
+// 관리자 라인 행(CrewWeekLineDetailRow) → 공통 정렬 정규화 행(LineSortRow). 표시값 아닌 원본값으로 정렬.
+//   · 소요시간/평점/포인트는 숫자 그대로 · 강화결과/유형은 화면 라벨 · 허브는 partType(어드민은 그룹 분리라
+//     허브 키 정렬은 쓰지 않지만 계약 충족을 위해 채운다). stableKey = lineId 우선(없으면 파생·결정적).
+function toLineSortRow(row: CrewWeekLineDetailRow): LineSortRow {
+  return {
+    stableKey: row.lineId ?? `${row.partType}:${row.lineName}:${row.lineTargetId ?? ""}`,
+    result: row.enhancementLabel,
+    name: row.lineName,
+    hubToken: row.partType,
+    kind: row.type ?? "",
+    duration: row.estimatedDurationMinutes,
+    rating: row.rating,
+    pointA: row.earnedA,
+    pointB: row.earnedB,
+    pointC: row.earnedC,
+    growthRequirement: "",
+    clubOpen: row.clubOpen,
+  };
+}
+
 export default function CrewWeekLineHistory({
   userId,
   weekId,
@@ -125,6 +153,20 @@ export default function CrewWeekLineHistory({
   const [bulkBusy, setBulkBusy] = useState(false);
 
   const ctxQuery = mode === "test" ? "?mode=test" : "";
+
+  // 라인 표 정렬 상태 — 4개 허브 그룹 공통(한 컬럼을 누르면 모든 허브 표가 같은 기준으로 정렬).
+  //   null=기본(허브 그룹 순서 = 공식 허브 순서, 그룹 내부는 서버 결정적 순서 유지).
+  //   다른 사용자/주차로 이동하면 초기화(탭 전환 후 복귀는 유지 · 모달 재오픈은 재마운트라 기본).
+  //   초기화는 effect 대신 렌더 중 파생 상태 리셋(React 권장 패턴 — cascading render 없음).
+  const [sort, setSort] = useState<LineSortState>(null);
+  const sortScope = `${userId}:${weekId}`;
+  const [prevSortScope, setPrevSortScope] = useState(sortScope);
+  if (prevSortScope !== sortScope) {
+    setPrevSortScope(sortScope);
+    setSort(null);
+  }
+  const dirOf = useCallback((key: LineSortKey) => (sort?.key === key ? sort.dir : null), [sort]);
+  const onSortKey = useCallback((key: LineSortKey) => setSort((s) => cycleSort(s, key)), []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -437,6 +479,9 @@ export default function CrewWeekLineHistory({
                     anyBusy={anyBusy}
                     onToggle={toggleLine}
                     onOpenDetail={openLineDetail}
+                    sort={sort}
+                    dirOf={dirOf}
+                    onSortKey={onSortKey}
                   />
                 )}
               </section>
@@ -591,6 +636,9 @@ function HubLineTable({
   anyBusy,
   onToggle,
   onOpenDetail,
+  sort,
+  dirOf,
+  onSortKey,
 }: {
   rows: CrewWeekLineDetailRow[];
   poLabels: ReturnType<typeof getProcessPointLabels>;
@@ -599,7 +647,12 @@ function HubLineTable({
   anyBusy: boolean;
   onToggle: (row: CrewWeekLineDetailRow) => void;
   onOpenDetail: (row: CrewWeekLineDetailRow) => void;
+  sort: LineSortState;
+  dirOf: (key: LineSortKey) => "asc" | "desc" | null;
+  onSortKey: (key: LineSortKey) => void;
 }) {
+  // 기본(sort=null)이면 서버 결정적 순서 유지 · 사용자 정렬 시 공통 comparator 적용(허브 내부 정렬).
+  const sortedRows = sort ? sortLineRows(rows, sort, toLineSortRow) : rows;
   return (
     <div className="overflow-x-auto rounded-md border">
       {/* table-fixed + colgroup: 헤더/바디 동일 폭. 허브 컬럼 제거로 라인명 폭 확보(좌측 정렬),
@@ -620,19 +673,19 @@ function HubLineTable({
         </colgroup>
         <thead>
           <tr className="border-b bg-muted/40 text-xs text-muted-foreground">
-            <th className="px-3 py-2 text-center font-medium">유형</th>
-            <th className="px-3 py-2 text-center font-medium">라인명</th>
-            <th className="px-3 py-2 text-center font-medium">소요 시간</th>
-            <th className="px-3 py-2 text-center font-medium">클럽 오픈</th>
-            <th className="px-3 py-2 text-center font-medium">강화 결과</th>
-            <th className="px-3 py-2 text-center font-medium">평점</th>
-            <th className="px-3 py-2 text-center font-medium">획득 {poLabels.a}</th>
-            <th className="px-3 py-2 text-center font-medium">획득 {poLabels.b}</th>
+            <SortableTh label="유형" dir={dirOf("kind")} onSort={() => onSortKey("kind")} className="px-3" />
+            <SortableTh label="라인명" dir={dirOf("name")} onSort={() => onSortKey("name")} className="px-3" />
+            <SortableTh label="소요 시간" dir={dirOf("duration")} onSort={() => onSortKey("duration")} className="px-3" />
+            <SortableTh label="클럽 오픈" dir={dirOf("clubOpen")} onSort={() => onSortKey("clubOpen")} className="px-3" />
+            <SortableTh label="강화 결과" dir={dirOf("result")} onSort={() => onSortKey("result")} className="px-3" />
+            <SortableTh label="평점" dir={dirOf("rating")} onSort={() => onSortKey("rating")} className="px-3" />
+            <SortableTh label={`획득 ${poLabels.a}`} dir={dirOf("pointA")} onSort={() => onSortKey("pointA")} className="px-3" />
+            <SortableTh label={`획득 ${poLabels.b}`} dir={dirOf("pointB")} onSort={() => onSortKey("pointB")} className="px-3" />
             <th className="px-3 py-2 text-center font-medium">2차 기입</th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, idx) => (
+          {sortedRows.map((row, idx) => (
             <tr
               key={row.lineId ?? `ph-${idx}`}
               className="border-b align-middle last:border-b-0 hover:bg-muted/20"

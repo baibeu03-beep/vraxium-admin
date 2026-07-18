@@ -13,12 +13,40 @@ import { formatAdminDateTime } from "@/lib/adminDateTime";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import ActSupplementDialog from "@/components/admin/ActSupplementDialog";
 import WeekTallyingNotice from "@/components/admin/WeekTallyingNotice";
+import { SortableTh } from "@/components/admin/SortableTh";
+import {
+  cycleSort,
+  sortActRows,
+  type ActSortKey,
+  type ActSortRow,
+  type ActSortState,
+} from "@/shared/detailLogSort";
 import type { CrewWeekActDetailDto, CrewWeekActRow } from "@/lib/adminCrewWeekActDetail";
 import type { CrewActSummary } from "@/shared/crewActSummary";
 
 // 성장 결과 변경 미리보기(서버 409 impact) — 취소 시 성공→실패 확인 팝업에 표시할 전후 값.
 type ImpactSide = { growthStatus: string; growthStatusLabel: string; pointA: number };
 type GrowthFlip = { before: ImpactSide; after: ImpactSide };
+
+// 관리자 액트 행(CrewWeekActRow) → 공통 정렬 정규화 행(ActSortRow). 표시값이 아니라 원본값으로 정렬한다.
+//   · 발생 시점은 원본 ISO(occurredAt) · 허브는 원시 enum(hubName) · 포인트/소요시간은 숫자 그대로.
+//   · 결과 정렬은 화면 라벨 기준(취소 행은 "취소됨"). stableKey = awardId(결정적 tie-breaker).
+function toActSortRow(row: CrewWeekActRow): ActSortRow {
+  return {
+    stableKey: row.awardId,
+    result: row.cancelled ? "취소됨" : row.resultLabel,
+    name: row.actName,
+    occurredAt: row.occurredAt,
+    hubToken: row.hubName,
+    line: row.lineName ?? "",
+    duration: row.durationMinutes,
+    pointA: row.pointA,
+    pointB: row.pointB,
+    pointC: row.pointC,
+    source: row.actKindLabel,
+    kind: row.requirementLabel,
+  };
+}
 
 // 회원별·주차별 상세 "액트 체크 내역" 탭 — 상단 요약 + 목록 표 + 체크박스 + 액트 취소(소프트 취소).
 //   · 요약 = 서버 DTO(summary) 그대로 표시. 크루 페이지 Detail Log 와 **동일 공통 빌더**
@@ -82,6 +110,24 @@ export default function CrewWeekActHistory({
   }, [load]);
 
   const acts = useMemo(() => detail?.acts ?? [], [detail]);
+
+  // 표 정렬 상태 — null=기본(발생 시점 ASC → null 최하단). 다른 사용자/주차로 이동하면 초기화한다
+  //   (탭 전환 후 복귀는 컴포넌트가 유지되므로 상태 보존 · 모달 완전 재오픈은 재마운트라 기본 복귀).
+  //   초기화는 effect 대신 렌더 중 파생 상태 리셋(React 권장 패턴 — cascading render 없음).
+  const [sort, setSort] = useState<ActSortState>(null);
+  const sortScope = `${userId}:${weekId}`;
+  const [prevSortScope, setPrevSortScope] = useState(sortScope);
+  if (prevSortScope !== sortScope) {
+    setPrevSortScope(sortScope);
+    setSort(null);
+  }
+  const sortedActs = useMemo(() => sortActRows(acts, sort, toActSortRow), [acts, sort]);
+  const dirOf = useCallback(
+    (key: ActSortKey) => (sort?.key === key ? sort.dir : null),
+    [sort],
+  );
+  const onSortKey = useCallback((key: ActSortKey) => setSort((s) => cycleSort(s, key)), []);
+
   const editable = detail?.editable ?? false;
   const cancellableIds = useMemo(
     () => acts.filter((a) => a.cancellable).map((a) => a.awardId),
@@ -252,21 +298,21 @@ export default function CrewWeekActHistory({
                     onChange={toggleAll}
                   />
                 </th>
-                <th className="whitespace-nowrap px-2 py-2">결과</th>
-                <th className="whitespace-nowrap px-2 py-2">액트명</th>
-                <th className="whitespace-nowrap px-2 py-2">발생 시점</th>
-                <th className="whitespace-nowrap px-2 py-2">소속 허브</th>
-                <th className="whitespace-nowrap px-2 py-2">소속 라인</th>
-                <th className="whitespace-nowrap px-2 py-2">소요 시간</th>
-                <th className="whitespace-nowrap px-2 py-2">{poLabels.a}</th>
-                <th className="whitespace-nowrap px-2 py-2">{poLabels.b}</th>
-                <th className="whitespace-nowrap px-2 py-2">{poLabels.c}</th>
-                <th className="whitespace-nowrap px-2 py-2">구분</th>
-                <th className="whitespace-nowrap px-2 py-2">종류</th>
+                <SortableTh label="결과" dir={dirOf("result")} onSort={() => onSortKey("result")} className="whitespace-nowrap" />
+                <SortableTh label="액트명" dir={dirOf("name")} onSort={() => onSortKey("name")} className="whitespace-nowrap" />
+                <SortableTh label="발생 시점" dir={dirOf("occurredAt")} onSort={() => onSortKey("occurredAt")} className="whitespace-nowrap" />
+                <SortableTh label="소속 허브" dir={dirOf("hub")} onSort={() => onSortKey("hub")} className="whitespace-nowrap" />
+                <SortableTh label="소속 라인" dir={dirOf("line")} onSort={() => onSortKey("line")} className="whitespace-nowrap" />
+                <SortableTh label="소요 시간" dir={dirOf("duration")} onSort={() => onSortKey("duration")} className="whitespace-nowrap" />
+                <SortableTh label={poLabels.a} dir={dirOf("pointA")} onSort={() => onSortKey("pointA")} className="whitespace-nowrap" />
+                <SortableTh label={poLabels.b} dir={dirOf("pointB")} onSort={() => onSortKey("pointB")} className="whitespace-nowrap" />
+                <SortableTh label={poLabels.c} dir={dirOf("pointC")} onSort={() => onSortKey("pointC")} className="whitespace-nowrap" />
+                <SortableTh label="구분" dir={dirOf("source")} onSort={() => onSortKey("source")} className="whitespace-nowrap" />
+                <SortableTh label="종류" dir={dirOf("kind")} onSort={() => onSortKey("kind")} className="whitespace-nowrap" />
               </tr>
             </thead>
             <tbody>
-              {acts.map((a) => (
+              {sortedActs.map((a) => (
                 <ActRowView
                   key={a.awardId}
                   row={a}
