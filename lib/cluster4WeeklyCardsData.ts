@@ -1129,22 +1129,18 @@ function cardMessage(card: WeeklyCardDto): string | null {
   return null;
 }
 
-type DetailLogPreviousWeekStatus = "success" | "fail" | "none" | "rest";
-
-function detailLogPreviousStatus(
-  card: Cluster4WeeklyCardDto | null,
-): DetailLogPreviousWeekStatus {
-  if (!card) return "none";
-  if (card.isTransition || card.userWeekStatus === "personal_rest" || card.userWeekStatus === "official_rest") {
-    return "rest";
-  }
-  if (card.userWeekStatus === "success" || card.userWeekStatus === "fail") {
-    return card.userWeekStatus;
-  }
-  return "none";
-}
-
-function withDetailLogMessageMeta(
+// Detail Log dl-alert 문구(a/b/c/d)용 메타를 카드별로 부여한다. 두 값은 서로 독립이다:
+//   ● previousWeekStatus(직전 "유효" 성장 결과 = 메시지 분기 SoT): success/fail 만 유효값이다.
+//     집계중(tallying)·진행중(running)·휴식(personal/official)·전환주차(isTransition)는 전부 건너뛰고,
+//     시즌 경계를 넘어서라도 가장 최근의 확정 성공/실패를 그대로 참조한다(하나도 없으면 "none").
+//     ⚠ 직전 배열 항목·직전 weekId·같은 시즌 직전 주차가 아니라, chronological(startDate) 역추적 결과다.
+//     예) 봄13 성공 → 봄14~16 휴식(공식) → 여름1 집계중 → 여름2 실패 ⇒ 여름2.previousWeekStatus="success"
+//        (휴식·집계중을 skip). ⇒ 프론트가 (c) "지난 주 성공, 이번 주 실패" 문구를 표시.
+//   ● successStreakWeeks(연속 성공 문구 (b) 의 {n}, 최대 10): 성공이 이어지면 +1. 휴식(공식/개인)·전환은
+//     streak 를 끊고(0) → 이후 성공은 streak=1 → 프론트가 (b) 대신 (a) 신규 성공을 표시(streak<2 fallback).
+//     집계중/진행중은 streak 계산에서 제외(건너뛰어 유지). fail 은 streak=0.
+// "성공 → 휴식 → 성공" 은 previousWeekStatus=success 이지만 streak=1 → (a) 로 귀결(두 값의 분리가 핵심).
+export function withDetailLogMessageMeta(
   cards: Cluster4WeeklyCardDto[],
 ): Cluster4WeeklyCardDto[] {
   const chronological = cards
@@ -1158,36 +1154,43 @@ function withDetailLogMessageMeta(
     );
 
   const out = [...cards];
-  let previous: Cluster4WeeklyCardDto | null = null;
+  // 직전 "확정" 결과(success/fail)만 담는다 — 집계중/진행중/휴식/전환은 이 값을 건드리지 않는다(skip).
+  let lastEffectiveResult: "success" | "fail" | "none" = "none";
   let successStreak = 0;
 
   for (const { card, index } of chronological) {
-    const previousWeekStatus = detailLogPreviousStatus(previous);
-    const currentWeekStatus =
+    const isRest =
+      card.isTransition ||
+      card.userWeekStatus === "personal_rest" ||
+      card.userWeekStatus === "official_rest";
+    const confirmed =
       card.userWeekStatus === "success" || card.userWeekStatus === "fail"
         ? card.userWeekStatus
         : null;
 
-    if (currentWeekStatus) {
-      successStreak =
-        currentWeekStatus === "success" && previousWeekStatus === "success"
-          ? successStreak + 1
-          : currentWeekStatus === "success"
-            ? 1
-            : 0;
-      out[index] = {
-        ...card,
-        detailLogMessageMeta: {
-          previousWeekStatus,
-          currentWeekStatus,
-          successStreakWeeks: Math.min(successStreak, 10),
-        },
-      };
-    } else {
+    if (isRest) {
+      // 휴식(공식/개인)·전환: 연속 성공 streak 만 끊는다. lastEffectiveResult 는 유지 →
+      //   메시지 분기에서 휴식은 건너뛰고 그 이전 확정 성공/실패를 계속 참조한다.
       successStreak = 0;
+      continue;
     }
 
-    previous = card;
+    if (!confirmed) {
+      // 집계중(tallying)·진행중(running)·결과없음: streak·직전 결과 모두 그대로 두고 건너뛴다.
+      continue;
+    }
+
+    // 확정 주차(success/fail) — 이 카드에만 메타를 부여한다.
+    successStreak = confirmed === "success" ? successStreak + 1 : 0;
+    out[index] = {
+      ...card,
+      detailLogMessageMeta: {
+        previousWeekStatus: lastEffectiveResult,
+        currentWeekStatus: confirmed,
+        successStreakWeeks: Math.min(successStreak, 10),
+      },
+    };
+    lastEffectiveResult = confirmed;
   }
 
   return out;

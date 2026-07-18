@@ -390,7 +390,27 @@ async function writeRosterCardStats(
 //   부족하다). v42 전량 stale(version_mismatch) → cron/lazy 재계산으로 수렴.
 //   (파생 캐시 재생성 — 원장/포인트 합계/uws 판정 불변. 액트 탭 목록에서 빈 행만 사라진다.
 //    포인트 카드 합계는 user_weekly_points SoT 라 actLogs 필터와 무관 — 값 변화 없음.)
-export const WEEKLY_CARDS_DTO_VERSION = 43;
+// v44(2026-07-18): Detail Log dl-alert 문구 메타(detailLogMessageMeta.previousWeekStatus / successStreakWeeks)
+//   재산정. 기존 withDetailLogMessageMeta 는 "직전 배열 항목"(previous=card 무조건 갱신)을 직전 결과로
+//   써서, 집계중(tallying)·휴식(공식/개인)·전환주차가 previousWeekStatus 로 새어 나갔다. 예) 봄13 성공 →
+//   봄14~16 휴식(공식) → 여름1 집계중 → 여름2 실패 일 때, 여름2.previousWeekStatus 가 (집계중→) "none"
+//   으로 계산돼 (d) "연속 실패" 문구가 떴다(정답은 (c) "지난 주 성공, 이번 주 실패"). 이제 집계중/진행중/
+//   휴식/전환을 건너뛰고 가장 최근 확정 성공/실패를 직전 결과로 삼으며(lastEffectiveResult), 연속 성공
+//   streak 는 휴식/전환에서 끊되 집계중/진행중은 통과시켜 유지한다. 문구 판정과 streak 계산을 분리했다.
+//   ⚠ **bump 필수** — 기존 v43 snapshot 의 cards[].detailLogMessageMeta 가 이미 baking 되어 shape 이
+//   아니라 내용이 바뀌므로 boundary-stale 로는 부족. v43 전량 stale(version_mismatch) → cron/lazy 재계산.
+//   (파생 캐시 재생성 — uws 판정/포인트/원장 불변. 문구 분기 메타만 재산정.)
+// v45(2026-07-18): experienceGrowth.checkGate 를 확정 카드(pass·fail) 모두에 부착(종전 pass 전용).
+//   실패 카드(슬롯 verdict=fail)의 experienceGrowth.checkGate 가 null 이라 고객앱 Detail Log
+//   "성장 성공 조건 체크" 투구 문구가 폴백(기준값 없는 "N개 획득…")으로만 떴다. 이제 fail 카드에도
+//   required(=recognition_count_n)/earned/passed/enforced 를 표시 전용으로 실어, 실패 카드에서도
+//   "투구 인정 기준 N개 중 M개 획득" 이 노출된다(applyExperienceCheckGate 개정). uws 판정/주차 상태
+//   (success↔fail)·포인트·원장 불변 — 강등 로직 그대로, fail 카드는 status 불변이고 표시값만 추가.
+//   ⚠ **bump 필수** — 기존 v44 snapshot 의 cards[].experienceGrowth.checkGate 에 null 이 이미
+//   baking 되어 있어(shape 이 아니라 내용이 바뀜) boundary-stale 로는 부족. v44 전량 stale
+//   (version_mismatch) → cron/lazy 재계산으로 fail 카드 checkGate 가 채워진다. (pending·not_applicable
+//   카드는 종전대로 checkGate 미부착 — 값 불변.)
+export const WEEKLY_CARDS_DTO_VERSION = 45;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

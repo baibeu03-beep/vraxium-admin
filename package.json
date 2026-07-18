@@ -15,6 +15,7 @@
     "verify:team-parts-weeks-org-scope-http": "node scripts/browser-verify-team-parts-weeks-org-scope-http.mjs",
     "verify:batch-saturation-guard": "tsx --env-file=.env.local scripts/verify-batch-saturation-guard.ts",
     "verify:cluster4-submission-fields": "tsx --env-file=.env.local scripts/verify-cluster4-submission-fields.ts",
+    "verify:detail-log-message-meta": "tsx --env-file=.env.local scripts/verify-detail-log-message-meta.ts",
     "backfill:weekly-card-snapshots": "tsx --env-file=.env.local scripts/backfill-weekly-card-snapshots.ts",
     "crawler": "tsx --env-file=.env.local crawler/server.ts",
     "crawler:seed": "node scripts/naver-session-seed.mjs",
@@ -46,7 +47,8 @@
     "verify:crew-act-summary-parity": "tsx --env-file=.env.local scripts/verify-crew-act-summary-parity.ts",
     "verify:crew-act-summary-browser": "tsx --env-file=.env.local scripts/browser-verify-crew-act-summary.ts",
     "verify:line-history-type": "tsx --env-file=.env.local scripts/verify-line-history-type-and-shape.ts",
-    "verify:line-audience-cache": "tsx --env-file=.env.local scripts/verify-line-audience-cache.ts"
+    "verify:line-audience-cache": "tsx --env-file=.env.local scripts/verify-line-audience-cache.ts",
+    "verify:weekly-cards-parity": "tsx --env-file=.env.local scripts/verify-weekly-cards-parity.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
