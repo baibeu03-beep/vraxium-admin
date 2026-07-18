@@ -6,6 +6,12 @@ import {
 } from "@/lib/adminLineHistoryType";
 import { formatWeekFull } from "@/lib/adminCrewWeeklyResults";
 import { isCrewWeekEditable } from "@/shared/growth.contracts";
+import {
+  buildImageSlots,
+  RESERVED_ADMIN_IMAGE_SLOTS,
+  type Cluster4ImageSlot,
+  type Cluster4OutputImage,
+} from "@/lib/cluster4OutputImages";
 import type {
   CareerGrade,
   Cluster4EnhancementStatus,
@@ -26,8 +32,11 @@ export type AdminLineSubmissionDto = {
   subTitle: string | null;
   growthPoint: string | null;
   outputLinks: Cluster4OutputLink[];
-  outputImages: string[];
-  outputImageCaptions: (string | null)[];
+  // 예약 슬롯 이미지 모델(2026-07-18): 고정 IMAGE_SLOT_COUNT(4)슬롯. 슬롯 0=운영진(라인 레벨, ≤1),
+  //   슬롯 1..3=크루(제출). 빈 슬롯=null(운영진 슬롯이 비어도 크루는 슬롯 1부터 — 앞당김 없음).
+  //   filter/compact 로 슬롯을 잃지 않도록 위치를 그대로 보존한다. [[cluster4OutputImages]]
+  imageSlots: Cluster4ImageSlot[];
+  adminImageSlotCount: number; // 예약 운영진 슬롯 수(RESERVED_ADMIN_IMAGE_SLOTS, 고정)
 };
 
 export type AdminCrewWeekLineDetailDto = {
@@ -92,16 +101,25 @@ export async function getCrewWeekLineDetail(
       : new Map<string, string>();
   const lineType = resolveLineTypeLabel(line, competencyTypeByMaster);
 
-  // 아웃풋 링크·이미지·서브타이틀·그로스포인트의 SoT = **라인 레벨 콘텐츠(cluster4_lines)** 이며,
-  //   고객 앱 라인 모달이 렌더링하는 카드 DTO top-level(line.outputLinks/outputImages/infoSubtitle…)과
-  //   동일한 값이다. per-user 제출 원장(cluster4_line_submissions)은 현재 전 행 비어 있어(9166행 0건)
-  //   거기에만 의존하면 고객엔 보이는 값이 관리자 팝업엔 안 보였다(이번 버그). submission 이 존재하면
-  //   우선(향후 2차 기입 편집분), 없으면 라인 레벨로 폴백 → 고객 앱과 동일 노출.
+  // 아웃풋 링크 SoT: submission 우선(2차 기입 편집분), 없으면 라인 레벨 폴백(고객 앱 동일 노출).
   const hasSubLinks = (sub?.outputLinks?.length ?? 0) > 0;
-  const hasSubImages = (sub?.outputImages?.length ?? 0) > 0;
   const outLinks = hasSubLinks ? sub!.outputLinks : line.outputLinks;
-  const outImages = hasSubImages ? sub!.outputImages : line.outputImages;
-  const outCaptions = hasSubImages ? sub!.outputImageCaptions : line.outputImageCaptions;
+
+  // ── 예약 슬롯 이미지(2026-07-18) — 고객 렌더와 동일한 admin/crew 분리 SoT ──
+  //   · 슬롯 0(운영진)  = 라인 레벨 이미지(cluster4_lines.output_images = 카드 top-level line.outputImages).
+  //                       고객 카드가 top-level 로 렌더하는 값 그대로. RESERVED_ADMIN_IMAGE_SLOTS(=1)로 클램프.
+  //   · 슬롯 1..3(크루) = per-user 제출 이미지(cluster4_line_submissions.output_images = line.submission).
+  //   ⚠ 기존 either/or(hasSubImages ? sub : line)는 운영진/크루 이미지를 하나로 뭉개 슬롯을 잃었다(이번 버그).
+  //     이제 두 출처를 각자 슬롯에 배치해 순서를 무손실 보존한다(빈 운영진 슬롯도 크루를 앞당기지 않음).
+  const adminImageItems: Cluster4OutputImage[] = (line.outputImages ?? []).map((url, i) => ({
+    url,
+    caption: line.outputImageCaptions?.[i] ?? null,
+  }));
+  const crewImageItems: Cluster4OutputImage[] = (sub?.outputImages ?? []).map((url, i) => ({
+    url,
+    caption: sub?.outputImageCaptions?.[i] ?? null,
+  }));
+  const imageSlots = buildImageSlots(adminImageItems, crewImageItems);
 
   return {
     ok: true,
@@ -149,8 +167,8 @@ export async function getCrewWeekLineDetail(
         subTitle: sub?.subtitle ?? line.infoSubtitle ?? null,
         growthPoint: sub?.growthPoint ?? line.infoGrowthPoint ?? null,
         outputLinks: outLinks ?? [],
-        outputImages: outImages ?? [],
-        outputImageCaptions: outCaptions ?? [],
+        imageSlots,
+        adminImageSlotCount: RESERVED_ADMIN_IMAGE_SLOTS,
       },
     },
   };

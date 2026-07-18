@@ -180,12 +180,12 @@ export type Cluster4VisibleLineDto = {
   outputLink1: string | null;
   // URL + label 구조. output_links jsonb 우선, 없으면 outputLink1 fallback.
   outputLinks: Cluster4OutputLink[];
-  // cluster4_lines.output_images (운영자가 라인 개설 시 첨부한 이미지 URL 목록).
-  // 없으면 []. (append-only — 기존 필드 변경 없음)
+  // cluster4_lines.output_images (운영진 라인 레벨 이미지 = **슬롯 0(1번) 전용**, 최대 1개).
+  //   예약 슬롯 모델(2026-07-18, v47): 이 배열은 **운영진 이미지만** 담는다(크루 제출 이미지는
+  //   submission.outputImages). 없으면 [] 이지만 슬롯 0 은 여전히 예약(아래 adminOutputImageCount 참조).
   outputImages: string[];
   // outputImages 와 index 정렬 일치하는 이미지 캡션. 캡션 없으면 null.
   // 프론트 <span class="caption-text"> 에 outputImageCaptions[i] 를 채운다 (null → 빈 문자열).
-  // (append-only — outputImages 는 그대로 유지)
   outputImageCaptions: (string | null)[];
 
   // 운영자가 라인 개설/관리에서 입력한 outputLinks 중 URL 이 있는 항목 수.
@@ -194,10 +194,13 @@ export type Cluster4VisibleLineDto = {
   //   index <  adminOutputLinkCount → 관리자 링크 슬롯
   //   index >= adminOutputLinkCount → 사용자 링크 슬롯
   adminOutputLinkCount: number;
-  // 운영자가 라인 개설/관리에서 첨부한 outputImages 수.
-  // 사용자 제출 이미지는 절대 포함하지 않는다 (admin source: cluster4_lines.output_images).
-  //   index <  adminOutputImageCount → 관리자 이미지 슬롯
-  //   index >= adminOutputImageCount → 사용자 이미지 슬롯
+  // ⚠ 예약 슬롯 모델(2026-07-18, v47): 이 값은 **예약된 운영진 이미지 슬롯 수(개설 라인은 항상 1)** 이며,
+  //   "실제 운영진 이미지 개수"가 아니다. 운영진 이미지가 0개여도(outputImages=[]) 개설 라인이면 1 이다
+  //   (미개설/void placeholder 만 0). 프론트는 이 값으로 슬롯 경계를 복원한다:
+  //     index <  adminOutputImageCount → 운영진 이미지 슬롯(outputImages[index], 없으면 빈 예약 슬롯)
+  //     index >= adminOutputImageCount → 크루 이미지 슬롯(submission.outputImages[index - adminOutputImageCount])
+  //   → 운영진 이미지가 없어도 크루 첫 이미지는 항상 슬롯 1(2번)로 해석된다(슬롯 0 미당김).
+  //   ⚠ outputImages.length 로 슬롯 수를 추론하지 말 것 — 반드시 이 필드를 쓸 것.
   adminOutputImageCount: number;
   submissionOpensAt: string | null;
   submissionClosesAt: string | null;

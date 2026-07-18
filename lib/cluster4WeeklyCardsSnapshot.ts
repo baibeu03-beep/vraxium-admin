@@ -417,7 +417,13 @@ async function writeRosterCardStats(
 //   원시 position_code(operating_team_leader 등)를 담는다. roleLabel/기타 값은 불변(append-only).
 //   ⚠ **bump 필수** — 기존 v45 snapshot 엔 crewClassPositionCode 가 없어(null) 프론트가 roleLabel 로
 //   과도기 폴백한다. v45 전량 stale(version_mismatch) → cron/lazy 재계산으로 신 필드가 채워진다.
-export const WEEKLY_CARDS_DTO_VERSION = 46;
+// v47 (2026-07-18): 아웃풋 이미지 **예약 슬롯 모델** — line.adminOutputImageCount 의 의미를 "실제 운영진
+//   이미지 개수"에서 **"예약된 운영진 슬롯 수(=1)"** 로 변경(개설 라인은 이미지 유무와 무관하게 슬롯 0 예약).
+//   → 고객(vraxium)이 슬롯 0=운영진·1..3=크루로 안정 복원하고, 운영진 이미지가 없어도 크루 첫 이미지가
+//   2번 슬롯으로 해석된다. 값(내용)이 바뀌므로 boundary-stale 로는 부족 — v46 전량 stale(version_mismatch)로
+//   재계산해 adminOutputImageCount 가 예약값(1)로 baking 되게 한다(field 를 API 계약상 권위값으로 확정).
+//   [[project_cluster4-reserved-image-slots]]
+export const WEEKLY_CARDS_DTO_VERSION = 47;
 
 const TABLE = "cluster4_weekly_card_snapshots";
 

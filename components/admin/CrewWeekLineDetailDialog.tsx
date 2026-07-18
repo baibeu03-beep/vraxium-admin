@@ -9,6 +9,12 @@ import { useActionToast } from "@/lib/actionToast";
 import { type ScopeMode } from "@/lib/userScopeShared";
 import { type CrewIdentity, dash } from "@/components/admin/crew/CrewIdentityCards";
 import type { AdminCrewWeekLineDetailDto } from "@/lib/adminCrewWeekLineDetail";
+import {
+  buildImageSlots,
+  IMAGE_SLOT_COUNT,
+  RESERVED_ADMIN_IMAGE_SLOTS,
+  type Cluster4ImageSlot,
+} from "@/lib/cluster4OutputImages";
 import type { Cluster4EnhancementStatus } from "@/shared/cluster4.contracts";
 import type { CareerGrade } from "@/lib/careerGrade";
 
@@ -31,7 +37,7 @@ const RESULT_OPTIONS: { value: Cluster4EnhancementStatus; label: string }[] = [
   { value: "fail", label: "강화 실패" },
 ];
 const MAX_LINKS = 5;
-const MAX_IMAGES = 4;
+const MAX_IMAGES = IMAGE_SLOT_COUNT; // 고정 4슬롯(예약 슬롯 모델). 슬롯 0=운영진, 1..3=크루.
 const SUBTITLE_MAX = 300;
 const GROWTHPOINT_MAX = 200;
 
@@ -53,9 +59,21 @@ function canonicalGradeFor(status: Cluster4EnhancementStatus, cur: CareerGrade |
   if (status === "success") return cur && cur !== "D" ? cur : "A";
   return "D"; // fail
 }
-// 이미지 슬롯 항상 4개(위치 고정). 빈 슬롯은 url:"".
-function padSlots(urls: string[], captions: (string | null)[]): ImgSlot[] {
-  return Array.from({ length: MAX_IMAGES }, (_, i) => ({ url: urls[i] ?? "", caption: captions[i] ?? "" }));
+// 이미지 슬롯 항상 4개(위치 고정). 빈 슬롯은 url:"". DTO 의 예약 슬롯 배열(imageSlots: (img|null)[])을
+//   그대로 draft 슬롯으로 옮긴다 — filter/compact 없이 위치 보존(슬롯 0=운영진, 1..3=크루).
+function slotsFromDto(imageSlots: Cluster4ImageSlot[]): ImgSlot[] {
+  return Array.from({ length: MAX_IMAGES }, (_, i) => {
+    const s = imageSlots[i] ?? null;
+    return { url: s?.url ?? "", caption: s?.caption ?? "" };
+  });
+}
+// draft 슬롯(4개) → DTO/저장용 예약 슬롯 배열(빈 슬롯은 null, 위치 보존).
+function slotsToPayload(images: ImgSlot[]): Cluster4ImageSlot[] {
+  return Array.from({ length: MAX_IMAGES }, (_, i) => {
+    const im = images[i];
+    const url = (im?.url ?? "").trim();
+    return url ? { url, caption: (im?.caption ?? "").trim() || null } : null;
+  });
 }
 
 // placeholder(라인 선택) 모드에서 드롭다운에 뿌리는 마스터 옵션. 역량/경험 공용.
@@ -151,7 +169,7 @@ export default function CrewWeekLineDetailDialog({
       setSubTitle(d.submission.subTitle ?? "");
       setGrowthPoint(d.submission.growthPoint ?? "");
       setLinks(d.submission.outputLinks.map((l) => ({ url: l.url ?? "", label: l.label ?? "" })));
-      setImages(padSlots(d.submission.outputImages, d.submission.outputImageCaptions));
+      setImages(slotsFromDto(d.submission.imageSlots));
       setEditingSub(false);
       setEditingGrowth(false);
     },
@@ -186,8 +204,9 @@ export default function CrewWeekLineDetailDialog({
         subTitle: null,
         growthPoint: null,
         outputLinks: opt?.previewLink ? [{ url: opt.previewLink, label: null }] : [],
-        outputImages: opt?.previewImage ? [opt.previewImage] : [],
-        outputImageCaptions: opt?.previewImage ? [null] : [],
+        // 마스터 미리보기 이미지는 운영진 슬롯(0)에 놓는다(라인 대표 이미지). 크루 슬롯은 비어 시작.
+        imageSlots: buildImageSlots(opt?.previewImage ? [{ url: opt.previewImage, caption: null }] : [], []),
+        adminImageSlotCount: RESERVED_ADMIN_IMAGE_SLOTS,
       },
     }),
     [weekId, weekLabel, orgSlug, placeholderEditable, placeholderHub, placeholderHubLabel, experienceCategoryLabel],
@@ -373,11 +392,14 @@ export default function CrewWeekLineDetailDialog({
     const baseLinks = b.submission.outputLinks.map((l) => `${l.url ?? ""}|${l.label ?? ""}`).join("~");
     const draftLinks = links.map((l) => `${l.url}|${l.label}`).join("~");
     if (baseLinks !== draftLinks) return true;
-    const baseImgs = b.submission.outputImages
-      .map((url, i) => `${url}|${b.submission.outputImageCaptions[i] ?? ""}`)
-      .join("~");
-    // draft 는 위치 고정 4슬롯 — 빈 슬롯 제외하고 순서대로 비교(저장은 compact).
-    const draftImgs = images.filter((im) => im.url.trim()).map((im) => `${im.url}|${im.caption}`).join("~");
+    // 예약 슬롯 위치 그대로 비교(빈 슬롯 포함) — 슬롯 이동/삭제도 변경으로 감지(compact 비교 금지).
+    const slotKey = (url: string, caption: string | null) =>
+      url.trim() ? `${url.trim()}|${(caption ?? "").trim()}` : "";
+    const baseImgs = Array.from({ length: MAX_IMAGES }, (_, i) => {
+      const s = b.submission.imageSlots[i] ?? null;
+      return slotKey(s?.url ?? "", s?.caption ?? null);
+    }).join("~");
+    const draftImgs = Array.from({ length: MAX_IMAGES }, (_, i) => slotKey(images[i]?.url ?? "", images[i]?.caption ?? null)).join("~");
     if (baseImgs !== draftImgs) return true;
     return false;
   }, [effectiveStatus, subTitle, growthPoint, rating, grade, links, images, detail, isPlaceholder, isCompetency, selectedMasterId]);
@@ -432,10 +454,8 @@ export default function CrewWeekLineDetailDialog({
             .filter((l) => l.url.trim())
             .slice(0, MAX_LINKS)
             .map((l) => ({ url: l.url.trim(), label: l.label.trim() || null })),
-          images: images
-            .filter((im) => im.url.trim())
-            .slice(0, MAX_IMAGES)
-            .map((im) => ({ url: im.url.trim(), caption: im.caption.trim() || null })),
+          // 예약 슬롯 이미지(위치 보존, 빈 슬롯=null) — 서버가 슬롯 0=운영진/1..3=크루로 분리 저장.
+          imageSlots: slotsToPayload(images),
           rating: isExperience ? rating : null,
           grade: isCareer ? grade : null,
         },
@@ -730,6 +750,7 @@ export default function CrewWeekLineDetailDialog({
                     mode={mode}
                     images={images}
                     setImages={setImages}
+                    adminSlotCount={detail.submission.adminImageSlotCount}
                     disabled={!submissionEditable}
                     onOpen={setLightbox}
                   />
@@ -1018,7 +1039,12 @@ function LinksEditor({
   );
 }
 
-// 아웃풋 이미지 편집 — 업로드/교체/삭제/캡션. 비활성(실패·해당없음) 시 "-"(draft 는 A 보존).
+// 아웃풋 이미지 편집 — 예약 슬롯 모델(2026-07-18). 고정 4슬롯·위치 고정.
+//   · 슬롯 0..adminSlotCount-1 = **운영진 공용 슬롯**(라인 레벨 cluster4_lines.output_images). 배지 표시.
+//     이 슬롯을 바꾸면 같은 라인의 모든 크루 카드 1번 슬롯에 반영된다(클럽 공용).
+//   · 슬롯 adminSlotCount.. = **크루 슬롯**(per-user 제출). 고객 렌더가 연속을 가정하므로 앞에서부터 채운다
+//     (빈 크루 슬롯 뒤에는 업로드 비활성). 삭제 시 그 크루 구간만 앞으로 당긴다(운영진/크루 경계는 불변).
+//   · 운영진 슬롯 삭제는 크루 슬롯을 절대 이동시키지 않는다(그 자리만 비움).
 //   MAX_IMAGES 상수는 파일 상단(모듈 스코프)에서 이미 선언 — 여기서 재선언하지 않는다(중복 const = SyntaxError).
 function ImagesEditor({
   userId,
@@ -1027,6 +1053,7 @@ function ImagesEditor({
   mode,
   images,
   setImages,
+  adminSlotCount,
   disabled,
   onOpen,
 }: {
@@ -1036,6 +1063,7 @@ function ImagesEditor({
   mode: ScopeMode;
   images: ImgSlot[];
   setImages: (v: ImgSlot[]) => void;
+  adminSlotCount: number;
   disabled: boolean;
   onOpen: (url: string) => void;
 }) {
@@ -1045,6 +1073,11 @@ function ImagesEditor({
   // 항상 4슬롯(위치 고정). 삭제해도 슬롯 자체는 유지(빈 슬롯).
   const slots = Array.from({ length: MAX_IMAGES }, (_, i) => images[i] ?? { url: "", caption: "" });
   const busy = busySlot != null;
+  const adminCount = Math.max(0, Math.min(adminSlotCount, MAX_IMAGES));
+  const isAdminSlot = (i: number) => i < adminCount;
+  // 크루 슬롯 업로드 가능 여부 — 자기 구간 첫 슬롯이거나 직전 크루 슬롯이 채워졌을 때만(연속 규칙).
+  const crewSlotEnabled = (i: number) =>
+    i === adminCount || (i > adminCount && !!slots[i - 1]?.url.trim());
 
   const upload = async (slotIndex: number, file: File) => {
     setBusySlot(slotIndex);
@@ -1068,33 +1101,37 @@ function ImagesEditor({
       setBusySlot(null);
     }
   };
-  const removeAt = (i: number) =>
-    setImages(slots.map((s, idx) => (idx === i ? { url: "", caption: "" } : s)));
+  // 삭제 — 운영진 슬롯은 그 자리만 비움(크루 불변). 크루 슬롯은 그 크루 구간만 앞으로 당긴다(경계 불변).
+  const removeAt = (i: number) => {
+    if (isAdminSlot(i)) {
+      setImages(slots.map((s, idx) => (idx === i ? { url: "", caption: "" } : s)));
+      return;
+    }
+    const admin = slots.slice(0, adminCount);
+    const crew = slots.slice(adminCount).filter((_, idx) => adminCount + idx !== i);
+    while (crew.length < MAX_IMAGES - adminCount) crew.push({ url: "", caption: "" });
+    setImages([...admin, ...crew].slice(0, MAX_IMAGES));
+  };
   const setCaption = (i: number, caption: string) =>
     setImages(slots.map((s, idx) => (idx === i ? { ...s, caption } : s)));
 
+  const AdminBadge = () => (
+    <span className="absolute left-1 top-1 z-[1] rounded bg-violet-600/85 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+      운영진 공용
+    </span>
+  );
+
   // 편집 불가(실패/해당없음)여도 이미지 데이터가 있으면 조회 전용 썸네일로 표시(클릭 확대만, 편집 X).
-  //   visible = 데이터 존재 / editable = 성공 상태. "실패라서 이미지가 없는 것처럼" 보이던 문제 해결.
+  //   예약 슬롯 위치 그대로(빈 슬롯 포함) — "실패라서 이미지가 없는 것처럼" 보이던 문제 해결 + 슬롯 정렬 유지.
   if (disabled) {
-    const filled = slots.filter((s) => s.url.trim());
     return (
       <div className="flex flex-col gap-2">
         <span className="text-xs font-semibold text-muted-foreground">아웃풋 이미지</span>
-        {filled.length === 0 ? (
-          <div className="grid grid-cols-2 gap-3">
-            {Array.from({ length: MAX_IMAGES }, (_, i) => (
-              <div
-                key={i}
-                className="flex aspect-square items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground"
-              >
-                -
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {filled.map((im, i) => (
-              <div key={i} className="flex flex-col gap-1 rounded-md border bg-muted/20 p-1.5">
+        <div className="grid grid-cols-2 gap-3">
+          {slots.map((im, i) =>
+            im.url ? (
+              <div key={i} className="relative flex flex-col gap-1 rounded-md border bg-muted/20 p-1.5">
+                {isAdminSlot(i) ? <AdminBadge /> : null}
                 <button
                   type="button"
                   onClick={() => onOpen(im.url)}
@@ -1108,21 +1145,39 @@ function ImagesEditor({
                   <span className="truncate px-0.5 text-xs text-muted-foreground">{im.caption}</span>
                 ) : null}
               </div>
-            ))}
-          </div>
-        )}
+            ) : (
+              <div
+                key={i}
+                className="relative flex aspect-square items-center justify-center rounded-md border bg-muted/30 text-sm text-muted-foreground"
+              >
+                {isAdminSlot(i) ? <AdminBadge /> : null}
+                -
+              </div>
+            ),
+          )}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="text-xs font-semibold text-muted-foreground">아웃풋 이미지 (최대 {MAX_IMAGES})</span>
-      {/* 항상 2×2 4슬롯. 채워진 슬롯=썸네일+교체/삭제/캡션, 빈 슬롯=업로드. 저장 순서=슬롯 순서. */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-muted-foreground">아웃풋 이미지 (최대 {MAX_IMAGES})</span>
+        {adminCount > 0 ? (
+          <span className="text-[11px] text-muted-foreground">
+            <span className="font-semibold text-violet-600 dark:text-violet-400">1번</span> = 운영진 공용 · 나머지 = 크루
+          </span>
+        ) : null}
+      </div>
+      {/* 항상 2×2 4슬롯. 슬롯 0=운영진 공용(라인 레벨), 1..3=크루. 위치 고정 — 저장/재조회 슬롯 순서 유지. */}
       <div className="grid grid-cols-2 gap-3">
-        {slots.map((im, i) =>
-          im.url ? (
-            <div key={i} className="flex flex-col gap-1 rounded-md border bg-muted/20 p-1.5">
+        {slots.map((im, i) => {
+          const admin = isAdminSlot(i);
+          const uploadEnabled = admin || crewSlotEnabled(i);
+          return im.url ? (
+            <div key={i} className="relative flex flex-col gap-1 rounded-md border bg-muted/20 p-1.5">
+              {admin ? <AdminBadge /> : null}
               <div className="relative aspect-square overflow-hidden rounded bg-muted">
                 <button type="button" onClick={() => onOpen(im.url)} className="block h-full w-full" title="확대">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1170,22 +1225,25 @@ function ImagesEditor({
             <label
               key={i}
               className={cn(
-                "flex aspect-square flex-col items-center justify-center gap-1 rounded-md border border-dashed text-xs text-muted-foreground",
-                busy ? "opacity-40" : "cursor-pointer hover:bg-muted/30",
+                "relative flex aspect-square flex-col items-center justify-center gap-1 rounded-md border border-dashed text-xs text-muted-foreground",
+                busy || !uploadEnabled ? "opacity-40" : "cursor-pointer hover:bg-muted/30",
+                !uploadEnabled ? "pointer-events-none" : "",
               )}
+              title={!uploadEnabled ? "먼저 앞 순서의 크루 이미지를 올려주세요." : admin ? "운영진 공용 이미지(라인 전체 공통)" : undefined}
             >
+              {admin ? <AdminBadge /> : null}
               {busySlot === i ? (
                 "업로드 중…"
               ) : (
                 <>
-                  <ImageIcon className="h-5 w-5" /> 이미지 추가
+                  <ImageIcon className="h-5 w-5" /> {admin ? "운영진 이미지" : "이미지 추가"}
                 </>
               )}
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/gif"
                 className="hidden"
-                disabled={busy}
+                disabled={busy || !uploadEnabled}
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (f) void upload(i, f);
@@ -1193,8 +1251,8 @@ function ImagesEditor({
                 }}
               />
             </label>
-          ),
-        )}
+          );
+        })}
       </div>
     </div>
   );

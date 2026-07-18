@@ -34,7 +34,7 @@ import {
   fetchManagementSlotOpen,
   roundGrowthRate,
 } from "@/lib/lineAvailability";
-import { normalizeOutputImages } from "@/lib/cluster4OutputImages";
+import { normalizeOutputImages, RESERVED_ADMIN_IMAGE_SLOTS } from "@/lib/cluster4OutputImages";
 import { experienceBreakdownFromFold } from "@/lib/experienceSlotFold";
 import { memberStatusLabel } from "@/lib/adminMembersTypes";
 import {
@@ -485,7 +485,9 @@ function openedFailLineDetail(
     outputImages: adminOutputImages,
     outputImageCaptions: adminOutputImageCaptions,
     adminOutputLinkCount: adminOutputLinks.length,
-    adminOutputImageCount: adminOutputImages.length,
+    // 예약 슬롯 모델(2026-07-18): 운영진 슬롯 0 은 이미지 유무와 무관하게 항상 예약(크루는 슬롯 1=2번부터).
+    //   → 운영진 이미지를 지워도 크루 이미지가 슬롯 0 으로 당겨지지 않는다. [[cluster4OutputImages]]
+    adminOutputImageCount: RESERVED_ADMIN_IMAGE_SLOTS,
     submissionOpensAt: line.submission_opens_at,
     submissionClosesAt: line.submission_closes_at,
     weekId,
@@ -589,7 +591,9 @@ function openedCareerLineDetail(
     outputImages: adminOutputImages,
     outputImageCaptions: adminOutputImageCaptions,
     adminOutputLinkCount: adminOutputLinks.length,
-    adminOutputImageCount: adminOutputImages.length,
+    // 예약 슬롯 모델(2026-07-18): 운영진 슬롯 0 은 이미지 유무와 무관하게 항상 예약(크루는 슬롯 1=2번부터).
+    //   → 운영진 이미지를 지워도 크루 이미지가 슬롯 0 으로 당겨지지 않는다. [[cluster4OutputImages]]
+    adminOutputImageCount: RESERVED_ADMIN_IMAGE_SLOTS,
     submissionOpensAt: line.submission_opens_at,
     submissionClosesAt: line.submission_closes_at,
     weekId,
@@ -814,7 +818,9 @@ function toLineDetail(
     outputImages: adminOutputImages,
     outputImageCaptions: adminOutputImageCaptions,
     adminOutputLinkCount: adminOutputLinks.length,
-    adminOutputImageCount: adminOutputImages.length,
+    // 예약 슬롯 모델(2026-07-18): 운영진 슬롯 0 은 이미지 유무와 무관하게 항상 예약(크루는 슬롯 1=2번부터).
+    //   → 운영진 이미지를 지워도 크루 이미지가 슬롯 0 으로 당겨지지 않는다. [[cluster4OutputImages]]
+    adminOutputImageCount: RESERVED_ADMIN_IMAGE_SLOTS,
     submissionOpensAt: line.submission_opens_at,
     submissionClosesAt: line.submission_closes_at,
     weekId: target.week_id,
